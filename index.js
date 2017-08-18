@@ -5,18 +5,19 @@ const Commando = require('discord.js-commando');
 const Client = new Commando.Client();
 
 const Raid = require('./app/raid');
+const LocationSearch = require('./app/location-search');
 
 Client.registry.registerGroup('raids', 'Raids');
 Client.registry.registerDefaults();
-Client.registry.registerCommandsIn(__dirname + '/commands')
+Client.registry.registerCommandsIn(__dirname + '/commands');
 
 Client.on('ready', () => {
 });
 
 Client.on('message', (message) => {
-	if (message.content == 'ping') {
-		message.channel.send('pong');
-	}
+  if (message.content === 'ping') {
+    message.channel.send('pong');
+  }
 });
 
 
@@ -33,4 +34,4 @@ Client.on('message', (message) => {
 // // Remove a role!
 // member.removeRole(role).catch(console.error);
 
-Client.login('MzQyMDc4ODU1NDMyODk2NTEy.DGKZYA.F4Gwzf7nHkuA0ZVjT9ghQ6RxfxA');
+Client.login('MzQ4MTA3MTQyNzgxMzM3NjAx.DHiHpQ.ERN3QnVneiXkVj_TpAGlwz5_eDo');
