@@ -195,8 +195,9 @@ class Raid {
 				"description": `Raid available until ${end_time}\n` +
 								`${location}\n` +
 								`Join this raid by typing the command \`\`\`!join ${raid_data.id}\`\`\`\n\n` +
-								`Potential Trainers _(${total_attendees} total)_:\n` +
+								`Potential Trainers:\n` +
 								`${attendees_list}\n` +
+								`Trainers: **${total_attendees} total**\n` +
 								`Starting @ **${((raid_data.start_time)? (raid_data.start_time): '????')}**\n`,
 				"url": (location)? location: 'https://discordapp.com',
 				"color": 4437377,
