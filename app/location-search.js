@@ -68,7 +68,7 @@ class LocationSearch {
 		});
 	}
 
-	public search(terms) {
+	search(terms) {
 		// lunr does an OR of its search terms and we really want AND, so we'll get there by doing individual searches
 		// on everything and getting the intersection of the hits
 		let results = this.index.search(LocationSearch.makeFuzzy(terms[0]))
@@ -91,7 +91,7 @@ class LocationSearch {
 		return results.map(result => JSON.parse(result));
 	}
 
-	private static makeFuzzy(term) {
+	static makeFuzzy(term) {
 		const fuzzyAmount = Math.floor(term.length / 4.5);
 
 		return fuzzyAmount > 0 ?

@@ -22,11 +22,11 @@ class Raid {
 		// TODO:  create interval loop to clean up raids every 1 minute?
 	}
 
-	public setUserRaidId(member, raid_id) {
+	setUserRaidId(member, raid_id) {
 		this.users.set(member.displayName, raid_id);
 	}
 
-	public createRaid(channel, member, raid_data) {
+	createRaid(channel, member, raid_data) {
 		let channel_raid_map = this.raids.get(channel.id);
 		const id = raid_data.pokemon + '-' + this.raids_counter;
 
@@ -64,7 +64,7 @@ class Raid {
 		return {raid: raid_data};
 	}
 
-	public getRaid(channel, member, raid_id) {
+	getRaid(channel, member, raid_id) {
 		if (!raid_id) {
 			raid_id = this.users.get(member.displayName);
 		}
@@ -76,7 +76,7 @@ class Raid {
 		return this.raids.get(channel.id).get(raid_id);
 	}
 
-	public findRaid(channel, member, args) {
+	findRaid(channel, member, args) {
 		const raids = args
 			.map(arg => this.getRaid(channel, member, arg))
 			.filter(raid => {
@@ -99,7 +99,7 @@ class Raid {
 		return {'raid': raid, 'args': nonRaidArgs};
 	}
 
-	public getAttendeeCount(options) {
+	getAttendeeCount(options) {
 		let attendees = [];
 		let length = 0;
 
@@ -123,15 +123,15 @@ class Raid {
 		return length;
 	}
 
-	public getMessage(channel, member, raid_id) {
+	getMessage(channel, member, raid_id) {
 		return this.getRaid(channel, member, raid_id).message;
 	}
 
-	public setMessage(channel, member, raid_id, message) {
+	setMessage(channel, member, raid_id, message) {
 		this.getRaid(channel, member, raid_id).message = message;
 	}
 
-	public addAttendee(channel, member, raid_id, additional_attendees = 0) {
+	addAttendee(channel, member, raid_id, additional_attendees = 0) {
 		const raid_data = this.getRaid(channel, member, raid_id);
 		let index;
 
@@ -157,7 +157,7 @@ class Raid {
 		return {raid: raid_data};
 	}
 
-	public removeAttendee(channel, member, raid_id) {
+	removeAttendee(channel, member, raid_id) {
 		const raid_data = this.getRaid(channel, member, raid_id);
 
 		// message.member.displayName, message.guild
@@ -172,7 +172,7 @@ class Raid {
 		return {raid: raid_data};
 	}
 
-	public setArrivalStatus(channel, member, raid_id, status) {
+	setArrivalStatus(channel, member, raid_id, status) {
 		const raid_data = this.getRaid(channel, member, raid_id);
 
 		for (let i = 0; i < raid_data.attendees.length; i++) {
@@ -191,7 +191,7 @@ class Raid {
 		return {raid: raid_data};
 	}
 
-	public setRaidTime(channel, member, raid_id, start_time) {
+	setRaidTime(channel, member, raid_id, start_time) {
 		const raid_data = this.getRaid(channel, member, raid_id);
 
 		raid_data.start_time = start_time;
@@ -201,7 +201,7 @@ class Raid {
 		return {raid: raid_data};
 	}
 
-	public setRaidLocation(channel, member, raid_id, gym) {
+	setRaidLocation(channel, member, raid_id, gym) {
 		const raid_data = this.getRaid(channel, member, raid_id);
 
 		raid_data.gym = gym;
@@ -211,7 +211,7 @@ class Raid {
 		return {raid: raid_data};
 	}
 
-	public getFormattedMessage(raid_data) {
+	getFormattedMessage(raid_data) {
 		const pokemon = raid_data.pokemon.charAt(0).toUpperCase() + raid_data.pokemon.slice(1);
 		const end_time = (raid_data.end_time) ? raid_data.end_time : '????';
 		const total_attendees = this.getAttendeeCount({raid: raid_data});

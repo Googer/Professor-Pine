@@ -17,7 +17,7 @@ class SetTimeCommand extends Commando.Command {
 		});
 	}
 
-	public run(message, args) {
+	run(message, args) {
 		if (message.channel.type !== 'text') {
 			message.reply('Please set time for a raid from a public channel.');
 			return;

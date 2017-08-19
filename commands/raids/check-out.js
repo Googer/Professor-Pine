@@ -17,7 +17,7 @@ class CheckOutCommand extends Commando.Command {
 		});
 	}
 
-	public run(message, args) {
+	run(message, args) {
 		if (message.channel.type !== 'text') {
 			message.reply('Please check out from a public channel.');
 			return;

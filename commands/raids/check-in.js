@@ -9,7 +9,7 @@ class CheckInCommand extends Commando.Command {
 			name: 'check-in',
 			group: 'raids',
 			memberName: 'check-in',
-			aliases: ['checkin', 'arrive', 'arriveAd', 'present'],
+			aliases: ['checkin', 'arrive', 'arrived', 'present'],
 			description: 'Let others know you have arrived at the raid location.',
 			details: '?????',
 			examples: ['\t!check-in lugia-0'],
@@ -17,7 +17,7 @@ class CheckInCommand extends Commando.Command {
 		});
 	}
 
-	public run(message, args) {
+	run(message, args) {
 		if (message.channel.type !== 'text') {
 			message.reply('Please check in from a public channel.');
 			return;
