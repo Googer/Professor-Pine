@@ -9,21 +9,26 @@ class LeaveCommand extends Commando.Command {
 			name: 'leave',
 			group: 'raids',
 			memberName: 'leave',
-			description: 'Can\'t make it to a raid? no problem, just leave it.'
+			aliases: ['part'],
+			description: 'Can\'t make it to a raid? no problem, just leave it.',
+			argsType: 'multiple'
 		});
 	}
 
 	run(message, args) {
-		var params = args.split(' ');
-		var raid_id = params[0];
-		var info = {};
+		if (message.channel.type !== 'text') {
+			message.reply('Please leave a raid from a public channel.');
+			return;
+		}
 
-		if (!raid_id) {
+		const raid = Raid.findRaid(message.channel, message.member, args);
+
+		if (!raid.raid) {
 			message.reply('Please enter a raid id which can be found on the raid post.  If you do not know the id you can ask for a list of raids in your area via `!status`.');
 			return;
 		}
 
-		info = Raid.removeAttendee(message.channel, message.member, raid_id);
+		const info = Raid.removeAttendee(message.channel, message.member, raid.raid.id);
 
 		if (!info.error) {
 			message.react('👍');

@@ -9,24 +9,28 @@ class CheckInCommand extends Commando.Command {
 			name: 'check-in',
 			group: 'raids',
 			memberName: 'check-in',
-			aliases: [ 'checkin', 'arrive', 'arrived' ],
+			aliases: ['checkin', 'arrive', 'arrived', 'present'],
 			description: 'Let others know you have arrived at the raid location.',
 			details: '?????',
-			examples: [ '\t!check-in lugia-0' ],
+			examples: ['\t!check-in lugia-0'],
 			argsType: 'multiple'
 		});
 	}
 
 	run(message, args) {
-		var raid_id = args[0];
-		var info = {};
+		if (message.channel.type !== 'text') {
+			message.reply('Please check in from a public channel.');
+			return;
+		}
 
-		if (!raid_id) {
+		const raid = Raid.findRaid(message.channel, message.member, args);
+
+		if (!raid.raid) {
 			message.reply('Please enter a raid id which can be found on the raid post.  If you do not know the id you can ask for a list of raids in your area via `!status`.');
 			return;
 		}
 
-		info = Raid.setArrivalStatus(message.channel, message.member, raid_id, true);
+		const info = Raid.setArrivalStatus(message.channel, message.member, raid.raid.id, true);
 
 		message.react('👍');
 
