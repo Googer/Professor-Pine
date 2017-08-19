@@ -18,6 +18,11 @@ class JoinCommand extends Commando.Command {
   }
 
   run(message, args) {
+    if (message.channel.type !== 'text') {
+      message.reply('Please join a raid from a public channel.');
+      return;
+    }
+
     const raid = Raid.findRaid(message.channel, message.member, args);
 
     if (!raid.raid) {

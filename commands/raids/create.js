@@ -15,8 +15,13 @@ class RaidCommand extends Commando.Command {
   }
 
   run(message, args) {
+    if (message.channel.type !== 'text') {
+      message.reply('Please create a raid from a public channel.');
+      return;
+    }
+
     const params = args.split(' ');
-    const times = args.match(/([0-9]{1,2}\:[0-9]{1,2}(\s?(p|a)m)?)|([0-9]\sh(ours?),?\s?(and\s)?[0-9]{1,2}\sminutes?)|([0-9]\s?h?,?\s?[0-9]{1,2}\s?m?)|([0-9]\s?(h(ours?)?|m(inutes?)?))/g);
+    const times = args.match(/([0-9]{1,2}\:[0-9]{1,2}(\s?([pa])m)?)|([0-9]\sh(ours?),?\s?(and\s)?[0-9]{1,2}\sminutes?)|([0-9]\s?h?,?\s?[0-9]{1,2}\s?m?)|([0-9]\s?(h(ours?)?|m(inutes?)?))/g);
     const links = args.match(/(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*(,[-a-zA-Z0-9@:%_\+.~#!?&//=]+)?)/g);
     const pokemon = params[0].toLowerCase();
     const location = (links) ? links[0] : '';
@@ -33,7 +38,7 @@ class RaidCommand extends Commando.Command {
     // assume the first time is the end time
     if (times && times[0]) {
       // check if am/pm was given on time, which indicates that the user found the end time theirselves and we don't have to caculate it
-      if (times[0].search(/(a|p)m/) >= 0) {
+      if (times[0].search(/([ap])m/) >= 0) {
         [hours, minutes] = times[0].split(':');
         hours = parseInt(hours);
         minutes = parseInt(minutes);
