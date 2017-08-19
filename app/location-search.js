@@ -69,26 +69,34 @@ class LocationSearch {
   }
 
   search(terms) {
-    /* TODO: Make this smarter than just searching exactly what they entered
-      (i.e., use an increasingly fuzzy match for longer terms 'foobarbaz~2',
-      add locality:, etc., terms automatically according to what channel they launched it from */
+    // lunr does an OR of its search terms and we really want AND, so we'll get there by doing individual searches
+    // on everything and getting the intersection of the hits
+    let results = this.index.search(LocationSearch.makeFuzzy(terms[0]))
+      .map(result => result.ref);
 
-    // Initially search for what they entered just in the gym's name and description fields
-    const nameTerms = terms.map(term => 'name:' + term);
-    const descriptionTerms = terms.map(term => 'description:' + term);
+    for (let i = 1; i < terms.length; i++) {
+      const termResults = this.index.search(LocationSearch.makeFuzzy(terms[i]))
+        .map(result => result.ref);
 
-    let results = [];
-    try {
-      results = this.index.search(nameTerms.join(' ') + ' ' + descriptionTerms.join(' '));
-    } catch (error) {
+      results = results.filter(result => {
+        return termResults.indexOf(result) !== -1;
+      });
+
+      if (results.length === 0) {
+        // already no results, may as well stop
+        break;
+      }
     }
 
-    if (results.length === 0) {
-      // OK, let's try that again across all fields
-      results = this.index.search(terms.join(' '));
-    }
+    return results.map(result => JSON.parse(result));
+  }
 
-    return results.map(result => JSON.parse(result.ref));
+  static makeFuzzy(term) {
+    const fuzzyAmount = Math.floor(term.length / 4.5);
+
+    return fuzzyAmount > 0 ?
+      term + '~' + fuzzyAmount :
+      term;
   }
 }
 

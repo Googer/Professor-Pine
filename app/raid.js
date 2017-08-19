@@ -23,7 +23,7 @@ class Raid {
   }
 
   setUserRaidId(member, raid_id) {
-    this.users.set(member.name, raid_id);
+    this.users.set(member.displayName, raid_id);
   }
 
   createRaid(channel, member, raid_data) {
@@ -66,7 +66,7 @@ class Raid {
 
   getRaid(channel, member, raid_id) {
     if (!raid_id) {
-      raid_id = this.users.get(member.name);
+      raid_id = this.users.get(member.displayName);
     }
 
     if (!raid_id) {
