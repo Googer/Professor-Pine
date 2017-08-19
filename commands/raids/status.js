@@ -11,26 +11,30 @@ class StatusCommand extends Commando.Command {
 			memberName: 'status',
 			description: 'Gets a single update on a raid, or lists all the raids in the channel',
 			details: '?????',
-			examples: [ '\t!status', '\t!status lugia-0' ],
+			examples: ['\t!status', '\t!status lugia-0'],
 			argsType: 'multiple'
 		});
 	}
 
 	run(message, args) {
-		var raid_id = args[0];
-		var raid = {};
-
-		if (!raid_id) {
-			message.reply('Please enter a raid id which can be found on the raid post.  If you do not know the id you can ask for a list of raids in your area via `!status`.');
+		if (message.channel.type !== 'text') {
+			message.reply('Please query status from a public channel.');
 			return;
 		}
 
-		raid = Raid.getRaid(message.channel, raid_id);
+		const raid = Raid.findRaid(message.channel, message.member, args);
 
-		// post a new raid message and replace/forget old bot message
-		message.channel.send(Raid.getFormattedMessage(raid)).then((bot_message) => {
-			Raid.setMessage(message.channel, message.member, raid.id, bot_message);
-		});
+		if (raid.raid) {
+			Raid.setUserRaidId(message.member, raid.raid.id);
+
+			// post a new raid message and replace/forget old bot message
+			message.channel.send(Raid.getFormattedMessage(raid.raid)).then((bot_message) => {
+				Raid.setMessage(message.channel, message.member, raid.raid.id, bot_message);
+			})
+			;
+		} else {
+			message.channel.send("blah");
+		}
 	}
 }
 

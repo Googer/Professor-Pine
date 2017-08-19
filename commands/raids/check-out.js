@@ -9,24 +9,28 @@ class CheckOutCommand extends Commando.Command {
 			name: 'check-out',
 			group: 'raids',
 			memberName: 'check-out',
-			aliases: [ 'checkout' ],
+			aliases: ['checkout'],
 			description: 'Let others know you have not arrived at the raid location.  Mostly just incase you are at the wrong location.',
 			details: '?????',
-			examples: [ '\t!check-out lugia-0' ],
+			examples: ['\t!check-out lugia-0'],
 			argsType: 'multiple'
 		});
 	}
 
 	run(message, args) {
-		var raid_id = args[0];
-		var info = {};
+		if (message.channel.type !== 'text') {
+			message.reply('Please check out from a public channel.');
+			return;
+		}
 
-		if (!raid_id) {
+		const raid = Raid.findRaid(message.channel, message.member, args);
+
+		if (!raid.raid) {
 			message.reply('Please enter a raid id which can be found on the raid post.  If you do not know the id you can ask for a list of raids in your area via `!status`.');
 			return;
 		}
 
-		info = Raid.setArrivalStatus(message.channel, message.member, raid_id, false);
+		const info = Raid.setArrivalStatus(message.channel, message.member, raid.raid.id, false);
 
 		message.react('👍');
 

@@ -9,29 +9,33 @@ class SetTimeCommand extends Commando.Command {
 			name: 'set-time',
 			group: 'raids',
 			memberName: 'set-time',
-			aliases: [ 'settime' ],
+			aliases: ['settime', 'time'],
 			description: 'Set the time the raid will begin.',
 			details: '?????',
-			examples: [ '\t!set-time lugia-0 2:20pm' ],
+			examples: ['\t!set-time lugia-0 2:20pm'],
 			argsType: 'multiple'
 		});
 	}
 
 	run(message, args) {
-		var raid_id = args[0];
-		var start_time = args[1];
-		var total_attendees = 0;
-		var info = {};
+		if (message.channel.type !== 'text') {
+			message.reply('Please set time for a raid from a public channel.');
+			return;
+		}
 
-		if (!raid_id) {
+		const raid = Raid.findRaid(message.channel, message.member, args);
+
+		if (!raid.raid) {
 			message.reply('Please enter a raid id which can be found on the raid post.  If you do not know the id you can ask for a list of raids in your area via `!status`.');
 			return;
 		}
 
-		info = Raid.setRaidTime(message.channel, message.member, raid_id, start_time);
-		total_attendees = Raid.getAttendeeCount({ raid: info.raid });
+		const start_time = raid.args[0];
 
-		for (let i=0; i<info.raid.attendees.length; i++) {
+		const info = Raid.setRaidTime(message.channel, message.member, raid.raid.id, start_time);
+		let total_attendees = Raid.getAttendeeCount({raid: info.raid});
+
+		for (let i = 0; i < info.raid.attendees.length; i++) {
 			let member = info.raid.attendees[i];
 
 			// no reason to spam the person who set the time, telling them the time being set haha

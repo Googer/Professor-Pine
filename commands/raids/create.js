@@ -15,14 +15,20 @@ class RaidCommand extends Commando.Command {
 	}
 
 	run(message, args) {
-		var params = args.split(' ');
-		var times = args.match(/([0-9]{1,2}\:[0-9]{1,2}(\s?(p|a)m)?)|([0-9]\sh(ours?),?\s?(and\s)?[0-9]{1,2}\sminutes?)|([0-9]\s?h?,?\s?[0-9]{1,2}\s?m?)|([0-9]\s?(h(ours?)?|m(inutes?)?))/g);
-		var links = args.match(/(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*(,[-a-zA-Z0-9@:%_\+.~#!?&//=]+)?)/g);
-		var pokemon = params[0].toLowerCase();
-		var location = (links)? links[0]: '';
-		var end_time = '', start_time = '';
-		var hours, minutes;
-		var info = {};
+		if (message.channel.type !== 'text') {
+			message.reply('Please create a raid from a public channel.');
+			return;
+		}
+
+		const params = args.split(' ');
+		const times = args.match(/([0-9]{1,2}\:[0-9]{1,2}(\s?([pa])m)?)|([0-9]\sh(ours?),?\s?(and\s)?[0-9]{1,2}\sminutes?)|([0-9]\s?h?,?\s?[0-9]{1,2}\s?m?)|([0-9]\s?(h(ours?)?|m(inutes?)?))/g);
+		const links = args.match(/(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*(,[-a-zA-Z0-9@:%_\+.~#!?&//=]+)?)/g);
+		const pokemon = params[0].toLowerCase();
+		const location = (links) ? links[0] : '';
+		let end_time = '';
+		const start_time = '';
+		let hours, minutes;
+		let info = {};
 
 		if (!pokemon.length) {
 			message.reply('Please enter a raid boss (i.e. lugia) or a tier level (i.e. t5).');
@@ -32,8 +38,8 @@ class RaidCommand extends Commando.Command {
 		// assume the first time is the end time
 		if (times && times[0]) {
 			// check if am/pm was given on time, which indicates that the user found the end time theirselves and we don't have to caculate it
-			if (times[0].search(/(a|p)m/) >= 0) {
-				[ hours, minutes ] = times[0].split(':');
+			if (times[0].search(/([ap])m/) >= 0) {
+				[hours, minutes] = times[0].split(':');
 				hours = parseInt(hours);
 				minutes = parseInt(minutes);
 
@@ -43,17 +49,17 @@ class RaidCommand extends Commando.Command {
 			} else if (times[0].search(/\:/) >= 0) {
 				// special scenario if the user entered a time like "1:20" without am/pm or at least it couldn't be found via regex
 				//		need to figure out whether it should be am or pm based on current time
-				var now = moment();
-				var possible_time_1, possible_time_2;
-				var diff_time_1, diff_time_2;
-				var am_or_pm = '';
+				const now = moment();
+				let possible_time_1, possible_time_2;
+				let diff_time_1, diff_time_2;
+				let am_or_pm = '';
 
-				[ hours, minutes ] = times[0].split(':');
+				[hours, minutes] = times[0].split(':');
 				hours = parseInt(hours);
 				minutes = parseInt(minutes);
 
-				possible_time_1 = moment().set({ hours, minutes });
-				possible_time_2 = moment().set({ hours: hours + 12, minutes });
+				possible_time_1 = moment().set({hours, minutes});
+				possible_time_2 = moment().set({hours: hours + 12, minutes});
 
 				diff_time_1 = possible_time_1.diff(moment());
 				diff_time_2 = possible_time_2.diff(moment());
@@ -76,7 +82,7 @@ class RaidCommand extends Commando.Command {
 				end_time = times[0].trim() + am_or_pm;
 			} else {
 				// user has not given an end time, but rather time remaining, so need to calculate end time based off current time + time remaining
-				[ hours, minutes ] = times[0].match(/[0-9]{1,2}/g);
+				[hours, minutes] = times[0].match(/[0-9]{1,2}/g);
 				hours = parseInt(hours);
 				minutes = parseInt(minutes);
 
@@ -87,7 +93,7 @@ class RaidCommand extends Commando.Command {
 					minutes = hours;
 				}
 
-				end_time = moment(Date.now()).add({ hours, minutes }).format('h:hha');
+				end_time = moment(Date.now()).add({hours, minutes}).format('h:hha');
 			}
 		}
 
