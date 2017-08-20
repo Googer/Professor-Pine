@@ -44,7 +44,10 @@ class SetTimeCommand extends Commando.Command {
 			}
 		}
 
-		message.channel.send(Raid.getFormattedMessage(info.raid));
+		// post a new raid message and replace/forget old bot message
+		message.channel.send(Raid.getFormattedMessage(info.raid)).then((bot_message) => {
+			Raid.setMessage(message.channel, message.member, info.raid.id, bot_message);
+		});
 	}
 }
 

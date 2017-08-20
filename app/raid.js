@@ -106,6 +106,10 @@ class Raid {
 		return this.raids.get(channel.id).get(raid_id.toLowerCase());
 	}
 
+	getAllRaids(channel, member) {
+		return this.raids.get(channel.id);
+	}
+
 	findRaid(channel, member, args) {
 		// take every argument given, and filter it down to only raids that exist
 		const raids = args
@@ -248,6 +252,23 @@ class Raid {
 		this.setUserRaidId(member, raid_id);
 
 		return {raid: raid_data};
+	}
+
+
+	getShortFormattedMessage(raids_map) {
+		var raid_string = [];
+
+		raids_map.forEach((raid, raid_id, raids_map) => {
+			let pokemon = raid.pokemon.charAt(0).toUpperCase() + raid.pokemon.slice(1);
+			let start_time = (raid.start_time) ? `starting at ${raid.start_time}` : 'start time to be announced';
+			let total_attendees = this.getAttendeeCount({raid});
+			let gym = (raid.gym) ? `Located at ${raid.gym}` : {gymName: ''};
+
+			raid_string.push(`**__${pokemon}__**`);
+			raid_string.push(`${raid_id} raid ${start_time}. ${total_attendees} potential trainer(s). ${gym.gymName}\n`);
+		});
+
+		return ' ' + raid_string.join('\n');
 	}
 
 	getFormattedMessage(raid_data) {

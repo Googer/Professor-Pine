@@ -22,17 +22,23 @@ class StatusCommand extends Commando.Command {
 			return;
 		}
 
-		const info = Raid.findRaid(message.channel, message.member, args);
-
-		if (info.error) {
-			message.channel.send(info.error);
+		// if no arguements are given for status command, give a shorthand public message of all active raids
+		if (!args.length) {
+			const raids = Raid.getAllRaids(message.channel, message.member);
+			message.channel.send(Raid.getShortFormattedMessage(raids));
 		} else {
-			Raid.setUserRaidId(message.member, raid.raid.id);
+			const info = Raid.findRaid(message.channel, message.member, args);
 
-			// post a new raid message and replace/forget old bot message
-			message.channel.send(Raid.getFormattedMessage(raid.raid)).then((bot_message) => {
-				Raid.setMessage(message.channel, message.member, raid.raid.id, bot_message);
-			});
+			if (info.error) {
+				message.channel.send(info.error);
+			} else {
+				Raid.setUserRaidId(message.member, info.raid.id);
+
+				// post a new raid message and replace/forget old bot message
+				message.channel.send(Raid.getFormattedMessage(info.raid)).then((bot_message) => {
+					Raid.setMessage(message.channel, message.member, info.raid.id, bot_message);
+				});
+			}
 		}
 	}
 }
