@@ -34,4 +34,5 @@ Client.on('message', (message) => {
 // // Remove a role!
 // member.removeRole(role).catch(console.error);
 
-Client.login('MzQ4MTA3MTQyNzgxMzM3NjAx.DHiHpQ.ERN3QnVneiXkVj_TpAGlwz5_eDo');
+Client.login('MzQyMDc4ODU1NDMyODk2NTEy.DGKZYA.F4Gwzf7nHkuA0ZVjT9ghQ6RxfxA');
+// Client.login('MzQ4MTA3MTQyNzgxMzM3NjAx.DHiHpQ.ERN3QnVneiXkVj_TpAGlwz5_eDo');

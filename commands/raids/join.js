@@ -36,7 +36,6 @@ class JoinCommand extends Commando.Command {
 		const info = Raid.addAttendee(message.channel, message.member, raid.raid.id, additional_attendees);
 
 		if (info.error) {
-			// message.member.sendMessage(info.error);
 			message.channel.send(info.error);
 		} else {
 			total_attendees = Raid.getAttendeeCount({raid: info.raid});

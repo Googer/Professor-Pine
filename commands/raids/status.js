@@ -22,18 +22,17 @@ class StatusCommand extends Commando.Command {
 			return;
 		}
 
-		const raid = Raid.findRaid(message.channel, message.member, args);
+		const info = Raid.findRaid(message.channel, message.member, args);
 
-		if (raid.raid) {
+		if (info.error) {
+			message.channel.send(info.error);
+		} else {
 			Raid.setUserRaidId(message.member, raid.raid.id);
 
 			// post a new raid message and replace/forget old bot message
 			message.channel.send(Raid.getFormattedMessage(raid.raid)).then((bot_message) => {
 				Raid.setMessage(message.channel, message.member, raid.raid.id, bot_message);
-			})
-			;
-		} else {
-			message.channel.send("blah");
+			});
 		}
 	}
 }

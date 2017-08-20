@@ -2,6 +2,8 @@
 
 const fs = require('fs');
 const path = require('path');
+const moment = require('moment');
+const settings = require('./../data/settings');
 
 class Raid {
 	constructor() {
@@ -19,10 +21,40 @@ class Raid {
 			instinct: ''
 		};
 
-		// TODO:  create interval loop to clean up raids every 1 minute?
+		// loop to clean up raids every 1 minute
+		this.update = setInterval(() => {
+			var now = moment();
+
+			this.raids.forEach((raids_map, channel_id, channel_map) => {
+				raids_map.forEach((raid, raid_id, raids_map) => {
+					let end_time = new moment(raid.end_time, 'h:mm:ss a');
+					let start_time = new moment(raid.start_time, 'h:mm:ss a');
+					let completion_time = raid.default_end_time;
+
+					// if end time exists, is valid, and is in the past, remove raid
+					if (end_time.isValid() && now > end_time) {
+						raids_map.delete(raid_id);
+						return;
+					}
+
+					// if start time exists, is valid, and is in the past, remove raid
+					if (start_time.isValid() && now > start_time) {
+						raids_map.delete(raid_id);
+						return;
+					}
+
+					// if start & end time do not exist, use creation time +X hours, to determine if raid should be removed
+					if (!end_time.isValid() && !start_time.isValid() && now > completion_time) {
+						raids_map.delete(raid_id);
+						return;
+					}
+				});
+			});
+		}, 6000);
 	}
 
 	setUserRaidId(member, raid_id) {
+		// TODO: displayName is just a nickname, anyone can change this at any time and we could even have duplicate nicknames.  Probably should be user id.
 		this.users.set(member.displayName, raid_id);
 	}
 
@@ -46,7 +78,8 @@ class Raid {
 
 		// add some extra raid data to remember
 		raid_data.id = id;
-		raid_data.timestamp = Date.now();
+		raid_data.creation_time = new moment();
+		raid_data.default_end_time = (new moment()).add(settings.default_raid_length, 'milliseconds');
 		raid_data.attendees = [member];
 
 		if (channel_raid_map) {
@@ -69,34 +102,40 @@ class Raid {
 			raid_id = this.users.get(member.displayName);
 		}
 
-		if (!raid_id) {
-			return undefined;
-		}
-
-		return this.raids.get(channel.id).get(raid_id);
+		// returns a non-case senstive raid from map
+		return this.raids.get(channel.id).get(raid_id.toLowerCase());
 	}
 
 	findRaid(channel, member, args) {
+		// take every argument given, and filter it down to only raids that exist
 		const raids = args
 			.map(arg => this.getRaid(channel, member, arg))
 			.filter(raid => {
-				return raid !== undefined;
+				return !!raid;
 			});
 
+		// get first raid in array of found raids
 		let raid;
-
 		if (raids.length > 0) {
 			raid = raids[0];
 		} else {
+			// if raid could not be found (likely due to user entering garbage for the raid id),
+			//		attempt to get raid from their last interacted with raid
 			raid = this.getRaid(channel, member);
 		}
 
+		// strip out args that aren't active raids and send back
 		const nonRaidArgs = args
 			.filter(arg => {
-				return this.getRaid(channel, member, arg) === undefined;
+				return !this.getRaid(channel, member, arg);
 			});
 
-		return {'raid': raid, 'args': nonRaidArgs};
+		// if after all this, a raid still can not be found, return an error message
+		if (!raid) {
+			return {error: `<@${member.id}> No raid exists for ${args.join(' ')}.`}
+		}
+
+		return {raid: raid, args: nonRaidArgs};
 	}
 
 	getAttendeeCount(options) {
@@ -264,8 +303,9 @@ class Raid {
 				"description": `Raid available until ${end_time}\n` +
 				`Location **${gym_name}**\n\n` +
 				`Join this raid by typing the command \`\`\`!join ${raid_data.id}\`\`\`\n\n` +
-				`Potential Trainers _(${total_attendees} total)_:\n` +
+				`Potential Trainers:\n` +
 				`${attendees_list}\n` +
+				`Trainers: **${total_attendees} total**\n` +
 				`Starting @ **${((raid_data.start_time) ? (raid_data.start_time) : '????')}**\n`,
 				"url": (location) ? location : 'https://discordapp.com',
 				"color": 4437377,

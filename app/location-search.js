@@ -5,6 +5,8 @@ const lunr = require('lunr'),
 
 class LocationSearch {
 	constructor() {
+		console.log('Indexing Gym Data...');
+
 		this.index = lunr(function () {
 			// reference will be the entire gym object so we can grab whatever we need from it (GPS coordinates, name, etc.)
 			this.ref('object');
@@ -66,6 +68,8 @@ class LocationSearch {
 				this.add(gymDocument);
 			}, this);
 		});
+
+		console.log('Indexing Gym Data Complete');
 	}
 
 	search(terms) {
