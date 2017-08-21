@@ -1,3 +1,8 @@
-
 # ignore node files
 node_modules/
+
+# ignore IDEA workspace file
+\.idea/workspace\.xml
+
+# ignore discord client id
+data/discord\.json

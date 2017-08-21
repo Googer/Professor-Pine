@@ -7,6 +7,8 @@ const Client = new Commando.Client();
 const Raid = require('./app/raid');
 const LocationSearch = require('./app/location-search');
 
+const discord_settings = require('./data/discord')
+
 Client.registry.registerGroup('raids', 'Raids');
 Client.registry.registerDefaults();
 Client.registry.registerCommandsIn(__dirname + '/commands');
@@ -20,19 +22,4 @@ Client.on('message', (message) => {
 	}
 });
 
-
-// let role = message.guild.roles.find("name", "Team Mystic");
-//
-// // Let's pretend you mentioned the user you want to add a role to (!addrole @user Role Name):
-// let member = message.mentions.members.first();
-//
-// // or the person who made the command: let member = message.member;
-//
-// // Add the role!
-// member.addRole(role).catch(console.error);
-//
-// // Remove a role!
-// member.removeRole(role).catch(console.error);
-
-Client.login('MzQyMDc4ODU1NDMyODk2NTEy.DGKZYA.F4Gwzf7nHkuA0ZVjT9ghQ6RxfxA');
-// Client.login('MzQ4MTA3MTQyNzgxMzM3NjAx.DHiHpQ.ERN3QnVneiXkVj_TpAGlwz5_eDo');
+Client.login(discord_settings.discord_client_id);

@@ -29,9 +29,9 @@ class LocationSearch {
 			this.field('point_of_interest');
 			this.field('transit_station');
 
-			let gymDatabase = require('./gyms');
+			let gymDatabase = require('./../data/gyms');
 			gymDatabase.forEach(function (gym) {
-				// Gym document is a map with its reference and fields to their values
+				// Gym document is a object with its reference and fields to collection of values
 				const gymDocument = Object.create(null);
 
 				// reference
@@ -62,8 +62,8 @@ class LocationSearch {
 
 				// Insert geocoded map info into map
 				addressInfo.forEach(function (value, key) {
-					this[key] = Array.from(value).join(' ');
-				}, gymDocument);
+					gymDocument[key] = Array.from(value).join(' ');
+				});
 				// Actually add this gym to the Lunr db
 				this.add(gymDocument);
 			}, this);
@@ -73,29 +73,22 @@ class LocationSearch {
 	}
 
 	search(terms) {
-		// lunr does an OR of its search terms and we really want AND, so we'll get there by doing individual searches
-		// on everything and getting the intersection of the hits
-		let results = this.index.search(LocationSearch.makeFuzzy(terms[0]))
-			.map(result => result.ref);
+		const query = terms
+			.map(LocationSearch.makeFuzzy)
+			.join(' ');
 
-		for (let i = 1; i < terms.length; i++) {
-			const termResults = this.index.search(LocationSearch.makeFuzzy(terms[i]))
-				.map(result => result.ref);
-
-			results = results.filter(result => {
-				return termResults.indexOf(result) !== -1;
-			});
-
-			if (results.length === 0) {
-				// already no results, may as well stop
-				break;
-			}
-		}
-
-		return results.map(result => JSON.parse(result));
+		// This is a hacky way of doing an AND - it checks that a given match in fact matched
+		// all terms in the query
+		return this.index.search(query)
+			.filter(result => {
+				return Object.keys(result.matchData.metadata).length === terms.length;
+			})
+			.map(result => JSON.parse(result.ref));
 	}
 
 	static makeFuzzy(term) {
+		// Let's arbitrarily decide that every ~4.5 characters of length increases the amount
+		// of fuzziness by 1; in practice this seems about right to account for typos, etc.
 		const fuzzyAmount = Math.floor(term.length / 4.5);
 
 		return fuzzyAmount > 0 ?

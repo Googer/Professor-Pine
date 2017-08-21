@@ -54,8 +54,7 @@ class Raid {
 	}
 
 	setUserRaidId(member, raid_id) {
-		// TODO: displayName is just a nickname, anyone can change this at any time and we could even have duplicate nicknames.  Probably should be user id.
-		this.users.set(member.displayName, raid_id);
+		this.users.set(member.id, raid_id);
 	}
 
 	createRaid(channel, member, raid_data) {
@@ -99,10 +98,10 @@ class Raid {
 
 	getRaid(channel, member, raid_id) {
 		if (!raid_id) {
-			raid_id = this.users.get(member.displayName);
+			raid_id = this.users.get(member.id);
 		}
 
-		// returns a non-case senstive raid from map
+		// returns a non-case sensitive raid from map
 		return this.raids.get(channel.id).get(raid_id.toLowerCase());
 	}
 
@@ -256,13 +255,17 @@ class Raid {
 
 
 	getShortFormattedMessage(raids_map) {
-		var raid_string = [];
+		if (!raids_map) {
+			return 'No raids exist on this channel.  Create one with \`!raid \<pokemon\> \[end time\]\`!';
+		}
+
+		const raid_string = [];
 
 		raids_map.forEach((raid, raid_id, raids_map) => {
-			let pokemon = raid.pokemon.charAt(0).toUpperCase() + raid.pokemon.slice(1);
-			let start_time = (raid.start_time) ? `starting at ${raid.start_time}` : 'start time to be announced';
-			let total_attendees = this.getAttendeeCount({raid});
-			let gym = (raid.gym) ? `Located at ${raid.gym}` : {gymName: ''};
+			const pokemon = raid.pokemon.charAt(0).toUpperCase() + raid.pokemon.slice(1);
+			const start_time = (raid.start_time) ? `starting at ${raid.start_time}` : 'start time to be announced';
+			const total_attendees = this.getAttendeeCount({raid});
+			const gym = (raid.gym) ? `Located at ${raid.gym}` : {gymName: ''};
 
 			raid_string.push(`**__${pokemon}__**`);
 			raid_string.push(`${raid_id} raid ${start_time}. ${total_attendees} potential trainer(s). ${gym.gymName}\n`);
