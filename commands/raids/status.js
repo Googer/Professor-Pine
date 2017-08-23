@@ -25,7 +25,12 @@ class StatusCommand extends Commando.Command {
 		// if no arguements are given for status command, give a shorthand public message of all active raids
 		if (!args.length) {
 			const raids = Raid.getAllRaids(message.channel, message.member);
-			message.channel.send(Raid.getShortFormattedMessage(raids));
+
+			if (raids) {
+				message.channel.send(Raid.getShortFormattedMessage(raids));
+			} else {
+				message.channel.send('No raids currently available in this channel.');
+			}
 		} else {
 			const info = Raid.findRaid(message.channel, message.member, args);
 

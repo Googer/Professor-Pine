@@ -98,6 +98,14 @@ class Raid {
 	}
 
 	getRaid(channel, member, raid_id) {
+		var channel = this.raids.get(channel.id);
+
+		// if no channel exists, automatically fail out with undefind status
+		if (!channel) {
+			return;
+		}
+
+		// if a raid id doesn't exist, attempt to get the users' last interacted with raid
 		if (!raid_id) {
 			raid_id = this.users.get(member.displayName);
 		}
