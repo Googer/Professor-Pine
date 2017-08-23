@@ -3,6 +3,9 @@
 const lunr = require('lunr'),
 	he = require('he');
 
+// Maps from regions (channel name) to gym ids within them
+const region_gyms = new Map();
+
 class LocationSearch {
 	constructor() {
 		console.log('Indexing Gym Data...');
@@ -29,7 +32,9 @@ class LocationSearch {
 			this.field('point_of_interest');
 			this.field('transit_station');
 
-			let gymDatabase = require('./../data/gyms');
+			const gymDatabase = require('./../data/gyms'),
+				regions = require('./../data/regions');
+
 			gymDatabase.forEach(function (gym) {
 				// Gym document is a object with its reference and fields to collection of values
 				const gymDocument = Object.create(null);
@@ -64,6 +69,29 @@ class LocationSearch {
 				addressInfo.forEach(function (value, key) {
 					gymDocument[key] = Array.from(value).join(' ');
 				});
+
+				if (!addressInfo.has('postal_code')) {
+					console.log('Gym "' + gym.gymName + '" has no postal code information!');
+				} else {
+					// Add gym to appropriate regions (based on zipcodes to which it belongs)
+					addressInfo.get('postal_code').forEach(zipcode => {
+						const zipcode_regions = regions[zipcode];
+
+						if (zipcode_regions) {
+							zipcode_regions.forEach(region => {
+								let current_region_gyms = region_gyms.get(region);
+
+								if (!current_region_gyms) {
+									current_region_gyms = new Set();
+									region_gyms.set(region, current_region_gyms);
+								}
+
+								current_region_gyms.add(gym.gymId);
+							});
+						}
+					});
+				}
+
 				// Actually add this gym to the Lunr db
 				this.add(gymDocument);
 			}, this);
@@ -72,18 +100,29 @@ class LocationSearch {
 		console.log('Indexing Gym Data Complete');
 	}
 
-	search(terms) {
+	search(channel_name, terms) {
 		const query = terms
 			.map(LocationSearch.makeFuzzy)
 			.join(' ');
 
 		// This is a hacky way of doing an AND - it checks that a given match in fact matched
 		// all terms in the query
-		return this.index.search(query)
+		const lunr_results = this.index.search(query)
 			.filter(result => {
 				return Object.keys(result.matchData.metadata).length === terms.length;
 			})
 			.map(result => JSON.parse(result.ref));
+
+		// Now filter results based on what channel this request came from - if it filters down to nothing, just
+		// return the unfiltered results instead
+		const region_filtered_results = lunr_results
+			.filter(gym => {
+				return region_gyms.get(channel_name).has(gym.gymId);
+			});
+
+		return (region_filtered_results.length > 0) ?
+			region_filtered_results :
+			lunr_results;
 	}
 
 	static makeFuzzy(term) {

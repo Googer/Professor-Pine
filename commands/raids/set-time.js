@@ -30,13 +30,12 @@ class SetTimeCommand extends Commando.Command {
 			return;
 		}
 
-		const start_time = raid.args[0];
-
-		const info = Raid.setRaidTime(message.channel, message.member, raid.raid.id, start_time);
-		let total_attendees = Raid.getAttendeeCount({raid: info.raid});
+		const start_time = raid.args[0],
+			info = Raid.setRaidTime(message.channel, message.member, raid.raid.id, start_time),
+			total_attendees = Raid.getAttendeeCount({raid: info.raid});
 
 		for (let i = 0; i < info.raid.attendees.length; i++) {
-			let member = info.raid.attendees[i];
+			const member = info.raid.attendees[i];
 
 			// no reason to spam the person who set the time, telling them the time being set haha
 			if (member.id !== message.member.id) {
