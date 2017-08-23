@@ -38,15 +38,17 @@ class SetLocationCommand extends Commando.Command {
 			return;
 		}
 
-		let gyms;
-		let top_gym;
 		try {
-			gyms = LocationSearch.search(location);
-			top_gym = gyms[0];
+			const gyms = LocationSearch.search(message.channel.name, location),
+				top_gym = gyms[0],
 
-			// TODO: Make this list something like the top 5-10 gyms to the user and let them pick the best match
-			const info = Raid.setRaidLocation(message.channel, message.member, raid.raid.id, top_gym);
-			message.channel.send(Raid.getFormattedMessage(info.raid));
+				// TODO: Consider making this list something like the top 5-10 gyms to the user and let them pick the best match
+				info = Raid.setRaidLocation(message.channel, message.member, raid.raid.id, top_gym);
+
+			// post a new raid message and replace/forget old bot message
+			message.channel.send(Raid.getFormattedMessage(info.raid)).then((bot_message) => {
+				Raid.setMessage(message.channel, message.member, info.raid.id, bot_message);
+			});
 		} catch (err) {
 			message.reply('Search terms entered yielded no valid gyms.  Please try again.');
 		}

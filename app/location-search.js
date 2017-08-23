@@ -3,6 +3,9 @@
 const lunr = require('lunr'),
 	he = require('he');
 
+// Maps from regions (channel name) to gym ids within them
+const region_gyms = new Map();
+
 class LocationSearch {
 	constructor() {
 		console.log('Indexing Gym Data...');
@@ -29,9 +32,11 @@ class LocationSearch {
 			this.field('point_of_interest');
 			this.field('transit_station');
 
-			let gymDatabase = require('./gyms');
+			const gymDatabase = require('./../data/gyms'),
+				regions = require('./../data/regions');
+
 			gymDatabase.forEach(function (gym) {
-				// Gym document is a map with its reference and fields to their values
+				// Gym document is a object with its reference and fields to collection of values
 				const gymDocument = Object.create(null);
 
 				// reference
@@ -62,8 +67,31 @@ class LocationSearch {
 
 				// Insert geocoded map info into map
 				addressInfo.forEach(function (value, key) {
-					this[key] = Array.from(value).join(' ');
-				}, gymDocument);
+					gymDocument[key] = Array.from(value).join(' ');
+				});
+
+				if (!addressInfo.has('postal_code')) {
+					console.log('Gym "' + gym.gymName + '" has no postal code information!');
+				} else {
+					// Add gym to appropriate regions (based on zipcodes to which it belongs)
+					addressInfo.get('postal_code').forEach(zipcode => {
+						const zipcode_regions = regions[zipcode];
+
+						if (zipcode_regions) {
+							zipcode_regions.forEach(region => {
+								let current_region_gyms = region_gyms.get(region);
+
+								if (!current_region_gyms) {
+									current_region_gyms = new Set();
+									region_gyms.set(region, current_region_gyms);
+								}
+
+								current_region_gyms.add(gym.gymId);
+							});
+						}
+					});
+				}
+
 				// Actually add this gym to the Lunr db
 				this.add(gymDocument);
 			}, this);
@@ -72,30 +100,34 @@ class LocationSearch {
 		console.log('Indexing Gym Data Complete');
 	}
 
-	search(terms) {
-		// lunr does an OR of its search terms and we really want AND, so we'll get there by doing individual searches
-		// on everything and getting the intersection of the hits
-		let results = this.index.search(LocationSearch.makeFuzzy(terms[0]))
-			.map(result => result.ref);
+	search(channel_name, terms) {
+		const query = terms
+			.map(LocationSearch.makeFuzzy)
+			.join(' ');
 
-		for (let i = 1; i < terms.length; i++) {
-			const termResults = this.index.search(LocationSearch.makeFuzzy(terms[i]))
-				.map(result => result.ref);
+		// This is a hacky way of doing an AND - it checks that a given match in fact matched
+		// all terms in the query
+		const lunr_results = this.index.search(query)
+			.filter(result => {
+				return Object.keys(result.matchData.metadata).length === terms.length;
+			})
+			.map(result => JSON.parse(result.ref));
 
-			results = results.filter(result => {
-				return termResults.indexOf(result) !== -1;
+		// Now filter results based on what channel this request came from - if it filters down to nothing, just
+		// return the unfiltered results instead
+		const region_filtered_results = lunr_results
+			.filter(gym => {
+				return region_gyms.get(channel_name).has(gym.gymId);
 			});
 
-			if (results.length === 0) {
-				// already no results, may as well stop
-				break;
-			}
-		}
-
-		return results.map(result => JSON.parse(result));
+		return (region_filtered_results.length > 0) ?
+			region_filtered_results :
+			lunr_results;
 	}
 
 	static makeFuzzy(term) {
+		// Let's arbitrarily decide that every ~4.5 characters of length increases the amount
+		// of fuzziness by 1; in practice this seems about right to account for typos, etc.
 		const fuzzyAmount = Math.floor(term.length / 4.5);
 
 		return fuzzyAmount > 0 ?
