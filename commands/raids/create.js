@@ -3,6 +3,7 @@
 const moment = require('moment');
 const Commando = require('discord.js-commando');
 const Raid = require('../../app/raid');
+const PokemonSearch = require('../../app/pokemon-search');
 
 class RaidCommand extends Commando.Command {
 	constructor(client) {
@@ -22,15 +23,22 @@ class RaidCommand extends Commando.Command {
 
 		const params = args.split(' ');
 		const times = args.match(/([0-9]{1,2}\:[0-9]{1,2}(\s?([pa])m)?)|([0-9]\sh(ours?),?\s?(and\s)?[0-9]{1,2}\sminutes?)|([0-9]\s?h?,?\s?[0-9]{1,2}\s?m?)|([0-9]\s?(h(ours?)?|m(inutes?)?))/g);
-		const links = args.match(/(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._\+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_\+.~#?&//=]*(,[-a-zA-Z0-9@:%_\+.~#!?&//=]+)?)/g);
-		const pokemon = params[0].toLowerCase();
+		const links = args.match(/(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_+.~#?&//=]*(,[-a-zA-Z0-9@:%_+.~#!?&//=]+)?)/g);
+		const pokemon_term = params[0];
 		const location = (links) ? links[0] : '';
 		let end_time = '';
 		const start_time = '';
 		let hours, minutes;
 		let info = {};
 
-		if (!pokemon.length) {
+		if (!pokemon_term.length) {
+			message.reply('Please enter a raid boss (i.e. lugia) or a tier level (i.e. t5).');
+			return;
+		}
+
+		const pokemon = PokemonSearch.search([pokemon_term]);
+
+		if (!pokemon) {
 			message.reply('Please enter a raid boss (i.e. lugia) or a tier level (i.e. t5).');
 			return;
 		}

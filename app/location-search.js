@@ -1,13 +1,16 @@
 "use strict";
 
 const lunr = require('lunr'),
-	he = require('he');
+	he = require('he'),
+	Search = require('./search');
 
 // Maps from regions (channel name) to gym ids within them
 const region_gyms = new Map();
 
-class LocationSearch {
+class LocationSearch extends Search {
 	constructor() {
+		super();
+
 		console.log('Indexing Gym Data...');
 
 		this.index = lunr(function () {
@@ -101,38 +104,21 @@ class LocationSearch {
 	}
 
 	search(channel_name, terms) {
-		const query = terms
-			.map(LocationSearch.makeFuzzy)
-			.join(' ');
+		const lunr_results = super.search(terms);
 
 		// This is a hacky way of doing an AND - it checks that a given match in fact matched
 		// all terms in the query
-		const lunr_results = this.index.search(query)
+		const anded_results = lunr_results
 			.filter(result => {
 				return Object.keys(result.matchData.metadata).length === terms.length;
 			})
 			.map(result => JSON.parse(result.ref));
 
-		// Now filter results based on what channel this request came from - if it filters down to nothing, just
-		// return the unfiltered results instead
-		const region_filtered_results = lunr_results
+		// Now filter results based on what channel this request came from
+		return anded_results
 			.filter(gym => {
 				return region_gyms.get(channel_name).has(gym.gymId);
 			});
-
-		return (region_filtered_results.length > 0) ?
-			region_filtered_results :
-			lunr_results;
-	}
-
-	static makeFuzzy(term) {
-		// Let's arbitrarily decide that every ~4.5 characters of length increases the amount
-		// of fuzziness by 1; in practice this seems about right to account for typos, etc.
-		const fuzzyAmount = Math.floor(term.length / 4.5);
-
-		return fuzzyAmount > 0 ?
-			term + '~' + fuzzyAmount :
-			term;
 	}
 }
 

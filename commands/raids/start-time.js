@@ -34,13 +34,13 @@ class StartTimeCommand extends Commando.Command {
 		const string = raid.args.join(' ');
 		const times = string.match(/([0-9]{1,2}\:[0-9]{1,2}(\s?([pa])m)?)|([0-9]\sh(ours?),?\s?(and\s)?[0-9]{1,2}\sminutes?)|([0-9]\s?h?,?\s?[0-9]{1,2}\s?m?)|([0-9]\s?(h(ours?)?|m(inutes?)?))/g);
 		const now = moment();
-		var time, hours, minutes;
+		let time, hours, minutes;
 
 		// new moment('1:20', 'h:mm:ss a')
 
 		// check if am/pm was given on time, which indicates that the user has given an exact time themselves, nothing further is needed
 		if (times[0].search(/([ap])m/) >= 0) {
-			var moment_time = new moment(times[0], 'h:mm:ss a');
+			const moment_time = new moment(times[0], 'h:mm:ss a');
 
 			if (moment_time <= now) {
 				message.reply('Please enter a raid start time in the future.');
@@ -97,7 +97,7 @@ class StartTimeCommand extends Commando.Command {
 			time = moment(Date.now()).add({hours, minutes}).format('h:mma');
 		}
 
-		const info = Raid.setRaidTime(message.channel, message.member, raid.raid.id, time);
+		const info = Raid.setRaidStartTime(message.channel, message.member, raid.raid.id, time);
 		let total_attendees = Raid.getAttendeeCount({raid: info.raid});
 
 		// notify all attendees that a time has been set

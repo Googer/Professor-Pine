@@ -40,10 +40,14 @@ class SetLocationCommand extends Commando.Command {
 
 		try {
 			const gyms = LocationSearch.search(message.channel.name, location),
-				top_gym = gyms[0],
+				top_gym = gyms[0];
+
+			if (!top_gym) {
+				throw 'Search terms entered yielded no valid gyms.  Please try again.';
+			}
 
 				// TODO: Consider making this list something like the top 5-10 gyms to the user and let them pick the best match
-				info = Raid.setRaidLocation(message.channel, message.member, raid.raid.id, top_gym);
+			const info = Raid.setRaidLocation(message.channel, message.member, raid.raid.id, top_gym);
 
 			// post a new raid message and replace/forget old bot message
 			message.channel.send(Raid.getFormattedMessage(info.raid)).then((bot_message) => {
