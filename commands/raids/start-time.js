@@ -10,7 +10,7 @@ class StartTimeCommand extends Commando.Command {
 			name: 'start-time',
 			group: 'raids',
 			memberName: 'start-time',
-			aliases: ['start'],
+			aliases: ['start', 'starts'],
 			description: 'Set the time the raid will begin.',
 			details: '?????',
 			examples: ['\t!start lugia-0 2:20pm', '\t!start-time 2:20pm lugia-0'],
@@ -32,11 +32,19 @@ class StartTimeCommand extends Commando.Command {
 		}
 
 		const string = raid.args.join(' ');
-		const times = string.match(/([0-9]{1,2}\:[0-9]{1,2}(\s?([pa])m)?)|([0-9]\sh(ours?),?\s?(and\s)?[0-9]{1,2}\sminutes?)|([0-9]\s?h?,?\s?[0-9]{1,2}\s?m?)|([0-9]\s?(h(ours?)?|m(inutes?)?))/g);
 		const now = moment();
+		let times = string.match(/([0-9]{1,2}\:[0-9]{1,2}(\s?([pa])m)?)|([0-9]\sh(ours?),?\s?(and\s)?[0-9]{1,2}\sminutes?)|([0-9]\s?h?,?\s?[0-9]{1,2}\s?m?)|([0-9]\s?(h(ours?)?|m(inutes?)?))/g);
 		let time, hours, minutes;
 
-		// new moment('1:20', 'h:mm:ss a')
+		// I'm terrible with regex, but if a time can't be found, check for a number which might represent time
+		if (!times) {
+			times = string.match(/\b[0-9](\s?([pa])m)?\b/g);
+		}
+
+		if (!times) {
+			message.reply('Time could not be determined, please try something like 5:20pm');
+			return;
+		}
 
 		// check if am/pm was given on time, which indicates that the user has given an exact time themselves, nothing further is needed
 		if (times[0].search(/([ap])m/) >= 0) {
@@ -95,6 +103,15 @@ class StartTimeCommand extends Commando.Command {
 			}
 
 			time = moment(Date.now()).add({hours, minutes}).format('h:mma');
+		}
+
+
+		// if end time exists, check to make sure start time entered is before the end time
+		if (!!raid.raid.end_time) {
+			if (new moment(time, 'h:mm:ss a') > new moment(raid.raid.end_time, 'h:mm:ss a')) {
+				message.reply('Please enter a start time that is before the end time of the raid.');
+				return;
+			}
 		}
 
 		const info = Raid.setRaidStartTime(message.channel, message.member, raid.raid.id, time);
