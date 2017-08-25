@@ -1,7 +1,5 @@
 "use strict";
 
-const fs = require('fs');
-const path = require('path');
 const moment = require('moment');
 const settings = require('./../data/settings');
 
@@ -23,13 +21,13 @@ class Raid {
 
 		// loop to clean up raids every 1 minute
 		this.update = setInterval(() => {
-			var now = moment();
+			const now = moment();
 
 			this.raids.forEach((raids_map, channel_id, channel_map) => {
 				raids_map.forEach((raid, raid_id, raids_map) => {
-					let end_time = new moment(raid.end_time, 'h:mm:ss a');
-					let start_time = new moment(raid.start_time, 'h:mm:ss a');
-					let completion_time = raid.default_end_time;
+					const end_time = new moment(raid.end_time, 'h:mm:ss a');
+					const start_time = new moment(raid.start_time, 'h:mm:ss a');
+					const completion_time = raid.default_end_time;
 
 					// if end time exists, is valid, and is in the past, remove raid
 					if (end_time.isValid() && now > end_time) {
@@ -46,7 +44,7 @@ class Raid {
 					// if start & end time do not exist, use creation time +X hours, to determine if raid should be removed
 					if (!end_time.isValid() && !start_time.isValid() && now > completion_time) {
 						raids_map.delete(raid_id);
-						return;
+
 					}
 				});
 			});
@@ -59,7 +57,7 @@ class Raid {
 
 	createRaid(channel, member, raid_data) {
 		let channel_raid_map = this.raids.get(channel.id);
-		const id = raid_data.pokemon + '-' + this.raids_counter;
+		const id = raid_data.pokemon.name + '-' + this.raids_counter;
 
 		// one time setup for getting role id's by name
 		if (!this.roles.mystic) {
@@ -97,10 +95,10 @@ class Raid {
 	}
 
 	getRaid(channel, member, raid_id) {
-		var channel = this.raids.get(channel.id);
+		const channel_raid_map = this.raids.get(channel.id);
 
-		// if no channel exists, automatically fail out with undefind status
-		if (!channel) {
+		// if no channel exists, automatically fail out with undefined status
+		if (!channel_raid_map) {
 			return;
 		}
 
@@ -110,7 +108,7 @@ class Raid {
 		}
 
 		// returns a non-case sensitive raid from map
-		return this.raids.get(channel.id).get(raid_id.toLowerCase());
+		return channel_raid_map.get(raid_id.toLowerCase());
 	}
 
 	getAllRaids(channel, member) {
@@ -151,7 +149,6 @@ class Raid {
 
 	getAttendeeCount(options) {
 		let attendees = [];
-		let length = 0;
 
 		// get attendee data via given raid data, or map data in order to find the attendee data
 		if (options.raid) {
@@ -163,7 +160,7 @@ class Raid {
 			attendees = this.getRaid(options.channel, options.member, options.raid_id).attendees;
 		}
 
-		length = attendees.length;
+		let length = attendees.length;
 
 		for (let i = 0; i < attendees.length; i++) {
 			const attendee = attendees[i];
@@ -241,10 +238,20 @@ class Raid {
 		return {raid: raid_data};
 	}
 
-	setRaidTime(channel, member, raid_id, start_time) {
+	setRaidStartTime(channel, member, raid_id, start_time) {
 		const raid_data = this.getRaid(channel, member, raid_id);
 
 		raid_data.start_time = start_time;
+
+		this.setUserRaidId(member, raid_id);
+
+		return {raid: raid_data};
+	}
+
+	setRaidEndTime(channel, member, raid_id, end_time) {
+		const raid_data = this.getRaid(channel, member, raid_id);
+
+		raid_data.end_time = end_time;
 
 		this.setUserRaidId(member, raid_id);
 
@@ -270,20 +277,21 @@ class Raid {
 		const raid_string = [];
 
 		raids_map.forEach((raid, raid_id, raids_map) => {
-			const pokemon = raid.pokemon.charAt(0).toUpperCase() + raid.pokemon.slice(1);
+			const pokemon = raid.pokemon.name.charAt(0).toUpperCase() + raid.pokemon.name.slice(1);
 			const start_time = (raid.start_time) ? `starting at ${raid.start_time}` : 'start time to be announced';
 			const total_attendees = this.getAttendeeCount({raid});
-			const gym = (raid.gym) ? `Located at ${raid.gym}` : {gymName: ''};
+			const gym = (raid.gym) ? `Located at ${raid.gym.gymName}` : '';
 
 			raid_string.push(`**__${pokemon}__**`);
-			raid_string.push(`${raid_id} raid ${start_time}. ${total_attendees} potential trainer(s). ${gym.gymName}\n`);
+			raid_string.push(`${raid_id} raid ${start_time}. ${total_attendees} potential trainer(s). ${gym}\n`);
 		});
 
 		return ' ' + raid_string.join('\n');
 	}
 
 	getFormattedMessage(raid_data) {
-		const pokemon = raid_data.pokemon.charAt(0).toUpperCase() + raid_data.pokemon.slice(1);
+		const pokemon = raid_data.pokemon.name.charAt(0).toUpperCase() + raid_data.pokemon.name.slice(1);
+		const tier = (raid_data.pokemon.tier) ? raid_data.pokemon.tier : '????';
 		const end_time = (raid_data.end_time) ? raid_data.end_time : '????';
 		const total_attendees = this.getAttendeeCount({raid: raid_data});
 		const gym = (raid_data.gym) ? raid_data.gym : {gymName: '????'};
@@ -331,7 +339,7 @@ class Raid {
 
 		return {
 			"embed": {
-				"title": `Level 5 Raid against ${pokemon}`,
+				"title": `Level ${tier} Raid against ${pokemon}`,
 				"description": `Raid available until ${end_time}\n` +
 				`Location **${gym_name}**\n\n` +
 				`Join this raid by typing the command \`\`\`!join ${raid_data.id}\`\`\`\n\n` +
