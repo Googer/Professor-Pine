@@ -12,6 +12,7 @@ class PokemonSearch extends Search {
 		this.index = lunr(function () {
 			this.ref('object');
 			this.field('name');
+			this.field('nickname');
 
 			const pokemonDatabase = require('./../data/pokemon');
 
@@ -20,6 +21,7 @@ class PokemonSearch extends Search {
 
 				pokemonDocument['object'] = JSON.stringify(pokemon);
 				pokemonDocument['name'] = pokemon.name;
+				pokemonDocument['nickname'] = (pokemon.nickname) ? pokemon.nickname.join(' ') : '';
 
 				this.add(pokemonDocument);
 			}, this);

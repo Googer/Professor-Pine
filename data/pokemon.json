@@ -612,16 +612,19 @@
   },
   {
     "name": "articuno",
+    "nickname": ["arty"],
     "number": 144,
     "tier": 5
   },
   {
     "name": "zapdos",
+    "nickname": ["zappy"],
     "number": 145,
     "tier": 5
   },
   {
     "name": "moltres",
+    "nickname": ["molty"],
     "number": 146,
     "tier": 5
   },
@@ -1036,6 +1039,7 @@
   },
   {
     "name": "tyranitar",
+    "nickname": ["ttar"],
     "number": 248,
     "tier": 4
   },
