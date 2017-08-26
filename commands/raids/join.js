@@ -11,8 +11,8 @@ class JoinCommand extends Commando.Command {
 			memberName: 'join',
 			aliases: ['attend'],
 			description: 'Join a raid!',
-			details: '?????',
-			examples: ['\t!join lugia', '\t!attend lugia', '\t!join lugia +3', '\t!attend lugia 3'],
+			details: 'Use this command to join a raid.  If a time has yet to be determined, then when a time is determined, everyone who has joined will be notified of the official raid start time.',
+			examples: ['\t!join lugia-0', '\t!join zapdos-1 +3', '\t!attend lugia-0', '\t!attend tyranitar-2 3'],
 			argsType: 'multiple'
 		});
 	}

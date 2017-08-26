@@ -11,9 +11,9 @@ class EndTimeCommand extends Commando.Command {
 			group: 'raids',
 			memberName: 'end-time',
 			aliases: ['end', 'ends'],
-			description: 'Set the time the raid will no longer exist.',
-			details: '?????',
-			examples: ['\t!end lugia-0 2:20pm', '\t!end-time 2:20pm lugia-0'],
+			description: 'Set a time that the raid will no longer exist.',
+			details: 'Use this command to set the last moments the raid will be available.  This is especially useful when a raid start time is near the end time.',
+			examples: ['\t!end-time lugia-0 2:20pm', '\t!end 2:20pm lugia-0'],
 			argsType: 'multiple'
 		});
 	}
@@ -31,7 +31,7 @@ class EndTimeCommand extends Commando.Command {
 			return;
 		}
 
-		const string = raid.args.join(' ');
+		const string = raid.args.join(' ').toLowerCase();
 		const now = moment();
 		let times = string.match(/([0-9]{1,2}\:[0-9]{1,2}(\s?([pa])m)?)|([0-9]\sh(ours?),?\s?(and\s)?[0-9]{1,2}\sminutes?)|([0-9]\s?h?,?\s?[0-9]{1,2}\s?m?)|([0-9]\s?(h(ours?)?|m(inutes?)?))/g);
 		let time, hours, minutes;
@@ -115,6 +115,8 @@ class EndTimeCommand extends Commando.Command {
 		}
 
 		const info = Raid.setRaidEndTime(message.channel, message.member, raid.raid.id, time);
+
+		message.react('👍');
 
 		// post a new raid message and replace/forget old bot message
 		Raid.getMessage(message.channel, message.member, info.raid.id)

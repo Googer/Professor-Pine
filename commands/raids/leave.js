@@ -11,6 +11,8 @@ class LeaveCommand extends Commando.Command {
 			memberName: 'leave',
 			aliases: ['part'],
 			description: 'Can\'t make it to a raid? no problem, just leave it.',
+			details: 'Use this command to leave a raid if you can no longer attend.  Don\'t stress, these things happen!',
+			examples: ['\t!leave lugia-0', '\t!part lugia-0'],
 			argsType: 'multiple'
 		});
 	}

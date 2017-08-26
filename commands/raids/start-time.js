@@ -12,8 +12,8 @@ class StartTimeCommand extends Commando.Command {
 			memberName: 'start-time',
 			aliases: ['start', 'starts'],
 			description: 'Set the time the raid will begin.',
-			details: '?????',
-			examples: ['\t!start lugia-0 2:20pm', '\t!start-time 2:20pm lugia-0'],
+			details: 'Use this command to finalize plans for fighting a raid boss.  If possible, try to set times 20 minutes out and always try to arrive at least 5 minutes before the start time being set.',
+			examples: ['\t!start-time lugia-0 2:20pm', '\t!start 2:20pm lugia-0'],
 			argsType: 'multiple'
 		});
 	}
@@ -31,7 +31,7 @@ class StartTimeCommand extends Commando.Command {
 			return;
 		}
 
-		const string = raid.args.join(' ');
+		const string = raid.args.join(' ').toLowerCase();
 		const now = moment();
 		let times = string.match(/([0-9]{1,2}\:[0-9]{1,2}(\s?([pa])m)?)|([0-9]\sh(ours?),?\s?(and\s)?[0-9]{1,2}\sminutes?)|([0-9]\s?h?,?\s?[0-9]{1,2}\s?m?)|([0-9]\s?(h(ours?)?|m(inutes?)?))/g);
 		let time, hours, minutes;

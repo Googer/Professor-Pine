@@ -9,8 +9,8 @@ class StatusCommand extends Commando.Command {
 			name: 'status',
 			group: 'raids',
 			memberName: 'status',
-			description: 'Gets a single update on a raid, or lists all the raids in the channel',
-			details: '?????',
+			description: 'Gets an update on a single raid, or lists all the raids available in the channel.',
+			details: 'Use this command when trying to figure out what raids are available or the status of a raid being planned.  NOTE: This does not get all of the raids in the entire discord, it is channel specific.',
 			examples: ['\t!status', '\t!status lugia-0'],
 			argsType: 'multiple'
 		});

@@ -224,6 +224,8 @@ class Raid {
 			return m.id === member.id;
 		});
 
+		// remove attendee from list of people who have arrived & remove attendee from raid all together
+		delete raid_data.has_arrived[raid_data.attendees[index].id];
 		raid_data.attendees.splice(index, 1);
 
 		this.setUserRaidId(member, raid_id);
