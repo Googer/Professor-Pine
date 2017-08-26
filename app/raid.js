@@ -16,7 +16,9 @@ class Raid {
 		this.roles = {
 			mystic: '',
 			valor: '',
-			instinct: ''
+			instinct: '',
+			admin: '',
+			moderator: ''
 		};
 
 		// loop to clean up raids every 1 minute
@@ -45,6 +47,9 @@ class Raid {
 					if (!end_time.isValid() && !start_time.isValid() && now > completion_time) {
 						raids_map.delete(raid_id);
 
+						for (let i=0; i<raid.attendees.length; i++) {
+							this.users.delete(raid.attendees[i].id);
+						}
 					}
 				});
 			});
@@ -69,6 +74,12 @@ class Raid {
 		if (!this.roles.instinct) {
 			this.roles.instinct = member.guild.roles.find('name', 'Instinct');
 		}
+		if (!this.roles.admin) {
+			this.roles.admin = member.guild.roles.find('name', 'Admin');
+		}
+		if (!this.roles.moderator) {
+			this.roles.moderator = member.guild.roles.find('name', 'Moderator') || member.guild.roles.find('name', 'Mod');
+		}
 
 		// add extra data to "member"
 		member.additional_attendees = 0;
@@ -78,6 +89,7 @@ class Raid {
 		raid_data.creation_time = new moment();
 		raid_data.default_end_time = (new moment()).add(settings.default_raid_length, 'milliseconds');
 		raid_data.attendees = [member];
+		raid_data.has_arrived = {};
 
 		if (channel_raid_map) {
 			channel_raid_map.set(id, raid_data);
@@ -222,16 +234,7 @@ class Raid {
 	setArrivalStatus(channel, member, raid_id, status) {
 		const raid_data = this.getRaid(channel, member, raid_id);
 
-		for (let i = 0; i < raid_data.attendees.length; i++) {
-			let m = raid_data.attendees[i];
-
-			// TODO:  Can't set arrived status on member as it is on the MEMBER and thus will be set on other raids they attend
-			//			need to save some where else, and need to save the main "author" as the raid leader for masterball status
-			if (m.id === member.id) {
-				m.has_arrived = status;
-				break;
-			}
-		}
+		raid_data.has_arrived[member.id] = status;
 
 		this.setUserRaidId(member, raid_id);
 
@@ -309,10 +312,12 @@ class Raid {
 
 			// member list
 			attendees_list += '';
-			if (i === 0 && member.has_arrived) {
+			if (((this.roles.admin && member.roles.has(this.roles.admin.id)) ||
+				(this.roles.moderator && member.roles.has(this.roles.moderator.id))) && !!raid_data.has_arrived[member.id]) {
+				// if member role is admin or moderator, and they have arrived, use "masterball" icon
 				attendees_list += '<:MasterBall:347218482078810112>';
 			}
-			else if (member.has_arrived) {
+			else if (!!raid_data.has_arrived[member.id]) {
 				attendees_list += '<:PokeBall:347218482296782849>';
 			}
 			else {
