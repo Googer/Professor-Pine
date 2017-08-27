@@ -11,9 +11,9 @@ class SetLocationCommand extends Commando.Command {
 			group: 'raids',
 			memberName: 'set-location',
 			aliases: ['setlocation', 'location'],
-			description: 'Set the location of the raid.',
-			details: '?????',
-			examples: ['\t!set-location lugia-0 https://www.google.com/maps/dir/Current+Location/40.53028537,-80.01068783'],
+			description: 'Set a location for a specific raid.  This can be a link or a name of a gym.',
+			details: 'Use this command to set the location of a raid.  This command is channel sensitive, meaning it only finds gyms associated with the proper channel.',
+			examples: ['\t!set-location lugia-0 Unicorn', '\t!location lugia-0 Bellevue Park', '\t!location zapdos-1 squirrel'],
 			argsType: 'multiple'
 		});
 	}

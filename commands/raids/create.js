@@ -11,7 +11,9 @@ class RaidCommand extends Commando.Command {
 			name: 'raid',
 			group: 'raids',
 			memberName: 'raid',
-			description: 'Create a new raid group!'
+			description: 'Create a new raid group!',
+			details: 'Use this command to start organizing a new raid.  For your convenience, this command combines several options such that you can set the pokemon, the location, and the end time of the raid, all at once.',
+			examples: ['\t!raid lugia', '\t!raid zapdos 5:30pm', '\t!raid magikarp ending in 2 hours 30 mins', '\t!raid tyranitar 2h 30m']
 		});
 	}
 
@@ -22,12 +24,13 @@ class RaidCommand extends Commando.Command {
 		}
 
 		const params = args.split(' ');
-		const times = args.match(/([0-9]{1,2}\:[0-9]{1,2}(\s?([pa])m)?)|([0-9]\sh(ours?),?\s?(and\s)?[0-9]{1,2}\sminutes?)|([0-9]\s?h?,?\s?[0-9]{1,2}\s?m?)|([0-9]\s?(h(ours?)?|m(inutes?)?))/g);
+		const times = args.toLowerCase().match(/([0-9]{1,2}\:[0-9]{1,2}(\s?([pa])m)?)|([0-9]\sh(ours?),?\s?(and\s)?[0-9]{1,2}\sminutes?)|([0-9]\s?h?,?\s?[0-9]{1,2}\s?m?)|([0-9]\s?(h(ours?)?|m(inutes?)?))/g);
 		const links = args.match(/(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_+.~#?&//=]*(,[-a-zA-Z0-9@:%_+.~#!?&//=]+)?)/g);
+		const now = moment();
 		const pokemon_term = params[0];
 		const location = (links) ? links[0] : '';
-		let end_time = '';
 		const start_time = '';
+		let end_time = '';
 		let hours, minutes;
 		let info = {};
 
@@ -47,13 +50,7 @@ class RaidCommand extends Commando.Command {
 		if (times && times[0]) {
 			// check if am/pm was given on time, which indicates that the user found the end time theirselves and we don't have to caculate it
 			if (times[0].search(/([ap])m/) >= 0) {
-				[hours, minutes] = times[0].split(':');
-				hours = parseInt(hours);
-				minutes = parseInt(minutes);
-
-				// TODO:  determine AM or PM so that +12 can be added to hours, then determine if time given is in the past or present so that an error can be thrown
-
-				end_time = times[0];
+				end_time = (new moment(times[0], 'h:mm:ss a')).format('h:mma');
 			} else if (times[0].search(/\:/) >= 0) {
 				// special scenario if the user entered a time like "1:20" without am/pm or at least it couldn't be found via regex
 				//		need to figure out whether it should be am or pm based on current time
@@ -101,7 +98,7 @@ class RaidCommand extends Commando.Command {
 					minutes = hours;
 				}
 
-				end_time = moment(Date.now()).add({hours, minutes}).format('h:hha');
+				end_time = moment(Date.now()).add({hours, minutes}).format('h:mma');
 			}
 		}
 
