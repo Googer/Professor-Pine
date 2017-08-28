@@ -27,9 +27,7 @@ class Raid {
 
 			this.raids.forEach((raids_map, channel_id, channel_map) => {
 				raids_map.forEach((raid, raid_id, raids_map) => {
-					const end_time = new moment(raid.end_time, 'h:mm:ss a');
-					const start_time = new moment(raid.start_time, 'h:mm:ss a');
-					const completion_time = raid.default_end_time;
+					const end_time = raid.end_time;
 
 					// if end time exists, is valid, and is in the past, remove raid
 					if (end_time.isValid() && now > end_time) {
@@ -37,17 +35,11 @@ class Raid {
 						return;
 					}
 
-					// if start time exists, is valid, and is in the past, remove raid
-					if (start_time.isValid() && now > start_time) {
-						raids_map.delete(raid_id);
-						return;
-					}
-
-					// if start & end time do not exist, use creation time +X hours, to determine if raid should be removed
-					if (!end_time.isValid() && !start_time.isValid() && now > completion_time) {
+					// if end time isn't valid, remove raid
+					if (!end_time.isValid()) {
 						raids_map.delete(raid_id);
 
-						for (let i=0; i<raid.attendees.length; i++) {
+						for (let i = 0; i < raid.attendees.length; i++) {
 							this.users.delete(raid.attendees[i].id);
 						}
 					}
@@ -57,7 +49,9 @@ class Raid {
 	}
 
 	setUserRaidId(member, raid_id) {
-		this.users.set(member.id, raid_id);
+		if (raid_id !== 'current') {
+			this.users.set(member.id, raid_id);
+		}
 	}
 
 	createRaid(channel, member, raid_data) {
@@ -87,7 +81,7 @@ class Raid {
 		// add some extra raid data to remember
 		raid_data.id = id;
 		raid_data.creation_time = new moment();
-		raid_data.default_end_time = (new moment()).add(settings.default_raid_length, 'milliseconds');
+		raid_data.end_time = raid_data.creation_time.add(raid_data.end_time, 'minutes');
 		raid_data.attendees = [member];
 		raid_data.has_arrived = {};
 
@@ -115,7 +109,7 @@ class Raid {
 		}
 
 		// if a raid id doesn't exist, attempt to get the users' last interacted with raid
-		if (!raid_id) {
+		if (!raid_id || raid_id === 'current') {
 			raid_id = this.users.get(member.id);
 		}
 
@@ -256,7 +250,7 @@ class Raid {
 	setRaidEndTime(channel, member, raid_id, end_time) {
 		const raid_data = this.getRaid(channel, member, raid_id);
 
-		raid_data.end_time = end_time;
+		raid_data.end_time = new moment().add(end_time, 'minutes');
 
 		this.setUserRaidId(member, raid_id);
 
@@ -283,12 +277,11 @@ class Raid {
 
 		raids_map.forEach((raid, raid_id, raids_map) => {
 			const pokemon = raid.pokemon.name.charAt(0).toUpperCase() + raid.pokemon.name.slice(1);
-			const start_time = (raid.start_time) ? `starting at ${raid.start_time}` : 'start time to be announced';
 			const total_attendees = this.getAttendeeCount({raid});
 			const gym = (raid.gym) ? `Located at ${raid.gym.gymName}` : '';
 
 			raid_string.push(`**__${pokemon}__**`);
-			raid_string.push(`${raid_id} raid ${start_time}. ${total_attendees} potential trainer(s). ${gym}\n`);
+			raid_string.push(`${raid_id} raid. ${total_attendees} potential trainer(s). ${gym}\n`);
 		});
 
 		return ' ' + raid_string.join('\n');
@@ -297,7 +290,7 @@ class Raid {
 	getFormattedMessage(raid_data) {
 		const pokemon = raid_data.pokemon.name.charAt(0).toUpperCase() + raid_data.pokemon.name.slice(1);
 		const tier = (raid_data.pokemon.tier) ? raid_data.pokemon.tier : '????';
-		const end_time = (raid_data.end_time) ? raid_data.end_time : '????';
+		const end_time = (raid_data.end_time) ? raid_data.end_time.format('h:mm a') : '????';
 		const total_attendees = this.getAttendeeCount({raid: raid_data});
 		const gym = (raid_data.gym) ? raid_data.gym : {gymName: '????'};
 
@@ -315,7 +308,7 @@ class Raid {
 			// member list
 			attendees_list += '';
 			if (((this.roles.admin && member.roles.has(this.roles.admin.id)) ||
-				(this.roles.moderator && member.roles.has(this.roles.moderator.id))) && !!raid_data.has_arrived[member.id]) {
+					(this.roles.moderator && member.roles.has(this.roles.moderator.id))) && !!raid_data.has_arrived[member.id]) {
 				// if member role is admin or moderator, and they have arrived, use "masterball" icon
 				attendees_list += '<:MasterBall:347218482078810112>';
 			}
@@ -352,8 +345,7 @@ class Raid {
 				`Join this raid by typing the command \`\`\`!join ${raid_data.id}\`\`\`\n\n` +
 				`Potential Trainers:\n` +
 				`${attendees_list}\n` +
-				`Trainers: **${total_attendees} total**\n` +
-				`Starting @ **${((raid_data.start_time) ? (raid_data.start_time) : '????')}**\n`,
+				`Trainers: **${total_attendees} total**\n`,
 				"url": (location) ? location : 'https://discordapp.com',
 				"color": 4437377,
 				"thumbnail": {

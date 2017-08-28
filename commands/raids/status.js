@@ -1,7 +1,7 @@
 "use strict";
 
-const Commando = require('discord.js-commando');
-const Raid = require('../../app/raid');
+const Commando = require('discord.js-commando'),
+	Raid = require('../../app/raid');
 
 class StatusCommand extends Commando.Command {
 	constructor(client) {
@@ -12,16 +12,12 @@ class StatusCommand extends Commando.Command {
 			description: 'Gets an update on a single raid, or lists all the raids available in the channel.',
 			details: 'Use this command when trying to figure out what raids are available or the status of a raid being planned.  NOTE: This does not get all of the raids in the entire discord, it is channel specific.',
 			examples: ['\t!status', '\t!status lugia-0'],
+			guildOnly: true,
 			argsType: 'multiple'
 		});
 	}
 
 	run(message, args) {
-		if (message.channel.type !== 'text') {
-			message.reply('Please query status from a public channel.');
-			return;
-		}
-
 		// if no arguements are given for status command, give a shorthand public message of all active raids
 		if (!args.length) {
 			const raids = Raid.getAllRaids(message.channel, message.member);
