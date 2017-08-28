@@ -56,7 +56,10 @@ class Raid {
 
 	createRaid(channel, member, raid_data) {
 		let channel_raid_map = this.raids.get(channel.id);
-		const id = raid_data.pokemon.name + '-' + this.raids_counter;
+        const id = (raid_data.pokemon.name ?
+            raid_data.pokemon.name :
+            'tier' + raid_data.pokemon.tier)
+            + '-' + this.raids_counter;
 
 		// one time setup for getting role id's by name
 		if (!this.roles.mystic) {
@@ -85,13 +88,11 @@ class Raid {
 		raid_data.attendees = [member];
 		raid_data.has_arrived = {};
 
-		if (channel_raid_map) {
-			channel_raid_map.set(id, raid_data);
-		} else {
+        if (!channel_raid_map) {
 			channel_raid_map = new Map();
-			channel_raid_map.set(id, raid_data);
 			this.raids.set(channel.id, channel_raid_map);
 		}
+        channel_raid_map.set(id, raid_data);
 
 		this.raids_counter++;
 
@@ -288,17 +289,16 @@ class Raid {
 	}
 
 	getFormattedMessage(raid_data) {
-		const pokemon = raid_data.pokemon.name.charAt(0).toUpperCase() + raid_data.pokemon.name.slice(1);
-		const tier = (raid_data.pokemon.tier) ? raid_data.pokemon.tier : '????';
-		const end_time = (raid_data.end_time) ? raid_data.end_time.format('h:mm a') : '????';
-		const total_attendees = this.getAttendeeCount({raid: raid_data});
-		const gym = (raid_data.gym) ? raid_data.gym : {gymName: '????'};
+        const pokemon = raid_data.pokemon.name ?
+            raid_data.pokemon.name.charAt(0).toUpperCase() + raid_data.pokemon.name.slice(1) :
+            '????',
 
-		const gym_name = gym.gymName;
-
-		const location = gym_name !== '????' ?
-			'https://www.google.com/maps/dir/Current+Location/' + gym.gymInfo.latitude + ',' + gym.gymInfo.longitude :
-			undefined;
+            tier = raid_data.pokemon.tier,
+            end_time = raid_data.end_time.format('h:mm a'),
+            total_attendees = this.getAttendeeCount({raid: raid_data}),
+            gym = raid_data.gym,
+            gym_name = gym.gymName,
+            location = 'https://www.google.com/maps/dir/Current+Location/' + gym.gymInfo.latitude + ',' + gym.gymInfo.longitude;
 
 		// generate string of attendees
 		let attendees_list = '';

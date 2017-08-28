@@ -8,7 +8,7 @@ class TimeType extends Commando.ArgumentType {
 	}
 
 	validate(value, message, arg) {
-		const hour_minute_format = value.match(/^((([01])?[:\s])?([0-5]\d))$/);
+        const hour_minute_format = value.match(/^(?:(?:([01])?[:\s])?([0-5]\d))$/);
 
 		if (hour_minute_format) {
 			return true;
@@ -26,11 +26,11 @@ class TimeType extends Commando.ArgumentType {
 	}
 
 	parse(value, message, arg) {
-		const hour_minute_format = value.match(/^((([01])?[:\s])?([0-5]\d))$/);
+        const hour_minute_format = value.match(/^(?:(?:([01])?[:\s])?([0-5]\d))$/);
 
 		if (hour_minute_format) {
-			const hours = hour_minute_format[3],
-				minutes = Number.parseInt(hour_minute_format[4]);
+            const hours = hour_minute_format[1],
+                minutes = Number.parseInt(hour_minute_format[2]);
 
 			return (hours
 				? Number.parseInt(hours) * 60 + minutes

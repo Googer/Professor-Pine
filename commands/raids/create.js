@@ -17,7 +17,7 @@ class RaidCommand extends Commando.Command {
 			args: [
 				{
 					key: 'pokemon',
-					prompt: 'What Pokemon or tier is this raid?',
+                    prompt: 'What Pokemon (or tier if unhatched) is this raid?',
 					type: 'pokemon',
 				},
 				{
