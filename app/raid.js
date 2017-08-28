@@ -1,7 +1,8 @@
 "use strict";
 
-const moment = require('moment');
-const settings = require('./../data/settings');
+const moment = require('moment'),
+	settings = require('./../data/settings'),
+	Constants = require('./constants');
 
 class Raid {
 	constructor() {
@@ -27,39 +28,38 @@ class Raid {
 
 			this.raids.forEach((raids_map, channel_id, channel_map) => {
 				raids_map.forEach((raid, raid_id, raids_map) => {
-					const end_time = raid.end_time;
+					const end_time = raid.end_time,
+						last_possible_time = raid.last_possible_time;
 
 					// if end time exists, is valid, and is in the past, remove raid
-					if (end_time.isValid() && now > end_time) {
+					if ((end_time !== Constants.UNDEFINED_END_TIME && now > end_time) || now > last_possible_time) {
 						raids_map.delete(raid_id);
-						return;
-					}
-
-					// if end time isn't valid, remove raid
-					if (!end_time.isValid()) {
-						raids_map.delete(raid_id);
+						raid.message.delete();
 
 						for (let i = 0; i < raid.attendees.length; i++) {
-							this.users.delete(raid.attendees[i].id);
+							const user_id = raid.attendees[i].id;
+							if (this.users.get(user_id) === raid_id) {
+								this.users.delete(user_id);
+							}
 						}
 					}
 				});
 			});
-		}, 6000);
+		}, settings.cleanup_interval);
 	}
 
 	setUserRaidId(member, raid_id) {
-		if (raid_id !== 'current') {
+		if (raid_id && raid_id !== Constants.CURRENT_RAID_ID) {
 			this.users.set(member.id, raid_id);
 		}
 	}
 
 	createRaid(channel, member, raid_data) {
 		let channel_raid_map = this.raids.get(channel.id);
-        const id = (raid_data.pokemon.name ?
-            raid_data.pokemon.name :
-            'tier' + raid_data.pokemon.tier)
-            + '-' + this.raids_counter;
+		const id = (raid_data.pokemon.name ?
+			raid_data.pokemon.name :
+			'tier' + raid_data.pokemon.tier)
+			+ '-' + this.raids_counter;
 
 		// one time setup for getting role id's by name
 		if (!this.roles.mystic) {
@@ -84,15 +84,18 @@ class Raid {
 		// add some extra raid data to remember
 		raid_data.id = id;
 		raid_data.creation_time = new moment();
-		raid_data.end_time = raid_data.creation_time.add(raid_data.end_time, 'minutes');
+		raid_data.last_possible_time = new moment(raid_data.creation_time).add(settings.default_raid_length, 'minutes');
+		if (raid_data.end_time !== Constants.UNDEFINED_END_TIME) {
+			raid_data.end_time = new moment(raid_data.creation_time).add(raid_data.end_time, 'minutes');
+		}
 		raid_data.attendees = [member];
 		raid_data.has_arrived = {};
 
-        if (!channel_raid_map) {
+		if (!channel_raid_map) {
 			channel_raid_map = new Map();
 			this.raids.set(channel.id, channel_raid_map);
 		}
-        channel_raid_map.set(id, raid_data);
+		channel_raid_map.set(id, raid_data);
 
 		this.raids_counter++;
 
@@ -110,7 +113,7 @@ class Raid {
 		}
 
 		// if a raid id doesn't exist, attempt to get the users' last interacted with raid
-		if (!raid_id || raid_id === 'current') {
+		if (!raid_id || raid_id === Constants.CURRENT_RAID_ID) {
 			raid_id = this.users.get(member.id);
 		}
 
@@ -182,7 +185,15 @@ class Raid {
 	}
 
 	setMessage(channel, member, raid_id, message) {
-		this.getRaid(channel, member, raid_id).message = message;
+		const raid = this.getRaid(channel, member, raid_id),
+			current_message = raid.message;
+
+		if (current_message) {
+			current_message.delete();
+		}
+
+		message.pin()
+			.then(msg => raid.message = message);
 	}
 
 	addAttendee(channel, member, raid_id, additional_attendees = 0) {
@@ -268,18 +279,19 @@ class Raid {
 		return {raid: raid_data};
 	}
 
-
 	getShortFormattedMessage(raids_map) {
-		if (!raids_map) {
-			return 'No raids exist on this channel.  Create one with \`!raid \<pokemon\> \[end time\]\`!';
+		if (!raids_map || raids_map.size === 0) {
+			return 'No raids exist on this channel.  Create one with \`!raid \<pokemon\> \<location\>\`!';
 		}
 
 		const raid_string = [];
 
 		raids_map.forEach((raid, raid_id, raids_map) => {
-			const pokemon = raid.pokemon.name.charAt(0).toUpperCase() + raid.pokemon.name.slice(1);
-			const total_attendees = this.getAttendeeCount({raid});
-			const gym = (raid.gym) ? `Located at ${raid.gym.gymName}` : '';
+			const pokemon = raid.pokemon.name ?
+				raid.pokemon.name.charAt(0).toUpperCase() + raid.pokemon.name.slice(1) :
+				'????',
+				total_attendees = this.getAttendeeCount({raid}),
+				gym = (raid.gym) ? `Located at ${raid.gym.gymName}` : '';
 
 			raid_string.push(`**__${pokemon}__**`);
 			raid_string.push(`${raid_id} raid. ${total_attendees} potential trainer(s). ${gym}\n`);
@@ -289,16 +301,17 @@ class Raid {
 	}
 
 	getFormattedMessage(raid_data) {
-        const pokemon = raid_data.pokemon.name ?
-            raid_data.pokemon.name.charAt(0).toUpperCase() + raid_data.pokemon.name.slice(1) :
-            '????',
-
-            tier = raid_data.pokemon.tier,
-            end_time = raid_data.end_time.format('h:mm a'),
-            total_attendees = this.getAttendeeCount({raid: raid_data}),
-            gym = raid_data.gym,
-            gym_name = gym.gymName,
-            location = 'https://www.google.com/maps/dir/Current+Location/' + gym.gymInfo.latitude + ',' + gym.gymInfo.longitude;
+		const pokemon = raid_data.pokemon.name ?
+			raid_data.pokemon.name.charAt(0).toUpperCase() + raid_data.pokemon.name.slice(1) :
+			'????',
+			tier = raid_data.pokemon.tier,
+			end_time = raid_data.end_time !== Constants.UNDEFINED_END_TIME ?
+				raid_data.end_time.format('h:mm a') :
+				'????',
+			total_attendees = this.getAttendeeCount({raid: raid_data}),
+			gym = raid_data.gym,
+			gym_name = gym.gymName,
+			location = 'https://www.google.com/maps/dir/Current+Location/' + gym.gymInfo.latitude + ',' + gym.gymInfo.longitude;
 
 		// generate string of attendees
 		let attendees_list = '';
@@ -317,7 +330,7 @@ class Raid {
 			}
 			else {
 				attendees_list += '<:PremierBall:347221891263496193>';
-			} //◻️, \t\t
+			}
 			attendees_list += '  ' + member.displayName;
 
 			// show how many additional attendees this user is bringing with them
@@ -351,20 +364,6 @@ class Raid {
 				"thumbnail": {
 					"url": "https://rankedboost.com/wp-content/plugins/ice/pokemon-go/" + pokemon + "-Pokemon-Go.png"
 				},
-				// "author": {
-				// 	"name": "author name",
-				// 	"url": "https://discordapp.com",
-				// 	"icon_url": "https://cdn.discordapp.com/embed/avatars/0.png"
-				// },
-				// "fields": [
-				// 	{
-				// 		"name": raid_data.attendees.length + " will be attending @ " + ((raid_data.start_time)? (raid_data.start_time): '????'),
-				// 		"value": attendees_list
-				// 	}
-				// ],
-				// "footer": {
-				// 	"text": (raid_data.start_time)? "Raid Begining @ " + raid_data.start_time: "Still determining a start time..."
-				// }
 			}
 		};
 	}

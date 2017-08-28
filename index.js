@@ -1,9 +1,9 @@
 "use strict";
 
-const Commando = require('discord.js-commando');
-const Client = new Commando.Client();
+const Commando = require('discord.js-commando'),
+	Client = new Commando.Client(),
 
-const discord_settings = require('./data/discord');
+	discord_settings = require('./data/discord');
 
 Client.registry.registerGroup('raids', 'Raids');
 Client.registry.registerDefaults();

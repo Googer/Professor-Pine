@@ -2,7 +2,8 @@
 
 const Commando = require('discord.js-commando'),
 	Raid = require('../../app/raid'),
-	Utility = require('../../app/utility');
+	Utility = require('../../app/utility'),
+	Constants = require('../../app/constants');
 
 class SetLocationCommand extends Commando.Command {
 	constructor(client) {
@@ -10,8 +11,8 @@ class SetLocationCommand extends Commando.Command {
 			name: 'set-location',
 			group: 'raids',
 			memberName: 'set-location',
-			aliases: ['setlocation', 'location'],
-			description: 'Set a location for a specific raid.  This can be a link or a name of a gym.',
+			aliases: ['setlocation', 'location', 'set-gym', 'setgym', 'gym'],
+			description: 'Set a location for a specific raid.  This is a smart search on gym names and their locations.',
 			details: 'Use this command to set the location of a raid.  This command is channel sensitive, meaning it only finds gyms associated with the proper channel.',
 			examples: ['\t!set-location lugia-0 Unicorn', '\t!location lugia-0 Bellevue Park', '\t!location zapdos-1 squirrel'],
 			args: [
@@ -19,7 +20,7 @@ class SetLocationCommand extends Commando.Command {
 					key: 'raid',
 					prompt: 'Which raid do you wish to set the location for?',
 					type: 'raid',
-					default: {id: 'current'}
+					default: {id: Constants.CURRENT_RAID_ID}
 				},
 				{
 					key: 'gym',

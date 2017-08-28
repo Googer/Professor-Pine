@@ -1,3 +1,4 @@
 {
-	"default_raid_length": 7200000
+  "default_raid_length": 180,
+  "cleanup_interval": 6000
 }

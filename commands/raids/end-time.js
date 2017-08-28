@@ -2,7 +2,8 @@
 
 const Commando = require('discord.js-commando'),
 	Raid = require('../../app/raid'),
-	Utility = require('../../app/utility');
+	Utility = require('../../app/utility'),
+	Constants = require('../../app/constants');
 
 class EndTimeCommand extends Commando.Command {
 	constructor(client) {
@@ -19,7 +20,7 @@ class EndTimeCommand extends Commando.Command {
 					key: 'raid',
 					prompt: 'Which raid do you wish set the end time on?',
 					type: 'raid',
-					default: {id: 'current'}
+					default: {id: Constants.CURRENT_RAID_ID}
 				},
 				{
 					key: 'time',

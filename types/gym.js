@@ -1,7 +1,7 @@
 "use strict";
 
 const Commando = require('discord.js-commando'),
-	LocationSearch = require('../app/gym-search');
+	GymSearch = require('../app/gym-search');
 
 class GymType extends Commando.ArgumentType {
 	constructor(client) {
@@ -10,14 +10,14 @@ class GymType extends Commando.ArgumentType {
 
 	validate(value, message, arg) {
 		try {
-			return LocationSearch.search(message.channel.name, value.split(' ')).length > 0;
+			return GymSearch.search(message.channel.name, value.split(' ')).length > 0;
 		} catch (err) {
 			return false;
 		}
 	}
 
 	parse(value, message, arg) {
-		const gyms = LocationSearch.search(message.channel.name, value.split(' '));
+		const gyms = GymSearch.search(message.channel.name, value.split(' '));
 
 		return gyms[0];
 	}

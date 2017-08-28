@@ -2,6 +2,7 @@
 
 const Commando = require('discord.js-commando'),
 	Raid = require('../../app/raid'),
+	Constants = require('../../app/constants'),
 	Utility = require('../../app/utility');
 
 class CheckInCommand extends Commando.Command {
@@ -19,7 +20,7 @@ class CheckInCommand extends Commando.Command {
 					key: 'raid',
 					prompt: 'Which raid do you wish to check into?',
 					type: 'raid',
-					default: {id: 'current'}
+					default: {id: Constants.CURRENT_RAID_ID}
 				}
 			],
 			guildOnly: true
