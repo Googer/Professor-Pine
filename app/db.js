@@ -21,21 +21,20 @@ class RethinkDBManager {
 		guilds.forEach((key, value, map) => {
 			console.log(key.id);
 			this.guilds.set(key.id, map);
-			// r.db(key.id).run();
-		});
 
-		// set up users table if it doesn't already exist
-		r.db('test').tableCreate('users').run(this.connection, (err, result) => {
-			if (err && err.name !== 'ReqlOpFailedError') {
-				if (err) throw err;
-			}
-		});
+			// set up users table if it doesn't already exist
+			r.db(key.id).tableCreate('users').run(this.connection, (err, result) => {
+				if (err && err.name !== 'ReqlOpFailedError') {
+					if (err) throw err;
+				}
+			});
 
-		// set up roles table if it doesn't already exist
-		r.db('test').tableCreate('roles').run(this.connection, (err, result) => {
-			if (err && err.name !== 'ReqlOpFailedError') {
-				if (err) throw err;
-			}
+			// set up roles table if it doesn't already exist
+			r.db(key.id).tableCreate('roles').run(this.connection, (err, result) => {
+				if (err && err.name !== 'ReqlOpFailedError') {
+					if (err) throw err;
+				}
+			});
 		});
 	}
 
