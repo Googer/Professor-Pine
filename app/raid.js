@@ -83,10 +83,10 @@ class Raid {
 
 		// add some extra raid data to remember
 		raid_data.id = id;
-		raid_data.creation_time = new moment();
-		raid_data.last_possible_time = new moment(raid_data.creation_time).add(settings.default_raid_length, 'minutes');
+		raid_data.creation_time = moment();
+		raid_data.last_possible_time = raid_data.creation_time.clone().add(settings.default_raid_length, 'minutes');
 		if (raid_data.end_time !== Constants.UNDEFINED_END_TIME) {
-			raid_data.end_time = new moment(raid_data.creation_time).add(raid_data.end_time, 'minutes');
+			raid_data.end_time = raid_data.creation_time.clone().add(raid_data.end_time, 'minutes');
 		}
 		raid_data.attendees = [member];
 		raid_data.has_arrived = {};
@@ -262,7 +262,7 @@ class Raid {
 	setRaidEndTime(channel, member, raid_id, end_time) {
 		const raid_data = this.getRaid(channel, member, raid_id);
 
-		raid_data.end_time = new moment().add(end_time, 'minutes');
+		raid_data.end_time = moment().add(end_time, 'minutes');
 
 		this.setUserRaidId(member, raid_id);
 
