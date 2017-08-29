@@ -11,18 +11,19 @@ class CheckOutCommand extends Commando.Command {
 			name: 'check-out',
 			group: 'raids',
 			memberName: 'check-out',
-			aliases: ['checkout'],
+			aliases: ['checkout', 'depart'],
 			description: 'Let others know you have gone to the wrong location.',
 			details: 'Use this command in case you thought you were at the right location, but were not.',
 			examples: ['\t!check-out lugia-0', '\t!checkout lugia-0'],
 			args: [
 				{
 					key: 'raid',
-					prompt: 'Which raid do you wish to check out of?',
+					prompt: 'Which raid do you wish to check out of?\nExample: `lugia-0`',
 					type: 'raid',
 					default: {id: Constants.CURRENT_RAID_ID}
 				}
 			],
+			argsPromptLimit: 3,
 			guildOnly: true
 		});
 	}

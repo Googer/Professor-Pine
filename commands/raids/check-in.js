@@ -11,18 +11,19 @@ class CheckInCommand extends Commando.Command {
 			name: 'check-in',
 			group: 'raids',
 			memberName: 'check-in',
-			aliases: ['checkin', 'arrive', 'arrived', 'present'],
+			aliases: ['checkin', 'arrive', 'arrived', 'present', 'here'],
 			description: 'Let others know you have arrived at the raid location and are ready to fight the raid boss!',
 			details: 'Use this command to tell everyone you are at the raid location and to ensure that no one is left behind.',
 			examples: ['\t!check-in lugia-0', '\t!arrived lugia-0', '\t!present lugia-0'],
 			args: [
 				{
 					key: 'raid',
-					prompt: 'Which raid do you wish to check into?',
+					prompt: 'Which raid do you wish to check into?\nExample: `lugia-0`',
 					type: 'raid',
 					default: {id: Constants.CURRENT_RAID_ID}
 				}
 			],
+			argsPromptLimit: 3,
 			guildOnly: true
 		});
 	}

@@ -14,26 +14,27 @@ class RaidCommand extends Commando.Command {
 			aliases: ['create', 'announce'],
 			description: 'Create a new raid group!',
 			details: 'Use this command to start organizing a new raid.  For your convenience, this command combines several options such that you can set the pokemon, the location, and the end time of the raid, all at once.',
-			examples: ['\t!raid lugia', '\t!raid zapdos 5:30pm', '\t!raid magikarp ending in 2 hours 30 mins', '\t!raid tyranitar 2h 30m'],
+			examples: ['\t!raid lugia', '\t!raid zapdos \'manor theater\' 1:43', '\t!raid magikarp olea', '\t!raid ttar \'frog fountain\''],
 			args: [
 				{
 					key: 'pokemon',
-					prompt: 'What Pokemon (or tier if unhatched) is this raid?',
+					prompt: 'What Pokemon (or tier if unhatched) is this raid?\nExample: `lugia`',
 					type: 'pokemon',
 				},
 				{
 					key: 'gym',
-					prompt: 'Where is this raid taking place?',
+					prompt: 'Where is this raid taking place?\nExample: `manor theater`',
 					type: 'gym'
 				},
 				{
 					key: 'end_time',
 					label: 'end time',
-					prompt: 'How much time is remaining on this raid (use h:mm or mm format)?',
+					prompt: 'How much time is remaining on this raid (use h:mm or mm format)?\n Example: `1:43`',
 					type: 'time',
 					default: Constants.UNDEFINED_END_TIME
 				}
 			],
+			argsPromptLimit: 3,
 			guildOnly: true
 		});
 	}

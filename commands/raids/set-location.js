@@ -14,20 +14,21 @@ class SetLocationCommand extends Commando.Command {
 			aliases: ['setlocation', 'location', 'set-gym', 'setgym', 'gym'],
 			description: 'Set a location for a specific raid.  This is a smart search on gym names and their locations.',
 			details: 'Use this command to set the location of a raid.  This command is channel sensitive, meaning it only finds gyms associated with the proper channel.',
-			examples: ['\t!set-location lugia-0 Unicorn', '\t!location lugia-0 Bellevue Park', '\t!location zapdos-1 squirrel'],
+			examples: ['\t!set-location lugia-0 Unicorn', '\t!location lugia-0 \'Bellevue Park\'', '\t!location zapdos-1 squirrel'],
 			args: [
 				{
 					key: 'raid',
-					prompt: 'Which raid do you wish to set the location for?',
+					prompt: 'Which raid do you wish to set the location for?\nExample: `lugia-0`',
 					type: 'raid',
 					default: {id: Constants.CURRENT_RAID_ID}
 				},
 				{
 					key: 'gym',
-					prompt: 'Where is the raid taking place?',
+					prompt: 'Where is the raid taking place?\nExample: `manor theater`',
 					type: 'gym'
 				}
 			],
+			argsPromptLimit: 3,
 			guildOnly: true
 		});
 	}

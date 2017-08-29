@@ -18,11 +18,12 @@ class LeaveCommand extends Commando.Command {
 			args: [
 				{
 					key: 'raid',
-					prompt: 'Which raid do you wish to leave?',
+					prompt: 'Which raid do you wish to leave?\nExample: `lugia-0`',
 					type: 'raid',
 					default: {id: Constants.CURRENT_RAID_ID}
 				}
 			],
+			argsPromptLimit: 3,
 			guildOnly: true
 		});
 	}

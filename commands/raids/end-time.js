@@ -14,20 +14,21 @@ class EndTimeCommand extends Commando.Command {
 			aliases: ['end', 'ends'],
 			description: 'Set a time that the raid will no longer exist.',
 			details: 'Use this command to set remaining time on a raid.',
-			examples: ['\t!end-time 1:45 lugia-0', '\t!end 50 moltres-1'],
+			examples: ['\t!end-time lugia-0 1:45', '\t!end moltres-1 50'],
 			args: [
 				{
 					key: 'raid',
-					prompt: 'Which raid do you wish set the end time on?',
+					prompt: 'Which raid do you wish set the end time on?\nExample: `lugia-0`',
 					type: 'raid',
 					default: {id: Constants.CURRENT_RAID_ID}
 				},
 				{
 					key: 'time',
-					prompt: 'How much time is remaining on the raid (use h:mm or mm format)?',
+					prompt: 'How much time is remaining on the raid (use h:mm or mm format)?\nExample: `1:43`',
 					type: 'time'
 				}
 			],
+			argsPromptLimit: 3,
 			guildOnly: true
 		});
 	}
