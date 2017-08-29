@@ -14,16 +14,12 @@ class StartTimeCommand extends Commando.Command {
 			description: 'Set the time the raid will begin.',
 			details: 'Use this command to finalize plans for fighting a raid boss.  If possible, try to set times 20 minutes out and always try to arrive at least 5 minutes before the start time being set.',
 			examples: ['\t!start-time lugia-0 2:20pm', '\t!start 2:20pm lugia-0'],
-			argsType: 'multiple'
+			argsType: 'multiple',
+			guildOnly: true
 		});
 	}
 
 	run(message, args) {
-		if (message.channel.type !== 'text') {
-			message.reply('Please set time for a raid from a public channel.');
-			return;
-		}
-
 		const raid = Raid.findRaid(message.channel, message.member, args);
 
 		if (!raid.raid) {

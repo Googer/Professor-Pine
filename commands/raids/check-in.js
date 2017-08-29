@@ -1,7 +1,9 @@
 "use strict";
 
-const Commando = require('discord.js-commando');
-const Raid = require('../../app/raid');
+const Commando = require('discord.js-commando'),
+	Raid = require('../../app/raid'),
+	Constants = require('../../app/constants'),
+	Utility = require('../../app/utility');
 
 class CheckInCommand extends Commando.Command {
 	constructor(client) {
@@ -13,26 +15,25 @@ class CheckInCommand extends Commando.Command {
 			description: 'Let others know you have arrived at the raid location and are ready to fight the raid boss!',
 			details: 'Use this command to tell everyone you are at the raid location and to ensure that no one is left behind.',
 			examples: ['\t!check-in lugia-0', '\t!arrived lugia-0', '\t!present lugia-0'],
-			argsType: 'multiple'
+			args: [
+				{
+					key: 'raid',
+					prompt: 'Which raid do you wish to check into?',
+					type: 'raid',
+					default: {id: Constants.CURRENT_RAID_ID}
+				}
+			],
+			guildOnly: true
 		});
 	}
 
 	run(message, args) {
-		if (message.channel.type !== 'text') {
-			message.reply('Please check in from a public channel.');
-			return;
-		}
-
-		const raid = Raid.findRaid(message.channel, message.member, args);
-
-		if (!raid.raid) {
-			message.reply('Please enter a raid id which can be found on the raid post.  If you do not know the id you can ask for a list of raids in your area via `!status`.');
-			return;
-		}
-
-		const info = Raid.setArrivalStatus(message.channel, message.member, raid.raid.id, true);
+		const raid = args['raid'],
+			info = Raid.setArrivalStatus(message.channel, message.member, raid.id, true);
 
 		message.react('👍');
+
+		Utility.cleanConversation(message);
 
 		// get previous bot message & update
 		Raid.getMessage(message.channel, message.member, info.raid.id)

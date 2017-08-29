@@ -1,7 +1,9 @@
 "use strict";
 
-const Commando = require('discord.js-commando');
-const Raid = require('../../app/raid');
+const Commando = require('discord.js-commando'),
+	Raid = require('../../app/raid'),
+	Utility = require('../../app/utility'),
+	Constants = require('../../app/constants');
 
 class JoinCommand extends Commando.Command {
 	constructor(client) {
@@ -13,27 +15,32 @@ class JoinCommand extends Commando.Command {
 			description: 'Join a raid!',
 			details: 'Use this command to join a raid.  If a time has yet to be determined, then when a time is determined, everyone who has joined will be notified of the official raid start time.',
 			examples: ['\t!join lugia-0', '\t!join zapdos-1 +3', '\t!attend lugia-0', '\t!attend tyranitar-2 3'],
-			argsType: 'multiple'
+			args: [
+				{
+					key: 'additional_attendees',
+					label: 'additional attendees',
+					prompt: 'How many additional people will be coming with you?',
+					type: 'integer',
+					default: 0
+				},
+				{
+					key: 'raid',
+					prompt: 'Which raid do you wish to join?',
+					type: 'raid',
+					default: {id: Constants.CURRENT_RAID_ID}
+				}
+			],
+			guildOnly: true
 		});
 	}
 
 	run(message, args) {
-		if (message.channel.type !== 'text') {
-			message.reply('Please join a raid from a public channel.');
-			return;
-		}
+		const raid = args['raid'],
+			additional_attendees = args['additional_attendees'];
 
-		const raid = Raid.findRaid(message.channel, message.member, args);
-
-		if (!raid.raid) {
-			message.reply('Please enter a raid id which can be found on the raid post.  If you do not know the id you can ask for a list of raids in your area via `!status`.');
-			return;
-		}
-
-		const additional_attendees = parseInt(raid.args[0]) || 0;
 		let total_attendees = 0;
 
-		const info = Raid.addAttendee(message.channel, message.member, raid.raid.id, additional_attendees);
+		const info = Raid.addAttendee(message.channel, message.member, raid.id, additional_attendees);
 
 		if (info.error) {
 			message.channel.send(info.error);
@@ -41,9 +48,10 @@ class JoinCommand extends Commando.Command {
 			total_attendees = Raid.getAttendeeCount({raid: info.raid});
 
 			message.react('👍');
-			// message.react('🤖');
+
+			Utility.cleanConversation(message);
+
 			message.member.send(`You signed up for raid **${info.raid.id}**. There are now **${total_attendees}** potential Trainer(s) so far!`);
-			// message.channel.send(Raid.getFormattedMessage(info.raid));
 
 			// get previous bot message & update
 			Raid.getMessage(message.channel, message.member, info.raid.id)

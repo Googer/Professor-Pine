@@ -7,7 +7,7 @@ const lunr = require('lunr'),
 // Maps from regions (channel name) to gym ids within them
 const region_gyms = new Map();
 
-class LocationSearch extends Search {
+class GymSearch extends Search {
 	constructor() {
 		super();
 
@@ -104,22 +104,32 @@ class LocationSearch extends Search {
 	}
 
 	search(channel_name, terms) {
-		const lunr_results = super.search(terms);
+		// lunr does an OR of its search terms and we really want AND, so we'll get there by doing individual searches
+		// on everything and getting the intersection of the hits
+		let results = super.search([terms[0]])
+			.map(result => result.ref);
 
-		// This is a hacky way of doing an AND - it checks that a given match in fact matched
-		// all terms in the query
-		const anded_results = lunr_results
-			.filter(result => {
-				return Object.keys(result.matchData.metadata).length === terms.length;
-			})
-			.map(result => JSON.parse(result.ref));
+		for (let i = 1; i < terms.length; i++) {
+			const termResults = super.search([terms[i]])
+				.map(result => result.ref);
+
+			results = results.filter(result => {
+				return termResults.indexOf(result) !== -1;
+			});
+
+			if (results.length === 0) {
+				// already no results, may as well stop
+				break;
+			}
+		}
 
 		// Now filter results based on what channel this request came from
-		return anded_results
+		return results
+			.map(result => JSON.parse(result))
 			.filter(gym => {
 				return region_gyms.get(channel_name).has(gym.gymId);
 			});
 	}
 }
 
-module.exports = new LocationSearch();
+module.exports = new GymSearch();

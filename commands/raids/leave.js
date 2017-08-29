@@ -1,7 +1,9 @@
 "use strict";
 
-const Commando = require('discord.js-commando');
-const Raid = require('../../app/raid');
+const Commando = require('discord.js-commando'),
+	Raid = require('../../app/raid'),
+	Utility = require('../../app/utility'),
+	Constants = require('../../app/constants');
 
 class LeaveCommand extends Commando.Command {
 	constructor(client) {
@@ -13,28 +15,26 @@ class LeaveCommand extends Commando.Command {
 			description: 'Can\'t make it to a raid? no problem, just leave it.',
 			details: 'Use this command to leave a raid if you can no longer attend.  Don\'t stress, these things happen!',
 			examples: ['\t!leave lugia-0', '\t!part lugia-0'],
-			argsType: 'multiple'
+			args: [
+				{
+					key: 'raid',
+					prompt: 'Which raid do you wish to leave?',
+					type: 'raid',
+					default: {id: Constants.CURRENT_RAID_ID}
+				}
+			],
+			guildOnly: true
 		});
 	}
 
 	run(message, args) {
-		if (message.channel.type !== 'text') {
-			message.reply('Please leave a raid from a public channel.');
-			return;
-		}
-
-		const raid = Raid.findRaid(message.channel, message.member, args);
-
-		if (!raid.raid) {
-			message.reply('Please enter a raid id which can be found on the raid post.  If you do not know the id you can ask for a list of raids in your area via `!status`.');
-			return;
-		}
-
-		const info = Raid.removeAttendee(message.channel, message.member, raid.raid.id);
+		const raid = args['raid'],
+			info = Raid.removeAttendee(message.channel, message.member, raid.raid);
 
 		if (!info.error) {
 			message.react('👍');
-			// message.member.send(`You have left raid **${info.raid.id}**.`);
+
+			Utility.cleanConversation(message);
 
 			// get previous bot message & update
 			Raid.getMessage(message.channel, message.member, info.raid.id)

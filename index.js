@@ -1,20 +1,24 @@
 "use strict";
 
-const Commando = require('discord.js-commando');
-const Client = new Commando.Client();
+const Commando = require('discord.js-commando'),
+	Client = new Commando.Client(),
 
-const discord_settings = require('./data/discord');
+	discord_settings = require('./data/discord');
 
 Client.registry.registerGroup('raids', 'Raids');
 Client.registry.registerDefaults();
+Client.registry.registerTypesIn(__dirname + '/types');
 Client.registry.registerCommandsIn(__dirname + '/commands');
 
 Client.on('ready', () => {
 });
 
 Client.on('message', (message) => {
-	if (message.content === 'ping') {
-		message.channel.send('pong');
+	if (message.content.startsWith('.iam') && message.channel.name !== 'the-bot-lab') {
+		message.author.sendMessage('Use #the-bot-lab to assign roles!');
+		if (message.channel.type === 'text') {
+			message.delete();
+		}
 	}
 });
 
