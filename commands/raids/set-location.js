@@ -17,15 +17,15 @@ class SetLocationCommand extends Commando.Command {
 			examples: ['\t!set-location lugia-0 Unicorn', '\t!location lugia-0 Bellevue Park', '\t!location zapdos-1 squirrel'],
 			args: [
 				{
-					key: 'gym',
-					prompt: 'Where is the raid taking place?',
-					type: 'gym'
-				},
-				{
 					key: 'raid',
 					prompt: 'Which raid do you wish to set the location for?',
 					type: 'raid',
 					default: {id: Constants.CURRENT_RAID_ID}
+				},
+				{
+					key: 'gym',
+					prompt: 'Where is the raid taking place?',
+					type: 'gym'
 				}
 			],
 			guildOnly: true
