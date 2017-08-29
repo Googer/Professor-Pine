@@ -17,15 +17,15 @@ class EndTimeCommand extends Commando.Command {
 			examples: ['\t!end-time 1:45 lugia-0', '\t!end 50 moltres-1'],
 			args: [
 				{
-					key: 'time',
-					prompt: 'How much time is remaining on the raid (use h:mm or mm format)?',
-					type: 'time'
-				},
-				{
 					key: 'raid',
 					prompt: 'Which raid do you wish set the end time on?',
 					type: 'raid',
 					default: {id: Constants.CURRENT_RAID_ID}
+				},
+				{
+					key: 'time',
+					prompt: 'How much time is remaining on the raid (use h:mm or mm format)?',
+					type: 'time'
 				}
 			],
 			guildOnly: true

@@ -290,11 +290,12 @@ class Raid {
 			const pokemon = raid.pokemon.name ?
 				raid.pokemon.name.charAt(0).toUpperCase() + raid.pokemon.name.slice(1) :
 				'????',
+				start_time = (raid.start_time) ? `starting at ${raid.start_time}` : 'start time to be announced',
 				total_attendees = this.getAttendeeCount({raid}),
 				gym = (raid.gym) ? `Located at ${raid.gym.gymName}` : '';
 
 			raid_string.push(`**__${pokemon}__**`);
-			raid_string.push(`${raid_id} raid. ${total_attendees} potential trainer(s). ${gym}\n`);
+			raid_string.push(`${raid_id} raid ${start_time}. ${total_attendees} potential trainer(s). ${gym}\n`);
 		});
 
 		return ' ' + raid_string.join('\n');
@@ -358,7 +359,8 @@ class Raid {
 				`Join this raid by typing the command \`\`\`!join ${raid_data.id}\`\`\`\n\n` +
 				`Potential Trainers:\n` +
 				`${attendees_list}\n` +
-				`Trainers: **${total_attendees} total**\n`,
+				`Trainers: **${total_attendees} total**\n` +
+				`Starting @ **${((raid_data.start_time) ? (raid_data.start_time) : '????')}**\n`,
 				"url": (location) ? location : 'https://discordapp.com',
 				"color": 4437377,
 				"thumbnail": {

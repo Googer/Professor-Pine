@@ -17,17 +17,17 @@ class JoinCommand extends Commando.Command {
 			examples: ['\t!join lugia-0', '\t!join zapdos-1 +3', '\t!attend lugia-0', '\t!attend tyranitar-2 3'],
 			args: [
 				{
+					key: 'raid',
+					prompt: 'Which raid do you wish to join?',
+					type: 'raid',
+					default: {id: Constants.CURRENT_RAID_ID}
+				},
+				{
 					key: 'additional_attendees',
 					label: 'additional attendees',
 					prompt: 'How many additional people will be coming with you?',
 					type: 'integer',
 					default: 0
-				},
-				{
-					key: 'raid',
-					prompt: 'Which raid do you wish to join?',
-					type: 'raid',
-					default: {id: Constants.CURRENT_RAID_ID}
 				}
 			],
 			guildOnly: true
