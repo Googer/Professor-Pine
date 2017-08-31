@@ -11,7 +11,8 @@ class Utility {
 			start_time = initial_message.createdTimestamp;
 
 		if (delete_original) {
-			initial_message.delete();
+			initial_message.delete()
+				.catch(err => console.log(err));
 		}
 
 		channel.messages.array() // cache of recent messages, should be sufficient
@@ -20,7 +21,8 @@ class Utility {
 					(message.author === author ||
 						(message.author === bot && message.isMemberMentioned(author)));
 			})
-			.forEach(message => message.delete());
+			.forEach(message => message.delete()
+				.catch(err => console.log(err)));
 	}
 }
 

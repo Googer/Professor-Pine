@@ -2,8 +2,30 @@
 
 const Commando = require('discord.js-commando'),
 	Client = new Commando.Client(),
+	Raid = require('./app/raid'),
+	discord_settings = require('./data/discord'),
+	nodeCleanup = require('node-cleanup');
 
-	discord_settings = require('./data/discord');
+nodeCleanup((exitCode, signal) => {
+	if (signal) {
+		Raid.cleanupAllRaids()
+			.then(result => {
+				console.log(result);
+
+				// calling process.exit() won't inform parent process of signal
+				process.kill(process.pid, signal);
+			})
+			.catch(err => {
+				console.log(err);
+
+				// calling process.exit() won't inform parent process of signal
+				process.kill(process.pid, signal);
+			});
+
+		nodeCleanup.uninstall(); // don't call cleanup handler again
+		return false;
+	}
+});
 
 Client.registry.registerGroup('raids', 'Raids');
 Client.registry.registerDefaults();
@@ -13,12 +35,18 @@ Client.registry.registerCommandsIn(__dirname + '/commands');
 Client.on('ready', () => {
 });
 
-Client.on('message', (message) => {
+Client.on('message', message => {
 	if (message.content.startsWith('.iam') && message.channel.name !== 'the-bot-lab') {
-		message.author.sendMessage('Use #the-bot-lab to assign roles!');
+		message.author.send('Use #the-bot-lab to assign roles!');
 		if (message.channel.type === 'text') {
-			message.delete();
+			message.delete()
+				.catch(err => console.log(err));
 		}
+	}
+
+	if (message.type === 'PINS_ADD' && message.client.user.bot) {
+		message.delete()
+			.catch(err => console.log(err));
 	}
 });
 

@@ -2,8 +2,7 @@
 
 const Commando = require('discord.js-commando'),
 	Raid = require('../../app/raid'),
-	Utility = require('../../app/utility'),
-	Constants = require('../../app/constants');
+	Utility = require('../../app/utility');
 
 class EndTimeCommand extends Commando.Command {
 	constructor(client) {
@@ -14,37 +13,38 @@ class EndTimeCommand extends Commando.Command {
 			aliases: ['end', 'ends'],
 			description: 'Set a time that the raid will no longer exist.',
 			details: 'Use this command to set remaining time on a raid.',
-			examples: ['\t!end-time lugia-0 1:45', '\t!end moltres-1 50'],
+			examples: ['\t!end-time 1:45', '\t!end 50'],
 			args: [
 				{
-					key: 'raid',
-					prompt: 'Which raid do you wish set the end time on?\nExample: `lugia-0`',
-					type: 'raid',
-					default: {id: Constants.CURRENT_RAID_ID}
-				},
-				{
-					key: 'time',
+					key: 'end-time',
+					label: 'end time',
 					prompt: 'How much time is remaining on the raid (use h:mm or mm format)?\nExample: `1:43`',
-					type: 'time'
+					type: 'endtime'
 				}
 			],
 			argsPromptLimit: 3,
 			guildOnly: true
 		});
+
+		client.dispatcher.addInhibitor(message => {
+			if (message.command.name === 'end-time' && !Raid.validRaid(message.channel)) {
+				message.reply('Set the end time for a raid from its raid channel!');
+				return true;
+			}
+			return false;
+		});
 	}
 
 	run(message, args) {
-		const raid = args['raid'],
-			time = args['time'],
-			info = Raid.setRaidEndTime(message.channel, message.member, raid.id, time);
+		const time = args['end-time'],
+			info = Raid.setRaidEndTime(message.channel, time);
 
-		message.react('👍');
+		message.react('👍')
+			.catch(err => console.log(err));
 
 		Utility.cleanConversation(message);
 
-		// post a new raid message and replace/forget old bot message
-		Raid.getMessage(message.channel, message.member, info.raid.id)
-			.edit(Raid.getFormattedMessage(info.raid));
+		Raid.refreshStatusMessages(info.raid);
 	}
 }
 

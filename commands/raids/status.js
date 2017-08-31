@@ -9,33 +9,35 @@ class StatusCommand extends Commando.Command {
 			name: 'status',
 			group: 'raids',
 			memberName: 'status',
-			description: 'Gets an update on a single raid, or lists all the raids available in the channel.',
+			description: 'Gets an update on a single raid, or lists all the raids available in the channel (context-sensitive).',
 			details: 'Use this command when trying to figure out what raids are available or the status of a raid being planned.  NOTE: This does not get all of the raids in the entire discord, it is channel specific.',
-			examples: ['\t!status', '\t!status lugia-0'],
+			examples: ['\t!status'],
 			guildOnly: true,
 			argsType: 'multiple'
+		});
+
+		client.dispatcher.addInhibitor(message => {
+			if (message.command.name === 'check-in' && !Raid.validRaid(message.channel)) {
+				message.reply('Check out of a raid from its raid channel!');
+				return true;
+			}
+			return false;
 		});
 	}
 
 	run(message, args) {
-		// if no arguements are given for status command, give a shorthand public message of all active raids
-		if (!args.length) {
-			const raids = Raid.getAllRaids(message.channel, message.member);
-
-			message.channel.send(Raid.getShortFormattedMessage(raids));
+		if (!Raid.validRaid(message.channel)) {
+			message.channel.send(Raid.getRaidsFormattedMessage(message.channel))
+				.catch(err => console.log(err));
 		} else {
-			const info = Raid.findRaid(message.channel, message.member, args);
+			const info = Raid.getRaid(message.channel);
 
-			if (info.error) {
-				message.channel.send(info.error);
-			} else {
-				Raid.setUserRaidId(message.member, info.raid.id);
-
-				// post a new raid message and replace/forget old bot message
-				message.channel.send(Raid.getFormattedMessage(info.raid)).then((bot_message) => {
-					Raid.setMessage(message.channel, message.member, info.raid.id, bot_message);
-				});
-			}
+			// post a new raid message
+			message.channel.send(Raid.getRaidSourceChannelMessage(info), Raid.getFormattedMessage(info))
+				.then(status_message => {
+					Raid.addMessage(info.channel, status_message);
+				})
+				.catch(err => console.log(err));
 		}
 	}
 }

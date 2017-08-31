@@ -30,31 +30,57 @@ class RaidCommand extends Commando.Command {
 					key: 'end_time',
 					label: 'end time',
 					prompt: 'How much time is remaining on this raid (use h:mm or mm format)?\n Example: `1:43`',
-					type: 'time',
+					type: 'endtime',
 					default: Constants.UNDEFINED_END_TIME
 				}
 			],
 			argsPromptLimit: 3,
 			guildOnly: true
 		});
+
+		client.dispatcher.addInhibitor(message => {
+			if (message.command.name !== 'raid') {
+				return false;
+			}
+
+			// TODO: Make this look at the channel's permissionOverrides to determine if it's a region channel or not
+			const channel = message.channel;
+
+			if (Raid.validRaid(message.channel)) {
+				message.reply('Create raids from region channels!');
+				return true;
+			}
+			return false;
+		});
+
 	}
 
 	run(message, args) {
 		const pokemon = args['pokemon'],
 			gym = args['gym'],
-			end_time = args['end_time'],
-			info = Raid.createRaid(message.channel, message.member, {
-				pokemon,
-				gym,
-				end_time
-			});
+			end_time = args['end_time'];
 
-		Utility.cleanConversation(message, true);
+		let raid_info;
 
-		message.channel.send(Raid.getFormattedMessage(info.raid)).then((bot_message) => {
-			Raid.setMessage(message.channel, message.member, info.raid.id, bot_message);
+		Raid.createRaid(message.channel, message.member, {
+			pokemon,
+			gym,
+			end_time
+		}).then(info => {
+			raid_info = info;
+
+			Utility.cleanConversation(message, true);
+
+			return message.channel.send(Raid.getRaidChannelMessage(raid_info.raid), Raid.getFormattedMessage(info.raid));
+		}).then(announcement_message => {
+			return Raid.addAnnouncementMessage(raid_info.raid.channel, announcement_message);
+		}).then(bot_message => {
+			return raid_info.raid.channel.send(Raid.getRaidSourceChannelMessage(raid_info.raid), Raid.getFormattedMessage(raid_info.raid));
+		}).then(channel_raid_message => {
+			Raid.addMessage(raid_info.raid.channel, channel_raid_message, true);
+		}).catch(err => {
+			console.log(err);
 		});
-
 	}
 }
 

@@ -7,7 +7,7 @@ class PokemonSearch extends Search {
 	constructor() {
 		super();
 
-		console.log('Indexing Pokemon...');
+		console.log('Indexing pokemon...');
 
 		this.index = lunr(function () {
 			this.ref('object');
@@ -27,7 +27,7 @@ class PokemonSearch extends Search {
 			}, this);
 		});
 
-		console.log('Indexing Pokemon Complete');
+		console.log('Indexing pokemon complete');
 	}
 
 	search(terms) {

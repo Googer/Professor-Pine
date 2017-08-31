@@ -17,12 +17,6 @@ class SetLocationCommand extends Commando.Command {
 			examples: ['\t!set-location lugia-0 Unicorn', '\t!location lugia-0 \'Bellevue Park\'', '\t!location zapdos-1 squirrel'],
 			args: [
 				{
-					key: 'raid',
-					prompt: 'Which raid do you wish to set the location for?\nExample: `lugia-0`',
-					type: 'raid',
-					default: {id: Constants.CURRENT_RAID_ID}
-				},
-				{
 					key: 'gym',
 					prompt: 'Where is the raid taking place?\nExample: `manor theater`',
 					type: 'gym'
@@ -31,20 +25,27 @@ class SetLocationCommand extends Commando.Command {
 			argsPromptLimit: 3,
 			guildOnly: true
 		});
+
+		client.dispatcher.addInhibitor(message => {
+			if (message.command.name === 'set-location' && !Raid.validRaid(message.channel)) {
+				message.reply('Set the location of a raid from its raid channel!');
+				return true;
+			}
+			return false;
+		});
 	}
 
 	run(message, args) {
-		const raid = args['raid'],
-			gym = args['gym'],
-			info = Raid.setRaidLocation(message.channel, message.member, raid.id, gym);
+		const gym = args['gym'],
+			info = Raid.setRaidLocation(message.channel, gym);
 
-		message.react('👍');
+		message.react('👍')
+			.catch(err => console.log(err));
 
 		Utility.cleanConversation(message);
 
 		// post a new raid message and replace/forget old bot message
-		Raid.getMessage(message.channel, message.member, info.raid.id)
-			.edit(Raid.getFormattedMessage(info.raid));
+		Raid.refreshStatusMessages(info.raid);
 	}
 }
 

@@ -14,14 +14,8 @@ class JoinCommand extends Commando.Command {
 			aliases: ['attend'],
 			description: 'Join a raid!',
 			details: 'Use this command to join a raid.  If a time has yet to be determined, then when a time is determined, everyone who has joined will be notified of the official raid start time.',
-			examples: ['\t!join lugia-0', '\t!join zapdos-1 3', '\t!attend lugia-0', '\t!attend tyranitar-2 3'],
+			examples: ['\t!join', '\t!join 3', '\t!attend', '\t!attend 2'],
 			args: [
-				{
-					key: 'raid',
-					prompt: 'Which raid do you wish to join?\nExample: `lugia-0`',
-					type: 'raid',
-					default: {id: Constants.CURRENT_RAID_ID}
-				},
 				{
 					key: 'additional_attendees',
 					label: 'additional attendees',
@@ -34,31 +28,31 @@ class JoinCommand extends Commando.Command {
 			argsPromptLimit: 3,
 			guildOnly: true
 		});
+
+		client.dispatcher.addInhibitor(message => {
+			if (message.command.name === 'join' && !Raid.validRaid(message.channel)) {
+				message.reply('Join a raid from its raid channel!');
+				return true;
+			}
+			return false;
+		});
 	}
 
 	run(message, args) {
-		const raid = args['raid'],
-			additional_attendees = args['additional_attendees'];
-
-		let total_attendees = 0;
-
-		const info = Raid.addAttendee(message.channel, message.member, raid.id, additional_attendees);
-
-		if (info.error) {
-			message.channel.send(info.error);
-		} else {
+		const additional_attendees = args['additional_attendees'],
+			info = Raid.addAttendee(message.channel, message.member, additional_attendees),
 			total_attendees = Raid.getAttendeeCount({raid: info.raid});
 
-			message.react('👍');
+		message.react('👍')
+			.catch(err => console.log(err));
 
-			Utility.cleanConversation(message);
+		Utility.cleanConversation(message);
 
-			message.member.send(`You signed up for raid **${info.raid.id}**. There are now **${total_attendees}** potential Trainer(s) so far!`);
+		message.member.send(`You signed up for raid **${info.raid.id}**. There are now **${total_attendees}** potential Trainer(s) so far!`)
+			.catch(err => console.log(err));
 
-			// get previous bot message & update
-			Raid.getMessage(message.channel, message.member, info.raid.id)
-				.edit(Raid.getFormattedMessage(info.raid));
-		}
+		// get previous bot message & update
+		Raid.refreshStatusMessages(info.raid);
 	}
 }
 

@@ -2,7 +2,8 @@
 
 const lunr = require('lunr'),
 	he = require('he'),
-	Search = require('./search');
+	Search = require('./search'),
+	Raid = require('./raid');
 
 // Maps from regions (channel name) to gym ids within them
 const region_gyms = new Map();
@@ -11,7 +12,7 @@ class GymSearch extends Search {
 	constructor() {
 		super();
 
-		console.log('Indexing Gym Data...');
+		console.log('Splicing gym metadata and indexing gym data...');
 
 		this.index = lunr(function () {
 			// reference will be the entire gym object so we can grab whatever we need from it (GPS coordinates, name, etc.)
@@ -35,15 +36,17 @@ class GymSearch extends Search {
 			this.field('point_of_interest');
 			this.field('transit_station');
 
-			const gymDatabase = require('./../data/gyms'),
-				regions = require('./../data/regions');
+			// field from supplementary metadata
+			this.field('nickname');
+			this.field('additional_terms');
+
+			const gymDatabase = require('../data/gyms'),
+				gymMetadata = require('../data/gyms-metadata'),
+				regions = require('../data/regions');
 
 			gymDatabase.forEach(function (gym) {
 				// Gym document is a object with its reference and fields to collection of values
 				const gymDocument = Object.create(null);
-
-				// reference
-				gymDocument['object'] = he.decode(JSON.stringify(gym));
 
 				// static fields
 				gymDocument['name'] = he.decode(gym.gymName);
@@ -53,20 +56,24 @@ class GymSearch extends Search {
 				//   key is the address component's type
 				//   value is a set of that type's values across all address components
 				const addressInfo = new Map();
-				gym.gymInfo.addressComponents.forEach(function (addressComponent) {
-					addressComponent.addressComponents.forEach(function (addComp) {
-						addComp.types.forEach(function (type) {
-							const typeKey = type.toLowerCase();
-							let values = addressInfo.get(typeKey);
+				if (!gym.gymInfo.addressComponents) {
+					console.log('Gym "' + gym.gymName + '" has no getcode information!');
+				} else {
+					gym.gymInfo.addressComponents.forEach(function (addressComponent) {
+						addressComponent.addressComponents.forEach(function (addComp) {
+							addComp.types.forEach(function (type) {
+								const typeKey = type.toLowerCase();
+								let values = addressInfo.get(typeKey);
 
-							if (!values) {
-								values = new Set();
-								addressInfo.set(typeKey, values);
-							}
-							values.add(addComp.shortName);
+								if (!values) {
+									values = new Set();
+									addressInfo.set(typeKey, values);
+								}
+								values.add(addComp.shortName);
+							});
 						});
 					});
-				});
+				}
 
 				// Insert geocoded map info into map
 				addressInfo.forEach(function (value, key) {
@@ -95,12 +102,27 @@ class GymSearch extends Search {
 					});
 				}
 
+				// merge in additional info from supplementary metadata file
+				const mergedGym = Object.assign({}, gym, gymMetadata[gym.gymId]);
+
+				// Index nickname as well
+				if (mergedGym.nickname) {
+					gymDocument['nickname'] = he.decode(mergedGym.nickname);
+				}
+
+				if (mergedGym.additional_terms) {
+					gymDocument['additional_terms'] = mergedGym.additional_terms;
+				}
+
+				// reference
+				gymDocument['object'] = he.decode(JSON.stringify(mergedGym));
+
 				// Actually add this gym to the Lunr db
 				this.add(gymDocument);
 			}, this);
 		});
 
-		console.log('Indexing Gym Data Complete');
+		console.log('Indexing gym data complete');
 	}
 
 	search(channel_name, terms) {
@@ -123,11 +145,13 @@ class GymSearch extends Search {
 			}
 		}
 
+		const source_channel = Raid.getCreationChannel(channel_name);
+
 		// Now filter results based on what channel this request came from
 		return results
 			.map(result => JSON.parse(result))
 			.filter(gym => {
-				return region_gyms.get(channel_name).has(gym.gymId);
+				return region_gyms.get(source_channel).has(gym.gymId);
 			});
 	}
 }

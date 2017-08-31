@@ -14,32 +14,33 @@ class LeaveCommand extends Commando.Command {
 			aliases: ['part'],
 			description: 'Can\'t make it to a raid? no problem, just leave it.',
 			details: 'Use this command to leave a raid if you can no longer attend.  Don\'t stress, these things happen!',
-			examples: ['\t!leave lugia-0', '\t!part lugia-0'],
-			args: [
-				{
-					key: 'raid',
-					prompt: 'Which raid do you wish to leave?\nExample: `lugia-0`',
-					type: 'raid',
-					default: {id: Constants.CURRENT_RAID_ID}
-				}
-			],
-			argsPromptLimit: 3,
+			examples: ['\t!leave', '\t!part'],
 			guildOnly: true
+		});
+
+		client.dispatcher.addInhibitor(message => {
+			if (message.command.name === 'leave' && !Raid.validRaid(message.channel)) {
+				message.reply('Leave a raid from its raid channel!');
+				return true;
+			}
+			return false;
 		});
 	}
 
 	run(message, args) {
-		const raid = args['raid'],
-			info = Raid.removeAttendee(message.channel, message.member, raid.raid);
+		const info = Raid.removeAttendee(message.channel, message.member);
 
 		if (!info.error) {
-			message.react('👍');
+			message.react('👍')
+				.catch(err => console.log(err));
 
 			Utility.cleanConversation(message);
 
 			// get previous bot message & update
-			Raid.getMessage(message.channel, message.member, info.raid.id)
-				.edit(Raid.getFormattedMessage(info.raid));
+			Raid.refreshStatusMessages(info.raid);
+		} else {
+			message.reply(info.error)
+				.catch(err => console.log(err));
 		}
 	}
 }

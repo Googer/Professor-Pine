@@ -10,14 +10,22 @@ class GymType extends Commando.ArgumentType {
 
 	validate(value, message, arg) {
 		try {
-			return GymSearch.search(message.channel.name, value.split(' ')).length > 0;
+			const gyms = GymSearch.search(message.channel, value.split(' '));
+
+			if (!gyms || gyms.length === 0) {
+				message.reply('No gyms found with entered search terms.');
+				return false;
+			}
+
+			return true;
 		} catch (err) {
+			message.reply('Invalid search terms entered.');
 			return false;
 		}
 	}
 
 	parse(value, message, arg) {
-		const gyms = GymSearch.search(message.channel.name, value.split(' '));
+		const gyms = GymSearch.search(message.channel, value.split(' '));
 
 		return gyms[0];
 	}
