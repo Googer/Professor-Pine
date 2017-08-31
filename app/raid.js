@@ -2,7 +2,7 @@
 
 const moment = require('moment'),
 	settings = require('./../data/settings'),
-	Constants = require('./constants');
+	EndTimeType = require('../types/end-time');
 
 class Raid {
 	constructor() {
@@ -33,7 +33,7 @@ class Raid {
 					last_possible_time = raid.last_possible_time;
 
 				// if end time exists, is valid, and is in the past, schedule raid deletion
-				if (((end_time !== Constants.UNDEFINED_END_TIME && now > end_time) || now > last_possible_time) &&
+				if (((end_time !== EndTimeType.UNDEFINED_END_TIME && now > end_time) || now > last_possible_time) &&
 					!this.raids_to_delete.has(raid)) {
 					this.raids_to_delete.set(raid, deletion_time);
 					raid.channel.send('***WARNING*** - this channel will be deleted automatically at ' + deletion_time.format('h:mm a') + '!')
@@ -114,7 +114,7 @@ class Raid {
 		raid_data.source_channel = channel;
 		raid_data.creation_time = moment();
 		raid_data.last_possible_time = raid_data.creation_time.clone().add(settings.default_raid_length, 'minutes');
-		if (raid_data.end_time !== Constants.UNDEFINED_END_TIME) {
+		if (raid_data.end_time !== EndTimeType.UNDEFINED_END_TIME) {
 			raid_data.end_time = raid_data.creation_time.clone().add(raid_data.end_time, 'minutes');
 		}
 		raid_data.attendees = [member];
@@ -320,7 +320,7 @@ class Raid {
 			raid_data.pokemon.name.charAt(0).toUpperCase() + raid_data.pokemon.name.slice(1) :
 			'????',
 			tier = raid_data.pokemon.tier,
-			end_time = raid_data.end_time !== Constants.UNDEFINED_END_TIME ?
+			end_time = raid_data.end_time !== EndTimeType.UNDEFINED_END_TIME ?
 				raid_data.end_time.format('h:mm a') :
 				'????',
 			start_time = raid_data.start_time ?
@@ -331,7 +331,10 @@ class Raid {
 			gym_name = gym.nickname ?
 				gym.nickname :
 				gym.gymName,
-			location = 'https://www.google.com/maps/dir/Current+Location/' + gym.gymInfo.latitude + ',' + gym.gymInfo.longitude;
+			location = 'https://www.google.com/maps/dir/Current+Location/' + gym.gymInfo.latitude + ',' + gym.gymInfo.longitude,
+			additional_information = gym.additional_information ?
+				`\n\n**Location Notes**:\n${gym.additional_information}` :
+				'';
 
 		// generate string of attendees
 		let attendees_list = '';
@@ -378,7 +381,8 @@ class Raid {
 				`Potential Trainers:\n` +
 				`${attendees_list}\n` +
 				`Trainers: **${total_attendees} total**\n` +
-				`Starting @ **${start_time}**\n`,
+				`Starting @ **${start_time}**` +
+				`${additional_information}`,
 				"url": location,
 				"color": 4437377,
 				"thumbnail": {

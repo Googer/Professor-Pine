@@ -36,6 +36,9 @@ class GymSearch extends Search {
 			this.field('point_of_interest');
 			this.field('transit_station');
 
+			// field for places
+			this.field('places');
+
 			// field from supplementary metadata
 			this.field('nickname');
 			this.field('additional_terms');
@@ -44,82 +47,85 @@ class GymSearch extends Search {
 				gymMetadata = require('../data/gyms-metadata'),
 				regions = require('../data/regions');
 
-			gymDatabase.forEach(function (gym) {
-				// Gym document is a object with its reference and fields to collection of values
-				const gymDocument = Object.create(null);
+			gymDatabase
+				.map(gym => Object.assign({}, gym, gymMetadata[gym.gymId]))
+				.forEach(function (gym) {
+					// Gym document is a object with its reference and fields to collection of values
+					const gymDocument = Object.create(null);
 
-				// static fields
-				gymDocument['name'] = he.decode(gym.gymName);
-				gymDocument['description'] = he.decode(gym.gymInfo.gymDescription);
+					// static fields
+					gymDocument['name'] = he.decode(gym.gymName);
+					gymDocument['description'] = he.decode(gym.gymInfo.gymDescription);
 
-				// Build a map of the geocoded information:
-				//   key is the address component's type
-				//   value is a set of that type's values across all address components
-				const addressInfo = new Map();
-				if (!gym.gymInfo.addressComponents) {
-					console.log('Gym "' + gym.gymName + '" has no getcode information!');
-				} else {
-					gym.gymInfo.addressComponents.forEach(function (addressComponent) {
-						addressComponent.addressComponents.forEach(function (addComp) {
-							addComp.types.forEach(function (type) {
-								const typeKey = type.toLowerCase();
-								let values = addressInfo.get(typeKey);
+					// Build a map of the geocoded information:
+					//   key is the address component's type
+					//   value is a set of that type's values across all address components
+					const addressInfo = new Map();
+					if (!gym.gymInfo.addressComponents) {
+						console.log('Gym "' + gym.gymName + '" has no geocode information!');
+					} else {
+						gym.gymInfo.addressComponents.forEach(function (addressComponent) {
+							addressComponent.addressComponents.forEach(function (addComp) {
+								addComp.types.forEach(function (type) {
+									const typeKey = type.toLowerCase();
+									let values = addressInfo.get(typeKey);
 
-								if (!values) {
-									values = new Set();
-									addressInfo.set(typeKey, values);
-								}
-								values.add(addComp.shortName);
+									if (!values) {
+										values = new Set();
+										addressInfo.set(typeKey, values);
+									}
+									values.add(addComp.shortName);
+								});
 							});
 						});
+					}
+
+					// Insert geocoded map info into map
+					addressInfo.forEach(function (value, key) {
+						gymDocument[key] = Array.from(value).join(' ');
 					});
-				}
 
-				// Insert geocoded map info into map
-				addressInfo.forEach(function (value, key) {
-					gymDocument[key] = Array.from(value).join(' ');
-				});
+					// Add places into library
+					if (gym.gymInfo.places) {
+						gymDocument['places'] = he.decode(gym.gymInfo.places.join(' '));
+					}
 
-				if (!addressInfo.has('postal_code')) {
-					console.log('Gym "' + gym.gymName + '" has no postal code information!');
-				} else {
-					// Add gym to appropriate regions (based on zipcodes to which it belongs)
-					addressInfo.get('postal_code').forEach(zipcode => {
-						const zipcode_regions = regions[zipcode];
+					if (!addressInfo.has('postal_code')) {
+						console.log('Gym "' + gym.gymName + '" has no postal code information!');
+					} else {
+						// Add gym to appropriate regions (based on zipcodes to which it belongs)
+						addressInfo.get('postal_code').forEach(zipcode => {
+							const zipcode_regions = regions[zipcode];
 
-						if (zipcode_regions) {
-							zipcode_regions.forEach(region => {
-								let current_region_gyms = region_gyms.get(region);
+							if (zipcode_regions) {
+								zipcode_regions.forEach(region => {
+									let current_region_gyms = region_gyms.get(region);
 
-								if (!current_region_gyms) {
-									current_region_gyms = new Set();
-									region_gyms.set(region, current_region_gyms);
-								}
+									if (!current_region_gyms) {
+										current_region_gyms = new Set();
+										region_gyms.set(region, current_region_gyms);
+									}
 
-								current_region_gyms.add(gym.gymId);
-							});
-						}
-					});
-				}
+									current_region_gyms.add(gym.gymId);
+								});
+							}
+						});
+					}
 
-				// merge in additional info from supplementary metadata file
-				const mergedGym = Object.assign({}, gym, gymMetadata[gym.gymId]);
+					// merge in additional info from supplementary metadata file
+					// Index nickname as well
+					if (gym.nickname) {
+						gymDocument['nickname'] = he.decode(gym.nickname);
+					}
 
-				// Index nickname as well
-				if (mergedGym.nickname) {
-					gymDocument['nickname'] = he.decode(mergedGym.nickname);
-				}
+					gymDocument['additional_terms'] = gym.additional_terms;
 
-				if (mergedGym.additional_terms) {
-					gymDocument['additional_terms'] = mergedGym.additional_terms;
-				}
+					// reference
+					gymDocument['object'] = he.decode(JSON.stringify(gym));
 
-				// reference
-				gymDocument['object'] = he.decode(JSON.stringify(mergedGym));
-
-				// Actually add this gym to the Lunr db
-				this.add(gymDocument);
-			}, this);
+					// Actually add this gym to the Lunr db
+					this.add(gymDocument);
+				}, this);
 		});
 
 		console.log('Indexing gym data complete');

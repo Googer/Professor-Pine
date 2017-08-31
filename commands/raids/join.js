@@ -2,8 +2,7 @@
 
 const Commando = require('discord.js-commando'),
 	Raid = require('../../app/raid'),
-	Utility = require('../../app/utility'),
-	Constants = require('../../app/constants');
+	Utility = require('../../app/utility');
 
 class JoinCommand extends Commando.Command {
 	constructor(client) {
@@ -11,7 +10,7 @@ class JoinCommand extends Commando.Command {
 			name: 'join',
 			group: 'raids',
 			memberName: 'join',
-			aliases: ['attend'],
+			aliases: ['attend', 'omw'],
 			description: 'Join a raid!',
 			details: 'Use this command to join a raid.  If a time has yet to be determined, then when a time is determined, everyone who has joined will be notified of the official raid start time.',
 			examples: ['\t!join', '\t!join 3', '\t!attend', '\t!attend 2'],

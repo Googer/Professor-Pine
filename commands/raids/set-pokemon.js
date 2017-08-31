@@ -10,7 +10,7 @@ class SetPokemonCommand extends Commando.Command {
 			name: 'set-pokemon',
 			group: 'raids',
 			memberName: 'set-pokemon',
-			aliases: ['pokemon', 'poke', 'setpokemon', 'setpoke'],
+			aliases: ['set-poke', 'pokemon', 'poke'],
 			description: 'Set a pokemon for a specific raid.',
 			details: 'Use this command to set the pokemon of a raid.',
 			examples: ['\t!set-pokemon lugia', '\t!pokemon molty', '\t!poke zapdos'],

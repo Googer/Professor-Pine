@@ -10,7 +10,7 @@ class CheckOutCommand extends Commando.Command {
 			name: 'check-out',
 			group: 'raids',
 			memberName: 'check-out',
-			aliases: ['checkout', 'depart'],
+			aliases: ['depart'],
 			description: 'Let others know you have gone to the wrong location.',
 			details: 'Use this command in case you thought you were at the right location, but were not.',
 			examples: ['\t!check-out', '\t!checkout'],

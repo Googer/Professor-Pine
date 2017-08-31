@@ -30,7 +30,19 @@ nodeCleanup((exitCode, signal) => {
 Client.registry.registerGroup('raids', 'Raids');
 Client.registry.registerDefaults();
 Client.registry.registerTypesIn(__dirname + '/types');
-Client.registry.registerCommandsIn(__dirname + '/commands');
+
+Client.registry.registerCommands([
+	require('./commands/raids/create'),
+	require('./commands/raids/end-time'),
+	require('./commands/raids/join'),
+	require('./commands/raids/start-time'),
+	require('./commands/raids/check-in'),
+	require('./commands/raids/check-out'),
+	require('./commands/raids/leave'),
+	require('./commands/raids/set-pokemon'),
+	require('./commands/raids/set-location'),
+	require('./commands/raids/status')
+]);
 
 Client.on('ready', () => {
 });

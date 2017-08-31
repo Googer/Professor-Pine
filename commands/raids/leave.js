@@ -2,8 +2,7 @@
 
 const Commando = require('discord.js-commando'),
 	Raid = require('../../app/raid'),
-	Utility = require('../../app/utility'),
-	Constants = require('../../app/constants');
+	Utility = require('../../app/utility');
 
 class LeaveCommand extends Commando.Command {
 	constructor(client) {
