@@ -27,9 +27,9 @@ class RaidCommand extends Commando.Command {
 					type: 'gym'
 				},
 				{
-					key: 'end_time',
-					label: 'end time',
-					prompt: 'How much time is remaining on this raid (use h:mm or mm format)?\n Example: `1:43`',
+					key: 'time-left',
+					label: 'time left',
+					prompt: 'How much time is remaining on the raid (use h:mm or mm format)?\nExample: `1:43`',
 					type: 'endtime',
 					default: EndTimeType.UNDEFINED_END_TIME
 				}
@@ -58,14 +58,15 @@ class RaidCommand extends Commando.Command {
 	run(message, args) {
 		const pokemon = args['pokemon'],
 			gym = args['gym'],
-			end_time = args['end_time'];
+			time_left = args['time-left'];
 
 		let raid_info;
 
 		Raid.createRaid(message.channel, message.member, {
 			pokemon,
 			gym,
-			end_time
+			// minutes remaining gets turned into actual end time
+			end_time: time_left
 		}).then(info => {
 			raid_info = info;
 
@@ -73,7 +74,7 @@ class RaidCommand extends Commando.Command {
 
 			return message.channel.send(Raid.getRaidChannelMessage(raid_info.raid), Raid.getFormattedMessage(info.raid));
 		}).then(announcement_message => {
-			return Raid.addAnnouncementMessage(raid_info.raid.channel, announcement_message);
+			return Raid.setAnnouncementMessage(raid_info.raid.channel, announcement_message);
 		}).then(bot_message => {
 			return raid_info.raid.channel.send(Raid.getRaidSourceChannelMessage(raid_info.raid), Raid.getFormattedMessage(raid_info.raid));
 		}).then(channel_raid_message => {

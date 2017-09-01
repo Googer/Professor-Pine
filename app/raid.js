@@ -171,7 +171,7 @@ class Raid {
 		return length;
 	}
 
-	addAnnouncementMessage(channel, message) {
+	setAnnouncementMessage(channel, message) {
 		const raid = this.getRaid(channel);
 
 		if (!raid) {
