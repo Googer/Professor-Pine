@@ -2,24 +2,31 @@
 
 const Commando = require('discord.js-commando'),
 	moment = require('moment'),
+	Utility = require('../app/utility'),
 	settings = require('../data/settings.json');
 
-class EndTimeType extends Commando.ArgumentType {
+class TimeType extends Commando.ArgumentType {
 	constructor(client) {
-		super(client, 'endtime');
+		super(client, 'time');
 	}
 
 	validate(value, message, arg) {
-		let mode = 'relative';
+		const extra_error_message = Utility.isOneLiner(message, value) ?
+			'  Do **not** re-enter the `' + arg.command.name + '` command.' :
+			'';
+
+		let mode = arg.min; // hacky way to get a preferred mode out of the argument definition
 
 		if (value.trim().match(/^[at|@]/i)) {
 			mode = 'absolute';
+		} else if (value.trim().match(/^in/i)) {
+			mode = 'relative';
 		}
 
 		const matches = value.match(/(\d+)([^\d]+)?/g);
 
 		if (!matches) {
-			message.reply('Time entered is not valid.  Try something in h:mm format (such as `1:43`).');
+			message.reply('\'' + value + '\' is not a valid time.  Try something in h:mm format (such as `1:43`).' + extra_error_message);
 			return false;
 		}
 
@@ -44,7 +51,7 @@ class EndTimeType extends Commando.ArgumentType {
 			}
 
 			if (minutes > settings.max_end_time) {
-				message.reply('Time entered is too far in the future.  Try something in h:mm format (such as `1:43`).');
+				message.reply('\'' + value + '\' is too far in the future.  Try something in h:mm format (such as `1:43`).' + extra_error_message);
 				return false;
 			}
 
@@ -64,25 +71,32 @@ class EndTimeType extends Commando.ArgumentType {
 				diff_time_2 = possible_time_2.diff(now, 'minutes');
 
 			// if time is greater than 3 hours, the user likely entered incorrect information
-			if (diff_time_1 > settings.max_end_time || diff_time_2 > settings.max_end_time) {
-				message.reply('Specified time is too far in the future!');
-				return false;
+			if (arg.command.name === 'start-time') {
+				const raid = require('../app/raid').getRaid(message.channel),
+					end_time = raid.end_time;
+
+				if (!!end_time && possible_time_1 > end_time && possible_time_2 > end_time) {
+					message.reply('\'' + value + '\' is too far in the future!' + extra_error_message);
+					return false;
+				}
 			}
 
 			if (diff_time_1 >= 0 || diff_time_2 >= 0) {
 				return true;
 			} else {
-				message.reply('Please enter a time in the future.');
+				message.reply('Please enter a time in the future.' + extra_error_message);
 				return false;
 			}
 		}
 	}
 
 	parse(value, message, arg) {
-		let mode = 'relative';
+		let mode = arg.min; // hacky way to get a preferred mode out of the argument definition
 
 		if (value.trim().match(/^[at|@]/i)) {
 			mode = 'absolute';
+		} else if (value.trim().match(/^in/i)) {
+			mode = 'relative';
 		}
 
 		const matches = value.match(/(\d+)([^\d]+)?/g);
@@ -110,8 +124,6 @@ class EndTimeType extends Commando.ArgumentType {
 			return minutes;
 		} else {
 			// absolute, only deal with h:mm for now
-			// special scenario if the user entered a time like "1:20" without am/pm or at least it couldn't be found via regex
-			//		need to figure out whether it should be am or pm based on current time
 			const now = moment(),
 				hours = parseInt(matches[0].match(/^(\d+)/)[1]),
 				minutes = matches.length > 1 ?
@@ -137,4 +149,4 @@ class EndTimeType extends Commando.ArgumentType {
 	}
 }
 
-module.exports = EndTimeType;
+module.exports = TimeType;

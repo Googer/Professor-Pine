@@ -2,7 +2,7 @@
 
 const moment = require('moment'),
 	settings = require('./../data/settings'),
-	EndTimeType = require('../types/end-time');
+	EndTimeType = require('../types/time');
 
 class Raid {
 	constructor() {
@@ -246,7 +246,7 @@ class Raid {
 	setRaidStartTime(channel, start_time) {
 		const raid_data = this.getRaid(channel);
 
-		raid_data.start_time = start_time;
+		raid_data.start_time = moment().add(start_time, 'minutes');
 
 		return {raid: raid_data};
 	}
@@ -442,3 +442,4 @@ class Raid {
 }
 
 module.exports = new Raid();
+

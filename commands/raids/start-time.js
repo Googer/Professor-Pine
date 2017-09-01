@@ -1,8 +1,8 @@
 "use strict";
 
-const moment = require('moment');
-const Commando = require('discord.js-commando');
-const Raid = require('../../app/raid');
+const Commando = require('discord.js-commando'),
+	Raid = require('../../app/raid'),
+	Utility = require('../../app/utility');
 
 class StartTimeCommand extends Commando.Command {
 	constructor(client) {
@@ -19,7 +19,8 @@ class StartTimeCommand extends Commando.Command {
 					key: 'start-time',
 					label: 'start time',
 					prompt: 'What time do you wish to begin this raid?\nExamples: `8:43`, `2:20pm`, `30 minutes`',
-					type: 'starttime'
+					type: 'time',
+					min: 'absolute'
 				}
 			],
 			guildOnly: true
@@ -54,7 +55,8 @@ class StartTimeCommand extends Commando.Command {
 			}
 		}
 
-		// post a new raid message and replace/forget old bot message
+		Utility.cleanConversation(message);
+
 		Raid.refreshStatusMessages(info.raid);
 	}
 }

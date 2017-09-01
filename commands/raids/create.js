@@ -3,7 +3,7 @@
 const Commando = require('discord.js-commando'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility'),
-	EndTimeType = require('../../types/end-time');
+	EndTimeType = require('../../types/time');
 
 class RaidCommand extends Commando.Command {
 	constructor(client) {
@@ -30,7 +30,8 @@ class RaidCommand extends Commando.Command {
 					key: 'time-left',
 					label: 'time left',
 					prompt: 'How much time is remaining on the raid (use h:mm or mm format)?\nExample: `1:43`',
-					type: 'endtime',
+					type: 'time',
+					min: 'relative',
 					default: EndTimeType.UNDEFINED_END_TIME
 				}
 			],

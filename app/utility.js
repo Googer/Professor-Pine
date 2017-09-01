@@ -4,6 +4,10 @@ class Utility {
 	constructor() {
 	}
 
+	static isOneLiner(message, value) {
+		return message.message.content.includes(value);
+	}
+
 	static async cleanConversation(initial_message, delete_original = false) {
 		const channel = initial_message.channel,
 			author = initial_message.author,
