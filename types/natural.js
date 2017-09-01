@@ -16,11 +16,11 @@ class NaturalArgumentType extends Commando.ArgumentType {
 		const int = Number.parseInt(value);
 
 		if (!Number.isNaN(int) && int >= 0) {
-			message.reply('Please enter a number greater than zero!' + extra_error_message);
-			return false;
+			return true;
 		}
 
-		return true;
+		message.reply('Please enter a number greater than zero!' + extra_error_message);
+		return false;
 	}
 
 	parse(value, message, arg) {
