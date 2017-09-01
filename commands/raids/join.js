@@ -19,9 +19,8 @@ class JoinCommand extends Commando.Command {
 					key: 'additional_attendees',
 					label: 'additional attendees',
 					prompt: 'How many additional people will be coming with you?\nExample: `1`',
-					type: 'integer',
+					type: 'natural',
 					default: 0,
-					min: 0
 				}
 			],
 			argsPromptLimit: 3,

@@ -33,7 +33,7 @@ Client.registry.registerTypesIn(__dirname + '/types');
 
 Client.registry.registerCommands([
 	require('./commands/raids/create'),
-	require('./commands/raids/end-time'),
+	require('./commands/raids/time-left'),
 	require('./commands/raids/join'),
 	require('./commands/raids/start-time'),
 	require('./commands/raids/check-in'),
