@@ -15,6 +15,10 @@ class RaidCommand extends Commando.Command {
 			description: 'Create a new raid group!',
 			details: 'Use this command to start organizing a new raid.  For your convenience, this command combines several options such that you can set the pokemon, the location, and the end time of the raid, all at once.',
 			examples: ['\t!raid lugia', '\t!raid zapdos \'manor theater\' 1:43', '\t!raid magikarp olea', '\t!raid ttar \'frog fountain\''],
+			throttling: {
+				usages: 5,
+				duration: 300
+			},
 			args: [
 				{
 					key: 'pokemon',

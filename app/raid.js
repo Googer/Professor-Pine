@@ -23,7 +23,7 @@ class Raid {
 			moderator: ''
 		};
 
-		// loop to clean up raids every 1 minute
+		// loop to clean up raids periodically
 		this.update = setInterval(() => {
 			const now = moment(),
 				deletion_time = now.clone().add(settings.deletion_warning_time, 'minutes');
@@ -67,8 +67,6 @@ class Raid {
 
 		const raids = this.raids.values(),
 			promises = Array.of();
-
-		let client;
 
 		Array.from(raids).forEach(raid => {
 			console.log('Deleting announcement message for ' + raid.id);

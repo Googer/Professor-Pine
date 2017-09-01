@@ -19,7 +19,7 @@ class GymType extends Commando.ArgumentType {
 			const gyms = GymSearch.search(message.channel, value.split(' '));
 
 			if (!gyms || gyms.length === 0) {
-				message.reply('\'value\' returned no gyms.' + extra_error_message);
+				message.reply('\'' + value + '\' returned no gyms.' + extra_error_message);
 				return false;
 			}
 
