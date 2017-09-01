@@ -18,6 +18,9 @@ class Search {
 	static makeFuzzy(term) {
 		// Let's arbitrarily decide that every ~4.5 characters of length increases the amount
 		// of fuzziness by 1; in practice this seems about right to account for typos, etc.
+
+		term = term.substring(0, 15);
+
 		const fuzzyAmount = Math.floor(term.length / 4.5);
 
 		return fuzzyAmount > 0 ?
