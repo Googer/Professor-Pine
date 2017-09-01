@@ -526,6 +526,9 @@
   },
   {
     "name": "magikarp",
+    "nickname": [
+      "karp"
+    ],
     "number": 129,
     "tier": 1
   },
