@@ -1,6 +1,7 @@
 "use strict";
 
 const Commando = require('discord.js-commando'),
+	Raid = require('../app/raid'),
 	GymSearch = require('../app/gym-search');
 
 class GymType extends Commando.ArgumentType {
@@ -14,6 +15,13 @@ class GymType extends Commando.ArgumentType {
 
 			if (!gyms || gyms.length === 0) {
 				message.reply('No gyms found with entered search terms.');
+				return false;
+			}
+
+			const gym = gyms[0];
+
+			if (Raid.raidExistsForGym(gym)) {
+				message.reply('Gym already has an active raid.');
 				return false;
 			}
 

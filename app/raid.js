@@ -405,7 +405,13 @@ class Raid {
 			.forEach(message =>
 				message.edit(this.getRaidSourceChannelMessage(raid_data), this.getFormattedMessage(raid_data))
 					.catch(err => console.log(err)));
+	}
 
+	raidExistsForGym(gym) {
+		return this.raids.size > 0 && Array.from(this.raids.values())
+			.map(raid => raid.gym.gymId)
+			.filter(raid_gym_id => raid_gym_id === gym.gymId)
+			.length > 0;
 	}
 
 	getCreationChannel(channel) {
