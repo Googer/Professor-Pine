@@ -11,7 +11,9 @@ const region_gyms = new Map();
 class GymSearch extends Search {
 	constructor() {
 		super();
+	}
 
+	buildIndex() {
 		console.log('Splicing gym metadata and indexing gym data...');
 
 		this.index = lunr(function () {
@@ -131,14 +133,20 @@ class GymSearch extends Search {
 		console.log('Indexing gym data complete');
 	}
 
-	search(channel_name, terms) {
+	search(channel, terms) {
 		// lunr does an OR of its search terms and we really want AND, so we'll get there by doing individual searches
 		// on everything and getting the intersection of the hits
-		let results = super.search([terms[0]])
+
+		// first filter out stop words from the search terms; lunr does this itself so our hacky way of AND'ing will
+		// return nothing if they have any in their search terms list since they'll never match anything
+		const filtered_terms = terms
+			.filter(term => lunr.stopWordFilter(term));
+
+		let results = super.search([filtered_terms[0]])
 			.map(result => result.ref);
 
-		for (let i = 1; i < terms.length; i++) {
-			const termResults = super.search([terms[i]])
+		for (let i = 1; i < filtered_terms.length; i++) {
+			const termResults = super.search([filtered_terms[i]])
 				.map(result => result.ref);
 
 			results = results.filter(result => {
@@ -151,13 +159,13 @@ class GymSearch extends Search {
 			}
 		}
 
-		const source_channel = Raid.getCreationChannel(channel_name);
+		const channel_name = Raid.getCreationChannelName(channel);
 
 		// Now filter results based on what channel this request came from
 		return results
 			.map(result => JSON.parse(result))
 			.filter(gym => {
-				return region_gyms.get(source_channel).has(gym.gymId);
+				return region_gyms.get(channel_name).has(gym.gymId);
 			});
 	}
 }

@@ -5,6 +5,8 @@ class Search {
 		if (new.target === Search) {
 			throw new TypeError("Cannot construct Search instances directly");
 		}
+
+		this.buildIndex();
 	}
 
 	search(terms) {

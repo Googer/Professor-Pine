@@ -6,7 +6,9 @@ const lunr = require('lunr'),
 class PokemonSearch extends Search {
 	constructor() {
 		super();
+	}
 
+	buildIndex() {
 		console.log('Indexing pokemon...');
 
 		this.index = lunr(function () {

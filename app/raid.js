@@ -6,9 +6,6 @@ const moment = require('moment'),
 
 class Raid {
 	constructor() {
-		// maps channel ids to parent channels (i.e, channel that raid was created from)
-		this.channels = new Map();
-
 		// maps channel ids to raid info for that channel
 		this.raids = new Map();
 
@@ -50,7 +47,6 @@ class Raid {
 						channel = raid.channel;
 
 					this.raids.delete(channel.id);
-					this.channels.delete(channel.id);
 					this.raids_to_delete.delete(raid);
 
 					raid.announcement_message.delete()
@@ -127,7 +123,6 @@ class Raid {
 			.then(new_channel => {
 				raid_data.channel = new_channel;
 				this.raids.set(new_channel.id, raid_data);
-				this.channels.set(new_channel.id, channel.name);
 				return {raid: raid_data};
 			});
 	}
@@ -143,12 +138,6 @@ class Raid {
 	getAllRaids(channel) {
 		return Array.from(this.raids.values())
 			.filter(raid => raid.source_channel === channel);
-	}
-
-	findRaid(channel, member, args) {
-		const raid = this.getRaid(channel);
-
-		return {raid: raid, args: args};
 	}
 
 	getAttendeeCount(options) {
@@ -417,9 +406,11 @@ class Raid {
 			.length > 0;
 	}
 
-	getCreationChannel(channel) {
-		return this.channels.has(channel.id) ?
-			this.channels.get(channel.id) :
+	getCreationChannelName(channel) {
+		const raid = this.getRaid(channel);
+
+		return raid ?
+			raid.source_channel.name :
 			channel.name;
 	}
 
