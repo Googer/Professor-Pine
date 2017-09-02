@@ -45,6 +45,7 @@ Client.registry.registerCommands([
 ]);
 
 Client.on('ready', () => {
+	Raid.setClient(Client);
 });
 
 Client.on('message', message => {

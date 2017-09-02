@@ -78,9 +78,14 @@ class Raid {
 		});
 
 		await Promise.all(promises)
+			.then(() => this.client.destroy())
 			.catch(err => console.log(err));
 
 		return '...done';
+	}
+
+	setClient(client) {
+		this.client = client;
 	}
 
 	createRaid(channel, member, raid_data) {
