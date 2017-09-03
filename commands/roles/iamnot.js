@@ -12,18 +12,25 @@ class IAmNotCommand extends Commando.Command {
 			aliases: ['unassign'],
 			description: 'Unassign roles from yourself.',
 			details: '?????',
-			examples: ['\t!iamnot Mystic', '\t!unassign Valor'],
-			argsType: 'multiple'
+			examples: ['\t!iamnot Mystic', '\t!unassign Valor']
 		});
 	}
 
 	run(message, args) {
 		if (message.channel.type !== 'text') {
-			message.reply('Please use `.iamnot` from a public channel.');
+			message.reply('Please use `!iamnot` from a public channel.');
 			return;
 		}
 
-		Role.assignRole(message.channel, message.member, args[0]);
+		Role.removeRole(message.channel, message.member, args).then(() => {
+			message.react('👍');
+		}).catch((err) => {
+			if (err && err.error) {
+				message.reply(err.error);
+			} else {
+				console.log(err);
+			}
+		});
 	}
 }
 

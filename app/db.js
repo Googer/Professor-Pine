@@ -11,43 +11,37 @@ class RethinkDBManager {
 		this.guilds = new Map();
 
 		r.connect({ host: 'localhost', port: 28015 }, (err, conn) => {
-			if (err) throw err;
+			if (err) { throw err; }
 			this.connection = conn;
 			// this.initialize();
 		});
 	}
 
 	initialize(guilds) {
+		// for every guild/sever the bot is connected to, attempt to initialize DB's for each if they don't already exist
 		guilds.forEach((key, value, map) => {
-			console.log(key.id);
 			this.guilds.set(key.id, map);
+
+			r.dbCreate(key.id).run(this.connection, (err, result) => {
+				if (err && err.name !== 'ReqlOpFailedError') {
+					if (err) { throw err; }
+				}
+			});
 
 			// set up users table if it doesn't already exist
 			r.db(key.id).tableCreate('users').run(this.connection, (err, result) => {
 				if (err && err.name !== 'ReqlOpFailedError') {
-					if (err) throw err;
+					if (err) { throw err; }
 				}
 			});
 
 			// set up roles table if it doesn't already exist
 			r.db(key.id).tableCreate('roles').run(this.connection, (err, result) => {
 				if (err && err.name !== 'ReqlOpFailedError') {
-					if (err) throw err;
+					if (err) { throw err; }
 				}
 			});
 		});
-	}
-
-	insertData(channel, table, data, callback) {
-		if (!this.guilds.get(channel.guild.id)) {
-			throw 'Guild ID does not exist';
-		}
-
-		r.table(channel.guild.id).insert(data).run(this.connection, callback);
-	}
-
-	getData(channel, table, callback) {
-		r.table(table).run(this.connection, callback);
 	}
 }
 

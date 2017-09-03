@@ -12,18 +12,25 @@ class IAmCommand extends Commando.Command {
 			aliases: ['assign'],
 			description: 'Assign available roles to yourself.',
 			details: '?????',
-			examples: ['\t!iam Mystic', '\t!role Valor', '\t!assign Instinct'],
-			argsType: 'multiple'
+			examples: ['\t!iam Mystic', '\t!role Valor', '\t!assign Instinct']
 		});
 	}
 
 	run(message, args) {
 		if (message.channel.type !== 'text') {
-			message.reply('Please use `.iam` from a public channel.');
+			message.reply('Please use `!iam` from a public channel.');
 			return;
 		}
 
-		Role.assignRole(message.channel, message.member, args[0]);
+		Role.assignRole(message.channel, message.member, args).then(() => {
+			message.react('👍');
+		}).catch((err) => {
+			if (err && err.error) {
+				message.reply(err.error);
+			} else {
+				console.log(err);
+			}
+		});
 	}
 }
 

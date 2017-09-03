@@ -1,6 +1,6 @@
 "use strict";
 
-const DBManager = require('./app/db.js');
+const DB = require('./app/db.js');
 const Commando = require('discord.js-commando');
 const Client = new Commando.Client({
 	owners: [ '188406143796772864', '277303642992934914' ]
@@ -15,7 +15,7 @@ Client.registry.registerDefaults();
 Client.registry.registerCommandsIn(__dirname + '/commands');
 
 Client.on('ready', () => {
-	DBManager.initialize(Client.guilds);
+	DB.initialize(Client.guilds);
 	console.log('BOT IS ONLINE!');
 });
 

@@ -9,18 +9,27 @@ class AsarCommand extends Commando.Command {
 			name: 'asar',
 			group: 'admin',
 			memberName: 'asar',
-			description: 'Add new self assignable role.',
-			argsType: 'multiple'
+			description: 'Add new self assignable role.'
 		});
 	}
 
 	run(message, args) {
+		args = args.split(/,\s?/g);
+
 		if (message.channel.type !== 'text') {
 			message.reply('Please use `asar` from a public channel.');
 			return;
 		}
 
-		Role.addNewRoles(message.channel, message.member, args);
+		Role.addNewRoles(message.channel, message.member, args).then(() => {
+			message.react('👍');
+		}).catch((err) => {
+			if (err && err.error) {
+				message.reply(err.error);
+			} else {
+				console.log(err);
+			}
+		});
 	}
 }
 
