@@ -28,7 +28,7 @@ class JoinCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'join' && !Raid.validRaid(message.channel)) {
+			if (message.command.name === 'join' && !Raid.validRaid(message.channel.id)) {
 				message.reply('Join a raid from its raid channel!');
 				return true;
 			}
@@ -36,9 +36,9 @@ class JoinCommand extends Commando.Command {
 		});
 	}
 
-	run(message, args) {
+	async run(message, args) {
 		const additional_attendees = args['additional_attendees'],
-			info = Raid.addAttendee(message.channel, message.member, additional_attendees),
+			info = Raid.addAttendee(message.channel.id, message.member.id, additional_attendees),
 			total_attendees = Raid.getAttendeeCount({raid: info.raid});
 
 		message.react('👍')
@@ -46,11 +46,12 @@ class JoinCommand extends Commando.Command {
 
 		Utility.cleanConversation(message);
 
-		message.member.send(`You signed up for raid **${info.raid.id}**. There are now **${total_attendees}** potential Trainer(s) so far!`)
+		message.member.send(`You signed up for raid **${info.raid.channel_name}**. ` +
+			`There are now **${total_attendees}** potential Trainer(s) so far!`)
 			.catch(err => console.log(err));
 
 		// get previous bot message & update
-		Raid.refreshStatusMessages(info.raid);
+		await Raid.refreshStatusMessages(info.raid);
 	}
 }
 

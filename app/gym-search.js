@@ -133,7 +133,7 @@ class GymSearch extends Search {
 		console.log('Indexing gym data complete');
 	}
 
-	search(channel, terms) {
+	search(channel_id, terms) {
 		// lunr does an OR of its search terms and we really want AND, so we'll get there by doing individual searches
 		// on everything and getting the intersection of the hits
 
@@ -159,7 +159,7 @@ class GymSearch extends Search {
 			}
 		}
 
-		const channel_name = Raid.getCreationChannelName(channel);
+		const channel_name = Raid.getCreationChannelName(channel_id);
 
 		// Now filter results based on what channel this request came from
 		return results
@@ -167,6 +167,10 @@ class GymSearch extends Search {
 			.filter(gym => {
 				return region_gyms.get(channel_name).has(gym.gymId);
 			});
+	}
+
+	isValidChannel(channel_name) {
+		return region_gyms.has(channel_name);
 	}
 }
 

@@ -1,6 +1,7 @@
 "use strict";
 
 const Commando = require('discord.js-commando'),
+	GymSearch = require('../../app/gym-search'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility'),
 	EndTimeType = require('../../types/time');
@@ -48,45 +49,46 @@ class RaidCommand extends Commando.Command {
 				return false;
 			}
 
-			// TODO: Make this look at the channel's permissionOverrides to determine if it's a region channel or not
-			const channel = message.channel;
-
-			if (Raid.validRaid(message.channel)) {
+			if (Raid.validRaid(message.channel.id) || !GymSearch.isValidChannel(message.channel.name)) {
 				message.reply('Create raids from region channels!');
 				return true;
 			}
+
 			return false;
 		});
 
 	}
 
-	run(message, args) {
+	async run(message, args) {
 		const pokemon = args['pokemon'],
 			gym = args['gym'],
 			time_left = args['time-left'];
 
-		let raid_info;
+		let raid_info,
+			formatted_message;
 
-		Raid.createRaid(message.channel, message.member, {
-			pokemon,
-			gym,
-			// minutes remaining gets turned into actual end time
-			end_time: time_left
-		}).then(info => {
-			raid_info = info;
+		Raid.createRaid(message.channel.id, message.member.id, pokemon, gym, time_left)
+			.then(async info => {
+				raid_info = info;
 
-			Utility.cleanConversation(message, true);
+				Utility.cleanConversation(message, true);
 
-			return message.channel.send(Raid.getRaidChannelMessage(raid_info.raid), Raid.getFormattedMessage(info.raid));
-		}).then(announcement_message => {
-			return Raid.setAnnouncementMessage(raid_info.raid.channel, announcement_message);
-		}).then(bot_message => {
-			return raid_info.raid.channel.send(Raid.getRaidSourceChannelMessage(raid_info.raid), Raid.getFormattedMessage(raid_info.raid));
-		}).then(channel_raid_message => {
-			Raid.addMessage(raid_info.raid.channel, channel_raid_message, true);
-		}).catch(err => {
-			console.log(err);
-		});
+				formatted_message = await Raid.getFormattedMessage(raid_info.raid);
+				return message.channel.send(Raid.getRaidChannelMessage(raid_info.raid), formatted_message);
+			})
+			.then(announcement_message => {
+				return Raid.setAnnouncementMessage(raid_info.raid.channel_id, announcement_message);
+			})
+			.then(bot_message => {
+				return Raid.getChannel(raid_info.raid.channel_id)
+					.send(Raid.getRaidSourceChannelMessage(raid_info.raid), formatted_message);
+			})
+			.then(channel_raid_message => {
+				Raid.addMessage(raid_info.raid.channel_id, channel_raid_message, true);
+			})
+			.catch(err => {
+				console.log(err);
+			});
 	}
 }
 

@@ -18,7 +18,7 @@ class LeaveCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'leave' && !Raid.validRaid(message.channel)) {
+			if (message.command.name === 'leave' && !Raid.validRaid(message.channel.id)) {
 				message.reply('Leave a raid from its raid channel!');
 				return true;
 			}
@@ -26,8 +26,8 @@ class LeaveCommand extends Commando.Command {
 		});
 	}
 
-	run(message, args) {
-		const info = Raid.removeAttendee(message.channel, message.member);
+	async run(message, args) {
+		const info = Raid.removeAttendee(message.channel.id, message.member.id);
 
 		if (!info.error) {
 			message.react('👍')
@@ -36,7 +36,7 @@ class LeaveCommand extends Commando.Command {
 			Utility.cleanConversation(message);
 
 			// get previous bot message & update
-			Raid.refreshStatusMessages(info.raid);
+			await Raid.refreshStatusMessages(info.raid);
 		} else {
 			message.reply(info.error)
 				.catch(err => console.log(err));

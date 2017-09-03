@@ -28,7 +28,7 @@ class TimeRemainingCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'end-time' && !Raid.validRaid(message.channel)) {
+			if (message.command.name === 'time-left' && !Raid.validRaid(message.channel.id)) {
 				message.reply('Set the end time for a raid from its raid channel!');
 				return true;
 			}
@@ -36,16 +36,16 @@ class TimeRemainingCommand extends Commando.Command {
 		});
 	}
 
-	run(message, args) {
+	async run(message, args) {
 		const time = args['time-left'],
-			info = Raid.setRaidEndTime(message.channel, time);
+			info = Raid.setRaidEndTime(message.channel.id, time);
 
 		message.react('👍')
 			.catch(err => console.log(err));
 
 		Utility.cleanConversation(message);
 
-		Raid.refreshStatusMessages(info.raid);
+		await Raid.refreshStatusMessages(info.raid);
 	}
 }
 

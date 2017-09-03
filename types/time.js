@@ -62,31 +62,31 @@ class TimeType extends Commando.ArgumentType {
 				hours = parseInt(matches[0].match(/^(\d+)/)[1]),
 				minutes = matches.length > 1 ?
 					parseInt(matches[1].match(/^(\d+)/)[1]) :
-					0,
+					0;
 
-				possible_time_1 = now.clone().set({hours, minutes}),
-				possible_time_2 = now.clone().set({hours: hours + 12, minutes}),
+			const possible_time = now.clone().set({hours, minutes});
 
-				diff_time_1 = possible_time_1.diff(now, 'minutes'),
-				diff_time_2 = possible_time_2.diff(now, 'minutes');
+			if (possible_time.diff(now) < 0) {
+				possible_time.add(12, 'hours');
+			}
+
+			if (possible_time.diff(now) < 0) {
+				message.reply('Please enter a time in the future.' + extra_error_message);
+				return false;
+			}
 
 			// if time is greater than 3 hours, the user likely entered incorrect information
 			if (arg.command.name === 'start-time') {
-				const raid = require('../app/raid').getRaid(message.channel),
+				const raid = require('../app/raid').getRaid(message.channel.id),
 					end_time = raid.end_time;
 
-				if (!!end_time && possible_time_1 > end_time && possible_time_2 > end_time) {
-					message.reply('\'' + value + '\' is too far in the future!' + extra_error_message);
+				if (end_time != TimeType.UNDEFINED_END_TIME && possible_time > end_time) {
+					message.reply(value + ' is after this raid\'s end time!' + extra_error_message);
 					return false;
 				}
 			}
 
-			if (diff_time_1 >= 0 || diff_time_2 >= 0) {
-				return true;
-			} else {
-				message.reply('Please enter a time in the future.' + extra_error_message);
-				return false;
-			}
+			return true;
 		}
 	}
 
@@ -121,26 +121,22 @@ class TimeType extends Commando.ArgumentType {
 				minutes *= multipliers.pop();
 			}
 
-			return minutes;
+			return minutes * 60 * 1000; // time is in milliseconds
 		} else {
 			// absolute, only deal with h:mm for now
 			const now = moment(),
 				hours = parseInt(matches[0].match(/^(\d+)/)[1]),
 				minutes = matches.length > 1 ?
 					parseInt(matches[1].match(/^(\d+)/)[1]) :
-					0,
+					0;
 
-				possible_time_1 = now.clone().set({hours, minutes}),
-				possible_time_2 = now.clone().set({hours: hours + 12, minutes}),
+			const possible_time = now.clone().set({hours, minutes});
 
-				diff_time_1 = possible_time_1.diff(now, 'minutes'),
-				diff_time_2 = possible_time_2.diff(now, 'minutes');
-
-			if (diff_time_1 >= 0) {
-				return diff_time_1;
-			} else {
-				return diff_time_2;
+			if (possible_time.diff(now) < 0) {
+				possible_time.add(12, 'hours');
 			}
+
+			return possible_time.diff(now);
 		}
 	}
 

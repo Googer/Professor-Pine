@@ -27,7 +27,7 @@ class StartTimeCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'start-time' && !Raid.validRaid(message.channel)) {
+			if (message.command.name === 'start-time' && !Raid.validRaid(message.channel.id)) {
 				message.reply('Set the start time of a raid from its raid channel!');
 				return true;
 			}
@@ -35,9 +35,9 @@ class StartTimeCommand extends Commando.Command {
 		});
 	}
 
-	run(message, args) {
+	async run(message, args) {
 		const start_time = args['start-time'],
-			info = Raid.setRaidStartTime(message.channel, start_time);
+			info = Raid.setRaidStartTime(message.channel.id, start_time);
 
 		message.react('👍')
 			.catch(err => console.log(err));
@@ -46,18 +46,21 @@ class StartTimeCommand extends Commando.Command {
 
 		// notify all attendees that a time has been set
 		for (let i = 0; i < info.raid.attendees.length; i++) {
-			let member = info.raid.attendees[i];
+			let member_id = info.raid.attendees[i];
 
 			// no reason to spam the person who set the time, telling them the time being set haha
-			if (member.id !== message.member.id) {
-				member.send(`A start time has been set for **${info.raid.id}** @ **${info.raid.start_time}**. There are currently **${total_attendees}** Trainer(s) attending!`)
+			if (member_id !== message.member.id) {
+				Raid.getMember(member_id)
+					.then(member => member.send(
+						`A start time has been set for **${info.raid.channel_name}** @ **${info.raid.start_time}**. ` +
+						`There are currently **${total_attendees}** Trainer(s) attending!`))
 					.catch(err => console.log(err));
 			}
 		}
 
 		Utility.cleanConversation(message);
 
-		Raid.refreshStatusMessages(info.raid);
+		await Raid.refreshStatusMessages(info.raid);
 	}
 }
 

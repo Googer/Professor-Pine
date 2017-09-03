@@ -17,7 +17,7 @@ class StatusCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'check-in' && !Raid.validRaid(message.channel)) {
+			if (message.command.name === 'check-in' && !Raid.validRaid(message.channel.id)) {
 				message.reply('Check out of a raid from its raid channel!');
 				return true;
 			}
@@ -25,17 +25,18 @@ class StatusCommand extends Commando.Command {
 		});
 	}
 
-	run(message, args) {
-		if (!Raid.validRaid(message.channel)) {
-			message.channel.send(Raid.getRaidsFormattedMessage(message.channel))
+	async run(message, args) {
+		if (!Raid.validRaid(message.channel.id)) {
+			message.channel.send(Raid.getRaidsFormattedMessage(message.channel.id))
 				.catch(err => console.log(err));
 		} else {
-			const info = Raid.getRaid(message.channel);
+			const info = Raid.getRaid(message.channel.id),
+				formatted_message = await Raid.getFormattedMessage(info);
 
 			// post a new raid message
-			message.channel.send(Raid.getRaidSourceChannelMessage(info), Raid.getFormattedMessage(info))
+			message.channel.send(Raid.getRaidSourceChannelMessage(info), formatted_message)
 				.then(status_message => {
-					Raid.addMessage(info.channel, status_message);
+					Raid.addMessage(info.channel_id, status_message);
 				})
 				.catch(err => console.log(err));
 		}

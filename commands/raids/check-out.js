@@ -18,7 +18,7 @@ class CheckOutCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'check-out' && !Raid.validRaid(message.channel)) {
+			if (message.command.name === 'check-out' && !Raid.validRaid(message.channel.id)) {
 				message.reply('Check out of a raid from its raid channel!');
 				return true;
 			}
@@ -26,8 +26,8 @@ class CheckOutCommand extends Commando.Command {
 		});
 	}
 
-	run(message, args) {
-		const info = Raid.setArrivalStatus(message.channel, message.member, false);
+	async run(message, args) {
+		const info = Raid.setArrivalStatus(message.channel.id, message.member.id, false);
 
 		message.react('👍')
 			.catch(err => console.log(err));
@@ -35,7 +35,7 @@ class CheckOutCommand extends Commando.Command {
 		Utility.cleanConversation(message);
 
 		// get previous bot message & update
-		Raid.refreshStatusMessages(info.raid);
+		await Raid.refreshStatusMessages(info.raid);
 	}
 }
 

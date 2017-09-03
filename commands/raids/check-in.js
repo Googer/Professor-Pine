@@ -18,7 +18,7 @@ class CheckInCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'check-in' && !Raid.validRaid(message.channel)) {
+			if (message.command.name === 'check-in' && !Raid.validRaid(message.channel.id)) {
 				message.reply('Check into a raid from its raid channel!');
 				return true;
 			}
@@ -26,8 +26,8 @@ class CheckInCommand extends Commando.Command {
 		});
 	}
 
-	run(message, args) {
-		const info = Raid.setArrivalStatus(message.channel, message.member, true);
+	async run(message, args) {
+		const info = Raid.setArrivalStatus(message.channel.id, message.member.id, true);
 
 		message.react('👍')
 			.catch(err => console.log(err));
@@ -35,7 +35,7 @@ class CheckInCommand extends Commando.Command {
 		Utility.cleanConversation(message);
 
 		// get previous bot messages & update
-		Raid.refreshStatusMessages(info.raid);
+		await Raid.refreshStatusMessages(info.raid);
 	}
 }
 

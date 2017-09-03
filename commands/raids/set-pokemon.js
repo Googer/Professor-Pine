@@ -26,7 +26,7 @@ class SetPokemonCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'set-pokemon' && !Raid.validRaid(message.channel)) {
+			if (message.command.name === 'set-pokemon' && !Raid.validRaid(message.channel.id)) {
 				message.reply('Set the pokemon of a raid from its raid channel!');
 				return true;
 			}
@@ -34,9 +34,9 @@ class SetPokemonCommand extends Commando.Command {
 		});
 	}
 
-	run(message, args) {
+	async run(message, args) {
 		const pokemon = args['pokemon'],
-			info = Raid.setRaidPokemon(message.channel, pokemon);
+			info = Raid.setRaidPokemon(message.channel.id, pokemon);
 
 		message.react('👍')
 			.catch(err => console.log(err));
@@ -44,7 +44,7 @@ class SetPokemonCommand extends Commando.Command {
 		Utility.cleanConversation(message);
 
 		// post a new raid message and replace/forget old bot message
-		Raid.refreshStatusMessages(info.raid);
+		await Raid.refreshStatusMessages(info.raid);
 	}
 }
 

@@ -16,7 +16,7 @@ class GymType extends Commando.ArgumentType {
 			'';
 
 		try {
-			const gyms = GymSearch.search(message.channel, value.split(' '));
+			const gyms = GymSearch.search(message.channel.id, value.split(' '));
 
 			if (!gyms || gyms.length === 0) {
 				message.reply('\'' + value + '\' returned no gyms.' + extra_error_message);
@@ -38,7 +38,7 @@ class GymType extends Commando.ArgumentType {
 	}
 
 	parse(value, message, arg) {
-		const gyms = GymSearch.search(message.channel, value.split(' '));
+		const gyms = GymSearch.search(message.channel.id, value.split(' '));
 
 		return gyms[0];
 	}

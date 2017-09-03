@@ -44,8 +44,15 @@ Client.registry.registerCommands([
 	require('./commands/raids/status')
 ]);
 
+const guilds = new Map([...Client.guilds]);
+
 Client.on('ready', () => {
-	Raid.setClient(Client);
+	const new_guilds = new Map([...Client.guilds]);
+
+	Array.from(guilds.keys())
+		.forEach(guild_id => new_guilds.delete(guild_id));
+
+	Raid.setClient(Client, new_guilds.values().next().value);
 });
 
 Client.on('message', message => {

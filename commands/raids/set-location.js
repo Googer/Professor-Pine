@@ -26,7 +26,7 @@ class SetLocationCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'set-location' && !Raid.validRaid(message.channel)) {
+			if (message.command.name === 'set-location' && !Raid.validRaid(message.channel.id)) {
 				message.reply('Set the location of a raid from its raid channel!');
 				return true;
 			}
@@ -34,9 +34,9 @@ class SetLocationCommand extends Commando.Command {
 		});
 	}
 
-	run(message, args) {
+	async run(message, args) {
 		const gym = args['gym'],
-			info = Raid.setRaidLocation(message.channel, gym);
+			info = Raid.setRaidLocation(message.channel.id, gym);
 
 		message.react('👍')
 			.catch(err => console.log(err));
@@ -44,7 +44,7 @@ class SetLocationCommand extends Commando.Command {
 		Utility.cleanConversation(message);
 
 		// post a new raid message and replace/forget old bot message
-		Raid.refreshStatusMessages(info.raid);
+		await Raid.refreshStatusMessages(info.raid);
 	}
 }
 
