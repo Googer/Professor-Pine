@@ -39,14 +39,14 @@ class JoinCommand extends Commando.Command {
 	async run(message, args) {
 		const additional_attendees = args['additional_attendees'],
 			info = Raid.addAttendee(message.channel.id, message.member.id, additional_attendees),
-			total_attendees = Raid.getAttendeeCount({raid: info.raid});
+			total_attendees = Raid.getAttendeeCount(info.raid);
 
 		message.react('👍')
 			.catch(err => console.log(err));
 
 		Utility.cleanConversation(message);
 
-		message.member.send(`You signed up for raid **${info.raid.channel_name}**. ` +
+		message.member.send(`You signed up for raid <#${info.raid.channel_id}>. ` +
 			`There are now **${total_attendees}** potential Trainer(s) so far!`)
 			.catch(err => console.log(err));
 

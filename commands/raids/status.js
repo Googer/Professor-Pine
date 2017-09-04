@@ -30,13 +30,13 @@ class StatusCommand extends Commando.Command {
 			message.channel.send(Raid.getRaidsFormattedMessage(message.channel.id))
 				.catch(err => console.log(err));
 		} else {
-			const info = Raid.getRaid(message.channel.id),
-				formatted_message = await Raid.getFormattedMessage(info);
+			const raid = Raid.getRaid(message.channel.id),
+				formatted_message = await Raid.getFormattedMessage(raid);
 
 			// post a new raid message
-			message.channel.send(Raid.getRaidSourceChannelMessage(info), formatted_message)
+			message.channel.send(Raid.getRaidSourceChannelMessage(raid), formatted_message)
 				.then(status_message => {
-					Raid.addMessage(info.channel_id, status_message);
+					Raid.addMessage(raid.channel_id, status_message);
 				})
 				.catch(err => console.log(err));
 		}
