@@ -526,6 +526,9 @@
   },
   {
     "name": "magikarp",
+    "nickname": [
+      "karp"
+    ],
     "number": 129,
     "tier": 1
   },
@@ -999,15 +1002,18 @@
   },
   {
     "name": "raikou",
-    "number": 243
+    "number": 243,
+    "tier": 5
   },
   {
     "name": "entei",
-    "number": 244
+    "number": 244,
+    "tier": 5
   },
   {
     "name": "suicune",
-    "number": 245
+    "number": 245,
+    "tier": 5
   },
   {
     "name": "larvitar",
