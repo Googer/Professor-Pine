@@ -1,7 +1,7 @@
 "use strict";
 
 const Commando = require('discord.js-commando'),
-	GymSearch = require('../../app/gym-search'),
+	Gym = require('../../app/gym'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility'),
 	EndTimeType = require('../../types/time');
@@ -27,7 +27,8 @@ class RaidCommand extends Commando.Command {
 					type: 'pokemon',
 				},
 				{
-					key: 'gym',
+					key: 'gym_id',
+					label: 'gym',
 					prompt: 'Where is this raid taking place?\nExample: `manor theater`',
 					type: 'gym'
 				},
@@ -49,7 +50,7 @@ class RaidCommand extends Commando.Command {
 				return false;
 			}
 
-			if (Raid.validRaid(message.channel.id) || !GymSearch.isValidChannel(message.channel.name)) {
+			if (Raid.validRaid(message.channel.id) || !Gym.isValidChannel(message.channel.name)) {
 				message.reply('Create raids from region channels!');
 				return true;
 			}
@@ -61,13 +62,13 @@ class RaidCommand extends Commando.Command {
 
 	async run(message, args) {
 		const pokemon = args['pokemon'],
-			gym = args['gym'],
+			gym_id = args['gym_id'],
 			time_left = args['time-left'];
 
 		let raid_info,
 			formatted_message;
 
-		Raid.createRaid(message.channel.id, message.member.id, pokemon, gym, time_left)
+		Raid.createRaid(message.channel.id, message.member.id, pokemon, gym_id, time_left)
 			.then(async info => {
 				raid_info = info;
 

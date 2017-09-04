@@ -3,7 +3,7 @@
 const Commando = require('discord.js-commando'),
 	Raid = require('../app/raid'),
 	Utility = require('../app/utility'),
-	GymSearch = require('../app/gym-search');
+	Gym = require('../app/gym');
 
 class GymType extends Commando.ArgumentType {
 	constructor(client) {
@@ -16,16 +16,16 @@ class GymType extends Commando.ArgumentType {
 			'';
 
 		try {
-			const gyms = GymSearch.search(message.channel.id, value.split(' '));
+			const gyms = Gym.search(message.channel.id, value.split(' '));
 
 			if (!gyms || gyms.length === 0) {
 				message.reply('\'' + value + '\' returned no gyms.' + extra_error_message);
 				return false;
 			}
 
-			const gym = gyms[0];
+			const gym_id = gyms[0].gymId;
 
-			if (Raid.raidExistsForGym(gym)) {
+			if (Raid.raidExistsForGym(gym_id)) {
 				message.reply('Gym already has an active raid.' + extra_error_message);
 				return false;
 			}
@@ -38,9 +38,9 @@ class GymType extends Commando.ArgumentType {
 	}
 
 	parse(value, message, arg) {
-		const gyms = GymSearch.search(message.channel.id, value.split(' '));
+		const gyms = Gym.search(message.channel.id, value.split(' '));
 
-		return gyms[0];
+		return gyms[0].gymId;
 	}
 }
 

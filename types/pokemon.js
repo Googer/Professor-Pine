@@ -1,7 +1,7 @@
 "use strict";
 
 const Commando = require('discord.js-commando'),
-	PokemonSearch = require('../app/pokemon-search'),
+	Pokemon = require('../app/pokemon'),
 	Utility = require('../app/utility');
 
 class PokemonType extends Commando.ArgumentType {
@@ -26,7 +26,7 @@ class PokemonType extends Commando.ArgumentType {
 			return true;
 		}
 
-		const pokemon = PokemonSearch.search([pokemon_to_lookup[1]]);
+		const pokemon = Pokemon.search([pokemon_to_lookup[1]]);
 
 		if (!pokemon) {
 			message.reply('No pokemon found.' + extra_error_message);
@@ -51,7 +51,7 @@ class PokemonType extends Commando.ArgumentType {
 			}
 		}
 
-		return PokemonSearch.search([pokemon_to_lookup[1]]);
+		return Pokemon.search([pokemon_to_lookup[1]]);
 	}
 }
 

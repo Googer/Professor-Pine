@@ -16,7 +16,8 @@ class SetLocationCommand extends Commando.Command {
 			examples: ['\t!set-location Unicorn', '\t!location \'Bellevue Park\'', '\t!location squirrel'],
 			args: [
 				{
-					key: 'gym',
+					key: 'gym_id',
+					label: 'gym',
 					prompt: 'Where is the raid taking place?\nExample: `manor theater`',
 					type: 'gym'
 				}
@@ -35,8 +36,8 @@ class SetLocationCommand extends Commando.Command {
 	}
 
 	async run(message, args) {
-		const gym = args['gym'],
-			info = Raid.setRaidLocation(message.channel.id, gym);
+		const gym_id = args['gym_id'],
+			info = Raid.setRaidLocation(message.channel.id, gym_id);
 
 		message.react('👍')
 			.catch(err => console.log(err));

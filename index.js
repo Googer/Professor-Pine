@@ -7,24 +7,7 @@ const Commando = require('discord.js-commando'),
 	nodeCleanup = require('node-cleanup');
 
 nodeCleanup((exitCode, signal) => {
-	if (signal) {
-		Raid.cleanupAllRaids()
-			.then(result => {
-				console.log(result);
-
-				// calling process.exit() won't inform parent process of signal
-				process.kill(process.pid, signal);
-			})
-			.catch(err => {
-				console.log(err);
-
-				// calling process.exit() won't inform parent process of signal
-				process.kill(process.pid, signal);
-			});
-
-		nodeCleanup.uninstall(); // don't call cleanup handler again
-		return false;
-	}
+	Raid.shutdown();
 });
 
 Client.registry.registerGroup('raids', 'Raids');

@@ -3,7 +3,7 @@
 const lunr = require('lunr'),
 	Search = require('./search');
 
-class PokemonSearch extends Search {
+class Pokemon extends Search {
 	constructor() {
 		super();
 	}
@@ -16,9 +16,12 @@ class PokemonSearch extends Search {
 			this.field('name');
 			this.field('nickname');
 
-			const pokemonDatabase = require('./../data/pokemon');
+			const pokemon_data = require('./../data/pokemon');
 
-			pokemonDatabase.forEach(function (pokemon) {
+			this.pokemon = new Map(pokemon_data
+				.map(pokemon => [pokemon.number, pokemon]));
+
+			pokemon_data.forEach(function (pokemon) {
 				const pokemonDocument = Object.create(null);
 
 				pokemonDocument['object'] = JSON.stringify(pokemon);
@@ -40,6 +43,10 @@ class PokemonSearch extends Search {
 			return lunr_results[0];
 		}
 	}
+
+	getPokemon(pokemon_id) {
+		return this.pokemon.get(pokemon_id);
+	}
 }
 
-module.exports = new PokemonSearch();
+module.exports = new Pokemon();
