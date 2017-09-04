@@ -49,15 +49,19 @@ class Raid {
 							.catch(err => console.log(err));
 					} else if (raid.deletion_time && (now > raid.deletion_time)) {
 						// actually delete the channel and announcement message
-						this.getMessage(raid.announcement_message.channel_id, raid.announcement_message.message_id, false)
-							.then(message => message.delete())
-							.catch(err => console.log(err));
+						if (raid.announcement_message) {
+							this.getMessage(raid.announcement_message.channel_id, raid.announcement_message.message_id, false)
+								.then(message => message.delete())
+								.then(result => this.messages.delete(raid.announcement_message))
+								.catch(err => console.log(err));
+						}
 
 						this.getChannel(channel_id, false).delete()
 							.catch(err => console.log(err));
 
 						// clean message and channels caches
-						raid.messages.forEach(message_cache_id => this.messages.delete(message_cache_id));
+						raid.messages
+							.forEach(message_cache_id => this.messages.delete(message_cache_id));
 						this.channels.delete(channel_id);
 
 						storage.removeItem(channel_id)
