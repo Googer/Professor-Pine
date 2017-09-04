@@ -143,7 +143,7 @@ class Raid {
 			? EndTimeType.UNDEFINED_END_TIME
 			: raid.creation_time + end_time;
 
-		raid.attendees = Object.create(null);
+		raid.attendees = Object.create(Object.prototype);
 		raid.attendees[member_id] = {number: 1, status: false};
 
 		const channel_name = Raid.generateChannelName(raid);
