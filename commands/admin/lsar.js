@@ -9,6 +9,7 @@ class LsarCommand extends Commando.Command {
 			name: 'lsar',
 			group: 'admin',
 			memberName: 'lsar',
+			aliases: ['roles'],
 			description: 'List self assignable roles.',
 			argsType: 'multiple'
 		});
@@ -22,12 +23,6 @@ class LsarCommand extends Commando.Command {
 
 		Role.getRoles(message.channel, message.member).then((roles) => {
 			const count = roles.length;
-
-			roles.sort((a, b) => {
-				if (a.value < b.value) { return -1; }
-				if (a.value > b.value) { return 1; }
-				return 0;
-			});
 
 			let string = '';
 			for (let i=0; i<roles.length; i++) {

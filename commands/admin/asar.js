@@ -14,14 +14,16 @@ class AsarCommand extends Commando.Command {
 	}
 
 	run(message, args) {
-		args = args.split(/,\s?/g);
+		// split text by comma "," into an array, and split those strings by "-" for an array of arrays
+		//		NOTE:  Spaces are required for "-" seperation as roles could be "foo-bar"
+		args = args.split(/,\s?/g).map(arg => arg.trim().split(/\s-\s/));
 
 		if (message.channel.type !== 'text') {
 			message.reply('Please use `asar` from a public channel.');
 			return;
 		}
 
-		Role.addNewRoles(message.channel, message.member, args).then(() => {
+		Role.upsertRoles(message.channel, message.member, args).then(() => {
 			message.react('👍');
 		}).catch((err) => {
 			if (err && err.error) {

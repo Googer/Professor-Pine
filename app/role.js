@@ -11,24 +11,45 @@ class Role {
 		this.db_table = 'roles';
 	}
 
-	addNewRoles(channel, member, roles) {
+	// update or insert roles
+	upsertRoles(channel, member, roles) {
 		return new Promise((resolve, reject) => {
 			let data = [];
 			let promises = [];
 
 			// create role objects for each role given
 			for (let i=0; i<roles.length; i++) {
-				const id = member.guild.roles.find(val => val.name.toLowerCase() == roles[i].toLowerCase());
+				const value = roles[i][0];
+				const description = roles[i][1] || '';
+				const id = member.guild.roles.find(val => val.name.toLowerCase() == value.toLowerCase());
 
 				if (!id) {
-					reject({ error: `Role **${roles[i]}** was not found.` });
+					reject({ error: `Role **${value}** was not found.` });
 					return;
 				}
 
-				promises.push(this.roleExists(channel, member, roles[i]).then((exists) => {
-					if (!exists) {
-						data.push({ name: roles[i].toLowerCase(), value: roles[i] });
-					}
+				promises.push(this.roleExists(channel, member, value).then((exists) => {
+					return new Promise((resolve, reject) => {
+						if (!exists) {
+							data.push({ name: value.toLowerCase(), value, description, date: Date.now() });
+							resolve();
+						} else {
+							// update role if it already exists
+							r.db(channel.guild.id)
+								.table(this.db_table)
+								.filter({ name: value.toLowerCase() })
+								.update({ value, description })
+								.run(DB.connection, (err, result) => {
+									if (err && err.name !== 'ReqlOpFailedError') {
+										reject(err);
+										return;
+									}
+
+									// console.log(JSON.stringify(result, null, 2));
+									resolve(result);
+								});
+							}
+					});
 				}));
 			}
 
@@ -94,6 +115,7 @@ class Role {
 		return new Promise((resolve, reject) => {
 			r.db(channel.guild.id)
 				.table(this.db_table)
+				.orderBy(r.asc('date'))
 				.run(DB.connection, function(err, cursor) {
 					if (err) {
 						reject(err);
@@ -118,7 +140,7 @@ class Role {
 			const id = member.guild.roles.find(val => val.name.toLowerCase() == role.toLowerCase());
 
 			if (!id) {
-				reject({ error: `Role **${role}** was not found.  Use \`!lsar\` to see a list of self assignable roles.` });
+				reject({ error: `Role **${role}** was not found.  Use \`!iam\` to see a list of self assignable roles.` });
 				return;
 			}
 
@@ -127,9 +149,9 @@ class Role {
 					member.addRole(id);
 
 					// console.log(JSON.stringify(result, null, 2));
-					resolve(result);
+					resolve();
 				} else {
-					reject({ error: `Role **${role}** was not found.  Use \`!lsar\` to see a list of self assignable roles.` });
+					reject({ error: `Role **${role}** was not found.  Use \`!iam\` to see a list of self assignable roles.` });
 				}
 			});
 		});
