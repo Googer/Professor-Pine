@@ -20,6 +20,9 @@ Client.registry.registerDefaults();
 Client.registry.registerTypesIn(__dirname + '/types');
 
 Client.registry.registerCommands([
+	require('./commands/admin/asar'),
+	require('./commands/admin/rsar'),
+	require('./commands/admin/lsar'),
 	require('./commands/raids/create'),
 	require('./commands/raids/time-left'),
 	require('./commands/raids/join'),
@@ -29,7 +32,9 @@ Client.registry.registerCommands([
 	require('./commands/raids/leave'),
 	require('./commands/raids/set-pokemon'),
 	require('./commands/raids/set-location'),
-	require('./commands/raids/status')
+	require('./commands/raids/status'),
+	require('./commands/roles/iam'),
+	require('./commands/roles/iamnot'),
 ]);
 
 const guilds = new Map([...Client.guilds]);
