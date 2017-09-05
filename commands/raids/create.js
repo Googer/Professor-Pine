@@ -1,9 +1,10 @@
 "use strict";
 
-const moment = require('moment');
-const Commando = require('discord.js-commando');
-const Raid = require('../../app/raid');
-const PokemonSearch = require('../../app/pokemon-search');
+const Commando = require('discord.js-commando'),
+	Gym = require('../../app/gym'),
+	Raid = require('../../app/raid'),
+	Utility = require('../../app/utility'),
+	EndTimeType = require('../../types/time');
 
 class RaidCommand extends Commando.Command {
 	constructor(client) {
@@ -11,107 +12,83 @@ class RaidCommand extends Commando.Command {
 			name: 'raid',
 			group: 'raids',
 			memberName: 'raid',
+			aliases: ['create', 'announce'],
 			description: 'Create a new raid group!',
 			details: 'Use this command to start organizing a new raid.  For your convenience, this command combines several options such that you can set the pokemon, the location, and the end time of the raid, all at once.',
-			examples: ['\t!raid lugia', '\t!raid zapdos 5:30pm', '\t!raid magikarp ending in 2 hours 30 mins', '\t!raid tyranitar 2h 30m']
+			examples: ['\t!raid lugia', '\t!raid zapdos \'manor theater\' 1:43', '\t!raid magikarp olea', '\t!raid ttar \'frog fountain\''],
+			throttling: {
+				usages: 5,
+				duration: 300
+			},
+			args: [
+				{
+					key: 'pokemon',
+					prompt: 'What Pokemon (or tier if unhatched) is this raid?\nExample: `lugia`',
+					type: 'pokemon',
+				},
+				{
+					key: 'gym_id',
+					label: 'gym',
+					prompt: 'Where is this raid taking place?\nExample: `manor theater`',
+					type: 'gym'
+				},
+				{
+					key: 'time-left',
+					label: 'time left',
+					prompt: 'How much time is remaining on the raid (use h:mm or mm format)?\nExample: `1:43`',
+					type: 'time',
+					min: 'relative',
+					default: EndTimeType.UNDEFINED_END_TIME
+				}
+			],
+			argsPromptLimit: 3,
+			guildOnly: true
 		});
+
+		client.dispatcher.addInhibitor(message => {
+			if (message.command.name !== 'raid') {
+				return false;
+			}
+
+			if (Raid.validRaid(message.channel.id) || !Gym.isValidChannel(message.channel.name)) {
+				message.reply('Create raids from region channels!');
+				return true;
+			}
+
+			return false;
+		});
+
 	}
 
-	run(message, args) {
-		if (message.channel.type !== 'text') {
-			message.reply('Please create a raid from a public channel.');
-			return;
-		}
+	async run(message, args) {
+		const pokemon = args['pokemon'],
+			gym_id = args['gym_id'],
+			time_left = args['time-left'];
 
-		const params = args.split(' ');
-		const times = args.toLowerCase().match(/([0-9]{1,2}\:[0-9]{1,2}(\s?([pa])m)?)|([0-9]\sh(ours?),?\s?(and\s)?[0-9]{1,2}\sminutes?)|([0-9]\s?h?,?\s?[0-9]{1,2}\s?m?)|([0-9]\s?(h(ours?)?|m(inutes?)?))/g);
-		const links = args.match(/(http(s)?:\/\/.)?(www\.)?[-a-zA-Z0-9@:%._+~#=]{2,256}\.[a-z]{2,6}\b([-a-zA-Z0-9@:%_+.~#?&//=]*(,[-a-zA-Z0-9@:%_+.~#!?&//=]+)?)/g);
-		const now = moment();
-		const pokemon_term = params[0];
-		const location = (links) ? links[0] : '';
-		const start_time = '';
-		let end_time = '';
-		let hours, minutes;
-		let info = {};
+		let raid,
+			formatted_message;
 
-		if (!pokemon_term.length) {
-			message.reply('Please enter a raid boss (i.e. lugia) or a tier level (i.e. t5).');
-			return;
-		}
+		Raid.createRaid(message.channel.id, message.member.id, pokemon, gym_id, time_left)
+			.then(async info => {
+				Utility.cleanConversation(message, true);
 
-		const pokemon = PokemonSearch.search([pokemon_term]);
-
-		if (!pokemon) {
-			message.reply('Please enter a raid boss (i.e. lugia) or a tier level (i.e. t5).');
-			return;
-		}
-
-		// assume the first time is the end time
-		if (times && times[0]) {
-			// check if am/pm was given on time, which indicates that the user found the end time theirselves and we don't have to caculate it
-			if (times[0].search(/([ap])m/) >= 0) {
-				end_time = (new moment(times[0], 'h:mm:ss a')).format('h:mma');
-			} else if (times[0].search(/\:/) >= 0) {
-				// special scenario if the user entered a time like "1:20" without am/pm or at least it couldn't be found via regex
-				//		need to figure out whether it should be am or pm based on current time
-				const now = moment();
-				let possible_time_1, possible_time_2;
-				let diff_time_1, diff_time_2;
-				let am_or_pm = '';
-
-				[hours, minutes] = times[0].split(':');
-				hours = parseInt(hours);
-				minutes = parseInt(minutes);
-
-				possible_time_1 = moment().set({hours, minutes});
-				possible_time_2 = moment().set({hours: hours + 12, minutes});
-
-				diff_time_1 = possible_time_1.diff(moment());
-				diff_time_2 = possible_time_2.diff(moment());
-
-				// if time is greater than 3 hours, the user likely entered incorrect information
-				if (diff_time_1 / 3600000 > 3 || diff_time_2 / 3600000 > 3) {
-					message.reply('Please enter a raid end time that is within 3 hours and looks something like `2:00pm`.');
-					return;
-				}
-
-				if (diff_time_1 >= 0) {
-					am_or_pm = possible_time_1.format('a');
-				} else if (diff_time_2 >= 0) {
-					am_or_pm = possible_time_2.format('a');
-				} else {
-					message.reply('Please enter a raid end time that in the future, rather than in the past.');
-					return;
-				}
-
-				end_time = times[0].trim() + am_or_pm;
-			} else {
-				// user has not given an end time, but rather time remaining, so need to calculate end time based off current time + time remaining
-				[hours, minutes] = times[0].match(/[0-9]{1,2}/g);
-				hours = parseInt(hours);
-				minutes = parseInt(minutes);
-
-				// if only 1 number given (no available minutes), need to figure out if that number is minutes or hours
-				//		default is hours per how regex works
-				if (!minutes && times[0].search(/m(inutes?)?/) >= 0) {
-					hours = 0;
-					minutes = hours;
-				}
-
-				end_time = moment(Date.now()).add({hours, minutes}).format('h:mma');
-			}
-		}
-
-		info = Raid.createRaid(message.channel, message.member, {
-			pokemon,
-			end_time,
-			start_time,
-			location
-		});
-
-		message.channel.send(Raid.getFormattedMessage(info.raid)).then((bot_message) => {
-			Raid.setMessage(message.channel, message.member, info.raid.id, bot_message);
-		});
+				raid = info.raid;
+				formatted_message = await Raid.getFormattedMessage(raid);
+				return message.channel.send(Raid.getRaidChannelMessage(raid), formatted_message);
+			})
+			.then(announcement_message => {
+				return Raid.setAnnouncementMessage(raid.channel_id, announcement_message);
+			})
+			.then(bot_message => {
+				return Raid.getChannel(raid.channel_id)
+					.send(Raid.getRaidSourceChannelMessage(raid), formatted_message);
+			})
+			.then(channel_raid_message => {
+				Raid.addMessage(raid.channel_id, channel_raid_message, true);
+			})
+			.catch(err => {
+				console.log(err);
+			});
 	}
 }
 

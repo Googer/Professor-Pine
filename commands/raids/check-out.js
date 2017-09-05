@@ -1,7 +1,8 @@
 "use strict";
 
-const Commando = require('discord.js-commando');
-const Raid = require('../../app/raid');
+const Commando = require('discord.js-commando'),
+	Raid = require('../../app/raid'),
+	Utility = require('../../app/utility');
 
 class CheckOutCommand extends Commando.Command {
 	constructor(client) {
@@ -9,34 +10,32 @@ class CheckOutCommand extends Commando.Command {
 			name: 'check-out',
 			group: 'raids',
 			memberName: 'check-out',
-			aliases: ['checkout'],
+			aliases: ['depart'],
 			description: 'Let others know you have gone to the wrong location.',
 			details: 'Use this command in case you thought you were at the right location, but were not.',
-			examples: ['\t!check-out lugia-0', '\t!checkout lugia-0'],
-			argsType: 'multiple'
+			examples: ['\t!check-out', '\t!checkout'],
+			guildOnly: true
+		});
+
+		client.dispatcher.addInhibitor(message => {
+			if (message.command.name === 'check-out' && !Raid.validRaid(message.channel.id)) {
+				message.reply('Check out of a raid from its raid channel!');
+				return true;
+			}
+			return false;
 		});
 	}
 
-	run(message, args) {
-		if (message.channel.type !== 'text') {
-			message.reply('Please check out from a public channel.');
-			return;
-		}
+	async run(message, args) {
+		const info = Raid.setArrivalStatus(message.channel.id, message.member.id, false);
 
-		const raid = Raid.findRaid(message.channel, message.member, args);
+		message.react('👍')
+			.catch(err => console.log(err));
 
-		if (!raid.raid) {
-			message.reply('Please enter a raid id which can be found on the raid post.  If you do not know the id you can ask for a list of raids in your area via `!status`.');
-			return;
-		}
-
-		const info = Raid.setArrivalStatus(message.channel, message.member, raid.raid.id, false);
-
-		message.react('👍');
+		Utility.cleanConversation(message);
 
 		// get previous bot message & update
-		Raid.getMessage(message.channel, message.member, info.raid.id)
-			.edit(Raid.getFormattedMessage(info.raid));
+		await Raid.refreshStatusMessages(info.raid);
 	}
 }
 

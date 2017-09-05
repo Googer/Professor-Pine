@@ -1,3 +1,6 @@
 {
-	"default_raid_length": 7200000
+  "default_raid_length": 180,
+  "max_end_time": 120,
+  "deletion_warning_time": 10,
+  "cleanup_interval": 60000
 }

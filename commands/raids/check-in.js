@@ -1,7 +1,8 @@
 "use strict";
 
-const Commando = require('discord.js-commando');
-const Raid = require('../../app/raid');
+const Commando = require('discord.js-commando'),
+	Raid = require('../../app/raid'),
+	Utility = require('../../app/utility');
 
 class CheckInCommand extends Commando.Command {
 	constructor(client) {
@@ -9,34 +10,32 @@ class CheckInCommand extends Commando.Command {
 			name: 'check-in',
 			group: 'raids',
 			memberName: 'check-in',
-			aliases: ['checkin', 'arrive', 'arrived', 'present'],
+			aliases: ['arrive', 'arrived', 'present', 'here'],
 			description: 'Let others know you have arrived at the raid location and are ready to fight the raid boss!',
 			details: 'Use this command to tell everyone you are at the raid location and to ensure that no one is left behind.',
-			examples: ['\t!check-in lugia-0', '\t!arrived lugia-0', '\t!present lugia-0'],
-			argsType: 'multiple'
+			examples: ['\t!check-in', '\t!arrived', '\t!present'],
+			guildOnly: true
+		});
+
+		client.dispatcher.addInhibitor(message => {
+			if (message.command.name === 'check-in' && !Raid.validRaid(message.channel.id)) {
+				message.reply('Check into a raid from its raid channel!');
+				return true;
+			}
+			return false;
 		});
 	}
 
-	run(message, args) {
-		if (message.channel.type !== 'text') {
-			message.reply('Please check in from a public channel.');
-			return;
-		}
+	async run(message, args) {
+		const info = Raid.setArrivalStatus(message.channel.id, message.member.id, true);
 
-		const raid = Raid.findRaid(message.channel, message.member, args);
+		message.react('👍')
+			.catch(err => console.log(err));
 
-		if (!raid.raid) {
-			message.reply('Please enter a raid id which can be found on the raid post.  If you do not know the id you can ask for a list of raids in your area via `!status`.');
-			return;
-		}
+		Utility.cleanConversation(message);
 
-		const info = Raid.setArrivalStatus(message.channel, message.member, raid.raid.id, true);
-
-		message.react('👍');
-
-		// get previous bot message & update
-		Raid.getMessage(message.channel, message.member, info.raid.id)
-			.edit(Raid.getFormattedMessage(info.raid));
+		// get previous bot messages & update
+		await Raid.refreshStatusMessages(info.raid);
 	}
 }
 

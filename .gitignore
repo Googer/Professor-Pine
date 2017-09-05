@@ -6,3 +6,6 @@ node_modules/
 
 # ignore discord client id
 data/discord\.json
+
+# ignore persisted raid data
+\.node-persist/

@@ -1,7 +1,8 @@
 "use strict";
 
-const Commando = require('discord.js-commando');
-const Raid = require('../../app/raid');
+const Commando = require('discord.js-commando'),
+	Raid = require('../../app/raid'),
+	Utility = require('../../app/utility');
 
 class LeaveCommand extends Commando.Command {
 	constructor(client) {
@@ -12,33 +13,33 @@ class LeaveCommand extends Commando.Command {
 			aliases: ['part'],
 			description: 'Can\'t make it to a raid? no problem, just leave it.',
 			details: 'Use this command to leave a raid if you can no longer attend.  Don\'t stress, these things happen!',
-			examples: ['\t!leave lugia-0', '\t!part lugia-0'],
-			argsType: 'multiple'
+			examples: ['\t!leave', '\t!part'],
+			guildOnly: true
+		});
+
+		client.dispatcher.addInhibitor(message => {
+			if (message.command.name === 'leave' && !Raid.validRaid(message.channel.id)) {
+				message.reply('Leave a raid from its raid channel!');
+				return true;
+			}
+			return false;
 		});
 	}
 
-	run(message, args) {
-		if (message.channel.type !== 'text') {
-			message.reply('Please leave a raid from a public channel.');
-			return;
-		}
-
-		const raid = Raid.findRaid(message.channel, message.member, args);
-
-		if (!raid.raid) {
-			message.reply('Please enter a raid id which can be found on the raid post.  If you do not know the id you can ask for a list of raids in your area via `!status`.');
-			return;
-		}
-
-		const info = Raid.removeAttendee(message.channel, message.member, raid.raid.id);
+	async run(message, args) {
+		const info = Raid.removeAttendee(message.channel.id, message.member.id);
 
 		if (!info.error) {
-			message.react('👍');
-			// message.member.send(`You have left raid **${info.raid.id}**.`);
+			message.react('👍')
+				.catch(err => console.log(err));
+
+			Utility.cleanConversation(message);
 
 			// get previous bot message & update
-			Raid.getMessage(message.channel, message.member, info.raid.id)
-				.edit(Raid.getFormattedMessage(info.raid));
+			await Raid.refreshStatusMessages(info.raid);
+		} else {
+			message.reply(info.error)
+				.catch(err => console.log(err));
 		}
 	}
 }
