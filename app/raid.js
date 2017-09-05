@@ -8,12 +8,20 @@ const moment = require('moment'),
 
 class Raid {
 	constructor() {
-		storage.initSync();
+		this.active_raid_storage = storage.create({
+			dir: 'raids/active'
+		});
+		this.active_raid_storage.initSync();
+
+		this.completed_raid_storage = storage.create({
+			dir: 'raids/complete'
+		});
+		this.completed_raid_storage.initSync();
 
 		// maps channel ids to raid info for that channel
 		this.raids = Object.create(null);
 
-		storage
+		this.active_raid_storage
 			.forEach((channel_id, raid) => this.raids[channel_id] = raid);
 
 		// cache of roles, populated on client login
@@ -42,7 +50,7 @@ class Raid {
 						// be deleted
 						raid.deletion_time = deletion_time;
 
-						storage.setItem(channel_id, raid);
+						this.persistRaid(raid);
 
 						this.getChannel(raid.channel_id)
 							.send('***WARNING*** - this channel will be deleted automatically at ' + moment(deletion_time).format('h:mm a') + '!')
@@ -64,7 +72,16 @@ class Raid {
 							.forEach(message_cache_id => this.messages.delete(message_cache_id));
 						this.channels.delete(channel_id);
 
-						storage.removeItem(channel_id)
+						this.completed_raid_storage.getItem(raid.gym_id.toString())
+							.then(gym_raids => {
+								if (!gym_raids) {
+									gym_raids = [];
+								}
+								gym_raids.push(raid);
+
+								return this.completed_raid_storage.setItem(raid.gym_id.toString(), gym_raids);
+							})
+							.then(result => this.active_raid_storage.removeItem(channel_id))
 							.catch(err => console.log(err));
 
 						delete this.raids[channel_id];
@@ -117,8 +134,15 @@ class Raid {
 	}
 
 	shutdown() {
-		storage.persistSync();
+		this.active_raid_storage.persistSync();
+		this.completed_raid_storage.persistSync();
+
 		this.client.destroy();
+	}
+
+	persistRaid(raid) {
+		this.active_raid_storage.setItem(raid.channel_id, raid)
+			.catch(err => console.log(err));
 	}
 
 	setClient(client, guild) {
@@ -129,7 +153,7 @@ class Raid {
 		this.roles.valor = guild.roles.find('name', 'Valor');
 		this.roles.instinct = guild.roles.find('name', 'Instinct');
 		this.roles.admin = guild.roles.find('name', 'Admin');
-		this.roles.moderator = guild.roles.find('name', 'Moderator') || member.guild.roles.find('name', 'Mod');
+		this.roles.moderator = guild.roles.find('name', 'Moderator') || guild.roles.find('name', 'Mod');
 	}
 
 	createRaid(channel_id, member_id, pokemon, gym_id, end_time) {
@@ -156,8 +180,7 @@ class Raid {
 			.then(new_channel => {
 				raid.channel_id = new_channel.id;
 
-				storage.setItem(new_channel.id, raid)
-					.catch(err => console.log(err));
+				this.persistRaid(raid);
 
 				this.channels.set(new_channel.id, new_channel);
 				this.raids[new_channel.id] = raid;
@@ -191,8 +214,7 @@ class Raid {
 
 		raid.announcement_message = {channel_id: raid.source_channel_id, message_id: message.id};
 
-		storage.setItem(channel_id, raid)
-			.catch(err => console.log(err));
+		this.persistRaid(raid);
 
 		this.messages.set(raid.announcement_message, message);
 
@@ -210,8 +232,7 @@ class Raid {
 
 		raid.messages.push(message_cache_id);
 
-		storage.setItem(channel_id, raid)
-			.catch(err => console.log(err));
+		this.persistRaid(raid);
 
 		this.messages.set(message_cache_id, message);
 
@@ -226,8 +247,7 @@ class Raid {
 		raid.attendees[member_id] =
 			{number: (1 + additional_attendees), status: false};
 
-		storage.setItem(channel_id, raid)
-			.catch(err => console.log(err));
+		this.persistRaid(raid);
 
 		return {raid: raid};
 	}
@@ -243,8 +263,7 @@ class Raid {
 
 		delete raid.attendees[member_id];
 
-		storage.setItem(channel_id, raid)
-			.catch(err => console.log(err));
+		this.persistRaid(raid);
 
 		return {raid: raid};
 	}
@@ -259,8 +278,7 @@ class Raid {
 			attendee.status = true;
 		}
 
-		storage.setItem(channel_id, raid)
-			.catch(err => console.log(err));
+		this.persistRaid(raid);
 
 		return {raid: raid};
 	}
@@ -270,8 +288,7 @@ class Raid {
 
 		raid.start_time = moment().add(start_time, 'milliseconds').valueOf();
 
-		storage.setItem(channel_id, raid)
-			.catch(err => console.log(err));
+		this.persistRaid(raid);
 
 		return {raid: raid};
 	}
@@ -281,8 +298,7 @@ class Raid {
 
 		raid.end_time = moment().add(end_time, 'milliseconds').valueOf();
 
-		storage.setItem(channel_id, raid)
-			.catch(err => console.log(err));
+		this.persistRaid(raid);
 
 		return {raid: raid};
 	}
@@ -291,8 +307,7 @@ class Raid {
 		const raid = this.getRaid(channel_id);
 		raid.pokemon = pokemon;
 
-		storage.setItem(channel_id, raid)
-			.catch(err => console.log(err));
+		this.persistRaid(raid);
 
 		const new_channel_name = Raid.generateChannelName(raid);
 
@@ -307,8 +322,7 @@ class Raid {
 		const raid = this.getRaid(channel_id);
 		raid.gym_id = gym_id;
 
-		storage.setItem(channel_id, raid)
-			.catch(err => console.log(err));
+		this.persistRaid(raid);
 
 		const new_channel_name = Raid.generateChannelName(raid);
 
@@ -384,16 +398,17 @@ class Raid {
 				continue;
 			}
 
-			const member = await this.getMember(member_id),
+			const member = await
+					this.getMember(member_id),
 				attendee = raid.attendees[member_id];
 
 			// member list
 			if (((this.roles.admin && member.roles.has(this.roles.admin.id)) ||
-					(this.roles.moderator && member.roles.has(this.roles.moderator.id))) && attendee.status == true) {
+					(this.roles.moderator && member.roles.has(this.roles.moderator.id))) && attendee.status === true) {
 				// if member role is admin or moderator, and they have arrived, use "masterball" icon
 				attendees_list += '<:MasterBall:347218482078810112>';
 			}
-			else if (attendee.status == true) {
+			else if (attendee.status === true) {
 				attendees_list += '<:PokeBall:347218482296782849>';
 			}
 			else {
@@ -442,7 +457,8 @@ class Raid {
 	}
 
 	async refreshStatusMessages(raid) {
-		const formatted_message = await this.getFormattedMessage(raid);
+		const formatted_message = await
+			this.getFormattedMessage(raid);
 
 		this.getMessage(raid.announcement_message.channel_id, raid.announcement_message.message_id)
 			.then(announcement_message => announcement_message.edit(this.getRaidChannelMessage(raid), formatted_message))

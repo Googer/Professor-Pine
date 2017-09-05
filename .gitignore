@@ -8,4 +8,4 @@ node_modules/
 data/discord\.json
 
 # ignore persisted raid data
-\.node-persist/
+raids/
