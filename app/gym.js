@@ -58,9 +58,16 @@ class Gym extends Search {
 				// Gym document is a object with its reference and fields to collection of values
 				const gymDocument = Object.create(null);
 
+				gym.gymName = he.decode(gym.gymName);
+				gym.gymInfo.gymDescriptino = he.decode(gym.gymInfo.gymDescription);
+
+				if (gym.nickname) {
+					gym.nickname = he.decode(gym.nickname);
+				}
+
 				// static fields
-				gymDocument['name'] = he.decode(gym.gymName);
-				gymDocument['description'] = he.decode(gym.gymInfo.gymDescription);
+				gymDocument['name'] = gym.gymName;
+				gymDocument['description'] = gym.gymInfo.gymDescription;
 
 				// Build a map of the geocoded information:
 				//   key is the address component's type
@@ -120,13 +127,13 @@ class Gym extends Search {
 				// merge in additional info from supplementary metadata file
 				// Index nickname as well
 				if (gym.nickname) {
-					gymDocument['nickname'] = he.decode(gym.nickname);
+					gymDocument['nickname'] = gym.nickname;
 				}
 
 				gymDocument['additional_terms'] = gym.additional_terms;
 
 				// reference
-				gymDocument['object'] = he.decode(JSON.stringify(gym));
+				gymDocument['object'] = JSON.stringify(gym);
 
 				// Actually add this gym to the Lunr db
 				this.add(gymDocument);
