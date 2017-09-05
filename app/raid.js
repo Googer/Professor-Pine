@@ -27,6 +27,9 @@ class Raid {
 		// cache of roles, populated on client login
 		this.roles = Object.create(null);
 
+		// cache of emoji ids, populated on client login
+		this.emojis = Object.create(null);
+
 		// cache of channel id's to actual channels
 		this.channels = new Map();
 
@@ -149,11 +152,25 @@ class Raid {
 		this.client = client;
 		this.guild = guild;
 
-		this.roles.mystic = guild.roles.find('name', 'Mystic');
-		this.roles.valor = guild.roles.find('name', 'Valor');
-		this.roles.instinct = guild.roles.find('name', 'Instinct');
-		this.roles.admin = guild.roles.find('name', 'Admin');
-		this.roles.moderator = guild.roles.find('name', 'Moderator') || guild.roles.find('name', 'Mod');
+		const
+			roles = new Map(guild.roles.map(role => [role.name.toLowerCase(), role])),
+			emojis = new Map(guild.emojis.map(emoji => [emoji.name.toLowerCase(), emoji.toString()]));
+
+		this.roles.mystic = roles.get('mystic');
+		this.roles.valor = roles.get('valor');
+		this.roles.instinct = roles.get('instinct');
+		this.roles.admin = roles.get('admin');
+		this.roles.moderator = roles.get('moderator') || roles.get('mod');
+
+		this.emojis.mystic = emojis.get('mystic') || '';
+		this.emojis.valor = emojis.get('valor') || '';
+		this.emojis.instinct = emojis.get('instinct') || '';
+
+		this.emojis.pokeball = emojis.get('pokeball') || '';
+		this.emojis.greatball = emojis.get('greatball') || '';
+		this.emojis.ultraball = emojis.get('ultraball') || '';
+		this.emojis.masterball = emojis.get('masterball') || '';
+		this.emojis.premierball = emojis.get('premierball') || '';
 	}
 
 	createRaid(channel_id, member_id, pokemon, gym_id, end_time) {
@@ -406,13 +423,13 @@ class Raid {
 			if (((this.roles.admin && member.roles.has(this.roles.admin.id)) ||
 					(this.roles.moderator && member.roles.has(this.roles.moderator.id))) && attendee.status === true) {
 				// if member role is admin or moderator, and they have arrived, use "masterball" icon
-				attendees_list += '<:MasterBall:347218482078810112>';
+				attendees_list += this.emojis.masterball;
 			}
 			else if (attendee.status === true) {
-				attendees_list += '<:PokeBall:347218482296782849>';
+				attendees_list += this.emojis.pokeball;
 			}
 			else {
-				attendees_list += '<:PremierBall:347221891263496193>';
+				attendees_list += this.emojis.premierball;
 			}
 			attendees_list += '  ' + member.displayName;
 
@@ -423,11 +440,11 @@ class Raid {
 
 			// add role emoji indicators if role exists
 			if (this.roles.mystic && member.roles.has(this.roles.mystic.id)) {
-				attendees_list += ' <:mystic:346183029171159041>';
+				attendees_list += ' ' + this.emojis.mystic;
 			} else if (this.roles.valor && member.roles.has(this.roles.valor.id)) {
-				attendees_list += ' <:valor:346182738652561408>';
+				attendees_list += ' ' + this.emojis.valor;
 			} else if (this.roles.instinct && member.roles.has(this.roles.instinct.id)) {
-				attendees_list += ' <:instinct:346182737566105600>';
+				attendees_list += ' ' + this.emojis.instinct;
 			}
 
 			attendees_list += '\n';
