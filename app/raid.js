@@ -3,6 +3,7 @@
 const moment = require('moment'),
 	settings = require('../data/settings'),
 	storage = require('node-persist'),
+	Discord = require('discord.js'),
 	Gym = require('./gym'),
 	EndTimeType = require('../types/time');
 
@@ -56,7 +57,7 @@ class Raid {
 						this.persistRaid(raid);
 
 						this.getChannel(raid.channel_id)
-							.send('***WARNING*** - this channel will be deleted automatically at ' + moment(deletion_time).format('h:mm a') + '!')
+							.send('**WARNING** - this channel will be deleted automatically at ' + moment(deletion_time).format('h:mm a') + '!')
 							.catch(err => console.log(err));
 					} else if (raid.deletion_time && (now > raid.deletion_time)) {
 						// actually delete the channel and announcement message
@@ -74,6 +75,11 @@ class Raid {
 						raid.messages
 							.forEach(message_cache_id => this.messages.delete(message_cache_id));
 						this.channels.delete(channel_id);
+
+						// delete messages from raid object before moving to completed raid
+						// storage as they're no longer needed
+						delete raid.announcement_message;
+						delete raid.messages;
 
 						this.completed_raid_storage.getItem(raid.gym_id.toString())
 							.then(gym_raids => {
@@ -95,7 +101,7 @@ class Raid {
 
 	async getMember(member_id, cache) {
 		if (this.members.has(member_id)) {
-			return new Promise(() => this.members.get(member_id));
+			return Promise.resolve(this.members.get(member_id));
 		}
 
 		return this.guild.fetchMember(member_id)
@@ -122,7 +128,7 @@ class Raid {
 		const message_cache_id = {channel_id: channel_id, message_id: message_id};
 
 		if (this.messages.has(message_cache_id)) {
-			return new Promise(() => this.messages.get(message_cache_id));
+			return Promise.resolve(this.messages.get(message_cache_id));
 		}
 
 		return this.getChannel(channel_id, cache)
@@ -189,7 +195,7 @@ class Raid {
 			: raid.creation_time + end_time;
 
 		raid.attendees = Object.create(Object.prototype);
-		raid.attendees[member_id] = {number: 1, status: false};
+		raid.attendees[member_id] = {number: 1, status: 0};
 
 		const channel_name = Raid.generateChannelName(raid);
 
@@ -221,6 +227,8 @@ class Raid {
 	getAttendeeCount(raid) {
 		return Object.keys(raid.attendees).length > 0 ?
 			Object.values(raid.attendees)
+			// complete attendees shouldn't count
+				.filter(attendee => attendee.status !== 2)
 				.map(attendee => attendee.number)
 				.reduce((total, number) => total + number) :
 			0;
@@ -262,7 +270,7 @@ class Raid {
 		const raid = this.getRaid(channel_id);
 
 		raid.attendees[member_id] =
-			{number: (1 + additional_attendees), status: false};
+			{number: (1 + additional_attendees), status: 0};
 
 		this.persistRaid(raid);
 
@@ -270,9 +278,8 @@ class Raid {
 	}
 
 	removeAttendee(channel_id, member_id) {
-		const raid = this.getRaid(channel_id);
-
-		const attendee = raid.attendees[member_id];
+		const raid = this.getRaid(channel_id),
+			attendee = raid.attendees[member_id];
 
 		if (!attendee) {
 			return {error: 'You are not signed up for this raid.'};
@@ -290,9 +297,13 @@ class Raid {
 			attendee = raid.attendees[member_id];
 
 		if (!attendee) {
-			raid.attendees[member_id] = {number: 1, status: true}
+			if (status === 0) {
+				return {error: 'You are not signed up for this raid.'};
+			}
+
+			raid.attendees[member_id] = {number: 1, status: status}
 		} else {
-			attendee.status = true;
+			attendee.status = status;
 		}
 
 		this.persistRaid(raid);
@@ -370,12 +381,11 @@ class Raid {
 		const pokemon = raid.pokemon.name ?
 			raid.pokemon.name.charAt(0).toUpperCase() + raid.pokemon.name.slice(1) :
 			'????',
-			start_time = (raid.start_time) ? `starting at ${moment(raid.start_time).format('h:mm a')}` : 'start time to be announced',
 			total_attendees = this.getAttendeeCount(raid),
-			gym = ` Located at ${Gym.getGym(raid.gym_id).gymName}`;
+			gym = Gym.getGym(raid.gym_id).gymName;
 
-		return `**__${pokemon}__**\n` +
-			`<#${raid.channel_id}> raid ${start_time}. ${total_attendees} potential trainer(s).${gym}\n`;
+		return `**${pokemon}**\n` +
+			`<#${raid.channel_id}> :: ${gym} :: ${total_attendees} interested trainer${total_attendees !== 1 ? 's' : ''}\n`;
 	}
 
 	getRaidChannelMessage(raid) {
@@ -393,84 +403,101 @@ class Raid {
 			tier = raid.pokemon.tier,
 			end_time = raid.end_time !== EndTimeType.UNDEFINED_END_TIME ?
 				moment(raid.end_time).format('h:mm a') :
-				'????',
+				'',
 			start_time = raid.start_time ?
 				moment(raid.start_time).format('h:mm a') :
-				'????',
+				'',
 			total_attendees = this.getAttendeeCount(raid),
 			gym = Gym.getGym(raid.gym_id),
 			gym_name = gym.nickname ?
 				gym.nickname :
 				gym.gymName,
-			location = 'https://www.google.com/maps/dir/Current+Location/' + gym.gymInfo.latitude + ',' + gym.gymInfo.longitude,
+			gym_url = gym.gymInfo.url,
 			additional_information = gym.additional_information ?
-				`\n\n**Location Notes**:\n${gym.additional_information}` :
+				gym.additional_information :
 				'';
+
+		const attendee_entries = Object.entries(raid.attendees),
+			attendees_with_members = await Promise.all(attendee_entries
+				.map(async attendee_entry => [await this.getMember(attendee_entry[0]), attendee_entry[1]])),
+			sorted_attendees = attendees_with_members
+				.sort((entry_a, entry_b) => {
+					const name_a = entry_a[0].displayName,
+						name_b = entry_b[0].displayName;
+
+					return name_a.localeCompare(name_b);
+				}),
+
+			coming_attendees = sorted_attendees
+				.filter(attendee_entry => attendee_entry[1].status === 0),
+			present_attendees = sorted_attendees
+				.filter(attendee_entry => attendee_entry[1].status === 1),
+			complete_attendees = sorted_attendees
+				.filter(attendee_entry => attendee_entry[1].status === 2),
+
+			attendees_builder = (title, attendees_list, emoji) => {
+				if (attendees_list.length === 0) {
+					return '';
+				}
+
+				let result = title + '\n';
+
+				for (const i in attendees_list) {
+					const member = attendees_list[i][0],
+						attendee = attendees_list[i][1];
+
+					result += emoji + ' ' + member.displayName;
+
+					// show how many additional attendees this user is bringing with them
+					if (attendee.number > 1) {
+						result += ' +' + (attendee.number - 1);
+					}
+
+					// add role emoji indicators if role exists
+					if (this.roles.mystic && member.roles.has(this.roles.mystic.id)) {
+						result += ' ' + this.emojis.mystic;
+					} else if (this.roles.valor && member.roles.has(this.roles.valor.id)) {
+						result += ' ' + this.emojis.valor;
+					} else if (this.roles.instinct && member.roles.has(this.roles.instinct.id)) {
+						result += ' ' + this.emojis.instinct;
+					}
+
+					result += '\n';
+				}
+
+				return result;
+			};
 
 		// generate string of attendees
 		let attendees_list = '';
 
-		for (const member_id in raid.attendees) {
-			if (!raid.attendees.hasOwnProperty(member_id)) {
-				continue;
-			}
+		attendees_list += attendees_builder('**Coming**', coming_attendees, this.emojis.premierball);
+		attendees_list += attendees_builder('**Present**', present_attendees, this.emojis.pokeball);
+		attendees_list += attendees_builder('**Complete**', complete_attendees, this.emojis.masterball);
 
-			const member = await
-					this.getMember(member_id),
-				attendee = raid.attendees[member_id];
+		const embed = new Discord.RichEmbed()
+			.setTitle(`Level ${tier} Raid against ${pokemon}`)
+			.setColor(4437377)
+			.setThumbnail(`https://rankedboost.com/wp-content/plugins/ice/pokemon-go/${pokemon}-Pokemon-Go.png`)
+			.setURL(gym_url);
 
-			// member list
-			if (((this.roles.admin && member.roles.has(this.roles.admin.id)) ||
-					(this.roles.moderator && member.roles.has(this.roles.moderator.id))) && attendee.status === true) {
-				// if member role is admin or moderator, and they have arrived, use "masterball" icon
-				attendees_list += this.emojis.masterball;
-			}
-			else if (attendee.status === true) {
-				attendees_list += this.emojis.pokeball;
-			}
-			else {
-				attendees_list += this.emojis.premierball;
-			}
-			attendees_list += '  ' + member.displayName;
-
-			// show how many additional attendees this user is bringing with them
-			if (attendee.number > 1) {
-				attendees_list += ' +' + (attendee.number - 1);
-			}
-
-			// add role emoji indicators if role exists
-			if (this.roles.mystic && member.roles.has(this.roles.mystic.id)) {
-				attendees_list += ' ' + this.emojis.mystic;
-			} else if (this.roles.valor && member.roles.has(this.roles.valor.id)) {
-				attendees_list += ' ' + this.emojis.valor;
-			} else if (this.roles.instinct && member.roles.has(this.roles.instinct.id)) {
-				attendees_list += ' ' + this.emojis.instinct;
-			}
-
-			attendees_list += '\n';
+		if (end_time !== '') {
+			embed.setDescription(`Raid available until ${end_time}`);
 		}
 
-		return {
-			"embed": {
-				"title": `Level ${tier} Raid against ${pokemon}`,
-				"description": `Raid available until ${end_time}\n` +
-				`Location **${gym_name}**\n\n` +
-				`Potential Trainers:\n` +
-				`${attendees_list}\n` +
-				`Trainers: **${total_attendees} total**\n` +
-				`Starting @ **${start_time}**` +
-				`${additional_information}`,
-				"url": location,
-				"color": 4437377,
-				"thumbnail": {
-					"url": "https://rankedboost.com/wp-content/plugins/ice/pokemon-go/" + pokemon + "-Pokemon-Go.png"
-				},
-				"provider": {
-					"name": gym_name,
-					"url": location
-				}
-			}
-		};
+		embed.addField('**Location**', gym_name + '\n' + gym_url);
+
+		embed.addField(`**${total_attendees} Interested ${total_attendees === 1 ? 'Trainer' : 'Trainers'}**`, attendees_list);
+
+		if (start_time !== '') {
+			embed.addField('**Start Time**', start_time);
+		}
+
+		if (additional_information !== '') {
+			embed.addField('**Location Information**', additional_information);
+		}
+
+		return {embed};
 	}
 
 	async refreshStatusMessages(raid) {

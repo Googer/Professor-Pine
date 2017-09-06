@@ -27,7 +27,7 @@ class CheckInCommand extends Commando.Command {
 	}
 
 	async run(message, args) {
-		const info = Raid.setArrivalStatus(message.channel.id, message.member.id, true);
+		const info = Raid.setArrivalStatus(message.channel.id, message.member.id, 1);
 
 		message.react('👍')
 			.catch(err => console.log(err));

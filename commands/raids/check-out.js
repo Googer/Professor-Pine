@@ -27,15 +27,20 @@ class CheckOutCommand extends Commando.Command {
 	}
 
 	async run(message, args) {
-		const info = Raid.setArrivalStatus(message.channel.id, message.member.id, false);
+		const info = Raid.setArrivalStatus(message.channel.id, message.member.id, 0);
 
-		message.react('👍')
-			.catch(err => console.log(err));
+		if (!info.error) {
+			message.react('👍')
+				.catch(err => console.log(err));
 
-		Utility.cleanConversation(message);
+			Utility.cleanConversation(message);
 
-		// get previous bot message & update
-		await Raid.refreshStatusMessages(info.raid);
+			// get previous bot message & update
+			await Raid.refreshStatusMessages(info.raid);
+		} else {
+			message.reply(info.error)
+				.catch(err => console.log(err));
+		}
 	}
 }
 
