@@ -5,17 +5,25 @@ const moment = require('moment'),
 	storage = require('node-persist'),
 	Discord = require('discord.js'),
 	Gym = require('./gym'),
+	NaturalArgumentType = require('../types/natural'),
 	EndTimeType = require('../types/time');
 
 class Raid {
 	constructor() {
+		this.INTERESTED = 0;
+		this.COMING = 1;
+		this.PRESENT = 2;
+		this.COMPLETE = 3;
+
 		this.active_raid_storage = storage.create({
-			dir: 'raids/active'
+			dir: 'raids/active',
+			forgiveParseErrors: true
 		});
 		this.active_raid_storage.initSync();
 
 		this.completed_raid_storage = storage.create({
-			dir: 'raids/complete'
+			dir: 'raids/complete',
+			forgiveParseErrors: true
 		});
 		this.completed_raid_storage.initSync();
 
@@ -88,9 +96,10 @@ class Raid {
 								}
 								gym_raids.push(raid);
 
-								return this.completed_raid_storage.setItem(raid.gym_id.toString(), gym_raids);
+								return Promise.resolve(
+									this.completed_raid_storage.setItemSync(raid.gym_id.toString(), gym_raids));
 							})
-							.then(result => this.active_raid_storage.removeItem(channel_id))
+							.then(result => this.active_raid_storage.removeItemSync(channel_id))
 							.catch(err => console.log(err));
 
 						delete this.raids[channel_id];
@@ -143,15 +152,11 @@ class Raid {
 	}
 
 	shutdown() {
-		this.active_raid_storage.persistSync();
-		this.completed_raid_storage.persistSync();
-
 		this.client.destroy();
 	}
 
 	persistRaid(raid) {
-		this.active_raid_storage.setItem(raid.channel_id, raid)
-			.catch(err => console.log(err));
+		this.active_raid_storage.setItemSync(raid.channel_id, raid);
 	}
 
 	setClient(client, guild) {
@@ -195,7 +200,7 @@ class Raid {
 			: raid.creation_time + end_time;
 
 		raid.attendees = Object.create(Object.prototype);
-		raid.attendees[member_id] = {number: 1, status: 0};
+		raid.attendees[member_id] = {number: 1, status: this.INTERESTED};
 
 		const channel_name = Raid.generateChannelName(raid);
 
@@ -225,13 +230,11 @@ class Raid {
 	}
 
 	getAttendeeCount(raid) {
-		return Object.keys(raid.attendees).length > 0 ?
-			Object.values(raid.attendees)
-			// complete attendees shouldn't count
-				.filter(attendee => attendee.status !== 2)
-				.map(attendee => attendee.number)
-				.reduce((total, number) => total + number) :
-			0;
+		return Object.values(raid.attendees)
+		// complete attendees shouldn't count
+			.filter(attendee => attendee.status !== this.COMPLETE)
+			.map(attendee => attendee.number)
+			.reduce((total, number) => total + number, 0);
 	}
 
 	setAnnouncementMessage(channel_id, message) {
@@ -266,17 +269,6 @@ class Raid {
 		}
 	}
 
-	addAttendee(channel_id, member_id, additional_attendees) {
-		const raid = this.getRaid(channel_id);
-
-		raid.attendees[member_id] =
-			{number: (1 + additional_attendees), status: 0};
-
-		this.persistRaid(raid);
-
-		return {raid: raid};
-	}
-
 	removeAttendee(channel_id, member_id) {
 		const raid = this.getRaid(channel_id),
 			attendee = raid.attendees[member_id];
@@ -292,19 +284,40 @@ class Raid {
 		return {raid: raid};
 	}
 
-	setArrivalStatus(channel_id, member_id, status) {
+	setMemberStatus(channel_id, member_id, status, additional_attendees = NaturalArgumentType.UNDEFINED_NUMBER) {
 		const raid = this.getRaid(channel_id),
 			attendee = raid.attendees[member_id];
 
 		if (!attendee) {
-			if (status === 0) {
-				return {error: 'You are not signed up for this raid.'};
+			raid.attendees[member_id] = {
+				number: (additional_attendees !== NaturalArgumentType.UNDEFINED_NUMBER && additional_attendees > 0)
+					? 1 + additional_attendees
+					: 1,
+				status: status
+			}
+		} else {
+			if (status === this.INTERESTED) {
+				return {error: 'You are already signed up for this raid.'};
 			}
 
-			raid.attendees[member_id] = {number: 1, status: status}
-		} else {
+			if (additional_attendees !== NaturalArgumentType.UNDEFINED_NUMBER && additional_attendees > 0) {
+				attendee.number = 1 + additional_attendees;
+			}
 			attendee.status = status;
 		}
+
+		this.persistRaid(raid);
+
+		return {raid: raid};
+	}
+
+	setPresentAttendeesToDone(channel_id) {
+		const raid = this.getRaid(channel_id),
+			attendees = raid.attendees;
+
+		Object.values(attendees)
+			.filter(attendee => attendee.status === this.PRESENT)
+			.forEach(attendee => attendee.status = this.COMPLETE);
 
 		this.persistRaid(raid);
 
@@ -385,15 +398,15 @@ class Raid {
 			gym = Gym.getGym(raid.gym_id).gymName;
 
 		return `**${pokemon}**\n` +
-			`<#${raid.channel_id}> :: ${gym} :: ${total_attendees} interested trainer${total_attendees !== 1 ? 's' : ''}\n`;
+			`${this.getChannel(raid.channel_id).toString()} :: ${gym} :: ${total_attendees} interested trainer${total_attendees !== 1 ? 's' : ''}\n`;
 	}
 
 	getRaidChannelMessage(raid) {
-		return `Use <#${raid.channel_id}> for the following raid:`;
+		return `Use ${this.getChannel(raid.channel_id).toString()} for the following raid:`;
 	}
 
 	getRaidSourceChannelMessage(raid) {
-		return `Use <#${raid.source_channel_id}> to return to this raid\'s regional channel.`;
+		return `Use ${this.getChannel(raid.source_channel_id).toString()} to return to this raid\'s regional channel.`;
 	}
 
 	async getFormattedMessage(raid) {
@@ -402,11 +415,18 @@ class Raid {
 			'????',
 			tier = raid.pokemon.tier,
 			end_time = raid.end_time !== EndTimeType.UNDEFINED_END_TIME ?
-				moment(raid.end_time).format('h:mm a') :
-				'',
+				'Raid available until ' + moment(raid.end_time).format('h:mm a') :
+				'Raid end time currently unset',
+			now = moment(),
 			start_time = raid.start_time ?
-				moment(raid.start_time).format('h:mm a') :
+				moment(raid.start_time) :
 				'',
+			start_label = raid.start_time ?
+				start_time < now ?
+					'Time Started' :
+					'Starting Time'
+				: '',
+
 			total_attendees = this.getAttendeeCount(raid),
 			gym = Gym.getGym(raid.gym_id),
 			gym_name = gym.nickname ?
@@ -428,19 +448,21 @@ class Raid {
 					return name_a.localeCompare(name_b);
 				}),
 
+			interested_attendees = sorted_attendees
+				.filter(attendee_entry => attendee_entry[1].status === this.INTERESTED),
 			coming_attendees = sorted_attendees
-				.filter(attendee_entry => attendee_entry[1].status === 0),
+				.filter(attendee_entry => attendee_entry[1].status === this.COMING),
 			present_attendees = sorted_attendees
-				.filter(attendee_entry => attendee_entry[1].status === 1),
+				.filter(attendee_entry => attendee_entry[1].status === this.PRESENT),
 			complete_attendees = sorted_attendees
-				.filter(attendee_entry => attendee_entry[1].status === 2),
+				.filter(attendee_entry => attendee_entry[1].status === this.COMPLETE),
 
-			attendees_builder = (title, attendees_list, emoji) => {
+			attendees_builder = (attendees_list, emoji) => {
 				if (attendees_list.length === 0) {
 					return '';
 				}
 
-				let result = title + '\n';
+				let result = '';
 
 				for (const i in attendees_list) {
 					const member = attendees_list[i][0],
@@ -468,13 +490,6 @@ class Raid {
 				return result;
 			};
 
-		// generate string of attendees
-		let attendees_list = '';
-
-		attendees_list += attendees_builder('**Coming**', coming_attendees, this.emojis.premierball);
-		attendees_list += attendees_builder('**Present**', present_attendees, this.emojis.pokeball);
-		attendees_list += attendees_builder('**Complete**', complete_attendees, this.emojis.masterball);
-
 		const embed = new Discord.RichEmbed()
 			.setTitle(`Level ${tier} Raid against ${pokemon}`)
 			.setColor(4437377)
@@ -482,15 +497,28 @@ class Raid {
 			.setURL(gym_url);
 
 		if (end_time !== '') {
-			embed.setDescription(`Raid available until ${end_time}`);
+			embed.setDescription(end_time);
 		}
 
-		embed.addField('**Location**', gym_name + '\n' + gym_url);
+		embed.addField('__Location__', gym_name + '\n' + gym_url);
 
-		embed.addField(`**${total_attendees} Interested ${total_attendees === 1 ? 'Trainer' : 'Trainers'}**`, attendees_list);
+		embed.addField('**Current Potential Trainers**', total_attendees.toString());
 
-		if (start_time !== '') {
-			embed.addField('**Start Time**', start_time);
+		if (interested_attendees.length > 0) {
+			embed.addField("__Interested__", attendees_builder(interested_attendees, this.emojis.premierball), true);
+		}
+		if (coming_attendees.length > 0) {
+			embed.addField("__Coming__", attendees_builder(coming_attendees, this.emojis.premierball), true);
+		}
+		if (present_attendees.length > 0) {
+			embed.addField("__Present__", attendees_builder(present_attendees, this.emojis.pokeball), true);
+		}
+		if (complete_attendees.length > 0) {
+			embed.addField("__Complete__", attendees_builder(complete_attendees, this.emojis.masterball), true);
+		}
+
+		if (raid.start_time) {
+			embed.addField(start_label, start_time.format('h:mm a'));
 		}
 
 		if (additional_information !== '') {
@@ -505,7 +533,7 @@ class Raid {
 			this.getFormattedMessage(raid);
 
 		this.getMessage(raid.announcement_message.channel_id, raid.announcement_message.message_id)
-			.then(announcement_message => announcement_message.edit(this.getRaidChannelMessage(raid), formatted_message))
+			.then(async announcement_message => announcement_message.edit(await this.getRaidChannelMessage(raid), formatted_message))
 			.catch(err => console.log(err));
 
 		raid.messages
@@ -517,7 +545,7 @@ class Raid {
 	}
 
 	raidExistsForGym(gym_id) {
-		return this.raids.length > 0 && Object.values(this.raids)
+		return Object.values(this.raids)
 			.map(raid => raid.gym_id)
 			.filter(raid_gym_id => raid_gym_id === gym_id)
 			.length > 0;

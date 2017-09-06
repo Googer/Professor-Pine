@@ -26,6 +26,10 @@ class NaturalArgumentType extends Commando.ArgumentType {
 	parse(value, message, arg) {
 		return Number.parseInt(value);
 	}
+
+	static get UNDEFINED_NUMBER() {
+		return "undefined";
+	}
 }
 
 module.exports = NaturalArgumentType;

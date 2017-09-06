@@ -27,7 +27,7 @@ class CheckOutCommand extends Commando.Command {
 	}
 
 	async run(message, args) {
-		const info = Raid.setArrivalStatus(message.channel.id, message.member.id, 0);
+		const info = Raid.setMemberStatus(message.channel.id, message.member.id, Raid.INTERESTED);
 
 		if (!info.error) {
 			message.react('👍')

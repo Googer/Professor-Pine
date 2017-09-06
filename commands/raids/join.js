@@ -2,6 +2,7 @@
 
 const Commando = require('discord.js-commando'),
 	Raid = require('../../app/raid'),
+	NaturalArgumentType = require('../../types/natural'),
 	Utility = require('../../app/utility');
 
 class JoinCommand extends Commando.Command {
@@ -20,7 +21,7 @@ class JoinCommand extends Commando.Command {
 					label: 'additional attendees',
 					prompt: 'How many additional people will be coming with you?\nExample: `1`',
 					type: 'natural',
-					default: 0,
+					default: NaturalArgumentType.UNDEFINED_NUMBER
 				}
 			],
 			argsPromptLimit: 3,
@@ -38,20 +39,36 @@ class JoinCommand extends Commando.Command {
 
 	async run(message, args) {
 		const additional_attendees = args['additional_attendees'],
-			info = Raid.addAttendee(message.channel.id, message.member.id, additional_attendees),
-			total_attendees = Raid.getAttendeeCount(info.raid);
+			info = Raid.setMemberStatus(message.channel.id, message.member.id, Raid.COMING, additional_attendees);
 
-		message.react('👍')
-			.catch(err => console.log(err));
+		if (!info.error) {
+			const total_attendees = Raid.getAttendeeCount(info.raid);
 
-		Utility.cleanConversation(message);
+			message.react('👍')
+				.catch(err => console.log(err));
 
-		message.member.send(`You signed up for raid <#${info.raid.channel_id}>. ` +
-			`There are now **${total_attendees}** potential Trainer(s) so far!`)
-			.catch(err => console.log(err));
+			Utility.cleanConversation(message);
 
-		// get previous bot message & update
-		await Raid.refreshStatusMessages(info.raid);
+			const verb =
+					total_attendees === 1 ?
+						'is' :
+						'are',
+				noun =
+					total_attendees === 1 ?
+						'trainer' :
+						'trainers';
+
+			message.member.send(`You signed up for raid ${Raid.getChannel(info.raid.channel_id).toString()}. ` +
+				`There ${verb} now **${total_attendees}** potential ${noun} so far!  ` +
+				'Be sure to update your status in its channel!')
+				.catch(err => console.log(err));
+
+			// get previous bot message & update
+			await Raid.refreshStatusMessages(info.raid);
+		} else {
+			message.reply(info.error)
+				.catch(err => console.log(err));
+		}
 	}
 }
 
