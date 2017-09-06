@@ -42,7 +42,16 @@ class StartTimeCommand extends Commando.Command {
 		message.react('👍')
 			.catch(err => console.log(err));
 
-		let total_attendees = Raid.getAttendeeCount(info.raid);
+		const total_attendees = Raid.getAttendeeCount(info.raid),
+			verb =
+				total_attendees === 1 ?
+					'is' :
+					'are',
+			noun =
+				total_attendees === 1 ?
+					'trainer' :
+					'trainers';
+
 
 		// notify all attendees that a time has been set
 		for (let i = 0; i < info.raid.attendees.length; i++) {
@@ -53,7 +62,7 @@ class StartTimeCommand extends Commando.Command {
 				Raid.getMember(member_id)
 					.then(member => member.send(
 						`A start time has been set for ${Raid.getChannel(info.raid.channel_id).toString()} @ **${info.raid.start_time}**. ` +
-						`There are currently **${total_attendees}** Trainer(s) attending!`))
+						`There ${verb} currently **${total_attendees}** ${noun} attending!`))
 					.catch(err => console.log(err));
 			}
 		}

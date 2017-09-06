@@ -59,7 +59,7 @@ class JoinCommand extends Commando.Command {
 						'trainers';
 
 			message.member.send(`You signed up for raid ${Raid.getChannel(info.raid.channel_id).toString()}. ` +
-				`There ${verb} now **${total_attendees}** potential ${noun} so far!  ` +
+				`There ${verb} now **${total_attendees}** potential ${noun}!  ` +
 				'Be sure to update your status in its channel!')
 				.catch(err => console.log(err));
 

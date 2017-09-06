@@ -415,7 +415,7 @@ class Raid {
 			'????',
 			tier = raid.pokemon.tier,
 			end_time = raid.end_time !== EndTimeType.UNDEFINED_END_TIME ?
-				'Raid available until ' + moment(raid.end_time).format('h:mm a') :
+				`Raid available until ${moment(raid.end_time).format('h:mm a')}` :
 				'Raid end time currently unset',
 			now = moment(),
 			start_time = raid.start_time ?
@@ -497,7 +497,7 @@ class Raid {
 			.setURL(gym_url);
 
 		if (end_time !== '') {
-			embed.setDescription(end_time);
+			embed.setFooter(end_time);
 		}
 
 		embed.addField('__Location__', gym_name + '\n' + gym_url);
