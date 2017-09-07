@@ -458,10 +458,6 @@ class Raid {
 				.filter(attendee_entry => attendee_entry[1].status === this.COMPLETE),
 
 			attendees_builder = (attendees_list, emoji) => {
-				if (attendees_list.length === 0) {
-					return '';
-				}
-
 				let result = '';
 
 				for (const i in attendees_list) {
@@ -502,19 +498,19 @@ class Raid {
 
 		embed.addField('__Location__', gym_name + '\n' + gym_url);
 
-		embed.addField('**Current Potential Trainers**', total_attendees.toString());
+		embed.addField('__Current Potential Trainers__', total_attendees.toString());
 
 		if (interested_attendees.length > 0) {
-			embed.addField("__Interested__", attendees_builder(interested_attendees, this.emojis.premierball), true);
+			embed.addField("Interested", attendees_builder(interested_attendees, this.emojis.premierball), true);
 		}
 		if (coming_attendees.length > 0) {
-			embed.addField("__Coming__", attendees_builder(coming_attendees, this.emojis.premierball), true);
+			embed.addField("Coming", attendees_builder(coming_attendees, this.emojis.premierball), true);
 		}
 		if (present_attendees.length > 0) {
-			embed.addField("__Present__", attendees_builder(present_attendees, this.emojis.pokeball), true);
+			embed.addField("Present", attendees_builder(present_attendees, this.emojis.pokeball), true);
 		}
 		if (complete_attendees.length > 0) {
-			embed.addField("__Complete__", attendees_builder(complete_attendees, this.emojis.masterball), true);
+			embed.addField("Complete", attendees_builder(complete_attendees, this.emojis.masterball), true);
 		}
 
 		if (raid.start_time) {
