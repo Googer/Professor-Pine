@@ -365,7 +365,7 @@ class Raid {
 			questions = filtered_members
 				.map(member => member.send(`Have you completed raid ${channel.toString()}?`));
 
-		questions.forEach(question =>
+		questions.forEach(async question =>
 			question
 				.then(async message => {
 					const responses = await message.channel.awaitMessages(
