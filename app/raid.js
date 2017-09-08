@@ -3,6 +3,7 @@
 const moment = require('moment'),
 	settings = require('../data/settings'),
 	storage = require('node-persist'),
+	Constants = require('./constants'),
 	Discord = require('discord.js'),
 	Gym = require('./gym'),
 	NaturalArgumentType = require('../types/natural'),
@@ -10,11 +11,6 @@ const moment = require('moment'),
 
 class Raid {
 	constructor() {
-		this.INTERESTED = 0;
-		this.COMING = 1;
-		this.PRESENT = 2;
-		this.COMPLETE = 3;
-
 		this.active_raid_storage = storage.create({
 			dir: 'raids/active',
 			forgiveParseErrors: true
@@ -233,7 +229,7 @@ class Raid {
 			: raid.creation_time + end_time;
 
 		raid.attendees = Object.create(Object.prototype);
-		raid.attendees[member_id] = {number: 1, status: this.INTERESTED};
+		raid.attendees[member_id] = {number: 1, status: Constants.RaidStatus.INTERESTED};
 
 		const channel_name = Raid.generateChannelName(raid);
 
@@ -265,7 +261,7 @@ class Raid {
 	getAttendeeCount(raid) {
 		return Object.values(raid.attendees)
 		// complete attendees shouldn't count
-			.filter(attendee => attendee.status !== this.COMPLETE)
+			.filter(attendee => attendee.status !== Constants.RaidStatus.COMPLETE)
 			.map(attendee => attendee.number)
 			.reduce((total, number) => total + number, 0);
 	}
@@ -329,7 +325,7 @@ class Raid {
 				status: status
 			}
 		} else {
-			if (status === this.INTERESTED) {
+			if (status === Constants.RaidStatus.INTERESTED) {
 				return {error: 'You are already signed up for this raid.'};
 			}
 
@@ -349,7 +345,7 @@ class Raid {
 
 		if (!!member_id) {
 			// set member that issued this command to complete
-			this.setMemberStatus(channel_id, member_id, this.COMPLETE);
+			this.setMemberStatus(channel_id, member_id, Constants.RaidStatus.COMPLETE);
 			this.refreshStatusMessages(raid)
 				.catch(err => console.log(err));
 		}
@@ -361,7 +357,7 @@ class Raid {
 				.map(async attendee_id => await this.getMember(attendee_id)))
 				.catch(err => console.log(err)),
 			filtered_members = members
-				.filter(member => raid.attendees[member.id].status === this.PRESENT),
+				.filter(member => raid.attendees[member.id].status === Constants.RaidStatus.PRESENT),
 			questions = filtered_members
 				.map(member => member.send(`Have you completed raid ${channel.toString()}?`));
 
@@ -388,7 +384,7 @@ class Raid {
 						response.react('👍')
 							.catch(err => console.log(err));
 
-						raid.attendees[message.channel.recipient.id].status = this.COMPLETE;
+						raid.attendees[message.channel.recipient.id].status = Constants.RaidStatus.COMPLETE;
 						this.persistRaid(raid);
 						this.refreshStatusMessages(raid)
 							.catch(err => console.log(err));
@@ -555,13 +551,13 @@ class Raid {
 				}),
 
 			interested_attendees = sorted_attendees
-				.filter(attendee_entry => attendee_entry[1].status === this.INTERESTED),
+				.filter(attendee_entry => attendee_entry[1].status === Constants.RaidStatus.INTERESTED),
 			coming_attendees = sorted_attendees
-				.filter(attendee_entry => attendee_entry[1].status === this.COMING),
+				.filter(attendee_entry => attendee_entry[1].status === Constants.RaidStatus.COMING),
 			present_attendees = sorted_attendees
-				.filter(attendee_entry => attendee_entry[1].status === this.PRESENT),
+				.filter(attendee_entry => attendee_entry[1].status === Constants.RaidStatus.PRESENT),
 			complete_attendees = sorted_attendees
-				.filter(attendee_entry => attendee_entry[1].status === this.COMPLETE),
+				.filter(attendee_entry => attendee_entry[1].status === Constants.RaidStatus.COMPLETE),
 
 			attendees_builder = (attendees_list, emoji) => {
 				let result = '';
@@ -683,5 +679,4 @@ class Raid {
 	}
 }
 
-module
-	.exports = new Raid();
+module.exports = new Raid();

@@ -1,6 +1,7 @@
 "use strict";
 
 const Commando = require('discord.js-commando'),
+	Constants = require('../../app/constants'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
 
@@ -27,7 +28,7 @@ class InterestedCommand extends Commando.Command {
 	}
 
 	async run(message, args) {
-		const info = Raid.setMemberStatus(message.channel.id, message.member.id, Raid.INTERESTED, 0);
+		const info = Raid.setMemberStatus(message.channel.id, message.member.id, Constants.RaidStatus.INTERESTED, 0);
 
 		if (!info.error) {
 			const total_attendees = Raid.getAttendeeCount(info.raid);

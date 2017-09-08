@@ -3,6 +3,7 @@
 const Commando = require('discord.js-commando'),
 	NaturalArgumentType = require('../../types/natural'),
 	Raid = require('../../app/raid'),
+	Constants = require('../../app/constants'),
 	Utility = require('../../app/utility');
 
 class CheckInCommand extends Commando.Command {
@@ -39,7 +40,7 @@ class CheckInCommand extends Commando.Command {
 
 	async run(message, args) {
 		const additional_attendees = args['additional_attendees'],
-			info = Raid.setMemberStatus(message.channel.id, message.member.id, Raid.PRESENT, additional_attendees);
+			info = Raid.setMemberStatus(message.channel.id, message.member.id, Constants.RaidStatus.PRESENT, additional_attendees);
 
 		message.react('👍')
 			.catch(err => console.log(err));
