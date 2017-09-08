@@ -224,10 +224,6 @@ class Raid {
 		raid.pokemon = pokemon;
 		raid.gym_id = gym_id;
 
-		raid.end_time = end_time === EndTimeType.UNDEFINED_END_TIME
-			? EndTimeType.UNDEFINED_END_TIME
-			: raid.creation_time + end_time;
-
 		raid.attendees = Object.create(Object.prototype);
 		raid.attendees[member_id] = {number: 1, status: Constants.RaidStatus.INTERESTED};
 
@@ -235,12 +231,17 @@ class Raid {
 
 		return this.getChannel(channel_id).clone(channel_name, true, false)
 			.then(new_channel => {
-				raid.channel_id = new_channel.id;
+				this.raids[new_channel.id] = raid;
 
-				this.persistRaid(raid);
+				raid.channel_id = new_channel.id;
+				if (end_time === EndTimeType.UNDEFINED_END_TIME) {
+					raid.end_time = EndTimeType.UNDEFINED_END_TIME;
+					this.persistRaid(raid);
+				} else {
+					this.setRaidEndTime(new_channel.id, end_time);
+				}
 
 				this.channels.set(new_channel.id, new_channel);
-				this.raids[new_channel.id] = raid;
 				return {raid: raid};
 			});
 	}
