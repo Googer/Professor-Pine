@@ -78,7 +78,7 @@ class Raid {
 							// ask members if they finished raid
 							this.setPresentAttendeesToComplete(channel_id)
 								.catch(err => console.log(err));
-						} else if (now > raid.start_time) {
+						} else if (!raid.start_clear_time && now > raid.start_time) {
 							raid.start_clear_time = start_clear_time;
 
 							this.persistRaid(raid);
