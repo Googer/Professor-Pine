@@ -400,15 +400,17 @@ class Raid {
 	}
 
 	setRaidStartTime(channel_id, start_time) {
-		const raid = this.getRaid(channel_id);
+		const raid = this.getRaid(channel_id),
+			now = moment();
 
 		if (!!raid.pokemon.name) {
-			raid.start_time = moment().add(start_time, 'milliseconds').valueOf();
+			raid.start_time = now.add(start_time, 'milliseconds').valueOf();
 		} else {
 			// this is an egg - start time means when the egg hatches instead
-			raid.hatch_time = start_time;
+			raid.hatch_time = now.clone().add(start_time, 'milliseconds').valueOf();
 			start_time += (settings.hatched_egg_duration * 60 * 1000);
-			raid.end_time = moment().add(start_time, 'milliseconds').valueOf();
+
+			raid.end_time = now.add(start_time, 'milliseconds').valueOf();
 		}
 
 		this.persistRaid(raid);
@@ -564,10 +566,7 @@ class Raid {
 			attendees_builder = (attendees_list, emoji) => {
 				let result = '';
 
-				for (const i in attendees_list) {
-					const member = attendees_list[i][0],
-						attendee = attendees_list[i][1];
-
+				attendees_list.forEach(([member, attendee]) => {
 					result += emoji + ' ' + member.displayName;
 
 					// show how many additional attendees this user is bringing with them
@@ -585,7 +584,7 @@ class Raid {
 					}
 
 					result += '\n';
-				}
+				});
 
 				return result;
 			};
