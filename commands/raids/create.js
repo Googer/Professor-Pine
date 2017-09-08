@@ -46,6 +46,10 @@ class RaidCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
+			if (!message.command) {
+				return true;
+			}
+
 			if (message.command.name !== 'raid') {
 				return false;
 			}

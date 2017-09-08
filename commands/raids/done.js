@@ -11,18 +11,10 @@ class DoneCommand extends Commando.Command {
 			group: 'raids',
 			memberName: 'done',
 			aliases: ['complete', 'caught-it'],
-			description: 'Let others know you have completed the raid so you are no longer available to participate in it again!',
+			description: 'Let others know you and your raid group have completed the raid so you are no longer available to participate in it again!',
 			details: 'Use this command to tell everyone you have completed this raid.',
 			examples: ['\t!done', '\t!complete', '\t!caught-it'],
-			guildOnly: true,
-			args: [
-				{
-					key: 'all',
-					prompt: 'Has everyone present completed this raid?',
-					type: 'boolean',
-					default: false
-				}
-			]
+			guildOnly: true
 		});
 
 		client.dispatcher.addInhibitor(message => {
@@ -35,22 +27,13 @@ class DoneCommand extends Commando.Command {
 	}
 
 	async run(message, args) {
-		const all = args['all'];
-
-		let info;
-		if (all) {
-			info = Raid.setPresentAttendeesToDone(message.channel.id);
-		} else {
-			info = Raid.setMemberStatus(message.channel.id, message.member.id, Raid.COMPLETE);
-		}
+		Raid.setPresentAttendeesToComplete(message.channel.id, message.member.id)
+			.catch(err => console.log(err));
 
 		message.react('👍')
 			.catch(err => console.log(err));
 
 		Utility.cleanConversation(message);
-
-		// get previous bot messages & update
-		await Raid.refreshStatusMessages(info.raid);
 	}
 }
 
