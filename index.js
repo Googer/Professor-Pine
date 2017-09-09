@@ -3,6 +3,7 @@
 const Commando = require('discord.js-commando'),
 	Client = new Commando.Client(),
 	Raid = require('./app/raid'),
+	ImageProcess = require('./app/process-image'),
 	discord_settings = require('./data/discord'),
 	nodeCleanup = require('node-cleanup');
 
@@ -50,6 +51,15 @@ Client.on('message', message => {
 	if (message.type === 'PINS_ADD' && message.client.user.bot) {
 		message.delete()
 			.catch(err => console.log(err));
+	}
+
+	// attempt to process image if it exists
+	if (message.attachments.size && message.attachments.first().url.search(/jpg|jpeg|png/)) {
+		ImageProcess.process(message.channel, message.attachments.first().url);
+	}
+
+	if (message.content == 'ping') {
+		ImageProcess.process(message.channel);
 	}
 });
 
