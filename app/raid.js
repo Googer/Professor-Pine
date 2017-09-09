@@ -316,22 +316,24 @@ class Raid {
 
 	setMemberStatus(channel_id, member_id, status, additional_attendees = NaturalArgumentType.UNDEFINED_NUMBER) {
 		const raid = this.getRaid(channel_id),
-			attendee = raid.attendees[member_id];
+			attendee = raid.attendees[member_id],
+		number = (additional_attendees !== NaturalArgumentType.UNDEFINED_NUMBER)
+			? 1 + additional_attendees
+			: 1;
 
 		if (!attendee) {
 			raid.attendees[member_id] = {
-				number: (additional_attendees !== NaturalArgumentType.UNDEFINED_NUMBER && additional_attendees > 0)
-					? 1 + additional_attendees
-					: 1,
+				number: number,
 				status: status
 			}
 		} else {
-			if (status === Constants.RaidStatus.INTERESTED) {
+			if (status === Constants.RaidStatus.INTERESTED &&
+				(additional_attendees === NaturalArgumentType.UNDEFINED_NUMBER || attendee.number === number)) {
 				return {error: 'You are already signed up for this raid.'};
 			}
 
-			if (additional_attendees !== NaturalArgumentType.UNDEFINED_NUMBER && additional_attendees > 0) {
-				attendee.number = 1 + additional_attendees;
+			if (additional_attendees !== NaturalArgumentType.UNDEFINED_NUMBER) {
+				attendee.number = number;
 			}
 			attendee.status = status;
 		}

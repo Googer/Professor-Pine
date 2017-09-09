@@ -3,6 +3,7 @@
 const Commando = require('discord.js-commando'),
 	Constants = require('../../app/constants'),
 	Raid = require('../../app/raid'),
+	NaturalArgumentType = require('../../types/natural'),
 	Utility = require('../../app/utility');
 
 class InterestedCommand extends Commando.Command {
@@ -15,6 +16,16 @@ class InterestedCommand extends Commando.Command {
 			description: 'Express interest in a raid!',
 			details: 'Use this command to express interest in a raid.',
 			examples: ['\t!interested', '\t!maybe', '\t!hmm'],
+			args: [
+				{
+					key: 'additional_attendees',
+					label: 'additional attendees',
+					prompt: 'How many additional people would be coming with you?\nExample: `1`',
+					type: 'natural',
+					default: NaturalArgumentType.UNDEFINED_NUMBER
+				}
+			],
+			argsPromptLimit: 3,
 			guildOnly: true
 		});
 
@@ -28,7 +39,8 @@ class InterestedCommand extends Commando.Command {
 	}
 
 	async run(message, args) {
-		const info = Raid.setMemberStatus(message.channel.id, message.member.id, Constants.RaidStatus.INTERESTED, 0);
+		const additional_attendees = args['additional_attendees'],
+			info = Raid.setMemberStatus(message.channel.id, message.member.id, Constants.RaidStatus.INTERESTED, additional_attendees);
 
 		if (!info.error) {
 			const total_attendees = Raid.getAttendeeCount(info.raid);

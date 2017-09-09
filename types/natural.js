@@ -15,7 +15,7 @@ class NaturalArgumentType extends Commando.ArgumentType {
 
 		const int = Number.parseInt(value);
 
-		if (!Number.isNaN(int) && int >= 0) {
+		if (!Number.isNaN(int) && int > 0) {
 			return true;
 		}
 
@@ -24,7 +24,11 @@ class NaturalArgumentType extends Commando.ArgumentType {
 	}
 
 	parse(value, message, arg) {
-		return Number.parseInt(value);
+		const int = Number.parseInt(value);
+
+		return !!value.match(/^\+\d+/) ?
+			int :
+			int - 1;
 	}
 
 	static get UNDEFINED_NUMBER() {
