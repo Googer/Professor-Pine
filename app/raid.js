@@ -612,7 +612,7 @@ class Raid {
 			embed.addField('Present', attendees_builder(present_attendees, this.emojis.pokeball), true);
 		}
 		if (complete_attendees.length > 0) {
-			embed.addField('Complete', attendees_builder(complete_attendees, this.emojis.masterball), true);
+			embed.addField('Complete', attendees_builder(complete_attendees, this.emojis.greatball), true);
 		}
 
 		if (!!raid.hatch_time) {
