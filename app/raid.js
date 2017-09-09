@@ -603,16 +603,16 @@ class Raid {
 			embed.addField('__Possible Trainers__', total_attendees.toString());
 		}
 		if (interested_attendees.length > 0) {
-			embed.addField('Interested', attendees_builder(interested_attendees, this.emojis.premierball), true);
+			embed.addField('Interested', attendees_builder(interested_attendees, this.emojis.pokeball), true);
 		}
 		if (coming_attendees.length > 0) {
-			embed.addField('Coming', attendees_builder(coming_attendees, this.emojis.premierball), true);
+			embed.addField('Coming', attendees_builder(coming_attendees, this.emojis.greatball), true);
 		}
 		if (present_attendees.length > 0) {
-			embed.addField('Present', attendees_builder(present_attendees, this.emojis.pokeball), true);
+			embed.addField('Present', attendees_builder(present_attendees, this.emojis.ultraball), true);
 		}
 		if (complete_attendees.length > 0) {
-			embed.addField('Complete', attendees_builder(complete_attendees, this.emojis.greatball), true);
+			embed.addField('Complete', attendees_builder(complete_attendees, this.emojis.premierball), true);
 		}
 
 		if (!!raid.hatch_time) {
