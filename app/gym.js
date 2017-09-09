@@ -150,7 +150,8 @@ class Gym extends Search {
 		// first filter out stop words from the search terms; lunr does this itself so our hacky way of AND'ing will
 		// return nothing if they have any in their search terms list since they'll never match anything
 		const filtered_terms = terms
-			.filter(term => lunr.stopWordFilter(term));
+			.filter(term => lunr.stopWordFilter(term))
+			.map(term => term.replace(/^\W+/, '').replace(/\W+$/, ''));
 
 		let results = super.search([filtered_terms[0]])
 			.map(result => result.ref);
