@@ -226,8 +226,7 @@ class Raid {
 		raid.attendees[member_id] = {number: 1, status: Constants.RaidStatus.INTERESTED};
 
 		const source_channel = this.getChannel(channel_id),
-			channel_name = Raid.generateChannelName(raid),
-			parent_channel = source_channel.parent;
+			channel_name = Raid.generateChannelName(raid);
 
 		return this.guild.createChannel(channel_name, 'text', {overwrites: source_channel.permissionOverwrites})
 			.then(new_channel => {
