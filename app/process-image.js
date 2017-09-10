@@ -4,10 +4,6 @@ const path = require('path');
 const jimp = require("jimp");
 const tesseract = require('tesseract.js');
 
-const options = {
-    langPath: path.join(__dirname, '/assets/langs')
-};
-
 
 class ImageProcess {
 	constructor() {
