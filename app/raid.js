@@ -217,6 +217,7 @@ class Raid {
 		const raid = Object.create(null);
 
 		// add some extra raid data to remember
+		raid.created_by_id = member_id;
 		raid.source_channel_id = channel_id;
 		raid.creation_time = moment().valueOf();
 		raid.last_possible_time = raid.creation_time + (settings.default_raid_duration * 60 * 1000);
