@@ -12,7 +12,7 @@ class GymType extends Commando.ArgumentType {
 
 	validate(value, message, arg) {
 		const extra_error_message = Utility.isOneLiner(message, value) ?
-			'  Do **not** re-enter the `' + arg.command.name + '` command.' :
+			'  Do **not** re-enter the `' + message.command.name + '` command.' :
 			'';
 
 		try {
