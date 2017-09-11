@@ -4,9 +4,6 @@ const lunr = require('lunr'),
 	he = require('he'),
 	Search = require('./search');
 
-// Maps from regions (channel name) to gym ids within them
-const region_gyms = new Map();
-
 class Gym extends Search {
 	constructor() {
 		super();
@@ -22,6 +19,8 @@ class Gym extends Search {
 
 		this.gyms = new Map(merged_gyms
 			.map(gym => [gym.gymId, gym]));
+
+		this.region_map = require('../data/region-map');
 
 		this.index = lunr(function () {
 			// reference will be the entire gym object so we can grab whatever we need from it (GPS coordinates, name, etc.)
@@ -51,8 +50,6 @@ class Gym extends Search {
 			// field from supplementary metadata
 			this.field('nickname');
 			this.field('additional_terms');
-
-			const regions = require('../data/regions');
 
 			merged_gyms.forEach(function (gym) {
 				// Gym document is a object with its reference and fields to collection of values
@@ -100,28 +97,6 @@ class Gym extends Search {
 				// Add places into library
 				if (gym.gymInfo.places) {
 					gymDocument['places'] = he.decode(gym.gymInfo.places.join(' '));
-				}
-
-				if (!addressInfo.has('postal_code')) {
-					console.log('Gym "' + gym.gymName + '" has no postal code information!');
-				} else {
-					// Add gym to appropriate regions (based on zipcodes to which it belongs)
-					addressInfo.get('postal_code').forEach(zipcode => {
-						const zipcode_regions = regions[zipcode];
-
-						if (zipcode_regions) {
-							zipcode_regions.forEach(region => {
-								let current_region_gyms = region_gyms.get(region);
-
-								if (!current_region_gyms) {
-									current_region_gyms = new Set();
-									region_gyms.set(region, current_region_gyms);
-								}
-
-								current_region_gyms.add(gym.gymId);
-							});
-						}
-					});
 				}
 
 				// merge in additional info from supplementary metadata file
@@ -176,12 +151,12 @@ class Gym extends Search {
 		return results
 			.map(result => JSON.parse(result))
 			.filter(gym => {
-				return region_gyms.get(channel_name).has(gym.gymId);
+				return this.region_map[channel_name].indexOf(gym.gymId) >= 0;
 			});
 	}
 
 	isValidChannel(channel_name) {
-		return region_gyms.has(channel_name);
+		return !!this.region_map[channel_name];
 	}
 
 	getGym(gym_id) {
