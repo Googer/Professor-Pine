@@ -10,7 +10,7 @@ class PokemonType extends Commando.ArgumentType {
 	}
 
 	validate(value, message, arg) {
-		const extra_error_message = Utility.isOneLiner(message, value) ?
+		const extra_error_message = Utility.isOneLiner(message) ?
 			'  Do **not** re-enter the `' + arg.command.name + '` command.' :
 			'',
 

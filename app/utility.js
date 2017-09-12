@@ -4,8 +4,8 @@ class Utility {
 	constructor() {
 	}
 
-	static isOneLiner(message, value) {
-		return message.message.content.includes(value);
+	static isOneLiner(message) {
+		return message.message.content.startsWith(message.client.options.commandPrefix);
 	}
 
 	static async cleanConversation(initial_message, delete_original = false) {
