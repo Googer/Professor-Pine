@@ -137,18 +137,16 @@ class Raid {
 		}, settings.cleanup_interval);
 	}
 
-	async getMember(member_id, cache) {
+	getMember(member_id, cache) {
 		if (this.members.has(member_id)) {
-			return Promise.resolve(this.members.get(member_id));
+			return this.members.get(member_id);
 		}
 
-		return this.guild.fetchMember(member_id)
-			.then(member => {
-				if (cache) {
-					this.members.set(member_id, member)
-				}
-				return member;
-			})
+		if (cache) {
+			this.members.set(member_id, this.guild.members.get(member_id));
+		}
+
+		return this.guild.members.get(member_id);
 	}
 
 	getChannel(channel_id, cache) {
@@ -169,8 +167,8 @@ class Raid {
 
 		const [channel_id, message_id] = message_cache_id.split(':');
 
-		return this.getChannel(channel_id, cache)
-			.fetchMessage(message_id)
+		return this.getChannel(channel_id, cache).messages
+			.fetch(message_id)
 			.then(message => {
 				if (cache) {
 					this.messages.set(message_cache_id, message);
@@ -228,13 +226,23 @@ class Raid {
 		raid.attendees = Object.create(Object.prototype);
 		raid.attendees[member_id] = {number: 1, status: Constants.RaidStatus.INTERESTED};
 
-		const channel_name = Raid.generateChannelName(raid);
+		const source_channel = this.getChannel(channel_id),
+			channel_name = Raid.generateChannelName(raid);
 
-		return this.getChannel(channel_id).clone(channel_name, true, false)
+		return this.guild.createChannel(channel_name, 'text', {overwrites: source_channel.permissionOverwrites})
 			.then(new_channel => {
 				this.raids[new_channel.id] = raid;
-
 				raid.channel_id = new_channel.id;
+				return new_channel.setParent(source_channel.parent, {lockPermissions: false});
+			})
+			.then(new_channel => {
+				// move channel to end
+				return this.guild.setChannelPositions([{
+					channel: new_channel,
+					position: this.guild.channels.size - 1
+				}]);
+			})
+			.then(new_channel => {
 				if (end_time === EndTimeType.UNDEFINED_END_TIME) {
 					raid.end_time = EndTimeType.UNDEFINED_END_TIME;
 					this.persistRaid(raid);
@@ -318,9 +326,9 @@ class Raid {
 	setMemberStatus(channel_id, member_id, status, additional_attendees = NaturalArgumentType.UNDEFINED_NUMBER) {
 		const raid = this.getRaid(channel_id),
 			attendee = raid.attendees[member_id],
-		number = (additional_attendees !== NaturalArgumentType.UNDEFINED_NUMBER)
-			? 1 + additional_attendees
-			: 1;
+			number = (additional_attendees !== NaturalArgumentType.UNDEFINED_NUMBER)
+				? 1 + additional_attendees
+				: 1;
 
 		if (!attendee) {
 			raid.attendees[member_id] = {
@@ -357,9 +365,8 @@ class Raid {
 		const channel = this.getChannel(channel_id),
 			member_ids = Object.keys(raid.attendees)
 				.filter(attendee_id => attendee_id !== member_id),
-			members = await Promise.all(member_ids
-				.map(async attendee_id => await this.getMember(attendee_id)))
-				.catch(err => console.log(err)),
+			members = member_ids
+				.map(attendee_id => this.getMember(attendee_id)),
 			filtered_members = members
 				.filter(member => raid.attendees[member.id].status === Constants.RaidStatus.PRESENT),
 			questions = filtered_members
@@ -544,8 +551,8 @@ class Raid {
 
 			total_attendees = this.getAttendeeCount(raid),
 			attendee_entries = Object.entries(raid.attendees),
-			attendees_with_members = await Promise.all(attendee_entries
-				.map(async attendee_entry => [await this.getMember(attendee_entry[0]), attendee_entry[1]])),
+			attendees_with_members = attendee_entries
+				.map(attendee_entry => [this.getMember(attendee_entry[0]), attendee_entry[1]]),
 			sorted_attendees = attendees_with_members
 				.sort((entry_a, entry_b) => {
 					const name_a = entry_a[0].displayName,
@@ -589,12 +596,12 @@ class Raid {
 				return result;
 			};
 
-		const embed = new Discord.RichEmbed()
-			.setColor(4437377)
-			.setThumbnail(`https://rankedboost.com/wp-content/plugins/ice/pokemon-go/${pokemon}-Pokemon-Go.png`)
-			.setTitle(gym_name)
-			.setURL(gym_url)
-			.setDescription(`Level ${tier} Raid against ${pokemon}`);
+		const embed = new Discord.MessageEmbed();
+		embed.setColor(4437377);
+		embed.setThumbnail(`https://rankedboost.com/wp-content/plugins/ice/pokemon-go/${pokemon}-Pokemon-Go.png`);
+		embed.setTitle(gym_name);
+		embed.setURL(gym_url);
+		embed.setDescription(`Level ${tier} Raid against ${pokemon}`);
 
 		if (end_time !== '') {
 			embed.setFooter(end_time);

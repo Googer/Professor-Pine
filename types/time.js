@@ -12,7 +12,7 @@ class TimeType extends Commando.ArgumentType {
 
 	validate(value, message, arg) {
 		const extra_error_message = Utility.isOneLiner(message) ?
-			'  Do **not** re-enter the `' + arg.command.name + '` command.' :
+			'  Do **not** re-enter the `' + message.command.name + '` command.' :
 			'';
 
 		let mode = arg.min; // hacky way to get a preferred mode out of the argument definition
@@ -76,7 +76,7 @@ class TimeType extends Commando.ArgumentType {
 			}
 
 			// if time is greater than 3 hours, the user likely entered incorrect information
-			if (arg.command.name === 'start-time') {
+			if (message.command.name === 'start-time') {
 				const raid = require('../app/raid').getRaid(message.channel.id),
 					end_time = raid.end_time;
 

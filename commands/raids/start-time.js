@@ -59,10 +59,10 @@ class StartTimeCommand extends Commando.Command {
 
 			// no reason to spam the person who set the time, telling them the time being set haha
 			if (member_id !== message.member.id) {
-				Raid.getMember(member_id)
-					.then(member => member.send(
-						`A start time has been set for ${Raid.getChannel(info.raid.channel_id).toString()} @ **${info.raid.start_time}**. ` +
-						`There ${verb} currently **${total_attendees}** ${noun} attending!`))
+				const member = Raid.getMember(member_id);
+				member.send(
+					`A start time has been set for ${Raid.getChannel(info.raid.channel_id).toString()} @ **${info.raid.start_time}**. ` +
+					`There ${verb} currently **${total_attendees}** ${noun} attending!`)
 					.catch(err => console.log(err));
 			}
 		}
