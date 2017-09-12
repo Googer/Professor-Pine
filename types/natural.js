@@ -19,7 +19,8 @@ class NaturalArgumentType extends Commando.ArgumentType {
 			return true;
 		}
 
-		message.reply('Please enter a number greater than zero!' + extra_error_message);
+		message.reply('Please enter a number greater than zero!' + extra_error_message)
+			.catch(err => console.log(err));
 		return false;
 	}
 

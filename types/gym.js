@@ -19,20 +19,23 @@ class GymType extends Commando.ArgumentType {
 			const gyms = Gym.search(message.channel.id, value.split(' '));
 
 			if (!gyms || gyms.length === 0) {
-				message.reply('\'' + value + '\' returned no gyms.' + extra_error_message);
+				message.reply('\'' + value + '\' returned no gyms.' + extra_error_message)
+					.catch(err => console.log(err));
 				return false;
 			}
 
 			const gym_id = gyms[0].gymId;
 
 			if (Raid.raidExistsForGym(gym_id)) {
-				message.reply('Gym already has an active raid.' + extra_error_message);
+				message.reply('Gym already has an active raid.' + extra_error_message)
+					.catch(err => console.log(err));
 				return false;
 			}
 
 			return true;
 		} catch (err) {
-			message.reply('Invalid search terms entered.' + extra_error_message);
+			message.reply('Invalid search terms entered.' + extra_error_message)
+				.catch(err => console.log(err));
 			return false;
 		}
 	}
