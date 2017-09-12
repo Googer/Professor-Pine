@@ -1,5 +1,6 @@
 # ignore node files
 node_modules/
+package-lock.json
 
 # ignore IDEA workspace file
 .idea/workspace.xml
