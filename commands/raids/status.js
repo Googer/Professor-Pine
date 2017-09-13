@@ -32,10 +32,11 @@ class StatusCommand extends Commando.Command {
 				.catch(err => console.error(err));
 		} else {
 			const raid = Raid.getRaid(message.channel.id),
+				raid_source_channel_message = await Raid.getRaidSourceChannelMessage(raid),
 				formatted_message = await Raid.getFormattedMessage(raid);
 
 			// post a new raid message
-			message.channel.send(Raid.getRaidSourceChannelMessage(raid), formatted_message)
+			message.channel.send(raid_source_channel_message, formatted_message)
 				.then(status_message => {
 					Raid.addMessage(raid.channel_id, status_message);
 				})

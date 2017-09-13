@@ -124,12 +124,16 @@ class Raid {
 	}
 
 	async getMember(channel_id, member_id) {
-		return this.guild.fetchMember(member_id)
-			.catch(err => {
-				console.warn(`Removing non-existent member ${member_id} from raid`);
-				this.removeAttendee(channel_id, member_id);
-				throw err;
-			})
+		const member = this.guild.members.get(member_id);
+
+		if (!!member) {
+			return Promise.resolve(member);
+		}
+
+		console.warn(`Removing non-existent member ${member_id} from raid`);
+		this.removeAttendee(channel_id, member_id);
+
+		throw new Error(`Member ${member_id} does not exist!`);
 	}
 
 	getChannel(channel_id) {
@@ -161,7 +165,7 @@ class Raid {
 		const [channel_id, message_id] = message_cache_id.split(':');
 
 		return this.getChannel(channel_id)
-			.then(channel => channel.fetchMessage(message_id))
+			.then(channel => channel.messages.fetch(message_id))
 			.catch(err => {
 				console.error(err);
 				const raid = this.getRaid(channel_id);
@@ -221,7 +225,7 @@ class Raid {
 		this.emojis.premierball = emojis.get('premierball') || '';
 	}
 
-	createRaid(channel_id, member_id, pokemon, gym_id, end_time) {
+	async createRaid(channel_id, member_id, pokemon, gym_id, end_time) {
 		const raid = Object.create(null);
 
 		// add some extra raid data to remember
@@ -236,7 +240,7 @@ class Raid {
 		raid.attendees = Object.create(Object.prototype);
 		raid.attendees[member_id] = {number: 1, status: Constants.RaidStatus.INTERESTED};
 
-		const source_channel = this.getChannel(channel_id),
+		const source_channel = await this.getChannel(channel_id),
 			channel_name = Raid.generateChannelName(raid);
 
 		return this.guild.createChannel(channel_name, 'text', {overwrites: source_channel.permissionOverwrites})
@@ -371,7 +375,6 @@ class Raid {
 				.catch(err => console.error(err)),
 			member_ids = Object.keys(raid.attendees)
 				.filter(attendee_id => attendee_id !== member_id),
-      // CHECK THIS
 			members = await Promise.all(member_ids
 				.map(async attendee_id => await this.getMember(channel_id, attendee_id)))
 				.catch(err => console.error(err)),
@@ -573,7 +576,6 @@ class Raid {
 
 			total_attendees = this.getAttendeeCount(raid),
 			attendee_entries = Object.entries(raid.attendees),
-      // CHECK THIS
 			attendees_with_members = await Promise.all(attendee_entries
 				.map(async attendee_entry => [await this.getMember(raid.channel_id, attendee_entry[0]), attendee_entry[1]])),
 			sorted_attendees = attendees_with_members
