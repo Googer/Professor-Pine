@@ -9,7 +9,7 @@ class Pokemon extends Search {
 	}
 
 	buildIndex() {
-		console.log('Indexing pokemon...');
+		console.info('Indexing pokemon...');
 
 		this.index = lunr(function () {
 			this.ref('object');
@@ -32,7 +32,7 @@ class Pokemon extends Search {
 			}, this);
 		});
 
-		console.log('Indexing pokemon complete');
+		console.info('Indexing pokemon complete');
 	}
 
 	search(terms) {

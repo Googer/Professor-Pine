@@ -32,7 +32,7 @@ class CheckOutCommand extends Commando.Command {
 
 		if (!info.error) {
 			message.react('👍')
-				.catch(err => console.log(err));
+				.catch(err => console.error(err));
 
 			Utility.cleanConversation(message);
 
@@ -40,7 +40,7 @@ class CheckOutCommand extends Commando.Command {
 			await Raid.refreshStatusMessages(info.raid);
 		} else {
 			message.reply(info.error)
-				.catch(err => console.log(err));
+				.catch(err => console.error(err));
 		}
 	}
 }

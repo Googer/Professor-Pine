@@ -35,15 +35,6 @@ class Raid {
 		// cache of emoji ids, populated on client login
 		this.emojis = Object.create(null);
 
-		// cache of channel id's to actual channels
-		this.channels = new Map();
-
-		// cache of member id's to actual members
-		this.members = new Map();
-
-		// cache of channel + message id's to actual messages
-		this.messages = new Map();
-
 		// loop to clean up raids periodically
 		this.update = setInterval(() => {
 			const now = moment().valueOf(),
@@ -58,7 +49,7 @@ class Raid {
 						this.persistRaid(raid);
 
 						this.refreshStatusMessages(raid)
-							.catch(err => console.log(err));
+							.catch(err => console.error(err));
 					}
 					if (raid.start_time) {
 						if (raid.start_clear_time && (now > raid.start_clear_time)) {
@@ -69,18 +60,18 @@ class Raid {
 							this.persistRaid(raid);
 
 							this.refreshStatusMessages(raid)
-								.catch(err => console.log(err));
+								.catch(err => console.error(err));
 
 							// ask members if they finished raid
 							this.setPresentAttendeesToComplete(channel_id)
-								.catch(err => console.log(err));
+								.catch(err => console.error(err));
 						} else if (!raid.start_clear_time && now > raid.start_time) {
 							raid.start_clear_time = start_clear_time;
 
 							this.persistRaid(raid);
 
 							this.refreshStatusMessages(raid)
-								.catch(err => console.log(err));
+								.catch(err => console.error(err));
 						}
 					}
 					if (((raid.end_time !== EndTimeType.UNDEFINED_END_TIME && now > raid.end_time) || now > raid.last_possible_time) &&
@@ -93,25 +84,20 @@ class Raid {
 						this.persistRaid(raid);
 
 						this.getChannel(raid.channel_id)
-							.send('**WARNING** - this channel will be deleted automatically at ' + moment(deletion_time).format('h:mm a') + '!')
-							.catch(err => console.log(err));
+							.then(channel => channel.send(`**WARNING** - this channel will be deleted automatically at ${moment(deletion_time).format('h:mm a')}!`))
+							.catch(err => console.error(err));
 					}
 					if (raid.deletion_time && (now > raid.deletion_time)) {
 						// actually delete the channel and announcement message
 						if (raid.announcement_message) {
-							this.getMessage(raid.announcement_message, false)
+							this.getMessage(raid.announcement_message)
 								.then(message => message.delete())
-								.then(result => this.messages.delete(raid.announcement_message))
-								.catch(err => console.log(err));
+								.catch(err => console.error(err));
 						}
 
-						this.getChannel(channel_id, false).delete()
-							.catch(err => console.log(err));
-
-						// clean message and channels caches
-						raid.messages
-							.forEach(message_cache_id => this.messages.delete(message_cache_id));
-						this.channels.delete(channel_id);
+						this.getChannel(channel_id)
+							.then(channel => channel.delete())
+							.catch(err => console.error(err));
 
 						// delete messages from raid object before moving to completed raid
 						// storage as they're no longer needed
@@ -129,7 +115,7 @@ class Raid {
 									this.completed_raid_storage.setItemSync(raid.gym_id.toString(), gym_raids));
 							})
 							.then(result => this.active_raid_storage.removeItemSync(channel_id))
-							.catch(err => console.log(err));
+							.catch(err => console.error(err));
 
 						delete this.raids[channel_id];
 					}
@@ -137,44 +123,68 @@ class Raid {
 		}, settings.cleanup_interval);
 	}
 
-	getMember(member_id, cache) {
-		if (this.members.has(member_id)) {
-			return this.members.get(member_id);
-		}
-
-		if (cache) {
-			this.members.set(member_id, this.guild.members.get(member_id));
-		}
-
-		return this.guild.members.get(member_id);
+	async getMember(channel_id, member_id) {
+		return this.guild.fetchMember(member_id)
+			.catch(err => {
+				console.warn(`Removing non-existent member ${member_id} from raid`);
+				this.removeAttendee(channel_id, member_id);
+				throw err;
+			})
 	}
 
-	getChannel(channel_id, cache) {
-		if (this.channels.has(channel_id)) {
-			return this.channels.get(channel_id);
-		}
+	getChannel(channel_id) {
+		const channel = this.guild.channels.get(channel_id);
 
-		if (cache) {
-			this.channels.set(channel_id, this.guild.channels.get(channel_id));
-		}
-		return this.guild.channels.get(channel_id);
-	}
+		if (!channel) {
+			if (this.validRaid(channel_id)) {
+				console.warn(`Deleting raid for nonexistent channel ${channel_id}`);
 
-	async getMessage(message_cache_id, cache = true) {
-		if (this.messages.has(message_cache_id)) {
-			return Promise.resolve(this.messages.get(message_cache_id));
-		}
+				const announcement_message = this.getRaid(channel_id).announcement_message;
 
-		const [channel_id, message_id] = message_cache_id.split(':');
-
-		return this.getChannel(channel_id, cache).messages
-			.fetch(message_id)
-			.then(message => {
-				if (cache) {
-					this.messages.set(message_cache_id, message);
+				if (!!announcement_message) {
+					this.getMessage(announcement_message)
+						.then(message => message.delete())
+						.catch(err => console.error(err));
 				}
 
-				return message;
+				this.active_raid_storage.removeItemSync(channel_id);
+				delete this.raids[channel_id];
+			}
+
+			return Promise.reject(new Error('Channel does not exist'));
+		}
+
+		return Promise.resolve(channel);
+	}
+
+	async getMessage(message_cache_id) {
+		const [channel_id, message_id] = message_cache_id.split(':');
+
+		return this.getChannel(channel_id)
+			.then(channel => channel.fetchMessage(message_id))
+			.catch(err => {
+				console.error(err);
+				const raid = this.getRaid(channel_id);
+
+				if (!!raid) {
+					console.warn(`Deleting non-existent message ${message_id} from raid ${channel_id}`);
+					raid.messages.splice(raid.messages.indexOf(message_cache_id), 1);
+
+					this.persistRaid(raid);
+				} else {
+					// try to find raid announcement message that matches this message since that's what this non-existent message
+					// most likely is
+					Object.values(this.raids)
+						.filter(raid => raid.announcement_message === message_cache_id)
+						.forEach(raid => {
+							console.warn(`Deleting non-existent announcement_message ${message_id} from raid ${raid.channel_id}`);
+							delete raid.announcement_message;
+
+							this.persistRaid(raid);
+						});
+				}
+
+				return Promise.reject(new Error('Message does not exist'));
 			});
 	}
 
@@ -250,7 +260,6 @@ class Raid {
 					this.setRaidEndTime(new_channel.id, end_time);
 				}
 
-				this.channels.set(new_channel.id, new_channel);
 				return {raid: raid};
 			});
 	}
@@ -283,8 +292,6 @@ class Raid {
 
 		this.persistRaid(raid);
 
-		this.messages.set(raid.announcement_message, message);
-
 		return message.pin();
 	}
 
@@ -300,8 +307,6 @@ class Raid {
 		raid.messages.push(message_cache_id);
 
 		this.persistRaid(raid);
-
-		this.messages.set(message_cache_id, message);
 
 		if (pin) {
 			return message.pin();
@@ -359,14 +364,17 @@ class Raid {
 			// set member that issued this command to complete
 			this.setMemberStatus(channel_id, member_id, Constants.RaidStatus.COMPLETE);
 			this.refreshStatusMessages(raid)
-				.catch(err => console.log(err));
+				.catch(err => console.error(err));
 		}
 
-		const channel = this.getChannel(channel_id),
+		const channel = await this.getChannel(channel_id)
+				.catch(err => console.error(err)),
 			member_ids = Object.keys(raid.attendees)
 				.filter(attendee_id => attendee_id !== member_id),
-			members = member_ids
-				.map(attendee_id => this.getMember(attendee_id)),
+      // CHECK THIS
+			members = await Promise.all(member_ids
+				.map(async attendee_id => await this.getMember(channel_id, attendee_id)))
+				.catch(err => console.error(err)),
 			filtered_members = members
 				.filter(member => raid.attendees[member.id].status === Constants.RaidStatus.PRESENT),
 			questions = filtered_members
@@ -380,7 +388,7 @@ class Raid {
 							maxMatches: 1,
 							time: settings.raid_complete_timeout * 60 * 1000
 						})
-						.catch(err => console.log(err));
+						.catch(err => console.error(err));
 
 					let confirmation, response;
 
@@ -393,17 +401,17 @@ class Raid {
 
 					if (confirmation) {
 						response.react('👍')
-							.catch(err => console.log(err));
+							.catch(err => console.error(err));
 
 						raid.attendees[message.channel.recipient.id].status = Constants.RaidStatus.COMPLETE;
 						this.persistRaid(raid);
 						this.refreshStatusMessages(raid)
-							.catch(err => console.log(err));
+							.catch(err => console.error(err));
 					}
 
 					return true;
 				})
-				.catch(err => console.log(err)));
+				.catch(err => console.error(err)));
 	}
 
 	setRaidStartTime(channel_id, start_time) {
@@ -457,8 +465,8 @@ class Raid {
 		const new_channel_name = Raid.generateChannelName(raid);
 
 		this.getChannel(channel_id)
-			.setName(new_channel_name)
-			.catch(err => console.log(err));
+			.then(channel => channel.setName(new_channel_name))
+			.catch(err => console.error(err));
 
 		return {raid: raid};
 	}
@@ -472,26 +480,31 @@ class Raid {
 		const new_channel_name = Raid.generateChannelName(raid);
 
 		this.getChannel(channel_id)
-			.setName(new_channel_name)
-			.catch(err => console.log(err));
+			.then(channel => channel.setName(new_channel_name))
+			.catch(err => console.error(err));
 
 		return {raid: raid};
 	}
 
-	getRaidsFormattedMessage(channel_id) {
+	async getRaidsFormattedMessage(channel_id) {
 		const raids = this.getAllRaids(channel_id);
 
 		if (!raids || raids.length === 0) {
-			return 'No raids exist for this channel.  Create one with \`!raid \<pokemon\> \'\<location\>\'\`!';
+			return 'No raids exist for this channel.  Create one with \`!raid\`!';
 		}
 
-		const raid_string = [];
+		const raid_strings = await Promise.all(raids
+			.map(async raid => await this.getRaidShortMessage(raid))),
+			filtered_raid_strings = raid_strings
+				.filter(raid_string => {
+					return raid_string !== '';
+				});
 
-		raids.forEach(raid => {
-			raid_string.push(this.getRaidShortMessage(raid));
-		});
+		if (filtered_raid_strings.length === 0) {
+			return 'No raids exist for this channel.  Create one with \`!raid\`!';
+		}
 
-		return ' ' + raid_string.join('\n');
+		return filtered_raid_strings.join('\n');
 	}
 
 	getRaidShortMessage(raid) {
@@ -501,16 +514,25 @@ class Raid {
 			total_attendees = this.getAttendeeCount(raid),
 			gym = Gym.getGym(raid.gym_id).gymName;
 
-		return `**${pokemon}**\n` +
-			`${this.getChannel(raid.channel_id).toString()} :: ${gym} :: ${total_attendees} interested trainer${total_attendees !== 1 ? 's' : ''}\n`;
+		return this.getChannel(raid.channel_id)
+			.then(channel => `**${pokemon}**\n` +
+				`${channel.toString()} :: ${gym} :: ${total_attendees} interested trainer${total_attendees !== 1 ? 's' : ''}\n`)
+			.catch(err => {
+				console.error(err);
+				return '';
+			});
 	}
 
 	getRaidChannelMessage(raid) {
-		return `Use ${this.getChannel(raid.channel_id).toString()} for the following raid:`;
+		return this.getChannel(raid.channel_id)
+			.then(channel => `Use ${channel.toString()} for the following raid:`)
+			.catch(err => console.error(err));
 	}
 
 	getRaidSourceChannelMessage(raid) {
-		return `Use ${this.getChannel(raid.source_channel_id).toString()} to return to this raid\'s regional channel.`;
+		return this.getChannel(raid.source_channel_id)
+			.then(channel => `Use ${channel.toString()} to return to this raid\'s regional channel.`)
+			.catch(err => console.error(err));
 	}
 
 	async getFormattedMessage(raid) {
@@ -551,8 +573,9 @@ class Raid {
 
 			total_attendees = this.getAttendeeCount(raid),
 			attendee_entries = Object.entries(raid.attendees),
-			attendees_with_members = attendee_entries
-				.map(attendee_entry => [this.getMember(attendee_entry[0]), attendee_entry[1]]),
+      // CHECK THIS
+			attendees_with_members = await Promise.all(attendee_entries
+				.map(async attendee_entry => [await this.getMember(raid.channel_id, attendee_entry[0]), attendee_entry[1]])),
 			sorted_attendees = attendees_with_members
 				.sort((entry_a, entry_b) => {
 					const name_a = entry_a[0].displayName,
@@ -639,18 +662,22 @@ class Raid {
 	}
 
 	async refreshStatusMessages(raid) {
-		const formatted_message = await
-			this.getFormattedMessage(raid);
+		const raid_channel_message = await this.getRaidChannelMessage(raid),
+			raid_source_channel_message = await this.getRaidSourceChannelMessage(raid),
+			formatted_message = await
+				this.getFormattedMessage(raid);
 
-		this.getMessage(raid.announcement_message)
-			.then(announcement_message => announcement_message.edit(this.getRaidChannelMessage(raid), formatted_message))
-			.catch(err => console.log(err));
+		if (raid.announcement_message) {
+			this.getMessage(raid.announcement_message)
+				.then(announcement_message => announcement_message.edit(raid_channel_message, formatted_message))
+				.catch(err => console.error(err));
+		}
 
 		raid.messages
 			.forEach(message_cache_id => {
 				this.getMessage(message_cache_id)
-					.then(message => message.edit(this.getRaidSourceChannelMessage(raid), formatted_message))
-					.catch(err => console.log(err));
+					.then(message => message.edit(raid_source_channel_message, formatted_message))
+					.catch(err => console.error(err));
 			});
 	}
 
@@ -663,8 +690,18 @@ class Raid {
 
 	getCreationChannelName(channel_id) {
 		return this.validRaid(channel_id) ?
-			this.getChannel(this.getRaid(channel_id).source_channel_id).name :
-			this.getChannel(channel_id).name;
+			this.getChannel(this.getRaid(channel_id).source_channel_id)
+				.then(channel => channel.name)
+				.catch(err => {
+					console.error(err);
+					return '';
+				}) :
+			this.getChannel(channel_id)
+				.then(channel => channel.name)
+				.catch(err => {
+					console.error(err);
+					return '';
+				});
 	}
 
 	static generateChannelName(raid) {

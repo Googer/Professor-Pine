@@ -10,7 +10,7 @@ class Gym extends Search {
 	}
 
 	buildIndex() {
-		console.log('Splicing gym metadata and indexing gym data...');
+		console.info('Splicing gym metadata and indexing gym data...');
 
 		const gyms_base = require('../data/gyms'),
 			gyms_metadata = require('../data/gyms-metadata'),
@@ -71,7 +71,7 @@ class Gym extends Search {
 				//   value is a set of that type's values across all address components
 				const addressInfo = new Map();
 				if (!gym.gymInfo.addressComponents) {
-					console.log('Gym "' + gym.gymName + '" has no geocode information!');
+					console.warn('Gym "' + gym.gymName + '" has no geocode information!');
 				} else {
 					gym.gymInfo.addressComponents.forEach(function (addressComponent) {
 						addressComponent.addressComponents.forEach(function (addComp) {
@@ -115,10 +115,10 @@ class Gym extends Search {
 			}, this);
 		});
 
-		console.log('Indexing gym data complete');
+		console.info('Indexing gym data complete');
 	}
 
-	search(channel_id, terms) {
+	async search(channel_id, terms) {
 		// lunr does an OR of its search terms and we really want AND, so we'll get there by doing individual searches
 		// on everything and getting the intersection of the hits
 
@@ -145,7 +145,7 @@ class Gym extends Search {
 			}
 		}
 
-		const channel_name = require('./raid').getCreationChannelName(channel_id);
+		const channel_name = await require('./raid').getCreationChannelName(channel_id);
 
 		// Now filter results based on what channel this request came from
 		return results

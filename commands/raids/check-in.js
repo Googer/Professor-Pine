@@ -43,7 +43,7 @@ class CheckInCommand extends Commando.Command {
 			info = Raid.setMemberStatus(message.channel.id, message.member.id, Constants.RaidStatus.PRESENT, additional_attendees);
 
 		message.react('👍')
-			.catch(err => console.log(err));
+			.catch(err => console.error(err));
 
 		Utility.cleanConversation(message);
 

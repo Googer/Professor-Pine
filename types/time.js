@@ -26,9 +26,7 @@ class TimeType extends Commando.ArgumentType {
 		const matches = value.match(/(\d+)([^\d]+)?/g);
 
 		if (!matches) {
-			message.reply('\'' + value + '\' is not a valid time.  Try something in h:mm format (such as `1:43`).' + extra_error_message)
-				.catch(err => console.log(err));
-			return false;
+			return '\'' + value + '\' is not a valid time.  Try something in h:mm format (such as `1:43`).' + extra_error_message;
 		}
 
 		if (mode === 'relative') {
@@ -52,9 +50,7 @@ class TimeType extends Commando.ArgumentType {
 			}
 
 			if (minutes > settings.max_end_time) {
-				message.reply('\'' + value + '\' is too far in the future.  Try something in h:mm format (such as `1:43`).' + extra_error_message)
-					.catch(err => console.log(err));
-				return false;
+				return '\'' + value + '\' is too far in the future.  Try something in h:mm format (such as `1:43`).' + extra_error_message;
 			}
 
 			return true;
@@ -73,9 +69,7 @@ class TimeType extends Commando.ArgumentType {
 			}
 
 			if (possible_time.diff(now) < 0) {
-				message.reply('Please enter a time in the future.' + extra_error_message)
-					.catch(err => console.log(err));
-				return false;
+				return 'Please enter a time in the future.' + extra_error_message;
 			}
 
 			// if time is greater than 3 hours, the user likely entered incorrect information
@@ -84,9 +78,7 @@ class TimeType extends Commando.ArgumentType {
 					end_time = raid.end_time;
 
 				if (end_time !== TimeType.UNDEFINED_END_TIME && possible_time > end_time) {
-					message.reply(value + ' is after this raid\'s end time!' + extra_error_message)
-						.catch(err => console.log(err));
-					return false;
+					return value + ' is after this raid\'s end time!' + extra_error_message;
 				}
 			}
 

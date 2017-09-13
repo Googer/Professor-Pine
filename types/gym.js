@@ -10,38 +10,32 @@ class GymType extends Commando.ArgumentType {
 		super(client, 'gym');
 	}
 
-	validate(value, message, arg) {
+	async validate(value, message, arg) {
 		const extra_error_message = Utility.isOneLiner(message) ?
 			'  Do **not** re-enter the `' + message.command.name + '` command.' :
 			'';
 
 		try {
-			const gyms = Gym.search(message.channel.id, value.split(' '));
+			const gyms = await Gym.search(message.channel.id, value.split(' '));
 
 			if (!gyms || gyms.length === 0) {
-				message.reply('\'' + value + '\' returned no gyms.' + extra_error_message)
-					.catch(err => console.log(err));
-				return false;
+				return '\'' + value + '\' returned no gyms.' + extra_error_message;
 			}
 
 			const gym_id = gyms[0].gymId;
 
 			if (Raid.raidExistsForGym(gym_id)) {
-				message.reply('Gym already has an active raid.' + extra_error_message)
-					.catch(err => console.log(err));
-				return false;
+				return 'Gym already has an active raid.' + extra_error_message;
 			}
 
 			return true;
 		} catch (err) {
-			message.reply('Invalid search terms entered.' + extra_error_message)
-				.catch(err => console.log(err));
-			return false;
+			return 'Invalid search terms entered.' + extra_error_message;
 		}
 	}
 
-	parse(value, message, arg) {
-		const gyms = Gym.search(message.channel.id, value.split(' '));
+	async parse(value, message, arg) {
+		const gyms = await Gym.search(message.channel.id, value.split(' '));
 
 		return gyms[0].gymId;
 	}

@@ -46,7 +46,7 @@ class JoinCommand extends Commando.Command {
 			const total_attendees = Raid.getAttendeeCount(info.raid);
 
 			message.react('👍')
-				.catch(err => console.log(err));
+				.catch(err => console.error(err));
 
 			Utility.cleanConversation(message);
 
@@ -57,18 +57,20 @@ class JoinCommand extends Commando.Command {
 				noun =
 					total_attendees === 1 ?
 						'trainer' :
-						'trainers';
+						'trainers',
+				channel = await Raid.getChannel(info.raid.channel_id)
+					.catch(err => console.error(err));
 
-			message.member.send(`You signed up for raid ${Raid.getChannel(info.raid.channel_id).toString()}. ` +
+			message.member.send(`You signed up for raid ${channel.toString()}. ` +
 				`There ${verb} now **${total_attendees}** potential ${noun}!  ` +
 				'Be sure to update your status in its channel!')
-				.catch(err => console.log(err));
+				.catch(err => console.error(err));
 
 			// get previous bot message & update
 			await Raid.refreshStatusMessages(info.raid);
 		} else {
 			message.reply(info.error)
-				.catch(err => console.log(err));
+				.catch(err => console.error(err));
 		}
 	}
 }

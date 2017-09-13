@@ -45,13 +45,13 @@ Client.on('message', message => {
 		message.author.send('Use #the-bot-lab to assign roles!');
 		if (message.channel.type === 'text') {
 			message.delete()
-				.catch(err => console.log(err));
+				.catch(err => console.error(err));
 		}
 	}
 
 	if (message.type === 'PINS_ADD' && message.client.user.bot) {
 		message.delete()
-			.catch(err => console.log(err));
+			.catch(err => console.error(err));
 	}
 });
 

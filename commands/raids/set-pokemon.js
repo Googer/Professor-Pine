@@ -39,7 +39,7 @@ class SetPokemonCommand extends Commando.Command {
 			info = Raid.setRaidPokemon(message.channel.id, pokemon);
 
 		message.react('👍')
-			.catch(err => console.log(err));
+			.catch(err => console.error(err));
 
 		Utility.cleanConversation(message);
 
