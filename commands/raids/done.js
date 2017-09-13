@@ -28,10 +28,10 @@ class DoneCommand extends Commando.Command {
 
 	async run(message, args) {
 		Raid.setPresentAttendeesToComplete(message.channel.id, message.member.id)
-			.catch(err => console.log(err));
+			.catch(err => console.error(err));
 
 		message.react('👍')
-			.catch(err => console.log(err));
+			.catch(err => console.error(err));
 
 		Utility.cleanConversation(message);
 	}

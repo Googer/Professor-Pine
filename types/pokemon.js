@@ -19,8 +19,7 @@ class PokemonType extends Commando.ArgumentType {
 		if (!pokemon_to_lookup || !pokemon_to_lookup.length) {
 			const result = value.match(/^(?:(?:\w+)\s?)?([1-5])$/);
 			if (!result) {
-				message.reply('Invalid tier specified.' + extra_error_message);
-				return false;
+				return 'Invalid tier specified.' + extra_error_message;
 			}
 
 			return true;
@@ -29,13 +28,11 @@ class PokemonType extends Commando.ArgumentType {
 		const pokemon = Pokemon.search([pokemon_to_lookup[1]]);
 
 		if (!pokemon) {
-			message.reply('No pokemon found.' + extra_error_message);
-			return false;
+			return 'No pokemon found.' + extra_error_message;
 		}
 
 		if (!pokemon.tier) {
-			message.reply('Pokemon is not a valid raid boss.' + extra_error_message);
-			return false;
+			return 'Pokemon is not a valid raid boss.' + extra_error_message;
 		}
 
 		return true;

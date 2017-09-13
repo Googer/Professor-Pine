@@ -77,21 +77,24 @@ class RaidCommand extends Commando.Command {
 				Utility.cleanConversation(message, true);
 
 				raid = info.raid;
+				const raid_channel_message = await Raid.getRaidChannelMessage(raid);
 				formatted_message = await Raid.getFormattedMessage(raid);
-				return message.channel.send(Raid.getRaidChannelMessage(raid), formatted_message);
+				return message.channel.send(raid_channel_message, formatted_message);
 			})
 			.then(announcement_message => {
 				return Raid.setAnnouncementMessage(raid.channel_id, announcement_message);
 			})
-			.then(bot_message => {
+			.then(async bot_message => {
+				const raid_source_channel_message = await Raid.getRaidSourceChannelMessage(raid);
 				return Raid.getChannel(raid.channel_id)
-					.send(Raid.getRaidSourceChannelMessage(raid), formatted_message);
+					.then(channel => channel.send(raid_source_channel_message, formatted_message))
+					.catch(err => console.error(err));
 			})
 			.then(channel_raid_message => {
 				Raid.addMessage(raid.channel_id, channel_raid_message, true);
 			})
 			.catch(err => {
-				console.log(err);
+				console.error(err);
 			});
 	}
 }

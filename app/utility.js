@@ -16,7 +16,7 @@ class Utility {
 
 		if (delete_original) {
 			initial_message.delete()
-				.catch(err => console.log(err));
+				.catch(err => console.error(err));
 		}
 
 		channel.messages.array() // cache of recent messages, should be sufficient
@@ -26,7 +26,7 @@ class Utility {
 						(message.author === bot && message.isMemberMentioned(author)));
 			})
 			.forEach(message => message.delete()
-				.catch(err => console.log(err)));
+				.catch(err => console.error(err)));
 	}
 }
 

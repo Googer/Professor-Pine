@@ -27,8 +27,9 @@ class StatusCommand extends Commando.Command {
 
 	async run(message, args) {
 		if (!Raid.validRaid(message.channel.id)) {
-			message.channel.send(Raid.getRaidsFormattedMessage(message.channel.id))
-				.catch(err => console.log(err));
+			const raids_message = await Raid.getRaidsFormattedMessage(message.channel.id);
+			message.channel.send(raids_message)
+				.catch(err => console.error(err));
 		} else {
 			const raid = Raid.getRaid(message.channel.id),
 				formatted_message = await Raid.getFormattedMessage(raid);
@@ -38,7 +39,7 @@ class StatusCommand extends Commando.Command {
 				.then(status_message => {
 					Raid.addMessage(raid.channel_id, status_message);
 				})
-				.catch(err => console.log(err));
+				.catch(err => console.error(err));
 		}
 	}
 }
