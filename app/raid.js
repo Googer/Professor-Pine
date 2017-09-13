@@ -236,14 +236,23 @@ class Raid {
 		raid.attendees = Object.create(Object.prototype);
 		raid.attendees[member_id] = {number: 1, status: Constants.RaidStatus.INTERESTED};
 
-		const channel_name = Raid.generateChannelName(raid);
+		const source_channel = this.getChannel(channel_id),
+			channel_name = Raid.generateChannelName(raid);
 
-		return this.getChannel(channel_id)
-			.then(channel => channel.clone(channel_name, true, false))
+		return this.guild.createChannel(channel_name, 'text', {overwrites: source_channel.permissionOverwrites})
 			.then(new_channel => {
 				this.raids[new_channel.id] = raid;
-
 				raid.channel_id = new_channel.id;
+				return new_channel.setParent(source_channel.parent, {lockPermissions: false});
+			})
+			.then(new_channel => {
+				// move channel to end
+				return this.guild.setChannelPositions([{
+					channel: new_channel,
+					position: this.guild.channels.size - 1
+				}]);
+			})
+			.then(new_channel => {
 				if (end_time === EndTimeType.UNDEFINED_END_TIME) {
 					raid.end_time = EndTimeType.UNDEFINED_END_TIME;
 					this.persistRaid(raid);
@@ -362,6 +371,7 @@ class Raid {
 				.catch(err => console.error(err)),
 			member_ids = Object.keys(raid.attendees)
 				.filter(attendee_id => attendee_id !== member_id),
+      // CHECK THIS
 			members = await Promise.all(member_ids
 				.map(async attendee_id => await this.getMember(channel_id, attendee_id)))
 				.catch(err => console.error(err)),
@@ -563,6 +573,7 @@ class Raid {
 
 			total_attendees = this.getAttendeeCount(raid),
 			attendee_entries = Object.entries(raid.attendees),
+      // CHECK THIS
 			attendees_with_members = await Promise.all(attendee_entries
 				.map(async attendee_entry => [await this.getMember(raid.channel_id, attendee_entry[0]), attendee_entry[1]])),
 			sorted_attendees = attendees_with_members
@@ -608,12 +619,12 @@ class Raid {
 				return result;
 			};
 
-		const embed = new Discord.RichEmbed()
-			.setColor(4437377)
-			.setThumbnail(`https://rankedboost.com/wp-content/plugins/ice/pokemon-go/${pokemon}-Pokemon-Go.png`)
-			.setTitle(gym_name)
-			.setURL(gym_url)
-			.setDescription(`Level ${tier} Raid against ${pokemon}`);
+		const embed = new Discord.MessageEmbed();
+		embed.setColor(4437377);
+		embed.setThumbnail(`https://rankedboost.com/wp-content/plugins/ice/pokemon-go/${pokemon}-Pokemon-Go.png`);
+		embed.setTitle(gym_name);
+		embed.setURL(gym_url);
+		embed.setDescription(`Level ${tier} Raid against ${pokemon}`);
 
 		if (end_time !== '') {
 			embed.setFooter(end_time);

@@ -69,8 +69,7 @@ class RaidCommand extends Commando.Command {
 			gym_id = args['gym_id'],
 			time_left = args['time-left'];
 
-		let raid,
-			formatted_message;
+		let raid;
 
 		Raid.createRaid(message.channel.id, message.member.id, pokemon, gym_id, time_left)
 			.then(async info => {
