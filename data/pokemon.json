@@ -1,5 +1,12 @@
 [
   {
+    "nickname": [
+      "ex",
+      "exclusive"
+    ],
+    "exclusive": true
+  },
+  {
     "name": "bulbasaur",
     "number": 1
   },
@@ -626,7 +633,7 @@
   {
     "name": "mewtwo",
     "number": 150,
-    "tier": 5
+    "exclusive": true
   },
   {
     "name": "mew",

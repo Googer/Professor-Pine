@@ -12,7 +12,7 @@ class LeaveCommand extends Commando.Command {
 			memberName: 'leave',
 			aliases: ['part'],
 			description: 'Can\'t make it to a raid? no problem, just leave it.',
-			details: 'Use this command to leave a raid if you can no longer attend.  Don\'t stress, these things happen!',
+			details: 'Use this command to leave a raid if you can no longer attend it.',
 			examples: ['\t!leave', '\t!part'],
 			guildOnly: true
 		});
@@ -35,8 +35,7 @@ class LeaveCommand extends Commando.Command {
 
 			Utility.cleanConversation(message);
 
-			// get previous bot message & update
-			await Raid.refreshStatusMessages(info.raid);
+			Raid.refreshStatusMessages(info.raid);
 		} else {
 			message.reply(info.error)
 				.catch(err => console.error(err));

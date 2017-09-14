@@ -1,7 +1,8 @@
 {
-  "default_raid_duration": 180,
-  "hatched_egg_duration": 60,
-  "max_end_time": 120,
+  "default_raid_duration": 120,
+  "exclusive_raid_duration": 4320,
+  "standard_raid_hatched_duration": 60,
+  "exclusive_raid_hatched_duration": 60,
   "start_clear_time": 8,
   "deletion_warning_time": 10,
   "raid_complete_timeout": 2,

@@ -31,7 +31,7 @@ class PokemonType extends Commando.ArgumentType {
 			return 'No pokemon found.' + extra_error_message;
 		}
 
-		if (!pokemon.tier) {
+		if (!pokemon.exclusive && !pokemon.tier) {
 			return 'Pokemon is not a valid raid boss.' + extra_error_message;
 		}
 

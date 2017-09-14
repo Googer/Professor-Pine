@@ -7,7 +7,7 @@ const moment = require('moment'),
 	Discord = require('discord.js'),
 	Gym = require('./gym'),
 	NaturalArgumentType = require('../types/natural'),
-	EndTimeType = require('../types/time');
+	TimeType = require('../types/time');
 
 class Raid {
 	constructor() {
@@ -43,8 +43,9 @@ class Raid {
 
 			Object.entries(this.raids)
 				.forEach(([channel_id, raid]) => {
-					if (raid.hatch_time && now > raid.hatch_time && !raid.egg_hatched) {
-						raid.egg_hatched = true;
+					if (raid.hatch_time && now > raid.hatch_time && !this.hasBegun(raid)) {
+						// raid has begun; set flag to indicate this
+						raid.has_begun = true;
 
 						this.persistRaid(raid);
 
@@ -74,7 +75,7 @@ class Raid {
 								.catch(err => console.error(err));
 						}
 					}
-					if (((raid.end_time !== EndTimeType.UNDEFINED_END_TIME && now > raid.end_time) || now > raid.last_possible_time) &&
+					if (((raid.end_time !== TimeType.UNDEFINED_END_TIME && now > raid.end_time) || now > raid.last_possible_time) &&
 						!raid.deletion_time) {
 						// raid's end time is set and in the past or its last possible time has passed,
 						// so schedule its deletion and send a warning message saying raid channel will
@@ -84,7 +85,7 @@ class Raid {
 						this.persistRaid(raid);
 
 						this.getChannel(raid.channel_id)
-							.then(channel => channel.send(`**WARNING** - this channel will be deleted automatically at ${moment(deletion_time).format('h:mm a')}!`))
+							.then(channel => channel.send(`**WARNING** - this channel will be deleted automatically at ${moment(deletion_time).format('LT')}!`))
 							.catch(err => console.error(err));
 					}
 					if (raid.deletion_time && (now > raid.deletion_time)) {
@@ -225,14 +226,17 @@ class Raid {
 		this.emojis.premierball = emojis.get('premierball') || '';
 	}
 
-	async createRaid(channel_id, member_id, pokemon, gym_id, end_time) {
+	async createRaid(channel_id, member_id, pokemon, gym_id, time) {
 		const raid = Object.create(null);
 
 		// add some extra raid data to remember
 		raid.created_by_id = member_id;
+		raid.is_exclusive = !!pokemon.exclusive;
 		raid.source_channel_id = channel_id;
 		raid.creation_time = moment().valueOf();
-		raid.last_possible_time = raid.creation_time + (settings.default_raid_duration * 60 * 1000);
+		raid.last_possible_time = raid.creation_time + (raid.is_exclusive ?
+			settings.exclusive_raid_duration * 60 * 1000 :
+			settings.default_raid_duration * 60 * 1000);
 
 		raid.pokemon = pokemon;
 		raid.gym_id = gym_id;
@@ -257,11 +261,15 @@ class Raid {
 				}]);
 			})
 			.then(new_channel => {
-				if (end_time === EndTimeType.UNDEFINED_END_TIME) {
-					raid.end_time = EndTimeType.UNDEFINED_END_TIME;
-					this.persistRaid(raid);
-				} else {
-					this.setRaidEndTime(new_channel.id, end_time);
+				if (raid.is_exclusive && time !== TimeType.UNDEFINED_END_TIME) {
+					this.setRaidStartTime(new_channel.id, time);      
+        } else {
+					if (time === TimeType.UNDEFINED_END_TIME) {
+						raid.end_time = TimeType.UNDEFINED_END_TIME;
+						this.persistRaid(raid);
+					} else {
+						this.setRaidEndTime(new_channel.id, time);
+					}
 				}
 
 				return {raid: raid};
@@ -287,6 +295,15 @@ class Raid {
 			.filter(attendee => attendee.status !== Constants.RaidStatus.COMPLETE)
 			.map(attendee => attendee.number)
 			.reduce((total, number) => total + number, 0);
+	}
+
+	hasBegun(raid) {
+		return raid.has_begun || !!raid.pokemon.name;
+	}
+
+	isExclusive(channel_id) {
+		const raid = this.getRaid(channel_id);
+		return raid.is_exclusive;
 	}
 
 	setAnnouncementMessage(channel_id, message) {
@@ -421,14 +438,20 @@ class Raid {
 		const raid = this.getRaid(channel_id),
 			now = moment();
 
-		if (!!raid.pokemon.name) {
+		if (this.hasBegun(raid)) {
 			raid.start_time = now.add(start_time, 'milliseconds').valueOf();
 		} else {
-			// this is an egg - start time means when the egg hatches instead
+			// this is an unstarted raid - start time means when the raid begins instead
 			raid.hatch_time = now.clone().add(start_time, 'milliseconds').valueOf();
-			start_time += (settings.hatched_egg_duration * 60 * 1000);
 
-			raid.end_time = now.add(start_time, 'milliseconds').valueOf();
+			let end_time;
+			if (raid.is_exclusive) {
+				end_time = start_time + (settings.exclusive_raid_hatched_duration * 60 * 1000);
+			} else {
+				end_time = start_time + (settings.standard_raid_hatched_duration * 60 * 1000);
+			}
+
+			raid.end_time = now.add(end_time, 'milliseconds').valueOf();
 		}
 
 		this.persistRaid(raid);
@@ -440,10 +463,14 @@ class Raid {
 		const raid = this.getRaid(channel_id),
 			now = moment();
 
-		if (!raid.pokemon.name) {
+		if (!this.hasBegun(raid)) {
 			// this is an egg, so the end time is indeed actually its hatch time
 			raid.hatch_time = now.clone().add(end_time, 'milliseconds').valueOf();
-			end_time += (settings.hatched_egg_duration * 60 * 1000);
+			if (raid.is_exclusive) {
+				end_time += (settings.exclusive_raid_hatched_duration * 60 * 1000);
+			} else {
+				end_time += (settings.standard_raid_hatched_duration * 60 * 1000);
+			}
 		}
 
 		raid.end_time = now.add(end_time, 'milliseconds').valueOf();
@@ -456,12 +483,13 @@ class Raid {
 	setRaidPokemon(channel_id, pokemon) {
 		const raid = this.getRaid(channel_id);
 
-		if (!!raid.hatch_time && !!pokemon.name) {
-			// clear hatch time from raid since egg is being replace with
+		if (this.hasBegun(raid) && !!pokemon.name) {
+			// clear hatch time from raid since egg is being replaced with
 			// actual raid boss
 			delete raid.hatch_time;
 		}
 		raid.pokemon = pokemon;
+		raid.is_exclusive = raid.is_exclusive | !!pokemon.exclusive;
 
 		this.persistRaid(raid);
 
@@ -497,7 +525,7 @@ class Raid {
 		}
 
 		const raid_strings = await Promise.all(raids
-			.map(async raid => await this.getRaidShortMessage(raid))),
+				.map(async raid => await this.getRaidShortMessage(raid))),
 			filtered_raid_strings = raid_strings
 				.filter(raid_string => {
 					return raid_string !== '';
@@ -511,9 +539,11 @@ class Raid {
 	}
 
 	getRaidShortMessage(raid) {
-		const pokemon = raid.pokemon.name ?
-			raid.pokemon.name.charAt(0).toUpperCase() + raid.pokemon.name.slice(1) :
-			'????',
+		const pokemon = raid.is_exclusive ?
+			'EX Raid' :
+			raid.pokemon.name ?
+				raid.pokemon.name.charAt(0).toUpperCase() + raid.pokemon.name.slice(1) :
+				'Tier ' + pokemon.tier,
 			total_attendees = this.getAttendeeCount(raid),
 			gym = Gym.getGym(raid.gym_id).gymName;
 
@@ -542,12 +572,27 @@ class Raid {
 		const pokemon = !!raid.pokemon.name ?
 			raid.pokemon.name.charAt(0).toUpperCase() + raid.pokemon.name.slice(1) :
 			'????',
-			tier = raid.pokemon.tier,
+			pokemon_url = !!raid.pokemon.name ?
+				`https://rankedboost.com/wp-content/plugins/ice/pokemon-go/${pokemon}-Pokemon-Go.png` :
+				'',
 
-			end_time = raid.end_time !== EndTimeType.UNDEFINED_END_TIME ?
-				`Raid available until ${moment(raid.end_time).format('h:mm a')}` :
-				'Raid end time currently unset',
+			raid_description = raid.is_exclusive ?
+				`EX Raid against ${pokemon}` :
+				`Level ${raid.pokemon.tier} Raid against ${pokemon}`,
+
 			now = moment(),
+
+			calendar_format = {
+				sameDay: 'LT',
+				sameElse: 'l LT'
+			},
+
+			report_member = await this.getMember(raid.channel_id, raid.created_by_id),
+			raid_reporter = `reported by ${report_member.displayName}`,
+
+			end_time = raid.end_time !== TimeType.UNDEFINED_END_TIME ?
+				`Raid available until ${moment(raid.end_time).calendar(null, calendar_format)}, ` :
+				'Raid end time currently unset, ',
 			start_time = !!raid.start_time ?
 				moment(raid.start_time) :
 				'',
@@ -560,7 +605,7 @@ class Raid {
 				moment(raid.hatch_time) :
 				'',
 			hatch_label = !!raid.hatch_time ?
-				now > hatch_time ?
+				this.hasBegun(raid) ?
 					'__Egg Hatched At__' :
 					'__Egg Hatch Time__' :
 				'',
@@ -623,14 +668,15 @@ class Raid {
 
 		const embed = new Discord.MessageEmbed();
 		embed.setColor(4437377);
-		embed.setThumbnail(`https://rankedboost.com/wp-content/plugins/ice/pokemon-go/${pokemon}-Pokemon-Go.png`);
 		embed.setTitle(gym_name);
 		embed.setURL(gym_url);
-		embed.setDescription(`Level ${tier} Raid against ${pokemon}`);
+		embed.setDescription(raid_description);
 
-		if (end_time !== '') {
-			embed.setFooter(end_time);
+		if (pokemon_url !== '') {
+			embed.setThumbnail(pokemon_url);
 		}
+
+		embed.setFooter(end_time + raid_reporter);
 
 		if (total_attendees > 0) {
 			embed.addField('__Possible Trainers__', total_attendees.toString());
@@ -649,11 +695,11 @@ class Raid {
 		}
 
 		if (!!raid.hatch_time) {
-			embed.addField(hatch_label, hatch_time.format('h:mm a'));
+			embed.addField(hatch_label, hatch_time.calendar(null, calendar_format));
 		}
 
 		if (!!raid.start_time) {
-			embed.addField(start_label, start_time.format('h:mm a'));
+			embed.addField(start_label, start_time.calendar(null, calendar_format));
 		}
 
 		if (additional_information !== '') {
@@ -708,9 +754,11 @@ class Raid {
 
 	static generateChannelName(raid) {
 		const nonCharCleaner = new RegExp(/[^\w]/, 'g'),
-			pokemon_name = (!!raid.pokemon.name ?
-				raid.pokemon.name :
-				('tier ' + raid.pokemon.tier))
+			pokemon_name = (raid.is_exclusive ?
+				'ex raid' :
+				!!raid.pokemon.name ?
+					raid.pokemon.name :
+					`tier ${raid.pokemon.tier}`)
 				.replace(nonCharCleaner, ' ')
 				.split(' ')
 				.filter(token => token.length > 0)

@@ -12,132 +12,138 @@ class TimeType extends Commando.ArgumentType {
 
 	validate(value, message, arg) {
 		const extra_error_message = Utility.isOneLiner(message) ?
-			'  Do **not** re-enter the `' + message.command.name + '` command.' :
-			'';
+			'  Do **not** re-enter the `' + arg.command.name + '` command.' :
+			'',
+			Raid = require('../app/raid'),
+			is_ex_raid = this.isExclusiveRaid(value, message, arg),
+			raid_exists = Raid.validRaid(message.message.channel.id),
+			raid_creation_time = raid_exists ?
+				moment(Raid.getRaid(message.message.channel.id).creation_time) :
+				moment(),
+			last_possible_time = raid_creation_time.clone().add(is_ex_raid ?
+				settings.exclusive_raid_duration :
+				settings.default_raid_duration, 'minutes');
 
-		let mode = arg.min; // hacky way to get a preferred mode out of the argument definition
+		let mode = arg.min, // hacky way to get a preferred mode out of the argument definition
+			value_to_parse = value;
+
+		if (!raid_exists && is_ex_raid) {
+			mode = 'absolute';
+		}
 
 		if (value.trim().match(/^[at|@]/i)) {
 			mode = 'absolute';
+			value_to_parse = value.substring(2).trim();
 		} else if (value.trim().match(/^in/i)) {
 			mode = 'relative';
-		}
-
-		const matches = value.match(/(\d+)([^\d]+)?/g);
-
-		if (!matches) {
-			return '\'' + value + '\' is not a valid time.  Try something in h:mm format (such as `1:43`).' + extra_error_message;
+			value_to_parse = value.substring(2).trim();
 		}
 
 		if (mode === 'relative') {
-			const multipliers = [
-					10080, // weeks
-					1440, // days
-					60, // hours
-					1 // minutes
-				],
-				matches_length = matches.length;
+			let duration;
 
-			let minutes = 0;
-
-			while (matches.length > 0 && minutes < settings.max_end_time) {
-				minutes += parseInt(matches.pop().match(/^(\d+)/)[1]) * multipliers.pop();
+			if (value_to_parse.indexOf(':') === -1) {
+				duration = moment.duration(value_to_parse * 60 * 1000);
+			} else {
+				duration = moment.duration(value_to_parse);
 			}
 
-			if (matches_length === 1 && minutes < 5) {
-				// User probably entered hours left, not minutes
-				minutes *= multipliers.pop();
+			if (!duration.isValid()) {
+				return `Please enter a duration in form \`HH:mm\`${extra_error_message}`;
 			}
 
-			if (minutes > settings.max_end_time) {
-				return '\'' + value + '\' is too far in the future.  Try something in h:mm format (such as `1:43`).' + extra_error_message;
+			if (moment().add(duration).isBetween(raid_creation_time, last_possible_time)) {
+				return true;
 			}
 
-			return true;
+			return `Entered time is not valid for raid.${extra_error_message}`;
 		} else {
-			// absolute, only deal with h:mm for now
-			const now = moment(),
-				hours = parseInt(matches[0].match(/^(\d+)/)[1]),
-				minutes = matches.length > 1 ?
-					parseInt(matches[1].match(/^(\d+)/)[1]) :
-					0;
+			const entered_date = moment(value_to_parse, ['H:m', 'h:m a', 'M-D H:m', 'M-D H', 'M-D h:m a', 'M-D h a']);
 
-			const possible_time = now.clone().set({hours, minutes});
-
-			if (possible_time.diff(now) < 0) {
-				possible_time.add(12, 'hours');
+			if (!entered_date.isValid()) {
+				return `Please enter a date in the form \`MM-dd HH:mm\` (month and day optional).${extra_error_message}`;
 			}
 
-			if (possible_time.diff(now) < 0) {
-				return 'Please enter a time in the future.' + extra_error_message;
+			if (entered_date.isBetween(raid_creation_time, last_possible_time)) {
+				return true;
 			}
 
-			// if time is greater than 3 hours, the user likely entered incorrect information
-			if (message.command.name === 'start-time') {
-				const raid = require('../app/raid').getRaid(message.channel.id),
-					end_time = raid.end_time;
+			// account for year rollover possibility before saying this date-time isn't valid
+			entered_date.add(1, 'year');
 
-				if (end_time !== TimeType.UNDEFINED_END_TIME && possible_time > end_time) {
-					return value + ' is after this raid\'s end time!' + extra_error_message;
-				}
+			if (entered_date.isBetween(raid_creation_time, last_possible_time)) {
+				return true;
 			}
 
-			return true;
+			return `Entered time is not valid for raid!${extra_error_message}`;
 		}
 	}
 
 	parse(value, message, arg) {
-		let mode = arg.min; // hacky way to get a preferred mode out of the argument definition
+		const Raid = require('../app/raid'),
+			is_ex_raid = this.isExclusiveRaid(value, message, arg),
+			raid_exists = Raid.validRaid(message.message.channel.id),
+			raid_creation_time = raid_exists ?
+				moment(Raid.getRaid(message.message.channel.id).creation_time) :
+				moment(),
+			last_possible_time = raid_creation_time.clone().add(is_ex_raid ?
+				settings.exclusive_raid_duration :
+				settings.default_raid_duration, 'minutes');
+
+		let mode = arg.min, // hacky way to get a preferred mode out of the argument definition
+			value_to_parse = value;
+
+		if (!raid_exists && is_ex_raid) {
+			mode = 'absolute';
+		}
 
 		if (value.trim().match(/^[at|@]/i)) {
 			mode = 'absolute';
+			value_to_parse = value.substring(2).trim();
 		} else if (value.trim().match(/^in/i)) {
 			mode = 'relative';
+			value_to_parse = value.substring(2).trim();
 		}
 
-		const matches = value.match(/(\d+)([^\d]+)?/g);
-
 		if (mode === 'relative') {
-			const multipliers = [
-					10080, // weeks
-					1440, // days
-					60, // hours
-					1 // minutes
-				],
-				matches_length = matches.length;
+			let duration;
 
-			let minutes = 0;
-
-			while (matches.length > 0 && minutes < settings.max_end_time) {
-				minutes += parseInt(matches.pop().match(/^(\d+)/)[1]) * multipliers.pop();
+			if (value_to_parse.indexOf(':') === -1) {
+				duration = moment.duration(value_to_parse * 60 * 1000);
+			} else {
+				duration = moment.duration(value_to_parse);
 			}
 
-			if (matches_length === 1 && minutes < 5) {
-				// User probably entered hours left, not minutes
-				minutes *= multipliers.pop();
-			}
-
-			return minutes * 60 * 1000; // time is in milliseconds
+			return duration.asMilliseconds();
 		} else {
-			// absolute, only deal with h:mm for now
-			const now = moment(),
-				hours = parseInt(matches[0].match(/^(\d+)/)[1]),
-				minutes = matches.length > 1 ?
-					parseInt(matches[1].match(/^(\d+)/)[1]) :
-					0;
+			const entered_date = moment(value_to_parse, ['H:m', 'h:m a', 'M-D H:m', 'M-D H', 'M-D h:m a', 'M-D h a']);
 
-			const possible_time = now.clone().set({hours, minutes});
-
-			if (possible_time.diff(now) < 0) {
-				possible_time.add(12, 'hours');
+			if (entered_date.isBetween(raid_creation_time, last_possible_time)) {
+				return entered_date.diff(moment());
 			}
 
-			return possible_time.diff(now);
+			entered_date.add(1, 'year');
+
+			return entered_date.diff(moment());
+		}
+	}
+
+	isExclusiveRaid(value, message, arg) {
+		const Raid = require('../app/raid'),
+			raid_exists = Raid.validRaid(message.message.channel.id);
+
+		if (raid_exists) {
+			return Raid.isExclusive(message.message.channel.id);
+		} else {
+			const Pokemon = require('../app/pokemon'),
+				pokemon = Pokemon.search([message.argString.trim().split(' ')[0]]);
+
+			return !!pokemon.exclusive;
 		}
 	}
 
 	static get UNDEFINED_END_TIME() {
-		return "unset";
+		return 'unset';
 	}
 }
 

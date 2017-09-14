@@ -11,14 +11,14 @@ class StartTimeCommand extends Commando.Command {
 			group: 'raids',
 			memberName: 'start-time',
 			aliases: ['start', 'starts'],
-			description: 'Set the time the raid will begin.',
-			details: 'Use this command to finalize plans for fighting a raid boss.  If possible, try to set times 20 minutes out and always try to arrive at least 5 minutes before the start time being set.',
-			examples: ['\t!start-time 2:20pm', '\t!start \'30 minutes\''],
+			description: 'Set the time the raid will begin.  Its exact meaning depends on if the actual raid has begun or not.',
+			details: 'Use this command to set when a raid begins.  If it has not hatched, this means setting the time at which it does; it if has, this means setting a planned starting time for the actual raid group.  If possible, try to set times 20 minutes out and always try to arrive at least 5 minutes before the start time being set.',
+			examples: ['\t!start-time 2:20pm'],
 			args: [
 				{
 					key: 'start-time',
 					label: 'start time',
-					prompt: 'What time do you wish to begin this raid?\nExamples: `8:43`, `2:20pm`, `30 minutes`',
+					prompt: 'What time does this raid begin, or you wish to begin this raid?\nExamples: `8:43`, `2:20pm`',
 					type: 'time',
 					min: 'absolute'
 				}
@@ -55,22 +55,22 @@ class StartTimeCommand extends Commando.Command {
 				.catch(err => console.error(err));
 
 		// notify all attendees that a time has been set
-		for (let i = 0; i < info.raid.attendees.length; i++) {
-			let member_id = info.raid.attendees[i];
-
-			// no reason to spam the person who set the time, telling them the time being set haha
-			if (member_id !== message.member.id) {
-				Raid.getMember(message.channel.id, member_id)
+		Object.keys(info.raid.attendees)
+			.filter(attendee => {
+				// no reason to spam the person who set the time, telling them the time being set
+				return attendee !== message.member.id;
+			})
+			.forEach(attendee => {
+				Raid.getMember(message.channel.id, attendee)
 					.then(member => member.send(
-						`A start time has been set for ${channel.toString()} @ **${info.raid.start_time}**. ` +
+						`A start time has been set for ${channel.toString()}. ` +
 						`There ${verb} currently **${total_attendees}** ${noun} attending!`))
 					.catch(err => console.error(err));
-			}
-		}
+			});
 
 		Utility.cleanConversation(message);
 
-		await Raid.refreshStatusMessages(info.raid);
+		Raid.refreshStatusMessages(info.raid);
 	}
 }
 

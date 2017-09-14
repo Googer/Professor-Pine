@@ -43,31 +43,12 @@ class InterestedCommand extends Commando.Command {
 			info = Raid.setMemberStatus(message.channel.id, message.member.id, Constants.RaidStatus.INTERESTED, additional_attendees);
 
 		if (!info.error) {
-			const total_attendees = Raid.getAttendeeCount(info.raid);
-
 			message.react('👍')
 				.catch(err => console.error(err));
 
 			Utility.cleanConversation(message);
 
-			const verb =
-					total_attendees === 1 ?
-						'is' :
-						'are',
-				noun =
-					total_attendees === 1 ?
-						'trainer' :
-						'trainers',
-				channel = await Raid.getChannel(info.raid.channel_id)
-					.catch(err => console.error(err));
-
-			message.member.send(`You expressed interest in attending raid ${channel.toString()}. ` +
-				`There ${verb} now **${total_attendees}** potential ${noun}!  ` +
-				'Be sure to update your status in its channel!')
-				.catch(err => console.error(err));
-
-			// get previous bot message & update
-			await Raid.refreshStatusMessages(info.raid);
+			Raid.refreshStatusMessages(info.raid);
 		} else {
 			message.reply(info.error)
 				.catch(err => console.error(err));
