@@ -12,7 +12,7 @@ class TimeType extends Commando.ArgumentType {
 
 	validate(value, message, arg) {
 		const extra_error_message = Utility.isOneLiner(message) ?
-			'  Do **not** re-enter the `' + arg.command.name + '` command.' :
+			'  Do **not** re-enter the `' + message.command.name + '` command.' :
 			'',
 			Raid = require('../app/raid'),
 			is_ex_raid = this.isExclusiveRaid(value, message, arg),
