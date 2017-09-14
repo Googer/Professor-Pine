@@ -43,10 +43,6 @@ class Pokemon extends Search {
 			return lunr_results[0];
 		}
 	}
-
-	getPokemon(pokemon_id) {
-		return this.pokemon.get(pokemon_id);
-	}
 }
 
 module.exports = new Pokemon();

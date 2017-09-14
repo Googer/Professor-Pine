@@ -4,7 +4,7 @@ const Commando = require('discord.js-commando'),
 	Gym = require('../../app/gym'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility'),
-	EndTimeType = require('../../types/time');
+	TimeType = require('../../types/time');
 
 class RaidCommand extends Commando.Command {
 	constructor(client) {
@@ -33,12 +33,12 @@ class RaidCommand extends Commando.Command {
 					type: 'gym'
 				},
 				{
-					key: 'time-left',
+					key: 'time',
 					label: 'time left',
 					prompt: 'How much time is remaining on the raid (use h:mm or mm format)?\nExample: `1:43`',
 					type: 'time',
 					min: 'relative',
-					default: EndTimeType.UNDEFINED_END_TIME
+					default: TimeType.UNDEFINED_END_TIME
 				}
 			],
 			argsPromptLimit: 3,
@@ -67,12 +67,12 @@ class RaidCommand extends Commando.Command {
 	async run(message, args) {
 		const pokemon = args['pokemon'],
 			gym_id = args['gym_id'],
-			time_left = args['time-left'];
+			time = args['time'];
 
 		let raid,
 			formatted_message;
 
-		Raid.createRaid(message.channel.id, message.member.id, pokemon, gym_id, time_left)
+		Raid.createRaid(message.channel.id, message.member.id, pokemon, gym_id, time)
 			.then(async info => {
 				Utility.cleanConversation(message, true);
 

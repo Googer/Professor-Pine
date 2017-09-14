@@ -36,8 +36,7 @@ class CheckOutCommand extends Commando.Command {
 
 			Utility.cleanConversation(message);
 
-			// get previous bot message & update
-			await Raid.refreshStatusMessages(info.raid);
+			Raid.refreshStatusMessages(info.raid);
 		} else {
 			message.reply(info.error)
 				.catch(err => console.error(err));

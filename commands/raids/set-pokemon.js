@@ -43,8 +43,7 @@ class SetPokemonCommand extends Commando.Command {
 
 		Utility.cleanConversation(message);
 
-		// post a new raid message and replace/forget old bot message
-		await Raid.refreshStatusMessages(info.raid);
+		Raid.refreshStatusMessages(info.raid);
 	}
 }
 

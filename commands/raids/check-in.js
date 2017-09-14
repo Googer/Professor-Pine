@@ -47,8 +47,7 @@ class CheckInCommand extends Commando.Command {
 
 		Utility.cleanConversation(message);
 
-		// get previous bot messages & update
-		await Raid.refreshStatusMessages(info.raid);
+		Raid.refreshStatusMessages(info.raid);
 	}
 }
 
