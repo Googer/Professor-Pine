@@ -69,23 +69,23 @@ class RaidCommand extends Commando.Command {
 			gym_id = args['gym_id'],
 			time = args['time'];
 
-		let raid,
-			formatted_message;
+		let raid;
 
 		Raid.createRaid(message.channel.id, message.member.id, pokemon, gym_id, time)
 			.then(async info => {
 				Utility.cleanConversation(message, true);
 
 				raid = info.raid;
-				const raid_channel_message = await Raid.getRaidChannelMessage(raid);
-				formatted_message = await Raid.getFormattedMessage(raid);
+				const raid_channel_message = await Raid.getRaidChannelMessage(raid),
+					formatted_message = await Raid.getFormattedMessage(raid);
 				return message.channel.send(raid_channel_message, formatted_message);
 			})
 			.then(announcement_message => {
 				return Raid.setAnnouncementMessage(raid.channel_id, announcement_message);
 			})
 			.then(async bot_message => {
-				const raid_source_channel_message = await Raid.getRaidSourceChannelMessage(raid);
+				const raid_source_channel_message = await Raid.getRaidSourceChannelMessage(raid),
+					formatted_message = await Raid.getFormattedMessage(raid);
 				return Raid.getChannel(raid.channel_id)
 					.then(channel => channel.send(raid_source_channel_message, formatted_message))
 					.catch(err => console.error(err));
