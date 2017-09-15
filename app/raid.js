@@ -398,7 +398,8 @@ class Raid {
 			filtered_members = members
 				.filter(member => raid.attendees[member.id].status === Constants.RaidStatus.PRESENT),
 			questions = filtered_members
-				.map(member => member.send(`Have you completed raid ${channel.toString()}?`));
+				.map(member => member.send(`Have you completed raid ${channel.toString()}?`)
+					.catch(err => console.error(err)));
 
 		questions.forEach(async question =>
 			question
