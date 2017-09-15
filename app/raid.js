@@ -39,6 +39,7 @@ class Raid {
 		this.update = setInterval(() => {
 			const now = moment().valueOf(),
 				start_clear_time = now + (settings.start_clear_time) * 60 * 1000,
+				deletion_grace_time = settings.deletion_grace_time * 60 * 1000,
 				deletion_time = now + (settings.deletion_warning_time * 60 * 1000);
 
 			Object.entries(this.raids)
@@ -75,50 +76,53 @@ class Raid {
 								.catch(err => console.error(err));
 						}
 					}
-					if (((raid.end_time !== TimeType.UNDEFINED_END_TIME && now > raid.end_time) || now > raid.last_possible_time) &&
+					if (((raid.end_time !== TimeType.UNDEFINED_END_TIME && now > raid.end_time + deletion_grace_time) || now > raid.last_possible_time + deletion_grace_time) &&
 						!raid.deletion_time) {
-						// raid's end time is set and in the past or its last possible time has passed,
-						// so schedule its deletion and send a warning message saying raid channel will
-						// be deleted
+						// raid's end time is set (or last possible time) in the past, even past the grace period,
+						// so schedule its deletion
 						raid.deletion_time = deletion_time;
 
 						this.persistRaid(raid);
-
-						this.getChannel(raid.channel_id)
-							.then(channel => channel.send(`**WARNING** - this channel will be deleted automatically at ${moment(deletion_time).format('LT')}!`))
-							.catch(err => console.error(err));
 					}
-					if (raid.deletion_time && (now > raid.deletion_time)) {
-						// actually delete the channel and announcement message
-						if (raid.announcement_message) {
-							this.getMessage(raid.announcement_message)
-								.then(message => message.delete())
+					if (raid.deletion_time) {
+						if (now > raid.deletion_time) {
+							// actually delete the channel and announcement message
+							if (raid.announcement_message) {
+								this.getMessage(raid.announcement_message)
+									.then(message => message.delete())
+									.catch(err => console.error(err));
+							}
+
+							this.getChannel(channel_id)
+								.then(channel => channel.delete())
+								.catch(err => console.error(err));
+
+							// delete messages from raid object before moving to completed raid
+							// storage as they're no longer needed
+							delete raid.announcement_message;
+							delete raid.messages;
+
+							this.completed_raid_storage.getItem(raid.gym_id.toString())
+								.then(gym_raids => {
+									if (!gym_raids) {
+										gym_raids = [];
+									}
+									gym_raids.push(raid);
+
+									return Promise.resolve(
+										this.completed_raid_storage.setItemSync(raid.gym_id.toString(), gym_raids));
+								})
+								.then(result => this.active_raid_storage.removeItemSync(channel_id))
+								.catch(err => console.error(err));
+
+							delete this.raids[channel_id];
+						} else {
+							const time_until_deletion = moment(raid.deletion_time).fromNow();
+
+							this.getChannel(raid.channel_id)
+								.then(channel => channel.send(`**WARNING** - this channel will be deleted automatically ${time_until_deletion}!`))
 								.catch(err => console.error(err));
 						}
-
-						this.getChannel(channel_id)
-							.then(channel => channel.delete())
-							.catch(err => console.error(err));
-
-						// delete messages from raid object before moving to completed raid
-						// storage as they're no longer needed
-						delete raid.announcement_message;
-						delete raid.messages;
-
-						this.completed_raid_storage.getItem(raid.gym_id.toString())
-							.then(gym_raids => {
-								if (!gym_raids) {
-									gym_raids = [];
-								}
-								gym_raids.push(raid);
-
-								return Promise.resolve(
-									this.completed_raid_storage.setItemSync(raid.gym_id.toString(), gym_raids));
-							})
-							.then(result => this.active_raid_storage.removeItemSync(channel_id))
-							.catch(err => console.error(err));
-
-						delete this.raids[channel_id];
 					}
 				});
 		}, settings.cleanup_interval);
