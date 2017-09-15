@@ -48,7 +48,6 @@ class Gym extends Search {
 			this.field('places');
 
 			// field from supplementary metadata
-			this.field('nickname');
 			this.field('additional_terms');
 
 			merged_gyms.forEach(function (gym) {
@@ -100,11 +99,6 @@ class Gym extends Search {
 				}
 
 				// merge in additional info from supplementary metadata file
-				// Index nickname as well
-				if (gym.nickname) {
-					gymDocument['nickname'] = gym.nickname;
-				}
-
 				gymDocument['additional_terms'] = gym.additional_terms;
 
 				// reference
