@@ -42,7 +42,8 @@ Client.on('ready', () => {
 
 Client.on('message', message => {
 	if (message.content.startsWith('.iam') && message.channel.name !== 'the-bot-lab') {
-		message.author.send('Use #the-bot-lab to assign roles!');
+		message.author.send('Use #the-bot-lab to assign roles!')
+			.catch(err => console.error(err));
 		if (message.channel.type === 'text') {
 			message.delete()
 				.catch(err => console.error(err));
