@@ -4,8 +4,8 @@
   "description": "Professor Willow Discord bot for Pokemon Go",
   "main": "index.js",
   "dependencies": {
-    "discord.js": "^11.2.1",
-    "discord.js-commando": "^0.9.0",
+    "discord.js": "git://github.com/hydrabolt/discord.js.git",
+    "discord.js-commando": "git://github.com/Gawdl3y/discord.js-commando.git",
     "he": "^1.1.1",
     "loglevel": "^1.5.0",
     "loglevel-prefix-persist": "^1.0.3",

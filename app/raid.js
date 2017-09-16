@@ -130,12 +130,16 @@ class Raid {
 	}
 
 	async getMember(channel_id, member_id) {
-		return this.guild.fetchMember(member_id)
-			.catch(err => {
-				log.warn(`Removing non-existent member ${member_id} from raid`);
-				this.removeAttendee(channel_id, member_id);
-				throw err;
-			})
+		const member = this.guild.members.get(member_id);
+
+		if (!!member) {
+			return Promise.resolve(member);
+		}
+
+		log.warn(`Removing non-existent member ${member_id} from raid`);
+		this.removeAttendee(channel_id, member_id);
+
+		throw new Error(`Member ${member_id} does not exist!`);
 	}
 
 	getChannel(channel_id) {
@@ -167,7 +171,7 @@ class Raid {
 		const [channel_id, message_id] = message_cache_id.split(':');
 
 		return this.getChannel(channel_id)
-			.then(channel => channel.fetchMessage(message_id))
+			.then(channel => channel.messages.fetch(message_id))
 			.catch(err => {
 				log.error(err);
 				const raid = this.getRaid(channel_id);
@@ -227,7 +231,7 @@ class Raid {
 		this.emojis.premierball = emojis.get('premierball') || '';
 	}
 
-	createRaid(channel_id, member_id, pokemon, gym_id, time) {
+	async createRaid(channel_id, member_id, pokemon, gym_id, time) {
 		const raid = Object.create(null);
 
 		// add some extra raid data to remember
@@ -245,18 +249,26 @@ class Raid {
 		raid.attendees = Object.create(Object.prototype);
 		raid.attendees[member_id] = {number: 1, status: Constants.RaidStatus.INTERESTED};
 
-		const channel_name = Raid.generateChannelName(raid);
+		const source_channel = await this.getChannel(channel_id),
+			channel_name = Raid.generateChannelName(raid);
 
-		return this.getChannel(channel_id)
-			.then(channel => channel.clone(channel_name, true, false))
+		return this.guild.createChannel(channel_name, 'text', {overwrites: source_channel.permissionOverwrites})
 			.then(new_channel => {
 				this.raids[new_channel.id] = raid;
-
 				raid.channel_id = new_channel.id;
-
+				return new_channel.setParent(source_channel.parent, {lockPermissions: false});
+			})
+			.then(new_channel => {
+				// move channel to end
+				return this.guild.setChannelPositions([{
+					channel: new_channel,
+					position: this.guild.channels.size - 1
+				}]);
+			})
+			.then(new_channel => {
 				if (raid.is_exclusive && time !== TimeType.UNDEFINED_END_TIME) {
-					this.setRaidStartTime(new_channel.id, time);
-				} else {
+					this.setRaidStartTime(new_channel.id, time);      
+        } else {
 					if (time === TimeType.UNDEFINED_END_TIME) {
 						raid.end_time = TimeType.UNDEFINED_END_TIME;
 						this.persistRaid(raid);
@@ -660,11 +672,11 @@ class Raid {
 				return result;
 			};
 
-		const embed = new Discord.RichEmbed()
-			.setColor(4437377)
-			.setTitle(gym_name)
-			.setURL(gym_url)
-			.setDescription(raid_description);
+		const embed = new Discord.MessageEmbed();
+		embed.setColor(4437377);
+		embed.setTitle(gym_name);
+		embed.setURL(gym_url);
+		embed.setDescription(raid_description);
 
 		if (pokemon_url !== '') {
 			embed.setThumbnail(pokemon_url);
