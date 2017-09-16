@@ -1,6 +1,7 @@
 "use strict";
 
-const lunr = require('lunr'),
+const log = require('loglevel').getLogger('PokemonSearch'),
+	lunr = require('lunr'),
 	Search = require('./search');
 
 class Pokemon extends Search {
@@ -9,7 +10,7 @@ class Pokemon extends Search {
 	}
 
 	buildIndex() {
-		console.info('Indexing pokemon...');
+		log.info('Indexing pokemon...');
 
 		this.index = lunr(function () {
 			this.ref('object');
@@ -32,7 +33,7 @@ class Pokemon extends Search {
 			}, this);
 		});
 
-		console.info('Indexing pokemon complete');
+		log.info('Indexing pokemon complete');
 	}
 
 	search(terms) {

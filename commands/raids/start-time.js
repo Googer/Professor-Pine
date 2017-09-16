@@ -1,6 +1,7 @@
 "use strict";
 
-const Commando = require('discord.js-commando'),
+const log = require('loglevel').getLogger('StartTimeCommand'),
+	Commando = require('discord.js-commando'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
 
@@ -40,7 +41,7 @@ class StartTimeCommand extends Commando.Command {
 			info = Raid.setRaidStartTime(message.channel.id, start_time);
 
 		message.react('👍')
-			.catch(err => console.error(err));
+			.catch(err => log.error(err));
 
 		const total_attendees = Raid.getAttendeeCount(info.raid),
 			verb =
@@ -52,7 +53,7 @@ class StartTimeCommand extends Commando.Command {
 					'trainer' :
 					'trainers',
 			channel = await Raid.getChannel(info.raid.channel_id)
-				.catch(err => console.error(err));
+				.catch(err => log.error(err));
 
 		// notify all attendees that a time has been set
 		Object.keys(info.raid.attendees)
@@ -65,7 +66,7 @@ class StartTimeCommand extends Commando.Command {
 					.then(member => member.send(
 						`A start time has been set for ${channel.toString()}. ` +
 						`There ${verb} currently **${total_attendees}** ${noun} attending!`))
-					.catch(err => console.error(err));
+					.catch(err => log.error(err));
 			});
 
 		Utility.cleanConversation(message);

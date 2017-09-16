@@ -1,6 +1,7 @@
 "use strict";
 
-const Commando = require('discord.js-commando'),
+const log = require('loglevel').getLogger('PokemonCommand'),
+	Commando = require('discord.js-commando'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
 
@@ -39,7 +40,7 @@ class SetPokemonCommand extends Commando.Command {
 			info = Raid.setRaidPokemon(message.channel.id, pokemon);
 
 		message.react('👍')
-			.catch(err => console.error(err));
+			.catch(err => log.error(err));
 
 		Utility.cleanConversation(message);
 

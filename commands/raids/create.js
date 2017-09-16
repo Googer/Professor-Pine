@@ -1,6 +1,7 @@
 "use strict";
 
-const Commando = require('discord.js-commando'),
+const log = require('loglevel').getLogger('CreateCommand'),
+	Commando = require('discord.js-commando'),
 	Gym = require('../../app/gym'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility'),
@@ -88,14 +89,12 @@ class RaidCommand extends Commando.Command {
 					formatted_message = await Raid.getFormattedMessage(raid);
 				return Raid.getChannel(raid.channel_id)
 					.then(channel => channel.send(raid_source_channel_message, formatted_message))
-					.catch(err => console.error(err));
+					.catch(err => log.error(err));
 			})
 			.then(channel_raid_message => {
 				Raid.addMessage(raid.channel_id, channel_raid_message, true);
 			})
-			.catch(err => {
-				console.error(err);
-			});
+			.catch(err => log.error(err))
 	}
 }
 

@@ -1,6 +1,7 @@
 "use strict";
 
-const lunr = require('lunr'),
+const log = require('loglevel').getLogger('GymSearch'),
+	lunr = require('lunr'),
 	he = require('he'),
 	Search = require('./search');
 
@@ -10,7 +11,7 @@ class Gym extends Search {
 	}
 
 	buildIndex() {
-		console.info('Splicing gym metadata and indexing gym data...');
+		log.info('Splicing gym metadata and indexing gym data...');
 
 		const gyms_base = require('../data/gyms'),
 			gyms_metadata = require('../data/gyms-metadata'),
@@ -70,7 +71,7 @@ class Gym extends Search {
 				//   value is a set of that type's values across all address components
 				const addressInfo = new Map();
 				if (!gym.gymInfo.addressComponents) {
-					console.warn('Gym "' + gym.gymName + '" has no geocode information!');
+					log.warn('Gym "' + gym.gymName + '" has no geocode information!');
 				} else {
 					gym.gymInfo.addressComponents.forEach(function (addressComponent) {
 						addressComponent.addressComponents.forEach(function (addComp) {
@@ -109,7 +110,7 @@ class Gym extends Search {
 			}, this);
 		});
 
-		console.info('Indexing gym data complete');
+		log.info('Indexing gym data complete');
 	}
 
 	async search(channel_id, terms) {
