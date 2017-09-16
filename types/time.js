@@ -136,7 +136,7 @@ class TimeType extends Commando.ArgumentType {
 			return Raid.isExclusive(message.message.channel.id);
 		} else {
 			const Pokemon = require('../app/pokemon'),
-				pokemon = Pokemon.search([message.argString.trim().split(' ')[0]]);
+				pokemon = Pokemon.search(message.argString.trim().split(' ')[0]);
 
 			return !!pokemon.exclusive;
 		}

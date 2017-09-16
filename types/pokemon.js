@@ -25,7 +25,7 @@ class PokemonType extends Commando.ArgumentType {
 			return true;
 		}
 
-		const pokemon = Pokemon.search([pokemon_to_lookup[1]]);
+		const pokemon = Pokemon.search(pokemon_to_lookup[1]);
 
 		if (!pokemon) {
 			return 'No pokemon found.' + extra_error_message;
@@ -48,7 +48,7 @@ class PokemonType extends Commando.ArgumentType {
 			}
 		}
 
-		return Pokemon.search([pokemon_to_lookup[1]]);
+		return Pokemon.search(pokemon_to_lookup[1]);
 	}
 }
 
