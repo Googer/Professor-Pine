@@ -36,8 +36,8 @@ class Pokemon extends Search {
 		log.info('Indexing pokemon complete');
 	}
 
-	search(terms) {
-		const lunr_results = super.search(terms)
+	search(term) {
+		const lunr_results = this.index.search(Search.makeFuzzy(term))
 			.map(result => JSON.parse(result.ref));
 
 		if (lunr_results.length > 0) {

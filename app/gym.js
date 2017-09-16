@@ -23,12 +23,47 @@ class Gym extends Search {
 
 		this.region_map = require('../data/region-map');
 
-		this.index = lunr(function () {
+		// This index is only indexing against name, description, and nickname
+		this.name_index = lunr(function () {
 			// reference will be the entire gym object so we can grab whatever we need from it (GPS coordinates, name, etc.)
 			this.ref('object');
 
-			// static fields for gym name and description
+			// static fields for gym name, nickname, and description
 			this.field('name');
+			this.field('nickname');
+			this.field('description');
+
+			merged_gyms.forEach(function (gym) {
+				// Gym document is a object with its reference and fields to collection of values
+				const gymDocument = Object.create(null);
+
+				gym.gymName = he.decode(gym.gymName);
+				gym.gymInfo.gymDescription = he.decode(gym.gymInfo.gymDescription);
+
+				gymDocument['name'] = gym.gymName;
+				gymDocument['description'] = gym.gymInfo.gymDescription;
+
+				if (gym.nickname) {
+					gym.nickname = he.decode(gym.nickname);
+					gymDocument['nickname'] = gym.nickname;
+				}
+
+				// reference
+				gymDocument['object'] = JSON.stringify(gym);
+
+				// Actually add this gym to the Lunr db
+				this.add(gymDocument);
+			}, this);
+		});
+
+		// This index is indexing against all data, including reverse geocoded data and nearby places
+		this.full_index = lunr(function () {
+			// reference will be the entire gym object so we can grab whatever we need from it (GPS coordinates, name, etc.)
+			this.ref('object');
+
+			// static fields for gym name, nickname, and description
+			this.field('name');
+			this.field('nickname');
 			this.field('description');
 
 			// fields from geocoding data, can add more if / when needed
@@ -56,7 +91,7 @@ class Gym extends Search {
 				const gymDocument = Object.create(null);
 
 				gym.gymName = he.decode(gym.gymName);
-				gym.gymInfo.gymDescriptino = he.decode(gym.gymInfo.gymDescription);
+				gym.gymInfo.gymDescription = he.decode(gym.gymInfo.gymDescription);
 
 				if (gym.nickname) {
 					gym.nickname = he.decode(gym.nickname);
@@ -65,6 +100,11 @@ class Gym extends Search {
 				// static fields
 				gymDocument['name'] = gym.gymName;
 				gymDocument['description'] = gym.gymInfo.gymDescription;
+
+				if (gym.nickname) {
+					gym.nickname = he.decode(gym.nickname);
+					gymDocument['nickname'] = gym.nickname;
+				}
 
 				// Build a map of the geocoded information:
 				//   key is the address component's type
@@ -113,7 +153,11 @@ class Gym extends Search {
 		log.info('Indexing gym data complete');
 	}
 
-	async search(channel_id, terms) {
+	static singleTermSearch(term, index) {
+		return index.search(Search.makeFuzzy(term));
+	}
+
+	async internal_search(channel_id, terms, index) {
 		// lunr does an OR of its search terms and we really want AND, so we'll get there by doing individual searches
 		// on everything and getting the intersection of the hits
 
@@ -123,11 +167,11 @@ class Gym extends Search {
 			.filter(term => lunr.stopWordFilter(term))
 			.map(term => term.replace(/^\W+/, '').replace(/\W+$/, ''));
 
-		let results = super.search([filtered_terms[0]])
+		let results = Gym.singleTermSearch(filtered_terms[0], index)
 			.map(result => result.ref);
 
 		for (let i = 1; i < filtered_terms.length; i++) {
-			const termResults = super.search([filtered_terms[i]])
+			const termResults = Gym.singleTermSearch(filtered_terms[i], index)
 				.map(result => result.ref);
 
 			results = results.filter(result => {
@@ -148,6 +192,18 @@ class Gym extends Search {
 			.filter(gym => {
 				return this.region_map[channel_name].indexOf(gym.gymId) >= 0;
 			});
+	}
+
+	async search(channel_id, terms) {
+		// First try against name/nickname / description-only index
+		let results = await this.internal_search(channel_id, terms, this.name_index);
+
+		if (results.length === 0) {
+			// That didn't return anything, so now try the geocoded data one
+			results = await this.internal_search(channel_id, terms, this.full_index);
+		}
+
+		return Promise.resolve(results);
 	}
 
 	isValidChannel(channel_name) {
