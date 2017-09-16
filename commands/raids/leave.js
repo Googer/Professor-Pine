@@ -1,6 +1,7 @@
 "use strict";
 
-const Commando = require('discord.js-commando'),
+const log = require('loglevel').getLogger('LeaveCommand'),
+	Commando = require('discord.js-commando'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
 
@@ -31,14 +32,14 @@ class LeaveCommand extends Commando.Command {
 
 		if (!info.error) {
 			message.react('👍')
-				.catch(err => console.error(err));
+				.catch(err => log.error(err));
 
 			Utility.cleanConversation(message);
 
 			Raid.refreshStatusMessages(info.raid);
 		} else {
 			message.reply(info.error)
-				.catch(err => console.error(err));
+				.catch(err => log.error(err));
 		}
 	}
 }

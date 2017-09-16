@@ -1,6 +1,7 @@
 "use strict";
 
-const moment = require('moment'),
+const log = require('loglevel').getLogger('Raid'),
+	moment = require('moment'),
 	settings = require('../data/settings'),
 	storage = require('node-persist'),
 	Constants = require('./constants'),
@@ -51,7 +52,7 @@ class Raid {
 						this.persistRaid(raid);
 
 						this.refreshStatusMessages(raid)
-							.catch(err => console.error(err));
+							.catch(err => log.error(err));
 					}
 					if (raid.start_time) {
 						if (raid.start_clear_time && (now > raid.start_clear_time)) {
@@ -62,18 +63,18 @@ class Raid {
 							this.persistRaid(raid);
 
 							this.refreshStatusMessages(raid)
-								.catch(err => console.error(err));
+								.catch(err => log.error(err));
 
 							// ask members if they finished raid
 							this.setPresentAttendeesToComplete(channel_id)
-								.catch(err => console.error(err));
+								.catch(err => log.error(err));
 						} else if (!raid.start_clear_time && now > raid.start_time) {
 							raid.start_clear_time = start_clear_time;
 
 							this.persistRaid(raid);
 
 							this.refreshStatusMessages(raid)
-								.catch(err => console.error(err));
+								.catch(err => log.error(err));
 						}
 					}
 					if (((raid.end_time !== TimeType.UNDEFINED_END_TIME && now > raid.end_time + deletion_grace_time) || now > raid.last_possible_time + deletion_grace_time) &&
@@ -90,12 +91,12 @@ class Raid {
 							if (raid.announcement_message) {
 								this.getMessage(raid.announcement_message)
 									.then(message => message.delete())
-									.catch(err => console.error(err));
+									.catch(err => log.error(err));
 							}
 
 							this.getChannel(channel_id)
 								.then(channel => channel.delete())
-								.catch(err => console.error(err));
+								.catch(err => log.error(err));
 
 							// delete messages from raid object before moving to completed raid
 							// storage as they're no longer needed
@@ -113,7 +114,7 @@ class Raid {
 										this.completed_raid_storage.setItemSync(raid.gym_id.toString(), gym_raids));
 								})
 								.then(result => this.active_raid_storage.removeItemSync(channel_id))
-								.catch(err => console.error(err));
+								.catch(err => log.error(err));
 
 							delete this.raids[channel_id];
 						} else {
@@ -121,7 +122,7 @@ class Raid {
 
 							this.getChannel(raid.channel_id)
 								.then(channel => channel.send(`**WARNING** - this channel will be deleted automatically ${time_until_deletion}!`))
-								.catch(err => console.error(err));
+								.catch(err => log.error(err));
 						}
 					}
 				});
@@ -131,7 +132,7 @@ class Raid {
 	async getMember(channel_id, member_id) {
 		return this.guild.fetchMember(member_id)
 			.catch(err => {
-				console.warn(`Removing non-existent member ${member_id} from raid`);
+				log.warn(`Removing non-existent member ${member_id} from raid`);
 				this.removeAttendee(channel_id, member_id);
 				throw err;
 			})
@@ -142,14 +143,14 @@ class Raid {
 
 		if (!channel) {
 			if (this.validRaid(channel_id)) {
-				console.warn(`Deleting raid for nonexistent channel ${channel_id}`);
+				log.warn(`Deleting raid for nonexistent channel ${channel_id}`);
 
 				const announcement_message = this.getRaid(channel_id).announcement_message;
 
 				if (!!announcement_message) {
 					this.getMessage(announcement_message)
 						.then(message => message.delete())
-						.catch(err => console.error(err));
+						.catch(err => log.error(err));
 				}
 
 				this.active_raid_storage.removeItemSync(channel_id);
@@ -168,11 +169,11 @@ class Raid {
 		return this.getChannel(channel_id)
 			.then(channel => channel.fetchMessage(message_id))
 			.catch(err => {
-				console.error(err);
+				log.error(err);
 				const raid = this.getRaid(channel_id);
 
 				if (!!raid) {
-					console.warn(`Deleting non-existent message ${message_id} from raid ${channel_id}`);
+					log.warn(`Deleting non-existent message ${message_id} from raid ${channel_id}`);
 					raid.messages.splice(raid.messages.indexOf(message_cache_id), 1);
 
 					this.persistRaid(raid);
@@ -182,7 +183,7 @@ class Raid {
 					Object.values(this.raids)
 						.filter(raid => raid.announcement_message === message_cache_id)
 						.forEach(raid => {
-							console.warn(`Deleting non-existent announcement_message ${message_id} from raid ${raid.channel_id}`);
+							log.warn(`Deleting non-existent announcement_message ${message_id} from raid ${raid.channel_id}`);
 							delete raid.announcement_message;
 
 							this.persistRaid(raid);
@@ -377,21 +378,21 @@ class Raid {
 			// set member that issued this command to complete
 			this.setMemberStatus(channel_id, member_id, Constants.RaidStatus.COMPLETE);
 			this.refreshStatusMessages(raid)
-				.catch(err => console.error(err));
+				.catch(err => log.error(err));
 		}
 
 		const channel = await this.getChannel(channel_id)
-				.catch(err => console.error(err)),
+				.catch(err => log.error(err)),
 			member_ids = Object.keys(raid.attendees)
 				.filter(attendee_id => attendee_id !== member_id),
 			members = await Promise.all(member_ids
 				.map(async attendee_id => await this.getMember(channel_id, attendee_id)))
-				.catch(err => console.error(err)),
+				.catch(err => log.error(err)),
 			filtered_members = members
 				.filter(member => raid.attendees[member.id].status === Constants.RaidStatus.PRESENT),
 			questions = filtered_members
 				.map(member => member.send(`Have you completed raid ${channel.toString()}?`)
-					.catch(err => console.error(err)));
+					.catch(err => log.error(err)));
 
 		questions.forEach(async question =>
 			question
@@ -401,7 +402,7 @@ class Raid {
 							maxMatches: 1,
 							time: settings.raid_complete_timeout * 60 * 1000
 						})
-						.catch(err => console.error(err));
+						.catch(err => log.error(err));
 
 					let confirmation, response;
 
@@ -414,17 +415,17 @@ class Raid {
 
 					if (confirmation) {
 						response.react('👍')
-							.catch(err => console.error(err));
+							.catch(err => log.error(err));
 
 						raid.attendees[message.channel.recipient.id].status = Constants.RaidStatus.COMPLETE;
 						this.persistRaid(raid);
 						this.refreshStatusMessages(raid)
-							.catch(err => console.error(err));
+							.catch(err => log.error(err));
 					}
 
 					return true;
 				})
-				.catch(err => console.error(err)));
+				.catch(err => log.error(err)));
 	}
 
 	setRaidStartTime(channel_id, start_time) {
@@ -490,7 +491,7 @@ class Raid {
 
 		this.getChannel(channel_id)
 			.then(channel => channel.setName(new_channel_name))
-			.catch(err => console.error(err));
+			.catch(err => log.error(err));
 
 		return {raid: raid};
 	}
@@ -505,7 +506,7 @@ class Raid {
 
 		this.getChannel(channel_id)
 			.then(channel => channel.setName(new_channel_name))
-			.catch(err => console.error(err));
+			.catch(err => log.error(err));
 
 		return {raid: raid};
 	}
@@ -544,7 +545,7 @@ class Raid {
 			.then(channel => `**${pokemon}**\n` +
 				`${channel.toString()} :: ${gym} :: ${total_attendees} interested trainer${total_attendees !== 1 ? 's' : ''}\n`)
 			.catch(err => {
-				console.error(err);
+				log.error(err);
 				return '';
 			});
 	}
@@ -552,13 +553,13 @@ class Raid {
 	getRaidChannelMessage(raid) {
 		return this.getChannel(raid.channel_id)
 			.then(channel => `Use ${channel.toString()} for the following raid:`)
-			.catch(err => console.error(err));
+			.catch(err => log.error(err));
 	}
 
 	getRaidSourceChannelMessage(raid) {
 		return this.getChannel(raid.source_channel_id)
 			.then(channel => `Use ${channel.toString()} to return to this raid\'s regional channel.`)
-			.catch(err => console.error(err));
+			.catch(err => log.error(err));
 	}
 
 	async getFormattedMessage(raid) {
@@ -711,14 +712,14 @@ class Raid {
 		if (raid.announcement_message) {
 			this.getMessage(raid.announcement_message)
 				.then(announcement_message => announcement_message.edit(raid_channel_message, formatted_message))
-				.catch(err => console.error(err));
+				.catch(err => log.error(err));
 		}
 
 		raid.messages
 			.forEach(message_cache_id => {
 				this.getMessage(message_cache_id)
 					.then(message => message.edit(raid_source_channel_message, formatted_message))
-					.catch(err => console.error(err));
+					.catch(err => log.error(err));
 			});
 	}
 
@@ -734,13 +735,13 @@ class Raid {
 			this.getChannel(this.getRaid(channel_id).source_channel_id)
 				.then(channel => channel.name)
 				.catch(err => {
-					console.error(err);
+					log.error(err);
 					return '';
 				}) :
 			this.getChannel(channel_id)
 				.then(channel => channel.name)
 				.catch(err => {
-					console.error(err);
+					log.error(err);
 					return '';
 				});
 	}

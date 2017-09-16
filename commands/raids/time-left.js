@@ -1,6 +1,7 @@
 "use strict";
 
-const Commando = require('discord.js-commando'),
+const log = require('loglevel').getLogger('TimeLeftCommand'),
+	Commando = require('discord.js-commando'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
 
@@ -41,7 +42,7 @@ class TimeRemainingCommand extends Commando.Command {
 			info = Raid.setRaidEndTime(message.channel.id, time);
 
 		message.react('👍')
-			.catch(err => console.error(err));
+			.catch(err => log.error(err));
 
 		Utility.cleanConversation(message);
 

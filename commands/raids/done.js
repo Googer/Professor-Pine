@@ -1,6 +1,7 @@
 "use strict";
 
-const Commando = require('discord.js-commando'),
+const log = require('loglevel').getLogger('DoneCommand'),
+	Commando = require('discord.js-commando'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
 
@@ -28,10 +29,10 @@ class DoneCommand extends Commando.Command {
 
 	async run(message, args) {
 		Raid.setPresentAttendeesToComplete(message.channel.id, message.member.id)
-			.catch(err => console.error(err));
+			.catch(err => log.error(err));
 
 		message.react('👍')
-			.catch(err => console.error(err));
+			.catch(err => log.error(err));
 
 		Utility.cleanConversation(message);
 	}

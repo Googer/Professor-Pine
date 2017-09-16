@@ -1,6 +1,18 @@
 "use strict";
 
-const Commando = require('discord.js-commando'),
+const log = require('loglevel');
+require('loglevel-prefix-persist/server')(process.env.NODE_ENV, log, {
+	"level": {
+		"production": "debug",
+		"development": "debug"
+	},
+	"persist": "debug",
+	"max": 5
+});
+
+log.setLevel('debug');
+
+const	Commando = require('discord.js-commando'),
 	Client = new Commando.Client(),
 	Raid = require('./app/raid'),
 	discord_settings = require('./data/discord'),
@@ -32,6 +44,7 @@ Client.registry.registerCommands([
 const guilds = new Map([...Client.guilds]);
 
 Client.on('ready', () => {
+	log.info('Client logged in');
 	const new_guilds = new Map([...Client.guilds]);
 
 	Array.from(guilds.keys())
@@ -43,16 +56,16 @@ Client.on('ready', () => {
 Client.on('message', message => {
 	if (message.content.startsWith('.iam') && message.channel.name !== 'the-bot-lab') {
 		message.author.send('Use #the-bot-lab to assign roles!')
-			.catch(err => console.error(err));
+			.catch(err => log.error(err));
 		if (message.channel.type === 'text') {
 			message.delete()
-				.catch(err => console.error(err));
+				.catch(err => log.error(err));
 		}
 	}
 
 	if (message.type === 'PINS_ADD' && message.client.user.bot) {
 		message.delete()
-			.catch(err => console.error(err));
+			.catch(err => log.error(err));
 	}
 });
 

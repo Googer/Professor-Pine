@@ -1,6 +1,7 @@
 "use strict";
 
-const Commando = require('discord.js-commando'),
+const log = require('loglevel').getLogger('CheckInCommand'),
+	Commando = require('discord.js-commando'),
 	NaturalArgumentType = require('../../types/natural'),
 	Raid = require('../../app/raid'),
 	Constants = require('../../app/constants'),
@@ -43,7 +44,7 @@ class CheckInCommand extends Commando.Command {
 			info = Raid.setMemberStatus(message.channel.id, message.member.id, Constants.RaidStatus.PRESENT, additional_attendees);
 
 		message.react('👍')
-			.catch(err => console.error(err));
+			.catch(err => log.error(err));
 
 		Utility.cleanConversation(message);
 
