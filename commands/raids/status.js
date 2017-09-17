@@ -2,6 +2,7 @@
 
 const log = require('loglevel').getLogger('StatusCommand'),
 	Commando = require('discord.js-commando'),
+	Gym = require('../../app/gym'),
 	Raid = require('../../app/raid');
 
 class StatusCommand extends Commando.Command {
@@ -18,8 +19,10 @@ class StatusCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'check-in' && !Raid.validRaid(message.channel.id)) {
-				message.reply('Check out of a raid from its raid channel!');
+			if (message.command.name === 'status' &&
+				!Raid.validRaid(message.channel.id) &&
+				!Gym.isValidChannel(message.channel.name)) {
+				message.reply('Check status of a raid from its raid channel or raids from a regional channel!');
 				return true;
 			}
 			return false;
