@@ -56,7 +56,7 @@ class RaidCommand extends Commando.Command {
 				return false;
 			}
 
-			if (Raid.validRaid(message.channel.id) || !Gym.isValidChannel(message.channel.name)) {
+			if (!Gym.isValidChannel(message.channel.name)) {
 				message.reply('Create raids from region channels!');
 				return true;
 			}
@@ -74,28 +74,17 @@ class RaidCommand extends Commando.Command {
 		let raid,
 			formatted_message;
 
-		Raid.createRaid(message.channel.id, message.member.id, pokemon, gym_id, time)
-			.then(async info => {
-				Utility.cleanConversation(message, true);
+		const info = Raid.createRaid(message.channel.id, message.member.id, pokemon, gym_id, time);
 
-				raid = info.raid;
-				const raid_channel_message = await Raid.getRaidChannelMessage(raid);
-				formatted_message = await Raid.getFormattedMessage(raid);
-				return message.channel.send(raid_channel_message, formatted_message);
-			})
+		Utility.cleanConversation(message, true);
+
+		raid = info.raid;
+		formatted_message = await Raid.getFormattedMessage(raid);
+		message.channel.send(Raid.getRaidIdMessage(raid), formatted_message)
 			.then(announcement_message => {
-				return Raid.setAnnouncementMessage(raid.channel_id, announcement_message);
+				return Raid.setAnnouncementMessage(raid.raid_id, announcement_message);
 			})
-			.then(async bot_message => {
-				const raid_source_channel_message = await Raid.getRaidSourceChannelMessage(raid);
-				return Raid.getChannel(raid.channel_id)
-					.then(channel => channel.send(raid_source_channel_message, formatted_message))
-					.catch(err => log.error(err));
-			})
-			.then(channel_raid_message => {
-				Raid.addMessage(raid.channel_id, channel_raid_message, true);
-			})
-			.catch(err => log.error(err))
+			.catch(err => log.error(err));
 	}
 }
 

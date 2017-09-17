@@ -3,6 +3,7 @@
 const log = require('loglevel').getLogger('JoinCommand'),
 	Commando = require('discord.js-commando'),
 	Constants = require('../../app/constants'),
+	Gym = require('../../app/gym'),
 	Raid = require('../../app/raid'),
 	NaturalArgumentType = require('../../types/natural'),
 	Utility = require('../../app/utility');
@@ -19,6 +20,12 @@ class JoinCommand extends Commando.Command {
 			examples: ['\t!join', '\t!join +1', '\t!attend', '\t!attend 2'],
 			args: [
 				{
+					key: 'raid_id',
+					label: 'raid id',
+					prompt: 'What is the ID of the raid you wish to join?',
+					type: 'raid'
+				},
+				{
 					key: 'additional_attendees',
 					label: 'additional attendees',
 					prompt: 'How many additional people will be coming with you?\nExample: `1`',
@@ -31,7 +38,7 @@ class JoinCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'join' && !Raid.validRaid(message.channel.id)) {
+			if (message.command.name === 'join' && !Gym.isValidChannel(message.channel.name)) {
 				message.reply('Join a raid from its raid channel!');
 				return true;
 			}
@@ -40,8 +47,9 @@ class JoinCommand extends Commando.Command {
 	}
 
 	async run(message, args) {
-		const additional_attendees = args['additional_attendees'],
-			info = Raid.setMemberStatus(message.channel.id, message.member.id, Constants.RaidStatus.COMING, additional_attendees);
+		const raid_id = args['raid_id'],
+			additional_attendees = args['additional_attendees'],
+			info = Raid.setMemberStatus(raid_id, message.member.id, Constants.RaidStatus.COMING, additional_attendees);
 
 		if (!info.error) {
 			message.react('👍')
