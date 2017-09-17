@@ -19,8 +19,10 @@ class StatusCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'status' && !Gym.isValidChannel(message.channel.name)) {
-				message.reply('Check out of a raid from its raid channel!');
+			if (message.command.name === 'status' &&
+				!Raid.validRaid(message.channel.id) &&
+				!Gym.isValidChannel(message.channel.name)) {
+				message.reply('Check status of a raid from its raid channel or raids from a regional channel!');
 				return true;
 			}
 			return false;
