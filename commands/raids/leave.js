@@ -2,7 +2,6 @@
 
 const log = require('loglevel').getLogger('LeaveCommand'),
 	Commando = require('discord.js-commando'),
-	Gym = require('../../app/gym'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
 
@@ -16,19 +15,11 @@ class LeaveCommand extends Commando.Command {
 			description: 'Can\'t make it to a raid? no problem, just leave it.',
 			details: 'Use this command to leave a raid if you can no longer attend it.',
 			examples: ['\t!leave', '\t!part'],
-			args: [
-				{
-					key: 'raid_id',
-					label: 'raid id',
-					prompt: 'What is the ID of the raid you wish to leave?',
-					type: 'raid'
-				}
-			],
 			guildOnly: true
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'leave' && !Gym.isValidChannel(message.channel.name)) {
+			if (message.command.name === 'leave' && !Raid.validRaid(message.channel.id)) {
 				message.reply('Leave a raid from its raid channel!');
 				return true;
 			}
@@ -37,8 +28,7 @@ class LeaveCommand extends Commando.Command {
 	}
 
 	async run(message, args) {
-		const raid_id = args['raid_id'],
-			info = Raid.removeAttendee(raid_id, message.member.id);
+		const info = Raid.removeAttendee(message.channel.id, message.member.id);
 
 		if (!info.error) {
 			message.react('👍')

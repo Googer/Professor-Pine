@@ -3,7 +3,6 @@
 const log = require('loglevel').getLogger('CheckInCommand'),
 	Commando = require('discord.js-commando'),
 	NaturalArgumentType = require('../../types/natural'),
-	Gym = require('../../app/gym'),
 	Raid = require('../../app/raid'),
 	Constants = require('../../app/constants'),
 	Utility = require('../../app/utility');
@@ -20,12 +19,6 @@ class CheckInCommand extends Commando.Command {
 			examples: ['\t!check-in +1', '\t!arrived', '\t!present'],
 			args: [
 				{
-					key: 'raid_id',
-					label: 'raid id',
-					prompt: 'What is the ID of the raid you wish to check into?',
-					type: 'raid'
-				},
-				{
 					key: 'additional_attendees',
 					label: 'additional attendees',
 					prompt: 'How many additional people are here with you?\nExample: `1`',
@@ -38,7 +31,7 @@ class CheckInCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'check-in' && !Gym.isValidChannel(message.channel.name)) {
+			if (message.command.name === 'check-in' && !Raid.validRaid(message.channel.id)) {
 				message.reply('Check into a raid from its raid channel!');
 				return true;
 			}
@@ -47,9 +40,8 @@ class CheckInCommand extends Commando.Command {
 	}
 
 	async run(message, args) {
-		const raid_id = args['raid_id'],
-			additional_attendees = args['additional_attendees'],
-			info = Raid.setMemberStatus(raid_id, message.member.id, Constants.RaidStatus.PRESENT, additional_attendees);
+		const additional_attendees = args['additional_attendees'],
+			info = Raid.setMemberStatus(message.channel.id, message.member.id, Constants.RaidStatus.PRESENT, additional_attendees);
 
 		message.react('👍')
 			.catch(err => log.error(err));

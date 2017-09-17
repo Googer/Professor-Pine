@@ -3,7 +3,6 @@
 const log = require('loglevel').getLogger('InterestedCommand'),
 	Commando = require('discord.js-commando'),
 	Constants = require('../../app/constants'),
-	Gym = require('../../app/gym'),
 	Raid = require('../../app/raid'),
 	NaturalArgumentType = require('../../types/natural'),
 	Utility = require('../../app/utility');
@@ -20,12 +19,6 @@ class InterestedCommand extends Commando.Command {
 			examples: ['\t!interested', '\t!maybe', '\t!hmm'],
 			args: [
 				{
-					key: 'raid_id',
-					label: 'raid id',
-					prompt: 'What is the ID of the raid you wish say you are interested in?',
-					type: 'raid'
-				},
-				{
 					key: 'additional_attendees',
 					label: 'additional attendees',
 					prompt: 'How many additional people would be coming with you?\nExample: `1`',
@@ -38,7 +31,7 @@ class InterestedCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'interested' && !Gym.isValidChannel(mesasge.channel.name)) {
+			if (message.command.name === 'interested' && !Raid.validRaid(message.channel.id)) {
 				message.reply('Express interest in a raid from its raid channel!');
 				return true;
 			}
@@ -47,9 +40,8 @@ class InterestedCommand extends Commando.Command {
 	}
 
 	async run(message, args) {
-		const raid_id = args['raid_id'],
-			additional_attendees = args['additional_attendees'],
-			info = Raid.setMemberStatus(raid_id, message.member.id, Constants.RaidStatus.INTERESTED, additional_attendees);
+		const additional_attendees = args['additional_attendees'],
+			info = Raid.setMemberStatus(message.channel.id, message.member.id, Constants.RaidStatus.INTERESTED, additional_attendees);
 
 		if (!info.error) {
 			message.react('👍')
