@@ -31,7 +31,8 @@ class RaidCommand extends Commando.Command {
 					key: 'gym_id',
 					label: 'gym',
 					prompt: 'Where is this raid taking place?\nExample: `manor theater`',
-					type: 'gym'
+					type: 'gym',
+					wait: 60
 				},
 				{
 					key: 'time',
