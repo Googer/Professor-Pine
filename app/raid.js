@@ -244,6 +244,11 @@ class Raid {
 			settings.default_raid_duration * 60 * 1000);
 
 		raid.pokemon = pokemon;
+
+		if (!!pokemon.name) {
+			raid.has_begun = true;
+		}
+
 		raid.gym_id = gym_id;
 
 		raid.attendees = Object.create(Object.prototype);

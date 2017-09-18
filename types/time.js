@@ -64,14 +64,10 @@ class TimeType extends Commando.ArgumentType {
 				return `Please enter a date in the form \`MM-dd HH:mm\` (month and day optional).${extra_error_message}`;
 			}
 
-			if (entered_date.isBetween(raid_creation_time, last_possible_time)) {
-				return true;
-			}
+			const possible_times = TimeType.generateDates(entered_date);
 
-			// account for year rollover possibility before saying this date-time isn't valid
-			entered_date.add(1, 'year');
-
-			if (entered_date.isBetween(raid_creation_time, last_possible_time)) {
+			if (possible_times.find(possible_time =>
+					this.isValidDate(possible_time, raid_creation_time, last_possible_time))) {
 				return true;
 			}
 
@@ -122,9 +118,12 @@ class TimeType extends Commando.ArgumentType {
 				return entered_date.diff(moment());
 			}
 
-			entered_date.add(1, 'year');
+			const possible_times = TimeType.generateDates(entered_date);
 
-			return entered_date.diff(moment());
+			const actual_time = possible_times.find(possible_time =>
+				this.isValidDate(possible_time, raid_creation_time, last_possible_time));
+
+			return actual_time.diff(moment());
 		}
 	}
 
@@ -140,6 +139,39 @@ class TimeType extends Commando.ArgumentType {
 
 			return !!pokemon.exclusive;
 		}
+	}
+
+	static generateDates(possible_date) {
+		const possible_dates = [possible_date];
+
+		let ambiguously_am;
+
+		ambiguously_am = possible_date.hour() < 12 &&
+			!possible_date.creationData().format.endsWith('a');
+
+		if (ambiguously_am) {
+			// try pm time as well
+			possible_dates.push(possible_date.clone()
+				.hour(possible_date.hour() + 12));
+		}
+
+		// try next year to allow for year wrap
+		possible_dates.push(possible_date.clone()
+			.year(possible_date.year() + 1));
+
+		if (ambiguously_am) {
+			// try next year pm time as well
+			possible_dates.push(possible_date.clone()
+				.hour(possible_date.hour() + 12)
+				.year(possible_date.year() + 1));
+		}
+
+		return possible_dates;
+	}
+
+	isValidDate(date_to_check, raid_creation_time, last_possible_time) {
+		return date_to_check.isBetween(raid_creation_time, last_possible_time) &&
+			date_to_check.hours() >= settings.min_raid_hour && date_to_check.hours() < settings.max_raid_hour;
 	}
 
 	static get UNDEFINED_END_TIME() {
