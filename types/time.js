@@ -66,8 +66,8 @@ class TimeType extends Commando.ArgumentType {
 
 			const possible_times = TimeType.generateDates(entered_date);
 
-			if (possible_times.find(
-					possible_time => possible_time.isBetween(raid_creation_time, last_possible_time))) {
+			if (possible_times.find(possible_time =>
+					this.isValidDate(possible_time, raid_creation_time, last_possible_time))) {
 				return true;
 			}
 
@@ -120,8 +120,8 @@ class TimeType extends Commando.ArgumentType {
 
 			const possible_times = TimeType.generateDates(entered_date);
 
-			const actual_time = possible_times.find(
-				possible_time => possible_time.isBetween(raid_creation_time, last_possible_time));
+			const actual_time = possible_times.find(possible_time =>
+				this.isValidDate(possible_time, raid_creation_time, last_possible_time));
 
 			return actual_time.diff(moment());
 		}
@@ -144,11 +144,12 @@ class TimeType extends Commando.ArgumentType {
 	static generateDates(possible_date) {
 		const possible_dates = [possible_date];
 
-		let initial_is_am;
+		let ambiguously_am;
 
-		initial_is_am = possible_date.hour() < 12;
+		ambiguously_am = possible_date.hour() < 12 &&
+			!possible_date.creationData().format.endsWith('a');
 
-		if (initial_is_am) {
+		if (ambiguously_am) {
 			// try pm time as well
 			possible_dates.push(possible_date.clone()
 				.hour(possible_date.hour() + 12));
@@ -158,7 +159,7 @@ class TimeType extends Commando.ArgumentType {
 		possible_dates.push(possible_date.clone()
 			.year(possible_date.year() + 1));
 
-		if (initial_is_am) {
+		if (ambiguously_am) {
 			// try next year pm time as well
 			possible_dates.push(possible_date.clone()
 				.hour(possible_date.hour() + 12)
@@ -166,6 +167,11 @@ class TimeType extends Commando.ArgumentType {
 		}
 
 		return possible_dates;
+	}
+
+	isValidDate(date_to_check, raid_creation_time, last_possible_time) {
+		return date_to_check.isBetween(raid_creation_time, last_possible_time) &&
+			date_to_check.hours() >= settings.min_raid_hour && date_to_check.hours() < settings.max_raid_hour;
 	}
 
 	static get UNDEFINED_END_TIME() {
