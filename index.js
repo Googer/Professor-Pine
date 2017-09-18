@@ -13,7 +13,10 @@ require('loglevel-prefix-persist/server')(process.env.NODE_ENV, log, {
 log.setLevel('debug');
 
 const	Commando = require('discord.js-commando'),
-	Client = new Commando.Client(),
+	Client = new Commando.Client({
+		restWsBridgeTimeout: 10000,
+		restTimeOffset: 1000
+	}),
 	Raid = require('./app/raid'),
 	discord_settings = require('./data/discord'),
 	nodeCleanup = require('node-cleanup');
@@ -51,6 +54,20 @@ Client.on('ready', () => {
 		.forEach(guild_id => new_guilds.delete(guild_id));
 
 	Raid.setClient(Client, new_guilds.values().next().value);
+});
+
+Client.on('error', err => log.error(err));
+Client.on('warn', err => log.warn(err));
+Client.on('debug', err => log.debug(err));
+
+Client.on('disconnect', event => {
+	log.warn('Client disoonnected...');
+	Client.reconnect();
+});
+Client.on('reconnecting', () => log.info('Client reconnecting...'));
+
+Client.on('guildUnavailable', guild => {
+	log.warn(`Guild ${guild.id} unavailable!`);
 });
 
 Client.on('message', message => {
