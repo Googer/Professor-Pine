@@ -17,9 +17,10 @@ class TimeType extends Commando.ArgumentType {
 			Raid = require('../app/raid'),
 			is_ex_raid = this.isExclusiveRaid(value, message, arg),
 			raid_exists = Raid.validRaid(message.message.channel.id),
+			now = moment(),
 			raid_creation_time = raid_exists ?
 				moment(Raid.getRaid(message.message.channel.id).creation_time) :
-				moment(),
+				now,
 			last_possible_time = raid_creation_time.clone().add(is_ex_raid ?
 				settings.exclusive_raid_duration :
 				settings.default_raid_duration, 'minutes');
@@ -52,7 +53,7 @@ class TimeType extends Commando.ArgumentType {
 				return `Please enter a duration in form \`HH:mm\`${extra_error_message}`;
 			}
 
-			if (this.isValidDate(moment().add(duration), raid_creation_time, last_possible_time)) {
+			if (this.isValidDate(moment().add(duration), now, raid_creation_time, last_possible_time)) {
 				return true;
 			}
 
@@ -67,7 +68,7 @@ class TimeType extends Commando.ArgumentType {
 			const possible_times = TimeType.generateDates(entered_date);
 
 			if (possible_times.find(possible_time =>
-					this.isValidDate(possible_time, raid_creation_time, last_possible_time))) {
+					this.isValidDate(possible_time, now, raid_creation_time, last_possible_time))) {
 				return true;
 			}
 
@@ -79,9 +80,10 @@ class TimeType extends Commando.ArgumentType {
 		const Raid = require('../app/raid'),
 			is_ex_raid = this.isExclusiveRaid(value, message, arg),
 			raid_exists = Raid.validRaid(message.message.channel.id),
+			now = moment(),
 			raid_creation_time = raid_exists ?
 				moment(Raid.getRaid(message.message.channel.id).creation_time) :
-				moment(),
+				now,
 			last_possible_time = raid_creation_time.clone().add(is_ex_raid ?
 				settings.exclusive_raid_duration :
 				settings.default_raid_duration, 'minutes');
@@ -114,14 +116,10 @@ class TimeType extends Commando.ArgumentType {
 		} else {
 			const entered_date = moment(value_to_parse, ['H:m', 'h:m a', 'M-D H:m', 'M-D H', 'M-D h:m a', 'M-D h a']);
 
-			if (entered_date.isBetween(raid_creation_time, last_possible_time)) {
-				return entered_date.diff(moment());
-			}
-
 			const possible_times = TimeType.generateDates(entered_date);
 
 			const actual_time = possible_times.find(possible_time =>
-				this.isValidDate(possible_time, raid_creation_time, last_possible_time));
+				this.isValidDate(possible_time, now, raid_creation_time, last_possible_time));
 
 			return actual_time.diff(moment());
 		}
@@ -169,11 +167,11 @@ class TimeType extends Commando.ArgumentType {
 		return possible_dates;
 	}
 
-	isValidDate(date_to_check, raid_creation_time, last_possible_time) {
+	isValidDate(date_to_check, current_time, raid_creation_time, last_possible_time) {
 		// TODO items:
-		// 1. check date isn't in the past
-		// 2. if this is a start time, verify it's before end time for raid if that's set
-		return date_to_check.isBetween(raid_creation_time, last_possible_time) &&
+		// 1. if this is a start time, verify it's before end time for raid if that's set
+		return date_to_check.isSameOrAfter(current_time) &&
+			date_to_check.isBetween(raid_creation_time, last_possible_time) &&
 			date_to_check.hours() >= settings.min_raid_hour && date_to_check.hours() < settings.max_raid_hour;
 	}
 
