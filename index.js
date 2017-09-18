@@ -61,9 +61,12 @@ Client.on('warn', err => log.warn(err));
 Client.on('debug', err => log.debug(err));
 
 Client.on('disconnect', event => {
-	log.warn('Client disconnected...');
-	Client.reconnect();
+	log.error(`Client disconnected, code ${event.code}, reason ${event.reason}...`);
+
+	Client.destroy()
+		.then(() => Client.login(discord_settings.discord_client_id));
 });
+
 Client.on('reconnecting', () => log.info('Client reconnecting...'));
 
 Client.on('guildUnavailable', guild => {
