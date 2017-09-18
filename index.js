@@ -61,7 +61,7 @@ Client.on('warn', err => log.warn(err));
 Client.on('debug', err => log.debug(err));
 
 Client.on('disconnect', event => {
-	log.warn('Client disoonnected...');
+	log.warn('Client disconnected...');
 	Client.reconnect();
 });
 Client.on('reconnecting', () => log.info('Client reconnecting...'));
