@@ -2,6 +2,7 @@
 
 const log = require('loglevel').getLogger('StatusCommand'),
 	Commando = require('discord.js-commando'),
+	Helper = require('../../app/helper'),
 	Gym = require('../../app/gym'),
 	Raid = require('../../app/raid');
 
@@ -22,7 +23,7 @@ class StatusCommand extends Commando.Command {
 			if (message.command.name === 'status' &&
 				!Raid.validRaid(message.channel.id) &&
 				!Gym.isValidChannel(message.channel.name)) {
-				message.reply('Check status of a raid from its raid channel or raids from a regional channel!');
+				message.reply(Helper.getText('status.warning', message));
 				return true;
 			}
 			return false;
