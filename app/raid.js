@@ -252,6 +252,8 @@ class Raid {
 		const source_channel = await this.getChannel(channel_id),
 			channel_name = Raid.generateChannelName(raid);
 
+		let new_channel_id;
+
 		return this.guild.createChannel(channel_name, 'text', {overwrites: source_channel.permissionOverwrites})
 			.then(new_channel => {
 				this.raids[new_channel.id] = raid;
@@ -259,21 +261,23 @@ class Raid {
 				return new_channel.setParent(source_channel.parent, {lockPermissions: false});
 			})
 			.then(new_channel => {
+				new_channel_id = new_channel.id;
+
 				// move channel to end
 				return this.guild.setChannelPositions([{
 					channel: new_channel,
 					position: this.guild.channels.size - 1
 				}]);
 			})
-			.then(new_channel => {
+			.then(guild => {
 				if (raid.is_exclusive && time !== TimeType.UNDEFINED_END_TIME) {
-					this.setRaidStartTime(new_channel.id, time);      
+					this.setRaidStartTime(new_channel_id, time);
         } else {
 					if (time === TimeType.UNDEFINED_END_TIME) {
 						raid.end_time = TimeType.UNDEFINED_END_TIME;
 						this.persistRaid(raid);
 					} else {
-						this.setRaidEndTime(new_channel.id, time);
+						this.setRaidEndTime(new_channel_id, time);
 					}
 				}
 
