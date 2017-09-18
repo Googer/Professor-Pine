@@ -550,7 +550,7 @@ class Raid {
 			'EX Raid' :
 			raid.pokemon.name ?
 				raid.pokemon.name.charAt(0).toUpperCase() + raid.pokemon.name.slice(1) :
-				'Tier ' + pokemon.tier,
+				'Tier ' + raid.pokemon.tier,
 			total_attendees = this.getAttendeeCount(raid),
 			gym = Gym.getGym(raid.gym_id).gymName;
 
