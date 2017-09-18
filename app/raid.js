@@ -307,7 +307,7 @@ class Raid {
 	}
 
 	hasBegun(raid) {
-		return raid.has_begun || !!raid.pokemon.name;
+		return raid.has_begun;
 	}
 
 	isExclusive(channel_id) {
@@ -407,39 +407,41 @@ class Raid {
 			filtered_members = members
 				.filter(member => raid.attendees[member.id].status === Constants.RaidStatus.PRESENT),
 			questions = filtered_members
-				.map(member => member.send(`Have you completed raid ${channel.toString()}?`)
+				.map(member => member
+					.send(`Have you completed raid ${channel.toString()}?`)
 					.catch(err => log.error(err)));
 
 		questions.forEach(async question =>
 			question
-				.then(async message => {
-					const responses = await message.channel.awaitMessages(
+				.then(message => {
+					message.channel.awaitMessages(
 						response => response.author.id === message.channel.recipient.id, {
 							maxMatches: 1,
 							time: settings.raid_complete_timeout * 60 * 1000
 						})
+						.then(responses => {
+							let confirmation, response;
+
+							if (responses && responses.size === 1) {
+								response = responses.first();
+								confirmation = this.client.registry.types.get('boolean').truthy.has(response.content);
+							} else {
+								confirmation = false;
+							}
+
+							if (confirmation) {
+								response.react('👍')
+									.catch(err => log.error(err));
+
+								raid.attendees[message.channel.recipient.id].status = Constants.RaidStatus.COMPLETE;
+								this.persistRaid(raid);
+								this.refreshStatusMessages(raid)
+									.catch(err => log.error(err));
+							}
+
+							return true;
+						})
 						.catch(err => log.error(err));
-
-					let confirmation, response;
-
-					if (responses && responses.size === 1) {
-						response = responses.first();
-						confirmation = this.client.registry.types.get('boolean').truthy.has(response.content);
-					} else {
-						confirmation = false;
-					}
-
-					if (confirmation) {
-						response.react('👍')
-							.catch(err => log.error(err));
-
-						raid.attendees[message.channel.recipient.id].status = Constants.RaidStatus.COMPLETE;
-						this.persistRaid(raid);
-						this.refreshStatusMessages(raid)
-							.catch(err => log.error(err));
-					}
-
-					return true;
 				})
 				.catch(err => log.error(err)));
 	}
@@ -493,11 +495,6 @@ class Raid {
 	setRaidPokemon(channel_id, pokemon) {
 		const raid = this.getRaid(channel_id);
 
-		if (this.hasBegun(raid) && !!pokemon.name) {
-			// clear hatch time from raid since egg is being replaced with
-			// actual raid boss
-			delete raid.hatch_time;
-		}
 		raid.pokemon = pokemon;
 		raid.is_exclusive = raid.is_exclusive | !!pokemon.exclusive;
 
