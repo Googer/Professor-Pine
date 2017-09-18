@@ -52,7 +52,7 @@ class TimeType extends Commando.ArgumentType {
 				return `Please enter a duration in form \`HH:mm\`${extra_error_message}`;
 			}
 
-			if (moment().add(duration).isBetween(raid_creation_time, last_possible_time)) {
+			if (this.isValidDate(moment().add(duration), raid_creation_time, last_possible_time)) {
 				return true;
 			}
 
@@ -170,6 +170,9 @@ class TimeType extends Commando.ArgumentType {
 	}
 
 	isValidDate(date_to_check, raid_creation_time, last_possible_time) {
+		// TODO items:
+		// 1. check date isn't in the past
+		// 2. if this is a start time, verify it's before end time for raid if that's set
 		return date_to_check.isBetween(raid_creation_time, last_possible_time) &&
 			date_to_check.hours() >= settings.min_raid_hour && date_to_check.hours() < settings.max_raid_hour;
 	}
