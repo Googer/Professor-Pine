@@ -135,7 +135,7 @@ class TimeType extends Commando.ArgumentType {
 			const Pokemon = require('../app/pokemon'),
 				pokemon = Pokemon.search(message.argString.trim().split(' ')[0]);
 
-			return !!pokemon.exclusive;
+			return !!pokemon && !!pokemon.exclusive;
 		}
 	}
 
