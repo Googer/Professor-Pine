@@ -433,25 +433,29 @@ class Raid {
 				.catch(err => log.error(err)));
 	}
 
-	setRaidStartTime(channel_id, start_time) {
-		const raid = this.getRaid(channel_id),
-			now = moment();
+	setRaidHatchTime(channel_id, hatch_time) {
+		const raid = this.getRaid(channel_id);
 
-		if (this.hasBegun(raid)) {
-			raid.start_time = now.add(start_time, 'milliseconds').valueOf();
+		raid.hatch_time = hatch_time;
+
+		let end_time;
+		if (raid.is_exclusive) {
+			end_time = hatch_time + (settings.exclusive_raid_hatched_duration * 60 * 1000);
 		} else {
-			// this is an unstarted raid - start time means when the raid begins instead
-			raid.hatch_time = now.clone().add(start_time, 'milliseconds').valueOf();
-
-			let end_time;
-			if (raid.is_exclusive) {
-				end_time = start_time + (settings.exclusive_raid_hatched_duration * 60 * 1000);
-			} else {
-				end_time = start_time + (settings.standard_raid_hatched_duration * 60 * 1000);
-			}
-
-			raid.end_time = now.add(end_time, 'milliseconds').valueOf();
+			end_time = hatch_time + (settings.standard_raid_hatched_duration * 60 * 1000);
 		}
+
+		raid.end_time = end_time;
+
+		this.persistRaid(raid);
+
+		return {raid: raid};
+	}
+
+	setRaidStartTime(channel_id, start_time) {
+		const raid = this.getRaid(channel_id);
+
+		raid.start_time = start_time;
 
 		this.persistRaid(raid);
 
@@ -459,22 +463,16 @@ class Raid {
 	}
 
 	setRaidEndTime(channel_id, end_time) {
-		const raid = this.getRaid(channel_id),
-			now = moment();
+		const raid = this.getRaid(channel_id);
 
 		if (!this.hasBegun(raid)) {
 			// this is an egg, so the end time is indeed actually its hatch time
-			raid.hatch_time = now.clone().add(end_time, 'milliseconds').valueOf();
-			if (raid.is_exclusive) {
-				end_time += (settings.exclusive_raid_hatched_duration * 60 * 1000);
-			} else {
-				end_time += (settings.standard_raid_hatched_duration * 60 * 1000);
-			}
+			this.setRaidHatchTime(channel_id, end_time);
+		} else {
+			raid.end_time = end_time;
+
+			this.persistRaid(raid);
 		}
-
-		raid.end_time = now.add(end_time, 'milliseconds').valueOf();
-
-		this.persistRaid(raid);
 
 		return {raid: raid};
 	}
