@@ -31,9 +31,9 @@ class JoinCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'join' && !Raid.validRaid(message.channel.id)) {
-				message.reply('Join a raid from its raid channel!');
-				return true;
+			if (!!message.command && message.command.name === 'join' &&
+				!Raid.validRaid(message.channel.id)) {
+				return ['invalid-channel', message.reply('Join a raid from its raid channel!')];
 			}
 			return false;
 		});

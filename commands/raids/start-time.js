@@ -28,9 +28,9 @@ class StartTimeCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'start-time' && !Raid.validRaid(message.channel.id)) {
-				message.reply('Set the start time of a raid from its raid channel!');
-				return true;
+			if (!!message.command && message.command.name === 'start-time' &&
+				!Raid.validRaid(message.channel.id)) {
+				return ['invalid-channel', message.reply('Set the start time of a raid from its raid channel!')];
 			}
 			return false;
 		});

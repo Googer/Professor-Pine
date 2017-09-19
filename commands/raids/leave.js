@@ -19,9 +19,9 @@ class LeaveCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'leave' && !Raid.validRaid(message.channel.id)) {
-				message.reply('Leave a raid from its raid channel!');
-				return true;
+			if (!!message.command && message.command.name === 'leave' &&
+				!Raid.validRaid(message.channel.id)) {
+				return ['invalid-channel', message.reply('Leave a raid from its raid channel!')];
 			}
 			return false;
 		});
