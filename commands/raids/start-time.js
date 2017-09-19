@@ -24,6 +24,7 @@ class StartTimeCommand extends Commando.Command {
 					min: 'absolute'
 				}
 			],
+			argsPromptLimit: 3,
 			guildOnly: true
 		});
 
