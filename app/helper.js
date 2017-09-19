@@ -25,7 +25,11 @@ class Helper {
 
 		// listen for messages to "help" with
 		this.client.on('message', message => {
-			let guild = this.guild_channels.get(message.guild.id);
+			if (!message.guild) {
+				return;
+			}
+
+			const guild = this.guild_channels.get(message.guild.id);
 
 			// command "!iam" - warning of incorrect channel, suggest command & channel
 			if (message.content.search(/^([.!])i\s?a([mn])\s?.*?|^([.!])?ia([mn])([.!])?\s?.*?$/gi) >= 0 && message.channel.id !== guild.bot_lab.id) {

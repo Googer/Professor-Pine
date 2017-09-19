@@ -112,7 +112,7 @@ class TimeType extends Commando.ArgumentType {
 				duration = moment.duration(value_to_parse);
 			}
 
-			return duration.asMilliseconds();
+			return now.add(duration).valueOf();
 		} else {
 			const entered_date = moment(value_to_parse, ['H:m', 'h:m a', 'M-D H:m', 'M-D H', 'M-D h:m a', 'M-D h a']);
 
@@ -121,7 +121,7 @@ class TimeType extends Commando.ArgumentType {
 			const actual_time = possible_times.find(possible_time =>
 				this.isValidTime(possible_time, now, raid_creation_time, last_possible_time));
 
-			return actual_time.diff(moment());
+			return actual_time.valueOf();
 		}
 	}
 
@@ -135,7 +135,7 @@ class TimeType extends Commando.ArgumentType {
 			const Pokemon = require('../app/pokemon'),
 				pokemon = Pokemon.search(message.argString.trim().split(' ')[0]);
 
-			return !!pokemon.exclusive;
+			return !!pokemon && !!pokemon.exclusive;
 		}
 	}
 

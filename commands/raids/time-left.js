@@ -11,7 +11,7 @@ class TimeRemainingCommand extends Commando.Command {
 			name: 'time-left',
 			group: 'raids',
 			memberName: 'time-left',
-			aliases: ['left', 'time-remaining', 'remaining', 'remain', 'end-time', 'ends', 'end'],
+			aliases: ['left', 'time-remaining', 'remaining', 'time-remain', 'remain'],
 			description: 'Sets the time that the countdown on a raid timer ends (if it has not yet begun), or that a raid will completely cease to exist.',
 			details: 'Use this command to set remaining time on a raid timer (if it has not yet begun), or to set its remaining time if it has.',
 			examples: ['\t!time-left 1:45', '\t!remain 50'],
