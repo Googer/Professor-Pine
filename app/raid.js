@@ -406,13 +406,14 @@ class Raid {
 					message.channel.awaitMessages(
 						response => response.author.id === message.channel.recipient.id, {
 							maxMatches: 1,
-							time: settings.raid_complete_timeout * 60 * 1000
+							time: settings.raid_complete_timeout * 60 * 1000,
+							errors: ['time']
 						})
-						.then(responses => {
+						.then(collected_responses => {
 							let confirmation, response;
 
-							if (responses && responses.size === 1) {
-								response = responses.first();
+							if (collected_responses && collected_responses.size === 1) {
+								response = collected_responses.first();
 								confirmation = this.client.registry.types.get('boolean').truthy.has(response.content);
 							} else {
 								confirmation = false;
@@ -430,7 +431,9 @@ class Raid {
 
 							return true;
 						})
-						.catch(err => log.error(err));
+						.catch(collected_responses => message.channel
+							.send(`I am assuming you have *not* completed raid ${channel.toString()}.`)
+							.catch(err => log.error(err)));
 				})
 				.catch(err => log.error(err)));
 	}
