@@ -26,12 +26,12 @@ class Helper {
 			let guild = this.guild_channels.get(message.guild.id);
 
 			// command "!iam" - warning of incorrect channel, suggest command & channel
-			if (message.content.search(/^\.iam|^\.ian|^\.i an|^\.i am|^iam\.$|^\!iam|^\!ian|^\!i an|^\!i am|^iam\!$|^ian$|^iam$/g) >= 0 && message.channel.id !== guild.bot_lab.id) {
+			if (message.content.search(/^(\.|!)i\s?a(m|n)\s?.*?|^(\.|!)?ia(m|n)(\.|!)?\s?.*?$/g) >= 0 && message.channel.id !== guild.bot_lab.id) {
 				message.reply(this.getText('iam.warning', message));
 			}
 
 			// command "!iam" - correct channel, incorrect command, suggest command
-			if (message.content.search(/^\.ian|^\.i an|^\.i am|^\!ian|^\!i an|^\!i am|^ian$|^iam$/g) >= 0 && message.channel.id === guild.bot_lab.id) {
+			if (message.content.search(/^(\.|!)i\s?an\s?.*?|^(\.|!)?ian(\.|!)?\s?.*?$|^ia(n|m)$/g) >= 0 && message.channel.id === guild.bot_lab.id) {
 				message.reply(this.getText('iam.suggestion', message));
 			}
 		});
