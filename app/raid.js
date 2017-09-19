@@ -143,7 +143,7 @@ class Raid {
 	}
 
 	getChannel(channel_id) {
-		const channel = this.guild.channels.get(channel_id);
+		const channel = this.client.channels.get(channel_id);
 
 		if (!channel) {
 			if (this.validRaid(channel_id)) {
