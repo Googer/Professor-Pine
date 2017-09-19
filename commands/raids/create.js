@@ -54,7 +54,6 @@ class RaidCommand extends Commando.Command {
 			}
 			return false;
 		});
-
 	}
 
 	async run(message, args) {

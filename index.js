@@ -18,6 +18,7 @@ const	Commando = require('discord.js-commando'),
 		restTimeOffset: 1000
 	}),
 	NodeCleanup = require('node-cleanup'),
+	Helper = require('./app/helper'),
 	Raid = require('./app/raid'),
 	discord_settings = require('./data/discord');
 
@@ -56,6 +57,7 @@ Client.on('ready', () => {
 	Array.from(guilds.keys())
 		.forEach(guild_id => new_guilds.delete(guild_id));
 
+	Helper.setClient(Client);
 	Raid.setClient(Client, new_guilds.values().next().value);
 });
 
@@ -77,15 +79,6 @@ Client.on('guildUnavailable', guild => {
 });
 
 Client.on('message', message => {
-	if (message.content.startsWith('.iam') && message.channel.name !== 'the-bot-lab') {
-		message.author.send('Use #the-bot-lab to assign roles!')
-			.catch(err => log.error(err));
-		if (message.channel.type === 'text') {
-			message.delete()
-				.catch(err => log.error(err));
-		}
-	}
-
 	if (message.type === 'PINS_ADD' && message.client.user.bot) {
 		message.delete()
 			.catch(err => log.error(err));
