@@ -17,7 +17,9 @@ class Helper {
 		this.guild_channels = new Map(this.client.guilds.map(guild => [
 			guild.id,
 			{
-				bot_lab: guild.channels.find(channel => { return channel.name === settings.channels.bot_lab; })
+				bot_lab: guild.channels.find(channel => {
+					return channel.name === settings.channels.bot_lab;
+				})
 			}
 		]));
 
@@ -26,12 +28,12 @@ class Helper {
 			let guild = this.guild_channels.get(message.guild.id);
 
 			// command "!iam" - warning of incorrect channel, suggest command & channel
-			if (message.content.search(/^(\.|!)i\s?a(m|n)\s?.*?|^(\.|!)?ia(m|n)(\.|!)?\s?.*?$/g) >= 0 && message.channel.id !== guild.bot_lab.id) {
+			if (message.content.search(/^([.!])i\s?a([mn])\s?.*?|^([.!])?ia([mn])([.!])?\s?.*?$/gi) >= 0 && message.channel.id !== guild.bot_lab.id) {
 				message.reply(this.getText('iam.warning', message));
 			}
 
 			// command "!iam" - correct channel, incorrect command, suggest command
-			if (message.content.search(/^(\.|!)i\s?an\s?.*?|^(\.|!)?ian(\.|!)?\s?.*?$|^ia(n|m)$/g) >= 0 && message.channel.id === guild.bot_lab.id) {
+			if (message.content.search(/^([.!])i\s?an\s?.*?|^([.!])?ian([.!])?\s?.*?$|^ia([nm])$/gi) >= 0 && message.channel.id === guild.bot_lab.id) {
 				message.reply(this.getText('iam.suggestion', message));
 			}
 		});
