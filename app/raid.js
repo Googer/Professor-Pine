@@ -360,11 +360,6 @@ class Raid {
 				status: status
 			}
 		} else {
-			if (status === Constants.RaidStatus.INTERESTED &&
-				(additional_attendees === NaturalArgumentType.UNDEFINED_NUMBER || attendee.number === number)) {
-				return {error: 'You are already signed up for this raid.'};
-			}
-
 			if (additional_attendees !== NaturalArgumentType.UNDEFINED_NUMBER) {
 				attendee.number = number;
 			}
