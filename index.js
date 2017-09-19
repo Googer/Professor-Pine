@@ -35,6 +35,7 @@ Client.registry.registerTypesIn(__dirname + '/types');
 
 Client.registry.registerCommands([
 	require('./commands/raids/create'),
+	require('./commands/raids/hatch-time'),
 	require('./commands/raids/time-left'),
 	require('./commands/raids/interested'),
 	require('./commands/raids/join'),
