@@ -53,7 +53,7 @@ class TimeType extends Commando.ArgumentType {
 				return `Please enter a duration in form \`HH:mm\`${extra_error_message}`;
 			}
 
-			if (this.isValidDate(moment().add(duration), now, raid_creation_time, last_possible_time)) {
+			if (this.isValidTime(moment().add(duration), now, raid_creation_time, last_possible_time)) {
 				return true;
 			}
 
@@ -65,10 +65,10 @@ class TimeType extends Commando.ArgumentType {
 				return `Please enter a date in the form \`MM-dd HH:mm\` (month and day optional).${extra_error_message}`;
 			}
 
-			const possible_times = TimeType.generateDates(entered_date);
+			const possible_times = TimeType.generateTimes(entered_date);
 
 			if (possible_times.find(possible_time =>
-					this.isValidDate(possible_time, now, raid_creation_time, last_possible_time))) {
+					this.isValidTime(possible_time, now, raid_creation_time, last_possible_time))) {
 				return true;
 			}
 
@@ -116,10 +116,10 @@ class TimeType extends Commando.ArgumentType {
 		} else {
 			const entered_date = moment(value_to_parse, ['H:m', 'h:m a', 'M-D H:m', 'M-D H', 'M-D h:m a', 'M-D h a']);
 
-			const possible_times = TimeType.generateDates(entered_date);
+			const possible_times = TimeType.generateTimes(entered_date);
 
 			const actual_time = possible_times.find(possible_time =>
-				this.isValidDate(possible_time, now, raid_creation_time, last_possible_time));
+				this.isValidTime(possible_time, now, raid_creation_time, last_possible_time));
 
 			return actual_time.diff(moment());
 		}
@@ -139,13 +139,10 @@ class TimeType extends Commando.ArgumentType {
 		}
 	}
 
-	static generateDates(possible_date) {
-		const possible_dates = [possible_date];
-
-		let ambiguously_am;
-
-		ambiguously_am = possible_date.hour() < 12 &&
-			!possible_date.creationData().format.endsWith('a');
+	static generateTimes(possible_date) {
+		const possible_dates = [possible_date],
+			ambiguously_am = possible_date.hour() < 12 &&
+				!possible_date.creationData().format.endsWith('a');
 
 		if (ambiguously_am) {
 			// try pm time as well
@@ -167,11 +164,11 @@ class TimeType extends Commando.ArgumentType {
 		return possible_dates;
 	}
 
-	isValidDate(date_to_check, current_time, raid_creation_time, last_possible_time) {
+	isValidTime(date_to_check, current_time, raid_creation_time, last_possible_time) {
 		// TODO items:
 		// 1. if this is a start time, verify it's before end time for raid if that's set
 		return date_to_check.isSameOrAfter(current_time) &&
-			date_to_check.isBetween(raid_creation_time, last_possible_time) &&
+			date_to_check.isBetween(raid_creation_time, last_possible_time, undefined, '[]') &&
 			date_to_check.hours() >= settings.min_raid_hour && date_to_check.hours() < settings.max_raid_hour;
 	}
 
