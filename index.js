@@ -2,12 +2,12 @@
 
 const log = require('loglevel');
 require('loglevel-prefix-persist/server')(process.env.NODE_ENV, log, {
-	"level": {
-		"production": "debug",
-		"development": "debug"
+	level: {
+		production: 'debug',
+		development: 'debug'
 	},
-	"persist": "debug",
-	"max": 5
+	persist: 'debug',
+	max: 5
 });
 
 log.setLevel('debug');
@@ -17,13 +17,16 @@ const	Commando = require('discord.js-commando'),
 		restWsBridgeTimeout: 10000,
 		restTimeOffset: 1000
 	}),
+	NodeCleanup = require('node-cleanup'),
 	Raid = require('./app/raid'),
-	discord_settings = require('./data/discord'),
-	nodeCleanup = require('node-cleanup');
+	discord_settings = require('./data/discord');
 
-nodeCleanup((exitCode, signal) => {
+NodeCleanup((exitCode, signal) => {
 	Raid.shutdown();
 });
+
+// Disable commands on DM channels
+Client.dispatcher.addInhibitor(message => message.message.channel.type === 'dm');
 
 Client.registry.registerGroup('raids', 'Raids');
 Client.registry.registerDefaults();
@@ -61,7 +64,7 @@ Client.on('warn', err => log.warn(err));
 Client.on('debug', err => log.debug(err));
 
 Client.on('disconnect', event => {
-	log.error(`Client disconnected, code ${event.code}, reason ${event.reason}...`);
+	log.error(`Client disconnected, code ${event.code}, reason '${event.reason}'...`);
 
 	Client.destroy()
 		.then(() => Client.login(discord_settings.discord_client_id));

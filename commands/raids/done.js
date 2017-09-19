@@ -19,9 +19,9 @@ class DoneCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'done' && !Raid.validRaid(message.channel.id)) {
-				message.reply('Say you have completed a raid from its raid channel!');
-				return true;
+			if (!!message.command && message.command.name === 'done' &&
+				!Raid.validRaid(message.channel.id)) {
+				return ['invalid-channel', message.reply('Say you have completed a raid from its raid channel!')];
 			}
 			return false;
 		});

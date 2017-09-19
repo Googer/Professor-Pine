@@ -31,9 +31,9 @@ class InterestedCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'interested' && !Raid.validRaid(message.channel.id)) {
-				message.reply('Express interest in a raid from its raid channel!');
-				return true;
+			if (!!message.command && message.command.name === 'interested' &&
+				!Raid.validRaid(message.channel.id)) {
+				return ['invalid-channel', message.reply('Express interest in a raid from its raid channel!')];
 			}
 			return false;
 		});

@@ -48,19 +48,10 @@ class RaidCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (!message.command) {
-				return true;
+			if (!!message.command && message.command.name === 'raid' &&
+				(Raid.validRaid(message.channel.id) || !Gym.isValidChannel(message.channel.name))) {
+				return ['invalid-channel', message.reply('Create raids from region channels!')];
 			}
-
-			if (message.command.name !== 'raid') {
-				return false;
-			}
-
-			if (Raid.validRaid(message.channel.id) || !Gym.isValidChannel(message.channel.name)) {
-				message.reply('Create raids from region channels!');
-				return true;
-			}
-
 			return false;
 		});
 

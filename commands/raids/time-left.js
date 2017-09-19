@@ -29,9 +29,9 @@ class TimeRemainingCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'time-left' && !Raid.validRaid(message.channel.id)) {
-				message.reply('Set the end time for a raid from its raid channel!');
-				return true;
+			if (!!message.command && message.command.name === 'time-left' &&
+				!Raid.validRaid(message.channel.id)) {
+				return ['invalid-channel', message.reply('Set the end time for a raid from its raid channel!')];
 			}
 			return false;
 		});
