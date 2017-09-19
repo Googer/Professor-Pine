@@ -5,7 +5,9 @@
 	"exclusive_raid_hatched_duration": 60,
 	"start_clear_time": 8,
 	"deletion_grace_time": 5,
-	"deletion_warning_time": 10,
+  "min_raid_hour": 6,
+  "max_raid_hour": 22,
+  "deletion_warning_time": 10,
 	"raid_complete_timeout": 2,
 	"cleanup_interval": 60000,
 	"channels": {

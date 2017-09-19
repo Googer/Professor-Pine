@@ -20,11 +20,10 @@ class StatusCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'status' &&
+			if (!!message.command && message.command.name === 'status' &&
 				!Raid.validRaid(message.channel.id) &&
 				!Gym.isValidChannel(message.channel.name)) {
-				message.reply(Helper.getText('status.warning', message));
-				return true;
+				return ['invalid-channel', message.reply(Helper.getText('status.warning', message))];
 			}
 			return false;
 		});
