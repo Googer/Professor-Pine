@@ -581,7 +581,7 @@ class Raid {
 			raid.pokemon.name.charAt(0).toUpperCase() + raid.pokemon.name.slice(1) :
 			'????',
 			pokemon_url = !!raid.pokemon.name ?
-				`https://rankedboost.com/wp-content/plugins/ice/pokemon-go/${pokemon}-Pokemon-Go.png` :
+				`${settings.pokemon_url_base}${pokemon}-Pokemon-Go.png` :
 				'',
 
 			raid_description = raid.is_exclusive ?
