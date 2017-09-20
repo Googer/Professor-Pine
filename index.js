@@ -26,8 +26,10 @@ NodeCleanup((exitCode, signal) => {
 	Raid.shutdown();
 });
 
-// Disable commands on DM channels
-Client.dispatcher.addInhibitor(message => message.message.channel.type === 'dm');
+// Disable commands other than help on DM channels
+Client.dispatcher.addInhibitor(message =>
+	message.message.channel.type === 'dm' &&
+	!message.message.content.trim().match(/^help/i));
 
 Client.registry.registerGroup('raids', 'Raids');
 Client.registry.registerDefaults();
