@@ -225,7 +225,7 @@ class Raid {
 		this.emojis.premierball = emojis.get('premierball') || '';
 
 		client.on('message', message => {
-			if (message.member.id !== client.user.id) {
+			if (message.author.id !== client.user.id) {
 				// if this is a raid channel that's scheduled for deletion, trigger deletion warning message
 				const raid = this.getRaid(message.channel.id);
 
