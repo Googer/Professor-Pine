@@ -83,6 +83,8 @@ class Raid {
 						// so schedule its deletion
 						raid.deletion_time = deletion_time;
 
+						this.sendDeletionWarningMessage(raid);
+
 						this.persistRaid(raid);
 					}
 					if (raid.deletion_time) {
@@ -103,6 +105,8 @@ class Raid {
 							delete raid.announcement_message;
 							delete raid.messages;
 
+							delete raid.messages_since_deletion_scheduled;
+
 							this.completed_raid_storage.getItem(raid.gym_id.toString())
 								.then(gym_raids => {
 									if (!gym_raids) {
@@ -117,12 +121,6 @@ class Raid {
 								.catch(err => log.error(err));
 
 							delete this.raids[channel_id];
-						} else {
-							const time_until_deletion = moment(raid.deletion_time).fromNow();
-
-							this.getChannel(raid.channel_id)
-								.then(channel => channel.send(`**WARNING** - this channel will be deleted automatically ${time_until_deletion}!`))
-								.catch(err => log.error(err));
 						}
 					}
 				});
@@ -225,6 +223,17 @@ class Raid {
 		this.emojis.ultraball = emojis.get('ultraball') || '';
 		this.emojis.masterball = emojis.get('masterball') || '';
 		this.emojis.premierball = emojis.get('premierball') || '';
+
+		client.on('message', message => {
+			if (message.member.id !== client.user.id) {
+				// if this is a raid channel that's scheduled for deletion, trigger deletion warning message
+				const raid = this.getRaid(message.channel.id);
+
+				if (!!raid && !!raid.deletion_time) {
+					this.sendDeletionWarningMessage(raid);
+				}
+			}
+		});
 	}
 
 	createRaid(channel_id, member_id, pokemon, gym_id, time) {
@@ -548,16 +557,49 @@ class Raid {
 			raid.pokemon.name ?
 				raid.pokemon.name.charAt(0).toUpperCase() + raid.pokemon.name.slice(1) :
 				'Tier ' + raid.pokemon.tier,
+			gym = Gym.getGym(raid.gym_id).gymName,
 			total_attendees = this.getAttendeeCount(raid),
-			gym = Gym.getGym(raid.gym_id).gymName;
+			calendar_format = {
+				sameDay: 'LT',
+				sameElse: 'l LT'
+			},
+			now = moment(),
+			start_label = !!raid.start_time ?
+				now > raid.start_time ?
+					'Raided at' :
+					'Raiding at'
+				: '',
+			start_time = !!raid.start_time ?
+				` :: ${start_label} **${moment(raid.start_time).calendar(null, calendar_format)}**` :
+				'',
+			end_time = raid.end_time !== TimeType.UNDEFINED_END_TIME ?
+				` :: Ends at **${moment(raid.end_time).calendar(null, calendar_format)}**` :
+				'';
 
 		return this.getChannel(raid.channel_id)
 			.then(channel => `**${pokemon}**\n` +
-				`${channel.toString()} :: ${gym} :: ${total_attendees} interested trainer${total_attendees !== 1 ? 's' : ''}\n`)
+				`${channel.toString()} :: ${gym} :: **${total_attendees}** potential trainer${total_attendees !== 1 ? 's' : ''}${start_time}${end_time}\n`)
 			.catch(err => {
 				log.error(err);
 				return '';
 			});
+	}
+
+	sendDeletionWarningMessage(raid) {
+		// send deletion warning message to this raid every 5th call to this
+		if (!!raid.messages_since_deletion_scheduled) {
+			++raid.messages_since_deletion_scheduled;
+		} else {
+			raid.messages_since_deletion_scheduled = 1;
+		}
+
+		if (raid.messages_since_deletion_scheduled % 5 === 1) {
+			const time_until_deletion = moment(raid.deletion_time).fromNow();
+
+			this.getChannel(raid.channel_id)
+				.then(channel => channel.send(`**WARNING** - this channel will be deleted automatically ${time_until_deletion}!`))
+				.catch(err => log.error(err));
+		}
 	}
 
 	getRaidChannelMessage(raid) {
@@ -673,7 +715,7 @@ class Raid {
 
 		const embed = new Discord.RichEmbed()
 			.setColor(4437377)
-			.setTitle(gym_name)
+			.setTitle(`Map Link: ${gym_name}`)
 			.setURL(gym_url)
 			.setDescription(raid_description);
 
