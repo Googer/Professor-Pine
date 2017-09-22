@@ -404,12 +404,18 @@ class Raid {
 			members = await Promise.all(member_ids
 				.map(async attendee_id => await this.getMember(channel_id, attendee_id)))
 				.catch(err => log.error(err)),
-			filtered_members = members
-				.filter(member => raid.attendees[member.id].status === Constants.RaidStatus.PRESENT),
-			questions = filtered_members
-				.map(member => member
-					.send(`Have you completed raid ${channel.toString()}?`)
-					.catch(err => log.error(err)));
+			present_members = members
+				.filter(member => raid.attendees[member.id].status === Constants.RaidStatus.PRESENT);
+
+		// put users to be questioned in complete-pending status
+		present_members.forEach(member => {
+			this.setMemberStatus(channel_id, member.id, Constants.RaidStatus.COMPLETE_PENDING);
+		});
+
+		const questions = present_members
+			.map(member => member
+				.send(`Have you completed raid ${channel.toString()}?`)
+				.catch(err => log.error(err)));
 
 		questions.forEach(async question =>
 			question
@@ -434,17 +440,23 @@ class Raid {
 								response.react('👍')
 									.catch(err => log.error(err));
 
-								raid.attendees[message.channel.recipient.id].status = Constants.RaidStatus.COMPLETE;
-								this.persistRaid(raid);
+								this.setMemberStatus(channel_id, message.channel.recipient.id, Constants.RaidStatus.COMPLETE);
+
 								this.refreshStatusMessages(raid)
 									.catch(err => log.error(err));
+							} else {
+								this.setMemberStatus(channel_id, message.channel.recipient.id, Constants.RaidStatus.PRESENT);
 							}
 
 							return true;
 						})
-						.catch(collected_responses => message.channel
-							.send(`I am assuming you have *not* completed raid ${channel.toString()}.`)
-							.catch(err => log.error(err)));
+						.catch(collected_responses => {
+							// reset user status back to present
+							this.setMemberStatus(channel_id, message.channel.recipient.id, Constants.RaidStatus.PRESENT);
+							message.channel
+								.send(`I am assuming you have *not* completed raid ${channel.toString()}.`)
+								.catch(err => log.error(err))
+						});
 				})
 				.catch(err => log.error(err)));
 	}
@@ -644,7 +656,8 @@ class Raid {
 			coming_attendees = sorted_attendees
 				.filter(attendee_entry => attendee_entry[1].status === Constants.RaidStatus.COMING),
 			present_attendees = sorted_attendees
-				.filter(attendee_entry => attendee_entry[1].status === Constants.RaidStatus.PRESENT),
+				.filter(attendee_entry => attendee_entry[1].status === Constants.RaidStatus.PRESENT ||
+					attendee_entry[1].status === Constants.RaidStatus.COMPLETE_PENDING),
 			complete_attendees = sorted_attendees
 				.filter(attendee_entry => attendee_entry[1].status === Constants.RaidStatus.COMPLETE),
 
