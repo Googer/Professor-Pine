@@ -113,14 +113,12 @@ class Raid {
 										gym_raids = [];
 									}
 									gym_raids.push(raid);
-
-									return Promise.resolve(() => {
-										try {
-											this.completed_raid_storage.setItemSync(raid.gym_id.toString(), gym_raids)
-										} catch (err) {
-											log.error(err);
-										}
-									});
+									try {
+										this.completed_raid_storage.setItemSync(raid.gym_id.toString(), gym_raids)
+									} catch (err) {
+										log.error(err);
+									}
+									return true;
 								})
 								.then(result => this.active_raid_storage.removeItemSync(channel_id))
 								.catch(err => log.error(err));
