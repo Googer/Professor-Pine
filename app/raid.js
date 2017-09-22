@@ -114,8 +114,13 @@ class Raid {
 									}
 									gym_raids.push(raid);
 
-									return Promise.resolve(
-										this.completed_raid_storage.setItemSync(raid.gym_id.toString(), gym_raids));
+									return Promise.resolve(() => {
+										try {
+											this.completed_raid_storage.setItemSync(raid.gym_id.toString(), gym_raids)
+										} catch (err) {
+											log.error(err);
+										}
+									});
 								})
 								.then(result => this.active_raid_storage.removeItemSync(channel_id))
 								.catch(err => log.error(err));
@@ -201,7 +206,11 @@ class Raid {
 	}
 
 	persistRaid(raid) {
-		this.active_raid_storage.setItemSync(raid.channel_id, raid);
+		try {
+			this.active_raid_storage.setItemSync(raid.channel_id, raid);
+		} catch (err) {
+			log.error(err);
+		}
 	}
 
 	setClient(client, guild) {
@@ -440,7 +449,15 @@ class Raid {
 
 							if (collected_responses && collected_responses.size === 1) {
 								response = collected_responses.first();
-								confirmation = this.client.registry.types.get('boolean').truthy.has(response.content);
+
+								const command_prefix = this.client.options.commandPrefix,
+									regex = new RegExp(`^${command_prefix}?(.*)`),
+									match = response.content.toLowerCase().match(regex),
+									answer = match.length > 1 ?
+										match[1].trim() :
+										'';
+
+								confirmation = this.client.registry.types.get('boolean').truthy.has(answer);
 							} else {
 								confirmation = false;
 							}
@@ -454,6 +471,9 @@ class Raid {
 								this.refreshStatusMessages(raid)
 									.catch(err => log.error(err));
 							} else {
+								response.react('👎')
+									.catch(err => log.error(err));
+
 								this.setMemberStatus(channel_id, message.channel.recipient.id, Constants.RaidStatus.PRESENT);
 							}
 
