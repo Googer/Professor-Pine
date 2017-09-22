@@ -2,10 +2,13 @@
 node_modules/
 
 # ignore IDEA workspace file
-\.idea/workspace\.xml
+.idea/workspace.xml
 
 # ignore discord client id
-data/discord\.json
+data/discord.json
 
 # ignore persisted raid data
-\.node-persist/
+raids/**
+
+# ignore log files
+*.log

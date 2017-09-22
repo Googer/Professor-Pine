@@ -1,6 +1,8 @@
 "use strict";
 
-const Commando = require('discord.js-commando'),
+const log = require('loglevel').getLogger('CheckOutCommand'),
+	Commando = require('discord.js-commando'),
+	Constants = require('../../app/constants'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
 
@@ -18,24 +20,28 @@ class CheckOutCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'check-out' && !Raid.validRaid(message.channel.id)) {
-				message.reply('Check out of a raid from its raid channel!');
-				return true;
+			if (!!message.command && message.command.name === 'check-out' &&
+				!Raid.validRaid(message.channel.id)) {
+				return ['invalid-channel', message.reply('Check out of a raid from its raid channel!')];
 			}
 			return false;
 		});
 	}
 
 	async run(message, args) {
-		const info = Raid.setArrivalStatus(message.channel.id, message.member.id, false);
+		const info = Raid.setMemberStatus(message.channel.id, message.member.id, Constants.RaidStatus.INTERESTED);
 
-		message.react('👍')
-			.catch(err => console.log(err));
+		if (!info.error) {
+			message.react('👍')
+				.catch(err => log.error(err));
 
-		Utility.cleanConversation(message);
+			Utility.cleanConversation(message);
 
-		// get previous bot message & update
-		await Raid.refreshStatusMessages(info.raid);
+			Raid.refreshStatusMessages(info.raid);
+		} else {
+			message.reply(info.error)
+				.catch(err => log.error(err));
+		}
 	}
 }
 

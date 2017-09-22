@@ -9,14 +9,6 @@ class Search {
 		this.buildIndex();
 	}
 
-	search(terms) {
-		const query = terms
-			.map(Search.makeFuzzy)
-			.join(' ');
-
-		return this.index.search(query);
-	}
-
 	static makeFuzzy(term) {
 		// Let's arbitrarily decide that every ~4.5 characters of length increases the amount
 		// of fuzziness by 1; in practice this seems about right to account for typos, etc.

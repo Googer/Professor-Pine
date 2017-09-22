@@ -1,6 +1,7 @@
 "use strict";
 
-const lunr = require('lunr'),
+const log = require('loglevel').getLogger('PokemonSearch'),
+	lunr = require('lunr'),
 	Search = require('./search');
 
 class Pokemon extends Search {
@@ -9,7 +10,7 @@ class Pokemon extends Search {
 	}
 
 	buildIndex() {
-		console.log('Indexing pokemon...');
+		log.info('Indexing pokemon...');
 
 		this.index = lunr(function () {
 			this.ref('object');
@@ -32,20 +33,16 @@ class Pokemon extends Search {
 			}, this);
 		});
 
-		console.log('Indexing pokemon complete');
+		log.info('Indexing pokemon complete');
 	}
 
-	search(terms) {
-		const lunr_results = super.search(terms)
+	search(term) {
+		const lunr_results = this.index.search(Search.makeFuzzy(term))
 			.map(result => JSON.parse(result.ref));
 
 		if (lunr_results.length > 0) {
 			return lunr_results[0];
 		}
-	}
-
-	getPokemon(pokemon_id) {
-		return this.pokemon.get(pokemon_id);
 	}
 }
 

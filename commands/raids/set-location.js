@@ -1,6 +1,7 @@
 "use strict";
 
-const Commando = require('discord.js-commando'),
+const log = require('loglevel').getLogger('LocationCommand'),
+	Commando = require('discord.js-commando'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
 
@@ -19,7 +20,8 @@ class SetLocationCommand extends Commando.Command {
 					key: 'gym_id',
 					label: 'gym',
 					prompt: 'Where is the raid taking place?\nExample: `manor theater`',
-					type: 'gym'
+					type: 'gym',
+					wait: 60
 				}
 			],
 			argsPromptLimit: 3,
@@ -27,9 +29,9 @@ class SetLocationCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'set-location' && !Raid.validRaid(message.channel.id)) {
-				message.reply('Set the location of a raid from its raid channel!');
-				return true;
+			if (!!message.command && message.command.name === 'set-location' &&
+				!Raid.validRaid(message.channel.id)) {
+				return ['invalid-channel', message.reply('Set the location of a raid from its raid channel!')];
 			}
 			return false;
 		});
@@ -40,12 +42,11 @@ class SetLocationCommand extends Commando.Command {
 			info = Raid.setRaidLocation(message.channel.id, gym_id);
 
 		message.react('👍')
-			.catch(err => console.log(err));
+			.catch(err => log.error(err));
 
 		Utility.cleanConversation(message);
 
-		// post a new raid message and replace/forget old bot message
-		await Raid.refreshStatusMessages(info.raid);
+		Raid.refreshStatusMessages(info.raid);
 	}
 }
 
