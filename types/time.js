@@ -26,18 +26,18 @@ class TimeType extends Commando.ArgumentType {
 				settings.default_raid_duration, 'minutes');
 
 		let mode = arg.min, // hacky way to get a preferred mode out of the argument definition
-			value_to_parse = value;
+			value_to_parse = value.trim();
 
 		if (!raid_exists && is_ex_raid) {
 			mode = 'absolute';
 		}
 
-		if (value.trim().match(/^[at|@]/i)) {
+		if (value_to_parse.match(/^[at|@]/i)) {
 			mode = 'absolute';
-			value_to_parse = value.substring(2).trim();
-		} else if (value.trim().match(/^in/i)) {
+			value_to_parse = value_to_parse.substring(2).trim();
+		} else if (value_to_parse.match(/^in/i)) {
 			mode = 'relative';
-			value_to_parse = value.substring(2).trim();
+			value_to_parse = value_to_parse.substring(2).trim();
 		}
 
 		if (mode === 'relative') {
@@ -59,7 +59,7 @@ class TimeType extends Commando.ArgumentType {
 
 			return `Entered time is not valid for raid.${extra_error_message}`;
 		} else {
-			const entered_date = moment(value_to_parse, ['H:m', 'h:m a', 'M-D H:m', 'M-D H', 'M-D h:m a', 'M-D h a']);
+			const entered_date = moment(value_to_parse, ['hmm a', 'Hmm', 'h:m a', 'H:m', 'M-D hmm a', 'M-D Hmm', 'M-D h:m a', 'M-D H:m', 'M-D h a', 'M-D H']);
 
 			if (!entered_date.isValid()) {
 				return `Please enter a date in the form \`MM-dd HH:mm\` (month and day optional).${extra_error_message}`;
@@ -89,18 +89,18 @@ class TimeType extends Commando.ArgumentType {
 				settings.default_raid_duration, 'minutes');
 
 		let mode = arg.min, // hacky way to get a preferred mode out of the argument definition
-			value_to_parse = value;
+			value_to_parse = value.trim();
 
 		if (!raid_exists && is_ex_raid) {
 			mode = 'absolute';
 		}
 
-		if (value.trim().match(/^[at|@]/i)) {
+		if (value_to_parse.match(/^[at|@]/i)) {
 			mode = 'absolute';
-			value_to_parse = value.substring(2).trim();
-		} else if (value.trim().match(/^in/i)) {
+			value_to_parse = value_to_parse.substring(2).trim();
+		} else if (value_to_parse.match(/^in/i)) {
 			mode = 'relative';
-			value_to_parse = value.substring(2).trim();
+			value_to_parse = value_to_parse.substring(2).trim();
 		}
 
 		if (mode === 'relative') {
@@ -114,12 +114,10 @@ class TimeType extends Commando.ArgumentType {
 
 			return now.add(duration).valueOf();
 		} else {
-			const entered_date = moment(value_to_parse, ['H:m', 'h:m a', 'M-D H:m', 'M-D H', 'M-D h:m a', 'M-D h a']);
-
-			const possible_times = TimeType.generateTimes(entered_date);
-
-			const actual_time = possible_times.find(possible_time =>
-				this.isValidTime(possible_time, now, raid_creation_time, last_possible_time));
+			const entered_date = moment(value_to_parse, ['hmm a', 'Hmm', 'h:m a', 'H:m', 'M-D hmm a', 'M-D Hmm', 'M-D h:m a', 'M-D H:m', 'M-D h a', 'M-D H']),
+				possible_times = TimeType.generateTimes(entered_date),
+				actual_time = possible_times.find(possible_time =>
+					this.isValidTime(possible_time, now, raid_creation_time, last_possible_time));
 
 			return actual_time.valueOf();
 		}
