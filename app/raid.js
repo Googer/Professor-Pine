@@ -6,6 +6,7 @@ const log = require('loglevel').getLogger('Raid'),
 	storage = require('node-persist'),
 	Constants = require('./constants'),
 	Discord = require('discord.js'),
+	Helper = require('./helper'),
 	Gym = require('./gym'),
 	NaturalArgumentType = require('../types/natural'),
 	TimeType = require('../types/time');
@@ -29,9 +30,6 @@ class Raid {
 
 		this.active_raid_storage
 			.forEach((channel_id, raid) => this.raids[channel_id] = raid);
-
-		// cache of roles, populated on client login
-		this.roles = Object.create(null);
 
 		// cache of emoji ids, populated on client login
 		this.emojis = Object.create(null);
@@ -209,14 +207,7 @@ class Raid {
 		this.guild = guild;
 
 		const
-			roles = new Map(guild.roles.map(role => [role.name.toLowerCase(), role])),
-			emojis = new Map(guild.emojis.map(emoji => [emoji.name.toLowerCase(), emoji.toString()]));
-
-		this.roles.mystic = roles.get('mystic');
-		this.roles.valor = roles.get('valor');
-		this.roles.instinct = roles.get('instinct');
-		this.roles.admin = roles.get('admin');
-		this.roles.moderator = roles.get('moderator') || roles.get('mod');
+			emojis = new Map(this.client.emojis.map(emoji => [emoji.name.toLowerCase(), emoji.toString()]));
 
 		this.emojis.mystic = emojis.get('mystic') || '';
 		this.emojis.valor = emojis.get('valor') || '';
@@ -286,7 +277,7 @@ class Raid {
 			.then(guild => {
 				if (raid.is_exclusive && time !== TimeType.UNDEFINED_END_TIME) {
 					this.setRaidStartTime(new_channel_id, time);
-        } else {
+        		} else {
 					if (time === TimeType.UNDEFINED_END_TIME) {
 						raid.end_time = TimeType.UNDEFINED_END_TIME;
 						this.persistRaid(raid);
@@ -715,11 +706,12 @@ class Raid {
 					}
 
 					// add role emoji indicators if role exists
-					if (this.roles.mystic && member.roles.has(this.roles.mystic.id)) {
+					const roles = Helper.guild.get(member.guild.id).roles;
+					if (roles.mystic && member.roles.has(roles.mystic.id)) {
 						result += ' ' + this.emojis.mystic;
-					} else if (this.roles.valor && member.roles.has(this.roles.valor.id)) {
+					} else if (roles.valor && member.roles.has(roles.valor.id)) {
 						result += ' ' + this.emojis.valor;
-					} else if (this.roles.instinct && member.roles.has(this.roles.instinct.id)) {
+					} else if (roles.instinct && member.roles.has(roles.instinct.id)) {
 						result += ' ' + this.emojis.instinct;
 					}
 
