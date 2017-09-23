@@ -16,11 +16,11 @@ class AsarCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (!!message.command && message.command.name === 'asar' && !Helper.isManagement(message)) {
-				return ['unauthorized', message.reply('You are not authorized to use this command.')];
-			}
+			if (!!message.command && message.command.name === 'asar') {
+				if (!Helper.isManagement(message)) {
+					return ['unauthorized', message.reply('You are not authorized to use this command.')];
+				}
 
-			if (message.channel.type !== 'text') {
 				return ['invalid-channel', message.reply('Please use `!asar` from a public channel.')];
 			}
 

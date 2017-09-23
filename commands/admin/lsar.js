@@ -18,11 +18,11 @@ class LsarCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (!!message.command && message.command.name === 'lsar' && !Helper.isManagement(message)) {
-				return ['unauthorized', message.reply('You are not authorized to use this command.')];
-			}
+			if (!!message.command && message.command.name === 'lsar') {
+				if (!Helper.isManagement(message)) {
+					return ['unauthorized', message.reply('You are not authorized to use this command.')];
+				}
 
-			if (message.channel.type !== 'text') {
 				return ['invalid-channel', message.reply('Please use `!lsar` from a public channel.')];
 			}
 
