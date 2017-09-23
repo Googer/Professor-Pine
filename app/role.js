@@ -23,6 +23,11 @@ class Role {
 				const description = roles[i][1] || '';
 				const id = member.guild.roles.find(val => val.name.toLowerCase() == value.toLowerCase());
 
+				if (!value) {
+					reject({ error: `Please enter a role when using this command.` });
+					return;
+				}
+
 				if (!id) {
 					reject({ error: `Role **${value}** was not found.` });
 					return;

@@ -1,7 +1,9 @@
 "use strict";
 
-const Commando = require('discord.js-commando');
-const Role = require('../../app/role');
+const log = require('loglevel').getLogger('JoinCommand'),
+	Commando = require('discord.js-commando'),
+	Helper = require('../../app/helper'),
+	Role = require('../../app/role');
 
 class LsarCommand extends Commando.Command {
 	constructor(client) {
@@ -11,16 +13,24 @@ class LsarCommand extends Commando.Command {
 			memberName: 'lsar',
 			aliases: ['roles'],
 			description: 'List self assignable roles.',
-			argsType: 'multiple'
+			argsType: 'multiple',
+			guildOnly: true
+		});
+
+		client.dispatcher.addInhibitor(message => {
+			if (!!message.command && message.command.name === 'lsar' && !Helper.isManagement(message)) {
+				return ['unauthorized', message.reply('You are not authorized to use this command.')];
+			}
+
+			if (message.channel.type !== 'text') {
+				return ['invalid-channel', message.reply('Please use `!lsar` from a public channel.')];
+			}
+
+			return false;
 		});
 	}
 
 	run(message, args) {
-		if (message.channel.type !== 'text') {
-			message.reply('Please use `lsar` from a public channel.');
-			return;
-		}
-
 		Role.getRoles(message.channel, message.member).then((roles) => {
 			const count = roles.length;
 
