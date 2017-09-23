@@ -40,15 +40,8 @@ class Helper {
 						}),
 						help: null,
 					},
-					roles: {
-						mystic: roles.get('mystic'),
-						valor: roles.get('valor'),
-						instinct: roles.get('instinct'),
-						admin: roles.get('administrator') || roles.get('admin'),
-						moderator: roles.get('moderator') || roles.get('mod'),
-					},
-					emojis: {
-					}
+					roles,
+					emojis: null
 				}
 			]
 		}));
@@ -69,6 +62,51 @@ class Helper {
 			// command "!iam" - correct channel, incorrect command, suggest command
 			if (message.content.search(/^([.!])i\s?an\s?.*?|^([.!])?ian([.!])?\s?.*?$|^ia([nm])$/gi) >= 0 && message.channel.id === guild.channels.bot_lab.id) {
 				message.reply(this.getText('iam.suggestion', message));
+			}
+		});
+
+		this.client.on('guildCreate', guild => {
+			// cache this guild's roles
+			this.guild.get(guild.id).roles = new Map(guild.roles.map(role => [role.name.toLowerCase(), role]));
+		});
+
+		this.client.on('guildDelete', guild => {
+			// remove this guild's roles from cache
+			this.guild.delete(guild.id);
+		});
+
+		this.client.on('roleCreate', role => {
+			// add new role to corresponding cache entry for its guild
+			const guild_map = this.guild.get(guild.id).roles;
+
+			if (!!guild_map) {
+				guild_map.set(role.name.toLowerCase(), role);
+			}
+		});
+
+		this.client.on('roleDelete', role => {
+			// remove role from corresponding cache entry for its guild
+			const guild_map = this.guild.get(guild.id);
+
+			if (!!guild_map) {
+				guild_map.delete(role.name.toLowerCase());
+			}
+		});
+
+		this.client.on('roleUpdate', (old_role, new_role) => {
+			// remove old role from corresponding cache entry for its guild and
+			// add new role to corresponding cache entry for its guild
+
+			// these *should* be the same guild but let's not assume that!
+			const old_guild_map = this.guild.get(old_role.guild.id),
+				new_guild_map = this.guild.get(new_role.guild.id);
+
+			if (!!old_guild_map) {
+				old_guild_map.delete(old_role.name.toLowerCase());
+			}
+
+			if (!!new_guild_map) {
+				new_guild_map.set(new_role.name.toLowerCase(), new_role);
 			}
 		});
 	}

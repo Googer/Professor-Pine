@@ -60,21 +60,11 @@ Client.registry.registerCommands([
 	require('./commands/roles/iamnot'),
 ]);
 
-const guilds = new Map([...Client.guilds]);
-
 Client.on('ready', () => {
 	log.info('Client logged in');
-	const new_guilds = new Map([...Client.guilds]);
-
 	DB.initialize(Client.guilds);
-
-	Array.from(guilds.keys())
-		.forEach(guild_id => new_guilds.delete(guild_id));
-
 	Helper.setClient(Client);
-	Raid.setClient(Client, new_guilds.values().next().value);
-
-	console.log('BOT IS ONLINE!');
+	Raid.setClient(Client);
 });
 
 Client.on('error', err => log.error(err));

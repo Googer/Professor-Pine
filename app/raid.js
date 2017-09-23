@@ -111,9 +111,12 @@ class Raid {
 										gym_raids = [];
 									}
 									gym_raids.push(raid);
-
-									return Promise.resolve(
-										this.completed_raid_storage.setItemSync(raid.gym_id.toString(), gym_raids));
+									try {
+										this.completed_raid_storage.setItemSync(raid.gym_id.toString(), gym_raids)
+									} catch (err) {
+										log.error(err);
+									}
+									return true;
 								})
 								.then(result => this.active_raid_storage.removeItemSync(channel_id))
 								.catch(err => log.error(err));
@@ -126,7 +129,8 @@ class Raid {
 	}
 
 	async getMember(channel_id, member_id) {
-		const member = this.guild.members.get(member_id);
+		const channel = await this.getChannel(channel_id),
+			member = channel.guild.members.get(member_id);
 
 		if (!!member) {
 			return Promise.resolve(member);
@@ -199,12 +203,15 @@ class Raid {
 	}
 
 	persistRaid(raid) {
-		this.active_raid_storage.setItemSync(raid.channel_id, raid);
+		try {
+			this.active_raid_storage.setItemSync(raid.channel_id, raid);
+		} catch (err) {
+			log.error(err);
+		}
 	}
 
-	setClient(client, guild) {
+	setClient(client) {
 		this.client = client;
-		this.guild = guild;
 
 		const
 			emojis = new Map(this.client.emojis.map(emoji => [emoji.name.toLowerCase(), emoji.toString()]));
@@ -213,11 +220,9 @@ class Raid {
 		this.emojis.valor = emojis.get('valor') || '';
 		this.emojis.instinct = emojis.get('instinct') || '';
 
-		this.emojis.pokeball = emojis.get('pokeball') || '';
-		this.emojis.greatball = emojis.get('greatball') || '';
-		this.emojis.ultraball = emojis.get('ultraball') || '';
-		this.emojis.masterball = emojis.get('masterball') || '';
-		this.emojis.premierball = emojis.get('premierball') || '';
+		client.emojis.forEach(emoji => {
+			this.emojis[emoji.name.toLowerCase()] = emoji.toString();
+		});
 
 		client.on('message', message => {
 			if (message.author.id !== client.user.id) {
@@ -229,6 +234,26 @@ class Raid {
 				}
 			}
 		});
+
+		client.on('emojiCreate', emoji => {
+			// add new emoji to emojis cache
+			this.emojis[emoji.name.toLowerCase()] = emoji.toString();
+		});
+
+		client.on('emojiDelete', emoji => {
+			// delete emoji from emojis cache
+			delete this.emojis[emoji.name.toLowerCase()];
+		});
+
+		client.on('emojiUpdate', (old_emoji, new_emoji) => {
+			// delete old emoji from emojis cache and add new one to it
+			delete this.emojis[old_emoji.name.toLowerCase()];
+			this.emojis[new_emoji.name.toLowerCase()] = new_emoji.toString();
+		});
+	}
+
+	getEmoji(emoji_name) {
+		return this.emojis[emoji_name.toLowerCase()] || '';
 	}
 
 	async createRaid(channel_id, member_id, pokemon, gym_id, time) {
@@ -259,7 +284,7 @@ class Raid {
 
 		let new_channel_id;
 
-		return this.guild.createChannel(channel_name, 'text', {overwrites: source_channel.permissionOverwrites})
+		return source_channel.guild.createChannel(channel_name, 'text', {overwrites: source_channel.permissionOverwrites})
 			.then(new_channel => {
 				this.raids[new_channel.id] = raid;
 				raid.channel_id = new_channel.id;
@@ -269,9 +294,9 @@ class Raid {
 				new_channel_id = new_channel.id;
 
 				// move channel to end
-				return this.guild.setChannelPositions([{
+				return new_channel.guild.setChannelPositions([{
 					channel: new_channel,
-					position: this.guild.channels.size - 1
+					position: new_channel.guild.channels.size - 1
 				}]);
 			})
 			.then(guild => {
@@ -431,7 +456,15 @@ class Raid {
 
 							if (collected_responses && collected_responses.size === 1) {
 								response = collected_responses.first();
-								confirmation = this.client.registry.types.get('boolean').truthy.has(response.content);
+
+								const command_prefix = this.client.options.commandPrefix,
+									regex = new RegExp(`^${command_prefix}?(.*)`),
+									match = response.content.toLowerCase().match(regex),
+									answer = match.length > 1 ?
+										match[1].trim() :
+										'';
+
+								confirmation = this.client.registry.types.get('boolean').truthy.has(answer);
 							} else {
 								confirmation = false;
 							}
@@ -445,6 +478,9 @@ class Raid {
 								this.refreshStatusMessages(raid)
 									.catch(err => log.error(err));
 							} else {
+								response.react('👎')
+									.catch(err => log.error(err));
+
 								this.setMemberStatus(channel_id, message.channel.recipient.id, Constants.RaidStatus.PRESENT);
 							}
 
@@ -737,16 +773,16 @@ class Raid {
 			embed.addField('__Possible Trainers__', total_attendees.toString());
 		}
 		if (interested_attendees.length > 0) {
-			embed.addField('Interested', attendees_builder(interested_attendees, this.emojis.pokeball), true);
+			embed.addField('Interested', attendees_builder(interested_attendees, this.getEmoji('pokeball')), true);
 		}
 		if (coming_attendees.length > 0) {
-			embed.addField('Coming', attendees_builder(coming_attendees, this.emojis.greatball), true);
+			embed.addField('Coming', attendees_builder(coming_attendees, this.getEmoji('greatball')), true);
 		}
 		if (present_attendees.length > 0) {
-			embed.addField('Present', attendees_builder(present_attendees, this.emojis.ultraball), true);
+			embed.addField('Present', attendees_builder(present_attendees, this.getEmoji('ultraball')), true);
 		}
 		if (complete_attendees.length > 0) {
-			embed.addField('Complete', attendees_builder(complete_attendees, this.emojis.premierball), true);
+			embed.addField('Complete', attendees_builder(complete_attendees, this.getEmoji('premierball')), true);
 		}
 
 		if (!!raid.hatch_time) {
@@ -767,8 +803,7 @@ class Raid {
 	async refreshStatusMessages(raid) {
 		const raid_channel_message = await this.getRaidChannelMessage(raid),
 			raid_source_channel_message = await this.getRaidSourceChannelMessage(raid),
-			formatted_message = await
-				this.getFormattedMessage(raid);
+			formatted_message = await this.getFormattedMessage(raid);
 
 		if (raid.announcement_message) {
 			this.getMessage(raid.announcement_message)

@@ -11,14 +11,14 @@ class SetPokemonCommand extends Commando.Command {
 			name: 'set-pokemon',
 			group: 'raids',
 			memberName: 'set-pokemon',
-			aliases: ['set-poke', 'pokemon', 'poke', 'set-boss', 'boss'],
-			description: 'Set a pokemon for a specific raid.',
-			details: 'Use this command to set the pokemon of a raid.',
+			aliases: ['set-pokémon', 'set-poke', 'pokemon', 'pokémon', 'poke', 'poké', 'set-boss', 'boss'],
+			description: 'Set a pokémon for a specific raid.',
+			details: 'Use this command to set the pokémon of a raid.',
 			examples: ['\t!set-pokemon lugia', '\t!pokemon molty', '\t!poke zapdos'],
 			args: [
 				{
 					key: 'pokemon',
-					prompt: 'What Pokemon (or tier if unhatched) is this raid?\nExample: `lugia`',
+					prompt: 'What pokémon (or tier if unhatched) is this raid?\nExample: `lugia`',
 					type: 'pokemon',
 				}
 			],
@@ -29,7 +29,7 @@ class SetPokemonCommand extends Commando.Command {
 		client.dispatcher.addInhibitor(message => {
 			if (!!message.command && message.command.name === 'set-pokemon' &&
 				!Raid.validRaid(message.channel.id)) {
-				return ['invalid-channel', message.reply('Set the pokemon of a raid from its raid channel!')];
+				return ['invalid-channel', message.reply('Set the pokémon of a raid from its raid channel!')];
 			}
 			return false;
 		});

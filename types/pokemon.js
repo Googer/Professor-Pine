@@ -28,11 +28,11 @@ class PokemonType extends Commando.ArgumentType {
 		const pokemon = Pokemon.search(pokemon_to_lookup[1]);
 
 		if (!pokemon) {
-			return 'No pokemon found.' + extra_error_message;
+			return 'No pokémon found.' + extra_error_message;
 		}
 
 		if (!pokemon.exclusive && !pokemon.tier) {
-			return 'Pokemon is not a valid raid boss.' + extra_error_message;
+			return 'Pokémon is not a valid raid boss.' + extra_error_message;
 		}
 
 		return true;
