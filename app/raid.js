@@ -30,7 +30,8 @@ class Raid {
 		this.active_raid_storage
 			.forEach((channel_id, raid) => this.raids[channel_id] = raid);
 
-		// cache of roles, populated on client login
+		// cache of roles for each guild (map from guild id to map of roles on guild), populated on client login
+		// and updated on-the-fly as guilds are joined and left
 		this.roles = Object.create(null);
 
 		// cache of emoji ids, populated on client login
@@ -128,7 +129,8 @@ class Raid {
 	}
 
 	async getMember(channel_id, member_id) {
-		const member = this.guild.members.get(member_id);
+		const channel = await this.getChannel(channel_id),
+			member = channel.guild.members.get(member_id);
 
 		if (!!member) {
 			return Promise.resolve(member);
@@ -204,29 +206,18 @@ class Raid {
 		this.active_raid_storage.setItemSync(raid.channel_id, raid);
 	}
 
-	setClient(client, guild) {
+	setClient(client) {
 		this.client = client;
-		this.guild = guild;
 
-		const
-			roles = new Map(guild.roles.map(role => [role.name.toLowerCase(), role])),
-			emojis = new Map(guild.emojis.map(emoji => [emoji.name.toLowerCase(), emoji.toString()]));
+		const emojis = new Map(client.emojis.map(emoji => [emoji.name.toLowerCase(), emoji.toString()]));
 
-		this.roles.mystic = roles.get('mystic');
-		this.roles.valor = roles.get('valor');
-		this.roles.instinct = roles.get('instinct');
-		this.roles.admin = roles.get('admin');
-		this.roles.moderator = roles.get('moderator') || roles.get('mod');
+		client.guilds.forEach((guild, guild_id) => {
+			this.roles[guild_id] = new Map(guild.roles.map(role => [role.name.toLowerCase(), role]));
+		});
 
-		this.emojis.mystic = emojis.get('mystic') || '';
-		this.emojis.valor = emojis.get('valor') || '';
-		this.emojis.instinct = emojis.get('instinct') || '';
-
-		this.emojis.pokeball = emojis.get('pokeball') || '';
-		this.emojis.greatball = emojis.get('greatball') || '';
-		this.emojis.ultraball = emojis.get('ultraball') || '';
-		this.emojis.masterball = emojis.get('masterball') || '';
-		this.emojis.premierball = emojis.get('premierball') || '';
+		client.emojis.forEach(emoji => {
+			this.emojis[emoji.name.toLowerCase()] = emoji.toString();
+		});
 
 		client.on('message', message => {
 			if (message.member.id !== client.user.id) {
@@ -238,6 +229,71 @@ class Raid {
 				}
 			}
 		});
+
+		client.on('guildCreate', guild => {
+			// cache this guild's roles
+			this.roles[guild.id] = new Map(guild.roles.map(role => [role.name.toLowerCase(), role]));
+		});
+
+		client.on('guildDelete', guild => {
+			// remove this guild's roles from cache
+			delete this.roles[guild.id];
+		});
+
+		client.on('roleCreate', role => {
+			// add new role to corresponding cache entry for its guild
+			const guild_map = this.roles[role.guild.id];
+
+			if (!!guild_map) {
+				guild_map.set(role.name.toLowerCase(), role);
+			}
+		});
+
+		client.on('roleDelete', role => {
+			// remove role from corresponding cache entry for its guild
+			const guild_map = this.roles[role.guild.id];
+
+			if (!!guild_map) {
+				guild_map.delete(role.name.toLowerCase());
+			}
+		});
+
+		client.on('roleUpdate', (old_role, new_role) => {
+			// remove old role from corresponding cache entry for its guild and
+			// add new role to corresponding cache entry for its guild
+
+			// these *should* be the same guild but let's not assume that!
+			const old_guild_map = this.roles[old_role.guild.id],
+				new_guild_map = this.roles[new_role.guild.id];
+
+			if (!!old_guild_map) {
+				old_guild_map.delete(old_role.name.toLowerCase());
+			}
+
+			if (!!new_guild_map) {
+				new_guild_map.set(new_role.name.toLowerCase(), new_role);
+			}
+		});
+
+		client.on('emojiCreate', emoji => {
+			// add new emoji to emojis cache
+			this.emojis[emoji.name.toLowerCase()] = emoji.toString();
+		});
+
+		client.on('emojiDelete', emoji => {
+			// delete emoji from emojis cache
+			delete this.emojis[emoji.name.toLowerCase()];
+		});
+
+		client.on('emojiUpdate', (old_emoji, new_emoji) => {
+			// delete old emoji from emojis cache and add new one to it
+			delete this.emojis[old_emoji.name.toLowerCase()];
+			this.emojis[new_emoji.name.toLowerCase()] = new_emoji.toString();
+		});
+	}
+
+	getEmoji(emoji_name) {
+		return this.emojis[emoji_name.toLowerCase()] || '';
 	}
 
 	async createRaid(channel_id, member_id, pokemon, gym_id, time) {
@@ -268,7 +324,7 @@ class Raid {
 
 		let new_channel_id;
 
-		return this.guild.createChannel(channel_name, 'text', {overwrites: source_channel.permissionOverwrites})
+		return source_channel.guild.createChannel(channel_name, 'text', {overwrites: source_channel.permissionOverwrites})
 			.then(new_channel => {
 				this.raids[new_channel.id] = raid;
 				raid.channel_id = new_channel.id;
@@ -278,15 +334,15 @@ class Raid {
 				new_channel_id = new_channel.id;
 
 				// move channel to end
-				return this.guild.setChannelPositions([{
+				return new_channel.guild.setChannelPositions([{
 					channel: new_channel,
-					position: this.guild.channels.size - 1
+					position: new_channel.guild.channels.size - 1
 				}]);
 			})
 			.then(guild => {
 				if (raid.is_exclusive && time !== TimeType.UNDEFINED_END_TIME) {
 					this.setRaidStartTime(new_channel_id, time);
-        } else {
+				} else {
 					if (time === TimeType.UNDEFINED_END_TIME) {
 						raid.end_time = TimeType.UNDEFINED_END_TIME;
 						this.persistRaid(raid);
@@ -707,6 +763,17 @@ class Raid {
 				let result = '';
 
 				attendees_list.forEach(([member, attendee]) => {
+					const member_guild = this.roles[member.guild.id],
+						mystic_role = member_guild ?
+							member_guild.get('mystic') :
+							undefined,
+						valor_role = member_guild ?
+							member_guild.get('valor') :
+							undefined,
+						instinct_role = member_guild ?
+							member_guild.get('instinct') :
+							undefined;
+
 					result += emoji + ' ' + member.displayName;
 
 					// show how many additional attendees this user is bringing with them
@@ -715,12 +782,12 @@ class Raid {
 					}
 
 					// add role emoji indicators if role exists
-					if (this.roles.mystic && member.roles.has(this.roles.mystic.id)) {
-						result += ' ' + this.emojis.mystic;
-					} else if (this.roles.valor && member.roles.has(this.roles.valor.id)) {
-						result += ' ' + this.emojis.valor;
-					} else if (this.roles.instinct && member.roles.has(this.roles.instinct.id)) {
-						result += ' ' + this.emojis.instinct;
+					if (mystic_role && member.roles.has(mystic_role.id)) {
+						result += ' ' + this.getEmoji('mystic');
+					} else if (valor_role && member.roles.has(valor_role.id)) {
+						result += ' ' + this.getEmoji('valor');
+					} else if (instinct_role && member.roles.has(instinct_role.id)) {
+						result += ' ' + this.getEmoji('instinct');
 					}
 
 					result += '\n';
@@ -745,16 +812,16 @@ class Raid {
 			embed.addField('__Possible Trainers__', total_attendees.toString());
 		}
 		if (interested_attendees.length > 0) {
-			embed.addField('Interested', attendees_builder(interested_attendees, this.emojis.pokeball), true);
+			embed.addField('Interested', attendees_builder(interested_attendees, this.getEmoji('pokeball')), true);
 		}
 		if (coming_attendees.length > 0) {
-			embed.addField('Coming', attendees_builder(coming_attendees, this.emojis.greatball), true);
+			embed.addField('Coming', attendees_builder(coming_attendees, this.getEmoji('greatball')), true);
 		}
 		if (present_attendees.length > 0) {
-			embed.addField('Present', attendees_builder(present_attendees, this.emojis.ultraball), true);
+			embed.addField('Present', attendees_builder(present_attendees, this.getEmoji('ultraball')), true);
 		}
 		if (complete_attendees.length > 0) {
-			embed.addField('Complete', attendees_builder(complete_attendees, this.emojis.premierball), true);
+			embed.addField('Complete', attendees_builder(complete_attendees, this.getEmoji('premierball')), true);
 		}
 
 		if (!!raid.hatch_time) {
@@ -775,8 +842,7 @@ class Raid {
 	async refreshStatusMessages(raid) {
 		const raid_channel_message = await this.getRaidChannelMessage(raid),
 			raid_source_channel_message = await this.getRaidSourceChannelMessage(raid),
-			formatted_message = await
-				this.getFormattedMessage(raid);
+			formatted_message = await this.getFormattedMessage(raid);
 
 		if (raid.announcement_message) {
 			this.getMessage(raid.announcement_message)
