@@ -12,17 +12,17 @@ require('loglevel-prefix-persist/server')(process.env.NODE_ENV, log, {
 
 log.setLevel('debug');
 
-const Commando = require('discord.js-commando'),
+const discord_settings = require('./data/discord'),
+	Commando = require('discord.js-commando'),
 	Client = new Commando.Client({
-		owner: [ '188406143796772864', '277303642992934914' ],
+		owner: discord_settings.owner,
 		restWsBridgeTimeout: 10000,
 		restTimeOffset: 1000
 	}),
 	DB = require('./app/db.js'),
 	NodeCleanup = require('node-cleanup'),
 	Helper = require('./app/helper'),
-	Raid = require('./app/raid'),
-	discord_settings = require('./data/discord');
+	Raid = require('./app/raid');
 
 NodeCleanup((exitCode, signal) => {
 	Raid.shutdown();
@@ -85,7 +85,7 @@ Client.on('disconnect', event => {
 	log.error(`Client disconnected, code ${event.code}, reason '${event.reason}'...`);
 
 	Client.destroy()
-		.then(() => Client.login(discord_settings.discord_client_id));
+		.then(() => Client.login(discord_settings.discord_bot_token));
 });
 
 Client.on('reconnecting', () => log.info('Client reconnecting...'));
@@ -101,4 +101,4 @@ Client.on('message', message => {
 	}
 });
 
-Client.login(discord_settings.discord_client_id);
+Client.login(discord_settings.discord_bot_token);
