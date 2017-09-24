@@ -6,6 +6,7 @@ const log = require('loglevel').getLogger('Raid'),
 	storage = require('node-persist'),
 	Constants = require('./constants'),
 	Discord = require('discord.js'),
+	Helper = require('./helper'),
 	Gym = require('./gym'),
 	NaturalArgumentType = require('../types/natural'),
 	TimeType = require('../types/time');
@@ -29,10 +30,6 @@ class Raid {
 
 		this.active_raid_storage
 			.forEach((channel_id, raid) => this.raids[channel_id] = raid);
-
-		// cache of roles for each guild (map from guild id to map of roles on guild), populated on client login
-		// and updated on-the-fly as guilds are joined and left
-		this.roles = Object.create(null);
 
 		// cache of emoji ids, populated on client login
 		this.emojis = Object.create(null);
@@ -220,11 +217,12 @@ class Raid {
 	setClient(client) {
 		this.client = client;
 
-		const emojis = new Map(client.emojis.map(emoji => [emoji.name.toLowerCase(), emoji.toString()]));
+		const
+			emojis = new Map(this.client.emojis.map(emoji => [emoji.name.toLowerCase(), emoji.toString()]));
 
-		client.guilds.forEach((guild, guild_id) => {
-			this.roles[guild_id] = new Map(guild.roles.map(role => [role.name.toLowerCase(), role]));
-		});
+		this.emojis.mystic = emojis.get('mystic') || '';
+		this.emojis.valor = emojis.get('valor') || '';
+		this.emojis.instinct = emojis.get('instinct') || '';
 
 		client.emojis.forEach(emoji => {
 			this.emojis[emoji.name.toLowerCase()] = emoji.toString();
@@ -238,51 +236,6 @@ class Raid {
 				if (!!raid && !!raid.deletion_time) {
 					this.sendDeletionWarningMessage(raid);
 				}
-			}
-		});
-
-		client.on('guildCreate', guild => {
-			// cache this guild's roles
-			this.roles[guild.id] = new Map(guild.roles.map(role => [role.name.toLowerCase(), role]));
-		});
-
-		client.on('guildDelete', guild => {
-			// remove this guild's roles from cache
-			delete this.roles[guild.id];
-		});
-
-		client.on('roleCreate', role => {
-			// add new role to corresponding cache entry for its guild
-			const guild_map = this.roles[role.guild.id];
-
-			if (!!guild_map) {
-				guild_map.set(role.name.toLowerCase(), role);
-			}
-		});
-
-		client.on('roleDelete', role => {
-			// remove role from corresponding cache entry for its guild
-			const guild_map = this.roles[role.guild.id];
-
-			if (!!guild_map) {
-				guild_map.delete(role.name.toLowerCase());
-			}
-		});
-
-		client.on('roleUpdate', (old_role, new_role) => {
-			// remove old role from corresponding cache entry for its guild and
-			// add new role to corresponding cache entry for its guild
-
-			// these *should* be the same guild but let's not assume that!
-			const old_guild_map = this.roles[old_role.guild.id],
-				new_guild_map = this.roles[new_role.guild.id];
-
-			if (!!old_guild_map) {
-				old_guild_map.delete(old_role.name.toLowerCase());
-			}
-
-			if (!!new_guild_map) {
-				new_guild_map.set(new_role.name.toLowerCase(), new_role);
 			}
 		});
 
@@ -353,7 +306,7 @@ class Raid {
 			.then(guild => {
 				if (raid.is_exclusive && time !== TimeType.UNDEFINED_END_TIME) {
 					this.setRaidStartTime(new_channel_id, time);
-				} else {
+        		} else {
 					if (time === TimeType.UNDEFINED_END_TIME) {
 						raid.end_time = TimeType.UNDEFINED_END_TIME;
 						this.persistRaid(raid);
@@ -789,17 +742,6 @@ class Raid {
 				let result = '';
 
 				attendees_list.forEach(([member, attendee]) => {
-					const member_guild = this.roles[member.guild.id],
-						mystic_role = member_guild ?
-							member_guild.get('mystic') :
-							undefined,
-						valor_role = member_guild ?
-							member_guild.get('valor') :
-							undefined,
-						instinct_role = member_guild ?
-							member_guild.get('instinct') :
-							undefined;
-
 					result += emoji + ' ' + member.displayName;
 
 					// show how many additional attendees this user is bringing with them
@@ -808,12 +750,13 @@ class Raid {
 					}
 
 					// add role emoji indicators if role exists
-					if (mystic_role && member.roles.has(mystic_role.id)) {
-						result += ' ' + this.getEmoji('mystic');
-					} else if (valor_role && member.roles.has(valor_role.id)) {
-						result += ' ' + this.getEmoji('valor');
-					} else if (instinct_role && member.roles.has(instinct_role.id)) {
-						result += ' ' + this.getEmoji('instinct');
+					const roles = Helper.guild.get(member.guild.id).roles;
+					if (roles.mystic && member.roles.has(roles.mystic.id)) {
+						result += ' ' + this.emojis.mystic;
+					} else if (roles.valor && member.roles.has(roles.valor.id)) {
+						result += ' ' + this.emojis.valor;
+					} else if (roles.instinct && member.roles.has(roles.instinct.id)) {
+						result += ' ' + this.emojis.instinct;
 					}
 
 					result += '\n';

@@ -12,15 +12,17 @@ require('loglevel-prefix-persist/server')(process.env.NODE_ENV, log, {
 
 log.setLevel('debug');
 
-const	Commando = require('discord.js-commando'),
+const discord_settings = require('./data/discord'),
+	Commando = require('discord.js-commando'),
 	Client = new Commando.Client({
+		owner: discord_settings.owner,
 		restWsBridgeTimeout: 10000,
 		restTimeOffset: 1000
 	}),
+	DB = require('./app/db.js'),
 	NodeCleanup = require('node-cleanup'),
 	Helper = require('./app/helper'),
-	Raid = require('./app/raid'),
-	discord_settings = require('./data/discord');
+	Raid = require('./app/raid');
 
 NodeCleanup((exitCode, signal) => {
 	Raid.shutdown();
@@ -31,11 +33,16 @@ Client.dispatcher.addInhibitor(message =>
 	message.message.channel.type === 'dm' &&
 	!message.message.content.trim().match(/^help/i));
 
+Client.registry.registerGroup('admin', 'Administration');
 Client.registry.registerGroup('raids', 'Raids');
+Client.registry.registerGroup('roles', 'Roles');
 Client.registry.registerDefaults();
 Client.registry.registerTypesIn(__dirname + '/types');
 
 Client.registry.registerCommands([
+	require('./commands/admin/asar'),
+	require('./commands/admin/rsar'),
+	require('./commands/admin/lsar'),
 	require('./commands/raids/create'),
 	require('./commands/raids/hatch-time'),
 	require('./commands/raids/time-left'),
@@ -48,11 +55,14 @@ Client.registry.registerCommands([
 	require('./commands/raids/leave'),
 	require('./commands/raids/set-pokemon'),
 	require('./commands/raids/set-location'),
-	require('./commands/raids/status')
+	require('./commands/raids/status'),
+	require('./commands/roles/iam'),
+	require('./commands/roles/iamnot'),
 ]);
 
 Client.on('ready', () => {
 	log.info('Client logged in');
+	DB.initialize(Client.guilds);
 	Helper.setClient(Client);
 	Raid.setClient(Client);
 });
@@ -65,7 +75,7 @@ Client.on('disconnect', event => {
 	log.error(`Client disconnected, code ${event.code}, reason '${event.reason}'...`);
 
 	Client.destroy()
-		.then(() => Client.login(discord_settings.discord_client_id));
+		.then(() => Client.login(discord_settings.discord_bot_token));
 });
 
 Client.on('reconnecting', () => log.info('Client reconnecting...'));
@@ -81,4 +91,4 @@ Client.on('message', message => {
 	}
 });
 
-Client.login(discord_settings.discord_client_id);
+Client.login(discord_settings.discord_bot_token);
