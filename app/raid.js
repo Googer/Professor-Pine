@@ -37,6 +37,8 @@ class Raid {
 		// cache of emoji ids, populated on client login
 		this.emojis = Object.create(null);
 
+		let last_interval_time = moment().valueOf();
+
 		// loop to clean up raids periodically
 		this.update = setInterval(() => {
 			const now = moment().valueOf(),
@@ -46,7 +48,7 @@ class Raid {
 
 			Object.entries(this.raids)
 				.forEach(([channel_id, raid]) => {
-					if (raid.hatch_time && now > raid.hatch_time && !this.hasBegun(raid)) {
+					if (raid.hatch_time && now > raid.hatch_time && raid.hatch_time > last_interval_time) {
 						// raid has begun; set flag to indicate this
 						raid.has_begun = true;
 
@@ -127,6 +129,8 @@ class Raid {
 							delete this.raids[channel_id];
 						}
 					}
+
+					last_interval_time = now;
 				});
 		}, settings.cleanup_interval);
 	}
@@ -594,6 +598,10 @@ class Raid {
 		raid.pokemon = pokemon;
 		raid.is_exclusive = raid.is_exclusive | !!pokemon.exclusive;
 
+		if (!!pokemon.name) {
+			raid.has_begun = true;
+		}
+
 		this.persistRaid(raid);
 
 		const new_channel_name = Raid.generateChannelName(raid);
@@ -741,7 +749,7 @@ class Raid {
 				moment(raid.hatch_time) :
 				'',
 			hatch_label = !!raid.hatch_time ?
-				this.hasBegun(raid) ?
+				now > hatch_time ?
 					'__Egg Hatched At__' :
 					'__Egg Hatch Time__' :
 				'',
