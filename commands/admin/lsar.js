@@ -23,7 +23,9 @@ class LsarCommand extends Commando.Command {
 					return ['unauthorized', message.reply('You are not authorized to use this command.')];
 				}
 
-				return ['invalid-channel', message.reply('Please use `!lsar` from a public channel.')];
+				if (message.channel.type !== 'text') {
+					return ['invalid-channel', message.reply('Please use `!lsar` from a public channel.')];
+				}
 			}
 
 			return false;
