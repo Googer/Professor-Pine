@@ -10,7 +10,7 @@ class PokemonType extends Commando.ArgumentType {
 	}
 
 	validate(value, message, arg) {
-		const extra_error_message = Utility.isOneLiner(message, value) ?
+		const extra_error_message = Utility.isOneLiner(message) ?
 			'  Do **not** re-enter the `' + arg.command.name + '` command.' :
 			'',
 
@@ -19,23 +19,20 @@ class PokemonType extends Commando.ArgumentType {
 		if (!pokemon_to_lookup || !pokemon_to_lookup.length) {
 			const result = value.match(/^(?:(?:\w+)\s?)?([1-5])$/);
 			if (!result) {
-				message.reply('Invalid tier specified.' + extra_error_message);
-				return false;
+				return 'Invalid tier specified.' + extra_error_message;
 			}
 
 			return true;
 		}
 
-		const pokemon = Pokemon.search([pokemon_to_lookup[1]]);
+		const pokemon = Pokemon.search(pokemon_to_lookup[1]);
 
 		if (!pokemon) {
-			message.reply('No pokemon found.' + extra_error_message);
-			return false;
+			return 'No pokémon found.' + extra_error_message;
 		}
 
-		if (!pokemon.tier) {
-			message.reply('Pokemon is not a valid raid boss.' + extra_error_message);
-			return false;
+		if (!pokemon.exclusive && !pokemon.tier) {
+			return 'Pokémon is not a valid raid boss.' + extra_error_message;
 		}
 
 		return true;
@@ -51,7 +48,7 @@ class PokemonType extends Commando.ArgumentType {
 			}
 		}
 
-		return Pokemon.search([pokemon_to_lookup[1]]);
+		return Pokemon.search(pokemon_to_lookup[1]);
 	}
 }
 

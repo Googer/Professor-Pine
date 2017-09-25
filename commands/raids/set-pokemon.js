@@ -1,23 +1,24 @@
 "use strict";
 
-const Commando = require('discord.js-commando'),
+const log = require('loglevel').getLogger('PokemonCommand'),
+	Commando = require('discord.js-commando'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
 
 class SetPokemonCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
-			name: 'set-pokemon',
-			group: 'raids',
-			memberName: 'set-pokemon',
-			aliases: ['set-poke', 'pokemon', 'poke'],
-			description: 'Set a pokemon for a specific raid.',
-			details: 'Use this command to set the pokemon of a raid.',
+			name: 'boss',
+			group: 'raid-crud',
+			memberName: 'boss',
+			aliases: ['set-pokemon', 'set-pokémon', 'set-poke', 'pokemon', 'pokémon', 'poke', 'poké', 'set-boss'],
+			description: 'Changes the pokémon for an existing raid, usually to specify the actual raid boss for a now-hatched egg.',
+			details: 'Use this command to set the pokémon of a raid.',
 			examples: ['\t!set-pokemon lugia', '\t!pokemon molty', '\t!poke zapdos'],
 			args: [
 				{
 					key: 'pokemon',
-					prompt: 'What Pokemon (or tier if unhatched) is this raid?\nExample: `lugia`',
+					prompt: 'What pokémon (or tier if unhatched) is this raid?\nExample: `lugia`',
 					type: 'pokemon',
 				}
 			],
@@ -26,9 +27,9 @@ class SetPokemonCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.command.name === 'set-pokemon' && !Raid.validRaid(message.channel.id)) {
-				message.reply('Set the pokemon of a raid from its raid channel!');
-				return true;
+			if (!!message.command && message.command.name === 'set-pokemon' &&
+				!Raid.validRaid(message.channel.id)) {
+				return ['invalid-channel', message.reply('Set the pokémon of a raid from its raid channel!')];
 			}
 			return false;
 		});
@@ -39,12 +40,11 @@ class SetPokemonCommand extends Commando.Command {
 			info = Raid.setRaidPokemon(message.channel.id, pokemon);
 
 		message.react('👍')
-			.catch(err => console.log(err));
+			.catch(err => log.error(err));
 
 		Utility.cleanConversation(message);
 
-		// post a new raid message and replace/forget old bot message
-		await Raid.refreshStatusMessages(info.raid);
+		Raid.refreshStatusMessages(info.raid);
 	}
 }
 

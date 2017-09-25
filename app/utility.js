@@ -1,11 +1,13 @@
 "use strict";
 
+const log = require('loglevel').getLogger('Utility');
+
 class Utility {
 	constructor() {
 	}
 
-	static isOneLiner(message, value) {
-		return message.message.content.includes(value);
+	static isOneLiner(message) {
+		return message.message.content.startsWith(message.client.options.commandPrefix);
 	}
 
 	static async cleanConversation(initial_message, delete_original = false) {
@@ -16,7 +18,7 @@ class Utility {
 
 		if (delete_original) {
 			initial_message.delete()
-				.catch(err => console.log(err));
+				.catch(err => log.error(err));
 		}
 
 		channel.messages.array() // cache of recent messages, should be sufficient
@@ -26,7 +28,7 @@ class Utility {
 						(message.author === bot && message.isMemberMentioned(author)));
 			})
 			.forEach(message => message.delete()
-				.catch(err => console.log(err)));
+				.catch(err => log.error(err)));
 	}
 }
 
