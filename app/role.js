@@ -1,14 +1,19 @@
 "use strict";
 
-const DB = require('./../app/db');
-const r = require('rethinkdb');
-const moment = require('moment');
-const settings = require('./../data/settings');
+const r = require('rethinkdb'),
+	settings = require('./../data/settings'),
+	DB = require('./../app/db'),
+	Helper = require('./../app/helper');
 
 class Role {
 	constructor() {
 		// shortcut incase DB Table changes names
 		this.db_table = 'roles';
+	}
+
+	isBotChannel(message) {
+		const guild = Helper.guild.get(message.guild.id);
+		return message.channel.id === guild.channels.bot_lab.id;
 	}
 
 	// update or insert roles
@@ -29,7 +34,7 @@ class Role {
 				}
 
 				if (!id) {
-					reject({ error: `Role **${value}** was not found.` });
+					reject({ error: `Role "**${value}**" was not found.` });
 					return;
 				}
 
@@ -145,7 +150,7 @@ class Role {
 			const id = member.guild.roles.find(val => val.name.toLowerCase() == role.toLowerCase());
 
 			if (!id) {
-				reject({ error: `Role **${role}** was not found.  Use \`!iam\` to see a list of self assignable roles.` });
+				reject({ error: `Role "**${role}**" was not found.  Use \`!iam\` to see a list of self assignable roles.` });
 				return;
 			}
 
@@ -156,7 +161,7 @@ class Role {
 					// console.log(JSON.stringify(result, null, 2));
 					resolve();
 				} else {
-					reject({ error: `Role **${role}** was not found.  Use \`!iam\` to see a list of self assignable roles.` });
+					reject({ error: `Role "**${role}**" was not found.  Use \`!iam\` to see a list of self assignable roles.` });
 				}
 			});
 		});
@@ -165,6 +170,11 @@ class Role {
 	removeRole(channel, member, role) {
 		return new Promise((resolve, reject) => {
 			const id = member.guild.roles.find(val => val.name.toLowerCase() == role.toLowerCase());
+
+			if (!id) {
+				reject({ error: `Please enter a role when using this command.` });
+				return;
+			}
 
 			member.removeRole(id);
 

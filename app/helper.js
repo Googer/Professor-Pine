@@ -55,12 +55,12 @@ class Helper {
 			const guild = this.guild.get(message.guild.id);
 
 			// command "!iam" - warning of incorrect channel, suggest command & channel
-			if (message.content.search(/^([.!])i\s?a([mn])\s?.*?|^([.!])?ia([mn])([.!])?\s?.*?$/gi) >= 0 && message.channel.id !== guild.channels.bot_lab.id) {
+			if (message.content.search(/^([.])i\s?a([mn])\s?.*?|^([.])?ia([mn])([.])?\s?.*?$/gi) >= 0 && message.channel.id !== guild.channels.bot_lab.id) {
 				message.reply(this.getText('iam.warning', message));
 			}
 
 			// command "!iam" - correct channel, incorrect command, suggest command
-			if (message.content.search(/^([.!])i\s?an\s?.*?|^([.!])?ian([.!])?\s?.*?$|^ia([nm])$/gi) >= 0 && message.channel.id === guild.channels.bot_lab.id) {
+			if (message.content.search(/^([.])i\s?a[nm]\s?.*?|^([.])?ia[nm]([.])?\s?.*?$|^ia([nm])$/gi) >= 0 && message.channel.id === guild.channels.bot_lab.id) {
 				message.reply(this.getText('iam.suggestion', message));
 			}
 		});
