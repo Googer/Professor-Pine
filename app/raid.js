@@ -89,41 +89,47 @@ class Raid {
 					}
 					if (raid.deletion_time) {
 						if (now > raid.deletion_time) {
+							let deletion_promise;
+
 							// actually delete the channel and announcement message
 							if (raid.announcement_message) {
-								this.getMessage(raid.announcement_message)
-									.then(message => message.delete())
-									.catch(err => log.error(err));
+								deletion_promise = this.getMessage(raid.announcement_message)
+									.then(message => message.delete());
+							} else {
+								deletion_promise = Promise.resolve(true);
 							}
 
-							this.getChannel(channel_id)
-								.then(channel => channel.delete())
-								.catch(err => log.error(err));
+							deletion_promise.then(result => {
+								this.getChannel(channel_id)
+									.then(channel => channel.delete())
+									.then(channel => {
+										// delete messages from raid object before moving to completed raid
+										// storage as they're no longer needed
+										delete raid.announcement_message;
+										delete raid.messages;
 
-							// delete messages from raid object before moving to completed raid
-							// storage as they're no longer needed
-							delete raid.announcement_message;
-							delete raid.messages;
+										delete raid.messages_since_deletion_scheduled;
 
-							delete raid.messages_since_deletion_scheduled;
+										this.completed_raid_storage.getItem(raid.gym_id.toString())
+											.then(gym_raids => {
+												if (!gym_raids) {
+													gym_raids = [];
+												}
+												gym_raids.push(raid);
+												try {
+													this.completed_raid_storage.setItemSync(raid.gym_id.toString(), gym_raids)
+												} catch (err) {
+													log.error(err);
+												}
+												return true;
+											})
+											.then(result => this.active_raid_storage.removeItemSync(channel_id))
+											.catch(err => log.error(err));
 
-							this.completed_raid_storage.getItem(raid.gym_id.toString())
-								.then(gym_raids => {
-									if (!gym_raids) {
-										gym_raids = [];
-									}
-									gym_raids.push(raid);
-									try {
-										this.completed_raid_storage.setItemSync(raid.gym_id.toString(), gym_raids)
-									} catch (err) {
-										log.error(err);
-									}
-									return true;
-								})
-								.then(result => this.active_raid_storage.removeItemSync(channel_id))
-								.catch(err => log.error(err));
-
-							delete this.raids[channel_id];
+										delete this.raids[channel_id];
+									})
+									.catch(err => log.error(err));
+							});
 						}
 					}
 
