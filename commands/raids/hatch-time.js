@@ -8,12 +8,12 @@ const log = require('loglevel').getLogger('TimeLeftCommand'),
 class HatchTimeCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
-			name: 'hatch-time',
-			group: 'raids',
-			memberName: 'hatch-time',
-			aliases: ['hatch', 'hatches'],
-			description: 'Sets the time that a raid hatches.',
-			details: 'Use this command to set the hatch time for a raid.',
+			name: 'hatch',
+			group: 'raid-crud',
+			memberName: 'hatch',
+			aliases: ['hatch-time', 'hatches'],
+			description: 'Sets the time an existing raid hatches.',
+			details: 'Use this command to set the hatch time for a raid, using a duration (default assumed format) or absolute time (if the time begins with `at`).',
 			examples: ['\t!hatch-time 1:45', '\t!hatch 50', '\t!hatches at 9:45'],
 			args: [
 				{

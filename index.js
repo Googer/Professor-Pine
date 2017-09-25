@@ -31,24 +31,29 @@ Client.dispatcher.addInhibitor(message =>
 	message.message.channel.type === 'dm' &&
 	!message.message.content.trim().match(/^help/i));
 
-Client.registry.registerGroup('raids', 'Raids');
+Client.registry.registerGroup('basic-raid', 'Raid Basics');
+Client.registry.registerGroup('raid-crud', 'Raid Creation and Maintenance');
 Client.registry.registerDefaults();
 Client.registry.registerTypesIn(__dirname + '/types');
 
 Client.registry.registerCommands([
-	require('./commands/raids/create'),
-	require('./commands/raids/hatch-time'),
-	require('./commands/raids/time-left'),
-	require('./commands/raids/interested'),
 	require('./commands/raids/join'),
-	require('./commands/raids/start-time'),
+	require('./commands/raids/interested'),
 	require('./commands/raids/check-in'),
 	require('./commands/raids/done'),
+
 	require('./commands/raids/check-out'),
 	require('./commands/raids/leave'),
+
+	require('./commands/raids/start-time'),
+	require('./commands/raids/status'),
+
+	require('./commands/raids/create'),
+
+	require('./commands/raids/hatch-time'),
+	require('./commands/raids/time-left'),
 	require('./commands/raids/set-pokemon'),
-	require('./commands/raids/set-location'),
-	require('./commands/raids/status')
+	require('./commands/raids/set-location')
 ]);
 
 const guilds = new Map([...Client.guilds]);
