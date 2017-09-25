@@ -146,6 +146,11 @@ class Raid {
 		throw new Error(`Member ${member_id} does not exist!`);
 	}
 
+	findRaid(gym_id) {
+		return Object.values(this.raids)
+			.find(raid => raid.gym_id === gym_id);
+	}
+
 	getChannel(channel_id) {
 		const channel = this.client.channels.get(channel_id);
 
@@ -392,6 +397,15 @@ class Raid {
 		return {raid: raid};
 	}
 
+	getMemberStatus(channel_id, member_id) {
+		const raid = this.getRaid(channel_id),
+			attendee = raid.attendees[member_id];
+
+		return !!attendee ?
+			attendee.status :
+			Constants.RaidStatus.NOT_INTERESTED;
+	}
+
 	setMemberStatus(channel_id, member_id, status, additional_attendees = NaturalArgumentType.UNDEFINED_NUMBER) {
 		const raid = this.getRaid(channel_id),
 			attendee = raid.attendees[member_id],
@@ -491,11 +505,14 @@ class Raid {
 							return true;
 						})
 						.catch(collected_responses => {
-							// reset user status back to present
-							this.setMemberStatus(channel_id, message.channel.recipient.id, Constants.RaidStatus.PRESENT);
-							message.channel
-								.send(`I am assuming you have *not* completed raid ${channel.toString()}.`)
-								.catch(err => log.error(err))
+							// check that user didn't already set their status to complete (via running !done command themselves)
+							if (this.getMemberStatus(channel_id, message.channel.recipient.id) !== Constants.RaidStatus.COMPLETE) {
+								// reset user status back to present
+								this.setMemberStatus(channel_id, message.channel.recipient.id, Constants.RaidStatus.PRESENT);
+								message.channel
+									.send(`I am assuming you have *not* completed raid ${channel.toString()}.`)
+									.catch(err => log.error(err));
+							}
 						});
 				})
 				.catch(err => log.error(err)));

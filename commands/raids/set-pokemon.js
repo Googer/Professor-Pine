@@ -8,11 +8,11 @@ const log = require('loglevel').getLogger('PokemonCommand'),
 class SetPokemonCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
-			name: 'set-pokemon',
-			group: 'raids',
-			memberName: 'set-pokemon',
-			aliases: ['set-pokémon', 'set-poke', 'pokemon', 'pokémon', 'poke', 'poké', 'set-boss', 'boss'],
-			description: 'Set a pokémon for a specific raid.',
+			name: 'boss',
+			group: 'raid-crud',
+			memberName: 'boss',
+			aliases: ['set-pokemon', 'set-pokémon', 'set-poke', 'pokemon', 'pokémon', 'poke', 'poké', 'set-boss'],
+			description: 'Changes the pokémon for an existing raid, usually to specify the actual raid boss for a now-hatched egg.',
 			details: 'Use this command to set the pokémon of a raid.',
 			examples: ['\t!set-pokemon lugia', '\t!pokemon molty', '\t!poke zapdos'],
 			args: [
