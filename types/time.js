@@ -32,7 +32,7 @@ class TimeType extends Commando.ArgumentType {
 			mode = 'absolute';
 		}
 
-		if (value_to_parse.match(/^[at|@]/i)) {
+		if (value_to_parse.match(/^at|@/i)) {
 			mode = 'absolute';
 			value_to_parse = value_to_parse.substring(2).trim();
 		} else if (value_to_parse.match(/^in/i)) {
