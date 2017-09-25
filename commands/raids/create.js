@@ -11,11 +11,11 @@ class RaidCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
 			name: 'raid',
-			group: 'raids',
+			group: 'raid-crud',
 			memberName: 'raid',
 			aliases: ['create', 'announce'],
-			description: 'Create a new raid group!',
-			details: 'Use this command to start organizing a new raid.  For your convenience, this command combines several options such that you can set the pokemon, the location, and the end time of the raid, all at once.',
+			description: 'Announces a new raid.\n',
+			details: 'Use this command to start organizing a new raid.  For your convenience, this command combines several options such that you can set the pokémon, the location, and the end time of the raid, all at once.',
 			examples: ['\t!raid lugia', '\t!raid zapdos \'manor theater\' 1:43', '\t!raid magikarp olea', '\t!raid ttar \'frog fountain\''],
 			throttling: {
 				usages: 5,
@@ -24,7 +24,7 @@ class RaidCommand extends Commando.Command {
 			args: [
 				{
 					key: 'pokemon',
-					prompt: 'What Pokemon (or tier if unhatched) is this raid?\nExample: `lugia`',
+					prompt: 'What pokémon (or tier if unhatched) is this raid?\nExample: `lugia`',
 					type: 'pokemon',
 				},
 				{

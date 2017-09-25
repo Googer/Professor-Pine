@@ -8,11 +8,11 @@ const log = require('loglevel').getLogger('LocationCommand'),
 class SetLocationCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
-			name: 'set-location',
-			group: 'raids',
-			memberName: 'set-location',
-			aliases: ['location', 'set-gym', 'gym'],
-			description: 'Set a location for a specific raid.  This is a smart search on gym names and their locations.',
+			name: 'gym',
+			group: 'raid-crud',
+			memberName: 'gym',
+			aliases: ['set-location', 'set-gym', 'location'],
+			description: 'Changes the location for an existing raid.',
 			details: 'Use this command to set the location of a raid.  This command is channel sensitive, meaning it only finds gyms associated with the proper channel.',
 			examples: ['\t!set-location Unicorn', '\t!location \'Bellevue Park\'', '\t!location squirrel'],
 			args: [

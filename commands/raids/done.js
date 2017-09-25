@@ -9,10 +9,10 @@ class DoneCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
 			name: 'done',
-			group: 'raids',
+			group: 'basic-raid',
 			memberName: 'done',
 			aliases: ['complete', 'caught-it'],
-			description: 'Let others know you and your raid group have completed the raid so you are no longer available to participate in it again!',
+			description: 'Lets others know you have completed an existing raid.\n',
 			details: 'Use this command to tell everyone you have completed this raid.',
 			examples: ['\t!done', '\t!complete', '\t!caught-it'],
 			guildOnly: true

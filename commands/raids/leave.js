@@ -9,10 +9,10 @@ class LeaveCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
 			name: 'leave',
-			group: 'raids',
+			group: 'basic-raid',
 			memberName: 'leave',
 			aliases: ['part', 'not-interested', 'uninterested'],
-			description: 'Can\'t make it to a raid? no problem, just leave it.',
+			description: 'Leaves an existing raid (completely removes you from its attendees list).\n',
 			details: 'Use this command to leave a raid if you can no longer attend it.',
 			examples: ['\t!leave', '\t!part'],
 			guildOnly: true
