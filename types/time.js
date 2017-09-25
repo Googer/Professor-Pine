@@ -50,14 +50,14 @@ class TimeType extends Commando.ArgumentType {
 			}
 
 			if (!duration.isValid()) {
-				return `Please enter a duration in form \`HH:mm\`${extra_error_message}`;
+				return `Please enter a duration in form \'mm\' or \`HH:mm\`${extra_error_message}`;
 			}
 
 			if (this.isValidTime(moment().add(duration), now, raid_creation_time, last_possible_time)) {
 				return true;
 			}
 
-			return `Entered time is not valid for raid.${extra_error_message}`;
+			return `Entered duration is not valid for raid!${extra_error_message}`;
 		} else {
 			const entered_date = moment(value_to_parse, ['hmm a', 'Hmm', 'h:m a', 'H:m', 'M-D hmm a', 'M-D Hmm', 'M-D h:m a', 'M-D H:m', 'M-D h a', 'M-D H']);
 

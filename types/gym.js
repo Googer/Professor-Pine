@@ -25,7 +25,9 @@ class GymType extends Commando.ArgumentType {
 			const gym_id = gyms[0].gymId;
 
 			if (Raid.raidExistsForGym(gym_id)) {
-				return 'Gym already has an active raid.' + extra_error_message;
+				const raid = Raid.findRaid(gym_id),
+					channel = await Raid.getChannel(raid.channel_id);
+				return `Gym already has an active raid - ${channel.toString()}.` + extra_error_message;
 			}
 
 			return true;

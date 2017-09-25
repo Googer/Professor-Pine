@@ -9,11 +9,11 @@ const log = require('loglevel').getLogger('CheckOutCommand'),
 class CheckOutCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
-			name: 'check-out',
-			group: 'raids',
-			memberName: 'check-out',
-			aliases: ['depart'],
-			description: 'Let others know you have gone to the wrong location.',
+			name: 'not-here',
+			group: 'basic-raid',
+			memberName: 'not-here',
+			aliases: ['check-out', 'depart'],
+			description: 'Lets others know you have gone to the wrong location for an existing raid.',
 			details: 'Use this command in case you thought you were at the right location, but were not.',
 			examples: ['\t!check-out', '\t!checkout'],
 			guildOnly: true

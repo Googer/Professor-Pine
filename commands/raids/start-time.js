@@ -8,11 +8,11 @@ const log = require('loglevel').getLogger('StartTimeCommand'),
 class StartTimeCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
-			name: 'start-time',
-			group: 'raids',
-			memberName: 'start-time',
-			aliases: ['start', 'starts'],
-			description: 'Set the planned time the raid group will begin.',
+			name: 'start',
+			group: 'basic-raid',
+			memberName: 'start',
+			aliases: ['start-time', 'starts'],
+			description: 'Sets the planned starting time for an existing raid.',
 			details: 'Use this command to set when a raid group intends to do the raid.  If possible, try to set times 20 minutes out and always try to arrive at least 5 minutes before the start time being set.',
 			examples: ['\t!start-time 2:20pm'],
 			args: [

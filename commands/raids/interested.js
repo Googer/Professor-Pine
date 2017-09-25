@@ -10,11 +10,11 @@ const log = require('loglevel').getLogger('InterestedCommand'),
 class InterestedCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
-			name: 'interested',
-			group: 'raids',
-			memberName: 'interested',
-			aliases: ['maybe', 'hmm'],
-			description: 'Express interest in a raid!',
+			name: 'maybe',
+			group: 'basic-raid',
+			memberName: 'maybe',
+			aliases: ['interested', 'hmm'],
+			description: 'Expresses interest in an existing raid without committing to it.',
 			details: 'Use this command to express interest in a raid.',
 			examples: ['\t!interested', '\t!maybe', '\t!hmm'],
 			args: [
