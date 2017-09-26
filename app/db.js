@@ -13,7 +13,6 @@ class RethinkDBManager {
 		r.connect({ host: 'localhost', port: 28015 }, (err, conn) => {
 			if (err) { throw err; }
 			this.connection = conn;
-			// this.initialize();
 		});
 	}
 

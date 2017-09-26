@@ -1,6 +1,6 @@
 "use strict";
 
-const log = require('loglevel').getLogger('JoinCommand'),
+const log = require('loglevel').getLogger('RsarCommand'),
 	Commando = require('discord.js-commando'),
 	Helper = require('../../app/helper'),
 	Role = require('../../app/role');
@@ -11,7 +11,7 @@ class RsarCommand extends Commando.Command {
 			name: 'rsar',
 			group: 'admin',
 			memberName: 'rsar',
-			description: 'Add new self assignable role.',
+			description: 'Remove self assignable role.',
 			guildOnly: true
 		});
 
@@ -39,7 +39,7 @@ class RsarCommand extends Commando.Command {
 			if (err && err.error) {
 				message.reply(err.error);
 			} else {
-				console.log(err);
+				log.error(err);
 			}
 		});
 	}

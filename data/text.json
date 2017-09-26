@@ -1,7 +1,11 @@
 {
 	"iam": {
-		"warning": "Use the `.iam` command in ${bot_channel} to assign roles.",
+		"warning": "Use the `!iam` command in ${bot_channel} to assign roles.",
 		"suggestion": "Try using the command `!iam` to assign roles."
+	},
+	"iamnot": {
+		"warning": "Use the `!iamnot` command in ${bot_channel} to assign roles.",
+		"suggestion": "Try using the command `!iamnot` to remove roles."
 	},
 	"status": {
 		"warning": "Check the status of raids from a regional (i.e., central city) or raid channel."

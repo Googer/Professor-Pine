@@ -1,14 +1,22 @@
 "use strict";
 
-const DB = require('./../app/db');
-const r = require('rethinkdb');
-const moment = require('moment');
-const settings = require('./../data/settings');
+const r = require('rethinkdb'),
+	settings = require('./../data/settings'),
+	DB = require('./../app/db'),
+	Helper = require('./../app/helper');
 
 class Role {
 	constructor() {
 		// shortcut incase DB Table changes names
 		this.db_table = 'roles';
+
+		// number of roles in DB (useful for pagination w/o having to hit DB)
+		this.count = 0;
+	}
+
+	isBotChannel(message) {
+		const guild = Helper.guild.get(message.guild.id);
+		return message.channel.id === guild.channels.bot_lab.id;
 	}
 
 	// update or insert roles
@@ -21,7 +29,7 @@ class Role {
 			for (let i=0; i<roles.length; i++) {
 				const value = roles[i][0];
 				const description = roles[i][1] || '';
-				const id = member.guild.roles.find(val => val.name.toLowerCase() == value.toLowerCase());
+				const id = member.guild.roles.find(val => val.name.toLowerCase() === value.toLowerCase());
 
 				if (!value) {
 					reject({ error: `Please enter a role when using this command.` });
@@ -29,7 +37,7 @@ class Role {
 				}
 
 				if (!id) {
-					reject({ error: `Role **${value}** was not found.` });
+					reject({ error: `Role "**${value}**" was not found.` });
 					return;
 				}
 
@@ -50,7 +58,8 @@ class Role {
 										return;
 									}
 
-									// console.log(JSON.stringify(result, null, 2));
+									this.count = result.length;
+
 									resolve(result);
 								});
 							}
@@ -96,13 +105,14 @@ class Role {
 						.table(this.db_table)
 						.filter({ name: roles[i].toLowerCase() })
 						.delete()
-						.run(DB.connection, function(err, result) {
+						.run(DB.connection, (err, result) => {
 							if (err) {
 								reject(err);
 								return;
 							}
 
-							// console.log(JSON.stringify(result, null, 2));
+							this.count = result.length;
+
 							resolve(result);
 						});
 				}));
@@ -121,31 +131,33 @@ class Role {
 			r.db(channel.guild.id)
 				.table(this.db_table)
 				.orderBy(r.asc('date'))
-				.run(DB.connection, function(err, cursor) {
+				.run(DB.connection, (err, cursor) => {
 					if (err) {
 						reject(err);
 						return;
 					}
 
-					cursor.toArray(function(err, result) {
+					cursor.toArray((err, result) => {
 						if (err) {
 							reject(err);
 							return;
 						}
 
-						// console.log(JSON.stringify(result, null, 2));
+						this.count = result.length;
+
 						resolve(result);
 					});
 				});
 		});
 	}
 
+	// give role to user if it exists
 	assignRole(channel, member, role) {
 		return new Promise((resolve, reject) => {
-			const id = member.guild.roles.find(val => val.name.toLowerCase() == role.toLowerCase());
+			const id = member.guild.roles.find(val => val.name.toLowerCase() === role.toLowerCase());
 
 			if (!id) {
-				reject({ error: `Role **${role}** was not found.  Use \`!iam\` to see a list of self assignable roles.` });
+				reject({ error: `Role "**${role}**" was not found.  Use \`!iam\` to see a list of self assignable roles.` });
 				return;
 			}
 
@@ -156,15 +168,21 @@ class Role {
 					// console.log(JSON.stringify(result, null, 2));
 					resolve();
 				} else {
-					reject({ error: `Role **${role}** was not found.  Use \`!iam\` to see a list of self assignable roles.` });
+					reject({ error: `Role "**${role}**" was not found.  Use \`!iam\` to see a list of self assignable roles.` });
 				}
 			});
 		});
 	}
 
+	// remove role from user if they have it
 	removeRole(channel, member, role) {
 		return new Promise((resolve, reject) => {
-			const id = member.guild.roles.find(val => val.name.toLowerCase() == role.toLowerCase());
+			const id = member.guild.roles.find(val => val.name.toLowerCase() === role.toLowerCase());
+
+			if (!id) {
+				reject({ error: `Please enter a role when using this command.` });
+				return;
+			}
 
 			member.removeRole(id);
 
@@ -177,13 +195,13 @@ class Role {
 			r.db(channel.guild.id)
 				.table(this.db_table)
 				.filter(r.row('name').eq(role.toLowerCase()))
-				.run(DB.connection, function(err, cursor) {
+				.run(DB.connection, (err, cursor) => {
 					if (err) {
 						reject(err);
 						return;
 					}
 
-					cursor.toArray(function(err, result) {
+					cursor.toArray((err, result) => {
 						if (err) {
 							reject(err);
 							return;
