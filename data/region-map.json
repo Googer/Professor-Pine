@@ -1,5 +1,5 @@
 {
-  "ee-mckeesport-whiteoak": [
+  "mckeesport-whiteoak": [
     106,
     45751,
     53883,
@@ -78,7 +78,7 @@
     49322180,
     49448416
   ],
-  "ww-robinson-moon-rocks": [
+  "robinson-moon-rocks": [
     813,
     12687,
     44591,
@@ -152,7 +152,7 @@
     1200774,
     1209537
   ],
-  "cc-north-side": [
+  "north-side": [
     1574,
     3969,
     14252,
@@ -221,7 +221,7 @@
     1200967,
     49431975
   ],
-  "ss-south-hills": [
+  "south-hills": [
     1718,
     4551,
     19890,
@@ -309,7 +309,7 @@
     1205739,
     49432021
   ],
-  "ee-the-old-east": [
+  "the-old-east": [
     1970,
     11952,
     13169,
@@ -415,7 +415,7 @@
     1204050,
     49058427
   ],
-  "ww-settlers-cabin-and-beyond": [
+  "settlers-cabin-and-beyond": [
     2540,
     39643,
     58434,
@@ -462,7 +462,7 @@
     49435302,
     49435303
   ],
-  "cc-oakland": [
+  "oakland": [
     5602,
     62253,
     122481,
@@ -505,7 +505,7 @@
     49058437,
     49102838
   ],
-  "ee-monroeville-plum-murrysville": [
+  "monroeville-plum-murrysville": [
     6693,
     7277,
     77587,
@@ -585,7 +585,7 @@
     49404610,
     49404611
   ],
-  "nw-north-by-northwest": [
+  "north-by-northwest": [
     7980,
     76037,
     111908,
@@ -757,7 +757,7 @@
     49515687,
     49515688
   ],
-  "ee-the-steel-valley": [
+  "the-steel-valley": [
     8345,
     14491,
     19394,
@@ -813,7 +813,7 @@
     1206303,
     49000737
   ],
-  "cc-bloomfield-strip-lawrenceville": [
+  "bloomfield-strip-lawrenceville": [
     8932,
     31161,
     68798,
@@ -870,7 +870,7 @@
     1208591,
     49431976
   ],
-  "cc-squirrelside": [
+  "squirrelside": [
     12677,
     43891,
     51775,
@@ -950,7 +950,7 @@
     1182421,
     1184973
   ],
-  "ss-south-park-and-surrounding": [
+  "south-park-and-surrounding": [
     15260,
     28601,
     34099,
@@ -1049,7 +1049,7 @@
     49425130,
     49425131
   ],
-  "nw-bellevue-westview-ross": [
+  "bellevue-westview-ross": [
     16146,
     32132,
     52208,
@@ -1143,7 +1143,7 @@
     49188248,
     49233728
   ],
-  "cc-dahntahn-downtown": [
+  "dahntahn-downtown": [
     20286,
     25934,
     119256,
@@ -1184,7 +1184,7 @@
     49102837,
     49102839
   ],
-  "ss-great-scott": [
+  "great-scott": [
     20853,
     36764,
     57846,
@@ -1261,7 +1261,7 @@
     49425119,
     49444798
   ],
-  "cc-city-south": [
+  "city-south": [
     24336,
     62743,
     69186,
@@ -1318,7 +1318,7 @@
     1208050,
     1209354
   ],
-  "ne-oakmont-springdale": [
+  "oakmont-springdale": [
     30580,
     44152,
     55411,
@@ -1356,7 +1356,7 @@
     7431858,
     49635912
   ],
-  "ne-foxchapel-and-mrc": [
+  "foxchapel-and-mrc": [
     37299,
     124806,
     295546,
@@ -1380,7 +1380,7 @@
     22698050,
     22698489
   ],
-  "fs-mon-valley": [
+  "mon-valley": [
     48285,
     684562,
     959644,
@@ -1433,7 +1433,7 @@
     49152471,
     49432237
   ],
-  "ne-millvale-and-28": [
+  "millvale-and-28": [
     77622,
     86348,
     96956,
@@ -1696,7 +1696,7 @@
     49404608,
     49428706
   ],
-  "nw-cranberry-and-friends": [
+  "cranberry-and-friends": [
     104011,
     120261,
     191984,
@@ -1761,7 +1761,7 @@
     22685236,
     22685253
   ],
-  "nw-butler-and-north": [
+  "butler-and-north": [
     121314,
     200232,
     561754,
@@ -1821,7 +1821,7 @@
     48004647,
     49551099
   ],
-  "fs-washington": [
+  "washington": [
     381254,
     587313,
     627792,
@@ -1869,7 +1869,7 @@
     49397300,
     49397301
   ],
-  "fs-canonsburg": [
+  "canonsburg": [
     518477,
     561588,
     5389375,
@@ -1895,7 +1895,7 @@
     46954466,
     49548047
   ],
-  "nw-gibsonia-wexford-northpark": [
+  "gibsonia-wexford-northpark": [
     2456323,
     2456395,
     2456399,
@@ -1928,7 +1928,7 @@
     2456796,
     2456799
   ],
-  "ne-upper-allegheny": [
+  "upper-allegheny": [
     2456376,
     2456377,
     2456565,
@@ -1983,7 +1983,7 @@
     48004907,
     49635913
   ],
-  "fs-i70-no-mons-land": [
+  "i70-no-mons-land": [
     3549080,
     3549124,
     3549134,
