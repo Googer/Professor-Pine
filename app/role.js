@@ -9,6 +9,9 @@ class Role {
 	constructor() {
 		// shortcut incase DB Table changes names
 		this.db_table = 'roles';
+
+		// number of roles in DB (useful for pagination w/o having to hit DB)
+		this.count = 0;
 	}
 
 	isBotChannel(message) {
@@ -55,7 +58,8 @@ class Role {
 										return;
 									}
 
-									// console.log(JSON.stringify(result, null, 2));
+									this.count = result.length;
+
 									resolve(result);
 								});
 							}
@@ -101,13 +105,14 @@ class Role {
 						.table(this.db_table)
 						.filter({ name: roles[i].toLowerCase() })
 						.delete()
-						.run(DB.connection, function(err, result) {
+						.run(DB.connection, (err, result) => {
 							if (err) {
 								reject(err);
 								return;
 							}
 
-							// console.log(JSON.stringify(result, null, 2));
+							this.count = result.length;
+
 							resolve(result);
 						});
 				}));
@@ -126,25 +131,27 @@ class Role {
 			r.db(channel.guild.id)
 				.table(this.db_table)
 				.orderBy(r.asc('date'))
-				.run(DB.connection, function(err, cursor) {
+				.run(DB.connection, (err, cursor) => {
 					if (err) {
 						reject(err);
 						return;
 					}
 
-					cursor.toArray(function(err, result) {
+					cursor.toArray((err, result) => {
 						if (err) {
 							reject(err);
 							return;
 						}
 
-						// console.log(JSON.stringify(result, null, 2));
+						this.count = result.length;
+
 						resolve(result);
 					});
 				});
 		});
 	}
 
+	// give role to user if it exists
 	assignRole(channel, member, role) {
 		return new Promise((resolve, reject) => {
 			const id = member.guild.roles.find(val => val.name.toLowerCase() == role.toLowerCase());
@@ -167,6 +174,7 @@ class Role {
 		});
 	}
 
+	// remove role from user if they have it
 	removeRole(channel, member, role) {
 		return new Promise((resolve, reject) => {
 			const id = member.guild.roles.find(val => val.name.toLowerCase() == role.toLowerCase());
@@ -187,13 +195,13 @@ class Role {
 			r.db(channel.guild.id)
 				.table(this.db_table)
 				.filter(r.row('name').eq(role.toLowerCase()))
-				.run(DB.connection, function(err, cursor) {
+				.run(DB.connection, (err, cursor) => {
 					if (err) {
 						reject(err);
 						return;
 					}
 
-					cursor.toArray(function(err, result) {
+					cursor.toArray((err, result) => {
 						if (err) {
 							reject(err);
 							return;

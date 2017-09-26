@@ -1,6 +1,7 @@
 "use strict";
 
 const Commando = require('discord.js-commando'),
+	settings = require('../../data/settings'),
 	Helper = require('../../app/helper'),
 	Role = require('../../app/role');
 
@@ -17,6 +18,9 @@ class IAmCommand extends Commando.Command {
 			guildOnly: true
 		});
 
+		// store a list of message id's spawned from this command, and the page they're on
+		this.messages = new Map();
+
 		client.dispatcher.addInhibitor(message => {
 			// command "!iam" - warning of incorrect channel, suggest command & channel
 			if (message.content.search(/^([!])i\s?a([mn])\s?(?!not).*?|^([!])?ia([mn])([!])?\s?(?!not).*?$/gi) >= 0 && !Role.isBotChannel(message)) {
@@ -31,56 +35,54 @@ class IAmCommand extends Commando.Command {
 			return false;
 		});
 
-		client.on('messageReactionAdd', (message, user) => {
-			if (user.bot) { return; }
+		client.on('messageReactionAdd', (message, user) => { this.navigatePage(message, user); });
 
-			const pages = message.message.embeds[0].footer.text.match(/[0-9]+/g);
-			let current = pages[0];
-			const last = pages[1];
+		client.on('messageReactionRemove', (message, user) => { this.navigatePage(message, user); });
 
-			if (message.emoji.name == '⬅') {
-				if (current > 1) {
-					current--;
-					console.log('previous');
-					this.updatePage(message.message, current);
+		// clean up messages after 10 minutes of inactivity
+		this.update = setInterval(() => {
+			const then = Date.now() - 600000;
+
+			this.messages.forEach((value, key, map) => {
+				if (then > value.time) {
+					value.message.delete();
+					map.delete(key);
 				}
-			} else if (message.emoji.name == '➡') {
-				if (current < last) {
-					current++;
-					console.log('next');
-					this.updatePage(message.message, current);
-				}
+			});
+		}, settings.cleanup_interval);
+	}
+
+	navigatePage(message, user) {
+		if (user.bot) { return; }
+
+		let current = this.messages.get(message.message.id).current;
+
+		// if no page exists for message, then assume not the right message (as this is a global listener);
+		if (isNaN(current)) {
+			return;
+		}
+
+		if (message.emoji.name == '⬅') {
+			if (current > 0) {
+				current--;
+				this.updatePage(message.message, current);
 			}
-		});
-
-		client.on('messageReactionRemove', (message, user) => {
-			if (user.bot) { return; }
-
-			const pages = message.message.embeds[0].footer.text.match(/[0-9]+/g);
-			let current = pages[0];
-			const last = pages[1];
-
-			if (message.emoji.name == '➡') {
-				if (current > 1) {
-					current--;
-					console.log('previous');
-					this.updatePage(message.message, current);
-				}
-			} else if (message.emoji.name == '⬅') {
-				if (current < last) {
-					current++;
-					console.log('next');
-					this.updatePage(message.message, current);
-				}
+		} else if (message.emoji.name == '➡') {
+			if (current < Math.floor(Role.count / 5) - 1) {
+				current++;
+				this.updatePage(message.message, current);
 			}
-		});
+		}
 	}
 
 	updatePage(message, current) {
 		Role.getRoles(message.channel, message.member).then(roles => {
-			const count = roles.length;
-			const start = (current - 1) * 5;
+			let count = roles.length;
+			const start = current * 5;
 			const end = start + 5;
+
+			// making sure no one can go beyond the limits
+			if (start > count - 1 || start < 0) { return; }
 
 			let string = '';
 			for (let i=start; i<end; i++) {
@@ -93,9 +95,11 @@ class IAmCommand extends Commando.Command {
 					description: `${string}`,
 					color: 4437377,
 					footer: {
-						text: `Page ${current} of ${Math.floor(count / 5)}`
+						text: `Page ${current + 1} of ${Math.floor(count / 5)}`
 					}
 				}
+			}).then(bot_message => {
+				this.messages.set(bot_message.id, { time: Date.now(), current, message: bot_message });
 			});
 		}).catch((err) => {
 			console.log(err);
@@ -106,7 +110,7 @@ class IAmCommand extends Commando.Command {
 		if (!args.length) {
 			// if no arguments were given, send the user a list of roles w/ optional descriptions
 			Role.getRoles(message.channel, message.member).then((roles) => {
-				const count = roles.length;
+				let count = roles.length;
 
 				let string = '';
 				for (let i=0; i<5; i++) {
@@ -122,7 +126,9 @@ class IAmCommand extends Commando.Command {
 							text: `Page 1 of ${Math.floor(count / 5)}`
 						}
 					}
-				}).then((bot_message) => {
+				}).then(bot_message => {
+					this.messages.set(bot_message.id, { time: Date.now(), current: 0, message: bot_message });
+
 					// small delay needed to ensure right arrow shows up after left arrow
 					setTimeout(() => {
 						bot_message.react('➡');
