@@ -1,6 +1,7 @@
 "use strict";
 
-const Commando = require('discord.js-commando'),
+const log = require('loglevel').getLogger('IAmNotCommand'),
+	Commando = require('discord.js-commando'),
 	Helper = require('../../app/helper'),
 	Role = require('../../app/role');
 
@@ -39,7 +40,7 @@ class IAmNotCommand extends Commando.Command {
 			if (err && err.error) {
 				message.reply(err.error);
 			} else {
-				console.log(err);
+				log.error(err);
 			}
 		});
 	}

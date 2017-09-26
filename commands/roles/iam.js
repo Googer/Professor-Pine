@@ -1,6 +1,7 @@
 "use strict";
 
-const Commando = require('discord.js-commando'),
+const log = require('loglevel').getLogger('IAmCommand'),
+	Commando = require('discord.js-commando'),
 	settings = require('../../data/settings'),
 	Helper = require('../../app/helper'),
 	Role = require('../../app/role');
@@ -62,12 +63,12 @@ class IAmCommand extends Commando.Command {
 			return;
 		}
 
-		if (message.emoji.name == '⬅') {
+		if (message.emoji.name === '⬅') {
 			if (current > 0) {
 				current--;
 				this.updatePage(message.message, current);
 			}
-		} else if (message.emoji.name == '➡') {
+		} else if (message.emoji.name === '➡') {
 			if (current < Math.floor(Role.count / 5) - 1) {
 				current++;
 				this.updatePage(message.message, current);
@@ -102,7 +103,7 @@ class IAmCommand extends Commando.Command {
 				this.messages.set(bot_message.id, { time: Date.now(), current, message: bot_message });
 			});
 		}).catch((err) => {
-			console.log(err);
+			log.error(err);
 		});
 	}
 
@@ -140,7 +141,7 @@ class IAmCommand extends Commando.Command {
 				if (err && err.error) {
 					message.reply(err.error);
 				} else {
-					console.log(err);
+					log.error(err);
 				}
 			});
 		} else {
@@ -150,7 +151,7 @@ class IAmCommand extends Commando.Command {
 				if (err && err.error) {
 					message.reply(err.error);
 				} else {
-					console.log(err);
+					log.error(err);
 				}
 			});
 		}

@@ -1,6 +1,6 @@
 "use strict";
 
-const log = require('loglevel').getLogger('JoinCommand'),
+const log = require('loglevel').getLogger('LsarCommand'),
 	Commando = require('discord.js-commando'),
 	Helper = require('../../app/helper'),
 	Role = require('../../app/role');
@@ -53,7 +53,7 @@ class LsarCommand extends Commando.Command {
 			if (err && err.error) {
 				message.reply(err.error);
 			} else {
-				console.log(err);
+				log.error(err);
 			}
 		});
 	}

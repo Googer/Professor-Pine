@@ -29,7 +29,7 @@ class Role {
 			for (let i=0; i<roles.length; i++) {
 				const value = roles[i][0];
 				const description = roles[i][1] || '';
-				const id = member.guild.roles.find(val => val.name.toLowerCase() == value.toLowerCase());
+				const id = member.guild.roles.find(val => val.name.toLowerCase() === value.toLowerCase());
 
 				if (!value) {
 					reject({ error: `Please enter a role when using this command.` });
@@ -154,7 +154,7 @@ class Role {
 	// give role to user if it exists
 	assignRole(channel, member, role) {
 		return new Promise((resolve, reject) => {
-			const id = member.guild.roles.find(val => val.name.toLowerCase() == role.toLowerCase());
+			const id = member.guild.roles.find(val => val.name.toLowerCase() === role.toLowerCase());
 
 			if (!id) {
 				reject({ error: `Role "**${role}**" was not found.  Use \`!iam\` to see a list of self assignable roles.` });
@@ -177,7 +177,7 @@ class Role {
 	// remove role from user if they have it
 	removeRole(channel, member, role) {
 		return new Promise((resolve, reject) => {
-			const id = member.guild.roles.find(val => val.name.toLowerCase() == role.toLowerCase());
+			const id = member.guild.roles.find(val => val.name.toLowerCase() === role.toLowerCase());
 
 			if (!id) {
 				reject({ error: `Please enter a role when using this command.` });
