@@ -470,7 +470,7 @@ class Raid {
 			question
 				.then(message => {
 					message.channel.awaitMessages(
-						response => response.author.id === message.channel.recipient.id, {
+						response => true, {
 							maxMatches: 1,
 							time: settings.raid_complete_timeout * 60 * 1000,
 							errors: ['time']
