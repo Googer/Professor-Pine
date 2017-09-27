@@ -29,7 +29,7 @@ class SetLocationCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (!!message.command && message.command.name === 'set-location' &&
+			if (!!message.command && message.command.name === 'gym' &&
 				!Raid.validRaid(message.channel.id)) {
 				return ['invalid-channel', message.reply('Set the location of a raid from its raid channel!')];
 			}
