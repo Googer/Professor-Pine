@@ -86,7 +86,7 @@ class Helper {
 
 		this.client.on('roleDelete', role => {
 			// remove role from corresponding cache entry for its guild
-			const guild_map = this.guild.get(guild.id);
+			const guild_map = this.guild.get(guild.id).roles;
 
 			if (!!guild_map) {
 				guild_map.delete(role.name.toLowerCase());
@@ -98,8 +98,8 @@ class Helper {
 			// add new role to corresponding cache entry for its guild
 
 			// these *should* be the same guild but let's not assume that!
-			const old_guild_map = this.guild.get(old_role.guild.id),
-				new_guild_map = this.guild.get(new_role.guild.id);
+			const old_guild_map = this.guild.get(old_role.guild.id).roles,
+				new_guild_map = this.guild.get(new_role.guild.id).roles;
 
 			if (!!old_guild_map) {
 				old_guild_map.delete(old_role.name.toLowerCase());
