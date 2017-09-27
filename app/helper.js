@@ -77,7 +77,7 @@ class Helper {
 
 		this.client.on('roleCreate', role => {
 			// add new role to corresponding cache entry for its guild
-			const guild_map = this.guild.get(guild.id).roles;
+			const guild_map = this.guild.get(role.guild.id).roles;
 
 			if (!!guild_map) {
 				guild_map.set(role.name.toLowerCase(), role);
@@ -86,7 +86,7 @@ class Helper {
 
 		this.client.on('roleDelete', role => {
 			// remove role from corresponding cache entry for its guild
-			const guild_map = this.guild.get(guild.id).roles;
+			const guild_map = this.guild.get(role.guild.id).roles;
 
 			if (!!guild_map) {
 				guild_map.delete(role.name.toLowerCase());
@@ -112,7 +112,7 @@ class Helper {
 	}
 
 	isManagement(message) {
-		return !!(this.client.isOwner(message.member) ||
+		return (this.client.isOwner(message.member) ||
 			message.member.roles.get(this.guild.get(message.guild.id).roles.admin.id) ||
 			message.member.roles.get(this.guild.get(message.guild.id).roles.moderator.id));
 	}
