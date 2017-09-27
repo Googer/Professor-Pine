@@ -470,7 +470,7 @@ class Raid {
 			question
 				.then(message => {
 					message.channel.awaitMessages(
-						response => response.author.id === message.channel.recipient.id, {
+						response => true, {
 							maxMatches: 1,
 							time: settings.raid_complete_timeout * 60 * 1000,
 							errors: ['time']
@@ -511,8 +511,8 @@ class Raid {
 							return true;
 						})
 						.catch(collected_responses => {
-							// check that user didn't already set their status to complete (via running !done command themselves)
-							if (this.getMemberStatus(channel_id, message.channel.recipient.id) !== Constants.RaidStatus.COMPLETE) {
+							// check that user didn't already set their status to something else (via running another command during the collection period)
+							if (this.getMemberStatus(channel_id, message.channel.recipient.id) === Constants.RaidStatus.COMPLETE_PENDING) {
 								// reset user status back to present
 								this.setMemberStatus(channel_id, message.channel.recipient.id, Constants.RaidStatus.PRESENT);
 								message.channel
