@@ -27,7 +27,7 @@ class SetPokemonCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (!!message.command && message.command.name === 'set-pokemon' &&
+			if (!!message.command && message.command.name === 'boss' &&
 				!Raid.validRaid(message.channel.id)) {
 				return ['invalid-channel', message.reply('Set the pokémon of a raid from its raid channel!')];
 			}

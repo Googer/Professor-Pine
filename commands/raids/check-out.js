@@ -20,7 +20,7 @@ class CheckOutCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (!!message.command && message.command.name === 'check-out' &&
+			if (!!message.command && message.command.name === 'not-here' &&
 				!Raid.validRaid(message.channel.id)) {
 				return ['invalid-channel', message.reply('Check out of a raid from its raid channel!')];
 			}
