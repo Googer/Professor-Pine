@@ -164,6 +164,7 @@ class Gym extends Search {
 		// first filter out stop words from the search terms; lunr does this itself so our hacky way of AND'ing will
 		// return nothing if they have any in their search terms list since they'll never match anything
 		const filtered_terms = terms
+			.map(term => term.toLowerCase())
 			.filter(term => lunr.stopWordFilter(term))
 			.map(term => term.replace(/^\W+/, '').replace(/\W+$/, ''));
 
