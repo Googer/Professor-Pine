@@ -47,23 +47,23 @@ class Helper {
 		}));
 
 		// listen for messages to "help" with
-		this.client.on('message', message => {
-			if (!message.guild) {
-				return;
-			}
-
-			const guild = this.guild.get(message.guild.id);
-
-			// command "!iam" - warning of incorrect channel, suggest command & channel
-			if (message.content.search(/^([.])i\s?a([mn])\s?.*?|^([.])?ia([mn])([.])?\s?.*?$/gi) >= 0 && message.channel.id !== guild.channels.bot_lab.id) {
-				message.reply(this.getText('iam.warning', message));
-			}
-
-			// command "!iam" - correct channel, incorrect command, suggest command
-			if (message.content.search(/^([.])i\s?a[nm]\s?.*?|^([.])?ia[nm]([.])?\s?.*?$|^ia([nm])$/gi) >= 0 && message.channel.id === guild.channels.bot_lab.id) {
-				message.reply(this.getText('iam.suggestion', message));
-			}
-		});
+		// this.client.on('message', message => {
+		// 	if (!message.guild) {
+		// 		return;
+		// 	}
+		//
+		// 	const guild = this.guild.get(message.guild.id);
+		//
+		// 	// command "!iam" - warning of incorrect channel, suggest command & channel
+		// 	if (message.content.search(/^([.])i\s?a([mn])\s?.*?|^([.])?ia([mn])([.])?\s?.*?$/gi) >= 0 && message.channel.id !== guild.channels.bot_lab.id) {
+		// 		message.reply(this.getText('iam.warning', message));
+		// 	}
+		//
+		// 	// command "!iam" - correct channel, incorrect command, suggest command
+		// 	if (message.content.search(/^([.])i\s?a[nm]\s?.*?|^([.])?ia[nm]([.])?\s?.*?$|^ia([nm])$/gi) >= 0 && message.channel.id === guild.channels.bot_lab.id) {
+		// 		message.reply(this.getText('iam.suggestion', message));
+		// 	}
+		// });
 
 		this.client.on('guildCreate', guild => {
 			// cache this guild's roles
@@ -77,7 +77,7 @@ class Helper {
 
 		this.client.on('roleCreate', role => {
 			// add new role to corresponding cache entry for its guild
-			const guild_map = this.guild.get(guild.id).roles;
+			const guild_map = this.guild.get(role.guild.id).roles;
 
 			if (!!guild_map) {
 				guild_map.set(role.name.toLowerCase(), role);
@@ -86,7 +86,7 @@ class Helper {
 
 		this.client.on('roleDelete', role => {
 			// remove role from corresponding cache entry for its guild
-			const guild_map = this.guild.get(guild.id);
+			const guild_map = this.guild.get(role.guild.id).roles;
 
 			if (!!guild_map) {
 				guild_map.delete(role.name.toLowerCase());
@@ -98,8 +98,8 @@ class Helper {
 			// add new role to corresponding cache entry for its guild
 
 			// these *should* be the same guild but let's not assume that!
-			const old_guild_map = this.guild.get(old_role.guild.id),
-				new_guild_map = this.guild.get(new_role.guild.id);
+			const old_guild_map = this.guild.get(old_role.guild.id).roles,
+				new_guild_map = this.guild.get(new_role.guild.id).roles;
 
 			if (!!old_guild_map) {
 				old_guild_map.delete(old_role.name.toLowerCase());
@@ -112,7 +112,7 @@ class Helper {
 	}
 
 	isManagement(message) {
-		return !!(this.client.isOwner(message.member) ||
+		return (this.client.isOwner(message.member) ||
 			message.member.roles.get(this.guild.get(message.guild.id).roles.admin.id) ||
 			message.member.roles.get(this.guild.get(message.guild.id).roles.moderator.id));
 	}
