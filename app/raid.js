@@ -810,11 +810,12 @@ class Raid {
 						}
 
 						// add role emoji indicators if role exists
-						if (this.roles.mystic && member.roles.has(this.roles.mystic.id)) {
+						const roles = Helper.guild.get(member.guild.id).roles;
+						if (roles.has('mystic') && member.roles.has(roles.get('mystic').id)) {
 							result += ' ❄';
-						} else if (this.roles.valor && member.roles.has(this.roles.valor.id)) {
+						} else if (roles.has('valor') && member.roles.has(roles.get('valor').id)) {
 							result += ' 🔥';
-						} else if (this.roles.instinct && member.roles.has(this.roles.instinct.id)) {
+						} else if (roles.has('instinct') && member.roles.has(roles.get('instinct').id)) {
 							result += ' ⚡';
 						}
 
