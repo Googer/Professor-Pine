@@ -39,7 +39,6 @@ class RaidCommand extends Commando.Command {
 					label: 'time left',
 					prompt: 'How much time is remaining on the raid (use h:mm or mm format)?\nExample: `1:43`',
 					type: 'time',
-					min: 'relative',
 					default: TimeType.UNDEFINED_END_TIME
 				}
 			],
