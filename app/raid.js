@@ -740,7 +740,15 @@ class Raid {
 				let result = '';
 
 				attendees_list.forEach(([member, attendee]) => {
-					result += emoji + ' ' + member.displayName;
+					if (result.length > 1024) {
+						return;
+					}
+
+					const displayName = member.displayName.length > 12 ?
+						member.displayName.substring(0, 11).concat('…') :
+						member.displayName;
+
+					result += emoji + ' ' + displayName;
 
 					// show how many additional attendees this user is bringing with them
 					if (attendee.number > 1) {
@@ -758,6 +766,41 @@ class Raid {
 
 					result += '\n';
 				});
+
+				if (result.length > 1024) {
+					// try again with 'plain' emoji
+					result = '';
+
+					attendees_list.forEach(([member, attendee]) => {
+						const displayName = member.displayName.length > 12 ?
+							member.displayName.substring(0, 11).concat('…') :
+							member.displayName;
+
+						result += '• ' + displayName;
+
+						// show how many additional attendees this user is bringing with them
+						if (attendee.number > 1) {
+							result += ' +' + (attendee.number - 1);
+						}
+
+						// add role emoji indicators if role exists
+						if (this.roles.mystic && member.roles.has(this.roles.mystic.id)) {
+							result += ' ❄';
+						} else if (this.roles.valor && member.roles.has(this.roles.valor.id)) {
+							result += ' 🔥';
+						} else if (this.roles.instinct && member.roles.has(this.roles.instinct.id)) {
+							result += ' ⚡';
+						}
+
+						result += '\n';
+					});
+
+					if (result.length > 1024) {
+						// one last check, just truncate if it's still too long -
+						// it's better than blowing up! sorry people with late alphabetical names!
+						result = result.substring(0, 1022) + '…';
+					}
+				}
 
 				return result;
 			};
