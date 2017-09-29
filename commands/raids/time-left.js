@@ -20,8 +20,7 @@ class TimeRemainingCommand extends Commando.Command {
 					key: 'time-left',
 					label: 'time left',
 					prompt: 'How much time is remaining until the raid begins (if it has not yet begun) or ends (if it has)? (use h:mm or mm format)?\nExample: `1:43`',
-					type: 'time',
-					min: 'relative'
+					type: 'time'
 				}
 			],
 			argsPromptLimit: 3,
