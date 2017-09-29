@@ -2,6 +2,7 @@
 
 const Commando = require('discord.js-commando'),
 	moment = require('moment'),
+	{TimeMode} = require('../app/constants'),
 	Utility = require('../app/utility'),
 	settings = require('../data/settings.json');
 
@@ -21,59 +22,57 @@ class TimeType extends Commando.ArgumentType {
 			raid_creation_time = raid_exists ?
 				moment(Raid.getRaid(message.message.channel.id).creation_time) :
 				now,
+			hatched_duration = is_ex_raid ?
+				settings.exclusive_raid_hatched_duration :
+				settings.standard_raid_hatched_duration,
 			last_possible_time = raid_creation_time.clone().add(is_ex_raid ?
 				settings.exclusive_raid_duration :
 				settings.default_raid_duration, 'minutes');
 
-		let mode = arg.min, // hacky way to get a preferred mode out of the argument definition
-			value_to_parse = value.trim();
+		let value_to_parse = value.trim(),
+			possible_times = [],
+			time_mode = TimeMode.AUTODETECT;
 
-		if (!raid_exists && is_ex_raid) {
-			mode = 'absolute';
+		if (value_to_parse.match(/^in/i)) {
+			value_to_parse = value_to_parse.substring(2).trim();
+			time_mode = TimeMode.RELATIVE;
+		} else if (value_to_parse.match(/^at/i)) {
+			value_to_parse = value_to_parse.substring(2).trim();
+			time_mode = TimeMode.ABSOLUTE;
 		}
 
-		if (value_to_parse.match(/^at|@/i)) {
-			mode = 'absolute';
-			value_to_parse = value_to_parse.substring(2).trim();
-		} else if (value_to_parse.match(/^in/i)) {
-			mode = 'relative';
-			value_to_parse = value_to_parse.substring(2).trim();
-		}
-
-		if (mode === 'relative') {
+		if (time_mode !== TimeMode.ABSOLUTE) {
 			let duration;
 
 			if (value_to_parse.indexOf(':') === -1) {
-				duration = moment.duration(value_to_parse * 60 * 1000);
+				duration = moment.duration(value_to_parse, 'minutes');
 			} else {
 				duration = moment.duration(value_to_parse);
 			}
 
-			if (!duration.isValid()) {
-				return `Please enter a duration in form \'mm\' or \`HH:mm\`${extra_error_message}`;
+			if (duration.isValid() && duration.asMinutes() < hatched_duration) {
+				possible_times.push(now.clone().add(duration));
 			}
+		}
 
-			if (this.isValidTime(moment().add(duration), now, raid_creation_time, last_possible_time)) {
-				return true;
-			}
-
-			return `Entered duration is not valid for raid!${extra_error_message}`;
-		} else {
+		if (time_mode !== TimeMode.RELATIVE) {
 			const entered_date = moment(value_to_parse, ['hmm a', 'Hmm', 'h:m a', 'H:m', 'M-D hmm a', 'M-D Hmm', 'M-D h:m a', 'M-D H:m', 'M-D h a', 'M-D H']);
 
-			if (!entered_date.isValid()) {
-				return `Please enter a date in the form \`MM-dd HH:mm\` (month and day optional).${extra_error_message}`;
+			if (entered_date.isValid()) {
+				possible_times.push(...TimeType.generateTimes(entered_date));
 			}
-
-			const possible_times = TimeType.generateTimes(entered_date);
-
-			if (possible_times.find(possible_time =>
-					this.isValidTime(possible_time, now, raid_creation_time, last_possible_time))) {
-				return true;
-			}
-
-			return `Entered time is not valid for raid!${extra_error_message}`;
 		}
+
+		if (possible_times.length === 0) {
+			return `\`${value}\` is not a valid duration or time!${extra_error_message}`;
+		}
+
+		if (possible_times.find(possible_time =>
+				this.isValidTime(possible_time, now, raid_creation_time, last_possible_time))) {
+			return true;
+		}
+
+		return `\`${value}\` is not valid for raid!${extra_error_message}`;
 	}
 
 	parse(value, message, arg) {
@@ -84,43 +83,49 @@ class TimeType extends Commando.ArgumentType {
 			raid_creation_time = raid_exists ?
 				moment(Raid.getRaid(message.message.channel.id).creation_time) :
 				now,
+			hatched_duration = is_ex_raid ?
+				settings.exclusive_raid_hatched_duration :
+				settings.standard_raid_hatched_duration,
 			last_possible_time = raid_creation_time.clone().add(is_ex_raid ?
 				settings.exclusive_raid_duration :
 				settings.default_raid_duration, 'minutes');
 
-		let mode = arg.min, // hacky way to get a preferred mode out of the argument definition
-			value_to_parse = value.trim();
+		let value_to_parse = value.trim(),
+			possible_times = [],
+			time_mode = TimeMode.AUTODETECT;
 
-		if (!raid_exists && is_ex_raid) {
-			mode = 'absolute';
+		if (value_to_parse.match(/^in/i)) {
+			value_to_parse = value_to_parse.substring(2).trim();
+			time_mode = TimeMode.RELATIVE;
+		} else if (value_to_parse.match(/^at/i)) {
+			value_to_parse = value_to_parse.substring(2).trim();
+			time_mode = TimeMode.ABSOLUTE;
 		}
 
-		if (value_to_parse.match(/^[at|@]/i)) {
-			mode = 'absolute';
-			value_to_parse = value_to_parse.substring(2).trim();
-		} else if (value_to_parse.match(/^in/i)) {
-			mode = 'relative';
-			value_to_parse = value_to_parse.substring(2).trim();
-		}
-
-		if (mode === 'relative') {
+		if (time_mode !== TimeMode.ABSOLUTE) {
 			let duration;
 
 			if (value_to_parse.indexOf(':') === -1) {
-				duration = moment.duration(value_to_parse * 60 * 1000);
+				duration = moment.duration(value_to_parse, 'minutes');
 			} else {
 				duration = moment.duration(value_to_parse);
 			}
 
-			return now.add(duration).valueOf();
-		} else {
-			const entered_date = moment(value_to_parse, ['hmm a', 'Hmm', 'h:m a', 'H:m', 'M-D hmm a', 'M-D Hmm', 'M-D h:m a', 'M-D H:m', 'M-D h a', 'M-D H']),
-				possible_times = TimeType.generateTimes(entered_date),
-				actual_time = possible_times.find(possible_time =>
-					this.isValidTime(possible_time, now, raid_creation_time, last_possible_time));
-
-			return actual_time.valueOf();
+			if (duration.isValid() && duration.asMinutes() < hatched_duration) {
+				possible_times.push(now.clone().add(duration));
+			}
 		}
+
+		if (time_mode !== TimeMode.RELATIVE) {
+			const entered_date = moment(value_to_parse, ['hmm a', 'Hmm', 'h:m a', 'H:m', 'M-D hmm a', 'M-D Hmm', 'M-D h:m a', 'M-D H:m', 'M-D h a', 'M-D H']);
+
+			if (entered_date.isValid()) {
+				possible_times.push(...TimeType.generateTimes(entered_date));
+			}
+		}
+
+		return possible_times.find(possible_time =>
+			this.isValidTime(possible_time, now, raid_creation_time, last_possible_time)).valueOf();
 	}
 
 	isExclusiveRaid(value, message, arg) {
@@ -138,21 +143,24 @@ class TimeType extends Commando.ArgumentType {
 	}
 
 	static generateTimes(possible_date) {
-		const possible_dates = [possible_date],
-			ambiguously_am = possible_date.hour() < 12 &&
-				!possible_date.creationData().format.endsWith('a');
+		const possible_dates = [],
+			date_format = possible_date.creationData().format,
+			hour = possible_date.hour(),
+			ambiguously_am = hour < 12 && !date_format.endsWith('a');
+
+		if (hour > settings.default_raid_duration / 60) {
+			possible_dates.push(possible_date);
+
+			// try next year to allow for year wrap
+			possible_dates.push(possible_date.clone()
+				.year(possible_date.year() + 1));
+		}
 
 		if (ambiguously_am) {
 			// try pm time as well
 			possible_dates.push(possible_date.clone()
 				.hour(possible_date.hour() + 12));
-		}
 
-		// try next year to allow for year wrap
-		possible_dates.push(possible_date.clone()
-			.year(possible_date.year() + 1));
-
-		if (ambiguously_am) {
 			// try next year pm time as well
 			possible_dates.push(possible_date.clone()
 				.hour(possible_date.hour() + 12)
@@ -169,6 +177,7 @@ class TimeType extends Commando.ArgumentType {
 			date_to_check.isBetween(raid_creation_time, last_possible_time, undefined, '[]') &&
 			date_to_check.hours() >= settings.min_raid_hour && date_to_check.hours() < settings.max_raid_hour;
 	}
+
 
 	static get UNDEFINED_END_TIME() {
 		return 'unset';
