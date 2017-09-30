@@ -472,7 +472,7 @@ class Raid {
 				.then(message => {
 					message.channel.awaitMessages(
 						response => response.client.user.id !== response.author.id, {
-							maxMatches: 1,
+							max: 1,
 							time: timeout * 60 * 1000,
 							errors: ['time']
 						})
