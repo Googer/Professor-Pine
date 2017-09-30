@@ -299,14 +299,15 @@ class Raid {
 
 		let new_channel_id;
 
-		return source_channel.guild.createChannel(channel_name, 'text', {overwrites: source_channel.permissionOverwrites})
-			.then(new_channel => {
-				this.raids[new_channel.id] = raid;
-				raid.channel_id = new_channel.id;
-				return new_channel.setParent(source_channel.parent, {lockPermissions: false});
-			})
+		return source_channel.guild.createChannel(channel_name, 'text', {
+			parent: source_channel.parent,
+			overwrites: source_channel.permissionOverwrites
+		})
 			.then(new_channel => {
 				new_channel_id = new_channel.id;
+
+				this.raids[new_channel.id] = raid;
+				raid.channel_id = new_channel.id;
 
 				// move channel to end
 				return new_channel.guild.setChannelPositions([{
