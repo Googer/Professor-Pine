@@ -461,18 +461,19 @@ class Raid {
 			this.setMemberStatus(channel_id, member.id, Constants.RaidStatus.COMPLETE_PENDING);
 		});
 
-		const questions = present_members
+		const timeout = settings.raid_complete_timeout,
+			questions = present_members
 			.map(member => member
-				.send(`Have you completed raid ${channel.toString()}?`)
+				.send(`Have you completed raid ${channel.toString()}?  Answer no within ${timeout} minutes to indicate you haven't; otherwise it will be assumed you have!`)
 				.catch(err => log.error(err)));
 
 		questions.forEach(async question =>
 			question
 				.then(message => {
 					message.channel.awaitMessages(
-						response => true, {
+						response => response.client.user.id !== response.author.id, {
 							maxMatches: 1,
-							time: settings.raid_complete_timeout * 60 * 1000,
+							time: timeout * 60 * 1000,
 							errors: ['time']
 						})
 						.then(collected_responses => {
@@ -513,10 +514,14 @@ class Raid {
 						.catch(collected_responses => {
 							// check that user didn't already set their status to something else (via running another command during the collection period)
 							if (this.getMemberStatus(channel_id, message.channel.recipient.id) === Constants.RaidStatus.COMPLETE_PENDING) {
-								// reset user status back to present
-								this.setMemberStatus(channel_id, message.channel.recipient.id, Constants.RaidStatus.PRESENT);
+								// set user status to complete
+								this.setMemberStatus(channel_id, message.channel.recipient.id, Constants.RaidStatus.COMPLETE);
+
+								this.refreshStatusMessages(raid)
+									.catch(err => log.error(err));
+
 								message.channel
-									.send(`I am assuming you have *not* completed raid ${channel.toString()}.`)
+									.send(`I am assuming you *have* completed raid ${channel.toString()}.`)
 									.catch(err => log.error(err));
 							}
 						});
