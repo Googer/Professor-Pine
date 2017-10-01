@@ -299,14 +299,15 @@ class Raid {
 
 		let new_channel_id;
 
-		return source_channel.guild.createChannel(channel_name, 'text', {overwrites: source_channel.permissionOverwrites})
-			.then(new_channel => {
-				this.raids[new_channel.id] = raid;
-				raid.channel_id = new_channel.id;
-				return new_channel.setParent(source_channel.parent, {lockPermissions: false});
-			})
+		return source_channel.guild.createChannel(channel_name, 'text', {
+			parent: source_channel.parent,
+			overwrites: source_channel.permissionOverwrites
+		})
 			.then(new_channel => {
 				new_channel_id = new_channel.id;
+
+				this.raids[new_channel.id] = raid;
+				raid.channel_id = new_channel.id;
 
 				// move channel to end
 				return new_channel.guild.setChannelPositions([{
@@ -472,7 +473,7 @@ class Raid {
 				.then(message => {
 					message.channel.awaitMessages(
 						response => response.client.user.id !== response.author.id, {
-							maxMatches: 1,
+							max: 1,
 							time: timeout * 60 * 1000,
 							errors: ['time']
 						})
@@ -815,11 +816,12 @@ class Raid {
 						}
 
 						// add role emoji indicators if role exists
-						if (this.roles.mystic && member.roles.has(this.roles.mystic.id)) {
+						const roles = Helper.guild.get(member.guild.id).roles;
+						if (roles.has('mystic') && member.roles.has(roles.get('mystic').id)) {
 							result += ' ❄';
-						} else if (this.roles.valor && member.roles.has(this.roles.valor.id)) {
+						} else if (roles.has('valor') && member.roles.has(roles.get('valor').id)) {
 							result += ' 🔥';
-						} else if (this.roles.instinct && member.roles.has(this.roles.instinct.id)) {
+						} else if (roles.has('instinct') && member.roles.has(roles.get('instinct').id)) {
 							result += ' ⚡';
 						}
 

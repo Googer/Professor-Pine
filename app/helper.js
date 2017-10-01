@@ -67,11 +67,23 @@ class Helper {
 
 		this.client.on('guildCreate', guild => {
 			// cache this guild's roles
-			this.guild.get(guild.id).roles = new Map(guild.roles.map(role => [role.name.toLowerCase(), role]));
+			this.guild.set(guild, [
+				guild.id,
+				{
+					channels: {
+						bot_lab: guild.channels.find(channel => {
+							return channel.name === settings.channels.bot_lab;
+						}),
+						help: null,
+					},
+					roles: new Map(guild.roles.map(role => [role.name.toLowerCase(), role])),
+					emojis: null
+				}
+			]);
 		});
 
 		this.client.on('guildDelete', guild => {
-			// remove this guild's roles from cache
+			// remove this guild from cache
 			this.guild.delete(guild.id);
 		});
 
@@ -112,9 +124,20 @@ class Helper {
 	}
 
 	isManagement(message) {
+		const message_guild = message.guild.id,
+			message_roles = this.guild.get(message_guild),
+			admin_role = message_roles.get('admin'),
+			moderator_role = message_roles.get('moderator'),
+			admin_role_id = admin_role ?
+				admin_role.id :
+				-1,
+			moderator_role_id = moderator_role ?
+				moderator_role.id :
+				-1;
+
 		return (this.client.isOwner(message.member) ||
-			message.member.roles.get(this.guild.get(message.guild.id).roles.admin.id) ||
-			message.member.roles.get(this.guild.get(message.guild.id).roles.moderator.id));
+			message.member.roles.has(admin_role_id) ||
+			message.member.roles.has(moderator_role_id));
 	}
 
 	getText(path, message) {
