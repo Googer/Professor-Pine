@@ -7,4 +7,10 @@ const RaidStatus = {
 	COMPLETE: 4
 };
 
-module.exports = {RaidStatus};
+const TimeMode = {
+	AUTODETECT: 0,
+	RELATIVE: 1,
+	ABSOLUTE: 2
+};
+
+module.exports = {RaidStatus, TimeMode};

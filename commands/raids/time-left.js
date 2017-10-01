@@ -20,8 +20,7 @@ class TimeRemainingCommand extends Commando.Command {
 					key: 'time-left',
 					label: 'time left',
 					prompt: 'How much time is remaining until the raid begins (if it has not yet begun) or ends (if it has)? (use h:mm or mm format)?\nExample: `1:43`',
-					type: 'time',
-					min: 'relative'
+					type: 'time'
 				}
 			],
 			argsPromptLimit: 3,
@@ -29,7 +28,7 @@ class TimeRemainingCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (!!message.command && message.command.name === 'time-left' &&
+			if (!!message.command && message.command.name === 'left' &&
 				!Raid.validRaid(message.channel.id)) {
 				return ['invalid-channel', message.reply('Set the end time for a raid from its raid channel!')];
 			}

@@ -20,8 +20,7 @@ class HatchTimeCommand extends Commando.Command {
 					key: 'hatch-time',
 					label: 'hatch time',
 					prompt: 'How much time is remaining until the raid hatches? (use `h:mm` or `mm` format)?\nExample: `1:43`\n\n*or*\n\nWhen does this raid hatch? (use `at h:mm` format)?',
-					type: 'time',
-					min: 'relative'
+					type: 'time'
 				}
 			],
 			argsPromptLimit: 3,
@@ -29,7 +28,7 @@ class HatchTimeCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (!!message.command && message.command.name === 'hatch-time' &&
+			if (!!message.command && message.command.name === 'hatch' &&
 				!Raid.validRaid(message.channel.id)) {
 				return ['invalid-channel', message.reply('Set the hatch time for a raid from its raid channel!')];
 			}

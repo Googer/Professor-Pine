@@ -20,8 +20,7 @@ class StartTimeCommand extends Commando.Command {
 					key: 'start-time',
 					label: 'start time',
 					prompt: 'What time do you wish to begin this raid?\nExamples: `8:43`, `2:20pm`',
-					type: 'time',
-					min: 'absolute'
+					type: 'time'
 				}
 			],
 			argsPromptLimit: 3,
@@ -29,7 +28,7 @@ class StartTimeCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (!!message.command && message.command.name === 'start-time' &&
+			if (!!message.command && message.command.name === 'start' &&
 				!Raid.validRaid(message.channel.id)) {
 				return ['invalid-channel', message.reply('Set the start time of a raid from its raid channel!')];
 			}

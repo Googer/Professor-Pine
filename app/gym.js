@@ -23,7 +23,7 @@ class Gym extends Search {
 
 		this.region_map = require('../data/region-map');
 
-		// This index is only indexing against name, description, and nickname
+		// This index is only indexing against name, description, nickname, and additional terms
 		this.name_index = lunr(function () {
 			// reference will be the entire gym object so we can grab whatever we need from it (GPS coordinates, name, etc.)
 			this.ref('object');
@@ -32,6 +32,7 @@ class Gym extends Search {
 			this.field('name');
 			this.field('nickname');
 			this.field('description');
+			this.field('additional_terms');
 
 			merged_gyms.forEach(function (gym) {
 				// Gym document is a object with its reference and fields to collection of values
@@ -47,6 +48,9 @@ class Gym extends Search {
 					gym.nickname = he.decode(gym.nickname);
 					gymDocument['nickname'] = gym.nickname;
 				}
+
+				// merge in additional info from supplementary metadata file
+				gymDocument['additional_terms'] = gym.additional_terms;
 
 				// reference
 				gymDocument['object'] = JSON.stringify(gym);
@@ -164,8 +168,9 @@ class Gym extends Search {
 		// first filter out stop words from the search terms; lunr does this itself so our hacky way of AND'ing will
 		// return nothing if they have any in their search terms list since they'll never match anything
 		const filtered_terms = terms
-			.filter(term => lunr.stopWordFilter(term))
-			.map(term => term.replace(/^\W+/, '').replace(/\W+$/, ''));
+			.map(term => term.replace(/^\W+/, '').replace(/\W+$/, ''))
+			.map(term => term.toLowerCase())
+			.filter(term => lunr.stopWordFilter(term));
 
 		let results = Gym.singleTermSearch(filtered_terms[0], index)
 			.map(result => result.ref);

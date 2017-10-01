@@ -25,7 +25,7 @@ class Utility {
 			.filter(message => {
 				return (message.createdTimestamp > start_time) &&
 					(message.author === author ||
-						(message.author === bot && message.isMemberMentioned(author)));
+						(message.author === bot && message.mentions.members.has(author.id)));
 			})
 			.forEach(message => message.delete()
 				.catch(err => log.error(err)));

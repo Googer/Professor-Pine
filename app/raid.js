@@ -6,6 +6,7 @@ const log = require('loglevel').getLogger('Raid'),
 	storage = require('node-persist'),
 	Constants = require('./constants'),
 	Discord = require('discord.js'),
+	Helper = require('./helper'),
 	Gym = require('./gym'),
 	NaturalArgumentType = require('../types/natural'),
 	TimeType = require('../types/time');
@@ -29,9 +30,6 @@ class Raid {
 
 		this.active_raid_storage
 			.forEach((channel_id, raid) => this.raids[channel_id] = raid);
-
-		// cache of roles, populated on client login
-		this.roles = Object.create(null);
 
 		// cache of emoji ids, populated on client login
 		this.emojis = Object.create(null);
@@ -141,12 +139,17 @@ class Raid {
 	}
 
 	async getMember(channel_id, member_id) {
-		return this.guild.fetchMember(member_id)
-			.catch(err => {
-				log.warn(`Removing non-existent member ${member_id} from raid`);
-				this.removeAttendee(channel_id, member_id);
-				throw err;
-			})
+		const channel = await this.getChannel(channel_id),
+			member = channel.guild.members.get(member_id);
+
+		if (!!member) {
+			return Promise.resolve(member);
+		}
+
+		log.warn(`Removing non-existent member ${member_id} from raid`);
+		this.removeAttendee(channel_id, member_id);
+
+		throw new Error(`Member ${member_id} does not exist!`);
 	}
 
 	findRaid(gym_id) {
@@ -183,7 +186,7 @@ class Raid {
 		const [channel_id, message_id] = message_cache_id.split(':');
 
 		return this.getChannel(channel_id)
-			.then(channel => channel.fetchMessage(message_id))
+			.then(channel => channel.messages.fetch(message_id))
 			.catch(err => {
 				log.error(err);
 				const raid = this.getRaid(channel_id);
@@ -222,29 +225,19 @@ class Raid {
 		}
 	}
 
-	setClient(client, guild) {
+	setClient(client) {
 		this.client = client;
-		this.guild = guild;
 
 		const
-			roles = new Map(guild.roles.map(role => [role.name.toLowerCase(), role])),
-			emojis = new Map(guild.emojis.map(emoji => [emoji.name.toLowerCase(), emoji.toString()]));
-
-		this.roles.mystic = roles.get('mystic');
-		this.roles.valor = roles.get('valor');
-		this.roles.instinct = roles.get('instinct');
-		this.roles.admin = roles.get('admin');
-		this.roles.moderator = roles.get('moderator') || roles.get('mod');
+			emojis = new Map(this.client.emojis.map(emoji => [emoji.name.toLowerCase(), emoji.toString()]));
 
 		this.emojis.mystic = emojis.get('mystic') || '';
 		this.emojis.valor = emojis.get('valor') || '';
 		this.emojis.instinct = emojis.get('instinct') || '';
 
-		this.emojis.pokeball = emojis.get('pokeball') || '';
-		this.emojis.greatball = emojis.get('greatball') || '';
-		this.emojis.ultraball = emojis.get('ultraball') || '';
-		this.emojis.masterball = emojis.get('masterball') || '';
-		this.emojis.premierball = emojis.get('premierball') || '';
+		client.emojis.forEach(emoji => {
+			this.emojis[emoji.name.toLowerCase()] = emoji.toString();
+		});
 
 		client.on('message', message => {
 			if (message.author.id !== client.user.id) {
@@ -256,9 +249,29 @@ class Raid {
 				}
 			}
 		});
+
+		client.on('emojiCreate', emoji => {
+			// add new emoji to emojis cache
+			this.emojis[emoji.name.toLowerCase()] = emoji.toString();
+		});
+
+		client.on('emojiDelete', emoji => {
+			// delete emoji from emojis cache
+			delete this.emojis[emoji.name.toLowerCase()];
+		});
+
+		client.on('emojiUpdate', (old_emoji, new_emoji) => {
+			// delete old emoji from emojis cache and add new one to it
+			delete this.emojis[old_emoji.name.toLowerCase()];
+			this.emojis[new_emoji.name.toLowerCase()] = new_emoji.toString();
+		});
 	}
 
-	createRaid(channel_id, member_id, pokemon, gym_id, time) {
+	getEmoji(emoji_name) {
+		return this.emojis[emoji_name.toLowerCase()] || '';
+	}
+
+	async createRaid(channel_id, member_id, pokemon, gym_id, time) {
 		const raid = Object.create(null);
 
 		// add some extra raid data to remember
@@ -281,23 +294,35 @@ class Raid {
 		raid.attendees = Object.create(Object.prototype);
 		raid.attendees[member_id] = {number: 1, status: Constants.RaidStatus.INTERESTED};
 
-		const channel_name = Raid.generateChannelName(raid);
+		const source_channel = await this.getChannel(channel_id),
+			channel_name = Raid.generateChannelName(raid);
 
-		return this.getChannel(channel_id)
-			.then(channel => channel.clone(channel_name, true, false))
+		let new_channel_id;
+
+		return source_channel.guild.createChannel(channel_name, 'text', {overwrites: source_channel.permissionOverwrites})
 			.then(new_channel => {
 				this.raids[new_channel.id] = raid;
-
 				raid.channel_id = new_channel.id;
+				return new_channel.setParent(source_channel.parent, {lockPermissions: false});
+			})
+			.then(new_channel => {
+				new_channel_id = new_channel.id;
 
+				// move channel to end
+				return new_channel.guild.setChannelPositions([{
+					channel: new_channel,
+					position: new_channel.guild.channels.size - 1
+				}]);
+			})
+			.then(guild => {
 				if (raid.is_exclusive && time !== TimeType.UNDEFINED_END_TIME) {
-					this.setRaidStartTime(new_channel.id, time);
-				} else {
+					this.setRaidStartTime(new_channel_id, time);
+        		} else {
 					if (time === TimeType.UNDEFINED_END_TIME) {
 						raid.end_time = TimeType.UNDEFINED_END_TIME;
 						this.persistRaid(raid);
 					} else {
-						this.setRaidEndTime(new_channel.id, time);
+						this.setRaidEndTime(new_channel_id, time);
 					}
 				}
 
@@ -436,18 +461,19 @@ class Raid {
 			this.setMemberStatus(channel_id, member.id, Constants.RaidStatus.COMPLETE_PENDING);
 		});
 
-		const questions = present_members
+		const timeout = settings.raid_complete_timeout,
+			questions = present_members
 			.map(member => member
-				.send(`Have you completed raid ${channel.toString()}?`)
+				.send(`Have you completed raid ${channel.toString()}?  Answer no within ${timeout} minutes to indicate you haven't; otherwise it will be assumed you have!`)
 				.catch(err => log.error(err)));
 
 		questions.forEach(async question =>
 			question
 				.then(message => {
 					message.channel.awaitMessages(
-						response => response.author.id === message.channel.recipient.id, {
+						response => response.client.user.id !== response.author.id, {
 							maxMatches: 1,
-							time: settings.raid_complete_timeout * 60 * 1000,
+							time: timeout * 60 * 1000,
 							errors: ['time']
 						})
 						.then(collected_responses => {
@@ -486,12 +512,16 @@ class Raid {
 							return true;
 						})
 						.catch(collected_responses => {
-							// check that user didn't already set their status to complete (via running !done command themselves)
-							if (this.getMemberStatus(channel_id, message.channel.recipient.id) !== Constants.RaidStatus.COMPLETE) {
-								// reset user status back to present
-								this.setMemberStatus(channel_id, message.channel.recipient.id, Constants.RaidStatus.PRESENT);
+							// check that user didn't already set their status to something else (via running another command during the collection period)
+							if (this.getMemberStatus(channel_id, message.channel.recipient.id) === Constants.RaidStatus.COMPLETE_PENDING) {
+								// set user status to complete
+								this.setMemberStatus(channel_id, message.channel.recipient.id, Constants.RaidStatus.COMPLETE);
+
+								this.refreshStatusMessages(raid)
+									.catch(err => log.error(err));
+
 								message.channel
-									.send(`I am assuming you have *not* completed raid ${channel.toString()}.`)
+									.send(`I am assuming you *have* completed raid ${channel.toString()}.`)
 									.catch(err => log.error(err));
 							}
 						});
@@ -740,7 +770,15 @@ class Raid {
 				let result = '';
 
 				attendees_list.forEach(([member, attendee]) => {
-					result += emoji + ' ' + member.displayName;
+					if (result.length > 1024) {
+						return;
+					}
+
+					const displayName = member.displayName.length > 12 ?
+						member.displayName.substring(0, 11).concat('…') :
+						member.displayName;
+
+					result += emoji + ' ' + displayName;
 
 					// show how many additional attendees this user is bringing with them
 					if (attendee.number > 1) {
@@ -748,25 +786,61 @@ class Raid {
 					}
 
 					// add role emoji indicators if role exists
-					if (this.roles.mystic && member.roles.has(this.roles.mystic.id)) {
-						result += ' ' + this.emojis.mystic;
-					} else if (this.roles.valor && member.roles.has(this.roles.valor.id)) {
-						result += ' ' + this.emojis.valor;
-					} else if (this.roles.instinct && member.roles.has(this.roles.instinct.id)) {
-						result += ' ' + this.emojis.instinct;
+					const roles = Helper.guild.get(member.guild.id).roles;
+					if (roles.has('mystic') && member.roles.has(roles.get('mystic').id)) {
+						result += ' ' + this.getEmoji('mystic');
+					} else if (roles.has('valor') && member.roles.has(roles.get('valor').id)) {
+						result += ' ' + this.getEmoji('valor');
+					} else if (roles.has('instinct') && member.roles.has(roles.get('instinct').id)) {
+						result += ' ' + this.getEmoji('instinct');
 					}
 
 					result += '\n';
 				});
 
+				if (result.length > 1024) {
+					// try again with 'plain' emoji
+					result = '';
+
+					attendees_list.forEach(([member, attendee]) => {
+						const displayName = member.displayName.length > 12 ?
+							member.displayName.substring(0, 11).concat('…') :
+							member.displayName;
+
+						result += '• ' + displayName;
+
+						// show how many additional attendees this user is bringing with them
+						if (attendee.number > 1) {
+							result += ' +' + (attendee.number - 1);
+						}
+
+						// add role emoji indicators if role exists
+						if (this.roles.mystic && member.roles.has(this.roles.mystic.id)) {
+							result += ' ❄';
+						} else if (this.roles.valor && member.roles.has(this.roles.valor.id)) {
+							result += ' 🔥';
+						} else if (this.roles.instinct && member.roles.has(this.roles.instinct.id)) {
+							result += ' ⚡';
+						}
+
+						result += '\n';
+					});
+
+					if (result.length > 1024) {
+						// one last check, just truncate if it's still too long -
+						// it's better than blowing up! sorry people with late alphabetical names!
+						result = result.substring(0, 1022) + '…';
+					}
+				}
+
 				return result;
 			};
 
-		const embed = new Discord.RichEmbed()
-			.setColor(4437377)
-			.setTitle(`Map Link: ${gym_name}`)
-			.setURL(gym_url)
-			.setDescription(raid_description);
+		const embed = new Discord.MessageEmbed();
+		embed.setColor(4437377);
+		embed.setTitle(`Map Link: ${gym_name}`);
+		embed.setURL(gym_url);
+		embed.setDescription(raid_description);
 
 		if (pokemon_url !== '') {
 			embed.setThumbnail(pokemon_url);
@@ -778,16 +852,16 @@ class Raid {
 			embed.addField('__Possible Trainers__', total_attendees.toString());
 		}
 		if (interested_attendees.length > 0) {
-			embed.addField('Interested', attendees_builder(interested_attendees, this.emojis.pokeball), true);
+			embed.addField('Interested', attendees_builder(interested_attendees, this.getEmoji('pokeball')), true);
 		}
 		if (coming_attendees.length > 0) {
-			embed.addField('Coming', attendees_builder(coming_attendees, this.emojis.greatball), true);
+			embed.addField('Coming', attendees_builder(coming_attendees, this.getEmoji('greatball')), true);
 		}
 		if (present_attendees.length > 0) {
-			embed.addField('Present', attendees_builder(present_attendees, this.emojis.ultraball), true);
+			embed.addField('Present', attendees_builder(present_attendees, this.getEmoji('ultraball')), true);
 		}
 		if (complete_attendees.length > 0) {
-			embed.addField('Complete', attendees_builder(complete_attendees, this.emojis.premierball), true);
+			embed.addField('Complete', attendees_builder(complete_attendees, this.getEmoji('premierball')), true);
 		}
 
 		if (!!raid.hatch_time) {
@@ -808,8 +882,7 @@ class Raid {
 	async refreshStatusMessages(raid) {
 		const raid_channel_message = await this.getRaidChannelMessage(raid),
 			raid_source_channel_message = await this.getRaidSourceChannelMessage(raid),
-			formatted_message = await
-				this.getFormattedMessage(raid);
+			formatted_message = await this.getFormattedMessage(raid);
 
 		if (raid.announcement_message) {
 			this.getMessage(raid.announcement_message)

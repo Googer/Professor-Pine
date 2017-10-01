@@ -12,16 +12,18 @@ require('loglevel-prefix-persist/server')(process.env.NODE_ENV, log, {
 
 log.setLevel('debug');
 
-const	Commando = require('discord.js-commando'),
+const discord_settings = require('./data/discord'),
+	Commando = require('discord.js-commando'),
 	Client = new Commando.Client({
+		owner: discord_settings.owner,
 		restWsBridgeTimeout: 10000,
 		restTimeOffset: 1000
 	}),
+	// DB = require('./app/db.js'),
 	NodeCleanup = require('node-cleanup'),
 	Helper = require('./app/helper'),
-	Raid = require('./app/raid'),
 	ImageProcess = require('./app/process-image'),
-	discord_settings = require('./data/discord');
+	Raid = require('./app/raid');
 
 NodeCleanup((exitCode, signal) => {
 	Raid.shutdown();
@@ -32,12 +34,18 @@ Client.dispatcher.addInhibitor(message =>
 	message.message.channel.type === 'dm' &&
 	!message.message.content.trim().match(/^help/i));
 
+Client.registry.registerGroup('admin', 'Administration');
 Client.registry.registerGroup('basic-raid', 'Raid Basics');
 Client.registry.registerGroup('raid-crud', 'Raid Creation and Maintenance');
+Client.registry.registerGroup('roles', 'Roles');
 Client.registry.registerDefaults();
 Client.registry.registerTypesIn(__dirname + '/types');
 
 Client.registry.registerCommands([
+	// require('./commands/admin/asar'),
+	// require('./commands/admin/rsar'),
+	// require('./commands/admin/lsar'),
+
 	require('./commands/raids/join'),
 	require('./commands/raids/interested'),
 	require('./commands/raids/check-in'),
@@ -54,20 +62,17 @@ Client.registry.registerCommands([
 	require('./commands/raids/hatch-time'),
 	require('./commands/raids/time-left'),
 	require('./commands/raids/set-pokemon'),
-	require('./commands/raids/set-location')
-]);
+	require('./commands/raids/set-location'),
 
-const guilds = new Map([...Client.guilds]);
+	// require('./commands/roles/iam'),
+	// require('./commands/roles/iamnot')
+]);
 
 Client.on('ready', () => {
 	log.info('Client logged in');
-	const new_guilds = new Map([...Client.guilds]);
-
-	Array.from(guilds.keys())
-		.forEach(guild_id => new_guilds.delete(guild_id));
-
+	// DB.initialize(Client.guilds);
 	Helper.setClient(Client);
-	Raid.setClient(Client, new_guilds.values().next().value);
+	Raid.setClient(Client);
 });
 
 Client.on('error', err => log.error(err));
@@ -78,7 +83,7 @@ Client.on('disconnect', event => {
 	log.error(`Client disconnected, code ${event.code}, reason '${event.reason}'...`);
 
 	Client.destroy()
-		.then(() => Client.login(discord_settings.discord_client_id));
+		.then(() => Client.login(discord_settings.discord_bot_token));
 });
 
 Client.on('reconnecting', () => log.info('Client reconnecting...'));
@@ -103,4 +108,4 @@ Client.on('message', message => {
 	}
 });
 
-Client.login(discord_settings.discord_client_id);
+Client.login(discord_settings.discord_bot_token);

@@ -4,8 +4,8 @@
   "description": "Professor Willow Discord bot for Pokemon Go",
   "main": "index.js",
   "dependencies": {
-    "discord.js": "^11.2.1",
-    "discord.js-commando": "^0.9.0",
+    "discord.js": "git://github.com/hydrabolt/discord.js.git",
+    "discord.js-commando": "git://github.com/Gawdl3y/discord.js-commando.git",
     "he": "^1.1.1",
     "jimp": "^0.2.28",
     "loglevel": "^1.5.0",
@@ -14,7 +14,8 @@
     "moment": "^2.18.1",
     "node-cleanup": "^2.1.2",
     "node-persist": "^2.1.0",
-    "tesseract.js": "github:mikewesthad/tesseract.js"
+    "rethinkdb": "^2.3.3",
+	"tesseract.js": "github:mikewesthad/tesseract.js",
     "uws": "^8.14.1"
   },
   "devDependencies": {},
