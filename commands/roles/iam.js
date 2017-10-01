@@ -38,8 +38,6 @@ class IAmCommand extends Commando.Command {
 
 		client.on('messageReactionAdd', (message, user) => { this.navigatePage(message, user); });
 
-		client.on('messageReactionRemove', (message, user) => { this.navigatePage(message, user); });
-
 		// clean up messages after 10 minutes of inactivity
 		this.update = setInterval(() => {
 			const then = Date.now() - 600000;
@@ -74,6 +72,9 @@ class IAmCommand extends Commando.Command {
 				this.updatePage(message.message, current);
 			}
 		}
+
+		// remove reaction so that pagination makes a BIT more sense...
+		message.remove(user);
 	}
 
 	updatePage(message, current) {
