@@ -45,7 +45,7 @@ class TimeType extends Commando.ArgumentType {
 			let duration;
 
 			if (value_to_parse.indexOf(':') === -1) {
-				duration = moment.duration(value_to_parse * 60 * 1000);
+				duration = moment.duration(Number.parseInt(value_to_parse), 'minutes');
 			} else {
 				duration = moment.duration(value_to_parse);
 			}
@@ -106,7 +106,7 @@ class TimeType extends Commando.ArgumentType {
 			let duration;
 
 			if (value_to_parse.indexOf(':') === -1) {
-				duration = moment.duration(value_to_parse * 60 * 1000);
+				duration = moment.duration(Number.parseInt(value_to_parse), 'minutes');
 			} else {
 				duration = moment.duration(value_to_parse);
 			}

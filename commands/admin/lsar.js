@@ -37,11 +37,11 @@ class LsarCommand extends Commando.Command {
 			const count = roles.length;
 
 			let string = '';
-			for (let i=0; i<roles.length; i++) {
+			for (let i = 0; i < roles.length; i++) {
 				string += roles[i].value + '\n';
 			}
 
-			message.channel.send({
+			return message.channel.send({
 				'embed': {
 					'title': `There are ${count} self assignable roles`,
 					'description':
@@ -51,7 +51,8 @@ class LsarCommand extends Commando.Command {
 			});
 		}).catch((err) => {
 			if (err && err.error) {
-				message.reply(err.error);
+				message.reply(err.error)
+					.catch(err => log.error(err));
 			} else {
 				log.error(err);
 			}

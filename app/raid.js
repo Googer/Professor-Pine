@@ -31,9 +31,6 @@ class Raid {
 		this.active_raid_storage
 			.forEach((channel_id, raid) => this.raids[channel_id] = raid);
 
-		// cache of emoji ids, populated on client login
-		this.emojis = Object.create(null);
-
 		let last_interval_time = moment().valueOf();
 
 		// loop to clean up raids periodically
@@ -228,17 +225,6 @@ class Raid {
 	setClient(client) {
 		this.client = client;
 
-		const
-			emojis = new Map(this.client.emojis.map(emoji => [emoji.name.toLowerCase(), emoji.toString()]));
-
-		this.emojis.mystic = emojis.get('mystic') || '';
-		this.emojis.valor = emojis.get('valor') || '';
-		this.emojis.instinct = emojis.get('instinct') || '';
-
-		client.emojis.forEach(emoji => {
-			this.emojis[emoji.name.toLowerCase()] = emoji.toString();
-		});
-
 		client.on('message', message => {
 			if (message.author.id !== client.user.id) {
 				// if this is a raid channel that's scheduled for deletion, trigger deletion warning message
@@ -249,26 +235,6 @@ class Raid {
 				}
 			}
 		});
-
-		client.on('emojiCreate', emoji => {
-			// add new emoji to emojis cache
-			this.emojis[emoji.name.toLowerCase()] = emoji.toString();
-		});
-
-		client.on('emojiDelete', emoji => {
-			// delete emoji from emojis cache
-			delete this.emojis[emoji.name.toLowerCase()];
-		});
-
-		client.on('emojiUpdate', (old_emoji, new_emoji) => {
-			// delete old emoji from emojis cache and add new one to it
-			delete this.emojis[old_emoji.name.toLowerCase()];
-			this.emojis[new_emoji.name.toLowerCase()] = new_emoji.toString();
-		});
-	}
-
-	getEmoji(emoji_name) {
-		return this.emojis[emoji_name.toLowerCase()] || '';
 	}
 
 	async createRaid(channel_id, member_id, pokemon, gym_id, time) {
@@ -318,7 +284,7 @@ class Raid {
 			.then(guild => {
 				if (raid.is_exclusive && time !== TimeType.UNDEFINED_END_TIME) {
 					this.setRaidStartTime(new_channel_id, time);
-        		} else {
+				} else {
 					if (time === TimeType.UNDEFINED_END_TIME) {
 						raid.end_time = TimeType.UNDEFINED_END_TIME;
 						this.persistRaid(raid);
@@ -464,9 +430,9 @@ class Raid {
 
 		const timeout = settings.raid_complete_timeout,
 			questions = present_members
-			.map(member => member
-				.send(`Have you completed raid ${channel.toString()}?  Answer no within ${timeout} minutes to indicate you haven't; otherwise it will be assumed you have!`)
-				.catch(err => log.error(err)));
+				.map(member => member
+					.send(`Have you completed raid ${channel.toString()}?  Answer no within ${timeout} minutes to indicate you haven't; otherwise it will be assumed you have!`)
+					.catch(err => log.error(err)));
 
 		questions.forEach(async question =>
 			question
@@ -767,7 +733,9 @@ class Raid {
 			complete_attendees = sorted_attendees
 				.filter(attendee_entry => attendee_entry[1].status === Constants.RaidStatus.COMPLETE),
 
-			attendees_builder = (attendees_list, emoji) => {
+			attendees_builder = (attendees_list, emoji_name) => {
+				const emoji = Helper.getEmoji(emoji_name);
+
 				let result = '';
 
 				attendees_list.forEach(([member, attendee]) => {
@@ -789,11 +757,11 @@ class Raid {
 					// add role emoji indicators if role exists
 					const roles = Helper.guild.get(member.guild.id).roles;
 					if (roles.has('mystic') && member.roles.has(roles.get('mystic').id)) {
-						result += ' ' + this.getEmoji('mystic');
+						result += ' ' + Helper.getEmoji('mystic');
 					} else if (roles.has('valor') && member.roles.has(roles.get('valor').id)) {
-						result += ' ' + this.getEmoji('valor');
+						result += ' ' + Helper.getEmoji('valor');
 					} else if (roles.has('instinct') && member.roles.has(roles.get('instinct').id)) {
-						result += ' ' + this.getEmoji('instinct');
+						result += ' ' + Helper.getEmoji('instinct');
 					}
 
 					result += '\n';
@@ -854,16 +822,16 @@ class Raid {
 			embed.addField('__Possible Trainers__', total_attendees.toString());
 		}
 		if (interested_attendees.length > 0) {
-			embed.addField('Interested', attendees_builder(interested_attendees, this.getEmoji('pokeball')), true);
+			embed.addField('Interested', attendees_builder(interested_attendees, 'pokeball'), true);
 		}
 		if (coming_attendees.length > 0) {
-			embed.addField('Coming', attendees_builder(coming_attendees, this.getEmoji('greatball')), true);
+			embed.addField('Coming', attendees_builder(coming_attendees, 'greatball'), true);
 		}
 		if (present_attendees.length > 0) {
-			embed.addField('Present', attendees_builder(present_attendees, this.getEmoji('ultraball')), true);
+			embed.addField('Present', attendees_builder(present_attendees, 'ultraball'), true);
 		}
 		if (complete_attendees.length > 0) {
-			embed.addField('Complete', attendees_builder(complete_attendees, this.getEmoji('premierball')), true);
+			embed.addField('Complete', attendees_builder(complete_attendees, 'premierball'), true);
 		}
 
 		if (!!raid.hatch_time) {

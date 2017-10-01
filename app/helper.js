@@ -9,22 +9,13 @@ class Helper {
 		this.client = null;
 
 		// cache of emoji ids, populated on client login
-		this.emojis = Object.create(null);
+		this.emojis = null;
 	}
 
 	setClient(client) {
 		this.client = client;
 
-		const emojis = new Map(this.client.emojis.map(emoji => [emoji.name.toLowerCase(), emoji.toString()]));
-
-		this.emojis.mystic = emojis.get('mystic') || '';
-		this.emojis.valor = emojis.get('valor') || '';
-		this.emojis.instinct = emojis.get('instinct') || '';
-		this.emojis.pokeball = emojis.get('pokeball') || '';
-		this.emojis.greatball = emojis.get('greatball') || '';
-		this.emojis.ultraball = emojis.get('ultraball') || '';
-		this.emojis.masterball = emojis.get('masterball') || '';
-		this.emojis.premierball = emojis.get('premierball') || '';
+		this.emojis = new Map(this.client.emojis.map(emoji => [emoji.name.toLowerCase(), emoji.toString()]));
 
 		// map out some shortcuts per connected guild, so that a lengthy "find" is not required constantly
 		// TODO:  Some day instead of using a single configurable settings channel name, allow each guild to set a bot channel in DB
@@ -47,23 +38,23 @@ class Helper {
 		}));
 
 		// listen for messages to "help" with
-		// this.client.on('message', message => {
-		// 	if (!message.guild) {
-		// 		return;
-		// 	}
-		//
-		// 	const guild = this.guild.get(message.guild.id);
-		//
-		// 	// command "!iam" - warning of incorrect channel, suggest command & channel
-		// 	if (message.content.search(/^([.])i\s?a([mn])\s?.*?|^([.])?ia([mn])([.])?\s?.*?$/gi) >= 0 && message.channel.id !== guild.channels.bot_lab.id) {
-		// 		message.reply(this.getText('iam.warning', message));
-		// 	}
-		//
-		// 	// command "!iam" - correct channel, incorrect command, suggest command
-		// 	if (message.content.search(/^([.])i\s?a[nm]\s?.*?|^([.])?ia[nm]([.])?\s?.*?$|^ia([nm])$/gi) >= 0 && message.channel.id === guild.channels.bot_lab.id) {
-		// 		message.reply(this.getText('iam.suggestion', message));
-		// 	}
-		// });
+		this.client.on('message', message => {
+			if (!message.guild) {
+				return;
+			}
+
+			const guild = this.guild.get(message.guild.id);
+
+			// command "!iam" - warning of incorrect channel, suggest command & channel
+			if (message.content.search(/^([.])i\s?a([mn])\s?.*?|^([.])?ia([mn])([.])?\s?.*?$/gi) >= 0 && message.channel.id !== guild.channels.bot_lab.id) {
+				message.reply(this.getText('iam.warning', message));
+			}
+
+			// command "!iam" - correct channel, incorrect command, suggest command
+			if (message.content.search(/^([.])i\s?a[nm]\s?.*?|^([.])?ia[nm]([.])?\s?.*?$|^ia([nm])$/gi) >= 0 && message.channel.id === guild.channels.bot_lab.id) {
+				message.reply(this.getText('iam.suggestion', message));
+			}
+		});
 
 		this.client.on('guildCreate', guild => {
 			// cache this guild's roles
@@ -121,13 +112,29 @@ class Helper {
 				new_guild_map.set(new_role.name.toLowerCase(), new_role);
 			}
 		});
+
+		client.on('emojiCreate', emoji => {
+			// add new emoji to emojis cache
+			this.emojis.set(emoji.name.toLowerCase(), emoji.toString());
+		});
+
+		client.on('emojiDelete', emoji => {
+			// delete emoji from emojis cache
+			this.emojis.delete(emoji.name.toLowerCase());
+		});
+
+		client.on('emojiUpdate', (old_emoji, new_emoji) => {
+			// delete old emoji from emojis cache and add new one to it
+			this.emojis.delete(old_emoji.name.toLowerCase());
+			this.emojis.set(new_emoji.name.toLowerCase(), new_emoji.toString());
+		});
 	}
 
 	isManagement(message) {
-		const message_guild = message.guild.id,
-			message_roles = this.guild.get(message_guild),
-			admin_role = message_roles.get('admin'),
-			moderator_role = message_roles.get('moderator'),
+		const message_guild = message.message.guild.id,
+			guild_roles = this.guild.get(message_guild).roles,
+			admin_role = guild_roles.get('admin'),
+			moderator_role = guild_roles.get('moderator'),
 			admin_role_id = admin_role ?
 				admin_role.id :
 				-1,
@@ -138,6 +145,12 @@ class Helper {
 		return (this.client.isOwner(message.member) ||
 			message.member.roles.has(admin_role_id) ||
 			message.member.roles.has(moderator_role_id));
+	}
+
+	getEmoji(emoji_name) {
+		return this.emojis.has(emoji_name.toLowerCase()) ?
+			this.emojis.get(emoji_name.toLowerCase()) :
+			'';
 	}
 
 	getText(path, message) {

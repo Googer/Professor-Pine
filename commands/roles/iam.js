@@ -36,7 +36,9 @@ class IAmCommand extends Commando.Command {
 			return false;
 		});
 
-		client.on('messageReactionAdd', (message, user) => { this.navigatePage(message, user); });
+		client.on('messageReactionAdd', (message, user) => {
+			this.navigatePage(message, user);
+		});
 
 		// clean up messages after 10 minutes of inactivity
 		this.update = setInterval(() => {
@@ -52,7 +54,9 @@ class IAmCommand extends Commando.Command {
 	}
 
 	navigatePage(message, user) {
-		if (user.bot) { return; }
+		if (user.bot) {
+			return;
+		}
 
 		let current = this.messages.get(message.message.id).current;
 
@@ -84,11 +88,13 @@ class IAmCommand extends Commando.Command {
 			const end = start + 5;
 
 			// making sure no one can go beyond the limits
-			if (start > count - 1 || start < 0) { return; }
+			if (start > count - 1 || start < 0) {
+				return;
+			}
 
 			let string = '';
-			for (let i=start; i<end; i++) {
-				string += `**${roles[i].value}**\n${(roles[i].description) ? roles[i].description + '\n\n': ''}`;
+			for (let i = start; i < end; i++) {
+				string += `**${roles[i].value}**\n${(roles[i].description) ? roles[i].description + '\n\n' : ''}`;
 			}
 
 			message.edit('Type `!iam <name>` to add one of the following roles to your account.', {
@@ -101,7 +107,7 @@ class IAmCommand extends Commando.Command {
 					}
 				}
 			}).then(bot_message => {
-				this.messages.set(bot_message.id, { time: Date.now(), current, message: bot_message });
+				this.messages.set(bot_message.id, {time: Date.now(), current, message: bot_message});
 			});
 		}).catch((err) => {
 			log.error(err);
@@ -115,8 +121,8 @@ class IAmCommand extends Commando.Command {
 				let count = roles.length;
 
 				let string = '';
-				for (let i=0; i<5; i++) {
-					string += `**${roles[i].value}**\n${(roles[i].description) ? roles[i].description + '\n\n': ''}`;
+				for (let i = 0; i < 5; i++) {
+					string += `**${roles[i].value}**\n${(roles[i].description) ? roles[i].description + '\n\n' : ''}`;
 				}
 
 				message.channel.send('Type `!iam <name>` to add one of the following roles to your account.', {
@@ -129,32 +135,31 @@ class IAmCommand extends Commando.Command {
 						}
 					}
 				}).then(bot_message => {
-					this.messages.set(bot_message.id, { time: Date.now(), current: 0, message: bot_message });
+					this.messages.set(bot_message.id, {time: Date.now(), current: 0, message: bot_message});
 
-					// small delay needed to ensure right arrow shows up after left arrow
-					setTimeout(() => {
-						bot_message.react('➡');
-					}, 500);
-
-					bot_message.react('⬅');
+					bot_message.react('⬅')
+						.then(reaction => bot_message.react('➡'))
+						.catch(err => log.error(err));
 				});
 			}).catch((err) => {
 				if (err && err.error) {
-					message.reply(err.error);
+					message.reply(err.error)
+						.catch(err => log.error(err));
 				} else {
 					log.error(err);
 				}
 			});
 		} else {
-			Role.assignRole(message.channel, message.member, args).then(() => {
-				message.react('👍');
-			}).catch((err) => {
-				if (err && err.error) {
-					message.reply(err.error);
-				} else {
-					log.error(err);
-				}
-			});
+			Role.assignRole(message.channel, message.member, args)
+				.then(() => message.react('👍'))
+				.catch(err => {
+					if (err && err.error) {
+						message.reply(err.error)
+							.catch(err => log.error(err));
+					} else {
+						log.error(err);
+					}
+				});
 		}
 	}
 }

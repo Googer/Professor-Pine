@@ -33,15 +33,16 @@ class RsarCommand extends Commando.Command {
 	run(message, args) {
 		args = args.split(/,\s?/g);
 
-		Role.removeOldRoles(message.channel, message.member, args).then(() => {
-			message.react('👍');
-		}).catch((err) => {
-			if (err && err.error) {
-				message.reply(err.error);
-			} else {
-				log.error(err);
-			}
-		});
+		Role.removeOldRoles(message.channel, message.member, args)
+			.then(() => message.react('👍'))
+			.catch(err => {
+				if (err && err.error) {
+					message.reply(err.error)
+						.catch(err => log.error(err));
+				} else {
+					log.error(err);
+				}
+			});
 	}
 }
 

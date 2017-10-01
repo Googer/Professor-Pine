@@ -19,7 +19,7 @@ const discord_settings = require('./data/discord'),
 		restWsBridgeTimeout: 10000,
 		restTimeOffset: 1000
 	}),
-	// DB = require('./app/db.js'),
+	DB = require('./app/db.js'),
 	NodeCleanup = require('node-cleanup'),
 	Helper = require('./app/helper'),
 	Raid = require('./app/raid');
@@ -41,9 +41,9 @@ Client.registry.registerDefaults();
 Client.registry.registerTypesIn(__dirname + '/types');
 
 Client.registry.registerCommands([
-	// require('./commands/admin/asar'),
-	// require('./commands/admin/rsar'),
-	// require('./commands/admin/lsar'),
+	require('./commands/admin/asar'),
+	require('./commands/admin/rsar'),
+	require('./commands/admin/lsar'),
 
 	require('./commands/raids/join'),
 	require('./commands/raids/interested'),
@@ -63,13 +63,13 @@ Client.registry.registerCommands([
 	require('./commands/raids/set-pokemon'),
 	require('./commands/raids/set-location'),
 
-	// require('./commands/roles/iam'),
-	// require('./commands/roles/iamnot')
+	require('./commands/roles/iam'),
+	require('./commands/roles/iamnot')
 ]);
 
 Client.on('ready', () => {
 	log.info('Client logged in');
-	// DB.initialize(Client.guilds);
+	DB.initialize(Client.guilds);
 	Helper.setClient(Client);
 	Raid.setClient(Client);
 });
