@@ -15,7 +15,7 @@
     "node-cleanup": "^2.1.2",
     "node-persist": "^2.1.0",
     "rethinkdb": "^2.3.3",
-	"tesseract.js": "github:mikewesthad/tesseract.js",
+    "tesseract.js": "github:mikewesthad/tesseract.js",
     "uws": "^8.14.1"
   },
   "devDependencies": {},
