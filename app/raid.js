@@ -554,6 +554,11 @@ class Raid {
 
 		raid.start_time = start_time;
 
+		// delete start clear time if there is one
+		if (raid.start_clear_time) {
+			delete raid.start_clear_time;
+		}
+
 		this.persistRaid(raid);
 
 		return {raid: raid};
