@@ -47,10 +47,23 @@ class TimeType extends Commando.ArgumentType {
 			if (value_to_parse.indexOf(':') === -1) {
 				duration = moment.duration(value_to_parse * 60 * 1000);
 			} else {
-				duration = moment.duration(value_to_parse);
+				const parts_sum = value_to_parse.split(':')
+					.map(part => Number.parseInt(part))
+					.reduce((num1, num2) => num1 + num2, 0);
+
+				if (parts_sum > 0) {
+					duration = moment.duration(value_to_parse);
+
+					if (duration.isValid() && duration.asMilliseconds() === 0) {
+						// set to invalid duration
+						duration = moment.now();
+					}
+				} else {
+					duration = moment.duration(0);
+				}
 			}
 
-			if (duration.isValid() && duration.asMinutes() < hatched_duration) {
+			if (moment.isDuration(duration) && duration.isValid() && duration.asMinutes() < hatched_duration) {
 				possible_times.push(now.clone().add(duration));
 			}
 		}
@@ -108,10 +121,23 @@ class TimeType extends Commando.ArgumentType {
 			if (value_to_parse.indexOf(':') === -1) {
 				duration = moment.duration(value_to_parse * 60 * 1000);
 			} else {
-				duration = moment.duration(value_to_parse);
+				const parts_sum = value_to_parse.split(':')
+					.map(part => Number.parseInt(part))
+					.reduce((num1, num2) => num1 + num2, 0);
+
+				if (parts_sum > 0) {
+					duration = moment.duration(value_to_parse);
+
+					if (duration.isValid() && duration.asMilliseconds() === 0) {
+						// set to invalid duration
+						duration = moment.now();
+					}
+				} else {
+					duration = moment.duration(0);
+				}
 			}
 
-			if (duration.isValid() && duration.asMinutes() < hatched_duration) {
+			if (moment.isDuration(duration) && duration.isValid() && duration.asMinutes() < hatched_duration) {
 				possible_times.push(now.clone().add(duration));
 			}
 		}
