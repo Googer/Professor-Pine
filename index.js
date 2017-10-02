@@ -55,6 +55,7 @@ Client.registry.registerCommands([
 
 	require('./commands/raids/start-time'),
 	require('./commands/raids/status'),
+	require('./commands/raids/directions'),
 
 	require('./commands/raids/create'),
 
