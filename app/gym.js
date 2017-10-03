@@ -13,15 +13,15 @@ class Gym extends Search {
 	buildIndex() {
 		log.info('Splicing gym metadata and indexing gym data...');
 
-		const gyms_base = require('../data/gyms'),
-			gyms_metadata = require('../data/gyms-metadata'),
+		const gyms_base = require('PgP-Data/data/gyms'),
+			gyms_metadata = require('PgP-Data/data/gyms-metadata'),
 			merged_gyms = gyms_base
 				.map(gym => Object.assign({}, gym, gyms_metadata[gym.gymId]));
 
 		this.gyms = new Map(merged_gyms
 			.map(gym => [gym.gymId, gym]));
 
-		this.region_map = require('../data/region-map');
+		this.region_map = require('PgP-Data/data/region-map');
 
 		// This index is only indexing against name, description, nickname, and additional terms
 		this.name_index = lunr(function () {
