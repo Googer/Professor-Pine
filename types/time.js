@@ -47,16 +47,16 @@ class TimeType extends Commando.ArgumentType {
 			if (value_to_parse.indexOf(':') === -1) {
 				duration = moment.duration(Number.parseInt(value_to_parse), 'minutes');
 			} else {
-				const parts_sum = value_to_parse.split(':')
+				const any_duration = value_to_parse.split(':')
 					.map(part => Number.parseInt(part))
-					.reduce((num1, num2) => num1 + num2, 0);
+					.find(number => number !== 0) !== undefined;
 
-				if (parts_sum > 0) {
+				if (any_duration) {
 					duration = moment.duration(value_to_parse);
 
 					if (duration.isValid() && duration.asMilliseconds() === 0) {
 						// set to invalid duration
-						duration = moment.now();
+						duration = moment.duration.invalid();
 					}
 				} else {
 					duration = moment.duration(0);
@@ -121,16 +121,16 @@ class TimeType extends Commando.ArgumentType {
 			if (value_to_parse.indexOf(':') === -1) {
 				duration = moment.duration(Number.parseInt(value_to_parse), 'minutes');
 			} else {
-				const parts_sum = value_to_parse.split(':')
+				const any_duration = value_to_parse.split(':')
 					.map(part => Number.parseInt(part))
-					.reduce((num1, num2) => num1 + num2, 0);
+					.find(number => number !== 0) !== undefined;
 
-				if (parts_sum > 0) {
+				if (any_duration) {
 					duration = moment.duration(value_to_parse);
 
 					if (duration.isValid() && duration.asMilliseconds() === 0) {
 						// set to invalid duration
-						duration = moment.now();
+						duration = moment.duration.invalid();
 					}
 				} else {
 					duration = moment.duration(0);
