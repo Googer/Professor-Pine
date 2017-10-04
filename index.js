@@ -79,6 +79,14 @@ Client.on('error', err => log.error(err));
 Client.on('warn', err => log.warn(err));
 Client.on('debug', err => log.debug(err));
 
+Client.on('commandRun', (command, result, message, args, from_pattern) => {
+	log.debug(`Command '${command.name}' run from message '${message.content}' by user ${message.author.id}`);
+});
+
+Client.on('commandError', (command, err, message, args, from_pattern) => {
+	log.error(`Command '${command.name}' error from message '${message.content}' by user ${message.author.id}`);
+});
+
 Client.on('disconnect', event => {
 	log.error(`Client disconnected, code ${event.code}, reason '${event.reason}'...`);
 
