@@ -43,7 +43,7 @@ class LsarCommand extends Commando.Command {
 
 			return message.channel.send({
 				'embed': {
-					'title': `There are ${count} self assignable roles`,
+					'title': `There are ${count} self-assignable roles`,
 					'description':
 						`${string}`,
 					'color': 4437377

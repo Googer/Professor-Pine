@@ -11,7 +11,7 @@ class RsarCommand extends Commando.Command {
 			name: 'rsar',
 			group: 'admin',
 			memberName: 'rsar',
-			description: 'Remove self assignable role.',
+			description: 'Remove self-assignable role.',
 			guildOnly: true
 		});
 

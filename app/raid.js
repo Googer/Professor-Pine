@@ -143,7 +143,7 @@ class Raid {
 			return Promise.resolve(member);
 		}
 
-		log.warn(`Removing non-existent member ${member_id} from raid`);
+		log.warn(`Removing nonexistent member ${member_id} from raid`);
 		this.removeAttendee(channel_id, member_id);
 
 		throw new Error(`Member ${member_id} does not exist!`);
@@ -189,7 +189,7 @@ class Raid {
 				const raid = this.getRaid(channel_id);
 
 				if (!!raid) {
-					log.warn(`Deleting non-existent message ${message_id} from raid ${channel_id}`);
+					log.warn(`Deleting nonexistent message ${message_id} from raid ${channel_id}`);
 					raid.messages.splice(raid.messages.indexOf(message_cache_id), 1);
 
 					this.persistRaid(raid);
@@ -199,7 +199,7 @@ class Raid {
 					Object.values(this.raids)
 						.filter(raid => raid.announcement_message === message_cache_id)
 						.forEach(raid => {
-							log.warn(`Deleting non-existent announcement_message ${message_id} from raid ${raid.channel_id}`);
+							log.warn(`Deleting nonexistent announcement message ${message_id} from raid ${raid.channel_id}`);
 							delete raid.announcement_message;
 
 							this.persistRaid(raid);
@@ -431,7 +431,7 @@ class Raid {
 		const timeout = settings.raid_complete_timeout,
 			questions = present_members
 				.map(member => member
-					.send(`Have you completed raid ${channel.toString()}?  Answer no within ${timeout} minutes to indicate you haven't; otherwise it will be assumed you have!`)
+					.send(`Have you completed raid ${channel.toString()}?  Answer **no** within ${timeout} minutes to indicate you haven't; otherwise it will be assumed you have!`)
 					.catch(err => log.error(err)));
 
 		questions.forEach(async question =>
@@ -648,7 +648,7 @@ class Raid {
 			const time_until_deletion = moment(raid.deletion_time).fromNow();
 
 			this.getChannel(raid.channel_id)
-				.then(channel => channel.send(`**WARNING** - this channel will be deleted automatically ${time_until_deletion}!`))
+				.then(channel => channel.send(`**WARNING**: This channel will self-destruct ${time_until_deletion}!`))
 				.catch(err => log.error(err));
 		}
 	}

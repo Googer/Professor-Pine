@@ -161,7 +161,7 @@ class Role {
 				.find(val => val.name.toLowerCase() === role.toLowerCase());
 
 			if (!id) {
-				reject({error: `Role "**${role}**" was not found.  Use \`!iam\` to see a list of self assignable roles.`});
+				reject({error: `Role "**${role}**" was not found.  Use \`!iam\` to see a list of self-assignable roles.`});
 				return;
 			}
 
@@ -173,7 +173,7 @@ class Role {
 						// console.log(JSON.stringify(result, null, 2));
 						resolve();
 					} else {
-						reject({error: `Role "**${role}**" was not found.  Use \`!iam\` to see a list of self assignable roles.`});
+						reject({error: `Role "**${role}**" was not found.  Use \`!iam\` to see a list of self-assignable roles.`});
 					}
 				});
 		});
