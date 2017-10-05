@@ -64,6 +64,8 @@ Client.registry.registerCommands([
 	require('./commands/raids/set-pokemon'),
 	require('./commands/raids/set-location'),
 
+	require('./commands/raids/delete'),
+
 	require('./commands/roles/iam'),
 	require('./commands/roles/iamnot')
 ]);

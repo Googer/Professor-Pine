@@ -131,10 +131,8 @@ class Helper {
 	}
 
 	isManagement(message) {
-		const message_guild = message.message.guild.id,
-			guild_roles = this.guild.get(message_guild).roles,
-			admin_role = guild_roles.get('admin'),
-			moderator_role = guild_roles.get('moderator'),
+		const admin_role = this.getRole(message.message.guild, 'admin'),
+			moderator_role = this.getRole(message.message.guild, 'moderator'),
 			admin_role_id = admin_role ?
 				admin_role.id :
 				-1,
@@ -145,6 +143,12 @@ class Helper {
 		return (this.client.isOwner(message.member) ||
 			message.member.roles.has(admin_role_id) ||
 			message.member.roles.has(moderator_role_id));
+	}
+
+	getRole(guild, role_name) {
+		const guild_map = this.guild.get(guild.id);
+
+		return guild_map.roles.get(role_name.toLowerCase());
 	}
 
 	getEmoji(emoji_name) {

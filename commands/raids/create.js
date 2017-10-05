@@ -60,7 +60,8 @@ class RaidCommand extends Commando.Command {
 			gym_id = args['gym_id'],
 			time = args['time'];
 
-		let raid;
+		let raid,
+			responses = [];
 
 		Raid.createRaid(message.channel.id, message.member.id, pokemon, gym_id, time)
 			.then(async info => {
@@ -68,8 +69,12 @@ class RaidCommand extends Commando.Command {
 
 				raid = info.raid;
 				const raid_channel_message = await Raid.getRaidChannelMessage(raid),
-					formatted_message = await Raid.getFormattedMessage(raid);
-				return message.channel.send(raid_channel_message, formatted_message);
+					formatted_message = await Raid.getFormattedMessage(raid),
+					announcement_message = message.channel.send(raid_channel_message, formatted_message);
+
+				responses.push(announcement_message);
+
+				return announcement_message;
 			})
 			.then(announcement_message => {
 				return Raid.setAnnouncementMessage(raid.channel_id, announcement_message);
@@ -84,7 +89,9 @@ class RaidCommand extends Commando.Command {
 			.then(channel_raid_message => {
 				Raid.addMessage(raid.channel_id, channel_raid_message, true);
 			})
-			.catch(err => log.error(err))
+			.catch(err => log.error(err));
+
+		return responses;
 	}
 }
 

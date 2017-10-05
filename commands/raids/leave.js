@@ -38,7 +38,7 @@ class LeaveCommand extends Commando.Command {
 
 			Raid.refreshStatusMessages(info.raid);
 		} else {
-			message.reply(info.error)
+			return message.reply(info.error)
 				.catch(err => log.error(err));
 		}
 	}
