@@ -41,12 +41,12 @@ class Gym extends Search {
 				gym.gymName = he.decode(gym.gymName);
 				gym.gymInfo.gymDescription = he.decode(gym.gymInfo.gymDescription);
 
-				gymDocument['name'] = gym.gymName;
-				gymDocument['description'] = gym.gymInfo.gymDescription;
+				gymDocument['name'] = gym.gymName.replace(/[^\w\d\s]+/g, '');
+				gymDocument['description'] = gym.gymInfo.gymDescription.replace(/[^\w\d\s]+/g, '');
 
 				if (gym.nickname) {
 					gym.nickname = he.decode(gym.nickname);
-					gymDocument['nickname'] = gym.nickname;
+					gymDocument['nickname'] = gym.nickname.replace(/[^\w\d\s]+/g, '');
 				}
 
 				// merge in additional info from supplementary metadata file
@@ -102,12 +102,12 @@ class Gym extends Search {
 				}
 
 				// static fields
-				gymDocument['name'] = gym.gymName;
-				gymDocument['description'] = gym.gymInfo.gymDescription;
+				gymDocument['name'] = gym.gymName.replace(/[^\w\d\s]+/g, '');
+				gymDocument['description'] = gym.gymInfo.gymDescription.replace(/[^\w\d\s]+/g, '');
 
 				if (gym.nickname) {
 					gym.nickname = he.decode(gym.nickname);
-					gymDocument['nickname'] = gym.nickname;
+					gymDocument['nickname'] = gym.nickname.replace(/[^\w\d\s]+/g, '');
 				}
 
 				// Build a map of the geocoded information:
@@ -157,10 +157,6 @@ class Gym extends Search {
 		log.info('Indexing gym data complete');
 	}
 
-	static singleTermSearch(term, index) {
-		return index.search(Search.makeFuzzy(term));
-	}
-
 	async internal_search(channel_id, terms, index) {
 		// lunr does an OR of its search terms and we really want AND, so we'll get there by doing individual searches
 		// on everything and getting the intersection of the hits
@@ -168,15 +164,15 @@ class Gym extends Search {
 		// first filter out stop words from the search terms; lunr does this itself so our hacky way of AND'ing will
 		// return nothing if they have any in their search terms list since they'll never match anything
 		const filtered_terms = terms
-			.map(term => term.replace(/^\W+/, '').replace(/\W+$/, ''))
+			.map(term => term.replace(/[^\w\d\s*]+/g, ''))
 			.map(term => term.toLowerCase())
 			.filter(term => lunr.stopWordFilter(term));
 
-		let results = Gym.singleTermSearch(filtered_terms[0], index)
+		let results = Search.singleTermSearch(filtered_terms[0], index)
 			.map(result => result.ref);
 
 		for (let i = 1; i < filtered_terms.length; i++) {
-			const termResults = Gym.singleTermSearch(filtered_terms[i], index)
+			const termResults = Search.singleTermSearch(filtered_terms[i], index)
 				.map(result => result.ref);
 
 			results = results.filter(result => {
