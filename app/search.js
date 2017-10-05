@@ -19,7 +19,7 @@ class Search {
 					boost: 100
 				});
 
-			if (term.includes('*')) {
+			if (term.includes(lunr.Query.wildcard)) {
 				// wildcard in term, disable stemming
 				query.term(term,
 					{
