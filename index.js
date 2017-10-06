@@ -58,13 +58,12 @@ Client.registry.registerCommands([
 	require('./commands/raids/directions'),
 
 	require('./commands/raids/create'),
+	require('./commands/raids/delete'),
 
 	require('./commands/raids/hatch-time'),
 	require('./commands/raids/time-left'),
 	require('./commands/raids/set-pokemon'),
 	require('./commands/raids/set-location'),
-
-	require('./commands/raids/delete'),
 
 	require('./commands/roles/iam'),
 	require('./commands/roles/iamnot')

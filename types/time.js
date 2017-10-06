@@ -12,10 +12,7 @@ class TimeType extends Commando.ArgumentType {
 	}
 
 	validate(value, message, arg) {
-		const extra_error_message = Utility.isOneLiner(message) ?
-			'  Do **not** re-enter the `' + message.command.name + '` command.' :
-			'',
-			Raid = require('../app/raid'),
+		const Raid = require('../app/raid'),
 			is_ex_raid = this.isExclusiveRaid(value, message, arg),
 			raid_exists = Raid.validRaid(message.message.channel.id),
 			now = moment(),
@@ -77,7 +74,7 @@ class TimeType extends Commando.ArgumentType {
 		}
 
 		if (possible_times.length === 0) {
-			return `\`${value}\` is not a valid duration or time!${extra_error_message}`;
+			return `"${value}" is not a valid duration or time!\n\n${arg.prompt}`;
 		}
 
 		if (possible_times.find(possible_time =>
@@ -85,7 +82,7 @@ class TimeType extends Commando.ArgumentType {
 			return true;
 		}
 
-		return `\`${value}\` is not valid for raid!${extra_error_message}`;
+		return `"${value}" is not valid for this raid!\n\n${arg.prompt}`;
 	}
 
 	parse(value, message, arg) {

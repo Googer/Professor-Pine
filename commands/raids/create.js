@@ -14,8 +14,8 @@ class RaidCommand extends Commando.Command {
 			group: 'raid-crud',
 			memberName: 'raid',
 			aliases: ['create', 'announce'],
-			description: 'Announces a new raid.\n',
-			details: 'Use this command to start organizing a new raid.  For your convenience, this command combines several options such that you can set the pokémon, the location, and the end time of the raid, all at once.',
+			description: 'Announces a new raid.',
+			details: 'Use this command to start organizing a new raid.  For your convenience, this command combines several options such that you can set the pokémon, the location, and the end time of the raid all at once.',
 			examples: ['\t!raid lugia', '\t!raid zapdos \'manor theater\' 1:43', '\t!raid magikarp olea', '\t!raid ttar \'frog fountain\''],
 			throttling: {
 				usages: 5,
@@ -37,7 +37,7 @@ class RaidCommand extends Commando.Command {
 				{
 					key: 'time',
 					label: 'time left',
-					prompt: 'How much time is remaining on the raid (use h:mm or mm format)?\nExample: `1:43`',
+					prompt: 'How much time is remaining on the raid?\nExample: `1:43`',
 					type: 'time',
 					default: TimeType.UNDEFINED_END_TIME
 				}

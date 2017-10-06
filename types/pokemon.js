@@ -1,8 +1,7 @@
 "use strict";
 
 const Commando = require('discord.js-commando'),
-	Pokemon = require('../app/pokemon'),
-	Utility = require('../app/utility');
+	Pokemon = require('../app/pokemon');
 
 class PokemonType extends Commando.ArgumentType {
 	constructor(client) {
@@ -10,16 +9,12 @@ class PokemonType extends Commando.ArgumentType {
 	}
 
 	validate(value, message, arg) {
-		const extra_error_message = Utility.isOneLiner(message) ?
-			'  Do **not** re-enter the `' + message.command.name + '` command.' :
-			'',
-
-			pokemon_to_lookup = value.match(/^(?:<:)?([A-Za-z*]+)(?::\d+>)?$/);
+		const pokemon_to_lookup = value.match(/^(?:<:)?([A-Za-z*]+)(?::\d+>)?$/);
 
 		if (!pokemon_to_lookup || !pokemon_to_lookup.length) {
 			const result = value.match(/^(?:(?:\w+)\s?)?([1-5])$/);
 			if (!result) {
-				return 'Invalid tier specified.' + extra_error_message;
+				return 'Invalid tier specified.  Please try your search again, entering the text you want to search for.\n';
 			}
 
 			return true;
@@ -28,11 +23,15 @@ class PokemonType extends Commando.ArgumentType {
 		const pokemon = Pokemon.search(pokemon_to_lookup[1]);
 
 		if (!pokemon) {
-			return 'No pokémon found.' + extra_error_message;
+			return 'No pokémon found.  Please try your search again, entering the text you want to search for.\n';
 		}
 
 		if (!pokemon.exclusive && !pokemon.tier) {
-			return 'Pokémon is not a valid raid boss.' + extra_error_message;
+			const name = pokemon.name ?
+				`"${pokemon.name.charAt(0).toUpperCase()}${pokemon.name.slice(1)}"` :
+				'Pokémon';
+
+			return `${name} is not a valid raid boss.  Please try your search again, entering the text you want to search for.\n`;
 		}
 
 		return true;

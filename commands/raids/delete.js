@@ -12,7 +12,7 @@ class DeleteCommand extends Commando.Command {
 			group: 'raid-crud',
 			memberName: 'delete',
 			aliases: ['nuke', 'erase'],
-			description: 'Deletes an existing raid (usable only by admins and moderators).',
+			description: 'Deletes an existing raid (usable only by admins and moderators).\n',
 			details: 'Use this command to delete a raid (usable only by admins and moderators).',
 			examples: ['\t!delete', '\t!nuke'],
 			guildOnly: true

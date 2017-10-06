@@ -13,13 +13,13 @@ class HatchTimeCommand extends Commando.Command {
 			memberName: 'hatch',
 			aliases: ['hatch-time', 'hatches'],
 			description: 'Sets the time an existing raid hatches.',
-			details: 'Use this command to set the hatch time for a raid, using a duration (default assumed format) or absolute time (if the time begins with `at`).',
-			examples: ['\t!hatch-time 1:45', '\t!hatch 50', '\t!hatches at 9:45'],
+			details: 'Use this command to set the hatch time for a raid.',
+			examples: ['\t!hatch 1:45', '\t!hatch-time 50', '\t!hatches at 9:45'],
 			args: [
 				{
 					key: 'hatch-time',
 					label: 'hatch time',
-					prompt: 'How much time is remaining until the raid hatches? (use `h:mm` or `mm` format)?\nExample: `1:43`\n\n*or*\n\nWhen does this raid hatch? (use `at h:mm` format)?',
+					prompt: 'How much time is remaining until the raid hatches?\nExample: `1:43`\n\n*or*\n\nWhen does this raid hatch?\nExample: `6:12`\n',
 					type: 'time'
 				}
 			],
