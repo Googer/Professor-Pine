@@ -19,7 +19,7 @@ class SetLocationCommand extends Commando.Command {
 				{
 					key: 'gym_id',
 					label: 'gym',
-					prompt: 'Where is the raid taking place?\nExample: `manor theater`',
+					prompt: 'Where is the raid taking place?\nExample: `manor theater`\n',
 					type: 'gym',
 					wait: 60
 				}

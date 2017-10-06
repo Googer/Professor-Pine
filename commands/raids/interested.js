@@ -21,7 +21,7 @@ class InterestedCommand extends Commando.Command {
 				{
 					key: 'additional_attendees',
 					label: 'additional attendees',
-					prompt: 'How many additional people would be coming with you?\nExample: `1`',
+					prompt: 'How many additional people would come with you?\nExample: `+1`\n\n*or*\n\nHow many people would come (including yourself)?\nExample: `2`\n',
 					type: 'natural',
 					default: NaturalArgumentType.UNDEFINED_NUMBER
 				}

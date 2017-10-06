@@ -14,7 +14,7 @@ class NaturalArgumentType extends Commando.ArgumentType {
 			return true;
 		}
 
-		return 'Please enter a number greater than zero!\n';
+		return `Please enter a number greater than zero!\n\n${arg.prompt}`;
 	}
 
 	parse(value, message, arg) {

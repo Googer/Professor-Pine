@@ -24,20 +24,20 @@ class RaidCommand extends Commando.Command {
 			args: [
 				{
 					key: 'pokemon',
-					prompt: 'What pokémon (or tier if unhatched) is this raid?\nExample: `lugia`',
+					prompt: 'What pokémon (or tier if unhatched) is this raid?\nExample: `lugia`\n',
 					type: 'pokemon',
 				},
 				{
 					key: 'gym_id',
 					label: 'gym',
-					prompt: 'Where is this raid taking place?\nExample: `manor theater`',
+					prompt: 'Where is this raid taking place?\nExample: `manor theater`\n',
 					type: 'gym',
 					wait: 60
 				},
 				{
 					key: 'time',
 					label: 'time left',
-					prompt: 'How much time is remaining on the raid?\nExample: `1:43`',
+					prompt: 'How much time is remaining on the raid?\nExample: `1:43`\n',
 					type: 'time',
 					default: TimeType.UNDEFINED_END_TIME
 				}
