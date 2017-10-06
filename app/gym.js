@@ -22,6 +22,7 @@ class Gym extends Search {
 			.map(gym => [gym.gymId, gym]));
 
 		this.region_map = require('PgP-Data/data/region-map');
+		this.region_graph = require('PgP-Data/data/region-graph');
 
 		// This index is only indexing against name, description, nickname, and additional terms
 		this.name_index = lunr(function () {
@@ -157,7 +158,7 @@ class Gym extends Search {
 		log.info('Indexing gym data complete');
 	}
 
-	async internal_search(channel_id, terms, index) {
+	internal_search(channel_name, terms, index) {
 		// lunr does an OR of its search terms and we really want AND, so we'll get there by doing individual searches
 		// on everything and getting the intersection of the hits
 
@@ -185,8 +186,6 @@ class Gym extends Search {
 			}
 		}
 
-		const channel_name = await require('./raid').getCreationChannelName(channel_id);
-
 		// Now filter results based on what channel this request came from
 		return results
 			.map(result => JSON.parse(result))
@@ -195,16 +194,38 @@ class Gym extends Search {
 			});
 	}
 
-	async search(channel_id, terms) {
+	channel_search(channel_name, terms) {
 		// First try against name/nickname / description-only index
-		let results = await this.internal_search(channel_id, terms, this.name_index);
+		let results = this.internal_search(channel_name, terms, this.name_index);
 
 		if (results.length === 0) {
 			// That didn't return anything, so now try the geocoded data one
-			results = await this.internal_search(channel_id, terms, this.full_index);
+			results = this.internal_search(channel_name, terms, this.full_index);
 		}
 
-		return Promise.resolve(results);
+		return results;
+	}
+
+	async search(channel_id, terms) {
+		const channel_name = await require('./raid').getCreationChannelName(channel_id);
+
+		return this.channel_search(channel_name, terms);
+	}
+
+	async adjacentSearch(channel_id, terms) {
+		const channel_name = await require('./raid').getCreationChannelName(channel_id),
+			adjacent_regions = this.region_graph[channel_name],
+			matching_region = adjacent_regions
+			.find(adjacent_region => {
+				return this.channel_search(adjacent_region, terms).length > 0;
+			});
+
+		if (matching_region) {
+			return {
+				'channel': matching_region,
+				'gyms': this.channel_search(matching_region, terms)
+			};
+		}
 	}
 
 	isValidChannel(channel_name) {
