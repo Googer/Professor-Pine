@@ -1,5 +1,7 @@
 "use strict";
 
+const lunr = require('lunr');
+
 class Search {
 	constructor() {
 		if (new.target === Search) {
@@ -9,17 +11,29 @@ class Search {
 		this.buildIndex();
 	}
 
-	static makeFuzzy(term) {
-		// Let's arbitrarily decide that every ~4.5 characters of length increases the amount
-		// of fuzziness by 1; in practice this seems about right to account for typos, etc.
+	static singleTermSearch(term, index) {
+		return index.query(query => {
+			query.term(term,
+				{
+					usePipeline: true,
+					boost: 100
+				});
 
-		term = term.substring(0, 15);
-
-		const fuzzyAmount = Math.floor(term.length / 4.5);
-
-		return fuzzyAmount > 0 ?
-			term + '~' + fuzzyAmount :
-			term;
+			if (term.includes(lunr.Query.wildcard)) {
+				// wildcard in term, disable stemming
+				query.term(term,
+					{
+						usePipeline: false,
+						boost: 10
+					});
+			}
+			query.term(term,
+				{
+					usePipeline: false,
+					boost: 1,
+					editDistance: Math.floor(term.length / 4.5)
+				});
+		});
 	}
 }
 

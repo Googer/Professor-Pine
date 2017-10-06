@@ -22,6 +22,7 @@ class Gym extends Search {
 			.map(gym => [gym.gymId, gym]));
 
 		this.region_map = require('PgP-Data/data/region-map');
+		this.region_graph = require('PgP-Data/data/region-graph');
 
 		// This index is only indexing against name, description, nickname, and additional terms
 		this.name_index = lunr(function () {
@@ -41,12 +42,12 @@ class Gym extends Search {
 				gym.gymName = he.decode(gym.gymName);
 				gym.gymInfo.gymDescription = he.decode(gym.gymInfo.gymDescription);
 
-				gymDocument['name'] = gym.gymName;
-				gymDocument['description'] = gym.gymInfo.gymDescription;
+				gymDocument['name'] = gym.gymName.replace(/[^\w\d\s]+/g, '');
+				gymDocument['description'] = gym.gymInfo.gymDescription.replace(/[^\w\d\s]+/g, '');
 
 				if (gym.nickname) {
 					gym.nickname = he.decode(gym.nickname);
-					gymDocument['nickname'] = gym.nickname;
+					gymDocument['nickname'] = gym.nickname.replace(/[^\w\d\s]+/g, '');
 				}
 
 				// merge in additional info from supplementary metadata file
@@ -102,12 +103,12 @@ class Gym extends Search {
 				}
 
 				// static fields
-				gymDocument['name'] = gym.gymName;
-				gymDocument['description'] = gym.gymInfo.gymDescription;
+				gymDocument['name'] = gym.gymName.replace(/[^\w\d\s]+/g, '');
+				gymDocument['description'] = gym.gymInfo.gymDescription.replace(/[^\w\d\s]+/g, '');
 
 				if (gym.nickname) {
 					gym.nickname = he.decode(gym.nickname);
-					gymDocument['nickname'] = gym.nickname;
+					gymDocument['nickname'] = gym.nickname.replace(/[^\w\d\s]+/g, '');
 				}
 
 				// Build a map of the geocoded information:
@@ -157,26 +158,22 @@ class Gym extends Search {
 		log.info('Indexing gym data complete');
 	}
 
-	static singleTermSearch(term, index) {
-		return index.search(Search.makeFuzzy(term));
-	}
-
-	async internal_search(channel_id, terms, index) {
+	internal_search(channel_name, terms, index) {
 		// lunr does an OR of its search terms and we really want AND, so we'll get there by doing individual searches
 		// on everything and getting the intersection of the hits
 
 		// first filter out stop words from the search terms; lunr does this itself so our hacky way of AND'ing will
 		// return nothing if they have any in their search terms list since they'll never match anything
 		const filtered_terms = terms
-			.map(term => term.replace(/^\W+/, '').replace(/\W+$/, ''))
+			.map(term => term.replace(/[^\w\d\s*]+/g, ''))
 			.map(term => term.toLowerCase())
 			.filter(term => lunr.stopWordFilter(term));
 
-		let results = Gym.singleTermSearch(filtered_terms[0], index)
+		let results = Search.singleTermSearch(filtered_terms[0], index)
 			.map(result => result.ref);
 
 		for (let i = 1; i < filtered_terms.length; i++) {
-			const termResults = Gym.singleTermSearch(filtered_terms[i], index)
+			const termResults = Search.singleTermSearch(filtered_terms[i], index)
 				.map(result => result.ref);
 
 			results = results.filter(result => {
@@ -189,8 +186,6 @@ class Gym extends Search {
 			}
 		}
 
-		const channel_name = await require('./raid').getCreationChannelName(channel_id);
-
 		// Now filter results based on what channel this request came from
 		return results
 			.map(result => JSON.parse(result))
@@ -199,16 +194,38 @@ class Gym extends Search {
 			});
 	}
 
-	async search(channel_id, terms) {
+	channel_search(channel_name, terms) {
 		// First try against name/nickname / description-only index
-		let results = await this.internal_search(channel_id, terms, this.name_index);
+		let results = this.internal_search(channel_name, terms, this.name_index);
 
 		if (results.length === 0) {
 			// That didn't return anything, so now try the geocoded data one
-			results = await this.internal_search(channel_id, terms, this.full_index);
+			results = this.internal_search(channel_name, terms, this.full_index);
 		}
 
-		return Promise.resolve(results);
+		return results;
+	}
+
+	async search(channel_id, terms) {
+		const channel_name = await require('./raid').getCreationChannelName(channel_id);
+
+		return this.channel_search(channel_name, terms);
+	}
+
+	async adjacentSearch(channel_id, terms) {
+		const channel_name = await require('./raid').getCreationChannelName(channel_id),
+			adjacent_regions = this.region_graph[channel_name],
+			matching_region = adjacent_regions
+			.find(adjacent_region => {
+				return this.channel_search(adjacent_region, terms).length > 0;
+			});
+
+		if (matching_region) {
+			return {
+				'channel': matching_region,
+				'gyms': this.channel_search(matching_region, terms)
+			};
+		}
 	}
 
 	isValidChannel(channel_name) {

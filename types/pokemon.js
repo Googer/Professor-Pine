@@ -14,7 +14,7 @@ class PokemonType extends Commando.ArgumentType {
 			'  Do **not** re-enter the `' + message.command.name + '` command.' :
 			'',
 
-			pokemon_to_lookup = value.match(/^(?:<:)?([A-Za-z]+)(?::\d+>)?$/);
+			pokemon_to_lookup = value.match(/^(?:<:)?([A-Za-z*]+)(?::\d+>)?$/);
 
 		if (!pokemon_to_lookup || !pokemon_to_lookup.length) {
 			const result = value.match(/^(?:(?:\w+)\s?)?([1-5])$/);
@@ -39,7 +39,7 @@ class PokemonType extends Commando.ArgumentType {
 	}
 
 	parse(value, message, arg) {
-		const pokemon_to_lookup = value.match(/^(?:<:)?([A-Za-z]+)(?::\d+>)?$/);
+		const pokemon_to_lookup = value.match(/^(?:<:)?([A-Za-z*]+)(?::\d+>)?$/);
 
 		if (!pokemon_to_lookup || !pokemon_to_lookup.length) {
 			const pokemon_level = value.match(/^(?:(?:\w+)\s?)?([1-5])$/);
