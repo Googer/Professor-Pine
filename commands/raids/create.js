@@ -73,7 +73,7 @@ class RaidCommand extends Commando.Command {
 		let raid,
 			responses = [];
 
-		Raid.createRaid(message.channel.id, message.member.id, pokemon, gym_id, TimeType.UNDEFINED_END_TIME)
+		Raid.createRaid(message.channel.id, message.member.id, pokemon, gym_id)
 			.then(async info => {
 				raid = info.raid;
 				const raid_channel_message = await Raid.getRaidChannelMessage(raid),

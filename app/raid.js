@@ -188,7 +188,7 @@ class Raid {
 		});
 	}
 
-	async createRaid(channel_id, member_id, pokemon, gym_id, time) {
+	async createRaid(channel_id, member_id, pokemon, gym_id, time = TimeType.UNDEFINED_END_TIME) {
 		const raid = Object.create(null);
 
 		// add some extra raid data to remember
