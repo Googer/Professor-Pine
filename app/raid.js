@@ -4,7 +4,7 @@ const log = require('loglevel').getLogger('Raid'),
 	moment = require('moment'),
 	settings = require('../data/settings'),
 	storage = require('node-persist'),
-	Constants = require('./constants'),
+	{RaidStatus} = require('./constants'),
 	Discord = require('discord.js'),
 	Helper = require('./helper'),
 	Gym = require('./gym'),
@@ -209,7 +209,7 @@ class Raid {
 		raid.gym_id = gym_id;
 
 		raid.attendees = Object.create(Object.prototype);
-		raid.attendees[member_id] = {number: 1, status: Constants.RaidStatus.INTERESTED};
+		raid.attendees[member_id] = {number: 1, status: RaidStatus.INTERESTED};
 
 		const source_channel = await this.getChannel(channel_id),
 			channel_name = Raid.generateChannelName(raid);
@@ -316,7 +316,7 @@ class Raid {
 	getAttendeeCount(raid) {
 		return Object.values(raid.attendees)
 		// complete attendees shouldn't count
-			.filter(attendee => attendee.status !== Constants.RaidStatus.COMPLETE)
+			.filter(attendee => attendee.status !== RaidStatus.COMPLETE)
 			.map(attendee => attendee.number)
 			.reduce((total, number) => total + number, 0);
 	}
@@ -379,7 +379,7 @@ class Raid {
 
 		return !!attendee ?
 			attendee.status :
-			Constants.RaidStatus.NOT_INTERESTED;
+			RaidStatus.NOT_INTERESTED;
 	}
 
 	setMemberStatus(channel_id, member_id, status, additional_attendees = NaturalArgumentType.UNDEFINED_NUMBER) {
@@ -411,7 +411,7 @@ class Raid {
 
 		if (!!member_id) {
 			// set member that issued this command to complete
-			this.setMemberStatus(channel_id, member_id, Constants.RaidStatus.COMPLETE);
+			this.setMemberStatus(channel_id, member_id, RaidStatus.COMPLETE);
 			this.refreshStatusMessages(raid)
 				.catch(err => log.error(err));
 		}
@@ -424,11 +424,11 @@ class Raid {
 				.map(async attendee_id => await this.getMember(channel_id, attendee_id)))
 				.catch(err => log.error(err)),
 			present_members = members
-				.filter(member => raid.attendees[member.id].status === Constants.RaidStatus.PRESENT);
+				.filter(member => raid.attendees[member.id].status === RaidStatus.PRESENT);
 
 		// put users to be questioned in complete-pending status
 		present_members.forEach(member => {
-			this.setMemberStatus(channel_id, member.id, Constants.RaidStatus.COMPLETE_PENDING);
+			this.setMemberStatus(channel_id, member.id, RaidStatus.COMPLETE_PENDING);
 		});
 
 		const timeout = settings.raid_complete_timeout,
@@ -468,7 +468,7 @@ class Raid {
 								response.react('👍')
 									.catch(err => log.error(err));
 
-								this.setMemberStatus(channel_id, message.channel.recipient.id, Constants.RaidStatus.COMPLETE);
+								this.setMemberStatus(channel_id, message.channel.recipient.id, RaidStatus.COMPLETE);
 
 								this.refreshStatusMessages(raid)
 									.catch(err => log.error(err));
@@ -476,16 +476,16 @@ class Raid {
 								response.react('👎')
 									.catch(err => log.error(err));
 
-								this.setMemberStatus(channel_id, message.channel.recipient.id, Constants.RaidStatus.PRESENT);
+								this.setMemberStatus(channel_id, message.channel.recipient.id, RaidStatus.PRESENT);
 							}
 
 							return true;
 						})
 						.catch(collected_responses => {
 							// check that user didn't already set their status to something else (via running another command during the collection period)
-							if (this.getMemberStatus(channel_id, message.channel.recipient.id) === Constants.RaidStatus.COMPLETE_PENDING) {
+							if (this.getMemberStatus(channel_id, message.channel.recipient.id) === RaidStatus.COMPLETE_PENDING) {
 								// set user status to complete
-								this.setMemberStatus(channel_id, message.channel.recipient.id, Constants.RaidStatus.COMPLETE);
+								this.setMemberStatus(channel_id, message.channel.recipient.id, RaidStatus.COMPLETE);
 
 								this.refreshStatusMessages(raid)
 									.catch(err => log.error(err));
@@ -732,14 +732,14 @@ class Raid {
 				}),
 
 			interested_attendees = sorted_attendees
-				.filter(attendee_entry => attendee_entry[1].status === Constants.RaidStatus.INTERESTED),
+				.filter(attendee_entry => attendee_entry[1].status === RaidStatus.INTERESTED),
 			coming_attendees = sorted_attendees
-				.filter(attendee_entry => attendee_entry[1].status === Constants.RaidStatus.COMING),
+				.filter(attendee_entry => attendee_entry[1].status === RaidStatus.COMING),
 			present_attendees = sorted_attendees
-				.filter(attendee_entry => attendee_entry[1].status === Constants.RaidStatus.PRESENT ||
-					attendee_entry[1].status === Constants.RaidStatus.COMPLETE_PENDING),
+				.filter(attendee_entry => attendee_entry[1].status === RaidStatus.PRESENT ||
+					attendee_entry[1].status === RaidStatus.COMPLETE_PENDING),
 			complete_attendees = sorted_attendees
-				.filter(attendee_entry => attendee_entry[1].status === Constants.RaidStatus.COMPLETE),
+				.filter(attendee_entry => attendee_entry[1].status === RaidStatus.COMPLETE),
 
 			attendees_builder = (attendees_list, emoji_name) => {
 				const emoji = Helper.getEmoji(emoji_name);

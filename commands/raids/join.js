@@ -2,7 +2,7 @@
 
 const log = require('loglevel').getLogger('JoinCommand'),
 	Commando = require('discord.js-commando'),
-	Constants = require('../../app/constants'),
+	{RaidStatus} = require('../../app/constants'),
 	Raid = require('../../app/raid'),
 	NaturalArgumentType = require('../../types/natural'),
 	Utility = require('../../app/utility');
@@ -41,7 +41,7 @@ class JoinCommand extends Commando.Command {
 
 	async run(message, args) {
 		const additional_attendees = args['additional_attendees'],
-			info = Raid.setMemberStatus(message.channel.id, message.member.id, Constants.RaidStatus.COMING, additional_attendees);
+			info = Raid.setMemberStatus(message.channel.id, message.member.id, RaidStatus.COMING, additional_attendees);
 
 		if (!info.error) {
 			message.react('👍')

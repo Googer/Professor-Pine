@@ -3,7 +3,6 @@
 const Commando = require('discord.js-commando'),
 	moment = require('moment'),
 	{TimeMode} = require('../app/constants'),
-	Utility = require('../app/utility'),
 	settings = require('../data/settings.json');
 
 class TimeType extends Commando.ArgumentType {
