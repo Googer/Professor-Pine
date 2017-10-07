@@ -14,7 +14,7 @@ class GymType extends Commando.ArgumentType {
 			const gyms = await Gym.search(message.channel.id, value.split(' '));
 
 			if (!gyms || gyms.length === 0) {
-				const adjacent_gyms = await Gym.adjacentSearch(message.channel.id, value.split(' '));
+				const adjacent_gyms = await Gym.adjacentRegionsSearch(message.channel.id, value.split(' '));
 
 				if (!adjacent_gyms) {
 					return `"${value}" returned no gyms.\n\nPlease try your search again, entering the text you want to search for.\n`;

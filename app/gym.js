@@ -158,7 +158,7 @@ class Gym extends Search {
 		log.info('Indexing gym data complete');
 	}
 
-	internal_search(channel_name, terms, index) {
+	internalSearch(channel_name, terms, index) {
 		// lunr does an OR of its search terms and we really want AND, so we'll get there by doing individual searches
 		// on everything and getting the intersection of the hits
 
@@ -194,13 +194,13 @@ class Gym extends Search {
 			});
 	}
 
-	channel_search(channel_name, terms) {
+	channelSearch(channel_name, terms) {
 		// First try against name/nickname / description-only index
-		let results = this.internal_search(channel_name, terms, this.name_index);
+		let results = this.internalSearch(channel_name, terms, this.name_index);
 
 		if (results.length === 0) {
 			// That didn't return anything, so now try the geocoded data one
-			results = this.internal_search(channel_name, terms, this.full_index);
+			results = this.internalSearch(channel_name, terms, this.full_index);
 		}
 
 		return results;
@@ -209,21 +209,21 @@ class Gym extends Search {
 	async search(channel_id, terms) {
 		const channel_name = await require('./raid').getCreationChannelName(channel_id);
 
-		return this.channel_search(channel_name, terms);
+		return this.channelSearch(channel_name, terms);
 	}
 
-	async adjacentSearch(channel_id, terms) {
+	async adjacentRegionsSearch(channel_id, terms) {
 		const channel_name = await require('./raid').getCreationChannelName(channel_id),
 			adjacent_regions = this.region_graph[channel_name],
 			matching_region = adjacent_regions
 			.find(adjacent_region => {
-				return this.channel_search(adjacent_region, terms).length > 0;
+				return this.channelSearch(adjacent_region, terms).length > 0;
 			});
 
 		if (matching_region) {
 			return {
 				'channel': matching_region,
-				'gyms': this.channel_search(matching_region, terms)
+				'gyms': this.channelSearch(matching_region, terms)
 			};
 		}
 	}

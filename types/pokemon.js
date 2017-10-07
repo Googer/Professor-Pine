@@ -20,7 +20,7 @@ class PokemonType extends Commando.ArgumentType {
 			return true;
 		}
 
-		const pokemon = Pokemon.search(pokemon_to_lookup[1]);
+		const pokemon = Pokemon.search(pokemon_to_lookup[1].toLowerCase());
 
 		if (!pokemon) {
 			return 'No pokémon found.  Please try your search again, entering the text you want to search for.\n';
@@ -47,7 +47,7 @@ class PokemonType extends Commando.ArgumentType {
 			}
 		}
 
-		return Pokemon.search(pokemon_to_lookup[1]);
+		return Pokemon.search(pokemon_to_lookup[1].toLowerCase());
 	}
 }
 
