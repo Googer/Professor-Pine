@@ -1,26 +1,37 @@
 "use strict";
 
-const path = require('path');
-const jimp = require('jimp');
-const tesseract = require('tesseract.js');
+const log = require('loglevel').getLogger('Raid'),
+	path = require('path'),
+	tesseract = require('tesseract.js'),
+	moment = require('moment'),
+	Helper = require('../app/helper'),
+	Jimp = require('Jimp'),
+	GymType = require('../types/gym'),
+	TimeType = require('../types/time'),
+	PokemonType = require('../types/pokemon'),
+	Raid = require('../app/raid');
 
+const debug = true;//function checkDebugFlag() { for (let arg of process.argv) { if (arg == '--debug') { return true } } return false; }();
 
 class ImageProcess {
 	constructor() {
 		this.image_path = '/../../processing/';
 	}
 
-	process(channel, url) {
-		url = path.join(__dirname, this.image_path, 'image20.png');
+	process(message, url) {
+		// easier test case
+		if (message.content == 'ping') {
+			url = path.join(__dirname, this.image_path, 'image19.png');
+		}
 
-		jimp.read(url).then((image) => {
+		Jimp.read(url).then((image) => {
 			if (!image) { return; }
 
 			// resize to some standard size to help tesseract
-			image.scaleToFit(1440, 2560, jimp.RESIZE_HERMITE);
+			image.scaleToFit(1440, 2560, Jimp.RESIZE_HERMITE);
 
 			// some phones are really wierd? and have way too much height to them, and need this check to push cropping around a bit
-			const check_phone_color = jimp.intToRGBA(image.getPixelColor(0, 85));
+			const check_phone_color = Jimp.intToRGBA(image.getPixelColor(0, 85));
 
 			// location of cropping / preprocessing for different pieces of information
 			let time_remaining_a = { x: image.bitmap.width - (image.bitmap.width / 3.4), y: image.bitmap.height - (image.bitmap.height / 2.2), width: image.bitmap.width / 4, height: image.bitmap.height / 12 };
@@ -48,7 +59,6 @@ class ImageProcess {
 							this.getRaidData(image, true).then(values => {
 								// add time remaining to list of values
 								values.push(time);
-								console.log(values);
 								resolve(values);
 							});
 						});
@@ -56,14 +66,13 @@ class ImageProcess {
 						this.getRaidData(image).then(values => {
 							// add time remaining to list of values
 							values.push(time);
-							console.log(values);
 							resolve(values);
 						});
 					}
 				});
 			});
 		}).then(values => {
-			this.createRaid(channel, values);
+			this.createRaid(message, values);
 		}).catch(err => console.log(err));
 	}
 
@@ -131,17 +140,17 @@ class ImageProcess {
 			let promises = [];
 
 			promises.push(new Promise((resolve, reject) => {
-				image.clone()
+				const new_image = image.clone()
 					.crop(region1.x, region1.y, region1.width, region1.height)
 					.scan(0, 0, region1.width, region1.height, this.blacken)
-					.write(dst1, (err, image) => {
+					.getBuffer(Jimp.MIME_PNG, (err, image) => {
 						if (err) { reject(err); }
 
-						tesseract.create().recognize(dst1)
+						tesseract.create().recognize(image)
 							// .progress(message => console.log(message))
 							.catch(err => reject(err))
 							.then(result => {
-								const match = result.text.match(/[0-9]{1,2}\:[0-9]{1,2}/g);
+								const match = result.text.replace(/[-!$%^&*()_+|~=`{}\[\]"“’‘;'<>?,.\/\\\n]/g, '').match(/[0-9]{1,2}\:[0-9]{1,2}\s?((a|p)m)?/gi);
 								if (match && match.length) {
 									resolve(match[0]);
 								} else {
@@ -149,20 +158,24 @@ class ImageProcess {
 								}
 							});
 					});
+
+				if (debug) {
+					new_image.write(dst1);
+				}
 			}));
 
 			promises.push(new Promise((resolve, reject) => {
-				image.clone()
+				const new_image = image.clone()
 					.crop(region2.x, region2.y, region2.width, region2.height)
 					.scan(0, 0, region2.width, region2.height, this.blacken)
-					.write(dst2, (err, image) => {
+					.getBuffer(Jimp.MIME_PNG, (err, image) => {
 						if (err) { reject(err); }
 
-						tesseract.create().recognize(dst2)
+						tesseract.create().recognize(image)
 							// .progress(message => console.log(message))
 							.catch(err => reject(err))
 							.then(result => {
-								const match = result.text.match(/[0-9]{1,2}\:[0-9]{1,2}/g);
+								const match = result.text.replace(/[-!$%^&*()_+|~=`{}\[\]"“’‘;'<>?,.\/\\\n]/g, '').match(/[0-9]{1,2}\:[0-9]{1,2}\s?((a|p)m)?/gi);
 								if (match && match.length) {
 									resolve(match[0]);
 								} else {
@@ -170,6 +183,10 @@ class ImageProcess {
 								}
 							});
 					});
+
+				if (debug) {
+					new_image.write(dst2);
+				}
 			}));
 
 			// pass along collected data once all promises have resolved
@@ -185,20 +202,24 @@ class ImageProcess {
 		const dst = path.join(__dirname, this.image_path, 'cropped2.png');
 
 		return new Promise((resolve, reject) => {
-			image.clone()
+			const new_image = image.clone()
 				.crop(region.x, region.y, region.width, region.height)
 				// .brightness(-0.1)
 				.scan(0, 0, region.width, region.height, this.blacken)
-				.write(dst, (err, image) => {
+				.getBuffer(Jimp.MIME_PNG, (err, image) => {
 					if (err) { reject(err); }
 
-					tesseract.create().recognize(dst)
+					tesseract.create().recognize(image)
 						// .progress(message => console.log(message))
 						.catch(err => reject(err))
 						.then(result => {
 							resolve(result.text.replace(/[-!$%^&*()_+|~=`{}\[\]:"“’‘;'<>?,.\/\\\n]/g, ' ').trim());
 						});
 				});
+
+			if (debug) {
+				new_image.write(dst);
+			}
 		});
 	}
 
@@ -206,21 +227,25 @@ class ImageProcess {
 		const dst = path.join(__dirname,  this.image_path, 'cropped3.png');
 
 		return new Promise((resolve, reject) => {
-			image.clone()
+			const new_image = image.clone()
 				.crop(region.x, region.y, region.width, region.height)
 				.blur(3)
 				.brightness(-0.2)
 				.scan(0, 0, region.width, region.height, this.blacken)
-				.write(dst, (err, image) => {
+				.getBuffer(Jimp.MIME_PNG, (err, image) => {
 					if (err) { reject(err); }
 
-					tesseract.create().recognize(dst)
+					tesseract.create().recognize(image)
 						// .progress(message => console.log(message))
 						.catch(err => reject(err))
 						.then(result => {
 							resolve(result.text.replace(/(CP|cp)?\s?[0-9]*/g, '').replace(/[-!$%^&*()_+|~=`{}\[\]:"“;'<>?,.\/\n\s]/g, ''));
 						});
 				});
+
+			if (debug) {
+				new_image.write(dst);
+			}
 		});
 	}
 
@@ -228,14 +253,14 @@ class ImageProcess {
 		const dst = path.join(__dirname,  this.image_path, 'cropped4.png');
 
 		return new Promise((resolve, reject) => {
-			image.clone()
+			const new_image = image.clone()
 				.crop(region.x, region.y, region.width, region.height)
 				.scan(0, 0, region.width, region.height, this.blacken2)
 				.blur(3)
-				.write(dst, (err, image) => {
+				.getBuffer(Jimp.MIME_PNG, (err, image) => {
 					if (err) { reject(err); }
 
-					tesseract.create().recognize(dst)
+					tesseract.create().recognize(image)
 						// .progress(message => console.log(message))
 						.catch(err => reject(err))
 						.then(result => {
@@ -248,6 +273,10 @@ class ImageProcess {
 							}
 						});
 				});
+
+			if (debug) {
+				new_image.write(dst);
+			}
 		});
 	}
 
@@ -255,13 +284,13 @@ class ImageProcess {
 		const dst = path.join(__dirname,  this.image_path, 'cropped5.png');
 
 		return new Promise((resolve, reject) => {
-			image.clone()
+			const new_image = image.clone()
 				.crop(region.x, region.y, region.width, region.height)
 				.scan(0, 0, region.width, region.height, this.blacken2)
-				.write(dst, (err, image) => {
+				.getBuffer(Jimp.MIME_PNG, (err, image) => {
 					if (err) { reject(err); }
 
-					tesseract.create().recognize(dst)
+					tesseract.create().recognize(image)
 						.catch(err => reject(err))
 						.then(result => {
 							const match = result.text.match(/[0-9]{1,2}\:[0-9]{1,2}\:[0-9]{1,2}/g);
@@ -272,6 +301,10 @@ class ImageProcess {
 							}
 						});
 				});
+
+			if (debug) {
+				new_image.write(dst);
+			}
 		});
 	}
 
@@ -308,33 +341,63 @@ class ImageProcess {
 		});
 	}
 
-	createRaid(channel, values) {
+	createRaid(message, values) {
 		console.log(values);
-		channel.send(values.join('\n'));
+		let gym = values[1];
+		let pokemon = values[2];
+		let time;
 
-		// Raid.createRaid(message.channel.id, message.member.id, pokemon, gym_id, time)
-		// 	.then(async info => {
-		// 		Utility.cleanConversation(message, true);
-		//
-		// 		raid = info.raid;
-		// 		const raid_channel_message = await Raid.getRaidChannelMessage(raid),
-		// 			formatted_message = await Raid.getFormattedMessage(raid);
-		// 		return message.channel.send(raid_channel_message, formatted_message);
-		// 	})
-		// 	.then(announcement_message => {
-		// 		return Raid.setAnnouncementMessage(raid.channel_id, announcement_message);
-		// 	})
-		// 	.then(async bot_message => {
-		// 		const raid_source_channel_message = await Raid.getRaidSourceChannelMessage(raid),
-		// 			formatted_message = await Raid.getFormattedMessage(raid);
-		// 		return Raid.getChannel(raid.channel_id)
-		// 			.then(channel => channel.send(raid_source_channel_message, formatted_message))
-		// 			.catch(err => log.error(err));
-		// 	})
-		// 	.then(channel_raid_message => {
-		// 		Raid.addMessage(raid.channel_id, channel_raid_message, true);
-		// 	})
-		// 	.catch(err => log.error(err))
+		// if AM or PM already exists in time, use time as is
+		if (values[0].search(/(a|p)m/gi) >= 0) {
+			time = moment(values[0], 'hh:mma');
+		} else {
+			// else figure out if time should be AM or PM
+			const time_am = moment(values[0] + 'am', 'hh:mma');
+			const time_pm = moment(values[0] + 'pm', 'hh:mma');
+			const times = [ time_am.diff(moment()), time_pm.diff(moment()) ]
+			if (times[0] < times[1]) {
+				time = time_am;
+			} else {
+				time = time_pm;
+			}
+		}
+
+		pokemon = (new PokemonType(Helper.client)).parse(pokemon, { message, client: Helper.client });
+		time = (new TimeType(Helper.client)).parse(time.format('hh:mma'), { message, client: Helper.client, argString: '' });
+		gym = (new GymType(Helper.client)).parse(gym, message).then(gym => {
+			console.log(gym, pokemon, time);
+
+			if (values[0].length && values[1].length && values[2].length && values[3].length) {
+				let raid;
+
+				Raid.createRaid(message.channel.id, message.member.id, pokemon, gym, time)
+					.then(async info => {
+						raid = info.raid;
+						const raid_channel_message = await Raid.getRaidChannelMessage(raid),
+						formatted_message = await Raid.getFormattedMessage(raid);
+
+						// TODO: move screenshot into newly created channel if all 3 pieces of information are not found
+
+						return message.channel.send(raid_channel_message, formatted_message);
+					})
+					.then(announcement_message => {
+						return Raid.setAnnouncementMessage(raid.channel_id, announcement_message);
+					})
+					.then(async bot_message => {
+						const raid_source_channel_message = await Raid.getRaidSourceChannelMessage(raid),
+						formatted_message = await Raid.getFormattedMessage(raid);
+						return Raid.getChannel(raid.channel_id)
+							.then(channel => channel.send(raid_source_channel_message, formatted_message))
+							.catch(err => log.error(err));
+					})
+					.then(channel_raid_message => {
+						Raid.addMessage(raid.channel_id, channel_raid_message, true);
+					})
+					.catch(err => log.error(err))
+			} else {
+				channel.send(values.join('\n'));
+			}
+		});
 	}
 }
 

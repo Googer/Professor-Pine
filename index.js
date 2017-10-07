@@ -100,11 +100,11 @@ Client.on('message', message => {
 
 	// attempt to process image if it exists
 	if (message.attachments.size && message.attachments.first().url.search(/jpg|jpeg|png/)) {
-		ImageProcess.process(message.channel, message.attachments.first().url);
+		ImageProcess.process(message, message.attachments.first().url);
 	}
 
 	if (message.content == 'ping') {
-		ImageProcess.process(message.channel);
+		ImageProcess.process(message);
 	}
 });
 
