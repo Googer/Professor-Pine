@@ -151,17 +151,11 @@ class TimeType extends Commando.ArgumentType {
 	}
 
 	isExclusiveRaid(value, message, arg) {
-		const Raid = require('../app/raid'),
-			raid_exists = Raid.validRaid(message.channel.id);
-
-		if (raid_exists) {
-			return Raid.isExclusive(message.channel.id);
-		} else {
-			const Pokemon = require('../app/pokemon'),
-				pokemon = Pokemon.search(message.argString.trim().split(' ')[0]);
-
-			return !!pokemon && !!pokemon.exclusive;
-		}
+		// first check is message has is_exclusive set - the create command embeds it in the
+		// CommandMessage for the sole purpose of checking it here from outside the raid channel
+		return !!message.is_exclusive ?
+			message.is_exclusive :
+			require('../app/raid').isExclusive(message.channel.id);
 	}
 
 	static generateTimes(possible_date) {
