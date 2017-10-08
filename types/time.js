@@ -153,7 +153,7 @@ class TimeType extends Commando.ArgumentType {
 	isExclusiveRaid(value, message, arg) {
 		// first check is message has is_exclusive set - the create command embeds it in the
 		// CommandMessage for the sole purpose of checking it here from outside the raid channel
-		return !!message.is_exclusive ?
+		return message.is_exclusive !== undefined ?
 			message.is_exclusive :
 			require('../app/raid').isExclusive(message.channel.id);
 	}
