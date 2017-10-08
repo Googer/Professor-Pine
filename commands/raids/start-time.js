@@ -14,12 +14,12 @@ class StartTimeCommand extends Commando.Command {
 			aliases: ['start-time', 'starts'],
 			description: 'Sets the planned starting time for an existing raid.',
 			details: 'Use this command to set when a raid group intends to do the raid.  If possible, try to set times 20 minutes out and always try to arrive at least 5 minutes before the start time being set.',
-			examples: ['\t!start-time 2:20pm'],
+			examples: ['\t!start 2:20pm'],
 			args: [
 				{
 					key: 'start-time',
 					label: 'start time',
-					prompt: 'What time do you wish to begin this raid?\nExamples: `8:43`, `2:20pm`',
+					prompt: 'When do you wish to begin this raid?\nExamples: `8:43`, `2:20pm`\n\n*or*\n\nIn how long do you wish to begin this raid?\nExample: `15`\n',
 					type: 'time'
 				}
 			],

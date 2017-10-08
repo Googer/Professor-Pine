@@ -34,15 +34,16 @@ class IAmNotCommand extends Commando.Command {
 	}
 
 	run(message, args) {
-		Role.removeRole(message.channel, message.member, args).then(() => {
-			message.react('👍');
-		}).catch((err) => {
-			if (err && err.error) {
-				message.reply(err.error);
-			} else {
-				log.error(err);
-			}
-		});
+		Role.removeRole(message.channel, message.member, args)
+			.then(() => message.react('👍'))
+			.catch(err => {
+				if (err && err.error) {
+					message.reply(err.error)
+						.catch(err => log.error(err));
+				} else {
+					log.error(err);
+				}
+			});
 	}
 }
 

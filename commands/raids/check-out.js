@@ -2,7 +2,7 @@
 
 const log = require('loglevel').getLogger('CheckOutCommand'),
 	Commando = require('discord.js-commando'),
-	Constants = require('../../app/constants'),
+	{RaidStatus} = require('../../app/constants'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
 
@@ -15,7 +15,7 @@ class CheckOutCommand extends Commando.Command {
 			aliases: ['check-out', 'depart'],
 			description: 'Lets others know you have gone to the wrong location for an existing raid.',
 			details: 'Use this command in case you thought you were at the right location, but were not.',
-			examples: ['\t!check-out', '\t!checkout'],
+			examples: ['\t!not-here', '\t!checkout'],
 			guildOnly: true
 		});
 
@@ -29,7 +29,7 @@ class CheckOutCommand extends Commando.Command {
 	}
 
 	async run(message, args) {
-		const info = Raid.setMemberStatus(message.channel.id, message.member.id, Constants.RaidStatus.INTERESTED);
+		const info = Raid.setMemberStatus(message.channel.id, message.member.id, RaidStatus.INTERESTED);
 
 		if (!info.error) {
 			message.react('👍')

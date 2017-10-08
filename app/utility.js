@@ -6,10 +6,6 @@ class Utility {
 	constructor() {
 	}
 
-	static isOneLiner(message) {
-		return message.message.content.startsWith(message.client.options.commandPrefix);
-	}
-
 	static async cleanConversation(initial_message, delete_original = false) {
 		const channel = initial_message.channel,
 			author = initial_message.author,

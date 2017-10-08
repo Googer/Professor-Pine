@@ -17,7 +17,7 @@ class Pokemon extends Search {
 			this.field('name');
 			this.field('nickname');
 
-			const pokemon_data = require('./../data/pokemon');
+			const pokemon_data = require('../data/pokemon');
 
 			this.pokemon = new Map(pokemon_data
 				.map(pokemon => [pokemon.number, pokemon]));
@@ -37,7 +37,7 @@ class Pokemon extends Search {
 	}
 
 	search(term) {
-		const lunr_results = this.index.search(Search.makeFuzzy(term))
+		const lunr_results = Search.singleTermSearch(term, this.index)
 			.map(result => JSON.parse(result.ref));
 
 		if (lunr_results.length > 0) {

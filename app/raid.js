@@ -4,7 +4,7 @@ const log = require('loglevel').getLogger('Raid'),
 	moment = require('moment'),
 	settings = require('../data/settings'),
 	storage = require('node-persist'),
-	Constants = require('./constants'),
+	{RaidStatus} = require('./constants'),
 	Discord = require('discord.js'),
 	Helper = require('./helper'),
 	Gym = require('./gym'),
@@ -30,9 +30,6 @@ class Raid {
 
 		this.active_raid_storage
 			.forEach((channel_id, raid) => this.raids[channel_id] = raid);
-
-		// cache of emoji ids, populated on client login
-		this.emojis = Object.create(null);
 
 		let last_interval_time = moment().valueOf();
 
@@ -89,47 +86,7 @@ class Raid {
 					}
 					if (raid.deletion_time) {
 						if (now > raid.deletion_time) {
-							let deletion_promise;
-
-							// actually delete the channel and announcement message
-							if (raid.announcement_message) {
-								deletion_promise = this.getMessage(raid.announcement_message)
-									.then(message => message.delete());
-							} else {
-								deletion_promise = Promise.resolve(true);
-							}
-
-							deletion_promise.then(result => {
-								this.getChannel(channel_id)
-									.then(channel => channel.delete())
-									.then(channel => {
-										// delete messages from raid object before moving to completed raid
-										// storage as they're no longer needed
-										delete raid.announcement_message;
-										delete raid.messages;
-
-										delete raid.messages_since_deletion_scheduled;
-
-										this.completed_raid_storage.getItem(raid.gym_id.toString())
-											.then(gym_raids => {
-												if (!gym_raids) {
-													gym_raids = [];
-												}
-												gym_raids.push(raid);
-												try {
-													this.completed_raid_storage.setItemSync(raid.gym_id.toString(), gym_raids)
-												} catch (err) {
-													log.error(err);
-												}
-												return true;
-											})
-											.then(result => this.active_raid_storage.removeItemSync(channel_id))
-											.catch(err => log.error(err));
-
-										delete this.raids[channel_id];
-									})
-									.catch(err => log.error(err));
-							});
+							this.deleteRaid(channel_id);
 						}
 					}
 
@@ -146,7 +103,7 @@ class Raid {
 			return Promise.resolve(member);
 		}
 
-		log.warn(`Removing non-existent member ${member_id} from raid`);
+		log.warn(`Removing nonexistent member ${member_id} from raid`);
 		this.removeAttendee(channel_id, member_id);
 
 		throw new Error(`Member ${member_id} does not exist!`);
@@ -164,16 +121,7 @@ class Raid {
 			if (this.validRaid(channel_id)) {
 				log.warn(`Deleting raid for nonexistent channel ${channel_id}`);
 
-				const announcement_message = this.getRaid(channel_id).announcement_message;
-
-				if (!!announcement_message) {
-					this.getMessage(announcement_message)
-						.then(message => message.delete())
-						.catch(err => log.error(err));
-				}
-
-				this.active_raid_storage.removeItemSync(channel_id);
-				delete this.raids[channel_id];
+				this.deleteRaid(channel_id);
 			}
 
 			return Promise.reject(new Error('Channel does not exist'));
@@ -192,7 +140,7 @@ class Raid {
 				const raid = this.getRaid(channel_id);
 
 				if (!!raid) {
-					log.warn(`Deleting non-existent message ${message_id} from raid ${channel_id}`);
+					log.warn(`Deleting nonexistent message ${message_id} from raid ${channel_id}`);
 					raid.messages.splice(raid.messages.indexOf(message_cache_id), 1);
 
 					this.persistRaid(raid);
@@ -202,7 +150,7 @@ class Raid {
 					Object.values(this.raids)
 						.filter(raid => raid.announcement_message === message_cache_id)
 						.forEach(raid => {
-							log.warn(`Deleting non-existent announcement_message ${message_id} from raid ${raid.channel_id}`);
+							log.warn(`Deleting nonexistent announcement message ${message_id} from raid ${raid.channel_id}`);
 							delete raid.announcement_message;
 
 							this.persistRaid(raid);
@@ -228,17 +176,6 @@ class Raid {
 	setClient(client) {
 		this.client = client;
 
-		const
-			emojis = new Map(this.client.emojis.map(emoji => [emoji.name.toLowerCase(), emoji.toString()]));
-
-		this.emojis.mystic = emojis.get('mystic') || '';
-		this.emojis.valor = emojis.get('valor') || '';
-		this.emojis.instinct = emojis.get('instinct') || '';
-
-		client.emojis.forEach(emoji => {
-			this.emojis[emoji.name.toLowerCase()] = emoji.toString();
-		});
-
 		client.on('message', message => {
 			if (message.author.id !== client.user.id) {
 				// if this is a raid channel that's scheduled for deletion, trigger deletion warning message
@@ -249,29 +186,9 @@ class Raid {
 				}
 			}
 		});
-
-		client.on('emojiCreate', emoji => {
-			// add new emoji to emojis cache
-			this.emojis[emoji.name.toLowerCase()] = emoji.toString();
-		});
-
-		client.on('emojiDelete', emoji => {
-			// delete emoji from emojis cache
-			delete this.emojis[emoji.name.toLowerCase()];
-		});
-
-		client.on('emojiUpdate', (old_emoji, new_emoji) => {
-			// delete old emoji from emojis cache and add new one to it
-			delete this.emojis[old_emoji.name.toLowerCase()];
-			this.emojis[new_emoji.name.toLowerCase()] = new_emoji.toString();
-		});
 	}
 
-	getEmoji(emoji_name) {
-		return this.emojis[emoji_name.toLowerCase()] || '';
-	}
-
-	async createRaid(channel_id, member_id, pokemon, gym_id, time) {
+	async createRaid(channel_id, member_id, pokemon, gym_id, time = TimeType.UNDEFINED_END_TIME) {
 		const raid = Object.create(null);
 
 		// add some extra raid data to remember
@@ -292,21 +209,22 @@ class Raid {
 		raid.gym_id = gym_id;
 
 		raid.attendees = Object.create(Object.prototype);
-		raid.attendees[member_id] = {number: 1, status: Constants.RaidStatus.INTERESTED};
+		raid.attendees[member_id] = {number: 1, status: RaidStatus.INTERESTED};
 
 		const source_channel = await this.getChannel(channel_id),
 			channel_name = Raid.generateChannelName(raid);
 
 		let new_channel_id;
 
-		return source_channel.guild.createChannel(channel_name, 'text', {overwrites: source_channel.permissionOverwrites})
-			.then(new_channel => {
-				this.raids[new_channel.id] = raid;
-				raid.channel_id = new_channel.id;
-				return new_channel.setParent(source_channel.parent, {lockPermissions: false});
-			})
+		return source_channel.guild.createChannel(channel_name, 'text', {
+			parent: source_channel.parent,
+			overwrites: source_channel.permissionOverwrites
+		})
 			.then(new_channel => {
 				new_channel_id = new_channel.id;
+
+				this.raids[new_channel.id] = raid;
+				raid.channel_id = new_channel.id;
 
 				// move channel to end
 				return new_channel.guild.setChannelPositions([{
@@ -317,7 +235,7 @@ class Raid {
 			.then(guild => {
 				if (raid.is_exclusive && time !== TimeType.UNDEFINED_END_TIME) {
 					this.setRaidStartTime(new_channel_id, time);
-        		} else {
+				} else {
 					if (time === TimeType.UNDEFINED_END_TIME) {
 						raid.end_time = TimeType.UNDEFINED_END_TIME;
 						this.persistRaid(raid);
@@ -328,6 +246,58 @@ class Raid {
 
 				return {raid: raid};
 			});
+	}
+
+	deleteRaid(channel_id) {
+		const raid = this.getRaid(channel_id);
+
+		let deletion_promise;
+
+		// actually delete the channel and announcement message
+		if (raid.announcement_message) {
+			deletion_promise = this.getMessage(raid.announcement_message)
+				.then(message => message.delete())
+				.catch(err => log.error(err));
+		} else {
+			deletion_promise = Promise.resolve(true);
+		}
+
+		deletion_promise.then(result => {
+			this.getChannel(channel_id)
+				.then(channel => channel.delete())
+				.then(channel => {
+					// delete messages from raid object before moving to completed raid
+					// storage as they're no longer needed
+					delete raid.announcement_message;
+					delete raid.messages;
+
+					delete raid.messages_since_deletion_scheduled;
+
+					this.completed_raid_storage.getItem(raid.gym_id.toString())
+						.then(gym_raids => {
+							if (!gym_raids) {
+								gym_raids = [];
+							}
+							gym_raids.push(raid);
+							try {
+								this.completed_raid_storage.setItemSync(raid.gym_id.toString(), gym_raids)
+							} catch (err) {
+								log.error(err);
+							}
+							return true;
+						})
+						.then(result => this.active_raid_storage.removeItemSync(channel_id))
+						.catch(err => log.error(err));
+
+					delete this.raids[channel_id];
+				})
+				.catch(err => {
+					log.error(err);
+
+					this.active_raid_storage.removeItemSync(channel_id);
+					delete this.raids[channel_id];
+				});
+		});
 	}
 
 	validRaid(channel_id) {
@@ -346,7 +316,7 @@ class Raid {
 	getAttendeeCount(raid) {
 		return Object.values(raid.attendees)
 		// complete attendees shouldn't count
-			.filter(attendee => attendee.status !== Constants.RaidStatus.COMPLETE)
+			.filter(attendee => attendee.status !== RaidStatus.COMPLETE)
 			.map(attendee => attendee.number)
 			.reduce((total, number) => total + number, 0);
 	}
@@ -409,7 +379,7 @@ class Raid {
 
 		return !!attendee ?
 			attendee.status :
-			Constants.RaidStatus.NOT_INTERESTED;
+			RaidStatus.NOT_INTERESTED;
 	}
 
 	setMemberStatus(channel_id, member_id, status, additional_attendees = NaturalArgumentType.UNDEFINED_NUMBER) {
@@ -441,7 +411,7 @@ class Raid {
 
 		if (!!member_id) {
 			// set member that issued this command to complete
-			this.setMemberStatus(channel_id, member_id, Constants.RaidStatus.COMPLETE);
+			this.setMemberStatus(channel_id, member_id, RaidStatus.COMPLETE);
 			this.refreshStatusMessages(raid)
 				.catch(err => log.error(err));
 		}
@@ -454,25 +424,25 @@ class Raid {
 				.map(async attendee_id => await this.getMember(channel_id, attendee_id)))
 				.catch(err => log.error(err)),
 			present_members = members
-				.filter(member => raid.attendees[member.id].status === Constants.RaidStatus.PRESENT);
+				.filter(member => raid.attendees[member.id].status === RaidStatus.PRESENT);
 
 		// put users to be questioned in complete-pending status
 		present_members.forEach(member => {
-			this.setMemberStatus(channel_id, member.id, Constants.RaidStatus.COMPLETE_PENDING);
+			this.setMemberStatus(channel_id, member.id, RaidStatus.COMPLETE_PENDING);
 		});
 
 		const timeout = settings.raid_complete_timeout,
 			questions = present_members
-			.map(member => member
-				.send(`Have you completed raid ${channel.toString()}?  Answer no within ${timeout} minutes to indicate you haven't; otherwise it will be assumed you have!`)
-				.catch(err => log.error(err)));
+				.map(member => member
+					.send(`Have you completed raid ${channel.toString()}?  Answer **no** within ${timeout} minutes to indicate you haven't; otherwise it will be assumed you have!`)
+					.catch(err => log.error(err)));
 
 		questions.forEach(async question =>
 			question
 				.then(message => {
 					message.channel.awaitMessages(
 						response => response.client.user.id !== response.author.id, {
-							maxMatches: 1,
+							max: 1,
 							time: timeout * 60 * 1000,
 							errors: ['time']
 						})
@@ -498,7 +468,7 @@ class Raid {
 								response.react('👍')
 									.catch(err => log.error(err));
 
-								this.setMemberStatus(channel_id, message.channel.recipient.id, Constants.RaidStatus.COMPLETE);
+								this.setMemberStatus(channel_id, message.channel.recipient.id, RaidStatus.COMPLETE);
 
 								this.refreshStatusMessages(raid)
 									.catch(err => log.error(err));
@@ -506,16 +476,16 @@ class Raid {
 								response.react('👎')
 									.catch(err => log.error(err));
 
-								this.setMemberStatus(channel_id, message.channel.recipient.id, Constants.RaidStatus.PRESENT);
+								this.setMemberStatus(channel_id, message.channel.recipient.id, RaidStatus.PRESENT);
 							}
 
 							return true;
 						})
 						.catch(collected_responses => {
 							// check that user didn't already set their status to something else (via running another command during the collection period)
-							if (this.getMemberStatus(channel_id, message.channel.recipient.id) === Constants.RaidStatus.COMPLETE_PENDING) {
+							if (this.getMemberStatus(channel_id, message.channel.recipient.id) === RaidStatus.COMPLETE_PENDING) {
 								// set user status to complete
-								this.setMemberStatus(channel_id, message.channel.recipient.id, Constants.RaidStatus.COMPLETE);
+								this.setMemberStatus(channel_id, message.channel.recipient.id, RaidStatus.COMPLETE);
 
 								this.refreshStatusMessages(raid)
 									.catch(err => log.error(err));
@@ -552,6 +522,11 @@ class Raid {
 		const raid = this.getRaid(channel_id);
 
 		raid.start_time = start_time;
+
+		// delete start clear time if there is one
+		if (raid.start_clear_time) {
+			delete raid.start_clear_time;
+		}
 
 		this.persistRaid(raid);
 
@@ -676,7 +651,7 @@ class Raid {
 			const time_until_deletion = moment(raid.deletion_time).fromNow();
 
 			this.getChannel(raid.channel_id)
-				.then(channel => channel.send(`**WARNING** - this channel will be deleted automatically ${time_until_deletion}!`))
+				.then(channel => channel.send(`**WARNING**: This channel will self-destruct ${time_until_deletion}!`))
 				.catch(err => log.error(err));
 		}
 	}
@@ -757,16 +732,18 @@ class Raid {
 				}),
 
 			interested_attendees = sorted_attendees
-				.filter(attendee_entry => attendee_entry[1].status === Constants.RaidStatus.INTERESTED),
+				.filter(attendee_entry => attendee_entry[1].status === RaidStatus.INTERESTED),
 			coming_attendees = sorted_attendees
-				.filter(attendee_entry => attendee_entry[1].status === Constants.RaidStatus.COMING),
+				.filter(attendee_entry => attendee_entry[1].status === RaidStatus.COMING),
 			present_attendees = sorted_attendees
-				.filter(attendee_entry => attendee_entry[1].status === Constants.RaidStatus.PRESENT ||
-					attendee_entry[1].status === Constants.RaidStatus.COMPLETE_PENDING),
+				.filter(attendee_entry => attendee_entry[1].status === RaidStatus.PRESENT ||
+					attendee_entry[1].status === RaidStatus.COMPLETE_PENDING),
 			complete_attendees = sorted_attendees
-				.filter(attendee_entry => attendee_entry[1].status === Constants.RaidStatus.COMPLETE),
+				.filter(attendee_entry => attendee_entry[1].status === RaidStatus.COMPLETE),
 
-			attendees_builder = (attendees_list, emoji) => {
+			attendees_builder = (attendees_list, emoji_name) => {
+				const emoji = Helper.getEmoji(emoji_name);
+
 				let result = '';
 
 				attendees_list.forEach(([member, attendee]) => {
@@ -788,11 +765,11 @@ class Raid {
 					// add role emoji indicators if role exists
 					const roles = Helper.guild.get(member.guild.id).roles;
 					if (roles.has('mystic') && member.roles.has(roles.get('mystic').id)) {
-						result += ' ' + this.getEmoji('mystic');
+						result += ' ' + Helper.getEmoji('mystic');
 					} else if (roles.has('valor') && member.roles.has(roles.get('valor').id)) {
-						result += ' ' + this.getEmoji('valor');
+						result += ' ' + Helper.getEmoji('valor');
 					} else if (roles.has('instinct') && member.roles.has(roles.get('instinct').id)) {
-						result += ' ' + this.getEmoji('instinct');
+						result += ' ' + Helper.getEmoji('instinct');
 					}
 
 					result += '\n';
@@ -815,11 +792,12 @@ class Raid {
 						}
 
 						// add role emoji indicators if role exists
-						if (this.roles.mystic && member.roles.has(this.roles.mystic.id)) {
+						const roles = Helper.guild.get(member.guild.id).roles;
+						if (roles.has('mystic') && member.roles.has(roles.get('mystic').id)) {
 							result += ' ❄';
-						} else if (this.roles.valor && member.roles.has(this.roles.valor.id)) {
+						} else if (roles.has('valor') && member.roles.has(roles.get('valor').id)) {
 							result += ' 🔥';
-						} else if (this.roles.instinct && member.roles.has(this.roles.instinct.id)) {
+						} else if (roles.has('instinct') && member.roles.has(roles.get('instinct').id)) {
 							result += ' ⚡';
 						}
 
@@ -852,16 +830,16 @@ class Raid {
 			embed.addField('__Possible Trainers__', total_attendees.toString());
 		}
 		if (interested_attendees.length > 0) {
-			embed.addField('Interested', attendees_builder(interested_attendees, this.getEmoji('pokeball')), true);
+			embed.addField('Interested', attendees_builder(interested_attendees, 'pokeball'), true);
 		}
 		if (coming_attendees.length > 0) {
-			embed.addField('Coming', attendees_builder(coming_attendees, this.getEmoji('greatball')), true);
+			embed.addField('Coming', attendees_builder(coming_attendees, 'greatball'), true);
 		}
 		if (present_attendees.length > 0) {
-			embed.addField('Present', attendees_builder(present_attendees, this.getEmoji('ultraball')), true);
+			embed.addField('Present', attendees_builder(present_attendees, 'ultraball'), true);
 		}
 		if (complete_attendees.length > 0) {
-			embed.addField('Complete', attendees_builder(complete_attendees, this.getEmoji('premierball')), true);
+			embed.addField('Complete', attendees_builder(complete_attendees, 'premierball'), true);
 		}
 
 		if (!!raid.hatch_time) {

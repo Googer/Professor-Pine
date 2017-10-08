@@ -4,7 +4,7 @@ const log = require('loglevel').getLogger('CheckInCommand'),
 	Commando = require('discord.js-commando'),
 	NaturalArgumentType = require('../../types/natural'),
 	Raid = require('../../app/raid'),
-	Constants = require('../../app/constants'),
+	{RaidStatus} = require('../../app/constants'),
 	Utility = require('../../app/utility');
 
 class CheckInCommand extends Commando.Command {
@@ -14,14 +14,14 @@ class CheckInCommand extends Commando.Command {
 			group: 'basic-raid',
 			memberName: 'here',
 			aliases: ['arrive', 'arrived', 'present', 'check-in'],
-			description: 'Lets others know you have arrived at an existing raid.',
+			description: 'Lets others know you have arrived at an active raid.',
 			details: 'Use this command to tell everyone you are at the raid location and to ensure that no one is left behind.',
-			examples: ['\t!check-in +1', '\t!arrived', '\t!present'],
+			examples: ['\t!here +1', '\t!arrived', '\t!present'],
 			args: [
 				{
 					key: 'additional_attendees',
 					label: 'additional attendees',
-					prompt: 'How many additional people are here with you?\nExample: `1`',
+					prompt: 'How many additional people are here with you?\nExample: `+1`\n\n*or*\n\nHow many people are here (including yourself)?\nExample: `2`\n',
 					type: 'natural',
 					default: NaturalArgumentType.UNDEFINED_NUMBER
 				}
@@ -41,7 +41,7 @@ class CheckInCommand extends Commando.Command {
 
 	async run(message, args) {
 		const additional_attendees = args['additional_attendees'],
-			info = Raid.setMemberStatus(message.channel.id, message.member.id, Constants.RaidStatus.PRESENT, additional_attendees);
+			info = Raid.setMemberStatus(message.channel.id, message.member.id, RaidStatus.PRESENT, additional_attendees);
 
 		message.react('👍')
 			.catch(err => log.error(err));

@@ -11,15 +11,15 @@ class TimeRemainingCommand extends Commando.Command {
 			name: 'left',
 			group: 'raid-crud',
 			memberName: 'left',
-			aliases: ['time-left', 'time-remaining', 'remaining', 'time-remain', 'remain'],
+			aliases: ['time-left', 'time-remaining', 'remaining', 'time-remain', 'remain', 'end-time', 'end'],
 			description: 'Sets the time an existing raid remains (also works to set hatch time for an egg).',
 			details: 'Use this command to set remaining time on a raid timer (if it has not yet begun), or to set its remaining time if it has.',
-			examples: ['\t!time-left 1:45', '\t!remain 50'],
+			examples: ['\t!left 1:45', '\t!remain 50'],
 			args: [
 				{
 					key: 'time-left',
 					label: 'time left',
-					prompt: 'How much time is remaining until the raid begins (if it has not yet begun) or ends (if it has)? (use h:mm or mm format)?\nExample: `1:43`',
+					prompt: 'How much time is remaining until the raid ends (if it is an active raid) or hatches (if it is currently an unhatched egg)?\nExample: `1:43`\n\n*or*\n\nWhen does this raid end or hatch?\nExample: `6:12`\n',
 					type: 'time'
 				}
 			],
@@ -30,7 +30,7 @@ class TimeRemainingCommand extends Commando.Command {
 		client.dispatcher.addInhibitor(message => {
 			if (!!message.command && message.command.name === 'left' &&
 				!Raid.validRaid(message.channel.id)) {
-				return ['invalid-channel', message.reply('Set the end time for a raid from its raid channel!')];
+				return ['invalid-channel', message.reply('Set the time remaining for a raid from its raid channel!')];
 			}
 			return false;
 		});

@@ -3,7 +3,6 @@
 const Commando = require('discord.js-commando'),
 	moment = require('moment'),
 	{TimeMode} = require('../app/constants'),
-	Utility = require('../app/utility'),
 	settings = require('../data/settings.json');
 
 class TimeType extends Commando.ArgumentType {
@@ -12,15 +11,12 @@ class TimeType extends Commando.ArgumentType {
 	}
 
 	validate(value, message, arg) {
-		const extra_error_message = Utility.isOneLiner(message) ?
-			'  Do **not** re-enter the `' + message.command.name + '` command.' :
-			'',
-			Raid = require('../app/raid'),
+		const Raid = require('../app/raid'),
 			is_ex_raid = this.isExclusiveRaid(value, message, arg),
-			raid_exists = Raid.validRaid(message.message.channel.id),
+			raid_exists = Raid.validRaid(message.channel.id),
 			now = moment(),
 			raid_creation_time = raid_exists ?
-				moment(Raid.getRaid(message.message.channel.id).creation_time) :
+				moment(Raid.getRaid(message.channel.id).creation_time) :
 				now,
 			hatched_duration = is_ex_raid ?
 				settings.exclusive_raid_hatched_duration :
@@ -45,12 +41,25 @@ class TimeType extends Commando.ArgumentType {
 			let duration;
 
 			if (value_to_parse.indexOf(':') === -1) {
-				duration = moment.duration(value_to_parse, 'minutes');
+				duration = moment.duration(Number.parseInt(value_to_parse), 'minutes');
 			} else {
-				duration = moment.duration(value_to_parse);
+				const any_duration = value_to_parse.split(':')
+					.map(part => Number.parseInt(part))
+					.find(number => number !== 0) !== undefined;
+
+				if (any_duration) {
+					duration = moment.duration(value_to_parse);
+
+					if (duration.isValid() && duration.asMilliseconds() === 0) {
+						// set to invalid duration
+						duration = moment.duration.invalid();
+					}
+				} else {
+					duration = moment.duration(0);
+				}
 			}
 
-			if (duration.isValid() && duration.asMinutes() < hatched_duration) {
+			if (moment.isDuration(duration) && duration.isValid() && duration.asMinutes() < hatched_duration) {
 				possible_times.push(now.clone().add(duration));
 			}
 		}
@@ -64,7 +73,7 @@ class TimeType extends Commando.ArgumentType {
 		}
 
 		if (possible_times.length === 0) {
-			return `\`${value}\` is not a valid duration or time!${extra_error_message}`;
+			return `"${value}" is not a valid duration or time!\n\n${arg.prompt}`;
 		}
 
 		if (possible_times.find(possible_time =>
@@ -72,16 +81,16 @@ class TimeType extends Commando.ArgumentType {
 			return true;
 		}
 
-		return `\`${value}\` is not valid for raid!${extra_error_message}`;
+		return `"${value}" is not valid for this raid!\n\n${arg.prompt}`;
 	}
 
 	parse(value, message, arg) {
 		const Raid = require('../app/raid'),
 			is_ex_raid = this.isExclusiveRaid(value, message, arg),
-			raid_exists = Raid.validRaid(message.message.channel.id),
+			raid_exists = Raid.validRaid(message.channel.id),
 			now = moment(),
 			raid_creation_time = raid_exists ?
-				moment(Raid.getRaid(message.message.channel.id).creation_time) :
+				moment(Raid.getRaid(message.channel.id).creation_time) :
 				now,
 			hatched_duration = is_ex_raid ?
 				settings.exclusive_raid_hatched_duration :
@@ -106,12 +115,25 @@ class TimeType extends Commando.ArgumentType {
 			let duration;
 
 			if (value_to_parse.indexOf(':') === -1) {
-				duration = moment.duration(value_to_parse, 'minutes');
+				duration = moment.duration(Number.parseInt(value_to_parse), 'minutes');
 			} else {
-				duration = moment.duration(value_to_parse);
+				const any_duration = value_to_parse.split(':')
+					.map(part => Number.parseInt(part))
+					.find(number => number !== 0) !== undefined;
+
+				if (any_duration) {
+					duration = moment.duration(value_to_parse);
+
+					if (duration.isValid() && duration.asMilliseconds() === 0) {
+						// set to invalid duration
+						duration = moment.duration.invalid();
+					}
+				} else {
+					duration = moment.duration(0);
+				}
 			}
 
-			if (duration.isValid() && duration.asMinutes() < hatched_duration) {
+			if (moment.isDuration(duration) && duration.isValid() && duration.asMinutes() < hatched_duration) {
 				possible_times.push(now.clone().add(duration));
 			}
 		}
@@ -130,10 +152,10 @@ class TimeType extends Commando.ArgumentType {
 
 	isExclusiveRaid(value, message, arg) {
 		const Raid = require('../app/raid'),
-			raid_exists = Raid.validRaid(message.message.channel.id);
+			raid_exists = Raid.validRaid(message.channel.id);
 
 		if (raid_exists) {
-			return Raid.isExclusive(message.message.channel.id);
+			return Raid.isExclusive(message.channel.id);
 		} else {
 			const Pokemon = require('../app/pokemon'),
 				pokemon = Pokemon.search(message.argString.trim().split(' ')[0]);

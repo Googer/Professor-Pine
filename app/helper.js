@@ -9,22 +9,13 @@ class Helper {
 		this.client = null;
 
 		// cache of emoji ids, populated on client login
-		this.emojis = Object.create(null);
+		this.emojis = null;
 	}
 
 	setClient(client) {
 		this.client = client;
 
-		const emojis = new Map(this.client.emojis.map(emoji => [emoji.name.toLowerCase(), emoji.toString()]));
-
-		this.emojis.mystic = emojis.get('mystic') || '';
-		this.emojis.valor = emojis.get('valor') || '';
-		this.emojis.instinct = emojis.get('instinct') || '';
-		this.emojis.pokeball = emojis.get('pokeball') || '';
-		this.emojis.greatball = emojis.get('greatball') || '';
-		this.emojis.ultraball = emojis.get('ultraball') || '';
-		this.emojis.masterball = emojis.get('masterball') || '';
-		this.emojis.premierball = emojis.get('premierball') || '';
+		this.emojis = new Map(this.client.emojis.map(emoji => [emoji.name.toLowerCase(), emoji.toString()]));
 
 		// map out some shortcuts per connected guild, so that a lengthy "find" is not required constantly
 		// TODO:  Some day instead of using a single configurable settings channel name, allow each guild to set a bot channel in DB
@@ -47,31 +38,43 @@ class Helper {
 		}));
 
 		// listen for messages to "help" with
-		// this.client.on('message', message => {
-		// 	if (!message.guild) {
-		// 		return;
-		// 	}
-		//
-		// 	const guild = this.guild.get(message.guild.id);
-		//
-		// 	// command "!iam" - warning of incorrect channel, suggest command & channel
-		// 	if (message.content.search(/^([.])i\s?a([mn])\s?.*?|^([.])?ia([mn])([.])?\s?.*?$/gi) >= 0 && message.channel.id !== guild.channels.bot_lab.id) {
-		// 		message.reply(this.getText('iam.warning', message));
-		// 	}
-		//
-		// 	// command "!iam" - correct channel, incorrect command, suggest command
-		// 	if (message.content.search(/^([.])i\s?a[nm]\s?.*?|^([.])?ia[nm]([.])?\s?.*?$|^ia([nm])$/gi) >= 0 && message.channel.id === guild.channels.bot_lab.id) {
-		// 		message.reply(this.getText('iam.suggestion', message));
-		// 	}
-		// });
+		this.client.on('message', message => {
+			if (!message.guild) {
+				return;
+			}
+
+			const guild = this.guild.get(message.guild.id);
+
+			// command "!iam" - warning of incorrect channel, suggest command & channel
+			if (message.content.search(/^([.])i\s?a([mn])\s?.*?|^([.])?ia([mn])([.])?\s?.*?$/gi) >= 0 && message.channel.id !== guild.channels.bot_lab.id) {
+				message.reply(this.getText('iam.warning', message));
+			}
+
+			// command "!iam" - correct channel, incorrect command, suggest command
+			if (message.content.search(/^([.])i\s?a[nm]\s?.*?|^([.])?ia[nm]([.])?\s?.*?$|^ia([nm])$/gi) >= 0 && message.channel.id === guild.channels.bot_lab.id) {
+				message.reply(this.getText('iam.suggestion', message));
+			}
+		});
 
 		this.client.on('guildCreate', guild => {
 			// cache this guild's roles
-			this.guild.get(guild.id).roles = new Map(guild.roles.map(role => [role.name.toLowerCase(), role]));
+			this.guild.set(guild, [
+				guild.id,
+				{
+					channels: {
+						bot_lab: guild.channels.find(channel => {
+							return channel.name === settings.channels.bot_lab;
+						}),
+						help: null,
+					},
+					roles: new Map(guild.roles.map(role => [role.name.toLowerCase(), role])),
+					emojis: null
+				}
+			]);
 		});
 
 		this.client.on('guildDelete', guild => {
-			// remove this guild's roles from cache
+			// remove this guild from cache
 			this.guild.delete(guild.id);
 		});
 
@@ -109,12 +112,49 @@ class Helper {
 				new_guild_map.set(new_role.name.toLowerCase(), new_role);
 			}
 		});
+
+		client.on('emojiCreate', emoji => {
+			// add new emoji to emojis cache
+			this.emojis.set(emoji.name.toLowerCase(), emoji.toString());
+		});
+
+		client.on('emojiDelete', emoji => {
+			// delete emoji from emojis cache
+			this.emojis.delete(emoji.name.toLowerCase());
+		});
+
+		client.on('emojiUpdate', (old_emoji, new_emoji) => {
+			// delete old emoji from emojis cache and add new one to it
+			this.emojis.delete(old_emoji.name.toLowerCase());
+			this.emojis.set(new_emoji.name.toLowerCase(), new_emoji.toString());
+		});
 	}
 
 	isManagement(message) {
+		const admin_role = this.getRole(message.message.guild, 'admin'),
+			moderator_role = this.getRole(message.message.guild, 'moderator'),
+			admin_role_id = admin_role ?
+				admin_role.id :
+				-1,
+			moderator_role_id = moderator_role ?
+				moderator_role.id :
+				-1;
+
 		return (this.client.isOwner(message.member) ||
-			message.member.roles.get(this.guild.get(message.guild.id).roles.admin.id) ||
-			message.member.roles.get(this.guild.get(message.guild.id).roles.moderator.id));
+			message.member.roles.has(admin_role_id) ||
+			message.member.roles.has(moderator_role_id));
+	}
+
+	getRole(guild, role_name) {
+		const guild_map = this.guild.get(guild.id);
+
+		return guild_map.roles.get(role_name.toLowerCase());
+	}
+
+	getEmoji(emoji_name) {
+		return this.emojis.has(emoji_name.toLowerCase()) ?
+			this.emojis.get(emoji_name.toLowerCase()) :
+			'';
 	}
 
 	getText(path, message) {

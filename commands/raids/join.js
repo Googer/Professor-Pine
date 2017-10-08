@@ -2,7 +2,7 @@
 
 const log = require('loglevel').getLogger('JoinCommand'),
 	Commando = require('discord.js-commando'),
-	Constants = require('../../app/constants'),
+	{RaidStatus} = require('../../app/constants'),
 	Raid = require('../../app/raid'),
 	NaturalArgumentType = require('../../types/natural'),
 	Utility = require('../../app/utility');
@@ -21,7 +21,7 @@ class JoinCommand extends Commando.Command {
 				{
 					key: 'additional_attendees',
 					label: 'additional attendees',
-					prompt: 'How many additional people are coming with you?\nExample: `1`',
+					prompt: 'How many additional people are coming with you?\nExample: `+1`\n\n*or*\n\nHow many people are coming (including yourself)?\nExample: `2`\n',
 					type: 'natural',
 					default: NaturalArgumentType.UNDEFINED_NUMBER
 				}
@@ -41,7 +41,7 @@ class JoinCommand extends Commando.Command {
 
 	async run(message, args) {
 		const additional_attendees = args['additional_attendees'],
-			info = Raid.setMemberStatus(message.channel.id, message.member.id, Constants.RaidStatus.COMING, additional_attendees);
+			info = Raid.setMemberStatus(message.channel.id, message.member.id, RaidStatus.COMING, additional_attendees);
 
 		if (!info.error) {
 			message.react('👍')
@@ -51,7 +51,7 @@ class JoinCommand extends Commando.Command {
 
 			Raid.refreshStatusMessages(info.raid);
 		} else {
-			message.reply(info.error)
+			return message.reply(info.error)
 				.catch(err => log.error(err));
 		}
 	}
