@@ -13,10 +13,10 @@ class TimeType extends Commando.ArgumentType {
 	validate(value, message, arg) {
 		const Raid = require('../app/raid'),
 			is_ex_raid = this.isExclusiveRaid(value, message, arg),
-			raid_exists = Raid.validRaid(message.message.channel.id),
+			raid_exists = Raid.validRaid(message.channel.id),
 			now = moment(),
 			raid_creation_time = raid_exists ?
-				moment(Raid.getRaid(message.message.channel.id).creation_time) :
+				moment(Raid.getRaid(message.channel.id).creation_time) :
 				now,
 			hatched_duration = is_ex_raid ?
 				settings.exclusive_raid_hatched_duration :
@@ -87,10 +87,10 @@ class TimeType extends Commando.ArgumentType {
 	parse(value, message, arg) {
 		const Raid = require('../app/raid'),
 			is_ex_raid = this.isExclusiveRaid(value, message, arg),
-			raid_exists = Raid.validRaid(message.message.channel.id),
+			raid_exists = Raid.validRaid(message.channel.id),
 			now = moment(),
 			raid_creation_time = raid_exists ?
-				moment(Raid.getRaid(message.message.channel.id).creation_time) :
+				moment(Raid.getRaid(message.channel.id).creation_time) :
 				now,
 			hatched_duration = is_ex_raid ?
 				settings.exclusive_raid_hatched_duration :
@@ -152,10 +152,10 @@ class TimeType extends Commando.ArgumentType {
 
 	isExclusiveRaid(value, message, arg) {
 		const Raid = require('../app/raid'),
-			raid_exists = Raid.validRaid(message.message.channel.id);
+			raid_exists = Raid.validRaid(message.channel.id);
 
 		if (raid_exists) {
-			return Raid.isExclusive(message.message.channel.id);
+			return Raid.isExclusive(message.channel.id);
 		} else {
 			const Pokemon = require('../app/pokemon'),
 				pokemon = Pokemon.search(message.argString.trim().split(' ')[0]);
