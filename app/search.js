@@ -12,6 +12,10 @@ class Search {
 	}
 
 	static singleTermSearch(term, index) {
+		if (term.length > 15) {
+			term = term.substring(0, 14) + '*';
+		}
+
 		return index.query(query => {
 			query.term(term,
 				{
