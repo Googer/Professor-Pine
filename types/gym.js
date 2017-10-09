@@ -11,10 +11,10 @@ class GymType extends Commando.ArgumentType {
 
 	async validate(value, message, arg) {
 		try {
-			const gyms = await Gym.search(message.channel.id, value.split(' '));
+			const gyms = await Gym.search(message.channel.id, value.split(/\s/g));
 
 			if (!gyms || gyms.length === 0) {
-				const adjacent_gyms = await Gym.adjacentRegionsSearch(message.channel.id, value.split(' '));
+				const adjacent_gyms = await Gym.adjacentRegionsSearch(message.channel.id, value.split(/\s/g));
 
 				if (!adjacent_gyms) {
 					return `"${value}" returned no gyms.\n\nPlease try your search again, entering the text you want to search for.\n`;
@@ -51,7 +51,7 @@ class GymType extends Commando.ArgumentType {
 	}
 
 	async parse(value, message, arg) {
-		const gyms = await Gym.search(message.channel.id, value.split(' '));
+		const gyms = await Gym.search(message.channel.id, value.split(/\s/g));
 
 		return gyms[0].gymId;
 	}
