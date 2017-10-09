@@ -13,7 +13,7 @@ class Search {
 
 	static singleTermSearch(term, index) {
 		if (term.length > 15) {
-			term = term.substring(0, 14) + '*';
+			term = term.substring(0, 14) + lunr.Query.wildcard;
 		}
 
 		return index.query(query => {
