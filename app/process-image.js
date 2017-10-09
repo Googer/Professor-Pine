@@ -21,7 +21,7 @@ class ImageProcess {
 	process(message, url) {
 		// easier test case
 		if (message.content == 'ping') {
-			url = path.join(__dirname, this.image_path, 'image59.png');
+			url = path.join(__dirname, this.image_path, 'image18.png');
 		}
 
 		Jimp.read(url).then((image) => {
@@ -73,13 +73,13 @@ class ImageProcess {
 	 * Header can contain black-gray text or white-gray text
 	 *		need to turn these areas into extremes and filter out everything else
 	 **/
-	blackenHeaderContent(x, y, idx) {
-		var red   = this.bitmap.data[ idx + 0 ];
-		var green = this.bitmap.data[ idx + 1 ];
-		var blue  = this.bitmap.data[ idx + 2 ];
-		var alpha = this.bitmap.data[ idx + 3 ];
+	filterHeaderContent(x, y, idx) {
+		const red   = this.bitmap.data[ idx + 0 ];
+		const green = this.bitmap.data[ idx + 1 ];
+		const blue  = this.bitmap.data[ idx + 2 ];
+		const alpha = this.bitmap.data[ idx + 3 ];
 
-		if ((red >= 190 && green >= 200 && blue >= 200) || (red <= 60 && green <= 60 && blue <= 60)) {
+		if ((red >= 200 && green >= 210 && blue >= 210) || (red <= 50 && green <= 50 && blue <= 50)) {
 			this.bitmap.data[ idx + 0 ] = 255;
 			this.bitmap.data[ idx + 1 ] = 255;
 			this.bitmap.data[ idx + 2 ] = 255;
@@ -93,11 +93,11 @@ class ImageProcess {
 	/**
 	 * Normal body text will always be white-gray text, don't need to be as aggressive here
 	 **/
-	blackenBodyContent(x, y, idx) {
-		var red   = this.bitmap.data[ idx + 0 ];
-		var green = this.bitmap.data[ idx + 1 ];
-		var blue  = this.bitmap.data[ idx + 2 ];
-		var alpha = this.bitmap.data[ idx + 3 ];
+	filterBodyContent(x, y, idx) {
+		const red   = this.bitmap.data[ idx + 0 ];
+		const green = this.bitmap.data[ idx + 1 ];
+		const blue  = this.bitmap.data[ idx + 2 ];
+		const alpha = this.bitmap.data[ idx + 3 ];
 
 		if (red >= 210 && green >= 210 && blue >= 210) {
 			this.bitmap.data[ idx + 0 ] = 255;
@@ -113,11 +113,11 @@ class ImageProcess {
 	/**
 	 * Large text such as the pokemon name, cp, or tier information is here and will always be white-gray
 	 **/
-	blackenLargeBodyContent(x, y, idx) {
-		var red   = this.bitmap.data[ idx + 0 ];
-		var green = this.bitmap.data[ idx + 1 ];
-		var blue  = this.bitmap.data[ idx + 2 ];
-		var alpha = this.bitmap.data[ idx + 3 ];
+	filterLargeBodyContent(x, y, idx) {
+		const red   = this.bitmap.data[ idx + 0 ];
+		const green = this.bitmap.data[ idx + 1 ];
+		const blue  = this.bitmap.data[ idx + 2 ];
+		const alpha = this.bitmap.data[ idx + 3 ];
 
 		if (red >= 200 && green >= 200 && blue >= 200) {
 			this.bitmap.data[ idx + 0 ] = 255;
@@ -147,7 +147,7 @@ class ImageProcess {
 			promises.push(new Promise((resolve, reject) => {
 				const new_image = image.clone()
 					.crop(region1.x, region1.y, region1.width, region1.height)
-					.scan(0, 0, region1.width, region1.height, this.blackenHeaderContent)
+					.scan(0, 0, region1.width, region1.height, this.filterHeaderContent)
 					.getBuffer(Jimp.MIME_PNG, (err, image) => {
 						if (err) { reject(err); }
 
@@ -172,7 +172,7 @@ class ImageProcess {
 			promises.push(new Promise((resolve, reject) => {
 				const new_image = image.clone()
 					.crop(region2.x, region2.y, region2.width, region2.height)
-					.scan(0, 0, region2.width, region2.height, this.blackenHeaderContent)
+					.scan(0, 0, region2.width, region2.height, this.filterHeaderContent)
 					.getBuffer(Jimp.MIME_PNG, (err, image) => {
 						if (err) { reject(err); }
 
@@ -216,7 +216,7 @@ class ImageProcess {
 			promises.push(new Promise((resolve, reject) => {
 				const new_image = image.clone()
 					.crop(region1.x, region1.y, region1.width, region1.height)
-					.scan(0, 0, region1.width, region1.height, this.blackenHeaderContent)
+					.scan(0, 0, region1.width, region1.height, this.filterHeaderContent)
 					.getBuffer(Jimp.MIME_PNG, (err, image) => {
 						if (err) { reject(err); }
 
@@ -241,7 +241,7 @@ class ImageProcess {
 			promises.push(new Promise((resolve, reject) => {
 				const new_image = image.clone()
 					.crop(region2.x, region2.y, region2.width, region2.height)
-					.scan(0, 0, region2.width, region2.height, this.blackenHeaderContent)
+					.scan(0, 0, region2.width, region2.height, this.filterHeaderContent)
 					.getBuffer(Jimp.MIME_PNG, (err, image) => {
 						if (err) { reject(err); }
 
@@ -265,7 +265,7 @@ class ImageProcess {
 
 			// pass along collected data once all promises have resolved
 			Promise.all(promises).then(values => {
-				resolve(values[0] || values[1]);
+				resolve([values[0] || values[1], !!values[1]]);
 			}).catch(err => {
 				reject(err);
 			});
@@ -279,7 +279,7 @@ class ImageProcess {
 			const new_image = image.clone()
 				.crop(region.x, region.y, region.width, region.height)
 				// .brightness(-0.1)
-				.scan(0, 0, region.width, region.height, this.blackenBodyContent)
+				.scan(0, 0, region.width, region.height, this.filterBodyContent)
 				.getBuffer(Jimp.MIME_PNG, (err, image) => {
 					if (err) { reject(err); }
 
@@ -305,7 +305,7 @@ class ImageProcess {
 				.crop(region.x, region.y, region.width, region.height)
 				.blur(3)
 				.brightness(-0.2)
-				.scan(0, 0, region.width, region.height, this.blackenLargeBodyContent)
+				.scan(0, 0, region.width, region.height, this.filterLargeBodyContent)
 				.getBuffer(Jimp.MIME_PNG, (err, image) => {
 					if (err) { reject(err); }
 
@@ -332,7 +332,7 @@ class ImageProcess {
 		return new Promise((resolve, reject) => {
 			const new_image = image.clone()
 				.crop(region.x, region.y, region.width, region.height)
-				.scan(0, 0, region.width, region.height, this.blackenLargeBodyContent)
+				.scan(0, 0, region.width, region.height, this.filterLargeBodyContent)
 				.blur(3)
 				.getBuffer(Jimp.MIME_PNG, (err, image) => {
 					if (err) { reject(err); }
@@ -381,11 +381,10 @@ class ImageProcess {
 
 			// pass along collected data once all promises have resolved
 			Promise.all(promises).then(values => {
-				console.log(values);
-
 				resolve({
+					egg: values[1][1],
 					phone_time: values[0],
-					time_remaining: values[1],
+					time_remaining: values[1][0],
 					tier: values[2],
 					cp: values[3][0],
 					pokemon: values[3][1],
@@ -401,11 +400,14 @@ class ImageProcess {
 		const PokemonType = new PokemonArgumentType(Helper.client);
 		const TimeType = new TimeArgumentType(Helper.client);
 
-		console.log(data);
 		let pokemon = data.pokemon;
 		let time = data.time;
+		let duration = moment.duration(data.time_remaining,'hh:mm:ss');
 
-		// if AM or PM already exists in time, use time as is
+		console.log(data);
+
+		// if AM or PM already exists in phone_time, use phone_time as is,
+		//		otherwise figure out if AM or PM would be closer to the current time
 		if (data.phone_time.search(/(a|p)m/gi) >= 0) {
 			time = moment(data.phone_time, 'hh:mma');
 		} else {
@@ -420,27 +422,31 @@ class ImageProcess {
 			}
 		}
 
+		// add time remaining to phone's current time to get final hatch or despawn time
+		time = time.add(duration);
 		console.log(time.format('h:mma'));
 
 		// Need to fake ArgumentType data in order to parse time...
 		message.argString = '';
+		message.is_exclusive = false;
 
-		if (PokemonType.validate(data.pokemon, message) == true) {
+		if (PokemonType.validate(data.pokemon, message) === true) {
 			pokemon = PokemonType.parse(data.pokemon, message);
 		} else {
-			pokemon = PokemonType.parse('????', message);
+			pokemon = { name: 'pokemon', tier: '????' };
 		}
 
-		if (TimeType.validate('at' + time.format('h:mma'), message, { prompt: '' }) == true) {
-			time = TimeType.parse('at' + time.format('h:mma'), message);
+		if (TimeType.validate(time.format('[at] h:mma'), message, { prompt: '' }) === true) {
+			time = TimeType.parse(time.format('[at] h:mma'), message);
 		} else {
-			console.log(moment().format('h:mma'));
-			time = TimeType.parse('at' + moment().format('h:mma'), message);
+			console.log(moment().add(duration).format('h:mma'));
+			time = TimeType.parse(moment().add(duration).format('[at] h:mma'), message);
 		}
 
 		GymType.parse(data.gym, message).then(gym => {
 			console.log(gym, pokemon, time);
 
+			// TODO: move screenshot into newly created channel OR if all 3 pieces of information are found successfully, delete screenshot
 			if (pokemon && time && gym) {
 				let raid;
 
@@ -450,7 +456,6 @@ class ImageProcess {
 						const raid_channel_message = await Raid.getRaidChannelMessage(raid),
 						formatted_message = await Raid.getFormattedMessage(raid);
 
-						// TODO: move screenshot into newly created channel if all 3 pieces of information are not found
 
 						return message.channel.send(raid_channel_message, formatted_message);
 					})
@@ -469,9 +474,9 @@ class ImageProcess {
 					})
 					.catch(err => log.error(err))
 			} else {
-				channel.send(Object.values(data).join('\n'));
+				message.channel.send(Object.values(data).join('\n'));
 			}
-		});
+		}).catch(err => log.error(err));
 	}
 }
 
