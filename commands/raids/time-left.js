@@ -2,6 +2,7 @@
 
 const log = require('loglevel').getLogger('TimeLeftCommand'),
 	Commando = require('discord.js-commando'),
+	Helper = require('../../app/helper'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
 
@@ -40,7 +41,7 @@ class TimeRemainingCommand extends Commando.Command {
 		const time = args['time-left'],
 			info = Raid.setRaidEndTime(message.channel.id, time);
 
-		message.react('👍')
+		message.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
 			.catch(err => log.error(err));
 
 		Utility.cleanConversation(message);

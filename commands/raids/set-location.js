@@ -2,6 +2,7 @@
 
 const log = require('loglevel').getLogger('LocationCommand'),
 	Commando = require('discord.js-commando'),
+	Helper = require('../../app/helper'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
 
@@ -41,7 +42,7 @@ class SetLocationCommand extends Commando.Command {
 		const gym_id = args['gym_id'],
 			info = Raid.setRaidLocation(message.channel.id, gym_id);
 
-		message.react('👍')
+		message.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
 			.catch(err => log.error(err));
 
 		Utility.cleanConversation(message);

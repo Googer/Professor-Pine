@@ -3,6 +3,7 @@
 const log = require('loglevel').getLogger('CheckOutCommand'),
 	Commando = require('discord.js-commando'),
 	{RaidStatus} = require('../../app/constants'),
+	Helper = require('../../app/helper'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
 
@@ -32,7 +33,7 @@ class CheckOutCommand extends Commando.Command {
 		const info = Raid.setMemberStatus(message.channel.id, message.member.id, RaidStatus.INTERESTED);
 
 		if (!info.error) {
-			message.react('👍')
+			message.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
 				.catch(err => log.error(err));
 
 			Utility.cleanConversation(message);

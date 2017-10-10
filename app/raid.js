@@ -465,7 +465,7 @@ class Raid {
 							}
 
 							if (confirmation) {
-								response.react('👍')
+								response.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
 									.catch(err => log.error(err));
 
 								this.setMemberStatus(channel_id, message.channel.recipient.id, RaidStatus.COMPLETE);
@@ -473,7 +473,7 @@ class Raid {
 								this.refreshStatusMessages(raid)
 									.catch(err => log.error(err));
 							} else {
-								response.react('👎')
+								response.react(Helper.getEmoji('snorlaxthumbsdown') || '👎')
 									.catch(err => log.error(err));
 
 								this.setMemberStatus(channel_id, message.channel.recipient.id, RaidStatus.PRESENT);

@@ -3,6 +3,7 @@
 const log = require('loglevel').getLogger('JoinCommand'),
 	Commando = require('discord.js-commando'),
 	{RaidStatus} = require('../../app/constants'),
+	Helper = require('../../app/helper'),
 	Raid = require('../../app/raid'),
 	NaturalArgumentType = require('../../types/natural'),
 	Utility = require('../../app/utility');
@@ -44,7 +45,7 @@ class JoinCommand extends Commando.Command {
 			info = Raid.setMemberStatus(message.channel.id, message.member.id, RaidStatus.COMING, additional_attendees);
 
 		if (!info.error) {
-			message.react('👍')
+			message.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
 				.catch(err => log.error(err));
 
 			Utility.cleanConversation(message);
