@@ -115,7 +115,7 @@ class Helper {
 
 		client.on('emojiCreate', emoji => {
 			// add new emoji to emojis cache
-			this.emojis.set(emoji.name.toLowerCase(), emoji.toString());
+			this.emojis.set(emoji.name.toLowerCase(), emoji);
 		});
 
 		client.on('emojiDelete', emoji => {
@@ -126,7 +126,7 @@ class Helper {
 		client.on('emojiUpdate', (old_emoji, new_emoji) => {
 			// delete old emoji from emojis cache and add new one to it
 			this.emojis.delete(old_emoji.name.toLowerCase());
-			this.emojis.set(new_emoji.name.toLowerCase(), new_emoji.toString());
+			this.emojis.set(new_emoji.name.toLowerCase(), new_emoji);
 		});
 	}
 
