@@ -742,7 +742,7 @@ class Raid {
 				.filter(attendee_entry => attendee_entry[1].status === RaidStatus.COMPLETE),
 
 			attendees_builder = (attendees_list, emoji_name) => {
-				const emoji = Helper.getEmoji(emoji_name);
+				const emoji = Helper.getEmoji(emoji_name).toString();
 
 				let result = '';
 
@@ -765,11 +765,11 @@ class Raid {
 					// add role emoji indicators if role exists
 					const roles = Helper.guild.get(member.guild.id).roles;
 					if (roles.has('mystic') && member.roles.has(roles.get('mystic').id)) {
-						result += ' ' + Helper.getEmoji('mystic');
+						result += ' ' + Helper.getEmoji('mystic').toString();
 					} else if (roles.has('valor') && member.roles.has(roles.get('valor').id)) {
-						result += ' ' + Helper.getEmoji('valor');
+						result += ' ' + Helper.getEmoji('valor').toString();
 					} else if (roles.has('instinct') && member.roles.has(roles.get('instinct').id)) {
-						result += ' ' + Helper.getEmoji('instinct');
+						result += ' ' + Helper.getEmoji('instinct').toString();
 					}
 
 					result += '\n';

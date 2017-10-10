@@ -15,7 +15,7 @@ class Helper {
 	setClient(client) {
 		this.client = client;
 
-		this.emojis = new Map(this.client.emojis.map(emoji => [emoji.name.toLowerCase(), emoji.toString()]));
+		this.emojis = new Map(this.client.emojis.map(emoji => [emoji.name.toLowerCase(), emoji]));
 
 		// map out some shortcuts per connected guild, so that a lengthy "find" is not required constantly
 		// TODO:  Some day instead of using a single configurable settings channel name, allow each guild to set a bot channel in DB
