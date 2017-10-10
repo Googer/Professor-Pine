@@ -54,7 +54,7 @@ class IAmCommand extends Commando.Command {
 	}
 
 	navigatePage(message, user) {
-		if (user.bot) {
+		if (user.bot || !this.messages.has(message.message.id)) {
 			return;
 		}
 
