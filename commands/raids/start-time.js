@@ -20,7 +20,7 @@ class StartTimeCommand extends Commando.Command {
 				{
 					key: 'start-time',
 					label: 'start time',
-					prompt: 'When do you wish to begin this raid?\nExamples: `8:43`, `2:20pm`\n\n*or*\n\nIn how long do you wish to begin this raid?\nExample: `15`\n',
+					prompt: 'When do you wish to begin this raid?\nExamples: `8:43`, `2:20pm`\n\n*or*\n\nIn how long (in minutes) do you wish to begin this raid?\nExample: `15`\n',
 					type: 'time'
 				}
 			],

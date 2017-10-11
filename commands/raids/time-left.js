@@ -15,12 +15,12 @@ class TimeRemainingCommand extends Commando.Command {
 			aliases: ['time-left', 'time-remaining', 'remaining', 'time-remain', 'remain', 'end-time', 'end'],
 			description: 'Sets the time an existing raid remains (also works to set hatch time for an egg).',
 			details: 'Use this command to set remaining time on a raid timer (if it has not yet begun), or to set its remaining time if it has.',
-			examples: ['\t!left 1:45', '\t!remain 50'],
+			examples: ['\t!left 45', '\t!remain 50'],
 			args: [
 				{
 					key: 'time-left',
 					label: 'time left',
-					prompt: 'How much time is remaining until the raid ends (if it is an active raid) or hatches (if it is currently an unhatched egg)?\nExample: `1:43`\n\n*or*\n\nWhen does this raid end or hatch?\nExample: `6:12`\n',
+					prompt: 'How much time is remaining (in minutes) until the raid ends (if it is an active raid) or hatches (if it is currently an unhatched egg)?\nExample: `43`\n\n*or*\n\nWhen does this raid end or hatch?\nExample: `6:12`\n',
 					type: 'time'
 				}
 			],

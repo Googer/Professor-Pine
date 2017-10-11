@@ -20,7 +20,7 @@ class HatchTimeCommand extends Commando.Command {
 				{
 					key: 'hatch-time',
 					label: 'hatch time',
-					prompt: 'How much time is remaining until the raid hatches?\nExample: `1:43`\n\n*or*\n\nWhen does this raid hatch?\nExample: `6:12`\n',
+					prompt: 'How much time is remaining (in minutes) until the raid hatches?\nExample: `43`\n\n*or*\n\nWhen does this raid hatch?\nExample: `6:12`\n',
 					type: 'time'
 				}
 			],
