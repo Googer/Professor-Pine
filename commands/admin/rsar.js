@@ -22,7 +22,7 @@ class RsarCommand extends Commando.Command {
 				}
 
 				if (message.channel.type !== 'text') {
-					return ['invalid-channel', message.reply('Please use `!lsar` from a public channel.')];
+					return ['invalid-channel', message.reply('Please use `!rsar` from a public channel.')];
 				}
 			}
 
