@@ -29,6 +29,9 @@ class Helper {
 						bot_lab: guild.channels.find(channel => {
 							return channel.name === settings.channels.bot_lab;
 						}),
+						mod_bot_lab: guild.channels.find(channel => {
+							return channel.name === settings.channels.mod_bot_lab;
+						}),
 						help: null,
 					},
 					roles,
@@ -45,6 +48,9 @@ class Helper {
 					channels: {
 						bot_lab: guild.channels.find(channel => {
 							return channel.name === settings.channels.bot_lab;
+						}),
+						mod_bot_lab: guild.channels.find(channel => {
+							return channel.name === settings.channels.mod_bot_lab;
 						}),
 						help: null,
 					},
