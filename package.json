@@ -7,7 +7,6 @@
     "PgP-Data": "git://github.com/Googer/PgP-Data.git",
     "discord.js": "git://github.com/hydrabolt/discord.js.git",
     "discord.js-commando": "git://github.com/Gawdl3y/discord.js-commando.git",
-    "get-installed-path": "^4.0.8",
     "he": "^1.1.1",
     "loglevel": "^1.5.1",
     "loglevel-prefix-persist": "^1.0.3",

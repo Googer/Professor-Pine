@@ -4,7 +4,6 @@ const log = require('loglevel').getLogger('DirectionsCommand'),
 	Commando = require('discord.js-commando'),
 	Gym = require('../../app/gym'),
 	Raid = require('../../app/raid'),
-	{getInstalledPathSync} = require('get-installed-path'),
 	Utility = require('../../app/utility');
 
 class DirectionsCommand extends Commando.Command {
@@ -27,10 +26,6 @@ class DirectionsCommand extends Commando.Command {
 			}
 			return false;
 		});
-
-		this.map_images_dir = getInstalledPathSync('PgP-Data', {
-			local: true
-		});
 	}
 
 	async run(message, args) {
@@ -40,7 +35,7 @@ class DirectionsCommand extends Commando.Command {
 			response = message.channel
 				.send(`https://www.google.com/maps/dir/Current+Location/${gym.gymInfo.latitude},${gym.gymInfo.longitude}`, {
 					files: [
-						`${this.map_images_dir}/data/images/${gym_id}.png`
+						require.resolve(`PgP-Data/data/images/${gym_id}.png`)
 					]
 				})
 				.catch(err => log.error(err));
