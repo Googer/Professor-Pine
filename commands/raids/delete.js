@@ -3,7 +3,8 @@
 const log = require('loglevel').getLogger('DeleteCommand'),
 	Commando = require('discord.js-commando'),
 	Helper = require('../../app/helper'),
-	Raid = require('../../app/raid');
+	Raid = require('../../app/raid'),
+	Utility = require('../../app/utility');
 
 class DeleteCommand extends Commando.Command {
 	constructor(client) {
@@ -36,7 +37,7 @@ class DeleteCommand extends Commando.Command {
 				'(or wait for it to timeout) and make the change(s) using the appropriate command(s).  Lack of interest in a raid ' +
 				'is *not* a valid reason for deleting one!\n\n' +
 
-				'If you are sure you wish for this raid to be deleted, enter a reason and a moderator will be summoned.\n',
+				'If you are sure you wish for this raid to be deleted, enter a reason and a moderator will be called upon.\n',
 				type: 'string'
 			}
 		]);
@@ -59,6 +60,8 @@ class DeleteCommand extends Commando.Command {
 
 							return message.channel.send(`${admin_role} / ${moderator_role}:  Raid deletion requested!`);
 						}
+					} else {
+						return Utility.cleanConversation(message, true);
 					}
 				})
 				.catch(err => log.error(err));
