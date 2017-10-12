@@ -3,7 +3,8 @@
 const log = require('loglevel').getLogger('DeleteCommand'),
 	Commando = require('discord.js-commando'),
 	Helper = require('../../app/helper'),
-	Raid = require('../../app/raid');
+	Raid = require('../../app/raid'),
+	Utility = require('../../app/utility');
 
 class DeleteCommand extends Commando.Command {
 	constructor(client) {
@@ -25,23 +26,46 @@ class DeleteCommand extends Commando.Command {
 			}
 			return false;
 		});
-	}
 
-	hasPermission(message) {
-		const has_permission = Helper.isManagement(message);
+		this.deletionReasonCollector = new Commando.ArgumentCollector(client, [
+			{
+				key: 'reason',
+				label: 'reason',
+				prompt: 'Only moderators or administrators can actually delete a raid.\n\n' +
 
-		if (!has_permission) {
-			const admin_role = Helper.getRole(message.guild, 'admin'),
-				moderator_role = Helper.getRole(message.guild, 'moderator');
+				'If this raid only needs correction such as correcting an incorrect raid boss or location, cancel this command ' +
+				'(or wait for it to timeout) and make the change(s) using the appropriate command(s).  Lack of interest in a raid ' +
+				'is *not* a valid reason for deleting one!\n\n' +
 
-			return `Only a user with ${admin_role} or ${moderator_role} role can run this command!`;
-		}
-
-		return has_permission;
+				'If you are sure you wish for this raid to be deleted, enter a reason and a moderator will be called upon.\n',
+				type: 'string'
+			}
+		]);
 	}
 
 	async run(message, args) {
-		Raid.deleteRaid(message.channel.id);
+		const has_permission = Helper.isManagement(message);
+
+		if (has_permission) {
+			Raid.deleteRaid(message.channel.id);
+		} else {
+			this.deletionReasonCollector.obtain(message)
+				.then(collection_result => {
+					if (!collection_result.cancelled) {
+						const reason = collection_result.values['reason'].trim();
+
+						if (reason.length > 0) {
+							const admin_role = Helper.getRole(message.guild, 'admin'),
+								moderator_role = Helper.getRole(message.guild, 'moderator');
+
+							return message.channel.send(`${admin_role} / ${moderator_role}:  Raid deletion requested!`);
+						}
+					} else {
+						return Utility.cleanConversation(message, true);
+					}
+				})
+				.catch(err => log.error(err));
+		}
 	}
 }
 

@@ -54,7 +54,7 @@ class IAmCommand extends Commando.Command {
 	}
 
 	navigatePage(message, user) {
-		if (user.bot) {
+		if (user.bot || !this.messages.has(message.message.id)) {
 			return;
 		}
 
@@ -151,7 +151,7 @@ class IAmCommand extends Commando.Command {
 			});
 		} else {
 			Role.assignRole(message.channel, message.member, args)
-				.then(() => message.react('👍'))
+				.then(() => message.react(Helper.getEmoji('snorlaxthumbsup') || '👍'))
 				.catch(err => {
 					if (err && err.error) {
 						message.reply(err.error)

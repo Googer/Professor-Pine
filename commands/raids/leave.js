@@ -2,6 +2,7 @@
 
 const log = require('loglevel').getLogger('LeaveCommand'),
 	Commando = require('discord.js-commando'),
+	Helper = require('../../app/helper'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
 
@@ -31,7 +32,7 @@ class LeaveCommand extends Commando.Command {
 		const info = Raid.removeAttendee(message.channel.id, message.member.id);
 
 		if (!info.error) {
-			message.react('👍')
+			message.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
 				.catch(err => log.error(err));
 
 			Utility.cleanConversation(message);

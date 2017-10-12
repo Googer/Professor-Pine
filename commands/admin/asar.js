@@ -36,7 +36,7 @@ class AsarCommand extends Commando.Command {
 		args = args.split(/,\s?/g).map(arg => arg.trim().split(/\s-\s/));
 
 		Role.upsertRoles(message.channel, message.member, args)
-			.then(() => message.react('👍'))
+			.then(() => message.react(Helper.getEmoji('snorlaxthumbsup') || '👍'))
 			.catch((err) => {
 				if (err && err.error) {
 					message.reply(err.error)

@@ -43,7 +43,7 @@ class RaidCommand extends Commando.Command {
 			{
 				key: 'time',
 				label: 'hatch time',
-				prompt: 'How much time is remaining until the raid hatches?\nExample: `1:43`\n\n*or*\n\nWhen does this raid hatch?\nExample: `6:12`\n',
+				prompt: 'How much time is remaining (in minutes) until the raid hatches?\nExample: `43`\n\n*or*\n\nWhen does this raid hatch?\nExample: `6:12`\n',
 				type: 'time'
 			}
 		], 3);
@@ -52,7 +52,7 @@ class RaidCommand extends Commando.Command {
 			{
 				key: 'time',
 				label: 'time left',
-				prompt: 'How much time is remaining until the raid ends?\nExample: `1:43`\n\n*or*\n\nWhen does this raid end?\nExample: `6:12`\n',
+				prompt: 'How much time is remaining (in minutes) until the raid ends?\nExample: `43`\n\n*or*\n\nWhen does this raid end?\nExample: `6:12`\n',
 				type: 'time'
 			}
 		], 3);

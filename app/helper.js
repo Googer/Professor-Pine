@@ -15,7 +15,7 @@ class Helper {
 	setClient(client) {
 		this.client = client;
 
-		this.emojis = new Map(this.client.emojis.map(emoji => [emoji.name.toLowerCase(), emoji.toString()]));
+		this.emojis = new Map(this.client.emojis.map(emoji => [emoji.name.toLowerCase(), emoji]));
 
 		// map out some shortcuts per connected guild, so that a lengthy "find" is not required constantly
 		// TODO:  Some day instead of using a single configurable settings channel name, allow each guild to set a bot channel in DB
@@ -36,25 +36,6 @@ class Helper {
 				}
 			]
 		}));
-
-		// listen for messages to "help" with
-		this.client.on('message', message => {
-			if (!message.guild) {
-				return;
-			}
-
-			const guild = this.guild.get(message.guild.id);
-
-			// command "!iam" - warning of incorrect channel, suggest command & channel
-			if (message.content.search(/^([.])i\s?a([mn])\s?.*?|^([.])?ia([mn])([.])?\s?.*?$/gi) >= 0 && message.channel.id !== guild.channels.bot_lab.id) {
-				message.reply(this.getText('iam.warning', message));
-			}
-
-			// command "!iam" - correct channel, incorrect command, suggest command
-			if (message.content.search(/^([.])i\s?a[nm]\s?.*?|^([.])?ia[nm]([.])?\s?.*?$|^ia([nm])$/gi) >= 0 && message.channel.id === guild.channels.bot_lab.id) {
-				message.reply(this.getText('iam.suggestion', message));
-			}
-		});
 
 		this.client.on('guildCreate', guild => {
 			// cache this guild's roles
@@ -115,7 +96,7 @@ class Helper {
 
 		client.on('emojiCreate', emoji => {
 			// add new emoji to emojis cache
-			this.emojis.set(emoji.name.toLowerCase(), emoji.toString());
+			this.emojis.set(emoji.name.toLowerCase(), emoji);
 		});
 
 		client.on('emojiDelete', emoji => {
@@ -126,7 +107,7 @@ class Helper {
 		client.on('emojiUpdate', (old_emoji, new_emoji) => {
 			// delete old emoji from emojis cache and add new one to it
 			this.emojis.delete(old_emoji.name.toLowerCase());
-			this.emojis.set(new_emoji.name.toLowerCase(), new_emoji.toString());
+			this.emojis.set(new_emoji.name.toLowerCase(), new_emoji);
 		});
 	}
 

@@ -22,7 +22,7 @@ class RsarCommand extends Commando.Command {
 				}
 
 				if (message.channel.type !== 'text') {
-					return ['invalid-channel', message.reply('Please use `!lsar` from a public channel.')];
+					return ['invalid-channel', message.reply('Please use `!rsar` from a public channel.')];
 				}
 			}
 
@@ -34,7 +34,7 @@ class RsarCommand extends Commando.Command {
 		args = args.split(/,\s?/g);
 
 		Role.removeOldRoles(message.channel, message.member, args)
-			.then(() => message.react('👍'))
+			.then(() => message.react(Helper.getEmoji('snorlaxthumbsup') || '👍'))
 			.catch(err => {
 				if (err && err.error) {
 					message.reply(err.error)

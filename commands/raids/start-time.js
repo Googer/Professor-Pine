@@ -2,6 +2,7 @@
 
 const log = require('loglevel').getLogger('StartTimeCommand'),
 	Commando = require('discord.js-commando'),
+	Helper = require('../../app/helper'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
 
@@ -19,7 +20,7 @@ class StartTimeCommand extends Commando.Command {
 				{
 					key: 'start-time',
 					label: 'start time',
-					prompt: 'When do you wish to begin this raid?\nExamples: `8:43`, `2:20pm`\n\n*or*\n\nIn how long do you wish to begin this raid?\nExample: `15`\n',
+					prompt: 'When do you wish to begin this raid?\nExamples: `8:43`, `2:20pm`\n\n*or*\n\nIn how long (in minutes) do you wish to begin this raid?\nExample: `15`\n',
 					type: 'time'
 				}
 			],
@@ -40,7 +41,7 @@ class StartTimeCommand extends Commando.Command {
 		const start_time = args['start-time'],
 			info = Raid.setRaidStartTime(message.channel.id, start_time);
 
-		message.react('👍')
+		message.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
 			.catch(err => log.error(err));
 
 		const total_attendees = Raid.getAttendeeCount(info.raid),
