@@ -13,6 +13,7 @@
   "pokemon_url_base": "https://rankedboost.com/wp-content/plugins/ice/pokemon-go/",
   "gym_map_directory": "./node_modules/PgP-Data/data/images/",
   "channels": {
-    "bot_lab": "the-bot-lab"
+    "bot_lab": "the-bot-lab",
+	"mod_bot_lab": "mod-bot-only"
   }
 }
