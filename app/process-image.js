@@ -9,7 +9,8 @@ const log = require('loglevel').getLogger('Raid'),
 	GymArgumentType = require('../types/gym'),
 	TimeArgumentType = require('../types/time'),
 	PokemonArgumentType = require('../types/pokemon'),
-	Raid = require('../app/raid');
+	Raid = require('../app/raid'),
+	region_map = require('PgP-Data/data/region-map');
 
 const debug = true;//function checkDebugFlag() { for (let arg of process.argv) { if (arg == '--debug') { return true } } return false; }();
 
@@ -23,6 +24,9 @@ class ImageProcess {
 		if (message.content == 'ping') {
 			url = path.join(__dirname, this.image_path, 'image18.png');
 		}
+
+		// if not in a proper raid channel, cancel out immediately
+		if (!region_map[message.channel.name]) { return; }
 
 		Jimp.read(url).then((image) => {
 			if (!image) { return; }
