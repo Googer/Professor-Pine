@@ -4,7 +4,6 @@ const log = require('loglevel').getLogger('DirectionsCommand'),
 	Commando = require('discord.js-commando'),
 	Gym = require('../../app/gym'),
 	Raid = require('../../app/raid'),
-	settings = require('../../data/settings'),
 	Utility = require('../../app/utility');
 
 class DirectionsCommand extends Commando.Command {
@@ -36,7 +35,7 @@ class DirectionsCommand extends Commando.Command {
 			response = message.channel
 				.send(`https://www.google.com/maps/dir/Current+Location/${gym.gymInfo.latitude},${gym.gymInfo.longitude}`, {
 					files: [
-						`${settings.gym_map_directory}${gym_id}.png`
+						require.resolve(`PgP-Data/data/images/${gym_id}.png`)
 					]
 				})
 				.catch(err => log.error(err));

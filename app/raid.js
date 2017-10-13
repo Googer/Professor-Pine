@@ -611,7 +611,10 @@ class Raid {
 			raid.pokemon.name ?
 				raid.pokemon.name.charAt(0).toUpperCase() + raid.pokemon.name.slice(1) :
 				'Tier ' + raid.pokemon.tier,
-			gym = Gym.getGym(raid.gym_id).gymName,
+			gym = Gym.getGym(raid.gym_id),
+			gym_name = (!!gym.nickname ?
+				gym.nickname :
+				gym.gymName),
 			total_attendees = this.getAttendeeCount(raid),
 			calendar_format = {
 				sameDay: 'LT',
@@ -632,7 +635,7 @@ class Raid {
 
 		return this.getChannel(raid.channel_id)
 			.then(channel => `**${pokemon}**\n` +
-				`${channel.toString()} :: ${gym} :: **${total_attendees}** potential trainer${total_attendees !== 1 ? 's' : ''}${start_time}${end_time}\n`)
+				`${channel.toString()} :: ${gym_name} :: **${total_attendees}** potential trainer${total_attendees !== 1 ? 's' : ''}${start_time}${end_time}\n`)
 			.catch(err => {
 				log.error(err);
 				return '';
