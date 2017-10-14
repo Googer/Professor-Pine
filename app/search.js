@@ -11,7 +11,11 @@ class Search {
 		this.buildIndex();
 	}
 
-	static singleTermSearch(term, index) {
+	static singleTermSearch(term, index, fields) {
+		if (!fields) {
+			fields = index.fields;
+		}
+
 		if (term.length > 15) {
 			term = term.substring(0, 14) + lunr.Query.wildcard;
 		}
@@ -19,6 +23,7 @@ class Search {
 		return index.query(query => {
 			query.term(term,
 				{
+					fields: fields,
 					usePipeline: true,
 					boost: 100
 				});
@@ -27,12 +32,14 @@ class Search {
 				// wildcard in term, disable stemming
 				query.term(term,
 					{
+						fields: fields,
 						usePipeline: false,
 						boost: 10
 					});
 			}
 			query.term(term,
 				{
+					fields: fields,
 					usePipeline: false,
 					boost: 1,
 					editDistance: Math.floor(term.length / 4.5)
