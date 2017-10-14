@@ -12,7 +12,7 @@ class LeaveCommand extends Commando.Command {
 			name: 'leave',
 			group: 'basic-raid',
 			memberName: 'leave',
-			aliases: ['part', 'not-interested', 'uninterested', 'meh'],
+			aliases: ['part', 'not-interested', 'uninterested', 'meh', 'bye'],
 			description: 'Leaves an existing raid (completely removes you from its attendees list).\n',
 			details: 'Use this command to leave a raid if you can no longer attend it.',
 			examples: ['\t!leave', '\t!part'],

@@ -12,7 +12,7 @@ class TimeRemainingCommand extends Commando.Command {
 			name: 'left',
 			group: 'raid-crud',
 			memberName: 'left',
-			aliases: ['time-left', 'time-remaining', 'remaining', 'time-remain', 'remain', 'end-time', 'end'],
+			aliases: ['time-left', 'time-remaining', 'remaining', 'time-remain', 'remain', 'end-time', 'end', 'ends', 'ending'],
 			description: 'Sets the time an existing raid remains (also works to set hatch time for an egg).',
 			details: 'Use this command to set remaining time on a raid timer (if it has not yet begun), or to set its remaining time if it has.',
 			examples: ['\t!left 45', '\t!remain 50'],
