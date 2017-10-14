@@ -3,7 +3,9 @@
 const log = require('loglevel').getLogger('StartTimeCommand'),
 	Commando = require('discord.js-commando'),
 	Helper = require('../../app/helper'),
+	moment = require('moment'),
 	Raid = require('../../app/raid'),
+	{RaidStatus} = require('../../app/constants'),
 	Utility = require('../../app/utility');
 
 class StartTimeCommand extends Commando.Command {
@@ -45,27 +47,28 @@ class StartTimeCommand extends Commando.Command {
 			.catch(err => log.error(err));
 
 		const total_attendees = Raid.getAttendeeCount(info.raid),
-			verb =
-				total_attendees === 1 ?
-					'is' :
-					'are',
-			noun =
-				total_attendees === 1 ?
-					'trainer' :
-					'trainers',
+			verb = total_attendees === 1 ?
+				'is' :
+				'are',
+			noun = total_attendees === 1 ?
+				'trainer' :
+				'trainers',
+			calendar_format = {
+				sameDay: 'LT',
+				sameElse: 'l LT'
+			},
+			formatted_start_time = moment(start_time).calendar(null, calendar_format),
 			channel = await Raid.getChannel(info.raid.channel_id)
 				.catch(err => log.error(err));
 
 		// notify all attendees that a time has been set
-		Object.keys(info.raid.attendees)
-			.filter(attendee => {
-				// no reason to spam the person who set the time, telling them the time being set
-				return attendee !== message.member.id;
-			})
-			.forEach(attendee => {
+		Object.entries(info.raid.attendees)
+			.filter(([attendee, attendee_status]) => attendee !== message.member.id &&
+				attendee_status.status !== RaidStatus.COMPLETE)
+			.forEach(([attendee, attendee_status]) => {
 				Raid.getMember(message.channel.id, attendee)
 					.then(member => member.send(
-						`A start time has been set for ${channel.toString()}. ` +
+						`A start time of ${formatted_start_time} has been set for ${channel.toString()}. ` +
 						`There ${verb} currently **${total_attendees}** ${noun} attending!`))
 					.catch(err => log.error(err));
 			});
