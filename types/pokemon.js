@@ -12,9 +12,9 @@ class PokemonType extends Commando.ArgumentType {
 		const pokemon_to_lookup = value.match(/^(?:<:)?([A-Za-z*]+)(?::\d+>)?$/);
 
 		if (!pokemon_to_lookup || !pokemon_to_lookup.length) {
-			const result = value.match(/^(?:(?:\w+)\s?)?([1-5])$/);
+			const result = value.match(/^(?:(?:\w+)\W?)?([1-5])$/);
 			if (!result) {
-				return 'Invalid tier specified.  Please try your search again, entering the text you want to search for.\n';
+				return 'Invalid pokémon specified.  Please try your search again, entering the text you want to search for.\n';
 			}
 
 			return true;
@@ -41,7 +41,7 @@ class PokemonType extends Commando.ArgumentType {
 		const pokemon_to_lookup = value.match(/^(?:<:)?([A-Za-z*]+)(?::\d+>)?$/);
 
 		if (!pokemon_to_lookup || !pokemon_to_lookup.length) {
-			const pokemon_level = value.match(/^(?:(?:\w+)\s?)?([1-5])$/);
+			const pokemon_level = value.match(/^(?:(?:\w+)\W?)?([1-5])$/);
 			return {
 				tier: Number.parseInt(pokemon_level[1])
 			}
