@@ -12,7 +12,7 @@ class DoneCommand extends Commando.Command {
 			name: 'done',
 			group: 'basic-raid',
 			memberName: 'done',
-			aliases: ['complete', 'caught-it'],
+			aliases: ['complete', 'finished', 'finish', 'caught-it', 'got-it'],
 			description: 'Lets others know you have completed an existing raid.\n',
 			details: 'Use this command to tell everyone you have completed this raid.',
 			examples: ['\t!done', '\t!complete', '\t!caught-it'],
