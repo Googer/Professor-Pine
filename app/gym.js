@@ -65,12 +65,12 @@ class Gym extends Search {
 				}
 
 				// static fields
-				gymDocument['name'] = gym.gymName.replace(/[^\w\s]+/g, '');
-				gymDocument['description'] = gym.gymInfo.gymDescription.replace(/[^\w\s]+/g, '');
+				gymDocument['name'] = gym.gymName.replace(/[^\w\s-]+/g, '');
+				gymDocument['description'] = gym.gymInfo.gymDescription.replace(/[^\w\s-]+/g, '');
 
 				if (gym.nickname) {
 					gym.nickname = he.decode(gym.nickname);
-					gymDocument['nickname'] = gym.nickname.replace(/[^\w\s]+/g, '');
+					gymDocument['nickname'] = gym.nickname.replace(/[^\w\s-]+/g, '');
 				}
 
 				// Build a map of the geocoded information:
@@ -126,7 +126,12 @@ class Gym extends Search {
 
 		// first filter out stop words from the search terms; lunr does this itself so our hacky way of AND'ing will
 		// return nothing if they have any in their search terms list since they'll never match anything
-		const filtered_terms = terms
+		const split_terms = terms
+			.map(term => term.split('-'))
+			.reduce((term_a, term_b) => [term_a, term_b])
+			.reduce((terms_a, terms_b) => terms_a.concat(terms_b), []);
+
+		const filtered_terms = split_terms
 			.map(term => term.replace(/[^\w\s*]+/g, ''))
 			.map(term => term.toLowerCase())
 			.filter(term => lunr.stopWordFilter(term));
