@@ -9,18 +9,9 @@ class PokemonType extends Commando.ArgumentType {
 	}
 
 	validate(value, message, arg) {
-		const pokemon_to_lookup = value.match(/^(?:<:)?([A-Za-z*]+)(?::\d+>)?$/);
-
-		if (!pokemon_to_lookup || !pokemon_to_lookup.length) {
-			const result = value.match(/^(?:(?:\w+)\W?)?([1-5])$/);
-			if (!result) {
-				return 'Invalid pokémon specified.  Please try your search again, entering the text you want to search for.\n';
-			}
-
-			return true;
-		}
-
-		const pokemon = Pokemon.search(pokemon_to_lookup[1].toLowerCase());
+		const terms = value.split(/[\s-]/)
+				.map(term => term.toLowerCase()),
+			pokemon = Pokemon.search(terms);
 
 		if (!pokemon) {
 			return 'No pokémon found.  Please try your search again, entering the text you want to search for.\n';
@@ -38,16 +29,10 @@ class PokemonType extends Commando.ArgumentType {
 	}
 
 	parse(value, message, arg) {
-		const pokemon_to_lookup = value.match(/^(?:<:)?([A-Za-z*]+)(?::\d+>)?$/);
+		const terms = value.split(/[\s-]/)
+			.map(term => term.toLowerCase());
 
-		if (!pokemon_to_lookup || !pokemon_to_lookup.length) {
-			const pokemon_level = value.match(/^(?:(?:\w+)\W?)?([1-5])$/);
-			return {
-				tier: Number.parseInt(pokemon_level[1])
-			}
-		}
-
-		return Pokemon.search(pokemon_to_lookup[1].toLowerCase());
+		return Pokemon.search(terms);
 	}
 }
 
