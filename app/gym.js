@@ -126,10 +126,8 @@ class Gym extends Search {
 
 		// first filter out stop words from the search terms; lunr does this itself so our hacky way of AND'ing will
 		// return nothing if they have any in their search terms list since they'll never match anything
-		const split_terms = terms
-			.map(term => term.split('-'))
-			.reduce((term_a, term_b) => [term_a, term_b])
-			.reduce((terms_a, terms_b) => terms_a.concat(terms_b), []);
+		const split_terms = [].concat(...terms
+			.map(term => term.split('-')));
 
 		const filtered_terms = split_terms
 			.map(term => term.replace(/[^\w\s*]+/g, ''))
