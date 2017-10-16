@@ -18,7 +18,7 @@ const debug_flag = true;//function checkDebugFlag() { for (let arg of process.ar
 
 class ImageProcess {
 	constructor() {
-		this.image_path = '/../../processing/';
+		this.image_path = '/../assets/processing/';
 	}
 
 	process(message, url) {
@@ -30,42 +30,17 @@ class ImageProcess {
 		// if not in a proper raid channel, cancel out immediately
 		if (!region_map[message.channel.name]) { return; }
 
-		Jimp.read(url).then((image) => {
+		Jimp.read(url).then(image => {
 			if (!image) { return; }
 			const id = uuidv1();
 
 			// resize to some standard size to help tesseract
 			image.scaleToFit(1440, 2560, Jimp.RESIZE_HERMITE);
 
-			// some phones are really wierd? and have way too much height to them, and need this check to push cropping around a bit
-			const check_phone_color = Jimp.intToRGBA(image.getPixelColor(0, 85));
-
-			let gym_location = { x: image.bitmap.width / 5.1, y: image.bitmap.height / 26, width: image.bitmap.width - (image.bitmap.width / 2.55), height: image.bitmap.height / 13 };
-
-			// special case for some kind of odd vertical phone
-			if (check_phone_color.r <= 20 && check_phone_color.g <= 20 && check_phone_color.b <= 20) {
-				gym_location.y += 100;
-			}
-
-
-			return new Promise((resolve, reject) => {
-				// FIRST STEP:  Determine if the screenshot has a valid gym name
-				this.getGymName(id, message, image, gym_location)
-					.then(gym => {
-						// valid gym name determined
-						this.getAdditionalRaidData(id, message, image)
-							.then(values => {
-								values.gym = gym;
-								resolve(values);
-							})
-							.catch(err => reject(err));
-					})
-					.catch(err => {
-						reject(err);
-					});
-			});
-		}).then(values => {
-			this.createRaid(message, values);
+			return this.getRaidData(id, message, image);
+		}).then(data => {
+			console.log(data);
+			this.createRaid(message, data);
 		}).catch(err => {
 			log.warn(err);
 		});
@@ -366,6 +341,7 @@ class ImageProcess {
 				}
 			}
 		}
+		console.log('4', gym_name, await GymType.validate(gym_name, message));
 
 
 		if (!debug_flag && log.getLevel() === log.levels.DEBUG) {
@@ -529,13 +505,29 @@ class ImageProcess {
 
 
 
-	async getAdditionalRaidData(id, message, image) {
+	async getRaidData(id, message, image) {
+		// some phones are really wierd? and have way too much height to them, and need this check to push cropping around a bit
+		const check_phone_color = Jimp.intToRGBA(image.getPixelColor(0, 85));
+
 		// location of cropping / preprocessing for different pieces of information (based on % width & % height for scalability purposes)
+		let gym_location = { x: image.bitmap.width / 5.1, y: image.bitmap.height / 26, width: image.bitmap.width - (image.bitmap.width / 2.55), height: image.bitmap.height / 13 };
 		let phone_time_crop = { x: image.bitmap.width / 2.5, y: 0, width: image.bitmap.width, height: image.bitmap.height / 27 };
 		let pokemon_name_crop = { x: 0, y: image.bitmap.height / 6.4, width: image.bitmap.width, height: image.bitmap.height / 5 };
 		let tier_crop = { x: 0, y: image.bitmap.height / 4.0, width: image.bitmap.width, height: image.bitmap.height / 9 };
 		let all_crop = { x: 0, y: 0, width: image.bitmap.width, height: image.bitmap.height };
 		let values, tier = 0, pokemon = {}, cp = 0;
+
+		// special case for some kind of odd vertical phone
+		if (check_phone_color.r <= 20 && check_phone_color.g <= 20 && check_phone_color.b <= 20) {
+			gym_location.y += 100;
+		}
+
+
+		// GYM NAME
+		const { gym } = await this.getGymName(id, message, image, gym_location);
+		console.log(gym);
+
+		if (!gym) { return false; }
 
 		// PHONE TIME
 		const { phone_time } = await this.getPhoneTime(id, message, image, phone_time_crop);
@@ -556,9 +548,9 @@ class ImageProcess {
 			cp = values.cp;
 		}
 
-		console.log(pokemon);
 		return {
 			egg,
+			gym,
 			phone_time,
 			time_remaining,
 			tier,
@@ -587,7 +579,6 @@ class ImageProcess {
 			time = TimeType.parse(moment().add(duration).format('[at] h:mma'), message);
 		}
 
-		console.log(data);
 		console.log(gym, pokemon, time.format('h:mma'));
 
 		// TODO: move screenshot into newly created channel OR if all 3 pieces of information are found successfully, delete screenshot
