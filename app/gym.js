@@ -24,45 +24,7 @@ class Gym extends Search {
 		this.region_map = require('PgP-Data/data/region-map');
 		this.region_graph = require('PgP-Data/data/region-graph');
 
-		// This index is only indexing against name, description, nickname, and additional terms
-		this.name_index = lunr(function () {
-			// reference will be the entire gym object so we can grab whatever we need from it (GPS coordinates, name, etc.)
-			this.ref('object');
-
-			// static fields for gym name, nickname, and description
-			this.field('name');
-			this.field('nickname');
-			this.field('description');
-			this.field('additional_terms');
-
-			merged_gyms.forEach(function (gym) {
-				// Gym document is a object with its reference and fields to collection of values
-				const gymDocument = Object.create(null);
-
-				gym.gymName = he.decode(gym.gymName);
-				gym.gymInfo.gymDescription = he.decode(gym.gymInfo.gymDescription);
-
-				gymDocument['name'] = gym.gymName.replace(/[^\w\d\s]+/g, '');
-				gymDocument['description'] = gym.gymInfo.gymDescription.replace(/[^\w\d\s]+/g, '');
-
-				if (gym.nickname) {
-					gym.nickname = he.decode(gym.nickname);
-					gymDocument['nickname'] = gym.nickname.replace(/[^\w\d\s]+/g, '');
-				}
-
-				// merge in additional info from supplementary metadata file
-				gymDocument['additional_terms'] = gym.additional_terms;
-
-				// reference
-				gymDocument['object'] = JSON.stringify(gym);
-
-				// Actually add this gym to the Lunr db
-				this.add(gymDocument);
-			}, this);
-		});
-
-		// This index is indexing against all data, including reverse geocoded data and nearby places
-		this.full_index = lunr(function () {
+		this.index = lunr(function () {
 			// reference will be the entire gym object so we can grab whatever we need from it (GPS coordinates, name, etc.)
 			this.ref('object');
 
@@ -103,12 +65,12 @@ class Gym extends Search {
 				}
 
 				// static fields
-				gymDocument['name'] = gym.gymName.replace(/[^\w\d\s]+/g, '');
-				gymDocument['description'] = gym.gymInfo.gymDescription.replace(/[^\w\d\s]+/g, '');
+				gymDocument['name'] = gym.gymName.replace(/[^\w\s-]+/g, '');
+				gymDocument['description'] = gym.gymInfo.gymDescription.replace(/[^\w\s-]+/g, '');
 
 				if (gym.nickname) {
 					gym.nickname = he.decode(gym.nickname);
-					gymDocument['nickname'] = gym.nickname.replace(/[^\w\d\s]+/g, '');
+					gymDocument['nickname'] = gym.nickname.replace(/[^\w\s-]+/g, '');
 				}
 
 				// Build a map of the geocoded information:
@@ -158,27 +120,42 @@ class Gym extends Search {
 		log.info('Indexing gym data complete');
 	}
 
-	internalSearch(channel_name, terms, index) {
+	internalSearch(channel_name, terms, fields) {
 		// lunr does an OR of its search terms and we really want AND, so we'll get there by doing individual searches
 		// on everything and getting the intersection of the hits
 
 		// first filter out stop words from the search terms; lunr does this itself so our hacky way of AND'ing will
 		// return nothing if they have any in their search terms list since they'll never match anything
-		const filtered_terms = terms
-			.map(term => term.replace(/[^\w\d\s*]+/g, ''))
+		const split_terms = terms
+			.map(term => term.split('-'))
+			.reduce((term_a, term_b) => [term_a, term_b])
+			.reduce((terms_a, terms_b) => terms_a.concat(terms_b), []);
+
+		const filtered_terms = split_terms
+			.map(term => term.replace(/[^\w\s*]+/g, ''))
 			.map(term => term.toLowerCase())
 			.filter(term => lunr.stopWordFilter(term));
 
-		let results = Search.singleTermSearch(filtered_terms[0], index)
-			.map(result => result.ref);
+		let results = Search.singleTermSearch(filtered_terms[0], this.index, fields);
 
 		for (let i = 1; i < filtered_terms.length; i++) {
-			const termResults = Search.singleTermSearch(filtered_terms[i], index)
-				.map(result => result.ref);
+			const term_results = Search.singleTermSearch(filtered_terms[i], this.index, fields);
 
-			results = results.filter(result => {
-				return termResults.indexOf(result) !== -1;
-			});
+			results = results
+				.map(result => {
+					const matching_result = term_results.find(term_result => term_result.ref === result.ref);
+
+					if (matching_result) {
+						// Multiply scores together for reordering later
+						result.score *= matching_result.score;
+					} else {
+						// No match, so set score to -1 so this result gets filtered out
+						result.score = -1;
+					}
+
+					return result;
+				})
+				.filter(result => result.score !== -1);
 
 			if (results.length === 0) {
 				// already no results, may as well stop
@@ -186,21 +163,29 @@ class Gym extends Search {
 			}
 		}
 
+		// Now reorder results by composite score
+		results.sort((result_1, result_2) => result_2.score - result_1.score);
+
 		// Now filter results based on what channel this request came from
 		return results
-			.map(result => JSON.parse(result))
+			.map(result => JSON.parse(result.ref))
 			.filter(gym => {
 				return this.region_map[channel_name].indexOf(gym.gymId) >= 0;
 			});
 	}
 
 	channelSearch(channel_name, terms) {
-		// First try against name/nickname / description-only index
-		let results = this.internalSearch(channel_name, terms, this.name_index);
+		// First try against name/nickname only
+		let results = this.internalSearch(channel_name, terms, ['name', 'nickname']);
 
 		if (results.length === 0) {
-			// That didn't return anything, so now try the geocoded data one
-			results = this.internalSearch(channel_name, terms, this.full_index);
+			// That didn't return anything, so now try the with description & additional terms as well
+			results = this.internalSearch(channel_name, terms, ['name', 'nickname', 'description', 'additional_terms']);
+		}
+
+		if (results.length === 0) {
+			// That still didn't return anything, so now try with all fields
+			results = this.internalSearch(channel_name, terms);
 		}
 
 		return results;
