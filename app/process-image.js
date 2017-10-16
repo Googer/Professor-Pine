@@ -39,8 +39,9 @@ class ImageProcess {
 
 			return this.getRaidData(id, message, image);
 		}).then(data => {
-			console.log(data);
-			this.createRaid(message, data);
+			if (data) {
+				this.createRaid(message, data);
+			}
 		}).catch(err => {
 			log.warn(err);
 		});
@@ -341,8 +342,6 @@ class ImageProcess {
 				}
 			}
 		}
-		console.log('4', gym_name, await GymType.validate(gym_name, message));
-
 
 		if (!debug_flag && log.getLevel() === log.levels.DEBUG) {
 			values.image.write(values.debug_image_path);
@@ -525,7 +524,6 @@ class ImageProcess {
 
 		// GYM NAME
 		const { gym } = await this.getGymName(id, message, image, gym_location);
-		console.log(gym);
 
 		if (!gym) { return false; }
 
