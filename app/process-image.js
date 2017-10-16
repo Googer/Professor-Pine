@@ -1,7 +1,8 @@
 "use strict";
 
-const log = require('loglevel').getLogger('Raid'),
+const log = require('loglevel').getLogger('ImageProcessor'),
 	path = require('path'),
+	uuidv1 = require('uuid/v1'),
 	tesseract = require('tesseract.js'),
 	moment = require('moment'),
 	Helper = require('../app/helper'),
@@ -12,7 +13,8 @@ const log = require('loglevel').getLogger('Raid'),
 	Raid = require('../app/raid'),
 	region_map = require('PgP-Data/data/region-map');
 
-const debug = true;//function checkDebugFlag() { for (let arg of process.argv) { if (arg == '--debug') { return true } } return false; }();
+// currently being used to store all images locally regardless of what was able to be determined from them
+const debug_flag = true;//function checkDebugFlag() { for (let arg of process.argv) { if (arg == '--debug') { return true } } return false; }();
 
 class ImageProcess {
 	constructor() {
@@ -30,6 +32,7 @@ class ImageProcess {
 
 		Jimp.read(url).then((image) => {
 			if (!image) { return; }
+			const id = uuidv1();
 
 			// resize to some standard size to help tesseract
 			image.scaleToFit(1440, 2560, Jimp.RESIZE_HERMITE);
@@ -46,31 +49,26 @@ class ImageProcess {
 
 
 			return new Promise((resolve, reject) => {
-				let promises = [];
-
 				// FIRST STEP:  Determine if the screenshot has a valid gym name
-				this.getGymName(image, gym_location).then(gym => {
-					const GymType = new GymArgumentType(Helper.client);
-
-					// ensure gym exist and is allowed to be created
-					GymType.validate(gym, message).then(validation => {
-						if (validation == true) {
-							this.getRaidData(image).then(values => {
+				this.getGymName(id, message, image, gym_location)
+					.then(gym => {
+						// valid gym name determined
+						this.getAdditionalRaidData(id, message, image)
+							.then(values => {
 								values.gym = gym;
-
 								resolve(values);
-							});
-						} else {
-							reject(validation);
-						}
-					}).catch(err => {
+							})
+							.catch(err => reject(err));
+					})
+					.catch(err => {
 						reject(err);
 					});
-				});
 			});
 		}).then(values => {
 			this.createRaid(message, values);
-		}).catch(err => console.log(err));
+		}).catch(err => {
+			log.warn(err);
+		});
 	}
 
 	/**
@@ -135,10 +133,45 @@ class ImageProcess {
 	}
 
 
-	getPhoneTime(image, region) {
+
+	async getPhoneTime(id, message, image, region) {
+		const values = await this.getOCRPhoneTime(id, message, image, region);
+
+		// Determine of AM or PM time
+		let phone_time = values.text;
+		if (phone_time.search(/(a|p)m/gi) >= 0) {
+			phone_time = moment(phone_time, 'hh:mma');
+		} else {
+			// figure out if time should be AM or PM
+			const now = moment();
+			const time_am = moment(phone_time + 'am', 'hh:mma');
+			const time_pm = moment(phone_time + 'pm', 'hh:mma');
+			const times = [ time_am.diff(now), time_pm.diff(now) ];
+
+			// whatever time is closer to current time (less diff), use that
+			if (Math.abs(times[0]) < Math.abs(times[1])) {
+				phone_time = time_am;
+			} else {
+				phone_time = time_pm;
+			}
+		}
+
+		// something has gone wrong if no info was matched, save image for later analysis
+		if (!phone_time.isValid() && !debug_flag && log.getLevel() === log.levels.DEBUG) {
+			values.image1.write(values.debug_image_path1);
+			values.image2.write(values.debug_image_path2);
+		}
+
+		// NOTE:  There is a chance that the time is not valid, but when that's the case
+		//			I think we should just leave the time unset, rather than guessing that the time is now.
+		//			Don't want to confuse people with slightly incorrect times.
+		return { phone_time };
+	}
+
+	getOCRPhoneTime(id, message, image, region, level=0) {
 		return new Promise((resolve, reject) => {
-			const dst1 = path.join(__dirname, this.image_path, 'cropped1a.png');
-			const dst2 = path.join(__dirname, this.image_path, 'cropped1b.png');
+			const debug_image_path1 = path.join(__dirname, this.image_path, `${id}1-phone-time-a.png`);
+			const debug_image_path2 = path.join(__dirname, this.image_path, `${id}1-phone-time-b.png`);
 
 			const width = region.width / 4;
 
@@ -159,17 +192,17 @@ class ImageProcess {
 							// .progress(message => console.log(message))
 							.catch(err => reject(err))
 							.then(result => {
-								const match = result.text.replace(/[-!$%^&*()_+|~=`{}\[\]"“’‘;'<>?,.\/\\\n]/g, '').match(/[0-9]{1,2}\:[0-9]{1,2}\s?((a|p)m)?/gi);
+								const match = result.text.replace(/[^\w\s:]/g, '').match(/([0-9]{1,2}:[0-9]{1,2}){1}\s?(a|p)?m?/gi);
 								if (match && match.length) {
-									resolve(match[0]);
+									resolve({ image, text: match[0], debug_image_path1 });
 								} else {
-									resolve();
+									resolve({ image, debug_image_path1 });
 								}
 							});
 					});
 
-				if (debug) {
-					new_image.write(dst1);
+				if (debug_flag) {
+					new_image.write(debug_image_path1);
 				}
 			}));
 
@@ -184,33 +217,56 @@ class ImageProcess {
 							// .progress(message => console.log(message))
 							.catch(err => reject(err))
 							.then(result => {
-								const match = result.text.replace(/[-!$%^&*()_+|~=`{}\[\]"“’‘;'<>?,.\/\\\n]/g, '').match(/[0-9]{1,2}\:[0-9]{1,2}\s?((a|p)m)?/gi);
+								const match = result.text.replace(/[^\w\s:]/g, '').match(/([0-9]{1,2}:[0-9]{1,2}){1}\s?(a|p)?m?/gi);
 								if (match && match.length) {
-									resolve(match[0]);
+									resolve({ image, text: match[0], debug_image_path2 });
 								} else {
-									resolve();
+									resolve({ image, debug_image_path2 });
 								}
 							});
 					});
 
-				if (debug) {
-					new_image.write(dst2);
+				if (debug_flag) {
+					new_image.write(debug_image_path2);
 				}
 			}));
 
 			// pass along collected data once all promises have resolved
 			Promise.all(promises).then(values => {
-				resolve(values[0] || values[1]);
+				resolve({
+					image1: values[0].image,
+					image2: values[1].image,
+					text: values[0].text || values[1].text,
+					debug_image_path1,
+					debug_image_path2
+				});
 			}).catch(err => {
 				reject(err);
 			});
 		});
 	}
 
-	getRaidTimeRemaining(image, region) {
+
+
+
+	async getRaidTimeRemaining(id, message, image, region) {
+		const values = await this.getOCRRaidTimeRemaining(id, message, image, region);
+
+		// something has gone wrong if no info was matched, save image for later analysis
+		if (!values.text && !debug_flag && log.getLevel() === log.levels.DEBUG) {
+			values.image1.write(values.debug_image_path1);
+			values.image2.write(values.debug_image_path2);
+		}
+
+		// NOTE:  There is a chance time_remaining could not be determined... not sure if we would want to do
+		//			a different time of image processing at that point or not...
+		return { time_remaining: values.text, egg: values.egg };
+	}
+
+	getOCRRaidTimeRemaining(id, message, image, region, level=0) {
 		return new Promise((resolve, reject) => {
-			const dst1 = path.join(__dirname,  this.image_path, 'cropped5a.png');
-			const dst2 = path.join(__dirname,  this.image_path, 'cropped5b.png');
+			const debug_image_path1 = path.join(__dirname, this.image_path, `${id}5-time-remaining-a.png`);
+			const debug_image_path2 = path.join(__dirname, this.image_path, `${id}5-time-remaining-b.png`);
 
 			let region1 = { x: region.width - (region.width / 3.4), y: region.height - (region.height / 2.2), width: region.width / 4, height: region.height / 12 };
 			let region2 = { x: 0, y: region.height / 6.4, width: region.width, height: region.height / 5 };
@@ -228,17 +284,17 @@ class ImageProcess {
 							// .progress(message => console.log(message))
 							.catch(err => reject(err))
 							.then(result => {
-								const match = result.text.match(/[0-9]{1,2}\:[0-9]{1,2}\:[0-9]{1,2}/g);
+								const match = result.text.replace(/[^\w\s:]/g, '').match(/([0-9]{1,2}:[0-9]{1,2}){2}/g);
 								if (match && match.length) {
-									resolve(match[0]);
+									resolve({ image, text: match[0] });
 								} else {
-									resolve();
+									resolve({ image });
 								}
 							});
 					});
 
-				if (debug) {
-					new_image.write(dst1);
+				if (debug_flag) {
+					new_image.write(debug_image_path1);
 				}
 			}));
 
@@ -253,36 +309,81 @@ class ImageProcess {
 							// .progress(message => console.log(message))
 							.catch(err => reject(err))
 							.then(result => {
-								const match = result.text.match(/[0-9]{1,2}\:[0-9]{1,2}\:[0-9]{1,2}/g);
+								const match = result.text.replace(/[^\w:]/g, '').match(/([0-9]{1,2}:[0-9]{1,2}){2}/g);
 								if (match && match.length) {
-									resolve(match[0]);
+									resolve({ image, text: match[0] });
 								} else {
-									resolve();
+									resolve({ image });
 								}
 							});
 					});
 
-				if (debug) {
-					new_image.write(dst2);
+				if (debug_flag) {
+					new_image.write(debug_image_path2);
 				}
 			}));
 
 			// pass along collected data once all promises have resolved
 			Promise.all(promises).then(values => {
-				resolve([values[0] || values[1], !!values[1]]);
+				resolve({
+					egg: !!values[1].text,
+					image1: values[0].image,
+					image2: values[1].image,
+					text: values[0].text || values[1].text,
+					debug_image_path1,
+					debug_image_path2
+				});
 			}).catch(err => {
 				reject(err);
 			});
 		});
 	}
 
-	getGymName(image, region) {
-		const dst = path.join(__dirname, this.image_path, 'cropped2.png');
+
+
+	async getGymName(id, message, image, region) {
+		const GymType = new GymArgumentType(Helper.client);
+		const values = await this.getOCRGymName(id, message, image, region);
+
+		let gym_name = values.text;
+		let gym_words = gym_name.split(' ').sort((a, b) => { return a.length < b.length; });
+
+		// ensure gym exist and is allowed to be created
+		if (await GymType.validate(gym_name, message) === true) {
+			return await GymType.parse(gym_name, message);
+		}
+
+		// If gym_name doesn't exist, start popping off the shortest words in an attempt to get a match
+		//		Example: 6 words = 3 attempts, 2 words = 1 attempt
+		for (let i=0; i<Math.floor(gym_words.length/2); i++) {
+			// only remove words of length 4 characters or lower
+			if (gym_words.pop().length <= 4) {
+				gym_name = gym_words.join(' ');
+
+				// ensure gym exist and is allowed to be created
+				if (await GymType.validate(gym_name, message) === true) {
+					return await GymType.parse(gym_name, message);
+				}
+			}
+		}
+
+
+		if (!debug_flag && log.getLevel() === log.levels.DEBUG) {
+			values.image.write(values.debug_image_path);
+		}
+
+
+		// If nothing has been determined to make sense, then either OCR or Validation has failed for whatever reason
+		// TODO:  Try a different way of getting tesseract info from image
+		return await GymType.validate(gym_name, message);
+	}
+
+	getOCRGymName(id, message, image, region, level=0) {
+		const debug_image_path = path.join(__dirname, this.image_path, `${id}2-gym-name.png`);
 
 		return new Promise((resolve, reject) => {
 			const new_image = image.clone()
 				.crop(region.x, region.y, region.width, region.height)
-				// .brightness(-0.1)
 				.scan(0, 0, region.width, region.height, this.filterBodyContent)
 				.getBuffer(Jimp.MIME_PNG, (err, image) => {
 					if (err) { reject(err); }
@@ -291,18 +392,58 @@ class ImageProcess {
 						// .progress(message => console.log(message))
 						.catch(err => reject(err))
 						.then(result => {
-							resolve(result.text.replace(/[-!$%^&*()_+|~=`{}\[\]:"“’‘;'<>?,.\/\\\n]/g, ' ').trim());
+							const text = result.text.replace(/[^\w\s]/g, '').replace(/\n/g, ' ').trim();
+							resolve({ image, text, debug_image_path });
 						});
 				});
 
-			if (debug) {
-				new_image.write(dst);
+			if (debug_flag) {
+				new_image.write(debug_image_path);
 			}
 		});
 	}
 
-	getPokemonName(image, region) {
-		const dst = path.join(__dirname,  this.image_path, 'cropped3.png');
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	async getPokemonName(id, message, image, region) {
+		const PokemonType = new PokemonArgumentType(Helper.client);
+		const values = await this.getOCRPokemonName(id, message, image, region);
+
+		let pokemon = values.pokemon;
+		if (PokemonType.validate(pokemon, message) === true) {
+			pokemon = PokemonType.parse(pokemon, message);
+		} else {
+			pokemon = { name: 'raid', tier: '????' };
+		}
+
+		// something has gone wrong if no info was matched, save image for later analysis
+		if (!values.pokemon && !debug_flag && log.getLevel() === log.levels.DEBUG) {
+			values.image.write(values.debug_image_path);
+		}
+
+		// NOTE:  There is a chance pokemon could not be determined and we may need to try image processing again
+		return { pokemon, cp: values.cp };
+	}
+
+	getOCRPokemonName(id, message, image, region, level=0) {
+		const debug_image_path = path.join(__dirname,  this.image_path, `${id}3-pokemon-name.png`);
 
 		return new Promise((resolve, reject) => {
 			const new_image = image.clone()
@@ -317,21 +458,46 @@ class ImageProcess {
 						// .progress(message => console.log(message))
 						.catch(err => reject(err))
 						.then(result => {
-							const text = result.text.replace(/[-!$%^&*()_+|~=`{}\[\]:"“”‘;'<>?,.\/]/gi, '');
-							const cp = (text.match(/[0-9]+/g) || [''])[0];
+							const text = result.text.replace(/[^\w\s\n]/gi, '');
+							const cp = new Number(text.match(/[0-9]+/g)).valueOf();
 							const pokemon = text.replace(/(cp)?\s?[0-9]*/g, '');
-							resolve([cp, pokemon]);
+							resolve({ image, cp, pokemon, debug_image_path });
 						});
 				});
 
-			if (debug) {
-				new_image.write(dst);
+			if (debug_flag) {
+				new_image.write(debug_image_path);
 			}
 		});
 	}
 
-	getTier(image, region) {
-		const dst = path.join(__dirname,  this.image_path, 'cropped4.png');
+
+
+
+
+
+
+
+
+
+
+
+
+
+	async getTier(id, message, image, region) {
+		const values = await this.getOCRTier(id, message, image, region);
+
+		// something has gone wrong if no info was matched, save image for later analysis
+		if (!values.tier && !debug_flag && log.getLevel() === log.levels.DEBUG) {
+			values.image.write(values.debug_image_path);
+		}
+
+		// NOTE:  There is a chance pokemon could not be determined and we may need to try image processing again before returning
+		return { tier: values.tier };
+	}
+
+	async getOCRTier(id, message, image, region) {
+		const debug_image_path = path.join(__dirname,  this.image_path, `${id}5-tier.png`);
 
 		return new Promise((resolve, reject) => {
 			const new_image = image.clone()
@@ -346,141 +512,114 @@ class ImageProcess {
 						.catch(err => reject(err))
 						.then(result => {
 							// NOTE:  This doesn't match 1 character alone... too many jibberish character to match T1 raids like this...
-							const match = result.text.replace(/[-!%^()_|~=`{}\[\]:"“’‘;'<>?,.\/]/g, '').match(/(.)\1+/g);
+							const match = result.text.replace(/[^\w\s]/g, '').match(/(.)\1+/g);
 							if (match && match.length) {
-								resolve(match[0]);
+								resolve({ image, tier: match.length, debug_image_path });
 							} else {
-								resolve(`Could not determine raid tier. ${result.text}`);
+								resolve({ image, tier: 0, debug_image_path });
 							}
 						});
 				});
 
-			if (debug) {
-				new_image.write(dst);
+			if (debug_flag) {
+				new_image.write(debug_image_path);
 			}
 		});
 	}
 
-	getRaidData(image, egg=false) {
+
+
+	async getAdditionalRaidData(id, message, image) {
 		// location of cropping / preprocessing for different pieces of information (based on % width & % height for scalability purposes)
-		let phone_time = { x: image.bitmap.width / 2.5, y: 0, width: image.bitmap.width, height: image.bitmap.height / 27 };
-		let pokemon_name = { x: 0, y: image.bitmap.height / 6.4, width: image.bitmap.width, height: image.bitmap.height / 5 };
-		let tier = { x: 0, y: image.bitmap.height / 4.0, width: image.bitmap.width, height: image.bitmap.height / 9 };
-		let all = { x: 0, y: 0, width: image.bitmap.width, height: image.bitmap.height };
+		let phone_time_crop = { x: image.bitmap.width / 2.5, y: 0, width: image.bitmap.width, height: image.bitmap.height / 27 };
+		let pokemon_name_crop = { x: 0, y: image.bitmap.height / 6.4, width: image.bitmap.width, height: image.bitmap.height / 5 };
+		let tier_crop = { x: 0, y: image.bitmap.height / 4.0, width: image.bitmap.width, height: image.bitmap.height / 9 };
+		let all_crop = { x: 0, y: 0, width: image.bitmap.width, height: image.bitmap.height };
+		let values, tier = 0, pokemon = {}, cp = 0;
 
-		return new Promise((resolve, reject) => {
-			let promises = [];
+		// PHONE TIME
+		const { phone_time } = await this.getPhoneTime(id, message, image, phone_time_crop);
 
-			// PHONE TIME
-			promises.push(this.getPhoneTime(image, phone_time));
+		// TIME REMAINING
+		const { time_remaining, egg } = await this.getRaidTimeRemaining(id, message, image, all_crop);
 
-			// TIME REMAINING
-			promises.push(this.getRaidTimeRemaining(image, all));
-
+		// NOTE:  This seems like a bug in await syntax, but I can't use shorthands for settings values
+		//			when they're await within an IF function like this... really stupid.
+		if (egg) {
 			// POKEMON TIER
-			promises.push(this.getTier(image, tier));
-
+			values = await this.getTier(id, message, image, tier_crop);
+			tier = values.tier;
+		} else {
 			// POKEMON NAME
-			promises.push(this.getPokemonName(image, pokemon_name));
+			values = await this.getPokemonName(id, message, image, pokemon_name_crop);
+			pokemon = values.pokemon;
+			cp = values.cp;
+		}
 
-			// pass along collected data once all promises have resolved
-			Promise.all(promises).then(values => {
-				resolve({
-					egg: values[1][1],
-					phone_time: values[0],
-					time_remaining: values[1][0],
-					tier: values[2],
-					cp: values[3][0],
-					pokemon: values[3][1],
-				});
-			}).catch(err => {
-				reject(err);
-			});
-		});
+		console.log(pokemon);
+		return {
+			egg,
+			phone_time,
+			time_remaining,
+			tier,
+			cp,
+			pokemon
+		};
 	}
 
 	createRaid(message, data) {
-		const GymType = new GymArgumentType(Helper.client);
-		const PokemonType = new PokemonArgumentType(Helper.client);
 		const TimeType = new TimeArgumentType(Helper.client);
 
 		let pokemon = data.pokemon;
-		let time = data.time;
-		let duration = moment.duration(data.time_remaining,'hh:mm:ss');
-
-		console.log(data);
-
-		// if AM or PM already exists in phone_time, use phone_time as is,
-		//		otherwise figure out if AM or PM would be closer to the current time
-		if (data.phone_time.search(/(a|p)m/gi) >= 0) {
-			time = moment(data.phone_time, 'hh:mma');
-		} else {
-			// else figure out if time should be AM or PM
-			const time_am = moment(data.phone_time + 'am', 'hh:mma');
-			const time_pm = moment(data.phone_time + 'pm', 'hh:mma');
-			const times = [ time_am.diff(moment()), time_pm.diff(moment()) ]
-			if (times[0] < times[1]) {
-				time = time_am;
-			} else {
-				time = time_pm;
-			}
-		}
+		let time = data.phone_time;
+		let duration = moment.duration(data.time_remaining, 'hh:mm:ss');
 
 		// add time remaining to phone's current time to get final hatch or despawn time
 		time = time.add(duration);
-		console.log(time.format('h:mma'));
 
 		// Need to fake ArgumentType data in order to parse time...
 		message.argString = '';
 		message.is_exclusive = false;
 
-		if (PokemonType.validate(data.pokemon, message) === true) {
-			pokemon = PokemonType.parse(data.pokemon, message);
-		} else {
-			pokemon = { name: 'pokemon', tier: '????' };
-		}
-
 		if (TimeType.validate(time.format('[at] h:mma'), message, { prompt: '' }) === true) {
 			time = TimeType.parse(time.format('[at] h:mma'), message);
 		} else {
-			console.log(moment().add(duration).format('h:mma'));
 			time = TimeType.parse(moment().add(duration).format('[at] h:mma'), message);
 		}
 
-		GymType.parse(data.gym, message).then(gym => {
-			console.log(gym, pokemon, time);
+		console.log(data);
+		console.log(gym, pokemon, time.format('h:mma'));
 
-			// TODO: move screenshot into newly created channel OR if all 3 pieces of information are found successfully, delete screenshot
-			if (pokemon && time && gym) {
-				let raid;
+		// TODO: move screenshot into newly created channel OR if all 3 pieces of information are found successfully, delete screenshot
+		if (pokemon && time && gym) {
+			let raid;
 
-				Raid.createRaid(message.channel.id, message.member.id, pokemon, gym, time)
-					.then(async info => {
-						raid = info.raid;
-						const raid_channel_message = await Raid.getRaidChannelMessage(raid),
-						formatted_message = await Raid.getFormattedMessage(raid);
+			Raid.createRaid(message.channel.id, message.member.id, pokemon, gym, time)
+				.then(async info => {
+					raid = info.raid;
+					const raid_channel_message = await Raid.getRaidChannelMessage(raid),
+					formatted_message = await Raid.getFormattedMessage(raid);
 
 
-						return message.channel.send(raid_channel_message, formatted_message);
-					})
-					.then(announcement_message => {
-						return Raid.setAnnouncementMessage(raid.channel_id, announcement_message);
-					})
-					.then(async bot_message => {
-						const raid_source_channel_message = await Raid.getRaidSourceChannelMessage(raid),
-						formatted_message = await Raid.getFormattedMessage(raid);
-						return Raid.getChannel(raid.channel_id)
-							.then(channel => channel.send(raid_source_channel_message, formatted_message))
-							.catch(err => log.error(err));
-					})
-					.then(channel_raid_message => {
-						Raid.addMessage(raid.channel_id, channel_raid_message, true);
-					})
-					.catch(err => log.error(err))
-			} else {
-				message.channel.send(Object.values(data).join('\n'));
-			}
-		}).catch(err => log.error(err));
+					return message.channel.send(raid_channel_message, formatted_message);
+				})
+				.then(announcement_message => {
+					return Raid.setAnnouncementMessage(raid.channel_id, announcement_message);
+				})
+				.then(async bot_message => {
+					const raid_source_channel_message = await Raid.getRaidSourceChannelMessage(raid),
+					formatted_message = await Raid.getFormattedMessage(raid);
+					return Raid.getChannel(raid.channel_id)
+						.then(channel => channel.send(raid_source_channel_message, formatted_message))
+						.catch(err => log.error(err));
+				})
+				.then(channel_raid_message => {
+					Raid.addMessage(raid.channel_id, channel_raid_message, true);
+				})
+				.catch(err => log.error(err))
+		} else {
+			message.channel.send(Object.values(data).join('\n'));
+		}
 	}
 }
 

@@ -12,3 +12,6 @@ raids/**
 
 # ignore log files
 *.log
+
+# ignore debug image processing images
+assets/processing
