@@ -46,6 +46,7 @@ class GymType extends Commando.ArgumentType {
 
 			return true;
 		} catch (err) {
+			log.error(err);
 			return 'Invalid search terms entered.\n\nPlease try your search again, entering the text you want to search for.\n';
 		}
 	}
