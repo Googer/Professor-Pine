@@ -16,6 +16,8 @@ class Pokemon extends Search {
 			this.ref('object');
 			this.field('name');
 			this.field('nickname');
+			this.field('tier');
+			this.field('cp');
 
 			const pokemon_data = require('../data/pokemon');
 
@@ -28,6 +30,8 @@ class Pokemon extends Search {
 				pokemonDocument['object'] = JSON.stringify(pokemon);
 				pokemonDocument['name'] = pokemon.name;
 				pokemonDocument['nickname'] = (pokemon.nickname) ? pokemon.nickname.join(' ') : '';
+				pokemonDocument['tier'] = pokemon.tier;
+				pokemonDocument['cp'] = pokemon.cp;
 
 				this.add(pokemonDocument);
 			}, this);
@@ -36,12 +40,32 @@ class Pokemon extends Search {
 		log.info('Indexing pokemon complete');
 	}
 
-	search(term) {
-		const lunr_results = Search.singleTermSearch(term, this.index)
-			.map(result => JSON.parse(result.ref));
+	internalSearch(terms, fields) {
+		return terms
+			.map(term => Search.singleTermSearch(term, this.index, fields))
+			.find(results => results.length > 0);
+	}
 
-		if (lunr_results.length > 0) {
-			return lunr_results[0];
+	search(terms) {
+		// First try searching based on name and nickname
+		let result = this.internalSearch(terms, ['name', 'nickname']);
+		if (result !== undefined) {
+			return JSON.parse(result[0].ref);
+		}
+
+		// Try CP
+		result = this.internalSearch(terms, ['cp']);
+		if (result !== undefined) {
+			return JSON.parse(result[0].ref);
+		}
+
+		// Try tier
+		result = this.internalSearch(terms
+			.map(term => term.match(/(\d+)$/))
+			.filter(match => !!match)
+			.map(match => match[1]), ['tier']);
+		if (result !== undefined) {
+			return JSON.parse(result[0].ref);
 		}
 	}
 }
