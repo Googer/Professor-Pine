@@ -5,7 +5,7 @@ const log = require('loglevel').getLogger('StartTimeCommand'),
 	Helper = require('../../app/helper'),
 	moment = require('moment'),
 	Raid = require('../../app/raid'),
-	{RaidStatus} = require('../../app/constants'),
+	{RaidStatus, TimeParameter} = require('../../app/constants'),
 	Utility = require('../../app/utility');
 
 class StartTimeCommand extends Commando.Command {
@@ -20,7 +20,7 @@ class StartTimeCommand extends Commando.Command {
 			examples: ['\t!start 2:20pm'],
 			args: [
 				{
-					key: 'start-time',
+					key: TimeParameter.START,
 					label: 'start time',
 					prompt: 'When do you wish to begin this raid?\nExamples: `8:43`, `2:20pm`\n\n*or*\n\nIn how long (in minutes) do you wish to begin this raid?\nExample: `15`\n',
 					type: 'time'
@@ -40,7 +40,7 @@ class StartTimeCommand extends Commando.Command {
 	}
 
 	async run(message, args) {
-		const start_time = args['start-time'],
+		const start_time = args[TimeParameter.START],
 			info = Raid.setRaidStartTime(message.channel.id, start_time);
 
 		message.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
