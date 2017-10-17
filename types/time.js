@@ -2,7 +2,7 @@
 
 const Commando = require('discord.js-commando'),
 	moment = require('moment'),
-	{TimeMode} = require('../app/constants'),
+	{TimeMode, TimeParameter} = require('../app/constants'),
 	settings = require('../data/settings.json');
 
 class TimeType extends Commando.ArgumentType {
@@ -18,12 +18,64 @@ class TimeType extends Commando.ArgumentType {
 			raid_creation_time = raid_exists ?
 				moment(Raid.getRaid(message.channel.id).creation_time) :
 				now,
+			incubation_duration = is_ex_raid ?
+				settings.exclusive_raid_incubate_duration :
+				settings.standard_raid_incubate_duration,
 			hatched_duration = is_ex_raid ?
 				settings.exclusive_raid_hatched_duration :
-				settings.standard_raid_hatched_duration,
-			last_possible_time = raid_creation_time.clone().add(is_ex_raid ?
-				settings.exclusive_raid_duration :
-				settings.default_raid_duration, 'minutes');
+				settings.standard_raid_hatched_duration;
+
+		let first_possible_time,
+			max_duration,
+			last_possible_time;
+
+		// Figure out valid first and last possible times for this time
+		switch (arg.key) {
+			case TimeParameter.START:
+				// Start time - valid range is now (or hatch time if it exists, whichever is later)
+				// through raid's end time
+				const raid = Raid.getRaid(message.channel.id),
+					hatch_time = raid ?
+						raid.hatch_time :
+						undefined,
+					end_time = raid ?
+						raid.end_time :
+						undefined;
+
+				if (hatch_time) {
+					const hatch_time_moment = moment(hatch_time);
+
+					first_possible_time = now.isAfter(hatch_time_moment) ?
+						now :
+						hatch_time_moment;
+				} else {
+					first_possible_time = now;
+				}
+
+				const raid_end_time = end_time !== TimeType.UNDEFINED_END_TIME ?
+					moment(end_time) :
+					raid_creation_time.clone().add(incubation_duration + hatched_duration, 'minutes');
+
+				max_duration = incubation_duration + hatched_duration;
+				last_possible_time = raid_end_time;
+				break;
+
+			case TimeParameter.HATCH: {
+				// Hatch time - valid range is up to hatched duration in the past
+				// through incubation period past raid creation time
+				first_possible_time = now.clone().add(-hatched_duration, 'minutes');
+				max_duration = incubation_duration;
+				last_possible_time = raid_creation_time.clone().add(max_duration, 'minutes');
+				break;
+			}
+
+			case TimeParameter.END:
+				// End time - valid range is now through incubation plus hatch duration past creation time
+				first_possible_time = now;
+				max_duration = incubation_duration + hatched_duration;
+				last_possible_time = raid_creation_time.clone().add(max_duration, 'minutes');
+				break;
+		}
 
 		let value_to_parse = value.trim(),
 			possible_times = [],
@@ -59,7 +111,7 @@ class TimeType extends Commando.ArgumentType {
 				}
 			}
 
-			if (moment.isDuration(duration) && duration.isValid() && duration.asMinutes() < hatched_duration) {
+			if (moment.isDuration(duration) && duration.isValid() && duration.asMinutes() < max_duration) {
 				possible_times.push(now.clone().add(duration));
 			}
 		}
@@ -77,11 +129,18 @@ class TimeType extends Commando.ArgumentType {
 		}
 
 		if (possible_times.find(possible_time =>
-				this.isValidTime(possible_time, now, raid_creation_time, last_possible_time))) {
+				this.isValidTime(possible_time, first_possible_time, last_possible_time))) {
 			return true;
 		}
 
-		return `"${value}" is not valid for this raid!\n\n${arg.prompt}`;
+		const calendar_format = {
+				sameDay: 'LT',
+				sameElse: 'l LT'
+			},
+			first_possible_formatted_time = first_possible_time.calendar(null, calendar_format),
+			last_possible_formatted_time = last_possible_time.calendar(null, calendar_format);
+
+		return `"${value}" is not valid for this raid - valid time range is between ${first_possible_formatted_time} and ${last_possible_formatted_time}!\n\n${arg.prompt}`;
 	}
 
 	parse(value, message, arg) {
@@ -92,12 +151,64 @@ class TimeType extends Commando.ArgumentType {
 			raid_creation_time = raid_exists ?
 				moment(Raid.getRaid(message.channel.id).creation_time) :
 				now,
+			incubation_duration = is_ex_raid ?
+				settings.exclusive_raid_incubate_duration :
+				settings.standard_raid_incubate_duration,
 			hatched_duration = is_ex_raid ?
 				settings.exclusive_raid_hatched_duration :
-				settings.standard_raid_hatched_duration,
-			last_possible_time = raid_creation_time.clone().add(is_ex_raid ?
-				settings.exclusive_raid_duration :
-				settings.default_raid_duration, 'minutes');
+				settings.standard_raid_hatched_duration;
+
+		let first_possible_time,
+			max_duration,
+			last_possible_time;
+
+		// Figure out valid first and last possible times for this time
+		switch (arg.key) {
+			case TimeParameter.START:
+				// Start time - valid range is now (or hatch time if it exists, whichever is later)
+				// through raid's end time
+				const raid = Raid.getRaid(message.channel.id),
+					hatch_time = raid ?
+						raid.hatch_time :
+						undefined,
+					end_time = raid ?
+						raid.end_time :
+						undefined;
+
+				if (hatch_time) {
+					const hatch_time_moment = moment(hatch_time);
+
+					first_possible_time = now.isAfter(hatch_time_moment) ?
+						now :
+						hatch_time_moment;
+				} else {
+					first_possible_time = now;
+				}
+
+				const raid_end_time = end_time !== TimeType.UNDEFINED_END_TIME ?
+					moment(end_time) :
+					raid_creation_time.clone().add(incubation_duration + hatched_duration, 'minutes');
+
+				max_duration = incubation_duration + hatched_duration;
+				last_possible_time = raid_end_time;
+				break;
+
+			case TimeParameter.HATCH: {
+				// Hatch time - valid range is up to hatched duration in the past
+				// through incubation period past raid creation time
+				first_possible_time = now.clone().add(-hatched_duration, 'minutes');
+				max_duration = incubation_duration;
+				last_possible_time = raid_creation_time.clone().add(max_duration, 'minutes');
+				break;
+			}
+
+			case TimeParameter.END:
+				// End time - valid range is now through incubation plus hatch duration past creation time
+				first_possible_time = now;
+				max_duration = incubation_duration + hatched_duration;
+				last_possible_time = raid_creation_time.clone().add(max_duration, 'minutes');
+				break;
+		}
 
 		let value_to_parse = value.trim(),
 			possible_times = [],
@@ -133,7 +244,7 @@ class TimeType extends Commando.ArgumentType {
 				}
 			}
 
-			if (moment.isDuration(duration) && duration.isValid() && duration.asMinutes() < hatched_duration) {
+			if (moment.isDuration(duration) && duration.isValid() && duration.asMinutes() < max_duration) {
 				possible_times.push(now.clone().add(duration));
 			}
 		}
@@ -147,7 +258,7 @@ class TimeType extends Commando.ArgumentType {
 		}
 
 		return possible_times.find(possible_time =>
-			this.isValidTime(possible_time, now, raid_creation_time, last_possible_time)).valueOf();
+			this.isValidTime(possible_time, first_possible_time, last_possible_time)).valueOf();
 	}
 
 	isExclusiveRaid(value, message, arg) {
@@ -164,13 +275,11 @@ class TimeType extends Commando.ArgumentType {
 			hour = possible_date.hour(),
 			ambiguously_am = hour < 12 && !date_format.endsWith('a');
 
-		if (hour > settings.default_raid_duration / 60) {
-			possible_dates.push(possible_date);
+		possible_dates.push(possible_date);
 
-			// try next year to allow for year wrap
-			possible_dates.push(possible_date.clone()
-				.year(possible_date.year() + 1));
-		}
+		// try next year to allow for year wrap
+		possible_dates.push(possible_date.clone()
+			.year(possible_date.year() + 1));
 
 		if (ambiguously_am) {
 			// try pm time as well
@@ -186,14 +295,9 @@ class TimeType extends Commando.ArgumentType {
 		return possible_dates;
 	}
 
-	isValidTime(date_to_check, current_time, raid_creation_time, last_possible_time) {
-		// TODO items:
-		// 1. if this is a start time, verify it's before end time for raid if that's set
-		return date_to_check.isSameOrAfter(current_time) &&
-			date_to_check.isBetween(raid_creation_time, last_possible_time, undefined, '[]') &&
-			date_to_check.hours() >= settings.min_raid_hour && date_to_check.hours() < settings.max_raid_hour;
+	isValidTime(date_to_check, first_possible_time, last_possible_time) {
+		return date_to_check.isBetween(first_possible_time, last_possible_time, undefined, '[]');
 	}
-
 
 	static get UNDEFINED_END_TIME() {
 		return 'unset';
