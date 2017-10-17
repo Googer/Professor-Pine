@@ -52,7 +52,7 @@ class TimeType extends Commando.ArgumentType {
 					first_possible_time = now;
 				}
 
-				const raid_end_time = end_time ?
+				const raid_end_time = end_time !== TimeType.UNDEFINED_END_TIME ?
 					moment(end_time) :
 					raid_creation_time.clone().add(incubation_duration + hatched_duration, 'minutes');
 
@@ -185,7 +185,7 @@ class TimeType extends Commando.ArgumentType {
 					first_possible_time = now;
 				}
 
-				const raid_end_time = end_time ?
+				const raid_end_time = end_time !== TimeType.UNDEFINED_END_TIME ?
 					moment(end_time) :
 					raid_creation_time.clone().add(incubation_duration + hatched_duration, 'minutes');
 
