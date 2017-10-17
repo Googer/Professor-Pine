@@ -1,6 +1,7 @@
 "use strict";
 
 const log = require('loglevel').getLogger('ImageProcessor'),
+	fs = require('fs'),
 	path = require('path'),
 	uuidv1 = require('uuid/v1'),
 	tesseract = require('tesseract.js'),
@@ -19,12 +20,16 @@ const debug_flag = true;//function checkDebugFlag() { for (let arg of process.ar
 class ImageProcess {
 	constructor() {
 		this.image_path = '/../assets/processing/';
+
+		if (!fs.existsSync(path.join(__dirname, this.image_path))){
+		    fs.mkdirSync(path.join(__dirname, this.image_path));
+		}
 	}
 
 	process(message, url) {
 		// easier test case
 		if (message.content == 'ping') {
-			url = path.join(__dirname, this.image_path, 'image18.png');
+			url = path.join(__dirname, this.image_path, 'image22.png');
 		}
 
 		// if not in a proper raid channel, cancel out immediately
@@ -39,6 +44,7 @@ class ImageProcess {
 
 			return this.getRaidData(id, message, image);
 		}).then(data => {
+			console.log(data);
 			if (data) {
 				this.createRaid(message, data);
 			}
@@ -350,7 +356,8 @@ class ImageProcess {
 
 		// If nothing has been determined to make sense, then either OCR or Validation has failed for whatever reason
 		// TODO:  Try a different way of getting tesseract info from image
-		return await GymType.validate(gym_name, message);
+		log.warn(await GymType.validate(gym_name, message));
+		return false;
 	}
 
 	getOCRGymName(id, message, image, region, level=0) {
@@ -402,18 +409,21 @@ class ImageProcess {
 		const values = await this.getOCRPokemonName(id, message, image, region);
 
 		let pokemon = values.pokemon;
+		let cp = values.cp;
 		if (PokemonType.validate(pokemon, message) === true) {
 			pokemon = PokemonType.parse(pokemon, message);
+		} else if (PokemonType.validate(`${cp}`, message) === true) {
+			pokemon = PokemonType.parse(`${cp}`, message);
 		} else {
 			pokemon = { name: 'raid', tier: '????' };
 		}
 
 		// something has gone wrong if no info was matched, save image for later analysis
-		if (!values.pokemon && !debug_flag && log.getLevel() === log.levels.DEBUG) {
+		if (!pokemon && !debug_flag && log.getLevel() === log.levels.DEBUG) {
 			values.image.write(values.debug_image_path);
 		}
 
-		// NOTE:  There is a chance pokemon could not be determined and we may need to try image processing again
+		// NOTE:  There is a chance pokemon could not be determined and we may need to try image processing again on a different setting/level
 		return { pokemon, cp: values.cp };
 	}
 
@@ -514,7 +524,7 @@ class ImageProcess {
 		let pokemon_name_crop = { x: 0, y: image.bitmap.height / 6.4, width: image.bitmap.width, height: image.bitmap.height / 5 };
 		let tier_crop = { x: 0, y: image.bitmap.height / 4.0, width: image.bitmap.width, height: image.bitmap.height / 9 };
 		let all_crop = { x: 0, y: 0, width: image.bitmap.width, height: image.bitmap.height };
-		let values, tier = 0, pokemon = {}, cp = 0;
+		let promises = [];
 
 		// special case for some kind of odd vertical phone
 		if (check_phone_color.r <= 20 && check_phone_color.g <= 20 && check_phone_color.b <= 20) {
@@ -523,12 +533,12 @@ class ImageProcess {
 
 
 		// GYM NAME
-		const { gym } = await this.getGymName(id, message, image, gym_location);
+		const gym = await this.getGymName(id, message, image, gym_location);
 
 		if (!gym) { return false; }
 
 		// PHONE TIME
-		const { phone_time } = await this.getPhoneTime(id, message, image, phone_time_crop);
+		promises.push(this.getPhoneTime(id, message, image, phone_time_crop));
 
 		// TIME REMAINING
 		const { time_remaining, egg } = await this.getRaidTimeRemaining(id, message, image, all_crop);
@@ -537,24 +547,29 @@ class ImageProcess {
 		//			when they're await within an IF function like this... really stupid.
 		if (egg) {
 			// POKEMON TIER
-			values = await this.getTier(id, message, image, tier_crop);
-			tier = values.tier;
+			promises.push(this.getTier(id, message, image, tier_crop));
 		} else {
 			// POKEMON NAME
-			values = await this.getPokemonName(id, message, image, pokemon_name_crop);
-			pokemon = values.pokemon;
-			cp = values.cp;
+			promises.push(this.getPokemonName(id, message, image, pokemon_name_crop));
 		}
 
-		return {
-			egg,
-			gym,
-			phone_time,
-			time_remaining,
-			tier,
-			cp,
-			pokemon
-		};
+
+		// CLARIFICATION:  So basically tier, pokemon, cp, and phone time are not dependant on each other,
+		//		so by making them totally asynchronise, we speed up execution time slightly.
+		return Promise.all(promises).then(values => {
+			return {
+				egg,
+				gym,
+				time_remaining,
+				phone_time: values[0],
+				tier: values[1].tier || 0,
+				cp: values[1].cp || 0,
+				pokemon: values[1].pokemon || ''
+			};
+		}).catch(err => {
+			log.warn(err);
+			return false;
+		});
 	}
 
 	createRaid(message, data) {
@@ -578,6 +593,7 @@ class ImageProcess {
 		}
 
 		console.log(gym, pokemon, time.format('h:mma'));
+		console.log('Processing Time: ' + ((Date.now() - message.createdTimestamp) / 1000) + ' seconds');
 
 		// TODO: move screenshot into newly created channel OR if all 3 pieces of information are found successfully, delete screenshot
 		if (pokemon && time && gym) {
@@ -604,6 +620,7 @@ class ImageProcess {
 				})
 				.then(channel_raid_message => {
 					Raid.addMessage(raid.channel_id, channel_raid_message, true);
+					message.channel.send('Execution Time: ' + ((Date.now() - message.createdTimestamp) / 1000) + ' seconds');
 				})
 				.catch(err => log.error(err))
 		} else {
