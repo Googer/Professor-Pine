@@ -89,7 +89,7 @@ Client.on('commandError', (command, err, message, args, from_pattern) => {
 	log.error(`Command '${command.name}' error from message '${message.content}' by user ${message.author.id}`);
 });
 
-Client.on('commandFinalized', (command, message, from_pattern) => {
+Client.on('commandFinalize', (command, message, from_pattern) => {
 	Utility.cleanConversation(message, true);
 });
 
