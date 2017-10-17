@@ -4,6 +4,7 @@ const log = require('loglevel').getLogger('CreateCommand'),
 	Commando = require('discord.js-commando'),
 	Gym = require('../../app/gym'),
 	Raid = require('../../app/raid'),
+	{TimeParameter} = require('../../app/constants'),
 	Utility = require('../../app/utility');
 
 class RaidCommand extends Commando.Command {
@@ -40,7 +41,7 @@ class RaidCommand extends Commando.Command {
 
 		this.hatchTimeCollector = new Commando.ArgumentCollector(client, [
 			{
-				key: 'time',
+				key: TimeParameter.HATCH,
 				label: 'hatch time',
 				prompt: 'How much time is remaining (in minutes) until the raid hatches?\nExample: `43`\n\n*or*\n\nWhen does this raid hatch?\nExample: `6:12`\n',
 				type: 'time'
@@ -49,7 +50,7 @@ class RaidCommand extends Commando.Command {
 
 		this.endTimeCollector = new Commando.ArgumentCollector(client, [
 			{
-				key: 'time',
+				key: TimeParameter.END,
 				label: 'time left',
 				prompt: 'How much time is remaining (in minutes) until the raid ends?\nExample: `43`\n\n*or*\n\nWhen does this raid end?\nExample: `6:12`\n',
 				type: 'time'
@@ -93,23 +94,26 @@ class RaidCommand extends Commando.Command {
 				return Raid.addMessage(raid.channel_id, channel_raid_message, true);
 			})
 			// now ask user about remaining time on this brand-new raid
- 			.then(pinned_message => {
- 				// somewhat hacky way of letting time type know if this is exclusive or not
- 				message.is_exclusive = Raid.isExclusive(raid.channel_id);
+			.then(pinned_message => {
+				// somewhat hacky way of letting time type know if this is exclusive or not
+				message.is_exclusive = Raid.isExclusive(raid.channel_id);
 
- 				if (raid.pokemon.name) {
- 					return this.endTimeCollector.obtain(message);
-			  } else {
- 					return this.hatchTimeCollector.obtain(message);
-			  }
-		  })
+				if (raid.pokemon.name) {
+					return this.endTimeCollector.obtain(message);
+				} else {
+					return this.hatchTimeCollector.obtain(message);
+				}
+			})
 			.then(collection_result => {
 				Utility.cleanCollector(collection_result);
 
 				if (!collection_result.cancelled) {
-					const end_time = collection_result.values['time'];
 
-					Raid.setRaidEndTime(raid.channel_id, end_time);
+					if (raid.pokemon.name) {
+						Raid.setRaidEndTime(raid.channel_id, collection_result.values[TimeParameter.END]);
+					} else {
+						Raid.setRaidHatchTime(raid.channel_id, collection_result.values[TimeParameter.HATCH]);
+					}
 
 					return Raid.refreshStatusMessages(raid);
 				}

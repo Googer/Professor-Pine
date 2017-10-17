@@ -36,18 +36,13 @@ class Raid {
 		// loop to clean up raids periodically
 		this.update = setInterval(() => {
 			const now = moment().valueOf(),
-				start_clear_time = now + (settings.start_clear_time) * 60 * 1000,
+				start_clear_time = now + (settings.start_clear_time * 60 * 1000),
 				deletion_grace_time = settings.deletion_grace_time * 60 * 1000,
 				deletion_time = now + (settings.deletion_warning_time * 60 * 1000);
 
 			Object.entries(this.raids)
 				.forEach(([channel_id, raid]) => {
 					if (raid.hatch_time && now > raid.hatch_time && raid.hatch_time > last_interval_time) {
-						// raid has begun; set flag to indicate this
-						raid.has_begun = true;
-
-						this.persistRaid(raid);
-
 						this.refreshStatusMessages(raid)
 							.catch(err => log.error(err));
 					}
@@ -84,10 +79,8 @@ class Raid {
 
 						this.persistRaid(raid);
 					}
-					if (raid.deletion_time) {
-						if (now > raid.deletion_time) {
-							this.deleteRaid(channel_id);
-						}
+					if (raid.deletion_time && now > raid.deletion_time) {
+						this.deleteRaid(channel_id);
 					}
 
 					last_interval_time = now;
@@ -197,15 +190,10 @@ class Raid {
 		raid.source_channel_id = channel_id;
 		raid.creation_time = moment().valueOf();
 		raid.last_possible_time = raid.creation_time + (raid.is_exclusive ?
-			settings.exclusive_raid_duration * 60 * 1000 :
-			settings.default_raid_duration * 60 * 1000);
+			(settings.exclusive_raid_incubate_duration + settings.exclusive_raid_hatched_duration) * 60 * 1000 :
+			(settings.standard_raid_incubate_duration + settings.standard_raid_hatched_duration) * 60 * 1000);
 
 		raid.pokemon = pokemon;
-
-		if (!!pokemon.name) {
-			raid.has_begun = true;
-		}
-
 		raid.gym_id = gym_id;
 
 		raid.attendees = Object.create(Object.prototype);
@@ -319,10 +307,6 @@ class Raid {
 			.filter(attendee => attendee.status !== RaidStatus.COMPLETE)
 			.map(attendee => attendee.number)
 			.reduce((total, number) => total + number, 0);
-	}
-
-	hasBegun(raid) {
-		return raid.has_begun;
 	}
 
 	isExclusive(channel_id) {
@@ -502,15 +486,15 @@ class Raid {
 	setRaidHatchTime(channel_id, hatch_time) {
 		const raid = this.getRaid(channel_id);
 
-		raid.hatch_time = hatch_time;
-
 		let end_time;
+
 		if (raid.is_exclusive) {
 			end_time = hatch_time + (settings.exclusive_raid_hatched_duration * 60 * 1000);
 		} else {
 			end_time = hatch_time + (settings.standard_raid_hatched_duration * 60 * 1000);
 		}
 
+		raid.hatch_time = hatch_time;
 		raid.end_time = end_time;
 
 		this.persistRaid(raid);
@@ -536,14 +520,18 @@ class Raid {
 	setRaidEndTime(channel_id, end_time) {
 		const raid = this.getRaid(channel_id);
 
-		if (!this.hasBegun(raid)) {
-			// this is an egg, so the end time is indeed actually its hatch time
-			this.setRaidHatchTime(channel_id, end_time);
-		} else {
-			raid.end_time = end_time;
+		let hatch_time;
 
-			this.persistRaid(raid);
+		if (raid.is_exclusive) {
+			hatch_time = end_time - (settings.exclusive_raid_hatched_duration * 60 * 1000);
+		} else {
+			hatch_time = end_time - (settings.standard_raid_hatched_duration * 60 * 1000);
 		}
+
+		raid.hatch_time = hatch_time;
+		raid.end_time = end_time;
+
+		this.persistRaid(raid);
 
 		return {raid: raid};
 	}
@@ -552,7 +540,7 @@ class Raid {
 		const raid = this.getRaid(channel_id);
 
 		raid.pokemon = pokemon;
-		raid.is_exclusive = raid.is_exclusive | !!pokemon.exclusive;
+		raid.is_exclusive = !!pokemon.exclusive;
 
 		if (!!pokemon.name) {
 			raid.has_begun = true;
