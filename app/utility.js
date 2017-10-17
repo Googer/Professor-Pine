@@ -1,34 +1,33 @@
 "use strict";
 
-const log = require('loglevel').getLogger('Utility');
+const log = require('loglevel').getLogger('Utility'),
+	settings = require('../data/settings');
 
 class Utility {
 	constructor() {
 	}
 
 	static async cleanCollector(collection_result) {
+		const delay = settings.message_cleanup_delay;
+
 		collection_result.prompts
-			.forEach(prompt => prompt.delete({timeout: 10000})
+			.forEach(prompt => prompt.delete({timeout: delay})
 				.catch(err => log.error(err)));
 
 		collection_result.answers
-			.forEach(answer => answer.delete({timeout: 10000})
+			.forEach(answer => answer.delete({timeout: delay})
 				.catch(err => log.error(err)));
-	}
-
-	static sleep(ms) {
-		return new Promise(resolve => setTimeout(resolve, ms));
 	}
 
 	static async cleanConversation(initial_message, delete_original = false) {
 		const channel = initial_message.channel,
 			author = initial_message.author,
 			bot = initial_message.client.user,
-			start_time = initial_message.createdTimestamp;
+			start_time = initial_message.createdTimestamp,
+			delay = settings.message_cleanup_delay;
 
-		initial_message.client.channels;
 		if (delete_original) {
-			initial_message.delete({timeout: 10000})
+			initial_message.delete({timeout: delay})
 				.catch(err => log.error(err));
 		}
 
@@ -38,8 +37,12 @@ class Utility {
 					(message.author === author ||
 						(message.author === bot && message.mentions.members.has(author.id)));
 			})
-			.forEach(message => message.delete({timeout: 10000})
+			.forEach(message => message.delete({timeout: delay})
 				.catch(err => log.error(err)));
+	}
+
+	static sleep(ms) {
+		return new Promise(resolve => setTimeout(resolve, ms));
 	}
 }
 
