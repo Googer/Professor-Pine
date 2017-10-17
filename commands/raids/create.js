@@ -4,8 +4,7 @@ const log = require('loglevel').getLogger('CreateCommand'),
 	Commando = require('discord.js-commando'),
 	Gym = require('../../app/gym'),
 	Raid = require('../../app/raid'),
-	Utility = require('../../app/utility'),
-	TimeType = require('../../types/time');
+	Utility = require('../../app/utility');
 
 class RaidCommand extends Commando.Command {
 	constructor(client) {
@@ -70,19 +69,15 @@ class RaidCommand extends Commando.Command {
 		const pokemon = args['pokemon'],
 			gym_id = args['gym_id'];
 
-		let raid,
-			responses = [];
+		let raid;
 
 		Raid.createRaid(message.channel.id, message.member.id, pokemon, gym_id)
 			.then(async info => {
 				raid = info.raid;
 				const raid_channel_message = await Raid.getRaidChannelMessage(raid),
-					formatted_message = await Raid.getFormattedMessage(raid),
-					announcement_message = message.channel.send(raid_channel_message, formatted_message);
+					formatted_message = await Raid.getFormattedMessage(raid);
 
-				responses.push(announcement_message);
-
-				return announcement_message;
+				return message.channel.send(raid_channel_message, formatted_message);
 			})
 			.then(announcement_message => {
 				return Raid.setAnnouncementMessage(raid.channel_id, announcement_message);
@@ -109,6 +104,8 @@ class RaidCommand extends Commando.Command {
 			  }
 		  })
 			.then(collection_result => {
+				Utility.cleanCollector(collection_result);
+
 				if (!collection_result.cancelled) {
 					const end_time = collection_result.values['time'];
 
@@ -117,10 +114,7 @@ class RaidCommand extends Commando.Command {
 					return Raid.refreshStatusMessages(raid);
 				}
 			})
-			.then(result => Utility.cleanConversation(message, true))
 			.catch(err => log.error(err));
-
-		return responses;
 	}
 }
 

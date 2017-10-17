@@ -161,10 +161,10 @@ class Gym extends Search {
 			}
 		}
 
-		// Now reorder results by composite score
+		// Reorder results by composite score
 		results.sort((result_1, result_2) => result_2.score - result_1.score);
 
-		// Now filter results based on what channel this request came from
+		// Filter results based on what channel this request came from
 		return results
 			.map(result => JSON.parse(result.ref))
 			.filter(gym => {

@@ -3,8 +3,7 @@
 const log = require('loglevel').getLogger('PokemonCommand'),
 	Commando = require('discord.js-commando'),
 	Helper = require('../../app/helper'),
-	Raid = require('../../app/raid'),
-	Utility = require('../../app/utility');
+	Raid = require('../../app/raid');
 
 class SetPokemonCommand extends Commando.Command {
 	constructor(client) {
@@ -42,8 +41,6 @@ class SetPokemonCommand extends Commando.Command {
 
 		message.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
 			.catch(err => log.error(err));
-
-		Utility.cleanConversation(message);
 
 		Raid.refreshStatusMessages(info.raid);
 	}

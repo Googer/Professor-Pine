@@ -3,8 +3,7 @@
 const log = require('loglevel').getLogger('DirectionsCommand'),
 	Commando = require('discord.js-commando'),
 	Gym = require('../../app/gym'),
-	Raid = require('../../app/raid'),
-	Utility = require('../../app/utility');
+	Raid = require('../../app/raid');
 
 class DirectionsCommand extends Commando.Command {
 	constructor(client) {
@@ -31,18 +30,15 @@ class DirectionsCommand extends Commando.Command {
 	async run(message, args) {
 		const raid = Raid.getRaid(message.channel.id),
 			gym_id = raid.gym_id,
-			gym = Gym.getGym(gym_id),
-			response = message.channel
-				.send(`https://www.google.com/maps/dir/Current+Location/${gym.gymInfo.latitude},${gym.gymInfo.longitude}`, {
-					files: [
-						require.resolve(`PgP-Data/data/images/${gym_id}.png`)
-					]
-				})
-				.catch(err => log.error(err));
+			gym = Gym.getGym(gym_id);
 
-		Utility.cleanConversation(message);
-
-		return response;
+		message.channel
+			.send(`https://www.google.com/maps/dir/Current+Location/${gym.gymInfo.latitude},${gym.gymInfo.longitude}`, {
+				files: [
+					require.resolve(`PgP-Data/data/images/${gym_id}.png`)
+				]
+			})
+			.catch(err => log.error(err));
 	}
 }
 

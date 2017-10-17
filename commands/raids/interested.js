@@ -5,8 +5,7 @@ const log = require('loglevel').getLogger('InterestedCommand'),
 	{RaidStatus} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
 	Raid = require('../../app/raid'),
-	NaturalArgumentType = require('../../types/natural'),
-	Utility = require('../../app/utility');
+	NaturalArgumentType = require('../../types/natural');
 
 class InterestedCommand extends Commando.Command {
 	constructor(client) {
@@ -47,8 +46,6 @@ class InterestedCommand extends Commando.Command {
 		if (!info.error) {
 			message.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
 				.catch(err => log.error(err));
-
-			Utility.cleanConversation(message);
 
 			Raid.refreshStatusMessages(info.raid);
 		} else {

@@ -5,8 +5,7 @@ const log = require('loglevel').getLogger('StartTimeCommand'),
 	Helper = require('../../app/helper'),
 	moment = require('moment'),
 	Raid = require('../../app/raid'),
-	{RaidStatus} = require('../../app/constants'),
-	Utility = require('../../app/utility');
+	{RaidStatus} = require('../../app/constants');
 
 class StartTimeCommand extends Commando.Command {
 	constructor(client) {
@@ -72,8 +71,6 @@ class StartTimeCommand extends Commando.Command {
 						`There ${verb} currently **${total_attendees}** ${noun} attending!`))
 					.catch(err => log.error(err));
 			});
-
-		Utility.cleanConversation(message);
 
 		Raid.refreshStatusMessages(info.raid);
 	}
