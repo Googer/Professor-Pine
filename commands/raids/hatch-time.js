@@ -4,6 +4,7 @@ const log = require('loglevel').getLogger('TimeLeftCommand'),
 	Commando = require('discord.js-commando'),
 	Helper = require('../../app/helper'),
 	Raid = require('../../app/raid'),
+	{TimeParameter} = require('../../app/constants'),
 	Utility = require('../../app/utility');
 
 class HatchTimeCommand extends Commando.Command {
@@ -18,7 +19,7 @@ class HatchTimeCommand extends Commando.Command {
 			examples: ['\t!hatch 1:45', '\t!hatch-time 50', '\t!hatches at 9:45'],
 			args: [
 				{
-					key: 'hatch-time',
+					key: TimeParameter.HATCH,
 					label: 'hatch time',
 					prompt: 'How much time is remaining (in minutes) until the raid hatches?\nExample: `43`\n\n*or*\n\nWhen does this raid hatch?\nExample: `6:12`\n',
 					type: 'time'
@@ -38,7 +39,7 @@ class HatchTimeCommand extends Commando.Command {
 	}
 
 	async run(message, args) {
-		const time = args['hatch-time'],
+		const time = args[TimeParameter.HATCH],
 			info = Raid.setRaidHatchTime(message.channel.id, time);
 
 		message.react(Helper.getEmoji('snorlaxthumbsup') || '👍')

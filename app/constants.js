@@ -13,4 +13,10 @@ const TimeMode = {
 	ABSOLUTE: 2
 };
 
-module.exports = {RaidStatus, TimeMode};
+const TimeParameter = {
+	HATCH: 'hatch',
+	START: 'start',
+	END: 'end'
+};
+
+module.exports = {RaidStatus, TimeMode, TimeParameter};
