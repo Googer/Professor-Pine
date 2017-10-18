@@ -1,6 +1,7 @@
 "use strict";
 
-const Commando = require('discord.js-commando'),
+const log = require('loglevel').getLogger('GymSearch'),
+	Commando = require('discord.js-commando'),
 	Raid = require('../app/raid'),
 	Gym = require('../app/gym');
 
