@@ -84,9 +84,13 @@ class TimeType extends Commando.ArgumentType {
 		if (value_to_parse.match(/^in/i)) {
 			value_to_parse = value_to_parse.substring(2).trim();
 			time_mode = TimeMode.RELATIVE;
-		} else if (value_to_parse.match(/^at/i)) {
-			value_to_parse = value_to_parse.substring(2).trim();
-			time_mode = TimeMode.ABSOLUTE;
+		} else {
+			const absolute_match = value_to_parse.match(/^at(.*)|(.*[ap]m?)$/i);
+
+			if (absolute_match) {
+				value_to_parse = (absolute_match[1] || absolute_match[2]).trim();
+				time_mode = TimeMode.ABSOLUTE;
+			}
 		}
 
 		if (time_mode !== TimeMode.ABSOLUTE) {
@@ -217,9 +221,13 @@ class TimeType extends Commando.ArgumentType {
 		if (value_to_parse.match(/^in/i)) {
 			value_to_parse = value_to_parse.substring(2).trim();
 			time_mode = TimeMode.RELATIVE;
-		} else if (value_to_parse.match(/^at/i)) {
-			value_to_parse = value_to_parse.substring(2).trim();
-			time_mode = TimeMode.ABSOLUTE;
+		} else {
+			const absolute_match = value_to_parse.match(/^at(.*)|(.*[ap]m?)$/i);
+
+			if (absolute_match) {
+				value_to_parse = (absolute_match[1] || absolute_match[2]).trim();
+				time_mode = TimeMode.ABSOLUTE;
+			}
 		}
 
 		if (time_mode !== TimeMode.ABSOLUTE) {
