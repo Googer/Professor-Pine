@@ -15,7 +15,7 @@ const log = require('loglevel').getLogger('ImageProcessor'),
 	region_map = require('PgP-Data/data/region-map');
 
 // currently being used to store all images locally regardless of what was able to be determined from them
-const debug_flag = true;//function checkDebugFlag() { for (let arg of process.argv) { if (arg == '--debug') { return true } } return false; }();
+const debug_flag = false;//function checkDebugFlag() { for (let arg of process.argv) { if (arg == '--debug') { return true } } return false; }();
 
 class ImageProcess {
 	constructor() {
@@ -29,7 +29,7 @@ class ImageProcess {
 	process(message, url) {
 		// easier test case
 		if (message.content == 'ping') {
-			url = path.join(__dirname, this.image_path, 'image22.png');
+			url = path.join(__dirname, this.image_path, 'image3.png');
 		}
 
 		// if not in a proper raid channel, cancel out immediately
@@ -118,28 +118,31 @@ class ImageProcess {
 
 	async getPhoneTime(id, message, image, region) {
 		const values = await this.getOCRPhoneTime(id, message, image, region);
-
-		// Determine of AM or PM time
 		let phone_time = values.text;
-		if (phone_time.search(/(a|p)m/gi) >= 0) {
-			phone_time = moment(phone_time, 'hh:mma');
-		} else {
-			// figure out if time should be AM or PM
-			const now = moment();
-			const time_am = moment(phone_time + 'am', 'hh:mma');
-			const time_pm = moment(phone_time + 'pm', 'hh:mma');
-			const times = [ time_am.diff(now), time_pm.diff(now) ];
 
-			// whatever time is closer to current time (less diff), use that
-			if (Math.abs(times[0]) < Math.abs(times[1])) {
-				phone_time = time_am;
+		if (phone_time) {
+			// Determine of AM or PM time
+			if (phone_time.search(/(a|p)m/gi) >= 0) {
+				phone_time = moment(phone_time, 'hh:mma');
 			} else {
-				phone_time = time_pm;
+				// figure out if time should be AM or PM
+				const now = moment();
+				const time_am = moment(phone_time + 'am', 'hh:mma');
+				const time_pm = moment(phone_time + 'pm', 'hh:mma');
+				const times = [ time_am.diff(now), time_pm.diff(now) ];
+
+				// whatever time is closer to current time (less diff), use that
+				if (Math.abs(times[0]) < Math.abs(times[1])) {
+					phone_time = time_am;
+				} else {
+					phone_time = time_pm;
+				}
 			}
 		}
 
 		// something has gone wrong if no info was matched, save image for later analysis
-		if (!phone_time.isValid() && !debug_flag && log.getLevel() === log.levels.DEBUG) {
+		if ((!phone_time || (phone_time && !phone_time.isValid())) && !debug_flag && log.getLevel() === log.levels.DEBUG) {
+			image.write(path.join(__dirname, this.image_path, `${id}.png`));
 			values.image1.write(values.debug_image_path1);
 			values.image2.write(values.debug_image_path2);
 		}
@@ -176,9 +179,9 @@ class ImageProcess {
 							.then(result => {
 								const match = result.text.replace(/[^\w\s:]/g, '').match(/([0-9]{1,2}:[0-9]{1,2}){1}\s?(a|p)?m?/gi);
 								if (match && match.length) {
-									resolve({ image, text: match[0], debug_image_path1 });
+									resolve({ image: new_image, text: match[0], debug_image_path1 });
 								} else {
-									resolve({ image, debug_image_path1 });
+									resolve({ image: new_image, debug_image_path1 });
 								}
 							});
 					});
@@ -201,9 +204,9 @@ class ImageProcess {
 							.then(result => {
 								const match = result.text.replace(/[^\w\s:]/g, '').match(/([0-9]{1,2}:[0-9]{1,2}){1}\s?(a|p)?m?/gi);
 								if (match && match.length) {
-									resolve({ image, text: match[0], debug_image_path2 });
+									resolve({ image: new_image, text: match[0], debug_image_path2 });
 								} else {
-									resolve({ image, debug_image_path2 });
+									resolve({ image: new_image, debug_image_path2 });
 								}
 							});
 					});
@@ -236,6 +239,7 @@ class ImageProcess {
 
 		// something has gone wrong if no info was matched, save image for later analysis
 		if (!values.text && !debug_flag && log.getLevel() === log.levels.DEBUG) {
+			image.write(path.join(__dirname, this.image_path, `${id}.png`));
 			values.image1.write(values.debug_image_path1);
 			values.image2.write(values.debug_image_path2);
 		}
@@ -268,9 +272,9 @@ class ImageProcess {
 							.then(result => {
 								const match = result.text.replace(/[^\w\s:]/g, '').match(/([0-9]{1,2}:[0-9]{1,2}){2}/g);
 								if (match && match.length) {
-									resolve({ image, text: match[0] });
+									resolve({ image: new_image, text: match[0] });
 								} else {
-									resolve({ image });
+									resolve({ image: new_image });
 								}
 							});
 					});
@@ -293,9 +297,9 @@ class ImageProcess {
 							.then(result => {
 								const match = result.text.replace(/[^\w:]/g, '').match(/([0-9]{1,2}:[0-9]{1,2}){2}/g);
 								if (match && match.length) {
-									resolve({ image, text: match[0] });
+									resolve({ image: new_image, text: match[0] });
 								} else {
-									resolve({ image });
+									resolve({ image: new_image });
 								}
 							});
 					});
@@ -350,6 +354,7 @@ class ImageProcess {
 		}
 
 		if (!debug_flag && log.getLevel() === log.levels.DEBUG) {
+			image.write(path.join(__dirname, this.image_path, `${id}.png`));
 			values.image.write(values.debug_image_path);
 		}
 
@@ -375,7 +380,7 @@ class ImageProcess {
 						.catch(err => reject(err))
 						.then(result => {
 							const text = result.text.replace(/[^\w\s]/g, '').replace(/\n/g, ' ').trim();
-							resolve({ image, text, debug_image_path });
+							resolve({ image: new_image, text, debug_image_path });
 						});
 				});
 
@@ -415,11 +420,12 @@ class ImageProcess {
 		} else if (PokemonType.validate(`${cp}`, message) === true) {
 			pokemon = PokemonType.parse(`${cp}`, message);
 		} else {
-			pokemon = { name: 'raid', tier: '????' };
+			pokemon = { placeholder: true, name: 'raid', tier: '????' };
 		}
 
 		// something has gone wrong if no info was matched, save image for later analysis
 		if (!pokemon && !debug_flag && log.getLevel() === log.levels.DEBUG) {
+			image.write(path.join(__dirname, this.image_path, `${id}.png`));
 			values.image.write(values.debug_image_path);
 		}
 
@@ -446,7 +452,7 @@ class ImageProcess {
 							const text = result.text.replace(/[^\w\s\n]/gi, '');
 							const cp = new Number(text.match(/[0-9]+/g)).valueOf();
 							const pokemon = text.replace(/(cp)?\s?[0-9]*/g, '');
-							resolve({ image, cp, pokemon, debug_image_path });
+							resolve({ image: new_image, cp, pokemon, debug_image_path });
 						});
 				});
 
@@ -474,6 +480,7 @@ class ImageProcess {
 
 		// something has gone wrong if no info was matched, save image for later analysis
 		if (!values.tier && !debug_flag && log.getLevel() === log.levels.DEBUG) {
+			image.write(path.join(__dirname, this.image_path, `${id}.png`));
 			values.image.write(values.debug_image_path);
 		}
 
@@ -499,9 +506,9 @@ class ImageProcess {
 							// NOTE:  This doesn't match 1 character alone... too many jibberish character to match T1 raids like this...
 							const match = result.text.replace(/[^\w\s]/g, '').match(/(.)\1+/g);
 							if (match && match.length) {
-								resolve({ image, tier: match.length, debug_image_path });
+								resolve({ image: new_image, tier: match.length, debug_image_path });
 							} else {
-								resolve({ image, tier: 0, debug_image_path });
+								resolve({ image: new_image, tier: 0, debug_image_path });
 							}
 						});
 				});
@@ -561,7 +568,7 @@ class ImageProcess {
 				egg,
 				gym,
 				time_remaining,
-				phone_time: values[0],
+				phone_time: values[0].phone_time,
 				tier: values[1].tier || 0,
 				cp: values[1].cp || 0,
 				pokemon: values[1].pokemon || ''
@@ -575,57 +582,76 @@ class ImageProcess {
 	createRaid(message, data) {
 		const TimeType = new TimeArgumentType(Helper.client);
 
+		let gym = data.gym;
 		let pokemon = data.pokemon;
 		let time = data.phone_time;
 		let duration = moment.duration(data.time_remaining, 'hh:mm:ss');
-
-		// add time remaining to phone's current time to get final hatch or despawn time
-		time = time.add(duration);
 
 		// Need to fake ArgumentType data in order to parse time...
 		message.argString = '';
 		message.is_exclusive = false;
 
-		if (TimeType.validate(time.format('[at] h:mma'), message, { prompt: '' }) === true) {
-			time = TimeType.parse(time.format('[at] h:mma'), message);
-		} else {
-			time = TimeType.parse(moment().add(duration).format('[at] h:mma'), message);
+		// TODO:  Fix this some how...
+		if (time && time.isValid() && duration.asMilliseconds() > 0) {
+			// add time remaining to phone's current time to get final hatch or despawn time
+			time = time.add(duration);
+
+			if (TimeType.validate(time.format('[at] h:mma'), message, { prompt: '' }) === true) {
+				time = TimeType.parse(time.format('[at] h:mma'), message);
+			} else {
+				// time was not valid, don't set any time (would rather have accurate time, than an inaccurate guess at the time)
+				time = undefined;
+			}
 		}
 
-		console.log(gym, pokemon, time.format('h:mma'));
 		console.log('Processing Time: ' + ((Date.now() - message.createdTimestamp) / 1000) + ' seconds');
 
-		// TODO: move screenshot into newly created channel OR if all 3 pieces of information are found successfully, delete screenshot
-		if (pokemon && time && gym) {
-			let raid;
+		let raid;
 
-			Raid.createRaid(message.channel.id, message.member.id, pokemon, gym, time)
-				.then(async info => {
-					raid = info.raid;
-					const raid_channel_message = await Raid.getRaidChannelMessage(raid),
+		Raid.createRaid(message.channel.id, message.member.id, pokemon, gym, time)
+			.then(async info => {
+				raid = info.raid;
+				const raid_channel_message = await Raid.getRaidChannelMessage(raid),
 					formatted_message = await Raid.getFormattedMessage(raid);
 
-
-					return message.channel.send(raid_channel_message, formatted_message);
-				})
-				.then(announcement_message => {
-					return Raid.setAnnouncementMessage(raid.channel_id, announcement_message);
-				})
-				.then(async bot_message => {
-					const raid_source_channel_message = await Raid.getRaidSourceChannelMessage(raid),
+				return message.channel.send(raid_channel_message, formatted_message);
+			})
+			.then(announcement_message => {
+				return Raid.setAnnouncementMessage(raid.channel_id, announcement_message);
+			})
+			.then(async bot_message => {
+				return Raid.getChannel(raid.channel_id).then(channel => {
+					// if pokemon, time remaining, or phone time was not determined, need to add original image to new channel,
+					//		in the hope the someone can manually read the screenshot and set the appropriate information
+					if (pokemon.placeholder === false) {
+						return channel.send('Pokemon could not be determined, please help set the pokemon by typing \`!pokemon <name>\`', {files: [
+							message.attachments.first().url
+						]}).catch(err => log.error(err));
+					} else if (!time) {
+						return channel.send('Time could not be determined, please help set the time by typing either \`!hatch <time>\`  or  \`!end <time>\`', {files: [
+							message.attachments.first().url
+						]}).catch(err => log.error(err));
+					} else {
+						return channel;
+					}
+				});
+			})
+			.then(async bot_message => {
+				const raid_source_channel_message = await Raid.getRaidSourceChannelMessage(raid),
 					formatted_message = await Raid.getFormattedMessage(raid);
-					return Raid.getChannel(raid.channel_id)
-						.then(channel => channel.send(raid_source_channel_message, formatted_message))
-						.catch(err => log.error(err));
-				})
-				.then(channel_raid_message => {
-					Raid.addMessage(raid.channel_id, channel_raid_message, true);
-					message.channel.send('Execution Time: ' + ((Date.now() - message.createdTimestamp) / 1000) + ' seconds');
-				})
-				.catch(err => log.error(err))
-		} else {
-			message.channel.send(Object.values(data).join('\n'));
-		}
+
+				return Raid.getChannel(raid.channel_id)
+					.then(channel => {
+						return channel.send(raid_source_channel_message, formatted_message)
+					})
+					.catch(err => log.error(err));
+			})
+			.then(channel_raid_message => {
+				Raid.addMessage(raid.channel_id, channel_raid_message, true);
+				message.channel.send('Processing Time: ' + Math.round((Date.now() - message.createdTimestamp) / 10) / 100 + ' seconds');
+			})
+			.then(result => message.delete())
+			.catch(err => log.error(err))
 	}
 }
 
