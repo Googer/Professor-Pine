@@ -16,7 +16,10 @@ class Gym extends Search {
 		const gyms_base = require('PgP-Data/data/gyms'),
 			gyms_metadata = require('PgP-Data/data/gyms-metadata'),
 			merged_gyms = gyms_base
-				.map(gym => Object.assign({}, gym, gyms_metadata[gym.gymId]));
+				.map(gym => Object.assign({}, gym, gyms_metadata[gym.gymId])),
+			stopword_filter = this.stopWordFilter;
+
+		lunr.Pipeline.registerFunction(stopword_filter, 'customStopwords');
 
 		this.gyms = new Map(merged_gyms
 			.map(gym => [gym.gymId, gym]));
@@ -52,6 +55,10 @@ class Gym extends Search {
 
 			// field from supplementary metadata
 			this.field('additional_terms');
+
+			// replace default stop word filter with custom one
+			this.pipeline.remove(lunr.stopWordFilter);
+			this.pipeline.after(lunr.trimmer, stopword_filter);
 
 			merged_gyms.forEach(function (gym) {
 				// Gym document is a object with its reference and fields to collection of values
@@ -132,7 +139,11 @@ class Gym extends Search {
 		const filtered_terms = split_terms
 			.map(term => term.replace(/[^\w\s*]+/g, ''))
 			.map(term => term.toLowerCase())
-			.filter(term => lunr.stopWordFilter(term));
+			.filter(term => this.stopWordFilter(term));
+
+		if (filtered_terms.length === 0) {
+			return [];
+		}
 
 		let results = Search.singleTermSearch(filtered_terms[0], this.index, fields);
 
@@ -199,9 +210,9 @@ class Gym extends Search {
 		const channel_name = await require('./raid').getCreationChannelName(channel_id),
 			adjacent_regions = this.region_graph[channel_name],
 			matching_region = adjacent_regions
-			.find(adjacent_region => {
-				return this.channelSearch(adjacent_region, terms).length > 0;
-			});
+				.find(adjacent_region => {
+					return this.channelSearch(adjacent_region, terms).length > 0;
+				});
 
 		if (matching_region) {
 			return {
