@@ -12,7 +12,8 @@ const log = require('loglevel').getLogger('ImageProcessor'),
 	TimeArgumentType = require('../types/time'),
 	PokemonArgumentType = require('../types/pokemon'),
 	Raid = require('../app/raid'),
-	region_map = require('PgP-Data/data/region-map');
+	region_map = require('PgP-Data/data/region-map'),
+	{ TimeParameter} = require('../app/constants');
 
 // currently being used to store all images locally regardless of what was able to be determined from them
 const debug_flag = false;//function checkDebugFlag() { for (let arg of process.argv) { if (arg == '--debug') { return true } } return false; }();
@@ -63,7 +64,7 @@ class ImageProcess {
 		const blue  = this.bitmap.data[ idx + 2 ];
 		const alpha = this.bitmap.data[ idx + 3 ];
 
-		if ((red >= 200 && green >= 210 && blue >= 210) || (red <= 50 && green <= 50 && blue <= 50)) {
+		if ((red >= 200 && green >= 210 && blue >= 210) || (red <= 30 && green <= 30 && blue <= 30)) {
 			this.bitmap.data[ idx + 0 ] = 255;
 			this.bitmap.data[ idx + 1 ] = 255;
 			this.bitmap.data[ idx + 2 ] = 255;
@@ -117,26 +118,36 @@ class ImageProcess {
 
 
 	async getPhoneTime(id, message, image, region) {
-		const values = await this.getOCRPhoneTime(id, message, image, region);
-		let phone_time = values.text;
+		let values, phone_time;
 
-		if (phone_time) {
-			// Determine of AM or PM time
-			if (phone_time.search(/(a|p)m/gi) >= 0) {
-				phone_time = moment(phone_time, 'hh:mma');
-			} else {
-				// figure out if time should be AM or PM
-				const now = moment();
-				const time_am = moment(phone_time + 'am', 'hh:mma');
-				const time_pm = moment(phone_time + 'pm', 'hh:mma');
-				const times = [ time_am.diff(now), time_pm.diff(now) ];
+		// try different levels of processing to get time
+		for (let processing_level=0; processing_level<2; processing_level++) {
+			values = await this.getOCRPhoneTime(id, message, image, region, processing_level);
+			phone_time = values.text;
 
-				// whatever time is closer to current time (less diff), use that
-				if (Math.abs(times[0]) < Math.abs(times[1])) {
-					phone_time = time_am;
+			if (phone_time) {
+				// Determine of AM or PM time
+				if (phone_time.search(/(a|p)m/gi) >= 0) {
+					phone_time = moment(phone_time, 'hh:mma');
 				} else {
-					phone_time = time_pm;
+					// figure out if time should be AM or PM
+					const now = moment();
+					const time_am = moment(phone_time + 'am', 'hh:mma');
+					const time_pm = moment(phone_time + 'pm', 'hh:mma');
+					const times = [ time_am.diff(now), time_pm.diff(now) ];
+
+					// whatever time is closer to current time (less diff), use that
+					if (Math.abs(times[0]) < Math.abs(times[1])) {
+						phone_time = time_am;
+					} else {
+						phone_time = time_pm;
+					}
 				}
+			}
+
+			// don't jump up to next level of processing if a time has been found
+			if (phone_time && phone_time.isValid()) {
+				break;
 			}
 		}
 
@@ -167,24 +178,31 @@ class ImageProcess {
 			let promises = [];
 
 			promises.push(new Promise((resolve, reject) => {
-				const new_image = image.clone()
-					.crop(region1.x, region1.y, region1.width, region1.height)
-					.scan(0, 0, region1.width, region1.height, this.filterHeaderContent)
-					.getBuffer(Jimp.MIME_PNG, (err, image) => {
-						if (err) { reject(err); }
+				let new_image = image.clone().crop(region1.x, region1.y, region1.width, region1.height);
 
-						tesseract.create().recognize(image)
-							// .progress(message => console.log(message))
-							.catch(err => reject(err))
-							.then(result => {
-								const match = result.text.replace(/[^\w\s:]/g, '').match(/([0-9]{1,2}:[0-9]{1,2}){1}\s?(a|p)?m?/gi);
-								if (match && match.length) {
-									resolve({ image: new_image, text: match[0], debug_image_path1 });
-								} else {
-									resolve({ image: new_image, debug_image_path1 });
-								}
-							});
-					});
+				// basic level 0 processing by default
+				if (level === 0) {
+					new_image = new_image.scan(0, 0, region1.width, region1.height, this.filterHeaderContent);
+				} else {
+					new_image = new_image.blur(1).scan(0, 0, region1.width, region1.height, this.filterHeaderContent);
+				}
+
+				new_image = new_image.getBuffer(Jimp.MIME_PNG, (err, image) => {
+					if (err) { reject(err); }
+
+					tesseract.create().recognize(image)
+						.catch(err => reject(err))
+						.then(result => {
+							// basically strip out everything except spaces and colons, then match any typical time values
+							const match = result.text.replace(/[^\w\s:]/g, '').match(/([0-9]{1,2}:[0-9]{1,2}){1}\s?(a|p)?m?/gi);
+							if (match && match.length) {
+								resolve({ image: new_image, text: match[0], debug_image_path1 });
+							} else {
+								resolve({ image: new_image, debug_image_path1 });
+							}
+						});
+				});
+
 
 				if (debug_flag) {
 					new_image.write(debug_image_path1);
@@ -192,24 +210,30 @@ class ImageProcess {
 			}));
 
 			promises.push(new Promise((resolve, reject) => {
-				const new_image = image.clone()
-					.crop(region2.x, region2.y, region2.width, region2.height)
-					.scan(0, 0, region2.width, region2.height, this.filterHeaderContent)
-					.getBuffer(Jimp.MIME_PNG, (err, image) => {
-						if (err) { reject(err); }
+				let new_image = image.clone().crop(region2.x, region2.y, region2.width, region2.height)
 
-						tesseract.create().recognize(image)
-							// .progress(message => console.log(message))
-							.catch(err => reject(err))
-							.then(result => {
-								const match = result.text.replace(/[^\w\s:]/g, '').match(/([0-9]{1,2}:[0-9]{1,2}){1}\s?(a|p)?m?/gi);
-								if (match && match.length) {
-									resolve({ image: new_image, text: match[0], debug_image_path2 });
-								} else {
-									resolve({ image: new_image, debug_image_path2 });
-								}
-							});
-					});
+				// basic level 0 processing by default
+				if (level === 0) {
+					new_image = new_image.scan(0, 0, region1.width, region1.height, this.filterHeaderContent);
+				} else {
+					new_image = new_image.blur(1).scan(0, 0, region1.width, region1.height, this.filterHeaderContent);
+				}
+
+				new_image = new_image.getBuffer(Jimp.MIME_PNG, (err, image) => {
+					if (err) { reject(err); }
+
+					tesseract.create().recognize(image)
+						.catch(err => reject(err))
+						.then(result => {
+							// basically strip out everything except spaces and colons, then match any typical time values
+							const match = result.text.replace(/[^\w\s:]/g, '').match(/([0-9]{1,2}:[0-9]{1,2}){1}\s?(a|p)?m?/gi);
+							if (match && match.length) {
+								resolve({ image: new_image, text: match[0], debug_image_path1 });
+							} else {
+								resolve({ image: new_image, debug_image_path1 });
+							}
+						});
+				});
 
 				if (debug_flag) {
 					new_image.write(debug_image_path2);
@@ -331,8 +355,12 @@ class ImageProcess {
 		const GymType = new GymArgumentType(Helper.client);
 		const values = await this.getOCRGymName(id, message, image, region);
 
+		// start by splitting into words of 3 characters or more, and sorting by size of each word
 		let gym_name = values.text;
-		let gym_words = gym_name.split(' ').sort((a, b) => { return a.length < b.length; });
+		let gym_words = gym_name.split(' ').filter(word => { return word.length > 2; }).sort((a, b) => { return a.length < b.length; });
+
+		// re-combine shortened gym name
+		gym_name = gym_words.join(' ');
 
 		// ensure gym exist and is allowed to be created
 		if (await GymType.validate(gym_name, message) === true) {
@@ -341,7 +369,7 @@ class ImageProcess {
 
 		// If gym_name doesn't exist, start popping off the shortest words in an attempt to get a match
 		//		Example: 6 words = 3 attempts, 2 words = 1 attempt
-		for (let i=0; i<Math.floor(gym_words.length/2); i++) {
+		for (let i=0; i<=Math.floor(gym_words.length/2); i++) {
 			// only remove words of length 4 characters or lower
 			if (gym_words.pop().length <= 4) {
 				gym_name = gym_words.join(' ');
@@ -424,7 +452,7 @@ class ImageProcess {
 		}
 
 		// something has gone wrong if no info was matched, save image for later analysis
-		if (!pokemon && !debug_flag && log.getLevel() === log.levels.DEBUG) {
+		if (pokemon.placeholder && !debug_flag && log.getLevel() === log.levels.DEBUG) {
 			image.write(path.join(__dirname, this.image_path, `${id}.png`));
 			values.image.write(values.debug_image_path);
 		}
@@ -586,21 +614,26 @@ class ImageProcess {
 		let pokemon = data.pokemon;
 		let time = data.phone_time;
 		let duration = moment.duration(data.time_remaining, 'hh:mm:ss');
+		let arg = {};
 
-		// Need to fake ArgumentType data in order to parse time...
+		// Need to fake TimeType data in order to validate/parse time...
 		message.argString = '';
 		message.is_exclusive = false;
+		arg.prompt = '';
+		arg.key = (data.egg)? TimeParameter.HATCH: TimeParameter.END;
 
 		// TODO:  Fix this some how...
 		if (time && time.isValid() && duration.asMilliseconds() > 0) {
 			// add time remaining to phone's current time to get final hatch or despawn time
 			time = time.add(duration);
 
-			if (TimeType.validate(time.format('[at] h:mma'), message, { prompt: '' }) === true) {
-				time = TimeType.parse(time.format('[at] h:mma'), message);
+			if (TimeType.validate(time.format('[at] h:mma'), message, arg) === true) {
+				time = TimeType.parse(time.format('[at] h:mma'), message, arg);
 			} else {
 				// time was not valid, don't set any time (would rather have accurate time, than an inaccurate guess at the time)
 				time = undefined;
+				message.channel.send('Invalid Raid Time');
+				return;
 			}
 		}
 
@@ -624,11 +657,11 @@ class ImageProcess {
 					// if pokemon, time remaining, or phone time was not determined, need to add original image to new channel,
 					//		in the hope the someone can manually read the screenshot and set the appropriate information
 					if (pokemon.placeholder === false) {
-						return channel.send('Pokemon could not be determined, please help set the pokemon by typing \`!pokemon <name>\`', {files: [
+						return channel.send('**Pokemon** could not be determined, please help set the pokemon by typing \`!pokemon <name>\`', {files: [
 							message.attachments.first().url
 						]}).catch(err => log.error(err));
 					} else if (!time) {
-						return channel.send('Time could not be determined, please help set the time by typing either \`!hatch <time>\`  or  \`!end <time>\`', {files: [
+						return channel.send('**Time** could not be determined, please help set the time by typing either \`!hatch <time>\` or \`!end <time>\`', {files: [
 							message.attachments.first().url
 						]}).catch(err => log.error(err));
 					} else {
