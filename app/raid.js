@@ -560,9 +560,10 @@ class Raid {
 		raid.pokemon = pokemon;
 		raid.is_exclusive = !!pokemon.exclusive;
 
-		raid.last_possible_time = raid.creation_time + (raid.is_exclusive ?
+		raid.last_possible_time = Math.max(raid.creation_time + (raid.is_exclusive ?
 			(settings.exclusive_raid_incubate_duration + settings.exclusive_raid_hatched_duration) * 60 * 1000 :
-			(settings.standard_raid_incubate_duration + settings.standard_raid_hatched_duration) * 60 * 1000);
+			(settings.standard_raid_incubate_duration + settings.standard_raid_hatched_duration) * 60 * 1000),
+			raid.last_possible_time);
 
 		this.persistRaid(raid);
 
@@ -762,7 +763,7 @@ class Raid {
 
 					const displayName = member.displayName.length > 12 ?
 						member.displayName.substring(0, 11).concat('…') :
-						member.displayName;set;
+						member.displayName;
 
 					result += emoji + ' ' + displayName;
 
