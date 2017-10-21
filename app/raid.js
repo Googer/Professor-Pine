@@ -560,9 +560,10 @@ class Raid {
 		raid.pokemon = pokemon;
 		raid.is_exclusive = !!pokemon.exclusive;
 
-		if (!!pokemon.name) {
-			raid.has_begun = true;
-		}
+		raid.last_possible_time = Math.max(raid.creation_time + (raid.is_exclusive ?
+			(settings.exclusive_raid_incubate_duration + settings.exclusive_raid_hatched_duration) * 60 * 1000 :
+			(settings.standard_raid_incubate_duration + settings.standard_raid_hatched_duration) * 60 * 1000),
+			raid.last_possible_time);
 
 		this.persistRaid(raid);
 
