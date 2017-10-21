@@ -28,11 +28,6 @@ NodeCleanup((exitCode, signal) => {
 	Raid.shutdown();
 });
 
-// Disable commands other than help on DM channels
-Client.dispatcher.addInhibitor(message =>
-	message.message.channel.type === 'dm' &&
-	!message.message.content.trim().match(/^help/i));
-
 Client.registry.registerGroup('admin', 'Administration');
 Client.registry.registerGroup('basic-raid', 'Raid Basics');
 Client.registry.registerGroup('raid-crud', 'Raid Creation and Maintenance');
