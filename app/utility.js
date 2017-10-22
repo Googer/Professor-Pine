@@ -12,19 +12,21 @@ class Utility {
 			bot = initial_message.client.user,
 			start_time = initial_message.createdTimestamp;
 
+		const messages_to_delete = [];
+
 		if (delete_original) {
-			initial_message.delete()
-				.catch(err => log.error(err));
+			messages_to_delete.push(initial_message);
 		}
 
-		channel.messages.array() // cache of recent messages, should be sufficient
+		messages_to_delete.push(...channel.messages.array() // cache of recent messages, should be sufficient
 			.filter(message => {
 				return (message.createdTimestamp > start_time) &&
 					(message.author === author ||
 						(message.author === bot && message.mentions.members.has(author.id)));
-			})
-			.forEach(message => message.delete()
-				.catch(err => log.error(err)));
+			}));
+
+		channel.bulkDelete(messages_to_delete)
+			.catch(err => log.error(err));
 	}
 }
 
