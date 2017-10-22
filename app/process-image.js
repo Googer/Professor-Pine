@@ -211,7 +211,9 @@ class ImageProcess {
 			}
 
 			// something has gone wrong if no info was matched, save image for later analysis
-			if (debug_flag || log.getLevel() === log.levels.DEBUG) {
+			if (debug_flag || (phone_time && phone_time.isValid() && log.getLevel() === log.levels.DEBUG)) {
+				log.warn(id, values.result1.text);
+				log.warn(id, values.result2.text);
 				values.image1.write(debug_image_path1);
 				values.image2.write(debug_image_path2);
 			}
@@ -303,13 +305,16 @@ class ImageProcess {
 				resolve({
 					image1: values[0].image,
 					image2: values[1].image,
-					text: values[0].text || values[1].text
+					text: values[0].text || values[1].text,
+					result1: values[0].result,
+					result2: values[1].result
 				});
 			}).catch(err => {
 				reject(err);
 			});
 		});
 	}
+
 
 
 
@@ -321,6 +326,8 @@ class ImageProcess {
 
 		// something has gone wrong if no info was matched, save image for later analysis
 		if (debug_flag || (!values.text && log.getLevel() === log.levels.DEBUG)) {
+			log.warn(id, values.result1.text);
+			log.warn(id, values.result2.text);
 			values.image1.write(debug_image_path1);
 			values.image2.write(debug_image_path2);
 		}
@@ -383,7 +390,9 @@ class ImageProcess {
 					egg: !!values[1].text,
 					image1: values[0].image,
 					image2: values[1].image,
-					text: values[0].text || values[1].text
+					text: values[0].text || values[1].text,
+					result1: values[0].result,
+					result2: values[1].result
 				});
 			}).catch(err => {
 				reject(err);
@@ -438,7 +447,7 @@ class ImageProcess {
 				}
 			}
 
-			if (debug_flag || log.getLevel() === log.levels.DEBUG) {
+			if (debug_flag || (!match && log.getLevel() === log.levels.DEBUG)) {
 				log.warn(id, values.result.text);
 				values.image.write(debug_image_path);
 			}
