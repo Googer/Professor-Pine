@@ -8,15 +8,14 @@ class Utility {
 	}
 
 	static async cleanCollector(collection_result) {
-		const delay = settings.message_cleanup_delay;
+		const delay = settings.message_cleanup_delay,
+			messages_to_delete = [...collection_result.prompts, ...collection_result.answers],
+			channel = messages_to_delete[0].channel;
 
-		collection_result.prompts
-			.forEach(prompt => prompt.delete({timeout: delay})
-				.catch(err => log.error(err)));
-
-		collection_result.answers
-			.forEach(answer => answer.delete({timeout: delay})
-				.catch(err => log.error(err)));
+		channel.client.setTimeout(
+			() => channel.bulkDelete(messages_to_delete)
+				.catch(err => log.error(err)),
+			delay);
 	}
 
 	static async cleanConversation(initial_message, delete_original = false) {
@@ -30,8 +29,6 @@ class Utility {
 
 		if (delete_original) {
 			messages_to_delete.push(initial_message);
-			initial_message.delete({timeout: delay})
-				.catch(err => log.error(err));
 		}
 
 		messages_to_delete.push(...channel.messages.array() // cache of recent messages, should be sufficient
@@ -41,8 +38,10 @@ class Utility {
 						(message.author === bot && message.mentions.members.has(author.id)));
 			}));
 
-		channel.bulkDelete(messages_to_delete)
-			.catch(err => log.error(err));
+		channel.client.setTimeout(
+			() => channel.bulkDelete(messages_to_delete)
+				.catch(err => log.error(err)),
+			delay);
 	}
 
 	static sleep(ms) {
