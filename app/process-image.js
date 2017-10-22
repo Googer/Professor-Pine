@@ -30,7 +30,8 @@ class ImageProcess {
 	process(message, url) {
 		// easier test case
 		if (message.content == 'ping') {
-			url = path.join(__dirname, this.image_path, 'image3.png');
+			message.is_fake = true;
+			url = path.join(__dirname, this.image_path, 'image59.png');
 		}
 
 		// if not in a proper raid channel, cancel out immediately
@@ -64,7 +65,28 @@ class ImageProcess {
 		const blue  = this.bitmap.data[ idx + 2 ];
 		const alpha = this.bitmap.data[ idx + 3 ];
 
-		if ((red >= 200 && green >= 210 && blue >= 210) || (red <= 30 && green <= 30 && blue <= 30)) {
+		if ((red >= 180 && green >= 190 && blue >= 190) || (red <= 50 && green <= 50 && blue <= 50)) {
+			this.bitmap.data[ idx + 0 ] = 255;
+			this.bitmap.data[ idx + 1 ] = 255;
+			this.bitmap.data[ idx + 2 ] = 255;
+		} else {
+			this.bitmap.data[ idx + 0 ] = 0;
+			this.bitmap.data[ idx + 1 ] = 0;
+			this.bitmap.data[ idx + 2 ] = 0;
+		}
+	}
+
+	/**
+	 * Header can contain black-gray text or white-gray text
+	 *		need to turn these areas into extremes and filter out everything else
+	 **/
+	filterHeaderContent2(x, y, idx) {
+		const red   = this.bitmap.data[ idx + 0 ];
+		const green = this.bitmap.data[ idx + 1 ];
+		const blue  = this.bitmap.data[ idx + 2 ];
+		const alpha = this.bitmap.data[ idx + 3 ];
+
+		if ((red >= 220 && green >= 220 && blue >= 220) || (red <= 30 && green <= 30 && blue <= 30)) {
 			this.bitmap.data[ idx + 0 ] = 255;
 			this.bitmap.data[ idx + 1 ] = 255;
 			this.bitmap.data[ idx + 2 ] = 255;
@@ -84,7 +106,27 @@ class ImageProcess {
 		const blue  = this.bitmap.data[ idx + 2 ];
 		const alpha = this.bitmap.data[ idx + 3 ];
 
-		if (red >= 210 && green >= 210 && blue >= 210) {
+		if (red >= 180 && green >= 180 && blue >= 180) {
+			this.bitmap.data[ idx + 0 ] = 255;
+			this.bitmap.data[ idx + 1 ] = 255;
+			this.bitmap.data[ idx + 2 ] = 255;
+		} else {
+			this.bitmap.data[ idx + 0 ] = 0;
+			this.bitmap.data[ idx + 1 ] = 0;
+			this.bitmap.data[ idx + 2 ] = 0;
+		}
+	}
+
+	/**
+	 * Normal body text will always be white-gray text, don't need to be as aggressive here
+	 **/
+	filterBodyContent2(x, y, idx) {
+		const red   = this.bitmap.data[ idx + 0 ];
+		const green = this.bitmap.data[ idx + 1 ];
+		const blue  = this.bitmap.data[ idx + 2 ];
+		const alpha = this.bitmap.data[ idx + 3 ];
+
+		if (red >= 220 && green >= 220 && blue >= 220) {
 			this.bitmap.data[ idx + 0 ] = 255;
 			this.bitmap.data[ idx + 1 ] = 255;
 			this.bitmap.data[ idx + 2 ] = 255;
@@ -115,6 +157,26 @@ class ImageProcess {
 		}
 	}
 
+	/**
+	 * Mostly for the tier checking....
+	 **/
+	filterPureWhiteContent(x, y, idx) {
+		const red   = this.bitmap.data[ idx + 0 ];
+		const green = this.bitmap.data[ idx + 1 ];
+		const blue  = this.bitmap.data[ idx + 2 ];
+		const alpha = this.bitmap.data[ idx + 3 ];
+
+		if (red >= 240 && green >= 240 && blue >= 240) {
+			this.bitmap.data[ idx + 0 ] = 255;
+			this.bitmap.data[ idx + 1 ] = 255;
+			this.bitmap.data[ idx + 2 ] = 255;
+		} else {
+			this.bitmap.data[ idx + 0 ] = 0;
+			this.bitmap.data[ idx + 1 ] = 0;
+			this.bitmap.data[ idx + 2 ] = 0;
+		}
+	}
+
 
 
 	async getPhoneTime(id, message, image, region) {
@@ -122,6 +184,9 @@ class ImageProcess {
 
 		// try different levels of processing to get time
 		for (let processing_level=0; processing_level<2; processing_level++) {
+			const debug_image_path1 = path.join(__dirname, this.image_path, `${id}1-phone-time-a-${processing_level}.png`);
+			const debug_image_path2 = path.join(__dirname, this.image_path, `${id}1-phone-time-b-${processing_level}.png`);
+
 			values = await this.getOCRPhoneTime(id, message, image, region, processing_level);
 			phone_time = values.text;
 
@@ -145,17 +210,16 @@ class ImageProcess {
 				}
 			}
 
+			// something has gone wrong if no info was matched, save image for later analysis
+			if (debug_flag || log.getLevel() === log.levels.DEBUG) {
+				values.image1.write(debug_image_path1);
+				values.image2.write(debug_image_path2);
+			}
+
 			// don't jump up to next level of processing if a time has been found
 			if (phone_time && phone_time.isValid()) {
 				break;
 			}
-		}
-
-		// something has gone wrong if no info was matched, save image for later analysis
-		if ((!phone_time || (phone_time && !phone_time.isValid())) && !debug_flag && log.getLevel() === log.levels.DEBUG) {
-			image.write(path.join(__dirname, this.image_path, `${id}.png`));
-			values.image1.write(values.debug_image_path1);
-			values.image2.write(values.debug_image_path2);
 		}
 
 		// NOTE:  There is a chance that the time is not valid, but when that's the case
@@ -166,13 +230,16 @@ class ImageProcess {
 
 	getOCRPhoneTime(id, message, image, region, level=0) {
 		return new Promise((resolve, reject) => {
-			const debug_image_path1 = path.join(__dirname, this.image_path, `${id}1-phone-time-a.png`);
-			const debug_image_path2 = path.join(__dirname, this.image_path, `${id}1-phone-time-b.png`);
+			let width;
 
-			const width = region.width / 4;
+			if (level === 0) {
+				width = region.width / 4.9;
+			} else {
+				width = region.width / 4;
+			}
 
 			// checking left and right sides of image for time...
-			const region1 = { x: region.x, y: region.y, width, height: region.height };
+			const region1 = { x: (region.width - width) / 2, y: region.y, width, height: region.height };
 			const region2 = { x: region.width - width, y: region.y, width, height: region.height };
 
 			let promises = [];
@@ -182,31 +249,26 @@ class ImageProcess {
 
 				// basic level 0 processing by default
 				if (level === 0) {
-					new_image = new_image.scan(0, 0, region1.width, region1.height, this.filterHeaderContent);
+					new_image = new_image.scan(0, 0, region1.width, region1.height, this.filterHeaderContent).blur(1);
 				} else {
-					new_image = new_image.blur(1).scan(0, 0, region1.width, region1.height, this.filterHeaderContent);
+					new_image = new_image.blur(1).scan(0, 0, region1.width, region1.height, this.filterHeaderContent2).blur(1);
 				}
 
 				new_image = new_image.getBuffer(Jimp.MIME_PNG, (err, image) => {
 					if (err) { reject(err); }
 
-					tesseract.create().recognize(image)
+					tesseract.recognize(image)
 						.catch(err => reject(err))
 						.then(result => {
 							// basically strip out everything except spaces and colons, then match any typical time values
-							const match = result.text.replace(/[^\w\s:]/g, '').match(/([0-9]{1,2}:[0-9]{1,2}){1}\s?(a|p)?m?/gi);
+							const match = result.text.replace(/[^\w\s:]/g, '').replace(/o|O/g, 0).match(/([0-9]{1,2}:[0-9]{1,2}){1}\s?(a|p)?m?/gi);
 							if (match && match.length) {
-								resolve({ image: new_image, text: match[0], debug_image_path1 });
+								resolve({ image: new_image, text: match[0], result });
 							} else {
-								resolve({ image: new_image, debug_image_path1 });
+								resolve({ image: new_image, result });
 							}
 						});
 				});
-
-
-				if (debug_flag) {
-					new_image.write(debug_image_path1);
-				}
 			}));
 
 			promises.push(new Promise((resolve, reject) => {
@@ -214,30 +276,26 @@ class ImageProcess {
 
 				// basic level 0 processing by default
 				if (level === 0) {
-					new_image = new_image.scan(0, 0, region1.width, region1.height, this.filterHeaderContent);
+					new_image = new_image.scan(0, 0, region1.width, region1.height, this.filterHeaderContent).blur(1);
 				} else {
-					new_image = new_image.blur(1).scan(0, 0, region1.width, region1.height, this.filterHeaderContent);
+					new_image = new_image.blur(1).scan(0, 0, region1.width, region1.height, this.filterHeaderContent2).blur(1);
 				}
 
 				new_image = new_image.getBuffer(Jimp.MIME_PNG, (err, image) => {
 					if (err) { reject(err); }
 
-					tesseract.create().recognize(image)
+					tesseract.recognize(image)
 						.catch(err => reject(err))
 						.then(result => {
 							// basically strip out everything except spaces and colons, then match any typical time values
-							const match = result.text.replace(/[^\w\s:]/g, '').match(/([0-9]{1,2}:[0-9]{1,2}){1}\s?(a|p)?m?/gi);
+							const match = result.text.replace(/[^\w\s:]/g, '').replace(/o|O/g, 0).match(/([0-9]{1,2}:[0-9]{1,2}){1}\s?(a|p)?m?/gi);
 							if (match && match.length) {
-								resolve({ image: new_image, text: match[0], debug_image_path1 });
+								resolve({ image: new_image, text: match[0], result });
 							} else {
-								resolve({ image: new_image, debug_image_path1 });
+								resolve({ image: new_image, result });
 							}
 						});
 				});
-
-				if (debug_flag) {
-					new_image.write(debug_image_path2);
-				}
 			}));
 
 			// pass along collected data once all promises have resolved
@@ -245,9 +303,7 @@ class ImageProcess {
 				resolve({
 					image1: values[0].image,
 					image2: values[1].image,
-					text: values[0].text || values[1].text,
-					debug_image_path1,
-					debug_image_path2
+					text: values[0].text || values[1].text
 				});
 			}).catch(err => {
 				reject(err);
@@ -259,13 +315,14 @@ class ImageProcess {
 
 
 	async getRaidTimeRemaining(id, message, image, region) {
+		const debug_image_path1 = path.join(__dirname, this.image_path, `${id}5-time-remaining-a.png`);
+		const debug_image_path2 = path.join(__dirname, this.image_path, `${id}5-time-remaining-b.png`);
 		const values = await this.getOCRRaidTimeRemaining(id, message, image, region);
 
 		// something has gone wrong if no info was matched, save image for later analysis
-		if (!values.text && !debug_flag && log.getLevel() === log.levels.DEBUG) {
-			image.write(path.join(__dirname, this.image_path, `${id}.png`));
-			values.image1.write(values.debug_image_path1);
-			values.image2.write(values.debug_image_path2);
+		if (debug_flag || (!values.text && log.getLevel() === log.levels.DEBUG)) {
+			values.image1.write(debug_image_path1);
+			values.image2.write(debug_image_path2);
 		}
 
 		// NOTE:  There is a chance time_remaining could not be determined... not sure if we would want to do
@@ -275,62 +332,49 @@ class ImageProcess {
 
 	getOCRRaidTimeRemaining(id, message, image, region, level=0) {
 		return new Promise((resolve, reject) => {
-			const debug_image_path1 = path.join(__dirname, this.image_path, `${id}5-time-remaining-a.png`);
-			const debug_image_path2 = path.join(__dirname, this.image_path, `${id}5-time-remaining-b.png`);
-
 			let region1 = { x: region.width - (region.width / 3.4), y: region.height - (region.height / 2.2), width: region.width / 4, height: region.height / 12 };
-			let region2 = { x: 0, y: region.height / 6.4, width: region.width, height: region.height / 5 };
+			let region2 = { x: 0, y: region.height / 6.4, width: region.width, height: region.height / 8 };
 
 			let promises = [];
 
 			promises.push(new Promise((resolve, reject) => {
 				const new_image = image.clone()
 					.crop(region1.x, region1.y, region1.width, region1.height)
-					.scan(0, 0, region1.width, region1.height, this.filterHeaderContent)
+					.scan(0, 0, region1.width, region1.height, this.filterPureWhiteContent)
 					.getBuffer(Jimp.MIME_PNG, (err, image) => {
 						if (err) { reject(err); }
 
-						tesseract.create().recognize(image)
-							// .progress(message => console.log(message))
+						tesseract.recognize(image)
 							.catch(err => reject(err))
 							.then(result => {
-								const match = result.text.replace(/[^\w\s:]/g, '').match(/([0-9]{1,2}:[0-9]{1,2}){2}/g);
+								const match = result.text.replace(/[^\w\s:]/g, '').replace(/o|O/g, 0).match(/([0-9]{1,2}:[0-9]{1,2}){2}/g);
 								if (match && match.length) {
-									resolve({ image: new_image, text: match[0] });
+									resolve({ image: new_image, text: match[0], result });
 								} else {
-									resolve({ image: new_image });
+									resolve({ image: new_image, result });
 								}
 							});
 					});
-
-				if (debug_flag) {
-					new_image.write(debug_image_path1);
-				}
 			}));
 
 			promises.push(new Promise((resolve, reject) => {
 				const new_image = image.clone()
 					.crop(region2.x, region2.y, region2.width, region2.height)
-					.scan(0, 0, region2.width, region2.height, this.filterHeaderContent)
+					.scan(0, 0, region2.width, region2.height, this.filterPureWhiteContent)
 					.getBuffer(Jimp.MIME_PNG, (err, image) => {
 						if (err) { reject(err); }
 
-						tesseract.create().recognize(image)
-							// .progress(message => console.log(message))
+						tesseract.recognize(image)
 							.catch(err => reject(err))
 							.then(result => {
-								const match = result.text.replace(/[^\w:]/g, '').match(/([0-9]{1,2}:[0-9]{1,2}){2}/g);
+								const match = result.text.replace(/[^\w:]/g, '').replace(/o|O/g, 0).match(/([0-9]{1,2}:[0-9]{1,2}){2}/g);
 								if (match && match.length) {
-									resolve({ image: new_image, text: match[0] });
+									resolve({ image: new_image, text: match[0], result });
 								} else {
-									resolve({ image: new_image });
+									resolve({ image: new_image, result });
 								}
 							});
 					});
-
-				if (debug_flag) {
-					new_image.write(debug_image_path2);
-				}
 			}));
 
 			// pass along collected data once all promises have resolved
@@ -339,9 +383,7 @@ class ImageProcess {
 					egg: !!values[1].text,
 					image1: values[0].image,
 					image2: values[1].image,
-					text: values[0].text || values[1].text,
-					debug_image_path1,
-					debug_image_path2
+					text: values[0].text || values[1].text
 				});
 			}).catch(err => {
 				reject(err);
@@ -353,39 +395,62 @@ class ImageProcess {
 
 	async getGymName(id, message, image, region) {
 		const GymType = new GymArgumentType(Helper.client);
-		const values = await this.getOCRGymName(id, message, image, region);
+		let values, gym_name, gym_words;
+		let match = true;
 
-		// start by splitting into words of 3 characters or more, and sorting by size of each word
-		let gym_name = values.text;
-		let gym_words = gym_name.split(' ').filter(word => { return word.length > 2; }).sort((a, b) => { return a.length < b.length; });
+		// try different levels of processing to get time
+		for (let processing_level=0; processing_level<2; processing_level++) {
+			const debug_image_path = path.join(__dirname, this.image_path, `${id}2-gym-name-${processing_level}.png`);
+			values = await this.getOCRGymName(id, message, image, region, processing_level);
 
-		// re-combine shortened gym name
-		gym_name = gym_words.join(' ');
+			// start by splitting into words of 3 characters or more, and sorting by size of each word
+			gym_name = values.text;
+			gym_words = gym_name.split(' ').filter(word => { return word.length > 2; }).sort((a, b) => { return a.length < b.length; });
 
-		// ensure gym exist and is allowed to be created
-		if (await GymType.validate(gym_name, message) === true) {
-			return await GymType.parse(gym_name, message);
-		}
+			// re-combine shortened gym name
+			gym_name = gym_words.join(' ');
 
-		// If gym_name doesn't exist, start popping off the shortest words in an attempt to get a match
-		//		Example: 6 words = 3 attempts, 2 words = 1 attempt
-		for (let i=0; i<=Math.floor(gym_words.length/2); i++) {
-			// only remove words of length 4 characters or lower
-			if (gym_words.pop().length <= 4) {
-				gym_name = gym_words.join(' ');
+			// ensure gym exist and is allowed to be created
+			if (await GymType.validate(gym_name, message) === true) {
+				match = true;
+			}
 
-				// ensure gym exist and is allowed to be created
-				if (await GymType.validate(gym_name, message) === true) {
-					return await GymType.parse(gym_name, message);
+			if (!match) {
+				// If gym_name doesn't exist, start popping off the shortest words in an attempt to get a match
+				//		Example: 6 words = 3 attempts, 2 words = 1 attempt
+				for (let i=0; i<=Math.floor(gym_words.length/2); i++) {
+					const word = gym_words[gym_words.length - 1];
+
+					// only remove words of length 4 characters or lower
+					if (word && word.length <= 4) {
+						gym_words.pop();
+						gym_name = gym_words.join(' ');
+
+						// ensure gym exist and is allowed to be created
+						if (await GymType.validate(gym_name, message) === true) {
+							match = true;
+							break;
+						}
+					} else {
+						// stop trying to remove words
+						break;
+					}
 				}
+			}
+
+			if (debug_flag || log.getLevel() === log.levels.DEBUG) {
+				log.warn(id, values.result.text);
+				values.image.write(debug_image_path);
+			}
+
+			if (match) {
+				break;
 			}
 		}
 
-		if (!debug_flag && log.getLevel() === log.levels.DEBUG) {
-			image.write(path.join(__dirname, this.image_path, `${id}.png`));
-			values.image.write(values.debug_image_path);
+		if (match) {
+			return await GymType.parse(gym_name, message);
 		}
-
 
 		// If nothing has been determined to make sense, then either OCR or Validation has failed for whatever reason
 		// TODO:  Try a different way of getting tesseract info from image
@@ -394,27 +459,26 @@ class ImageProcess {
 	}
 
 	getOCRGymName(id, message, image, region, level=0) {
-		const debug_image_path = path.join(__dirname, this.image_path, `${id}2-gym-name.png`);
-
 		return new Promise((resolve, reject) => {
-			const new_image = image.clone()
-				.crop(region.x, region.y, region.width, region.height)
-				.scan(0, 0, region.width, region.height, this.filterBodyContent)
-				.getBuffer(Jimp.MIME_PNG, (err, image) => {
-					if (err) { reject(err); }
+			let new_image = image.clone().crop(region.x, region.y, region.width, region.height);
 
-					tesseract.create().recognize(image)
-						// .progress(message => console.log(message))
-						.catch(err => reject(err))
-						.then(result => {
-							const text = result.text.replace(/[^\w\s]/g, '').replace(/\n/g, ' ').trim();
-							resolve({ image: new_image, text, debug_image_path });
-						});
-				});
-
-			if (debug_flag) {
-				new_image.write(debug_image_path);
+			// basic level 0 processing by default
+			if (level === 0) {
+				new_image = new_image.scan(0, 0, region.width, region.height, this.filterBodyContent).blur(1);
+			} else {
+				new_image = new_image.blur(1).scan(0, 0, region.width, region.height, this.filterBodyContent2).blur(1);
 			}
+
+			new_image = new_image.getBuffer(Jimp.MIME_PNG, (err, image) => {
+				if (err) { reject(err); }
+
+				tesseract.recognize(image)
+					.catch(err => reject(err))
+					.then(result => {
+						const text = result.text.replace(/[^\w\s]/g, '').replace(/\n/g, ' ').trim();
+						resolve({ image: new_image, text, result });
+					});
+			});
 		});
 	}
 
@@ -438,6 +502,7 @@ class ImageProcess {
 
 
 	async getPokemonName(id, message, image, region) {
+		const debug_image_path = path.join(__dirname,  this.image_path, `${id}3-pokemon-name.png`);
 		const PokemonType = new PokemonArgumentType(Helper.client);
 		const values = await this.getOCRPokemonName(id, message, image, region);
 
@@ -448,13 +513,14 @@ class ImageProcess {
 		} else if (PokemonType.validate(`${cp}`, message) === true) {
 			pokemon = PokemonType.parse(`${cp}`, message);
 		} else {
-			pokemon = { placeholder: true, name: 'raid', tier: '????' };
+			// if not a valid pokemon, use some placeholder information
+			pokemon = { placeholder: true, name: 'pokemon', tier: '????' };
 		}
 
 		// something has gone wrong if no info was matched, save image for later analysis
-		if (pokemon.placeholder && !debug_flag && log.getLevel() === log.levels.DEBUG) {
-			image.write(path.join(__dirname, this.image_path, `${id}.png`));
-			values.image.write(values.debug_image_path);
+		if (debug_flag || (pokemon.placeholder && log.getLevel() === log.levels.DEBUG)) {
+			log.warn(id, values.result.text);
+			values.image.write(debug_image_path);
 		}
 
 		// NOTE:  There is a chance pokemon could not be determined and we may need to try image processing again on a different setting/level
@@ -462,8 +528,6 @@ class ImageProcess {
 	}
 
 	getOCRPokemonName(id, message, image, region, level=0) {
-		const debug_image_path = path.join(__dirname,  this.image_path, `${id}3-pokemon-name.png`);
-
 		return new Promise((resolve, reject) => {
 			const new_image = image.clone()
 				.crop(region.x, region.y, region.width, region.height)
@@ -473,20 +537,15 @@ class ImageProcess {
 				.getBuffer(Jimp.MIME_PNG, (err, image) => {
 					if (err) { reject(err); }
 
-					tesseract.create().recognize(image)
-						// .progress(message => console.log(message))
+					tesseract.recognize(image)
 						.catch(err => reject(err))
 						.then(result => {
 							const text = result.text.replace(/[^\w\s\n]/gi, '');
 							const cp = new Number(text.match(/[0-9]+/g)).valueOf();
 							const pokemon = text.replace(/(cp)?\s?[0-9]*/g, '');
-							resolve({ image: new_image, cp, pokemon, debug_image_path });
+							resolve({ image: new_image, cp, pokemon, result });
 						});
 				});
-
-			if (debug_flag) {
-				new_image.write(debug_image_path);
-			}
 		});
 	}
 
@@ -495,55 +554,52 @@ class ImageProcess {
 
 
 
-
-
-
-
-
-
-
-
 	async getTier(id, message, image, region) {
+		const debug_image_path = path.join(__dirname,  this.image_path, `${id}5-tier.png`);
+		const PokemonType = new PokemonArgumentType(Helper.client);
 		const values = await this.getOCRTier(id, message, image, region);
 
-		// something has gone wrong if no info was matched, save image for later analysis
-		if (!values.tier && !debug_flag && log.getLevel() === log.levels.DEBUG) {
-			image.write(path.join(__dirname, this.image_path, `${id}.png`));
-			values.image.write(values.debug_image_path);
+		// NOTE: Expects string in validation of egg tier
+		let pokemon = `${values.tier}`;
+		if (PokemonType.validate(pokemon, message) === true) {
+			pokemon = PokemonType.parse(pokemon, message);
+		} else {
+			// if not a valid tier, use some placeholder information
+			pokemon = { placeholder: true, name: 'egg', tier: '????' };
 		}
 
-		// NOTE:  There is a chance pokemon could not be determined and we may need to try image processing again before returning
-		return { tier: values.tier };
+		// something has gone wrong if no info was matched, save image for later analysis
+		if (debug_flag || (pokemon.placeholder && log.getLevel() === log.levels.DEBUG)) {
+			log.warn(id, values.result.text);
+			values.image.write(debug_image_path);
+		}
+
+		// NOTE:  There is a chance egg tier could not be determined and we may need to try image processing again before returning...
+		return { tier: values.tier, pokemon };
 	}
 
 	async getOCRTier(id, message, image, region) {
-		const debug_image_path = path.join(__dirname,  this.image_path, `${id}5-tier.png`);
-
 		return new Promise((resolve, reject) => {
 			const new_image = image.clone()
 				.crop(region.x, region.y, region.width, region.height)
-				.scan(0, 0, region.width, region.height, this.filterLargeBodyContent)
+				.scan(0, 0, region.width, region.height, this.filterPureWhiteContent)
 				.blur(3)
 				.getBuffer(Jimp.MIME_PNG, (err, image) => {
 					if (err) { reject(err); }
 
-					tesseract.create().recognize(image)
-						// .progress(message => console.log(message))
+					tesseract.recognize(image)
 						.catch(err => reject(err))
 						.then(result => {
 							// NOTE:  This doesn't match 1 character alone... too many jibberish character to match T1 raids like this...
-							const match = result.text.replace(/[^\w\s]/g, '').match(/(.)\1+/g);
+							// will smash all the characters together and attempt to find the longest matching repeated sequence
+							const match = result.text.replace(/\s/g, '').match(/(.)\1+/gi).sort((a, b) => { return a.length < b.length; });
 							if (match && match.length) {
-								resolve({ image: new_image, tier: match.length, debug_image_path });
+								resolve({ image: new_image, tier: match[0].length, result });
 							} else {
-								resolve({ image: new_image, tier: 0, debug_image_path });
+								resolve({ image: new_image, tier: 0, result });
 							}
 						});
 				});
-
-			if (debug_flag) {
-				new_image.write(debug_image_path);
-			}
 		});
 	}
 
@@ -565,7 +621,6 @@ class ImageProcess {
 		if (check_phone_color.r <= 20 && check_phone_color.g <= 20 && check_phone_color.b <= 20) {
 			gym_location.y += 100;
 		}
-
 
 		// GYM NAME
 		const gym = await this.getGymName(id, message, image, gym_location);
@@ -592,6 +647,11 @@ class ImageProcess {
 		// CLARIFICATION:  So basically tier, pokemon, cp, and phone time are not dependant on each other,
 		//		so by making them totally asynchronise, we speed up execution time slightly.
 		return Promise.all(promises).then(values => {
+			// write original image as a reference
+			if (debug_flag || log.getLevel() === log.levels.DEBUG) {
+				image.write(path.join(__dirname, this.image_path, `${id}.png`));
+			}
+
 			return {
 				egg,
 				gym,
@@ -599,7 +659,7 @@ class ImageProcess {
 				phone_time: values[0].phone_time,
 				tier: values[1].tier || 0,
 				cp: values[1].cp || 0,
-				pokemon: values[1].pokemon || ''
+				pokemon: values[1].pokemon
 			};
 		}).catch(err => {
 			log.warn(err);
@@ -622,7 +682,7 @@ class ImageProcess {
 		arg.prompt = '';
 		arg.key = (data.egg)? TimeParameter.HATCH: TimeParameter.END;
 
-		// TODO:  Fix this some how...
+		// add duration to time if both exist
 		if (time && time.isValid() && duration.asMilliseconds() > 0) {
 			// add time remaining to phone's current time to get final hatch or despawn time
 			time = time.add(duration);
@@ -656,11 +716,11 @@ class ImageProcess {
 				return Raid.getChannel(raid.channel_id).then(channel => {
 					// if pokemon, time remaining, or phone time was not determined, need to add original image to new channel,
 					//		in the hope the someone can manually read the screenshot and set the appropriate information
-					if (pokemon.placeholder === false) {
+					if (!message.is_fake && pokemon.placeholder === false) {
 						return channel.send('**Pokemon** could not be determined, please help set the pokemon by typing \`!pokemon <name>\`', {files: [
 							message.attachments.first().url
 						]}).catch(err => log.error(err));
-					} else if (!time) {
+					} else if (!message.is_fake && !time) {
 						return channel.send('**Time** could not be determined, please help set the time by typing either \`!hatch <time>\` or \`!end <time>\`', {files: [
 							message.attachments.first().url
 						]}).catch(err => log.error(err));
