@@ -1,6 +1,7 @@
 "use strict";
 
 const text = require('../data/text'),
+	{Team} = require('./constants'),
 	settings = require('../data/settings');
 
 class Helper {
@@ -142,6 +143,24 @@ class Helper {
 		return this.emojis.has(emoji_name.toLowerCase()) ?
 			this.emojis.get(emoji_name.toLowerCase()) :
 			'';
+	}
+
+	getTeam(member) {
+		const roles = this.guild.get(member.guild.id).roles;
+
+		if (roles.has('instinct') && member.roles.has(roles.get('instinct').id)) {
+			return Team.INSTINCT;
+		}
+
+		if (roles.has('mystic') && member.roles.has(roles.get('mystic').id)) {
+			return Team.MYSTIC;
+		}
+
+		if (roles.has('valor') && member.roles.has(roles.get('valor').id)) {
+			return Team.VALOR;
+		}
+
+		return Team.NONE;
 	}
 
 	getText(path, message) {
