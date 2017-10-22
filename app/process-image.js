@@ -158,7 +158,7 @@ class ImageProcess {
 	}
 
 	/**
-	 * Mostly for the tier checking....
+	 * Trying to filter out near-pure white pixels
 	 **/
 	filterPureWhiteContent(x, y, idx) {
 		const red   = this.bitmap.data[ idx + 0 ];
@@ -246,6 +246,7 @@ class ImageProcess {
 
 			let promises = [];
 
+			// this check looks at the top-middle for time (iphone?)
 			promises.push(new Promise((resolve, reject) => {
 				let new_image = image.clone().crop(region1.x, region1.y, region1.width, region1.height);
 
@@ -273,6 +274,7 @@ class ImageProcess {
 				});
 			}));
 
+			// this check looks at the top-right for time (android?)
 			promises.push(new Promise((resolve, reject) => {
 				let new_image = image.clone().crop(region2.x, region2.y, region2.width, region2.height)
 
@@ -344,6 +346,7 @@ class ImageProcess {
 
 			let promises = [];
 
+			// check the middle-right portion of the screen for the time remaining (pokemon)
 			promises.push(new Promise((resolve, reject) => {
 				const new_image = image.clone()
 					.crop(region1.x, region1.y, region1.width, region1.height)
@@ -354,6 +357,7 @@ class ImageProcess {
 						tesseract.recognize(image)
 							.catch(err => reject(err))
 							.then(result => {
+								// NOTE: important that the letter "o" be replaced with a 0, in order to properly match a time
 								const match = result.text.replace(/[^\w\s:]/g, '').replace(/o|O/g, 0).match(/([0-9]{1,2}:[0-9]{1,2}){2}/g);
 								if (match && match.length) {
 									resolve({ image: new_image, text: match[0], result });
@@ -364,6 +368,7 @@ class ImageProcess {
 					});
 			}));
 
+			// check the top-middle portion of the screen for the time remaining (egg)
 			promises.push(new Promise((resolve, reject) => {
 				const new_image = image.clone()
 					.crop(region2.x, region2.y, region2.width, region2.height)
@@ -374,6 +379,7 @@ class ImageProcess {
 						tesseract.recognize(image)
 							.catch(err => reject(err))
 							.then(result => {
+								// NOTE: important that the letter "o" be replaced with a 0, in order to properly match a time
 								const match = result.text.replace(/[^\w:]/g, '').replace(/o|O/g, 0).match(/([0-9]{1,2}:[0-9]{1,2}){2}/g);
 								if (match && match.length) {
 									resolve({ image: new_image, text: match[0], result });
@@ -490,20 +496,6 @@ class ImageProcess {
 			});
 		});
 	}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 
