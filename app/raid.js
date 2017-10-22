@@ -735,15 +735,15 @@ class Raid {
 				.map(async attendee_entry => [await this.getMember(raid.channel_id, attendee_entry[0]), attendee_entry[1]])),
 			sorted_attendees = attendees_with_members
 				.sort((entry_a, entry_b) => {
-					const role_a = Helper.getTeam(entry_a[0]),
-						role_b = Helper.getTeam(entry_b[0]),
+					const team_a = Helper.getTeam(entry_a[0]),
+						team_b = Helper.getTeam(entry_b[0]),
 						name_a = entry_a[0].displayName,
 						name_b = entry_b[0].displayName;
 
-					const role_compare = role_a - role_b;
+					const team_compare = team_a - team_b;
 
-					return (role_compare !== 0) ?
-						role_compare :
+					return (team_compare !== 0) ?
+						team_compare :
 						name_a.localeCompare(name_b);
 				}),
 
