@@ -4,7 +4,7 @@ const log = require('loglevel').getLogger('Raid'),
 	moment = require('moment'),
 	settings = require('../data/settings'),
 	storage = require('node-persist'),
-	{RaidStatus} = require('./constants'),
+	{RaidStatus, Team} = require('./constants'),
 	Discord = require('discord.js'),
 	Helper = require('./helper'),
 	Gym = require('./gym'),
@@ -735,10 +735,16 @@ class Raid {
 				.map(async attendee_entry => [await this.getMember(raid.channel_id, attendee_entry[0]), attendee_entry[1]])),
 			sorted_attendees = attendees_with_members
 				.sort((entry_a, entry_b) => {
-					const name_a = entry_a[0].displayName,
+					const role_a = Helper.getTeam(entry_a[0]),
+						role_b = Helper.getTeam(entry_b[0]),
+						name_a = entry_a[0].displayName,
 						name_b = entry_b[0].displayName;
 
-					return name_a.localeCompare(name_b);
+					const role_compare = role_a - role_b;
+
+					return (role_compare !== 0) ?
+						role_compare :
+						name_a.localeCompare(name_b);
 				}),
 
 			interested_attendees = sorted_attendees
@@ -773,13 +779,18 @@ class Raid {
 					}
 
 					// add role emoji indicators if role exists
-					const roles = Helper.guild.get(member.guild.id).roles;
-					if (roles.has('mystic') && member.roles.has(roles.get('mystic').id)) {
-						result += ' ' + Helper.getEmoji('mystic').toString();
-					} else if (roles.has('valor') && member.roles.has(roles.get('valor').id)) {
-						result += ' ' + Helper.getEmoji('valor').toString();
-					} else if (roles.has('instinct') && member.roles.has(roles.get('instinct').id)) {
-						result += ' ' + Helper.getEmoji('instinct').toString();
+					switch (Helper.getTeam(member)) {
+						case Team.INSTINCT:
+							result += ' ' + Helper.getEmoji('instinct').toString();
+							break;
+
+						case Team.MYSTIC:
+							result += ' ' + Helper.getEmoji('mystic').toString();
+							break;
+
+						case Team.VALOR:
+							result += ' ' + Helper.getEmoji('valor').toString();
+							break;
 					}
 
 					result += '\n';
