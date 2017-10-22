@@ -7,6 +7,13 @@ const RaidStatus = {
 	COMPLETE: 4
 };
 
+const Team = {
+	NONE: 0,
+	INSTINCT: 1,
+	MYSTIC: 2,
+	VALOR: 3
+};
+
 const TimeMode = {
 	AUTODETECT: 0,
 	RELATIVE: 1,
@@ -19,4 +26,4 @@ const TimeParameter = {
 	END: 'end'
 };
 
-module.exports = {RaidStatus, TimeMode, TimeParameter};
+module.exports = {RaidStatus, Team, TimeMode, TimeParameter};
