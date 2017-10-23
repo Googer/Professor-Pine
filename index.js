@@ -32,7 +32,14 @@ Client.registry.registerGroup('admin', 'Administration');
 Client.registry.registerGroup('basic-raid', 'Raid Basics');
 Client.registry.registerGroup('raid-crud', 'Raid Creation and Maintenance');
 Client.registry.registerGroup('roles', 'Roles');
-Client.registry.registerDefaults();
+
+Client.registry.registerDefaultTypes();
+Client.registry.registerDefaultGroups();
+
+Client.registry.registerCommand(require('./commands/util/help'));
+
+Client.registry.registerDefaultCommands({help: false});
+
 Client.registry.registerTypesIn(__dirname + '/types');
 
 Client.registry.registerCommands([
