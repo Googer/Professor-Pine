@@ -28,6 +28,8 @@ class ImageProcess {
 	}
 
 	process(message, url) {
+		let new_image, id;
+
 		// easier test case
 		if (message.content == 'ping') {
 			message.is_fake = true;
@@ -39,14 +41,21 @@ class ImageProcess {
 
 		Jimp.read(url).then(image => {
 			if (!image) { return; }
-			const id = uuidv1();
+			id = uuidv1();
 
 			// resize to some standard size to help tesseract
-			image.scaleToFit(1440, 2560, Jimp.RESIZE_HERMITE);
+			new_image = image.scaleToFit(1440, 2560, Jimp.RESIZE_HERMITE);
 
-			return this.getRaidData(id, message, image);
+			return this.getRaidData(id, message, new_image);
 		}).then(data => {
 			console.log(data);
+
+			// write original image as a reference
+			if (debug_flag ||
+				((data === false || !data.phone_time || !data.gym || !data.time_remaining || data.pokemon.placeholder) && log.getLevel() === log.levels.DEBUG)) {
+				new_image.write(path.join(__dirname, this.image_path, `${id}.png`));
+			}
+
 			if (data) {
 				this.createRaid(message, data);
 			}
@@ -211,7 +220,7 @@ class ImageProcess {
 			}
 
 			// something has gone wrong if no info was matched, save image for later analysis
-			if (debug_flag || (phone_time && phone_time.isValid() && log.getLevel() === log.levels.DEBUG)) {
+			if (debug_flag || ((!phone_time || (phone_time && !phone_time.isValid())) && log.getLevel() === log.levels.DEBUG)) {
 				log.warn(id, values.result1.text);
 				log.warn(id, values.result2.text);
 				values.image1.write(debug_image_path1);
@@ -263,8 +272,8 @@ class ImageProcess {
 					tesseract.recognize(image)
 						.catch(err => reject(err))
 						.then(result => {
-							// basically strip out everything except spaces and colons, then match any typical time values
-							const match = result.text.replace(/[^\w\s:]/g, '').replace(/o|O/g, 0).match(/([0-9]{1,2}:[0-9]{1,2}){1}\s?(a|p)?m?/gi);
+							// basically strip out everything except spaces, colons, and battery % life, then match any typical time values
+							const match = result.text.replace(/[^\w\s:%]/g, '').replace(/o|O/g, 0).match(/([0-9]{1,2}:[0-9]{1,2}){1}\s?(a|p)?m?/gi);
 							if (match && match.length) {
 								resolve({ image: new_image, text: match[0], result });
 							} else {
@@ -291,8 +300,8 @@ class ImageProcess {
 					tesseract.recognize(image)
 						.catch(err => reject(err))
 						.then(result => {
-							// basically strip out everything except spaces and colons, then match any typical time values
-							const match = result.text.replace(/[^\w\s:]/g, '').replace(/o|O/g, 0).match(/([0-9]{1,2}:[0-9]{1,2}){1}\s?(a|p)?m?/gi);
+							// basically strip out everything except spaces, colons, and battery % life, then match any typical time values
+							const match = result.text.replace(/[^\w\s:%]/g, '').replace(/o|O/g, 0).match(/([0-9]{1,2}:[0-9]{1,2}){1}\s?(a|p)?m?/gi);
 							if (match && match.length) {
 								resolve({ image: new_image, text: match[0], result });
 							} else {
@@ -650,11 +659,6 @@ class ImageProcess {
 		// CLARIFICATION:  So basically tier, pokemon, cp, and phone time are not dependant on each other,
 		//		so by making them totally asynchronise, we speed up execution time slightly.
 		return Promise.all(promises).then(values => {
-			// write original image as a reference
-			if (debug_flag || log.getLevel() === log.levels.DEBUG) {
-				image.write(path.join(__dirname, this.image_path, `${id}.png`));
-			}
-
 			return {
 				egg,
 				gym,
