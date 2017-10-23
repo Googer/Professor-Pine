@@ -31,7 +31,7 @@ class ImageProcess {
 		// easier test case
 		if (message.content == 'ping') {
 			message.is_fake = true;
-			url = path.join(__dirname, this.image_path, 'image59.png');
+			url = path.join(__dirname, this.image_path, 'image.png');
 		}
 
 		// if not in a proper raid channel, cancel out immediately
@@ -411,7 +411,7 @@ class ImageProcess {
 	async getGymName(id, message, image, region) {
 		const GymType = new GymArgumentType(Helper.client);
 		let values, gym_name, gym_words;
-		let match = true;
+		let validation = false;
 
 		// try different levels of processing to get time
 		for (let processing_level=0; processing_level<2; processing_level++) {
@@ -426,11 +426,9 @@ class ImageProcess {
 			gym_name = gym_words.join(' ');
 
 			// ensure gym exist and is allowed to be created
-			if (await GymType.validate(gym_name, message) === true) {
-				match = true;
-			}
+			validation = await GymType.validate(gym_name, message, { is_screenshot: true });
 
-			if (!match) {
+			if (!validation) {
 				// If gym_name doesn't exist, start popping off the shortest words in an attempt to get a match
 				//		Example: 6 words = 3 attempts, 2 words = 1 attempt
 				for (let i=0; i<=Math.floor(gym_words.length/2); i++) {
@@ -442,8 +440,9 @@ class ImageProcess {
 						gym_name = gym_words.join(' ');
 
 						// ensure gym exist and is allowed to be created
-						if (await GymType.validate(gym_name, message) === true) {
-							match = true;
+						validation = await GymType.validate(gym_name, message, { is_screenshot: true });
+
+						if (validation) {
 							break;
 						}
 					} else {
@@ -453,23 +452,26 @@ class ImageProcess {
 				}
 			}
 
-			if (debug_flag || (!match && log.getLevel() === log.levels.DEBUG)) {
+			if (debug_flag || (!validation && log.getLevel() === log.levels.DEBUG)) {
 				log.warn(id, values.result.text);
 				values.image.write(debug_image_path);
 			}
 
-			if (match) {
+			if (validation) {
 				break;
 			}
 		}
 
-		if (match) {
+		if (validation === true) {
 			return await GymType.parse(gym_name, message);
+		}
+
+		if (validation !== true && validation !== false) {
+			message.channel.send(validation);
 		}
 
 		// If nothing has been determined to make sense, then either OCR or Validation has failed for whatever reason
 		// TODO:  Try a different way of getting tesseract info from image
-		log.warn(await GymType.validate(gym_name, message));
 		return false;
 	}
 
@@ -692,8 +694,8 @@ class ImageProcess {
 				time = TimeType.parse(time.format('[at] h:mma'), message, arg);
 			} else {
 				// time was not valid, don't set any time (would rather have accurate time, than an inaccurate guess at the time)
+				message.channel.send(time.format('h:mma') + ' is an invalid ' + ((data.egg)? 'hatch': 'end') + ' time');
 				time = undefined;
-				message.channel.send('Invalid Raid Time');
 				return;
 			}
 		}
