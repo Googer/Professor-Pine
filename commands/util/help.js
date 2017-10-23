@@ -124,7 +124,7 @@ class HelpCommand extends Commando.Command {
 							.map(command => '**' + command.name + '**: ' + command.description).join('\n')}`);
 				});
 
-				message.direct({embed});
+				messages.push(await message.direct({embed}));
 
 				if (message.channel.type !== 'dm') messages.push(await message.reply('Sent you a DM with information.'));
 			} catch (err) {
