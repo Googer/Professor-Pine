@@ -15,11 +15,12 @@ const log = require('loglevel').getLogger('ImageProcessor'),
 	region_map = require('PgP-Data/data/region-map'),
 	{ TimeParameter} = require('../app/constants');
 
-// currently being used to store all images locally regardless of what was able to be determined from them
-const debug_flag = false;//function checkDebugFlag() { for (let arg of process.argv) { if (arg == '--debug') { return true } } return false; }();
+// Will save all images regardless of how right or wrong, in order to better examine output
+const debug_flag = false;
 
-class ImageProcess {
+class ImageProcessing {
 	constructor() {
+		// store debug information into this folder
 		this.image_path = '/../assets/processing/';
 
 		if (!fs.existsSync(path.join(__dirname, this.image_path))){
@@ -27,14 +28,23 @@ class ImageProcess {
 		}
 	}
 
+	initialize() {
+		Helper.client.on('message', message => {
+			// attempt to process first attachment/image if it exists (maybe some day will go through all the attachments...)
+			if (message.attachments.size && message.attachments.first().url.search(/jpg|jpeg|png/)) {
+				this.process(message, message.attachments.first().url);
+			}
+
+			// QUICKER WAY TO TEST IMAGES
+			// if (message.content == 'ping') {
+			// 	message.is_fake = true;
+			// 	this.process(message, path.join(__dirname, this.image_path, 'image.png'));
+			// }
+		});
+	}
+
 	process(message, url) {
 		let new_image, id;
-
-		// easier test case
-		if (message.content == 'ping') {
-			message.is_fake = true;
-			url = path.join(__dirname, this.image_path, 'image.png');
-		}
 
 		// if not in a proper raid channel, cancel out immediately
 		if (!region_map[message.channel.name]) { return; }
@@ -755,4 +765,4 @@ class ImageProcess {
 	}
 }
 
-module.exports = new ImageProcess();
+module.exports = new ImageProcessing();
