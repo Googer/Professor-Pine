@@ -418,7 +418,7 @@ class ImageProcess {
 
 
 	async getGymName(id, message, image, region) {
-		const GymType = new GymArgumentType(Helper.client);
+		const GymType = Helper.client.registry.types.get('gym');
 		let values, gym_name, gym_words;
 		let validation = false;
 
@@ -515,7 +515,7 @@ class ImageProcess {
 
 	async getPokemonName(id, message, image, region) {
 		const debug_image_path = path.join(__dirname,  this.image_path, `${id}3-pokemon-name.png`);
-		const PokemonType = new PokemonArgumentType(Helper.client);
+		const PokemonType = Helper.client.registry.types.get('pokemon');
 		const values = await this.getOCRPokemonName(id, message, image, region);
 
 		let pokemon = values.pokemon;
@@ -568,7 +568,7 @@ class ImageProcess {
 
 	async getTier(id, message, image, region) {
 		const debug_image_path = path.join(__dirname,  this.image_path, `${id}5-tier.png`);
-		const PokemonType = new PokemonArgumentType(Helper.client);
+		const PokemonType = Helper.client.registry.types.get('pokemon');
 		const values = await this.getOCRTier(id, message, image, region);
 
 		// NOTE: Expects string in validation of egg tier
@@ -675,7 +675,7 @@ class ImageProcess {
 	}
 
 	createRaid(message, data) {
-		const TimeType = new TimeArgumentType(Helper.client);
+		const TimeType = Helper.client.registry.types.get('time');
 
 		let gym = data.gym;
 		let pokemon = data.pokemon;
