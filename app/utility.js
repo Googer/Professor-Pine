@@ -8,7 +8,7 @@ class Utility {
 	}
 
 	static async cleanCollector(collection_result) {
-		const delay = settings.message_cleanup_delay,
+		const delay = settings.message_cleanup_delay_success,
 			messages_to_delete = [...collection_result.prompts, ...collection_result.answers],
 			channel = messages_to_delete[0].channel;
 
@@ -18,12 +18,14 @@ class Utility {
 			delay);
 	}
 
-	static async cleanConversation(initial_message, delete_original = false) {
+	static async cleanConversation(initial_message, command_successful, delete_original = false) {
 		const channel = initial_message.channel,
 			author = initial_message.author,
 			bot = initial_message.client.user,
 			start_time = initial_message.createdTimestamp,
-			delay = settings.message_cleanup_delay;
+			delay = command_successful ?
+				settings.message_cleanup_delay_success :
+				settings.message_cleanup_delay_error;
 
 		const messages_to_delete = [];
 
