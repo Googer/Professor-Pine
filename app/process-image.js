@@ -115,7 +115,7 @@ class ImageProcess {
 		const blue  = this.bitmap.data[ idx + 2 ];
 		const alpha = this.bitmap.data[ idx + 3 ];
 
-		if (red >= 180 && green >= 180 && blue >= 180) {
+		if (red >= 170 && green >= 170 && blue >= 170) {
 			this.bitmap.data[ idx + 0 ] = 255;
 			this.bitmap.data[ idx + 1 ] = 255;
 			this.bitmap.data[ idx + 2 ] = 255;
@@ -135,7 +135,7 @@ class ImageProcess {
 		const blue  = this.bitmap.data[ idx + 2 ];
 		const alpha = this.bitmap.data[ idx + 3 ];
 
-		if (red >= 220 && green >= 220 && blue >= 220) {
+		if (red >= 210 && green >= 210 && blue >= 210) {
 			this.bitmap.data[ idx + 0 ] = 255;
 			this.bitmap.data[ idx + 1 ] = 255;
 			this.bitmap.data[ idx + 2 ] = 255;
