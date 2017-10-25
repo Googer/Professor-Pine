@@ -309,7 +309,7 @@ class ImageProcessing {
 
 			// this check looks at the top-middle for time (iphone?)
 			promises.push(new Promise((resolve, reject) => {
-				let new_image = image.clone().crop(region1.x, region1.y, region1.width, region1.height).contrast(0.8);
+				let new_image = image.clone().crop(region1.x, region1.y, region1.width, region1.height);
 
 				// basic level 0 processing by default
 				if (level === 0) {
@@ -337,7 +337,7 @@ class ImageProcessing {
 
 			// this check looks at the top-right for time (android?)
 			promises.push(new Promise((resolve, reject) => {
-				let new_image = image.clone().crop(region2.x, region2.y, region2.width, region2.height).contrast(0.8);
+				let new_image = image.clone().crop(region2.x, region2.y, region2.width, region2.height);
 
 				// basic level 0 processing by default
 				if (level === 0) {
