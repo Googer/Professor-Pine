@@ -9,7 +9,7 @@
 	},
 	"notifications": {
 		"warning": "Use the `!notifications` command in ${bot_channel} to view current notifications for pokémon."
-	}
+	},
 	"notify": {
 		"warning": "Use the `!notify` command in ${bot_channel} to add notifications for pokémon."
 	},
