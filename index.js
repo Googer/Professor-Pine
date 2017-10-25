@@ -82,6 +82,9 @@ Client.on('error', err => log.error(err));
 Client.on('warn', err => log.warn(err));
 Client.on('debug', err => log.debug(err));
 
+Client.on('rateLimit', event =>
+	log.warn(`Rate limited for ${event.timeout} ms, triggered by method '${event.method}', path '${event.path}', route '${event.route}'`));
+
 Client.on('commandRun', (command, result, message, args, from_pattern) => {
 	log.debug(`Command '${command.name}' run from message '${message.content}' by user ${message.author.id}`);
 });
