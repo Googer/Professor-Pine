@@ -40,6 +40,13 @@ class RethinkDBManager {
 					if (err) { throw err; }
 				}
 			});
+
+			// set up notifications table if it doesn't already exist
+			r.db(key.id).tableCreate('notifications').run(this.connection, (err, result) => {
+				if (err && err.name !== 'ReqlOpFailedError') {
+					if (err) { throw err; }
+				}
+			});
 		});
 	}
 }

@@ -7,6 +7,12 @@
 		"warning": "Use the `!iamnot` command in ${bot_channel} to remove a role.",
 		"suggestion": "Try using the command `!iamnot` to remove a role."
 	},
+	"notify": {
+		"warning": "Use the `!notify` command in ${bot_channel} to add notifications for pokémon."
+	},
+	"denotify": {
+		"warning": "Use the `!denotify` command in ${bot_channel} to remove notifications for pokémon."
+	},
 	"status": {
 		"warning": "Check the status of raids from a regional channel (i.e. #cc-oakland) or raid channel."
 	},

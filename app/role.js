@@ -14,11 +14,6 @@ class Role {
 		this.count = 0;
 	}
 
-	isBotChannel(message) {
-		const guild = Helper.guild.get(message.guild.id);
-		return message.channel.id === guild.channels.bot_lab.id || message.channel.id === guild.channels.mod_bot_lab.id;
-	}
-
 	// update or insert roles
 	upsertRoles(channel, member, roles) {
 		return new Promise((resolve, reject) => {

@@ -3,6 +3,7 @@
 const log = require('loglevel').getLogger('CreateCommand'),
 	Commando = require('discord.js-commando'),
 	Gym = require('../../app/gym'),
+	Notify = require('../../app/notify'),
 	Raid = require('../../app/raid'),
 	{TimeParameter} = require('../../app/constants'),
 	Utility = require('../../app/utility');
@@ -119,6 +120,29 @@ class RaidCommand extends Commando.Command {
 
 					return Raid.refreshStatusMessages(raid);
 				}
+			})
+			.then(async result => {
+				if (pokemon.name) {
+					const raid_channel = await Raid.getChannel(raid.channel_id),
+						channel_string = raid_channel.toString();
+
+					Notify.getMembers(message.guild, pokemon)
+						.then(members => {
+							members
+								.filter(member_id => member_id !== message.member.id)
+								.filter(member_id => raid_channel.permissionsFor(member_id).has('VIEW_CHANNEL'))
+								.map(member_id => message.guild.members.get(member_id))
+								.forEach(member => {
+									const pokemon_name = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1);
+
+									member.send(`A raid for ${pokemon_name} has been announced! - ${channel_string}`)
+										.catch(err => log.error(err));
+								});
+						})
+						.catch(err => log.error(err));
+				}
+
+				return true;
 			})
 			.then(result => Utility.cleanConversation(message, true))
 			.catch(err => log.error(err));

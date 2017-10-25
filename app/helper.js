@@ -133,6 +133,11 @@ class Helper {
 			message.member.roles.has(moderator_role_id));
 	}
 
+	isBotChannel(message) {
+		const guild = this.guild.get(message.guild.id);
+		return message.channel.id === guild.channels.bot_lab.id || message.channel.id === guild.channels.mod_bot_lab.id;
+	}
+
 	getRole(guild, role_name) {
 		const guild_map = this.guild.get(guild.id);
 

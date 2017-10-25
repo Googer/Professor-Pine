@@ -68,7 +68,10 @@ Client.registry.registerCommands([
 	require('./commands/raids/set-location'),
 
 	require('./commands/roles/iam'),
-	require('./commands/roles/iamnot')
+	require('./commands/roles/iamnot'),
+
+	require('./commands/roles/notify'),
+	require('./commands/roles/denotify')
 ]);
 
 Client.on('ready', () => {

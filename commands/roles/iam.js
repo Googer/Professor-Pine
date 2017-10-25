@@ -24,12 +24,12 @@ class IAmCommand extends Commando.Command {
 
 		client.dispatcher.addInhibitor(message => {
 			// command "!iam" - warning of incorrect channel, suggest command & channel
-			if (message.content.search(/^([!])i\s?a([mn])\s?(?!not).*?|^([!])?ia([mn])([!])?\s?(?!not).*?$/gi) >= 0 && !Role.isBotChannel(message)) {
+			if (message.content.search(/^([!])i\s?a([mn])\s?(?!not).*?|^([!])?ia([mn])([!])?\s?(?!not).*?$/gi) >= 0 && !Helper.isBotChannel(message)) {
 				return ['invalid-channel', message.reply(Helper.getText('iam.warning', message))];
 			}
 
 			// command "!iam" - correct channel, incorrect command, suggest command
-			if (message.content.search(/^([!])i\s?an\s?.*?|^([!])?ian([!])?\s?.*?$|^ia([nm])$/gi) >= 0 && Role.isBotChannel(message)) {
+			if (message.content.search(/^([!])i\s?an\s?.*?|^([!])?ian([!])?\s?.*?$|^ia([nm])$/gi) >= 0 && Helper.isBotChannel(message)) {
 				return ['invalid-channel', message.reply(Helper.getText('iam.suggestion', message))];
 			}
 
