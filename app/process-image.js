@@ -315,7 +315,7 @@ class ImageProcessing {
 				if (level === 0) {
 					new_image = new_image.scan(0, 0, region1.width, region1.height, this.filterNearBlackContent).blur(1);
 				} else {
-					new_image = new_image.contrast(0.8).scan(0, 0, region1.width, region1.height, this.filterNearBlackContent2).blur(1);
+					new_image = new_image.scan(0, 0, region1.width, region1.height, this.filterNearBlackContent2).blur(1);
 				}
 
 				new_image.getBuffer(Jimp.MIME_PNG, (err, image) => {
@@ -343,7 +343,7 @@ class ImageProcessing {
 				if (level === 0) {
 					new_image = new_image.scan(0, 0, region1.width, region1.height, this.filterNearWhiteContent).blur(1);
 				} else {
-					new_image = new_image.contrast(0.8).scan(0, 0, region1.width, region1.height, this.filterNearWhiteContent2).blur(1);
+					new_image = new_image.scan(0, 0, region1.width, region1.height, this.filterNearWhiteContent2).blur(1);
 				}
 
 				new_image = new_image.getBuffer(Jimp.MIME_PNG, (err, image) => {
