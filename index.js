@@ -33,7 +33,14 @@ Client.registry.registerGroup('admin', 'Administration');
 Client.registry.registerGroup('basic-raid', 'Raid Basics');
 Client.registry.registerGroup('raid-crud', 'Raid Creation and Maintenance');
 Client.registry.registerGroup('roles', 'Roles');
-Client.registry.registerDefaults();
+
+Client.registry.registerDefaultTypes();
+Client.registry.registerDefaultGroups();
+
+Client.registry.registerCommand(require('./commands/util/help'));
+
+Client.registry.registerDefaultCommands({help: false});
+
 Client.registry.registerTypesIn(__dirname + '/types');
 
 Client.registry.registerCommands([
@@ -76,6 +83,9 @@ Client.on('ready', () => {
 Client.on('error', err => log.error(err));
 Client.on('warn', err => log.warn(err));
 Client.on('debug', err => log.debug(err));
+
+Client.on('rateLimit', event =>
+	log.warn(`Rate limited for ${event.timeout} ms, triggered by method '${event.method}', path '${event.path}', route '${event.route}'`));
 
 Client.on('commandRun', (command, result, message, args, from_pattern) => {
 	log.debug(`Command '${command.name}' run from message '${message.content}' by user ${message.author.id}`);
