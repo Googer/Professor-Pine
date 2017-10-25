@@ -15,7 +15,6 @@ class Notify {
 				.table(this.db_table)
 				.filter(r.row('member').eq(member.id))
 				.getField('pokemon')
-				.orderBy(r.asc('date'))
 				.run(DB.connection, (err, cursor) => {
 					if (err) {
 						reject(err);

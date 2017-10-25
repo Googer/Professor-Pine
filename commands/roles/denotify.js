@@ -1,6 +1,6 @@
 "use strict";
 
-const log = require('loglevel').getLogger('PokemonCommand'),
+const log = require('loglevel').getLogger('DenotifyCommand'),
 	Commando = require('discord.js-commando'),
 	Helper = require('../../app/helper'),
 	Notify = require('../../app/notify'),

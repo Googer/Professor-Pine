@@ -70,6 +70,7 @@ Client.registry.registerCommands([
 	require('./commands/roles/iam'),
 	require('./commands/roles/iamnot'),
 
+	require('./commands/roles/list-notications'),
 	require('./commands/roles/notify'),
 	require('./commands/roles/denotify')
 ]);
