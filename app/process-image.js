@@ -78,13 +78,13 @@ class ImageProcessing {
 	 * Header can contain black-gray text or white-gray text
 	 *		need to turn these areas into extremes and filter out everything else
 	 **/
-	filterHeaderContent(x, y, idx) {
+	filterNearWhiteContent(x, y, idx) {
 		const red   = this.bitmap.data[ idx + 0 ];
 		const green = this.bitmap.data[ idx + 1 ];
 		const blue  = this.bitmap.data[ idx + 2 ];
 		const alpha = this.bitmap.data[ idx + 3 ];
 
-		if ((red >= 180 && green >= 190 && blue >= 190) || (red <= 50 && green <= 50 && blue <= 50)) {
+		if (red >= 150 && green >= 150 && blue >= 150) {
 			this.bitmap.data[ idx + 0 ] = 255;
 			this.bitmap.data[ idx + 1 ] = 255;
 			this.bitmap.data[ idx + 2 ] = 255;
@@ -99,13 +99,55 @@ class ImageProcessing {
 	 * Header can contain black-gray text or white-gray text
 	 *		need to turn these areas into extremes and filter out everything else
 	 **/
-	filterHeaderContent2(x, y, idx) {
+	filterNearWhiteContent2(x, y, idx) {
 		const red   = this.bitmap.data[ idx + 0 ];
 		const green = this.bitmap.data[ idx + 1 ];
 		const blue  = this.bitmap.data[ idx + 2 ];
 		const alpha = this.bitmap.data[ idx + 3 ];
 
-		if ((red >= 220 && green >= 220 && blue >= 220) || (red <= 30 && green <= 30 && blue <= 30)) {
+		if (red >= 210 && green >= 210 && blue >= 210) {
+			this.bitmap.data[ idx + 0 ] = 255;
+			this.bitmap.data[ idx + 1 ] = 255;
+			this.bitmap.data[ idx + 2 ] = 255;
+		} else {
+			this.bitmap.data[ idx + 0 ] = 0;
+			this.bitmap.data[ idx + 1 ] = 0;
+			this.bitmap.data[ idx + 2 ] = 0;
+		}
+	}
+
+	/**
+	 * Header can contain black-gray text or white-gray text
+	 *		need to turn these areas into extremes and filter out everything else
+	 **/
+	filterNearBlackContent(x, y, idx) {
+		const red   = this.bitmap.data[ idx + 0 ];
+		const green = this.bitmap.data[ idx + 1 ];
+		const blue  = this.bitmap.data[ idx + 2 ];
+		const alpha = this.bitmap.data[ idx + 3 ];
+
+		if (red <= 50 && green <= 50 && blue <= 50) {
+			this.bitmap.data[ idx + 0 ] = 255;
+			this.bitmap.data[ idx + 1 ] = 255;
+			this.bitmap.data[ idx + 2 ] = 255;
+		} else {
+			this.bitmap.data[ idx + 0 ] = 0;
+			this.bitmap.data[ idx + 1 ] = 0;
+			this.bitmap.data[ idx + 2 ] = 0;
+		}
+	}
+
+	/**
+	 * Header can contain black-gray text or white-gray text
+	 *		need to turn these areas into extremes and filter out everything else
+	 **/
+	filterNearBlackContent2(x, y, idx) {
+		const red   = this.bitmap.data[ idx + 0 ];
+		const green = this.bitmap.data[ idx + 1 ];
+		const blue  = this.bitmap.data[ idx + 2 ];
+		const alpha = this.bitmap.data[ idx + 3 ];
+
+		if (red <= 30 && green <= 30 && blue <= 30) {
 			this.bitmap.data[ idx + 0 ] = 255;
 			this.bitmap.data[ idx + 1 ] = 255;
 			this.bitmap.data[ idx + 2 ] = 255;
@@ -256,7 +298,7 @@ class ImageProcessing {
 			if (level === 0) {
 				width = region.width / 4.9;
 			} else {
-				width = region.width / 4;
+				width = region.width / 5.5;
 			}
 
 			// checking left and right sides of image for time...
@@ -267,16 +309,16 @@ class ImageProcessing {
 
 			// this check looks at the top-middle for time (iphone?)
 			promises.push(new Promise((resolve, reject) => {
-				let new_image = image.clone().crop(region1.x, region1.y, region1.width, region1.height);
+				let new_image = image.clone().crop(region1.x, region1.y, region1.width, region1.height).contrast(0.8);
 
 				// basic level 0 processing by default
 				if (level === 0) {
-					new_image = new_image.scan(0, 0, region1.width, region1.height, this.filterHeaderContent).blur(1);
+					new_image = new_image.scan(0, 0, region1.width, region1.height, this.filterNearBlackContent).blur(1);
 				} else {
-					new_image = new_image.blur(1).scan(0, 0, region1.width, region1.height, this.filterHeaderContent2).blur(1);
+					new_image = new_image.contrast(0.8).scan(0, 0, region1.width, region1.height, this.filterNearBlackContent2).blur(1);
 				}
 
-				new_image = new_image.getBuffer(Jimp.MIME_PNG, (err, image) => {
+				new_image.getBuffer(Jimp.MIME_PNG, (err, image) => {
 					if (err) { reject(err); }
 
 					tesseract.recognize(image)
@@ -295,13 +337,13 @@ class ImageProcessing {
 
 			// this check looks at the top-right for time (android?)
 			promises.push(new Promise((resolve, reject) => {
-				let new_image = image.clone().crop(region2.x, region2.y, region2.width, region2.height)
+				let new_image = image.clone().crop(region2.x, region2.y, region2.width, region2.height).contrast(0.8);
 
 				// basic level 0 processing by default
 				if (level === 0) {
-					new_image = new_image.scan(0, 0, region1.width, region1.height, this.filterHeaderContent).blur(1);
+					new_image = new_image.scan(0, 0, region1.width, region1.height, this.filterNearWhiteContent).blur(1);
 				} else {
-					new_image = new_image.blur(1).scan(0, 0, region1.width, region1.height, this.filterHeaderContent2).blur(1);
+					new_image = new_image.contrast(0.8).scan(0, 0, region1.width, region1.height, this.filterNearWhiteContent2).blur(1);
 				}
 
 				new_image = new_image.getBuffer(Jimp.MIME_PNG, (err, image) => {
