@@ -15,8 +15,15 @@ class Role {
 	}
 
 	isBotChannel(message) {
-		const guild = Helper.guild.get(message.guild.id);
-		return message.channel.id === guild.channels.bot_lab.id || message.channel.id === guild.channels.mod_bot_lab.id;
+		const guild = Helper.guild.get(message.guild.id),
+			bot_lab_channel_id = guild.channels.bot_lab ?
+				guild.channels.bot_lab.id :
+				-1,
+			mod_bot_lab_channel_id = guild.channels.mod_bot_lab ?
+				guild.channels.mod_bot_lab.id :
+				-1;
+
+		return message.channel.id === bot_lab_channel_id || message.channel.id === mod_bot_lab_channel_id;
 	}
 
 	// update or insert roles
