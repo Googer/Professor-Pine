@@ -2,16 +2,16 @@
 
 const log = require('loglevel').getLogger('TimeLeftCommand'),
 	Commando = require('discord.js-commando'),
+	{CommandGroup, TimeParameter} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
 	Raid = require('../../app/raid'),
-	{TimeParameter} = require('../../app/constants'),
 	Utility = require('../../app/utility');
 
 class HatchTimeCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
 			name: 'hatch',
-			group: 'raid-crud',
+			group: CommandGroup.RAID_CRUD,
 			memberName: 'hatch',
 			aliases: ['hatch-time', 'hatches', 'hatching'],
 			description: 'Sets the time an existing raid hatches.',

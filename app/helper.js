@@ -142,18 +142,23 @@ class Helper {
 	}
 
 	isManagement(message) {
-		const admin_role = this.getRole(message.message.guild, 'admin'),
-			moderator_role = this.getRole(message.message.guild, 'moderator'),
-			admin_role_id = admin_role ?
-				admin_role.id :
-				-1,
-			moderator_role_id = moderator_role ?
-				moderator_role.id :
-				-1;
+		let is_mod_or_admin = false;
 
-		return (this.client.isOwner(message.member) ||
-			message.member.roles.has(admin_role_id) ||
-			message.member.roles.has(moderator_role_id));
+		if (message.channel.type !== 'dm') {
+			const admin_role = this.getRole(message.guild, 'admin'),
+				moderator_role = this.getRole(message.guild, 'moderator'),
+
+				admin_role_id = admin_role ?
+					admin_role.id :
+					-1,
+				moderator_role_id = moderator_role ?
+					moderator_role.id :
+					-1;
+
+			is_mod_or_admin = message.member.roles.has(admin_role_id) ||
+				message.member.roles.has(moderator_role_id);
+		}
+		return is_mod_or_admin || this.client.isOwner(message.author);
 	}
 
 	getRole(guild, role_name) {
