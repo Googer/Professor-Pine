@@ -155,8 +155,15 @@ class Helper {
 	}
 
 	isBotChannel(message) {
-		const guild = this.guild.get(message.guild.id);
-		return message.channel.id === guild.channels.bot_lab.id || message.channel.id === guild.channels.mod_bot_lab.id;
+		const guild = this.guild.get(message.guild.id),
+			bot_lab_channel_id = guild.channels.bot_lab ?
+				guild.channels.bot_lab.id :
+				-1,
+			mod_bot_lab_channel_id = guild.channels.mod_bot_lab ?
+				guild.channels.mod_bot_lab.id :
+				-1;
+
+		return message.channel.id === bot_lab_channel_id || message.channel.id === mod_bot_lab_channel_id;
 	}
 
 	getRole(guild, role_name) {
