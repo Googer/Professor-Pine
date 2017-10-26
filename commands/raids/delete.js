@@ -2,6 +2,7 @@
 
 const log = require('loglevel').getLogger('DeleteCommand'),
 	Commando = require('discord.js-commando'),
+	{CommandGroup} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
@@ -10,7 +11,7 @@ class DeleteCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
 			name: 'delete',
-			group: 'raid-crud',
+			group: CommandGroup.RAID_CRUD,
 			memberName: 'delete',
 			aliases: ['nuke', 'erase'],
 			description: 'Deletes an existing raid (usable only by admins and moderators).\n',

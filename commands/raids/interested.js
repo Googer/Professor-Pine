@@ -2,7 +2,7 @@
 
 const log = require('loglevel').getLogger('InterestedCommand'),
 	Commando = require('discord.js-commando'),
-	{RaidStatus} = require('../../app/constants'),
+	{CommandGroup, RaidStatus} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
 	Raid = require('../../app/raid'),
 	NaturalArgumentType = require('../../types/natural');
@@ -11,7 +11,7 @@ class InterestedCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
 			name: 'maybe',
-			group: 'basic-raid',
+			group: CommandGroup.BASIC_RAID,
 			memberName: 'maybe',
 			aliases: ['interested', 'interest', 'hmm'],
 			description: 'Expresses interest in an existing raid without committing to it.',

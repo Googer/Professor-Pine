@@ -2,6 +2,7 @@
 
 const log = require('loglevel').getLogger('DoneCommand'),
 	Commando = require('discord.js-commando'),
+	{CommandGroup} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
 	Raid = require('../../app/raid');
 
@@ -9,7 +10,7 @@ class DoneCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
 			name: 'done',
-			group: 'basic-raid',
+			group: CommandGroup.BASIC_RAID,
 			memberName: 'done',
 			aliases: ['complete', 'finished', 'finish', 'caught-it', 'got-it'],
 			description: 'Lets others know you have completed an existing raid.\n',

@@ -2,16 +2,16 @@
 
 const log = require('loglevel').getLogger('StartTimeCommand'),
 	Commando = require('discord.js-commando'),
+	{CommandGroup, RaidStatus, TimeParameter} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
 	moment = require('moment'),
-	Raid = require('../../app/raid'),
-	{RaidStatus, TimeParameter} = require('../../app/constants');
+	Raid = require('../../app/raid');
 
 class StartTimeCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
 			name: 'start',
-			group: 'basic-raid',
+			group: CommandGroup.BASIC_RAID,
 			memberName: 'start',
 			aliases: ['start-time', 'starts'],
 			description: 'Sets the planned starting time for an existing raid.',

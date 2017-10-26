@@ -1,12 +1,15 @@
 const Commando = require('discord.js-commando'),
+	Helper = require('../../app/helper'),
+	{CommandGroup} = require('../../app/constants'),
 	{MessageEmbed} = require('discord.js'),
-	{stripIndents, oneLine} = require('common-tags');
+	{stripIndents, oneLine} = require('common-tags'),
+	settings = require('../../data/settings');
 
 class HelpCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
 			name: 'help',
-			group: 'util',
+			group: CommandGroup.UTIL,
 			memberName: 'help',
 			aliases: ['commands'],
 			description: 'Displays a list of available commands, or detailed information for a specified command.',
@@ -31,14 +34,14 @@ class HelpCommand extends Commando.Command {
 	async run(message, args) {
 		const groups = this.client.registry.groups,
 			commands = this.client.registry.findCommands(args.command, false, message),
-			showAll = args.command && args.command.toLowerCase() === 'all',
+			show_all = args.command && args.command.toLowerCase() === 'all',
 			embed = new MessageEmbed();
 
 		embed.setColor(4437377);
 
-		if (args.command && !showAll) {
+		if (args.command && !show_all) {
 			if (commands.length === 1) {
-				embed.setTitle(`Command: ${commands[0].name}`);
+				embed.setTitle(`Command: ${commands[0].name}\n`);
 				embed.setDescription(stripIndents`
 					${oneLine`
 						${commands[0].description}
@@ -47,7 +50,7 @@ class HelpCommand extends Commando.Command {
 
 				embed.addField('**Format**',
 					`${message.anyUsage(`${commands[0].name}${commands[0].format ? ` ${commands[0].format}` : ''}`,
-						message.guild ? message.guild.commandPrefix : null,
+						message.guild ? message.guild.commandPrefix : message.client.options.commandPrefix,
 						null)}`);
 
 				if (commands[0].aliases.length > 0) {
@@ -57,13 +60,6 @@ class HelpCommand extends Commando.Command {
 				if (commands[0].details) {
 					embed.addField('**Details**', commands[0].details);
 				}
-
-				/*
-				embed.addField('**Group**',
-					`${oneLine`${commands[0].group.name}
-					(\`${commands[0].groupID}:${commands[0].memberName}\`)
-				`}`);
-				*/
 
 				if (commands[0].examples) {
 					embed.addField('**Examples**', commands[0].examples
@@ -91,38 +87,19 @@ class HelpCommand extends Commando.Command {
 		} else {
 			const messages = [];
 			try {
-				embed.setDescription(stripIndents`
-					${oneLine`
-						To run a command in ${message.guild || 'any server'},
-						use ${Commando.Command.usage('command',
-					message.guild ?
-						message.guild.commandPrefix :
-						null, this.client.user)}.
-						For example, ${Commando.Command.usage('join',
-					message.guild ?
-						message.guild.commandPrefix :
-						null, this.client.user)}.
-					`}
-					To run a command in this DM, simply use ${Commando.Command.usage('command', null, null)} with no prefix.
+				embed.setTitle('All commands');
+				embed.setDescription(`Begin all commands with \`${message.client.options.commandPrefix}\` - for example, \`${message.client.options.commandPrefix}join\`.`);
 
-					Use ${this.usage('<command>', null, null)} to view detailed information about a specific command.
-					Use ${this.usage('all', null, null)} to view a list of *all* commands, not just available ones.
+				const groupsToShow = groups
+					.filter(group => (show_all && Helper.isManagement(message)) || settings.help_groups.includes(group.id));
 
-					**${showAll ?
-					'All commands' :
-					`Available commands in ${message.guild || 'this DM'}`}**`);
+				groupsToShow.forEach(group =>
+					embed.addField(`**${group.name}**`,
+						group.commands
+							.map(command => `**${command.name}**: ${command.description}`)
+							.join('\n')));
 
-				const groupsToShow = showAll ?
-					groups :
-					groups.filter(group => group.commands.some(cmd => cmd.isUsable(message)));
-
-				groupsToShow.forEach(group => {
-					embed.addField(`**${group.name}**`, `${
-						(showAll ?
-							group.commands :
-							group.commands.filter(command => command.isUsable(message)))
-							.map(command => '**' + command.name + '**: ' + command.description).join('\n')}`);
-				});
+				embed.setFooter(`Use ${this.usage('<command>', null, null)} to view detailed information about a specific command.`);
 
 				messages.push(await message.direct({embed}));
 
