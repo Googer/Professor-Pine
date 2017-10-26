@@ -221,15 +221,11 @@ class Raid {
 				}]);
 			})
 			.then(guild => {
-				if (raid.is_exclusive && time !== TimeType.UNDEFINED_END_TIME) {
-					this.setRaidStartTime(new_channel_id, time);
+				if (time === TimeType.UNDEFINED_END_TIME) {
+					raid.end_time = TimeType.UNDEFINED_END_TIME;
+					this.persistRaid(raid);
 				} else {
-					if (time === TimeType.UNDEFINED_END_TIME) {
-						raid.end_time = TimeType.UNDEFINED_END_TIME;
-						this.persistRaid(raid);
-					} else {
-						this.setRaidEndTime(new_channel_id, time);
-					}
+					this.setRaidEndTime(new_channel_id, time);
 				}
 
 				return {raid: raid};

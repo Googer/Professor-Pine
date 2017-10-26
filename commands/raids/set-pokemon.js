@@ -2,6 +2,7 @@
 
 const log = require('loglevel').getLogger('PokemonCommand'),
 	Commando = require('discord.js-commando'),
+	{CommandGroup} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
@@ -10,7 +11,7 @@ class SetPokemonCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
 			name: 'boss',
-			group: 'raid-crud',
+			group: CommandGroup.RAID_CRUD,
 			memberName: 'boss',
 			aliases: ['set-pokemon', 'set-pokémon', 'set-poke', 'pokemon', 'pokémon', 'poke', 'poké', 'set-boss', 'against'],
 			description: 'Changes the pokémon for an existing raid, usually to specify the actual raid boss for a now-hatched egg.',

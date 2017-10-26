@@ -2,7 +2,7 @@
 
 const log = require('loglevel').getLogger('CheckOutCommand'),
 	Commando = require('discord.js-commando'),
-	{RaidStatus} = require('../../app/constants'),
+	{CommandGroup, RaidStatus} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
@@ -11,7 +11,7 @@ class CheckOutCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
 			name: 'not-here',
-			group: 'basic-raid',
+			group: CommandGroup.BASIC_RAID,
 			memberName: 'not-here',
 			aliases: ['check-out', 'depart'],
 			description: 'Lets others know you have gone to the wrong location for an existing raid.',

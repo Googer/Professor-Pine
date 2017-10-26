@@ -2,6 +2,7 @@
 
 const log = require('loglevel').getLogger('LocationCommand'),
 	Commando = require('discord.js-commando'),
+	{CommandGroup} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
@@ -10,7 +11,7 @@ class SetLocationCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
 			name: 'gym',
-			group: 'raid-crud',
+			group: CommandGroup.RAID_CRUD,
 			memberName: 'gym',
 			aliases: ['set-location', 'set-gym', 'location'],
 			description: 'Changes the location for an existing raid.',

@@ -2,6 +2,7 @@
 
 const log = require('loglevel').getLogger('LeaveCommand'),
 	Commando = require('discord.js-commando'),
+	{CommandGroup} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
@@ -10,7 +11,7 @@ class LeaveCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
 			name: 'leave',
-			group: 'basic-raid',
+			group: CommandGroup.BASIC_RAID,
 			memberName: 'leave',
 			aliases: ['part', 'not-interested', 'uninterested', 'meh', 'bye'],
 			description: 'Leaves an existing raid (completely removes you from its attendees list).\n',
