@@ -108,11 +108,4 @@ Client.on('guildUnavailable', guild => {
 	log.warn(`Guild ${guild.id} unavailable!`);
 });
 
-Client.on('message', message => {
-	if (message.type === 'PINS_ADD' && message.client.user.bot) {
-		message.delete()
-			.catch(err => log.error(err));
-	}
-});
-
 Client.login(discord_settings.discord_bot_token);
