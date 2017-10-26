@@ -13,7 +13,7 @@ class NotificationsCommand extends Commando.Command {
 			name: 'notifications',
 			group: 'roles',
 			memberName: 'notifications',
-			aliases: [],
+			aliases: ['list-notifications', 'show-notifications'],
 			description: 'Show currently active notifications for raid bosses.',
 			details: 'Use this command to get your currently active raid boss notifications.',
 			examples: ['\t!notifications'],
@@ -30,7 +30,7 @@ class NotificationsCommand extends Commando.Command {
 
 	async run(message, args) {
 		Notify.getNotifications(message.member)
-			.then(results => {
+			.then(async results => {
 				const embed = new MessageEmbed();
 				embed.setTitle('Currently assigned pokémon notifications:');
 				embed.setColor(4437377);
@@ -46,10 +46,14 @@ class NotificationsCommand extends Commando.Command {
 					embed.setDescription('<None>');
 				}
 
-				message.direct({embed})
-					.catch(err => log.error(err));
+				try {
+					return message.direct({embed})
+						.then(direct_message => message.reply('Sent you a DM with current raid boss notifications.'))
+				} catch (err) {
+					await message.reply('Unable to send you the notifications list DM. You probably have DMs disabled.')
+						.catch(err => log.error(err));
+				}
 			})
-			.then(direct_message => message.reply('Sent you a DM with current raid boss notifications.'))
 			.catch(err => log.error(err));
 
 		Utility.cleanConversation(message);

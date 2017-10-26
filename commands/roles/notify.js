@@ -20,7 +20,7 @@ class NotifyCommand extends Commando.Command {
 				{
 					key: 'pokemon',
 					prompt: 'What pokémon do you wish to be notified for?\nExample: `lugia`\n',
-					type: 'pokemon',
+					type: 'pokemon'
 				}
 			],
 			argsPromptLimit: 3,
