@@ -1,6 +1,7 @@
 "use strict";
 
-const text = require('../data/text'),
+const log = require('loglevel').getLogger('Helper'),
+	text = require('../data/text'),
 	{Team} = require('./constants'),
 	settings = require('../data/settings');
 
@@ -33,6 +34,9 @@ class Helper {
 						mod_bot_lab: guild.channels.find(channel => {
 							return channel.name === settings.channels.mod_bot_lab;
 						}),
+						unown: guild.channels.find(channel => {
+							return channel.name === settings.channels.unown;
+						}),
 						help: null,
 					},
 					roles,
@@ -40,6 +44,20 @@ class Helper {
 				}
 			]
 		}));
+
+		this.client.on('message', message => {
+			if (message.type === 'PINS_ADD' && message.client.user.bot) {
+				message.delete()
+					.catch(err => log.error(err));
+			}
+
+			const unown_channel = this.guild.get(message.guild.id).channels.unown;
+
+			if (unown_channel && message.channel.id === unown_channel.id && message.mentions.has(this.getRole(message.guild, 'unown'))) {
+				message.pin()
+					.catch(err => log.error(err));
+			}
+		});
 
 		this.client.on('guildCreate', guild => {
 			// cache this guild's roles
@@ -52,6 +70,9 @@ class Helper {
 						}),
 						mod_bot_lab: guild.channels.find(channel => {
 							return channel.name === settings.channels.mod_bot_lab;
+						}),
+						unown: guild.channels.find(channel => {
+							return channel.name === settings.channels.unown;
 						}),
 						help: null,
 					},
