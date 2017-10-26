@@ -2,6 +2,7 @@
 
 const log = require('loglevel').getLogger('DenotifyCommand'),
 	Commando = require('discord.js-commando'),
+	{CommandGroup} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
 	Notify = require('../../app/notify'),
 	Utility = require('../../app/utility');
@@ -10,7 +11,7 @@ class DenotifyCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
 			name: 'denotify',
-			group: 'roles',
+			group: CommandGroup.ROLES,
 			memberName: 'denotify',
 			aliases: [],
 			description: 'Removes notifications for a raid boss.',

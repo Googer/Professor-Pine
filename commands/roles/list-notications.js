@@ -2,7 +2,7 @@
 
 const log = require('loglevel').getLogger('NotificationsCommand'),
 	Commando = require('discord.js-commando'),
-	{MessageEmbed} = require('discord.js'),
+	{CommandGroup, MessageEmbed} = require('discord.js'),
 	Helper = require('../../app/helper'),
 	Notify = require('../../app/notify'),
 	Utility = require('../../app/utility');
@@ -11,7 +11,7 @@ class NotificationsCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
 			name: 'notifications',
-			group: 'roles',
+			group: CommandGroup.ROLES,
 			memberName: 'notifications',
 			aliases: ['list-notifications', 'show-notifications'],
 			description: 'Show currently active notifications for raid bosses.',
