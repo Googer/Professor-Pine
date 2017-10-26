@@ -51,11 +51,13 @@ class Helper {
 					.catch(err => log.error(err));
 			}
 
-			const unown_channel = this.guild.get(message.guild.id).channels.unown;
+			if (message.channel.type !== 'dm') {
+				const unown_channel = this.guild.get(message.guild.id).channels.unown;
 
-			if (unown_channel && message.channel.id === unown_channel.id && message.mentions.has(this.getRole(message.guild, 'unown'))) {
-				message.pin()
-					.catch(err => log.error(err));
+				if (unown_channel && message.channel.id === unown_channel.id && message.mentions.has(this.getRole(message.guild, 'unown'))) {
+					message.pin()
+						.catch(err => log.error(err));
+				}
 			}
 		});
 
