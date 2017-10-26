@@ -13,5 +13,10 @@
     "bot_lab": "the-bot-lab",
     "mod_bot_lab": "mod-bot-only",
     "unown": "unown-sightings"
-  }
+  },
+  "help_groups": [
+    "basic-raid",
+    "raid-crud",
+    "roles"
+  ]
 }

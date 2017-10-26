@@ -2,17 +2,17 @@
 
 const log = require('loglevel').getLogger('CheckInCommand'),
 	Commando = require('discord.js-commando'),
+	{CommandGroup, RaidStatus} = require('../../app/constants'),
 	NaturalArgumentType = require('../../types/natural'),
 	Helper = require('../../app/helper'),
 	Raid = require('../../app/raid'),
-	{RaidStatus} = require('../../app/constants'),
 	Utility = require('../../app/utility');
 
 class CheckInCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
 			name: 'here',
-			group: 'basic-raid',
+			group: CommandGroup.BASIC_RAID,
 			memberName: 'here',
 			aliases: ['arrive', 'arrived', 'present', 'check-in'],
 			description: 'Lets others know you have arrived at an active raid.',

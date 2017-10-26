@@ -2,6 +2,7 @@
 
 const log = require('loglevel').getLogger('StatusCommand'),
 	Commando = require('discord.js-commando'),
+	{CommandGroup} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
 	Gym = require('../../app/gym'),
 	Raid = require('../../app/raid');
@@ -10,7 +11,7 @@ class StatusCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
 			name: 'status',
-			group: 'basic-raid',
+			group: CommandGroup.BASIC_RAID,
 			memberName: 'status',
 			description: 'Gets an update on a single raid, or lists all the raids available in the channel (context-sensitive).',
 			details: 'Use this command when trying to figure out what raids are available or the status of a raid being planned.  NOTE: This does not get all of the raids in the entire discord, it is channel specific.',
