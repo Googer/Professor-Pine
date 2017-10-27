@@ -2,16 +2,16 @@
 
 const log = require('loglevel').getLogger('TimeLeftCommand'),
 	Commando = require('discord.js-commando'),
+	{CommandGroup, TimeParameter} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
 	Raid = require('../../app/raid'),
-	{TimeParameter} = require('../../app/constants'),
 	Utility = require('../../app/utility');
 
 class TimeRemainingCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
 			name: 'left',
-			group: 'raid-crud',
+			group: CommandGroup.RAID_CRUD,
 			memberName: 'left',
 			aliases: ['time-left', 'time-remaining', 'remaining', 'time-remain', 'remain', 'end-time', 'end', 'ends', 'ending'],
 			description: 'Sets the remaining time for an existing raid.',

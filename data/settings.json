@@ -11,6 +11,12 @@
   "pokemon_url_base": "https://rankedboost.com/wp-content/plugins/ice/pokemon-go/",
   "channels": {
     "bot_lab": "the-bot-lab",
-    "mod_bot_lab": "mod-bot-only"
-  }
+    "mod_bot_lab": "mod-bot-only",
+    "unown": "unown-sightings"
+  },
+  "help_groups": [
+    "basic-raid",
+    "raid-crud",
+    "roles"
+  ]
 }

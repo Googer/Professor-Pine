@@ -2,7 +2,7 @@
 
 const log = require('loglevel').getLogger('JoinCommand'),
 	Commando = require('discord.js-commando'),
-	{RaidStatus} = require('../../app/constants'),
+	{CommandGroup, RaidStatus} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
 	Raid = require('../../app/raid'),
 	NaturalArgumentType = require('../../types/natural'),
@@ -12,7 +12,7 @@ class JoinCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
 			name: 'join',
-			group: 'basic-raid',
+			group: CommandGroup.BASIC_RAID,
 			memberName: 'join',
 			aliases: ['attend', 'omw', 'coming'],
 			description: 'Joins an existing raid.',
