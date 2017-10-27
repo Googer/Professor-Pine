@@ -323,7 +323,7 @@ class Raid {
 	setIncompleteScreenshotMessage(channel_id, message) {
 		const raid = this.getRaid(channel_id);
 
-		raid.incomplete_screenshot_message = `${raid.source_channel_id.toString()}:${message.id.toString()}`;
+		raid.incomplete_screenshot_message = `${raid.channel_id.toString()}:${message.id.toString()}`;
 
 		this.persistRaid(raid);
 
@@ -523,12 +523,14 @@ class Raid {
 			this.getMessage(raid.incomplete_screenshot_message)
 				.then(message => {
 					if (!raid.pokemon || (raid.pokemon && raid.pokemon.placeholder)) {
-						message.edit(this.getIncompleteScreenshotMessage(raid));
+						message.edit(this.getIncompleteScreenshotMessage(raid))
+							.catch(err => console.log(err));
 					} else {
 						message.delete();
 						delete raid.incomplete_screenshot_message;
 					}
-				});
+				})
+				.catch(err => console.log(err));
 		}
 
 		raid.hatch_time = hatch_time;
@@ -554,12 +556,14 @@ class Raid {
 			this.getMessage(raid.incomplete_screenshot_message)
 				.then(message => {
 					if (!raid.pokemon || (raid.pokemon && raid.pokemon.placeholder)) {
-						message.edit(this.getIncompleteScreenshotMessage(raid));
+						message.edit(this.getIncompleteScreenshotMessage(raid))
+							.catch(err => console.log(err));
 					} else {
 						message.delete();
 						delete raid.incomplete_screenshot_message;
 					}
-				});
+				})
+				.catch(err => console.log(err));
 		}
 
 		this.persistRaid(raid);
@@ -597,12 +601,14 @@ class Raid {
 			this.getMessage(raid.incomplete_screenshot_message)
 				.then(message => {
 					if (!raid.start_time && !raid.hatch_time) {
-						message.edit(this.getIncompleteScreenshotMessage(raid));
+						message.edit(this.getIncompleteScreenshotMessage(raid))
+							.catch(err => console.log(err));
 					} else {
 						message.delete();
 						delete raid.incomplete_screenshot_message;
 					}
-				});
+				})
+				.catch(err => console.log(err));
 		}
 
 		raid.last_possible_time = Math.max(raid.creation_time + (raid.is_exclusive ?

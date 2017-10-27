@@ -270,7 +270,7 @@ class ImageProcessing {
 		let values, phone_time;
 
 		// try different levels of processing to get time
-		for (let processing_level=0; processing_level<=2; processing_level++) {
+		for (let processing_level=0; processing_level<=3; processing_level++) {
 			const debug_image_path1 = path.join(__dirname, this.image_path, `${id}1-phone-time-a-${processing_level}.png`);
 			const debug_image_path2 = path.join(__dirname, this.image_path, `${id}1-phone-time-b-${processing_level}.png`);
 
@@ -324,6 +324,8 @@ class ImageProcessing {
 			if (level === 0) {
 				width = region.width / 4.9;
 			} else if (level === 1) {
+				width = region.width / 4.9;
+			} else if (level === 2) {
 				width = region.width / 5.6;
 			} else {
 				width = region.width / 6.2;
@@ -834,22 +836,19 @@ class ImageProcessing {
 			.then(announcement_message => {
 				return Raid.setAnnouncementMessage(raid.channel_id, announcement_message);
 			})
-			// .then(async bot_message => {
-			// 	return Raid.getChannel(raid.channel_id).then(channel => {
-			// 		// if pokemon, time remaining, or phone time was not determined, need to add original image to new channel,
-			// 		//		in the hope the someone can manually read the screenshot and set the appropriate information
-			// 		if (!message.is_fake && (pokemon.placeholder === false || !time)) {
-			// 			return channel
-			// 				.send(Raid.getIncompleteScreenshotMessage(raid), { files: [
-			// 					message.attachments.first().url
-			// 				]})
-			// 				.then(message => Raid.setIncompleteScreenshotMessage(channel.id, message))
-			// 				.catch(err => log.error(err));
-			// 		} else {
-			// 			return channel;
-			// 		}
-			// 	});
-			// })
+			.then(async bot_message => {
+				await Raid.getChannel(raid.channel_id).then(async channel => {
+					// if pokemon, time remaining, or phone time was not determined, need to add original image to new channel,
+					//		in the hope the someone can manually read the screenshot and set the appropriate information
+					if (!message.is_fake && (pokemon.placeholder === false || !time)) {
+						await channel.send(Raid.getIncompleteScreenshotMessage(raid), { files: [
+								message.attachments.first().url
+							]})
+							.then(message => Raid.setIncompleteScreenshotMessage(channel.id, message))
+							.catch(err => log.error(err));
+					}
+				});
+			})
 			.then(async bot_message => {
 				const raid_source_channel_message = await Raid.getRaidSourceChannelMessage(raid),
 					formatted_message = await Raid.getFormattedMessage(raid);
