@@ -13,6 +13,7 @@ const log = require('loglevel').getLogger('ImageProcessor'),
 	PokemonArgumentType = require('../types/pokemon'),
 	Raid = require('../app/raid'),
 	region_map = require('PgP-Data/data/region-map'),
+	settings = require('../data/settings'),
 	{ TimeParameter} = require('../app/constants');
 
 // Will save all images regardless of how right or wrong, in order to better examine output
@@ -29,6 +30,11 @@ class ImageProcessing {
 	}
 
 	initialize() {
+		Helper.client.on('reconnecting', () => {
+			// 1 time tesseract create to get lang and other information from CDN
+			tesseract.create();
+		});
+
 		Helper.client.on('message', message => {
 			// attempt to process first attachment/image if it exists (maybe some day will go through all the attachments...)
 			if (message.attachments.size && message.attachments.first().url.search(/jpg|jpeg|png/)) {
@@ -238,13 +244,33 @@ class ImageProcessing {
 		}
 	}
 
+	/**
+	 * Trying to filter out near-pure white pixels
+	 **/
+	filterPureWhiteContent2(x, y, idx) {
+		const red   = this.bitmap.data[ idx + 0 ];
+		const green = this.bitmap.data[ idx + 1 ];
+		const blue  = this.bitmap.data[ idx + 2 ];
+		const alpha = this.bitmap.data[ idx + 3 ];
+
+		if (red >= 247 && green >= 247 && blue >= 247) {
+			this.bitmap.data[ idx + 0 ] = 255;
+			this.bitmap.data[ idx + 1 ] = 255;
+			this.bitmap.data[ idx + 2 ] = 255;
+		} else {
+			this.bitmap.data[ idx + 0 ] = 0;
+			this.bitmap.data[ idx + 1 ] = 0;
+			this.bitmap.data[ idx + 2 ] = 0;
+		}
+	}
+
 
 
 	async getPhoneTime(id, message, image, region) {
 		let values, phone_time;
 
 		// try different levels of processing to get time
-		for (let processing_level=0; processing_level<2; processing_level++) {
+		for (let processing_level=0; processing_level<=2; processing_level++) {
 			const debug_image_path1 = path.join(__dirname, this.image_path, `${id}1-phone-time-a-${processing_level}.png`);
 			const debug_image_path2 = path.join(__dirname, this.image_path, `${id}1-phone-time-b-${processing_level}.png`);
 
@@ -273,8 +299,8 @@ class ImageProcessing {
 
 			// something has gone wrong if no info was matched, save image for later analysis
 			if (debug_flag || ((!phone_time || (phone_time && !phone_time.isValid())) && log.getLevel() === log.levels.DEBUG)) {
-				log.warn(id, values.result1.text);
-				log.warn(id, values.result2.text);
+				log.warn('Phone Time: ', id, values.result1.text);
+				log.warn('Phone Time: ', id, values.result2.text);
 				values.image1.write(debug_image_path1);
 				values.image2.write(debug_image_path2);
 			}
@@ -297,8 +323,10 @@ class ImageProcessing {
 
 			if (level === 0) {
 				width = region.width / 4.9;
+			} else if (level === 1) {
+				width = region.width / 5.6;
 			} else {
-				width = region.width / 5.5;
+				width = region.width / 6.2;
 			}
 
 			// checking left and right sides of image for time...
@@ -389,8 +417,8 @@ class ImageProcessing {
 
 		// something has gone wrong if no info was matched, save image for later analysis
 		if (debug_flag || (!values.text && log.getLevel() === log.levels.DEBUG)) {
-			log.warn(id, values.result1.text);
-			log.warn(id, values.result2.text);
+			log.warn('Time Remaining: ', id, values.result1.text);
+			log.warn('Time Remaining: ', id, values.result2.text);
 			values.image1.write(debug_image_path1);
 			values.image2.write(debug_image_path2);
 		}
@@ -475,7 +503,7 @@ class ImageProcessing {
 		let validation = false;
 
 		// try different levels of processing to get time
-		for (let processing_level=0; processing_level<2; processing_level++) {
+		for (let processing_level=0; processing_level<=1; processing_level++) {
 			const debug_image_path = path.join(__dirname, this.image_path, `${id}2-gym-name-${processing_level}.png`);
 			values = await this.getOCRGymName(id, message, image, region, processing_level);
 
@@ -514,7 +542,7 @@ class ImageProcessing {
 			}
 
 			if (debug_flag || (!validation && log.getLevel() === log.levels.DEBUG)) {
-				log.warn(id, values.result.text);
+				log.warn('Gym Name: ', id, values.result.text);
 				values.image.write(debug_image_path);
 			}
 
@@ -583,7 +611,7 @@ class ImageProcessing {
 
 		// something has gone wrong if no info was matched, save image for later analysis
 		if (debug_flag || (pokemon.placeholder && log.getLevel() === log.levels.DEBUG)) {
-			log.warn(id, values.result.text);
+			log.warn('Pokemon Name: ', id, values.result.text);
 			values.image.write(debug_image_path);
 		}
 
@@ -619,35 +647,56 @@ class ImageProcessing {
 
 
 	async getTier(id, message, image, region) {
-		const debug_image_path = path.join(__dirname,  this.image_path, `${id}5-tier.png`);
 		const PokemonType = Helper.client.registry.types.get('pokemon');
-		const values = await this.getOCRTier(id, message, image, region);
+		let values, pokemon;
 
-		// NOTE: Expects string in validation of egg tier
-		let pokemon = `${values.tier}`;
-		if (PokemonType.validate(pokemon, message) === true) {
-			pokemon = PokemonType.parse(pokemon, message);
-		} else {
-			// if not a valid tier, use some placeholder information
-			pokemon = { placeholder: true, name: 'egg', tier: '????' };
-		}
+		// try different levels of processing to get time
+		for (let processing_level=0; processing_level<=1; processing_level++) {
+			const debug_image_path = path.join(__dirname,  this.image_path, `${id}5-tier-${processing_level}.png`);
+			values = await this.getOCRTier(id, message, image, region, processing_level);
 
-		// something has gone wrong if no info was matched, save image for later analysis
-		if (debug_flag || (pokemon.placeholder && log.getLevel() === log.levels.DEBUG)) {
-			log.warn(id, values.result.text);
-			values.image.write(debug_image_path);
+			// NOTE: Expects string in validation of egg tier
+			pokemon = `${values.tier}`;
+			if (PokemonType.validate(pokemon, message) === true) {
+				pokemon = PokemonType.parse(pokemon, message);
+			} else {
+				// if not a valid tier, use some placeholder information
+				pokemon = { placeholder: true, name: 'egg', tier: '????' };
+			}
+
+			// something has gone wrong if no info was matched, save image for later analysis
+			if (debug_flag || (pokemon.placeholder && log.getLevel() === log.levels.DEBUG)) {
+				log.warn('Tier: ', id, values.result.text);
+				values.image.write(debug_image_path);
+			}
+
+			if (!pokemon.placeholder) {
+				break;
+			}
 		}
 
 		// NOTE:  There is a chance egg tier could not be determined and we may need to try image processing again before returning...
 		return { tier: values.tier, pokemon };
 	}
 
-	async getOCRTier(id, message, image, region) {
+	async getOCRTier(id, message, image, region, level=0) {
+		let height, y;
+
+		if (level === 0) {
+			height = region.height;
+			y = region.y;
+		} else {
+			height = region.height / 1.5;
+			y = region.y + (region.height / 5);
+		}
+
+		// checking left and right sides of image for time...
+		region = { x: region.x, y, width: region.width, height };
+
 		return new Promise((resolve, reject) => {
 			const new_image = image.clone()
 				.crop(region.x, region.y, region.width, region.height)
-				.scan(0, 0, region.width, region.height, this.filterPureWhiteContent)
-				.blur(3)
+				.scan(0, 0, region.width, region.height, this.filterPureWhiteContent2)
 				.getBuffer(Jimp.MIME_PNG, (err, image) => {
 					if (err) { reject(err); }
 
@@ -655,10 +704,17 @@ class ImageProcessing {
 						.catch(err => reject(err))
 						.then(result => {
 							// NOTE:  This doesn't match 1 character alone... too many jibberish character to match T1 raids like this...
-							// will smash all the characters together and attempt to find the longest matching repeated sequence
-							const match = result.text.replace(/\s/g, '').match(/(.)\1+/gi).sort((a, b) => { return a.length < b.length; });
+							// Long story short, this will grab any repeating characters, specifically focusing on letters & numbers but
+							//		repeating symbols to the left or right of letters and numbers will also match (as @ symbols often occur)
+							let match = result.text.replace(/\s/g, '').match(/(.)\1+/gi);
+							let match2 = result.text.match(/@|Q|9|W|é/gi);
 							if (match && match.length) {
+								// sort and grab the longest repeating symbol match, and assume it's the raid tier
+								match = match.sort((a, b) => { return a.length < b.length; });
 								resolve({ image: new_image, tier: match[0].length, result });
+							} else if (level === 1 && match2 && match2.length) {
+								// Trying to count commonly observed symbols/letters, if no repeating symbols were found
+								resolve({ image: new_image, tier: match2.length, result });
 							} else {
 								resolve({ image: new_image, tier: 0, result });
 							}
@@ -677,7 +733,7 @@ class ImageProcessing {
 		let gym_location = { x: image.bitmap.width / 5.1, y: image.bitmap.height / 26, width: image.bitmap.width - (image.bitmap.width / 2.55), height: image.bitmap.height / 13 };
 		let phone_time_crop = { x: image.bitmap.width / 2.5, y: 0, width: image.bitmap.width, height: image.bitmap.height / 27 };
 		let pokemon_name_crop = { x: 0, y: image.bitmap.height / 6.4, width: image.bitmap.width, height: image.bitmap.height / 5 };
-		let tier_crop = { x: 0, y: image.bitmap.height / 4.0, width: image.bitmap.width, height: image.bitmap.height / 9 };
+		let tier_crop = { x: image.bitmap.width / 3.8, y: image.bitmap.height / 4.2, width: image.bitmap.width - (image.bitmap.width / 1.9), height: image.bitmap.height / 9 };
 		let all_crop = { x: 0, y: 0, width: image.bitmap.width, height: image.bitmap.height };
 		let promises = [];
 
@@ -741,6 +797,11 @@ class ImageProcessing {
 		arg.prompt = '';
 		arg.key = (data.egg)? TimeParameter.HATCH: TimeParameter.END;
 
+		// if egg, need to add "incubation" time to it phone time
+		if (time && time.isValid() && data.egg) {
+			time = time.add(settings.exclusive_raid_incubate_duration, 'minutes');
+		}
+
 		// add duration to time if both exist
 		if (time && time.isValid() && duration.asMilliseconds() > 0) {
 			// add time remaining to phone's current time to get final hatch or despawn time
@@ -760,50 +821,75 @@ class ImageProcessing {
 
 		let raid;
 
-		Raid.createRaid(message.channel.id, message.member.id, pokemon, gym, time)
+
+		Raid.createRaid(message.channel.id, message.member.id, pokemon, gym)
 			.then(async info => {
 				raid = info.raid;
 				const raid_channel_message = await Raid.getRaidChannelMessage(raid),
-					formatted_message = await Raid.getFormattedMessage(raid);
+					formatted_message = await Raid.getFormattedMessage(raid),
+					announcement_message = message.channel.send(raid_channel_message, formatted_message);
 
-				return message.channel.send(raid_channel_message, formatted_message);
+				return announcement_message;
 			})
 			.then(announcement_message => {
 				return Raid.setAnnouncementMessage(raid.channel_id, announcement_message);
 			})
 			.then(async bot_message => {
-				return Raid.getChannel(raid.channel_id).then(channel => {
-					// if pokemon, time remaining, or phone time was not determined, need to add original image to new channel,
-					//		in the hope the someone can manually read the screenshot and set the appropriate information
-					if (!message.is_fake && pokemon.placeholder === false) {
-						return channel.send('**Pokemon** could not be determined, please help set the pokemon by typing \`!pokemon <name>\`', {files: [
-							message.attachments.first().url
-						]}).catch(err => log.error(err));
-					} else if (!message.is_fake && !time) {
-						return channel.send('**Time** could not be determined, please help set the time by typing either \`!hatch <time>\` or \`!end <time>\`', {files: [
-							message.attachments.first().url
-						]}).catch(err => log.error(err));
-					} else {
-						return channel;
-					}
-				});
-			})
-			.then(async bot_message => {
 				const raid_source_channel_message = await Raid.getRaidSourceChannelMessage(raid),
 					formatted_message = await Raid.getFormattedMessage(raid);
-
 				return Raid.getChannel(raid.channel_id)
-					.then(channel => {
-						return channel.send(raid_source_channel_message, formatted_message)
-					})
+					.then(channel => channel.send(raid_source_channel_message, formatted_message))
 					.catch(err => log.error(err));
 			})
 			.then(channel_raid_message => {
-				Raid.addMessage(raid.channel_id, channel_raid_message, true);
-				message.channel.send('Processing Time: ' + Math.round((Date.now() - message.createdTimestamp) / 10) / 100 + ' seconds');
+				return Raid.addMessage(raid.channel_id, channel_raid_message, true);
 			})
-			.then(result => message.delete())
-			.catch(err => log.error(err))
+			.catch(err => log.error(err));
+
+		//
+		// Raid.createRaid(message.channel.id, message.member.id, pokemon, gym, time)
+		// 	.then(async info => {
+		// 		raid = info.raid;
+		// 		const raid_channel_message = await Raid.getRaidChannelMessage(raid),
+		// 			formatted_message = await Raid.getFormattedMessage(raid);
+		//
+		// 		return message.channel.send(raid_channel_message, formatted_message);
+		// 	})
+		// 	.then(announcement_message => {
+		// 		return Raid.setAnnouncementMessage(raid.channel_id, announcement_message);
+		// 	})
+		// 	// .then(async bot_message => {
+		// 	// 	return Raid.getChannel(raid.channel_id).then(channel => {
+		// 	// 		// if pokemon, time remaining, or phone time was not determined, need to add original image to new channel,
+		// 	// 		//		in the hope the someone can manually read the screenshot and set the appropriate information
+		// 	// 		if (!message.is_fake && (pokemon.placeholder === false || !time)) {
+		// 	// 			return channel
+		// 	// 				.send(Raid.getIncompleteScreenshotMessage(raid), { files: [
+		// 	// 					message.attachments.first().url
+		// 	// 				]})
+		// 	// 				.then(message => Raid.setIncompleteScreenshotMessage(channel.id, message))
+		// 	// 				.catch(err => log.error(err));
+		// 	// 		} else {
+		// 	// 			return channel;
+		// 	// 		}
+		// 	// 	});
+		// 	// })
+		// 	.then(async bot_message => {
+		// 		const raid_source_channel_message = await Raid.getRaidSourceChannelMessage(raid),
+		// 			formatted_message = await Raid.getFormattedMessage(raid);
+		//
+		// 		return Raid.getChannel(raid.channel_id)
+		// 			.then(channel => {
+		// 				return channel.send(raid_source_channel_message, formatted_message);
+		// 			})
+		// 			.catch(err => log.error(err));
+		// 	})
+		// 	.then(channel_raid_message => {
+		// 		Raid.addMessage(raid.channel_id, channel_raid_message, true);
+		// 		message.channel.send('Processing Time: ' + Math.round((Date.now() - message.createdTimestamp) / 10) / 100 + ' seconds');
+		// 	})
+		// 	.then(result => message.delete())
+		// 	.catch(err => log.error(err))
 	}
 }
 

@@ -324,6 +324,16 @@ class Raid {
 		return message.pin();
 	}
 
+	setIncompleteScreenshotMessage(channel_id, message) {
+		const raid = this.getRaid(channel_id);
+
+		raid.incomplete_screenshot_message = `${raid.source_channel_id.toString()}:${message.id.toString()}`;
+
+		this.persistRaid(raid);
+
+		return message;
+	}
+
 	addMessage(channel_id, message, pin = false) {
 		const raid = this.getRaid(channel_id);
 
@@ -512,6 +522,19 @@ class Raid {
 			end_time = hatch_time + (settings.standard_raid_hatched_duration * 60 * 1000);
 		}
 
+		// update or delete screenshot if all information has now been set
+		if (raid.incomplete_screenshot_message) {
+			this.getMessage(raid.incomplete_screenshot_message)
+				.then(message => {
+					if (!raid.pokemon || (raid.pokemon && raid.pokemon.placeholder)) {
+						message.edit(this.getIncompleteScreenshotMessage(raid));
+					} else {
+						message.delete();
+						delete raid.incomplete_screenshot_message;
+					}
+				});
+		}
+
 		raid.hatch_time = hatch_time;
 		raid.end_time = end_time;
 
@@ -528,6 +551,19 @@ class Raid {
 		// delete start clear time if there is one
 		if (raid.start_clear_time) {
 			delete raid.start_clear_time;
+		}
+
+		// update or delete screenshot if all information has now been set
+		if (raid.incomplete_screenshot_message) {
+			this.getMessage(raid.incomplete_screenshot_message)
+				.then(message => {
+					if (!raid.pokemon || (raid.pokemon && raid.pokemon.placeholder)) {
+						message.edit(this.getIncompleteScreenshotMessage(raid));
+					} else {
+						message.delete();
+						delete raid.incomplete_screenshot_message;
+					}
+				});
 		}
 
 		this.persistRaid(raid);
@@ -559,6 +595,19 @@ class Raid {
 
 		raid.pokemon = pokemon;
 		raid.is_exclusive = !!pokemon.exclusive;
+
+		// update or delete screenshot if all information has now been set
+		if (raid.incomplete_screenshot_message) {
+			this.getMessage(raid.incomplete_screenshot_message)
+				.then(message => {
+					if (!raid.start_time && !raid.hatch_time) {
+						message.edit(this.getIncompleteScreenshotMessage(raid));
+					} else {
+						message.delete();
+						delete raid.incomplete_screenshot_message;
+					}
+				});
+		}
 
 		raid.last_possible_time = Math.max(raid.creation_time + (raid.is_exclusive ?
 			(settings.exclusive_raid_incubate_duration + settings.exclusive_raid_hatched_duration) * 60 * 1000 :
@@ -676,6 +725,20 @@ class Raid {
 		return this.getChannel(raid.source_channel_id)
 			.then(channel => `Use ${channel.toString()} to return to this raid\'s regional channel.`)
 			.catch(err => log.error(err));
+	}
+
+	getIncompleteScreenshotMessage(raid) {
+		let message = '';
+
+		if (!raid.pokemon || (raid.pokemon && raid.pokemon.placeholder)) {
+			message += '\n**Pokemon** could not be determined, please help set the pokemon by typing \`!pokemon <name>\`';
+		}
+
+		if (!raid.hatch_time && !raid.start_time) {
+			message += '\n**Time** could not be determined, please help set the time by typing either \`!hatch <time>\` or \`!end <time>\`';
+		}
+
+		return message;
 	}
 
 	async getFormattedMessage(raid) {
