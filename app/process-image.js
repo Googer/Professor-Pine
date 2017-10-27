@@ -860,51 +860,6 @@ class ImageProcessing {
 				return Raid.addMessage(raid.channel_id, channel_raid_message, true);
 			})
 			.catch(err => log.error(err));
-
-		//
-		// Raid.createRaid(message.channel.id, message.member.id, pokemon, gym, time)
-		// 	.then(async info => {
-		// 		raid = info.raid;
-		// 		const raid_channel_message = await Raid.getRaidChannelMessage(raid),
-		// 			formatted_message = await Raid.getFormattedMessage(raid);
-		//
-		// 		return message.channel.send(raid_channel_message, formatted_message);
-		// 	})
-		// 	.then(announcement_message => {
-		// 		return Raid.setAnnouncementMessage(raid.channel_id, announcement_message);
-		// 	})
-		// 	// .then(async bot_message => {
-		// 	// 	return Raid.getChannel(raid.channel_id).then(channel => {
-		// 	// 		// if pokemon, time remaining, or phone time was not determined, need to add original image to new channel,
-		// 	// 		//		in the hope the someone can manually read the screenshot and set the appropriate information
-		// 	// 		if (!message.is_fake && (pokemon.placeholder === false || !time)) {
-		// 	// 			return channel
-		// 	// 				.send(Raid.getIncompleteScreenshotMessage(raid), { files: [
-		// 	// 					message.attachments.first().url
-		// 	// 				]})
-		// 	// 				.then(message => Raid.setIncompleteScreenshotMessage(channel.id, message))
-		// 	// 				.catch(err => log.error(err));
-		// 	// 		} else {
-		// 	// 			return channel;
-		// 	// 		}
-		// 	// 	});
-		// 	// })
-		// 	.then(async bot_message => {
-		// 		const raid_source_channel_message = await Raid.getRaidSourceChannelMessage(raid),
-		// 			formatted_message = await Raid.getFormattedMessage(raid);
-		//
-		// 		return Raid.getChannel(raid.channel_id)
-		// 			.then(channel => {
-		// 				return channel.send(raid_source_channel_message, formatted_message);
-		// 			})
-		// 			.catch(err => log.error(err));
-		// 	})
-		// 	.then(channel_raid_message => {
-		// 		Raid.addMessage(raid.channel_id, channel_raid_message, true);
-		// 		message.channel.send('Processing Time: ' + Math.round((Date.now() - message.createdTimestamp) / 10) / 100 + ' seconds');
-		// 	})
-		// 	.then(result => message.delete())
-		// 	.catch(err => log.error(err))
 	}
 }
 
