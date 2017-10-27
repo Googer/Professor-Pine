@@ -822,7 +822,7 @@ class ImageProcessing {
 		let raid;
 
 
-		Raid.createRaid(message.channel.id, message.member.id, pokemon, gym)
+		Raid.createRaid(message.channel.id, message.member.id, pokemon, gym, time)
 			.then(async info => {
 				raid = info.raid;
 				const raid_channel_message = await Raid.getRaidChannelMessage(raid),
@@ -834,6 +834,22 @@ class ImageProcessing {
 			.then(announcement_message => {
 				return Raid.setAnnouncementMessage(raid.channel_id, announcement_message);
 			})
+			// .then(async bot_message => {
+			// 	return Raid.getChannel(raid.channel_id).then(channel => {
+			// 		// if pokemon, time remaining, or phone time was not determined, need to add original image to new channel,
+			// 		//		in the hope the someone can manually read the screenshot and set the appropriate information
+			// 		if (!message.is_fake && (pokemon.placeholder === false || !time)) {
+			// 			return channel
+			// 				.send(Raid.getIncompleteScreenshotMessage(raid), { files: [
+			// 					message.attachments.first().url
+			// 				]})
+			// 				.then(message => Raid.setIncompleteScreenshotMessage(channel.id, message))
+			// 				.catch(err => log.error(err));
+			// 		} else {
+			// 			return channel;
+			// 		}
+			// 	});
+			// })
 			.then(async bot_message => {
 				const raid_source_channel_message = await Raid.getRaidSourceChannelMessage(raid),
 					formatted_message = await Raid.getFormattedMessage(raid);
