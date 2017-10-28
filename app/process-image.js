@@ -635,7 +635,7 @@ class ImageProcessing {
 						.catch(err => reject(err))
 						.then(result => {
 							const text = result.text.replace(/[^\w\s\n]/gi, '');
-							const cp = new Number(text.match(/[0-9]+/g)).valueOf();
+							const cp = Number(text.match(/[0-9]+/g)).valueOf();
 							const pokemon = text.replace(/(cp)?\s?[0-9]*/g, '');
 							resolve({ image: new_image, cp, pokemon, result });
 						});
@@ -799,9 +799,10 @@ class ImageProcessing {
 		arg.prompt = '';
 		arg.key = (data.egg)? TimeParameter.HATCH: TimeParameter.END;
 
-		// if egg, need to add "incubation" time to it phone time
+		// if egg, need to add standard hatched duration to phone's time to account for raid's actual duration
+		// when setting end time
 		if (time && time.isValid() && data.egg) {
-			time = time.add(settings.exclusive_raid_incubate_duration, 'minutes');
+			time = time.add(settings.standard_raid_hatched_duration, 'minutes');
 		}
 
 		// add duration to time if both exist
