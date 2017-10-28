@@ -2,6 +2,7 @@
 
 const log = require('loglevel').getLogger('DirectionsCommand'),
 	Commando = require('discord.js-commando'),
+	{CommandGroup} = require('../../app/constants'),
 	Gym = require('../../app/gym'),
 	Raid = require('../../app/raid');
 
@@ -9,7 +10,7 @@ class DirectionsCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
 			name: 'where',
-			group: 'basic-raid',
+			group: CommandGroup.BASIC_RAID,
 			memberName: 'where',
 			aliases: ['directions'],
 			description: 'Requests an image of the gym\'s location and a link for directions to get there.',

@@ -2,20 +2,21 @@
 
 const log = require('loglevel').getLogger('CreateCommand'),
 	Commando = require('discord.js-commando'),
+	{CommandGroup, TimeParameter} = require('../../app/constants'),
 	Gym = require('../../app/gym'),
 	Raid = require('../../app/raid'),
-	{TimeParameter} = require('../../app/constants'),
 	Utility = require('../../app/utility');
 
 class RaidCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
 			name: 'raid',
-			group: 'raid-crud',
+			group: CommandGroup.RAID_CRUD,
 			memberName: 'raid',
 			aliases: ['create', 'announce'],
 			description: 'Announces a new raid.',
-			details: 'Use this command to start organizing a new raid.  For your convenience, this command combines several options such that you can set the pokémon, the location, and the end time of the raid all at once.',
+			details: 'Use this command to start organizing a new raid.  For your convenience, this command combines several options such that you can set the pokémon and the location of the raid all at once.  ' +
+				'Once created, it will further prompt you for the raid\'s hatch or end time.',
 			examples: ['\t!raid lugia', '\t!raid zapdos manor theater', '\t!raid magikarp olea', '\t!raid ttar frog fountain'],
 			throttling: {
 				usages: 5,
