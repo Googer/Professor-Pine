@@ -17,7 +17,7 @@ const log = require('loglevel').getLogger('ImageProcessor'),
 	{ TimeParameter} = require('../app/constants');
 
 // Will save all images regardless of how right or wrong, in order to better examine output
-const debug_flag = true;
+const debug_flag = false;
 
 class ImageProcessing {
 	constructor() {
