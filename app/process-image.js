@@ -38,6 +38,7 @@ class ImageProcessing {
 		Helper.client.on('message', message => {
 			// attempt to process first attachment/image if it exists (maybe some day will go through all the attachments...)
 			if (message.attachments.size && message.attachments.first().url.search(/jpg|jpeg|png/)) {
+				message.temporary_processing_timestamp = Date.now();
 				this.process(message, message.attachments.first().url);
 			}
 
@@ -792,10 +793,11 @@ class ImageProcessing {
 		let arg = {};
 
 		// Need to fake TimeType data in order to validate/parse time...
+		// NOTE:  all time must be "end time" due to how createRaid works / expects end time
 		message.argString = '';
 		message.is_exclusive = false;
 		arg.prompt = '';
-		arg.key = (data.egg)? TimeParameter.HATCH: TimeParameter.END;
+		arg.key = TimeParameter.END;
 
 		// if egg, need to add standard hatched duration to phone's time to account for raid's actual duration
 		// when setting end time
@@ -817,7 +819,7 @@ class ImageProcessing {
 			}
 		}
 
-		log.log('Processing Time: ' + ((Date.now() - message.createdTimestamp) / 1000) + ' seconds');
+		log.log('Processing Time: ' + ((Date.now() - message.temporary_processing_timestamp) / 1000) + ' seconds');
 
 		// time was determined but was not valid
 		if (time === false) {
@@ -859,7 +861,7 @@ class ImageProcessing {
 			})
 			.then(channel_raid_message => {
                 Raid.addMessage(raid.channel_id, channel_raid_message, true);
-                message.channel.send('Processing Time: ' + Math.round((Date.now() - message.createdTimestamp) / 10) / 100 + ' seconds');
+                message.channel.send('Processing Time: ' + Math.round((Date.now() - message.temporary_processing_timestamp) / 10) / 100 + ' seconds');
             })
             .then(result => message.delete())
 			.catch(err => log.error(err));
