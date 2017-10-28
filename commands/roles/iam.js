@@ -2,6 +2,7 @@
 
 const log = require('loglevel').getLogger('IAmCommand'),
 	Commando = require('discord.js-commando'),
+	{CommandGroup} = require('../../app/constants'),
 	settings = require('../../data/settings'),
 	Helper = require('../../app/helper'),
 	Role = require('../../app/role');
@@ -10,7 +11,7 @@ class IAmCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
 			name: 'iam',
-			group: 'roles',
+			group: CommandGroup.ROLES,
 			memberName: 'iam',
 			aliases: ['assign'],
 			description: 'Assign available roles to yourself.',

@@ -1,3 +1,11 @@
+const CommandGroup = {
+	ADMIN: 'admin',
+	BASIC_RAID: 'basic-raid',
+	RAID_CRUD: 'raid-crud',
+	ROLES: 'roles',
+	UTIL: 'util'
+};
+
 const RaidStatus = {
 	NOT_INTERESTED: -1,
 	INTERESTED: 0,
@@ -26,4 +34,4 @@ const TimeParameter = {
 	END: 'end'
 };
 
-module.exports = {RaidStatus, Team, TimeMode, TimeParameter};
+module.exports = {CommandGroup, RaidStatus, Team, TimeMode, TimeParameter};

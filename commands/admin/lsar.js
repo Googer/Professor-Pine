@@ -2,6 +2,7 @@
 
 const log = require('loglevel').getLogger('LsarCommand'),
 	Commando = require('discord.js-commando'),
+	{CommandGroup} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
 	Role = require('../../app/role');
 
@@ -9,7 +10,7 @@ class LsarCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
 			name: 'lsar',
-			group: 'admin',
+			group: CommandGroup.ADMIN,
 			memberName: 'lsar',
 			aliases: ['roles'],
 			description: 'List self assignable roles.',
