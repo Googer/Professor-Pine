@@ -7,7 +7,7 @@ const log = require('loglevel').getLogger('CheckInCommand'),
 	Helper = require('../../app/helper'),
 	Raid = require('../../app/raid');
 
-class CheckInCommand extends Commando.Command {
+	class CheckInCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
 			name: 'here',
