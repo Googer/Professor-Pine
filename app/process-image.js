@@ -30,8 +30,9 @@ class ImageProcessing {
 	}
 
 	initialize() {
+		// 1 time tesseract create to get lang and other information from CDN
+		tesseract.create();
 		Helper.client.on('reconnecting', () => {
-			// 1 time tesseract create to get lang and other information from CDN
 			tesseract.create();
 		});
 
