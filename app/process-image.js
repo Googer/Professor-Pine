@@ -857,8 +857,10 @@ class ImageProcessing {
 					.catch(err => log.error(err));
 			})
 			.then(channel_raid_message => {
-				return Raid.addMessage(raid.channel_id, channel_raid_message, true);
-			})
+                Raid.addMessage(raid.channel_id, channel_raid_message, true);
+                message.channel.send('Processing Time: ' + Math.round((Date.now() - message.createdTimestamp) / 10) / 100 + ' seconds');
+            })
+            .then(result => message.delete())
 			.catch(err => log.error(err));
 	}
 }
