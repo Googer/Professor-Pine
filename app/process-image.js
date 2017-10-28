@@ -17,7 +17,7 @@ const log = require('loglevel').getLogger('ImageProcessor'),
 	{ TimeParameter} = require('../app/constants');
 
 // Will save all images regardless of how right or wrong, in order to better examine output
-const debug_flag = false;
+const debug_flag = true;
 
 class ImageProcessing {
 	constructor() {
@@ -64,7 +64,7 @@ class ImageProcessing {
 
 			return this.getRaidData(id, message, new_image);
 		}).then(data => {
-			console.log(data);
+			log.log(data);
 
 			// write original image as a reference
 			if (debug_flag ||
@@ -583,7 +583,7 @@ class ImageProcessing {
 				tesseract.recognize(image)
 					.catch(err => reject(err))
 					.then(result => {
-						const text = result.text.replace(/[^\w\s]/g, '').replace(/\n/g, ' ').trim();
+						const text = result.text.replace(/[^\w\s-]/g, '').replace(/\n/g, ' ').trim();
 						resolve({ image: new_image, text, result });
 					});
 			});
@@ -653,7 +653,7 @@ class ImageProcessing {
 		let values, pokemon;
 
 		// try different levels of processing to get time
-		for (let processing_level=0; processing_level<=1; processing_level++) {
+		for (let processing_level=0; processing_level<=2; processing_level++) {
 			const debug_image_path = path.join(__dirname,  this.image_path, `${id}5-tier-${processing_level}.png`);
 			values = await this.getOCRTier(id, message, image, region, processing_level);
 
@@ -682,18 +682,16 @@ class ImageProcessing {
 	}
 
 	async getOCRTier(id, message, image, region, level=0) {
-		let height, y;
+		let y;
 
 		if (level === 0) {
-			height = region.height;
 			y = region.y;
 		} else {
-			height = region.height / 1.5;
-			y = region.y + (region.height / 5);
+			y = region.y - ((region.height / 8) * level);
 		}
 
 		// checking left and right sides of image for time...
-		region = { x: region.x, y, width: region.width, height };
+		region = { x: region.x, y, width: region.width, height: region.height };
 
 		return new Promise((resolve, reject) => {
 			const new_image = image.clone()
@@ -735,7 +733,7 @@ class ImageProcessing {
 		let gym_location = { x: image.bitmap.width / 5.1, y: image.bitmap.height / 26, width: image.bitmap.width - (image.bitmap.width / 2.55), height: image.bitmap.height / 13 };
 		let phone_time_crop = { x: image.bitmap.width / 2.5, y: 0, width: image.bitmap.width, height: image.bitmap.height / 27 };
 		let pokemon_name_crop = { x: 0, y: image.bitmap.height / 6.4, width: image.bitmap.width, height: image.bitmap.height / 5 };
-		let tier_crop = { x: image.bitmap.width / 3.8, y: image.bitmap.height / 4.2, width: image.bitmap.width - (image.bitmap.width / 1.9), height: image.bitmap.height / 9 };
+		let tier_crop = { x: image.bitmap.width / 3.8, y: image.bitmap.height / 3.4, width: image.bitmap.width - (image.bitmap.width / 1.9), height: image.bitmap.height / 9 };
 		let all_crop = { x: 0, y: 0, width: image.bitmap.width, height: image.bitmap.height };
 		let promises = [];
 
@@ -799,7 +797,7 @@ class ImageProcessing {
 		arg.prompt = '';
 		arg.key = (data.egg)? TimeParameter.HATCH: TimeParameter.END;
 
-		// if egg, need to add "incubation" time to it phone time
+		// if egg, need to add "incubation" time to phone time
 		if (time && time.isValid() && data.egg) {
 			time = time.add(settings.exclusive_raid_incubate_duration, 'minutes');
 		}
@@ -814,16 +812,18 @@ class ImageProcessing {
 			} else {
 				// time was not valid, don't set any time (would rather have accurate time, than an inaccurate guess at the time)
 				message.channel.send(time.format('h:mma') + ' is an invalid ' + ((data.egg)? 'hatch': 'end') + ' time');
-				time = undefined;
-				return;
+				time = false;
 			}
 		}
 
-		console.log('Processing Time: ' + ((Date.now() - message.createdTimestamp) / 1000) + ' seconds');
+		log.log('Processing Time: ' + ((Date.now() - message.createdTimestamp) / 1000) + ' seconds');
+
+		// time was determined but was not valid
+		if (time === false) {
+			return;
+		}
 
 		let raid;
-
-
 		Raid.createRaid(message.channel.id, message.member.id, pokemon, gym, time)
 			.then(async info => {
 				raid = info.raid;
