@@ -30,10 +30,10 @@ class ImageProcessing {
 	}
 
 	initialize() {
-		// 1 time tesseract create to get lang and other information from CDN
-		tesseract.create();
+		// ugly 1 time tesseract hack to get lang and other information from CDN? which causes the first run through to be super super slow
+		tesseract.recognize(path.join(__dirname, '/../assets/images/mystic.png')).catch(err => {}).then(result => {});
 		Helper.client.on('reconnecting', () => {
-			tesseract.create();
+			tesseract.recognize(path.join(__dirname, '/../assets/images/mystic.png')).catch(err => {}).then(result => {});
 		});
 
 		Helper.client.on('message', message => {
