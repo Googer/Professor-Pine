@@ -5,8 +5,7 @@ const log = require('loglevel').getLogger('JoinCommand'),
 	{CommandGroup, RaidStatus} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
 	Raid = require('../../app/raid'),
-	NaturalArgumentType = require('../../types/natural'),
-	Utility = require('../../app/utility');
+	NaturalArgumentType = require('../../types/natural');
 
 class JoinCommand extends Commando.Command {
 	constructor(client) {
@@ -48,11 +47,9 @@ class JoinCommand extends Commando.Command {
 			message.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
 				.catch(err => log.error(err));
 
-			Utility.cleanConversation(message);
-
 			Raid.refreshStatusMessages(info.raid);
 		} else {
-			return message.reply(info.error)
+			message.reply(info.error)
 				.catch(err => log.error(err));
 		}
 	}

@@ -48,7 +48,10 @@ class DeleteCommand extends Commando.Command {
 		const has_permission = Helper.isManagement(message);
 
 		if (has_permission) {
-			Raid.deleteRaid(message.channel.id);
+			message.channel.send('Deleting this raid in 15 seconds!')
+				.then(message => Utility.sleep(15000))
+				.then(resolve => Raid.deleteRaid(message.channel.id))
+				.catch(err => log.error(err));
 		} else {
 			this.deletionReasonCollector.obtain(message)
 				.then(collection_result => {
@@ -62,7 +65,7 @@ class DeleteCommand extends Commando.Command {
 							return message.channel.send(`${admin_role} / ${moderator_role}:  Raid deletion requested!`);
 						}
 					} else {
-						return Utility.cleanConversation(message, true);
+						Utility.cleanCollector(collection_result);
 					}
 				})
 				.catch(err => log.error(err));
