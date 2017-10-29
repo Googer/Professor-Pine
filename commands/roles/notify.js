@@ -13,7 +13,7 @@ class NotifyCommand extends Commando.Command {
 			name: 'notify',
 			group: CommandGroup.ROLES,
 			memberName: 'notify',
-			aliases: [],
+			aliases: ['want'],
 			description: 'Adds notifications for a raid boss.',
 			details: 'Use this command to request notifications for a specific raid boss.',
 			examples: ['\t!notify lugia'],

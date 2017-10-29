@@ -13,7 +13,7 @@ class NotificationsCommand extends Commando.Command {
 			name: 'notifications',
 			group: CommandGroup.ROLES,
 			memberName: 'notifications',
-			aliases: ['list-notifications', 'show-notifications'],
+			aliases: ['list-notifications', 'show-notifications', 'list-wants', 'show-wants', 'wants'],
 			description: 'Show currently active notifications for raid bosses.',
 			details: 'Use this command to get your currently active raid boss notifications.',
 			examples: ['\t!notifications'],

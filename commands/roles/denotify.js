@@ -13,7 +13,7 @@ class DenotifyCommand extends Commando.Command {
 			name: 'denotify',
 			group: CommandGroup.ROLES,
 			memberName: 'denotify',
-			aliases: [],
+			aliases: ['unwant'],
 			description: 'Removes notifications for a raid boss.',
 			details: 'Use this command to remove notifications for a specific raid boss.',
 			examples: ['\t!denotify lugia'],
