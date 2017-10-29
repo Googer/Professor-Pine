@@ -709,12 +709,12 @@ class ImageProcessing {
 							// Long story short, this will grab any repeating characters, specifically focusing on letters & numbers but
 							//		repeating symbols to the left or right of letters and numbers will also match (as @ symbols often occur)
 							let match = result.text.replace(/\s/g, '').match(/(.)\1+/gi);
-							let match2 = result.text.match(/@|Q|9|W|é/gi);
+							let match2 = result.text.match(/@|Q|9|W|é|®/gi);
 							if (match && match.length) {
 								// sort and grab the longest repeating symbol match, and assume it's the raid tier
 								match = match.sort((a, b) => { return a.length < b.length; });
 								resolve({ image: new_image, tier: match[0].length, result });
-							} else if (level === 1 && match2 && match2.length) {
+							} else if (match2 && match2.length) {
 								// Trying to count commonly observed symbols/letters, if no repeating symbols were found
 								resolve({ image: new_image, tier: match2.length, result });
 							} else {
