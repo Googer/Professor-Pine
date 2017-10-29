@@ -5,8 +5,7 @@ const log = require('loglevel').getLogger('PokemonCommand'),
 	{CommandGroup} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
 	Notify = require('../../app/notify'),
-	Raid = require('../../app/raid'),
-	Utility = require('../../app/utility');
+	Raid = require('../../app/raid');
 
 class SetPokemonCommand extends Commando.Command {
 	constructor(client) {
@@ -67,10 +66,7 @@ class SetPokemonCommand extends Commando.Command {
 
 				return true;
 			})
-
 			.catch(err => log.error(err));
-
-		Utility.cleanConversation(message);
 
 		Raid.refreshStatusMessages(info.raid);
 	}

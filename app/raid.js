@@ -415,85 +415,93 @@ class Raid {
 			const autocomplete_members = [];
 
 			channel.send(`${members_string}: Have you completed this raid?  Answer **no** within ${timeout} minutes to indicate you haven't; otherwise it will be assumed you have!`)
-				.then(message => Promise.all(present_members
-					.map(present_member => {
-						this.setMemberStatus(channel_id, present_member.id, RaidStatus.COMPLETE_PENDING);
+				.then(message => {
+					Promise.all(present_members
+						.map(present_member => {
+							this.setMemberStatus(channel_id, present_member.id, RaidStatus.COMPLETE_PENDING);
 
-						return message.channel.awaitMessages(
-							response => response.author.id === present_member.id, {
-								max: 1,
-								time: timeout * 60 * 1000,
-								errors: ['time']
-							})
-							.then(collected_responses => {
-								let confirmation, response;
+							return message.channel.awaitMessages(
+								response => response.author.id === present_member.id, {
+									max: 1,
+									time: timeout * 60 * 1000,
+									errors: ['time']
+								})
+								.then(collected_responses => {
+									let confirmation, response;
 
-								if (collected_responses && collected_responses.size === 1) {
-									response = collected_responses.first();
+									if (collected_responses && collected_responses.size === 1) {
+										response = collected_responses.first();
 
-									const command_prefix = this.client.options.commandPrefix,
-										user_response = response.content.toLowerCase().trim(),
-										is_command = user_response.startsWith(command_prefix);
+										const command_prefix = this.client.options.commandPrefix,
+											user_response = response.content.toLowerCase().trim(),
+											is_command = user_response.startsWith(command_prefix);
 
-									if (is_command) {
-										// don't try to process response
-										return true;
+										if (is_command) {
+											// don't try to process response
+											return true;
+										}
+
+										confirmation = this.client.registry.types.get('boolean').truthy.has(user_response);
+									} else {
+										confirmation = false;
 									}
 
-									confirmation = this.client.registry.types.get('boolean').truthy.has(user_response);
-								} else {
-									confirmation = false;
-								}
+									if (confirmation) {
+										response.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
+											.then(reaction => response.delete({timeout: settings.message_cleanup_delay_success}))
+											.catch(err => log.error(err));
 
-								if (confirmation) {
-									response.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
-										.catch(err => log.error(err));
-
-									this.setMemberStatus(channel_id, present_member.id, RaidStatus.COMPLETE);
-
-									this.refreshStatusMessages(raid)
-										.catch(err => log.error(err));
-								} else {
-									response.react(Helper.getEmoji('snorlaxthumbsdown') || '👎')
-										.catch(err => log.error(err));
-
-									this.setMemberStatus(channel_id, present_member.id, RaidStatus.PRESENT);
-								}
-
-								return Promise.resolve(true);
-							})
-							.catch(collected_responses => {
-								// defensive check that raid in fact still exists
-								if (!!this.getRaid(channel_id)) {
-									// check that user didn't already set their status to something else (via running another command during the collection period)
-									if (this.getMemberStatus(channel_id, present_member.id) === RaidStatus.COMPLETE_PENDING) {
-										autocomplete_members.push(present_member);
-
-										// set user status to complete
 										this.setMemberStatus(channel_id, present_member.id, RaidStatus.COMPLETE);
+
+										this.refreshStatusMessages(raid)
+											.catch(err => log.error(err));
+									} else {
+										response.react(Helper.getEmoji('snorlaxthumbsdown') || '👎')
+											.then(reaction => response.delete({timeout: settings.message_cleanup_delay_success}))
+											.catch(err => log.error(err));
+
+										this.setMemberStatus(channel_id, present_member.id, RaidStatus.PRESENT);
 									}
+
+									return Promise.resolve(true);
+								})
+								.catch(collected_responses => {
+									// defensive check that raid in fact still exists
+									if (!!this.getRaid(channel_id)) {
+										// check that user didn't already set their status to something else (via running another command during the collection period)
+										if (this.getMemberStatus(channel_id, present_member.id) === RaidStatus.COMPLETE_PENDING) {
+											autocomplete_members.push(present_member);
+
+											// set user status to complete
+											this.setMemberStatus(channel_id, present_member.id, RaidStatus.COMPLETE);
+										}
+									}
+
+									return Promise.resolve(true);
+								});
+						}))
+						.then(() => {
+							// defensive check that raid in fact still exists
+							if (!!this.getRaid(channel_id)) {
+								this.refreshStatusMessages(raid)
+									.catch(err => log.error(err));
+
+								if (autocomplete_members.length > 0) {
+									const members_string = autocomplete_members
+										.map(member => `**${member.displayName}**`)
+										.reduce((prev, next) => prev + ', ' + next);
+
+									message.channel
+										.send(`${members_string}: I am assuming you *have* completed this raid.`)
+										.then(message => message.delete(60000))
+										.catch(err => log.error(err));
 								}
 
-								return Promise.resolve(true);
-							});
-					}))
-					.then(() => {
-						// defensive check that raid in fact still exists
-						if (!!this.getRaid(channel_id)) {
-							this.refreshStatusMessages(raid)
-								.catch(err => log.error(err));
-
-							if (autocomplete_members.length > 0) {
-								const members_string = autocomplete_members
-									.map(member => `**${member.displayName}**`)
-									.reduce((prev, next) => prev + ', ' + next);
-
-								message.channel
-									.send(`${members_string}: I am assuming you *have* completed this raid.`)
+								message.delete({timeout: settings.message_cleanup_delay_success})
 									.catch(err => log.error(err));
 							}
-						}
-					}));
+						})
+				});
 		}
 	}
 

@@ -46,8 +46,6 @@ class SetLocationCommand extends Commando.Command {
 		message.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
 			.catch(err => log.error(err));
 
-		Utility.cleanConversation(message);
-
 		Raid.refreshStatusMessages(info.raid);
 	}
 }

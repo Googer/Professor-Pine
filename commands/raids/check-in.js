@@ -5,10 +5,9 @@ const log = require('loglevel').getLogger('CheckInCommand'),
 	{CommandGroup, RaidStatus} = require('../../app/constants'),
 	NaturalArgumentType = require('../../types/natural'),
 	Helper = require('../../app/helper'),
-	Raid = require('../../app/raid'),
-	Utility = require('../../app/utility');
+	Raid = require('../../app/raid');
 
-class CheckInCommand extends Commando.Command {
+	class CheckInCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
 			name: 'here',
@@ -46,8 +45,6 @@ class CheckInCommand extends Commando.Command {
 
 		message.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
 			.catch(err => log.error(err));
-
-		Utility.cleanConversation(message);
 
 		Raid.refreshStatusMessages(info.raid);
 	}
