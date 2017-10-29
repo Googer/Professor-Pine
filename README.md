@@ -1,4 +1,4 @@
-# Professor Willow Discord Bot
+# Professor Pine Discord Bot
 
 ### Purpose
 Primary purpose is to organize raids, secondary purpose to have fun!
@@ -6,9 +6,17 @@ Primary purpose is to organize raids, secondary purpose to have fun!
 ### What you need
  - Discord
  - Node
+ - Native build system (to build zlib-sync)
+   - `npm install -g node-gyp`
+   - (if on Windows) `npm install --global --production windows-build-tools`
 
+Create a file in data/ called discord.json with the following format:
 
-Run `npm install` then `npm start` to start the bot, though that said, the login code would likely need to change and point to your own discord server... more details on this process later.
+```
+{
+  "discord_bot_token": "<your bot token>",
+  "owner": "<your Discord Snowflake ID>"
+}
+```
 
-Ignore this next part, it's all for testing purposes...
- - test #1
+Run `npm install` then `npm start` to start the bot.
