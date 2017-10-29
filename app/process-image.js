@@ -57,6 +57,9 @@ class ImageProcessing {
 		// if not in a proper raid channel, cancel out immediately
 		if (!region_map[message.channel.name]) { return; }
 
+		// show users the bot is starting to process their image
+		message.react('🤔');
+
 		Jimp.read(url).then(image => {
 			if (!image) { return; }
 			id = uuidv1();
@@ -76,9 +79,15 @@ class ImageProcessing {
 
 			if (data) {
 				this.createRaid(message, data);
+			} else {
+				// this means no gym was found what-so-ever so either processing was really messed up or it's not a raid screenshot
+				this.removeReaction(message);
 			}
 		}).catch(err => {
+			// something went very wrong
 			log.warn(err);
+			this.removeReaction(message);
+			message.react('❌');
 		});
 	}
 
@@ -784,6 +793,13 @@ class ImageProcessing {
 		});
 	}
 
+	removeReaction(message) {
+		const reactions = message.reactions.filterArray(reaction_message => reaction_message.emoji == '🤔');
+		for (let i=0; i<reactions.length; i++) {
+			reactions[i].remove();
+		}
+	}
+
 	createRaid(message, data) {
 		const TimeType = Helper.client.registry.types.get('time');
 
@@ -819,6 +835,9 @@ class ImageProcessing {
 				time = false;
 			}
 		}
+
+		// remove all reactions from processed image
+		this.removeReaction(message);
 
 		log.log('Processing Time: ' + ((Date.now() - message.temporary_processing_timestamp) / 1000) + ' seconds');
 
