@@ -4,8 +4,7 @@ const log = require('loglevel').getLogger('DoneCommand'),
 	Commando = require('discord.js-commando'),
 	{CommandGroup} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
-	Raid = require('../../app/raid'),
-	Utility = require('../../app/utility');
+	Raid = require('../../app/raid');
 
 class DoneCommand extends Commando.Command {
 	constructor(client) {
@@ -35,8 +34,6 @@ class DoneCommand extends Commando.Command {
 
 		message.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
 			.catch(err => log.error(err));
-
-		Utility.cleanConversation(message);
 	}
 }
 

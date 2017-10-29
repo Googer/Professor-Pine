@@ -23,7 +23,8 @@ const discord_settings = require('./data/discord'),
 	NodeCleanup = require('node-cleanup'),
 	Helper = require('./app/helper'),
 	IP = require('./app/process-image'),
-	Raid = require('./app/raid');
+	Raid = require('./app/raid'),
+	Utility = require('./app/utility');
 
 NodeCleanup((exitCode, signal) => {
 	Raid.shutdown();
@@ -89,10 +90,15 @@ Client.on('rateLimit', event =>
 
 Client.on('commandRun', (command, result, message, args, from_pattern) => {
 	log.debug(`Command '${command.name}' run from message '${message.content}' by user ${message.author.id}`);
+	message.is_successful = true;
 });
 
 Client.on('commandError', (command, err, message, args, from_pattern) => {
 	log.error(`Command '${command.name}' error from message '${message.content}' by user ${message.author.id}`);
+});
+
+Client.on('commandFinalize', (command, message, from_pattern) => {
+	Utility.cleanConversation(message, !!message.is_successful, true);
 });
 
 Client.on('disconnect', event => {
