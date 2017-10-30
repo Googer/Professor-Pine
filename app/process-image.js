@@ -37,10 +37,13 @@ class ImageProcessing {
 		});
 
 		Helper.client.on('message', message => {
+			const image_url = (message.attachments.size)? message.attachments.first().url: '';
+
 			// attempt to process first attachment/image if it exists (maybe some day will go through all the attachments...)
-			if (message.attachments.size && message.attachments.first().url.search(/jpg|jpeg|png/)) {
+			if (image_url && image_url.search(/jpg|jpeg|png/)) {
+				log.log('Image Processing Start: ', message.member.nickname, message.channel.name, image_url);
 				message.temporary_processing_timestamp = Date.now();
-				this.process(message, message.attachments.first().url);
+				this.process(message, image_url);
 			}
 
 			// QUICKER WAY TO TEST IMAGES
@@ -387,7 +390,7 @@ class ImageProcessing {
 					new_image = new_image.scan(0, 0, region1.width, region1.height, this.filterNearWhiteContent2).blur(1);
 				}
 
-				new_image = new_image.getBuffer(Jimp.MIME_PNG, (err, image) => {
+				new_image.getBuffer(Jimp.MIME_PNG, (err, image) => {
 					if (err) { reject(err); }
 
 					tesseract.recognize(image)
@@ -515,7 +518,7 @@ class ImageProcessing {
 		let values, gym_name, gym_words;
 		let validation = false;
 
-		// try different levels of processing to get time
+		// try different levels of processing to get gym name
 		for (let processing_level=0; processing_level<=1; processing_level++) {
 			const debug_image_path = path.join(__dirname, this.image_path, `${id}2-gym-name-${processing_level}.png`);
 			values = await this.getOCRGymName(id, message, image, region, processing_level);
@@ -588,7 +591,7 @@ class ImageProcessing {
 				new_image = new_image.blur(1).scan(0, 0, region.width, region.height, this.filterBodyContent2).blur(1);
 			}
 
-			new_image = new_image.getBuffer(Jimp.MIME_PNG, (err, image) => {
+			new_image.getBuffer(Jimp.MIME_PNG, (err, image) => {
 				if (err) { reject(err); }
 
 				tesseract.recognize(image)
@@ -607,47 +610,77 @@ class ImageProcessing {
 
 
 	async getPokemonName(id, message, image, region) {
-		const debug_image_path = path.join(__dirname,  this.image_path, `${id}3-pokemon-name.png`);
 		const PokemonType = Helper.client.registry.types.get('pokemon');
-		const values = await this.getOCRPokemonName(id, message, image, region);
+		let values, pokemon, cp;
 
-		let pokemon = values.pokemon;
-		let cp = values.cp;
-		if (PokemonType.validate(pokemon, message) === true) {
-			pokemon = PokemonType.parse(pokemon, message);
-		} else if (PokemonType.validate(`${cp}`, message) === true) {
-			pokemon = PokemonType.parse(`${cp}`, message);
-		} else {
-			// if not a valid pokemon, use some placeholder information
-			pokemon = { placeholder: true, name: 'pokemon', tier: '????' };
+		// try different levels of processing to get pokemon
+		for (let processing_level=0; processing_level<=4; processing_level++) {
+			const debug_image_path = path.join(__dirname,  this.image_path, `${id}3-pokemon-name-${processing_level}.png`);
+			values = await this.getOCRPokemonName(id, message, image, region, processing_level);
+			pokemon = values.pokemon;
+			cp = values.cp;
+
+			if (PokemonType.validate(pokemon, message) === true) {
+				pokemon = PokemonType.parse(pokemon, message);
+			} else if (PokemonType.validate(`${cp}`, message) === true) {
+				pokemon = PokemonType.parse(`${cp}`, message);
+			} else {
+				// if not a valid pokemon, use some placeholder information
+				pokemon = { placeholder: true, name: 'pokemon', tier: '????' };
+			}
+
+			// something has gone wrong if no info was matched, save image for later analysis
+			if (debug_flag || (pokemon.placeholder && log.getLevel() === log.levels.DEBUG)) {
+				log.warn('Pokemon Name: ', id, values.result.text);
+				values.image.write(debug_image_path);
+			}
+
+			// match found, can stop now
+			if (!pokemon.placeholder) {
+				break;
+			}
 		}
 
-		// something has gone wrong if no info was matched, save image for later analysis
-		if (debug_flag || (pokemon.placeholder && log.getLevel() === log.levels.DEBUG)) {
-			log.warn('Pokemon Name: ', id, values.result.text);
-			values.image.write(debug_image_path);
-		}
-
-		// NOTE:  There is a chance pokemon could not be determined and we may need to try image processing again on a different setting/level
-		return { pokemon, cp: values.cp };
+		return { pokemon, cp };
 	}
 
 	getOCRPokemonName(id, message, image, region, level=0) {
+		// modify crop region based on "level" of processing
+		const width_amount = (region.width / 20) * level;
+		const height_amount = (region.height / 20) * level;
+
+		region = { x: region.x + width_amount, y: region.y + height_amount, width: region.width - (width_amount * 2), height: region.height - (height_amount * 2) };
+
 		return new Promise((resolve, reject) => {
-			const new_image = image.clone()
-				.crop(region.x, region.y, region.width, region.height)
+			let new_image = image.clone();
+
+			new_image = new_image.crop(region.x, region.y, region.width, region.height)
 				.blur(3)
 				.brightness(-0.2)
-				.scan(0, 0, region.width, region.height, this.filterLargeBodyContent)
-				.getBuffer(Jimp.MIME_PNG, (err, image) => {
+				.scan(0, 0, region.width, region.height, this.filterLargeBodyContent);
+
+			new_image.getBuffer(Jimp.MIME_PNG, (err, image) => {
 					if (err) { reject(err); }
 
 					tesseract.recognize(image)
 						.catch(err => reject(err))
 						.then(result => {
-							const text = result.text.replace(/[^\w\s\n]/gi, '');
-							const cp = Number(text.match(/[0-9]+/g)).valueOf();
-							const pokemon = text.replace(/(cp)?\s?[0-9]*/g, '');
+							const text = result.text.replace(/[^\w\n]/gi, '');
+							let match_cp = text.match(/[0-9]+/g);
+							let match_pokemon = text.replace(/(cp)?\s?[0-9]+/g, ' ').match(/\w+/g);
+							let pokemon = '';
+							let cp = 0;
+
+							// get longest matching word as "pokemon"
+							if (match_pokemon && match_pokemon.length) {
+								pokemon = match_pokemon.sort((a, b) => { return a.length < b.length; })[0];
+							}
+
+							// get longest matching number as "cp"
+							if (match_cp && match_cp.length) {
+								cp = Number(match_cp.sort((a, b) => { return a.length < b.length; })[0]).valueOf();
+							}
+
 							resolve({ image: new_image, cp, pokemon, result });
 						});
 				});
@@ -681,6 +714,9 @@ class ImageProcessing {
 			if (debug_flag || (pokemon.placeholder && log.getLevel() === log.levels.DEBUG)) {
 				log.warn('Tier: ', id, values.result.text);
 				values.image.write(debug_image_path);
+			} else {
+				// tier checking is super unstable, just always going to log everything
+				log.log('Tier: ', id, values.result.text);
 			}
 
 			if (!pokemon.placeholder) {
@@ -870,6 +906,8 @@ class ImageProcessing {
 							.then(message => Raid.setIncompleteScreenshotMessage(channel.id, message))
 							.catch(err => log.error(err));
 					}
+
+					message.delete();
 				});
 			})
 			.then(async bot_message => {
@@ -883,7 +921,6 @@ class ImageProcessing {
                 Raid.addMessage(raid.channel_id, channel_raid_message, true);
                 message.channel.send('Processing Time: ' + Math.round((Date.now() - message.temporary_processing_timestamp) / 10) / 100 + ' seconds');
             })
-            .then(result => message.delete())
 			.catch(err => log.error(err));
 	}
 }
