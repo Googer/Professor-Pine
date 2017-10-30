@@ -25,20 +25,21 @@ class Utility {
 			start_time = initial_message.createdTimestamp,
 			delay = command_successful ?
 				settings.message_cleanup_delay_success :
-				settings.message_cleanup_delay_error;
+				settings.message_cleanup_delay_error,
+			messages_to_delete = [];
 
-		const messages_to_delete = [];
+		if (channel.type === 'dm') {
+			return;
+		}
 
 		if (delete_original) {
 			messages_to_delete.push(initial_message);
 		}
 
 		messages_to_delete.push(...channel.messages.array() // cache of recent messages, should be sufficient
-			.filter(message => {
-				return (message.createdTimestamp > start_time) &&
-					(message.author === author ||
-						(message.author === bot && message.mentions.members.has(author.id)));
-			}));
+			.filter(message => (message.createdTimestamp > start_time) &&
+				(message.author === author ||
+					(message.author === bot && message.mentions.members.has(author.id)))));
 
 		channel.client.setTimeout(
 			() => channel.bulkDelete(messages_to_delete)
