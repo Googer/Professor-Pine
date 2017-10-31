@@ -20,6 +20,10 @@ class IAmNotCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
+			if (message.channel.type === 'dm') {
+				return false;
+			}
+
 			// command "!iamnot" - warning of incorrect channel, suggest command & channel
 			if (message.content.search(/^([!])i\s?a([mn])\s?not\s?.*?|^([!])?ia([mn])\s?not([!])?\s?.*?$/gi) >= 0 && !Helper.isBotChannel(message)) {
 				return ['invalid-channel', message.reply(Helper.getText('iamnot.warning', message))];
