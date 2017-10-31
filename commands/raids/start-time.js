@@ -67,7 +67,7 @@ class StartTimeCommand extends Commando.Command {
 			.forEach(([attendee, attendee_status]) => {
 				Raid.getMember(message.channel.id, attendee)
 					.then(member => member.send(
-						`A start time of ${formatted_start_time} has been set for ${channel.toString()}. ` +
+						`${message.member.displayName} set a start time of ${formatted_start_time} for ${channel.toString()}. ` +
 						`There ${verb} currently **${total_attendees}** ${noun} attending!`))
 					.catch(err => log.error(err));
 			});
