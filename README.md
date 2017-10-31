@@ -20,3 +20,4 @@ Create a file in data/ called discord.json with the following format:
 ```
 
 Run `npm install` then `npm start` to start the bot.
+ 

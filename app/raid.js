@@ -798,7 +798,7 @@ class Raid {
 			gym_name = !!gym.nickname ?
 				gym.nickname :
 				gym.gymName,
-			gym_url = `https://www.google.com/maps?saddr=My+Location&daddr=${gym.gymInfo.latitude},${gym.gymInfo.longitude}`,
+			gym_url = `https://www.google.com/maps/dir/?api=1&destination=${gym.gymInfo.latitude},${gym.gymInfo.longitude}`,
 			additional_information = !!gym.additional_information ?
 				gym.additional_information :
 				'',
@@ -964,7 +964,9 @@ class Raid {
 		}
 
 		raid.messages
-			.forEach(message_cache_id => {
+			.forEach(async message_cache_id => {
+				const formatted_message = await this.getFormattedMessage(raid);
+
 				this.getMessage(message_cache_id)
 					.then(message => message.edit(raid_source_channel_message, formatted_message))
 					.catch(err => log.error(err));
