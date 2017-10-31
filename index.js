@@ -96,7 +96,7 @@ Client.on('commandError', (command, err, message, args, from_pattern) => {
 });
 
 Client.on('commandFinalize', (command, message, from_pattern) => {
-	Utility.cleanConversation(message, !!message.is_successful, true);
+	Utility.cleanConversation(message, !!message.is_successful, !Raid.validRaid(message.channel.id));
 });
 
 Client.on('disconnect', event => {
