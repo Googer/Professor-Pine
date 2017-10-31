@@ -666,7 +666,7 @@ class ImageProcessing {
 						.catch(err => reject(err))
 						.then(result => {
 							const text = result.text.replace(/[^\w\n]/gi, '');
-							let match_cp = text.match(/[0-9]+/g);
+							let match_cp = text.match(/[0-9]{3,10}/g);
 							let match_pokemon = text.replace(/(cp)?\s?[0-9]+/g, ' ').match(/\w+/g);
 							let pokemon = '';
 							let cp = 0;
@@ -750,18 +750,22 @@ class ImageProcessing {
 					tesseract.recognize(image)
 						.catch(err => reject(err))
 						.then(result => {
-							// NOTE:  This doesn't match 1 character alone... too many jibberish character to match T1 raids like this...
-							// Long story short, this will grab any repeating characters, specifically focusing on letters & numbers but
-							//		repeating symbols to the left or right of letters and numbers will also match (as @ symbols often occur)
-							let match = result.text.replace(/\s/g, '').match(/(.)\1+/gi);
-							let match2 = result.text.match(/@|Q|9|W|é|®/gi);
-							if (match && match.length) {
-								// sort and grab the longest repeating symbol match, and assume it's the raid tier
-								match = match.sort((a, b) => { return a.length < b.length; });
-								resolve({ image: new_image, tier: match[0].length, result });
-							} else if (match2 && match2.length) {
+							// replace characters that are almost always jibberish characters
+							let text = result.text.replace(/\s“”‘’"'-_=+/g, '');
+
+							// highly probable / common character regex
+							let match1 = text.match(/@|Q|9|W|é|®|©/gi);
+
+							// consecutive character regex
+							let match2 = text.match(/(.)\1+/gi);
+
+							if (match1 && match1.length) {
 								// Trying to count commonly observed symbols/letters, if no repeating symbols were found
-								resolve({ image: new_image, tier: match2.length, result });
+								resolve({ image: new_image, tier: match1.length, result });
+							} else if (match2 && match2.length) {
+								// sort and grab the longest repeating symbol match, and assume it's the raid tier
+								match2 = match2.sort((a, b) => { return a.length < b.length; });
+								resolve({ image: new_image, tier: match2[0].length, result });
 							} else {
 								resolve({ image: new_image, tier: 0, result });
 							}
@@ -867,7 +871,7 @@ class ImageProcessing {
 				time = TimeType.parse(time.format('[at] h:mma'), message, arg);
 			} else {
 				// time was not valid, don't set any time (would rather have accurate time, than an inaccurate guess at the time)
-				message.channel.send(time.format('h:mma') + ' is an invalid ' + ((data.egg)? 'hatch': 'end') + ' time');
+				message.channel.send(time.format('h:mma') + ' is an invalid end time.  Either time was not interpretted correctly or has already expired.');
 				time = false;
 			}
 		}

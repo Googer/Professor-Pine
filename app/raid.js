@@ -526,6 +526,9 @@ class Raid {
 			end_time = hatch_time + (settings.standard_raid_hatched_duration * 60 * 1000);
 		}
 
+		raid.hatch_time = hatch_time;
+		raid.end_time = end_time;
+
 		// update or delete screenshot if all information has now been set
 		if (raid.incomplete_screenshot_message) {
 			this.getMessage(raid.incomplete_screenshot_message)
@@ -540,9 +543,6 @@ class Raid {
 				})
 				.catch(err => console.log(err));
 		}
-
-		raid.hatch_time = hatch_time;
-		raid.end_time = end_time;
 
 		this.persistRaid(raid);
 
@@ -557,21 +557,6 @@ class Raid {
 		// delete start clear time if there is one
 		if (raid.start_clear_time) {
 			delete raid.start_clear_time;
-		}
-
-		// update or delete screenshot if all information has now been set
-		if (raid.incomplete_screenshot_message) {
-			this.getMessage(raid.incomplete_screenshot_message)
-				.then(message => {
-					if (!raid.pokemon || (raid.pokemon && raid.pokemon.placeholder)) {
-						message.edit(this.getIncompleteScreenshotMessage(raid))
-							.catch(err => console.log(err));
-					} else {
-						message.delete();
-						delete raid.incomplete_screenshot_message;
-					}
-				})
-				.catch(err => console.log(err));
 		}
 
 		this.persistRaid(raid);
@@ -593,6 +578,21 @@ class Raid {
 		raid.hatch_time = hatch_time;
 		raid.end_time = end_time;
 
+		// update or delete screenshot if all information has now been set
+		if (raid.incomplete_screenshot_message) {
+			this.getMessage(raid.incomplete_screenshot_message)
+				.then(message => {
+					if (!raid.pokemon || (raid.pokemon && raid.pokemon.placeholder)) {
+						message.edit(this.getIncompleteScreenshotMessage(raid))
+							.catch(err => console.log(err));
+					} else {
+						message.delete();
+						delete raid.incomplete_screenshot_message;
+					}
+				})
+				.catch(err => console.log(err));
+		}
+
 		this.persistRaid(raid);
 
 		return {raid: raid};
@@ -608,7 +608,7 @@ class Raid {
 		if (raid.incomplete_screenshot_message) {
 			this.getMessage(raid.incomplete_screenshot_message)
 				.then(message => {
-					if (!raid.start_time && !raid.hatch_time) {
+					if (!raid.hatch_time && raid.end_time === TimeType.UNDEFINED_END_TIME) {
 						message.edit(this.getIncompleteScreenshotMessage(raid))
 							.catch(err => console.log(err));
 					} else {
@@ -741,11 +741,12 @@ class Raid {
 		let message = '';
 
 		if (!raid.pokemon || (raid.pokemon && raid.pokemon.placeholder)) {
-			message += '\n**Pokemon** could not be determined, please help set the pokemon by typing \`!pokemon <name>\`';
+			message += '\n\n**Pokemon** could not be determined, please help set the pokemon by typing \`!pokemon <name>\`';
 		}
 
-		if (!raid.hatch_time && !raid.start_time) {
-			message += '\n**Time** could not be determined, please help set the time by typing either \`!hatch <time>\` or \`!end <time>\`';
+		console.log(raid.hatch_time, raid.end_time, TimeType.UNDEFINED_END_TIME);
+		if (!raid.hatch_time && raid.end_time === TimeType.UNDEFINED_END_TIME) {
+			message += '\n\n**Time** could not be determined, please help set the time by typing either \`!hatch <time>\` or \`!end <time>\`';
 		}
 
 		return message;
