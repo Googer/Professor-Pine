@@ -894,7 +894,9 @@ class Raid {
 		}
 
 		raid.messages
-			.forEach(message_cache_id => {
+			.forEach(async message_cache_id => {
+				const formatted_message = await this.getFormattedMessage(raid);
+
 				this.getMessage(message_cache_id)
 					.then(message => message.edit(raid_source_channel_message, formatted_message))
 					.catch(err => log.error(err));
