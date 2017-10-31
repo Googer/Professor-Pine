@@ -728,7 +728,7 @@ class Raid {
 			gym_name = !!gym.nickname ?
 				gym.nickname :
 				gym.gymName,
-			gym_url = `https://www.google.com/maps/dir/?api=1&destination=${gym.gymInfo.latitude},${gym.gymInfo.longitude}`,
+			gym_url = `https://www.google.com/maps/search/?api=1&query=${gym.gymInfo.latitude}%2C${gym.gymInfo.longitude}`,
 			additional_information = !!gym.additional_information ?
 				gym.additional_information :
 				'',
