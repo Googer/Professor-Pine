@@ -537,7 +537,8 @@ class Raid {
 						message.edit(this.getIncompleteScreenshotMessage(raid))
 							.catch(err => log.error(err));
 					} else {
-						message.delete();
+						message.delete()
+							.catch(err => log.error(err));
 						delete raid.incomplete_screenshot_message;
 					}
 				})
@@ -586,7 +587,8 @@ class Raid {
 						message.edit(this.getIncompleteScreenshotMessage(raid))
 							.catch(err => log.error(err));
 					} else {
-						message.delete();
+						message.delete()
+							.catch(err => log.error(err));
 						delete raid.incomplete_screenshot_message;
 					}
 				})
@@ -612,7 +614,8 @@ class Raid {
 						message.edit(this.getIncompleteScreenshotMessage(raid))
 							.catch(err => log.error(err));
 					} else {
-						message.delete();
+						message.delete()
+							.catch(err => log.error(err));
 						delete raid.incomplete_screenshot_message;
 					}
 				})
