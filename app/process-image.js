@@ -402,9 +402,16 @@ class ImageProcessing {
 							// basically strip out everything except spaces, colons, and battery % life, then match any typical time values
 							const match = result.text.replace(/[^\w\s:%]/g, '').replace(/[oO]/g, 0).match(/([0-9]{1,2}:[0-9]{1,2}){1}\s?([ap])?m?/gi);
 							if (match && match.length) {
-								resolve({image: new_image, text: match[0], result});
+								resolve({
+									image: new_image,
+									text: match[0],
+									result
+								});
 							} else {
-								resolve({image: new_image, result});
+								resolve({
+									image: new_image,
+									result
+								});
 							}
 						});
 				});
@@ -433,9 +440,16 @@ class ImageProcessing {
 							// basically strip out everything except spaces, colons, and battery % life, then match any typical time values
 							const match = result.text.replace(/[^\w\s:%]/g, '').replace(/[oO]/g, 0).match(/([0-9]{1,2}:[0-9]{1,2}){1}\s?([ap])?m?/gi);
 							if (match && match.length) {
-								resolve({image: new_image, text: match[0], result});
+								resolve({
+									image: new_image,
+									text: match[0],
+									result
+								});
 							} else {
-								resolve({image: new_image, result});
+								resolve({
+									image: new_image,
+									result
+								});
 							}
 						});
 				});
@@ -667,7 +681,11 @@ class ImageProcessing {
 					.catch(err => reject(err))
 					.then(result => {
 						const text = result.text.replace(/[^\w\s-]/g, '').replace(/\n/g, ' ').trim();
-						resolve({image: new_image, text, result});
+						resolve({
+							image: new_image,
+							text,
+							result
+						});
 					});
 			});
 		});
