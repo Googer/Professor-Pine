@@ -960,7 +960,7 @@ class ImageProcessing {
 	}
 
 	removeReaction(message) {
-		const reactions = message.reactions.filterArray(reaction_message => reaction_message.emoji === '🤔');
+		const reactions = message.reactions.filterArray(reaction_message => reaction_message.emoji.name === '🤔');
 		for (let i = 0; i < reactions.length; i++) {
 			reactions[i].remove()
 				.catch(err => log.error(err));
