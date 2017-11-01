@@ -585,11 +585,13 @@ class ImageProcessing {
 
 			// start by splitting into words of 3 characters or more, and sorting by size of each word
 			gym_name = values.text;
-			gym_words = gym_name.split(' ').filter(word => {
-				return word.length > 2;
-			}).sort((a, b) => {
-				return a.length < b.length;
-			});
+			gym_words = gym_name.split(' ')
+				.filter(word => {
+					return word.length > 2;
+				})
+				.sort((a, b) => {
+					return a.length < b.length;
+				});
 
 			// re-combine shortened gym name
 			gym_name = gym_words.join(' ');
@@ -845,7 +847,11 @@ class ImageProcessing {
 
 							if (match1 && match1.length) {
 								// Trying to count commonly observed symbols/letters, if no repeating symbols were found
-								resolve({image: new_image, tier: match1.length, result});
+								resolve({
+									image: new_image,
+									tier: match1.length,
+									result
+								});
 							} else if (match2 && match2.length) {
 								// sort and grab the longest repeating symbol match, and assume it's the raid tier
 								match2 = match2.sort((a, b) => {
