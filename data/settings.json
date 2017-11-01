@@ -20,5 +20,6 @@
     "basic-raid",
     "raid-crud",
     "roles"
-  ]
+  ],
+  "auto_init_tesseract": true
 }

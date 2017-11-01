@@ -535,13 +535,13 @@ class Raid {
 				.then(message => {
 					if (!raid.pokemon || (raid.pokemon && raid.pokemon.placeholder)) {
 						message.edit(this.getIncompleteScreenshotMessage(raid))
-							.catch(err => console.log(err));
+							.catch(err => log.error(err));
 					} else {
 						message.delete();
 						delete raid.incomplete_screenshot_message;
 					}
 				})
-				.catch(err => console.log(err));
+				.catch(err => log.error(err));
 		}
 
 		this.persistRaid(raid);
@@ -584,13 +584,13 @@ class Raid {
 				.then(message => {
 					if (!raid.pokemon || (raid.pokemon && raid.pokemon.placeholder)) {
 						message.edit(this.getIncompleteScreenshotMessage(raid))
-							.catch(err => console.log(err));
+							.catch(err => log.error(err));
 					} else {
 						message.delete();
 						delete raid.incomplete_screenshot_message;
 					}
 				})
-				.catch(err => console.log(err));
+				.catch(err => log.error(err));
 		}
 
 		this.persistRaid(raid);
@@ -610,13 +610,13 @@ class Raid {
 				.then(message => {
 					if (!raid.hatch_time && raid.end_time === TimeType.UNDEFINED_END_TIME) {
 						message.edit(this.getIncompleteScreenshotMessage(raid))
-							.catch(err => console.log(err));
+							.catch(err => log.error(err));
 					} else {
 						message.delete();
 						delete raid.incomplete_screenshot_message;
 					}
 				})
-				.catch(err => console.log(err));
+				.catch(err => log.error(err));
 		}
 
 		raid.last_possible_time = Math.max(raid.creation_time + (raid.is_exclusive ?
@@ -744,7 +744,7 @@ class Raid {
 			message += '\n\n**Pokemon** could not be determined, please help set the pokemon by typing \`!pokemon <name>\`';
 		}
 
-		console.log(raid.hatch_time, raid.end_time, TimeType.UNDEFINED_END_TIME);
+		log.debug(raid.hatch_time, raid.end_time, TimeType.UNDEFINED_END_TIME);
 		if (!raid.hatch_time && raid.end_time === TimeType.UNDEFINED_END_TIME) {
 			message += '\n\n**Time** could not be determined, please help set the time by typing either \`!hatch <time>\` or \`!end <time>\`';
 		}
