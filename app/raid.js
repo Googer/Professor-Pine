@@ -493,7 +493,7 @@ class Raid {
 
 									message.channel
 										.send(`${members_string}: I am assuming you *have* completed this raid.`)
-										.then(message => message.delete(60000))
+										.then(message => message.delete({timeout: 60000}))
 										.catch(err => log.error(err));
 								}
 
