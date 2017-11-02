@@ -27,23 +27,19 @@ class ImageProcessing {
 	}
 
 	initialize() {
-		if (settings.auto_init_tesseract) {
-			// ugly 1 time tesseract hack to get lang and other information from CDN? which causes the first run through to be super super slow
+		// ugly 1 time tesseract hack to get lang and other information from CDN? which causes the first run through to be super super slow
+		tesseract.recognize(path.join(__dirname, '/../assets/images/mystic.png'))
+			.catch(err => {
+			})
+			.then(result => {
+			});
+
+		Helper.client.on('reconnecting', () => {
 			tesseract.recognize(path.join(__dirname, '/../assets/images/mystic.png'))
 				.catch(err => {
 				})
 				.then(result => {
 				});
-		}
-
-		Helper.client.on('reconnecting', () => {
-			if (settings.auto_init_tesseract) {
-				tesseract.recognize(path.join(__dirname, '/../assets/images/mystic.png'))
-					.catch(err => {
-					})
-					.then(result => {
-					});
-			}
 		});
 
 		Helper.client.on('message', message => {
