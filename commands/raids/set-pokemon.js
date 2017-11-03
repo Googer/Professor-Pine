@@ -12,7 +12,7 @@ class SetPokemonCommand extends Commando.Command {
 			name: 'boss',
 			group: CommandGroup.RAID_CRUD,
 			memberName: 'boss',
-			aliases: ['set-pokemon', 'set-pokémon', 'set-poke', 'pokemon', 'pokémon', 'poke', 'poké', 'set-boss', 'against'],
+			aliases: ['set-pokemon', 'set-pokémon', 'set-poke', 'pokemon', 'pokémon', 'poke', 'poké', 'set-boss', 'against', 'tier', 'level'],
 			description: 'Changes the pokémon for an existing raid, usually to specify the actual raid boss for a now-hatched egg.',
 			details: 'Use this command to set the pokémon of a raid.',
 			examples: ['\t!boss lugia', '\t!pokemon molty', '\t!poke zapdos'],
