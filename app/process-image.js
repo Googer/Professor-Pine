@@ -256,6 +256,26 @@ class ImageProcessing {
 	}
 
 	/**
+	 * Large text such as the pokemon name, cp, or tier information is here and will always be white-gray
+	 **/
+	filterLargeBodyContent2(x, y, idx) {
+		const red = this.bitmap.data[idx + 0],
+			green = this.bitmap.data[idx + 1],
+			blue = this.bitmap.data[idx + 2],
+			alpha = this.bitmap.data[idx + 3];
+
+		if (red >= 180 && green >= 180 && blue >= 180) {
+			this.bitmap.data[idx + 0] = 255;
+			this.bitmap.data[idx + 1] = 255;
+			this.bitmap.data[idx + 2] = 255;
+		} else {
+			this.bitmap.data[idx + 0] = 0;
+			this.bitmap.data[idx + 1] = 0;
+			this.bitmap.data[idx + 2] = 0;
+		}
+	}
+
+	/**
 	 * Trying to filter out near-pure white pixels
 	 **/
 	filterPureWhiteContent(x, y, idx) {
@@ -728,12 +748,12 @@ class ImageProcessing {
 
 	getOCRPokemonName(id, message, image, region, level = 0) {
 		// modify crop region based on "level" of processing
-		const width_amount = (region.width / 20) * level,
-			height_amount = (region.height / 20) * level;
+		const width_amount = (region.width / 22) * level,
+			height_amount = (region.height / 15) * level;
 
 		region = {
 			x: region.x + width_amount,
-			y: region.y + height_amount,
+			y: region.y + height_amount - (height_amount / 15),
 			width: region.width - (width_amount * 2),
 			height: region.height - (height_amount * 2)
 		};
@@ -743,8 +763,13 @@ class ImageProcessing {
 
 			new_image = new_image.crop(region.x, region.y, region.width, region.height)
 				.blur(3)
-				.brightness(-0.2)
-				.scan(0, 0, region.width, region.height, this.filterLargeBodyContent);
+				.brightness(-0.2);
+
+			if (!(level % 2)) {
+				new_image = new_image.scan(0, 0, region.width, region.height, this.filterLargeBodyContent);
+			} else {
+				new_image = new_image.scan(0, 0, region.width, region.height, this.filterLargeBodyContent2);
+			}
 
 			new_image.getBuffer(Jimp.MIME_PNG, (err, image) => {
 				if (err) {
@@ -907,9 +932,9 @@ class ImageProcessing {
 			},
 			pokemon_name_crop = {
 				x: 0,
-				y: image.bitmap.height / 6.4,
+				y: image.bitmap.height / 7.0,
 				width: image.bitmap.width,
-				height: image.bitmap.height / 5
+				height: image.bitmap.height / 4.7
 			},
 			tier_crop = {
 				x: image.bitmap.width / 3.8,
