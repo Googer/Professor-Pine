@@ -34,7 +34,7 @@ class DirectionsCommand extends Commando.Command {
 			gym = Gym.getGym(gym_id);
 
 		message.channel
-			.send(`https://www.google.com/maps/dir/?api=1&destination=${gym.gymInfo.latitude},${gym.gymInfo.longitude}`, {
+			.send(`https://www.google.com/maps/search/?api=1&query=${gym.gymInfo.latitude}%2C${gym.gymInfo.longitude}`, {
 				files: [
 					require.resolve(`PgP-Data/data/images/${gym_id}.png`)
 				]
