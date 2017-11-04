@@ -22,6 +22,7 @@ const discord_settings = require('./data/discord'),
 	DB = require('./app/db.js'),
 	NodeCleanup = require('node-cleanup'),
 	Helper = require('./app/helper'),
+	IP = require('./app/process-image'),
 	Raid = require('./app/raid'),
 	Utility = require('./app/utility');
 
@@ -78,9 +79,10 @@ Client.registry.registerCommands([
 
 Client.on('ready', () => {
 	log.info('Client logged in');
-	DB.initialize(Client.guilds);
 	Helper.setClient(Client);
 	Raid.setClient(Client);
+	DB.initialize(Client.guilds);
+	IP.initialize();
 });
 
 Client.on('error', err => log.error(err));

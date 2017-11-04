@@ -12,13 +12,17 @@ class GymType extends Commando.ArgumentType {
 
 	async validate(value, message, arg) {
 		try {
-			const gyms = await Gym.search(message.channel.id, value.split(' '));
+			const gyms = await Gym.search(message.channel.id, value.split(/\s/g));
 
 			if (!gyms || gyms.length === 0) {
-				const adjacent_gyms = await Gym.adjacentRegionsSearch(message.channel.id, value.split(' '));
+				const adjacent_gyms = await Gym.adjacentRegionsSearch(message.channel.id, value.split(/\s/g));
 
 				if (!adjacent_gyms) {
-					return `"${value}" returned no gyms.\n\nPlease try your search again, entering the text you want to search for.\n`;
+					if (arg && !arg.is_screenshot) {
+						return `"${value}" returned no gyms.\n\nPlease try your search again, entering the text you want to search for.\n`;
+					} else {
+						return false;
+					}
 				}
 
 				const adjacent_gym_name = adjacent_gyms.gyms[0].nickname ?
@@ -27,9 +31,13 @@ class GymType extends Commando.ArgumentType {
 					adjacent_channel = message.channel.guild.channels
 						.find(channel => channel.name === adjacent_gyms.channel);
 
-				return `"${value}" returned no gyms; did you mean "${adjacent_gym_name}" over in ${adjacent_channel.toString()}?  ` +
-					`If so please cancel and use ${adjacent_channel.toString()} to try again.\n\n` +
-					'Please try your search again, entering only the text you want to search for.\n';
+				if (arg && !arg.is_screenshot) {
+					return `"${value}" returned no gyms; did you mean "${adjacent_gym_name}" over in ${adjacent_channel.toString()}?  ` +
+						`If so please cancel and use ${adjacent_channel.toString()} to try again.\n\n` +
+						'Please try your search again, entering only the text you want to search for.\n';
+				} else {
+					return `"${value}" returned no gyms; if the gym name was "${adjacent_gym_name}", try uploading your screenshot to the ${adjacent_channel.toString()} channel instead.`;
+				}
 			}
 
 			const gym_id = gyms[0].gymId;
@@ -40,20 +48,29 @@ class GymType extends Commando.ArgumentType {
 						gyms[0].nickname :
 						gyms[0].gymName,
 					channel = await Raid.getChannel(raid.channel_id);
-				return `"${gym_name}" already has an active raid - ${channel.toString()}.\n\n` +
-					`If this is the raid you are referring to please cancel and use ${channel.toString()}; ` +
-					'otherwise try your search again, entering the text you want to search for.\n';
+
+				if (arg && !arg.is_screenshot) {
+					return `"${gym_name}" already has an active raid - ${channel.toString()}.\n\n` +
+						`If this is the raid you are referring to please cancel and use ${channel.toString()}; ` +
+						'otherwise try your search again, entering the text you want to search for.\n';
+				} else {
+					return `"${gym_name}" already has an active raid - ${channel.toString()}.`;
+				}
 			}
 
 			return true;
 		} catch (err) {
 			log.error(err);
-			return 'Invalid search terms entered.\n\nPlease try your search again, entering the text you want to search for.\n';
+			if (arg && !arg.is_screenshot) {
+				return 'Invalid search terms entered.\n\nPlease try your search again, entering the text you want to search for.\n';
+			} else {
+				return false;
+			}
 		}
 	}
 
 	async parse(value, message, arg) {
-		const gyms = await Gym.search(message.channel.id, value.split(' '));
+		const gyms = await Gym.search(message.channel.id, value.split(/\s/g));
 
 		return gyms[0].gymId;
 	}
