@@ -938,7 +938,7 @@ class ImageProcessing {
 			},
 			tier_crop = {
 				x: image.bitmap.width / 3.8,
-				y: image.bitmap.height / 3.8,
+				y: image.bitmap.height / 3.65,
 				width: image.bitmap.width - (image.bitmap.width / 1.9),
 				height: image.bitmap.height / 8
 			},
