@@ -183,41 +183,45 @@ class Gym extends Search {
 			});
 	}
 
-	channelSearch(channel_name, terms) {
-		// First try against name/nickname only
-		let results = this.internalSearch(channel_name, terms, ['name', 'nickname']);
+	channelSearch(channel_name, terms, name_only) {
+		if (name_only) {
+			return this.internalSearch(channel_name, terms, ['name']);
+		} else {
+			// First try against name/nickname only
+			let results = this.internalSearch(channel_name, terms, ['name', 'nickname']);
 
-		if (results.length === 0) {
-			// That didn't return anything, so now try the with description & additional terms as well
-			results = this.internalSearch(channel_name, terms, ['name', 'nickname', 'description', 'additional_terms']);
+			if (results.length === 0) {
+				// That didn't return anything, so now try the with description & additional terms as well
+				results = this.internalSearch(channel_name, terms, ['name', 'nickname', 'description', 'additional_terms']);
+			}
+
+			if (results.length === 0) {
+				// That still didn't return anything, so now try with all fields
+				results = this.internalSearch(channel_name, terms);
+			}
+
+			return results;
 		}
-
-		if (results.length === 0) {
-			// That still didn't return anything, so now try with all fields
-			results = this.internalSearch(channel_name, terms);
-		}
-
-		return results;
 	}
 
-	async search(channel_id, terms) {
+	async search(channel_id, terms, name_only) {
 		const channel_name = await require('./raid').getCreationChannelName(channel_id);
 
-		return this.channelSearch(channel_name, terms);
+		return this.channelSearch(channel_name, terms, name_only);
 	}
 
-	async adjacentRegionsSearch(channel_id, terms) {
+	async adjacentRegionsSearch(channel_id, terms, name_only) {
 		const channel_name = await require('./raid').getCreationChannelName(channel_id),
 			adjacent_regions = this.region_graph[channel_name],
 			matching_region = adjacent_regions
 				.find(adjacent_region => {
-					return this.channelSearch(adjacent_region, terms).length > 0;
+					return this.channelSearch(adjacent_region, terms, name_only).length > 0;
 				});
 
 		if (matching_region) {
 			return {
 				'channel': matching_region,
-				'gyms': this.channelSearch(matching_region, terms)
+				'gyms': this.channelSearch(matching_region, terms, name_only)
 			};
 		}
 	}
