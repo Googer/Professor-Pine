@@ -7,7 +7,7 @@ const log = require('loglevel').getLogger('ImageProcessor'),
 	tesseract = require('tesseract.js'),
 	moment = require('moment'),
 	Helper = require('../app/helper'),
-	Jimp = require('Jimp'),
+	Jimp = require('jimp'),
 	Raid = require('../app/raid'),
 	region_map = require('PgP-Data/data/region-map'),
 	settings = require('../data/settings'),
@@ -664,7 +664,7 @@ class ImageProcessing {
 		}
 
 		if (validation === true) {
-			return await GymType.parse(gym_name, message);
+			return await GymType.parse(gym_name, message, {is_screenshot: true});
 		}
 
 		if (validation !== true && validation !== false) {
@@ -938,7 +938,7 @@ class ImageProcessing {
 			},
 			tier_crop = {
 				x: image.bitmap.width / 3.8,
-				y: image.bitmap.height / 3.8,
+				y: image.bitmap.height / 3.65,
 				width: image.bitmap.width - (image.bitmap.width / 1.9),
 				height: image.bitmap.height / 8
 			},
@@ -1070,7 +1070,7 @@ class ImageProcessing {
 				await Raid.getChannel(raid.channel_id).then(async channel => {
 					// if pokemon, time remaining, or phone time was not determined, need to add original image to new channel,
 					//		in the hope the someone can manually read the screenshot and set the appropriate information
-					if (!message.is_fake && (pokemon.placeholder === false || !time)) {
+					if (!message.is_fake && (pokemon.placeholder === true || !time)) {
 						await channel
 							.send(Raid.getIncompleteScreenshotMessage(raid), {
 								files: [
