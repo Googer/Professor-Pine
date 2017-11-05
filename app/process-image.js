@@ -938,7 +938,7 @@ class ImageProcessing {
 			},
 			tier_crop = {
 				x: image.bitmap.width / 3.8,
-				y: image.bitmap.height / 3.8,
+				y: image.bitmap.height / 3.65,
 				width: image.bitmap.width - (image.bitmap.width / 1.9),
 				height: image.bitmap.height / 8
 			},
@@ -1081,8 +1081,9 @@ class ImageProcessing {
 							.catch(err => log.error(err));
 					}
 
-					message.delete()
-						.catch(err => log.error(err));
+					// TODO:  Uncomment this out some day when mods are satisfied with screenshot processing
+					// message.delete()
+					// 	.catch(err => log.error(err));
 				});
 			})
 			.then(async bot_message => {
