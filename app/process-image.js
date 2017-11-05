@@ -664,7 +664,7 @@ class ImageProcessing {
 		}
 
 		if (validation === true) {
-			return await GymType.parse(gym_name, message);
+			return await GymType.parse(gym_name, message, {is_screenshot: true});
 		}
 
 		if (validation !== true && validation !== false) {
