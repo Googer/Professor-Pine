@@ -1070,7 +1070,7 @@ class ImageProcessing {
 				await Raid.getChannel(raid.channel_id).then(async channel => {
 					// if pokemon, time remaining, or phone time was not determined, need to add original image to new channel,
 					//		in the hope the someone can manually read the screenshot and set the appropriate information
-					if (!message.is_fake && (pokemon.placeholder === false || !time)) {
+					if (!message.is_fake && (pokemon.placeholder === true || !time)) {
 						await channel
 							.send(Raid.getIncompleteScreenshotMessage(raid), {
 								files: [
