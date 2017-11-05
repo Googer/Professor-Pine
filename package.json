@@ -24,7 +24,7 @@
   "devDependencies": {},
   "scripts": {
     "start": "node index.js",
-    "auto_init_tesseract": "node %NODE_DEBUG_OPTION% index.js"
+    "debug": "node %NODE_DEBUG_OPTION% index.js"
   },
   "repository": {
     "type": "git",
