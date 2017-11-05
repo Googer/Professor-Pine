@@ -1081,8 +1081,9 @@ class ImageProcessing {
 							.catch(err => log.error(err));
 					}
 
-					message.delete()
-						.catch(err => log.error(err));
+					// TODO:  Uncomment this out some day when mods are satisfied with screenshot processing
+					// message.delete()
+					// 	.catch(err => log.error(err));
 				});
 			})
 			.then(async bot_message => {
