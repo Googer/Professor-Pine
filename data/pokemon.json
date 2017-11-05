@@ -1,18 +1,18 @@
 [
   {
-	"tier": 1
+    "tier": 1
   },
   {
-	"tier": 2
+    "tier": 2
   },
   {
-	"tier": 3
+    "tier": 3
   },
   {
-	"tier": 4
+    "tier": 4
   },
   {
-	"tier": 5
+    "tier": 5
   },
   {
     "nickname": [
@@ -32,12 +32,14 @@
   },
   {
     "name": "ivysaur",
-    "number": 2
+    "number": 2,
+    "cp": 5238,
+    "tier": 1
   },
   {
     "name": "venusaur",
     "number": 3,
-	"cp": 26921,
+    "cp": 26921,
     "tier": 4
   },
   {
@@ -46,12 +48,14 @@
   },
   {
     "name": "charmeleon",
-    "number": 5
+    "number": 5,
+    "cp": 5038,
+    "tier": 1
   },
   {
     "name": "charizard",
     "number": 6,
-	"cp": 28485,
+    "cp": 28485,
     "tier": 4
   },
   {
@@ -60,12 +64,14 @@
   },
   {
     "name": "wartortle",
-    "number": 8
+    "number": 8,
+    "cp": 4503,
+    "tier": 1
   },
   {
     "name": "blastoise",
     "number": 9,
-	"cp": 24162,
+    "cp": 24162,
     "tier": 4
   },
   {
@@ -74,7 +80,9 @@
   },
   {
     "name": "metapod",
-    "number": 11
+    "number": 11,
+    "cp": 1534,
+    "tier": 1
   },
   {
     "name": "butterfree",
@@ -142,7 +150,9 @@
   },
   {
     "name": "sandslash",
-    "number": 28
+    "number": 28,
+    "cp": 12312,
+    "tier": 2
   },
   {
     "name": "nidoran♀",
@@ -154,7 +164,9 @@
   },
   {
     "name": "nidoqueen",
-    "number": 31
+    "number": 31,
+    "cp": 23216,
+    "tier": 4
   },
   {
     "name": "nidoran♂",
@@ -166,7 +178,9 @@
   },
   {
     "name": "nidoking",
-    "number": 34
+    "number": 34,
+    "cp": 24873,
+    "tier": 4
   },
   {
     "name": "clefairy",
@@ -182,7 +196,9 @@
   },
   {
     "name": "ninetales",
-    "number": 38
+    "number": 38,
+    "cp": 14914,
+    "tier": 3
   },
   {
     "name": "jigglypuff",
@@ -267,7 +283,7 @@
   {
     "name": "arcanine",
     "number": 59,
-	"cp": 17832,
+    "cp": 17832,
     "tier": 3
   },
   {
@@ -280,7 +296,9 @@
   },
   {
     "name": "poliwrath",
-    "number": 62
+    "number": 62,
+    "cp": 24247,
+    "tier": 4
   },
   {
     "name": "abra",
@@ -293,7 +311,7 @@
   {
     "name": "alakazam",
     "number": 65,
-	"cp": 22646,
+    "cp": 22646,
     "tier": 3
   },
   {
@@ -307,7 +325,7 @@
   {
     "name": "machamp",
     "number": 68,
-	"cp": 18144,
+    "cp": 18144,
     "tier": 3
   },
   {
@@ -320,7 +338,9 @@
   },
   {
     "name": "victreebel",
-    "number": 71
+    "number": 71,
+    "cp": 23780,
+    "tier": 4
   },
   {
     "name": "tentacool",
@@ -328,7 +348,9 @@
   },
   {
     "name": "tentacruel",
-    "number": 73
+    "number": 73,
+    "cp": 12190,
+    "tier": 2
   },
   {
     "name": "geodude",
@@ -340,7 +362,9 @@
   },
   {
     "name": "golem",
-    "number": 76
+    "number": 76,
+    "cp": 30572,
+    "tier": 4
   },
   {
     "name": "ponyta",
@@ -364,7 +388,9 @@
   },
   {
     "name": "magneton",
-    "number": 82
+    "number": 82,
+    "cp": 14172,
+    "tier": 2
   },
   {
     "name": "farfetch'd",
@@ -393,7 +419,7 @@
   {
     "name": "muk",
     "number": 89,
-	"cp": 12269,
+    "cp": 12269,
     "tier": 2
   },
   {
@@ -402,7 +428,9 @@
   },
   {
     "name": "cloyster",
-    "number": 91
+    "number": 91,
+    "cp": 15678,
+    "tier": 2
   },
   {
     "name": "gastly",
@@ -415,7 +443,7 @@
   {
     "name": "gengar",
     "number": 94,
-	"cp": 19768,
+    "cp": 19768,
     "tier": 3
   },
   {
@@ -453,7 +481,7 @@
   {
     "name": "exeggutor",
     "number": 103,
-	"cp": 13839,
+    "cp": 13839,
     "tier": 2
   },
   {
@@ -462,7 +490,9 @@
   },
   {
     "name": "marowak",
-    "number": 105
+    "number": 105,
+    "cp": 9891,
+    "tier": 2
   },
   {
     "name": "hitmonlee",
@@ -483,7 +513,7 @@
   {
     "name": "weezing",
     "number": 110,
-	"cp": 12318,
+    "cp": 12318,
     "tier": 2
   },
   {
@@ -493,7 +523,7 @@
   {
     "name": "rhydon",
     "number": 112,
-	"cp": 30512,
+    "cp": 30512,
     "tier": 4
   },
   {
@@ -538,7 +568,9 @@
   },
   {
     "name": "scyther",
-    "number": 123
+    "number": 123,
+    "cp": 17358,
+    "tier": 3
   },
   {
     "name": "jynx",
@@ -547,13 +579,13 @@
   {
     "name": "electabuzz",
     "number": 125,
-	"cp": 12390,
+    "cp": 12390,
     "tier": 2
   },
   {
     "name": "magmar",
     "number": 126,
-	"cp": 12718,
+    "cp": 12718,
     "tier": 2
   },
   {
@@ -570,7 +602,7 @@
       "karp"
     ],
     "number": 129,
-	"cp": 1165,
+    "cp": 1165,
     "tier": 1
   },
   {
@@ -580,7 +612,7 @@
   {
     "name": "lapras",
     "number": 131,
-	"cp": 21768,
+    "cp": 21768,
     "tier": 4
   },
   {
@@ -594,24 +626,26 @@
   {
     "name": "vaporeon",
     "number": 134,
-	"cp": 16696,
+    "cp": 16696,
     "tier": 3
   },
   {
     "name": "jolteon",
     "number": 135,
-	"cp": 19883,
+    "cp": 19883,
     "tier": 3
   },
   {
     "name": "flareon",
     "number": 136,
-	"cp": 21155,
+    "cp": 21155,
     "tier": 3
   },
   {
     "name": "porygon",
-    "number": 137
+    "number": 137,
+    "cp": 11419,
+    "tier": 3
   },
   {
     "name": "omanyte",
@@ -619,7 +653,9 @@
   },
   {
     "name": "omastar",
-    "number": 139
+    "number": 139,
+    "cp": 18915,
+    "tier": 3
   },
   {
     "name": "kabuto",
@@ -636,28 +672,34 @@
   {
     "name": "snorlax",
     "number": 143,
-	"cp": 25419,
+    "cp": 25419,
     "tier": 4
   },
   {
     "name": "articuno",
-    "nickname": ["arty"],
+    "nickname": [
+      "arty"
+    ],
     "number": 144,
-	"cp": 37603,
+    "cp": 37603,
     "tier": 5
   },
   {
     "name": "zapdos",
-    "nickname": ["zappy"],
+    "nickname": [
+      "zappy"
+    ],
     "number": 145,
-	"cp": 42691,
+    "cp": 42691,
     "tier": 5
   },
   {
     "name": "moltres",
-    "nickname": ["molty"],
+    "nickname": [
+      "molty"
+    ],
     "number": 146,
-	"cp": 41953,
+    "cp": 41953,
     "tier": 5
   },
   {
@@ -675,13 +717,13 @@
   {
     "name": "mewtwo",
     "number": 150,
-	"cp": 49430,
+    "cp": 49430,
     "exclusive": true
   },
   {
     "name": "mew",
     "number": 151,
-	"cp": 37733,
+    "cp": 37733,
     "tier": 5
   },
   {
@@ -691,7 +733,7 @@
   {
     "name": "bayleef",
     "number": 153,
-	"cp": 4375,
+    "cp": 4375,
     "tier": 1
   },
   {
@@ -705,7 +747,7 @@
   {
     "name": "quilava",
     "number": 156,
-	"cp": 5085,
+    "cp": 5085,
     "tier": 1
   },
   {
@@ -719,7 +761,7 @@
   {
     "name": "croconaw",
     "number": 159,
-	"cp": 5207,
+    "cp": 5207,
     "tier": 1
   },
   {
@@ -1057,19 +1099,19 @@
   {
     "name": "raikou",
     "number": 243,
-	"cp": 42932,
+    "cp": 42932,
     "tier": 5
   },
   {
     "name": "entei",
     "number": 244,
-	"cp": 38628,
+    "cp": 38628,
     "tier": 5
   },
   {
     "name": "suicune",
     "number": 245,
-	"cp": 34471,
+    "cp": 34471,
     "tier": 5
   },
   {
@@ -1082,27 +1124,29 @@
   },
   {
     "name": "tyranitar",
-    "nickname": ["ttar"],
+    "nickname": [
+      "ttar"
+    ],
     "number": 248,
-	"cp": 34707,
+    "cp": 34707,
     "tier": 4
   },
   {
     "name": "lugia",
     "number": 249,
-	"cp": 42753,
+    "cp": 42753,
     "tier": 5
   },
   {
     "name": "ho-oh",
     "number": 250,
-	"cp": 55251,
+    "cp": 55251,
     "tier": 5
   },
   {
     "name": "celebi",
     "number": 251,
-	"cp": 37726
+    "cp": 37726
   },
   {
     "name": "treecko",
@@ -1306,7 +1350,9 @@
   },
   {
     "name": "sableye",
-    "number": 302
+    "number": 302,
+    "cp": 8266,
+    "tier": 2
   },
   {
     "name": "mawile",
