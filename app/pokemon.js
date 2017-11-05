@@ -63,9 +63,12 @@ class Pokemon extends Search {
 		result = this.internalSearch(terms
 			.map(term => term.match(/(\d+)$/))
 			.filter(match => !!match)
-			.map(match => match[1]), ['tier']);
+			.map(match => match[1]), ['tier'])
+			.map(result => JSON.parse(result.ref))
+			.filter(pokemon => pokemon.name === undefined);
+
 		if (result !== undefined) {
-			return JSON.parse(result[0].ref);
+			return result[0];
 		}
 	}
 }
