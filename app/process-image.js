@@ -14,7 +14,7 @@ const log = require('loglevel').getLogger('ImageProcessor'),
 	{TimeParameter} = require('../app/constants');
 
 // Will save all images regardless of how right or wrong, in order to better examine output
-const debug_flag = false;
+const debug_flag = true;
 
 class ImageProcessing {
 	constructor() {
@@ -24,24 +24,44 @@ class ImageProcessing {
 		if (!fs.existsSync(path.join(__dirname, this.image_path))) {
 			fs.mkdirSync(path.join(__dirname, this.image_path));
 		}
+
+		this.tesseract = tesseract.create({
+			langPath: path.dirname(require.resolve('PgP-Data/data/eng.traineddata'))
+		});
+
+		this.base_tesseract_options = {
+			load_bigram_dawg: '0',
+			load_fixed_length_dawgs: '0',
+			load_freq_dawg: '0',
+			load_unambig_dawg: '0',
+			paragraph_text_based: '0',
+			language_model_penalty_non_dict_word: '1.5',
+			classify_misfit_junk_penalty: '0.8',
+			language_model_penalty_font: '0.8',
+			language_model_penalty_script: '0.8',
+			segment_penalty_dict_nonword: '1.5',
+			segment_penalty_garbage: '2.0'
+		};
+
+		this.gym_pokemon_tesseract_options = Object.assign({}, this.base_tesseract_options, {
+			load_number_dawg: '0',
+			load_punc_dawg: '0'
+		});
+
+		this.time_tesseract_options = Object.assign({}, this.base_tesseract_options, {
+			load_system_dawg: '0',
+			// tessedit_char_whitelist: '0123456789 :apmAPM'
+		});
+
+		this.tier_tesseract_options = Object.assign({}, this.base_tesseract_options, {
+			load_system_dawg: '0',
+			load_punc_dawg: '0',
+			load_number_dawg: '0',
+			tessedit_char_whitelist: '@'
+		});
 	}
 
 	initialize() {
-		// ugly 1 time tesseract hack to get lang and other information from CDN? which causes the first run through to be super super slow
-		tesseract.recognize(path.join(__dirname, '/../assets/images/mystic.png'))
-			.catch(err => {
-			})
-			.then(result => {
-			});
-
-		Helper.client.on('reconnecting', () => {
-			tesseract.recognize(path.join(__dirname, '/../assets/images/mystic.png'))
-				.catch(err => {
-				})
-				.then(result => {
-				});
-		});
-
 		Helper.client.on('message', message => {
 			const image_url = (message.attachments.size) ?
 				message.attachments.first().url :
@@ -412,7 +432,7 @@ class ImageProcessing {
 						reject(err);
 					}
 
-					tesseract.recognize(image)
+					this.tesseract.recognize(image, this.time_tesseract_options)
 						.catch(err => reject(err))
 						.then(result => {
 							// basically strip out everything except spaces, colons, and battery % life, then match any typical time values
@@ -450,7 +470,7 @@ class ImageProcessing {
 						reject(err);
 					}
 
-					tesseract.recognize(image)
+					this.tesseract.recognize(image, this.time_tesseract_options)
 						.catch(err => reject(err))
 						.then(result => {
 							// basically strip out everything except spaces, colons, and battery % life, then match any typical time values
@@ -533,7 +553,7 @@ class ImageProcessing {
 							reject(err);
 						}
 
-						tesseract.recognize(image)
+						this.tesseract.recognize(image, this.time_tesseract_options)
 							.catch(err => reject(err))
 							.then(result => {
 								// NOTE: important that the letter "o" be replaced with a 0, in order to properly match a time
@@ -564,7 +584,7 @@ class ImageProcessing {
 							reject(err);
 						}
 
-						tesseract.recognize(image)
+						this.tesseract.recognize(image, this.time_tesseract_options)
 							.catch(err => reject(err))
 							.then(result => {
 								// NOTE: important that the letter "o" be replaced with a 0, in order to properly match a time
@@ -654,7 +674,7 @@ class ImageProcessing {
 			}
 
 			if (debug_flag || (!validation && log.getLevel() === log.levels.DEBUG)) {
-				log.warn('Gym Name: ', id, values.result.text);
+				log.warn('Gym Name: ', id, values.text);
 				values.image.write(debug_image_path);
 			}
 
@@ -693,7 +713,7 @@ class ImageProcessing {
 					reject(err);
 				}
 
-				tesseract.recognize(image)
+				this.tesseract.recognize(image, this.gym_pokemon_tesseract_options)
 					.catch(err => reject(err))
 					.then(result => {
 						const text = result.text.replace(/[^\w\s-]/g, '').replace(/\n/g, ' ').trim();
@@ -776,7 +796,7 @@ class ImageProcessing {
 					reject(err);
 				}
 
-				tesseract.recognize(image)
+				this.tesseract.recognize(image, this.gym_pokemon_tesseract_options)
 					.catch(err => reject(err))
 					.then(result => {
 						const text = result.text.replace(/[^\w\n]/gi, '');
@@ -872,7 +892,7 @@ class ImageProcessing {
 						reject(err);
 					}
 
-					tesseract.recognize(image)
+					this.tesseract.recognize(image, this.tier_tesseract_options)
 						.catch(err => reject(err))
 						.then(result => {
 							// replace characters that are almost always jibberish characters
