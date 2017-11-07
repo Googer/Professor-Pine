@@ -17,7 +17,7 @@ class RethinkDBManager {
 	}
 
 	initialize(guilds) {
-		// for every guild/sever the bot is connected to, attempt to initialize DB's for each if they don't already exist
+		// for every guild/server the bot is connected to, attempt to initialize DB's for each if they don't already exist
 		guilds.forEach((key, value, map) => {
 			this.guilds.set(key.id, map);
 
