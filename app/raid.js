@@ -2,6 +2,7 @@
 
 const log = require('loglevel').getLogger('Raid'),
 	moment = require('moment'),
+	private_settings = require('../data/private-settings'),
 	settings = require('../data/settings'),
 	storage = require('node-persist'),
 	{RaidStatus, Team} = require('./constants'),
@@ -760,7 +761,7 @@ class Raid {
 			raid.pokemon.name.charAt(0).toUpperCase() + raid.pokemon.name.slice(1) :
 			'????',
 			pokemon_url = !!raid.pokemon.name ?
-				`${settings.pokemon_url_base}${pokemon}-Pokemon-Go.png` :
+				`${private_settings.pokemon_url_base}${pokemon}-Pokemon-Go.png` :
 				'',
 
 			raid_description = raid.is_exclusive ?

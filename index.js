@@ -12,10 +12,10 @@ require('loglevel-prefix-persist/server')(process.env.NODE_ENV, log, {
 
 log.setLevel('debug');
 
-const discord_settings = require('./data/discord'),
+const private_settings = require('./data/private-settings'),
 	Commando = require('discord.js-commando'),
 	Client = new Commando.Client({
-		owner: discord_settings.owner,
+		owner: private_settings.owner,
 		restWsBridgeTimeout: 10000,
 		restTimeOffset: 1000
 	}),
@@ -69,6 +69,8 @@ Client.registry.registerCommands([
 	require('./commands/raids/set-pokemon'),
 	require('./commands/raids/set-location'),
 
+	require('./commands/raids/submit-request'),
+
 	require('./commands/roles/iam'),
 	require('./commands/roles/iamnot')
 ]);
@@ -114,7 +116,7 @@ Client.on('disconnect', event => {
 	log.error(`Client disconnected, code ${event.code}, reason '${event.reason}'...`);
 
 	Client.destroy()
-		.then(() => Client.login(discord_settings.discord_bot_token));
+		.then(() => Client.login(private_settings.discord_bot_token));
 });
 
 Client.on('reconnecting', () => log.info('Client reconnecting...'));
@@ -123,4 +125,4 @@ Client.on('guildUnavailable', guild => {
 	log.warn(`Guild ${guild.id} unavailable!`);
 });
 
-Client.login(discord_settings.discord_bot_token);
+Client.login(private_settings.discord_bot_token);

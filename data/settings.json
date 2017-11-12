@@ -10,7 +10,6 @@
   "cleanup_interval": 60000,
   "message_cleanup_delay_success": 5000,
   "message_cleanup_delay_error": 30000,
-  "pokemon_url_base": "https://rankedboost.com/wp-content/plugins/ice/pokemon-go/",
   "channels": {
     "bot_lab": "the-bot-lab",
     "mod_bot_lab": "mod-bot-only",
