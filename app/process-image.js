@@ -14,7 +14,7 @@ const log = require('loglevel').getLogger('ImageProcessor'),
 	{TimeParameter} = require('../app/constants');
 
 // Will save all images regardless of how right or wrong, in order to better examine output
-const debug_flag = true;
+const debug_flag = false;
 
 class ImageProcessing {
 	constructor() {
@@ -25,7 +25,9 @@ class ImageProcessing {
 			fs.mkdirSync(path.join(__dirname, this.image_path));
 		}
 
-		this.tesseract = tesseract.create({
+		this.tesseract = tesseract.create();
+
+		this.gym_pokemon_tesseract = tesseract.create({
 			langPath: path.dirname(require.resolve('PgP-Data/data/eng.traineddata'))
 		});
 
@@ -40,7 +42,7 @@ class ImageProcessing {
 			language_model_penalty_font: '0.8',
 			language_model_penalty_script: '0.8',
 			segment_penalty_dict_nonword: '1.5',
-			segment_penalty_garbage: '2.0'
+			// segment_penalty_garbage: '2.0'
 		};
 
 		this.gym_pokemon_tesseract_options = Object.assign({}, this.base_tesseract_options, {
@@ -50,14 +52,16 @@ class ImageProcessing {
 
 		this.time_tesseract_options = Object.assign({}, this.base_tesseract_options, {
 			load_system_dawg: '0',
-			// tessedit_char_whitelist: '0123456789 :apmAPM'
+			// tessedit_pageseg_mode: '7',	// character mode; instead of word mode
+			// tessedit_char_whitelist: '0123456789: AaPpMm'
 		});
 
 		this.tier_tesseract_options = Object.assign({}, this.base_tesseract_options, {
 			load_system_dawg: '0',
 			load_punc_dawg: '0',
 			load_number_dawg: '0',
-			tessedit_char_whitelist: '@'
+			classify_misfit_junk_penalty: '0',
+			tessedit_char_whitelist: '@®©'
 		});
 	}
 
@@ -104,6 +108,43 @@ class ImageProcessing {
 				// resize to some standard size to help tesseract
 				new_image = image.scaleToFit(1440, 2560, Jimp.RESIZE_HERMITE);
 
+				// determine if image is a raid image or not
+				let pixel_check = Jimp.intToRGBA(image.getPixelColor(30, 300));
+				let raid = false;
+
+				// if pure white pixel, not a raid screenshot
+				if (pixel_check.r === 240 && pixel_check.g === 240 && pixel_check.b === 240) {
+					return null;
+				}
+
+				// check for pink "time remaining" pixels
+				new_image.scan(new_image.bitmap.width / 2, (new_image.bitmap.height / 4.34) - 80, 1, 80 + 80, function(x, y, idx) {
+					const red = this.bitmap.data[idx + 0],
+						green = this.bitmap.data[idx + 1],
+						blue = this.bitmap.data[idx + 2];
+
+					// pink = { r: 250, g: 135, b: 149 }
+					if (red <= 255 && red >= 240 && green <= 145 && green >= 125 && blue <= 159 && blue >= 139) {
+						raid = true;
+					}
+				});
+
+				// check for orange "time remaining" pixels
+				new_image.scan(new_image.bitmap.width / 1.19, (new_image.bitmap.height / 1.72) - 80, 1, 80 + 80, function(x, y, idx) {
+					const red = this.bitmap.data[idx + 0],
+						green = this.bitmap.data[idx + 1],
+						blue = this.bitmap.data[idx + 2];
+
+					// orange = { r: 255, g: 120, b: 55 }
+					if (red <= 255 && red >= 245 && green <= 130 && green >= 110 && blue <= 65 && blue >= 45) {
+						raid = true;
+					}
+				});
+
+				if (!raid) {
+					return null;
+				}
+
 				return this.getRaidData(id, message, new_image);
 			})
 			.then(data => {
@@ -111,7 +152,7 @@ class ImageProcessing {
 
 				// write original image as a reference
 				if (debug_flag ||
-					((data === false || !data.phone_time || !data.gym || !data.time_remaining || data.pokemon.placeholder) && log.getLevel() === log.levels.DEBUG)) {
+					((data === false || (data && (!data.phone_time || !data.gym || !data.time_remaining || data.pokemon.placeholder))) && log.getLevel() === log.levels.DEBUG)) {
 					new_image.write(path.join(__dirname, this.image_path, `${id}.png`));
 				}
 
@@ -335,6 +376,50 @@ class ImageProcessing {
 		}
 	}
 
+
+	/**
+	 * Basically try to augment tesseract text confidence in by replacing low confidence with spaces and searching for colons
+	 **/
+	tesseractProcessTime(result) {
+		let text = result.text;
+
+		if (result.confidence < 70 || result.text.search(':') < 0) {
+			text = '';
+
+			for (let i=0; i<result.symbols.length; i++) {
+				let symbol = result.symbols[i];
+				let symbol_text = symbol.text;
+
+				if (symbol.confidence < 60) {
+					// replace bad symbol matches (which are likely icons in phone's header bar) with a separator/space character
+					symbol_text = ' ';
+				} else if (symbol.confidence < 80) {
+					// look for colon in time string
+					for (let j=0; j<symbol.choices.length; j++) {
+						let choice = symbol.choices[j];
+
+						if (choice.text == ':') {
+							symbol_text = choice.text;
+						}
+					}
+				}
+
+				text += symbol_text;
+			}
+		}
+
+		let match = text.replace(/[^\w\s:%]/g, '').replace(/[oO]/g, 0).match(/([0-9]{1,2}:[0-9]{1,2}){1}\s?([ap])?m?/gi);
+
+		// finally if AM or PM is in text, need to ensure the power meter bar, which is often read as a number, is stripped out
+		if (match && match[0].search(/[ap]m/i) > 0) {
+			if (!isNaN(match[0][0]) && parseInt(match[0][1]) >= 3) {
+				match[0] = match[0].slice(1);
+			}
+		}
+
+		return match;
+	}
+
 	async getPhoneTime(id, message, image, region) {
 		let values, phone_time;
 
@@ -349,7 +434,7 @@ class ImageProcessing {
 			if (phone_time) {
 				// Determine of AM or PM time
 				if (phone_time.search(/([ap])m/gi) >= 0) {
-					phone_time = moment(phone_time, 'hh:mma');
+					phone_time = moment(phone_time, 'h:mma');
 				} else {
 					// figure out if time should be AM or PM
 					const now = moment(),
@@ -391,11 +476,11 @@ class ImageProcessing {
 			let width;
 
 			if (level === 0) {
-				width = region.width / 4.9;
+				width = region.width / 4.5;
 			} else if (level === 1) {
-				width = region.width / 4.9;
+				width = region.width / 4.5;
 			} else if (level === 2) {
-				width = region.width / 5.6;
+				width = region.width / 5.5;
 			} else {
 				width = region.width / 6.2;
 			}
@@ -436,7 +521,7 @@ class ImageProcessing {
 						.catch(err => reject(err))
 						.then(result => {
 							// basically strip out everything except spaces, colons, and battery % life, then match any typical time values
-							const match = result.text.replace(/[^\w\s:%]/g, '').replace(/[oO]/g, 0).match(/([0-9]{1,2}:[0-9]{1,2}){1}\s?([ap])?m?/gi);
+							const match = this.tesseractProcessTime(result);
 							if (match && match.length) {
 								resolve({
 									image: new_image,
@@ -474,7 +559,7 @@ class ImageProcessing {
 						.catch(err => reject(err))
 						.then(result => {
 							// basically strip out everything except spaces, colons, and battery % life, then match any typical time values
-							const match = result.text.replace(/[^\w\s:%]/g, '').replace(/[oO]/g, 0).match(/([0-9]{1,2}:[0-9]{1,2}){1}\s?([ap])?m?/gi);
+							const match = this.tesseractProcessTime(result);
 							if (match && match.length) {
 								resolve({
 									image: new_image,
@@ -553,7 +638,7 @@ class ImageProcessing {
 							reject(err);
 						}
 
-						this.tesseract.recognize(image, this.time_tesseract_options)
+						this.tesseract.recognize(image)
 							.catch(err => reject(err))
 							.then(result => {
 								// NOTE: important that the letter "o" be replaced with a 0, in order to properly match a time
@@ -584,7 +669,7 @@ class ImageProcessing {
 							reject(err);
 						}
 
-						this.tesseract.recognize(image, this.time_tesseract_options)
+						this.tesseract.recognize(image)
 							.catch(err => reject(err))
 							.then(result => {
 								// NOTE: important that the letter "o" be replaced with a 0, in order to properly match a time
@@ -713,7 +798,7 @@ class ImageProcessing {
 					reject(err);
 				}
 
-				this.tesseract.recognize(image, this.gym_pokemon_tesseract_options)
+				this.gym_pokemon_tesseract.recognize(image, this.gym_pokemon_tesseract_options)
 					.catch(err => reject(err))
 					.then(result => {
 						const text = result.text.replace(/[^\w\s-]/g, '').replace(/\n/g, ' ').trim();
@@ -796,7 +881,7 @@ class ImageProcessing {
 					reject(err);
 				}
 
-				this.tesseract.recognize(image, this.gym_pokemon_tesseract_options)
+				this.gym_pokemon_tesseract.recognize(image, this.gym_pokemon_tesseract_options)
 					.catch(err => reject(err))
 					.then(result => {
 						const text = result.text.replace(/[^\w\n]/gi, '');
