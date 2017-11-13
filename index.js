@@ -73,12 +73,21 @@ Client.registry.registerCommands([
 	require('./commands/roles/iamnot')
 ]);
 
+let is_initialized = false;
+
 Client.on('ready', () => {
 	log.info('Client logged in');
-	Helper.setClient(Client);
-	Raid.setClient(Client);
-	DB.initialize(Client.guilds);
-	IP.initialize();
+
+	// Only initialize various classes once ever since ready event gets fired
+	// upon reconnecting after longer outages
+	if (!is_initialized) {
+		Helper.setClient(Client);
+		Raid.setClient(Client);
+		DB.initialize(Client.guilds);
+		IP.initialize();
+
+		is_initialized = true;
+	}
 });
 
 Client.on('error', err => log.error(err));
