@@ -118,8 +118,8 @@ class ImageProcessing {
 				}
 
 				// check for pink "time remaining" pixels
-				new_image.scan(new_image.bitmap.width / 2, (new_image.bitmap.height / 4.34) - 80, 1, 80 + 80, function(x, y, idx) {
-					const red = this.bitmap.data[idx + 0],
+				new_image.scan(new_image.bitmap.width / 2, (new_image.bitmap.height / 4.34) - 80, 1, 80 + 80, function (x, y, idx) {
+					const red = this.bitmap.data[idx],
 						green = this.bitmap.data[idx + 1],
 						blue = this.bitmap.data[idx + 2];
 
@@ -130,8 +130,8 @@ class ImageProcessing {
 				});
 
 				// check for orange "time remaining" pixels
-				new_image.scan(new_image.bitmap.width / 1.19, (new_image.bitmap.height / 1.72) - 80, 1, 80 + 80, function(x, y, idx) {
-					const red = this.bitmap.data[idx + 0],
+				new_image.scan(new_image.bitmap.width / 1.19, (new_image.bitmap.height / 1.72) - 80, 1, 80 + 80, function (x, y, idx) {
+					const red = this.bitmap.data[idx],
 						green = this.bitmap.data[idx + 1],
 						blue = this.bitmap.data[idx + 2];
 
@@ -386,7 +386,7 @@ class ImageProcessing {
 		if (result.confidence < 70 || result.text.search(':') < 0) {
 			text = '';
 
-			for (let i=0; i<result.symbols.length; i++) {
+			for (let i = 0; i < result.symbols.length; i++) {
 				let symbol = result.symbols[i];
 				let symbol_text = symbol.text;
 
@@ -395,10 +395,10 @@ class ImageProcessing {
 					symbol_text = ' ';
 				} else if (symbol.confidence < 80) {
 					// look for colon in time string
-					for (let j=0; j<symbol.choices.length; j++) {
+					for (let j = 0; j < symbol.choices.length; j++) {
 						let choice = symbol.choices[j];
 
-						if (choice.text == ':') {
+						if (choice.text === ':') {
 							symbol_text = choice.text;
 						}
 					}
@@ -607,7 +607,7 @@ class ImageProcessing {
 		}
 
 		// NOTE:  There is a chance time_remaining could not be determined... not sure if we would want to do
-		//			a different time of image processing at that point or not...
+		//        a different time of image processing at that point or not...
 		return {time_remaining: values.text, egg: values.egg};
 	}
 
