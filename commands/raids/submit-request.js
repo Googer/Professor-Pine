@@ -20,7 +20,7 @@ class SubmitRequestCommand extends Commando.Command {
 			details: 'Use this command submit a change request to a gym, such as a nickname, additional search terms for it, additional information that should be displayed with its raid status messages, etc.',
 			examples: ['\t!request',
 				'\t!request Everyone local knows this gym as \'red door church\'.  Can you add this as a nickname for it?',
-			'\t!request The owner of the store that this gym is at gets annoyed if players stand in front of the door to his shop\'s entrance.'],
+				'\t!request The owner of the store that this gym is at gets annoyed if players stand in front of the door to his shop\'s entrance.'],
 			throttling: {
 				usages: 3,
 				duration: 1800
@@ -28,7 +28,7 @@ class SubmitRequestCommand extends Commando.Command {
 			args: [
 				{
 					key: 'reason',
-					prompt: 'What information do you want added or changed for this gym?\n',
+					prompt: 'What information do you want to be added or changed for this gym?\n',
 					type: 'string',
 					wait: 120,
 					infinite: true
