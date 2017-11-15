@@ -73,7 +73,7 @@ class ImageProcessing {
 
 			// attempt to process first attachment/image if it exists (maybe some day will go through all the attachments...)
 			if (image_url && image_url.search(/jpg|jpeg|png/)) {
-				log.info('Image Processing Start: ', message.member.nickname, message.channel.name, image_url);
+				log.info('Image Processing Start: ', message.member.displayName, message.channel.name, image_url);
 				message.temporary_processing_timestamp = Date.now();
 				this.process(message, image_url);
 			}
@@ -124,7 +124,7 @@ class ImageProcessing {
 						blue = this.bitmap.data[idx + 2];
 
 					// pink = { r: 250, g: 135, b: 149 }
-					if (red <= 255 && red >= 240 && green <= 145 && green >= 125 && blue <= 159 && blue >= 139) {
+					if (red <= 255 && red >= 230 && green <= 145 && green >= 125 && blue <= 159 && blue >= 139) {
 						raid = true;
 					}
 				});
@@ -136,7 +136,7 @@ class ImageProcessing {
 						blue = this.bitmap.data[idx + 2];
 
 					// orange = { r: 255, g: 120, b: 55 }
-					if (red <= 255 && red >= 245 && green <= 130 && green >= 110 && blue <= 65 && blue >= 45) {
+					if (red <= 255 && red >= 235 && green <= 130 && green >= 110 && blue <= 65 && blue >= 45) {
 						raid = true;
 					}
 				});
@@ -406,6 +406,11 @@ class ImageProcessing {
 
 				text += symbol_text;
 			}
+		}
+
+		// if still no colon, replace common matches with colon in an attempt to get a match
+		if (text.search(':') < 0) {
+			text = text.replace(/\./g, ':');
 		}
 
 		let match = text.replace(/[^\w\s:%]/g, '').replace(/[oO]/g, 0).match(/([0-9]{1,2}:[0-9]{1,2}){1}\s?([ap])?m?/gi);
@@ -1186,9 +1191,8 @@ class ImageProcessing {
 							.catch(err => log.error(err));
 					}
 
-					// TODO:  Uncomment this out some day when mods are satisfied with screenshot processing
-					// message.delete()
-					// 	.catch(err => log.error(err));
+					message.delete()
+						.catch(err => log.error(err));
 				});
 			})
 			.then(async bot_message => {
