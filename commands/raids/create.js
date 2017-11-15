@@ -4,6 +4,7 @@ const log = require('loglevel').getLogger('CreateCommand'),
 	Commando = require('discord.js-commando'),
 	{CommandGroup, TimeParameter} = require('../../app/constants'),
 	Gym = require('../../app/gym'),
+	Helper = require('../../app/helper'),
 	Notify = require('../../app/notify'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
@@ -130,7 +131,7 @@ class RaidCommand extends Commando.Command {
 							members
 								.filter(member_id => member_id !== message.member.id)
 								.filter(member_id => raid_channel.permissionsFor(member_id).has('VIEW_CHANNEL'))
-								.map(member_id => message.guild.members.get(member_id))
+								.map(member_id => Helper.getMemberForNotification(message.guild.id, member_id))
 								.forEach(member => {
 									const pokemon_name = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1);
 

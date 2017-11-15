@@ -2,7 +2,8 @@
 
 const log = require('loglevel').getLogger('NotificationsCommand'),
 	Commando = require('discord.js-commando'),
-	{CommandGroup, MessageEmbed} = require('discord.js'),
+	{CommandGroup} = require('../../app/constants'),
+	{MessageEmbed} = require('discord.js'),
 	Helper = require('../../app/helper'),
 	Notify = require('../../app/notify'),
 	Utility = require('../../app/utility');

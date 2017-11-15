@@ -9,6 +9,7 @@ class Helper {
 	constructor() {
 		this.text = text;
 		this.client = null;
+		this.notify_client = null;
 
 		// cache of emoji ids, populated on client login
 		this.emojis = null;
@@ -139,6 +140,14 @@ class Helper {
 			this.emojis.delete(old_emoji.name.toLowerCase());
 			this.emojis.set(new_emoji.name.toLowerCase(), new_emoji);
 		});
+	}
+
+	setNotifyClient(client) {
+		this.notify_client = client;
+	}
+
+	getMemberForNotification(guild_id, member_id) {
+		return this.notify_client.guilds.get(guild_id).members.get(member_id)
 	}
 
 	isManagement(message) {

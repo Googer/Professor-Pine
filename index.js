@@ -14,7 +14,13 @@ log.setLevel('debug');
 
 const private_settings = require('./data/private-settings'),
 	Commando = require('discord.js-commando'),
+	Discord = require('discord.js'),
 	Client = new Commando.Client({
+		owner: private_settings.owner,
+		restWsBridgeTimeout: 10000,
+		restTimeOffset: 1000
+	}),
+	NotifyClient = new Discord.Client({
 		owner: private_settings.owner,
 		restWsBridgeTimeout: 10000,
 		restTimeOffset: 1000
@@ -128,3 +134,21 @@ Client.on('guildUnavailable', guild => {
 });
 
 Client.login(private_settings.discord_bot_token);
+
+//
+
+NotifyClient.on('ready', () => {
+	log.info('Notify client logged in');
+
+	Helper.setNotifyClient(NotifyClient);
+});
+
+NotifyClient.on('error', err => log.error(err));
+NotifyClient.on('warn', err => log.warn(err));
+NotifyClient.on('debug', err => log.debug(err));
+
+NotifyClient.on('rateLimit', event =>
+	log.warn(`Rate limited for ${event.timeout} ms, triggered by method '${event.method}', path '${event.path}', route '${event.route}'`));
+
+
+NotifyClient.login(private_settings.discord_notify_token);

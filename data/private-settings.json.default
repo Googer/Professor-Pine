@@ -1,6 +1,6 @@
-
 {
   "discord_bot_token": "",
+  "discord_notify_token": "",
   "owner": "",
   "pokemon_url_base": "",
   "github_repo": "",

@@ -70,7 +70,9 @@ class Notify {
 						// add pokemon notification for member to DB
 						r.db(member.guild.id)
 							.table(this.db_table)
-							.insert({member: member.id, pokemon: pokemon.name})
+							.insert({
+								member: member.id,
+								pokemon: pokemon.name})
 							.run(DB.connection, (err, result) => {
 								if (err && err.name !== 'ReqlOpFailedError') {
 									reject(err);
@@ -86,7 +88,7 @@ class Notify {
 		});
 	}
 
-	// remove role from user if they have it
+	// remove pokemon notifcation from user if they have it
 	removeNotification(member, pokemon) {
 		return new Promise((resolve, reject) => {
 			this.notificationExists(member, pokemon)
@@ -94,7 +96,9 @@ class Notify {
 					if (exists) {
 						r.db(member.guild.id)
 							.table(this.db_table)
-							.filter({member: member.id, pokemon: pokemon.name})
+							.filter({
+								member: member.id,
+								pokemon: pokemon.name})
 							.delete()
 							.run(DB.connection, (err, result) => {
 								if (err) {
@@ -117,7 +121,9 @@ class Notify {
 		return new Promise((resolve, reject) => {
 			r.db(member.guild.id)
 				.table(this.db_table)
-				.filter({member: member.id, pokemon: pokemon.name})
+				.filter({
+					member: member.id,
+					pokemon: pokemon.name})
 				.run(DB.connection, (err, cursor) => {
 					if (err) {
 						reject(err);
