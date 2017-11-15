@@ -1,9 +1,9 @@
 
 {
-  "discord_bot_token": "MzUyMjM5MTA3NjU0NTQ5NTE0.DMvYbQ.buPhV_lmkbX5qJg7Lc8hLjztVr0",
-  "owner": "277303642992934914",
-  "pokemon_url_base": "https://rankedboost.com/wp-content/plugins/ice/pokemon-go/",
-  "github_repo": "Googer/PgP-Data",
-  "github_user": "pgp-issues",
-  "github_password": "P!2we34rt56yu78io90S"
+  "discord_bot_token": "",
+  "owner": "",
+  "pokemon_url_base": "",
+  "github_repo": "",
+  "github_user": "",
+  "github_password": ""
 }
