@@ -985,39 +985,26 @@ class ImageProcessing {
 					this.tesseract.recognize(image, this.tier_tesseract_options)
 						.catch(err => reject(err))
 						.then(result => {
-							// replace characters that are almost always jibberish characters
-							let text = result.text.replace(/\s“”‘’"'-_=\\\/\+/g, ''),
+							let tier = 0;
 
-								// highly probable / common character regex
-								match1 = text.match(/[@Q9Wé®©]/gi),
+							// tier symbols will all be on the same line, so pick the text/line of whatever line has the most matches (assuming other lines are stray artifacts and/or clouds)
+							for (let i=0; i<result.lines.length; i++) {
+								// replace characters that are almost always jibberish characters
+								const text = result.lines[i].text.replace(/\s/g, '').replace(/“”‘’"'-_=\\\/\+/g, '');
 
-								// consecutive character regex
-								match2 = text.match(/(.)\1+/gi);
+								// match highly probable / common character regex
+								const match = text.match(/[@Q9Wé®©]+/gi);
 
-							if (match1 && match1.length) {
-								// Trying to count commonly observed symbols/letters, if no repeating symbols were found
-								resolve({
-									image: new_image,
-									tier: match1.length,
-									result
-								});
-							} else if (match2 && match2.length) {
-								// sort and grab the longest repeating symbol match, and assume it's the raid tier
-								match2 = match2.sort((a, b) => {
-									return a.length < b.length;
-								});
-								resolve({
-									image: new_image,
-									tier: match2[0].length,
-									result
-								});
-							} else {
-								resolve({
-									image: new_image,
-									tier: 0,
-									result
-								});
+								if (match && match.length && match[0].length > tier) {
+									tier = match[0].length;
+								}
 							}
+
+							resolve({
+								image: new_image,
+								tier,
+								result
+							});
 						});
 				});
 		});
