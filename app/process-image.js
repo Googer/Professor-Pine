@@ -977,6 +977,7 @@ class ImageProcessing {
 			const new_image = image.clone()
 				.crop(region.x, region.y, region.width, region.height)
 				.scan(0, 0, region.width, region.height, this.filterPureWhiteContent2)
+				.blur(1)
 				.getBuffer(Jimp.MIME_PNG, (err, image) => {
 					if (err) {
 						reject(err);
@@ -993,7 +994,7 @@ class ImageProcessing {
 								const text = result.lines[i].text.replace(/\s/g, '').replace(/“”‘’"'-_=\\\/\+/g, '');
 
 								// match highly probable / common character regex
-								const match = text.match(/[@Q9Wé®©]+/gi);
+								const match = text.match(/[@Q9Wé®©]+/g);
 
 								if (match && match.length && match[0].length > tier) {
 									tier = match[0].length;
