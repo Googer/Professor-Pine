@@ -39,7 +39,7 @@ class Notify {
 		return new Promise((resolve, reject) => {
 			r.db(guild.id)
 				.table(this.db_table)
-				.filter(r.row('pokemon').eq(pokemon.name))
+				.filter(r.row('pokemon').eq(pokemon.number))
 				.getField('member')
 				.run(DB.connection, (err, cursor) => {
 					if (err) {
@@ -72,7 +72,7 @@ class Notify {
 							.table(this.db_table)
 							.insert({
 								member: member.id,
-								pokemon: pokemon.name})
+								pokemon: pokemon.number})
 							.run(DB.connection, (err, result) => {
 								if (err && err.name !== 'ReqlOpFailedError') {
 									reject(err);
@@ -98,7 +98,7 @@ class Notify {
 							.table(this.db_table)
 							.filter({
 								member: member.id,
-								pokemon: pokemon.name})
+								pokemon: pokemon.number})
 							.delete()
 							.run(DB.connection, (err, result) => {
 								if (err) {
@@ -123,7 +123,7 @@ class Notify {
 				.table(this.db_table)
 				.filter({
 					member: member.id,
-					pokemon: pokemon.name})
+					pokemon: pokemon.number})
 				.run(DB.connection, (err, cursor) => {
 					if (err) {
 						reject(err);

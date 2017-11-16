@@ -4,9 +4,9 @@ const log = require('loglevel').getLogger('NotificationsCommand'),
 	Commando = require('discord.js-commando'),
 	{CommandGroup} = require('../../app/constants'),
 	{MessageEmbed} = require('discord.js'),
+	pokemon_data = require('../../data/pokemon'),
 	Helper = require('../../app/helper'),
-	Notify = require('../../app/notify'),
-	Utility = require('../../app/utility');
+	Notify = require('../../app/notify');
 
 class NotificationsCommand extends Commando.Command {
 	constructor(client) {
@@ -30,15 +30,16 @@ class NotificationsCommand extends Commando.Command {
 	}
 
 	async run(message, args) {
-		Notify.getNotifications(message.member)
+		return Notify.getNotifications(message.member)
 			.then(async results => {
 				const embed = new MessageEmbed();
 				embed.setTitle('Currently assigned pokémon notifications:');
 				embed.setColor(4437377);
 
 				const pokemon_list = results
+					.map(number => pokemon_data.find(pokemon => pokemon.number === number))
+					.map(pokemon => pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1))
 					.sort()
-					.map(pokemon => pokemon.charAt(0).toUpperCase() + pokemon.slice(1))
 					.join('\n');
 
 				if (pokemon_list.length > 0) {
@@ -47,17 +48,16 @@ class NotificationsCommand extends Commando.Command {
 					embed.setDescription('<None>');
 				}
 
+				const messages = [];
 				try {
-					return message.direct({embed})
-						.then(direct_message => message.reply('Sent you a DM with current raid boss notifications.'))
+					messages.push(await message.direct({embed}));
+					messages.push(await message.reply('Sent you a DM with current raid boss notifications.'));
 				} catch (err) {
-					await message.reply('Unable to send you the notifications list DM. You probably have DMs disabled.')
-						.catch(err => log.error(err));
+					messages.push(await message.reply('Unable to send you the notifications list DM. You probably have DMs disabled.'));
 				}
+				return messages;
 			})
 			.catch(err => log.error(err));
-
-		Utility.cleanConversation(message);
 	}
 }
 

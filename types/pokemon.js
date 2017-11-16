@@ -17,6 +17,11 @@ class PokemonType extends Commando.ArgumentType {
 			return 'No pokémon found.  Please try your search again, entering the text you want to search for.\n';
 		}
 
+		// arg.min holds if we want to enforce a specific pokemon
+		if (arg.min === true && !pokemon.number) {
+			return 'A specific pokémon must be specified.  Please try your search again, entering the text you want to search for.';
+		}
+
 		if (!pokemon.exclusive && !pokemon.tier) {
 			const name = pokemon.name ?
 				`"${pokemon.name.charAt(0).toUpperCase()}${pokemon.name.slice(1)}"` :

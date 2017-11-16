@@ -21,7 +21,8 @@ class NotifyCommand extends Commando.Command {
 				{
 					key: 'pokemon',
 					prompt: 'What pokémon do you wish to be notified for?\nExample: `lugia`\n',
-					type: 'pokemon'
+					type: 'pokemon',
+					min: true  // hacky way of saying we require a specific pokemon (type looks at this parameter)
 				}
 			],
 			argsPromptLimit: 3,
@@ -42,8 +43,6 @@ class NotifyCommand extends Commando.Command {
 		Notify.assignNotification(message.member, pokemon)
 			.then(result => message.react(Helper.getEmoji('snorlaxthumbsup') || '👍'))
 			.catch(err => log.error(err));
-
-		Utility.cleanConversation(message);
 	}
 }
 
