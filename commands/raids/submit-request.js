@@ -49,7 +49,7 @@ class SubmitRequestCommand extends Commando.Command {
 	async run(message, args) {
 		const reason = `Request from ${message.member.displayName}:\n\n` + args['reason']
 				.map(reason => reason.trim())
-				.join('\n'),
+				.join(' '),
 			raid = Raid.getRaid(message.channel.id),
 			gym_id = raid.gym_id,
 			gym = Gym.getGym(gym_id),
