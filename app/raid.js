@@ -891,13 +891,18 @@ class Raid {
 						}
 
 						// add role emoji indicators if role exists
-						const roles = Helper.guild.get(member.guild.id).roles;
-						if (roles.has('mystic') && member.roles.has(roles.get('mystic').id)) {
-							result += ' ❄';
-						} else if (roles.has('valor') && member.roles.has(roles.get('valor').id)) {
-							result += ' 🔥';
-						} else if (roles.has('instinct') && member.roles.has(roles.get('instinct').id)) {
-							result += ' ⚡';
+						switch (Helper.getTeam(member)) {
+							case Team.INSTINCT:
+								result += ' ⚡';
+								break;
+
+							case Team.MYSTIC:
+								result += ' ❄';
+								break;
+
+							case Team.VALOR:
+								result += ' 🔥';
+								break;
 						}
 
 						result += '\n';
