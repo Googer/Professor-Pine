@@ -73,7 +73,7 @@ class ImageProcessing {
 
 			// attempt to process first attachment/image if it exists (maybe some day will go through all the attachments...)
 			if (image_url && image_url.search(/jpg|jpeg|png/)) {
-				log.info('Image Processing Start: ', message.member.nickname, message.channel.name, image_url);
+				log.info('Image Processing Start: ', message.member.displayName, message.channel.name, image_url);
 				message.temporary_processing_timestamp = Date.now();
 				this.process(message, image_url);
 			}
@@ -124,7 +124,7 @@ class ImageProcessing {
 						blue = this.bitmap.data[idx + 2];
 
 					// pink = { r: 250, g: 135, b: 149 }
-					if (red <= 255 && red >= 240 && green <= 145 && green >= 125 && blue <= 159 && blue >= 139) {
+					if (red <= 255 && red >= 230 && green <= 145 && green >= 125 && blue <= 159 && blue >= 139) {
 						raid = true;
 					}
 				});
@@ -136,7 +136,7 @@ class ImageProcessing {
 						blue = this.bitmap.data[idx + 2];
 
 					// orange = { r: 255, g: 120, b: 55 }
-					if (red <= 255 && red >= 245 && green <= 130 && green >= 110 && blue <= 65 && blue >= 45) {
+					if (red <= 255 && red >= 235 && green <= 130 && green >= 110 && blue <= 65 && blue >= 45) {
 						raid = true;
 					}
 				});
@@ -406,6 +406,11 @@ class ImageProcessing {
 
 				text += symbol_text;
 			}
+		}
+
+		// if still no colon, replace common matches with colon in an attempt to get a match
+		if (text.search(':') < 0) {
+			text = text.replace(/\./g, ':');
 		}
 
 		let match = text.replace(/[^\w\s:%]/g, '').replace(/[oO]/g, 0).match(/([0-9]{1,2}:[0-9]{1,2}){1}\s?([ap])?m?/gi);
@@ -972,6 +977,7 @@ class ImageProcessing {
 			const new_image = image.clone()
 				.crop(region.x, region.y, region.width, region.height)
 				.scan(0, 0, region.width, region.height, this.filterPureWhiteContent2)
+				.blur(1)
 				.getBuffer(Jimp.MIME_PNG, (err, image) => {
 					if (err) {
 						reject(err);
@@ -980,39 +986,26 @@ class ImageProcessing {
 					this.tesseract.recognize(image, this.tier_tesseract_options)
 						.catch(err => reject(err))
 						.then(result => {
-							// replace characters that are almost always jibberish characters
-							let text = result.text.replace(/\s“”‘’"'-_=\\\/\+/g, ''),
+							let tier = 0;
 
-								// highly probable / common character regex
-								match1 = text.match(/[@Q9Wé®©]/gi),
+							// tier symbols will all be on the same line, so pick the text/line of whatever line has the most matches (assuming other lines are stray artifacts and/or clouds)
+							for (let i=0; i<result.lines.length; i++) {
+								// replace characters that are almost always jibberish characters
+								const text = result.lines[i].text.replace(/\s/g, '').replace(/“”‘’"'-_=\\\/\+/g, '');
 
-								// consecutive character regex
-								match2 = text.match(/(.)\1+/gi);
+								// match highly probable / common character regex
+								const match = text.match(/[@Q9Wé®©]+/g);
 
-							if (match1 && match1.length) {
-								// Trying to count commonly observed symbols/letters, if no repeating symbols were found
-								resolve({
-									image: new_image,
-									tier: match1.length,
-									result
-								});
-							} else if (match2 && match2.length) {
-								// sort and grab the longest repeating symbol match, and assume it's the raid tier
-								match2 = match2.sort((a, b) => {
-									return a.length < b.length;
-								});
-								resolve({
-									image: new_image,
-									tier: match2[0].length,
-									result
-								});
-							} else {
-								resolve({
-									image: new_image,
-									tier: 0,
-									result
-								});
+								if (match && match.length && match[0].length > tier) {
+									tier = match[0].length;
+								}
 							}
+
+							resolve({
+								image: new_image,
+								tier,
+								result
+							});
 						});
 				});
 		});
@@ -1186,9 +1179,8 @@ class ImageProcessing {
 							.catch(err => log.error(err));
 					}
 
-					// TODO:  Uncomment this out some day when mods are satisfied with screenshot processing
-					// message.delete()
-					// 	.catch(err => log.error(err));
+					message.delete()
+						.catch(err => log.error(err));
 				});
 			})
 			.then(async bot_message => {

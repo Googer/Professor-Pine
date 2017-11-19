@@ -32,18 +32,22 @@ class Raid {
 		this.active_raid_storage
 			.forEach((channel_id, raid) => this.raids[channel_id] = raid);
 
-		let last_interval_time = moment().valueOf();
+		let last_interval_time = moment().valueOf(),
+			last_interval_day = moment().dayOfYear();
 
 		// loop to clean up raids periodically
 		this.update = setInterval(() => {
-			const now = moment().valueOf(),
+			const now_moment = moment(),
+				now_day = now_moment.dayOfYear(),
+				now = now_moment.valueOf(),
 				start_clear_time = now + (settings.start_clear_time * 60 * 1000),
 				deletion_grace_time = settings.deletion_grace_time * 60 * 1000,
 				deletion_time = now + (settings.deletion_warning_time * 60 * 1000);
 
 			Object.entries(this.raids)
 				.forEach(([channel_id, raid]) => {
-					if (raid.hatch_time && now > raid.hatch_time && raid.hatch_time > last_interval_time) {
+					if ((raid.hatch_time && now > raid.hatch_time && raid.hatch_time > last_interval_time) ||
+						now_day !== last_interval_day) {
 						this.refreshStatusMessages(raid)
 							.catch(err => log.error(err));
 					}
@@ -85,6 +89,7 @@ class Raid {
 					}
 
 					last_interval_time = now;
+					last_interval_day = now_day;
 				});
 		}, settings.cleanup_interval);
 	}
@@ -891,13 +896,18 @@ class Raid {
 						}
 
 						// add role emoji indicators if role exists
-						const roles = Helper.guild.get(member.guild.id).roles;
-						if (roles.has('mystic') && member.roles.has(roles.get('mystic').id)) {
-							result += ' ❄';
-						} else if (roles.has('valor') && member.roles.has(roles.get('valor').id)) {
-							result += ' 🔥';
-						} else if (roles.has('instinct') && member.roles.has(roles.get('instinct').id)) {
-							result += ' ⚡';
+						switch (Helper.getTeam(member)) {
+							case Team.INSTINCT:
+								result += ' ⚡';
+								break;
+
+							case Team.MYSTIC:
+								result += ' ❄';
+								break;
+
+							case Team.VALOR:
+								result += ' 🔥';
+								break;
 						}
 
 						result += '\n';
