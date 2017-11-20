@@ -464,7 +464,6 @@ class Raid {
 
 									if (confirmation) {
 										response.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
-											.then(reaction => response.delete({timeout: settings.message_cleanup_delay_success}))
 											.catch(err => log.error(err));
 
 										this.setMemberStatus(channel_id, present_member.id, RaidStatus.COMPLETE);
@@ -473,7 +472,6 @@ class Raid {
 											.catch(err => log.error(err));
 									} else {
 										response.react(Helper.getEmoji('snorlaxthumbsdown') || '👎')
-											.then(reaction => response.delete({timeout: settings.message_cleanup_delay_success}))
 											.catch(err => log.error(err));
 
 										this.setMemberStatus(channel_id, present_member.id, RaidStatus.PRESENT);
@@ -509,12 +507,8 @@ class Raid {
 
 									message.channel
 										.send(`${members_string}: I am assuming you *have* completed this raid.`)
-										.then(message => message.delete({timeout: 60000}))
 										.catch(err => log.error(err));
 								}
-
-								message.delete({timeout: settings.message_cleanup_delay_success})
-									.catch(err => log.error(err));
 							}
 						})
 				});
