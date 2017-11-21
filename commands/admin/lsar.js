@@ -39,7 +39,25 @@ class LsarCommand extends Commando.Command {
 
 			let string = '';
 			for (let i = 0; i < roles.length; i++) {
-				string += roles[i].value + '\n';
+				let aliases = '';
+
+				if (roles[i].aliases) {
+					for (let j = 0; j < roles[i].aliases.length; j++) {
+						aliases += `${roles[i].aliases[j]}`;
+
+						if (j !== roles[i].aliases.length - 1) {
+							aliases += ', ';
+						}
+					}
+				}
+
+				string += `${roles[i].value}`;
+
+				if (aliases.length) {
+					string += ` [${aliases}]`;
+				}
+
+				string += '\n';
 			}
 
 			return message.channel.send({

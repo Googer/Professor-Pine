@@ -36,8 +36,8 @@ class Role {
 			for (let i = 0; i < roles.length; i++) {
 				const value = roles[i].name;
 				const description = roles[i].description || '';
-				const aliases = roles[i].aliases || [];
-				const id = member.guild.roles.find(val => val.name.toLowerCase() === value.toLowerCase());
+				const aliases = roles[i].aliases.map(val => val.toLowerCase()) || [];
+				const id = Helper.guild.get(member.guild.id).roles.get(value.toLowerCase()).id;
 
 				if (!value) {
 					reject({error: `Please enter a role when using this command.`});
