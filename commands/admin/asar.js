@@ -32,9 +32,28 @@ class AsarCommand extends Commando.Command {
 	}
 
 	run(message, args) {
-		// split text by comma "," into an array, and split those strings by "-" for an array of arrays
+		// split text by comma "," into an array, and split those strings by "-" for an array of arrays.
+		//		Additionally look for aliases contained within brackets [] and don't split those until later
 		//		NOTE:  Spaces are required for "-" separation as roles could be "foo-bar"
-		args = args.split(/,\s?/g).map(arg => arg.trim().split(/\s-\s/));
+		args = args.split(/(?![^)(]*\([^)(]*?\)\)),(?![^\[]*\])/g).map(arg => {
+			let [ name, description ] = arg.trim().split(/\s-\s/);
+			let aliases = [];
+
+			if (name.search(/[\[\],]/g) > 0) {
+				const match = name.match(/\[.*\]/g);
+
+				if (match && match[0].length) {
+					aliases = match[0].replace(/[\[\]]/g, '').trim().split(/\s?,\s?/g);
+				}
+			}
+
+			// remove aliases from name string
+			name = name.replace(/\[.*\]/g, '').trim();
+
+			return { name, aliases, description };
+		});
+
+
 
 		Role.upsertRoles(message.channel, message.member, args)
 			.then(() => message.react(Helper.getEmoji('snorlaxthumbsup') || '👍'))
