@@ -15,6 +15,10 @@ class Role {
 	}
 
 	isBotChannel(message) {
+		if (!message.guild) {
+			return false;
+		}
+
 		const guild = Helper.guild.get(message.guild.id),
 			bot_lab_channel_id = guild.channels.bot_lab ?
 				guild.channels.bot_lab.id :

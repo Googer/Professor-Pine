@@ -24,6 +24,7 @@ const private_settings = require('./data/private-settings'),
 	Helper = require('./app/helper'),
 	IP = require('./app/process-image'),
 	Raid = require('./app/raid'),
+	Role = require('./app/role'),
 	Utility = require('./app/utility');
 
 NodeCleanup((exitCode, signal) => {
@@ -45,6 +46,8 @@ Client.registry.registerDefaultCommands({help: false});
 Client.registry.registerTypesIn(__dirname + '/types');
 
 Client.registry.registerCommands([
+	require('./commands/util/find-region'),
+
 	require('./commands/admin/asar'),
 	require('./commands/admin/rsar'),
 	require('./commands/admin/lsar'),
@@ -109,7 +112,7 @@ Client.on('commandError', (command, err, message, args, from_pattern) => {
 });
 
 Client.on('commandFinalize', (command, message, from_pattern) => {
-	Utility.cleanConversation(message, !!message.is_successful, !Raid.validRaid(message.channel.id));
+	Utility.cleanConversation(message, !!message.is_successful, !Raid.validRaid(message.channel.id) && !Role.isBotChannel(message));
 });
 
 Client.on('disconnect', event => {
