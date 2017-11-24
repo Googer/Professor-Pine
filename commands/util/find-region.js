@@ -39,8 +39,7 @@ class FindRegionsCommand extends Commando.Command {
 
 	async run(message, args) {
 		const location = args['location'],
-			regions = await Map.getRegions(location),
-			embed = new MessageEmbed();
+			regions = await Map.getRegions(location);
 
 		if (regions.length > 0) {
 			const channels = regions
@@ -50,16 +49,13 @@ class FindRegionsCommand extends Commando.Command {
 				.map(channel => channel.toString())
 				.join('\n');
 
-			embed.setTitle(`The following regions contain '${location}':`);
-			embed.setDescription(channels);
-			embed.setColor('GREEN');
+			message.channel.send(`The following regions contain **${location}**:\n\n${channels}`)
+				.catch(err => log.error(err));
+			;
 		} else {
-			embed.setTitle('No matching regions found.');
-			embed.setColor('RED');
+			message.channel.send(`No matching regions found for **${location}**.`)
+				.catch(err => log.error(err));
 		}
-
-		message.channel.send(embed)
-			.catch(err => log.error(err));
 	}
 }
 

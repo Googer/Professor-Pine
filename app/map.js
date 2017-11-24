@@ -38,10 +38,30 @@ class Map {
 			}
 			const searched_region = body[0].geojson;
 
-			return this.regions
-				.filter(region => turf.intersect(region, searched_region) !== null)
-				.map(region => region.properties.name);
+			switch (searched_region.type) {
+				case 'Polygon':
+					return this.findMatches(searched_region);
+				case 'MultiPolygon':
+					const matching_regions = new Set();
+
+					searched_region.coordinates
+						.map(coordinates => turf.polygon(coordinates))
+						.forEach(polygon => {
+							this.findMatches(polygon)
+								.forEach(matching_region => matching_regions.add(matching_region));
+						});
+
+					return Array.from(matching_regions.values());
+				default:
+					return [];
+			}
 		}).catch(err => log.error(err));
+	}
+
+	findMatches(polygon) {
+		return this.regions
+			.filter(region => turf.intersect(region, polygon) !== null)
+			.map(region => region.properties.name);
 	}
 }
 
