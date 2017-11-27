@@ -29,12 +29,12 @@ class IAmCommand extends Commando.Command {
 			}
 
 			// command "!iam" - warning of incorrect channel, suggest command & channel
-			if (message.content.search(/^(([.!])\s?i\s?a([mn]))(?!\s?not).*?$/gi) >= 0 && !Role.isBotChannel(message)) {
+			if (message.content.search(/^([.!]\s?i\s?a([mn]))(?!\s?not).*?$/gi) >= 0 && !Role.isBotChannel(message)) {
 				return ['invalid-channel', message.reply(Helper.getText('iam.warning', message))];
 			}
 
 			// command "!iam" - correct channel, incorrect command, suggest command
-			if (message.content.search(/^([.!])\s?i\s?an\s?.*?$/gi) >= 0 && Role.isBotChannel(message)) {
+			if (message.content.search(/^[.!]\s?i\s?a[mn]\s?.*?$/gi) >= 0 && Role.isBotChannel(message)) {
 				return ['invalid-channel', message.reply(Helper.getText('iam.suggestion', message))];
 			}
 

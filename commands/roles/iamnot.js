@@ -30,7 +30,7 @@ class IAmNotCommand extends Commando.Command {
 			}
 
 			// command "!iamnot" - correct channel, incorrect command, suggest command
-			if (message.content.search(/^[.!]\s?i\s?an\s?not\s?.*?$/gi) >= 0 && Role.isBotChannel(message)) {
+			if (message.content.search(/^[.!]\s?i\s?a[mn]\s?not\s?.*?$/gi) >= 0 && Role.isBotChannel(message)) {
 				return ['invalid-channel', message.reply(Helper.getText('iamnot.suggestion', message))];
 			}
 

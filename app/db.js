@@ -1,8 +1,8 @@
 "use strict";
 
-const r = require('rethinkdb');
-const moment = require('moment');
-const settings = require('./../data/settings');
+const r = require('rethinkdb'),
+	moment = require('moment'),
+	settings = require('./../data/settings');
 
 class RethinkDBManager {
 	constructor() {
