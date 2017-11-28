@@ -1,6 +1,7 @@
 "use strict";
 
 const log = require('loglevel').getLogger('Helper'),
+	Discord = require('discord.js'),
 	text = require('../data/text'),
 	{Team} = require('./constants'),
 	settings = require('../data/settings');
@@ -58,6 +59,24 @@ class Helper {
 				if (unown_channel && message.channel.id === unown_channel.id && message.mentions.has(this.getRole(message.guild, 'unown'))) {
 					message.pin()
 						.catch(err => log.error(err));
+				}
+
+				if (settings.features.roles) {
+					if (message.content.search(/^([.]\s?i\s?a([mn]))(?!\s?not).*?$/gi) >= 0 && !this.isBotChannel(message)) {
+						// command "!iam" - warning of incorrect channel, suggest command & channel
+						message.reply(this.getText('iam.warning', message));
+					} else if (message.content.search(/^[.]\s?i\s?a[mn]\s?.*?$/gi) >= 0 && this.isBotChannel(message)) {
+						// command "!iam" - correct channel, incorrect command, suggest command
+						message.reply(this.getText('iam.suggestion', message));
+					}
+
+					if (message.content.search(/^[.]\s?i\s?a[mn]\s?not\s?.*?$/gi) >= 0 && !this.isBotChannel(message)) {
+						// command "!iamnot" - warning of incorrect channel, suggest command & channel
+						message.reply(this.getText('iamnot.warning', message));
+					} else if (message.content.search(/^[.]\s?i\s?a[mn]\s?not\s?.*?$/gi) >= 0 && this.isBotChannel(message)) {
+						// command "!iamnot" - correct channel, incorrect command, suggest command
+						message.reply(this.getText('iamnot.suggestion', message));
+					}
 				}
 			}
 		});

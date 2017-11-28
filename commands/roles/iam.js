@@ -76,7 +76,7 @@ class IAmCommand extends Commando.Command {
 				this.updatePage(message.message, current);
 			}
 		} else if (message.emoji.name === '➡') {
-			if (current < Math.floor(Role.count / 5) - 1) {
+			if (current < Math.ceil(Role.count / 5) - 1) {
 				current++;
 				this.updatePage(message.message, current);
 			}
@@ -99,6 +99,10 @@ class IAmCommand extends Commando.Command {
 
 			let string = '';
 			for (let i = start; i < end; i++) {
+				if (!roles[i]) {
+					break;
+				}
+
 				string += `**${roles[i].value}**\n${(roles[i].description) ? roles[i].description + '\n\n' : ''}`;
 			}
 
@@ -108,7 +112,7 @@ class IAmCommand extends Commando.Command {
 					description: `${string}`,
 					color: 4437377,
 					footer: {
-						text: `Page ${current + 1} of ${Math.floor(count / 5)}`
+						text: `Page ${current + 1} of ${Math.ceil(count / 5)}`
 					}
 				}
 			}).then(bot_message => {
@@ -136,7 +140,7 @@ class IAmCommand extends Commando.Command {
 						description: `${string}`,
 						color: 4437377,
 						footer: {
-							text: `Page 1 of ${Math.floor(count / 5)}`
+							text: `Page 1 of ${Math.ceil(count / 5)}`
 						}
 					}
 				}).then(bot_message => {

@@ -30,16 +30,23 @@ const private_settings = require('./data/private-settings'),
 	Helper = require('./app/helper'),
 	IP = require('./app/process-image'),
 	Raid = require('./app/raid'),
-	Utility = require('./app/utility');
+	Utility = require('./app/utility'),
+	settings = require('./data/settings');
 
 NodeCleanup((exitCode, signal) => {
 	Raid.shutdown();
 });
 
-Client.registry.registerGroup('admin', 'Administration');
+if (settings.features.roles) {
+	Client.registry.registerGroup('admin', 'Administration');
+}
+
 Client.registry.registerGroup('basic-raid', 'Raid Basics');
 Client.registry.registerGroup('raid-crud', 'Raid Creation and Maintenance');
-Client.registry.registerGroup('roles', 'Roles');
+
+if (settings.features.roles) {
+	Client.registry.registerGroup('roles', 'Roles');
+}
 
 Client.registry.registerDefaultTypes();
 Client.registry.registerDefaultGroups();
@@ -50,11 +57,22 @@ Client.registry.registerDefaultCommands({help: false});
 
 Client.registry.registerTypesIn(__dirname + '/types');
 
-Client.registry.registerCommands([
-	require('./commands/admin/asar'),
-	require('./commands/admin/rsar'),
-	require('./commands/admin/lsar'),
+if (settings.features.roles) {
+	Client.registry.registerCommands([
+		require('./commands/admin/asar'),
+		require('./commands/admin/rsar'),
+		require('./commands/admin/lsar'),
 
+		require('./commands/roles/iam'),
+		require('./commands/roles/iamnot'),
+
+		require('./commands/roles/list-notications'),
+		require('./commands/roles/notify'),
+		require('./commands/roles/denotify')
+	]);
+}
+
+Client.registry.registerCommands([
 	require('./commands/raids/join'),
 	require('./commands/raids/interested'),
 	require('./commands/raids/check-in'),
@@ -75,14 +93,7 @@ Client.registry.registerCommands([
 	require('./commands/raids/set-pokemon'),
 	require('./commands/raids/set-location'),
 
-	require('./commands/raids/submit-request'),
-
-	require('./commands/roles/iam'),
-	require('./commands/roles/iamnot'),
-
-	require('./commands/roles/list-notications'),
-	require('./commands/roles/notify'),
-	require('./commands/roles/denotify')
+	require('./commands/raids/submit-request')
 ]);
 
 let is_initialized = false;
