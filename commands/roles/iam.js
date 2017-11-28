@@ -29,12 +29,12 @@ class IAmCommand extends Commando.Command {
 			}
 
 			// command "!iam" - warning of incorrect channel, suggest command & channel
-			if (message.content.search(/^([!])i\s?a([mn])\s?(?!not).*?|^([!])?ia([mn])([!])?\s?(?!not).*?$/gi) >= 0 && !Role.isBotChannel(message)) {
+			if (message.content.search(/^([.!]\s?i\s?a([mn]))(?!\s?not).*?$/gi) >= 0 && !Role.isBotChannel(message)) {
 				return ['invalid-channel', message.reply(Helper.getText('iam.warning', message))];
 			}
 
 			// command "!iam" - correct channel, incorrect command, suggest command
-			if (message.content.search(/^([!])i\s?an\s?.*?|^([!])?ian([!])?\s?.*?$|^ia([nm])$/gi) >= 0 && Role.isBotChannel(message)) {
+			if (message.content.search(/^[.!]\s?i\s?a[mn]\s?.*?$/gi) >= 0 && Role.isBotChannel(message)) {
 				return ['invalid-channel', message.reply(Helper.getText('iam.suggestion', message))];
 			}
 
@@ -76,7 +76,7 @@ class IAmCommand extends Commando.Command {
 				this.updatePage(message.message, current);
 			}
 		} else if (message.emoji.name === '➡') {
-			if (current < Math.floor(Role.count / 5) - 1) {
+			if (current < Math.ceil(Role.count / 5) - 1) {
 				current++;
 				this.updatePage(message.message, current);
 			}
@@ -99,6 +99,10 @@ class IAmCommand extends Commando.Command {
 
 			let string = '';
 			for (let i = start; i < end; i++) {
+				if (!roles[i]) {
+					break;
+				}
+
 				string += `**${roles[i].value}**\n${(roles[i].description) ? roles[i].description + '\n\n' : ''}`;
 			}
 
@@ -108,7 +112,7 @@ class IAmCommand extends Commando.Command {
 					description: `${string}`,
 					color: 4437377,
 					footer: {
-						text: `Page ${current + 1} of ${Math.floor(count / 5)}`
+						text: `Page ${current + 1} of ${Math.ceil(count / 5)}`
 					}
 				}
 			}).then(bot_message => {
@@ -136,7 +140,7 @@ class IAmCommand extends Commando.Command {
 						description: `${string}`,
 						color: 4437377,
 						footer: {
-							text: `Page 1 of ${Math.floor(count / 5)}`
+							text: `Page 1 of ${Math.ceil(count / 5)}`
 						}
 					}
 				}).then(bot_message => {
