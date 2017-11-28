@@ -1139,6 +1139,10 @@
   },
   {
     "name": "ho-oh",
+    "nickname": [
+      "hooh",
+      "hoho"
+    ],
     "number": 250,
     "cp": 55251,
     "tier": 5

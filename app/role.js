@@ -38,9 +38,10 @@ class Role {
 
 			// create role objects for each role given
 			for (let i = 0; i < roles.length; i++) {
-				const value = roles[i][0];
-				const description = roles[i][1] || '';
-				const id = member.guild.roles.find(val => val.name.toLowerCase() === value.toLowerCase());
+				const value = roles[i].name;
+				const description = roles[i].description || '';
+				const aliases = roles[i].aliases.map(val => val.toLowerCase()) || [];
+				const id = Helper.guild.get(member.guild.id).roles.get(value.toLowerCase()).id;
 
 				if (!value) {
 					reject({error: `Please enter a role when using this command.`});
@@ -53,17 +54,17 @@ class Role {
 				}
 
 				promises.push(this.roleExists(channel, member, value)
-					.then(exists => {
+					.then(roles => {
 						return new Promise((resolve, reject) => {
-							if (!exists) {
-								data.push({name: value.toLowerCase(), value, description, date: Date.now()});
+							if (!roles.length) {
+								data.push({name: value.toLowerCase(), value, description, aliases, date: Date.now()});
 								resolve();
 							} else {
 								// update role if it already exists
 								r.db(channel.guild.id)
 									.table(this.db_table)
 									.filter({name: value.toLowerCase()})
-									.update({value, description})
+									.update({value, description, aliases})
 									.run(DB.connection, (err, result) => {
 										if (err && err.name !== 'ReqlOpFailedError') {
 											reject(err);
@@ -167,50 +168,86 @@ class Role {
 
 	// give role to user if it exists
 	assignRole(channel, member, role) {
-		return new Promise((resolve, reject) => {
-			const id = member.guild.roles
-				.find(val => val.name.toLowerCase() === role.toLowerCase());
-
-			if (!id) {
-				reject({error: `Role "**${role}**" was not found.  Use \`!iam\` to see a list of self-assignable roles.`});
-				return;
-			}
-
-			this.roleExists(channel, member, role)
-				.then(exists => {
-					if (exists) {
-						member.addRole(id);
-
-						// console.log(JSON.stringify(result, null, 2));
-						resolve();
-					} else {
-						reject({error: `Role "**${role}**" was not found.  Use \`!iam\` to see a list of self-assignable roles.`});
-					}
-				});
-		});
+		return this.adjustUserRole(channel, member, role);
 	}
 
 	// remove role from user if they have it
 	removeRole(channel, member, role) {
-		return new Promise((resolve, reject) => {
-			const id = member.guild.roles.find(val => val.name.toLowerCase() === role.toLowerCase());
+		return this.adjustUserRole(channel, member, role, true);
+	}
 
-			if (!id) {
-				reject({error: `Please enter a role when using this command.`});
-				return;
+	// add or remove roles from user
+	adjustUserRole(channel, member, role, remove=false) {
+		return new Promise(async (resolve, reject) => {
+			let roles = await this.roleExists(channel, member, role);
+			let matching_role_found = true;
+
+			// first look for a matching name in DB, then check for aliases if a match was not found
+			if (roles.length) {
+				// loop through matched roles adding them to user
+				for (let i=0; i<roles.length; i++) {
+					const id = Helper.guild.get(member.guild.id).roles.get(roles[i].value).id;
+
+					if (!id) {
+						matching_role_found = false;
+						log.warn(`Role ${roles[i].value}, may not longer be available in the guild.`);
+						return;
+					}
+
+					if (remove) {
+						member.removeRole(id);
+					} else {
+						member.addRole(id);
+					}
+				}
+
+				if (matching_role_found) {
+					resolve();
+				} else {
+					reject({error: `Role "**${role}**" was not found.  Use \`!iam\` to see a list of self-assignable roles.`});
+				}
+			} else {
+				roles = await this.roleExists(channel, member, role, true);
+
+				if (roles.length) {
+					// loop through matched roles adding them to user
+					for (let i=0; i<roles.length; i++) {
+						const id = Helper.guild.get(member.guild.id).roles.get(roles[i].value).id;
+
+						if (!id) {
+							matching_role_found = false;
+							log.warn(`Role ${roles[i].value}, may not longer be available in the guild.`);
+							return;
+						}
+
+						if (remove) {
+							member.removeRole(id);
+						} else {
+							member.addRole(id);
+						}
+					}
+
+					resolve();
+				} else {
+					reject({error: `Role or alias "**${role}**" was not found.  Use \`!iam\` to see a list of self-assignable roles.`});
+				}
 			}
-
-			member.removeRole(id);
-
-			resolve();
 		});
 	}
 
-	roleExists(channel, member, role) {
+	roleExists(channel, member, role, is_alias=false) {
+		role = role.toLowerCase();
+
 		return new Promise((resolve, reject) => {
 			r.db(channel.guild.id)
 				.table(this.db_table)
-				.filter(r.row('name').eq(role.toLowerCase()))
+				.filter(function (db_role) {
+					if (!is_alias) {
+						return db_role('name').eq(role);
+					} else {
+						return db_role('aliases').contains(role);
+					}
+				})
 				.run(DB.connection, (err, cursor) => {
 					if (err) {
 						reject(err);
@@ -223,11 +260,7 @@ class Role {
 							return;
 						}
 
-						if (result.length) {
-							resolve(true);
-						} else {
-							resolve(false);
-						}
+						resolve(result);
 					});
 				});
 		});
