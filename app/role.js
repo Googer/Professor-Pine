@@ -1,7 +1,7 @@
 "use strict";
 
-const r = require('rethinkdb'),
-	settings = require('./../data/settings'),
+const log = require('loglevel').getLogger('Role'),
+	r = require('rethinkdb'),
 	DB = require('./../app/db'),
 	Helper = require('./../app/helper');
 
@@ -12,18 +12,6 @@ class Role {
 
 		// number of roles in DB (useful for pagination w/o having to hit DB)
 		this.count = 0;
-	}
-
-	isBotChannel(message) {
-		const guild = Helper.guild.get(message.guild.id),
-			bot_lab_channel_id = guild.channels.bot_lab ?
-				guild.channels.bot_lab.id :
-				-1,
-			mod_bot_lab_channel_id = guild.channels.mod_bot_lab ?
-				guild.channels.mod_bot_lab.id :
-				-1;
-
-		return message.channel.id === bot_lab_channel_id || message.channel.id === mod_bot_lab_channel_id;
 	}
 
 	// update or insert roles
@@ -95,7 +83,6 @@ class Role {
 								return;
 							}
 
-							// console.log(JSON.stringify(result, null, 2));
 							resolve(result);
 						});
 				}).catch((err) => {
@@ -193,7 +180,8 @@ class Role {
 					if (remove) {
 						member.removeRole(id);
 					} else {
-						member.addRole(id);
+						member.addRole(id)
+							.catch(err => log.error(err));
 					}
 				}
 
@@ -219,7 +207,8 @@ class Role {
 						if (remove) {
 							member.removeRole(id);
 						} else {
-							member.addRole(id);
+							member.addRole(id)
+								.catch(err => log.error(err));
 						}
 					}
 
