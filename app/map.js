@@ -25,18 +25,25 @@ class Map {
 	}
 
 	async getRegions(location) {
-		const uri = 'http://nominatim.openstreetmap.org/search/query?format=json&bounded=1&limit=1&polygon_geojson=1' +
+		const uri = 'http://nominatim.openstreetmap.org/search/query?format=json&bounded=1&limit=5&polygon_geojson=1' +
 			`&viewbox=${this.bounds.join(',')}&q=${querystring.escape(location)}`;
 
 		return await request({
 			uri,
 			json: true
 		}).then(body => {
-			if (body.length === 0) {
+			const results = body
+				.map(body => body.geojson);
+
+			if (results.length === 0) {
 				// No matches
 				return [];
 			}
-			const searched_region = body[0].geojson;
+
+			// Sort largest results to be first
+			results.sort((a, b) => turf.area(b) - turf.area(a));
+
+			const searched_region = results[0];
 
 			switch (searched_region.type) {
 				case 'Polygon':
@@ -52,15 +59,22 @@ class Map {
 						});
 
 					return Array.from(matching_regions.values());
-				default:
-					return [];
+				case 'Point':
+					return this.findMatch(searched_region);
 			}
 		}).catch(err => log.error(err));
 	}
 
 	findMatches(polygon) {
 		return this.regions
-			.filter(region => turf.intersect(region, polygon) !== null)
+			.filter(region => turf.intersect(polygon, region) !== null)
+			.map(region => region.properties.name);
+	}
+
+
+	findMatch(point) {
+		return this.regions
+			.filter(region => turf.inside(point, region) === true)
 			.map(region => region.properties.name);
 	}
 }
