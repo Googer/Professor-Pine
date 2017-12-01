@@ -5,7 +5,6 @@ const log = require('loglevel').getLogger('FindRegion'),
 	{CommandGroup} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
 	Map = require('../../app/map'),
-	{MessageEmbed} = require('discord.js'),
 	Role = require('../../app/role');
 
 class FindRegionsCommand extends Commando.Command {
@@ -39,21 +38,34 @@ class FindRegionsCommand extends Commando.Command {
 
 	async run(message, args) {
 		const location = args['location'],
-			regions = await Map.getRegions(location);
+			results = await Map.getRegions(location),
+			image = results.feature !== null ?
+				await Map.getMapImage(results.feature) :
+				null;
 
-		if (regions.length > 0) {
-			const channels = regions
+		let text;
+
+		if (results.regions.length > 0) {
+			const channels = results.regions
 				.map(region => region.match(/^#?(.*)$/)[1])
 				.map(region => message.guild.channels
 					.find(channel => channel.name === region))
 				.map(channel => channel.toString())
 				.join('\n');
 
-			message.channel.send(`The following regions contain **${location}**:\n\n${channels}`)
-				.catch(err => log.error(err));
-			;
+			text = `The following regions contain **${location}**:\n\n${channels}`;
 		} else {
-			message.channel.send(`No matching regions found for **${location}**.`)
+			text = `No matching regions found for **${location}**.`;
+		}
+
+		if (image) {
+			message.channel.send(text,
+				{
+					files: [image]
+				})
+				.catch(err => log.error(err));
+		} else {
+			message.channel.send(text)
 				.catch(err => log.error(err));
 		}
 	}

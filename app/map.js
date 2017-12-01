@@ -2,6 +2,8 @@
 
 const log = require('loglevel').getLogger('Map'),
 	fs = require('fs'),
+	polyline = require('polyline'),
+	private_settings = require('../data/private-settings'),
 	querystring = require('querystring'),
 	request = require('request-promise'),
 	ToGeoJSON = require('togeojson-with-extended-style'),
@@ -37,7 +39,10 @@ class Map {
 
 			if (results.length === 0) {
 				// No matches
-				return [];
+				return {
+					feature: null,
+					regions: []
+				};
 			}
 
 			// Sort largest results to be first
@@ -47,7 +52,10 @@ class Map {
 
 			switch (searched_region.type) {
 				case 'Polygon':
-					return this.findMatches(searched_region);
+					return {
+						feature: searched_region,
+						regions: this.findMatches(searched_region)
+					};
 				case 'MultiPolygon':
 					const matching_regions = new Set();
 
@@ -58,9 +66,16 @@ class Map {
 								.forEach(matching_region => matching_regions.add(matching_region));
 						});
 
-					return Array.from(matching_regions.values());
+					return {
+						feature: searched_region,
+						regions: Array.from(matching_regions.values())
+					};
+
 				case 'Point':
-					return this.findMatch(searched_region);
+					return {
+						feature: searched_region,
+						regions: this.findMatch(searched_region)
+					};
 			}
 		}).catch(err => log.error(err));
 	}
@@ -76,6 +91,40 @@ class Map {
 		return this.regions
 			.filter(region => turf.inside(point, region) === true)
 			.map(region => region.properties.name);
+	}
+
+	async getMapImage(feature) {
+		let uri = 'https://maps.googleapis.com/maps/api/staticmap?' +
+			'size=640x320&' +
+			'scale=2&' +
+			`key=${private_settings.google_api_key}&`;
+
+		switch (feature.type) {
+			case 'Polygon':
+				uri += `path=fillcolor:0xAA000033%7Ccolor:0xFFFFFF00%7Cenc:${polyline.fromGeoJSON(turf.polygonToLineString(feature))}`;
+				break;
+
+			case 'MultiPolygon':
+				uri += feature.coordinates
+					.map(coordinates => turf.polygon(coordinates))
+					.map(polygon => turf.polygonToLineString(polygon))
+					.map(line_string => polyline.fromGeoJSON(line_string))
+					.map(encoded_polyline => `path=fillcolor:0xAA000033%7Ccolor:0xFFFFFF00%7Cenc:${encoded_polyline}`)
+					.join('&');
+
+				break;
+
+			case 'Point':
+				uri += `zoom=12&markers=color:red|${feature.coordinates[1]},${feature.coordinates[0]}`;
+				break;
+		}
+
+		return await request(
+			{
+				uri,
+				encoding: null
+			})
+			.catch(err => log.error(err));
 	}
 }
 
