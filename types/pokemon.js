@@ -10,6 +10,7 @@ class PokemonType extends Commando.ArgumentType {
 
 	validate(value, message, arg) {
 		const terms = value.split(/[\s-]/)
+				.map(term => term.match(/(?:<:)?([\w*]+)(?::[0-9]+>)?/)[1])
 				.map(term => term.toLowerCase()),
 			pokemon = Pokemon.search(terms);
 
@@ -35,6 +36,7 @@ class PokemonType extends Commando.ArgumentType {
 
 	parse(value, message, arg) {
 		const terms = value.split(/[\s-]/)
+			.map(term => term.match(/(?:<:)?([\w*]+)(?::[0-9]+>)?/)[1])
 			.map(term => term.toLowerCase());
 
 		return Pokemon.search(terms);

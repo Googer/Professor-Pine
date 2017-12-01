@@ -62,20 +62,16 @@ class Helper {
 				}
 
 				if (settings.features.roles) {
-					if (message.content.search(/^([.]\s?i\s?a([mn]))(?!\s?not).*?$/gi) >= 0 && !this.isBotChannel(message)) {
-						// command "!iam" - warning of incorrect channel, suggest command & channel
-						message.reply(this.getText('iam.warning', message));
-					} else if (message.content.search(/^[.]\s?i\s?a[mn]\s?.*?$/gi) >= 0 && this.isBotChannel(message)) {
-						// command "!iam" - correct channel, incorrect command, suggest command
-						message.reply(this.getText('iam.suggestion', message));
-					}
-
-					if (message.content.search(/^[.]\s?i\s?a[mn]\s?not\s?.*?$/gi) >= 0 && !this.isBotChannel(message)) {
-						// command "!iamnot" - warning of incorrect channel, suggest command & channel
-						message.reply(this.getText('iamnot.warning', message));
-					} else if (message.content.search(/^[.]\s?i\s?a[mn]\s?not\s?.*?$/gi) >= 0 && this.isBotChannel(message)) {
-						// command "!iamnot" - correct channel, incorrect command, suggest command
-						message.reply(this.getText('iamnot.suggestion', message));
+					if (this.isBotChannel(message)) {
+						if (message.content.search(/^\.\s*i\s?a[mn](\s.*)?$/gi) >= 0) {
+							// command ".iam" - correct channel, incorrect command, suggest command
+							message.reply(this.getText('iam.suggestion', message))
+								.catch(err => log.error(err));
+						} else if (message.content.search(/^\.\s*i\s?a[mn]\s*not(\s.*)?$/gi) >= 0) {
+							// command ".iamnot" - correct channel, incorrect command, suggest command
+							message.reply(this.getText('iamnot.suggestion', message))
+								.catch(err => log.error(err));
+						}
 					}
 				}
 			}
@@ -190,6 +186,10 @@ class Helper {
 	}
 
 	isBotChannel(message) {
+		if (message.channel.type === 'dm') {
+			return false;
+		}
+
 		const guild = this.guild.get(message.guild.id),
 			bot_lab_channel_id = guild.channels.bot_lab ?
 				guild.channels.bot_lab.id :

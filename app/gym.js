@@ -60,16 +60,12 @@ class Gym extends Search {
 			this.pipeline.remove(lunr.stopWordFilter);
 			this.pipeline.after(lunr.trimmer, stopword_filter);
 
-			merged_gyms.forEach(function (gym) {
+			merged_gyms.forEach(gym => {
 				// Gym document is a object with its reference and fields to collection of values
 				const gymDocument = Object.create(null);
 
 				gym.gymName = he.decode(gym.gymName);
 				gym.gymInfo.gymDescription = he.decode(gym.gymInfo.gymDescription);
-
-				if (gym.nickname) {
-					gym.nickname = he.decode(gym.nickname);
-				}
 
 				// static fields
 				gymDocument['name'] = gym.gymName.replace(/[^\w\s-]+/g, '');
@@ -87,9 +83,9 @@ class Gym extends Search {
 				if (!gym.gymInfo.addressComponents) {
 					log.warn('Gym "' + gym.gymName + '" has no geocode information!');
 				} else {
-					gym.gymInfo.addressComponents.forEach(function (addressComponent) {
-						addressComponent.addressComponents.forEach(function (addComp) {
-							addComp.types.forEach(function (type) {
+					gym.gymInfo.addressComponents.forEach(addressComponent => {
+						addressComponent.addressComponents.forEach(addComp => {
+							addComp.types.forEach(type => {
 								const typeKey = type.toLowerCase();
 								let values = addressInfo.get(typeKey);
 
@@ -104,7 +100,7 @@ class Gym extends Search {
 				}
 
 				// Insert geocoded map info into map
-				addressInfo.forEach(function (value, key) {
+				addressInfo.forEach((value, key) => {
 					gymDocument[key] = Array.from(value).join(' ');
 				});
 
