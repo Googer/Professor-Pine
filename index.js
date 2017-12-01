@@ -123,7 +123,7 @@ Client.on('commandError', (command, err, message, args, from_pattern) => {
 });
 
 Client.on('commandFinalize', (command, message, from_pattern) => {
-	Utility.cleanConversation(message, !!message.is_successful, !Raid.validRaid(message.channel.id) && !Role.isBotChannel(message));
+	Utility.cleanConversation(message, !!message.is_successful, !Raid.validRaid(message.channel.id) && !Helper.isBotChannel(message));
 });
 
 Client.on('disconnect', event => {

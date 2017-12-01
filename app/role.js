@@ -1,7 +1,7 @@
 "use strict";
 
-const r = require('rethinkdb'),
-	settings = require('./../data/settings'),
+const log = require('loglevel').getLogger('Role'),
+	r = require('rethinkdb'),
 	DB = require('./../app/db'),
 	Helper = require('./../app/helper');
 
@@ -12,22 +12,6 @@ class Role {
 
 		// number of roles in DB (useful for pagination w/o having to hit DB)
 		this.count = 0;
-	}
-
-	isBotChannel(message) {
-		if (!message.guild) {
-			return false;
-		}
-
-		const guild = Helper.guild.get(message.guild.id),
-			bot_lab_channel_id = guild.channels.bot_lab ?
-				guild.channels.bot_lab.id :
-				-1,
-			mod_bot_lab_channel_id = guild.channels.mod_bot_lab ?
-				guild.channels.mod_bot_lab.id :
-				-1;
-
-		return message.channel.id === bot_lab_channel_id || message.channel.id === mod_bot_lab_channel_id;
 	}
 
 	// update or insert roles
@@ -99,7 +83,6 @@ class Role {
 								return;
 							}
 
-							// console.log(JSON.stringify(result, null, 2));
 							resolve(result);
 						});
 				}).catch((err) => {
@@ -177,7 +160,7 @@ class Role {
 	}
 
 	// add or remove roles from user
-	adjustUserRole(channel, member, role, remove=false) {
+	adjustUserRole(channel, member, role, remove = false) {
 		return new Promise(async (resolve, reject) => {
 			let roles = await this.roleExists(channel, member, role);
 			let matching_role_found = true;
@@ -185,7 +168,7 @@ class Role {
 			// first look for a matching name in DB, then check for aliases if a match was not found
 			if (roles.length) {
 				// loop through matched roles adding them to user
-				for (let i=0; i<roles.length; i++) {
+				for (let i = 0; i < roles.length; i++) {
 					const id = Helper.guild.get(member.guild.id).roles.get(roles[i].value).id;
 
 					if (!id) {
@@ -195,35 +178,39 @@ class Role {
 					}
 
 					if (remove) {
-						member.removeRole(id);
+						member.removeRole(id)
+							.catch(err => log.error(err));
 					} else {
-						member.addRole(id);
+						member.addRole(id)
+							.catch(err => log.error(err));
 					}
 				}
 
 				if (matching_role_found) {
 					resolve();
 				} else {
-					reject({error: `Role "**${role}**" was not found.  Use \`!iam\` to see a list of self-assignable roles.`});
+					reject({error: `Role "**${role}**" was not found.  Use \`${channel.client.commandPrefix}iam\` to see a list of self-assignable roles.`});
 				}
 			} else {
 				roles = await this.roleExists(channel, member, role, true);
 
 				if (roles.length) {
 					// loop through matched roles adding them to user
-					for (let i=0; i<roles.length; i++) {
+					for (let i = 0; i < roles.length; i++) {
 						const id = Helper.guild.get(member.guild.id).roles.get(roles[i].value).id;
 
 						if (!id) {
 							matching_role_found = false;
-							log.warn(`Role ${roles[i].value}, may not longer be available in the guild.`);
+							log.warn(`Role '${roles[i].value}' may not longer be available in the guild.`);
 							return;
 						}
 
 						if (remove) {
-							member.removeRole(id);
+							member.removeRole(id)
+								.catch(err => log.error(err));
 						} else {
-							member.addRole(id);
+							member.addRole(id)
+								.catch(err => log.error(err));
 						}
 					}
 
@@ -235,7 +222,7 @@ class Role {
 		});
 	}
 
-	roleExists(channel, member, role, is_alias=false) {
+	roleExists(channel, member, role, is_alias = false) {
 		role = role.toLowerCase();
 
 		return new Promise((resolve, reject) => {
