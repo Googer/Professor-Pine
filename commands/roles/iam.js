@@ -24,20 +24,10 @@ class IAmCommand extends Commando.Command {
 		this.messages = new Map();
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.channel.type === 'dm') {
-				return false;
-			}
-
-			// command "!iam" - warning of incorrect channel, suggest command & channel
-			if (message.content.search(/^([.!]\s?i\s?a([mn]))(?!\s?not).*?$/gi) >= 0 && !Helper.isBotChannel(message)) {
+			if (!!message.command && message.command.name === 'iam' &&
+				!Helper.isBotChannel(message)) {
 				return ['invalid-channel', message.reply(Helper.getText('iam.warning', message))];
 			}
-
-			// command "!iam" - correct channel, incorrect command, suggest command
-			if (message.content.search(/^[.!]\s?i\s?a[mn]\s?.*?$/gi) >= 0 && Helper.isBotChannel(message)) {
-				return ['invalid-channel', message.reply(Helper.getText('iam.suggestion', message))];
-			}
-
 			return false;
 		});
 
@@ -51,7 +41,8 @@ class IAmCommand extends Commando.Command {
 
 			this.messages.forEach((value, key, map) => {
 				if (then > value.time) {
-					value.message.delete();
+					value.message.delete()
+						.catch(err => log.error(err));
 					map.delete(key);
 				}
 			});
@@ -123,18 +114,18 @@ class IAmCommand extends Commando.Command {
 		});
 	}
 
-	run(message, args) {
+	async run(message, args) {
 		if (!args.length) {
 			// if no arguments were given, send the user a list of roles w/ optional descriptions
 			Role.getRoles(message.channel, message.member).then((roles) => {
 				let count = roles.length;
 
 				let string = '';
-				for (let i = 0; i < 5; i++) {
+				for (let i = 0; i < Math.min(count, 5); i++) {
 					string += `**${roles[i].value}**\n${(roles[i].description) ? roles[i].description + '\n\n' : ''}`;
 				}
 
-				message.channel.send('Type `!iam <name>` to add one of the following roles to your account.', {
+				message.channel.send(`Type \`${message.client.commandPrefix}iam <name>\` to add one of the following roles to your account.`, {
 					embed: {
 						title: `There are ${count} self assignable roles`,
 						description: `${string}`,

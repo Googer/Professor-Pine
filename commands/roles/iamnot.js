@@ -20,25 +20,15 @@ class IAmNotCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (message.channel.type === 'dm') {
-				return false;
-			}
-
-			// command "!iamnot" - warning of incorrect channel, suggest command & channel
-			if (message.content.search(/^[.!]\s?i\s?a[mn]\s?not\s?.*?$/gi) >= 0 && !Helper.isBotChannel(message)) {
+			if (!!message.command && message.command.name === 'iamnot' &&
+				!Helper.isBotChannel(message)) {
 				return ['invalid-channel', message.reply(Helper.getText('iamnot.warning', message))];
 			}
-
-			// command "!iamnot" - correct channel, incorrect command, suggest command
-			if (message.content.search(/^[.!]\s?i\s?a[mn]\s?not\s?.*?$/gi) >= 0 && Helper.isBotChannel(message)) {
-				return ['invalid-channel', message.reply(Helper.getText('iamnot.suggestion', message))];
-			}
-
 			return false;
 		});
 	}
 
-	run(message, args) {
+	async run(message, args) {
 		Role.removeRole(message.channel, message.member, args)
 			.then(() => message.react(Helper.getEmoji('snorlaxthumbsup') || '👍'))
 			.catch(err => {
