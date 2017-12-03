@@ -21,38 +21,35 @@ class AsarCommand extends Commando.Command {
 				if (!Helper.isManagement(message)) {
 					return ['unauthorized', message.reply('You are not authorized to use this command.')];
 				}
-
-				if (message.channel.type !== 'text') {
-					return ['invalid-channel', message.reply('Please use `!asar` from a public channel.')];
-				}
 			}
 
 			return false;
 		});
 	}
 
-	run(message, args) {
+	async run(message, args) {
 		// split text by comma "," into an array, and split those strings by "-" for an array of arrays.
 		//		Additionally look for aliases contained within brackets [] and don't split those until later
 		//		NOTE:  Spaces are required for "-" separation as roles could be "foo-bar"
-		args = args.split(/(?![^)(]*\([^)(]*?\)\)),(?![^\[]*\])/g).map(arg => {
-			let [ name, description ] = arg.trim().split(/\s-\s/);
-			let aliases = [];
+		args = args
+			.split(/(?![^)(]*\([^)(]*?\)\)),(?![^\[]*\])/g)
+			.map(arg => {
+				let [name, description] = arg.trim().split(/\s-\s/);
+				let aliases = [];
 
-			if (name.search(/[\[\],]/g) > 0) {
-				const match = name.match(/\[.*\]/g);
+				if (name.search(/[\[\],]/g) > 0) {
+					const match = name.match(/\[.*\]/g);
 
-				if (match && match[0].length) {
-					aliases = match[0].replace(/[\[\]]/g, '').trim().split(/\s?,\s?/g);
+					if (match && match[0].length) {
+						aliases = match[0].replace(/[\[\]]/g, '').trim().split(/\s?,\s?/g);
+					}
 				}
-			}
 
-			// remove aliases from name string
-			name = name.replace(/\[.*\]/g, '').trim();
+				// remove aliases from name string
+				name = name.replace(/\[.*\]/g, '').trim();
 
-			return { name, aliases, description };
-		});
-
+				return {name, aliases, description};
+			});
 
 
 		Role.upsertRoles(message.channel, message.member, args)

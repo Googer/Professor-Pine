@@ -17,15 +17,15 @@ class Role {
 	// update or insert roles
 	upsertRoles(channel, member, roles) {
 		return new Promise((resolve, reject) => {
-			let data = [];
-			let promises = [];
+			const data = [],
+				promises = [];
 
 			// create role objects for each role given
 			for (let i = 0; i < roles.length; i++) {
-				const value = roles[i].name;
-				const description = roles[i].description || '';
-				const aliases = roles[i].aliases.map(val => val.toLowerCase()) || [];
-				const id = Helper.guild.get(member.guild.id).roles.get(value.toLowerCase()).id;
+				const value = roles[i].name,
+					description = roles[i].description || '',
+					aliases = roles[i].aliases.map(val => val.toLowerCase()) || [],
+					id = Helper.guild.get(member.guild.id).roles.get(value.toLowerCase()).id;
 
 				if (!value) {
 					reject({error: `Please enter a role when using this command.`});
@@ -64,7 +64,7 @@ class Role {
 					}));
 			}
 
-			// once all roles have been proven that the exist, attempt to add them to DB
+			// once all roles have been proven that they exist, attempt to add them to DB
 			Promise.all(promises)
 				.then(info => {
 					// if no roles exist that aren't already in the DB, do nothing
@@ -169,7 +169,7 @@ class Role {
 			if (roles.length) {
 				// loop through matched roles adding them to user
 				for (let i = 0; i < roles.length; i++) {
-					const id = Helper.guild.get(member.guild.id).roles.get(roles[i].value).id;
+					const id = Helper.guild.get(member.guild.id).roles.get(roles[i].value.toLowerCase()).id;
 
 					if (!id) {
 						matching_role_found = false;
@@ -197,7 +197,7 @@ class Role {
 				if (roles.length) {
 					// loop through matched roles adding them to user
 					for (let i = 0; i < roles.length; i++) {
-						const id = Helper.guild.get(member.guild.id).roles.get(roles[i].value).id;
+						const id = Helper.guild.get(member.guild.id).roles.get(roles[i].value.toLowerCase()).id;
 
 						if (!id) {
 							matching_role_found = false;
@@ -228,7 +228,7 @@ class Role {
 		return new Promise((resolve, reject) => {
 			r.db(channel.guild.id)
 				.table(this.db_table)
-				.filter(function (db_role) {
+				.filter(db_role => {
 					if (!is_alias) {
 						return db_role('name').eq(role);
 					} else {
