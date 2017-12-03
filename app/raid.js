@@ -802,9 +802,6 @@ class Raid {
 				gym.nickname :
 				gym.gymName,
 			gym_url = `https://www.google.com/maps/search/?api=1&query=${gym.gymInfo.latitude}%2C${gym.gymInfo.longitude}`,
-			additional_information = !!gym.additional_information ?
-				gym.additional_information :
-				'',
 
 			total_attendees = this.getAttendeeCount(raid),
 			attendee_entries = Object.entries(raid.attendees),
@@ -951,6 +948,18 @@ class Raid {
 
 		if (!!raid.start_time) {
 			embed.addField(start_label, start_time.calendar(null, calendar_format));
+		}
+
+		let additional_information = ((gym.is_sponsored || gym.is_park) && !raid.is_exclusive) ?
+			'This gym is either known to be an EX raid candidate or is suspected to be one.' :
+			'';
+
+		if (!!gym.additional_information) {
+			if (additional_information !== '') {
+				additional_information += '\n\n';
+			}
+
+			additional_information += gym.additional_information;
 		}
 
 		if (additional_information !== '') {
