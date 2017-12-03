@@ -15,9 +15,14 @@ class Gym extends Search {
 
 		const gyms_base = require('PgP-Data/data/gyms'),
 			gyms_metadata = require('PgP-Data/data/gyms-metadata'),
+			park_gyms = require('PgP-Data/data/park-gyms'),
 			merged_gyms = gyms_base
 				.map(gym => Object.assign({}, gym, gyms_metadata[gym.gymId])),
 			stopword_filter = this.stopWordFilter;
+
+		merged_gyms
+			.filter(gym => park_gyms.includes(gym.gymId))
+			.forEach(park_gym => park_gym.is_park = true);
 
 		lunr.Pipeline.registerFunction(stopword_filter, 'customStopwords');
 

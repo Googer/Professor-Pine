@@ -21,17 +21,13 @@ class RsarCommand extends Commando.Command {
 				if (!Helper.isManagement(message)) {
 					return ['unauthorized', message.reply('You are not authorized to use this command.')];
 				}
-
-				if (message.channel.type !== 'text') {
-					return ['invalid-channel', message.reply('Please use `!rsar` from a public channel.')];
-				}
 			}
 
 			return false;
 		});
 	}
 
-	run(message, args) {
+	async run(message, args) {
 		args = args.split(/,\s?/g);
 
 		Role.removeOldRoles(message.channel, message.member, args)

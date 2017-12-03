@@ -23,17 +23,13 @@ class LsarCommand extends Commando.Command {
 				if (!Helper.isManagement(message)) {
 					return ['unauthorized', message.reply('You are not authorized to use this command.')];
 				}
-
-				if (message.channel.type !== 'text') {
-					return ['invalid-channel', message.reply('Please use `!lsar` from a public channel.')];
-				}
 			}
 
 			return false;
 		});
 	}
 
-	run(message, args) {
+	async run(message, args) {
 		Role.getRoles(message.channel, message.member).then((roles) => {
 			const count = roles.length;
 
