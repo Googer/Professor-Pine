@@ -951,7 +951,7 @@ class Raid {
 		}
 
 		let additional_information = ((gym.is_sponsored || gym.is_park) && !raid.is_exclusive) ?
-			'This gym is either known to be an EX raid candidate or is suspected to be one.' :
+			'Potential EX Raid gym - located in a park or at a sponsored location.' :
 			'';
 
 		if (!!gym.additional_information) {
