@@ -924,6 +924,12 @@ class Raid {
 			embed.setThumbnail(pokemon_url);
 		}
 
+		if (raid.pokemon.weakness) {
+			embed.addField('**Weaknesses**', raid.pokemon.weakness
+				.map(weakness => Helper.getEmoji(weakness.type).toString())
+				.join(''));
+		}
+
 		embed.setFooter(end_time + raid_reporter);
 
 		if (total_attendees > 0) {
