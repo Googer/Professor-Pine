@@ -2,7 +2,8 @@
 
 const log = require('loglevel').getLogger('PokemonSearch'),
 	lunr = require('lunr'),
-	Search = require('./search');
+	Search = require('./search'),
+	types = require('../data/types');
 
 class Pokemon extends Search {
 	constructor() {
@@ -24,7 +25,9 @@ class Pokemon extends Search {
 			this.pokemon = new Map(pokemon_data
 				.map(pokemon => [pokemon.number, pokemon]));
 
-			pokemon_data.forEach(function (pokemon) {
+			pokemon_data.forEach(pokemon => {
+				pokemon.weakness = Pokemon.calculateWeaknesses(pokemon.type);
+
 				const pokemonDocument = Object.create(null);
 
 				pokemonDocument['object'] = JSON.stringify(pokemon);
@@ -73,6 +76,42 @@ class Pokemon extends Search {
 		if (result !== undefined) {
 			return result[0];
 		}
+	}
+
+	static calculateWeaknesses(pokemon_types) {
+		if (!pokemon_types) {
+			return [];
+		}
+
+		return Object.keys(types)
+			.map(type => {
+				let multiplier = 1.0;
+
+				pokemon_types.forEach(pokemon_type => {
+					if (types[type].se.includes(pokemon_type)) {
+						multiplier *= 1.400;
+					} else if (types[type].ne.includes(pokemon_type)) {
+						multiplier *= 0.714;
+					} else if (types[type].im.includes(pokemon_type)) {
+						multiplier *= 0.510;
+					}
+				});
+
+				return {
+					type: type,
+					multiplier: multiplier
+				}
+			})
+			.sort((type_a, type_b) => {
+				const multiplier_difference = type_b.multiplier - type_a.multiplier;
+
+				if (multiplier_difference === 0) {
+					return type_a.type > type_b.type;
+				}
+
+				return multiplier_difference;
+			})
+			.filter(type => type.multiplier > 1.0);
 	}
 }
 
