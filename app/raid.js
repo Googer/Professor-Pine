@@ -924,7 +924,7 @@ class Raid {
 			embed.setThumbnail(pokemon_url);
 		}
 
-		if (raid.pokemon.weakness.length > 0) {
+		if (raid.pokemon.weakness && raid.pokemon.weakness.length > 0) {
 			embed.addField('**Weaknesses**', raid.pokemon.weakness
 				.map(weakness => Helper.getEmoji(weakness.type).toString() +
 					(weakness.multiplier > 1.5 ?
