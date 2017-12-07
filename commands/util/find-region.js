@@ -4,8 +4,7 @@ const log = require('loglevel').getLogger('FindRegion'),
 	Commando = require('discord.js-commando'),
 	{CommandGroup} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
-	Map = require('../../app/map'),
-	Role = require('../../app/role');
+	Map = require('../../app/map');
 
 class FindRegionsCommand extends Commando.Command {
 	constructor(client) {
@@ -15,7 +14,7 @@ class FindRegionsCommand extends Commando.Command {
 			memberName: 'find',
 			aliases: ['find-regions', 'regions'],
 			description: 'Searches for regions that contain an entered location.',
-			details: 'Use this command to find which regions (channels) contain a location.',
+			details: 'Use this command to find which regions (channels) contain a location.  Search powered by OpenStreetMap Nominatum service under ODbL license.\n\n© OpenStreetMap contributors.',
 			examples: ['\t!find McMurray'],
 			args: [
 				{
@@ -29,7 +28,7 @@ class FindRegionsCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (!!message.command && message.command.name === 'find' && !Role.isBotChannel(message)) {
+			if (!!message.command && message.command.name === 'find' && !Helper.isBotChannel(message)) {
 				return ['invalid-channel', message.reply(Helper.getText('find.warning', message))];
 			}
 			return false;

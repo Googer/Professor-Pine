@@ -2,7 +2,7 @@
 
 const log = require('loglevel').getLogger('Map'),
 	fs = require('fs'),
-	polyline = require('polyline'),
+	polyline = require('@mapbox/polyline'),
 	private_settings = require('../data/private-settings'),
 	querystring = require('querystring'),
 	request = require('request-promise'),
@@ -32,6 +32,9 @@ class Map {
 
 		return await request({
 			uri,
+			headers: {
+				'User-Agent': 'Professor Pine Pokemon Go Raid Coordination Discord Bot/1.0'
+			},
 			json: true
 		}).then(body => {
 			const results = body
