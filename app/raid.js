@@ -924,7 +924,7 @@ class Raid {
 			embed.setThumbnail(pokemon_url);
 		}
 
-		if (raid.pokemon.weakness) {
+		if (raid.pokemon.weakness.length > 0) {
 			embed.addField('**Weaknesses**', raid.pokemon.weakness
 				.map(weakness => Helper.getEmoji(weakness.type).toString() +
 					(weakness.multiplier > 1.5 ?
@@ -933,7 +933,7 @@ class Raid {
 				.join(''));
 		}
 
-		embed.setFooter(end_time + raid_reporter);
+		embed.setFooter(end_time + raid_reporter, report_member.user.displayAvatarURL());
 
 		if (total_attendees > 0) {
 			embed.addField('__Possible Trainers__', total_attendees.toString());
