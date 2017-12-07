@@ -926,7 +926,10 @@ class Raid {
 
 		if (raid.pokemon.weakness) {
 			embed.addField('**Weaknesses**', raid.pokemon.weakness
-				.map(weakness => Helper.getEmoji(weakness.type).toString())
+				.map(weakness => Helper.getEmoji(weakness.type).toString() +
+					(weakness.multiplier > 1.5 ?
+						'x2 ' :
+						''))
 				.join(''));
 		}
 
