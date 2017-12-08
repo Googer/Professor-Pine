@@ -85,8 +85,13 @@ class Map {
 
 	findMatches(polygon) {
 		return this.regions
-			.filter(region => turf.intersect(polygon, region) !== null)
-			.map(region => region.properties.name);
+			.map(region => Object.create({
+				region,
+				intersection: turf.intersect(polygon, region)
+			}))
+			.filter(({region, intersection}) => intersection !== null)
+			.sort((match_a, match_b) => turf.area(match_b.intersection) - turf.area(match_a.intersection))
+			.map(({region, intersection}) => region.properties.name);
 	}
 
 
@@ -94,6 +99,25 @@ class Map {
 		return this.regions
 			.filter(region => turf.inside(point, region) === true)
 			.map(region => region.properties.name);
+	}
+
+	encodePolygon(polygon) {
+		const line_string = turf.polygonToLine(polygon);
+
+		switch (line_string.geometry.type) {
+			case 'LineString':
+				return `path=fillcolor:0xAA000033%7Ccolor:0xFFFFFF00%7Cenc:${polyline.fromGeoJSON(line_string)}`;
+
+			case 'MultiLineString':
+				return line_string.geometry.coordinates
+					.map(coordinates => turf.lineString(coordinates))
+					.map(line_string => polyline.fromGeoJSON(line_string))
+					.map(encoded_polyline => `path=fillcolor:0xAA000033%7Ccolor:0xFFFFFF00%7Cenc:${encoded_polyline}`)
+					.join('&');
+
+			default:
+				return '';
+		}
 	}
 
 	async getMapImage(feature) {
@@ -104,17 +128,14 @@ class Map {
 
 		switch (feature.type) {
 			case 'Polygon':
-				uri += `path=fillcolor:0xAA000033%7Ccolor:0xFFFFFF00%7Cenc:${polyline.fromGeoJSON(turf.polygonToLineString(feature))}`;
+				uri += this.encodePolygon(feature);
 				break;
 
 			case 'MultiPolygon':
 				uri += feature.coordinates
 					.map(coordinates => turf.polygon(coordinates))
-					.map(polygon => turf.polygonToLineString(polygon))
-					.map(line_string => polyline.fromGeoJSON(line_string))
-					.map(encoded_polyline => `path=fillcolor:0xAA000033%7Ccolor:0xFFFFFF00%7Cenc:${encoded_polyline}`)
+					.map(polygon => this.encodePolygon(polygon))
 					.join('&');
-
 				break;
 
 			case 'Point':

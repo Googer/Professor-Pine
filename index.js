@@ -24,13 +24,15 @@ const private_settings = require('./data/private-settings'),
 	Helper = require('./app/helper'),
 	IP = require('./app/process-image'),
 	Raid = require('./app/raid'),
-	Role = require('./app/role'),
 	Utility = require('./app/utility'),
 	settings = require('./data/settings');
 
 NodeCleanup((exitCode, signal) => {
 	Raid.shutdown();
 });
+
+Client.registry.registerDefaultTypes();
+Client.registry.registerTypesIn(__dirname + '/types');
 
 if (settings.features.roles) {
 	Client.registry.registerGroup('admin', 'Administration');
@@ -43,14 +45,7 @@ if (settings.features.roles) {
 	Client.registry.registerGroup('roles', 'Roles');
 }
 
-Client.registry.registerDefaultTypes();
-Client.registry.registerDefaultGroups();
-
-Client.registry.registerCommand(require('./commands/util/help'));
-
-Client.registry.registerDefaultCommands({help: false});
-
-Client.registry.registerTypesIn(__dirname + '/types');
+Client.registry.registerGroup('util', 'Utility');
 
 if (settings.features.roles) {
 	Client.registry.registerCommands([
@@ -64,8 +59,6 @@ if (settings.features.roles) {
 }
 
 Client.registry.registerCommands([
-	require('./commands/util/find-region'),
-
 	require('./commands/raids/join'),
 	require('./commands/raids/interested'),
 	require('./commands/raids/check-in'),
@@ -86,7 +79,10 @@ Client.registry.registerCommands([
 	require('./commands/raids/set-pokemon'),
 	require('./commands/raids/set-location'),
 
-	require('./commands/raids/submit-request')
+	require('./commands/raids/submit-request'),
+
+	require('./commands/util/help'),
+	require('./commands/util/find-region')
 ]);
 
 let is_initialized = false;

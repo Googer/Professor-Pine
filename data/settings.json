@@ -21,6 +21,7 @@
   "help_groups": [
     "basic-raid",
     "raid-crud",
-    "roles"
+    "roles",
+    "util"
   ]
 }
