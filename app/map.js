@@ -94,7 +94,6 @@ class Map {
 			.map(({region, intersection}) => region.properties.name);
 	}
 
-
 	findMatch(point) {
 		return this.regions
 			.filter(region => turf.inside(point, region) === true)
