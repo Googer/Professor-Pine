@@ -4,7 +4,8 @@ const log = require('loglevel').getLogger('FindRegion'),
 	Commando = require('discord.js-commando'),
 	{CommandGroup} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
-	Map = require('../../app/map');
+	Map = require('../../app/map'),
+	{MessageAttachment, MessageEmbed} = require('discord.js');
 
 class FindRegionsCommand extends Commando.Command {
 	constructor(client) {
@@ -40,7 +41,14 @@ class FindRegionsCommand extends Commando.Command {
 			results = await Map.getRegions(location),
 			image = results.feature !== null ?
 				await Map.getMapImage(results.feature) :
-				null;
+				null,
+			embed = new MessageEmbed();
+
+		embed.setImage('attachment://map.png');
+		embed.setColor(image ?
+			'GREEN' :
+			'RED')
+		embed.setFooter('© OpenStreetMap contributors');
 
 		let text;
 
@@ -55,16 +63,18 @@ class FindRegionsCommand extends Commando.Command {
 			text = `The following regions contain **${location}**:\n\n${channels}`;
 		} else {
 			text = `No matching regions found for **${location}**.`;
+			embed.setDescription(text);
 		}
 
 		if (image) {
 			message.channel.send(text,
 				{
-					files: [image]
+					files: [new MessageAttachment(image, 'map.png')],
+					embed
 				})
 				.catch(err => log.error(err));
 		} else {
-			message.channel.send(text)
+			message.channel.send(embed)
 				.catch(err => log.error(err));
 		}
 	}
