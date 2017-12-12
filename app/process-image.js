@@ -756,7 +756,9 @@ class ImageProcessing {
 		}
 
 		if (validation !== true && validation !== false) {
-			message.channel.send(validation);
+			message.channel.send(validation)
+				.then(message => message.delete({timeout: settings.message_cleanup_delay_error}))
+				.catch(err => log.error(err));
 		}
 
 		// If nothing has been determined to make sense, then either OCR or Validation has failed for whatever reason
@@ -1126,7 +1128,7 @@ class ImageProcessing {
 				// time was not valid, don't set any time (would rather have accurate time, than an inaccurate guess at the time)
 				message.channel
 					.send(time.format('h:mma') + ' is an invalid end time.  Either time was not interpreted correctly or has already expired.')
-					.then(message => message.delete({timeout: settings.message_cleanup_delay_error * 1000}))
+					.then(message => message.delete({timeout: settings.message_cleanup_delay_error}))
 					.catch(err => log.error(err));
 				time = false;
 			}
@@ -1190,7 +1192,8 @@ class ImageProcessing {
 				Raid.addMessage(raid.channel_id, channel_raid_message, true);
 
 				if (debug_flag) {
-					message.channel.send('Processing Time: ' + Math.round((Date.now() - message.temporary_processing_timestamp) / 10) / 100 + ' seconds');
+					message.channel.send('Processing Time: ' + Math.round((Date.now() - message.temporary_processing_timestamp) / 10) / 100 + ' seconds')
+						.catch(err => log.error(err));
 				}
 			})
 			.catch(err => log.error(err));
