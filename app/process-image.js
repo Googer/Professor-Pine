@@ -1182,11 +1182,6 @@ class ImageProcessing {
 			})
 			.then(channel_raid_message => {
 				Raid.addMessage(raid.channel_id, channel_raid_message, true);
-
-				if (debug_flag) {
-					message.channel.send('Processing Time: ' + Math.round((Date.now() - message.temporary_processing_timestamp) / 10) / 100 + ' seconds')
-						.catch(err => log.error(err));
-				}
 			})
 			.catch(err => log.error(err));
 	}
