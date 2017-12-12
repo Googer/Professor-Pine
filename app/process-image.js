@@ -390,19 +390,18 @@ class ImageProcessing {
 			[] :
 			use_words ?
 				[result.words
-					.map(word => {
-						if (word.confidence < min_confidence) {
-							// check through choices to pick highest one instead
-							return word.choices
-								.sort((choice_a, choice_b) => choice_b.confidence - choice_a.confidence)[0];
-						} else {
-							return word;
-						}
-					})
+					.map(word => word.choices
+						// choose highest-confidence word
+						.sort((choice_a, choice_b) => choice_b.confidence - choice_a.confidence)[0]
+					)
 					.filter(word => word.confidence > min_confidence)
 					.map(word => word.text)
 					.join(' ')] :
 				result.symbols
+					.map(symbol => symbol.choices
+						// choose highest-confidence symbol
+						.sort((choice_a, choice_b) => choice_b.confidence - choice_a.confidence)[0]
+					)
 					.reduce((previous, current) => {
 						let chunk;
 
@@ -427,7 +426,7 @@ class ImageProcessing {
 	 * Basically try to augment tesseract text confidence in by replacing low confidence with spaces and searching for colons
 	 **/
 	tesseractProcessTime(result) {
-		const confident_text = this.tesseractGetConfidentSequences(result, true, 70);
+		const confident_text = this.tesseractGetConfidentSequences(result, false, 70);
 
 		let match = '';
 
