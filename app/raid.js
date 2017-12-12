@@ -531,6 +531,8 @@ class Raid {
 
 		// update or delete screenshot if all information has now been set
 		if (raid.incomplete_screenshot_message) {
+			delete raid.time_warn;
+
 			this.getMessage(raid.incomplete_screenshot_message)
 				.then(message => {
 					if (!raid.pokemon || (raid.pokemon && raid.pokemon.placeholder)) {
@@ -581,6 +583,8 @@ class Raid {
 
 		// update or delete screenshot if all information has now been set
 		if (raid.incomplete_screenshot_message) {
+			delete raid.time_warn;
+
 			this.getMessage(raid.incomplete_screenshot_message)
 				.then(message => {
 					if (!raid.pokemon || (raid.pokemon && raid.pokemon.placeholder)) {
@@ -750,6 +754,8 @@ class Raid {
 		log.debug(raid.hatch_time, raid.end_time, TimeType.UNDEFINED_END_TIME);
 		if (!raid.hatch_time && raid.end_time === TimeType.UNDEFINED_END_TIME) {
 			message += '\n\n**Time** could not be determined, please help set the time by typing either \`!hatch <time>\` or \`!end <time>\`';
+		} else if (raid.time_warn) {
+			message += '\n\n**Time** could not be determined precisely, please help set the time by typing either \`!hatch <time>\` or \`!end <time>\`';
 		}
 
 		return message;
