@@ -53,7 +53,7 @@ class ImageProcessing {
 		this.time_tesseract_options = Object.assign({}, this.base_tesseract_options, {
 			load_system_dawg: '0',
 			tessedit_pageseg_mode: '7',	// character mode; instead of word mode
-			tessedit_char_whitelist: '0123456789: APM'
+			tessedit_char_whitelist: '0123456789:! APM'
 		});
 
 		this.time_remain_tesseract_options = Object.assign({}, this.base_tesseract_options, {
@@ -203,7 +203,7 @@ class ImageProcessing {
 	 * Header can contain black-gray text or white-gray text
 	 *    need to turn these areas into extremes and filter out everything else
 	 **/
-	filterNearWhiteContent2(x, y, idx) {
+	filterSemiWhiteContent(x, y, idx) {
 		const red = this.bitmap.data[idx + 0],
 			green = this.bitmap.data[idx + 1],
 			blue = this.bitmap.data[idx + 2],
@@ -245,7 +245,7 @@ class ImageProcessing {
 	 * Header can contain black-gray text or white-gray text
 	 *    need to turn these areas into extremes and filter out everything else
 	 **/
-	filterNearBlackContent2(x, y, idx) {
+	filterSemiBlackContent(x, y, idx) {
 		const red = this.bitmap.data[idx + 0],
 			green = this.bitmap.data[idx + 1],
 			blue = this.bitmap.data[idx + 2],
@@ -390,6 +390,15 @@ class ImageProcessing {
 			[] :
 			use_words ?
 				[result.words
+					.map(word => {
+						if (word.confidence < min_confidence) {
+							// check through choices to pick highest one instead
+							return word.choices
+								.sort((choice_a, choice_b) => choice_b.confidence - choice_a.confidence)[0];
+						} else {
+							return word;
+						}
+					})
 					.filter(word => word.confidence > min_confidence)
 					.map(word => word.text)
 					.join(' ')] :
@@ -429,13 +438,13 @@ class ImageProcessing {
 
 			// if still no colon, replace common matches with colon in an attempt to get a match
 			if (text.search(':') < 0) {
-				text = text.replace(/\./g, ':');
+				text = text.replace(/!/g, ':');
 			}
 
 			let text_match = text
-				.replace(/[^\w\s:%]/g, '')
+				.replace(/[^\w\s:!%]/g, ' ')
 				.replace(/[oO]/g, 0)
-				.match(/(\d{1,2}:?\d{2}(\s?[ap]m)?)/i);
+				.match(/([0-2]?\d:?\d{2}(\s?[ap]m)?)/i);
 
 			if (text_match) {
 				match = text_match;
@@ -510,19 +519,19 @@ class ImageProcessing {
 
 				switch (level) {
 					case 0:
-						new_image = new_image.scan(0, 0, cropped_region.width * 2, cropped_region.height * 2, this.filterNearBlackContent);
+						new_image = new_image.scan(0, 0, cropped_region.width * 2, cropped_region.height * 2, this.filterSemiBlackContent);
 						break;
 
 					case 1:
-						new_image = new_image.scan(0, 0, cropped_region.width * 2, cropped_region.height * 2, this.filterNearBlackContent2);
+						new_image = new_image.scan(0, 0, cropped_region.width * 2, cropped_region.height * 2, this.filterNearBlackContent);
 						break;
 
 					case 2:
-						new_image = new_image.scan(0, 0, cropped_region.width * 2, cropped_region.height * 2, this.filterNearWhiteContent);
+						new_image = new_image.scan(0, 0, cropped_region.width * 2, cropped_region.height * 2, this.filterSemiWhiteContent);
 						break;
 
 					case 3:
-						new_image = new_image.scan(0, 0, cropped_region.width * 2, cropped_region.height * 2, this.filterNearWhiteContent2);
+						new_image = new_image.scan(0, 0, cropped_region.width * 2, cropped_region.height * 2, this.filterNearWhiteContent);
 						break;
 				}
 
