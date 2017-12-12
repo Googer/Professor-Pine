@@ -14,7 +14,7 @@ const log = require('loglevel').getLogger('ImageProcessor'),
 	{TimeParameter} = require('../app/constants');
 
 // Will save all images regardless of how right or wrong, in order to better examine output
-const debug_flag = true;
+const debug_flag = false;
 
 class ImageProcessing {
 	constructor() {
@@ -51,9 +51,9 @@ class ImageProcessing {
 		});
 
 		this.time_tesseract_options = Object.assign({}, this.base_tesseract_options, {
-			load_system_dawg: '0'
-			// tessedit_pageseg_mode: '7',	// character mode; instead of word mode
-			// tessedit_char_whitelist: '0123456789: AaPpMm'
+			load_system_dawg: '0',
+			tessedit_pageseg_mode: '7',	// character mode; instead of word mode
+			tessedit_char_whitelist: '0123456789: APM'
 		});
 
 		this.time_remain_tesseract_options = Object.assign({}, this.base_tesseract_options, {
@@ -385,7 +385,7 @@ class ImageProcessing {
 	/**
 	 * Given a tesseract result, find the longest subsequence in the result text of relatively high-confidence symbols
 	 */
-	tesseractConfidentSequences(result, use_words = false, min_confidence = 60) {
+	tesseractGetConfidentSequences(result, use_words = false, min_confidence = 60) {
 		return result.text === '' ?
 			[] :
 			use_words ?
@@ -418,13 +418,12 @@ class ImageProcessing {
 	 * Basically try to augment tesseract text confidence in by replacing low confidence with spaces and searching for colons
 	 **/
 	tesseractProcessTime(result) {
-		const texts = this.tesseractConfidentSequences(result, true, 70);
+		const confident_text = this.tesseractGetConfidentSequences(result, true, 70);
 
-		let match = '',
-			found = false;
+		let match = '';
 
-		texts.forEach(text => {
-			if (found) {
+		confident_text.forEach(text => {
+			if (match !== '') {
 				return;
 			}
 
@@ -436,18 +435,9 @@ class ImageProcessing {
 			let text_match = text
 				.replace(/[^\w\s:%]/g, '')
 				.replace(/[oO]/g, 0)
-				.match(/([0-9]{1,2}:[0-9]{1,2}){1}\s?([ap])?m?/gi);
+				.match(/(\d{1,2}:?\d{2}(\s?[ap]m)?)/i);
 
 			if (text_match) {
-				found = true;
-
-				// finally if AM or PM is in text, need to ensure the power meter bar, which is often read as a number, is stripped out
-				if (text_match[0].search(/[ap]m/i) > 0) {
-					if (!isNaN(text_match[0][0]) && parseInt(text_match[0][1]) >= 3) {
-						text_match[0] = text_match[0].slice(1);
-					}
-				}
-
 				match = text_match;
 			}
 		});
@@ -514,23 +504,25 @@ class ImageProcessing {
 
 			// this check looks for black text (usually iPhone)
 			new Promise((resolve, reject) => {
-				let new_image = image.clone().crop(cropped_region.x, cropped_region.y, cropped_region.width, cropped_region.height);
+				let new_image = image.clone()
+					.crop(cropped_region.x, cropped_region.y, cropped_region.width, cropped_region.height)
+					.scale(2, Jimp.RESIZE_HERMITE);
 
 				switch (level) {
 					case 0:
-						new_image = new_image.scan(0, 0, cropped_region.width, cropped_region.height, this.filterNearBlackContent);
+						new_image = new_image.scan(0, 0, cropped_region.width * 2, cropped_region.height * 2, this.filterNearBlackContent);
 						break;
 
 					case 1:
-						new_image = new_image.scan(0, 0, cropped_region.width, cropped_region.height, this.filterNearBlackContent2);
+						new_image = new_image.scan(0, 0, cropped_region.width * 2, cropped_region.height * 2, this.filterNearBlackContent2);
 						break;
 
 					case 2:
-						new_image = new_image.scan(0, 0, cropped_region.width, cropped_region.height, this.filterNearWhiteContent);
+						new_image = new_image.scan(0, 0, cropped_region.width * 2, cropped_region.height * 2, this.filterNearWhiteContent);
 						break;
 
 					case 3:
-						new_image = new_image.scan(0, 0, cropped_region.width, cropped_region.height, this.filterPureWhiteContent2);
+						new_image = new_image.scan(0, 0, cropped_region.width * 2, cropped_region.height * 2, this.filterNearWhiteContent2);
 						break;
 				}
 
@@ -547,7 +539,7 @@ class ImageProcessing {
 							if (match && match.length) {
 								resolve({
 									image: new_image,
-									text: match[0],
+									text: match[1],
 									result
 								});
 							} else {
@@ -617,15 +609,15 @@ class ImageProcessing {
 							.catch(err => reject(err))
 							.then(result => {
 								// NOTE: important that the letter "o" be replaced with a 0, in order to properly match a time
-								const match = this.tesseractConfidentSequences(result)
+								const match = this.tesseractGetConfidentSequences(result)
 									.map(text => text
 										.replace(/[^\w\s:]/g, '')
 										.replace(/[oO]/g, 0))
-									.find(text => text.match(/([0-9]{1,2}:[0-9]{1,2}){2}/g));
+									.find(text => text.match(/(\d{1,2}:\d{2}:\d{2})/));
 								if (match && match.length) {
 									resolve({
 										image: new_image,
-										text: match.match(/([0-9]{1,2}:[0-9]{1,2}){2}/g)[0],
+										text: match.match(/(\d{1,2}:\d{2}:\d{2})/)[1],
 										result
 									});
 								} else {
@@ -652,15 +644,15 @@ class ImageProcessing {
 							.catch(err => reject(err))
 							.then(result => {
 								// NOTE: important that the letter "o" be replaced with a 0, in order to properly match a time
-								const match = this.tesseractConfidentSequences(result)
+								const match = this.tesseractGetConfidentSequences(result)
 									.map(text => text
 										.replace(/[^\w:]/g, '')
 										.replace(/[oO]/g, 0))
-									.find(text => text.match(/([0-9]{1,2}:[0-9]{1,2}){2}/g));
+									.find(text => text.match(/(\d{1,2}:\d{2}:\d{2})/));
 								if (match && match.length) {
 									resolve({
 										image: new_image,
-										text: match.match(/([0-9]{1,2}:[0-9]{1,2}){2}/g)[0],
+										text: match.match(/(\d{1,2}:\d{2}:\d{2})/)[1],
 										result
 									});
 								} else {
@@ -786,7 +778,7 @@ class ImageProcessing {
 				this.gym_pokemon_tesseract.recognize(image, this.gym_pokemon_tesseract_options)
 					.catch(err => reject(err))
 					.then(result => {
-						const text = this.tesseractConfidentSequences(result, true)
+						const text = this.tesseractGetConfidentSequences(result, true)
 							.map(text => text
 								.replace(/[^\w\s-]/g, '')
 								.replace(/\n/g, ' ').trim())[0];
@@ -873,8 +865,8 @@ class ImageProcessing {
 					.catch(err => reject(err))
 					.then(result => {
 						const text = result.text.replace(/[^\w\n]/gi, '');
-						let match_cp = text.match(/[0-9]{3,10}/g),
-							match_pokemon = text.replace(/(cp)?\s?[0-9]+/g, ' ').match(/\w+/g),
+						let match_cp = text.match(/\d{3,10}/g),
+							match_pokemon = text.replace(/(cp)?\s?\d+/g, ' ').match(/\w+/g),
 							pokemon = '',
 							cp = 0;
 
