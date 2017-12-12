@@ -14,7 +14,7 @@ const log = require('loglevel').getLogger('ImageProcessor'),
 	{TimeParameter} = require('../app/constants');
 
 // Will save all images regardless of how right or wrong, in order to better examine output
-const debug_flag = false;
+const debug_flag = true;
 
 class ImageProcessing {
 	constructor() {
@@ -25,11 +25,11 @@ class ImageProcessing {
 			fs.mkdirSync(path.join(__dirname, this.image_path));
 		}
 
-		this.tesseract = tesseract.create();
-
 		this.gym_pokemon_tesseract = tesseract.create({
 			langPath: path.dirname(require.resolve('PgP-Data/data/eng.traineddata'))
 		});
+		this.time_tesseract = tesseract.create();
+		this.tier_tesseract = tesseract.create();
 
 		this.base_tesseract_options = {
 			load_bigram_dawg: '0',
@@ -51,9 +51,15 @@ class ImageProcessing {
 		});
 
 		this.time_tesseract_options = Object.assign({}, this.base_tesseract_options, {
-			load_system_dawg: '0',
+			load_system_dawg: '0'
 			// tessedit_pageseg_mode: '7',	// character mode; instead of word mode
 			// tessedit_char_whitelist: '0123456789: AaPpMm'
+		});
+
+		this.time_remain_tesseract_options = Object.assign({}, this.base_tesseract_options, {
+			load_system_dawg: '0',
+			// tessedit_pageseg_mode: '7',	// character mode; instead of word mode
+			tessedit_char_whitelist: '0123456789: '
 		});
 
 		this.tier_tesseract_options = Object.assign({}, this.base_tesseract_options, {
@@ -376,65 +382,88 @@ class ImageProcessing {
 		}
 	}
 
+	/**
+	 * Given a tesseract result, find the longest subsequence in the result text of relatively high-confidence symbols
+	 */
+	tesseractConfidentSequences(result, use_words = false, min_confidence = 60) {
+		return result.text === '' ?
+			[] :
+			use_words ?
+				[result.words
+					.filter(word => word.confidence > min_confidence)
+					.map(word => word.text)
+					.join(' ')] :
+				result.symbols
+					.reduce((previous, current) => {
+						let chunk;
+
+						if (current.confidence < min_confidence || previous.length === 0) {
+							chunk = [];
+							previous.push(chunk);
+						} else {
+							chunk = previous[previous.length - 1];
+						}
+
+						chunk.push(current);
+
+						return previous;
+					}, [])
+					.map(array => array.filter(symbol => symbol.confidence >= min_confidence))
+					.sort((arr_1, arr_2) => arr_2.length - arr_1.length)
+					.map(symbols => symbols.map(symbol => symbol.text)
+						.join(''));
+	}
 
 	/**
 	 * Basically try to augment tesseract text confidence in by replacing low confidence with spaces and searching for colons
 	 **/
 	tesseractProcessTime(result) {
-		let text = result.text;
+		const texts = this.tesseractConfidentSequences(result, true, 70);
 
-		if (result.confidence < 70 || result.text.search(':') < 0) {
-			text = '';
+		let match = '',
+			found = false;
 
-			for (let i = 0; i < result.symbols.length; i++) {
-				let symbol = result.symbols[i];
-				let symbol_text = symbol.text;
+		texts.forEach(text => {
+			if (found) {
+				return;
+			}
 
-				if (symbol.confidence < 60) {
-					// replace bad symbol matches (which are likely icons in phone's header bar) with a separator/space character
-					symbol_text = ' ';
-				} else if (symbol.confidence < 80) {
-					// look for colon in time string
-					for (let j = 0; j < symbol.choices.length; j++) {
-						let choice = symbol.choices[j];
+			// if still no colon, replace common matches with colon in an attempt to get a match
+			if (text.search(':') < 0) {
+				text = text.replace(/\./g, ':');
+			}
 
-						if (choice.text === ':') {
-							symbol_text = choice.text;
-						}
+			let text_match = text
+				.replace(/[^\w\s:%]/g, '')
+				.replace(/[oO]/g, 0)
+				.match(/([0-9]{1,2}:[0-9]{1,2}){1}\s?([ap])?m?/gi);
+
+			if (text_match) {
+				found = true;
+
+				// finally if AM or PM is in text, need to ensure the power meter bar, which is often read as a number, is stripped out
+				if (text_match[0].search(/[ap]m/i) > 0) {
+					if (!isNaN(text_match[0][0]) && parseInt(text_match[0][1]) >= 3) {
+						text_match[0] = text_match[0].slice(1);
 					}
 				}
 
-				text += symbol_text;
+				match = text_match;
 			}
-		}
-
-		// if still no colon, replace common matches with colon in an attempt to get a match
-		if (text.search(':') < 0) {
-			text = text.replace(/\./g, ':');
-		}
-
-		let match = text.replace(/[^\w\s:%]/g, '').replace(/[oO]/g, 0).match(/([0-9]{1,2}:[0-9]{1,2}){1}\s?([ap])?m?/gi);
-
-		// finally if AM or PM is in text, need to ensure the power meter bar, which is often read as a number, is stripped out
-		if (match && match[0].search(/[ap]m/i) > 0) {
-			if (!isNaN(match[0][0]) && parseInt(match[0][1]) >= 3) {
-				match[0] = match[0].slice(1);
-			}
-		}
+		});
 
 		return match;
 	}
 
 	async getPhoneTime(id, message, image, region) {
-		let values, phone_time;
+		let value, phone_time;
 
 		// try different levels of processing to get time
 		for (let processing_level = 0; processing_level <= 3; processing_level++) {
-			const debug_image_path1 = path.join(__dirname, this.image_path, `${id}1-phone-time-a-${processing_level}.png`);
-			const debug_image_path2 = path.join(__dirname, this.image_path, `${id}1-phone-time-b-${processing_level}.png`);
+			const debug_image_path = path.join(__dirname, this.image_path, `${id}-phone-time-${processing_level}.png`);
 
-			values = await this.getOCRPhoneTime(id, message, image, region, processing_level);
-			phone_time = values.text;
+			value = await this.getOCRPhoneTime(id, message, image, region, processing_level);
+			phone_time = value.text;
 
 			if (phone_time) {
 				// Determine of AM or PM time
@@ -458,10 +487,8 @@ class ImageProcessing {
 
 			// something has gone wrong if no info was matched, save image for later analysis
 			if (debug_flag || ((!phone_time || (phone_time && !phone_time.isValid())) && log.getLevel() === log.levels.DEBUG)) {
-				log.warn('Phone Time: ', id, values.result1.text);
-				log.warn('Phone Time: ', id, values.result2.text);
-				values.image1.write(debug_image_path1);
-				values.image2.write(debug_image_path2);
+				log.debug('Phone Time: ', id, value.text);
+				value.image.write(debug_image_path);
 			}
 
 			// don't jump up to next level of processing if a time has been found
@@ -478,43 +505,33 @@ class ImageProcessing {
 
 	getOCRPhoneTime(id, message, image, region, level = 0) {
 		return new Promise((resolve, reject) => {
-			let width;
+			const cropped_region = {
+				x: 0,
+				y: region.y,
+				width: region.width,
+				height: region.height
+			};
 
-			if (level === 0) {
-				width = region.width / 4.5;
-			} else if (level === 1) {
-				width = region.width / 4.5;
-			} else if (level === 2) {
-				width = region.width / 5.5;
-			} else {
-				width = region.width / 6.2;
-			}
+			// this check looks for black text (usually iPhone)
+			new Promise((resolve, reject) => {
+				let new_image = image.clone().crop(cropped_region.x, cropped_region.y, cropped_region.width, cropped_region.height);
 
-			// checking left and right sides of image for time...
-			const region1 = {
-					x: (region.width - width) / 2,
-					y: region.y,
-					width,
-					height: region.height
-				},
-				region2 = {
-					x: region.width - width,
-					y: region.y,
-					width,
-					height: region.height
-				};
+				switch (level) {
+					case 0:
+						new_image = new_image.scan(0, 0, cropped_region.width, cropped_region.height, this.filterNearBlackContent);
+						break;
 
-			let promises = [];
+					case 1:
+						new_image = new_image.scan(0, 0, cropped_region.width, cropped_region.height, this.filterNearBlackContent2);
+						break;
 
-			// this check looks at the top-middle for time (iphone?)
-			promises.push(new Promise((resolve, reject) => {
-				let new_image = image.clone().crop(region1.x, region1.y, region1.width, region1.height);
+					case 2:
+						new_image = new_image.scan(0, 0, cropped_region.width, cropped_region.height, this.filterNearWhiteContent);
+						break;
 
-				// basic level 0 processing by default
-				if (level === 0) {
-					new_image = new_image.scan(0, 0, region1.width, region1.height, this.filterNearBlackContent).blur(1);
-				} else {
-					new_image = new_image.scan(0, 0, region1.width, region1.height, this.filterNearBlackContent2).blur(1);
+					case 3:
+						new_image = new_image.scan(0, 0, cropped_region.width, cropped_region.height, this.filterPureWhiteContent2);
+						break;
 				}
 
 				new_image.getBuffer(Jimp.MIME_PNG, (err, image) => {
@@ -522,7 +539,7 @@ class ImageProcessing {
 						reject(err);
 					}
 
-					this.tesseract.recognize(image, this.time_tesseract_options)
+					this.time_tesseract.recognize(image, this.time_tesseract_options)
 						.catch(err => reject(err))
 						.then(result => {
 							// basically strip out everything except spaces, colons, and battery % life, then match any typical time values
@@ -541,56 +558,9 @@ class ImageProcessing {
 							}
 						});
 				});
-			}));
-
-			// this check looks at the top-right for time (android?)
-			promises.push(new Promise((resolve, reject) => {
-				let new_image = image.clone()
-					.crop(region2.x, region2.y, region2.width, region2.height);
-
-				// basic level 0 processing by default
-				if (level === 0) {
-					new_image = new_image.scan(0, 0, region1.width, region1.height, this.filterNearWhiteContent).blur(1);
-				} else {
-					new_image = new_image.scan(0, 0, region1.width, region1.height, this.filterNearWhiteContent2).blur(1);
-				}
-
-				new_image.getBuffer(Jimp.MIME_PNG, (err, image) => {
-					if (err) {
-						reject(err);
-					}
-
-					this.tesseract.recognize(image, this.time_tesseract_options)
-						.catch(err => reject(err))
-						.then(result => {
-							// basically strip out everything except spaces, colons, and battery % life, then match any typical time values
-							const match = this.tesseractProcessTime(result);
-							if (match && match.length) {
-								resolve({
-									image: new_image,
-									text: match[0],
-									result
-								});
-							} else {
-								resolve({
-									image: new_image,
-									result
-								});
-							}
-						});
-				});
-			}));
-
-			// pass along collected data once all promises have resolved
-			Promise.all(promises)
-				.then(values => {
-					resolve({
-						image1: values[0].image,
-						image2: values[1].image,
-						text: values[0].text || values[1].text,
-						result1: values[0].result,
-						result2: values[1].result
-					});
+			})
+				.then(value => {
+					resolve(value);
 				})
 				.catch(err => {
 					reject(err);
@@ -599,14 +569,14 @@ class ImageProcessing {
 	}
 
 	async getRaidTimeRemaining(id, message, image, region) {
-		const debug_image_path1 = path.join(__dirname, this.image_path, `${id}5-time-remaining-a.png`),
-			debug_image_path2 = path.join(__dirname, this.image_path, `${id}5-time-remaining-b.png`),
+		const debug_image_path1 = path.join(__dirname, this.image_path, `${id}-time-remaining-a.png`),
+			debug_image_path2 = path.join(__dirname, this.image_path, `${id}-time-remaining-b.png`),
 			values = await this.getOCRRaidTimeRemaining(id, message, image, region);
 
 		// something has gone wrong if no info was matched, save image for later analysis
 		if (debug_flag || (!values.text && log.getLevel() === log.levels.DEBUG)) {
-			log.warn('Time Remaining: ', id, values.result1.text);
-			log.warn('Time Remaining: ', id, values.result2.text);
+			log.debug('Time Remaining (a): ', id, values.result1.text);
+			log.debug('Time Remaining (b): ', id, values.result2.text);
 			values.image1.write(debug_image_path1);
 			values.image2.write(debug_image_path2);
 		}
@@ -616,7 +586,7 @@ class ImageProcessing {
 		return {time_remaining: values.text, egg: values.egg};
 	}
 
-	getOCRRaidTimeRemaining(id, message, image, region, level = 0) {
+	getOCRRaidTimeRemaining(id, message, image, region) {
 		return new Promise((resolve, reject) => {
 			const region1 = {
 					x: region.width - (region.width / 3.4),
@@ -625,9 +595,9 @@ class ImageProcessing {
 					height: region.height / 12
 				},
 				region2 = {
-					x: 0,
+					x: (region.width / 2) - (region.width / 6),
 					y: region.height / 6.4,
-					width: region.width,
+					width: region.width / 3,
 					height: region.height / 8
 				};
 
@@ -643,15 +613,19 @@ class ImageProcessing {
 							reject(err);
 						}
 
-						this.tesseract.recognize(image)
+						this.time_tesseract.recognize(image, this.time_remain_tesseract_options)
 							.catch(err => reject(err))
 							.then(result => {
 								// NOTE: important that the letter "o" be replaced with a 0, in order to properly match a time
-								const match = result.text.replace(/[^\w\s:]/g, '').replace(/[oO]/g, 0).match(/([0-9]{1,2}:[0-9]{1,2}){2}/g);
+								const match = this.tesseractConfidentSequences(result)
+									.map(text => text
+										.replace(/[^\w\s:]/g, '')
+										.replace(/[oO]/g, 0))
+									.find(text => text.match(/([0-9]{1,2}:[0-9]{1,2}){2}/g));
 								if (match && match.length) {
 									resolve({
 										image: new_image,
-										text: match[0],
+										text: match.match(/([0-9]{1,2}:[0-9]{1,2}){2}/g)[0],
 										result
 									});
 								} else {
@@ -674,15 +648,19 @@ class ImageProcessing {
 							reject(err);
 						}
 
-						this.tesseract.recognize(image)
+						this.time_tesseract.recognize(image, this.time_remain_tesseract_options)
 							.catch(err => reject(err))
 							.then(result => {
 								// NOTE: important that the letter "o" be replaced with a 0, in order to properly match a time
-								const match = result.text.replace(/[^\w:]/g, '').replace(/[oO]/g, 0).match(/([0-9]{1,2}:[0-9]{1,2}){2}/g);
+								const match = this.tesseractConfidentSequences(result)
+									.map(text => text
+										.replace(/[^\w:]/g, '')
+										.replace(/[oO]/g, 0))
+									.find(text => text.match(/([0-9]{1,2}:[0-9]{1,2}){2}/g));
 								if (match && match.length) {
 									resolve({
 										image: new_image,
-										text: match[0],
+										text: match.match(/([0-9]{1,2}:[0-9]{1,2}){2}/g)[0],
 										result
 									});
 								} else {
@@ -720,7 +698,7 @@ class ImageProcessing {
 
 		// try different levels of processing to get gym name
 		for (let processing_level = 0; processing_level <= 1; processing_level++) {
-			const debug_image_path = path.join(__dirname, this.image_path, `${id}2-gym-name-${processing_level}.png`);
+			const debug_image_path = path.join(__dirname, this.image_path, `${id}-gym-name-${processing_level}.png`);
 			values = await this.getOCRGymName(id, message, image, region, processing_level);
 
 			// start by splitting into words of 3 characters or more, and sorting by size of each word
@@ -764,7 +742,7 @@ class ImageProcessing {
 			}
 
 			if (debug_flag || (!validation && log.getLevel() === log.levels.DEBUG)) {
-				log.warn('Gym Name: ', id, values.text);
+				log.debug('Gym Name: ', id, values.text);
 				values.image.write(debug_image_path);
 			}
 
@@ -793,9 +771,9 @@ class ImageProcessing {
 
 			// basic level 0 processing by default
 			if (level === 0) {
-				new_image = new_image.scan(0, 0, region.width, region.height, this.filterBodyContent).blur(1);
+				new_image = new_image.scan(0, 0, region.width, region.height, this.filterBodyContent);
 			} else {
-				new_image = new_image.blur(1).scan(0, 0, region.width, region.height, this.filterBodyContent2).blur(1);
+				new_image = new_image.scan(0, 0, region.width, region.height, this.filterBodyContent2);
 			}
 
 			new_image.getBuffer(Jimp.MIME_PNG, (err, image) => {
@@ -806,7 +784,10 @@ class ImageProcessing {
 				this.gym_pokemon_tesseract.recognize(image, this.gym_pokemon_tesseract_options)
 					.catch(err => reject(err))
 					.then(result => {
-						const text = result.text.replace(/[^\w\s-]/g, '').replace(/\n/g, ' ').trim();
+						const text = this.tesseractConfidentSequences(result, true)
+							.map(text => text
+								.replace(/[^\w\s-]/g, '')
+								.replace(/\n/g, ' ').trim())[0];
 						resolve({
 							image: new_image,
 							text,
@@ -823,7 +804,7 @@ class ImageProcessing {
 
 		// try different levels of processing to get pokemon
 		for (let processing_level = 0; processing_level <= 4; processing_level++) {
-			const debug_image_path = path.join(__dirname, this.image_path, `${id}3-pokemon-name-${processing_level}.png`);
+			const debug_image_path = path.join(__dirname, this.image_path, `${id}-pokemon-name-${processing_level}.png`);
 			values = await this.getOCRPokemonName(id, message, image, region, processing_level);
 			pokemon = values.pokemon;
 			cp = values.cp;
@@ -843,7 +824,7 @@ class ImageProcessing {
 
 			// something has gone wrong if no info was matched, save image for later analysis
 			if (debug_flag || (pokemon.placeholder && log.getLevel() === log.levels.DEBUG)) {
-				log.warn('Pokemon Name: ', id, values.result.text);
+				log.debug('Pokemon Name: ', id, values.result.text);
 				values.image.write(debug_image_path);
 			}
 
@@ -926,7 +907,7 @@ class ImageProcessing {
 
 		// try different levels of processing to get time
 		for (let processing_level = 0; processing_level <= 2; processing_level++) {
-			const debug_image_path = path.join(__dirname, this.image_path, `${id}5-tier-${processing_level}.png`);
+			const debug_image_path = path.join(__dirname, this.image_path, `${id}-tier-${processing_level}.png`);
 			values = await this.getOCRTier(id, message, image, region, processing_level);
 
 			// NOTE: Expects string in validation of egg tier
@@ -939,12 +920,9 @@ class ImageProcessing {
 			}
 
 			// something has gone wrong if no info was matched, save image for later analysis
+			log.debug('Tier: ', id, values.result.text);
 			if (debug_flag || (pokemon.placeholder && log.getLevel() === log.levels.DEBUG)) {
-				log.warn('Tier: ', id, values.result.text);
 				values.image.write(debug_image_path);
-			} else {
-				// tier checking is super unstable, just always going to log everything
-				log.debug('Tier: ', id, values.result.text);
 			}
 
 			if (!pokemon.placeholder) {
@@ -983,15 +961,17 @@ class ImageProcessing {
 						reject(err);
 					}
 
-					this.tesseract.recognize(image, this.tier_tesseract_options)
+					this.tier_tesseract.recognize(image, this.tier_tesseract_options)
 						.catch(err => reject(err))
 						.then(result => {
 							let tier = 0;
 
 							// tier symbols will all be on the same line, so pick the text/line of whatever line has the most matches (assuming other lines are stray artifacts and/or clouds)
-							for (let i=0; i<result.lines.length; i++) {
+							for (let i = 0; i < result.lines.length; i++) {
 								// replace characters that are almost always jibberish characters
-								const text = result.lines[i].text.replace(/\s/g, '').replace(/“”‘’"'-_=\\\/\+/g, '');
+								const text = result.lines[i].text
+									.replace(/\s/g, '')
+									.replace(/“”‘’"'-_=\\\/\+/g, '');
 
 								// match highly probable / common character regex
 								const match = text.match(/[@Q9Wé®©]+/g);
@@ -1067,7 +1047,7 @@ class ImageProcessing {
 		const {time_remaining, egg} = await this.getRaidTimeRemaining(id, message, image, all_crop);
 
 		// NOTE:  This seems like a bug in await syntax, but I can't use shorthands for settings values
-		//			when they're await within an IF function like this... really stupid.
+		//        when they're await within an IF function like this... really stupid.
 		if (egg) {
 			// POKEMON TIER
 			promises.push(this.getTier(id, message, image, tier_crop));
@@ -1076,8 +1056,8 @@ class ImageProcessing {
 			promises.push(this.getPokemonName(id, message, image, pokemon_name_crop));
 		}
 
-		// CLARIFICATION:  So basically tier, pokemon, cp, and phone time are not dependant on each other,
-		//		so by making them totally asynchronise, we speed up execution time slightly.
+		// CLARIFICATION:  So basically tier, pokemon, cp, and phone time are not dependent on each other,
+		//                 so by making them totally asynchronous, we speed up execution time slightly.
 		return Promise.all(promises)
 			.then(values => {
 				return {
@@ -1105,13 +1085,22 @@ class ImageProcessing {
 	}
 
 	createRaid(message, data) {
-		const TimeType = Helper.client.registry.types.get('time');
+		const TimeType = Helper.client.registry.types.get('time'),
+			message_time = moment(message.createdAt),
+			earliest_accepted_time = message_time.clone().subtract(settings.screenshot_threshold_time, 'minutes');
 
 		let gym = data.gym,
 			pokemon = data.pokemon,
 			time = data.phone_time,
 			duration = moment.duration(data.time_remaining, 'hh:mm:ss'),
-			arg = {};
+			arg = {},
+			time_warn = false;
+
+		// If time wasn't found or is way off-base, base raid's expiration time off of message time instead
+		if (!time || !time.isBetween(earliest_accepted_time, message_time, null, [])) {
+			time = message_time.clone().subtract(settings.screenshot_message_offset_time, 'seconds');
+			time_warn = true;
+		}
 
 		// Need to fake TimeType data in order to validate/parse time...
 		// NOTE:  all time must be "end time" due to how createRaid works / expects end time
@@ -1137,6 +1126,7 @@ class ImageProcessing {
 				// time was not valid, don't set any time (would rather have accurate time, than an inaccurate guess at the time)
 				message.channel
 					.send(time.format('h:mma') + ' is an invalid end time.  Either time was not interpreted correctly or has already expired.')
+					.then(message => message.delete({timeout: settings.message_cleanup_delay_error * 1000}))
 					.catch(err => log.error(err));
 				time = false;
 			}
@@ -1156,6 +1146,11 @@ class ImageProcessing {
 		Raid.createRaid(message.channel.id, message.member.id, pokemon, gym, time)
 			.then(async info => {
 				raid = info.raid;
+
+				if (time_warn) {
+					raid.time_warn = true;
+				}
+
 				const raid_channel_message = await Raid.getRaidChannelMessage(raid),
 					formatted_message = await Raid.getFormattedMessage(raid);
 
@@ -1165,23 +1160,24 @@ class ImageProcessing {
 				return Raid.setAnnouncementMessage(raid.channel_id, announcement_message);
 			})
 			.then(async bot_message => {
-				await Raid.getChannel(raid.channel_id).then(async channel => {
-					// if pokemon, time remaining, or phone time was not determined, need to add original image to new channel,
-					//		in the hope the someone can manually read the screenshot and set the appropriate information
-					if (!message.is_fake && (pokemon.placeholder === true || !time)) {
-						await channel
-							.send(Raid.getIncompleteScreenshotMessage(raid), {
-								files: [
-									message.attachments.first().url
-								]
-							})
-							.then(message => Raid.setIncompleteScreenshotMessage(channel.id, message))
-							.catch(err => log.error(err));
-					}
+				await Raid.getChannel(raid.channel_id)
+					.then(async channel => {
+						// if pokemon, time remaining, or phone time was not determined, need to add original image to new channel,
+						// in the hope the someone can manually read the screenshot and set the appropriate information
+						if (!message.is_fake && (pokemon.placeholder === true || !time || time_warn)) {
+							await channel
+								.send(Raid.getIncompleteScreenshotMessage(raid), {
+									files: [
+										message.attachments.first().url
+									]
+								})
+								.then(message => Raid.setIncompleteScreenshotMessage(channel.id, message))
+								.catch(err => log.error(err));
+						}
 
-					message.delete()
-						.catch(err => log.error(err));
-				});
+						message.delete()
+							.catch(err => log.error(err));
+					});
 			})
 			.then(async bot_message => {
 				const raid_source_channel_message = await Raid.getRaidSourceChannelMessage(raid),
