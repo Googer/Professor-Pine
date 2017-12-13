@@ -14,7 +14,7 @@ const log = require('loglevel').getLogger('ImageProcessor'),
 	{TimeParameter} = require('../app/constants');
 
 // Will save all images regardless of how right or wrong, in order to better examine output
-const debug_flag = false;
+const debug_flag = true;
 
 class ImageProcessing {
 	constructor() {
@@ -36,6 +36,7 @@ class ImageProcessing {
 			load_fixed_length_dawgs: '0',
 			load_freq_dawg: '0',
 			load_unambig_dawg: '0',
+			load_punc_dawg: '0',
 			paragraph_text_based: '0',
 			language_model_penalty_non_dict_word: '1.5',
 			classify_misfit_junk_penalty: '0.8',
@@ -46,20 +47,21 @@ class ImageProcessing {
 		};
 
 		this.gym_pokemon_tesseract_options = Object.assign({}, this.base_tesseract_options, {
-			load_number_dawg: '0',
-			load_punc_dawg: '0'
+			load_number_dawg: '0'
 		});
 
 		this.time_tesseract_options = Object.assign({}, this.base_tesseract_options, {
 			load_system_dawg: '0',
 			tessedit_pageseg_mode: '7',	// character mode; instead of word mode
-			tessedit_char_whitelist: '0123456789:! APM'
+			tessedit_char_whitelist: '0123456789:! APM',
+			numeric_punctuation: ':'
 		});
 
 		this.time_remain_tesseract_options = Object.assign({}, this.base_tesseract_options, {
 			load_system_dawg: '0',
 			// tessedit_pageseg_mode: '7',	// character mode; instead of word mode
-			tessedit_char_whitelist: '0123456789: '
+			tessedit_char_whitelist: '0123456789: ',
+			numeric_punctuation: ':'
 		});
 
 		this.tier_tesseract_options = Object.assign({}, this.base_tesseract_options, {
@@ -83,12 +85,6 @@ class ImageProcessing {
 				message.temporary_processing_timestamp = Date.now();
 				this.process(message, image_url);
 			}
-
-			// QUICKER WAY TO TEST IMAGES
-			// if (message.content == 'ping') {
-			// 	message.is_fake = true;
-			// 	this.process(message, path.join(__dirname, this.image_path, 'image.png'));
-			// }
 		});
 	}
 
@@ -383,7 +379,7 @@ class ImageProcessing {
 	}
 
 	/**
-	 * Given a tesseract result, find the longest subsequence in the result text of relatively high-confidence symbols
+	 * Given a tesseract result, find the highest-confidence subsequences in the result text
 	 */
 	tesseractGetConfidentSequences(result, use_words = false, min_confidence = 60) {
 		return result.text === '' ?
@@ -392,20 +388,24 @@ class ImageProcessing {
 				[result.words
 					.map(word => word.choices
 						// choose highest-confidence word
-						.sort((choice_a, choice_b) => choice_b.confidence - choice_a.confidence)[0]
+							.sort((choice_a, choice_b) => choice_b.confidence - choice_a.confidence)[0]
 					)
 					.filter(word => word.confidence > min_confidence)
 					.map(word => word.text)
 					.join(' ')] :
 				result.symbols
-					.map(symbol => symbol.choices
+					.filter(symbol => Math.max(symbol.choices
+						.map(choice => choice.confidence)) > 20)
+					.map(symbol => Object.assign({}, symbol, symbol.choices
 						// choose highest-confidence symbol
-						.sort((choice_a, choice_b) => choice_b.confidence - choice_a.confidence)[0]
-					)
+							.sort((choice_a, choice_b) => choice_b.confidence - choice_a.confidence)[0]
+					))
 					.reduce((previous, current) => {
 						let chunk;
 
-						if (current.confidence < min_confidence || previous.length === 0) {
+						if (current.confidence < min_confidence || previous.length === 0 ||
+							current.word.baseline !== previous[previous.length - 1][previous[previous.length - 1].length - 1].word.baseline
+						) {
 							chunk = [];
 							previous.push(chunk);
 						} else {
@@ -417,7 +417,12 @@ class ImageProcessing {
 						return previous;
 					}, [])
 					.map(array => array.filter(symbol => symbol.confidence >= min_confidence))
-					.sort((arr_1, arr_2) => arr_2.length - arr_1.length)
+					.sort((arr_1, arr_2) => arr_2
+							.map(symbol => symbol.confidence)
+							.reduce((total, current) => total + current, 0) / arr_2.length -
+						arr_1
+							.map(symbol => symbol.confidence)
+							.reduce((total, current) => total + current, 0) / arr_1.length)
 					.map(symbols => symbols.map(symbol => symbol.text)
 						.join(''));
 	}
@@ -440,9 +445,14 @@ class ImageProcessing {
 				text = text.replace(/!/g, ':');
 			}
 
+			// HACK: On a lot of iPhone screenshots, a colon in the phone time is seen as a 2, so try making a version
+			// of the time that replaces it to cover this possibility
+			if (text.match(/([0-2]?\d)(2)(\d{2}(\s?[ap]m)?)/)) {
+				text = text.replace(/([0-2]?\d)(2)(\d{2}(\s?[ap]m)?)/, '$1:$3') + ' ' + text;
+			}
+
 			let text_match = text
-				.replace(/[^\w\s:!%]/g, ' ')
-				.replace(/[oO]/g, 0)
+				.replace(/[^\w\s:!]/g, ' ')
 				.match(/([0-2]?\d:?\d{2}(\s?[ap]m)?)/i);
 
 			if (text_match) {
@@ -466,12 +476,12 @@ class ImageProcessing {
 			if (phone_time) {
 				// Determine of AM or PM time
 				if (phone_time.search(/([ap])m/gi) >= 0) {
-					phone_time = moment(phone_time, 'h:mma');
+					phone_time = moment(phone_time, ['hmm a', 'h:m a']);
 				} else {
 					// figure out if time should be AM or PM
 					const now = moment(),
-						time_am = moment(phone_time + 'am', 'hh:mma'),
-						time_pm = moment(phone_time + 'pm', 'hh:mma'),
+						time_am = moment(phone_time + ' am', ['hmm a', 'Hmm', 'h:m a', 'H:m']),
+						time_pm = moment(phone_time + ' pm', ['hmm a', 'Hmm', 'h:m a', 'H:m']),
 						times = [time_am.diff(now), time_pm.diff(now)];
 
 					// whatever time is closer to current time (less diff), use that
@@ -616,16 +626,12 @@ class ImageProcessing {
 						this.time_tesseract.recognize(image, this.time_remain_tesseract_options)
 							.catch(err => reject(err))
 							.then(result => {
-								// NOTE: important that the letter "o" be replaced with a 0, in order to properly match a time
-								const match = this.tesseractGetConfidentSequences(result)
-									.map(text => text
-										.replace(/[^\w\s:]/g, '')
-										.replace(/[oO]/g, 0))
-									.find(text => text.match(/(\d{1,2}:\d{2}:\d{2})/));
+								const match = this.tesseractGetConfidentSequences(result, true)[0]
+									.match(/(\d{1,2}:\d{2}:\d{2})/);
 								if (match && match.length) {
 									resolve({
 										image: new_image,
-										text: match.match(/(\d{1,2}:\d{2}:\d{2})/)[1],
+										text: match[1],
 										result
 									});
 								} else {
@@ -652,15 +658,12 @@ class ImageProcessing {
 							.catch(err => reject(err))
 							.then(result => {
 								// NOTE: important that the letter "o" be replaced with a 0, in order to properly match a time
-								const match = this.tesseractGetConfidentSequences(result)
-									.map(text => text
-										.replace(/[^\w:]/g, '')
-										.replace(/[oO]/g, 0))
-									.find(text => text.match(/(\d{1,2}:\d{2}:\d{2})/));
+								const match = this.tesseractGetConfidentSequences(result, true)[0]
+									.match(/(\d{1,2}:\d{2}:\d{2})/);
 								if (match && match.length) {
 									resolve({
 										image: new_image,
-										text: match.match(/(\d{1,2}:\d{2}:\d{2})/)[1],
+										text: match[1],
 										result
 									});
 								} else {
@@ -1166,7 +1169,7 @@ class ImageProcessing {
 					.then(async channel => {
 						// if pokemon, time remaining, or phone time was not determined, need to add original image to new channel,
 						// in the hope the someone can manually read the screenshot and set the appropriate information
-						if (!message.is_fake && (pokemon.placeholder === true || !time || time_warn)) {
+						if (pokemon.placeholder === true || !time || time_warn) {
 							await channel
 								.send(Raid.getIncompleteScreenshotMessage(raid), {
 									files: [
