@@ -528,19 +528,19 @@ class ImageProcessing {
 
 				switch (level) {
 					case 0:
-						new_image = new_image.scan(0, 0, cropped_region.width * 2, cropped_region.height * 2, this.filterSemiBlackContent);
-						break;
-
-					case 1:
 						new_image = new_image.scan(0, 0, cropped_region.width * 2, cropped_region.height * 2, this.filterNearBlackContent);
 						break;
 
+					case 1:
+						new_image = new_image.scan(0, 0, cropped_region.width * 2, cropped_region.height * 2, this.filterNearWhiteContent);
+						break;
+
 					case 2:
-						new_image = new_image.scan(0, 0, cropped_region.width * 2, cropped_region.height * 2, this.filterSemiWhiteContent);
+						new_image = new_image.scan(0, 0, cropped_region.width * 2, cropped_region.height * 2, this.filterSemiBlackContent);
 						break;
 
 					case 3:
-						new_image = new_image.scan(0, 0, cropped_region.width * 2, cropped_region.height * 2, this.filterNearWhiteContent);
+						new_image = new_image.scan(0, 0, cropped_region.width * 2, cropped_region.height * 2, this.filterSemiWhiteContent);
 						break;
 				}
 
