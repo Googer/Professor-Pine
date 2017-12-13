@@ -626,8 +626,10 @@ class ImageProcessing {
 						this.time_tesseract.recognize(image, this.time_remain_tesseract_options)
 							.catch(err => reject(err))
 							.then(result => {
-								const match = this.tesseractGetConfidentSequences(result, true)[0]
-									.match(/(\d{1,2}:\d{2}:\d{2})/);
+								const confident_words = this.tesseractGetConfidentSequences(result, true),
+									match = confident_words.length > 0 ?
+										confident_words[0].match(/(\d{1,2}:\d{2}:\d{2})/) :
+										'';
 								if (match && match.length) {
 									resolve({
 										image: new_image,
@@ -657,9 +659,10 @@ class ImageProcessing {
 						this.time_tesseract.recognize(image, this.time_remain_tesseract_options)
 							.catch(err => reject(err))
 							.then(result => {
-								// NOTE: important that the letter "o" be replaced with a 0, in order to properly match a time
-								const match = this.tesseractGetConfidentSequences(result, true)[0]
-									.match(/(\d{1,2}:\d{2}:\d{2})/);
+								const confident_words = this.tesseractGetConfidentSequences(result, true),
+									match = confident_words.length > 0 ?
+										confident_words[0].match(/(\d{1,2}:\d{2}:\d{2})/) :
+										'';
 								if (match && match.length) {
 									resolve({
 										image: new_image,
@@ -789,10 +792,12 @@ class ImageProcessing {
 				this.gym_pokemon_tesseract.recognize(image, this.gym_pokemon_tesseract_options)
 					.catch(err => reject(err))
 					.then(result => {
-						const text = this.tesseractGetConfidentSequences(result, true)
-							.map(text => text
-								.replace(/[^\w\s-]/g, '')
-								.replace(/\n/g, ' ').trim())[0];
+						const confident_words = this.tesseractGetConfidentSequences(result, true),
+							text = confident_words.length > 0 ?
+								confident_words[0]
+									.replace(/[^\w\s-]/g, '')
+									.replace(/\n/g, ' ').trim() :
+								'';
 						resolve({
 							image: new_image,
 							text,
