@@ -88,6 +88,12 @@ class ImageProcessing {
 		});
 	}
 
+	static convertToFullRange(value) {
+		return Math.min(
+			Math.max((value - 16) * (256 / 219), 0),
+			255);
+	}
+
 	process(message, url) {
 		let new_image, id;
 
@@ -111,37 +117,59 @@ class ImageProcessing {
 				new_image = image.scaleToFit(1440, 2560, Jimp.RESIZE_HERMITE);
 
 				// determine if image is a raid image or not
-				let pixel_check = Jimp.intToRGBA(image.getPixelColor(30, 300));
 				let raid = false;
 
-				// if pure white pixel, not a raid screenshot
-				if (pixel_check.r === 240 && pixel_check.g === 240 && pixel_check.b === 240) {
-					return null;
-				}
-
 				// check for pink "time remaining" pixels
-				new_image.scan(new_image.bitmap.width / 2, (new_image.bitmap.height / 4.34) - 80, 1, 80 + 80, function (x, y, idx) {
-					const red = this.bitmap.data[idx],
+				new_image.scan(new_image.bitmap.width / 2, (new_image.bitmap.height / 4.34) - 80, 1, 160, function(x, y, idx) {
+					if (raid) {
+						return;
+					}
+
+					let red = this.bitmap.data[idx],
 						green = this.bitmap.data[idx + 1],
 						blue = this.bitmap.data[idx + 2];
 
 					// pink = { r: 250, g: 135, b: 149 }
-					if (red <= 255 && red >= 230 && green <= 145 && green >= 125 && blue <= 159 && blue >= 139) {
+					if (red <= 255 && red >= 227 && green <= 148 && green >= 122 && blue <= 162 && blue >= 136) {
+						raid = true;
+						return;
+					}
+
+					red = ImageProcessing.convertToFullRange(red);
+					green = ImageProcessing.convertToFullRange(green);
+					blue = ImageProcessing.convertToFullRange(blue);
+
+					if (red <= 255 && red >= 227 && green <= 148 && green >= 122 && blue <= 162 && blue >= 136) {
 						raid = true;
 					}
 				});
 
-				// check for orange "time remaining" pixels
-				new_image.scan(new_image.bitmap.width / 1.19, (new_image.bitmap.height / 1.72) - 80, 1, 80 + 80, function (x, y, idx) {
-					const red = this.bitmap.data[idx],
-						green = this.bitmap.data[idx + 1],
-						blue = this.bitmap.data[idx + 2];
+				if (!raid) {
+					// check for orange "time remaining" pixels
+					new_image.scan(new_image.bitmap.width / 1.19, (new_image.bitmap.height / 1.72) - 80, 1, 160, function(x, y, idx) {
+						if (raid) {
+							return;
+						}
 
-					// orange = { r: 255, g: 120, b: 55 }
-					if (red <= 255 && red >= 235 && green <= 130 && green >= 110 && blue <= 65 && blue >= 45) {
-						raid = true;
-					}
-				});
+						let red = this.bitmap.data[idx],
+							green = this.bitmap.data[idx + 1],
+							blue = this.bitmap.data[idx + 2];
+
+						// orange = { r: 255, g: 120, b: 55 }
+						if (red <= 255 && red >= 232 && green <= 133 && green >= 107 && blue <= 68 && blue >= 42) {
+							raid = true;
+							return;
+						}
+
+						red = ImageProcessing.convertToFullRange(red);
+						green = ImageProcessing.convertToFullRange(green);
+						blue = ImageProcessing.convertToFullRange(blue);
+
+						if (red <= 255 && red >= 232 && green <= 133 && green >= 107 && blue <= 68 && blue >= 42) {
+							raid = true;
+						}
+					});
+				}
 
 				if (!raid) {
 					return null;
