@@ -445,12 +445,12 @@ class ImageProcessing {
 						return previous;
 					}, [])
 					.map(array => array.filter(symbol => symbol.confidence >= min_confidence))
-					.sort((arr_1, arr_2) => arr_2
+					.sort((arr_1, arr_2) => ((arr_2
 							.map(symbol => symbol.confidence)
-							.reduce((total, current) => total + current, 0) / arr_2.length -
-						arr_1
+							.reduce((total, current) => total + current, 0) / arr_2.length) || 0) -
+						((arr_1
 							.map(symbol => symbol.confidence)
-							.reduce((total, current) => total + current, 0) / arr_1.length)
+							.reduce((total, current) => total + current, 0) / arr_1.length) || 0))
 					.map(symbols => symbols.map(symbol => symbol.text)
 						.join(''));
 	}
@@ -1125,7 +1125,9 @@ class ImageProcessing {
 	createRaid(message, data) {
 		const TimeType = Helper.client.registry.types.get('time'),
 			message_time = moment(message.createdAt),
-			earliest_accepted_time = message_time.clone().subtract(settings.screenshot_threshold_time, 'minutes');
+			earliest_accepted_time = message_time.clone()
+				.subtract(settings.standard_raid_incubate_duration, 'minutes')
+				.subtract(settings.standard_raid_hatched_duration, 'minutes');
 
 		let gym = data.gym,
 			pokemon = data.pokemon,
