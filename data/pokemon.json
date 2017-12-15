@@ -2410,6 +2410,8 @@
   {
     "name": "mawile",
     "number": 303,
+    "cp": 9403,
+    "tier": 2,
     "type": [
       "steel",
       "fairy"
@@ -2830,6 +2832,8 @@
   {
     "name": "absol",
     "number": 359,
+    "cp": 26262,
+    "tier": 4,
     "type": [
       "dark"
     ]

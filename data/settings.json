@@ -7,6 +7,7 @@
   "deletion_grace_time": 5,
   "deletion_warning_time": 10,
   "raid_complete_timeout": 5,
+  "screenshot_message_offset_time": 45,
   "cleanup_interval": 60000,
   "message_cleanup_delay_success": 5000,
   "message_cleanup_delay_error": 30000,
@@ -21,6 +22,7 @@
   "help_groups": [
     "basic-raid",
     "raid-crud",
-    "roles"
+    "roles",
+    "util"
   ]
 }

@@ -91,7 +91,8 @@ class HelpCommand extends Commando.Command {
 				embed.setDescription(`Begin all commands with \`${message.client.options.commandPrefix}\` - for example, \`${message.client.options.commandPrefix}join\`.`);
 
 				const groupsToShow = groups
-					.filter(group => (show_all && Helper.isManagement(message)) || settings.help_groups.includes(group.id));
+					.filter(group => group.commands.size > 0 &&
+						((show_all && Helper.isManagement(message)) || settings.help_groups.includes(group.id)));
 
 				groupsToShow.forEach(group =>
 					embed.addField(`**${group.name}**`,

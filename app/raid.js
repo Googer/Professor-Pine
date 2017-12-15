@@ -531,6 +531,10 @@ class Raid {
 
 		// update or delete screenshot if all information has now been set
 		if (raid.incomplete_screenshot_message) {
+			if (raid.time_warn) {
+				delete raid.time_warn;
+			}
+
 			this.getMessage(raid.incomplete_screenshot_message)
 				.then(message => {
 					if (!raid.pokemon || (raid.pokemon && raid.pokemon.placeholder)) {
@@ -581,6 +585,8 @@ class Raid {
 
 		// update or delete screenshot if all information has now been set
 		if (raid.incomplete_screenshot_message) {
+			delete raid.time_warn;
+
 			this.getMessage(raid.incomplete_screenshot_message)
 				.then(message => {
 					if (!raid.pokemon || (raid.pokemon && raid.pokemon.placeholder)) {
@@ -750,6 +756,8 @@ class Raid {
 		log.debug(raid.hatch_time, raid.end_time, TimeType.UNDEFINED_END_TIME);
 		if (!raid.hatch_time && raid.end_time === TimeType.UNDEFINED_END_TIME) {
 			message += '\n\n**Time** could not be determined, please help set the time by typing either \`!hatch <time>\` or \`!end <time>\`';
+		} else if (raid.time_warn) {
+			message += '\n\n**Time** could not be determined precisely, please help set the time by typing either \`!hatch <time>\` or \`!end <time>\`';
 		}
 
 		return message;
@@ -924,13 +932,16 @@ class Raid {
 			embed.setThumbnail(pokemon_url);
 		}
 
-		if (raid.pokemon.weakness) {
+		if (raid.pokemon.weakness && raid.pokemon.weakness.length > 0) {
 			embed.addField('**Weaknesses**', raid.pokemon.weakness
-				.map(weakness => Helper.getEmoji(weakness.type).toString())
+				.map(weakness => Helper.getEmoji(weakness.type).toString() +
+					(weakness.multiplier > 1.5 ?
+						'x2 ' :
+						''))
 				.join(''));
 		}
 
-		embed.setFooter(end_time + raid_reporter);
+		embed.setFooter(end_time + raid_reporter, report_member.user.displayAvatarURL());
 
 		if (total_attendees > 0) {
 			embed.addField('__Possible Trainers__', total_attendees.toString());
@@ -956,9 +967,15 @@ class Raid {
 			embed.addField(start_label, start_time.calendar(null, calendar_format));
 		}
 
-		let additional_information = ((gym.is_sponsored || gym.is_park) && !raid.is_exclusive) ?
-			'Potential EX Raid gym - located in a park or at a sponsored location.' :
-			'';
+		let additional_information = '';
+
+		if (!raid.is_exclusive) {
+			if (gym.is_ex) {
+				additional_information += 'Potential EX Raid location - This gym has previously hosted an EX Raid.';
+			} else if (gym.is_park) {
+				additional_information += 'Potential EX Raid location - This gym is located in a park.';
+			}
+		}
 
 		if (!!gym.additional_information) {
 			if (additional_information !== '') {
@@ -999,8 +1016,7 @@ class Raid {
 	raidExistsForGym(gym_id) {
 		return Object.values(this.raids)
 			.map(raid => raid.gym_id)
-			.filter(raid_gym_id => raid_gym_id === gym_id)
-			.length > 0;
+			.includes(gym_id);
 	}
 
 	getCreationChannelName(channel_id) {

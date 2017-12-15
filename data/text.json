@@ -16,6 +16,9 @@
 	"denotify": {
 		"warning": "Use the `!denotify` command in ${bot_channel} to remove notifications for pokémon."
 	},
+	"find": {
+		"warning": "Use the `!find` command in ${bot_channel} to find channels for a region."
+	},
 	"status": {
 		"warning": "Check the status of raids from a regional or raid channel!"
 	},

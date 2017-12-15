@@ -83,16 +83,16 @@ class Pokemon extends Search {
 			return [];
 		}
 
-		return Object.keys(types)
-			.map(type => {
+		return Object.entries(types)
+			.map(([type, chart]) => {
 				let multiplier = 1.0;
 
 				pokemon_types.forEach(pokemon_type => {
-					if (types[type].se.includes(pokemon_type)) {
+					if (chart.se.includes(pokemon_type)) {
 						multiplier *= 1.400;
-					} else if (types[type].ne.includes(pokemon_type)) {
+					} else if (chart.ne.includes(pokemon_type)) {
 						multiplier *= 0.714;
-					} else if (types[type].im.includes(pokemon_type)) {
+					} else if (chart.im.includes(pokemon_type)) {
 						multiplier *= 0.510;
 					}
 				});
