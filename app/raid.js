@@ -531,7 +531,9 @@ class Raid {
 
 		// update or delete screenshot if all information has now been set
 		if (raid.incomplete_screenshot_message) {
-			delete raid.time_warn;
+			if (raid.time_warn) {
+				delete raid.time_warn;
+			}
 
 			this.getMessage(raid.incomplete_screenshot_message)
 				.then(message => {
@@ -965,9 +967,15 @@ class Raid {
 			embed.addField(start_label, start_time.calendar(null, calendar_format));
 		}
 
-		let additional_information = ((gym.is_sponsored || gym.is_park) && !raid.is_exclusive) ?
-			'Potential EX Raid gym - located in a park or at a sponsored location.' :
-			'';
+		let additional_information = '';
+
+		if (!raid.is_exclusive) {
+			if (gym.is_ex) {
+				additional_information += 'Potential EX Raid location - This gym has previously hosted an EX Raid.';
+			} else if (gym.is_park) {
+				additional_information += 'Potential EX Raid location - This gym is located in a park.';
+			}
+		}
 
 		if (!!gym.additional_information) {
 			if (additional_information !== '') {
@@ -1008,8 +1016,7 @@ class Raid {
 	raidExistsForGym(gym_id) {
 		return Object.values(this.raids)
 			.map(raid => raid.gym_id)
-			.filter(raid_gym_id => raid_gym_id === gym_id)
-			.length > 0;
+			.includes(gym_id);
 	}
 
 	getCreationChannelName(channel_id) {

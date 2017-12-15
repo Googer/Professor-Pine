@@ -88,6 +88,10 @@ class ImageProcessing {
 		});
 	}
 
+	/**
+	 * Convert a suspected limited-range pixel value from limited range (16-235)
+	 *  c to full range (0-255), clamping as necessary
+	 */
 	static convertToFullRange(value) {
 		return Math.min(
 			Math.max((value - 16) * (256 / 219), 0),
@@ -120,7 +124,7 @@ class ImageProcessing {
 				let raid = false;
 
 				// check for pink "time remaining" pixels
-				new_image.scan(new_image.bitmap.width / 2, (new_image.bitmap.height / 4.34) - 80, 1, 160, function(x, y, idx) {
+				new_image.scan(new_image.bitmap.width / 2, (new_image.bitmap.height / 4.34) - 80, 1, 160, function (x, y, idx) {
 					if (raid) {
 						return;
 					}
@@ -146,7 +150,7 @@ class ImageProcessing {
 
 				if (!raid) {
 					// check for orange "time remaining" pixels
-					new_image.scan(new_image.bitmap.width / 1.19, (new_image.bitmap.height / 1.72) - 80, 1, 160, function(x, y, idx) {
+					new_image.scan(new_image.bitmap.width / 1.19, (new_image.bitmap.height / 1.72) - 80, 1, 160, function (x, y, idx) {
 						if (raid) {
 							return;
 						}
@@ -422,13 +426,14 @@ class ImageProcessing {
 					.map(word => word.text)
 					.join(' ')] :
 				result.symbols
-					.filter(symbol => Math.max(symbol.choices
-						.map(choice => choice.confidence)) > 20)
+				// strip out very low-confidence colons (tesseract will see them correctly but with low confidence)
+					.filter(symbol => symbol.text !== ':' || symbol.confidence >= 20)
 					.map(symbol => Object.assign({}, symbol, symbol.choices
-						// choose highest-confidence symbol
+						// choose highest-confidence symbol - not always the default one from tesseract!
 							.sort((choice_a, choice_b) => choice_b.confidence - choice_a.confidence)[0]
 					))
 					.reduce((previous, current) => {
+						/// separate into chunks using low-confidence symbols as separators
 						let chunk;
 
 						if (current.confidence < min_confidence || previous.length === 0 ||
@@ -444,7 +449,9 @@ class ImageProcessing {
 
 						return previous;
 					}, [])
+					// strip out symbols below min threshold
 					.map(array => array.filter(symbol => symbol.confidence >= min_confidence))
+					// sort to put highest-confidence tokens first
 					.sort((arr_1, arr_2) => ((arr_2
 							.map(symbol => symbol.confidence)
 							.reduce((total, current) => total + current, 0) / arr_2.length) || 0) -
@@ -502,7 +509,7 @@ class ImageProcessing {
 			phone_time = value.text;
 
 			if (phone_time) {
-				// Determine of AM or PM time
+				// Determine AM or PM time
 				if (phone_time.search(/([ap])m/gi) >= 0) {
 					phone_time = moment(phone_time, ['hmm a', 'h:m a']);
 				} else {
@@ -534,8 +541,8 @@ class ImageProcessing {
 		}
 
 		// NOTE:  There is a chance that the time is not valid, but when that's the case
-		//			I think we should just leave the time unset, rather than guessing that the time is now.
-		//			Don't want to confuse people with slightly incorrect times.
+		//        I think we should just leave the time unset, rather than guessing that the time is now.
+		//        Don't want to confuse people with slightly incorrect times.
 		return {phone_time};
 	}
 
@@ -548,7 +555,6 @@ class ImageProcessing {
 				height: region.height
 			};
 
-			// this check looks for black text (usually iPhone)
 			new Promise((resolve, reject) => {
 				let new_image = image.clone()
 					.crop(cropped_region.x, cropped_region.y, cropped_region.width, cropped_region.height)
@@ -580,7 +586,6 @@ class ImageProcessing {
 					this.time_tesseract.recognize(image, this.time_tesseract_options)
 						.catch(err => reject(err))
 						.then(result => {
-							// basically strip out everything except spaces, colons, and battery % life, then match any typical time values
 							const match = this.tesseractProcessTime(result);
 							if (match && match.length) {
 								resolve({
@@ -753,7 +758,7 @@ class ImageProcessing {
 
 			if (!validation) {
 				// If gym_name doesn't exist, start popping off the shortest words in an attempt to get a match
-				//		Example: 6 words = 3 attempts, 2 words = 1 attempt
+				//    Example: 6 words = 3 attempts, 2 words = 1 attempt
 				for (let i = 0; i <= Math.floor(gym_words.length / 2); i++) {
 					const word = gym_words[gym_words.length - 1];
 
@@ -1177,9 +1182,9 @@ class ImageProcessing {
 
 		log.info('Processing Time: ' + ((Date.now() - message.temporary_processing_timestamp) / 1000) + ' seconds');
 
-		// time was determined but was not valid
+		// time was determined but was not valid - create with unset time instead
 		if (time === false) {
-			return;
+			time = TimeType.UNDEFINED_END_TIME;
 		}
 
 		let raid;
