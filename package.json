@@ -14,7 +14,7 @@
     "loglevel": "^1.6.0",
     "loglevel-prefix-persist": "^1.0.3",
     "lunr": "^2.1.5",
-    "moment": "^2.19.4",
+    "moment": "^2.20.0",
     "node-cleanup": "^2.1.2",
     "node-persist": "^2.1.0",
     "request-promise": "^4.2.2",

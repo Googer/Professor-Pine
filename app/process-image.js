@@ -90,7 +90,7 @@ class ImageProcessing {
 
 	/**
 	 * Convert a suspected limited-range pixel value from limited range (16-235)
-	 *  c to full range (0-255), clamping as necessary
+	 * to full range (0-255), clamping as necessary
 	 */
 	static convertToFullRange(value) {
 		return Math.min(
