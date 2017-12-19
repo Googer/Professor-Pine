@@ -182,11 +182,10 @@ class ImageProcessing {
 				return this.getRaidData(id, message, new_image);
 			})
 			.then(data => {
-				log.debug(data);
-
 				// write original image as a reference
 				if (debug_flag ||
 					((data === false || (data && (!data.phone_time || !data.gym || !data.time_remaining || data.pokemon.placeholder))) && log.getLevel() === log.levels.DEBUG)) {
+					log.debug(data);
 					new_image.write(path.join(__dirname, this.image_path, `${id}.png`));
 				}
 
