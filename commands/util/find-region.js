@@ -38,22 +38,24 @@ class FindRegionsCommand extends Commando.Command {
 
 	async run(message, args) {
 		const location = args['location'],
-			results = await Map.getRegions(location);
-
-		if (results) {
-			const image = results.feature !== null ?
+			results = await Map.getRegions(location),
+			image = !!results && results.feature !== null ?
 				await Map.getMapImage(results.feature) :
 				null,
-				embed = new MessageEmbed();
+			embed = new MessageEmbed();
 
+		if (image) {
 			embed.setImage('attachment://map.png');
-			embed.setColor(image ?
-				'GREEN' :
-				'RED')
-			embed.setFooter('© OpenStreetMap contributors');
+			embed.setColor('GREEN');
+		} else {
+			embed.setColor('RED');
+		}
 
-			let text;
+		embed.setFooter('© OpenStreetMap contributors');
 
+		let text;
+
+		if (results) {
 			if (results.regions.length > 0) {
 				const channels = results.regions
 					.map(region => region.match(/^#?(.*)$/)[1])
@@ -67,20 +69,20 @@ class FindRegionsCommand extends Commando.Command {
 				text = `No matching regions found for **${location}**.`;
 				embed.setDescription(text);
 			}
-
-			if (image) {
-				message.channel.send(text,
-					{
-						files: [new MessageAttachment(image, 'map.png')],
-						embed
-					})
-					.catch(err => log.error(err));
-			} else {
-				message.channel.send(embed)
-					.catch(err => log.error(err));
-			}
 		} else {
-			message.channel.send('OSM search failed - try again later!')
+			text = 'Error from OSM - please try again later!';
+			embed.setDescription(text);
+		}
+
+		if (image) {
+			message.channel.send(text,
+				{
+					files: [new MessageAttachment(image, 'map.png')],
+					embed
+				})
+				.catch(err => log.error(err));
+		} else {
+			message.channel.send(embed)
 				.catch(err => log.error(err));
 		}
 	}
