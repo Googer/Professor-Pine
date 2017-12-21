@@ -2540,6 +2540,8 @@
   {
     "name": "wailmer",
     "number": 320,
+    "cp": 3369,
+    "tier": 1,
     "type": [
       "water"
     ]
