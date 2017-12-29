@@ -63,7 +63,7 @@ class Role {
 											// update role since it already exists
 											DB.DB('Role').transacting(transaction)
 												.returning('id')
-												.join('Guild', {'Role.guildId': 'Guild.id'})
+												.innerJoin('Guild', {'Role.guildId': 'Guild.id'})
 												.where('Guild.snowflake', guild.id)
 												.andWhere('Role.roleName', value)
 												.update(Object.assign({}, {
@@ -72,8 +72,8 @@ class Role {
 												.then(role_id => {
 													// Replace any existing aliases for this role with new ones
 													DB.DB('Alias').transacting(transaction)
-														.join('Role', {'Alias.roleId': 'Role.id'})
-														.join('Guild', {'Role.guildId': 'Guild.id'})
+														.innerJoin('Role', {'Alias.roleId': 'Role.id'})
+														.innerJoin('Guild', {'Role.guildId': 'Guild.id'})
 														.where('Guild.snowflake', guild.id)
 														.del()
 														.then(result => DB.DB('Alias').transacting(transaction)
@@ -105,23 +105,27 @@ class Role {
 	removeOldRoles(guild, roles) {
 		// remove all matching role objects for each role given
 		return new Promise((resolve, reject) => {
-			DB.DB('Role')
-				.join('Guild', {'Role.guildId': 'Guild.id'})
-				.whereIn('roleName', roles)
-				.andWhere('Guild.snowflake', guild.id)
-				.del()
-				.then(result => {
-					resolve(result);
-				})
-				.catch(err => reject(err));
+			DB.DB('Guild')
+				.where('snowflake', guild.id)
+				.pluck('id')
+				.then(guild_id => {
+					DB.DB('Role')
+						.whereIn('roleName', roles)
+						.andWhere('guildId', guild_id)
+						.del()
+						.then(result => {
+							resolve(result);
+						})
+						.catch(err => reject(err));
+				});
 		});
 	}
 
 	getRoles(guild) {
 		return new Promise((resolve, reject) => {
 			DB.DB('Role')
-				.join('Guild', {'Role.guildId': 'Guild.id'})
-				.join('Alias', {'Alias.roleId': 'Role.id'})
+				.leftJoin('Alias', {'Alias.roleId': 'Role.id'})
+				.innerJoin('Guild', {'Role.guildId': 'Guild.id'})
 				.where('Guild.snowflake', guild.id)
 				.then(roles => resolve(roles))
 				.catch(err => reject(err));
@@ -209,13 +213,13 @@ class Role {
 
 			if (is_alias) {
 				query = DB.DB('Alias')
-					.join('Role', {'Alias.roleId': 'Role.id'})
-					.join('Guild', {'Guild.id': 'Role.guildId'})
+					.innerJoin('Role', {'Alias.roleId': 'Role.id'})
+					.innerJoin('Guild', {'Guild.id': 'Role.guildId'})
 					.where('aliasName', role)
 					.andWhere('Guild.snowflake', guild.id);
 			} else {
 				query = DB.DB('Role')
-					.join('Guild', {'Role.guildId': 'Guild.id'})
+					.innerJoin('Guild', {'Role.guildId': 'Guild.id'})
 					.where('roleName', role)
 					.andWhere('Guild.snowflake', guild.id);
 			}

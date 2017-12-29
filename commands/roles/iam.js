@@ -118,7 +118,7 @@ class IAmCommand extends Commando.Command {
 
 				let string = '';
 				for (let i = start; i < end; i++) {
-					if (!roles[i]) {
+					if (!roles_array[i]) {
 						break;
 					}
 
@@ -137,9 +137,7 @@ class IAmCommand extends Commando.Command {
 						this.messages.set(bot_message.id, {time: Date.now(), current, message: bot_message});
 					});
 			})
-			.catch((err) => {
-				log.error(err);
-			});
+			.catch(err => log.error(err));
 	}
 
 	async run(message, args) {
