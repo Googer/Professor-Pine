@@ -35,8 +35,8 @@ class IAmCommand extends Commando.Command {
 			return false;
 		});
 
-		client.on('messageReactionAdd', (message, user) => {
-			this.navigatePage(message, user);
+		client.on('messageReactionAdd', (reaction, user) => {
+			this.navigatePage(reaction, user);
 		});
 
 		// clean up messages after 10 minutes of inactivity
@@ -53,32 +53,32 @@ class IAmCommand extends Commando.Command {
 		}, settings.cleanup_interval);
 	}
 
-	navigatePage(message, user) {
-		if (user.bot || !this.messages.has(message.message.id)) {
+	navigatePage(reaction, user) {
+		if (user.bot || !this.messages.has(reaction.message.id)) {
 			return;
 		}
 
-		let current = this.messages.get(message.message.id).current;
+		let current = this.messages.get(reaction.message.id).current;
 
 		// if no page exists for message, then assume not the right message (as this is a global listener);
 		if (isNaN(current)) {
 			return;
 		}
 
-		if (message.emoji.name === '⬅') {
+		if (reaction.emoji.name === '⬅') {
 			if (current > 0) {
 				current--;
-				this.updatePage(message.message, current);
+				this.updatePage(reaction.message, current);
 			}
-		} else if (message.emoji.name === '➡') {
-			if (current < Math.ceil(this.role_counts.get(message.guild.id) / 5) - 1) {
+		} else if (reaction.emoji.name === '➡') {
+			if (current < Math.ceil(this.role_counts.get(reaction.message.guild.id) / 5) - 1) {
 				current++;
-				this.updatePage(message.message, current);
+				this.updatePage(reaction.message, current);
 			}
 		}
 
 		// remove reaction so that pagination makes a BIT more sense...
-		message.remove(user);
+		reaction.remove(user);
 	}
 
 	updatePage(message, current) {
