@@ -1,47 +1,74 @@
 "use strict";
 
-const r = require('rethinkdb'),
-	moment = require('moment'),
-	settings = require('./../data/settings');
+const log = require('loglevel').getLogger('DB'),
+	knex = require('knex'),
+	private_settings = require('../data/private-settings');
 
-class RethinkDBManager {
+class DBManager {
 	constructor() {
 		this.connection = null;
 
 		this.guilds = new Map();
 
-		r.connect({ host: 'localhost', port: 28015 }, (err, conn) => {
-			if (err) { throw err; }
-			this.connection = conn;
+		this.knex = knex({
+			client: 'mysql',
+			connection: {
+				host: private_settings.db.host,
+				user: private_settings.db.user,
+				password: private_settings.db.password,
+				database: private_settings.db.schema
+			},
+			migrations: {
+				directory: './app/db'
+			},
+			debug: true
 		});
 	}
 
-	initialize(guilds) {
-		// for every guild/server the bot is connected to, attempt to initialize DB's for each if they don't already exist
-		guilds.forEach((key, value, map) => {
-			this.guilds.set(key.id, map);
+	initialize(client) {
+		this.knex.migrate.latest()
+			.then(() => client.guilds.forEach(guild =>
+				this.insertOrUpdate('Guild', Object.assign({},
+					{
+						snowflake: guild.id
+					}))
+					.catch(err => log.error(err))));
 
-			r.dbCreate(key.id).run(this.connection, (err, result) => {
-				if (err && err.name !== 'ReqlOpFailedError') {
-					if (err) { throw err; }
-				}
-			});
-
-			// set up users table if it doesn't already exist
-			r.db(key.id).tableCreate('users').run(this.connection, (err, result) => {
-				if (err && err.name !== 'ReqlOpFailedError') {
-					if (err) { throw err; }
-				}
-			});
-
-			// set up roles table if it doesn't already exist
-			r.db(key.id).tableCreate('roles').run(this.connection, (err, result) => {
-				if (err && err.name !== 'ReqlOpFailedError') {
-					if (err) { throw err; }
-				}
-			});
+		client.on('guildCreate', guild => {
+			this.insertOrUpdate('Guild', Object.assign({},
+				{
+					snowflake: guild.id
+				}))
+				.catch(err => log.error(err))
 		});
+
+		client.on('guildDelete', guild => {
+			this.DB('Guild')
+				.where('snowflake', guild.id)
+				.del()
+				.catch(err => log.error(err));
+		});
+
+	}
+
+	get DB() {
+		return this.knex;
+	}
+
+	insertOrUpdate(table_name, data, transaction = undefined) {
+		const first_data = data[0] ?
+			data[0] :
+			data;
+		return transaction ?
+			this.knex.raw(this.knex(table_name).transacting(transaction).insert(data).toQuery() + " ON DUPLICATE KEY UPDATE " +
+				Object.getOwnPropertyNames(first_data)
+					.map(field => `${field}=VALUES(${field})`)
+					.join(", ")) :
+			this.knex.raw(this.knex(table_name).insert(data).toQuery() + " ON DUPLICATE KEY UPDATE " +
+				Object.getOwnPropertyNames(first_data)
+					.map(field => `${field}=VALUES(${field})`)
+					.join(", "));
 	}
 }
 
-module.exports = new RethinkDBManager();
+module.exports = new DBManager();

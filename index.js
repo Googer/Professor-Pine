@@ -99,7 +99,7 @@ Client.on('ready', () => {
 	if (!is_initialized) {
 		Helper.setClient(Client);
 		Raid.setClient(Client);
-		DB.initialize(Client.guilds);
+		DB.initialize(Client);
 		IP.initialize();
 
 		is_initialized = true;

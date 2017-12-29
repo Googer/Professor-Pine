@@ -6,5 +6,11 @@
   "github_repo": "",
   "github_user": "",
   "github_password": "",
-  "google_api_key": ""
+  "google_api_key": "",
+  "db": {
+    "host": "localhost",
+    "user": "root",
+    "password": "",
+    "schema": "pine"
+  }
 }

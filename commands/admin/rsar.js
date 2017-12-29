@@ -30,7 +30,7 @@ class RsarCommand extends Commando.Command {
 	async run(message, args) {
 		args = args.split(/,\s?/g);
 
-		Role.removeOldRoles(message.channel, message.member, args)
+		Role.removeOldRoles(message.guild, args)
 			.then(() => message.react(Helper.getEmoji('snorlaxthumbsup') || '👍'))
 			.catch(err => {
 				if (err && err.error) {
