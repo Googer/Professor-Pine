@@ -19,22 +19,22 @@ class Role {
 
 					// create role objects for each role given
 					for (let i = 0; i < roles.length; i++) {
-						const value = roles[i].name,
-							description = roles[i].description || '',
+						const role_name = roles[i].name,
+							role_description = roles[i].description || '',
 							aliases = roles[i].aliases.map(val => val.toLowerCase()) || [],
-							role_id = Helper.guild.get(guild.id).roles.get(value.toLowerCase()).id;
+							role_id = Helper.guild.get(guild.id).roles.get(role_name.toLowerCase()).id;
 
-						if (!value) {
+						if (!role_name) {
 							reject({error: `Please enter a role when using this command.`});
 							return;
 						}
 
 						if (!role_id) {
-							reject({error: `Role "**${value}**" was not found.`});
+							reject({error: `Role "**${role_name}**" was not found.`});
 							return;
 						}
 
-						promises.push(this.roleExists(guild, value)
+						promises.push(this.roleExists(guild, role_name)
 							.then(existing_roles => {
 								return new Promise((resolve, reject) => {
 									if (!existing_roles.length) {
@@ -59,29 +59,38 @@ class Role {
 										}));
 										resolve();
 									} else {
+										let role_db_id;
+
 										promises.push(DB.DB.transaction(transaction => {
 											// update role since it already exists
+											let role_db_id;
+
 											DB.DB('Role').transacting(transaction)
-												.returning('id')
-												.innerJoin('Guild', {'Role.guildId': 'Guild.id'})
-												.where('Guild.snowflake', guild.id)
-												.andWhere('Role.roleName', value)
-												.update(Object.assign({}, {
-													description: description
-												}))
+												.pluck('id')
+												.where('guildId', guild_db_ids[0])
+												.andWhere('roleName', role_name)
 												.then(role_id => {
-													// Replace any existing aliases for this role with new ones
-													DB.DB('Alias').transacting(transaction)
-														.innerJoin('Role', {'Alias.roleId': 'Role.id'})
-														.innerJoin('Guild', {'Role.guildId': 'Guild.id'})
-														.where('Guild.snowflake', guild.id)
-														.del()
-														.then(result => DB.DB('Alias').transacting(transaction)
-															.insert(aliases.map(alias => Object.assign({}, {
-																aliasName: alias,
-																roleId: role_id
-															}))))
+													role_db_id = role_id;
+
+													return DB.DB('Role').transacting(transaction)
+														.where('guildId', guild_db_ids[0])
+														.andWhere('Role.roleName', role_name)
+														.update(Object.assign({}, {
+															roleDescription: role_description
+														}));
 												})
+												.then(result => {
+													// Replace any existing aliases for this role with new ones
+													return DB.DB('Alias').transacting(transaction)
+														.where('roleId', role_db_id)
+														.del();
+												})
+												.then(result =>
+													DB.DB('Alias').transacting(transaction)
+														.insert(aliases.map(alias => Object.assign({}, {
+															aliasName: alias,
+															roleId: role_db_id
+														}))))
 												.then(transaction.commit)
 												.catch(transaction.rollback);
 										}));
@@ -113,9 +122,7 @@ class Role {
 						.whereIn('roleName', roles)
 						.andWhere('guildId', guild_id)
 						.del()
-						.then(result => {
-							resolve(result);
-						})
+						.then(result => resolve(result))
 						.catch(err => reject(err));
 				});
 		});
