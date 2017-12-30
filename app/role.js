@@ -55,12 +55,12 @@ class Role {
 														})))
 												)
 												.then(transaction.commit)
-												.catch(transaction.rollback);
+												.catch(err => {
+													transaction.rollback();
+													reject(err);
+												});
 										}));
-										resolve();
 									} else {
-										let role_db_id;
-
 										promises.push(DB.DB.transaction(transaction => {
 											// update role since it already exists
 											let role_db_id;
@@ -92,21 +92,22 @@ class Role {
 															roleId: role_db_id
 														}))))
 												.then(transaction.commit)
-												.catch(transaction.rollback);
+												.catch(err => {
+													transaction.rollback();
+													reject(err);
+												});
 										}));
 									}
+
+									resolve();
 								});
 							}));
 					}
 
 					// once all roles have been proven that they exist, attempt to add them to DB
 					Promise.all(promises)
-						.then(info => {
-							resolve();
-						})
-						.catch((err) => {
-							reject(err);
-						});
+						.then(info => resolve())
+						.catch(err => reject(err));
 				});
 			});
 	}
