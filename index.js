@@ -91,9 +91,13 @@ Client.registry.registerCommands([
 
 	require('./commands/raids/submit-request'),
 
-	require('./commands/util/help'),
-	require('./commands/util/find-region')
+	require('./commands/util/help')
 ]);
+
+if (private_settings.google_api_key !== '') {
+	Client.registry.registerCommand(
+		require('./commands/util/find-region'));
+}
 
 let is_initialized = false;
 
@@ -105,7 +109,7 @@ Client.on('ready', () => {
 	if (!is_initialized) {
 		Helper.setClient(Client);
 		Raid.setClient(Client);
-		DB.initialize(Client.guilds);
+		DB.initialize(Client);
 		IP.initialize();
 
 		is_initialized = true;

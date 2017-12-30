@@ -39,30 +39,38 @@ class FindRegionsCommand extends Commando.Command {
 	async run(message, args) {
 		const location = args['location'],
 			results = await Map.getRegions(location),
-			image = results.feature !== null ?
+			image = !!results && results.feature !== null ?
 				await Map.getMapImage(results.feature) :
 				null,
 			embed = new MessageEmbed();
 
-		embed.setImage('attachment://map.png');
-		embed.setColor(image ?
-			'GREEN' :
-			'RED')
+		if (image) {
+			embed.setImage('attachment://map.png');
+			embed.setColor('GREEN');
+		} else {
+			embed.setColor('RED');
+		}
+
 		embed.setFooter('© OpenStreetMap contributors');
 
 		let text;
 
-		if (results.regions.length > 0) {
-			const channels = results.regions
-				.map(region => region.match(/^#?(.*)$/)[1])
-				.map(region => message.guild.channels
-					.find(channel => channel.name === region))
-				.map(channel => channel.toString())
-				.join('\n');
+		if (results) {
+			if (results.regions.length > 0) {
+				const channels = results.regions
+					.map(region => region.match(/^#?(.*)$/)[1])
+					.map(region => message.guild.channels
+						.find(channel => channel.name === region))
+					.map(channel => channel.toString())
+					.join('\n');
 
-			text = `The following regions contain **${location}**:\n\n${channels}`;
+				text = `The following regions contain **${location}**:\n\n${channels}`;
+			} else {
+				text = `No matching regions found for **${location}**.`;
+				embed.setDescription(text);
+			}
 		} else {
-			text = `No matching regions found for **${location}**.`;
+			text = 'Error from OSM - please try again later!';
 			embed.setDescription(text);
 		}
 

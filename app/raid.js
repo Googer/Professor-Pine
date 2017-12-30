@@ -210,7 +210,7 @@ class Raid {
 
 		let new_channel_id;
 
-		return source_channel.guild.createChannel(channel_name, 'text', {
+		return source_channel.guild.createChannel(channel_name, {
 			parent: source_channel.parent,
 			overwrites: source_channel.permissionOverwrites
 		})
@@ -698,8 +698,8 @@ class Raid {
 			now = moment(),
 			start_label = !!raid.start_time ?
 				now > raid.start_time ?
-					'Raided at' :
-					'Raiding at'
+					'Met at' :
+					'Meeting at'
 				: '',
 			start_time = !!raid.start_time ?
 				` :: ${start_label} **${moment(raid.start_time).calendar(null, calendar_format)}**` :
@@ -793,8 +793,8 @@ class Raid {
 				'',
 			start_label = !!raid.start_time ?
 				now > start_time ?
-					'__Last Starting Time__' :
-					'__Next Planned Starting Time__'
+					'__Last Meeting Time__' :
+					'__Next Planned Meeting Time__'
 				: '',
 			hatch_time = !!raid.hatch_time ?
 				moment(raid.hatch_time) :

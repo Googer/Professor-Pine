@@ -52,7 +52,7 @@ class AsarCommand extends Commando.Command {
 			});
 
 
-		Role.upsertRoles(message.channel, message.member, args)
+		Role.upsertRoles(message.guild, args)
 			.then(() => message.react(Helper.getEmoji('snorlaxthumbsup') || '👍'))
 			.catch((err) => {
 				if (err && err.error) {

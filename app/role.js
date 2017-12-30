@@ -1,151 +1,142 @@
 "use strict";
 
 const log = require('loglevel').getLogger('Role'),
-	r = require('rethinkdb'),
 	DB = require('./../app/db'),
 	Helper = require('./../app/helper');
 
 class Role {
 	constructor() {
-		// shortcut incase DB Table changes names
-		this.db_table = 'roles';
-
-		// number of roles in DB (useful for pagination w/o having to hit DB)
-		this.count = 0;
 	}
 
 	// update or insert roles
-	upsertRoles(channel, member, roles) {
-		return new Promise((resolve, reject) => {
-			const data = [],
-				promises = [];
+	upsertRoles(guild, roles) {
+		return DB.DB('Guild')
+			.where('snowflake', guild.id)
+			.pluck('id')
+			.then(guild_db_ids => {
+				new Promise((resolve, reject) => {
+					const promises = [];
 
-			// create role objects for each role given
-			for (let i = 0; i < roles.length; i++) {
-				const value = roles[i].name,
-					description = roles[i].description || '',
-					aliases = roles[i].aliases.map(val => val.toLowerCase()) || [],
-					id = Helper.guild.get(member.guild.id).roles.get(value.toLowerCase()).id;
+					// create role objects for each role given
+					for (let i = 0; i < roles.length; i++) {
+						const role_name = roles[i].name,
+							role_description = roles[i].description || '',
+							aliases = roles[i].aliases.map(val => val.toLowerCase()) || [],
+							role_id = Helper.guild.get(guild.id).roles.get(role_name.toLowerCase()).id;
 
-				if (!value) {
-					reject({error: `Please enter a role when using this command.`});
-					return;
-				}
-
-				if (!id) {
-					reject({error: `Role "**${value}**" was not found.`});
-					return;
-				}
-
-				promises.push(this.roleExists(channel, member, value)
-					.then(roles => {
-						return new Promise((resolve, reject) => {
-							if (!roles.length) {
-								data.push({name: value.toLowerCase(), value, description, aliases, date: Date.now()});
-								resolve();
-							} else {
-								// update role if it already exists
-								r.db(channel.guild.id)
-									.table(this.db_table)
-									.filter({name: value.toLowerCase()})
-									.update({value, description, aliases})
-									.run(DB.connection, (err, result) => {
-										if (err && err.name !== 'ReqlOpFailedError') {
-											reject(err);
-											return;
-										}
-
-										this.count = result.length;
-
-										resolve(result);
-									});
-							}
-						});
-					}));
-			}
-
-			// once all roles have been proven that they exist, attempt to add them to DB
-			Promise.all(promises)
-				.then(info => {
-					// if no roles exist that aren't already in the DB, do nothing
-					if (!data.length) {
-						resolve();
-						return;
-					}
-
-					// add roles to DB
-					r.db(channel.guild.id)
-						.table(this.db_table)
-						.insert(data)
-						.run(DB.connection, (err, result) => {
-							if (err && err.name !== 'ReqlOpFailedError') {
-								reject(err);
-								return;
-							}
-
-							resolve(result);
-						});
-				}).catch((err) => {
-				reject(err);
-			});
-		});
-	}
-
-	removeOldRoles(channel, member, roles) {
-		return new Promise((resolve, reject) => {
-			let promises = [];
-
-			// create role objects for each role given
-			for (let i = 0; i < roles.length; i++) {
-				promises.push(new Promise((resolve, reject) => {
-					r.db(channel.guild.id)
-						.table(this.db_table)
-						.filter({name: roles[i].toLowerCase()})
-						.delete()
-						.run(DB.connection, (err, result) => {
-							if (err) {
-								reject(err);
-								return;
-							}
-
-							this.count = result.length;
-
-							resolve(result);
-						});
-				}));
-			}
-
-			Promise.all(promises)
-				.then(data => {
-					resolve(data);
-				}).catch(err => {
-				reject(err);
-			});
-		});
-	}
-
-	getRoles(channel, member) {
-		return new Promise((resolve, reject) => {
-			r.db(channel.guild.id)
-				.table(this.db_table)
-				.orderBy(r.asc('date'))
-				.run(DB.connection, (err, cursor) => {
-					if (err) {
-						reject(err);
-						return;
-					}
-
-					cursor.toArray((err, result) => {
-						if (err) {
-							reject(err);
+						if (!role_name) {
+							reject({error: `Please enter a role when using this command.`});
 							return;
 						}
 
-						this.count = result.length;
+						if (!role_id) {
+							reject({error: `Role "**${role_name}**" was not found.`});
+							return;
+						}
 
-						resolve(result);
-					});
+						promises.push(this.roleExists(guild, role_name)
+							.then(existing_roles => {
+								return new Promise((resolve, reject) => {
+									if (!existing_roles.length) {
+										promises.push(DB.DB.transaction(transaction => {
+											// insert new role
+											DB.DB('Role').transacting(transaction)
+												.returning('id')
+												.insert(Object.assign({}, {
+													roleName: roles[i].name,
+													roleDescription: roles[i].description,
+													guildId: guild_db_ids[0]
+												}))
+												.then(role_id =>
+													DB.DB('Alias').transacting(transaction)
+														.insert(aliases.map(alias => Object.assign({}, {
+															aliasName: alias,
+															roleId: role_id
+														})))
+												)
+												.then(transaction.commit)
+												.catch(err => {
+													transaction.rollback();
+													reject(err);
+												});
+										}));
+									} else {
+										promises.push(DB.DB.transaction(transaction => {
+											// update role since it already exists
+											let role_db_id;
+
+											DB.DB('Role').transacting(transaction)
+												.pluck('id')
+												.where('guildId', guild_db_ids[0])
+												.andWhere('roleName', role_name)
+												.then(role_id => {
+													role_db_id = role_id;
+
+													return DB.DB('Role').transacting(transaction)
+														.where('guildId', guild_db_ids[0])
+														.andWhere('Role.roleName', role_name)
+														.update(Object.assign({}, {
+															roleDescription: role_description
+														}));
+												})
+												.then(result => {
+													// Replace any existing aliases for this role with new ones
+													return DB.DB('Alias').transacting(transaction)
+														.where('roleId', role_db_id)
+														.del();
+												})
+												.then(result =>
+													DB.DB('Alias').transacting(transaction)
+														.insert(aliases.map(alias => Object.assign({}, {
+															aliasName: alias,
+															roleId: role_db_id
+														}))))
+												.then(transaction.commit)
+												.catch(err => {
+													transaction.rollback();
+													reject(err);
+												});
+										}));
+									}
+
+									resolve();
+								});
+							}));
+					}
+
+					// once all roles have been proven that they exist, attempt to add them to DB
+					Promise.all(promises)
+						.then(info => resolve())
+						.catch(err => reject(err));
 				});
+			});
+	}
+
+	removeOldRoles(guild, roles) {
+		// remove all matching role objects for each role given
+		return new Promise((resolve, reject) => {
+			DB.DB('Guild')
+				.where('snowflake', guild.id)
+				.pluck('id')
+				.then(guild_id => {
+					DB.DB('Role')
+						.whereIn('roleName', roles)
+						.andWhere('guildId', guild_id)
+						.del()
+						.then(result => resolve(result))
+						.catch(err => reject(err));
+				});
+		});
+	}
+
+	getRoles(guild) {
+		return new Promise((resolve, reject) => {
+			DB.DB('Role')
+				.leftJoin('Alias', {'Alias.roleId': 'Role.id'})
+				.innerJoin('Guild', {'Role.guildId': 'Guild.id'})
+				.where('Guild.snowflake', guild.id)
+				.then(roles => resolve(roles))
+				.catch(err => reject(err));
 		});
 	}
 
@@ -162,18 +153,18 @@ class Role {
 	// add or remove roles from user
 	adjustUserRole(channel, member, role, remove = false) {
 		return new Promise(async (resolve, reject) => {
-			let roles = await this.roleExists(channel, member, role);
+			let roles = await this.roleExists(member.guild, role);
 			let matching_role_found = true;
 
 			// first look for a matching name in DB, then check for aliases if a match was not found
 			if (roles.length) {
 				// loop through matched roles adding them to user
 				for (let i = 0; i < roles.length; i++) {
-					const id = Helper.guild.get(member.guild.id).roles.get(roles[i].value.toLowerCase()).id;
+					const id = Helper.guild.get(channel.guild.id).roles.get(roles[i].roleName.toLowerCase()).id;
 
 					if (!id) {
 						matching_role_found = false;
-						log.warn(`Role ${roles[i].value}, may not longer be available in the guild.`);
+						log.warn(`Role ${roles[i].roleName}, may not longer be available in the guild.`);
 						return;
 					}
 
@@ -192,16 +183,16 @@ class Role {
 					reject({error: `Role "**${role}**" was not found.  Use \`${channel.client.commandPrefix}iam\` to see a list of self-assignable roles.`});
 				}
 			} else {
-				roles = await this.roleExists(channel, member, role, true);
+				roles = await this.roleExists(channel.guild, role, true);
 
 				if (roles.length) {
 					// loop through matched roles adding them to user
 					for (let i = 0; i < roles.length; i++) {
-						const id = Helper.guild.get(member.guild.id).roles.get(roles[i].value.toLowerCase()).id;
+						const id = Helper.guild.get(channel.guild.id).roles.get(roles[i].roleName.toLowerCase()).id;
 
 						if (!id) {
 							matching_role_found = false;
-							log.warn(`Role '${roles[i].value}' may not longer be available in the guild.`);
+							log.warn(`Role '${roles[i].roleName}' may not longer be available in the guild.`);
 							return;
 						}
 
@@ -222,37 +213,30 @@ class Role {
 		});
 	}
 
-	roleExists(channel, member, role, is_alias = false) {
+	roleExists(guild, role, is_alias = false) {
 		role = role.toLowerCase();
 
 		return new Promise((resolve, reject) => {
-			r.db(channel.guild.id)
-				.table(this.db_table)
-				.filter(db_role => {
-					if (!is_alias) {
-						return db_role('name').eq(role);
-					} else {
-						return db_role('aliases').contains(role);
-					}
-				})
-				.run(DB.connection, (err, cursor) => {
-					if (err) {
-						reject(err);
-						return;
-					}
+			let query;
 
-					cursor.toArray((err, result) => {
-						if (err) {
-							reject(err);
-							return;
-						}
+			if (is_alias) {
+				query = DB.DB('Alias')
+					.innerJoin('Role', {'Alias.roleId': 'Role.id'})
+					.innerJoin('Guild', {'Guild.id': 'Role.guildId'})
+					.where('aliasName', role)
+					.andWhere('Guild.snowflake', guild.id);
+			} else {
+				query = DB.DB('Role')
+					.innerJoin('Guild', {'Role.guildId': 'Guild.id'})
+					.where('roleName', role)
+					.andWhere('Guild.snowflake', guild.id);
+			}
 
-						resolve(result);
-					});
-				});
+			query
+				.then(ids => resolve(ids))
+				.catch(err => reject(err));
 		});
 	}
 }
-
 
 module.exports = new Role();

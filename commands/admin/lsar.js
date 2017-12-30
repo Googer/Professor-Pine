@@ -3,6 +3,7 @@
 const log = require('loglevel').getLogger('LsarCommand'),
 	Commando = require('discord.js-commando'),
 	{CommandGroup} = require('../../app/constants'),
+	{MessageEmbed} = require('discord.js'),
 	Helper = require('../../app/helper'),
 	Role = require('../../app/role');
 
@@ -30,41 +31,55 @@ class LsarCommand extends Commando.Command {
 	}
 
 	async run(message, args) {
-		Role.getRoles(message.channel, message.member).then((roles) => {
-			const count = roles.length;
+		Role.getRoles(message.guild)
+			.then(rows => {
+				const roles = new Map();
 
-			let string = '';
-			for (let i = 0; i < roles.length; i++) {
-				let aliases = '';
+				rows.forEach(row => {
+					let role;
 
-				if (roles[i].aliases) {
-					for (let j = 0; j < roles[i].aliases.length; j++) {
-						aliases += `${roles[i].aliases[j]}`;
-
-						if (j !== roles[i].aliases.length - 1) {
-							aliases += ', ';
-						}
+					if (!roles.has(row.roleId)) {
+						role = Object.assign({}, {
+							role_name: row.roleName,
+							role_description: row.roleDescription,
+							aliases: []
+						});
+						roles.set(row.roleId, role);
+					} else {
+						role = roles.get(row.roleId);
 					}
-				}
 
-				string += `${roles[i].value}`;
+					if (row.aliasName) {
+						role.aliases.push(row.aliasName);
+					}
+				});
 
-				if (aliases.length) {
-					string += ` [${aliases}]`;
-				}
+				const string = Array.from(roles.values())
+					.sort((a, b) => a.role_name.localeCompare(b.role_name))
+					.map(role => {
+						let result = role.role_name;
 
-				string += '\n';
-			}
+						if (role.aliases.length > 0) {
+							result += ' [' + role.aliases
+								.sort()
+								.join(', ') + ']';
+						}
 
-			return message.channel.send({
-				'embed': {
-					'title': `There are ${count} self-assignable roles`,
-					'description':
-						`${string}`,
-					'color': 4437377
-				}
-			});
-		}).catch((err) => {
+						if (role.role_description) {
+							result += ` :: ${role.role_description}`;
+						}
+
+						return result;
+					})
+					.join('\n');
+
+				const embed = new MessageEmbed();
+				embed.setTitle(`There ${roles.size === 1 ? 'is' : 'are'} ${roles.size} self-assignable ${roles.size === 1 ? 'role' : 'roles'}:`);
+				embed.setDescription(string);
+				embed.setColor('GREEN');
+
+				return message.channel.send({embed});
+			}).catch(err => {
 			if (err && err.error) {
 				message.reply(err.error)
 					.catch(err => log.error(err));

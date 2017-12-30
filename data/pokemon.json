@@ -2540,6 +2540,8 @@
   {
     "name": "wailmer",
     "number": 320,
+    "cp": 3369,
+    "tier": 1,
     "type": [
       "water"
     ]
@@ -3018,6 +3020,7 @@
   {
     "name": "groudon",
     "number": 383,
+    "cp": 51968,
     "tier": 5,
     "type": [
       "ground"

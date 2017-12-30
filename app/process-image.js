@@ -90,7 +90,7 @@ class ImageProcessing {
 
 	/**
 	 * Convert a suspected limited-range pixel value from limited range (16-235)
-	 *  c to full range (0-255), clamping as necessary
+	 * to full range (0-255), clamping as necessary
 	 */
 	static convertToFullRange(value) {
 		return Math.min(
@@ -182,11 +182,10 @@ class ImageProcessing {
 				return this.getRaidData(id, message, new_image);
 			})
 			.then(data => {
-				log.debug(data);
-
 				// write original image as a reference
 				if (debug_flag ||
 					((data === false || (data && (!data.phone_time || !data.gym || !data.time_remaining || data.pokemon.placeholder))) && log.getLevel() === log.levels.DEBUG)) {
+					log.debug(data);
 					new_image.write(path.join(__dirname, this.image_path, `${id}.png`));
 				}
 
@@ -480,15 +479,15 @@ class ImageProcessing {
 				text = text.replace(/!/g, ':');
 			}
 
-			// HACK: On a lot of iPhone screenshots, a colon in the phone time is seen as a 2, so try making a version
-			// of the time that replaces it to cover this possibility
-			if (text.match(/([0-2]?\d)(2)(\d{2}(\s?[ap]m)?)/)) {
-				text = text.replace(/([0-2]?\d)(2)(\d{2}(\s?[ap]m)?)/, '$1:$3') + ' ' + text;
+			// HACK: On a decent number of screenshots, a colon in the phone time is seen as a 1 or 2,
+			// so try making a version of the time that replaces it to cover this possibility
+			if (text.match(/([0-2]?\d)([12])([0-5]\d)(\s?[ap]m)?/)) {
+				text = text.replace(/([0-2]?\d)([12])([0-5]\d)(\s?[ap]m)?/, '$1:$3') + ' ' + text;
 			}
 
 			let text_match = text
 				.replace(/[^\w\s:!]/g, ' ')
-				.match(/([0-2]?\d:?\d{2}(\s?[ap]m)?)/i);
+				.match(/([0-2]?\d:?([0-5]\d)(\s?[ap]m)?)/i);
 
 			if (text_match) {
 				match = text_match;
@@ -1164,17 +1163,17 @@ class ImageProcessing {
 		if (time && time.isValid() && duration.asMilliseconds() > 0) {
 			// add time remaining to phone's current time to get final hatch or despawn time
 			time = time.add(duration);
+		}
 
-			if (TimeType.validate(time.format('[at] h:mma'), message, arg) === true) {
-				time = TimeType.parse(time.format('[at] h:mma'), message, arg);
-			} else {
-				// time was not valid, don't set any time (would rather have accurate time, than an inaccurate guess at the time)
-				message.channel
-					.send(time.format('h:mma') + ' is an invalid end time.  Either time was not interpreted correctly or has already expired.')
-					.then(message => message.delete({timeout: settings.message_cleanup_delay_error}))
-					.catch(err => log.error(err));
-				time = false;
-			}
+		if (TimeType.validate(time.format('[at] h:mma'), message, arg) === true) {
+			time = TimeType.parse(time.format('[at] h:mma'), message, arg);
+		} else {
+			// time was not valid, don't set any time (would rather have accurate time, than an inaccurate guess at the time)
+			message.channel
+				.send(time.format('h:mma') + ' is an invalid end time.  Either time was not interpreted correctly or has already expired.')
+				.then(message => message.delete({timeout: settings.message_cleanup_delay_error}))
+				.catch(err => log.error(err));
+			time = false;
 		}
 
 		// remove all reactions from processed image
