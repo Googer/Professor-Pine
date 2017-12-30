@@ -13,7 +13,8 @@ class Role {
 		return DB.DB('Guild')
 			.where('snowflake', guild.id)
 			.pluck('id')
-			.then(guild_db_ids => {
+			.first()
+			.then(guild_db_id => {
 				new Promise((resolve, reject) => {
 					const promises = [];
 
@@ -45,7 +46,7 @@ class Role {
 												.insert(Object.assign({}, {
 													roleName: roles[i].name,
 													roleDescription: roles[i].description,
-													guildId: guild_db_ids[0]
+													guildId: guild_db_id.id
 												}))
 												.then(role_id =>
 													DB.DB('Alias').transacting(transaction)
@@ -67,13 +68,14 @@ class Role {
 
 											DB.DB('Role').transacting(transaction)
 												.pluck('id')
-												.where('guildId', guild_db_ids[0])
+												.where('guildId', guild_db_id.id)
 												.andWhere('roleName', role_name)
+												.first()
 												.then(role_id => {
-													role_db_id = role_id;
+													role_db_id = role_id.id;
 
 													return DB.DB('Role').transacting(transaction)
-														.where('guildId', guild_db_ids[0])
+														.where('guildId', guild_db_id.id)
 														.andWhere('Role.roleName', role_name)
 														.update(Object.assign({}, {
 															roleDescription: role_description
@@ -118,10 +120,11 @@ class Role {
 			DB.DB('Guild')
 				.where('snowflake', guild.id)
 				.pluck('id')
+				.first()
 				.then(guild_id => {
 					DB.DB('Role')
 						.whereIn('roleName', roles)
-						.andWhere('guildId', guild_id)
+						.andWhere('guildId', guild_id.id)
 						.del()
 						.then(result => resolve(result))
 						.catch(err => reject(err));

@@ -1,115 +1,91 @@
 "use strict";
 
-const r = require('rethinkdb'),
+const log = require('loglevel').getLogger('Notify'),
 	DB = require('./db');
 
 class Notify {
 	constructor() {
-		// shortcut in case DB Table changes names
-		this.db_table = 'notifications';
 	}
 
 	getNotifications(member) {
-		return new Promise((resolve, reject) => {
-			r.db(member.guild.id)
-				.table(this.db_table)
-				.filter(r.row('member').eq(member.id))
-				.getField('pokemon')
-				.run(DB.connection, (err, cursor) => {
-					if (err) {
-						reject(err);
-						return;
-					}
-
-					cursor.toArray((err, result) => {
-						if (err) {
-							reject(err);
-							return;
-						}
-
-						this.count = result.length;
-
-						resolve(result);
-					});
-				});
-		});
+		return DB.DB('Notification')
+			.innerJoin('User', {'Notification.userId': 'User.id'})
+			.innerJoin('Guild', {'Notification.guildId': 'Guild.id'})
+			.where('User.userSnowflake', member.user.id)
+			.andWhere('Guild.snowflake', member.guild.id)
+			.pluck('pokemon');
 	}
 
 	getMembers(guild, pokemon) {
-		return new Promise((resolve, reject) => {
-			r.db(guild.id)
-				.table(this.db_table)
-				.filter(r.row('pokemon').eq(pokemon.number))
-				.getField('member')
-				.run(DB.connection, (err, cursor) => {
-					if (err) {
-						reject(err);
-						return;
-					}
-
-					cursor.toArray((err, result) => {
-						if (err) {
-							reject(err);
-							return;
-						}
-
-						this.count = result.length;
-
-						resolve(result);
-					});
-				});
-		});
+		return DB.DB('User')
+			.innerJoin('Notification', {'User.id': 'Notification.userId'})
+			.innerJoin('Guild', {'Notification.guildId': 'Guild.id'})
+			.where('Guild.snowflake', guild.id)
+			.andWhere('Notification.pokemon', pokemon.number)
+			.pluck('User.userSnowflake');
 	}
 
 	// give pokemon notification to user
 	assignNotification(member, pokemon) {
-		return new Promise((resolve, reject) => {
-			this.notificationExists(member, pokemon)
-				.then(exists => {
-					if (!exists) {
-						// add pokemon notification for member to DB
-						r.db(member.guild.id)
-							.table(this.db_table)
-							.insert({
-								member: member.id,
-								pokemon: pokemon.number})
-							.run(DB.connection, (err, result) => {
-								if (err && err.name !== 'ReqlOpFailedError') {
-									reject(err);
-									return;
-								}
+		return this.notificationExists(member, pokemon)
+			.then(exists => {
+				if (!exists) {
+					let user_db_id;
 
-								resolve(result);
-							});
-					} else {
-						resolve();
-					}
-				});
-		});
+					// add pokemon notification for member to DB
+					return DB.insertIfAbsent('User', Object.assign({},
+						{
+							userSnowflake: member.user.id
+						}))
+						.then(user_id => {
+							user_db_id = user_id[0];
+
+							return DB.DB('Guild')
+								.where('snowflake', member.guild.id)
+								.pluck('id')
+								.first();
+						})
+						.then(guild_id => {
+							return DB.DB('Notification')
+								.insert({
+									pokemon: pokemon.number,
+									guildId: guild_id.id,
+									userId: user_db_id
+								})
+						});
+				} else {
+					return exists;
+				}
+			});
 	}
 
-	// remove pokemon notifcation from user if they have it
+	// remove pokemon notification from user if they have it
 	removeNotification(member, pokemon) {
 		return new Promise((resolve, reject) => {
 			this.notificationExists(member, pokemon)
 				.then(exists => {
 					if (exists) {
-						r.db(member.guild.id)
-							.table(this.db_table)
-							.filter({
-								member: member.id,
-								pokemon: pokemon.number})
-							.delete()
-							.run(DB.connection, (err, result) => {
-								if (err) {
-									reject(err);
-									return;
-								}
+						let guild_db_id;
 
-								this.count = result.length;
+						DB.DB('Guild')
+							.where('snowflake', member.guild.id)
+							.pluck('id')
+							.first()
+							.then(guild_id => {
+								guild_db_id = guild_id.id;
 
-								resolve(result);
-							});
+								return DB.DB('User')
+									.where('userSnowflake', member.user.id)
+									.pluck('id')
+									.first();
+							})
+							.then(user_id => DB.DB('Notification')
+								.where('pokemon', pokemon.number)
+								.andWhere('userId', user_id.id)
+								.andWhere('guildId', guild_db_id)
+								.del())
+							.then(result => resolve(result))
+							.catch(err => reject(err));
 					} else {
 						resolve();
 					}
@@ -117,35 +93,18 @@ class Notify {
 		});
 	}
 
-	notificationExists(member, pokemon) {
-		return new Promise((resolve, reject) => {
-			r.db(member.guild.id)
-				.table(this.db_table)
-				.filter({
-					member: member.id,
-					pokemon: pokemon.number})
-				.run(DB.connection, (err, cursor) => {
-					if (err) {
-						reject(err);
-						return;
-					}
+	async notificationExists(member, pokemon) {
+		const result = await DB.DB('Notification')
+			.innerJoin('User', {'User.id': 'Notification.userId'})
+			.innerJoin('Guild', {'Guild.id': 'Notification.guildId'})
+			.where('Notification.pokemon', pokemon.number)
+			.andWhere('User.userSnowflake', member.user.id)
+			.andWhere('Guild.snowflake', member.guild.id)
+			.count('* as count')
+			.first();
 
-					cursor.toArray((err, result) => {
-						if (err) {
-							reject(err);
-							return;
-						}
-
-						if (result.length) {
-							resolve(true);
-						} else {
-							resolve(false);
-						}
-					});
-				});
-		});
+		return Promise.resolve(result.count > 0);
 	}
 }
-
 
 module.exports = new Notify();

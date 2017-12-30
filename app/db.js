@@ -28,19 +28,19 @@ class DBManager {
 	initialize(client) {
 		this.knex.migrate.latest()
 			.then(() => client.guilds.forEach(guild =>
-				this.insertOrUpdate('Guild', Object.assign({},
+				this.insertIfAbsent('Guild', Object.assign({},
 					{
 						snowflake: guild.id
 					}))
-					.catch(err => log.error(err))));
+					.catch(err => log.error(err))))
+			.catch(err => log.error(err));
 
-		client.on('guildCreate', guild => {
-			this.insertOrUpdate('Guild', Object.assign({},
+		client.on('guildCreate', guild =>
+			this.insertIfAbsent('Guild', Object.assign({},
 				{
 					snowflake: guild.id
 				}))
-				.catch(err => log.error(err))
-		});
+				.catch(err => log.error(err)));
 
 		client.on('guildDelete', guild => {
 			this.DB('Guild')
@@ -49,24 +49,39 @@ class DBManager {
 				.catch(err => log.error(err));
 		});
 	}
-	}
 
 	get DB() {
 		return this.knex;
+	}
 
-	insertOrUpdate(table_name, data, transaction = undefined) {
+	insertIfAbsent(table_name, data, transaction = undefined) {
 		const first_data = data[0] ?
 			data[0] :
-			data;
-		return transaction ?
-			this.knex.raw(this.knex(table_name).transacting(transaction).insert(data).toQuery() + " ON DUPLICATE KEY UPDATE " +
-				Object.getOwnPropertyNames(first_data)
-					.map(field => `${field}=VALUES(${field})`)
-					.join(", ")) :
-			this.knex.raw(this.knex(table_name).insert(data).toQuery() + " ON DUPLICATE KEY UPDATE " +
-				Object.getOwnPropertyNames(first_data)
-					.map(field => `${field}=VALUES(${field})`)
-					.join(", "));
+			data,
+			object_properties = Object.getOwnPropertyNames(first_data),
+			exists_query = this.knex(table_name)
+				.where(object_properties[0], first_data[object_properties[0]]);
+
+		for (let i = 1; i < object_properties.length; i++) {
+			exists_query
+				.andWhere(object_properties[i], first_data[object_properties[i]]);
+		}
+
+		return exists_query
+			.first()
+			.then(result => {
+				if (!result) {
+					return transaction ?
+						this.knex(table_name).transacting(transaction)
+							.insert(first_data)
+							.returning('id') :
+						this.knex(table_name)
+							.insert(first_data)
+							.returning('id');
+				} else {
+					return [result.id];
+				}
+			});
 	}
 }
 
