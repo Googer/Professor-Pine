@@ -1231,15 +1231,15 @@ class ImageProcessing {
 					.then(channel => channel.send(raid_source_channel_message, formatted_message))
 					.catch(err => log.error(err));
 			})
+			.then(channel_raid_message => {
+				Raid.addMessage(raid.channel_id, channel_raid_message, true);
+			})
 			.then(result => {
 				if (pokemon.name) {
 					return Notify.notifyMembers(raid.channel_id, pokemon, message.member.id);
 				}
 
 				return true;
-			})
-			.then(channel_raid_message => {
-				Raid.addMessage(raid.channel_id, channel_raid_message, true);
 			})
 			.catch(err => log.error(err));
 	}

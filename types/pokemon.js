@@ -20,7 +20,7 @@ class PokemonType extends Commando.ArgumentType {
 		}
 
 		// arg.min holds if we want to enforce a specific pokemon
-		if (arg.min === true && !pokemon.number) {
+		if (arg && arg.min === true && !pokemon.number) {
 			return 'A specific pokémon must be specified.  Please try your search again, entering the text you want to search for.';
 		}
 
