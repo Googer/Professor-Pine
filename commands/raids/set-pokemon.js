@@ -39,29 +39,12 @@ class SetPokemonCommand extends Commando.Command {
 
 	async run(message, args) {
 		const pokemon = args['pokemon'],
-			raid = Raid.getRaid(message.channel.id),
 			info = Raid.setRaidPokemon(message.channel.id, pokemon);
 
 		message.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
-			.then(async result => {
+			.then(result => {
 				if (pokemon.name) {
-					const raid_channel = await Raid.getChannel(raid.channel_id),
-						channel_string = raid_channel.toString();
-
-					Notify.getMembers(message.guild, pokemon)
-						.then(members => {
-							members
-								.filter(member_id => member_id !== message.member.id)
-								.filter(member_id => raid_channel.permissionsFor(member_id).has('VIEW_CHANNEL'))
-								.map(member_id => Helper.getMemberForNotification(message.guild.id, member_id))
-								.forEach(member => {
-									const pokemon_name = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1);
-
-									member.send(`A raid for ${pokemon_name} has been announced! - ${channel_string}`)
-										.catch(err => log.error(err));
-								});
-						})
-						.catch(err => log.error(err));
+					return Notify.notifyMembers(message.channel.id, pokemon, message.member.id);
 				}
 
 				return true;

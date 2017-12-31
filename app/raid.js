@@ -740,6 +740,12 @@ class Raid {
 			.catch(err => log.error(err));
 	}
 
+	getRaidNotificationMessage(raid) {
+		return this.getChannel(raid.channel_id)
+			.then(channel => `A raid for ${raid.pokemon.name.charAt(0).toUpperCase() + raid.pokemon.name.slice(1)} has been announced - ${channel.toString()}:`)
+			.catch(err => log.error(err));
+	}
+
 	getRaidSourceChannelMessage(raid) {
 		return this.getChannel(raid.source_channel_id)
 			.then(channel => `Use ${channel.toString()} to return to this raid\'s regional channel.`)

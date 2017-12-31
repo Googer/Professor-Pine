@@ -2,16 +2,17 @@
 
 const log = require('loglevel').getLogger('ImageProcessor'),
 	fs = require('fs'),
-	path = require('path'),
-	uuidv1 = require('uuid/v1'),
-	tesseract = require('tesseract.js'),
-	moment = require('moment'),
-	Helper = require('../app/helper'),
+	Helper = require('./helper'),
 	Jimp = require('jimp'),
-	Raid = require('../app/raid'),
+	moment = require('moment'),
+	Notify = require('./notify'),
+	path = require('path'),
+	Raid = require('./raid'),
 	region_map = require('PgP-Data/data/region-map'),
 	settings = require('../data/settings'),
-	{TimeParameter} = require('../app/constants');
+	tesseract = require('tesseract.js'),
+	{TimeParameter} = require('./constants'),
+	uuidv1 = require('uuid/v1');
 
 // Will save all images regardless of how right or wrong, in order to better examine output
 const debug_flag = false;
@@ -1229,6 +1230,13 @@ class ImageProcessing {
 				return Raid.getChannel(raid.channel_id)
 					.then(channel => channel.send(raid_source_channel_message, formatted_message))
 					.catch(err => log.error(err));
+			})
+			.then(result => {
+				if (pokemon.name) {
+					return Notify.notifyMembers(raid.channel_id, pokemon, message.member.id);
+				}
+
+				return true;
 			})
 			.then(channel_raid_message => {
 				Raid.addMessage(raid.channel_id, channel_raid_message, true);

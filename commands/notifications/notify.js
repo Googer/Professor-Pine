@@ -4,19 +4,18 @@ const log = require('loglevel').getLogger('NotifyCommand'),
 	Commando = require('discord.js-commando'),
 	{CommandGroup} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
-	Notify = require('../../app/notify'),
-	Utility = require('../../app/utility');
+	Notify = require('../../app/notify');
 
 class NotifyCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
-			name: 'notify',
-			group: CommandGroup.ROLES,
-			memberName: 'notify',
-			aliases: ['want'],
+			name: 'want',
+			group: CommandGroup.NOTIFICATIONS,
+			memberName: 'want',
+			aliases: ['i-want', 'notify'],
 			description: 'Adds notifications for a raid boss.',
 			details: 'Use this command to request notifications for a specific raid boss.',
-			examples: ['\t!notify lugia'],
+			examples: ['\t!want ttar'],
 			args: [
 				{
 					key: 'pokemon',
@@ -30,7 +29,7 @@ class NotifyCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (!!message.command && message.command.name === 'notify' && !Helper.isBotChannel(message)) {
+			if (!!message.command && message.command.name === 'want' && !Helper.isBotChannel(message)) {
 				return ['invalid-channel', message.reply(Helper.getText('notify.warning', message))];
 			}
 			return false;

@@ -11,18 +11,18 @@ const log = require('loglevel').getLogger('NotificationsCommand'),
 class NotificationsCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
-			name: 'notifications',
-			group: CommandGroup.ROLES,
-			memberName: 'notifications',
-			aliases: ['list-notifications', 'show-notifications', 'list-wants', 'show-wants', 'wants'],
-			description: 'Show currently active notifications for raid bosses.',
+			name: 'wants',
+			group: CommandGroup.NOTIFICATIONS,
+			memberName: 'wants',
+			aliases: ['notifications', 'list-notifications', 'show-notifications', 'list-wants', 'show-wants'],
+			description: 'Shows currently active notifications for raid bosses.',
 			details: 'Use this command to get your currently active raid boss notifications.',
-			examples: ['\t!notifications'],
+			examples: ['\t!wants'],
 			guildOnly: true
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (!!message.command && message.command.name === 'notifications' && !Helper.isBotChannel(message)) {
+			if (!!message.command && message.command.name === 'wants' && !Helper.isBotChannel(message)) {
 				return ['invalid-channel', message.reply(Helper.getText('notifications.warning', message))];
 			}
 			return false;

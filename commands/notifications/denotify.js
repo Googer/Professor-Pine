@@ -4,19 +4,18 @@ const log = require('loglevel').getLogger('DenotifyCommand'),
 	Commando = require('discord.js-commando'),
 	{CommandGroup} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
-	Notify = require('../../app/notify'),
-	Utility = require('../../app/utility');
+	Notify = require('../../app/notify');
 
 class DenotifyCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
-			name: 'denotify',
-			group: CommandGroup.ROLES,
-			memberName: 'denotify',
-			aliases: ['unwant'],
+			name: 'unwant',
+			group: CommandGroup.NOTIFICATIONS,
+			memberName: 'unwant',
+			aliases: ['i-dont-want', 'dont-want', 'denotify'],
 			description: 'Removes notifications for a raid boss.',
 			details: 'Use this command to remove notifications for a specific raid boss.',
-			examples: ['\t!denotify lugia'],
+			examples: ['\t!unwant ttar'],
 			args: [
 				{
 					key: 'pokemon',
@@ -30,7 +29,7 @@ class DenotifyCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (!!message.command && message.command.name === 'denotify' && !Helper.isBotChannel(message)) {
+			if (!!message.command && message.command.name === 'unwant' && !Helper.isBotChannel(message)) {
 				return ['invalid-channel', message.reply(Helper.getText('denotify.warning', message))];
 			}
 			return false;

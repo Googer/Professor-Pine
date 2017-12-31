@@ -11,10 +11,13 @@
 		"warning": "Use the `!notifications` command in ${bot_channel} to view current notifications for pokémon."
 	},
 	"notify": {
-		"warning": "Use the `!notify` command in ${bot_channel} to add notifications for pokémon."
+		"warning": "Use the `!want` command in ${bot_channel} to add notifications for pokémon."
 	},
 	"denotify": {
-		"warning": "Use the `!denotify` command in ${bot_channel} to remove notifications for pokémon."
+		"warning": "Use the `!unwant` command in ${bot_channel} to remove notifications for pokémon."
+	},
+	"denotifyall": {
+		"warning": "Use the `!unwant-all` command in ${bot_channel} to remove all notifications for pokémon."
 	},
 	"find": {
 		"warning": "Use the `!find` command in ${bot_channel} to find channels for a region."

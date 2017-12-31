@@ -1,12 +1,15 @@
 "use strict";
 
 const log = require('loglevel').getLogger('Notify'),
-	DB = require('./db');
+	DB = require('./db'),
+	Helper = require('./helper'),
+	Raid = require('./raid');
 
 class Notify {
 	constructor() {
 	}
 
+	// get pokemon that member is interested in
 	getNotifications(member) {
 		return DB.DB('Notification')
 			.innerJoin('User', {'Notification.userId': 'User.id'})
@@ -16,13 +19,33 @@ class Notify {
 			.pluck('pokemon');
 	}
 
-	getMembers(guild, pokemon) {
-		return DB.DB('User')
+	// notify interested members for the raid associated with the given channel and pokemon,
+	// filtering out the reporting member
+	async notifyMembers(channel_id, pokemon, reporting_member_id) {
+		const raid = Raid.getRaid(channel_id),
+			raid_channel = await Raid.getChannel(channel_id),
+			guild_id = raid_channel.guild.id;
+
+		DB.DB('User')
 			.innerJoin('Notification', {'User.id': 'Notification.userId'})
 			.innerJoin('Guild', {'Notification.guildId': 'Guild.id'})
-			.where('Guild.snowflake', guild.id)
+			.where('Guild.snowflake', guild_id)
 			.andWhere('Notification.pokemon', pokemon.number)
-			.pluck('User.userSnowflake');
+			.pluck('User.userSnowflake')
+			.then(members => {
+				members
+					.filter(member_id => member_id !== reporting_member_id)
+					.filter(member_id => raid_channel.permissionsFor(member_id).has('VIEW_CHANNEL'))
+					.map(member_id => Helper.getMemberForNotification(guild_id, member_id))
+					.forEach(async member => {
+						const raid_notification_message = await Raid.getRaidNotificationMessage(raid),
+							formatted_message = await Raid.getFormattedMessage(raid);
+
+						member.send(raid_notification_message, formatted_message)
+							.catch(err => log.error(err));
+					});
+			})
+			.catch(err => log.error(err));
 	}
 
 	// give pokemon notification to user
@@ -59,6 +82,28 @@ class Notify {
 			});
 	}
 
+	// removes all pokemon notifications from user
+	removeAllNotifications(member) {
+		let guild_db_id;
+
+		return DB.DB('Guild')
+			.where('snowflake', member.guild.id)
+			.pluck('id')
+			.first()
+			.then(guild_id => {
+				guild_db_id = guild_id.id;
+
+				return DB.DB('User')
+					.where('userSnowflake', member.user.id)
+					.pluck('id')
+					.first();
+			})
+			.then(user_id => DB.DB('Notification')
+				.where('userId', user_id.id)
+				.andWhere('guildId', guild_db_id)
+				.del())
+	}
+
 	// remove pokemon notification from user if they have it
 	removeNotification(member, pokemon) {
 		return new Promise((resolve, reject) => {
@@ -93,6 +138,7 @@ class Notify {
 		});
 	}
 
+	// check if notification exists for member and pokemon combination
 	async notificationExists(member, pokemon) {
 		const result = await DB.DB('Notification')
 			.innerJoin('User', {'User.id': 'Notification.userId'})

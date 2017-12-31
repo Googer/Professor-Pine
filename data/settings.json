@@ -23,6 +23,7 @@
     "basic-raid",
     "raid-crud",
     "roles",
+    "notifications",
     "util"
   ]
 }

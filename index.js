@@ -31,7 +31,8 @@ const private_settings = require('./data/private-settings'),
 	IP = require('./app/process-image'),
 	Raid = require('./app/raid'),
 	Utility = require('./app/utility'),
-	settings = require('./data/settings');
+	settings = require('./data/settings'),
+	{CommandGroup} = require('./app/constants');
 
 NodeCleanup((exitCode, signal) => {
 	Raid.shutdown();
@@ -41,17 +42,18 @@ Client.registry.registerDefaultTypes();
 Client.registry.registerTypesIn(__dirname + '/types');
 
 if (settings.features.roles) {
-	Client.registry.registerGroup('admin', 'Administration');
+	Client.registry.registerGroup(CommandGroup.ADMIN, 'Administration');
 }
 
-Client.registry.registerGroup('basic-raid', 'Raid Basics');
-Client.registry.registerGroup('raid-crud', 'Raid Creation and Maintenance');
+Client.registry.registerGroup(CommandGroup.BASIC_RAID, 'Raid Basics');
+Client.registry.registerGroup(CommandGroup.RAID_CRUD, 'Raid Creation and Maintenance');
 
 if (settings.features.roles) {
-	Client.registry.registerGroup('roles', 'Roles');
+	Client.registry.registerGroup(CommandGroup.ROLES, 'Roles');
 }
 
-Client.registry.registerGroup('util', 'Utility');
+Client.registry.registerGroup(CommandGroup.NOTIFICATIONS, 'Notifications');
+Client.registry.registerGroup(CommandGroup.UTIL, 'Utility');
 
 if (settings.features.roles) {
 	Client.registry.registerCommands([
@@ -61,10 +63,6 @@ if (settings.features.roles) {
 
 		require('./commands/roles/iam'),
 		require('./commands/roles/iamnot'),
-
-		require('./commands/roles/list-notications'),
-		require('./commands/roles/notify'),
-		require('./commands/roles/denotify')
 	]);
 }
 
@@ -90,6 +88,11 @@ Client.registry.registerCommands([
 	require('./commands/raids/set-location'),
 
 	require('./commands/raids/submit-request'),
+
+	require('./commands/notifications/notify'),
+	require('./commands/notifications/denotify'),
+	require('./commands/notifications/list-notications'),
+	require('./commands/notifications/denotify-all'),
 
 	require('./commands/util/help')
 ]);
