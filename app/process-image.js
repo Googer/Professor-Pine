@@ -1202,9 +1202,7 @@ class ImageProcessing {
 
 				return message.channel.send(raid_channel_message, formatted_message);
 			})
-			.then(announcement_message => {
-				return Raid.setAnnouncementMessage(raid.channel_id, announcement_message);
-			})
+			.then(announcement_message => Raid.addMessage(raid.channel_id, announcement_message, true))
 			// if this is a potential EX raid, stick a message in the EX raid channel
 			.then(async pinned_message => {
 				const gym = Gym.getGym(gym_id);

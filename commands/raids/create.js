@@ -84,9 +84,7 @@ class RaidCommand extends Commando.Command {
 
 				return message.channel.send(raid_channel_message, formatted_message);
 			})
-			.then(announcement_message => {
-				return Raid.setAnnouncementMessage(raid.channel_id, announcement_message);
-			})
+			.then(announcement_message => Raid.addMessage(raid.channel_id, announcement_message))
 			// create and send initial status message to raid channel
 			.then(async bot_message => {
 				const raid_source_channel_message = await Raid.getRaidSourceChannelMessage(raid),
