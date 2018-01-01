@@ -241,13 +241,19 @@ class Raid {
 	deleteRaid(channel_id) {
 		const raid = this.getRaid(channel_id);
 
+		// delete ex raid channel message associated with this raid if there is one
+		raid.messages
+			.filter(message_cache_id => message_cache_id.split(':')[0] !== channel_id)
+			.forEach(message_cache_id => this.getMessage(message_cache_id)
+				.then(message => message.delete()
+					.catch(err => log.error(err))));
+
 		let deletion_promise;
 
 		// actually delete the channel and announcement message
 		if (raid.announcement_message) {
 			deletion_promise = this.getMessage(raid.announcement_message)
-				.then(message => message.delete())
-				.catch(err => log.error(err));
+				.then(message => message.delete());
 		} else {
 			deletion_promise = Promise.resolve(true);
 		}
@@ -343,7 +349,7 @@ class Raid {
 			raid.messages = [];
 		}
 
-		const message_cache_id = `${channel_id.toString()}:${message.id.toString()}`;
+		const message_cache_id = `${message.channel.id.toString()}:${message.id.toString()}`;
 
 		raid.messages.push(message_cache_id);
 
@@ -746,9 +752,33 @@ class Raid {
 			.catch(err => log.error(err));
 	}
 
+	async getRaidExChannelMessage(raid) {
+		const raid_channel = await this.getChannel(raid.channel_id),
+			region_channel = await this.getChannel(raid.source_channel_id);
+
+		return `A raid at a potential EX gym has been announced: ${raid_channel.toString()} - ` +
+			`it resides in ${region_channel.toString()}.`;
+	}
+
 	getRaidSourceChannelMessage(raid) {
 		return this.getChannel(raid.source_channel_id)
 			.then(channel => `Use ${channel.toString()} to return to this raid\'s regional channel.`)
+			.catch(err => log.error(err));
+	}
+
+	createPotentialExRaidMessage(raid) {
+		this.getChannel(raid.channel_id)
+			.then(async raid_channel => {
+				const ex_raid_channel = Helper.getExRaidAnnounceChannel(raid_channel.guild);
+
+				if (ex_raid_channel) {
+					const raid_channel_message = await this.getRaidExChannelMessage(raid),
+						formatted_message = await this.getFormattedMessage(raid);
+
+					return ex_raid_channel.send(raid_channel_message, formatted_message)
+						.then(ex_raid_status_message => this.addMessage(raid.channel_id, ex_raid_status_message))
+				}
+			})
 			.catch(err => log.error(err));
 	}
 
@@ -999,13 +1029,11 @@ class Raid {
 	}
 
 	async refreshStatusMessages(raid) {
-		const raid_channel_message = await this.getRaidChannelMessage(raid),
-			raid_source_channel_message = await this.getRaidSourceChannelMessage(raid),
-			formatted_message = await this.getFormattedMessage(raid);
+		const formatted_message = await this.getFormattedMessage(raid);
 
 		if (raid.announcement_message) {
 			this.getMessage(raid.announcement_message)
-				.then(announcement_message => announcement_message.edit(raid_channel_message, formatted_message))
+				.then(announcement_message => announcement_message.edit(announcement_message.content, formatted_message))
 				.catch(err => log.error(err));
 		}
 
@@ -1014,7 +1042,7 @@ class Raid {
 				const formatted_message = await this.getFormattedMessage(raid);
 
 				this.getMessage(message_cache_id)
-					.then(message => message.edit(raid_source_channel_message, formatted_message))
+					.then(message => message.edit(message.content, formatted_message))
 					.catch(err => log.error(err));
 			});
 	}

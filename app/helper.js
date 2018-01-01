@@ -1,7 +1,6 @@
 "use strict";
 
 const log = require('loglevel').getLogger('Helper'),
-	Discord = require('discord.js'),
 	text = require('../data/text'),
 	{Team} = require('./constants'),
 	settings = require('../data/settings');
@@ -38,6 +37,9 @@ class Helper {
 						}),
 						unown: guild.channels.find(channel => {
 							return channel.name === settings.channels.unown;
+						}),
+						ex_announce_channel: guild.channels.find(channel => {
+							return channel.name === settings.channels.ex_gym_raids;
 						}),
 						help: null,
 					},
@@ -91,6 +93,9 @@ class Helper {
 						}),
 						unown: guild.channels.find(channel => {
 							return channel.name === settings.channels.unown;
+						}),
+						ex_announce_channel: guild.channels.find(channel => {
+							return channel.name === settings.channels.ex_gym_raids;
 						}),
 						help: null,
 					},
@@ -163,6 +168,10 @@ class Helper {
 
 	getMemberForNotification(guild_id, member_id) {
 		return this.notify_client.guilds.get(guild_id).members.get(member_id)
+	}
+
+	getExRaidAnnounceChannel(guild) {
+		return this.guild.get(guild.id).channels.ex_announce_channel;
 	}
 
 	isManagement(message) {

@@ -17,7 +17,8 @@
   "channels": {
     "bot_lab": "the-bot-lab",
     "mod_bot_lab": "mod-bot-only",
-    "unown": "unown-sightings"
+    "unown": "unown-sightings",
+    "ex_gym_raids": "potential-ex-gym-raids"
   },
   "help_groups": [
     "basic-raid",

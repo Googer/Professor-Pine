@@ -2,6 +2,7 @@
 
 const log = require('loglevel').getLogger('ImageProcessor'),
 	fs = require('fs'),
+	Gym = require('./gym'),
 	Helper = require('./helper'),
 	Jimp = require('jimp'),
 	moment = require('moment'),
@@ -1134,7 +1135,7 @@ class ImageProcessing {
 				.subtract(settings.standard_raid_incubate_duration, 'minutes')
 				.subtract(settings.standard_raid_hatched_duration, 'minutes');
 
-		let gym = data.gym,
+		let gym_id = data.gym,
 			pokemon = data.pokemon,
 			time = data.phone_time,
 			duration = moment.duration(data.time_remaining, 'hh:mm:ss'),
@@ -1188,7 +1189,7 @@ class ImageProcessing {
 		}
 
 		let raid;
-		Raid.createRaid(message.channel.id, message.member.id, pokemon, gym, time)
+		Raid.createRaid(message.channel.id, message.member.id, pokemon, gym_id, time)
 			.then(async info => {
 				raid = info.raid;
 
@@ -1203,6 +1204,16 @@ class ImageProcessing {
 			})
 			.then(announcement_message => {
 				return Raid.setAnnouncementMessage(raid.channel_id, announcement_message);
+			})
+			// if this is a potential EX raid, stick a message in the EX raid channel
+			.then(async pinned_message => {
+				const gym = Gym.getGym(gym_id);
+
+				if ((gym.is_ex || gym.is_park) && !raid.is_exclusive) {
+					return Raid.createPotentialExRaidMessage(raid);
+				} else {
+					return pinned_message;
+				}
 			})
 			.then(async bot_message => {
 				await Raid.getChannel(raid.channel_id)

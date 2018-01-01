@@ -76,6 +76,7 @@ class RaidCommand extends Commando.Command {
 		let raid;
 
 		Raid.createRaid(message.channel.id, message.member.id, pokemon, gym_id)
+			// create and send announcement message to region channel
 			.then(async info => {
 				raid = info.raid;
 				const raid_channel_message = await Raid.getRaidChannelMessage(raid),
@@ -86,6 +87,7 @@ class RaidCommand extends Commando.Command {
 			.then(announcement_message => {
 				return Raid.setAnnouncementMessage(raid.channel_id, announcement_message);
 			})
+			// create and send initial status message to raid channel
 			.then(async bot_message => {
 				const raid_source_channel_message = await Raid.getRaidSourceChannelMessage(raid),
 					formatted_message = await Raid.getFormattedMessage(raid);
@@ -96,8 +98,18 @@ class RaidCommand extends Commando.Command {
 			.then(channel_raid_message => {
 				return Raid.addMessage(raid.channel_id, channel_raid_message, true);
 			})
+			// if this is a potential EX raid, stick a message in the EX raid channel
+			.then(async pinned_message => {
+				const gym = Gym.getGym(gym_id);
+
+				if ((gym.is_ex || gym.is_park) && !raid.is_exclusive) {
+					return Raid.createPotentialExRaidMessage(raid);
+				} else {
+					return pinned_message;
+				}
+			})
 			// now ask user about remaining time on this brand-new raid
-			.then(pinned_message => {
+			.then(result => {
 				// somewhat hacky way of letting time type know if this is exclusive or not
 				message.is_exclusive = Raid.isExclusive(raid.channel_id);
 
