@@ -65,11 +65,10 @@ class StartTimeCommand extends Commando.Command {
 			.filter(([attendee, attendee_status]) => attendee !== message.member.id &&
 				attendee_status.status !== RaidStatus.COMPLETE)
 			.forEach(([attendee, attendee_status]) => {
-				Raid.getMember(message.channel.id, attendee)
-					.then(member => Helper.getMemberForNotification(message.guild.id, member.id))
-					.then(member => member.send(
-						`${message.member.displayName} set a meeting time of ${formatted_start_time} for ${channel.toString()}. ` +
-						`There ${verb} currently **${total_attendees}** ${noun} attending!`))
+				const member = Helper.getMemberForNotification(message.guild.id, attendee);
+
+				member.send(`${message.member.displayName} set a meeting time of ${formatted_start_time} for ${channel.toString()}. ` +
+						`There ${verb} currently **${total_attendees}** ${noun} attending!`)
 					.catch(err => log.error(err));
 			});
 
