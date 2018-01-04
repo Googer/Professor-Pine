@@ -4,15 +4,15 @@ exports.up = function (knex, Promise) {
 			table.increments('id')
 				.primary();
 
-			table.string('snowflake')
+			table.string('snowflake', 30)
 				.unique();
 		}),
 
 		knex.schema.createTable('Role', table => {
 			table.increments('id')
 				.primary();
-			table.string('roleName');
-			table.string('roleDescription');
+			table.string('roleName', 50);
+			table.string('roleDescription', 150);
 
 			table.integer('guildId')
 				.unsigned()
@@ -27,7 +27,7 @@ exports.up = function (knex, Promise) {
 			table.increments('id')
 				.primary();
 
-			table.string('aliasName');
+			table.string('aliasName', 50);
 
 			table.integer('roleId')
 				.unsigned()

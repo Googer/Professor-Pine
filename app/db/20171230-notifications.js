@@ -4,7 +4,7 @@ exports.up = function (knex, Promise) {
 			table.increments('id')
 				.primary();
 
-			table.string('userSnowflake')
+			table.string('userSnowflake', 30)
 				.unique();
 		}),
 
