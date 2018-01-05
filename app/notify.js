@@ -40,26 +40,28 @@ class Notify {
 			pokemon = raid.pokemon,
 			guild_id = raid_channel.guild.id;
 
-		DB.DB('User')
-			.innerJoin('Notification', {'User.id': 'Notification.userId'})
-			.innerJoin('Guild', {'Notification.guildId': 'Guild.id'})
-			.where('Guild.snowflake', guild_id)
-			.andWhere('Notification.pokemon', pokemon.number)
-			.pluck('User.userSnowflake')
-			.then(members => {
-				members
-					.filter(member_id => member_id !== reporting_member_id)
-					.filter(member_id => raid_channel.permissionsFor(member_id).has('VIEW_CHANNEL'))
-					.map(member_id => Helper.getMemberForNotification(guild_id, member_id))
-					.forEach(async member => {
-						const raid_notification_message = await Raid.getRaidNotificationMessage(raid),
-							formatted_message = await Raid.getFormattedMessage(raid);
+		if (pokemon.number) {
+			DB.DB('User')
+				.innerJoin('Notification', {'User.id': 'Notification.userId'})
+				.innerJoin('Guild', {'Notification.guildId': 'Guild.id'})
+				.where('Guild.snowflake', guild_id)
+				.andWhere('Notification.pokemon', pokemon.number)
+				.pluck('User.userSnowflake')
+				.then(members => {
+					members
+						.filter(member_id => member_id !== reporting_member_id)
+						.filter(member_id => raid_channel.permissionsFor(member_id).has('VIEW_CHANNEL'))
+						.map(member_id => Helper.getMemberForNotification(guild_id, member_id))
+						.forEach(async member => {
+							const raid_notification_message = await Raid.getRaidNotificationMessage(raid),
+								formatted_message = await Raid.getFormattedMessage(raid);
 
-						member.send(raid_notification_message, formatted_message)
-							.catch(err => log.error(err));
-					});
-			})
-			.catch(err => log.error(err));
+							member.send(raid_notification_message, formatted_message)
+								.catch(err => log.error(err));
+						});
+				})
+				.catch(err => log.error(err));
+		}
 	}
 
 	// give pokemon notification to user
