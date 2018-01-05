@@ -723,10 +723,12 @@ class Raid {
 			.catch(err => log.error(err));
 	}
 
-	getRaidNotificationMessage(raid) {
-		return this.getChannel(raid.channel_id)
-			.then(channel => `A raid for ${raid.pokemon.name.charAt(0).toUpperCase() + raid.pokemon.name.slice(1)} has been announced - ${channel.toString()}:`)
-			.catch(err => log.error(err));
+	async getRaidNotificationMessage(raid) {
+		const raid_channel = await this.getChannel(raid.channel_id),
+			region_channel = await this.getChannel(raid.source_channel_id);
+
+		return `A raid for ${raid.pokemon.name.charAt(0).toUpperCase() + raid.pokemon.name.slice(1)} has been announced: ${raid_channel.toString()} - ` +
+			`it resides in ${region_channel.toString()}.`;
 	}
 
 	async getRaidExChannelMessage(raid) {
