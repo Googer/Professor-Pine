@@ -9,6 +9,20 @@ class Notify {
 	constructor() {
 	}
 
+	initialize() {
+		Helper.client.on('raidCreated', (raid, member_id) => {
+			if (raid.pokemon.name) {
+				this.notifyMembers(raid, member_id);
+			}
+		});
+
+		Helper.client.on('raidPokemonSet', (raid, member_id) => {
+			if (raid.pokemon.name) {
+				this.notifyMembers(raid, member_id);
+			}
+		});
+	}
+
 	// get pokemon that member is interested in
 	getNotifications(member) {
 		return DB.DB('Notification')
@@ -21,9 +35,9 @@ class Notify {
 
 	// notify interested members for the raid associated with the given channel and pokemon,
 	// filtering out the reporting member
-	async notifyMembers(channel_id, pokemon, reporting_member_id) {
-		const raid = Raid.getRaid(channel_id),
-			raid_channel = await Raid.getChannel(channel_id),
+	async notifyMembers(raid, reporting_member_id) {
+		const raid_channel = await Raid.getChannel(raid.channel_id),
+			pokemon = raid.pokemon,
 			guild_id = raid_channel.guild.id;
 
 		DB.DB('User')

@@ -5,7 +5,6 @@ const log = require('loglevel').getLogger('CreateCommand'),
 	{CommandGroup, TimeParameter} = require('../../app/constants'),
 	Gym = require('../../app/gym'),
 	Helper = require('../../app/helper'),
-	Notify = require('../../app/notify'),
 	Raid = require('../../app/raid'),
 	Utility = require('../../app/utility');
 
@@ -93,19 +92,8 @@ class RaidCommand extends Commando.Command {
 					.then(channel => channel.send(raid_source_channel_message, formatted_message))
 					.catch(err => log.error(err));
 			})
-			.then(channel_raid_message => {
-				return Raid.addMessage(raid.channel_id, channel_raid_message, true);
-			})
+			.then(channel_raid_message => Raid.addMessage(raid.channel_id, channel_raid_message, true))
 			// if this is a potential EX raid, stick a message in the EX raid channel
-			.then(async pinned_message => {
-				const gym = Gym.getGym(gym_id);
-
-				if ((gym.is_ex || gym.is_park) && !raid.is_exclusive) {
-					return Raid.createPotentialExRaidMessage(raid);
-				} else {
-					return pinned_message;
-				}
-			})
 			// now ask user about remaining time on this brand-new raid
 			.then(result => {
 				// somewhat hacky way of letting time type know if this is exclusive or not
@@ -132,9 +120,7 @@ class RaidCommand extends Commando.Command {
 				}
 			})
 			.then(result => {
-				if (pokemon.name) {
-					return Notify.notifyMembers(raid.channel_id, pokemon, message.member.id);
-				}
+				Helper.client.emit('raidCreated', raid, message.member.id);
 
 				return true;
 			})

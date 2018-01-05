@@ -12,6 +12,8 @@
   "message_cleanup_delay_success": 5000,
   "message_cleanup_delay_error": 30000,
   "features": {
+    "ex_gym_channel": true,
+    "notifications": true,
     "roles": true
   },
   "channels": {

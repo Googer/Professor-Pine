@@ -29,6 +29,8 @@ const private_settings = require('./data/private-settings'),
 	NodeCleanup = require('node-cleanup'),
 	Helper = require('./app/helper'),
 	IP = require('./app/process-image'),
+	ExRaidChannel = require('./app/ex-gym-channel'),
+	Notify = require('./app/notify'),
 	Raid = require('./app/raid'),
 	Utility = require('./app/utility'),
 	settings = require('./data/settings'),
@@ -52,7 +54,10 @@ if (settings.features.roles) {
 	Client.registry.registerGroup(CommandGroup.ROLES, 'Roles');
 }
 
-Client.registry.registerGroup(CommandGroup.NOTIFICATIONS, 'Notifications');
+if (settings.features.notifications) {
+	Client.registry.registerGroup(CommandGroup.NOTIFICATIONS, 'Notifications');
+}
+
 Client.registry.registerGroup(CommandGroup.UTIL, 'Utility');
 
 if (settings.features.roles) {
@@ -63,6 +68,15 @@ if (settings.features.roles) {
 
 		require('./commands/roles/iam'),
 		require('./commands/roles/iamnot'),
+	]);
+}
+
+if (settings.features.notifications) {
+	Client.registry.registerCommands([
+		require('./commands/notifications/notify'),
+		require('./commands/notifications/denotify'),
+		require('./commands/notifications/list-notications'),
+		require('./commands/notifications/denotify-all'),
 	]);
 }
 
@@ -89,11 +103,6 @@ Client.registry.registerCommands([
 
 	require('./commands/raids/submit-request'),
 
-	require('./commands/notifications/notify'),
-	require('./commands/notifications/denotify'),
-	require('./commands/notifications/list-notications'),
-	require('./commands/notifications/denotify-all'),
-
 	require('./commands/util/help')
 ]);
 
@@ -102,21 +111,22 @@ if (private_settings.google_api_key !== '') {
 		require('./commands/util/find-region'));
 }
 
-let is_initialized = false;
-
-Client.on('ready', () => {
+Client.once('ready', () => {
 	log.info('Client logged in');
 
-	// Only initialize various classes once ever since ready event gets fired
-	// upon reconnecting after longer outages
-	if (!is_initialized) {
-		Helper.setClient(Client);
-		Raid.setClient(Client);
-		DB.initialize(Client);
-		IP.initialize();
+	Helper.setClient(Client);
 
-		is_initialized = true;
+	if (settings.features.ex_gym_channel) {
+		ExRaidChannel.initialize();
 	}
+
+	if (settings.features.notifications) {
+		Notify.initialize();
+	}
+
+	Raid.setClient(Client);
+	DB.initialize(Client);
+	IP.initialize();
 });
 
 Client.on('error', err => log.error(err));
@@ -154,9 +164,7 @@ Client.on('guildUnavailable', guild => {
 
 Client.login(private_settings.discord_bot_token);
 
-//
-
-NotifyClient.on('ready', () => {
+NotifyClient.once('ready', () => {
 	log.info('Notify client logged in');
 
 	Helper.setNotifyClient(NotifyClient);
@@ -168,6 +176,5 @@ NotifyClient.on('debug', err => log.debug(err));
 
 NotifyClient.on('rateLimit', event =>
 	log.warn(`Rate limited for ${event.timeout} ms, triggered by method '${event.method}', path '${event.path}', route '${event.route}'`));
-
 
 NotifyClient.login(private_settings.discord_notify_token);

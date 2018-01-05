@@ -1244,9 +1244,7 @@ class ImageProcessing {
 				Raid.addMessage(raid.channel_id, channel_raid_message, true);
 			})
 			.then(result => {
-				if (pokemon.name) {
-					return Notify.notifyMembers(raid.channel_id, pokemon, message.member.id);
-				}
+				Helper.client.emit('raidCreated', raid, message.member.id);
 
 				return true;
 			})
