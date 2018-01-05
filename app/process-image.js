@@ -1203,17 +1203,7 @@ class ImageProcessing {
 				return message.channel.send(raid_channel_message, formatted_message);
 			})
 			.then(announcement_message => Raid.addMessage(raid.channel_id, announcement_message, true))
-			// if this is a potential EX raid, stick a message in the EX raid channel
-			.then(async pinned_message => {
-				const gym = Gym.getGym(gym_id);
-
-				if ((gym.is_ex || gym.is_park) && !raid.is_exclusive) {
-					return Raid.createPotentialExRaidMessage(raid);
-				} else {
-					return pinned_message;
-				}
-			})
-			.then(async bot_message => {
+			.then(async result => {
 				await Raid.getChannel(raid.channel_id)
 					.then(async channel => {
 						// if pokemon, time remaining, or phone time was not determined, need to add original image to new channel,

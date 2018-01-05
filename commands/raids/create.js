@@ -93,7 +93,6 @@ class RaidCommand extends Commando.Command {
 					.catch(err => log.error(err));
 			})
 			.then(channel_raid_message => Raid.addMessage(raid.channel_id, channel_raid_message, true))
-			// if this is a potential EX raid, stick a message in the EX raid channel
 			// now ask user about remaining time on this brand-new raid
 			.then(result => {
 				// somewhat hacky way of letting time type know if this is exclusive or not
