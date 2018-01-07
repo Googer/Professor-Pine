@@ -111,22 +111,30 @@ if (private_settings.google_api_key !== '') {
 		require('./commands/util/find-region'));
 }
 
-Client.once('ready', () => {
+let is_initialized = false;
+
+Client.on('ready', () => {
 	log.info('Client logged in');
 
-	Helper.setClient(Client);
+	// Only initialize various classes once ever since ready event gets fired
+	// upon reconnecting after longer outages
+	if (!is_initialized) {
+		Helper.setClient(Client);
 
-	if (settings.features.ex_gym_channel) {
-		ExRaidChannel.initialize();
+		if (settings.features.ex_gym_channel) {
+			ExRaidChannel.initialize();
+		}
+
+		if (settings.features.notifications) {
+			Notify.initialize();
+		}
+
+		Raid.setClient(Client);
+		DB.initialize(Client);
+		IP.initialize();
+
+		is_initialized = true;
 	}
-
-	if (settings.features.notifications) {
-		Notify.initialize();
-	}
-
-	Raid.setClient(Client);
-	DB.initialize(Client);
-	IP.initialize();
 });
 
 Client.on('error', err => log.error(err));
@@ -164,7 +172,7 @@ Client.on('guildUnavailable', guild => {
 
 Client.login(private_settings.discord_bot_token);
 
-NotifyClient.once('ready', () => {
+NotifyClient.on('ready', () => {
 	log.info('Notify client logged in');
 
 	Helper.setNotifyClient(NotifyClient);
