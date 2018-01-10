@@ -120,7 +120,7 @@ class Raid {
 			if (this.validRaid(channel_id)) {
 				log.warn(`Deleting raid for nonexistent channel ${channel_id}`);
 
-				this.deleteRaid(channel_id);
+				this.deleteRaid(channel_id, false);
 			}
 
 			return Promise.reject(new Error('Channel does not exist'));
@@ -238,7 +238,7 @@ class Raid {
 			});
 	}
 
-	deleteRaid(channel_id) {
+	deleteRaid(channel_id, delete_channel = true) {
 		const raid = this.getRaid(channel_id);
 
 		// delete announcement message (and ex raid channel message associated with this raid if there is one)
@@ -248,8 +248,12 @@ class Raid {
 				.then(message => message.delete())
 				.catch(err => log.error(err)));
 
-		this.getChannel(channel_id)
-			.then(channel => channel.delete())
+		const channel_delete_promise = delete_channel ?
+			this.getChannel(channel_id)
+				.then(channel => channel.delete()) :
+			Promise.resolve(true);
+
+		channel_delete_promise
 			.then(result => {
 				// delete messages from raid object before moving to completed raid
 				// storage as they're no longer needed
