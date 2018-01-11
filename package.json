@@ -12,7 +12,7 @@
     "he": "^1.1.1",
     "jimp": "^0.2.28",
     "knex": "^0.14.2",
-    "loglevel": "^1.6.0",
+    "loglevel": "^1.6.1",
     "loglevel-prefix-persist": "^1.0.3",
     "lunr": "^2.1.5",
     "moment": "^2.20.1",
