@@ -78,7 +78,8 @@ class IAmCommand extends Commando.Command {
 		}
 
 		// remove reaction so that pagination makes a BIT more sense...
-		reaction.remove(user);
+		reaction.users.remove(user)
+			.catch(err => log.error(err));
 	}
 
 	updatePage(message, current) {
