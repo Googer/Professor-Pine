@@ -3012,6 +3012,7 @@
   {
     "name": "kyogre",
     "number": 382,
+    "cp": 51968,
     "tier": 5,
     "type": [
       "water"
