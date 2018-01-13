@@ -210,7 +210,7 @@ class Raid {
 
 		let new_channel_id;
 
-		return source_channel.guild.createChannel(channel_name, {
+		return source_channel.guild.channels.create(channel_name, {
 			parent: source_channel.parent,
 			overwrites: source_channel.permissionOverwrites
 		})
