@@ -10,17 +10,11 @@ class Notify {
 	}
 
 	initialize() {
-		Helper.client.on('raidCreated', (raid, member_id) => {
-			if (raid.pokemon.name) {
-				this.notifyMembers(raid, member_id);
-			}
-		});
+		Helper.client.on('raidCreated', (raid, member_id) =>
+			this.notifyMembers(raid, member_id));
 
-		Helper.client.on('raidPokemonSet', (raid, member_id) => {
-			if (raid.pokemon.name) {
-				this.notifyMembers(raid, member_id);
-			}
-		});
+		Helper.client.on('raidPokemonSet', (raid, member_id) =>
+			this.notifyMembers(raid, member_id));
 	}
 
 	// get pokemon that member is interested in
@@ -33,35 +27,38 @@ class Notify {
 			.pluck('pokemon');
 	}
 
+	static getPokemonNumber(pokemon) {
+		return pokemon.number || -pokemon.tier;
+	}
+
 	// notify interested members for the raid associated with the given channel and pokemon,
 	// filtering out the reporting member
 	async notifyMembers(raid, reporting_member_id) {
 		const raid_channel = await Raid.getChannel(raid.channel_id),
 			pokemon = raid.pokemon,
-			guild_id = raid_channel.guild.id;
+			guild_id = raid_channel.guild.id,
+			number = Notify.getPokemonNumber(pokemon);
 
-		if (pokemon.number) {
-			DB.DB('User')
-				.innerJoin('Notification', {'User.id': 'Notification.userId'})
-				.innerJoin('Guild', {'Notification.guildId': 'Guild.id'})
-				.where('Guild.snowflake', guild_id)
-				.andWhere('Notification.pokemon', pokemon.number)
-				.pluck('User.userSnowflake')
-				.then(members => {
-					members
-						.filter(member_id => member_id !== reporting_member_id)
-						.filter(member_id => raid_channel.permissionsFor(member_id).has('VIEW_CHANNEL'))
-						.map(member_id => Helper.getMemberForNotification(guild_id, member_id))
-						.forEach(async member => {
-							const raid_notification_message = await Raid.getRaidNotificationMessage(raid),
-								formatted_message = await Raid.getFormattedMessage(raid);
+		DB.DB('User')
+			.innerJoin('Notification', {'User.id': 'Notification.userId'})
+			.innerJoin('Guild', {'Notification.guildId': 'Guild.id'})
+			.where('Guild.snowflake', guild_id)
+			.andWhere('Notification.pokemon', number)
+			.pluck('User.userSnowflake')
+			.then(members => {
+				members
+					.filter(member_id => member_id !== reporting_member_id)
+					.filter(member_id => raid_channel.permissionsFor(member_id).has('VIEW_CHANNEL'))
+					.map(member_id => Helper.getMemberForNotification(guild_id, member_id))
+					.forEach(async member => {
+						const raid_notification_message = await Raid.getRaidNotificationMessage(raid),
+							formatted_message = await Raid.getFormattedMessage(raid);
 
-							member.send(raid_notification_message, formatted_message)
-								.catch(err => log.error(err));
-						});
-				})
-				.catch(err => log.error(err));
-		}
+						member.send(raid_notification_message, formatted_message)
+							.catch(err => log.error(err));
+					});
+			})
+			.catch(err => log.error(err));
 	}
 
 	// give pokemon notification to user
@@ -87,7 +84,7 @@ class Notify {
 						.then(guild_id => {
 							return DB.DB('Notification')
 								.insert({
-									pokemon: pokemon.number,
+									pokemon: Notify.getPokemonNumber(pokemon),
 									guildId: guild_id.id,
 									userId: user_db_id
 								})
@@ -141,7 +138,7 @@ class Notify {
 									.first();
 							})
 							.then(user_id => DB.DB('Notification')
-								.where('pokemon', pokemon.number)
+								.where('pokemon', Notify.getPokemonNumber(pokemon))
 								.andWhere('userId', user_id.id)
 								.andWhere('guildId', guild_db_id)
 								.del())
@@ -159,7 +156,7 @@ class Notify {
 		const result = await DB.DB('Notification')
 			.innerJoin('User', {'User.id': 'Notification.userId'})
 			.innerJoin('Guild', {'Guild.id': 'Notification.guildId'})
-			.where('Notification.pokemon', pokemon.number)
+			.where('Notification.pokemon', Notify.getPokemonNumber(pokemon))
 			.andWhere('User.userSnowflake', member.user.id)
 			.andWhere('Guild.snowflake', member.guild.id)
 			.count('* as count')

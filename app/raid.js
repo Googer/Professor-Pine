@@ -729,9 +729,12 @@ class Raid {
 
 	async getRaidNotificationMessage(raid) {
 		const raid_channel = await this.getChannel(raid.channel_id),
-			region_channel = await this.getChannel(raid.source_channel_id);
+			region_channel = await this.getChannel(raid.source_channel_id),
+			name = raid.pokemon.name ?
+				raid.pokemon.name.charAt(0).toUpperCase() + raid.pokemon.name.slice(1) :
+				`a level ${raid.pokemon.tier} boss`;
 
-		return `A raid for ${raid.pokemon.name.charAt(0).toUpperCase() + raid.pokemon.name.slice(1)} has been announced in #${region_channel.name}: ${raid_channel.toString()}.`;
+		return `A raid for ${name} has been announced in #${region_channel.name}: ${raid_channel.toString()}.`;
 	}
 
 	async getRaidExChannelMessage(raid) {

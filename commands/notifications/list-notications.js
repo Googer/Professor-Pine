@@ -37,8 +37,11 @@ class NotificationsCommand extends Commando.Command {
 				embed.setColor(4437377);
 
 				const pokemon_list = results
-					.map(number => pokemon_data.find(pokemon => pokemon.number === number))
-					.map(pokemon => pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1))
+					.map(number => pokemon_data.find(pokemon => (pokemon.number === number) ||
+						(pokemon.tier === -number)))
+					.map(pokemon => pokemon.name ?
+						pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1) :
+						`Level ${pokemon.tier}`)
 					.sort()
 					.join('\n');
 
