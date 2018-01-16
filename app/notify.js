@@ -17,6 +17,10 @@ class Notify {
 			this.notifyMembers(raid, member_id));
 	}
 
+	static getDbPokemonNumber(pokemon) {
+		return pokemon.number || -pokemon.tier;
+	}
+
 	// get pokemon that member is interested in
 	getNotifications(member) {
 		return DB.DB('Notification')
@@ -27,23 +31,21 @@ class Notify {
 			.pluck('pokemon');
 	}
 
-	static getPokemonNumber(pokemon) {
-		return pokemon.number || -pokemon.tier;
-	}
-
 	// notify interested members for the raid associated with the given channel and pokemon,
 	// filtering out the reporting member
 	async notifyMembers(raid, reporting_member_id) {
 		const raid_channel = await Raid.getChannel(raid.channel_id),
 			pokemon = raid.pokemon,
 			guild_id = raid_channel.guild.id,
-			number = Notify.getPokemonNumber(pokemon);
+			number = Notify.getDbPokemonNumber(pokemon),
+			tier = pokemon.tier,
+			db_pokemon_numbers = [...new Set([number, -tier])];
 
 		DB.DB('User')
 			.innerJoin('Notification', {'User.id': 'Notification.userId'})
 			.innerJoin('Guild', {'Notification.guildId': 'Guild.id'})
-			.where('Guild.snowflake', guild_id)
-			.andWhere('Notification.pokemon', number)
+			.whereIn('Notification.pokemon', db_pokemon_numbers)
+			.andWhere('Guild.snowflake', guild_id)
 			.pluck('User.userSnowflake')
 			.then(members => {
 				members
@@ -84,7 +86,7 @@ class Notify {
 						.then(guild_id => {
 							return DB.DB('Notification')
 								.insert({
-									pokemon: Notify.getPokemonNumber(pokemon),
+									pokemon: Notify.getDbPokemonNumber(pokemon),
 									guildId: guild_id.id,
 									userId: user_db_id
 								})
@@ -138,7 +140,7 @@ class Notify {
 									.first();
 							})
 							.then(user_id => DB.DB('Notification')
-								.where('pokemon', Notify.getPokemonNumber(pokemon))
+								.where('pokemon', Notify.getDbPokemonNumber(pokemon))
 								.andWhere('userId', user_id.id)
 								.andWhere('guildId', guild_db_id)
 								.del())
@@ -156,7 +158,7 @@ class Notify {
 		const result = await DB.DB('Notification')
 			.innerJoin('User', {'User.id': 'Notification.userId'})
 			.innerJoin('Guild', {'Guild.id': 'Notification.guildId'})
-			.where('Notification.pokemon', Notify.getPokemonNumber(pokemon))
+			.where('Notification.pokemon', Notify.getDbPokemonNumber(pokemon))
 			.andWhere('User.userSnowflake', member.user.id)
 			.andWhere('Guild.snowflake', member.guild.id)
 			.count('* as count')
