@@ -32,6 +32,7 @@ const private_settings = require('./data/private-settings'),
 	ExRaidChannel = require('./app/ex-gym-channel'),
 	Notify = require('./app/notify'),
 	Raid = require('./app/raid'),
+	Role = require('./app/role'),
 	Utility = require('./app/utility'),
 	settings = require('./data/settings'),
 	{CommandGroup} = require('./app/constants');
@@ -65,6 +66,7 @@ if (settings.features.roles) {
 		require('./commands/admin/asar'),
 		require('./commands/admin/rsar'),
 		require('./commands/admin/lsar'),
+		require('./commands/admin/aar'),
 
 		require('./commands/roles/iam'),
 		require('./commands/roles/iamnot'),
@@ -127,6 +129,10 @@ Client.on('ready', () => {
 
 		if (settings.features.notifications) {
 			Notify.initialize();
+		}
+
+		if (settings.features.roles) {
+			Role.initialize();
 		}
 
 		Raid.setClient(Client);

@@ -22,7 +22,7 @@
     "request-promise": "^4.2.2",
     "tesseract.js": "github:Googer/tesseract.js",
     "togeojson-with-extended-style": "^0.13.1",
-    "uuid": "^3.1.0",
+    "uuid": "^3.2.1",
     "uws": "^8.14.1",
     "xmldom": "^0.1.27",
     "zlib-sync": "^0.1.4"

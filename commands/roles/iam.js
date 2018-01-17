@@ -203,7 +203,7 @@ class IAmCommand extends Commando.Command {
 					}
 				});
 		} else {
-			Role.assignRole(message.channel, message.member, args)
+			Role.assignRole(message.member, args)
 				.then(() => message.react(Helper.getEmoji('snorlaxthumbsup') || '👍'))
 				.catch(err => {
 					if (err && err.error) {

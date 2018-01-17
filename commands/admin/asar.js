@@ -54,7 +54,7 @@ class AsarCommand extends Commando.Command {
 
 		Role.upsertRoles(message.guild, args)
 			.then(() => message.react(Helper.getEmoji('snorlaxthumbsup') || '👍'))
-			.catch((err) => {
+			.catch(err => {
 				if (err && err.error) {
 					message.reply(err.error)
 						.catch(err => log.error(err));

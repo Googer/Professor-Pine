@@ -1,35 +1,34 @@
 "use strict";
 
-const log = require('loglevel').getLogger('IAmNotCommand'),
+const log = require('loglevel').getLogger('AarCommand'),
 	Commando = require('discord.js-commando'),
 	{CommandGroup} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
 	Role = require('../../app/role');
 
-class IAmNotCommand extends Commando.Command {
+class AarCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
-			name: 'iamnot',
-			group: CommandGroup.ROLES,
-			memberName: 'iamnot',
-			aliases: ['unassign'],
-			description: 'Unassign roles from yourself.',
-			details: '?????',
-			examples: ['\t!iamnot Mystic', '\t!unassign Valor'],
+			name: 'aar',
+			group: CommandGroup.ADMIN,
+			memberName: 'aar',
+			description: 'Sets auto-assigned role or alias.',
 			guildOnly: true
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (!!message.command && message.command.name === 'iamnot' &&
-				!Helper.isBotChannel(message)) {
-				return ['invalid-channel', message.reply(Helper.getText('iamnot.warning', message))];
+			if (!!message.command && message.command.name === 'aar') {
+				if (!Helper.isManagement(message)) {
+					return ['unauthorized', message.reply('You are not authorized to use this command.')];
+				}
 			}
+
 			return false;
 		});
 	}
 
 	async run(message, args) {
-		Role.removeRole(message.member, args)
+		Role.setAutoAssignRole(message.guild, args)
 			.then(() => message.react(Helper.getEmoji('snorlaxthumbsup') || '👍'))
 			.catch(err => {
 				if (err && err.error) {
@@ -42,4 +41,4 @@ class IAmNotCommand extends Commando.Command {
 	}
 }
 
-module.exports = IAmNotCommand;
+module.exports = AarCommand;
