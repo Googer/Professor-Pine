@@ -83,7 +83,7 @@ class ImageProcessing {
 
 			// attempt to process first attachment/image if it exists (maybe some day will go through all the attachments...)
 			if (image_url && image_url.search(/jpg|jpeg|png/)) {
-				log.info('Image Processing Start: ', message.member.displayName, message.channel.name, image_url);
+				log.info('Image Processing Start: ', message.author.id, message.channel.name, image_url);
 				message.temporary_processing_timestamp = Date.now();
 				this.process(message, image_url);
 			}
