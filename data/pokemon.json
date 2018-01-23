@@ -2436,6 +2436,8 @@
   {
     "name": "aggron",
     "number": 306,
+    "cp": 33458,
+    "tier": 4,
     "type": [
       "steel",
       "rock"
