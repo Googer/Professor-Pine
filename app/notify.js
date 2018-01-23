@@ -41,6 +41,12 @@ class Notify {
 			tier = pokemon.tier,
 			db_pokemon_numbers = [...new Set([number, -tier])];
 
+		// don't try to look up notifications from screenshot placeholders where
+		// a valid pokemon wasn't determined
+		if (pokemon.placeholder) {
+			return;
+		}
+
 		DB.DB('User')
 			.innerJoin('Notification', {'User.id': 'Notification.userId'})
 			.innerJoin('Guild', {'Notification.guildId': 'Guild.id'})
