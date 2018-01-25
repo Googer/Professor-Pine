@@ -176,10 +176,10 @@ class Role {
 					}
 
 					if (remove) {
-						member.removeRole(id)
+						member.roles.remove(id)
 							.catch(err => log.error(err));
 					} else {
-						member.addRole(id)
+						member.roles.add(id)
 							.catch(err => log.error(err));
 					}
 				}
@@ -204,10 +204,10 @@ class Role {
 						}
 
 						if (remove) {
-							member.removeRole(id)
+							member.roles.remove(id)
 								.catch(err => log.error(err));
 						} else {
-							member.addRole(id)
+							member.roles.add(id)
 								.catch(err => log.error(err));
 						}
 					}
