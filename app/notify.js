@@ -56,6 +56,7 @@ class Notify {
 			.then(members => {
 				[...new Set(members)]
 					.filter(member_id => member_id !== reporting_member_id)
+					.filter(member_id => raid_channel.guild.members.has(member_id))
 					.filter(member_id => raid_channel.permissionsFor(member_id).has('VIEW_CHANNEL'))
 					.map(member_id => Helper.getMemberForNotification(guild_id, member_id))
 					.forEach(async member => {
