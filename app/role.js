@@ -161,10 +161,9 @@ class Role {
 	adjustUserRole(guild, member, role, remove = false) {
 		return new Promise(async (resolve, reject) => {
 			let roles = await this.roleExists(member.guild, role);
-			let matching_role_found = true;
 
 			// first look for a matching name in DB, then check for aliases if a match was not found
-			if (roles.length) {
+			if (roles.length > 0) {
 				const role_ids = roles
 					.map(role => Helper.guild.get(guild.id).roles.get(role.roleName.toLowerCase()).id)
 					.filter(role_id => {
@@ -177,7 +176,7 @@ class Role {
 						return exists;
 					});
 
-				if (roles.length) {
+				if (role_ids.length > 0) {
 					if (remove) {
 						member.roles.remove(role_ids)
 							.catch(err => log.error(err));
@@ -205,7 +204,7 @@ class Role {
 						return exists;
 					});
 
-				if (roles.length) {
+				if (role_ids.length > 0) {
 					if (remove) {
 						member.roles.remove(role_ids)
 							.catch(err => log.error(err));
