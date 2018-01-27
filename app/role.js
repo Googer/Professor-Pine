@@ -165,26 +165,27 @@ class Role {
 
 			// first look for a matching name in DB, then check for aliases if a match was not found
 			if (roles.length) {
-				// loop through matched roles adding them to user
-				for (let i = 0; i < roles.length; i++) {
-					const id = Helper.guild.get(guild.id).roles.get(roles[i].roleName.toLowerCase()).id;
+				const role_ids = roles
+					.map(role => Helper.guild.get(guild.id).roles.get(role.roleName.toLowerCase()).id)
+					.filter(role_id => {
+						const exists = !!role_id;
 
-					if (!id) {
-						matching_role_found = false;
-						log.warn(`Role ${roles[i].roleName}, may not longer be available in the guild.`);
-						return;
-					}
+						if (!exists) {
+							log.warn(`Role '${roles[i].roleName}' may not longer be available in the guild.`);
+						}
 
+						return exists;
+					});
+
+				if (roles.length) {
 					if (remove) {
-						member.roles.remove(id)
+						member.roles.remove(role_ids)
 							.catch(err => log.error(err));
 					} else {
-						member.roles.add(id)
+						member.roles.add(role_ids)
 							.catch(err => log.error(err));
 					}
-				}
 
-				if (matching_role_found) {
 					resolve();
 				} else {
 					reject({error: `Role "**${role}**" was not found.  Use \`${guild.client.commandPrefix}iam\` to see a list of self-assignable roles.`});
@@ -192,24 +193,25 @@ class Role {
 			} else {
 				roles = await this.roleExists(guild, role, true);
 
-				if (roles.length) {
-					// loop through matched roles adding them to user
-					for (let i = 0; i < roles.length; i++) {
-						const id = Helper.guild.get(guild.id).roles.get(roles[i].roleName.toLowerCase()).id;
+				const role_ids = roles
+					.map(role => Helper.guild.get(guild.id).roles.get(role.roleName.toLowerCase()).id)
+					.filter(role_id => {
+						const exists = !!role_id;
 
-						if (!id) {
-							matching_role_found = false;
+						if (!exists) {
 							log.warn(`Role '${roles[i].roleName}' may not longer be available in the guild.`);
-							return;
 						}
 
-						if (remove) {
-							member.roles.remove(id)
-								.catch(err => log.error(err));
-						} else {
-							member.roles.add(id)
-								.catch(err => log.error(err));
-						}
+						return exists;
+					});
+
+				if (roles.length) {
+					if (remove) {
+						member.roles.remove(role_ids)
+							.catch(err => log.error(err));
+					} else {
+						member.roles.add(role_ids)
+							.catch(err => log.error(err));
 					}
 
 					resolve();
