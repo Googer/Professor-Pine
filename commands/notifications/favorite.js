@@ -12,13 +12,13 @@ const log = require('loglevel').getLogger('NotifyCommand'),
 class FavoriteCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
-			name: 'favorite',
+			name: 'target',
 			group: CommandGroup.NOTIFICATIONS,
-			memberName: 'favorite',
-			aliases: [],
+			memberName: 'target',
+			aliases: ['fave', 'favorite'],
 			description: 'Adds notifications for a specific gym.',
-			details: 'Use this command to request notifications for a specific gym.',
-			examples: ['\t!favorite blackhoof'],
+			details: 'Use this command to request notifications for a specific gym.  Use this command in a region or active raid channel.',
+			examples: ['\t!target blackhoof', '\t!target'],
 			args: [
 				{
 					key: GymParameter.FAVORITE,
@@ -39,7 +39,7 @@ class FavoriteCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (!!message.command && message.command.name === 'favorite' &&
+			if (!!message.command && message.command.name === 'target' &&
 				!Raid.validRaid(message.channel.id) &&
 				!Gym.isValidChannel(message.channel.name)) {
 				return ['invalid-channel', message.reply(Helper.getText('favorite.warning', message))];

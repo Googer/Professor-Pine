@@ -4,7 +4,6 @@ const log = require('loglevel').getLogger('NotificationsCommand'),
 	Commando = require('discord.js-commando'),
 	{CommandGroup} = require('../../app/constants'),
 	{MessageEmbed} = require('discord.js'),
-	pokemon_data = require('../../data/pokemon'),
 	Gym = require('../../app/gym'),
 	Helper = require('../../app/helper'),
 	Notify = require('../../app/notify');
@@ -12,18 +11,18 @@ const log = require('loglevel').getLogger('NotificationsCommand'),
 class GymNotificationsCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
-			name: 'favorites',
+			name: 'targets',
 			group: CommandGroup.NOTIFICATIONS,
-			memberName: 'favorites',
-			aliases: [],
+			memberName: 'targets',
+			aliases: ['faves', 'favorites'],
 			description: 'Shows currently active notifications for gyms.',
 			details: 'Use this command to get your currently active gym notifications.',
-			examples: ['\t!favorites'],
+			examples: ['\t!targets'],
 			guildOnly: true
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (!!message.command && message.command.name === 'favorites' && !Helper.isBotChannel(message)) {
+			if (!!message.command && message.command.name === 'targets' && !Helper.isBotChannel(message)) {
 				return ['invalid-channel', message.reply(Helper.getText('favorites.warning', message))];
 			}
 			return false;

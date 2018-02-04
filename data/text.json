@@ -8,16 +8,16 @@
 		"suggestion": "Try using the command `!iamnot` to remove a role."
 	},
 	"favorites": {
-		"warning": "Use the `!favorites` command in ${bot_channel} to view current notifications for gyms."
+		"warning": "Use the `!targets` command in ${bot_channel} to view current notifications for gyms."
 	},
 	"favorite": {
-		"warning": "Use the `!favorite` command from a regional or raid channel."
+		"warning": "Use the `!target` command from a regional or raid channel."
 	},
 	"unfavorite": {
-		"warning": "Use the `!unfavorite` command from a regional or raid channel."
+		"warning": "Use the `!untarget` command from a regional or raid channel."
 	},
 	"unfavoriteall": {
-		"warning": "Use the `!unfavoriteall` command in ${bot_channel} to remove all notifications for gyms."
+		"warning": "Use the `!untarget-all` command in ${bot_channel} to remove all notifications for gyms."
 	},
 	"notifications": {
 		"warning": "Use the `!notifications` command in ${bot_channel} to view current notifications for pokémon."

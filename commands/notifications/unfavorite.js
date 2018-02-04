@@ -12,13 +12,13 @@ const log = require('loglevel').getLogger('DenotifyCommand'),
 class UnfavoriteCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
-			name: 'unfavorite',
+			name: 'untarget',
 			group: CommandGroup.NOTIFICATIONS,
-			memberName: 'unfavorite',
-			aliases: [],
+			memberName: 'untarget',
+			aliases: ['defave', 'defavorite', 'unfave', 'unfavorite'],
 			description: 'Removes notifications for a gym.',
-			details: 'Use this command to remove notifications for a specific gym.',
-			examples: ['\t!unfavorite blackhoof'],
+			details: 'Use this command to remove notifications for a specific gym.  Use this command in a region or active raid channel.',
+			examples: ['\t!untarget blackhoof', '\tdetarget'],
 			args: [
 				{
 					key: GymParameter.FAVORITE,
@@ -39,7 +39,7 @@ class UnfavoriteCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (!!message.command && message.command.name === 'unfavorite' &&
+			if (!!message.command && message.command.name === 'untarget' &&
 				!Raid.validRaid(message.channel.id) &&
 				!Gym.isValidChannel(message.channel.name)) {
 				return ['invalid-channel', message.reply(Helper.getText('unfavorite.warning', message))];

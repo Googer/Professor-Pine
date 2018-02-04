@@ -12,8 +12,8 @@ class DenotifyAllCommand extends Commando.Command {
 			name: 'unwant-all',
 			group: CommandGroup.NOTIFICATIONS,
 			memberName: 'unwant-all',
-			aliases: ['denotify-all', 'want-none'],
-			description: 'Removes all notifications for raid bosses.',
+			aliases: ['denotify-all', 'want-none', 'dewant-all', 'clear-wants'],
+			description: 'Removes all notifications for raid bosses.\n',
 			details: 'Use this command to remove all notifications for raid bosses.',
 			examples: ['\t!unwant-all'],
 			guildOnly: true

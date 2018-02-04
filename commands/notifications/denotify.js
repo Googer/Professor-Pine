@@ -12,7 +12,7 @@ class DenotifyCommand extends Commando.Command {
 			name: 'unwant',
 			group: CommandGroup.NOTIFICATIONS,
 			memberName: 'unwant',
-			aliases: ['i-dont-want', 'dont-want', 'denotify'],
+			aliases: ['i-dont-want', 'dont-want', 'denotify', 'dewant'],
 			description: 'Removes notifications for a raid boss.',
 			details: 'Use this command to remove notifications for a specific raid boss.',
 			examples: ['\t!unwant ttar'],

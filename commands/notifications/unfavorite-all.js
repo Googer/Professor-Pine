@@ -9,10 +9,10 @@ const log = require('loglevel').getLogger('DenotifyCommand'),
 class UnfavoriteAllCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
-			name: 'unfavorite-all',
+			name: 'untarget-all',
 			group: CommandGroup.NOTIFICATIONS,
-			memberName: 'unfavorite-all',
-			aliases: [],
+			memberName: 'untarget-all',
+			aliases: ['defave-all', 'detarget-all', 'unfave-all', 'untarget-all', 'clear-targets', 'clear-faves', 'clear-favorites'],
 			description: 'Removes all notifications for gyms.',
 			details: 'Use this command to remove all notifications for gyms.',
 			examples: ['\t!unfavorite-all'],
@@ -20,7 +20,7 @@ class UnfavoriteAllCommand extends Commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (!!message.command && message.command.name === 'unfavorite-all' && !Helper.isBotChannel(message)) {
+			if (!!message.command && message.command.name === 'untarget-all' && !Helper.isBotChannel(message)) {
 				return ['invalid-channel', message.reply(Helper.getText('unfavoriteall.warning', message))];
 			}
 			return false;
