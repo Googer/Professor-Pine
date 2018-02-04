@@ -68,9 +68,15 @@ class UnfavoriteCommand extends Commando.Command {
 					gym.nickname :
 					gym.gymName;
 
+			let matched_gym_message;
+
 			confirmation_response = message.reply(`Matched gym: ${gym_name}`)
-				.then(reply => this.confirmationCollector.obtain(message))
+				.then(msg => {
+					matched_gym_message = msg;
+					return this.confirmationCollector.obtain(message);
+				})
 				.then(collection_result => {
+					collection_result.prompts.push(matched_gym_message);
 					Utility.cleanCollector(collection_result);
 
 					if (!collection_result.cancelled) {
