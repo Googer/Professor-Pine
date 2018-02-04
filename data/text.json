@@ -1,11 +1,9 @@
 {
 	"iam": {
-		"warning": "Assign yourself roles in ${bot_channel}!",
-		"suggestion": "Try using the command `!iam` to assign a role."
+		"warning": "Assign yourself roles in ${bot_channel}!"
 	},
 	"iamnot": {
-		"warning": "Unassign roles in ${bot_channel}!",
-		"suggestion": "Try using the command `!iamnot` to remove a role."
+		"warning": "Unassign roles in ${bot_channel}!"
 	},
 	"favorites": {
 		"warning": "Use the `!targets` command in ${bot_channel} to view current notifications for gyms."

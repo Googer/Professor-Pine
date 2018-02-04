@@ -62,20 +62,6 @@ class Helper {
 					message.pin()
 						.catch(err => log.error(err));
 				}
-
-				if (settings.features.roles) {
-					if (this.isBotChannel(message)) {
-						if (message.content.search(/^\.\s*i\s?a[mn](\s.*)?$/gi) >= 0) {
-							// command ".iam" - correct channel, incorrect command, suggest command
-							message.reply(this.getText('iam.suggestion', message))
-								.catch(err => log.error(err));
-						} else if (message.content.search(/^\.\s*i\s?a[mn]\s*not(\s.*)?$/gi) >= 0) {
-							// command ".iamnot" - correct channel, incorrect command, suggest command
-							message.reply(this.getText('iamnot.suggestion', message))
-								.catch(err => log.error(err));
-						}
-					}
-				}
 			}
 		});
 
