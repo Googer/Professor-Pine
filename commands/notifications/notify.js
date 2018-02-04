@@ -38,7 +38,7 @@ class NotifyCommand extends Commando.Command {
 	async run(message, args) {
 		const pokemon = args['pokemon'];
 
-		Notify.assignNotification(message.member, pokemon)
+		Notify.assignPokemonNotification(message.member, pokemon)
 			.then(result => message.react(Helper.getEmoji('snorlaxthumbsup') || '👍'))
 			.catch(err => log.error(err));
 	}

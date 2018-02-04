@@ -108,7 +108,6 @@ class RaidCommand extends Commando.Command {
 				Utility.cleanCollector(collection_result);
 
 				if (!collection_result.cancelled) {
-
 					if (raid.pokemon.name) {
 						Raid.setRaidEndTime(raid.channel_id, collection_result.values[TimeParameter.END]);
 					} else {

@@ -38,7 +38,7 @@ class DenotifyCommand extends Commando.Command {
 	async run(message, args) {
 		const pokemon = args['pokemon'];
 
-		Notify.removeNotification(message.member, pokemon)
+		Notify.removePokemonNotification(message.member, pokemon)
 			.then(result => message.react(Helper.getEmoji('snorlaxthumbsup') || '👍'))
 			.catch(err => log.error(err));
 	}

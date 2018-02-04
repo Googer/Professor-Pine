@@ -7,6 +7,10 @@ const CommandGroup = {
 	UTIL: 'util'
 };
 
+const GymParameter = {
+	FAVORITE: 'favorite'
+};
+
 const RaidStatus = {
 	NOT_INTERESTED: -1,
 	INTERESTED: 0,
@@ -35,4 +39,4 @@ const TimeParameter = {
 	END: 'end'
 };
 
-module.exports = {CommandGroup, RaidStatus, Team, TimeMode, TimeParameter};
+module.exports = {CommandGroup, GymParameter, RaidStatus, Team, TimeMode, TimeParameter};

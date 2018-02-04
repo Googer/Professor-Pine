@@ -2,6 +2,7 @@
 
 const log = require('loglevel').getLogger('GymSearch'),
 	Commando = require('discord.js-commando'),
+	{GymParameter} = require('../app/constants'),
 	Raid = require('../app/raid'),
 	Gym = require('../app/gym');
 
@@ -43,7 +44,7 @@ class GymType extends Commando.ArgumentType {
 
 			const gym_id = gyms[0].gymId;
 
-			if (Raid.raidExistsForGym(gym_id)) {
+			if (arg.key !== GymParameter.FAVORITE && Raid.raidExistsForGym(gym_id)) {
 				const raid = Raid.findRaid(gym_id),
 					gym_name = gyms[0].nickname ?
 						gyms[0].nickname :

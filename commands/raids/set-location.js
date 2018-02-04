@@ -44,6 +44,11 @@ class SetLocationCommand extends Commando.Command {
 			info = Raid.setRaidLocation(message.channel.id, gym_id);
 
 		message.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
+			.then(result => {
+				Helper.client.emit('raidGymSet', info.raid, message.member.id);
+
+				return true;
+			})
 			.catch(err => log.error(err));
 
 		Raid.refreshStatusMessages(info.raid);

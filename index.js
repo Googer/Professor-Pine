@@ -77,8 +77,13 @@ if (settings.features.notifications) {
 	Client.registry.registerCommands([
 		require('./commands/notifications/notify'),
 		require('./commands/notifications/denotify'),
-		require('./commands/notifications/list-notications'),
+		require('./commands/notifications/list-pokemon-notications'),
 		require('./commands/notifications/denotify-all'),
+
+		require('./commands/notifications/favorite'),
+		require('./commands/notifications/unfavorite'),
+		require('./commands/notifications/list-gym-notifications'),
+		require('./commands/notifications/unfavorite-all')
 	]);
 }
 

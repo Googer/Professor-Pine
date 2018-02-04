@@ -8,7 +8,7 @@ const log = require('loglevel').getLogger('NotificationsCommand'),
 	Helper = require('../../app/helper'),
 	Notify = require('../../app/notify');
 
-class NotificationsCommand extends Commando.Command {
+class PokemonNotificationsCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
 			name: 'wants',
@@ -30,7 +30,7 @@ class NotificationsCommand extends Commando.Command {
 	}
 
 	async run(message, args) {
-		return Notify.getNotifications(message.member)
+		return Notify.getPokemonNotifications(message.member)
 			.then(async results => {
 				const embed = new MessageEmbed();
 				embed.setTitle('Currently assigned pokémon notifications:');
@@ -64,4 +64,4 @@ class NotificationsCommand extends Commando.Command {
 	}
 }
 
-module.exports = NotificationsCommand;
+module.exports = PokemonNotificationsCommand;
