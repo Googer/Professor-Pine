@@ -3,6 +3,7 @@
 const log = require('loglevel').getLogger('NotifyCommand'),
 	Commando = require('discord.js-commando'),
 	{CommandGroup, GymParameter} = require('../../app/constants'),
+	{MessageEmbed} = require('discord.js'),
 	Gym = require('../../app/gym'),
 	Helper = require('../../app/helper'),
 	Notify = require('../../app/notify'),
@@ -66,11 +67,23 @@ class FavoriteCommand extends Commando.Command {
 			const gym = Gym.getGym(gym_id),
 				gym_name = !!gym.nickname ?
 					gym.nickname :
-					gym.gymName;
+					gym.gymName,
+				embed = new MessageEmbed();
+
+			embed.setTitle(`Map Link: ${gym_name}`);
+			embed.setURL(`https://www.google.com/maps/search/?api=1&query=${gym.gymInfo.latitude}%2C${gym.gymInfo.longitude}`);
+			embed.setColor('GREEN');
+			embed.setImage(`attachment://${gym_id}.png`);
 
 			let matched_gym_message;
 
-			confirmation_response = message.reply(`Matched gym: ${gym_name}`)
+			confirmation_response = message.reply(
+				{
+					files: [
+						require.resolve(`PgP-Data/data/images/${gym_id}.png`)
+					],
+					embed
+				})
 				.then(msg => {
 					matched_gym_message = msg;
 					return this.confirmationCollector.obtain(message);

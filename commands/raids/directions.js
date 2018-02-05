@@ -3,6 +3,7 @@
 const log = require('loglevel').getLogger('DirectionsCommand'),
 	Commando = require('discord.js-commando'),
 	{CommandGroup} = require('../../app/constants'),
+	{MessageEmbed} = require('discord.js'),
 	Gym = require('../../app/gym'),
 	Raid = require('../../app/raid');
 
@@ -31,13 +32,18 @@ class DirectionsCommand extends Commando.Command {
 	async run(message, args) {
 		const raid = Raid.getRaid(message.channel.id),
 			gym_id = raid.gym_id,
-			gym = Gym.getGym(gym_id);
+			gym = Gym.getGym(gym_id),
+			embed = new MessageEmbed();
+
+		embed.setColor('GREEN');
+		embed.setImage(`attachment://${gym_id}.png`);
 
 		message.channel
 			.send(`https://www.google.com/maps/search/?api=1&query=${gym.gymInfo.latitude}%2C${gym.gymInfo.longitude}`, {
 				files: [
 					require.resolve(`PgP-Data/data/images/${gym_id}.png`)
-				]
+				],
+				embed
 			})
 			.catch(err => log.error(err));
 	}
