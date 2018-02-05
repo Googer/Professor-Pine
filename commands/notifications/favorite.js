@@ -63,7 +63,7 @@ class FavoriteCommand extends Commando.Command {
 
 		let confirmation_response;
 
-		if (!Raid.validRaid(message.channel.id)) {
+		if (!Raid.validRaid(message.channel.id) || Raid.getRaid(message.channel.id).gym_id !== gym_id) {
 			const gym = Gym.getGym(gym_id),
 				gym_name = !!gym.nickname ?
 					gym.nickname :
