@@ -32,7 +32,6 @@ class Gym extends Search {
 		this.region_map = require('PgP-Data/data/region-map');
 		this.region_graph = require('PgP-Data/data/region-graph');
 
-		// this.gym_to_region_map = this.region_map
 		this.index = lunr(function () {
 			// reference will be the entire gym object so we can grab whatever we need from it (GPS coordinates, name, etc.)
 			this.ref('object');
