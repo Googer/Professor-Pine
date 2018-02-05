@@ -32,6 +32,7 @@ class Gym extends Search {
 		this.region_map = require('PgP-Data/data/region-map');
 		this.region_graph = require('PgP-Data/data/region-graph');
 
+		// this.gym_to_region_map = this.region_map
 		this.index = lunr(function () {
 			// reference will be the entire gym object so we can grab whatever we need from it (GPS coordinates, name, etc.)
 			this.ref('object');
@@ -233,6 +234,13 @@ class Gym extends Search {
 
 	getGym(gym_id) {
 		return this.gyms.get(gym_id);
+	}
+
+	filterRegions(gym_ids) {
+		return Object.entries(this.region_map)
+			.map(([region, gyms]) => [region, gym_ids.filter(x => gyms.includes(x))])
+			.filter(([region, gyms]) => gyms.length > 0)
+			.sort(([region_a, gyms_a], [region_b, gyms_b]) => region_a.localeCompare(region_b));
 	}
 }
 

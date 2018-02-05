@@ -77,7 +77,7 @@ class FavoriteCommand extends Commando.Command {
 
 			let matched_gym_message;
 
-			confirmation_response = message.reply(
+			confirmation_response = message.channel.send(
 				{
 					files: [
 						require.resolve(`PgP-Data/data/images/${gym_id}.png`)

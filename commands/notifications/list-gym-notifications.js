@@ -36,16 +36,19 @@ class GymNotificationsCommand extends Commando.Command {
 				embed.setTitle('Currently assigned gym notifications:');
 				embed.setColor(4437377);
 
-				const gym_list = results
-					.map(gym_id => Gym.getGym(gym_id))
-					.map(gym => !!gym.nickname ?
-						gym.nickname :
-						gym.gymName)
-					.sort()
-					.join('\n');
+				const region_gym_list = Gym.filterRegions(results);
 
-				if (gym_list.length > 0) {
-					embed.setDescription(gym_list);
+				if (region_gym_list.length > 0) {
+					region_gym_list
+						.forEach(([region, gyms]) => {
+							embed.addField(`#${region}`, gyms
+								.map(gym_id => Gym.getGym(gym_id))
+								.map(gym => !!gym.nickname ?
+									gym.nickname :
+									gym.gymName)
+								.sort()
+								.join('\n'));
+						});
 				} else {
 					embed.setDescription('<None>');
 				}
