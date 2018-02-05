@@ -107,7 +107,11 @@ class FavoriteCommand extends Commando.Command {
 			.then(confirm => {
 				if (confirm) {
 					Notify.assignGymNotification(message.member, gym_id)
-						.then(result => message.react(Helper.getEmoji('snorlaxthumbsup') || '👍'))
+						.then(result => {
+							if (message.channel.messages.has(message.id)) {
+								message.react(Helper.getEmoji('snorlaxthumbsup') || '👍');
+							}
+						})
 						.catch(err => log.error(err));
 				}
 			});

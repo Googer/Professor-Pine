@@ -105,11 +105,13 @@ class UnfavoriteCommand extends Commando.Command {
 
 		confirmation_response
 			.then(confirm => {
-				Utility.cleanCollector(confirmation_response);
-
 				if (confirm) {
 					Notify.removeGymNotification(message.member, gym_id)
-						.then(result => message.react(Helper.getEmoji('snorlaxthumbsup') || '👍'))
+						.then(result => {
+							if (message.channel.messages.has(message.id)) {
+								message.react(Helper.getEmoji('snorlaxthumbsup') || '👍');
+							}
+						})
 						.catch(err => log.error(err));
 				}
 			});
