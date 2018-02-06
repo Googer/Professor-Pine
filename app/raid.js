@@ -242,7 +242,7 @@ class Raid {
 		const raid = this.getRaid(channel_id);
 
 		// delete all messages for raid, with defensive check first that raid actually has any
-		if (raid.messages) {
+		if (Array.isArray(raid.messages)) {
 			raid.messages
 				.filter(message_cache_id => message_cache_id.split(':')[0] !== channel_id)
 				.forEach(message_cache_id => this.getMessage(message_cache_id)
