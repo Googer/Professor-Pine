@@ -241,12 +241,14 @@ class Raid {
 	deleteRaid(channel_id, delete_channel = true) {
 		const raid = this.getRaid(channel_id);
 
-		// delete announcement message (and ex raid channel message associated with this raid if there is one)
-		raid.messages
-			.filter(message_cache_id => message_cache_id.split(':')[0] !== channel_id)
-			.forEach(message_cache_id => this.getMessage(message_cache_id)
-				.then(message => message.delete())
-				.catch(err => log.error(err)));
+		// delete all messages for raid, with defensive check first that raid actually has any
+		if (raid.messages) {
+			raid.messages
+				.filter(message_cache_id => message_cache_id.split(':')[0] !== channel_id)
+				.forEach(message_cache_id => this.getMessage(message_cache_id)
+					.then(message => message.delete())
+					.catch(err => log.error(err)));
+		}
 
 		const channel_delete_promise = delete_channel ?
 			this.getChannel(channel_id)
