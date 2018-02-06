@@ -59,11 +59,16 @@ class FavoriteCommand extends Commando.Command {
 	}
 
 	async run(message, args) {
-		const gym_id = args['favorite'];
+		const gym_id = args['favorite'],
+			in_raid_channel = Raid.validRaid(message.channel.id);
 
 		let confirmation_response;
 
-		if (!Raid.validRaid(message.channel.id) || Raid.getRaid(message.channel.id).gym_id !== gym_id) {
+		if (in_raid_channel) {
+			message.delete_original = true;
+		}
+
+		if (!in_raid_channel || Raid.getRaid(message.channel.id).gym_id !== gym_id) {
 			const gym = Gym.getGym(gym_id),
 				gym_name = !!gym.nickname ?
 					gym.nickname :
