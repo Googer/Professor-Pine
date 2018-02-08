@@ -2016,7 +2016,7 @@
   {
     "name": "celebi",
     "number": 251,
-    "cp": 37726,
+    "cp": 37733,
     "type": [
       "psychic",
       "grass"
@@ -2972,6 +2972,7 @@
   {
     "name": "regirock",
     "number": 377,
+    "cp": 41777,
     "tier": 5,
     "type": [
       "rock"
@@ -2980,6 +2981,7 @@
   {
     "name": "regice",
     "number": 378,
+    "cp": 41777,
     "tier": 5,
     "type": [
       "ice"
@@ -2988,6 +2990,7 @@
   {
     "name": "registeel",
     "number": 379,
+    "cp": 30596,
     "tier": 5,
     "type": [
       "steel"
@@ -2996,6 +2999,7 @@
   {
     "name": "latias",
     "number": 380,
+    "cp": 45704,
     "tier": 5,
     "type": [
       "dragon",
@@ -3005,6 +3009,7 @@
   {
     "name": "latios",
     "number": 381,
+    "cp": 49322,
     "tier": 5,
     "type": [
       "dragon",
@@ -3032,6 +3037,7 @@
   {
     "name": "rayquaza",
     "number": 384,
+    "cp": 45468,
     "tier": 5,
     "type": [
       "dragon",
@@ -3041,6 +3047,7 @@
   {
     "name": "jirachi",
     "number": 385,
+    "cp": 37733,
     "type": [
       "steel",
       "psychic"
@@ -3049,6 +3056,7 @@
   {
     "name": "deoxys",
     "number": 386,
+    "cp": 715,
     "type": [
       "psychic"
     ]
