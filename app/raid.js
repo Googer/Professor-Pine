@@ -426,18 +426,19 @@ class Raid {
 			group_id_to_filter = group_id;
 		}
 
+		// if user just immediately said done without ever having joined the raid in the first place,
+		// don't ask anyone else if they finished since they weren't part of any set group
+		if (group_id_to_filter === undefined) {
+			return;
+		}
+
 		const channel = await this.getChannel(channel_id)
 			.catch(err => log.error(err));
 
-		let attendees = Object.entries(raid.attendees)
-				.filter(([attendee_id, attendee_status]) => attendee_id !== member_id);
-
-		if (group_id_to_filter !== undefined) {
-			attendees = attendees
-				.filter(([attendee_id, attendee_status]) => attendee_status.group === group_id_to_filter);
-		}
-
-		const member_ids = attendees
+		const attendees = Object.entries(raid.attendees)
+				.filter(([attendee_id, attendee_status]) => attendee_id !== member_id)
+				.filter(([attendee_id, attendee_status]) => attendee_status.group === group_id_to_filter),
+			member_ids = attendees
 				.map(([attendee_id, attendee_status]) => attendee_id),
 			members = await Promise.all(member_ids
 				.map(async attendee_id => await this.getMember(channel_id, attendee_id)))
