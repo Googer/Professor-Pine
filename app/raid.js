@@ -1099,8 +1099,6 @@ class Raid {
 					group_coming_attendees = coming_attendees
 						.filter(attendee_entry => attendee_entry[1].group === group.id),
 					group_present_attendees = present_attendees
-						.filter(attendee_entry => attendee_entry[1].group === group.id),
-					group_complete_attendees = complete_attendees
 						.filter(attendee_entry => attendee_entry[1].group === group.id);
 
 				if (group_interested_attendees.length > 0) {
@@ -1112,10 +1110,11 @@ class Raid {
 				if (group_present_attendees.length > 0) {
 					embed.addField('Present', attendees_builder(group_present_attendees, 'ultraball'), true);
 				}
-				if (group_complete_attendees.length > 0) {
-					embed.addField('Complete', attendees_builder(group_complete_attendees, 'premierball'), true);
-				}
 			});
+
+		if (complete_attendees.length > 0) {
+			embed.addField('__Complete__', attendees_builder(complete_attendees, 'premierball'));
+		}
 
 		if (!!raid.hatch_time) {
 			embed.addField(hatch_label, hatch_time.calendar(null, calendar_format));
