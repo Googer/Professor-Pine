@@ -726,7 +726,7 @@ class Raid {
 		const raid = this.getRaid(channel_id),
 			group_count = raid.groups.length;
 
-		if (group_count > 5) {
+		if (group_count >= 5) {
 			return {error: 'A raid cannot have more than 5 groups!'};
 		}
 
