@@ -100,6 +100,9 @@ Client.registry.registerCommands([
 	require('./commands/raids/status'),
 	require('./commands/raids/directions'),
 
+	require('./commands/raids/group'),
+	require('./commands/raids/new-group'),
+
 	require('./commands/raids/create'),
 	require('./commands/raids/delete'),
 

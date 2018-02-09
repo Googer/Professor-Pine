@@ -30,7 +30,10 @@ class Raid {
 		this.raids = Object.create(null);
 
 		this.active_raid_storage
-			.forEach((channel_id, raid) => this.raids[channel_id] = raid);
+			.forEach((channel_id, raid) => {
+				this.raids[channel_id] = raid;
+				this.initializeGroups(channel_id);
+			});
 
 		let last_interval_time = moment().valueOf(),
 			last_interval_day = moment().dayOfYear();
@@ -51,29 +54,34 @@ class Raid {
 						this.refreshStatusMessages(raid)
 							.catch(err => log.error(err));
 					}
-					if (raid.start_time) {
-						if (raid.start_clear_time && (now > raid.start_clear_time)) {
-							// clear out start time
-							delete raid.start_time;
-							delete raid.start_clear_time;
 
-							this.persistRaid(raid);
+					raid.groups
+						.forEach(group => {
+							if (group.start_time) {
+								if (group.start_clear_time && (now > group.start_clear_time)) {
+									// clear out start time
+									delete group.start_time;
+									delete group.start_clear_time;
 
-							this.refreshStatusMessages(raid)
-								.catch(err => log.error(err));
+									this.persistRaid(raid);
 
-							// ask members if they finished raid
-							this.setPresentAttendeesToComplete(channel_id)
-								.catch(err => log.error(err));
-						} else if (!raid.start_clear_time && now > raid.start_time) {
-							raid.start_clear_time = start_clear_time;
+									this.refreshStatusMessages(raid)
+										.catch(err => log.error(err));
 
-							this.persistRaid(raid);
+									// ask members if they finished raid
+									this.setPresentAttendeesToComplete(channel_id, group.id)
+										.catch(err => log.error(err));
+								} else if (!group.start_clear_time && now > group.start_time) {
+									group.start_clear_time = start_clear_time;
 
-							this.refreshStatusMessages(raid)
-								.catch(err => log.error(err));
-						}
-					}
+									this.persistRaid(raid);
+
+									this.refreshStatusMessages(raid)
+										.catch(err => log.error(err));
+								}
+							}
+						});
+
 					if (((raid.end_time !== TimeType.UNDEFINED_END_TIME && now > raid.end_time + deletion_grace_time) || now > raid.last_possible_time + deletion_grace_time) &&
 						!raid.deletion_time) {
 						// raid's end time is set (or last possible time) in the past, even past the grace period,
@@ -202,8 +210,11 @@ class Raid {
 		raid.pokemon = pokemon;
 		raid.gym_id = gym_id;
 
+		raid.groups = [{id: 'A'}];
+		raid.default_group_id = 'A';
+
 		raid.attendees = Object.create(Object.prototype);
-		raid.attendees[member_id] = {number: 1, status: RaidStatus.INTERESTED};
+		raid.attendees[member_id] = {number: 1, status: RaidStatus.INTERESTED, group: 'A'};
 
 		const source_channel = await this.getChannel(channel_id),
 			channel_name = Raid.generateChannelName(raid);
@@ -302,10 +313,13 @@ class Raid {
 			.filter(raid => raid.source_channel_id === channel_id);
 	}
 
-	getAttendeeCount(raid) {
+	getAttendeeCount(raid, group) {
 		return Object.values(raid.attendees)
 		// complete attendees shouldn't count
 			.filter(attendee => attendee.status !== RaidStatus.COMPLETE)
+			.filter(attendee => !!group ?
+				attendee.group === group :
+				true)
 			.map(attendee => attendee.number)
 			.reduce((total, number) => total + number, 0);
 	}
@@ -376,6 +390,7 @@ class Raid {
 
 		if (!attendee) {
 			raid.attendees[member_id] = {
+				group: raid.default_group_id,
 				number: number,
 				status: status
 			}
@@ -391,20 +406,39 @@ class Raid {
 		return {raid: raid};
 	}
 
-	async setPresentAttendeesToComplete(channel_id, member_id) {
+	async setPresentAttendeesToComplete(channel_id, group_id, member_id) {
 		const raid = this.getRaid(channel_id);
 
+		let group_id_to_filter = undefined;
+
 		if (!!member_id) {
+			const attendee = raid.attendees[member_id];
+
+			if (attendee) {
+				group_id_to_filter = attendee.group;
+			}
+
 			// set member that issued this command to complete
 			this.setMemberStatus(channel_id, member_id, RaidStatus.COMPLETE);
 			this.refreshStatusMessages(raid)
 				.catch(err => log.error(err));
+		} else {
+			group_id_to_filter = group_id;
 		}
 
 		const channel = await this.getChannel(channel_id)
-				.catch(err => log.error(err)),
-			member_ids = Object.keys(raid.attendees)
-				.filter(attendee_id => attendee_id !== member_id),
+			.catch(err => log.error(err));
+
+		let attendees = Object.entries(raid.attendees)
+				.filter(([attendee_id, attendee_status]) => attendee_id !== member_id);
+
+		if (group_id_to_filter !== undefined) {
+			attendees = attendees
+				.filter(([attendee_id, attendee_status]) => attendee_status.group === group_id_to_filter);
+		}
+
+		const member_ids = attendees
+				.map(([attendee_id, attendee_status]) => attendee_id),
 			members = await Promise.all(member_ids
 				.map(async attendee_id => await this.getMember(channel_id, attendee_id)))
 				.catch(err => log.error(err)),
@@ -543,14 +577,24 @@ class Raid {
 		return {raid: raid};
 	}
 
-	setRaidStartTime(channel_id, start_time) {
-		const raid = this.getRaid(channel_id);
+	setRaidStartTime(channel_id, member_id, start_time) {
+		const raid = this.getRaid(channel_id),
+			member = raid.attendees[member_id];
 
-		raid.start_time = start_time;
+		if (!member) {
+			return {
+				error: 'You are not signed up for this raid!'
+			};
+		}
+
+		const group = raid.groups
+			.find(group => group.id === member.group);
+
+		group.start_time = start_time;
 
 		// delete start clear time if there is one
-		if (raid.start_clear_time) {
-			delete raid.start_clear_time;
+		if (group.start_clear_time) {
+			delete group.start_clear_time;
 		}
 
 		this.persistRaid(raid);
@@ -644,6 +688,75 @@ class Raid {
 		this.getChannel(channel_id)
 			.then(channel => channel.setName(new_channel_name))
 			.catch(err => log.error(err));
+
+		return {raid: raid};
+	}
+
+	// one-time migration of any raids missing group information
+	initializeGroups(channel_id) {
+		const raid = this.getRaid(channel_id),
+			group = {id: 'A'};
+
+		if (raid.start_time) {
+			group.start_time = raid.start_time;
+			delete raid.start_time;
+		}
+
+		if (raid.start_clear_time) {
+			group.start_clear_time = raid.start_clear_time;
+			delete raid.start_clear_time;
+		}
+
+		if (!raid.groups) {
+			raid.groups = [group];
+			raid.default_group_id = 'A';
+		}
+
+		Object.values(raid.attendees)
+			.forEach(attendee => {
+				if (!attendee.group) {
+					attendee.group = 'A';
+				}
+			});
+
+		this.persistRaid(raid);
+	}
+
+	createGroup(channel_id, member_id) {
+		const raid = this.getRaid(channel_id),
+			group_count = raid.groups.length;
+
+		if (group_count > 5) {
+			return {error: 'A raid cannot have more than 5 groups!'};
+		}
+
+		const new_group_id = String.fromCharCode('A'.charCodeAt(0) + group_count),
+			new_group = {id: new_group_id};
+
+		raid.groups.push(new_group);
+		raid.default_group_id = new_group_id;
+
+		this.persistRaid(raid);
+
+		this.setMemberGroup(channel_id, member_id, new_group_id);
+
+		return {raid: raid};
+	}
+
+	setMemberGroup(channel_id, member_id, group_id) {
+		const raid = this.getRaid(channel_id);
+
+		let attendee = raid.attendees[member_id];
+
+		if (!attendee) {
+			// attendee isn't part of this raid; set them as interested in default group
+			this.setMemberStatus(channel_id, member_id, RaidStatus.INTERESTED);
+
+			attendee = raid.attendees[member_id];
+		}
+
+		attendee.group = group_id;
+		this.persistRaid(raid);
 
 		return {raid: raid};
 	}
@@ -815,14 +928,6 @@ class Raid {
 			end_time = raid.end_time !== TimeType.UNDEFINED_END_TIME ?
 				`Raid available until ${moment(raid.end_time).calendar(null, calendar_format)}, ` :
 				'Raid end time currently unset, ',
-			start_time = !!raid.start_time ?
-				moment(raid.start_time) :
-				'',
-			start_label = !!raid.start_time ?
-				now > start_time ?
-					'__Last Meeting Time__' :
-					'__Next Planned Meeting Time__'
-				: '',
 			hatch_time = !!raid.hatch_time ?
 				moment(raid.hatch_time) :
 				'',
@@ -837,8 +942,6 @@ class Raid {
 				gym.nickname :
 				gym.gymName,
 			gym_url = `https://www.google.com/maps/search/?api=1&query=${gym.gymInfo.latitude}%2C${gym.gymInfo.longitude}`,
-
-			total_attendees = this.getAttendeeCount(raid),
 			attendee_entries = Object.entries(raid.attendees),
 			attendees_with_members = await Promise.all(attendee_entries
 				.map(async attendee_entry => [await this.getMember(raid.channel_id, attendee_entry[0]), attendee_entry[1]])),
@@ -970,28 +1073,52 @@ class Raid {
 
 		embed.setFooter(end_time + raid_reporter, report_member.user.displayAvatarURL());
 
-		if (total_attendees > 0) {
-			embed.addField('__Possible Trainers__', total_attendees.toString());
-		}
-		if (interested_attendees.length > 0) {
-			embed.addField('Interested', attendees_builder(interested_attendees, 'pokeball'), true);
-		}
-		if (coming_attendees.length > 0) {
-			embed.addField('Coming', attendees_builder(coming_attendees, 'greatball'), true);
-		}
-		if (present_attendees.length > 0) {
-			embed.addField('Present', attendees_builder(present_attendees, 'ultraball'), true);
-		}
-		if (complete_attendees.length > 0) {
-			embed.addField('Complete', attendees_builder(complete_attendees, 'premierball'), true);
-		}
+		raid.groups
+			.forEach(group => {
+				const start_time = !!group.start_time ?
+					moment(group.start_time) :
+					'',
+					start_label = !!group.start_time ?
+						now > start_time ?
+							'Last Meeting Time ' :
+							'Next Planned Meeting Time '
+						: '',
+
+					total_attendees = this.getAttendeeCount(raid, group.id);
+
+				let group_label = `__Group ${group.id}__`;
+
+				if (!!group.start_time) {
+					group_label += `: ${start_label} ${start_time.calendar(null, calendar_format)}`;
+				}
+
+				embed.addField(group_label, `Possible trainers: ${total_attendees.toString()}`);
+
+				const group_interested_attendees = interested_attendees
+						.filter(attendee_entry => attendee_entry[1].group === group.id),
+					group_coming_attendees = coming_attendees
+						.filter(attendee_entry => attendee_entry[1].group === group.id),
+					group_present_attendees = present_attendees
+						.filter(attendee_entry => attendee_entry[1].group === group.id),
+					group_complete_attendees = complete_attendees
+						.filter(attendee_entry => attendee_entry[1].group === group.id);
+
+				if (group_interested_attendees.length > 0) {
+					embed.addField('Interested', attendees_builder(group_interested_attendees, 'pokeball'), true);
+				}
+				if (group_coming_attendees.length > 0) {
+					embed.addField('Coming', attendees_builder(group_coming_attendees, 'greatball'), true);
+				}
+				if (group_present_attendees.length > 0) {
+					embed.addField('Present', attendees_builder(group_present_attendees, 'ultraball'), true);
+				}
+				if (group_complete_attendees.length > 0) {
+					embed.addField('Complete', attendees_builder(group_complete_attendees, 'premierball'), true);
+				}
+			});
 
 		if (!!raid.hatch_time) {
 			embed.addField(hatch_label, hatch_time.calendar(null, calendar_format));
-		}
-
-		if (!!raid.start_time) {
-			embed.addField(start_label, start_time.calendar(null, calendar_format));
 		}
 
 		let additional_information = '';

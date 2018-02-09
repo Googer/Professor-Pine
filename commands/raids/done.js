@@ -29,7 +29,7 @@ class DoneCommand extends Commando.Command {
 	}
 
 	async run(message, args) {
-		Raid.setPresentAttendeesToComplete(message.channel.id, message.member.id)
+		Raid.setPresentAttendeesToComplete(message.channel.id, undefined, message.member.id)
 			.catch(err => log.error(err));
 
 		message.react(Helper.getEmoji('snorlaxthumbsup') || '👍')

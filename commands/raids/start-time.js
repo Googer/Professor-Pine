@@ -40,12 +40,19 @@ class StartTimeCommand extends Commando.Command {
 
 	async run(message, args) {
 		const start_time = args[TimeParameter.START],
-			info = Raid.setRaidStartTime(message.channel.id, start_time);
+			info = Raid.setRaidStartTime(message.channel.id, message.member.id, start_time);
+
+		if (info.error) {
+			message.reply(info.error)
+				.catch(err => log.error(err));
+			return;
+		}
 
 		message.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
 			.catch(err => log.error(err));
 
-		const total_attendees = Raid.getAttendeeCount(info.raid),
+		const group_id = info.raid.attendees[message.member.id].group,
+			total_attendees = Raid.getAttendeeCount(info.raid, group_id),
 			verb = total_attendees === 1 ?
 				'is' :
 				'are',
@@ -60,10 +67,11 @@ class StartTimeCommand extends Commando.Command {
 			channel = await Raid.getChannel(info.raid.channel_id)
 				.catch(err => log.error(err));
 
-		// notify all attendees that a time has been set
+		// notify all attendees in same group that a time has been set
 		Object.entries(info.raid.attendees)
 			.filter(([attendee, attendee_status]) => attendee !== message.member.id &&
 				attendee_status.status !== RaidStatus.COMPLETE)
+			.filter(([attendee, attendee_status]) => attendee_status.group === group_id)
 			.forEach(([attendee, attendee_status]) => {
 				const member = Helper.getMemberForNotification(message.guild.id, attendee);
 

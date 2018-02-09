@@ -1,6 +1,6 @@
 "use strict";
 
-const log = require('loglevel').getLogger('NotificationsCommand'),
+const log = require('loglevel').getLogger('GymNotificationsCommand'),
 	Commando = require('discord.js-commando'),
 	{CommandGroup} = require('../../app/constants'),
 	{MessageEmbed} = require('discord.js'),
