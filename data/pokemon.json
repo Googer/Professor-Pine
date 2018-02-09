@@ -711,6 +711,8 @@
   {
     "name": "dewgong",
     "number": 87,
+    "tier": 2,
+    "cp": 9216,
     "type": [
       "water",
       "ice"
@@ -999,6 +1001,8 @@
   {
     "name": "jynx",
     "number": 124,
+    "tier": 3,
+    "cp": 18296,
     "type": [
       "ice",
       "psychic"
@@ -1311,6 +1315,8 @@
   {
     "name": "feraligatr",
     "number": 160,
+    "tier": 4,
+    "cp": 27740,
     "type": [
       "water"
     ]
@@ -1493,6 +1499,8 @@
   {
     "name": "azumarill",
     "number": 184,
+    "tier": 3,
+    "cp": 8989,
     "type": [
       "water",
       "fairy"
@@ -1772,6 +1780,8 @@
   {
     "name": "piloswine",
     "number": 221,
+    "tier": 3,
+    "cp": 13663,
     "type": [
       "ice",
       "ground"
@@ -2640,6 +2650,8 @@
   {
     "name": "swablu",
     "number": 333,
+    "tier": 1,
+    "cp": 2766,
     "type": [
       "normal",
       "flying"
@@ -2852,6 +2864,8 @@
   {
     "name": "snorunt",
     "number": 361,
+    "tier": 1,
+    "cp": 2825,
     "type": [
       "ice"
     ]
