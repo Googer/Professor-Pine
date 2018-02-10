@@ -944,6 +944,7 @@ class Raid {
 				gym.gymName,
 			gym_url = `https://www.google.com/maps/search/?api=1&query=${gym.gymInfo.latitude}%2C${gym.gymInfo.longitude}`,
 			attendee_entries = Object.entries(raid.attendees),
+			total_attendee_count = attendee_entries.length,
 			attendees_with_members = await Promise.all(attendee_entries
 				.map(async attendee_entry => [await this.getMember(raid.channel_id, attendee_entry[0]), attendee_entry[1]])),
 			sorted_attendees = attendees_with_members
@@ -969,91 +970,8 @@ class Raid {
 					attendee_entry[1].status === RaidStatus.COMPLETE_PENDING),
 			complete_attendees = sorted_attendees
 				.filter(attendee_entry => attendee_entry[1].status === RaidStatus.COMPLETE),
+			embed = new Discord.MessageEmbed();
 
-			attendees_builder = (attendees_list, emoji_name) => {
-				const emoji = Helper.getEmoji(emoji_name).toString();
-
-				let result = '';
-
-				attendees_list.forEach(([member, attendee]) => {
-					if (result.length > 1024) {
-						return;
-					}
-
-					const displayName = member.displayName.length > 12 ?
-						member.displayName.substring(0, 11).concat('…') :
-						member.displayName;
-
-					result += emoji + ' ' + displayName;
-
-					// show how many additional attendees this user is bringing with them
-					if (attendee.number > 1) {
-						result += ' +' + (attendee.number - 1);
-					}
-
-					// add role emoji indicators if role exists
-					switch (Helper.getTeam(member)) {
-						case Team.INSTINCT:
-							result += ' ' + Helper.getEmoji('instinct').toString();
-							break;
-
-						case Team.MYSTIC:
-							result += ' ' + Helper.getEmoji('mystic').toString();
-							break;
-
-						case Team.VALOR:
-							result += ' ' + Helper.getEmoji('valor').toString();
-							break;
-					}
-
-					result += '\n';
-				});
-
-				if (result.length > 1024) {
-					// try again with 'plain' emoji
-					result = '';
-
-					attendees_list.forEach(([member, attendee]) => {
-						const displayName = member.displayName.length > 12 ?
-							member.displayName.substring(0, 11).concat('…') :
-							member.displayName;
-
-						result += '• ' + displayName;
-
-						// show how many additional attendees this user is bringing with them
-						if (attendee.number > 1) {
-							result += ' +' + (attendee.number - 1);
-						}
-
-						// add role emoji indicators if role exists
-						switch (Helper.getTeam(member)) {
-							case Team.INSTINCT:
-								result += ' ⚡';
-								break;
-
-							case Team.MYSTIC:
-								result += ' ❄';
-								break;
-
-							case Team.VALOR:
-								result += ' 🔥';
-								break;
-						}
-
-						result += '\n';
-					});
-
-					if (result.length > 1024) {
-						// one last check, just truncate if it's still too long -
-						// it's better than blowing up! sorry people with late alphabetical names!
-						result = result.substring(0, 1022) + '…';
-					}
-				}
-
-				return result;
-			};
-
-		const embed = new Discord.MessageEmbed();
 		embed.setColor(4437377);
 		embed.setTitle(`Map Link: ${gym_name}`);
 		embed.setURL(gym_url);
@@ -1079,18 +997,12 @@ class Raid {
 				const start_time = !!group.start_time ?
 					moment(group.start_time) :
 					'',
-					start_label = !!group.start_time ?
-						now > start_time ?
-							'Last Meeting Time ' :
-							'Next Planned Meeting Time '
-						: '',
-
 					total_attendees = this.getAttendeeCount(raid, group.id);
 
 				let group_label = `__Group ${group.id}__`;
 
 				if (!!group.start_time) {
-					group_label += `: ${start_label} ${start_time.calendar(null, calendar_format)}`;
+					group_label += `: ${start_time.calendar(null, calendar_format)}`;
 				}
 
 				embed.addField(group_label, `Possible trainers: ${total_attendees.toString()}`);
@@ -1103,18 +1015,18 @@ class Raid {
 						.filter(attendee_entry => attendee_entry[1].group === group.id);
 
 				if (group_interested_attendees.length > 0) {
-					embed.addField('Interested', attendees_builder(group_interested_attendees, 'pokeball'), true);
+					embed.addField('Interested', Raid.buildAttendeesList(group_interested_attendees, 'pokeball', total_attendee_count), true);
 				}
 				if (group_coming_attendees.length > 0) {
-					embed.addField('Coming', attendees_builder(group_coming_attendees, 'greatball'), true);
+					embed.addField('Coming', Raid.buildAttendeesList(group_coming_attendees, 'greatball', total_attendee_count), true);
 				}
 				if (group_present_attendees.length > 0) {
-					embed.addField('Present', attendees_builder(group_present_attendees, 'ultraball'), true);
+					embed.addField('Present', Raid.buildAttendeesList(group_present_attendees, 'ultraball', total_attendee_count), true);
 				}
 			});
 
 		if (complete_attendees.length > 0) {
-			embed.addField('__Complete__', attendees_builder(complete_attendees, 'premierball'));
+			embed.addField('__Complete__', Raid.buildAttendeesList(complete_attendees, 'premierball', total_attendee_count));
 		}
 
 		if (!!raid.hatch_time) {
@@ -1202,6 +1114,91 @@ class Raid {
 
 		return pokemon_name + '-' + gym_name;
 	}
+
+	static buildAttendeesList(attendees_list, emoji_name, total_attendee_count) {
+		const emoji = Helper.getEmoji(emoji_name).toString();
+
+		let result = '';
+
+		if (total_attendee_count < 80) {
+			attendees_list.forEach(([member, attendee]) => {
+				if (result.length > 1024) {
+					return;
+				}
+
+				const displayName = member.displayName.length > 12 ?
+					member.displayName.substring(0, 11).concat('…') :
+					member.displayName;
+
+				result += emoji + ' ' + displayName;
+
+				// show how many additional attendees this user is bringing with them
+				if (attendee.number > 1) {
+					result += ' +' + (attendee.number - 1);
+				}
+
+				// add role emoji indicators if role exists
+				switch (Helper.getTeam(member)) {
+					case Team.INSTINCT:
+						result += ' ' + Helper.getEmoji('instinct').toString();
+						break;
+
+					case Team.MYSTIC:
+						result += ' ' + Helper.getEmoji('mystic').toString();
+						break;
+
+					case Team.VALOR:
+						result += ' ' + Helper.getEmoji('valor').toString();
+						break;
+				}
+
+				result += '\n';
+			});
+		}
+
+		if (result.length === 0 || result.length > 1024) {
+			// try again with 'plain' emoji
+			result = '';
+
+			attendees_list.forEach(([member, attendee]) => {
+				const displayName = member.displayName.length > 12 ?
+					member.displayName.substring(0, 11).concat('…') :
+					member.displayName;
+
+				result += '• ' + displayName;
+
+				// show how many additional attendees this user is bringing with them
+				if (attendee.number > 1) {
+					result += ' +' + (attendee.number - 1);
+				}
+
+				// add role emoji indicators if role exists
+				switch (Helper.getTeam(member)) {
+					case Team.INSTINCT:
+						result += ' ⚡';
+						break;
+
+					case Team.MYSTIC:
+						result += ' ❄';
+						break;
+
+					case Team.VALOR:
+						result += ' 🔥';
+						break;
+				}
+
+				result += '\n';
+			});
+
+			if (result.length > 1024) {
+				// one last check, just truncate if it's still too long -
+				// it's better than blowing up! sorry people with late alphabetical names!
+				result = result.substring(0, 1022) + '…';
+			}
+		}
+
+		return result;
+	};
 }
 
 module.exports = new Raid();
