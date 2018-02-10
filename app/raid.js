@@ -1120,7 +1120,7 @@ class Raid {
 
 		let result = '';
 
-		if (total_attendee_count < 80) {
+		if (total_attendee_count < 60) {
 			attendees_list.forEach(([member, attendee]) => {
 				if (result.length > 1024) {
 					return;
