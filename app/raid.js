@@ -292,12 +292,7 @@ class Raid {
 
 				delete this.raids[channel_id];
 			})
-			.catch(err => {
-				log.error(err);
-
-				this.active_raid_storage.removeItemSync(channel_id);
-				delete this.raids[channel_id];
-			});
+			.catch(err => log.error(err));
 	}
 
 	validRaid(channel_id) {
