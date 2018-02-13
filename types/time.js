@@ -18,6 +18,9 @@ class TimeType extends Commando.ArgumentType {
 			raid_creation_time = raid_exists ?
 				moment(Raid.getRaid(message.channel.id).creation_time) :
 				now,
+			raid_hatch_time = raid_exists && !!Raid.getRaid(message.channel.id).hatch_time ?
+				moment(Raid.getRaid(message.channel.id).hatch_time) :
+				undefined,
 			incubation_duration = is_ex_raid ?
 				settings.exclusive_raid_incubate_duration :
 				settings.standard_raid_incubate_duration,
@@ -124,7 +127,7 @@ class TimeType extends Commando.ArgumentType {
 			const entered_date = moment(value_to_parse, ['hmm a', 'Hmm', 'h:m a', 'H:m', 'M-D hmm a', 'M-D Hmm', 'M-D h:m a', 'M-D H:m', 'M-D h a', 'M-D H']);
 
 			if (entered_date.isValid()) {
-				possible_times.push(...TimeType.generateTimes(entered_date));
+				possible_times.push(...TimeType.generateTimes(entered_date, arg.key, raid_hatch_time));
 			}
 		}
 
@@ -155,6 +158,9 @@ class TimeType extends Commando.ArgumentType {
 			raid_creation_time = raid_exists ?
 				moment(Raid.getRaid(message.channel.id).creation_time) :
 				now,
+			raid_hatch_time = raid_exists && !!Raid.getRaid(message.channel.id).hatch_time ?
+				moment(Raid.getRaid(message.channel.id).hatch_time) :
+				undefined,
 			incubation_duration = is_ex_raid ?
 				settings.exclusive_raid_incubate_duration :
 				settings.standard_raid_incubate_duration,
@@ -261,7 +267,7 @@ class TimeType extends Commando.ArgumentType {
 			const entered_date = moment(value_to_parse, ['hmm a', 'Hmm', 'h:m a', 'H:m', 'M-D hmm a', 'M-D Hmm', 'M-D h:m a', 'M-D H:m', 'M-D h a', 'M-D H']);
 
 			if (entered_date.isValid()) {
-				possible_times.push(...TimeType.generateTimes(entered_date));
+				possible_times.push(...TimeType.generateTimes(entered_date, arg.key, raid_hatch_time));
 			}
 		}
 
@@ -277,11 +283,18 @@ class TimeType extends Commando.ArgumentType {
 			require('../app/raid').isExclusive(message.channel.id);
 	}
 
-	static generateTimes(possible_date) {
+	static generateTimes(possible_date, time_parameter, raid_hatch_time) {
 		const possible_dates = [],
 			date_format = possible_date.creationData().format,
 			hour = possible_date.hour(),
-			ambiguously_am = hour < 12 && !date_format.endsWith('a');
+			ambiguously_am = hour < 12 && !date_format.endsWith('a'),
+			contains_date = date_format.includes('D');
+
+		if (time_parameter === TimeParameter.START && !contains_date && raid_hatch_time !== undefined) {
+			possible_date.date(raid_hatch_time.date());
+			possible_date.month(raid_hatch_time.month());
+			possible_date.year(raid_hatch_time.year());
+		}
 
 		possible_dates.push(possible_date);
 
