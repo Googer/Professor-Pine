@@ -745,8 +745,8 @@ class Raid {
 		let attendee = raid.attendees[member_id];
 
 		if (!attendee) {
-			// attendee isn't part of this raid; set them as interested in default group
-			this.setMemberStatus(channel_id, member_id, RaidStatus.INTERESTED);
+			// attendee isn't part of this raid; set them as coming in default group
+			this.setMemberStatus(channel_id, member_id, RaidStatus.COMING);
 
 			attendee = raid.attendees[member_id];
 		}
