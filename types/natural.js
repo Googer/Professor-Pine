@@ -8,7 +8,16 @@ class NaturalArgumentType extends Commando.ArgumentType {
 	}
 
 	validate(value, message, arg) {
-		const int = Number.parseInt(value);
+		const Raid = require('../app/raid'),
+			group_ids = Raid.getRaid(message.channel.id).groups
+				.map(group => group.id),
+			group_id = value.trim().toUpperCase(),
+			valid_group = group_ids.includes(group_id) || group_id === 'A',
+			int = Number.parseInt(value);
+
+		if (valid_group) {
+			return `Specify which group to join with the \`${message.client.commandPrefix}group\` command!`;
+		}
 
 		if (!Number.isNaN(int) && int > 0) {
 			return true;
