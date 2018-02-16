@@ -1,6 +1,6 @@
 "use strict";
 
-const log = require('loglevel').getLogger('TimeLeftCommand'),
+const log = require('loglevel').getLogger('HatchTimeCommand'),
 	Commando = require('discord.js-commando'),
 	{CommandGroup, TimeParameter} = require('../../app/constants'),
 	Helper = require('../../app/helper'),

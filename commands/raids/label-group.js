@@ -1,6 +1,6 @@
 "use strict";
 
-const log = require('loglevel').getLogger('GroupCommand'),
+const log = require('loglevel').getLogger('LabelGroupCommand'),
 	Commando = require('discord.js-commando'),
 	{CommandGroup} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
