@@ -578,9 +578,7 @@ class Raid {
 			member = raid.attendees[member_id];
 
 		if (!member) {
-			return {
-				error: 'You are not signed up for this raid!'
-			};
+			return {error: 'You are not signed up for this raid!'};
 		}
 
 		const group = raid.groups
@@ -752,6 +750,23 @@ class Raid {
 		}
 
 		attendee.group = group_id;
+		this.persistRaid(raid);
+
+		return {raid: raid};
+	}
+
+	setGroupLabel(channel_id, member_id, label) {
+		const raid = this.getRaid(channel_id),
+			member = raid.attendees[member_id];
+
+		if (!member) {
+			return {error: 'You are not signed up for this raid!'};
+		}
+
+		const group = raid.groups
+			.find(group => group.id === member.group);
+
+		group.label = label;
 		this.persistRaid(raid);
 
 		return {raid: raid};
@@ -996,6 +1011,10 @@ class Raid {
 					total_attendees = this.getAttendeeCount(raid, group.id);
 
 				let group_label = `__Group ${group.id}__`;
+
+				if (!!group.label) {
+					group_label += ` (${group.label})`;
+				}
 
 				if (!!group.start_time) {
 					group_label += `: ${start_time.calendar(null, calendar_format)}`;
