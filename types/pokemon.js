@@ -16,7 +16,7 @@ class PokemonType extends Commando.ArgumentType {
 			pokemon = Pokemon.search(terms);
 
 		if (!pokemon) {
-			return 'No pokémon found.  Please try your search again, entering the text you want to search for.\n';
+			return `No pokémon found.  Please try your search again, entering the text you want to search for.\n\n${arg.prompt}`;
 		}
 
 		if (!pokemon.exclusive && !pokemon.tier) {
@@ -24,7 +24,7 @@ class PokemonType extends Commando.ArgumentType {
 				`"${pokemon.name.charAt(0).toUpperCase()}${pokemon.name.slice(1)}"` :
 				'Pokémon';
 
-			return `${name} is not a valid raid boss.  Please try your search again, entering the text you want to search for.\n`;
+			return `${name} is not a valid raid boss.  Please try your search again, entering the text you want to search for.\n\n${arg.prompt}`;
 		}
 
 		return true;

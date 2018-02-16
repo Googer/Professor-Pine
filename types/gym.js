@@ -21,7 +21,7 @@ class GymType extends Commando.ArgumentType {
 
 				if (!adjacent_gyms) {
 					if (arg && !arg.is_screenshot) {
-						return `"${value}" returned no gyms.\n\nPlease try your search again, entering the text you want to search for.\n`;
+						return `"${value}" returned no gyms.\n\nPlease try your search again, entering the text you want to search for.\n\n${arg.prompt}`;
 					} else {
 						return false;
 					}
@@ -36,7 +36,7 @@ class GymType extends Commando.ArgumentType {
 				if (arg && !arg.is_screenshot) {
 					return `"${value}" returned no gyms; did you mean "${adjacent_gym_name}" over in ${adjacent_channel.toString()}?  ` +
 						`If so please cancel and use ${adjacent_channel.toString()} to try again.\n\n` +
-						'Please try your search again, entering only the text you want to search for.\n';
+						`Please try your search again, entering only the text you want to search for.\n\n${arg.prompt}`;
 				} else {
 					return `"${value}" returned no gyms; if the gym name was "${adjacent_gym_name}", try uploading your screenshot to the ${adjacent_channel.toString()} channel instead.`;
 				}
@@ -54,7 +54,7 @@ class GymType extends Commando.ArgumentType {
 				if (arg && !arg.is_screenshot) {
 					return `"${gym_name}" already has an active raid - ${channel.toString()}.\n\n` +
 						`If this is the raid you are referring to please cancel and use ${channel.toString()}; ` +
-						'otherwise try your search again, entering the text you want to search for.\n';
+						`otherwise try your search again, entering the text you want to search for.\n\n${arg.prompt}`;
 				} else {
 					return `"${gym_name}" already has an active raid - ${channel.toString()}.`;
 				}
@@ -64,7 +64,7 @@ class GymType extends Commando.ArgumentType {
 		} catch (err) {
 			log.error(err);
 			if (arg && !arg.is_screenshot) {
-				return 'Invalid search terms entered.\n\nPlease try your search again, entering the text you want to search for.\n';
+				return `Invalid search terms entered.\n\nPlease try your search again, entering the text you want to search for.\n\n${arg.prompt}`;
 			} else {
 				return false;
 			}

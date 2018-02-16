@@ -15,7 +15,7 @@ class RaidGroupType extends Commando.ArgumentType {
 			valid = group_ids.includes(group_id) || group_id === 'A';
 
 		if (!valid) {
-			return `\`${value}\` is not a valid group for this raid!`;
+			return `\`${value}\` is not a valid group for this raid!\n\n${arg.prompt}`;
 		}
 
 		return true;

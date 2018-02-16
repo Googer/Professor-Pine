@@ -16,7 +16,7 @@ class NaturalArgumentType extends Commando.ArgumentType {
 			int = Number.parseInt(value);
 
 		if (valid_group) {
-			return `Specify which group to join with the \`${message.client.commandPrefix}group\` command!`;
+			return `To join a group, type \`cancel\` and use the \`${message.client.commandPrefix}group\` command!\n\n${arg.prompt}`;
 		}
 
 		if (!Number.isNaN(int) && int > 0) {
