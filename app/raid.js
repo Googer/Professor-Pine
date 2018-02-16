@@ -838,7 +838,7 @@ class Raid {
 			.catch(err => log.error(err));
 	}
 
-	async getRaidNotificationMessage(raid) {
+	async getRaidNotificationMessage(raid, member_id) {
 		const raid_channel = await this.getChannel(raid.channel_id),
 			region_channel = await this.getChannel(raid.source_channel_id),
 			pokemon_name = raid.pokemon.name ?
@@ -847,9 +847,10 @@ class Raid {
 			gym = Gym.getGym(raid.gym_id),
 			gym_name = !!gym.nickname ?
 				gym.nickname :
-				gym.gymName;
+				gym.gymName,
+			member = await this.getMember(raid.channel_id, member_id);
 
-		return `A raid for ${pokemon_name} has been announced at ${gym_name} (#${region_channel.name}): ${raid_channel.toString()}.`;
+		return `A raid for ${pokemon_name} has been announced at ${gym_name} (#${region_channel.name}) by ${member.displayName}: ${raid_channel.toString()}.`;
 	}
 
 	async getRaidExChannelMessage(raid) {
@@ -919,7 +920,7 @@ class Raid {
 			},
 
 			report_member = await this.getMember(raid.channel_id, raid.created_by_id),
-			raid_reporter = `reported by ${report_member.displayName}`,
+			raid_reporter = `originally reported by ${report_member.displayName}`,
 
 			end_time = raid.end_time !== TimeType.UNDEFINED_END_TIME ?
 				`Raid available until ${moment(raid.end_time).calendar(null, calendar_format)}, ` :
