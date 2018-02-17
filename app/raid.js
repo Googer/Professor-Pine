@@ -32,7 +32,6 @@ class Raid {
 		this.active_raid_storage
 			.forEach((channel_id, raid) => {
 				this.raids[channel_id] = raid;
-				this.initializeGroups(channel_id);
 			});
 
 		let last_interval_time = moment().valueOf(),
@@ -684,36 +683,6 @@ class Raid {
 			.catch(err => log.error(err));
 
 		return {raid: raid};
-	}
-
-	// one-time migration of any raids missing group information
-	initializeGroups(channel_id) {
-		const raid = this.getRaid(channel_id),
-			group = {id: 'A'};
-
-		if (raid.start_time) {
-			group.start_time = raid.start_time;
-			delete raid.start_time;
-		}
-
-		if (raid.start_clear_time) {
-			group.start_clear_time = raid.start_clear_time;
-			delete raid.start_clear_time;
-		}
-
-		if (!raid.groups) {
-			raid.groups = [group];
-			raid.default_group_id = 'A';
-		}
-
-		Object.values(raid.attendees)
-			.forEach(attendee => {
-				if (!attendee.group) {
-					attendee.group = 'A';
-				}
-			});
-
-		this.persistRaid(raid);
 	}
 
 	createGroup(channel_id, member_id) {
