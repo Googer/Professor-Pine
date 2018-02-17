@@ -808,22 +808,13 @@ class Raid {
 				sameDay: 'LT',
 				sameElse: 'l LT'
 			},
-			now = moment(),
-			start_label = !!raid.start_time ?
-				now > raid.start_time ?
-					'Met at' :
-					'Meeting at'
-				: '',
-			start_time = !!raid.start_time ?
-				` :: ${start_label} **${moment(raid.start_time).calendar(null, calendar_format)}**` :
-				'',
 			end_time = raid.end_time !== TimeType.UNDEFINED_END_TIME ?
 				` :: Ends at **${moment(raid.end_time).calendar(null, calendar_format)}**` :
 				'';
 
 		return this.getChannel(raid.channel_id)
 			.then(channel => `**${pokemon}**\n` +
-				`${channel.toString()} :: ${gym_name} :: **${total_attendees}** potential trainer${total_attendees !== 1 ? 's' : ''}${start_time}${end_time}\n`)
+				`${channel.toString()} :: ${gym_name} :: **${total_attendees}** potential trainer${total_attendees !== 1 ? 's' : ''}${end_time}\n`)
 			.catch(err => {
 				log.error(err);
 				return '';
@@ -1013,7 +1004,11 @@ class Raid {
 				let group_label = `__Group ${group.id}__`;
 
 				if (!!group.label) {
-					group_label += ` (${group.label})`;
+					const truncated_label = group.label.length > 150 ?
+						group.label.substring(0, 149).concat('…') :
+						group.label;
+
+					group_label += ` (${truncated_label})`;
 				}
 
 				if (!!group.start_time) {
