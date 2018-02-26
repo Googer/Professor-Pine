@@ -981,7 +981,7 @@ class Raid {
 				}
 
 				if (!!group.start_time) {
-					group_label += `: ${start_time.calendar(null, calendar_format)}`;
+					group_label += `: **⏰${start_time.calendar(null, calendar_format)}**`;
 				}
 
 				embed.addField(group_label, `Possible trainers: ${total_attendees.toString()}`);
