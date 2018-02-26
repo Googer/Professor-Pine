@@ -9,8 +9,13 @@ class Utility {
 
 	static async cleanCollector(collection_result) {
 		const delay = settings.message_cleanup_delay_success,
-			messages_to_delete = [...collection_result.prompts, ...collection_result.answers],
-			channel = messages_to_delete[0].channel;
+			messages_to_delete = [...collection_result.prompts, ...collection_result.answers];
+
+		if (messages_to_delete.length === 0) {
+			return;
+		}
+
+		const channel = messages_to_delete[0].channel;
 
 		channel.client.setTimeout(
 			() => channel.bulkDelete(messages_to_delete)
