@@ -351,6 +351,19 @@ class Raid {
 		}
 	}
 
+	replaceLastMessage(channel_id, message) {
+		const raid = this.getRaid(channel_id),
+			message_cache_id = `${message.channel.id.toString()}:${message.id.toString()}`;
+
+		if (!!raid.last_status_message) {
+			this.getMessage(raid.last_status_message)
+				.then(old_message => old_message.delete())
+				.catch(err => log.error(err));
+		}
+
+		raid.last_status_message = message_cache_id;
+	}
+
 	removeAttendee(channel_id, member_id) {
 		const raid = this.getRaid(channel_id),
 			attendee = raid.attendees[member_id];
@@ -977,14 +990,16 @@ class Raid {
 						group.label.substring(0, 149).concat('…') :
 						group.label;
 
-					group_label += ` (${truncated_label})`;
+					group_label += ` ${truncated_label}`;
 				}
+
+				let group_description = `Possible trainers: **${total_attendees.toString()}**`;
 
 				if (!!group.start_time) {
-					group_label += `: **⏰${start_time.calendar(null, calendar_format)}**`;
+					group_description += `\nMeeting time: ⏰**${start_time.calendar(null, calendar_format)}**`;
 				}
 
-				embed.addField(group_label, `Possible trainers: ${total_attendees.toString()}`);
+				embed.addField(group_label, group_description);
 
 				const group_interested_attendees = interested_attendees
 						.filter(attendee_entry => attendee_entry[1].group === group.id),
@@ -1038,7 +1053,7 @@ class Raid {
 	}
 
 	async refreshStatusMessages(raid) {
-		raid.messages
+		[...raid.messages, raid.last_status_message]
 			.forEach(async message_cache_id => {
 				const formatted_message = await this.getFormattedMessage(raid);
 

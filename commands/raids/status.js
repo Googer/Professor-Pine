@@ -41,10 +41,10 @@ class StatusCommand extends Commando.Command {
 				raid_source_channel_message = await Raid.getRaidSourceChannelMessage(raid),
 				formatted_message = await Raid.getFormattedMessage(raid);
 
-			// post a new raid message
+			// post a new raid message, deleting last one in channel if it exists
 			message.channel.send(raid_source_channel_message, formatted_message)
 				.then(status_message => {
-					Raid.addMessage(raid.channel_id, status_message);
+					Raid.replaceLastMessage(raid.channel_id, status_message);
 				})
 				.catch(err => log.error(err));
 		}
