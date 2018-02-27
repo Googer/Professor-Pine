@@ -995,10 +995,10 @@ class Raid {
 					group_label += `: ${truncated_label}`;
 				}
 
-				let group_description = `Possible trainers: **${total_attendees.toString()}**`;
+				let group_description = `Trainers: ${total_attendees.toString()}`;
 
 				if (!!group.start_time) {
-					group_description += `\nMeeting time: ⏰**${start_time.calendar(null, calendar_format)}**`;
+					group_description += `  ⏰: **${start_time.calendar(null, calendar_format)}**`;
 				}
 
 				embed.addField(group_label, group_description);
