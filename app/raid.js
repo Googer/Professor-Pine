@@ -362,6 +362,8 @@ class Raid {
 		}
 
 		raid.last_status_message = message_cache_id;
+
+		this.persistRaid(raid);
 	}
 
 	removeAttendee(channel_id, member_id) {
@@ -990,7 +992,7 @@ class Raid {
 						group.label.substring(0, 149).concat('…') :
 						group.label;
 
-					group_label += ` ${truncated_label}`;
+					group_label += `: ${truncated_label}`;
 				}
 
 				let group_description = `Possible trainers: **${total_attendees.toString()}**`;
@@ -1054,6 +1056,7 @@ class Raid {
 
 	async refreshStatusMessages(raid) {
 		[...raid.messages, raid.last_status_message]
+			.filter(message_cache_id => message_cache_id !== undefined)
 			.forEach(async message_cache_id => {
 				const formatted_message = await this.getFormattedMessage(raid);
 
