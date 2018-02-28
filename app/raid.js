@@ -1033,7 +1033,7 @@ class Raid {
 
 		if (!raid.is_exclusive) {
 			if (gym.is_ex) {
-				additional_information += 'Potential EX Raid location - This gym has previously hosted an EX Raid.';
+				additional_information += 'Confirmed EX Raid location.';
 			} else if (gym.is_park) {
 				additional_information += 'Potential EX Raid location - This gym is located in a park.';
 			}
