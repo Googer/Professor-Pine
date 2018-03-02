@@ -1,6 +1,7 @@
 "use strict";
 
-const lunr = require('lunr');
+const lunr = require('lunr'),
+	removeDiacritics = require('diacritics').remove;
 
 class Search {
 	constructor() {
@@ -136,6 +137,8 @@ class Search {
 		if (!fields) {
 			fields = index.fields;
 		}
+
+		term = removeDiacritics(term);
 
 		if (term.length > 15) {
 			term = term.substring(0, 14) + lunr.Query.wildcard;

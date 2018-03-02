@@ -3,6 +3,7 @@
 const log = require('loglevel').getLogger('GymSearch'),
 	lunr = require('lunr'),
 	he = require('he'),
+	removeDiacritics = require('diacritics').remove,
 	Search = require('./search');
 
 class Gym extends Search {
@@ -73,12 +74,12 @@ class Gym extends Search {
 				gym.gymInfo.gymDescription = he.decode(gym.gymInfo.gymDescription);
 
 				// static fields
-				gymDocument['name'] = gym.gymName.replace(/[^\w\s-]+/g, '');
-				gymDocument['description'] = gym.gymInfo.gymDescription.replace(/[^\w\s-]+/g, '');
+				gymDocument['name'] = removeDiacritics(gym.gymName).replace(/[^\w\s-]+/g, '');
+				gymDocument['description'] = removeDiacritics(gym.gymInfo.gymDescription).replace(/[^\w\s-]+/g, '');
 
 				if (gym.nickname) {
 					gym.nickname = he.decode(gym.nickname);
-					gymDocument['nickname'] = gym.nickname.replace(/[^\w\s-]+/g, '');
+					gymDocument['nickname'] = removeDiacritics(gym.nickname).replace(/[^\w\s-]+/g, '');
 				}
 
 				// Build a map of the geocoded information:
@@ -106,16 +107,18 @@ class Gym extends Search {
 
 				// Insert geocoded map info into map
 				addressInfo.forEach((value, key) => {
-					gymDocument[key] = Array.from(value).join(' ');
+					gymDocument[key] = removeDiacritics(Array.from(value).join(' '));
 				});
 
 				// Add places into library
 				if (gym.gymInfo.places) {
-					gymDocument['places'] = he.decode(gym.gymInfo.places.join(' '));
+					gymDocument['places'] = removeDiacritics(he.decode(gym.gymInfo.places.join(' ')));
 				}
 
 				// merge in additional info from supplementary metadata file
-				gymDocument['additional_terms'] = gym.additional_terms;
+				if (gym.additional_terms) {
+					gymDocument['additional_terms'] = removeDiacritics(gym.additional_terms);
+				}
 
 				// reference
 				gymDocument['object'] = JSON.stringify(gym);

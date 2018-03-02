@@ -1,6 +1,7 @@
 "use strict";
 
 const log = require('loglevel').getLogger('Raid'),
+	removeDiacritics = require('diacritics').remove,
 	moment = require('moment'),
 	private_settings = require('../data/private-settings'),
 	settings = require('../data/settings'),
@@ -1101,8 +1102,8 @@ class Raid {
 				.join('-'),
 			gym = Gym.getGym(raid.gym_id),
 			gym_name = (!!gym.nickname ?
-				gym.nickname :
-				gym.gymName)
+				removeDiacritics(gym.nickname) :
+				removeDiacritics(gym.gymName))
 				.toLowerCase()
 				.replace(nonCharCleaner, ' ')
 				.split(' ')
