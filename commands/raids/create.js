@@ -20,8 +20,8 @@ class RaidCommand extends Commando.Command {
 				'Once created, it will further prompt you for the raid\'s hatch or end time.',
 			examples: ['\t!raid lugia', '\t!raid zapdos manor theater', '\t!raid magikarp olea', '\t!raid ttar frog fountain'],
 			throttling: {
-				usages: 5,
-				duration: 300
+				usages: 15,
+				duration: 900
 			},
 			args: [
 				{
