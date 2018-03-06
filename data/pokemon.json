@@ -654,6 +654,8 @@
   {
     "name": "slowbro",
     "number": 80,
+    "cp": 11776,
+    "tier": 2,
     "type": [
       "water",
       "psychic"
@@ -975,6 +977,8 @@
   {
     "name": "starmie",
     "number": 121,
+    "cp": 17384,
+    "tier": 3,
     "type": [
       "water",
       "psychic"
@@ -1157,6 +1161,8 @@
   {
     "name": "aerodactyl",
     "number": 142,
+    "cp": 17294,
+    "tier": 3,
     "type": [
       "rock",
       "flying"
@@ -2737,6 +2743,8 @@
   {
     "name": "claydol",
     "number": 344,
+    "cp": 10418,
+    "tier": 3,
     "type": [
       "ground",
       "psychic"
