@@ -9,18 +9,18 @@ const log = require('loglevel').getLogger('NewGroupCommand'),
 class NewGroupCommand extends Commando.Command {
 	constructor(client) {
 		super(client, {
-			name: 'new-group',
+			name: 'new',
 			group: CommandGroup.BASIC_RAID,
-			memberName: 'new-group',
-			aliases: ['create-group'],
+			memberName: 'new',
+			aliases: ['new-group, create-group'],
 			description: 'Creates a new group for a raid and sets your group to it.\n',
 			details: 'Use this command to create a new group for a raid.',
-			examples: ['\t!new-group'],
+			examples: ['\t!new'],
 			guildOnly: true
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (!!message.command && message.command.name === 'new-group' &&
+			if (!!message.command && message.command.name === 'new' &&
 				!Raid.validRaid(message.channel.id)) {
 				return ['invalid-channel', message.reply('Create a new raid group for a raid from its raid channel!')];
 			}
