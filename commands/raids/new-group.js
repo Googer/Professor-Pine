@@ -12,7 +12,7 @@ class NewGroupCommand extends Commando.Command {
 			name: 'new',
 			group: CommandGroup.BASIC_RAID,
 			memberName: 'new',
-			aliases: ['new-group, create-group'],
+			aliases: ['new-group', 'create-group'],
 			description: 'Creates a new group for a raid and sets your group to it.\n',
 			details: 'Use this command to create a new group for a raid.',
 			examples: ['\t!new'],
