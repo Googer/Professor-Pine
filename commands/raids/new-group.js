@@ -2,7 +2,7 @@
 
 const log = require('loglevel').getLogger('NewGroupCommand'),
 	Commando = require('discord.js-commando'),
-	{CommandGroup} = require('../../app/constants'),
+	{CommandGroup, RaidStatus} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
 	Raid = require('../../app/raid');
 
@@ -34,6 +34,24 @@ class NewGroupCommand extends Commando.Command {
 		if (!info.error) {
 			message.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
 				.catch(err => log.error(err));
+
+			// notify all attendees of new group
+			const attendees = Object.entries(info.raid.attendees)
+				.filter(([attendee, attendee_status]) => attendee !== message.member.id &&
+					attendee_status.status !== RaidStatus.COMPLETE)
+				.map(([attendee, attendee_status]) => attendee);
+
+			if (attendees.length > 0) {
+				const members = await Promise.all(attendees
+						.map(async attendee_id => await Raid.getMember(message.channel.id, attendee_id)))
+						.catch(err => log.error(err)),
+					members_string = members
+						.map(member => member.toString())
+						.join(' ');
+
+				message.channel.send(`${members_string}: A new group has been created; if you wish to join it, type \`${this.client.commandPrefix}group ${info.group}\` !`)
+					.catch(err => log.error(err));
+			}
 
 			Raid.refreshStatusMessages(info.raid);
 		} else {

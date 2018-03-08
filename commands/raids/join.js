@@ -28,7 +28,9 @@ class JoinCommand extends Commando.Command {
 					default: NaturalArgumentType.UNDEFINED_NUMBER
 				}
 			],
-			argsPromptLimit: 3,
+			commandErrorMessage: (message, provided) =>
+				`\`${provided[0]}\` is not a valid number of attendees!  If you intend to join a group, use the \`${client.commandPrefix}group\` command!`,
+			argsPromptLimit: 0,
 			guildOnly: true
 		});
 

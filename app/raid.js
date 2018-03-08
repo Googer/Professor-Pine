@@ -719,7 +719,7 @@ class Raid {
 
 		this.setMemberGroup(channel_id, member_id, new_group_id);
 
-		return {raid: raid};
+		return {raid: raid, group: new_group_id};
 	}
 
 	setMemberGroup(channel_id, member_id, group_id) {
