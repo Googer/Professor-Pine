@@ -46,8 +46,8 @@ class NewGroupCommand extends Commando.Command {
 						.map(async attendee_id => await Raid.getMember(message.channel.id, attendee_id)))
 						.catch(err => log.error(err)),
 					members_string = members
-						.map(member => member.toString())
-						.join(' ');
+						.map(member => `**${member.displayName}**`)
+						.reduce((prev, next) => prev + ', ' + next);
 
 				message.channel.send(`${members_string}: A new group has been created; if you wish to join it, type \`${this.client.commandPrefix}group ${info.group}\` !`)
 					.catch(err => log.error(err));
