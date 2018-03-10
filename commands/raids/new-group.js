@@ -4,6 +4,7 @@ const log = require('loglevel').getLogger('NewGroupCommand'),
 	Commando = require('discord.js-commando'),
 	{CommandGroup, RaidStatus} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
+	Notify = require('../../app/notify'),
 	Raid = require('../../app/raid');
 
 class NewGroupCommand extends Commando.Command {
@@ -45,8 +46,15 @@ class NewGroupCommand extends Commando.Command {
 				const members = await Promise.all(attendees
 						.map(async attendee_id => await Raid.getMember(message.channel.id, attendee_id)))
 						.catch(err => log.error(err)),
-					members_string = members
-						.map(member => `**${member.displayName}**`)
+					members_strings = await Promise.all(members
+						.map(async member => {
+							const mention = await Notify.shouldMention(member);
+
+							return mention ?
+								member.toString() :
+								`**${member.displayName}**`;
+						})),
+					members_string = members_strings
 						.reduce((prev, next) => prev + ', ' + next);
 
 				message.channel.send(`${members_string}: A new group has been created; if you wish to join it, type \`${this.client.commandPrefix}group ${info.group}\` !`)

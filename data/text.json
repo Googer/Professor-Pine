@@ -17,6 +17,9 @@
 	"unfavoriteall": {
 		"warning": "Use the `!untarget-all` command in ${bot_channel} to remove all notifications for gyms."
 	},
+	"mentions": {
+		"warning": "Use the `!mentions` command in ${bot_channel} to change your preferences for being mentioned by Professor Pine."
+	},
 	"notifications": {
 		"warning": "Use the `!notifications` command in ${bot_channel} to view current notifications for pokémon."
 	},

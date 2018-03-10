@@ -88,6 +88,8 @@ if (settings.features.notifications) {
 }
 
 Client.registry.registerCommands([
+	require('./commands/notifications/mention'),
+
 	require('./commands/raids/join'),
 	require('./commands/raids/interested'),
 	require('./commands/raids/check-in'),

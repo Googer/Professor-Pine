@@ -13,7 +13,7 @@ class UnfavoriteAllCommand extends Commando.Command {
 			group: CommandGroup.NOTIFICATIONS,
 			memberName: 'untarget-all',
 			aliases: ['defave-all', 'detarget-all', 'unfave-all', 'untarget-all', 'clear-targets', 'clear-faves', 'clear-favorites'],
-			description: 'Removes all notifications for gyms.',
+			description: 'Removes all notifications for gyms.\n',
 			details: 'Use this command to remove all notifications for gyms.',
 			examples: ['\t!unfavorite-all'],
 			guildOnly: true

@@ -298,6 +298,33 @@ class Notify {
 
 		return Promise.resolve(result.count > 0);
 	}
+
+	// check is member wants mentions or not; if they're not in the table at all,
+	// assume they *do* want them
+	async shouldMention(member) {
+		const result = await DB.DB('User')
+			.where('userSnowflake', member.user.id)
+			.pluck('mentions')
+			.first();
+
+		return !!result ?
+			result.mentions === 1 :
+			true;
+	}
+
+	// set mention flag for given user to value passed in
+	setMention(member, mention) {
+		return DB.insertIfAbsent('User', Object.assign({},
+			{
+				userSnowflake: member.user.id
+			}))
+			.then(user_id => DB.DB('User')
+				.where('id', user_id)
+				.update({
+					mentions: mention
+				}))
+			.catch(err => log.error(err));
+	}
 }
 
 module.exports = new Notify();
