@@ -53,7 +53,8 @@ class NewGroupCommand extends Commando.Command {
 							return mention ?
 								member.toString() :
 								`**${member.displayName}**`;
-						})),
+						}))
+						.catch(err => log.error(err)),
 					members_string = members_strings
 						.reduce((prev, next) => prev + ', ' + next);
 
