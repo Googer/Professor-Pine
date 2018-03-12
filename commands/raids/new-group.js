@@ -5,7 +5,8 @@ const log = require('loglevel').getLogger('NewGroupCommand'),
 	{CommandGroup, RaidStatus} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
 	Notify = require('../../app/notify'),
-	Raid = require('../../app/raid');
+	Raid = require('../../app/raid'),
+	settings = require('../../data/settings');
 
 class NewGroupCommand extends Commando.Command {
 	constructor(client) {
@@ -56,9 +57,11 @@ class NewGroupCommand extends Commando.Command {
 						}))
 						.catch(err => log.error(err)),
 					members_string = members_strings
-						.reduce((prev, next) => prev + ', ' + next);
+						.reduce((prev, next) => prev + ', ' + next),
+					bot_lab_channel = message.guild.channels.find(channel => channel.name === settings.channels.bot_lab);
 
-				message.channel.send(`${members_string}: A new group has been created; if you wish to join it, type \`${this.client.commandPrefix}group ${info.group}\` !`)
+				message.channel.send(`${members_string}: A new group has been created; if you wish to join it, type \`${this.client.commandPrefix}group ${info.group}\` !\n\n` +
+					`To enable or disable these notifications, use the \`${this.client.commandPrefix}mentions\` command in ${bot_lab_channel.toString()}.`)
 					.catch(err => log.error(err));
 			}
 
