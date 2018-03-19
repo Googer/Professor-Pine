@@ -3,7 +3,9 @@
 const log = require('loglevel').getLogger('Notify'),
 	DB = require('./db'),
 	Helper = require('./helper'),
-	Raid = require('./raid');
+	{MessageEmbed} = require('discord.js'),
+	Raid = require('./raid'),
+	settings = require('../data/settings');
 
 class Notify {
 	constructor() {
@@ -323,6 +325,33 @@ class Notify {
 				.update({
 					mentions: mention
 				}))
+			.catch(err => log.error(err));
+	}
+
+	async shout(message, members, text, from_member = null) {
+		const members_strings = await Promise.all(members
+				.map(async member => {
+					const mention = await this.shouldMention(member);
+
+					return mention ?
+						member.toString() :
+						`**${member.displayName}**`;
+				}))
+				.catch(err => log.error(err)),
+			members_string = members_strings
+				.reduce((prev, next) => prev + ', ' + next),
+			bot_lab_channel = message.guild.channels.find(channel => channel.name === settings.channels.bot_lab),
+			embed = new MessageEmbed();
+
+		embed.setColor('GREEN');
+
+		if (!!from_member) {
+			embed.setTitle(`Message from **${from_member.displayName}**`);
+		}
+		embed.setDescription(text);
+
+		message.channel.send(members_string, embed)
+			.then(message => message.channel.send(`To enable or disable these notifications, use the \`${message.client.commandPrefix}mentions\` command in ${bot_lab_channel.toString()}.`))
 			.catch(err => log.error(err));
 	}
 }
