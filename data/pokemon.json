@@ -2485,6 +2485,8 @@
   {
     "name": "manectric",
     "number": 310,
+    "cp": 11628,
+    "tier": 2,
     "type": [
       "electric"
     ]
