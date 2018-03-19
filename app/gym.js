@@ -141,6 +141,7 @@ class Gym extends Search {
 			.map(term => term.split('-')));
 
 		const filtered_terms = split_terms
+			.map(term => removeDiacritics(term))
 			.map(term => term.replace(/[^\w\s*]+/g, ''))
 			.map(term => term.toLowerCase())
 			.filter(term => this.stopWordFilter(term));

@@ -72,7 +72,9 @@ class GymType extends Commando.ArgumentType {
 	}
 
 	async parse(value, message, arg) {
-		const name_only = arg? arg.is_screenshot: false,
+		const name_only = arg ?
+			arg.is_screenshot :
+			false,
 			gyms = await Gym.search(message.channel.id, value.split(/\s/g), name_only);
 
 		return gyms[0].gymId;
