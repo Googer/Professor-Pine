@@ -1,7 +1,7 @@
 exports.up = function (knex, Promise) {
 	return Promise.all([
 		knex.schema.table('GymNotification', table => {
-			table.string('gym')
+			table.string('gym', 50)
 				.alter();
 		}),
 	])
