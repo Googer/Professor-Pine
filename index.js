@@ -105,7 +105,7 @@ Client.registry.registerCommands([
 
 	require('./commands/raids/status'),
 	require('./commands/raids/directions'),
-	// require('./commands/raids/shout'),
+	require('./commands/raids/shout'),
 
 	require('./commands/raids/create'),
 	require('./commands/raids/delete'),
