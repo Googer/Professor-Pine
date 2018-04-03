@@ -1033,6 +1033,8 @@
   {
     "name": "pinsir",
     "number": 127,
+    "tier": 3,
+    "cp": 20176,
     "type": [
       "bug"
     ]
@@ -1627,6 +1629,8 @@
   {
     "name": "misdreavus",
     "number": 200,
+    "tier": 2,
+    "cp": 10417,
     "type": [
       "ghost"
     ]
@@ -1701,6 +1705,8 @@
   {
     "name": "granbull",
     "number": 210,
+    "tier": 3,
+    "cp": 15328,
     "type": [
       "fairy"
     ]
@@ -1740,6 +1746,8 @@
   {
     "name": "sneasel",
     "number": 215,
+    "tier": 2,
+    "cp": 11350,
     "type": [
       "dark",
       "ice"
@@ -1849,6 +1857,8 @@
   {
     "name": "houndoom",
     "number": 229,
+    "tier": 4,
+    "cp": 27302,
     "type": [
       "dark",
       "fire"
@@ -2814,6 +2824,8 @@
   {
     "name": "shuppet",
     "number": 353,
+    "tier": 1,
+    "cp": 3372,
     "type": [
       "ghost"
     ]
@@ -2828,6 +2840,8 @@
   {
     "name": "duskull",
     "number": 355,
+    "tier": 1,
+    "cp": 2770,
     "type": [
       "ghost"
     ]
@@ -2905,6 +2919,8 @@
   {
     "name": "walrein",
     "number": 365,
+    "tier": 4,
+    "cp": 23578,
     "type": [
       "ice",
       "water"
