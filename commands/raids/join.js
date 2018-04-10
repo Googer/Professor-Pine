@@ -5,9 +5,10 @@ const log = require('loglevel').getLogger('JoinCommand'),
 	{CommandGroup, RaidStatus} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
 	moment = require('moment'),
+	NaturalArgumentType = require('../../types/natural'),
 	Raid = require('../../app/raid'),
-	Utility = require('../../app/utility'),
-	NaturalArgumentType = require('../../types/natural');
+	settings = require('../../data/settings'),
+	Utility = require('../../app/utility');
 
 class JoinCommand extends Commando.Command {
 	constructor(client) {
@@ -111,7 +112,7 @@ class JoinCommand extends Commando.Command {
 
 		status_promise.then(info => {
 			if (!info.error) {
-				message.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
+				message.react(Helper.getEmoji(settings.emoji.thumbs_up) || '👍')
 					.catch(err => log.error(err));
 
 				Raid.refreshStatusMessages(info.raid);

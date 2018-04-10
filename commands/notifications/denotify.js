@@ -4,7 +4,8 @@ const log = require('loglevel').getLogger('DenotifyCommand'),
 	Commando = require('discord.js-commando'),
 	{CommandGroup} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
-	Notify = require('../../app/notify');
+	Notify = require('../../app/notify'),
+	settings = require('../../data/settings');
 
 class DenotifyCommand extends Commando.Command {
 	constructor(client) {
@@ -39,7 +40,7 @@ class DenotifyCommand extends Commando.Command {
 		const pokemon = args['pokemon'];
 
 		Notify.removePokemonNotification(message.member, pokemon)
-			.then(result => message.react(Helper.getEmoji('snorlaxthumbsup') || '👍'))
+			.then(result => message.react(Helper.getEmoji(settings.emoji.thumbs_up) || '👍'))
 			.catch(err => log.error(err));
 	}
 }

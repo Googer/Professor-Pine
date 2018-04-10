@@ -4,7 +4,8 @@ const log = require('loglevel').getLogger('DoneCommand'),
 	Commando = require('discord.js-commando'),
 	{CommandGroup} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
-	Raid = require('../../app/raid');
+	Raid = require('../../app/raid'),
+	settings = require('../../data/settings');
 
 class DoneCommand extends Commando.Command {
 	constructor(client) {
@@ -32,7 +33,7 @@ class DoneCommand extends Commando.Command {
 		Raid.setPresentAttendeesToComplete(message.channel.id, undefined, message.member.id)
 			.catch(err => log.error(err));
 
-		message.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
+		message.react(Helper.getEmoji(settings.emoji.thumbs_up) || '👍')
 			.catch(err => log.error(err));
 	}
 }

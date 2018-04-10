@@ -8,6 +8,7 @@ const log = require('loglevel').getLogger('UnfavoriteCommand'),
 	Helper = require('../../app/helper'),
 	Notify = require('../../app/notify'),
 	Raid = require('../../app/raid'),
+	settings = require('../../data/settings'),
 	Utility = require('../../app/utility');
 
 class UnfavoriteCommand extends Commando.Command {
@@ -114,7 +115,7 @@ class UnfavoriteCommand extends Commando.Command {
 					Notify.removeGymNotification(message.member, gym_id)
 						.then(result => {
 							if (message.channel.messages.has(message.id)) {
-								message.react(Helper.getEmoji('snorlaxthumbsup') || '👍');
+								message.react(Helper.getEmoji(settings.emoji.thumbs_up) || '👍');
 							}
 						})
 						.catch(err => log.error(err));

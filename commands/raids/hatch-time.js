@@ -4,7 +4,8 @@ const log = require('loglevel').getLogger('HatchTimeCommand'),
 	Commando = require('discord.js-commando'),
 	{CommandGroup, TimeParameter} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
-	Raid = require('../../app/raid');
+	Raid = require('../../app/raid'),
+	settings = require('../../data/settings');
 
 class HatchTimeCommand extends Commando.Command {
 	constructor(client) {
@@ -41,7 +42,7 @@ class HatchTimeCommand extends Commando.Command {
 		const time = args[TimeParameter.HATCH],
 			info = Raid.setRaidHatchTime(message.channel.id, time);
 
-		message.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
+		message.react(Helper.getEmoji(settings.emoji.thumbs_up) || '👍')
 			.catch(err => log.error(err));
 
 		Raid.refreshStatusMessages(info.raid);

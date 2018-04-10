@@ -75,7 +75,7 @@ class Notify {
 		const gym_members = await  DB.DB('User')
 			.innerJoin('GymNotification', {'User.id': 'GymNotification.userId'})
 			.innerJoin('Guild', {'GymNotification.guildId': 'Guild.id'})
-			.whereIn('GymNotification.gym', gym_id)
+			.where('GymNotification.gym', gym_id)
 			.andWhere('Guild.snowflake', guild_id)
 			.pluck('User.userSnowflake');
 

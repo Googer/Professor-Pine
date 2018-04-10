@@ -4,7 +4,8 @@ const log = require('loglevel').getLogger('MentionCommand'),
 	Commando = require('discord.js-commando'),
 	{CommandGroup} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
-	Notify = require('../../app/notify');
+	Notify = require('../../app/notify'),
+	settings = require('../../data/settings');
 
 class MentionCommand extends Commando.Command {
 	constructor(client) {
@@ -40,7 +41,7 @@ class MentionCommand extends Commando.Command {
 		const mention = args['mention'];
 
 		Notify.setMention(message.member, mention)
-			.then(result => message.react(Helper.getEmoji('snorlaxthumbsup') || '👍'))
+			.then(result => message.react(Helper.getEmoji(settings.emoji.thumbs_up) || '👍'))
 			.catch(err => log.error(err));
 	}
 }

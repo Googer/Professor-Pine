@@ -34,7 +34,7 @@ class NewGroupCommand extends Commando.Command {
 		const info = Raid.createGroup(message.channel.id, message.member.id);
 
 		if (!info.error) {
-			message.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
+			message.react(Helper.getEmoji(settings.emoji.thumbs_up) || '👍')
 				.catch(err => log.error(err));
 
 			// notify all attendees of new group

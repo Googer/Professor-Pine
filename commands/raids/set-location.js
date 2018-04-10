@@ -5,7 +5,7 @@ const log = require('loglevel').getLogger('LocationCommand'),
 	{CommandGroup} = require('../../app/constants'),
 	Helper = require('../../app/helper'),
 	Raid = require('../../app/raid'),
-	Utility = require('../../app/utility');
+	settings = require('../../data/settings');
 
 class SetLocationCommand extends Commando.Command {
 	constructor(client) {
@@ -43,7 +43,7 @@ class SetLocationCommand extends Commando.Command {
 		const gym_id = args['gym_id'],
 			info = Raid.setRaidLocation(message.channel.id, gym_id);
 
-		message.react(Helper.getEmoji('snorlaxthumbsup') || '👍')
+		message.react(Helper.getEmoji(settings.emoji.thumbs_up) || '👍')
 			.then(result => {
 				Helper.client.emit('raidGymSet', info.raid, message.member.id);
 

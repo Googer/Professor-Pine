@@ -11,6 +11,10 @@
   "cleanup_interval": 60000,
   "message_cleanup_delay_success": 5000,
   "message_cleanup_delay_error": 30000,
+  "emoji": {
+    "thumbs_up": "pinethumbsup",
+    "thumbs_down": "pinethumbsdown"
+  },
   "features": {
     "ex_gym_channel": true,
     "notifications": true,

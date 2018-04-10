@@ -4,9 +4,9 @@ const log = require('loglevel').getLogger('IAmCommand'),
 	Commando = require('discord.js-commando'),
 	{CommandGroup} = require('../../app/constants'),
 	{MessageEmbed} = require('discord.js'),
-	settings = require('../../data/settings'),
 	Helper = require('../../app/helper'),
-	Role = require('../../app/role');
+	Role = require('../../app/role'),
+	settings = require('../../data/settings');
 
 class IAmCommand extends Commando.Command {
 	constructor(client) {
@@ -204,7 +204,7 @@ class IAmCommand extends Commando.Command {
 				});
 		} else {
 			Role.assignRole(message.member, args)
-				.then(() => message.react(Helper.getEmoji('snorlaxthumbsup') || '👍'))
+				.then(() => message.react(Helper.getEmoji(settings.emoji.thumbs_up) || '👍'))
 				.catch(err => {
 					if (err && err.error) {
 						message.reply(err.error)
