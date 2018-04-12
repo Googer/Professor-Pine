@@ -28,2014 +28,834 @@
   },
   {
     "name": "bulbasaur",
-    "number": 1,
-    "cp": 3757,
-    "tier": 1,
-    "type": [
-      "grass",
-      "poison"
-    ]
+    "tier": 1
   },
   {
     "name": "ivysaur",
-    "number": 2,
-    "cp": 5238,
-    "tier": 1,
-    "type": [
-      "grass",
-      "poison"
-    ]
+    "tier": 1
   },
   {
     "name": "venusaur",
-    "number": 3,
-    "cp": 26921,
-    "tier": 4,
-    "type": [
-      "grass",
-      "poison"
-    ]
+    "tier": 4
   },
   {
     "name": "charmander",
-    "number": 4,
-    "cp": 3380,
-    "tier": 1,
-    "type": [
-      "fire"
-    ]
+    "tier": 1
   },
   {
     "name": "charmeleon",
-    "number": 5,
-    "cp": 5085,
-    "tier": 1,
-    "type": [
-      "fire"
-    ]
+    "tier": 1
   },
   {
     "name": "charizard",
-    "number": 6,
-    "cp": 28485,
-    "tier": 4,
-    "type": [
-      "fire",
-      "flying"
-    ]
+    "tier": 4
   },
   {
     "name": "squirtle",
-    "number": 7,
-    "cp": 3125,
-    "tier": 1,
-    "type": [
-      "water"
-    ]
+    "tier": 1
   },
   {
     "name": "wartortle",
-    "number": 8,
-    "cp": 4503,
-    "tier": 1,
-    "type": [
-      "water"
-    ]
+    "tier": 1
   },
   {
     "name": "blastoise",
-    "number": 9,
-    "cp": 24162,
-    "tier": 4,
-    "type": [
-      "water"
-    ]
+    "tier": 4
   },
   {
-    "name": "caterpie",
-    "number": 10,
-    "type": [
-      "bug"
-    ]
+    "name": "caterpie"
   },
   {
     "name": "metapod",
-    "number": 11,
-    "cp": 1534,
-    "tier": 1,
-    "type": [
-      "bug"
-    ]
+    "tier": 1
   },
   {
-    "name": "butterfree",
-    "number": 12,
-    "type": [
-      "bug",
-      "flying"
-    ]
+    "name": "butterfree"
   },
   {
-    "name": "weedle",
-    "number": 13,
-    "type": [
-      "bug",
-      "poison"
-    ]
+    "name": "weedle"
   },
   {
-    "name": "kakuna",
-    "number": 14,
-    "type": [
-      "bug",
-      "poison"
-    ]
+    "name": "kakuna"
   },
   {
-    "name": "beedrill",
-    "number": 15,
-    "type": [
-      "bug",
-      "poison"
-    ]
+    "name": "beedrill"
   },
   {
-    "name": "pidgey",
-    "number": 16,
-    "type": [
-      "normal",
-      "flying"
-    ]
+    "name": "pidgey"
   },
   {
-    "name": "pidgeotto",
-    "number": 17,
-    "type": [
-      "normal",
-      "flying"
-    ]
+    "name": "pidgeotto"
   },
   {
-    "name": "pidgeot",
-    "number": 18,
-    "type": [
-      "normal",
-      "flying"
-    ]
+    "name": "pidgeot"
   },
   {
-    "name": "rattata",
-    "number": 19,
-    "type": [
-      "normal"
-    ]
+    "name": "rattata"
   },
   {
-    "name": "raticate",
-    "number": 20,
-    "type": [
-      "normal"
-    ]
+    "name": "raticate"
   },
   {
-    "name": "spearow",
-    "number": 21,
-    "type": [
-      "normal",
-      "flying"
-    ]
+    "name": "spearow"
   },
   {
-    "name": "fearow",
-    "number": 22,
-    "type": [
-      "normal",
-      "flying"
-    ]
+    "name": "fearow"
   },
   {
-    "name": "ekans",
-    "number": 23,
-    "type": [
-      "poison"
-    ]
+    "name": "ekans"
   },
   {
-    "name": "arbok",
-    "number": 24,
-    "type": [
-      "poison"
-    ]
+    "name": "arbok"
   },
   {
-    "name": "pikachu",
-    "number": 25,
-    "type": [
-      "electric"
-    ]
+    "name": "pikachu"
   },
   {
-    "name": "raichu",
-    "number": 26,
-    "type": [
-      "electric"
-    ]
+    "name": "raichu"
   },
   {
-    "name": "sandshrew",
-    "number": 27,
-    "type": [
-      "ground"
-    ]
+    "name": "sandshrew"
   },
   {
     "name": "sandslash",
-    "number": 28,
-    "cp": 12312,
-    "tier": 2,
-    "type": [
-      "ground"
-    ]
+    "tier": 2
   },
   {
-    "name": "nidoran♀",
-    "number": 29,
-    "type": [
-      "poison"
-    ]
+    "name": "nidoran♀"
   },
   {
-    "name": "nidorina",
-    "number": 30,
-    "type": [
-      "poison"
-    ]
+    "name": "nidorina"
   },
   {
     "name": "nidoqueen",
-    "number": 31,
-    "cp": 23216,
-    "tier": 4,
-    "type": [
-      "poison",
-      "ground"
-    ]
+    "tier": 4
   },
   {
-    "name": "nidoran♂",
-    "number": 32,
-    "type": [
-      "poison"
-    ]
+    "name": "nidoran♂"
   },
   {
-    "name": "nidorino",
-    "number": 33,
-    "type": [
-      "poison"
-    ]
+    "name": "nidorino"
   },
   {
     "name": "nidoking",
-    "number": 34,
-    "cp": 24873,
-    "tier": 4,
-    "type": [
-      "poison",
-      "ground"
-    ]
+    "tier": 4
   },
   {
-    "name": "clefairy",
-    "number": 35,
-    "type": [
-      "fairy"
-    ]
+    "name": "clefairy"
   },
   {
-    "name": "clefable",
-    "number": 36,
-    "type": [
-      "fairy"
-    ]
+    "name": "clefable"
   },
   {
-    "name": "vulpix",
-    "number": 37,
-    "type": [
-      "fire"
-    ]
+    "name": "vulpix"
   },
   {
     "name": "ninetales",
-    "number": 38,
-    "cp": 14914,
-    "tier": 3,
-    "type": [
-      "fire"
-    ]
+    "tier": 3
   },
   {
-    "name": "jigglypuff",
-    "number": 39,
-    "type": [
-      "normal",
-      "fairy"
-    ]
+    "name": "jigglypuff"
   },
   {
-    "name": "wigglytuff",
-    "number": 40,
-    "type": [
-      "normal",
-      "fairy"
-    ]
+    "name": "wigglytuff"
   },
   {
-    "name": "zubat",
-    "number": 41,
-    "type": [
-      "poison",
-      "flying"
-    ]
+    "name": "zubat"
   },
   {
-    "name": "golbat",
-    "number": 42,
-    "type": [
-      "poison",
-      "flying"
-    ]
+    "name": "golbat"
   },
   {
-    "name": "oddish",
-    "number": 43,
-    "type": [
-      "grass",
-      "poison"
-    ]
+    "name": "oddish"
   },
   {
-    "name": "gloom",
-    "number": 44,
-    "type": [
-      "grass",
-      "poison"
-    ]
+    "name": "gloom"
   },
   {
-    "name": "vileplume",
-    "number": 45,
-    "type": [
-      "grass",
-      "poison"
-    ]
+    "name": "vileplume"
   },
   {
-    "name": "paras",
-    "number": 46,
-    "type": [
-      "bug",
-      "grass"
-    ]
+    "name": "paras"
   },
   {
-    "name": "parasect",
-    "number": 47,
-    "type": [
-      "bug",
-      "grass"
-    ]
+    "name": "parasect"
   },
   {
-    "name": "venonat",
-    "number": 48,
-    "type": [
-      "bug",
-      "poison"
-    ]
+    "name": "venonat"
   },
   {
     "name": "venomoth",
-    "number": 49,
-    "cp": 10572,
-    "tier": 2,
-    "type": [
-      "bug",
-      "poison"
-    ]
+    "tier": 2
   },
   {
-    "name": "diglett",
-    "number": 50,
-    "type": [
-      "ground"
-    ]
+    "name": "diglett"
   },
   {
-    "name": "dugtrio",
-    "number": 51,
-    "type": [
-      "ground"
-    ]
+    "name": "dugtrio"
   },
   {
-    "name": "meowth",
-    "number": 52,
-    "type": [
-      "normal"
-    ]
+    "name": "meowth"
   },
   {
-    "name": "persian",
-    "number": 53,
-    "type": [
-      "normal"
-    ]
+    "name": "persian"
   },
   {
-    "name": "psyduck",
-    "number": 54,
-    "type": [
-      "water"
-    ]
+    "name": "psyduck"
   },
   {
-    "name": "golduck",
-    "number": 55,
-    "type": [
-      "water"
-    ]
+    "name": "golduck"
   },
   {
-    "name": "mankey",
-    "number": 56,
-    "type": [
-      "fighting"
-    ]
+    "name": "mankey"
   },
   {
-    "name": "primeape",
-    "number": 57,
-    "type": [
-      "fighting"
-    ]
+    "name": "primeape"
   },
   {
-    "name": "growlithe",
-    "number": 58,
-    "type": [
-      "fire"
-    ]
+    "name": "growlithe"
   },
   {
     "name": "arcanine",
-    "number": 59,
-    "cp": 17832,
-    "tier": 3,
-    "type": [
-      "fire"
-    ]
+    "tier": 3
   },
   {
-    "name": "poliwag",
-    "number": 60,
-    "type": [
-      "water"
-    ]
+    "name": "poliwag"
   },
   {
-    "name": "poliwhirl",
-    "number": 61,
-    "type": [
-      "water"
-    ]
+    "name": "poliwhirl"
   },
   {
     "name": "poliwrath",
-    "number": 62,
-    "cp": 24247,
-    "tier": 4,
-    "type": [
-      "water",
-      "fighting"
-    ]
+    "tier": 4
   },
   {
-    "name": "abra",
-    "number": 63,
-    "type": [
-      "psychic"
-    ]
+    "name": "abra"
   },
   {
-    "name": "kadabra",
-    "number": 64,
-    "type": [
-      "psychic"
-    ]
+    "name": "kadabra"
   },
   {
     "name": "alakazam",
-    "number": 65,
-    "cp": 22646,
-    "tier": 3,
-    "type": [
-      "psychic"
-    ]
+    "tier": 3
   },
   {
-    "name": "machop",
-    "number": 66,
-    "type": [
-      "fighting"
-    ]
+    "name": "machop"
   },
   {
-    "name": "machoke",
-    "number": 67,
-    "type": [
-      "fighting"
-    ]
+    "name": "machoke"
   },
   {
     "name": "machamp",
-    "number": 68,
-    "cp": 18144,
-    "tier": 3,
-    "type": [
-      "fighting"
-    ]
+    "tier": 3
   },
   {
-    "name": "bellsprout",
-    "number": 69,
-    "type": [
-      "grass",
-      "poison"
-    ]
+    "name": "bellsprout"
   },
   {
-    "name": "weepinbell",
-    "number": 70,
-    "type": [
-      "grass",
-      "poison"
-    ]
+    "name": "weepinbell"
   },
   {
     "name": "victreebel",
-    "number": 71,
-    "cp": 23780,
-    "tier": 4,
-    "type": [
-      "grass",
-      "poison"
-    ]
+    "tier": 4
   },
   {
-    "name": "tentacool",
-    "number": 72,
-    "type": [
-      "water",
-      "poison"
-    ]
+    "name": "tentacool"
   },
   {
     "name": "tentacruel",
-    "number": 73,
-    "cp": 12190,
-    "tier": 2,
-    "type": [
-      "water",
-      "poison"
-    ]
+    "tier": 2
   },
   {
-    "name": "geodude",
-    "number": 74,
-    "type": [
-      "rock",
-      "ground"
-    ]
+    "name": "geodude"
   },
   {
-    "name": "graveler",
-    "number": 75,
-    "type": [
-      "rock",
-      "ground"
-    ]
+    "name": "graveler"
   },
   {
     "name": "golem",
-    "number": 76,
-    "cp": 30572,
-    "tier": 4,
-    "type": [
-      "rock",
-      "ground"
-    ]
+    "tier": 4
   },
   {
-    "name": "ponyta",
-    "number": 77,
-    "type": [
-      "fire"
-    ]
+    "name": "ponyta"
   },
   {
-    "name": "rapidash",
-    "number": 78,
-    "type": [
-      "fire"
-    ]
+    "name": "rapidash"
   },
   {
-    "name": "slowpoke",
-    "number": 79,
-    "type": [
-      "water",
-      "psychic"
-    ]
+    "name": "slowpoke"
   },
   {
     "name": "slowbro",
-    "number": 80,
-    "cp": 11776,
-    "tier": 2,
-    "type": [
-      "water",
-      "psychic"
-    ]
+    "tier": 2
   },
   {
-    "name": "magnemite",
-    "number": 81,
-    "type": [
-      "electric",
-      "steel"
-    ]
+    "name": "magnemite"
   },
   {
     "name": "magneton",
-    "number": 82,
-    "cp": 14172,
-    "tier": 2,
-    "type": [
-      "electric",
-      "steel"
-    ]
+    "tier": 2
   },
   {
-    "name": "farfetch'd",
-    "number": 83,
-    "type": [
-      "normal",
-      "flying"
-    ]
+    "name": "farfetch'd"
   },
   {
-    "name": "doduo",
-    "number": 84,
-    "type": [
-      "normal",
-      "flying"
-    ]
+    "name": "doduo"
   },
   {
-    "name": "dodrio",
-    "number": 85,
-    "type": [
-      "normal",
-      "flying"
-    ]
+    "name": "dodrio"
   },
   {
-    "name": "seel",
-    "number": 86,
-    "type": [
-      "water"
-    ]
+    "name": "seel"
   },
   {
     "name": "dewgong",
-    "number": 87,
-    "tier": 2,
-    "cp": 9216,
-    "type": [
-      "water",
-      "ice"
-    ]
+    "tier": 2
   },
   {
-    "name": "grimer",
-    "number": 88,
-    "type": [
-      "poison"
-    ]
+    "name": "grimer"
   },
   {
     "name": "muk",
-    "number": 89,
-    "cp": 12269,
-    "tier": 2,
-    "type": [
-      "poison"
-    ]
+    "tier": 2
   },
   {
-    "name": "shellder",
-    "number": 90,
-    "type": [
-      "water"
-    ]
+    "name": "shellder"
   },
   {
     "name": "cloyster",
-    "number": 91,
-    "cp": 15678,
-    "tier": 2,
-    "type": [
-      "water",
-      "ice"
-    ]
+    "tier": 2
   },
   {
-    "name": "gastly",
-    "number": 92,
-    "type": [
-      "ghost",
-      "poison"
-    ]
+    "name": "gastly"
   },
   {
-    "name": "haunter",
-    "number": 93,
-    "type": [
-      "ghost",
-      "poison"
-    ]
+    "name": "haunter"
   },
   {
     "name": "gengar",
-    "number": 94,
-    "cp": 19768,
-    "tier": 3,
-    "type": [
-      "ghost",
-      "poison"
-    ]
+    "tier": 3
   },
   {
     "name": "onix",
-    "number": 95,
-    "cp": 9534,
-    "tier": 3,
-    "type": [
-      "rock",
-      "ground"
-    ]
+    "tier": 3
   },
   {
-    "name": "drowzee",
-    "number": 96,
-    "type": [
-      "psychic"
-    ]
+    "name": "drowzee"
   },
   {
-    "name": "hypno",
-    "number": 97,
-    "type": [
-      "psychic"
-    ]
+    "name": "hypno"
   },
   {
-    "name": "krabby",
-    "number": 98,
-    "type": [
-      "water"
-    ]
+    "name": "krabby"
   },
   {
-    "name": "kingler",
-    "number": 99,
-    "type": [
-      "water"
-    ]
+    "name": "kingler"
   },
   {
-    "name": "voltorb",
-    "number": 100,
-    "type": [
-      "electric"
-    ]
+    "name": "voltorb"
   },
   {
-    "name": "electrode",
-    "number": 101,
-    "type": [
-      "electric"
-    ]
+    "name": "electrode"
   },
   {
-    "name": "exeggcute",
-    "number": 102,
-    "type": [
-      "grass",
-      "psychic"
-    ]
+    "name": "exeggcute"
   },
   {
     "name": "exeggutor",
-    "number": 103,
-    "cp": 13839,
-    "tier": 2,
-    "type": [
-      "grass",
-      "psychic"
-    ]
+    "tier": 2
   },
   {
-    "name": "cubone",
-    "number": 104,
-    "type": [
-      "ground"
-    ]
+    "name": "cubone"
   },
   {
     "name": "marowak",
-    "number": 105,
-    "cp": 9891,
-    "tier": 2,
-    "type": [
-      "ground"
-    ]
+    "tier": 2
   },
   {
-    "name": "hitmonlee",
-    "number": 106,
-    "type": [
-      "fighting"
-    ]
+    "name": "hitmonlee"
   },
   {
-    "name": "hitmonchan",
-    "number": 107,
-    "type": [
-      "fighting"
-    ]
+    "name": "hitmonchan"
   },
   {
     "name": "lickitung",
-    "number": 108,
-    "cp": 6433,
-    "tier": 2,
-    "type": [
-      "normal"
-    ]
+    "tier": 2
   },
   {
-    "name": "koffing",
-    "number": 109,
-    "type": [
-      "poison"
-    ]
+    "name": "koffing"
   },
   {
     "name": "weezing",
-    "number": 110,
-    "cp": 12318,
-    "tier": 2,
-    "type": [
-      "poison"
-    ]
+    "tier": 2
   },
   {
-    "name": "rhyhorn",
-    "number": 111,
-    "type": [
-      "ground",
-      "rock"
-    ]
+    "name": "rhyhorn"
   },
   {
     "name": "rhydon",
-    "number": 112,
-    "cp": 30512,
-    "tier": 4,
-    "type": [
-      "ground",
-      "rock"
-    ]
+    "tier": 4
   },
   {
-    "name": "chansey",
-    "number": 113,
-    "type": [
-      "normal"
-    ]
+    "name": "chansey"
   },
   {
-    "name": "tangela",
-    "number": 114,
-    "type": [
-      "grass"
-    ]
+    "name": "tangela"
   },
   {
-    "name": "kangaskhan",
-    "number": 115,
-    "type": [
-      "normal"
-    ]
+    "name": "kangaskhan"
   },
   {
-    "name": "horsea",
-    "number": 116,
-    "type": [
-      "water"
-    ]
+    "name": "horsea"
   },
   {
-    "name": "seadra",
-    "number": 117,
-    "type": [
-      "water"
-    ]
+    "name": "seadra"
   },
   {
-    "name": "goldeen",
-    "number": 118,
-    "type": [
-      "water"
-    ]
+    "name": "goldeen"
   },
   {
-    "name": "seaking",
-    "number": 119,
-    "type": [
-      "water"
-    ]
+    "name": "seaking"
   },
   {
-    "name": "staryu",
-    "number": 120,
-    "type": [
-      "water"
-    ]
+    "name": "staryu"
   },
   {
     "name": "starmie",
-    "number": 121,
-    "cp": 17384,
-    "tier": 3,
-    "type": [
-      "water",
-      "psychic"
-    ]
+    "tier": 3
   },
   {
-    "name": "mr. mime",
-    "number": 122,
-    "type": [
-      "psychic",
-      "fairy"
-    ]
+    "name": "mr. mime"
   },
   {
     "name": "scyther",
-    "number": 123,
-    "cp": 17358,
-    "tier": 3,
-    "type": [
-      "bug",
-      "flying"
-    ]
+    "tier": 3
   },
   {
     "name": "jynx",
-    "number": 124,
-    "tier": 3,
-    "cp": 18296,
-    "type": [
-      "ice",
-      "psychic"
-    ]
+    "tier": 3
   },
   {
     "name": "electabuzz",
-    "number": 125,
-    "cp": 12390,
-    "tier": 2,
-    "type": [
-      "electric"
-    ]
+    "tier": 2
   },
   {
     "name": "magmar",
-    "number": 126,
-    "cp": 12718,
-    "tier": 2,
-    "type": [
-      "fire"
-    ]
+    "tier": 2
   },
   {
     "name": "pinsir",
-    "number": 127,
-    "tier": 3,
-    "cp": 20176,
-    "type": [
-      "bug"
-    ]
+    "tier": 3
   },
   {
-    "name": "tauros",
-    "number": 128,
-    "type": [
-      "normal"
-    ]
+    "name": "tauros"
   },
   {
     "name": "magikarp",
     "nickname": [
       "karp"
     ],
-    "number": 129,
-    "cp": 1165,
-    "tier": 1,
-    "type": [
-      "water"
-    ]
+    "tier": 1
   },
   {
-    "name": "gyarados",
-    "number": 130,
-    "type": [
-      "water",
-      "flying"
-    ]
+    "name": "gyarados"
   },
   {
     "name": "lapras",
-    "number": 131,
-    "cp": 21768,
-    "tier": 4,
-    "type": [
-      "water",
-      "ice"
-    ]
+    "tier": 4
   },
   {
-    "name": "ditto",
-    "number": 132,
-    "type": [
-      "normal"
-    ]
+    "name": "ditto"
   },
   {
-    "name": "eevee",
-    "number": 133,
-    "type": [
-      "normal"
-    ]
+    "name": "eevee"
   },
   {
     "name": "vaporeon",
-    "number": 134,
-    "cp": 16696,
-    "tier": 3,
-    "type": [
-      "water"
-    ]
+    "tier": 3
   },
   {
     "name": "jolteon",
-    "number": 135,
-    "cp": 19883,
-    "tier": 3,
-    "type": [
-      "electric"
-    ]
+    "tier": 3
   },
   {
     "name": "flareon",
-    "number": 136,
-    "cp": 21155,
-    "tier": 3,
-    "type": [
-      "fire"
-    ]
+    "tier": 3
   },
   {
     "name": "porygon",
-    "number": 137,
-    "cp": 11419,
-    "tier": 3,
-    "type": [
-      "normal"
-    ]
+    "tier": 3
   },
   {
-    "name": "omanyte",
-    "number": 138,
-    "type": [
-      "rock",
-      "water"
-    ]
+    "name": "omanyte"
   },
   {
     "name": "omastar",
-    "number": 139,
-    "cp": 18915,
-    "tier": 3,
-    "type": [
-      "rock",
-      "water"
-    ]
+    "tier": 3
   },
   {
-    "name": "kabuto",
-    "number": 140,
-    "type": [
-      "rock",
-      "water"
-    ]
+    "name": "kabuto"
   },
   {
     "name": "kabutops",
-    "number": 141,
-    "cp": 19004,
-    "tier": 3,
-    "type": [
-      "rock",
-      "water"
-    ]
+    "tier": 3
   },
   {
     "name": "aerodactyl",
-    "number": 142,
-    "cp": 17294,
-    "tier": 3,
-    "type": [
-      "rock",
-      "flying"
-    ]
+    "tier": 3
   },
   {
     "name": "snorlax",
-    "number": 143,
-    "cp": 25419,
-    "tier": 4,
-    "type": [
-      "normal"
-    ]
+    "tier": 4
   },
   {
     "name": "articuno",
     "nickname": [
       "arty"
     ],
-    "number": 144,
-    "cp": 37603,
-    "tier": 5,
-    "type": [
-      "ice",
-      "flying"
-    ]
+    "tier": 5
   },
   {
     "name": "zapdos",
     "nickname": [
       "zappy"
     ],
-    "number": 145,
-    "cp": 42691,
-    "tier": 5,
-    "type": [
-      "electric",
-      "flying"
-    ]
+    "tier": 5
   },
   {
     "name": "moltres",
     "nickname": [
       "molty"
     ],
-    "number": 146,
-    "cp": 41953,
-    "tier": 5,
-    "type": [
-      "fire",
-      "flying"
-    ]
+    "tier": 5
   },
   {
-    "name": "dratini",
-    "number": 147,
-    "type": [
-      "dragon"
-    ]
+    "name": "dratini"
   },
   {
-    "name": "dragonair",
-    "number": 148,
-    "type": [
-      "dragon"
-    ]
+    "name": "dragonair"
   },
   {
-    "name": "dragonite",
-    "number": 149,
-    "type": [
-      "dragon",
-      "flying"
-    ]
+    "name": "dragonite"
   },
   {
     "name": "mewtwo",
-    "number": 150,
-    "cp": 49430,
-    "exclusive": true,
-    "type": [
-      "psychic"
-    ]
+    "exclusive": true
   },
   {
-    "name": "mew",
-    "number": 151,
-    "cp": 37733,
-    "type": [
-      "psychic"
-    ]
+    "name": "mew"
   },
   {
-    "name": "chikorita",
-    "number": 152,
-    "type": [
-      "grass"
-    ]
+    "name": "chikorita"
   },
   {
     "name": "bayleef",
-    "number": 153,
-    "cp": 4375,
-    "tier": 1,
-    "type": [
-      "grass"
-    ]
+    "tier": 1
   },
   {
-    "name": "meganium",
-    "number": 154,
-    "type": [
-      "grass"
-    ]
+    "name": "meganium"
   },
   {
-    "name": "cyndaquil",
-    "number": 155,
-    "type": [
-      "fire"
-    ]
+    "name": "cyndaquil"
   },
   {
     "name": "quilava",
-    "number": 156,
-    "cp": 5085,
-    "tier": 1,
-    "type": [
-      "fire"
-    ]
+    "tier": 1
   },
   {
-    "name": "typhlosion",
-    "number": 157,
-    "type": [
-      "fire"
-    ]
+    "name": "typhlosion"
   },
   {
-    "name": "totodile",
-    "number": 158,
-    "type": [
-      "water"
-    ]
+    "name": "totodile"
   },
   {
     "name": "croconaw",
-    "number": 159,
-    "cp": 5207,
-    "tier": 1,
-    "type": [
-      "water"
-    ]
+    "tier": 1
   },
   {
     "name": "feraligatr",
-    "number": 160,
-    "tier": 4,
-    "cp": 27740,
-    "type": [
-      "water"
-    ]
+    "tier": 4
   },
   {
-    "name": "sentret",
-    "number": 161,
-    "type": [
-      "normal"
-    ]
+    "name": "sentret"
   },
   {
-    "name": "furret",
-    "number": 162,
-    "type": [
-      "normal"
-    ]
+    "name": "furret"
   },
   {
-    "name": "hoothoot",
-    "number": 163,
-    "type": [
-      "normal",
-      "flying"
-    ]
+    "name": "hoothoot"
   },
   {
-    "name": "noctowl",
-    "number": 164,
-    "type": [
-      "normal",
-      "flying"
-    ]
+    "name": "noctowl"
   },
   {
-    "name": "ledyba",
-    "number": 165,
-    "type": [
-      "bug",
-      "flying"
-    ]
+    "name": "ledyba"
   },
   {
-    "name": "ledian",
-    "number": 166,
-    "type": [
-      "bug",
-      "flying"
-    ]
+    "name": "ledian"
   },
   {
-    "name": "spinarak",
-    "number": 167,
-    "type": [
-      "bug",
-      "poison"
-    ]
+    "name": "spinarak"
   },
   {
-    "name": "ariados",
-    "number": 168,
-    "type": [
-      "bug",
-      "poison"
-    ]
+    "name": "ariados"
   },
   {
-    "name": "crobat",
-    "number": 169,
-    "type": [
-      "poison",
-      "flying"
-    ]
+    "name": "crobat"
   },
   {
-    "name": "chinchou",
-    "number": 170,
-    "type": [
-      "water",
-      "electric"
-    ]
+    "name": "chinchou"
   },
   {
-    "name": "lanturn",
-    "number": 171,
-    "type": [
-      "water",
-      "electric"
-    ]
+    "name": "lanturn"
   },
   {
-    "name": "pichu",
-    "number": 172,
-    "type": [
-      "electric"
-    ]
+    "name": "pichu"
   },
   {
-    "name": "cleffa",
-    "number": 173,
-    "type": [
-      "fairy"
-    ]
+    "name": "cleffa"
   },
   {
-    "name": "igglybuff",
-    "number": 174,
-    "type": [
-      "normal",
-      "fairy"
-    ]
+    "name": "igglybuff"
   },
   {
-    "name": "togepi",
-    "number": 175,
-    "type": [
-      "fairy"
-    ]
+    "name": "togepi"
   },
   {
-    "name": "togetic",
-    "number": 176,
-    "type": [
-      "fairy",
-      "flying"
-    ]
+    "name": "togetic"
   },
   {
-    "name": "natu",
-    "number": 177,
-    "type": [
-      "psychic",
-      "flying"
-    ]
+    "name": "natu"
   },
   {
-    "name": "xatu",
-    "number": 178,
-    "type": [
-      "psychic",
-      "flying"
-    ]
+    "name": "xatu"
   },
   {
-    "name": "mareep",
-    "number": 179,
-    "type": [
-      "electric"
-    ]
+    "name": "mareep"
   },
   {
-    "name": "flaaffy",
-    "number": 180,
-    "type": [
-      "electric"
-    ]
+    "name": "flaaffy"
   },
   {
-    "name": "ampharos",
-    "number": 181,
-    "type": [
-      "electric"
-    ]
+    "name": "ampharos"
   },
   {
-    "name": "bellossom",
-    "number": 182,
-    "type": [
-      "grass"
-    ]
+    "name": "bellossom"
   },
   {
-    "name": "marill",
-    "number": 183,
-    "type": [
-      "water",
-      "fairy"
-    ]
+    "name": "marill"
   },
   {
     "name": "azumarill",
-    "number": 184,
-    "tier": 3,
-    "cp": 8989,
-    "type": [
-      "water",
-      "fairy"
-    ]
+    "tier": 3
   },
   {
-    "name": "sudowoodo",
-    "number": 185,
-    "type": [
-      "rock"
-    ]
+    "name": "sudowoodo"
   },
   {
-    "name": "politoed",
-    "number": 186,
-    "type": [
-      "water"
-    ]
+    "name": "politoed"
   },
   {
-    "name": "hoppip",
-    "number": 187,
-    "type": [
-      "grass",
-      "flying"
-    ]
+    "name": "hoppip"
   },
   {
-    "name": "skiploom",
-    "number": 188,
-    "type": [
-      "grass",
-      "flying"
-    ]
+    "name": "skiploom"
   },
   {
-    "name": "jumpluff",
-    "number": 189,
-    "type": [
-      "grass",
-      "flying"
-    ]
+    "name": "jumpluff"
   },
   {
-    "name": "aipom",
-    "number": 190,
-    "type": [
-      "normal"
-    ]
+    "name": "aipom"
   },
   {
-    "name": "sunkern",
-    "number": 191,
-    "type": [
-      "grass"
-    ]
+    "name": "sunkern"
   },
   {
-    "name": "sunflora",
-    "number": 192,
-    "type": [
-      "grass"
-    ]
+    "name": "sunflora"
   },
   {
-    "name": "yanma",
-    "number": 193,
-    "type": [
-      "bug",
-      "flying"
-    ]
+    "name": "yanma"
   },
   {
-    "name": "wooper",
-    "number": 194,
-    "type": [
-      "water",
-      "ground"
-    ]
+    "name": "wooper"
   },
   {
-    "name": "quagsire",
-    "number": 195,
-    "type": [
-      "water",
-      "ground"
-    ]
+    "name": "quagsire"
   },
   {
-    "name": "espeon",
-    "number": 196,
-    "type": [
-      "psychic"
-    ]
+    "name": "espeon"
   },
   {
-    "name": "umbreon",
-    "number": 197,
-    "type": [
-      "dark"
-    ]
+    "name": "umbreon"
   },
   {
-    "name": "murkrow",
-    "number": 198,
-    "type": [
-      "dark",
-      "flying"
-    ]
+    "name": "murkrow"
   },
   {
-    "name": "slowking",
-    "number": 199,
-    "type": [
-      "water",
-      "psychic"
-    ]
+    "name": "slowking"
   },
   {
     "name": "misdreavus",
-    "number": 200,
-    "tier": 2,
-    "cp": 10417,
-    "type": [
-      "ghost"
-    ]
+    "tier": 2
   },
   {
-    "name": "unown",
-    "number": 201,
-    "type": [
-      "psychic"
-    ]
+    "name": "unown"
   },
   {
-    "name": "wobbuffet",
-    "number": 202,
-    "type": [
-      "psychic"
-    ]
+    "name": "wobbuffet"
   },
   {
-    "name": "girafarig",
-    "number": 203,
-    "type": [
-      "normal",
-      "psychic"
-    ]
+    "name": "girafarig"
   },
   {
-    "name": "pineco",
-    "number": 204,
-    "type": [
-      "bug"
-    ]
+    "name": "pineco"
   },
   {
-    "name": "forretress",
-    "number": 205,
-    "type": [
-      "bug",
-      "steel"
-    ]
+    "name": "forretress"
   },
   {
-    "name": "dunsparce",
-    "number": 206,
-    "type": [
-      "normal"
-    ]
+    "name": "dunsparce"
   },
   {
-    "name": "gligar",
-    "number": 207,
-    "type": [
-      "ground",
-      "flying"
-    ]
+    "name": "gligar"
   },
   {
-    "name": "steelix",
-    "number": 208,
-    "type": [
-      "steel",
-      "ground"
-    ]
+    "name": "steelix"
   },
   {
-    "name": "snubbull",
-    "number": 209,
-    "type": [
-      "fairy"
-    ]
+    "name": "snubbull"
   },
   {
     "name": "granbull",
-    "number": 210,
-    "tier": 3,
-    "cp": 15328,
-    "type": [
-      "fairy"
-    ]
+    "tier": 3
   },
   {
-    "name": "qwilfish",
-    "number": 211,
-    "type": [
-      "water",
-      "poison"
-    ]
+    "name": "qwilfish"
   },
   {
-    "name": "scizor",
-    "number": 212,
-    "type": [
-      "bug",
-      "steel"
-    ]
+    "name": "scizor"
   },
   {
-    "name": "shuckle",
-    "number": 213,
-    "type": [
-      "bug",
-      "rock"
-    ]
+    "name": "shuckle"
   },
   {
-    "name": "heracross",
-    "number": 214,
-    "type": [
-      "bug",
-      "fighting"
-    ]
+    "name": "heracross"
   },
   {
     "name": "sneasel",
-    "number": 215,
-    "tier": 2,
-    "cp": 11350,
-    "type": [
-      "dark",
-      "ice"
-    ]
+    "tier": 2
   },
   {
-    "name": "teddiursa",
-    "number": 216,
-    "type": [
-      "normal"
-    ]
+    "name": "teddiursa"
   },
   {
-    "name": "ursaring",
-    "number": 217,
-    "type": [
-      "normal"
-    ]
+    "name": "ursaring"
   },
   {
-    "name": "slugma",
-    "number": 218,
-    "type": [
-      "fire"
-    ]
+    "name": "slugma"
   },
   {
-    "name": "magcargo",
-    "number": 219,
-    "type": [
-      "fire",
-      "rock"
-    ]
+    "name": "magcargo"
   },
   {
-    "name": "swinub",
-    "number": 220,
-    "type": [
-      "ice",
-      "ground"
-    ]
+    "name": "swinub"
   },
   {
     "name": "piloswine",
-    "number": 221,
-    "tier": 3,
-    "cp": 13663,
-    "type": [
-      "ice",
-      "ground"
-    ]
+    "tier": 3
   },
   {
-    "name": "corsola",
-    "number": 222,
-    "type": [
-      "water",
-      "rock"
-    ]
+    "name": "corsola"
   },
   {
-    "name": "remoraid",
-    "number": 223,
-    "type": [
-      "water"
-    ]
+    "name": "remoraid"
   },
   {
-    "name": "octillery",
-    "number": 224,
-    "type": [
-      "water"
-    ]
+    "name": "octillery"
   },
   {
-    "name": "delibird",
-    "number": 225,
-    "type": [
-      "ice",
-      "flying"
-    ]
+    "name": "delibird"
   },
   {
-    "name": "mantine",
-    "number": 226,
-    "type": [
-      "water",
-      "flying"
-    ]
+    "name": "mantine"
   },
   {
-    "name": "skarmory",
-    "number": 227,
-    "type": [
-      "steel",
-      "flying"
-    ]
+    "name": "skarmory"
   },
   {
-    "name": "houndour",
-    "number": 228,
-    "type": [
-      "dark",
-      "fire"
-    ]
+    "name": "houndour"
   },
   {
     "name": "houndoom",
-    "number": 229,
-    "tier": 4,
-    "cp": 27302,
-    "type": [
-      "dark",
-      "fire"
-    ]
+    "tier": 4
   },
   {
-    "name": "kingdra",
-    "number": 230,
-    "type": [
-      "water",
-      "dragon"
-    ]
+    "name": "kingdra"
   },
   {
-    "name": "phanpy",
-    "number": 231,
-    "type": [
-      "ground"
-    ]
+    "name": "phanpy"
   },
   {
-    "name": "donphan",
-    "number": 232,
-    "type": [
-      "ground"
-    ]
+    "name": "donphan"
   },
   {
-    "name": "porygon2",
-    "number": 233,
-    "type": [
-      "normal"
-    ]
+    "name": "porygon2"
   },
   {
-    "name": "stantler",
-    "number": 234,
-    "type": [
-      "normal"
-    ]
+    "name": "stantler"
   },
   {
-    "name": "smeargle",
-    "number": 235,
-    "type": [
-      "normal"
-    ]
+    "name": "smeargle"
   },
   {
-    "name": "tyrogue",
-    "number": 236,
-    "type": [
-      "fighting"
-    ]
+    "name": "tyrogue"
   },
   {
-    "name": "hitmontop",
-    "number": 237,
-    "type": [
-      "fighting"
-    ]
+    "name": "hitmontop"
   },
   {
-    "name": "smoochum",
-    "number": 238,
-    "type": [
-      "ice",
-      "psychic"
-    ]
+    "name": "smoochum"
   },
   {
-    "name": "elekid",
-    "number": 239,
-    "type": [
-      "electric"
-    ]
+    "name": "elekid"
   },
   {
-    "name": "magby",
-    "number": 240,
-    "type": [
-      "fire"
-    ]
+    "name": "magby"
   },
   {
-    "name": "miltank",
-    "number": 241,
-    "type": [
-      "normal"
-    ]
+    "name": "miltank"
   },
   {
-    "name": "blissey",
-    "number": 242,
-    "type": [
-      "normal"
-    ]
+    "name": "blissey"
   },
   {
     "name": "raikou",
-    "number": 243,
-    "cp": 42932,
-    "tier": 5,
-    "type": [
-      "electric"
-    ]
+    "tier": 5
   },
   {
     "name": "entei",
-    "number": 244,
-    "cp": 38628,
-    "tier": 5,
-    "type": [
-      "fire"
-    ]
+    "tier": 5
   },
   {
     "name": "suicune",
-    "number": 245,
-    "cp": 34471,
-    "tier": 5,
-    "type": [
-      "water"
-    ]
+    "tier": 5
   },
   {
-    "name": "larvitar",
-    "number": 246,
-    "type": [
-      "rock",
-      "ground"
-    ]
+    "name": "larvitar"
   },
   {
-    "name": "pupitar",
-    "number": 247,
-    "type": [
-      "rock",
-      "ground"
-    ]
+    "name": "pupitar"
   },
   {
     "name": "tyranitar",
     "nickname": [
       "ttar"
     ],
-    "number": 248,
-    "cp": 34707,
-    "tier": 4,
-    "type": [
-      "rock",
-      "dark"
-    ]
+    "tier": 4
   },
   {
     "name": "lugia",
-    "number": 249,
-    "cp": 42753,
-    "tier": 5,
-    "type": [
-      "psychic",
-      "flying"
-    ]
+    "tier": 5
   },
   {
     "name": "ho-oh",
@@ -2044,1074 +864,434 @@
       "hoho",
       "santa"
     ],
-    "number": 250,
-    "cp": 48276,
-    "tier": 5,
-    "type": [
-      "fire",
-      "flying"
-    ]
+    "tier": 5
   },
   {
-    "name": "celebi",
-    "number": 251,
-    "cp": 37733,
-    "type": [
-      "psychic",
-      "grass"
-    ]
+    "name": "celebi"
   },
   {
-    "name": "treecko",
-    "number": 252,
-    "type": [
-      "grass"
-    ]
+    "name": "treecko"
   },
   {
-    "name": "grovyle",
-    "number": 253,
-    "type": [
-      "grass"
-    ]
+    "name": "grovyle"
   },
   {
-    "name": "sceptile",
-    "number": 254,
-    "type": [
-      "grass"
-    ]
+    "name": "sceptile"
   },
   {
-    "name": "torchic",
-    "number": 255,
-    "type": [
-      "fire"
-    ]
+    "name": "torchic"
   },
   {
-    "name": "combusken",
-    "number": 256,
-    "type": [
-      "fire",
-      "fighting"
-    ]
+    "name": "combusken"
   },
   {
-    "name": "blaziken",
-    "number": 257,
-    "type": [
-      "fire",
-      "fighting"
-    ]
+    "name": "blaziken"
   },
   {
-    "name": "mudkip",
-    "number": 258,
-    "type": [
-      "water"
-    ]
+    "name": "mudkip"
   },
   {
-    "name": "marshtomp",
-    "number": 259,
-    "type": [
-      "water",
-      "ground"
-    ]
+    "name": "marshtomp"
   },
   {
-    "name": "swampert",
-    "number": 260,
-    "type": [
-      "water",
-      "ground"
-    ]
+    "name": "swampert"
   },
   {
-    "name": "poochyena",
-    "number": 261,
-    "type": [
-      "dark"
-    ]
+    "name": "poochyena"
   },
   {
-    "name": "mightyena",
-    "number": 262,
-    "type": [
-      "dark"
-    ]
+    "name": "mightyena"
   },
   {
-    "name": "zigzagoon",
-    "number": 263,
-    "type": [
-      "normal"
-    ]
+    "name": "zigzagoon"
   },
   {
-    "name": "linoone",
-    "number": 264,
-    "type": [
-      "normal"
-    ]
+    "name": "linoone"
   },
   {
-    "name": "wurmple",
-    "number": 265,
-    "type": [
-      "bug"
-    ]
+    "name": "wurmple"
   },
   {
-    "name": "silcoon",
-    "number": 266,
-    "type": [
-      "bug"
-    ]
+    "name": "silcoon"
   },
   {
-    "name": "beautifly",
-    "number": 267,
-    "type": [
-      "bug",
-      "flying"
-    ]
+    "name": "beautifly"
   },
   {
-    "name": "cascoon",
-    "number": 268,
-    "type": [
-      "bug"
-    ]
+    "name": "cascoon"
   },
   {
-    "name": "dustox",
-    "number": 269,
-    "type": [
-      "bug",
-      "poison"
-    ]
+    "name": "dustox"
   },
   {
-    "name": "lotad",
-    "number": 270,
-    "type": [
-      "water",
-      "grass"
-    ]
+    "name": "lotad"
   },
   {
-    "name": "lombre",
-    "number": 271,
-    "type": [
-      "water",
-      "grass"
-    ]
+    "name": "lombre"
   },
   {
-    "name": "ludicolo",
-    "number": 272,
-    "type": [
-      "water",
-      "grass"
-    ]
+    "name": "ludicolo"
   },
   {
-    "name": "seedot",
-    "number": 273,
-    "type": [
-      "grass"
-    ]
+    "name": "seedot"
   },
   {
-    "name": "nuzleaf",
-    "number": 274,
-    "type": [
-      "grass",
-      "dark"
-    ]
+    "name": "nuzleaf"
   },
   {
-    "name": "shiftry",
-    "number": 275,
-    "type": [
-      "grass",
-      "dark"
-    ]
+    "name": "shiftry"
   },
   {
-    "name": "taillow",
-    "number": 276,
-    "type": [
-      "normal",
-      "flying"
-    ]
+    "name": "taillow"
   },
   {
-    "name": "swellow",
-    "number": 277,
-    "type": [
-      "normal",
-      "flying"
-    ]
+    "name": "swellow"
   },
   {
-    "name": "wingull",
-    "number": 278,
-    "type": [
-      "water",
-      "flying"
-    ]
+    "name": "wingull"
   },
   {
-    "name": "pelipper",
-    "number": 279,
-    "type": [
-      "water",
-      "flying"
-    ]
+    "name": "pelipper"
   },
   {
-    "name": "ralts",
-    "number": 280,
-    "type": [
-      "psychic",
-      "fairy"
-    ]
+    "name": "ralts"
   },
   {
-    "name": "kirlia",
-    "number": 281,
-    "type": [
-      "psychic",
-      "fairy"
-    ]
+    "name": "kirlia"
   },
   {
-    "name": "gardevoir",
-    "number": 282,
-    "type": [
-      "psychic",
-      "fairy"
-    ]
+    "name": "gardevoir"
   },
   {
-    "name": "surskit",
-    "number": 283,
-    "type": [
-      "bug",
-      "water"
-    ]
+    "name": "surskit"
   },
   {
-    "name": "masquerain",
-    "number": 284,
-    "type": [
-      "bug",
-      "flying"
-    ]
+    "name": "masquerain"
   },
   {
-    "name": "shroomish",
-    "number": 285,
-    "type": [
-      "grass"
-    ]
+    "name": "shroomish"
   },
   {
-    "name": "breloom",
-    "number": 286,
-    "type": [
-      "grass",
-      "fighting"
-    ]
+    "name": "breloom"
   },
   {
-    "name": "slakoth",
-    "number": 287,
-    "type": [
-      "normal"
-    ]
+    "name": "slakoth"
   },
   {
-    "name": "vigoroth",
-    "number": 288,
-    "type": [
-      "normal"
-    ]
+    "name": "vigoroth"
   },
   {
-    "name": "slaking",
-    "number": 289,
-    "type": [
-      "normal"
-    ]
+    "name": "slaking"
   },
   {
-    "name": "nincada",
-    "number": 290,
-    "type": [
-      "bug",
-      "ground"
-    ]
+    "name": "nincada"
   },
   {
-    "name": "ninjask",
-    "number": 291,
-    "type": [
-      "bug",
-      "flying"
-    ]
+    "name": "ninjask"
   },
   {
-    "name": "shedinja",
-    "number": 292,
-    "type": [
-      "bug",
-      "ghost"
-    ]
+    "name": "shedinja"
   },
   {
-    "name": "whismur",
-    "number": 293,
-    "type": [
-      "normal"
-    ]
+    "name": "whismur"
   },
   {
-    "name": "loudred",
-    "number": 294,
-    "type": [
-      "normal"
-    ]
+    "name": "loudred"
   },
   {
-    "name": "exploud",
-    "number": 295,
-    "type": [
-      "normal"
-    ]
+    "name": "exploud"
   },
   {
-    "name": "makuhita",
-    "number": 296,
-    "type": [
-      "fighting"
-    ]
+    "name": "makuhita"
   },
   {
-    "name": "hariyama",
-    "number": 297,
-    "type": [
-      "fighting"
-    ]
+    "name": "hariyama"
   },
   {
-    "name": "azurill",
-    "number": 298,
-    "type": [
-      "normal",
-      "fairy"
-    ]
+    "name": "azurill"
   },
   {
-    "name": "nosepass",
-    "number": 299,
-    "type": [
-      "rock"
-    ]
+    "name": "nosepass"
   },
   {
-    "name": "skitty",
-    "number": 300,
-    "type": [
-      "normal"
-    ]
+    "name": "skitty"
   },
   {
-    "name": "delcatty",
-    "number": 301,
-    "type": [
-      "normal"
-    ]
+    "name": "delcatty"
   },
   {
     "name": "sableye",
-    "number": 302,
-    "cp": 8266,
-    "tier": 2,
-    "type": [
-      "dark",
-      "ghost"
-    ]
+    "tier": 2
   },
   {
     "name": "mawile",
-    "number": 303,
-    "cp": 9403,
-    "tier": 2,
-    "type": [
-      "steel",
-      "fairy"
-    ]
+    "tier": 2
   },
   {
-    "name": "aron",
-    "number": 304,
-    "type": [
-      "steel",
-      "rock"
-    ]
+    "name": "aron"
   },
   {
-    "name": "lairon",
-    "number": 305,
-    "type": [
-      "steel",
-      "rock"
-    ]
+    "name": "lairon"
   },
   {
     "name": "aggron",
-    "number": 306,
-    "cp": 33458,
-    "tier": 4,
-    "type": [
-      "steel",
-      "rock"
-    ]
+    "tier": 4
   },
   {
-    "name": "meditite",
-    "number": 307,
-    "type": [
-      "fighting",
-      "psychic"
-    ]
+    "name": "meditite"
   },
   {
-    "name": "medicham",
-    "number": 308,
-    "type": [
-      "fighting",
-      "psychic"
-    ]
+    "name": "medicham"
   },
   {
-    "name": "electrike",
-    "number": 309,
-    "type": [
-      "electric"
-    ]
+    "name": "electrike"
   },
   {
     "name": "manectric",
-    "number": 310,
-    "cp": 11628,
-    "tier": 2,
-    "type": [
-      "electric"
-    ]
+    "tier": 2
   },
   {
-    "name": "plusle",
-    "number": 311,
-    "type": [
-      "electric"
-    ]
+    "name": "plusle"
   },
   {
-    "name": "minun",
-    "number": 312,
-    "type": [
-      "electric"
-    ]
+    "name": "minun"
   },
   {
-    "name": "volbeat",
-    "number": 313,
-    "type": [
-      "bug"
-    ]
+    "name": "volbeat"
   },
   {
-    "name": "illumise",
-    "number": 314,
-    "type": [
-      "bug"
-    ]
+    "name": "illumise"
   },
   {
-    "name": "roselia",
-    "number": 315,
-    "type": [
-      "grass",
-      "poison"
-    ]
+    "name": "roselia"
   },
   {
-    "name": "gulpin",
-    "number": 316,
-    "type": [
-      "poison"
-    ]
+    "name": "gulpin"
   },
   {
-    "name": "swalot",
-    "number": 317,
-    "type": [
-      "poison"
-    ]
+    "name": "swalot"
   },
   {
-    "name": "carvanha",
-    "number": 318,
-    "type": [
-      "water",
-      "dark"
-    ]
+    "name": "carvanha"
   },
   {
-    "name": "sharpedo",
-    "number": 319,
-    "type": [
-      "water",
-      "dark"
-    ]
+    "name": "sharpedo"
   },
   {
     "name": "wailmer",
-    "number": 320,
-    "cp": 3369,
-    "tier": 1,
-    "type": [
-      "water"
-    ]
+    "tier": 1
   },
   {
-    "name": "wailord",
-    "number": 321,
-    "type": [
-      "water"
-    ]
+    "name": "wailord"
   },
   {
-    "name": "numel",
-    "number": 322,
-    "type": [
-      "fire",
-      "ground"
-    ]
+    "name": "numel"
   },
   {
-    "name": "camerupt",
-    "number": 323,
-    "type": [
-      "fire",
-      "ground"
-    ]
+    "name": "camerupt"
   },
   {
-    "name": "torkoal",
-    "number": 324,
-    "type": [
-      "fire"
-    ]
+    "name": "torkoal"
   },
   {
-    "name": "spoink",
-    "number": 325,
-    "type": [
-      "psychic"
-    ]
+    "name": "spoink"
   },
   {
-    "name": "grumpig",
-    "number": 326,
-    "type": [
-      "psychic"
-    ]
+    "name": "grumpig"
   },
   {
-    "name": "spinda",
-    "number": 327,
-    "type": [
-      "normal"
-    ]
+    "name": "spinda"
   },
   {
-    "name": "trapinch",
-    "number": 328,
-    "type": [
-      "ground"
-    ]
+    "name": "trapinch"
   },
   {
-    "name": "vibrava",
-    "number": 329,
-    "type": [
-      "ground",
-      "dragon"
-    ]
+    "name": "vibrava"
   },
   {
-    "name": "flygon",
-    "number": 330,
-    "type": [
-      "ground",
-      "dragon"
-    ]
+    "name": "flygon"
   },
   {
-    "name": "cacnea",
-    "number": 331,
-    "type": [
-      "grass"
-    ]
+    "name": "cacnea"
   },
   {
-    "name": "cacturne",
-    "number": 332,
-    "type": [
-      "grass",
-      "dark"
-    ]
+    "name": "cacturne"
   },
   {
     "name": "swablu",
-    "number": 333,
-    "tier": 1,
-    "cp": 2766,
-    "type": [
-      "normal",
-      "flying"
-    ]
+    "tier": 1
   },
   {
-    "name": "altaria",
-    "number": 334,
-    "type": [
-      "dragon",
-      "flying"
-    ]
+    "name": "altaria"
   },
   {
-    "name": "zangoose",
-    "number": 335,
-    "type": [
-      "normal"
-    ]
+    "name": "zangoose"
   },
   {
-    "name": "seviper",
-    "number": 336,
-    "type": [
-      "poison"
-    ]
+    "name": "seviper"
   },
   {
-    "name": "lunatone",
-    "number": 337,
-    "type": [
-      "rock",
-      "psychic"
-    ]
+    "name": "lunatone"
   },
   {
-    "name": "solrock",
-    "number": 338,
-    "type": [
-      "rock",
-      "psychic"
-    ]
+    "name": "solrock"
   },
   {
-    "name": "barboach",
-    "number": 339,
-    "type": [
-      "water",
-      "ground"
-    ]
+    "name": "barboach"
   },
   {
-    "name": "whiscash",
-    "number": 340,
-    "type": [
-      "water",
-      "ground"
-    ]
+    "name": "whiscash"
   },
   {
-    "name": "corphish",
-    "number": 341,
-    "type": [
-      "water"
-    ]
+    "name": "corphish"
   },
   {
-    "name": "crawdaunt",
-    "number": 342,
-    "type": [
-      "water",
-      "dark"
-    ]
+    "name": "crawdaunt"
   },
   {
-    "name": "baltoy",
-    "number": 343,
-    "type": [
-      "ground",
-      "psychic"
-    ]
+    "name": "baltoy"
   },
   {
     "name": "claydol",
-    "number": 344,
-    "cp": 13450,
-    "tier": 3,
-    "type": [
-      "ground",
-      "psychic"
-    ]
+    "tier": 3
   },
   {
-    "name": "lileep",
-    "number": 345,
-    "type": [
-      "rock",
-      "grass"
-    ]
+    "name": "lileep"
   },
   {
-    "name": "cradily",
-    "number": 346,
-    "type": [
-      "rock",
-      "grass"
-    ]
+    "name": "cradily"
   },
   {
-    "name": "anorith",
-    "number": 347,
-    "type": [
-      "rock",
-      "bug"
-    ]
+    "name": "anorith"
   },
   {
-    "name": "armaldo",
-    "number": 348,
-    "type": [
-      "rock",
-      "bug"
-    ]
+    "name": "armaldo"
   },
   {
-    "name": "feebas",
-    "number": 349,
-    "type": [
-      "water"
-    ]
+    "name": "feebas"
   },
   {
-    "name": "milotic",
-    "number": 350,
-    "type": [
-      "water"
-    ]
+    "name": "milotic"
   },
   {
-    "name": "castform",
-    "number": 351,
-    "type": [
-      "normal"
-    ]
+    "name": "castform"
   },
   {
-    "name": "kecleon",
-    "number": 352,
-    "type": [
-      "normal"
-    ]
+    "name": "kecleon"
   },
   {
     "name": "shuppet",
-    "number": 353,
-    "tier": 1,
-    "cp": 3372,
-    "type": [
-      "ghost"
-    ]
+    "tier": 1
   },
   {
-    "name": "banette",
-    "number": 354,
-    "type": [
-      "ghost"
-    ]
+    "name": "banette"
   },
   {
     "name": "duskull",
-    "number": 355,
-    "tier": 1,
-    "cp": 2770,
-    "type": [
-      "ghost"
-    ]
+    "tier": 1
   },
   {
-    "name": "dusclops",
-    "number": 356,
-    "type": [
-      "ghost"
-    ]
+    "name": "dusclops"
   },
   {
-    "name": "tropius",
-    "number": 357,
-    "type": [
-      "grass",
-      "flying"
-    ]
+    "name": "tropius"
   },
   {
-    "name": "chimecho",
-    "number": 358,
-    "type": [
-      "psychic"
-    ]
+    "name": "chimecho"
   },
   {
     "name": "absol",
-    "number": 359,
-    "cp": 26262,
-    "tier": 4,
-    "type": [
-      "dark"
-    ]
+    "tier": 4
   },
   {
-    "name": "wynaut",
-    "number": 360,
-    "type": [
-      "psychic"
-    ]
+    "name": "wynaut"
   },
   {
     "name": "snorunt",
-    "number": 361,
-    "tier": 1,
-    "cp": 2825,
-    "type": [
-      "ice"
-    ]
+    "tier": 1
   },
   {
-    "name": "glalie",
-    "number": 362,
-    "type": [
-      "ice"
-    ]
+    "name": "glalie"
   },
   {
-    "name": "spheal",
-    "number": 363,
-    "type": [
-      "ice",
-      "water"
-    ]
+    "name": "spheal"
   },
   {
-    "name": "sealeo",
-    "number": 364,
-    "type": [
-      "ice",
-      "water"
-    ]
+    "name": "sealeo"
   },
   {
     "name": "walrein",
-    "number": 365,
-    "tier": 4,
-    "cp": 23578,
-    "type": [
-      "ice",
-      "water"
-    ]
+    "tier": 4
   },
   {
-    "name": "clamperl",
-    "number": 366,
-    "type": [
-      "water"
-    ]
+    "name": "clamperl"
   },
   {
-    "name": "huntail",
-    "number": 367,
-    "type": [
-      "water"
-    ]
+    "name": "huntail"
   },
   {
-    "name": "gorebyss",
-    "number": 368,
-    "type": [
-      "water"
-    ]
+    "name": "gorebyss"
   },
   {
-    "name": "relicanth",
-    "number": 369,
-    "type": [
-      "water",
-      "rock"
-    ]
+    "name": "relicanth"
   },
   {
-    "name": "luvdisc",
-    "number": 370,
-    "type": [
-      "water"
-    ]
+    "name": "luvdisc"
   },
   {
-    "name": "bagon",
-    "number": 371,
-    "type": [
-      "dragon"
-    ]
+    "name": "bagon"
   },
   {
-    "name": "shelgon",
-    "number": 372,
-    "type": [
-      "dragon"
-    ]
+    "name": "shelgon"
   },
   {
-    "name": "salamence",
-    "number": 373,
-    "type": [
-      "dragon",
-      "flying"
-    ]
+    "name": "salamence"
   },
   {
-    "name": "beldum",
-    "number": 374,
-    "type": [
-      "steel",
-      "psychic"
-    ]
+    "name": "beldum"
   },
   {
-    "name": "metang",
-    "number": 375,
-    "type": [
-      "steel",
-      "psychic"
-    ]
+    "name": "metang"
   },
   {
-    "name": "metagross",
-    "number": 376,
-    "type": [
-      "steel",
-      "psychic"
-    ]
+    "name": "metagross"
   },
   {
     "name": "regirock",
-    "number": 377,
-    "cp": 41777,
-    "tier": 5,
-    "type": [
-      "rock"
-    ]
+    "tier": 5
   },
   {
     "name": "regice",
-    "number": 378,
-    "cp": 41777,
-    "tier": 5,
-    "type": [
-      "ice"
-    ]
+    "tier": 5
   },
   {
     "name": "registeel",
-    "number": 379,
-    "cp": 30596,
-    "tier": 5,
-    "type": [
-      "steel"
-    ]
+    "tier": 5
   },
   {
     "name": "latias",
-    "number": 380,
-    "cp": 45704,
-    "tier": 5,
-    "type": [
-      "dragon",
-      "psychic"
-    ]
+    "tier": 5
   },
   {
     "name": "latios",
-    "number": 381,
-    "cp": 49322,
-    "tier": 5,
-    "type": [
-      "dragon",
-      "psychic"
-    ]
+    "tier": 5
   },
   {
     "name": "kyogre",
-    "number": 382,
-    "cp": 51968,
-    "tier": 5,
-    "type": [
-      "water"
-    ]
+    "tier": 5
   },
   {
     "name": "groudon",
-    "number": 383,
-    "cp": 51968,
-    "tier": 5,
-    "type": [
-      "ground"
-    ]
+    "tier": 5
   },
   {
     "name": "rayquaza",
-    "number": 384,
-    "cp": 45468,
-    "tier": 5,
-    "type": [
-      "dragon",
-      "flying"
-    ]
+    "tier": 5
   },
   {
-    "name": "jirachi",
-    "number": 385,
-    "cp": 37733,
-    "type": [
-      "steel",
-      "psychic"
-    ]
+    "name": "jirachi"
   },
   {
-    "name": "deoxys",
-    "number": 386,
-    "cp": 45891,
-    "type": [
-      "psychic"
-    ]
+    "name": "deoxys"
   }
 ]
