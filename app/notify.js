@@ -55,7 +55,8 @@ class Notify {
 			guild_id = raid_channel.guild.id,
 			number = Notify.getDbPokemonNumber(pokemon),
 			tier = pokemon.tier,
-			db_pokemon_numbers = [...new Set([number, -tier])];
+			db_pokemon_numbers =[...new Set([number, -tier])]
+				.filter(number => !isNaN(number))
 
 		// don't try to look up notifications from screenshot placeholders where
 		// a valid pokemon wasn't determined
