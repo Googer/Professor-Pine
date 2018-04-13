@@ -4,7 +4,8 @@ const log = require('loglevel').getLogger('PokemonSearch'),
 	lunr = require('lunr'),
 	gameMaster = require('pokemongo-game-master'),
 	Search = require('./search'),
-	types = require('../data/types');
+	types = require('../data/types'),
+	weather = require('../data/weather');
 
 class Pokemon extends Search {
 	constructor() {
@@ -34,11 +35,12 @@ class Pokemon extends Search {
 
 		merged_pokemon.forEach(poke => {
 			poke.weakness = Pokemon.calculateWeaknesses(poke.type);
-			poke.boss_cp = Pokemon.calcBossCP(poke);
-			poke.min_base_cp = Pokemon.calcCP(poke, 20, 10, 10, 10);
-			poke.max_base_cp = Pokemon.calcCP(poke, 20, 15, 15, 15);
-			poke.min_boosted_cp = Pokemon.calcCP(poke, 25, 10, 10, 10);
-			poke.max_boosted_cp = Pokemon.calcCP(poke, 25, 15, 15, 15);
+			poke.boost_conditions = Pokemon.calculateBoostConditions(poke.type);
+			poke.boss_cp = Pokemon.calculateBossCP(poke);
+			poke.min_base_cp = Pokemon.calculateCP(poke, 20, 10, 10, 10);
+			poke.max_base_cp = Pokemon.calculateCP(poke, 20, 15, 15, 15);
+			poke.min_boosted_cp = Pokemon.calculateCP(poke, 25, 10, 10, 10);
+			poke.max_boosted_cp = Pokemon.calculateCP(poke, 25, 15, 15, 15);
 		});
 
 		this.index = lunr(function () {
@@ -135,7 +137,27 @@ class Pokemon extends Search {
 			.filter(type => type.multiplier > 1.0);
 	}
 
-	static calcBossCP(pokemon) {
+	static calculateBoostConditions(types) {
+		if (!types) {
+			return;
+		}
+
+		let all_conditions = ["☀️", "🌙", "☔", "⛅", "☁️", "💨", "⛄", "🌫"],
+			boosted_conditions = [];
+
+		types.forEach(type => {
+			boosted_conditions.push(...weather[type]);
+		});
+
+		boosted_conditions = [...new Set(boosted_conditions)];
+
+		return {
+			standard: all_conditions.filter(condition => !boosted_conditions.includes(condition)),
+			boosted: boosted_conditions
+		};
+	}
+
+	static calculateBossCP(pokemon) {
 		if (!pokemon.stats) {
 			return 0;
 		}
@@ -172,7 +194,7 @@ class Pokemon extends Search {
 			Math.sqrt(stamina)) / 10);
 	}
 
-	static calcCP(pokemon, level, attack_iv, defense_iv, stamina_iv) {
+	static calculateCP(pokemon, level, attack_iv, defense_iv, stamina_iv) {
 		if (!pokemon.stats) {
 			return 0;
 		}

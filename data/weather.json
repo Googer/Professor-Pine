@@ -1,0 +1,59 @@
+{
+  "grass": [
+    "sunny",
+    "clear"
+  ],
+  "fire": [
+    "sunny",
+    "clear"
+  ],
+  "ground": [
+    "sunny",
+    "clear"
+  ],
+  "water": [
+    "rain"
+  ],
+  "electric": [
+    "rain"
+  ],
+  "bug": [
+    "rain"
+  ],
+  "normal": [
+    "partlycloudy"
+  ],
+  "rock": [
+    "partlycloudy"
+  ],
+  "fairy": [
+    "cloudy"
+  ],
+  "fighting": [
+    "cloudy"
+  ],
+  "poison": [
+    "cloudy"
+  ],
+  "flying": [
+    "windy"
+  ],
+  "dragon": [
+    "windy"
+  ],
+  "psychic": [
+    "windy"
+  ],
+  "ice": [
+    "snow"
+  ],
+  "steel": [
+    "snow"
+  ],
+  "dark": [
+    "fog"
+  ],
+  "ghost": [
+    "fog"
+  ]
+}

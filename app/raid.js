@@ -899,14 +899,16 @@ class Raid {
 				`${private_settings.pokemon_url_base}${pokemon}-Pokemon-Go.png` :
 				'',
 			pokemon_cp_string = raid.pokemon.boss_cp > 0 ?
-				` (${raid.pokemon.boss_cp} CP)\n\n` +
-				`Normal: ${raid.pokemon.min_base_cp} - ${raid.pokemon.max_base_cp}\n` +
-				`Boosted: ${raid.pokemon.min_boosted_cp} - ${raid.pokemon.max_boosted_cp}` :
+				`Boss CP :: ${raid.pokemon.boss_cp}\n` +
+				`Catch CP Range :: ${raid.pokemon.min_base_cp}-${raid.pokemon.max_base_cp} / ` +
+				`${raid.pokemon.min_boosted_cp}-${raid.pokemon.max_boosted_cp} ${raid.pokemon.boost_conditions.boosted
+					.map(condition => Helper.getEmoji(condition))
+					.join('')}` :
 				'',
 
 			raid_description = raid.is_exclusive ?
-				`EX Raid against ${pokemon}${pokemon_cp_string}` :
-				`Level ${raid.pokemon.tier} Raid against ${pokemon}${pokemon_cp_string}`,
+				`EX Raid against ${pokemon}` :
+				`Level ${raid.pokemon.tier} Raid against ${pokemon}`,
 
 			now = moment(),
 
@@ -980,6 +982,10 @@ class Raid {
 						'x2 ' :
 						''))
 				.join(''));
+		}
+
+		if (pokemon_cp_string) {
+			embed.addField('**CP Information**', pokemon_cp_string);
 		}
 
 		embed.setFooter(end_time + raid_reporter, report_member.user.displayAvatarURL());
