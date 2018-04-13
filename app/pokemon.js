@@ -142,7 +142,7 @@ class Pokemon extends Search {
 			return;
 		}
 
-		let all_conditions = ["☀️", "🌙", "☔", "⛅", "☁️", "💨", "⛄", "🌫"],
+		let all_conditions = ["sunny", "clear", "rain", "partlycloudy", "cloudy", "windy", "snow", "fog"],
 			boosted_conditions = [];
 
 		types.forEach(type => {
