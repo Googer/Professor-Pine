@@ -899,8 +899,7 @@ class Raid {
 				`${private_settings.pokemon_url_base}${pokemon}-Pokemon-Go.png` :
 				'',
 			pokemon_cp_string = raid.pokemon.boss_cp > 0 ?
-				`Boss CP :: ${raid.pokemon.boss_cp}\n` +
-				`Catch CP Range :: ${raid.pokemon.min_base_cp}-${raid.pokemon.max_base_cp} / ` +
+				`${raid.pokemon.min_base_cp}-${raid.pokemon.max_base_cp} / ` +
 				`${raid.pokemon.min_boosted_cp}-${raid.pokemon.max_boosted_cp} ${raid.pokemon.boost_conditions.boosted
 					.map(condition => Helper.getEmoji(condition))
 					.join('')}` :
@@ -966,7 +965,7 @@ class Raid {
 				.filter(attendee_entry => attendee_entry[1].status === RaidStatus.COMPLETE),
 			embed = new Discord.MessageEmbed();
 
-		embed.setColor(4437377);
+		embed.setColor('GREEN');
 		embed.setTitle(`Map Link: ${gym_name}`);
 		embed.setURL(gym_url);
 		embed.setDescription(raid_description);
@@ -985,7 +984,7 @@ class Raid {
 		}
 
 		if (pokemon_cp_string) {
-			embed.addField('**CP Information**', pokemon_cp_string);
+			embed.addField('**Catch CP Ranges**', pokemon_cp_string);
 		}
 
 		embed.setFooter(end_time + raid_reporter, report_member.user.displayAvatarURL());
