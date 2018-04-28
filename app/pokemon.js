@@ -43,6 +43,8 @@ class Pokemon extends Search {
 			poke.max_boosted_cp = Pokemon.calculateCP(poke, 25, 15, 15, 15);
 		});
 
+		this.pokemon = merged_pokemon;
+
 		this.index = lunr(function () {
 			this.ref('object');
 			this.field('name');

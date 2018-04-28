@@ -4,9 +4,9 @@ const log = require('loglevel').getLogger('PokemonNotificationsCommand'),
 	Commando = require('discord.js-commando'),
 	{CommandGroup} = require('../../app/constants'),
 	{MessageEmbed} = require('discord.js'),
-	pokemon_data = require('../../data/pokemon'),
 	Helper = require('../../app/helper'),
-	Notify = require('../../app/notify');
+	Notify = require('../../app/notify'),
+	Pokemon = require('../../app/pokemon');
 
 class PokemonNotificationsCommand extends Commando.Command {
 	constructor(client) {
@@ -32,7 +32,9 @@ class PokemonNotificationsCommand extends Commando.Command {
 	async run(message, args) {
 		return Notify.getPokemonNotifications(message.member)
 			.then(async results => {
-				const embed = new MessageEmbed();
+				const embed = new MessageEmbed(),
+					pokemon_data = Pokemon.pokemon;
+
 				embed.setTitle('Currently assigned pokémon notifications:');
 				embed.setColor(4437377);
 
