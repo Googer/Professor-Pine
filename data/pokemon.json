@@ -210,7 +210,8 @@
     "name": "mankey"
   },
   {
-    "name": "primeape"
+    "name": "primeape",
+    "tier": 2
   },
   {
     "name": "growlithe"
@@ -373,10 +374,12 @@
     "tier": 2
   },
   {
-    "name": "hitmonlee"
+    "name": "hitmonlee",
+    "tier": 3
   },
   {
-    "name": "hitmonchan"
+    "name": "hitmonchan",
+    "tier": 3
   },
   {
     "name": "lickitung",
@@ -882,7 +885,8 @@
     "name": "torchic"
   },
   {
-    "name": "combusken"
+    "name": "combusken",
+    "tier": 2
   },
   {
     "name": "blaziken"
@@ -972,7 +976,8 @@
     "name": "shroomish"
   },
   {
-    "name": "breloom"
+    "name": "breloom",
+    "tier": 3
   },
   {
     "name": "slakoth"
