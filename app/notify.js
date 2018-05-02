@@ -49,6 +49,11 @@ class Notify {
 	// notify interested members for the raid associated with the given channel and pokemon (and / or or gym),
 	// filtering out the reporting member
 	async notifyMembers(raid, reporting_member_id) {
+		// Don't send a notification for EX raids
+		if (raid.pokemon.exclusive) {
+			return;
+		}
+
 		const raid_channel = await Raid.getChannel(raid.channel_id),
 			pokemon = raid.pokemon,
 			gym_id = raid.gym_id,
