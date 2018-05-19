@@ -34,6 +34,9 @@ class Pokemon extends Search {
 				.map(poke => Object.assign({}, poke, pokemon.find(p => p.name === poke.name)));
 
 		merged_pokemon.forEach(poke => {
+			poke.name = poke.overrideName ?
+				poke.overrideName :
+				poke.name;
 			poke.weakness = Pokemon.calculateWeaknesses(poke.type);
 			poke.boost_conditions = Pokemon.calculateBoostConditions(poke.type);
 			poke.boss_cp = Pokemon.calculateBossCP(poke);

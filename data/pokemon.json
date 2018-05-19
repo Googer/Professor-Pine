@@ -861,8 +861,10 @@
     "tier": 5
   },
   {
-    "name": "ho-oh",
+    "name": "ho_oh",
+    "overrideName": "ho-oh",
     "nickname": [
+      "ho-oh",
       "hooh",
       "hoho",
       "santa"
