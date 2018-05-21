@@ -3,170 +3,170 @@
 const lunr = require('lunr');
 
 class Search {
-	constructor() {
-		if (new.target === Search) {
-			throw new TypeError("Cannot construct Search instances directly");
-		}
+  constructor() {
+    if (new.target === Search) {
+      throw new TypeError("Cannot construct Search instances directly");
+    }
 
-		this.stopWordFilter = lunr.generateStopWordFilter([
-			'a',
-			'able',
-			'about',
-			'across',
-			'after',
-			'all',
-			'almost',
-			'also',
-			'am',
-			'among',
-			'an',
-			'and',
-			'any',
-			'are',
-			'as',
-			'at',
-			'be',
-			'been',
-			'but',
-			'by',
-			'can',
-			'cannot',
-			'could',
-			'dear',
-			'did',
-			'do',
-			'does',
-			'either',
-			'else',
-			'ever',
-			'every',
-			'for',
-			'from',
-			'get',
-			'got',
-			'had',
-			'has',
-			'have',
-			'he',
-			'her',
-			'hers',
-			'him',
-			'his',
-			'how',
-			'however',
-			'i',
-			'if',
-			'in',
-			'into',
-			'is',
-			'it',
-			'its',
-			'just',
-			'least',
-			'let',
-			'like',
-			'likely',
-			'may',
-			'me',
-			'might',
-			'most',
-			'must',
-			'my',
-			'neither',
-			'no',
-			'nor',
-			'not',
-			'of',
-			'off',
-			'often',
-			'on',
-			'only',
-			'or',
-			'other',
-			'our',
-			'own',
-			'rather',
-			'said',
-			'say',
-			'says',
-			'she',
-			'should',
-			'since',
-			'so',
-			'some',
-			'than',
-			'that',
-			'the',
-			'their',
-			'them',
-			'then',
-			'there',
-			'these',
-			'they',
-			'this',
-			'tis',
-			'to',
-			'too',
-			'twas',
-			'us',
-			'wants',
-			'was',
-			'we',
-			'were',
-			'what',
-			'when',
-			'where',
-			'which',
-			'while',
-			'who',
-			'whom',
-			'why',
-			'will',
-			'with',
-			'would',
-			'yet',
-			'you',
-			'your'
-		]);
+    this.stopWordFilter = lunr.generateStopWordFilter([
+      'a',
+      'able',
+      'about',
+      'across',
+      'after',
+      'all',
+      'almost',
+      'also',
+      'am',
+      'among',
+      'an',
+      'and',
+      'any',
+      'are',
+      'as',
+      'at',
+      'be',
+      'been',
+      'but',
+      'by',
+      'can',
+      'cannot',
+      'could',
+      'dear',
+      'did',
+      'do',
+      'does',
+      'either',
+      'else',
+      'ever',
+      'every',
+      'for',
+      'from',
+      'get',
+      'got',
+      'had',
+      'has',
+      'have',
+      'he',
+      'her',
+      'hers',
+      'him',
+      'his',
+      'how',
+      'however',
+      'i',
+      'if',
+      'in',
+      'into',
+      'is',
+      'it',
+      'its',
+      'just',
+      'least',
+      'let',
+      'like',
+      'likely',
+      'may',
+      'me',
+      'might',
+      'most',
+      'must',
+      'my',
+      'neither',
+      'no',
+      'nor',
+      'not',
+      'of',
+      'off',
+      'often',
+      'on',
+      'only',
+      'or',
+      'other',
+      'our',
+      'own',
+      'rather',
+      'said',
+      'say',
+      'says',
+      'she',
+      'should',
+      'since',
+      'so',
+      'some',
+      'than',
+      'that',
+      'the',
+      'their',
+      'them',
+      'then',
+      'there',
+      'these',
+      'they',
+      'this',
+      'tis',
+      'to',
+      'too',
+      'twas',
+      'us',
+      'wants',
+      'was',
+      'we',
+      'were',
+      'what',
+      'when',
+      'where',
+      'which',
+      'while',
+      'who',
+      'whom',
+      'why',
+      'will',
+      'with',
+      'would',
+      'yet',
+      'you',
+      'your'
+    ]);
 
-		this.buildIndex();
-	}
+    this.buildIndex();
+  }
 
-	static singleTermSearch(term, index, fields) {
-		if (!fields) {
-			fields = index.fields;
-		}
+  static singleTermSearch(term, index, fields) {
+    if (!fields) {
+      fields = index.fields;
+    }
 
-		if (term.length > 15) {
-			term = term.substring(0, 14) + lunr.Query.wildcard;
-		}
+    if (term.length > 15) {
+      term = term.substring(0, 14) + lunr.Query.wildcard;
+    }
 
-		return index.query(query => {
-			query.term(term,
-				{
-					fields: fields,
-					usePipeline: true,
-					boost: 100
-				});
+    return index.query(query => {
+      query.term(term,
+        {
+          fields: fields,
+          usePipeline: true,
+          boost: 100
+        });
 
-			if (term.includes(lunr.Query.wildcard)) {
-				// wildcard in term, disable stemming
-				query.term(term,
-					{
-						fields: fields,
-						usePipeline: false,
-						boost: 10
-					});
-			}
-			query.term(term,
-				{
-					fields: fields,
-					usePipeline: false,
-					boost: 1,
-					editDistance: Math.floor(term.length / 4.5)
-				});
-		});
-	}
+      if (term.includes(lunr.Query.wildcard)) {
+        // wildcard in term, disable stemming
+        query.term(term,
+          {
+            fields: fields,
+            usePipeline: false,
+            boost: 10
+          });
+      }
+      query.term(term,
+        {
+          fields: fields,
+          usePipeline: false,
+          boost: 1,
+          editDistance: Math.floor(term.length / 4.5)
+        });
+    });
+  }
 }
 
 module.exports = Search;

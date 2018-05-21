@@ -1,52 +1,52 @@
 "use strict";
 
 const log = require('loglevel').getLogger('DirectionsCommand'),
-	Commando = require('discord.js-commando'),
-	{CommandGroup} = require('../../app/constants'),
-	{MessageEmbed} = require('discord.js'),
-	Gym = require('../../app/gym'),
-	Raid = require('../../app/raid');
+  Commando = require('discord.js-commando'),
+  {CommandGroup} = require('../../app/constants'),
+  {MessageEmbed} = require('discord.js'),
+  Gym = require('../../app/gym'),
+  Raid = require('../../app/raid');
 
 class DirectionsCommand extends Commando.Command {
-	constructor(client) {
-		super(client, {
-			name: 'where',
-			group: CommandGroup.BASIC_RAID,
-			memberName: 'where',
-			aliases: ['directions'],
-			description: 'Requests an image of the gym\'s location and a link for directions to get there.',
-			details: 'Use this command get directions to the raid\'s location.',
-			examples: ['\t!where', '\t!directions'],
-			guildOnly: true
-		});
+  constructor(client) {
+    super(client, {
+      name: 'where',
+      group: CommandGroup.BASIC_RAID,
+      memberName: 'where',
+      aliases: ['directions'],
+      description: 'Requests an image of the gym\'s location and a link for directions to get there.',
+      details: 'Use this command get directions to the raid\'s location.',
+      examples: ['\t!where', '\t!directions'],
+      guildOnly: true
+    });
 
-		client.dispatcher.addInhibitor(message => {
-			if (!!message.command && message.command.name === 'where' &&
-				!Raid.validRaid(message.channel.id)) {
-				return ['invalid-channel', message.reply('Ask for directions to a raid from its raid channel!')];
-			}
-			return false;
-		});
-	}
+    client.dispatcher.addInhibitor(message => {
+      if (!!message.command && message.command.name === 'where' &&
+        !Raid.validRaid(message.channel.id)) {
+        return ['invalid-channel', message.reply('Ask for directions to a raid from its raid channel!')];
+      }
+      return false;
+    });
+  }
 
-	async run(message, args) {
-		const raid = Raid.getRaid(message.channel.id),
-			gym_id = raid.gym_id,
-			gym = Gym.getGym(gym_id),
-			embed = new MessageEmbed();
+  async run(message, args) {
+    const raid = Raid.getRaid(message.channel.id),
+      gym_id = raid.gym_id,
+      gym = Gym.getGym(gym_id),
+      embed = new MessageEmbed();
 
-		embed.setColor('GREEN');
-		embed.setImage(`attachment://${gym_id}.png`);
+    embed.setColor('GREEN');
+    embed.setImage(`attachment://${gym_id}.png`);
 
-		message.channel
-			.send(`https://www.google.com/maps/search/?api=1&query=${gym.gymInfo.latitude}%2C${gym.gymInfo.longitude}`, {
-				files: [
-					require.resolve(`PgP-Data/data/images/${gym_id}.png`)
-				],
-				embed
-			})
-			.catch(err => log.error(err));
-	}
+    message.channel
+      .send(`https://www.google.com/maps/search/?api=1&query=${gym.gymInfo.latitude}%2C${gym.gymInfo.longitude}`, {
+        files: [
+          require.resolve(`PgP-Data/data/images/${gym_id}.png`)
+        ],
+        embed
+      })
+      .catch(err => log.error(err));
+  }
 }
 
 module.exports = DirectionsCommand;

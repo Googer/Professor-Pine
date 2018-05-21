@@ -1,42 +1,42 @@
 {
-	"iam": {
-		"warning": "Assign yourself roles in ${bot_channel}!"
-	},
-	"iamnot": {
-		"warning": "Unassign roles in ${bot_channel}!"
-	},
-	"favorites": {
-		"warning": "Use the `!targets` command in ${bot_channel} to view current notifications for gyms."
-	},
-	"favorite": {
-		"warning": "Use the `!target` command from a regional or raid channel."
-	},
-	"unfavorite": {
-		"warning": "Use the `!untarget` command from a regional or raid channel."
-	},
-	"unfavoriteall": {
-		"warning": "Use the `!untarget-all` command in ${bot_channel} to remove all notifications for gyms."
-	},
-	"mentions": {
-		"warning": "Use the `!mentions` command in ${bot_channel} to enable or disable being mentioned in messages by Professor Pine."
-	},
-	"notifications": {
-		"warning": "Use the `!notifications` command in ${bot_channel} to view current notifications for pokémon."
-	},
-	"notify": {
-		"warning": "Use the `!want` command in ${bot_channel} to add notifications for pokémon."
-	},
-	"denotify": {
-		"warning": "Use the `!unwant` command in ${bot_channel} to remove notifications for pokémon."
-	},
-	"denotifyall": {
-		"warning": "Use the `!unwant-all` command in ${bot_channel} to remove all notifications for pokémon."
-	},
-	"find": {
-		"warning": "Use the `!find` command in ${bot_channel} to find channels for a region."
-	},
-	"status": {
-		"warning": "Check the status of raids from a regional or raid channel!"
-	},
-	"channel_deletion_warning": "**WARNING**: This channel will self-destruct ${time_until_deletion}!"
+  "iam": {
+    "warning": "Assign yourself roles in ${bot_channel}!"
+  },
+  "iamnot": {
+    "warning": "Unassign roles in ${bot_channel}!"
+  },
+  "favorites": {
+    "warning": "Use the `!targets` command in ${bot_channel} to view current notifications for gyms."
+  },
+  "favorite": {
+    "warning": "Use the `!target` command from a regional or raid channel."
+  },
+  "unfavorite": {
+    "warning": "Use the `!untarget` command from a regional or raid channel."
+  },
+  "unfavoriteall": {
+    "warning": "Use the `!untarget-all` command in ${bot_channel} to remove all notifications for gyms."
+  },
+  "mentions": {
+    "warning": "Use the `!mentions` command in ${bot_channel} to enable or disable being mentioned in messages by Professor Pine."
+  },
+  "notifications": {
+    "warning": "Use the `!notifications` command in ${bot_channel} to view current notifications for pokémon."
+  },
+  "notify": {
+    "warning": "Use the `!want` command in ${bot_channel} to add notifications for pokémon."
+  },
+  "denotify": {
+    "warning": "Use the `!unwant` command in ${bot_channel} to remove notifications for pokémon."
+  },
+  "denotifyall": {
+    "warning": "Use the `!unwant-all` command in ${bot_channel} to remove all notifications for pokémon."
+  },
+  "find": {
+    "warning": "Use the `!find` command in ${bot_channel} to find channels for a region."
+  },
+  "status": {
+    "warning": "Check the status of raids from a regional or raid channel!"
+  },
+  "channel_deletion_warning": "**WARNING**: This channel will self-destruct ${time_until_deletion}!"
 }
