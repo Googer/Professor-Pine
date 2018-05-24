@@ -490,14 +490,16 @@
     "tier": 3
   },
   {
-    "name": "omanyte"
+    "name": "omanyte",
+    "tier": 1
   },
   {
     "name": "omastar",
     "tier": 3
   },
   {
-    "name": "kabuto"
+    "name": "kabuto",
+    "tier": 1
   },
   {
     "name": "kabutops",
@@ -653,7 +655,8 @@
     "tier": 3
   },
   {
-    "name": "sudowoodo"
+    "name": "sudowoodo",
+    "tier": 2
   },
   {
     "name": "politoed"
@@ -739,7 +742,8 @@
     "name": "scizor"
   },
   {
-    "name": "shuckle"
+    "name": "shuckle",
+    "tier": 3
   },
   {
     "name": "heracross"
@@ -758,7 +762,8 @@
     "name": "slugma"
   },
   {
-    "name": "magcargo"
+    "name": "magcargo",
+    "tier": 2
   },
   {
     "name": "swinub"
@@ -1018,7 +1023,8 @@
     "name": "azurill"
   },
   {
-    "name": "nosepass"
+    "name": "nosepass",
+    "tier": 2
   },
   {
     "name": "skitty"
@@ -1138,10 +1144,12 @@
     "name": "seviper"
   },
   {
-    "name": "lunatone"
+    "name": "lunatone",
+    "tier": 3
   },
   {
-    "name": "solrock"
+    "name": "solrock",
+    "tier": 3
   },
   {
     "name": "barboach"
@@ -1163,13 +1171,15 @@
     "tier": 3
   },
   {
-    "name": "lileep"
+    "name": "lileep",
+    "tier": 1
   },
   {
     "name": "cradily"
   },
   {
-    "name": "anorith"
+    "name": "anorith",
+    "tier": 1
   },
   {
     "name": "armaldo"
