@@ -321,7 +321,8 @@
     "tier": 2
   },
   {
-    "name": "shellder"
+    "name": "shellder",
+    "tier": 1
   },
   {
     "name": "cloyster",
@@ -575,7 +576,7 @@
   },
   {
     "name": "croconaw",
-    "tier": 1
+    "tier": 2
   },
   {
     "name": "feraligatr",
@@ -902,7 +903,8 @@
     "name": "mudkip"
   },
   {
-    "name": "marshtomp"
+    "name": "marshtomp",
+    "tier": 2
   },
   {
     "name": "swampert"
@@ -1088,7 +1090,8 @@
     "name": "carvanha"
   },
   {
-    "name": "sharpedo"
+    "name": "sharpedo",
+    "tier": 3
   },
   {
     "name": "wailmer",
