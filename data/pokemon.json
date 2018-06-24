@@ -97,9 +97,7 @@
     "name": "rattata_alola",
     "overrideName": "Alolan Rattata",
     "nickname": [
-      "alolan",
-      "alo",
-      "rattata"
+      "alo"
     ]
   },
   {
@@ -109,9 +107,7 @@
     "name": "raticate_alola",
     "overrideName": "Alolan Raticate",
     "nickname": [
-      "alolan",
-      "alo",
-      "raticate"
+      "alo"
     ]
   },
   {
@@ -136,7 +132,6 @@
     "name": "raichu_alola",
     "overrideName": "Alolan Raichu",
     "nickname": [
-      "alolan",
       "alo"
     ]
   },
@@ -147,7 +142,6 @@
     "name": "sandshrew_alola",
     "overrideName": "Alolan Sandshrew",
     "nickname": [
-      "alolan",
       "alo"
     ]
   },
@@ -159,7 +153,6 @@
     "name": "sandslash_alola",
     "overrideName": "Alolan Sandslash",
     "nickname": [
-      "alolan",
       "alo"
     ]
   },
@@ -196,7 +189,6 @@
     "name": "vulpix_alola",
     "overrideName": "Alolan Vulpix",
     "nickname": [
-      "alolan",
       "alo"
     ]
   },
@@ -208,7 +200,6 @@
     "name": "ninetales_alola",
     "overrideName": "Alolan Ninetales",
     "nickname": [
-      "alolan",
       "alo"
     ]
   },
@@ -253,7 +244,6 @@
     "name": "diglett_alola",
     "overrideName": "Alolan Diglett",
     "nickname": [
-      "alolan",
       "alo"
     ]
   },
@@ -264,7 +254,6 @@
     "name": "dugtrio_alola",
     "overrideName": "Alolan Dugtrio",
     "nickname": [
-      "alolan",
       "alo"
     ]
   },
@@ -275,7 +264,6 @@
     "name": "meowth_alola",
     "overrideName": "Alolan Meowth",
     "nickname": [
-      "alolan",
       "alo"
     ]
   },
@@ -286,7 +274,6 @@
     "name": "persian_alola",
     "overrideName": "Alolan Persian",
     "nickname": [
-      "alolan",
       "alo"
     ]
   },
@@ -364,7 +351,6 @@
     "name": "geodude_alola",
     "overrideName": "Alolan Geodude",
     "nickname": [
-      "alolan",
       "alo"
     ]
   },
@@ -375,7 +361,6 @@
     "name": "graveler_alola",
     "overrideName": "Alolan Graveler",
     "nickname": [
-      "alolan",
       "alo"
     ]
   },
@@ -387,7 +372,6 @@
     "name": "golem_alola",
     "overrideName": "Alolan Golem",
     "nickname": [
-      "alolan",
       "alo"
     ]
   },
@@ -434,7 +418,6 @@
     "name": "grimer_alola",
     "overrideName": "Alolan Grimer",
     "nickname": [
-      "alolan",
       "alo"
     ]
   },
@@ -446,7 +429,6 @@
     "name": "muk_alola",
     "overrideName": "Alolan Muk",
     "nickname": [
-      "alolan",
       "alo"
     ]
   },
@@ -497,17 +479,16 @@
     "name": "exeggutor",
     "nickname": [
       "exegg"
-    ]
+    ],
+    "tier": 2
   },
   {
     "name": "exeggutor_alola",
     "overrideName": "Alolan Exeggutor",
     "nickname": [
-      "alolan",
       "alo",
       "exegg"
-    ],
-    "tier": 2
+    ]
   },
   {
     "name": "cubone"
@@ -520,9 +501,7 @@
     "name": "marowak_alola",
     "overrideName": "Alolan Marowak",
     "nickname": [
-      "alolan",
-      "alo",
-      "marowak"
+      "alo"
     ]
   },
   {
