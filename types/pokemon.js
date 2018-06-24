@@ -15,7 +15,7 @@ class PokemonType extends Commando.ArgumentType {
         .map(term => term.toLowerCase()),
       pokemon = Pokemon.search(terms);
 
-    if (!pokemon) {
+    if (!pokemon || pokemon.length === 0) {
       let error_message = 'No pokémon found.  Please try your search again, entering the text you want to search for.';
       if (!!arg) {
         error_message += `\n\n${arg.prompt}`;
@@ -24,9 +24,12 @@ class PokemonType extends Commando.ArgumentType {
       return error_message;
     }
 
-    if (!pokemon.exclusive && !pokemon.tier) {
-      const name = pokemon.name ?
-        `"${pokemon.name.charAt(0).toUpperCase()}${pokemon.name.slice(1)}"` :
+    const valid_pokemon = pokemon
+      .find(pokemon => pokemon.exclusive || pokemon.tier);
+
+    if (!valid_pokemon) {
+      const name = pokemon[0].name ?
+        `"${pokemon[0].name.charAt(0).toUpperCase()}${pokemon[0].name.slice(1)}"` :
         'Pokémon';
 
       let error_message = `${name} is not a valid raid boss.  Please try your search again, entering the text you want to search for.`;
@@ -46,7 +49,8 @@ class PokemonType extends Commando.ArgumentType {
       .map(term => term.match(/(?:<:)?([\w*]+)(?::[0-9]+>)?/)[1])
       .map(term => term.toLowerCase());
 
-    return Pokemon.search(terms);
+    return Pokemon.search(terms)
+      .find(pokemon => pokemon.exclusive || pokemon.tier);
   }
 }
 

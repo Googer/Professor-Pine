@@ -895,8 +895,8 @@ class Raid {
     const pokemon = !!raid.pokemon.name ?
       raid.pokemon.name.charAt(0).toUpperCase() + raid.pokemon.name.slice(1) :
       '????',
-      pokemon_url = !!raid.pokemon.name ?
-        `${private_settings.pokemon_url_base}${pokemon}-Pokemon-Go.png` :
+      pokemon_url = !!raid.pokemon.url ?
+        raid.pokemon.url :
         '',
       pokemon_cp_string = raid.pokemon.boss_cp > 0 ?
         `${raid.pokemon.min_base_cp}-${raid.pokemon.max_base_cp} / ` +

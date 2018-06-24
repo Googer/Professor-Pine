@@ -3,7 +3,9 @@
 const log = require('loglevel').getLogger('PokemonSearch'),
   lunr = require('lunr'),
   gameMaster = require('pokemongo-game-master'),
+  removeDiacritics = require('diacritics').remove,
   Search = require('./search'),
+  privateSettings = require('../data/private-settings'),
   types = require('../data/types'),
   weather = require('../data/weather');
 
@@ -22,18 +24,36 @@ class Pokemon extends Search {
         .filter(item => regex.test(item.templateId))
         .map(item => Object.assign({},
           {
-            name: item.pokemonSettings.pokemonId.toLowerCase(),
-            number: parseInt(item.templateId.split('_')[0].slice(1), 10),
+            name: item.pokemonSettings.form ?
+              item.pokemonSettings.form.toLowerCase() :
+              item.pokemonSettings.pokemonId.toLowerCase(),
+            number: item.templateId.split('_')[0].slice(2),
             stats: item.pokemonSettings.stats,
             type: [item.pokemonSettings.type.split('_')[2].toLowerCase(), item.pokemonSettings.type2 ?
               item.pokemonSettings.type2.split('_')[2].toLowerCase() :
               null]
-              .filter(type => !!type)
+              .filter(type => !!type),
+            form: item.pokemonSettings.form ?
+              item.pokemonSettings.form.split('_')[1].toLowerCase() :
+              'normal'
           })),
       merged_pokemon = pokemon_metadata
         .map(poke => Object.assign({}, poke, pokemon.find(p => p.name === poke.name)));
 
     merged_pokemon.forEach(poke => {
+      let form;
+
+      switch (poke.form) {
+        case 'alola':
+          form = '61';
+          break;
+
+        case 'normal':
+        default:
+          form = '00';
+          break;
+      }
+
       poke.name = poke.overrideName ?
         poke.overrideName :
         poke.name;
@@ -44,6 +64,7 @@ class Pokemon extends Search {
       poke.max_base_cp = Pokemon.calculateCP(poke, 20, 15, 15, 15);
       poke.min_boosted_cp = Pokemon.calculateCP(poke, 25, 10, 10, 10);
       poke.max_boosted_cp = Pokemon.calculateCP(poke, 25, 15, 15, 15);
+      poke.url = `${privateSettings.pokemon_url_base}pokemon_icon_${poke.number}_${form}.png`
     });
 
     this.pokemon = merged_pokemon;
@@ -72,38 +93,89 @@ class Pokemon extends Search {
   }
 
   internalSearch(terms, fields) {
-    return terms
-      .map(term => Search.singleTermSearch(term, this.index, fields))
-      .find(results => results.length > 0);
+    // lunr does an OR of its search terms and we really want AND, so we'll get there by doing individual searches
+    // on everything and getting the intersection of the hits
+
+    // first filter out stop words from the search terms; lunr does this itself so our hacky way of AND'ing will
+    // return nothing if they have any in their search terms list since they'll never match anything
+    const split_terms = [].concat(...terms
+      .map(term => term.split('-')));
+
+    const filtered_terms = split_terms
+      .map(term => removeDiacritics(term))
+      .map(term => term.replace(/[^\w\s*]+/g, ''))
+      .map(term => term.toLowerCase())
+      .filter(term => this.stopWordFilter(term));
+
+    if (filtered_terms.length === 0) {
+      return [];
+    }
+
+    let results = Search.singleTermSearch(filtered_terms[0], this.index, fields);
+
+    for (let i = 1; i < filtered_terms.length; i++) {
+      const term_results = Search.singleTermSearch(filtered_terms[i], this.index, fields);
+
+      results = results
+        .map(result => {
+          const matching_result = term_results.find(term_result => term_result.ref === result.ref);
+
+          if (matching_result) {
+            // Multiply scores together for reordering later
+            result.score *= matching_result.score;
+          } else {
+            // No match, so set score to -1 so this result gets filtered out
+            result.score = -1;
+          }
+
+          return result;
+        })
+        .filter(result => result.score !== -1);
+
+      if (results.length === 0) {
+        // already no results, may as well stop
+        break;
+      }
+    }
+
+    // Reorder results by composite score
+    results.sort((result_1, result_2) => result_2.score - result_1.score);
+
+    return results
+      .map(result => JSON.parse(result.ref));
   }
 
   search(terms) {
-    // First try searching based on name and nickname
-    let result = this.internalSearch(terms, ['name', 'nickname']);
-    if (result !== undefined) {
-      return JSON.parse(result[0].ref);
+    // First try searching just on name
+    let results = this.internalSearch(terms, ['name']);
+    if (results !== undefined && results.length > 0) {
+      return results;
+    }
+
+    // Try based on name and nickname
+    results = this.internalSearch(terms, ['name', 'nickname']);
+    if (results !== undefined && results.length > 0) {
+      return results;
     }
 
     // Try CP
-    result = this.internalSearch(terms, ['boss_cp']);
-    if (result !== undefined) {
-      return JSON.parse(result[0].ref);
+    results = this.internalSearch(terms, ['boss_cp']);
+    if (results !== undefined && results.length > 0) {
+      return results;
     }
 
     // Try tier
-    result = this.internalSearch(terms
+    results = this.internalSearch(terms
       .map(term => term.match(/(\d+)$/))
       .filter(match => !!match)
       .map(match => match[1]), ['tier']);
 
-    if (result !== undefined) {
-      result = result.map(result => JSON.parse(result.ref))
+    if (results !== undefined && results.length > 0) {
+      results = results
         .filter(pokemon => pokemon.name === undefined);
     }
 
-    if (result !== undefined) {
-      return result[0];
-    }
+    return results;
   }
 
   static calculateWeaknesses(pokemon_types) {
