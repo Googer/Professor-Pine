@@ -17,8 +17,8 @@ class ShoutCommand extends Commando.Command {
       details: 'Use this command to send a message mentioning other attendees to the raid.',
       examples: ['\t!shout Gridlock on Forbes - take side streets instead!'],
       throttling: {
-        usages: 1,
-        duration: 60
+        usages: 3,
+        duration: 180
       },
       guildOnly: true
     });
