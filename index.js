@@ -120,6 +120,12 @@ Client.registry.registerCommands([
   require('./commands/util/help')
 ]);
 
+if (private_settings.region_map_link !== '') {
+  Client.registry.registerCommand(
+    require('./commands/util/maps')
+  )
+}
+
 if (private_settings.google_api_key !== '') {
   Client.registry.registerCommand(
     require('./commands/util/find-region'));
