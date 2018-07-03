@@ -16,7 +16,7 @@ const log = require('loglevel').getLogger('ImageProcessor'),
   uuidv1 = require('uuid/v1');
 
 // Will save all images regardless of how right or wrong, in order to better examine output
-const debug_flag = false;
+const debug_flag = true;
 
 class ImageProcessing {
   constructor() {
@@ -1043,7 +1043,7 @@ class ImageProcessing {
       gym_location = {
         x: image.bitmap.width / 5.1,
         y: image.bitmap.height / 26,
-        width: image.bitmap.width - (image.bitmap.width / 2.55),
+        width: image.bitmap.width - (image.bitmap.width / 5.1),
         height: image.bitmap.height / 13
       },
       phone_time_crop = {
