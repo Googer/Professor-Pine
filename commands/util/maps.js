@@ -2,7 +2,8 @@ const Commando = require('discord.js-commando'),
   {CommandGroup} = require('../../app/constants'),
   {oneLine} = require('common-tags'),
   private_settings = require('../../data/private-settings'),
-  Helper = require('../../app/helper');
+  Helper = require('../../app/helper'),
+  Raid = require('../../app/raid');
 
 class MapCommand extends Commando.Command  {
   constructor(client) {
@@ -11,12 +12,20 @@ class MapCommand extends Commando.Command  {
       group: CommandGroup.UTIL,
       memberName: 'maps',
       aliases: ['map'],
-      description: 'Displays the url to the map used for regions',
+      description: 'Displays the url to the map used for regions.',
       details: oneLine`
-				This server uses a third party map to define what the various regions are. This
-				command will share the current url to the map for ease of use
+				This server uses a third party map to define what the various regions are.  This
+				command will share the current url to the map for ease of use.
 			`,
       examples: ['\t!maps'],
+    });
+
+    client.dispatcher.addInhibitor(message => {
+      if (!!message.command && message.command.name === 'maps' &&
+        Raid.validRaid(message.channel.id)) {
+        return ['invalid-channel', message.reply('Ask for the complete region map from outside a raid channel!')];
+      }
+      return false;
     });
   }
 
