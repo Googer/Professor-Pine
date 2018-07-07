@@ -21,12 +21,19 @@ class TimeType extends Commando.ArgumentType {
       raid_hatch_time = raid_exists && !!Raid.getRaid(message.channel.id).hatch_time ?
         moment(Raid.getRaid(message.channel.id).hatch_time) :
         undefined,
-      incubation_duration = is_ex_raid ?
-        settings.exclusive_raid_incubate_duration :
-        settings.standard_raid_incubate_duration,
-      hatched_duration = is_ex_raid ?
-        settings.exclusive_raid_hatched_duration :
-        settings.standard_raid_hatched_duration;
+      pokemon = raid_exists ?
+        Raid.getRaid(message.channel.id).pokemon :
+        message.pokemon,
+      incubation_duration = pokemon && !!pokemon.incubation ?
+        pokemon.incubation :
+        is_ex_raid ?
+          settings.exclusive_raid_incubate_duration :
+          settings.standard_raid_incubate_duration,
+      hatched_duration = pokemon && !!pokemon.duration ?
+        pokemon.duration :
+        is_ex_raid ?
+          settings.exclusive_raid_hatched_duration :
+          settings.standard_raid_hatched_duration;
 
     let first_possible_time,
       max_duration,
@@ -161,12 +168,19 @@ class TimeType extends Commando.ArgumentType {
       raid_hatch_time = raid_exists && !!Raid.getRaid(message.channel.id).hatch_time ?
         moment(Raid.getRaid(message.channel.id).hatch_time) :
         undefined,
-      incubation_duration = is_ex_raid ?
-        settings.exclusive_raid_incubate_duration :
-        settings.standard_raid_incubate_duration,
-      hatched_duration = is_ex_raid ?
-        settings.exclusive_raid_hatched_duration :
-        settings.standard_raid_hatched_duration;
+      pokemon = raid_exists ?
+        Raid.getRaid(message.channel.id).pokemon :
+        message.pokemon,
+      incubation_duration = pokemon && !!pokemon.incubation ?
+        pokemon.incubation :
+        is_ex_raid ?
+          settings.exclusive_raid_incubate_duration :
+          settings.standard_raid_incubate_duration,
+      hatched_duration = pokemon && !!pokemon.duration ?
+        pokemon.duration :
+        is_ex_raid ?
+          settings.exclusive_raid_hatched_duration :
+          settings.standard_raid_hatched_duration;
 
     let first_possible_time,
       max_duration,

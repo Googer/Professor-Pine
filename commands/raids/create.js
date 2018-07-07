@@ -95,7 +95,8 @@ class RaidCommand extends Commando.Command {
       .then(channel_raid_message => Raid.addMessage(raid.channel_id, channel_raid_message, true))
       // now ask user about remaining time on this brand-new raid
       .then(result => {
-        // somewhat hacky way of letting time type know if this is exclusive or not
+        // somewhat hacky way of letting time type know if some additional information
+        message.pokemon = raid.pokemon;
         message.is_exclusive = Raid.isExclusive(raid.channel_id);
 
         if (raid.pokemon.name) {

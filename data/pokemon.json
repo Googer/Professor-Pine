@@ -519,7 +519,9 @@
     "nickname": [
       "arty"
     ],
-    "tier": 5
+    "tier": 5,
+    "incubation": 0,
+    "duration": 180
   },
   {
     "name": "zapdos",
