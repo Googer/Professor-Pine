@@ -94,7 +94,21 @@
     "name": "rattata"
   },
   {
+    "name": "rattata_alola",
+    "overrideName": "Alolan Rattata",
+    "nickname": [
+      "alo"
+    ]
+  },
+  {
     "name": "raticate"
+  },
+  {
+    "name": "raticate_alola",
+    "overrideName": "Alolan Raticate",
+    "nickname": [
+      "alo"
+    ]
   },
   {
     "name": "spearow"
@@ -115,11 +129,32 @@
     "name": "raichu"
   },
   {
+    "name": "raichu_alola",
+    "overrideName": "Alolan Raichu",
+    "nickname": [
+      "alo"
+    ]
+  },
+  {
     "name": "sandshrew"
+  },
+  {
+    "name": "sandshrew_alola",
+    "overrideName": "Alolan Sandshrew",
+    "nickname": [
+      "alo"
+    ]
   },
   {
     "name": "sandslash",
     "tier": 2
+  },
+  {
+    "name": "sandslash_alola",
+    "overrideName": "Alolan Sandslash",
+    "nickname": [
+      "alo"
+    ]
   },
   {
     "name": "nidoran♀"
@@ -151,8 +186,22 @@
     "name": "vulpix"
   },
   {
+    "name": "vulpix_alola",
+    "overrideName": "Alolan Vulpix",
+    "nickname": [
+      "alo"
+    ]
+  },
+  {
     "name": "ninetales",
     "tier": 3
+  },
+  {
+    "name": "ninetales_alola",
+    "overrideName": "Alolan Ninetales",
+    "nickname": [
+      "alo"
+    ]
   },
   {
     "name": "jigglypuff"
@@ -192,13 +241,41 @@
     "name": "diglett"
   },
   {
+    "name": "diglett_alola",
+    "overrideName": "Alolan Diglett",
+    "nickname": [
+      "alo"
+    ]
+  },
+  {
     "name": "dugtrio"
+  },
+  {
+    "name": "dugtrio_alola",
+    "overrideName": "Alolan Dugtrio",
+    "nickname": [
+      "alo"
+    ]
   },
   {
     "name": "meowth"
   },
   {
+    "name": "meowth_alola",
+    "overrideName": "Alolan Meowth",
+    "nickname": [
+      "alo"
+    ]
+  },
+  {
     "name": "persian"
+  },
+  {
+    "name": "persian_alola",
+    "overrideName": "Alolan Persian",
+    "nickname": [
+      "alo"
+    ]
   },
   {
     "name": "psyduck"
@@ -271,11 +348,32 @@
     "name": "geodude"
   },
   {
+    "name": "geodude_alola",
+    "overrideName": "Alolan Geodude",
+    "nickname": [
+      "alo"
+    ]
+  },
+  {
     "name": "graveler"
+  },
+  {
+    "name": "graveler_alola",
+    "overrideName": "Alolan Graveler",
+    "nickname": [
+      "alo"
+    ]
   },
   {
     "name": "golem",
     "tier": 4
+  },
+  {
+    "name": "golem_alola",
+    "overrideName": "Alolan Golem",
+    "nickname": [
+      "alo"
+    ]
   },
   {
     "name": "ponyta"
@@ -317,8 +415,22 @@
     "name": "grimer"
   },
   {
+    "name": "grimer_alola",
+    "overrideName": "Alolan Grimer",
+    "nickname": [
+      "alo"
+    ]
+  },
+  {
     "name": "muk",
     "tier": 2
+  },
+  {
+    "name": "muk_alola",
+    "overrideName": "Alolan Muk",
+    "nickname": [
+      "alo"
+    ]
   },
   {
     "name": "shellder",
@@ -365,7 +477,18 @@
   },
   {
     "name": "exeggutor",
+    "nickname": [
+      "exegg"
+    ],
     "tier": 2
+  },
+  {
+    "name": "exeggutor_alola",
+    "overrideName": "Alolan Exeggutor",
+    "nickname": [
+      "alo",
+      "exegg"
+    ]
   },
   {
     "name": "cubone"
@@ -373,6 +496,13 @@
   {
     "name": "marowak",
     "tier": 2
+  },
+  {
+    "name": "marowak_alola",
+    "overrideName": "Alolan Marowak",
+    "nickname": [
+      "alo"
+    ]
   },
   {
     "name": "hitmonlee",
@@ -870,7 +1000,7 @@
   },
   {
     "name": "ho_oh",
-    "overrideName": "ho-oh",
+    "overrideName": "Ho-Oh",
     "nickname": [
       "ho-oh",
       "hooh",

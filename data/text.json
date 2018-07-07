@@ -38,5 +38,9 @@
   "status": {
     "warning": "Check the status of raids from a regional or raid channel!"
   },
-  "channel_deletion_warning": "**WARNING**: This channel will self-destruct ${time_until_deletion}!"
+  "channel_deletion_warning": "**WARNING**: This channel will self-destruct ${time_until_deletion}!",
+  "region_map_dm": {
+    "success": "Sent you a DM with the link.",
+    "warning": "Unable to send you the DM. You probably have DMs disabled."
+  }
 }
