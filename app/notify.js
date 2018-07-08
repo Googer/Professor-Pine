@@ -23,7 +23,7 @@ class Notify {
   }
 
   static getDbPokemonNumber(pokemon) {
-    return pokemon.number || -pokemon.tier;
+    return Number.parseInt(pokemon.number) || -pokemon.tier;
   }
 
   // get pokemon that member is interested in
