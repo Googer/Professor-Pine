@@ -133,7 +133,8 @@
     "overrideName": "Alolan Raichu",
     "nickname": [
       "alo"
-    ]
+    ],
+    "tier": 3
   },
   {
     "name": "sandshrew"
@@ -479,8 +480,7 @@
     "name": "exeggutor",
     "nickname": [
       "exegg"
-    ],
-    "tier": 2
+    ]
   },
   {
     "name": "exeggutor_alola",
@@ -488,21 +488,22 @@
     "nickname": [
       "alo",
       "exegg"
-    ]
+    ],
+    "tier": 2
   },
   {
     "name": "cubone"
   },
   {
-    "name": "marowak",
-    "tier": 2
+    "name": "marowak"
   },
   {
     "name": "marowak_alola",
     "overrideName": "Alolan Marowak",
     "nickname": [
       "alo"
-    ]
+    ],
+    "tier": 4
   },
   {
     "name": "hitmonlee",
@@ -935,7 +936,8 @@
     "name": "phanpy"
   },
   {
-    "name": "donphan"
+    "name": "donphan",
+    "tier": 3
   },
   {
     "name": "porygon2"
@@ -1100,7 +1102,8 @@
     "name": "ralts"
   },
   {
-    "name": "kirlia"
+    "name": "kirlia",
+    "tier": 2
   },
   {
     "name": "gardevoir"
@@ -1146,7 +1149,8 @@
     "name": "exploud"
   },
   {
-    "name": "makuhita"
+    "name": "makuhita",
+    "tier": 1
   },
   {
     "name": "hariyama"
@@ -1183,7 +1187,8 @@
     "tier": 4
   },
   {
-    "name": "meditite"
+    "name": "meditite",
+    "tier": 1
   },
   {
     "name": "medicham"
