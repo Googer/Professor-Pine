@@ -139,6 +139,7 @@ class Role {
   getRoles(guild) {
     return new Promise((resolve, reject) => {
       DB.DB('Role')
+        .select(['Guild.id', 'Role.roleName', 'Role.roleDescription', 'Role.guildId', 'Alias.aliasName', 'Role.id as roleId', 'Guild.snowflake'])
         .leftJoin('Alias', {'Alias.roleId': 'Role.id'})
         .innerJoin('Guild', {'Role.guildId': 'Guild.id'})
         .where('Guild.snowflake', guild.id)
