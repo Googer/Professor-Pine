@@ -59,12 +59,15 @@ class Pokemon extends Search {
         poke.name;
       poke.weakness = Pokemon.calculateWeaknesses(poke.type);
       poke.boost_conditions = Pokemon.calculateBoostConditions(poke.type);
-      poke.boss_cp = Pokemon.calculateBossCP(poke);
-      poke.min_base_cp = Pokemon.calculateCP(poke, 20, 10, 10, 10);
-      poke.max_base_cp = Pokemon.calculateCP(poke, 20, 15, 15, 15);
-      poke.min_boosted_cp = Pokemon.calculateCP(poke, 25, 10, 10, 10);
-      poke.max_boosted_cp = Pokemon.calculateCP(poke, 25, 15, 15, 15);
-      poke.url = `${privateSettings.pokemon_url_base}pokemon_icon_${poke.number}_${form}.png`
+
+      if (poke.number && poke.tier) {
+        poke.boss_cp = Pokemon.calculateBossCP(poke);
+        poke.min_base_cp = Pokemon.calculateCP(poke, 20, 10, 10, 10);
+        poke.max_base_cp = Pokemon.calculateCP(poke, 20, 15, 15, 15);
+        poke.min_boosted_cp = Pokemon.calculateCP(poke, 25, 10, 10, 10);
+        poke.max_boosted_cp = Pokemon.calculateCP(poke, 25, 15, 15, 15);
+        poke.url = `${privateSettings.pokemon_url_base}pokemon_icon_${poke.number}_${form}.png`
+      }
     });
 
     this.pokemon = merged_pokemon;
