@@ -4,6 +4,7 @@ const log = require('loglevel').getLogger('DeleteCommand'),
   Commando = require('discord.js-commando'),
   {CommandGroup} = require('../../app/constants'),
   Helper = require('../../app/helper'),
+  PartyManager = require('../../app/party-manager'),
   Raid = require('../../app/raid'),
   Utility = require('../../app/utility');
 
@@ -22,7 +23,7 @@ class DeleteCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'delete' &&
-        !Raid.validRaid(message.channel.id)) {
+        !PartyManager.validParty(message.channel.id)) {
         return ['invalid-channel', message.reply('Delete a raid from its raid channel!')];
       }
       return false;
@@ -45,27 +46,27 @@ class DeleteCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    const has_permission = Helper.isManagement(message);
+    const hasPermission = Helper.isManagement(message);
 
-    if (has_permission) {
+    if (hasPermission) {
       message.channel.send('Deleting this raid in 15 seconds!')
         .then(message => Utility.sleep(15000))
-        .then(resolve => Raid.deleteRaid(message.channel.id))
+        .then(resolve => PartyManager.deleteParty(message.channel.id))
         .catch(err => log.error(err));
     } else {
       this.deletionReasonCollector.obtain(message)
-        .then(collection_result => {
-          if (!collection_result.cancelled) {
-            const reason = collection_result.values['reason'].trim();
+        .then(collectionResult => {
+          if (!collectionResult.cancelled) {
+            const reason = collectionResult.values['reason'].trim();
 
             if (reason.length > 0) {
-              const admin_role = Helper.getRole(message.guild, 'admin'),
-                moderator_role = Helper.getRole(message.guild, 'moderator');
+              const adminRole = Helper.getRole(message.guild, 'admin'),
+                moderatorRole = Helper.getRole(message.guild, 'moderator');
 
-              return message.channel.send(`${admin_role} / ${moderator_role}:  Raid deletion requested!`);
+              return message.channel.send(`${adminRole} / ${moderatorRole}:  Raid deletion requested!`);
             }
           } else {
-            Utility.cleanCollector(collection_result);
+            Utility.cleanCollector(collectionResult);
           }
         })
         .catch(err => log.error(err));

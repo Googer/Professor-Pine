@@ -16,10 +16,10 @@ class TimeType extends Commando.ArgumentType {
       raid_exists = Raid.validRaid(message.channel.id),
       now = moment(),
       raid_creation_time = raid_exists ?
-        moment(Raid.getRaid(message.channel.id).creation_time) :
+        moment(Raid.getRaid(message.channel.id).creationTime) :
         now,
-      raid_hatch_time = raid_exists && !!Raid.getRaid(message.channel.id).hatch_time ?
-        moment(Raid.getRaid(message.channel.id).hatch_time) :
+      raid_hatch_time = raid_exists && !!Raid.getRaid(message.channel.id).hatchTime ?
+        moment(Raid.getRaid(message.channel.id).hatchTime) :
         undefined,
       pokemon = raid_exists ?
         Raid.getRaid(message.channel.id).pokemon :
@@ -46,10 +46,10 @@ class TimeType extends Commando.ArgumentType {
         // through raid's end time
         const raid = Raid.getRaid(message.channel.id),
           hatch_time = raid ?
-            raid.hatch_time :
+            raid.hatchTime :
             undefined,
           end_time = raid ?
-            raid.end_time :
+            raid.endTime :
             undefined;
 
         if (hatch_time) {
@@ -163,10 +163,10 @@ class TimeType extends Commando.ArgumentType {
       raid_exists = Raid.validRaid(message.channel.id),
       now = moment(),
       raid_creation_time = raid_exists ?
-        moment(Raid.getRaid(message.channel.id).creation_time) :
+        moment(Raid.getRaid(message.channel.id).creationTime) :
         now,
-      raid_hatch_time = raid_exists && !!Raid.getRaid(message.channel.id).hatch_time ?
-        moment(Raid.getRaid(message.channel.id).hatch_time) :
+      raid_hatch_time = raid_exists && !!Raid.getRaid(message.channel.id).hatchTime ?
+        moment(Raid.getRaid(message.channel.id).hatchTime) :
         undefined,
       pokemon = raid_exists ?
         Raid.getRaid(message.channel.id).pokemon :
@@ -193,10 +193,10 @@ class TimeType extends Commando.ArgumentType {
         // through raid's end time
         const raid = Raid.getRaid(message.channel.id),
           hatch_time = raid ?
-            raid.hatch_time :
+            raid.hatchTime :
             undefined,
           end_time = raid ?
-            raid.end_time :
+            raid.endTime :
             undefined;
 
         if (hatch_time) {
@@ -290,10 +290,10 @@ class TimeType extends Commando.ArgumentType {
   }
 
   isExclusiveRaid(value, message, arg) {
-    // first check is message has is_exclusive set - the create command embeds it in the
+    // first check is message has isExclusive set - the create command embeds it in the
     // CommandMessage for the sole purpose of checking it here from outside the raid channel
-    return message.is_exclusive !== undefined ?
-      message.is_exclusive :
+    return message.isExclusive !== undefined ?
+      message.isExclusive :
       require('../app/raid').isExclusive(message.channel.id);
   }
 

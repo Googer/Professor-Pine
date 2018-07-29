@@ -4,7 +4,7 @@ const log = require('loglevel').getLogger('DoneCommand'),
   Commando = require('discord.js-commando'),
   {CommandGroup} = require('../../app/constants'),
   Helper = require('../../app/helper'),
-  Raid = require('../../app/raid'),
+  PartyManager = require('../../app/party-manager'),
   settings = require('../../data/settings');
 
 class DoneCommand extends Commando.Command {
@@ -22,7 +22,7 @@ class DoneCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'done' &&
-        !Raid.validRaid(message.channel.id)) {
+        !PartyManager.validParty(message.channel.id)) {
         return ['invalid-channel', message.reply('Say you have completed a raid from its raid channel!')];
       }
       return false;
@@ -30,10 +30,11 @@ class DoneCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    Raid.setPresentAttendeesToComplete(message.channel.id, undefined, message.member.id)
+    PartyManager.getParty(message.channel.id)
+      .setPresentAttendeesToComplete(undefined, message.member.id)
       .catch(err => log.error(err));
 
-    message.react(Helper.getEmoji(settings.emoji.thumbs_up) || '👍')
+    message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .catch(err => log.error(err));
   }
 }

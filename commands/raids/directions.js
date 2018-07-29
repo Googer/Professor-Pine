@@ -5,7 +5,7 @@ const log = require('loglevel').getLogger('DirectionsCommand'),
   {CommandGroup} = require('../../app/constants'),
   {MessageEmbed} = require('discord.js'),
   Gym = require('../../app/gym'),
-  Raid = require('../../app/raid');
+  PartyManager = require('../../app/party-manager');
 
 class DirectionsCommand extends Commando.Command {
   constructor(client) {
@@ -22,7 +22,7 @@ class DirectionsCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'where' &&
-        !Raid.validRaid(message.channel.id)) {
+        !PartyManager.validParty(message.channel.id)) {
         return ['invalid-channel', message.reply('Ask for directions to a raid from its raid channel!')];
       }
       return false;
@@ -30,18 +30,18 @@ class DirectionsCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    const raid = Raid.getRaid(message.channel.id),
-      gym_id = raid.gym_id,
-      gym = Gym.getGym(gym_id),
+    const raid = PartyManager.getParty(message.channel.id),
+      gymId = raid.gymId,
+      gym = Gym.getGym(gymId),
       embed = new MessageEmbed();
 
     embed.setColor('GREEN');
-    embed.setImage(`attachment://${gym_id}.png`);
+    embed.setImage(`attachment://${gymId}.png`);
 
     message.channel
       .send(`https://www.google.com/maps/search/?api=1&query=${gym.gymInfo.latitude}%2C${gym.gymInfo.longitude}`, {
         files: [
-          require.resolve(`PgP-Data/data/images/${gym_id}.png`)
+          require.resolve(`PgP-Data/data/images/${gymId}.png`)
         ],
         embed
       })

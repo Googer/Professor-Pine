@@ -2,9 +2,9 @@
 
 const log = require('loglevel').getLogger('CheckOutCommand'),
   Commando = require('discord.js-commando'),
-  {CommandGroup, RaidStatus} = require('../../app/constants'),
+  {CommandGroup, PartyStatus} = require('../../app/constants'),
   Helper = require('../../app/helper'),
-  Raid = require('../../app/raid'),
+  PartyManager = require('../../app/party-manager'),
   settings = require('../../data/settings');
 
 class CheckOutCommand extends Commando.Command {
@@ -22,7 +22,7 @@ class CheckOutCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'not-here' &&
-        !Raid.validRaid(message.channel.id)) {
+        !PartyManager.validParty(message.channel.id)) {
         return ['invalid-channel', message.reply('Check out of a raid from its raid channel!')];
       }
       return false;
@@ -30,13 +30,14 @@ class CheckOutCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    const info = Raid.setMemberStatus(message.channel.id, message.member.id, RaidStatus.INTERESTED);
+    const raid = PartyManager.getParty(message.channel.id),
+      info = raid.setMemberStatus(message.member.id, PartyStatus.INTERESTED);
 
     if (!info.error) {
-      message.react(Helper.getEmoji(settings.emoji.thumbs_up) || '👍')
+      message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
         .catch(err => log.error(err));
 
-      Raid.refreshStatusMessages(info.raid);
+      raid.refreshStatusMessages();
     } else {
       message.reply(info.error)
         .catch(err => log.error(err));

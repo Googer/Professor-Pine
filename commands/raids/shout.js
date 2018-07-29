@@ -2,9 +2,9 @@
 
 const log = require('loglevel').getLogger('ShoutCommand'),
   Commando = require('discord.js-commando'),
-  {CommandGroup, RaidStatus} = require('../../app/constants'),
+  {CommandGroup, PartyStatus} = require('../../app/constants'),
   Notify = require('../../app/notify'),
-  Raid = require('../../app/raid');
+  PartyManager = require('../../app/party-manager');
 
 class ShoutCommand extends Commando.Command {
   constructor(client) {
@@ -25,7 +25,7 @@ class ShoutCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'new' &&
-        !Raid.validRaid(message.channel.id)) {
+        !PartyManager.validParty(message.channel.id)) {
         return ['invalid-channel', message.reply('Create a new raid group for a raid from its raid channel!')];
       }
       return false;
@@ -37,20 +37,20 @@ class ShoutCommand extends Commando.Command {
       return;
     }
 
-    const raid = Raid.getRaid(message.channel.id),
+    const raid = PartyManager.getParty(message.channel.id),
       attendees = Object.entries(raid.attendees)
-        .filter(([attendee, attendee_status]) => attendee !== message.member.id &&
-          attendee_status.status !== RaidStatus.COMPLETE)
-        .map(([attendee, attendee_status]) => attendee);
+        .filter(([attendee, attendeeStatus]) => attendee !== message.member.id &&
+          attendeeStatus.status !== PartyStatus.COMPLETE)
+        .map(([attendee, attendeeStatus]) => attendee);
 
     if (attendees.length > 0) {
       const members = await Promise.all(attendees
-          .map(async attendee_id => await Raid.getMember(message.channel.id, attendee_id)))
+          .map(async attendeeId => await raid.getMember(attendeeId)))
           .catch(err => log.error(err)),
-        text_without_command_prefix = message.cleanContent.substr(1).trim(),
-        fully_clean_text = text_without_command_prefix.substr(text_without_command_prefix.indexOf(' ') + 1);
+        textWithoutCommandPrefix = message.cleanContent.substr(1).trim(),
+        fullyCleanText = textWithoutCommandPrefix.substr(textWithoutCommandPrefix.indexOf(' ') + 1);
 
-      Notify.shout(message, members, fully_clean_text, message.member);
+      Notify.shout(message, members, fullyCleanText, message.member);
     }
   }
 }

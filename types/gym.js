@@ -3,7 +3,7 @@
 const log = require('loglevel').getLogger('GymSearch'),
   Commando = require('discord.js-commando'),
   {GymParameter} = require('../app/constants'),
-  Raid = require('../app/raid'),
+  PartyManager = require('../app/party-manager'),
   Gym = require('../app/gym');
 
 class GymType extends Commando.ArgumentType {
@@ -44,12 +44,12 @@ class GymType extends Commando.ArgumentType {
 
       const gym_id = gyms[0].gymId;
 
-      if (arg.key !== GymParameter.FAVORITE && Raid.raidExistsForGym(gym_id)) {
-        const raid = Raid.findRaid(gym_id),
+      if (arg.key !== GymParameter.FAVORITE && PartyManager.raidExistsForGym(gym_id)) {
+        const raid = PartyManager.findRaid(gym_id),
           gym_name = gyms[0].nickname ?
             gyms[0].nickname :
             gyms[0].gymName,
-          channel = await Raid.getChannel(raid.channel_id);
+          channel = await PartyManager.getChannel(raid.channelId);
 
         if (arg && !arg.is_screenshot) {
           return `"${gym_name}" already has an active raid - ${channel.toString()}.\n\n` +

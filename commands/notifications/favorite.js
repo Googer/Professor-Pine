@@ -31,7 +31,7 @@ class FavoriteCommand extends Commando.Command {
             const raid = Raid.getRaid(message.channel.id);
 
             return raid ?
-              raid.gym_id :
+              raid.gymId :
               null;
           }
         }
@@ -69,7 +69,7 @@ class FavoriteCommand extends Commando.Command {
       message.delete_original = true;
     }
 
-    if (!in_raid_channel || Raid.getRaid(message.channel.id).gym_id !== gym_id) {
+    if (!in_raid_channel || Raid.getRaid(message.channel.id).gymId !== gym_id) {
       const gym = Gym.getGym(gym_id),
         gym_name = !!gym.nickname ?
           gym.nickname :

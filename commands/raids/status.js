@@ -5,6 +5,7 @@ const log = require('loglevel').getLogger('StatusCommand'),
   {CommandGroup} = require('../../app/constants'),
   Helper = require('../../app/helper'),
   Gym = require('../../app/gym'),
+  PartyManager = require('../../app/party-manager'),
   Raid = require('../../app/raid');
 
 class StatusCommand extends Commando.Command {
@@ -22,7 +23,7 @@ class StatusCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'status' &&
-        !Raid.validRaid(message.channel.id) &&
+        !PartyManager.validParty(message.channel.id) &&
         !Gym.isValidChannel(message.channel.name)) {
         return ['invalid-channel', message.reply(Helper.getText('status.warning', message))];
       }
@@ -31,20 +32,20 @@ class StatusCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    if (!Raid.validRaid(message.channel.id)) {
-      const raids_message = await Raid.getRaidsFormattedMessage(message.channel.id);
-      message.channel.send(raids_message)
+    if (!PartyManager.validParty(message.channel.id)) {
+      const raidsMessage = await Raid.getRaidsFormattedMessage(message.channel.id);
+      message.channel.send(raidsMessage)
         .then(message => message.delete({timeout: 60000}))
         .catch(err => log.error(err));
     } else {
-      const raid = Raid.getRaid(message.channel.id),
-        raid_source_channel_message = await Raid.getRaidSourceChannelMessage(raid),
-        formatted_message = await Raid.getFormattedMessage(raid);
+      const raid = PartyManager.getParty(message.channel.id),
+        raidSourceChannelMessage = await raid.getRaidSourceChannelMessage(),
+        formattedMessage = await raid.getFormattedMessage();
 
       // post a new raid message, deleting last one in channel if it exists
-      message.channel.send(raid_source_channel_message, formatted_message)
-        .then(status_message => {
-          Raid.replaceLastMessage(raid.channel_id, status_message);
+      message.channel.send(raidSourceChannelMessage, formattedMessage)
+        .then(statusMessage => {
+          raid.replaceLastMessage(statusMessage);
         })
         .catch(err => log.error(err));
     }

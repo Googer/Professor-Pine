@@ -4,7 +4,7 @@ const log = require('loglevel').getLogger('LeaveCommand'),
   Commando = require('discord.js-commando'),
   {CommandGroup} = require('../../app/constants'),
   Helper = require('../../app/helper'),
-  Raid = require('../../app/raid'),
+  PartyManager = require('../../app/party-manager'),
   settings = require('../../data/settings');
 
 class LeaveCommand extends Commando.Command {
@@ -22,7 +22,7 @@ class LeaveCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'leave' &&
-        !Raid.validRaid(message.channel.id)) {
+        !PartyManager.validParty(message.channel.id)) {
         return ['invalid-channel', message.reply('Leave a raid from its raid channel!')];
       }
       return false;
@@ -30,13 +30,14 @@ class LeaveCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    const info = Raid.removeAttendee(message.channel.id, message.member.id);
+    const raid = PartyManager.getRaid(message.channel.id),
+      info = raid.removeAttendee(message.member.id);
 
     if (!info.error) {
-      message.react(Helper.getEmoji(settings.emoji.thumbs_up) || '👍')
+      message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
         .catch(err => log.error(err));
 
-      Raid.refreshStatusMessages(info.raid);
+      info.raid.refreshStatusMessages();
     } else {
       message.reply(info.error)
         .catch(err => log.error(err));

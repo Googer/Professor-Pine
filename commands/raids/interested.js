@@ -2,11 +2,11 @@
 
 const log = require('loglevel').getLogger('InterestedCommand'),
   Commando = require('discord.js-commando'),
-  {CommandGroup, RaidStatus} = require('../../app/constants'),
+  {CommandGroup, PartyStatus} = require('../../app/constants'),
   Helper = require('../../app/helper'),
   moment = require('moment'),
   NaturalArgumentType = require('../../types/natural'),
-  Raid = require('../../app/raid'),
+  PartyManager = require('../../app/party-manager'),
   settings = require('../../data/settings'),
   Utility = require('../../app/utility');
 
@@ -22,7 +22,7 @@ class InterestedCommand extends Commando.Command {
       examples: ['\t!maybe', '\t!interested', '\t!hmm'],
       args: [
         {
-          key: 'additional_attendees',
+          key: 'additionalAttendees',
           label: 'additional attendees',
           prompt: 'How many additional people would come with you?\nExample: `+1`\n\n*or*\n\nHow many people would come (including yourself)?\nExample: `2`\n',
           type: 'natural',
@@ -37,7 +37,7 @@ class InterestedCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'maybe' &&
-        !Raid.validRaid(message.channel.id)) {
+        !PartyManager.validParty(message.channel.id)) {
         return ['invalid-channel', message.reply('Express interest in a raid from its raid channel!')];
       }
       return false;
@@ -45,15 +45,15 @@ class InterestedCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    const additional_attendees = args['additional_attendees'],
-      current_status = Raid.getMemberStatus(message.channel.id, message.member.id),
-      raid = Raid.getRaid(message.channel.id),
-      group_count = raid.groups.length;
+    const additionalAttendees = args['additionalAttendees'],
+      raid = PartyManager.getParty(message.channel.id),
+      currentStatus = raid.getMemberStatus(message.member.id),
+      groupCount = raid.groups.length;
 
-    let status_promise;
+    let statusPromise;
 
-    if (current_status === RaidStatus.NOT_INTERESTED && group_count > 1) {
-      const calendar_format = {
+    if (currentStatus === PartyStatus.NOT_INTERESTED && groupCount > 1) {
+      const calendarFormat = {
         sameDay: 'LT',
         sameElse: 'l LT'
       };
@@ -61,29 +61,29 @@ class InterestedCommand extends Commando.Command {
       let prompt = 'Which group do you wish to show interest in for this raid?\n\n';
 
       raid.groups.forEach(group => {
-        const start_time = !!group.start_time ?
-          moment(group.start_time) :
+        const startTime = !!group.startTime ?
+          moment(group.startTime) :
           '',
-          total_attendees = Raid.getAttendeeCount(raid, group.id);
+          totalAttendees = raid.getAttendeeCount(group.id);
 
-        let group_label = `**${group.id}**`;
+        let groupLabel = `**${group.id}**`;
 
         if (!!group.label) {
-          const truncated_label = group.label.length > 150 ?
+          const truncatedLabel = group.label.length > 150 ?
             group.label.substring(0, 149).concat('…') :
             group.label;
 
-          group_label += ` (${truncated_label})`;
+          groupLabel += ` (${truncatedLabel})`;
         }
 
-        if (!!group.start_time) {
-          group_label += ` :: ${start_time.calendar(null, calendar_format)}`;
+        if (!!startTime) {
+          groupLabel += ` :: ${startTime.calendar(null, calendarFormat)}`;
         }
 
-        prompt += group_label + ` :: ${total_attendees} possible trainers\n`;
+        prompt += groupLabel + ` :: ${totalAttendees} possible trainers\n`;
       });
 
-      const group_collector = new Commando.ArgumentCollector(this.client, [
+      const groupCollector = new Commando.ArgumentCollector(this.client, [
         {
           key: 'group',
           label: 'group',
@@ -92,30 +92,30 @@ class InterestedCommand extends Commando.Command {
         }
       ], 3);
 
-      let group_id = raid.default_group_id;
+      let groupId = raid.defaultGroupId;
 
-      status_promise = group_collector.obtain(message)
-        .then(collection_result => {
-          Utility.cleanCollector(collection_result);
+      statusPromise = groupCollector.obtain(message)
+        .then(collectionResult => {
+          Utility.cleanCollector(collectionResult);
 
-          if (!collection_result.cancelled) {
-            group_id = collection_result.values['group'];
+          if (!collectionResult.cancelled) {
+            groupId = collectionResult.values['group'];
           }
 
-          Raid.setMemberGroup(message.channel.id, message.member.id, group_id);
-          return Raid.setMemberStatus(message.channel.id, message.member.id, RaidStatus.INTERESTED, additional_attendees);
+          raid.setMemberGroup(message.member.id, groupId);
+          return raid.setMemberStatus(message.member.id, PartyStatus.INTERESTED, additionalAttendees);
         });
     } else {
-      status_promise = Promise.resolve(
-        Raid.setMemberStatus(message.channel.id, message.member.id, RaidStatus.INTERESTED, additional_attendees));
+      statusPromise = Promise.resolve(
+        raid.setMemberStatus(message.member.id, PartyStatus.INTERESTED, additionalAttendees));
     }
 
-    status_promise.then(info => {
+    statusPromise.then(info => {
       if (!info.error) {
-        message.react(Helper.getEmoji(settings.emoji.thumbs_up) || '👍')
+        message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
           .catch(err => log.error(err));
 
-        Raid.refreshStatusMessages(info.raid);
+        info.raid.refreshStatusMessages();
       } else {
         message.reply(info.error)
           .catch(err => log.error(err));

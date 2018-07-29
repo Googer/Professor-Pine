@@ -1193,7 +1193,7 @@ class ImageProcessing {
         raid = info.raid;
 
         if (time_warn) {
-          raid.time_warn = true;
+          raid.timeWarn = true;
         }
 
         const raid_channel_message = await Raid.getRaidChannelMessage(raid),
@@ -1201,9 +1201,9 @@ class ImageProcessing {
 
         return message.channel.send(raid_channel_message, formatted_message);
       })
-      .then(announcement_message => Raid.addMessage(raid.channel_id, announcement_message, true))
+      .then(announcement_message => Raid.addMessage(raid.channelId, announcement_message, true))
       .then(async result => {
-        await Raid.getChannel(raid.channel_id)
+        await Raid.getChannel(raid.channelId)
           .then(async channel => {
             // if pokemon, time remaining, or phone time was not determined, need to add original image to new channel,
             // in the hope the someone can manually read the screenshot and set the appropriate information
@@ -1225,12 +1225,12 @@ class ImageProcessing {
       .then(async bot_message => {
         const raid_source_channel_message = await Raid.getRaidSourceChannelMessage(raid),
           formatted_message = await Raid.getFormattedMessage(raid);
-        return Raid.getChannel(raid.channel_id)
+        return Raid.getChannel(raid.channelId)
           .then(channel => channel.send(raid_source_channel_message, formatted_message))
           .catch(err => log.error(err));
       })
       .then(channel_raid_message => {
-        Raid.addMessage(raid.channel_id, channel_raid_message, true);
+        Raid.addMessage(raid.channelId, channel_raid_message, true);
       })
       .then(result => {
         Helper.client.emit('raidCreated', raid, message.member.id);

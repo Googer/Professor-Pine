@@ -5,6 +5,7 @@ const log = require('loglevel').getLogger('CreateCommand'),
   {CommandGroup, TimeParameter} = require('../../app/constants'),
   Gym = require('../../app/gym'),
   Helper = require('../../app/helper'),
+  PartyManager = require('../../app/party-manager'),
   Raid = require('../../app/raid'),
   Utility = require('../../app/utility');
 
@@ -30,7 +31,7 @@ class RaidCommand extends Commando.Command {
           type: 'pokemon',
         },
         {
-          key: 'gym_id',
+          key: 'gymId',
           label: 'gym',
           prompt: 'Where is this raid taking place?\nExample: `manor theater`\n',
           type: 'gym',
@@ -61,7 +62,7 @@ class RaidCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'raid' &&
-        (Raid.validRaid(message.channel.id) || !Gym.isValidChannel(message.channel.name))) {
+        (PartyManager.validParty(message.channel.id) || !Gym.isValidChannel(message.channel.name))) {
         return ['invalid-channel', message.reply('Create raids from region channels!')];
       }
       return false;
@@ -70,7 +71,7 @@ class RaidCommand extends Commando.Command {
 
   async run(message, args) {
     const pokemon = args['pokemon'],
-      gym_id = args['gym_id'];
+      gym_id = args['gymId'];
 
     let raid;
 
@@ -78,26 +79,26 @@ class RaidCommand extends Commando.Command {
     // create and send announcement message to region channel
       .then(async info => {
         raid = info.raid;
-        const raid_channel_message = await Raid.getRaidChannelMessage(raid),
-          formatted_message = await Raid.getFormattedMessage(raid);
+        const raidChannelMessage = await raid.getRaidChannelMessage(),
+          formattedMessage = await raid.getFormattedMessage();
 
-        return message.channel.send(raid_channel_message, formatted_message);
+        return message.channel.send(raidChannelMessage, formattedMessage);
       })
-      .then(announcement_message => Raid.addMessage(raid.channel_id, announcement_message))
+      .then(announcementMessage => PartyManager.addMessage(raid.channelId, announcementMessage))
       // create and send initial status message to raid channel
-      .then(async bot_message => {
-        const raid_source_channel_message = await Raid.getRaidSourceChannelMessage(raid),
-          formatted_message = await Raid.getFormattedMessage(raid);
-        return Raid.getChannel(raid.channel_id)
-          .then(channel => channel.send(raid_source_channel_message, formatted_message))
+      .then(async botMessage => {
+        const raidSourceChannelMessage = await raid.getRaidSourceChannelMessage(),
+          formattedMessage = await raid.getFormattedMessage();
+        return PartyManager.getChannel(raid.channelId)
+          .then(channel => channel.send(raidSourceChannelMessage, formattedMessage))
           .catch(err => log.error(err));
       })
-      .then(channel_raid_message => Raid.addMessage(raid.channel_id, channel_raid_message, true))
+      .then(channelRaidMessage => PartyManager.addMessage(raid.channelId, channelRaidMessage, true))
       // now ask user about remaining time on this brand-new raid
       .then(result => {
         // somewhat hacky way of letting time type know if some additional information
         message.pokemon = raid.pokemon;
-        message.is_exclusive = Raid.isExclusive(raid.channel_id);
+        message.isExclusive = raid.isExclusive();
 
         if (raid.pokemon.name) {
           return this.endTimeCollector.obtain(message);
@@ -105,17 +106,17 @@ class RaidCommand extends Commando.Command {
           return this.hatchTimeCollector.obtain(message);
         }
       })
-      .then(collection_result => {
-        Utility.cleanCollector(collection_result);
+      .then(collectionResult => {
+        Utility.cleanCollector(collectionResult);
 
-        if (!collection_result.cancelled) {
+        if (!collectionResult.cancelled) {
           if (raid.pokemon.name) {
-            Raid.setRaidEndTime(raid.channel_id, collection_result.values[TimeParameter.END]);
+            raid.setRaidEndTime(collectionResult.values[TimeParameter.END]);
           } else {
-            Raid.setRaidHatchTime(raid.channel_id, collection_result.values[TimeParameter.HATCH]);
+            raid.setRaidHatchTime(collectionResult.values[TimeParameter.HATCH]);
           }
 
-          return Raid.refreshStatusMessages(raid);
+          return raid.refreshStatusMessages();
         }
       })
       .then(result => {

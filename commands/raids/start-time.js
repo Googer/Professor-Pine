@@ -2,10 +2,10 @@
 
 const log = require('loglevel').getLogger('StartTimeCommand'),
   Commando = require('discord.js-commando'),
-  {CommandGroup, RaidStatus, TimeParameter} = require('../../app/constants'),
+  {CommandGroup, PartyStatus, TimeParameter} = require('../../app/constants'),
   Helper = require('../../app/helper'),
   moment = require('moment'),
-  Raid = require('../../app/raid'),
+  PartyManager = require('../../app/party-manager'),
   settings = require('../../data/settings');
 
 class StartTimeCommand extends Commando.Command {
@@ -32,7 +32,7 @@ class StartTimeCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'meet' &&
-        !Raid.validRaid(message.channel.id)) {
+        !PartyManager.validParty(message.channel.id)) {
         return ['invalid-channel', message.reply('Set the meeting time for a raid from its raid channel!')];
       }
       return false;
@@ -40,8 +40,9 @@ class StartTimeCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    const start_time = args[TimeParameter.START],
-      info = Raid.setRaidStartTime(message.channel.id, message.member.id, start_time);
+    const startTime = args[TimeParameter.START],
+      raid = PartyManager.getParty(message.channel.id),
+      info = raid.setRaidStartTime(message.member.id, startTime);
 
     if (info.error) {
       message.reply(info.error)
@@ -49,39 +50,39 @@ class StartTimeCommand extends Commando.Command {
       return;
     }
 
-    message.react(Helper.getEmoji(settings.emoji.thumbs_up) || '👍')
+    message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .catch(err => log.error(err));
 
-    const group_id = info.raid.attendees[message.member.id].group,
-      total_attendees = Raid.getAttendeeCount(info.raid, group_id),
-      verb = total_attendees === 1 ?
+    const groupId = info.raid.attendees[message.member.id].group,
+      totalAttendees = Raid.getAttendeeCount(info.raid, groupId),
+      verb = totalAttendees === 1 ?
         'is' :
         'are',
-      noun = total_attendees === 1 ?
+      noun = totalAttendees === 1 ?
         'trainer' :
         'trainers',
-      calendar_format = {
+      calendarFormat = {
         sameDay: 'LT',
         sameElse: 'l LT'
       },
-      formatted_start_time = moment(start_time).calendar(null, calendar_format),
-      channel = await Raid.getChannel(info.raid.channel_id)
+      formattedStartTime = moment(startTime).calendar(null, calendarFormat),
+      channel = await PartyManager.getChannel(info.raid.channelId)
         .catch(err => log.error(err));
 
     // notify all attendees in same group that a time has been set
     Object.entries(info.raid.attendees)
-      .filter(([attendee, attendee_status]) => attendee !== message.member.id &&
-        attendee_status.status !== RaidStatus.COMPLETE)
-      .filter(([attendee, attendee_status]) => attendee_status.group === group_id)
-      .forEach(([attendee, attendee_status]) => {
+      .filter(([attendee, attendeeStatus]) => attendee !== message.member.id &&
+        attendeeStatus.status !== PartyStatus.COMPLETE)
+      .filter(([attendee, attendeeStatus]) => attendeeStatus.group === groupId)
+      .forEach(([attendee, attendeeStatus]) => {
         const member = Helper.getMemberForNotification(message.guild.id, attendee);
 
-        member.send(`${message.member.displayName} set a meeting time of ${formatted_start_time} for ${channel.toString()}. ` +
-          `There ${verb} currently **${total_attendees}** ${noun} attending!`)
+        member.send(`${message.member.displayName} set a meeting time of ${formattedStartTime} for ${channel.toString()}. ` +
+          `There ${verb} currently **${totalAttendees}** ${noun} attending!`)
           .catch(err => log.error(err));
       });
 
-    Raid.refreshStatusMessages(info.raid);
+    info.raid.refreshStatusMessages();
   }
 }
 

@@ -31,14 +31,14 @@ const private_settings = require('./data/private-settings'),
   IP = require('./app/process-image'),
   ExRaidChannel = require('./app/ex-gym-channel'),
   Notify = require('./app/notify'),
-  Raid = require('./app/raid'),
+  PartyManager = require('./app/party-manager'),
   Role = require('./app/role'),
   Utility = require('./app/utility'),
   settings = require('./data/settings'),
   {CommandGroup} = require('./app/constants');
 
 NodeCleanup((exitCode, signal) => {
-  Raid.shutdown();
+  PartyManager.shutdown();
 });
 
 Client.registry.registerDefaultTypes();
@@ -153,7 +153,7 @@ Client.on('ready', () => {
       Role.initialize();
     }
 
-    Raid.setClient(Client);
+    PartyManager.setClient(Client);
     DB.initialize(Client);
     IP.initialize();
 
@@ -179,7 +179,7 @@ Client.on('commandError', (command, err, message, args, from_pattern) => {
 
 Client.on('commandFinalize', (command, message, from_pattern) => {
   Utility.cleanConversation(message, !!message.is_successful, !!message.delete_original ||
-    (!Raid.validRaid(message.channel.id) && !Helper.isBotChannel(message)));
+    (!PartyManager.validParty(message.channel.id) && !Helper.isBotChannel(message)));
 });
 
 Client.on('disconnect', event => {

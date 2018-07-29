@@ -6,8 +6,8 @@ const log = require('loglevel').getLogger('SubmitRequestCommand'),
   Gym = require('../../app/gym'),
   Helper = require('../../app/helper'),
   https = require('https'),
-  private_settings = require('../../data/private-settings'),
-  Raid = require('../../app/raid'),
+  privateSettings = require('../../data/private-settings'),
+  PartyManager = require('../../app/party-manager'),
   settings = require('../../data/settings');
 
 class SubmitRequestCommand extends Commando.Command {
@@ -40,7 +40,7 @@ class SubmitRequestCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'request' &&
-        !Raid.validRaid(message.channel.id)) {
+        !PartyManager.validParty(message.channel.id)) {
         return ['invalid-channel', message.reply('Make gym change requests from a raid channel!')];
       }
       return false;
@@ -51,41 +51,41 @@ class SubmitRequestCommand extends Commando.Command {
     const reason = `Request from ${message.member.displayName}:\n\n` + args['reason']
         .map(reason => reason.trim())
         .join(' '),
-      raid = Raid.getRaid(message.channel.id),
-      gym_id = raid.gym_id,
-      gym = Gym.getGym(gym_id),
-      post_data = JSON.stringify({
-        title: `Gym request: '${gym.gymName}' (id ${gym_id})`,
+      raid = PartyManager.getParty(message.channel.id),
+      gymId = raid.gymId,
+      gym = Gym.getGym(gymId),
+      postData = JSON.stringify({
+        title: `Gym request: '${gym.gymName}' (id ${gymId})`,
         body: reason,
-        labels: [`${gym_id}`]
+        labels: [`${gymId}`]
       }),
-      post_options = {
+      postOptions = {
         hostname: 'api.github.com',
-        path: `/repos/${private_settings.github_repo}/issues`,
+        path: `/repos/${privateSettings.githubRepo}/issues`,
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Content-Length': Buffer.byteLength(post_data),
+          'Content-Length': Buffer.byteLength(postData),
           'User-Agent': 'Mozilla/5.0'
         },
-        auth: `${private_settings.github_user}:${private_settings.github_password}`
+        auth: `${privateSettings.githubUser}:${privateSettings.githubPassword}`
       },
-      post_request = https.request(post_options, result => {
+      postRequest = https.request(postOptions, result => {
         result.setEncoding('utf8');
         result
           .on('data', chunk => log.debug('Response: ' + chunk))
           .on('error', err => log.error(err))
           .on('end', () => {
-            message.react(Helper.getEmoji(settings.emoji.thumbs_up) || '👍')
+            message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
               .catch(err => log.error(err));
           });
       });
 
-    post_request.on('error', err => log.error(err));
+    postRequest.on('error', err => log.error(err));
 
     // post the data
-    post_request.write(post_data);
-    post_request.end();
+    postRequest.write(postData);
+    postRequest.end();
   }
 }
 

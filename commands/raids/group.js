@@ -4,7 +4,7 @@ const log = require('loglevel').getLogger('GroupCommand'),
   Commando = require('discord.js-commando'),
   {CommandGroup} = require('../../app/constants'),
   Helper = require('../../app/helper'),
-  Raid = require('../../app/raid'),
+  PartyManager = require('../../app/party-manager'),
   settings = require('../../data/settings'),
   Utility = require('../../app/utility');
 
@@ -23,16 +23,16 @@ class GroupCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'group' &&
-        !Raid.validRaid(message.channel.id)) {
-        return ['invalid-channel', message.reply('Set your raid group for a raid from its raid channel!')];
+        !PartyManager.validParty(message.channel.id)) {
+        return ['invalid-channel', message.reply('Set your group for a raid from its raid channel!')];
       }
       return false;
     });
   }
 
   async run(message, args) {
-    const raid = Raid.getRaid(message.channel.id),
-      calendar_format = {
+    const raid = PartyManager.getParty(message.channel.id),
+      calendarFormat = {
         sameDay: 'LT',
         sameElse: 'l LT'
       },
@@ -41,29 +41,29 @@ class GroupCommand extends Commando.Command {
     let prompt = 'Which group do you wish to join for this raid?\n\n';
 
     raid.groups.forEach(group => {
-      const start_time = !!group.start_time ?
-        moment(group.start_time) :
+      const start_time = !!group.startTime ?
+        moment(group.startTime) :
         '',
-        total_attendees = Raid.getAttendeeCount(raid, group.id);
+        totalAttendees = raid.getAttendeeCount(group.id);
 
-      let group_label = `**${group.id}**`;
+      let groupLabel = `**${group.id}**`;
 
       if (!!group.label) {
-        const truncated_label = group.label.length > 150 ?
+        const truncatedLabel = group.label.length > 150 ?
           group.label.substring(0, 149).concat('…') :
           group.label;
 
-        group_label += ` (${truncated_label})`;
+        groupLabel += ` (${truncatedLabel})`;
       }
 
-      if (!!group.start_time) {
-        group_label += ` :: ${start_time.calendar(null, calendar_format)}`;
+      if (!!group.startTime) {
+        groupLabel += ` :: ${start_time.calendar(null, calendarFormat)}`;
       }
 
-      prompt += group_label + ` :: ${total_attendees} possible trainers\n`;
+      prompt += groupLabel + ` :: ${totalAttendees} possible trainers\n`;
     });
 
-    const group_collector = new Commando.ArgumentCollector(this.client, [
+    const groupCollector = new Commando.ArgumentCollector(this.client, [
       {
         key: 'group',
         label: 'group',
@@ -72,19 +72,19 @@ class GroupCommand extends Commando.Command {
       }
     ], 3);
 
-    return group_collector.obtain(message, provided)
-      .then(collection_result => {
-        Utility.cleanCollector(collection_result);
+    return groupCollector.obtain(message, provided)
+      .then(collectionResult => {
+        Utility.cleanCollector(collectionResult);
 
-        if (!collection_result.cancelled) {
-          const group_id = collection_result.values['group'],
-            info = Raid.setMemberGroup(message.channel.id, message.member.id, group_id);
+        if (!collectionResult.cancelled) {
+          const groupId = collectionResult.values['group'],
+            info = raid.setMemberGroup(message.member.id, groupId);
 
           if (!info.error) {
-            message.react(Helper.getEmoji(settings.emoji.thumbs_up) || '👍')
+            message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
               .catch(err => log.error(err));
 
-            Raid.refreshStatusMessages(info.raid);
+            info.raid.refreshStatusMessages();
           } else {
             return message.reply(info.error)
               .catch(err => log.error(err));

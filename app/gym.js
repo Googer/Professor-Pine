@@ -210,13 +210,13 @@ class Gym extends Search {
   }
 
   async search(channel_id, terms, name_only) {
-    const channel_name = await require('./raid').getCreationChannelName(channel_id);
+    const channel_name = await require('./party-manager').getCreationChannelName(channel_id);
 
     return this.channelSearch(channel_name, terms, name_only);
   }
 
   async adjacentRegionsSearch(channel_id, terms, name_only) {
-    const channel_name = await require('./raid').getCreationChannelName(channel_id),
+    const channel_name = await require('./party-manager').getCreationChannelName(channel_id),
       adjacent_regions = this.region_graph[channel_name],
       matching_region = adjacent_regions
         .find(adjacent_region => {

@@ -58,14 +58,14 @@ class Pokemon extends Search {
         poke.overrideName :
         poke.name;
       poke.weakness = Pokemon.calculateWeaknesses(poke.type);
-      poke.boost_conditions = Pokemon.calculateBoostConditions(poke.type);
+      poke.boostedConditions = Pokemon.calculateBoostConditions(poke.type);
 
       if (poke.number && poke.tier) {
-        poke.boss_cp = Pokemon.calculateBossCP(poke);
-        poke.min_base_cp = Pokemon.calculateCP(poke, 20, 10, 10, 10);
-        poke.max_base_cp = Pokemon.calculateCP(poke, 20, 15, 15, 15);
-        poke.min_boosted_cp = Pokemon.calculateCP(poke, 25, 10, 10, 10);
-        poke.max_boosted_cp = Pokemon.calculateCP(poke, 25, 15, 15, 15);
+        poke.bossCP = Pokemon.calculateBossCP(poke);
+        poke.minBaseCP = Pokemon.calculateCP(poke, 20, 10, 10, 10);
+        poke.maxBaseCP = Pokemon.calculateCP(poke, 20, 15, 15, 15);
+        poke.minBoostedCP = Pokemon.calculateCP(poke, 25, 10, 10, 10);
+        poke.maxBoostedCP = Pokemon.calculateCP(poke, 25, 15, 15, 15);
         poke.url = `${privateSettings.pokemon_url_base}pokemon_icon_${poke.number}_${form}.png`
       }
     });
@@ -77,7 +77,7 @@ class Pokemon extends Search {
       this.field('name');
       this.field('nickname');
       this.field('tier');
-      this.field('boss_cp');
+      this.field('bossCP');
 
       merged_pokemon.forEach(pokemon => {
         const pokemonDocument = Object.create(null);
@@ -86,7 +86,7 @@ class Pokemon extends Search {
         pokemonDocument['name'] = pokemon.name;
         pokemonDocument['nickname'] = (pokemon.nickname) ? pokemon.nickname.join(' ') : '';
         pokemonDocument['tier'] = pokemon.tier;
-        pokemonDocument['boss_cp'] = pokemon.boss_cp;
+        pokemonDocument['bossCP'] = pokemon.bossCP;
 
         this.add(pokemonDocument);
       }, this);
@@ -162,7 +162,7 @@ class Pokemon extends Search {
     }
 
     // Try CP
-    results = this.internalSearch(terms, ['boss_cp']);
+    results = this.internalSearch(terms, ['bossCP']);
     if (results !== undefined && results.length > 0) {
       return results;
     }

@@ -1,19 +1,19 @@
 {
-  "standard_raid_incubate_duration": 60,
-  "standard_raid_hatched_duration": 45,
-  "exclusive_raid_incubate_duration": 20160,
-  "exclusive_raid_hatched_duration": 45,
-  "start_clear_time": 10,
-  "deletion_grace_time": 5,
-  "deletion_warning_time": 10,
-  "raid_complete_timeout": 5,
+  "standardRaidIncubateDuration": 60,
+  "standardRaidHatchedDuration": 45,
+  "exclusiveRaidIncubateDuration": 20160,
+  "exclusiveRaidHatchedDuration": 45,
+  "startClearTime": 10,
+  "deletionGraceTime": 5,
+  "deletionWarningTime": 10,
+  "raidCompleteTimeout": 5,
   "screenshot_message_offset_time": 45,
-  "cleanup_interval": 60000,
+  "cleanupInterval": 60000,
   "message_cleanup_delay_success": 5000,
   "message_cleanup_delay_error": 30000,
   "emoji": {
-    "thumbs_up": "pinethumbsup",
-    "thumbs_down": "pinethumbsdown"
+    "thumbsUp": "pinethumbsup",
+    "thumbsDown": "pinethumbsdown"
   },
   "features": {
     "ex_gym_channel": true,

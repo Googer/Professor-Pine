@@ -10,9 +10,9 @@ class ExGymChannel {
 
   initialize() {
     Helper.client.on('raidCreated', (raid, reporting_member_id) => {
-      const gym = Gym.getGym(raid.gym_id);
+      const gym = Gym.getGym(raid.gymId);
 
-      if ((gym.is_ex || gym.is_park) && !raid.is_exclusive) {
+      if ((gym.is_ex || gym.is_park) && !raid.isExclusive) {
         return Raid.createPotentialExRaidMessage(raid);
       } else {
         return false;

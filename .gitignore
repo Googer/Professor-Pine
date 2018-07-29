@@ -9,6 +9,7 @@ data/private-settings.json
 
 # ignore persisted raid data
 raids/**
+parties/**
 
 # ignore log files
 *.log

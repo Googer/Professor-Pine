@@ -4,7 +4,7 @@ const log = require('loglevel').getLogger('PokemonCommand'),
   Commando = require('discord.js-commando'),
   {CommandGroup} = require('../../app/constants'),
   Helper = require('../../app/helper'),
-  Raid = require('../../app/raid'),
+  PartyManager = require('../../app/party-manager'),
   settings = require('../../data/settings');
 
 class SetPokemonCommand extends Commando.Command {
@@ -30,7 +30,7 @@ class SetPokemonCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'boss' &&
-        !Raid.validRaid(message.channel.id)) {
+        !PartyManager.validParty(message.channel.id)) {
         return ['invalid-channel', message.reply('Set the pokémon of a raid from its raid channel!')];
       }
       return false;
@@ -39,9 +39,10 @@ class SetPokemonCommand extends Commando.Command {
 
   async run(message, args) {
     const pokemon = args['pokemon'],
-      info = Raid.setRaidPokemon(message.channel.id, pokemon);
+      raid = PartyManager.getParty(message.channel.id),
+      info = raid.setRaidPokemon(pokemon);
 
-    message.react(Helper.getEmoji(settings.emoji.thumbs_up) || '👍')
+    message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .then(result => {
         Helper.client.emit('raidPokemonSet', info.raid, message.member.id);
 
@@ -49,7 +50,7 @@ class SetPokemonCommand extends Commando.Command {
       })
       .catch(err => log.error(err));
 
-    Raid.refreshStatusMessages(info.raid);
+    info.raid.refreshStatusMessages();
   }
 }
 

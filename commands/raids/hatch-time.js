@@ -4,7 +4,7 @@ const log = require('loglevel').getLogger('HatchTimeCommand'),
   Commando = require('discord.js-commando'),
   {CommandGroup, TimeParameter} = require('../../app/constants'),
   Helper = require('../../app/helper'),
-  Raid = require('../../app/raid'),
+  PartyManager = require('../../app/party-manager'),
   settings = require('../../data/settings');
 
 class HatchTimeCommand extends Commando.Command {
@@ -31,7 +31,7 @@ class HatchTimeCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'hatch' &&
-        !Raid.validRaid(message.channel.id)) {
+        !PartyManager.validParty(message.channel.id)) {
         return ['invalid-channel', message.reply('Set the hatch time for a raid from its raid channel!')];
       }
       return false;
@@ -40,12 +40,13 @@ class HatchTimeCommand extends Commando.Command {
 
   async run(message, args) {
     const time = args[TimeParameter.HATCH],
-      info = Raid.setRaidHatchTime(message.channel.id, time);
+      raid = PartyManager.getParty(message.channel.id),
+      info = raid.setRaidHatchTime(time);
 
-    message.react(Helper.getEmoji(settings.emoji.thumbs_up) || '👍')
+    message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .catch(err => log.error(err));
 
-    Raid.refreshStatusMessages(info.raid);
+    info.raid.refreshStatusMessages();
   }
 }
 

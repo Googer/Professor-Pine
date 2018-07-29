@@ -4,7 +4,7 @@ const log = require('loglevel').getLogger('LocationCommand'),
   Commando = require('discord.js-commando'),
   {CommandGroup} = require('../../app/constants'),
   Helper = require('../../app/helper'),
-  Raid = require('../../app/raid'),
+  PartyManager = require('../../app/party-manager'),
   settings = require('../../data/settings');
 
 class SetLocationCommand extends Commando.Command {
@@ -19,7 +19,7 @@ class SetLocationCommand extends Commando.Command {
       examples: ['\t!gym Unicorn', '\t!location \'Bellevue Park\'', '\t!location squirrel'],
       args: [
         {
-          key: 'gym_id',
+          key: 'gymId',
           label: 'gym',
           prompt: 'Where is the raid taking place?\nExample: `manor theater`\n',
           type: 'gym',
@@ -32,7 +32,7 @@ class SetLocationCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'gym' &&
-        !Raid.validRaid(message.channel.id)) {
+        !PartyManager.validParty(message.channel.id)) {
         return ['invalid-channel', message.reply('Set the location of a raid from its raid channel!')];
       }
       return false;
@@ -40,10 +40,11 @@ class SetLocationCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    const gym_id = args['gym_id'],
-      info = Raid.setRaidLocation(message.channel.id, gym_id);
+    const gymId = args['gymId'],
+      raid = PartyManager.getParty(message.channel.id),
+      info = raid.setRaidLocation(gymId);
 
-    message.react(Helper.getEmoji(settings.emoji.thumbs_up) || '👍')
+    message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .then(result => {
         Helper.client.emit('raidGymSet', info.raid, message.member.id);
 
@@ -51,7 +52,7 @@ class SetLocationCommand extends Commando.Command {
       })
       .catch(err => log.error(err));
 
-    Raid.refreshStatusMessages(info.raid);
+    info.raid.refreshStatusMessages();
   }
 }
 
