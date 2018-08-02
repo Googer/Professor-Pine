@@ -65,8 +65,7 @@ class StartTimeCommand extends Commando.Command {
         sameElse: 'l LT'
       },
       formatted_start_time = moment(start_time).calendar(null, calendar_format),
-      channel = await Raid.getChannel(info.raid.channel_id)
-        .catch(err => log.error(err));
+      channel = (await Raid.getChannel(info.raid.channel_id)).channel;
 
     // notify all attendees in same group that a time has been set
     Object.entries(info.raid.attendees)

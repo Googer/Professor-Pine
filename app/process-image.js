@@ -1208,13 +1208,13 @@ class ImageProcessing {
             // if pokemon, time remaining, or phone time was not determined, need to add original image to new channel,
             // in the hope the someone can manually read the screenshot and set the appropriate information
             if (pokemon.placeholder === true || !time || time_warn) {
-              await channel
+              await channel.channel
                 .send(Raid.getIncompleteScreenshotMessage(raid), {
                   files: [
                     message.attachments.first().url
                   ]
                 })
-                .then(message => Raid.setIncompleteScreenshotMessage(channel.id, message))
+                .then(message => Raid.setIncompleteScreenshotMessage(channel.channel.id, message))
                 .catch(err => log.error(err));
             }
 
@@ -1226,7 +1226,7 @@ class ImageProcessing {
         const raid_source_channel_message = await Raid.getRaidSourceChannelMessage(raid),
           formatted_message = await Raid.getFormattedMessage(raid);
         return Raid.getChannel(raid.channel_id)
-          .then(channel => channel.send(raid_source_channel_message, formatted_message))
+          .then(channel => channel.channel.send(raid_source_channel_message, formatted_message))
           .catch(err => log.error(err));
       })
       .then(channel_raid_message => {

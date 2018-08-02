@@ -54,7 +54,7 @@ class Notify {
       return;
     }
 
-    const raid_channel = await Raid.getChannel(raid.channel_id),
+    const raid_channel = (await Raid.getChannel(raid.channel_id)).channel,
       pokemon = raid.pokemon,
       gym_id = raid.gym_id,
       guild_id = raid_channel.guild.id,

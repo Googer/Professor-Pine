@@ -49,7 +49,7 @@ class GymType extends Commando.ArgumentType {
           gym_name = gyms[0].nickname ?
             gyms[0].nickname :
             gyms[0].gymName,
-          channel = await Raid.getChannel(raid.channel_id);
+          channel = (await Raid.getChannel(raid.channel_id)).channel;
 
         if (arg && !arg.is_screenshot) {
           return `"${gym_name}" already has an active raid - ${channel.toString()}.\n\n` +
