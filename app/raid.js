@@ -122,22 +122,28 @@ class Raid {
   }
 
   getChannel(channel_id) {
-    const channel = this.client.channels.get(channel_id);
+    try {
+      const channel = this.client.channels.get(channel_id);
 
-    if (!channel) {
-      if (this.validRaid(channel_id)) {
-        log.warn(`Deleting raid for nonexistent channel ${channel_id}`);
+      if (!channel) {
+        if (this.validRaid(channel_id)) {
+          log.warn(`Deleting raid for nonexistent channel ${channel_id}`);
 
-        this.deleteRaid(channel_id, false);
+          this.deleteRaid(channel_id, false);
+        }
+
+        return Promise.resolve({error: new Error('Channel does not exist'), ok: false});
       }
 
-      return Promise.resolve({error: new Error('Channel does not exist'), ok: false});
+      return Promise.resolve({channel, ok: true});
+    } catch (err) {
+      log.error(err);
+      return Promise.resolve({error: err, ok: false});
     }
-
-    return Promise.resolve({channel, ok: true});
   }
 
   async getMessage(message_cache_id) {
+    try {
     const [channel_id, message_id] = message_cache_id.split(':');
 
     return this.getChannel(channel_id)
@@ -166,6 +172,10 @@ class Raid {
 
         return Promise.reject(new Error('Message does not exist'));
       });
+    } catch (err) {
+      log.error(err);
+      return Promise.resolve({error:err, ok: false});
+    }
   }
 
   shutdown() {
