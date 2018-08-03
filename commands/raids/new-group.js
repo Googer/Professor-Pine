@@ -49,7 +49,7 @@ class NewGroupCommand extends Commando.Command {
           .filter(member => member.ok === true)
           .map(member => member.member);
 
-        Notify.shout(message, members, `A new group has been created; if you wish to join it, type \`${this.client.commandPrefix}group ${info.group}\` !`);
+        Notify.shout(message, members, `A new group has been created; if you wish to join it, type:\`\`\`${this.client.commandPrefix}group ${info.group}\`\`\``);
       }
 
       Raid.refreshStatusMessages(info.raid);
