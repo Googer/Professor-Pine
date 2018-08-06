@@ -161,6 +161,10 @@ Client.on('ready', () => {
   }
 });
 
+process.on('unhandledRejection', (reason, promise) => {
+  log.error('Unhandled rejection at:', promise, 'reason:', reason);
+});
+
 Client.on('error', err => log.error(err));
 Client.on('warn', err => log.warn(err));
 Client.on('debug', err => log.debug(err));
