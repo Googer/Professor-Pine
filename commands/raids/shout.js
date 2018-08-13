@@ -44,11 +44,12 @@ class ShoutCommand extends Commando.Command {
         .map(([attendee, attendeeStatus]) => attendee);
 
     if (attendees.length > 0) {
-      const members = await Promise.all(attendees
-          .map(async attendeeId => await raid.getMember(attendeeId)))
-          .catch(err => log.error(err)),
-        textWithoutCommandPrefix = message.cleanContent.substr(1).trim(),
-        fullyCleanText = textWithoutCommandPrefix.substr(textWithoutCommandPrefix.indexOf(' ') + 1);
+      const members = (await Promise.all(attendees
+          .map(async attendee_id => await raid.getMember(attendee_id))))
+          .filter(member => member.ok === true)
+          .map(member => member.member),
+        text_without_command_prefix = message.cleanContent.substr(1).trim(),
+        fullyCleanText = text_without_command_prefix.substr(text_without_command_prefix.indexOf(' ') + 1);
 
       Notify.shout(message, members, fullyCleanText, message.member);
     }

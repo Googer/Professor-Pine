@@ -12,16 +12,16 @@ require('loglevel-prefix-persist/server')(process.env.NODE_ENV, log, {
 
 log.setLevel('debug');
 
-const private_settings = require('./data/private-settings'),
+const privateSettings = require('./data/private-settings'),
   Commando = require('discord.js-commando'),
   Discord = require('discord.js'),
   Client = new Commando.Client({
-    owner: private_settings.owner,
+    owner: privateSettings.owner,
     restWsBridgeTimeout: 10000,
     restTimeOffset: 1000
   }),
   NotifyClient = new Discord.Client({
-    owner: private_settings.owner,
+    owner: privateSettings.owner,
     restWsBridgeTimeout: 10000,
     restTimeOffset: 1000
   }),
@@ -120,28 +120,28 @@ Client.registry.registerCommands([
   require('./commands/util/help')
 ]);
 
-if (private_settings.region_map_link !== '') {
+if (privateSettings.regionMapLink !== '') {
   Client.registry.registerCommand(
     require('./commands/util/maps')
   )
 }
 
-if (private_settings.google_api_key !== '') {
+if (privateSettings.googleApiKey !== '') {
   Client.registry.registerCommand(
     require('./commands/util/find-region'));
 }
 
-let is_initialized = false;
+let isInitialized = false;
 
 Client.on('ready', () => {
   log.info('Client logged in');
 
   // Only initialize various classes once ever since ready event gets fired
   // upon reconnecting after longer outages
-  if (!is_initialized) {
+  if (!isInitialized) {
     Helper.setClient(Client);
 
-    if (settings.features.ex_gym_channel) {
+    if (settings.features.exGymChannel) {
       ExRaidChannel.initialize();
     }
 
@@ -157,8 +157,12 @@ Client.on('ready', () => {
     DB.initialize(Client);
     IP.initialize();
 
-    is_initialized = true;
+    isInitialized = true;
   }
+});
+
+process.on('unhandledRejection', (reason, promise) => {
+  log.error('Unhandled rejection at:', promise, 'reason:', reason);
 });
 
 Client.on('error', err => log.error(err));
@@ -168,17 +172,17 @@ Client.on('debug', err => log.debug(err));
 Client.on('rateLimit', event =>
   log.warn(`Rate limited for ${event.timeout} ms, triggered by method '${event.method}', path '${event.path}', route '${event.route}'`));
 
-Client.on('commandRun', (command, result, message, args, from_pattern) => {
+Client.on('commandRun', (command, result, message, args, fromPattern) => {
   log.debug(`Command '${command.name}' run from message '${message.content}' by user ${message.author.id}`);
-  message.is_successful = true;
+  message.isSuccessful = true;
 });
 
-Client.on('commandError', (command, err, message, args, from_pattern) => {
+Client.on('commandError', (command, err, message, args, fromPattern) => {
   log.error(`Command '${command.name}' error from message '${message.content}' by user ${message.author.id}`);
 });
 
-Client.on('commandFinalize', (command, message, from_pattern) => {
-  Utility.cleanConversation(message, !!message.is_successful, !!message.delete_original ||
+Client.on('commandFinalize', (command, message, fromPattern) => {
+  Utility.cleanConversation(message, !!message.isSuccessful, !!message.deleteOriginal ||
     (!PartyManager.validParty(message.channel.id) && !Helper.isBotChannel(message)));
 });
 
@@ -186,7 +190,7 @@ Client.on('disconnect', event => {
   log.error(`Client disconnected, code ${event.code}, reason '${event.reason}'...`);
 
   Client.destroy()
-    .then(() => Client.login(private_settings.discord_bot_token));
+    .then(() => Client.login(privateSettings.discordBotToken));
 });
 
 Client.on('reconnecting', () => log.info('Client reconnecting...'));
@@ -195,7 +199,7 @@ Client.on('guildUnavailable', guild => {
   log.warn(`Guild ${guild.id} unavailable!`);
 });
 
-Client.login(private_settings.discord_bot_token);
+Client.login(privateSettings.discordBotToken);
 
 NotifyClient.on('ready', () => {
   log.info('Notify client logged in');
@@ -210,4 +214,11 @@ NotifyClient.on('debug', err => log.debug(err));
 NotifyClient.on('rateLimit', event =>
   log.warn(`Rate limited for ${event.timeout} ms, triggered by method '${event.method}', path '${event.path}', route '${event.route}'`));
 
-NotifyClient.login(private_settings.discord_notify_token);
+NotifyClient.on('disconnect', event => {
+  log.error(`Notify Client disconnected, code ${event.code}, reason '${event.reason}'...`);
+
+  NotifyClient.destroy()
+    .then(() => Client.login(privateSettings.discordNotifyToken));
+});
+
+NotifyClient.login(privateSettings.discordNotifyToken);

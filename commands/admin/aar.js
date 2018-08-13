@@ -30,7 +30,7 @@ class AarCommand extends Commando.Command {
 
   async run(message, args) {
     Role.setAutoAssignRole(message.guild, args)
-      .then(() => message.react(Helper.getEmoji(settings.emoji.thumbs_up) || '👍'))
+      .then(() => message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍'))
       .catch(err => {
         if (err && err.error) {
           message.reply(err.error)

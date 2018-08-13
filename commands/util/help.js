@@ -34,12 +34,12 @@ class HelpCommand extends Commando.Command {
   async run(message, args) {
     const groups = this.client.registry.groups,
       commands = this.client.registry.findCommands(args.command, false, message),
-      show_all = args.command && args.command.toLowerCase() === 'all',
+      showAll = args.command && args.command.toLowerCase() === 'all',
       embed = new MessageEmbed();
 
     embed.setColor(4437377);
 
-    if (args.command && !show_all) {
+    if (args.command && !showAll) {
       if (commands.length === 1) {
         embed.setTitle(`Command: ${commands[0].name}\n`);
         embed.setDescription(stripIndents`
@@ -92,7 +92,7 @@ class HelpCommand extends Commando.Command {
 
         const groupsToShow = groups
           .filter(group => group.commands.size > 0 &&
-            ((show_all && Helper.isManagement(message)) || settings.help_groups.includes(group.id)));
+            ((showAll && Helper.isManagement(message)) || settings.helpGroups.includes(group.id)));
 
         groupsToShow.forEach(group =>
           embed.addField(`**${group.name}**`,

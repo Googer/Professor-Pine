@@ -14,24 +14,24 @@ class Gym extends Search {
   buildIndex() {
     log.info('Splicing gym metadata and indexing gym data...');
 
-    const gyms_base = require('PgP-Data/data/gyms'),
-      gyms_metadata = require('PgP-Data/data/gyms-metadata'),
-      park_gyms = require('PgP-Data/data/park-gyms'),
-      merged_gyms = gyms_base
-        .map(gym => Object.assign({}, gym, gyms_metadata[gym.gymId])),
-      stopword_filter = this.stopWordFilter;
+    const gymsBase = require('PgP-Data/data/gyms'),
+      gymsMetadata = require('PgP-Data/data/gyms-metadata'),
+      parkGyms = require('PgP-Data/data/park-gyms'),
+      mergedGyms = gymsBase
+        .map(gym => Object.assign({}, gym, gymsMetadata[gym.gymId])),
+      stopwordFilter = this.stopWordFilter;
 
-    merged_gyms
-      .filter(gym => park_gyms.includes(gym.gymId))
-      .forEach(park_gym => park_gym.is_park = true);
+    mergedGyms
+      .filter(gym => parkGyms.includes(gym.gymId))
+      .forEach(parkGym => parkGym.is_park = true);
 
-    lunr.Pipeline.registerFunction(stopword_filter, 'customStopwords');
+    lunr.Pipeline.registerFunction(stopwordFilter, 'customStopwords');
 
-    this.gyms = new Map(merged_gyms
+    this.gyms = new Map(mergedGyms
       .map(gym => [gym.gymId, gym]));
 
-    this.region_map = require('PgP-Data/data/region-map');
-    this.region_graph = require('PgP-Data/data/region-graph');
+    this.regionMap = require('PgP-Data/data/region-map');
+    this.regionGraph = require('PgP-Data/data/region-graph');
 
     this.index = lunr(function () {
       // reference will be the entire gym object so we can grab whatever we need from it (GPS coordinates, name, etc.)
@@ -64,9 +64,9 @@ class Gym extends Search {
 
       // replace default stop word filter with custom one
       this.pipeline.remove(lunr.stopWordFilter);
-      this.pipeline.after(lunr.trimmer, stopword_filter);
+      this.pipeline.after(lunr.trimmer, stopwordFilter);
 
-      merged_gyms.forEach(gym => {
+      mergedGyms.forEach(gym => {
         // Gym document is a object with its reference and fields to collection of values
         const gymDocument = Object.create(null);
 
@@ -131,37 +131,37 @@ class Gym extends Search {
     log.info('Indexing gym data complete');
   }
 
-  internalSearch(channel_name, terms, fields) {
+  internalSearch(channelName, terms, fields) {
     // lunr does an OR of its search terms and we really want AND, so we'll get there by doing individual searches
     // on everything and getting the intersection of the hits
 
     // first filter out stop words from the search terms; lunr does this itself so our hacky way of AND'ing will
     // return nothing if they have any in their search terms list since they'll never match anything
-    const split_terms = [].concat(...terms
+    const splitTerms = [].concat(...terms
       .map(term => term.split('-')));
 
-    const filtered_terms = split_terms
+    const filteredTerms = splitTerms
       .map(term => removeDiacritics(term))
       .map(term => term.replace(/[^\w\s*]+/g, ''))
       .map(term => term.toLowerCase())
       .filter(term => this.stopWordFilter(term));
 
-    if (filtered_terms.length === 0) {
+    if (filteredTerms.length === 0) {
       return [];
     }
 
-    let results = Search.singleTermSearch(filtered_terms[0], this.index, fields);
+    let results = Search.singleTermSearch(filteredTerms[0], this.index, fields);
 
-    for (let i = 1; i < filtered_terms.length; i++) {
-      const term_results = Search.singleTermSearch(filtered_terms[i], this.index, fields);
+    for (let i = 1; i < filteredTerms.length; i++) {
+      const termResults = Search.singleTermSearch(filteredTerms[i], this.index, fields);
 
       results = results
         .map(result => {
-          const matching_result = term_results.find(term_result => term_result.ref === result.ref);
+          const matchingResult = termResults.find(termResult => termResult.ref === result.ref);
 
-          if (matching_result) {
+          if (matchingResult) {
             // Multiply scores together for reordering later
-            result.score *= matching_result.score;
+            result.score *= matchingResult.score;
           } else {
             // No match, so set score to -1 so this result gets filtered out
             result.score = -1;
@@ -178,72 +178,72 @@ class Gym extends Search {
     }
 
     // Reorder results by composite score
-    results.sort((result_1, result_2) => result_2.score - result_1.score);
+    results.sort((resultA, resultB) => resultB.score - resultA.score);
 
     // Filter results based on what channel this request came from
     return results
       .map(result => JSON.parse(result.ref))
       .filter(gym => {
-        return this.region_map[channel_name].indexOf(gym.gymId) >= 0;
+        return this.regionMap[channelName].indexOf(gym.gymId) >= 0;
       });
   }
 
-  channelSearch(channel_name, terms, name_only) {
-    if (name_only) {
-      return this.internalSearch(channel_name, terms, ['name']);
+  channelSearch(channelName, terms, nameOnly) {
+    if (nameOnly) {
+      return this.internalSearch(channelName, terms, ['name']);
     } else {
       // First try against name/nickname only
-      let results = this.internalSearch(channel_name, terms, ['name', 'nickname']);
+      let results = this.internalSearch(channelName, terms, ['name', 'nickname']);
 
       if (results.length === 0) {
         // That didn't return anything, so now try the with description & additional terms as well
-        results = this.internalSearch(channel_name, terms, ['name', 'nickname', 'description', 'additional_terms']);
+        results = this.internalSearch(channelName, terms, ['name', 'nickname', 'description', 'additional_terms']);
       }
 
       if (results.length === 0) {
         // That still didn't return anything, so now try with all fields
-        results = this.internalSearch(channel_name, terms);
+        results = this.internalSearch(channelName, terms);
       }
 
       return results;
     }
   }
 
-  async search(channel_id, terms, name_only) {
-    const channel_name = await require('./party-manager').getCreationChannelName(channel_id);
+  async search(channelId, terms, nameOnly) {
+    const channelName = await require('./party-manager').getCreationChannelName(channelId);
 
-    return this.channelSearch(channel_name, terms, name_only);
+    return this.channelSearch(channelName, terms, nameOnly);
   }
 
-  async adjacentRegionsSearch(channel_id, terms, name_only) {
-    const channel_name = await require('./party-manager').getCreationChannelName(channel_id),
-      adjacent_regions = this.region_graph[channel_name],
-      matching_region = adjacent_regions
-        .find(adjacent_region => {
-          return this.channelSearch(adjacent_region, terms, name_only).length > 0;
+  async adjacentRegionsSearch(channelId, terms, nameOnly) {
+    const channelName = await require('./party-manager').getCreationChannelName(channelId),
+      adjacentRegions = this.regionGraph[channelName],
+      matchingRegion = adjacentRegions
+        .find(adjacentRegion => {
+          return this.channelSearch(adjacentRegion, terms, nameOnly).length > 0;
         });
 
-    if (matching_region) {
+    if (matchingRegion) {
       return {
-        'channel': matching_region,
-        'gyms': this.channelSearch(matching_region, terms, name_only)
+        'channel': matchingRegion,
+        'gyms': this.channelSearch(matchingRegion, terms, nameOnly)
       };
     }
   }
 
-  isValidChannel(channel_name) {
-    return !!this.region_map[channel_name];
+  isValidChannel(channelName) {
+    return !!this.regionMap[channelName];
   }
 
-  getGym(gym_id) {
-    return this.gyms.get(gym_id);
+  getGym(gymId) {
+    return this.gyms.get(gymId);
   }
 
-  filterRegions(gym_ids) {
-    return Object.entries(this.region_map)
-      .map(([region, gyms]) => [region, gym_ids.filter(x => gyms.includes(x))])
+  filterRegions(gymIds) {
+    return Object.entries(this.regionMap)
+      .map(([region, gyms]) => [region, gymIds.filter(x => gyms.includes(x))])
       .filter(([region, gyms]) => gyms.length > 0)
-      .sort(([region_a, gyms_a], [region_b, gyms_b]) => region_a.localeCompare(region_b));
+      .sort(([regionA, gymsA], [regionB, gymsB]) => regionA.localeCompare(regionB));
   }
 }
 

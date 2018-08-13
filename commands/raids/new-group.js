@@ -45,11 +45,12 @@ class NewGroupCommand extends Commando.Command {
         .map(([attendee, attendeeStatus]) => attendee);
 
       if (attendees.length > 0) {
-        const members = await Promise.all(attendees
-          .map(async attendee_id => await raid.getMember(attendee_id)))
-          .catch(err => log.error(err));
+        const members = (await Promise.all(attendees
+          .map(async attendee_id => await raid.getMember(attendee_id))))
+          .filter(member => member.ok === true)
+          .map(member => member.member);
 
-        Notify.shout(message, members, `A new group has been created; if you wish to join it, type \`${this.client.commandPrefix}group ${info.group}\` !`);
+        Notify.shout(message, members, `A new group has been created; if you wish to join it, type:\`\`\`${this.client.commandPrefix}group ${info.group}\`\`\``);
       }
 
       info.raid.refreshStatusMessages();

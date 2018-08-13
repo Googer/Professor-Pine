@@ -40,8 +40,8 @@ class LsarCommand extends Commando.Command {
 
           if (!roles.has(row.roleId)) {
             role = Object.assign({}, {
-              role_name: row.roleName,
-              role_description: row.roleDescription,
+              roleName: row.roleName,
+              roleDescription: row.roleDescription,
               aliases: []
             });
             roles.set(row.roleId, role);
@@ -55,9 +55,9 @@ class LsarCommand extends Commando.Command {
         });
 
         const string = Array.from(roles.values())
-          .sort((a, b) => a.role_name.localeCompare(b.role_name))
+          .sort((a, b) => a.roleName.localeCompare(b.roleName))
           .map(role => {
-            let result = role.role_name;
+            let result = role.roleName;
 
             if (role.aliases.length > 0) {
               result += ' [' + role.aliases
@@ -65,8 +65,8 @@ class LsarCommand extends Commando.Command {
                 .join(', ') + ']';
             }
 
-            if (role.role_description) {
-              result += ` :: ${role.role_description}`;
+            if (role.roleDescription) {
+              result += ` :: ${role.roleDescription}`;
             }
 
             return result;

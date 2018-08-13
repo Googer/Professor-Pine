@@ -7,47 +7,47 @@ class Utility {
   constructor() {
   }
 
-  static async cleanCollector(collection_result) {
-    const delay = settings.message_cleanup_delay_success,
-      messages_to_delete = [...collection_result.prompts, ...collection_result.answers];
+  static async cleanCollector(collectionResult) {
+    const delay = settings.messageCleanupDelaySuccess,
+      messagesToDelete = [...collectionResult.prompts, ...collectionResult.answers];
 
-    if (messages_to_delete.length === 0) {
+    if (messagesToDelete.length === 0) {
       return;
     }
 
-    const channel = messages_to_delete[0].channel;
+    const channel = messagesToDelete[0].channel;
 
     channel.client.setTimeout(
-      () => channel.bulkDelete(messages_to_delete)
+      () => channel.bulkDelete(messagesToDelete)
         .catch(err => log.error(err)),
       delay);
   }
 
-  static async cleanConversation(initial_message, command_successful, delete_original = false) {
-    const channel = initial_message.channel,
-      author = initial_message.author,
-      bot = initial_message.client.user,
-      start_time = initial_message.createdTimestamp,
-      delay = command_successful ?
-        settings.message_cleanup_delay_success :
-        settings.message_cleanup_delay_error,
-      messages_to_delete = [];
+  static async cleanConversation(initialMessage, commandSuccessful, deleteOriginal = false) {
+    const channel = initialMessage.channel,
+      author = initialMessage.author,
+      bot = initialMessage.client.user,
+      startTime = initialMessage.createdTimestamp,
+      delay = commandSuccessful ?
+        settings.messageCleanupDelaySuccess :
+        settings.messageCleanupDelayError,
+      messagesToDelete = [];
 
     if (channel.type === 'dm') {
       return;
     }
 
-    if (delete_original) {
-      messages_to_delete.push(initial_message);
+    if (deleteOriginal) {
+      messagesToDelete.push(initialMessage);
     }
 
-    messages_to_delete.push(...channel.messages.array() // cache of recent messages, should be sufficient
-      .filter(message => (message.createdTimestamp > start_time) &&
+    messagesToDelete.push(...channel.messages.array() // cache of recent messages, should be sufficient
+      .filter(message => (message.createdTimestamp > startTime) &&
         (message.author === author ||
           (message.author === bot && message.mentions.members.has(author.id)))));
 
     channel.client.setTimeout(
-      () => channel.bulkDelete(messages_to_delete)
+      () => channel.bulkDelete(messagesToDelete)
         .catch(err => log.error(err)),
       delay);
   }

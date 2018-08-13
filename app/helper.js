@@ -9,7 +9,7 @@ class Helper {
   constructor() {
     this.text = text;
     this.client = null;
-    this.notify_client = null;
+    this.notifyClient = null;
 
     // cache of emoji ids, populated on client login
     this.emojis = null;
@@ -29,17 +29,17 @@ class Helper {
         guild.id,
         {
           channels: {
-            bot_lab: guild.channels.find(channel => {
-              return channel.name === settings.channels.bot_lab;
+            botLab: guild.channels.find(channel => {
+              return channel.name === settings.channels["bot-lab"];
             }),
-            mod_bot_lab: guild.channels.find(channel => {
-              return channel.name === settings.channels.mod_bot_lab;
+            modBotLab: guild.channels.find(channel => {
+              return channel.name === settings.channels["mod-bot-lab"];
             }),
             unown: guild.channels.find(channel => {
               return channel.name === settings.channels.unown;
             }),
-            ex_announce_channel: guild.channels.find(channel => {
-              return channel.name === settings.channels.ex_gym_raids;
+            exAnnounceChannel: guild.channels.find(channel => {
+              return channel.name === settings.channels["ex-gym-raids"];
             }),
             help: null,
           },
@@ -56,9 +56,9 @@ class Helper {
       }
 
       if (message.channel.type !== 'dm') {
-        const unown_channel = this.guild.get(message.guild.id).channels.unown;
+        const unownChannel = this.guild.get(message.guild.id).channels.unown;
 
-        if (unown_channel && message.channel.id === unown_channel.id && message.mentions.has(this.getRole(message.guild, 'unown'))) {
+        if (unownChannel && message.channel.id === unownChannel.id && message.mentions.has(this.getRole(message.guild, 'unown'))) {
           message.pin()
             .catch(err => log.error(err));
         }
@@ -71,17 +71,17 @@ class Helper {
         guild.id,
         {
           channels: {
-            bot_lab: guild.channels.find(channel => {
-              return channel.name === settings.channels.bot_lab;
+            botLab: guild.channels.find(channel => {
+              return channel.name === settings.channels["bot-lab"];
             }),
-            mod_bot_lab: guild.channels.find(channel => {
-              return channel.name === settings.channels.mod_bot_lab;
+            modBotLab: guild.channels.find(channel => {
+              return channel.name === settings.channels["mod-bot-lab"];
             }),
             unown: guild.channels.find(channel => {
               return channel.name === settings.channels.unown;
             }),
-            ex_announce_channel: guild.channels.find(channel => {
-              return channel.name === settings.channels.ex_gym_raids;
+            exAnnounceChannel: guild.channels.find(channel => {
+              return channel.name === settings.channels["ex-gym-raids"];
             }),
             help: null,
           },
@@ -98,36 +98,36 @@ class Helper {
 
     this.client.on('roleCreate', role => {
       // add new role to corresponding cache entry for its guild
-      const guild_map = this.guild.get(role.guild.id).roles;
+      const guildMap = this.guild.get(role.guild.id).roles;
 
-      if (!!guild_map) {
-        guild_map.set(role.name.toLowerCase(), role);
+      if (!!guildMap) {
+        guildMap.set(role.name.toLowerCase(), role);
       }
     });
 
     this.client.on('roleDelete', role => {
       // remove role from corresponding cache entry for its guild
-      const guild_map = this.guild.get(role.guild.id).roles;
+      const guildMap = this.guild.get(role.guild.id).roles;
 
-      if (!!guild_map) {
-        guild_map.delete(role.name.toLowerCase());
+      if (!!guildMap) {
+        guildMap.delete(role.name.toLowerCase());
       }
     });
 
-    this.client.on('roleUpdate', (old_role, new_role) => {
+    this.client.on('roleUpdate', (oldRole, newRole) => {
       // remove old role from corresponding cache entry for its guild and
       // add new role to corresponding cache entry for its guild
 
       // these *should* be the same guild but let's not assume that!
-      const old_guild_map = this.guild.get(old_role.guild.id).roles,
-        new_guild_map = this.guild.get(new_role.guild.id).roles;
+      const oldGuildMap = this.guild.get(oldRole.guild.id).roles,
+        newGuildMap = this.guild.get(newRole.guild.id).roles;
 
-      if (!!old_guild_map) {
-        old_guild_map.delete(old_role.name.toLowerCase());
+      if (!!oldGuildMap) {
+        oldGuildMap.delete(oldRole.name.toLowerCase());
       }
 
-      if (!!new_guild_map) {
-        new_guild_map.set(new_role.name.toLowerCase(), new_role);
+      if (!!newGuildMap) {
+        newGuildMap.set(newRole.name.toLowerCase(), newRole);
       }
     });
 
@@ -141,43 +141,43 @@ class Helper {
       this.emojis.delete(emoji.name.toLowerCase());
     });
 
-    client.on('emojiUpdate', (old_emoji, new_emoji) => {
+    client.on('emojiUpdate', (oldEmoji, newEmoji) => {
       // delete old emoji from emojis cache and add new one to it
-      this.emojis.delete(old_emoji.name.toLowerCase());
-      this.emojis.set(new_emoji.name.toLowerCase(), new_emoji);
+      this.emojis.delete(oldEmoji.name.toLowerCase());
+      this.emojis.set(newEmoji.name.toLowerCase(), newEmoji);
     });
   }
 
   setNotifyClient(client) {
-    this.notify_client = client;
+    this.notifyClient = client;
   }
 
-  getMemberForNotification(guild_id, member_id) {
-    return this.notify_client.guilds.get(guild_id).members.get(member_id)
+  getMemberForNotification(guildId, memberId) {
+    return this.notifyClient.guilds.get(guildId).members.get(memberId)
   }
 
   getExRaidAnnounceChannel(guild) {
-    return this.guild.get(guild.id).channels.ex_announce_channel;
+    return this.guild.get(guild.id).channels.exAnnounceChannel;
   }
 
   isManagement(message) {
-    let is_mod_or_admin = false;
+    let isModOrAdmin = false;
 
     if (message.channel.type !== 'dm') {
-      const admin_role = this.getRole(message.guild, 'admin'),
-        moderator_role = this.getRole(message.guild, 'moderator'),
+      const adminRole = this.getRole(message.guild, 'admin'),
+        moderatorRole = this.getRole(message.guild, 'moderator'),
 
-        admin_role_id = admin_role ?
-          admin_role.id :
+        adminRoleId = adminRole ?
+          adminRole.id :
           -1,
-        moderator_role_id = moderator_role ?
-          moderator_role.id :
+        moderatorRoleId = moderatorRole ?
+          moderatorRole.id :
           -1;
 
-      is_mod_or_admin = message.member.roles.has(admin_role_id) ||
-        message.member.roles.has(moderator_role_id);
+      isModOrAdmin = message.member.roles.has(adminRoleId) ||
+        message.member.roles.has(moderatorRoleId);
     }
-    return is_mod_or_admin || this.client.isOwner(message.author);
+    return isModOrAdmin || this.client.isOwner(message.author);
   }
 
   isBotChannel(message) {
@@ -186,25 +186,25 @@ class Helper {
     }
 
     const guild = this.guild.get(message.guild.id),
-      bot_lab_channel_id = guild.channels.bot_lab ?
-        guild.channels.bot_lab.id :
+      botLabChannelId = guild.channels.botLab ?
+        guild.channels.botLab.id :
         -1,
-      mod_bot_lab_channel_id = guild.channels.mod_bot_lab ?
-        guild.channels.mod_bot_lab.id :
+      modBotLabChannelId = guild.channels.modBotLab ?
+        guild.channels.modBotLab.id :
         -1;
 
-    return message.channel.id === bot_lab_channel_id || message.channel.id === mod_bot_lab_channel_id;
+    return message.channel.id === botLabChannelId || message.channel.id === modBotLabChannelId;
   }
 
-  getRole(guild, role_name) {
-    const guild_map = this.guild.get(guild.id);
+  getRole(guild, roleName) {
+    const guildMap = this.guild.get(guild.id);
 
-    return guild_map.roles.get(role_name.toLowerCase());
+    return guildMap.roles.get(roleName.toLowerCase());
   }
 
-  getEmoji(emoji_name) {
-    return this.emojis.has(emoji_name.toLowerCase()) ?
-      this.emojis.get(emoji_name.toLowerCase()) :
+  getEmoji(emojiName) {
+    return this.emojis.has(emojiName.toLowerCase()) ?
+      this.emojis.get(emojiName.toLowerCase()) :
       '';
   }
 
@@ -242,7 +242,7 @@ class Helper {
       // replace guild related variables (if any exist)
       if (message && message.guild && message.guild.id) {
         const guild = this.guild.get(message.guild.id);
-        text = text.replace(/\$\{bot_channel\}/g, guild.channels.bot_lab.toString());
+        text = text.replace(/\$\{bot-channel\}/g, guild.channels.botLab.toString());
       }
     }
 

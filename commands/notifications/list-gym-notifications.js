@@ -36,13 +36,13 @@ class GymNotificationsCommand extends Commando.Command {
         embed.setTitle('Currently assigned gym notifications:');
         embed.setColor(4437377);
 
-        const region_gym_list = Gym.filterRegions(results);
+        const regionGymList = Gym.filterRegions(results);
 
-        if (region_gym_list.length > 0) {
-          region_gym_list
+        if (regionGymList.length > 0) {
+          regionGymList
             .forEach(([region, gyms]) => {
               embed.addField(`#${region}`, gyms
-                .map(gym_id => Gym.getGym(gym_id))
+                .map(gymId => Gym.getGym(gymId))
                 .map(gym => !!gym.nickname ?
                   gym.nickname :
                   gym.gymName)

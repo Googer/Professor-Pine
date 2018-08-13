@@ -20,30 +20,30 @@ class Role {
       .where('snowflake', guild.id)
       .pluck('id')
       .first()
-      .then(guild_db_id => new Promise((resolve, reject) => {
+      .then(guildDbId => new Promise((resolve, reject) => {
         const promises = [];
 
         // create role objects for each role given
         for (let i = 0; i < roles.length; i++) {
-          const role_name = roles[i].name,
-            role_description = roles[i].description || '',
+          const roleName = roles[i].name,
+            roleDescription = roles[i].description || '',
             aliases = roles[i].aliases.map(val => val.toLowerCase()) || [],
-            role = Helper.guild.get(guild.id).roles.get(role_name.toLowerCase());
+            role = Helper.guild.get(guild.id).roles.get(roleName.toLowerCase());
 
-          if (!role_name) {
+          if (!roleName) {
             reject({error: `Please enter a role when using this command.`});
             return;
           }
 
           if (!role) {
-            reject({error: `Role "**${role_name}**" was not found.`});
+            reject({error: `Role "**${roleName}**" was not found.`});
             return;
           }
 
-          promises.push(this.roleExists(guild, role_name)
-            .then(existing_roles => {
+          promises.push(this.roleExists(guild, roleName)
+            .then(existingRoles => {
               return new Promise((resolve, reject) => {
-                if (!existing_roles.length) {
+                if (!existingRoles.length) {
                   promises.push(DB.DB.transaction(transaction => {
                     // insert new role
                     DB.DB('Role').transacting(transaction)
@@ -51,13 +51,13 @@ class Role {
                       .insert(Object.assign({}, {
                         roleName: roles[i].name,
                         roleDescription: roles[i].description,
-                        guildId: guild_db_id.id
+                        guildId: guildDbId.id
                       }))
-                      .then(role_id =>
+                      .then(roleId =>
                         DB.DB('Alias').transacting(transaction)
                           .insert(aliases.map(alias => Object.assign({}, {
                             aliasName: alias,
-                            roleId: role_id
+                            roleId: roleId
                           })))
                       )
                       .then(transaction.commit)
@@ -69,34 +69,34 @@ class Role {
                 } else {
                   promises.push(DB.DB.transaction(transaction => {
                     // update role since it already exists
-                    let role_db_id;
+                    let roleDbId;
 
                     DB.DB('Role').transacting(transaction)
                       .pluck('id')
-                      .where('guildId', guild_db_id.id)
-                      .andWhere('roleName', role_name)
+                      .where('guildId', guildDbId.id)
+                      .andWhere('roleName', roleName)
                       .first()
-                      .then(role_id => {
-                        role_db_id = role_id.id;
+                      .then(roleId => {
+                        roleDbId = roleId.id;
 
                         return DB.DB('Role').transacting(transaction)
-                          .where('guildId', guild_db_id.id)
-                          .andWhere('Role.roleName', role_name)
+                          .where('guildId', guildDbId.id)
+                          .andWhere('Role.roleName', roleName)
                           .update(Object.assign({}, {
-                            roleDescription: role_description
+                            roleDescription: roleDescription
                           }));
                       })
                       .then(result => {
                         // Replace any existing aliases for this role with new ones
                         return DB.DB('Alias').transacting(transaction)
-                          .where('roleId', role_db_id)
+                          .where('roleId', roleDbId)
                           .del();
                       })
                       .then(result =>
                         DB.DB('Alias').transacting(transaction)
                           .insert(aliases.map(alias => Object.assign({}, {
                             aliasName: alias,
-                            roleId: role_db_id
+                            roleId: roleDbId
                           }))))
                       .then(transaction.commit)
                       .catch(err => {
@@ -125,10 +125,10 @@ class Role {
         .where('snowflake', guild.id)
         .pluck('id')
         .first()
-        .then(guild_id => {
+        .then(guildId => {
           DB.DB('Role')
             .whereIn('roleName', roles)
-            .andWhere('guildId', guild_id.id)
+            .andWhere('guildId', guildId.id)
             .del()
             .then(result => resolve(result))
             .catch(err => reject(err));
@@ -159,16 +159,16 @@ class Role {
   }
 
   // add or remove roles from user
-  adjustUserRole(guild, member, role, remove = false) {
+  adjustUserRole(guild, member, roleOrAlias, remove = false) {
     return new Promise(async (resolve, reject) => {
-      let roles = await this.roleExists(member.guild, role);
+      let roles = await this.roleExists(member.guild, roleOrAlias);
 
       // first look for a matching name in DB, then check for aliases if a match was not found
       if (roles.length > 0) {
-        const role_ids = roles
+        const roleIds = roles
           .map(role => Helper.guild.get(guild.id).roles.get(role.roleName.toLowerCase()).id)
-          .filter(role_id => {
-            const exists = !!role_id;
+          .filter(roleId => {
+            const exists = !!roleId;
 
             if (!exists) {
               log.warn(`Role '${roles[i].roleName}' may not longer be available in the guild.`);
@@ -177,26 +177,26 @@ class Role {
             return exists;
           });
 
-        if (role_ids.length > 0) {
+        if (roleIds.length > 0) {
           if (remove) {
-            member.roles.remove(role_ids)
+            member.roles.remove(roleIds)
               .catch(err => log.error(err));
           } else {
-            member.roles.add(role_ids)
+            member.roles.add(roleIds)
               .catch(err => log.error(err));
           }
 
           resolve();
         } else {
-          reject({error: `Role "**${role}**" was not found.  Use \`${guild.client.commandPrefix}iam\` to see a list of self-assignable roles.`});
+          reject({error: `Role "**${roleOrAlias}**" was not found.  Use \`${guild.client.commandPrefix}iam\` to see a list of self-assignable roles.`});
         }
       } else {
-        roles = await this.roleExists(guild, role, true);
+        roles = await this.roleExists(guild, roleOrAlias, true);
 
-        const role_ids = roles
+        const roleIds = roles
           .map(role => Helper.guild.get(guild.id).roles.get(role.roleName.toLowerCase()).id)
-          .filter(role_id => {
-            const exists = !!role_id;
+          .filter(roleId => {
+            const exists = !!roleId;
 
             if (!exists) {
               log.warn(`Role '${roles[i].roleName}' may not longer be available in the guild.`);
@@ -205,30 +205,30 @@ class Role {
             return exists;
           });
 
-        if (role_ids.length > 0) {
+        if (roleIds.length > 0) {
           if (remove) {
-            member.roles.remove(role_ids)
+            member.roles.remove(roleIds)
               .catch(err => log.error(err));
           } else {
-            member.roles.add(role_ids)
+            member.roles.add(roleIds)
               .catch(err => log.error(err));
           }
 
           resolve();
         } else {
-          reject({error: `Role or alias "**${role}**" was not found.  Use \`!iam\` to see a list of self-assignable roles.`});
+          reject({error: `Role or alias "**${roleOrAlias}**" was not found.  Use \`!iam\` to see a list of self-assignable roles.`});
         }
       }
     });
   }
 
-  roleExists(guild, role, is_alias = false) {
+  roleExists(guild, role, isAlias = false) {
     role = role.toLowerCase();
 
     return new Promise((resolve, reject) => {
       let query;
 
-      if (is_alias) {
+      if (isAlias) {
         query = DB.DB('Alias')
           .select(['Alias.id', 'Role.roleName', 'Role.guildId'])
           .innerJoin('Role', {'Alias.roleId': 'Role.id'})
@@ -300,24 +300,24 @@ class Role {
       .where('snowflake', member.guild.id)
       .pluck('id')
       .first()
-      .then(guild_db_id => DB.DB('AutoAssignRole')
-        .where('guildId', guild_db_id.id)
+      .then(guildDbId => DB.DB('AutoAssignRole')
+        .where('guildId', guildDbId.id)
         .first())
-      .then(auto_assign_role_or_alias =>
-        auto_assign_role_or_alias ?
-          DB.DB(auto_assign_role_or_alias.roleId ?
+      .then(autoAssignRoleOrAlias =>
+        autoAssignRoleOrAlias ?
+          DB.DB(autoAssignRoleOrAlias.roleId ?
             'Role' :
             'Alias')
-            .where('id', auto_assign_role_or_alias.roleId ?
-              auto_assign_role_or_alias.roleId :
-              auto_assign_role_or_alias.aliasId)
+            .where('id', autoAssignRoleOrAlias.roleId ?
+              autoAssignRoleOrAlias.roleId :
+              autoAssignRoleOrAlias.aliasId)
             .first() :
           undefined)
-      .then(role_or_alias => {
-        if (role_or_alias) {
-          const role_name = role_or_alias.aliasName || role_or_alias.roleName;
+      .then(roleOrAlias => {
+        if (roleOrAlias) {
+          const roleOrAliasName = roleOrAlias.aliasName || roleOrAlias.roleName;
 
-          this.adjustUserRole(member.guild, member, role_name);
+          this.adjustUserRole(member.guild, member, roleOrAliasName);
         }
       })
       .catch(err => log.error(err));

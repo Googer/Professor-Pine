@@ -13,14 +13,14 @@ class GymType extends Commando.ArgumentType {
 
   async validate(value, message, arg) {
     try {
-      const name_only = !!arg.is_screenshot,
+      const name_only = !!arg.isScreenshot,
         gyms = await Gym.search(message.channel.id, value.split(/\s/g), name_only);
 
       if (!gyms || gyms.length === 0) {
         const adjacent_gyms = await Gym.adjacentRegionsSearch(message.channel.id, value.split(/\s/g), name_only);
 
         if (!adjacent_gyms) {
-          if (arg && !arg.is_screenshot) {
+          if (arg && !arg.isScreenshot) {
             return `"${value}" returned no gyms.\n\nPlease try your search again, entering the text you want to search for.\n\n${arg.prompt}`;
           } else {
             return false;
@@ -33,7 +33,7 @@ class GymType extends Commando.ArgumentType {
           adjacent_channel = message.channel.guild.channels
             .find(channel => channel.name === adjacent_gyms.channel);
 
-        if (arg && !arg.is_screenshot) {
+        if (arg && !arg.isScreenshot) {
           return `"${value}" returned no gyms; did you mean "${adjacent_gym_name}" over in ${adjacent_channel.toString()}?  ` +
             `If so please cancel and use ${adjacent_channel.toString()} to try again.\n\n` +
             `Please try your search again, entering only the text you want to search for.\n\n${arg.prompt}`;
@@ -49,9 +49,9 @@ class GymType extends Commando.ArgumentType {
           gym_name = gyms[0].nickname ?
             gyms[0].nickname :
             gyms[0].gymName,
-          channel = await PartyManager.getChannel(raid.channelId);
+          channel = (await PartyManager.getChannel(raid.channel_id)).channel;
 
-        if (arg && !arg.is_screenshot) {
+        if (arg && !arg.isScreenshot) {
           return `"${gym_name}" already has an active raid - ${channel.toString()}.\n\n` +
             `If this is the raid you are referring to please cancel and use ${channel.toString()}; ` +
             `otherwise try your search again, entering the text you want to search for.\n\n${arg.prompt}`;
@@ -63,7 +63,7 @@ class GymType extends Commando.ArgumentType {
       return true;
     } catch (err) {
       log.error(err);
-      if (arg && !arg.is_screenshot) {
+      if (arg && !arg.isScreenshot) {
         return `Invalid search terms entered.\n\nPlease try your search again, entering the text you want to search for.\n\n${arg.prompt}`;
       } else {
         return false;
@@ -73,7 +73,7 @@ class GymType extends Commando.ArgumentType {
 
   async parse(value, message, arg) {
     const name_only = arg ?
-      arg.is_screenshot :
+      arg.isScreenshot :
       false,
       gyms = await Gym.search(message.channel.id, value.split(/\s/g), name_only);
 

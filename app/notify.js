@@ -4,6 +4,7 @@ const log = require('loglevel').getLogger('Notify'),
   DB = require('./db'),
   Helper = require('./helper'),
   {MessageEmbed} = require('discord.js'),
+  PartyManager = require('./party-manager'),
   Raid = require('./raid'),
   settings = require('../data/settings');
 
@@ -12,14 +13,14 @@ class Notify {
   }
 
   initialize() {
-    Helper.client.on('raidCreated', (raid, member_id) =>
-      this.notifyMembers(raid, member_id));
+    Helper.client.on('raidCreated', (raid, memberId) =>
+      this.notifyMembers(raid, memberId));
 
-    Helper.client.on('raidPokemonSet', (raid, member_id) =>
-      this.notifyMembers(raid, member_id));
+    Helper.client.on('raidPokemonSet', (raid, memberId) =>
+      this.notifyMembers(raid, memberId));
 
-    Helper.client.on('raidGymSet', (raid, member_id) =>
-      this.notifyMembers(raid, member_id));
+    Helper.client.on('raidGymSet', (raid, memberId) =>
+      this.notifyMembers(raid, memberId));
   }
 
   static getDbPokemonNumber(pokemon) {
@@ -48,53 +49,53 @@ class Notify {
 
   // notify interested members for the raid associated with the given channel and pokemon (and / or or gym),
   // filtering out the reporting member
-  async notifyMembers(raid, reporting_member_id) {
+  async notifyMembers(raid, reportingMemberId) {
     // Don't send a notification for EX raids
     if (raid.pokemon.exclusive) {
       return;
     }
 
-    const raid_channel = await Raid.getChannel(raid.channelId),
+    const raidChannel = (await PartyManager.getChannel(raid.channelId)).channel,
       pokemon = raid.pokemon,
-      gym_id = raid.gymId,
-      guild_id = raid_channel.guild.id,
+      gymId = raid.gymId,
+      guildId = raidChannel.guild.id,
       number = Notify.getDbPokemonNumber(pokemon),
       tier = pokemon.tier,
-      db_pokemon_numbers = [...new Set([number, -tier])]
+      dbPokemonNumbers = [...new Set([number, -tier])]
         .filter(number => !isNaN(number))
 
     // don't try to look up notifications from screenshot placeholders where
     // a valid pokemon wasn't determined
-    let pokemon_members;
+    let pokemonMembers;
 
     if (pokemon.placeholder) {
-      pokemon_members = [];
+      pokemonMembers = [];
     } else {
-      pokemon_members = await DB.DB('User')
+      pokemonMembers = await DB.DB('User')
         .innerJoin('PokemonNotification', {'User.id': 'PokemonNotification.userId'})
         .innerJoin('Guild', {'PokemonNotification.guildId': 'Guild.id'})
-        .whereIn('PokemonNotification.pokemon', db_pokemon_numbers)
-        .andWhere('Guild.snowflake', guild_id)
+        .whereIn('PokemonNotification.pokemon', dbPokemonNumbers)
+        .andWhere('Guild.snowflake', guildId)
         .pluck('User.userSnowflake');
     }
 
-    const gym_members = await DB.DB('User')
+    const gymMembers = await DB.DB('User')
       .innerJoin('GymNotification', {'User.id': 'GymNotification.userId'})
       .innerJoin('Guild', {'GymNotification.guildId': 'Guild.id'})
-      .where('GymNotification.gym', gym_id)
-      .andWhere('Guild.snowflake', guild_id)
+      .where('GymNotification.gym', gymId)
+      .andWhere('Guild.snowflake', guildId)
       .pluck('User.userSnowflake');
 
-    [...new Set([...pokemon_members, ...gym_members])]
-      .filter(member_id => member_id !== reporting_member_id)
-      .filter(member_id => raid_channel.guild.members.has(member_id))
-      .filter(member_id => raid_channel.permissionsFor(member_id).has('VIEW_CHANNEL'))
-      .map(member_id => Helper.getMemberForNotification(guild_id, member_id))
+    [...new Set([...pokemonMembers, ...gymMembers])]
+      .filter(mem => mem !== reportingMemberId)
+      .filter(memberId => raidChannel.guild.members.has(memberId))
+      .filter(memberId => raidChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))
+      .map(memberId => Helper.getMemberForNotification(guildId, memberId))
       .forEach(async member => {
-        const raid_notification_message = await Raid.getRaidNotificationMessage(raid, reporting_member_id),
-          formatted_message = await Raid.getFormattedMessage(raid);
+        const raidNotificationMessage = await raid.getRaidNotificationMessage(reportingMemberId),
+          formattedMessage = await raid.getFormattedMessage();
 
-        member.send(raid_notification_message, formatted_message)
+        member.send(raidNotificationMessage, formattedMessage)
           .catch(err => log.error(err));
       });
   }
@@ -104,27 +105,27 @@ class Notify {
     return this.pokemonNotificationExists(member, pokemon)
       .then(exists => {
         if (!exists) {
-          let user_db_id;
+          let userDbId;
 
           // add pokemon notification for member to DB
           return DB.insertIfAbsent('User', Object.assign({},
             {
               userSnowflake: member.user.id
             }))
-            .then(user_id => {
-              user_db_id = user_id[0];
+            .then(userId => {
+              userDbId = userId[0];
 
               return DB.DB('Guild')
                 .where('snowflake', member.guild.id)
                 .pluck('id')
                 .first();
             })
-            .then(guild_id => {
+            .then(guildId => {
               return DB.DB('PokemonNotification')
                 .insert({
                   pokemon: Notify.getDbPokemonNumber(pokemon),
-                  guildId: guild_id.id,
-                  userId: user_db_id
+                  guildId: guildId.id,
+                  userId: userDbId
                 })
             });
         } else {
@@ -135,23 +136,23 @@ class Notify {
 
   // removes all pokemon notifications from user
   removeAllPokemonNotifications(member) {
-    let guild_db_id;
+    let guildDbId;
 
     return DB.DB('Guild')
       .where('snowflake', member.guild.id)
       .pluck('id')
       .first()
-      .then(guild_id => {
-        guild_db_id = guild_id.id;
+      .then(guildId => {
+        guildDbId = guildId.id;
 
         return DB.DB('User')
           .where('userSnowflake', member.user.id)
           .pluck('id')
           .first();
       })
-      .then(user_id => DB.DB('PokemonNotification')
-        .where('userId', user_id.id)
-        .andWhere('guildId', guild_db_id)
+      .then(userId => DB.DB('PokemonNotification')
+        .where('userId', userId.id)
+        .andWhere('guildId', guildDbId)
         .del())
   }
 
@@ -161,24 +162,24 @@ class Notify {
       this.pokemonNotificationExists(member, pokemon)
         .then(exists => {
           if (exists) {
-            let guild_db_id;
+            let guildDbId;
 
             DB.DB('Guild')
               .where('snowflake', member.guild.id)
               .pluck('id')
               .first()
-              .then(guild_id => {
-                guild_db_id = guild_id.id;
+              .then(guildId => {
+                guildDbId = guildId.id;
 
                 return DB.DB('User')
                   .where('userSnowflake', member.user.id)
                   .pluck('id')
                   .first();
               })
-              .then(user_id => DB.DB('PokemonNotification')
+              .then(userId => DB.DB('PokemonNotification')
                 .where('pokemon', Notify.getDbPokemonNumber(pokemon))
-                .andWhere('userId', user_id.id)
-                .andWhere('guildId', guild_db_id)
+                .andWhere('userId', userId.id)
+                .andWhere('guildId', guildDbId)
                 .del())
               .then(result => resolve(result))
               .catch(err => reject(err));
@@ -208,27 +209,27 @@ class Notify {
     return this.gymNotificationExists(member, gym)
       .then(exists => {
         if (!exists) {
-          let user_db_id;
+          let userDbId;
 
           // add gym notification for member to DB
           return DB.insertIfAbsent('User', Object.assign({},
             {
               userSnowflake: member.user.id
             }))
-            .then(user_id => {
-              user_db_id = user_id[0];
+            .then(userId => {
+              userDbId = userId[0];
 
               return DB.DB('Guild')
                 .where('snowflake', member.guild.id)
                 .pluck('id')
                 .first();
             })
-            .then(guild_id => {
+            .then(guildId => {
               return DB.DB('GymNotification')
                 .insert({
                   gym: gym,
-                  guildId: guild_id.id,
-                  userId: user_db_id
+                  guildId: guildId.id,
+                  userId: userDbId
                 })
             });
         } else {
@@ -239,23 +240,23 @@ class Notify {
 
   // removes all gym notifications from user
   removeAllGymNotifications(member) {
-    let guild_db_id;
+    let guildDbId;
 
     return DB.DB('Guild')
       .where('snowflake', member.guild.id)
       .pluck('id')
       .first()
-      .then(guild_id => {
-        guild_db_id = guild_id.id;
+      .then(guildId => {
+        guildDbId = guildId.id;
 
         return DB.DB('User')
           .where('userSnowflake', member.user.id)
           .pluck('id')
           .first();
       })
-      .then(user_id => DB.DB('GymNotification')
-        .where('userId', user_id.id)
-        .andWhere('guildId', guild_db_id)
+      .then(userId => DB.DB('GymNotification')
+        .where('userId', userId.id)
+        .andWhere('guildId', guildDbId)
         .del())
   }
 
@@ -265,24 +266,24 @@ class Notify {
       this.gymNotificationExists(member, gym)
         .then(exists => {
           if (exists) {
-            let guild_db_id;
+            let guildDbId;
 
             DB.DB('Guild')
               .where('snowflake', member.guild.id)
               .pluck('id')
               .first()
-              .then(guild_id => {
-                guild_db_id = guild_id.id;
+              .then(guildId => {
+                guildDbId = guildId.id;
 
                 return DB.DB('User')
                   .where('userSnowflake', member.user.id)
                   .pluck('id')
                   .first();
               })
-              .then(user_id => DB.DB('GymNotification')
+              .then(userId => DB.DB('GymNotification')
                 .where('gym', gym)
-                .andWhere('userId', user_id.id)
-                .andWhere('guildId', guild_db_id)
+                .andWhere('userId', userId.id)
+                .andWhere('guildId', guildDbId)
                 .del())
               .then(result => resolve(result))
               .catch(err => reject(err));
@@ -326,16 +327,16 @@ class Notify {
       {
         userSnowflake: member.user.id
       }))
-      .then(user_id => DB.DB('User')
-        .where('id', user_id)
+      .then(userId => DB.DB('User')
+        .where('id', userId)
         .update({
           mentions: mention
         }))
       .catch(err => log.error(err));
   }
 
-  async shout(message, members, text, from_member = null) {
-    const members_strings = await Promise.all(members
+  async shout(message, members, text, fromMember = null) {
+    const membersStrings = await Promise.all(members
         .map(async member => {
           const mention = await this.shouldMention(member);
 
@@ -344,20 +345,20 @@ class Notify {
             `**${member.displayName}**`;
         }))
         .catch(err => log.error(err)),
-      members_string = members_strings
+      membersString = membersStrings
         .reduce((prev, next) => prev + ', ' + next),
-      bot_lab_channel = message.guild.channels.find(channel => channel.name === settings.channels.bot_lab),
+      botLabChannel = message.guild.channels.find(channel => channel.name === settings.channels["bot-lab"]),
       embed = new MessageEmbed();
 
     embed.setColor('GREEN');
 
-    if (!!from_member) {
-      embed.setTitle(`Message from **${from_member.displayName}**`);
+    if (!!fromMember) {
+      embed.setTitle(`Message from **${fromMember.displayName}**`);
     }
     embed.setDescription(text);
 
-    message.channel.send(members_string, embed)
-      .then(message => message.channel.send(`To enable or disable these notifications, use the \`${message.client.commandPrefix}mentions\` command in ${bot_lab_channel.toString()}.`))
+    message.channel.send(membersString, embed)
+      .then(message => message.channel.send(`To enable or disable these notifications, use the \`${message.client.commandPrefix}mentions\` command in ${botLabChannel.toString()}.`))
       .catch(err => log.error(err));
   }
 }

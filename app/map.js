@@ -3,7 +3,7 @@
 const log = require('loglevel').getLogger('Map'),
   fs = require('fs'),
   polyline = require('@mapbox/polyline'),
-  private_settings = require('../data/private-settings'),
+  privateSettings = require('../data/private-settings'),
   querystring = require('querystring'),
   request = require('request-promise'),
   ToGeoJSON = require('togeojson-with-extended-style'),
@@ -56,51 +56,51 @@ class Map {
         results.sort((a, b) => turf.area(b) - turf.area(a));
       }
 
-      const searched_region = results[0];
+      const searchedRegion = results[0];
 
-      switch (searched_region.type) {
+      switch (searchedRegion.type) {
         case 'Polygon': {
           return {
-            feature: searched_region,
-            regions: this.findMatches(searched_region)
+            feature: searchedRegion,
+            regions: this.findMatches(searchedRegion)
           };
         }
 
         case 'MultiPolygon': {
-          const matching_regions = new Set();
+          const matchingRegions = new Set();
 
-          searched_region.coordinates
+          searchedRegion.coordinates
             .map(coordinates => turf.polygon(coordinates))
             .forEach(polygon => {
               this.findMatches(polygon)
-                .forEach(matching_region => matching_regions.add(matching_region));
+                .forEach(matchingRegion => matchingRegions.add(matchingRegion));
             });
 
           return {
-            feature: searched_region,
-            regions: Array.from(matching_regions.values())
+            feature: searchedRegion,
+            regions: Array.from(matchingRegions.values())
           };
         }
 
         case 'LineString': {
-          const matching_regions = new Set();
-          searched_region.coordinates
+          const matchingRegions = new Set();
+          searchedRegion.coordinates
             .map(coordinates => turf.point(coordinates))
             .forEach(point => {
               this.findMatch(point)
-                .forEach(matching_region => matching_regions.add(matching_region));
+                .forEach(matchingRegion => matchingRegions.add(matchingRegion));
             });
 
           return {
-            feature: searched_region,
-            regions: Array.from(matching_regions.values())
+            feature: searchedRegion,
+            regions: Array.from(matchingRegions.values())
           };
         }
 
         case 'Point': {
           return {
-            feature: searched_region,
-            regions: this.findMatch(searched_region)
+            feature: searchedRegion,
+            regions: this.findMatch(searchedRegion)
           };
         }
       }
@@ -114,7 +114,7 @@ class Map {
         intersection: turf.intersect(polygon, region)
       }))
       .filter(({region, intersection}) => intersection !== null)
-      .sort((match_a, match_b) => turf.area(match_b.intersection) - turf.area(match_a.intersection))
+      .sort((matchA, matchB) => turf.area(matchB.intersection) - turf.area(matchA.intersection))
       .map(({region, intersection}) => region.properties.name);
   }
 
@@ -125,17 +125,17 @@ class Map {
   }
 
   encodePolygon(polygon) {
-    const line_string = turf.polygonToLine(polygon);
+    const lineString = turf.polygonToLine(polygon);
 
-    switch (line_string.geometry.type) {
+    switch (lineString.geometry.type) {
       case 'LineString':
-        return `path=fillcolor:0xAA000033%7Ccolor:red%7Cweight:2%7Cenc:${polyline.fromGeoJSON(line_string)}`;
+        return `path=fillcolor:0xAA000033%7Ccolor:red%7Cweight:2%7Cenc:${polyline.fromGeoJSON(lineString)}`;
 
       case 'MultiLineString':
-        return line_string.geometry.coordinates
+        return lineString.geometry.coordinates
           .map(coordinates => turf.lineString(coordinates))
-          .map(line_string => polyline.fromGeoJSON(line_string))
-          .map(encoded_polyline => `path=fillcolor:0xAA000033%7Ccolor:red%7Cweight:2%7Cenc:${encoded_polyline}`)
+          .map(lineString => polyline.fromGeoJSON(lineString))
+          .map(encodedPolyline => `path=fillcolor:0xAA000033%7Ccolor:red%7Cweight:2%7Cenc:${encodedPolyline}`)
           .join('&');
 
       default:
@@ -143,15 +143,15 @@ class Map {
     }
   }
 
-  encodeLineString(line_string) {
-    return `path=color:red%7Cweight:2%7Cenc:${polyline.fromGeoJSON(line_string)}`;
+  encodeLineString(lineString) {
+    return `path=color:red%7Cweight:2%7Cenc:${polyline.fromGeoJSON(lineString)}`;
   }
 
   async getMapImage(feature) {
     let uri = 'https://maps.googleapis.com/maps/api/staticmap?' +
       'size=640x320&' +
       'scale=2&' +
-      `key=${private_settings.google_api_key}&`;
+      `key=${privateSettings.googleApiKey}&`;
 
     switch (feature.type) {
       case 'Polygon':

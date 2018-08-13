@@ -103,7 +103,7 @@ class Raid extends Party {
     raid.attendees = Object.create(Object.prototype);
     raid.attendees[memberId] = {number: 1, status: PartyStatus.INTERESTED, group: 'A'};
 
-    const sourceChannel = await PartyManager.getChannel(sourceChannelId),
+    const sourceChannel = (await PartyManager.getChannel(sourceChannelId)).channel,
       channelName = raid.generateChannelName();
 
     let newChannelId;
@@ -414,7 +414,7 @@ class Raid extends Party {
 
     const newChannelName = Raid.generateChannelName(this);
 
-    this.partyManager.getChannel(this.channelId)
+    PartyManager.getChannel(this.channelId)
       .then(channel => channel.setName(newChannelName))
       .catch(err => log.error(err));
 
@@ -428,7 +428,7 @@ class Raid extends Party {
 
     const newChannelName = Raid.generateChannelName(this);
 
-    this.partyManager.getChannel(this.channelId)
+    PartyManager.getChannel(this.channelId)
       .then(channel => channel.setName(newChannelName))
       .catch(err => log.error(err));
 
@@ -577,7 +577,7 @@ class Raid extends Party {
         sameElse: 'l LT'
       },
 
-      reportingMember = await this.getMember(this.createdById),
+      reportingMember = (await this.getMember(this.createdById)).member,
       raidReporter = `originally reported by ${reportingMember.displayName}`,
 
       endTime = this.endTime !== TimeType.UNDEFINED_END_TIME ?

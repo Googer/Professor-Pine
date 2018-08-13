@@ -30,7 +30,7 @@ class UnfavoriteAllCommand extends Commando.Command {
 
   async run(message, args) {
     Notify.removeAllGymNotifications(message.member)
-      .then(result => message.react(Helper.getEmoji(settings.emoji.thumbs_up) || '👍'))
+      .then(result => message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍'))
       .catch(err => log.error(err));
   }
 }

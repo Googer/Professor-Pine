@@ -17,10 +17,10 @@ class Pokemon extends Search {
   async buildIndex() {
     log.info('Indexing pokemon...');
 
-    const game_master = await gameMaster.getVersion('latest', 'json'),
+    const gameMaster = await gameMaster.getVersion('latest', 'json'),
       regex = new RegExp('^V[0-9]+_POKEMON_(.*)'),
-      pokemon_metadata = require('../data/pokemon'),
-      pokemon = game_master.itemTemplates
+      pokemonMetadata = require('../data/pokemon'),
+      pokemon = gameMaster.itemTemplates
         .filter(item => regex.test(item.templateId))
         .map(item => Object.assign({},
           {
@@ -37,10 +37,10 @@ class Pokemon extends Search {
               item.pokemonSettings.form.split('_')[1].toLowerCase() :
               'normal'
           })),
-      merged_pokemon = pokemon_metadata
+      mergedPokemon = pokemonMetadata
         .map(poke => Object.assign({}, poke, pokemon.find(p => p.name === poke.name)));
 
-    merged_pokemon.forEach(poke => {
+    mergedPokemon.forEach(poke => {
       let form;
 
       switch (poke.form) {
@@ -66,11 +66,11 @@ class Pokemon extends Search {
         poke.maxBaseCP = Pokemon.calculateCP(poke, 20, 15, 15, 15);
         poke.minBoostedCP = Pokemon.calculateCP(poke, 25, 10, 10, 10);
         poke.maxBoostedCP = Pokemon.calculateCP(poke, 25, 15, 15, 15);
-        poke.url = `${privateSettings.pokemon_url_base}pokemon_icon_${poke.number}_${form}.png`
+        poke.url = `${privateSettings.pokemonUrlBase}pokemon_icon_${poke.number}_${form}.png`
       }
     });
 
-    this.pokemon = merged_pokemon;
+    this.pokemon = mergedPokemon;
 
     this.index = lunr(function () {
       this.ref('object');
@@ -79,7 +79,7 @@ class Pokemon extends Search {
       this.field('tier');
       this.field('bossCP');
 
-      merged_pokemon.forEach(pokemon => {
+      mergedPokemon.forEach(pokemon => {
         const pokemonDocument = Object.create(null);
 
         pokemonDocument['object'] = JSON.stringify(pokemon);
@@ -101,31 +101,31 @@ class Pokemon extends Search {
 
     // first filter out stop words from the search terms; lunr does this itself so our hacky way of AND'ing will
     // return nothing if they have any in their search terms list since they'll never match anything
-    const split_terms = [].concat(...terms
+    const splitTerms = [].concat(...terms
       .map(term => term.split('-')));
 
-    const filtered_terms = split_terms
+    const filteredTerms = splitTerms
       .map(term => removeDiacritics(term))
       .map(term => term.replace(/[^\w\s*]+/g, ''))
       .map(term => term.toLowerCase())
       .filter(term => this.stopWordFilter(term));
 
-    if (filtered_terms.length === 0) {
+    if (filteredTerms.length === 0) {
       return [];
     }
 
-    let results = Search.singleTermSearch(filtered_terms[0], this.index, fields);
+    let results = Search.singleTermSearch(filteredTerms[0], this.index, fields);
 
-    for (let i = 1; i < filtered_terms.length; i++) {
-      const term_results = Search.singleTermSearch(filtered_terms[i], this.index, fields);
+    for (let i = 1; i < filteredTerms.length; i++) {
+      const termResults = Search.singleTermSearch(filteredTerms[i], this.index, fields);
 
       results = results
         .map(result => {
-          const matching_result = term_results.find(term_result => term_result.ref === result.ref);
+          const matchingResult = termResults.find(termResult => termResult.ref === result.ref);
 
-          if (matching_result) {
+          if (matchingResult) {
             // Multiply scores together for reordering later
-            result.score *= matching_result.score;
+            result.score *= matchingResult.score;
           } else {
             // No match, so set score to -1 so this result gets filtered out
             result.score = -1;
@@ -142,7 +142,7 @@ class Pokemon extends Search {
     }
 
     // Reorder results by composite score
-    results.sort((result_1, result_2) => result_2.score - result_1.score);
+    results.sort((resultA, resultB) => resultB.score - resultA.score);
 
     return results
       .map(result => JSON.parse(result.ref));
@@ -181,8 +181,8 @@ class Pokemon extends Search {
     return results;
   }
 
-  static calculateWeaknesses(pokemon_types) {
-    if (!pokemon_types) {
+  static calculateWeaknesses(pokemonTypes) {
+    if (!pokemonTypes) {
       return [];
     }
 
@@ -190,12 +190,12 @@ class Pokemon extends Search {
       .map(([type, chart]) => {
         let multiplier = 1.0;
 
-        pokemon_types.forEach(pokemon_type => {
-          if (chart.se.includes(pokemon_type)) {
+        pokemonTypes.forEach(pokemonType => {
+          if (chart.se.includes(pokemonType)) {
             multiplier *= 1.400;
-          } else if (chart.ne.includes(pokemon_type)) {
+          } else if (chart.ne.includes(pokemonType)) {
             multiplier *= 0.714;
-          } else if (chart.im.includes(pokemon_type)) {
+          } else if (chart.im.includes(pokemonType)) {
             multiplier *= 0.510;
           }
         });
@@ -205,14 +205,14 @@ class Pokemon extends Search {
           multiplier: multiplier
         }
       })
-      .sort((type_a, type_b) => {
-        const multiplier_difference = type_b.multiplier - type_a.multiplier;
+      .sort((typeA, typeB) => {
+        const multiplierDifference = typeB.multiplier - typeA.multiplier;
 
-        if (multiplier_difference === 0) {
-          return type_a.type > type_b.type;
+        if (multiplierDifference === 0) {
+          return typeA.type > typeB.type;
         }
 
-        return multiplier_difference;
+        return multiplierDifference;
       })
       .filter(type => type.multiplier > 1.0);
   }
@@ -222,18 +222,18 @@ class Pokemon extends Search {
       return;
     }
 
-    let all_conditions = ["sunny", "clear", "rain", "partlycloudy", "cloudy", "windy", "snow", "fog"],
-      boosted_conditions = [];
+    let allConditions = ["sunny", "clear", "rain", "partlycloudy", "cloudy", "windy", "snow", "fog"],
+      boostedConditions = [];
 
     types.forEach(type => {
-      boosted_conditions.push(...weather[type]);
+      boostedConditions.push(...weather[type]);
     });
 
-    boosted_conditions = [...new Set(boosted_conditions)];
+    boostedConditions = [...new Set(boostedConditions)];
 
     return {
-      standard: all_conditions.filter(condition => !boosted_conditions.includes(condition)),
-      boosted: boosted_conditions
+      standard: allConditions.filter(condition => !boostedConditions.includes(condition)),
+      boosted: boostedConditions
     };
   }
 
@@ -274,7 +274,7 @@ class Pokemon extends Search {
       Math.sqrt(stamina)) / 10);
   }
 
-  static calculateCP(pokemon, level, attack_iv, defense_iv, stamina_iv) {
+  static calculateCP(pokemon, level, attackIV, defenseIV, staminaIV) {
     if (!pokemon.stats) {
       return 0;
     }
@@ -599,8 +599,8 @@ class Pokemon extends Search {
         break;
     }
 
-    return Math.floor((pokemon.stats.baseAttack + attack_iv) * Math.sqrt(pokemon.stats.baseDefense + defense_iv) *
-      Math.sqrt(pokemon.stats.baseStamina + stamina_iv) * Math.pow(cpMultiplier, 2) / 10);
+    return Math.floor((pokemon.stats.baseAttack + attackIV) * Math.sqrt(pokemon.stats.baseDefense + defenseIV) *
+      Math.sqrt(pokemon.stats.baseStamina + staminaIV) * Math.pow(cpMultiplier, 2) / 10);
   }
 }
 

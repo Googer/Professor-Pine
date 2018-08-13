@@ -33,13 +33,13 @@ class PokemonNotificationsCommand extends Commando.Command {
     return Notify.getPokemonNotifications(message.member)
       .then(async results => {
         const embed = new MessageEmbed(),
-          pokemon_data = Pokemon.pokemon;
+          pokemonData = Pokemon.pokemon;
 
         embed.setTitle('Currently assigned pokémon notifications:');
         embed.setColor(4437377);
 
-        const pokemon_list = results
-          .map(number => pokemon_data.find(pokemon => (Number.parseInt(pokemon.number) === Number.parseInt(number)) ||
+        const pokemonList = results
+          .map(number => pokemonData.find(pokemon => (Number.parseInt(pokemon.number) === Number.parseInt(number)) ||
             (pokemon.tier === -number)))
           .map(pokemon => pokemon.name ?
             pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1) :
@@ -47,8 +47,8 @@ class PokemonNotificationsCommand extends Commando.Command {
           .sort()
           .join('\n');
 
-        if (pokemon_list.length > 0) {
-          embed.setDescription(pokemon_list);
+        if (pokemonList.length > 0) {
+          embed.setDescription(pokemonList);
         } else {
           embed.setDescription('<None>');
         }

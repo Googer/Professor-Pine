@@ -7,26 +7,26 @@
   "deletionGraceTime": 5,
   "deletionWarningTime": 10,
   "raidCompleteTimeout": 5,
-  "screenshot_message_offset_time": 45,
+  "screenshotMessageOffsetTime": 45,
   "cleanupInterval": 60000,
-  "message_cleanup_delay_success": 5000,
-  "message_cleanup_delay_error": 30000,
+  "messageCleanupDelaySuccess": 5000,
+  "messageCleanupDelayError": 30000,
   "emoji": {
     "thumbsUp": "pinethumbsup",
     "thumbsDown": "pinethumbsdown"
   },
   "features": {
-    "ex_gym_channel": true,
+    "exGymChannel": true,
     "notifications": true,
     "roles": true
   },
   "channels": {
-    "bot_lab": "the-bot-lab",
-    "mod_bot_lab": "mod-bot-only",
+    "bot-lab": "the-bot-lab",
+    "mod-bot-lab": "mod-bot-only",
     "unown": "unown-sightings",
-    "ex_gym_raids": "potential-ex-gym-raids"
+    "ex-gym-raids": "potential-ex-gym-raids"
   },
-  "help_groups": [
+  "helpGroups": [
     "basic-raid",
     "raid-crud",
     "roles",

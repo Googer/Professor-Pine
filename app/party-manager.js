@@ -21,21 +21,21 @@ class PartyManager {
     this.parties = Object.create(null);
 
     this.activeStorage
-      .forEach((channel_id, party) => {
+      .forEach((channelId, party) => {
         switch (party.type) {
           case PartyType.RAID:
-            this.parties[channel_id] = new Raid(this, party);
+            this.parties[channelId] = new Raid(this, party);
             break;
 
           case PartyType.RAID_TRAIN:
-            this.parties[channel_id] = new RaidTrain(this, party);
+            this.parties[channelId] = new RaidTrain(this, party);
             break;
 
           case PartyType.MEETUP:
-            this.parties[channel_id] = new Meetup(this, party);
+            this.parties[channelId] = new Meetup(this, party);
             break;
         }
-        this.parties[channel_id] = party;
+        this.parties[channelId] = party;
       });
   }
 
@@ -100,28 +100,28 @@ class PartyManager {
     return Promise.resolve(channel);
   }
 
-  async getMessage(message_cache_id) {
-    const [channel_id, message_id] = message_cache_id.split(':');
+  async getMessage(messageCacheId) {
+    const [channelId, messageId] = messageCacheId.split(':');
 
-    return this.getChannel(channel_id)
-      .then(channel => channel.messages.fetch(message_id))
+    return this.getChannel(channelId)
+      .then(channel => channel.messages.fetch(messageId))
       .catch(err => {
         log.error(err);
-        const raid = this.getParty(channel_id);
+        const raid = this.getParty(channelId);
 
         if (!!raid) {
-          log.warn(`Deleting nonexistent message ${message_id} from raid ${channel_id}`);
-          raid.messages.splice(raid.messages.indexOf(message_cache_id), 1);
+          log.warn(`Deleting nonexistent message ${messageId} from raid ${channelId}`);
+          raid.messages.splice(raid.messages.indexOf(messageCacheId), 1);
 
           this.persistParty(raid);
         } else {
           // try to find message in raids list that matches this message since that's what this non-existent message
           // most likely is from
           Object.values(this.parties)
-            .filter(raid => raid.messages.indexOf(message_cache_id) !== -1)
+            .filter(raid => raid.messages.indexOf(messageCacheId) !== -1)
             .forEach(raid => {
-              log.warn(`Deleting nonexistent message ${message_id} from raid ${raid.channelId}`);
-              raid.messages.splice(raid.messages.indexOf(message_cache_id), 1);
+              log.warn(`Deleting nonexistent message ${messageId} from raid ${raid.channelId}`);
+              raid.messages.splice(raid.messages.indexOf(messageCacheId), 1);
 
               this.persistParty(raid);
             });
@@ -166,13 +166,13 @@ class PartyManager {
 
         // TODO: this is only really right for raids, not trains or generic meetups, so rethink / revisit this
         this.completedStorage.getItem(party.gymId.toString())
-          .then(gym_raids => {
-            if (!gym_raids) {
-              gym_raids = [];
+          .then(gymRaids => {
+            if (!gymRaids) {
+              gymRaids = [];
             }
-            gym_raids.push(party);
+            gymRaids.push(party);
             try {
-              this.completedStorage.setItemSync(party.gymId.toString(), gym_raids)
+              this.completedStorage.setItemSync(party.gymId.toString(), gymRaids)
             } catch (err) {
               log.error(err);
             }

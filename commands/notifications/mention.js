@@ -41,7 +41,7 @@ class MentionCommand extends Commando.Command {
     const mention = args['mention'];
 
     Notify.setMention(message.member, mention)
-      .then(result => message.react(Helper.getEmoji(settings.emoji.thumbs_up) || '👍'))
+      .then(result => message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍'))
       .catch(err => log.error(err));
   }
 }

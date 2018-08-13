@@ -31,7 +31,7 @@ class IAmNotCommand extends Commando.Command {
 
   async run(message, args) {
     Role.removeRole(message.member, args)
-      .then(() => message.react(Helper.getEmoji(settings.emoji.thumbs_up) || '👍'))
+      .then(() => message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍'))
       .catch(err => {
         if (err && err.error) {
           message.reply(err.error)

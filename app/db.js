@@ -2,7 +2,7 @@
 
 const log = require('loglevel').getLogger('DB'),
   knex = require('knex'),
-  private_settings = require('../data/private-settings');
+  privateSettings = require('../data/private-settings');
 
 class DBManager {
   constructor() {
@@ -13,10 +13,10 @@ class DBManager {
     this.knex = knex({
       client: 'mysql',
       connection: {
-        host: private_settings.db.host,
-        user: private_settings.db.user,
-        password: private_settings.db.password,
-        database: private_settings.db.schema
+        host: privateSettings.db.host,
+        user: privateSettings.db.user,
+        password: privateSettings.db.password,
+        database: privateSettings.db.schema
       },
       migrations: {
         directory: './app/db'
@@ -54,29 +54,29 @@ class DBManager {
     return this.knex;
   }
 
-  insertIfAbsent(table_name, data, transaction = undefined) {
-    const first_data = data[0] ?
+  insertIfAbsent(tableName, data, transaction = undefined) {
+    const firstData = data[0] ?
       data[0] :
       data,
-      object_properties = Object.getOwnPropertyNames(first_data),
-      exists_query = this.knex(table_name)
-        .where(object_properties[0], first_data[object_properties[0]]);
+      objectProperties = Object.getOwnPropertyNames(firstData),
+      existsQuery = this.knex(tableName)
+        .where(objectProperties[0], firstData[objectProperties[0]]);
 
-    for (let i = 1; i < object_properties.length; i++) {
-      exists_query
-        .andWhere(object_properties[i], first_data[object_properties[i]]);
+    for (let i = 1; i < objectProperties.length; i++) {
+      existsQuery
+        .andWhere(objectProperties[i], firstData[objectProperties[i]]);
     }
 
-    return exists_query
+    return existsQuery
       .first()
       .then(result => {
         if (!result) {
           return transaction ?
-            this.knex(table_name).transacting(transaction)
-              .insert(first_data)
+            this.knex(tableName).transacting(transaction)
+              .insert(firstData)
               .returning('id') :
-            this.knex(table_name)
-              .insert(first_data)
+            this.knex(tableName)
+              .insert(firstData)
               .returning('id');
         } else {
           return [result.id];

@@ -25,7 +25,7 @@ class IAmCommand extends Commando.Command {
     this.messages = new Map();
 
     // Map from guild id to number of self-assignable roles for it
-    this.role_counts = new Map();
+    this.roleCounts = new Map();
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'iam' &&
@@ -50,7 +50,7 @@ class IAmCommand extends Commando.Command {
           map.delete(key);
         }
       });
-    }, settings.cleanup_interval);
+    }, settings.cleanupInterval);
   }
 
   navigatePage(reaction, user) {
@@ -71,7 +71,7 @@ class IAmCommand extends Commando.Command {
         this.updatePage(reaction.message, current);
       }
     } else if (reaction.emoji.name === '➡') {
-      if (current < Math.ceil(this.role_counts.get(reaction.message.guild.id) / 5) - 1) {
+      if (current < Math.ceil(this.roleCounts.get(reaction.message.guild.id) / 5) - 1) {
         current++;
         this.updatePage(reaction.message, current);
       }
@@ -92,8 +92,8 @@ class IAmCommand extends Commando.Command {
 
           if (!roles.has(row.roleId)) {
             role = Object.assign({}, {
-              role_name: row.roleName,
-              role_description: row.roleDescription,
+              roleName: row.roleName,
+              roleDescription: row.roleDescription,
               aliases: []
             });
             roles.set(row.roleId, role);
@@ -106,9 +106,9 @@ class IAmCommand extends Commando.Command {
           }
         });
 
-        const roles_array = Array.from(roles.values())
-            .sort((a, b) => a.role_name.localeCompare(b.role_name)),
-          count = roles_array.length,
+        const rolesArray = Array.from(roles.values())
+            .sort((a, b) => a.roleName.localeCompare(b.roleName)),
+          count = rolesArray.length,
           start = current * 5,
           end = start + 5;
 
@@ -119,11 +119,11 @@ class IAmCommand extends Commando.Command {
 
         let string = '';
         for (let i = start; i < end; i++) {
-          if (!roles_array[i]) {
+          if (!rolesArray[i]) {
             break;
           }
 
-          string += `**${roles_array[i].role_name}**\n${(roles_array[i].role_description) ? roles_array[i].role_description + '\n\n' : ''}`;
+          string += `**${rolesArray[i].roleName}**\n${(rolesArray[i].roleDescription) ? rolesArray[i].roleDescription + '\n\n' : ''}`;
         }
 
         const embed = new MessageEmbed();
@@ -134,8 +134,8 @@ class IAmCommand extends Commando.Command {
 
         message.edit('Type `!iam <name>` to add one of the following roles to your account.',
           {embed})
-          .then(bot_message => {
-            this.messages.set(bot_message.id, {time: Date.now(), current, message: bot_message});
+          .then(botMessage => {
+            this.messages.set(botMessage.id, {time: Date.now(), current, message: botMessage});
           });
       })
       .catch(err => log.error(err));
@@ -153,8 +153,8 @@ class IAmCommand extends Commando.Command {
 
             if (!roles.has(row.roleId)) {
               role = Object.assign({}, {
-                role_name: row.roleName,
-                role_description: row.roleDescription,
+                roleName: row.roleName,
+                roleDescription: row.roleDescription,
                 aliases: []
               });
               roles.set(row.roleId, role);
@@ -167,15 +167,15 @@ class IAmCommand extends Commando.Command {
             }
           });
 
-          const roles_array = Array.from(roles.values())
-              .sort((a, b) => a.role_name.localeCompare(b.role_name)),
-            count = roles_array.length;
+          const rolesArray = Array.from(roles.values())
+              .sort((a, b) => a.roleName.localeCompare(b.roleName)),
+            count = rolesArray.length;
 
-          this.role_counts.set(message.guild.id, count);
+          this.roleCounts.set(message.guild.id, count);
 
           let string = '';
           for (let i = 0; i < Math.min(count, 5); i++) {
-            string += `**${roles_array[i].role_name}**\n${(roles_array[i].role_description) ? roles_array[i].role_description + '\n\n' : ''}`;
+            string += `**${rolesArray[i].roleName}**\n${(rolesArray[i].roleDescription) ? rolesArray[i].roleDescription + '\n\n' : ''}`;
           }
 
           const embed = new MessageEmbed();
@@ -186,11 +186,11 @@ class IAmCommand extends Commando.Command {
 
           message.channel.send(`Type \`${message.client.commandPrefix}iam <name>\` to add one of the following roles to your account.`,
             {embed})
-            .then(bot_message => {
-              this.messages.set(bot_message.id, {time: Date.now(), current: 0, message: bot_message});
+            .then(botMessage => {
+              this.messages.set(botMessage.id, {time: Date.now(), current: 0, message: botMessage});
 
-              bot_message.react('⬅')
-                .then(reaction => bot_message.react('➡'))
+              botMessage.react('⬅')
+                .then(reaction => botMessage.react('➡'))
                 .catch(err => log.error(err));
             });
         })
@@ -204,7 +204,7 @@ class IAmCommand extends Commando.Command {
         });
     } else {
       Role.assignRole(message.member, args)
-        .then(() => message.react(Helper.getEmoji(settings.emoji.thumbs_up) || '👍'))
+        .then(() => message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍'))
         .catch(err => {
           if (err && err.error) {
             message.reply(err.error)
