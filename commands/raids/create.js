@@ -90,7 +90,11 @@ class RaidCommand extends Commando.Command {
         const raidSourceChannelMessage = await raid.getRaidSourceChannelMessage(),
           formattedMessage = await raid.getFormattedMessage();
         return PartyManager.getChannel(raid.channelId)
-          .then(channel => channel.channel.send(raidSourceChannelMessage, formattedMessage))
+          .then(channelResult => {
+            if (channelResult.ok) {
+              return channelResult.channel.send(raidSourceChannelMessage, formattedMessage);
+            }
+          })
           .catch(err => log.error(err));
       })
       .then(channelRaidMessage => PartyManager.addMessage(raid.channelId, channelRaidMessage, true))

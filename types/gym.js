@@ -13,13 +13,13 @@ class GymType extends Commando.ArgumentType {
 
   async validate(value, message, arg) {
     try {
-      const name_only = !!arg.isScreenshot,
-        gyms = await Gym.search(message.channel.id, value.split(/\s/g), name_only);
+      const nameOnly = !!arg.isScreenshot,
+        gyms = await Gym.search(message.channel.id, value.split(/\s/g), nameOnly);
 
       if (!gyms || gyms.length === 0) {
-        const adjacent_gyms = await Gym.adjacentRegionsSearch(message.channel.id, value.split(/\s/g), name_only);
+        const adjacentGyms = await Gym.adjacentRegionsSearch(message.channel.id, value.split(/\s/g), nameOnly);
 
-        if (!adjacent_gyms) {
+        if (!adjacentGyms) {
           if (arg && !arg.isScreenshot) {
             return `"${value}" returned no gyms.\n\nPlease try your search again, entering the text you want to search for.\n\n${arg.prompt}`;
           } else {
@@ -27,36 +27,36 @@ class GymType extends Commando.ArgumentType {
           }
         }
 
-        const adjacent_gym_name = adjacent_gyms.gyms[0].nickname ?
-          adjacent_gyms.gyms[0].nickname :
-          adjacent_gyms.gyms[0].gymName,
-          adjacent_channel = message.channel.guild.channels
-            .find(channel => channel.name === adjacent_gyms.channel);
+        const adjacentGymName = adjacentGyms.gyms[0].nickname ?
+          adjacentGyms.gyms[0].nickname :
+          adjacentGyms.gyms[0].gymName,
+          adjacentChannel = message.channel.guild.channels
+            .find(channel => channel.name === adjacentGyms.channel);
 
         if (arg && !arg.isScreenshot) {
-          return `"${value}" returned no gyms; did you mean "${adjacent_gym_name}" over in ${adjacent_channel.toString()}?  ` +
-            `If so please cancel and use ${adjacent_channel.toString()} to try again.\n\n` +
+          return `"${value}" returned no gyms; did you mean "${adjacentGymName}" over in ${adjacentChannel.toString()}?  ` +
+            `If so please cancel and use ${adjacentChannel.toString()} to try again.\n\n` +
             `Please try your search again, entering only the text you want to search for.\n\n${arg.prompt}`;
         } else {
-          return `"${value}" returned no gyms; if the gym name was "${adjacent_gym_name}", try uploading your screenshot to the ${adjacent_channel.toString()} channel instead.`;
+          return `"${value}" returned no gyms; if the gym name was "${adjacentGymName}", try uploading your screenshot to the ${adjacentChannel.toString()} channel instead.`;
         }
       }
 
-      const gym_id = gyms[0].gymId;
+      const gymId = gyms[0].gymId;
 
-      if (arg.key !== GymParameter.FAVORITE && PartyManager.raidExistsForGym(gym_id)) {
-        const raid = PartyManager.findRaid(gym_id),
-          gym_name = gyms[0].nickname ?
+      if (arg.key !== GymParameter.FAVORITE && PartyManager.raidExistsForGym(gymId)) {
+        const raid = PartyManager.findRaid(gymId),
+          gymName = gyms[0].nickname ?
             gyms[0].nickname :
             gyms[0].gymName,
-          channel = (await PartyManager.getChannel(raid.channel_id)).channel;
+          channel = (await PartyManager.getChannel(raid.channelId)).channel;
 
         if (arg && !arg.isScreenshot) {
-          return `"${gym_name}" already has an active raid - ${channel.toString()}.\n\n` +
+          return `"${gymName}" already has an active raid - ${channel.toString()}.\n\n` +
             `If this is the raid you are referring to please cancel and use ${channel.toString()}; ` +
             `otherwise try your search again, entering the text you want to search for.\n\n${arg.prompt}`;
         } else {
-          return `"${gym_name}" already has an active raid - ${channel.toString()}.`;
+          return `"${gymName}" already has an active raid - ${channel.toString()}.`;
         }
       }
 
@@ -72,10 +72,10 @@ class GymType extends Commando.ArgumentType {
   }
 
   async parse(value, message, arg) {
-    const name_only = arg ?
+    const nameOnly = arg ?
       arg.isScreenshot :
       false,
-      gyms = await Gym.search(message.channel.id, value.split(/\s/g), name_only);
+      gyms = await Gym.search(message.channel.id, value.split(/\s/g), nameOnly);
 
     return gyms[0].gymId;
   }

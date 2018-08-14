@@ -28,7 +28,7 @@ class Raid extends Party {
         deletionGraceTime = settings.deletionGraceTime * 60 * 1000,
         deletionTime = now + (settings.deletionWarningTime * 60 * 1000);
 
-      Object.entries(this.partyManager.parties)
+      Object.entries(PartyManager.parties)
         .forEach(([channelId, party]) => {
           if ((party.hatchTime && now > party.hatchTime && party.hatchTime > lastIntervalTime) ||
             nowDay !== lastIntervalDay) {
@@ -149,7 +149,7 @@ class Raid extends Party {
   }
 
   async getMember(memberId) {
-    return this.partyManager.getMember(this.channelId, memberId);
+    return PartyManager.getMember(this.channelId, memberId);
   }
 
   async setPresentAttendeesToComplete(groupId, memberId) {
@@ -176,8 +176,7 @@ class Raid extends Party {
       return;
     }
 
-    const channel = await this.partyManager.getChannel(this.channelId)
-      .catch(err => log.error(err));
+    const channel = (await PartyManager.getChannel(this.channelId)).channel;
 
     const attendees = Object.entries(this.attendees)
         .filter(([attendeeId, attendeeStatus]) => attendeeId !== memberId)
@@ -249,7 +248,7 @@ class Raid extends Party {
                 })
                 .catch(collectedResponses => {
                   // defensive check that raid in fact still exists
-                  if (!!this.partyManager.getParty(this.channelId)) {
+                  if (!!PartyManager.getParty(this.channelId)) {
                     // check that user didn't already set their status to something else (via running another command during the collection period)
                     if (this.getMemberStatus(presentMember.id) === PartyStatus.COMPLETE_PENDING) {
                       autocompleteMembers.push(presentMember);
@@ -264,7 +263,7 @@ class Raid extends Party {
             }))
             .then(() => {
               // defensive check that raid in fact still exists
-              if (!!this.partyManager.getParty(this.channelId)) {
+              if (!!PartyManager.getParty(this.channelId)) {
                 this.refreshStatusMessages()
                   .catch(err => log.error(err));
 
@@ -304,15 +303,19 @@ class Raid extends Party {
         delete this.timeWarn;
       }
 
-      this.partyManager.getMessage(this.incompleteScreenshotMessage)
-        .then(message => {
-          if (!this.pokemon || (this.pokemon && this.pokemon.placeholder)) {
-            message.edit(this.getIncompleteScreenshotMessage())
-              .catch(err => log.error(err));
-          } else {
-            message.delete()
-              .catch(err => log.error(err));
-            delete this.incompleteScreenshotMessage;
+      PartyManager.getMessage(this.incompleteScreenshotMessage)
+        .then(messageResult => {
+          if (messageResult.ok) {
+            const message = messageResult.message;
+
+            if (!this.pokemon || (this.pokemon && this.pokemon.placeholder)) {
+              message.edit(this.getIncompleteScreenshotMessage())
+                .catch(err => log.error(err));
+            } else {
+              message.delete()
+                .catch(err => log.error(err));
+              delete this.incompleteScreenshotMessage;
+            }
           }
         })
         .catch(err => log.error(err));
@@ -363,15 +366,19 @@ class Raid extends Party {
     if (this.incompleteScreenshotMessage) {
       delete this.timeWarn;
 
-      this.partyManager.getMessage(this.incompleteScreenshotMessage)
-        .then(message => {
-          if (!this.pokemon || (this.pokemon && this.pokemon.placeholder)) {
-            message.edit(this.getIncompleteScreenshotMessage())
-              .catch(err => log.error(err));
-          } else {
-            message.delete()
-              .catch(err => log.error(err));
-            delete this.incompleteScreenshotMessage;
+      PartyManager.getMessage(this.incompleteScreenshotMessage)
+        .then(messageResult => {
+          if (messageResult.ok) {
+            const message = messageResult.message;
+
+            if (!this.pokemon || (this.pokemon && this.pokemon.placeholder)) {
+              message.edit(this.getIncompleteScreenshotMessage())
+                .catch(err => log.error(err));
+            } else {
+              message.delete()
+                .catch(err => log.error(err));
+              delete this.incompleteScreenshotMessage;
+            }
           }
         })
         .catch(err => log.error(err));
@@ -388,15 +395,19 @@ class Raid extends Party {
 
     // update or delete screenshot if all information has now been set
     if (this.incompleteScreenshotMessage) {
-      this.partyManager.getMessage(this.incompleteScreenshotMessage)
-        .then(message => {
-          if (!this.hatchTime && this.endTime === TimeType.UNDEFINED_END_TIME) {
-            message.edit(this.getIncompleteScreenshotMessage())
-              .catch(err => log.error(err));
-          } else {
-            message.delete()
-              .catch(err => log.error(err));
-            delete this.incompleteScreenshotMessage;
+      PartyManager.getMessage(this.incompleteScreenshotMessage)
+        .then(messageResult => {
+          if (messageResult.ok) {
+            const message = messageResult.message;
+
+            if (!this.hatchTime && this.endTime === TimeType.UNDEFINED_END_TIME) {
+              message.edit(this.getIncompleteScreenshotMessage())
+                .catch(err => log.error(err));
+            } else {
+              message.delete()
+                .catch(err => log.error(err));
+              delete this.incompleteScreenshotMessage;
+            }
           }
         })
         .catch(err => log.error(err));
@@ -415,7 +426,11 @@ class Raid extends Party {
     const newChannelName = Raid.generateChannelName(this);
 
     PartyManager.getChannel(this.channelId)
-      .then(channel => channel.setName(newChannelName))
+      .then(channelResult => {
+        if (channelResult.ok) {
+          return channelResult.channel.setName(newChannelName);
+        }
+      })
       .catch(err => log.error(err));
 
     return {raid: this};
@@ -429,7 +444,11 @@ class Raid extends Party {
     const newChannelName = Raid.generateChannelName(this);
 
     PartyManager.getChannel(this.channelId)
-      .then(channel => channel.setName(newChannelName))
+      .then(channelResult => {
+        if (channelResult.ok) {
+          return channelResult.channel.setName(newChannelName);
+        }
+      })
       .catch(err => log.error(err));
 
     return {raid: this};
@@ -476,8 +495,10 @@ class Raid extends Party {
         '';
 
     return this.getChannel(this.channelId)
-      .then(channel => `**${pokemon}**\n` +
-        `${channel.toString()} :: ${gymName} :: **${totalAttendees}** potential trainer${totalAttendees !== 1 ? 's' : ''}${endTime}\n`)
+      .then(channelResult => channelResult.ok ?
+        `**${pokemon}**\n` +
+        `${channelResult.channel.toString()} :: ${gymName} :: **${totalAttendees}** potential trainer${totalAttendees !== 1 ? 's' : ''}${endTime}\n` :
+        '')
       .catch(err => {
         log.error(err);
         return '';
@@ -485,14 +506,16 @@ class Raid extends Party {
   }
 
   getRaidChannelMessage() {
-    return this.partyManager.getChannel(this.channelId)
-      .then(channel => `Use ${channel.toString()} for the following raid:`)
+    return PartyManager.getChannel(this.channelId)
+      .then(channelResult => channelResult.ok ?
+        `Use ${channelResult.channel.toString()} for the following raid:` :
+        '')
       .catch(err => log.error(err));
   }
 
   async getRaidNotificationMessage(memberId) {
-    const raidChannel = await this.partyManager.getChannel(this.channelId),
-      regionChannel = await this.partyManager.getChannel(this.sourceChannelId),
+    const raidChannel = (await PartyManager.getChannel(this.channelId)).channel,
+      regionChannel = (await PartyManager.getChannel(this.sourceChannelId)).channel,
       pokemonName = this.pokemon.name ?
         this.pokemon.name.charAt(0).toUpperCase() + this.pokemon.name.slice(1) :
         `a level ${raid.pokemon.tier} boss`,
@@ -506,30 +529,36 @@ class Raid extends Party {
   }
 
   async getRaidExChannelMessage() {
-    const raidChannel = await this.partyManager.getChannel(this.channelId),
-      regionChannel = await this.partyManager.getChannel(this.sourceChannelId);
+    const raidChannel = (await PartyManager.getChannel(this.channelId)).channel,
+      regionChannel = (await PartyManager.getChannel(this.sourceChannelId)).channel;
 
     return `A raid at a potential EX gym has been announced: ${raidChannel.toString()} - ` +
       `it resides in ${regionChannel.toString()}.`;
   }
 
   getRaidSourceChannelMessage() {
-    return this.partyManager.getChannel(this.sourceChannelId)
-      .then(channel => `Use ${channel.toString()} to return to this raid\'s regional channel.`)
+    return PartyManager.getChannel(this.sourceChannelId)
+      .then(channelResult => channelResult.ok ?
+        `Use ${channelResult.channel.toString()} to return to this raid\'s regional channel.` :
+        '')
       .catch(err => log.error(err));
   }
 
   createPotentialExRaidMessage() {
-    this.partyManager.getChannel(this.channelId)
-      .then(async raidChannel => {
-        const exRaidChannel = Helper.getExRaidAnnounceChannel(raidChannel.guild);
+    PartyManager.getChannel(this.channelId)
+      .then(async channelResult => {
+        if (channelResult.ok) {
+          const raidChannel = channelResult.channel;
 
-        if (exRaidChannel) {
-          const raidChannelMessage = await this.getRaidExChannelMessage(),
-            formattedMessage = await this.getFormattedMessage();
+          const exRaidChannel = Helper.getExRaidAnnounceChannel(raidChannel.guild);
 
-          return exRaidChannel.send(raidChannelMessage, formattedMessage)
-            .then(exRaidStatusMessage => this.partyManager.addMessage(this.channelId, exRaidStatusMessage))
+          if (exRaidChannel) {
+            const raidChannelMessage = await this.getRaidExChannelMessage(),
+              formattedMessage = await this.getFormattedMessage();
+
+            return exRaidChannel.send(raidChannelMessage, formattedMessage)
+              .then(exRaidStatusMessage => PartyManager.addMessage(this.channelId, exRaidStatusMessage))
+          }
         }
       })
       .catch(err => log.error(err));
@@ -733,7 +762,12 @@ class Raid extends Party {
         const formattedMessage = await this.getFormattedMessage();
 
         this.getMessage(messageCacheId)
-          .then(message => message.edit(message.content, formattedMessage))
+          .then(messageResult => {
+            if (messageResult.ok) {
+              const message = messageResult.message;
+              message.edit(message.content, formattedMessage);
+            }
+          })
           .catch(err => log.error(err));
       });
   }

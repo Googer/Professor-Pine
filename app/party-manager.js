@@ -60,7 +60,7 @@ class PartyManager {
 
   async getMember(channelId, memberId) {
     const party = this.getParty(channelId),
-      channel = await this.getChannel(channelId),
+      channel = (await this.getChannel(channelId)).channel,
       member = channel.guild.members.get(memberId);
 
     if (!!member) {
@@ -85,50 +85,62 @@ class PartyManager {
   }
 
   getChannel(channelId) {
-    const channel = this.client.channels.get(channelId);
+    try {
+      const channel = this.client.channels.get(channelId);
 
-    if (!channel) {
-      if (this.validParty(channelId)) {
-        log.warn(`Deleting party for nonexistent channel ${channelId}`);
+      if (!channel) {
+        if (this.validParty(channelId)) {
+          log.warn(`Deleting raid for nonexistent channel ${channelId}`);
 
-        this.deleteParty(channelId, false);
+          this.deleteParty(channelId, false);
+        }
+
+        return Promise.resolve({error: new Error('Channel does not exist'), ok: false});
       }
 
-      return Promise.reject(new Error('Channel does not exist'));
+      return Promise.resolve({channel, ok: true});
+    } catch (err) {
+      log.error(err);
+      return Promise.resolve({error: err, ok: false});
     }
-
-    return Promise.resolve(channel);
   }
 
   async getMessage(messageCacheId) {
-    const [channelId, messageId] = messageCacheId.split(':');
+    try {
+      const [channelId, messageId] = messageCacheId.split(':');
 
-    return this.getChannel(channelId)
-      .then(channel => channel.messages.fetch(messageId))
-      .catch(err => {
-        log.error(err);
-        const raid = this.getParty(channelId);
+      return this.getChannel(channelId)
+        .then(channelResult => channelResult.ok ?
+          {message: channelResult.channel.messages.fetch(messageId), ok: true} :
+          {ok: false})
+        .catch(err => {
+          log.error(err);
+          const party = this.getParty(channelId);
 
-        if (!!raid) {
-          log.warn(`Deleting nonexistent message ${messageId} from raid ${channelId}`);
-          raid.messages.splice(raid.messages.indexOf(messageCacheId), 1);
+          if (!!party) {
+            log.warn(`Deleting nonexistent message ${messageId} from raid ${channelId}`);
+            party.messages.splice(party.messages.indexOf(messageCacheId), 1);
 
-          this.persistParty(raid);
-        } else {
-          // try to find message in raids list that matches this message since that's what this non-existent message
-          // most likely is from
-          Object.values(this.parties)
-            .filter(raid => raid.messages.indexOf(messageCacheId) !== -1)
-            .forEach(raid => {
-              log.warn(`Deleting nonexistent message ${messageId} from raid ${raid.channelId}`);
-              raid.messages.splice(raid.messages.indexOf(messageCacheId), 1);
+            this.persistParty(party);
+          } else {
+            // try to find message in raids list that matches this message since that's what this non-existent message
+            // most likely is from
+            Object.values(this.parties)
+              .filter(party => party.messages.indexOf(messageCacheId) !== -1)
+              .forEach(party => {
+                log.warn(`Deleting nonexistent message ${messageId} from party ${party.channelId}`);
+                party.messages.splice(party.messages.indexOf(messageCacheId), 1);
 
-              this.persistParty(raid);
-            });
-        }
+                this.persistParty(party);
+              });
+          }
 
-        return Promise.reject(new Error('Message does not exist'));
-      });
+          return Promise.resolve({error: new Error('Message does not exist'), ok: false});
+        });
+    } catch (err) {
+      log.error(err);
+      return Promise.resolve({error: err, ok: false});
+    }
   }
 
   persistParty(party) {
@@ -147,13 +159,21 @@ class PartyManager {
       party.messages
         .filter(messageCacheId => messageCacheId.split(':')[0] !== channelId)
         .forEach(messageCacheId => this.getMessage(messageCacheId)
-          .then(message => message.delete())
+          .then(messageResult => {
+            if (messageResult.ok) {
+              messageResult.message.delete();
+            }
+          })
           .catch(err => log.error(err)));
     }
 
     const channelDeletePromise = deleteChannel ?
       this.getChannel(channelId)
-        .then(channel => channel.delete()) :
+        .then(channelResult => {
+          return channelResult.ok ?
+            channelResult.channel.delete() :
+            Promise.resolve(true);
+        }) :
       Promise.resolve(true);
 
     channelDeletePromise
@@ -202,13 +222,17 @@ class PartyManager {
   getCreationChannelName(channelId) {
     return this.validParty(channelId) ?
       this.getChannel(this.getParty(channelId).sourceChannelId)
-        .then(channel => channel.name)
+        .then(channelResult => channelResult.ok ?
+          channelResult.channel.name :
+          '')
         .catch(err => {
           log.error(err);
           return '';
         }) :
       this.getChannel(channelId)
-        .then(channel => channel.name)
+        .then(channelResult => channelResult.ok ?
+          channelResult.channel.name :
+          '')
         .catch(err => {
           log.error(err);
           return '';

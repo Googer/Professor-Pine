@@ -16,28 +16,28 @@ class PokemonType extends Commando.ArgumentType {
       pokemon = Pokemon.search(terms);
 
     if (!pokemon || pokemon.length === 0) {
-      let error_message = 'No pokémon found.  Please try your search again, entering the text you want to search for.';
+      let errorMessage = 'No pokémon found.  Please try your search again, entering the text you want to search for.';
       if (!!arg) {
-        error_message += `\n\n${arg.prompt}`;
+        errorMessage += `\n\n${arg.prompt}`;
       }
 
-      return error_message;
+      return errorMessage;
     }
 
-    const valid_pokemon = pokemon
+    const validPokemon = pokemon
       .find(pokemon => pokemon.exclusive || pokemon.tier);
 
-    if (!valid_pokemon) {
+    if (!validPokemon) {
       const name = pokemon[0].name ?
         `"${pokemon[0].name.charAt(0).toUpperCase()}${pokemon[0].name.slice(1)}"` :
         'Pokémon';
 
-      let error_message = `${name} is not a valid raid boss.  Please try your search again, entering the text you want to search for.`;
+      let errorMessage = `${name} is not a valid raid boss.  Please try your search again, entering the text you want to search for.`;
       if (!!arg) {
-        error_message += `\n\n${arg.prompt}`;
+        errorMessage += `\n\n${arg.prompt}`;
       }
 
-      return error_message;
+      return errorMessage;
     }
 
     return true;

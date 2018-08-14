@@ -149,8 +149,12 @@ class Party {
     if (this.messagesSinceDeletionScheduled % 5 === 1) {
       const timeUntilDeletion = moment(this.deletionTime).fromNow();
 
-      this.partyManager.getChannel(this.channelId)
-        .then(channel => channel.send(`**WARNING**: This channel will self-destruct ${timeUntilDeletion}!`))
+      PartyManager.getChannel(this.channelId)
+        .then(channelResult => {
+          if (channelResult.ok) {
+            channelResult.channel.send(`**WARNING**: This channel will self-destruct ${timeUntilDeletion}!`);
+          }
+        })
         .catch(err => log.error(err));
     }
   }
@@ -160,7 +164,11 @@ class Party {
 
     if (!!this.lastStatusMessage) {
       this.partyManager.getMessage(this.lastStatusMessage)
-        .then(old_message => old_message.delete())
+        .then(messageResult => {
+          if (messageResult.ok) {
+            messageResult.message.delete();
+          }
+        })
         .catch(err => log.error(err));
     }
 

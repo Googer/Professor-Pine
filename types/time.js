@@ -2,6 +2,7 @@
 
 const Commando = require('discord.js-commando'),
   moment = require('moment'),
+  PartyManager = require('../app/party-manager'),
   {TimeMode, TimeParameter} = require('../app/constants'),
   settings = require('../data/settings.json');
 
@@ -12,109 +13,109 @@ class TimeType extends Commando.ArgumentType {
 
   validate(value, message, arg) {
     const Raid = require('../app/raid'),
-      is_ex_raid = this.isExclusiveRaid(value, message, arg),
-      raid_exists = Raid.validRaid(message.channel.id),
+      isExRaid = this.isExclusiveRaid(value, message, arg),
+      partyExists = PartyManager.validParty(message.channel.id),
       now = moment(),
-      raid_creation_time = raid_exists ?
-        moment(Raid.getRaid(message.channel.id).creationTime) :
+      partyCreationTime = partyExists ?
+        moment(PartyManager.getParty(message.channel.id).creationTime) :
         now,
-      raid_hatch_time = raid_exists && !!Raid.getRaid(message.channel.id).hatchTime ?
-        moment(Raid.getRaid(message.channel.id).hatchTime) :
+      raidHatchTime = partyExists && !!PartyManager.getParty(message.channel.id).hatchTime ?
+        moment(PartyManager.getParty(message.channel.id).hatchTime) :
         undefined,
-      pokemon = raid_exists ?
-        Raid.getRaid(message.channel.id).pokemon :
+      pokemon = partyExists ?
+        PartyManager.getParty(message.channel.id).pokemon :
         message.pokemon,
-      incubation_duration = pokemon && !!pokemon.incubation ?
+      incubationDuration = pokemon && !!pokemon.incubation ?
         pokemon.incubation :
-        is_ex_raid ?
-          settings.exclusive_raid_incubate_duration :
-          settings.standard_raid_incubate_duration,
-      hatched_duration = pokemon && !!pokemon.duration ?
+        isExRaid ?
+          settings.exclusiveRaidIncubateDuration :
+          settings.standardRaidIncubateDuration,
+      hatchedDuration = pokemon && !!pokemon.duration ?
         pokemon.duration :
-        is_ex_raid ?
-          settings.exclusive_raid_hatched_duration :
-          settings.standard_raid_hatched_duration;
+        isExRaid ?
+          settings.exclusiveRaidHatchedDuration :
+          settings.standardRaidHatchedDuration;
 
-    let first_possible_time,
-      max_duration,
-      last_possible_time;
+    let firstPossibleTime,
+      maxDuration,
+      lastPossibleTime;
 
     // Figure out valid first and last possible times for this time
     switch (arg.key) {
       case TimeParameter.START:
         // Start time - valid range is now (or hatch time if it exists, whichever is later)
         // through raid's end time
-        const raid = Raid.getRaid(message.channel.id),
-          hatch_time = raid ?
-            raid.hatchTime :
+        const party = PartyManager.getParty(message.channel.id),
+          hatchTime = party ?
+            party.hatchTime :
             undefined,
-          end_time = raid ?
-            raid.endTime :
+          endTime = party ?
+            party.endTime :
             undefined;
 
-        if (hatch_time) {
-          const hatch_time_moment = moment(hatch_time);
+        if (hatchTime) {
+          const hatchTimeMoment = moment(hatchTime);
 
-          first_possible_time = now.isAfter(hatch_time_moment) ?
+          firstPossibleTime = now.isAfter(hatchTimeMoment) ?
             now :
-            hatch_time_moment;
+            hatchTimeMoment;
         } else {
-          first_possible_time = now;
+          firstPossibleTime = now;
         }
 
-        const raid_end_time = end_time !== TimeType.UNDEFINED_END_TIME ?
-          moment(end_time) :
-          raid_creation_time.clone().add(incubation_duration + hatched_duration, 'minutes');
+        const partyEndTime = endTime !== TimeType.UNDEFINED_END_TIME ?
+          moment(endTime) :
+          partyCreationTime.clone().add(incubationDuration + hatchedDuration, 'minutes');
 
-        max_duration = incubation_duration + hatched_duration;
-        last_possible_time = raid_end_time;
+        maxDuration = incubationDuration + hatchedDuration;
+        lastPossibleTime = partyEndTime;
         break;
 
       case TimeParameter.HATCH: {
         // Hatch time - valid range is up to hatched duration in the past
         // through incubation period past raid creation time
-        first_possible_time = now.clone().add(-hatched_duration, 'minutes');
-        max_duration = incubation_duration;
-        last_possible_time = raid_creation_time.clone().add(max_duration, 'minutes');
+        firstPossibleTime = now.clone().add(-hatchedDuration, 'minutes');
+        maxDuration = incubationDuration;
+        lastPossibleTime = partyCreationTime.clone().add(maxDuration, 'minutes');
         break;
       }
 
       case TimeParameter.END:
         // End time - valid range is now through incubation plus hatch duration past creation time
-        first_possible_time = now;
-        max_duration = incubation_duration + hatched_duration;
-        last_possible_time = raid_creation_time.clone().add(max_duration, 'minutes');
+        firstPossibleTime = now;
+        maxDuration = incubationDuration + hatchedDuration;
+        lastPossibleTime = partyCreationTime.clone().add(maxDuration, 'minutes');
         break;
     }
 
-    let value_to_parse = value.trim(),
-      possible_times = [],
-      time_mode = TimeMode.AUTODETECT;
+    let valueToParse = value.trim(),
+      possibleTimes = [],
+      timeMode = TimeMode.AUTODETECT;
 
-    if (value_to_parse.match(/^in/i)) {
-      value_to_parse = value_to_parse.substring(2).trim();
-      time_mode = TimeMode.RELATIVE;
+    if (valueToParse.match(/^in/i)) {
+      valueToParse = valueToParse.substring(2).trim();
+      timeMode = TimeMode.RELATIVE;
     } else {
-      const absolute_match = value_to_parse.match(/^at(.*)|(.*[ap]m?)$/i);
+      const absoluteMatch = valueToParse.match(/^at(.*)|(.*[ap]m?)$/i);
 
-      if (absolute_match) {
-        value_to_parse = (absolute_match[1] || absolute_match[2]).trim();
-        time_mode = TimeMode.ABSOLUTE;
+      if (absoluteMatch) {
+        valueToParse = (absoluteMatch[1] || absoluteMatch[2]).trim();
+        timeMode = TimeMode.ABSOLUTE;
       }
     }
 
-    if (time_mode !== TimeMode.ABSOLUTE) {
+    if (timeMode !== TimeMode.ABSOLUTE) {
       let duration;
 
-      if (value_to_parse.indexOf(':') === -1) {
-        duration = moment.duration(Number.parseInt(value_to_parse), 'minutes');
+      if (valueToParse.indexOf(':') === -1) {
+        duration = moment.duration(Number.parseInt(valueToParse), 'minutes');
       } else {
-        const any_duration = value_to_parse.split(':')
+        const anyDuration = valueToParse.split(':')
           .map(part => Number.parseInt(part))
           .find(number => number !== 0) !== undefined;
 
-        if (any_duration) {
-          duration = moment.duration(value_to_parse);
+        if (anyDuration) {
+          duration = moment.duration(valueToParse);
 
           if (duration.isValid() && duration.asMilliseconds() === 0) {
             // set to invalid duration
@@ -125,143 +126,143 @@ class TimeType extends Commando.ArgumentType {
         }
       }
 
-      if (moment.isDuration(duration) && duration.isValid() && duration.asMinutes() < max_duration) {
-        possible_times.push(now.clone().add(duration));
+      if (moment.isDuration(duration) && duration.isValid() && duration.asMinutes() < maxDuration) {
+        possibleTimes.push(now.clone().add(duration));
       }
     }
 
-    if (time_mode !== TimeMode.RELATIVE) {
-      const entered_date = moment(value_to_parse, ['hmm a', 'Hmm', 'h:m a', 'H:m', 'M-D hmm a', 'M-D Hmm', 'M-D h:m a', 'M-D H:m', 'M-D h a', 'M-D H']);
+    if (timeMode !== TimeMode.RELATIVE) {
+      const enteredDate = moment(valueToParse, ['hmm a', 'Hmm', 'h:m a', 'H:m', 'M-D hmm a', 'M-D Hmm', 'M-D h:m a', 'M-D H:m', 'M-D h a', 'M-D H']);
 
-      if (entered_date.isValid()) {
-        possible_times.push(...TimeType.generateTimes(entered_date, arg.key, raid_hatch_time));
+      if (enteredDate.isValid()) {
+        possibleTimes.push(...TimeType.generateTimes(enteredDate, arg.key, raidHatchTime));
       }
     }
 
-    if (possible_times.length === 0) {
+    if (possibleTimes.length === 0) {
       return `"${value}" is not a valid duration or time!\n\n${arg.prompt}`;
     }
 
-    if (possible_times.find(possible_time =>
-      this.isValidTime(possible_time, first_possible_time, last_possible_time))) {
+    if (possibleTimes.find(possibleTime =>
+      this.isValidTime(possibleTime, firstPossibleTime, lastPossibleTime))) {
       return true;
     }
 
-    const calendar_format = {
+    const calendarFormat = {
         sameDay: 'LT',
         sameElse: 'l LT'
       },
-      first_possible_formatted_time = first_possible_time.calendar(null, calendar_format),
-      last_possible_formatted_time = last_possible_time.calendar(null, calendar_format);
+      firstPossibleFormattedTime = firstPossibleTime.calendar(null, calendarFormat),
+      lastPossibleFormattedTime = lastPossibleTime.calendar(null, calendarFormat);
 
-    return `"${value}" is not valid for this raid - valid time range is between ${first_possible_formatted_time} and ${last_possible_formatted_time}!\n\n${arg.prompt}`;
+    return `"${value}" is not valid for this raid - valid time range is between ${firstPossibleFormattedTime} and ${lastPossibleFormattedTime}!\n\n${arg.prompt}`;
   }
 
   parse(value, message, arg) {
     const Raid = require('../app/raid'),
-      is_ex_raid = this.isExclusiveRaid(value, message, arg),
-      raid_exists = Raid.validRaid(message.channel.id),
+      isExRaid = this.isExclusiveRaid(value, message, arg),
+      partyExists = PartyManager.validParty(message.channel.id),
       now = moment(),
-      raid_creation_time = raid_exists ?
-        moment(Raid.getRaid(message.channel.id).creationTime) :
+      partyCreationTime = partyExists ?
+        moment(PartyManager.getParty(message.channel.id).creationTime) :
         now,
-      raid_hatch_time = raid_exists && !!Raid.getRaid(message.channel.id).hatchTime ?
-        moment(Raid.getRaid(message.channel.id).hatchTime) :
+      raidHatchTime = partyExists && !!PartyManager.getParty(message.channel.id).hatchTime ?
+        moment(PartyManager.getParty(message.channel.id).hatchTime) :
         undefined,
-      pokemon = raid_exists ?
-        Raid.getRaid(message.channel.id).pokemon :
+      pokemon = partyExists ?
+        PartyManager.getParty(message.channel.id).pokemon :
         message.pokemon,
-      incubation_duration = pokemon && !!pokemon.incubation ?
+      incubationDuration = pokemon && !!pokemon.incubation ?
         pokemon.incubation :
-        is_ex_raid ?
-          settings.exclusive_raid_incubate_duration :
-          settings.standard_raid_incubate_duration,
-      hatched_duration = pokemon && !!pokemon.duration ?
+        isExRaid ?
+          settings.exclusiveRaidIncubateDuration :
+          settings.standardRaidIncubateDuration,
+      hatchedDuration = pokemon && !!pokemon.duration ?
         pokemon.duration :
-        is_ex_raid ?
-          settings.exclusive_raid_hatched_duration :
-          settings.standard_raid_hatched_duration;
+        isExRaid ?
+          settings.exclusiveRaidHatchedDuration :
+          settings.standardRaidHatchedDuration;
 
-    let first_possible_time,
-      max_duration,
-      last_possible_time;
+    let firstPossibleTime,
+      maxDuration,
+      lastPossibleTime;
 
     // Figure out valid first and last possible times for this time
     switch (arg.key) {
       case TimeParameter.START:
         // Start time - valid range is now (or hatch time if it exists, whichever is later)
         // through raid's end time
-        const raid = Raid.getRaid(message.channel.id),
-          hatch_time = raid ?
-            raid.hatchTime :
+        const party = PartyManager.getParty(message.channel.id),
+          hatchTime = party ?
+            party.hatchTime :
             undefined,
-          end_time = raid ?
-            raid.endTime :
+          endTime = party ?
+            party.endTime :
             undefined;
 
-        if (hatch_time) {
-          const hatch_time_moment = moment(hatch_time);
+        if (hatchTime) {
+          const hatchTimeMoment = moment(hatchTime);
 
-          first_possible_time = now.isAfter(hatch_time_moment) ?
+          firstPossibleTime = now.isAfter(hatchTimeMoment) ?
             now :
-            hatch_time_moment;
+            hatchTimeMoment;
         } else {
-          first_possible_time = now;
+          firstPossibleTime = now;
         }
 
-        const raid_end_time = end_time !== TimeType.UNDEFINED_END_TIME ?
-          moment(end_time) :
-          raid_creation_time.clone().add(incubation_duration + hatched_duration, 'minutes');
+        const partyEndTime = endTime !== TimeType.UNDEFINED_END_TIME ?
+          moment(endTime) :
+          partyCreationTime.clone().add(incubationDuration + hatchedDuration, 'minutes');
 
-        max_duration = incubation_duration + hatched_duration;
-        last_possible_time = raid_end_time;
+        maxDuration = incubationDuration + hatchedDuration;
+        lastPossibleTime = partyEndTime;
         break;
 
       case TimeParameter.HATCH: {
         // Hatch time - valid range is up to hatched duration in the past
         // through incubation period past raid creation time
-        first_possible_time = now.clone().add(-hatched_duration, 'minutes');
-        max_duration = incubation_duration;
-        last_possible_time = raid_creation_time.clone().add(max_duration, 'minutes');
+        firstPossibleTime = now.clone().add(-hatchedDuration, 'minutes');
+        maxDuration = incubationDuration;
+        lastPossibleTime = partyCreationTime.clone().add(maxDuration, 'minutes');
         break;
       }
 
       case TimeParameter.END:
         // End time - valid range is now through incubation plus hatch duration past creation time
-        first_possible_time = now;
-        max_duration = incubation_duration + hatched_duration;
-        last_possible_time = raid_creation_time.clone().add(max_duration, 'minutes');
+        firstPossibleTime = now;
+        maxDuration = incubationDuration + hatchedDuration;
+        lastPossibleTime = partyCreationTime.clone().add(maxDuration, 'minutes');
         break;
     }
 
-    let value_to_parse = value.trim(),
-      possible_times = [],
-      time_mode = TimeMode.AUTODETECT;
+    let valueToParse = value.trim(),
+      possibleTimes = [],
+      timeMode = TimeMode.AUTODETECT;
 
-    if (value_to_parse.match(/^in/i)) {
-      value_to_parse = value_to_parse.substring(2).trim();
-      time_mode = TimeMode.RELATIVE;
+    if (valueToParse.match(/^in/i)) {
+      valueToParse = valueToParse.substring(2).trim();
+      timeMode = TimeMode.RELATIVE;
     } else {
-      const absolute_match = value_to_parse.match(/^at(.*)|(.*[ap]m?)$/i);
+      const absoluteMatch = valueToParse.match(/^at(.*)|(.*[ap]m?)$/i);
 
-      if (absolute_match) {
-        value_to_parse = (absolute_match[1] || absolute_match[2]).trim();
-        time_mode = TimeMode.ABSOLUTE;
+      if (absoluteMatch) {
+        valueToParse = (absoluteMatch[1] || absoluteMatch[2]).trim();
+        timeMode = TimeMode.ABSOLUTE;
       }
     }
 
-    if (time_mode !== TimeMode.ABSOLUTE) {
+    if (timeMode !== TimeMode.ABSOLUTE) {
       let duration;
 
-      if (value_to_parse.indexOf(':') === -1) {
-        duration = moment.duration(Number.parseInt(value_to_parse), 'minutes');
+      if (valueToParse.indexOf(':') === -1) {
+        duration = moment.duration(Number.parseInt(valueToParse), 'minutes');
       } else {
-        const any_duration = value_to_parse.split(':')
+        const anyDuration = valueToParse.split(':')
           .map(part => Number.parseInt(part))
           .find(number => number !== 0) !== undefined;
 
-        if (any_duration) {
-          duration = moment.duration(value_to_parse);
+        if (anyDuration) {
+          duration = moment.duration(valueToParse);
 
           if (duration.isValid() && duration.asMilliseconds() === 0) {
             // set to invalid duration
@@ -272,21 +273,21 @@ class TimeType extends Commando.ArgumentType {
         }
       }
 
-      if (moment.isDuration(duration) && duration.isValid() && duration.asMinutes() < max_duration) {
-        possible_times.push(now.clone().add(duration));
+      if (moment.isDuration(duration) && duration.isValid() && duration.asMinutes() < maxDuration) {
+        possibleTimes.push(now.clone().add(duration));
       }
     }
 
-    if (time_mode !== TimeMode.RELATIVE) {
-      const entered_date = moment(value_to_parse, ['hmm a', 'Hmm', 'h:m a', 'H:m', 'M-D hmm a', 'M-D Hmm', 'M-D h:m a', 'M-D H:m', 'M-D h a', 'M-D H']);
+    if (timeMode !== TimeMode.RELATIVE) {
+      const enteredDate = moment(valueToParse, ['hmm a', 'Hmm', 'h:m a', 'H:m', 'M-D hmm a', 'M-D Hmm', 'M-D h:m a', 'M-D H:m', 'M-D h a', 'M-D H']);
 
-      if (entered_date.isValid()) {
-        possible_times.push(...TimeType.generateTimes(entered_date, arg.key, raid_hatch_time));
+      if (enteredDate.isValid()) {
+        possibleTimes.push(...TimeType.generateTimes(enteredDate, arg.key, raidHatchTime));
       }
     }
 
-    return possible_times.find(possible_time =>
-      this.isValidTime(possible_time, first_possible_time, last_possible_time)).valueOf();
+    return possibleTimes.find(possibleTime =>
+      this.isValidTime(possibleTime, firstPossibleTime, lastPossibleTime)).valueOf();
   }
 
   isExclusiveRaid(value, message, arg) {
@@ -294,44 +295,44 @@ class TimeType extends Commando.ArgumentType {
     // CommandMessage for the sole purpose of checking it here from outside the raid channel
     return message.isExclusive !== undefined ?
       message.isExclusive :
-      require('../app/raid').isExclusive(message.channel.id);
+      require('../app/party-manaeger').getParty(message.channel.id).isExclusive();
   }
 
-  static generateTimes(possible_date, time_parameter, raid_hatch_time) {
-    const possible_dates = [],
-      date_format = possible_date.creationData().format,
-      hour = possible_date.hour(),
-      ambiguously_am = hour < 12 && !date_format.endsWith('a'),
-      contains_date = date_format.includes('D');
+  static generateTimes(possibleDate, timeParameter, raidHatchTime) {
+    const possibleDates = [],
+      dateFormat = possibleDate.creationData().format,
+      hour = possibleDate.hour(),
+      ambiguouslyAM = hour < 12 && !dateFormat.endsWith('a'),
+      containsDate = dateFormat.includes('D');
 
-    if (time_parameter === TimeParameter.START && !contains_date && raid_hatch_time !== undefined) {
-      possible_date.date(raid_hatch_time.date());
-      possible_date.month(raid_hatch_time.month());
-      possible_date.year(raid_hatch_time.year());
+    if (timeParameter === TimeParameter.START && !containsDate && raidHatchTime !== undefined) {
+      possibleDate.date(raidHatchTime.date());
+      possibleDate.month(raidHatchTime.month());
+      possibleDate.year(raidHatchTime.year());
     }
 
-    possible_dates.push(possible_date);
+    possibleDates.push(possibleDate);
 
     // try next year to allow for year wrap
-    possible_dates.push(possible_date.clone()
-      .year(possible_date.year() + 1));
+    possibleDates.push(possibleDate.clone()
+      .year(possibleDate.year() + 1));
 
-    if (ambiguously_am) {
+    if (ambiguouslyAM) {
       // try pm time as well
-      possible_dates.push(possible_date.clone()
-        .hour(possible_date.hour() + 12));
+      possibleDates.push(possibleDate.clone()
+        .hour(possibleDate.hour() + 12));
 
       // try next year pm time as well
-      possible_dates.push(possible_date.clone()
-        .hour(possible_date.hour() + 12)
-        .year(possible_date.year() + 1));
+      possibleDates.push(possibleDate.clone()
+        .hour(possibleDate.hour() + 12)
+        .year(possibleDate.year() + 1));
     }
 
-    return possible_dates;
+    return possibleDates;
   }
 
-  isValidTime(date_to_check, first_possible_time, last_possible_time) {
-    return date_to_check.isBetween(first_possible_time, last_possible_time, undefined, '[]');
+  isValidTime(dateToCheck, firstPossibleTime, lastPossibleTime) {
+    return dateToCheck.isBetween(firstPossibleTime, lastPossibleTime, undefined, '[]');
   }
 
   static get UNDEFINED_END_TIME() {
