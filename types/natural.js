@@ -9,13 +9,13 @@ class NaturalArgumentType extends Commando.ArgumentType {
 
   validate(value, message, arg) {
     const Raid = require('../app/raid'),
-      group_ids = Raid.getRaid(message.channel.id).groups
+      groupIds = Raid.getRaid(message.channel.id).groups
         .map(group => group.id),
-      group_id = value.trim().toUpperCase(),
-      valid_group = group_ids.includes(group_id) || group_id === 'A',
+      groupId = value.trim().toUpperCase(),
+      validGroup = groupIds.includes(groupId) || groupId === 'A',
       int = Number.parseInt(value);
 
-    if (valid_group) {
+    if (validGroup) {
       return `To join a group, type \`cancel\` and use the \`${message.client.commandPrefix}group\` command!\n\n${arg.prompt}`;
     }
 
