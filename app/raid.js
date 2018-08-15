@@ -6,15 +6,15 @@ const log = require('loglevel').getLogger('Raid'),
   settings = require('../data/settings'),
   {PartyStatus, PartyType} = require('./constants'),
   Discord = require('discord.js'),
-  Helper = require('./helper'),
   Gym = require('./gym'),
+  Helper = require('./helper'),
   Party = require('./party'),
   PartyManager = require('./party-manager'),
   TimeType = require('../types/time');
 
 class Raid extends Party {
-  constructor(manager, data = undefined) {
-    super(PartyType.RAID, manager, data);
+  constructor(data = undefined) {
+    super(PartyType.RAID, data);
 
     let lastIntervalTime = moment().valueOf(),
       lastIntervalDay = moment().dayOfYear();
@@ -115,7 +115,7 @@ class Raid extends Party {
       .then(newChannel => {
         newChannelId = newChannel.id;
 
-        raid.partyManager.parties[newChannelId] = raid;
+        PartyManager.parties[newChannelId] = raid;
         raid.channelId = newChannelId;
 
         // move channel to end

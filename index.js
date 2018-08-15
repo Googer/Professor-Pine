@@ -199,8 +199,6 @@ Client.on('guildUnavailable', guild => {
   log.warn(`Guild ${guild.id} unavailable!`);
 });
 
-Client.login(privateSettings.discordBotToken);
-
 NotifyClient.on('ready', () => {
   log.info('Notify client logged in');
 
@@ -221,4 +219,7 @@ NotifyClient.on('disconnect', event => {
     .then(() => Client.login(privateSettings.discordNotifyToken));
 });
 
-NotifyClient.login(privateSettings.discordNotifyToken);
+PartyManager.initialize()
+  .then(() => Client.login(privateSettings.discordBotToken))
+  .then(() => NotifyClient.login(privateSettings.discordNotifyToken))
+  .catch(err => log.error(err));

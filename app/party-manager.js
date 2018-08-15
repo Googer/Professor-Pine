@@ -5,17 +5,20 @@ const log = require('loglevel').getLogger('PartyManager'),
 
 class PartyManager {
   constructor() {
+  }
+
+  async initialize() {
     this.activeStorage = storage.create({
       dir: 'parties/active',
       forgiveParseErrors: true
     });
-    this.activeStorage.initSync();
+    await this.activeStorage.init();
 
     this.completedStorage = storage.create({
       dir: 'parties/complete',
       forgiveParseErrors: true
     });
-    this.completedStorage.initSync();
+    await this.completedStorage.init();
 
     // maps channel ids to raid / train party info for that channel
     this.parties = Object.create(null);
@@ -145,7 +148,8 @@ class PartyManager {
 
   persistParty(party) {
     try {
-      this.activeStorage.setItemSync(party.channelId, party);
+      await
+      this.activeStorage.setItem(party.channelId, party);
     } catch (err) {
       log.error(err);
     }
@@ -191,14 +195,9 @@ class PartyManager {
               gymRaids = [];
             }
             gymRaids.push(party);
-            try {
-              this.completedStorage.setItemSync(party.gymId.toString(), gymRaids)
-            } catch (err) {
-              log.error(err);
-            }
-            return true;
+            return this.completedStorage.setItem(party.gymId.toString(), gymRaids);
           })
-          .then(result => this.activeStorage.removeItemSync(channelId))
+          .then(result => this.activeStorage.removeItem(channelId))
           .catch(err => log.error(err));
 
         delete this.parties[channelId];

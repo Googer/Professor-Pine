@@ -3,16 +3,16 @@
 const log = require('loglevel').getLogger('Party'),
   Helper = require('./helper'),
   moment = require('moment'),
-  NaturalArgumentType = require('../types/natural');
+  NaturalArgumentType = require('../types/natural'),
+  PartyManager = require('./party-manager');
 
 class Party {
-  constructor(type, partyManager, data = undefined) {
+  constructor(type, data = undefined) {
     if (new.target === Party) {
       throw new TypeError("Cannot construct Party instances directly");
     }
 
     this.type = type;
-    this.partyManager = partyManager;
 
     if (data !== undefined) {
       Object.assign(this, data);
@@ -20,11 +20,11 @@ class Party {
   }
 
   persist() {
-    this.partyManager.persistParty(this);
+    PartyManager.persistParty(this);
   }
 
   delete() {
-    this.partyManager.deleteParty(this.channelId);
+    PartyManager.deleteParty(this.channelId);
   }
 
   getAttendeeCount(group) {
@@ -163,7 +163,7 @@ class Party {
     const messageCacheId = `${message.channel.id.toString()}:${message.id.toString()}`;
 
     if (!!this.lastStatusMessage) {
-      this.partyManager.getMessage(this.lastStatusMessage)
+      PartyManager.getMessage(this.lastStatusMessage)
         .then(messageResult => {
           if (messageResult.ok) {
             messageResult.message.delete();

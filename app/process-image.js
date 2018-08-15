@@ -1197,7 +1197,7 @@ class ImageProcessing {
 
         return message.channel.send(raidChannelMessage, formattedMessage);
       })
-      .then(announcementMessage => raid.addMessage(announcementMessage, true))
+      .then(announcementMessage => PartyManager.addMessage(raid.channelId, announcementMessage, true))
       .then(async result => {
         await PartyManager.getChannel(raid.channelId)
           .then(async channel => {
@@ -1226,7 +1226,7 @@ class ImageProcessing {
           .catch(err => log.error(err));
       })
       .then(channelRaidMessage => {
-        raid.addMessage(channelRaidMessage, true);
+        PartyManager.addMessage(raid.channelId, channelRaidMessage, true);
       })
       .then(result => {
         Helper.client.emit('raidCreated', raid, message.member.id);

@@ -2,7 +2,7 @@
 
 const log = require('loglevel').getLogger('PokemonSearch'),
   lunr = require('lunr'),
-  gameMaster = require('pokemongo-game-master'),
+  GameMaster = require('pokemongo-game-master'),
   removeDiacritics = require('diacritics').remove,
   Search = require('./search'),
   privateSettings = require('../data/private-settings'),
@@ -17,7 +17,7 @@ class Pokemon extends Search {
   async buildIndex() {
     log.info('Indexing pokemon...');
 
-    const gameMaster = await gameMaster.getVersion('latest', 'json'),
+    const gameMaster = await GameMaster.getVersion('latest', 'json'),
       regex = new RegExp('^V[0-9]+_POKEMON_(.*)'),
       pokemonMetadata = require('../data/pokemon'),
       pokemon = gameMaster.itemTemplates
