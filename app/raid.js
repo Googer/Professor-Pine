@@ -634,8 +634,10 @@ class Raid extends Party {
       gymUrl = `https://www.google.com/maps/search/?api=1&query=${gym.gymInfo.latitude}%2C${gym.gymInfo.longitude}`,
       attendeeEntries = Object.entries(this.attendees),
       totalAttendeeCount = attendeeEntries.length,
-      attendeesWithMembers = await Promise.all(attendeeEntries
-        .map(async attendeeEntry => [await this.getMember(attendeeEntry[0]), attendeeEntry[1]])),
+      attendeesWithMembers = (await Promise.all(attendeeEntries
+        .map(async attendeeEntry => [await this.getMember(attendeeEntry[0]), attendeeEntry[1]])))
+        .filter(([member, attendee]) => member.ok === true)
+        .map(([member, attendee]) => [member.member, attendee]),
       sortedAttendees = attendeesWithMembers
         .sort((entryA, entryB) => {
           const teamA = Helper.getTeam(entryA[0]),

@@ -4,7 +4,7 @@ const log = require('loglevel').getLogger('Party'),
   Helper = require('./helper'),
   moment = require('moment'),
   NaturalArgumentType = require('../types/natural'),
-  {PartyStatus} = require('./constants');
+  {PartyStatus, Team} = require('./constants');
 
 let PartyManager;
 
