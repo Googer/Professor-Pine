@@ -4,7 +4,11 @@ const log = require('loglevel').getLogger('Party'),
   Helper = require('./helper'),
   moment = require('moment'),
   NaturalArgumentType = require('../types/natural'),
-  PartyManager = require('./party-manager');
+  {PartyStatus} = require('./constants');
+
+let PartyManager;
+
+process.nextTick(() => PartyManager = require('./party-manager'));
 
 class Party {
   constructor(type, data = undefined) {

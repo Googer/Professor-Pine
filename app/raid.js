@@ -6,11 +6,17 @@ const log = require('loglevel').getLogger('Raid'),
   settings = require('../data/settings'),
   {PartyStatus, PartyType} = require('./constants'),
   Discord = require('discord.js'),
-  Gym = require('./gym'),
   Helper = require('./helper'),
   Party = require('./party'),
-  PartyManager = require('./party-manager'),
   TimeType = require('../types/time');
+
+let Gym,
+  PartyManager;
+
+process.nextTick(() => {
+  Gym = require('./gym');
+  PartyManager = require('./party-manager');
+});
 
 class Raid extends Party {
   constructor(data = undefined) {

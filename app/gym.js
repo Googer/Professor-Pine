@@ -3,6 +3,7 @@
 const log = require('loglevel').getLogger('GymSearch'),
   lunr = require('lunr'),
   he = require('he'),
+  PartyManager = require('./party-manager'),
   removeDiacritics = require('diacritics').remove,
   Search = require('./search');
 
@@ -210,13 +211,13 @@ class Gym extends Search {
   }
 
   async search(channelId, terms, nameOnly) {
-    const channelName = await require('./party-manager').getCreationChannelName(channelId);
+    const channelName = await PartyManager.getCreationChannelName(channelId);
 
     return this.channelSearch(channelName, terms, nameOnly);
   }
 
   async adjacentRegionsSearch(channelId, terms, nameOnly) {
-    const channelName = await require('./party-manager').getCreationChannelName(channelId),
+    const channelName = await PartyManager.getCreationChannelName(channelId),
       adjacentRegions = this.regionGraph[channelName],
       matchingRegion = adjacentRegions
         .find(adjacentRegion => {

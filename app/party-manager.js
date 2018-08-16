@@ -67,13 +67,13 @@ class PartyManager {
       member = channel.guild.members.get(memberId);
 
     if (!!member) {
-      return Promise.resolve(member);
+      return Promise.resolve({member, ok: true});
     }
 
     log.warn(`Removing nonexistent member ${memberId} from raid`);
     party.removeAttendee(memberId);
 
-    throw new Error(`Member ${memberId} does not exist!`);
+    throw Promise.resolve({error: new Error(`Member ${memberId} does not exist!`), ok: false});
   }
 
   findRaid(gymId) {
@@ -115,7 +115,7 @@ class PartyManager {
       return this.getChannel(channelId)
         .then(channelResult => channelResult.ok ?
           {message: channelResult.channel.messages.fetch(messageId), ok: true} :
-          {ok: false})
+          {error: channelResult.error, ok: false})
         .catch(err => {
           log.error(err);
           const party = this.getParty(channelId);
@@ -146,10 +146,9 @@ class PartyManager {
     }
   }
 
-  persistParty(party) {
+  async persistParty(party) {
     try {
-      await
-      this.activeStorage.setItem(party.channelId, party);
+      await this.activeStorage.setItem(party.channelId, party);
     } catch (err) {
       log.error(err);
     }
