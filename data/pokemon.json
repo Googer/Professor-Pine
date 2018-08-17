@@ -535,7 +535,8 @@
     "name": "chansey"
   },
   {
-    "name": "tangela"
+    "name": "tangela",
+    "tier": 3
   },
   {
     "name": "kangaskhan"
@@ -1213,7 +1214,8 @@
     "name": "illumise"
   },
   {
-    "name": "roselia"
+    "name": "roselia",
+    "tier": 2
   },
   {
     "name": "gulpin"
