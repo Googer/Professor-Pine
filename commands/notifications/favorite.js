@@ -8,7 +8,6 @@ const log = require('loglevel').getLogger('FavoriteCommand'),
   Helper = require('../../app/helper'),
   Notify = require('../../app/notify'),
   PartyManager = require('../../app/party-manager'),
-  Raid = require('../../app/raid'),
   settings = require('../../data/settings'),
   Utility = require('../../app/utility');
 
@@ -29,7 +28,7 @@ class FavoriteCommand extends Commando.Command {
           prompt: 'What gym do you wish to be notified for?\nExample: `blackhoof`\n',
           type: 'gym',
           default: (message, argument) => {
-            const raid = Raid.getRaid(message.channel.id);
+            const raid = PartyManager.getParty(message.channel.id);
 
             return raid ?
               raid.gymId :
@@ -43,7 +42,7 @@ class FavoriteCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'target' &&
-        !Raid.validRaid(message.channel.id) &&
+        !PartyManager.validParty(message.channel.id) &&
         !Gym.isValidChannel(message.channel.name)) {
         return ['invalid-channel', message.reply(Helper.getText('favorite.warning', message))];
       }
@@ -70,7 +69,7 @@ class FavoriteCommand extends Commando.Command {
       message.deleteOriginal = true;
     }
 
-    if (!inRaidChannel || Raid.getRaid(message.channel.id).gymId !== gymId) {
+    if (!inRaidChannel || PartyManager.getParty(message.channel.id).gymId !== gymId) {
       const gym = Gym.getGym(gymId),
         gymName = !!gym.nickname ?
           gym.nickname :

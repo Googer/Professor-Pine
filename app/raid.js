@@ -429,7 +429,7 @@ class Raid extends Party {
 
     this.persist();
 
-    const newChannelName = Raid.generateChannelName(this);
+    const newChannelName = this.generateChannelName();
 
     PartyManager.getChannel(this.channelId)
       .then(channelResult => {
@@ -447,7 +447,7 @@ class Raid extends Party {
 
     this.persist();
 
-    const newChannelName = Raid.generateChannelName(this);
+    const newChannelName = this.generateChannelName();
 
     PartyManager.getChannel(this.channelId)
       .then(channelResult => {
@@ -461,7 +461,7 @@ class Raid extends Party {
   }
 
   static async getRaidsFormattedMessage(channelId) {
-    const raids = this.getAllRaids(channelId);
+    const raids = PartyManager.getAllRaids(channelId);
 
     if (!raids || raids.length === 0) {
       return 'No raids exist for this channel.  Create one with \`!raid\`!';

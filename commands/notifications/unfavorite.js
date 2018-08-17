@@ -7,7 +7,7 @@ const log = require('loglevel').getLogger('UnfavoriteCommand'),
   Gym = require('../../app/gym'),
   Helper = require('../../app/helper'),
   Notify = require('../../app/notify'),
-  Raid = require('../../app/raid'),
+  PartyManager = require('../../app/party-manager'),
   settings = require('../../data/settings'),
   Utility = require('../../app/utility');
 
@@ -28,7 +28,7 @@ class UnfavoriteCommand extends Commando.Command {
           prompt: 'What gym do you wish to be no longer be notified for?\nExample: `blackhoof`\n',
           type: 'gym',
           default: (message, argument) => {
-            const raid = Raid.getRaid(message.channel.id);
+            const raid = PartyManager.getParty(message.channel.id);
 
             return raid ?
               raid.gymId :
@@ -42,7 +42,7 @@ class UnfavoriteCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'untarget' &&
-        !Raid.validRaid(message.channel.id) &&
+        !PartyManager.validParty(message.channel.id) &&
         !Gym.isValidChannel(message.channel.name)) {
         return ['invalid-channel', message.reply(Helper.getText('unfavorite.warning', message))];
       }
@@ -61,7 +61,7 @@ class UnfavoriteCommand extends Commando.Command {
 
   async run(message, args) {
     const gymId = args['favorite'],
-      inRaidChannel = Raid.validRaid(message.channel.id);
+      inRaidChannel = PartyManager.validParty(message.channel.id);
 
     let confirmationResponse;
 
@@ -69,7 +69,7 @@ class UnfavoriteCommand extends Commando.Command {
       message.deleteOriginal = true;
     }
 
-    if (!inRaidChannel || Raid.getRaid(message.channel.id).gymId !== gymId) {
+    if (!inRaidChannel || PartyManager.getParty(message.channel.id).gymId !== gymId) {
       const gym = Gym.getGym(gymId),
         gymName = !!gym.nickname ?
           gym.nickname :

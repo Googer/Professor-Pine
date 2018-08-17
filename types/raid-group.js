@@ -1,6 +1,7 @@
 "use strict";
 
-const Commando = require('discord.js-commando');
+const Commando = require('discord.js-commando'),
+  PartyManager = require('../app/party-manager');
 
 class RaidGroupType extends Commando.ArgumentType {
   constructor(client) {
@@ -8,8 +9,7 @@ class RaidGroupType extends Commando.ArgumentType {
   }
 
   validate(value, message, arg) {
-    const Raid = require('../app/raid'),
-      groupIds = Raid.getRaid(message.channel.id).groups
+    const groupIds = PartyManager.getParty(message.channel.id).groups
         .map(group => group.id),
       groupId = value.trim().toUpperCase(),
       valid = groupIds.includes(groupId) || groupId === 'A';

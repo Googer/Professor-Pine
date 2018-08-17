@@ -3,9 +3,9 @@ const Commando = require('discord.js-commando'),
   {oneLine} = require('common-tags'),
   privateSettings = require('../../data/private-settings'),
   Helper = require('../../app/helper'),
-  Raid = require('../../app/raid');
+  PartyManager = require('../../app/party-manager');
 
-class MapCommand extends Commando.Command  {
+class MapCommand extends Commando.Command {
   constructor(client) {
     super(client, {
       name: 'maps',
@@ -22,7 +22,7 @@ class MapCommand extends Commando.Command  {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'maps' &&
-        Raid.validRaid(message.channel.id)) {
+        PartyManager.validParty(message.channel.id)) {
         return ['invalid-channel', message.reply('Ask for the complete region map from outside a raid channel!')];
       }
       return false;
@@ -32,9 +32,8 @@ class MapCommand extends Commando.Command  {
   async run(message, args) {
     // We don't load this command unless the regionMapLink is defined, so it's safe for
     // use to assume it exists
-    const url = privateSettings.regionMapLink;
-
-    const messages = [];
+    const url = privateSettings.regionMapLink,
+      messages = [];
     try {
       messages.push(await message.direct(url));
       if (message.channel.type !== 'dm') messages.push(await message.reply(Helper.getText('regionMapDM.success', message)));

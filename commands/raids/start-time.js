@@ -54,7 +54,7 @@ class StartTimeCommand extends Commando.Command {
       .catch(err => log.error(err));
 
     const groupId = info.raid.attendees[message.member.id].group,
-      totalAttendees = Raid.getAttendeeCount(info.raid, groupId),
+      totalAttendees = info.raid.getAttendeeCount(groupId),
       verb = totalAttendees === 1 ?
         'is' :
         'are',

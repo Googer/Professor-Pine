@@ -7,7 +7,6 @@ const log = require('loglevel').getLogger('CheckInCommand'),
   moment = require('moment'),
   NaturalArgumentType = require('../../types/natural'),
   PartyManager = require('../../app/party-manager'),
-  Raid = require('../../app/raid'),
   settings = require('../../data/settings'),
   Utility = require('../../app/utility');
 
@@ -38,7 +37,7 @@ class CheckInCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'here' &&
-        !Raid.validRaid(message.channel.id)) {
+        !PartyManager.validParty(message.channel.id)) {
         return ['invalid-channel', message.reply('Check into a raid from its raid channel!')];
       }
       return false;
