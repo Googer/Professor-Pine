@@ -46,13 +46,13 @@ class SetLocationCommand extends Commando.Command {
 
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .then(result => {
-        Helper.client.emit('raidGymSet', info.raid, message.member.id);
+        Helper.client.emit('raidGymSet', raid, message.member.id);
 
         return true;
       })
       .catch(err => log.error(err));
 
-    info.raid.refreshStatusMessages();
+    raid.refreshStatusMessages();
   }
 }
 

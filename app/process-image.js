@@ -1186,7 +1186,7 @@ class ImageProcessing {
     let raid;
     Raid.createRaid(message.channel.id, message.member.id, pokemon, gymId, time)
       .then(async info => {
-        raid = info.raid;
+        raid = info.party;
 
         if (timeWarn) {
           raid.timeWarn = true;

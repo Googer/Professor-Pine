@@ -138,12 +138,8 @@ class Raid extends Party {
           raid.setRaidEndTime(time);
         }
 
-        return {raid: raid};
+        return {party: raid};
       });
-  }
-
-  isExclusive() {
-    return this.isExclusive;
   }
 
   setIncompleteScreenshotMessage(message) {
@@ -769,14 +765,16 @@ class Raid extends Party {
       .forEach(async messageCacheId => {
         const formattedMessage = await this.getFormattedMessage();
 
-        this.getMessage(messageCacheId)
-          .then(messageResult => {
-            if (messageResult.ok) {
-              const message = messageResult.message;
-              message.edit(message.content, formattedMessage);
-            }
-          })
-          .catch(err => log.error(err));
+        try {
+          const messageResult = await (PartyManager.getMessage(messageCacheId));
+
+          if (messageResult.ok) {
+            const message = messageResult.message;
+            message.edit(message.content, formattedMessage);
+          }
+        } catch (err) {
+          log.error(err);
+        }
       });
   }
 

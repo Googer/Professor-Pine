@@ -2,9 +2,12 @@
 
 const Commando = require('discord.js-commando'),
   moment = require('moment'),
-  PartyManager = require('../app/party-manager'),
   {TimeMode, TimeParameter} = require('../app/constants'),
   settings = require('../data/settings.json');
+
+let PartyManager;
+
+process.nextTick(() => PartyManager = require('../app/party-manager'));
 
 class TimeType extends Commando.ArgumentType {
   constructor(client) {
@@ -12,8 +15,7 @@ class TimeType extends Commando.ArgumentType {
   }
 
   validate(value, message, arg) {
-    const Raid = require('../app/raid'),
-      isExRaid = this.isExclusiveRaid(value, message, arg),
+    const isExRaid = this.isExclusiveRaid(value, message, arg),
       partyExists = PartyManager.validParty(message.channel.id),
       now = moment(),
       partyCreationTime = partyExists ?
@@ -159,8 +161,7 @@ class TimeType extends Commando.ArgumentType {
   }
 
   parse(value, message, arg) {
-    const Raid = require('../app/raid'),
-      isExRaid = this.isExclusiveRaid(value, message, arg),
+    const isExRaid = this.isExclusiveRaid(value, message, arg),
       partyExists = PartyManager.validParty(message.channel.id),
       now = moment(),
       partyCreationTime = partyExists ?
@@ -295,7 +296,7 @@ class TimeType extends Commando.ArgumentType {
     // CommandMessage for the sole purpose of checking it here from outside the raid channel
     return message.isExclusive !== undefined ?
       message.isExclusive :
-      require('../app/party-manaeger').getParty(message.channel.id).isExclusive();
+      PartyManager.getParty(message.channel.id).isExclusive;
   }
 
   static generateTimes(possibleDate, timeParameter, raidHatchTime) {

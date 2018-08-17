@@ -39,7 +39,7 @@ class NewGroupCommand extends Commando.Command {
         .catch(err => log.error(err));
 
       // notify all attendees of new group
-      const attendees = Object.entries(info.raid.attendees)
+      const attendees = Object.entries(raid.attendees)
         .filter(([attendee, attendeeStatus]) => attendee !== message.member.id &&
           attendeeStatus.status !== PartyStatus.COMPLETE)
         .map(([attendee, attendeeStatus]) => attendee);
@@ -53,7 +53,7 @@ class NewGroupCommand extends Commando.Command {
         Notify.shout(message, members, `A new group has been created; if you wish to join it, type:\`\`\`${this.client.commandPrefix}group ${info.group}\`\`\``);
       }
 
-      info.raid.refreshStatusMessages();
+      raid.refreshStatusMessages();
     } else {
       message.reply(info.error)
         .catch(err => log.error(err));

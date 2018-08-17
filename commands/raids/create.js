@@ -78,7 +78,7 @@ class RaidCommand extends Commando.Command {
     Raid.createRaid(message.channel.id, message.member.id, pokemon, gym_id)
     // create and send announcement message to region channel
       .then(async info => {
-        raid = info.raid;
+        raid = info.party;
         const raidChannelMessage = await raid.getRaidChannelMessage(),
           formattedMessage = await raid.getFormattedMessage();
 
@@ -102,7 +102,7 @@ class RaidCommand extends Commando.Command {
       .then(result => {
         // somewhat hacky way of letting time type know if some additional information
         message.pokemon = raid.pokemon;
-        message.isExclusive = raid.isExclusive();
+        message.isExclusive = raid.isExclusive;
 
         if (raid.pokemon.name) {
           return this.endTimeCollector.obtain(message);

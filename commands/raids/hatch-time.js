@@ -46,7 +46,7 @@ class HatchTimeCommand extends Commando.Command {
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .catch(err => log.error(err));
 
-    info.raid.refreshStatusMessages();
+    raid.refreshStatusMessages();
   }
 }
 

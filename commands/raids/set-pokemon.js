@@ -44,13 +44,13 @@ class SetPokemonCommand extends Commando.Command {
 
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .then(result => {
-        Helper.client.emit('raidPokemonSet', info.raid, message.member.id);
+        Helper.client.emit('raidPokemonSet', raid, message.member.id);
 
         return true;
       })
       .catch(err => log.error(err));
 
-    info.raid.refreshStatusMessages();
+    raid.refreshStatusMessages();
   }
 }
 

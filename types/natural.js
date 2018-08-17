@@ -1,7 +1,10 @@
 "use strict";
 
-const Commando = require('discord.js-commando'),
-  PartyManager = require('../app/party-manager');
+const Commando = require('discord.js-commando');
+
+let PartyManager;
+
+process.nextTick(() => PartyManager = require('../app/party-manager'));
 
 class NaturalArgumentType extends Commando.ArgumentType {
   constructor(client) {

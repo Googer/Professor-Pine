@@ -53,8 +53,8 @@ class StartTimeCommand extends Commando.Command {
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .catch(err => log.error(err));
 
-    const groupId = info.raid.attendees[message.member.id].group,
-      totalAttendees = info.raid.getAttendeeCount(groupId),
+    const groupId = raid.attendees[message.member.id].group,
+      totalAttendees = raid.getAttendeeCount(groupId),
       verb = totalAttendees === 1 ?
         'is' :
         'are',
@@ -66,10 +66,10 @@ class StartTimeCommand extends Commando.Command {
         sameElse: 'l LT'
       },
       formattedStartTime = moment(startTime).calendar(null, calendarFormat),
-      channel = (await PartyManager.getChannel(info.raid.channelId)).channel;
+      channel = (await PartyManager.getChannel(raid.channelId)).channel;
 
     // notify all attendees in same group that a time has been set
-    Object.entries(info.raid.attendees)
+    Object.entries(raid.attendees)
       .filter(([attendee, attendeeStatus]) => attendee !== message.member.id &&
         attendeeStatus.status !== PartyStatus.COMPLETE)
       .filter(([attendee, attendeeStatus]) => attendeeStatus.group === groupId)
@@ -81,7 +81,7 @@ class StartTimeCommand extends Commando.Command {
           .catch(err => log.error(err));
       });
 
-    info.raid.refreshStatusMessages();
+    raid.refreshStatusMessages();
   }
 }
 

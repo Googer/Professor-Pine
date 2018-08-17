@@ -116,31 +116,34 @@ class PartyManager {
       const [channelId, messageId] = messageCacheId.split(':');
 
       return this.getChannel(channelId)
-        .then(channelResult => channelResult.ok ?
-          {message: channelResult.channel.messages.fetch(messageId), ok: true} :
-          {error: channelResult.error, ok: false})
+        .then(async channel => {
+          if (!channel.ok) {
+            const party = this.getParty(channelId);
+
+            if (!!party) {
+              log.warn(`Deleting nonexistent message ${messageId} from ${party.name} ${channelId}`);
+              party.messages.splice(party.messages.indexOf(messageCacheId), 1);
+
+              party.persist();
+            } else {
+              // try to find message in parties list that matches this message since that's what this non-existent message
+              // most likely is from
+              Object.values(this.parties)
+                .filter(party => party.messages.indexOf(messageCacheId) !== -1)
+                .forEach(party => {
+                  log.warn(`Deleting nonexistent message ${messageId} from ${party.name} ${party.channelId}`);
+                  party.messages.splice(party.messages.indexOf(messageCacheId), 1);
+
+                  party.persist();
+                });
+            }
+          } else {
+            const message = await channel.channel.messages.fetch(messageId);
+            return {message: message, ok: true};
+          }
+        })
         .catch(err => {
           log.error(err);
-          const party = this.getParty(channelId);
-
-          if (!!party) {
-            log.warn(`Deleting nonexistent message ${messageId} from raid ${channelId}`);
-            party.messages.splice(party.messages.indexOf(messageCacheId), 1);
-
-            this.persistParty(party);
-          } else {
-            // try to find message in raids list that matches this message since that's what this non-existent message
-            // most likely is from
-            Object.values(this.parties)
-              .filter(party => party.messages.indexOf(messageCacheId) !== -1)
-              .forEach(party => {
-                log.warn(`Deleting nonexistent message ${messageId} from party ${party.channelId}`);
-                party.messages.splice(party.messages.indexOf(messageCacheId), 1);
-
-                this.persistParty(party);
-              });
-          }
-
           return Promise.resolve({error: new Error('Message does not exist'), ok: false});
         });
     } catch (err) {
