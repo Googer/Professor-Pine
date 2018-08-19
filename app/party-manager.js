@@ -1,7 +1,10 @@
 const log = require('loglevel').getLogger('PartyManager'),
   storage = require('node-persist'),
-  Raid = require('./raid'),
   {PartyType} = require('./constants');
+
+let Raid;
+
+process.nextTick(() => Raid = require('./raid'));
 
 class PartyManager {
   constructor() {
@@ -30,18 +33,17 @@ class PartyManager {
 
         switch (party.type) {
           case PartyType.RAID:
-            this.parties[channelId] = new Raid(this, party);
+            this.parties[channelId] = new Raid(party);
             break;
 
           case PartyType.RAID_TRAIN:
-            this.parties[channelId] = new RaidTrain(this, party);
+            this.parties[channelId] = new RaidTrain(party);
             break;
 
           case PartyType.MEETUP:
-            this.parties[channelId] = new Meetup(this, party);
+            this.parties[channelId] = new Meetup(party);
             break;
         }
-        this.parties[channelId] = party;
       });
   }
 
@@ -124,17 +126,17 @@ class PartyManager {
               log.warn(`Deleting nonexistent message ${messageId} from ${party.name} ${channelId}`);
               party.messages.splice(party.messages.indexOf(messageCacheId), 1);
 
-              party.persist();
+              await party.persist();
             } else {
               // try to find message in parties list that matches this message since that's what this non-existent message
               // most likely is from
               Object.values(this.parties)
                 .filter(party => party.messages.indexOf(messageCacheId) !== -1)
-                .forEach(party => {
+                .forEach(async party => {
                   log.warn(`Deleting nonexistent message ${messageId} from ${party.name} ${party.channelId}`);
                   party.messages.splice(party.messages.indexOf(messageCacheId), 1);
 
-                  party.persist();
+                  await party.persist();
                 });
             }
           } else {

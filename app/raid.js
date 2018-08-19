@@ -35,7 +35,7 @@ class Raid extends Party {
         deletionTime = now + (settings.deletionWarningTime * 60 * 1000);
 
       Object.entries(PartyManager.parties)
-        .forEach(([channelId, party]) => {
+        .forEach(async ([channelId, party]) => {
           if ((party.hatchTime && now > party.hatchTime && party.hatchTime > lastIntervalTime) ||
             nowDay !== lastIntervalDay) {
             party.refreshStatusMessages()
@@ -43,14 +43,14 @@ class Raid extends Party {
           }
 
           party.groups
-            .forEach(group => {
+            .forEach(async group => {
               if (group.startTime) {
                 if (group.startClearTime && (now > group.startClearTime)) {
                   // clear out start time
                   delete group.startTime;
                   delete group.startClearTime;
 
-                  party.persist();
+                  await party.persist();
 
                   party.refreshStatusMessages()
                     .catch(err => log.error(err));
@@ -61,7 +61,7 @@ class Raid extends Party {
                 } else if (!group.startClearTime && now > group.startTime) {
                   group.startClearTime = startClearTime;
 
-                  party.persist();
+                  await party.persist();
 
                   party.refreshStatusMessages()
                     .catch(err => log.error(err));
@@ -76,7 +76,7 @@ class Raid extends Party {
             party.deletionTime = deletionTime;
 
             party.sendDeletionWarningMessage();
-            party.persist();
+            await party.persist();
           }
           if (party.deletionTime && now > party.deletionTime) {
             this.delete();
@@ -130,22 +130,22 @@ class Raid extends Party {
           position: newChannel.guild.channels.size - 1
         }]);
       })
-      .then(guild => {
+      .then(async guild => {
         if (time === TimeType.UNDEFINED_END_TIME) {
           raid.endTime = TimeType.UNDEFINED_END_TIME;
-          raid.persist();
+          await raid.persist();
         } else {
-          raid.setRaidEndTime(time);
+          await raid.setRaidEndTime(time);
         }
 
         return {party: raid};
       });
   }
 
-  setIncompleteScreenshotMessage(message) {
+  async setIncompleteScreenshotMessage(message) {
     this.incompleteScreenshotMessage = `${this.channelId.toString()}:${message.id.toString()}`;
 
-    this.persist();
+    await this.persist();
 
     return message;
   }
@@ -284,7 +284,7 @@ class Raid extends Party {
     }
   }
 
-  setRaidHatchTime(hatchTime) {
+  async setRaidHatchTime(hatchTime) {
     let endTime;
 
     if (this.pokemon.duration) {
@@ -323,12 +323,12 @@ class Raid extends Party {
         .catch(err => log.error(err));
     }
 
-    this.persist();
+    await this.persist();
 
     return {raid: this};
   }
 
-  setRaidStartTime(channelId, memberId, startTime) {
+  async setRaidStartTime(channelId, memberId, startTime) {
     const member = this.attendees[memberId];
 
     if (!member) {
@@ -345,12 +345,12 @@ class Raid extends Party {
       delete group.startClearTime;
     }
 
-    this.persist();
+    await this.persist();
 
     return {raid: this};
   }
 
-  setRaidEndTime(endTime) {
+  async setRaidEndTime(endTime) {
     let hatchTime;
 
     if (this.pokemon.duration) {
@@ -386,12 +386,12 @@ class Raid extends Party {
         .catch(err => log.error(err));
     }
 
-    this.persist();
+    await this.persist();
 
     return {raid: this};
   }
 
-  setRaidPokemon(pokemon) {
+  async setRaidPokemon(pokemon) {
     this.pokemon = pokemon;
     this.isExclusive = !!pokemon.exclusive;
 
@@ -421,9 +421,7 @@ class Raid extends Party {
         (settings.standardRaidIncubateDuration + settings.standardRaidHatchedDuration) * 60 * 1000),
       this.lastPossibleTime);
 
-    this.setRaidEndTime(this.endTime);
-
-    this.persist();
+    await this.setRaidEndTime(this.endTime);
 
     const newChannelName = this.generateChannelName();
 
@@ -438,10 +436,10 @@ class Raid extends Party {
     return {raid: this};
   }
 
-  setRaidLocation(gymId) {
+  async setRaidLocation(gymId) {
     this.gymId = gymId;
 
-    this.persist();
+    await this.persist();
 
     const newChannelName = this.generateChannelName();
 

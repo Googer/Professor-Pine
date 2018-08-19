@@ -110,14 +110,14 @@ class RaidCommand extends Commando.Command {
           return this.hatchTimeCollector.obtain(message);
         }
       })
-      .then(collectionResult => {
+      .then(async collectionResult => {
         Utility.cleanCollector(collectionResult);
 
         if (!collectionResult.cancelled) {
           if (raid.pokemon.name) {
-            raid.setRaidEndTime(collectionResult.values[TimeParameter.END]);
+            await raid.setRaidEndTime(collectionResult.values[TimeParameter.END]);
           } else {
-            raid.setRaidHatchTime(collectionResult.values[TimeParameter.HATCH]);
+            await raid.setRaidHatchTime(collectionResult.values[TimeParameter.HATCH]);
           }
 
           return raid.refreshStatusMessages();

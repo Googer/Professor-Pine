@@ -32,7 +32,7 @@ class NewGroupCommand extends Commando.Command {
 
   async run(message, args) {
     const raid = PartyManager.getParty(message.channel.id),
-      info = raid.createGroup(message.member.id);
+      info = await raid.createGroup(message.member.id);
 
     if (!info.error) {
       message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')

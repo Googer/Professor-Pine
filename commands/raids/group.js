@@ -73,12 +73,12 @@ class GroupCommand extends Commando.Command {
     ], 3);
 
     return groupCollector.obtain(message, provided)
-      .then(collectionResult => {
+      .then(async collectionResult => {
         Utility.cleanCollector(collectionResult);
 
         if (!collectionResult.cancelled) {
           const groupId = collectionResult.values['group'],
-            info = raid.setMemberGroup(message.member.id, groupId);
+            info = await raid.setMemberGroup(message.member.id, groupId);
 
           if (!info.error) {
             message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')

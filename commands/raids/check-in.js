@@ -48,11 +48,11 @@ class CheckInCommand extends Commando.Command {
     const additionalAttendees = args['additionalAttendees'],
       raid = PartyManager.getParty(message.channel.id),
       current_status = raid.getMemberStatus(message.member.id),
-      group_count = raid.groups.length;
+      groupCount = raid.groups.length;
 
     let statusPromise;
 
-    if (current_status === PartyStatus.NOT_INTERESTED && group_count > 1) {
+    if (current_status === PartyStatus.NOT_INTERESTED && groupCount > 1) {
       const calendar_format = {
         sameDay: 'LT',
         sameElse: 'l LT'
@@ -92,17 +92,17 @@ class CheckInCommand extends Commando.Command {
         }
       ], 3);
 
-      let group_id = raid.defaultGroupId;
+      let groupId = raid.defaultGroupId;
 
       statusPromise = groupCollector.obtain(message)
-        .then(collectionResult => {
+        .then(async collectionResult => {
           Utility.cleanCollector(collectionResult);
 
           if (!collectionResult.cancelled) {
-            group_id = collectionResult.values['group'];
+            groupId = collectionResult.values['group'];
           }
 
-          raid.setMemberGroup(message.member.id, group_id);
+          await raid.setMemberGroup(message.member.id, groupId);
           return raid.setMemberStatus(message.member.id, PartyStatus.PRESENT, additionalAttendees);
         });
     } else {

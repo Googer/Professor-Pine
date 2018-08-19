@@ -42,7 +42,7 @@ class SetLocationCommand extends Commando.Command {
   async run(message, args) {
     const gymId = args['gymId'],
       raid = PartyManager.getParty(message.channel.id),
-      info = raid.setRaidLocation(gymId);
+      info = await raid.setRaidLocation(gymId);
 
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .then(result => {

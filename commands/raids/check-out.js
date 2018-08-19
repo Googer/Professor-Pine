@@ -31,7 +31,7 @@ class CheckOutCommand extends Commando.Command {
 
   async run(message, args) {
     const raid = PartyManager.getParty(message.channel.id),
-      info = raid.setMemberStatus(message.member.id, PartyStatus.INTERESTED);
+      info = await raid.setMemberStatus(message.member.id, PartyStatus.INTERESTED);
 
     if (!info.error) {
       message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')

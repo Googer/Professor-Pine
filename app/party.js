@@ -23,8 +23,8 @@ class Party {
     }
   }
 
-  persist() {
-    PartyManager.persistParty(this);
+  async persist() {
+    await PartyManager.persistParty(this);
   }
 
   delete() {
@@ -42,7 +42,7 @@ class Party {
       .reduce((total, number) => total + number, 0);
   }
 
-  removeAttendee(memberId) {
+  async removeAttendee(memberId) {
     const attendee = this.attendees[memberId];
 
     if (!attendee) {
@@ -51,7 +51,7 @@ class Party {
 
     delete this.attendees[memberId];
 
-    this.persist();
+    await this.persist();
 
     return {party: this};
   }
@@ -64,7 +64,7 @@ class Party {
       PartyStatus.NOT_INTERESTED;
   }
 
-  setMemberStatus(memberId, status, additional_attendees = NaturalArgumentType.UNDEFINED_NUMBER) {
+  async setMemberStatus(memberId, status, additional_attendees = NaturalArgumentType.UNDEFINED_NUMBER) {
     const attendee = this.attendees[memberId],
       number = (additional_attendees !== NaturalArgumentType.UNDEFINED_NUMBER)
         ? 1 + additional_attendees
@@ -83,12 +83,12 @@ class Party {
       attendee.status = status;
     }
 
-    this.persist();
+    await this.persist();
 
     return {party: this};
   }
 
-  createGroup(memberId) {
+  async createGroup(memberId) {
     const groupCount = this.groups.length;
 
     if (groupCount >= 5) {
@@ -101,14 +101,14 @@ class Party {
     this.groups.push(newGroup);
     this.defaultGroupId = newGroupId;
 
-    this.persist();
+    await this.persist();
 
     this.setMemberGroup(memberId, newGroupId);
 
     return {party: this, group: newGroupId};
   }
 
-  setMemberGroup(memberId, groupId) {
+  async setMemberGroup(memberId, groupId) {
     let attendee = this.attendees[memberId];
 
     if (!attendee) {
@@ -120,12 +120,12 @@ class Party {
 
     attendee.group = groupId;
 
-    this.persist();
+    await this.persist();
 
     return {party: this};
   }
 
-  setGroupLabel(memberId, label) {
+  async setGroupLabel(memberId, label) {
     const member = this.attendees[memberId];
 
     if (!member) {
@@ -137,7 +137,7 @@ class Party {
 
     group.label = label;
 
-    this.persist();
+    await this.persist();
 
     return {party: this};
   }
@@ -163,7 +163,7 @@ class Party {
     }
   }
 
-  replaceLastMessage(message) {
+  async replaceLastMessage(message) {
     const messageCacheId = `${message.channel.id.toString()}:${message.id.toString()}`;
 
     if (!!this.lastStatusMessage) {
@@ -178,7 +178,7 @@ class Party {
 
     this.lastStatusMessage = messageCacheId;
 
-    this.persist();
+    await this.persist();
   }
 
   static buildAttendeesList(attendeesList, emojiName, totalAttendeeCount) {
@@ -275,6 +275,8 @@ class Party {
       creationTime: this.creationTime,
       attendees: this.attendees,
       groups: this.groups,
+      messages: this.messages,
+      lastStatusMessage: this.lastStatusMessage,
       defaultGroupId: this.defaultGroupId
     });
   }

@@ -5,8 +5,8 @@ const log = require('loglevel').getLogger('StatusCommand'),
   {CommandGroup} = require('../../app/constants'),
   Helper = require('../../app/helper'),
   Gym = require('../../app/gym'),
-  PartyManager = require('../../app/party-manager'),
-  Raid = require('../../app/raid');
+  Raid = require('../../app/raid'),
+  PartyManager = require('../../app/party-manager');
 
 class StatusCommand extends Commando.Command {
   constructor(client) {

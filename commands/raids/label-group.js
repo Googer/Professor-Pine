@@ -41,7 +41,7 @@ class LabelGroupCommand extends Commando.Command {
   async run(message, args) {
     const label = args['label'],
       raid = PartyManager.getParty(message.channel.id),
-      info = raid.setGroupLabel(message.member.id, label);
+      info = await raid.setGroupLabel(message.member.id, label);
 
     if (!info.error) {
       message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')

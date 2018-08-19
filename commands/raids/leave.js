@@ -31,7 +31,7 @@ class LeaveCommand extends Commando.Command {
 
   async run(message, args) {
     const raid = PartyManager.getRaid(message.channel.id),
-      info = raid.removeAttendee(message.member.id);
+      info = await raid.removeAttendee(message.member.id);
 
     if (!info.error) {
       message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')

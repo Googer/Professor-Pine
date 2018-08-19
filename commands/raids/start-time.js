@@ -42,7 +42,7 @@ class StartTimeCommand extends Commando.Command {
   async run(message, args) {
     const startTime = args[TimeParameter.START],
       raid = PartyManager.getParty(message.channel.id),
-      info = raid.setRaidStartTime(message.member.id, startTime);
+      info = await raid.setRaidStartTime(message.member.id, startTime);
 
     if (info.error) {
       message.reply(info.error)

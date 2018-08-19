@@ -95,19 +95,19 @@ class InterestedCommand extends Commando.Command {
       let groupId = raid.defaultGroupId;
 
       statusPromise = groupCollector.obtain(message)
-        .then(collectionResult => {
+        .then(async collectionResult => {
           Utility.cleanCollector(collectionResult);
 
           if (!collectionResult.cancelled) {
             groupId = collectionResult.values['group'];
           }
 
-          raid.setMemberGroup(message.member.id, groupId);
-          return raid.setMemberStatus(message.member.id, PartyStatus.INTERESTED, additionalAttendees);
+          await raid.setMemberGroup(message.member.id, groupId);
+          return await raid.setMemberStatus(message.member.id, PartyStatus.INTERESTED, additionalAttendees);
         });
     } else {
       statusPromise = Promise.resolve(
-        raid.setMemberStatus(message.member.id, PartyStatus.INTERESTED, additionalAttendees));
+        await raid.setMemberStatus(message.member.id, PartyStatus.INTERESTED, additionalAttendees));
     }
 
     statusPromise.then(info => {
