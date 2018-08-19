@@ -328,7 +328,7 @@ class Raid extends Party {
     return {raid: this};
   }
 
-  async setRaidStartTime(channelId, memberId, startTime) {
+  async setRaidStartTime(memberId, startTime) {
     const member = this.attendees[memberId];
 
     if (!member) {

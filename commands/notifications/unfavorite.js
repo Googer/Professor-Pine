@@ -2,7 +2,7 @@
 
 const log = require('loglevel').getLogger('UnfavoriteCommand'),
   Commando = require('discord.js-commando'),
-  {CommandGroup, GymParameter} = require('../../app/constants'),
+  {CommandGroup, GymParameter, PartyType} = require('../../app/constants'),
   {MessageEmbed} = require('discord.js'),
   Gym = require('../../app/gym'),
   Helper = require('../../app/helper'),
@@ -42,7 +42,7 @@ class UnfavoriteCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'untarget' &&
-        !PartyManager.validParty(message.channel.id) &&
+        !PartyManager.validParty(message.channel.id, PartyType.RAID) &&
         !Gym.isValidChannel(message.channel.name)) {
         return ['invalid-channel', message.reply(Helper.getText('unfavorite.warning', message))];
       }
@@ -61,7 +61,7 @@ class UnfavoriteCommand extends Commando.Command {
 
   async run(message, args) {
     const gymId = args['favorite'],
-      inRaidChannel = PartyManager.validParty(message.channel.id);
+      inRaidChannel = PartyManager.validParty(message.channel.id, PartyType.RAID);
 
     let confirmationResponse;
 
