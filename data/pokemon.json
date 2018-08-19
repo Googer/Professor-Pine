@@ -678,7 +678,8 @@
   },
   {
     "name": "mewtwo",
-    "exclusive": true
+    "exclusive": true,
+    "tier": 5
   },
   {
     "name": "mew"
