@@ -455,7 +455,7 @@ class Raid extends Party {
   }
 
   static async getRaidsFormattedMessage(channelId) {
-    const raids = PartyManager.getAllRaids(channelId);
+    const raids = PartyManager.getAllParties(channelId, PartyType.RAID);
 
     if (!raids || raids.length === 0) {
       return 'No raids exist for this channel.  Create one with \`!raid\`!';
@@ -480,7 +480,7 @@ class Raid extends Party {
       'EX Raid' :
       this.pokemon.name ?
         this.pokemon.name.charAt(0).toUpperCase() + this.pokemon.name.slice(1) :
-        'Tier ' + raid.pokemon.tier,
+        'Tier ' + this.pokemon.tier,
       gym = Gym.getGym(this.gymId),
       gymName = (!!gym.nickname ?
         gym.nickname :
@@ -494,7 +494,7 @@ class Raid extends Party {
         ` :: Ends at **${moment(this.endTime).calendar(null, calendarFormat)}**` :
         '';
 
-    return this.getChannel(this.channelId)
+    return PartyManager.getChannel(this.channelId)
       .then(channelResult => channelResult.ok ?
         `**${pokemon}**\n` +
         `${channelResult.channel.toString()} :: ${gymName} :: **${totalAttendees}** potential trainer${totalAttendees !== 1 ? 's' : ''}${endTime}\n` :

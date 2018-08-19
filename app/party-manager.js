@@ -220,9 +220,10 @@ class PartyManager {
     return this.parties[channelId];
   }
 
-  getAllRaids(channelId) {
+  getAllParties(channelId, type) {
     return Object.values(this.parties)
-      .filter(raid => raid.sourceChannelId === channelId);
+      .filter(party => party.sourceChannelId === channelId)
+      .filter(party => party.type === type);
   }
 
   getCreationChannelName(channelId) {
