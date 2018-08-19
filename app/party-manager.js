@@ -1,6 +1,8 @@
 const log = require('loglevel').getLogger('PartyManager'),
+  settings = require('../data/settings'),
   storage = require('node-persist'),
-  {PartyType} = require('./constants');
+  {PartyType} = require('./constants'),
+  TimeType = require('../types/time');
 
 let Raid;
 
@@ -8,6 +10,70 @@ process.nextTick(() => Raid = require('./raid'));
 
 class PartyManager {
   constructor() {
+    let lastIntervalTime = moment().valueOf(),
+      lastIntervalDay = moment().dayOfYear();
+
+    // loop to clean up raids periodically
+    this.update = setInterval(() => {
+      const nowMoment = moment(),
+        nowDay = nowMoment.dayOfYear(),
+        now = nowMoment.valueOf(),
+        startClearTime = now + (settings.startClearTime * 60 * 1000),
+        deletionGraceTime = settings.deletionGraceTime * 60 * 1000,
+        deletionTime = now + (settings.deletionWarningTime * 60 * 1000);
+
+      Object.entries(this.parties)
+        .forEach(async ([channelId, party]) => {
+          if ((party.hatchTime && now > party.hatchTime && party.hatchTime > lastIntervalTime) ||
+            nowDay !== lastIntervalDay) {
+            party.refreshStatusMessages()
+              .catch(err => log.error(err));
+          }
+
+          party.groups
+            .forEach(async group => {
+              if (group.startTime) {
+                if (group.startClearTime && (now > group.startClearTime)) {
+                  // clear out start time
+                  delete group.startTime;
+                  delete group.startClearTime;
+
+                  await party.persist();
+
+                  party.refreshStatusMessages()
+                    .catch(err => log.error(err));
+
+                  // ask members if they finished party
+                  party.setPresentAttendeesToComplete(group.id)
+                    .catch(err => log.error(err));
+                } else if (!group.startClearTime && now > group.startTime) {
+                  group.startClearTime = startClearTime;
+
+                  await party.persist();
+
+                  party.refreshStatusMessages()
+                    .catch(err => log.error(err));
+                }
+              }
+            });
+
+          if (((party.endTime !== TimeType.UNDEFINED_END_TIME && now > party.endTime + deletionGraceTime) || now > party.lastPossibleTime + deletionGraceTime) &&
+            !party.deletionTime) {
+            // party's end time is set (or last possible time) in the past, even past the grace period,
+            // so schedule its deletion
+            party.deletionTime = deletionTime;
+
+            party.sendDeletionWarningMessage();
+            await party.persist();
+          }
+          if (party.deletionTime && now > party.deletionTime) {
+            party.delete();
+          }
+
+          lastIntervalTime = now;
+          lastIntervalDay = nowDay;
+        });
+    }, settings.cleanupInterval);
   }
 
   async initialize() {

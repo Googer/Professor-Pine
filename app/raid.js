@@ -21,71 +21,6 @@ process.nextTick(() => {
 class Raid extends Party {
   constructor(data = undefined) {
     super(PartyType.RAID, data);
-
-    let lastIntervalTime = moment().valueOf(),
-      lastIntervalDay = moment().dayOfYear();
-
-    // loop to clean up raids periodically
-    this.update = setInterval(() => {
-      const nowMoment = moment(),
-        nowDay = nowMoment.dayOfYear(),
-        now = nowMoment.valueOf(),
-        startClearTime = now + (settings.startClearTime * 60 * 1000),
-        deletionGraceTime = settings.deletionGraceTime * 60 * 1000,
-        deletionTime = now + (settings.deletionWarningTime * 60 * 1000);
-
-      Object.entries(PartyManager.parties)
-        .forEach(async ([channelId, party]) => {
-          if ((party.hatchTime && now > party.hatchTime && party.hatchTime > lastIntervalTime) ||
-            nowDay !== lastIntervalDay) {
-            party.refreshStatusMessages()
-              .catch(err => log.error(err));
-          }
-
-          party.groups
-            .forEach(async group => {
-              if (group.startTime) {
-                if (group.startClearTime && (now > group.startClearTime)) {
-                  // clear out start time
-                  delete group.startTime;
-                  delete group.startClearTime;
-
-                  await party.persist();
-
-                  party.refreshStatusMessages()
-                    .catch(err => log.error(err));
-
-                  // ask members if they finished party
-                  party.setPresentAttendeesToComplete(group.id)
-                    .catch(err => log.error(err));
-                } else if (!group.startClearTime && now > group.startTime) {
-                  group.startClearTime = startClearTime;
-
-                  await party.persist();
-
-                  party.refreshStatusMessages()
-                    .catch(err => log.error(err));
-                }
-              }
-            });
-
-          if (((party.endTime !== TimeType.UNDEFINED_END_TIME && now > party.endTime + deletionGraceTime) || now > party.lastPossibleTime + deletionGraceTime) &&
-            !party.deletionTime) {
-            // party's end time is set (or last possible time) in the past, even past the grace period,
-            // so schedule its deletion
-            party.deletionTime = deletionTime;
-
-            party.sendDeletionWarningMessage();
-            await party.persist();
-          }
-          if (party.deletionTime && now > party.deletionTime) {
-            this.delete();
-          }
-
-          lastIntervalTime = now;
-          lastIntervalDay = nowDay;
-        });
-    }, settings.cleanupInterval);
   }
 
   static async createRaid(sourceChannelId, memberId, pokemon, gymId, time = TimeType.UNDEFINED_END_TIME) {
@@ -325,7 +260,7 @@ class Raid extends Party {
 
     await this.persist();
 
-    return {raid: this};
+    return {party: this};
   }
 
   async setRaidStartTime(memberId, startTime) {
@@ -347,7 +282,7 @@ class Raid extends Party {
 
     await this.persist();
 
-    return {raid: this};
+    return {party: this};
   }
 
   async setRaidEndTime(endTime) {
@@ -388,7 +323,7 @@ class Raid extends Party {
 
     await this.persist();
 
-    return {raid: this};
+    return {party: this};
   }
 
   async setRaidPokemon(pokemon) {
@@ -433,7 +368,7 @@ class Raid extends Party {
       })
       .catch(err => log.error(err));
 
-    return {raid: this};
+    return {party: this};
   }
 
   async setRaidLocation(gymId) {
@@ -451,7 +386,7 @@ class Raid extends Party {
       })
       .catch(err => log.error(err));
 
-    return {raid: this};
+    return {party: this};
   }
 
   static async getRaidsFormattedMessage(channelId) {
