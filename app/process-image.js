@@ -2,12 +2,11 @@
 
 const log = require('loglevel').getLogger('ImageProcessor'),
   fs = require('fs'),
-  Gym = require('./gym'),
   Helper = require('./helper'),
   Jimp = require('jimp'),
   moment = require('moment'),
-  Notify = require('./notify'),
   path = require('path'),
+  PartyManager = require('./party-manager'),
   Raid = require('./raid'),
   regionMap = require('PgP-Data/data/region-map'),
   settings = require('../data/settings'),

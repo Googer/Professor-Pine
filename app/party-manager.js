@@ -93,9 +93,9 @@ class PartyManager {
     this.parties = Object.create(null);
 
     this.activeStorage
-      .forEach(datum => {
-        const channelId = datum.key,
-          party = datum.value;
+      .forEach(({key, value}) => {
+        const channelId = key,
+          party = value;
 
         switch (party.type) {
           case PartyType.RAID:
