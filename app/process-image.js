@@ -843,7 +843,9 @@ class ImageProcessing {
 
   async getPokemonName(id, message, image, region) {
     const PokemonType = Helper.client.registry.types.get('pokemon');
-    let values, pokemon, cp;
+    let values,
+      pokemon,
+      cp;
 
     // try different levels of processing to get pokemon
     for (let processingLevel = 0; processingLevel <= 4; processingLevel++) {
@@ -864,6 +866,7 @@ class ImageProcessing {
           tier: '????'
         };
       }
+      pokemon.egg = false;
 
       // something has gone wrong if no info was matched, save image for later analysis
       if (debugFlag || (pokemon.placeholder && log.getLevel() === log.levels.DEBUG)) {
@@ -1099,14 +1102,21 @@ class ImageProcessing {
     //                 so by making them totally asynchronous, we speed up execution time slightly.
     return Promise.all(promises)
       .then(values => {
+        const selectedPokemon = definitelyEgg ?
+          values[1].pokemon : // tier-detected pokemon is value 1 when we're confident it's an egg
+          values[1].pokemon.placeholder ?
+            values[2].tier > 0 ?
+              values[2].pokemon : // value 1 is a placeholder, so use value 2 if it got a reading on tier
+              values[1].pokemon : // value 2 didn't read a tier, so use value 1's placeholder
+            values[1].pokemon; // pokemon read successfully; use it
+
         return {
-          egg: definitelyEgg || values[2].egg,
           gym,
           timeRemaining: timeRemaining,
           phoneTime: values[0].phoneTime,
           tier: values[1].tier || (values[2] && values[2].tier) || 0,
           cp: values[1].cp || 0,
-          pokemon: (values[2] && values[2].pokemon) || values[1].pokemon
+          pokemon: selectedPokemon
         };
       })
       .catch(err => {
@@ -1132,7 +1142,9 @@ class ImageProcessing {
     let gymId = data.gym,
       pokemon = data.pokemon,
       time = data.phoneTime,
-      duration = moment.duration(data.timeRemaining, 'hh:mm:ss'),
+      duration = data.timeRemaining ?
+        moment.duration(data.timeRemaining, 'hh:mm:ss') :
+        moment.invalid(),
       arg = {},
       timeWarn = false;
 
@@ -1151,12 +1163,12 @@ class ImageProcessing {
 
     // if egg, need to add standard hatched duration to phone's time to account for raid's actual duration
     // when setting end time
-    if (time && time.isValid() && data.egg) {
+    if (time && time.isValid() && pokemon.egg) {
       time = time.add(settings.standardRaidHatchedDuration, 'minutes');
     }
 
     // add duration to time if both exist
-    if (time && time.isValid() && duration.asMilliseconds() > 0) {
+    if (time && time.isValid() && duration.isValid() && duration.asMilliseconds() > 0) {
       // add time remaining to phone's current time to get final hatch or despawn time
       time = time.add(duration);
     }
