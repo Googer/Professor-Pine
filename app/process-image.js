@@ -626,7 +626,7 @@ class ImageProcessing {
 
     // NOTE:  There is a chance timeRemaining could not be determined... not sure if we would want to do
     //        a different time of image processing at that point or not...
-    return {timeRemaining: values.text, egg: values.egg};
+    return {timeRemaining: values.text, definitelyEgg: values.definitelyEgg};
   }
 
   getOCRRaidTimeRemaining(id, message, image, region) {
@@ -716,7 +716,7 @@ class ImageProcessing {
       Promise.all(promises)
         .then(values => {
           resolve({
-            egg: !!values[1].text,
+            definitelyEgg: !!values[1].text,
             image1: values[0].image,
             image2: values[1].image,
             text: values[0].text || values[1].text,
@@ -940,7 +940,7 @@ class ImageProcessing {
     });
   }
 
-  async getTier(id, message, image, region) {
+  async getTier(id, message, image, region, definitelyEgg) {
     const PokemonType = Helper.client.registry.types.get('pokemon');
     let values, pokemon;
 
@@ -970,7 +970,7 @@ class ImageProcessing {
     }
 
     // NOTE:  There is a chance egg tier could not be determined and we may need to try image processing again before returning...
-    return {tier: values.tier, pokemon};
+    return {tier: values.tier, pokemon, egg: definitelyEgg || values.tier > 0};
   }
 
   async getOCRTier(id, message, image, region, level = 0) {
@@ -1031,7 +1031,6 @@ class ImageProcessing {
   }
 
   async getRaidData(id, message, image) {
-    // some phones are really wierd? and have way too much height to them, and need this check to push cropping around a bit
     const checkPhoneColor = Jimp.intToRGBA(image.getPixelColor(0, 85)),
 
       // location of cropping / preprocessing for different pieces of information (based on % width & % height for scalability purposes)
@@ -1083,16 +1082,17 @@ class ImageProcessing {
     promises.push(this.getPhoneTime(id, message, image, phoneTimeCrop));
 
     // TIME REMAINING
-    const {timeRemaining, egg} = await this.getRaidTimeRemaining(id, message, image, allCrop);
+    const {timeRemaining, definitelyEgg} = await this.getRaidTimeRemaining(id, message, image, allCrop);
 
     // NOTE:  This seems like a bug in await syntax, but I can't use shorthands for settings values
     //        when they're await within an IF function like this... really stupid.
-    if (egg) {
+    if (definitelyEgg) {
       // POKEMON TIER
-      promises.push(this.getTier(id, message, image, tierCrop));
+      promises.push(this.getTier(id, message, image, tierCrop, true));
     } else {
       // POKEMON NAME
       promises.push(this.getPokemonName(id, message, image, pokemonNameCrop));
+      promises.push(this.getTier(id, message, image, tierCrop, false));
     }
 
     // CLARIFICATION:  So basically tier, pokemon, cp, and phone time are not dependent on each other,
@@ -1100,13 +1100,13 @@ class ImageProcessing {
     return Promise.all(promises)
       .then(values => {
         return {
-          egg,
+          egg: definitelyEgg || values[2].egg,
           gym,
           timeRemaining: timeRemaining,
           phoneTime: values[0].phoneTime,
-          tier: values[1].tier || 0,
+          tier: values[1].tier || (values[2] && values[2].tier) || 0,
           cp: values[1].cp || 0,
-          pokemon: values[1].pokemon
+          pokemon: (values[2] && values[2].pokemon) || values[1].pokemon
         };
       })
       .catch(err => {

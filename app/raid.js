@@ -453,7 +453,7 @@ class Raid extends Party {
       regionChannel = (await PartyManager.getChannel(this.sourceChannelId)).channel,
       pokemonName = this.pokemon.name ?
         this.pokemon.name.charAt(0).toUpperCase() + this.pokemon.name.slice(1) :
-        `a level ${raid.pokemon.tier} boss`,
+        `a level ${this.pokemon.tier} boss`,
       gym = Gym.getGym(this.gymId),
       gymName = !!gym.nickname ?
         gym.nickname :
