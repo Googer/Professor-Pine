@@ -685,7 +685,8 @@
     "name": "mew"
   },
   {
-    "name": "chikorita"
+    "name": "chikorita",
+    "tier": 1
   },
   {
     "name": "bayleef",
@@ -695,7 +696,8 @@
     "name": "meganium"
   },
   {
-    "name": "cyndaquil"
+    "name": "cyndaquil",
+    "tier": 1
   },
   {
     "name": "quilava",
@@ -705,7 +707,8 @@
     "name": "typhlosion"
   },
   {
-    "name": "totodile"
+    "name": "totodile",
+    "tier": 1
   },
   {
     "name": "croconaw",
@@ -808,13 +811,15 @@
     "name": "aipom"
   },
   {
-    "name": "sunkern"
+    "name": "sunkern",
+    "tier": 1
   },
   {
     "name": "sunflora"
   },
   {
-    "name": "yanma"
+    "name": "yanma",
+    "tier": 1
   },
   {
     "name": "wooper"
@@ -848,7 +853,8 @@
     "name": "girafarig"
   },
   {
-    "name": "pineco"
+    "name": "pineco",
+    "tier": 2
   },
   {
     "name": "forretress"
@@ -890,7 +896,8 @@
     "name": "teddiursa"
   },
   {
-    "name": "ursaring"
+    "name": "ursaring",
+    "tier": 4
   },
   {
     "name": "slugma"
