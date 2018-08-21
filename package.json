@@ -15,7 +15,7 @@
     "knex": "^0.15.2",
     "loglevel": "^1.6.1",
     "loglevel-prefix-persist": "^1.0.3",
-    "lunr": "^2.3.1",
+    "lunr": "^2.3.2",
     "moment": "^2.22.2",
     "mysql": "^2.16.0",
     "node-cleanup": "^2.1.2",

@@ -1,18 +1,23 @@
 [
   {
-    "tier": 1
+    "tier": 1,
+    "egg": true
   },
   {
-    "tier": 2
+    "tier": 2,
+    "egg": true
   },
   {
-    "tier": 3
+    "tier": 3,
+    "egg": true
   },
   {
-    "tier": 4
+    "tier": 4,
+    "egg": true
   },
   {
-    "tier": 5
+    "tier": 5,
+    "egg": true
   },
   {
     "nickname": [
