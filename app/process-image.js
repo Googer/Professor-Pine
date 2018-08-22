@@ -746,9 +746,7 @@ class ImageProcessing {
         .filter(word => {
           return word.length > 2;
         })
-        .sort((a, b) => {
-          return a.length < b.length;
-        });
+        .sort((a, b) => b.length - a.length);
 
       // re-combine shortened gym name
       gymName = gymWords.join(' ');
@@ -767,7 +765,7 @@ class ImageProcessing {
             gymWords.pop();
             gymName = gymWords.join(' ');
 
-            // ensure gym exist and is allowed to be created
+            // ensure gym exists and is allowed to be created
             validation = await GymType.validate(gymName, message, {isScreenshot: true});
 
             if (validation) {
@@ -924,12 +922,12 @@ class ImageProcessing {
 
             // get longest matching word as "pokemon"
             if (matchPokemon && matchPokemon.length) {
-              pokemon = matchPokemon.sort((a, b) => a.length < b.length)[0];
+              pokemon = matchPokemon.sort((a, b) => b.length - a.length)[0];
             }
 
             // get longest matching number as "cp"
             if (matchCP && matchCP.length) {
-              cp = Number(matchCP.sort((a, b) => a.length < b.length)[0]).valueOf();
+              cp = Number(matchCP.sort((a, b) => b.length - a.length)[0]).valueOf();
             }
 
             resolve({
@@ -1149,7 +1147,7 @@ class ImageProcessing {
       timeWarn = false;
 
     // If time wasn't found or is way off-base, base raid's expiration time off of message time instead
-    if (!time || !time.isBetween(earliestAcceptedTime, messageTime, null, [])) {
+    if (!time || !time.isBetween(earliestAcceptedTime, messageTime, null, '[]')) {
       time = messageTime.clone().subtract(settings.screenshotMessageOffsetTime, 'seconds');
       timeWarn = true;
     }
