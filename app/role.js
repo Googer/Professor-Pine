@@ -15,7 +15,7 @@ class Role {
 
     Helper.client.on('raidRegionChanged', (raid, channel) => {
       // Go through party members and check their permissions on the raid's channel,
-      // adding permission if necessary and informing via DM that they don't and they
+      // adding permission if necessary and informing via DM that they didn't and they
       // probably want to go to the bot lab to fix this...
       Object.entries(raid.attendees)
         .map(([attendee, attendeeStatus]) => attendee)

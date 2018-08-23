@@ -395,6 +395,7 @@ class Raid extends Party {
       })
       .then(channel => {
         if (!!newRegionChannel) {
+          // reset channel permissions to new parent category permissions
           return channel.lockPermissions();
         }
       })
