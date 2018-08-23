@@ -5,7 +5,8 @@ const log = require('loglevel').getLogger('LocationCommand'),
   {CommandGroup} = require('../../app/constants'),
   Helper = require('../../app/helper'),
   PartyManager = require('../../app/party-manager'),
-  settings = require('../../data/settings');
+  settings = require('../../data/settings'),
+  Utility = require('../../app/utility');
 
 class SetLocationCommand extends Commando.Command {
   constructor(client) {
@@ -41,18 +42,47 @@ class SetLocationCommand extends Commando.Command {
 
   async run(message, args) {
     const gymId = args['gymId'],
-      raid = PartyManager.getParty(message.channel.id),
-      info = await raid.setRaidLocation(gymId);
+      party = PartyManager.getParty(message.channel.id);
+
+    let channel = undefined;
+
+    if (!!message.adjacent) {
+      // Found gym is in an adjacent region
+      const confirmationCollector = new Commando.ArgumentCollector(message.client, [
+          {
+            key: 'confirm',
+            label: 'confirmation',
+            prompt: `${message.adjacent.gymName} was found in ${message.adjacent.channel.toString()}!  Should this raid be relocated there?\n`,
+            type: 'boolean'
+          }
+        ], 3),
+        confirmationResult = await confirmationCollector.obtain(message);
+
+      let confirmation = false;
+      Utility.cleanCollector(confirmationResult);
+
+      if (!confirmationResult.cancelled) {
+        confirmation = confirmationResult.values['confirm'];
+      }
+
+      if (!confirmation) {
+        return;
+      }
+
+      channel = message.adjacent.channel;
+    }
+
+    const info = await party.setRaidLocation(gymId, channel);
 
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .then(result => {
-        Helper.client.emit('raidGymSet', raid, message.member.id);
+        Helper.client.emit('raidGymSet', party, message.member.id);
 
         return true;
       })
       .catch(err => log.error(err));
 
-    raid.refreshStatusMessages();
+    party.refreshStatusMessages();
   }
 }
 

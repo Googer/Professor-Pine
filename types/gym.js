@@ -13,13 +13,15 @@ class GymType extends Commando.ArgumentType {
 
   async validate(value, message, arg) {
     try {
-      const nameOnly = !!arg.isScreenshot,
-        gyms = await Gym.search(message.channel.id, value.split(/\s/g), nameOnly);
+      const nameOnly = !!arg.isScreenshot;
+
+      let gyms = await Gym.search(message.channel.id, value.split(/\s/g), nameOnly);
 
       if (!gyms || gyms.length === 0) {
         const adjacentGyms = await Gym.adjacentRegionsSearch(message.channel.id, value.split(/\s/g), nameOnly);
+        gyms = adjacentGyms.gyms;
 
-        if (!adjacentGyms) {
+        if (!gyms || gyms.length === 0) {
           if (arg && !arg.isScreenshot) {
             return `"${value}" returned no gyms.\n\nPlease try your search again, entering the text you want to search for.\n\n${arg.prompt}`;
           } else {
@@ -27,16 +29,18 @@ class GymType extends Commando.ArgumentType {
           }
         }
 
-        const adjacentGymName = adjacentGyms.gyms[0].nickname ?
-          adjacentGyms.gyms[0].nickname :
-          adjacentGyms.gyms[0].gymName,
+        const adjacentGymName = gyms[0].nickname ?
+          gyms[0].nickname :
+          gyms[0].gymName,
           adjacentChannel = message.channel.guild.channels
             .find(channel => channel.name === adjacentGyms.channel);
 
         if (arg && !arg.isScreenshot) {
-          return `"${value}" returned no gyms; did you mean "${adjacentGymName}" over in ${adjacentChannel.toString()}?  ` +
-            `If so please cancel and use ${adjacentChannel.toString()} to try again.\n\n` +
-            `Please try your search again, entering only the text you want to search for.\n\n${arg.prompt}`;
+          message.adjacent = {
+            channel: adjacentChannel,
+            gymName: adjacentGymName,
+            gymId: gyms[0].gymId
+          };
         } else {
           return `"${value}" returned no gyms; if the gym name was "${adjacentGymName}", try uploading your screenshot to the ${adjacentChannel.toString()} channel instead.`;
         }
@@ -72,6 +76,11 @@ class GymType extends Commando.ArgumentType {
   }
 
   async parse(value, message, arg) {
+    if (!!message.adjacent) {
+      // Validator already found gym in an adjacent channel
+      return message.adjacent.gymId;
+    }
+
     const nameOnly = arg ?
       arg.isScreenshot :
       false,

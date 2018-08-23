@@ -371,8 +371,11 @@ class Raid extends Party {
     return {party: this};
   }
 
-  async setRaidLocation(gymId) {
+  async setRaidLocation(gymId, newRegionChannel = undefined) {
     this.gymId = gymId;
+    if (!!newRegionChannel) {
+      this.sourceChannelId = newRegionChannel.id;
+    }
 
     await this.persist();
 
@@ -382,6 +385,12 @@ class Raid extends Party {
       .then(channelResult => {
         if (channelResult.ok) {
           return channelResult.channel.setName(newChannelName);
+        }
+      })
+      .then(nameResult => {
+        if (!!newRegionChannel) {
+          // reparent this raid to new channel's category
+          return nameResult.channel.setParent(newRegionChannel.parent);
         }
       })
       .catch(err => log.error(err));
@@ -703,7 +712,12 @@ class Raid extends Party {
 
           if (messageResult.ok) {
             const message = messageResult.message;
-            message.edit(message.content, formattedMessage);
+
+            const channelMessage = (message.channel.id === this.channelId) ?
+              await this.getRaidSourceChannelMessage() :
+              message.content;
+
+            message.edit(channelMessage, formattedMessage);
           }
         } catch (err) {
           log.error(err);

@@ -71,18 +71,46 @@ class RaidCommand extends Commando.Command {
 
   async run(message, args) {
     const pokemon = args['pokemon'],
-      gym_id = args['gymId'];
+      gymId = args['gymId'];
+
+    let sourceChannel = message.channel;
+
+    if (!!message.adjacent) {
+      // Found gym is in an adjacent region
+      const confirmationCollector = new Commando.ArgumentCollector(message.client, [
+        {
+          key: 'confirm',
+          label: 'confirmation',
+          prompt: `${message.adjacent.gymName} was found in ${message.adjacent.channel.toString()}!  Should this raid be created there?\n`,
+          type: 'boolean'
+        }
+      ], 3),
+        confirmationResult = await confirmationCollector.obtain(message);
+
+      let confirmation = false;
+      Utility.cleanCollector(confirmationResult);
+
+      if (!confirmationResult.cancelled) {
+        confirmation = confirmationResult.values['confirm'];
+      }
+
+      if (!confirmation) {
+        return;
+      }
+
+      sourceChannel = message.adjacent.channel;
+    }
 
     let raid;
 
-    Raid.createRaid(message.channel.id, message.member.id, pokemon, gym_id)
+    Raid.createRaid(sourceChannel.id, message.member.id, pokemon, gymId)
     // create and send announcement message to region channel
       .then(async info => {
         raid = info.party;
         const raidChannelMessage = await raid.getRaidChannelMessage(),
           formattedMessage = await raid.getFormattedMessage();
 
-        return message.channel.send(raidChannelMessage, formattedMessage);
+        return sourceChannel.send(raidChannelMessage, formattedMessage);
       })
       .then(announcementMessage => PartyManager.addMessage(raid.channelId, announcementMessage))
       // create and send initial status message to raid channel
