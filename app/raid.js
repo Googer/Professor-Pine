@@ -393,6 +393,16 @@ class Raid extends Party {
           return channel.setParent(newRegionChannel.parent);
         }
       })
+      .then(channel => {
+        if (!!newRegionChannel) {
+          return channel.lockPermissions();
+        }
+      })
+      .then(channel => {
+        if (!!newRegionChannel) {
+          Helper.client.emit('raidRegionChanged', this, channel);
+        }
+      })
       .catch(err => log.error(err));
 
     return {party: this};

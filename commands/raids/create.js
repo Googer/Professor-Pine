@@ -154,6 +154,11 @@ class RaidCommand extends Commando.Command {
       .then(result => {
         Helper.client.emit('raidCreated', raid, message.member.id);
 
+        // Fire region changed event if it was created from the wrong region
+        if (!!message.adjacent) {
+          Helper.client.emit('raidRegionChanged', raid);
+        }
+
         return true;
       })
       .catch(err => log.error(err));

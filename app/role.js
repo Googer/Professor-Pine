@@ -1,8 +1,8 @@
 "use strict";
 
 const log = require('loglevel').getLogger('Role'),
-  DB = require('./../app/db'),
-  Helper = require('./../app/helper');
+  DB = require('../app/db'),
+  Helper = require('../app/helper');
 
 class Role {
   constructor() {
@@ -11,6 +11,29 @@ class Role {
   initialize() {
     Helper.client.on('guildMemberAdd', member => {
       this.autoAssignRole(member);
+    });
+
+    Helper.client.on('raidRegionChanged', (raid, channel) => {
+      // Go through party members and check their permissions on the raid's channel,
+      // adding permission if necessary and informing via DM that they don't and they
+      // probably want to go to the bot lab to fix this...
+      Object.entries(raid.attendees)
+        .map(([attendee, attendeeStatus]) => attendee)
+        .filter(memberId => !(channel.permissionsFor(memberId).has('VIEW_CHANNEL')))
+        .forEach(memberWithoutAccess => {
+          channel.updateOverwrite(memberWithoutAccess,
+            {
+              VIEW_CHANNEL: true
+            })
+            .then(channel => {
+              const notificationMember = Helper.getMemberForNotification(channel.guild.id, memberWithoutAccess);
+
+              notificationMember.send(`${channel.toString()} has been moved to **${channel.parent.name}**, which you do not have access to!\n\n` +
+                `You have been granted permission to view this channel but you may want to revisit your region roles and correct them in ${Helper.getBotChannel(channel)}.`)
+                .catch(err => log.error(err));
+            })
+            .catch(err => log.error(err))
+        });
     });
   }
 

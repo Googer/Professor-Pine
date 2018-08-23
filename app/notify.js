@@ -5,7 +5,6 @@ const log = require('loglevel').getLogger('Notify'),
   Helper = require('./helper'),
   {MessageEmbed} = require('discord.js'),
   PartyManager = require('./party-manager'),
-  Raid = require('./raid'),
   settings = require('../data/settings');
 
 class Notify {

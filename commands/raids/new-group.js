@@ -46,7 +46,7 @@ class NewGroupCommand extends Commando.Command {
 
       if (attendees.length > 0) {
         const members = (await Promise.all(attendees
-          .map(async attendee_id => await raid.getMember(attendee_id))))
+          .map(async attendeeId => await raid.getMember(attendeeId))))
           .filter(member => member.ok === true)
           .map(member => member.member);
 

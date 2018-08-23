@@ -196,6 +196,11 @@ class Helper {
     return message.channel.id === botLabChannelId || message.channel.id === modBotLabChannelId;
   }
 
+  getBotChannel(channel) {
+    const guild = this.guild.get(channel.guild.id);
+    return guild.channels.botLab;
+  }
+
   getRole(guild, roleName) {
     const guildMap = this.guild.get(guild.id);
 
