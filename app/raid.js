@@ -387,10 +387,10 @@ class Raid extends Party {
           return channelResult.channel.setName(newChannelName);
         }
       })
-      .then(nameResult => {
+      .then(channel => {
         if (!!newRegionChannel) {
           // reparent this raid to new channel's category
-          return nameResult.channel.setParent(newRegionChannel.parent);
+          return channel.setParent(newRegionChannel.parent);
         }
       })
       .catch(err => log.error(err));

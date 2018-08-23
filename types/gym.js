@@ -33,7 +33,8 @@ class GymType extends Commando.ArgumentType {
           gyms[0].nickname :
           gyms[0].gymName,
           adjacentChannel = message.channel.guild.channels
-            .find(channel => channel.name === adjacentGyms.channel);
+            .find(channel => channel.name === adjacentGyms.channel &&
+              channel.permissionsFor(message.client.user).has('VIEW_CHANNEL'));
 
         if (arg && !arg.isScreenshot) {
           message.adjacent = {
