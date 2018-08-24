@@ -381,7 +381,7 @@ class Raid extends Party {
 
     const newChannelName = this.generateChannelName();
 
-    PartyManager.getChannel(this.channelId)
+    await PartyManager.getChannel(this.channelId)
       .then(channelResult => {
         if (channelResult.ok) {
           return channelResult.channel.setName(newChannelName);
@@ -400,6 +400,7 @@ class Raid extends Party {
         }
       })
       .then(channel => {
+        // TODO: replace current announce message with one in new region channel
         if (!!newRegionChannel) {
           Helper.client.emit('raidRegionChanged', this, channel, false);
         }
