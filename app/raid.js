@@ -401,7 +401,7 @@ class Raid extends Party {
       })
       .then(channel => {
         if (!!newRegionChannel) {
-          Helper.client.emit('raidRegionChanged', this, channel);
+          Helper.client.emit('raidRegionChanged', this, channel, false);
         }
       })
       .catch(err => log.error(err));

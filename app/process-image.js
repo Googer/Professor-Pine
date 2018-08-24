@@ -1,6 +1,7 @@
 "use strict";
 
 const log = require('loglevel').getLogger('ImageProcessor'),
+  Commando = require('discord.js-commando'),
   fs = require('fs'),
   Helper = require('./helper'),
   Jimp = require('jimp'),
@@ -12,7 +13,8 @@ const log = require('loglevel').getLogger('ImageProcessor'),
   settings = require('../data/settings'),
   tesseract = require('tesseract.js'),
   {TimeParameter} = require('./constants'),
-  uuidv1 = require('uuid/v1');
+  uuidv1 = require('uuid/v1'),
+  Utility = require('./utility');
 
 // Will save all images regardless of how right or wrong, in order to better examine output
 const debugFlag = true;
@@ -75,7 +77,7 @@ class ImageProcessing {
   }
 
   initialize() {
-    Helper.client.on('message', message => {
+    Helper.client.on('message', async message => {
       const imageUrl = (message.attachments.size) ?
         message.attachments.first().url :
         '';
@@ -182,7 +184,7 @@ class ImageProcessing {
 
         return this.getRaidData(id, message, newImage);
       })
-      .then(data => {
+      .then(async data => {
         // write original image as a reference
         if (debugFlag ||
           ((data === false || (data && (!data.phoneTime || !data.gym || !data.timeRemaining || data.pokemon.placeholder))) && log.getLevel() === log.levels.DEBUG)) {
@@ -191,7 +193,9 @@ class ImageProcessing {
         }
 
         if (data) {
-          this.createRaid(message, data);
+          return this.createRaid(message, data)
+            .then(result => message.delete())
+            .catch(err => log.error(err));
         } else {
           // this means no gym was found what-so-ever so either processing was really messed up or it's not a raid screenshot
           this.removeReaction(message);
@@ -1109,6 +1113,9 @@ class ImageProcessing {
             values[1].pokemon; // pokemon read successfully; use it
 
         return {
+          channel: !!message.adjacent ?
+            message.adjacent.channel :
+            undefined,
           gym,
           timeRemaining: timeRemaining,
           phoneTime: values[0].phoneTime,
@@ -1130,9 +1137,10 @@ class ImageProcessing {
         .catch(err => log.error(err)))
   }
 
-  createRaid(message, data) {
+  async createRaid(message, data) {
     const TimeType = Helper.client.registry.types.get('time'),
       messageTime = moment(message.createdAt),
+      raidChannel = data.channel,
       earliestAcceptedTime = messageTime.clone()
         .subtract(settings.standardRaidIncubateDuration, 'minutes')
         .subtract(settings.standardRaidHatchedDuration, 'minutes');
@@ -1145,6 +1153,33 @@ class ImageProcessing {
         moment.invalid(),
       arg = {},
       timeWarn = false;
+
+    // remove all reactions from processed image
+    this.removeReaction(message);
+
+    if (raidChannel !== message.channel) {
+      // Found gym is in an adjacent region
+      const confirmationCollector = new Commando.ArgumentCollector(message.client, [
+          {
+            key: 'confirm',
+            label: 'confirmation',
+            prompt: `${message.adjacent.gymName} was found in ${message.adjacent.channel.toString()}!  Should this raid be created there?\n`,
+            type: 'boolean'
+          }
+        ], 3),
+        confirmationResult = await confirmationCollector.obtain(new Commando.CommandMessage(message));
+
+      let confirmation = false;
+      Utility.cleanCollector(confirmationResult);
+
+      if (!confirmationResult.cancelled) {
+        confirmation = confirmationResult.values['confirm'];
+      }
+
+      if (!confirmation) {
+        return;
+      }
+    }
 
     // If time wasn't found or is way off-base, base raid's expiration time off of message time instead
     if (!time || !time.isBetween(earliestAcceptedTime, messageTime, null, '[]')) {
@@ -1182,9 +1217,6 @@ class ImageProcessing {
       time = false;
     }
 
-    // remove all reactions from processed image
-    this.removeReaction(message);
-
     log.info('Processing Time: ' + ((Date.now() - message.temporaryProcessingTimestamp) / 1000) + ' seconds');
 
     // time was determined but was not valid - create with unset time instead
@@ -1193,7 +1225,7 @@ class ImageProcessing {
     }
 
     let raid;
-    Raid.createRaid(message.channel.id, message.member.id, pokemon, gymId, time)
+    Raid.createRaid(raidChannel.id, message.member.id, pokemon, gymId, time)
       .then(async info => {
         raid = info.party;
 
@@ -1204,7 +1236,7 @@ class ImageProcessing {
         const raidChannelMessage = await raid.getRaidChannelMessage(),
           formattedMessage = await raid.getFormattedMessage();
 
-        return message.channel.send(raidChannelMessage, formattedMessage);
+        return raidChannel.send(raidChannelMessage, formattedMessage);
       })
       .then(announcementMessage => PartyManager.addMessage(raid.channelId, announcementMessage, true))
       .then(async result => {
@@ -1222,9 +1254,6 @@ class ImageProcessing {
                 .then(message => raid.setIncompleteScreenshotMessage(message))
                 .catch(err => log.error(err));
             }
-
-            message.delete()
-              .catch(err => log.error(err));
           });
       })
       .then(async botMessage => {
@@ -1237,8 +1266,17 @@ class ImageProcessing {
       .then(channelRaidMessage => {
         PartyManager.addMessage(raid.channelId, channelRaidMessage, true);
       })
-      .then(result => {
+      .then(async result => {
         Helper.client.emit('raidCreated', raid, message.member.id);
+
+        if (raidChannel !== message.channel) {
+          const raidChannelResult = await PartyManager.getChannel(raid.channelId);
+
+          if (raidChannelResult.ok) {
+            const raidChannel = raidChannelResult.channel;
+            Helper.client.emit('raidRegionChanged', raid, raidChannel, true);
+          }
+        }
 
         return true;
       })

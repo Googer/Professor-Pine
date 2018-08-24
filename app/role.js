@@ -13,7 +13,7 @@ class Role {
       this.autoAssignRole(member);
     });
 
-    Helper.client.on('raidRegionChanged', (raid, channel) => {
+    Helper.client.on('raidRegionChanged', (raid, channel, isInitial) => {
       // Go through party members and check their permissions on the raid's channel,
       // adding permission if necessary and informing via DM that they didn't and they
       // probably want to go to the bot lab to fix this...
@@ -28,7 +28,7 @@ class Role {
             .then(channel => {
               const notificationMember = Helper.getMemberForNotification(channel.guild.id, memberWithoutAccess);
 
-              notificationMember.send(`${channel.toString()} has been moved to **${channel.parent.name}**, which you do not have access to!\n\n` +
+              notificationMember.send(`${channel.toString()} has been ${isInitial ? 'created in' : 'moved to'} **${channel.parent.name}**, which you do not have access to!\n\n` +
                 `You have been granted permission to view this channel but you may want to revisit your region roles and correct them in ${Helper.getBotChannel(channel)}.`)
                 .catch(err => log.error(err));
             })

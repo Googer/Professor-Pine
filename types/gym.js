@@ -37,15 +37,11 @@ class GymType extends Commando.ArgumentType {
             .find(channel => channel.name === adjacentGyms.channel &&
               channel.permissionsFor(message.client.user).has('VIEW_CHANNEL'));
 
-        if (arg && !arg.isScreenshot) {
-          message.adjacent = {
-            channel: adjacentChannel,
-            gymName: adjacentGymName,
-            gymId: gyms[0].gymId
-          };
-        } else {
-          return `"${value}" returned no gyms; if the gym name was "${adjacentGymName}", try uploading your screenshot to the ${adjacentChannel.toString()} channel instead.`;
-        }
+        message.adjacent = {
+          channel: adjacentChannel,
+          gymName: adjacentGymName,
+          gymId: gyms[0].gymId
+        };
       }
 
       const gymId = gyms[0].gymId;
