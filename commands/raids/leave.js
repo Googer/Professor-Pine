@@ -30,7 +30,7 @@ class LeaveCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    const raid = PartyManager.getRaid(message.channel.id),
+    const raid = PartyManager.getParty(message.channel.id),
       info = await raid.removeAttendee(message.member.id);
 
     if (!info.error) {
