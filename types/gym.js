@@ -37,6 +37,10 @@ class GymType extends Commando.ArgumentType {
             .find(channel => channel.name === adjacentGyms.channel &&
               channel.permissionsFor(message.client.user).has('VIEW_CHANNEL'));
 
+        if (adjacentChannel === undefined) {
+          return `${adjacentGymName} was found in #${adjacentGyms.channel} but it doesn't exist or I can't access it.  Yell at the mods!`;
+        }
+
         message.adjacent = {
           channel: adjacentChannel,
           gymName: adjacentGymName,
