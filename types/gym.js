@@ -13,48 +13,42 @@ class GymType extends Commando.ArgumentType {
 
   async validate(value, message, arg) {
     try {
-      const nameOnly = !!arg.isScreenshot;
+      const nameOnly = !!arg.isScreenshot,
+        channelName = await PartyManager.getCreationChannelName(message.channel.id),
+        results = await Gym.search(channelName, value.split(/\s/g), nameOnly);
 
-      let gyms = await Gym.search(message.channel.id, value.split(/\s/g), nameOnly);
-
-      if (!gyms || gyms.length === 0) {
-        const adjacentGyms = await Gym.adjacentRegionsSearch(message.channel.id, value.split(/\s/g), nameOnly);
-
-        if (!adjacentGyms || adjacentGyms.length === 0) {
-          if (arg && !arg.isScreenshot) {
-            return `"${value}" returned no gyms.\n\nPlease try your search again, entering the text you want to search for.\n\n${arg.prompt}`;
-          } else {
-            return false;
-          }
+      if (results.length === 0) {
+        if (arg && !arg.isScreenshot) {
+          return `"${value}" returned no gyms.\n\nPlease try your search again, entering the text you want to search for.\n\n${arg.prompt}`;
+        } else {
+          return false;
         }
+      }
 
-        gyms = adjacentGyms.gyms;
+      const resultChannelName = results[0].channelName,
+        gym = results[0].gym,
+        gymName = gym.nickname ?
+          gym.nickname :
+          gym.gymName;
 
-        const adjacentGymName = gyms[0].nickname ?
-          gyms[0].nickname :
-          gyms[0].gymName,
-          adjacentChannel = message.channel.guild.channels
-            .find(channel => channel.name === adjacentGyms.channel &&
+      if (resultChannelName !== channelName) {
+          const adjacentChannel = message.channel.guild.channels
+            .find(channel => channel.name === resultChannelName &&
               channel.permissionsFor(message.client.user).has('VIEW_CHANNEL'));
 
         if (adjacentChannel === undefined) {
-          return `${adjacentGymName} was found in #${adjacentGyms.channel} but it doesn't exist or I can't access it.  Yell at the mods!`;
+          return `${gymName} was found in #${adjacentChannel.toString()} but it doesn't exist or I can't access it.  Yell at the mods!`;
         }
 
         message.adjacent = {
           channel: adjacentChannel,
-          gymName: adjacentGymName,
-          gymId: gyms[0].gymId
+          gymName: gymName,
+          gymId: gym.gymId
         };
       }
 
-      const gymId = gyms[0].gymId;
-
-      if (arg.key !== GymParameter.FAVORITE && PartyManager.raidExistsForGym(gymId)) {
-        const raid = PartyManager.findRaid(gymId),
-          gymName = gyms[0].nickname ?
-            gyms[0].nickname :
-            gyms[0].gymName,
+      if (arg.key !== GymParameter.FAVORITE && PartyManager.raidExistsForGym(gym.gymId)) {
+        const raid = PartyManager.findRaid(gym.gymId),
           channel = (await PartyManager.getChannel(raid.channelId)).channel;
 
         if (arg && !arg.isScreenshot) {
@@ -86,9 +80,10 @@ class GymType extends Commando.ArgumentType {
     const nameOnly = arg ?
       arg.isScreenshot :
       false,
-      gyms = await Gym.search(message.channel.id, value.split(/\s/g), nameOnly);
+      channelName = await PartyManager.getCreationChannelName(message.channel.id),
+      results = await Gym.search(channelName, value.split(/\s/g), nameOnly);
 
-    return gyms[0].gymId;
+    return results[0].gym.gymId;
   }
 }
 

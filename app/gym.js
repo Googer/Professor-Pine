@@ -129,10 +129,17 @@ class Gym extends Search {
       }, this);
     });
 
+    this.gymMap = Object.create(null);
+
+    Object.entries(this.regionMap)
+      .forEach(([region, gyms]) => {
+        gyms.forEach(gym => this.gymMap[gym] = region);
+      });
+
     log.info('Indexing gym data complete');
   }
 
-  internalSearch(channelName, terms, fields) {
+  internalSearch(channelNames, terms, fields) {
     // lunr does an OR of its search terms and we really want AND, so we'll get there by doing individual searches
     // on everything and getting the intersection of the hits
 
@@ -181,55 +188,50 @@ class Gym extends Search {
     // Reorder results by composite score
     results.sort((resultA, resultB) => resultB.score - resultA.score);
 
-    // Filter results based on what channel this request came from
+    // Filter results based on what channel names this request is for
     return results
       .map(result => JSON.parse(result.ref))
-      .filter(gym => {
-        return this.regionMap[channelName].indexOf(gym.gymId) >= 0;
-      });
+      .map(gym => {
+        const result = Object.create(null);
+        result.channelName = this.gymMap[gym.gymId];
+        result.gym = gym;
+
+        return result;
+      })
+      .filter(({channelName, gym}) => channelNames.indexOf(channelName) >= 0);
   }
 
-  channelSearch(channelName, terms, nameOnly) {
+  channelSearch(channelNames, terms, nameOnly) {
+    let results;
+
     if (nameOnly) {
-      return this.internalSearch(channelName, terms, ['name']);
+      results = this.internalSearch(channelNames, terms, ['name']);
     } else {
       // First try against name/nickname only
-      let results = this.internalSearch(channelName, terms, ['name', 'nickname']);
+      results = this.internalSearch(channelNames, terms, ['name', 'nickname']);
 
       if (results.length === 0) {
         // That didn't return anything, so now try the with description & additional terms as well
-        results = this.internalSearch(channelName, terms, ['name', 'nickname', 'description', 'additional_terms']);
+        results = this.internalSearch(channelNames, terms, ['name', 'nickname', 'description', 'additional_terms']);
       }
 
       if (results.length === 0) {
         // That still didn't return anything, so now try with all fields
-        results = this.internalSearch(channelName, terms);
+        results = this.internalSearch(channelNames, terms);
       }
-
-      return results;
     }
+
+    return results;
   }
 
-  async search(channelId, terms, nameOnly) {
-    const channelName = await PartyManager.getCreationChannelName(channelId);
+  async search(channelName, terms, nameOnly) {
+    let results = this.channelSearch([channelName], terms, nameOnly);
 
-    return this.channelSearch(channelName, terms, nameOnly);
-  }
-
-  async adjacentRegionsSearch(channelId, terms, nameOnly) {
-    const channelName = await PartyManager.getCreationChannelName(channelId),
-      adjacentRegions = this.regionGraph[channelName],
-      matchingRegion = adjacentRegions
-        .find(adjacentRegion => {
-          return this.channelSearch(adjacentRegion, terms, nameOnly).length > 0;
-        });
-
-    if (matchingRegion) {
-      return {
-        'channel': matchingRegion,
-        'gyms': this.channelSearch(matchingRegion, terms, nameOnly)
-      };
+    if (results.length === 0) {
+      results = this.channelSearch(this.regionGraph[channelName], terms, nameOnly);
     }
+
+    return results;
   }
 
   isValidChannel(channelName) {
