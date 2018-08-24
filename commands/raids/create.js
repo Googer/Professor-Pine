@@ -151,12 +151,17 @@ class RaidCommand extends Commando.Command {
           return raid.refreshStatusMessages();
         }
       })
-      .then(result => {
+      .then(async result => {
         Helper.client.emit('raidCreated', raid, message.member.id);
 
         // Fire region changed event if it was created from the wrong region
         if (!!message.adjacent) {
-          Helper.client.emit('raidRegionChanged', raid);
+          const raidChannelResult = await PartyManager.getChannel(raid.channelId);
+
+          if (raidChannelResult.ok) {
+            const raidChannel = raidChannelResult.channel;
+            Helper.client.emit('raidRegionChanged', raid, raidChannel, true);
+          }
         }
 
         return true;
