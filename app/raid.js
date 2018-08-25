@@ -714,41 +714,43 @@ class Raid extends Party {
   }
 
   async refreshStatusMessages(replaceAnnouncementMessage) {
-    if (replaceAnnouncementMessage) {
-      // Delete old announcement message
-      const currentAnnouncementMessage = this.messages
-        .find(messageCacheId => messageCacheId.split(':')[0] === this.oldSourceChannelId);
-
-      PartyManager.getMessage(currentAnnouncementMessage)
-        .then(messageResult => {
-          if (messageResult.ok) {
-            messageResult.message.delete()
-              .catch(err => log.error(err));
-          }
-        })
-        .catch(err => log.error(err));
-
-      this.messages.splice(this.messages.indexOf(currentAnnouncementMessage), 1);
-      await this.persist();
-    }
+    const currentAnnouncementMessage = this.messages
+      .find(messageCacheId => messageCacheId.split(':')[0] === this.oldSourceChannelId);
 
     // Refresh messages
     [...this.messages, this.lastStatusMessage]
       .filter(messageCacheId => messageCacheId !== undefined)
       .forEach(async messageCacheId => {
-        const formattedMessage = await this.getFormattedMessage();
-
         try {
           const messageResult = await (PartyManager.getMessage(messageCacheId));
 
           if (messageResult.ok) {
-            const message = messageResult.message;
+            const message = messageResult.message,
+              formattedMessage = await this.getFormattedMessage();
 
-            const channelMessage = (message.channel.id === this.channelId) ?
-              await this.getRaidSourceChannelMessage() :
-              message.content;
+            if (messageCacheId === currentAnnouncementMessage && replaceAnnouncementMessage) {
+              // replace header of old announcement status message and schedule its deletion
+              const raidChannel = (await PartyManager.getChannel(this.channelId)).channel,
+                newSourceChannel = (await PartyManager.getChannel(this.sourceChannelId)).channel;
 
-            message.edit(channelMessage, formattedMessage);
+              const channelMessage = `${raidChannel} has been moved to ${newSourceChannel}.`;
+
+              message.edit(channelMessage, formattedMessage)
+                .then(message => message.delete({timeout: settings.messageCleanupDelayStatus}))
+                .then(async result => {
+                  this.messages.splice(this.messages.indexOf(currentAnnouncementMessage), 1);
+                  await this.persist();
+                })
+                .catch(err => log.error(err));
+            } else {
+              const channelMessage = (message.channel.id === this.channelId) ?
+                await this.getRaidSourceChannelMessage() :
+                message.content;
+
+              message.edit(channelMessage, formattedMessage)
+                .catch(err => log.error(err));
+            }
+
           }
         } catch (err) {
           log.error(err);
@@ -756,14 +758,16 @@ class Raid extends Party {
       });
 
     if (replaceAnnouncementMessage) {
-      // Send new one to new source channel
+      // Send new announcement message to new source channel
       const raidChannelMessage = await this.getRaidChannelMessage(),
         formattedMessage = await this.getFormattedMessage(),
         newSourceChannel = (await PartyManager.getChannel(this.sourceChannelId)).channel;
 
       newSourceChannel.send(raidChannelMessage, formattedMessage)
-        .then(announcementMessage => PartyManager.addMessage(this.channelId, announcementMessage))
+        .then(announcementMessage => PartyManager.addMessage(this.channelId, announcementMessage, true))
         .catch(err => log.error(err));
+
+      await this.persist();
     }
   }
 

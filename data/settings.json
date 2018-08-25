@@ -11,6 +11,7 @@
   "cleanupInterval": 60000,
   "messageCleanupDelaySuccess": 5000,
   "messageCleanupDelayError": 30000,
+  "messageCleanupDelayStatus": 60000,
   "emoji": {
     "thumbsUp": "pinethumbsup",
     "thumbsDown": "pinethumbsdown"

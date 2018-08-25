@@ -5,8 +5,9 @@ const log = require('loglevel').getLogger('StatusCommand'),
   {CommandGroup} = require('../../app/constants'),
   Helper = require('../../app/helper'),
   Gym = require('../../app/gym'),
+  PartyManager = require('../../app/party-manager'),
   Raid = require('../../app/raid'),
-  PartyManager = require('../../app/party-manager');
+  settings = require('../../data/settings');
 
 class StatusCommand extends Commando.Command {
   constructor(client) {
@@ -35,7 +36,7 @@ class StatusCommand extends Commando.Command {
     if (!PartyManager.validParty(message.channel.id)) {
       const raidsMessage = await Raid.getRaidsFormattedMessage(message.channel.id);
       message.channel.send(raidsMessage)
-        .then(message => message.delete({timeout: 60000}))
+        .then(message => message.delete({timeout: settings.messageCleanupDelayStatus}))
         .catch(err => log.error(err));
     } else {
       const raid = PartyManager.getParty(message.channel.id),

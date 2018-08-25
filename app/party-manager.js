@@ -238,7 +238,8 @@ class PartyManager {
         .forEach(messageCacheId => this.getMessage(messageCacheId)
           .then(messageResult => {
             if (messageResult.ok) {
-              messageResult.message.delete();
+              messageResult.message.delete()
+                .catch(err => log.error(err));
             }
           })
           .catch(err => log.error(err)));
@@ -248,7 +249,8 @@ class PartyManager {
       this.getChannel(channelId)
         .then(channelResult => {
           return channelResult.ok ?
-            channelResult.channel.delete() :
+            channelResult.channel.delete()
+              .catch(err => log.error(err)) :
             Promise.resolve(true);
         }) :
       Promise.resolve(true);
