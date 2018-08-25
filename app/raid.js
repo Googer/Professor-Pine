@@ -374,6 +374,7 @@ class Raid extends Party {
   async setRaidLocation(gymId, newRegionChannel = undefined) {
     this.gymId = gymId;
     if (!!newRegionChannel) {
+      this.oldSourceChannelId = this.sourceChannelId;
       this.sourceChannelId = newRegionChannel.id;
     }
 
@@ -400,7 +401,6 @@ class Raid extends Party {
         }
       })
       .then(channel => {
-        // TODO: replace current announce message with one in new region channel
         if (!!newRegionChannel) {
           Helper.client.emit('raidRegionChanged', this, channel, false);
         }
@@ -713,7 +713,26 @@ class Raid extends Party {
     return {embed};
   }
 
-  async refreshStatusMessages() {
+  async refreshStatusMessages(replaceAnnouncementMessage) {
+    if (replaceAnnouncementMessage) {
+      // Delete old announcement message
+      const currentAnnouncementMessage = this.messages
+        .find(messageCacheId => messageCacheId.split(':')[0] === this.oldSourceChannelId);
+
+      PartyManager.getMessage(currentAnnouncementMessage)
+        .then(messageResult => {
+          if (messageResult.ok) {
+            messageResult.message.delete()
+              .catch(err => log.error(err));
+          }
+        })
+        .catch(err => log.error(err));
+
+      this.messages.splice(this.messages.indexOf(currentAnnouncementMessage), 1);
+      await this.persist();
+    }
+
+    // Refresh messages
     [...this.messages, this.lastStatusMessage]
       .filter(messageCacheId => messageCacheId !== undefined)
       .forEach(async messageCacheId => {
@@ -735,6 +754,17 @@ class Raid extends Party {
           log.error(err);
         }
       });
+
+    if (replaceAnnouncementMessage) {
+      // Send new one to new source channel
+      const raidChannelMessage = await this.getRaidChannelMessage(),
+        formattedMessage = await this.getFormattedMessage(),
+        newSourceChannel = (await PartyManager.getChannel(this.sourceChannelId)).channel;
+
+      newSourceChannel.send(raidChannelMessage, formattedMessage)
+        .then(announcementMessage => PartyManager.addMessage(this.channelId, announcementMessage))
+        .catch(err => log.error(err));
+    }
   }
 
   generateChannelName() {
