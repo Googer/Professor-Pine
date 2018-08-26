@@ -41,7 +41,7 @@ class TimeRemainingCommand extends Commando.Command {
   async run(message, args) {
     const time = args[TimeParameter.END],
       raid = PartyManager.getParty(message.channel.id),
-      info = await raid.setRaidEndTime(time);
+      info = await raid.setEndTime(time);
 
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .catch(err => log.error(err));

@@ -1,6 +1,6 @@
 "use strict";
 
-const log = require('loglevel').getLogger('CreateCommand'),
+const log = require('loglevel').getLogger('RaidCommand'),
   Commando = require('discord.js-commando'),
   {CommandGroup, TimeParameter} = require('../../app/constants'),
   Gym = require('../../app/gym'),
@@ -107,16 +107,16 @@ class RaidCommand extends Commando.Command {
     // create and send announcement message to region channel
       .then(async info => {
         raid = info.party;
-        const raidChannelMessage = await raid.getRaidChannelMessage(),
-          formattedMessage = await raid.getFormattedMessage();
+        const raidChannelMessage = await raid.getChannelMessageHeader(),
+          formattedMessage = await raid.getFullStatusMessage();
 
         return sourceChannel.send(raidChannelMessage, formattedMessage);
       })
       .then(announcementMessage => PartyManager.addMessage(raid.channelId, announcementMessage))
       // create and send initial status message to raid channel
       .then(async botMessage => {
-        const raidSourceChannelMessage = await raid.getRaidSourceChannelMessage(),
-          formattedMessage = await raid.getFormattedMessage();
+        const raidSourceChannelMessage = await raid.getSourceChannelMessageHeader(),
+          formattedMessage = await raid.getFullStatusMessage();
         return PartyManager.getChannel(raid.channelId)
           .then(channelResult => {
             if (channelResult.ok) {
@@ -143,9 +143,9 @@ class RaidCommand extends Commando.Command {
 
         if (!collectionResult.cancelled) {
           if (raid.pokemon.name) {
-            await raid.setRaidEndTime(collectionResult.values[TimeParameter.END]);
+            await raid.setEndTime(collectionResult.values[TimeParameter.END]);
           } else {
-            await raid.setRaidHatchTime(collectionResult.values[TimeParameter.HATCH]);
+            await raid.setHatchTime(collectionResult.values[TimeParameter.HATCH]);
           }
 
           return raid.refreshStatusMessages();

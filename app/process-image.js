@@ -1233,8 +1233,8 @@ class ImageProcessing {
           raid.timeWarn = true;
         }
 
-        const raidChannelMessage = await raid.getRaidChannelMessage(),
-          formattedMessage = await raid.getFormattedMessage();
+        const raidChannelMessage = await raid.getChannelMessageHeader(),
+          formattedMessage = await raid.getFullStatusMessage();
 
         return raidChannel.send(raidChannelMessage, formattedMessage);
       })
@@ -1257,8 +1257,8 @@ class ImageProcessing {
           });
       })
       .then(async botMessage => {
-        const raidSourceChannelMessage = await raid.getRaidSourceChannelMessage(),
-          formattedMessage = await raid.getFormattedMessage();
+        const raidSourceChannelMessage = await raid.getSourceChannelMessageHeader(),
+          formattedMessage = await raid.getFullStatusMessage();
         return PartyManager.getChannel(raid.channelId)
           .then(channel => channel.channel.send(raidSourceChannelMessage, formattedMessage))
           .catch(err => log.error(err));

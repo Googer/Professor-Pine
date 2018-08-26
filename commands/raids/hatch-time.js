@@ -41,7 +41,7 @@ class HatchTimeCommand extends Commando.Command {
   async run(message, args) {
     const time = args[TimeParameter.HATCH],
       raid = PartyManager.getParty(message.channel.id),
-      info = await raid.setRaidHatchTime(time);
+      info = await raid.setHatchTime(time);
 
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .catch(err => log.error(err));

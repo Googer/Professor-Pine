@@ -4,9 +4,13 @@ const log = require('loglevel').getLogger('PartyManager'),
   {PartyType} = require('./constants'),
   TimeType = require('../types/time');
 
-let Raid;
+let Raid,
+  RaidTrain;
 
-process.nextTick(() => Raid = require('./raid'));
+process.nextTick(() => {
+  Raid = require('./raid');
+  RaidTrain = require('./train');
+});
 
 class PartyManager {
   constructor() {
@@ -23,6 +27,7 @@ class PartyManager {
         deletionTime = now + (settings.deletionWarningTime * 60 * 1000);
 
       Object.entries(this.parties)
+        .filter(([channelId, party]) => party.type === PartyType.RAID)
         .forEach(async ([channelId, party]) => {
           if ((party.hatchTime && now > party.hatchTime && party.hatchTime > lastIntervalTime) ||
             nowDay !== lastIntervalDay) {
@@ -149,11 +154,13 @@ class PartyManager {
 
   findRaid(gymId) {
     return Object.values(this.parties)
+      .filter(party => party.type === PartyType.RAID)
       .find(raid => raid.gymId === gymId);
   }
 
   raidExistsForGym(gymId) {
     return Object.values(this.parties)
+      .filter(party => party.type === PartyType.RAID)
       .map(raid => raid.gymId)
       .includes(gymId);
   }
