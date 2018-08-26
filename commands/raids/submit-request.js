@@ -2,7 +2,7 @@
 
 const log = require('loglevel').getLogger('SubmitRequestCommand'),
   Commando = require('discord.js-commando'),
-  {CommandGroup} = require('../../app/constants'),
+  {CommandGroup, PartyType} = require('../../app/constants'),
   Gym = require('../../app/gym'),
   Helper = require('../../app/helper'),
   https = require('https'),
@@ -40,7 +40,7 @@ class SubmitRequestCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'request' &&
-        !PartyManager.validParty(message.channel.id)) {
+        !PartyManager.validParty(message.channel.id, [PartyType.RAID])) {
         return ['invalid-channel', message.reply('Make gym change requests from a raid channel!')];
       }
       return false;

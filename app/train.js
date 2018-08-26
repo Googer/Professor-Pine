@@ -23,7 +23,7 @@ class RaidTrain extends Party {
     super(PartyType.RAID_TRAIN, data);
   }
 
-  static async createRaidTrain(sourceChannelId, memberId) {
+  static async createRaidTrain(sourceChannelId, memberId, trainName) {
     const train = new RaidTrain(PartyManager);
 
     // add some extra train data to remember
@@ -31,6 +31,7 @@ class RaidTrain extends Party {
     train.sourceChannelId = sourceChannelId;
     train.creationTime = moment().valueOf();
 
+    train.trainName = trainName;
     train.gymId = undefined;
 
     train.groups = [{id: 'A'}];
@@ -105,28 +106,16 @@ class RaidTrain extends Party {
   }
 
   getTrainShortMessage() {
-    const pokemon = this.isExclusive ?
-      'EX Raid' :
-      this.pokemon.name ?
-        this.pokemon.name.charAt(0).toUpperCase() + this.pokemon.name.slice(1) :
-        'Tier ' + this.pokemon.tier,
-      gym = Gym.getGym(this.gymId),
-      gymName = (!!gym.nickname ?
-        gym.nickname :
-        gym.gymName),
-      totalAttendees = this.getAttendeeCount(),
+    const totalAttendees = this.getAttendeeCount(),
       calendarFormat = {
         sameDay: 'LT',
         sameElse: 'l LT'
-      },
-      endTime = this.endTime !== TimeType.UNDEFINED_END_TIME ?
-        ` :: Ends at **${moment(this.endTime).calendar(null, calendarFormat)}**` :
-        '';
+      };
 
     return PartyManager.getChannel(this.channelId)
       .then(channelResult => channelResult.ok ?
-        `**${pokemon}**\n` +
-        `${channelResult.channel.toString()} :: ${gymName} :: **${totalAttendees}** potential trainer${totalAttendees !== 1 ? 's' : ''}${endTime}\n` :
+        `**${this.trainName}**\n` +
+        `${channelResult.channel.toString()} :: **${totalAttendees}** potential trainer${totalAttendees !== 1 ? 's' : ''}\n` :
         '')
       .catch(err => {
         log.error(err);
@@ -134,107 +123,35 @@ class RaidTrain extends Party {
       });
   }
 
-  getTrainChannelMessage() {
+  getChannelMessageHeader() {
     return PartyManager.getChannel(this.channelId)
       .then(channelResult => channelResult.ok ?
-        `Use ${channelResult.channel.toString()} for the following raid:` :
+        `Use ${channelResult.channel.toString()} for the following raid train:` :
         '')
       .catch(err => log.error(err));
   }
 
-  async getTrainNotificationMessage(memberId) {
-    const raidChannel = (await PartyManager.getChannel(this.channelId)).channel,
-      regionChannel = (await PartyManager.getChannel(this.sourceChannelId)).channel,
-      pokemonName = this.pokemon.name ?
-        this.pokemon.name.charAt(0).toUpperCase() + this.pokemon.name.slice(1) :
-        `a level ${this.pokemon.tier} boss`,
-      gym = Gym.getGym(this.gymId),
-      gymName = !!gym.nickname ?
-        gym.nickname :
-        gym.gymName,
-      member = await this.getMember(memberId);
-
-    return `A raid for ${pokemonName} has been announced at ${gymName} (#${regionChannel.name}) by ${member.displayName}: ${raidChannel.toString()}.`;
-  }
-
-  async getTrainExChannelMessage() {
-    const raidChannel = (await PartyManager.getChannel(this.channelId)).channel,
-      regionChannel = (await PartyManager.getChannel(this.sourceChannelId)).channel;
-
-    return `A raid at a potential EX gym has been announced: ${raidChannel.toString()} - ` +
-      `it resides in ${regionChannel.toString()}.`;
-  }
-
-  getTrainSourceChannelMessage() {
+  getSourceChannelMessageHeader() {
     return PartyManager.getChannel(this.sourceChannelId)
       .then(channelResult => channelResult.ok ?
-        `Use ${channelResult.channel.toString()} to return to this raid\'s regional channel.` :
+        `Use ${channelResult.channel.toString()} to return to this raid train\'s regional channel.` :
         '')
       .catch(err => log.error(err));
   }
 
-  getIncompleteScreenshotMessage() {
-    let message = '';
-
-    if (!this.pokemon || (this.pokemon && this.pokemon.placeholder)) {
-      message += '\n\n**Pokemon** could not be determined, please help set the pokemon by typing \`!pokemon <name>\`';
-    }
-
-    log.debug(this.hatchTime, this.endTime, TimeType.UNDEFINED_END_TIME);
-    if (!this.hatchTime && this.endTime === TimeType.UNDEFINED_END_TIME) {
-      message += '\n\n**Time** could not be determined, please help set the time by typing either \`!hatch <time>\` or \`!end <time>\`';
-    } else if (this.timeWarn) {
-      message += '\n\n**Time** could not be determined precisely, please help set the time by typing either \`!hatch <time>\` or \`!end <time>\`';
-    }
-
-    return message;
-  }
-
-  async getFormattedMessage() {
-    const pokemon = !!this.pokemon.name ?
-      this.pokemon.name.charAt(0).toUpperCase() + this.pokemon.name.slice(1) :
-      '????',
-      pokemonUrl = !!this.pokemon.url ?
-        this.pokemon.url :
-        '',
-      pokemonCPString = this.pokemon.bossCP > 0 ?
-        `${this.pokemon.minBaseCP}-${this.pokemon.maxBaseCP} / ` +
-        `${this.pokemon.minBoostedCP}-${this.pokemon.maxBoostedCP} ${this.pokemon.boostedConditions.boosted
-          .map(condition => Helper.getEmoji(condition))
-          .join('')}` :
-        '',
-
-      raidDescription = this.isExclusive ?
-        `EX Raid against ${pokemon}` :
-        `Level ${this.pokemon.tier} Raid against ${pokemon}`,
-
-      now = moment(),
-
-      calendarFormat = {
-        sameDay: 'LT',
-        sameElse: 'l LT'
-      },
-
-      reportingMember = (await this.getMember(this.createdById)).member,
-      raidReporter = `originally reported by ${reportingMember.displayName}`,
-
-      endTime = this.endTime !== TimeType.UNDEFINED_END_TIME ?
-        `Raid available until ${moment(this.endTime).calendar(null, calendarFormat)}, ` :
-        'Raid end time currently unset, ',
-      hatchTime = !!this.hatchTime ?
-        moment(this.hatchTime) :
-        '',
-      hatchLabel = !!this.hatchTime ?
-        now > hatchTime ?
-          '__Egg Hatched At__' :
-          '__Egg Hatch Time__' :
-        '',
+  async getFullStatusMessage() {
+    const reportingMember = (await this.getMember(this.createdById)).member,
+      raidReporter = `Originally reported by ${reportingMember.displayName}`,
 
       gym = Gym.getGym(this.gymId),
-      gymName = !!gym.nickname ?
-        gym.nickname :
-        gym.gymName,
-      gymUrl = `https://www.google.com/maps/search/?api=1&query=${gym.gymInfo.latitude}%2C${gym.gymInfo.longitude}`,
+      gymName = !!gym ?
+        (!!gym.nickname ?
+          gym.nickname :
+          gym.gymName) :
+        'Location unset',
+      gymUrl = !!gym ?
+        `https://www.google.com/maps/search/?api=1&query=${gym.gymInfo.latitude}%2C${gym.gymInfo.longitude}` :
+        '',
       attendeeEntries = Object.entries(this.attendees),
       totalAttendeeCount = attendeeEntries.length,
       attendeesWithMembers = (await Promise.all(attendeeEntries
@@ -262,40 +179,17 @@ class RaidTrain extends Party {
       presentAttendees = sortedAttendees
         .filter(attendeeEntry => attendeeEntry[1].status === PartyStatus.PRESENT ||
           attendeeEntry[1].status === PartyStatus.COMPLETE_PENDING),
-      completeAttendees = sortedAttendees
-        .filter(attendeeEntry => attendeeEntry[1].status === PartyStatus.COMPLETE),
       embed = new Discord.MessageEmbed();
 
     embed.setColor('GREEN');
     embed.setTitle(`Map Link: ${gymName}`);
     embed.setURL(gymUrl);
-    embed.setDescription(raidDescription);
 
-    if (pokemonUrl !== '') {
-      embed.setThumbnail(pokemonUrl);
-    }
-
-    if (this.pokemon.weakness && this.pokemon.weakness.length > 0) {
-      embed.addField('**Weaknesses**', this.pokemon.weakness
-        .map(weakness => Helper.getEmoji(weakness.type).toString() +
-          (weakness.multiplier > 1.5 ?
-            'x2 ' :
-            ''))
-        .join(''));
-    }
-
-    if (pokemonCPString) {
-      embed.addField('**Catch CP Ranges**', pokemonCPString);
-    }
-
-    embed.setFooter(endTime + raidReporter, reportingMember.user.displayAvatarURL());
+    embed.setFooter(raidReporter, reportingMember.user.displayAvatarURL());
 
     this.groups
       .forEach(group => {
-        const startTime = !!group.startTime ?
-          moment(group.startTime) :
-          '',
-          totalAttendees = this.getAttendeeCount(group.id);
+        const totalAttendees = this.getAttendeeCount(group.id);
 
         let groupLabel = `__Group ${group.id}__`;
 
@@ -308,10 +202,6 @@ class RaidTrain extends Party {
         }
 
         let groupDescription = `Trainers: ${totalAttendees.toString()}`;
-
-        if (!!group.startTime) {
-          groupDescription += ` :: Meeting ⏰: **${startTime.calendar(null, calendarFormat)}**`;
-        }
 
         embed.addField(groupLabel, groupDescription);
 
@@ -333,25 +223,17 @@ class RaidTrain extends Party {
         }
       });
 
-    if (completeAttendees.length > 0) {
-      embed.addField('__Complete__', Party.buildAttendeesList(completeAttendees, 'premierball', totalAttendeeCount));
-    }
-
-    if (!!this.hatchTime) {
-      embed.addField(hatchLabel, hatchTime.calendar(null, calendarFormat));
-    }
-
     let additionalInformation = '';
 
     if (!this.isExclusive) {
-      if (gym.is_ex) {
+      if (!!gym && gym.is_ex) {
         additionalInformation += 'Confirmed EX Raid location.';
-      } else if (gym.is_park) {
+      } else if (!!gym && gym.is_park) {
         additionalInformation += 'Potential EX Raid location - This gym is located in a park.';
       }
     }
 
-    if (!!gym.additional_information) {
+    if (!!gym && !!gym.additional_information) {
       if (additionalInformation !== '') {
         additionalInformation += '\n\n';
       }
@@ -379,7 +261,7 @@ class RaidTrain extends Party {
 
           if (messageResult.ok) {
             const message = messageResult.message,
-              formattedMessage = await this.getFormattedMessage();
+              formattedMessage = await this.getFullStatusMessage();
 
             if (messageCacheId === currentAnnouncementMessage && replaceAnnouncementMessage) {
               // replace header of old announcement status message and schedule its deletion
@@ -396,7 +278,7 @@ class RaidTrain extends Party {
                 .catch(err => log.error(err));
             } else {
               const channelMessage = (message.channel.id === this.channelId) ?
-                await this.getTrainSourceChannelMessage() :
+                await this.getSourceChannelMessageHeader() :
                 message.content;
 
               message.edit(channelMessage, formattedMessage)
@@ -411,8 +293,8 @@ class RaidTrain extends Party {
 
     if (replaceAnnouncementMessage) {
       // Send new announcement message to new source channel
-      const raidChannelMessage = await this.getTrainChannelMessage(),
-        formattedMessage = await this.getFormattedMessage(),
+      const raidChannelMessage = await this.getChannelMessageHeader(),
+        formattedMessage = await this.getFullStatusMessage(),
         newSourceChannel = (await PartyManager.getChannel(this.sourceChannelId)).channel;
 
       newSourceChannel.send(raidChannelMessage, formattedMessage)
@@ -424,22 +306,18 @@ class RaidTrain extends Party {
   }
 
   generateChannelName() {
-    const nonCharCleaner = new RegExp(/[^\w]/, 'g'),
-      gym = Gym.getGym(this.gymId),
-      gymName = (!!gym.nickname ?
-        removeDiacritics(gym.nickname) :
-        removeDiacritics(gym.gymName))
-        .toLowerCase()
-        .replace(nonCharCleaner, ' ')
-        .split(' ')
-        .filter(token => token.length > 0)
-        .join('-');
+    const nonCharCleaner = new RegExp(/[^\w]/, 'g');
 
-    return pokemonName + '-' + gymName;
+    return `train ${this.trainName}`
+      .replace(nonCharCleaner, ' ')
+      .split(' ')
+      .filter(token => token.length > 0)
+      .join('-');
   }
 
   toJSON() {
     return Object.assign(super.toJSON(), {
+      trainName: this.trainName,
       gymId: this.gymId
     });
   }

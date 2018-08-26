@@ -2,7 +2,7 @@
 
 const log = require('loglevel').getLogger('NewGroupCommand'),
   Commando = require('discord.js-commando'),
-  {CommandGroup, PartyStatus} = require('../../app/constants'),
+  {CommandGroup, PartyStatus, PartyType} = require('../../app/constants'),
   Helper = require('../../app/helper'),
   Notify = require('../../app/notify'),
   PartyManager = require('../../app/party-manager'),
@@ -23,7 +23,7 @@ class NewGroupCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'new' &&
-        !PartyManager.validParty(message.channel.id)) {
+        !PartyManager.validParty(message.channel.id, [PartyType.RAID, PartyType.RAID_TRAIN])) {
         return ['invalid-channel', message.reply('Create a new raid group for a raid from its raid channel!')];
       }
       return false;

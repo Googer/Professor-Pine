@@ -18,6 +18,15 @@ class TrainCommand extends Commando.Command {
       description: 'Announces a new raid train.\n',
       details: 'Use this command to start organizing a new raid train.',
       examples: ['\t!raid-train'],
+      args: [
+        {
+          key: 'name',
+          label: 'name',
+          prompt: 'What do you wish to name this raid train?',
+          type: 'string'
+        }
+      ],
+      argsPromptLimit: 3,
       throttling: {
         usages: 2,
         duration: 900
@@ -35,11 +44,13 @@ class TrainCommand extends Commando.Command {
   }
 
   async run(message, args) {
+    const trainName = args['name'];
+
     let sourceChannel = message.channel;
 
     let train;
 
-    RaidTrain.createRaidTrain(sourceChannel.id, message.member.id)
+    RaidTrain.createRaidTrain(sourceChannel.id, message.member.id, trainName)
     // create and send announcement message to region channel
       .then(async info => {
         train = info.party;

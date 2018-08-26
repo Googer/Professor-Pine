@@ -2,7 +2,7 @@
 
 const log = require('loglevel').getLogger('GroupCommand'),
   Commando = require('discord.js-commando'),
-  {CommandGroup} = require('../../app/constants'),
+  {CommandGroup, PartyType} = require('../../app/constants'),
   Helper = require('../../app/helper'),
   PartyManager = require('../../app/party-manager'),
   settings = require('../../data/settings'),
@@ -23,7 +23,7 @@ class GroupCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'group' &&
-        !PartyManager.validParty(message.channel.id)) {
+        !PartyManager.validParty(message.channel.id, [PartyType.RAID, PartyType.RAID_TRAIN])) {
         return ['invalid-channel', message.reply('Set your group for a raid from its raid channel!')];
       }
       return false;

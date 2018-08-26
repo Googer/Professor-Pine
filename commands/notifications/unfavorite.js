@@ -42,7 +42,7 @@ class UnfavoriteCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'untarget' &&
-        !PartyManager.validParty(message.channel.id, PartyType.RAID) &&
+        !PartyManager.validParty(message.channel.id, [PartyType.RAID]) &&
         !Gym.isValidChannel(message.channel.name)) {
         return ['invalid-channel', message.reply(Helper.getText('unfavorite.warning', message))];
       }
@@ -61,7 +61,7 @@ class UnfavoriteCommand extends Commando.Command {
 
   async run(message, args) {
     const gymId = args['favorite'],
-      inRaidChannel = PartyManager.validParty(message.channel.id, PartyType.RAID);
+      inRaidChannel = PartyManager.validParty(message.channel.id, [PartyType.RAID]);
 
     let confirmationResponse;
 

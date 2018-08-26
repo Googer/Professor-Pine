@@ -2,7 +2,7 @@
 
 const log = require('loglevel').getLogger('DirectionsCommand'),
   Commando = require('discord.js-commando'),
-  {CommandGroup} = require('../../app/constants'),
+  {CommandGroup, PartyType} = require('../../app/constants'),
   {MessageEmbed} = require('discord.js'),
   Gym = require('../../app/gym'),
   PartyManager = require('../../app/party-manager');
@@ -22,7 +22,7 @@ class DirectionsCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'where' &&
-        !PartyManager.validParty(message.channel.id)) {
+        !PartyManager.validParty(message.channel.id, [PartyType.RAID, PartyType.RAID_TRAIN])) {
         return ['invalid-channel', message.reply('Ask for directions to a raid from its raid channel!')];
       }
       return false;
