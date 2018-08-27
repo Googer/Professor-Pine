@@ -49,8 +49,8 @@ class Status extends Search {
     log.info('Indexing statuses complete');
   }
 
-  search(terms) {
-    return Search.singleTermSearch(terms, this.index, ['name']);
+  search(term) {
+    return Search.singleTermSearch(term.toLowerCase(), this.index, ['name']);
   }
 
   // get users's automatic status for reporting raids; if they're not in the table at all,
