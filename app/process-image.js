@@ -1115,7 +1115,7 @@ class ImageProcessing {
         return {
           channel: !!message.adjacent ?
             message.adjacent.channel :
-            undefined,
+            message.channel,
           gym,
           timeRemaining: timeRemaining,
           phoneTime: values[0].phoneTime,

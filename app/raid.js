@@ -8,6 +8,7 @@ const log = require('loglevel').getLogger('Raid'),
   Discord = require('discord.js'),
   Helper = require('./helper'),
   Party = require('./party'),
+  Status = require('./status'),
   TimeType = require('../types/time');
 
 let Gym,
@@ -24,7 +25,8 @@ class Raid extends Party {
   }
 
   static async createRaid(sourceChannelId, memberId, pokemon, gymId, time = TimeType.UNDEFINED_END_TIME) {
-    const raid = new Raid(PartyManager);
+    const raid = new Raid(PartyManager),
+      memberStatus = await Status.getAutoStatus(memberId);
 
     // add some extra raid data to remember
     raid.createdById = memberId;
@@ -42,7 +44,10 @@ class Raid extends Party {
     raid.defaultGroupId = 'A';
 
     raid.attendees = Object.create(Object.prototype);
-    raid.attendees[memberId] = {number: 1, status: PartyStatus.INTERESTED, group: 'A'};
+
+    if (memberStatus !== PartyStatus.NOT_INTERESTED) {
+      raid.attendees[memberId] = {number: 1, status: memberStatus, group: 'A'};
+    }
 
     const sourceChannel = (await PartyManager.getChannel(sourceChannelId)).channel,
       channelName = raid.generateChannelName();

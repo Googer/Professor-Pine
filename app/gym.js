@@ -3,7 +3,6 @@
 const log = require('loglevel').getLogger('GymSearch'),
   lunr = require('lunr'),
   he = require('he'),
-  PartyManager = require('./party-manager'),
   removeDiacritics = require('diacritics').remove,
   Search = require('./search');
 

@@ -115,6 +115,8 @@ Client.registry.registerCommands([
   require('./commands/raids/set-pokemon'),
   require('./commands/raids/set-location'),
 
+  require('./commands/raids/auto-status'),
+
   require('./commands/raids/submit-request'),
 
   require('./commands/util/help')
