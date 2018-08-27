@@ -1,4 +1,7 @@
 {
+  "auto-status": {
+    "warning": "Use the `!auto` command in ${bot-channel} to set your automatically-set status when reporting raids!"
+  },
   "iam": {
     "warning": "Assign yourself roles in ${bot-channel}!"
   },
