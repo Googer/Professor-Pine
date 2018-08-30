@@ -149,11 +149,13 @@ class PartyManager {
 
   findRaid(gymId) {
     return Object.values(this.parties)
+      .filter(party => party.type === PartyType.RAID)
       .find(raid => raid.gymId === gymId);
   }
 
   raidExistsForGym(gymId) {
     return Object.values(this.parties)
+      .filter(party => party.type === PartyType.RAID)
       .map(raid => raid.gymId)
       .includes(gymId);
   }
