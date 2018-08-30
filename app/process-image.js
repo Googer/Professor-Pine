@@ -20,6 +20,22 @@ const log = require('loglevel').getLogger('ImageProcessor'),
 const debugFlag = true;
 
 class ImageProcessing {
+  static get SCREENSHOT_TYPE_NONE() {
+    return 0;
+  }
+
+  static get SCREENSHOT_TYPE_EGG() {
+    return 1;
+  }
+
+  static get SCREENSHOT_TYPE_ONGOING() {
+    return 2;
+  }
+
+  static get SCREENSHOT_TYPE_EX() {
+    return 3;
+  }
+
   constructor() {
     // store debug information into this folder
     this.imagePath = '/../assets/processing/';
@@ -124,11 +140,11 @@ class ImageProcessing {
         newImage = image.scaleToFit(1440, 2560, Jimp.RESIZE_HERMITE);
 
         // determine if image is a raid image or not
-        let raid = false;
+        let screenshotType = ImageProcessing.SCREENSHOT_TYPE_NONE;
 
         // check for pink "time remaining" pixels
         newImage.scan(newImage.bitmap.width / 2, (newImage.bitmap.height / 4.34) - 80, 1, 160, function (x, y, idx) {
-          if (raid) {
+          if (screenshotType !== ImageProcessing.SCREENSHOT_TYPE_NONE) {
             return;
           }
 
@@ -138,7 +154,7 @@ class ImageProcessing {
 
           // pink = { r: 250, g: 135, b: 149 }
           if (red <= 255 && red >= 227 && green <= 148 && green >= 122 && blue <= 162 && blue >= 136) {
-            raid = true;
+            screenshotType = ImageProcessing.SCREENSHOT_TYPE_EGG;
             return;
           }
 
@@ -147,14 +163,14 @@ class ImageProcessing {
           blue = ImageProcessing.convertToFullRange(blue);
 
           if (red <= 255 && red >= 227 && green <= 148 && green >= 122 && blue <= 162 && blue >= 136) {
-            raid = true;
+            screenshotType = ImageProcessing.SCREENSHOT_TYPE_EGG;
           }
         });
 
-        if (!raid) {
+        if (screenshotType === ImageProcessing.SCREENSHOT_TYPE_NONE) {
           // check for orange "time remaining" pixels
           newImage.scan(newImage.bitmap.width / 1.19, (newImage.bitmap.height / 1.72) - 80, 1, 160, function (x, y, idx) {
-            if (raid) {
+            if (screenshotType !== ImageProcessing.SCREENSHOT_TYPE_NONE) {
               return;
             }
 
@@ -164,7 +180,7 @@ class ImageProcessing {
 
             // orange = { r: 255, g: 120, b: 55 }
             if (red <= 255 && red >= 232 && green <= 133 && green >= 107 && blue <= 68 && blue >= 42) {
-              raid = true;
+              screenshotType = ImageProcessing.SCREENSHOT_TYPE_ONGOING;
               return;
             }
 
@@ -173,22 +189,22 @@ class ImageProcessing {
             blue = ImageProcessing.convertToFullRange(blue);
 
             if (red <= 255 && red >= 232 && green <= 133 && green >= 107 && blue <= 68 && blue >= 42) {
-              raid = true;
+              screenshotType = ImageProcessing.SCREENSHOT_TYPE_ONGOING;
             }
           });
         }
 
-        if (!raid) {
+        if (screenshotType === ImageProcessing.SCREENSHOT_TYPE_NONE) {
           return null;
         }
 
-        return this.getRaidData(id, message, newImage);
+        return this.getRaidData(id, message, newImage, screenshotType);
       })
       .then(async data => {
         // write original image as a reference
         if (debugFlag ||
           ((data === false || (data && (!data.phoneTime || !data.gym || !data.timeRemaining || data.pokemon.placeholder))) && log.getLevel() === log.levels.DEBUG)) {
-          log.debug(data);
+          log.trace(data);
           newImage.write(path.join(__dirname, this.imagePath, `${id}.png`));
         }
 
@@ -630,7 +646,7 @@ class ImageProcessing {
 
     // NOTE:  There is a chance timeRemaining could not be determined... not sure if we would want to do
     //        a different time of image processing at that point or not...
-    return {timeRemaining: values.text, definitelyEgg: values.definitelyEgg};
+    return values.text;
   }
 
   getOCRRaidTimeRemaining(id, message, image, region) {
@@ -720,7 +736,6 @@ class ImageProcessing {
       Promise.all(promises)
         .then(values => {
           resolve({
-            definitelyEgg: !!values[1].text,
             image1: values[0].image,
             image2: values[1].image,
             text: values[0].text || values[1].text,
@@ -755,7 +770,7 @@ class ImageProcessing {
       // re-combine shortened gym name
       gymName = gymWords.join(' ');
 
-      // ensure gym exist and is allowed to be created
+      // ensure gym exists and is allowed to be created
       validation = await GymType.validate(gymName, message, {isScreenshot: true});
 
       if (!validation) {
@@ -798,7 +813,8 @@ class ImageProcessing {
 
     if (validation !== true && validation !== false) {
       message.channel.send(validation)
-        .then(message => message.delete({timeout: settings.messageCleanupDelayError}))
+        .then(validationMessage => validationMessage.delete({timeout: settings.messageCleanupDelayError}))
+        .then(result => message.delete())
         .catch(err => log.error(err));
     }
 
@@ -1035,7 +1051,7 @@ class ImageProcessing {
     });
   }
 
-  async getRaidData(id, message, image) {
+  async getRaidData(id, message, image, screenshotType) {
     const checkPhoneColor = Jimp.intToRGBA(image.getPixelColor(0, 85)),
 
       // location of cropping / preprocessing for different pieces of information (based on % width & % height for scalability purposes)
@@ -1087,31 +1103,22 @@ class ImageProcessing {
     promises.push(this.getPhoneTime(id, message, image, phoneTimeCrop));
 
     // TIME REMAINING
-    const {timeRemaining, definitelyEgg} = await this.getRaidTimeRemaining(id, message, image, allCrop);
+    const timeRemaining = await this.getRaidTimeRemaining(id, message, image, allCrop);
 
     // NOTE:  This seems like a bug in await syntax, but I can't use shorthands for settings values
     //        when they're await within an IF function like this... really stupid.
-    if (definitelyEgg) {
+    if (screenshotType === ImageProcessing.SCREENSHOT_TYPE_EGG) {
       // POKEMON TIER
       promises.push(this.getTier(id, message, image, tierCrop, true));
     } else {
       // POKEMON NAME
       promises.push(this.getPokemonName(id, message, image, pokemonNameCrop));
-      promises.push(this.getTier(id, message, image, tierCrop, false));
     }
 
     // CLARIFICATION:  So basically tier, pokemon, cp, and phone time are not dependent on each other,
     //                 so by making them totally asynchronous, we speed up execution time slightly.
     return Promise.all(promises)
       .then(values => {
-        const selectedPokemon = definitelyEgg ?
-          values[1].pokemon : // tier-detected pokemon is value 1 when we're confident it's an egg
-          values[1].pokemon.placeholder ?
-            values[2].tier > 0 ?
-              values[2].pokemon : // value 1 is a placeholder, so use value 2 if it got a reading on tier
-              values[1].pokemon : // value 2 didn't read a tier, so use value 1's placeholder
-            values[1].pokemon; // pokemon read successfully; use it
-
         return {
           channel: !!message.adjacent ?
             message.adjacent.channel :
@@ -1121,7 +1128,7 @@ class ImageProcessing {
           phoneTime: values[0].phoneTime,
           tier: values[1].tier || (values[2] && values[2].tier) || 0,
           cp: values[1].cp || 0,
-          pokemon: selectedPokemon
+          pokemon: values[1].pokemon
         };
       })
       .catch(err => {
@@ -1227,58 +1234,61 @@ class ImageProcessing {
     let raid;
     Raid.createRaid(raidChannel.id, message.member.id, pokemon, gymId, time)
       .then(async info => {
-        raid = info.party;
+        if (info.existing === false) {
+          raid = info.party;
 
-        if (timeWarn) {
-          raid.timeWarn = true;
-        }
-
-        const raidChannelMessage = await raid.getChannelMessageHeader(),
-          formattedMessage = await raid.getFullStatusMessage();
-
-        return raidChannel.send(raidChannelMessage, formattedMessage);
-      })
-      .then(announcementMessage => PartyManager.addMessage(raid.channelId, announcementMessage, true))
-      .then(async result => {
-        await PartyManager.getChannel(raid.channelId)
-          .then(async channel => {
-            // if pokemon, time remaining, or phone time was not determined, need to add original image to new channel,
-            // in the hope the someone can manually read the screenshot and set the appropriate information
-            if (pokemon.placeholder === true || !time || timeWarn) {
-              await channel.channel
-                .send(raid.getIncompleteScreenshotMessage(), {
-                  files: [
-                    message.attachments.first().url
-                  ]
-                })
-                .then(message => raid.setIncompleteScreenshotMessage(message))
-                .catch(err => log.error(err));
-            }
-          });
-      })
-      .then(async botMessage => {
-        const raidSourceChannelMessage = await raid.getSourceChannelMessageHeader(),
-          formattedMessage = await raid.getFullStatusMessage();
-        return PartyManager.getChannel(raid.channelId)
-          .then(channel => channel.channel.send(raidSourceChannelMessage, formattedMessage))
-          .catch(err => log.error(err));
-      })
-      .then(channelRaidMessage => {
-        PartyManager.addMessage(raid.channelId, channelRaidMessage, true);
-      })
-      .then(async result => {
-        Helper.client.emit('raidCreated', raid, message.member.id);
-
-        if (raidChannel !== message.channel) {
-          const raidChannelResult = await PartyManager.getChannel(raid.channelId);
-
-          if (raidChannelResult.ok) {
-            const raidChannel = raidChannelResult.channel;
-            Helper.client.emit('raidRegionChanged', raid, raidChannel, true);
+          if (timeWarn) {
+            raid.timeWarn = true;
           }
-        }
 
-        return true;
+          const raidChannelMessage = await raid.getRaidChannelMessage(),
+            formattedMessage = await raid.getFormattedMessage();
+
+          return raidChannel.send(raidChannelMessage, formattedMessage)
+            .then(announcementMessage => PartyManager.addMessage(raid.channelId, announcementMessage, true))
+            .then(async result => {
+              await PartyManager.getChannel(raid.channelId)
+                .then(async channel => {
+                  // if pokemon, time remaining, or phone time was not determined, need to add original image to new channel,
+                  // in the hope the someone can manually read the screenshot and set the appropriate information
+                  if (pokemon.placeholder === true || !time || timeWarn) {
+                    await channel.channel
+                      .send(raid.getIncompleteScreenshotMessage(), {
+                        files: [
+                          message.attachments.first().url
+                        ]
+                      })
+                      .then(message => raid.setIncompleteScreenshotMessage(message))
+                      .catch(err => log.error(err));
+                  }
+                });
+            })
+            .then(async botMessage => {
+              const raidSourceChannelMessage = await raid.getRaidSourceChannelMessage(),
+                formattedMessage = await raid.getFormattedMessage();
+              return PartyManager.getChannel(raid.channelId)
+                .then(channel => channel.channel.send(raidSourceChannelMessage, formattedMessage))
+                .catch(err => log.error(err));
+            })
+            .then(channelRaidMessage => {
+              PartyManager.addMessage(raid.channelId, channelRaidMessage, true);
+            })
+            .then(async result => {
+              Helper.client.emit('raidCreated', raid, message.member.id);
+
+              if (raidChannel !== message.channel) {
+                const raidChannelResult = await PartyManager.getChannel(raid.channelId);
+
+                if (raidChannelResult.ok) {
+                  const raidChannel = raidChannelResult.channel;
+                  Helper.client.emit('raidRegionChanged', raid, raidChannel, true);
+                }
+              }
+
+              return true;
+            })
+            .catch(err => log.error(err));
+        }
       })
       .catch(err => log.error(err));
   }

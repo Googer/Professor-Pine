@@ -25,61 +25,76 @@ class Raid extends Party {
   }
 
   static async createRaid(sourceChannelId, memberId, pokemon, gymId, time = TimeType.UNDEFINED_END_TIME) {
-    const raid = new Raid(PartyManager),
+    const raidExists = PartyManager.raidExistsForGym(gymId),
+      raid = raidExists ?
+        PartyManager.findRaid(gymId) :
+        new Raid(),
       memberStatus = await Status.getAutoStatus(memberId);
 
-    // add some extra raid data to remember
-    raid.createdById = memberId;
-    raid.isExclusive = !!pokemon.exclusive;
-    raid.sourceChannelId = sourceChannelId;
-    raid.creationTime = moment().valueOf();
-    raid.lastPossibleTime = raid.creationTime + (raid.isExclusive ?
-      (settings.exclusiveRaidIncubateDuration + settings.exclusiveRaidHatchedDuration) * 60 * 1000 :
-      (settings.standardRaidIncubateDuration + settings.standardRaidHatchedDuration) * 60 * 1000);
+    if (!raidExists) {
+      // add some extra raid data to remember
+      raid.createdById = memberId;
+      raid.isExclusive = !!pokemon.exclusive;
+      raid.sourceChannelId = sourceChannelId;
+      raid.creationTime = moment().valueOf();
+      raid.lastPossibleTime = raid.creationTime + (raid.isExclusive ?
+        (settings.exclusiveRaidIncubateDuration + settings.exclusiveRaidHatchedDuration) * 60 * 1000 :
+        (settings.standardRaidIncubateDuration + settings.standardRaidHatchedDuration) * 60 * 1000);
 
-    raid.pokemon = pokemon;
-    raid.gymId = gymId;
+      raid.pokemon = pokemon;
+      raid.gymId = gymId;
 
-    raid.groups = [{id: 'A'}];
-    raid.defaultGroupId = 'A';
+      raid.groups = [{id: 'A'}];
+      raid.defaultGroupId = 'A';
 
-    raid.attendees = Object.create(Object.prototype);
+      raid.attendees = Object.create(Object.prototype);
+    }
 
     if (memberStatus !== PartyStatus.NOT_INTERESTED) {
       raid.attendees[memberId] = {number: 1, status: memberStatus, group: 'A'};
     }
 
-    const sourceChannel = (await PartyManager.getChannel(sourceChannelId)).channel,
-      channelName = raid.generateChannelName();
+    if (!raidExists) {
+      const sourceChannel = (await PartyManager.getChannel(sourceChannelId)).channel,
+        channelName = raid.generateChannelName();
 
-    let newChannelId;
+      let newChannelId;
 
-    return sourceChannel.guild.channels.create(channelName, {
-      parent: sourceChannel.parent,
-      overwrites: sourceChannel.permissionOverwrites
-    })
-      .then(newChannel => {
-        newChannelId = newChannel.id;
-
-        PartyManager.parties[newChannelId] = raid;
-        raid.channelId = newChannelId;
-
-        // move channel to end
-        return newChannel.guild.setChannelPositions([{
-          channel: newChannel,
-          position: newChannel.guild.channels.size - 1
-        }]);
+      return sourceChannel.guild.channels.create(channelName, {
+        parent: sourceChannel.parent,
+        overwrites: sourceChannel.permissionOverwrites
       })
-      .then(async guild => {
-        if (time === TimeType.UNDEFINED_END_TIME) {
-          raid.endTime = TimeType.UNDEFINED_END_TIME;
-          await raid.persist();
-        } else {
-          await raid.setEndTime(time);
-        }
+        .then(newChannel => {
+          newChannelId = newChannel.id;
 
-        return {party: raid};
-      });
+          PartyManager.parties[newChannelId] = raid;
+          raid.channelId = newChannelId;
+
+          // move channel to end
+          return newChannel.guild.setChannelPositions([{
+            channel: newChannel,
+            position: newChannel.guild.channels.size - 1
+          }]);
+        })
+        .then(async guild => {
+          if (time === TimeType.UNDEFINED_END_TIME) {
+            raid.endTime = TimeType.UNDEFINED_END_TIME;
+            await raid.persist();
+          } else {
+            await raid.setRaidEndTime(time);
+          }
+
+          return {
+            party: raid,
+            existing: false
+          };
+        });
+    } else {
+      return {
+        party: raid,
+        existing: true
+      };
+    }
   }
 
   async setIncompleteScreenshotMessage(message) {

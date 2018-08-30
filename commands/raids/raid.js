@@ -78,13 +78,13 @@ class RaidCommand extends Commando.Command {
     if (!!message.adjacent) {
       // Found gym is in an adjacent region
       const confirmationCollector = new Commando.ArgumentCollector(message.client, [
-        {
-          key: 'confirm',
-          label: 'confirmation',
-          prompt: `${message.adjacent.gymName} was found in ${message.adjacent.channel.toString()}!  Should this raid be created there?\n`,
-          type: 'boolean'
-        }
-      ], 3),
+          {
+            key: 'confirm',
+            label: 'confirmation',
+            prompt: `${message.adjacent.gymName} was found in ${message.adjacent.channel.toString()}!  Should this raid be created there?\n`,
+            type: 'boolean'
+          }
+        ], 3),
         confirmationResult = await confirmationCollector.obtain(message);
 
       let confirmation = false;
@@ -106,65 +106,68 @@ class RaidCommand extends Commando.Command {
     Raid.createRaid(sourceChannel.id, message.member.id, pokemon, gymId)
     // create and send announcement message to region channel
       .then(async info => {
-        raid = info.party;
-        const raidChannelMessage = await raid.getChannelMessageHeader(),
-          formattedMessage = await raid.getFullStatusMessage();
+        if (info.existing === false) {
+          raid = info.party;
+          const raidChannelMessage = await raid.getRaidChannelMessage(),
+            formattedMessage = await raid.getFormattedMessage();
 
-        return sourceChannel.send(raidChannelMessage, formattedMessage);
-      })
-      .then(announcementMessage => PartyManager.addMessage(raid.channelId, announcementMessage))
-      // create and send initial status message to raid channel
-      .then(async botMessage => {
-        const raidSourceChannelMessage = await raid.getSourceChannelMessageHeader(),
-          formattedMessage = await raid.getFullStatusMessage();
-        return PartyManager.getChannel(raid.channelId)
-          .then(channelResult => {
-            if (channelResult.ok) {
-              return channelResult.channel.send(raidSourceChannelMessage, formattedMessage);
-            }
-          })
-          .catch(err => log.error(err));
-      })
-      .then(channelRaidMessage => PartyManager.addMessage(raid.channelId, channelRaidMessage, true))
-      // now ask user about remaining time on this brand-new raid
-      .then(result => {
-        // somewhat hacky way of letting time type know if some additional information
-        message.pokemon = raid.pokemon;
-        message.isExclusive = raid.isExclusive;
+          return sourceChannel.send(raidChannelMessage, formattedMessage)
+            .then(announcementMessage => PartyManager.addMessage(raid.channelId, announcementMessage))
+            // create and send initial status message to raid channel
+            .then(async botMessage => {
+              const raidSourceChannelMessage = await raid.getRaidSourceChannelMessage(),
+                formattedMessage = await raid.getFormattedMessage();
+              return PartyManager.getChannel(raid.channelId)
+                .then(channelResult => {
+                  if (channelResult.ok) {
+                    return channelResult.channel.send(raidSourceChannelMessage, formattedMessage);
+                  }
+                })
+                .catch(err => log.error(err));
+            })
+            .then(channelRaidMessage => PartyManager.addMessage(raid.channelId, channelRaidMessage, true))
+            // now ask user about remaining time on this brand-new raid
+            .then(result => {
+              // somewhat hacky way of letting time type know if some additional information
+              message.pokemon = raid.pokemon;
+              message.isExclusive = raid.isExclusive;
 
-        if (raid.pokemon.name) {
-          return this.endTimeCollector.obtain(message);
-        } else {
-          return this.hatchTimeCollector.obtain(message);
+              if (raid.pokemon.name) {
+                return this.endTimeCollector.obtain(message);
+              } else {
+                return this.hatchTimeCollector.obtain(message);
+              }
+            })
+            .then(async collectionResult => {
+              Utility.cleanCollector(collectionResult);
+
+              if (!collectionResult.cancelled) {
+                if (raid.pokemon.name) {
+                  await raid.setRaidEndTime(collectionResult.values[TimeParameter.END]);
+                } else {
+                  await raid.setRaidHatchTime(collectionResult.values[TimeParameter.HATCH]);
+                }
+
+                return raid.refreshStatusMessages();
+              }
+            })
+            .then(async result => {
+              Helper.client.emit('raidCreated', raid, message.member.id);
+
+              // Fire region changed event if it was created from the wrong region
+              if (!!message.adjacent) {
+                const raidChannelResult = await PartyManager.getChannel(raid.channelId);
+
+                if (raidChannelResult.ok) {
+                  const raidChannel = raidChannelResult.channel;
+                  Helper.client.emit('raidRegionChanged', raid, raidChannel, true);
+                }
+              }
+
+              return true;
+            })
+            .catch(err => log.error(err));
         }
-      })
-      .then(async collectionResult => {
-        Utility.cleanCollector(collectionResult);
-
-        if (!collectionResult.cancelled) {
-          if (raid.pokemon.name) {
-            await raid.setEndTime(collectionResult.values[TimeParameter.END]);
-          } else {
-            await raid.setHatchTime(collectionResult.values[TimeParameter.HATCH]);
-          }
-
-          return raid.refreshStatusMessages();
-        }
-      })
-      .then(async result => {
-        Helper.client.emit('raidCreated', raid, message.member.id);
-
-        // Fire region changed event if it was created from the wrong region
-        if (!!message.adjacent) {
-          const raidChannelResult = await PartyManager.getChannel(raid.channelId);
-
-          if (raidChannelResult.ok) {
-            const raidChannel = raidChannelResult.channel;
-            Helper.client.emit('raidRegionChanged', raid, raidChannel, true);
-          }
-        }
-
-        return true;
       })
       .catch(err => log.error(err));
   }
