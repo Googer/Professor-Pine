@@ -1234,9 +1234,9 @@ class ImageProcessing {
     let raid;
     Raid.createRaid(raidChannel.id, message.member.id, pokemon, gymId, time)
       .then(async info => {
-        if (info.existing === false) {
-          raid = info.party;
+        raid = info.party;
 
+        if (!info.existing) {
           if (timeWarn) {
             raid.timeWarn = true;
           }
@@ -1287,6 +1287,9 @@ class ImageProcessing {
 
               return true;
             })
+            .catch(err => log.error(err));
+        } else {
+          raid.refreshStatusMessages()
             .catch(err => log.error(err));
         }
       })

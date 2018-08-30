@@ -106,7 +106,9 @@ class RaidCommand extends Commando.Command {
     Raid.createRaid(sourceChannel.id, message.member.id, pokemon, gymId)
     // create and send announcement message to region channel
       .then(async info => {
-        if (info.existing === false) {
+        raid = info.party;
+
+        if (!info.existing) {
           raid = info.party;
           const raidChannelMessage = await raid.getRaidChannelMessage(),
             formattedMessage = await raid.getFormattedMessage();
@@ -166,6 +168,9 @@ class RaidCommand extends Commando.Command {
 
               return true;
             })
+            .catch(err => log.error(err));
+        } else {
+          raid.refreshStatusMessages()
             .catch(err => log.error(err));
         }
       })
