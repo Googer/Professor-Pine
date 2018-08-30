@@ -51,7 +51,7 @@ class Raid extends Party {
     }
 
     if (memberStatus !== PartyStatus.NOT_INTERESTED) {
-      raid.attendees[memberId] = {number: 1, status: memberStatus, group: 'A'};
+      raid.attendees[memberId] = {number: 1, status: memberStatus, group: raid.defaultGroupId};
     }
 
     if (!raidExists) {
