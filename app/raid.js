@@ -90,6 +90,8 @@ class Raid extends Party {
           };
         });
     } else {
+      await raid.persist();
+
       return {
         party: raid,
         existing: true
