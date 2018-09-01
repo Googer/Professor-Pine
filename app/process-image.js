@@ -11,8 +11,9 @@ const log = require('loglevel').getLogger('ImageProcessor'),
   Raid = require('./raid'),
   regionMap = require('PgP-Data/data/region-map'),
   settings = require('../data/settings'),
+  Status = require('./status'),
   tesseract = require('tesseract.js'),
-  {TimeParameter} = require('./constants'),
+  {PartyStatus, PartyType, TimeParameter} = require('./constants'),
   uuidv1 = require('uuid/v1'),
   Utility = require('./utility');
 
@@ -1147,7 +1148,7 @@ class ImageProcessing {
   async createRaid(message, data) {
     const TimeType = Helper.client.registry.types.get('time'),
       messageTime = moment(message.createdAt),
-      raidChannel = data.channel,
+      raidRegionChannel = data.channel,
       earliestAcceptedTime = messageTime.clone()
         .subtract(settings.standardRaidIncubateDuration, 'minutes')
         .subtract(settings.standardRaidHatchedDuration, 'minutes');
@@ -1164,8 +1165,8 @@ class ImageProcessing {
     // remove all reactions from processed image
     this.removeReaction(message);
 
-    if (raidChannel !== message.channel) {
-      // Found gym is in an adjacent region
+    if (raidRegionChannel !== message.channel && !PartyManager.findRaid(gymId, PartyType.RAID)) {
+      // Found gym is in an adjacent region and raid doesn't exist, ask about creating it there
       const confirmationCollector = new Commando.ArgumentCollector(message.client, [
           {
             key: 'confirm',
@@ -1232,11 +1233,13 @@ class ImageProcessing {
     }
 
     let raid;
-    Raid.createRaid(raidChannel.id, message.member.id, pokemon, gymId, time)
+
+    Raid.createRaid(raidRegionChannel.id, message.member.id, pokemon, gymId, time)
       .then(async info => {
         raid = info.party;
 
         if (!info.existing) {
+          // New raid; go through creating announcement messages, etc.
           if (timeWarn) {
             raid.timeWarn = true;
           }
@@ -1244,7 +1247,7 @@ class ImageProcessing {
           const raidChannelMessage = await raid.getRaidChannelMessage(),
             formattedMessage = await raid.getFormattedMessage();
 
-          return raidChannel.send(raidChannelMessage, formattedMessage)
+          return raidRegionChannel.send(raidChannelMessage, formattedMessage)
             .then(announcementMessage => PartyManager.addMessage(raid.channelId, announcementMessage, true))
             .then(async result => {
               await PartyManager.getChannel(raid.channelId)
@@ -1276,7 +1279,7 @@ class ImageProcessing {
             .then(async result => {
               Helper.client.emit('raidCreated', raid, message.member.id);
 
-              if (raidChannel !== message.channel) {
+              if (raidRegionChannel !== message.channel) {
                 const raidChannelResult = await PartyManager.getChannel(raid.channelId);
 
                 if (raidChannelResult.ok) {
@@ -1289,8 +1292,48 @@ class ImageProcessing {
             })
             .catch(err => log.error(err));
         } else {
-          raid.refreshStatusMessages()
-            .catch(err => log.error(err));
+          // Raid already exists
+          const memberStatus = await Status.getAutoStatus(message.member.id);
+
+          if (memberStatus !== PartyStatus.NOT_INTERESTED) {
+            // Refresh status so user's status reflects in it
+            raid.refreshStatusMessages()
+              .catch(err => log.error(err));
+
+            // Let member know their status has been marked according to their default status
+            let statusString;
+
+            switch (memberStatus) {
+              case PartyStatus.INTERESTED:
+                statusString = 'interested';
+                break;
+
+              case PartyStatus.COMING:
+                statusString = 'coming';
+                break;
+
+              case PartyStatus.PRESENT:
+                statusString = 'present';
+                break;
+            }
+
+            const raidChannel = (await PartyManager.getChannel(raid.channelId)).channel;
+
+            message.reply(`${raidChannel.toString()} already exists! You have been marked as ${statusString} in its channel.`)
+              .then(replyMessage => replyMessage.delete({timeout: settings.messageCleanupDelayError}))
+              .catch(err => log.error(err));
+
+            // Go through standard check / warning if user doesn't have permissions for where raid channel
+            // actually exists
+            if (raidRegionChannel !== message.channel) {
+              const raidChannelResult = await PartyManager.getChannel(raid.channelId);
+
+              if (raidChannelResult.ok) {
+                const raidChannel = raidChannelResult.channel;
+                Helper.client.emit('raidRegionChanged', raid, raidChannel, true);
+              }
+            }
+          }
         }
       })
       .catch(err => log.error(err));
