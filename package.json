@@ -11,7 +11,7 @@
     "discord.js": "github:hydrabolt/discord.js",
     "discord.js-commando": "github:Googer/discord.js-commando",
     "he": "^1.1.1",
-    "jimp": "^0.3.9",
+    "jimp": "^0.3.11",
     "knex": "^0.15.2",
     "loglevel": "^1.6.1",
     "loglevel-prefix-persist": "^1.0.3",

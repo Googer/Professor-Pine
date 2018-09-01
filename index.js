@@ -59,7 +59,10 @@ if (settings.features.notifications) {
   Client.registry.registerGroup(CommandGroup.NOTIFICATIONS, 'Notifications');
 }
 
+Client.registry.registerGroup(CommandGroup.COMMANDS, 'Command');
 Client.registry.registerGroup(CommandGroup.UTIL, 'Utility');
+
+Client.registry.registerDefaultCommands({help: false, prefix: false, eval: false});
 
 if (settings.features.roles) {
   Client.registry.registerCommands([
