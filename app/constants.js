@@ -1,5 +1,6 @@
 const CommandGroup = {
   ADMIN: 'admin',
+  COMMANDS: 'commands',
   BASIC_RAID: 'basic-raid',
   RAID_CRUD: 'raid-crud',
   ROLES: 'roles',
