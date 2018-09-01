@@ -47,12 +47,12 @@ class CheckInCommand extends Commando.Command {
   async run(message, args) {
     const additionalAttendees = args['additionalAttendees'],
       raid = PartyManager.getParty(message.channel.id),
-      current_status = raid.getMemberStatus(message.member.id),
+      currentStatus = raid.getMemberStatus(message.member.id),
       groupCount = raid.groups.length;
 
     let statusPromise;
 
-    if (current_status === PartyStatus.NOT_INTERESTED && groupCount > 1) {
+    if (currentStatus === PartyStatus.NOT_INTERESTED && groupCount > 1) {
       const calendar_format = {
         sameDay: 'LT',
         sameElse: 'l LT'

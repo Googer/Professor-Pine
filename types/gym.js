@@ -55,8 +55,6 @@ class GymType extends Commando.ArgumentType {
           return `"${gymName}" already has an active raid - ${channel.toString()}.\n\n` +
             `If this is the raid you are referring to please cancel and use ${channel.toString()}; ` +
             `otherwise try your search again, entering the text you want to search for.\n\n${arg.prompt}`;
-        } else {
-          return `"${gymName}" already has an active raid - ${channel.toString()}.`;
         }
       }
 
