@@ -197,7 +197,8 @@ Client.on('disconnect', event => {
   log.error(`Client disconnected, code ${event.code}, reason '${event.reason}'...`);
 
   Client.destroy()
-    .then(() => Client.login(privateSettings.discordBotToken));
+    .then(() => Client.login(privateSettings.discordBotToken))
+    .catch(err => log.error(err));
 });
 
 Client.on('reconnecting', () => log.info('Client reconnecting...'));
@@ -223,7 +224,8 @@ NotifyClient.on('disconnect', event => {
   log.error(`Notify Client disconnected, code ${event.code}, reason '${event.reason}'...`);
 
   NotifyClient.destroy()
-    .then(() => Client.login(privateSettings.discordNotifyToken));
+    .then(() => Client.login(privateSettings.discordNotifyToken))
+    .catch(err => log.error(err));
 });
 
 PartyManager.initialize()
