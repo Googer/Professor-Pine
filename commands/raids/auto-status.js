@@ -16,7 +16,7 @@ class AutoCommand extends Commando.Command {
       aliases: ['auto-status'],
       description: 'Changes your automatically-set status when reporting a raid.\n',
       details: 'Use this command to change the status you are automatically set as when reporting a new raid.',
-      examples: ['\t!auto none', '\tauto join'],
+      examples: ['\t!auto none', '\t!auto join'],
       args: [
         {
           key: 'status',
