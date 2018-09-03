@@ -144,7 +144,7 @@ class PartyManager {
     log.warn(`Removing nonexistent member ${memberId} from raid`);
     party.removeAttendee(memberId);
 
-     return Promise.resolve({error: new Error(`Member ${memberId} does not exist!`), ok: false});
+    return Promise.resolve({error: new Error(`Member ${memberId} does not exist!`), ok: false});
   }
 
   findRaid(gymId) {
