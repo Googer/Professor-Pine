@@ -142,9 +142,10 @@ class Raid extends Party {
         .filter(([attendeeId, attendeeStatus]) => attendeeStatus.group === groupIdToFilter),
       memberIds = attendees
         .map(([attendeeId, attendeeStatus]) => attendeeId),
-      members = await Promise.all(memberIds
-        .map(async attendeeId => await this.getMember(attendeeId)))
-        .catch(err => log.error(err)),
+      members = (await Promise.all(memberIds
+        .map(async memberId => await this.getMember(memberId))))
+        .filter(member => member.ok === true)
+        .map(member => member.member),
       presentMembers = members
         .filter(member => this.attendees[member.id].status === PartyStatus.PRESENT),
       timeout = settings.raidCompleteTimeout;
@@ -174,7 +175,7 @@ class Raid extends Party {
                   if (collectedResponses && collectedResponses.size === 1) {
                     response = collectedResponses.first();
 
-                    const commandPrefix = this.client.options.commandPrefix,
+                    const commandPrefix = message.client.options.commandPrefix,
                       userResponse = response.content.toLowerCase().trim(),
                       isCommand = userResponse.startsWith(commandPrefix);
 
@@ -183,7 +184,7 @@ class Raid extends Party {
                       return true;
                     }
 
-                    confirmation = this.client.registry.types.get('boolean').truthy.has(userResponse);
+                    confirmation = message.client.registry.types.get('boolean').truthy.has(userResponse);
                   } else {
                     confirmation = false;
                   }
