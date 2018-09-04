@@ -2,7 +2,7 @@
 
 const log = require('loglevel').getLogger('TimeLeftCommand'),
   Commando = require('discord.js-commando'),
-  {CommandGroup, TimeParameter} = require('../../app/constants'),
+  {CommandGroup, PartyType, TimeParameter} = require('../../app/constants'),
   Helper = require('../../app/helper'),
   PartyManager = require('../../app/party-manager'),
   settings = require('../../data/settings');
@@ -31,7 +31,7 @@ class TimeRemainingCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'left' &&
-        !PartyManager.validParty(message.channel.id)) {
+        !PartyManager.validParty(message.channel.id, [PartyType.RAID])) {
         return ['invalid-channel', message.reply('Set the time remaining for a raid from its raid channel!')];
       }
       return false;
@@ -41,7 +41,7 @@ class TimeRemainingCommand extends Commando.Command {
   async run(message, args) {
     const time = args[TimeParameter.END],
       raid = PartyManager.getParty(message.channel.id),
-      info = await raid.setRaidEndTime(time);
+      info = await raid.setEndTime(time);
 
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .catch(err => log.error(err));

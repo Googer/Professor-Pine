@@ -40,8 +40,8 @@ class StatusCommand extends Commando.Command {
         .catch(err => log.error(err));
     } else {
       const raid = PartyManager.getParty(message.channel.id),
-        raidSourceChannelMessage = await raid.getRaidSourceChannelMessage(),
-        formattedMessage = await raid.getFormattedMessage();
+        raidSourceChannelMessage = await raid.getSourceChannelMessageHeader(),
+        formattedMessage = await raid.getFullStatusMessage();
 
       // post a new raid message, deleting last one in channel if it exists
       message.channel.send(raidSourceChannelMessage, formattedMessage)

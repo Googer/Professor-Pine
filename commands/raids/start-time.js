@@ -2,7 +2,7 @@
 
 const log = require('loglevel').getLogger('StartTimeCommand'),
   Commando = require('discord.js-commando'),
-  {CommandGroup, PartyStatus, TimeParameter} = require('../../app/constants'),
+  {CommandGroup, PartyStatus, PartyType, TimeParameter} = require('../../app/constants'),
   Helper = require('../../app/helper'),
   moment = require('moment'),
   PartyManager = require('../../app/party-manager'),
@@ -32,7 +32,7 @@ class StartTimeCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'meet' &&
-        !PartyManager.validParty(message.channel.id)) {
+        !PartyManager.validParty(message.channel.id, [PartyType.RAID])) {
         return ['invalid-channel', message.reply('Set the meeting time for a raid from its raid channel!')];
       }
       return false;
@@ -42,7 +42,7 @@ class StartTimeCommand extends Commando.Command {
   async run(message, args) {
     const startTime = args[TimeParameter.START],
       raid = PartyManager.getParty(message.channel.id),
-      info = await raid.setRaidStartTime(message.member.id, startTime);
+      info = await raid.setMeetingTime(message.member.id, startTime);
 
     if (info.error) {
       message.reply(info.error)

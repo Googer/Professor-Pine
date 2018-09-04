@@ -107,10 +107,6 @@ class Raid extends Party {
     return message;
   }
 
-  async getMember(memberId) {
-    return PartyManager.getMember(this.channelId, memberId);
-  }
-
   async setPresentAttendeesToComplete(groupId, memberId) {
     let groupIdToFilter = undefined;
 
@@ -242,7 +238,7 @@ class Raid extends Party {
     }
   }
 
-  async setRaidHatchTime(hatchTime) {
+  async setHatchTime(hatchTime) {
     let endTime;
 
     if (this.pokemon.duration) {
@@ -286,7 +282,7 @@ class Raid extends Party {
     return {party: this};
   }
 
-  async setRaidStartTime(memberId, startTime) {
+  async setMeetingTime(memberId, startTime) {
     const member = this.attendees[memberId];
 
     if (!member) {
@@ -308,7 +304,7 @@ class Raid extends Party {
     return {party: this};
   }
 
-  async setRaidEndTime(endTime) {
+  async setEndTime(endTime) {
     let hatchTime;
 
     if (this.pokemon.duration) {
@@ -349,7 +345,7 @@ class Raid extends Party {
     return {party: this};
   }
 
-  async setRaidPokemon(pokemon) {
+  async setPokemon(pokemon) {
     this.pokemon = pokemon;
     this.isExclusive = !!pokemon.exclusive;
 
@@ -379,7 +375,7 @@ class Raid extends Party {
         (settings.standardRaidIncubateDuration + settings.standardRaidHatchedDuration) * 60 * 1000),
       this.lastPossibleTime);
 
-    await this.setRaidEndTime(this.endTime);
+    await this.setEndTime(this.endTime);
 
     const newChannelName = this.generateChannelName();
 
@@ -394,7 +390,7 @@ class Raid extends Party {
     return {party: this};
   }
 
-  async setRaidLocation(gymId, newRegionChannel = undefined) {
+  async setLocation(gymId, newRegionChannel = undefined) {
     this.gymId = gymId;
     if (!!newRegionChannel) {
       this.oldSourceChannelId = this.sourceChannelId;
@@ -441,7 +437,7 @@ class Raid extends Party {
     }
 
     const raidStrings = await Promise.all(raids
-        .map(async raid => await raid.getRaidShortMessage())),
+        .map(async raid => await raid.getShortMessage())),
       filteredRaidStrings = raidStrings
         .filter(raidString => {
           return raidString !== '';
@@ -454,7 +450,7 @@ class Raid extends Party {
     return filteredRaidStrings.join('\n');
   }
 
-  getRaidShortMessage() {
+  getShortMessage() {
     const pokemon = this.isExclusive ?
       'EX Raid' :
       this.pokemon.name ?
@@ -484,7 +480,7 @@ class Raid extends Party {
       });
   }
 
-  getRaidChannelMessage() {
+  getChannelMessageHeader() {
     return PartyManager.getChannel(this.channelId)
       .then(channelResult => channelResult.ok ?
         `Use ${channelResult.channel.toString()} for the following raid:` :
@@ -492,7 +488,7 @@ class Raid extends Party {
       .catch(err => log.error(err));
   }
 
-  async getRaidNotificationMessage(memberId) {
+  async getNotificationMessage(memberId) {
     const raidChannel = (await PartyManager.getChannel(this.channelId)).channel,
       regionChannel = (await PartyManager.getChannel(this.sourceChannelId)).channel,
       pokemonName = this.pokemon.name ?
@@ -507,7 +503,7 @@ class Raid extends Party {
     return `A raid for ${pokemonName} has been announced at ${gymName} (#${regionChannel.name}) by ${member.displayName}: ${raidChannel.toString()}.`;
   }
 
-  async getRaidExChannelMessage() {
+  async getExChannelMessageHeader() {
     const raidChannel = (await PartyManager.getChannel(this.channelId)).channel,
       regionChannel = (await PartyManager.getChannel(this.sourceChannelId)).channel;
 
@@ -515,7 +511,7 @@ class Raid extends Party {
       `it resides in ${regionChannel.toString()}.`;
   }
 
-  getRaidSourceChannelMessage() {
+  getSourceChannelMessageHeader() {
     return PartyManager.getChannel(this.sourceChannelId)
       .then(channelResult => channelResult.ok ?
         `Use ${channelResult.channel.toString()} to return to this raid\'s regional channel.` :
@@ -532,8 +528,8 @@ class Raid extends Party {
           const exRaidChannel = Helper.getExRaidAnnounceChannel(raidChannel.guild);
 
           if (exRaidChannel) {
-            const raidChannelMessage = await this.getRaidExChannelMessage(),
-              formattedMessage = await this.getFormattedMessage();
+            const raidChannelMessage = await this.getExChannelMessageHeader(),
+              formattedMessage = await this.getFullStatusMessage();
 
             return exRaidChannel.send(raidChannelMessage, formattedMessage)
               .then(exRaidStatusMessage => PartyManager.addMessage(this.channelId, exRaidStatusMessage))
@@ -560,7 +556,7 @@ class Raid extends Party {
     return message;
   }
 
-  async getFormattedMessage() {
+  async getFullStatusMessage() {
     const pokemon = !!this.pokemon.name ?
       this.pokemon.name.charAt(0).toUpperCase() + this.pokemon.name.slice(1) :
       '????',
@@ -749,14 +745,13 @@ class Raid extends Party {
 
           if (messageResult.ok) {
             const message = messageResult.message,
-              formattedMessage = await this.getFormattedMessage();
+              formattedMessage = await this.getFullStatusMessage();
 
             if (messageCacheId === currentAnnouncementMessage && replaceAnnouncementMessage) {
               // replace header of old announcement status message and schedule its deletion
               const raidChannel = (await PartyManager.getChannel(this.channelId)).channel,
-                newSourceChannel = (await PartyManager.getChannel(this.sourceChannelId)).channel;
-
-              const channelMessage = `${raidChannel} has been moved to ${newSourceChannel}.`;
+                newSourceChannel = (await PartyManager.getChannel(this.sourceChannelId)).channel,
+                channelMessage = `${raidChannel} has been moved to ${newSourceChannel}.`;
 
               message.edit(channelMessage, formattedMessage)
                 .then(message => message.delete({timeout: settings.messageCleanupDelayStatus}))
@@ -767,7 +762,7 @@ class Raid extends Party {
                 .catch(err => log.error(err));
             } else {
               const channelMessage = (message.channel.id === this.channelId) ?
-                await this.getRaidSourceChannelMessage() :
+                await this.getSourceChannelMessageHeader() :
                 message.content;
 
               message.edit(channelMessage, formattedMessage)
@@ -782,8 +777,8 @@ class Raid extends Party {
 
     if (replaceAnnouncementMessage) {
       // Send new announcement message to new source channel
-      const raidChannelMessage = await this.getRaidChannelMessage(),
-        formattedMessage = await this.getFormattedMessage(),
+      const raidChannelMessage = await this.getChannelMessageHeader(),
+        formattedMessage = await this.getFullStatusMessage(),
         newSourceChannel = (await PartyManager.getChannel(this.sourceChannelId)).channel;
 
       newSourceChannel.send(raidChannelMessage, formattedMessage)

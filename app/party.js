@@ -42,6 +42,10 @@ class Party {
       .reduce((total, number) => total + number, 0);
   }
 
+  async getMember(memberId) {
+    return PartyManager.getMember(this.channelId, memberId);
+  }
+
   async removeAttendee(memberId) {
     const attendee = this.attendees[memberId];
 

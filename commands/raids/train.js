@@ -2,11 +2,11 @@
 
 const log = require('loglevel').getLogger('TrainCommand'),
   Commando = require('discord.js-commando'),
-  {CommandGroup, TimeParameter} = require('../../app/constants'),
+  {CommandGroup} = require('../../app/constants'),
   Gym = require('../../app/gym'),
   Helper = require('../../app/helper'),
   PartyManager = require('../../app/party-manager'),
-  Train = require('../../app/train');
+  RaidTrain = require('../../app/train');
 
 class TrainCommand extends Commando.Command {
   constructor(client) {
@@ -14,36 +14,23 @@ class TrainCommand extends Commando.Command {
       name: 'train',
       group: CommandGroup.RAID_CRUD,
       memberName: 'train',
-      aliases: ['new-train'],
-      description: 'Creates a new raid train.',
-      details: 'Use this command to start organizing a new raid train.  For your convenience, this command combines several options such that you can set the pokémon and the location of the raid all at once.  ' +
-        'Once created, it will further prompt you for the raid\'s hatch or end time.',
-      examples: ['\t!train', '\t!train 7/21 2p'],
-      throttling: {
-        usages: 2,
-        duration: 600
-      },
+      aliases: ['raid-train', 'new-train'],
+      description: 'Announces a new raid train.\n',
+      details: 'Use this command to start organizing a new raid train.',
+      examples: ['\t!raid-train'],
       args: [
         {
-          key: 'time',
-          label: 'time',
-          prompt: 'What time is does this raid train begin?\nExample: `7/21 2:00p`\n',
-          type: 'time'
-        },
-        {
-          key: 'duration',
-          label: 'duration',
-          prompt: 'How long does this raid train intend to run (in hours)?\nExample: `3`\n',
-          type: 'natural'
-        },
-        {
-          key: 'label',
-          label: 'label',
-          prompt: 'What do you wish to label your raid group with?',
+          key: 'name',
+          label: 'name',
+          prompt: 'What do you wish to name this raid train?',
           type: 'string'
         }
       ],
       argsPromptLimit: 3,
+      throttling: {
+        usages: 2,
+        duration: 900
+      },
       guildOnly: true
     });
 
@@ -57,26 +44,26 @@ class TrainCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    const time = args['time'],
-      duration = args['duration'],
-      label = args['label'];
+    const trainName = args['name'];
+
+    let sourceChannel = message.channel;
 
     let train;
 
-    PartyManager.createParty(message.channel.id, message.member.id, time, duration, label)
+    RaidTrain.createRaidTrain(sourceChannel.id, message.member.id, trainName)
     // create and send announcement message to region channel
       .then(async info => {
-        train = info.train;
-        const trainChannelMessage = await Train.getTrainChannelMessage(train),
-          formattedMessage = await Train.getFormattedMessage(train);
+        train = info.party;
+        const trainChannelMessage = await train.getChannelMessageHeader(),
+          formattedMessage = await train.getFullStatusMessage();
 
-        return message.channel.send(trainChannelMessage, formattedMessage);
+        return sourceChannel.send(trainChannelMessage, formattedMessage);
       })
-      .then(announcementMessage => train.addMessage(announcementMessage))
+      .then(announcementMessage => PartyManager.addMessage(train.channelId, announcementMessage))
       // create and send initial status message to raid train channel
       .then(async botMessage => {
-        const trainSourceChannelMessage = await Train.getTrainSourceChannelMessage(train),
-          formattedMessage = await Train.getFormattedMessage(train);
+        const trainSourceChannelMessage = await train.getSourceChannelMessageHeader(),
+          formattedMessage = await train.getFullStatusMessage();
         return PartyManager.getChannel(train.channelId)
           .then(channelResult => {
             if (channelResult.ok) {
@@ -85,8 +72,8 @@ class TrainCommand extends Commando.Command {
           })
           .catch(err => log.error(err));
       })
-      .then(channelTrainMessage => train.addMessage(channelTrainMessage, true))
-      .then(result => {
+      .then(channelTrainMessage => PartyManager.addMessage(train.channelId, channelTrainMessage, true))
+      .then(async result => {
         Helper.client.emit('trainCreated', train, message.member.id);
 
         return true;

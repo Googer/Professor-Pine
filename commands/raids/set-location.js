@@ -2,7 +2,7 @@
 
 const log = require('loglevel').getLogger('LocationCommand'),
   Commando = require('discord.js-commando'),
-  {CommandGroup} = require('../../app/constants'),
+  {CommandGroup, PartyType} = require('../../app/constants'),
   Helper = require('../../app/helper'),
   PartyManager = require('../../app/party-manager'),
   settings = require('../../data/settings'),
@@ -33,7 +33,7 @@ class SetLocationCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'gym' &&
-        !PartyManager.validParty(message.channel.id)) {
+        !PartyManager.validParty(message.channel.id, [PartyType.RAID, PartyType.RAID_TRAIN])) {
         return ['invalid-channel', message.reply('Set the location of a raid from its raid channel!')];
       }
       return false;
@@ -72,11 +72,13 @@ class SetLocationCommand extends Commando.Command {
       channel = message.adjacent.channel;
     }
 
-    const info = await party.setRaidLocation(gymId, channel);
+    const info = await party.setLocation(gymId, channel);
 
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .then(result => {
-        Helper.client.emit('raidGymSet', party, message.member.id);
+        if (party.type === PartyType.RAID) {
+          Helper.client.emit('raidGymSet', party, message.member.id);
+        }
 
         return true;
       })

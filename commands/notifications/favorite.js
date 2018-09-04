@@ -42,7 +42,7 @@ class FavoriteCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'target' &&
-        !PartyManager.validParty(message.channel.id, PartyType.RAID) &&
+        !PartyManager.validParty(message.channel.id, [PartyType.RAID]) &&
         !Gym.isValidChannel(message.channel.name)) {
         return ['invalid-channel', message.reply(Helper.getText('favorite.warning', message))];
       }
@@ -61,7 +61,7 @@ class FavoriteCommand extends Commando.Command {
 
   async run(message, args) {
     const gymId = args['favorite'],
-      inRaidChannel = PartyManager.validParty(message.channel.id, PartyType.RAID);
+      inRaidChannel = PartyManager.validParty(message.channel.id, [PartyType.RAID]);
 
     let confirmationResponse;
 
