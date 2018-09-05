@@ -822,6 +822,8 @@ class Raid extends Party {
     return Object.assign(super.toJSON(), {
       isExclusive: this.isExclusive,
       lastPossibleTime: this.lastPossibleTime,
+      hatchTime: this.hatchTime,
+      endTime: this.endTime,
       pokemon: this.pokemon,
       gymId: this.gymId
     });
