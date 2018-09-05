@@ -110,19 +110,19 @@ class RaidCommand extends Commando.Command {
 
         if (!info.existing) {
           raid = info.party;
-          const raidChannelMessage = await raid.getRaidChannelMessage(),
-            formattedMessage = await raid.getFormattedMessage();
+          const channelMessageHeader = await raid.getChannelMessageHeader(),
+            fullStatusMessage = await raid.getFullStatusMessage();
 
-          return sourceChannel.send(raidChannelMessage, formattedMessage)
+          return sourceChannel.send(channelMessageHeader, fullStatusMessage)
             .then(announcementMessage => PartyManager.addMessage(raid.channelId, announcementMessage))
             // create and send initial status message to raid channel
             .then(async botMessage => {
-              const raidSourceChannelMessage = await raid.getRaidSourceChannelMessage(),
-                formattedMessage = await raid.getFormattedMessage();
+              const sourceChannelMessageHeader = await raid.getSourceChannelMessageHeader(),
+                fullStatusMessage = await raid.getFullStatusMessage();
               return PartyManager.getChannel(raid.channelId)
                 .then(channelResult => {
                   if (channelResult.ok) {
-                    return channelResult.channel.send(raidSourceChannelMessage, formattedMessage);
+                    return channelResult.channel.send(sourceChannelMessageHeader, fullStatusMessage);
                   }
                 })
                 .catch(err => log.error(err));
@@ -145,9 +145,9 @@ class RaidCommand extends Commando.Command {
 
               if (!collectionResult.cancelled) {
                 if (raid.pokemon.name) {
-                  await raid.setRaidEndTime(collectionResult.values[TimeParameter.END]);
+                  await raid.setEndTime(collectionResult.values[TimeParameter.END]);
                 } else {
-                  await raid.setRaidHatchTime(collectionResult.values[TimeParameter.HATCH]);
+                  await raid.setHatchTime(collectionResult.values[TimeParameter.HATCH]);
                 }
 
                 return raid.refreshStatusMessages();

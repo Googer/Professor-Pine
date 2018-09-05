@@ -488,7 +488,7 @@ class Raid extends Party {
       .catch(err => log.error(err));
   }
 
-  async getNotificationMessage(memberId) {
+  async getNotificationMessageHeader(memberId) {
     const raidChannel = (await PartyManager.getChannel(this.channelId)).channel,
       regionChannel = (await PartyManager.getChannel(this.sourceChannelId)).channel,
       pokemonName = this.pokemon.name ?

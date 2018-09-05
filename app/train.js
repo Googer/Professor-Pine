@@ -261,15 +261,15 @@ class RaidTrain extends Party {
 
           if (messageResult.ok) {
             const message = messageResult.message,
-              formattedMessage = await this.getFullStatusMessage();
+              fullStatusMessage = await this.getFullStatusMessage();
 
             if (messageCacheId === currentAnnouncementMessage && replaceAnnouncementMessage) {
               // replace header of old announcement status message and schedule its deletion
               const raidChannel = (await PartyManager.getChannel(this.channelId)).channel,
                 newSourceChannel = (await PartyManager.getChannel(this.sourceChannelId)).channel,
-                channelMessage = `${raidChannel} has been moved to ${newSourceChannel}.`;
+                channelMovedMessageHeader = `${raidChannel} has been moved to ${newSourceChannel}.`;
 
-              message.edit(channelMessage, formattedMessage)
+              message.edit(channelMovedMessageHeader, fullStatusMessage)
                 .then(message => message.delete({timeout: settings.messageCleanupDelayStatus}))
                 .then(async result => {
                   this.messages.splice(this.messages.indexOf(currentAnnouncementMessage), 1);
@@ -281,7 +281,7 @@ class RaidTrain extends Party {
                 await this.getSourceChannelMessageHeader() :
                 message.content;
 
-              message.edit(channelMessage, formattedMessage)
+              message.edit(channelMessage, fullStatusMessage)
                 .catch(err => log.error(err));
             }
 
@@ -293,11 +293,11 @@ class RaidTrain extends Party {
 
     if (replaceAnnouncementMessage) {
       // Send new announcement message to new source channel
-      const raidChannelMessage = await this.getChannelMessageHeader(),
-        formattedMessage = await this.getFullStatusMessage(),
+      const channelMessageHeader = await this.getChannelMessageHeader(),
+        fullStatusMessage = await this.getFullStatusMessage(),
         newSourceChannel = (await PartyManager.getChannel(this.sourceChannelId)).channel;
 
-      newSourceChannel.send(raidChannelMessage, formattedMessage)
+      newSourceChannel.send(channelMessageHeader, fullStatusMessage)
         .then(announcementMessage => PartyManager.addMessage(this.channelId, announcementMessage, true))
         .catch(err => log.error(err));
 

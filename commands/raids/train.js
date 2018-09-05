@@ -51,23 +51,23 @@ class TrainCommand extends Commando.Command {
     let train;
 
     RaidTrain.createRaidTrain(sourceChannel.id, message.member.id, trainName)
-    // create and send announcement message to region channel
+      // create and send announcement message to region channel
       .then(async info => {
         train = info.party;
-        const trainChannelMessage = await train.getChannelMessageHeader(),
-          formattedMessage = await train.getFullStatusMessage();
+        const channelMessageHeader = await train.getChannelMessageHeader(),
+          fullStatusMessage = await train.getFullStatusMessage();
 
-        return sourceChannel.send(trainChannelMessage, formattedMessage);
+        return sourceChannel.send(channelMessageHeader, fullStatusMessage);
       })
       .then(announcementMessage => PartyManager.addMessage(train.channelId, announcementMessage))
       // create and send initial status message to raid train channel
       .then(async botMessage => {
-        const trainSourceChannelMessage = await train.getSourceChannelMessageHeader(),
-          formattedMessage = await train.getFullStatusMessage();
+        const sourceChannelMessageHeader = await train.getSourceChannelMessageHeader(),
+          fullStatusMessage = await train.getFullStatusMessage();
         return PartyManager.getChannel(train.channelId)
           .then(channelResult => {
             if (channelResult.ok) {
-              return channelResult.channel.send(trainSourceChannelMessage, formattedMessage);
+              return channelResult.channel.send(sourceChannelMessageHeader, fullStatusMessage);
             }
           })
           .catch(err => log.error(err));

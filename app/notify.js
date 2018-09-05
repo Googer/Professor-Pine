@@ -91,10 +91,10 @@ class Notify {
       .filter(memberId => raidChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))
       .map(memberId => Helper.getMemberForNotification(guildId, memberId))
       .forEach(async member => {
-        const raidNotificationMessage = await raid.getNotificationMessage(reportingMemberId),
-          formattedMessage = await raid.getFullStatusMessage();
+        const notificationMessageHeader = await raid.getNotificationMessageHeader(reportingMemberId),
+          fullStatusMessage = await raid.getFullStatusMessage();
 
-        member.send(raidNotificationMessage, formattedMessage)
+        member.send(notificationMessageHeader, fullStatusMessage)
           .catch(err => log.error(err));
       });
   }
