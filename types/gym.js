@@ -2,7 +2,7 @@
 
 const log = require('loglevel').getLogger('GymSearch'),
   Commando = require('discord.js-commando'),
-  {GymParameter} = require('../app/constants'),
+  {GymParameter, PartyType} = require('../app/constants'),
   PartyManager = require('../app/party-manager'),
   Gym = require('../app/gym');
 
@@ -47,7 +47,10 @@ class GymType extends Commando.ArgumentType {
         };
       }
 
-      if (arg.key !== GymParameter.FAVORITE && PartyManager.raidExistsForGym(gym.gymId)) {
+      const party = PartyManager.getParty(message.channel.id);
+
+      if (arg.key !== GymParameter.FAVORITE && PartyManager.raidExistsForGym(gym.gymId) &&
+        (!!party && party.type === PartyType.RAID)) {
         const raid = PartyManager.findRaid(gym.gymId),
           channel = (await PartyManager.getChannel(raid.channelId)).channel;
 
