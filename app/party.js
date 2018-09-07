@@ -68,10 +68,10 @@ class Party {
       PartyStatus.NOT_INTERESTED;
   }
 
-  async setMemberStatus(memberId, status, additional_attendees = NaturalArgumentType.UNDEFINED_NUMBER) {
+  async setMemberStatus(memberId, status, additionalAttendees = NaturalArgumentType.UNDEFINED_NUMBER) {
     const attendee = this.attendees[memberId],
-      number = (additional_attendees !== NaturalArgumentType.UNDEFINED_NUMBER)
-        ? 1 + additional_attendees
+      number = (additionalAttendees !== NaturalArgumentType.UNDEFINED_NUMBER)
+        ? 1 + additionalAttendees
         : 1;
 
     if (!attendee) {
@@ -81,7 +81,7 @@ class Party {
         status: status
       }
     } else {
-      if (additional_attendees !== NaturalArgumentType.UNDEFINED_NUMBER) {
+      if (additionalAttendees !== NaturalArgumentType.UNDEFINED_NUMBER) {
         attendee.number = number;
       }
       attendee.status = status;
