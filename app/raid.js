@@ -81,7 +81,7 @@ class Raid extends Party {
             raid.endTime = TimeType.UNDEFINED_END_TIME;
             await raid.persist();
           } else {
-            await raid.setRaidEndTime(time);
+            await raid.setEndTime(time);
           }
 
           return {
