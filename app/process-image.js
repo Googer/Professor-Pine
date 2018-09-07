@@ -1244,10 +1244,10 @@ class ImageProcessing {
             raid.timeWarn = true;
           }
 
-          const raidChannelMessage = await raid.getRaidChannelMessage(),
-            formattedMessage = await raid.getFormattedMessage();
+          const channelMessageHeader = await raid.getChannelMessageHeader(),
+            fullStatusMessage = await raid.getFullStatusMessage();
 
-          return raidRegionChannel.send(raidChannelMessage, formattedMessage)
+          return raidRegionChannel.send(channelMessageHeader, fullStatusMessage)
             .then(announcementMessage => PartyManager.addMessage(raid.channelId, announcementMessage, true))
             .then(async result => {
               await PartyManager.getChannel(raid.channelId)
@@ -1267,10 +1267,10 @@ class ImageProcessing {
                 });
             })
             .then(async botMessage => {
-              const raidSourceChannelMessage = await raid.getRaidSourceChannelMessage(),
-                formattedMessage = await raid.getFormattedMessage();
+              const sourceChannelMessageHeader = await raid.getSourceChannelMessageHeader(),
+                fullStatusMessage = await raid.getFullStatusMessage();
               return PartyManager.getChannel(raid.channelId)
-                .then(channel => channel.channel.send(raidSourceChannelMessage, formattedMessage))
+                .then(channel => channel.channel.send(sourceChannelMessageHeader, fullStatusMessage))
                 .catch(err => log.error(err));
             })
             .then(channelRaidMessage => {
