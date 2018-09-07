@@ -15,13 +15,13 @@ Copy data/private-settings.json.default to data/private-settings.json and fill i
 
 ```
 {
-  "discord_bot_token": "<bot token for main bot>",
-  "discord_notify_token": "<bot token for DM / notification bot>",
+  "discordBotToken": "<bot token for main bot>",
+  "discordNotifyToken": "<bot token for DM / notification bot>",
   "owner": "<your Discord Snowflake ID>",
-  "pokemon_url_base": "<url for pokemon images>",
-  "github_repo": "<github repo to receieve gym change requests, in form user/repo, not full URL>",
-  "github_user": "<github user for creating gym change requests>",
-  "github_password": "<github password for creating gym change requests>",
+  "pokemonUrlBase": "<url for pokemon images>",
+  "githubRepo": "<github repo to receieve gym change requests, in form user/repo, not full URL>",
+  "githubUser": "<github user for creating gym change requests>",
+  "githubPassword": "<github password for creating gym change requests>",
   "db": {
     "host": "<host for mysql db (localhost if running on same machine as bot)>",
     "user": "<mysql username>",
@@ -32,4 +32,3 @@ Copy data/private-settings.json.default to data/private-settings.json and fill i
 ```
 
 Run `npm install` then `npm start` to start the bot.
- 
