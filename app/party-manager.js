@@ -267,20 +267,21 @@ class PartyManager {
         // delete messages from raid object before moving to completed raid
         // storage as they're no longer needed
         delete party.messages;
-
         delete party.messagesSinceDeletionScheduled;
 
-        // TODO: this is only really right for raids, not trains or generic meetups, so rethink / revisit this
-        this.completedStorage.getItem(party.gymId.toString())
-          .then(gymRaids => {
-            if (!gymRaids) {
-              gymRaids = [];
-            }
-            gymRaids.push(party);
-            return this.completedStorage.setItem(party.gymId.toString(), gymRaids);
-          })
-          .then(result => this.activeStorage.removeItem(channelId))
-          .catch(err => log.error(err));
+        if (party.type === PartyType.RAID) {
+          // TODO: this is only really right for raids, not trains or generic meetups, so rethink / revisit this
+          this.completedStorage.getItem(party.gymId.toString())
+            .then(gymRaids => {
+              if (!gymRaids) {
+                gymRaids = [];
+              }
+              gymRaids.push(party);
+              return this.completedStorage.setItem(party.gymId.toString(), gymRaids);
+            })
+            .then(result => this.activeStorage.removeItem(channelId))
+            .catch(err => log.error(err));
+        }
 
         delete this.parties[channelId];
       })
