@@ -98,22 +98,28 @@ class PartyManager {
     this.parties = Object.create(null);
 
     this.activeStorage
-      .forEach(({key, value}) => {
-        const channelId = key,
-          party = value;
+      .forEach(entry => {
+        if (!entry) {
+          return;
+        }
 
-        switch (party.type) {
-          case PartyType.RAID:
-            this.parties[channelId] = new Raid(party);
-            break;
+        const channelId = entry.key,
+          party = entry.value;
 
-          case PartyType.RAID_TRAIN:
-            this.parties[channelId] = new RaidTrain(party);
-            break;
+        if (party.type) {
+          switch (party.type) {
+            case PartyType.RAID:
+              this.parties[channelId] = new Raid(party);
+              break;
 
-          case PartyType.MEETUP:
-            this.parties[channelId] = new Meetup(party);
-            break;
+            case PartyType.RAID_TRAIN:
+              this.parties[channelId] = new RaidTrain(party);
+              break;
+
+            case PartyType.MEETUP:
+              this.parties[channelId] = new Meetup(party);
+              break;
+          }
         }
       });
   }
