@@ -281,6 +281,9 @@ class PartyManager {
             })
             .then(result => this.activeStorage.removeItem(channelId))
             .catch(err => log.error(err));
+        } else {
+          this.activeStorage.removeItem(channelId)
+            .catch(err => log.error(err));
         }
 
         delete this.parties[channelId];

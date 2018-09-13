@@ -1,6 +1,6 @@
 {
   "standardRaidIncubateDuration": 60,
-  "standardRaidHatchedDuration": 45,
+  "standardRaidHatchedDuration": 90,
   "exclusiveRaidIncubateDuration": 20160,
   "exclusiveRaidHatchedDuration": 45,
   "startClearTime": 10,
