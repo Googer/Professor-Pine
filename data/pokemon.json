@@ -1462,6 +1462,27 @@
     "name": "jirachi"
   },
   {
-    "name": "deoxys"
+    "name": "deoxys_normal",
+    "overrideName": "Deoxys - Normal",
+    "tier": 5,
+    "exclusive": true
+  },
+  {
+    "name": "deoxys_attack",
+    "overrideName": "Deoxys - Attack",
+    "tier": 5,
+    "exclusive": true
+  },
+  {
+    "name": "deoxys_defense",
+    "overrideName": "Deoxys - Defense",
+    "tier": 5,
+    "exclusive": true
+  },
+  {
+    "name": "deoxys_speed",
+    "overrideName": "Deoxys - Speed",
+    "tier": 5,
+    "exclusive": true
   }
 ]
