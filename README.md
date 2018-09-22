@@ -1,8 +1,5 @@
 # Professor Pine Discord Bot
 
-### Purpose
-Primary purpose is to organize raids, secondary purpose to have fun!
-
 ### What you need
  - Discord account, 2x bot tokens
  - Node
