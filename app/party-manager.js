@@ -234,11 +234,8 @@ class PartyManager {
   }
 
   async persistParty(party) {
-    try {
-      await this.activeStorage.setItem(party.channelId, party);
-    } catch (err) {
-      log.error(err);
-    }
+    await this.activeStorage.setItem(party.channelId, party)
+      .catch(err => log.error(err));
   }
 
   deleteParty(channelId, deleteChannel = true) {

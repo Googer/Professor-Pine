@@ -356,7 +356,7 @@ class Raid extends Party {
           if (messageResult.ok) {
             const message = messageResult.message;
 
-            if (!this.hatchTime && this.endTime === TimeType.UNDEFINED_END_TIME) {
+            if (this.timeWarn || (!this.hatchTime && this.endTime === TimeType.UNDEFINED_END_TIME)) {
               message.edit(this.getIncompleteScreenshotMessage())
                 .catch(err => log.error(err));
             } else {
