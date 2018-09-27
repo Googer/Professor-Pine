@@ -158,15 +158,17 @@ class PartyManager {
     return Promise.resolve({error: new Error(`Member ${memberId} does not exist!`), ok: false});
   }
 
-  findRaid(gymId) {
+  findRaid(gymId, isExclusive) {
     return Object.values(this.parties)
       .filter(party => party.type === PartyType.RAID)
+      .filter(raid => (!!raid.isExclusive) === isExclusive)
       .find(raid => raid.gymId === gymId);
   }
 
-  raidExistsForGym(gymId) {
+  raidExistsForGym(gymId, isExclusive) {
     return Object.values(this.parties)
       .filter(party => party.type === PartyType.RAID)
+      .filter(raid => (!!raid.isExclusive) === isExclusive)
       .map(raid => raid.gymId)
       .includes(gymId);
   }

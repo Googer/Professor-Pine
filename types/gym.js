@@ -47,11 +47,12 @@ class GymType extends Commando.ArgumentType {
         };
       }
 
-      const party = PartyManager.getParty(message.channel.id);
+      const party = PartyManager.getParty(message.channel.id),
+        isExclusive = (!!party && !!party.isExclusive) || !!message.isExclusive,
+        raidExists = PartyManager.raidExistsForGym(gym.gymId, isExclusive);
 
-      if (arg.key !== GymParameter.FAVORITE && PartyManager.raidExistsForGym(gym.gymId) &&
-        (!!party && party.type === PartyType.RAID)) {
-        const raid = PartyManager.findRaid(gym.gymId),
+      if (arg.key !== GymParameter.FAVORITE && raidExists) {
+        const raid = PartyManager.findRaid(gym.gymId, isExclusive),
           channel = (await PartyManager.getChannel(raid.channelId)).channel;
 
         if (arg && !arg.isScreenshot) {

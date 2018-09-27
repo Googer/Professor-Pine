@@ -1165,7 +1165,7 @@ class ImageProcessing {
     // remove all reactions from processed image
     this.removeReaction(message);
 
-    if (raidRegionChannel !== message.channel && !PartyManager.findRaid(gymId, PartyType.RAID)) {
+    if (raidRegionChannel !== message.channel && !PartyManager.findRaid(gymId, false)) {
       // Found gym is in an adjacent region and raid doesn't exist, ask about creating it there
       const confirmationCollector = new Commando.ArgumentCollector(message.client, [
           {
@@ -1234,7 +1234,7 @@ class ImageProcessing {
 
     let raid;
 
-    Raid.createRaid(raidRegionChannel.id, message.member.id, pokemon, gymId, time)
+    Raid.createRaid(raidRegionChannel.id, message.member.id, pokemon, gymId, false, time)
       .then(async info => {
         raid = info.party;
 

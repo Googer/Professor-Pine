@@ -24,10 +24,10 @@ class Raid extends Party {
     super(PartyType.RAID, data);
   }
 
-  static async createRaid(sourceChannelId, memberId, pokemon, gymId, time = TimeType.UNDEFINED_END_TIME) {
-    const raidExists = PartyManager.raidExistsForGym(gymId),
+  static async createRaid(sourceChannelId, memberId, pokemon, gymId, isExclusive, time = TimeType.UNDEFINED_END_TIME) {
+    const raidExists = PartyManager.raidExistsForGym(gymId, isExclusive),
       raid = raidExists ?
-        PartyManager.findRaid(gymId) :
+        PartyManager.findRaid(gymId, isExclusive) :
         new Raid(),
       memberStatus = await Status.getAutoStatus(memberId);
 

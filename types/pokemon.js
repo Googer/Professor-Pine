@@ -49,8 +49,12 @@ class PokemonType extends Commando.ArgumentType {
       .map(term => term.match(/(?:<:)?([\w*]+)(?::[0-9]+>)?/)[1])
       .map(term => term.toLowerCase());
 
-    return Pokemon.search(terms)
+    const pokemon = Pokemon.search(terms)
       .find(pokemon => pokemon.exclusive || pokemon.tier);
+
+    message.isExclusive = !!pokemon.exclusive;
+
+    return pokemon;
   }
 }
 
