@@ -18,10 +18,22 @@ class Pokemon extends Search {
     log.info('Indexing pokemon...');
 
     const gameMaster = await GameMaster.getVersion('latest', 'json'),
-      regex = new RegExp('^V[0-9]+_POKEMON_(.*)'),
+      pokemonRegex = new RegExp('^V[0-9]+_POKEMON_(.*)'),
+      formsRegex = new RegExp('^FORMS_V[0-9]+_POKEMON_(.*)'),
       pokemonMetadata = require('../data/pokemon'),
-      pokemon = gameMaster.itemTemplates
-        .filter(item => regex.test(item.templateId))
+      alternateForms = [].concat(...gameMaster.itemTemplates
+        .filter(item => formsRegex.test(item.templateId))
+        .filter(form => !!form.formSettings.forms)
+        .map(form => form.formSettings.forms))
+        .map(form => Object.assign({},
+          {
+            formName: form.form.toLocaleLowerCase(),
+            formId: !!form.assetBundleValue ?
+              `${form.assetBundleValue}` :
+              '00'
+          })),
+    pokemon = gameMaster.itemTemplates
+        .filter(item => pokemonRegex.test(item.templateId))
         .map(item => Object.assign({},
           {
             name: item.pokemonSettings.form ?
@@ -44,14 +56,23 @@ class Pokemon extends Search {
       let form;
 
       switch (poke.form) {
-        case 'alola':
-          form = '61';
-          break;
-
         case 'normal':
-        default:
-          form = '00';
+        case undefined: {
+          const alternateForm = alternateForms
+            .find(form => form.formName === poke.name);
+
+          form = alternateForm ?
+            alternateForm.formId :
+            '00';
           break;
+        }
+
+        default: {
+          const alternateForm = alternateForms
+            .find(form => form.formName === poke.name);
+
+          form = alternateForm.formId;
+        }
       }
 
       poke.name = poke.overrideName ?
