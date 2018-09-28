@@ -32,7 +32,7 @@ class Pokemon extends Search {
               `${form.assetBundleValue}` :
               '00'
           })),
-    pokemon = gameMaster.itemTemplates
+      pokemon = gameMaster.itemTemplates
         .filter(item => pokemonRegex.test(item.templateId))
         .map(item => Object.assign({},
           {
@@ -53,27 +53,11 @@ class Pokemon extends Search {
         .map(poke => Object.assign({}, poke, pokemon.find(p => p.name === poke.name)));
 
     mergedPokemon.forEach(poke => {
-      let form;
-
-      switch (poke.form) {
-        case 'normal':
-        case undefined: {
-          const alternateForm = alternateForms
-            .find(form => form.formName === poke.name);
-
-          form = alternateForm ?
-            alternateForm.formId :
-            '00';
-          break;
-        }
-
-        default: {
-          const alternateForm = alternateForms
-            .find(form => form.formName === poke.name);
-
-          form = alternateForm.formId;
-        }
-      }
+      const alternateForm = alternateForms
+          .find(form => form.formName === poke.name),
+        formId = alternateForm ?
+          alternateForm.formId :
+          '00';
 
       poke.name = poke.overrideName ?
         poke.overrideName :
@@ -87,7 +71,7 @@ class Pokemon extends Search {
         poke.maxBaseCP = Pokemon.calculateCP(poke, 20, 15, 15, 15);
         poke.minBoostedCP = Pokemon.calculateCP(poke, 25, 10, 10, 10);
         poke.maxBoostedCP = Pokemon.calculateCP(poke, 25, 15, 15, 15);
-        poke.url = `${privateSettings.pokemonUrlBase}pokemon_icon_${poke.number}_${form}.png`
+        poke.url = `${privateSettings.pokemonUrlBase}pokemon_icon_${poke.number}_${formId}.png`
       }
     });
 
