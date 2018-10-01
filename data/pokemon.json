@@ -137,7 +137,8 @@
     "name": "raichu_alola",
     "overrideName": "Alolan Raichu",
     "nickname": [
-      "alo"
+      "alo",
+      "alochu"
     ],
     "tier": 3
   },
@@ -461,7 +462,8 @@
     "tier": 3
   },
   {
-    "name": "drowzee"
+    "name": "drowzee",
+    "tier": 1
   },
   {
     "name": "hypno"
@@ -485,14 +487,16 @@
     "name": "exeggutor",
     "nickname": [
       "exegg"
-    ]
+    ],
+    "tier": 2
   },
   {
     "name": "exeggutor_alola",
     "overrideName": "Alolan Exeggutor",
     "nickname": [
       "alo",
-      "exegg"
+      "exegg",
+      "alex"
     ],
     "tier": 2
   },
@@ -506,7 +510,8 @@
     "name": "marowak_alola",
     "overrideName": "Alolan Marowak",
     "nickname": [
-      "alo"
+      "alo",
+      "alowak"
     ],
     "tier": 4
   },
