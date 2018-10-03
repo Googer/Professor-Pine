@@ -53,8 +53,8 @@ class Status extends Search {
     return Search.singleTermSearch(term.toLowerCase(), this.index, ['name']);
   }
 
-  // get users's automatic status for reporting raids; if they're not in the table at all,
-  // assume they're interesteed
+  // get user's automatic status for reporting raids; if they're not in the table at all,
+  // assume they're interested
   async getAutoStatus(memberId) {
     const result = await DB.DB('User')
       .where('userSnowflake', memberId)

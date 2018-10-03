@@ -117,20 +117,20 @@ class IAmCommand extends Commando.Command {
           return;
         }
 
-        let string = '';
+        const embed = new MessageEmbed();
+        embed.setTitle(`There ${roles.size === 1 ? 'is' : 'are'} ${roles.size} self-assignable ${roles.size === 1 ? 'role' : 'roles'}:`);
+        embed.setColor('GREEN');
+        embed.setFooter(`Page ${current + 1} of ${Math.ceil(count / 5)}`);
+
         for (let i = start; i < end; i++) {
           if (!rolesArray[i]) {
             break;
           }
 
-          string += `**${rolesArray[i].roleName}**\n${(rolesArray[i].roleDescription) ? rolesArray[i].roleDescription + '\n\n' : ''}`;
+          embed.addField(rolesArray[i].roleName, rolesArray[i].roleDescription ?
+            rolesArray[i].roleDescription :
+            '…');
         }
-
-        const embed = new MessageEmbed();
-        embed.setTitle(`There ${roles.size === 1 ? 'is' : 'are'} ${roles.size} self-assignable ${roles.size === 1 ? 'role' : 'roles'}:`);
-        embed.setDescription(string);
-        embed.setColor('GREEN');
-        embed.setFooter(`Page ${current + 1} of ${Math.ceil(count / 5)}`);
 
         message.edit('Type `!iam <name>` to add one of the following roles to your account.',
           {embed})
@@ -173,16 +173,23 @@ class IAmCommand extends Commando.Command {
 
           this.roleCounts.set(message.guild.id, count);
 
-          let string = '';
-          for (let i = 0; i < Math.min(count, 5); i++) {
-            string += `**${rolesArray[i].roleName}**\n${(rolesArray[i].roleDescription) ? rolesArray[i].roleDescription + '\n\n' : ''}`;
-          }
-
           const embed = new MessageEmbed();
           embed.setTitle(`There ${roles.size === 1 ? 'is' : 'are'} ${roles.size} self-assignable ${roles.size === 1 ? 'role' : 'roles'}:`);
-          embed.setDescription(string);
           embed.setColor('GREEN');
           embed.setFooter(`Page 1 of ${Math.ceil(count / 5)}`);
+
+          for (let i = 0; i < Math.min(count, 5); i++) {
+            if (!rolesArray[i]) {
+              break;
+            }
+
+            embed.addField(rolesArray[i].roleName, rolesArray[i].roleDescription ?
+              rolesArray[i].roleDescription :
+              '…');
+          }
+
+
+
 
           message.channel.send(`Type \`${message.client.commandPrefix}iam <name>\` to add one of the following roles to your account.`,
             {embed})

@@ -430,27 +430,50 @@ class Raid extends Party {
   }
 
   static async getRaidsFormattedMessage(channelId) {
-    const raids = PartyManager.getAllParties(channelId, PartyType.RAID);
+    const raids = PartyManager.getAllParties(channelId, PartyType.RAID)
+        .filter(raid => !!!raid.isExclusive)
+        .sort((raidA, raidB) => {
+          const timeA = !!raidA.endTime ?
+            raidA.endTime :
+            raidA.lastPossibleTime,
+            timeB = !!raidB.endTime ?
+              raidB.endTime :
+              raidB.lastPossibleTime;
 
-    if (!raids || raids.length === 0) {
-      return 'No raids exist for this channel.  Create one with \`!raid\`!';
+          return timeA - timeB;
+        }),
+      summaryFields = (await Promise.all(raids.map(raid => raid.getSummaryField())))
+        .filter(summaryField => summaryField !== ''),
+      groupedRaids = Object.create(null);
+
+    summaryFields
+      .forEach(summaryField => {
+        const pokemon = summaryField.name,
+          field = summaryField.value,
+          fields = groupedRaids[pokemon];
+
+        if (!fields) {
+          groupedRaids[pokemon] = [field];
+        } else {
+          fields.push(field);
+        }
+      });
+
+    if (Object.keys(groupedRaids).length === 0) {
+      return 'No non-EX raids exist for this channel.  Create one with \`!raid\`!';
     }
 
-    const raidStrings = await Promise.all(raids
-        .map(async raid => await raid.getShortMessage())),
-      filteredRaidStrings = raidStrings
-        .filter(raidString => {
-          return raidString !== '';
-        });
+    const embed = new Discord.MessageEmbed();
+    embed.setColor('GREEN');
+    embed.setTitle('Currently Active Raids');
 
-    if (filteredRaidStrings.length === 0) {
-      return 'No raids exist for this channel.  Create one with \`!raid\`!';
-    }
+    Object.keys(groupedRaids).sort()
+      .forEach(pokemon => embed.addField(pokemon, groupedRaids[pokemon].join('\n')));
 
-    return filteredRaidStrings.join('\n');
+    return embed;
   }
 
-  getShortMessage() {
+  getSummaryField() {
     const pokemon = this.isExclusive ?
       'EX Raid' :
       this.pokemon.name ?
@@ -471,8 +494,10 @@ class Raid extends Party {
 
     return PartyManager.getChannel(this.channelId)
       .then(channelResult => channelResult.ok ?
-        `**${pokemon}**\n` +
-        `${channelResult.channel.toString()} :: ${gymName} :: **${totalAttendees}** potential trainer${totalAttendees !== 1 ? 's' : ''}${endTime}\n` :
+        Object.assign({}, {
+          name: pokemon,
+          value: `${channelResult.channel.toString()} :: ${gymName} :: **${totalAttendees}** potential trainer${totalAttendees !== 1 ? 's' : ''}${endTime}`
+        }) :
         '')
       .catch(err => {
         log.error(err);
