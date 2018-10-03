@@ -188,9 +188,6 @@ class IAmCommand extends Commando.Command {
               '…');
           }
 
-
-
-
           message.channel.send(`Type \`${message.client.commandPrefix}iam <name>\` to add one of the following roles to your account.`,
             {embed})
             .then(botMessage => {
