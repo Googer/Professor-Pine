@@ -962,7 +962,7 @@ class ImageProcessing {
     });
   }
 
-  async getTier(id, message, image, region, definitelyEgg) {
+  async getTier(id, message, image, region) {
     const PokemonType = Helper.client.registry.types.get('pokemon');
     let values, pokemon;
 
@@ -977,7 +977,7 @@ class ImageProcessing {
         pokemon = PokemonType.parse(pokemon, message);
       } else {
         // if not a valid tier, use some placeholder information
-        pokemon = {placeholder: true, name: 'egg', tier: '????'};
+        pokemon = {placeholder: true, name: 'egg', egg: true, tier: '????'};
       }
 
       // something has gone wrong if no info was matched, save image for later analysis
@@ -992,7 +992,7 @@ class ImageProcessing {
     }
 
     // NOTE:  There is a chance egg tier could not be determined and we may need to try image processing again before returning...
-    return {tier: values.tier, pokemon, egg: definitelyEgg || values.tier > 0};
+    return {tier: values.tier, pokemon, egg: true};
   }
 
   async getOCRTier(id, message, image, region, level = 0) {
@@ -1110,7 +1110,7 @@ class ImageProcessing {
     //        when they're await within an IF function like this... really stupid.
     if (screenshotType === ImageProcessing.SCREENSHOT_TYPE_EGG) {
       // POKEMON TIER
-      promises.push(this.getTier(id, message, image, tierCrop, true));
+      promises.push(this.getTier(id, message, image, tierCrop));
     } else {
       // POKEMON NAME
       promises.push(this.getPokemonName(id, message, image, pokemonNameCrop));
