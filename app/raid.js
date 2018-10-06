@@ -250,12 +250,14 @@ class Raid extends Party {
       endTime = hatchTime + (settings.standardRaidHatchedDuration * 60 * 1000);
     }
 
+    const oldHatchTime = this.hatchTime;
+
     this.hatchTime = hatchTime;
     this.endTime = endTime;
 
     // update or delete screenshot if all information has now been set
     if (this.incompleteScreenshotMessage) {
-      if (this.timeWarn) {
+      if (this.timeWarn && oldHatchTime !== hatchTime) {
         delete this.timeWarn;
       }
 
@@ -264,7 +266,7 @@ class Raid extends Party {
           if (messageResult.ok) {
             const message = messageResult.message;
 
-            if (!this.pokemon || (this.pokemon && this.pokemon.placeholder)) {
+            if (this.timeWarn || !this.pokemon || (this.pokemon && this.pokemon.placeholder)) {
               message.edit(this.getIncompleteScreenshotMessage())
                 .catch(err => log.error(err));
             } else {
@@ -315,19 +317,23 @@ class Raid extends Party {
       hatchTime = endTime - (settings.standardRaidHatchedDuration * 60 * 1000);
     }
 
+    const oldEndTime = this.endTime;
+
     this.hatchTime = hatchTime;
     this.endTime = endTime;
 
     // update or delete screenshot if all information has now been set
     if (this.incompleteScreenshotMessage) {
-      delete this.timeWarn;
+      if (this.timeWarn && oldEndTime !== endTime) {
+        delete this.timeWarn;
+      }
 
       PartyManager.getMessage(this.incompleteScreenshotMessage)
         .then(messageResult => {
           if (messageResult.ok) {
             const message = messageResult.message;
 
-            if (!this.pokemon || (this.pokemon && this.pokemon.placeholder)) {
+            if (this.timeWarn || !this.pokemon || (this.pokemon && this.pokemon.placeholder)) {
               message.edit(this.getIncompleteScreenshotMessage())
                 .catch(err => log.error(err));
             } else {
@@ -351,12 +357,12 @@ class Raid extends Party {
 
     // update or delete screenshot if all information has now been set
     if (this.incompleteScreenshotMessage) {
-      PartyManager.getMessage(this.incompleteScreenshotMessage)
+      await PartyManager.getMessage(this.incompleteScreenshotMessage)
         .then(messageResult => {
           if (messageResult.ok) {
             const message = messageResult.message;
 
-            if (this.timeWarn || (!this.hatchTime && this.endTime === TimeType.UNDEFINED_END_TIME)) {
+            if (this.timeWarn || this.endTime === TimeType.UNDEFINED_END_TIME) {
               message.edit(this.getIncompleteScreenshotMessage())
                 .catch(err => log.error(err));
             } else {
@@ -375,11 +381,13 @@ class Raid extends Party {
         (settings.standardRaidIncubateDuration + settings.standardRaidHatchedDuration) * 60 * 1000),
       this.lastPossibleTime);
 
-    await this.setEndTime(this.endTime);
+    if (this.endTime !== TimeType.UNDEFINED_END_TIME) {
+      await this.setEndTime(this.endTime);
+    }
 
     const newChannelName = this.generateChannelName();
 
-    PartyManager.getChannel(this.channelId)
+    await PartyManager.getChannel(this.channelId)
       .then(channelResult => {
         if (channelResult.ok) {
           return channelResult.channel.setName(newChannelName);
@@ -571,8 +579,7 @@ class Raid extends Party {
       message += '\n\n**Pokemon** could not be determined, please help set the pokemon by typing \`!pokemon <name>\`';
     }
 
-    log.debug(this.hatchTime, this.endTime, TimeType.UNDEFINED_END_TIME);
-    if (!this.hatchTime && this.endTime === TimeType.UNDEFINED_END_TIME) {
+    if (this.endTime === TimeType.UNDEFINED_END_TIME) {
       message += '\n\n**Time** could not be determined, please help set the time by typing either \`!hatch <time>\` or \`!end <time>\`';
     } else if (this.timeWarn) {
       message += '\n\n**Time** could not be determined precisely, please help set the time by typing either \`!hatch <time>\` or \`!end <time>\`';
@@ -728,7 +735,7 @@ class Raid extends Party {
       embed.addField('__Complete__', Party.buildAttendeesList(completeAttendees, 'premierball', totalAttendeeCount));
     }
 
-    if (!!this.hatchTime) {
+    if (!!this.hatchTime && !isNaN(this.hatchTime)) {
       embed.addField(hatchLabel, hatchTime.calendar(null, calendarFormat));
     }
 
@@ -842,6 +849,7 @@ class Raid extends Party {
     return Object.assign(super.toJSON(), {
       isExclusive: this.isExclusive,
       lastPossibleTime: this.lastPossibleTime,
+      timeWarn: this.timeWarn,
       hatchTime: this.hatchTime,
       endTime: this.endTime,
       pokemon: this.pokemon,
