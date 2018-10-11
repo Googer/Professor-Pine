@@ -1489,5 +1489,1268 @@
     "overrideName": "Deoxys - Speed",
     "tier": 5,
     "exclusive": true
+  },
+  {
+    "name": "turtwig"
+  },
+  {
+    "name": "grotle"
+  },
+  {
+    "name": "torterra"
+  },
+  {
+    "name": "chimchar"
+  },
+  {
+    "name": "monferno"
+  },
+  {
+    "name": "infernape"
+  },
+  {
+    "name": "piplup"
+  },
+  {
+    "name": "prinplup"
+  },
+  {
+    "name": "empoleon"
+  },
+  {
+    "name": "starly"
+  },
+  {
+    "name": "staravia"
+  },
+  {
+    "name": "staraptor"
+  },
+  {
+    "name": "bidoof"
+  },
+  {
+    "name": "bibarel"
+  },
+  {
+    "name": "kricketot"
+  },
+  {
+    "name": "kricketune"
+  },
+  {
+    "name": "shinx"
+  },
+  {
+    "name": "luxio"
+  },
+  {
+    "name": "luxray"
+  },
+  {
+    "name": "budew"
+  },
+  {
+    "name": "roserade"
+  },
+  {
+    "name": "cranidos"
+  },
+  {
+    "name": "rampardos"
+  },
+  {
+    "name": "shieldon"
+  },
+  {
+    "name": "bastiodon"
+  },
+  {
+    "name": "burmy"
+  },
+  {
+    "name": "wormadam"
+  },
+  {
+    "name": "mothim"
+  },
+  {
+    "name": "combee"
+  },
+  {
+    "name": "vespiquen"
+  },
+  {
+    "name": "pachirisu"
+  },
+  {
+    "name": "buizel"
+  },
+  {
+    "name": "floatzel"
+  },
+  {
+    "name": "cherubi"
+  },
+  {
+    "name": "cherrim"
+  },
+  {
+    "name": "shellos"
+  },
+  {
+    "name": "gastrodon"
+  },
+  {
+    "name": "ambipom"
+  },
+  {
+    "name": "drifloon"
+  },
+  {
+    "name": "drifblim"
+  },
+  {
+    "name": "buneary"
+  },
+  {
+    "name": "lopunny"
+  },
+  {
+    "name": "mismagius"
+  },
+  {
+    "name": "honchkrow"
+  },
+  {
+    "name": "glameow"
+  },
+  {
+    "name": "purugly"
+  },
+  {
+    "name": "chingling"
+  },
+  {
+    "name": "stunky"
+  },
+  {
+    "name": "skuntank"
+  },
+  {
+    "name": "bronzor"
+  },
+  {
+    "name": "bronzong"
+  },
+  {
+    "name": "bonsly"
+  },
+  {
+    "name": "mime jr."
+  },
+  {
+    "name": "happiny"
+  },
+  {
+    "name": "chatot"
+  },
+  {
+    "name": "spiritomb"
+  },
+  {
+    "name": "gible"
+  },
+  {
+    "name": "gabite"
+  },
+  {
+    "name": "garchomp"
+  },
+  {
+    "name": "munchlax"
+  },
+  {
+    "name": "riolu"
+  },
+  {
+    "name": "lucario"
+  },
+  {
+    "name": "hippopotas"
+  },
+  {
+    "name": "hippowdon"
+  },
+  {
+    "name": "skorupi"
+  },
+  {
+    "name": "drapion"
+  },
+  {
+    "name": "croagunk"
+  },
+  {
+    "name": "toxicroak"
+  },
+  {
+    "name": "carnivine"
+  },
+  {
+    "name": "finneon"
+  },
+  {
+    "name": "lumineon"
+  },
+  {
+    "name": "mantyke"
+  },
+  {
+    "name": "snover"
+  },
+  {
+    "name": "abomasnow"
+  },
+  {
+    "name": "weavile"
+  },
+  {
+    "name": "magnezone"
+  },
+  {
+    "name": "lickilicky"
+  },
+  {
+    "name": "rhyperior"
+  },
+  {
+    "name": "tangrowth"
+  },
+  {
+    "name": "electivire"
+  },
+  {
+    "name": "magmortar"
+  },
+  {
+    "name": "togekiss"
+  },
+  {
+    "name": "yanmega"
+  },
+  {
+    "name": "leafeon"
+  },
+  {
+    "name": "glaceon"
+  },
+  {
+    "name": "gliscor"
+  },
+  {
+    "name": "mamoswine"
+  },
+  {
+    "name": "porygon-z"
+  },
+  {
+    "name": "gallade"
+  },
+  {
+    "name": "probopass"
+  },
+  {
+    "name": "dusknoir"
+  },
+  {
+    "name": "froslass"
+  },
+  {
+    "name": "rotom"
+  },
+  {
+    "name": "uxie"
+  },
+  {
+    "name": "mesprit"
+  },
+  {
+    "name": "azelf"
+  },
+  {
+    "name": "dialga"
+  },
+  {
+    "name": "palkia"
+  },
+  {
+    "name": "heatran"
+  },
+  {
+    "name": "regigigas"
+  },
+  {
+    "name": "giratina"
+  },
+  {
+    "name": "cresselia"
+  },
+  {
+    "name": "phione"
+  },
+  {
+    "name": "manaphy"
+  },
+  {
+    "name": "darkrai"
+  },
+  {
+    "name": "shaymin"
+  },
+  {
+    "name": "arceus"
+  },
+  {
+    "name": "victini"
+  },
+  {
+    "name": "snivy"
+  },
+  {
+    "name": "servine"
+  },
+  {
+    "name": "serperior"
+  },
+  {
+    "name": "tepig"
+  },
+  {
+    "name": "pignite"
+  },
+  {
+    "name": "emboar"
+  },
+  {
+    "name": "oshawott"
+  },
+  {
+    "name": "dewott"
+  },
+  {
+    "name": "samurott"
+  },
+  {
+    "name": "patrat"
+  },
+  {
+    "name": "watchog"
+  },
+  {
+    "name": "lillipup"
+  },
+  {
+    "name": "herdier"
+  },
+  {
+    "name": "stoutland"
+  },
+  {
+    "name": "purrloin"
+  },
+  {
+    "name": "liepard"
+  },
+  {
+    "name": "pansage"
+  },
+  {
+    "name": "simisage"
+  },
+  {
+    "name": "pansear"
+  },
+  {
+    "name": "simisear"
+  },
+  {
+    "name": "panpour"
+  },
+  {
+    "name": "simipour"
+  },
+  {
+    "name": "munna"
+  },
+  {
+    "name": "musharna"
+  },
+  {
+    "name": "pidove"
+  },
+  {
+    "name": "tranquill"
+  },
+  {
+    "name": "unfezant"
+  },
+  {
+    "name": "blitzle"
+  },
+  {
+    "name": "zebstrika"
+  },
+  {
+    "name": "roggenrola"
+  },
+  {
+    "name": "boldore"
+  },
+  {
+    "name": "gigalith"
+  },
+  {
+    "name": "woobat"
+  },
+  {
+    "name": "swoobat"
+  },
+  {
+    "name": "drilbur"
+  },
+  {
+    "name": "excadrill"
+  },
+  {
+    "name": "audino"
+  },
+  {
+    "name": "timburr"
+  },
+  {
+    "name": "gurdurr"
+  },
+  {
+    "name": "conkeldurr"
+  },
+  {
+    "name": "tympole"
+  },
+  {
+    "name": "palpitoad"
+  },
+  {
+    "name": "seismitoad"
+  },
+  {
+    "name": "throh"
+  },
+  {
+    "name": "sawk"
+  },
+  {
+    "name": "sewaddle"
+  },
+  {
+    "name": "swadloon"
+  },
+  {
+    "name": "leavanny"
+  },
+  {
+    "name": "venipede"
+  },
+  {
+    "name": "whirlipede"
+  },
+  {
+    "name": "scolipede"
+  },
+  {
+    "name": "cottonee"
+  },
+  {
+    "name": "whimsicott"
+  },
+  {
+    "name": "petilil"
+  },
+  {
+    "name": "lilligant"
+  },
+  {
+    "name": "basculin"
+  },
+  {
+    "name": "sandile"
+  },
+  {
+    "name": "krokorok"
+  },
+  {
+    "name": "krookodile"
+  },
+  {
+    "name": "darumaka"
+  },
+  {
+    "name": "darmanitan"
+  },
+  {
+    "name": "maractus"
+  },
+  {
+    "name": "dwebble"
+  },
+  {
+    "name": "crustle"
+  },
+  {
+    "name": "scraggy"
+  },
+  {
+    "name": "scrafty"
+  },
+  {
+    "name": "sigilyph"
+  },
+  {
+    "name": "yamask"
+  },
+  {
+    "name": "cofagrigus"
+  },
+  {
+    "name": "tirtouga"
+  },
+  {
+    "name": "carracosta"
+  },
+  {
+    "name": "archen"
+  },
+  {
+    "name": "archeops"
+  },
+  {
+    "name": "trubbish"
+  },
+  {
+    "name": "garbodor"
+  },
+  {
+    "name": "zorua"
+  },
+  {
+    "name": "zoroark"
+  },
+  {
+    "name": "minccino"
+  },
+  {
+    "name": "cinccino"
+  },
+  {
+    "name": "gothita"
+  },
+  {
+    "name": "gothorita"
+  },
+  {
+    "name": "gothitelle"
+  },
+  {
+    "name": "solosis"
+  },
+  {
+    "name": "duosion"
+  },
+  {
+    "name": "reuniclus"
+  },
+  {
+    "name": "ducklett"
+  },
+  {
+    "name": "swanna"
+  },
+  {
+    "name": "vanillite"
+  },
+  {
+    "name": "vanillish"
+  },
+  {
+    "name": "vanilluxe"
+  },
+  {
+    "name": "deerling"
+  },
+  {
+    "name": "sawsbuck"
+  },
+  {
+    "name": "emolga"
+  },
+  {
+    "name": "karrablast"
+  },
+  {
+    "name": "escavalier"
+  },
+  {
+    "name": "foongus"
+  },
+  {
+    "name": "amoonguss"
+  },
+  {
+    "name": "frillish"
+  },
+  {
+    "name": "jellicent"
+  },
+  {
+    "name": "alomomola"
+  },
+  {
+    "name": "joltik"
+  },
+  {
+    "name": "galvantula"
+  },
+  {
+    "name": "ferroseed"
+  },
+  {
+    "name": "ferrothorn"
+  },
+  {
+    "name": "klink"
+  },
+  {
+    "name": "klang"
+  },
+  {
+    "name": "klinklang"
+  },
+  {
+    "name": "tynamo"
+  },
+  {
+    "name": "eelektrik"
+  },
+  {
+    "name": "eelektross"
+  },
+  {
+    "name": "elgyem"
+  },
+  {
+    "name": "beheeyem"
+  },
+  {
+    "name": "litwick"
+  },
+  {
+    "name": "lampent"
+  },
+  {
+    "name": "chandelure"
+  },
+  {
+    "name": "axew"
+  },
+  {
+    "name": "fraxure"
+  },
+  {
+    "name": "haxorus"
+  },
+  {
+    "name": "cubchoo"
+  },
+  {
+    "name": "beartic"
+  },
+  {
+    "name": "cryogonal"
+  },
+  {
+    "name": "shelmet"
+  },
+  {
+    "name": "accelgor"
+  },
+  {
+    "name": "stunfisk"
+  },
+  {
+    "name": "mienfoo"
+  },
+  {
+    "name": "mienshao"
+  },
+  {
+    "name": "druddigon"
+  },
+  {
+    "name": "golett"
+  },
+  {
+    "name": "golurk"
+  },
+  {
+    "name": "pawniard"
+  },
+  {
+    "name": "bisharp"
+  },
+  {
+    "name": "bouffalant"
+  },
+  {
+    "name": "rufflet"
+  },
+  {
+    "name": "braviary"
+  },
+  {
+    "name": "vullaby"
+  },
+  {
+    "name": "mandibuzz"
+  },
+  {
+    "name": "heatmor"
+  },
+  {
+    "name": "durant"
+  },
+  {
+    "name": "deino"
+  },
+  {
+    "name": "zweilous"
+  },
+  {
+    "name": "hydreigon"
+  },
+  {
+    "name": "larvesta"
+  },
+  {
+    "name": "volcarona"
+  },
+  {
+    "name": "cobalion"
+  },
+  {
+    "name": "terrakion"
+  },
+  {
+    "name": "virizion"
+  },
+  {
+    "name": "tornadus"
+  },
+  {
+    "name": "thundurus"
+  },
+  {
+    "name": "reshiram"
+  },
+  {
+    "name": "zekrom"
+  },
+  {
+    "name": "landorus"
+  },
+  {
+    "name": "kyurem"
+  },
+  {
+    "name": "keldeo"
+  },
+  {
+    "name": "meloetta"
+  },
+  {
+    "name": "genesect"
+  },
+  {
+    "name": "chespin"
+  },
+  {
+    "name": "quilladin"
+  },
+  {
+    "name": "chesnaught"
+  },
+  {
+    "name": "fennekin"
+  },
+  {
+    "name": "braixen"
+  },
+  {
+    "name": "delphox"
+  },
+  {
+    "name": "froakie"
+  },
+  {
+    "name": "frogadier"
+  },
+  {
+    "name": "greninja"
+  },
+  {
+    "name": "bunnelby"
+  },
+  {
+    "name": "diggersby"
+  },
+  {
+    "name": "fletchling"
+  },
+  {
+    "name": "fletchinder"
+  },
+  {
+    "name": "talonflame"
+  },
+  {
+    "name": "scatterbug"
+  },
+  {
+    "name": "spewpa"
+  },
+  {
+    "name": "vivillon"
+  },
+  {
+    "name": "litleo"
+  },
+  {
+    "name": "pyroar"
+  },
+  {
+    "name": "flabébé"
+  },
+  {
+    "name": "floette"
+  },
+  {
+    "name": "florges"
+  },
+  {
+    "name": "skiddo"
+  },
+  {
+    "name": "gogoat"
+  },
+  {
+    "name": "pancham"
+  },
+  {
+    "name": "pangoro"
+  },
+  {
+    "name": "furfrou"
+  },
+  {
+    "name": "espurr"
+  },
+  {
+    "name": "meowstic"
+  },
+  {
+    "name": "honedge"
+  },
+  {
+    "name": "doublade"
+  },
+  {
+    "name": "aegislash"
+  },
+  {
+    "name": "spritzee"
+  },
+  {
+    "name": "aromatisse"
+  },
+  {
+    "name": "swirlix"
+  },
+  {
+    "name": "slurpuff"
+  },
+  {
+    "name": "inkay"
+  },
+  {
+    "name": "malamar"
+  },
+  {
+    "name": "binacle"
+  },
+  {
+    "name": "barbaracle"
+  },
+  {
+    "name": "skrelp"
+  },
+  {
+    "name": "dragalge"
+  },
+  {
+    "name": "clauncher"
+  },
+  {
+    "name": "clawitzer"
+  },
+  {
+    "name": "helioptile"
+  },
+  {
+    "name": "heliolisk"
+  },
+  {
+    "name": "tyrunt"
+  },
+  {
+    "name": "tyrantrum"
+  },
+  {
+    "name": "amaura"
+  },
+  {
+    "name": "aurorus"
+  },
+  {
+    "name": "sylveon"
+  },
+  {
+    "name": "hawlucha"
+  },
+  {
+    "name": "dedenne"
+  },
+  {
+    "name": "carbink"
+  },
+  {
+    "name": "goomy"
+  },
+  {
+    "name": "sliggoo"
+  },
+  {
+    "name": "goodra"
+  },
+  {
+    "name": "klefki"
+  },
+  {
+    "name": "phantump"
+  },
+  {
+    "name": "trevenant"
+  },
+  {
+    "name": "pumpkaboo"
+  },
+  {
+    "name": "gourgeist"
+  },
+  {
+    "name": "bergmite"
+  },
+  {
+    "name": "avalugg"
+  },
+  {
+    "name": "noibat"
+  },
+  {
+    "name": "noivern"
+  },
+  {
+    "name": "xerneas"
+  },
+  {
+    "name": "yveltal"
+  },
+  {
+    "name": "zygarde"
+  },
+  {
+    "name": "diancie"
+  },
+  {
+    "name": "hoopa"
+  },
+  {
+    "name": "volcanion"
+  },
+  {
+    "name": "rowlet"
+  },
+  {
+    "name": "dartrix"
+  },
+  {
+    "name": "decidueye"
+  },
+  {
+    "name": "litten"
+  },
+  {
+    "name": "torracat"
+  },
+  {
+    "name": "incineroar"
+  },
+  {
+    "name": "popplio"
+  },
+  {
+    "name": "brionne"
+  },
+  {
+    "name": "primarina"
+  },
+  {
+    "name": "pikipek"
+  },
+  {
+    "name": "trumbeak"
+  },
+  {
+    "name": "toucannon"
+  },
+  {
+    "name": "yungoos"
+  },
+  {
+    "name": "gumshoos"
+  },
+  {
+    "name": "grubbin"
+  },
+  {
+    "name": "charjabug"
+  },
+  {
+    "name": "vikavolt"
+  },
+  {
+    "name": "crabrawler"
+  },
+  {
+    "name": "crabominable"
+  },
+  {
+    "name": "oricorio"
+  },
+  {
+    "name": "cutiefly"
+  },
+  {
+    "name": "ribombee"
+  },
+  {
+    "name": "rockruff"
+  },
+  {
+    "name": "lycanroc"
+  },
+  {
+    "name": "wishiwashi"
+  },
+  {
+    "name": "mareanie"
+  },
+  {
+    "name": "toxapex"
+  },
+  {
+    "name": "mudbray"
+  },
+  {
+    "name": "mudsdale"
+  },
+  {
+    "name": "dewpider"
+  },
+  {
+    "name": "araquanid"
+  },
+  {
+    "name": "fomantis"
+  },
+  {
+    "name": "lurantis"
+  },
+  {
+    "name": "morelull"
+  },
+  {
+    "name": "shiinotic"
+  },
+  {
+    "name": "salandit"
+  },
+  {
+    "name": "salazzle"
+  },
+  {
+    "name": "stufful"
+  },
+  {
+    "name": "bewear"
+  },
+  {
+    "name": "bounsweet"
+  },
+  {
+    "name": "steenee"
+  },
+  {
+    "name": "tsareena"
+  },
+  {
+    "name": "comfey"
+  },
+  {
+    "name": "oranguru"
+  },
+  {
+    "name": "passimian"
+  },
+  {
+    "name": "wimpod"
+  },
+  {
+    "name": "golisopod"
+  },
+  {
+    "name": "sandygast"
+  },
+  {
+    "name": "palossand"
+  },
+  {
+    "name": "pyukumuku"
+  },
+  {
+    "name": "type: null"
+  },
+  {
+    "name": "silvally"
+  },
+  {
+    "name": "minior"
+  },
+  {
+    "name": "komala"
+  },
+  {
+    "name": "turtonator"
+  },
+  {
+    "name": "togedemaru"
+  },
+  {
+    "name": "mimikyu"
+  },
+  {
+    "name": "bruxish"
+  },
+  {
+    "name": "drampa"
+  },
+  {
+    "name": "dhelmise"
+  },
+  {
+    "name": "jangmo-o"
+  },
+  {
+    "name": "hakamo-o"
+  },
+  {
+    "name": "kommo-o"
+  },
+  {
+    "name": "tapu koko"
+  },
+  {
+    "name": "tapu lele"
+  },
+  {
+    "name": "tapu bulu"
+  },
+  {
+    "name": "tapu fini"
+  },
+  {
+    "name": "cosmog"
+  },
+  {
+    "name": "cosmoem"
+  },
+  {
+    "name": "solgaleo"
+  },
+  {
+    "name": "lunala"
+  },
+  {
+    "name": "nihilego"
+  },
+  {
+    "name": "buzzwole"
+  },
+  {
+    "name": "pheromosa"
+  },
+  {
+    "name": "xurkitree"
+  },
+  {
+    "name": "celesteela"
+  },
+  {
+    "name": "kartana"
+  },
+  {
+    "name": "guzzlord"
+  },
+  {
+    "name": "necrozma"
+  },
+  {
+    "name": "magearna"
+  },
+  {
+    "name": "marshadow"
+  },
+  {
+    "name": "poipole"
+  },
+  {
+    "name": "naganadel"
+  },
+  {
+    "name": "stakataka"
+  },
+  {
+    "name": "blacephalon"
+  },
+  {
+    "name": "zeraora"
   }
 ]
