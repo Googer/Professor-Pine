@@ -487,8 +487,7 @@
     "name": "exeggutor",
     "nickname": [
       "exegg"
-    ],
-    "tier": 2
+    ]
   },
   {
     "name": "exeggutor_alola",
@@ -1527,19 +1526,22 @@
     "name": "staraptor"
   },
   {
-    "name": "bidoof"
+    "name": "bidoof",
+    "tier": 1
   },
   {
     "name": "bibarel"
   },
   {
-    "name": "kricketot"
+    "name": "kricketot",
+    "tier": 1
   },
   {
     "name": "kricketune"
   },
   {
-    "name": "shinx"
+    "name": "shinx",
+    "tier": 1
   },
   {
     "name": "luxio"
@@ -1611,7 +1613,8 @@
     "name": "drifblim"
   },
   {
-    "name": "buneary"
+    "name": "buneary",
+    "tier": 1
   },
   {
     "name": "lopunny"
