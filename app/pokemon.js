@@ -267,7 +267,7 @@ class Pokemon extends Search {
         break;
 
       case 5:
-        stamina = 18750;
+        stamina = 12500;
         break;
     }
 
