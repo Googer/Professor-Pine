@@ -1794,7 +1794,13 @@
     "name": "regigigas"
   },
   {
-    "name": "giratina",
+    "name": "giratina_altered",
+    "overrideName": "Giratina - Altered",
+    "tier":  5
+  },
+  {
+    "name": "giratina_origin",
+    "overrideName": "Giratina - Origin",
     "tier":  5
   },
   {
