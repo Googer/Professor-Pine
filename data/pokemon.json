@@ -1794,7 +1794,8 @@
     "name": "regigigas"
   },
   {
-    "name": "giratina"
+    "name": "giratina",
+    "tier":  5
   },
   {
     "name": "cresselia"
