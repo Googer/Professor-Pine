@@ -1796,7 +1796,10 @@
   },
   {
     "name": "giratina_altered",
-    "overrideName": "Giratina - Altered",
+    "overrideName": "Giratina",
+    "nickname": [
+      "altered"
+    ],
     "tier":  5
   },
   {
