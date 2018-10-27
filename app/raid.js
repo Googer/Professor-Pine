@@ -9,6 +9,7 @@ const log = require('loglevel').getLogger('Raid'),
   Helper = require('./helper'),
   Party = require('./party'),
   Status = require('./status'),
+  Privacy = require ('./privacy'),
   TimeType = require('../types/time');
 
 let Gym,
@@ -29,11 +30,12 @@ class Raid extends Party {
       raid = raidExists ?
         PartyManager.findRaid(gymId, isExclusive) :
         new Raid(),
-      memberStatus = await Status.getAutoStatus(memberId);
+      memberStatus = await Status.getAutoStatus(memberId),
+      memberPrivacy = await Privacy.getPrivacyStatus(memberId);
 
     if (!raidExists) {
       // add some extra raid data to remember
-      raid.createdById = memberId;
+      raid.createdById = memberPrivacy ? -1 : memberId;
       raid.isExclusive = !!pokemon.exclusive;
       raid.sourceChannelId = sourceChannelId;
       raid.creationTime = moment().valueOf();
@@ -613,7 +615,7 @@ class Raid extends Party {
         sameElse: 'l LT'
       },
 
-      reportingMember = (await this.getMember(this.createdById)).member,
+      reportingMember = (this.createdById >= 0) ? (await this.getMember(this.createdById)).member : {displayName: '????'},
       raidReporter = `originally reported by ${reportingMember.displayName}`,
 
       endTime = this.endTime !== TimeType.UNDEFINED_END_TIME ?
@@ -686,7 +688,11 @@ class Raid extends Party {
       embed.addField('**Catch CP Ranges**', pokemonCPString);
     }
 
-    embed.setFooter(endTime + raidReporter, reportingMember.user.displayAvatarURL());
+    embed.setFooter(endTime + raidReporter,
+      reportingMember.displayName !== '????'
+        ? reportingMember.user.displayAvatarURL()
+        : Helper.client.rest.cdn.DefaultAvatar(0)
+      );
 
     this.groups
       .forEach(group => {
@@ -789,7 +795,7 @@ class Raid extends Party {
                 .then(message => message.delete({timeout: settings.messageCleanupDelayStatus}))
                 .then(async result => {
                   this.messages.splice(this.messages.indexOf(currentAnnouncementMessage), 1);
-                  await this.persist();
+                  await this.psersist();
                 })
                 .catch(err => log.error(err));
             } else {
