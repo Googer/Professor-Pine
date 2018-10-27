@@ -796,7 +796,7 @@ class Raid extends Party {
                 .then(message => message.delete({timeout: settings.messageCleanupDelayStatus}))
                 .then(async result => {
                   this.messages.splice(this.messages.indexOf(currentAnnouncementMessage), 1);
-                  await this.psersist();
+                  await this.persist();
                 })
                 .catch(err => log.error(err));
             } else {
