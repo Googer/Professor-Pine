@@ -854,6 +854,7 @@ class Raid extends Party {
 
   toJSON() {
     return Object.assign(super.toJSON(), {
+      originallyCreatedBy: this.originallyCreatedBy,
       isExclusive: this.isExclusive,
       lastPossibleTime: this.lastPossibleTime,
       timeWarn: this.timeWarn,
