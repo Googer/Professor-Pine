@@ -36,6 +36,7 @@ class Raid extends Party {
     if (!raidExists) {
       // add some extra raid data to remember
       raid.createdById = memberPrivacy ? -1 : memberId;
+      raid.originallyCreatedBy = memberId;
       raid.isExclusive = !!pokemon.exclusive;
       raid.sourceChannelId = sourceChannelId;
       raid.creationTime = moment().valueOf();
