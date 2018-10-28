@@ -1,13 +1,13 @@
 "use strict";
 
-const log = require('loglevel').getLogger('AutoCommand'),
+const log = require('loglevel').getLogger('PrivacyCommand'),
   Commando = require('discord.js-commando'),
   {CommandGroup} = require('../../app/constants'),
   Helper = require('../../app/helper'),
   settings = require('../../data/settings'),
   Privacy = require('../../app/privacy');
 
-class AutoCommand extends Commando.Command {
+class PrivacyCommand extends Commando.Command {
   constructor(client) {
     super(client, {
       name: 'auto',
@@ -46,4 +46,4 @@ class AutoCommand extends Commando.Command {
   }
 }
 
-module.exports = AutoCommand;
+module.exports = PrivacyCommand;
