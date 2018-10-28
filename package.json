@@ -4,6 +4,7 @@
   "description": "Professor Pine Discord bot for Pokemon Go",
   "main": "index.js",
   "dependencies": {
+    "@discordjs/uws": "^10.149.0",
     "@mapbox/polyline": "^1.0.0",
     "@turf/turf": "^5.1.6",
     "PgP-Data": "github:Googer/PgP-Data",
@@ -25,7 +26,6 @@
     "tesseract.js": "github:Googer/tesseract.js",
     "togeojson-with-extended-style": "^0.13.1",
     "uuid": "^3.3.2",
-    "uws": "github:discordjs/uws",
     "xmldom": "^0.1.27",
     "zlib-sync": "^0.1.4"
   },
