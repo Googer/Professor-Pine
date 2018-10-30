@@ -742,19 +742,19 @@ class Raid extends Party {
     let additionalInformation = '';
 
     if (!this.isExclusive) {
-      if (gym.is_ex) {
+      if (gym.hasHostedEx) {
         additionalInformation += 'Confirmed EX Raid location.';
-      } else if (gym.is_park) {
-        additionalInformation += 'Potential EX Raid location - This gym is located in a park.';
+      } else if (gym.hasExTag) {
+        additionalInformation += 'Potential EX Raid location - This gym has the EX gym tag.';
       }
     }
 
-    if (!!gym.additional_information) {
+    if (!!gym.additionalInformation) {
       if (additionalInformation !== '') {
         additionalInformation += '\n\n';
       }
 
-      additionalInformation += gym.additional_information;
+      additionalInformation += gym.additionalInformation;
     }
 
     if (additionalInformation !== '') {

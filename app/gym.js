@@ -16,14 +16,9 @@ class Gym extends Search {
 
     const gymsBase = require('PgP-Data/data/gyms'),
       gymsMetadata = require('PgP-Data/data/gyms-metadata'),
-      parkGyms = require('PgP-Data/data/park-gyms'),
       mergedGyms = gymsBase
         .map(gym => Object.assign({}, gym, gymsMetadata[gym.gymId])),
       stopwordFilter = this.stopWordFilter;
-
-    mergedGyms
-      .filter(gym => parkGyms.includes(gym.gymId))
-      .forEach(parkGym => parkGym.is_park = true);
 
     lunr.Pipeline.registerFunction(stopwordFilter, 'customStopwords');
 
@@ -60,7 +55,7 @@ class Gym extends Search {
       this.field('places');
 
       // field from supplementary metadata
-      this.field('additional_terms');
+      this.field('additionalTerms');
 
       // replace default stop word filter with custom one
       this.pipeline.remove(lunr.stopWordFilter);
@@ -116,8 +111,8 @@ class Gym extends Search {
         }
 
         // merge in additional info from supplementary metadata file
-        if (gym.additional_terms) {
-          gymDocument['additional_terms'] = removeDiacritics(gym.additional_terms);
+        if (gym.additionalTerms) {
+          gymDocument['additionalTerms'] = removeDiacritics(gym.additionalTerms);
         }
 
         // reference
@@ -211,7 +206,7 @@ class Gym extends Search {
 
       if (results.length === 0) {
         // That didn't return anything, so now try the with description & additional terms as well
-        results = this.internalSearch(channelNames, terms, ['name', 'nickname', 'description', 'additional_terms']);
+        results = this.internalSearch(channelNames, terms, ['name', 'nickname', 'description', 'additionalTerms']);
       }
 
       if (results.length === 0) {
