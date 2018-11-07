@@ -1587,7 +1587,8 @@
     "name": "pachirisu"
   },
   {
-    "name": "buizel"
+    "name": "buizel",
+    "tier": 1
   },
   {
     "name": "floatzel"
