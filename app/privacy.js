@@ -1,6 +1,6 @@
 "use strict";
 
-const log = require('loglevel').getLogger('Status'),
+const log = require('loglevel').getLogger('Privacy'),
   DB = require('./db'),
   lunr = require('lunr'),
   {PrivacyOpts} = require('./constants'),
