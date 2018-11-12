@@ -75,6 +75,8 @@ class RaidTrain extends Party {
 
     await this.persist();
 
+    Helper.client.emit('trainGymChanged', gymId, this);
+
     const newChannelName = this.generateChannelName();
 
     await PartyManager.getChannel(this.channelId)

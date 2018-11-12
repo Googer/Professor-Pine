@@ -1,4 +1,5 @@
 const log = require('loglevel').getLogger('PartyManager'),
+  Helper = require('./helper'),
   settings = require('../data/settings'),
   storage = require('node-persist'),
   {PartyType} = require('./constants'),
@@ -139,6 +140,20 @@ class PartyManager {
         if (!!raid && !!raid.deletionTime) {
           raid.sendDeletionWarningMessage();
         }
+      }
+    });
+
+    client.on('trainGymChanged', async (gymId, train) => {
+      // train set a new location, create a new raid automatically if it hasn't already been reported
+      const raidCommand = client.registry.findCommands('raid')[0],
+        guild = (await this.getChannel(train.channelId)).channel.guild,
+        raidCommandEnabled = raidCommand.isEnabledIn(guild);
+
+      if (raidCommandEnabled) {
+        Raid.createRaid(train.sourceChannelId, train.createdById, {
+          name: 'pokemon',
+          tier: '????'
+        }, gymId, false);
       }
     });
   }
