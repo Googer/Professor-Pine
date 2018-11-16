@@ -396,7 +396,8 @@
     "tier": 2
   },
   {
-    "name": "magnemite"
+    "name": "magnemite",
+    "tier": 1
   },
   {
     "name": "magneton",
@@ -497,7 +498,7 @@
       "exegg",
       "alex"
     ],
-    "tier": 2
+    "tier": 4
   },
   {
     "name": "cubone"
@@ -758,7 +759,8 @@
     "name": "chinchou"
   },
   {
-    "name": "lanturn"
+    "name": "lanturn",
+    "tier": 2
   },
   {
     "name": "pichu"
@@ -783,7 +785,8 @@
     "name": "xatu"
   },
   {
-    "name": "mareep"
+    "name": "mareep",
+    "tier": 1
   },
   {
     "name": "flaaffy"
@@ -939,7 +942,8 @@
     "name": "mantine"
   },
   {
-    "name": "skarmory"
+    "name": "skarmory",
+    "tier": 3
   },
   {
     "name": "houndour"
