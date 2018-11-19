@@ -47,7 +47,7 @@ const TimeMode = {
 
 const TimeParameter = {
   HATCH: 'hatch',
-  START: 'start',
+  MEET: 'meet',
   END: 'end'
 };
 
