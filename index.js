@@ -119,6 +119,7 @@ Client.registry.registerCommands([
   require('./commands/raids/set-location'),
 
   require('./commands/raids/auto-status'),
+  require('./commands/raids/report-privacy'),
 
   require('./commands/raids/train'),
 
