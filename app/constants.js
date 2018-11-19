@@ -12,6 +12,11 @@ const GymParameter = {
   FAVORITE: 'favorite'
 };
 
+const PrivacyOpts = {
+  ANONYMOUS: 1,
+  VISIBLE: 0
+};
+
 const PartyStatus = {
   NOT_INTERESTED: -1,
   INTERESTED: 0,
@@ -46,4 +51,4 @@ const TimeParameter = {
   END: 'end'
 };
 
-module.exports = {CommandGroup, GymParameter, PartyStatus, PartyType, Team, TimeMode, TimeParameter};
+module.exports = {CommandGroup, GymParameter, PartyStatus, PartyType, Team, TimeMode, TimeParameter, PrivacyOpts};
