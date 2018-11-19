@@ -60,9 +60,7 @@ class TimeType extends Commando.ArgumentType {
           party.type === PartyType.RAID_TRAIN :
           false;
 
-        if (isTrain) {
-          firstPossibleTime = now;
-        } else if (hatchTime) {
+        if (hatchTime) {
           const hatchTimeMoment = moment(hatchTime);
 
           firstPossibleTime = now.isAfter(hatchTimeMoment) ?
@@ -220,9 +218,7 @@ class TimeType extends Commando.ArgumentType {
           party.type === PartyType.RAID_TRAIN :
           false;
 
-        if (isTrain) {
-          firstPossibleTime = now;
-        } else if (hatchTime) {
+        if (hatchTime) {
           const hatchTimeMoment = moment(hatchTime);
 
           firstPossibleTime = now.isAfter(hatchTimeMoment) ?
