@@ -12,7 +12,7 @@ class Privacy extends Search {
   }
 
   async buildIndex() {
-    log.info('Indexing statuses...');
+    log.info('Indexing privacies...');
 
     this.index = lunr(function () {
       this.ref('privacy');
@@ -23,14 +23,21 @@ class Privacy extends Search {
 
       // Anonymous Raid Reports aliases
       this.add({'privacy': PrivacyOpts.ANONYMOUS, name: 'hidden'});
+      this.add({'privacy': PrivacyOpts.ANONYMOUS, name: 'invisible'});
       this.add({'privacy': PrivacyOpts.ANONYMOUS, name: 'anonymous'});
+      this.add({'privacy': PrivacyOpts.ANONYMOUS, name: 'private'});
+      this.add({'privacy': PrivacyOpts.ANONYMOUS, name: 'yes'});
 
       // Shown Raid Reports aliases
-      this.add({'status': PrivacyOpts.VISIBLE, 'name': 'visible'});
-      this.add({'status': PrivacyOpts.VISIBLE, 'name': 'non-anonymous'});
+      this.add({'privacy': PrivacyOpts.VISIBLE, name: 'unhidden'});
+      this.add({'privacy': PrivacyOpts.VISIBLE, name: 'shown'});
+      this.add({'privacy': PrivacyOpts.VISIBLE, name: 'visible'});
+      this.add({'privacy': PrivacyOpts.VISIBLE, name: 'nonanonymous'});
+      this.add({'privacy': PrivacyOpts.VISIBLE, name: 'public'});
+      this.add({'privacy': PrivacyOpts.VISIBLE, name: 'no'});
     });
 
-    log.info('Indexing statuses complete');
+    log.info('Indexing privacies complete');
   }
 
   search(term) {
@@ -46,7 +53,7 @@ class Privacy extends Search {
       .first();
 
     return !!result ?
-      result.status :
+      result.raidPrivacy :
       PrivacyOpts.VISIBLE;
   }
 

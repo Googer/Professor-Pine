@@ -14,7 +14,7 @@ class AutoCommand extends Commando.Command {
       group: CommandGroup.RAID_CRUD,
       memberName: 'auto',
       aliases: ['auto-status'],
-      description: 'Changes your automatically-set status when reporting a raid.\n',
+      description: 'Changes your automatically-set status when reporting a raid.',
       details: 'Use this command to change the status you are automatically set as when reporting a new raid.',
       examples: ['\t!auto none', '\t!auto join'],
       args: [

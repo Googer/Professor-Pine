@@ -10,7 +10,7 @@ const log = require('loglevel').getLogger('PrivacyCommand'),
 class PrivacyCommand extends Commando.Command {
   constructor(client) {
     super(client, {
-      name: 'auto',
+      name: 'privacy',
       group: CommandGroup.RAID_CRUD,
       memberName: 'privacy',
       aliases: ['report-privacy'],

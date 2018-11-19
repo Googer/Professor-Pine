@@ -9,7 +9,7 @@ const log = require('loglevel').getLogger('Raid'),
   Helper = require('./helper'),
   Party = require('./party'),
   Status = require('./status'),
-  Privacy = require ('./privacy'),
+  Privacy = require('./privacy'),
   TimeType = require('../types/time');
 
 let Gym,
@@ -35,7 +35,9 @@ class Raid extends Party {
 
     if (!raidExists) {
       // add some extra raid data to remember
-      raid.createdById = memberPrivacy ? -1 : memberId;
+      raid.createdById = memberPrivacy ?
+        -1 :
+        memberId;
       raid.originallyCreatedBy = memberId;
       raid.isExclusive = !!pokemon.exclusive;
       raid.sourceChannelId = sourceChannelId;
@@ -616,7 +618,9 @@ class Raid extends Party {
         sameElse: 'l LT'
       },
 
-      reportingMember = (this.createdById >= 0) ? (await this.getMember(this.createdById)).member : {displayName: '????'},
+      reportingMember = (this.createdById >= 0) ?
+        (await this.getMember(this.createdById)).member :
+        {displayName: '????'},
       raidReporter = `originally reported by ${reportingMember.displayName}`,
 
       endTime = this.endTime !== TimeType.UNDEFINED_END_TIME ?
@@ -690,10 +694,10 @@ class Raid extends Party {
     }
 
     embed.setFooter(endTime + raidReporter,
-      reportingMember.displayName !== '????'
-        ? reportingMember.user.displayAvatarURL()
-        : Helper.client.rest.cdn.DefaultAvatar(0)
-      );
+      reportingMember.displayName !== '????' ?
+        reportingMember.user.displayAvatarURL() :
+        Helper.client.rest.cdn.DefaultAvatar(0)
+    );
 
     this.groups
       .forEach(group => {
