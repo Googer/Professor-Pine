@@ -12,6 +12,7 @@
   "messageCleanupDelaySuccess": 5000,
   "messageCleanupDelayError": 30000,
   "messageCleanupDelayStatus": 60000,
+  "showUnknownMoves": true,
   "emoji": {
     "thumbsUp": "pinethumbsup",
     "thumbsDown": "pinethumbsdown"

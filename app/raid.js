@@ -708,9 +708,13 @@ class Raid extends Party {
       embed.addField('**Catch CP Ranges**', pokemonCPString);
     }
 
-    embed.addField('**Quick Move**', pokemonQuickMove);
+    if (pokemonQuickMove !== '????' || (pokemonQuickMove === '????' && settings.showUnknownMoves)) {
+      embed.addField('**Quick Move**', pokemonQuickMove);
+    }
 
-    embed.addField('**Charge Move**', pokemonCinematicMove);
+    if (pokemonCinematicMove !== '????' || (pokemonCinematicMove === '????' && settings.showUnknownMoves)) {
+      embed.addField('**Charge Move**', pokemonCinematicMove);
+    }
 
     embed.setFooter(endTime + raidReporter,
       reportingMember.displayName !== '????' ?
