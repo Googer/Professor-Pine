@@ -357,11 +357,11 @@ class Raid extends Party {
   }
 
   async setMoveset(moveset) {
-    if (moveset.quick) {
+    if (!!moveset.quick) {
       this.quickMove = moveset.quick;
     }
 
-    if (moveset.cinematic) {
+    if (!!moveset.cinematic) {
       this.cinematicMove = moveset.cinematic;
     }
   }
@@ -616,10 +616,10 @@ class Raid extends Party {
           .map(condition => Helper.getEmoji(condition))
           .join('')}` :
         '',
-      pokemonQuickMove = this.quickMove ?
+      pokemonQuickMove = !!this.quickMove ?
         this.quickMove :
         '????',
-      pokemonCinematicMove = this.cinematicMove ?
+      pokemonCinematicMove = !!this.cinematicMove ?
         this.cinematicMove :
         '????',
       raidDescription = this.isExclusive ?

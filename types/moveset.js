@@ -1,10 +1,9 @@
 "use strict";
 
 const Commando = require('discord.js-commando'),
-  Pokemon = require('../app/pokemon'),
   PartyManager = require('../app/party-manager');
 
-class PokemonType extends Commando.ArgumentType {
+class MovesetType extends Commando.ArgumentType {
   constructor(client) {
     super(client, 'pokemon');
   }
@@ -53,4 +52,4 @@ class PokemonType extends Commando.ArgumentType {
   }
 }
 
-module.exports = PokemonType;
+module.exports = MovesetType;
