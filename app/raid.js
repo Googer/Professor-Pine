@@ -356,6 +356,16 @@ class Raid extends Party {
     return {party: this};
   }
 
+  async setMoveset(moveset) {
+    if (moveset.quick) {
+      this.quickMove = moveset.quick;
+    }
+
+    if (moveset.cinematic) {
+      this.cinematicMove = moveset.cinematic;
+    }
+  }
+
   async setPokemon(pokemon) {
     this.pokemon = pokemon;
     this.isExclusive = !!pokemon.exclusive;
@@ -606,7 +616,12 @@ class Raid extends Party {
           .map(condition => Helper.getEmoji(condition))
           .join('')}` :
         '',
-
+      pokemonQuickMove = this.quickMove ?
+        this.quickMove :
+        '????',
+      pokemonCinematicMove = this.cinematicMove ?
+        this.cinematicMove :
+        '????',
       raidDescription = this.isExclusive ?
         `EX Raid against ${pokemon}` :
         `Level ${this.pokemon.tier} Raid against ${pokemon}`,
@@ -692,6 +707,10 @@ class Raid extends Party {
     if (pokemonCPString) {
       embed.addField('**Catch CP Ranges**', pokemonCPString);
     }
+
+    embed.addField('**Quick Move**', pokemonQuickMove);
+
+    embed.addField('**Charge Move**', pokemonCinematicMove);
 
     embed.setFooter(endTime + raidReporter,
       reportingMember.displayName !== '????' ?
@@ -865,7 +884,9 @@ class Raid extends Party {
       hatchTime: this.hatchTime,
       endTime: this.endTime,
       pokemon: this.pokemon,
-      gymId: this.gymId
+      gymId: this.gymId,
+      quickMove: this.quickMove,
+      cinematicMove: this.cinematicMove
     });
   }
 }
