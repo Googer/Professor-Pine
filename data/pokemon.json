@@ -841,10 +841,12 @@
     "name": "quagsire"
   },
   {
-    "name": "espeon"
+    "name": "espeon",
+    "tier": 3
   },
   {
-    "name": "umbreon"
+    "name": "umbreon",
+    "tier": 3
   },
   {
     "name": "murkrow"
