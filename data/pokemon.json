@@ -131,7 +131,8 @@
     "name": "pikachu"
   },
   {
-    "name": "raichu"
+    "name": "raichu",
+    "tier": 3
   },
   {
     "name": "raichu_alola",
