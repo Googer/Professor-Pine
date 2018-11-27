@@ -184,7 +184,7 @@ class Helper {
     let isModOrAdmin = this.isManagement(message);
     let isBotMod = false; 
     if (message.channel.type !== 'dm') {
-      const botModRole = this.getRole(message.guild, 'bot-developer'),
+      const botModRole = this.getRole(message.guild, 'bot developer'),
             botRoleId = botModRole ?
               botModRole.id : 
               -1;

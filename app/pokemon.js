@@ -76,6 +76,21 @@ class Pokemon extends Search {
       }
     });
 
+    let updatedPokemon = await DB.DB('Pokemon').select();
+
+    updatedPokemon.forEach(poke => {
+      let pokeDataIndex = mergedPokemon.findIndex(p => poke.name === p.name);
+
+      if (pokeDataIndex !== -1) {
+        if (!!poke.tier) {
+          mergedPokemon[pokeDataIndex].tier = poke.tier;
+        }
+
+        if (!!poke.exclusive) {
+          mergedPokemon[pokeDataIndex].exclusive = !!poke.exclusive;
+        }
+      }
+    });
     this.pokemon = mergedPokemon;
 
     this.index = lunr(function () {
@@ -88,30 +103,12 @@ class Pokemon extends Search {
       mergedPokemon.forEach(pokemon => {
         const pokemonDocument = Object.create(null);
 
-        let updatedTier = await DB.DB('Pokemon')
-                                  .where('name', pokemon.name)
-                                  .pluck('tier')
-                                  .first();
-        
-        let updatedExclusive = await DB.DB('Pokemon')
-                                       .where('name', pokemon.name)
-                                       .pluck('exclusive')
-                                       .first();
-        
-        if (!!updatedTier) {
-          pokemon.tier = updatedTier;
-        }
-        
-        if (!!updatedExclusive) {
-          pokemon.exclusive = updatedExclusive;
-        }
-        
         pokemonDocument['object'] = JSON.stringify(pokemon);
         pokemonDocument['name'] = pokemon.name;
         pokemonDocument['nickname'] = (pokemon.nickname) ? pokemon.nickname.join(' ') : '';
         pokemonDocument['tier'] = pokemon.tier;
         pokemonDocument['bossCP'] = pokemon.bossCP;
-        
+
         this.add(pokemonDocument);
       }, this);
     });
@@ -207,23 +204,19 @@ class Pokemon extends Search {
 
   addRaidBoss(pokemon, tier) {
     let updateObject = {};
-    
+
     if (tier === 'ex') {
-      updateObject.exclusive = true; 
+      updateObject.exclusive = true;
     }
-    
+
     if (tier === 'unset-ex') {
       updateObject.exclusive = false;
     }
-    
+
     if (['0', '1', '2', '3', '4', '5'].indexOf(tier) !== -1) {
       updateObject.tier = tier;
     }
-    
-    if (Object.keys(updateObject).length === 0) {
-      return;
-    }
-    
+
     return DB.insertIfAbsent('Pokemon', Object.assign({},
       {
         name: pokemon
@@ -233,7 +226,7 @@ class Pokemon extends Search {
         .update(updateObject))
       .catch(err => log.error(err));
   }
-  
+
   static calculateWeaknesses(pokemonTypes) {
     if (!pokemonTypes) {
       return [];

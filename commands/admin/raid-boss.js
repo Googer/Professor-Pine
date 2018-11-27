@@ -15,7 +15,7 @@ class AddRaidBossCommand extends Commando.Command {
       memberName: 'raid-boss',
       description: 'Adds a new raid boss.',
       examples: ['\t!raid-boss magnemite 1'],
-      arguments: [
+      args: [
         {
           key: 'pokemon',
           prompt: 'What pokémon are you adding?\nExample: `lugia`\n',
@@ -43,13 +43,13 @@ class AddRaidBossCommand extends Commando.Command {
 
   async run(message, args) {
     const pokemon = args['pokemon'],
-          tier = args['tier'];
-    
-    Pokemon.addRaidBoss(pokemon, tier)
-           .then(result => {
-              message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍');
-              Pokemon.buildIndex();
-           }).catch(err => log.error(err));
+      tier = args['tier'];
+
+    Pokemon.addRaidBoss(pokemon.name, tier)
+      .then(result => {
+        message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍');
+        Pokemon.buildIndex();
+      }).catch(err => log.error(err));
   }
 }
 
