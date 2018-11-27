@@ -4,7 +4,7 @@ const log = require('loglevel').getLogger('AddRaidBossCommand'),
   Commando = require('discord.js-commando'),
   {CommandGroup} = require('../../app/constants'),
   Helper = require('../../app/helper'),
-  Pokemon = requier ('../../app/pokemon'),
+  Pokemon = require('../../app/pokemon'),
   settings = require('../../data/settings');
 
 class AddRaidBossCommand extends Commando.Command {
