@@ -88,20 +88,29 @@ class Pokemon extends Search {
       mergedPokemon.forEach(pokemon => {
         const pokemonDocument = Object.create(null);
 
-        pokemonDocument['object'] = JSON.stringify(pokemon);
-        pokemonDocument['name'] = pokemon.name;
-        pokemonDocument['nickname'] = (pokemon.nickname) ? pokemon.nickname.join(' ') : '';
-        pokemonDocument['tier'] = pokemon.tier;
-        pokemonDocument['bossCP'] = pokemon.bossCP;
-
         let updatedTier = await DB.DB('Pokemon')
                                   .where('name', pokemon.name)
                                   .pluck('tier')
                                   .first();
         
+        let updatedExclusive = await DB.DB('Pokemon')
+                                       .where('name', pokemon.name)
+                                       .pluck('exclusive')
+                                       .first();
+        
         if (!!updatedTier) {
-          pokemonDocument.tier = updatedTier;
+          pokemon.tier = updatedTier;
         }
+        
+        if (!!updatedExclusive) {
+          pokemon.exclusive = updatedExclusive;
+        }
+        
+        pokemonDocument['object'] = JSON.stringify(pokemon);
+        pokemonDocument['name'] = pokemon.name;
+        pokemonDocument['nickname'] = (pokemon.nickname) ? pokemon.nickname.join(' ') : '';
+        pokemonDocument['tier'] = pokemon.tier;
+        pokemonDocument['bossCP'] = pokemon.bossCP;
         
         this.add(pokemonDocument);
       }, this);
