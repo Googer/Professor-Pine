@@ -5,9 +5,11 @@ exports.up = function (knex, Promise) {
         .primary();
 
       table.integer('tier')
-        .unsigned();
+        .unsigned()
+        .defaultTo(0);
       
       table.boolean('exclusive')
+           .defaultTo(false);
     })
   ])
 };
