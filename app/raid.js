@@ -696,25 +696,65 @@ class Raid extends Party {
       embed.setThumbnail(pokemonUrl);
     }
 
+    let pokemonDataTitle = null;
+    let pokemonDataContent = '';
+    
     if (this.pokemon.weakness && this.pokemon.weakness.length > 0) {
-      embed.addField('**Weaknesses**', this.pokemon.weakness
+      pokemonDataTitle = '**Weaknesses**';
+      pokemonDataContent += this.pokemon.weakness
         .map(weakness => Helper.getEmoji(weakness.type).toString() +
           (weakness.multiplier > 1.5 ?
             'x2 ' :
             ''))
-        .join(''));
+        .join('');
+      
+      /*embed.addField('**Weaknesses**', this.pokemon.weakness
+        .map(weakness => Helper.getEmoji(weakness.type).toString() +
+          (weakness.multiplier > 1.5 ?
+            'x2 ' :
+            ''))
+        .join(''));*/
     }
 
     if (pokemonCPString) {
-      embed.addField('**Catch CP Ranges**', pokemonCPString);
+      if (pokemonDataTitle === null) {
+        pokemonDataTitle = '**Catch CP Ranges**';
+      } else {
+        pokemonDataContent += '\n\n';
+        pokemonDataContent += '**Catch CP Ranges** \n';
+      }
+      
+      pokemonDataContent += pokemonCPString;
+      
+      // embed.addField('**Catch CP Ranges**', pokemonCPString);
     }
 
     if (pokemonQuickMove !== '????' || (pokemonQuickMove === '????' && settings.showUnknownMoves)) {
-      embed.addField('**Quick Move**', pokemonQuickMove);
+      if (pokemonDataTitle === null) {
+        pokemonDataTitle = '**Quick Move**';
+      } else {
+        pokemonDataContent += '\n\n';
+        pokemonDataContent += '**Quick Move** \n';
+      }
+      
+      pokemonDataContent += pokemonQuickMove;
+      // embed.addField('**Quick Move**', pokemonQuickMove);
     }
 
     if (pokemonCinematicMove !== '????' || (pokemonCinematicMove === '????' && settings.showUnknownMoves)) {
-      embed.addField('**Charge Move**', pokemonCinematicMove);
+      if (pokemonDataTitle === null) {
+        pokemonDataTitle = '**Charge Move**';
+      } else {
+        pokemonDataContent += '\n\n';
+        pokemonDataContent += '**Charge Move** \n';
+      }
+      
+      pokemonDataContent += pokemonCinematicMove;
+      // embed.addField('**Charge Move**', pokemonCinematicMove);
+    }
+    
+    if (pokemonDataTitle !== null) {
+      embed.addField(pokemonDataTitle, pokemonDataContent); 
     }
 
     embed.setFooter(endTime + raidReporter,
