@@ -125,7 +125,8 @@ Client.registry.registerCommands([
 
   require('./commands/raids/submit-request'),
 
-  require('./commands/util/help')
+  require('./commands/util/help'),
+  require('./commands/admin/raid-boss')
 ]);
 
 if (privateSettings.regionMapLink !== '') {
