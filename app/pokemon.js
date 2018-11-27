@@ -2,6 +2,7 @@
 
 const log = require('loglevel').getLogger('PokemonSearch'),
   lunr = require('lunr'),
+  DB = require('./db'),
   GameMaster = require('pokemongo-game-master'),
   removeDiacritics = require('diacritics').remove,
   Search = require('./search'),
@@ -75,6 +76,21 @@ class Pokemon extends Search {
       }
     });
 
+    let updatedPokemon = await DB.DB('Pokemon').select();
+
+    updatedPokemon.forEach(poke => {
+      let pokeDataIndex = mergedPokemon.findIndex(p => poke.name === p.name);
+
+      if (pokeDataIndex !== -1) {
+        if (!!poke.tier) {
+          mergedPokemon[pokeDataIndex].tier = poke.tier;
+        }
+
+        if (!!poke.exclusive) {
+          mergedPokemon[pokeDataIndex].exclusive = !!poke.exclusive;
+        }
+      }
+    });
     this.pokemon = mergedPokemon;
 
     this.index = lunr(function () {
@@ -184,6 +200,31 @@ class Pokemon extends Search {
     }
 
     return results;
+  }
+
+  addRaidBoss(pokemon, tier) {
+    let updateObject = {};
+
+    if (tier === 'ex') {
+      updateObject.exclusive = true;
+    }
+
+    if (tier === 'unset-ex') {
+      updateObject.exclusive = false;
+    }
+
+    if (['0', '1', '2', '3', '4', '5'].indexOf(tier) !== -1) {
+      updateObject.tier = tier;
+    }
+
+    return DB.insertIfAbsent('Pokemon', Object.assign({},
+      {
+        name: pokemon
+      }))
+      .then(pokemonId => DB.DB('Pokemon')
+        .where('id', pokemonId)
+        .update(updateObject))
+      .catch(err => log.error(err));
   }
 
   static calculateWeaknesses(pokemonTypes) {

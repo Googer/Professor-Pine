@@ -179,6 +179,21 @@ class Helper {
     }
     return isModOrAdmin || this.client.isOwner(message.author);
   }
+  
+  isBotManagement(message) {
+    let isModOrAdmin = this.isManagement(message);
+    let isBotMod = false; 
+    if (message.channel.type !== 'dm') {
+      const botModRole = this.getRole(message.guild, 'bot developer'),
+            botRoleId = botModRole ?
+              botModRole.id : 
+              -1;
+      
+      isBotMod = message.member.roles.has(botRoleId);
+    }
+    
+    return isModOrAdmin || isBotMod || this.client.isOwner(message.author);
+  }
 
   isBotChannel(message) {
     if (message.channel.type === 'dm') {

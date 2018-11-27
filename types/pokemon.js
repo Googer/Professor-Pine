@@ -27,7 +27,7 @@ class PokemonType extends Commando.ArgumentType {
     const validPokemon = pokemon
       .find(pokemon => pokemon.exclusive || pokemon.tier);
 
-    if (!validPokemon) {
+    if (!validPokemon && message.command.name !== 'raid-boss') {
       const name = pokemon[0].name ?
         `"${pokemon[0].name.charAt(0).toUpperCase()}${pokemon[0].name.slice(1)}"` :
         'Pokémon';
@@ -49,8 +49,14 @@ class PokemonType extends Commando.ArgumentType {
       .map(term => term.match(/(?:<:)?([\w*]+)(?::[0-9]+>)?/)[1])
       .map(term => term.toLowerCase());
 
-    const pokemon = Pokemon.search(terms)
-      .find(pokemon => pokemon.exclusive || pokemon.tier);
+    let pokemon;
+
+    if (message.command.name !== 'raid-boss') {
+      pokemon = Pokemon.search(terms)
+        .find(pokemon => pokemon.exclusive || pokemon.tier);
+    } else {
+      pokemon = Pokemon.search(terms)[0];
+    }
 
     message.isExclusive = !!pokemon.exclusive;
 
