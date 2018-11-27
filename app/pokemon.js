@@ -2,6 +2,7 @@
 
 const log = require('loglevel').getLogger('PokemonSearch'),
   lunr = require('lunr'),
+  DB = require('./db'),
   GameMaster = require('pokemongo-game-master'),
   removeDiacritics = require('diacritics').remove,
   Search = require('./search'),
@@ -93,6 +94,15 @@ class Pokemon extends Search {
         pokemonDocument['tier'] = pokemon.tier;
         pokemonDocument['bossCP'] = pokemon.bossCP;
 
+        let updatedTier = await DB.DB('Pokemon')
+                                  .where('name', pokemon.name)
+                                  .pluck('tier')
+                                  .first();
+        
+        if (!!updatedTier) {
+          pokemonDocument.tier = updatedTier;
+        }
+        
         this.add(pokemonDocument);
       }, this);
     });
