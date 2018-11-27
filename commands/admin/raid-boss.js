@@ -4,7 +4,7 @@ const log = require('loglevel').getLogger('AddRaidBossCommand'),
   Commando = require('discord.js-commando'),
   {CommandGroup} = require('../../app/constants'),
   Helper = require('../../app/helper'),
-  Role = require('../../app/role'),
+  Pokemon = requier ('../../app/pokemon'),
   settings = require('../../data/settings');
 
 class AddRaidBossCommand extends Commando.Command {
@@ -42,7 +42,12 @@ class AddRaidBossCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    // add to db.
+    const pokemon = args['pokemon'],
+          tier = args['tier'];
+    
+    Pokemon.addRaidBoss(pokemon, tier)
+           .then(result => message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍'))
+           .catch(err => log.error(err));
   }
 }
 
