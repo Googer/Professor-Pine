@@ -6,6 +6,8 @@ exports.up = function (knex, Promise) {
 
       table.integer('tier')
         .unsigned();
+      
+      table.boolean('exclusive')
     })
   ])
 };
