@@ -1,8 +1,11 @@
 exports.up = function (knex, Promise) {
   return Promise.all([
     knex.schema.createTable('Pokemon', table => {
-      table.string('name', 100)
+      table.increments('id')
         .primary();
+      
+      table.string('name', 100)
+        .unique();
 
       table.integer('tier')
         .unsigned()
