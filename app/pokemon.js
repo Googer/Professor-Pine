@@ -205,6 +205,31 @@ class Pokemon extends Search {
     return results;
   }
 
+  addRaidBoss(pokemon, tier) {
+    let updateObject = {};
+    
+    if (tier === 'ex') {
+      updateObject.exclusive = true; 
+    }
+    
+    if (['1', '2', '3', '4', '5'].indexOf(tier) !== -1) {
+      updateObject.tier = tier;
+    }
+    
+    if (Object.keys(updateObject).length === 0) {
+      return;
+    }
+    
+    return DB.insertIfAbsent('Pokemon', Object.assign({},
+      {
+        name: pokemon
+      }))
+      .then(pokemonId => DB.DB('Pokemon')
+        .where('id', pokemonId)
+        .update(updateObject))
+      .catch(err => log.error(err));
+  }
+  
   static calculateWeaknesses(pokemonTypes) {
     if (!pokemonTypes) {
       return [];
