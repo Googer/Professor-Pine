@@ -212,7 +212,11 @@ class Pokemon extends Search {
       updateObject.exclusive = true; 
     }
     
-    if (['1', '2', '3', '4', '5'].indexOf(tier) !== -1) {
+    if (tier === 'unset-ex') {
+      updateObject.exclusive = false;
+    }
+    
+    if (['0', '1', '2', '3', '4', '5'].indexOf(tier) !== -1) {
       updateObject.tier = tier;
     }
     
