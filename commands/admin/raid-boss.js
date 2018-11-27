@@ -46,8 +46,10 @@ class AddRaidBossCommand extends Commando.Command {
           tier = args['tier'];
     
     Pokemon.addRaidBoss(pokemon, tier)
-           .then(result => message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍'))
-           .catch(err => log.error(err));
+           .then(result => {
+              message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍');
+              Pokemon.buildIndex();
+           }).catch(err => log.error(err));
   }
 }
 
