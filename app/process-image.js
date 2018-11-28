@@ -13,7 +13,7 @@ const log = require('loglevel').getLogger('ImageProcessor'),
   settings = require('../data/settings'),
   Status = require('./status'),
   tesseract = require('tesseract.js'),
-  {PartyStatus, PartyType, TimeParameter} = require('./constants'),
+  {PartyStatus, TimeParameter} = require('./constants'),
   uuidv1 = require('uuid/v1'),
   Utility = require('./utility');
 
