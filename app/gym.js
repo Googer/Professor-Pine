@@ -6,6 +6,18 @@ const log = require('loglevel').getLogger('GymSearch'),
   removeDiacritics = require('diacritics').remove,
   Search = require('./search');
 
+//This will serve as the object that contains gym indexes for each region
+//Since lunr indexes are immutable, and it would be terribly inefficient to rebuild an index for all gyms in the server on every change
+//Instead we will create individual indexes based on region - which will reindex only affected regions whenever a change is made
+class GymCache {
+    constructor() {
+        this.regions = Object.create(null);
+    }
+
+    rebuildRegion(region) {
+    }
+}
+
 class Gym extends Search {
   constructor() {
     super();

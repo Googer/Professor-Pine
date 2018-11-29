@@ -44,6 +44,8 @@ NodeCleanup((exitCode, signal) => {
 Client.registry.registerDefaultTypes();
 Client.registry.registerTypesIn(__dirname + '/types');
 
+Client.registry.registerGroup('region', 'Region setting');
+
 if (settings.features.roles) {
   Client.registry.registerGroup(CommandGroup.ADMIN, 'Administration');
 }
@@ -70,6 +72,7 @@ if (settings.features.roles) {
     require('./commands/admin/rsar'),
     require('./commands/admin/lsar'),
     require('./commands/admin/aar'),
+    require('./commands/admin/importregions'),
 
     require('./commands/roles/iam'),
     require('./commands/roles/iamnot'),
@@ -92,6 +95,9 @@ if (settings.features.notifications) {
 
 Client.registry.registerCommands([
   require('./commands/notifications/mention'),
+
+  require('./commands/regions/bounds'),
+  require('./commands/regions/setregion'),
 
   require('./commands/raids/join'),
   require('./commands/raids/interested'),
