@@ -1616,7 +1616,8 @@
     "name": "ambipom"
   },
   {
-    "name": "drifloon"
+    "name": "drifloon",
+    "tier": 1
   },
   {
     "name": "drifblim"

@@ -50,8 +50,23 @@ class Pokemon extends Search {
               item.pokemonSettings.form.split('_')[1].toLowerCase() :
               'normal'
           })),
+      updatedPokemon = await DB.DB('Pokemon').select(),
       mergedPokemon = pokemonMetadata
         .map(poke => Object.assign({}, poke, pokemon.find(p => p.name === poke.name)));
+
+    updatedPokemon.forEach(poke => {
+      let pokeDataIndex = mergedPokemon.findIndex(p => poke.name === p.name);
+
+      if (pokeDataIndex !== -1) {
+        if (!!poke.tier) {
+          mergedPokemon[pokeDataIndex].tier = poke.tier;
+        }
+
+        if (!!poke.exclusive) {
+          mergedPokemon[pokeDataIndex].exclusive = !!poke.exclusive;
+        }
+      }
+    });
 
     mergedPokemon.forEach(poke => {
       const alternateForm = alternateForms
@@ -76,21 +91,6 @@ class Pokemon extends Search {
       }
     });
 
-    let updatedPokemon = await DB.DB('Pokemon').select();
-
-    updatedPokemon.forEach(poke => {
-      let pokeDataIndex = mergedPokemon.findIndex(p => poke.name === p.name);
-
-      if (pokeDataIndex !== -1) {
-        if (!!poke.tier) {
-          mergedPokemon[pokeDataIndex].tier = poke.tier;
-        }
-
-        if (!!poke.exclusive) {
-          mergedPokemon[pokeDataIndex].exclusive = !!poke.exclusive;
-        }
-      }
-    });
     this.pokemon = mergedPokemon;
 
     this.index = lunr(function () {
