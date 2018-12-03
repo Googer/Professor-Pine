@@ -208,6 +208,10 @@ class Helper {
         guild.channels.modBotLab.id :
         -1;
 
+    if(message.channel.name === "mod-bot-lab") {
+      return true;
+    }
+
     return message.channel.id === botLabChannelId || message.channel.id === modBotLabChannelId;
   }
 

@@ -4,50 +4,131 @@ const log = require('loglevel').getLogger('GymSearch'),
   lunr = require('lunr'),
   he = require('he'),
   removeDiacritics = require('diacritics').remove,
-  Search = require('./search');
+  Search = require('./search'),
+  Region = require('./region');
 
 //This will serve as the object that contains gym indexes for each region
 //Since lunr indexes are immutable, and it would be terribly inefficient to rebuild an index for all gyms in the server on every change
 //Instead we will create individual indexes based on region - which will reindex only affected regions whenever a change is made
 class GymCache {
     constructor() {
-        this.regions = Object.create(null);
+      (async () => {
+        await this.buildIndexes();
+      })();
     }
 
-    rebuildRegion(region) {
+    async buildIndexes() {
+
+      log.info('Beginning indexing of all channels');
+      this.channels = Object.create(null);
+      this.indexing = true;
+
+      let channels = await Region.getAllBoundedChannels();
+
+      var channelsProcessed = 0;
+      for(const channel of channels) {
+
+        console.log("channel: " + channel["channel_id"])
+        await this.rebuildRegion(channel["channel_id"]);
+        channelsProcessed++;
+        if(channelsProcessed == channels.length) {
+          this.indexing = false;
+          log.info('Indexing of all channels completed!');
+        }
+
+      }
+    }
+
+    async rebuildRegion(channel) {
+      const channels = this.channels;
+      return new Promise(async function(resolve,reject) {
+        //Get the polygon of the defined region assigned to this channel
+        let region = channel ? await Region.getRegionsRaw(channel).catch(error => null) : null;
+
+        //Expand the polygon of this region outwards to include bordering gyms
+        let regionObject = region ? Region.getCoordRegionFromText(region) : null;
+        var expanded = region ? Region.enlargePolygonFromRegion(regionObject) : null;
+        var expandedRegion = region ? Region.polygonStringFromRegion(expanded) : null;
+
+        //Get gyms inside the enclosed polygon
+        let expandedGyms = await Region.getGyms(expandedRegion);
+        if(!!expandedGyms) {
+
+          //Create lunr search index for this channel and add it to the cache
+          let index = new Gym(expandedGyms);
+          channels[channel] = index;
+
+          resolve(true)
+        } else {
+          reject(false)
+        }
+      })
+    }
+
+    //Handle incoming searchs and pass them to the proper search index based on channel
+    async search(channel, terms, nameOnly) {
+      if(channel == null) {
+        if(this.global) {
+          return this.global.search(terms,nameOnly)
+        } else {
+          return false;
+        }
+      } else {
+        if(!!this.channels[channel]) {
+          return this.channels[channel].search(terms,nameOnly);
+        } else {
+          return false;
+        }
+      }
+    }
+
+    isValidChannel(channel) {
+      return !!this.channels[channel.toString()];
+    }
+
+    getGym(gymId) {
+      for(var key in this.channels) {
+        let cache = this.channels[key]
+        if(cache.getGym(gymId) != false) {
+          return cache.getGym(gymId)
+        }
+      }
+      return null;
     }
 }
 
 class Gym extends Search {
-  constructor() {
+  constructor(gyms) {
     super();
+    this.gyms = gyms;
+    this.buildIndex()
   }
 
   buildIndex() {
+
+    if(!this.gyms) {
+      return;
+    }
+
     log.info('Splicing gym metadata and indexing gym data...');
 
-    const gymsBase = require('PgP-Data/data/gyms'),
-      gymsMetadata = require('PgP-Data/data/gyms-metadata'),
-      mergedGyms = gymsBase
-        .map(gym => Object.assign({}, gym, gymsMetadata[gym.gymId])),
-      stopwordFilter = this.stopWordFilter;
+    const stopwordFilter = this.stopWordFilter;
 
     lunr.Pipeline.registerFunction(stopwordFilter, 'customStopwords');
 
-    this.gyms = new Map(mergedGyms
-      .map(gym => [gym.gymId, gym]));
-
-    this.regionMap = require('PgP-Data/data/region-map');
-    this.regionGraph = require('PgP-Data/data/region-graph');
+    const gyms = this.gyms;
 
     this.index = lunr(function () {
       // reference will be the entire gym object so we can grab whatever we need from it (GPS coordinates, name, etc.)
       this.ref('object');
 
       // static fields for gym name, nickname, and description
+      this.field('id');
       this.field('name');
       this.field('nickname');
       this.field('description');
+      this.field('keywords');
+      this.field('notice');
 
       // fields from geocoding data, can add more if / when needed
       this.field('intersection');
@@ -66,65 +147,55 @@ class Gym extends Search {
       // field for places
       this.field('places');
 
-      // field from supplementary metadata
-      this.field('additionalTerms');
-
       // replace default stop word filter with custom one
       this.pipeline.remove(lunr.stopWordFilter);
       this.pipeline.after(lunr.trimmer, stopwordFilter);
 
-      mergedGyms.forEach(gym => {
+      gyms.forEach(gym => {
         // Gym document is a object with its reference and fields to collection of values
         const gymDocument = Object.create(null);
 
-        gym.gymName = he.decode(gym.gymName);
-        gym.gymInfo.gymDescription = he.decode(gym.gymInfo.gymDescription);
+        gymDocument["id"] = gym.id;
+
+        gym.name = he.decode(gym.name);
+        if(gym.description) {
+          gym.description = he.decode(gym.description);
+        } else {
+          gym.description = "";
+        }
 
         // static fields
-        gymDocument['name'] = removeDiacritics(gym.gymName).replace(/[^\w\s-]+/g, '');
-        gymDocument['description'] = removeDiacritics(gym.gymInfo.gymDescription).replace(/[^\w\s-]+/g, '');
+        gymDocument['name'] = removeDiacritics(gym.name).replace(/[^\w\s-]+/g, '');
+        gymDocument['description'] = removeDiacritics(gym.description).replace(/[^\w\s-]+/g, '');
 
         if (gym.nickname) {
           gym.nickname = he.decode(gym.nickname);
           gymDocument['nickname'] = removeDiacritics(gym.nickname).replace(/[^\w\s-]+/g, '');
         }
 
+        // keywords (formerly additionalTerms)
+        if (gym.keywords) {
+          gymDocument['keywords'] = removeDiacritics(gym.keywords);
+        }
+
         // Build a map of the geocoded information:
         //   key is the address component's type
         //   value is a set of that type's values across all address components
         const addressInfo = new Map();
-        if (!gym.gymInfo.addressComponents) {
-          log.warn('Gym "' + gym.gymName + '" has no geocode information!');
+        if (!gym.geodata) {
+          console.error('Gym "' + gym.name + '" has no geocode information!');
         } else {
-          gym.gymInfo.addressComponents.forEach(addressComponent => {
-            addressComponent.addressComponents.forEach(addComp => {
-              addComp.types.forEach(type => {
-                const typeKey = type.toLowerCase();
-                let values = addressInfo.get(typeKey);
+          var geo = JSON.parse(gym.geodata);
+          var addressComponents = geo["addressComponents"];
+          var places = geo["places"];
 
-                if (!values) {
-                  values = new Set();
-                  addressInfo.set(typeKey, values);
-                }
-                values.add(addComp.shortName);
-              });
-            });
-          });
-        }
+          for (const [key, value] of Object.entries(addressComponents)) {
+              gymDocument[key] = removeDiacritics(Array.from(value).join(' '));;
+          }
 
-        // Insert geocoded map info into map
-        addressInfo.forEach((value, key) => {
-          gymDocument[key] = removeDiacritics(Array.from(value).join(' '));
-        });
-
-        // Add places into library
-        if (gym.gymInfo.places) {
-          gymDocument['places'] = removeDiacritics(he.decode(gym.gymInfo.places.join(' ')));
-        }
-
-        // merge in additional info from supplementary metadata file
-        if (gym.additionalTerms) {
-          gymDocument['additionalTerms'] = removeDiacritics(gym.additionalTerms);
+          if(places) {
+              gymDocument["places"] = removeDiacritics(he.decode(places.join(' ')));
+          }
         }
 
         // reference
@@ -135,17 +206,10 @@ class Gym extends Search {
       }, this);
     });
 
-    this.gymMap = Object.create(null);
-
-    Object.entries(this.regionMap)
-      .forEach(([region, gyms]) => {
-        gyms.forEach(gym => this.gymMap[gym] = region);
-      });
-
     log.info('Indexing gym data complete');
   }
 
-  internalSearch(channelNames, terms, fields) {
+  internalSearch(terms, fields) {
     // lunr does an OR of its search terms and we really want AND, so we'll get there by doing individual searches
     // on everything and getting the intersection of the hits
 
@@ -199,61 +263,51 @@ class Gym extends Search {
       .map(result => JSON.parse(result.ref))
       .map(gym => {
         const result = Object.create(null);
-        result.channelName = this.gymMap[gym.gymId];
         result.gym = gym;
 
         return result;
-      })
-      .filter(({channelName, gym}) => channelNames.indexOf(channelName) >= 0);
+      });
   }
 
-  channelSearch(channelNames, terms, nameOnly) {
+  channelSearch(terms, nameOnly) {
     let results;
 
     if (nameOnly) {
-      results = this.internalSearch(channelNames, terms, ['name']);
+      results = this.internalSearch(terms, ['name']);
     } else {
       // First try against name/nickname only
-      results = this.internalSearch(channelNames, terms, ['name', 'nickname']);
+      results = this.internalSearch(terms, ['name', 'nickname']);
 
       if (results.length === 0) {
-        // That didn't return anything, so now try the with description & additional terms as well
-        results = this.internalSearch(channelNames, terms, ['name', 'nickname', 'description', 'additionalTerms']);
+        // That didn't return anything, so now try the with description & keywords as well
+        results = this.internalSearch(terms, ['name', 'nickname', 'description', 'keywords']);
       }
 
       if (results.length === 0) {
         // That still didn't return anything, so now try with all fields
-        results = this.internalSearch(channelNames, terms);
+        results = this.internalSearch(terms);
       }
     }
 
     return results;
   }
 
-  async search(channelName, terms, nameOnly) {
-    let results = this.channelSearch([channelName], terms, nameOnly);
-
-    if (results.length === 0) {
-      results = this.channelSearch(this.regionGraph[channelName], terms, nameOnly);
-    }
+  async search(terms, nameOnly) {
+    let results = this.channelSearch(terms, nameOnly);
 
     return results;
   }
 
-  isValidChannel(channelName) {
-    return !!this.regionMap[channelName];
-  }
-
   getGym(gymId) {
-    return this.gyms.get(gymId);
-  }
+    for(var i=0; i<this.gyms.length; i++) {
+      let gym = this.gyms[i];
+      if(gym.id == gymId) {
+        return gym;
+      }
+    }
 
-  filterRegions(gymIds) {
-    return Object.entries(this.regionMap)
-      .map(([region, gyms]) => [region, gymIds.filter(x => gyms.includes(x))])
-      .filter(([region, gyms]) => gyms.length > 0)
-      .sort(([regionA, gymsA], [regionB, gymsB]) => regionA.localeCompare(regionB));
+    return false;
   }
 }
 
-module.exports = new Gym();
+module.exports = new GymCache();

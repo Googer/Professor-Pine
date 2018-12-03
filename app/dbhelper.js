@@ -13,7 +13,9 @@ class DBHelper {
 			user: private_settings.db.user,
 			password: private_settings.db.password,
 			database: private_settings.db.schema,
-			multipleStatements: true
+			multipleStatements: true,
+			supportBigNumbers: true,
+ 			bigNumberStrings: true
 		});
 		return sql;
 	}

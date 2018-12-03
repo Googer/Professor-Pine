@@ -43,7 +43,7 @@ class FavoriteCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'target' &&
         !PartyManager.validParty(message.channel.id, [PartyType.RAID]) &&
-        !Gym.isValidChannel(message.channel.name)) {
+        !Gym.isValidChannel(message.channel.id)) {
         return ['invalid-channel', message.reply(Helper.getText('favorite.warning', message))];
       }
       return false;

@@ -3,7 +3,7 @@
 const private_settings = require('../data/private-settings'),
 	dbhelper = require('./dbhelper'),
 	googleMaps = require('@google/maps').createClient({
-  key: private_settings.google_api_key
+  key: private_settings.googleApiKey
 });
 
 function getDistanceFromLatLonInKm(lat1,lon1,lat2,lon2) {

@@ -638,8 +638,8 @@ class Raid extends Party {
       gym = Gym.getGym(this.gymId),
       gymName = !!gym.nickname ?
         gym.nickname :
-        gym.gymName,
-      gymUrl = `https://www.google.com/maps/search/?api=1&query=${gym.gymInfo.latitude}%2C${gym.gymInfo.longitude}`,
+        gym.name,
+      gymUrl = `https://www.google.com/maps/search/?api=1&query=${gym.lat}%2C${gym.lon}`,
       attendeeEntries = Object.entries(this.attendees),
       totalAttendeeCount = attendeeEntries.length,
       attendeesWithMembers = (await Promise.all(attendeeEntries
@@ -846,7 +846,7 @@ class Raid extends Party {
       gym = Gym.getGym(this.gymId),
       gymName = (!!gym.nickname ?
         removeDiacritics(gym.nickname) :
-        removeDiacritics(gym.gymName))
+        removeDiacritics(gym.name))
         .toLowerCase()
         .replace(nonCharCleaner, ' ')
         .split(' ')

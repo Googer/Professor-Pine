@@ -206,8 +206,9 @@ class PartyManager {
 		Object.entries(this.parties)
       .filter(([channelId, party]) => party.type === PartyType.RAID)
 			.forEach(async function([channel_id, party]){
-				if(!that.gymIsCached(raid.gym_id)) {
-					const gym = await Region.getGym(raid.gym_id)
+				if(!that.gymIsCached(party.gymId)) {
+          console.log(party)
+					const gym = await Region.getGym(party.gymId)
 					that.gymCache.push(gym);
 				}
 			});

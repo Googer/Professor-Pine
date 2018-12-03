@@ -76,6 +76,9 @@ if (settings.features.roles) {
 
     require('./commands/roles/iam'),
     require('./commands/roles/iamnot'),
+
+    require('./commands/admin/gyms/addgym'),
+    require('./commands/admin/gyms/findgym'),
   ]);
 }
 

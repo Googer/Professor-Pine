@@ -267,8 +267,21 @@ class RegionHelper {
 		return new Promise(async function(resolve, reject) {
 			var results = await dbhelper.query("SELECT AsText(bounds) FROM Region WHERE channel_id = " + channel + ";").catch(error => reject(false));
 			if (results.length > 0 && results[0] != undefined) {
-				// console.log(results[0]["AsText(bounds)"]);
+				console.log(results[0]["AsText(bounds)"]);
 				resolve(results[0]["AsText(bounds)"]);
+			} else {
+				console.log(results)
+				reject(false);
+			}
+		});
+	}
+
+	async getChannelsForGym(gym) {
+		return new Promise(async function(resolve, reject) {
+			var q = "SELECT channel_id FROM Region WHERE ST_CONTAINS(bounds, POINT(" + gym.lat + ", " + gym.lon + "));";
+			var results = await dbhelper.query(q).catch(error => reject(false));
+			if (results.length > 0) {
+				resolve(results);
 			} else {
 				reject(false);
 			}
@@ -631,6 +644,17 @@ class RegionHelper {
 		});
 	}
 
+	async getAllBoundedChannels() {
+		return new Promise(async function(resolve,reject) {
+			var channels = await dbhelper.query("SELECT DISTINCT channel_id FROM Region" ).catch(error => {
+				reject(false)
+				return;
+			});
+
+			resolve(channels);
+		});
+	}
+
 	channelNameForFeature(feature) {
 		const name = feature.properties.name
 		return name.toLowerCase().split(" ").join("-").replace(/[^0-9\w\-]/g, '')
@@ -751,6 +775,8 @@ class RegionHelper {
                                     Meta.findPlacesNearGym(gym).then(final => {
                                         //Kick off all additional places updates in the background
                                         Meta.updatePlaces(gym_ids)
+
+																				console.log("FINAL: " + final.lat + ", " + final.lon)
                                         resolve(final)
                                     }).catch(error => {
                                         console.error(error)
@@ -904,7 +930,7 @@ class RegionHelper {
 			embed.addField("Keywords", gym.keywords);
 		}
 
-		if (gym.ex_raid || gym.sponsor > 0) {
+		if (gym.ex_raid || gym.ex_tag) {
 			var status = gym.ex_raid ? gym.ex_raid : "sponsored";
 			if (status === "sponsored" || status === "park") {
 				const type = (status === "sponsored") ? "sponsored" : "located in a park";
@@ -920,11 +946,16 @@ class RegionHelper {
 
         if(gym.geodata) {
             //Add Geocode Information
+						console.log(gym.geodata)
 
             var geoinfo = "";
             var geodata = JSON.parse(gym.geodata);
+
+						console.log("PARSED: " + geodata)
             var addressComponents = geodata["addressComponents"];
             for (const [key, value] of Object.entries(addressComponents)) {
+							console.log(key)
+							console.log(value)
                 geoinfo += "**" + key + "**: " + value + "\n";
             }
 
@@ -937,7 +968,6 @@ class RegionHelper {
                 embed.addBlankField(true);
             }
         }
-
 
 		var footer = "Gym #" + gym.id;
 		if (user) {
@@ -962,6 +992,21 @@ class RegionHelper {
 			} else {
 				console.log("error occurred???")
 				reject("No region defined for this channel");
+			}
+		});
+	}
+
+	async getAllGyms(region) {
+		return new Promise(async function(resolve, reject) {
+			const gym_query = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gym_id";
+			var results = await dbhelper.query(gym_query).catch(error => {
+				console.log(error);
+				return false
+			});
+			if (results && results.length > 0) {
+				resolve(results);
+			} else {
+				resolve([])
 			}
 		});
 	}
