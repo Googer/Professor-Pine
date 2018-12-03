@@ -1,13 +1,13 @@
 "use strict";
 
 const log = require('loglevel').getLogger('MovesetCommand'),
-    Commando = require('discord.js-commando'),
-    { CommandGroup } = require('../../app/constants'),
-    Helper = require('../../app/helper'),
-    PartyManager = require('../../app/party-manager'),
-    settings = require('../../data/settings');
+  Commando = require('discord.js-commando'),
+  { CommandGroup, PartyType } = require('../../app/constants'),
+  Helper = require('../../app/helper'),
+  PartyManager = require('../../app/party-manager'),
+  settings = require('../../data/settings');
 
-class SetMovesetCommand extends Command.command {
+class SetMovesetCommand extends Commando.Command {
   constructor(client) {
     super(client, {
       name: 'moveset',
@@ -29,11 +29,10 @@ class SetMovesetCommand extends Command.command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'moveset' &&
         !PartyManager.validParty(message.channel.id, [PartyType.RAID])) {
-          return ['invalid-channel', message.reply('Set the pokémon\'s moveset of a raid from its raid channel.')];
+        return ['invalid-channel', message.reply('Set the pokémon\'s moveset of a raid from its raid channel.')];
       }
+      return false;
     });
-
-    return false;
   }
 
   async run(message, args) {
