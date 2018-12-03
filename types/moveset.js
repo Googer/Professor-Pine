@@ -21,7 +21,7 @@ class MovesetType extends Commando.ArgumentType {
       return 'No raid boss set for the raid. Please set the raid boss prior to the moveset.';
     }
 
-    let moves = value.split('/');
+    let moves = value.split('/').map(move => move.trim());
     let quickFound = false;
     let quickFoundMove = '';
     let cinematicFound = false;
@@ -46,37 +46,49 @@ class MovesetType extends Commando.ArgumentType {
 
     let raidBossName = raidBoss.name.charAt(0).toUpperCase() + raidBoss.name.substr(1);
 
+    let errorMessage = '';
     if (moves.length === 1 && !quickFound && !cinematicFound) {
-      return moves[0] + ' is not a valid move for ' + raidBossName;
+      errorMessage = this.capitalizeMoveset(moves[0]) + ' is not a valid move for ' + raidBossName;
     }
 
     if (moves.length === 2 && !quickFound && !cinematicFound) {
-      return moves[0] + ' and ' + moves[1] + ' are not valid moves for ' + raidBossName;
+      errorMessage = this.capitalizeMoveset(moves[0]) + ' and ' + moves[1] + ' are not valid moves for ' + raidBossName;
     }
 
     if (moves.length === 2 && !quickFound) {
       if (moves[0] === cinematicFoundMove) {
-        return moves[1] + ' is not a valid move for ' + raidBossName;
+        errorMessage = this.capitalizeMoveset(moves[1]) + ' is not a valid move for ' + raidBossName;
       } else {
-        return moves[0] + ' is not a valid move for ' + raidBossName;
+        errorMessage = this.capitalizeMoveset(moves[0]) + ' is not a valid move for ' + raidBossName;
       }
     }
 
     if (moves.length === 2 && !cinematicFound) {
       if (moves[0] === quickFoundMove) {
-        return moves[1] + ' is not a valid move for ' + raidBossName;
+        errorMessage = this.capitalizeMoveset(moves[1]) + ' is not a valid move for ' + raidBossName;
       } else {
-        return moves[0] + ' is not a valid move for ' + raidBossName;
+        errorMessage = this.capitalizeMoveset(moves[0]) + ' is not a valid move for ' + raidBossName;
       }
+    }
+
+    if (errorMessage !== '') {
+      errorMessage += '\n\n' + arg.prompt + '\n';
+      return errorMessage;
     }
 
     return true;
   }
 
+  capitalizeMoveset(move) {
+    return move.split(' ').map(m => {
+      return m.charAt(0).toUpperCase() + m.substr(1);
+    }).join(' ');
+  }
+
   parse(value, message, arg) {
     let raid = PartyManager.parties[message.channel.id];
     let raidBoss = raid.pokemon;
-    let moves = value.split('/');
+    let moves = value.split('/').map(move => move.trim());
     let moveset = {
       'quick': null,
       'cinematic': null
