@@ -27,7 +27,9 @@ class PokemonType extends Commando.ArgumentType {
     const validPokemon = pokemon
       .find(pokemon => pokemon.exclusive || pokemon.tier);
 
-    if (!validPokemon && !!message.command && message.command.name !== 'raid-boss') {
+    let requireValidation = !message.command || (message.command && message.command.name !== 'raid-boss');
+        
+    if (!validPokemon && requireValidation) {
       const name = pokemon[0].name ?
         `"${pokemon[0].name.charAt(0).toUpperCase()}${pokemon[0].name.slice(1)}"` :
         'Pokémon';
