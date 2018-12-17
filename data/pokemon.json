@@ -131,8 +131,7 @@
     "name": "pikachu"
   },
   {
-    "name": "raichu",
-    "tier": 3
+    "name": "raichu"
   },
   {
     "name": "raichu_alola",
@@ -1783,25 +1782,32 @@
     "name": "rotom"
   },
   {
-    "name": "uxie"
+    "name": "uxie",
+    "tier": 5
   },
   {
-    "name": "mesprit"
+    "name": "mesprit",
+    "tier": 5
   },
   {
-    "name": "azelf"
+    "name": "azelf",
+    "tier": 5
   },
   {
-    "name": "dialga"
+    "name": "dialga",
+    "tier": 5
   },
   {
-    "name": "palkia"
+    "name": "palkia",
+    "tier": 5
   },
   {
-    "name": "heatran"
+    "name": "heatran",
+    "tier": 5
   },
   {
-    "name": "regigigas"
+    "name": "regigigas",
+    "tier": 5
   },
   {
     "name": "giratina_altered",

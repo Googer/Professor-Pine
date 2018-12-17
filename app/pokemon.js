@@ -238,11 +238,11 @@ class Pokemon extends Search {
 
         pokemonTypes.forEach(pokemonType => {
           if (chart.se.includes(pokemonType)) {
-            multiplier *= 1.400;
+            multiplier *= 1.600;
           } else if (chart.ne.includes(pokemonType)) {
-            multiplier *= 0.714;
+            multiplier *= 0.625;
           } else if (chart.im.includes(pokemonType)) {
-            multiplier *= 0.510;
+            multiplier *= 0.390625;
           }
         });
 
