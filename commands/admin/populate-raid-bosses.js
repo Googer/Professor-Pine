@@ -14,8 +14,7 @@ class PopulateRaidBossesCommand extends Commando.Command {
       group: CommandGroup.ADMIN,
       memberName: 'populate-raid-bosses',
       description: 'Populates the database with all the pre-defined raid bosses.',
-      examples: ['\t!populate-raid-boss'],
-      args: [],
+      examples: ['\t!populate-raid-bosses'],
       guildOnly: true
     });
 
@@ -31,19 +30,17 @@ class PopulateRaidBossesCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    const pokemonMetadata = require('../data/pokemon');
+    const pokemonMetadata = require('../../data/pokemon');
 
     pokemonMetadata.forEach(pokemon => {
-      if (pokemon.exclusive) {
+      console.log(pokemon);
+      if (pokemon.backupExclusive) {
         Pokemon.addRaidBoss(pokemon.name, 'ex')
           .then(result => {
-            Pokemon.addRaidBoss(pokemon.name, pokemon.tier)
-              .then(result => {
-                console.log('Added ' + pokemon.name);
-              }).catch(err => log.error(err));
+            console.log('Added ' + pokemon.name);
           }).catch(err => log.error(err));
-      } else if (pokemon.tier) {
-        Pokemon.addRaidBoss(pokemon.name, pokemon.tier)
+      } else if (pokemon.backupTier) {
+        Pokemon.addRaidBoss(pokemon.name, pokemon.backupTier + '')
           .then(result => {
             console.log('Added ' + pokemon.name);
           }).catch(err => log.error(err));

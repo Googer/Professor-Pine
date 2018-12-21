@@ -55,8 +55,15 @@ class Pokemon extends Search {
       mergedPokemon = pokemonMetadata
         .map(poke => {
           if (settings.databaseRaids) {
-            delete poke.tier;
-            delete poke.exclusive;
+            if (poke.tier) {
+              poke.backupTier = poke.tier;
+              delete poke.tier;
+            }
+
+            if (poke.exclusive) {
+              poke.backupExclusive = poke.exclusive;
+              delete poke.exclusive;
+            }
           }
 
           return Object.assign({}, poke, pokemon.find(p => p.name === poke.name))
@@ -214,6 +221,7 @@ class Pokemon extends Search {
     let updateObject = {};
 
     if (tier === 'ex') {
+      updateObject.tier = 5;
       updateObject.exclusive = true;
     }
 
@@ -224,6 +232,10 @@ class Pokemon extends Search {
     if (['0', '1', '2', '3', '4', '5'].indexOf(tier) !== -1) {
       updateObject.tier = tier;
     }
+
+    // if (Object.keys(updateObject).length === 0) {
+    //   console.log(pokemon, updateObject);
+    // }
 
     return DB.insertIfAbsent('Pokemon', Object.assign({},
       {
