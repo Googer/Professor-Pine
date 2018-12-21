@@ -7,6 +7,7 @@ const log = require('loglevel').getLogger('PokemonSearch'),
   removeDiacritics = require('diacritics').remove,
   Search = require('./search'),
   privateSettings = require('../data/private-settings'),
+  settings = require('../data/settings'),
   types = require('../data/types'),
   weather = require('../data/weather');
 
@@ -52,7 +53,14 @@ class Pokemon extends Search {
           })),
       updatedPokemon = await DB.DB('Pokemon').select(),
       mergedPokemon = pokemonMetadata
-        .map(poke => Object.assign({}, poke, pokemon.find(p => p.name === poke.name)));
+        .map(poke => {
+          if (settings.databaseRaids) {
+            delete poke.tier;
+            delete poke.exclusive;
+          }
+
+          return Object.assign({}, poke, pokemon.find(p => p.name === poke.name))
+        });
 
     updatedPokemon.forEach(poke => {
       let pokeDataIndex = mergedPokemon.findIndex(p => poke.name === p.name);
