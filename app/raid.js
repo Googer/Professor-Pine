@@ -888,7 +888,7 @@ class Raid extends Party {
       endTime = moment(this.endTime);
 
     if (this.hatchTime === '' || now < hatchTime || hatchTime.isSame(now)) {
-      type = 'tier ' + pokemon.tier;
+      type = 'egg ' + pokemon.tier;
     } else if (now >= endTime && pokemon.name === undefined) {
       type = 'expired ' + pokemon.tier;
     } else if (now >= endTime && pokemon.name !== undefined) {
