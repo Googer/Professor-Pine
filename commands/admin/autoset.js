@@ -45,7 +45,7 @@ class AutosetCommand extends Commando.Command {
     const pokemon = args['pokemon'],
       tier = args['tier'];
 
-    Pokemon.setDefaultTierBoss(pokemon.name, tier)
+    Pokemon.setDefaultTierBoss(pokemon.name || tier, tier)
       .then(result => {
         message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍');
       }).catch(err => log.error(err));
