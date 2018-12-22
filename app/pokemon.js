@@ -237,10 +237,6 @@ class Pokemon extends Search {
       updateObject.tier = tier;
     }
 
-    // if (Object.keys(updateObject).length === 0) {
-    //   console.log(pokemon, updateObject);
-    // }
-
     return DB.insertIfAbsent('Pokemon', Object.assign({},
       {
         name: pokemon

@@ -13,7 +13,7 @@ class AutosetCommand extends Commando.Command {
       name: 'auto-set',
       group: CommandGroup.ADMIN,
       memberName: 'auto-set',
-      description: 'Adds a new raid boss.',
+      description: 'Sets the default boss for a tier to be automatically set when reported.',
       examples: ['\t!auto-set magnemite 1'],
       args: [
         {
