@@ -14,8 +14,8 @@ class BossTierCommand extends Commando.Command {
       group: CommandGroup.UTIL,
       memberName: 'boss-tier',
       aliases: ['bosstier', 'boss-level'],
-      description: 'Changes the pokémon for an existing raid, usually to specify the actual raid boss for a now-hatched egg.',
-      details: 'Use this command to set the pokémon of a raid.',
+      description: 'Looks up the tier for a particular pokémon.',
+      details: 'Use this command to look up the tier for a specific pokémon.',
       examples: ['\t!boss-tier deoxys', '\t!boss-level mawile'],
       args: [
         {
