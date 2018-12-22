@@ -30,14 +30,14 @@ class PartyManager {
       Object.entries(this.parties)
         .filter(([channelId, party]) => party.type === PartyType.RAID)
         .forEach(async ([channelId, party]) => {
-          console.log(party.hatchTime, now, lastIntervalTime, now > party.hatchTime, party.hatchTime > lastIntervalTime)
           if ((party.hatchTime && now > party.hatchTime && party.hatchTime > lastIntervalTime) ||
             nowDay !== lastIntervalDay) {
             party.refreshStatusMessages()
               .catch(err => log.error(err));
           }
 
-          if (now > party.hatchTime && party.hatchTime > lastIntervalRunTime) {
+          if ((now > party.hatchTime && party.hatchTime > lastIntervalRunTime)
+              || (now > party.endTime && party.endTime > lastIntervalRunTime)) {
             const newChannelName = party.generateChannelName();
 
             await this.getChannel(party.channelId)
