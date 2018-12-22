@@ -27,6 +27,13 @@ class BossTierCommand extends Commando.Command {
       argsPromptLimit: 3,
       guildOnly: true
     });
+
+    client.dispatcher.addInhibitor(message => {
+      if (!!message.command && message.command.name === 'boss-tier' && !Helper.isBotChannel(message)) {
+        return ['invalid-channel', message.reply(Helper.getText('bosstier.warning', message))];
+      }
+      return false;
+    });
   }
 
   async run(message, args) {
