@@ -33,14 +33,13 @@ class PopulateRaidBossesCommand extends Commando.Command {
     const pokemonMetadata = require('../../data/pokemon');
 
     pokemonMetadata.forEach(pokemon => {
-      console.log(pokemon);
       if (pokemon.backupExclusive) {
-        Pokemon.addRaidBoss(pokemon.name, 'ex')
+        Pokemon.addRaidBoss(pokemon.name || 'ex', 'ex')
           .then(result => {
             console.log('Added ' + pokemon.name);
           }).catch(err => log.error(err));
       } else if (pokemon.backupTier) {
-        Pokemon.addRaidBoss(pokemon.name, pokemon.backupTier + '')
+        Pokemon.addRaidBoss(pokemon.name || pokemon.backupTier + '', pokemon.backupTier + '')
           .then(result => {
             console.log('Added ' + pokemon.name);
           }).catch(err => log.error(err));

@@ -7,6 +7,7 @@ const log = require('loglevel').getLogger('Raid'),
   {PartyStatus, PartyType} = require('./constants'),
   Discord = require('discord.js'),
   Helper = require('./helper'),
+  Pokemon = require('./pokemon'),
   Party = require('./party'),
   Status = require('./status'),
   Privacy = require('./privacy'),
@@ -34,6 +35,14 @@ class Raid extends Party {
       memberPrivacy = await Privacy.getPrivacyStatus(memberId);
 
     if (!raidExists) {
+      if (pokemon.name === undefined) {
+        let defaultBoss = await Pokemon.getDefaultTierBoss(pokemon.tier);
+
+        if (defaultBoss !== null) {
+          pokemon = defaultBoss;
+        }
+      }
+
       // add some extra raid data to remember
       raid.createdById = memberPrivacy ?
         -1 :

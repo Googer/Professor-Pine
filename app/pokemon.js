@@ -70,7 +70,9 @@ class Pokemon extends Search {
         });
 
     updatedPokemon.forEach(poke => {
-      let pokeDataIndex = mergedPokemon.findIndex(p => poke.name === p.name);
+      let isTier = ['1', '2', '3', '4', '5', 'ex'].indexOf(poke.name) !== -1;
+
+      let pokeDataIndex = mergedPokemon.findIndex(p => poke.name === p.name || (isTier && p.name === undefined && p.backupTier === poke.tier && !p.backupExclusive));
 
       if (pokeDataIndex !== -1) {
         if (!!poke.tier) {
@@ -221,7 +223,9 @@ class Pokemon extends Search {
     let updateObject = {};
 
     if (tier === 'ex') {
-      updateObject.tier = 5;
+      if (pokemon.name !== undefined) {
+        updateObject.tier = 5;
+      }
       updateObject.exclusive = true;
     }
 
@@ -245,6 +249,36 @@ class Pokemon extends Search {
         .where('id', pokemonId)
         .update(updateObject))
       .catch(err => log.error(err));
+  }
+
+  setDefaultTierBoss(pokemon, tier) {
+    let updateObject = {
+      tier: tier,
+      name: pokemon
+    };
+
+    return DB.insertIfAbsent('AutosetPokemon', Object.assign({},
+      {
+        tier: tier
+      }))
+      .then(pokemonId => DB.DB('AutosetPokemon')
+        .where('id', pokemonId)
+        .update(updateObject))
+      .catch(err => log.error(err));
+  }
+
+  async getDefaultTierBoss(tier) {
+    const result = await DB.DB('AutosetPokemon')
+      .where('tier', tier)
+      .pluck('name')
+      .first();
+
+      if (result) {
+        return this.search([result.name])
+          .find(pokemon => pokemon.exclusive || pokemon.tier);
+      }
+
+      return null;
   }
 
   static calculateWeaknesses(pokemonTypes) {
