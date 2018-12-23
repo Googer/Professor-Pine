@@ -72,7 +72,12 @@ class Pokemon extends Search {
     updatedPokemon.forEach(poke => {
       let isTier = ['1', '2', '3', '4', '5', 'ex'].indexOf(poke.name) !== -1;
 
-      let pokeDataIndex = mergedPokemon.findIndex(p => poke.name === p.name || (isTier && p.name === undefined && p.backupTier === poke.tier && !p.backupExclusive));
+      let pokeDataIndex = mergedPokemon.findIndex(p => {
+        let tierFound = isTier && p.name === undefined && p.backupTier === poke.tier && !p.backupExclusive;
+        let exclusiveFound = isTier && p.name === undefined && p.backupTier === undefined && p.backupExclusive === !!poke.exclusive && !!poke.exclusive;
+
+        return poke.name === p.name || tierFound || exclusiveFound;
+      });
 
       if (pokeDataIndex !== -1) {
         if (!!poke.tier) {
@@ -265,13 +270,22 @@ class Pokemon extends Search {
   }
 
   async getDefaultTierBoss(tier) {
+    if (tier === 'ex') {
+      tier = 6;
+    }
+
     const result = await DB.DB('AutosetPokemon')
       .where('tier', tier)
       .pluck('name')
       .first();
 
       if (result) {
-        return this.search([result.name])
+        const terms = result.name.split(/[\s-]/)
+          .filter(term => term.length > 0)
+          .map(term => term.match(/(?:<:)?([\w*]+)(?::[0-9]+>)?/)[1])
+          .map(term => term.toLowerCase());
+
+        return this.search(terms)
           .find(pokemon => pokemon.exclusive || pokemon.tier);
       }
 

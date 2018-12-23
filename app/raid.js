@@ -36,7 +36,7 @@ class Raid extends Party {
 
     if (!raidExists) {
       if (pokemon.name === undefined) {
-        let defaultBoss = await Pokemon.getDefaultTierBoss(pokemon.tier);
+        let defaultBoss = await Pokemon.getDefaultTierBoss(!!pokemon.exclusive ? 'ex' : pokemon.tier);
 
         if (defaultBoss !== null) {
           pokemon = defaultBoss;

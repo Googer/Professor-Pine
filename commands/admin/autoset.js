@@ -42,8 +42,12 @@ class AutosetCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    const pokemon = args['pokemon'],
+    let pokemon = args['pokemon'],
       tier = args['tier'];
+
+    if (tier === 'ex') {
+      tier = 6;
+    }
 
     Pokemon.setDefaultTierBoss(pokemon.name || tier, tier)
       .then(result => {
