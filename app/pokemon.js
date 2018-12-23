@@ -92,6 +92,7 @@ class Pokemon extends Search {
           alternateForm.formId :
           '00';
 
+      poke.formName = poke.name;
       poke.name = poke.overrideName ?
         poke.overrideName :
         poke.name;
