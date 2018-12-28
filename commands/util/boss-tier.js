@@ -13,7 +13,7 @@ class BossTierCommand extends Commando.Command {
       name: 'boss-tier',
       group: CommandGroup.UTIL,
       memberName: 'boss-tier',
-      aliases: ['bosstier', 'boss-level'],
+      aliases: ['boss-level'],
       description: 'Looks up the tier for a particular pokémon.',
       details: 'Use this command to look up the tier for a specific pokémon.',
       examples: ['\t!boss-tier deoxys', '\t!boss-level mawile'],

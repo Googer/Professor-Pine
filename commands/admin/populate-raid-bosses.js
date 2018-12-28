@@ -31,25 +31,23 @@ class PopulateRaidBossesCommand extends Commando.Command {
 
   async run(message, args) {
     const pokemonMetadata = require('../../data/pokemon');
-
+    let promises = [];
+    let names = [];
     pokemonMetadata.forEach(pokemon => {
       if (pokemon.backupExclusive) {
-        Pokemon.addRaidBoss(pokemon.name || 'ex', 'ex')
-          .then(result => {
-            console.log('Added ' + pokemon.name);
-          }).catch(err => log.error(err));
+        names.push(pokemon.name || 'ex');
+        promises.push(Pokemon.addRaidBoss(pokemon.name || 'ex', 'ex'));
       } else if (pokemon.backupTier) {
-        Pokemon.addRaidBoss(pokemon.name || pokemon.backupTier + '', pokemon.backupTier + '')
-          .then(result => {
-            console.log('Added ' + pokemon.name);
-          }).catch(err => log.error(err));
+        names.push(pokemon.name || pokemon.backupTier + '');
+        promises.push(Pokemon.addRaidBoss(pokemon.name || pokemon.backupTier + '', pokemon.backupTier + ''));
       }
     });
 
-    setTimeout(() => {
+    Promise.all(promises).then(result => {
       Pokemon.buildIndex();
       message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍');
-    }, 1000); // wait a second to populate the index to allow DB calls to fully finish since we're out of the asyncronous aspect.
+      log.debug('Added ' + names.join(', '));
+    }).catch(err => log.error(err));
   }
 }
 
