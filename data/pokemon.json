@@ -498,7 +498,7 @@
       "exegg",
       "alex"
     ],
-    "tier": 4
+    "tier": 2
   },
   {
     "name": "cubone"
@@ -841,10 +841,12 @@
     "name": "quagsire"
   },
   {
-    "name": "espeon"
+    "name": "espeon",
+    "tier": 3
   },
   {
-    "name": "umbreon"
+    "name": "umbreon",
+    "tier": 3
   },
   {
     "name": "murkrow"
@@ -1613,7 +1615,8 @@
     "name": "ambipom"
   },
   {
-    "name": "drifloon"
+    "name": "drifloon",
+    "tier": 1
   },
   {
     "name": "drifblim"
@@ -1779,25 +1782,32 @@
     "name": "rotom"
   },
   {
-    "name": "uxie"
+    "name": "uxie",
+    "tier": 5
   },
   {
-    "name": "mesprit"
+    "name": "mesprit",
+    "tier": 5
   },
   {
-    "name": "azelf"
+    "name": "azelf",
+    "tier": 5
   },
   {
-    "name": "dialga"
+    "name": "dialga",
+    "tier": 5
   },
   {
-    "name": "palkia"
+    "name": "palkia",
+    "tier": 5
   },
   {
-    "name": "heatran"
+    "name": "heatran",
+    "tier": 5
   },
   {
-    "name": "regigigas"
+    "name": "regigigas",
+    "tier": 5
   },
   {
     "name": "giratina_altered",
@@ -1814,7 +1824,11 @@
   },
   {
     "name": "cresselia",
-    "teir": 5
+    "nickname": [
+      "regiduck",
+      "regiswan"
+    ],
+    "tier": 5
   },
   {
     "name": "phione"

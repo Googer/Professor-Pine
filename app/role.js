@@ -211,7 +211,7 @@ class Role {
 
           resolve();
         } else {
-          reject({error: `Role "**${roleOrAlias}**" was not found.  Use \`${guild.client.commandPrefix}iam\` to see a list of self-assignable roles.`});
+          reject({error: `Role "**${roleOrAlias}**" was not found.  Use \`${guild.client.commandPrefix}iam\` to see a list of self-assignable roles. If you are attempting to reduce notifications, please see  \`${guild.client.commandPrefix}help\` for use of the \`${guild.client.commandPrefix}unwant\` and \`${guild.client.commandPrefix}untarget\` commands.`});
         }
       } else {
         roles = await this.roleExists(guild, roleOrAlias, true);

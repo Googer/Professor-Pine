@@ -2,10 +2,12 @@
 
 const log = require('loglevel').getLogger('PokemonSearch'),
   lunr = require('lunr'),
+  DB = require('./db'),
   GameMaster = require('pokemongo-game-master'),
   removeDiacritics = require('diacritics').remove,
   Search = require('./search'),
   privateSettings = require('../data/private-settings'),
+  settings = require('../data/settings'),
   types = require('../data/types'),
   weather = require('../data/weather');
 
@@ -51,8 +53,44 @@ class Pokemon extends Search {
               item.pokemonSettings.form.split('_')[1].toLowerCase() :
               'normal'
           })),
+      updatedPokemon = await DB.DB('Pokemon').select(),
       mergedPokemon = pokemonMetadata
-        .map(poke => Object.assign({}, poke, pokemon.find(p => p.name === poke.name)));
+        .map(poke => {
+          if (settings.databaseRaids) {
+            if (poke.tier) {
+              poke.backupTier = poke.tier;
+              delete poke.tier;
+            }
+
+            if (poke.exclusive) {
+              poke.backupExclusive = poke.exclusive;
+              delete poke.exclusive;
+            }
+          }
+
+          return Object.assign({}, poke, pokemon.find(p => p.name === poke.name))
+        });
+
+    updatedPokemon.forEach(poke => {
+      let isTier = ['1', '2', '3', '4', '5', 'ex'].indexOf(poke.name) !== -1;
+
+      let pokeDataIndex = mergedPokemon.findIndex(p => {
+        let tierFound = isTier && p.name === undefined && p.backupTier === poke.tier && !p.backupExclusive;
+        let exclusiveFound = isTier && p.name === undefined && p.backupTier === undefined && p.backupExclusive === !!poke.exclusive && !!poke.exclusive;
+
+        return poke.name === p.name || tierFound || exclusiveFound;
+      });
+
+      if (pokeDataIndex !== -1) {
+        if (!!poke.tier) {
+          mergedPokemon[pokeDataIndex].tier = poke.tier;
+        }
+
+        if (!!poke.exclusive) {
+          mergedPokemon[pokeDataIndex].exclusive = !!poke.exclusive;
+        }
+      }
+    });
 
     mergedPokemon.forEach(poke => {
       const alternateForm = alternateForms
@@ -61,6 +99,7 @@ class Pokemon extends Search {
           alternateForm.formId :
           '00';
 
+      poke.formName = poke.name;
       poke.name = poke.overrideName ?
         poke.overrideName :
         poke.name;
@@ -188,6 +227,73 @@ class Pokemon extends Search {
     return results;
   }
 
+  addRaidBoss(pokemon, tier) {
+    let updateObject = {};
+
+    if (tier === 'ex') {
+      if (pokemon.name !== undefined) {
+        updateObject.tier = 5;
+      }
+      updateObject.exclusive = true;
+    }
+
+    if (tier === 'unset-ex') {
+      updateObject.exclusive = false;
+    }
+
+    if (['0', '1', '2', '3', '4', '5'].indexOf(tier) !== -1) {
+      updateObject.tier = tier;
+    }
+
+    return DB.insertIfAbsent('Pokemon', Object.assign({},
+      {
+        name: pokemon
+      }))
+      .then(pokemonId => DB.DB('Pokemon')
+        .where('id', pokemonId)
+        .update(updateObject))
+      .catch(err => log.error(err));
+  }
+
+  setDefaultTierBoss(pokemon, tier) {
+    let updateObject = {
+      tier: tier,
+      name: pokemon
+    };
+
+    return DB.insertIfAbsent('AutosetPokemon', Object.assign({},
+      {
+        tier: tier
+      }))
+      .then(pokemonId => DB.DB('AutosetPokemon')
+        .where('id', pokemonId)
+        .update(updateObject))
+      .catch(err => log.error(err));
+  }
+
+  async getDefaultTierBoss(tier) {
+    if (tier === 'ex') {
+      tier = 6;
+    }
+
+    const result = await DB.DB('AutosetPokemon')
+      .where('tier', tier)
+      .pluck('name')
+      .first();
+
+      if (result) {
+        const terms = result.name.split(/[\s-]/)
+          .filter(term => term.length > 0)
+          .map(term => term.match(/(?:<:)?([\w*]+)(?::[0-9]+>)?/)[1])
+          .map(term => term.toLowerCase());
+
+        return this.search(terms)
+          .find(pokemon => pokemon.exclusive || pokemon.tier);
+      }
+
+      return null;
+  }
+
   static calculateWeaknesses(pokemonTypes) {
     if (!pokemonTypes) {
       return [];
@@ -199,11 +305,11 @@ class Pokemon extends Search {
 
         pokemonTypes.forEach(pokemonType => {
           if (chart.se.includes(pokemonType)) {
-            multiplier *= 1.400;
+            multiplier *= 1.600;
           } else if (chart.ne.includes(pokemonType)) {
-            multiplier *= 0.714;
+            multiplier *= 0.625;
           } else if (chart.im.includes(pokemonType)) {
-            multiplier *= 0.510;
+            multiplier *= 0.390625;
           }
         });
 
