@@ -7,6 +7,7 @@ const log = require('loglevel').getLogger('Raid'),
   {PartyStatus, PartyType} = require('./constants'),
   Discord = require('discord.js'),
   Helper = require('./helper'),
+  Pokemon = require('./pokemon'),
   Party = require('./party'),
   Status = require('./status'),
   Privacy = require('./privacy'),
@@ -34,6 +35,15 @@ class Raid extends Party {
       memberPrivacy = await Privacy.getPrivacyStatus(memberId);
 
     if (!raidExists) {
+      if (pokemon.name === undefined) {
+        let defaultBoss = await Pokemon.getDefaultTierBoss(!!pokemon.exclusive ? 'ex' : pokemon.tier);
+
+        if (defaultBoss !== null) {
+          pokemon = defaultBoss;
+          raid.defaulted = true;
+        }
+      }
+
       // add some extra raid data to remember
       raid.createdById = memberPrivacy ?
         -1 :
@@ -284,6 +294,16 @@ class Raid extends Party {
         .catch(err => log.error(err));
     }
 
+    const newChannelName = this.generateChannelName();
+
+    await PartyManager.getChannel(this.channelId)
+      .then(channelResult => {
+        if (channelResult.ok) {
+          return channelResult.channel.setName(newChannelName);
+        }
+      })
+      .catch(err => log.error(err));
+
     await this.persist();
 
     return {party: this};
@@ -350,6 +370,16 @@ class Raid extends Party {
         })
         .catch(err => log.error(err));
     }
+
+    const newChannelName = this.generateChannelName();
+
+    await PartyManager.getChannel(this.channelId)
+      .then(channelResult => {
+        if (channelResult.ok) {
+          return channelResult.channel.setName(newChannelName);
+        }
+      })
+      .catch(err => log.error(err));
 
     await this.persist();
 
@@ -836,13 +866,7 @@ class Raid extends Party {
     const nonCharCleaner = new RegExp(/[^\w]/, 'g'),
       pokemonName = (this.isExclusive ?
         'ex raid' :
-        !!this.pokemon.name ?
-          this.pokemon.name :
-          `tier ${this.pokemon.tier}`)
-        .replace(nonCharCleaner, ' ')
-        .split(' ')
-        .filter(token => token.length > 0)
-        .join('-'),
+        this.generatePokemonName(this.pokemon)),
       gym = Gym.getGym(this.gymId),
       gymName = (!!gym.nickname ?
         removeDiacritics(gym.nickname) :
@@ -854,6 +878,31 @@ class Raid extends Party {
         .join('-');
 
     return pokemonName + '-' + gymName;
+  }
+
+  generatePokemonName(pokemon) {
+    const nonCharCleaner = new RegExp(/[^\w]/, 'g');
+    let type = '',
+      now = moment(),
+      hatchTime = moment(this.hatchTime),
+      endTime = moment(this.endTime);
+
+    if (this.hatchTime === '' || now < hatchTime || hatchTime.isSame(now)) {
+      type = 'egg ' + pokemon.tier;
+    } else if (now >= endTime && pokemon.name === undefined) {
+      type = 'expired ' + pokemon.tier;
+    } else if (now >= endTime && pokemon.name !== undefined) {
+      type = 'expired ' + pokemon.name;
+    } else if (now >= hatchTime && pokemon.name === undefined) {
+      type = 'boss ' + pokemon.tier;
+    } else if (now >= hatchTime && pokemon.name !== undefined) {
+      type = pokemon.name;
+    }
+
+    return type.replace(nonCharCleaner, ' ')
+      .split(' ')
+      .filter(token => token.length > 0)
+      .join('-');
   }
 
   toJSON() {

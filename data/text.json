@@ -8,6 +8,9 @@
   "iamnot": {
     "warning": "Unassign roles in ${bot-channel}!"
   },
+  "bosstier": {
+    "warning": "Check boss tiers in ${bot-channel}!"
+  },
   "favorites": {
     "warning": "Use the `!targets` command in ${bot-channel} to view current notifications for gyms."
   },
