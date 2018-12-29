@@ -57,7 +57,7 @@ class PokemonType extends Commando.ArgumentType {
 
     let pokemon;
 
-    if (!!message.command && message.command.name !== 'raid-boss') {
+    if (!message.command || (message.command && message.command.name !== 'raid-boss')) {
       pokemon = Pokemon.search(terms)
         .find(pokemon => pokemon.exclusive || pokemon.tier);
     } else {
