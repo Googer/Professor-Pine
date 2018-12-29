@@ -34,8 +34,12 @@ class PokemonType extends Commando.ArgumentType {
         `"${pokemon[0].name.charAt(0).toUpperCase()}${pokemon[0].name.slice(1)}"` :
         'Pokémon';
 
-      let errorMessage = `${name} is not a valid raid boss.  Please try your search again, entering the text you want to search for.`;
-      if (!!arg) {
+      let errorMessage = `${name} is not a valid raid boss.`;
+
+      if (message.command && message.command.name !== 'boss-tier') {
+        errorMessage += '  Please try your search again, entering the text you want to search for.';
+      }
+      if (!!arg && (message.command && message.command.name !== 'boss-tier')) {
         errorMessage += `\n\n${arg.prompt}`;
       }
 

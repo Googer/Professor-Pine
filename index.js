@@ -126,7 +126,10 @@ Client.registry.registerCommands([
   require('./commands/raids/submit-request'),
 
   require('./commands/util/help'),
-  require('./commands/admin/raid-boss')
+  require('./commands/admin/raid-boss'),
+  require('./commands/admin/populate-raid-bosses'),
+  require('./commands/util/boss-tier'),
+  require('./commands/admin/autoset')
 ]);
 
 if (privateSettings.regionMapLink !== '') {
