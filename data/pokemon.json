@@ -429,8 +429,7 @@
   },
   {
     "name": "magneton",
-    "tier": 2,
-    "shiny": true
+    "tier": 2
   },
   {
     "name": "farfetch'd"
@@ -846,8 +845,7 @@
   },
   {
     "name": "togetic",
-    "tier": 4,
-    "shiny": true
+    "tier": 4
   },
   {
     "name": "natu"
@@ -1041,8 +1039,7 @@
   },
   {
     "name": "houndoom",
-    "tier": 4,
-    "shiny": true
+    "tier": 4
   },
   {
     "name": "kingdra"
@@ -1111,8 +1108,7 @@
     "nickname": [
       "ttar"
     ],
-    "tier": 4,
-    "shiny": true
+    "tier": 4
   },
   {
     "name": "lugia",
@@ -1318,7 +1314,6 @@
   {
     "name": "aggron",
     "tier": 4,
-    "shiny": true
   },
   {
     "name": "meditite",
@@ -1866,8 +1861,7 @@
     "name": "weavile"
   },
   {
-    "name": "magnezone",
-    "shiny": true
+    "name": "magnezone"
   },
   {
     "name": "lickilicky"
