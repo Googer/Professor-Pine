@@ -13,7 +13,7 @@ class MarkShinyCommand extends Commando.Command {
       name: 'mark-shiny',
       group: CommandGroup.ADMIN,
       memberName: 'mark-shiny',
-      description: 'Adds a new raid boss.',
+      description: 'Marks a raid boss as potentially shiny.',
       examples: ['\t!mark-shiny lugia'],
       aliases: ['shiny'],
       args: [
