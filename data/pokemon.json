@@ -625,13 +625,11 @@
   },
   {
     "name": "electabuzz",
-    "tier": 2,
-    "shiny": true
+    "tier": 2
   },
   {
     "name": "magmar",
-    "tier": 2,
-    "shiny": true
+    "tier": 2
   },
   {
     "name": "pinsir",
