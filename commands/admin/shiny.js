@@ -27,7 +27,7 @@ class MarkShinyCommand extends Commando.Command {
     });
 
     client.dispatcher.addInhibitor(message => {
-      if (!!message.command && message.command.name === 'raid-boss') {
+      if (!!message.command && message.command.name === 'mark-shiny') {
         if (!Helper.isBotManagement(message)) {
           return ['unauthorized', message.reply('You are not authorized to use this command.')];
         }

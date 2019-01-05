@@ -1,5 +1,3 @@
-const {PrivacyOpts} = require('../constants');
-
 exports.up = function (knex, Promise) {
   return Promise.all([
     knex.schema.table('Pokemon', table => {
