@@ -229,8 +229,8 @@ class Pokemon extends Search {
     return results;
   }
 
-  markShiny(pokemon) {
-    const updateObject = { shiny: true };
+  markShiny(pokemon, shiny) {
+    const updateObject = { shiny: shiny };
 
     return DB.insertIfAbsent('Pokemon', Object.assign({},
       {
