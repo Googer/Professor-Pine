@@ -130,7 +130,8 @@ Client.registry.registerCommands([
   require('./commands/admin/populate-raid-bosses'),
   require('./commands/util/boss-tier'),
   require('./commands/admin/autoset'),
-  require('./commands/admin/shiny')
+  require('./commands/admin/shiny'),
+  require('./commands/admin/not-shiny')
 ]);
 
 if (privateSettings.regionMapLink !== '') {

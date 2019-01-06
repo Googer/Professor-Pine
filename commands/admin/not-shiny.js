@@ -1,25 +1,25 @@
 "use strict";
 
-const log = require('loglevel').getLogger('MarkShinyCommand'),
+const log = require('loglevel').getLogger('MarkNotShinyCommand'),
   Commando = require('discord.js-commando'),
   {CommandGroup} = require('../../app/constants'),
   Helper = require('../../app/helper'),
   Pokemon = require('../../app/pokemon'),
   settings = require('../../data/settings');
 
-class MarkShinyCommand extends Commando.Command {
+class MarkNotShinyCommand extends Commando.Command {
   constructor(client) {
     super(client, {
-      name: 'mark-shiny',
+      name: 'mark-not-shiny',
       group: CommandGroup.ADMIN,
       memberName: 'mark-shiny',
-      description: 'Marks a raid boss as potentially shiny.',
-      examples: ['\t!mark-shiny lugia'],
-      aliases: ['shiny'],
+      description: 'Marks a raid boss as not potentially shiny.',
+      examples: ['\t!mark-not-shiny lugia'],
+      aliases: ['not-shiny'],
       args: [
         {
           key: 'pokemon',
-          prompt: 'What pokémon are you marking as potentially shiny?\nExample: `lugia`\n',
+          prompt: 'What pokémon are you marking as not potentially shiny?\nExample: `lugia`\n',
           type: 'pokemon'
         }
       ],
@@ -27,7 +27,7 @@ class MarkShinyCommand extends Commando.Command {
     });
 
     client.dispatcher.addInhibitor(message => {
-      if (!!message.command && message.command.name === 'mark-shiny') {
+      if (!!message.command && message.command.name === 'mark-not-shiny') {
         if (!Helper.isBotManagement(message)) {
           return ['unauthorized', message.reply('You are not authorized to use this command.')];
         }
@@ -41,7 +41,7 @@ class MarkShinyCommand extends Commando.Command {
     const pokemon = args['pokemon'],
       tier = args['tier'];
 
-    Pokemon.markShiny(pokemon.formName, true)
+    Pokemon.markShiny(pokemon.formName, false)
       .then(result => {
         message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍');
         Pokemon.buildIndex();
@@ -49,4 +49,4 @@ class MarkShinyCommand extends Commando.Command {
   }
 }
 
-module.exports = MarkShinyCommand;
+module.exports = MarkNotShinyCommand;
