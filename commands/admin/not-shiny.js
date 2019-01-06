@@ -12,7 +12,7 @@ class MarkNotShinyCommand extends Commando.Command {
     super(client, {
       name: 'mark-not-shiny',
       group: CommandGroup.ADMIN,
-      memberName: 'mark-shiny',
+      memberName: 'mark-not-shiny',
       description: 'Marks a raid boss as not potentially shiny.',
       examples: ['\t!mark-not-shiny lugia'],
       aliases: ['not-shiny'],
