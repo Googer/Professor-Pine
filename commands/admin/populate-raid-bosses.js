@@ -36,10 +36,10 @@ class PopulateRaidBossesCommand extends Commando.Command {
     pokemonMetadata.forEach(pokemon => {
       if (pokemon.backupExclusive) {
         names.push(pokemon.name || 'ex');
-        promises.push(Pokemon.addRaidBoss(pokemon.name || 'ex', 'ex'));
+        promises.push(Pokemon.addRaidBoss(pokemon.name || 'ex', 'ex', pokemon.shiny));
       } else if (pokemon.backupTier) {
         names.push(pokemon.name || pokemon.backupTier + '');
-        promises.push(Pokemon.addRaidBoss(pokemon.name || pokemon.backupTier + '', pokemon.backupTier + ''));
+        promises.push(Pokemon.addRaidBoss(pokemon.name || pokemon.backupTier + '', pokemon.backupTier + '', pokemon.shiny));
       }
     });
 

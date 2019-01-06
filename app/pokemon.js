@@ -87,6 +87,10 @@ class Pokemon extends Search {
         if (!!poke.exclusive) {
           mergedPokemon[pokeDataIndex].exclusive = !!poke.exclusive;
         }
+
+        if (!!poke.shiny) {
+          mergedPokemon[pokeDataIndex].shiny = !!poke.shiny;
+        }
       }
     });
 
@@ -225,7 +229,20 @@ class Pokemon extends Search {
     return results;
   }
 
-  addRaidBoss(pokemon, tier) {
+  markShiny(pokemon, shiny) {
+    const updateObject = { shiny: shiny };
+
+    return DB.insertIfAbsent('Pokemon', Object.assign({},
+      {
+        name: pokemon
+      }))
+      .then(pokemonId => DB.DB('Pokemon')
+        .where('id', pokemonId)
+        .update(updateObject))
+      .catch(err => log.error(err));
+  }
+
+  addRaidBoss(pokemon, tier, shiny) {
     let updateObject = {};
 
     if (tier === 'ex') {
@@ -241,6 +258,10 @@ class Pokemon extends Search {
 
     if (['0', '1', '2', '3', '4', '5'].indexOf(tier) !== -1) {
       updateObject.tier = tier;
+    }
+
+    if (shiny) {
+      updateObject.shiny = shiny;
     }
 
     return DB.insertIfAbsent('Pokemon', Object.assign({},

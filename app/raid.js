@@ -704,7 +704,9 @@ class Raid extends Party {
     embed.setColor('GREEN');
     embed.setTitle(`Map Link: ${gymName}`);
     embed.setURL(gymUrl);
-    embed.setDescription(raidDescription);
+
+    let shiny = this.pokemon.shiny ? Helper.getEmoji(settings.emoji.shiny) || '✨' : '';
+    embed.setDescription(raidDescription + shiny);
 
     if (pokemonUrl !== '') {
       embed.setThumbnail(pokemonUrl);
