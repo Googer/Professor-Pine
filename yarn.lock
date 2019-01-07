@@ -1441,7 +1441,7 @@
 
 "PgP-Data@github:Googer/PgP-Data":
   version "1.0.0"
-  resolved "https://codeload.github.com/Googer/PgP-Data/tar.gz/acbcce706aea749a51da6cbbb2a1b3859eaa5293"
+  resolved "https://codeload.github.com/Googer/PgP-Data/tar.gz/434a193c1fedb3d9b239c91abd7300aba8b0d861"
 
 abstract-leveldown@~0.12.0:
   version "0.12.4"
