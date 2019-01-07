@@ -16,7 +16,8 @@
   "databaseRaids": true,
   "emoji": {
     "thumbsUp": "pinethumbsup",
-    "thumbsDown": "pinethumbsdown"
+    "thumbsDown": "pinethumbsdown",
+    "shiny": "pineshiny"
   },
   "features": {
     "exGymChannel": true,
