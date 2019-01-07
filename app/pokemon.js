@@ -64,6 +64,12 @@ class Pokemon extends Search {
               poke.backupExclusive = poke.exclusive;
               delete poke.exclusive;
             }
+
+            // store just in case we eventually need this for some reason. DB Raids are populated solely by DB fields.
+            if (poke.shiny) {
+              poke.backupShiny = poke.shiny;
+              delete poke.shiny;
+            }
           }
 
           return Object.assign({}, poke, pokemon.find(p => p.name === poke.name))
