@@ -309,14 +309,13 @@ class Notify {
 
   // check is member wants mentions or not; if they're not in the table at all,
   // assume they *do* want them
-  async shouldMention(member) {
+  async shouldMention(member, type) {
     const result = await DB.DB('User')
       .where('userSnowflake', member.user.id)
-      .pluck('mentions')
       .first();
 
     return !!result ?
-      result.mentions === 1 :
+      result.mentions === 1 && result[type] === 1:
       true;
   }
 
@@ -334,10 +333,36 @@ class Notify {
       .catch(err => log.error(err));
   }
 
-  async shout(message, members, text, fromMember = null) {
+  setMentionShouts(member, mention) {
+    return DB.insertIfAbsent('User', Object.assign({},
+      {
+        userSnowflake: member.user.id
+      }))
+      .then(userId => DB.DB('User')
+        .where('id', userId)
+        .update({
+          shouts: mention
+        }))
+      .catch(err => log.error(err));
+  }
+
+  setMentionGroups(member, mention) {
+    return DB.insertIfAbsent('User', Object.assign({},
+      {
+        userSnowflake: member.user.id
+      }))
+      .then(userId => DB.DB('User')
+        .where('id', userId)
+        .update({
+          groups: mention
+        }))
+      .catch(err => log.error(err));
+  }
+
+  async shout(message, members, text, type, fromMember = null) {
     const membersStrings = await Promise.all(members
         .map(async member => {
-          const mention = await this.shouldMention(member);
+          const mention = await this.shouldMention(member, type);
 
           return mention ?
             member.toString() :

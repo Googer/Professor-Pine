@@ -92,6 +92,8 @@ if (settings.features.notifications) {
 
 Client.registry.registerCommands([
   require('./commands/notifications/mention'),
+  require('./commands/notifications/mention-groups'),
+  require('./commands/notifications/mention-shouts'),
 
   require('./commands/raids/join'),
   require('./commands/raids/interested'),
