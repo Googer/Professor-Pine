@@ -252,7 +252,7 @@ class Pokemon extends Search {
     let updateObject = {};
 
     if (tier === 'ex') {
-      if (pokemon.name !== undefined) {
+      if (pokemon !== 'ex') {
         updateObject.tier = 5;
       }
       updateObject.exclusive = true;
