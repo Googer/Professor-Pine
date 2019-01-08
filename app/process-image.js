@@ -1178,7 +1178,7 @@ class ImageProcessing {
             type: 'boolean'
           }
         ], 3),
-        confirmationResult = await confirmationCollector.obtain(new Commando.CommandMessage(message));
+        confirmationResult = await confirmationCollector.obtain(message);
 
       let confirmation = false;
       Utility.cleanCollector(confirmationResult);

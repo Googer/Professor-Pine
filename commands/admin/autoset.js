@@ -24,7 +24,8 @@ class AutosetCommand extends Commando.Command {
         {
           key: 'tier',
           prompt: 'What tier are you defaulting? (`1`, `2`, `3`, `4`, `5`, `ex`)',
-          type: 'string'
+          type: 'string',
+          oneOf: ['1', '2', '3', '4', '5', 'ex']
         }
       ],
       guildOnly: true
