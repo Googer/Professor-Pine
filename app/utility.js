@@ -17,6 +17,7 @@ class Utility {
 
     const channel = messagesToDelete[0].channel;
 
+    log.debug(`Deleting messages [${messagesToDelete.map(message => message.id).join(', ')}]`);
     channel.client.setTimeout(
       () => channel.bulkDelete(messagesToDelete)
         .catch(err => log.error(err)),
@@ -46,6 +47,7 @@ class Utility {
         (message.author === author ||
           (message.author === bot && message.mentions.members.has(author.id)))));
 
+    log.debug(`Deleting messages [${messagesToDelete.map(message => message.id).join(', ')}]`);
     channel.client.setTimeout(
       () => channel.bulkDelete(messagesToDelete)
         .catch(err => log.error(err)),
