@@ -1441,7 +1441,7 @@
 
 "PgP-Data@github:Googer/PgP-Data":
   version "1.0.0"
-  resolved "https://codeload.github.com/Googer/PgP-Data/tar.gz/434a193c1fedb3d9b239c91abd7300aba8b0d861"
+  resolved "https://codeload.github.com/Googer/PgP-Data/tar.gz/e3a703e29ec2d1870d58ae3a01a1fd587be9cb4b"
 
 abstract-leveldown@~0.12.0:
   version "0.12.4"
@@ -1718,7 +1718,7 @@ commander@2, commander@^2.16.0:
   resolved "https://registry.yarnpkg.com/commander/-/commander-2.19.0.tgz#f6198aa84e5b83c46054b94ddedbfed5ee9ff12a"
   integrity sha512-6tvAOO+D6OENvRAh524Dh9jcfKTYDQAqvqezbCW82xj5X0pSrcpxtvRKHLG0yBY6SD7PSDrJaj+0AiOcKVd1Xg==
 
-common-tags@^1.0.0:
+common-tags@^1.8.0:
   version "1.8.0"
   resolved "https://registry.yarnpkg.com/common-tags/-/common-tags-1.8.0.tgz#8e3153e542d4a39e9b10554434afaaf98956a937"
   integrity sha512-6P6g0uetGpW/sdyUy/iQQCbFF0kWVMSIVSyYz7Zgjcgh8mgw8PQzDNZeyZ5DQ2gM7LBoZPHmnjz8rUthkBG5tw==
@@ -1870,11 +1870,10 @@ diacritics@^1.3.0:
 
 "discord.js-commando@github:Googer/discord.js-commando":
   version "0.11.0-dev"
-  resolved "https://codeload.github.com/Googer/discord.js-commando/tar.gz/bb0a4ae16b6087242a328378730f32e220f4c712"
+  resolved "https://codeload.github.com/Googer/discord.js-commando/tar.gz/f6ae70be5d19219ddace9c864cd4043f8e4c6761"
   dependencies:
-    common-tags "^1.0.0"
-    escape-string-regexp "^1.0.0"
-    require-all "^2.0.0"
+    common-tags "^1.8.0"
+    require-all "^3.0.0"
 
 "discord.js@github:discordjs/discord.js":
   version "12.0.0-dev"
@@ -1913,7 +1912,7 @@ encoding@^0.1.11:
   dependencies:
     iconv-lite "~0.4.13"
 
-escape-string-regexp@^1.0.0, escape-string-regexp@^1.0.2, escape-string-regexp@^1.0.5:
+escape-string-regexp@^1.0.2, escape-string-regexp@^1.0.5:
   version "1.0.5"
   resolved "https://registry.yarnpkg.com/escape-string-regexp/-/escape-string-regexp-1.0.5.tgz#1b61c0562190a8dff6ae3bb2cf0200ca130b86d4"
   integrity sha1-G2HAViGQqN/2rjuyzwIAyhMLhtQ=
@@ -2258,6 +2257,11 @@ interpret@^1.1.0:
   version "1.2.0"
   resolved "https://registry.yarnpkg.com/interpret/-/interpret-1.2.0.tgz#d5061a6224be58e8083985f5014d844359576296"
   integrity sha512-mT34yGKMNceBQUoVn7iCDKDntA7SC6gycMAWzGx1z/CMCTV7b2AAtXlo3nRyHZ1FelRkQbQjprHSYGwzLtkVbw==
+
+ip-regex@^3.0.0:
+  version "3.0.0"
+  resolved "https://registry.yarnpkg.com/ip-regex/-/ip-regex-3.0.0.tgz#0a934694b4066558c46294244a23cc33116bf732"
+  integrity sha512-T8wDtjy+Qf2TAPDQmBp0eGKJ8GavlWlUnamr3wRn6vvdZlKVuJXXMlSncYFRYgVHOM3If5NR1H4+OvVQU9Idvg==
 
 is-absolute@^1.0.0:
   version "1.0.0"
@@ -3154,10 +3158,10 @@ request@^2.83.0:
     tunnel-agent "^0.6.0"
     uuid "^3.3.2"
 
-require-all@^2.0.0:
-  version "2.2.0"
-  resolved "https://registry.yarnpkg.com/require-all/-/require-all-2.2.0.tgz#b4420c233ac0282d0ff49b277fb880a8b5de0894"
-  integrity sha1-tEIMIzrAKC0P9Jsnf7iAqLXeCJQ=
+require-all@^3.0.0:
+  version "3.0.0"
+  resolved "https://registry.yarnpkg.com/require-all/-/require-all-3.0.0.tgz#473d49704be310115ce124f77383b1ebd8671312"
+  integrity sha1-Rz1JcEvjEBFc4ST3c4Ox69hnExI=
 
 resolve-dir@^1.0.0, resolve-dir@^1.0.1:
   version "1.0.1"
@@ -3486,10 +3490,11 @@ topojson-server@3.x:
     commander "2"
 
 tough-cookie@>=2.3.3:
-  version "2.5.0"
-  resolved "https://registry.yarnpkg.com/tough-cookie/-/tough-cookie-2.5.0.tgz#cd9fb2a0aa1d5a12b473bd9fb96fa3dcff65ade2"
-  integrity sha512-nlLsUzgm1kfLXSXfRZMc1KLAugd4hqJHDTvc2hDIwS3mZAfMEuMbc03SujMF+GEcpaX/qboeycw6iO8JwVv2+g==
+  version "3.0.0"
+  resolved "https://registry.yarnpkg.com/tough-cookie/-/tough-cookie-3.0.0.tgz#d2bceddebde633153ff20a52fa844a0dc71dacef"
+  integrity sha512-LHMvg+RBP/mAVNqVbOX8t+iJ+tqhBA/t49DuI7+IDAWHrASnesqSu1vWbKB7UrE2yk+HMFUBMadRGMkB4VCfog==
   dependencies:
+    ip-regex "^3.0.0"
     psl "^1.1.28"
     punycode "^2.1.1"
 
