@@ -51,7 +51,7 @@ class ShoutCommand extends Commando.Command {
         text_without_command_prefix = message.cleanContent.substr(1).trim(),
         fullyCleanText = text_without_command_prefix.substr(text_without_command_prefix.indexOf(' ') + 1);
 
-      Notify.shout(message, members, fullyCleanText, message.member);
+      Notify.shout(message, members, fullyCleanText, 'shouts', message.member);
     }
   }
 }
