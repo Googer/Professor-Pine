@@ -47,6 +47,10 @@ class Utility {
         (message.author === author ||
           (message.author === bot && message.mentions.members.has(author.id)))));
 
+    if (messagesToDelete.length === 0) {
+      return;
+    }
+
     log.debug(`Deleting messages [${messagesToDelete.map(message => message.id).join(', ')}]`);
     channel.client.setTimeout(
       () => channel.bulkDelete(messagesToDelete)
