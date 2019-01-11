@@ -19,8 +19,15 @@ class Utility {
 
     log.debug(`Deleting messages [${messagesToDelete.map(message => message.id).join(', ')}]`);
     channel.client.setTimeout(
-      () => channel.bulkDelete(messagesToDelete)
-        .catch(err => log.error(err)),
+      () => {
+        if (messagesToDelete.length > 1) {
+          channel.bulkDelete(messagesToDelete)
+            .catch(err => log.error(err))
+        } else {
+          messagesToDelete[0].delete()
+            .catch(err => log.error(err));
+        }
+      },
       delay);
   }
 
@@ -53,8 +60,15 @@ class Utility {
 
     log.debug(`Deleting messages [${messagesToDelete.map(message => message.id).join(', ')}]`);
     channel.client.setTimeout(
-      () => channel.bulkDelete(messagesToDelete)
-        .catch(err => log.error(err)),
+      () => {
+        if (messagesToDelete.length > 1) {
+          channel.bulkDelete(messagesToDelete)
+            .catch(err => log.error(err))
+        } else {
+          messagesToDelete[0].delete()
+            .catch(err => log.error(err));
+        }
+      },
       delay);
   }
 

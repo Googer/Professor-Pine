@@ -886,10 +886,14 @@ class Raid extends Party {
     const nonCharCleaner = new RegExp(/[^\w]/, 'g');
     let type = '',
       now = moment(),
-      hatchTime = moment(this.hatchTime),
-      endTime = moment(this.endTime);
+      hatchTime = !!this.hatchTime ?
+        moment(this.hatchTime) :
+        moment.invalid(),
+      endTime = (!!this.endTime && this.endTime !== TimeType.UNDEFINED_END_TIME) ?
+        moment(this.endTime) :
+        moment.invalid();
 
-    if (this.hatchTime === '' || now < hatchTime || hatchTime.isSame(now)) {
+    if (!hatchTime.isValid() || now < hatchTime || hatchTime.isSame(now)) {
       type = 'egg ' + pokemon.tier;
     } else if (now >= endTime && pokemon.name === undefined) {
       type = 'expired ' + pokemon.tier;
