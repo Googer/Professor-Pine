@@ -27,14 +27,19 @@ class PokemonType extends Commando.ArgumentType {
     const validPokemon = pokemon
       .find(pokemon => pokemon.exclusive || pokemon.tier);
 
-    let requireValidation = !message.command || (message.command && message.command.name !== 'raid-boss');
-        
+    let allMonCommands = ['raid-boss', 'rare'];
+    let requireValidation = !message.command || (message.command && allMonCommands.indexOf(message.command.name) === -1);
+
+    console.log('requireValidation for ' + message.command.name + ': ' + requireValidation);
+
     if (!validPokemon && requireValidation) {
       const name = pokemon[0].name ?
         `"${pokemon[0].name.charAt(0).toUpperCase()}${pokemon[0].name.slice(1)}"` :
         'Pokémon';
 
-      let errorMessage = `${name} is not a valid raid boss.`;
+
+      let type = message.command && message.command.name === 'spawn' ? 'rare spawn' : 'raid boss';
+      let errorMessage = `${name} is not a valid ${type}.`;
 
       if (message.command && message.command.name !== 'boss-tier') {
         errorMessage += '  Please try your search again, entering the text you want to search for.';
@@ -56,13 +61,16 @@ class PokemonType extends Commando.ArgumentType {
       .map(term => term.toLowerCase());
 
     let pokemon;
+    let allMonCommands = ['raid-boss', 'rare'];
 
-    if (!message.command || (message.command && message.command.name !== 'raid-boss')) {
+    if (!message.command || (message.command && allMonCommands.indexOf(message.command.name) === -1)) {
       pokemon = Pokemon.search(terms)
         .find(pokemon => pokemon.exclusive || pokemon.tier);
     } else {
       pokemon = Pokemon.search(terms)[0];
     }
+
+    console.log(pokemon);
 
     message.isExclusive = !!pokemon.exclusive;
 
