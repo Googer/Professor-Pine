@@ -41,7 +41,7 @@ class Pokemon extends Search {
             name: item.pokemonSettings.form ?
               item.pokemonSettings.form.toLowerCase() :
               item.pokemonSettings.pokemonId.toLowerCase(),
-            number: item.templateId.split('_')[0].slice(2),
+            number: Number.parseInt(item.templateId.split('_')[0].slice(2)),
             stats: item.pokemonSettings.stats,
             type: [item.pokemonSettings.type.split('_')[2].toLowerCase(), item.pokemonSettings.type2 ?
               item.pokemonSettings.type2.split('_')[2].toLowerCase() :
@@ -130,6 +130,7 @@ class Pokemon extends Search {
       this.ref('object');
       this.field('name');
       this.field('nickname');
+      this.field('number');
       this.field('tier');
       this.field('bossCP');
 
@@ -137,6 +138,7 @@ class Pokemon extends Search {
         const pokemonDocument = Object.create(null);
 
         pokemonDocument['object'] = JSON.stringify(pokemon);
+        pokemonDocument['number'] = pokemon.number;
         pokemonDocument['name'] = pokemon.name;
         pokemonDocument['nickname'] = (pokemon.nickname) ? pokemon.nickname.join(' ') : '';
         pokemonDocument['tier'] = pokemon.tier;
@@ -155,6 +157,7 @@ class Pokemon extends Search {
 
     // first filter out stop words from the search terms; lunr does this itself so our hacky way of AND'ing will
     // return nothing if they have any in their search terms list since they'll never match anything
+
     const splitTerms = [].concat(...terms
       .map(term => term.split('-')));
 
@@ -202,7 +205,11 @@ class Pokemon extends Search {
       .map(result => JSON.parse(result.ref));
   }
 
-  search(terms) {
+  search(terms, byNumber = false) {
+    if (byNumber) {
+      return this.internalSearch(terms, ['number']);
+    }
+
     // First try searching just on name
     let results = this.internalSearch(terms, ['name']);
     if (results !== undefined && results.length > 0) {

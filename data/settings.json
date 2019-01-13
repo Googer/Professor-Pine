@@ -35,6 +35,7 @@
     "raid-crud",
     "roles",
     "notifications",
+    "silph",
     "util"
   ]
 }

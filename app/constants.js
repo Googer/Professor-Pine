@@ -5,6 +5,7 @@ const CommandGroup = {
   RAID_CRUD: 'raid-crud',
   ROLES: 'roles',
   NOTIFICATIONS: 'notifications',
+  SILPH: 'silph',
   UTIL: 'util'
 };
 
