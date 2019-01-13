@@ -41,7 +41,7 @@ class Pokemon extends Search {
             name: item.pokemonSettings.form ?
               item.pokemonSettings.form.toLowerCase() :
               item.pokemonSettings.pokemonId.toLowerCase(),
-            number: item.templateId.split('_')[0].slice(2),
+            number: Number.parseInt(item.templateId.split('_')[0].slice(2)),
             stats: item.pokemonSettings.stats,
             type: [item.pokemonSettings.type.split('_')[2].toLowerCase(), item.pokemonSettings.type2 ?
               item.pokemonSettings.type2.split('_')[2].toLowerCase() :
@@ -205,7 +205,11 @@ class Pokemon extends Search {
       .map(result => JSON.parse(result.ref));
   }
 
-  search(terms) {
+  search(terms, byNumber = false) {
+    if (byNumber) {
+      return this.internalSearch(terms, ['number']);
+    }
+
     // First try searching just on name
     let results = this.internalSearch(terms, ['name']);
     if (results !== undefined && results.length > 0) {
@@ -229,17 +233,6 @@ class Pokemon extends Search {
       .map(term => term.match(/(\d+)$/))
       .filter(match => !!match)
       .map(match => match[1]), ['tier']);
-
-    if (results !== undefined && results.length > 0) {
-      results = results
-        .filter(pokemon => pokemon.name === undefined);
-    }
-
-    // try pokemon number
-    results = this.internalSearch(terms
-      .map(term => term.match(/(\d+)$/))
-      .filter(match => !!match)
-      .map(match => match[1]), ['number']);
 
     if (results !== undefined && results.length > 0) {
       results = results

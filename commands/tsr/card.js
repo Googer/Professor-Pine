@@ -42,41 +42,40 @@ class SilphCardCommand extends Commando.Command {
 
   async run(message, args) {
     let username = args['username'],
-        url = `sil.ph`,
-        path = `/${username}.json`,
-        colors = {
-          instinct: '#FFFF00',
-          mystic: '#0000FF',
-          valor: '#FF0000'
-        };
+      url = `sil.ph`,
+      path = `/${username}.json`,
+      colors = {
+        instinct: '#FFFF00',
+        mystic: '#0000FF',
+        valor: '#FF0000'
+      };
 
     var req = https.request({
       hostname: url,
       path: path,
       method: 'GET'
-    }, (res) => {
-      var responseString = "";
+    }, res => {
+      let responseString = '';
 
-      res.on("data", function (data) {
+      res.on('data', function (data) {
         responseString += data;
         // save all the data from response
       });
 
-      res.on("end", function () {
-        message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍');
+      res.on('end', function () {
         let body = JSON.parse(responseString);
         let card = body.data;
 
         if (body.error) {
           message.reply(`${username} does not have a Traveler's Card.`);
         } else {
-          var embed = new MessageEmbed();
+          const embed = new MessageEmbed();
           embed.setColor(colors[card.team.toLowerCase()]);
           embed.setTitle(`${card.title} ${card.in_game_username}`);
           embed.setURL(`https://sil.ph/${username}`);
           embed.setDescription(card.goal);
 
-          let experience = Number(card.xp).toLocaleString();
+          const experience = Number(card.xp).toLocaleString();
 
           embed.addField('**Level**', `${card.trainer_level} (${experience})`, true);
           embed.addField('**Team**', card.team, true);
@@ -85,25 +84,26 @@ class SilphCardCommand extends Commando.Command {
           embed.addField('**Handshakes**', card.handshakes, true);
           embed.addField('**Raid Average**', card.raid_average + ' per week', true);
           embed.addField('**Active Around**', card.home_region, true);
-          // let topsix = [];
-          // for (let i = 0; i < card.top_6_pokemon.length; i++) {
-          //   let mon = Pokemon.search([card.top_6_pokemon[i] + '']);
-          //
-          //   if (!!mon) {
-          //     topsix.push(mon.name.charAt(0) + mon.name.substr(1));
-          //   }
-          // }
-          //
-          // if (topsix.length) {
-          //   embed.addField('**Top 6**', topsix.join(', '));
-          // }
+
+          let topsix = [];
+          for (let i = 0; i < card.top_6_pokemon.length; i++) {
+            const mon = Pokemon.search([card.top_6_pokemon[i] + ''], true);
+
+            if (!!mon && mon.length > 0) {
+              topsix.push(mon[0].name.charAt(0).toLocaleUpperCase() + mon[0].name.substr(1));
+            }
+          }
+
+          if (topsix.length) {
+            embed.addField('**Top 6**', topsix.join(', '));
+          }
 
           let badges = '';
           if (card.badges.length) {
             if (card.badges.length > 4) {
               let badgesNamed = [];
               for (let i = 0; i < 4; i++) {
-                let badge = card.badges.pop();
+                const badge = card.badges.pop();
                 badgesNamed.push(badge.Badge.name);
               }
 
@@ -112,7 +112,7 @@ class SilphCardCommand extends Commando.Command {
             } else {
               let badgesNamed = [];
               for (let i = 0; i < card.badges.length; i++) {
-                let badge = card.badges.pop();
+                const badge = card.badges.pop();
                 badgesNamed.push(badge.Badge.name);
               }
 
