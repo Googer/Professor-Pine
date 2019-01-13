@@ -130,6 +130,7 @@ class Pokemon extends Search {
       this.ref('object');
       this.field('name');
       this.field('nickname');
+      this.field('number');
       this.field('tier');
       this.field('bossCP');
 
@@ -137,6 +138,7 @@ class Pokemon extends Search {
         const pokemonDocument = Object.create(null);
 
         pokemonDocument['object'] = JSON.stringify(pokemon);
+        pokemonDocument['number'] = pokemon.number;
         pokemonDocument['name'] = pokemon.name;
         pokemonDocument['nickname'] = (pokemon.nickname) ? pokemon.nickname.join(' ') : '';
         pokemonDocument['tier'] = pokemon.tier;
@@ -155,6 +157,7 @@ class Pokemon extends Search {
 
     // first filter out stop words from the search terms; lunr does this itself so our hacky way of AND'ing will
     // return nothing if they have any in their search terms list since they'll never match anything
+
     const splitTerms = [].concat(...terms
       .map(term => term.split('-')));
 
@@ -226,6 +229,17 @@ class Pokemon extends Search {
       .map(term => term.match(/(\d+)$/))
       .filter(match => !!match)
       .map(match => match[1]), ['tier']);
+
+    if (results !== undefined && results.length > 0) {
+      results = results
+        .filter(pokemon => pokemon.name === undefined);
+    }
+
+    // try pokemon number
+    results = this.internalSearch(terms
+      .map(term => term.match(/(\d+)$/))
+      .filter(match => !!match)
+      .map(match => match[1]), ['number']);
 
     if (results !== undefined && results.length > 0) {
       results = results
