@@ -701,13 +701,15 @@ class Raid extends Party {
         .filter(attendeeEntry => attendeeEntry[1].status === PartyStatus.COMPLETE),
 
       embedColors = {
-        1: '#cc6666',
         2: 'GREEN',
         3: '#ff0000'
       },
       embed = new Discord.MessageEmbed();
 
-    embed.setColor(embedColors[hatchStage]);
+    if (hatchStage !== 1) {
+      embed.setColor(embedColors[hatchStage]);
+    }
+
     embed.setTitle(`Map Link: ${gymName}`);
     embed.setURL(gymUrl);
 
