@@ -43,6 +43,9 @@ class PartyManager {
             await this.getChannel(party.channelId)
               .then(channelResult => {
                 if (channelResult.ok) {
+                  party.refreshStatusMessages()
+                    .catch(err => log.error(err));
+
                   return channelResult.channel.setName(newChannelName);
                 }
               })
