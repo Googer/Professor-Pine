@@ -664,7 +664,7 @@ class Raid extends Party {
           '__Egg Hatched At__' :
           '__Egg Hatch Time__' :
         '',
-
+      hatchStage = this.getHatchStage(),
       gym = Gym.getGym(this.gymId),
       gymName = !!gym.nickname ?
         gym.nickname :
@@ -699,9 +699,15 @@ class Raid extends Party {
           attendeeEntry[1].status === PartyStatus.COMPLETE_PENDING),
       completeAttendees = sortedAttendees
         .filter(attendeeEntry => attendeeEntry[1].status === PartyStatus.COMPLETE),
+
+      embedColors = {
+        1: '#cc6666',
+        2: 'GREEN',
+        3: '#ff0000'
+      },
       embed = new Discord.MessageEmbed();
 
-    embed.setColor('GREEN');
+    embed.setColor(embedColors[hatchStage]);
     embed.setTitle(`Map Link: ${gymName}`);
     embed.setURL(gymUrl);
 
@@ -885,7 +891,28 @@ class Raid extends Party {
   generatePokemonName(pokemon) {
     const nonCharCleaner = new RegExp(/[^\w]/, 'g');
     let type = '',
-      now = moment(),
+      prefixType = this.getHatchStage();
+
+    if (prefixType === 1) {
+      type = 'egg ' + pokemon.tier;
+    } else if (prefixType === 3 && pokemon.name === undefined) {
+      type = 'expired ' + pokemon.tier;
+    } else if (prefixType === 3 && pokemon.name !== undefined) {
+      type = 'expired ' + pokemon.name;
+    } else if (prefixType === 2 && pokemon.name === undefined) {
+      type = 'boss ' + pokemon.tier;
+    } else if (prefixType === 2 && pokemon.name !== undefined) {
+      type = pokemon.name;
+    }
+
+    return type.replace(nonCharCleaner, ' ')
+      .split(' ')
+      .filter(token => token.length > 0)
+      .join('-');
+  }
+
+  getHatchStage() {
+    let now = moment(),
       hatchTime = !!this.hatchTime ?
         moment(this.hatchTime) :
         moment.invalid(),
@@ -894,21 +921,12 @@ class Raid extends Party {
         moment.invalid();
 
     if (!hatchTime.isValid() || now < hatchTime || hatchTime.isSame(now)) {
-      type = 'egg ' + pokemon.tier;
-    } else if (now >= endTime && pokemon.name === undefined) {
-      type = 'expired ' + pokemon.tier;
-    } else if (now >= endTime && pokemon.name !== undefined) {
-      type = 'expired ' + pokemon.name;
-    } else if (now >= hatchTime && pokemon.name === undefined) {
-      type = 'boss ' + pokemon.tier;
-    } else if (now >= hatchTime && pokemon.name !== undefined) {
-      type = pokemon.name;
+      return 1;
+    } else if (now >= endTime) {
+      return 3;
+    } else if (now >= hatchTime) {
+      return 2;
     }
-
-    return type.replace(nonCharCleaner, ' ')
-      .split(' ')
-      .filter(token => token.length > 0)
-      .join('-');
   }
 
   toJSON() {
