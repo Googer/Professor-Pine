@@ -80,9 +80,9 @@ class MovesetType extends Commando.ArgumentType {
   }
 
   capitalizeMoveset(move) {
-    return move.split(' ').map(m => {
-      return m.charAt(0).toUpperCase() + m.substr(1);
-    }).join(' ');
+    return move.split(' ')
+      .map(m => m.charAt(0).toUpperCase() + m.substr(1))
+      .join(' ');
   }
 
   parse(value, message, arg) {

@@ -401,6 +401,10 @@ class Raid extends Party {
     this.pokemon = pokemon;
     this.isExclusive = !!pokemon.exclusive;
 
+    // clear any set moves
+    delete this.quickMove;
+    delete this.cinematicMove;
+
     // update or delete screenshot if all information has now been set
     if (this.incompleteScreenshotMessage) {
       await PartyManager.getMessage(this.incompleteScreenshotMessage)
@@ -739,7 +743,7 @@ class Raid extends Party {
     let pokemonDataContent = '';
 
     if (this.pokemon.weakness && this.pokemon.weakness.length > 0) {
-      pokemonDataContent += '**Weaknesses**';
+      pokemonDataContent += '**Weaknesses**\n';
       pokemonDataContent += this.pokemon.weakness
         .map(weakness => Helper.getEmoji(weakness.type).toString() +
           (weakness.multiplier > 1.6 ?
@@ -753,7 +757,7 @@ class Raid extends Party {
         pokemonDataContent += '\n\n';
       }
 
-      pokemonDataContent += '**Catch CP Ranges** \n';
+      pokemonDataContent += '**Catch CP Ranges**\n';
       pokemonDataContent += pokemonCPString;
     }
 
@@ -762,7 +766,7 @@ class Raid extends Party {
         pokemonDataContent += '\n\n';
       }
 
-      pokemonDataContent += '**Quick Move** \n';
+      pokemonDataContent += '**Quick Move**\n';
       pokemonDataContent += pokemonQuickMove;
     }
 
@@ -771,7 +775,7 @@ class Raid extends Party {
         pokemonDataContent += '\n\n';
       }
 
-      pokemonDataContent += '**Charge Move** \n';
+      pokemonDataContent += '**Charge Move**\n';
       pokemonDataContent += pokemonCinematicMove;
     }
 
