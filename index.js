@@ -120,6 +120,7 @@ Client.registry.registerCommands([
   require('./commands/raids/time-left'),
   require('./commands/raids/set-pokemon'),
   require('./commands/raids/set-location'),
+  require('./commands/raids/set-moveset'),
 
   require('./commands/raids/auto-status'),
   require('./commands/raids/report-privacy'),
