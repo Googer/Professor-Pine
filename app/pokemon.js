@@ -43,6 +43,8 @@ class Pokemon extends Search {
               item.pokemonSettings.pokemonId.toLowerCase(),
             number: Number.parseInt(item.templateId.split('_')[0].slice(2)),
             stats: item.pokemonSettings.stats,
+            quickMoves: item.pokemonSettings.quickMoves,
+            cinematicMoves: item.pokemonSettings.cinematicMoves,
             type: [item.pokemonSettings.type.split('_')[2].toLowerCase(), item.pokemonSettings.type2 ?
               item.pokemonSettings.type2.split('_')[2].toLowerCase() :
               null]
