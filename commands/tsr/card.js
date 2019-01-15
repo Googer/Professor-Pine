@@ -83,7 +83,9 @@ class SilphCardCommand extends Commando.Command {
           embed.addField('**Nest Reports**', card.nest_migrations + ' Migrations', true);
           embed.addField('**Handshakes**', card.handshakes, true);
           embed.addField('**Raid Average**', card.raid_average + ' per week', true);
-          embed.addField('**Active Around**', card.home_region, true);
+          if (card.home_region) {
+            embed.addField('**Active Around**', card.home_region, true);
+          }
 
           let topsix = [];
           for (let i = 0; i < card.top_6_pokemon.length; i++) {
