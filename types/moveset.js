@@ -32,14 +32,14 @@ class MovesetType extends Commando.ArgumentType {
       raidBoss.quickMoves.forEach(validMove => {
         if (validMove.indexOf(name) !== -1) {
           quickFound = true;
-          quickFoundMove = name;
+          quickFoundMove = move;
         }
       });
 
       raidBoss.cinematicMoves.forEach(validMove => {
         if (validMove.indexOf(name) !== -1) {
           cinematicFound = true;
-          cinematicFoundMove = name;
+          cinematicFoundMove = move;
         }
       });
     });
