@@ -41,125 +41,126 @@ class SilphCardCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    let username = args['username'],
+    const username = args['username'],
       url = `sil.ph`,
       path = `/${username}.json`,
       colors = {
         instinct: '#FFFF00',
         mystic: '#0000FF',
         valor: '#FF0000'
-      };
+      },
+      req = https.request({
+        hostname: url,
+        path: path,
+        method: 'GET'
+      }, res => {
+        let responseString = '';
 
-    var req = https.request({
-      hostname: url,
-      path: path,
-      method: 'GET'
-    }, res => {
-      let responseString = '';
-
-      res.on('data', function (data) {
-        responseString += data;
         // save all the data from response
+        res.on('data', data => responseString += data);
+
+        res.on('end', () => {
+          const body = JSON.parse(responseString),
+            card = body.data;
+
+          if (body.error) {
+            message.reply(`${username} does not have a Traveler's Card.`)
+              .catch(err => log.error(err));
+          } else {
+            const embed = new MessageEmbed();
+            embed.setColor(colors[card.team.toLowerCase()]);
+            embed.setTitle(`${card.title} ${card.in_game_username}`);
+            embed.setURL(`https://sil.ph/${username}`);
+            embed.setDescription(card.goal);
+
+            const experience = Number(card.xp).toLocaleString();
+
+            embed.addField('**Level**', `${card.trainer_level} (${experience})`, true);
+            embed.addField('**Team**', card.team, true);
+            embed.addField('**Pokédex Entries**', card.pokedex_count, true);
+            embed.addField('**Nest Reports**', card.nest_migrations + ' Migrations', true);
+            embed.addField('**Handshakes**', card.handshakes, true);
+            embed.addField('**Raid Average**', card.raid_average + ' per week', true);
+            if (card.home_region) {
+              embed.addField('**Active Around**', card.home_region, true);
+            }
+
+            const topSix = [];
+            for (let i = 0; i < card.top_6_pokemon.length; i++) {
+              const mon = Pokemon.search([card.top_6_pokemon[i] + ''], true);
+
+              if (!!mon && mon.length > 0) {
+                topSix.push(mon[0].name.charAt(0).toLocaleUpperCase() + mon[0].name.substr(1));
+              }
+            }
+
+            if (topSix.length) {
+              embed.addField('**Top 6**', topSix.join(', '));
+            }
+
+            let badges = '';
+            if (card.badges.length) {
+              if (card.badges.length > 4) {
+                let badgesNamed = [];
+                for (let i = 0; i < 4; i++) {
+                  const badge = card.badges.pop();
+                  badgesNamed.push(badge.Badge.name);
+                }
+
+                badgesNamed.push('and ' + card.badges.length + ' others!');
+                badges = badgesNamed.join(', ');
+              } else {
+                let badgesNamed = [];
+                for (let i = 0; i < card.badges.length; i++) {
+                  const badge = card.badges.pop();
+                  badgesNamed.push(badge.Badge.name);
+                }
+
+                badges = badgesNamed.join(', ');
+              }
+            } else {
+              badges = `${card.title} ${card.in_game_username} has no badges!`;
+            }
+
+            embed.addField('**Badges**', badges);
+
+            let checkins = '';
+            if (card.checkins.length) {
+              if (card.checkins.length > 4) {
+                const checkinNamed = [];
+                for (let i = 0; i < 4; i++) {
+                  const checkin = card.checkins.pop();
+                  checkinNamed.push(checkin.name);
+                }
+
+                checkinNamed.push('and ' + card.checkins.length + ' others!');
+                checkins = checkinNamed.join(', ');
+              } else {
+                const checkinNamed = [];
+                for (let i = 0; i < card.checkins.length; i++) {
+                  const checkin = card.checkins.pop();
+                  checkinNamed.push(checkin.name);
+                }
+
+                checkinNamed.push('and ' + card.checkins.length + ' others!');
+                checkins = checkinNamed.join(', ');
+              }
+            } else {
+              checkins = `${card.title} ${card.in_game_username} has no check ins!`
+            }
+            embed.addField('**Check Ins**', checkins);
+
+            const joined = moment(card.joined).format('MMMM Do YYYY');
+            embed.setFooter(`This traveler's card was created ${joined} and last edited ${card.modified}.`);
+            embed.setThumbnail(card.avatar);
+
+            message.channel.send(embed)
+              .catch(err => log.error(err));
+          }
+        });
       });
 
-      res.on('end', function () {
-        let body = JSON.parse(responseString);
-        let card = body.data;
-
-        if (body.error) {
-          message.reply(`${username} does not have a Traveler's Card.`);
-        } else {
-          const embed = new MessageEmbed();
-          embed.setColor(colors[card.team.toLowerCase()]);
-          embed.setTitle(`${card.title} ${card.in_game_username}`);
-          embed.setURL(`https://sil.ph/${username}`);
-          embed.setDescription(card.goal);
-
-          const experience = Number(card.xp).toLocaleString();
-
-          embed.addField('**Level**', `${card.trainer_level} (${experience})`, true);
-          embed.addField('**Team**', card.team, true);
-          embed.addField('**Pokédex Entries**', card.pokedex_count, true);
-          embed.addField('**Nest Reports**', card.nest_migrations + ' Migrations', true);
-          embed.addField('**Handshakes**', card.handshakes, true);
-          embed.addField('**Raid Average**', card.raid_average + ' per week', true);
-          if (card.home_region) {
-            embed.addField('**Active Around**', card.home_region, true);
-          }
-
-          let topsix = [];
-          for (let i = 0; i < card.top_6_pokemon.length; i++) {
-            const mon = Pokemon.search([card.top_6_pokemon[i] + ''], true);
-
-            if (!!mon && mon.length > 0) {
-              topsix.push(mon[0].name.charAt(0).toLocaleUpperCase() + mon[0].name.substr(1));
-            }
-          }
-
-          if (topsix.length) {
-            embed.addField('**Top 6**', topsix.join(', '));
-          }
-
-          let badges = '';
-          if (card.badges.length) {
-            if (card.badges.length > 4) {
-              let badgesNamed = [];
-              for (let i = 0; i < 4; i++) {
-                const badge = card.badges.pop();
-                badgesNamed.push(badge.Badge.name);
-              }
-
-              badgesNamed.push('and ' + card.badges.length + ' others!');
-              badges = badgesNamed.join(', ');
-            } else {
-              let badgesNamed = [];
-              for (let i = 0; i < card.badges.length; i++) {
-                const badge = card.badges.pop();
-                badgesNamed.push(badge.Badge.name);
-              }
-
-              badges = badgesNamed.join(', ');
-            }
-          } else {
-            badges = `${card.title} ${card.in_game_username} has no badges!`;
-          }
-
-          embed.addField('**Badges**', badges);
-
-          let checkins = '';
-          if (card.checkins.length) {
-            if (card.checkins.length > 4) {
-              let checkinNamed = [];
-              for (let i = 0; i < 4; i++) {
-                let checkin = card.checkins.pop();
-                checkinNamed.push(checkin.name);
-              }
-
-              checkinNamed.push('and ' + card.checkins.length + ' others!');
-              checkins = checkinNamed.join(', ');
-            } else {
-              let checkinNamed = [];
-              for (let i = 0; i < card.checkins.length; i++) {
-                let checkin = card.checkins.pop();
-                checkinNamed.push(checkin.name);
-              }
-
-              checkinNamed.push('and ' + card.checkins.length + ' others!');
-              checkins = checkinNamed.join(', ');
-            }
-          } else {
-            checkins = `${card.title} ${card.in_game_username} has no check ins!`
-          }
-          embed.addField('**Check Ins**', checkins);
-
-          let joined = moment(card.joined).format('MMMM Do YYYY')
-          embed.setFooter(`This traveler's card was created ${joined} and last edited ${card.modified}.`)
-          embed.setThumbnail(card.avatar);
-
-          message.channel.send('', {embed});
-        }
-      });
-    });
+    req.on('error', err => log.error(err));
 
     req.end();
   }
