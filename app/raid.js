@@ -4,6 +4,7 @@ const log = require('loglevel').getLogger('Raid'),
   removeDiacritics = require('diacritics').remove,
   moment = require('moment'),
   settings = require('../data/settings'),
+  moves = require('../data/moves'),
   {PartyStatus, PartyType} = require('./constants'),
   Discord = require('discord.js'),
   Helper = require('./helper'),
@@ -386,6 +387,16 @@ class Raid extends Party {
     return {party: this};
   }
 
+  async setMoveset(moveset) {
+    if (!!moveset.quick) {
+      this.quickMove = moveset.quick;
+    }
+
+    if (!!moveset.cinematic) {
+      this.cinematicMove = moveset.cinematic;
+    }
+  }
+
   async setPokemon(pokemon) {
     this.pokemon = pokemon;
     this.isExclusive = !!pokemon.exclusive;
@@ -636,7 +647,12 @@ class Raid extends Party {
           .map(condition => Helper.getEmoji(condition))
           .join('')}` :
         '',
-
+      pokemonQuickMove = !!this.quickMove ?
+        moves[this.quickMove] :
+        '????',
+      pokemonCinematicMove = !!this.cinematicMove ?
+        moves[this.cinematicMove] :
+        '????',
       raidDescription = this.isExclusive ?
         `EX Raid against ${pokemon}` :
         `Level ${this.pokemon.tier} Raid against ${pokemon}`,
@@ -720,17 +736,47 @@ class Raid extends Party {
       embed.setThumbnail(pokemonUrl);
     }
 
+    let pokemonDataContent = '';
+
     if (this.pokemon.weakness && this.pokemon.weakness.length > 0) {
-      embed.addField('**Weaknesses**', this.pokemon.weakness
+      pokemonDataContent += '**Weaknesses**';
+      pokemonDataContent += this.pokemon.weakness
         .map(weakness => Helper.getEmoji(weakness.type).toString() +
           (weakness.multiplier > 1.6 ?
             'x2 ' :
             ''))
-        .join(''));
+        .join('');
     }
 
     if (pokemonCPString) {
-      embed.addField('**Catch CP Ranges**', pokemonCPString);
+      if (pokemonDataContent) {
+        pokemonDataContent += '\n\n';
+      }
+
+      pokemonDataContent += '**Catch CP Ranges** \n';
+      pokemonDataContent += pokemonCPString;
+    }
+
+    if (pokemonQuickMove !== '????' || (pokemonQuickMove === '????' && settings.showUnknownMoves)) {
+      if (pokemonDataContent) {
+        pokemonDataContent += '\n\n';
+      }
+
+      pokemonDataContent += '**Quick Move** \n';
+      pokemonDataContent += pokemonQuickMove;
+    }
+
+    if (pokemonCinematicMove !== '????' || (pokemonCinematicMove === '????' && settings.showUnknownMoves)) {
+      if (pokemonDataContent) {
+        pokemonDataContent += '\n\n';
+      }
+
+      pokemonDataContent += '**Charge Move** \n';
+      pokemonDataContent += pokemonCinematicMove;
+    }
+
+    if (pokemonDataContent !== '') {
+      embed.addField('**Pokémon Information**', pokemonDataContent + '\n\n');
     }
 
     embed.setFooter(endTime + raidReporter,
@@ -940,7 +986,9 @@ class Raid extends Party {
       hatchTime: this.hatchTime,
       endTime: this.endTime,
       pokemon: this.pokemon,
-      gymId: this.gymId
+      gymId: this.gymId,
+      quickMove: this.quickMove,
+      cinematicMove: this.cinematicMove
     });
   }
 }
