@@ -45,7 +45,7 @@ class MovesetType extends Commando.ArgumentType {
         searchedMoves.forEach(searchedMove => {
           if (validMove.indexOf(searchedMove) !== -1) {
             cinematicFound = true;
-            cinematicFoundMove = move;
+            cinematicFoundMove = searchedMove;
           }
         });
       });
