@@ -737,7 +737,9 @@ class Raid extends Party {
     embed.setTitle(`Map Link: ${gymName}`);
     embed.setURL(gymUrl);
 
-    let shiny = this.pokemon.shiny ? Helper.getEmoji(settings.emoji.shiny) || '✨' : '';
+    const shiny = this.pokemon.shiny ?
+      Helper.getEmoji(settings.emoji.shiny) || '✨' :
+      '';
     embed.setDescription(raidDescription + shiny);
 
     if (pokemonUrl !== '') {
@@ -765,26 +767,17 @@ class Raid extends Party {
       pokemonDataContent += pokemonCPString;
     }
 
-    if (pokemonQuickMove !== '????' || (pokemonQuickMove === '????' && settings.showUnknownMoves)) {
+    if (pokemon !== '????' && (settings.showUnknownMoves || pokemonQuickMove !== '????' || pokemonCinematicMove !== '????')) {
       if (pokemonDataContent) {
         pokemonDataContent += '\n\n';
       }
 
-      pokemonDataContent += '**Quick Move**\n';
-      pokemonDataContent += pokemonQuickMove;
-    }
-
-    if (pokemonCinematicMove !== '????' || (pokemonCinematicMove === '????' && settings.showUnknownMoves)) {
-      if (pokemonDataContent) {
-        pokemonDataContent += '\n\n';
-      }
-
-      pokemonDataContent += '**Charge Move**\n';
-      pokemonDataContent += pokemonCinematicMove;
+      pokemonDataContent += '**Moveset (Fast / Charge)**\n';
+      pokemonDataContent += `${pokemonQuickMove} / ${pokemonCinematicMove}`;
     }
 
     if (pokemonDataContent !== '') {
-      embed.addField('**Pokémon Information**', pokemonDataContent + '\n\n');
+      embed.addField('**Pokémon Information**', pokemonDataContent);
     }
 
     embed.setFooter(endTime + raidReporter,
