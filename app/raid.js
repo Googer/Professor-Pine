@@ -395,6 +395,10 @@ class Raid extends Party {
     if (!!moveset.cinematic) {
       this.cinematicMove = moveset.cinematic;
     }
+
+    await this.persist();
+
+    return {party: this};
   }
 
   async setPokemon(pokemon) {
