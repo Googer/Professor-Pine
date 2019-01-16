@@ -25,7 +25,7 @@ class MovesetType extends Commando.ArgumentType {
     const moves = value.split('/', 2)
         .map(move => move.trim());
 
-    let invalidatedMoves = moves;
+    let notValidatedMoves = moves;
 
     moves.forEach((move, index) => {
       const searchedMoves = Moves.search(move.split(/\s/g));
@@ -33,7 +33,7 @@ class MovesetType extends Commando.ArgumentType {
       raidBoss.quickMoves.forEach(validMove => {
         searchedMoves.forEach(searchedMove => {
           if (validMove.indexOf(searchedMove) !== -1) {
-            invalidatedMoves = invalidatedMoves
+            notValidatedMoves = notValidatedMoves
               .filter(value => value !== move);
           }
         });
@@ -42,7 +42,7 @@ class MovesetType extends Commando.ArgumentType {
       raidBoss.cinematicMoves.forEach(validMove => {
         searchedMoves.forEach(searchedMove => {
           if (validMove.indexOf(searchedMove) !== -1) {
-            invalidatedMoves = invalidatedMoves
+            notValidatedMoves = notValidatedMoves
               .filter(value => value !== move);
           }
         });
@@ -51,13 +51,13 @@ class MovesetType extends Commando.ArgumentType {
 
     let errorMessage = '';
 
-    if (invalidatedMoves.length > 0) {
+    if (notValidatedMoves.length > 0) {
       const raidBossName = raidBoss.name.charAt(0).toUpperCase() + raidBoss.name.substr(1);
 
-      if (invalidatedMoves.length === 1) {
-        errorMessage = this.capitalizeMoveset(invalidatedMoves[0]) + ' is not a valid move for ' + raidBossName;
+      if (notValidatedMoves.length === 1) {
+        errorMessage = this.capitalizeMoveset(notValidatedMoves[0]) + ' is not a valid move for ' + raidBossName;
       } else {
-        errorMessage = this.capitalizeMoveset(invalidatedMoves[0]) + ' and ' + this.capitalizeMoveset(invalidatedMoves[1]) + ' are not valid moves for ' + raidBossName;
+        errorMessage = this.capitalizeMoveset(notValidatedMoves[0]) + ' and ' + this.capitalizeMoveset(notValidatedMoves[1]) + ' are not valid moves for ' + raidBossName;
       }
 
       errorMessage += '.\n\n' + arg.prompt + '\n';
