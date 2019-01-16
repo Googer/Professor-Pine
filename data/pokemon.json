@@ -1098,7 +1098,8 @@
     "name": "treecko"
   },
   {
-    "name": "grovyle"
+    "name": "grovyle",
+    "tier": 2
   },
   {
     "name": "sceptile"
@@ -1167,7 +1168,8 @@
     "name": "nuzleaf"
   },
   {
-    "name": "shiftry"
+    "name": "shiftry",
+    "tier": 4
   },
   {
     "name": "taillow"
@@ -1177,6 +1179,7 @@
   },
   {
     "name": "wingull",
+    "tier": 1,
     "shiny": true
   },
   {
@@ -1291,10 +1294,14 @@
     "tier": 2
   },
   {
-    "name": "plusle"
+    "name": "plusle",
+    "tier": 1,
+    "shiny": true
   },
   {
-    "name": "minun"
+    "name": "minun",
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "volbeat"
@@ -1393,7 +1400,8 @@
     "name": "corphish"
   },
   {
-    "name": "crawdaunt"
+    "name": "crawdaunt",
+    "tier": 3
   },
   {
     "name": "baltoy"
@@ -1510,7 +1518,8 @@
     "name": "metang"
   },
   {
-    "name": "metagross"
+    "name": "metagross",
+    "tier": 4
   },
   {
     "name": "regirock",
@@ -1539,7 +1548,8 @@
   },
   {
     "name": "groudon",
-    "tier": 5
+    "tier": 5,
+    "shiny": true
   },
   {
     "name": "rayquaza",
@@ -1893,12 +1903,12 @@
     "nickname": [
       "altered"
     ],
-    "tier":  5
+    "tier": 5
   },
   {
     "name": "giratina_origin",
     "overrideName": "Giratina - Origin",
-    "tier":  5
+    "tier": 5
   },
   {
     "name": "cresselia",

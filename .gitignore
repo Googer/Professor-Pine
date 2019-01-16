@@ -16,3 +16,5 @@ parties/**
 
 # ignore debug image processing images
 assets/processing
+
+yarn.lock
