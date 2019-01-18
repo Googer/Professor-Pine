@@ -43,6 +43,14 @@ class Raid extends Party {
           pokemon = defaultBoss;
           raid.defaulted = true;
         }
+      } else {
+        if (pokemon.quickMoves && pokemon.quickMoves.length === 1) {
+          raid.quickMove = pokemon.quickMoves[0];
+        }
+
+        if (pokemon.cinematicMoves && pokemon.cinematicMoves.length === 1) {
+          raid.cinematicMove = pokemon.cinematicMoves[0];
+        }
       }
 
       // add some extra raid data to remember
@@ -408,6 +416,14 @@ class Raid extends Party {
     // clear any set moves
     delete this.quickMove;
     delete this.cinematicMove;
+
+    if (pokemon.quickMoves && pokemon.quickMoves.length === 1) {
+      this.quickMove = pokemon.quickMoves[0];
+    }
+
+    if (pokemon.cinematicMoves && pokemon.cinematicMoves.length === 1) {
+      this.cinematicMove = pokemon.cinematicMoves[0];
+    }
 
     // update or delete screenshot if all information has now been set
     if (this.incompleteScreenshotMessage) {
