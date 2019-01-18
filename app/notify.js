@@ -47,12 +47,11 @@ class Notify {
   }
 
   async notifyMembersOfSpawn(pokemon, reportingMemberId, location, message) {
-
     const areaChannel = message.channel,
       guildId = message.guild.id,
       number = Notify.getDbPokemonNumber(pokemon),
       dbPokemonNumbers = [...new Set([number])]
-        .filter(number => !isNaN(number))
+        .filter(number => !isNaN(number));
 
     // don't try to look up notifications from screenshot placeholders where
     // a valid pokemon wasn't determined
@@ -70,18 +69,16 @@ class Notify {
         .pluck('User.userSnowflake');
     }
 
-    // console.log(message);
-
     pokemonMembers.filter(mem => mem !== reportingMemberId)
       .filter(memberId => areaChannel.guild.members.has(memberId))
       .filter(memberId => areaChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))
       .map(memberId => Helper.getMemberForNotification(message.channel.guild.id, memberId))
       .forEach(async member => {
-        let pokemonName = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1);
-        let regionChannel = (await PartyManager.getChannel(message.channel.id)).channel;
-        let reportingMember = (await PartyManager.getMember(regionChannel.id, reportingMemberId)).member;
-        let header = `A ${pokemonName} spawn has been reported in #${regionChannel.name} by ${reportingMember.displayName}:`
-        let embed = new MessageEmbed();
+        const pokemonName = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1),
+          regionChannel = (await PartyManager.getChannel(message.channel.id)).channel,
+          reportingMember = (await PartyManager.getMember(regionChannel.id, reportingMemberId)).member,
+          header = `A ${pokemonName} spawn has been reported in #${regionChannel.name} by ${reportingMember.displayName}:`,
+          embed = new MessageEmbed();
         embed.setColor('GREEN');
         embed.setDescription(location + '\n\n**Warning: Spawns are user-reported. There is no way to know exactly how long a Pokémon will be there. Most spawns are 30 min. Use your discretion when chasing them.**');
 
@@ -109,7 +106,7 @@ class Notify {
       number = Notify.getDbPokemonNumber(pokemon),
       tier = pokemon.tier,
       dbPokemonNumbers = [...new Set([number, -tier])]
-        .filter(number => !isNaN(number))
+        .filter(number => !isNaN(number));
 
     // don't try to look up notifications from screenshot placeholders where
     // a valid pokemon wasn't determined
@@ -365,7 +362,7 @@ class Notify {
       .first();
 
     return !!result ?
-      result.mentions === 1 && result[type] === 1:
+      result.mentions === 1 && result[type] === 1 :
       true;
   }
 

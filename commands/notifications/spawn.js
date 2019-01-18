@@ -51,7 +51,7 @@ class SpawnCommand extends Commando.Command {
 
   async run(message, args) {
     const pokemon = args['pokemon'],
-      spawnDetails = args['message']
+      spawnDetails = args['message'];
 
     if (pokemon.name === 'unown' && settings.channels.unown) {
       const unownChannel = Helper.getUnownChannel(message.guild),
@@ -69,11 +69,13 @@ class SpawnCommand extends Commando.Command {
         embed.setThumbnail(pokemon.url);
       }
 
-      unownChannel.send(header, {embed}).catch(err => log.error(err));
-      message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍');
+      unownChannel.send(header, {embed})
+        .then(msg => message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍'))
+        .catch(err => log.error(err));
     } else {
-      Notify.notifyMembersOfSpawn(pokemon, message.member.id, spawnDetails, message);
-      message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍');
+      Notify.notifyMembersOfSpawn(pokemon, message.member.id, spawnDetails, message)
+        .then(() => message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍'))
+        .catch(err => log.error(err));
     }
   }
 }
