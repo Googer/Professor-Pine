@@ -25,12 +25,15 @@ class PokemonType extends Commando.ArgumentType {
     }
 
     const validPokemon = pokemon
-      .find(pokemon => pokemon.exclusive || pokemon.tier);
+      .find(pokemon => {
+        if (message.command && message.command.name === 'raid') {
+          return pokemon.exclusive || (pokemon.tier && pokemon.tier < 7);
+        }
+        return pokemon.exclusive || pokemon.tier
+      });
 
     let allMonCommands = ['raid-boss', 'rare'];
     let requireValidation = !message.command || (message.command && allMonCommands.indexOf(message.command.name) === -1);
-
-    console.log('requireValidation for ' + message.command.name + ': ' + requireValidation);
 
     if (!validPokemon && requireValidation) {
       const name = pokemon[0].name ?
@@ -69,8 +72,6 @@ class PokemonType extends Commando.ArgumentType {
     } else {
       pokemon = Pokemon.search(terms)[0];
     }
-
-    console.log(pokemon);
 
     message.isExclusive = !!pokemon.exclusive;
 

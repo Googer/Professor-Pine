@@ -6,6 +6,8 @@ const log = require('loglevel').getLogger('SpawnCommand'),
   Gym = require('../../app/gym'),
   Helper = require('../../app/helper'),
   Notify = require('../../app/notify'),
+  PartyManager = require('../../app/party-manager'),
+  {MessageEmbed} = require('discord.js'),
   settings = require('../../data/settings');
 
 class SpawnCommand extends Commando.Command {
@@ -52,11 +54,27 @@ class SpawnCommand extends Commando.Command {
       spawnDetails = args['message']
 
     if (pokemon.name === 'unown' && settings.channels.unown) {
-      console.log(Helper.client.channels);
-    }
+      const unownChannel = Helper.getUnownChannel(message.guild),
+        pokemonName = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1),
+        regionChannel = (await PartyManager.getChannel(message.channel.id)).channel,
+        reportingMember = (await PartyManager.getMember(regionChannel.id, message.member.id)).member,
+        unownRole = Helper.guild.get(message.guild.id).roles.get('unown'),
+        mention = unownRole ? '(' + unownRole.toString() + ') ' : '',
+        header = `A ${pokemonName} ${mention}spawn has been reported in #${regionChannel.name} by ${reportingMember.displayName}: ${spawnDetails}`,
+        embed = new MessageEmbed();
+      embed.setColor('GREEN');
+      embed.setDescription('**Warning: Spawns are user-reported. There is no way to know exactly how long a Pokémon will be there. Most spawns are 30 min. Use your discretion when chasing them.**');
 
-    Notify.notifyMembersOfSpawn(pokemon, message.member.id, spawnDetails, message);
-    message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍');
+      if (pokemon.url) {
+        embed.setThumbnail(pokemon.url);
+      }
+
+      unownChannel.send(header, {embed}).catch(err => log.error(err));
+      message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍');
+    } else {
+      Notify.notifyMembersOfSpawn(pokemon, message.member.id, spawnDetails, message);
+      message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍');
+    }
   }
 }
 
