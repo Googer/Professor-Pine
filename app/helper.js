@@ -160,6 +160,10 @@ class Helper {
     return this.guild.get(guild.id).channels.exAnnounceChannel;
   }
 
+  getUnownChannel(guild) {
+    return this.guild.get(guild.id).channels.unown;
+  }
+
   isManagement(message) {
     let isModOrAdmin = false;
 

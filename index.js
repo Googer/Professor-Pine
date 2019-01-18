@@ -136,7 +136,9 @@ Client.registry.registerCommands([
   require('./commands/admin/autoset'),
   require('./commands/admin/shiny'),
   require('./commands/admin/not-shiny'),
-  require('./commands/tsr/card')
+  require('./commands/tsr/card'),
+  require('./commands/admin/rare'),
+  require('./commands/notifications/spawn')
 ]);
 
 if (privateSettings.regionMapLink !== '') {
