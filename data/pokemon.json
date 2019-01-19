@@ -1,5 +1,11 @@
 [
   {
+    "name": "perfect",
+    "nickname": [
+      "hundo"
+    ]
+  },
+  {
     "tier": 1,
     "egg": true
   },
