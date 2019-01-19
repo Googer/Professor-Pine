@@ -43,6 +43,14 @@ class Raid extends Party {
           pokemon = defaultBoss;
           raid.defaulted = true;
         }
+      } else {
+        if (pokemon.quickMoves && pokemon.quickMoves.length === 1) {
+          raid.quickMove = pokemon.quickMoves[0];
+        }
+
+        if (pokemon.cinematicMoves && pokemon.cinematicMoves.length === 1) {
+          raid.cinematicMove = pokemon.cinematicMoves[0];
+        }
       }
 
       // add some extra raid data to remember
@@ -409,6 +417,14 @@ class Raid extends Party {
     delete this.quickMove;
     delete this.cinematicMove;
 
+    if (pokemon.quickMoves && pokemon.quickMoves.length === 1) {
+      this.quickMove = pokemon.quickMoves[0];
+    }
+
+    if (pokemon.cinematicMoves && pokemon.cinematicMoves.length === 1) {
+      this.cinematicMove = pokemon.cinematicMoves[0];
+    }
+
     // update or delete screenshot if all information has now been set
     if (this.incompleteScreenshotMessage) {
       await PartyManager.getMessage(this.incompleteScreenshotMessage)
@@ -737,7 +753,9 @@ class Raid extends Party {
     embed.setTitle(`Map Link: ${gymName}`);
     embed.setURL(gymUrl);
 
-    let shiny = this.pokemon.shiny ? Helper.getEmoji(settings.emoji.shiny) || '✨' : '';
+    const shiny = this.pokemon.shiny ?
+      Helper.getEmoji(settings.emoji.shiny) || '✨' :
+      '';
     embed.setDescription(raidDescription + shiny);
 
     if (pokemonUrl !== '') {
@@ -765,26 +783,17 @@ class Raid extends Party {
       pokemonDataContent += pokemonCPString;
     }
 
-    if (pokemonQuickMove !== '????' || (pokemonQuickMove === '????' && settings.showUnknownMoves)) {
+    if (pokemon !== '????' && (settings.showUnknownMoves || pokemonQuickMove !== '????' || pokemonCinematicMove !== '????')) {
       if (pokemonDataContent) {
         pokemonDataContent += '\n\n';
       }
 
-      pokemonDataContent += '**Quick Move**\n';
-      pokemonDataContent += pokemonQuickMove;
-    }
-
-    if (pokemonCinematicMove !== '????' || (pokemonCinematicMove === '????' && settings.showUnknownMoves)) {
-      if (pokemonDataContent) {
-        pokemonDataContent += '\n\n';
-      }
-
-      pokemonDataContent += '**Charge Move**\n';
-      pokemonDataContent += pokemonCinematicMove;
+      pokemonDataContent += '**Moveset (Fast / Charge)**\n';
+      pokemonDataContent += `${pokemonQuickMove} / ${pokemonCinematicMove}`;
     }
 
     if (pokemonDataContent !== '') {
-      embed.addField('**Pokémon Information**', pokemonDataContent + '\n\n');
+      embed.addField('**Pokémon Information**', pokemonDataContent);
     }
 
     embed.setFooter(endTime + raidReporter,

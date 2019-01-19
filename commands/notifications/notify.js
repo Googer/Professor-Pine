@@ -22,6 +22,12 @@ class NotifyCommand extends Commando.Command {
           key: 'pokemon',
           prompt: 'What pokémon do you wish to be notified for?\nExample: `lugia`\n',
           type: 'pokemon'
+        },
+        {
+          key: 'type',
+          prompt: 'Do you want spawn notifications, raid notifications, or both? Please respond with `spawn`, `raid` or `both`.',
+          type: 'string',
+          oneOf: ['spawn', 'raid', 'both']
         }
       ],
       argsPromptLimit: 3,
@@ -37,9 +43,10 @@ class NotifyCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    const pokemon = args['pokemon'];
+    const pokemon = args['pokemon'],
+          type = args['type'];
 
-    Notify.assignPokemonNotification(message.member, pokemon)
+    Notify.assignPokemonNotification(message.member, pokemon, type)
       .then(result => message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍'))
       .catch(err => log.error(err));
   }
