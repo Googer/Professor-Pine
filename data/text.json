@@ -26,6 +26,9 @@
   "mentions": {
     "warning": "Use the `!mentions`, `!mentions-shouts`, and `!mentions-groups` command in ${bot-channel} to enable or disable being mentioned in messages by Professor Pine."
   },
+  "register-silph": {
+    "warning": "Use the `!register-silph` command in ${bot-channel} to register your Silph Road username."
+  },
   "notifications": {
     "warning": "Use the `!notifications` command in ${bot-channel} to view current notifications for pokémon."
   },

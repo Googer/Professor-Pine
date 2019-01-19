@@ -8,6 +8,7 @@ const log = require('loglevel').getLogger('SilphCardCommand'),
   Pokemon = require('../../app/pokemon'),
   settings = require('../../data/settings'),
   moment = require('moment'),
+  User = require('../../app/user'),
   https = require('https');
 
 class SilphCardCommand extends Commando.Command {
@@ -43,15 +44,25 @@ class SilphCardCommand extends Commando.Command {
   async run(message, args) {
     const username = args['username'],
       url = `sil.ph`,
-      path = `/${username}.json`,
       colors = {
         instinct: '#FFFF00',
         mystic: '#0000FF',
         valor: '#FF0000'
       },
-      req = https.request({
+      path = `/${username}.json`;
+
+      let silphPath = null;
+
+      if (username.indexOf('<@') !== -1) {
+        const memberId = username.replace(/[^\d]/g, ''),
+          silphName = await User.getSilphUsername(memberId);
+
+        silphPath = `/${silphName}.json`;
+      }
+
+      const req = https.request({
         hostname: url,
-        path: path,
+        path: silphPath || path,
         method: 'GET'
       }, res => {
         let responseString = '';
