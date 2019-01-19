@@ -74,7 +74,6 @@ class SpawnCommand extends Commando.Command {
         .catch(err => log.error(err));
     } else {
       Notify.notifyMembersOfSpawn(pokemon, message.member.id, spawnDetails, message)
-        .then(() => message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍'))
         .catch(err => log.error(err));
     }
   }

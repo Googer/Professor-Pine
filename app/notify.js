@@ -69,26 +69,36 @@ class Notify {
         .pluck('User.userSnowflake');
     }
 
+    const pokemonName = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1),
+      regionChannel = (await PartyManager.getChannel(message.channel.id)).channel,
+      reportingMember = (await PartyManager.getMember(regionChannel.id, reportingMemberId)).member,
+      header = `A ${pokemonName} spawn has been reported in #${regionChannel.name} by ${reportingMember.displayName}:`,
+      regionHeader = `A ${pokemonName} spawn has been reported by ${reportingMember.displayName}:`,
+      botLabChannel = message.guild.channels.find(channel => channel.name === settings.channels["bot-lab"]),
+      embed = new MessageEmbed();
+    embed.setColor('GREEN');
+    embed.setDescription(location + '\n\n**Warning: Spawns are user-reported. There is no way to know exactly how long a Pokémon will be there. Most spawns are 30 min. Use your discretion when chasing them.**');
+
+    if (pokemon.url) {
+      embed.setThumbnail(pokemon.url);
+    }
+
     pokemonMembers.filter(mem => mem !== reportingMemberId)
       .filter(memberId => areaChannel.guild.members.has(memberId))
       .filter(memberId => areaChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))
       .map(memberId => Helper.getMemberForNotification(message.channel.guild.id, memberId))
       .forEach(async member => {
-        const pokemonName = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1),
-          regionChannel = (await PartyManager.getChannel(message.channel.id)).channel,
-          reportingMember = (await PartyManager.getMember(regionChannel.id, reportingMemberId)).member,
-          header = `A ${pokemonName} spawn has been reported in #${regionChannel.name} by ${reportingMember.displayName}:`,
-          embed = new MessageEmbed();
-        embed.setColor('GREEN');
-        embed.setDescription(location + '\n\n**Warning: Spawns are user-reported. There is no way to know exactly how long a Pokémon will be there. Most spawns are 30 min. Use your discretion when chasing them.**');
-
-        if (pokemon.url) {
-          embed.setThumbnail(pokemon.url);
-        }
-
         member.send(header, {embed})
           .catch(err => log.error(err));
       });
+
+    message.channel.send(regionHeader, {embed})
+      .then(message => {
+        message.delete({timeout: 30 * settings.messageCleanupDelayStatus});
+        message.channel.send(`To enable or disable notifications for spawns, use the \`${message.client.commandPrefix}want\` command in ${botLabChannel.toString()}. To report a spawn, use the \`${message.client.commandPrefix}spawn\` command in a region channel.`)
+          .then(message => message.delete({timeout: 30 * settings.messageCleanupDelayStatus}));
+      })
+      .catch(err => log.error(err));
   }
 
   // notify interested members for the raid associated with the given channel and pokemon (and / or or gym),
