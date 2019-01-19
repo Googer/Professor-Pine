@@ -75,7 +75,10 @@ class SilphCardCommand extends Commando.Command {
             card = body.data;
 
           if (body.error) {
-            message.reply(`${username} does not have a Traveler's Card.`)
+            const msg = username.indexOf('<@') !== -1 ?
+              'has not registered their Silph Card username.' :
+              'does not have a Travel\'s Card.';
+            message.reply(`${username} ${msg}`)
               .catch(err => log.error(err));
           } else {
             const embed = new MessageEmbed();
