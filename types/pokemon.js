@@ -26,10 +26,10 @@ class PokemonType extends Commando.ArgumentType {
 
     const validPokemon = pokemon
       .find(pokemon => {
-        if (message.command && message.command.name === 'raid') {
+        if (!message.command || message.command.name === 'raid') {
           return pokemon.exclusive || (pokemon.tier && pokemon.tier < 7);
         }
-        return pokemon.exclusive || pokemon.tier
+        return pokemon.exclusive || pokemon.tier;
       });
 
     let allMonCommands = ['raid-boss', 'rare'];
