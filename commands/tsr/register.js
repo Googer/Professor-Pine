@@ -16,7 +16,7 @@ class RegisterSilphCommand extends Commando.Command {
       aliases: ['silph-username', 'silph-name'],
       description: 'Register your Silph Road Username.',
       details: 'Use this command to register your Silph Road username for reference based on Discord name.',
-      examples: ['\t!register-silph kingkovifor', '\t!register-silph melgood711'],
+      examples: ['\t!register-silph kingkovifor', '\t!silph-username melgood711'],
       args: [
         {
           key: 'username',
