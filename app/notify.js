@@ -94,9 +94,11 @@ class Notify {
 
     message.channel.send(regionHeader, {embed})
       .then(message => {
-        message.delete({timeout: 30 * settings.messageCleanupDelayStatus});
+        message.delete({timeout: 30 * settings.messageCleanupDelayStatus})
+          .catch(err => log.error(err));
         message.channel.send(`To enable or disable notifications for spawns, use the \`${message.client.commandPrefix}want\` command in ${botLabChannel.toString()}. To report a spawn, use the \`${message.client.commandPrefix}spawn\` command in a region channel.`)
-          .then(message => message.delete({timeout: 30 * settings.messageCleanupDelayStatus}));
+          .then(message => message.delete({timeout: 30 * settings.messageCleanupDelayStatus}))
+          .catch(err => log.error(err));
       })
       .catch(err => log.error(err));
   }

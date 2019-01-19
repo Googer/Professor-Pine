@@ -12,7 +12,6 @@
   "messageCleanupDelaySuccess": 5000,
   "messageCleanupDelayError": 30000,
   "messageCleanupDelayStatus": 60000,
-  "messageCleanupDelayStatus": 60000,
   "showUnknownMoves": true,
   "databaseRaids": true,
   "emoji": {
