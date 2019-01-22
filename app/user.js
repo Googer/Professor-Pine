@@ -1,6 +1,6 @@
 "use strict";
 
-const log = require('loglevel').getLogger('Status'),
+const log = require('loglevel').getLogger('User'),
   Helper = require('./helper'),
   DB = require('./db');
 
@@ -30,8 +30,6 @@ class User {
   }
 
   async getFriendCode(memberId) {
-    console.log(memberId);
-
     const result = await DB.DB('User')
       .where('userSnowflake', memberId)
       .pluck('friendcode')
@@ -84,8 +82,6 @@ class User {
       .where('nickname', nickname)
       .pluck('userSnowflake')
       .first();
-
-    console.log(result);
 
     if (!!result) {
       const channel = Helper.client.channels.get(message.channel.id),
