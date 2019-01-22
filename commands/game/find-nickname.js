@@ -1,13 +1,13 @@
 "use strict";
 
-const log = require('loglevel').getLogger('FriendCodeCommand'),
+const log = require('loglevel').getLogger('FindNicknameCommand'),
   Commando = require('discord.js-commando'),
   {CommandGroup} = require('../../app/constants'),
   Helper = require('../../app/helper'),
   settings = require('../../data/settings'),
   User = require('../../app/user');
 
-class FriendCodeCommand extends Commando.Command {
+class FindNicknameCommand extends Commando.Command {
   constructor(client) {
     super(client, {
       name: 'find-nickname',
@@ -45,12 +45,9 @@ class FriendCodeCommand extends Commando.Command {
         message.member.toString() + ', that user has not been associated with a discord member.';
 
     message.channel.send(header)
-      .then(message => {
-        message.delete({timeout: settings.messageCleanupDelayStatus})
-          .catch(err => log.error(err));
-      })
+      .then(message => message.delete({timeout: settings.messageCleanupDelayStatus}))
       .catch(err => log.error(err));
   }
 }
 
-module.exports = FriendCodeCommand;
+module.exports = FindNicknameCommand;

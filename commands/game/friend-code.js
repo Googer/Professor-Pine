@@ -45,10 +45,7 @@ class FriendCodeCommand extends Commando.Command {
         message.member.toString() + ', that user has not registered their friend code.';
 
     message.channel.send(header)
-      .then(message => {
-        message.delete({timeout: settings.messageCleanupDelayStatus})
-          .catch(err => log.error(err));
-      })
+      .then(message => message.delete({timeout: settings.messageCleanupDelayStatus}))
       .catch(err => log.error(err));
   }
 }
