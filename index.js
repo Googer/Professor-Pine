@@ -58,6 +58,7 @@ if (settings.features.roles) {
 if (settings.features.notifications) {
   Client.registry.registerGroup(CommandGroup.NOTIFICATIONS, 'Notifications');
 }
+Client.registry.registerGroup(CommandGroup.FRIENDS, 'Friend Codes');
 Client.registry.registerGroup(CommandGroup.SILPH, 'Silph Road');
 
 Client.registry.registerGroup(CommandGroup.COMMANDS, 'Command');
@@ -131,6 +132,7 @@ Client.registry.registerCommands([
 
   require('./commands/util/help'),
   require('./commands/admin/raid-boss'),
+  require('./commands/admin/raid-bosses'),
   require('./commands/admin/populate-raid-bosses'),
   require('./commands/util/boss-tier'),
   require('./commands/admin/autoset'),
@@ -139,7 +141,11 @@ Client.registry.registerCommands([
   require('./commands/tsr/card'),
   require('./commands/tsr/register'),
   require('./commands/admin/rare'),
-  require('./commands/notifications/spawn')
+  require('./commands/notifications/spawn'),
+  require('./commands/game/register-friend-code'),
+  require('./commands/game/register-nickname'),
+  require('./commands/game/friend-code'),
+  require('./commands/game/find-nickname')
 ]);
 
 if (privateSettings.regionMapLink !== '') {
