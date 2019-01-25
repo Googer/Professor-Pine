@@ -34,6 +34,7 @@ const privateSettings = require('./data/private-settings'),
   PartyManager = require('./app/party-manager'),
   Role = require('./app/role'),
   Utility = require('./app/utility'),
+  WebServer = require('./app/web/server'),
   settings = require('./data/settings'),
   {CommandGroup} = require('./app/constants');
 
@@ -184,6 +185,10 @@ Client.on('ready', () => {
     PartyManager.setClient(Client);
     DB.initialize(Client);
     IP.initialize();
+
+    if (settings.features.web) {
+      WebServer.initialize();
+    }
 
     isInitialized = true;
   }

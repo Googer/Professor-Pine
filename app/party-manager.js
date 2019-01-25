@@ -178,14 +178,20 @@ class PartyManager {
   findRaid(gymId, isExclusive) {
     return Object.values(this.parties)
       .filter(party => party.type === PartyType.RAID)
-      .filter(raid => (!!raid.isExclusive) === isExclusive)
+      .filter(raid => !!isExclusive ? (!!raid.isExclusive) === isExclusive : true)
       .find(raid => raid.gymId === gymId);
+  }
+
+  findRaidTrain(trainId, isExclusive) {
+    return Object.values(this.parties)
+      .filter(party => party.type === PartyType.RAID_TRAIN)
+      .find(raidTrain => raid.trainId === trainId);
   }
 
   raidExistsForGym(gymId, isExclusive) {
     return Object.values(this.parties)
       .filter(party => party.type === PartyType.RAID)
-      .filter(raid => (!!raid.isExclusive) === isExclusive)
+      .filter(raid => !!isExclusive ? (!!raid.isExclusive) === isExclusive : true)
       .map(raid => raid.gymId)
       .includes(gymId);
   }
@@ -327,7 +333,7 @@ class PartyManager {
 
   getAllParties(channelId, type) {
     return Object.values(this.parties)
-      .filter(party => party.sourceChannelId === channelId)
+      .filter(party => channelId === undefined || party.sourceChannelId === channelId)
       .filter(party => party.type === type);
   }
 

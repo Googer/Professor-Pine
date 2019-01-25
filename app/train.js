@@ -1,14 +1,13 @@
 "use strict";
 
 const log = require('loglevel').getLogger('Raid'),
-  removeDiacritics = require('diacritics').remove,
   moment = require('moment'),
   settings = require('../data/settings'),
   {PartyStatus, PartyType} = require('./constants'),
   Discord = require('discord.js'),
   Helper = require('./helper'),
   Party = require('./party'),
-  TimeType = require('../types/time');
+  uuidv1 = require('uuid/v1');
 
 let Gym,
   PartyManager;
@@ -32,6 +31,7 @@ class RaidTrain extends Party {
     train.creationTime = moment().valueOf();
 
     train.trainName = trainName;
+    train.trainId = uuidv1();
     train.gymId = undefined;
 
     train.groups = [{id: 'A'}];
@@ -318,6 +318,7 @@ class RaidTrain extends Party {
   toJSON() {
     return Object.assign(super.toJSON(), {
       trainName: this.trainName,
+      trainId: this.trainId,
       gymId: this.gymId
     });
   }

@@ -22,13 +22,17 @@
   "features": {
     "exGymChannel": true,
     "notifications": true,
-    "roles": true
+    "roles": true,
+    "web": true
   },
   "channels": {
     "bot-lab": "the-bot-lab",
     "mod-bot-lab": "mod-bot-only",
     "unown": "unown-sightings",
     "ex-gym-raids": "potential-ex-gym-raids"
+  },
+  "web": {
+    "port": 8081
   },
   "helpGroups": [
     "basic-raid",
