@@ -177,7 +177,8 @@ class Notify {
       .then(guildId => {
         return DB.insertIfAbsent('PokemonNotification', Object.assign({},
           {
-            userId: userDbId
+            userId: userDbId,
+            pokemon: Notify.getDbPokemonNumber(pokemon)
           }))
           .then(notificationId => {
             return DB.DB('PokemonNotification')
