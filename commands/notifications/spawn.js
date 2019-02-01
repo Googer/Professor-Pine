@@ -16,6 +16,7 @@ class SpawnCommand extends Commando.Command {
       name: 'spawn',
       group: CommandGroup.RAID_CRUD,
       memberName: 'spawn',
+      aliases: ['wild'],
       description: 'Announces a rare pokémon spawn.',
       details: 'Use this command to announce a rare pokémon spawn in a region.',
       examples: ['\t!spawn ditto At the St. Albert\'s Stop'],
@@ -26,7 +27,7 @@ class SpawnCommand extends Commando.Command {
       args: [
         {
           key: 'pokemon',
-          prompt: 'What pokémon is spawning?\nExample: `lugia`\n',
+          prompt: 'What pokémon has spawned?\nExample: `lugia`\n',
           type: 'pokemon',
         },
         {
