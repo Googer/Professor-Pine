@@ -6,7 +6,6 @@ const log = require('loglevel').getLogger('RaidBossesCommand'),
   {MessageEmbed} = require('discord.js'),
   {CommandGroup} = require('../../app/constants'),
   Helper = require('../../app/helper'),
-  Pokemon = require('../../app/pokemon'),
   settings = require('../../data/settings');
 
 class RaidBossesCommand extends Commando.Command {
@@ -32,7 +31,8 @@ class RaidBossesCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    const pokemon = await DB.DB('Pokemon').select(),
+    const pokemon = await DB.DB('Pokemon')
+        .select(),
       header = 'Registered Raid Bosses & Rare Spawns',
       groups = {
         '1': [],
@@ -44,32 +44,34 @@ class RaidBossesCommand extends Commando.Command {
         'rare': []
       };
 
-    pokemon.forEach(poke => {
-      if (['1', '2', '3', '4', '5', 'ex'].indexOf(poke.name) !== -1) {
-        return;
-      }
+    pokemon
+      .sort((a, b) => a.name.localeCompare(b.name))
+      .forEach(poke => {
+        if (['1', '2', '3', '4', '5', 'ex'].indexOf(poke.name) !== -1) {
+          return;
+        }
 
-      const name = poke.name.replace(/[_]/g, ' ').replace('alola', '(Alolan)'),
-        parts = name.split(' ');
+        const name = poke.name.replace(/[_]/g, ' ').replace('alola', '(Alolan)'),
+          parts = name.split(' ');
 
-      parts.forEach((part, index) => {
-        parts[index] = part.charAt(0).toUpperCase() + part.slice(1);
+        parts.forEach((part, index) => {
+          parts[index] = part.charAt(0).toUpperCase() + part.slice(1);
+        });
+
+        const formatted = parts.join(' ');
+
+        if (poke.exclusive) {
+          groups.ex.push(formatted);
+        } else if (poke.tier === 7) {
+          groups.rare.push(formatted);
+        } else {
+          groups[poke.tier].push(formatted);
+        }
       });
 
-      const formatted = parts.join(' ');
+    const embed = new MessageEmbed();
 
-      if (poke.exclusive) {
-        groups.ex.push(formatted);
-      } else if (poke.tier === 7) {
-        groups.rare.push(formatted);
-      } else {
-        groups[poke.tier].push(formatted);
-      }
-    });
-
-    let embed = new MessageEmbed();
-
-    for (let tier in groups) {
+    for (const tier in groups) {
       const pokes = groups[tier];
       if (tier === 'ex' && pokes.length) {
         embed.addField('**EX Raids**', pokes.join(', ') + '\n\n');
@@ -78,12 +80,11 @@ class RaidBossesCommand extends Commando.Command {
       } else if (pokes.length) {
         embed.addField(`**Tier ${tier}**`, pokes.join(', '));
       }
-    };
+    }
 
     message.channel.send(header, {embed})
-      .then(result => {
-        message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍');
-      }).catch(err => log.error(err));
+      .then(result => message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍'))
+      .catch(err => log.error(err));
   }
 }
 
