@@ -40,6 +40,7 @@ const privateSettings = require('./data/private-settings'),
 
 NodeCleanup((exitCode, signal) => {
   PartyManager.shutdown();
+  NotifyClient.destroy();
 });
 
 Client.registry.registerDefaultTypes();
