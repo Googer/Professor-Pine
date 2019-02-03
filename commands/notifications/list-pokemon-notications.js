@@ -51,6 +51,8 @@ class PokemonNotificationsCommand extends Commando.Command {
             };
           });
 
+        log.log(pokemonList);
+
         const both = pokemonList.filter(notification => notification.type === 'both'),
           spawn = pokemonList.filter(notification => notification.type === 'spawn'),
           raid = pokemonList.filter(notification => notification.type === 'raid');
