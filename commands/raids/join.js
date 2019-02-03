@@ -16,7 +16,7 @@ class JoinCommand extends Commando.Command {
       name: 'join',
       group: CommandGroup.BASIC_RAID,
       memberName: 'join',
-      aliases: ['attend', 'omw', 'coming', 'going'],
+      aliases: ['attend', 'omw', 'coming', 'going', 'cominf'],
       description: 'Joins an existing raid.',
       details: 'Use this command to join a raid.  If a time has yet to be determined, then when a time is determined, everyone who has joined will be notified of the official raid start time.',
       examples: ['\t!join', '\t!join +1', '\t!attend', '\t!attend 2'],
