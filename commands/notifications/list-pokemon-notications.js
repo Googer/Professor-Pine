@@ -40,8 +40,6 @@ class PokemonNotificationsCommand extends Commando.Command {
 
         const pokemonList = results
           .map(poke => {
-            console.log(poke);
-
             let pokemon = pokemonData.find(pokemon => (Number.parseInt(pokemon.number) === Number.parseInt(poke.pokemon)) ||
               (pokemon.tier === -poke.pokemon));
 
