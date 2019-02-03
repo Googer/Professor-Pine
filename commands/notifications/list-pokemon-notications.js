@@ -51,11 +51,9 @@ class PokemonNotificationsCommand extends Commando.Command {
             };
           });
 
-        log.log(pokemonList);
-
-        const both = pokemonList.filter(notification => notification.type === 'both'),
-          spawn = pokemonList.filter(notification => notification.type === 'spawn'),
-          raid = pokemonList.filter(notification => notification.type === 'raid');
+        const both = pokemonList.filter(notification => (notification.type || '').toLowerCase() === 'both'),
+          spawn = pokemonList.filter(notification => (notification.type || '').toLowerCase() === 'spawn'),
+          raid = pokemonList.filter(notification => (notification.type || '').toLowerCase() === 'raid');
 
         if (both.length) {
           const bothList = both.map(notification => notification.pokemon).sort().join('\n');
