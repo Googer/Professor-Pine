@@ -97,6 +97,9 @@ class TimeType extends Commando.ArgumentType {
     if (valueToParse.match(/^in/i)) {
       valueToParse = valueToParse.substring(2).trim();
       timeMode = TimeMode.RELATIVE;
+    } else if (hatchTime && ['hatch', 'start'].indexOf(valueToParse.toLowerCase()) !== -1) {
+      valueToParse = moment(hatchTime).toFormat('h:m a');
+      timeMode = TimeMode.ABSOLUTE;
     } else {
       const absoluteMatch = valueToParse.match(/^at(.*)|(.*[ap]m?)$/i);
 
@@ -243,6 +246,9 @@ class TimeType extends Commando.ArgumentType {
     if (valueToParse.match(/^in/i)) {
       valueToParse = valueToParse.substring(2).trim();
       timeMode = TimeMode.RELATIVE;
+    } else if (hatchTime && ['hatch', 'start'].indexOf(valueToParse.toLowerCase()) !== -1) {
+      valueToParse = moment(hatchTime).toFormat('h:m a');
+      timeMode = TimeMode.ABSOLUTE;
     } else {
       const absoluteMatch = valueToParse.match(/^at(.*)|(.*[ap]m?)$/i);
 
