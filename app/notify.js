@@ -32,8 +32,7 @@ class Notify {
       .innerJoin('User', {'PokemonNotification.userId': 'User.id'})
       .innerJoin('Guild', {'PokemonNotification.guildId': 'Guild.id'})
       .where('User.userSnowflake', member.user.id)
-      .andWhere('Guild.snowflake', member.guild.id)
-      .pluck('pokemon');
+      .andWhere('Guild.snowflake', member.guild.id);
   }
 
   // get gyms that member is interested in
