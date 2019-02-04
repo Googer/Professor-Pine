@@ -41,8 +41,6 @@ class BossTierCommand extends Commando.Command {
 
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .then(result => {
-        console.log(pokemon);
-
         let name = (pokemon.name || pokemon.tier + '').split('');
         name[0] = name[0].toUpperCase();
         name = name.join('');
