@@ -5,7 +5,8 @@ const log = require('loglevel').getLogger('NotifyCommand'),
   {CommandGroup} = require('../../app/constants'),
   Helper = require('../../app/helper'),
   Notify = require('../../app/notify'),
-  settings = require('../../data/settings');
+  settings = require('../../data/settings'),
+  Utility = require('../../app/utility');
 
 class NotifyCommand extends Commando.Command {
   constructor(client) {
@@ -22,12 +23,6 @@ class NotifyCommand extends Commando.Command {
           key: 'pokemon',
           prompt: 'What pokémon do you wish to be notified for?\nExample: `lugia`\n',
           type: 'pokemon'
-        },
-        {
-          key: 'type',
-          prompt: 'Do you want spawn notifications, raid notifications, or both? Please respond with `spawn`, `raid` or `both`.',
-          type: 'string',
-          oneOf: ['spawn', 'raid', 'both']
         }
       ],
       argsPromptLimit: 3,
@@ -43,8 +38,28 @@ class NotifyCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    const pokemon = args['pokemon'],
-          type = args['type'];
+    const pokemon = args['pokemon'];
+    let type = 'both';
+
+    if (pokemon.name !== 'perfect') {
+      const typeCollector = new Commando.ArgumentCollector(message.client, [
+          {
+            key: 'type',
+            prompt: 'Do you want spawn notifications, raid notifications, or both? Please respond with `spawn`, `raid` or `both`.',
+            type: 'string',
+            oneOf: ['spawn', 'raid', 'both']
+          }
+        ], 3),
+        typeResult = await typeCollector.obtain(message);
+
+      Utility.cleanCollector(typeResult);
+
+      if (!typeResult.cancelled) {
+        type = typeResult.values['type'];
+      }
+    } else {
+      type = 'spawn';
+    }
 
     Notify.assignPokemonNotification(message.member, pokemon, type)
       .then(result => message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍'))

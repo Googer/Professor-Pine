@@ -601,9 +601,14 @@ class Raid extends Party {
       gymName = !!gym.nickname ?
         gym.nickname :
         gym.gymName,
-      member = (await this.getMember(memberId)).member;
+      member = this.createdById > 0 ?
+        (await this.getMember(memberId)).member :
+        null,
+      byLine = member !== null ?
+        ` by ${member.displayName}` :
+        '';
 
-    return `A raid for ${pokemonName} has been announced at ${gymName} (#${regionChannel.name}) by ${member.displayName}: ${raidChannel.toString()}.`;
+    return `A raid for ${pokemonName} has been announced at ${gymName} (#${regionChannel.name})${byLine}: ${raidChannel.toString()}.`;
   }
 
   async getExChannelMessageHeader() {
