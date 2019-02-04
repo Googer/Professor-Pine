@@ -14,7 +14,7 @@ class IAmCommand extends Commando.Command {
       name: 'iam',
       group: CommandGroup.ROLES,
       memberName: 'iam',
-      aliases: ['assign'],
+      aliases: ['assign', 'am'],
       description: 'Assign available roles to yourself.',
       details: '?????',
       examples: ['\t!iam Mystic', '\t!role Valor', '\t!assign Instinct'],
