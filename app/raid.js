@@ -265,6 +265,11 @@ class Raid extends Party {
   async setHatchTime(hatchTime) {
     let endTime;
 
+    const hatchTimeMoment = moment(hatchTime);
+    hatchTimeMoment.seconds(0);
+    hatchTimeMoment.milliseconds(0);
+    hatchTime = hatchTimeMoment.valueOf();
+
     if (this.pokemon.duration) {
       endTime = hatchTime + (this.pokemon.duration * 60 * 1000);
     }
