@@ -11,6 +11,9 @@
   "bosstier": {
     "warning": "Check boss tiers in ${bot-channel}!"
   },
+  "bossset": {
+    "warning": "Use the `!boss-set-notifications` command in ${bot-channel} to view current notifications for gyms."
+  },
   "favorites": {
     "warning": "Use the `!targets` command in ${bot-channel} to view current notifications for gyms."
   },

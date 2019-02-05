@@ -15,8 +15,8 @@ class Notify {
     Helper.client.on('raidCreated', (raid, memberId) =>
       this.notifyMembers(raid, memberId));
 
-    Helper.client.on('raidPokemonSet', (raid, memberId) =>
-      this.notifyMembers(raid, memberId));
+    Helper.client.on('raidPokemonSet', (raid, memberId, egg) =>
+      this.notifyMembers(raid, memberId, egg));
 
     Helper.client.on('raidGymSet', (raid, memberId) =>
       this.notifyMembers(raid, memberId));
@@ -104,7 +104,7 @@ class Notify {
 
   // notify interested members for the raid associated with the given channel and pokemon (and / or or gym),
   // filtering out the reporting member
-  async notifyMembers(raid, reportingMemberId) {
+  async notifyMembers(raid, reportingMemberId, egg = false) {
     // Don't send a notification for EX raids
     if (raid.pokemon.exclusive) {
       return;
@@ -142,7 +142,12 @@ class Notify {
       .andWhere('Guild.snowflake', guildId)
       .pluck('User.userSnowflake');
 
-    [...new Set([...pokemonMembers, ...gymMembers])]
+    const attendees = await DB.DB('User')
+      .whereIn('userSnowFlake', Object.keys(raid.attendees || {}))
+      .andWhere('raidBoss', true)
+      .pluck('userSnowflake');
+
+    [...new Set([...pokemonMembers, ...gymMembers, ...attendees])]
       .filter(mem => mem !== reportingMemberId)
       .filter(memberId => raidChannel.guild.members.has(memberId))
       .filter(memberId => raidChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))

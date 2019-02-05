@@ -147,7 +147,8 @@ Client.registry.registerCommands([
   require('./commands/game/register-friend-code'),
   require('./commands/game/register-nickname'),
   require('./commands/game/friend-code'),
-  require('./commands/game/find-nickname')
+  require('./commands/game/find-nickname'),
+  require('./commands/notifications/boss-set-notifications')
 ]);
 
 if (privateSettings.regionMapLink !== '') {
