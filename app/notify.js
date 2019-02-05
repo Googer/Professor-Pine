@@ -142,10 +142,15 @@ class Notify {
       .andWhere('Guild.snowflake', guildId)
       .pluck('User.userSnowflake');
 
-    const attendees = await DB.DB('User')
-      .whereIn('userSnowFlake', Object.keys(raid.attendees || {}))
-      .andWhere('raidBoss', true)
-      .pluck('userSnowflake');
+
+    let attendees = [];
+
+    if (egg) {
+      attendees = await DB.DB('User')
+        .whereIn('userSnowFlake', Object.keys(raid.attendees || {}))
+        .andWhere('raidBoss', true)
+        .pluck('userSnowflake');
+    }
 
     [...new Set([...pokemonMembers, ...gymMembers, ...attendees])]
       .filter(mem => mem !== reportingMemberId)
