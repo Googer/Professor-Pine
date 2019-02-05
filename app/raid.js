@@ -197,14 +197,17 @@ class Raid extends Party {
 
                     const commandPrefix = message.client.options.commandPrefix,
                       userResponse = response.content.toLowerCase().trim(),
-                      isCommand = userResponse.startsWith(commandPrefix);
+                      isCommand = userResponse.startsWith(commandPrefix),
+                      doneAliases = ['done', 'complete', 'finished', 'finish', 'caught-it', 'got-it', 'missed-it', 'donr',
+                                      'caughtit', 'gotit', 'missedit', 'caught it', 'got it', 'missed it'],
+                      attendeeResponse = response.content.trim().toLowerCase();
 
                     if (isCommand) {
                       // don't try to process response
                       return true;
                     }
 
-                    confirmation = message.client.registry.types.get('boolean').truthy.has(userResponse);
+                    confirmation = message.client.registry.types.get('boolean').truthy.has(userResponse) || doneAliases.indexOf(attendeeResponse) !== -1;
                   } else {
                     confirmation = false;
                   }
