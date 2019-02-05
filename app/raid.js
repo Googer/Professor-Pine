@@ -199,7 +199,7 @@ class Raid extends Party {
                       userResponse = response.content.toLowerCase().trim(),
                       isCommand = userResponse.startsWith(commandPrefix),
                       doneAliases = ['done', 'complete', 'finished', 'finish', 'caught-it', 'got-it', 'missed-it', 'donr',
-                                      'caughtit', 'gotit', 'missedit', 'caught it', 'got it', 'missed it'],
+                                      'caughtit', 'gotit', 'missedit', 'caught it', 'got it', 'missed it', 'i missed it', 'it ran'],
                       attendeeResponse = response.content.trim().toLowerCase();
 
                     if (isCommand) {
