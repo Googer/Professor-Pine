@@ -64,6 +64,19 @@ class User {
       null;
   }
 
+  setRaidBossNotification(member, notification) {
+    return DB.insertIfAbsent('User', Object.assign({},
+      {
+        userSnowflake: member.user.id
+      }))
+      .then(userId => DB.DB('User')
+        .where('id', userId)
+        .update({
+          raidBoss: notification
+        }))
+      .catch(err => log.error(err));
+  }
+
   setNickname(member, nickname) {
     return DB.insertIfAbsent('User', Object.assign({},
       {

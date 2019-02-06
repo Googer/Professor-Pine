@@ -72,6 +72,12 @@ class Pokemon extends Search {
               poke.backupShiny = poke.shiny;
               delete poke.shiny;
             }
+
+            if (poke.nickname) {
+              poke.backupNickname = poke.nickname;
+              delete poke.nickname;
+            }
+
           }
 
           return Object.assign({}, poke, pokemon.find(p => p.name === poke.name))
@@ -98,6 +104,12 @@ class Pokemon extends Search {
 
         if (!!poke.shiny) {
           mergedPokemon[pokeDataIndex].shiny = !!poke.shiny;
+        }
+
+        if (!!poke.nickname && settings.databaseRaids) {
+          mergedPokemon[pokeDataIndex].nickname = this.convertNicknamesToArray(poke.nickname);
+        } else if (!!poke.nickname && !settings.databaseRaids) {
+          mergedPokemon[pokeDataIndex].nickname.concat(this.convertNicknamesToArray(poke.nickname));
         }
       }
     });
@@ -257,7 +269,52 @@ class Pokemon extends Search {
       .catch(err => log.error(err));
   }
 
-  addRaidBoss(pokemon, tier, shiny) {
+  async getPokemonNicknames(pokemon) {
+    const nicknameString = await DB.DB('Pokemon')
+        .where('name', pokemon)
+        .first()
+        .pluck('nickname');
+
+    console.log(nicknameString);
+
+    return nicknameString[0];
+  }
+
+  convertNicknamesToArray(nicknames) {
+    return nicknames.split(', ');
+  }
+
+  convertNicknamesToString(nicknames) {
+    return nicknames.join(', ');
+  }
+
+  async addNickname(pokemon, nickname) {
+    const nicknames = await this.getPokemonNicknames(pokemon),
+      nicknameArray = this.convertNicknamesToArray(nicknames);
+
+    if (nicknameArray[0] === '') {
+      nicknameArray.shift();
+    }
+
+    if (nicknameArray.indexOf(nickname) === -1) {
+      nicknameArray.push(nickname);
+    }
+
+    const newNicknames = nicknameArray.join(', ');
+
+    return DB.insertIfAbsent('Pokemon', Object.assign({},
+      {
+        name: pokemon
+      }))
+      .then(pokemonId => DB.DB('Pokemon')
+        .where('id', pokemonId)
+        .update({
+          nickname: newNicknames
+        }))
+      .catch(err => log.error(err));
+  }
+
+  addRaidBoss(pokemon, tier, shiny, nickname) {
     let updateObject = {};
 
     if (tier === 'ex') {
@@ -277,6 +334,10 @@ class Pokemon extends Search {
 
     if (shiny) {
       updateObject.shiny = shiny;
+    }
+
+    if (nickname) {
+      updateObject.nickname = this.convertNicknamesToString(nickname);
     }
 
     return DB.insertIfAbsent('Pokemon', Object.assign({},

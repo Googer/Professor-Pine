@@ -107,6 +107,9 @@ class TimeType extends Commando.ArgumentType {
     if (valueToParse.match(/^in/i)) {
       valueToParse = valueToParse.substring(2).trim();
       timeMode = TimeMode.RELATIVE;
+    } else if (raidHatchTime && ['hatch', 'start'].indexOf(valueToParse.toLowerCase()) !== -1) {
+      valueToParse = raidHatchTime.format('h:m a');
+      timeMode = TimeMode.ABSOLUTE;
     } else if (isTrain === true) {
       timeMode = TimeMode.ABSOLUTE;
     } else {
@@ -265,6 +268,9 @@ class TimeType extends Commando.ArgumentType {
     if (valueToParse.match(/^in/i)) {
       valueToParse = valueToParse.substring(2).trim();
       timeMode = TimeMode.RELATIVE;
+    } else if (raidHatchTime && ['hatch', 'start'].indexOf(valueToParse.toLowerCase()) !== -1) {
+      valueToParse = raidHatchTime.format('h:m a');
+      timeMode = TimeMode.ABSOLUTE;
     } else if (isTrain === true) {
       timeMode = TimeMode.ABSOLUTE;
     } else {
