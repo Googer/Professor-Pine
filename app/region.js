@@ -200,14 +200,14 @@ class RegionHelper {
             coords.push(points)
         }
 
-        console.log(coords)
+        //console.log(coords)
 
         try {
             var poly = turf.polygon([coords])
             var buffer = turf.buffer(poly, '2.0')
             var options = {tolerance: 0.005};
             var enlarged = turf.simplify(buffer, options);
-            console.log(JSON.stringify(enlarged,null,4));
+            //console.log(JSON.stringify(enlarged,null,4));
 
             return this.regionFromGeoJSON(enlarged);
         } catch(error) {
@@ -267,10 +267,10 @@ class RegionHelper {
 		return new Promise(async function(resolve, reject) {
 			var results = await dbhelper.query("SELECT AsText(bounds) FROM Region WHERE channel_id = " + channel + ";").catch(error => reject(false));
 			if (results.length > 0 && results[0] != undefined) {
-				console.log(results[0]["AsText(bounds)"]);
+				// console.log(results[0]["AsText(bounds)"]);
 				resolve(results[0]["AsText(bounds)"]);
 			} else {
-				console.log(results)
+				//console.log(results)
 				reject(false);
 			}
 		});
@@ -1098,6 +1098,47 @@ class RegionHelper {
             }).catch(error => reject(error))
         });
     }
+
+  //This will compare location of gym to every channels region including its expanded range for outliers
+	//All matching channels will be returned
+	//Necessary for determining which channels need their searches reindexed
+	async findAffectedChannels(gym_id) {
+
+		let channels = await this.getAllBoundedChannels();
+		var matching = []
+
+		var that = this;
+		return new Promise(async function(resolve, reject) {
+
+			for(const channel of channels) {
+
+				var region = await that.getRegionsRaw(channel["channel_id"]).catch(error => null)
+				if(region != null) {
+	      	let regionObject = region ? that.getCoordRegionFromText(region) : null;
+					var expanded = region ? that.enlargePolygonFromRegion(regionObject) : null;
+					var polygon = region ? that.polygonStringFromRegion(expanded) : null;
+
+					//console.log(expanded)
+
+					var gym_query = region ? "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gym_id WHERE ST_CONTAINS(GeomFromText('" + polygon + "'), POINT(lat, lon)) AND Gym.id = " + gym_id : null;
+					var results = await dbhelper.query(gym_query).catch(error => false);
+					if(results.length > 0) {
+
+						matching.push(channel["channel_id"]);
+						console.log("channel: " + channel["channel_id"])
+						console.log("has results")
+						//console.log(results)
+					}
+
+				}
+			}
+
+			resolve(matching);
+		});
+
+
+
+	}
 
 	async findGym(channel, term, name_only, allow_multiple) {
 		var region_raw = channel ? await this.getRegionsRaw(channel).catch(error => false) : null;

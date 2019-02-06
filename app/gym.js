@@ -39,6 +39,12 @@ class GymCache {
       }
     }
 
+    async rebuildIndexesForChannels(channels) {
+      for(const channel of channels) {
+        await this.rebuildRegion(channel);
+      }
+    }
+
     async rebuildRegion(channel) {
       const channels = this.channels;
       return new Promise(async function(resolve,reject) {
