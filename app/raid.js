@@ -243,8 +243,6 @@ class Raid extends Party {
                   return Promise.resolve(true);
                 })
                 .catch(collectedResponses => {
-
-                  log.error(collectedResponses);
                   // defensive check that raid in fact still exists
                   if (!!PartyManager.getParty(this.channelId)) {
                     // check that user didn't already set their status to something else (via running another command during the collection period)
