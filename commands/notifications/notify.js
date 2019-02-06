@@ -41,7 +41,7 @@ class NotifyCommand extends Commando.Command {
     const pokemon = args['pokemon'];
     let type = 'both';
 
-    if (pokemon.name !== 'perfect') {
+    if (pokemon.name !== 'perfect' && pokemon.name !== 'zero') {
       const typeCollector = new Commando.ArgumentCollector(message.client, [
           {
             key: 'type',
