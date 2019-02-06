@@ -195,19 +195,32 @@ class Raid extends Party {
                   if (collectedResponses && collectedResponses.size === 1) {
                     response = collectedResponses.first();
 
+                    let userResponse = response.content.toLowerCase().trim();
+
                     const commandPrefix = message.client.options.commandPrefix,
-                      userResponse = response.content.toLowerCase().trim(),
                       isCommand = userResponse.startsWith(commandPrefix),
                       doneAliases = ['done', 'complete', 'finished', 'finish', 'caught-it', 'got-it', 'missed-it', 'donr',
-                                      'caughtit', 'gotit', 'missedit', 'caught it', 'got it', 'missed it', 'i missed it', 'it ran'],
-                      attendeeResponse = response.content.trim().toLowerCase();
+                                      'caughtit', 'gotit', 'missedit', 'caught it', 'got it', 'missed it', 'i missed it',
+                                      'it ran', 'i got it'];
 
                     if (isCommand) {
-                      // don't try to process response
-                      return true;
+                      let doneCommand = false;
+
+                      doneAliases.forEach(alias => {
+                        if (userResponse.indexOf(alias) !== -1) {
+                          doneCommand = true;
+                        }
+                      });
+
+                      if (!doneCommand) {
+                        // don't try to process response
+                        return true;
+                      }
+
+                      userResponse = userResponse.substr(1);
                     }
 
-                    confirmation = message.client.registry.types.get('boolean').truthy.has(userResponse) || doneAliases.indexOf(attendeeResponse) !== -1;
+                    confirmation = message.client.registry.types.get('boolean').truthy.has(userResponse) || doneAliases.indexOf(userResponse) !== -1;
                   } else {
                     confirmation = false;
                   }
@@ -230,6 +243,8 @@ class Raid extends Party {
                   return Promise.resolve(true);
                 })
                 .catch(collectedResponses => {
+
+                  log.error(collectedResponses);
                   // defensive check that raid in fact still exists
                   if (!!PartyManager.getParty(this.channelId)) {
                     // check that user didn't already set their status to something else (via running another command during the collection period)
