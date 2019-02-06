@@ -136,6 +136,7 @@ Client.registry.registerCommands([
   require('./commands/admin/raid-boss'),
   require('./commands/admin/raid-bosses'),
   require('./commands/admin/populate-raid-bosses'),
+  require('./commands/admin/add-nickname'),
   require('./commands/util/boss-tier'),
   require('./commands/admin/autoset'),
   require('./commands/admin/shiny'),
@@ -147,7 +148,8 @@ Client.registry.registerCommands([
   require('./commands/game/register-friend-code'),
   require('./commands/game/register-nickname'),
   require('./commands/game/friend-code'),
-  require('./commands/game/find-nickname')
+  require('./commands/game/find-nickname'),
+  require('./commands/notifications/boss-set-notifications')
 ]);
 
 if (privateSettings.regionMapLink !== '') {

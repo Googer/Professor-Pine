@@ -40,11 +40,12 @@ class SetPokemonCommand extends Commando.Command {
   async run(message, args) {
     const pokemon = args['pokemon'],
       raid = PartyManager.getParty(message.channel.id),
+      egg = !!raid.pokemon && raid.pokemon.egg,
       info = await raid.setPokemon(pokemon);
 
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .then(result => {
-        Helper.client.emit('raidPokemonSet', raid, message.member.id);
+        Helper.client.emit('raidPokemonSet', raid, message.member.id, egg);
 
         return true;
       })

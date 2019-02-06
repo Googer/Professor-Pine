@@ -13,10 +13,10 @@ class FindNicknameCommand extends Commando.Command {
       name: 'find-nickname',
       group: CommandGroup.FRIENDS,
       memberName: 'find-nickname',
-      aliases: ['find-username'],
+      aliases: ['find-username', 'user'],
       description: 'Retrieve a a discord user based on their in-game username.',
       details: 'Use this command to retrieve a discord user based on their in-game username.',
-      examples: ['\t!find-username kingkovifor'],
+      examples: ['\t!find-username kingkovifor', '\t!user kingkovifor'],
       args: [
         {
           key: 'user',

@@ -13,7 +13,7 @@ class SetMovesetCommand extends Commando.Command {
       name: 'moveset',
       group: CommandGroup.RAID_CRUD,
       memberName: 'moveset',
-      aliases: ['set-moveset', 'moves'],
+      aliases: ['set-moveset', 'moves', 'move', 'charge', 'charged-move', 'fast', 'fast-move', 'charge-move', 'charged'],
       description: 'Changes the moveset for an existing raid, allows for proper counters to be planned for.',
       details: 'Use this command to set the moveset of the pokémon.',
       examples: ['\t!moveset crunch/stone edge'],
