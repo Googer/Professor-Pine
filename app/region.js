@@ -1,59 +1,58 @@
-const commando = require('discord.js-commando'),
-	Discord = require('discord.js'),
-	https = require('https'),
-	oneLine = require('common-tags').oneLine,
-	tj = require('togeojson-with-extended-style'),
-	lunr = require('lunr'),
-	dbhelper = require('./dbhelper'),
-	Meta = require('./geocode'),
-	DOMParser = require('xmldom').DOMParser,
-	stringSimilarity = require('string-similarity'),
-	private_settings = require('../data/private-settings'),
-	request = require("request"),
-	mysql = require('mysql'),
-	turf = require('@turf/turf');
+const log = require('loglevel').getLogger('RegionManager'),
+commando = require('discord.js-commando'),
+Discord = require('discord.js'),
+https = require('https'),
+oneLine = require('common-tags').oneLine,
+tj = require('togeojson-with-extended-style'),
+lunr = require('lunr'),
+dbhelper = require('./dbhelper'),
+Meta = require('./geocode'),
+DOMParser = require('xmldom').DOMParser,
+stringSimilarity = require('string-similarity'),
+private_settings = require('../data/private-settings'),
+request = require("request"),
+mysql = require('mysql'),
+turf = require('@turf/turf');
 
 //This gets the decimal lat/lon value from a string of degree/minute/seconds
 function getDecimalValueFromCoord(str) {
 	//degrees + (minutes/60) + (seconds/3600)
-    var degreePos = str.indexOf('°');
-    var minutePos = str.indexOf("'");
-    var secondPos = str.indexOf('%22');
-    var degrees = str.substring(0,degreePos);
-    var minutes = str.substring(minutePos,degreePos+1);
-    var seconds = str.substring(secondPos,minutePos+1);
+	var degreePos = str.indexOf('°');
+	var minutePos = str.indexOf("'");
+	var secondPos = str.indexOf('%22');
+	var degrees = str.substring(0,degreePos);
+	var minutes = str.substring(minutePos,degreePos+1);
+	var seconds = str.substring(secondPos,minutePos+1);
 
-    var last = str.substring(str.length-1,str.length);
-    var negative = last === "W" || last === "S"; //if the value is S (South) it is a negative latitude - if it is W (West) it is a negative longitude
-    var result = parseFloat(degrees, 10) + (parseFloat(minutes, 10)/60) + (parseFloat(seconds, 10)/3600);
+	var last = str.substring(str.length-1,str.length);
+	var negative = last === "W" || last === "S"; //if the value is S (South) it is a negative latitude - if it is W (West) it is a negative longitude
+	var result = parseFloat(degrees, 10) + (parseFloat(minutes, 10)/60) + (parseFloat(seconds, 10)/3600);
 
-    return negative ? result * -1 : result;
+	return negative ? result * -1 : result;
 }
 
 function ParseDMS(input) {
-    var parts = input.split(/[^\d\w.]+/);
-    console.log(parts)
+	var parts = input.split(/[^\d\w.]+/);
+	var lat = ConvertDMSToDD(parts[0], parts[1], parts[2], parts[3]);
+	var lng = ConvertDMSToDD(parts[4], parts[5], parts[6], parts[7]);
 
-    var lat = ConvertDMSToDD(parts[0], parts[1], parts[2], parts[3]);
-    var lng = ConvertDMSToDD(parts[4], parts[5], parts[6], parts[7]);
-
-    return {
-        "lat": Number(lat),
-        "lng": Number(lng)
-    };
+	return {
+		"lat": Number(lat),
+		"lng": Number(lng)
+	};
 }
 
 function ConvertDMSToDD(degrees, minutes, seconds, direction) {
 
-    var s = seconds / (60*60);
-    var m = minutes / 60;
+	var s = seconds / (60*60);
+	var m = minutes / 60;
 
-    var dd = Number(degrees) + Number(m) + Number(s);
+	var dd = Number(degrees) + Number(m) + Number(s);
 
-    if (direction == "S" || direction == "W") {
-        dd = dd * -1;
-    } // Don't do anything for N or E
-    return dd;
+	if (direction == "S" || direction == "W") {
+		dd = dd * -1;
+	} // Don't do anything for N or E
+	return dd;
 }
 
 function Point(x, y) {
@@ -111,10 +110,10 @@ String.prototype.replaceAll = function(search, replace) {
 
 Region.prototype.area = function() {
 	var area = 0,
-		i,
-		j,
-		point1,
-		point2;
+	i,
+	j,
+	point1,
+	point2;
 
 	for (i = 0, j = this.length - 1; i < this.length; j = i, i++) {
 		point1 = this.points[i];
@@ -129,12 +128,12 @@ Region.prototype.area = function() {
 
 Region.prototype.centroid = function() {
 	var x = 0,
-		y = 0,
-		i,
-		j,
-		f,
-		point1,
-		point2;
+	y = 0,
+	i,
+	j,
+	f,
+	point1,
+	point2;
 
 	for (i = 0, j = this.length - 1; i < this.length; j = i, i++) {
 		point1 = this.points[i];
@@ -177,12 +176,12 @@ class RegionHelper {
 		return new Region(points);
 	}
 
-    regionFromGeoJSON(geojson) {
-        var coordinates = geojson["geometry"]["coordinates"][0];
-        var points = [];
+	regionFromGeoJSON(geojson) {
+		var coordinates = geojson["geometry"]["coordinates"][0];
+		var points = [];
 		for (var i = 0; i < coordinates.length; i++) {
-            let coords = coordinates[i];
-            //geojson coordinates are backwards (longitude, latitude)
+			let coords = coordinates[i];
+			//geojson coordinates are backwards (longitude, latitude)
 			points[i] = {
 				"x": Number(coords[1]),
 				"y": Number(coords[0])
@@ -190,32 +189,29 @@ class RegionHelper {
 		}
 
 		return new Region(points);
-    }
+	}
 
-    enlargePolygonFromRegion(region) {
-        var coords = []
-        for(var p=0;p<region.length;p++) {
-            let point = region.points[p];
-            var points = [point.y,point.x]
-            coords.push(points)
-        }
+	enlargePolygonFromRegion(region) {
+		var coords = []
+		for(var p=0;p<region.length;p++) {
+			let point = region.points[p];
+			var points = [point.y,point.x]
+			coords.push(points)
+		}
 
-        //console.log(coords)
+		try {
+			var poly = turf.polygon([coords])
+			var buffer = turf.buffer(poly, '2.0')
+			var options = {tolerance: 0.005};
+			var enlarged = turf.simplify(buffer, options);
 
-        try {
-            var poly = turf.polygon([coords])
-            var buffer = turf.buffer(poly, '2.0')
-            var options = {tolerance: 0.005};
-            var enlarged = turf.simplify(buffer, options);
-            //console.log(JSON.stringify(enlarged,null,4));
+			return this.regionFromGeoJSON(enlarged);
+		} catch(error) {
+			log.error(error);
+			return null;
+		}
 
-            return this.regionFromGeoJSON(enlarged);
-        } catch(error) {
-            console.error(error);
-            return null;
-        }
-
-    }
+	}
 
 	getJSONRegionFromText(text) {
 		var trimmed = text.substring(9, text.length - 2);
@@ -255,7 +251,6 @@ class RegionHelper {
 		return new Promise(async function(resolve, reject) {
 			var results = await dbhelper.query("SHOW TABLES LIKE 'Region';").catch(error => resolve(false));
 			if (results.length > 0 && results[0] != undefined) {
-				// console.log(results[0]["AsText(bounds)"]);
 				resolve(true);
 			} else {
 				resolve(false);
@@ -267,10 +262,8 @@ class RegionHelper {
 		return new Promise(async function(resolve, reject) {
 			var results = await dbhelper.query("SELECT AsText(bounds) FROM Region WHERE channel_id = " + channel + ";").catch(error => reject(false));
 			if (results.length > 0 && results[0] != undefined) {
-				// console.log(results[0]["AsText(bounds)"]);
 				resolve(results[0]["AsText(bounds)"]);
 			} else {
-				//console.log(results)
 				reject(false);
 			}
 		});
@@ -303,12 +296,7 @@ class RegionHelper {
 		return polystring
 	}
 
-	dumpRegionJSON(region) {
-		// console.log(JSON.stringify(region.points, null, 2));
-	}
-
 	pointStringFromPoint(point) {
-		//POINT (418 411)
 		return "POINT (" + point.x + " " + point.y + ")";
 	}
 
@@ -325,10 +313,7 @@ class RegionHelper {
 			query += "'));";
 
 			dbhelper.query(query).then(result => {
-				console.log("RESULT: " + result[0][Object.keys(result[0])[0]]);
 				var match = result[0][Object.keys(result[0])[0]];
-
-				// debugger;
 				if (match == 1) {
 					resolve(true);
 				} else {
@@ -351,19 +336,17 @@ class RegionHelper {
 		});
 	}
 
-  async deleteRegionsNotInChannels(channels) {
+	async deleteRegionsNotInChannels(channels) {
 		if(channels.length > 0) {
 			var select_query = "DELETE FROM Region WHERE ";
-	        var orOptions = []
+			var orOptions = []
 
-	        for(var i=0;i<channels.length;i++) {
-	            var option = " channel_id <> " + channels[i];
-	            orOptions.push(option)
-	        }
+			for(var i=0;i<channels.length;i++) {
+				var option = " channel_id <> " + channels[i];
+				orOptions.push(option)
+			}
 
-	        select_query += orOptions.join(' AND')
-
-	        console.log(select_query)
+			select_query += orOptions.join(' AND')
 
 			return new Promise(async function(resolve, reject) {
 				const results = await dbhelper.query(select_query).catch(error => NULL);
@@ -375,7 +358,7 @@ class RegionHelper {
 			});
 		} else {
 			return new Promise(async function(resolve, reject) {
-					reject("No regions defined in this server")
+				reject("No regions defined in this server")
 			});
 		}
 
@@ -392,24 +375,24 @@ class RegionHelper {
 
 			const gyms = await that.getGymCount(channel).catch(error => 0);
 
-            var url = that.googleMapsLinkForRegion(region);
-            if (url != null) {
-                const embed = new Discord.MessageEmbed()
-                    .setTitle("This channel covers the following area")
-                    .setURL(url)
-                    .setImage(url);
+			var url = that.googleMapsLinkForRegion(region);
+			if (url != null) {
+				const embed = new Discord.MessageEmbed()
+				.setTitle("This channel covers the following area")
+				.setURL(url)
+				.setImage(url);
 
-                if (gyms) {
-                    embed.setDescription("There " + (gyms == 1 ? "is" : "are") + " " + (gyms != 0 ? gyms : "no") + " gym" + (gyms < 1 || gyms > 1 ? "s" : "") + " within this region");
-                } else {
-                    embed.setDescription("There are currently no gyms within this region")
-                }
+				if (gyms) {
+					embed.setDescription("There " + (gyms == 1 ? "is" : "are") + " " + (gyms != 0 ? gyms : "no") + " gym" + (gyms < 1 || gyms > 1 ? "s" : "") + " within this region");
+				} else {
+					embed.setDescription("There are currently no gyms within this region")
+				}
 
-                resolve(embed);
+				resolve(embed);
 
-            } else {
-                reject("No region defined for this channel");
-            }
+			} else {
+				reject("No region defined for this channel");
+			}
 		})
 	}
 
@@ -419,7 +402,7 @@ class RegionHelper {
 
 	async getCoordStringFromURL(url,resolve,reject) {
 
-        console.log("check if url");
+		log.info("checking if coordinates is a url");
 		if(url.search("google.com") > 0) {
 
 			//Google Maps Desktop Pin Links
@@ -438,8 +421,8 @@ class RegionHelper {
 					resolve(null);
 				}
 
-			//Directions links for google (used from Gym Huntr)
-			//https://www.google.com/maps/dir/Current+Location/40.376768,-80.051049
+				//Directions links for google (used from Gym Huntr)
+				//https://www.google.com/maps/dir/Current+Location/40.376768,-80.051049
 			} else if(url.search("maps/dir/") > 0) {
 				var def = "maps/dir/";
 				var defPos = url.indexOf(def);
@@ -456,29 +439,26 @@ class RegionHelper {
 				resolve(null);
 			}
 
-
-		//Short URLs from Google Maps mobile apps
-		//https://goo.gl/maps/r54jMZxh1TC2
+			//Short URLs from Google Maps mobile apps
+			//https://goo.gl/maps/r54jMZxh1TC2
 		} else if(url.search("goo.gl/maps/") > 0) {
-            console.log("IS SHORT URL");
+
 			var that = this;
 			request(url, function (error, response, body) {
 				if (!error && response.statusCode == 200) {
 
-                    var start = '<meta content="origin" name="referrer">   <meta content=\''
-                    var end = "' itemprop="
-                    var find = body.indexOf(start);
-                    var first = body.substring(find+start.length,body.length)
+					var start = '<meta content="origin" name="referrer">   <meta content=\''
+					var end = "' itemprop="
+					var find = body.indexOf(start);
+					var first = body.substring(find+start.length,body.length)
 
 					var findEnd = first.indexOf(end);
 					var result = first.substring(0,findEnd);
 
-                    result = result.replace(/&#39;/g,"\'");
+					result = result.replace(/&#39;/g,"\'");
 
-                    var parsedCoords = ParseDMS(result);
-                    var coords = parsedCoords.lat + ", " + parsedCoords.lng;
-                    console.log(ParseDMS(result));
-                    console.log(coords);
+					var parsedCoords = ParseDMS(result);
+					var coords = parsedCoords.lat + ", " + parsedCoords.lng;
 
 					if(that.isValidCoords(coords)) {
 						resolve(coords);
@@ -486,7 +466,7 @@ class RegionHelper {
 						resolve(null);
 					}
 				} else {
-					console.warn(error);
+					log.error(error);
 					resolve(null);
 				}
 			});
@@ -502,32 +482,29 @@ class RegionHelper {
 				resolve(null);
 			}
 		} else if(url.indexOf("ingress.com/intel?ll=") > 0 && url.indexOf("pll=") > 0) {
-            //https://www.ingress.com/intel?ll=40.348194,-79.944592&z=13&pll=40.357043,-80.051771
-            // let start = "ingress.com/intel?ll="
-            let start = "pll="
-            let place = url.indexOf(start);
-            let reg = /.+?(?=&)/;
-            var ll = url.substring(place + start.length,url.length);
-            var parts = reg.exec(ll);
-            if (parts && parts.length > 0) {
-                console.log(parts[0]);
-                if(this.isValidCoords(parts[0])) {
-    				resolve(parts[0]);
-                    return;
-    			}
-            } else if(ll.length > 0) {
-                console.log(ll);
-                if(this.isValidCoords(ll)) {
-    				resolve(ll);
-                    return;
-    			}
-            }
-            resolve(null);
-        } else {
-            console.log("invalid url");
-            resolve(null);
-        }
-
+			//https://www.ingress.com/intel?ll=40.348194,-79.944592&z=13&pll=40.357043,-80.051771
+			// let start = "ingress.com/intel?ll="
+			let start = "pll="
+			let place = url.indexOf(start);
+			let reg = /.+?(?=&)/;
+			var ll = url.substring(place + start.length,url.length);
+			var parts = reg.exec(ll);
+			if (parts && parts.length > 0) {
+				if(this.isValidCoords(parts[0])) {
+					resolve(parts[0]);
+					return;
+				}
+			} else if(ll.length > 0) {
+				if(this.isValidCoords(ll)) {
+					resolve(ll);
+					return;
+				}
+			}
+			resolve(null);
+		} else {
+			log.info("invalid url");
+			resolve(null);
+		}
 	}
 
 	async coordStringFromText(text) {
@@ -560,9 +537,7 @@ class RegionHelper {
 
 			if (url != null) {
 				var lower = url.toLowerCase().substring(url.length - 4);
-				console.log(lower);
 				if (lower === ".kml" || lower === ".xml") {
-
 					//request contents of said file
 					var request = https.get(url, function(res) {
 						var data = '';
@@ -570,7 +545,6 @@ class RegionHelper {
 							data += chunk;
 						});
 						res.on('end', function() {
-
 							//convert KML file from data -> string -> XML DOM Object
 							var kml = new DOMParser().parseFromString(data.toString());
 
@@ -633,10 +607,10 @@ class RegionHelper {
 				sql.query(insert_query, function(err, result) {
 					sql.end();
 					if (err) {
-						console.log('Error inserting region');
+						log.error('Error inserting region for channel: ' + channel);
 						reject(error);
 					} else {
-						console.log('Added region for ' + channel);
+						log.info('Added region for channel id: ' + channel);
 						resolve(true);
 					}
 				});
@@ -678,7 +652,7 @@ class RegionHelper {
 					overwrites: new_category.permissionOverwrites
 				},"For a region")
 				.then(new_channel => {
-					console.log("created new channel for " + name + " with id " + new_channel.id + " under category with id " + new_category.id)
+					log.info("created new channel for " + name + " with id " + new_channel.id + " under category with id " + new_category.id)
 					that.storeRegion(polydata,new_channel.id).catch(error => reject("An error occurred storing the region for " + name)).then(result => {
 						resolve(new_channel.id)
 					})
@@ -697,39 +671,38 @@ class RegionHelper {
 				var meta_query = "INSERT INTO GymMeta (gym_id";
 				var values = "";
 
-				console.log("Adding gym...");
-				console.log(point);
-				console.log(args.name);
+				log.info("Adding gym...");
+				log.info(point);
+				log.info(args.name);
 
-                var gym = {
+				var gym = {
 					"name" : args.name,
 					"point" : coords
 				}
 
 				if(args.nickname.toLowerCase() != "skip" && args.nickname.toLowerCase() != "n") {
-					console.log(args.nickname);
+					log.info(args.nickname);
 					meta_query += ",nickname";
 					values += ",\"" + args.nickname + "\"";
-                    gym.nickname = args.nickname;
+					gym.nickname = args.nickname;
 				}
 
 				if(args.description.toLowerCase() != "skip" && args.description.toLowerCase() != "n") {
-					console.log(args.description);
+					log.info(args.description);
 					meta_query += ",description";
 					values += ",\"" + args.description + "\"";
-                    gym.description = args.description;
+					gym.description = args.description;
 				}
 
-				// console.log(insert_query);
 				var results = await dbhelper.query(insert_query).catch(error => {
 					reject(error);
 					return;
 				})
 
 				var id = results.insertId
-                gym.id = id
-                gym.lat = point.x
-                gym.lon = point.y
+				gym.id = id
+				gym.lat = point.x
+				gym.lon = point.y
 
 				meta_query += ") VALUES(" + id + values + ")";
 				await dbhelper.query(meta_query).catch(error => {
@@ -737,77 +710,73 @@ class RegionHelper {
 					return;
 				}).then( async function() {
 
-                    //Get Geocode Data
-                    Meta.geocodeGym(gym).then(gym => {
-                        //Recalculate all nearest gyms
-                        Meta.calculateNearestGyms().then(affected => {
+					//Get Geocode Data
+					Meta.geocodeGym(gym).then(gym => {
+						//Recalculate all nearest gyms
+						Meta.calculateNearestGyms().then(affected => {
 
-                            //Sort ids that need updated into single array
-                            var gym_ids = []
-                            affected["new"].filter(value => {
-                                if(gym_ids.indexOf(value) == -1 && value != gym.id) {
-                                    gym_ids.push(value)
-                                }
-                                return true
-                            })
+							//Sort ids that need updated into single array
+							var gym_ids = []
+							affected["new"].filter(value => {
+								if(gym_ids.indexOf(value) == -1 && value != gym.id) {
+									gym_ids.push(value)
+								}
+								return true
+							})
 
-                            affected["changed"].filter(value => {
-                                if(gym_ids.indexOf(value) == -1 && value != gym.id) {
-                                    gym_ids.push(value)
-                                }
-                                return true
-                            })
-                            console.log(gym_ids)
-                            console.log("Places need updated on (" + affected["new"].length + ") new gyms and (" + affected["changed"].length + ") existing gyms")
+							affected["changed"].filter(value => {
+								if(gym_ids.indexOf(value) == -1 && value != gym.id) {
+									gym_ids.push(value)
+								}
+								return true
+							})
+							log.info("Gym IDs to be updated: " + gym_ids)
+							log.info("Places need updated on (" + affected["new"].length + ") new gyms and (" + affected["changed"].length + ") existing gyms")
 
-                            //Get places near newly added gym
-                            //First grab nearest gym
-                            const gym_query = "SELECT * FROM GymMeta WHERE gym_id = " + gym.id;
-                            dbhelper.query(gym_query).catch(error => {
-                                console.error(error)
-                                console.log("Skipping places update and kicking off background job")
-                                Meta.updatePlaces(gym_ids)
-                                resolve(gym)
-                            }).then(gymresult => {
-                                console.log(JSON.stringify(gymresult,null,4))
-                                if(gymresult && gymresult.length > 0 && gymresult[0].nearestGym) {
-                                    gym.nearestGym = gymresult[0].nearestGym
-                                    Meta.findPlacesNearGym(gym).then(final => {
-                                        //Kick off all additional places updates in the background
-                                        Meta.updatePlaces(gym_ids)
+							//Get places near newly added gym
+							//First grab nearest gym
+							const gym_query = "SELECT * FROM GymMeta WHERE gym_id = " + gym.id;
+							dbhelper.query(gym_query).catch(error => {
+								log.error(error)
+								log.error("Skipping places update and kicking off background job")
+								Meta.updatePlaces(gym_ids)
+								resolve(gym)
+							}).then(gymresult => {
+								if(gymresult && gymresult.length > 0 && gymresult[0].nearestGym) {
+									gym.nearestGym = gymresult[0].nearestGym
+									Meta.findPlacesNearGym(gym).then(final => {
+										//Kick off all additional places updates in the background
+										Meta.updatePlaces(gym_ids)
 
-																				console.log("FINAL: " + final.lat + ", " + final.lon)
-                                        resolve(final)
-                                    }).catch(error => {
-                                        console.error(error)
-                        				console.error("Unable to get nearby places for gym #" + gym.id);
-                                        resolve(gym)
-                                    })
-                                } else {
-                                    console.log("Skipping places update and kicking off background job")
-                                    Meta.updatePlaces(gym_ids)
-                                    resolve(gym)
-                                }
-                            })
+										resolve(final)
+									}).catch(error => {
+										log.error(error)
+										log.error("Unable to get nearby places for gym #" + gym.id);
+										resolve(gym)
+									})
+								} else {
+									log.info("Skipping places update and kicking off background job")
+									Meta.updatePlaces(gym_ids)
+									resolve(gym)
+								}
+							})
 
-                        }).catch(error => {
-                            console.error(error)
-                            console.error("Unable to update nearest gyms");
-                            resolve(gym)
-                        })
+						}).catch(error => {
+							log.error(error)
+							log.error("Unable to update nearest gyms");
+							resolve(gym)
+						})
 
-        			}).catch(error => {
-                        console.error(error)
-        				console.error("Unable to geocode gym #" + gym.id);
-                        resolve(gym)
-        			})
+					}).catch(error => {
+						log.error(error)
+						log.error("Unable to geocode gym #" + gym.id);
+						resolve(gym)
+					})
 
-                });
+				});
 			}).catch(error => { reject(error); return; })
-
 		});
 	}
-
 
 	async setGymLocation(gym,location) {
 		var that = this;
@@ -827,70 +796,69 @@ class RegionHelper {
 						return;
 					})
 
-                    gym = gym_info[0];
+					gym = gym_info[0];
 
-                    //Get Geocode Data
-                    Meta.geocodeGym(gym).then(gym => {
-                        //Recalculate all nearest gyms
-                        Meta.calculateNearestGyms().then(affected => {
+					//Get Geocode Data
+					Meta.geocodeGym(gym).then(gym => {
+						//Recalculate all nearest gyms
+						Meta.calculateNearestGyms().then(affected => {
 
-                            //Sort ids that need updated into single array
-                            var gym_ids = []
-                            affected["new"].filter(value => {
-                                if(gym_ids.indexOf(value) == -1 && value != gym.id) {
-                                    gym_ids.push(value)
-                                }
-                                return true
-                            })
+							//Sort ids that need updated into single array
+							var gym_ids = []
+							affected["new"].filter(value => {
+								if(gym_ids.indexOf(value) == -1 && value != gym.id) {
+									gym_ids.push(value)
+								}
+								return true
+							})
 
-                            affected["changed"].filter(value => {
-                                if(gym_ids.indexOf(value) == -1 && value != gym.id) {
-                                    gym_ids.push(value)
-                                }
-                                return true
-                            })
-                            console.log(gym_ids)
-                            console.log("Places need updated on (" + affected["new"].length + ") new gyms and (" + affected["changed"].length + ") existing gyms")
+							affected["changed"].filter(value => {
+								if(gym_ids.indexOf(value) == -1 && value != gym.id) {
+									gym_ids.push(value)
+								}
+								return true
+							})
+							log.info("Gym IDs that will be updated" + gym_ids)
+							log.info("Places need updated on (" + affected["new"].length + ") new gyms and (" + affected["changed"].length + ") existing gyms")
 
-                            //Get places near newly added gym
-                            //First grab nearest gym
-                            const gym_query = "SELECT * FROM GymMeta WHERE gym_id = " + gym.id;
-                            dbhelper.query(gym_query).catch(error => {
-                                console.error(error)
-                                console.log("Skipping places update and kicking off background job")
-                                Meta.updatePlaces(gym_ids)
-                                resolve(gym)
-                            }).then(gymresult => {
-                                console.log(JSON.stringify(gymresult,null,4))
-                                if(gymresult && gymresult.length > 0 && gymresult[0].nearestGym) {
-                                    gym.nearestGym = gymresult[0].nearestGym
-                                    Meta.findPlacesNearGym(gym).then(final => {
-                                        //Kick off all additional places updates in the background
-                                        Meta.updatePlaces(gym_ids)
-                                        resolve(final)
-                                    }).catch(error => {
-                                        console.error(error)
-                        				console.error("Unable to get nearby places for gym #" + gym.id);
-                                        resolve(gym)
-                                    })
-                                } else {
-                                    console.log("Skipping places update and kicking off background job")
-                                    Meta.updatePlaces(gym_ids)
-                                    resolve(gym)
-                                }
-                            })
+							//Get places near newly added gym
+							//First grab nearest gym
+							const gym_query = "SELECT * FROM GymMeta WHERE gym_id = " + gym.id;
+							dbhelper.query(gym_query).catch(error => {
+								log.error(error)
+								log.info("Skipping places update and kicking off background job")
+								Meta.updatePlaces(gym_ids)
+								resolve(gym)
+							}).then(gymresult => {
+								if(gymresult && gymresult.length > 0 && gymresult[0].nearestGym) {
+									gym.nearestGym = gymresult[0].nearestGym
+									Meta.findPlacesNearGym(gym).then(final => {
+										//Kick off all additional places updates in the background
+										Meta.updatePlaces(gym_ids)
+										resolve(final)
+									}).catch(error => {
+										log.error(error)
+										log.error("Unable to get nearby places for gym #" + gym.id);
+										resolve(gym)
+									})
+								} else {
+									log.info("Skipping places update and kicking off background job")
+									Meta.updatePlaces(gym_ids)
+									resolve(gym)
+								}
+							})
 
-                        }).catch(error => {
-                            console.error(error)
-                            console.error("Unable to update nearest gyms");
-                            resolve(gym)
-                        })
+						}).catch(error => {
+							log.error(error)
+							log.error("Unable to update nearest gyms");
+							resolve(gym)
+						})
 
-        			}).catch(error => {
-                        console.error(error)
-        				console.error("Unable to geocode gym #" + gym.id);
-                        resolve(gym)
-        			})
+					}).catch(error => {
+						log.error(error)
+						log.error("Unable to geocode gym #" + gym.id);
+						resolve(gym)
+					})
 
 
 				});
@@ -916,11 +884,11 @@ class RegionHelper {
 		}
 
 		var embed = new Discord.MessageEmbed()
-			.setAuthor(heading)
-			.setTitle(title)
-			.setURL(this.googlePinLinkForPoint(point))
-			.setThumbnail(thumbnail)
-			.setImage(url);
+		.setAuthor(heading)
+		.setTitle(title)
+		.setURL(this.googlePinLinkForPoint(point))
+		.setThumbnail(thumbnail)
+		.setImage(url);
 
 		if (gym.description && gym.description != "skip" && gym.description != "null") {
 			embed.setDescription(gym.description);
@@ -944,30 +912,24 @@ class RegionHelper {
 			embed.addField("Notice :no_entry:", gym.notice);
 		}
 
-        if(gym.geodata) {
-            //Add Geocode Information
-						console.log(gym.geodata)
+		if(gym.geodata) {
+			//Add Geocode Information
+			var geoinfo = "";
+			var geodata = JSON.parse(gym.geodata);
+			var addressComponents = geodata["addressComponents"];
+			for (const [key, value] of Object.entries(addressComponents)) {
+				geoinfo += "**" + key + "**: " + value + "\n";
+			}
 
-            var geoinfo = "";
-            var geodata = JSON.parse(gym.geodata);
+			embed.addField("Secret Sauce", geoinfo);
 
-						console.log("PARSED: " + geodata)
-            var addressComponents = geodata["addressComponents"];
-            for (const [key, value] of Object.entries(addressComponents)) {
-							console.log(key)
-							console.log(value)
-                geoinfo += "**" + key + "**: " + value + "\n";
-            }
-
-            embed.addField("Secret Sauce", geoinfo);
-
-            var places = geodata["places"];
-            if(places && places.length > 0) {
-                embed.addBlankField(true);
-                embed.addField("Nearby Places", places.join('\n'));
-                embed.addBlankField(true);
-            }
-        }
+			var places = geodata["places"];
+			if(places && places.length > 0) {
+				embed.addBlankField(true);
+				embed.addField("Nearby Places", places.join('\n'));
+				embed.addBlankField(true);
+			}
+		}
 
 		var footer = "Gym #" + gym.id;
 		if (user) {
@@ -990,7 +952,7 @@ class RegionHelper {
 				const gym_query = "SELECT * FROM Gym WHERE ST_CONTAINS(GeomFromText('" + region_raw + "'), POINT(lat, lon))";
 				dbhelper.query(gym_query).then(result => resolve(result.length)).catch(error => reject(error))
 			} else {
-				console.log("error occurred???")
+				log.error("No region defined for this channel")
 				reject("No region defined for this channel");
 			}
 		});
@@ -1000,7 +962,7 @@ class RegionHelper {
 		return new Promise(async function(resolve, reject) {
 			const gym_query = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gym_id";
 			var results = await dbhelper.query(gym_query).catch(error => {
-				console.log(error);
+				log.error(error);
 				return false
 			});
 			if (results && results.length > 0) {
@@ -1016,18 +978,16 @@ class RegionHelper {
 			if (region) {
 				const gym_query = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gym_id WHERE ST_CONTAINS(GeomFromText('" + region + "'), POINT(lat, lon))";
 				var results = await dbhelper.query(gym_query).catch(error => {
-					console.log(error);
+					log.error(error);
 					return false
 				});
 				if (results && results.length > 0) {
 					resolve(results);
 				} else {
-					// console.log(results)
 					resolve([])
 				}
 			} else {
-
-				console.log("no region")
+				log.error("no region define")
 				reject("No region defined");
 			}
 		});
@@ -1036,7 +996,6 @@ class RegionHelper {
 	async getGym(gym_id) {
 		return new Promise(function(resolve, reject) {
 			const gym_query = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gym_id WHERE id=" + gym_id;
-			// console.log(gym_query)
 			dbhelper.query(gym_query).catch(error => reject(error)).then(async function(results) {
 				resolve(results[0]);
 			});
@@ -1046,60 +1005,59 @@ class RegionHelper {
 	async deleteGym(gym_id) {
 		return new Promise(function(resolve, reject) {
 			const gym_query = "DELETE FROM Gym WHERE id=" + gym_id;
-			console.log(gym_query)
 			dbhelper.query(gym_query).catch(error => reject(error)).then(async function(results) {
 
-                //Get Geocode Data
-                //Recalculate all nearest gyms
-                Meta.calculateNearestGyms().then(affected => {
+				//Get Geocode Data
+				//Recalculate all nearest gyms
+				Meta.calculateNearestGyms().then(affected => {
 
-                    //Sort ids that need updated into single array
-                    var gym_ids = []
-                    affected["new"].filter(value => {
-                        if(gym_ids.indexOf(value) == -1) {
-                            gym_ids.push(value)
-                        }
-                        return true
-                    })
+					//Sort ids that need updated into single array
+					var gym_ids = []
+					affected["new"].filter(value => {
+						if(gym_ids.indexOf(value) == -1) {
+							gym_ids.push(value)
+						}
+						return true
+					})
 
-                    affected["changed"].filter(value => {
-                        if(gym_ids.indexOf(value) == -1) {
-                            gym_ids.push(value)
-                        }
-                        return true
-                    })
-                    console.log(gym_ids)
-                    console.log("Places need updated on (" + affected["new"].length + ") new gyms and (" + affected["changed"].length + ") existing gyms")
+					affected["changed"].filter(value => {
+						if(gym_ids.indexOf(value) == -1) {
+							gym_ids.push(value)
+						}
+						return true
+					})
 
-                    //Kick off all additional places updates in the background
-                    Meta.updatePlaces(gym_ids)
-                    resolve(results.affectedRows == 1);
+					log.info("Gym IDs need updated: " + gym_ids)
+					log.info("Places need updated on (" + affected["new"].length + ") new gyms and (" + affected["changed"].length + ") existing gyms")
 
-                }).catch(error => {
-                    console.error(error)
-                    console.error("Unable to update nearest gyms");
-                    resolve(results.affectedRows == 1);
-                })
+					//Kick off all additional places updates in the background
+					Meta.updatePlaces(gym_ids)
+					resolve(results.affectedRows == 1);
+
+				}).catch(error => {
+					log.error(error)
+					log.error("Unable to update nearest gyms");
+					resolve(results.affectedRows == 1);
+				})
 
 			});
 		});
 	}
 
-    async regionChannelForGym(gym) {
-        return new Promise(async function(resolve, reject) {
-            var query = "SELECT CAST(channel_id as CHAR(55)) as channel FROM Region WHERE ST_CONTAINS(bounds, Point(" + gym.lat + ", " + gym.lon + "))"
-            var result = dbhelper.query(query).then(result => {
-                if(result.length > 0 && result[0].channel) {
-                    console.log(result)
-                    resolve(result[0].channel)
-                } else {
-                    reject("No region found")
-                }
-            }).catch(error => reject(error))
-        });
-    }
+	async regionChannelForGym(gym) {
+		return new Promise(async function(resolve, reject) {
+			var query = "SELECT CAST(channel_id as CHAR(55)) as channel FROM Region WHERE ST_CONTAINS(bounds, Point(" + gym.lat + ", " + gym.lon + "))"
+			var result = dbhelper.query(query).then(result => {
+				if(result.length > 0 && result[0].channel) {
+					resolve(result[0].channel)
+				} else {
+					reject("No region found")
+				}
+			}).catch(error => reject(error))
+		});
+	}
 
-  //This will compare location of gym to every channels region including its expanded range for outliers
+	//This will compare location of gym to every channels region including its expanded range for outliers
 	//All matching channels will be returned
 	//Necessary for determining which channels need their searches reindexed
 	async findAffectedChannels(gym_id) {
@@ -1114,20 +1072,14 @@ class RegionHelper {
 
 				var region = await that.getRegionsRaw(channel["channel_id"]).catch(error => null)
 				if(region != null) {
-	      	let regionObject = region ? that.getCoordRegionFromText(region) : null;
+					let regionObject = region ? that.getCoordRegionFromText(region) : null;
 					var expanded = region ? that.enlargePolygonFromRegion(regionObject) : null;
 					var polygon = region ? that.polygonStringFromRegion(expanded) : null;
-
-					//console.log(expanded)
 
 					var gym_query = region ? "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gym_id WHERE ST_CONTAINS(GeomFromText('" + polygon + "'), POINT(lat, lon)) AND Gym.id = " + gym_id : null;
 					var results = await dbhelper.query(gym_query).catch(error => false);
 					if(results.length > 0) {
-
 						matching.push(channel["channel_id"]);
-						console.log("channel: " + channel["channel_id"])
-						console.log("has results")
-						//console.log(results)
 					}
 
 				}
@@ -1135,178 +1087,140 @@ class RegionHelper {
 
 			resolve(matching);
 		});
-
-
-
 	}
 
 	async findGym(channel, term, name_only, allow_multiple) {
 		var region_raw = channel ? await this.getRegionsRaw(channel).catch(error => false) : null;
-        var error_message = channel ? "No gyms found in this region matching the term '" : "No gyms found matching the term '";
+		var error_message = channel ? "No gyms found in this region matching the term '" : "No gyms found matching the term '";
 
-        //Test expanding polygon
-        try {
-            let regionObject = region_raw ? this.getCoordRegionFromText(region_raw) : null;
-            var expanded = region_raw ? this.enlargePolygonFromRegion(regionObject) : null;
-            var polygon = region_raw ? this.polygonStringFromRegion(expanded) : null;
-            console.log(polygon)
-            console.log(region_raw)
+		//Test expanding polygon
+		try {
+			let regionObject = region_raw ? this.getCoordRegionFromText(region_raw) : null;
+			var expanded = region_raw ? this.enlargePolygonFromRegion(regionObject) : null;
+			var polygon = region_raw ? this.polygonStringFromRegion(expanded) : null;
 
-            var that = this;
-    		return new Promise(function(resolve, reject) {
-    			if (region_raw || channel == null) {
+			var that = this;
+			return new Promise(function(resolve, reject) {
+				if (region_raw || channel == null) {
 
-    				var gym_query = region_raw ? "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gym_id WHERE ST_CONTAINS(GeomFromText('" + polygon + "'), POINT(lat, lon))" : "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gym_id";
-    				dbhelper.query(gym_query).then(async function(results) {
-    					var idx = lunr(function() {
-    						this.ref('id')
-    						this.field('name')
-    						if (!name_only) {
-    						  this.field('nickname')
-    						  this.field('description')
-    						  this.field('keywords')
-    						  this.field('notice')
+					var gym_query = region_raw ? "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gym_id WHERE ST_CONTAINS(GeomFromText('" + polygon + "'), POINT(lat, lon))" : "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gym_id";
+					dbhelper.query(gym_query).then(async function(results) {
+						var idx = lunr(function() {
+							this.ref('id')
+							this.field('name')
+							if (!name_only) {
+								this.field('nickname')
+								this.field('description')
+								this.field('keywords')
+								this.field('notice')
 
-                              // fields from geocoding data, can add more if / when needed
-                              this.field('intersection');
-                              this.field('route');
-                              this.field('neighborhood');
-                              this.field('colloquial_area');
-                              this.field('locality');
-                              this.field('premise');
-                              this.field('natural_feature');
-                              this.field('postal_code');
-                              this.field('bus_station');
-                              this.field('establishment');
-                              this.field('point_of_interest');
-                              this.field('transit_station');
+								// fields from geocoding data, can add more if / when needed
+								this.field('intersection');
+								this.field('route');
+								this.field('neighborhood');
+								this.field('colloquial_area');
+								this.field('locality');
+								this.field('premise');
+								this.field('natural_feature');
+								this.field('postal_code');
+								this.field('bus_station');
+								this.field('establishment');
+								this.field('point_of_interest');
+								this.field('transit_station');
 
-                              // field for places
-                              this.field('places');
-    						}
+								// field for places
+								this.field('places');
+							}
 
 
 
-    						results.forEach(gym => {
+							results.forEach(gym => {
 
-                                // console.log(gym)
+								// Gym document is a object with its reference and fields to collection of values
+								const gymDocument = Object.create(null);
+								gymDocument["id"] = gym.id;
+								gymDocument["name"] = gym.name;
+								if (gym.nickname) {
+									gymDocument["nickname"] = gym.nickname;
+								}
 
-                                // Gym document is a object with its reference and fields to collection of values
-                                const gymDocument = Object.create(null);
-                                gymDocument["id"] = gym.id;
-                                gymDocument["name"] = gym.name;
-                                if (gym.nickname) {
-                                    gymDocument["nickname"] = gym.nickname;
-                                }
+								if (gym.description) {
+									gymDocument["description"] = gym.description;
+								}
 
-                                if (gym.description) {
-                                    gymDocument["description"] = gym.description;
-                                }
+								if (gym.keywords) {
+									gymDocument["keywords"] = gym.keywords;
+								}
 
-                                if (gym.keywords) {
-                                    gymDocument["keywords"] = gym.keywords;
-                                }
+								if (gym.notice) {
+									gymDocument["notice"] = gym.notice;
+								}
 
-                                if (gym.notice) {
-                                    gymDocument["notice"] = gym.notice;
-                                }
+								// Build a map of the geocoded information:
+								//   key is the address component's type
+								//   value is a set of that type's values across all address components
+								const addressInfo = new Map();
+								if (!gym.geodata) {
+									log.error('Gym "' + gym.name + '" has no geocode information!');
+								} else {
+									var geo = JSON.parse(gym.geodata);
+									var addressComponents = geo["addressComponents"];
+									var places = geo["places"];
 
+									for (const [key, value] of Object.entries(addressComponents)) {
+										gymDocument[key] = value;
+									}
 
-                                // Build a map of the geocoded information:
-                                //   key is the address component's type
-                                //   value is a set of that type's values across all address components
-                                const addressInfo = new Map();
-                                if (!gym.geodata) {
-                                  console.error('Gym "' + gym.name + '" has no geocode information!');
-                                } else {
-                                  var geo = JSON.parse(gym.geodata);
-                                  var addressComponents = geo["addressComponents"];
-                                  var places = geo["places"];
+									if(places) {
+										gymDocument["places"] = places.join(' ')
+									}
+								}
 
-                                  for (const [key, value] of Object.entries(addressComponents)) {
-                                      gymDocument[key] = value;
-                                  }
+								this.add(gymDocument)
 
+							}, this)
+						});
 
-                                  // if(addressComponents) {
-                                  //     addressComponents.forEach(addressComponent => {
-                                  //       addressComponent.addressComponents.forEach(addComp => {
-                                  //         addComp.types.forEach(type => {
-                                  //           const typeKey = type.toLowerCase();
-                                  //           let values = addressInfo.get(typeKey);
-                                  //
-                                  //           if (!values) {
-                                  //             values = new Set();
-                                  //             addressInfo.set(typeKey, values);
-                                  //           }
-                                  //           values.add(addComp.shortName);
-                                  //         });
-                                  //       });
-                                  //     });
-                                  // }
+						var searchResults = idx.search(term);
+						if (searchResults.length > 0) {
+							if (allow_multiple) {
+								var gyms = []
+								for (var j = 0; j < results.length; j++) {
+									var gym = results[j]
+									for (var i = 0; i < searchResults.length; i++) {
+										var result = searchResults[i]
+										if (gym["id"] == result["ref"]) {
+											gyms.push(gym)
+										}
+									}
+								}
 
-                                  if(places) {
-                                      gymDocument["places"] = places.join(' ')
-                                  }
+								resolve(gyms)
+								return
+							} else {
+								const found = searchResults[0];
+								results.forEach(function(doc) {
+									if (doc["id"] == found["ref"]) {
+										resolve(doc);
+										return;
+									}
+								}, this)
+							}
+						}
 
-                                }
+						reject(error_message + term + "'");
+					}).catch(error => {
+						log.error("GYM ERROR: " + error)
+						reject("An error occurred looking for gyms")
+					})
+				} else {
+					reject("No region defined in this channel");
+				}
+			});
 
-                                // // Insert geocoded map info into map
-                                // addressInfo.forEach((value, key) => {
-                                //   gymDocument[key] = Array.from(value).join(' ');
-                                // });
-
-                                // console.log(gymDocument)
-    							this.add(gymDocument)
-
-    						}, this)
-    					});
-
-    					var searchResults = idx.search(term);
-    					console.log("search results: " + JSON.stringify(searchResults));
-    					if (searchResults.length > 0) {
-    						if (allow_multiple) {
-    							var gyms = []
-    							for (var j = 0; j < results.length; j++) {
-    								var gym = results[j]
-    								for (var i = 0; i < searchResults.length; i++) {
-    									var result = searchResults[i]
-    									if (gym["id"] == result["ref"]) {
-    										gyms.push(gym)
-    									}
-    								}
-    							}
-
-    							resolve(gyms)
-    							return
-    						} else {
-    							const found = searchResults[0];
-    							results.forEach(function(doc) {
-    								// console.log("doc: " + doc["id"] + " result: " + found["ref"]);
-    								if (doc["id"] == found["ref"]) {
-    									resolve(doc);
-    									return;
-    								}
-    							}, this)
-    						}
-    					}
-
-    					reject(error_message + term + "'");
-    				}).catch(error => {
-                        console.log("GYM ERROR: " + error)
-                        reject("An error occurred looking for gyms")
-                    })
-    			} else {
-    				reject("No region defined in this channel");
-    			}
-    		});
-
-        } catch(error) {
-            console.error(error)
-        }
-
-
-
+		} catch(error) {
+			log.error(error)
+		}
 	}
 
 	keywordArrayFromString(string) {
@@ -1326,7 +1240,6 @@ class RegionHelper {
 
 
 	editGymKeywords(gym, action, keywords) {
-		// console.log("adding keywords: " + keywords + " to gym: " + gym["id"]);
 		var that = this;
 		return new Promise(async function(resolve, reject) {
 			var existing = (gym["keywords"] != null) ? that.keywordArrayFromString(gym["keywords"]) : [];
@@ -1334,35 +1247,27 @@ class RegionHelper {
 
 			if (action === "add") {
 				var additions = that.keywordArrayFromString(keywords);
-				// console.log("existing: " + existing);
-				// console.log("additions: " + additions);
-				// console.log("combined: " + existing.concat(additions));
 				final = that.keywordStringFromArray(uniq(existing.concat(additions)));
 			} else {
 				if (keywords.toLowerCase() === "all") {
 					final = NULL;
 				} else {
 					var removes = that.keywordArrayFromString(keywords);
-					// console.log("existing: " + existing);
-					// console.log("removes: " + removes);
 					removes.forEach(item => {
 						if (arrayContains(item, existing)) {
 							existing.splice(existing.indexOf(item), 1);
 						}
 					});
-					// console.log("cleaned: " + existing);
 					final = that.keywordStringFromArray(existing);
 				}
 			}
 
-			// console.log("final: " + final);
 			var query;
 			if (final) {
 				query = "UPDATE GymMeta SET keywords = '" + final + "' WHERE gym_id='" + gym["id"] + "'";
 			} else {
 				query = "UPDATE GymMeta SET keywords = NULL WHERE gym_id='" + gym["id"] + "'";
 			}
-			// console.log("query: " + query);
 
 			var result = await dbhelper.query(query).catch(error => reject(error));
 			var result = await dbhelper.query(query).catch(error => reject(error));
@@ -1374,7 +1279,6 @@ class RegionHelper {
 
 
 	async setEXStatus(gym, status) {
-		// console.log("adding ex raid status: " + status + " to gym: " + gym["id"]);
 		var that = this;
 		return new Promise(async function(resolve, reject) {
 			var query;
@@ -1384,24 +1288,19 @@ class RegionHelper {
 				query = "UPDATE GymMeta SET ex_raid = '" + status + "' WHERE gym_id=" + gym["id"];
 			}
 
-            console.log(query)
-			// console.log("query: " + query);
 			var result = await dbhelper.query(query).catch(error => reject(error)).then(async function(results) {
-
 				var gym_info = await dbhelper.query("SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gym_id WHERE id=" + gym["id"]).catch(error => {
 					reject(error)
 					return;
 				})
 
 				resolve(gym_info[0]);
-
 			});
 		});
 	}
 
 
 	async setGymDescription(gym, description) {
-		// console.log("updating description: " + description + " for gym: " + gym["id"]);
 		var that = this;
 		return new Promise(async function(resolve, reject) {
 			var query;
@@ -1411,22 +1310,18 @@ class RegionHelper {
 				query = "UPDATE GymMeta SET description = '" + description + "' WHERE gym_id=" + gym["id"];
 			}
 
-			console.log(query)
 			var result = await dbhelper.query(query).catch(error => reject(error)).then(async function(results) {
-
 				var gym_info = await dbhelper.query("SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gym_id WHERE id=" + gym["id"]).catch(error => {
 					reject(error)
 					return;
 				})
 
 				resolve(gym_info[0]);
-
 			});
 		});
 	}
 
 	async setGymNickname(gym, nickname) {
-		// console.log("updating nickname: " + nickname + " for gym: " + gym["id"]);
 		var that = this;
 		return new Promise(async function(resolve, reject) {
 			var query = "UPDATE GymMeta SET nickname = '" + nickname + "' WHERE gym_id=" + gym["id"];
@@ -1434,20 +1329,17 @@ class RegionHelper {
 				query = "UPDATE GymMeta SET nickname = NULL WHERE gym_id=" + gym["id"];
 			}
 			var result = await dbhelper.query(query).catch(error => reject(error)).then(async function(results) {
-
 				var gym_info = await dbhelper.query("SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gym_id WHERE id=" + gym["id"]).catch(error => {
 					reject(error)
 					return;
 				})
 
 				resolve(gym_info[0]);
-
 			});
 		});
 	}
 
 	async setGymName(gym, name) {
-		// console.log("updating name: " + name + " for gym: " + gym["id"]);
 		var that = this;
 		return new Promise(async function(resolve, reject) {
 			var query = "UPDATE Gym SET name = '" + name + "' WHERE id=" + gym["id"];
@@ -1459,13 +1351,11 @@ class RegionHelper {
 				})
 
 				resolve(gym_info[0]);
-
 			});
 		});
 	}
 
 	async setGymNotice(gym, notice) {
-		// console.log("updating notice: " + notice + " for gym: " + gym["id"]);
 		var that = this;
 		return new Promise(async function(resolve, reject) {
 			var query = "UPDATE GymMeta SET notice = '" + notice + "' WHERE gym_id=" + gym["id"];
@@ -1473,14 +1363,11 @@ class RegionHelper {
 				query = "UPDATE GymMeta SET notice = NULL WHERE gym_id=" + gym["id"];
 			}
 			var result = await dbhelper.query(query).catch(error => reject(error)).then(async function(results) {
-
 				var gym_info = await dbhelper.query("SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gym_id WHERE id=" + gym["id"]).catch(error => {
 					reject(error)
 					return;
 				})
-
 				resolve(gym_info[0]);
-
 			});
 		});
 	}
@@ -1489,22 +1376,18 @@ class RegionHelper {
 	//update
 	//******
 
-    findSimilarGymByLocation(gyms,coords) {
-        const point = this.getPointFromText(coords);
-        for(var i=0; i<gyms.length; i++) {
-            var item = gyms[i];
-            if(distance(item.lat, item.lon, point.x, point.y,"K") < 0.01) {
-                return item;
-            } else {
-                // console.log("too far away: " + distance(item.lat, item.lon, point.x, point.y,"K"))
-            }
-        }
-
-        return null;
-    }
+	findSimilarGymByLocation(gyms,coords) {
+		const point = this.getPointFromText(coords);
+		for(var i=0; i<gyms.length; i++) {
+			var item = gyms[i];
+			if(distance(item.lat, item.lon, point.x, point.y,"K") < 0.01) {
+				return item;
+			}
+		}
+		return null;
+	}
 
 	findSimilarGym(raw, name, coords) {
-
 		const point = this.getPointFromText(coords);
 		for (var i = 0; i < raw.length; i++) {
 			var item = raw[i];
@@ -1513,9 +1396,7 @@ class RegionHelper {
 				if (result > 0.5) {
 					return item;
 				}
-				console.log("name doesnt match close enough")
-			} else {
-				// console.log("too far away: " + distance(item.lat, item.lon, point.x, point.y, "K"))
+				log.info("name doesnt match close enough")
 			}
 		}
 
