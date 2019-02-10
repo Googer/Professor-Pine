@@ -44,9 +44,9 @@ class RareCommand extends Commando.Command {
 
   async run(message, args) {
     const pokemon = args['pokemon'],
-      tier = args['rare'];
+      rare = args['rare'];
 
-    Pokemon.addRaidBoss(pokemon.formName, "7")
+    Pokemon.addRaidBoss(pokemon.formName, rare ? "7" : "0")
       .then(result => {
         message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍');
         Pokemon.buildIndex();

@@ -1,7 +1,8 @@
 "use strict";
 
 const Commando = require('discord.js-commando'),
-  Pokemon = require('../app/pokemon');
+  Pokemon = require('../app/pokemon'),
+  settings = require('../data/settings');
 
 class PokemonType extends Commando.ArgumentType {
   constructor(client) {
@@ -35,6 +36,17 @@ class PokemonType extends Commando.ArgumentType {
     let allMonCommands = ['raid-boss', 'rare'];
     let requireValidation = !message.command || (message.command && allMonCommands.indexOf(message.command.name) === -1);
 
+    console.log(requireValidation);
+    console.log(pokemon);
+    console.log(settings.roles.unown && settings.channels.unown);
+    console.log(pokemon[0] && pokemon[0].name === 'unown' && settings.roles.unown && settings.channels.unown);
+    console.log(message.command.name);
+    console.log(message.command && ['notify', 'denotify'].indexOf(message.command.name) !== -1)
+
+    if (requireValidation && (pokemon[0] && pokemon[0].name === 'unown' && settings.roles.unown && settings.channels.unown) && (message.command && ['want', 'unwant'].indexOf(message.command.name) !== -1)) {
+      return true;
+    }
+
     if (!validPokemon && requireValidation) {
       const name = pokemon[0].name ?
         `"${pokemon[0].name.charAt(0).toUpperCase()}${pokemon[0].name.slice(1)}"` :
@@ -64,7 +76,7 @@ class PokemonType extends Commando.ArgumentType {
       .map(term => term.toLowerCase());
 
     let pokemon;
-    let allMonCommands = ['raid-boss', 'rare'];
+    let allMonCommands = ['raid-boss', 'rare', 'want', 'unwant'];
 
     if (!message.command || (message.command && allMonCommands.indexOf(message.command.name) === -1)) {
       pokemon = Pokemon.search(terms)

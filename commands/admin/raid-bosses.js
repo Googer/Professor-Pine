@@ -64,7 +64,7 @@ class RaidBossesCommand extends Commando.Command {
           groups.ex.push(formatted);
         } else if (poke.tier === 7) {
           groups.rare.push(formatted);
-        } else {
+        } else if (poke.tier !== 0) {
           groups[poke.tier].push(formatted);
         }
       });
