@@ -23,7 +23,7 @@ class CancelStartTimeCommand extends Commando.Command {
 
   async run(message, args) {
     const raid = PartyManager.getParty(message.channel.id),
-      info = raid.cancelMeetingTime(message.member.id);
+      info = await raid.cancelMeetingTime(message.member.id);
 
     if (info.error) {
       message.reply(info.error)
