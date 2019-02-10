@@ -36,13 +36,6 @@ class PokemonType extends Commando.ArgumentType {
     let allMonCommands = ['raid-boss', 'rare'];
     let requireValidation = !message.command || (message.command && allMonCommands.indexOf(message.command.name) === -1);
 
-    console.log(requireValidation);
-    console.log(pokemon);
-    console.log(settings.roles.unown && settings.channels.unown);
-    console.log(pokemon[0] && pokemon[0].name === 'unown' && settings.roles.unown && settings.channels.unown);
-    console.log(message.command.name);
-    console.log(message.command && ['notify', 'denotify'].indexOf(message.command.name) !== -1)
-
     if (requireValidation && (pokemon[0] && pokemon[0].name === 'unown' && settings.roles.unown && settings.channels.unown) && (message.command && ['want', 'unwant'].indexOf(message.command.name) !== -1)) {
       return true;
     }
