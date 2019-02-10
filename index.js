@@ -45,10 +45,7 @@ NodeCleanup((exitCode, signal) => {
 Client.registry.registerDefaultTypes();
 Client.registry.registerTypesIn(__dirname + '/types');
 
-if (settings.features.roles) {
-  Client.registry.registerGroup(CommandGroup.ADMIN, 'Administration');
-}
-
+Client.registry.registerGroup(CommandGroup.ADMIN, 'Administration');
 Client.registry.registerGroup(CommandGroup.BASIC_RAID, 'Raid Basics');
 Client.registry.registerGroup(CommandGroup.RAID_CRUD, 'Raid Creation and Maintenance');
 
