@@ -13,7 +13,7 @@ class CancelStartTimeCommand extends Commando.Command {
       name: 'cancel-meet',
       group: CommandGroup.BASIC_RAID,
       memberName: 'cancel-meet',
-      aliases: ['c-meet', 'cm'],
+      aliases: ['c-meet', 'cm', 'cancel-start', 'cs'],
       description: 'Cancels the planned meeting time for an existing raid.',
       details: 'Use this command to cancel when a raid group intends to do the raid.',
       examples: ['\t!cancel-meet 2:20pm'],
