@@ -44,6 +44,7 @@ NodeCleanup((exitCode, signal) => {
 
 Client.registry.registerDefaultTypes();
 Client.registry.registerTypesIn(__dirname + '/types');
+Client.registry.registerTypesIn(__dirname + '/types/counters');
 
 if (settings.features.roles) {
   Client.registry.registerGroup(CommandGroup.ADMIN, 'Administration');
@@ -132,6 +133,7 @@ Client.registry.registerCommands([
   require('./commands/raids/submit-request'),
 
   require('./commands/util/help'),
+  require('./commands/util/counters'),
   require('./commands/admin/raid-boss'),
   require('./commands/admin/raid-bosses'),
   require('./commands/admin/populate-raid-bosses'),
