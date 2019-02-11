@@ -1,4 +1,5 @@
 const commando = require('discord.js-commando'),
+  log = require('loglevel').getLogger('AddGymCommand'),
   Discord = require('discord.js'),
   oneLine = require('common-tags').oneLine,
   Region = require('../../../app/region'),
@@ -159,7 +160,7 @@ module.exports = class AddGym extends commando.Command {
 									"nickname": nickname,
 									"description": description
 								}
-								var gym = await Region.addGym(details).catch(error => msg.say(error)).then(async function(final_gym) {
+								var gym = await Region.addGym(details,Gym).catch(error => msg.say(error)).then(async function(final_gym) {
 
                   let channels = await Region.getChannelsForGym(final_gym);
 									Region.showGymDetail(msg,final_gym,"New Gym Added",null,channels);
@@ -170,10 +171,8 @@ module.exports = class AddGym extends commando.Command {
                   }
 
                   let affectedChannels = await Region.findAffectedChannels(final_gym["id"]);
-                  msg.say("The following channels will be reindexed: <#" + affectedChannels.join(">, <#") + ">")
+                  // msg.say("The following channels will be reindexed: <#" + affectedChannels.join(">, <#") + ">")
                   msg.say("This gym is in " + channelStrings.join(", "))
-
-                  Gym.rebuildIndexesForChannels(affectedChannels);
 
 									that.cleanup(msg,location_result,name_result,nickname_result,description_result)
 								})

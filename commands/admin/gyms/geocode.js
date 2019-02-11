@@ -1,11 +1,10 @@
 const commando = require('discord.js-commando'),
   Discord = require('discord.js'),
   oneLine = require('common-tags').oneLine,
-  Region = require('../../app/region'),
-  Meta = require('../../app/geocode'),
-  {CommandGroup} = require('../../app/constants'),
-  Raid = require('../../app/raid'),
-  Helper = require('../../app/helper');
+  Region = require('../../../app/region'),
+  Meta = require('../../../app/geocode'),
+  {CommandGroup} = require('../../../app/constants'),
+  Helper = require('../../../app/helper');
 
 module.exports = class GeocodeGym extends commando.Command {
 	constructor(client) {
@@ -27,14 +26,16 @@ module.exports = class GeocodeGym extends commando.Command {
 			}]
 		});
 
-		client.dispatcher.addInhibitor(message => {
+    client.dispatcher.addInhibitor(message => {
 			if (!!message.command && message.command.name === 'geocode') {
-				if(!Helper.isChannelBounded(message.channel.id,Raid.getRaidChannelCache())) {
-					return ['unauthorized', message.reply('This command must be ran in a regional channel.')]
-				} else {
-					return Helper.isAdmin(message) ? false : ['unauthorized', message.reply('You are not authorized to run this command.')];
+				if (!Helper.isManagement(message)) {
+					return ['unauthorized', message.reply('You are not authorized to use this command.')];
 				}
+        if(!Helper.isBotChannel(message)) {
+          return ['invalid-channel', message.reply('This command must be ran in a bot channel.')]
+        }
 			}
+
 			return false;
 		});
 	}
@@ -47,12 +48,6 @@ module.exports = class GeocodeGym extends commando.Command {
 			isID = true;
 			gym = await Region.getGym(this.getValue(args.term)).catch(error => msg.say(error));
 		} else {
-			// if(args.term == "all") {
-			// 	Meta.updateGeocodeFormatForGyms().then(results => {
-			// 		msg.say("Great success")
-			// 	}).catch(error => msg.say("nope"));
-			// 	return;
-			// }
 			gym = await Region.findGym(msg.channel.id, args.term).catch(error => msg.say(error));
 		}
 
@@ -68,6 +63,7 @@ module.exports = class GeocodeGym extends commando.Command {
 					}
 					message += "```";
 					msg.say(message)
+
 				} else {
 					msg.say("No geocode data found")
 				}

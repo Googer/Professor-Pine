@@ -31,11 +31,6 @@ module.exports = class FindGym extends commando.Command {
         if(Helper.isBotChannel(message) && Helper.isManagement(message)) {
           return false;
         }
-
-				// if(!Helper.isChannelBounded(message.channel.id,PartyManager.getRaidChannelCache())) {
-				// 	return ['unauthorized', message.reply('This command must be ran in a regional channel.')]
-				// }
-
 			}
 			return false;
 		});
@@ -63,12 +58,13 @@ module.exports = class FindGym extends commando.Command {
           let channel= await PartyManager.getChannel(channels[i].channel_id);
           channelStrings.push(channel.channel.toString());
         }
-        msg.say("This gym is in " + channelStrings.join(", "))
-      }).catch(error => msg.say("An error occurred..."))
+
+        msg.say("This gym is in " + channelStrings.join(", "));
+      }).catch(error => msg.say("An error occurred..."));
 
 		} else {
 			if (isID) {
-				msg.reply("No gym found in this region with ID " + args.term)
+				msg.reply("No gym found with ID " + args.term);
 			}
 		}
 	}

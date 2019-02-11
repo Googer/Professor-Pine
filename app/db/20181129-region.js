@@ -48,7 +48,7 @@ exports.up = function (knex, Promise) {
 
       table.text('notice')
         .nullable();
-				
+
 			table.boolean('ex_raid');
 
 			table.boolean('ex_tagged');
@@ -60,6 +60,9 @@ exports.up = function (knex, Promise) {
         .nullable();
 
 	  table.string('geo_data')
+        .nullable();
+
+		table.string('places')
         .nullable();
 
 	  table.integer('nearest_gym')

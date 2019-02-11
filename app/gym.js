@@ -20,15 +20,19 @@ class GymCache {
     async buildIndexes() {
 
       log.info('Beginning indexing of all channels');
+
       this.channels = Object.create(null);
       this.indexing = true;
 
       let channels = await Region.getAllBoundedChannels();
 
+      this.placesQueue = []; //Gyms that need geo updates
+      this.indexQueue = []; //Channels that need reindexing
+
       var channelsProcessed = 0;
       for(const channel of channels) {
 
-        console.log("channel: " + channel["channel_id"])
+        log.info("Indexing channel: " + channel["channel_id"])
         await this.rebuildRegion(channel["channel_id"]);
         channelsProcessed++;
         if(channelsProcessed == channels.length) {
@@ -39,10 +43,12 @@ class GymCache {
       }
     }
 
-    async rebuildIndexesForChannels(channels) {
-      for(const channel of channels) {
-        await this.rebuildRegion(channel);
-      }
+    async rebuildIndexesForChannels() {
+      var that = this;
+      this.indexQueue.forEach(async function(channel_id) {
+        log.info(`Trying to rebuild region of channel: ${channel_id}`);
+        await that.rebuildRegion(channel_id);
+      });
     }
 
     async rebuildRegion(channel) {
@@ -96,10 +102,55 @@ class GymCache {
       for(var key in this.channels) {
         let cache = this.channels[key]
         if(cache.getGym(gymId) != false) {
-          return cache.getGym(gymId)
+          return cache.getGym(gymId);
         }
       }
       return null;
+    }
+
+    markGymsForPlacesUpdates(gyms) {
+      log.info(`Marking ${gyms} for places updates`);
+      gyms.forEach(gym_id => {
+        if(this.placesQueue.indexOf(gym_id) == -1) {
+          this.placesQueue.push(gym_id);
+        }
+      });
+    }
+
+    async markPlacesComplete(gym) {
+      if(this.placesQueue.indexOf(gym) > -1) {
+        this.placesQueue.splice(this.placesQueue.indexOf(gym),1);
+      }
+
+      //Get channels that need reindexed
+      //Add to queue
+      let affectedChannels = await Region.findAffectedChannels(gym);
+      this.markChannelsForReindex(affectedChannels);
+    }
+
+    getPlacesQueue() {
+      return this.placesQueue;
+    }
+
+    getIndexQueue() {
+      return this.indexQueue;
+    }
+
+    getNextGymsForPlacesUpdate() {
+      if(this.placesQueue.length > 10) {
+        return this.placesQueue.splice(0,10);
+      } else {
+        return this.placesQueue.splice(0,this.placesQueue.length);
+      }
+    }
+
+    markChannelsForReindex(channel_ids) {
+      log.info(`Marking ${channel_ids} for index updates`);
+      channel_ids.forEach(channel_id => {
+        if(this.indexQueue.indexOf(channel_id) == -1) {
+          this.indexQueue.push(channel_id);
+        }
+      });
     }
 }
 
@@ -189,19 +240,18 @@ class Gym extends Search {
         //   value is a set of that type's values across all address components
         const addressInfo = new Map();
         if (!gym.geodata) {
-          console.error('Gym "' + gym.name + '" has no geocode information!');
+          log.error('Gym "' + gym.name + '" has no geocode information!');
         } else {
           var geo = JSON.parse(gym.geodata);
           var addressComponents = geo["addressComponents"];
-          var places = geo["places"];
 
           for (const [key, value] of Object.entries(addressComponents)) {
               gymDocument[key] = removeDiacritics(Array.from(value).join(' '));;
           }
+        }
 
-          if(places) {
-              gymDocument["places"] = removeDiacritics(he.decode(places.join(' ')));
-          }
+        if(gym.places) {
+          gymDocument["places"] = removeDiacritics(gym.places);
         }
 
         // reference

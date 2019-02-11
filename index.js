@@ -34,6 +34,7 @@ const privateSettings = require('./data/private-settings'),
   PartyManager = require('./app/party-manager'),
   Role = require('./app/role'),
   Utility = require('./app/utility'),
+  IntervalUpdater = require('./app/update'),
   settings = require('./data/settings'),
   {CommandGroup} = require('./app/constants');
 
@@ -78,7 +79,12 @@ if (settings.features.roles) {
     require('./commands/roles/iamnot'),
 
     require('./commands/admin/gyms/addgym'),
+    require('./commands/admin/gyms/editgym'),
+    require('./commands/admin/gyms/removegym'),
     require('./commands/admin/gyms/findgym'),
+    require('./commands/admin/gyms/gymqueue'),
+    require('./commands/admin/gyms/gymplaces'),
+    require('./commands/admin/gyms/geocode'),
   ]);
 }
 

@@ -1,23 +1,36 @@
 const private_settings = require('../data/private-settings'),
+log = require('loglevel').getLogger('DBHelper'),
 	mysql = require('mysql');
 
 //Purpose of this class is for direct communication with MySQL
 //This is necessary for doing geo queries on the database, which knex is not capable of handling
 class DBHelper {
 	constructor() {
-	}
-
-	getConnection() {
-		var sql = mysql.createConnection({
+		this.pool = mysql.createPool({
 			host: private_settings.db.host,
 			user: private_settings.db.user,
 			password: private_settings.db.password,
 			database: private_settings.db.schema,
 			multipleStatements: true,
 			supportBigNumbers: true,
- 			bigNumberStrings: true
+			bigNumberStrings: true
 		});
-		return sql;
+	}
+
+	getConnection() {
+		if(!this.connection) {
+			this.connection = mysql.createConnection({
+				host: private_settings.db.host,
+				user: private_settings.db.user,
+				password: private_settings.db.password,
+				database: private_settings.db.schema,
+				multipleStatements: true,
+				supportBigNumbers: true,
+	 			bigNumberStrings: true
+			});
+		}
+
+		return this.connection;
 	}
 
 	handleDisconnect(connection) {
@@ -41,41 +54,48 @@ class DBHelper {
 	}
 
 	async query(query_string) {
+		var that = this;
 		return new Promise((resolve, reject) => {
-			var sql = this.getConnection();
-			this.handleDisconnect(sql)
-			sql.query("SET NAMES 'utf8mb4'");
-			sql.query("SET CHARACTER SET 'utf8mb4'");
-			sql.query(query_string, (err, results) => {
-				sql.end();
-				if (err) {
-					console.log("mysql error: " + err);
-					throw err
-				} else {
-					resolve(results);
-				}
+
+			that.pool.getConnection(async function(error,connection) {
+				connection.query("SET NAMES 'utf8mb4'");
+				connection.query("SET CHARACTER SET 'utf8mb4'");
+				connection.query(query_string, (err, results) => {
+					connection.release();
+
+					if (err) {
+						log.error("mysql error: " + err);
+						throw err
+					} else {
+						resolve(results);
+					}
+				});
+			});
+		});
+	}
+
+	async query(query_string,values) {
+		var that = this;
+		return new Promise((resolve, reject) => {
+			that.pool.getConnection(async function(error,connection) {
+				connection.query("SET NAMES 'utf8mb4'");
+				connection.query("SET CHARACTER SET 'utf8mb4'");
+				connection.query(query_string, values, (err, results) => {
+					connection.release();
+					if (err) {
+						log.error("mysql error: " + err);
+						throw err
+					} else {
+						resolve(results);
+					}
+				});
 			});
 
 		});
 	}
 
-	async query(query_string,values) {
-		return new Promise((resolve, reject) => {
-			var sql = this.getConnection();
-			this.handleDisconnect(sql)
-			sql.query("SET NAMES 'utf8mb4'");
-			sql.query("SET CHARACTER SET 'utf8mb4'");
-			sql.query(query_string, values, (err, results) => {
-				sql.end();
-				if (err) {
-					console.log("mysql error: " + err);
-					throw err
-				} else {
-					resolve(results);
-				}
-			});
-
-		});
+	escapeValue(value) {
+		return mysql.escape(value);
 	}
 }
 
