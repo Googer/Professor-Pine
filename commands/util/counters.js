@@ -210,6 +210,7 @@ class CountersCommand extends Commando.Command {
 
         // Only prompt for boss and tier if not in a raid channel
         let raid = Party.getParty(message.channel.id);
+        // console.log(raid)
 
         if(!!raid) {
             if (raid.type.toLowerCase() === 'raid') {
@@ -429,31 +430,45 @@ class CountersCommand extends Commando.Command {
             allMovesets = json.attackers[0].byMove,
             bossMovesetSelector = [],
             selectedMovesetIdx;
-        for (bossMoveIdx = 0; bossMoveIdx < allMovesets.length; bossMoveIdx++) {
-            bossMovesetSelector.push(`**${bossMoveIdx + 1}**. ` +
-                                     `${allMovesets[bossMoveIdx].move1.replace('_FAST', '').replace(/_/g, ' ').titleCase()}` +
-                                     `/` + 
-                                     `${allMovesets[bossMoveIdx].move2.replace(/_/g, ' ').titleCase()}`)
-        }
-        bossMovesetSelector.push(`**${bossMoveIdx + 1}**. Random Moveset`)
 
-        let movesetCollector = new Commando.ArgumentCollector(message.client, [
-            {
-                key: 'moveset',
-                prompt: `please select a moveset by entering a number. If you do not respond, it will default to 'Random Moveset'.\n\n${bossMovesetSelector.join('\n')}\n`,
-                type: 'integer'
+        if (!!raid) {
+            if (!!raid.quickMove) {
+                allMovesets = allMovesets.filter(moveset => moveset.move1 === raid.quickMove);
             }
-        ], 3);
+            if (!!raid.cinematicMove) {
+                allMovesets = allMovesets.filter(moveset => moveset.move2 === raid.cinematicMove);
+            }
+        }
 
-        await movesetCollector.obtain(message)
-            .then(collectionResult => {
-                if (!collectionResult.cancelled) {
-                    selectedMovesetIdx = parseInt(collectionResult.values.moveset) - 1;
-                } else {
-                    selectedMovesetIdx = allMovesets.length - 1;
+        if (allMovesets.length > 1) {
+            for (bossMoveIdx = 0; bossMoveIdx < allMovesets.length; bossMoveIdx++) {
+                bossMovesetSelector.push(`**${bossMoveIdx + 1}**. ` +
+                                        `${allMovesets[bossMoveIdx].move1.replace('_FAST', '').replace(/_/g, ' ').titleCase()}` +
+                                        `/` + 
+                                        `${allMovesets[bossMoveIdx].move2.replace(/_/g, ' ').titleCase()}`)
+            }
+            bossMovesetSelector.push(`**${bossMoveIdx + 1}**. Random Moveset`)
+
+            let movesetCollector = new Commando.ArgumentCollector(message.client, [
+                {
+                    key: 'moveset',
+                    prompt: `please select a moveset by entering a number. If you do not respond, it will default to 'Random Moveset'.\n\n${bossMovesetSelector.join('\n')}\n`,
+                    type: 'integer'
                 }
-            })
-            .catch(err => log.error(err));
+            ], 3);
+
+            await movesetCollector.obtain(message)
+                .then(collectionResult => {
+                    if (!collectionResult.cancelled) {
+                        selectedMovesetIdx = parseInt(collectionResult.values.moveset) - 1;
+                    } else {
+                        selectedMovesetIdx = allMovesets.length - 1;
+                    }
+                })
+                .catch(err => log.error(err));
+        } else {
+            selectedMovesetIdx = 0;
+        }
 
         let moveset,
             movesetName;
@@ -533,17 +548,14 @@ class CountersCommand extends Commando.Command {
             .setFooter('Data retrieved from https://www.pokebattler.com.')
 
         if (level.type === 'byLevel') {
-            message.channel.send(`${message.author}, here are your results:`, embed)
+            let levelResponse = await message.channel.send(`${message.author}, here are your results:`, embed)
+            levelResponse.preserve = true;
         } else {
             // DM results if personal Pokebox
-            await message.channel.send(`${message.author}, I sent you a DM with your results.`)
-                .then(function (message) { 
-                    message.preserve = true;
-                });        
-            await message.author.send(embed)
-                .then(function (message) { 
-                    message.preserve = true;
-                });
+            let channelResponse = await message.channel.send(`${message.author}, I sent you a DM with your results.`)
+            channelResponse.preserve = true;       
+            let dmResponse = await message.author.send(embed)
+            dmResponse.preserve = true;
         }
         await message.delete();
 
