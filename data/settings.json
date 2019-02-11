@@ -25,6 +25,9 @@
     "roles": true,
     "web": true
   },
+  "roles": {
+    "unown": "unown"
+  },
   "channels": {
     "bot-lab": "the-bot-lab",
     "mod-bot-lab": "mod-bot-only",

@@ -6,6 +6,7 @@ const log = require('loglevel').getLogger('NotifyCommand'),
   Helper = require('../../app/helper'),
   Notify = require('../../app/notify'),
   settings = require('../../data/settings'),
+  Role = require('../../app/role'),
   Utility = require('../../app/utility');
 
 class NotifyCommand extends Commando.Command {
@@ -40,6 +41,22 @@ class NotifyCommand extends Commando.Command {
   async run(message, args) {
     const pokemon = args['pokemon'];
     let type = 'both';
+
+    // Special Case for when an @Unown role exists, set the role with !want.
+    if (pokemon.name === 'unown' && settings.channels.unown && settings.roles.unown) {
+      Role.assignRole(message.member, settings.roles.unown)
+        .then(() => message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍'))
+        .catch(err => {
+          if (err && err.error) {
+            message.reply(err.error)
+              .catch(err => log.error(err));
+          } else {
+            log.error(err);
+          }
+        });
+
+      return;
+    }
 
     if (pokemon.name !== 'perfect' && pokemon.name !== 'zero') {
       const typeCollector = new Commando.ArgumentCollector(message.client, [

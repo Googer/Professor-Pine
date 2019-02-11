@@ -100,6 +100,9 @@ class TimeType extends Commando.ArgumentType {
     } else if (raidHatchTime && ['hatch', 'start'].indexOf(valueToParse.toLowerCase()) !== -1) {
       valueToParse = raidHatchTime.format('h:m a');
       timeMode = TimeMode.ABSOLUTE;
+    } else if (['unset', 'cancel', 'none'].indexOf(valueToParse.toLowerCase()) !== -1) {
+      // mark this is a valid time.
+      return true;
     } else {
       const absoluteMatch = valueToParse.match(/^at(.*)|(.*[ap]m?)$/i);
 
@@ -249,6 +252,9 @@ class TimeType extends Commando.ArgumentType {
     } else if (raidHatchTime && ['hatch', 'start'].indexOf(valueToParse.toLowerCase()) !== -1) {
       valueToParse = raidHatchTime.format('h:m a');
       timeMode = TimeMode.ABSOLUTE;
+    }  else if (['unset', 'cancel', 'none'].indexOf(valueToParse.toLowerCase()) !== -1) {
+      // return a value to indicate unset & meet.
+      return -1;
     } else {
       const absoluteMatch = valueToParse.match(/^at(.*)|(.*[ap]m?)$/i);
 
