@@ -42,7 +42,9 @@ class MeetTimeCommand extends Commando.Command {
   async run(message, args) {
     const startTime = args[TimeParameter.MEET],
       raid = PartyManager.getParty(message.channel.id),
-      info = await raid.setMeetingTime(message.member.id, startTime);
+      info = startTime === -1 ?
+        await raid.cancelMeetingTime(message.member.id) :
+        await raid.setMeetingTime(message.member.id, startTime);
 
     if (info.error) {
       message.reply(info.error)
@@ -76,9 +78,15 @@ class MeetTimeCommand extends Commando.Command {
       .forEach(([attendee, attendeeStatus]) => {
         const member = Helper.getMemberForNotification(message.guild.id, attendee);
 
-        member.send(`${message.member.displayName} set a meeting time of ${formattedStartTime} for ${channel.toString()}. ` +
-          `There ${verb} currently **${totalAttendees}** ${noun} attending!`)
-          .catch(err => log.error(err));
+        if (startTime === -1) {
+          member.send(`${message.member.displayName} has canceled the meeting time for ${channel.toString()}. ` +
+            `There ${verb} currently **${totalAttendees}** ${noun} attending!`)
+            .catch(err => log.error(err));
+        } else {
+          member.send(`${message.member.displayName} set a meeting time of ${formattedStartTime} for ${channel.toString()}. ` +
+            `There ${verb} currently **${totalAttendees}** ${noun} attending!`)
+            .catch(err => log.error(err));
+        }
       });
 
     raid.refreshStatusMessages();

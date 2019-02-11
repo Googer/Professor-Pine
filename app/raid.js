@@ -217,7 +217,8 @@ class Raid extends Party {
                         return true;
                       }
 
-                      userResponse = userResponse.substr(1);
+                      userResponse = userResponse.substr(1).trim();
+
                     }
 
                     confirmation = message.client.registry.types.get('boolean').truthy.has(userResponse) || doneAliases.indexOf(userResponse) !== -1;
@@ -358,6 +359,26 @@ class Raid extends Party {
 
     await this.persist();
 
+    return {party: this};
+  }
+
+  async cancelMeetingTime(memberId) {
+    const member = this.attendees[memberId];
+
+    if (!member) {
+      return {error: 'You are not signed up for this raid!'};
+    }
+
+    const group = this.groups
+      .find(group => group.id === member.group);
+
+    delete group.startTime;
+    // delete start clear time if there is one
+    if (group.startClearTime) {
+      delete group.startClearTime;
+    }
+
+    await this.persist();
     return {party: this};
   }
 

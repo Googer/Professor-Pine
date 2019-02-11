@@ -119,7 +119,9 @@ class Pokemon extends Search {
           .find(form => form.formName === poke.name),
         formId = alternateForm ?
           alternateForm.formId :
-          '00';
+          '00',
+        paddedNumber = '000' + poke.number,
+        lastThree = paddedNumber.substr(paddedNumber.length - 3);
 
       poke.formName = poke.name;
       poke.name = poke.overrideName ?
@@ -134,7 +136,7 @@ class Pokemon extends Search {
         poke.maxBaseCP = Pokemon.calculateCP(poke, 20, 15, 15, 15);
         poke.minBoostedCP = Pokemon.calculateCP(poke, 25, 10, 10, 10);
         poke.maxBoostedCP = Pokemon.calculateCP(poke, 25, 15, 15, 15);
-        poke.url = `${privateSettings.pokemonUrlBase}pokemon_icon_${poke.number}_${formId}.png`
+        poke.url = `${privateSettings.pokemonUrlBase}pokemon_icon_${lastThree}_${formId}.png`
       }
     });
 

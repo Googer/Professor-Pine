@@ -5,6 +5,7 @@ const log = require('loglevel').getLogger('DenotifyCommand'),
   {CommandGroup} = require('../../app/constants'),
   Helper = require('../../app/helper'),
   Notify = require('../../app/notify'),
+  Role = require('../../app/role'),
   settings = require('../../data/settings');
 
 class DenotifyCommand extends Commando.Command {
@@ -38,6 +39,22 @@ class DenotifyCommand extends Commando.Command {
 
   async run(message, args) {
     const pokemon = args['pokemon'];
+
+    if (pokemon.name === 'unown' && settings.channels.unown && settings.roles.unown) {
+      Role.removeRole(message.member, settings.roles.unown)
+        .then(() => message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍'))
+        .catch(err => {
+          if (err && err.error) {
+            message.reply(err.error)
+              .catch(err => log.error(err));
+          } else {
+            log.error(err);
+          }
+        });
+
+      return;
+    }
+
 
     Notify.removePokemonNotification(message.member, pokemon)
       .then(result => message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍'))

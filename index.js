@@ -103,6 +103,7 @@ Client.registry.registerCommands([
   require('./commands/raids/check-out'),
   require('./commands/raids/leave'),
 
+  require('./commands/raids/cancel-start-time'),
   require('./commands/raids/meet-time'),
   require('./commands/raids/group'),
   require('./commands/raids/label-group'),
