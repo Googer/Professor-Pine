@@ -51,7 +51,7 @@ module.exports = class FindGym extends commando.Command {
 		if (gym != undefined && gym["name"]) {
       Region.getChannelsForGym(gym).then(async function(channels) {
         const phrase = isID ? "Gym found with ID " + args.term : "Gym found with term '" + args.term + "'";
-        Region.showGymDetail(msg, gym, phrase, null, channels)
+        await Region.showGymDetail(msg, gym, phrase, null, false);
 
         var channelStrings = [];
         for(var i=0;i<channels.length;i++) {

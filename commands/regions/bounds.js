@@ -36,11 +36,9 @@ module.exports = class GetBounds extends commando.Command {
 	}
 
 	async run(msg) {
-		Region.getRegionDetailEmbed(msg.channel.id).then(embed => {
+		Region.getRegionEmbed(msg.channel.id).then(embed => {
 			if (embed) {
-				msg.channel.send({
-					embed
-				});
+				msg.channel.send({embed});
 			} else {
 				msg.say("No region defined for this channel.")
 			}

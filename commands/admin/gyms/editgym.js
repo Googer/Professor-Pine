@@ -95,15 +95,28 @@ module.exports = class EditGym extends commando.Command {
 			type: 'string'
 		}], 3);
 
-		this.exstatusCollector = new commando.ArgumentCollector(client, [{
-			key: 'exstatus',
-			prompt: 'Provide the EX Raid eligibility of this gym with `sponsored`, `park`, or `previous`. To remove an existing EX Raid eligibility status type `remove`.',
+		this.exTagCollector = new commando.ArgumentCollector(client, [{
+			key: 'extag',
+			prompt: 'Does this gym currently have an EX Raid tag on it? (Yes or No)',
 			type: 'string',
 			validate: value => {
-				if (value === 'sponsored' || value === 'park' || value === 'previous' || value === 'remove') {
+				if (value.toLowerCase() === 'yes' || value.toLowerCase() === 'y' || value.toLowerCase() === 'no' || value.toLowerCase() === 'n') {
 					return true;
 				} else {
-					return "Please provide a valid EX Raid eligibility.";
+					return "Please provide a valid yes or no response.";
+				}
+			}
+		}], 3);
+
+    this.exPreviousCollector = new commando.ArgumentCollector(client, [{
+			key: 'exprevious',
+			prompt: 'Has the gym previously held an EX Raid? (Yes or No)',
+			type: 'string',
+			validate: value => {
+				if (value.toLowerCase() === 'yes' || value.toLowerCase() === 'y' || value.toLowerCase() === 'no' || value.toLowerCase() === 'n') {
+					return true;
+				} else {
+					return "Please provide a valid yes or no response.";
 				}
 			}
 		}], 3);
@@ -222,7 +235,7 @@ module.exports = class EditGym extends commando.Command {
 									var result = await Region.setGymLocation(gym["id"], location, Gym).catch(error => msg.say("An error occurred changing the location of this gym."));
 									if (result["id"]) {
 										that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
-										Region.showGymDetail(msg, result, "Updated Gym Location", msg.member.displayName);
+										Region.showGymDetail(msg, result, "Updated Gym Location", msg.member.displayName,false);
 									}
 								} else {
 									that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
@@ -235,7 +248,7 @@ module.exports = class EditGym extends commando.Command {
 									var result = await Region.setGymName(gym, name, Gym).catch(error => msg.say("An error occurred setting the name of this gym."));
 									if (result["id"]) {
 										that.cleanup(msg, gym_result, field_result, collection_result);
-										Region.showGymDetail(msg, result, "Updated Gym Name", msg.member.displayName);
+										Region.showGymDetail(msg, result, "Updated Gym Name", msg.member.displayName,false);
 									}
 								} else {
 									that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
@@ -248,7 +261,7 @@ module.exports = class EditGym extends commando.Command {
 									var result = await Region.setGymNickname(gym, nickname, Gym).catch(error => msg.say("An error occurred setting the nickname of this gym."));
 									if (result["id"]) {
 										that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
-										Region.showGymDetail(msg, result, "Updated Gym Nickname", msg.member.displayName);
+										Region.showGymDetail(msg, result, "Updated Gym Nickname", msg.member.displayName, false);
 									}
 								} else {
 									that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
@@ -261,7 +274,7 @@ module.exports = class EditGym extends commando.Command {
 									var result = await Region.setGymDescription(gym, description, Gym).catch(error => msg.say("An error occurred setting the description of this gym."));
 									if (result["id"]) {
 										that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
-										Region.showGymDetail(msg, result, "Updated Gym Description", msg.member.displayName);
+										Region.showGymDetail(msg, result, "Updated Gym Description", msg.member.displayName, false);
 									}
 								} else {
 									that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
@@ -278,23 +291,43 @@ module.exports = class EditGym extends commando.Command {
 									var result = await Region.editGymKeywords(gym, action, keywords, Gym).catch(error => msg.say("An error occurred adding removing keywords from the gym."));
 									if (result["id"]) {
 										that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
-										Region.showGymDetail(msg, result, "Updated Gym Keywords", msg.member.displayName);
+										Region.showGymDetail(msg, result, "Updated Gym Keywords", msg.member.displayName, false);
 									}
 								} else {
 									that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
 								}
 							});
 						} else if (value === 'exraid') {
-							that.exstatusCollector.obtain(msg).then(async function(collection_result) {
-								if (!collection_result.cancelled) {
-									const description = collection_result.values["description"];
-									var result = await Region.setEXStatus(gym, collection_result.values["exstatus"], Gym).catch(error => msg.say("An error occurred setting the EX eligibility of This gym."));
-									if (result["id"]) {
-										that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
-										Region.showGymDetail(msg, result, "Updated EX Raid Eligibility", msg.member.displayName);
-									}
+              that.exTagCollector.obtain(msg).then(async function(tag_result) {
+								if (!tag_result.cancelled) {
+
+                  that.exPreviousCollector.obtain(msg).then(async function(previous_result) {
+    								if (!previous_result.cancelled) {
+                      const tagged = tag_result.values["extag"];
+                      const previous = previous_result.values["exprevious"];
+
+    									const is_tagged = tagged.toLowerCase() === "yes" || tagged.toLowerCase() === "y";
+                      const is_previous = previous.toLowerCase() === "yes" || previous.toLowerCase() === "y";
+
+    									var result = await Region.setEXStatus(gym, is_tagged, is_previous, Gym).catch(error => msg.say("An error occurred setting the EX eligibility of This gym."));
+    									if (result["id"]) {
+
+                        previous_result.prompts.forEach(message => {
+                  				message.delete()
+                  			});
+
+    										that.cleanup(msg, gym_result, field_result, tag_result, gym_msg);
+    										Region.showGymDetail(msg, result, "Updated EX Raid Eligibility", msg.member.displayName, false);
+    									}
+    								} else {
+                      previous_result.prompts.forEach(message => {
+                        message.delete()
+                      });
+    									that.cleanup(msg, gym_result, field_result, tag_result, gym_msg);
+    								}
+    							});
 								} else {
-									that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
+									that.cleanup(msg, gym_result, field_result, tag_result, gym_msg);
 								}
 							});
 						} else if (value === 'notice') {
@@ -304,7 +337,7 @@ module.exports = class EditGym extends commando.Command {
 									var result = await Region.setGymNotice(gym, notice, Gym).catch(error => msg.say("An error occurred setting the notice for this gym."));
 									if (result["id"]) {
 										that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
-										Region.showGymDetail(msg, result, "Updated Gym Notice", msg.member.displayName);
+										Region.showGymDetail(msg, result, "Updated Gym Notice", msg.member.displayName, false);
 									}
 								} else {
 									that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);

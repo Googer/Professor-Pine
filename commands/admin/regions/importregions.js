@@ -1,10 +1,11 @@
 const commando = require('discord.js-commando'),
 	https = require('https'),
 	oneLine = require('common-tags').oneLine,
-	Region = require('../../app/region'),
-	PartyManager = require('../../app/party-manager'),
-	Helper = require('../../app/helper'),
-	private_settings = require('../../data/private-settings');
+	Region = require('../../../app/region'),
+	GymCache = require('../../../app/gym'),
+	PartyManager = require('../../../app/party-manager'),
+	Helper = require('../../../app/helper'),
+	private_settings = require('../../../data/private-settings');
 
 module.exports = class ImportRegions extends commando.Command {
 	constructor(client) {
@@ -18,6 +19,9 @@ module.exports = class ImportRegions extends commando.Command {
 			This command accepts a kml file of polygons on a map that define regions.
 			Channels/categories will be determined based on name of the polygons specified in the file
 			and existing channels will have their regions updated based on polygon within this file.
+
+			When creating new channels, the name of the feature/polygon will become the name of the channel. For the category,
+			it will first try and use the description field if it exists. Otherwise it was use the feature name as well.
 			`,
 			examples: ['import']
 		});
@@ -27,7 +31,11 @@ module.exports = class ImportRegions extends commando.Command {
 				if (!Helper.isManagement(message)) {
 					return ['unauthorized', message.reply('You are not authorized to use this command.')];
 				}
+        if(!Helper.isBotChannel(message)) {
+          return ['invalid-channel', message.reply('This command must be ran in a bot channel.')]
+        }
 			}
+
 			return false;
 		});
 	}
@@ -82,7 +90,7 @@ module.exports = class ImportRegions extends commando.Command {
 				//Create new regions
 				for(var i=0;i<toAdd.length;i++) {
 					const feature = toAdd[i]
-					Region.createNewRegion(feature,msg).then(channel => {
+					Region.createNewRegion(feature,msg,GymCache).then(channel => {
 						PartyManager.cacheRegionChannel(channel)
 					}).catch(error => {
 						console.log(error)
@@ -92,12 +100,12 @@ module.exports = class ImportRegions extends commando.Command {
 
 				//Update regions
 				for(var i=0;i<toUpdate.length;i++) {
-					const feature = toUpdate[i]
-					const channel_name = Region.channelNameForFeature(feature)
-					const channel = Helper.getChannelForName(channel_name)
-					const polydata = feature.geometry.coordinates[0]
-					Region.storeRegion(polydata,channel.id).catch(error => reject("An error occurred storing the region for " + channel_name)).then(result => {
-					})
+					const feature = toUpdate[i];
+					const channel_name = Region.channelNameForFeature(feature);
+					const channel = Helper.getChannelForName(channel_name);
+					const polydata = feature.geometry.coordinates[0];
+					Region.storeRegion(polydata,channel.id,GymCache).catch(error => reject("An error occurred storing the region for " + channel_name)).then(result => {
+					});
 				}
 
 			} else {
@@ -107,7 +115,7 @@ module.exports = class ImportRegions extends commando.Command {
 		} else {
 
 			msg.delete()
-			msg.reply("Please add the `import-region` command as a comment when uploading a KML file.");
+			msg.reply("Please add the `\timport-region` command as a comment when uploading a KML file.");
 		}
 
 	}

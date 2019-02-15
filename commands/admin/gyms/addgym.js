@@ -163,7 +163,7 @@ module.exports = class AddGym extends commando.Command {
 								var gym = await Region.addGym(details,Gym).catch(error => msg.say(error)).then(async function(final_gym) {
 
                   let channels = await Region.getChannelsForGym(final_gym);
-									Region.showGymDetail(msg,final_gym,"New Gym Added",null,channels);
+									await Region.showGymDetail(msg,final_gym,"New Gym Added",null,false);
                   var channelStrings = [];
                   for(var i=0;i<channels.length;i++) {
                     let channel= await PartyManager.getChannel(channels[i].channel_id);

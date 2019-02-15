@@ -8,6 +8,7 @@ lunr = require('lunr'),
 dbhelper = require('./dbhelper'),
 Meta = require('./geocode'),
 DOMParser = require('xmldom').DOMParser,
+ImageCacher = require('./imagecacher'),
 stringSimilarity = require('string-similarity'),
 private_settings = require('../data/private-settings'),
 request = require("request"),
@@ -234,8 +235,6 @@ class RegionHelper {
 		var joined = items.join("|");
 		var final = joined.replaceAll(" ", ",");
 
-		this.dumpRegionJSON(region)
-
 		var center = region.centroid();
 		var base_url = "http://maps.google.com/maps/api/staticmap?size=500x300&format=png&center=" + center.x + "," + center.y + "&path=color:red|" + final + "&sensor=false&scale=2&key=" + private_settings.googleApiKey;
 
@@ -258,9 +257,20 @@ class RegionHelper {
 		});
 	}
 
+	async getRegionId(channel) {
+		return new Promise(async function(resolve, reject) {
+			var results = await dbhelper.query("SELECT id FROM Region WHERE channel_id = ?",[channel]).catch(error => reject(false));
+			if (results.length > 0 && results[0] != undefined) {
+				resolve(results[0]["id"]);
+			} else {
+				reject(false);
+			}
+		});
+	}
+
 	async getRegionsRaw(channel) {
 		return new Promise(async function(resolve, reject) {
-			var results = await dbhelper.query("SELECT AsText(bounds) FROM Region WHERE channel_id = " + channel + ";").catch(error => reject(false));
+			var results = await dbhelper.query("SELECT AsText(bounds) FROM Region WHERE channel_id = ?",[channel]).catch(error => reject(false));
 			if (results.length > 0 && results[0] != undefined) {
 				resolve(results[0]["AsText(bounds)"]);
 			} else {
@@ -271,8 +281,8 @@ class RegionHelper {
 
 	async getChannelsForGym(gym) {
 		return new Promise(async function(resolve, reject) {
-			var q = "SELECT channel_id FROM Region WHERE ST_CONTAINS(bounds, POINT(" + gym.lat + ", " + gym.lon + "));";
-			var results = await dbhelper.query(q).catch(error => reject(false));
+			var q = "SELECT channel_id FROM Region WHERE ST_CONTAINS(bounds, POINT(?, ?));";
+			var results = await dbhelper.query(q,[gym.lat,gym.lon]).catch(error => reject(false));
 			if (results.length > 0) {
 				resolve(results);
 			} else {
@@ -302,8 +312,8 @@ class RegionHelper {
 
 	checkCoordForChannel(channel, coords, resolve, reject) {
 		var that = this
-		var select_query = "SELECT AsText(bounds) FROM Region WHERE channel_id = " + channel + ";"
-		dbhelper.query(select_query).then(async function(results) {
+		var select_query = "SELECT AsText(bounds) FROM Region WHERE channel_id = ?"
+		dbhelper.query(select_query,[channel]).then(async function(results) {
 			var region = that.getCoordRegionFromText(results[0]["AsText(bounds)"]);
 			var query = "SELECT ST_CONTAINS( ST_GeomFromText('";
 			query += that.polygonStringFromRegion(region);
@@ -362,6 +372,52 @@ class RegionHelper {
 			});
 		}
 
+	}
+
+	getRegionEmbed(channel) {
+		var that = this
+		return new Promise(async function(resolve, reject) {
+			const region = await that.getRegionsRaw(channel).catch(error => false);
+			if (!region) {
+				reject("No region defined for this channel");
+				return
+			}
+
+			const gyms = await that.getGymCount(channel).catch(error => 0);
+			const region_id = await that.getRegionId(channel).catch(error => false);
+
+			var url = that.googleMapsLinkForRegion(region);
+			if (url != null) {
+				const embed = new Discord.MessageEmbed()
+				.setTitle("This channel covers the following area")
+				.setURL(url);
+
+				if(region_id) {
+					let url = that.googleMapsLinkForRegion(region);
+					let path = `images/regions/${region_id}.png`;
+					let image_path = await ImageCacher.fetchAndCache(url,path).catch(error => false);
+
+					if(image_path) {
+						let parts = image_path.split("/");
+						let image_name = parts[parts.length - 1];
+	          const attachment = new Discord.MessageAttachment(image_path);
+						embed.attachFiles([attachment]);
+						embed.setImage(`attachment://${image_name}`);
+					}
+				}
+
+				if (gyms) {
+					embed.setDescription("There " + (gyms == 1 ? "is" : "are") + " " + (gyms != 0 ? gyms : "no") + " gym" + (gyms < 1 || gyms > 1 ? "s" : "") + " within this region");
+				} else {
+					embed.setDescription("There are currently no gyms within this region")
+				}
+
+				resolve(embed);
+
+			} else {
+				reject("No region defined for this channel");
+			}
+		})
 	}
 
 	getRegionDetailEmbed(channel) {
@@ -566,8 +622,19 @@ class RegionHelper {
 		});
 	}
 
+	async deletePreviousRegion(channel) {
+		var that = this;
+		return new Promise(async function(resolve,reject) {
+			that.getRegionId(channel).then(region_id => {
+				ImageCacher.deleteCachedImage(`images/regions/${region_id}.png`);
+				dbhelper.query("DELETE FROM Region WHERE id = ?",[region_id]).then(result => {
+					resolve(true);
+				}).catch(error => resolve(false));
+			}).catch(error => resolve(false));
+		});
+	}
 
-	storeRegion(polydata, channel) {
+	storeRegion(polydata, channel, gym_cache) {
 		var that = this;
 		return new Promise(async function(resolve, reject) {
 			//make sure first and last points are equal (closed polygon)
@@ -593,28 +660,17 @@ class RegionHelper {
 					polystring += ",";
 				}
 			}
-
 			polystring += "))"
 
-			var delete_query = "DELETE FROM Region WHERE channel_id = ?;";
-			var insert_query = "INSERT INTO Region (channel_id,bounds) VALUES(?, PolygonFromText(@g));"
-
-			dbhelper.query(delete_query,[channel]).catch(error => reject(error)).then(result => {
-
-				var sql = dbhelper.getConnection();
-				sql.connect();
-				sql.query("SET @g='" + polystring + "';");
-				sql.query(insert_query,[channel], function(err, result) {
-					sql.end();
-					if (err) {
-						log.error('Error inserting region for channel: ' + channel);
-						reject(error);
-					} else {
-						log.info('Added region for channel id: ' + channel);
-						resolve(true);
-					}
-				});
-			});
+			await that.deletePreviousRegion(channel);
+			const insert_query = "INSERT INTO Region (channel_id,bounds) VALUES(?, PolygonFromText(?));"
+			dbhelper.query(insert_query,[channel,polystring]).then(result => {
+				log.info('Added region for channel id: ' + channel);
+				if(gym_cache) {
+					gym_cache.markChannelsForReindex([channel]);
+				}
+				resolve(true);
+			}).catch(error => reject(error));
 		});
 	}
 
@@ -634,15 +690,26 @@ class RegionHelper {
 		return name.toLowerCase().split(" ").join("-").replace(/[^0-9\w\-]/g, '')
 	}
 
-	createNewRegion(feature,msg) {
+	categoryNameForFeature(feature) {
+		const name = feature.properties.name
+		const desc = feature.properties.description
+		if (desc) {
+			return desc
+		} else {
+			return name.replace('#','')
+		}
+	}
+
+	createNewRegion(feature,msg,gym_cache) {
 		var that = this;
 		return new Promise(function(resolve,reject) {
 			//data["features"][0]["geometry"]["coordinates"][0];
 			const polydata = feature.geometry.coordinates[0]
 			const name = feature.properties.name
+			const category_name = that.categoryNameForFeature(feature)
 			const channel_name = that.channelNameForFeature(feature)
 
-			msg.channel.guild.channels.create(name, {
+			msg.channel.guild.channels.create(category_name, {
 				type: "category"
 			},"For a region")
 			.then(new_category => {
@@ -653,7 +720,7 @@ class RegionHelper {
 				},"For a region")
 				.then(new_channel => {
 					log.info("created new channel for " + name + " with id " + new_channel.id + " under category with id " + new_category.id)
-					that.storeRegion(polydata,new_channel.id).catch(error => reject("An error occurred storing the region for " + name)).then(result => {
+					that.storeRegion(polydata,new_channel.id,gym_cache).catch(error => reject("An error occurred storing the region for " + name)).then(result => {
 						resolve(new_channel.id)
 					})
 				}).catch(error => reject(error))
@@ -735,6 +802,7 @@ class RegionHelper {
 					});
 
 					gym = gym_info[0];
+					ImageCacher.deleteCachedImage(`images/gyms/${gym}.png`);
 					Meta.beginGeoUpdates(gym,gym_cache).catch(error => resolve(gym)).then(result => resolve(result));
 
 				});
@@ -743,28 +811,60 @@ class RegionHelper {
 		});
 	}
 
-	showGymDetail(msg, gym, heading, user) {
+	getGymMapLink(gym) {
+		var point = gym.point;
+		if (!point) {
+			point = `${gym.lat},${gym.lon}`;
+		}
+		point = point.replaceAll(" ","");
+		return `http://maps.google.com/maps/api/staticmap?size=500x300&format=png&center=${point}&markers=${point}&sensor=false&scale=2&key=${private_settings.googleApiKey}`;
+	}
+
+	async showGymDetail(msg, gym, heading, user, show_geo) {
 		var point = gym.point;
 		if (!point) {
 			point = gym.lat + ", " + gym.lon;
 		}
-		var url = "http://maps.google.com/maps/api/staticmap?size=500x300&format=png&center=" + point.replaceAll(" ", "") + "&markers=" + point.replaceAll(" ", "") + "&sensor=false&scale=2&key=" + private_settings.googleApiKey;
+
 		var title = gym.name;
 		if (gym.nickname && gym.nickname != "skip") {
 			title += " (" + gym.nickname + ")";
 		}
 
-		var thumbnail = "https://vignette.wikia.nocookie.net/pokemongo/images/6/62/Pokemon-gym-final-red.png/revision/latest?cb=20160801180142";
+
+		var attachments = [];
+		var thumbnail = false;
 		if (gym.image_url) {
 			thumbnail = gym.image_url;
+		} else {
+			const thumb = new Discord.MessageAttachment('images/gym_marker.png');
+			attachments.push(thumb);
 		}
 
 		var embed = new Discord.MessageEmbed()
 		.setAuthor(heading)
 		.setTitle(title)
-		.setURL(this.googlePinLinkForPoint(point))
-		.setThumbnail(thumbnail)
-		.setImage(url);
+		.setURL(this.googlePinLinkForPoint(point));
+
+		if(thumbnail) {
+			embed.setThumbnail(thumbnail);
+		} else {
+			embed.setThumbnail('attachment://gym_marker.png');
+		}
+
+		let path = `images/gyms/${gym.id}.png`;
+		let url = this.getGymMapLink(gym);
+		let image_path = await ImageCacher.fetchAndCache(url,path).catch(error => false);
+
+		if(image_path) {
+			let parts = image_path.split("/");
+			let image_name = parts[parts.length - 1];
+			const attachment = new Discord.MessageAttachment(image_path);
+			attachments.push(attachment);
+			embed.setImage(`attachment://${image_name}`);
+		}
+
+		embed.attachFiles(attachments);
 
 		if (gym.description && gym.description != "skip" && gym.description != "null") {
 			embed.setDescription(gym.description);
@@ -774,35 +874,33 @@ class RegionHelper {
 			embed.addField("Keywords", gym.keywords);
 		}
 
-		if (gym.ex_raid || gym.ex_tag) {
-			var status = gym.ex_raid ? gym.ex_raid : "sponsored";
-			if (status === "sponsored" || status === "park") {
-				const type = (status === "sponsored") ? "sponsored" : "located in a park";
-				embed.addField("EX Raid Eligible", "This gym is " + type + " and eligible as a potential EX Raid location");
-			} else if (status === "previous") {
-				embed.addField("EX Raid Eligible", "This gym has previously hosted an EX Raid.");
-			}
+		if (gym.ex_raid || gym.ex_tagged) {
+			const status = gym.ex_tagged && gym.ex_raid ? "This gym is eligible and has previously hosted an EX Raid" : gym.ex_tagged ? "This gym is eligible to host an EX Raid" : "This gym has previously hosted an EX Raid but is not currently listed as eligible.";
+			embed.addField("EX Raid Eligible", status);
 		}
 
 		if (gym.notice) {
 			embed.addField("Notice :no_entry:", gym.notice);
 		}
 
-		if(gym.geodata) {
+		if(show_geo) {
+			if(gym.geodata) {
 
-			log.info(`geo: ${gym.geodata}`);
-			//Add Geocode Information
-			var geoinfo = "";
-			var geodata = JSON.parse(gym.geodata);
-			var addressComponents = geodata["addressComponents"];
-			for (const [key, value] of Object.entries(addressComponents)) {
-				geoinfo += "**" + key + "**: " + value + "\n";
+				log.info(`geo: ${gym.geodata}`);
+				//Add Geocode Information
+				var geoinfo = "";
+				var geodata = JSON.parse(gym.geodata);
+				var addressComponents = geodata["addressComponents"];
+				for (const [key, value] of Object.entries(addressComponents)) {
+					geoinfo += "**" + key + "**: " + value + "\n";
+				}
+
+				embed.addField("Secret Sauce", geoinfo);
 			}
 
-			embed.addField("Secret Sauce", geoinfo);
-
-			log.info(`places: ${gym.places}`);
 			if(gym.places) {
+
+				log.info(`places: ${gym.places}`);
 				embed.addBlankField(true);
 				embed.addField("Nearby Places", gym.places);
 				embed.addBlankField(true);
@@ -888,6 +986,7 @@ class RegionHelper {
 			const gym_query = "DELETE FROM Gym WHERE id = ?";
 			dbhelper.query(gym_query,[gym_id]).catch(error => reject(error)).then(async function(results) {
 
+				ImageCacher.deleteCachedImage(`images/gyms/${gym_id}.png`);
 				//Get Geocode Data
 				//Recalculate all nearest gyms
 				Meta.calculateNearestGyms().then(affected => {
@@ -1157,15 +1256,11 @@ class RegionHelper {
 		});
 	}
 
-	async setEXStatus(gym, status, gym_cache) {
+	async setEXStatus(gym, tagged, previous, gym_cache) {
 		var that = this;
 		return new Promise(async function(resolve, reject) {
-			var query;
-			if (status === "remove") {
-				query = `UPDATE GymMeta SET ex_raid = NULL WHERE gym_id=${gym["id"]}`;
-			} else {
-				query = `UPDATE GymMeta SET ex_raid = '${status}' WHERE gym_id=${gym["id"]}`;
-			}
+			const query = `UPDATE GymMeta SET ex_tagged = ${tagged ? 1 : 'NULL'}, ex_raid = ${previous ? 1 : 'NULL'} WHERE gym_id=${gym["id"]}`;
+			log.info(query);
 
 			var result = await dbhelper.query(query).catch(error => reject(error)).then(async function(results) {
 				var gym_info = await dbhelper.query("SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gym_id WHERE id = ?",[gym["id"]]).catch(error => {

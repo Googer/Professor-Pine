@@ -45,9 +45,14 @@ class GymCache {
 
     async rebuildIndexesForChannels() {
       var that = this;
-      this.indexQueue.forEach(async function(channel_id) {
+      var removeIndex = this.indexQueue.slice(0);
+      removeIndex.forEach(async function(channel_id) {
         log.info(`Trying to rebuild region of channel: ${channel_id}`);
         await that.rebuildRegion(channel_id);
+        let index = that.indexQueue.indexOf(channel_id);
+        if(index > -1) {
+          that.indexQueue.splice(index,1);
+        }
       });
     }
 

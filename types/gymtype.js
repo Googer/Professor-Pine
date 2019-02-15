@@ -12,7 +12,6 @@ class FindGymType extends commando.ArgumentType {
 		return new Promise(
 			async function(resolve, reject) {
 
-				console.log("searching for gym: " + value);
 				var gym;
 				if (that.getValue(value) > -1) {
 					gym = await Region.getGym(that.getValue(value)).catch(error => message.say(error));
@@ -21,7 +20,7 @@ class FindGymType extends commando.ArgumentType {
 				}
 
 				if (gym != undefined && gym["name"]) {
-					Region.showGymDetail(message, gym, `Gym found with term "${value}"`, null).then((message) => {
+					Region.showGymDetail(message, gym, `Gym found with term "${value}"`, null,false).then((message) => {
 						gym.message = message;
 						that.gym_info = gym;
 						resolve(true);

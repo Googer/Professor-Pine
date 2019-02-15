@@ -73,7 +73,6 @@ if (settings.features.roles) {
     require('./commands/admin/rsar'),
     require('./commands/admin/lsar'),
     require('./commands/admin/aar'),
-    require('./commands/admin/importregions'),
 
     require('./commands/roles/iam'),
     require('./commands/roles/iamnot'),
@@ -82,9 +81,15 @@ if (settings.features.roles) {
     require('./commands/admin/gyms/editgym'),
     require('./commands/admin/gyms/removegym'),
     require('./commands/admin/gyms/findgym'),
+    require('./commands/admin/gyms/gymdetail'),
     require('./commands/admin/gyms/gymqueue'),
     require('./commands/admin/gyms/gymplaces'),
     require('./commands/admin/gyms/geocode'),
+    require('./commands/admin/gyms/clearimagecache'),
+
+
+    require('./commands/admin/regions/importregions'),
+    require('./commands/admin/regions/setregion'),
   ]);
 }
 
@@ -106,7 +111,6 @@ Client.registry.registerCommands([
   require('./commands/notifications/mention'),
 
   require('./commands/regions/bounds'),
-  require('./commands/regions/setregion'),
 
   require('./commands/raids/join'),
   require('./commands/raids/interested'),

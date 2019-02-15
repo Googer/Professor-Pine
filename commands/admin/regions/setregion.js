@@ -1,11 +1,12 @@
 const commando = require('discord.js-commando'),
   https = require('https'),
   oneLine = require('common-tags').oneLine,
-  Region = require('../../app/region'),
-  PartyManager = require('../../app/party-manager'),
-  Helper = require('../../app/helper'),
-  private_settings = require('../../data/private-settings'),
-  {CommandGroup} = require('../../app/constants');
+  Region = require('../../../app/region'),
+  GymCache = require('../../../app/gym'),
+  PartyManager = require('../../../app/party-manager'),
+  Helper = require('../../../app/helper'),
+  private_settings = require('../../../data/private-settings'),
+  {CommandGroup} = require('../../../app/constants');
 
 module.exports = class SetRegion extends commando.Command {
 	constructor(client) {
@@ -27,7 +28,7 @@ module.exports = class SetRegion extends commando.Command {
 				if(PartyManager.validParty(message.channel.id)) {
 					return ['unauthorized', message.reply('You may not define a region for a raid channel.')]
 				}
-				if (!Helper.isAdmin(message)) {
+				if (!Helper.isManagement(message)) {
 					return ['unauthorized', message.reply('You are not authorized to use this command.')];
 				}
 
@@ -52,18 +53,16 @@ module.exports = class SetRegion extends commando.Command {
 			var data = await Region.parseRegionData(file).catch(error => false);
 			if(data) {
 				const polydata = data["features"][0]["geometry"]["coordinates"][0];
-				if(await Region.storeRegion(polydata,msg.channel.id).catch(error => false)) {
+				if(await Region.storeRegion(polydata,msg.channel.id,GymCache).catch(error => false)) {
 					PartyManager.cacheRegionChannel(msg.channel.id)
 					Region.getRegionDetailEmbed(msg.channel.id).then(embed => {
 						if(embed) {
-							// msg.delete()
 							msg.channel.send({embed})
 						}
 					}).catch(error => msg.say("An error occurred retrieving the region."))
 				} else {
 					msg.say("An error occurred storing the region.")
 				}
-				// console.log(JSON.stringify(data, null, 4));
 			} else {
 				msg.say("An error occurred parsing your KML data.")
 			}
