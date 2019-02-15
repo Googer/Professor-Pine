@@ -35,22 +35,39 @@ class PokemonNotificationsCommand extends Commando.Command {
         const embed = new MessageEmbed(),
           pokemonData = Pokemon.pokemon;
 
-        embed.setTitle('Currently assigned pokémon notifications:');
+        embed.setTitle('Currently assigned Pokémon notifications:');
         embed.setColor(4437377);
 
         const pokemonList = results
-          .map(number => pokemonData.find(pokemon => (Number.parseInt(pokemon.number) === Number.parseInt(number)) ||
-            (pokemon.tier === -number)))
-          .map(pokemon => pokemon.name ?
-            pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1) :
-            `Level ${pokemon.tier}`)
-          .sort()
-          .join('\n');
+          .map(poke => {
+            let pokemon = pokemonData.find(pokemon => (Number.parseInt(pokemon.number) === Number.parseInt(poke.pokemon)) ||
+              (pokemon.tier === -poke.pokemon));
 
-        if (pokemonList.length > 0) {
-          embed.setDescription(pokemonList);
-        } else {
-          embed.setDescription('<None>');
+            return {
+              type: poke.type,
+              pokemon: pokemon.name ?
+                pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1) :
+                `Level ${pokemon.tier}`
+            };
+          });
+
+        const both = pokemonList.filter(notification => (notification.type || '').toLowerCase() === 'both'),
+          spawn = pokemonList.filter(notification => (notification.type || '').toLowerCase() === 'spawn'),
+          raid = pokemonList.filter(notification => (notification.type || '').toLowerCase() === 'raid');
+
+        if (both.length) {
+          const bothList = both.map(notification => notification.pokemon).sort().join('\n');
+          embed.addField('**Both Spawn and Raid**', bothList)
+        }
+
+        if (spawn.length) {
+          const spawnList = spawn.map(notification => notification.pokemon).sort().join('\n');
+          embed.addField('**Spawn**', spawnList)
+        }
+
+        if (raid.length) {
+          const raidList = raid.map(notification => notification.pokemon).sort().join('\n');
+          embed.addField('**Raid**', raidList)
         }
 
         const messages = [];

@@ -6,6 +6,8 @@ const CommandGroup = {
   REGION: 'region',
   ROLES: 'roles',
   NOTIFICATIONS: 'notifications',
+  FRIENDS: 'friends',
+  SILPH: 'silph',
   UTIL: 'util'
 };
 

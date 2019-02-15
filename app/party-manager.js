@@ -26,7 +26,8 @@ class PartyManager {
         now = nowMoment.valueOf(),
         startClearTime = now + (settings.startClearTime * 60 * 1000),
         deletionGraceTime = settings.deletionGraceTime * 60 * 1000,
-        deletionTime = now + (settings.deletionWarningTime * 60 * 1000);
+        deletionTime = now + (settings.deletionWarningTime * 60 * 1000),
+        lastIntervalRunTime = lastIntervalTime - settings.cleanupInterval;
 
       Object.entries(this.parties)
         .filter(([channelId, party]) => party.type === PartyType.RAID)
@@ -34,6 +35,22 @@ class PartyManager {
           if ((party.hatchTime && now > party.hatchTime && party.hatchTime > lastIntervalTime) ||
             nowDay !== lastIntervalDay) {
             party.refreshStatusMessages()
+              .catch(err => log.error(err));
+          }
+
+          if ((now > party.hatchTime && party.hatchTime > lastIntervalRunTime)
+              || (now > party.endTime && party.endTime > lastIntervalRunTime)) {
+            const newChannelName = party.generateChannelName();
+
+            await this.getChannel(party.channelId)
+              .then(channelResult => {
+                if (channelResult.ok) {
+                  party.refreshStatusMessages()
+                    .catch(err => log.error(err));
+
+                  return channelResult.channel.setName(newChannelName);
+                }
+              })
               .catch(err => log.error(err));
           }
 

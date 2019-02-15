@@ -13,7 +13,7 @@ class IAmNotCommand extends Commando.Command {
       name: 'iamnot',
       group: CommandGroup.ROLES,
       memberName: 'iamnot',
-      aliases: ['unassign'],
+      aliases: ['unassign', 'amnot'],
       description: 'Unassign roles from yourself.',
       details: '?????',
       examples: ['\t!iamnot Mystic', '\t!unassign Valor'],

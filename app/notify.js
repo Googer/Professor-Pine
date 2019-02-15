@@ -15,8 +15,8 @@ class Notify {
     Helper.client.on('raidCreated', (raid, memberId) =>
       this.notifyMembers(raid, memberId));
 
-    Helper.client.on('raidPokemonSet', (raid, memberId) =>
-      this.notifyMembers(raid, memberId));
+    Helper.client.on('raidPokemonSet', (raid, memberId, egg) =>
+      this.notifyMembers(raid, memberId, egg));
 
     Helper.client.on('raidGymSet', (raid, memberId) =>
       this.notifyMembers(raid, memberId));
@@ -32,8 +32,7 @@ class Notify {
       .innerJoin('User', {'PokemonNotification.userId': 'User.id'})
       .innerJoin('Guild', {'PokemonNotification.guildId': 'Guild.id'})
       .where('User.userSnowflake', member.user.id)
-      .andWhere('Guild.snowflake', member.guild.id)
-      .pluck('pokemon');
+      .andWhere('Guild.snowflake', member.guild.id);
   }
 
   // get gyms that member is interested in
@@ -46,22 +45,12 @@ class Notify {
       .pluck('gym');
   }
 
-  // notify interested members for the raid associated with the given channel and pokemon (and / or or gym),
-  // filtering out the reporting member
-  async notifyMembers(raid, reportingMemberId) {
-    // Don't send a notification for EX raids
-    if (raid.pokemon.exclusive) {
-      return;
-    }
-
-    const raidChannel = (await PartyManager.getChannel(raid.channelId)).channel,
-      pokemon = raid.pokemon,
-      gymId = raid.gymId,
-      guildId = raidChannel.guild.id,
+  async notifyMembersOfSpawn(pokemon, reportingMemberId, location, message) {
+    const areaChannel = message.channel,
+      guildId = message.guild.id,
       number = Notify.getDbPokemonNumber(pokemon),
-      tier = pokemon.tier,
-      dbPokemonNumbers = [...new Set([number, -tier])]
-        .filter(number => !isNaN(number))
+      dbPokemonNumbers = [...new Set([number])]
+        .filter(number => !isNaN(number));
 
     // don't try to look up notifications from screenshot placeholders where
     // a valid pokemon wasn't determined
@@ -74,6 +63,74 @@ class Notify {
         .innerJoin('PokemonNotification', {'User.id': 'PokemonNotification.userId'})
         .innerJoin('Guild', {'PokemonNotification.guildId': 'Guild.id'})
         .whereIn('PokemonNotification.pokemon', dbPokemonNumbers)
+        .whereIn('type', ['spawn', 'both'])
+        .andWhere('Guild.snowflake', guildId)
+        .pluck('User.userSnowflake');
+    }
+
+    const pokemonName = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1),
+      regionChannel = (await PartyManager.getChannel(message.channel.id)).channel,
+      reportingMember = (await PartyManager.getMember(regionChannel.id, reportingMemberId)).member,
+      header = `A ${pokemonName} spawn has been reported in #${regionChannel.name} by ${reportingMember.displayName}:`,
+      regionHeader = `A ${pokemonName} spawn has been reported by ${reportingMember.displayName}:`,
+      botLabChannel = message.guild.channels.find(channel => channel.name === settings.channels["bot-lab"]),
+      embed = new MessageEmbed();
+    embed.setColor('GREEN');
+    embed.setDescription(location + '\n\n**Warning: Spawns are user-reported. There is no way to know exactly how long a Pokémon will be there. Most spawns are 30 min. Use your discretion when chasing them.**');
+
+    if (pokemon.url) {
+      embed.setThumbnail(pokemon.url);
+    }
+
+    pokemonMembers.filter(mem => mem !== reportingMemberId)
+      .filter(memberId => areaChannel.guild.members.has(memberId))
+      .filter(memberId => areaChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))
+      .map(memberId => Helper.getMemberForNotification(message.channel.guild.id, memberId))
+      .forEach(async member => {
+        member.send(header, {embed})
+          .catch(err => log.error(err));
+      });
+
+    message.channel.send(regionHeader, {embed})
+      .then(message => {
+        message.delete({timeout: 30 * settings.messageCleanupDelayStatus})
+          .catch(err => log.error(err));
+        message.channel.send(`To enable or disable notifications for spawns, use the \`${message.client.commandPrefix}want\` command in ${botLabChannel.toString()}. To report a spawn, use the \`${message.client.commandPrefix}spawn\` command in a region channel.`)
+          .then(message => message.delete({timeout: 30 * settings.messageCleanupDelayStatus}))
+          .catch(err => log.error(err));
+      })
+      .catch(err => log.error(err));
+  }
+
+  // notify interested members for the raid associated with the given channel and pokemon (and / or or gym),
+  // filtering out the reporting member
+  async notifyMembers(raid, reportingMemberId, egg = false) {
+    // Don't send a notification for EX raids
+    if (raid.pokemon.exclusive) {
+      return;
+    }
+
+    const raidChannel = (await PartyManager.getChannel(raid.channelId)).channel,
+      pokemon = raid.pokemon,
+      gymId = raid.gymId,
+      guildId = raidChannel.guild.id,
+      number = Notify.getDbPokemonNumber(pokemon),
+      tier = pokemon.tier,
+      dbPokemonNumbers = [...new Set([number, -tier])]
+        .filter(number => !isNaN(number));
+
+    // don't try to look up notifications from screenshot placeholders where
+    // a valid pokemon wasn't determined
+    let pokemonMembers;
+
+    if (pokemon.placeholder) {
+      pokemonMembers = [];
+    } else {
+      pokemonMembers = await DB.DB('User')
+        .innerJoin('PokemonNotification', {'User.id': 'PokemonNotification.userId'})
+        .innerJoin('Guild', {'PokemonNotification.guildId': 'Guild.id'})
+        .whereIn('PokemonNotification.pokemon', dbPokemonNumbers)
+        .whereIn('type', ['raid', 'both'])
         .andWhere('Guild.snowflake', guildId)
         .pluck('User.userSnowflake');
     }
@@ -85,7 +142,17 @@ class Notify {
       .andWhere('Guild.snowflake', guildId)
       .pluck('User.userSnowflake');
 
-    [...new Set([...pokemonMembers, ...gymMembers])]
+
+    let attendees = [];
+
+    if (egg) {
+      attendees = await DB.DB('User')
+        .whereIn('userSnowFlake', Object.keys(raid.attendees || {}))
+        .andWhere('raidBoss', true)
+        .pluck('userSnowflake');
+    }
+
+    [...new Set([...pokemonMembers, ...gymMembers, ...attendees])]
       .filter(mem => mem !== reportingMemberId)
       .filter(memberId => raidChannel.guild.members.has(memberId))
       .filter(memberId => raidChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))
@@ -100,36 +167,38 @@ class Notify {
   }
 
   // give pokemon notification to user
-  assignPokemonNotification(member, pokemon) {
-    return this.pokemonNotificationExists(member, pokemon)
-      .then(exists => {
-        if (!exists) {
-          let userDbId;
+  assignPokemonNotification(member, pokemon, type) {
+    let userDbId;
 
-          // add pokemon notification for member to DB
-          return DB.insertIfAbsent('User', Object.assign({},
-            {
-              userSnowflake: member.user.id
-            }))
-            .then(userId => {
-              userDbId = userId[0];
+    // add pokemon notification for member to DB
+    return DB.insertIfAbsent('User', Object.assign({},
+      {
+        userSnowflake: member.user.id
+      }))
+      .then(userId => {
+        userDbId = userId[0];
 
-              return DB.DB('Guild')
-                .where('snowflake', member.guild.id)
-                .pluck('id')
-                .first();
-            })
-            .then(guildId => {
-              return DB.DB('PokemonNotification')
-                .insert({
-                  pokemon: Notify.getDbPokemonNumber(pokemon),
-                  guildId: guildId.id,
-                  userId: userDbId
-                })
-            });
-        } else {
-          return exists;
-        }
+        return DB.DB('Guild')
+          .where('snowflake', member.guild.id)
+          .pluck('id')
+          .first();
+      })
+      .then(guildId => {
+        return DB.insertIfAbsent('PokemonNotification', Object.assign({},
+          {
+            userId: userDbId,
+            pokemon: Notify.getDbPokemonNumber(pokemon)
+          }))
+          .then(notificationId => {
+            return DB.DB('PokemonNotification')
+              .where('id', notificationId)
+              .update({
+                pokemon: Notify.getDbPokemonNumber(pokemon),
+                guildId: guildId.id,
+                userId: userDbId,
+                type: type
+              });
+          });
       });
   }
 
@@ -309,14 +378,13 @@ class Notify {
 
   // check is member wants mentions or not; if they're not in the table at all,
   // assume they *do* want them
-  async shouldMention(member) {
+  async shouldMention(member, type) {
     const result = await DB.DB('User')
       .where('userSnowflake', member.user.id)
-      .pluck('mentions')
       .first();
 
     return !!result ?
-      result.mentions === 1 :
+      result.mentions === 1 && result[type] === 1 :
       true;
   }
 
@@ -334,10 +402,36 @@ class Notify {
       .catch(err => log.error(err));
   }
 
-  async shout(message, members, text, fromMember = null) {
+  setMentionShouts(member, mention) {
+    return DB.insertIfAbsent('User', Object.assign({},
+      {
+        userSnowflake: member.user.id
+      }))
+      .then(userId => DB.DB('User')
+        .where('id', userId)
+        .update({
+          shouts: mention
+        }))
+      .catch(err => log.error(err));
+  }
+
+  setMentionGroups(member, mention) {
+    return DB.insertIfAbsent('User', Object.assign({},
+      {
+        userSnowflake: member.user.id
+      }))
+      .then(userId => DB.DB('User')
+        .where('id', userId)
+        .update({
+          groups: mention
+        }))
+      .catch(err => log.error(err));
+  }
+
+  async shout(message, members, text, type, fromMember = null) {
     const membersStrings = await Promise.all(members
         .map(async member => {
-          const mention = await this.shouldMention(member);
+          const mention = await this.shouldMention(member, type);
 
           return mention ?
             member.toString() :
@@ -357,7 +451,7 @@ class Notify {
     embed.setDescription(text);
 
     message.channel.send(membersString, embed)
-      .then(message => message.channel.send(`To enable or disable these notifications, use the \`${message.client.commandPrefix}mentions\` command in ${botLabChannel.toString()}.`))
+      .then(message => message.channel.send(`To enable or disable these notifications, use the \`${message.client.commandPrefix}mentions\`, \`${message.client.commandPrefix}mentions-groups\`, and \`${message.client.commandPrefix}mentions-shouts\` commands in ${botLabChannel.toString()}.`))
       .catch(err => log.error(err));
   }
 }

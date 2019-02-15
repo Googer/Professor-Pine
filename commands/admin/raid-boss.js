@@ -24,7 +24,8 @@ class AddRaidBossCommand extends Commando.Command {
         {
           key: 'tier',
           prompt: 'What tier is this pokémon? (`1`, `2`, `3`, `4`, `5`, `ex`)',
-          type: 'string'
+          type: 'string',
+          oneOf: ['1', '2', '3', '4', '5', 'ex']
         }
       ],
       guildOnly: true
@@ -45,7 +46,7 @@ class AddRaidBossCommand extends Commando.Command {
     const pokemon = args['pokemon'],
       tier = args['tier'];
 
-    Pokemon.addRaidBoss(pokemon.name, tier)
+    Pokemon.addRaidBoss(pokemon.formName, tier)
       .then(result => {
         message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍');
         Pokemon.buildIndex();

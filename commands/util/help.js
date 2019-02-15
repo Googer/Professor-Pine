@@ -92,7 +92,7 @@ class HelpCommand extends Commando.Command {
 
         const groupsToShow = groups
           .filter(group => group.commands.size > 0 &&
-            ((showAll && Helper.isManagement(message)) || settings.helpGroups.includes(group.id)));
+            ((showAll && (Helper.isManagement(message) || Helper.isBotManagement(message))) || settings.helpGroups.includes(group.id)));
 
         groupsToShow.forEach(group =>
           embed.addField(`**${group.name}**`,

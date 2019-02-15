@@ -40,17 +40,14 @@ const privateSettings = require('./data/private-settings'),
 
 NodeCleanup((exitCode, signal) => {
   PartyManager.shutdown();
+  NotifyClient.destroy();
 });
 
 Client.registry.registerDefaultTypes();
 Client.registry.registerTypesIn(__dirname + '/types');
 
 Client.registry.registerGroup('region', 'Region setting');
-
-if (settings.features.roles) {
-  Client.registry.registerGroup(CommandGroup.ADMIN, 'Administration');
-}
-
+Client.registry.registerGroup(CommandGroup.ADMIN, 'Administration');
 Client.registry.registerGroup(CommandGroup.BASIC_RAID, 'Raid Basics');
 Client.registry.registerGroup(CommandGroup.RAID_CRUD, 'Raid Creation and Maintenance');
 
@@ -61,6 +58,8 @@ if (settings.features.roles) {
 if (settings.features.notifications) {
   Client.registry.registerGroup(CommandGroup.NOTIFICATIONS, 'Notifications');
 }
+Client.registry.registerGroup(CommandGroup.FRIENDS, 'Friend Codes');
+Client.registry.registerGroup(CommandGroup.SILPH, 'Silph Road');
 
 Client.registry.registerGroup(CommandGroup.COMMANDS, 'Command');
 Client.registry.registerGroup(CommandGroup.UTIL, 'Utility');
@@ -109,6 +108,8 @@ if (settings.features.notifications) {
 
 Client.registry.registerCommands([
   require('./commands/notifications/mention'),
+  require('./commands/notifications/mention-groups'),
+  require('./commands/notifications/mention-shouts'),
 
   require('./commands/regions/bounds'),
 
@@ -120,6 +121,7 @@ Client.registry.registerCommands([
   require('./commands/raids/check-out'),
   require('./commands/raids/leave'),
 
+  require('./commands/raids/cancel-start-time'),
   require('./commands/raids/start-time'),
   require('./commands/raids/group'),
   require('./commands/raids/label-group'),
@@ -136,6 +138,7 @@ Client.registry.registerCommands([
   require('./commands/raids/time-left'),
   require('./commands/raids/set-pokemon'),
   require('./commands/raids/set-location'),
+  require('./commands/raids/set-moveset'),
 
   require('./commands/raids/auto-status'),
   require('./commands/raids/report-privacy'),
@@ -145,7 +148,23 @@ Client.registry.registerCommands([
   require('./commands/raids/submit-request'),
 
   require('./commands/util/help'),
-  require('./commands/admin/raid-boss')
+  require('./commands/admin/raid-boss'),
+  require('./commands/admin/raid-bosses'),
+  require('./commands/admin/populate-raid-bosses'),
+  require('./commands/admin/add-nickname'),
+  require('./commands/util/boss-tier'),
+  require('./commands/admin/autoset'),
+  require('./commands/admin/shiny'),
+  require('./commands/admin/not-shiny'),
+  require('./commands/tsr/card'),
+  require('./commands/tsr/register'),
+  require('./commands/admin/rare'),
+  require('./commands/notifications/spawn'),
+  require('./commands/game/register-friend-code'),
+  require('./commands/game/register-nickname'),
+  require('./commands/game/friend-code'),
+  require('./commands/game/find-nickname'),
+  require('./commands/notifications/boss-set-notifications')
 ]);
 
 if (privateSettings.regionMapLink !== '') {

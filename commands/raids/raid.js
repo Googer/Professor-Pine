@@ -135,7 +135,9 @@ class RaidCommand extends Commando.Command {
               message.pokemon = raid.pokemon;
               message.isExclusive = raid.isExclusive;
 
-              if (raid.pokemon.name) {
+              let collectEndTime = raid.defaulted ? false : true;
+
+              if (raid.pokemon.name && collectEndTime) {
                 return this.endTimeCollector.obtain(message);
               } else {
                 return this.hatchTimeCollector.obtain(message);
@@ -143,9 +145,10 @@ class RaidCommand extends Commando.Command {
             })
             .then(async collectionResult => {
               Utility.cleanCollector(collectionResult);
+              let collectEndTime = raid.defaulted ? false : true;
 
               if (!collectionResult.cancelled) {
-                if (raid.pokemon.name) {
+                if (raid.pokemon.name && collectEndTime) {
                   await raid.setEndTime(collectionResult.values[TimeParameter.END]);
                 } else {
                   await raid.setHatchTime(collectionResult.values[TimeParameter.HATCH]);
