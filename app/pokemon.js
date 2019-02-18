@@ -130,7 +130,7 @@ class Pokemon extends Search {
       poke.weakness = Pokemon.calculateWeaknesses(poke.type);
       poke.boostedConditions = Pokemon.calculateBoostConditions(poke.type);
 
-      if (poke.number && poke.tier) {
+      if (poke.number && poke.tier && poke.tier <= 5) {
         poke.bossCP = Pokemon.calculateBossCP(poke);
         poke.minBaseCP = Pokemon.calculateCP(poke, 20, 10, 10, 10);
         poke.maxBaseCP = Pokemon.calculateCP(poke, 20, 15, 15, 15);

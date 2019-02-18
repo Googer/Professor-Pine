@@ -3,14 +3,16 @@
     "name": "perfect",
     "nickname": [
       "hundo"
-    ]
+    ],
+    "number": -1
   },
   {
     "name": "zero",
     "nickname": [
       "none",
       "useless"
-    ]
+    ],
+    "number": -2
   },
   {
     "tier": 1,
