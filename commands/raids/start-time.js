@@ -2,7 +2,7 @@
 
 const log = require('loglevel').getLogger('StartTimeCommand'),
   Commando = require('discord.js-commando'),
-  {CommandGroup, PartyStatus, PartyType, TimeParameter} = require('../../app/constants'),
+  {CommandGroup, PartyStatus, TimeParameter} = require('../../app/constants'),
   Helper = require('../../app/helper'),
   moment = require('moment'),
   PartyManager = require('../../app/party-manager'),
@@ -15,14 +15,14 @@ class StartTimeCommand extends Commando.Command {
       group: CommandGroup.BASIC_RAID,
       memberName: 'meet',
       aliases: ['start', 'start-time', 'starts'],
-      description: 'Sets the planned meeting time for an existing raid.',
-      details: 'Use this command to set when a raid group intends to do the raid.  If possible, try to set times 20 minutes out and always try to arrive at least 5 minutes before the meeting time being set.',
+      description: 'Sets the planned meeting time for an existing party.',
+      details: 'Use this command to set when a party intends to meet.  If possible, try to set times 20 minutes out and always try to arrive at least 5 minutes before the meeting time being set.',
       examples: ['\t!meet 2:20pm'],
       args: [
         {
           key: TimeParameter.START,
           label: 'meeting time',
-          prompt: 'When do you wish to meet for this raid?\nExamples: `8:43`, `2:20pm`\n\n*or*\n\nIn how long (in minutes) do you wish to meet for this raid?\nExample: `15`\n',
+          prompt: 'When do you wish to meet for this party?\nExamples: `8:43`, `2:20pm`\n\n*or*\n\nIn how long (in minutes) do you wish to meet for this party?\nExample: `15`\n',
           type: 'time'
         }
       ],
@@ -32,8 +32,8 @@ class StartTimeCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'meet' &&
-        !PartyManager.validParty(message.channel.id, [PartyType.RAID])) {
-        return ['invalid-channel', message.reply('Set the meeting time for a raid from its raid channel!')];
+        !PartyManager.validParty(message.channel.id)) {
+        return ['invalid-channel', message.reply('Set the meeting time for a party from its channel!')];
       }
       return false;
     });

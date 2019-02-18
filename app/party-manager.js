@@ -4,10 +4,12 @@ const log = require('loglevel').getLogger('PartyManager'),
   {PartyType} = require('./constants'),
   TimeType = require('../types/time');
 
-let Raid,
+let Meetup,
+  Raid,
   RaidTrain;
 
 process.nextTick(() => {
+  Meetup = require('./meetup');
   Raid = require('./raid');
   RaidTrain = require('./train');
 });

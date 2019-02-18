@@ -127,6 +127,8 @@ Client.registry.registerCommands([
 
   require('./commands/raids/train'),
 
+  require('./commands/raids/meetup'),
+
   require('./commands/raids/submit-request'),
 
   require('./commands/util/help'),
@@ -225,9 +227,7 @@ Client.on('disconnect', event => {
 
 Client.on('reconnecting', () => log.info('Client reconnecting...'));
 
-Client.on('guildUnavailable', guild => {
-  log.warn(`Guild ${guild.id} unavailable!`);
-});
+Client.on('guildUnavailable', guild => log.warn(`Guild ${guild.id} unavailable!`));
 
 NotifyClient.on('ready', () => {
   log.info('Notify client logged in');
@@ -249,6 +249,10 @@ NotifyClient.on('disconnect', event => {
     .then(() => Client.login(privateSettings.discordNotifyToken))
     .catch(err => log.error(err));
 });
+
+NotifyClient.on('reconnecting', () => log.info('Notify Client reconnecting...'));
+
+NotifyClient.on('guildUnavailable', guild => log.warn(`Guild ${guild.id} unavailable!`));
 
 PartyManager.initialize()
   .then(() => Client.login(privateSettings.discordBotToken))
