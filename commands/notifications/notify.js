@@ -78,8 +78,6 @@ class NotifyCommand extends Commando.Command {
       type = 'spawn';
     }
 
-    console.log(pokemon);
-
     Notify.assignPokemonNotification(message.member, pokemon, type)
       .then(result => message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍'))
       .catch(err => log.error(err));
