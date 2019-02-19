@@ -35,7 +35,7 @@ class MeetupCommand extends Commando.Command {
     });
 
     client.dispatcher.addInhibitor(message => {
-      if (!!message.command && message.command.name === 'train' &&
+      if (!!message.command && message.command.name === 'meetup' &&
         (PartyManager.validParty(message.channel.id) || !Gym.isValidChannel(message.channel.name))) {
         return ['invalid-channel', message.reply('Create meetups from region channels!')];
       }
