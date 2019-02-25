@@ -52,8 +52,8 @@ class Utility {
     messagesToDelete.push(...channel.messages.array() // cache of recent messages, should be sufficient
       .filter(message => (message.createdTimestamp > startTime) &&
         (message.author === author ||
-					(message.author === bot && message.mentions.members.has(author.id))) &&
-						!message.preserve));  // commandFinalize was deleting our results which happen to mention the user
+          (message.author === bot && message.mentions.members.has(author.id))) &&
+        !message.preserve));  // commandFinalize was deleting our results which happen to mention the user
 
     if (messagesToDelete.length === 0) {
       return;
