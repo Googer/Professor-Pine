@@ -13,17 +13,20 @@ require('loglevel-prefix-persist/server')(process.env.NODE_ENV, log, {
 log.setLevel('debug');
 
 const privateSettings = require('./data/private-settings'),
+  settings = require('./data/settings'),
   Commando = require('discord.js-commando'),
   Discord = require('discord.js'),
   Client = new Commando.Client({
     owner: privateSettings.owner,
     restWsBridgeTimeout: 10000,
-    restTimeOffset: 1000
+    restTimeOffset: 1000,
+    commandPrefix: settings.commandPrefix || '!'
   }),
   NotifyClient = new Discord.Client({
     owner: privateSettings.owner,
     restWsBridgeTimeout: 10000,
-    restTimeOffset: 1000
+    restTimeOffset: 1000,
+    commandPrefix: settings.commandPrefix || '!'
   }),
   DB = require('./app/db.js'),
   NodeCleanup = require('node-cleanup'),
@@ -34,7 +37,6 @@ const privateSettings = require('./data/private-settings'),
   PartyManager = require('./app/party-manager'),
   Role = require('./app/role'),
   Utility = require('./app/utility'),
-  settings = require('./data/settings'),
   {CommandGroup} = require('./app/constants');
 
 NodeCleanup((exitCode, signal) => {
