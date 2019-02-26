@@ -4,7 +4,8 @@ const log = require('loglevel').getLogger('GymSearch'),
   lunr = require('lunr'),
   he = require('he'),
   removeDiacritics = require('diacritics').remove,
-  Search = require('./search');
+  Search = require('./search'),
+  settings = require('../data/settings');
 
 class Gym extends Search {
   constructor() {
@@ -18,8 +19,12 @@ class Gym extends Search {
       gymsMetadata = require('PgP-Data/data/gyms-metadata'),
       mergedGyms = gymsBase
         .map(gym => Object.assign({}, gym, gymsMetadata[gym.gymId])),
-      stopwordFilter = this.stopWordFilter;
+      stopwordFilter = this.stopWordFilter,
+      blacklistWordFilter = lunr.generateStopWordFilter(settings.blacklistWords);
 
+    this.blacklistWordFilter = blacklistWordFilter;
+
+    lunr.Pipeline.registerFunction(blacklistWordFilter, 'blacklistWords');
     lunr.Pipeline.registerFunction(stopwordFilter, 'customStopwords');
 
     this.gyms = new Map(mergedGyms
@@ -59,7 +64,8 @@ class Gym extends Search {
 
       // replace default stop word filter with custom one
       this.pipeline.remove(lunr.stopWordFilter);
-      this.pipeline.after(lunr.trimmer, stopwordFilter);
+      this.pipeline.after(lunr.trimmer, blacklistWordFilter);
+      this.pipeline.after(blacklistWordFilter, stopwordFilter);
 
       mergedGyms.forEach(gym => {
         // Gym document is a object with its reference and fields to collection of values
@@ -146,7 +152,8 @@ class Gym extends Search {
       .map(term => removeDiacritics(term))
       .map(term => term.replace(/[^\w\s*]+/g, ''))
       .map(term => term.toLowerCase())
-      .filter(term => this.stopWordFilter(term));
+      .filter(term => this.stopWordFilter(term))
+      .filter(term => this.blacklistWordFilter(term));
 
     if (filteredTerms.length === 0) {
       return [];
