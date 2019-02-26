@@ -41,5 +41,17 @@
     "friends",
     "silph",
     "util"
+  ],
+  "blacklistWords": [
+    "ex",
+    "raid",
+    "rald",
+    "gym",
+    "exraid",
+    "raldgym",
+    "raidgym",
+    "exraidgym",
+    "exraldgym",
+    "sponsored"
   ]
 }
