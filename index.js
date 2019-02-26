@@ -44,6 +44,7 @@ NodeCleanup((exitCode, signal) => {
 
 Client.registry.registerDefaultTypes();
 Client.registry.registerTypesIn(__dirname + '/types');
+Client.registry.registerTypesIn(__dirname + '/types/counters');
 
 Client.registry.registerGroup(CommandGroup.ADMIN, 'Administration');
 Client.registry.registerGroup(CommandGroup.BASIC_RAID, 'Raid Basics');
@@ -130,6 +131,7 @@ Client.registry.registerCommands([
   require('./commands/raids/submit-request'),
 
   require('./commands/util/help'),
+  require('./commands/util/counters'),
   require('./commands/admin/raid-boss'),
   require('./commands/admin/raid-bosses'),
   require('./commands/admin/populate-raid-bosses'),
