@@ -752,68 +752,52 @@ class ImageProcessing {
 
   async getGymName(id, message, image, region) {
     const GymType = Helper.client.registry.types.get('gym');
-    let values, gymName, gymWords;
-    let validation = false;
+    let values, gymName;
+    let validationResult = false;
 
     // try different levels of processing to get gym name
     for (let processingLevel = 0; processingLevel <= 1; processingLevel++) {
       const debugImagePath = path.join(__dirname, this.imagePath, `${id}-gym-name-${processingLevel}.png`);
       values = await this.getOCRGymName(id, message, image, region, processingLevel);
 
-      // start by splitting into words of 3 characters or more, and sorting by size of each word
       gymName = values.text;
-      gymWords = gymName.split(' ')
-        .filter(word => {
-          return word.length > 2;
-        })
-        .sort((a, b) => b.length - a.length);
-
-      // re-combine shortened gym name
-      gymName = gymWords.join(' ');
+      const numGymWords = gymName.split(' ').length;
 
       // ensure gym exists and is allowed to be created
-      validation = await GymType.validate(gymName, message, {isScreenshot: true});
+      validationResult = await GymType.validate(gymName, message, {isScreenshot: true});
 
-      if (!validation) {
-        // If gymName doesn't exist, start popping off the shortest words in an attempt to get a match
+      if (!validationResult) {
+        // If gymName doesn't exist, start popping off trailing words (likely to be partially obscured)
+        // to get a match
         //    Example: 6 words = 3 attempts, 2 words = 1 attempt
-        for (let i = 0; i <= Math.floor(gymWords.length / 2); i++) {
-          const word = gymWords[gymWords.length - 1];
+        for (let i = 0; i < Math.floor(numGymWords / 2); ++i) {
+          gymName = gymName.substr(gymName, gymName.lastIndexOf(' '));
 
-          // only remove words of length 4 characters or lower
-          if (word && word.length <= 4) {
-            gymWords.pop();
-            gymName = gymWords.join(' ');
+          // ensure gym exists and is allowed to be created
+          validationResult = await GymType.validate(gymName, message, {isScreenshot: true});
 
-            // ensure gym exists and is allowed to be created
-            validation = await GymType.validate(gymName, message, {isScreenshot: true});
-
-            if (validation) {
-              break;
-            }
-          } else {
-            // stop trying to remove words
+          if (validationResult) {
             break;
           }
         }
       }
 
-      if (debugFlag || (!validation && log.getLevel() === log.levels.DEBUG)) {
+      if (debugFlag || (!validationResult && log.getLevel() === log.levels.DEBUG)) {
         log.debug('Gym Name: ', id, values.text);
         values.image.write(debugImagePath);
       }
 
-      if (validation) {
+      if (validationResult) {
         break;
       }
     }
 
-    if (validation === true) {
+    if (validationResult === true) {
       return await GymType.parse(gymName, message, {isScreenshot: true});
     }
 
-    if (validation !== true && validation !== false) {
-      message.channel.send(validation)
+    if (validationResult !== true && validationResult !== false) {
+      message.channel.send(validationResult)
         .then(validationMessage => validationMessage.delete({timeout: settings.messageCleanupDelayError}))
         .then(result => message.delete())
         .catch(err => log.error(err));
