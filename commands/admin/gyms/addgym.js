@@ -171,8 +171,11 @@ module.exports = class AddGym extends commando.Command {
                   }
 
                   let affectedChannels = await Region.findAffectedChannels(final_gym["id"]);
-                  // msg.say("The following channels will be reindexed: <#" + affectedChannels.join(">, <#") + ">")
-                  msg.say("This gym is in " + channelStrings.join(", "))
+                  if(channelStrings.length > 0) {
+                    msg.say("This gym is in " + channelStrings.join(", "));
+                  } else {
+                    msg.say("This gym is not located in any region channels");
+                  }
 
 									that.cleanup(msg,location_result,name_result,nickname_result,description_result)
 								})

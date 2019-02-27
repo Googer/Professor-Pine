@@ -283,11 +283,7 @@ class RegionHelper {
 		return new Promise(async function(resolve, reject) {
 			var q = "SELECT channel_id FROM Region WHERE ST_CONTAINS(bounds, POINT(?, ?));";
 			var results = await dbhelper.query(q,[gym.lat,gym.lon]).catch(error => reject(false));
-			if (results.length > 0) {
-				resolve(results);
-			} else {
-				reject(false);
-			}
+			resolve(results);
 		});
 	}
 
@@ -933,7 +929,7 @@ class RegionHelper {
 		});
 	}
 
-	async getAllGyms(region) {
+	async getAllGyms() {
 		return new Promise(async function(resolve, reject) {
 			const gym_query = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gym_id";
 			var results = await dbhelper.query(gym_query).catch(error => {

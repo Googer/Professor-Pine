@@ -30,9 +30,6 @@ class GymType extends Commando.ArgumentType {
       const resultChannel = await PartyManager.getChannel(regions[0]["channel_id"])
       const resultChannelName = resultChannel != null ? resultChannel.channel.name : ""
 
-      console.log(regions)
-      console.log(resultChannel)
-
       const gym = results[0].gym,
         gymName = gym.nickname ?
           gym.nickname :

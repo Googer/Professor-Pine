@@ -27,10 +27,10 @@ module.exports = class FindGym extends commando.Command {
 		});
 
 		client.dispatcher.addInhibitor(message => {
-			if (!!message.command && message.command.name === 'findgym') {
-        if(Helper.isBotChannel(message) && Helper.isManagement(message)) {
-          return false;
-        }
+			if (!!message.command && message.command.name === 'gymdetail') {
+        if (!Helper.isManagement(message)) {
+					return ['unauthorized', message.reply('You are not authorized to use this command.')];
+				}
 			}
 			return false;
 		});
@@ -44,18 +44,21 @@ module.exports = class FindGym extends commando.Command {
 			gym = await Region.getGym(this.getValue(args.term)).catch(error => msg.say(error));
 
       if (gym != undefined && gym["name"]) {
-        Region.getChannelsForGym(gym).then(async function(channels) {
-          const phrase = "Showing details for gym with ID " + args.term;
-          await Region.showGymDetail(msg, gym, phrase, null, channels, false);
-          var channelStrings = [];
-          for(var i=0;i<channels.length;i++) {
-            let channel= await PartyManager.getChannel(channels[i].channel_id);
-            channelStrings.push(channel.channel.toString());
-          }
 
+        const channels = await Region.getChannelsForGym(gym).catch(error => []);
+        const phrase = "Showing details for gym with ID " + args.term;
+        await Region.showGymDetail(msg, gym, phrase, null, channels, false);
+        var channelStrings = [];
+        for(var i=0;i<channels.length;i++) {
+          let channel= await PartyManager.getChannel(channels[i].channel_id);
+          channelStrings.push(channel.channel.toString());
+        }
+
+        if(channelStrings.length > 0) {
           msg.say("This gym is in " + channelStrings.join(", "));
-        }).catch(error => msg.say("An error occurred..."));
-
+        } else {
+          msg.say("This gym is not located in any region channels");
+        }
       } else {
         msg.reply("No gym found with ID " + args.term);
       }

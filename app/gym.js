@@ -36,6 +36,7 @@ class GymCache {
         await this.rebuildRegion(channel["channel_id"]);
         channelsProcessed++;
         if(channelsProcessed == channels.length) {
+          await this.rebuildMaster();
           this.indexing = false;
           log.info('Indexing of all channels completed!');
         }
@@ -82,11 +83,29 @@ class GymCache {
       })
     }
 
+    async rebuildMaster() {
+      var that = this;
+      return new Promise(async function(resolve,reject) {
+
+        //Get all gyms
+        let allGyms = await Region.getAllGyms();
+        if(!!allGyms) {
+
+          //Create lunr search index for all gyms
+          that.masterIndex = new Gym(allGyms);
+
+          resolve(true)
+        } else {
+          reject(false)
+        }
+      })
+    }
+
     //Handle incoming searchs and pass them to the proper search index based on channel
     async search(channel, terms, nameOnly) {
       if(channel == null) {
-        if(this.global) {
-          return this.global.search(terms,nameOnly)
+        if(this.masterIndex) {
+          return this.masterIndex.search(terms,nameOnly)
         } else {
           return false;
         }
