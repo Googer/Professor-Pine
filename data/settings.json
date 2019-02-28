@@ -10,6 +10,7 @@
   "raidCompleteTimeout": 5,
   "screenshotMessageOffsetTime": 45,
   "cleanupInterval": 60000,
+  "commandPrefix": "!",
   "messageCleanupDelaySuccess": 5000,
   "messageCleanupDelayError": 30000,
   "messageCleanupDelayStatus": 60000,
