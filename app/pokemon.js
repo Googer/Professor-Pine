@@ -129,6 +129,7 @@ class Pokemon extends Search {
         poke.name;
       poke.weakness = Pokemon.calculateWeaknesses(poke.type);
       poke.boostedConditions = Pokemon.calculateBoostConditions(poke.type);
+      poke.url = `${privateSettings.pokemonUrlBase}pokemon_icon_${lastThree}_${formId}.png`;
 
       if (poke.number && poke.tier && poke.tier <= 5) {
         poke.bossCP = Pokemon.calculateBossCP(poke);
@@ -136,7 +137,6 @@ class Pokemon extends Search {
         poke.maxBaseCP = Pokemon.calculateCP(poke, 20, 15, 15, 15);
         poke.minBoostedCP = Pokemon.calculateCP(poke, 25, 10, 10, 10);
         poke.maxBoostedCP = Pokemon.calculateCP(poke, 25, 15, 15, 15);
-        poke.url = `${privateSettings.pokemonUrlBase}pokemon_icon_${lastThree}_${formId}.png`
       }
     });
 
