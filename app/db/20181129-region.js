@@ -40,13 +40,13 @@ exports.up = function (knex, Promise) {
 			table.string('nickname')
         .nullable();
 
-      table.text('description')
+      table.text('description','mediumtext')
         .nullable();
 
-      table.text('keywords')
+      table.text('keywords','mediumtext')
         .nullable();
 
-      table.text('notice')
+      table.text('notice','mediumtext')
         .nullable();
 
 			table.boolean('ex_raid');
@@ -59,10 +59,10 @@ exports.up = function (knex, Promise) {
       table.integer('sponsor')
         .nullable();
 
-	  table.string('geodata')
+	  table.text('geodata','mediumtext')
         .nullable();
 
-		table.string('places')
+		table.text('places','mediumtext')
         .nullable();
 
 	  table.integer('nearestGym')

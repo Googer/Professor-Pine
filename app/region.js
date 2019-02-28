@@ -270,9 +270,9 @@ class RegionHelper {
 
 	async getRegionsRaw(channel) {
 		return new Promise(async function(resolve, reject) {
-			var results = await dbhelper.query("SELECT AsText(bounds) FROM Region WHERE channel_id = ?",[channel]).catch(error => reject(false));
+			var results = await dbhelper.query("SELECT ST_AsText(bounds) FROM Region WHERE channel_id = ?",[channel]).catch(error => reject(false));
 			if (results.length > 0 && results[0] != undefined) {
-				resolve(results[0]["AsText(bounds)"]);
+				resolve(results[0]["ST_AsText(bounds)"]);
 			} else {
 				reject(false);
 			}
@@ -308,9 +308,9 @@ class RegionHelper {
 
 	checkCoordForChannel(channel, coords, resolve, reject) {
 		var that = this
-		var select_query = "SELECT AsText(bounds) FROM Region WHERE channel_id = ?"
+		var select_query = "SELECT ST_AsText(bounds) FROM Region WHERE channel_id = ?"
 		dbhelper.query(select_query,[channel]).then(async function(results) {
-			var region = that.getCoordRegionFromText(results[0]["AsText(bounds)"]);
+			var region = that.getCoordRegionFromText(results[0]["ST_AsText(bounds)"]);
 			var query = "SELECT ST_CONTAINS( ST_GeomFromText('";
 			query += that.polygonStringFromRegion(region);
 			query += "'),";
