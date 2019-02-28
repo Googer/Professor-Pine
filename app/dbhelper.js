@@ -1,5 +1,6 @@
 const private_settings = require('../data/private-settings'),
-log = require('loglevel').getLogger('DBHelper'),
+	log = require('loglevel').getLogger('DBHelper'),
+	DB = require('./db'),
 	mysql = require('mysql');
 
 //Purpose of this class is for direct communication with MySQL
@@ -55,7 +56,8 @@ class DBHelper {
 
 	async query(query_string) {
 		var that = this;
-		return new Promise((resolve, reject) => {
+		return new Promise(async function(resolve, reject) {
+			await DB.init();
 
 			that.pool.getConnection(async function(error,connection) {
 				connection.query("SET NAMES 'utf8mb4'");
@@ -76,7 +78,8 @@ class DBHelper {
 
 	async query(query_string,values) {
 		var that = this;
-		return new Promise((resolve, reject) => {
+		return new Promise(async function(resolve, reject) {
+			await DB.init();
 			that.pool.getConnection(async function(error,connection) {
 				connection.query("SET NAMES 'utf8mb4'");
 				connection.query("SET CHARACTER SET 'utf8mb4'");
