@@ -59,13 +59,13 @@ exports.up = function (knex, Promise) {
       table.integer('sponsor')
         .nullable();
 
-	  table.string('geo_data')
+	  table.string('geodata')
         .nullable();
 
 		table.string('places')
         .nullable();
 
-	  table.integer('nearest_gym')
+	  table.integer('nearestGym')
         .nullable();
 
 		}),

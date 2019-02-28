@@ -75,7 +75,8 @@ if (settings.features.roles) {
 
     require('./commands/roles/iam'),
     require('./commands/roles/iamnot'),
-
+    
+    require('./commands/admin/gyms/importgyms'),
     require('./commands/admin/gyms/addgym'),
     require('./commands/admin/gyms/editgym'),
     require('./commands/admin/gyms/removegym'),

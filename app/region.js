@@ -1354,6 +1354,15 @@ class RegionHelper {
 		});
 	}
 
+	async importGym(statement,values) {
+		var that = this;
+		return new Promise(async function(resolve, reject) {
+			var result = await dbhelper.query(statement,values).catch(error => reject(error)).then(async function(results) {
+				resolve(result);
+			});
+		});
+	}
+
 	//******
 	//update
 	//******
