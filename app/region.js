@@ -920,7 +920,7 @@ class RegionHelper {
 		var region_raw = await this.getRegionsRaw(channel).catch(error => false);
 		return new Promise(function(resolve, reject) {
 			if (region_raw) {
-				const gym_query = `SELECT * FROM Gym WHERE ST_CONTAINS(GeomFromText('${region_raw}'), POINT(lat, lon))`;
+				const gym_query = `SELECT * FROM Gym WHERE ST_CONTAINS(ST_GeomFromText('${region_raw}'), POINT(lat, lon))`;
 				dbhelper.query(gym_query).then(result => resolve(result.length)).catch(error => reject(error))
 			} else {
 				log.error("No region defined for this channel");
@@ -947,7 +947,7 @@ class RegionHelper {
 	async getGyms(region) {
 		return new Promise(async function(resolve, reject) {
 			if (region) {
-				const gym_query = `SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gym_id WHERE ST_CONTAINS(GeomFromText('${region}'), POINT(lat, lon))`;
+				const gym_query = `SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gym_id WHERE ST_CONTAINS(ST_GeomFromText('${region}'), POINT(lat, lon))`;
 				var results = await dbhelper.query(gym_query).catch(error => {
 					log.error(error);
 					return false
@@ -1053,7 +1053,7 @@ class RegionHelper {
 					var expanded = region ? that.enlargePolygonFromRegion(regionObject) : null;
 					var polygon = region ? that.polygonStringFromRegion(expanded) : null;
 
-					var gym_query = region ? `SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gym_id WHERE ST_CONTAINS(GeomFromText('${polygon}'), POINT(lat, lon)) AND Gym.id = ${gym_id}` : null;
+					var gym_query = region ? `SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gym_id WHERE ST_CONTAINS(ST_GeomFromText('${polygon}'), POINT(lat, lon)) AND Gym.id = ${gym_id}` : null;
 					var results = await dbhelper.query(gym_query).catch(error => false);
 					if(results.length > 0) {
 						matching.push(channel["channel_id"]);
@@ -1080,7 +1080,7 @@ class RegionHelper {
 			return new Promise(function(resolve, reject) {
 				if (region_raw || channel == null) {
 
-					var gym_query = region_raw ? `SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gym_id WHERE ST_CONTAINS(GeomFromText('${polygon}'), POINT(lat, lon))` : "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gym_id";
+					var gym_query = region_raw ? `SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gym_id WHERE ST_CONTAINS(ST_GeomFromText('${polygon}'), POINT(lat, lon))` : "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gym_id";
 					dbhelper.query(gym_query).then(async function(results) {
 						var idx = lunr(function() {
 							this.ref('id')
