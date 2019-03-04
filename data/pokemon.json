@@ -1610,7 +1610,8 @@
     "name": "chimchar"
   },
   {
-    "name": "monferno"
+    "name": "monferno",
+    "tier": 2
   },
   {
     "name": "infernape"
