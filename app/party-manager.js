@@ -124,7 +124,7 @@ class PartyManager {
         const channelId = entry.key,
           party = entry.value;
 
-        if (party.type) {
+        if (party && party.type) {
           switch (party.type) {
             case PartyType.RAID:
               this.parties[channelId] = new Raid(party);
@@ -138,6 +138,8 @@ class PartyManager {
               this.parties[channelId] = new Meetup(party);
               break;
           }
+        } else if (!party) {
+          log.error('INVALID PARTY: ' + channelId);
         }
       });
   }
