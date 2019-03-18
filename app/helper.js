@@ -183,19 +183,19 @@ class Helper {
     }
     return isModOrAdmin || this.client.isOwner(message.author);
   }
-  
+
   isBotManagement(message) {
     let isModOrAdmin = this.isManagement(message);
-    let isBotMod = false; 
+    let isBotMod = false;
     if (message.channel.type !== 'dm') {
       const botModRole = this.getRole(message.guild, 'bot developer'),
-            botRoleId = botModRole ?
-              botModRole.id : 
-              -1;
-      
+        botRoleId = botModRole ?
+          botModRole.id :
+          -1;
+
       isBotMod = message.member.roles.has(botRoleId);
     }
-    
+
     return isModOrAdmin || isBotMod || this.client.isOwner(message.author);
   }
 
@@ -262,12 +262,18 @@ class Helper {
 
   replaceText(text, message) {
     // quick search for variables to replace
-    if (text.search(/\$\{.*?\}/g) >= 0) {
+    if (text.search(/\${.*?}/g) >= 0) {
       // replace guild related variables (if any exist)
-      if (message && message.guild && message.guild.id) {
-        const guild = this.guild.get(message.guild.id);
-        text = text.replace(/\$\{bot-channel\}/g, guild.channels.botLab.toString());
-      }
+      const guildId = message && message.guild && message.guild.id ?
+        message.guild.id :
+        Array.from(this.client.guilds)
+          .find(guild => guild[1].members.has(message.author.id))[0],
+
+        botChannelString = !!guildId ?
+          this.guild.get(guildId).channels.botLab.toString() :
+          `#${settings.channels["bot-lab"]}`;
+
+      text = text.replace(/\${bot-channel}/g, botChannelString);
     }
 
     return text;
