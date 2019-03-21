@@ -131,6 +131,7 @@ Client.registry.registerCommands([
   require('./commands/raids/train'),
 
   require('./commands/raids/meetup'),
+  require('./commands/raids/set-desciption'),
 
   require('./commands/raids/submit-request'),
 

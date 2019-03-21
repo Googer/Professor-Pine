@@ -175,6 +175,10 @@ class Meetup extends Party {
       embed.addField(meetingLabel, meetingTime.calendar(null, calendarFormat));
     }
 
+    if (!!this.description) {
+      embed.addField('__Meeting Information__', this.description);
+    }
+
     this.groups
       .forEach(group => {
         const totalAttendees = this.getAttendeeCount(group.id);
