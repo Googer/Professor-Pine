@@ -104,7 +104,7 @@ class TimeType extends Commando.ArgumentType {
       // mark this is a valid time.
       return true;
     } else {
-      const absoluteMatch = valueToParse.match(/^at(.*)|(.*[ap]m?)$/i);
+      const absoluteMatch = valueToParse.match(/^at(.*)|(.*[ap]m?(?: +\d+\/\d+)?)$/i);
 
       if (absoluteMatch) {
         valueToParse = (absoluteMatch[1] || absoluteMatch[2]).trim();
@@ -140,7 +140,7 @@ class TimeType extends Commando.ArgumentType {
     }
 
     if (timeMode !== TimeMode.RELATIVE) {
-      const enteredDate = moment(valueToParse, ['hmm a', 'Hmm', 'h:m a', 'H:m', 'M-D hmm a', 'M-D Hmm', 'M-D h:m a', 'M-D H:m', 'M-D h a', 'M-D H']);
+      const enteredDate = moment(valueToParse, ['hmm a', 'Hmm', 'h:m a', 'H:m', 'M-D hmm a', 'M-D Hmm', 'M-D h:m a', 'M-D H:m', 'M-D h a', 'M-D H', 'hmm a M-D', 'Hmm M-D', 'h:m a M-D', 'H:m M-D', 'h a M-D', 'H M-D']);
 
       if (enteredDate.isValid()) {
         possibleTimes.push(...TimeType.generateTimes(enteredDate, arg.key, raidHatchTime));
