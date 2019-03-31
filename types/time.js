@@ -144,6 +144,17 @@ class TimeType extends Commando.ArgumentType {
 
       if (enteredDate.isValid()) {
         possibleTimes.push(...TimeType.generateTimes(enteredDate, arg.key, raidHatchTime));
+
+        // Make sure a non-military, non-meridian time doesn't set a time in
+        // the wee hours of the night.
+        const startOfDay = enteredDate.clone().startOf('day'),
+          earliestTime = startOfDay.clone().add(settings.earliestRaidEggTime, 'minutes'),
+          latestTime = startOfDay.clone().add(settings.latestRaidEggTime, 'minutes');
+        if (enteredDate.isBefore(earliestTime)) {
+          enteredDate.add(12, 'hours');
+        } else if (enteredDate.isAfter(latestTime)) {
+          enteredDate.add(-12, 'hours');
+        }
       }
     }
 
