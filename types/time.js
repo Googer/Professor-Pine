@@ -104,7 +104,7 @@ class TimeType extends Commando.ArgumentType {
       // mark this is a valid time.
       return true;
     } else {
-      const absoluteMatch = valueToParse.match(/^at(.*)|(.*[ap]m?(?: +\d+\/\d+)?)$/i);
+      const absoluteMatch = valueToParse.match(/^at(.*)|(.*(?:[ap]m?|\d\/\d|\d{3}).*)/i);
 
       if (absoluteMatch) {
         valueToParse = (absoluteMatch[1] || absoluteMatch[2]).trim();
