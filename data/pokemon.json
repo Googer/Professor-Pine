@@ -1574,7 +1574,8 @@
     "shiny": true
   },
   {
-    "name": "bagon"
+    "name": "bagon",
+    "tier": 1
   },
   {
     "name": "shelgon"
