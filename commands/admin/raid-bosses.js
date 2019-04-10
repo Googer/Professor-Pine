@@ -58,7 +58,7 @@ class RaidBossesCommand extends Commando.Command {
           parts[index] = part.charAt(0).toUpperCase() + part.slice(1);
         });
 
-        const formatted = parts.join(' ');
+        const formatted = parts.join(' ') + poke.shiny ? '*' : '';
 
         if (poke.exclusive) {
           groups.ex.push(formatted);
