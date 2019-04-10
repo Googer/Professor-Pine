@@ -58,14 +58,15 @@ class RaidBossesCommand extends Commando.Command {
           parts[index] = part.charAt(0).toUpperCase() + part.slice(1);
         });
 
-        const formatted = parts.join(' ');
+        const formatted = parts.join(' '),
+              shiny = poke.shiny ? '*' : '';
 
         if (poke.exclusive) {
-          groups.ex.push(formatted);
+          groups.ex.push(shiny + formatted + shiny);
         } else if (poke.tier === 7) {
-          groups.rare.push(formatted);
+          groups.rare.push(shiny + formatted + shiny);
         } else if (poke.tier !== 0) {
-          groups[poke.tier].push(formatted);
+          groups[poke.tier].push(shiny + formatted + shiny);
         }
       });
 
