@@ -13,5 +13,9 @@
     "user": "root",
     "password": "",
     "schema": "pine"
+  },
+  "updater": {
+    "channelIndexUpdateIntervalSeconds": 0,
+    "gymPlacesIndexUpdateIntervalSeconds": 0
   }
 }

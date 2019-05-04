@@ -62,7 +62,7 @@ class RaidCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'raid' &&
-        (PartyManager.validParty(message.channel.id) || !Gym.isValidChannel(message.channel.name))) {
+        (PartyManager.validParty(message.channel.id) || !Gym.isValidChannel(message.channel.id))) {
         return ['invalid-channel', message.reply('Create raids from region channels!')];
       }
       return false;

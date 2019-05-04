@@ -12,7 +12,7 @@ class ExGymChannel {
     Helper.client.on('raidCreated', (raid, reportingMemberId) => {
       const gym = Gym.getGym(raid.gymId);
 
-      if ((gym.hasHostedEx || gym.hasExTag) && !raid.isExclusive) {
+      if ((gym.ex_raid || gym.ex_tagged) && !raid.isExclusive) {
         return raid.createPotentialExRaidMessage();
       } else {
         return false;

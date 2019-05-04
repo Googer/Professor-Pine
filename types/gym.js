@@ -4,6 +4,7 @@ const log = require('loglevel').getLogger('GymSearch'),
   Commando = require('discord.js-commando'),
   {GymParameter, PartyType} = require('../app/constants'),
   PartyManager = require('../app/party-manager'),
+  Region = require('../app/region'),
   Gym = require('../app/gym');
 
 class GymType extends Commando.ArgumentType {
@@ -15,7 +16,7 @@ class GymType extends Commando.ArgumentType {
     try {
       const nameOnly = !!arg.isScreenshot,
         channelName = await PartyManager.getCreationChannelName(message.channel.id),
-        results = await Gym.search(channelName, value.split(/\s/g), nameOnly);
+        results = await Gym.search(message.channel.id, value.split(/\s/g), nameOnly);
 
       if (results.length === 0) {
         if (arg && !arg.isScreenshot) {
@@ -25,11 +26,14 @@ class GymType extends Commando.ArgumentType {
         }
       }
 
-      const resultChannelName = results[0].channelName,
-        gym = results[0].gym,
+      const regions = await Region.getChannelsForGym(results[0].gym);
+      const resultChannel = await PartyManager.getChannel(regions[0]["channel_id"])
+      const resultChannelName = resultChannel != null ? resultChannel.channel.name : ""
+
+      const gym = results[0].gym,
         gymName = gym.nickname ?
           gym.nickname :
-          gym.gymName;
+          gym.name;
 
       if (resultChannelName !== channelName) {
           const adjacentChannel = message.channel.guild.channels
@@ -43,7 +47,7 @@ class GymType extends Commando.ArgumentType {
         message.adjacent = {
           channel: adjacentChannel,
           gymName: gymName,
-          gymId: gym.gymId
+          gymId: gym.id
         };
       }
 
@@ -52,7 +56,7 @@ class GymType extends Commando.ArgumentType {
         raid = PartyManager.findRaid(gym.gymId, isExclusive);
 
       if (arg.key !== GymParameter.FAVORITE && !!raid && !!party && party.type === PartyType.RAID) {
-        const raid = PartyManager.findRaid(gym.gymId, isExclusive),
+        const raid = PartyManager.findRaid(gym.id, isExclusive),
           channel = (await PartyManager.getChannel(raid.channelId)).channel;
 
         if (arg && !arg.isScreenshot) {
@@ -83,9 +87,9 @@ class GymType extends Commando.ArgumentType {
       arg.isScreenshot :
       false,
       channelName = await PartyManager.getCreationChannelName(message.channel.id),
-      results = await Gym.search(channelName, value.split(/\s/g), nameOnly);
+      results = await Gym.search(message.channel.id, value.split(/\s/g), nameOnly);
 
-    return results[0].gym.gymId;
+    return results[0].gym.id;
   }
 }
 
