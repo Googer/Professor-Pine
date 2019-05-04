@@ -15,8 +15,9 @@ class GymType extends Commando.ArgumentType {
   async validate(value, message, arg) {
     try {
       const nameOnly = !!arg.isScreenshot,
+        creationChannelId = PartyManager.getCreationChannelId(message.channel.id),
         channelName = await PartyManager.getCreationChannelName(message.channel.id),
-        results = await Gym.search(message.channel.id, value.split(/\s/g), nameOnly);
+        results = await Gym.search(creationChannelId, value.split(/\s/g), nameOnly);
 
       if (results.length === 0) {
         if (arg && !arg.isScreenshot) {
@@ -86,8 +87,8 @@ class GymType extends Commando.ArgumentType {
     const nameOnly = arg ?
       arg.isScreenshot :
       false,
-      channelName = await PartyManager.getCreationChannelName(message.channel.id),
-      results = await Gym.search(message.channel.id, value.split(/\s/g), nameOnly);
+      creationChannelId = PartyManager.getCreationChannelId(message.channel.id),
+      results = await Gym.search(creationChannelId, value.split(/\s/g), nameOnly);
 
     return results[0].gym.id;
   }

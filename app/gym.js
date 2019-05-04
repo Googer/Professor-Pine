@@ -6,7 +6,183 @@ const log = require('loglevel').getLogger('GymSearch'),
   removeDiacritics = require('diacritics').remove,
   Region = require('./region'),
   Search = require('./search'),
-  settings = require('../data/settings');
+  settings = require('../data/settings'),
+  Region = require('./region');
+
+//This will serve as the object that contains gym indexes for each region
+//Since lunr indexes are immutable, and it would be terribly inefficient to rebuild an index for all gyms in the server on every change
+//Instead we will create individual indexes based on region - which will reindex only affected regions whenever a change is made
+class GymCache {
+  constructor() {
+    (async () => {
+      await this.buildIndexes();
+    })();
+  }
+
+  async buildIndexes() {
+
+    log.info('Beginning indexing of all channels');
+
+    this.channels = Object.create(null);
+    this.indexing = true;
+
+    let channels = await Region.getAllBoundedChannels();
+
+    this.placesQueue = []; //Gyms that need geo updates
+    this.indexQueue = []; //Channels that need reindexing
+
+    let channelsProcessed = 0;
+    for (const channel of channels) {
+      log.info("Indexing channel: " + channel["channel_id"]);
+      await this.rebuildRegion(channel["channel_id"]);
+      channelsProcessed++;
+      if (channelsProcessed === channels.length) {
+        await this.rebuildMaster();
+        this.indexing = false;
+        log.info('Indexing of all channels completed!');
+      }
+    }
+  }
+
+  async rebuildIndexesForChannels() {
+    const that = this;
+    if (this.indexQueue.length > 0) {
+      await this.rebuildMaster();
+    }
+
+    const removeIndex = this.indexQueue.slice(0);
+    removeIndex.forEach(async function (channel_id) {
+      log.info(`Trying to rebuild region of channel: ${channel_id}`);
+      await that.rebuildRegion(channel_id);
+      let index = that.indexQueue.indexOf(channel_id);
+      if (index > -1) {
+        that.indexQueue.splice(index, 1);
+      }
+    });
+  }
+
+  async rebuildRegion(channel) {
+    const channels = this.channels;
+    return new Promise(async function (resolve, reject) {
+      //Get the polygon of the defined region assigned to this channel
+      let region = channel ?
+        await Region.getRegionsRaw(channel)
+          .catch(error => null) :
+        null;
+
+      //Expand the polygon of this region outwards to include bordering gyms
+      let regionObject = region ? Region.getCoordRegionFromText(region) : null;
+      const expanded = region ? Region.enlargePolygonFromRegion(regionObject) : null;
+      const expandedRegion = region ? Region.polygonStringFromRegion(expanded) : null;
+
+      //Get gyms inside the enclosed polygon
+      let expandedGyms = await Region.getGyms(expandedRegion);
+      if (!!expandedGyms) {
+
+        //Create lunr search index for this channel and add it to the cache
+        let index = new Gym(expandedGyms);
+        channels[channel] = index;
+
+        resolve(true);
+      } else {
+        reject(false);
+      }
+    })
+  }
+
+  async rebuildMaster() {
+    const that = this;
+    return new Promise(async function (resolve, reject) {
+      //Get all gyms
+      let allGyms = await Region.getAllGyms();
+      if (!!allGyms) {
+
+        //Create lunr search index for all gyms
+        that.masterIndex = new Gym(allGyms);
+
+        resolve(true);
+      } else {
+        reject(false);
+      }
+    })
+  }
+
+  //Handle incoming searchs and pass them to the proper search index based on channel
+  async search(channel, terms, nameOnly) {
+    if (channel == null) {
+      if (this.masterIndex) {
+        return this.masterIndex.search(terms, nameOnly);
+      } else {
+        return false;
+      }
+    } else {
+      if (!!this.channels[channel]) {
+        return this.channels[channel].search(terms, nameOnly);
+      } else {
+        return false;
+      }
+    }
+  }
+
+  isValidChannel(channel) {
+    return !!this.channels[channel.toString()];
+  }
+
+  getGym(gymId) {
+    for (let key in this.channels) {
+      let cache = this.channels[key];
+      if (cache.getGym(gymId) !== false) {
+        return cache.getGym(gymId);
+      }
+    }
+    return null;
+  }
+
+  markGymsForPlacesUpdates(gyms) {
+    log.info(`Marking ${gyms} for places updates`);
+    gyms.forEach(gym_id => {
+      if (this.placesQueue.indexOf(gym_id) === -1) {
+        this.placesQueue.push(gym_id);
+      }
+    });
+  }
+
+  async markPlacesComplete(gym) {
+    if (this.placesQueue.indexOf(gym) > -1) {
+      this.placesQueue.splice(this.placesQueue.indexOf(gym), 1);
+    }
+
+    //Get channels that need reindexed
+    //Add to queue
+    let affectedChannels = await Region.findAffectedChannels(gym);
+    this.markChannelsForReindex(affectedChannels);
+  }
+
+  getPlacesQueue() {
+    return this.placesQueue;
+  }
+
+  getIndexQueue() {
+    return this.indexQueue;
+  }
+
+  getNextGymsForPlacesUpdate() {
+    if (this.placesQueue.length > 10) {
+      return this.placesQueue.splice(0, 10);
+    } else {
+      return this.placesQueue.splice(0, this.placesQueue.length);
+    }
+  }
+
+  markChannelsForReindex(channel_ids) {
+    log.info(`Marking ${channel_ids} for index updates`);
+    channel_ids.forEach(channel_id => {
+      if (this.indexQueue.indexOf(channel_id) === -1) {
+        this.indexQueue.push(channel_id);
+      }
+    });
+  }
+}
 
 //This will serve as the object that contains gym indexes for each region
 //Since lunr indexes are immutable, and it would be terribly inefficient to rebuild an index for all gyms in the server on every change
@@ -191,8 +367,7 @@ class Gym extends Search {
   }
 
   buildIndex() {
-
-    if(!this.gyms) {
+    if (!this.gyms) {
       return;
     }
 
@@ -269,22 +444,18 @@ class Gym extends Search {
           gymDocument['keywords'] = removeDiacritics(gym.keywords);
         }
 
-        // Build a map of the geocoded information:
-        //   key is the address component's type
-        //   value is a set of that type's values across all address components
-        const addressInfo = new Map();
         if (!gym.geodata) {
           log.error('Gym "' + gym.name + '" has no geocode information!');
         } else {
-          var geo = JSON.parse(gym.geodata);
-          var addressComponents = geo["addressComponents"];
+          const geo = JSON.parse(gym.geodata);
+          const addressComponents = geo["addressComponents"];
 
           for (const [key, value] of Object.entries(addressComponents)) {
-              gymDocument[key] = removeDiacritics(Array.from(value).join(' '));;
+            gymDocument[key] = removeDiacritics(Array.from(value).join(' '));
           }
         }
 
-        if(gym.places) {
+        if (gym.places) {
           gymDocument["places"] = removeDiacritics(gym.places);
         }
 
@@ -390,9 +561,9 @@ class Gym extends Search {
   }
 
   getGym(gymId) {
-    for(var i=0; i<this.gyms.length; i++) {
+    for (let i = 0; i < this.gyms.length; i++) {
       let gym = this.gyms[i];
-      if(gym.id == gymId) {
+      if (gym.id === gymId) {
         return gym;
       }
     }

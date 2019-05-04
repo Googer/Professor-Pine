@@ -453,6 +453,12 @@ class PartyManager {
       .filter(party => party.type === type);
   }
 
+  getCreationChannelId(channelId) {
+    return this.validParty(channelId) ?
+      this.getParty(channelId).sourceChannelId :
+      channelId;
+  }
+
   getCreationChannelName(channelId) {
     return this.validParty(channelId) ?
       this.getChannel(this.getParty(channelId).sourceChannelId)

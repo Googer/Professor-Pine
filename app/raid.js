@@ -218,7 +218,6 @@ class Raid extends Party {
                       }
 
                       userResponse = userResponse.substr(1).trim();
-
                     }
 
                     confirmation = message.client.registry.types.get('boolean').truthy.has(userResponse) || doneAliases.indexOf(userResponse) !== -1;
