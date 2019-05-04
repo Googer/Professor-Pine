@@ -23,7 +23,7 @@ class MovesetType extends Commando.ArgumentType {
     }
 
     const moves = value.split('/', 2)
-        .map(move => move.trim());
+      .map(move => move.trim());
 
     let notValidatedMoves = moves;
 

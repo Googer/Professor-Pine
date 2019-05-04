@@ -45,13 +45,13 @@ module.exports = class ImportGyms extends commando.Command {
 
 		if (repo) {
 
-      var gyms = await this.getJSON(`${repo}raw/master/data/gyms.json`);
+      const gyms = await this.getJSON(`${repo}raw/master/data/gyms.json`);
       const gym_meta = await this.getJSON(`${repo}raw/master/data/gyms-metadata.json`);
 
       if(gyms && gym_meta) {
         const keys = Object.keys(gym_meta);
 
-        for(var i=0; i<gyms.length; i++) {
+        for(let i=0; i<gyms.length; i++) {
           if(gym_meta[gyms[i].gymId]) {
             gyms[i]["meta"] = gym_meta[gyms[i].gymId];
           }
@@ -75,7 +75,7 @@ module.exports = class ImportGyms extends commando.Command {
 		const first = repo.substring(0, valid_prefix.length);
 		const last = repo.substring(repo.length-1, 1);
     if(first === valid_prefix) {
-      var url = repo;
+      let url = repo;
       if(last !== "/") {
         url = url + "/"
       }
@@ -86,24 +86,24 @@ module.exports = class ImportGyms extends commando.Command {
 	}
 
   async getJSON(url) {
-    var that = this;
+    const that = this;
     return new Promise(async function(resolve,reject) {
-      var options = {
-  			method: 'GET',
-  			url: url,
-  			headers: {
-  				'cache-control': 'no-cache',
-  				'content-type': 'application/json'
-  			},
-  			json: true
-  		};
+      const options = {
+        method: 'GET',
+        url: url,
+        headers: {
+          'cache-control': 'no-cache',
+          'content-type': 'application/json'
+        },
+        json: true
+      };
 
-  		request(options, function(error, response, body) {
+      request(options, function(error, response, body) {
   			if (error) throw new Error(error);
   			if(response.statusCode === 200) {
           resolve(body);
   			} else {
-  				log.error(`Error getting json from url: ${url} Status Code: ${response.statusCode}`)
+  				log.error(`Error getting json from url: ${url} Status Code: ${response.statusCode}`);
           reject(false);
   			}
   		});
@@ -112,22 +112,22 @@ module.exports = class ImportGyms extends commando.Command {
   }
 
   formatGeodata(geodata) {
-    var addressComponents = {};
-    for(var i=0;i<geodata.length;i++) {
-      var sections = geodata[i]["addressComponents"];
-      for(var j=0;j<sections.length;j++) {
-        var section = sections[j];
-        var types = section["types"];
-        var shortName = section["shortName"];
+    const addressComponents = {};
+    for(let i=0;i<geodata.length;i++) {
+      const sections = geodata[i]["addressComponents"];
+      for(let j=0; j<sections.length; j++) {
+        const section = sections[j];
+        const types = section["types"];
+        const shortName = section["shortName"];
         if(types) {
-          for(var k=0;k<types.length;k++) {
-            var type = types[k].toLowerCase();
-            var values = [];
+          for(let k=0; k<types.length; k++) {
+            const type = types[k].toLowerCase();
+            let values = [];
             if(addressComponents[type]) {
               values = addressComponents[type]
             }
 
-            if(values.indexOf(shortName) == -1) {
+            if(values.indexOf(shortName) === -1) {
               values.push(shortName);
             }
 
@@ -137,14 +137,14 @@ module.exports = class ImportGyms extends commando.Command {
       }
     }
 
-    var data = {};
-    var components = {};
+    let data = {};
+    let components = {};
 
-    data = {}
-    components = {}
+    data = {};
+    components = {};
 
     const keys = Object.keys(addressComponents);
-    for(var i=0; i<keys.length;i++) {
+    for(let i=0; i<keys.length;i++) {
       const key = keys[i];
       const value = addressComponents[key];
       components[key] = value.join(" ");
@@ -161,10 +161,10 @@ module.exports = class ImportGyms extends commando.Command {
   makeMetaInsert(gym) {
     const geodata = JSON.stringify(this.formatGeodata(gym.gymInfo.addressComponents));
     const places = gym.gymInfo.places.join(' ');
-    var statement = "INSERT INTO GymMeta (gym_id, ";
+    let statement = "INSERT INTO GymMeta (gym_id, ";
 
-    var fields = [];
-    var content = [];
+    const fields = [];
+    const content = [];
     if(gym.meta) {
       if(gym.meta.nickname) {
         fields.push("nickname");
@@ -213,7 +213,7 @@ module.exports = class ImportGyms extends commando.Command {
   getMetaValues(gym) {
     const geodata = JSON.stringify(this.formatGeodata(gym.gymInfo.addressComponents));
     const places = gym.gymInfo.places.join(' ');
-    var content = this.getGymValues(gym);
+    const content = this.getGymValues(gym);
     if(gym.meta) {
       if(gym.meta.nickname) {
         content.push(gym.meta.nickname);
@@ -248,12 +248,12 @@ module.exports = class ImportGyms extends commando.Command {
   }
 
   async makeImport(gyms) {
-    for(var i = 0; i<gyms.length;i++) {
+    for(let i = 0; i<gyms.length; i++) {
       const gym = gyms[i];
-      var statement = "BEGIN;"
+      let statement = "BEGIN;";
       statement += "INSERT INTO Gym (name, lat, lon) VALUES(?, ?, ?);";
       statement += this.makeMetaInsert(gym);
-      statement += "COMMIT;"
+      statement += "COMMIT;";
 
       await Region.importGym(statement,this.getMetaValues(gym));
     }

@@ -42,8 +42,8 @@ module.exports = class GeocodeGym extends commando.Command {
 
 	async run(msg,args) {
 
-		var gym;
-		var isID = false;
+    let gym;
+		let isID = false;
 		if (this.getValue(args.term) > -1) {
 			isID = true;
 			gym = await Region.getGym(this.getValue(args.term)).catch(error => msg.say(error));
@@ -51,13 +51,13 @@ module.exports = class GeocodeGym extends commando.Command {
 			gym = await Region.findGym(msg.channel.id, args.term).catch(error => msg.say(error));
 		}
 
-		if (gym != undefined && gym["name"]) {
+		if (gym !== undefined && gym["name"]) {
 			const phrase = isID ? "Gym found with ID " + args.term : "Gym found with term '" + args.term + "'";
 
 			Meta.geocodeGym(gym).then(gym => {
 				if (gym) {
-					var message = "Successfully updated geocode information for " + gym.name + " (Gym #" + gym.id + ")```"
-					var geo = JSON.parse(gym.geodata)
+					let message = "Successfully updated geocode information for " + gym.name + " (Gym #" + gym.id + ")```";
+					const geo = JSON.parse(gym.geodata);
 					for (const [key, value] of Object.entries(geo["addressComponents"])) {
 						message += key + ": " + value + "\n";
 					}
@@ -81,9 +81,9 @@ module.exports = class GeocodeGym extends commando.Command {
 	}
 
 	getValue(value) {
-		const first = value.substring(0, 1)
+		const first = value.substring(0, 1);
 		if (first === "#") {
-			const integer = value.substring(1, value.length)
+			const integer = value.substring(1, value.length);
 			if (Number(integer)) {
 				return Number(integer)
 			}

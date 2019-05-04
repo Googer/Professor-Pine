@@ -188,175 +188,175 @@ class GymCache {
 //Since lunr indexes are immutable, and it would be terribly inefficient to rebuild an index for all gyms in the server on every change
 //Instead we will create individual indexes based on region - which will reindex only affected regions whenever a change is made
 class GymCache {
-    constructor() {
-      (async () => {
-        await this.buildIndexes();
-      })();
-    }
+  constructor() {
+    (async () => {
+      await this.buildIndexes();
+    })();
+  }
 
-    async buildIndexes() {
+  async buildIndexes() {
 
-      log.info('Beginning indexing of all channels');
+    log.info('Beginning indexing of all channels');
 
-      this.channels = Object.create(null);
-      this.indexing = true;
+    this.channels = Object.create(null);
+    this.indexing = true;
 
-      let channels = await Region.getAllBoundedChannels();
+    let channels = await Region.getAllBoundedChannels();
 
-      this.placesQueue = []; //Gyms that need geo updates
-      this.indexQueue = []; //Channels that need reindexing
+    this.placesQueue = []; //Gyms that need geo updates
+    this.indexQueue = []; //Channels that need reindexing
 
-      var channelsProcessed = 0;
-      for(const channel of channels) {
+    let channelsProcessed = 0;
+    for (const channel of channels) {
 
-        log.info("Indexing channel: " + channel["channel_id"])
-        await this.rebuildRegion(channel["channel_id"]);
-        channelsProcessed++;
-        if(channelsProcessed == channels.length) {
-          await this.rebuildMaster();
-          this.indexing = false;
-          log.info('Indexing of all channels completed!');
-        }
-
-      }
-    }
-
-    async rebuildIndexesForChannels() {
-      var that = this;
-      if(this.indexQueue.length > 0) {
+      log.info("Indexing channel: " + channel["channel_id"]);
+      await this.rebuildRegion(channel["channel_id"]);
+      channelsProcessed++;
+      if (channelsProcessed === channels.length) {
         await this.rebuildMaster();
+        this.indexing = false;
+        log.info('Indexing of all channels completed!');
       }
 
-      var removeIndex = this.indexQueue.slice(0);
-      removeIndex.forEach(async function(channel_id) {
-        log.info(`Trying to rebuild region of channel: ${channel_id}`);
-        await that.rebuildRegion(channel_id);
-        let index = that.indexQueue.indexOf(channel_id);
-        if(index > -1) {
-          that.indexQueue.splice(index,1);
-        }
-      });
+    }
+  }
+
+  async rebuildIndexesForChannels() {
+    const that = this;
+    if (this.indexQueue.length > 0) {
+      await this.rebuildMaster();
     }
 
-    async rebuildRegion(channel) {
-      const channels = this.channels;
-      return new Promise(async function(resolve,reject) {
-        //Get the polygon of the defined region assigned to this channel
-        let region = channel ? await Region.getRegionsRaw(channel).catch(error => null) : null;
+    const removeIndex = this.indexQueue.slice(0);
+    removeIndex.forEach(async function (channel_id) {
+      log.info(`Trying to rebuild region of channel: ${channel_id}`);
+      await that.rebuildRegion(channel_id);
+      let index = that.indexQueue.indexOf(channel_id);
+      if (index > -1) {
+        that.indexQueue.splice(index, 1);
+      }
+    });
+  }
 
-        //Expand the polygon of this region outwards to include bordering gyms
-        let regionObject = region ? Region.getCoordRegionFromText(region) : null;
-        var expanded = region ? Region.enlargePolygonFromRegion(regionObject) : null;
-        var expandedRegion = region ? Region.polygonStringFromRegion(expanded) : null;
+  async rebuildRegion(channel) {
+    const channels = this.channels;
+    return new Promise(async function (resolve, reject) {
+      //Get the polygon of the defined region assigned to this channel
+      let region = channel ? await Region.getRegionsRaw(channel).catch(error => null) : null;
 
-        //Get gyms inside the enclosed polygon
-        let expandedGyms = await Region.getGyms(expandedRegion);
-        if(!!expandedGyms) {
+      //Expand the polygon of this region outwards to include bordering gyms
+      let regionObject = region ? Region.getCoordRegionFromText(region) : null;
+      const expanded = region ? Region.enlargePolygonFromRegion(regionObject) : null;
+      const expandedRegion = region ? Region.polygonStringFromRegion(expanded) : null;
 
-          //Create lunr search index for this channel and add it to the cache
-          let index = new Gym(expandedGyms);
-          channels[channel] = index;
+      //Get gyms inside the enclosed polygon
+      let expandedGyms = await Region.getGyms(expandedRegion);
+      if (!!expandedGyms) {
 
-          resolve(true)
-        } else {
-          reject(false)
-        }
-      })
-    }
+        //Create lunr search index for this channel and add it to the cache
+        let index = new Gym(expandedGyms);
+        channels[channel] = index;
 
-    async rebuildMaster() {
-      var that = this;
-      return new Promise(async function(resolve,reject) {
-
-        //Get all gyms
-        let allGyms = await Region.getAllGyms();
-        if(!!allGyms) {
-
-          //Create lunr search index for all gyms
-          that.masterIndex = new Gym(allGyms);
-
-          resolve(true)
-        } else {
-          reject(false)
-        }
-      })
-    }
-
-    //Handle incoming searchs and pass them to the proper search index based on channel
-    async search(channel, terms, nameOnly) {
-      if(channel == null) {
-        if(this.masterIndex) {
-          return this.masterIndex.search(terms,nameOnly)
-        } else {
-          return false;
-        }
+        resolve(true)
       } else {
-        if(!!this.channels[channel]) {
-          return this.channels[channel].search(terms,nameOnly);
-        } else {
-          return false;
-        }
+        reject(false)
       }
-    }
+    })
+  }
 
-    isValidChannel(channel) {
-      return !!this.channels[channel.toString()];
-    }
+  async rebuildMaster() {
+    const that = this;
+    return new Promise(async function (resolve, reject) {
 
-    getGym(gymId) {
-      for(var key in this.channels) {
-        let cache = this.channels[key]
-        if(cache.getGym(gymId) != false) {
-          return cache.getGym(gymId);
-        }
-      }
-      return null;
-    }
+      //Get all gyms
+      let allGyms = await Region.getAllGyms();
+      if (!!allGyms) {
 
-    markGymsForPlacesUpdates(gyms) {
-      log.info(`Marking ${gyms} for places updates`);
-      gyms.forEach(gym_id => {
-        if(this.placesQueue.indexOf(gym_id) == -1) {
-          this.placesQueue.push(gym_id);
-        }
-      });
-    }
+        //Create lunr search index for all gyms
+        that.masterIndex = new Gym(allGyms);
 
-    async markPlacesComplete(gym) {
-      if(this.placesQueue.indexOf(gym) > -1) {
-        this.placesQueue.splice(this.placesQueue.indexOf(gym),1);
-      }
-
-      //Get channels that need reindexed
-      //Add to queue
-      let affectedChannels = await Region.findAffectedChannels(gym);
-      this.markChannelsForReindex(affectedChannels);
-    }
-
-    getPlacesQueue() {
-      return this.placesQueue;
-    }
-
-    getIndexQueue() {
-      return this.indexQueue;
-    }
-
-    getNextGymsForPlacesUpdate() {
-      if(this.placesQueue.length > 10) {
-        return this.placesQueue.splice(0,10);
+        resolve(true)
       } else {
-        return this.placesQueue.splice(0,this.placesQueue.length);
+        reject(false)
+      }
+    })
+  }
+
+  //Handle incoming searchs and pass them to the proper search index based on channel
+  async search(channel, terms, nameOnly) {
+    if (channel == null) {
+      if (this.masterIndex) {
+        return this.masterIndex.search(terms, nameOnly)
+      } else {
+        return false;
+      }
+    } else {
+      if (!!this.channels[channel]) {
+        return this.channels[channel].search(terms, nameOnly);
+      } else {
+        return false;
       }
     }
+  }
 
-    markChannelsForReindex(channel_ids) {
-      log.info(`Marking ${channel_ids} for index updates`);
-      channel_ids.forEach(channel_id => {
-        if(this.indexQueue.indexOf(channel_id) == -1) {
-          this.indexQueue.push(channel_id);
-        }
-      });
+  isValidChannel(channel) {
+    return !!this.channels[channel.toString()];
+  }
+
+  getGym(gymId) {
+    for (let key in this.channels) {
+      let cache = this.channels[key];
+      if (cache.getGym(gymId) !== false) {
+        return cache.getGym(gymId);
+      }
     }
+    return null;
+  }
+
+  markGymsForPlacesUpdates(gyms) {
+    log.info(`Marking ${gyms} for places updates`);
+    gyms.forEach(gym_id => {
+      if (this.placesQueue.indexOf(gym_id) === -1) {
+        this.placesQueue.push(gym_id);
+      }
+    });
+  }
+
+  async markPlacesComplete(gym) {
+    if (this.placesQueue.indexOf(gym) > -1) {
+      this.placesQueue.splice(this.placesQueue.indexOf(gym), 1);
+    }
+
+    //Get channels that need reindexed
+    //Add to queue
+    let affectedChannels = await Region.findAffectedChannels(gym);
+    this.markChannelsForReindex(affectedChannels);
+  }
+
+  getPlacesQueue() {
+    return this.placesQueue;
+  }
+
+  getIndexQueue() {
+    return this.indexQueue;
+  }
+
+  getNextGymsForPlacesUpdate() {
+    if (this.placesQueue.length > 10) {
+      return this.placesQueue.splice(0, 10);
+    } else {
+      return this.placesQueue.splice(0, this.placesQueue.length);
+    }
+  }
+
+  markChannelsForReindex(channel_ids) {
+    log.info(`Marking ${channel_ids} for index updates`);
+    channel_ids.forEach(channel_id => {
+      if (this.indexQueue.indexOf(channel_id) === -1) {
+        this.indexQueue.push(channel_id);
+      }
+    });
+  }
 }
 
 class Gym extends Search {
@@ -424,7 +424,7 @@ class Gym extends Search {
         gymDocument["id"] = gym.id;
 
         gym.name = he.decode(gym.name);
-        if(gym.description) {
+        if (gym.description) {
           gym.description = he.decode(gym.description);
         } else {
           gym.description = "";

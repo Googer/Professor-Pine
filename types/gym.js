@@ -28,8 +28,8 @@ class GymType extends Commando.ArgumentType {
       }
 
       const regions = await Region.getChannelsForGym(results[0].gym);
-      const resultChannel = await PartyManager.getChannel(regions[0]["channel_id"])
-      const resultChannelName = resultChannel != null ? resultChannel.channel.name : ""
+      const resultChannel = await PartyManager.getChannel(regions[0]["channel_id"]);
+      const resultChannelName = resultChannel != null ? resultChannel.channel.name : "";
 
       const gym = results[0].gym,
         gymName = gym.nickname ?
@@ -37,9 +37,9 @@ class GymType extends Commando.ArgumentType {
           gym.name;
 
       if (resultChannelName !== channelName) {
-          const adjacentChannel = message.channel.guild.channels
-            .find(channel => channel.name === resultChannelName &&
-              channel.permissionsFor(message.client.user).has('VIEW_CHANNEL'));
+        const adjacentChannel = message.channel.guild.channels
+          .find(channel => channel.name === resultChannelName &&
+            channel.permissionsFor(message.client.user).has('VIEW_CHANNEL'));
 
         if (adjacentChannel === undefined) {
           return `${gymName} was found in #${adjacentChannel.toString()} but it doesn't exist or I can't access it.  Yell at the mods!`;

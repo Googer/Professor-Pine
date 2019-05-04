@@ -36,7 +36,7 @@ module.exports = class CheckGymQueue extends commando.Command {
 
 	async run(msg) {
 
-    var message = "Gyms waiting for places updates```"
+    let message = "Gyms waiting for places updates```";
     if(Gym.getPlacesQueue().length > 0) {
       message += Gym.getPlacesQueue().join(", ");
     } else {
@@ -44,7 +44,7 @@ module.exports = class CheckGymQueue extends commando.Command {
     }
     message += "```";
 
-    message += "Channels waiting to be reindexed```"
+    message += "Channels waiting to be reindexed```";
     if(Gym.getIndexQueue().length > 0) {
       message += "<#";
       message += Gym.getPlacesQueue().join(">, <#");

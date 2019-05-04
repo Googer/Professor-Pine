@@ -51,7 +51,7 @@ class TrainCommand extends Commando.Command {
     let train;
 
     RaidTrain.createRaidTrain(sourceChannel.id, message.member.id, trainName)
-      // create and send announcement message to region channel
+    // create and send announcement message to region channel
       .then(async info => {
         train = info.party;
         const channelMessageHeader = await train.getChannelMessageHeader(),

@@ -2,7 +2,7 @@ const log = require('loglevel').getLogger('PartyManager'),
   settings = require('../data/settings'),
   storage = require('node-persist'),
   {PartyType} = require('./constants'),
-	Region = require('./region'),
+  Region = require('./region'),
   TimeType = require('../types/time'),
   Helper = require('./helper');
 
@@ -39,7 +39,7 @@ class PartyManager {
           }
 
           if ((now > party.hatchTime && party.hatchTime > lastIntervalRunTime)
-              || (now > party.endTime && party.endTime > lastIntervalRunTime)) {
+            || (now > party.endTime && party.endTime > lastIntervalRunTime)) {
             const newChannelName = party.generateChannelName();
 
             await this.getChannel(party.channelId)
@@ -144,7 +144,7 @@ class PartyManager {
         }
       });
 
-		this.loadGymCache();
+    this.loadGymCache();
   }
 
   shutdown() {
@@ -153,8 +153,8 @@ class PartyManager {
 
   setClient(client) {
     this.client = client;
-		this.regionChannels = [];
-		this.loadRegionChannels();
+    this.regionChannels = [];
+    this.loadRegionChannels();
 
     client.on('message', message => {
       if (message.author.id !== client.user.id) {
@@ -169,118 +169,118 @@ class PartyManager {
   }
 
   async loadRegionChannels() {
-		var that = this;
-		Region.checkRegionsExist().then(success => {
-			if(success) {
-				that.client.channels.forEach(async function(channel) {
-					const region = await Region.getRegionsRaw(channel.id).catch(error => false);
-					if(region) {
-						that.regionChannels.push(channel.id);
-					}
+    const that = this;
+    Region.checkRegionsExist().then(success => {
+      if (success) {
+        that.client.channels.forEach(async function (channel) {
+          const region = await Region.getRegionsRaw(channel.id).catch(error => false);
+          if (region) {
+            that.regionChannels.push(channel.id);
+          }
 
-					let last = that.client.channels.array().slice(-1)[0];
-					if(channel.id == last.id) {
-						that.clearOldRegionChannels();
-					}
-				})
-			}
-		}).catch(error => console.log(error))
-	}
+          let last = that.client.channels.array().slice(-1)[0];
+          if (channel.id === last.id) {
+            that.clearOldRegionChannels();
+          }
+        })
+      }
+    }).catch(error => console.log(error))
+  }
 
-	async clearOldRegionChannels() {
-		var that = this;
-		Region.checkRegionsExist().then(async function(success) {
-			if(success) {
-				const regions = await Region.getAllRegions().catch(error => console.log("PROBLEM"));
-				console.log("TOTAL REGIONS FOUND: " + regions.length)
-				const deleted = await Region.deleteRegionsNotInChannels(that.regionChannels).catch(error => console.log("PROBLEM"));
-				console.log("DELETED " + deleted.affectedRows + " REGIONS NOT TIED TO CHANNELS")
-			}
-		}).catch(error => console.log(error))
-	}
+  async clearOldRegionChannels() {
+    const that = this;
+    Region.checkRegionsExist().then(async function (success) {
+      if (success) {
+        const regions = await Region.getAllRegions().catch(error => console.log("PROBLEM"));
+        console.log("TOTAL REGIONS FOUND: " + regions.length);
+        const deleted = await Region.deleteRegionsNotInChannels(that.regionChannels).catch(error => console.log("PROBLEM"));
+        console.log("DELETED " + deleted.affectedRows + " REGIONS NOT TIED TO CHANNELS")
+      }
+    }).catch(error => console.log(error))
+  }
 
-	cacheRegionChannel(channel) {
-		this.regionChannels.push(channel);
-	}
+  cacheRegionChannel(channel) {
+    this.regionChannels.push(channel);
+  }
 
-	gymIsCached(gym_id) {
+  gymIsCached(gym_id) {
 
-		if(this.gymCache) {
-			for (var i = 0; i < this.gymCache.length; i++) {
-				var gym = this.gymCache[i];
-				if(gym.id === gym_id) {
-					return true;
-				}
-			}
-		}
-
-		return false;
-	}
-
-	async loadGymCache() {
-		if(!this.gymCache) {
-			this.gymCache = [];
-		}
-		var that = this;
-		Object.entries(this.parties)
-      .filter(([channelId, party]) => party.type === PartyType.RAID)
-			.forEach(async function([channel_id, party]){
-				if(!that.gymIsCached(party.gymId)) {
-          console.log(party)
-					const gym = await Region.getGym(party.gymId)
-					that.gymCache.push(gym);
-				}
-			});
-	}
-
-	cacheGym(gym) {
-		if(!this.gymCache) {
-			this.gymCache = [];
-		}
-		if(!this.gymIsCached(gym.id)) {
-			this.gymCache.push(gym);
-		}
-
-		console.log(this.gymCache)
-	}
-
-	getCachedGym(gym_id) {
-
-		if(this.gymIsCached(gym_id)) {
-			for (var i = 0; i < this.gymCache.length; i++) {
-				var gym = this.gymCache[i];
-				if(gym.id === gym_id) {
-					return gym;
-				}
-			}
-		} else {
-			console.log("not cached")
-		}
-
-		return null;
-	}
-
-	getRaidChannelCache() {
-		return this.regionChannels
-	}
-
-	channelCanRaid(channel_id) {
-		return this.regionChannels.indexOf(channel_id) > -1;
-	}
-
-	categoryHasRegion(category) {
-        const children = Helper.childrenForCategory(category)
-        if(children.length > 0) {
-            for(var i=0;i<children.length;i++) {
-                const child = children[i]
-                if(this.channelCanRaid(child.id)) {
-                    return true
-                }
-            }
-        } else {
-            return false
+    if (this.gymCache) {
+      for (let i = 0; i < this.gymCache.length; i++) {
+        const gym = this.gymCache[i];
+        if (gym.id === gym_id) {
+          return true;
         }
+      }
     }
+
+    return false;
+  }
+
+  async loadGymCache() {
+    if (!this.gymCache) {
+      this.gymCache = [];
+    }
+    const that = this;
+    Object.entries(this.parties)
+      .filter(([channelId, party]) => party.type === PartyType.RAID)
+      .forEach(async function ([channel_id, party]) {
+        if (!that.gymIsCached(party.gymId)) {
+          console.log(party);
+          const gym = await Region.getGym(party.gymId);
+          that.gymCache.push(gym);
+        }
+      });
+  }
+
+  cacheGym(gym) {
+    if (!this.gymCache) {
+      this.gymCache = [];
+    }
+    if (!this.gymIsCached(gym.id)) {
+      this.gymCache.push(gym);
+    }
+
+    console.log(this.gymCache)
+  }
+
+  getCachedGym(gym_id) {
+
+    if (this.gymIsCached(gym_id)) {
+      for (let i = 0; i < this.gymCache.length; i++) {
+        const gym = this.gymCache[i];
+        if (gym.id === gym_id) {
+          return gym;
+        }
+      }
+    } else {
+      console.log("not cached")
+    }
+
+    return null;
+  }
+
+  getRaidChannelCache() {
+    return this.regionChannels
+  }
+
+  channelCanRaid(channel_id) {
+    return this.regionChannels.indexOf(channel_id) > -1;
+  }
+
+  categoryHasRegion(category) {
+    const children = Helper.childrenForCategory(category);
+    if (children.length > 0) {
+      for (let i = 0; i < children.length; i++) {
+        const child = children[i];
+        if (this.channelCanRaid(child.id)) {
+          return true
+        }
+      }
+    } else {
+      return false
+    }
+  }
 
   async getMember(channelId, memberId) {
     const party = this.getParty(channelId),

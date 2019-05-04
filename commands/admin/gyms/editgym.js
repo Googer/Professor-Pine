@@ -136,12 +136,12 @@ module.exports = class EditGym extends commando.Command {
 	}
 
 	getQuotedString(value) {
-		var single = value.split(/'/);
-		var double = value.split(/"/);
+    const single = value.split(/'/);
+		const double = value.split(/"/);
 
-		if (single.length == 3) {
+		if (single.length === 3) {
 			return single[1];
-		} else if (double.length == 3) {
+		} else if (double.length === 3) {
 			return double[1];
 		} else {
 			return null;
@@ -167,30 +167,30 @@ module.exports = class EditGym extends commando.Command {
 			return null;
 		} else {
 			const last = pieces[pieces.length - 1];
-			if (getGymMetaFields().indexOf(last.toLowerCase()) != -1) {
+			if (getGymMetaFields().indexOf(last.toLowerCase()) !== -1) {
 				return last;
 			}
 		}
 	}
 
 	cleanup(msg, gym_result, field_result, collection_result, gym_message) {
-		msg.delete()
+		msg.delete();
 		if (gym_message) {
 			gym_message.delete()
 		}
 
 		gym_result.prompts.forEach(message => {
 			message.delete()
-		})
+		});
 
 		gym_result.answers.forEach(message => {
 			message.delete()
-		})
+		});
 
 		if (field_result) {
 			field_result.prompts.forEach(message => {
 				message.delete()
-			})
+			});
 
 			field_result.answers.forEach(message => {
 				message.delete()
@@ -200,7 +200,7 @@ module.exports = class EditGym extends commando.Command {
 		if (collection_result) {
 			collection_result.prompts.forEach(message => {
 				message.delete()
-			})
+			});
 
 			collection_result.answers.forEach(message => {
 				message.delete()
@@ -212,14 +212,14 @@ module.exports = class EditGym extends commando.Command {
 
 		log.info(args.constructor.name);
 		const that = this;
-		const gym_args = (args.length > 0) ? [this.getGymArgument(args)] : []
+		const gym_args = (args.length > 0) ? [this.getGymArgument(args)] : [];
 		this.gymCollector.obtain(msg, gym_args).then(async function(gym_result) {
 			if (!gym_result.cancelled) {
 
 				const gym = gym_result.values["gym"];
 				const gym_msg = gym.message;
 
-				const field_args = that.getFieldArgument(args) ? [that.getFieldArgument(args)] : []
+				const field_args = that.getFieldArgument(args) ? [that.getFieldArgument(args)] : [];
 
 				log.info("field: " + field_args);
 
@@ -232,7 +232,7 @@ module.exports = class EditGym extends commando.Command {
 							that.locationCollector.obtain(msg).then(async function(collection_result) {
 								if (!collection_result.cancelled) {
 									const location = collection_result.values["location"];
-									var result = await Region.setGymLocation(gym["id"], location, Gym).catch(error => msg.say("An error occurred changing the location of this gym."));
+									const result = await Region.setGymLocation(gym["id"], location, Gym).catch(error => msg.say("An error occurred changing the location of this gym."));
 									if (result["id"]) {
 										that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
 										Region.showGymDetail(msg, result, "Updated Gym Location", msg.member.displayName,false);
@@ -245,7 +245,7 @@ module.exports = class EditGym extends commando.Command {
 							that.nameCollector.obtain(msg).then(async function(collection_result) {
 								if (!collection_result.cancelled) {
 									const name = collection_result.values["name"];
-									var result = await Region.setGymName(gym, name, Gym).catch(error => msg.say("An error occurred setting the name of this gym."));
+									const result = await Region.setGymName(gym, name, Gym).catch(error => msg.say("An error occurred setting the name of this gym."));
 									if (result["id"]) {
 										that.cleanup(msg, gym_result, field_result, collection_result);
 										Region.showGymDetail(msg, result, "Updated Gym Name", msg.member.displayName,false);
@@ -258,7 +258,7 @@ module.exports = class EditGym extends commando.Command {
 							that.nicknameCollector.obtain(msg).then(async function(collection_result) {
 								if (!collection_result.cancelled) {
 									const nickname = collection_result.values["nickname"];
-									var result = await Region.setGymNickname(gym, nickname, Gym).catch(error => msg.say("An error occurred setting the nickname of this gym."));
+									const result = await Region.setGymNickname(gym, nickname, Gym).catch(error => msg.say("An error occurred setting the nickname of this gym."));
 									if (result["id"]) {
 										that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
 										Region.showGymDetail(msg, result, "Updated Gym Nickname", msg.member.displayName, false);
@@ -271,7 +271,7 @@ module.exports = class EditGym extends commando.Command {
 							that.descriptionCollector.obtain(msg).then(async function(collection_result) {
 								if (!collection_result.cancelled) {
 									const description = collection_result.values["description"];
-									var result = await Region.setGymDescription(gym, description, Gym).catch(error => msg.say("An error occurred setting the description of this gym."));
+									const result = await Region.setGymDescription(gym, description, Gym).catch(error => msg.say("An error occurred setting the description of this gym."));
 									if (result["id"]) {
 										that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
 										Region.showGymDetail(msg, result, "Updated Gym Description", msg.member.displayName, false);
@@ -288,7 +288,7 @@ module.exports = class EditGym extends commando.Command {
 
 									const action = collection_result.values["keywords"]["action"];
 									const keywords = collection_result.values["keywords"]["keywords"];
-									var result = await Region.editGymKeywords(gym, action, keywords, Gym).catch(error => msg.say("An error occurred adding removing keywords from the gym."));
+									const result = await Region.editGymKeywords(gym, action, keywords, Gym).catch(error => msg.say("An error occurred adding removing keywords from the gym."));
 									if (result["id"]) {
 										that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
 										Region.showGymDetail(msg, result, "Updated Gym Keywords", msg.member.displayName, false);
@@ -309,8 +309,8 @@ module.exports = class EditGym extends commando.Command {
     									const is_tagged = tagged.toLowerCase() === "yes" || tagged.toLowerCase() === "y";
                       const is_previous = previous.toLowerCase() === "yes" || previous.toLowerCase() === "y";
 
-    									var result = await Region.setEXStatus(gym, is_tagged, is_previous, Gym).catch(error => msg.say("An error occurred setting the EX eligibility of This gym."));
-    									if (result["id"]) {
+									    const result = await Region.setEXStatus(gym, is_tagged, is_previous, Gym).catch(error => msg.say("An error occurred setting the EX eligibility of This gym."));
+									    if (result["id"]) {
 
                         previous_result.prompts.forEach(message => {
                   				message.delete()
@@ -334,7 +334,7 @@ module.exports = class EditGym extends commando.Command {
 							that.noticeCollector.obtain(msg).then(async function(collection_result) {
 								if (!collection_result.cancelled) {
 									const notice = collection_result.values["notice"];
-									var result = await Region.setGymNotice(gym, notice, Gym).catch(error => msg.say("An error occurred setting the notice for this gym."));
+									const result = await Region.setGymNotice(gym, notice, Gym).catch(error => msg.say("An error occurred setting the notice for this gym."));
 									if (result["id"]) {
 										that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
 										Region.showGymDetail(msg, result, "Updated Gym Notice", msg.member.displayName, false);

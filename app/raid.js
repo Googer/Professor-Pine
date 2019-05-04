@@ -200,8 +200,8 @@ class Raid extends Party {
                     const commandPrefix = message.client.options.commandPrefix,
                       isCommand = userResponse.startsWith(commandPrefix),
                       doneAliases = ['done', 'complete', 'finished', 'finish', 'caught-it', 'got-it', 'missed-it', 'donr',
-                                      'caughtit', 'gotit', 'missedit', 'caught it', 'got it', 'missed it', 'i missed it',
-                                      'it ran', 'i got it'];
+                        'caughtit', 'gotit', 'missedit', 'caught it', 'got it', 'missed it', 'i missed it',
+                        'it ran', 'i got it'];
 
                     if (isCommand) {
                       let doneCommand = false;
@@ -902,7 +902,7 @@ class Raid extends Party {
     let additionalInformation = '';
 
     if (!this.isExclusive) {
-      if(gym.ex_tagged) {
+      if (gym.ex_tagged) {
         if (gym.ex_raid) {
           additionalInformation += 'Confirmed EX Raid location - This gym has the EX gym tag and has previously hosted an EX Raid.';
         } else {

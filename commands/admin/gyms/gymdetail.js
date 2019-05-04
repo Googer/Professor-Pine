@@ -37,19 +37,19 @@ module.exports = class FindGym extends commando.Command {
 	}
 
 	async run(msg, args) {
-		var gym;
+		let gym;
 		let isModLab = msg.channel.name === "mod-bot-lab";
 
 		if (this.getValue(args.term) > -1) {
 			gym = await Region.getGym(this.getValue(args.term)).catch(error => msg.say(error));
 
-      if (gym != undefined && gym["name"]) {
+      if (gym !== undefined && gym["name"]) {
 
         const channels = await Region.getChannelsForGym(gym).catch(error => []);
         const phrase = "Showing details for gym with ID " + args.term;
         await Region.showGymDetail(msg, gym, phrase, null, channels, false);
-        var channelStrings = [];
-        for(var i=0;i<channels.length;i++) {
+        const channelStrings = [];
+        for(let i=0; i<channels.length; i++) {
           let channel= await PartyManager.getChannel(channels[i].channel_id);
           channelStrings.push(channel.channel.toString());
         }

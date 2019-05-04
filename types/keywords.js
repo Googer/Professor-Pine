@@ -16,7 +16,7 @@ class KeywordsType extends commando.ArgumentType {
         this.keyword_info = {
           "action": action,
           "keywords": value.substring(action.length + 1, value.length)
-        }
+        };
 
         return true;
       } else {

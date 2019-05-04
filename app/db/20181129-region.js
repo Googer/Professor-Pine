@@ -1,22 +1,22 @@
 exports.up = function (knex, Promise) {
-	return Promise.all([
-		knex.schema.createTable('Region', table => {
-			table.increments('id')
-				.primary();
+  return Promise.all([
+    knex.schema.createTable('Region', table => {
+      table.increments('id')
+        .primary();
 
       table.specificType('bounds', 'polygon')
         .notNullable();
 
       table.bigInteger('channel_id')
-  			.unsigned();
+        .unsigned();
 
       table.text('description')
         .nullable();
-		}),
+    }),
 
-		knex.schema.createTable('Gym', table => {
-			table.increments('id')
-				.primary();
+    knex.schema.createTable('Gym', table => {
+      table.increments('id')
+        .primary();
 
       table.string('pogo_id')
         .nullable();
@@ -26,32 +26,32 @@ exports.up = function (knex, Promise) {
 
       table.string('name')
         .notNullable();
-		}),
+    }),
 
-		knex.schema.createTable('GymMeta', table => {
+    knex.schema.createTable('GymMeta', table => {
 
-			table.integer('gym_id')
-				.unsigned()
+      table.integer('gym_id')
+        .unsigned()
         .primary()
-				.references('id')
-				.inTable('Gym')
-				.onDelete('cascade');
+        .references('id')
+        .inTable('Gym')
+        .onDelete('cascade');
 
-			table.string('nickname')
+      table.string('nickname')
         .nullable();
 
-      table.text('description','mediumtext')
+      table.text('description', 'mediumtext')
         .nullable();
 
-      table.text('keywords','mediumtext')
+      table.text('keywords', 'mediumtext')
         .nullable();
 
-      table.text('notice','mediumtext')
+      table.text('notice', 'mediumtext')
         .nullable();
 
-			table.boolean('ex_raid');
+      table.boolean('ex_raid');
 
-			table.boolean('ex_tagged');
+      table.boolean('ex_tagged');
 
       table.string('image_url')
         .nullable();
@@ -59,23 +59,23 @@ exports.up = function (knex, Promise) {
       table.integer('sponsor')
         .nullable();
 
-	  table.text('geodata','mediumtext')
+      table.text('geodata', 'mediumtext')
         .nullable();
 
-		table.text('places','mediumtext')
+      table.text('places', 'mediumtext')
         .nullable();
 
-	  table.integer('nearestGym')
+      table.integer('nearestGym')
         .nullable();
 
-		}),
-	])
+    }),
+  ])
 };
 
 exports.down = function (knex, Promise) {
-	return Promise.all([
-		knex.schema.dropTable('Region'),
-		knex.schema.dropTable('Gym'),
-		knex.schema.dropTable('GymMeta')
-	])
+  return Promise.all([
+    knex.schema.dropTable('Region'),
+    knex.schema.dropTable('Gym'),
+    knex.schema.dropTable('GymMeta')
+  ])
 };

@@ -34,7 +34,7 @@ module.exports = class SetRegion extends commando.Command {
 
 				if(Helper.isChannelChild(message.channel.id) && PartyManager.categoryHasRegion(Helper.getParentChannel(message.channel.id).id) && !PartyManager.channelCanRaid(message.channel.id)) {
 					// msg.delete()
-					const channel = Helper.regionChannelForCategory(Helper.getParentChannel(message.channel.id).id,PartyManager.getRaidChannelCache())
+					const channel = Helper.regionChannelForCategory(Helper.getParentChannel(message.channel.id).id,PartyManager.getRaidChannelCache());
 					return ['unauthorized', message.reply("This category already has a region channel. You may only have one region channel per category. Please see " + channel.toString() + " for region info.")];
 				}
 			}
@@ -46,15 +46,15 @@ module.exports = class SetRegion extends commando.Command {
 	async run(msg) {
 
 		//get kml attachment url
-		if(msg.attachments.first() != undefined) {
+		if(msg.attachments.first() !== undefined) {
 
 			console.log(msg.attachments.first().url);
 			const file = msg.attachments.first().url;
-			var data = await Region.parseRegionData(file).catch(error => false);
-			if(data) {
+      const data = await Region.parseRegionData(file).catch(error => false);
+      if(data) {
 				const polydata = data["features"][0]["geometry"]["coordinates"][0];
 				if(await Region.storeRegion(polydata,msg.channel.id,GymCache).catch(error => false)) {
-					PartyManager.cacheRegionChannel(msg.channel.id)
+					PartyManager.cacheRegionChannel(msg.channel.id);
 					Region.getRegionDetailEmbed(msg.channel.id).then(embed => {
 						if(embed) {
 							msg.channel.send({embed})
@@ -69,7 +69,7 @@ module.exports = class SetRegion extends commando.Command {
 
 		} else {
 
-			msg.delete()
+			msg.delete();
 			msg.reply("Please add the `setbounds` command as a comment when uploading a KML file.");
 		}
 

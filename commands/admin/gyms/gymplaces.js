@@ -42,9 +42,9 @@ module.exports = class GymPlaces extends commando.Command {
 	}
 
   async run(msg, args) {
-		var gym;
-		var isID = false;
-		let isModLab = msg.channel.name === "mod-bot-lab";
+    let gym;
+	  let isID = false;
+	  let isModLab = msg.channel.name === "mod-bot-lab";
 
 		if (this.getValue(args.term) > -1) {
 			isID = true;
@@ -53,7 +53,7 @@ module.exports = class GymPlaces extends commando.Command {
 			gym = await Region.findGym(isModLab ? null : msg.channel.id, args.term).catch(error => msg.say(error));
 		}
 
-		if (gym != undefined && gym["name"]) {
+		if (gym !== undefined && gym["name"]) {
 
       Meta.updatePlacesForGyms([gym["id"]],GymCache,Region);
       msg.reply(`Places updating and associated channels queued for reindexing for ${gym['name']}`);
@@ -66,9 +66,9 @@ module.exports = class GymPlaces extends commando.Command {
 	}
 
 	getValue(value) {
-		const first = value.substring(0, 1)
+		const first = value.substring(0, 1);
 		if (first === "#") {
-			const integer = value.substring(1, value.length)
+			const integer = value.substring(1, value.length);
 			if (Number(integer)) {
 				return Number(integer)
 			}

@@ -60,8 +60,8 @@ module.exports = class AddGym extends commando.Command {
 				prompt: 'An existing gym sits in close proximity to the point you are trying to add one too. If the gym shown above is the one you are attempting to add, type `yes` to cancel this command or `no` to continue adding a new gym.',
 				type: 'string',
 				validate: value => {
-					const v = value.toLowerCase()
-					const first = value.substring(0,1)
+					const v = value.toLowerCase();
+					const first = value.substring(0,1);
 					if(first === "y" || first === "n") {
 						return true;
 					} else {
@@ -86,36 +86,36 @@ module.exports = class AddGym extends commando.Command {
 	}
 
 	showSimilarGym(gym,msg) {
-		var title = gym["name"];
+		let title = gym["name"];
 		if(gym["nickname"]) {
 			title += " (" + gym["nickname"] + ")";
 		}
-		var embed = new Discord.MessageEmbed()
-		.setTitle(title)
-		.setDescription("Another gym found in close proximity to the provided location.")
-		.setURL(Region.googlePinLinkForPoint(gym["lat"]+","+gym["lon"]));
+		const embed = new Discord.MessageEmbed()
+			.setTitle(title)
+			.setDescription("Another gym found in close proximity to the provided location.")
+			.setURL(Region.googlePinLinkForPoint(gym["lat"] + "," + gym["lon"]));
 
-		var that = this;
+		const that = this;
 		msg.channel.send({embed}).then(message => {
 			that.similar_message = message;
 		});
 	}
 
 	cleanup(msg,location_result,name_result,nickname_result,description_result) {
-		msg.delete()
+		msg.delete();
 
 		location_result.prompts.forEach(message => {
 			message.delete()
-		})
+		});
 
 		location_result.answers.forEach(message => {
 			message.delete()
-		})
+		});
 
 		if(name_result) {
 			name_result.prompts.forEach(message => {
 				message.delete()
-			})
+			});
 
 			name_result.answers.forEach(message => {
 				message.delete()
@@ -125,7 +125,7 @@ module.exports = class AddGym extends commando.Command {
 		if(nickname_result) {
 			nickname_result.prompts.forEach(message => {
 				message.delete()
-			})
+			});
 
 			nickname_result.answers.forEach(message => {
 				message.delete()
@@ -135,7 +135,7 @@ module.exports = class AddGym extends commando.Command {
 		if(description_result) {
 			description_result.prompts.forEach(message => {
 				message.delete()
-			})
+			});
 
 			description_result.answers.forEach(message => {
 				message.delete()
@@ -153,32 +153,32 @@ module.exports = class AddGym extends commando.Command {
 						const nickname = nickname_result.values["nickname"];
 						that.descriptionCollector.obtain(msg).then(async function(description_result) {
 							if(!description_result.cancelled) {
-								const description = description_result.values["description"]
-								var details = {
+								const description = description_result.values["description"];
+								const details = {
 									"location": location_result.values["location"],
 									"name": name,
 									"nickname": nickname,
 									"description": description
-								}
-								var gym = await Region.addGym(details,Gym).catch(error => msg.say(error)).then(async function(final_gym) {
+								};
+								const gym = await Region.addGym(details, Gym).catch(error => msg.say(error)).then(async function (final_gym) {
 
-                  let channels = await Region.getChannelsForGym(final_gym);
-									await Region.showGymDetail(msg,final_gym,"New Gym Added",null,false);
-                  var channelStrings = [];
-                  for(var i=0;i<channels.length;i++) {
-                    let channel= await PartyManager.getChannel(channels[i].channel_id);
-                    channelStrings.push(channel.channel.toString());
-                  }
+									let channels = await Region.getChannelsForGym(final_gym);
+									await Region.showGymDetail(msg, final_gym, "New Gym Added", null, false);
+									const channelStrings = [];
+									for (let i = 0; i < channels.length; i++) {
+										let channel = await PartyManager.getChannel(channels[i].channel_id);
+										channelStrings.push(channel.channel.toString());
+									}
 
-                  let affectedChannels = await Region.findAffectedChannels(final_gym["id"]);
-                  if(channelStrings.length > 0) {
-                    msg.say("This gym is in " + channelStrings.join(", "));
-                  } else {
-                    msg.say("This gym is not located in any region channels");
-                  }
+									let affectedChannels = await Region.findAffectedChannels(final_gym["id"]);
+									if (channelStrings.length > 0) {
+										msg.say("This gym is in " + channelStrings.join(", "));
+									} else {
+										msg.say("This gym is not located in any region channels");
+									}
 
-									that.cleanup(msg,location_result,name_result,nickname_result,description_result)
-								})
+									that.cleanup(msg, location_result, name_result, nickname_result, description_result)
+								});
 
 							} else {
 								that.cleanup(msg,location_result,name_result,nickname_result,description_result)
@@ -197,38 +197,38 @@ module.exports = class AddGym extends commando.Command {
 
 	async run(msg, args) {
 		const that = this;
-		const loc_args = (args.length > 0) ? [args] : []
+		const loc_args = (args.length > 0) ? [args] : [];
 		this.locationCollector.obtain(msg,loc_args).then(async function(location_result) {
 			if(!location_result.cancelled) {
 
 				const location = location_result.values["location"];
 				// var region = await Region.getRegionsRaw(msg.channel.id)
 				// var gyms = await Region.getGyms(region).catch(error => [])
-        var gyms = await Region.getAllGyms()
-				var coords = await Region.coordStringFromText(location)
+				const gyms = await Region.getAllGyms();
+				const coords = await Region.coordStringFromText(location);
 
 				//Check for gym in close proximity
 				if(gyms.length > 0 && Region.findSimilarGymByLocation(gyms,coords)) {
-					const similar = Region.findSimilarGymByLocation(gyms,coords)
-					that.showSimilarGym(similar,msg)
+					const similar = Region.findSimilarGymByLocation(gyms,coords);
+					that.showSimilarGym(similar,msg);
 
 					//Offer the user the ability to cancel if they realize the gym they are trying to add already exists
 					that.confirmationCollector.obtain(msg).then(async function(confirm_result) {
 						if(!confirm_result.cancelled) {
-							const result = confirm_result.values["confirm"].toLowerCase()
-							const first = result.substring(0,1)
-							if(first == "n") {
+							const result = confirm_result.values["confirm"].toLowerCase();
+							const first = result.substring(0,1);
+							if(first === "n") {
 								that.finishCollection(msg,location_result)
 							} else {
 								that.cleanup(msg,location_result)
 							}
 						}
 
-						that.similar_message.delete()
+						that.similar_message.delete();
 
 						confirm_result.prompts.forEach(message => {
 							message.delete()
-						})
+						});
 
 						confirm_result.answers.forEach(message => {
 							message.delete()

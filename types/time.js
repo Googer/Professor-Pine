@@ -252,7 +252,7 @@ class TimeType extends Commando.ArgumentType {
     } else if (raidHatchTime && ['hatch', 'start'].indexOf(valueToParse.toLowerCase()) !== -1) {
       valueToParse = raidHatchTime.format('h:m a');
       timeMode = TimeMode.ABSOLUTE;
-    }  else if (['unset', 'cancel', 'none'].indexOf(valueToParse.toLowerCase()) !== -1) {
+    } else if (['unset', 'cancel', 'none'].indexOf(valueToParse.toLowerCase()) !== -1) {
       // return a value to indicate unset & meet.
       return -1;
     } else {

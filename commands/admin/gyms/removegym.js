@@ -81,7 +81,7 @@ module.exports = class DeleteGym extends commando.Command {
 
 	async run(msg, args) {
 		const that = this;
-		const gym_args = (args.length > 0) ? [args] : []
+		const gym_args = (args.length > 0) ? [args] : [];
 
 		this.gymCollector.obtain(msg, gym_args).then(async function(gym_result) {
 			if (!gym_result.cancelled) {

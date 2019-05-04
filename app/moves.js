@@ -26,7 +26,7 @@ class Moves extends Search {
           const moveDocument = Object.create(null);
 
           moveDocument['move'] = move;
-          moveDocument['name'] = removeDiacritics(name.toLowerCase()  + ' ' + name.toLowerCase().replace(/\s/g, ''));
+          moveDocument['name'] = removeDiacritics(name.toLowerCase() + ' ' + name.toLowerCase().replace(/\s/g, ''));
 
           this.add(moveDocument);
         }, this);
