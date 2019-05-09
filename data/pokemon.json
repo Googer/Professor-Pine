@@ -351,7 +351,8 @@
     ]
   },
   {
-    "name": "psyduck"
+    "name": "psyduck",
+    "tier": 1
   },
   {
     "name": "golduck"
@@ -595,6 +596,7 @@
   },
   {
     "name": "cubone",
+    "tier": 1,
     "shiny": true
   },
   {
@@ -934,7 +936,8 @@
     "name": "jumpluff"
   },
   {
-    "name": "aipom"
+    "name": "aipom",
+    "tier": 2
   },
   {
     "name": "sunkern",
@@ -1002,6 +1005,7 @@
   },
   {
     "name": "snubbull",
+    "tier": 1,
     "shiny": true
   },
   {
@@ -1053,7 +1057,8 @@
     "name": "remoraid"
   },
   {
-    "name": "octillery"
+    "name": "octillery",
+    "tier": 2
   },
   {
     "name": "delibird",
