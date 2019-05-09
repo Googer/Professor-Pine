@@ -352,7 +352,8 @@
   },
   {
     "name": "psyduck",
-    "tier": 1
+    "tier": 1,
+    "shine": true
   },
   {
     "name": "golduck"
@@ -937,7 +938,8 @@
   },
   {
     "name": "aipom",
-    "tier": 2
+    "tier": 2,
+    "shiny": true
   },
   {
     "name": "sunkern",
@@ -1227,7 +1229,8 @@
   },
   {
     "name": "lotad",
-    "tier": 1
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "lombre"
