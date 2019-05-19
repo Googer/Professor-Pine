@@ -654,15 +654,15 @@ class ImageProcessing {
     return new Promise((resolve, reject) => {
       const region1 = {
           x: region.width - (region.width / 3.4),
-          y: region.height - (region.height / 2.2),
-          width: region.width / 4,
-          height: region.height / 12
+          y: region.height - (region.height / 2.3),
+          width: region.width / 4.0,
+          height: region.height / 9.0
         },
         region2 = {
-          x: (region.width / 2) - (region.width / 6),
-          y: region.height / 6.4,
-          width: region.width / 3,
-          height: region.height / 8
+          x: (region.width / 2.0) - (region.width / 6.0),
+          y: region.height / 5.5,
+          width: region.width / 3.0,
+          height: region.height / 7.5
         };
 
       let promises = [];
@@ -1040,29 +1040,29 @@ class ImageProcessing {
     const checkPhoneColor = Jimp.intToRGBA(image.getPixelColor(0, 85)),
 
       // location of cropping / preprocessing for different pieces of information (based on % width & % height for scalability purposes)
-      gymLocation = {
-        x: image.bitmap.width / 5.1,
-        y: image.bitmap.height / 26,
-        width: image.bitmap.width - (image.bitmap.width / 5.1),
-        height: image.bitmap.height / 13
+      gymNameCrop = {
+        x: image.bitmap.width / 4.5,
+        y: image.bitmap.height / 18.0,
+        width: image.bitmap.width - (image.bitmap.width / 2.25),
+        height: image.bitmap.height / 9.0
       },
       phoneTimeCrop = {
         x: image.bitmap.width / 2.5,
         y: 0,
         width: image.bitmap.width,
-        height: image.bitmap.height / 27
+        height: image.bitmap.height / 24.0
       },
       pokemonNameCrop = {
         x: 0,
-        y: image.bitmap.height / 7.0,
+        y: image.bitmap.height / 5.8,
         width: image.bitmap.width,
         height: image.bitmap.height / 4.7
       },
       tierCrop = {
         x: image.bitmap.width / 3.8,
-        y: image.bitmap.height / 3.65,
+        y: image.bitmap.height / 3.33,
         width: image.bitmap.width - (image.bitmap.width / 1.9),
-        height: image.bitmap.height / 8
+        height: image.bitmap.height / 8.0
       },
       allCrop = {
         x: 0,
@@ -1074,11 +1074,11 @@ class ImageProcessing {
 
     // special case for some kind of odd vertical phone
     if (checkPhoneColor.r <= 20 && checkPhoneColor.g <= 20 && checkPhoneColor.b <= 20) {
-      gymLocation.y += 100;
+      gymNameCrop.y += 100;
     }
 
     // GYM NAME
-    const gym = await this.getGymName(id, message, image, gymLocation);
+    const gym = await this.getGymName(id, message, image, gymNameCrop);
 
     if (!gym) {
       return false;
