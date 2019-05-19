@@ -123,7 +123,10 @@
     "name": "pidgeot"
   },
   {
-    "name": "rattata"
+    "name": "rattata",
+    "nickname": [
+      "kanto"
+    ]
   },
   {
     "name": "rattata_alola",
@@ -133,7 +136,10 @@
     ]
   },
   {
-    "name": "raticate"
+    "name": "raticate",
+    "nickname": [
+      "kanto"
+    ]
   },
   {
     "name": "raticate_alola",
@@ -160,7 +166,10 @@
   },
   {
     "name": "raichu",
-    "shiny": true
+    "shiny": true,
+    "nickname": [
+      "kanto"
+    ]
   },
   {
     "name": "raichu_alola",
@@ -174,7 +183,10 @@
   },
   {
     "name": "sandshrew",
-    "shiny": true
+    "shiny": true,
+    "nickname": [
+      "kanto"
+    ]
   },
   {
     "name": "sandshrew_alola",
@@ -185,7 +197,10 @@
   },
   {
     "name": "sandslash",
-    "tier": 2
+    "tier": 2,
+    "nickname": [
+      "kanto"
+    ]
   },
   {
     "name": "sandslash_alola",
@@ -223,7 +238,10 @@
     "name": "clefable"
   },
   {
-    "name": "vulpix"
+    "name": "vulpix",
+    "nickname": [
+      "kanto"
+    ]
   },
   {
     "name": "vulpix_alola",
@@ -234,7 +252,10 @@
   },
   {
     "name": "ninetales",
-    "tier": 3
+    "tier": 3,
+    "nickname": [
+      "kanto"
+    ]
   },
   {
     "name": "ninetales_alola",
@@ -278,7 +299,10 @@
     "tier": 2
   },
   {
-    "name": "diglett"
+    "name": "diglett",
+    "nickname": [
+      "kanto"
+    ]
   },
   {
     "name": "diglett_alola",
@@ -288,7 +312,10 @@
     ]
   },
   {
-    "name": "dugtrio"
+    "name": "dugtrio",
+    "nickname": [
+      "kanto"
+    ]
   },
   {
     "name": "dugtrio_alola",
@@ -298,7 +325,10 @@
     ]
   },
   {
-    "name": "meowth"
+    "name": "meowth",
+    "nickname": [
+      "kanto"
+    ]
   },
   {
     "name": "meowth_alola",
@@ -308,7 +338,10 @@
     ]
   },
   {
-    "name": "persian"
+    "name": "persian",
+    "nickname": [
+      "kanto"
+    ]
   },
   {
     "name": "persian_alola",
@@ -318,7 +351,9 @@
     ]
   },
   {
-    "name": "psyduck"
+    "name": "psyduck",
+    "tier": 1,
+    "shine": true
   },
   {
     "name": "golduck"
@@ -387,7 +422,10 @@
   },
   {
     "name": "geodude",
-    "shiny": true
+    "shiny": true,
+    "nickname": [
+      "kanto"
+    ]
   },
   {
     "name": "geodude_alola",
@@ -397,7 +435,10 @@
     ]
   },
   {
-    "name": "graveler"
+    "name": "graveler",
+    "nickname": [
+      "kanto"
+    ]
   },
   {
     "name": "graveler_alola",
@@ -408,7 +449,10 @@
   },
   {
     "name": "golem",
-    "tier": 4
+    "tier": 4,
+    "nickname": [
+      "kanto"
+    ]
   },
   {
     "name": "golem_alola",
@@ -458,7 +502,10 @@
   },
   {
     "name": "grimer",
-    "shiny": true
+    "shiny": true,
+    "nickname": [
+      "kanto"
+    ]
   },
   {
     "name": "grimer_alola",
@@ -469,7 +516,10 @@
   },
   {
     "name": "muk",
-    "tier": 2
+    "tier": 2,
+    "nickname": [
+      "kanto"
+    ]
   },
   {
     "name": "muk_alola",
@@ -530,8 +580,10 @@
   {
     "name": "exeggutor",
     "nickname": [
+      "kanto",
       "exegg"
-    ]
+    ],
+    "tier": 2
   },
   {
     "name": "exeggutor_alola",
@@ -545,10 +597,14 @@
   },
   {
     "name": "cubone",
+    "tier": 1,
     "shiny": true
   },
   {
-    "name": "marowak"
+    "name": "marowak",
+    "nickname": [
+      "kanto"
+    ]
   },
   {
     "name": "marowak_alola",
@@ -881,7 +937,9 @@
     "name": "jumpluff"
   },
   {
-    "name": "aipom"
+    "name": "aipom",
+    "tier": 2,
+    "shiny": true
   },
   {
     "name": "sunkern",
@@ -949,6 +1007,7 @@
   },
   {
     "name": "snubbull",
+    "tier": 1,
     "shiny": true
   },
   {
@@ -1000,7 +1059,8 @@
     "name": "remoraid"
   },
   {
-    "name": "octillery"
+    "name": "octillery",
+    "tier": 2
   },
   {
     "name": "delibird",
@@ -1168,7 +1228,9 @@
     "name": "dustox"
   },
   {
-    "name": "lotad"
+    "name": "lotad",
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "lombre"
@@ -1221,7 +1283,7 @@
   },
   {
     "name": "breloom",
-    "tier": 2
+    "tier": 3
   },
   {
     "name": "slakoth"
@@ -1378,7 +1440,8 @@
     "name": "flygon"
   },
   {
-    "name": "cacnea"
+    "name": "cacnea",
+    "tier": 1
   },
   {
     "name": "cacturne"
@@ -1399,11 +1462,13 @@
   },
   {
     "name": "lunatone",
-    "tier": 3
+    "tier": 3,
+    "shiny": true
   },
   {
     "name": "solrock",
-    "tier": 3
+    "tier": 3,
+    "shiny": true
   },
   {
     "name": "barboach"
@@ -1517,7 +1582,8 @@
     "shiny": true
   },
   {
-    "name": "bagon"
+    "name": "bagon",
+    "tier": 1
   },
   {
     "name": "shelgon"
@@ -1678,10 +1744,28 @@
     "name": "bastiodon"
   },
   {
-    "name": "burmy"
+    "name": "burmy_plant",
+    "overrideName": "Burmy (Plant Cloak)"
   },
   {
-    "name": "wormadam"
+    "name": "burmy_sandy",
+    "overrideName": "Burmy (Sandy Cloak)"
+  },
+  {
+    "name": "burmy_trash",
+    "overrideName": "Burmy (Trash Cloak)"
+  },
+  {
+    "name": "wormadam_plant",
+    "overrideName": "Wormadam (Plant Cloak)"
+  },
+  {
+    "name": "wormadam_sandy",
+    "overrideName": "Wormadam (Sandy Cloak)"
+  },
+  {
+    "name": "wormadam_trash",
+    "overrideName": "Wormadam (Trash Cloak)"
   },
   {
     "name": "mothim"
@@ -1706,7 +1790,12 @@
     "name": "cherubi"
   },
   {
-    "name": "cherrim"
+    "name": "cherrim_overcast",
+    "overrideName": "Cherrim (Overcast)"
+  },
+  {
+    "name": "cherrim_sunny",
+    "overrideName": "Cherrim (Sunny)"
   },
   {
     "name": "shellos"
