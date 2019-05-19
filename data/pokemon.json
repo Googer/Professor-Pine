@@ -351,7 +351,9 @@
     ]
   },
   {
-    "name": "psyduck"
+    "name": "psyduck",
+    "tier": 1,
+    "shine": true
   },
   {
     "name": "golduck"
@@ -595,6 +597,7 @@
   },
   {
     "name": "cubone",
+    "tier": 1,
     "shiny": true
   },
   {
@@ -934,7 +937,9 @@
     "name": "jumpluff"
   },
   {
-    "name": "aipom"
+    "name": "aipom",
+    "tier": 2,
+    "shiny": true
   },
   {
     "name": "sunkern",
@@ -1002,6 +1007,7 @@
   },
   {
     "name": "snubbull",
+    "tier": 1,
     "shiny": true
   },
   {
@@ -1053,7 +1059,8 @@
     "name": "remoraid"
   },
   {
-    "name": "octillery"
+    "name": "octillery",
+    "tier": 2
   },
   {
     "name": "delibird",
@@ -1222,7 +1229,8 @@
   },
   {
     "name": "lotad",
-    "tier": 1
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "lombre"
@@ -1574,7 +1582,8 @@
     "shiny": true
   },
   {
-    "name": "bagon"
+    "name": "bagon",
+    "tier": 1
   },
   {
     "name": "shelgon"
@@ -1735,10 +1744,28 @@
     "name": "bastiodon"
   },
   {
-    "name": "burmy"
+    "name": "burmy_plant",
+    "overrideName": "Burmy (Plant Cloak)"
   },
   {
-    "name": "wormadam"
+    "name": "burmy_sandy",
+    "overrideName": "Burmy (Sandy Cloak)"
+  },
+  {
+    "name": "burmy_trash",
+    "overrideName": "Burmy (Trash Cloak)"
+  },
+  {
+    "name": "wormadam_plant",
+    "overrideName": "Wormadam (Plant Cloak)"
+  },
+  {
+    "name": "wormadam_sandy",
+    "overrideName": "Wormadam (Sandy Cloak)"
+  },
+  {
+    "name": "wormadam_trash",
+    "overrideName": "Wormadam (Trash Cloak)"
   },
   {
     "name": "mothim"
@@ -1763,7 +1790,12 @@
     "name": "cherubi"
   },
   {
-    "name": "cherrim"
+    "name": "cherrim_overcast",
+    "overrideName": "Cherrim (Overcast)"
+  },
+  {
+    "name": "cherrim_sunny",
+    "overrideName": "Cherrim (Sunny)"
   },
   {
     "name": "shellos"
