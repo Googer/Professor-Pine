@@ -77,7 +77,6 @@ class Pokemon extends Search {
               poke.backupNickname = poke.nickname;
               delete poke.nickname;
             }
-
           }
 
           return Object.assign({}, poke, pokemon.find(p => p.name === poke.name))
@@ -259,7 +258,7 @@ class Pokemon extends Search {
   }
 
   markShiny(pokemon, shiny) {
-    const updateObject = { shiny: shiny };
+    const updateObject = {shiny: shiny};
 
     return DB.insertIfAbsent('Pokemon', Object.assign({},
       {
@@ -273,11 +272,9 @@ class Pokemon extends Search {
 
   async getPokemonNicknames(pokemon) {
     const nicknameString = await DB.DB('Pokemon')
-        .where('name', pokemon)
-        .first()
-        .pluck('nickname');
-
-    console.log(nicknameString);
+      .where('name', pokemon)
+      .first()
+      .pluck('nickname');
 
     return nicknameString[0];
   }
@@ -378,17 +375,17 @@ class Pokemon extends Search {
       .pluck('name')
       .first();
 
-      if (result) {
-        const terms = result.name.split(/[\s-]/)
-          .filter(term => term.length > 0)
-          .map(term => term.match(/(?:<:)?([\w*]+)(?::[0-9]+>)?/)[1])
-          .map(term => term.toLowerCase());
+    if (result) {
+      const terms = result.name.split(/[\s-]/)
+        .filter(term => term.length > 0)
+        .map(term => term.match(/(?:<:)?([\w*]+)(?::[0-9]+>)?/)[1])
+        .map(term => term.toLowerCase());
 
-        return this.search(terms)
-          .find(pokemon => pokemon.exclusive || pokemon.tier);
-      }
+      return this.search(terms)
+        .find(pokemon => pokemon.exclusive || pokemon.tier);
+    }
 
-      return null;
+    return null;
   }
 
   static calculateWeaknesses(pokemonTypes) {
