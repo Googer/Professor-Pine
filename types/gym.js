@@ -18,8 +18,7 @@ class GymType extends Commando.ArgumentType {
         creationChannelId = PartyManager.getCreationChannelId(message.channel.id),
         channelName = await PartyManager.getCreationChannelName(message.channel.id),
         results = await Gym.search(creationChannelId, value.split(/\s/g), nameOnly);
-
-      if (results.length === 0) {
+      if (!results || results.length === 0) {
         if (arg && !arg.isScreenshot) {
           return `"${value}" returned no gyms.\n\nPlease try your search again, entering the text you want to search for.\n\n${arg.prompt}`;
         } else {

@@ -41,7 +41,6 @@ class GymCache {
         this.indexing = false;
         log.info('Indexing of all channels completed!');
       }
-
     }
   }
 
@@ -81,9 +80,9 @@ class GymCache {
         let index = new Gym(expandedGyms);
         channels[channel] = index;
 
-        resolve(true)
+        resolve(true);
       } else {
-        reject(false)
+        reject(false);
       }
     })
   }
@@ -99,16 +98,16 @@ class GymCache {
         //Create lunr search index for all gyms
         that.masterIndex = new Gym(allGyms);
 
-        resolve(true)
+        resolve(true);
       } else {
-        reject(false)
+        reject(false);
       }
     })
   }
 
   //Handle incoming searches and pass them to the proper search index based on channel
   async search(channel, terms, nameOnly) {
-    if (channel == null) {
+    if (channel === null) {
       if (this.masterIndex) {
         return this.masterIndex.search(terms, nameOnly)
       } else {
