@@ -191,10 +191,14 @@ class PartyManager {
     const that = this;
     Region.checkRegionsExist().then(async function (success) {
       if (success) {
-        const regions = await Region.getAllRegions().catch(error => console.log("PROBLEM"));
-        console.log("TOTAL REGIONS FOUND: " + regions.length);
-        const deleted = await Region.deleteRegionsNotInChannels(that.regionChannels).catch(error => console.log("PROBLEM"));
-        console.log("DELETED " + deleted.affectedRows + " REGIONS NOT TIED TO CHANNELS")
+        const regions = await Region.getAllRegions()
+          .catch(error => log.error(error));
+        log.debug("TOTAL REGIONS FOUND: " + regions.length);
+        const deleted = await Region.deleteRegionsNotInChannels(that.regionChannels)
+          .catch(error => log.error(error));
+        if (!!deleted && deleted.affectedRows) {
+          log.debug("DELETED " + deleted.affectedRows + " REGIONS NOT TIED TO CHANNELS")
+        }
       }
     }).catch(error => console.log(error))
   }

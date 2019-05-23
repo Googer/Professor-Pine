@@ -106,7 +106,7 @@ class GymCache {
     })
   }
 
-  //Handle incoming searchs and pass them to the proper search index based on channel
+  //Handle incoming searches and pass them to the proper search index based on channel
   async search(channel, terms, nameOnly) {
     if (channel == null) {
       if (this.masterIndex) {
