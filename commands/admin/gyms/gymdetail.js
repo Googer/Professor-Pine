@@ -44,7 +44,6 @@ module.exports = class FindGym extends commando.Command {
       gym = await Region.getGym(this.getValue(args.term)).catch(error => msg.say(error));
 
       if (gym !== undefined && gym["name"]) {
-
         const channels = await Region.getChannelsForGym(gym).catch(error => []);
         const phrase = "Showing details for gym with ID " + args.term;
         await Region.showGymDetail(msg, gym, phrase, null, channels, false);
@@ -70,9 +69,8 @@ module.exports = class FindGym extends commando.Command {
 
   getValue(value) {
     if (Number(value)) {
-      return Number(value)
+      return Number(value);
     }
-    return -1
+    return -1;
   }
-
 };

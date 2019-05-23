@@ -357,7 +357,7 @@ class RegionHelper {
 
   async deleteRegionsNotInChannels(channels) {
     if (channels.length > 0) {
-      let select_query = "DELETE FROM Region WHERE ";
+      let selectQuery = "DELETE FROM Region WHERE ";
       const orOptions = [];
 
       for (let i = 0; i < channels.length; i++) {
@@ -365,10 +365,10 @@ class RegionHelper {
         orOptions.push(option)
       }
 
-      select_query += orOptions.join(' AND');
+      selectQuery += orOptions.join(' AND');
 
       return new Promise(async function (resolve, reject) {
-        const results = await dbhelper.query(select_query)
+        const results = await dbhelper.query(selectQuery)
           .catch(error => {
             log.error(error);
             return null;

@@ -85,11 +85,10 @@ module.exports = class FindGym extends commando.Command {
     if (first === "#") {
       const integer = value.substring(1, value.length);
       if (Number(integer)) {
-        return Number(integer)
+        return Number(integer);
       }
     }
 
-    return -1
+    return -1;
   }
-
 };
