@@ -71,8 +71,11 @@ class Notify {
     const pokemonName = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1),
       regionChannel = (await PartyManager.getChannel(message.channel.id)).channel,
       reportingMember = (await PartyManager.getMember(regionChannel.id, reportingMemberId)).member,
-      header = `A ${pokemonName} spawn has been reported in #${regionChannel.name} by ${reportingMember.displayName}:`,
-      regionHeader = `A ${pokemonName} spawn has been reported by ${reportingMember.displayName}:`,
+      shiny = pokemon.shiny ?
+        Helper.getEmoji(settings.emoji.shiny) || '✨' :
+        '',
+      header = `A ${pokemonName}${shiny} spawn has been reported in #${regionChannel.name} by ${reportingMember.displayName}:`,
+      regionHeader = `A ${pokemonName}${shiny} spawn has been reported by ${reportingMember.displayName}:`,
       botLabChannel = message.guild.channels.find(channel => channel.name === settings.channels["bot-lab"]),
       embed = new MessageEmbed();
     embed.setColor('GREEN');
