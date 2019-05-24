@@ -121,6 +121,12 @@ class ImageProcessing {
   process(message, url) {
     let newImage, id;
 
+    // if raid command is disabled, cancel out immediately
+    const RaidCommand = Helper.client.registry.commands.get('raid');
+    if (!RaidCommand.isEnabledIn(message.guild)) {
+      return;
+    }
+
     // if not in a proper raid channel, cancel out immediately
     if (!regionMap[message.channel.name]) {
       return;
