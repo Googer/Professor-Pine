@@ -207,12 +207,12 @@ class PartyManager {
     this.regionChannels.push(channel);
   }
 
-  gymIsCached(gym_id) {
+  gymIsCached(gymId) {
 
     if (this.gymCache) {
       for (let i = 0; i < this.gymCache.length; i++) {
         const gym = this.gymCache[i];
-        if (gym.id === gym_id) {
+        if (gym.id === gymId) {
           return true;
         }
       }
@@ -228,7 +228,7 @@ class PartyManager {
     const that = this;
     Object.entries(this.parties)
       .filter(([channelId, party]) => party.type === PartyType.RAID)
-      .forEach(async function ([channel_id, party]) {
+      .forEach(async function ([channelId, party]) {
         if (!that.gymIsCached(party.gymId)) {
           console.log(party);
           const gym = await Region.getGym(party.gymId);
@@ -248,12 +248,12 @@ class PartyManager {
     console.log(this.gymCache)
   }
 
-  getCachedGym(gym_id) {
+  getCachedGym(gymId) {
 
-    if (this.gymIsCached(gym_id)) {
+    if (this.gymIsCached(gymId)) {
       for (let i = 0; i < this.gymCache.length; i++) {
         const gym = this.gymCache[i];
-        if (gym.id === gym_id) {
+        if (gym.id === gymId) {
           return gym;
         }
       }
@@ -268,8 +268,8 @@ class PartyManager {
     return this.regionChannels
   }
 
-  channelCanRaid(channel_id) {
-    return this.regionChannels.indexOf(channel_id) > -1;
+  channelCanRaid(channelId) {
+    return this.regionChannels.indexOf(channelId) > -1;
   }
 
   categoryHasRegion(category) {

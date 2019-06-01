@@ -46,14 +46,14 @@ module.exports = class ImportGyms extends commando.Command {
     if (repo) {
 
       const gyms = await this.getJSON(`${repo}raw/master/data/gyms.json`);
-      const gym_meta = await this.getJSON(`${repo}raw/master/data/gyms-metadata.json`);
+      const gymMetadata = await this.getJSON(`${repo}raw/master/data/gyms-metadata.json`);
 
-      if (gyms && gym_meta) {
-        const keys = Object.keys(gym_meta);
+      if (gyms && gymMetadata) {
+        const keys = Object.keys(gymMetadata);
 
         for (let i = 0; i < gyms.length; i++) {
-          if (gym_meta[gyms[i].gymId]) {
-            gyms[i]["meta"] = gym_meta[gyms[i].gymId];
+          if (gymMetadata[gyms[i].gymId]) {
+            gyms[i]["meta"] = gymMetadata[gyms[i].gymId];
           }
         }
 
@@ -71,10 +71,10 @@ module.exports = class ImportGyms extends commando.Command {
   }
 
   validRepo(repo) {
-    const valid_prefix = "https://github.com/";
-    const first = repo.substring(0, valid_prefix.length);
+    const validPrefix = "https://github.com/";
+    const first = repo.substring(0, validPrefix.length);
     const last = repo.substring(repo.length - 1, 1);
-    if (first === valid_prefix) {
+    if (first === validPrefix) {
       let url = repo;
       if (last !== "/") {
         url = url + "/"
@@ -161,7 +161,7 @@ module.exports = class ImportGyms extends commando.Command {
   makeMetaInsert(gym) {
     const geodata = JSON.stringify(this.formatGeodata(gym.gymInfo.addressComponents));
     const places = gym.gymInfo.places.join(' ');
-    let statement = "INSERT INTO GymMeta (gym_id, ";
+    let statement = "INSERT INTO GymMeta (gymId, ";
 
     const fields = [];
     const content = [];
@@ -172,12 +172,12 @@ module.exports = class ImportGyms extends commando.Command {
       }
 
       if (gym.meta.hasHostedEx) {
-        fields.push("ex_raid");
+        fields.push("confirmedEx");
         content.push("?");
       }
 
       if (gym.meta.hasExTag) {
-        fields.push("ex_tagged");
+        fields.push("taggedEx");
         content.push("?");
       }
 

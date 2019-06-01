@@ -27,7 +27,7 @@ class GymType extends Commando.ArgumentType {
       }
 
       const regions = await Region.getChannelsForGym(results[0].gym);
-      const resultChannel = await PartyManager.getChannel(regions[0]["channel_id"]);
+      const resultChannel = await PartyManager.getChannel(regions[0]["channelId"]);
       const resultChannelName = resultChannel != null ? resultChannel.channel.name : "";
 
       const gym = results[0].gym,

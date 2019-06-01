@@ -1,4 +1,4 @@
-const private_settings = require('../data/private-settings'),
+const privateSettings = require('../data/private-settings'),
   log = require('loglevel').getLogger('DBHelper'),
   DB = require('./db'),
   mysql = require('mysql');
@@ -8,10 +8,10 @@ const private_settings = require('../data/private-settings'),
 class DBHelper {
   constructor() {
     this.pool = mysql.createPool({
-      host: private_settings.db.host,
-      user: private_settings.db.user,
-      password: private_settings.db.password,
-      database: private_settings.db.schema,
+      host: privateSettings.db.host,
+      user: privateSettings.db.user,
+      password: privateSettings.db.password,
+      database: privateSettings.db.schema,
       multipleStatements: true,
       supportBigNumbers: true,
       bigNumberStrings: true
@@ -21,10 +21,10 @@ class DBHelper {
   getConnection() {
     if (!this.connection) {
       this.connection = mysql.createConnection({
-        host: private_settings.db.host,
-        user: private_settings.db.user,
-        password: private_settings.db.password,
-        database: private_settings.db.schema,
+        host: privateSettings.db.host,
+        user: privateSettings.db.user,
+        password: privateSettings.db.password,
+        database: privateSettings.db.schema,
         multipleStatements: true,
         supportBigNumbers: true,
         bigNumberStrings: true
@@ -54,7 +54,7 @@ class DBHelper {
     });
   }
 
-  async query(query_string) {
+  async query(queryString) {
     const that = this;
     return new Promise(async function (resolve, reject) {
       await DB.init();
@@ -62,7 +62,7 @@ class DBHelper {
       that.pool.getConnection(async function (error, connection) {
         connection.query("SET NAMES 'utf8mb4'");
         connection.query("SET CHARACTER SET 'utf8mb4'");
-        connection.query(query_string, (err, results) => {
+        connection.query(queryString, (err, results) => {
           connection.release();
 
           if (err) {
@@ -76,14 +76,14 @@ class DBHelper {
     });
   }
 
-  async query(query_string, values) {
+  async query(queryString, values) {
     const that = this;
     return new Promise(async function (resolve, reject) {
       await DB.init();
       that.pool.getConnection(async function (error, connection) {
         connection.query("SET NAMES 'utf8mb4'");
         connection.query("SET CHARACTER SET 'utf8mb4'");
-        connection.query(query_string, values, (err, results) => {
+        connection.query(queryString, values, (err, results) => {
           connection.release();
           if (err) {
             log.error("mysql error: " + err);

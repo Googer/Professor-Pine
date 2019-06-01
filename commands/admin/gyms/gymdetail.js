@@ -49,7 +49,7 @@ module.exports = class FindGym extends commando.Command {
         await Region.showGymDetail(msg, gym, phrase, null, channels, false);
         const channelStrings = [];
         for (let i = 0; i < channels.length; i++) {
-          let channel = await PartyManager.getChannel(channels[i].channel_id);
+          let channel = await PartyManager.getChannel(channels[i].channelId);
           channelStrings.push(channel.channel.toString());
         }
 

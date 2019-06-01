@@ -21,7 +21,7 @@ class FindGymType extends commando.ArgumentType {
         if (gym !== undefined && gym["name"]) {
           Region.showGymDetail(message, gym, `Gym found with term "${value}"`, null, false).then((message) => {
             gym.message = message;
-            that.gym_info = gym;
+            that.gymInfo = gym;
             resolve(true);
           }).catch(err => console.log(err));
         } else {
@@ -31,8 +31,8 @@ class FindGymType extends commando.ArgumentType {
   }
 
   parse(value, message, arg) {
-    return (this.gym_info != null) ?
-      this.gym_info :
+    return (this.gymInfo != null) ?
+      this.gymInfo :
       value;
   }
 

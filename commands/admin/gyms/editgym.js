@@ -173,36 +173,36 @@ module.exports = class EditGym extends commando.Command {
     }
   }
 
-  cleanup(msg, gym_result, field_result, collection_result, gym_message) {
+  cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage) {
     msg.delete();
-    if (gym_message) {
-      gym_message.delete()
+    if (gymMessage) {
+      gymMessage.delete()
     }
 
-    gym_result.prompts.forEach(message => {
+    gymResult.prompts.forEach(message => {
       message.delete()
     });
 
-    gym_result.answers.forEach(message => {
+    gymResult.answers.forEach(message => {
       message.delete()
     });
 
-    if (field_result) {
-      field_result.prompts.forEach(message => {
+    if (fieldResult) {
+      fieldResult.prompts.forEach(message => {
         message.delete()
       });
 
-      field_result.answers.forEach(message => {
+      fieldResult.answers.forEach(message => {
         message.delete()
       })
     }
 
-    if (collection_result) {
-      collection_result.prompts.forEach(message => {
+    if (collectionResult) {
+      collectionResult.prompts.forEach(message => {
         message.delete()
       });
 
-      collection_result.answers.forEach(message => {
+      collectionResult.answers.forEach(message => {
         message.delete()
       })
     }
@@ -212,148 +212,161 @@ module.exports = class EditGym extends commando.Command {
 
     log.info(args.constructor.name);
     const that = this;
-    const gym_args = (args.length > 0) ? [this.getGymArgument(args)] : [];
-    this.gymCollector.obtain(msg, gym_args).then(async function (gym_result) {
-      if (!gym_result.cancelled) {
+    const gymArgs = (args.length > 0) ? [this.getGymArgument(args)] : [];
+    this.gymCollector.obtain(msg, gymArgs)
+      .then(async function (gymResult) {
+        if (!gymResult.cancelled) {
 
-        const gym = gym_result.values["gym"];
-        const gym_msg = gym.message;
+          const gym = gymResult.values["gym"];
+          const gymMessage = gym.message;
 
-        const field_args = that.getFieldArgument(args) ? [that.getFieldArgument(args)] : [];
+          const fieldArgs = that.getFieldArgument(args) ? [that.getFieldArgument(args)] : [];
 
-        log.info("field: " + field_args);
+          log.info("field: " + fieldArgs);
 
-        that.fieldCollector.obtain(msg, field_args).then(async function (field_result) {
-          if (!field_result.cancelled) {
+          that.fieldCollector.obtain(msg, fieldArgs)
+            .then(async function (fieldResult) {
+              if (!fieldResult.cancelled) {
+                const value = fieldResult.values["field"].toLowerCase();
 
-            const value = field_result.values["field"].toLowerCase();
-
-            if (value === 'location') {
-              that.locationCollector.obtain(msg).then(async function (collection_result) {
-                if (!collection_result.cancelled) {
-                  const location = collection_result.values["location"];
-                  const result = await Region.setGymLocation(gym["id"], location, Gym).catch(error => msg.say("An error occurred changing the location of this gym."));
-                  if (result["id"]) {
-                    that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
-                    Region.showGymDetail(msg, result, "Updated Gym Location", msg.member.displayName, false);
-                  }
-                } else {
-                  that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
-                }
-              });
-            } else if (value === 'name') {
-              that.nameCollector.obtain(msg).then(async function (collection_result) {
-                if (!collection_result.cancelled) {
-                  const name = collection_result.values["name"];
-                  const result = await Region.setGymName(gym, name, Gym).catch(error => msg.say("An error occurred setting the name of this gym."));
-                  if (result["id"]) {
-                    that.cleanup(msg, gym_result, field_result, collection_result);
-                    Region.showGymDetail(msg, result, "Updated Gym Name", msg.member.displayName, false);
-                  }
-                } else {
-                  that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
-                }
-              });
-            } else if (value === 'nickname') {
-              that.nicknameCollector.obtain(msg).then(async function (collection_result) {
-                if (!collection_result.cancelled) {
-                  const nickname = collection_result.values["nickname"];
-                  const result = await Region.setGymNickname(gym, nickname, Gym).catch(error => msg.say("An error occurred setting the nickname of this gym."));
-                  if (result["id"]) {
-                    that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
-                    Region.showGymDetail(msg, result, "Updated Gym Nickname", msg.member.displayName, false);
-                  }
-                } else {
-                  that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
-                }
-              });
-            } else if (value === 'description') {
-              that.descriptionCollector.obtain(msg).then(async function (collection_result) {
-                if (!collection_result.cancelled) {
-                  const description = collection_result.values["description"];
-                  const result = await Region.setGymDescription(gym, description, Gym).catch(error => msg.say("An error occurred setting the description of this gym."));
-                  if (result["id"]) {
-                    that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
-                    Region.showGymDetail(msg, result, "Updated Gym Description", msg.member.displayName, false);
-                  }
-                } else {
-                  that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
-                }
-              });
-            } else if (value === 'keywords') {
-              that.keywordsCollector.obtain(msg).then(async function (collection_result) {
-                if (!collection_result.cancelled) {
-                  log.info("action: " + collection_result.values["keywords"]["action"]);
-                  log.info("keywords: " + collection_result.values["keywords"]["keywords"]);
-
-                  const action = collection_result.values["keywords"]["action"];
-                  const keywords = collection_result.values["keywords"]["keywords"];
-                  const result = await Region.editGymKeywords(gym, action, keywords, Gym).catch(error => msg.say("An error occurred adding removing keywords from the gym."));
-                  if (result["id"]) {
-                    that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
-                    Region.showGymDetail(msg, result, "Updated Gym Keywords", msg.member.displayName, false);
-                  }
-                } else {
-                  that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
-                }
-              });
-            } else if (value === 'exraid') {
-              that.exTagCollector.obtain(msg).then(async function (tag_result) {
-                if (!tag_result.cancelled) {
-
-                  that.exPreviousCollector.obtain(msg).then(async function (previous_result) {
-                    if (!previous_result.cancelled) {
-                      const tagged = tag_result.values["extag"];
-                      const previous = previous_result.values["exprevious"];
-
-                      const is_tagged = tagged.toLowerCase() === "yes" || tagged.toLowerCase() === "y";
-                      const is_previous = previous.toLowerCase() === "yes" || previous.toLowerCase() === "y";
-
-                      const result = await Region.setEXStatus(gym, is_tagged, is_previous, Gym).catch(error => msg.say("An error occurred setting the EX eligibility of This gym."));
-                      if (result["id"]) {
-
-                        previous_result.prompts.forEach(message => {
-                          message.delete()
-                        });
-
-                        that.cleanup(msg, gym_result, field_result, tag_result, gym_msg);
-                        Region.showGymDetail(msg, result, "Updated EX Raid Eligibility", msg.member.displayName, false);
+                if (value === 'location') {
+                  that.locationCollector.obtain(msg)
+                    .then(async function (collectionResult) {
+                      if (!collectionResult.cancelled) {
+                        const location = collectionResult.values["location"];
+                        const result = await Region.setGymLocation(gym["id"], location, Gym)
+                          .catch(error => msg.say("An error occurred changing the location of this gym."));
+                        if (result["id"]) {
+                          that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
+                          Region.showGymDetail(msg, result, "Updated Gym Location", msg.member.displayName, false);
+                        }
+                      } else {
+                        that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
                       }
-                    } else {
-                      previous_result.prompts.forEach(message => {
-                        message.delete()
-                      });
-                      that.cleanup(msg, gym_result, field_result, tag_result, gym_msg);
-                    }
-                  });
-                } else {
-                  that.cleanup(msg, gym_result, field_result, tag_result, gym_msg);
-                }
-              });
-            } else if (value === 'notice') {
-              that.noticeCollector.obtain(msg).then(async function (collection_result) {
-                if (!collection_result.cancelled) {
-                  const notice = collection_result.values["notice"];
-                  const result = await Region.setGymNotice(gym, notice, Gym).catch(error => msg.say("An error occurred setting the notice for this gym."));
-                  if (result["id"]) {
-                    that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
-                    Region.showGymDetail(msg, result, "Updated Gym Notice", msg.member.displayName, false);
-                  }
-                } else {
-                  that.cleanup(msg, gym_result, field_result, collection_result, gym_msg);
-                }
-              });
-            }
+                    });
+                } else if (value === 'name') {
+                  that.nameCollector.obtain(msg)
+                    .then(async function (collectionResult) {
+                      if (!collectionResult.cancelled) {
+                        const name = collectionResult.values["name"];
+                        const result = await Region.setGymName(gym, name, Gym)
+                          .catch(error => msg.say("An error occurred setting the name of this gym."));
+                        if (result["id"]) {
+                          that.cleanup(msg, gymResult, fieldResult, collectionResult);
+                          Region.showGymDetail(msg, result, "Updated Gym Name", msg.member.displayName, false);
+                        }
+                      } else {
+                        that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
+                      }
+                    });
+                } else if (value === 'nickname') {
+                  that.nicknameCollector.obtain(msg)
+                    .then(async function (collectionResult) {
+                      if (!collectionResult.cancelled) {
+                        const nickname = collectionResult.values["nickname"];
+                        const result = await Region.setGymNickname(gym, nickname, Gym)
+                          .catch(error => msg.say("An error occurred setting the nickname of this gym."));
+                        if (result["id"]) {
+                          that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
+                          Region.showGymDetail(msg, result, "Updated Gym Nickname", msg.member.displayName, false);
+                        }
+                      } else {
+                        that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
+                      }
+                    });
+                } else if (value === 'description') {
+                  that.descriptionCollector.obtain(msg)
+                    .then(async function (collectionResult) {
+                      if (!collectionResult.cancelled) {
+                        const description = collectionResult.values["description"];
+                        const result = await Region.setGymDescription(gym, description, Gym)
+                          .catch(error => msg.say("An error occurred setting the description of this gym."));
+                        if (result["id"]) {
+                          that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
+                          Region.showGymDetail(msg, result, "Updated Gym Description", msg.member.displayName, false);
+                        }
+                      } else {
+                        that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
+                      }
+                    });
+                } else if (value === 'keywords') {
+                  that.keywordsCollector.obtain(msg)
+                    .then(async function (collectionResult) {
+                      if (!collectionResult.cancelled) {
+                        log.info("action: " + collectionResult.values["keywords"]["action"]);
+                        log.info("keywords: " + collectionResult.values["keywords"]["keywords"]);
 
+                        const action = collectionResult.values["keywords"]["action"];
+                        const keywords = collectionResult.values["keywords"]["keywords"];
+                        const result = await Region.editGymKeywords(gym, action, keywords, Gym)
+                          .catch(error => msg.say("An error occurred adding removing keywords from the gym."));
+                        if (result["id"]) {
+                          that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
+                          Region.showGymDetail(msg, result, "Updated Gym Keywords", msg.member.displayName, false);
+                        }
+                      } else {
+                        that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
+                      }
+                    });
+                } else if (value === 'exraid') {
+                  that.exTagCollector.obtain(msg)
+                    .then(async function (tagResult) {
+                      if (!tagResult.cancelled) {
 
-          } else {
-            that.cleanup(msg, gym_result, field_result, null, gym_msg);
-          }
-        });
-      } else {
-        that.cleanup(msg, gym_result, null, null, null);
-      }
-    });
+                        that.exPreviousCollector.obtain(msg)
+                          .then(async function (previousResult) {
+                            if (!previousResult.cancelled) {
+                              const tagged = tagResult.values["extag"];
+                              const previous = previousResult.values["exprevious"];
+
+                              const isTagged = tagged.toLowerCase() === "yes" || tagged.toLowerCase() === "y";
+                              const isPrevious = previous.toLowerCase() === "yes" || previous.toLowerCase() === "y";
+
+                              const result = await Region.setEXStatus(gym, isTagged, isPrevious, Gym)
+                                .catch(error => msg.say("An error occurred setting the EX eligibility of This gym."));
+                              if (result["id"]) {
+
+                                previousResult.prompts.forEach(message => {
+                                  message.delete()
+                                });
+
+                                that.cleanup(msg, gymResult, fieldResult, tagResult, gymMessage);
+                                Region.showGymDetail(msg, result, "Updated EX Raid Eligibility", msg.member.displayName, false);
+                              }
+                            } else {
+                              previousResult.prompts.forEach(message => {
+                                message.delete()
+                              });
+                              that.cleanup(msg, gymResult, fieldResult, tagResult, gymMessage);
+                            }
+                          });
+                      } else {
+                        that.cleanup(msg, gymResult, fieldResult, tagResult, gymMessage);
+                      }
+                    });
+                } else if (value === 'notice') {
+                  that.noticeCollector.obtain(msg
+                    .then(async function (collectionResult) {
+                      if (!collectionResult.cancelled) {
+                        const notice = collectionResult.values["notice"];
+                        const result = await Region.setGymNotice(gym, notice, Gym)
+                          .catch(error => msg.say("An error occurred setting the notice for this gym."));
+                        if (result["id"]) {
+                          that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
+                          Region.showGymDetail(msg, result, "Updated Gym Notice", msg.member.displayName, false);
+                        }
+                      } else {
+                        that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
+                      }
+                    }));
+                }
+              } else {
+                that.cleanup(msg, gymResult, fieldResult, null, gymMessage);
+              }
+            });
+        } else {
+          that.cleanup(msg, gymResult, null, null, null);
+        }
+      });
   }
-
 };

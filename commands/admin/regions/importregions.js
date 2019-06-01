@@ -1,11 +1,9 @@
 const commando = require('discord.js-commando'),
-  https = require('https'),
   oneLine = require('common-tags').oneLine,
   Region = require('../../../app/region'),
   GymCache = require('../../../app/gym'),
   PartyManager = require('../../../app/party-manager'),
-  Helper = require('../../../app/helper'),
-  private_settings = require('../../../data/private-settings');
+  Helper = require('../../../app/helper');
 
 module.exports = class ImportRegions extends commando.Command {
   constructor(client) {
@@ -48,12 +46,12 @@ module.exports = class ImportRegions extends commando.Command {
       const file = msg.attachments.first().url;
       const data = await Region.parseRegionData(file).catch(error => false);
       if (data) {
-        const channel_regions = [];
+        const channelRegions = [];
 
         for (let i = 0; i < data.features.length; i++) {
           const feature = data.features[i];
           if (feature.geometry.type === "Polygon") {
-            channel_regions.push(feature)
+            channelRegions.push(feature)
           }
         }
 
@@ -61,13 +59,12 @@ module.exports = class ImportRegions extends commando.Command {
         const toUpdate = [];
         const ineligible = [];
 
-        for (let i = 0; i < channel_regions.length; i++) {
-          const feature = channel_regions[i];
-          const name = feature.properties.name;
-          const channel_name = Region.channelNameForFeature(feature);
+        for (let i = 0; i < channelRegions.length; i++) {
+          const feature = channelRegions[i];
+          const channelName = Region.channelNameForFeature(feature);
 
-          if (Helper.doesChannelExist(channel_name)) {
-            const channel = Helper.getChannelForName(channel_name);
+          if (Helper.doesChannelExist(channelName)) {
+            const channel = Helper.getChannelForName(channelName);
             if (Helper.isChannelChild(channel.id)) {
               const parent = Helper.getParentChannel(channel.id);
               if (PartyManager.categoryHasRegion(parent.id) && !Helper.isChannelBounded(channel.id, PartyManager.getRaidChannelCache())) {
@@ -99,10 +96,10 @@ module.exports = class ImportRegions extends commando.Command {
         //Update regions
         for (let i = 0; i < toUpdate.length; i++) {
           const feature = toUpdate[i];
-          const channel_name = Region.channelNameForFeature(feature);
-          const channel = Helper.getChannelForName(channel_name);
+          const channelName = Region.channelNameForFeature(feature);
+          const channel = Helper.getChannelForName(channelName);
           const polydata = feature.geometry.coordinates[0];
-          Region.storeRegion(polydata, channel.id, GymCache).catch(error => reject("An error occurred storing the region for " + channel_name)).then(result => {
+          Region.storeRegion(polydata, channel.id, GymCache).catch(error => reject("An error occurred storing the region for " + channelName)).then(result => {
           });
         }
       } else {

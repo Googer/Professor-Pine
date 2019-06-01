@@ -33,8 +33,8 @@ class GymCache {
     let channelsProcessed = 0;
     for (const channel of channels) {
 
-      log.info("Indexing channel: " + channel["channel_id"]);
-      await this.rebuildRegion(channel["channel_id"]);
+      log.info("Indexing channel: " + channel["channelId"]);
+      await this.rebuildRegion(channel["channelId"]);
       channelsProcessed++;
       if (channelsProcessed === channels.length) {
         await this.rebuildMaster();
@@ -51,10 +51,10 @@ class GymCache {
     }
 
     const removeIndex = this.indexQueue.slice(0);
-    removeIndex.forEach(async function (channel_id) {
-      log.info(`Trying to rebuild region of channel: ${channel_id}`);
-      await that.rebuildRegion(channel_id);
-      let index = that.indexQueue.indexOf(channel_id);
+    removeIndex.forEach(async function (channelId) {
+      log.info(`Trying to rebuild region of channel: ${channelId}`);
+      await that.rebuildRegion(channelId);
+      let index = that.indexQueue.indexOf(channelId);
       if (index > -1) {
         that.indexQueue.splice(index, 1);
       }
@@ -138,9 +138,9 @@ class GymCache {
 
   markGymsForPlacesUpdates(gyms) {
     log.info(`Marking ${gyms} for places updates`);
-    gyms.forEach(gym_id => {
-      if (this.placesQueue.indexOf(gym_id) === -1) {
-        this.placesQueue.push(gym_id);
+    gyms.forEach(gymId => {
+      if (this.placesQueue.indexOf(gymId) === -1) {
+        this.placesQueue.push(gymId);
       }
     });
   }
@@ -172,11 +172,11 @@ class GymCache {
     }
   }
 
-  markChannelsForReindex(channel_ids) {
-    log.info(`Marking ${channel_ids} for index updates`);
-    channel_ids.forEach(channel_id => {
-      if (this.indexQueue.indexOf(channel_id) === -1) {
-        this.indexQueue.push(channel_id);
+  markChannelsForReindex(channelIds) {
+    log.info(`Marking ${channelIds} for index updates`);
+    channelIds.forEach(channelId => {
+      if (this.indexQueue.indexOf(channelId) === -1) {
+        this.indexQueue.push(channelId);
       }
     });
   }

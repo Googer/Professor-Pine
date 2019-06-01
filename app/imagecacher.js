@@ -1,7 +1,6 @@
 "use strict";
 
 const log = require('loglevel').getLogger('ImageCacher'),
-  private_settings = require('../data/private-settings'),
   request = require("request"),
   fs = require('fs');
 

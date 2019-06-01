@@ -375,8 +375,8 @@ class Helper {
     for (let i = 0; i < children.length; i++) {
       const child = children[i];
       for (let j = 0; j < raidChannels.length; j++) {
-        const region_channel = raidChannels[j];
-        if (child.id === region_channel) {
+        const regionChannel = raidChannels[j];
+        if (child.id === regionChannel) {
           return child;
         }
       }

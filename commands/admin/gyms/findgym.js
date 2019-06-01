@@ -61,7 +61,7 @@ module.exports = class FindGym extends commando.Command {
 
       const channelStrings = [];
       for (let i = 0; i < channels.length; i++) {
-        let channel = await PartyManager.getChannel(channels[i].channel_id);
+        let channel = await PartyManager.getChannel(channels[i].channelId);
         channelStrings.push(channel.channel.toString());
       }
 

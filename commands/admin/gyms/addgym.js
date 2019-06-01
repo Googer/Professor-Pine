@@ -97,111 +97,111 @@ module.exports = class AddGym extends commando.Command {
 
     const that = this;
     msg.channel.send({embed}).then(message => {
-      that.similar_message = message;
+      that.similarMessage = message;
     });
   }
 
-  cleanup(msg, location_result, name_result, nickname_result, description_result) {
+  cleanup(msg, locationResult, nameResult, nicknameResult, descriptionResult) {
     msg.delete();
 
-    location_result.prompts.forEach(message => {
+    locationResult.prompts.forEach(message => {
       message.delete()
     });
 
-    location_result.answers.forEach(message => {
+    locationResult.answers.forEach(message => {
       message.delete()
     });
 
-    if (name_result) {
-      name_result.prompts.forEach(message => {
+    if (nameResult) {
+      nameResult.prompts.forEach(message => {
         message.delete()
       });
 
-      name_result.answers.forEach(message => {
+      nameResult.answers.forEach(message => {
         message.delete()
       })
     }
 
-    if (nickname_result) {
-      nickname_result.prompts.forEach(message => {
+    if (nicknameResult) {
+      nicknameResult.prompts.forEach(message => {
         message.delete()
       });
 
-      nickname_result.answers.forEach(message => {
+      nicknameResult.answers.forEach(message => {
         message.delete()
       })
     }
 
-    if (description_result) {
-      description_result.prompts.forEach(message => {
+    if (descriptionResult) {
+      descriptionResult.prompts.forEach(message => {
         message.delete()
       });
 
-      description_result.answers.forEach(message => {
+      descriptionResult.answers.forEach(message => {
         message.delete()
       })
     }
   }
 
-  async finishCollection(msg, location_result) {
+  async finishCollection(msg, locationResult) {
     const that = this;
-    this.nameCollector.obtain(msg).then(async function (name_result) {
-      if (!name_result.cancelled) {
-        const name = name_result.values["name"];
-        that.nicknameCollector.obtain(msg).then(async function (nickname_result) {
-          if (!nickname_result.cancelled) {
-            const nickname = nickname_result.values["nickname"];
-            that.descriptionCollector.obtain(msg).then(async function (description_result) {
-              if (!description_result.cancelled) {
-                const description = description_result.values["description"];
+    this.nameCollector.obtain(msg).then(async function (nameResult) {
+      if (!nameResult.cancelled) {
+        const name = nameResult.values["name"];
+        that.nicknameCollector.obtain(msg).then(async function (nicknameResult) {
+          if (!nicknameResult.cancelled) {
+            const nickname = nicknameResult.values["nickname"];
+            that.descriptionCollector.obtain(msg).then(async function (descriptionResult) {
+              if (!descriptionResult.cancelled) {
+                const description = descriptionResult.values["description"];
                 const details = {
-                  "location": location_result.values["location"],
+                  "location": locationResult.values["location"],
                   "name": name,
                   "nickname": nickname,
                   "description": description
                 };
-                const gym = await Region.addGym(details, Gym).catch(error => msg.say(error)).then(async function (final_gym) {
+                const gym = await Region.addGym(details, Gym).catch(error => msg.say(error)).then(async function (finalGym) {
 
-                  let channels = await Region.getChannelsForGym(final_gym);
-                  await Region.showGymDetail(msg, final_gym, "New Gym Added", null, false);
+                  let channels = await Region.getChannelsForGym(finalGym);
+                  await Region.showGymDetail(msg, finalGym, "New Gym Added", null, false);
                   const channelStrings = [];
                   for (let i = 0; i < channels.length; i++) {
-                    let channel = await PartyManager.getChannel(channels[i].channel_id);
+                    let channel = await PartyManager.getChannel(channels[i].channelId);
                     channelStrings.push(channel.channel.toString());
                   }
 
-                  let affectedChannels = await Region.findAffectedChannels(final_gym["id"]);
+                  let affectedChannels = await Region.findAffectedChannels(finalGym["id"]);
                   if (channelStrings.length > 0) {
                     msg.say("This gym is in " + channelStrings.join(", "));
                   } else {
                     msg.say("This gym is not located in any region channels");
                   }
 
-                  that.cleanup(msg, location_result, name_result, nickname_result, description_result)
+                  that.cleanup(msg, locationResult, nameResult, nicknameResult, descriptionResult)
                 });
 
               } else {
-                that.cleanup(msg, location_result, name_result, nickname_result, description_result)
+                that.cleanup(msg, locationResult, nameResult, nicknameResult, descriptionResult)
               }
             })
           } else {
-            that.cleanup(msg, location_result, name_result, nickname_result)
+            that.cleanup(msg, locationResult, nameResult, nicknameResult)
           }
         })
 
       } else {
-        that.cleanup(msg, location_result, name_result)
+        that.cleanup(msg, locationResult, nameResult)
       }
     })
   }
 
   async run(msg, args) {
     const that = this;
-    const loc_args = (args.length > 0) ? [args] : [];
-    this.locationCollector.obtain(msg, loc_args).then(async function (location_result) {
-      if (!location_result.cancelled) {
+    const locationArgs = (args.length > 0) ? [args] : [];
+    this.locationCollector.obtain(msg, locationArgs).then(async function (locationResult) {
+      if (!locationResult.cancelled) {
 
-        const location = location_result.values["location"];
+        const location = locationResult.values["location"];
         // var region = await Region.getRegionsRaw(msg.channel.id)
         // var gyms = await Region.getGyms(region).catch(error => [])
         const gyms = await Region.getAllGyms();
@@ -213,33 +213,33 @@ module.exports = class AddGym extends commando.Command {
           that.showSimilarGym(similar, msg);
 
           //Offer the user the ability to cancel if they realize the gym they are trying to add already exists
-          that.confirmationCollector.obtain(msg).then(async function (confirm_result) {
-            if (!confirm_result.cancelled) {
-              const result = confirm_result.values["confirm"].toLowerCase();
+          that.confirmationCollector.obtain(msg).then(async function (confirmResult) {
+            if (!confirmResult.cancelled) {
+              const result = confirmResult.values["confirm"].toLowerCase();
               const first = result.substring(0, 1);
               if (first === "n") {
-                that.finishCollection(msg, location_result)
+                that.finishCollection(msg, locationResult)
               } else {
-                that.cleanup(msg, location_result)
+                that.cleanup(msg, locationResult)
               }
             }
 
-            that.similar_message.delete();
+            that.similarMessage.delete();
 
-            confirm_result.prompts.forEach(message => {
+            confirmResult.prompts.forEach(message => {
               message.delete()
             });
 
-            confirm_result.answers.forEach(message => {
+            confirmResult.answers.forEach(message => {
               message.delete()
             })
           })
         } else {
-          that.finishCollection(msg, location_result)
+          that.finishCollection(msg, locationResult)
         }
 
       } else {
-        that.cleanup(msg, location_result)
+        that.cleanup(msg, locationResult)
       }
     })
   }

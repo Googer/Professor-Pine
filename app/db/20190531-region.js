@@ -7,7 +7,7 @@ exports.up = function (knex, Promise) {
       table.specificType('bounds', 'polygon')
         .notNullable();
 
-      table.bigInteger('channel_id')
+      table.bigInteger('channelId')
         .unsigned();
 
       table.text('description')
@@ -18,7 +18,7 @@ exports.up = function (knex, Promise) {
       table.increments('id')
         .primary();
 
-      table.string('pogo_id')
+      table.string('pogoId')
         .nullable();
 
       table.specificType('lat', 'real(20,10)');
@@ -30,7 +30,7 @@ exports.up = function (knex, Promise) {
 
     knex.schema.createTable('GymMeta', table => {
 
-      table.integer('gym_id')
+      table.integer('gymId')
         .unsigned()
         .primary()
         .references('id')
@@ -49,11 +49,11 @@ exports.up = function (knex, Promise) {
       table.text('notice', 'mediumtext')
         .nullable();
 
-      table.boolean('ex_raid');
+      table.boolean('confirmedEx');
 
-      table.boolean('ex_tagged');
+      table.boolean('taggedEx');
 
-      table.string('image_url')
+      table.string('imageUrl')
         .nullable();
 
       table.integer('sponsor')

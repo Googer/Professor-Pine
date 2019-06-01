@@ -55,25 +55,25 @@ module.exports = class DeleteGym extends commando.Command {
     });
   }
 
-  cleanup(gym_result, confirm_result, gym_message) {
-    if (gym_message) {
-      gym_message.delete();
+  cleanup(gymResult, confirmResult, gymMessage) {
+    if (gymMessage) {
+      gymMessage.delete();
     }
 
-    gym_result.prompts.forEach(message => {
+    gymResult.prompts.forEach(message => {
       message.delete();
     });
 
-    gym_result.answers.forEach(message => {
+    gymResult.answers.forEach(message => {
       message.delete();
     });
 
-    if (confirm_result) {
-      confirm_result.prompts.forEach(message => {
+    if (confirmResult) {
+      confirmResult.prompts.forEach(message => {
         message.delete();
       });
 
-      confirm_result.answers.forEach(message => {
+      confirmResult.answers.forEach(message => {
         message.delete();
       });
     }
@@ -81,17 +81,19 @@ module.exports = class DeleteGym extends commando.Command {
 
   async run(msg, args) {
     const that = this;
-    const gym_args = (args.length > 0) ? [args] : [];
+    const gymArgs = (args.length > 0) ? [args] : [];
 
-    this.gymCollector.obtain(msg, gym_args).then(async function (gym_result) {
-      if (!gym_result.cancelled) {
-        const gym = gym_result.values['gym'];
-        const gym_msg = gym.message;
+    this.gymCollector.obtain(msg, gymArgs)
+      .then(async function (gymResult) {
+      if (!gymResult.cancelled) {
+        const gym = gymResult.values['gym'];
+        const gymMessage = gym.message;
 
-        that.confirmationCollector.obtain(msg).then(async function (confirm_result) {
-          if (!confirm_result.cancelled) {
-            const confirm = confirm_result.values['confirm'].substring(0, 1);
-            that.cleanup(gym_result, confirm_result, gym_msg);
+        that.confirmationCollector.obtain(msg)
+          .then(async function (confirmResult) {
+          if (!confirmResult.cancelled) {
+            const confirm = confirmResult.values['confirm'].substring(0, 1);
+            that.cleanup(gymResult, confirmResult, gymMessage);
 
             if (confirm === 'y' || confirm === 'yes') {
               Region.deleteGym(gym.id, Gym).then(result => {
@@ -103,11 +105,11 @@ module.exports = class DeleteGym extends commando.Command {
               }).catch(error => false)
             }
           } else {
-            that.cleanup(gym_result, confirm_result, gym_msg);
+            that.cleanup(gymResult, confirmResult, gymMessage);
           }
         });
       } else {
-        that.cleanup(gym_result);
+        that.cleanup(gymResult);
       }
     });
   }

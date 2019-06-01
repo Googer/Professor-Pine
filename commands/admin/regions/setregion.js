@@ -1,11 +1,9 @@
 const commando = require('discord.js-commando'),
-  https = require('https'),
   oneLine = require('common-tags').oneLine,
   Region = require('../../../app/region'),
   GymCache = require('../../../app/gym'),
   PartyManager = require('../../../app/party-manager'),
   Helper = require('../../../app/helper'),
-  private_settings = require('../../../data/private-settings'),
   {CommandGroup} = require('../../../app/constants');
 
 module.exports = class SetRegion extends commando.Command {

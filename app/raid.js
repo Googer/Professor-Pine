@@ -902,8 +902,8 @@ class Raid extends Party {
     let additionalInformation = '';
 
     if (!this.isExclusive) {
-      if (gym.ex_tagged) {
-        if (gym.ex_raid) {
+      if (gym.taggedEx) {
+        if (gym.confirmedEx) {
           additionalInformation += 'Confirmed EX Raid location - This gym has the EX gym tag and has previously hosted an EX Raid.';
         } else {
           additionalInformation += 'Potential EX Raid location - This gym has the EX gym tag.';

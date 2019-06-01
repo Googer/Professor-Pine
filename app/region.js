@@ -1,8 +1,6 @@
 const log = require('loglevel').getLogger('RegionManager'),
-  commando = require('discord.js-commando'),
   Discord = require('discord.js'),
   https = require('https'),
-  oneLine = require('common-tags').oneLine,
   tj = require('togeojson-with-extended-style'),
   lunr = require('lunr'),
   dbhelper = require('./dbhelper'),
@@ -10,9 +8,8 @@ const log = require('loglevel').getLogger('RegionManager'),
   DOMParser = require('xmldom').DOMParser,
   ImageCacher = require('./imagecacher'),
   stringSimilarity = require('string-similarity'),
-  private_settings = require('../data/private-settings'),
+  privateSettings = require('../data/private-settings'),
   request = require("request"),
-  mysql = require('mysql'),
   turf = require('@turf/turf');
 
 //This gets the decimal lat/lon value from a string of degree/minute/seconds
@@ -237,7 +234,7 @@ class RegionHelper {
 
     const center = region.centroid();
 
-    return "http://maps.google.com/maps/api/staticmap?size=500x300&format=png&center=" + center.x + "," + center.y + "&path=color:red|" + final + "&sensor=false&scale=2&key=" + private_settings.googleApiKey;
+    return "http://maps.google.com/maps/api/staticmap?size=500x300&format=png&center=" + center.x + "," + center.y + "&path=color:red|" + final + "&sensor=false&scale=2&key=" + privateSettings.googleApiKey;
   }
 
   googlePinLinkForPoint(coordString) {
@@ -259,7 +256,7 @@ class RegionHelper {
 
   async getRegionId(channel) {
     return new Promise(async function (resolve, reject) {
-      const results = await dbhelper.query("SELECT id FROM Region WHERE channel_id = ?", [channel])
+      const results = await dbhelper.query("SELECT id FROM Region WHERE channelId = ?", [channel])
         .catch(error => reject(false));
       if (results.length > 0 && results[0] !== undefined) {
         resolve(results[0]["id"]);
@@ -271,7 +268,7 @@ class RegionHelper {
 
   async getRegionsRaw(channel) {
     return new Promise(async function (resolve, reject) {
-      const results = await dbhelper.query("SELECT ST_AsText(bounds) FROM Region WHERE channel_id = ?", [channel])
+      const results = await dbhelper.query("SELECT ST_AsText(bounds) FROM Region WHERE channelId = ?", [channel])
         .catch(error => reject(false));
       if (results.length > 0 && results[0] !== undefined) {
         resolve(results[0]["ST_AsText(bounds)"]);
@@ -283,7 +280,7 @@ class RegionHelper {
 
   async getChannelsForGym(gym) {
     return new Promise(async function (resolve, reject) {
-      const q = "SELECT channel_id FROM Region WHERE ST_CONTAINS(bounds, POINT(?, ?));";
+      const q = "SELECT channelId FROM Region WHERE ST_CONTAINS(bounds, POINT(?, ?));";
       const results = await dbhelper.query(q, [gym.lat, gym.lon])
         .catch(error => reject(false));
       resolve(results);
@@ -311,7 +308,7 @@ class RegionHelper {
 
   checkCoordForChannel(channel, coords, resolve, reject) {
     const that = this;
-    const selectQuery = "SELECT ST_AsText(bounds) FROM Region WHERE channel_id = ?";
+    const selectQuery = "SELECT ST_AsText(bounds) FROM Region WHERE channelId = ?";
     dbhelper.query(selectQuery, [channel]).then(async function (results) {
       const region = that.getCoordRegionFromText(results[0]["ST_AsText(bounds)"]);
       let query = "SELECT ST_CONTAINS( ST_GeomFromText('";
@@ -361,7 +358,7 @@ class RegionHelper {
       const orOptions = [];
 
       for (let i = 0; i < channels.length; i++) {
-        const option = " channel_id <> " + channels[i];
+        const option = " channelId <> " + channels[i];
         orOptions.push(option)
       }
 
@@ -428,10 +425,10 @@ class RegionHelper {
 
           if (imagePath) {
             let parts = imagePath.split("/");
-            let image_name = parts[parts.length - 1];
+            let imageName = parts[parts.length - 1];
             const attachment = new Discord.MessageAttachment(imagePath);
             embed.attachFiles([attachment]);
-            embed.setImage(`attachment://${image_name}`);
+            embed.setImage(`attachment://${imageName}`);
           }
         }
 
@@ -655,19 +652,22 @@ class RegionHelper {
   async deletePreviousRegion(channel) {
     const that = this;
     return new Promise(async function (resolve, reject) {
-      that.getRegionId(channel).then(region_id => {
-        ImageCacher.deleteCachedImage(`images/regions/${region_id}.png`);
-        dbhelper.query("DELETE FROM Region WHERE id = ?", [region_id])
-          .then(result => {
-            resolve(true);
-          }).catch(error => {
+      that.getRegionId(channel)
+        .then(regionId => {
+          ImageCacher.deleteCachedImage(`images/regions/${regionId}.png`);
+          dbhelper.query("DELETE FROM Region WHERE id = ?", [regionId])
+            .then(result => {
+              resolve(true);
+            })
+            .catch(error => {
+              log.error(error);
+              resolve(false);
+            });
+        })
+        .catch(error => {
           log.error(error);
           resolve(false);
         });
-      }).catch(error => {
-        log.error(error);
-        resolve(false);
-      });
     });
   }
 
@@ -700,8 +700,8 @@ class RegionHelper {
       polystring += "))";
 
       await that.deletePreviousRegion(channel);
-      const insert_query = "INSERT INTO Region (channel_id,bounds) VALUES(?, ST_PolygonFromText(?));";
-      dbhelper.query(insert_query, [channel, polystring])
+      const insertQuery = "INSERT INTO Region (channelId,bounds) VALUES(?, ST_PolygonFromText(?));";
+      dbhelper.query(insertQuery, [channel, polystring])
         .then(result => {
           log.info('Added region for channel id: ' + channel);
           if (gymCache) {
@@ -714,7 +714,7 @@ class RegionHelper {
 
   async getAllBoundedChannels() {
     return new Promise(async function (resolve, reject) {
-      const channels = await dbhelper.query("SELECT DISTINCT channel_id FROM Region")
+      const channels = await dbhelper.query("SELECT DISTINCT channelId FROM Region")
         .catch(error => {
           log.error(error);
           reject(false);
@@ -742,7 +742,7 @@ class RegionHelper {
     }
   }
 
-  createNewRegion(feature, msg, gym_cache) {
+  createNewRegion(feature, msg, gymCache) {
     const that = this;
     return new Promise(function (resolve, reject) {
       //data["features"][0]["geometry"]["coordinates"][0];
@@ -754,35 +754,35 @@ class RegionHelper {
       msg.channel.guild.channels.create(categoryName, {
         type: "category"
       }, "For a region")
-        .then(new_category => {
+        .then(newCategory => {
           msg.channel.guild.channels.create(channelName, {
             type: "text",
-            parent: new_category,
-            overwrites: new_category.permissionOverwrites
+            parent: newCategory,
+            overwrites: newCategory.permissionOverwrites
           }, "For a region")
-            .then(new_channel => {
-              log.info("created new channel for " + name + " with id " + new_channel.id + " under category with id " + new_category.id);
-              that.storeRegion(polydata, new_channel.id, gym_cache)
+            .then(newChannel => {
+              log.info("created new channel for " + name + " with id " + newChannel.id + " under category with id " + newCategory.id);
+              that.storeRegion(polydata, newChannel.id, gymCache)
                 .catch(error => {
                   log.error(error);
                   reject("An error occurred storing the region for " + name);
                 })
                 .then(result => {
-                  resolve(new_channel.id);
+                  resolve(newChannel.id);
                 })
             }).catch(error => reject(error))
         }).catch(error => reject(error))
     })
   }
 
-  async addGym(args, gym_cache) {
+  async addGym(args, gymCache) {
     const that = this;
     return new Promise(async function (resolve, reject) {
 
       that.coordStringFromText(args.location).then(async function (coords) {
         let point = that.pointFromCoordString(coords);
         const insertQuery = `INSERT INTO Gym (lat,lon,name) VALUES(${point.x},${point.y},\"${args.name}\")`;
-        let metaQuery = "INSERT INTO GymMeta (gym_id";
+        let metaQuery = "INSERT INTO GymMeta (gymId";
         let values = "";
 
         log.info("Adding gym...");
@@ -826,7 +826,9 @@ class RegionHelper {
             reject(error);
           })
           .then(async function () {
-            Meta.beginGeoUpdates(gym, gym_cache).catch(error => resolve(gym)).then(result => resolve(result));
+            Meta.beginGeoUpdates(gym, gymCache)
+              .catch(error => resolve(gym))
+              .then(result => resolve(result));
           });
       }).catch(error => {
         log.error(error);
@@ -835,7 +837,7 @@ class RegionHelper {
     });
   }
 
-  async setGymLocation(gym, location, gym_cache) {
+  async setGymLocation(gym, location, gymCache) {
     const that = this;
     return new Promise(async function (resolve, reject) {
       that.coordStringFromText(location).then(async function (coords) {
@@ -847,13 +849,13 @@ class RegionHelper {
             reject(error);
           })
           .then(async function (results) {
-            const gymInfo = await dbhelper.query("SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gym_id WHERE id = ?", [gym]).catch(error => {
+            const gymInfo = await dbhelper.query("SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId WHERE id = ?", [gym]).catch(error => {
               reject(error);
             });
 
             gym = gymInfo[0];
             ImageCacher.deleteCachedImage(`images/gyms/${gym}.png`);
-            Meta.beginGeoUpdates(gym, gym_cache)
+            Meta.beginGeoUpdates(gym, gymCache)
               .catch(error => {
                 log.error(error);
                 resolve(gym);
@@ -873,10 +875,10 @@ class RegionHelper {
       point = `${gym.lat},${gym.lon}`;
     }
     point = point.replaceAll(" ", "");
-    return `http://maps.google.com/maps/api/staticmap?size=500x300&format=png&center=${point}&markers=${point}&sensor=false&scale=2&key=${private_settings.googleApiKey}`;
+    return `http://maps.google.com/maps/api/staticmap?size=500x300&format=png&center=${point}&markers=${point}&sensor=false&scale=2&key=${privateSettings.googleApiKey}`;
   }
 
-  async showGymDetail(msg, gym, heading, user, show_geo) {
+  async showGymDetail(msg, gym, heading, user, showGeo) {
     let point = gym.point;
     if (!point) {
       point = gym.lat + ", " + gym.lon;
@@ -889,8 +891,8 @@ class RegionHelper {
 
     const attachments = [];
     let thumbnail = false;
-    if (gym.image_url) {
-      thumbnail = gym.image_url;
+    if (gym.imageUrl) {
+      thumbnail = gym.imageUrl;
     } else {
       const thumb = new Discord.MessageAttachment('images/gym_marker.png');
       attachments.push(thumb);
@@ -933,8 +935,8 @@ class RegionHelper {
       embed.addField("Keywords", gym.keywords);
     }
 
-    if (gym.ex_raid || gym.ex_tagged) {
-      const status = gym.ex_tagged && gym.ex_raid ? "This gym is eligible and has previously hosted an EX Raid" : gym.ex_tagged ? "This gym is eligible to host an EX Raid" : "This gym has previously hosted an EX Raid but is not currently listed as eligible.";
+    if (gym.confirmedEx || gym.taggedEx) {
+      const status = gym.taggedEx && gym.confirmedEx ? "This gym is eligible and has previously hosted an EX Raid" : gym.taggedEx ? "This gym is eligible to host an EX Raid" : "This gym has previously hosted an EX Raid but is not currently listed as eligible.";
       embed.addField("EX Raid Eligible", status);
     }
 
@@ -942,7 +944,7 @@ class RegionHelper {
       embed.addField("Notice :no_entry:", gym.notice);
     }
 
-    if (show_geo) {
+    if (showGeo) {
       if (gym.geodata) {
         log.info(`geo: ${gym.geodata}`);
         //Add Geocode Information
@@ -981,8 +983,8 @@ class RegionHelper {
     const regionRaw = await this.getRegionsRaw(channel).catch(error => false);
     return new Promise(function (resolve, reject) {
       if (regionRaw) {
-        const gym_query = `SELECT * FROM Gym WHERE ST_CONTAINS(ST_GeomFromText('${regionRaw}'), POINT(lat, lon))`;
-        dbhelper.query(gym_query)
+        const gymQuery = `SELECT * FROM Gym WHERE ST_CONTAINS(ST_GeomFromText('${regionRaw}'), POINT(lat, lon))`;
+        dbhelper.query(gymQuery)
           .then(result => resolve(result.length))
           .catch(error => {
             log.error(error);
@@ -997,8 +999,8 @@ class RegionHelper {
 
   async getAllGyms() {
     return new Promise(async function (resolve, reject) {
-      const gym_query = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gym_id";
-      const results = await dbhelper.query(gym_query)
+      const gymQuery = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gymId";
+      const results = await dbhelper.query(gymQuery)
         .catch(error => {
           log.error(error);
           return false;
@@ -1014,8 +1016,8 @@ class RegionHelper {
   async getGyms(region) {
     return new Promise(async function (resolve, reject) {
       if (region) {
-        const gym_query = `SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gym_id WHERE ST_CONTAINS(ST_GeomFromText('${region}'), POINT(lat, lon))`;
-        const results = await dbhelper.query(gym_query)
+        const gymQuery = `SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gymId WHERE ST_CONTAINS(ST_GeomFromText('${region}'), POINT(lat, lon))`;
+        const results = await dbhelper.query(gymQuery)
           .catch(error => {
             log.error(error);
             return false;
@@ -1032,10 +1034,10 @@ class RegionHelper {
     });
   }
 
-  async getGym(gym_id) {
+  async getGym(gymId) {
     return new Promise(function (resolve, reject) {
-      const gym_query = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gym_id WHERE id = ?";
-      dbhelper.query(gym_query, [gym_id])
+      const gymQuery = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gymId WHERE id = ?";
+      dbhelper.query(gymQuery, [gymId])
         .catch(error => {
           log.error(error);
           reject(error);
@@ -1046,19 +1048,19 @@ class RegionHelper {
     });
   }
 
-  async deleteGym(gym_id, gym_cache) {
+  async deleteGym(gymId, gymCache) {
     const that = this;
     return new Promise(async function (resolve, reject) {
-      let preaffected = await that.findAffectedChannels(gym_id);
+      let preaffected = await that.findAffectedChannels(gymId);
 
-      const gym_query = "DELETE FROM Gym WHERE id = ?";
-      dbhelper.query(gym_query, [gym_id])
+      const gymQuery = "DELETE FROM Gym WHERE id = ?";
+      dbhelper.query(gymQuery, [gymId])
         .catch(error => {
           log.error(error);
           reject(error);
         })
         .then(async function (results) {
-          ImageCacher.deleteCachedImage(`images/gyms/${gym_id}.png`);
+          ImageCacher.deleteCachedImage(`images/gyms/${gymId}.png`);
           //Get Geocode Data
           //Recalculate all nearest gyms
           Meta.calculateNearestGyms()
@@ -1083,8 +1085,8 @@ class RegionHelper {
               log.info("Places need updated on (" + affected["new"].length + ") new gyms and (" + affected["changed"].length + ") existing gyms");
 
               //Kick off all additional places updates in the background
-              gym_cache.markChannelsForReindex(preaffected);
-              gym_cache.markGymsForPlacesUpdates(gymIds);
+              gymCache.markChannelsForReindex(preaffected);
+              gymCache.markGymsForPlacesUpdates(gymIds);
               resolve(results.affectedRows === 1);
 
             }).catch(error => {
@@ -1098,7 +1100,7 @@ class RegionHelper {
 
   async regionChannelForGym(gym) {
     return new Promise(async function (resolve, reject) {
-      let query = `SELECT CAST(channel_id as CHAR(55)) as channel FROM Region WHERE ST_CONTAINS(bounds, Point(${gym.lat}, ${gym.lon}))`;
+      let query = `SELECT CAST(channelId as CHAR(55)) as channel FROM Region WHERE ST_CONTAINS(bounds, Point(${gym.lat}, ${gym.lon}))`;
       const result = dbhelper.query(query)
         .then(result => {
           if (result.length > 0 && result[0].channel) {
@@ -1116,14 +1118,14 @@ class RegionHelper {
   //This will compare location of gym to every channels region including its expanded range for outliers
   //All matching channels will be returned
   //Necessary for determining which channels need their searches reindexed
-  async findAffectedChannels(gym_id) {
+  async findAffectedChannels(gymId) {
     let channels = await this.getAllBoundedChannels();
     const matching = [];
 
     const that = this;
     return new Promise(async function (resolve, reject) {
       for (const channel of channels) {
-        const region = await that.getRegionsRaw(channel["channel_id"])
+        const region = await that.getRegionsRaw(channel["channelId"])
           .catch(error => {
             log.error(error);
             return null;
@@ -1133,14 +1135,14 @@ class RegionHelper {
           const expanded = region ? that.enlargePolygonFromRegion(regionObject) : null;
           const polygon = region ? that.polygonStringFromRegion(expanded) : null;
 
-          const gym_query = region ? `SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gym_id WHERE ST_CONTAINS(ST_GeomFromText('${polygon}'), POINT(lat, lon)) AND Gym.id = ${gym_id}` : null;
-          const results = await dbhelper.query(gym_query)
+          const gymQuery = region ? `SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gymId WHERE ST_CONTAINS(ST_GeomFromText('${polygon}'), POINT(lat, lon)) AND Gym.id = ${gymId}` : null;
+          const results = await dbhelper.query(gymQuery)
             .catch(error => {
               log.error(error);
               return false;
             });
           if (results.length > 0) {
-            matching.push(channel["channel_id"]);
+            matching.push(channel["channelId"]);
           }
         }
       }
@@ -1149,7 +1151,7 @@ class RegionHelper {
     });
   }
 
-  async findGym(channel, term, name_only, allow_multiple) {
+  async findGym(channel, term, nameOnly, allowMultiple) {
     const regionRaw = channel ? await this.getRegionsRaw(channel)
       .catch(error => {
         log.error(error);
@@ -1168,13 +1170,13 @@ class RegionHelper {
       const that = this;
       return new Promise(function (resolve, reject) {
         if (regionRaw || channel == null) {
-          const gymQuery = regionRaw ? `SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gym_id WHERE ST_CONTAINS(ST_GeomFromText('${polygon}'), POINT(lat, lon))` : "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gym_id";
+          const gymQuery = regionRaw ? `SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gymId WHERE ST_CONTAINS(ST_GeomFromText('${polygon}'), POINT(lat, lon))` : "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gymId";
           dbhelper.query(gymQuery)
             .then(async function (results) {
               const idx = lunr(function () {
                 this.ref('id');
                 this.field('name');
-                if (!name_only) {
+                if (!nameOnly) {
                   this.field('nickname');
                   this.field('description');
                   this.field('keywords');
@@ -1240,7 +1242,7 @@ class RegionHelper {
 
               const searchResults = idx.search(term);
               if (searchResults.length > 0) {
-                if (allow_multiple) {
+                if (allowMultiple) {
                   const gyms = [];
                   for (let j = 0; j < results.length; j++) {
                     const gym = results[j];
@@ -1295,7 +1297,7 @@ class RegionHelper {
     return array.join(", ");
   }
 
-  editGymKeywords(gym, action, keywords, gym_cache) {
+  editGymKeywords(gym, action, keywords, gymCache) {
     const that = this;
     return new Promise(async function (resolve, reject) {
       const existing = (gym["keywords"] != null) ? that.keywordArrayFromString(gym["keywords"]) : [];
@@ -1319,9 +1321,9 @@ class RegionHelper {
 
       let query;
       if (final) {
-        query = `UPDATE GymMeta SET keywords = '${final}' WHERE gym_id='${gym["id"]}'`;
+        query = `UPDATE GymMeta SET keywords = '${final}' WHERE gymId='${gym["id"]}'`;
       } else {
-        query = `UPDATE GymMeta SET keywords = NULL WHERE gym_id='${gym["id"]}'`;
+        query = `UPDATE GymMeta SET keywords = NULL WHERE gymId='${gym["id"]}'`;
       }
 
       let result = await dbhelper.query(query)
@@ -1331,16 +1333,16 @@ class RegionHelper {
         });
       gym["keywords"] = final;
 
-      Meta.markGymForReindexing(gym["id"], gym_cache, that);
+      Meta.markGymForReindexing(gym["id"], gymCache, that);
 
       resolve(gym);
     });
   }
 
-  async setEXStatus(gym, tagged, previous, gym_cache) {
+  async setEXStatus(gym, tagged, previous, gymCache) {
     const that = this;
     return new Promise(async function (resolve, reject) {
-      const query = `UPDATE GymMeta SET ex_tagged = ${tagged ? 1 : 'NULL'}, ex_raid = ${previous ? 1 : 'NULL'} WHERE gym_id=${gym["id"]}`;
+      const query = `UPDATE GymMeta SET taggedEx = ${tagged ? 1 : 'NULL'}, confirmedEx = ${previous ? 1 : 'NULL'} WHERE gymId=${gym["id"]}`;
       log.info(query);
 
       const result = await dbhelper.query(query)
@@ -1349,27 +1351,27 @@ class RegionHelper {
           reject(error);
         })
         .then(async function (results) {
-          const gymInfo = await dbhelper.query("SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gym_id WHERE id = ?", [gym["id"]])
+          const gymInfo = await dbhelper.query("SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId WHERE id = ?", [gym["id"]])
             .catch(error => {
               log.error(error);
               reject(error);
             });
 
-          Meta.markGymForReindexing(gym["id"], gym_cache, that);
+          Meta.markGymForReindexing(gym["id"], gymCache, that);
 
           resolve(gymInfo[0]);
         });
     });
   }
 
-  async setGymDescription(gym, description, gym_cache) {
+  async setGymDescription(gym, description, gymCache) {
     const that = this;
     return new Promise(async function (resolve, reject) {
       let query;
       if (description.toLowerCase() === "remove") {
-        query = `UPDATE GymMeta SET description = NULL WHERE gym_id = ${gym["id"]}`;
+        query = `UPDATE GymMeta SET description = NULL WHERE gymId = ${gym["id"]}`;
       } else {
-        query = `UPDATE GymMeta SET description = '${description}' WHERE gym_id = ${gym["id"]}`;
+        query = `UPDATE GymMeta SET description = '${description}' WHERE gymId = ${gym["id"]}`;
       }
 
       const result = await dbhelper.query(query)
@@ -1378,25 +1380,25 @@ class RegionHelper {
           reject(error);
         })
         .then(async function (results) {
-          const gym_info = await dbhelper.query("SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gym_id WHERE id = ?", [gym["id"]])
+          const gymInfo = await dbhelper.query("SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId WHERE id = ?", [gym["id"]])
             .catch(error => {
               log.error(error);
               reject(error);
             });
 
-          Meta.markGymForReindexing(gym["id"], gym_cache, that);
+          Meta.markGymForReindexing(gym["id"], gymCache, that);
 
-          resolve(gym_info[0]);
+          resolve(gymInfo[0]);
         });
     });
   }
 
-  async setGymNickname(gym, nickname, gym_cache) {
+  async setGymNickname(gym, nickname, gymCache) {
     const that = this;
     return new Promise(async function (resolve, reject) {
-      let query = `UPDATE GymMeta SET nickname = '${nickname}' WHERE gym_id = ${gym["id"]}`;
+      let query = `UPDATE GymMeta SET nickname = '${nickname}' WHERE gymId = ${gym["id"]}`;
       if (nickname.toLowerCase() === "remove") {
-        query = `UPDATE GymMeta SET nickname = NULL WHERE gym_id = ${gym["id"]}`;
+        query = `UPDATE GymMeta SET nickname = NULL WHERE gymId = ${gym["id"]}`;
       }
 
       const result = await dbhelper.query(query)
@@ -1405,20 +1407,20 @@ class RegionHelper {
           reject(error);
         })
         .then(async function (results) {
-          const gym_info = await dbhelper.query("SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gym_id WHERE id = ?", [gym["id"]])
+          const gymInfo = await dbhelper.query("SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId WHERE id = ?", [gym["id"]])
             .catch(error => {
               log.error(error);
               reject(error);
             });
 
-          Meta.markGymForReindexing(gym["id"], gym_cache, that);
+          Meta.markGymForReindexing(gym["id"], gymCache, that);
 
-          resolve(gym_info[0]);
+          resolve(gymInfo[0]);
         });
     });
   }
 
-  async setGymName(gym, name, gym_cache) {
+  async setGymName(gym, name, gymCache) {
     const that = this;
     return new Promise(async function (resolve, reject) {
       let query = "UPDATE Gym SET name = ? WHERE id = ?";
@@ -1428,36 +1430,36 @@ class RegionHelper {
           reject(error);
         })
         .then(async function (results) {
-          const gymInfo = await dbhelper.query("SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gym_id WHERE id = ?", [gym["id"]])
+          const gymInfo = await dbhelper.query("SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId WHERE id = ?", [gym["id"]])
             .catch(error => {
               log.error(error);
               reject(error);
             });
 
-          Meta.markGymForReindexing(gym["id"], gym_cache, that);
+          Meta.markGymForReindexing(gym["id"], gymCache, that);
 
           resolve(gymInfo[0]);
         });
     });
   }
 
-  async setGymNotice(gym, notice, gym_cache) {
+  async setGymNotice(gym, notice, gymCache) {
     const that = this;
     return new Promise(async function (resolve, reject) {
-      let query = `UPDATE GymMeta SET notice = '${notice}' WHERE gym_id=${gym["id"]}`;
+      let query = `UPDATE GymMeta SET notice = '${notice}' WHERE gymId=${gym["id"]}`;
       if (notice.toLowerCase() === "remove") {
-        query = `UPDATE GymMeta SET notice = NULL WHERE gym_id=${gym["id"]}`;
+        query = `UPDATE GymMeta SET notice = NULL WHERE gymId=${gym["id"]}`;
       }
       const result = await dbhelper.query(query)
         .catch(error => reject(error))
         .then(async function (results) {
-          const gymInfo = await dbhelper.query("SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gym_id WHERE id = ?", [gym["id"]])
+          const gymInfo = await dbhelper.query("SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId WHERE id = ?", [gym["id"]])
             .catch(error => {
               log.error(error);
               reject(error);
             });
 
-          Meta.markGymForReindexing(gym["id"], gym_cache, that);
+          Meta.markGymForReindexing(gym["id"], gymCache, that);
 
           resolve(gymInfo[0]);
         });

@@ -13,7 +13,7 @@ class KeywordsType extends commando.ArgumentType {
         "remove";
       if (items[1].length > 0) {
 
-        this.keyword_info = {
+        this.keywordInfo = {
           "action": action,
           "keywords": value.substring(action.length + 1, value.length)
         };
@@ -28,8 +28,8 @@ class KeywordsType extends commando.ArgumentType {
   }
 
   parse(value, message, arg) {
-    return (this.keyword_info !== null) ?
-      this.keyword_info :
+    return (this.keywordInfo !== null) ?
+      this.keywordInfo :
       value;
   }
 }

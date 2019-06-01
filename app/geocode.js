@@ -1,10 +1,10 @@
 "use strict";
 
-const private_settings = require('../data/private-settings'),
+const privateSettings = require('../data/private-settings'),
   log = require('loglevel').getLogger('Geocoder'),
   dbhelper = require('./dbhelper'),
   googleMaps = require('@google/maps').createClient({
-    key: private_settings.googleApiKey
+    key: privateSettings.googleApiKey
   });
 
 function getDistanceFromLatLonInKm(lat1, lon1, lat2, lon2) {
@@ -57,11 +57,12 @@ class MetaMachine {
   async calculateNearestGyms() {
     const that = this;
     return new Promise(async function (resolve, reject) {
-      const gym_query = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gym_id";
-      const results = await dbhelper.query(gym_query).catch(error => {
-        log.info(error);
-        reject(error);
-      });
+      const gymQuery = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gymId";
+      const results = await dbhelper.query(gymQuery)
+        .catch(error => {
+          log.info(error);
+          reject(error);
+        });
 
       const changed = [];
       const newGyms = [];
@@ -88,7 +89,7 @@ class MetaMachine {
           changed.push(nearest.id)
         }
 
-        updateQuery += "UPDATE GymMeta SET nearestGym = " + nearest.id + " WHERE gym_id=" + gym.id + ";";
+        updateQuery += "UPDATE GymMeta SET nearestGym = " + nearest.id + " WHERE gymId=" + gym.id + ";";
       });
 
       const result = await dbhelper.query(updateQuery).catch(error => reject(error));
@@ -130,7 +131,7 @@ class MetaMachine {
         });
 
         log.info(results);
-        resolve(results)
+        resolve(results);
       }
     });
   }
@@ -178,11 +179,12 @@ class MetaMachine {
   async updateGeocodeFormatForGyms() {
     const that = this;
     return new Promise(async function (resolve, reject) {
-      const gym_query = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gym_id";
-      const results = await dbhelper.query(gym_query).catch(error => {
-        log.info(error);
-        reject(error);
-      });
+      const gymQuery = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gymId";
+      const results = await dbhelper.query(gymQuery)
+        .catch(error => {
+          log.info(error);
+          reject(error);
+        });
 
       let total = 0;
       for (let i = 0; i < results.length; i++) {
@@ -193,8 +195,9 @@ class MetaMachine {
           geo["addressComponents"] = result;
           const json = JSON.stringify(geo).replace(/[\u0800-\uFFFF]/g, '');
           log.info("\n" + json + "\n");
-          let updateQuery = "UPDATE GymMeta SET geodata = ? WHERE gym_id = ?";
-          let dbresult = await dbhelper.query(updateQuery, [json, gym.id]).catch(error => log.info("Failed to update geodata for " + gym.name));
+          let updateQuery = "UPDATE GymMeta SET geodata = ? WHERE gymId = ?";
+          let dbresult = await dbhelper.query(updateQuery, [json, gym.id])
+            .catch(error => log.info("Failed to update geodata for " + gym.name));
           total += 1;
         }
       }
@@ -219,7 +222,7 @@ class MetaMachine {
             geo["addressComponents"] = results;
 
             let json = JSON.stringify(geo);
-            let updateQuery = "UPDATE GymMeta SET geodata = ? WHERE gym_id = ?";
+            let updateQuery = "UPDATE GymMeta SET geodata = ? WHERE gymId = ?";
             let dbresult = await dbhelper.query(updateQuery, [json, gym.id]).catch(error => reject("Unable to store geocode data"));
 
             gym.geodata = json;
@@ -263,31 +266,33 @@ class MetaMachine {
     const that = this;
     gyms.forEach(async function (id) {
       log.info(id);
-      const gym_query = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gym_id WHERE id = " + id;
-      log.info(gym_query);
+      const gymQuery = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId WHERE id = " + id;
+      log.info(gymQuery);
 
-      dbhelper.query(gym_query).catch(error => {
-        log.error(error);
-      }).then(async function (result) {
-        if (result && result.length > 0 && result[0].id) {
-          let gym = result[0];
-          that.findPlacesNearGym(gym).catch(error =>
-            log.error(`Error getting places for gym #${gym.id}`)
-          ).then(async function (result) {
-            if (region != null) {
-              //Get channels that need reindexed
-              //Add to queue
-              let affectedChannels = await region.findAffectedChannels(gym.id);
-              gymCache.markChannelsForReindex(affectedChannels);
+      dbhelper.query(gymQuery)
+        .catch(error => {
+          log.error(error);
+        })
+        .then(async function (result) {
+          if (result && result.length > 0 && result[0].id) {
+            let gym = result[0];
+            that.findPlacesNearGym(gym).catch(error =>
+              log.error(`Error getting places for gym #${gym.id}`)
+            ).then(async function (result) {
+              if (region != null) {
+                //Get channels that need reindexed
+                //Add to queue
+                let affectedChannels = await region.findAffectedChannels(gym.id);
+                gymCache.markChannelsForReindex(affectedChannels);
 
-            } else {
-              gymCache.markPlacesComplete(id);
-            }
-          })
-        } else {
-          log.info("no result for gym");
-        }
-      });
+              } else {
+                gymCache.markPlacesComplete(id);
+              }
+            })
+          } else {
+            log.info("no result for gym");
+          }
+        });
     })
 
   }
@@ -296,12 +301,13 @@ class MetaMachine {
     const that = this;
     return new Promise(async function (resolve, reject) {
 
-      const gym_query = "SELECT * FROM Gym WHERE id = ?";
-      const results = await dbhelper.query(gym_query, [gym.nearestGym]).catch(error => {
-        log.error(error);
-        log.info(`Error getting nearest gym (${gym.id}) for gym (${gym.nearestGym})`);
-        reject(error);
-      });
+      const gymQuery = "SELECT * FROM Gym WHERE id = ?";
+      const results = await dbhelper.query(gymQuery, [gym.nearestGym])
+        .catch(error => {
+          log.error(error);
+          log.info(`Error getting nearest gym (${gym.id}) for gym (${gym.nearestGym})`);
+          reject(error);
+        });
 
       const nearest = results[0];
 
@@ -326,7 +332,7 @@ class MetaMachine {
           }
 
           log.info(`Places: ${places}`);
-          let updateQuery = "UPDATE `GymMeta` SET `places` = ? WHERE `gym_id` = ?";
+          let updateQuery = "UPDATE `GymMeta` SET `places` = ? WHERE `gymId` = ?";
 
           let dbresult = await dbhelper.query(updateQuery, [places.join(' '), gym.id]).catch(error => {
             log.error(`Failed to update nearby places in database for ${gym.name} (#${gym.id})`);
@@ -345,7 +351,7 @@ class MetaMachine {
   //Identifies gyms that need geo updates as a result
   //Updates all gyms
   //Reindexes affected search regions
-  async beginGeoUpdates(gym, gym_cache) {
+  async beginGeoUpdates(gym, gymCache) {
 
     const that = this;
     return new Promise(async function (resolve, reject) {
@@ -356,34 +362,31 @@ class MetaMachine {
         that.calculateNearestGyms().then(affected => {
 
           //Sort ids that need updated into single array
-          const gym_ids = [];
+          const gymIds = [];
           affected["new"].filter(value => {
-            if (gym_ids.indexOf(value) === -1 && value !== gym.id) {
-              gym_ids.push(value);
+            if (gymIds.indexOf(value) === -1 && value !== gym.id) {
+              gymIds.push(value);
             }
             return true;
           });
 
           affected["changed"].filter(value => {
-            if (gym_ids.indexOf(value) === -1 && value !== gym.id) {
-              gym_ids.push(value);
+            if (gymIds.indexOf(value) === -1 && value !== gym.id) {
+              gymIds.push(value);
             }
             return true;
           });
 
-          log.info("Gym IDs to be updated: " + gym_ids);
+          log.info("Gym IDs to be updated: " + gymIds);
           log.info("Places need updated on (" + affected["new"].length + ") new gyms and (" + affected["changed"].length + ") existing gyms");
 
-          gym_cache.markGymsForPlacesUpdates(gym_ids);
+          gymCache.markGymsForPlacesUpdates(gymIds);
           resolve(gym);
-
-
         }).catch(error => {
           log.error(error);
           log.error("Unable to update nearest gyms");
           resolve(gym)
         });
-
       }).catch(error => {
         log.error(error);
         log.error("Unable to geocode gym #" + gym.id);
@@ -392,9 +395,9 @@ class MetaMachine {
     });
   }
 
-  async markGymForReindexing(gym, gym_cache, region) {
-    let affected_channels = await region.findAffectedChannels(gym);
-    gym_cache.markChannelsForReindex(affected_channels);
+  async markGymForReindexing(gym, gymCache, region) {
+    let affectedChannels = await region.findAffectedChannels(gym);
+    gymCache.markChannelsForReindex(affectedChannels);
   }
 }
 
