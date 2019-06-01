@@ -345,7 +345,7 @@ module.exports = class EditGym extends commando.Command {
                       }
                     });
                 } else if (value === 'notice') {
-                  that.noticeCollector.obtain(msg
+                  that.noticeCollector.obtain(msg)
                     .then(async function (collectionResult) {
                       if (!collectionResult.cancelled) {
                         const notice = collectionResult.values["notice"];
@@ -358,7 +358,7 @@ module.exports = class EditGym extends commando.Command {
                       } else {
                         that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
                       }
-                    }));
+                    });
                 }
               } else {
                 that.cleanup(msg, gymResult, fieldResult, null, gymMessage);
