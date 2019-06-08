@@ -422,6 +422,7 @@
   },
   {
     "name": "geodude",
+    "tier": 1,
     "shiny": true,
     "nickname": [
       "kanto"
@@ -551,7 +552,8 @@
   },
   {
     "name": "onix",
-    "tier": 3
+    "tier": 3,
+    "shiny": true
   },
   {
     "name": "drowzee",
@@ -1023,7 +1025,8 @@
   },
   {
     "name": "shuckle",
-    "tier": 3
+    "tier": 3,
+    "shiny": true
   },
   {
     "name": "heracross"
@@ -1493,14 +1496,16 @@
   },
   {
     "name": "lileep",
-    "tier": 1
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "cradily"
   },
   {
     "name": "anorith",
-    "tier": 1
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "armaldo"
