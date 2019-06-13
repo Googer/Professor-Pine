@@ -66,9 +66,9 @@ module.exports = class FindGym extends commando.Command {
       }
 
       if (channelStrings.length > 0) {
-        msg.say("This gym is in " + channelStrings.join(", "));
+        msg.say("This gym is in " + channelStrings.join(", ") + ".");
       } else {
-        msg.say("This gym is not located in any region channels");
+        msg.say("This gym is not located in any region channels.");
       }
 
     } else {

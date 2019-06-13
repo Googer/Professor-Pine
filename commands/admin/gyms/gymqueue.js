@@ -1,8 +1,6 @@
 const commando = require('discord.js-commando'),
-  Discord = require('discord.js'),
+  log = require('loglevel').getLogger('GymQueueCommand'),
   oneLine = require('common-tags').oneLine,
-  Region = require('../../../app/region'),
-  PartyManager = require('../../../app/party-manager'),
   Gym = require('../../../app/gym'),
   Helper = require('../../../app/helper'),
   {CommandGroup} = require('../../../app/constants');
@@ -35,7 +33,6 @@ module.exports = class CheckGymQueue extends commando.Command {
   }
 
   async run(msg) {
-
     let message = "Gyms waiting for places updates```";
     if (Gym.getPlacesQueue().length > 0) {
       message += Gym.getPlacesQueue().join(", ");
@@ -53,8 +50,11 @@ module.exports = class CheckGymQueue extends commando.Command {
     }
 
     message += "```";
-    msg.say(message)
+
+    // TODO: Use more sophisticated message splitting, but at least this should keep it from breaking if the list of
+    // places and/or regions is long
+    msg.say(message, {
+      split: true
+    }).catch(err => log.error(err));
   }
-
-
 };
