@@ -9,19 +9,19 @@ class ImageCacher {
   }
 
   async fetchAndCache(url, path) {
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       if (fs.existsSync(path)) {
         resolve(path);
       } else {
         const stream = request
           .get(url)
-          .on('error', function (response) {
+          .on('error', response => {
             log.error(`Something went wrong caching image for path ${path} from url: ${url}`);
             reject(false);
           })
           .pipe(fs.createWriteStream(path));
 
-        stream.on('finish', async function () {
+        stream.on('finish', async () => {
           resolve(path);
         });
       }
@@ -30,7 +30,7 @@ class ImageCacher {
 
   async clearCache() {
     const that = this;
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       let regions = await that.deleteFilesInDirectory("images/regions").catch(error => false);
       let gyms = await that.deleteFilesInDirectory("images/gyms").catch(error => false);
 
@@ -58,8 +58,8 @@ class ImageCacher {
   }
 
   async deleteFilesInDirectory(directory) {
-    return new Promise(async function (resolve, reject) {
-      fs.readdir(directory, async function (err, files) {
+    return new Promise(async (resolve, reject) => {
+      fs.readdir(directory, async (err, files) => {
         if (err) {
           reject(err);
         }

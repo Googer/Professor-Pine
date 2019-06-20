@@ -1,13 +1,12 @@
-const commando = require('discord.js-commando'),
-  Discord = require('discord.js'),
+const log = require('loglevel').getLogger('GymDetailCommand'),
+  commando = require('discord.js-commando'),
   oneLine = require('common-tags').oneLine,
-  Region = require('../../../app/region'),
-  PartyManager = require('../../../app/party-manager'),
-  Gym = require('../../../app/gym'),
   Helper = require('../../../app/helper'),
+  PartyManager = require('../../../app/party-manager'),
+  Region = require('../../../app/region'),
   {CommandGroup} = require('../../../app/constants');
 
-module.exports = class FindGym extends commando.Command {
+module.exports = class GymDetail extends commando.Command {
   constructor(client) {
     super(client, {
       name: 'gymdetail',
@@ -38,10 +37,11 @@ module.exports = class FindGym extends commando.Command {
 
   async run(msg, args) {
     let gym;
-    let isModLab = msg.channel.name === "mod-bot-lab";
 
     if (this.getValue(args.term) > -1) {
-      gym = await Region.getGym(this.getValue(args.term)).catch(error => msg.say(error));
+      gym = await Region.getGym(this.getValue(args.term))
+        .catch(error => msg.say(error)
+          .catch(err => log.error(err)));
 
       if (gym !== undefined && gym["name"]) {
         const channels = await Region.getChannelsForGym(gym).catch(error => []);
@@ -54,16 +54,20 @@ module.exports = class FindGym extends commando.Command {
         }
 
         if (channelStrings.length > 0) {
-          msg.say("This gym is in " + channelStrings.join(", "));
+          msg.say("This gym is in " + channelStrings.join(", "))
+            .catch(err => log.error(err));
         } else {
-          msg.say("This gym is not located in any region channels");
+          msg.say("This gym is not located in any region channels")
+            .catch(err => log.error(err));
         }
       } else {
-        msg.reply("No gym found with ID " + args.term);
+        msg.reply("No gym found with ID " + args.term)
+          .catch(err => log.error(err));
       }
 
     } else {
-      msg.reply("You must provide a valid gym id #");
+      msg.reply("You must provide a valid gym id #")
+        .catch(err => log.error(err));
     }
   }
 

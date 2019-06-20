@@ -1,22 +1,24 @@
-const commando = require('discord.js-commando'),
-  Discord = require('discord.js'),
+"use strict";
+
+const log = require('loglevel').getLogger('ClearImageCacheCommand'),
+  commando = require('discord.js-commando'),
   oneLine = require('common-tags').oneLine,
+  Helper = require('../../../app/helper'),
   ImageCacher = require('../../../app/imagecacher'),
-  {CommandGroup} = require('../../../app/constants'),
-  Helper = require('../../../app/helper');
+  {CommandGroup} = require('../../../app/constants');
 
 module.exports = class ClearImageCache extends commando.Command {
   constructor(client) {
     super(client, {
       name: 'clearimagecache',
-      aliases: ['clearimagecache'],
+      aliases: ['clear-image-cache'],
       group: CommandGroup.REGION,
       memberName: 'clearimagecache',
       description: 'Clear local cache of region and gym images.',
       details: oneLine`
 				This command will delete all locally saved images for region boundaries and gym pins.
 			`,
-      examples: ['\ttestcache'],
+      examples: ['\tclearimagecache'],
       guildOnly: true
     });
 
@@ -36,6 +38,7 @@ module.exports = class ClearImageCache extends commando.Command {
 
   async run(msg) {
     let images = await ImageCacher.clearCache();
-    msg.say(`Deleted ${images} cached images. Have a nice day ;)`);
+    msg.say(`Deleted ${images} cached images.`)
+      .catch(err => log.error(err));
   }
 };

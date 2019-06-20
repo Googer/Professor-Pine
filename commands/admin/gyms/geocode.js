@@ -1,10 +1,10 @@
-const commando = require('discord.js-commando'),
-  Discord = require('discord.js'),
+const log = require('loglevel').getLogger('GeocodeGymCommand'),
+  commando = require('discord.js-commando'),
   oneLine = require('common-tags').oneLine,
-  Region = require('../../../app/region'),
+  Helper = require('../../../app/helper'),
   Meta = require('../../../app/geocode'),
-  {CommandGroup} = require('../../../app/constants'),
-  Helper = require('../../../app/helper');
+  Region = require('../../../app/region'),
+  {CommandGroup} = require('../../../app/constants');
 
 module.exports = class GeocodeGym extends commando.Command {
   constructor(client) {
@@ -41,40 +41,47 @@ module.exports = class GeocodeGym extends commando.Command {
   }
 
   async run(msg, args) {
-
     let gym;
     let isID = false;
     if (this.getValue(args.term) > -1) {
       isID = true;
-      gym = await Region.getGym(this.getValue(args.term)).catch(error => msg.say(error));
+      gym = await Region.getGym(this.getValue(args.term))
+        .catch(error => msg.say(error)
+          .catch(err => log.error(err)));
     } else {
-      gym = await Region.findGym(msg.channel.id, args.term).catch(error => msg.say(error));
+      gym = await Region.findGym(msg.channel.id, args.term)
+        .catch(error => msg.say(error)
+          .catch(err => log.error(err)));
     }
 
     if (gym !== undefined && gym["name"]) {
       const phrase = isID ? "Gym found with ID " + args.term : "Gym found with term '" + args.term + "'";
 
-      Meta.geocodeGym(gym).then(gym => {
-        if (gym) {
-          let message = "Successfully updated geocode information for " + gym.name + " (Gym #" + gym.id + ")```";
-          const geo = JSON.parse(gym.geodata);
-          for (const [key, value] of Object.entries(geo["addressComponents"])) {
-            message += key + ": " + value + "\n";
+      Meta.geocodeGym(gym)
+        .then(gym => {
+          if (gym) {
+            let message = "Successfully updated geocode information for " + gym.name + " (Gym #" + gym.id + ")```";
+            const geo = JSON.parse(gym.geodata);
+            for (const [key, value] of Object.entries(geo["addressComponents"])) {
+              message += key + ": " + value + "\n";
+            }
+            message += "```";
+            msg.say(message)
+              .catch(err => log.error(err));
+          } else {
+            msg.say("No geocode data found")
+              .catch(err => log.error(err));
           }
-          message += "```";
-          msg.say(message)
-
-        } else {
-          msg.say("No geocode data found")
-        }
-      }).catch(error => {
-        console.log(error);
-        msg.say("Damn");
-      })
-
+        })
+        .catch(error => {
+          log.error(error);
+          msg.say("Damn")
+            .catch(err => log.error(err));
+        })
     } else {
       if (isID) {
         msg.reply("No gym found in this region with ID " + args.term)
+          .catch(err => log.error(err));
       }
     }
 
@@ -85,10 +92,10 @@ module.exports = class GeocodeGym extends commando.Command {
     if (first === "#") {
       const integer = value.substring(1, value.length);
       if (Number(integer)) {
-        return Number(integer)
+        return Number(integer);
       }
     }
 
-    return -1
+    return -1;
   }
 };

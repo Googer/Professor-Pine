@@ -1,11 +1,9 @@
-const commando = require('discord.js-commando'),
-  log = require('loglevel').getLogger('ImportGymsCommand'),
-  Discord = require('discord.js'),
+const log = require('loglevel').getLogger('ImportGymsCommand'),
+  commando = require('discord.js-commando'),
   oneLine = require('common-tags').oneLine,
-  Region = require('../../../app/region'),
-  PartyManager = require('../../../app/party-manager'),
-  Gym = require('../../../app/gym'),
   Helper = require('../../../app/helper'),
+  Gym = require('../../../app/gym'),
+  Region = require('../../../app/region'),
   request = require('request'),
   {CommandGroup} = require('../../../app/constants');
 
@@ -44,7 +42,6 @@ module.exports = class ImportGyms extends commando.Command {
     const repo = this.validRepo(args.repo);
 
     if (repo) {
-
       const gyms = await this.getJSON(`${repo}raw/master/data/gyms.json`);
       const gymMetadata = await this.getJSON(`${repo}raw/master/data/gyms-metadata.json`);
 
@@ -58,16 +55,17 @@ module.exports = class ImportGyms extends commando.Command {
         }
 
         await this.makeImport(gyms);
-        msg.say(`Imported ${gyms.length} gyms and ${keys.length} meta entries.`);
+        msg.say(`Imported ${gyms.length} gyms and ${keys.length} meta entries.`)
+          .catch(err => log.error(err));
       } else {
-        msg.say("Hmm... Didnt get correct data back.");
+        msg.say("Hmm... Didnt get correct data back.")
+          .catch(err => log.error(err));
       }
 
     } else {
       msg.reply("Invalid URL. Please provide a valid GitHub repo URL.")
+        .catch(err => log.error(err));
     }
-
-
   }
 
   validRepo(repo) {
@@ -87,7 +85,7 @@ module.exports = class ImportGyms extends commando.Command {
 
   async getJSON(url) {
     const that = this;
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       const options = {
         method: 'GET',
         url: url,
@@ -98,7 +96,7 @@ module.exports = class ImportGyms extends commando.Command {
         json: true
       };
 
-      request(options, function (error, response, body) {
+      request(options, (error, response, body) => {
         if (error) throw new Error(error);
         if (response.statusCode === 200) {
           resolve(body);
@@ -108,7 +106,6 @@ module.exports = class ImportGyms extends commando.Command {
         }
       });
     });
-
   }
 
   formatGeodata(geodata) {
@@ -140,9 +137,6 @@ module.exports = class ImportGyms extends commando.Command {
     let data = {};
     let components = {};
 
-    data = {};
-    components = {};
-
     const keys = Object.keys(addressComponents);
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i];
@@ -151,7 +145,7 @@ module.exports = class ImportGyms extends commando.Command {
     }
 
     data["addressComponents"] = components;
-    return data
+    return data;
   }
 
   getGymValues(gym) {
@@ -261,5 +255,4 @@ module.exports = class ImportGyms extends commando.Command {
     //Rebuild everything so bot doesnt need a hard restart
     await Gym.buildIndexes();
   }
-
 };

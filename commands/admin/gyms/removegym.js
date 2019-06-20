@@ -1,9 +1,10 @@
-const commando = require('discord.js-commando'),
-  Discord = require('discord.js'),
+const log = require('loglevel').getLogger('RemoveGymCommand'),
+  commando = require('discord.js-commando'),
   oneLine = require('common-tags').oneLine,
   Gym = require('../../../app/gym'),
-  Region = require('../../../app/region'),
   Helper = require('../../../app/helper'),
+  Region = require('../../../app/region'),
+  Utility = require('../../../app/utility'),
   {CommandGroup} = require('../../../app/constants');
 
 module.exports = class DeleteGym extends commando.Command {
@@ -56,27 +57,17 @@ module.exports = class DeleteGym extends commando.Command {
   }
 
   cleanup(gymResult, confirmResult, gymMessage) {
-    if (gymMessage) {
-      gymMessage.delete();
-    }
-
-    gymResult.prompts.forEach(message => {
-      message.delete();
-    });
-
-    gymResult.answers.forEach(message => {
-      message.delete();
-    });
+    let messagesToDelete = [...gymResult.prompts, ...gymResult.answers];
 
     if (confirmResult) {
-      confirmResult.prompts.forEach(message => {
-        message.delete();
-      });
-
-      confirmResult.answers.forEach(message => {
-        message.delete();
-      });
+      messagesToDelete = [...messagesToDelete, ...confirmResult.prompts, ...confirmResult.answers];
     }
+
+    if (gymMessage) {
+      messagesToDelete = [...messagesToDelete, [gymMessage]];
+    }
+
+    Utility.deleteMessages(messagesToDelete);
   }
 
   async run(msg, args) {
@@ -84,33 +75,37 @@ module.exports = class DeleteGym extends commando.Command {
     const gymArgs = (args.length > 0) ? [args] : [];
 
     this.gymCollector.obtain(msg, gymArgs)
-      .then(async function (gymResult) {
-      if (!gymResult.cancelled) {
-        const gym = gymResult.values['gym'];
-        const gymMessage = gym.message;
+      .then(async gymResult => {
+        if (!gymResult.cancelled) {
+          const gym = gymResult.values['gym'];
+          const gymMessage = gym.message;
 
-        that.confirmationCollector.obtain(msg)
-          .then(async function (confirmResult) {
-          if (!confirmResult.cancelled) {
-            const confirm = confirmResult.values['confirm'].substring(0, 1);
-            that.cleanup(gymResult, confirmResult, gymMessage);
+          that.confirmationCollector.obtain(msg)
+            .then(async confirmResult => {
+              if (!confirmResult.cancelled) {
+                const confirm = confirmResult.values['confirm'].substring(0, 1);
+                that.cleanup(gymResult, confirmResult, gymMessage);
 
-            if (confirm === 'y' || confirm === 'yes') {
-              Region.deleteGym(gym.id, Gym).then(result => {
-                if (result) {
-                  msg.reply(gym.name + ' was removed successfully.');
-                } else {
-                  msg.reply('An error occurred while deleting ' + gym.name);
+                if (confirm === 'y' || confirm === 'yes') {
+                  Region.deleteGym(gym.id, Gym)
+                    .then(result => {
+                      if (result) {
+                        msg.reply(gym.name + ' was removed successfully.')
+                          .catch(err => log.error(err));
+                      } else {
+                        msg.reply('An error occurred while deleting ' + gym.name)
+                          .catch(err => log.error(err));
+                      }
+                    })
+                    .catch(error => false);
                 }
-              }).catch(error => false)
-            }
-          } else {
-            that.cleanup(gymResult, confirmResult, gymMessage);
-          }
-        });
-      } else {
-        that.cleanup(gymResult);
-      }
-    });
+              } else {
+                that.cleanup(gymResult, confirmResult, gymMessage);
+              }
+            });
+        } else {
+          that.cleanup(gymResult);
+        }
+      });
   }
 };

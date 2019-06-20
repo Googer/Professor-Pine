@@ -1,8 +1,8 @@
-const commando = require('discord.js-commando'),
-  log = require('loglevel').getLogger('GymQueueCommand'),
+const log = require('loglevel').getLogger('GymQueueCommand'),
+  commando = require('discord.js-commando'),
   oneLine = require('common-tags').oneLine,
-  Gym = require('../../../app/gym'),
   Helper = require('../../../app/helper'),
+  Gym = require('../../../app/gym'),
   {CommandGroup} = require('../../../app/constants');
 
 module.exports = class CheckGymQueue extends commando.Command {
@@ -53,8 +53,10 @@ module.exports = class CheckGymQueue extends commando.Command {
 
     // TODO: Use more sophisticated message splitting, but at least this should keep it from breaking if the list of
     // places and/or regions is long
-    msg.say(message, {
-      split: true
-    }).catch(err => log.error(err));
+    msg
+      .say(message, {
+        split: true
+      })
+      .catch(err => log.error(err));
   }
 };

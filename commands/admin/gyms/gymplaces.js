@@ -1,11 +1,10 @@
-const commando = require('discord.js-commando'),
-  Discord = require('discord.js'),
+const log = require('loglevel').getLogger('GymPlacesCommand'),
+  commando = require('discord.js-commando'),
   oneLine = require('common-tags').oneLine,
-  Region = require('../../../app/region'),
-  Helper = require('../../../app/helper'),
   GymCache = require('../../../app/gym'),
+  Helper = require('../../../app/helper'),
   Meta = require('../../../app/geocode'),
-  PartyManager = require('../../../app/party-manager'),
+  Region = require('../../../app/region'),
   {CommandGroup} = require('../../../app/constants');
 
 module.exports = class GymPlaces extends commando.Command {
@@ -48,17 +47,25 @@ module.exports = class GymPlaces extends commando.Command {
 
     if (this.getValue(args.term) > -1) {
       isID = true;
-      gym = await Region.getGym(this.getValue(args.term)).catch(error => msg.say(error));
+      gym = await Region.getGym(this.getValue(args.term))
+        .catch(error => msg.say(error)
+          .catch(err => log.error(err)));
     } else {
-      gym = await Region.findGym(isModLab ? null : msg.channel.id, args.term).catch(error => msg.say(error));
+      gym = await Region.findGym(isModLab ?
+        null :
+        msg.channel.id, args.term)
+        .catch(error => msg.say(error)
+          .catch(err => log.error(err)));
     }
 
     if (gym !== undefined && gym["name"]) {
-      Meta.updatePlacesForGyms([gym["id"]], GymCache, Region);
-      msg.reply(`Places updating and associated channels queued for reindexing for ${gym['name']}`);
+      Meta.updatePlacesForGyms([gym["id"]], GymCache, Region)
+        .then(() => msg.reply(`Places updating and associated channels queued for reindexing for ${gym['name']}`))
+        .catch(err => log.error(err));
     } else {
       if (isID) {
         msg.reply("No gym found in this region with ID " + args.term)
+          .catch(err => log.error(err));
       }
     }
   }

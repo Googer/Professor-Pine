@@ -1,18 +1,21 @@
-const commando = require('discord.js-commando'),
-  log = require('loglevel').getLogger('AddGymCommand'),
+"use strict";
+
+const log = require('loglevel').getLogger('AddGymCommand'),
+  commando = require('discord.js-commando'),
   Discord = require('discord.js'),
-  oneLine = require('common-tags').oneLine,
-  Region = require('../../../app/region'),
-  Helper = require('../../../app/helper'),
   Gym = require('../../../app/gym'),
+  Helper = require('../../../app/helper'),
+  oneLine = require('common-tags').oneLine,
   PartyManager = require('../../../app/party-manager'),
+  Region = require('../../../app/region'),
+  Utility = require('../../../app/utility'),
   {CommandGroup} = require('../../../app/constants');
 
 module.exports = class AddGym extends commando.Command {
   constructor(client) {
     super(client, {
       name: 'addgym',
-      aliases: ['add-gym', 'newgym', 'newgym'],
+      aliases: ['add-gym', 'new-gym'],
       group: CommandGroup.REGION,
       memberName: 'addgym',
       description: 'Add a new gym.',
@@ -61,7 +64,7 @@ module.exports = class AddGym extends commando.Command {
         type: 'string',
         validate: value => {
           const v = value.toLowerCase();
-          const first = value.substring(0, 1);
+          const first = v.substring(0, 1);
           if (first === "y" || first === "n") {
             return true;
           } else {
@@ -96,109 +99,91 @@ module.exports = class AddGym extends commando.Command {
       .setURL(Region.googlePinLinkForPoint(gym["lat"] + "," + gym["lon"]));
 
     const that = this;
-    msg.channel.send({embed}).then(message => {
-      that.similarMessage = message;
-    });
+    msg.channel.send({embed})
+      .then(message => that.similarMessage = message)
+      .catch(err => log.error(err));
   }
 
   cleanup(msg, locationResult, nameResult, nicknameResult, descriptionResult) {
-    msg.delete();
-
-    locationResult.prompts.forEach(message => {
-      message.delete()
-    });
-
-    locationResult.answers.forEach(message => {
-      message.delete()
-    });
+    let messagesToDelete = [...[msg], ...locationResult.prompts, ...locationResult.answers];
 
     if (nameResult) {
-      nameResult.prompts.forEach(message => {
-        message.delete()
-      });
-
-      nameResult.answers.forEach(message => {
-        message.delete()
-      })
+      messagesToDelete = [...messagesToDelete, ...nameResult.prompts, ...nameResult.answers];
     }
 
     if (nicknameResult) {
-      nicknameResult.prompts.forEach(message => {
-        message.delete()
-      });
-
-      nicknameResult.answers.forEach(message => {
-        message.delete()
-      })
+      messagesToDelete = [...messagesToDelete, ...nicknameResult.prompts, ...nicknameResult.answers];
     }
 
     if (descriptionResult) {
-      descriptionResult.prompts.forEach(message => {
-        message.delete()
-      });
-
-      descriptionResult.answers.forEach(message => {
-        message.delete()
-      })
+      messagesToDelete = [...messagesToDelete, ...descriptionResult.prompts, ...descriptionResult.answers];
     }
+
+    Utility.deleteMessages(messagesToDelete);
   }
 
   async finishCollection(msg, locationResult) {
     const that = this;
-    this.nameCollector.obtain(msg).then(async function (nameResult) {
-      if (!nameResult.cancelled) {
-        const name = nameResult.values["name"];
-        that.nicknameCollector.obtain(msg).then(async function (nicknameResult) {
-          if (!nicknameResult.cancelled) {
-            const nickname = nicknameResult.values["nickname"];
-            that.descriptionCollector.obtain(msg).then(async function (descriptionResult) {
-              if (!descriptionResult.cancelled) {
-                const description = descriptionResult.values["description"];
-                const details = {
-                  "location": locationResult.values["location"],
-                  "name": name,
-                  "nickname": nickname,
-                  "description": description
-                };
-                const gym = await Region.addGym(details, Gym).catch(error => msg.say(error)).then(async function (finalGym) {
+    this.nameCollector.obtain(msg)
+      .then(async nameResult => {
+        if (!nameResult.cancelled) {
+          const name = nameResult.values["name"];
+          that.nicknameCollector.obtain(msg)
+            .then(async nicknameResult => {
+              if (!nicknameResult.cancelled) {
+                const nickname = nicknameResult.values["nickname"];
+                that.descriptionCollector.obtain(msg)
+                  .then(async descriptionResult => {
+                    if (!descriptionResult.cancelled) {
+                      const description = descriptionResult.values["description"];
+                      const details = {
+                        "location": locationResult.values["location"],
+                        "name": name,
+                        "nickname": nickname,
+                        "description": description
+                      };
+                      const gym = await Region.addGym(details, Gym)
+                        .catch(error => msg.say(error)
+                          .catch(err => log.error(err)))
+                        .then(async finalGym => {
+                          let channels = await Region.getChannelsForGym(finalGym);
+                          await Region.showGymDetail(msg, finalGym, "New Gym Added", null, false);
+                          const channelStrings = [];
+                          for (let i = 0; i < channels.length; i++) {
+                            let channel = await PartyManager.getChannel(channels[i].channelId);
+                            channelStrings.push(channel.channel.toString());
+                          }
 
-                  let channels = await Region.getChannelsForGym(finalGym);
-                  await Region.showGymDetail(msg, finalGym, "New Gym Added", null, false);
-                  const channelStrings = [];
-                  for (let i = 0; i < channels.length; i++) {
-                    let channel = await PartyManager.getChannel(channels[i].channelId);
-                    channelStrings.push(channel.channel.toString());
-                  }
+                          let affectedChannels = await Region.findAffectedChannels(finalGym["id"]);
+                          if (channelStrings.length > 0) {
+                            msg.say("This gym is in " + channelStrings.join(", ") + ".")
+                              .catch(err => log.error(err));
+                          } else {
+                            msg.say("This gym is not located in any region channels.")
+                              .catch(err => log.error(err));
+                          }
 
-                  let affectedChannels = await Region.findAffectedChannels(finalGym["id"]);
-                  if (channelStrings.length > 0) {
-                    msg.say("This gym is in " + channelStrings.join(", "));
-                  } else {
-                    msg.say("This gym is not located in any region channels");
-                  }
+                          that.cleanup(msg, locationResult, nameResult, nicknameResult, descriptionResult);
+                        });
 
-                  that.cleanup(msg, locationResult, nameResult, nicknameResult, descriptionResult)
-                });
-
+                    } else {
+                      that.cleanup(msg, locationResult, nameResult, nicknameResult, descriptionResult);
+                    }
+                  })
               } else {
-                that.cleanup(msg, locationResult, nameResult, nicknameResult, descriptionResult)
+                that.cleanup(msg, locationResult, nameResult, nicknameResult);
               }
             })
-          } else {
-            that.cleanup(msg, locationResult, nameResult, nicknameResult)
-          }
-        })
-
-      } else {
-        that.cleanup(msg, locationResult, nameResult)
-      }
-    })
+        } else {
+          that.cleanup(msg, locationResult, nameResult);
+        }
+      })
   }
 
   async run(msg, args) {
     const that = this;
     const locationArgs = (args.length > 0) ? [args] : [];
-    this.locationCollector.obtain(msg, locationArgs).then(async function (locationResult) {
+    this.locationCollector.obtain(msg, locationArgs).then(async locationResult => {
       if (!locationResult.cancelled) {
 
         const location = locationResult.values["location"];
@@ -213,31 +198,31 @@ module.exports = class AddGym extends commando.Command {
           that.showSimilarGym(similar, msg);
 
           //Offer the user the ability to cancel if they realize the gym they are trying to add already exists
-          that.confirmationCollector.obtain(msg).then(async function (confirmResult) {
-            if (!confirmResult.cancelled) {
-              const result = confirmResult.values["confirm"].toLowerCase();
-              const first = result.substring(0, 1);
-              if (first === "n") {
-                that.finishCollection(msg, locationResult)
-              } else {
-                that.cleanup(msg, locationResult)
+          that.confirmationCollector.obtain(msg)
+            .then(async confirmResult => {
+              if (!confirmResult.cancelled) {
+                const result = confirmResult.values["confirm"].toLowerCase();
+                const first = result.substring(0, 1);
+                if (first === "n") {
+                  that.finishCollection(msg, locationResult);
+                } else {
+                  that.cleanup(msg, locationResult)
+                }
               }
-            }
 
-            that.similarMessage.delete();
+              that.similarMessage.delete();
 
-            confirmResult.prompts.forEach(message => {
-              message.delete()
-            });
+              confirmResult.prompts.forEach(message => {
+                message.delete();
+              });
 
-            confirmResult.answers.forEach(message => {
-              message.delete()
+              confirmResult.answers.forEach(message => {
+                message.delete();
+              })
             })
-          })
         } else {
-          that.finishCollection(msg, locationResult)
+          that.finishCollection(msg, locationResult);
         }
-
       } else {
         that.cleanup(msg, locationResult)
       }

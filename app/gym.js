@@ -19,7 +19,6 @@ class GymCache {
   }
 
   async buildIndexes() {
-
     log.info('Beginning indexing of all channels');
 
     this.channels = Object.create(null);
@@ -51,7 +50,7 @@ class GymCache {
     }
 
     const removeIndex = this.indexQueue.slice(0);
-    removeIndex.forEach(async function (channelId) {
+    removeIndex.forEach(async channelId => {
       log.info(`Trying to rebuild region of channel: ${channelId}`);
       await that.rebuildRegion(channelId);
       let index = that.indexQueue.indexOf(channelId);
@@ -63,9 +62,10 @@ class GymCache {
 
   async rebuildRegion(channel) {
     const channels = this.channels;
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       //Get the polygon of the defined region assigned to this channel
-      let region = channel ? await Region.getRegionsRaw(channel).catch(error => null) : null;
+      let region = channel ? await Region.getRegionsRaw(channel)
+        .catch(error => null) : null;
 
       //Expand the polygon of this region outwards to include bordering gyms
       let regionObject = region ? Region.getCoordRegionFromText(region) : null;
@@ -89,7 +89,7 @@ class GymCache {
 
   async rebuildMaster() {
     const that = this;
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
 
       //Get all gyms
       let allGyms = await Region.getAllGyms();

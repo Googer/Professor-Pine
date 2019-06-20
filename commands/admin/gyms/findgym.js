@@ -1,10 +1,10 @@
-const commando = require('discord.js-commando'),
-  Discord = require('discord.js'),
+const log = require('loglevel').getLogger('FindGymCommand'),
+  commando = require('discord.js-commando'),
   oneLine = require('common-tags').oneLine,
-  Region = require('../../../app/region'),
-  PartyManager = require('../../../app/party-manager'),
   Gym = require('../../../app/gym'),
   Helper = require('../../../app/helper'),
+  PartyManager = require('../../../app/party-manager'),
+  Region = require('../../../app/region'),
   {CommandGroup} = require('../../../app/constants');
 
 module.exports = class FindGym extends commando.Command {
@@ -46,7 +46,9 @@ module.exports = class FindGym extends commando.Command {
 
     if (this.getValue(args.term) > -1) {
       isID = true;
-      gym = await Region.getGym(this.getValue(args.term)).catch(error => msg.say(error));
+      gym = await Region.getGym(this.getValue(args.term))
+        .catch(error => msg.say(error)
+          .catch(err => log.error(err)));
     } else {
       const results = await Gym.search(isBotLab ? null : msg.channel.id, args.term.split(/\s/g), false);
       if (results.length > 0) {

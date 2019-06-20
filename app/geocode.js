@@ -56,7 +56,7 @@ class MetaMachine {
 
   async calculateNearestGyms() {
     const that = this;
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       const gymQuery = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gymId";
       const results = await dbhelper.query(gymQuery)
         .catch(error => {
@@ -102,7 +102,7 @@ class MetaMachine {
   }
 
   async filterGeocodeComponents(json) {
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       const addressInfo = new Map();
       if (!json) {
         log.info("nothing");
@@ -137,7 +137,7 @@ class MetaMachine {
   }
 
   async filterGeocodeComponentsPgP(gym) {
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       const addressInfo = new Map();
       if (!gym.geodata) {
         log.warn('Gym "' + gym.name + '" has no geocode information!');
@@ -178,7 +178,7 @@ class MetaMachine {
   //Take PGP json data out of DB, format it like it will be for indexing, and then restore it.
   async updateGeocodeFormatForGyms() {
     const that = this;
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       const gymQuery = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gymId";
       const results = await dbhelper.query(gymQuery)
         .catch(error => {
@@ -208,10 +208,10 @@ class MetaMachine {
 
   async geocodeGym(gym) {
     const that = this;
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       googleMaps.reverseGeocode({
         latlng: [gym.lat, gym.lon]
-      }, async function (err, response) {
+      }, async (err, response) => {
         if (!err) {
           log.info(JSON.stringify(response.json.results, null, 4));
           const json = JSON.parse(JSON.stringify(response.json.results));
@@ -264,42 +264,39 @@ class MetaMachine {
     log.info(gyms);
 
     const that = this;
-    gyms.forEach(async function (id) {
+    gyms.forEach(async id => {
       log.info(id);
       const gymQuery = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId WHERE id = " + id;
       log.info(gymQuery);
 
       dbhelper.query(gymQuery)
-        .catch(error => {
-          log.error(error);
-        })
-        .then(async function (result) {
+        .catch(error => log.error(error))
+        .then(async result => {
           if (result && result.length > 0 && result[0].id) {
             let gym = result[0];
-            that.findPlacesNearGym(gym).catch(error =>
-              log.error(`Error getting places for gym #${gym.id}`)
-            ).then(async function (result) {
-              if (region != null) {
-                //Get channels that need reindexed
-                //Add to queue
-                let affectedChannels = await region.findAffectedChannels(gym.id);
-                gymCache.markChannelsForReindex(affectedChannels);
+            that.findPlacesNearGym(gym)
+              .catch(error => log.error(`Error getting places for gym #${gym.id}`))
+              .then(async result => {
+                if (region != null) {
+                  //Get channels that need reindexed
+                  //Add to queue
+                  let affectedChannels = await region.findAffectedChannels(gym.id);
+                  gymCache.markChannelsForReindex(affectedChannels);
 
-              } else {
-                gymCache.markPlacesComplete(id);
-              }
-            })
+                } else {
+                  gymCache.markPlacesComplete(id);
+                }
+              })
           } else {
             log.info("no result for gym");
           }
         });
     })
-
   }
 
   async findPlacesNearGym(gym) {
     const that = this;
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
 
       const gymQuery = "SELECT * FROM Gym WHERE id = ?";
       const results = await dbhelper.query(gymQuery, [gym.nearestGym])
@@ -320,9 +317,8 @@ class MetaMachine {
         language: 'en',
         location: [gym.lat, gym.lon],
         radius: radius
-      }, async function (err, response) {
+      }, async (err, response) => {
         if (!err) {
-
           const places = [];
           for (let i = 0; i < response.json.results.length; i++) {
             let place = response.json.results[i];
@@ -334,11 +330,12 @@ class MetaMachine {
           log.info(`Places: ${places}`);
           let updateQuery = "UPDATE `GymMeta` SET `places` = ? WHERE `gymId` = ?";
 
-          let dbresult = await dbhelper.query(updateQuery, [places.join(' '), gym.id]).catch(error => {
-            log.error(`Failed to update nearby places in database for ${gym.name} (#${gym.id})`);
-            reject(error);
-          }).then(result => resolve(gym));
-
+          let dbresult = await dbhelper.query(updateQuery, [places.join(' '), gym.id])
+            .catch(error => {
+              log.error(`Failed to update nearby places in database for ${gym.name} (#${gym.id})`);
+              reject(error);
+            })
+            .then(result => resolve(gym));
         } else {
           reject(error);
         }
@@ -352,46 +349,47 @@ class MetaMachine {
   //Updates all gyms
   //Reindexes affected search regions
   async beginGeoUpdates(gym, gymCache) {
-
     const that = this;
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       //Get Geocode Data for gym
-      that.geocodeGym(gym).then(gym => {
+      that.geocodeGym(gym)
+        .then(gym => {
+          //Recalculate all nearest gyms
+          that.calculateNearestGyms()
+            .then(affected => {
+              //Sort ids that need updated into single array
+              const gymIds = [];
+              affected["new"].filter(value => {
+                if (gymIds.indexOf(value) === -1 && value !== gym.id) {
+                  gymIds.push(value);
+                }
+                return true;
+              });
 
-        //Recalculate all nearest gyms
-        that.calculateNearestGyms().then(affected => {
+              affected["changed"].filter(value => {
+                if (gymIds.indexOf(value) === -1 && value !== gym.id) {
+                  gymIds.push(value);
+                }
+                return true;
+              });
 
-          //Sort ids that need updated into single array
-          const gymIds = [];
-          affected["new"].filter(value => {
-            if (gymIds.indexOf(value) === -1 && value !== gym.id) {
-              gymIds.push(value);
-            }
-            return true;
-          });
+              log.info("Gym IDs to be updated: " + gymIds);
+              log.info("Places need updated on (" + affected["new"].length + ") new gyms and (" + affected["changed"].length + ") existing gyms");
 
-          affected["changed"].filter(value => {
-            if (gymIds.indexOf(value) === -1 && value !== gym.id) {
-              gymIds.push(value);
-            }
-            return true;
-          });
-
-          log.info("Gym IDs to be updated: " + gymIds);
-          log.info("Places need updated on (" + affected["new"].length + ") new gyms and (" + affected["changed"].length + ") existing gyms");
-
-          gymCache.markGymsForPlacesUpdates(gymIds);
-          resolve(gym);
-        }).catch(error => {
+              gymCache.markGymsForPlacesUpdates(gymIds);
+              resolve(gym);
+            })
+            .catch(error => {
+              log.error(error);
+              log.error("Unable to update nearest gyms");
+              resolve(gym)
+            });
+        })
+        .catch(error => {
           log.error(error);
-          log.error("Unable to update nearest gyms");
+          log.error("Unable to geocode gym #" + gym.id);
           resolve(gym)
         });
-      }).catch(error => {
-        log.error(error);
-        log.error("Unable to geocode gym #" + gym.id);
-        resolve(gym)
-      });
     });
   }
 

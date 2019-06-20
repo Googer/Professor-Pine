@@ -172,7 +172,7 @@ class PartyManager {
     const that = this;
     Region.checkRegionsExist().then(success => {
       if (success) {
-        that.client.channels.forEach(async function (channel) {
+        that.client.channels.forEach(async channel => {
           const region = await Region.getRegionsRaw(channel.id).catch(error => false);
           if (region) {
             that.regionChannels.push(channel.id);
@@ -189,7 +189,7 @@ class PartyManager {
 
   async clearOldRegionChannels() {
     const that = this;
-    Region.checkRegionsExist().then(async function (success) {
+    Region.checkRegionsExist().then(async success => {
       if (success) {
         const regions = await Region.getAllRegions()
           .catch(error => log.error(error));
@@ -228,7 +228,7 @@ class PartyManager {
     const that = this;
     Object.entries(this.parties)
       .filter(([channelId, party]) => party.type === PartyType.RAID)
-      .forEach(async function ([channelId, party]) {
+      .forEach(async ([channelId, party]) => {
         if (!that.gymIsCached(party.gymId)) {
           console.log(party);
           const gym = await Region.getGym(party.gymId);

@@ -1,8 +1,9 @@
-const commando = require('discord.js-commando'),
+const log = require('loglevel').getLogger('ImportRegionsCommand'),
+  commando = require('discord.js-commando'),
   oneLine = require('common-tags').oneLine,
-  Region = require('../../../app/region'),
   GymCache = require('../../../app/gym'),
   PartyManager = require('../../../app/party-manager'),
+  Region = require('../../../app/region'),
   Helper = require('../../../app/helper');
 
 module.exports = class ImportRegions extends commando.Command {
@@ -38,13 +39,13 @@ module.exports = class ImportRegions extends commando.Command {
     });
   }
 
-
   async run(msg) {
     //get kml attachment url
     if (msg.attachments.first() !== undefined) {
-      console.log(msg.attachments.first().url);
+      log.debug(msg.attachments.first().url);
       const file = msg.attachments.first().url;
-      const data = await Region.parseRegionData(file).catch(error => false);
+      const data = await Region.parseRegionData(file)
+        .catch(error => false);
       if (data) {
         const channelRegions = [];
 
@@ -80,7 +81,8 @@ module.exports = class ImportRegions extends commando.Command {
           }
         }
 
-        msg.say("Creating " + toAdd.length + " new regions. Updating " + toUpdate.length + " others. Found " + ineligible.length + " ineligible.");
+        msg.say("Creating " + toAdd.length + " new regions. Updating " + toUpdate.length + " others. Found " + ineligible.length + " ineligible.")
+          .catch(err => log.error(err));
 
         //Create new regions
         for (let i = 0; i < toAdd.length; i++) {
@@ -88,8 +90,9 @@ module.exports = class ImportRegions extends commando.Command {
           Region.createNewRegion(feature, msg, GymCache).then(channel => {
             PartyManager.cacheRegionChannel(channel)
           }).catch(error => {
-            console.log(error);
+            log.error(error);
             msg.say("An error occurred")
+              .catch(err => log.error(err));
           })
         }
 
@@ -99,15 +102,17 @@ module.exports = class ImportRegions extends commando.Command {
           const channelName = Region.channelNameForFeature(feature);
           const channel = Helper.getChannelForName(channelName);
           const polydata = feature.geometry.coordinates[0];
-          Region.storeRegion(polydata, channel.id, GymCache).catch(error => reject("An error occurred storing the region for " + channelName)).then(result => {
-          });
+          Region.storeRegion(polydata, channel.id, GymCache)
+            .catch(error => reject("An error occurred storing the region for " + channelName));
         }
       } else {
         msg.say("An error occurred parsing your KML data.")
+          .catch(err => log.error(err));
       }
     } else {
       msg.delete();
-      msg.reply("Please add the `\timport-region` command as a comment when uploading a KML file.");
+      msg.reply("Please add the `\timport-region` command as a comment when uploading a KML file.")
+        .catch(err => log.error(err));
     }
   }
 };

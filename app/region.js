@@ -243,7 +243,7 @@ class RegionHelper {
   }
 
   async checkRegionsExist() {
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       const results = await dbhelper.query("SHOW TABLES LIKE 'Region';")
         .catch(error => resolve(false));
       if (results.length > 0 && results[0] !== undefined) {
@@ -255,7 +255,7 @@ class RegionHelper {
   }
 
   async getRegionId(channel) {
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       const results = await dbhelper.query("SELECT id FROM Region WHERE channelId = ?", [channel])
         .catch(error => reject(false));
       if (results.length > 0 && results[0] !== undefined) {
@@ -267,7 +267,7 @@ class RegionHelper {
   }
 
   async getRegionsRaw(channel) {
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       const results = await dbhelper.query("SELECT ST_AsText(bounds) FROM Region WHERE channelId = ?", [channel])
         .catch(error => reject(false));
       if (results.length > 0 && results[0] !== undefined) {
@@ -279,7 +279,7 @@ class RegionHelper {
   }
 
   async getChannelsForGym(gym) {
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       const q = "SELECT channelId FROM Region WHERE ST_CONTAINS(bounds, POINT(?, ?));";
       const results = await dbhelper.query(q, [gym.lat, gym.lon])
         .catch(error => reject(false));
@@ -309,7 +309,7 @@ class RegionHelper {
   checkCoordForChannel(channel, coords, resolve, reject) {
     const that = this;
     const selectQuery = "SELECT ST_AsText(bounds) FROM Region WHERE channelId = ?";
-    dbhelper.query(selectQuery, [channel]).then(async function (results) {
+    dbhelper.query(selectQuery, [channel]).then(async results => {
       const region = that.getCoordRegionFromText(results[0]["ST_AsText(bounds)"]);
       let query = "SELECT ST_CONTAINS( ST_GeomFromText('";
       query += that.polygonStringFromRegion(region);
@@ -338,7 +338,7 @@ class RegionHelper {
 
   async getAllRegions() {
     const selectQuery = "SELECT * FROM Region;";
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       const results = await dbhelper.query(selectQuery)
         .catch(error => {
           log.error(error);
@@ -364,7 +364,7 @@ class RegionHelper {
 
       selectQuery += orOptions.join(' AND');
 
-      return new Promise(async function (resolve, reject) {
+      return new Promise(async (resolve, reject) => {
         const results = await dbhelper.query(selectQuery)
           .catch(error => {
             log.error(error);
@@ -377,7 +377,7 @@ class RegionHelper {
         }
       });
     } else {
-      return new Promise(async function (resolve, reject) {
+      return new Promise(async (resolve, reject) => {
         reject("No regions defined in this server")
       });
     }
@@ -386,7 +386,7 @@ class RegionHelper {
 
   getRegionEmbed(channel) {
     const that = this;
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       const region = await that.getRegionsRaw(channel)
         .catch(error => {
           log.error(error);
@@ -447,7 +447,7 @@ class RegionHelper {
 
   getRegionDetailEmbed(channel) {
     const that = this;
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       const region = await that.getRegionsRaw(channel)
         .catch(error => {
           log.error(error);
@@ -530,7 +530,7 @@ class RegionHelper {
     } else if (url.search("goo.gl/maps/") > 0) {
 
       const that = this;
-      request(url, function (error, response, body) {
+      request(url, (error, response, body) => {
         if (!error && response.statusCode === 200) {
           const start = '<meta content="origin" name="referrer">   <meta content=\'';
           const end = "' itemprop=";
@@ -593,7 +593,7 @@ class RegionHelper {
 
   async coordStringFromText(text) {
     const that = this;
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       if (that.isValidCoords(text)) {
         resolve(text);
       } else {
@@ -617,17 +617,17 @@ class RegionHelper {
 
   async parseRegionData(url) {
     const that = this;
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       if (url != null) {
         const lower = url.toLowerCase().substring(url.length - 4);
         if (lower === ".kml" || lower === ".xml") {
           //request contents of said file
-          const request = https.get(url, function (res) {
+          const request = https.get(url, res => {
             let data = '';
-            res.on('data', function (chunk) {
+            res.on('data', chunk => {
               data += chunk;
             });
-            res.on('end', function () {
+            res.on('end', () => {
               //convert KML file from data -> string -> XML DOM Object
               const kml = new DOMParser().parseFromString(data.toString());
 
@@ -636,9 +636,7 @@ class RegionHelper {
               resolve(converted);
             });
           });
-          request.on('error', function (e) {
-            reject(error);
-          });
+          request.on('error', e => reject(e));
           request.end();
         } else {
           reject("Invalid KML File");
@@ -651,7 +649,7 @@ class RegionHelper {
 
   async deletePreviousRegion(channel) {
     const that = this;
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       that.getRegionId(channel)
         .then(regionId => {
           ImageCacher.deleteCachedImage(`images/regions/${regionId}.png`);
@@ -673,7 +671,7 @@ class RegionHelper {
 
   storeRegion(polydata, channel, gymCache) {
     const that = this;
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       //make sure first and last points are equal (closed polygon)
       const first = polydata[0][1] + " " + polydata[0][0];
       const last = polydata[polydata.length - 1][1] + " " + polydata[polydata.length - 1][0];
@@ -713,7 +711,7 @@ class RegionHelper {
   }
 
   async getAllBoundedChannels() {
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       const channels = await dbhelper.query("SELECT DISTINCT channelId FROM Region")
         .catch(error => {
           log.error(error);
@@ -744,7 +742,7 @@ class RegionHelper {
 
   createNewRegion(feature, msg, gymCache) {
     const that = this;
-    return new Promise(function (resolve, reject) {
+    return new Promise((resolve, reject) => {
       //data["features"][0]["geometry"]["coordinates"][0];
       const polydata = feature.geometry.coordinates[0];
       const name = feature.properties.name;
@@ -777,9 +775,8 @@ class RegionHelper {
 
   async addGym(args, gymCache) {
     const that = this;
-    return new Promise(async function (resolve, reject) {
-
-      that.coordStringFromText(args.location).then(async function (coords) {
+    return new Promise(async (resolve, reject) => {
+      that.coordStringFromText(args.location).then(async coords => {
         let point = that.pointFromCoordString(coords);
         const insertQuery = `INSERT INTO Gym (lat,lon,name) VALUES(${point.x},${point.y},\"${args.name}\")`;
         let metaQuery = "INSERT INTO GymMeta (gymId";
@@ -825,7 +822,7 @@ class RegionHelper {
             log.error(error);
             reject(error);
           })
-          .then(async function () {
+          .then(async () => {
             Meta.beginGeoUpdates(gym, gymCache)
               .catch(error => resolve(gym))
               .then(result => resolve(result));
@@ -839,8 +836,8 @@ class RegionHelper {
 
   async setGymLocation(gym, location, gymCache) {
     const that = this;
-    return new Promise(async function (resolve, reject) {
-      that.coordStringFromText(location).then(async function (coords) {
+    return new Promise(async (resolve, reject) => {
+      that.coordStringFromText(location).then(async coords => {
         let point = that.pointFromCoordString(coords);
         let query = "UPDATE Gym SET lat='?', lon='?' WHERE id=?;";
         await dbhelper.query(query, [point.x, point.y, gym])
@@ -848,7 +845,7 @@ class RegionHelper {
             log.error(error);
             reject(error);
           })
-          .then(async function (results) {
+          .then(async results => {
             const gymInfo = await dbhelper.query("SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId WHERE id = ?", [gym]).catch(error => {
               reject(error);
             });
@@ -981,7 +978,7 @@ class RegionHelper {
 
   async getGymCount(channel) {
     const regionRaw = await this.getRegionsRaw(channel).catch(error => false);
-    return new Promise(function (resolve, reject) {
+    return new Promise((resolve, reject) => {
       if (regionRaw) {
         const gymQuery = `SELECT * FROM Gym WHERE ST_CONTAINS(ST_GeomFromText('${regionRaw}'), POINT(lat, lon))`;
         dbhelper.query(gymQuery)
@@ -998,7 +995,7 @@ class RegionHelper {
   }
 
   async getAllGyms() {
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       const gymQuery = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gymId";
       const results = await dbhelper.query(gymQuery)
         .catch(error => {
@@ -1014,7 +1011,7 @@ class RegionHelper {
   }
 
   async getGyms(region) {
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       if (region) {
         const gymQuery = `SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gymId WHERE ST_CONTAINS(ST_GeomFromText('${region}'), POINT(lat, lon))`;
         const results = await dbhelper.query(gymQuery)
@@ -1035,14 +1032,14 @@ class RegionHelper {
   }
 
   async getGym(gymId) {
-    return new Promise(function (resolve, reject) {
+    return new Promise((resolve, reject) => {
       const gymQuery = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gymId WHERE id = ?";
       dbhelper.query(gymQuery, [gymId])
         .catch(error => {
           log.error(error);
           reject(error);
         })
-        .then(async function (results) {
+        .then(async results => {
           resolve(results[0]);
         });
     });
@@ -1050,7 +1047,7 @@ class RegionHelper {
 
   async deleteGym(gymId, gymCache) {
     const that = this;
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       let preaffected = await that.findAffectedChannels(gymId);
 
       const gymQuery = "DELETE FROM Gym WHERE id = ?";
@@ -1059,7 +1056,7 @@ class RegionHelper {
           log.error(error);
           reject(error);
         })
-        .then(async function (results) {
+        .then(async results => {
           ImageCacher.deleteCachedImage(`images/gyms/${gymId}.png`);
           //Get Geocode Data
           //Recalculate all nearest gyms
@@ -1099,7 +1096,7 @@ class RegionHelper {
   }
 
   async regionChannelForGym(gym) {
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       let query = `SELECT CAST(channelId as CHAR(55)) as channel FROM Region WHERE ST_CONTAINS(bounds, Point(${gym.lat}, ${gym.lon}))`;
       const result = dbhelper.query(query)
         .then(result => {
@@ -1123,7 +1120,7 @@ class RegionHelper {
     const matching = [];
 
     const that = this;
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       for (const channel of channels) {
         const region = await that.getRegionsRaw(channel["channelId"])
           .catch(error => {
@@ -1168,7 +1165,7 @@ class RegionHelper {
       const polygon = regionRaw ? this.polygonStringFromRegion(expanded) : null;
 
       const that = this;
-      return new Promise(function (resolve, reject) {
+      return new Promise((resolve, reject) => {
         if (regionRaw || channel == null) {
           const gymQuery = regionRaw ? `SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gymId WHERE ST_CONTAINS(ST_GeomFromText('${polygon}'), POINT(lat, lon))` : "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gymId";
           dbhelper.query(gymQuery)
@@ -1258,7 +1255,7 @@ class RegionHelper {
                   return;
                 } else {
                   const found = searchResults[0];
-                  results.forEach(function (doc) {
+                  results.forEach(doc => {
                     if (doc["id"] === found["ref"]) {
                       resolve(doc);
                     }
@@ -1299,7 +1296,7 @@ class RegionHelper {
 
   editGymKeywords(gym, action, keywords, gymCache) {
     const that = this;
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       const existing = (gym["keywords"] != null) ? that.keywordArrayFromString(gym["keywords"]) : [];
       let final;
       if (action === "add") {
@@ -1341,7 +1338,7 @@ class RegionHelper {
 
   async setEXStatus(gym, tagged, previous, gymCache) {
     const that = this;
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       const query = `UPDATE GymMeta SET taggedEx = ${tagged ? 1 : 'NULL'}, confirmedEx = ${previous ? 1 : 'NULL'} WHERE gymId=${gym["id"]}`;
       log.info(query);
 
@@ -1350,7 +1347,7 @@ class RegionHelper {
           log.error(error);
           reject(error);
         })
-        .then(async function (results) {
+        .then(async results => {
           const gymInfo = await dbhelper.query("SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId WHERE id = ?", [gym["id"]])
             .catch(error => {
               log.error(error);
@@ -1366,7 +1363,7 @@ class RegionHelper {
 
   async setGymDescription(gym, description, gymCache) {
     const that = this;
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       let query;
       if (description.toLowerCase() === "remove") {
         query = `UPDATE GymMeta SET description = NULL WHERE gymId = ${gym["id"]}`;
@@ -1379,7 +1376,7 @@ class RegionHelper {
           log.error(error);
           reject(error);
         })
-        .then(async function (results) {
+        .then(async results => {
           const gymInfo = await dbhelper.query("SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId WHERE id = ?", [gym["id"]])
             .catch(error => {
               log.error(error);
@@ -1395,7 +1392,7 @@ class RegionHelper {
 
   async setGymNickname(gym, nickname, gymCache) {
     const that = this;
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       let query = `UPDATE GymMeta SET nickname = '${nickname}' WHERE gymId = ${gym["id"]}`;
       if (nickname.toLowerCase() === "remove") {
         query = `UPDATE GymMeta SET nickname = NULL WHERE gymId = ${gym["id"]}`;
@@ -1406,7 +1403,7 @@ class RegionHelper {
           log.error(error);
           reject(error);
         })
-        .then(async function (results) {
+        .then(async results => {
           const gymInfo = await dbhelper.query("SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId WHERE id = ?", [gym["id"]])
             .catch(error => {
               log.error(error);
@@ -1422,14 +1419,14 @@ class RegionHelper {
 
   async setGymName(gym, name, gymCache) {
     const that = this;
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       let query = "UPDATE Gym SET name = ? WHERE id = ?";
       const result = await dbhelper.query(query, [name, gym["id"]])
         .catch(error => {
           log.error(error);
           reject(error);
         })
-        .then(async function (results) {
+        .then(async results => {
           const gymInfo = await dbhelper.query("SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId WHERE id = ?", [gym["id"]])
             .catch(error => {
               log.error(error);
@@ -1445,14 +1442,14 @@ class RegionHelper {
 
   async setGymNotice(gym, notice, gymCache) {
     const that = this;
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       let query = `UPDATE GymMeta SET notice = '${notice}' WHERE gymId=${gym["id"]}`;
       if (notice.toLowerCase() === "remove") {
         query = `UPDATE GymMeta SET notice = NULL WHERE gymId=${gym["id"]}`;
       }
       const result = await dbhelper.query(query)
         .catch(error => reject(error))
-        .then(async function (results) {
+        .then(async results => {
           const gymInfo = await dbhelper.query("SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId WHERE id = ?", [gym["id"]])
             .catch(error => {
               log.error(error);
@@ -1467,15 +1464,13 @@ class RegionHelper {
   }
 
   async importGym(statement, values) {
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       await dbhelper.query(statement, values)
         .catch(error => {
           log.error(error);
           reject(error);
         })
-        .then(async function (results) {
-          resolve(results);
-        });
+        .then(async results => resolve(results));
     });
   }
 

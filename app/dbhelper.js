@@ -56,10 +56,10 @@ class DBHelper {
 
   async query(queryString) {
     const that = this;
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       await DB.init();
 
-      that.pool.getConnection(async function (error, connection) {
+      that.pool.getConnection(async (error, connection) => {
         connection.query("SET NAMES 'utf8mb4'");
         connection.query("SET CHARACTER SET 'utf8mb4'");
         connection.query(queryString, (err, results) => {
@@ -78,9 +78,9 @@ class DBHelper {
 
   async query(queryString, values) {
     const that = this;
-    return new Promise(async function (resolve, reject) {
+    return new Promise(async (resolve, reject) => {
       await DB.init();
-      that.pool.getConnection(async function (error, connection) {
+      that.pool.getConnection(async (error, connection) => {
         connection.query("SET NAMES 'utf8mb4'");
         connection.query("SET CHARACTER SET 'utf8mb4'");
         connection.query(queryString, values, (err, results) => {
