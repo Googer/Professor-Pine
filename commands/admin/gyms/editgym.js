@@ -173,7 +173,7 @@ module.exports = class EditGym extends commando.Command {
   }
 
   cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage) {
-    let messagesToDelete = [...[msg], ...gymResult.prompts, ...gymResult.answers];
+    let messagesToDelete = [msg, ...gymResult.prompts, ...gymResult.answers];
 
     if (gymMessage) {
       messagesToDelete = [...messagesToDelete, [gymMessage]];

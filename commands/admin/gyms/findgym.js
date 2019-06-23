@@ -68,16 +68,20 @@ module.exports = class FindGym extends commando.Command {
       }
 
       if (channelStrings.length > 0) {
-        msg.say("This gym is in " + channelStrings.join(", ") + ".");
+        msg.say("This gym is in " + channelStrings.join(", ") + ".")
+          .catch(err => log.error(err));
       } else {
-        msg.say("This gym is not located in any region channels.");
+        msg.say("This gym is not located in any region channels.")
+          .catch(err => log.error(err));
       }
 
     } else {
       if (isID) {
-        msg.reply("No gym found with ID " + args.term);
+        msg.reply("No gym found with ID " + args.term)
+          .catch(err => log.error(err));
       } else {
-        msg.reply("No gyms found with search term: " + args.term);
+        msg.reply("No gyms found with search term: " + args.term)
+          .catch(err => log.error(err));
       }
     }
   }

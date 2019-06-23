@@ -110,7 +110,8 @@ module.exports = class ImportRegions extends commando.Command {
           .catch(err => log.error(err));
       }
     } else {
-      msg.delete();
+      msg.delete()
+        .catch(err => log.error(err));
       msg.reply("Please add the `\timport-region` command as a comment when uploading a KML file.")
         .catch(err => log.error(err));
     }

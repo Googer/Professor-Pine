@@ -9,7 +9,7 @@ const log = require('loglevel').getLogger('RegionManager'),
   ImageCacher = require('./imagecacher'),
   stringSimilarity = require('string-similarity'),
   privateSettings = require('../data/private-settings'),
-  request = require("request"),
+  request = require('request'),
   turf = require('@turf/turf');
 
 //This gets the decimal lat/lon value from a string of degree/minute/seconds
@@ -87,12 +87,12 @@ function distance(lat1, lon1, lat2, lon2, unit) {
   dist = dist * 180 / Math.PI;
   dist = dist * 60 * 1.1515;
   if (unit === "K") {
-    dist = dist * 1.609344
+    dist = dist * 1.609344;
   }
   if (unit === "N") {
-    dist = dist * 0.8684
+    dist = dist * 0.8684;
   }
-  return dist
+  return dist;
 }
 
 String.prototype.replaceAll = function (search, replace) {
@@ -208,7 +208,6 @@ class RegionHelper {
       log.error(error);
       return null;
     }
-
   }
 
   getJSONRegionFromText(text) {
@@ -309,31 +308,33 @@ class RegionHelper {
   checkCoordForChannel(channel, coords, resolve, reject) {
     const that = this;
     const selectQuery = "SELECT ST_AsText(bounds) FROM Region WHERE channelId = ?";
-    dbhelper.query(selectQuery, [channel]).then(async results => {
-      const region = that.getCoordRegionFromText(results[0]["ST_AsText(bounds)"]);
-      let query = "SELECT ST_CONTAINS( ST_GeomFromText('";
-      query += that.polygonStringFromRegion(region);
-      query += "'),";
-      query += "ST_GeomFromText('";
-      query += that.pointStringFromPoint(that.getPointFromText(coords));
-      query += "'));";
+    dbhelper.query(selectQuery, [channel])
+      .then(async results => {
+        const region = that.getCoordRegionFromText(results[0]["ST_AsText(bounds)"]);
+        let query = "SELECT ST_CONTAINS( ST_GeomFromText('";
+        query += that.polygonStringFromRegion(region);
+        query += "'),";
+        query += "ST_GeomFromText('";
+        query += that.pointStringFromPoint(that.getPointFromText(coords));
+        query += "'));";
 
-      dbhelper.query(query)
-        .then(result => {
-          const match = result[0][Object.keys(result[0])[0]];
-          if (match === 1) {
-            resolve(true);
-          } else {
-            resolve("The coordinates provided are not within this channels bounds.");
-          }
-        }).catch(error => {
+        dbhelper.query(query)
+          .then(result => {
+            const match = result[0][Object.keys(result[0])[0]];
+            if (match === 1) {
+              resolve(true);
+            } else {
+              resolve("The coordinates provided are not within this channels bounds.");
+            }
+          }).catch(error => {
+          log.error(error);
+          resolve("An unknown error occurred");
+        });
+      })
+      .catch(error => {
         log.error(error);
-        resolve("An unknown error occurred");
+        resolve("An unknown error occurred")
       });
-    }).catch(error => {
-      log.error(error);
-      resolve("An unknown error occurred")
-    });
   }
 
   async getAllRegions() {
@@ -381,7 +382,6 @@ class RegionHelper {
         reject("No regions defined in this server")
       });
     }
-
   }
 
   getRegionEmbed(channel) {
@@ -528,7 +528,6 @@ class RegionHelper {
       //Short URLs from Google Maps mobile apps
       //https://goo.gl/maps/r54jMZxh1TC2
     } else if (url.search("goo.gl/maps/") > 0) {
-
       const that = this;
       request(url, (error, response, body) => {
         if (!error && response.statusCode === 200) {
@@ -706,7 +705,8 @@ class RegionHelper {
             gymCache.markChannelsForReindex([channel]);
           }
           resolve(true);
-        }).catch(error => reject(error));
+        })
+        .catch(error => reject(error));
     });
   }
 
@@ -1086,11 +1086,12 @@ class RegionHelper {
               gymCache.markGymsForPlacesUpdates(gymIds);
               resolve(results.affectedRows === 1);
 
-            }).catch(error => {
-            log.error(error);
-            log.error("Unable to update nearest gyms");
-            resolve(results.affectedRows === 1);
-          })
+            })
+            .catch(error => {
+              log.error(error);
+              log.error("Unable to update nearest gyms");
+              resolve(results.affectedRows === 1);
+            })
         });
     });
   }
@@ -1105,7 +1106,8 @@ class RegionHelper {
           } else {
             reject("No region found");
           }
-        }).catch(error => {
+        })
+        .catch(error => {
           log.error(error);
           reject(error);
         });
@@ -1264,15 +1266,15 @@ class RegionHelper {
               }
 
               reject(errorMessage + term + "'");
-            }).catch(error => {
-            log.error("GYM ERROR: " + error);
-            reject("An error occurred looking for gyms");
-          })
+            })
+            .catch(error => {
+              log.error("GYM ERROR: " + error);
+              reject("An error occurred looking for gyms");
+            })
         } else {
           reject("No region defined in this channel");
         }
       });
-
     } catch (error) {
       log.error(error)
     }

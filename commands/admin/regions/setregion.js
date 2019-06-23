@@ -49,8 +49,7 @@ module.exports = class SetRegion extends commando.Command {
       const data = await Region.parseRegionData(file).catch(error => false);
       if (data) {
         const polydata = data["features"][0]["geometry"]["coordinates"][0];
-        if (await Region.storeRegion(polydata, msg.channel.id, GymCache)
-          .catch(error => false)) {
+        if (await Region.storeRegion(polydata, msg.channel.id, GymCache).catch(error => false)) {
           PartyManager.cacheRegionChannel(msg.channel.id);
           Region.getRegionDetailEmbed(msg.channel.id)
             .then(embed => {
@@ -70,9 +69,10 @@ module.exports = class SetRegion extends commando.Command {
           .catch(err => log.error(err));
       }
     } else {
-      msg.delete();
+      msg.delete()
+        .catch(err => log.error(err));
       msg.reply("Please add the `setbounds` command as a comment when uploading a KML file.")
-        .catch(err => log.error(err));;
+        .catch(err => log.error(err));
     }
   }
 };

@@ -105,7 +105,7 @@ module.exports = class AddGym extends commando.Command {
   }
 
   cleanup(msg, locationResult, nameResult, nicknameResult, descriptionResult) {
-    let messagesToDelete = [...[msg], ...locationResult.prompts, ...locationResult.answers];
+    let messagesToDelete = [msg, ...locationResult.prompts, ...locationResult.answers];
 
     if (nameResult) {
       messagesToDelete = [...messagesToDelete, ...nameResult.prompts, ...nameResult.answers];
@@ -210,21 +210,13 @@ module.exports = class AddGym extends commando.Command {
                 }
               }
 
-              that.similarMessage.delete();
-
-              confirmResult.prompts.forEach(message => {
-                message.delete();
-              });
-
-              confirmResult.answers.forEach(message => {
-                message.delete();
-              })
+              Utility.deleteMessages([that.similarMessage, ...confirmResult.prompts, ...confirmResult.answers]);
             })
         } else {
           that.finishCollection(msg, locationResult);
         }
       } else {
-        that.cleanup(msg, locationResult)
+        that.cleanup(msg, locationResult);
       }
     })
   }

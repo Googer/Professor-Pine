@@ -186,7 +186,7 @@ class Gym extends Search {
   constructor(gyms) {
     super();
     this.gyms = gyms;
-    this.buildIndex()
+    this.buildIndex();
   }
 
   buildIndex() {
@@ -378,9 +378,7 @@ class Gym extends Search {
   }
 
   async search(terms, nameOnly) {
-    let results = this.channelSearch(terms, nameOnly);
-
-    return results;
+    return this.channelSearch(terms, nameOnly);
   }
 
   getGym(gymId) {
