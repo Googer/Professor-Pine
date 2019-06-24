@@ -422,6 +422,7 @@
   },
   {
     "name": "geodude",
+    "tier": 1,
     "shiny": true,
     "nickname": [
       "kanto"
@@ -551,7 +552,8 @@
   },
   {
     "name": "onix",
-    "tier": 3
+    "tier": 3,
+    "shiny": true
   },
   {
     "name": "drowzee",
@@ -676,7 +678,8 @@
   },
   {
     "name": "scyther",
-    "tier": 3
+    "tier": 3,
+    "shiny": true
   },
   {
     "name": "jynx",
@@ -1022,7 +1025,8 @@
   },
   {
     "name": "shuckle",
-    "tier": 3
+    "tier": 3,
+    "shiny": true
   },
   {
     "name": "heracross"
@@ -1283,7 +1287,7 @@
   },
   {
     "name": "breloom",
-    "tier": 3
+    "tier": 2
   },
   {
     "name": "slakoth"
@@ -1492,14 +1496,16 @@
   },
   {
     "name": "lileep",
-    "tier": 1
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "cradily"
   },
   {
     "name": "anorith",
-    "tier": 1
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "armaldo"
@@ -1745,15 +1751,18 @@
   },
   {
     "name": "burmy_plant",
-    "overrideName": "Burmy (Plant Cloak)"
+    "overrideName": "Burmy (Plant Cloak)",
+    "tier": 1
   },
   {
     "name": "burmy_sandy",
-    "overrideName": "Burmy (Sandy Cloak)"
+    "overrideName": "Burmy (Sandy Cloak)",
+    "tier": 1
   },
   {
     "name": "burmy_trash",
-    "overrideName": "Burmy (Trash Cloak)"
+    "overrideName": "Burmy (Trash Cloak)",
+    "tier": 1
   },
   {
     "name": "wormadam_plant",
@@ -2021,7 +2030,8 @@
       "regiduck",
       "regiswan"
     ],
-    "tier": 5
+    "tier": 5,
+    "shiny": true
   },
   {
     "name": "phione"
