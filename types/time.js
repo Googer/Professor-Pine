@@ -2,7 +2,7 @@
 
 const Commando = require('discord.js-commando'),
   moment = require('moment'),
-  {TimeMode, TimeParameter} = require('../app/constants'),
+  {PartyType, TimeMode, TimeParameter} = require('../app/constants'),
   settings = require('../data/settings.json');
 
 let PartyManager;
@@ -40,11 +40,12 @@ class TimeType extends Commando.ArgumentType {
 
     let firstPossibleTime,
       maxDuration,
-      lastPossibleTime;
+      lastPossibleTime,
+      isTrain = false;
 
     // Figure out valid first and last possible times for this time
     switch (arg.key) {
-      case TimeParameter.START:
+      case TimeParameter.MEET:
         // Start time - valid range is now (or hatch time if it exists, whichever is later)
         // through raid's end time
         const party = PartyManager.getParty(message.channel.id),
@@ -54,6 +55,10 @@ class TimeType extends Commando.ArgumentType {
           endTime = party ?
             party.endTime :
             undefined;
+
+        isTrain = party ?
+          party.type === PartyType.RAID_TRAIN :
+          false;
 
         if (hatchTime) {
           const hatchTimeMoment = moment(hatchTime);
@@ -69,8 +74,13 @@ class TimeType extends Commando.ArgumentType {
           moment(endTime) :
           partyCreationTime.clone().add(incubationDuration + hatchedDuration, 'minutes');
 
-        maxDuration = incubationDuration + hatchedDuration;
-        lastPossibleTime = partyEndTime;
+        if (isTrain) {
+          maxDuration = settings.maximumMeetupLeadtime;
+          lastPossibleTime = partyCreationTime.clone().add(maxDuration, 'days');
+        } else {
+          maxDuration = incubationDuration + hatchedDuration;
+          lastPossibleTime = partyEndTime;
+        }
         break;
 
       case TimeParameter.HATCH: {
@@ -103,6 +113,8 @@ class TimeType extends Commando.ArgumentType {
     } else if (['unset', 'cancel', 'none'].indexOf(valueToParse.toLowerCase()) !== -1) {
       // mark this is a valid time.
       return true;
+    } else if (isTrain === true) {
+      timeMode = TimeMode.ABSOLUTE;
     } else {
       const absoluteMatch = valueToParse.match(/^at(.*)|(.*[ap]m?)$/i);
 
@@ -192,11 +204,12 @@ class TimeType extends Commando.ArgumentType {
 
     let firstPossibleTime,
       maxDuration,
-      lastPossibleTime;
+      lastPossibleTime,
+      isTrain = false;
 
     // Figure out valid first and last possible times for this time
     switch (arg.key) {
-      case TimeParameter.START:
+      case TimeParameter.MEET:
         // Start time - valid range is now (or hatch time if it exists, whichever is later)
         // through raid's end time
         const party = PartyManager.getParty(message.channel.id),
@@ -206,6 +219,10 @@ class TimeType extends Commando.ArgumentType {
           endTime = party ?
             party.endTime :
             undefined;
+
+        isTrain = party ?
+          party.type === PartyType.RAID_TRAIN :
+          false;
 
         if (hatchTime) {
           const hatchTimeMoment = moment(hatchTime);
@@ -221,8 +238,13 @@ class TimeType extends Commando.ArgumentType {
           moment(endTime) :
           partyCreationTime.clone().add(incubationDuration + hatchedDuration, 'minutes');
 
-        maxDuration = incubationDuration + hatchedDuration;
-        lastPossibleTime = partyEndTime;
+        if (isTrain) {
+          maxDuration = settings.maximumMeetupLeadtime;
+          lastPossibleTime = partyCreationTime.clone().add(maxDuration, 'days');
+        } else {
+          maxDuration = incubationDuration + hatchedDuration;
+          lastPossibleTime = partyEndTime;
+        }
         break;
 
       case TimeParameter.HATCH: {
@@ -255,6 +277,8 @@ class TimeType extends Commando.ArgumentType {
     }  else if (['unset', 'cancel', 'none'].indexOf(valueToParse.toLowerCase()) !== -1) {
       // return a value to indicate unset & meet.
       return -1;
+    } else if (isTrain === true) {
+      timeMode = TimeMode.ABSOLUTE;
     } else {
       const absoluteMatch = valueToParse.match(/^at(.*)|(.*[ap]m?)$/i);
 
@@ -318,7 +342,7 @@ class TimeType extends Commando.ArgumentType {
       ambiguouslyAM = hour < 12 && !dateFormat.endsWith('a'),
       containsDate = dateFormat.includes('D');
 
-    if (timeParameter === TimeParameter.START && !containsDate && raidHatchTime !== undefined) {
+    if (timeParameter === TimeParameter.MEET && !containsDate && raidHatchTime !== undefined) {
       possibleDate.date(raidHatchTime.date());
       possibleDate.month(raidHatchTime.month());
       possibleDate.year(raidHatchTime.year());

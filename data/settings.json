@@ -7,6 +7,7 @@
   "deletionGraceTime": 5,
   "deletionWarningTime": 10,
   "raidCompleteTimeout": 5,
+  "maximumMeetupLeadtime": 93,
   "screenshotMessageOffsetTime": 45,
   "cleanupInterval": 60000,
   "commandPrefix": "!",
