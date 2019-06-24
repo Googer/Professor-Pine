@@ -61,9 +61,9 @@ class TimeType extends Commando.ArgumentType {
                 party.endTime :
                 undefined;
 
-        isTrain = party ?
-          party.type === PartyType.RAID_TRAIN :
-          false;
+            isTrain = party ?
+              party.type === PartyType.RAID_TRAIN :
+              false;
 
             if (hatchTime) {
               const hatchTimeMoment = moment(hatchTime);
@@ -79,13 +79,13 @@ class TimeType extends Commando.ArgumentType {
               moment(endTime) :
               partyCreationTime.clone().add(incubationDuration + hatchedDuration, 'minutes');
 
-        if (isTrain) {
-          maxDuration = settings.maximumMeetupLeadtime;
-          lastPossibleTime = partyCreationTime.clone().add(maxDuration, 'days');
-        } else {
-            maxDuration = incubationDuration + hatchedDuration;
-            lastPossibleTime = partyEndTime;
-        }
+            if (isTrain) {
+              maxDuration = settings.maximumMeetupLeadtime;
+              lastPossibleTime = partyCreationTime.clone().add(maxDuration, 'days');
+            } else {
+              maxDuration = incubationDuration + hatchedDuration;
+              lastPossibleTime = partyEndTime;
+            }
             break;
           }
 
@@ -243,9 +243,9 @@ class TimeType extends Commando.ArgumentType {
                 party.endTime :
                 undefined;
 
-        isTrain = party ?
-          party.type === PartyType.RAID_TRAIN :
-          false;
+            isTrain = party ?
+              party.type === PartyType.RAID_TRAIN :
+              false;
 
             if (hatchTime) {
               const hatchTimeMoment = moment(hatchTime);
@@ -265,8 +265,8 @@ class TimeType extends Commando.ArgumentType {
               maxDuration = settings.maximumMeetupLeadtime;
               lastPossibleTime = partyCreationTime.clone().add(maxDuration, 'days');
             } else {
-                maxDuration = incubationDuration + hatchedDuration;
-                lastPossibleTime = partyEndTime;
+              maxDuration = incubationDuration + hatchedDuration;
+              lastPossibleTime = partyEndTime;
             }
             break;
           }
