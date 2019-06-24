@@ -1,6 +1,6 @@
 "use strict";
 
-const log = require('loglevel').getLogger('StartTimeCommand'),
+const log = require('loglevel').getLogger('MeetTimeCommand'),
   Commando = require('discord.js-commando'),
   {CommandGroup, PartyStatus, TimeParameter} = require('../../app/constants'),
   Helper = require('../../app/helper'),
@@ -8,7 +8,7 @@ const log = require('loglevel').getLogger('StartTimeCommand'),
   PartyManager = require('../../app/party-manager'),
   settings = require('../../data/settings');
 
-class StartTimeCommand extends Commando.Command {
+class MeetTimeCommand extends Commando.Command {
   constructor(client) {
     super(client, {
       name: 'meet',
@@ -20,7 +20,7 @@ class StartTimeCommand extends Commando.Command {
       examples: ['\t!meet 2:20pm'],
       args: [
         {
-          key: TimeParameter.START,
+          key: TimeParameter.MEET,
           label: 'meeting time',
           prompt: 'When do you wish to meet for this party?\nExamples: `8:43`, `2:20pm`\n\n*or*\n\nIn how long (in minutes) do you wish to meet for this party?\nExample: `15`\n',
           type: 'time'
@@ -33,14 +33,14 @@ class StartTimeCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'meet' &&
         !PartyManager.validParty(message.channel.id)) {
-        return ['invalid-channel', message.reply('Set the meeting time for a party from its channel!')];
+        return ['invalid-channel', message.reply('Set the meeting time for a raid from its raid channel!')];
       }
       return false;
     });
   }
 
   async run(message, args) {
-    const startTime = args[TimeParameter.START],
+    const startTime = args[TimeParameter.MEET],
       raid = PartyManager.getParty(message.channel.id),
       info = startTime === -1 ?
         await raid.cancelMeetingTime(message.member.id) :
@@ -93,4 +93,4 @@ class StartTimeCommand extends Commando.Command {
   }
 }
 
-module.exports = StartTimeCommand;
+module.exports = MeetTimeCommand;
