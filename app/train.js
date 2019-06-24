@@ -7,8 +7,7 @@ const log = require('loglevel').getLogger('Raid'),
   {PartyStatus, PartyType} = require('./constants'),
   Discord = require('discord.js'),
   Helper = require('./helper'),
-  Party = require('./party'),
-  TimeType = require('../types/time');
+  Party = require('./party');
 
 let Gym,
   PartyManager;
@@ -66,6 +65,20 @@ class RaidTrain extends Party {
       });
   }
 
+  async setMeetingTime(memberId, startTime) {
+    const member = this.attendees[memberId];
+
+    if (!member) {
+      return {error: `You are not signed up for this ${this.type}!`};
+    }
+
+    this.startTime = startTime;
+
+    await this.persist();
+
+    return {party: this};
+  }
+
   async setLocation(gymId, newRegionChannel = undefined) {
     this.gymId = gymId;
     if (!!newRegionChannel) {
@@ -74,6 +87,8 @@ class RaidTrain extends Party {
     }
 
     await this.persist();
+
+    Helper.client.emit('trainGymChanged', gymId, this);
 
     const newChannelName = this.generateChannelName();
 
@@ -106,11 +121,7 @@ class RaidTrain extends Party {
   }
 
   getTrainShortMessage() {
-    const totalAttendees = this.getAttendeeCount(),
-      calendarFormat = {
-        sameDay: 'LT',
-        sameElse: 'l LT'
-      };
+    const totalAttendees = this.getAttendeeCount();
 
     return PartyManager.getChannel(this.channelId)
       .then(channelResult => channelResult.ok ?
@@ -140,8 +151,20 @@ class RaidTrain extends Party {
   }
 
   async getFullStatusMessage() {
-    const reportingMember = (await this.getMember(this.createdById)).member,
+    const calendarFormat = {
+        sameDay: 'LT',
+        sameElse: 'l LT'
+      },
+
+      reportingMember = (await this.getMember(this.createdById)).member,
       raidReporter = `Originally reported by ${reportingMember.displayName}`,
+
+      meetingTime = !!this.startTime ?
+        moment(this.startTime) :
+        '',
+      meetingLabel = !!this.startTime ?
+        '__Meeting Time__' :
+        '',
 
       gym = Gym.getGym(this.gymId),
       gymName = !!gym ?
@@ -186,6 +209,10 @@ class RaidTrain extends Party {
     embed.setURL(gymUrl);
 
     embed.setFooter(raidReporter, reportingMember.user.displayAvatarURL());
+
+    if (!!this.startTime && !isNaN(this.startTime)) {
+      embed.addField(meetingLabel, meetingTime.calendar(null, calendarFormat));
+    }
 
     this.groups
       .forEach(group => {
@@ -321,7 +348,8 @@ class RaidTrain extends Party {
   toJSON() {
     return Object.assign(super.toJSON(), {
       trainName: this.trainName,
-      gymId: this.gymId
+      gymId: this.gymId,
+      startTime: this.startTime
     });
   }
 }

@@ -5,7 +5,6 @@ const log = require('loglevel').getLogger('DeleteCommand'),
   {CommandGroup} = require('../../app/constants'),
   Helper = require('../../app/helper'),
   PartyManager = require('../../app/party-manager'),
-  Raid = require('../../app/raid'),
   Utility = require('../../app/utility');
 
 class DeleteCommand extends Commando.Command {
@@ -46,10 +45,11 @@ class DeleteCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    const hasPermission = Helper.isManagement(message);
+    const hasPermission = Helper.isManagement(message),
+      party = PartyManager.getParty(message.channel.id);
 
     if (hasPermission) {
-      message.channel.send('Deleting this raid in 15 seconds!')
+      message.channel.send(`Deleting this ${party.type} in 15 seconds!`)
         .then(message => Utility.sleep(15000))
         .then(resolve => PartyManager.deleteParty(message.channel.id))
         .catch(err => log.error(err));
