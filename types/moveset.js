@@ -18,8 +18,12 @@ class MovesetType extends Commando.ArgumentType {
 
     const raidBoss = raid.pokemon;
 
-    if (!!!raidBoss) {
+    if (!!!raidBoss || raidBoss.egg) {
       return 'No raid boss set for the raid. Please set the raid boss prior to the moveset.';
+    }
+
+    if (typeof raidBoss.quickMoves === 'undefined' || typeof raidBoss.cinematicMoves === 'undefined') {
+      return 'Unknown error occurred and the moveset cannot be set at this time.';
     }
 
     const moves = value.split('/', 2)
