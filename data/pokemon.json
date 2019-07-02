@@ -714,7 +714,8 @@
   },
   {
     "name": "lapras",
-    "tier": 4
+    "tier": 4,
+    "shiny": true
   },
   {
     "name": "ditto"
@@ -1129,7 +1130,8 @@
   },
   {
     "name": "raikou",
-    "tier": 5
+    "tier": 5,
+    "shiny": true
   },
   {
     "name": "entei",
