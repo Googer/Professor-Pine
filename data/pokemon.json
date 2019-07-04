@@ -222,7 +222,12 @@
     "tier": 4
   },
   {
-    "name": "nidoran♂"
+    "name": "nidoran♂",
+    "shiny": true,
+    "tier": 1,
+    "nickname": [
+      "male"
+    ]
   },
   {
     "name": "nidorino"
