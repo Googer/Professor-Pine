@@ -30,9 +30,11 @@ class Pokemon extends Search {
         .map(form => Object.assign({},
           {
             formName: form.form.toLocaleLowerCase(),
-            formId: !!form.assetBundleValue ?
-              `${form.assetBundleValue}` :
-              '00'
+            formId: !!form.assetBundleSuffix ?
+              form.assetBundleSuffix :
+              !!form.assetBundleValue ?
+                `${form.assetBundleValue}` :
+                '00'
           })),
       pokemon = gameMaster.itemTemplates
         .filter(item => pokemonRegex.test(item.templateId))
