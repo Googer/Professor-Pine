@@ -22,7 +22,7 @@
     "mysql": "^2.17.1",
     "node-cleanup": "^2.1.2",
     "node-persist": "^3.0.4",
-    "pokemongo-game-master": "^1.0.4",
+    "pokemongo-game-master": "github:pokemongo-dev-contrib/pokemongo-game-master#9c0d8f53d680a419f9243af012b4aa0cac437ea8",
     "request-promise": "^4.2.4",
     "tesseract.js": "github:Googer/tesseract.js",
     "togeojson-with-extended-style": "^0.13.1",
