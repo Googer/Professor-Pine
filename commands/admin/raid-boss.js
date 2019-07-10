@@ -23,9 +23,9 @@ class AddRaidBossCommand extends Commando.Command {
         },
         {
           key: 'tier',
-          prompt: 'What tier is this pokémon? (`1`, `2`, `3`, `4`, `5`, `ex`)',
+          prompt: 'What tier is this pokémon? (`1`, `2`, `3`, `4`, `5`, `ex`, `unset-ex`)',
           type: 'string',
-          oneOf: ['0', '1', '2', '3', '4', '5', 'ex']
+          oneOf: ['0', '1', '2', '3', '4', '5', 'ex', 'unset-ex']
         }
       ],
       guildOnly: true
