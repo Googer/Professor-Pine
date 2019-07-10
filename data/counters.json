@@ -1521,6 +1521,19 @@
       "imageURL": "https://cdn.bulbagarden.net/upload/7/78/150Mewtwo.png"
     },
     {
+      "number": 150,
+      "pbName": "MEWTWO_A_FORM",
+      "aliases": [
+        "ARMORED MEWTWO",
+        "ARMOR MEWTWO",
+        "MEWTWO ARMORED",
+        "MEWTWO ARMOR",
+        "A MEWTWO",
+        "MEWTWO A"
+      ],
+      "imageURL": "https://cdn.bulbagarden.net/upload/3/32/GO150A.png"
+    },
+    {
       "number": 151,
       "pbName": "MEW",
       "aliases": [

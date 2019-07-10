@@ -25,13 +25,13 @@ class CheckInCommand extends Commando.Command {
           key: 'additionalAttendees',
           label: 'additional attendees',
           prompt: 'How many additional people are here with you?\nExample: `+1`\n\n*or*\n\nHow many people are here (including yourself)?\nExample: `2`\n',
-          type: 'natural',
+          type: 'natural|raid-group',
           default: NaturalArgumentType.UNDEFINED_NUMBER
         }
       ],
       commandErrorMessage: (message, provided) =>
         `\`${provided[0]}\` is not a valid number of attendees!  If you intend to join a group, use the \`${client.commandPrefix}group\` command!`,
-      argsPromptLimit: 0,
+      argsPromptLimit: 3,
       guildOnly: true
     });
 
@@ -46,6 +46,7 @@ class CheckInCommand extends Commando.Command {
 
   async run(message, args) {
     const additionalAttendees = args['additionalAttendees'],
+      groupId = typeof additionalAttendees === 'string' && additionalAttendees !== NaturalArgumentType.UNDEFINED_NUMBER ? additionalAttendees : false,
       raid = PartyManager.getParty(message.channel.id),
       currentStatus = raid.getMemberStatus(message.member.id),
       groupCount = raid.groups.length;
@@ -105,9 +106,19 @@ class CheckInCommand extends Commando.Command {
           await raid.setMemberGroup(message.member.id, groupId);
           return raid.setMemberStatus(message.member.id, PartyStatus.PRESENT, additionalAttendees);
         });
+    } else if (groupId && currentStatus === PartyStatus.PRESENT) {
+      statusPromise = Promise.all([
+        await raid.setMemberGroup(message.member.id, groupId),
+        await raid.setMemberStatus(message.member.id, PartyStatus.PRESENT)]);
+    } else if (groupId && currentStatus !== PartyStatus.NOT_INTERESTED) {
+      const attendee = await raid.getAttendee(message.member.id),
+        additional = attendee.number - 1;
+      statusPromise = Promise.all([
+        await raid.setMemberGroup(message.member.id, groupId),
+        await raid.setMemberStatus(message.member.id, PartyStatus.PRESENT, additional)]);
     } else {
       statusPromise = Promise.resolve(
-        raid.setMemberStatus(message.member.id, PartyStatus.PRESENT, additionalAttendees));
+        await raid.setMemberStatus(message.member.id, PartyStatus.PRESENT, groupId ? 0 : additionalAttendees));
     }
 
     statusPromise.then(info => {

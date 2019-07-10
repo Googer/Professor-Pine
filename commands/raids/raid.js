@@ -2,11 +2,12 @@
 
 const log = require('loglevel').getLogger('RaidCommand'),
   Commando = require('discord.js-commando'),
-  {CommandGroup, TimeParameter} = require('../../app/constants'),
+  {CommandGroup, PartyStatus, TimeParameter} = require('../../app/constants'),
   Gym = require('../../app/gym'),
   Helper = require('../../app/helper'),
   PartyManager = require('../../app/party-manager'),
   Raid = require('../../app/raid'),
+  settings = require('../../data/settings'),
   Utility = require('../../app/utility');
 
 class RaidCommand extends Commando.Command {
@@ -131,11 +132,11 @@ class RaidCommand extends Commando.Command {
             .then(channelRaidMessage => PartyManager.addMessage(raid.channelId, channelRaidMessage, true))
             // now ask user about remaining time on this brand-new raid
             .then(result => {
-              // somewhat hacky way of letting time type know if some additional information
+              // somewhat hacky way of letting time type know of some additional information
               message.pokemon = raid.pokemon;
               message.isExclusive = raid.isExclusive;
 
-              let collectEndTime = raid.defaulted ? false : true;
+              let collectEndTime = !raid.defaulted;
 
               if (raid.pokemon.name && collectEndTime) {
                 return this.endTimeCollector.obtain(message);
@@ -145,7 +146,7 @@ class RaidCommand extends Commando.Command {
             })
             .then(async collectionResult => {
               Utility.cleanCollector(collectionResult);
-              let collectEndTime = raid.defaulted ? false : true;
+              let collectEndTime = !raid.defaulted;
 
               if (!collectionResult.cancelled) {
                 if (raid.pokemon.name && collectEndTime) {
@@ -174,6 +175,39 @@ class RaidCommand extends Commando.Command {
             })
             .catch(err => log.error(err));
         } else {
+          // raid already exists
+          const raidChannelResult = await PartyManager.getChannel(raid.channelId);
+
+          if (raidChannelResult.ok) {
+            const raidChannel = raidChannelResult.channel;
+
+            let replyMessage = `${raidChannel.toString()} already exists!`;
+
+            if (info.memberStatus !== PartyStatus.NOT_INTERESTED) {
+              // Let member know their status has been marked according to their default status
+              let statusString;
+
+              switch (info.memberStatus) {
+                case PartyStatus.INTERESTED:
+                  statusString = 'interested';
+                  break;
+
+                case PartyStatus.COMING:
+                  statusString = 'coming';
+                  break;
+
+                case PartyStatus.PRESENT:
+                  statusString = 'present';
+                  break;
+              }
+              replyMessage +=  ` You have been marked as ${statusString} in its channel.`;
+            }
+
+            message.reply(replyMessage)
+              .then(replyMessage => replyMessage.delete({timeout: settings.messageCleanupDelayError}))
+              .catch(err => log.error(err));
+          }
+
           raid.refreshStatusMessages()
             .catch(err => log.error(err));
         }
