@@ -4,6 +4,7 @@
   "exclusiveRaidIncubateDuration": 20160,
   "exclusiveRaidHatchedDuration": 45,
   "maxMeetupLeadupDuration": 30240,
+  "maximumAdditionalAttendees": 20,
   "startClearTime": 10,
   "deletionGraceTime": 5,
   "deletionWarningTime": 10,

@@ -112,6 +112,10 @@ class Party {
     return {party: this, group: newGroupId};
   }
 
+  async getAttendee(memberId) {
+    return this.attendees[memberId];
+  }
+
   async setMemberGroup(memberId, groupId) {
     let attendee = this.attendees[memberId];
 
