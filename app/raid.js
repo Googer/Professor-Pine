@@ -2,6 +2,7 @@
 
 const log = require('loglevel').getLogger('Raid'),
   removeDiacritics = require('diacritics').remove,
+  AsyncLock = require('async-lock'),
   moment = require('moment'),
   settings = require('../data/settings'),
   moves = require('../data/moves'),
@@ -28,99 +29,101 @@ class Raid extends Party {
   }
 
   static async createRaid(sourceChannelId, memberId, pokemon, gymId, isExclusive, time = TimeType.UNDEFINED_END_TIME) {
-    const raidExists = PartyManager.raidExistsForGym(gymId, isExclusive),
-      raid = raidExists ?
-        PartyManager.findRaid(gymId, isExclusive) :
-        new Raid(),
-      memberStatus = await Status.getAutoStatus(memberId),
-      memberPrivacy = await Privacy.getPrivacyStatus(memberId);
+    return Raid.lock.acquire(gymId, async () => {
+      const raidExists = PartyManager.raidExistsForGym(gymId, isExclusive),
+        raid = raidExists ?
+          PartyManager.findRaid(gymId, isExclusive) :
+          new Raid(),
+        memberStatus = await Status.getAutoStatus(memberId),
+        memberPrivacy = await Privacy.getPrivacyStatus(memberId);
 
-    if (!raidExists) {
-      if (pokemon.name === undefined) {
-        let defaultBoss = await Pokemon.getDefaultTierBoss(!!pokemon.exclusive ? 'ex' : pokemon.tier);
+      if (!raidExists) {
+        if (pokemon.name === undefined) {
+          let defaultBoss = await Pokemon.getDefaultTierBoss(!!pokemon.exclusive ? 'ex' : pokemon.tier);
 
-        if (!!defaultBoss) {
-          pokemon = defaultBoss;
-          raid.defaulted = true;
-        }
-      } else {
-        if (pokemon.quickMoves && pokemon.quickMoves.length === 1) {
-          raid.quickMove = pokemon.quickMoves[0];
-        }
-
-        if (pokemon.cinematicMoves && pokemon.cinematicMoves.length === 1) {
-          raid.cinematicMove = pokemon.cinematicMoves[0];
-        }
-      }
-
-      // add some extra raid data to remember
-      raid.createdById = memberPrivacy ?
-        -1 :
-        memberId;
-      raid.originallyCreatedBy = memberId;
-      raid.isExclusive = !!pokemon.exclusive;
-      raid.sourceChannelId = sourceChannelId;
-      raid.creationTime = moment().valueOf();
-      raid.lastPossibleTime = raid.creationTime + (raid.isExclusive ?
-        (settings.exclusiveRaidIncubateDuration + settings.exclusiveRaidHatchedDuration) * 60 * 1000 :
-        (settings.standardRaidIncubateDuration + settings.standardRaidHatchedDuration) * 60 * 1000);
-
-      raid.pokemon = pokemon;
-      raid.gymId = gymId;
-
-      raid.groups = [{id: 'A'}];
-      raid.defaultGroupId = 'A';
-
-      raid.attendees = Object.create(Object.prototype);
-    }
-
-    if (memberStatus !== PartyStatus.NOT_INTERESTED) {
-      raid.attendees[memberId] = {number: 1, status: memberStatus, group: raid.defaultGroupId};
-    }
-
-    if (!raidExists) {
-      const sourceChannel = (await PartyManager.getChannel(sourceChannelId)).channel,
-        channelName = raid.generateChannelName();
-
-      let newChannelId;
-
-      return sourceChannel.guild.channels.create(channelName, {
-        parent: sourceChannel.parent,
-        overwrites: sourceChannel.permissionOverwrites
-      })
-        .then(newChannel => {
-          newChannelId = newChannel.id;
-
-          PartyManager.parties[newChannelId] = raid;
-          raid.channelId = newChannelId;
-
-          // move channel to end
-          return newChannel.guild.setChannelPositions([{
-            channel: newChannel,
-            position: newChannel.guild.channels.size - 1
-          }]);
-        })
-        .then(async guild => {
-          if (time === TimeType.UNDEFINED_END_TIME) {
-            raid.endTime = TimeType.UNDEFINED_END_TIME;
-            await raid.persist();
-          } else {
-            await raid.setEndTime(time);
+          if (!!defaultBoss) {
+            pokemon = defaultBoss;
+            raid.defaulted = true;
+          }
+        } else {
+          if (pokemon.quickMoves && pokemon.quickMoves.length === 1) {
+            raid.quickMove = pokemon.quickMoves[0];
           }
 
-          return {
-            party: raid,
-            existing: false
-          };
-        });
-    } else {
-      await raid.persist();
+          if (pokemon.cinematicMoves && pokemon.cinematicMoves.length === 1) {
+            raid.cinematicMove = pokemon.cinematicMoves[0];
+          }
+        }
 
-      return {
-        party: raid,
-        existing: true
-      };
-    }
+        // add some extra raid data to remember
+        raid.createdById = memberPrivacy ?
+          -1 :
+          memberId;
+        raid.originallyCreatedBy = memberId;
+        raid.isExclusive = !!pokemon.exclusive;
+        raid.sourceChannelId = sourceChannelId;
+        raid.creationTime = moment().valueOf();
+        raid.lastPossibleTime = raid.creationTime + (raid.isExclusive ?
+          (settings.exclusiveRaidIncubateDuration + settings.exclusiveRaidHatchedDuration) * 60 * 1000 :
+          (settings.standardRaidIncubateDuration + settings.standardRaidHatchedDuration) * 60 * 1000);
+
+        raid.pokemon = pokemon;
+        raid.gymId = gymId;
+
+        raid.groups = [{id: 'A'}];
+        raid.defaultGroupId = 'A';
+
+        raid.attendees = Object.create(Object.prototype);
+      }
+
+      if (memberStatus !== PartyStatus.NOT_INTERESTED) {
+        raid.attendees[memberId] = {number: 1, status: memberStatus, group: raid.defaultGroupId};
+      }
+
+      if (!raidExists) {
+        const sourceChannel = (await PartyManager.getChannel(sourceChannelId)).channel,
+          channelName = raid.generateChannelName();
+
+        let newChannelId;
+
+        return sourceChannel.guild.channels.create(channelName, {
+          parent: sourceChannel.parent,
+          overwrites: sourceChannel.permissionOverwrites
+        })
+          .then(newChannel => {
+            newChannelId = newChannel.id;
+
+            PartyManager.parties[newChannelId] = raid;
+            raid.channelId = newChannelId;
+
+            // move channel to end
+            return newChannel.guild.setChannelPositions([{
+              channel: newChannel,
+              position: newChannel.guild.channels.size - 1
+            }]);
+          })
+          .then(async guild => {
+            if (time === TimeType.UNDEFINED_END_TIME) {
+              raid.endTime = TimeType.UNDEFINED_END_TIME;
+              await raid.persist();
+            } else {
+              await raid.setEndTime(time);
+            }
+
+            return {
+              party: raid,
+              existing: false
+            };
+          });
+      } else {
+        await raid.persist();
+        return {
+          party: raid,
+          existing: true,
+          memberStatus: memberStatus
+        };
+      }
+    });
   }
 
   async setIncompleteScreenshotMessage(message) {
@@ -200,8 +203,8 @@ class Raid extends Party {
                     const commandPrefix = message.client.options.commandPrefix,
                       isCommand = userResponse.startsWith(commandPrefix),
                       doneAliases = ['done', 'complete', 'finished', 'finish', 'caught-it', 'got-it', 'missed-it', 'donr',
-                                      'caughtit', 'gotit', 'missedit', 'caught it', 'got it', 'missed it', 'i missed it',
-                                      'it ran', 'i got it'];
+                        'caughtit', 'gotit', 'missedit', 'caught it', 'got it', 'missed it', 'i missed it',
+                        'it ran', 'i got it'];
 
                     if (isCommand) {
                       let doneCommand = false;
@@ -1056,5 +1059,7 @@ class Raid extends Party {
     });
   }
 }
+
+Raid.lock = new AsyncLock();
 
 module.exports = Raid;

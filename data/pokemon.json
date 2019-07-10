@@ -222,7 +222,12 @@
     "tier": 4
   },
   {
-    "name": "nidoran♂"
+    "name": "nidoran♂",
+    "shiny": true,
+    "tier": 1,
+    "nickname": [
+      "male"
+    ]
   },
   {
     "name": "nidorino"
@@ -714,7 +719,8 @@
   },
   {
     "name": "lapras",
-    "tier": 4
+    "tier": 4,
+    "shiny": true
   },
   {
     "name": "ditto"
@@ -802,7 +808,11 @@
     "name": "dragonite"
   },
   {
-    "name": "mewtwo",
+    "name": "mewtwo"
+  },
+  {
+    "name": "mewtwo_a",
+    "overrideName": "Armored Mewtwo",
     "tier": 5
   },
   {
@@ -1129,7 +1139,8 @@
   },
   {
     "name": "raikou",
-    "tier": 5
+    "tier": 5,
+    "shiny": true
   },
   {
     "name": "entei",

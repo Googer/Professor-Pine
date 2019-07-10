@@ -31,8 +31,9 @@ class Pokemon extends Search {
           {
             formName: form.form.toLocaleLowerCase(),
             formId: !!form.assetBundleValue ?
-              `${form.assetBundleValue}` :
-              '00'
+                `${form.assetBundleValue}` :
+                '00',
+            formSuffix: form.assetBundleSuffix
           })),
       pokemon = gameMaster.itemTemplates
         .filter(item => pokemonRegex.test(item.templateId))
@@ -119,16 +120,19 @@ class Pokemon extends Search {
         formId = alternateForm ?
           alternateForm.formId :
           '00',
+        formSuffix = alternateForm ?
+          alternateForm.formSuffix :
+          undefined,
         paddedNumber = '000' + poke.number,
         lastThree = paddedNumber.substr(paddedNumber.length - 3);
 
-      poke.formName = poke.name;
+      poke.formName = poke.name;``
       poke.name = poke.overrideName ?
         poke.overrideName :
         poke.name;
       poke.weakness = Pokemon.calculateWeaknesses(poke.type);
       poke.boostedConditions = Pokemon.calculateBoostConditions(poke.type);
-      poke.url = `${privateSettings.pokemonUrlBase}pokemon_icon_${lastThree}_${formId}.png`;
+      poke.url = `${privateSettings.pokemonUrlBase}pokemon_icon_${!!formSuffix ? formSuffix : lastThree + '_' + formId}.png`;
 
       if (poke.number && poke.tier && poke.tier <= 5) {
         poke.bossCP = Pokemon.calculateBossCP(poke);

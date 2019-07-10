@@ -1,6 +1,7 @@
 "use strict";
 
-const Commando = require('discord.js-commando');
+const Commando = require('discord.js-commando'),
+      settings = require('../data/settings');
 
 let PartyManager;
 
@@ -18,15 +19,15 @@ class NaturalArgumentType extends Commando.ArgumentType {
       validGroup = groupIds.includes(groupId) || groupId === 'A',
       int = Number.parseInt(value);
 
-    if (validGroup) {
-      return `To join a group, type \`cancel\` and use the \`${message.client.commandPrefix}group\` command!\n\n${arg.prompt}`;
-    }
-
-    if (!Number.isNaN(int) && int > 0) {
+    if (!Number.isNaN(int) && int > 0 && int <= settings.maximumAdditionalAttendees) {
       return true;
     }
 
-    return `Please enter a number greater than zero!\n\n${arg.prompt}`;
+    if (!Number.isNaN(int) && int > settings.maximumAdditionalAttendees) {
+      return 'Please enter a number less than ' + settings.maximumAdditionalAttendees + '!\n\n' + arg.prompt;
+    }
+
+    return 'Please enter a number greater than zero!\n\n' + arg.prompt;
   }
 
   parse(value, message, arg) {

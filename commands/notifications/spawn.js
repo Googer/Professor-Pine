@@ -69,9 +69,6 @@ class SpawnCommand extends Commando.Command {
       embed.setColor('GREEN');
       embed.setDescription('**Warning: Spawns are user-reported. There is no way to know exactly how long a Pokémon will be there. Most spawns are 30 min. Use your discretion when chasing them.**');
 
-      console.log(shiny);
-      console.log(pokemon);
-
       if (pokemon.url) {
         embed.setThumbnail(pokemon.url);
       }
