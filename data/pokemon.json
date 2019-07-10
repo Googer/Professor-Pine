@@ -812,6 +812,11 @@
     "tier": 5
   },
   {
+    "name": "mewtwo_a",
+    "overrideName": "Armored Mewtwo",
+    "tier": 5
+  },
+  {
     "name": "mew"
   },
   {
