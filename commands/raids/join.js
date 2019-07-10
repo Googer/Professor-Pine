@@ -46,7 +46,7 @@ class JoinCommand extends Commando.Command {
 
   async run(message, args) {
     const additionalAttendees = args['additionalAttendees'],
-      groupId = typeof additionalAttendees === 'string' ? additionalAttendees : false,
+      groupId = typeof additionalAttendees === 'string' && additionalAttendees !== NaturalArgumentType.UNDEFINED_NUMBER ? additionalAttendees : false,
       raid = PartyManager.getParty(message.channel.id),
       currentStatus = raid.getMemberStatus(message.member.id),
       groupCount = raid.groups.length;
@@ -109,10 +109,10 @@ class JoinCommand extends Commando.Command {
     } else if (groupId && currentStatus === PartyStatus.NOT_INTERESTED) {
       statusPromise = Promise.all([
         await raid.setMemberGroup(message.member.id, groupId),
-        await raid.setMemberStatus(message.member.id, PartyStatus.COMING, 0)]);
+        await raid.setMemberStatus(message.member.id, PartyStatus.COMING)]);
     } else if (groupId && currentStatus !== PartyStatus.NOT_INTERESTED) {
       const attendee = await raid.getAttendee(message.member.id),
-            additional = attendee.number - 1;
+        additional = attendee.number - 1;
       statusPromise = Promise.all([
         await raid.setMemberGroup(message.member.id, groupId),
         await raid.setMemberStatus(message.member.id, PartyStatus.COMING, additional)]);
