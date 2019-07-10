@@ -24,8 +24,6 @@ process.nextTick(() => {
 });
 
 class Raid extends Party {
-  static lock = new AsyncLock();
-
   constructor(data = undefined) {
     super(PartyType.RAID, data);
   }
@@ -1061,5 +1059,7 @@ class Raid extends Party {
     });
   }
 }
+
+Raid.lock = new AsyncLock();
 
 module.exports = Raid;
