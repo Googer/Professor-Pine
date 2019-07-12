@@ -17,7 +17,7 @@ class WebServer {
     server.route('/raids')
       .get(WebServer.getRaids);
 
-    server.route('/raid/:gymId')
+    server.route('/raids/:gymId')
       .get(WebServer.getRaid);
 
     server.route('/trains')
