@@ -548,7 +548,7 @@ class CountersCommand extends Commando.Command {
       .setFooter('Data retrieved from https://www.pokebattler.com.');
 
     if (level.type === 'byLevel') {
-      let levelResponse = await message.channel.send(`${message.author}, here are your results:`, embed);
+      let levelResponse = await message.channel.send(`${message.author}, here are your \`!counters \` results:`, embed);
       levelResponse.preserve = true;
     } else {
       // DM results if personal Pokebox
