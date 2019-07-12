@@ -1,4 +1,4 @@
-const log = require('loglevel').getLogger('Silph'),
+const log = require('loglevel').getLogger('howmany'),
     Commando = require('discord.js-commando'),
     {MessageEmbed} = require('discord.js'),
     {CommandGroup} = require('../../app/constants'),
@@ -187,7 +187,7 @@ class HowManyCommand extends Commando.Command {
             content.push(contentStr);
         }
 
-        content.push('\nTo check the top counters, type `!counters` and follow the prompts.');
+        content.push(`\nTo check the top counters, type \`${message.client.commandPrefix}counters\` and follow the prompts.`);
 
         const embed = new MessageEmbed()
             .setColor('#43B581')
