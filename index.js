@@ -137,6 +137,7 @@ Client.registry.registerCommands([
 
   require('./commands/util/help'),
   require('./commands/util/counters'),
+  require('./commands/util/howmany'),
   require('./commands/admin/raid-boss'),
   require('./commands/admin/raid-bosses'),
   require('./commands/admin/populate-raid-bosses'),
