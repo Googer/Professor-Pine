@@ -1,4 +1,4 @@
-const log = require('loglevel').getLogger('Counters'),
+const log = require('loglevel').getLogger('CountersCommand'),
   Commando = require('discord.js-commando'),
   {MessageEmbed} = require('discord.js'),
   {CommandGroup} = require('../../app/constants'),
@@ -74,7 +74,7 @@ class CountersCommand extends Commando.Command {
       })
       .catch(err => log.error(err));
     if (!boss) {
-      return
+      return;
     }
 
     await raid.setPokemon(boss);
@@ -408,7 +408,8 @@ class CountersCommand extends Commando.Command {
     let json = await fetch(pokebattlerUrl)
       .then(res => {
         if (!res.ok) {
-          message.channel.send(`${message.author}, an error occurred talking to Pokebattler.  Please try again later.`);
+          message.channel.send(`${message.author}, an error occurred talking to Pokebattler.  Please try again later.`)
+            .catch(err => log.error(err));
           throw Error(res.statusText);
         } else {
           return res.json();
@@ -422,7 +423,8 @@ class CountersCommand extends Commando.Command {
 
     if (!json.attackers) {
       // Bad Pokebattler ID
-      await message.channel.send(`${message.author}, you provided an invalid Pokebattler ID. It is the number listed on the upper right corner when you log in.  Please try again.`);
+      await message.channel.send(`${message.author}, you provided an invalid Pokebattler ID. It is the number listed on the upper right corner when you log in.  Please try again.`)
+        .catch(err => log.error(err));
       return;
     }
 
@@ -548,16 +550,20 @@ class CountersCommand extends Commando.Command {
       .setFooter('Data retrieved from https://www.pokebattler.com.');
 
     if (level.type === 'byLevel') {
-      let levelResponse = await message.channel.send(`${message.author}, here are your results:`, embed);
+      let levelResponse = await message.channel.send(`${message.author}, here are your \`${message.client.commandPrefix}counters \` results:`, embed)
+        .catch(err => log.error(err));
       levelResponse.preserve = true;
     } else {
       // DM results if personal Pokebox
-      let channelResponse = await message.channel.send(`${message.author}, I sent you a DM with your results.`);
+      let channelResponse = await message.channel.send(`${message.author}, I sent you a DM with your results.`)
+        .catch(err => log.error(err));
       channelResponse.preserve = true;
-      let dmResponse = await message.author.send(embed);
+      let dmResponse = await message.author.send(embed)
+        .catch(err => log.error(err));
       dmResponse.preserve = true;
     }
-    await message.delete();
+    await message.delete()
+      .catch(err => log.error(err));
 
     // update Pokebattler ID if needed
     if (newId) {
