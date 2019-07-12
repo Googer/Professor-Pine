@@ -77,7 +77,10 @@ class HowManyCommand extends Commando.Command {
         if (pokemonName.includes('alolan')) {
             alolan_flag = true; // flag because exeggutor and alolan exeggutor have been bosses at the same time
             pokemonName = pokemonName.replace('alolan', '').trim() + 'alola'; // format 'properly' for silph to read
+        } else if (pokemonName === 'armoredmewtwo') {
+            pokemonName = 'mewtwoarmor' // because override name doesn't match game master
         }
+
 
         let url = 'https://thesilphroad.com/raid-bosses';
 
