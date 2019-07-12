@@ -195,7 +195,7 @@ class HowManyCommand extends Commando.Command {
             .setThumbnail(silphImageUrl)
             .setFooter('Data retrieved from https://thesilphroad.com/raid-bosses.');
 
-        let response = await message.channel.send(`${message.author}, here are your \`!howmany\` results:`, embed);
+        let response = await message.channel.send(`${message.author}, here are your \`${message.client.commandPrefix}howmany\` results:`, embed);
         response.preserve = true;
 
         await message.delete();
