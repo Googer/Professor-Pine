@@ -5,6 +5,7 @@ const log = require('loglevel').getLogger('ViewMemberSettingsCommand'),
   {CommandGroup} = require('../../app/constants'),
   Discord = require('discord.js'),
   Helper = require('../../app/helper'),
+  {PartyStatusText} = require('../../app/constants'),
   User = require('../../app/user');
 
 class ViewMemberSettingsCommand extends Commando.Command {
@@ -40,12 +41,16 @@ class ViewMemberSettingsCommand extends Commando.Command {
   async run(message, args) {
     const member = args['member'],
           memberId = member.user.id,
-          memberSettings = await User.getUserSettings(memberId);
+          memberSettings = await User.getUserSettings(memberId),
+          autoStatuses = {
+
+          }
+
 
     const embed = new Discord.MessageEmbed();
     embed.setColor('GREEN');
     embed.addField(`Mentions`, memberSettings.mentions ? 'On' : 'Off');
-    embed.addField(`Auto Status`, memberSettings.status ? memberSettings.status : 'Do Not Join');
+    embed.addField(`Auto Status`, PartyStatusText[memberSettings.status + ''] || PartyStatusText[memberSettings.status]);
     embed.addField(`Private Raid Reports`, memberSettings.raidPrivacy ? 'On' : 'Off');
     embed.addField(`Shout Mentions`, memberSettings.shouts ? 'On' : 'Off');
     embed.addField(`New Group Mentions`, memberSettings.groups ? 'On' : 'Off');

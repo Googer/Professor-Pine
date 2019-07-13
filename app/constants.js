@@ -28,6 +28,16 @@ const PartyStatus = {
   COMPLETE: 4
 };
 
+const PartyStatusText = {
+  '-1': 'Not Interested',
+  0: 'Interested',
+  1: 'Coming',
+  2: 'Present',
+  3: 'Complete (Pending)',
+  4: 'Complete'
+};
+
+
 const PartyType = {
   RAID: 'raid',
   RAID_TRAIN: 'raid train',
@@ -53,4 +63,4 @@ const TimeParameter = {
   END: 'end'
 };
 
-module.exports = {CommandGroup, GymParameter, PartyStatus, PartyType, Team, TimeMode, TimeParameter, PrivacyOpts};
+module.exports = {CommandGroup, GymParameter, PartyStatus, PartyStatusText, PartyType, Team, TimeMode, TimeParameter, PrivacyOpts};
