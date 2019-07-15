@@ -129,7 +129,7 @@ Client.registry.registerCommands([
   require('./commands/raids/auto-status'),
   require('./commands/raids/report-privacy'),
 
-  require('./commands/raids/train'),
+  require('./commands/trains/train'),
   require('./commands/trains/route'),
   require('./commands/trains/route-add'),
 
