@@ -3,6 +3,7 @@ const CommandGroup = {
   COMMANDS: 'commands',
   BASIC_RAID: 'basic-raid',
   RAID_CRUD: 'raid-crud',
+  TRAIN: 'train',
   ROLES: 'roles',
   NOTIFICATIONS: 'notifications',
   FRIENDS: 'friends',

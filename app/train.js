@@ -32,6 +32,7 @@ class RaidTrain extends Party {
 
     train.trainName = trainName;
     train.gymId = undefined;
+    train.route = [];
 
     train.groups = [{id: 'A'}];
     train.defaultGroupId = 'A';
@@ -82,6 +83,24 @@ class RaidTrain extends Party {
     await this.persist();
 
     return {party: this};
+  }
+
+  async addRouteGym(gymId) {
+    let gym = Gym.getGym(gymId);
+
+    if (!!!this.route) {
+      this.route = [];
+    }
+
+    if (this.route.find(gym => gym.gymId === gymId) !== undefined) {
+      return false;
+    }
+
+    this.route.push(gym);
+
+    await this.persist();
+
+    return this.route;
   }
 
   async setLocation(gymId, newRegionChannel = undefined) {
@@ -170,8 +189,9 @@ class RaidTrain extends Party {
       meetingLabel = !!this.startTime ?
         '__Meeting Time__' :
         '',
-
+      currentGym = 0,
       gym = Gym.getGym(this.gymId),
+      route = this.route ? this.route : [],
       gymName = !!gym ?
         (!!gym.nickname ?
           gym.nickname :
@@ -223,11 +243,30 @@ class RaidTrain extends Party {
       embed = new Discord.MessageEmbed();
 
     embed.setColor('GREEN');
-    embed.setTitle(`Map Link: ${gymName}`);
-    embed.setURL(gymUrl);
+    embed.setTitle('Raid Train: ' + this.trainName);
 
     if (pokemonUrl !== '') {
       embed.setThumbnail(pokemonUrl);
+    }
+
+    if (!route.length) {
+      embed.addField('**Current Gym**', 'Route Unset');
+    } else {
+      let currentName = !!route[currentGym].nickname ?
+          route[currentGym].nickname :
+          route[currentGym].gymName;
+      let currentUrl = Gym.getUrl(route[currentGym].gymInfo.latitude, route[currentGym].gymInfo.longitude);
+
+      embed.addField('**Current Gym**', `[${currentName}](${currentUrl})`);
+
+      if (route[currentGym + 1]) {
+        let nextName = !!route[currentGym + 1].nickname ?
+          route[currentGym + 1].nickname :
+          route[currentGym + 1].gymName;
+        let nextUrl = Gym.getUrl(route[currentGym + 1].gymInfo.latitude, route[currentGym + 1].gymInfo.longitude);
+
+        embed.addField('**Next Gym**', `[${nextName}](${nextUrl})`);
+      }
     }
 
     let pokemonDataContent = '';
@@ -252,7 +291,6 @@ class RaidTrain extends Party {
     }
 
     if (pokemonDataContent !== '') {
-      console.log(pokemon);
       embed.addField('**' + pokemon + shiny + ' Information**', pokemonDataContent);
     }
 
@@ -396,7 +434,9 @@ class RaidTrain extends Party {
       gymId: this.gymId,
       startTime: this.startTime,
       isExclusive: this.isExclusive,
-      pokemon: this.pokemon
+      pokemon: this.pokemon,
+      currentGym: this.currentGym,
+      route: this.route
     });
   }
 }

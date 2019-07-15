@@ -51,6 +51,7 @@ Client.registry.registerTypesIn(__dirname + '/types/counters');
 Client.registry.registerGroup(CommandGroup.ADMIN, 'Administration');
 Client.registry.registerGroup(CommandGroup.BASIC_RAID, 'Raid Basics');
 Client.registry.registerGroup(CommandGroup.RAID_CRUD, 'Raid Creation and Maintenance');
+Client.registry.registerGroup(CommandGroup.TRAIN, 'Trains');
 
 if (settings.features.roles) {
   Client.registry.registerGroup(CommandGroup.ROLES, 'Roles');
@@ -129,6 +130,8 @@ Client.registry.registerCommands([
   require('./commands/raids/report-privacy'),
 
   require('./commands/raids/train'),
+  require('./commands/trains/route'),
+  require('./commands/trains/route-add'),
 
   require('./commands/raids/submit-request'),
 
