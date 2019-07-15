@@ -65,6 +65,11 @@ class RaidTrain extends Party {
       });
   }
 
+  async setPokemon(pokemon) {
+    this.pokemon = pokemon;
+    this.isExclusive = !!pokemon.exclusive;
+  }
+
   async setMeetingTime(memberId, startTime) {
     const member = this.attendees[memberId];
 
@@ -175,7 +180,20 @@ class RaidTrain extends Party {
       gymUrl = !!gym ?
         `https://www.google.com/maps/search/?api=1&query=${gym.gymInfo.latitude}%2C${gym.gymInfo.longitude}` :
         '',
-      attendeeEntries = Object.entries(this.attendees),
+      pokemon = !!this.pokemon ? this.pokemon.name.charAt(0).toUpperCase() + this.pokemon.name.slice(1) : '',
+      pokemonUrl = !!this.pokemon && !!this.pokemon.url ?
+        this.pokemon.url :
+        '',
+      pokemonCPString = !!this.pokemon && this.pokemon.bossCP > 0 ?
+        `${this.pokemon.minBaseCP}-${this.pokemon.maxBaseCP} / ` +
+        `${this.pokemon.minBoostedCP}-${this.pokemon.maxBoostedCP} ${this.pokemon.boostedConditions.boosted
+          .map(condition => Helper.getEmoji(condition))
+          .join('')}` :
+        '',
+      shiny = !!this.pokemon && this.pokemon.shiny ?
+      Helper.getEmoji(settings.emoji.shiny) || '✨' :
+      '',
+    attendeeEntries = Object.entries(this.attendees),
       totalAttendeeCount = attendeeEntries.length,
       attendeesWithMembers = (await Promise.all(attendeeEntries
         .map(async attendeeEntry => [await this.getMember(attendeeEntry[0]), attendeeEntry[1]])))
@@ -207,6 +225,36 @@ class RaidTrain extends Party {
     embed.setColor('GREEN');
     embed.setTitle(`Map Link: ${gymName}`);
     embed.setURL(gymUrl);
+
+    if (pokemonUrl !== '') {
+      embed.setThumbnail(pokemonUrl);
+    }
+
+    let pokemonDataContent = '';
+
+    if (this.pokemon && this.pokemon.weakness && this.pokemon.weakness.length > 0) {
+      pokemonDataContent += '**Weaknesses**\n';
+      pokemonDataContent += this.pokemon.weakness
+        .map(weakness => Helper.getEmoji(weakness.type).toString() +
+          (weakness.multiplier > 1.6 ?
+            'x2 ' :
+            ''))
+        .join('');
+    }
+
+    if (pokemonCPString) {
+      if (pokemonDataContent) {
+        pokemonDataContent += '\n\n';
+      }
+
+      pokemonDataContent += '**Catch CP Ranges**\n';
+      pokemonDataContent += pokemonCPString;
+    }
+
+    if (pokemonDataContent !== '') {
+      console.log(pokemon);
+      embed.addField('**' + pokemon + shiny + ' Information**', pokemonDataContent);
+    }
 
     embed.setFooter(raidReporter, reportingMember.user.displayAvatarURL());
 
@@ -346,7 +394,9 @@ class RaidTrain extends Party {
     return Object.assign(super.toJSON(), {
       trainName: this.trainName,
       gymId: this.gymId,
-      startTime: this.startTime
+      startTime: this.startTime,
+      isExclusive: this.isExclusive,
+      pokemon: this.pokemon
     });
   }
 }

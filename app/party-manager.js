@@ -332,7 +332,7 @@ class PartyManager {
       .catch(err => log.error(err));
   }
 
-  validParty(channelId, types = undefined) {
+  validParty(channelId, types) {
     const party = this.parties[channelId];
 
     return !!party && (types !== undefined ?
