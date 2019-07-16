@@ -33,7 +33,7 @@ class RaidTrain extends Party {
     train.trainName = trainName;
     train.gymId = undefined;
     train.route = [];
-    train.currentGym = [];
+    train.currentGym = 0;
 
     train.groups = [{id: 'A'}];
     train.defaultGroupId = 'A';
@@ -131,6 +131,30 @@ class RaidTrain extends Party {
     return this.route;
   }
 
+  async moveToNextGym() {
+    this.currentGym = this.currentGym + 1;
+
+    await this.persist();
+
+    return true;
+  }
+
+  async skipGym() {
+    this.currentGym = this.currentGym + 2;
+
+    await this.persist();
+
+    return true;
+  }
+
+  async moveToPreviousGym() {
+    this.currentGym = this.currentGym - 1;
+
+    await this.persist();
+
+    return true;
+  }
+
   async setLocation(gymId, newRegionChannel = undefined) {
     this.gymId = gymId;
     if (!!newRegionChannel) {
@@ -218,16 +242,7 @@ class RaidTrain extends Party {
         '__Meeting Time__' :
         '',
       currentGym = this.currentGym || 0,
-      gym = Gym.getGym(this.gymId),
       route = this.route ? this.route : [],
-      gymName = !!gym ?
-        (!!gym.nickname ?
-          gym.nickname :
-          gym.gymName) :
-        'Location unset',
-      gymUrl = !!gym ?
-        `https://www.google.com/maps/search/?api=1&query=${gym.gymInfo.latitude}%2C${gym.gymInfo.longitude}` :
-        '',
       pokemon = !!this.pokemon ? this.pokemon.name.charAt(0).toUpperCase() + this.pokemon.name.slice(1) : '',
       pokemonUrl = !!this.pokemon && !!this.pokemon.url ?
         this.pokemon.url :
@@ -279,6 +294,8 @@ class RaidTrain extends Party {
 
     if (!route.length) {
       embed.addField('**Current Gym**', 'Route Unset');
+    } else if (currentGym >= route.length) {
+      embed.addField('**Current Gym**', 'Route has been completed.');
     } else {
       let currentName = !!route[currentGym].nickname ?
           route[currentGym].nickname :
@@ -366,24 +383,26 @@ class RaidTrain extends Party {
 
     let additionalInformation = '';
 
-    if (!this.isExclusive) {
+    if (route && route.length) {
+      let gym = this.route[this.currentGym || 0];
+
       if (!!gym && gym.hasHostedEx) {
         additionalInformation += 'Confirmed EX Raid location.';
       } else if (!!gym && gym.hasExTag) {
         additionalInformation += 'Potential EX Raid location - This gym has the EX gym tag.';
       }
-    }
 
-    if (!!gym && !!gym.additionalInformation) {
-      if (additionalInformation !== '') {
-        additionalInformation += '\n\n';
+      if (!!gym && !!gym.additionalInformation) {
+        if (additionalInformation !== '') {
+          additionalInformation += '\n\n';
+        }
+
+        additionalInformation += gym.additionalInformation;
       }
 
-      additionalInformation += gym.additionalInformation;
-    }
-
-    if (additionalInformation !== '') {
-      embed.addField('**Location Information**', additionalInformation);
+      if (additionalInformation !== '') {
+        embed.addField('**Location Information**', additionalInformation);
+      }
     }
 
     return {embed};
@@ -448,7 +467,7 @@ class RaidTrain extends Party {
 
   getRouteEmbed() {
     let embed = new Discord.MessageEmbed(),
-      current = this.currentGym;
+      current = this.currentGym || 0;
 
     embed.setColor('GREEN');
     let description = '';
