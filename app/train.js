@@ -33,6 +33,7 @@ class RaidTrain extends Party {
     train.trainName = trainName;
     train.gymId = undefined;
     train.route = [];
+    train.currentGym = [];
 
     train.groups = [{id: 'A'}];
     train.defaultGroupId = 'A';
@@ -85,6 +86,21 @@ class RaidTrain extends Party {
     return {party: this};
   }
 
+  async clearRoute() {
+    this.route = [];
+    await this.persist();
+
+    return true;
+  }
+
+  async removeRouteGym(gymIndex) {
+    this.route.splice(gymIndex, 1);
+
+    await this.persist();
+
+    return true;
+  }
+
   async addRouteGym(gymId) {
     let gym = Gym.getGym(gymId);
 
@@ -97,6 +113,18 @@ class RaidTrain extends Party {
     }
 
     this.route.push(gym);
+
+    await this.persist();
+
+    return this.route;
+  }
+
+  async insertRouteGym(index, gym) {
+    if (!!!this.route) {
+      this.route = [];
+    }
+
+    this.route.splice(index, 0, gym);
 
     await this.persist();
 
@@ -189,7 +217,7 @@ class RaidTrain extends Party {
       meetingLabel = !!this.startTime ?
         '__Meeting Time__' :
         '',
-      currentGym = 0,
+      currentGym = this.currentGym || 0,
       gym = Gym.getGym(this.gymId),
       route = this.route ? this.route : [],
       gymName = !!gym ?
@@ -416,6 +444,30 @@ class RaidTrain extends Party {
 
       await this.persist();
     }
+  }
+
+  getRouteEmbed() {
+    let embed = new Discord.MessageEmbed(),
+      current = this.currentGym;
+
+    embed.setColor('GREEN');
+    let description = '';
+
+    if (this.route && this.route.length) {
+      this.route.forEach((gym, index) => {
+        let complete = index < current ? '~~' : '',
+          completeText = index < current ? ' (Completed)' : '',
+          gymName = !!gym.nickname ? gym.nickname : gym.gymName;
+
+        description += (index + 1) + `. ${complete}${gymName}${complete}${completeText}\n`;
+      });
+
+      embed.setDescription(description)
+    } else {
+      embed.setTitle('Route not set.')
+    }
+
+    return embed;
   }
 
   generateChannelName() {

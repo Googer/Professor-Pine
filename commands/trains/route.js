@@ -33,24 +33,7 @@ class RouteCommand extends Commando.Command {
           route = raid.route || [],
           current = raid.currentGym || 0;
 
-    let embed = new MessageEmbed();
-
-    embed.setColor('GREEN');
-    let description = '';
-
-    if (route.length) {
-      route.forEach((gym, index) => {
-        let complete = index < current ? '~~' : '',
-            completeText = index < current ? ' (Completed)' : '',
-            gymName = !!gym.nickname ? gym.nickname : gym.gymName;
-
-        description += (index + 1) + `. ${complete}${gymName}${complete}${completeText}\n`;
-      });
-
-      embed.setDescription(description)
-    } else {
-      embed.setTitle('Route not set.')
-    }
+    let embed = raid.getRouteEmbed();
 
     message.channel.send(`${message.author}, here is the route information:`, embed)
       .then(message => message.channel.send(`To edit this route, use the \`${message.client.commandPrefix}route-add\`, \`${message.client.commandPrefix}route-remove\`, and \`${message.client.commandPrefix}route-edit\` commands.`))

@@ -132,6 +132,8 @@ Client.registry.registerCommands([
   require('./commands/trains/train'),
   require('./commands/trains/route'),
   require('./commands/trains/route-add'),
+  require('./commands/trains/route-delete'),
+  require('./commands/trains/route-edit'),
 
   require('./commands/raids/submit-request'),
 

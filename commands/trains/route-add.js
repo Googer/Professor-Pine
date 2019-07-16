@@ -75,7 +75,7 @@ class SetRouteAddCommand extends Commando.Command {
 
     if (!route) {
       let gymName = !!gym.nickname ? gym.nickname : gym.gymName;
-      message.channel.send(`${message.author}, ${gymName} is already apart of this route.`);
+      message.channel.send(`${message.author}, ${gymName} is already a part of this route.`);
     }
 
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
