@@ -35,7 +35,7 @@ class SetLocationCommand extends Commando.Command {
       if (!!message.command && message.command.name === 'gym' &&
         !PartyManager.validParty(message.channel.id, [PartyType.RAID])) {
           if (PartyManager.validParty(message.channel.id, [PartyType.RAID_TRAIN])) {
-            return ['invalid-channel', message.reply('Set the route of a raid train from its train channel using `' + message.client.commandPrefix + 'route-set`!')];
+            return ['invalid-channel', message.reply('Set the route of a raid train from its train channel using `' + message.client.commandPrefix + 'route-add`!')];
           } else {
             return ['invalid-channel', message.reply('Set the location of a raid from its raid channel!')];
           }
