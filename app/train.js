@@ -34,6 +34,7 @@ class RaidTrain extends Party {
     train.gymId = undefined;
     train.route = [];
     train.currentGym = 0;
+    train.conductor = null;
 
     train.groups = [{id: 'A'}];
     train.defaultGroupId = 'A';
@@ -149,6 +150,14 @@ class RaidTrain extends Party {
 
   async moveToPreviousGym() {
     this.currentGym = this.currentGym - 1;
+
+    await this.persist();
+
+    return true;
+  }
+
+  async setConductor(member) {
+    this.conductor = member;
 
     await this.persist();
 
@@ -283,10 +292,13 @@ class RaidTrain extends Party {
       presentAttendees = sortedAttendees
         .filter(attendeeEntry => attendeeEntry[1].status === PartyStatus.PRESENT ||
           attendeeEntry[1].status === PartyStatus.COMPLETE_PENDING),
-      embed = new Discord.MessageEmbed();
+      embed = new Discord.MessageEmbed(),
+      conductor = !!this.conductor ?
+          ` (Conductor: ${this.conductor.username})`:
+          '';
 
     embed.setColor('GREEN');
-    embed.setTitle('Raid Train: ' + this.trainName);
+    embed.setTitle('Raid Train: ' + this.trainName + conductor);
 
     if (pokemonUrl !== '') {
       embed.setThumbnail(pokemonUrl);
@@ -507,7 +519,8 @@ class RaidTrain extends Party {
       isExclusive: this.isExclusive,
       pokemon: this.pokemon,
       currentGym: this.currentGym,
-      route: this.route
+      route: this.route,
+      conductor: this.conductor
     });
   }
 }

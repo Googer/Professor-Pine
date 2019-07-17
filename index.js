@@ -138,6 +138,7 @@ Client.registry.registerCommands([
   require('./commands/trains/next'),
   require('./commands/trains/skip'),
   require('./commands/trains/previous'),
+  require('./commands/trains/conductor'),
 
   require('./commands/raids/submit-request'),
 
