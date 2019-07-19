@@ -42,7 +42,6 @@ class PvPRankingData {
       .then(res => res.text())
       .then(body => cheerio.load(body))
       .catch(err => log.error(err));
-    let ivScrapeData = [];
     let siteData;
     let ivScrapeData = $('tr[class^="table-"]').children().map((i, el) => $(el).text()).get();
     this.name = this.inputPokemon.titleCase();
