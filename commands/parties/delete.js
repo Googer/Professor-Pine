@@ -14,8 +14,8 @@ class DeleteCommand extends Commando.Command {
       group: CommandGroup.RAID_CRUD,
       memberName: 'delete',
       aliases: ['nuke', 'erase'],
-      description: 'Deletes an existing raid (usable only by admins and moderators).\n',
-      details: 'Use this command to delete a raid (usable only by admins and moderators).',
+      description: 'Deletes an existing party (usable only by admins and moderators).\n',
+      details: 'Use this command to delete a party (usable only by admins and moderators).',
       examples: ['\t!delete', '\t!nuke'],
       guildOnly: true
     });
@@ -23,7 +23,7 @@ class DeleteCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'delete' &&
         !PartyManager.validParty(message.channel.id)) {
-        return ['invalid-channel', message.reply('Delete a raid from its raid channel!')];
+        return ['invalid-channel', message.reply('Delete a party from its raid channel!')];
       }
       return false;
     });
