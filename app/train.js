@@ -184,6 +184,13 @@ class RaidTrain extends Party {
     return true;
   }
 
+  async setEndTime(endTime) {
+    this.endTime = endTime;
+
+    await this.persist();
+    return {party: this};
+  }
+
   async setLocation(gymId, newRegionChannel = undefined) {
     this.gymId = gymId;
     if (!!newRegionChannel) {
@@ -267,8 +274,11 @@ class RaidTrain extends Party {
       meetingTime = !!this.startTime ?
         moment(this.startTime) :
         '',
-      meetingLabel = !!this.startTime ?
-        '__Meeting Time__' :
+      finishTime = !!this.endTime ?
+        moment(this.endTime) :
+        '',
+      meetingLabel = !!this.startTime || !!this.endTime ?
+        '__Train Times__' :
         '',
       currentGym = this.currentGym || 0,
       route = this.route ? this.route : [],
@@ -373,8 +383,23 @@ class RaidTrain extends Party {
 
     embed.setFooter(raidReporter, reportingMember.user.displayAvatarURL());
 
+    let timeFrame = '';
+
     if (!!this.startTime && !isNaN(this.startTime)) {
-      embed.addField(meetingLabel, meetingTime.calendar(null, calendarFormat));
+      timeFrame += meetingTime.calendar(null, calendarFormat);
+    }
+
+    if (!!this.endTime && !isNaN(this.endTime)) {
+      if (timeFrame) {
+        timeFrame += ' - ';
+      }
+
+      timeFrame += finishTime.calendar(null, calendarFormat);
+
+    }
+
+    if (timeFrame) {
+      embed.addField(meetingLabel, timeFrame);
     }
 
     this.groups
@@ -540,7 +565,8 @@ class RaidTrain extends Party {
       pokemon: this.pokemon,
       currentGym: this.currentGym,
       route: this.route,
-      conductor: this.conductor
+      conductor: this.conductor,
+      endTime: this.endTime
     });
   }
 }

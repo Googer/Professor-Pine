@@ -21,7 +21,7 @@ class TimeRemainingCommand extends Commando.Command {
         {
           key: TimeParameter.END,
           label: 'time left',
-          prompt: 'How much time is remaining (in minutes) until the raid ends?\nExample: `43`\n\n*or*\n\nWhen does this raid end?\nExample: `6:12`\n',
+          prompt: 'How much time is remaining (in minutes) until the raid ends or when is the train ending (absolute time)?\nExample: `43`\n\n*or*\n\nWhen does this raid end?\nExample: `6:12`\n',
           type: 'time'
         }
       ],
@@ -31,8 +31,8 @@ class TimeRemainingCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'left' &&
-        !PartyManager.validParty(message.channel.id, [PartyType.RAID])) {
-        return ['invalid-channel', message.reply('Set the time remaining for a raid from its raid channel!')];
+        !PartyManager.validParty(message.channel.id, [PartyType.RAID, PartyType.RAID_TRAIN])) {
+        return ['invalid-channel', message.reply('Set the time remaining for a raid from its raid channel or the completion time for a raid train from its train channel!')];
       }
       return false;
     });

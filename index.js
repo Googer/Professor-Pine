@@ -121,7 +121,7 @@ Client.registry.registerCommands([
   require('./commands/parties/delete'),
 
   require('./commands/raids/hatch-time'),
-  require('./commands/raids/time-left'),
+  require('./commands/parties/time-left'),
   require('./commands/parties/set-pokemon'),
   require('./commands/raids/set-location'),
   require('./commands/raids/set-moveset'),
