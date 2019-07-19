@@ -44,11 +44,7 @@ class PvPRankingData {
       .catch(err => log.error(err));
     let ivScrapeData = [];
     let siteData;
-    //let ivScrapeData = $('tr[class^="table-"]').children().map((i, el) => $(el).text()).get();    <-- this code replaces the function below and works. idk how. Magic i think.
-    $("tr[class^=\"table-\"]").children().each(function(){
-      siteData = $(this).text();
-      ivScrapeData.push(siteData);
-    })
+    let ivScrapeData = $('tr[class^="table-"]').children().map((i, el) => $(el).text()).get();
     this.name = this.inputPokemon.titleCase();
     this.rank = ivScrapeData[0];
     this.level = ivScrapeData[1];
