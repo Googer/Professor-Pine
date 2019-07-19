@@ -133,6 +133,10 @@ class RaidTrain extends Party {
   }
 
   async moveToNextGym() {
+    if (!!this.route || !this.route.length || this.currentGym === (this.route.length + 1)) {
+      return true;
+    }
+
     this.currentGym = this.currentGym + 1;
 
     await this.persist();
@@ -141,6 +145,10 @@ class RaidTrain extends Party {
   }
 
   async skipGym() {
+    if (!!this.route || !this.route.length || this.currentGym === (this.route.length + 1)) {
+      return true;
+    }
+
     this.currentGym = this.currentGym + 2;
 
     await this.persist();
@@ -149,7 +157,19 @@ class RaidTrain extends Party {
   }
 
   async moveToPreviousGym() {
+    if (!!this.route || !this.route.length || this.currentGym === (this.route.length + 1) || this.currentGym === 0) {
+      return true;
+    }
+
     this.currentGym = this.currentGym - 1;
+
+    await this.persist();
+
+    return true;
+  }
+
+  async finishRoute() {
+    this.currentGym = !!this.route ? this.route.length + 1 : 0;
 
     await this.persist();
 

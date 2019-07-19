@@ -135,6 +135,7 @@ Client.registry.registerCommands([
   require('./commands/trains/route-delete'),
   require('./commands/trains/route-edit'),
   require('./commands/trains/route-clear'),
+  require('./commands/trains/train-finished'),
   require('./commands/trains/next'),
   require('./commands/trains/skip'),
   require('./commands/trains/previous'),

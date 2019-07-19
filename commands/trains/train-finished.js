@@ -1,6 +1,6 @@
 "use strict";
 
-const log = require('loglevel').getLogger('PreviousCommand'),
+const log = require('loglevel').getLogger('TrainFinishedCommand'),
   {MessageEmbed} = require('discord.js'),
   Commando = require('discord.js-commando'),
   {CommandGroup, PartyStatus, PartyType} = require('../../app/constants'),
@@ -8,23 +8,24 @@ const log = require('loglevel').getLogger('PreviousCommand'),
   settings = require('../../data/settings'),
   PartyManager = require('../../app/party-manager');
 
-class PreviousCommand extends Commando.Command {
+class TrainFinishedCommand extends Commando.Command {
   constructor(client) {
     super(client, {
-      name: 'previous',
+      name: 'train-finished',
       group: CommandGroup.TRAIN,
-      memberName: 'previous',
-      aliases: ['previous-gym', 'prev', 'prev-gym'],
-      description: 'Move the train to the previous gym in the route.',
-      details: 'Use this command to move the raid train to the previous gym in the planned route.',
-      examples: ['\t!next'],
+      memberName: 'train-finished',
+      aliases: ['train-completed', 'complete-route', 'route-complete', 'route-completed',
+          'completed-route', 'finish-train', 'train-finish', 'train-complete', 'complete-train'],
+      description: 'Marks the train as completed (skips any remaining route stops).',
+      details: 'Use this command to mark the train as completed and skip any remaining route stops.',
+      examples: ['\t!train-finished'],
       guildOnly: true
     });
 
     client.dispatcher.addInhibitor(message => {
-      if (!!message.command && message.command.name === 'previous' &&
+      if (!!message.command && message.command.name === 'train-finished' &&
         !PartyManager.validParty(message.channel.id, PartyType.RAID_TRAIN)) {
-        return ['invalid-channel', message.reply('You can only move a raid train through the route within a train channel!')];
+        return ['invalid-channel', message.reply('You can only mark a raid train as finished within a train channel!')];
       }
       return false;
     });
@@ -37,9 +38,9 @@ class PreviousCommand extends Commando.Command {
       message.react(Helper.getEmoji(settings.emoji.thumbsDown) || '👎').
       catch(err => log.error(err));
 
-      message.channel.send(`${message.author}, you must be this train's conductor to move the gym along.`);
+      message.channel.send(`${message.author}, you must be this train's conductor to mark this train as finished.`);
     } else {
-      await party.moveToPreviousGym();
+      await party.finishRoute();
 
       message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
         .catch(err => log.error(err));
@@ -49,4 +50,4 @@ class PreviousCommand extends Commando.Command {
   }
 }
 
-module.exports = PreviousCommand;
+module.exports = TrainFinishedCommand;

@@ -33,12 +33,19 @@ class SkipCommand extends Commando.Command {
   async run(message) {
     const party = PartyManager.getParty(message.channel.id);
 
-    await party.skipGym();
+    if (party.conductor && party.conductor.username !== message.author.username) {
+      message.react(Helper.getEmoji(settings.emoji.thumbsDown) || '👎').
+      catch(err => log.error(err));
 
-    message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
-      .catch(err => log.error(err));
+      message.channel.send(`${message.author}, you must be this train's conductor to move the gym along.`);
+    } else {
+      await party.skipGym();
 
-    party.refreshStatusMessages();
+      message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
+        .catch(err => log.error(err));
+
+      party.refreshStatusMessages();
+    }
   }
 }
 
