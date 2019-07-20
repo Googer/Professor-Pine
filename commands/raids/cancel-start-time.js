@@ -22,8 +22,8 @@ class CancelStartTimeCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'cancel-meet' &&
-        !PartyManager.validParty(message.channel.id)) {
-        return ['invalid-channel', message.reply('Cancel the meeting time for a party from its channel!')];
+        !PartyManager.validParty(message.channel.id, [PartyType.RAID])) {
+        return ['invalid-channel', message.reply('Canceling a meeting time must be done from a raid channel.')];
       }
       return false;
     });

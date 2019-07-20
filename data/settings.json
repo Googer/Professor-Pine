@@ -8,6 +8,7 @@
   "startClearTime": 10,
   "deletionGraceTime": 5,
   "deletionWarningTime": 10,
+  "trainDeletionWarningTime": 60,
   "raidCompleteTimeout": 5,
   "maximumMeetupLeadtime": 93,
   "screenshotMessageOffsetTime": 45,

@@ -12,7 +12,7 @@ class TrainCommand extends Commando.Command {
   constructor(client) {
     super(client, {
       name: 'train',
-      group: CommandGroup.RAID_CRUD,
+      group: CommandGroup.TRAIN,
       memberName: 'train',
       aliases: ['raid-train', 'new-train'],
       description: 'Announces a new raid train.\n',

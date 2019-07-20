@@ -40,7 +40,7 @@ class HowManyCommand extends Commando.Command {
     let raid = Party.getParty(message.channel.id);
 
     let pokemon;
-    if (!!raid && !!raid.pokemon.name && raid.pokemon.name !== 'pokemon') {
+    if (!!raid && !!raid.pokemon && !!raid.pokemon.name && raid.pokemon.name !== 'pokemon') {
       pokemon = raid.pokemon;
     } else {
       let pokemonCollector = new Commando.ArgumentCollector(message.client, [

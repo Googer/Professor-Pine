@@ -44,7 +44,12 @@ class TimeType extends Commando.ArgumentType {
     let firstPossibleTime,
       maxDuration,
       lastPossibleTime,
-      isTrain = false;
+      theParty = PartyManager.getParty(message.channel.id),
+      isTrain;
+
+    isTrain = theParty ?
+      theParty.type === PartyType.RAID_TRAIN :
+      false;
 
     // Figure out valid first and last possible times for this time
     switch (arg.key) {
@@ -60,10 +65,6 @@ class TimeType extends Commando.ArgumentType {
               endTime = party ?
                 party.endTime :
                 undefined;
-
-            isTrain = party ?
-              party.type === PartyType.RAID_TRAIN :
-              false;
 
             if (hatchTime) {
               const hatchTimeMoment = moment(hatchTime);
@@ -112,8 +113,15 @@ class TimeType extends Commando.ArgumentType {
       case TimeParameter.END: {
         // End time - valid range is now through incubation plus hatch duration past creation time
         firstPossibleTime = now;
-        maxDuration = incubationDuration + hatchedDuration;
-        lastPossibleTime = partyCreationTime.clone().add(maxDuration, 'minutes');
+
+        if (isTrain) {
+          maxDuration = settings.maximumMeetupLeadtime + 1;
+          lastPossibleTime = partyCreationTime.clone().add(maxDuration, 'days');
+        } else {
+          maxDuration = incubationDuration + hatchedDuration;
+          lastPossibleTime = partyCreationTime.clone().add(maxDuration, 'minutes');
+        }
+
         break;
       }
     }
@@ -226,7 +234,12 @@ class TimeType extends Commando.ArgumentType {
     let firstPossibleTime,
       maxDuration,
       lastPossibleTime,
-      isTrain = false;
+      theParty = PartyManager.getParty(message.channel.id),
+      isTrain;
+
+    isTrain = theParty ?
+      theParty.type === PartyType.RAID_TRAIN :
+      false;
 
     // Figure out valid first and last possible times for this time
     switch (arg.key) {
@@ -242,10 +255,6 @@ class TimeType extends Commando.ArgumentType {
               endTime = party ?
                 party.endTime :
                 undefined;
-
-            isTrain = party ?
-              party.type === PartyType.RAID_TRAIN :
-              false;
 
             if (hatchTime) {
               const hatchTimeMoment = moment(hatchTime);
@@ -294,8 +303,14 @@ class TimeType extends Commando.ArgumentType {
       case TimeParameter.END: {
         // End time - valid range is now through incubation plus hatch duration past creation time
         firstPossibleTime = now;
-        maxDuration = incubationDuration + hatchedDuration;
-        lastPossibleTime = partyCreationTime.clone().add(maxDuration, 'minutes');
+        if (isTrain) {
+          maxDuration = settings.maximumMeetupLeadtime + 1;
+          lastPossibleTime = partyCreationTime.clone().add(maxDuration, 'days');
+        } else {
+          maxDuration = incubationDuration + hatchedDuration;
+          lastPossibleTime = partyCreationTime.clone().add(maxDuration, 'minutes');
+        }
+
         break;
       }
     }
