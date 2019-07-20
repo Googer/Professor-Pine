@@ -68,7 +68,7 @@ class PvPRankingData {
     }
     let requestInfo = `\n**${league} LEAGUE\nRank**: ${this.rank} (${this.statproduct})\n` +
     `**CP**: ${this.cp} @ Level ${this.level}\n`;
-    let aestheticPokemonName1 = args['pvp_pokemon'].aliases[1];
+    let aestheticPokemonName1 = !!args['pvp_pokemon'].aliases[1] ? args['pvp_pokemon'].aliases[1] : args['pvp_pokemon'].aliases[0];
     let nameField = `**${aestheticPokemonName1.titleCase()}**  ${this.inputATKiv}/${this.inputDEFiv}/${this.inputSTAiv}\n`; 
     const embed = new MessageEmbed()
     .setColor('#43B581')
