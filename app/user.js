@@ -5,6 +5,16 @@ const log = require('loglevel').getLogger('User'),
   DB = require('./db');
 
 class User {
+  async getUserSettings(memberId) {
+    const result = await DB.DB('User')
+      .where('userSnowflake', memberId)
+      .first();
+
+    return !!result ?
+        result :
+        null;
+  }
+
   async getSilphUsername(memberId) {
     const result = await DB.DB('User')
       .where('userSnowflake', memberId)

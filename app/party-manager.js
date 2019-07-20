@@ -28,10 +28,11 @@ class PartyManager {
         startClearTime = now + (settings.startClearTime * 60 * 1000),
         deletionGraceTime = settings.deletionGraceTime * 60 * 1000,
         deletionTime = now + (settings.deletionWarningTime * 60 * 1000),
+        trainDeletionTime = now + (settings.trainDeletionWarningTime * 60 * 1000),
         lastIntervalRunTime = lastIntervalTime - settings.cleanupInterval;
 
       Object.entries(this.parties)
-        .filter(([channelId, party]) => party.type === PartyType.RAID)
+        .filter(([channelId, party]) => [PartyType.RAID, PartyType.RAID_TRAIN].indexOf(party.type) !== -1)
         .forEach(async ([channelId, party]) => {
           if ((party.hatchTime && now > party.hatchTime && party.hatchTime > lastIntervalTime) ||
             nowDay !== lastIntervalDay) {
@@ -86,7 +87,9 @@ class PartyManager {
             !party.deletionTime) {
             // party's end time is set (or last possible time) in the past, even past the grace period,
             // so schedule its deletion
-            party.deletionTime = deletionTime;
+            party.deletionTime = party.type === PartyType.RAID_TRAIN ?
+                              trainDeletionTime :
+                              deletionTime;
 
             party.sendDeletionWarningMessage();
             await party.persist();
@@ -456,7 +459,7 @@ class PartyManager {
       .catch(err => log.error(err));
   }
 
-  validParty(channelId, types = undefined) {
+  validParty(channelId, types) {
     const party = this.parties[channelId];
 
     return !!party && (types !== undefined ?
