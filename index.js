@@ -53,6 +53,7 @@ Client.registry.registerTypesIn(__dirname + '/types/counters');
 Client.registry.registerGroup(CommandGroup.ADMIN, 'Administration');
 Client.registry.registerGroup(CommandGroup.BASIC_RAID, 'Raid Basics');
 Client.registry.registerGroup(CommandGroup.RAID_CRUD, 'Raid Creation and Maintenance');
+Client.registry.registerGroup(CommandGroup.TRAIN, 'Trains');
 
 if (settings.features.roles) {
   Client.registry.registerGroup(CommandGroup.ROLES, 'Roles');
@@ -100,37 +101,47 @@ Client.registry.registerCommands([
   require('./commands/notifications/mention-groups'),
   require('./commands/notifications/mention-shouts'),
 
-  require('./commands/raids/join'),
-  require('./commands/raids/interested'),
-  require('./commands/raids/check-in'),
+  require('./commands/parties/join'),
+  require('./commands/parties/interested'),
+  require('./commands/parties/check-in'),
   require('./commands/raids/done'),
 
-  require('./commands/raids/check-out'),
-  require('./commands/raids/leave'),
+  require('./commands/parties/check-out'),
+  require('./commands/parties/leave'),
 
   require('./commands/raids/cancel-start-time'),
-  require('./commands/raids/meet-time'),
-  require('./commands/raids/group'),
-  require('./commands/raids/label-group'),
-  require('./commands/raids/new-group'),
+  require('./commands/parties/meet-time'),
+  require('./commands/parties/group'),
+  require('./commands/parties/label-group'),
+  require('./commands/parties/new-group'),
 
-  require('./commands/raids/status'),
-  require('./commands/raids/directions'),
-  require('./commands/raids/shout'),
+  require('./commands/parties/status'),
+  require('./commands/parties/directions'),
+  require('./commands/parties/shout'),
 
   require('./commands/raids/raid'),
-  require('./commands/raids/delete'),
+  require('./commands/parties/delete'),
 
   require('./commands/raids/hatch-time'),
-  require('./commands/raids/time-left'),
-  require('./commands/raids/set-pokemon'),
+  require('./commands/parties/time-left'),
+  require('./commands/parties/set-pokemon'),
   require('./commands/raids/set-location'),
   require('./commands/raids/set-moveset'),
 
   require('./commands/raids/auto-status'),
   require('./commands/raids/report-privacy'),
 
-  require('./commands/raids/train'),
+  require('./commands/trains/train'),
+  require('./commands/trains/route'),
+  require('./commands/trains/route-add'),
+  require('./commands/trains/route-delete'),
+  require('./commands/trains/route-edit'),
+  require('./commands/trains/route-clear'),
+  require('./commands/trains/train-finished'),
+  require('./commands/trains/next'),
+  require('./commands/trains/skip'),
+  require('./commands/trains/previous'),
+  require('./commands/trains/conductor'),
 
   require('./commands/raids/submit-request'),
 
@@ -141,6 +152,7 @@ Client.registry.registerCommands([
   require('./commands/admin/raid-bosses'),
   require('./commands/admin/populate-raid-bosses'),
   require('./commands/admin/add-nickname'),
+  require('./commands/admin/view-member-settings'),
   require('./commands/util/boss-tier'),
   require('./commands/admin/autoset'),
   require('./commands/admin/shiny'),

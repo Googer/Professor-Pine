@@ -30,7 +30,7 @@ class SetPokemonCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'boss' &&
-        !PartyManager.validParty(message.channel.id, [PartyType.RAID])) {
+        !PartyManager.validParty(message.channel.id, [PartyType.RAID, PartyType.RAID_TRAIN])) {
         return ['invalid-channel', message.reply('Set the pokémon of a raid from its raid channel!')];
       }
       return false;
@@ -41,12 +41,12 @@ class SetPokemonCommand extends Commando.Command {
     const pokemon = args['pokemon'],
       raid = PartyManager.getParty(message.channel.id),
       egg = !!raid.pokemon && raid.pokemon.egg,
-      originalPokemon = raid.pokemon,
+      originalPokemon = raid.pokemon || {},
       info = await raid.setPokemon(pokemon);
 
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .then(result => {
-        if (pokemon.name !== originalPokemon.name) {
+        if (pokemon.name !== originalPokemon.name && raid.type === PartyType.RAID) {
           Helper.client.emit('raidPokemonSet', raid, message.member.id, egg);
         }
 

@@ -243,6 +243,10 @@ class Gym extends Search {
     return this.gyms.get(gymId);
   }
 
+  getUrl(latitude, longitude) {
+    return `https://www.google.com/maps/search/?api=1&query=${latitude}%2C${longitude}`;
+  }
+
   filterRegions(gymIds) {
     return Object.entries(this.regionMap)
       .map(([region, gyms]) => [region, gymIds.filter(x => gyms.includes(x))])
