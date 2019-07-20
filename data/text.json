@@ -6,7 +6,7 @@
     "warning": "Assign yourself roles in ${bot-channel}!"
   },
   "pvp-rank": {
-    "warning": "Use the `!rank` commands in ${pvp-channel} to see the PvP ranking of a specific IV set for a Pokemon species."
+    "warning": "Use the `!rank` commands in ${pvp-channel} to see the PvP ranking of a specific IV set for a pokémonn species."
   },
   "iamnot": {
     "warning": "Unassign roles in ${bot-channel}!"
@@ -36,16 +36,16 @@
     "warning": "Use the `!register-silph` command in ${bot-channel} to register your Silph Road username."
   },
   "notifications": {
-    "warning": "Use the `!notifications` command in ${bot-channel} to view current notifications for pokÃ©mon."
+    "warning": "Use the `!notifications` command in ${bot-channel} to view current notifications for pokémon."
   },
   "notify": {
-    "warning": "Use the `!want` command in ${bot-channel} to add notifications for pokÃ©mon."
+    "warning": "Use the `!want` command in ${bot-channel} to add notifications for pokémon."
   },
   "denotify": {
-    "warning": "Use the `!unwant` command in ${bot-channel} to remove notifications for pokÃ©mon."
+    "warning": "Use the `!unwant` command in ${bot-channel} to remove notifications for pokémon."
   },
   "denotifyall": {
-    "warning": "Use the `!unwant-all` command in ${bot-channel} to remove all notifications for pokÃ©mon."
+    "warning": "Use the `!unwant-all` command in ${bot-channel} to remove all notifications for pokémon."
   },
   "find": {
     "warning": "Use the `!find` command in ${bot-channel} to find channels for a region."
