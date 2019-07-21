@@ -66,7 +66,7 @@ class PvPRankingData {
     else{
       league = command.toUpperCase();
     }
-    let requestInfo = `\n**${league} LEAGUE\nRank**: ${this.rank} (${this.statproduct})\n` +
+    let requestInfo = `\n**[${league} LEAGUE](${this.url})\nRank**: ${this.rank} (${this.statproduct})\n` +
     `**CP**: ${this.cp} @ Level ${this.level}\n`;
     let aestheticPokemonName1 = !!args['pvp_pokemon'].aliases[1] ? args['pvp_pokemon'].aliases[1] : args['pvp_pokemon'].aliases[0];
     let nameField = `**${aestheticPokemonName1.titleCase()}**  ${this.inputATKiv}/${this.inputDEFiv}/${this.inputSTAiv}\n`; 
