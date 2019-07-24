@@ -133,12 +133,8 @@ class RaidTrain extends Party {
   }
 
   async moveToNextGym() {
-    if (!!this.route || !this.route.length || this.currentGym === (this.route.length + 1)) {
+    if (!!!this.route || !this.route.length || this.currentGym === (this.route.length + 1)) {
       return true;
-    }
-
-    if (moment().valueOf() - 120000 <= this.lastNextRun) {
-      return false;
     }
 
     this.currentGym = this.currentGym + 1;
@@ -150,7 +146,7 @@ class RaidTrain extends Party {
   }
 
   async skipGym() {
-    if (!!this.route || !this.route.length || this.currentGym === (this.route.length + 1)) {
+    if (!!!this.route || !this.route.length || this.currentGym === (this.route.length + 1)) {
       return true;
     }
 
@@ -162,7 +158,7 @@ class RaidTrain extends Party {
   }
 
   async moveToPreviousGym() {
-    if (!!this.route || !this.route.length || this.currentGym === (this.route.length + 1) || this.currentGym === 0) {
+    if (!!!this.route || !this.route.length || this.currentGym === (this.route.length + 1) || this.currentGym === 0) {
       return true;
     }
 
