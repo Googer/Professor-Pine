@@ -39,7 +39,18 @@ class PreviousCommand extends Commando.Command {
 
       message.channel.send(`${message.author}, you must be this train's conductor to move the gym along.`);
     } else {
-      await party.moveToPreviousGym();
+      let info = await party.moveToPreviousGym(message.author);
+
+      if (info && info.error) {
+        message.reply(info.error)
+          .catch(err => log.error(err))
+          .then(errorMessage => {
+            setTimeout(() => {
+              errorMessage.delete();
+            }, 30000);
+          });
+        return;
+      }
 
       message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
         .catch(err => log.error(err));
