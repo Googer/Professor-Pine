@@ -3,6 +3,8 @@
 const log = require('loglevel').getLogger('RouteCommand'),
   {MessageEmbed} = require('discord.js'),
   Commando = require('discord.js-commando'),
+  Helper = require('../../app/helper'),
+  settings = require('../../data/settings'),
   {CommandGroup, PartyStatus, PartyType} = require('../../app/constants'),
   PartyManager = require('../../app/party-manager');
 
@@ -34,6 +36,9 @@ class RouteCommand extends Commando.Command {
           current = raid.currentGym || 0;
 
     let embed = raid.getRouteEmbed();
+
+    message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
+      .catch(err => log.error(err));
 
     message.channel.send(`${message.author}, here is the route information:`, embed)
       .then(message => message.channel.send(`To edit this route, use the \`${message.client.commandPrefix}route-add\`, \`${message.client.commandPrefix}route-remove\`, and \`${message.client.commandPrefix}route-edit\` commands.`))
