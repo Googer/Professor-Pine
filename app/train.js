@@ -32,8 +32,6 @@ class RaidTrain extends Party {
 
     train.trainName = trainName;
     train.gymId = undefined;
-    train.route = [];
-    train.currentGym = [];
 
     train.groups = [{id: 'A'}];
     train.defaultGroupId = 'A';
@@ -84,51 +82,6 @@ class RaidTrain extends Party {
     await this.persist();
 
     return {party: this};
-  }
-
-  async clearRoute() {
-    this.route = [];
-    await this.persist();
-
-    return true;
-  }
-
-  async removeRouteGym(gymIndex) {
-    this.route.splice(gymIndex, 1);
-
-    await this.persist();
-
-    return true;
-  }
-
-  async addRouteGym(gymId) {
-    let gym = Gym.getGym(gymId);
-
-    if (!!!this.route) {
-      this.route = [];
-    }
-
-    if (this.route.find(gym => gym.gymId === gymId) !== undefined) {
-      return false;
-    }
-
-    this.route.push(gym);
-
-    await this.persist();
-
-    return this.route;
-  }
-
-  async insertRouteGym(index, gym) {
-    if (!!!this.route) {
-      this.route = [];
-    }
-
-    this.route.splice(index, 0, gym);
-
-    await this.persist();
-
-    return this.route;
   }
 
   async setLocation(gymId, newRegionChannel = undefined) {
@@ -217,9 +170,8 @@ class RaidTrain extends Party {
       meetingLabel = !!this.startTime ?
         '__Meeting Time__' :
         '',
-      currentGym = this.currentGym || 0,
+
       gym = Gym.getGym(this.gymId),
-      route = this.route ? this.route : [],
       gymName = !!gym ?
         (!!gym.nickname ?
           gym.nickname :
@@ -271,30 +223,11 @@ class RaidTrain extends Party {
       embed = new Discord.MessageEmbed();
 
     embed.setColor('GREEN');
-    embed.setTitle('Raid Train: ' + this.trainName);
+    embed.setTitle(`Map Link: ${gymName}`);
+    embed.setURL(gymUrl);
 
     if (pokemonUrl !== '') {
       embed.setThumbnail(pokemonUrl);
-    }
-
-    if (!route.length) {
-      embed.addField('**Current Gym**', 'Route Unset');
-    } else {
-      let currentName = !!route[currentGym].nickname ?
-          route[currentGym].nickname :
-          route[currentGym].gymName;
-      let currentUrl = Gym.getUrl(route[currentGym].gymInfo.latitude, route[currentGym].gymInfo.longitude);
-
-      embed.addField('**Current Gym**', `[${currentName}](${currentUrl})`);
-
-      if (route[currentGym + 1]) {
-        let nextName = !!route[currentGym + 1].nickname ?
-          route[currentGym + 1].nickname :
-          route[currentGym + 1].gymName;
-        let nextUrl = Gym.getUrl(route[currentGym + 1].gymInfo.latitude, route[currentGym + 1].gymInfo.longitude);
-
-        embed.addField('**Next Gym**', `[${nextName}](${nextUrl})`);
-      }
     }
 
     let pokemonDataContent = '';
@@ -319,6 +252,7 @@ class RaidTrain extends Party {
     }
 
     if (pokemonDataContent !== '') {
+      console.log(pokemon);
       embed.addField('**' + pokemon + shiny + ' Information**', pokemonDataContent);
     }
 
@@ -446,30 +380,6 @@ class RaidTrain extends Party {
     }
   }
 
-  getRouteEmbed() {
-    let embed = new Discord.MessageEmbed(),
-      current = this.currentGym;
-
-    embed.setColor('GREEN');
-    let description = '';
-
-    if (this.route && this.route.length) {
-      this.route.forEach((gym, index) => {
-        let complete = index < current ? '~~' : '',
-          completeText = index < current ? ' (Completed)' : '',
-          gymName = !!gym.nickname ? gym.nickname : gym.gymName;
-
-        description += (index + 1) + `. ${complete}${gymName}${complete}${completeText}\n`;
-      });
-
-      embed.setDescription(description)
-    } else {
-      embed.setTitle('Route not set.')
-    }
-
-    return embed;
-  }
-
   generateChannelName() {
     const nonCharCleaner = new RegExp(/[^\w]/, 'g');
 
@@ -486,9 +396,7 @@ class RaidTrain extends Party {
       gymId: this.gymId,
       startTime: this.startTime,
       isExclusive: this.isExclusive,
-      pokemon: this.pokemon,
-      currentGym: this.currentGym,
-      route: this.route
+      pokemon: this.pokemon
     });
   }
 }

@@ -14,7 +14,7 @@ class CounterPokemonType extends Commando.ArgumentType {
     if (index !== -1) {
       return true;
     } else {
-      return 'that is an invalid Pokémon name. Please try again.\n\n**Pokemon** must be a currently released Pokémon in Pokémon GO.\n';
+      return 'that is an invalid Pokémon name. Please try again.\n**Pokémon** must be a currently released Pokémon in Pokémon GO.\n';
     }
   }
 
