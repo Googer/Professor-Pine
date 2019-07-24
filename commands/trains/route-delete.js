@@ -41,7 +41,12 @@ class RemoveRouteCommand extends Commando.Command {
       }
     }
 
-    message.channel.send(`${message.author}, this is the train's route:`, party.getRouteEmbed());
+    message.channel.send(`${message.author}, this is the train's route:`, party.getRouteEmbed())
+      .then(routeMessage => {
+        setTimeout(() => {
+          routeMessage.delete();
+        }, 30000);
+      });
     const gymCollector = new Commando.ArgumentCollector(message.client, [
         {
           key: 'gymId',
@@ -53,6 +58,8 @@ class RemoveRouteCommand extends Commando.Command {
       ], 3),
       gymResults = await gymCollector.obtain(message),
       gymToRemove = gymResults.values.gymId;
+
+    Utility.cleanCollector(gymResults);
 
     let route = await party.removeRouteGym(Number.parseInt(gymToRemove) - 1);
 

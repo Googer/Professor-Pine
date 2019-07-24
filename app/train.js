@@ -29,7 +29,7 @@ class RaidTrain extends Party {
     train.createdById = memberId;
     train.sourceChannelId = sourceChannelId;
     train.creationTime = moment().valueOf();
-
+    train.nextLastRun = moment().valueOf();
     train.trainName = trainName;
     train.trainId = uuidv1();
     train.gymId = undefined;
@@ -134,11 +134,12 @@ class RaidTrain extends Party {
   }
 
   async moveToNextGym() {
-    if (!!this.route || !this.route.length || this.currentGym === (this.route.length + 1)) {
+    if (!!!this.route || !this.route.length || this.currentGym === (this.route.length + 1)) {
       return true;
     }
 
     this.currentGym = this.currentGym + 1;
+    this.nextLastRun = moment().valueOf();
 
     await this.persist();
 
@@ -146,7 +147,7 @@ class RaidTrain extends Party {
   }
 
   async skipGym() {
-    if (!!this.route || !this.route.length || this.currentGym === (this.route.length + 1)) {
+    if (!!!this.route || !this.route.length || this.currentGym === (this.route.length + 1)) {
       return true;
     }
 
@@ -158,7 +159,7 @@ class RaidTrain extends Party {
   }
 
   async moveToPreviousGym() {
-    if (!!this.route || !this.route.length || this.currentGym === (this.route.length + 1) || this.currentGym === 0) {
+    if (!!!this.route || !this.route.length || this.currentGym === (this.route.length + 1) || this.currentGym === 0) {
       return true;
     }
 
@@ -568,7 +569,8 @@ class RaidTrain extends Party {
       currentGym: this.currentGym,
       route: this.route,
       conductor: this.conductor,
-      endTime: this.endTime
+      endTime: this.endTime,
+      nextLastRun: this.nextLastRun
     });
   }
 }
