@@ -41,7 +41,12 @@ class EditRouteCommand extends Commando.Command {
       }
     }
 
-    message.channel.send(`${message.author}, this is the train's route:`, party.getRouteEmbed());
+    message.channel.send(`${message.author}, this is the train's route:`, party.getRouteEmbed())
+      .then(routeMessage => {
+        setTimeout(() => {
+          routeMessage.delete();
+        }, 30000);
+      });;
     const gymCollector = new Commando.ArgumentCollector(message.client, [
         {
           key: 'gymId',
@@ -51,7 +56,7 @@ class EditRouteCommand extends Commando.Command {
           oneOf: validInputs
         }
       ], 3),
-      gymPromise = gymCollector.obtain(message).then(async collectionResult => {
+      gymPromise = await gymCollector.obtain(message).then(async collectionResult => {
         Utility.cleanCollector(collectionResult);
 
         if (!collectionResult.cancelled) {
@@ -67,7 +72,12 @@ class EditRouteCommand extends Commando.Command {
             }
           }
 
-          message.channel.send(`${message.author}, this is the remaining route:`, party.getRouteEmbed());
+          message.channel.send(`${message.author}, this is the remaining route:`, party.getRouteEmbed())
+            .then(routeMessage => {
+              setTimeout(() => {
+                routeMessage.delete();
+              }, 30000);
+            });
           const gymCollector2 = new Commando.ArgumentCollector(message.client, [
             {
               key: 'gymId',
@@ -82,9 +92,14 @@ class EditRouteCommand extends Commando.Command {
               beforeIndexValue = !beforeGym.canceled ? beforeGym.values.gymId : gymToMove,
               beforeIndex = Number.parseInt(beforeIndexValue) - 1;
 
+          Utility.cleanCollector(beforeGym);
+
           party.insertRouteGym(beforeIndex, gym);
         }
+
+        Utility.cleanCollector(collectionResult);
       });
+    Utility.cleanCollector(gymPromise);
 
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .catch(err => log.error(err));
