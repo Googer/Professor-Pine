@@ -146,8 +146,13 @@ class PvPRankingData {
       .then(body => cheerio.load(body))
       .catch(err => log.error(err));
     let ivScrapeData = await $('tr[class^="table-"]').children().map((i, el) => $(el).text()).get();
-    this.nameCompare = await $('input[class=form-control]').attr('value').toUpperCase();
-    console.log(typeof(this.nameCompare),this.nameCompare);
+    this.nameCompare = await $('input[class=form-control]').attr('value');
+    if(this.nameCompare){ 
+      this.nameCompare = this.nameCompare.toUpperCase()
+    }
+    else{
+      this.embedErrorMessage = "GoStadium.club appears to be down. Please try again later.";
+    }
     this.name = this.pokemon.gsName[0].titleCase();
     this.rank = ivScrapeData[0];
     this.level = ivScrapeData[1];
@@ -157,8 +162,7 @@ class PvPRankingData {
     this.sta = ivScrapeData[6];
     this.statproduct = ivScrapeData[8];
 
-    if(this.nameCompare != this.goStadiumName){
-      console.log(this.nameCompare,"(website) =/= ",this.goStadiumName);
+    if(this.nameCompare && this.nameCompare != this.goStadiumName){
       this.embedErrorMessage = `Search Error. GoStadium URL mismatch.`;
     }
     else if(parseInt(this.attackIV) < parseInt(this.ivFilter) || parseInt(this.defenseIV) < parseInt(this.ivFilter) || parseInt(this.staminaIV) < parseInt(this.ivFilter)){
