@@ -22,7 +22,7 @@ class DoneCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'done' &&
-        !PartyManager.validParty(message.channel.id, [PartyType.RAID])) {
+        !PartyManager.validParty(message.channel.id, [PartyType.RAID, PartyType.RAID_TRAIN])) {
         return ['invalid-channel', message.reply('Say you have completed a raid from its raid channel!')];
       }
       return false;
@@ -30,9 +30,14 @@ class DoneCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    PartyManager.getParty(message.channel.id)
-      .setPresentAttendeesToComplete(undefined, message.member.id)
-      .catch(err => log.error(err));
+    const party = PartyManager.getParty(message.channel.id);
+
+    if (party.type === PartyType.RAID) {
+      party.setPresentAttendeesToComplete(undefined, message.member.id)
+        .catch(err => log.error(err));
+    } else {
+      party.removeAttendee(message.member.id);
+    }
 
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .catch(err => log.error(err));

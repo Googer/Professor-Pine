@@ -40,7 +40,18 @@ class TrainFinishedCommand extends Commando.Command {
 
       message.channel.send(`${message.author}, you must be this train's conductor to mark this train as finished.`);
     } else {
-      await party.finishRoute();
+      let info = await party.finishRoute(message.author);
+
+      if (info && info.error) {
+        message.reply(info.error)
+          .catch(err => log.error(err))
+          .then(errorMessage => {
+            setTimeout(() => {
+              errorMessage.delete();
+            }, 30000);
+          });
+        return;
+      }
 
       message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
         .catch(err => log.error(err));

@@ -131,9 +131,15 @@ class RaidTrain extends Party {
     return this.route;
   }
 
-  async moveToNextGym() {
+  async moveToNextGym(author) {
     if (!!!this.route || !this.route.length || this.currentGym === (this.route.length + 1)) {
       return true;
+    }
+
+    const member = this.attendees[author.id];
+
+    if (!member) {
+      return {error: 'You are not signed up for this train!'};
     }
 
     this.currentGym = this.currentGym + 1;
@@ -144,10 +150,17 @@ class RaidTrain extends Party {
     return true;
   }
 
-  async skipGym() {
+  async skipGym(author) {
     if (!!!this.route || !this.route.length || this.currentGym === (this.route.length + 1)) {
       return true;
     }
+
+    const member = this.attendees[author.id];
+
+    if (!member) {
+      return {error: 'You are not signed up for this train!'};
+    }
+
 
     this.currentGym = this.currentGym + 2;
 
@@ -156,9 +169,15 @@ class RaidTrain extends Party {
     return true;
   }
 
-  async moveToPreviousGym() {
+  async moveToPreviousGym(author) {
     if (!!!this.route || !this.route.length || this.currentGym === (this.route.length + 1) || this.currentGym === 0) {
       return true;
+    }
+
+    const member = this.attendees[author.id];
+
+    if (!member) {
+      return {error: 'You are not signed up for this train!'};
     }
 
     this.currentGym = this.currentGym - 1;
@@ -168,8 +187,14 @@ class RaidTrain extends Party {
     return true;
   }
 
-  async finishRoute() {
+  async finishRoute(author) {
     this.currentGym = !!this.route ? this.route.length + 1 : 0;
+
+    const member = this.attendees[author.id];
+
+    if (!member) {
+      return {error: 'You are not signed up for this train!'};
+    }
 
     await this.persist();
 
