@@ -4,8 +4,7 @@ const log = require('loglevel').getLogger('PartyManager'),
   storage = require('node-persist'),
   {PartyType} = require('./constants'),
   Region = require('./region'),
-  TimeType = require('../types/time'),
-  Helper = require('./helper');
+  TimeType = require('../types/time');
 
 let Raid,
   RaidTrain;

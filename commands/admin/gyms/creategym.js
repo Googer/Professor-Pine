@@ -1,7 +1,7 @@
 "use strict";
 
-const log = require('loglevel').getLogger('AddGymCommand'),
-  commando = require('discord.js-commando'),
+const log = require('loglevel').getLogger('CreateGymCommand'),
+  Commando = require('discord.js-commando'),
   Discord = require('discord.js'),
   Gym = require('../../../app/gym'),
   Helper = require('../../../app/helper'),
@@ -11,21 +11,21 @@ const log = require('loglevel').getLogger('AddGymCommand'),
   Utility = require('../../../app/utility'),
   {CommandGroup} = require('../../../app/constants');
 
-module.exports = class AddGym extends commando.Command {
+module.exports = class CreateGym extends Commando.Command {
   constructor(client) {
     super(client, {
-      name: 'addgym',
-      aliases: ['add-gym', 'new-gym'],
+      name: 'create-gym',
+      aliases: ['new-gym'],
       group: CommandGroup.REGION,
-      memberName: 'addgym',
-      description: 'Add a new gym.',
+      memberName: 'create-gym',
+      description: 'Create a new gym.',
       details: oneLine`
 				This command will get a link and image of the bounding area the channel encompasses.
 			`,
-      examples: ['addgym']
+      examples: ['creategym']
     });
 
-    this.locationCollector = new commando.ArgumentCollector(client, [
+    this.locationCollector = new Commando.ArgumentCollector(client, [
       {
         key: 'location',
         prompt: 'What is the latitude & longitude location of this gym? You can provide a link to pin, or the raw latitude and longitude numbers.',
@@ -33,7 +33,7 @@ module.exports = class AddGym extends commando.Command {
       }
     ], 3);
 
-    this.nameCollector = new commando.ArgumentCollector(client, [
+    this.nameCollector = new Commando.ArgumentCollector(client, [
       {
         key: 'name',
         prompt: 'What is the in-game name of this gym? (ex: Starbucks)',
@@ -41,7 +41,7 @@ module.exports = class AddGym extends commando.Command {
       }
     ], 3);
 
-    this.nicknameCollector = new commando.ArgumentCollector(client, [
+    this.nicknameCollector = new Commando.ArgumentCollector(client, [
       {
         key: 'nickname',
         prompt: 'Provide a nickname for this gym? (ex: Starbucks Green Tree) Type `skip` or `n` to ignore.',
@@ -49,7 +49,7 @@ module.exports = class AddGym extends commando.Command {
       },
     ], 3);
 
-    this.descriptionCollector = new commando.ArgumentCollector(client, [
+    this.descriptionCollector = new Commando.ArgumentCollector(client, [
       {
         key: 'description',
         prompt: 'Provide a description for this gym? Type `skip` or `n` to ignore.',
@@ -57,7 +57,7 @@ module.exports = class AddGym extends commando.Command {
       }
     ], 3);
 
-    this.confirmationCollector = new commando.ArgumentCollector(client, [
+    this.confirmationCollector = new Commando.ArgumentCollector(client, [
       {
         key: 'confirm',
         prompt: 'An existing gym sits in close proximity to the point you are trying to add one too. If the gym shown above is the one you are attempting to add, type `yes` to cancel this command or `no` to continue adding a new gym.',
@@ -75,7 +75,7 @@ module.exports = class AddGym extends commando.Command {
     ], 3);
 
     client.dispatcher.addInhibitor(message => {
-      if (!!message.command && message.command.name === 'addgym') {
+      if (!!message.command && message.command.name === 'create-gym') {
         if (!Helper.isManagement(message)) {
           return ['unauthorized', message.reply('You are not authorized to use this command.')];
         }

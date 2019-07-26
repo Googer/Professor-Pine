@@ -9,7 +9,7 @@ const log = require('loglevel').getLogger('ImageProcessor'),
   path = require('path'),
   PartyManager = require('./party-manager'),
   Raid = require('./raid'),
-  regionMap = require('PgP-Data/data/region-map'),
+  RegionHelper = require('./region'),
   settings = require('../data/settings'),
   Status = require('./status'),
   tesseract = require('tesseract.js'),
@@ -103,7 +103,8 @@ class ImageProcessing {
       if (imageUrl && imageUrl.search(/jpg|jpeg|png/)) {
         log.info('Image Processing Start: ', message.author.id, message.channel.name, imageUrl);
         message.temporaryProcessingTimestamp = Date.now();
-        this.process(message, imageUrl);
+        this.process(message, imageUrl)
+          .catch(err => log.error(err));
       }
     });
   }
@@ -118,7 +119,7 @@ class ImageProcessing {
       255);
   }
 
-  process(message, url) {
+  async process(message, url) {
     let newImage, id;
 
     // if raid command is disabled, cancel out immediately
@@ -128,7 +129,14 @@ class ImageProcessing {
     }
 
     // if not in a proper raid channel, cancel out immediately
-    if (!regionMap[message.channel.name]) {
+    const regionId = await RegionHelper.getRegionId(message.channel.id)
+      .catch(error => {
+        log.error(error);
+        return false;
+      });
+
+
+    if (!regionId) {
       return;
     }
 

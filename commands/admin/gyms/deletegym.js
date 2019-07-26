@@ -1,4 +1,4 @@
-const log = require('loglevel').getLogger('RemoveGymCommand'),
+const log = require('loglevel').getLogger('DeleteGymCommand'),
   commando = require('discord.js-commando'),
   oneLine = require('common-tags').oneLine,
   Gym = require('../../../app/gym'),
@@ -10,11 +10,11 @@ const log = require('loglevel').getLogger('RemoveGymCommand'),
 module.exports = class DeleteGym extends commando.Command {
   constructor(client) {
     super(client, {
-      name: 'removegym',
-      aliases: ['remove-gym', 'byegym', 'nukegym'],
+      name: 'delete-gym',
+      aliases: ['bye-gym', 'nuke-gym'],
       group: CommandGroup.REGION,
-      memberName: 'removegym',
-      description: 'Remove a gym.',
+      memberName: 'delete-gym',
+      description: 'Delete a gym.',
       details: oneLine`
 				This command will find a gym based on your search term and delete it after your confirmation.
 			`,
@@ -43,7 +43,7 @@ module.exports = class DeleteGym extends commando.Command {
     }], 3);
 
     client.dispatcher.addInhibitor(message => {
-      if (!!message.command && message.command.name === 'removegym') {
+      if (!!message.command && message.command.name === 'delete-gym') {
         if (!Helper.isManagement(message)) {
           return ['unauthorized', message.reply('You are not authorized to use this command.')];
         }

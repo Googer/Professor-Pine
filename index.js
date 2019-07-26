@@ -81,9 +81,9 @@ if (settings.features.roles) {
     require('./commands/roles/iamnot'),
 
     require('./commands/admin/gyms/importgyms'),
-    require('./commands/admin/gyms/addgym'),
+    require('./commands/admin/gyms/creategym'),
     require('./commands/admin/gyms/editgym'),
-    require('./commands/admin/gyms/removegym'),
+    require('./commands/admin/gyms/deletegym'),
     require('./commands/admin/gyms/findgym'),
     require('./commands/admin/gyms/gymdetail'),
     require('./commands/admin/gyms/gymqueue'),
@@ -121,9 +121,6 @@ Client.registry.registerCommands([
   require('./commands/parties/interested'),
   require('./commands/parties/check-in'),
 
-  require('./commands/raids/join'),
-  require('./commands/raids/interested'),
-  require('./commands/raids/check-in'),
   require('./commands/raids/done'),
 
   require('./commands/parties/check-out'),
