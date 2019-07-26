@@ -45,9 +45,7 @@ class ImageProcessing {
       fs.mkdirSync(path.join(__dirname, this.imagePath));
     }
 
-    this.gymPokemonTesseract = tesseract.create({
-      langPath: path.dirname(require.resolve('PgP-Data/data/eng.traineddata'))
-    });
+    this.gymPokemonTesseract = tesseract.create();
     this.timeTesseract = tesseract.create();
     this.tierTesseract = tesseract.create();
 
@@ -130,13 +128,10 @@ class ImageProcessing {
 
     // if not in a proper raid channel, cancel out immediately
     const regionId = await RegionHelper.getRegionId(message.channel.id)
-      .catch(error => {
-        log.error(error);
-        return false;
-      });
-
+      .catch(error => log.error(error));
 
     if (!regionId) {
+      log.info('Not in a region channel, won\'t attempt to process');
       return;
     }
 
