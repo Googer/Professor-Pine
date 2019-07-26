@@ -145,6 +145,9 @@ class RaidTrain extends Party {
     this.currentGym = this.currentGym + 1;
     this.nextLastRun = moment().valueOf();
 
+    let present = await this.getPresentAttendees();
+    await this.setAttendeesToComing(present);
+
     await this.persist();
 
     return true;
@@ -164,6 +167,9 @@ class RaidTrain extends Party {
 
     this.currentGym = this.currentGym + 2;
 
+    let present = await this.getPresentAttendees();
+    await this.setAttendeesToComing(present);
+
     await this.persist();
 
     return true;
@@ -182,6 +188,9 @@ class RaidTrain extends Party {
 
     this.currentGym = this.currentGym - 1;
 
+    let present = await this.getPresentAttendees();
+    await this.setAttendeesToComing(present);
+
     await this.persist();
 
     return true;
@@ -197,6 +206,29 @@ class RaidTrain extends Party {
     }
 
     await this.persist();
+
+    return true;
+  }
+
+  async getPresentAttendees() {
+    let attendeeEntries = Object.entries(this.attendees),
+      attendeesWithMembers = (await Promise.all(attendeeEntries
+        .map(async attendeeEntry => [await this.getMember(attendeeEntry[0]), attendeeEntry[1]])))
+        .filter(([member, attendee]) => member.ok === true)
+        .map(([member, attendee]) => [member.member, attendee]);
+
+    return attendeesWithMembers
+      .filter(attendeeEntry => attendeeEntry[1].status === PartyStatus.PRESENT);
+  }
+
+  async setAttendeesToComing(attendeeList) {
+    attendeeList.forEach(member => {
+      this.attendees[member[0].user.id] = {
+        group: member[1].group,
+        number: member[1].number,
+        status: PartyStatus.COMING
+      }
+    });
 
     return true;
   }
