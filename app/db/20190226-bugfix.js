@@ -1,6 +1,6 @@
 const DB = require('../db');
 
-exports.up = async function (knex, Promise) {
+exports.up = async function (knex) {
   let promises = [],
     users = await DB.DB('PokemonNotification')
       .where('pokemon', -7);
@@ -13,7 +13,9 @@ exports.up = async function (knex, Promise) {
       type: notification.type
     };
 
-    promises.push(DB.DB('PokemonNotification').insert(newNotification));
+    promises.push(DB.DB('PokemonNotification')
+      .insert(newNotification));
+
     promises.push(DB.DB('PokemonNotification')
       .where('id', notification.id)
       .update({
@@ -24,6 +26,6 @@ exports.up = async function (knex, Promise) {
   return Promise.all(promises);
 };
 
-exports.down = function (knex, Promise) {
-  return Promise.all([]);
+exports.down = function (knex) {
+  return Promise.resolve([]);
 };
