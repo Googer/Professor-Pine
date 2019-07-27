@@ -149,7 +149,7 @@ module.exports = class ImportGyms extends commando.Command {
   }
 
   getGymValues(gym) {
-    return [gym.gymName, gym.gymInfo.latitude, gym.gymInfo.longitude];
+    return [gym.gymName, gym.gymId, gym.gymInfo.latitude, gym.gymInfo.longitude];
   }
 
   makeMetaInsert(gym) {
@@ -245,7 +245,7 @@ module.exports = class ImportGyms extends commando.Command {
     for (let i = 0; i < gyms.length; i++) {
       const gym = gyms[i];
       let statement = "BEGIN;";
-      statement += "INSERT INTO Gym (name, lat, lon) VALUES(?, ?, ?);";
+      statement += "INSERT INTO Gym (name, pogoId, lat, lon) VALUES(?, ?, ?, ?);";
       statement += this.makeMetaInsert(gym);
       statement += "COMMIT;";
 
