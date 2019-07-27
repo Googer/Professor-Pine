@@ -5,8 +5,10 @@ const log = require('loglevel').getLogger('GymNotificationsCommand'),
   {CommandGroup} = require('../../app/constants'),
   {MessageEmbed} = require('discord.js'),
   Gym = require('../../app/gym'),
+  he = require('he'),
   Helper = require('../../app/helper'),
-  Notify = require('../../app/notify');
+  Notify = require('../../app/notify'),
+  Region = require('../../app/region');
 
 class GymNotificationsCommand extends Commando.Command {
   constructor(client) {
@@ -36,16 +38,18 @@ class GymNotificationsCommand extends Commando.Command {
         embed.setTitle('Currently assigned gym notifications:');
         embed.setColor(4437377);
 
-        const regionGymList = Gym.filterRegions(results);
+        const regionGymList = await Region.groupGymsByRegion(results);
 
-        if (regionGymList.length > 0) {
+        if (regionGymList.size > 0) {
           regionGymList
-            .forEach(([region, gyms]) => {
-              embed.addField(`#${region}`, gyms
-                .map(gymId => Gym.getGym(gymId))
+            .forEach((gyms, channelId) => {
+              const channelName = message.client.channels.get(channelId).name;
+
+              embed.addField(`#${channelName}`, gyms
                 .map(gym => !!gym.nickname ?
                   gym.nickname :
-                  gym.gymName)
+                  gym.name)
+                .map(name => he.decode(name))
                 .sort()
                 .join('\n'));
             });

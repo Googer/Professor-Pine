@@ -284,6 +284,22 @@ class RegionHelper {
     });
   }
 
+  async groupGymsByRegion(gyms) {
+    const channelMap = new Map();
+
+    for (const gymId of gyms) {
+      const gym = await this.getGym(gymId),
+        channelId = (await this.getChannelsForGym(gym))[0].channelId;
+
+      if (!channelMap.has(channelId)) {
+        channelMap.set(channelId, []);
+      }
+      channelMap.get(channelId).push(gym);
+    }
+
+    return channelMap;
+  }
+
   polygonStringFromRegion(region) {
     let polystring = "POLYGON((";
     for (let i = 0; i < region.length; i++) {
@@ -732,9 +748,9 @@ class RegionHelper {
     const name = feature.properties.name;
     const desc = feature.properties.description;
     if (desc) {
-      return desc
+      return desc;
     } else {
-      return name.replace('#', '')
+      return name.replace('#', '');
     }
   }
 
@@ -1025,7 +1041,7 @@ class RegionHelper {
           resolve([]);
         }
       } else {
-        log.error("no region define");
+        log.error("no region defined");
         reject("No region defined");
       }
     });
