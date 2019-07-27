@@ -284,17 +284,18 @@ class RegionHelper {
     });
   }
 
-  async groupGymsByRegion(gyms) {
+  async groupGymsByRegion(gyms, client) {
     const channelMap = new Map();
 
     for (const gymId of gyms) {
       const gym = await this.getGym(gymId),
-        channelId = (await this.getChannelsForGym(gym))[0].channelId;
+        channelId = (await this.getChannelsForGym(gym))[0].channelId,
+        channelName = client.channels.get(channelId).name;
 
-      if (!channelMap.has(channelId)) {
-        channelMap.set(channelId, []);
+      if (!channelMap.has(channelName)) {
+        channelMap.set(channelName, []);
       }
-      channelMap.get(channelId).push(gym);
+      channelMap.get(channelName).push(gym);
     }
 
     return channelMap;
