@@ -25,8 +25,8 @@ class DBManager {
     });
   }
 
-  initialize(client) {
-    this.knex.migrate.latest()
+  async initialize(client) {
+    await this.knex.migrate.latest()
       .then(() => client.guilds.forEach(guild =>
         this.insertIfAbsent('Guild', Object.assign({},
           {
