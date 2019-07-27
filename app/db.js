@@ -35,7 +35,6 @@ class DBManager {
   }
 
   async initialize(client) {
-
     await this.init();
     client.guilds.forEach(guild =>
       this.insertIfAbsent('Guild', Object.assign({},

@@ -198,7 +198,7 @@ if (privateSettings.googleApiKey !== '') {
 
 let isInitialized = false;
 
-Client.on('ready', () => {
+Client.on('ready', async () => {
   log.info('Client logged in');
 
   // Only initialize various classes once ever since ready event gets fired
@@ -219,10 +219,10 @@ Client.on('ready', () => {
     }
 
     PartyManager.setClient(Client);
-    DB.initialize(Client);
+    await DB.initialize(Client);
     IP.initialize();
 
-    isInitialized = true;
+    module.exports.isInitialized = isInitialized = true;
   }
 });
 
@@ -290,3 +290,5 @@ PartyManager.initialize()
   .then(() => Client.login(privateSettings.discordBotToken))
   .then(() => NotifyClient.login(privateSettings.discordNotifyToken))
   .catch(err => log.error(err));
+
+module.exports.isInitialized = isInitialized;
