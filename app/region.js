@@ -199,11 +199,9 @@ class RegionHelper {
 
     try {
       const poly = turf.polygon([coords]);
-      const buffer = turf.buffer(poly, '2.0');
-      const options = {tolerance: 0.005};
-      const enlarged = turf.simplify(buffer, options);
+      const buffer = turf.buffer(poly, 2, {units: 'kilometers'});
 
-      return this.regionFromGeoJSON(enlarged);
+      return this.regionFromGeoJSON(buffer);
     } catch (error) {
       log.error(error);
       return null;

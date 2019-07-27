@@ -75,7 +75,6 @@ class GymCache {
       //Get gyms inside the enclosed polygon
       let expandedGyms = await Region.getGyms(expandedRegion);
       if (!!expandedGyms) {
-
         //Create lunr search index for this channel and add it to the cache
         let index = new Gym(expandedGyms);
         channels[channel] = index;
@@ -150,7 +149,7 @@ class GymCache {
       this.placesQueue.splice(this.placesQueue.indexOf(gym), 1);
     }
 
-    //Get channels that need reindexed
+    //Get channels that need to be re-indexed
     //Add to queue
     let affectedChannels = await Region.findAffectedChannels(gym);
     this.markChannelsForReindex(affectedChannels);
