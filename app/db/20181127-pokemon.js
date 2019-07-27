@@ -1,6 +1,6 @@
-exports.up = function (knex, Promise) {
-  return Promise.all([
-    knex.schema.createTable('Pokemon', table => {
+exports.up = function (knex) {
+  return knex.schema
+    .createTable('Pokemon', table => {
       table.increments('id')
         .primary();
       
@@ -13,12 +13,10 @@ exports.up = function (knex, Promise) {
       
       table.boolean('exclusive')
            .defaultTo(false);
-    })
-  ])
+    });
 };
 
-exports.down = function (knex, Promise) {
-  return Promise.all([
-    knex.schema.dropTable('Pokemon')
-  ])
+exports.down = function (knex) {
+  return knex.schema
+    .dropTable('Pokemon');
 };
