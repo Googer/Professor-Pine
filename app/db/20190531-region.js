@@ -67,7 +67,6 @@ exports.up = function (knex, Promise) {
 
       table.integer('nearestGym')
         .nullable();
-
     }),
   ])
 };

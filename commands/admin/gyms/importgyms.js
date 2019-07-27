@@ -1,5 +1,6 @@
 const log = require('loglevel').getLogger('ImportGymsCommand'),
   commando = require('discord.js-commando'),
+  DB = require('../../../app/db'),
   oneLine = require('common-tags').oneLine,
   Helper = require('../../../app/helper'),
   Gym = require('../../../app/gym'),
@@ -10,14 +11,12 @@ const log = require('loglevel').getLogger('ImportGymsCommand'),
 module.exports = class ImportGyms extends commando.Command {
   constructor(client) {
     super(client, {
-      name: 'importgyms',
-      aliases: ['import-gyms'],
+      name: 'import-gyms',
       group: CommandGroup.REGION,
-      memberName: 'importgyms',
+      memberName: 'import-gyms',
       description: 'Imports gym data from a github repo.',
       details: oneLine`
-				This command will import gyms and gym metadata from json files in a legacy pine data repo.
-			`,
+				This command will import gyms and gym metadata from json files in a legacy pine data repo.`,
       examples: ['\importgyms https://github.com/Googer/PgP-Data'],
       args: [{
         key: 'repo',
@@ -27,7 +26,7 @@ module.exports = class ImportGyms extends commando.Command {
     });
 
     client.dispatcher.addInhibitor(message => {
-      if (!!message.command && message.command.name === 'importgyms') {
+      if (!!message.command && message.command.name === 'import-gyms') {
 
         if (!Helper.isBotChannel(message) && !Helper.isManagement(message)) {
           return ['invalid-channel', message.reply('You are not authorized to run this command.')];
@@ -42,10 +41,26 @@ module.exports = class ImportGyms extends commando.Command {
     const repo = this.validRepo(args.repo);
 
     if (repo) {
-      const gyms = await this.getJSON(`${repo}raw/master/data/gyms.json`);
-      const gymMetadata = await this.getJSON(`${repo}raw/master/data/gyms-metadata.json`);
+      const downloadReaction = await msg.react('📥')
+        .catch(err => log.error(err));
+
+      const gyms = await this.getJSON(`${repo}raw/master/data/gyms.json`)
+        .catch(err => {
+          msg.reply('This does not appear to be a valid gyms repository.')
+            .catch(err => log.error(err));
+          log.error(err);
+        });
+
+      const gymMetadata = await this.getJSON(`${repo}raw/master/data/gyms-metadata.json`)
+        .catch(err => log.error(err));
+
+      downloadReaction.users.remove(msg.client.user.id)
+        .catch(err => log.error(err));
 
       if (gyms && gymMetadata) {
+        const thinkingReaction = await msg.react('🤔')
+          .catch(err => log.error(err));
+
         const keys = Object.keys(gymMetadata);
 
         for (let i = 0; i < gyms.length; i++) {
@@ -54,14 +69,24 @@ module.exports = class ImportGyms extends commando.Command {
           }
         }
 
-        await this.makeImport(gyms);
+        await this.makeImport(gyms)
+          .catch(err => log.error(err));
+
         msg.say(`Imported ${gyms.length} gyms and ${keys.length} meta entries.`)
+          .catch(err => log.error(err));
+
+        const favoritesCount = (await this.migrateFavoriteGyms(gyms)
+          .catch(err => log.error(err)));
+
+        msg.say(`Migrated ${favoritesCount} user favorites to new gym indices.`)
+          .catch(err => log.error(err));
+
+        thinkingReaction.users.remove(msg.client.user.id)
           .catch(err => log.error(err));
       } else {
         msg.say("Hmm... Didnt get correct data back.")
           .catch(err => log.error(err));
       }
-
     } else {
       msg.reply("Invalid URL. Please provide a valid GitHub repo URL.")
         .catch(err => log.error(err));
@@ -252,7 +277,33 @@ module.exports = class ImportGyms extends commando.Command {
       await Region.importGym(statement, this.getMetaValues(gym));
     }
 
-    //Rebuild everything so bot doesnt need a hard restart
+    // Rebuild everything so bot doesnt need a hard restart
     await Gym.buildIndexes();
+  }
+
+  async migrateFavoriteGyms(gyms) {
+    for (const importedGym of gyms) {
+      const gymDbId = (await DB.DB('Gym')
+        .where({pogoId: importedGym.gymId})
+        .first()
+        .pluck('id')
+        .catch(err => log.error(err)));
+
+      if (gymDbId.length > 0) {
+        await DB.DB('GymNotification')
+          .where({gym: importedGym.gymId})
+          .update({
+            gym: gymDbId
+          })
+          .catch(err => log.error(err));
+      }
+    }
+
+    const favoritesCount = (await DB.DB('GymNotification')
+      .count()
+      .first()
+      .catch(err => log.error(err)));
+
+    return favoritesCount['count(*)'];
   }
 };
