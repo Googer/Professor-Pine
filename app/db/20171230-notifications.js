@@ -1,14 +1,13 @@
-exports.up = function (knex, Promise) {
-  return Promise.all([
-    knex.schema.createTable('User', table => {
+exports.up = function (knex) {
+  return knex.schema
+    .createTable('User', table => {
       table.increments('id')
         .primary();
 
       table.string('userSnowflake', 30)
         .unique();
-    }),
-
-    knex.schema.createTable('Notification', table => {
+    })
+    .createTable('Notification', table => {
       table.increments('id')
         .primary();
       table.integer('pokemon');
@@ -27,13 +26,11 @@ exports.up = function (knex, Promise) {
 
       table.index(['pokemon', 'guildId']);
       table.index(['userId', 'guildId']);
-    }),
-  ])
+    });
 };
 
-exports.down = function (knex, Promise) {
-  return Promise.all([
-    knex.schema.dropTable('Notification'),
-    knex.schema.dropTable('User')
-  ])
+exports.down = function (knex) {
+  return knex.schema
+    .dropTable('Notification')
+    .dropTable('User');
 };

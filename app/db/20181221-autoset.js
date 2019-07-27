@@ -1,6 +1,6 @@
-exports.up = function (knex, Promise) {
-  return Promise.all([
-    knex.schema.createTable('AutosetPokemon', table => {
+exports.up = function (knex) {
+  return knex.schema
+    .createTable('AutosetPokemon', table => {
       table.increments('id')
         .primary();
 
@@ -9,12 +9,10 @@ exports.up = function (knex, Promise) {
 
       table.integer('tier')
         .unsigned();
-    })
-  ])
+    });
 };
 
-exports.down = function (knex, Promise) {
-  return Promise.all([
-    knex.schema.dropTable('AutosetPokemon')
-  ])
+exports.down = function (knex) {
+  return knex.schema
+    .dropTable('AutosetPokemon');
 };

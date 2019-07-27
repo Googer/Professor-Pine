@@ -1,16 +1,14 @@
-exports.up = function (knex, Promise) {
-  return Promise.all([
-    knex.schema.table('Pokemon', table => {
+exports.up = function (knex) {
+  return knex.schema
+    .table('Pokemon', table => {
       table.boolean('shiny')
         .defaultTo(false);
-    })
-  ])
+    });
 };
 
-exports.down = function (knex, Promise) {
-  return Promise.all([
-    knex.schema.table('Pokemon', table => {
+exports.down = function (knex) {
+  return knex.schema
+    .table('Pokemon', table => {
       table.dropColumn('shiny');
-    })
-  ])
+    });
 };

@@ -41,6 +41,7 @@
   "helpGroups": [
     "basic-raid",
     "raid-crud",
+    "train",
     "roles",
     "notifications",
     "friends",
