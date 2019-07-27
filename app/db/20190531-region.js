@@ -1,6 +1,6 @@
-exports.up = function (knex, Promise) {
-  return Promise.all([
-    knex.schema.createTable('Region', table => {
+exports.up = function (knex) {
+  return knex.schema
+    .createTable('Region', table => {
       table.increments('id')
         .primary();
 
@@ -12,9 +12,8 @@ exports.up = function (knex, Promise) {
 
       table.text('description')
         .nullable();
-    }),
-
-    knex.schema.createTable('Gym', table => {
+    })
+    .createTable('Gym', table => {
       table.increments('id')
         .primary();
 
@@ -26,10 +25,8 @@ exports.up = function (knex, Promise) {
 
       table.string('name')
         .notNullable();
-    }),
-
-    knex.schema.createTable('GymMeta', table => {
-
+    })
+    .createTable('GymMeta', table => {
       table.integer('gymId')
         .unsigned()
         .primary()
@@ -67,14 +64,12 @@ exports.up = function (knex, Promise) {
 
       table.integer('nearestGym')
         .nullable();
-    }),
-  ])
+    });
 };
 
-exports.down = function (knex, Promise) {
-  return Promise.all([
-    knex.schema.dropTable('Region'),
-    knex.schema.dropTable('Gym'),
-    knex.schema.dropTable('GymMeta')
-  ])
+exports.down = function (knex) {
+  return knex.schema
+    .dropTable('Region')
+    .dropTable('Gym')
+    .dropTable('GymMeta');
 };
