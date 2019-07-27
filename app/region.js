@@ -873,7 +873,7 @@ class RegionHelper {
     return `http://maps.google.com/maps/api/staticmap?size=500x300&format=png&center=${point}&markers=${point}&sensor=false&scale=2&key=${privateSettings.googleApiKey}`;
   }
 
-  async showGymDetail(msg, gym, heading, user, showGeo) {
+  async showGymDetail(msg, gym, heading, user, showAll) {
     let point = gym.point;
     if (!point) {
       point = gym.lat + ", " + gym.lon;
@@ -926,8 +926,10 @@ class RegionHelper {
       embed.setDescription(gym.description);
     }
 
-    if (gym.keywords) {
-      embed.addField("Keywords", gym.keywords);
+    if (showAll) {
+      if (gym.keywords) {
+        embed.addField("Keywords", gym.keywords);
+      }
     }
 
     if (gym.confirmedEx || gym.taggedEx) {
@@ -939,7 +941,7 @@ class RegionHelper {
       embed.addField("Notice :no_entry:", gym.notice);
     }
 
-    if (showGeo) {
+    if (showAll) {
       if (gym.geodata) {
         log.info(`geo: ${gym.geodata}`);
         //Add Geocode Information
@@ -950,7 +952,7 @@ class RegionHelper {
           geoinfo += "**" + key + "**: " + value + "\n";
         }
 
-        embed.addField("Secret Sauce", geoinfo);
+        embed.addField("Geocoding Information", geoinfo);
       }
 
       if (gym.places) {
@@ -963,7 +965,7 @@ class RegionHelper {
 
     let footer = "Gym #" + gym.id;
     if (user) {
-      footer += " | Edited by " + user
+      footer += " | Edited by " + user;
     }
 
     embed.setFooter(footer);
