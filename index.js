@@ -33,6 +33,7 @@ const privateSettings = require('./data/private-settings'),
   Helper = require('./app/helper'),
   IP = require('./app/process-image'),
   ExRaidChannel = require('./app/ex-gym-channel'),
+  Map = require('./app/map'),
   Notify = require('./app/notify'),
   PartyManager = require('./app/party-manager'),
   Role = require('./app/role'),
@@ -220,6 +221,7 @@ Client.on('ready', async () => {
 
     PartyManager.setClient(Client);
     await DB.initialize(Client);
+    Map.initialize(Client);
     IP.initialize();
 
     module.exports.isInitialized = isInitialized = true;

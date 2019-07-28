@@ -189,6 +189,22 @@ class RegionHelper {
     return new Region(points);
   }
 
+  getPolygonFromRegion(region) {
+    const coords = [];
+    for (let p = 0; p < region.length; p++) {
+      let point = region.points[p];
+      const points = [point.y, point.x];
+      coords.push(points);
+    }
+
+    try {
+      return turf.polygon([coords]);
+    } catch (error) {
+      log.error(error);
+      return null;
+    }
+  }
+
   enlargePolygonFromRegion(region) {
     const coords = [];
     for (let p = 0; p < region.length; p++) {
@@ -783,8 +799,8 @@ class RegionHelper {
                 .then(result => {
                   resolve(newChannel.id);
                 })
-            }).catch(error => reject(error))
-        }).catch(error => reject(error))
+            }).catch(error => reject(error));
+        }).catch(error => reject(error));
     })
   }
 

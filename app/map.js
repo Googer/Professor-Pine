@@ -2,28 +2,58 @@
 
 const log = require('loglevel').getLogger('Map'),
   fs = require('fs'),
+  Helper = require('./helper'),
+  main = require('../index'),
   polyline = require('@mapbox/polyline'),
   privateSettings = require('../data/private-settings'),
   querystring = require('querystring'),
+  Region = require('./region'),
   request = require('request-promise'),
-  ToGeoJSON = require('togeojson-with-extended-style'),
-  turf = require('@turf/turf'),
-  DOMParser = require('xmldom').DOMParser;
+  Utility = require('./utility'),
+  turf = require('@turf/turf');
 
 class Map {
   constructor() {
-    const map = fs.readFileSync(require.resolve('PgP-Data/data/map.kml'), 'utf8'),
-      kml = new DOMParser().parseFromString(map);
+  }
 
-    this.regions = ToGeoJSON.kml(kml).features
-      .filter(feature => feature.geometry.type === 'Polygon');
+  async initialize(client) {
+    this.client = client;
 
-    // flip order of coordinates so they're in the right order according to what turf expects
-    this.regions.forEach(region => {
-      region.geometry.coordinates[0].reverse();
-    });
+    await this.rebuildCache();
 
-    this.bounds = turf.bbox(turf.featureCollection(this.regions));
+    Helper.client.on('regionsUpdated', async () =>
+      await this.rebuildCache());
+  }
+
+  async rebuildCache() {
+    log.debug('Rebuilding region map cache...');
+
+    // wait for main initialization to be complete to be sure DB is set up
+    while (!main.isInitialized) {
+      await Utility.sleep(1000);
+    }
+
+    const regions = await Region.getAllRegions()
+      .catch(err => log.error(err));
+
+    this.regions = {};
+
+    for (const region of regions) {
+      const channelName = this.client.channels.get(region.channelId).name,
+        regionRaw = await Region.getRegionsRaw(region.channelId)
+          .catch(error => null),
+        regionObject = !!regionRaw ?
+          Region.getCoordRegionFromText(regionRaw) :
+          null;
+
+      if (regionObject) {
+        this.regions[channelName] = Region.getPolygonFromRegion(regionObject);
+      }
+    }
+
+    this.bounds = turf.bbox(turf.featureCollection(Object.values(this.regions)));
+
+    log.debug('Region map cache rebuilt');
   }
 
   async getRegions(location) {
@@ -108,20 +138,20 @@ class Map {
   }
 
   findMatches(polygon) {
-    return this.regions
-      .map(region => Object.create({
-        region,
-        intersection: turf.intersect(polygon, region)
+    return Object.entries(this.regions)
+      .map(([channelName, channelPolygon]) => Object.create({
+        channelName,
+        intersection: turf.intersect(polygon, channelPolygon)
       }))
-      .filter(({region, intersection}) => intersection !== null)
+      .filter(({channelName, intersection}) => intersection !== null)
       .sort((matchA, matchB) => turf.area(matchB.intersection) - turf.area(matchA.intersection))
-      .map(({region, intersection}) => region.properties.name);
+      .map(({channelName, intersection}) => channelName);
   }
 
   findMatch(point) {
-    return this.regions
-      .filter(region => turf.inside(point, region) === true)
-      .map(region => region.properties.name);
+    return Object.entries(this.regions)
+      .filter(([channelName, channelPolygon]) => turf.inside(point, channelPolygon) === true)
+      .map(([channelName, channelPolygon]) => channelName);
   }
 
   encodePolygon(polygon) {

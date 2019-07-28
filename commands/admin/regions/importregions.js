@@ -52,7 +52,7 @@ module.exports = class ImportRegions extends commando.Command {
         for (let i = 0; i < data.features.length; i++) {
           const feature = data.features[i];
           if (feature.geometry.type === "Polygon") {
-            channelRegions.push(feature)
+            channelRegions.push(feature);
           }
         }
 
@@ -69,15 +69,15 @@ module.exports = class ImportRegions extends commando.Command {
             if (Helper.isChannelChild(channel.id)) {
               const parent = Helper.getParentChannel(channel.id);
               if (PartyManager.categoryHasRegion(parent.id) && !Helper.isChannelBounded(channel.id, PartyManager.getRaidChannelCache())) {
-                ineligible.push(feature)
+                ineligible.push(feature);
               } else {
-                toUpdate.push(feature)
+                toUpdate.push(feature);
               }
             } else {
-              ineligible.push(feature)
+              ineligible.push(feature);
             }
           } else {
-            toAdd.push(feature)
+            toAdd.push(feature);
           }
         }
 
@@ -87,13 +87,15 @@ module.exports = class ImportRegions extends commando.Command {
         //Create new regions
         for (let i = 0; i < toAdd.length; i++) {
           const feature = toAdd[i];
-          Region.createNewRegion(feature, msg, GymCache).then(channel => {
-            PartyManager.cacheRegionChannel(channel)
-          }).catch(error => {
-            log.error(error);
-            msg.say("An error occurred")
-              .catch(err => log.error(err));
-          })
+          Region.createNewRegion(feature, msg, GymCache)
+            .then(channel => {
+              PartyManager.cacheRegionChannel(channel);
+            })
+            .catch(error => {
+              log.error(error);
+              msg.say("An error occurred")
+                .catch(err => log.error(err));
+            })
         }
 
         //Update regions
@@ -105,6 +107,7 @@ module.exports = class ImportRegions extends commando.Command {
           Region.storeRegion(polydata, channel.id, GymCache)
             .catch(error => reject("An error occurred storing the region for " + channelName));
         }
+        Helper.client.emit('regionsUpdated');
       } else {
         msg.say("An error occurred parsing your KML data.")
           .catch(err => log.error(err));

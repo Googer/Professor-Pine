@@ -31,7 +31,6 @@ class GymCache {
 
     let channelsProcessed = 0;
     for (const channel of channels) {
-
       log.info("Indexing channel: " + channel["channelId"]);
       await this.rebuildRegion(channel["channelId"]);
       channelsProcessed++;
