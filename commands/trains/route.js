@@ -32,8 +32,8 @@ class RouteCommand extends Commando.Command {
 
   async run(message) {
     const raid = PartyManager.getParty(message.channel.id),
-          route = raid.route || [],
-          current = raid.currentGym || 0;
+      route = raid.route || [],
+      current = raid.currentGym || 0;
 
     let embed = raid.getRouteEmbed();
 

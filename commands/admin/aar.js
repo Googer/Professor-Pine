@@ -13,7 +13,7 @@ class AarCommand extends Commando.Command {
       name: 'aar',
       group: CommandGroup.ADMIN,
       memberName: 'aar',
-      description: 'Sets auto-assigned role or alias.',
+      description: 'Sets auto-assigned role or alias.\n',
       guildOnly: true
     });
 

@@ -46,7 +46,7 @@ class RareCommand extends Commando.Command {
     const pokemon = args['pokemon'],
       rare = args['rare'];
 
-    Pokemon.addRaidBoss(pokemon.formName, rare ? "7" : "0")
+    Pokemon.setRaidBoss(pokemon.formName, rare ? "7" : "0")
       .then(result => {
         message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍');
         Pokemon.buildIndex();

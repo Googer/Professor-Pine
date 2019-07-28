@@ -1,13 +1,13 @@
 "use strict";
 
-const log = require('loglevel').getLogger('FriendCodeCommand'),
+const log = require('loglevel').getLogger('ConductorCommand'),
   Commando = require('discord.js-commando'),
   {CommandGroup, PartyType} = require('../../app/constants'),
   Helper = require('../../app/helper'),
   settings = require('../../data/settings'),
   PartyManager = require('../../app/party-manager');
 
-class FriendCodeCommand extends Commando.Command {
+class ConductorCommand extends Commando.Command {
   constructor(client) {
     super(client, {
       name: 'conductor',
@@ -41,4 +41,4 @@ class FriendCodeCommand extends Commando.Command {
   }
 }
 
-module.exports = FriendCodeCommand;
+module.exports = ConductorCommand;
