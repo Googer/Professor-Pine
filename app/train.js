@@ -68,9 +68,21 @@ class RaidTrain extends Party {
       });
   }
 
+  async setTrainName(name) {
+    this.trainName = trainName;
+
+    await this.persist();
+
+    return {party: this};
+  }
+
   async setPokemon(pokemon) {
     this.pokemon = pokemon;
     this.isExclusive = !!pokemon.exclusive;
+
+    await this.persist();
+
+    return {party: this};
   }
 
   async setMeetingTime(memberId, startTime) {
