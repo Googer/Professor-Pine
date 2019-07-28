@@ -324,7 +324,7 @@ class Pokemon extends Search {
       .catch(err => log.error(err));
   }
 
-  addRaidBoss(pokemon, tier, shiny, nickname) {
+  setRaidBoss(pokemon, tier, shiny, nickname) {
     let updateObject = {};
 
     if (tier === 'ex') {

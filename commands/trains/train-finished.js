@@ -15,8 +15,8 @@ class TrainFinishedCommand extends Commando.Command {
       group: CommandGroup.TRAIN,
       memberName: 'train-finished',
       aliases: ['train-completed', 'complete-route', 'route-complete', 'route-completed',
-          'completed-route', 'finish-train', 'train-finish', 'train-complete', 'complete-train'],
-      description: 'Marks the train as completed (skips any remaining route stops).',
+        'completed-route', 'finish-train', 'train-finish', 'train-complete', 'complete-train'],
+      description: 'Marks the train as completed (skips any remaining route stops).\n',
       details: 'Use this command to mark the train as completed and skip any remaining route stops.',
       examples: ['\t!train-finished'],
       guildOnly: true
@@ -35,21 +35,22 @@ class TrainFinishedCommand extends Commando.Command {
     const party = PartyManager.getParty(message.channel.id);
 
     if (party.conductor && party.conductor.username !== message.author.username) {
-      message.react(Helper.getEmoji(settings.emoji.thumbsDown) || '👎').
-      catch(err => log.error(err));
+      message.react(Helper.getEmoji(settings.emoji.thumbsDown) || '👎')
+        .catch(err => log.error(err));
 
-      message.channel.send(`${message.author}, you must be this train's conductor to mark this train as finished.`);
+      message.channel.send(`${message.author}, you must be this train's conductor to mark this train as finished.`)
+        .catch(err => log.error(err));
     } else {
       let info = await party.finishRoute(message.author);
 
       if (info && info.error) {
         message.reply(info.error)
-          .catch(err => log.error(err))
           .then(errorMessage => {
             setTimeout(() => {
               errorMessage.delete();
             }, 30000);
-          });
+          })
+          .catch(err => log.error(err));
         return;
       }
 

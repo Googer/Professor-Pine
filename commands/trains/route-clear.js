@@ -39,8 +39,8 @@ class ClearRouteCommand extends Commando.Command {
 
   async run(message, args) {
     const party = PartyManager.getParty(message.channel.id);
-    party.clearRoute();
-    
+    await party.clearRoute();
+
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .catch(err => log.error(err));
 
