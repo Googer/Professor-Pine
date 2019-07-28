@@ -34,21 +34,22 @@ class PreviousCommand extends Commando.Command {
     const party = PartyManager.getParty(message.channel.id);
 
     if (party.conductor && party.conductor.username !== message.author.username) {
-      message.react(Helper.getEmoji(settings.emoji.thumbsDown) || '👎').
-      catch(err => log.error(err));
+      message.react(Helper.getEmoji(settings.emoji.thumbsDown) || '👎')
+        .catch(err => log.error(err));
 
-      message.channel.send(`${message.author}, you must be this train's conductor to move the gym along.`);
+      message.channel.send(`${message.author}, you must be this train's conductor to move the gym along.`)
+        .catch(err => log.error(err));
     } else {
       let info = await party.moveToPreviousGym(message.author);
 
       if (info && info.error) {
         message.reply(info.error)
-          .catch(err => log.error(err))
           .then(errorMessage => {
             setTimeout(() => {
               errorMessage.delete();
             }, 30000);
-          });
+          })
+          .catch(err => log.error(err));
         return;
       }
 

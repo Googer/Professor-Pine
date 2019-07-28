@@ -46,7 +46,9 @@ class EditRouteCommand extends Commando.Command {
         setTimeout(() => {
           routeMessage.delete();
         }, 30000);
-      });;
+      })
+      .catch(err => log.error(err));
+
     const gymCollector = new Commando.ArgumentCollector(message.client, [
         {
           key: 'gymId',
@@ -63,9 +65,9 @@ class EditRouteCommand extends Commando.Command {
           let gymToMove = collectionResult.values.gymId;
           let gym = party.route[Number.parseInt(gymToMove) - 1];
           let gymName = !!gym.nickname ? gym.nickname : gym.gymName;
-          party.removeRouteGym(Number.parseInt(gymToMove) - 1);
+          await party.removeRouteGym(Number.parseInt(gymToMove) - 1);
 
-          validInputs = []
+          validInputs = [];
           if (party.route) {
             for (let i = 0; i < party.route.length; i++) {
               validInputs.push((i + 1) + '');
@@ -75,9 +77,12 @@ class EditRouteCommand extends Commando.Command {
           message.channel.send(`${message.author}, this is the remaining route:`, party.getRouteEmbed())
             .then(routeMessage => {
               setTimeout(() => {
-                routeMessage.delete();
+                routeMessage.delete()
+                  .catch(err => log.error(err));
               }, 30000);
-            });
+            })
+            .catch(err => log.error(err));
+
           const gymCollector2 = new Commando.ArgumentCollector(message.client, [
             {
               key: 'gymId',
@@ -89,12 +94,12 @@ class EditRouteCommand extends Commando.Command {
           ], 3);
 
           let beforeGym = await gymCollector2.obtain(message),
-              beforeIndexValue = !beforeGym.canceled ? beforeGym.values.gymId : gymToMove,
-              beforeIndex = Number.parseInt(beforeIndexValue) - 1;
+            beforeIndexValue = !beforeGym.canceled ? beforeGym.values.gymId : gymToMove,
+            beforeIndex = Number.parseInt(beforeIndexValue) - 1;
 
           Utility.cleanCollector(beforeGym);
 
-          party.insertRouteGym(beforeIndex, gym);
+          await party.insertRouteGym(beforeIndex, gym);
         }
 
         Utility.cleanCollector(collectionResult);
