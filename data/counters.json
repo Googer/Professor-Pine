@@ -6511,9 +6511,6 @@
 				"TIER 1",
 				"ONE"
 			],
-			"gsName": [
-				"1"
-			]
 		},
 		{
 			"pbName": "2",
@@ -6526,9 +6523,6 @@
 				"TIER 2",
 				"TWO"
 			],
-			"gsName": [
-				"2"
-			]
 		},
 		{
 			"pbName": "3",
@@ -6541,9 +6535,6 @@
 				"TIER 3",
 				"THREE"
 			],
-			"gsName": [
-				"3"
-			]
 		},
 		{
 			"pbName": "4",
@@ -6556,9 +6547,6 @@
 				"TIER 4",
 				"FOUR"
 			],
-			"gsName": [
-				"4"
-			]
 		},
 		{
 			"pbName": "5",
@@ -6571,9 +6559,6 @@
 				"TIER 5",
 				"FIVE"
 			],
-			"gsName": [
-				"5"
-			]
 		},
 		{
 			"pbName": "6",
@@ -6587,9 +6572,6 @@
 				"SIX",
 				"MEWTWO"
 			],
-			"gsName": [
-				"6"
-			]
 		}
 	],
 	"level": [
@@ -6608,9 +6590,6 @@
 				"L 20"
 			],
 			"type": "byLevel",
-			"gsName": [
-				"20"
-			]
 		},
 		{
 			"pbName": "25",
@@ -6625,9 +6604,6 @@
 				"L 25"
 			],
 			"type": "byLevel",
-			"gsName": [
-				"25"
-			]
 		},
 		{
 			"pbName": "30",
@@ -6641,9 +6617,6 @@
 				"L 30"
 			],
 			"type": "byLevel",
-			"gsName": [
-				"30"
-			]
 		},
 		{
 			"pbName": "35",
@@ -6660,9 +6633,6 @@
 				"L 35"
 			],
 			"type": "byLevel",
-			"gsName": [
-				"35"
-			]
 		},
 		{
 			"pbName": "40",
@@ -6679,9 +6649,6 @@
 				"L 40"
 			],
 			"type": "byLevel",
-			"gsName": [
-				"40"
-			]
 		}
 	],
 	"weather": [
@@ -6701,9 +6668,6 @@
 			"boosts": [
 				"Nothing"
 			],
-			"gsName": [
-				"NO_WEATHER"
-			]
 		},
 		{
 			"pbName": "CLEAR",
@@ -6721,9 +6685,6 @@
 				"Grass",
 				"Ground"
 			],
-			"gsName": [
-				"CLEAR"
-			]
 		},
 		{
 			"pbName": "RAINY",
@@ -6738,9 +6699,6 @@
 				"Electric",
 				"Water"
 			],
-			"gsName": [
-				"RAINY"
-			]
 		},
 		{
 			"pbName": "PARTLY_CLOUDY",
@@ -6755,9 +6713,6 @@
 				"Normal",
 				"Rock"
 			],
-			"gsName": [
-				"PARTLY_CLOUDY"
-			]
 		},
 		{
 			"pbName": "OVERCAST",
@@ -6773,9 +6728,6 @@
 				"Fighting",
 				"Poison"
 			],
-			"gsName": [
-				"OVERCAST"
-			]
 		},
 		{
 			"pbName": "WINDY",
@@ -6789,9 +6741,6 @@
 				"Flying",
 				"Psychic"
 			],
-			"gsName": [
-				"WINDY"
-			]
 		},
 		{
 			"pbName": "SNOW",
@@ -6804,9 +6753,6 @@
 				"Ice",
 				"Steel"
 			],
-			"gsName": [
-				"SNOW"
-			]
 		},
 		{
 			"pbName": "FOG",
@@ -6819,9 +6765,6 @@
 				"Dark",
 				"Ghost"
 			],
-			"gsName": [
-				"FOG"
-			]
 		}
 	],
 	"friendship": [
@@ -6847,9 +6790,6 @@
 			],
 			"name": "Not Friends",
 			"boost": 0,
-			"gsName": [
-				"0"
-			]
 		},
 		{
 			"pbName": "1",
@@ -6866,9 +6806,6 @@
 			],
 			"name": "Good Friends",
 			"boost": 3,
-			"gsName": [
-				"1"
-			]
 		},
 		{
 			"pbName": "2",
@@ -6885,9 +6822,6 @@
 			],
 			"name": "Great Friends",
 			"boost": 5,
-			"gsName": [
-				"2"
-			]
 		},
 		{
 			"pbName": "3",
@@ -6906,9 +6840,6 @@
 			],
 			"name": "Ultra Friends",
 			"boost": 7,
-			"gsName": [
-				"3"
-			]
 		},
 		{
 			"pbName": "4",
@@ -6934,9 +6865,6 @@
 			],
 			"name": "Best Friends",
 			"boost": 10,
-			"gsName": [
-				"4"
-			]
 		}
 	]
 }
