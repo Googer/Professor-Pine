@@ -247,7 +247,10 @@ class RegionHelper {
 
     const center = region.centroid();
 
-    return "http://maps.google.com/maps/api/staticmap?size=500x300&format=png&center=" + center.x + "," + center.y + "&path=color:red|" + final + "&sensor=false&scale=2&key=" + privateSettings.googleApiKey;
+    return "https://maps.google.com/maps/api/staticmap?" +
+      'size=640x320&' +
+      'scale=2&' +
+      "format=png&center=" + center.x + "," + center.y + "&path=fillcolor:0xAA000033|color:red|weight:2|" + final + "&sensor=false&key=" + privateSettings.googleApiKey;
   }
 
   googlePinLinkForPoint(coordString) {
@@ -903,7 +906,13 @@ class RegionHelper {
       point = `${gym.lat},${gym.lon}`;
     }
     point = point.replaceAll(" ", "");
-    return `http://maps.google.com/maps/api/staticmap?size=500x300&format=png&center=${point}&markers=${point}&sensor=false&scale=2&key=${privateSettings.googleApiKey}`;
+
+    return 'https://maps.google.com/maps/api/staticmap?' +
+      `size=640x320&` +
+      `scale=2&` +
+      `zoom=15&` +
+      `markers=size:small|color:red|${point}&` +
+      `key=${privateSettings.googleApiKey}`
   }
 
   async showGymDetail(msg, gym, heading, user, showAll) {
