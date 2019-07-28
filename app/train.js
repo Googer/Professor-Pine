@@ -73,6 +73,16 @@ class RaidTrain extends Party {
 
     await this.persist();
 
+    const newChannelName = this.generateChannelName();
+
+    await PartyManager.getChannel(this.channelId)
+      .then(channelResult => {
+        if (channelResult.ok) {
+          return channelResult.channel.setName(newChannelName);
+        }
+      })
+      .catch(err => log.error(err));
+
     return {party: this};
   }
 
