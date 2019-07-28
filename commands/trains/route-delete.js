@@ -16,7 +16,7 @@ class RemoveRouteCommand extends Commando.Command {
       group: CommandGroup.TRAIN,
       memberName: 'route-remove',
       aliases: ['remove-route', 'remove-gym', 'remove-location', 'gym-remove', 'location-remove'],
-      description: 'Adds a gym to a train\'s route.\n',
+      description: 'Adds a gym to a train\'s route.',
       details: 'Use this command to remove a location from a train\'s route.  This command is channel sensitive, meaning it only finds gyms associated with the enclosing region.',
       examples: ['\t!route-remove'],
       guildOnly: true
@@ -46,7 +46,9 @@ class RemoveRouteCommand extends Commando.Command {
         setTimeout(() => {
           routeMessage.delete();
         }, 30000);
-      });
+      })
+      .catch(err => log.error(err));
+
     const gymCollector = new Commando.ArgumentCollector(message.client, [
         {
           key: 'gymId',
@@ -65,7 +67,8 @@ class RemoveRouteCommand extends Commando.Command {
 
     if (!route) {
       let gymName = !!gym.nickname ? gym.nickname : gym.gymName;
-      message.channel.send(`${message.author}, ${gymName} is already a part of this route.`);
+      message.channel.send(`${message.author}, ${gymName} is already a part of this route.`)
+        .catch(err => log.error(err));
     }
 
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')

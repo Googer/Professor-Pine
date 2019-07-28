@@ -13,17 +13,17 @@ class AddRaidBossCommand extends Commando.Command {
       name: 'raid-boss',
       group: CommandGroup.ADMIN,
       memberName: 'raid-boss',
-      description: 'Adds a new raid boss.',
+      description: 'Adds or removes a raid boss.',
       examples: ['\t!raid-boss magnemite 1'],
       args: [
         {
           key: 'pokemon',
-          prompt: 'What pokémon are you adding?\nExample: `lugia`\n',
+          prompt: 'What pokémon are you modifying?\nExample: `lugia`\n',
           type: 'pokemon'
         },
         {
           key: 'tier',
-          prompt: 'What tier is this pokémon? (`1`, `2`, `3`, `4`, `5`, `ex`, `unset-ex`)',
+          prompt: 'What tier is this pokémon? (`0` to remove, `1`, `2`, `3`, `4`, `5`, `ex`, `unset-ex`)',
           type: 'string',
           oneOf: ['0', '1', '2', '3', '4', '5', 'ex', 'unset-ex']
         }
@@ -46,7 +46,7 @@ class AddRaidBossCommand extends Commando.Command {
     const pokemon = args['pokemon'],
       tier = args['tier'];
 
-    Pokemon.addRaidBoss(pokemon.formName, tier)
+    Pokemon.setRaidBoss(pokemon.formName, tier)
       .then(result => {
         message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍');
         Pokemon.buildIndex();
