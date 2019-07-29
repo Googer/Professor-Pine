@@ -68,9 +68,31 @@ class RaidTrain extends Party {
       });
   }
 
+  async setTrainName(name) {
+    this.trainName = trainName;
+
+    await this.persist();
+
+    const newChannelName = this.generateChannelName();
+
+    await PartyManager.getChannel(this.channelId)
+      .then(channelResult => {
+        if (channelResult.ok) {
+          return channelResult.channel.setName(newChannelName);
+        }
+      })
+      .catch(err => log.error(err));
+
+    return {party: this};
+  }
+
   async setPokemon(pokemon) {
     this.pokemon = pokemon;
     this.isExclusive = !!pokemon.exclusive;
+
+    await this.persist();
+
+    return {party: this};
   }
 
   async setMeetingTime(memberId, startTime) {
