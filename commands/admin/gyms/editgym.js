@@ -16,10 +16,9 @@ function getGymMetaFields() {
 module.exports = class EditGym extends commando.Command {
   constructor(client) {
     super(client, {
-      name: 'editgym',
-      aliases: ['edit-gym'],
+      name: 'edit-gym',
       group: CommandGroup.REGION,
-      memberName: 'editgym',
+      memberName: 'edit-gym',
       description: 'Edit a gyms meta data',
       details: oneLine`
 				This command will allow the user to edit one of the gyms meta data fields.
@@ -50,7 +49,6 @@ module.exports = class EditGym extends commando.Command {
 
     this.nameCollector = new commando.ArgumentCollector(client, [{
       key: 'name',
-      label: 'cool',
       prompt: 'Provide a new name for this gym.',
       type: 'string',
       validate: value => {
@@ -121,7 +119,7 @@ module.exports = class EditGym extends commando.Command {
     }], 3);
 
     client.dispatcher.addInhibitor(message => {
-      if (!!message.command && message.command.name === 'editgym') {
+      if (!!message.command && message.command.name === 'edit-gym') {
         if (!Helper.isManagement(message)) {
           return ['unauthorized', message.reply('You are not authorized to use this command.')];
         }

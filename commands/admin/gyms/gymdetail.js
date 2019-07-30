@@ -9,10 +9,9 @@ const log = require('loglevel').getLogger('GymDetailCommand'),
 module.exports = class GymDetail extends commando.Command {
   constructor(client) {
     super(client, {
-      name: 'gymdetail',
-      aliases: ['gym-detail'],
+      name: 'gym-detail',
       group: CommandGroup.REGION,
-      memberName: 'gymdetail',
+      memberName: 'gym-detail',
       description: 'Shows detailed information about a gym.',
       details: oneLine`
 				This command will show all stored information about the specified gym including geolocation information and nearby places.
@@ -26,7 +25,7 @@ module.exports = class GymDetail extends commando.Command {
     });
 
     client.dispatcher.addInhibitor(message => {
-      if (!!message.command && message.command.name === 'gymdetail') {
+      if (!!message.command && message.command.name === 'gym-detail') {
         if (!Helper.isManagement(message)) {
           return ['unauthorized', message.reply('You are not authorized to use this command.')];
         }

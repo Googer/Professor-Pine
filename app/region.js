@@ -307,8 +307,13 @@ class RegionHelper {
     const channelMap = new Map();
 
     for (const gymId of gyms) {
-      const gym = await this.getGym(gymId),
-        channelId = (await this.getChannelsForGym(gym))[0].channelId,
+      const gym = await this.getGym(gymId);
+
+      if (!gym) {
+        continue;
+      }
+
+      const channelId = (await this.getChannelsForGym(gym))[0].channelId,
         channelName = client.channels.get(channelId).name;
 
       if (!channelMap.has(channelName)) {
@@ -1307,14 +1312,14 @@ class RegionHelper {
                 }
               }
 
-              reject(errorMessage + term + "'");
+              reject(errorMessage + term + "'.");
             })
             .catch(error => {
               log.error("GYM ERROR: " + error);
               reject("An error occurred looking for gyms");
             })
         } else {
-          reject("No region defined in this channel");
+          reject("No region defined in this channel.");
         }
       });
     } catch (error) {

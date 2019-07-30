@@ -8,10 +8,9 @@ const log = require('loglevel').getLogger('GymQueueCommand'),
 module.exports = class CheckGymQueue extends commando.Command {
   constructor(client) {
     super(client, {
-      name: 'gymqueue',
-      aliases: [],
+      name: 'gym-queue',
       group: CommandGroup.REGION,
-      memberName: 'gymqueue',
+      memberName: 'gym-queue',
       description: 'Get current queues waiting for update.',
       details: oneLine`
 				This command will identify channels waiting to be reindexed and gyms waiting for places updates.
@@ -20,7 +19,7 @@ module.exports = class CheckGymQueue extends commando.Command {
     });
 
     client.dispatcher.addInhibitor(message => {
-      if (!!message.command && message.command.name === 'gymqueue') {
+      if (!!message.command && message.command.name === 'gym-queue') {
         if (!Helper.isManagement(message)) {
           return ['unauthorized', message.reply('You are not authorized to use this command.')];
         }

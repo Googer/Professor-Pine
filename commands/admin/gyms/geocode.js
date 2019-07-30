@@ -84,7 +84,6 @@ module.exports = class GeocodeGym extends commando.Command {
           .catch(err => log.error(err));
       }
     }
-
   }
 
   getValue(value) {

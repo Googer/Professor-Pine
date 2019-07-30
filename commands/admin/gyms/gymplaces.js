@@ -10,10 +10,9 @@ const log = require('loglevel').getLogger('GymPlacesCommand'),
 module.exports = class GymPlaces extends commando.Command {
   constructor(client) {
     super(client, {
-      name: 'gymplaces',
-      aliases: ['gym-places'],
+      name: 'gym-places',
       group: CommandGroup.REGION,
-      memberName: 'gymplaces',
+      memberName: 'gym-places',
       description: 'Updates nearby places for a gym.',
       details: oneLine`
 				This command will get nearby places for a gym and update them, and queue it to be reindexed for search.
@@ -27,7 +26,7 @@ module.exports = class GymPlaces extends commando.Command {
     });
 
     client.dispatcher.addInhibitor(message => {
-      if (!!message.command && message.command.name === 'gymplaces') {
+      if (!!message.command && message.command.name === 'gym-places') {
         if (!Helper.isManagement(message)) {
           return ['unauthorized', message.reply('You are not authorized to use this command.')];
         }

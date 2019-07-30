@@ -84,7 +84,6 @@ module.exports = class DeleteGym extends commando.Command {
             .then(async confirmResult => {
               if (!confirmResult.cancelled) {
                 const confirm = confirmResult.values['confirm'].substring(0, 1);
-                that.cleanup(gymResult, confirmResult, gymMessage);
 
                 if (confirm === 'y' || confirm === 'yes') {
                   Region.deleteGym(gym.id, Gym)
@@ -93,15 +92,15 @@ module.exports = class DeleteGym extends commando.Command {
                         msg.reply(gym.name + ' was removed successfully.')
                           .catch(err => log.error(err));
                       } else {
-                        msg.reply('An error occurred while deleting ' + gym.name)
+                        msg.reply('An error occurred while deleting ' + gym.name + '.')
                           .catch(err => log.error(err));
                       }
                     })
                     .catch(error => false);
                 }
-              } else {
-                that.cleanup(gymResult, confirmResult, gymMessage);
               }
+
+              that.cleanup(gymResult, confirmResult, gymMessage);
             });
         } else {
           that.cleanup(gymResult);

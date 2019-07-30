@@ -10,10 +10,10 @@ const log = require('loglevel').getLogger('FindGymCommand'),
 module.exports = class FindGym extends commando.Command {
   constructor(client) {
     super(client, {
-      name: 'findgym',
-      aliases: ['find-gym', 'fort'],
+      name: 'find-gym',
+      aliases: ['fort'],
       group: CommandGroup.REGION,
-      memberName: 'gym',
+      memberName: 'find-gym',
       description: 'Find a gym in the region.',
       details: oneLine`
 				This command will find a gym based on your search term within the region defined by this channel.
@@ -32,7 +32,6 @@ module.exports = class FindGym extends commando.Command {
         if (!Helper.isBotChannel(message) && !Helper.isChannelBounded(message.channel.id, PartyManager.getRaidChannelCache())) {
           return ['invalid-channel', message.reply('Find gyms from regional channels or a bot channel.')];
         }
-
       }
       return false;
     });
@@ -57,7 +56,8 @@ module.exports = class FindGym extends commando.Command {
     }
 
     if (gym !== undefined && gym["name"]) {
-      const channels = await Region.getChannelsForGym(gym).catch(error => []);
+      const channels = await Region.getChannelsForGym(gym)
+        .catch(error => []);
       const phrase = isID ? "Gym found with ID " + args.term : "Gym found with term '" + args.term + "'";
       await Region.showGymDetail(msg, gym, phrase, null, false);
 
@@ -77,10 +77,10 @@ module.exports = class FindGym extends commando.Command {
 
     } else {
       if (isID) {
-        msg.reply("No gym found with ID " + args.term)
+        msg.reply("No gym found with ID " + args.term + ".")
           .catch(err => log.error(err));
       } else {
-        msg.reply("No gyms found with search term: " + args.term)
+        msg.reply("No gyms found with search term: '" + args.term + "'.")
           .catch(err => log.error(err));
       }
     }

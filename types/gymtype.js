@@ -15,12 +15,10 @@ class FindGymType extends commando.ArgumentType {
 
         if (that.getValue(value) > -1) {
           gym = await Region.getGym(that.getValue(value))
-            .catch(error => message.say(error)
-              .catch(err => log.error(err)));
+            .catch(error => resolve(error));
         } else {
           gym = await Region.findGym(message.channel.id, value)
-            .catch(error => message.say(error)
-              .catch(err => log.error(err)));
+            .catch(error => resolve(error));
         }
 
         if (gym !== undefined && gym["name"]) {
@@ -32,7 +30,7 @@ class FindGymType extends commando.ArgumentType {
             })
             .catch(err => log.error(err));
         } else {
-          resolve("No gym found");
+          resolve("No gym found.");
         }
       });
   }
