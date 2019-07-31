@@ -86,8 +86,14 @@ module.exports = class DeleteGym extends commando.Command {
                 const confirm = confirmResult.values['confirm'].substring(0, 1);
 
                 if (confirm === 'y' || confirm === 'yes') {
+                  const thinkingReaction = await msg.react('🤔')
+                    .catch(err => log.error(err));
+
                   Region.deleteGym(gym.id, Gym)
                     .then(result => {
+                      thinkingReaction.users.remove(msg.client.user.id)
+                        .catch(err => log.error(err));
+
                       if (result) {
                         msg.reply(gym.name + ' was removed successfully.')
                           .catch(err => log.error(err));

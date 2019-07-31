@@ -29,7 +29,8 @@ module.exports = class CreateGym extends Commando.Command {
       {
         key: 'location',
         prompt: 'What is the latitude & longitude location of this gym? You can provide a link to pin, or the raw latitude and longitude numbers.',
-        type: 'coords'
+        type: 'coords',
+        wait: 60
       }
     ], 3);
 
@@ -37,7 +38,8 @@ module.exports = class CreateGym extends Commando.Command {
       {
         key: 'name',
         prompt: 'What is the in-game name of this gym? (ex: Starbucks)',
-        type: 'string'
+        type: 'string',
+        wait: 60
       }
     ], 3);
 
@@ -45,7 +47,8 @@ module.exports = class CreateGym extends Commando.Command {
       {
         key: 'nickname',
         prompt: 'Provide a nickname for this gym? (ex: Starbucks Green Tree) Type `skip` or `n` to ignore.',
-        type: 'string'
+        type: 'string',
+        wait: 60
       },
     ], 3);
 
@@ -53,7 +56,8 @@ module.exports = class CreateGym extends Commando.Command {
       {
         key: 'description',
         prompt: 'Provide a description for this gym? Type `skip` or `n` to ignore.',
-        type: 'string'
+        type: 'string',
+        wait: 120
       }
     ], 3);
 
@@ -135,6 +139,9 @@ module.exports = class CreateGym extends Commando.Command {
                 that.descriptionCollector.obtain(msg)
                   .then(async descriptionResult => {
                     if (!descriptionResult.cancelled) {
+                      const thinkingReaction = await msg.react('🤔')
+                        .catch(err => log.error(err));
+
                       const description = descriptionResult.values["description"];
                       const details = {
                         "location": locationResult.values["location"],
@@ -146,6 +153,9 @@ module.exports = class CreateGym extends Commando.Command {
                         .catch(error => msg.say(error)
                           .catch(err => log.error(err)))
                         .then(async finalGym => {
+                          thinkingReaction.users.remove(msg.client.user.id)
+                            .catch(err => log.error(err));
+
                           let channels = await Region.getChannelsForGym(finalGym);
                           await Region.showGymDetail(msg, finalGym, "New Gym Added", null, false);
                           const channelStrings = [];
@@ -165,7 +175,6 @@ module.exports = class CreateGym extends Commando.Command {
 
                           that.cleanup(msg, locationResult, nameResult, nicknameResult, descriptionResult);
                         });
-
                     } else {
                       that.cleanup(msg, locationResult, nameResult, nicknameResult, descriptionResult);
                     }

@@ -32,23 +32,22 @@ module.exports = class CheckGymQueue extends commando.Command {
   }
 
   async run(msg) {
-    let message = "Gyms waiting for places updates```";
+    let message = "Gyms waiting for places updates:```";
     if (Gym.getPlacesQueue().length > 0) {
       message += Gym.getPlacesQueue().join(", ");
     } else {
       message += "None";
     }
-    message += "```";
+    message += "```\n";
 
-    message += "Channels waiting to be reindexed```";
+    message += "Channels waiting to be reindexed:\n";
     if (Gym.getIndexQueue().length > 0) {
       message += "<#";
-      message += Gym.getIndexQueue().join(">, <#");
+      message += Gym.getIndexQueue().join(">\n<#");
+      message += ">"
     } else {
-      message += "None";
+      message += "```None```";
     }
-
-    message += "```";
 
     // TODO: Use more sophisticated message splitting, but at least this should keep it from breaking if the list of
     // places and/or regions is long
