@@ -46,7 +46,8 @@ module.exports = class SetRegion extends commando.Command {
     if (msg.attachments.first() !== undefined) {
       log.debug(msg.attachments.first().url);
       const file = msg.attachments.first().url;
-      const data = await Region.parseRegionData(file).catch(error => false);
+      const data = await Region.parseRegionData(file)
+        .catch(error => false);
       if (data) {
         const polydata = data["features"][0]["geometry"]["coordinates"][0];
         if (await Region.storeRegion(polydata, msg.channel.id, GymCache)
