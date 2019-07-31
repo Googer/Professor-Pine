@@ -43,7 +43,7 @@ module.exports = class CheckGymQueue extends commando.Command {
     message += "Channels waiting to be reindexed```";
     if (Gym.getIndexQueue().length > 0) {
       message += "<#";
-      message += Gym.getPlacesQueue().join(">, <#");
+      message += Gym.getIndexQueue().join(">, <#");
     } else {
       message += "None";
     }
@@ -54,7 +54,9 @@ module.exports = class CheckGymQueue extends commando.Command {
     // places and/or regions is long
     msg
       .say(message, {
-        split: true
+        split: {
+          char: ','
+        }
       })
       .catch(err => log.error(err));
   }
