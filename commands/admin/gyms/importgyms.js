@@ -349,7 +349,7 @@ module.exports = class ImportGyms extends commando.Command {
     let activeTrainCount = 0;
 
     await Promise.all(Object.entries(this.parties)
-      .filter(([channelId, party]) => [PartyType.RAID].indexOf(party.type) !== -1)
+      .filter(([channelId, party]) => [PartyType.RAID_TRAIN].indexOf(party.type) !== -1)
       .map(async ([channelId, party]) => {
         ++activeTrainCount;
 
