@@ -14,7 +14,7 @@ class TrainNameCommand extends Commando.Command {
       group: CommandGroup.TRAIN,
       memberName: 'train-name',
       aliases: ['name'],
-      description: 'Modify and set the train\'s name.',
+      description: 'Modify and set the train\'s name.\n',
       details: 'Use this command to update a train\'s name and update the channel name.',
       examples: ['\t!train-name Raid Hour is happening!'],
       args: [
