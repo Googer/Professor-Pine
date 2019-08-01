@@ -606,7 +606,8 @@
       "exegg",
       "alex"
     ],
-    "tier": 2
+    "tier": 2,
+    "shiny": true
   },
   {
     "name": "cubone",
@@ -1609,7 +1610,8 @@
   },
   {
     "name": "bagon",
-    "tier": 1
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "shelgon"
@@ -1660,7 +1662,8 @@
   },
   {
     "name": "rayquaza",
-    "tier": 5
+    "tier": 5,
+    "shiny": true
   },
   {
     "name": "jirachi"
