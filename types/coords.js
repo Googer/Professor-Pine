@@ -8,18 +8,19 @@ class CoordsType extends commando.ArgumentType {
 
   async validate(value, message, arg) {
     return new Promise(async (resolve, reject) => {
-      Region.coordStringFromText(value).then(coords => {
-        if (coords != null) {
-          //This would validate if the coords are in a regions channel
-          //Commented because not necessary if being run from an admin channel
-          //Region.checkCoordForChannel(message.channel.id,coords,resolve,reject);
+      Region.coordStringFromText(value)
+        .then(coords => {
+          if (coords != null) {
+            //This would validate if the coords are in a regions channel
+            //Commented because not necessary if being run from an admin channel
+            //Region.checkCoordForChannel(message.channel.id,coords,resolve,reject);
 
-          resolve(true)
-        } else {
-          resolve("Invalid latitude and longitude. Provide comma separated values or valid pin URL.");
-        }
-
-      }).catch(error => resolve("An error occurred"));
+            resolve(true)
+          } else {
+            resolve("Invalid latitude and longitude. Provide comma separated values or valid pin URL.");
+          }
+        })
+        .catch(error => resolve("An error occurred"));
     });
   }
 

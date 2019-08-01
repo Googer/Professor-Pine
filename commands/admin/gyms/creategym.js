@@ -192,41 +192,42 @@ module.exports = class CreateGym extends Commando.Command {
   async run(msg, args) {
     const that = this;
     const locationArgs = (args.length > 0) ? [args] : [];
-    this.locationCollector.obtain(msg, locationArgs).then(async locationResult => {
-      if (!locationResult.cancelled) {
+    this.locationCollector.obtain(msg, locationArgs)
+      .then(async locationResult => {
+        if (!locationResult.cancelled) {
 
-        const location = locationResult.values["location"];
-        // var region = await Region.getRegionsRaw(msg.channel.id)
-        // var gyms = await Region.getGyms(region).catch(error => [])
-        const gyms = await Region.getAllGyms();
-        const coords = await Region.coordStringFromText(location);
+          const location = locationResult.values["location"];
+          // var region = await Region.getRegionsRaw(msg.channel.id)
+          // var gyms = await Region.getGyms(region).catch(error => [])
+          const gyms = await Region.getAllGyms();
+          const coords = await Region.coordStringFromText(location);
 
-        //Check for gym in close proximity
-        if (gyms.length > 0 && Region.findSimilarGymByLocation(gyms, coords)) {
-          const similar = Region.findSimilarGymByLocation(gyms, coords);
-          that.showSimilarGym(similar, msg);
+          //Check for gym in close proximity
+          if (gyms.length > 0 && Region.findSimilarGymByLocation(gyms, coords)) {
+            const similar = Region.findSimilarGymByLocation(gyms, coords);
+            that.showSimilarGym(similar, msg);
 
-          //Offer the user the ability to cancel if they realize the gym they are trying to add already exists
-          that.confirmationCollector.obtain(msg)
-            .then(async confirmResult => {
-              if (!confirmResult.cancelled) {
-                const result = confirmResult.values["confirm"].toLowerCase();
-                const first = result.substring(0, 1);
-                if (first === "n") {
-                  that.finishCollection(msg, locationResult);
-                } else {
-                  that.cleanup(msg, locationResult)
+            //Offer the user the ability to cancel if they realize the gym they are trying to add already exists
+            that.confirmationCollector.obtain(msg)
+              .then(async confirmResult => {
+                if (!confirmResult.cancelled) {
+                  const result = confirmResult.values["confirm"].toLowerCase();
+                  const first = result.substring(0, 1);
+                  if (first === "n") {
+                    that.finishCollection(msg, locationResult);
+                  } else {
+                    that.cleanup(msg, locationResult)
+                  }
                 }
-              }
 
-              Utility.deleteMessages([that.similarMessage, ...confirmResult.prompts, ...confirmResult.answers]);
-            })
+                Utility.deleteMessages([that.similarMessage, ...confirmResult.prompts, ...confirmResult.answers]);
+              })
+          } else {
+            that.finishCollection(msg, locationResult);
+          }
         } else {
-          that.finishCollection(msg, locationResult);
+          that.cleanup(msg, locationResult);
         }
-      } else {
-        that.cleanup(msg, locationResult);
-      }
-    })
+      })
   }
 };
