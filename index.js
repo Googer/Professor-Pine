@@ -132,6 +132,7 @@ Client.registry.registerCommands([
   require('./commands/raids/report-privacy'),
 
   require('./commands/trains/train'),
+  require('./commands/trains/name'),
   require('./commands/trains/route'),
   require('./commands/trains/route-add'),
   require('./commands/trains/route-delete'),

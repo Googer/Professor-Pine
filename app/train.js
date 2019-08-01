@@ -69,7 +69,7 @@ class RaidTrain extends Party {
       });
   }
 
-  async setTrainName(name) {
+  async setTrainName(trainName) {
     this.trainName = trainName;
 
     await this.persist();
