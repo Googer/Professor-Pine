@@ -7,6 +7,10 @@
 				"BULBASAUR",
 				"BULBA"
 			],
+			"dzName": "Bulbasaur",
+			"atk": 118,
+			"def": 111,
+			"sta": 128,
 			"gsName": [
 				"BULBASAUR"
 			],
@@ -18,6 +22,10 @@
 			"aliases": [
 				"IVYSAUR"
 			],
+			"dzName": "Ivysaur",
+			"atk": 151,
+			"def": 143,
+			"sta": 155,
 			"gsName": [
 				"IVYSAUR"
 			],
@@ -29,6 +37,10 @@
 			"aliases": [
 				"VENUSAUR"
 			],
+			"dzName": "Venusaur",
+			"atk": 198,
+			"def": 189,
+			"sta": 190,
 			"gsName": [
 				"VENUSAUR"
 			],
@@ -40,6 +52,10 @@
 			"aliases": [
 				"CHARMANDER"
 			],
+			"dzName": "Charmander",
+			"atk": 116,
+			"def": 93,
+			"sta": 118,
 			"gsName": [
 				"CHARMANDER"
 			],
@@ -51,6 +67,10 @@
 			"aliases": [
 				"CHARMELEON"
 			],
+			"dzName": "Charmeleon",
+			"atk": 158,
+			"def": 126,
+			"sta": 151,
 			"gsName": [
 				"CHARMELEON"
 			],
@@ -62,6 +82,10 @@
 			"aliases": [
 				"CHARIZARD"
 			],
+			"dzName": "Charizard",
+			"atk": 223,
+			"def": 173,
+			"sta": 186,
 			"gsName": [
 				"CHARIZARD"
 			],
@@ -73,6 +97,10 @@
 			"aliases": [
 				"SQUIRTLE"
 			],
+			"dzName": "Squirtle",
+			"atk": 94,
+			"def": 121,
+			"sta": 127,
 			"gsName": [
 				"SQUIRTLE"
 			],
@@ -84,6 +112,10 @@
 			"aliases": [
 				"WARTORTLE"
 			],
+			"dzName": "Wartortle",
+			"atk": 126,
+			"def": 155,
+			"sta": 153,
 			"gsName": [
 				"WARTORTLE"
 			],
@@ -95,6 +127,10 @@
 			"aliases": [
 				"BLASTOISE"
 			],
+			"dzName": "Blastoise",
+			"atk": 171,
+			"def": 207,
+			"sta": 188,
 			"gsName": [
 				"BLASTOISE"
 			],
@@ -106,6 +142,10 @@
 			"aliases": [
 				"CATERPIE"
 			],
+			"dzName": "Caterpie",
+			"atk": 55,
+			"def": 55,
+			"sta": 128,
 			"gsName": [
 				"CATERPIE"
 			],
@@ -117,6 +157,10 @@
 			"aliases": [
 				"METAPOD"
 			],
+			"dzName": "Metapod",
+			"atk": 45,
+			"def": 80,
+			"sta": 137,
 			"gsName": [
 				"METAPOD"
 			],
@@ -128,6 +172,10 @@
 			"aliases": [
 				"BUTTERFREE"
 			],
+			"dzName": "Butterfree",
+			"atk": 167,
+			"def": 137,
+			"sta": 155,
 			"gsName": [
 				"BUTTERFREE"
 			],
@@ -139,6 +187,10 @@
 			"aliases": [
 				"WEEDLE"
 			],
+			"dzName": "Weedle",
+			"atk": 63,
+			"def": 50,
+			"sta": 120,
 			"gsName": [
 				"WEEDLE"
 			],
@@ -150,6 +202,10 @@
 			"aliases": [
 				"KAKUNA"
 			],
+			"dzName": "Kakuna",
+			"atk": 46,
+			"def": 75,
+			"sta": 128,
 			"gsName": [
 				"KAKUNA"
 			],
@@ -161,6 +217,10 @@
 			"aliases": [
 				"BEEDRILL"
 			],
+			"dzName": "Beedrill",
+			"atk": 169,
+			"def": 130,
+			"sta": 163,
 			"gsName": [
 				"BEEDRILL"
 			],
@@ -172,6 +232,10 @@
 			"aliases": [
 				"PIDGEY"
 			],
+			"dzName": "Pidgey",
+			"atk": 85,
+			"def": 73,
+			"sta": 120,
 			"gsName": [
 				"PIDGEY"
 			],
@@ -183,6 +247,10 @@
 			"aliases": [
 				"PIDGEOTTO"
 			],
+			"dzName": "Pidgeotto",
+			"atk": 117,
+			"def": 105,
+			"sta": 160,
 			"gsName": [
 				"PIDGEOTTO"
 			],
@@ -194,6 +262,10 @@
 			"aliases": [
 				"PIDGEOT"
 			],
+			"dzName": "Pidgeot",
+			"atk": 166,
+			"def": 154,
+			"sta": 195,
 			"gsName": [
 				"PIDGEOT"
 			],
@@ -205,6 +277,10 @@
 			"aliases": [
 				"RATTATA"
 			],
+			"dzName": "Rattata",
+			"atk": 103,
+			"def": 70,
+			"sta": 102,
 			"gsName": [
 				"RATTATA"
 			],
@@ -224,6 +300,10 @@
 				"ARATTATA",
 				"A RATTATA"
 			],
+			"dzName": "Rattata-alola",
+			"atk": 103,
+			"def": 70,
+			"sta": 102,
 			"gsName": [
 				"ALOLAN RATTATA",
 				"A RATTATA",
@@ -237,6 +317,10 @@
 			"aliases": [
 				"RATICATE"
 			],
+			"dzName": "Raticate",
+			"atk": 161,
+			"def": 139,
+			"sta": 146,
 			"gsName": [
 				"RATICATE"
 			],
@@ -256,6 +340,10 @@
 				"ARATICATE",
 				"A RATICATE"
 			],
+			"dzName": "Raticate-alola",
+			"atk": 135,
+			"def": 154,
+			"sta": 181,
 			"gsName": [
 				"ALOLAN RATICATE",
 				"A RATICATE",
@@ -269,6 +357,10 @@
 			"aliases": [
 				"SPEAROW"
 			],
+			"dzName": "Spearow",
+			"atk": 112,
+			"def": 60,
+			"sta": 120,
 			"gsName": [
 				"SPEAROW"
 			],
@@ -280,6 +372,10 @@
 			"aliases": [
 				"FEAROW"
 			],
+			"dzName": "Fearow",
+			"atk": 182,
+			"def": 133,
+			"sta": 163,
 			"gsName": [
 				"FEAROW"
 			],
@@ -291,6 +387,10 @@
 			"aliases": [
 				"EKANS"
 			],
+			"dzName": "Ekans",
+			"atk": 110,
+			"def": 97,
+			"sta": 111,
 			"gsName": [
 				"EKANS"
 			],
@@ -302,6 +402,10 @@
 			"aliases": [
 				"ARBOK"
 			],
+			"dzName": "Arbok",
+			"atk": 167,
+			"def": 153,
+			"sta": 155,
 			"gsName": [
 				"ARBOK"
 			],
@@ -314,6 +418,10 @@
 				"PIKACHU",
 				"PIKA"
 			],
+			"dzName": "Pikachu",
+			"atk": 112,
+			"def": 96,
+			"sta": 111,
 			"gsName": [
 				"PIKACHU"
 			],
@@ -325,6 +433,10 @@
 			"aliases": [
 				"RAICHU"
 			],
+			"dzName": "Raichu",
+			"atk": 193,
+			"def": 151,
+			"sta": 155,
 			"gsName": [
 				"RAICHU"
 			],
@@ -344,6 +456,10 @@
 				"ARAICHU",
 				"A RAICHU"
 			],
+			"dzName": "Raichu-alola",
+			"atk": 201,
+			"def": 154,
+			"sta": 155,
 			"gsName": [
 				"ALOLAN RAICHU",
 				"A RAICHU",
@@ -357,6 +473,10 @@
 			"aliases": [
 				"SANDSHREW"
 			],
+			"dzName": "Sandshrew",
+			"atk": 126,
+			"def": 120,
+			"sta": 137,
 			"gsName": [
 				"SANDSHREW"
 			],
@@ -376,6 +496,10 @@
 				"ASANDSHREW",
 				"A SANDSHREW"
 			],
+			"dzName": "Sandshrew-alola",
+			"atk": 125,
+			"def": 129,
+			"sta": 137,
 			"gsName": [
 				"ALOLAN SANDSHREW",
 				"A SANDSHREW",
@@ -389,6 +513,10 @@
 			"aliases": [
 				"SANDSLASH"
 			],
+			"dzName": "Sandslash",
+			"atk": 182,
+			"def": 175,
+			"sta": 181,
 			"gsName": [
 				"SANDSLASH"
 			],
@@ -408,6 +536,10 @@
 				"ASANDSLASH",
 				"A SANDSLASH"
 			],
+			"dzName": "Sandslash-alola",
+			"atk": 177,
+			"def": 195,
+			"sta": 181,
 			"gsName": [
 				"ALOLAN SANDSLASH",
 				"A SANDSLASH",
@@ -426,6 +558,10 @@
 				"NIDORAN FEMALE",
 				"FEMALE NIDORAN"
 			],
+			"dzName": "Nidoran-female",
+			"atk": 86,
+			"def": 89,
+			"sta": 146,
 			"gsName": [
 				"NIDORAN_FEMALE"
 			],
@@ -437,6 +573,10 @@
 			"aliases": [
 				"NIDORINA"
 			],
+			"dzName": "Nidorina",
+			"atk": 117,
+			"def": 120,
+			"sta": 172,
 			"gsName": [
 				"NIDORINA"
 			],
@@ -448,6 +588,10 @@
 			"aliases": [
 				"NIDOQUEEN"
 			],
+			"dzName": "Nidoqueen",
+			"atk": 180,
+			"def": 173,
+			"sta": 207,
 			"gsName": [
 				"NIDOQUEEN"
 			],
@@ -464,6 +608,10 @@
 				"NIDORAN MALE",
 				"MALE NIDORAN"
 			],
+			"dzName": "Nidoran-male",
+			"atk": 105,
+			"def": 76,
+			"sta": 130,
 			"gsName": [
 				"NIDORAN_MALE"
 			],
@@ -475,6 +623,10 @@
 			"aliases": [
 				"NIDORINO"
 			],
+			"dzName": "Nidorino",
+			"atk": 137,
+			"def": 111,
+			"sta": 156,
 			"gsName": [
 				"NIDORINO"
 			],
@@ -486,6 +638,10 @@
 			"aliases": [
 				"NIDOKING"
 			],
+			"dzName": "Nidoking",
+			"atk": 204,
+			"def": 156,
+			"sta": 191,
 			"gsName": [
 				"NIDOKING"
 			],
@@ -497,6 +653,10 @@
 			"aliases": [
 				"CLEFAIRY"
 			],
+			"dzName": "Clefairy",
+			"atk": 107,
+			"def": 108,
+			"sta": 172,
 			"gsName": [
 				"CLEFAIRY"
 			],
@@ -508,6 +668,10 @@
 			"aliases": [
 				"CLEFABLE"
 			],
+			"dzName": "Clefable",
+			"atk": 178,
+			"def": 162,
+			"sta": 216,
 			"gsName": [
 				"CLEFABLE"
 			],
@@ -519,6 +683,10 @@
 			"aliases": [
 				"VULPIX"
 			],
+			"dzName": "Vulpix",
+			"atk": 96,
+			"def": 109,
+			"sta": 116,
 			"gsName": [
 				"VULPIX"
 			],
@@ -538,6 +706,10 @@
 				"AVULPIX",
 				"A VULPIX"
 			],
+			"dzName": "Vulpix-alola",
+			"atk": 96,
+			"def": 109,
+			"sta": 116,
 			"gsName": [
 				"ALOLAN VULPIX",
 				"A VULPIX",
@@ -551,6 +723,10 @@
 			"aliases": [
 				"NINETALES"
 			],
+			"dzName": "Ninetales",
+			"atk": 169,
+			"def": 190,
+			"sta": 177,
 			"gsName": [
 				"NINETALES"
 			],
@@ -570,6 +746,10 @@
 				"ANINETALES",
 				"A NINETALES"
 			],
+			"dzName": "Ninetales-alola",
+			"atk": 170,
+			"def": 193,
+			"sta": 177,
 			"gsName": [
 				"ALOLAN NINETALES",
 				"A NINETALES",
@@ -584,6 +764,10 @@
 				"JIGGLYPUFF",
 				"JIGGLY"
 			],
+			"dzName": "Jigglypuff",
+			"atk": 80,
+			"def": 41,
+			"sta": 251,
 			"gsName": [
 				"JIGGLYPUFF"
 			],
@@ -596,6 +780,10 @@
 				"WIGGLYTUFF",
 				"WIGGLY"
 			],
+			"dzName": "Wigglytuff",
+			"atk": 156,
+			"def": 90,
+			"sta": 295,
 			"gsName": [
 				"WIGGLYTUFF"
 			],
@@ -607,6 +795,10 @@
 			"aliases": [
 				"ZUBAT"
 			],
+			"dzName": "Zubat",
+			"atk": 83,
+			"def": 73,
+			"sta": 120,
 			"gsName": [
 				"ZUBAT"
 			],
@@ -618,6 +810,10 @@
 			"aliases": [
 				"GOLBAT"
 			],
+			"dzName": "Golbat",
+			"atk": 161,
+			"def": 150,
+			"sta": 181,
 			"gsName": [
 				"GOLBAT"
 			],
@@ -629,6 +825,10 @@
 			"aliases": [
 				"ODDISH"
 			],
+			"dzName": "Oddish",
+			"atk": 131,
+			"def": 112,
+			"sta": 128,
 			"gsName": [
 				"ODDISH"
 			],
@@ -640,6 +840,10 @@
 			"aliases": [
 				"GLOOM"
 			],
+			"dzName": "Gloom",
+			"atk": 153,
+			"def": 136,
+			"sta": 155,
 			"gsName": [
 				"GLOOM"
 			],
@@ -651,6 +855,10 @@
 			"aliases": [
 				"VILEPLUME"
 			],
+			"dzName": "Vileplume",
+			"atk": 202,
+			"def": 167,
+			"sta": 181,
 			"gsName": [
 				"VILEPLUME"
 			],
@@ -662,6 +870,10 @@
 			"aliases": [
 				"PARAS"
 			],
+			"dzName": "Paras",
+			"atk": 121,
+			"def": 99,
+			"sta": 111,
 			"gsName": [
 				"PARAS"
 			],
@@ -673,6 +885,10 @@
 			"aliases": [
 				"PARASECT"
 			],
+			"dzName": "Parasect",
+			"atk": 165,
+			"def": 146,
+			"sta": 155,
 			"gsName": [
 				"PARASECT"
 			],
@@ -684,6 +900,10 @@
 			"aliases": [
 				"VENONAT"
 			],
+			"dzName": "Venonat",
+			"atk": 100,
+			"def": 100,
+			"sta": 155,
 			"gsName": [
 				"VENONAT"
 			],
@@ -695,6 +915,10 @@
 			"aliases": [
 				"VENOMOTH"
 			],
+			"dzName": "Venomoth",
+			"atk": 179,
+			"def": 143,
+			"sta": 172,
 			"gsName": [
 				"VENOMOTH"
 			],
@@ -706,6 +930,10 @@
 			"aliases": [
 				"DIGLETT"
 			],
+			"dzName": "Diglett",
+			"atk": 109,
+			"def": 78,
+			"sta": 67,
 			"gsName": [
 				"DIGLETT"
 			],
@@ -725,6 +953,10 @@
 				"ADIGLETT",
 				"A DIGLETT"
 			],
+			"dzName": "Diglett-alola",
+			"atk": 108,
+			"def": 81,
+			"sta": 67,
 			"gsName": [
 				"ALOLAN DIGLETT",
 				"A DIGLETT",
@@ -738,6 +970,10 @@
 			"aliases": [
 				"DUGTRIO"
 			],
+			"dzName": "Dugtrio",
+			"atk": 167,
+			"def": 134,
+			"sta": 111,
 			"gsName": [
 				"DUGTRIO"
 			],
@@ -757,6 +993,10 @@
 				"ADUGTRIO",
 				"A DUGTRIO"
 			],
+			"dzName": "Dugtrio-alola",
+			"atk": 201,
+			"def": 142,
+			"sta": 111,
 			"gsName": [
 				"ALOLAN DUGTRIO",
 				"A DUGTRIO",
@@ -770,6 +1010,10 @@
 			"aliases": [
 				"MEOWTH"
 			],
+			"dzName": "Meowth",
+			"atk": 92,
+			"def": 78,
+			"sta": 120,
 			"gsName": [
 				"MEOWTH"
 			],
@@ -789,6 +1033,10 @@
 				"AMEOWTH",
 				"A MEOWTH"
 			],
+			"dzName": "Meowth-alola",
+			"atk": 99,
+			"def": 78,
+			"sta": 120,
 			"gsName": [
 				"ALOLAN MEOWTH",
 				"A MEOWTH",
@@ -802,6 +1050,10 @@
 			"aliases": [
 				"PERSIAN"
 			],
+			"dzName": "Persian",
+			"atk": 150,
+			"def": 136,
+			"sta": 163,
 			"gsName": [
 				"PERSIAN"
 			],
@@ -821,6 +1073,10 @@
 				"APERSIAN",
 				"A PERSIAN"
 			],
+			"dzName": "Persian-alola",
+			"atk": 158,
+			"def": 136,
+			"sta": 163,
 			"gsName": [
 				"ALOLAN PERSIAN",
 				"A PERSIAN",
@@ -834,6 +1090,10 @@
 			"aliases": [
 				"PSYDUCK"
 			],
+			"dzName": "Psyduck",
+			"atk": 122,
+			"def": 95,
+			"sta": 137,
 			"gsName": [
 				"PSYDUCK"
 			],
@@ -845,6 +1105,10 @@
 			"aliases": [
 				"GOLDUCK"
 			],
+			"dzName": "Golduck",
+			"atk": 191,
+			"def": 162,
+			"sta": 190,
 			"gsName": [
 				"GOLDUCK"
 			],
@@ -856,6 +1120,10 @@
 			"aliases": [
 				"MANKEY"
 			],
+			"dzName": "Mankey",
+			"atk": 148,
+			"def": 82,
+			"sta": 120,
 			"gsName": [
 				"MANKEY"
 			],
@@ -867,6 +1135,10 @@
 			"aliases": [
 				"PRIMEAPE"
 			],
+			"dzName": "Primeape",
+			"atk": 207,
+			"def": 138,
+			"sta": 163,
 			"gsName": [
 				"PRIMEAPE"
 			],
@@ -878,6 +1150,10 @@
 			"aliases": [
 				"GROWLITHE"
 			],
+			"dzName": "Growlithe",
+			"atk": 136,
+			"def": 93,
+			"sta": 146,
 			"gsName": [
 				"GROWLITHE"
 			],
@@ -889,6 +1165,10 @@
 			"aliases": [
 				"ARCANINE"
 			],
+			"dzName": "Arcanine",
+			"atk": 227,
+			"def": 166,
+			"sta": 207,
 			"gsName": [
 				"ARCANINE"
 			],
@@ -900,6 +1180,10 @@
 			"aliases": [
 				"POLIWAG"
 			],
+			"dzName": "Poliwag",
+			"atk": 101,
+			"def": 82,
+			"sta": 120,
 			"gsName": [
 				"POLIWAG"
 			],
@@ -911,6 +1195,10 @@
 			"aliases": [
 				"POLIWHIRL"
 			],
+			"dzName": "Poliwhirl",
+			"atk": 130,
+			"def": 123,
+			"sta": 163,
 			"gsName": [
 				"POLIWHIRL"
 			],
@@ -922,6 +1210,10 @@
 			"aliases": [
 				"POLIWRATH"
 			],
+			"dzName": "Poliwrath",
+			"atk": 182,
+			"def": 184,
+			"sta": 207,
 			"gsName": [
 				"POLIWRATH"
 			],
@@ -933,6 +1225,10 @@
 			"aliases": [
 				"ABRA"
 			],
+			"dzName": "Abra",
+			"atk": 195,
+			"def": 82,
+			"sta": 93,
 			"gsName": [
 				"ABRA"
 			],
@@ -944,6 +1240,10 @@
 			"aliases": [
 				"KADABRA"
 			],
+			"dzName": "Kadabra",
+			"atk": 232,
+			"def": 117,
+			"sta": 120,
 			"gsName": [
 				"KADABRA"
 			],
@@ -955,6 +1255,10 @@
 			"aliases": [
 				"ALAKAZAM"
 			],
+			"dzName": "Alakazam",
+			"atk": 271,
+			"def": 167,
+			"sta": 146,
 			"gsName": [
 				"ALAKAZAM"
 			],
@@ -966,6 +1270,10 @@
 			"aliases": [
 				"MACHOP"
 			],
+			"dzName": "Machop",
+			"atk": 137,
+			"def": 82,
+			"sta": 172,
 			"gsName": [
 				"MACHOP"
 			],
@@ -977,6 +1285,10 @@
 			"aliases": [
 				"MACHOKE"
 			],
+			"dzName": "Machoke",
+			"atk": 177,
+			"def": 125,
+			"sta": 190,
 			"gsName": [
 				"MACHOKE"
 			],
@@ -989,6 +1301,10 @@
 				"MACHAMP",
 				"CHAMP"
 			],
+			"dzName": "Machamp",
+			"atk": 234,
+			"def": 159,
+			"sta": 207,
 			"gsName": [
 				"MACHAMP"
 			],
@@ -1000,6 +1316,10 @@
 			"aliases": [
 				"BELLSPROUT"
 			],
+			"dzName": "Bellsprout",
+			"atk": 139,
+			"def": 61,
+			"sta": 137,
 			"gsName": [
 				"BELLSPROUT"
 			],
@@ -1011,6 +1331,10 @@
 			"aliases": [
 				"WEEPINBELL"
 			],
+			"dzName": "Weepinbell",
+			"atk": 172,
+			"def": 92,
+			"sta": 163,
 			"gsName": [
 				"WEEPINBELL"
 			],
@@ -1022,6 +1346,10 @@
 			"aliases": [
 				"VICTREEBEL"
 			],
+			"dzName": "Victreebel",
+			"atk": 207,
+			"def": 135,
+			"sta": 190,
 			"gsName": [
 				"VICTREEBEL"
 			],
@@ -1033,6 +1361,10 @@
 			"aliases": [
 				"TENTACOOL"
 			],
+			"dzName": "Tentacool",
+			"atk": 97,
+			"def": 149,
+			"sta": 120,
 			"gsName": [
 				"TENTACOOL"
 			],
@@ -1044,6 +1376,10 @@
 			"aliases": [
 				"TENTACRUEL"
 			],
+			"dzName": "Tentacruel",
+			"atk": 166,
+			"def": 209,
+			"sta": 190,
 			"gsName": [
 				"TENTACRUEL"
 			],
@@ -1055,6 +1391,10 @@
 			"aliases": [
 				"GEODUDE"
 			],
+			"dzName": "Geodude",
+			"atk": 132,
+			"def": 132,
+			"sta": 120,
 			"gsName": [
 				"GEODUDE"
 			],
@@ -1074,6 +1414,10 @@
 				"AGEODUDE",
 				"A GEODUDE"
 			],
+			"dzName": "Geodude-alola",
+			"atk": 132,
+			"def": 132,
+			"sta": 120,
 			"gsName": [
 				"ALOLAN GEODUDE",
 				"A GEODUDE",
@@ -1087,6 +1431,10 @@
 			"aliases": [
 				"GRAVELER"
 			],
+			"dzName": "Graveler",
+			"atk": 164,
+			"def": 164,
+			"sta": 146,
 			"gsName": [
 				"GRAVELER"
 			],
@@ -1106,6 +1454,10 @@
 				"AGRAVELER",
 				"A GRAVELER"
 			],
+			"dzName": "Graveler-alola",
+			"atk": 164,
+			"def": 164,
+			"sta": 146,
 			"gsName": [
 				"ALOLAN GRAVELER",
 				"A GRAVELER",
@@ -1119,6 +1471,10 @@
 			"aliases": [
 				"GOLEM"
 			],
+			"dzName": "Golem",
+			"atk": 211,
+			"def": 198,
+			"sta": 190,
 			"gsName": [
 				"GOLEM"
 			],
@@ -1138,6 +1494,10 @@
 				"AGOLEM",
 				"A GOLEM"
 			],
+			"dzName": "Golem-alola",
+			"atk": 211,
+			"def": 198,
+			"sta": 190,
 			"gsName": [
 				"ALOLAN GOLEM",
 				"A GOLEM",
@@ -1151,6 +1511,10 @@
 			"aliases": [
 				"PONYTA"
 			],
+			"dzName": "Ponyta",
+			"atk": 170,
+			"def": 127,
+			"sta": 137,
 			"gsName": [
 				"PONYTA"
 			],
@@ -1162,6 +1526,10 @@
 			"aliases": [
 				"RAPIDASH"
 			],
+			"dzName": "Rapidash",
+			"atk": 207,
+			"def": 162,
+			"sta": 163,
 			"gsName": [
 				"RAPIDASH"
 			],
@@ -1173,6 +1541,10 @@
 			"aliases": [
 				"SLOWPOKE"
 			],
+			"dzName": "Slowpoke",
+			"atk": 109,
+			"def": 98,
+			"sta": 207,
 			"gsName": [
 				"SLOWPOKE"
 			],
@@ -1184,6 +1556,10 @@
 			"aliases": [
 				"SLOWBRO"
 			],
+			"dzName": "Slowbro",
+			"atk": 177,
+			"def": 180,
+			"sta": 216,
 			"gsName": [
 				"SLOWBRO"
 			],
@@ -1195,6 +1571,10 @@
 			"aliases": [
 				"MAGNEMITE"
 			],
+			"dzName": "Magnemite",
+			"atk": 165,
+			"def": 121,
+			"sta": 93,
 			"gsName": [
 				"MAGNEMITE"
 			],
@@ -1206,6 +1586,10 @@
 			"aliases": [
 				"MAGNETON"
 			],
+			"dzName": "Magneton",
+			"atk": 223,
+			"def": 169,
+			"sta": 137,
 			"gsName": [
 				"MAGNETON"
 			],
@@ -1221,6 +1605,10 @@
 				"LEEK DUCK",
 				"LEEKDUCK"
 			],
+			"dzName": "Farfetchd",
+			"atk": 124,
+			"def": 115,
+			"sta": 141,
 			"gsName": [
 				"FARFETCHD"
 			],
@@ -1232,6 +1620,10 @@
 			"aliases": [
 				"DODUO"
 			],
+			"dzName": "Doduo",
+			"atk": 158,
+			"def": 83,
+			"sta": 111,
 			"gsName": [
 				"DODUO"
 			],
@@ -1243,6 +1635,10 @@
 			"aliases": [
 				"DODRIO"
 			],
+			"dzName": "Dodrio",
+			"atk": 218,
+			"def": 140,
+			"sta": 155,
 			"gsName": [
 				"DODRIO"
 			],
@@ -1254,6 +1650,10 @@
 			"aliases": [
 				"SEEL"
 			],
+			"dzName": "Seel",
+			"atk": 85,
+			"def": 121,
+			"sta": 163,
 			"gsName": [
 				"SEEL"
 			],
@@ -1265,6 +1665,10 @@
 			"aliases": [
 				"DEWGONG"
 			],
+			"dzName": "Dewgong",
+			"atk": 139,
+			"def": 177,
+			"sta": 207,
 			"gsName": [
 				"DEWGONG"
 			],
@@ -1276,6 +1680,10 @@
 			"aliases": [
 				"GRIMER"
 			],
+			"dzName": "Grimer",
+			"atk": 135,
+			"def": 90,
+			"sta": 190,
 			"gsName": [
 				"GRIMER"
 			],
@@ -1295,6 +1703,10 @@
 				"AGRIMER",
 				"A GRIMER"
 			],
+			"dzName": "Grimer-alola",
+			"atk": 135,
+			"def": 90,
+			"sta": 190,
 			"gsName": [
 				"ALOLAN GRIMER",
 				"A GRIMER",
@@ -1308,6 +1720,10 @@
 			"aliases": [
 				"MUK"
 			],
+			"dzName": "Muk",
+			"atk": 190,
+			"def": 172,
+			"sta": 233,
 			"gsName": [
 				"MUK"
 			],
@@ -1327,6 +1743,10 @@
 				"AMUK",
 				"A MUK"
 			],
+			"dzName": "Muk-alola",
+			"atk": 190,
+			"def": 172,
+			"sta": 233,
 			"gsName": [
 				"ALOLAN MUK",
 				"A MUK",
@@ -1340,6 +1760,10 @@
 			"aliases": [
 				"SHELLDER"
 			],
+			"dzName": "Shellder",
+			"atk": 116,
+			"def": 134,
+			"sta": 102,
 			"gsName": [
 				"SHELLDER"
 			],
@@ -1351,6 +1775,10 @@
 			"aliases": [
 				"CLOYSTER"
 			],
+			"dzName": "Cloyster",
+			"atk": 186,
+			"def": 256,
+			"sta": 137,
 			"gsName": [
 				"CLOYSTER"
 			],
@@ -1362,6 +1790,10 @@
 			"aliases": [
 				"GASTLY"
 			],
+			"dzName": "Gastly",
+			"atk": 186,
+			"def": 67,
+			"sta": 102,
 			"gsName": [
 				"GASTLY"
 			],
@@ -1373,6 +1805,10 @@
 			"aliases": [
 				"HAUNTER"
 			],
+			"dzName": "Haunter",
+			"atk": 223,
+			"def": 107,
+			"sta": 128,
 			"gsName": [
 				"HAUNTER"
 			],
@@ -1384,6 +1820,10 @@
 			"aliases": [
 				"GENGAR"
 			],
+			"dzName": "Gengar",
+			"atk": 261,
+			"def": 149,
+			"sta": 155,
 			"gsName": [
 				"GENGAR"
 			],
@@ -1395,6 +1835,10 @@
 			"aliases": [
 				"ONIX"
 			],
+			"dzName": "Onix",
+			"atk": 85,
+			"def": 232,
+			"sta": 111,
 			"gsName": [
 				"ONIX"
 			],
@@ -1406,6 +1850,10 @@
 			"aliases": [
 				"DROWZEE"
 			],
+			"dzName": "Drowzee",
+			"atk": 89,
+			"def": 136,
+			"sta": 155,
 			"gsName": [
 				"DROWZEE"
 			],
@@ -1417,6 +1865,10 @@
 			"aliases": [
 				"HYPNO"
 			],
+			"dzName": "Hypno",
+			"atk": 144,
+			"def": 193,
+			"sta": 198,
 			"gsName": [
 				"HYPNO"
 			],
@@ -1428,6 +1880,10 @@
 			"aliases": [
 				"KRABBY"
 			],
+			"dzName": "Krabby",
+			"atk": 181,
+			"def": 124,
+			"sta": 102,
 			"gsName": [
 				"KRABBY"
 			],
@@ -1439,6 +1895,10 @@
 			"aliases": [
 				"KINGLER"
 			],
+			"dzName": "Kingler",
+			"atk": 240,
+			"def": 181,
+			"sta": 146,
 			"gsName": [
 				"KINGLER"
 			],
@@ -1450,6 +1910,10 @@
 			"aliases": [
 				"VOLTORB"
 			],
+			"dzName": "Voltorb",
+			"atk": 109,
+			"def": 111,
+			"sta": 120,
 			"gsName": [
 				"VOLTORB"
 			],
@@ -1461,6 +1925,10 @@
 			"aliases": [
 				"ELECTRODE"
 			],
+			"dzName": "Electrode",
+			"atk": 173,
+			"def": 173,
+			"sta": 155,
 			"gsName": [
 				"ELECTRODE"
 			],
@@ -1472,6 +1940,10 @@
 			"aliases": [
 				"EXEGGCUTE"
 			],
+			"dzName": "Exeggcute",
+			"atk": 107,
+			"def": 125,
+			"sta": 155,
 			"gsName": [
 				"EXEGGCUTE"
 			],
@@ -1483,6 +1955,10 @@
 			"aliases": [
 				"EXEGGUTOR"
 			],
+			"dzName": "Exeggutor",
+			"atk": 233,
+			"def": 149,
+			"sta": 216,
 			"gsName": [
 				"EXEGGUTOR"
 			],
@@ -1502,6 +1978,10 @@
 				"AEXEGGUTOR",
 				"A EXEGGUTOR"
 			],
+			"dzName": "Exeggutor-alola",
+			"atk": 230,
+			"def": 153,
+			"sta": 216,
 			"gsName": [
 				"ALOLAN EXEGGUTOR",
 				"A EXEGGUTOR",
@@ -1515,6 +1995,10 @@
 			"aliases": [
 				"CUBONE"
 			],
+			"dzName": "Cubone",
+			"atk": 90,
+			"def": 144,
+			"sta": 137,
 			"gsName": [
 				"CUBONE"
 			],
@@ -1526,6 +2010,10 @@
 			"aliases": [
 				"MAROWAK"
 			],
+			"dzName": "Marowak",
+			"atk": 144,
+			"def": 186,
+			"sta": 155,
 			"gsName": [
 				"MAROWAK"
 			],
@@ -1545,6 +2033,10 @@
 				"AMAROWAK",
 				"A MAROWAK"
 			],
+			"dzName": "Marowak-alola",
+			"atk": 144,
+			"def": 186,
+			"sta": 155,
 			"gsName": [
 				"ALOLAN MAROWAK",
 				"A MAROWAK",
@@ -1559,6 +2051,10 @@
 				"HITMONLEE",
 				"LEE"
 			],
+			"dzName": "Hitmonlee",
+			"atk": 224,
+			"def": 181,
+			"sta": 137,
 			"gsName": [
 				"HITMONLEE"
 			],
@@ -1571,6 +2067,10 @@
 				"HITMONCHAN",
 				"CHAN"
 			],
+			"dzName": "Hitmonchan",
+			"atk": 193,
+			"def": 197,
+			"sta": 137,
 			"gsName": [
 				"HITMONCHAN"
 			],
@@ -1583,6 +2083,10 @@
 				"LICKITUNG",
 				"LICKY"
 			],
+			"dzName": "Lickitung",
+			"atk": 108,
+			"def": 137,
+			"sta": 207,
 			"gsName": [
 				"LICKITUNG"
 			],
@@ -1594,6 +2098,10 @@
 			"aliases": [
 				"KOFFING"
 			],
+			"dzName": "Koffing",
+			"atk": 119,
+			"def": 141,
+			"sta": 120,
 			"gsName": [
 				"KOFFING"
 			],
@@ -1605,6 +2113,10 @@
 			"aliases": [
 				"WEEZING"
 			],
+			"dzName": "Weezing",
+			"atk": 174,
+			"def": 197,
+			"sta": 163,
 			"gsName": [
 				"WEEZING"
 			],
@@ -1616,6 +2128,10 @@
 			"aliases": [
 				"RHYHORN"
 			],
+			"dzName": "Rhyhorn",
+			"atk": 140,
+			"def": 127,
+			"sta": 190,
 			"gsName": [
 				"RHYHORN"
 			],
@@ -1627,6 +2143,10 @@
 			"aliases": [
 				"RHYDON"
 			],
+			"dzName": "Rhydon",
+			"atk": 222,
+			"def": 171,
+			"sta": 233,
 			"gsName": [
 				"RHYDON"
 			],
@@ -1638,6 +2158,10 @@
 			"aliases": [
 				"CHANSEY"
 			],
+			"dzName": "Chansey",
+			"atk": 60,
+			"def": 128,
+			"sta": 487,
 			"gsName": [
 				"CHANSEY"
 			],
@@ -1649,6 +2173,10 @@
 			"aliases": [
 				"TANGELA"
 			],
+			"dzName": "Tangela",
+			"atk": 183,
+			"def": 169,
+			"sta": 163,
 			"gsName": [
 				"TANGELA"
 			],
@@ -1660,6 +2188,10 @@
 			"aliases": [
 				"KANGASKHAN"
 			],
+			"dzName": "Kangaskhan",
+			"atk": 181,
+			"def": 165,
+			"sta": 233,
 			"gsName": [
 				"KANGASKHAN"
 			],
@@ -1671,6 +2203,10 @@
 			"aliases": [
 				"HORSEA"
 			],
+			"dzName": "Horsea",
+			"atk": 129,
+			"def": 103,
+			"sta": 102,
 			"gsName": [
 				"HORSEA"
 			],
@@ -1682,6 +2218,10 @@
 			"aliases": [
 				"SEADRA"
 			],
+			"dzName": "Seadra",
+			"atk": 187,
+			"def": 156,
+			"sta": 146,
 			"gsName": [
 				"SEADRA"
 			],
@@ -1693,6 +2233,10 @@
 			"aliases": [
 				"GOLDEEN"
 			],
+			"dzName": "Goldeen",
+			"atk": 123,
+			"def": 110,
+			"sta": 128,
 			"gsName": [
 				"GOLDEEN"
 			],
@@ -1704,6 +2248,10 @@
 			"aliases": [
 				"SEAKING"
 			],
+			"dzName": "Seaking",
+			"atk": 175,
+			"def": 147,
+			"sta": 190,
 			"gsName": [
 				"SEAKING"
 			],
@@ -1715,6 +2263,10 @@
 			"aliases": [
 				"STARYU"
 			],
+			"dzName": "Staryu",
+			"atk": 137,
+			"def": 112,
+			"sta": 102,
 			"gsName": [
 				"STARYU"
 			],
@@ -1726,6 +2278,10 @@
 			"aliases": [
 				"STARMIE"
 			],
+			"dzName": "Starmie",
+			"atk": 210,
+			"def": 184,
+			"sta": 155,
 			"gsName": [
 				"STARMIE"
 			],
@@ -1740,6 +2296,10 @@
 				"MR MIME",
 				"MIME"
 			],
+			"dzName": "Mr. Mime",
+			"atk": 192,
+			"def": 205,
+			"sta": 120,
 			"gsName": [
 				"MR_MIME"
 			],
@@ -1751,6 +2311,10 @@
 			"aliases": [
 				"SCYTHER"
 			],
+			"dzName": "Scyther",
+			"atk": 218,
+			"def": 170,
+			"sta": 172,
 			"gsName": [
 				"SCYTHER"
 			],
@@ -1762,6 +2326,10 @@
 			"aliases": [
 				"JYNX"
 			],
+			"dzName": "Jynx",
+			"atk": 223,
+			"def": 151,
+			"sta": 163,
 			"gsName": [
 				"JYNX"
 			],
@@ -1773,6 +2341,10 @@
 			"aliases": [
 				"ELECTABUZZ"
 			],
+			"dzName": "Electabuzz",
+			"atk": 198,
+			"def": 158,
+			"sta": 163,
 			"gsName": [
 				"ELECTABUZZ"
 			],
@@ -1784,6 +2356,10 @@
 			"aliases": [
 				"MAGMAR"
 			],
+			"dzName": "Magmar",
+			"atk": 206,
+			"def": 154,
+			"sta": 163,
 			"gsName": [
 				"MAGMAR"
 			],
@@ -1795,6 +2371,10 @@
 			"aliases": [
 				"PINSIR"
 			],
+			"dzName": "Pinsir",
+			"atk": 238,
+			"def": 182,
+			"sta": 163,
 			"gsName": [
 				"PINSIR"
 			],
@@ -1806,6 +2386,10 @@
 			"aliases": [
 				"TAUROS"
 			],
+			"dzName": "Tauros",
+			"atk": 198,
+			"def": 183,
+			"sta": 181,
 			"gsName": [
 				"TAUROS"
 			],
@@ -1818,6 +2402,10 @@
 				"MAGIKARP",
 				"KARP"
 			],
+			"dzName": "Magikarp",
+			"atk": 29,
+			"def": 85,
+			"sta": 85,
 			"gsName": [
 				"MAGIKARP"
 			],
@@ -1829,6 +2417,10 @@
 			"aliases": [
 				"GYARADOS"
 			],
+			"dzName": "Gyarados",
+			"atk": 237,
+			"def": 186,
+			"sta": 216,
 			"gsName": [
 				"GYARADOS"
 			],
@@ -1840,6 +2432,10 @@
 			"aliases": [
 				"LAPRAS"
 			],
+			"dzName": "Lapras",
+			"atk": 165,
+			"def": 174,
+			"sta": 277,
 			"gsName": [
 				"LAPRAS"
 			],
@@ -1851,6 +2447,10 @@
 			"aliases": [
 				"DITTO"
 			],
+			"dzName": "Ditto",
+			"atk": 91,
+			"def": 91,
+			"sta": 134,
 			"gsName": [
 				"DITTO"
 			],
@@ -1862,6 +2462,10 @@
 			"aliases": [
 				"EEVEE"
 			],
+			"dzName": "Eevee",
+			"atk": 104,
+			"def": 114,
+			"sta": 146,
 			"gsName": [
 				"EEVEE"
 			],
@@ -1873,6 +2477,10 @@
 			"aliases": [
 				"VAPOREON"
 			],
+			"dzName": "Vaporeon",
+			"atk": 205,
+			"def": 161,
+			"sta": 277,
 			"gsName": [
 				"VAPOREON"
 			],
@@ -1884,6 +2492,10 @@
 			"aliases": [
 				"JOLTEON"
 			],
+			"dzName": "Jolteon",
+			"atk": 232,
+			"def": 182,
+			"sta": 163,
 			"gsName": [
 				"JOLTEON"
 			],
@@ -1895,6 +2507,10 @@
 			"aliases": [
 				"FLAREON"
 			],
+			"dzName": "Flareon",
+			"atk": 246,
+			"def": 179,
+			"sta": 163,
 			"gsName": [
 				"FLAREON"
 			],
@@ -1906,6 +2522,10 @@
 			"aliases": [
 				"PORYGON"
 			],
+			"dzName": "Porygon",
+			"atk": 153,
+			"def": 136,
+			"sta": 163,
 			"gsName": [
 				"PORYGON"
 			],
@@ -1917,6 +2537,10 @@
 			"aliases": [
 				"OMANYTE"
 			],
+			"dzName": "Omanyte",
+			"atk": 155,
+			"def": 153,
+			"sta": 111,
 			"gsName": [
 				"OMANYTE"
 			],
@@ -1928,6 +2552,10 @@
 			"aliases": [
 				"OMASTAR"
 			],
+			"dzName": "Omastar",
+			"atk": 207,
+			"def": 201,
+			"sta": 172,
 			"gsName": [
 				"OMASTAR"
 			],
@@ -1939,6 +2567,10 @@
 			"aliases": [
 				"KABUTO"
 			],
+			"dzName": "Kabuto",
+			"atk": 148,
+			"def": 140,
+			"sta": 102,
 			"gsName": [
 				"KABUTO"
 			],
@@ -1950,6 +2582,10 @@
 			"aliases": [
 				"KABUTOPS"
 			],
+			"dzName": "Kabutops",
+			"atk": 220,
+			"def": 186,
+			"sta": 155,
 			"gsName": [
 				"KABUTOPS"
 			],
@@ -1962,6 +2598,10 @@
 				"AERODACTYL",
 				"AERO"
 			],
+			"dzName": "Aerodactyl",
+			"atk": 221,
+			"def": 159,
+			"sta": 190,
 			"gsName": [
 				"AERODACTYL"
 			],
@@ -1973,6 +2613,10 @@
 			"aliases": [
 				"SNORLAX"
 			],
+			"dzName": "Snorlax",
+			"atk": 190,
+			"def": 169,
+			"sta": 330,
 			"gsName": [
 				"SNORLAX"
 			],
@@ -1985,6 +2629,10 @@
 				"ARTICUNO",
 				"ARTY"
 			],
+			"dzName": "Articuno",
+			"atk": 192,
+			"def": 236,
+			"sta": 207,
 			"gsName": [
 				"ARTICUNO"
 			],
@@ -1997,6 +2645,10 @@
 				"ZAPDOS",
 				"ZAPPY"
 			],
+			"dzName": "Zapdos",
+			"atk": 253,
+			"def": 185,
+			"sta": 207,
 			"gsName": [
 				"ZAPDOS"
 			],
@@ -2009,6 +2661,10 @@
 				"MOLTRES",
 				"MOLTY"
 			],
+			"dzName": "Moltres",
+			"atk": 251,
+			"def": 181,
+			"sta": 207,
 			"gsName": [
 				"MOLTRES"
 			],
@@ -2021,6 +2677,10 @@
 				"DRATINI",
 				"NOODLE"
 			],
+			"dzName": "Dratini",
+			"atk": 119,
+			"def": 91,
+			"sta": 121,
 			"gsName": [
 				"DRATINI"
 			],
@@ -2032,6 +2692,10 @@
 			"aliases": [
 				"DRAGONAIR"
 			],
+			"dzName": "Dragonair",
+			"atk": 163,
+			"def": 135,
+			"sta": 156,
 			"gsName": [
 				"DRAGONAIR"
 			],
@@ -2043,6 +2707,10 @@
 			"aliases": [
 				"DRAGONITE"
 			],
+			"dzName": "Dragonite",
+			"atk": 263,
+			"def": 198,
+			"sta": 209,
 			"gsName": [
 				"DRAGONITE"
 			],
@@ -2055,6 +2723,10 @@
 				"MEWTWO",
 				"M2"
 			],
+			"dzName": "Mewtwo",
+			"atk": 300,
+			"def": 182,
+			"sta": 214,
 			"gsName": [
 				"MEWTWO"
 			],
@@ -2069,11 +2741,17 @@
 				"MEWTWO ARMORED",
 				"MEWTWO ARMOR",
 				"A MEWTWO",
-				"MEWTWO A"
+				"MEWTWO A",
+				"AMEWTWO",
+				"MEWTWOA"
 			],
+			"dzName": "Armored Mewtwo",
+			"atk": 182,
+			"def": 278,
+			"sta": 214,
 			"gsName": [
 				"ARMORED MEWTWO",
-				"MEWTWO A",
+				"A MEWTWO",
 				"MEWTWO ARMORED"
 			],
 			"imageURL": "https://cdn.bulbagarden.net/upload/3/32/GO150A.png"
@@ -2084,6 +2762,10 @@
 			"aliases": [
 				"MEW"
 			],
+			"dzName": "Mew",
+			"atk": 210,
+			"def": 210,
+			"sta": 225,
 			"gsName": [
 				"MEW"
 			],
@@ -2095,6 +2777,10 @@
 			"aliases": [
 				"CHIKORITA"
 			],
+			"dzName": "Chikorita",
+			"atk": 92,
+			"def": 122,
+			"sta": 128,
 			"gsName": [
 				"CHIKORITA"
 			],
@@ -2106,6 +2792,10 @@
 			"aliases": [
 				"BAYLEEF"
 			],
+			"dzName": "Bayleef",
+			"atk": 122,
+			"def": 155,
+			"sta": 155,
 			"gsName": [
 				"BAYLEEF"
 			],
@@ -2117,6 +2807,10 @@
 			"aliases": [
 				"MEGANIUM"
 			],
+			"dzName": "Meganium",
+			"atk": 168,
+			"def": 202,
+			"sta": 190,
 			"gsName": [
 				"MEGANIUM"
 			],
@@ -2128,6 +2822,10 @@
 			"aliases": [
 				"CYNDAQUIL"
 			],
+			"dzName": "Cyndaquil",
+			"atk": 116,
+			"def": 93,
+			"sta": 118,
 			"gsName": [
 				"CYNDAQUIL"
 			],
@@ -2139,6 +2837,10 @@
 			"aliases": [
 				"QUILAVA"
 			],
+			"dzName": "Quilava",
+			"atk": 158,
+			"def": 126,
+			"sta": 151,
 			"gsName": [
 				"QUILAVA"
 			],
@@ -2150,6 +2852,10 @@
 			"aliases": [
 				"TYPHLOSION"
 			],
+			"dzName": "Typhlosion",
+			"atk": 223,
+			"def": 173,
+			"sta": 186,
 			"gsName": [
 				"TYPHLOSION"
 			],
@@ -2162,6 +2868,10 @@
 				"TOTODILE",
 				"TOTO"
 			],
+			"dzName": "Totodile",
+			"atk": 117,
+			"def": 109,
+			"sta": 137,
 			"gsName": [
 				"TOTODILE"
 			],
@@ -2173,6 +2883,10 @@
 			"aliases": [
 				"CROCONAW"
 			],
+			"dzName": "Croconaw",
+			"atk": 150,
+			"def": 142,
+			"sta": 163,
 			"gsName": [
 				"CROCONAW"
 			],
@@ -2184,6 +2898,10 @@
 			"aliases": [
 				"FERALIGATR"
 			],
+			"dzName": "Feraligatr",
+			"atk": 205,
+			"def": 188,
+			"sta": 198,
 			"gsName": [
 				"FERALIGATR"
 			],
@@ -2195,6 +2913,10 @@
 			"aliases": [
 				"SENTRET"
 			],
+			"dzName": "Sentret",
+			"atk": 79,
+			"def": 73,
+			"sta": 111,
 			"gsName": [
 				"SENTRET"
 			],
@@ -2206,6 +2928,10 @@
 			"aliases": [
 				"FURRET"
 			],
+			"dzName": "Furret",
+			"atk": 148,
+			"def": 125,
+			"sta": 198,
 			"gsName": [
 				"FURRET"
 			],
@@ -2217,6 +2943,10 @@
 			"aliases": [
 				"HOOTHOOT"
 			],
+			"dzName": "Hoothoot",
+			"atk": 67,
+			"def": 88,
+			"sta": 155,
 			"gsName": [
 				"HOOTHOOT"
 			],
@@ -2228,6 +2958,10 @@
 			"aliases": [
 				"NOCTOWL"
 			],
+			"dzName": "Noctowl",
+			"atk": 145,
+			"def": 156,
+			"sta": 225,
 			"gsName": [
 				"NOCTOWL"
 			],
@@ -2239,6 +2973,10 @@
 			"aliases": [
 				"LEDYBA"
 			],
+			"dzName": "Ledyba",
+			"atk": 72,
+			"def": 118,
+			"sta": 120,
 			"gsName": [
 				"LEDYBA"
 			],
@@ -2250,6 +2988,10 @@
 			"aliases": [
 				"LEDIAN"
 			],
+			"dzName": "Ledian",
+			"atk": 107,
+			"def": 179,
+			"sta": 146,
 			"gsName": [
 				"LEDIAN"
 			],
@@ -2261,6 +3003,10 @@
 			"aliases": [
 				"SPINARAK"
 			],
+			"dzName": "Spinarak",
+			"atk": 105,
+			"def": 73,
+			"sta": 120,
 			"gsName": [
 				"SPINARAK"
 			],
@@ -2272,6 +3018,10 @@
 			"aliases": [
 				"ARIADOS"
 			],
+			"dzName": "Ariados",
+			"atk": 161,
+			"def": 124,
+			"sta": 172,
 			"gsName": [
 				"ARIADOS"
 			],
@@ -2283,6 +3033,10 @@
 			"aliases": [
 				"CROBAT"
 			],
+			"dzName": "Crobat",
+			"atk": 194,
+			"def": 178,
+			"sta": 198,
 			"gsName": [
 				"CROBAT"
 			],
@@ -2294,6 +3048,10 @@
 			"aliases": [
 				"CHINCHOU"
 			],
+			"dzName": "Chinchou",
+			"atk": 106,
+			"def": 97,
+			"sta": 181,
 			"gsName": [
 				"CHINCHOU"
 			],
@@ -2305,6 +3063,10 @@
 			"aliases": [
 				"LANTURN"
 			],
+			"dzName": "Lanturn",
+			"atk": 146,
+			"def": 137,
+			"sta": 268,
 			"gsName": [
 				"LANTURN"
 			],
@@ -2316,6 +3078,10 @@
 			"aliases": [
 				"PICHU"
 			],
+			"dzName": "Pichu",
+			"atk": 77,
+			"def": 53,
+			"sta": 85,
 			"gsName": [
 				"PICHU"
 			],
@@ -2327,6 +3093,10 @@
 			"aliases": [
 				"CLEFFA"
 			],
+			"dzName": "Cleffa",
+			"atk": 75,
+			"def": 79,
+			"sta": 137,
 			"gsName": [
 				"CLEFFA"
 			],
@@ -2339,6 +3109,10 @@
 				"IGGLYBUFF",
 				"IGGLY"
 			],
+			"dzName": "Igglybuff",
+			"atk": 69,
+			"def": 32,
+			"sta": 207,
 			"gsName": [
 				"IGGLYBUFF"
 			],
@@ -2350,6 +3124,10 @@
 			"aliases": [
 				"TOGEPI"
 			],
+			"dzName": "Togepi",
+			"atk": 67,
+			"def": 116,
+			"sta": 111,
 			"gsName": [
 				"TOGEPI"
 			],
@@ -2361,6 +3139,10 @@
 			"aliases": [
 				"TOGETIC"
 			],
+			"dzName": "Togetic",
+			"atk": 139,
+			"def": 181,
+			"sta": 146,
 			"gsName": [
 				"TOGETIC"
 			],
@@ -2372,6 +3154,10 @@
 			"aliases": [
 				"NATU"
 			],
+			"dzName": "Natu",
+			"atk": 134,
+			"def": 89,
+			"sta": 120,
 			"gsName": [
 				"NATU"
 			],
@@ -2383,6 +3169,10 @@
 			"aliases": [
 				"XATU"
 			],
+			"dzName": "Xatu",
+			"atk": 192,
+			"def": 146,
+			"sta": 163,
 			"gsName": [
 				"XATU"
 			],
@@ -2394,6 +3184,10 @@
 			"aliases": [
 				"MAREEP"
 			],
+			"dzName": "Mareep",
+			"atk": 114,
+			"def": 79,
+			"sta": 146,
 			"gsName": [
 				"MAREEP"
 			],
@@ -2405,6 +3199,10 @@
 			"aliases": [
 				"FLAAFFY"
 			],
+			"dzName": "Flaaffy",
+			"atk": 145,
+			"def": 109,
+			"sta": 172,
 			"gsName": [
 				"FLAAFFY"
 			],
@@ -2416,6 +3214,10 @@
 			"aliases": [
 				"AMPHAROS"
 			],
+			"dzName": "Ampharos",
+			"atk": 211,
+			"def": 169,
+			"sta": 207,
 			"gsName": [
 				"AMPHAROS"
 			],
@@ -2427,6 +3229,10 @@
 			"aliases": [
 				"BELLOSSOM"
 			],
+			"dzName": "Bellossom",
+			"atk": 169,
+			"def": 186,
+			"sta": 181,
 			"gsName": [
 				"BELLOSSOM"
 			],
@@ -2438,6 +3244,10 @@
 			"aliases": [
 				"MARILL"
 			],
+			"dzName": "Marill",
+			"atk": 37,
+			"def": 93,
+			"sta": 172,
 			"gsName": [
 				"MARILL"
 			],
@@ -2449,6 +3259,10 @@
 			"aliases": [
 				"AZUMARILL"
 			],
+			"dzName": "Azumarill",
+			"atk": 112,
+			"def": 152,
+			"sta": 225,
 			"gsName": [
 				"AZUMARILL"
 			],
@@ -2464,6 +3278,10 @@
 				"FAKEWOOOD",
 				"FAKE WOOD"
 			],
+			"dzName": "Sudowoodo",
+			"atk": 167,
+			"def": 176,
+			"sta": 172,
 			"gsName": [
 				"SUDOWOODO"
 			],
@@ -2475,6 +3293,10 @@
 			"aliases": [
 				"POLITOED"
 			],
+			"dzName": "Politoed",
+			"atk": 174,
+			"def": 179,
+			"sta": 207,
 			"gsName": [
 				"POLITOED"
 			],
@@ -2486,6 +3308,10 @@
 			"aliases": [
 				"HOPPIP"
 			],
+			"dzName": "Hoppip",
+			"atk": 67,
+			"def": 94,
+			"sta": 111,
 			"gsName": [
 				"HOPPIP"
 			],
@@ -2497,6 +3323,10 @@
 			"aliases": [
 				"SKIPLOOM"
 			],
+			"dzName": "Skiploom",
+			"atk": 91,
+			"def": 120,
+			"sta": 146,
 			"gsName": [
 				"SKIPLOOM"
 			],
@@ -2508,6 +3338,10 @@
 			"aliases": [
 				"JUMPLUFF"
 			],
+			"dzName": "Jumpluff",
+			"atk": 118,
+			"def": 183,
+			"sta": 181,
 			"gsName": [
 				"JUMPLUFF"
 			],
@@ -2519,6 +3353,10 @@
 			"aliases": [
 				"AIPOM"
 			],
+			"dzName": "Aipom",
+			"atk": 136,
+			"def": 112,
+			"sta": 146,
 			"gsName": [
 				"AIPOM"
 			],
@@ -2530,6 +3368,10 @@
 			"aliases": [
 				"SUNKERN"
 			],
+			"dzName": "Sunkern",
+			"atk": 55,
+			"def": 55,
+			"sta": 102,
 			"gsName": [
 				"SUNKERN"
 			],
@@ -2541,6 +3383,10 @@
 			"aliases": [
 				"SUNFLORA"
 			],
+			"dzName": "Sunflora",
+			"atk": 185,
+			"def": 135,
+			"sta": 181,
 			"gsName": [
 				"SUNFLORA"
 			],
@@ -2552,6 +3398,10 @@
 			"aliases": [
 				"YANMA"
 			],
+			"dzName": "Yanma",
+			"atk": 154,
+			"def": 94,
+			"sta": 163,
 			"gsName": [
 				"YANMA"
 			],
@@ -2563,6 +3413,10 @@
 			"aliases": [
 				"WOOPER"
 			],
+			"dzName": "Wooper",
+			"atk": 75,
+			"def": 66,
+			"sta": 146,
 			"gsName": [
 				"WOOPER"
 			],
@@ -2574,6 +3428,10 @@
 			"aliases": [
 				"QUAGSIRE"
 			],
+			"dzName": "Quagsire",
+			"atk": 152,
+			"def": 143,
+			"sta": 216,
 			"gsName": [
 				"QUAGSIRE"
 			],
@@ -2585,6 +3443,10 @@
 			"aliases": [
 				"ESPEON"
 			],
+			"dzName": "Espeon",
+			"atk": 261,
+			"def": 175,
+			"sta": 163,
 			"gsName": [
 				"ESPEON"
 			],
@@ -2596,6 +3458,10 @@
 			"aliases": [
 				"UMBREON"
 			],
+			"dzName": "Umbreon",
+			"atk": 126,
+			"def": 240,
+			"sta": 216,
 			"gsName": [
 				"UMBREON"
 			],
@@ -2607,6 +3473,10 @@
 			"aliases": [
 				"MURKROW"
 			],
+			"dzName": "Murkrow",
+			"atk": 175,
+			"def": 87,
+			"sta": 155,
 			"gsName": [
 				"MURKROW"
 			],
@@ -2618,6 +3488,10 @@
 			"aliases": [
 				"SLOWKING"
 			],
+			"dzName": "Slowking",
+			"atk": 177,
+			"def": 180,
+			"sta": 216,
 			"gsName": [
 				"SLOWKING"
 			],
@@ -2629,6 +3503,10 @@
 			"aliases": [
 				"MISDREAVUS"
 			],
+			"dzName": "Misdreavus",
+			"atk": 167,
+			"def": 154,
+			"sta": 155,
 			"gsName": [
 				"MISDREAVUS"
 			],
@@ -2640,6 +3518,10 @@
 			"aliases": [
 				"UNOWN"
 			],
+			"dzName": "Unown",
+			"atk": 136,
+			"def": 91,
+			"sta": 134,
 			"gsName": [
 				"UNOWN"
 			],
@@ -2652,6 +3534,10 @@
 				"WOBBUFFET",
 				"WOBB"
 			],
+			"dzName": "Wobbuffet",
+			"atk": 60,
+			"def": 106,
+			"sta": 382,
 			"gsName": [
 				"WOBBUFFET"
 			],
@@ -2663,6 +3549,10 @@
 			"aliases": [
 				"GIRAFARIG"
 			],
+			"dzName": "Girafarig",
+			"atk": 182,
+			"def": 133,
+			"sta": 172,
 			"gsName": [
 				"GIRAFARIG"
 			],
@@ -2674,6 +3564,10 @@
 			"aliases": [
 				"PINECO"
 			],
+			"dzName": "Pineco",
+			"atk": 108,
+			"def": 122,
+			"sta": 137,
 			"gsName": [
 				"PINECO"
 			],
@@ -2685,6 +3579,10 @@
 			"aliases": [
 				"FORRETRESS"
 			],
+			"dzName": "Forretress",
+			"atk": 161,
+			"def": 205,
+			"sta": 181,
 			"gsName": [
 				"FORRETRESS"
 			],
@@ -2696,6 +3594,10 @@
 			"aliases": [
 				"DUNSPARCE"
 			],
+			"dzName": "Dunsparce",
+			"atk": 131,
+			"def": 128,
+			"sta": 225,
 			"gsName": [
 				"DUNSPARCE"
 			],
@@ -2707,6 +3609,10 @@
 			"aliases": [
 				"GLIGAR"
 			],
+			"dzName": "Gligar",
+			"atk": 143,
+			"def": 184,
+			"sta": 163,
 			"gsName": [
 				"GLIGAR"
 			],
@@ -2718,6 +3624,10 @@
 			"aliases": [
 				"STEELIX"
 			],
+			"dzName": "Steelix",
+			"atk": 148,
+			"def": 272,
+			"sta": 181,
 			"gsName": [
 				"STEELIX"
 			],
@@ -2729,6 +3639,10 @@
 			"aliases": [
 				"SNUBBULL"
 			],
+			"dzName": "Snubbull",
+			"atk": 137,
+			"def": 85,
+			"sta": 155,
 			"gsName": [
 				"SNUBBULL"
 			],
@@ -2740,6 +3654,10 @@
 			"aliases": [
 				"GRANBULL"
 			],
+			"dzName": "Granbull",
+			"atk": 212,
+			"def": 131,
+			"sta": 207,
 			"gsName": [
 				"GRANBULL"
 			],
@@ -2751,6 +3669,10 @@
 			"aliases": [
 				"QWILFISH"
 			],
+			"dzName": "Qwilfish",
+			"atk": 184,
+			"def": 138,
+			"sta": 163,
 			"gsName": [
 				"QWILFISH"
 			],
@@ -2762,6 +3684,10 @@
 			"aliases": [
 				"SCIZOR"
 			],
+			"dzName": "Scizor",
+			"atk": 236,
+			"def": 181,
+			"sta": 172,
 			"gsName": [
 				"SCIZOR"
 			],
@@ -2773,6 +3699,10 @@
 			"aliases": [
 				"SHUCKLE"
 			],
+			"dzName": "Shuckle",
+			"atk": 17,
+			"def": 396,
+			"sta": 85,
 			"gsName": [
 				"SHUCKLE"
 			],
@@ -2784,6 +3714,10 @@
 			"aliases": [
 				"HERACROSS"
 			],
+			"dzName": "Heracross",
+			"atk": 234,
+			"def": 179,
+			"sta": 190,
 			"gsName": [
 				"HERACROSS"
 			],
@@ -2795,6 +3729,10 @@
 			"aliases": [
 				"SNEASEL"
 			],
+			"dzName": "Sneasel",
+			"atk": 189,
+			"def": 146,
+			"sta": 146,
 			"gsName": [
 				"SNEASEL"
 			],
@@ -2806,6 +3744,10 @@
 			"aliases": [
 				"TEDDIURSA"
 			],
+			"dzName": "Teddiursa",
+			"atk": 142,
+			"def": 93,
+			"sta": 155,
 			"gsName": [
 				"TEDDIURSA"
 			],
@@ -2817,6 +3759,10 @@
 			"aliases": [
 				"URSARING"
 			],
+			"dzName": "Ursaring",
+			"atk": 236,
+			"def": 144,
+			"sta": 207,
 			"gsName": [
 				"URSARING"
 			],
@@ -2828,6 +3774,10 @@
 			"aliases": [
 				"SLUGMA"
 			],
+			"dzName": "Slugma",
+			"atk": 118,
+			"def": 71,
+			"sta": 120,
 			"gsName": [
 				"SLUGMA"
 			],
@@ -2839,6 +3789,10 @@
 			"aliases": [
 				"MAGCARGO"
 			],
+			"dzName": "Magcargo",
+			"atk": 139,
+			"def": 191,
+			"sta": 137,
 			"gsName": [
 				"MAGCARGO"
 			],
@@ -2850,6 +3804,10 @@
 			"aliases": [
 				"SWINUB"
 			],
+			"dzName": "Swinub",
+			"atk": 90,
+			"def": 69,
+			"sta": 137,
 			"gsName": [
 				"SWINUB"
 			],
@@ -2861,6 +3819,10 @@
 			"aliases": [
 				"PILOSWINE"
 			],
+			"dzName": "Piloswine",
+			"atk": 181,
+			"def": 138,
+			"sta": 225,
 			"gsName": [
 				"PILOSWINE"
 			],
@@ -2872,6 +3834,10 @@
 			"aliases": [
 				"CORSOLA"
 			],
+			"dzName": "Corsola",
+			"atk": 118,
+			"def": 156,
+			"sta": 146,
 			"gsName": [
 				"CORSOLA"
 			],
@@ -2883,6 +3849,10 @@
 			"aliases": [
 				"REMORAID"
 			],
+			"dzName": "Remoraid",
+			"atk": 127,
+			"def": 69,
+			"sta": 111,
 			"gsName": [
 				"REMORAID"
 			],
@@ -2894,6 +3864,10 @@
 			"aliases": [
 				"OCTILLERY"
 			],
+			"dzName": "Octillery",
+			"atk": 197,
+			"def": 141,
+			"sta": 181,
 			"gsName": [
 				"OCTILLERY"
 			],
@@ -2906,6 +3880,10 @@
 				"DELIBIRD",
 				"DOOLIEBIRB"
 			],
+			"dzName": "Delibird",
+			"atk": 128,
+			"def": 90,
+			"sta": 128,
 			"gsName": [
 				"DELIBIRD"
 			],
@@ -2917,6 +3895,10 @@
 			"aliases": [
 				"MANTINE"
 			],
+			"dzName": "Mantine",
+			"atk": 148,
+			"def": 226,
+			"sta": 163,
 			"gsName": [
 				"MANTINE"
 			],
@@ -2928,6 +3910,10 @@
 			"aliases": [
 				"SKARMORY"
 			],
+			"dzName": "Skarmory",
+			"atk": 148,
+			"def": 226,
+			"sta": 163,
 			"gsName": [
 				"SKARMORY"
 			],
@@ -2939,6 +3925,10 @@
 			"aliases": [
 				"HOUNDOUR"
 			],
+			"dzName": "Houndour",
+			"atk": 152,
+			"def": 83,
+			"sta": 128,
 			"gsName": [
 				"HOUNDOUR"
 			],
@@ -2950,6 +3940,10 @@
 			"aliases": [
 				"HOUNDOOM"
 			],
+			"dzName": "Houndoom",
+			"atk": 224,
+			"def": 144,
+			"sta": 181,
 			"gsName": [
 				"HOUNDOOM"
 			],
@@ -2961,6 +3955,10 @@
 			"aliases": [
 				"KINGDRA"
 			],
+			"dzName": "Kingdra",
+			"atk": 194,
+			"def": 194,
+			"sta": 181,
 			"gsName": [
 				"KINGDRA"
 			],
@@ -2972,6 +3970,10 @@
 			"aliases": [
 				"PHANPY"
 			],
+			"dzName": "Phanpy",
+			"atk": 107,
+			"def": 98,
+			"sta": 207,
 			"gsName": [
 				"PHANPY"
 			],
@@ -2983,6 +3985,10 @@
 			"aliases": [
 				"DONPHAN"
 			],
+			"dzName": "Donphan",
+			"atk": 214,
+			"def": 185,
+			"sta": 207,
 			"gsName": [
 				"DONPHAN"
 			],
@@ -2997,6 +4003,10 @@
 				"PORYGONTWO",
 				"PORYGON TWO"
 			],
+			"dzName": "Porygon2",
+			"atk": 198,
+			"def": 180,
+			"sta": 198,
 			"gsName": [
 				"PORYGON2"
 			],
@@ -3008,6 +4018,10 @@
 			"aliases": [
 				"STANTLER"
 			],
+			"dzName": "Stantler",
+			"atk": 192,
+			"def": 131,
+			"sta": 177,
 			"gsName": [
 				"STANTLER"
 			],
@@ -3019,6 +4033,10 @@
 			"aliases": [
 				"SMEARGLE"
 			],
+			"dzName": "Smeargle",
+			"atk": 40,
+			"def": 83,
+			"sta": 146,
 			"gsName": [
 				"SMEARGLE"
 			],
@@ -3030,6 +4048,10 @@
 			"aliases": [
 				"TYROGUE"
 			],
+			"dzName": "Tyrogue",
+			"atk": 64,
+			"def": 64,
+			"sta": 111,
 			"gsName": [
 				"TYROGUE"
 			],
@@ -3042,6 +4064,10 @@
 				"HITMONTOP",
 				"TOP"
 			],
+			"dzName": "Hitmontop",
+			"atk": 173,
+			"def": 207,
+			"sta": 137,
 			"gsName": [
 				"HITMONTOP"
 			],
@@ -3053,6 +4079,10 @@
 			"aliases": [
 				"SMOOCHUM"
 			],
+			"dzName": "Smoochum",
+			"atk": 153,
+			"def": 91,
+			"sta": 128,
 			"gsName": [
 				"SMOOCHUM"
 			],
@@ -3064,6 +4094,10 @@
 			"aliases": [
 				"ELEKID"
 			],
+			"dzName": "Elekid",
+			"atk": 135,
+			"def": 101,
+			"sta": 128,
 			"gsName": [
 				"ELEKID"
 			],
@@ -3075,6 +4109,10 @@
 			"aliases": [
 				"MAGBY"
 			],
+			"dzName": "Magby",
+			"atk": 151,
+			"def": 99,
+			"sta": 128,
 			"gsName": [
 				"MAGBY"
 			],
@@ -3086,6 +4124,10 @@
 			"aliases": [
 				"MILTANK"
 			],
+			"dzName": "Miltank",
+			"atk": 157,
+			"def": 193,
+			"sta": 216,
 			"gsName": [
 				"MILTANK"
 			],
@@ -3097,6 +4139,10 @@
 			"aliases": [
 				"BLISSEY"
 			],
+			"dzName": "Blissey",
+			"atk": 129,
+			"def": 169,
+			"sta": 496,
 			"gsName": [
 				"BLISSEY"
 			],
@@ -3108,6 +4154,10 @@
 			"aliases": [
 				"RAIKOU"
 			],
+			"dzName": "Raikou",
+			"atk": 241,
+			"def": 195,
+			"sta": 207,
 			"gsName": [
 				"RAIKOU"
 			],
@@ -3119,6 +4169,10 @@
 			"aliases": [
 				"ENTEI"
 			],
+			"dzName": "Entei",
+			"atk": 235,
+			"def": 171,
+			"sta": 251,
 			"gsName": [
 				"ENTEI"
 			],
@@ -3130,6 +4184,10 @@
 			"aliases": [
 				"SUICUNE"
 			],
+			"dzName": "Suicune",
+			"atk": 180,
+			"def": 235,
+			"sta": 225,
 			"gsName": [
 				"SUICUNE"
 			],
@@ -3141,6 +4199,10 @@
 			"aliases": [
 				"LARVITAR"
 			],
+			"dzName": "Larvitar",
+			"atk": 115,
+			"def": 93,
+			"sta": 137,
 			"gsName": [
 				"LARVITAR"
 			],
@@ -3152,6 +4214,10 @@
 			"aliases": [
 				"PUPITAR"
 			],
+			"dzName": "Pupitar",
+			"atk": 155,
+			"def": 133,
+			"sta": 172,
 			"gsName": [
 				"PUPITAR"
 			],
@@ -3164,6 +4230,10 @@
 				"TYRANITAR",
 				"TTAR"
 			],
+			"dzName": "Tyranitar",
+			"atk": 251,
+			"def": 207,
+			"sta": 225,
 			"gsName": [
 				"TYRANITAR"
 			],
@@ -3175,6 +4245,10 @@
 			"aliases": [
 				"LUGIA"
 			],
+			"dzName": "Lugia",
+			"atk": 193,
+			"def": 310,
+			"sta": 235,
 			"gsName": [
 				"LUGIA"
 			],
@@ -3193,6 +4267,10 @@
 				"HO HO",
 				"SANTA"
 			],
+			"dzName": "Ho-Oh",
+			"atk": 239,
+			"def": 244,
+			"sta": 214,
 			"gsName": [
 				"HO_OH"
 			],
@@ -3204,6 +4282,10 @@
 			"aliases": [
 				"CELEBI"
 			],
+			"dzName": "Celebi",
+			"atk": 210,
+			"def": 210,
+			"sta": 225,
 			"gsName": [
 				"CELEBI"
 			],
@@ -3215,6 +4297,10 @@
 			"aliases": [
 				"TREECKO"
 			],
+			"dzName": "Treecko",
+			"atk": 124,
+			"def": 94,
+			"sta": 120,
 			"gsName": [
 				"TREECKO"
 			],
@@ -3226,6 +4312,10 @@
 			"aliases": [
 				"GROVYLE"
 			],
+			"dzName": "Grovyle",
+			"atk": 172,
+			"def": 120,
+			"sta": 137,
 			"gsName": [
 				"GROVYLE"
 			],
@@ -3237,6 +4327,10 @@
 			"aliases": [
 				"SCEPTILE"
 			],
+			"dzName": "Sceptile",
+			"atk": 223,
+			"def": 169,
+			"sta": 172,
 			"gsName": [
 				"SCEPTILE"
 			],
@@ -3248,6 +4342,10 @@
 			"aliases": [
 				"TORCHIC"
 			],
+			"dzName": "Torchic",
+			"atk": 130,
+			"def": 87,
+			"sta": 128,
 			"gsName": [
 				"TORCHIC"
 			],
@@ -3259,6 +4357,10 @@
 			"aliases": [
 				"COMBUSKEN"
 			],
+			"dzName": "Combusken",
+			"atk": 163,
+			"def": 115,
+			"sta": 155,
 			"gsName": [
 				"COMBUSKEN"
 			],
@@ -3270,6 +4372,10 @@
 			"aliases": [
 				"BLAZIKEN"
 			],
+			"dzName": "Blaziken",
+			"atk": 240,
+			"def": 141,
+			"sta": 190,
 			"gsName": [
 				"BLAZIKEN"
 			],
@@ -3281,6 +4387,10 @@
 			"aliases": [
 				"MUDKIP"
 			],
+			"dzName": "Mudkip",
+			"atk": 126,
+			"def": 93,
+			"sta": 137,
 			"gsName": [
 				"MUDKIP"
 			],
@@ -3292,6 +4402,10 @@
 			"aliases": [
 				"MARSHTOMP"
 			],
+			"dzName": "Marshtomp",
+			"atk": 156,
+			"def": 133,
+			"sta": 172,
 			"gsName": [
 				"MARSHTOMP"
 			],
@@ -3303,6 +4417,10 @@
 			"aliases": [
 				"SWAMPERT"
 			],
+			"dzName": "Swampert",
+			"atk": 208,
+			"def": 175,
+			"sta": 225,
 			"gsName": [
 				"SWAMPERT"
 			],
@@ -3314,6 +4432,10 @@
 			"aliases": [
 				"POOCHYENA"
 			],
+			"dzName": "Poochyena",
+			"atk": 96,
+			"def": 61,
+			"sta": 111,
 			"gsName": [
 				"POOCHYENA"
 			],
@@ -3325,6 +4447,10 @@
 			"aliases": [
 				"MIGHTYENA"
 			],
+			"dzName": "Mightyena",
+			"atk": 171,
+			"def": 132,
+			"sta": 172,
 			"gsName": [
 				"MIGHTYENA"
 			],
@@ -3336,6 +4462,10 @@
 			"aliases": [
 				"ZIGZAGOON"
 			],
+			"dzName": "Zigzagoon",
+			"atk": 58,
+			"def": 80,
+			"sta": 116,
 			"gsName": [
 				"ZIGZAGOON"
 			],
@@ -3347,6 +4477,10 @@
 			"aliases": [
 				"LINOONE"
 			],
+			"dzName": "Linoone",
+			"atk": 142,
+			"def": 128,
+			"sta": 186,
 			"gsName": [
 				"LINOONE"
 			],
@@ -3358,6 +4492,10 @@
 			"aliases": [
 				"WURMPLE"
 			],
+			"dzName": "Wurmple",
+			"atk": 75,
+			"def": 59,
+			"sta": 128,
 			"gsName": [
 				"WURMPLE"
 			],
@@ -3369,6 +4507,10 @@
 			"aliases": [
 				"SILCOON"
 			],
+			"dzName": "Silcoon",
+			"atk": 60,
+			"def": 77,
+			"sta": 137,
 			"gsName": [
 				"SILCOON"
 			],
@@ -3380,6 +4522,10 @@
 			"aliases": [
 				"BEAUTIFLY"
 			],
+			"dzName": "Beautifly",
+			"atk": 189,
+			"def": 98,
+			"sta": 155,
 			"gsName": [
 				"BEAUTIFLY"
 			],
@@ -3391,6 +4537,10 @@
 			"aliases": [
 				"CASCOON"
 			],
+			"dzName": "Cascoon",
+			"atk": 60,
+			"def": 77,
+			"sta": 137,
 			"gsName": [
 				"CASCOON"
 			],
@@ -3402,6 +4552,10 @@
 			"aliases": [
 				"DUSTOX"
 			],
+			"dzName": "Dustox",
+			"atk": 98,
+			"def": 162,
+			"sta": 155,
 			"gsName": [
 				"DUSTOX"
 			],
@@ -3413,6 +4567,10 @@
 			"aliases": [
 				"LOTAD"
 			],
+			"dzName": "Lotad",
+			"atk": 71,
+			"def": 77,
+			"sta": 120,
 			"gsName": [
 				"LOTAD"
 			],
@@ -3424,6 +4582,10 @@
 			"aliases": [
 				"LOMBRE"
 			],
+			"dzName": "Lombre",
+			"atk": 112,
+			"def": 119,
+			"sta": 155,
 			"gsName": [
 				"LOMBRE"
 			],
@@ -3435,6 +4597,10 @@
 			"aliases": [
 				"LUDICOLO"
 			],
+			"dzName": "Ludicolo",
+			"atk": 173,
+			"def": 176,
+			"sta": 190,
 			"gsName": [
 				"LUDICOLO"
 			],
@@ -3446,6 +4612,10 @@
 			"aliases": [
 				"SEEDOT"
 			],
+			"dzName": "Seedot",
+			"atk": 71,
+			"def": 77,
+			"sta": 120,
 			"gsName": [
 				"SEEDOT"
 			],
@@ -3457,6 +4627,10 @@
 			"aliases": [
 				"NUZLEAF"
 			],
+			"dzName": "Nuzleaf",
+			"atk": 134,
+			"def": 78,
+			"sta": 172,
 			"gsName": [
 				"NUZLEAF"
 			],
@@ -3468,6 +4642,10 @@
 			"aliases": [
 				"SHIFTRY"
 			],
+			"dzName": "Shiftry",
+			"atk": 200,
+			"def": 121,
+			"sta": 207,
 			"gsName": [
 				"SHIFTRY"
 			],
@@ -3479,6 +4657,10 @@
 			"aliases": [
 				"TAILLOW"
 			],
+			"dzName": "Taillow",
+			"atk": 106,
+			"def": 61,
+			"sta": 120,
 			"gsName": [
 				"TAILLOW"
 			],
@@ -3490,6 +4672,10 @@
 			"aliases": [
 				"SWELLOW"
 			],
+			"dzName": "Swellow",
+			"atk": 185,
+			"def": 124,
+			"sta": 155,
 			"gsName": [
 				"SWELLOW"
 			],
@@ -3501,6 +4687,10 @@
 			"aliases": [
 				"WINGULL"
 			],
+			"dzName": "Wingull",
+			"atk": 106,
+			"def": 61,
+			"sta": 120,
 			"gsName": [
 				"WINGULL"
 			],
@@ -3512,6 +4702,10 @@
 			"aliases": [
 				"PELIPPER"
 			],
+			"dzName": "Pelipper",
+			"atk": 175,
+			"def": 174,
+			"sta": 155,
 			"gsName": [
 				"PELIPPER"
 			],
@@ -3523,6 +4717,10 @@
 			"aliases": [
 				"RALTS"
 			],
+			"dzName": "Ralts",
+			"atk": 79,
+			"def": 59,
+			"sta": 99,
 			"gsName": [
 				"RALTS"
 			],
@@ -3534,6 +4732,10 @@
 			"aliases": [
 				"KIRLIA"
 			],
+			"dzName": "Kirlia",
+			"atk": 117,
+			"def": 90,
+			"sta": 116,
 			"gsName": [
 				"KIRLIA"
 			],
@@ -3545,6 +4747,10 @@
 			"aliases": [
 				"GARDEVOIR"
 			],
+			"dzName": "Gardevoir",
+			"atk": 237,
+			"def": 195,
+			"sta": 169,
 			"gsName": [
 				"GARDEVOIR"
 			],
@@ -3556,6 +4762,10 @@
 			"aliases": [
 				"SURSKIT"
 			],
+			"dzName": "Surskit",
+			"atk": 93,
+			"def": 87,
+			"sta": 120,
 			"gsName": [
 				"SURSKIT"
 			],
@@ -3567,6 +4777,10 @@
 			"aliases": [
 				"MASQUERAIN"
 			],
+			"dzName": "Masquerain",
+			"atk": 192,
+			"def": 150,
+			"sta": 172,
 			"gsName": [
 				"MASQUERAIN"
 			],
@@ -3578,6 +4792,10 @@
 			"aliases": [
 				"SHROOMISH"
 			],
+			"dzName": "Shroomish",
+			"atk": 74,
+			"def": 110,
+			"sta": 155,
 			"gsName": [
 				"SHROOMISH"
 			],
@@ -3589,6 +4807,10 @@
 			"aliases": [
 				"BRELOOM"
 			],
+			"dzName": "Breloom",
+			"atk": 241,
+			"def": 144,
+			"sta": 155,
 			"gsName": [
 				"BRELOOM"
 			],
@@ -3600,6 +4822,10 @@
 			"aliases": [
 				"SLAKOTH"
 			],
+			"dzName": "Slakoth",
+			"atk": 104,
+			"def": 92,
+			"sta": 155,
 			"gsName": [
 				"SLAKOTH"
 			],
@@ -3611,6 +4837,10 @@
 			"aliases": [
 				"VIGOROTH"
 			],
+			"dzName": "Vigoroth",
+			"atk": 159,
+			"def": 145,
+			"sta": 190,
 			"gsName": [
 				"VIGOROTH"
 			],
@@ -3622,6 +4852,10 @@
 			"aliases": [
 				"SLAKING"
 			],
+			"dzName": "Slaking",
+			"atk": 290,
+			"def": 166,
+			"sta": 284,
 			"gsName": [
 				"SLAKING"
 			],
@@ -3633,6 +4867,10 @@
 			"aliases": [
 				"NINCADA"
 			],
+			"dzName": "Nincada",
+			"atk": 80,
+			"def": 126,
+			"sta": 104,
 			"gsName": [
 				"NINCADA"
 			],
@@ -3644,6 +4882,10 @@
 			"aliases": [
 				"NINJASK"
 			],
+			"dzName": "Ninjask",
+			"atk": 199,
+			"def": 112,
+			"sta": 156,
 			"gsName": [
 				"NINJASK"
 			],
@@ -3655,6 +4897,10 @@
 			"aliases": [
 				"SHEDINJA"
 			],
+			"dzName": "Shedinja",
+			"atk": 153,
+			"def": 73,
+			"sta": 1,
 			"gsName": [
 				"SHEDINJA"
 			],
@@ -3666,6 +4912,10 @@
 			"aliases": [
 				"WHISMUR"
 			],
+			"dzName": "Whismur",
+			"atk": 92,
+			"def": 42,
+			"sta": 162,
 			"gsName": [
 				"WHISMUR"
 			],
@@ -3677,6 +4927,10 @@
 			"aliases": [
 				"LOUDRED"
 			],
+			"dzName": "Loudred",
+			"atk": 134,
+			"def": 81,
+			"sta": 197,
 			"gsName": [
 				"LOUDRED"
 			],
@@ -3688,6 +4942,10 @@
 			"aliases": [
 				"EXPLOUD"
 			],
+			"dzName": "Exploud",
+			"atk": 179,
+			"def": 137,
+			"sta": 232,
 			"gsName": [
 				"EXPLOUD"
 			],
@@ -3699,6 +4957,10 @@
 			"aliases": [
 				"MAKUHITA"
 			],
+			"dzName": "Makuhita",
+			"atk": 99,
+			"def": 54,
+			"sta": 176,
 			"gsName": [
 				"MAKUHITA"
 			],
@@ -3710,6 +4972,10 @@
 			"aliases": [
 				"HARIYAMA"
 			],
+			"dzName": "Hariyama",
+			"atk": 209,
+			"def": 114,
+			"sta": 302,
 			"gsName": [
 				"HARIYAMA"
 			],
@@ -3721,6 +4987,10 @@
 			"aliases": [
 				"AZURILL"
 			],
+			"dzName": "Azurill",
+			"atk": 36,
+			"def": 71,
+			"sta": 137,
 			"gsName": [
 				"AZURILL"
 			],
@@ -3732,6 +5002,10 @@
 			"aliases": [
 				"NOSEPASS"
 			],
+			"dzName": "Nosepass",
+			"atk": 82,
+			"def": 215,
+			"sta": 102,
 			"gsName": [
 				"NOSEPASS"
 			],
@@ -3743,6 +5017,10 @@
 			"aliases": [
 				"SKITTY"
 			],
+			"dzName": "Skitty",
+			"atk": 84,
+			"def": 79,
+			"sta": 137,
 			"gsName": [
 				"SKITTY"
 			],
@@ -3754,6 +5032,10 @@
 			"aliases": [
 				"DELCATTY"
 			],
+			"dzName": "Delcatty",
+			"atk": 132,
+			"def": 127,
+			"sta": 172,
 			"gsName": [
 				"DELCATTY"
 			],
@@ -3765,6 +5047,10 @@
 			"aliases": [
 				"SABLEYE"
 			],
+			"dzName": "Sableye",
+			"atk": 141,
+			"def": 136,
+			"sta": 137,
 			"gsName": [
 				"SABLEYE"
 			],
@@ -3776,6 +5062,10 @@
 			"aliases": [
 				"MAWILE"
 			],
+			"dzName": "Mawile",
+			"atk": 155,
+			"def": 141,
+			"sta": 137,
 			"gsName": [
 				"MAWILE"
 			],
@@ -3787,6 +5077,10 @@
 			"aliases": [
 				"ARON"
 			],
+			"dzName": "Aron",
+			"atk": 121,
+			"def": 141,
+			"sta": 137,
 			"gsName": [
 				"ARON"
 			],
@@ -3798,6 +5092,10 @@
 			"aliases": [
 				"LAIRON"
 			],
+			"dzName": "Lairon",
+			"atk": 158,
+			"def": 198,
+			"sta": 155,
 			"gsName": [
 				"LAIRON"
 			],
@@ -3809,6 +5107,10 @@
 			"aliases": [
 				"AGGRON"
 			],
+			"dzName": "Aggron",
+			"atk": 198,
+			"def": 257,
+			"sta": 172,
 			"gsName": [
 				"AGGRON"
 			],
@@ -3820,6 +5122,10 @@
 			"aliases": [
 				"MEDITITE"
 			],
+			"dzName": "Meditite",
+			"atk": 78,
+			"def": 107,
+			"sta": 102,
 			"gsName": [
 				"MEDITITE"
 			],
@@ -3831,6 +5137,10 @@
 			"aliases": [
 				"MEDICHAM"
 			],
+			"dzName": "Medicham",
+			"atk": 121,
+			"def": 152,
+			"sta": 155,
 			"gsName": [
 				"MEDICHAM"
 			],
@@ -3842,6 +5152,10 @@
 			"aliases": [
 				"ELECTRIKE"
 			],
+			"dzName": "Electrike",
+			"atk": 123,
+			"def": 78,
+			"sta": 120,
 			"gsName": [
 				"ELECTRIKE"
 			],
@@ -3853,6 +5167,10 @@
 			"aliases": [
 				"MANECTRIC"
 			],
+			"dzName": "Manectric",
+			"atk": 215,
+			"def": 127,
+			"sta": 172,
 			"gsName": [
 				"MANECTRIC"
 			],
@@ -3864,6 +5182,10 @@
 			"aliases": [
 				"PLUSLE"
 			],
+			"dzName": "Plusle",
+			"atk": 167,
+			"def": 129,
+			"sta": 155,
 			"gsName": [
 				"PLUSLE"
 			],
@@ -3875,6 +5197,10 @@
 			"aliases": [
 				"MINUN"
 			],
+			"dzName": "Minun",
+			"atk": 147,
+			"def": 150,
+			"sta": 155,
 			"gsName": [
 				"MINUN"
 			],
@@ -3886,6 +5212,10 @@
 			"aliases": [
 				"VOLBEAT"
 			],
+			"dzName": "Volbeat",
+			"atk": 143,
+			"def": 166,
+			"sta": 163,
 			"gsName": [
 				"VOLBEAT"
 			],
@@ -3897,6 +5227,10 @@
 			"aliases": [
 				"ILLUMISE"
 			],
+			"dzName": "Illumise",
+			"atk": 143,
+			"def": 166,
+			"sta": 163,
 			"gsName": [
 				"ILLUMISE"
 			],
@@ -3908,6 +5242,10 @@
 			"aliases": [
 				"ROSELIA"
 			],
+			"dzName": "Roselia",
+			"atk": 186,
+			"def": 131,
+			"sta": 137,
 			"gsName": [
 				"ROSELIA"
 			],
@@ -3919,6 +5257,10 @@
 			"aliases": [
 				"GULPIN"
 			],
+			"dzName": "Gulpin",
+			"atk": 80,
+			"def": 99,
+			"sta": 172,
 			"gsName": [
 				"GULPIN"
 			],
@@ -3930,6 +5272,10 @@
 			"aliases": [
 				"SWALOT"
 			],
+			"dzName": "Swalot",
+			"atk": 140,
+			"def": 159,
+			"sta": 225,
 			"gsName": [
 				"SWALOT"
 			],
@@ -3941,6 +5287,10 @@
 			"aliases": [
 				"CARVANHA"
 			],
+			"dzName": "Carvanha",
+			"atk": 171,
+			"def": 39,
+			"sta": 128,
 			"gsName": [
 				"CARVANHA"
 			],
@@ -3952,6 +5302,10 @@
 			"aliases": [
 				"SHARPEDO"
 			],
+			"dzName": "Sharpedo",
+			"atk": 243,
+			"def": 83,
+			"sta": 172,
 			"gsName": [
 				"SHARPEDO"
 			],
@@ -3963,6 +5317,10 @@
 			"aliases": [
 				"WAILMER"
 			],
+			"dzName": "Wailmer",
+			"atk": 136,
+			"def": 68,
+			"sta": 277,
 			"gsName": [
 				"WAILMER"
 			],
@@ -3974,6 +5332,10 @@
 			"aliases": [
 				"WAILORD"
 			],
+			"dzName": "Wailord",
+			"atk": 175,
+			"def": 87,
+			"sta": 347,
 			"gsName": [
 				"WAILORD"
 			],
@@ -3985,6 +5347,10 @@
 			"aliases": [
 				"NUMEL"
 			],
+			"dzName": "Numel",
+			"atk": 119,
+			"def": 79,
+			"sta": 155,
 			"gsName": [
 				"NUMEL"
 			],
@@ -3996,6 +5362,10 @@
 			"aliases": [
 				"CAMERUPT"
 			],
+			"dzName": "Camerupt",
+			"atk": 194,
+			"def": 136,
+			"sta": 172,
 			"gsName": [
 				"CAMERUPT"
 			],
@@ -4007,6 +5377,10 @@
 			"aliases": [
 				"TORKOAL"
 			],
+			"dzName": "Torkoal",
+			"atk": 151,
+			"def": 203,
+			"sta": 172,
 			"gsName": [
 				"TORKOAL"
 			],
@@ -4018,6 +5392,10 @@
 			"aliases": [
 				"SPOINK"
 			],
+			"dzName": "Spoink",
+			"atk": 125,
+			"def": 122,
+			"sta": 155,
 			"gsName": [
 				"SPOINK"
 			],
@@ -4029,6 +5407,10 @@
 			"aliases": [
 				"GRUMPIG"
 			],
+			"dzName": "Grumpig",
+			"atk": 171,
+			"def": 188,
+			"sta": 190,
 			"gsName": [
 				"GRUMPIG"
 			],
@@ -4040,6 +5422,10 @@
 			"aliases": [
 				"SPINDA"
 			],
+			"dzName": "Spinda",
+			"atk": 116,
+			"def": 116,
+			"sta": 155,
 			"gsName": [
 				"SPINDA"
 			],
@@ -4051,6 +5437,10 @@
 			"aliases": [
 				"TRAPINCH"
 			],
+			"dzName": "Trapinch",
+			"atk": 162,
+			"def": 78,
+			"sta": 128,
 			"gsName": [
 				"TRAPINCH"
 			],
@@ -4062,6 +5452,10 @@
 			"aliases": [
 				"VIBRAVA"
 			],
+			"dzName": "Vibrava",
+			"atk": 134,
+			"def": 99,
+			"sta": 137,
 			"gsName": [
 				"VIBRAVA"
 			],
@@ -4073,6 +5467,10 @@
 			"aliases": [
 				"FLYGON"
 			],
+			"dzName": "Flygon",
+			"atk": 205,
+			"def": 168,
+			"sta": 190,
 			"gsName": [
 				"FLYGON"
 			],
@@ -4084,6 +5482,10 @@
 			"aliases": [
 				"CACNEA"
 			],
+			"dzName": "Cacnea",
+			"atk": 156,
+			"def": 74,
+			"sta": 137,
 			"gsName": [
 				"CACNEA"
 			],
@@ -4095,6 +5497,10 @@
 			"aliases": [
 				"CACTURNE"
 			],
+			"dzName": "Cacturne",
+			"atk": 221,
+			"def": 115,
+			"sta": 172,
 			"gsName": [
 				"CACTURNE"
 			],
@@ -4106,6 +5512,10 @@
 			"aliases": [
 				"SWABLU"
 			],
+			"dzName": "Swablu",
+			"atk": 76,
+			"def": 132,
+			"sta": 128,
 			"gsName": [
 				"SWABLU"
 			],
@@ -4117,6 +5527,10 @@
 			"aliases": [
 				"ALTARIA"
 			],
+			"dzName": "Altaria",
+			"atk": 141,
+			"def": 201,
+			"sta": 181,
 			"gsName": [
 				"ALTARIA"
 			],
@@ -4128,6 +5542,10 @@
 			"aliases": [
 				"ZANGOOSE"
 			],
+			"dzName": "Zangoose",
+			"atk": 222,
+			"def": 124,
+			"sta": 177,
 			"gsName": [
 				"ZANGOOSE"
 			],
@@ -4139,6 +5557,10 @@
 			"aliases": [
 				"SEVIPER"
 			],
+			"dzName": "Seviper",
+			"atk": 196,
+			"def": 118,
+			"sta": 177,
 			"gsName": [
 				"SEVIPER"
 			],
@@ -4150,6 +5572,10 @@
 			"aliases": [
 				"LUNATONE"
 			],
+			"dzName": "Lunatone",
+			"atk": 178,
+			"def": 153,
+			"sta": 207,
 			"gsName": [
 				"LUNATONE"
 			],
@@ -4161,6 +5587,10 @@
 			"aliases": [
 				"SOLROCK"
 			],
+			"dzName": "Solrock",
+			"atk": 178,
+			"def": 153,
+			"sta": 207,
 			"gsName": [
 				"SOLROCK"
 			],
@@ -4172,6 +5602,10 @@
 			"aliases": [
 				"BARBOACH"
 			],
+			"dzName": "Barboach",
+			"atk": 93,
+			"def": 82,
+			"sta": 137,
 			"gsName": [
 				"BARBOACH"
 			],
@@ -4183,6 +5617,10 @@
 			"aliases": [
 				"WHISCASH"
 			],
+			"dzName": "Whiscash",
+			"atk": 151,
+			"def": 141,
+			"sta": 242,
 			"gsName": [
 				"WHISCASH"
 			],
@@ -4194,6 +5632,10 @@
 			"aliases": [
 				"CORPHISH"
 			],
+			"dzName": "Corphish",
+			"atk": 141,
+			"def": 99,
+			"sta": 125,
 			"gsName": [
 				"CORPHISH"
 			],
@@ -4205,6 +5647,10 @@
 			"aliases": [
 				"CRAWDAUNT"
 			],
+			"dzName": "Crawdaunt",
+			"atk": 224,
+			"def": 142,
+			"sta": 160,
 			"gsName": [
 				"CRAWDAUNT"
 			],
@@ -4216,6 +5662,10 @@
 			"aliases": [
 				"BALTOY"
 			],
+			"dzName": "Baltoy",
+			"atk": 77,
+			"def": 124,
+			"sta": 120,
 			"gsName": [
 				"BALTOY"
 			],
@@ -4227,6 +5677,10 @@
 			"aliases": [
 				"CLAYDOL"
 			],
+			"dzName": "Claydol",
+			"atk": 140,
+			"def": 229,
+			"sta": 155,
 			"gsName": [
 				"CLAYDOL"
 			],
@@ -4238,6 +5692,10 @@
 			"aliases": [
 				"LILEEP"
 			],
+			"dzName": "Lileep",
+			"atk": 105,
+			"def": 150,
+			"sta": 165,
 			"gsName": [
 				"LILEEP"
 			],
@@ -4249,6 +5707,10 @@
 			"aliases": [
 				"CRADILY"
 			],
+			"dzName": "Cradily",
+			"atk": 152,
+			"def": 194,
+			"sta": 200,
 			"gsName": [
 				"CRADILY"
 			],
@@ -4260,6 +5722,10 @@
 			"aliases": [
 				"ANORITH"
 			],
+			"dzName": "Anorith",
+			"atk": 176,
+			"def": 100,
+			"sta": 128,
 			"gsName": [
 				"ANORITH"
 			],
@@ -4271,6 +5737,10 @@
 			"aliases": [
 				"ARMALDO"
 			],
+			"dzName": "Armaldo",
+			"atk": 222,
+			"def": 174,
+			"sta": 181,
 			"gsName": [
 				"ARMALDO"
 			],
@@ -4282,6 +5752,10 @@
 			"aliases": [
 				"FEEBAS"
 			],
+			"dzName": "Feebas",
+			"atk": 29,
+			"def": 85,
+			"sta": 85,
 			"gsName": [
 				"FEEBAS"
 			],
@@ -4293,6 +5767,10 @@
 			"aliases": [
 				"MILOTIC"
 			],
+			"dzName": "Milotic",
+			"atk": 192,
+			"def": 219,
+			"sta": 216,
 			"gsName": [
 				"MILOTIC"
 			],
@@ -4308,6 +5786,10 @@
 				"CASTFORM NORMAL",
 				"CASTFORM NORMAL FORM"
 			],
+			"dzName": "Castform",
+			"atk": 139,
+			"def": 139,
+			"sta": 172,
 			"gsName": [
 				"CASTFORM"
 			],
@@ -4322,6 +5804,10 @@
 				"CASTFORM RAINY",
 				"CASTFORM RAINY FORM"
 			],
+			"dzName": "Castform-rainy",
+			"atk": 139,
+			"def": 139,
+			"sta": 172,
 			"gsName": [
 				"CASTFORM RAINY",
 				"CASTFORM RAINY",
@@ -4338,6 +5824,10 @@
 				"CASTFORM SNOWY",
 				"CASTFORM SNOWY FORM"
 			],
+			"dzName": "Castform-snowy",
+			"atk": 139,
+			"def": 139,
+			"sta": 172,
 			"gsName": [
 				"CASTFORM SNOWY",
 				"CASTFORM SNOWY",
@@ -4354,6 +5844,10 @@
 				"CASTFORM SUNNY",
 				"CASTFORM SUNNY FORM"
 			],
+			"dzName": "Castform-sunny",
+			"atk": 139,
+			"def": 139,
+			"sta": 172,
 			"gsName": [
 				"CASTFORM SUNNY",
 				"CASTFORM SUNNY",
@@ -4367,6 +5861,10 @@
 			"aliases": [
 				"KECLEON"
 			],
+			"dzName": "Kecleon",
+			"atk": 161,
+			"def": 189,
+			"sta": 155,
 			"gsName": [
 				"KECLEON"
 			],
@@ -4378,6 +5876,10 @@
 			"aliases": [
 				"SHUPPET"
 			],
+			"dzName": "Shuppet",
+			"atk": 138,
+			"def": 65,
+			"sta": 127,
 			"gsName": [
 				"SHUPPET"
 			],
@@ -4389,6 +5891,10 @@
 			"aliases": [
 				"BANETTE"
 			],
+			"dzName": "Banette",
+			"atk": 218,
+			"def": 126,
+			"sta": 162,
 			"gsName": [
 				"BANETTE"
 			],
@@ -4400,6 +5906,10 @@
 			"aliases": [
 				"DUSKULL"
 			],
+			"dzName": "Duskull",
+			"atk": 70,
+			"def": 162,
+			"sta": 85,
 			"gsName": [
 				"DUSKULL"
 			],
@@ -4411,6 +5921,10 @@
 			"aliases": [
 				"DUSCLOPS"
 			],
+			"dzName": "Dusclops",
+			"atk": 124,
+			"def": 234,
+			"sta": 120,
 			"gsName": [
 				"DUSCLOPS"
 			],
@@ -4422,6 +5936,10 @@
 			"aliases": [
 				"TROPIUS"
 			],
+			"dzName": "Tropius",
+			"atk": 136,
+			"def": 163,
+			"sta": 223,
 			"gsName": [
 				"TROPIUS"
 			],
@@ -4433,6 +5951,10 @@
 			"aliases": [
 				"CHIMECHO"
 			],
+			"dzName": "Chimecho",
+			"atk": 175,
+			"def": 170,
+			"sta": 181,
 			"gsName": [
 				"CHIMECHO"
 			],
@@ -4444,6 +5966,10 @@
 			"aliases": [
 				"ABSOL"
 			],
+			"dzName": "Absol",
+			"atk": 246,
+			"def": 120,
+			"sta": 163,
 			"gsName": [
 				"ABSOL"
 			],
@@ -4457,6 +5983,10 @@
 				"WHYNOT",
 				"WHY NOT"
 			],
+			"dzName": "Wynaut",
+			"atk": 41,
+			"def": 86,
+			"sta": 216,
 			"gsName": [
 				"WYNAUT"
 			],
@@ -4468,6 +5998,10 @@
 			"aliases": [
 				"SNORUNT"
 			],
+			"dzName": "Snorunt",
+			"atk": 95,
+			"def": 95,
+			"sta": 137,
 			"gsName": [
 				"SNORUNT"
 			],
@@ -4479,6 +6013,10 @@
 			"aliases": [
 				"GLALIE"
 			],
+			"dzName": "Glalie",
+			"atk": 162,
+			"def": 162,
+			"sta": 190,
 			"gsName": [
 				"GLALIE"
 			],
@@ -4490,6 +6028,10 @@
 			"aliases": [
 				"SPHEAL"
 			],
+			"dzName": "Spheal",
+			"atk": 95,
+			"def": 90,
+			"sta": 172,
 			"gsName": [
 				"SPHEAL"
 			],
@@ -4501,6 +6043,10 @@
 			"aliases": [
 				"SEALEO"
 			],
+			"dzName": "Sealeo",
+			"atk": 137,
+			"def": 132,
+			"sta": 207,
 			"gsName": [
 				"SEALEO"
 			],
@@ -4512,6 +6058,10 @@
 			"aliases": [
 				"WALREIN"
 			],
+			"dzName": "Walrein",
+			"atk": 182,
+			"def": 176,
+			"sta": 242,
 			"gsName": [
 				"WALREIN"
 			],
@@ -4523,6 +6073,10 @@
 			"aliases": [
 				"CLAMPERL"
 			],
+			"dzName": "Clamperl",
+			"atk": 133,
+			"def": 135,
+			"sta": 111,
 			"gsName": [
 				"CLAMPERL"
 			],
@@ -4534,6 +6088,10 @@
 			"aliases": [
 				"HUNTAIL"
 			],
+			"dzName": "Huntail",
+			"atk": 197,
+			"def": 179,
+			"sta": 146,
 			"gsName": [
 				"HUNTAIL"
 			],
@@ -4545,6 +6103,10 @@
 			"aliases": [
 				"GOREBYSS"
 			],
+			"dzName": "Gorebyss",
+			"atk": 211,
+			"def": 179,
+			"sta": 146,
 			"gsName": [
 				"GOREBYSS"
 			],
@@ -4556,6 +6118,10 @@
 			"aliases": [
 				"RELICANTH"
 			],
+			"dzName": "Relicanth",
+			"atk": 162,
+			"def": 203,
+			"sta": 225,
 			"gsName": [
 				"RELICANTH"
 			],
@@ -4567,6 +6133,10 @@
 			"aliases": [
 				"LUVDISC"
 			],
+			"dzName": "Luvdisc",
+			"atk": 81,
+			"def": 128,
+			"sta": 125,
 			"gsName": [
 				"LUVDISC"
 			],
@@ -4579,6 +6149,10 @@
 				"BAGON",
 				"BACON"
 			],
+			"dzName": "Bagon",
+			"atk": 134,
+			"def": 93,
+			"sta": 128,
 			"gsName": [
 				"BAGON"
 			],
@@ -4590,6 +6164,10 @@
 			"aliases": [
 				"SHELGON"
 			],
+			"dzName": "Shelgon",
+			"atk": 172,
+			"def": 155,
+			"sta": 163,
 			"gsName": [
 				"SHELGON"
 			],
@@ -4601,6 +6179,10 @@
 			"aliases": [
 				"SALAMENCE"
 			],
+			"dzName": "Salamence",
+			"atk": 277,
+			"def": 168,
+			"sta": 216,
 			"gsName": [
 				"SALAMENCE"
 			],
@@ -4612,6 +6194,10 @@
 			"aliases": [
 				"BELDUM"
 			],
+			"dzName": "Beldum",
+			"atk": 96,
+			"def": 132,
+			"sta": 120,
 			"gsName": [
 				"BELDUM"
 			],
@@ -4623,6 +6209,10 @@
 			"aliases": [
 				"METANG"
 			],
+			"dzName": "Metang",
+			"atk": 138,
+			"def": 176,
+			"sta": 155,
 			"gsName": [
 				"METANG"
 			],
@@ -4634,6 +6224,10 @@
 			"aliases": [
 				"METAGROSS"
 			],
+			"dzName": "Metagross",
+			"atk": 257,
+			"def": 228,
+			"sta": 190,
 			"gsName": [
 				"METAGROSS"
 			],
@@ -4645,6 +6239,10 @@
 			"aliases": [
 				"REGIROCK"
 			],
+			"dzName": "Regirock",
+			"atk": 179,
+			"def": 309,
+			"sta": 190,
 			"gsName": [
 				"REGIROCK"
 			],
@@ -4656,6 +6254,10 @@
 			"aliases": [
 				"REGICE"
 			],
+			"dzName": "Regice",
+			"atk": 179,
+			"def": 309,
+			"sta": 190,
 			"gsName": [
 				"REGICE"
 			],
@@ -4667,6 +6269,10 @@
 			"aliases": [
 				"REGISTEEL"
 			],
+			"dzName": "Registeel",
+			"atk": 143,
+			"def": 285,
+			"sta": 190,
 			"gsName": [
 				"REGISTEEL"
 			],
@@ -4678,6 +6284,10 @@
 			"aliases": [
 				"LATIAS"
 			],
+			"dzName": "Latias",
+			"atk": 228,
+			"def": 246,
+			"sta": 190,
 			"gsName": [
 				"LATIAS"
 			],
@@ -4689,6 +6299,10 @@
 			"aliases": [
 				"LATIOS"
 			],
+			"dzName": "Latios",
+			"atk": 268,
+			"def": 212,
+			"sta": 190,
 			"gsName": [
 				"LATIOS"
 			],
@@ -4700,6 +6314,10 @@
 			"aliases": [
 				"KYOGRE"
 			],
+			"dzName": "Kyogre",
+			"atk": 270,
+			"def": 228,
+			"sta": 205,
 			"gsName": [
 				"KYOGRE"
 			],
@@ -4712,6 +6330,10 @@
 				"GROUDON",
 				"GROUPON"
 			],
+			"dzName": "Groudon",
+			"atk": 270,
+			"def": 228,
+			"sta": 205,
 			"gsName": [
 				"GROUDON"
 			],
@@ -4723,6 +6345,10 @@
 			"aliases": [
 				"RAYQUAZA"
 			],
+			"dzName": "Rayquaza",
+			"atk": 284,
+			"def": 170,
+			"sta": 213,
 			"gsName": [
 				"RAYQUAZA"
 			],
@@ -4734,6 +6360,10 @@
 			"aliases": [
 				"JIRACHI"
 			],
+			"dzName": "Jirachi",
+			"atk": 210,
+			"def": 210,
+			"sta": 225,
 			"gsName": [
 				"JIRACHI"
 			],
@@ -4749,6 +6379,10 @@
 				"DEOXYS NORMAL",
 				"DEOXYS NORMAL FORM"
 			],
+			"dzName": "Deoxys-normal",
+			"atk": 345,
+			"def": 115,
+			"sta": 137,
 			"gsName": [
 				"DEOXYS"
 			],
@@ -4763,6 +6397,10 @@
 				"DEOXYS ATTACK",
 				"DEOXYS ATTACK FORM"
 			],
+			"dzName": "Deoxys-attack",
+			"atk": 414,
+			"def": 46,
+			"sta": 137,
 			"gsName": [
 				"ATTACK DEOXYS",
 				"DEOXYS ATTACK",
@@ -4779,6 +6417,10 @@
 				"DEOXYS DEFENSE",
 				"DEOXYS DEFENSE FORM"
 			],
+			"dzName": "Deoxys-defense",
+			"atk": 144,
+			"def": 330,
+			"sta": 137,
 			"gsName": [
 				"DEFENSE DEOXYS",
 				"DEOXYS DEFENSE",
@@ -4795,6 +6437,10 @@
 				"DEOXYS SPEED",
 				"DEOXYS SPEED FORM"
 			],
+			"dzName": "Deoxys-speed",
+			"atk": 230,
+			"def": 218,
+			"sta": 137,
 			"gsName": [
 				"SPEED DEOXYS",
 				"DEOXYS SPEED",
@@ -4808,6 +6454,10 @@
 			"aliases": [
 				"TURTWIG"
 			],
+			"dzName": "Turtwig",
+			"atk": 119,
+			"def": 110,
+			"sta": 146,
 			"gsName": [
 				"TURTWIG"
 			],
@@ -4819,6 +6469,10 @@
 			"aliases": [
 				"GROTLE"
 			],
+			"dzName": "Grotle",
+			"atk": 157,
+			"def": 143,
+			"sta": 181,
 			"gsName": [
 				"GROTLE"
 			],
@@ -4830,6 +6484,10 @@
 			"aliases": [
 				"TORTERRA"
 			],
+			"dzName": "Torterra",
+			"atk": 202,
+			"def": 188,
+			"sta": 216,
 			"gsName": [
 				"TORTERRA"
 			],
@@ -4841,6 +6499,10 @@
 			"aliases": [
 				"CHIMCHAR"
 			],
+			"dzName": "Chimchar",
+			"atk": 113,
+			"def": 86,
+			"sta": 127,
 			"gsName": [
 				"CHIMCHAR"
 			],
@@ -4852,6 +6514,10 @@
 			"aliases": [
 				"MONFERNO"
 			],
+			"dzName": "Monferno",
+			"atk": 158,
+			"def": 105,
+			"sta": 162,
 			"gsName": [
 				"MONFERNO"
 			],
@@ -4863,6 +6529,10 @@
 			"aliases": [
 				"INFERNAPE"
 			],
+			"dzName": "Infernape",
+			"atk": 222,
+			"def": 151,
+			"sta": 183,
 			"gsName": [
 				"INFERNAPE"
 			],
@@ -4874,6 +6544,10 @@
 			"aliases": [
 				"PIPLUP"
 			],
+			"dzName": "Piplup",
+			"atk": 112,
+			"def": 102,
+			"sta": 142,
 			"gsName": [
 				"PIPLUP"
 			],
@@ -4885,6 +6559,10 @@
 			"aliases": [
 				"PRINPLUP"
 			],
+			"dzName": "Prinplup",
+			"atk": 150,
+			"def": 139,
+			"sta": 162,
 			"gsName": [
 				"PRINPLUP"
 			],
@@ -4896,6 +6574,10 @@
 			"aliases": [
 				"EMPOLEON"
 			],
+			"dzName": "Empoleon",
+			"atk": 210,
+			"def": 186,
+			"sta": 197,
 			"gsName": [
 				"EMPOLEON"
 			],
@@ -4907,6 +6589,10 @@
 			"aliases": [
 				"STARLY"
 			],
+			"dzName": "Starly",
+			"atk": 101,
+			"def": 58,
+			"sta": 120,
 			"gsName": [
 				"STARLY"
 			],
@@ -4918,6 +6604,10 @@
 			"aliases": [
 				"STARAVIA"
 			],
+			"dzName": "Staravia",
+			"atk": 142,
+			"def": 94,
+			"sta": 146,
 			"gsName": [
 				"STARAVIA"
 			],
@@ -4929,6 +6619,10 @@
 			"aliases": [
 				"STARAPTOR"
 			],
+			"dzName": "Staraptor",
+			"atk": 234,
+			"def": 140,
+			"sta": 198,
 			"gsName": [
 				"STARAPTOR"
 			],
@@ -4940,6 +6634,10 @@
 			"aliases": [
 				"BIDOOF"
 			],
+			"dzName": "Bidoof",
+			"atk": 80,
+			"def": 73,
+			"sta": 153,
 			"gsName": [
 				"BIDOOF"
 			],
@@ -4951,6 +6649,10 @@
 			"aliases": [
 				"BIBAREL"
 			],
+			"dzName": "Bibarel",
+			"atk": 162,
+			"def": 119,
+			"sta": 188,
 			"gsName": [
 				"BIBAREL"
 			],
@@ -4962,6 +6664,10 @@
 			"aliases": [
 				"KRICKETOT"
 			],
+			"dzName": "Kricketot",
+			"atk": 45,
+			"def": 74,
+			"sta": 114,
 			"gsName": [
 				"KRICKETOT"
 			],
@@ -4973,6 +6679,10 @@
 			"aliases": [
 				"KRICKETUNE"
 			],
+			"dzName": "Kricketune",
+			"atk": 160,
+			"def": 100,
+			"sta": 184,
 			"gsName": [
 				"KRICKETUNE"
 			],
@@ -4984,6 +6694,10 @@
 			"aliases": [
 				"SHINX"
 			],
+			"dzName": "Shinx",
+			"atk": 117,
+			"def": 64,
+			"sta": 128,
 			"gsName": [
 				"SHINX"
 			],
@@ -4995,6 +6709,10 @@
 			"aliases": [
 				"LUXIO"
 			],
+			"dzName": "Luxio",
+			"atk": 159,
+			"def": 95,
+			"sta": 155,
 			"gsName": [
 				"LUXIO"
 			],
@@ -5006,6 +6724,10 @@
 			"aliases": [
 				"LUXRAY"
 			],
+			"dzName": "Luxray",
+			"atk": 232,
+			"def": 156,
+			"sta": 190,
 			"gsName": [
 				"LUXRAY"
 			],
@@ -5017,6 +6739,10 @@
 			"aliases": [
 				"BUDEW"
 			],
+			"dzName": "Budew",
+			"atk": 91,
+			"def": 109,
+			"sta": 120,
 			"gsName": [
 				"BUDEW"
 			],
@@ -5028,6 +6754,10 @@
 			"aliases": [
 				"ROSERADE"
 			],
+			"dzName": "Roserade",
+			"atk": 243,
+			"def": 185,
+			"sta": 155,
 			"gsName": [
 				"ROSERADE"
 			],
@@ -5039,6 +6769,10 @@
 			"aliases": [
 				"CRANIDOS"
 			],
+			"dzName": "Cranidos",
+			"atk": 218,
+			"def": 71,
+			"sta": 167,
 			"gsName": [
 				"CRANIDOS"
 			],
@@ -5050,6 +6784,10 @@
 			"aliases": [
 				"RAMPARDOS"
 			],
+			"dzName": "Rampardos",
+			"atk": 295,
+			"def": 109,
+			"sta": 219,
 			"gsName": [
 				"RAMPARDOS"
 			],
@@ -5061,6 +6799,10 @@
 			"aliases": [
 				"SHIELDON"
 			],
+			"dzName": "Shieldon",
+			"atk": 76,
+			"def": 195,
+			"sta": 102,
 			"gsName": [
 				"SHIELDON"
 			],
@@ -5072,6 +6814,10 @@
 			"aliases": [
 				"BASTIODON"
 			],
+			"dzName": "Bastiodon",
+			"atk": 94,
+			"def": 286,
+			"sta": 155,
 			"gsName": [
 				"BASTIODON"
 			],
@@ -5086,6 +6832,10 @@
 				"BURMY PLANT",
 				"BURMY PLANT FORM"
 			],
+			"dzName": "Burmy-plant",
+			"atk": 53,
+			"def": 83,
+			"sta": 120,
 			"gsName": [
 				"PLANT BURMY",
 				"BURMY PLANT",
@@ -5102,6 +6852,10 @@
 				"BURMY SANDY",
 				"BURMY SANDY FORM"
 			],
+			"dzName": "Burmy-sandy",
+			"atk": 53,
+			"def": 83,
+			"sta": 120,
 			"gsName": [
 				"SANDY BURMY",
 				"BURMY SANDY",
@@ -5118,6 +6872,10 @@
 				"BURMY TRASH",
 				"BURMY TRASH FORM"
 			],
+			"dzName": "Burmy-trash",
+			"atk": 53,
+			"def": 83,
+			"sta": 120,
 			"gsName": [
 				"TRASH BURMY",
 				"BURMY TRASH",
@@ -5134,6 +6892,10 @@
 				"WORMADAM PLANT",
 				"WORMADAM PLANT FORM"
 			],
+			"dzName": "Wormadam-plant",
+			"atk": 141,
+			"def": 180,
+			"sta": 155,
 			"gsName": [
 				"PLANT WORMADAM",
 				"WORMADAM PLANT",
@@ -5150,6 +6912,10 @@
 				"WORMADAM SANDY",
 				"WORMADAM SANDY FORM"
 			],
+			"dzName": "Wormadam-sandy",
+			"atk": 141,
+			"def": 180,
+			"sta": 155,
 			"gsName": [
 				"SANDY WORMADAM",
 				"WORMADAM SANDY",
@@ -5166,6 +6932,10 @@
 				"WORMADAM TRASH",
 				"WORMADAM TRASH FORM"
 			],
+			"dzName": "Wormadam-trash",
+			"atk": 127,
+			"def": 175,
+			"sta": 155,
 			"gsName": [
 				"TRASH WORMADAM",
 				"WORMADAM TRASH",
@@ -5179,6 +6949,10 @@
 			"aliases": [
 				"MOTHIM"
 			],
+			"dzName": "Mothim",
+			"atk": 185,
+			"def": 98,
+			"sta": 172,
 			"gsName": [
 				"MOTHIM"
 			],
@@ -5190,6 +6964,10 @@
 			"aliases": [
 				"COMBEE"
 			],
+			"dzName": "Combee",
+			"atk": 59,
+			"def": 83,
+			"sta": 102,
 			"gsName": [
 				"COMBEE"
 			],
@@ -5201,6 +6979,10 @@
 			"aliases": [
 				"VESPIQUEN"
 			],
+			"dzName": "Vespiquen",
+			"atk": 149,
+			"def": 190,
+			"sta": 172,
 			"gsName": [
 				"VESPIQUEN"
 			],
@@ -5212,6 +6994,10 @@
 			"aliases": [
 				"PACHIRISU"
 			],
+			"dzName": "Pachirisu",
+			"atk": 94,
+			"def": 172,
+			"sta": 155,
 			"gsName": [
 				"PACHIRISU"
 			],
@@ -5223,6 +7009,10 @@
 			"aliases": [
 				"BUIZEL"
 			],
+			"dzName": "Buizel",
+			"atk": 132,
+			"def": 67,
+			"sta": 146,
 			"gsName": [
 				"BUIZEL"
 			],
@@ -5234,6 +7024,10 @@
 			"aliases": [
 				"FLOATZEL"
 			],
+			"dzName": "Floatzel",
+			"atk": 221,
+			"def": 114,
+			"sta": 198,
 			"gsName": [
 				"FLOATZEL"
 			],
@@ -5245,6 +7039,10 @@
 			"aliases": [
 				"CHERUBI"
 			],
+			"dzName": "Cherubi",
+			"atk": 108,
+			"def": 92,
+			"sta": 128,
 			"gsName": [
 				"CHERUBI"
 			],
@@ -5262,6 +7060,10 @@
 				"CHERRIM SUNNY",
 				"CHERRIM SUNNY FORM"
 			],
+			"dzName": "Cherrim",
+			"atk": 170,
+			"def": 153,
+			"sta": 172,
 			"gsName": [
 				"CHERRIM"
 			],
@@ -5281,6 +7083,10 @@
 				"SHELLOS EAST",
 				"SHELLOS EAST SEA"
 			],
+			"dzName": "Shellos",
+			"atk": 103,
+			"def": 105,
+			"sta": 183,
 			"gsName": [
 				"SHELLOS"
 			],
@@ -5300,6 +7106,10 @@
 				"GASTRODON EAST",
 				"GASTRODON EAST SEA"
 			],
+			"dzName": "Gastrodon",
+			"atk": 169,
+			"def": 143,
+			"sta": 244,
 			"gsName": [
 				"GASTRODON"
 			],
@@ -5311,6 +7121,10 @@
 			"aliases": [
 				"AMBIPOM"
 			],
+			"dzName": "Ambipom",
+			"atk": 205,
+			"def": 143,
+			"sta": 181,
 			"gsName": [
 				"AMBIPOM"
 			],
@@ -5322,6 +7136,10 @@
 			"aliases": [
 				"DRIFLOON"
 			],
+			"dzName": "Drifloon",
+			"atk": 117,
+			"def": 80,
+			"sta": 207,
 			"gsName": [
 				"DRIFLOON"
 			],
@@ -5333,6 +7151,10 @@
 			"aliases": [
 				"DRIFBLIM"
 			],
+			"dzName": "Drifblim",
+			"atk": 180,
+			"def": 102,
+			"sta": 312,
 			"gsName": [
 				"DRIFBLIM"
 			],
@@ -5344,6 +7166,10 @@
 			"aliases": [
 				"BUNEARY"
 			],
+			"dzName": "Buneary",
+			"atk": 130,
+			"def": 105,
+			"sta": 146,
 			"gsName": [
 				"BUNEARY"
 			],
@@ -5355,6 +7181,10 @@
 			"aliases": [
 				"LOPUNNY"
 			],
+			"dzName": "Lopunny",
+			"atk": 156,
+			"def": 194,
+			"sta": 163,
 			"gsName": [
 				"LOPUNNY"
 			],
@@ -5366,6 +7196,10 @@
 			"aliases": [
 				"MISMAGIUS"
 			],
+			"dzName": "Mismagius",
+			"atk": 211,
+			"def": 187,
+			"sta": 155,
 			"gsName": [
 				"MISMAGIUS"
 			],
@@ -5377,6 +7211,10 @@
 			"aliases": [
 				"HONCHKROW"
 			],
+			"dzName": "Honchkrow",
+			"atk": 243,
+			"def": 103,
+			"sta": 225,
 			"gsName": [
 				"HONCHKROW"
 			],
@@ -5388,6 +7226,10 @@
 			"aliases": [
 				"GLAMEOW"
 			],
+			"dzName": "Glameow",
+			"atk": 109,
+			"def": 82,
+			"sta": 135,
 			"gsName": [
 				"GLAMEOW"
 			],
@@ -5399,6 +7241,10 @@
 			"aliases": [
 				"PURUGLY"
 			],
+			"dzName": "Purugly",
+			"atk": 172,
+			"def": 133,
+			"sta": 174,
 			"gsName": [
 				"PURUGLY"
 			],
@@ -5410,6 +7256,10 @@
 			"aliases": [
 				"CHINGLING"
 			],
+			"dzName": "Chingling",
+			"atk": 114,
+			"def": 94,
+			"sta": 128,
 			"gsName": [
 				"CHINGLING"
 			],
@@ -5421,6 +7271,10 @@
 			"aliases": [
 				"STUNKY"
 			],
+			"dzName": "Stunky",
+			"atk": 121,
+			"def": 90,
+			"sta": 160,
 			"gsName": [
 				"STUNKY"
 			],
@@ -5432,6 +7286,10 @@
 			"aliases": [
 				"SKUNTANK"
 			],
+			"dzName": "Skuntank",
+			"atk": 184,
+			"def": 132,
+			"sta": 230,
 			"gsName": [
 				"SKUNTANK"
 			],
@@ -5443,6 +7301,10 @@
 			"aliases": [
 				"BRONZOR"
 			],
+			"dzName": "Bronzor",
+			"atk": 43,
+			"def": 154,
+			"sta": 149,
 			"gsName": [
 				"BRONZOR"
 			],
@@ -5454,6 +7316,10 @@
 			"aliases": [
 				"BRONZONG"
 			],
+			"dzName": "Bronzong",
+			"atk": 161,
+			"def": 213,
+			"sta": 167,
 			"gsName": [
 				"BRONZONG"
 			],
@@ -5465,6 +7331,10 @@
 			"aliases": [
 				"BONSLY"
 			],
+			"dzName": "Bonsly",
+			"atk": 124,
+			"def": 133,
+			"sta": 137,
 			"gsName": [
 				"BONSLY"
 			],
@@ -5480,6 +7350,10 @@
 				"MIME JUNIOR",
 				"MIMEJR"
 			],
+			"dzName": "Mime-jr",
+			"atk": 125,
+			"def": 142,
+			"sta": 85,
 			"gsName": [
 				"MIME_JR"
 			],
@@ -5491,6 +7365,10 @@
 			"aliases": [
 				"HAPPINY"
 			],
+			"dzName": "Happiny",
+			"atk": 25,
+			"def": 77,
+			"sta": 225,
 			"gsName": [
 				"HAPPINY"
 			],
@@ -5502,6 +7380,10 @@
 			"aliases": [
 				"CHATOT"
 			],
+			"dzName": "Chatot",
+			"atk": 183,
+			"def": 91,
+			"sta": 183,
 			"gsName": [
 				"CHATOT"
 			],
@@ -5513,6 +7395,10 @@
 			"aliases": [
 				"SPIRITOMB"
 			],
+			"dzName": "Spiritomb",
+			"atk": 169,
+			"def": 199,
+			"sta": 137,
 			"gsName": [
 				"SPIRITOMB"
 			],
@@ -5524,6 +7410,10 @@
 			"aliases": [
 				"GIBLE"
 			],
+			"dzName": "Gible",
+			"atk": 124,
+			"def": 84,
+			"sta": 151,
 			"gsName": [
 				"GIBLE"
 			],
@@ -5535,6 +7425,10 @@
 			"aliases": [
 				"GABITE"
 			],
+			"dzName": "Gabite",
+			"atk": 172,
+			"def": 125,
+			"sta": 169,
 			"gsName": [
 				"GABITE"
 			],
@@ -5546,6 +7440,10 @@
 			"aliases": [
 				"GARCHOMP"
 			],
+			"dzName": "Garchomp",
+			"atk": 261,
+			"def": 193,
+			"sta": 239,
 			"gsName": [
 				"GARCHOMP"
 			],
@@ -5557,6 +7455,10 @@
 			"aliases": [
 				"MUNCHLAX"
 			],
+			"dzName": "Munchlax",
+			"atk": 137,
+			"def": 117,
+			"sta": 286,
 			"gsName": [
 				"MUNCHLAX"
 			],
@@ -5568,6 +7470,10 @@
 			"aliases": [
 				"RIOLU"
 			],
+			"dzName": "Riolu",
+			"atk": 127,
+			"def": 78,
+			"sta": 120,
 			"gsName": [
 				"RIOLU"
 			],
@@ -5579,6 +7485,10 @@
 			"aliases": [
 				"LUCARIO"
 			],
+			"dzName": "Lucario",
+			"atk": 236,
+			"def": 144,
+			"sta": 172,
 			"gsName": [
 				"LUCARIO"
 			],
@@ -5590,6 +7500,10 @@
 			"aliases": [
 				"HIPPOPOTAS"
 			],
+			"dzName": "Hippopotas",
+			"atk": 124,
+			"def": 118,
+			"sta": 169,
 			"gsName": [
 				"HIPPOPOTAS"
 			],
@@ -5601,6 +7515,10 @@
 			"aliases": [
 				"HIPPOWDON"
 			],
+			"dzName": "Hippowdon",
+			"atk": 201,
+			"def": 191,
+			"sta": 239,
 			"gsName": [
 				"HIPPOWDON"
 			],
@@ -5612,6 +7530,10 @@
 			"aliases": [
 				"SKORUPI"
 			],
+			"dzName": "Skorupi",
+			"atk": 93,
+			"def": 151,
+			"sta": 120,
 			"gsName": [
 				"SKORUPI"
 			],
@@ -5623,6 +7545,10 @@
 			"aliases": [
 				"DRAPION"
 			],
+			"dzName": "Drapion",
+			"atk": 180,
+			"def": 202,
+			"sta": 172,
 			"gsName": [
 				"DRAPION"
 			],
@@ -5634,6 +7560,10 @@
 			"aliases": [
 				"CROAGUNK"
 			],
+			"dzName": "Croagunk",
+			"atk": 116,
+			"def": 76,
+			"sta": 134,
 			"gsName": [
 				"CROAGUNK"
 			],
@@ -5645,6 +7575,10 @@
 			"aliases": [
 				"TOXICROAK"
 			],
+			"dzName": "Toxicroak",
+			"atk": 211,
+			"def": 133,
+			"sta": 195,
 			"gsName": [
 				"TOXICROAK"
 			],
@@ -5656,6 +7590,10 @@
 			"aliases": [
 				"CARNIVINE"
 			],
+			"dzName": "Carnivine",
+			"atk": 187,
+			"def": 136,
+			"sta": 179,
 			"gsName": [
 				"CARNIVINE"
 			],
@@ -5667,6 +7605,10 @@
 			"aliases": [
 				"FINNEON"
 			],
+			"dzName": "Finneon",
+			"atk": 96,
+			"def": 116,
+			"sta": 135,
 			"gsName": [
 				"FINNEON"
 			],
@@ -5678,6 +7620,10 @@
 			"aliases": [
 				"LUMINEON"
 			],
+			"dzName": "Lumineon",
+			"atk": 142,
+			"def": 170,
+			"sta": 170,
 			"gsName": [
 				"LUMINEON"
 			],
@@ -5689,6 +7635,10 @@
 			"aliases": [
 				"MANTYKE"
 			],
+			"dzName": "Mantyke",
+			"atk": 105,
+			"def": 179,
+			"sta": 128,
 			"gsName": [
 				"MANTYKE"
 			],
@@ -5700,6 +7650,10 @@
 			"aliases": [
 				"SNOVER"
 			],
+			"dzName": "Snover",
+			"atk": 115,
+			"def": 105,
+			"sta": 155,
 			"gsName": [
 				"SNOVER"
 			],
@@ -5711,6 +7665,10 @@
 			"aliases": [
 				"ABOMASNOW"
 			],
+			"dzName": "Abomasnow",
+			"atk": 178,
+			"def": 158,
+			"sta": 207,
 			"gsName": [
 				"ABOMASNOW"
 			],
@@ -5722,6 +7680,10 @@
 			"aliases": [
 				"WEAVILE"
 			],
+			"dzName": "Weavile",
+			"atk": 243,
+			"def": 171,
+			"sta": 172,
 			"gsName": [
 				"WEAVILE"
 			],
@@ -5733,6 +7695,10 @@
 			"aliases": [
 				"MAGNEZONE"
 			],
+			"dzName": "Magnezone",
+			"atk": 238,
+			"def": 205,
+			"sta": 172,
 			"gsName": [
 				"MAGNEZONE"
 			],
@@ -5744,6 +7710,10 @@
 			"aliases": [
 				"LICKILICKY"
 			],
+			"dzName": "Lickilicky",
+			"atk": 161,
+			"def": 181,
+			"sta": 242,
 			"gsName": [
 				"LICKILICKY"
 			],
@@ -5755,6 +7725,10 @@
 			"aliases": [
 				"RHYPERIOR"
 			],
+			"dzName": "Rhyperior",
+			"atk": 241,
+			"def": 190,
+			"sta": 251,
 			"gsName": [
 				"RHYPERIOR"
 			],
@@ -5766,6 +7740,10 @@
 			"aliases": [
 				"TANGROWTH"
 			],
+			"dzName": "Tangrowth",
+			"atk": 207,
+			"def": 184,
+			"sta": 225,
 			"gsName": [
 				"TANGROWTH"
 			],
@@ -5777,6 +7755,10 @@
 			"aliases": [
 				"ELECTIVIRE"
 			],
+			"dzName": "Electivire",
+			"atk": 249,
+			"def": 163,
+			"sta": 181,
 			"gsName": [
 				"ELECTIVIRE"
 			],
@@ -5788,6 +7770,10 @@
 			"aliases": [
 				"MAGMORTAR"
 			],
+			"dzName": "Magmortar",
+			"atk": 247,
+			"def": 172,
+			"sta": 181,
 			"gsName": [
 				"MAGMORTAR"
 			],
@@ -5799,6 +7785,10 @@
 			"aliases": [
 				"TOGEKISS"
 			],
+			"dzName": "Togekiss",
+			"atk": 225,
+			"def": 217,
+			"sta": 198,
 			"gsName": [
 				"TOGEKISS"
 			],
@@ -5810,6 +7800,10 @@
 			"aliases": [
 				"YANMEGA"
 			],
+			"dzName": "Yanmega",
+			"atk": 231,
+			"def": 156,
+			"sta": 200,
 			"gsName": [
 				"YANMEGA"
 			],
@@ -5821,6 +7815,10 @@
 			"aliases": [
 				"LEAFEON"
 			],
+			"dzName": "Leafeon",
+			"atk": 216,
+			"def": 219,
+			"sta": 163,
 			"gsName": [
 				"LEAFEON"
 			],
@@ -5832,6 +7830,10 @@
 			"aliases": [
 				"GLACEON"
 			],
+			"dzName": "Glaceon",
+			"atk": 238,
+			"def": 205,
+			"sta": 163,
 			"gsName": [
 				"GLACEON"
 			],
@@ -5843,6 +7845,10 @@
 			"aliases": [
 				"GLISCOR"
 			],
+			"dzName": "Gliscor",
+			"atk": 185,
+			"def": 222,
+			"sta": 181,
 			"gsName": [
 				"GLISCOR"
 			],
@@ -5854,6 +7860,10 @@
 			"aliases": [
 				"MAMOSWINE"
 			],
+			"dzName": "Mamoswine",
+			"atk": 247,
+			"def": 146,
+			"sta": 242,
 			"gsName": [
 				"MAMOSWINE"
 			],
@@ -5867,6 +7877,10 @@
 				"PORYGONZ",
 				"PORYGON Z"
 			],
+			"dzName": "Porygon-z",
+			"atk": 264,
+			"def": 150,
+			"sta": 198,
 			"gsName": [
 				"PORYGON_Z"
 			],
@@ -5878,6 +7892,10 @@
 			"aliases": [
 				"GALLADE"
 			],
+			"dzName": "Gallade",
+			"atk": 237,
+			"def": 195,
+			"sta": 169,
 			"gsName": [
 				"GALLADE"
 			],
@@ -5889,6 +7907,10 @@
 			"aliases": [
 				"PROBOPASS"
 			],
+			"dzName": "Probopass",
+			"atk": 135,
+			"def": 275,
+			"sta": 155,
 			"gsName": [
 				"PROBOPASS"
 			],
@@ -5900,6 +7922,10 @@
 			"aliases": [
 				"DUSKNOIR"
 			],
+			"dzName": "Dusknoir",
+			"atk": 180,
+			"def": 254,
+			"sta": 128,
 			"gsName": [
 				"DUSKNOIR"
 			],
@@ -5911,6 +7937,10 @@
 			"aliases": [
 				"FROSLASS"
 			],
+			"dzName": "Froslass",
+			"atk": 171,
+			"def": 150,
+			"sta": 172,
 			"gsName": [
 				"FROSLASS"
 			],
@@ -5926,6 +7956,10 @@
 				"ROTOM NORMAL",
 				"ROTOM NORTMAL FORM"
 			],
+			"dzName": "Rotom",
+			"atk": 185,
+			"def": 159,
+			"sta": 137,
 			"gsName": [
 				"ROTOM"
 			],
@@ -5940,6 +7974,10 @@
 				"ROTOM FAN",
 				"ROTOM FAN FORM"
 			],
+			"dzName": "Rotom-fan",
+			"atk": 204,
+			"def": 219,
+			"sta": 137,
 			"gsName": [
 				"FAN ROTOM",
 				"ROTOM FAN",
@@ -5956,6 +7994,10 @@
 				"ROTOM FROST",
 				"ROTOM FROST FORM"
 			],
+			"dzName": "Rotom-frost",
+			"atk": 204,
+			"def": 219,
+			"sta": 137,
 			"gsName": [
 				"FROST ROTOM",
 				"ROTOM FROST",
@@ -5972,6 +8014,10 @@
 				"ROTOM HEAT",
 				"ROTOM HEAT FORM"
 			],
+			"dzName": "Rotom-heat",
+			"atk": 204,
+			"def": 219,
+			"sta": 137,
 			"gsName": [
 				"HEAT ROTOM",
 				"ROTOM HEAT",
@@ -5988,6 +8034,10 @@
 				"ROTOM MOW",
 				"ROTOM MOW FORM"
 			],
+			"dzName": "Rotom-mow",
+			"atk": 204,
+			"def": 219,
+			"sta": 137,
 			"gsName": [
 				"MOW ROTOM",
 				"ROTOM MOW",
@@ -6004,6 +8054,10 @@
 				"ROTOM WASH",
 				"ROTOM WASH FORM"
 			],
+			"dzName": "Rotom-wash",
+			"atk": 204,
+			"def": 219,
+			"sta": 137,
 			"gsName": [
 				"WASH ROTOM",
 				"ROTOM WASH",
@@ -6017,6 +8071,10 @@
 			"aliases": [
 				"UXIE"
 			],
+			"dzName": "Uxie",
+			"atk": 156,
+			"def": 270,
+			"sta": 181,
 			"gsName": [
 				"UXIE"
 			],
@@ -6028,6 +8086,10 @@
 			"aliases": [
 				"MESPRIT"
 			],
+			"dzName": "Mesprit",
+			"atk": 212,
+			"def": 212,
+			"sta": 190,
 			"gsName": [
 				"MESPRIT"
 			],
@@ -6039,6 +8101,10 @@
 			"aliases": [
 				"AZELF"
 			],
+			"dzName": "Azelf",
+			"atk": 270,
+			"def": 151,
+			"sta": 181,
 			"gsName": [
 				"AZELF"
 			],
@@ -6050,6 +8116,10 @@
 			"aliases": [
 				"DIALGA"
 			],
+			"dzName": "Dialga",
+			"atk": 275,
+			"def": 211,
+			"sta": 205,
 			"gsName": [
 				"DIALGA"
 			],
@@ -6061,6 +8131,10 @@
 			"aliases": [
 				"PALKIA"
 			],
+			"dzName": "Palkia",
+			"atk": 280,
+			"def": 215,
+			"sta": 189,
 			"gsName": [
 				"PALKIA"
 			],
@@ -6072,6 +8146,10 @@
 			"aliases": [
 				"HEATRAN"
 			],
+			"dzName": "Heatran",
+			"atk": 251,
+			"def": 213,
+			"sta": 209,
 			"gsName": [
 				"HEATRAN"
 			],
@@ -6083,6 +8161,10 @@
 			"aliases": [
 				"REGIGIGAS"
 			],
+			"dzName": "Regigigas",
+			"atk": 287,
+			"def": 210,
+			"sta": 221,
 			"gsName": [
 				"REGIGIGAS"
 			],
@@ -6098,6 +8180,10 @@
 				"GIRATINA ALTERED",
 				"GIRATINA ALTERED FORM"
 			],
+			"dzName": "Giratina-altered",
+			"atk": 187,
+			"def": 225,
+			"sta": 284,
 			"gsName": [
 				"GIRATINA",
 				"GIRATINA ALTERED",
@@ -6114,6 +8200,10 @@
 				"GIRATINA ORIGIN",
 				"GIRATINA ORIGIN FORM"
 			],
+			"dzName": "Giratina-origin",
+			"atk": 225,
+			"def": 187,
+			"sta": 284,
 			"gsName": [
 				"ORIGIN GIRATINA",
 				"GIRATINA ORIGIN",
@@ -6132,6 +8222,10 @@
 				"CRESCENT",
 				"CROISSANT"
 			],
+			"dzName": "Cresselia",
+			"atk": 152,
+			"def": 258,
+			"sta": 260,
 			"gsName": [
 				"CRESSELIA"
 			],
@@ -6143,6 +8237,10 @@
 			"aliases": [
 				"PHIONE"
 			],
+			"dzName": "Phione",
+			"atk": 162,
+			"def": 162,
+			"sta": 190,
 			"gsName": [
 				"PHIONE"
 			],
@@ -6154,6 +8252,10 @@
 			"aliases": [
 				"MANAPHY"
 			],
+			"dzName": "Manaphy",
+			"atk": 210,
+			"def": 210,
+			"sta": 225,
 			"gsName": [
 				"MANAPHY"
 			],
@@ -6165,6 +8267,10 @@
 			"aliases": [
 				"DARKRAI"
 			],
+			"dzName": "Darkrai",
+			"atk": 285,
+			"def": 198,
+			"sta": 172,
 			"gsName": [
 				"DARKRAI"
 			],
@@ -6180,8 +8286,15 @@
 				"SHAYMIN LAND",
 				"SHAYMIN LAND FORM"
 			],
+			"dzName": "Shaymin-land",
+			"atk": 210,
+			"def": 210,
+			"sta": 225,
 			"gsName": [
-				"SHAYMIN"			],
+				"SHAYMIN",
+				"SHAYMIN LAND",
+				"SHAYMIN LAND"
+			],
 			"imageURL": "https://cdn.bulbagarden.net/upload/0/05/492Shaymin-Land.png"
 		},
 		{
@@ -6193,6 +8306,10 @@
 				"SHAYMIN SKY",
 				"SHAYMIN SKY FORM"
 			],
+			"dzName": "Shaymin-sky",
+			"atk": 261,
+			"def": 166,
+			"sta": 225,
 			"gsName": [
 				"SKY SHAYMIN",
 				"SHAYMIN SKY",
@@ -6210,7 +8327,13 @@
 				"ARCEUS NORMAL",
 				"ARCEUS NORMAL FORM"
 			],
+			"dzName": "Arceus",
+			"atk": 238,
+			"def": 238,
+			"sta": 237,
 			"gsName": [
+				"ARCEUS NORMAL",
+				"NORMAL ARCEUS",
 				"ARCEUS"
 			],
 			"imageURL": "https://cdn.bulbagarden.net/upload/4/40/493Arceus_Normal_Dream.png"
@@ -6224,6 +8347,10 @@
 				"ARCEUS BUG",
 				"ARCEUS BUG FORM"
 			],
+			"dzName": "Arceus-bug",
+			"atk": 238,
+			"def": 238,
+			"sta": 237,
 			"gsName": [
 				"ARCEUS BUG FORM",
 				"ARCEUS BUG",
@@ -6240,6 +8367,10 @@
 				"ARCEUS DARK",
 				"ARCEUS DARK FORM"
 			],
+			"dzName": "Arceus-dark",
+			"atk": 238,
+			"def": 238,
+			"sta": 237,
 			"gsName": [
 				"ARCEUS DARK FORM",
 				"ARCEUS DARK",
@@ -6256,6 +8387,10 @@
 				"ARCEUS DRAGON",
 				"ARCEUS DRAGON FORM"
 			],
+			"dzName": "Arceus-dragon",
+			"atk": 238,
+			"def": 238,
+			"sta": 237,
 			"gsName": [
 				"ARCEUS DRAGON FORM",
 				"ARCEUS DRAGON",
@@ -6272,6 +8407,10 @@
 				"ARCEUS ELECTRIC",
 				"ARCEUS ELECTRIC FORM"
 			],
+			"dzName": "Arceus-electric",
+			"atk": 238,
+			"def": 238,
+			"sta": 237,
 			"gsName": [
 				"ARCEUS ELECTRIC FORM",
 				"ARCEUS ELECTRIC",
@@ -6288,6 +8427,10 @@
 				"ARCEUS FAIRY",
 				"ARCEUS FAIRY FORM"
 			],
+			"dzName": "Arceus-fairy",
+			"atk": 238,
+			"def": 238,
+			"sta": 237,
 			"gsName": [
 				"ARCEUS FAIRY FORM",
 				"ARCEUS FAIRY",
@@ -6304,6 +8447,10 @@
 				"ARCEUS FIGHTING",
 				"ARCEUS FIGHTING FORM"
 			],
+			"dzName": "Arceus-fighting",
+			"atk": 238,
+			"def": 238,
+			"sta": 237,
 			"gsName": [
 				"ARCEUS FIGHTING FORM",
 				"ARCEUS FIGHTING",
@@ -6320,6 +8467,10 @@
 				"ARCEUS FIRE",
 				"ARCEUS FIRE FORM"
 			],
+			"dzName": "Arceus-fire",
+			"atk": 238,
+			"def": 238,
+			"sta": 237,
 			"gsName": [
 				"ARCEUS FIRE FORM",
 				"ARCEUS FIRE",
@@ -6336,6 +8487,10 @@
 				"ARCEUS FLYING",
 				"ARCEUS FLYING FORM"
 			],
+			"dzName": "Arceus-flying",
+			"atk": 238,
+			"def": 238,
+			"sta": 237,
 			"gsName": [
 				"ARCEUS FLYING FORM",
 				"ARCEUS FLYING",
@@ -6352,6 +8507,10 @@
 				"ARCEUS GHOST",
 				"ARCEUS GHOST FORM"
 			],
+			"dzName": "Arceus-ghost",
+			"atk": 238,
+			"def": 238,
+			"sta": 237,
 			"gsName": [
 				"ARCEUS GHOST FORM",
 				"ARCEUS GHOST",
@@ -6368,6 +8527,10 @@
 				"ARCEUS GRASS",
 				"ARCEUS GRASS FORM"
 			],
+			"dzName": "Arceus-grass",
+			"atk": 238,
+			"def": 238,
+			"sta": 237,
 			"gsName": [
 				"ARCEUS GRASS FORM",
 				"ARCEUS GRASS",
@@ -6384,6 +8547,10 @@
 				"ARCEUS GROUND",
 				"ARCEUS GROUND FORM"
 			],
+			"dzName": "Arceus-ground",
+			"atk": 238,
+			"def": 238,
+			"sta": 237,
 			"gsName": [
 				"ARCEUS GROUND FORM",
 				"ARCEUS GROUND",
@@ -6400,6 +8567,10 @@
 				"ARCEUS ICE",
 				"ARCEUS ICE FORM"
 			],
+			"dzName": "Arceus-ice",
+			"atk": 238,
+			"def": 238,
+			"sta": 237,
 			"gsName": [
 				"ARCEUS ICE FORM",
 				"ARCEUS ICE",
@@ -6416,6 +8587,10 @@
 				"ARCEUS POISON",
 				"ARCEUS POISON FORM"
 			],
+			"dzName": "Arceus-poison",
+			"atk": 238,
+			"def": 238,
+			"sta": 237,
 			"gsName": [
 				"ARCEUS POISON FORM",
 				"ARCEUS POISON",
@@ -6432,6 +8607,10 @@
 				"ARCEUS PSYCHIC",
 				"ARCEUS PSYCHIC FORM"
 			],
+			"dzName": "Arceus-psychic",
+			"atk": 238,
+			"def": 238,
+			"sta": 237,
 			"gsName": [
 				"ARCEUS PSYCHIC FORM",
 				"ARCEUS PSYCHIC",
@@ -6448,6 +8627,10 @@
 				"ARCEUS ROCK",
 				"ARCEUS ROCK FORM"
 			],
+			"dzName": "Arceus-rock",
+			"atk": 238,
+			"def": 238,
+			"sta": 237,
 			"gsName": [
 				"ARCEUS ROCK FORM",
 				"ARCEUS ROCK",
@@ -6464,6 +8647,10 @@
 				"ARCEUS STEEL",
 				"ARCEUS STEEL FORM"
 			],
+			"dzName": "Arceus-steel",
+			"atk": 238,
+			"def": 238,
+			"sta": 237,
 			"gsName": [
 				"ARCEUS STEEL FORM",
 				"ARCEUS STEEL",
@@ -6480,23 +8667,16 @@
 				"ARCEUS WATER",
 				"ARCEUS WATER FORM"
 			],
+			"dzName": "Arceus-water",
+			"atk": 238,
+			"def": 238,
+			"sta": 237,
 			"gsName": [
 				"ARCEUS WATER FORM",
 				"ARCEUS WATER",
 				"ARCEUS"
 			],
 			"imageURL": "https://cdn.bulbagarden.net/upload/8/8a/493Arceus_Water_Dream.png"
-		},
-		{
-			"number": 494,
-			"pbName": "VICTINI",
-			"aliases": [
-				"VICTINI"
-			],
-			"gsName": [
-				"VICTINI"
-			],
-			"imageURL": "https://cdn.bulbagarden.net/upload/6/60/494Victini.png"
 		}
 	],
 	"tier": [
@@ -6510,7 +8690,7 @@
 				"TIER1",
 				"TIER 1",
 				"ONE"
-			],
+			]
 		},
 		{
 			"pbName": "2",
@@ -6522,7 +8702,7 @@
 				"TIER2",
 				"TIER 2",
 				"TWO"
-			],
+			]
 		},
 		{
 			"pbName": "3",
@@ -6534,7 +8714,7 @@
 				"TIER3",
 				"TIER 3",
 				"THREE"
-			],
+			]
 		},
 		{
 			"pbName": "4",
@@ -6546,7 +8726,7 @@
 				"TIER4",
 				"TIER 4",
 				"FOUR"
-			],
+			]
 		},
 		{
 			"pbName": "5",
@@ -6558,7 +8738,7 @@
 				"TIER5",
 				"TIER 5",
 				"FIVE"
-			],
+			]
 		},
 		{
 			"pbName": "6",
@@ -6571,7 +8751,7 @@
 				"TIER 6",
 				"SIX",
 				"MEWTWO"
-			],
+			]
 		}
 	],
 	"level": [
@@ -6589,7 +8769,7 @@
 				"L20",
 				"L 20"
 			],
-			"type": "byLevel",
+			"type": "byLevel"
 		},
 		{
 			"pbName": "25",
@@ -6603,7 +8783,7 @@
 				"L25",
 				"L 25"
 			],
-			"type": "byLevel",
+			"type": "byLevel"
 		},
 		{
 			"pbName": "30",
@@ -6616,7 +8796,7 @@
 				"L30",
 				"L 30"
 			],
-			"type": "byLevel",
+			"type": "byLevel"
 		},
 		{
 			"pbName": "35",
@@ -6632,7 +8812,7 @@
 				"L35",
 				"L 35"
 			],
-			"type": "byLevel",
+			"type": "byLevel"
 		},
 		{
 			"pbName": "40",
@@ -6648,7 +8828,7 @@
 				"L40",
 				"L 40"
 			],
-			"type": "byLevel",
+			"type": "byLevel"
 		}
 	],
 	"weather": [
@@ -6667,7 +8847,7 @@
 			"name": "No Weather",
 			"boosts": [
 				"Nothing"
-			],
+			]
 		},
 		{
 			"pbName": "CLEAR",
@@ -6684,7 +8864,7 @@
 				"Fire",
 				"Grass",
 				"Ground"
-			],
+			]
 		},
 		{
 			"pbName": "RAINY",
@@ -6698,7 +8878,7 @@
 				"Bug",
 				"Electric",
 				"Water"
-			],
+			]
 		},
 		{
 			"pbName": "PARTLY_CLOUDY",
@@ -6712,7 +8892,7 @@
 			"boosts": [
 				"Normal",
 				"Rock"
-			],
+			]
 		},
 		{
 			"pbName": "OVERCAST",
@@ -6727,7 +8907,7 @@
 				"Fairy",
 				"Fighting",
 				"Poison"
-			],
+			]
 		},
 		{
 			"pbName": "WINDY",
@@ -6740,7 +8920,7 @@
 				"Dragon",
 				"Flying",
 				"Psychic"
-			],
+			]
 		},
 		{
 			"pbName": "SNOW",
@@ -6752,7 +8932,7 @@
 			"boosts": [
 				"Ice",
 				"Steel"
-			],
+			]
 		},
 		{
 			"pbName": "FOG",
@@ -6764,7 +8944,7 @@
 			"boosts": [
 				"Dark",
 				"Ghost"
-			],
+			]
 		}
 	],
 	"friendship": [
@@ -6789,7 +8969,7 @@
 				"ZERO"
 			],
 			"name": "Not Friends",
-			"boost": 0,
+			"boost": 0
 		},
 		{
 			"pbName": "1",
@@ -6805,7 +8985,7 @@
 				"ONE"
 			],
 			"name": "Good Friends",
-			"boost": 3,
+			"boost": 3
 		},
 		{
 			"pbName": "2",
@@ -6821,7 +9001,7 @@
 				"TWO"
 			],
 			"name": "Great Friends",
-			"boost": 5,
+			"boost": 5
 		},
 		{
 			"pbName": "3",
@@ -6839,7 +9019,7 @@
 				"UF"
 			],
 			"name": "Ultra Friends",
-			"boost": 7,
+			"boost": 7
 		},
 		{
 			"pbName": "4",
@@ -6864,7 +9044,7 @@
 				"MAX"
 			],
 			"name": "Best Friends",
-			"boost": 10,
+			"boost": 10
 		}
 	]
 }
