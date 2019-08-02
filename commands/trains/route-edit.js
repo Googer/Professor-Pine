@@ -64,8 +64,9 @@ class EditRouteCommand extends Commando.Command {
 
           if (!collectionResult.cancelled) {
             let gymToMove = collectionResult.values.gymId;
-            let gym = party.route[Number.parseInt(gymToMove) - 1];
-            let gymName = !!gym.nickname ? gym.nickname : gym.gymName;
+            let gymId = party.route[Number.parseInt(gymToMove) - 1];
+            let gym = Gym.getGym(gymId);
+            let gymName = !!gym.nickname ? gym.nickname : gym.name;
             await party.removeRouteGym(Number.parseInt(gymToMove) - 1);
 
             validInputs = [];
@@ -95,17 +96,16 @@ class EditRouteCommand extends Commando.Command {
             ], 3);
 
             let beforeGym = await gymCollector2.obtain(message),
-              beforeIndexValue = !beforeGym.canceled ? beforeGym.values.gymId : gymToMove,
+              beforeIndexValue = !beforeGym.cancelled ? beforeGym.values.gymId : gymToMove,
               beforeIndex = Number.parseInt(beforeIndexValue) - 1;
 
             Utility.cleanCollector(beforeGym);
 
-            await party.insertRouteGym(beforeIndex, gym);
+            await party.insertRouteGym(beforeIndex, gymId);
           }
 
           Utility.cleanCollector(collectionResult);
         });
-    Utility.cleanCollector(gymPromise);
 
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .catch(err => log.error(err));

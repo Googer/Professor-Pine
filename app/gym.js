@@ -131,6 +131,7 @@ class GymCache {
         return cache.getGym(gymId);
       }
     }
+
     return null;
   }
 
@@ -388,10 +389,6 @@ class Gym extends Search {
     }
 
     return false;
-  }
-
-  getUrl(latitude, longitude) {
-    return `https://www.google.com/maps/search/?api=1&query=${latitude}%2C${longitude}`;
   }
 }
 

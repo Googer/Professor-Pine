@@ -7,7 +7,7 @@ const log = require('loglevel').getLogger('ImportGymsCommand'),
   PartyManager = require('../../../app/party-manager'),
   Region = require('../../../app/region'),
   request = require('request'),
-  {CommandGroup} = require('../../../app/constants');
+  {CommandGroup, PartyType} = require('../../../app/constants');
 
 module.exports = class ImportGyms extends commando.Command {
   constructor(client) {
@@ -80,17 +80,17 @@ module.exports = class ImportGyms extends commando.Command {
         msg.say(`Migrated ${favoritesCount} user favorites to new gym indices.`)
           .catch(err => log.error(err));
 
-        const raidCounts = (await this.migrateActiveRaids())
+        const raidCounts = await this.migrateActiveRaids()
           .catch(err => log.error(err));
         msg.say(`Migrated ${raidCounts} active raids to new gym indices.`)
           .catch(err => log.error(err));
 
-        const trainCounts = (await this.migrateActiveTrains())
+        const trainCounts = await this.migrateActiveTrains()
           .catch(err => log.error(err));
         msg.say(`Migrated ${trainCounts} active trains to new gym indices.`)
           .catch(err => log.error(err));
 
-        const pastRaidCounts = (await this.migrateCompleteRaids())
+        const pastRaidCounts = await this.migrateCompleteRaids()
           .catch(err => log.error(err));
         msg.say(`Migrated ${pastRaidCounts} complete raids to new gym indices.`)
           .catch(err => log.error(err));
@@ -318,26 +318,37 @@ module.exports = class ImportGyms extends commando.Command {
   }
 
   async lookupGymId(oldGymId) {
-    return (await DB.DB('Gym')
+    const gymId = await DB.DB('Gym')
       .where({pogoId: oldGymId})
       .first()
       .pluck('id')
-      .catch(err => log.error(err)));
+      .catch(err => log.error(err));
+
+    return gymId.length > 0 ?
+      gymId[0] :
+      undefined;
   }
 
   async migrateActiveRaids() {
     let activeRaidCount = 0;
 
-    await Promise.all(Object.entries(this.parties)
+    await Promise.all(Object.entries(PartyManager.parties)
       .filter(([channelId, party]) => [PartyType.RAID].indexOf(party.type) !== -1)
       .map(async ([channelId, party]) => {
         ++activeRaidCount;
 
-        party.gymId = await this.lookupGymId(party.gymId)
+        const gymId = await this.lookupGymId(party.gymId)
           .catch(err => log.error(err));
 
-        await party.persist()
-          .catch(err => log.error(err));
+        if (!gymId) {
+          PartyManager.deleteParty(channelId)
+            .catch(err => log.error(err));
+        } else {
+          party.gymId = gymId;
+
+          await party.persist()
+            .catch(err => log.error(err));
+        }
 
         return 1;
       }));
@@ -348,18 +359,13 @@ module.exports = class ImportGyms extends commando.Command {
   async migrateActiveTrains() {
     let activeTrainCount = 0;
 
-    await Promise.all(Object.entries(this.parties)
+    await Promise.all(Object.entries(PartyManager.parties)
       .filter(([channelId, party]) => [PartyType.RAID_TRAIN].indexOf(party.type) !== -1)
       .map(async ([channelId, party]) => {
         ++activeTrainCount;
 
-        party.gymId = await this.lookupGymId(party.gymId)
-          .catch(err => log.error(err));
-        party.currentGym = await this.lookupGymId(party.currentGym)
-          .catch(err => log.error(err));
-        party.route = party.route
-          .map(async gymId => await this.lookupGymId(gymId)
-            .catch(err => log.error(err)));
+        party.route = (await Promise.all(party.route
+          .map(gym => this.lookupGymId(gym.gymId))));
 
         await party.persist()
           .catch(err => log.error(err));
@@ -387,7 +393,7 @@ module.exports = class ImportGyms extends commando.Command {
         raid.gymId = newGymId;
       }
 
-      migratedRaids.set(newGymId, raids);
+      migratedRaids.set(newGymId.toString(), raids);
     }
 
     await PartyManager.completedStorage.clear();

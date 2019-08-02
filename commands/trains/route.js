@@ -37,9 +37,6 @@ class RouteCommand extends Commando.Command {
 
     let embed = raid.getRouteEmbed();
 
-    message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
-      .catch(err => log.error(err));
-
     message.channel.send(`${message.author}, here is the route information:`, embed)
       .then(message => message.channel.send(`To edit this route, use the \`${message.client.commandPrefix}route-add\`, \`${message.client.commandPrefix}route-remove\`, and \`${message.client.commandPrefix}route-edit\` commands.`))
       .catch(err => log.error(err));

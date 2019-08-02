@@ -74,7 +74,7 @@ class SetRouteAddCommand extends Commando.Command {
     let route = await party.addRouteGym(gymId);
 
     if (!route) {
-      let gymName = !!gym.nickname ? gym.nickname : gym.gymName;
+      let gymName = !!gym.nickname ? gym.nickname : gym.name;
       message.channel.send(`${message.author}, ${gymName} is already a part of this route.`)
         .catch(err => log.error(err));
     }

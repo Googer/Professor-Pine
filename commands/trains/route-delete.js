@@ -59,22 +59,24 @@ class RemoveRouteCommand extends Commando.Command {
         }
       ], 3),
       gymResults = await gymCollector.obtain(message),
-      gymToRemove = gymResults.values.gymId;
+      gymToRemove = !gymResults.cancelled ? gymResults.values.gymId : null;
 
     Utility.cleanCollector(gymResults);
 
-    let route = await party.removeRouteGym(Number.parseInt(gymToRemove) - 1);
+    if (gymToRemove) {
+      let route = await party.removeRouteGym(Number.parseInt(gymToRemove) - 1);
 
-    if (!route) {
-      let gymName = !!gym.nickname ? gym.nickname : gym.gymName;
-      message.channel.send(`${message.author}, ${gymName} is already a part of this route.`)
+      if (!route) {
+        let gymName = !!gym.nickname ? gym.nickname : gym.name;
+        message.channel.send(`${message.author}, ${gymName} is already a part of this route.`)
+          .catch(err => log.error(err));
+      }
+
+      message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
         .catch(err => log.error(err));
+
+      party.refreshStatusMessages();
     }
-
-    message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
-      .catch(err => log.error(err));
-
-    party.refreshStatusMessages();
   }
 }
 
