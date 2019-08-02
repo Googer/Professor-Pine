@@ -21,7 +21,7 @@ module.exports = class ImportGyms extends commando.Command {
       examples: ['\importgyms https://github.com/Googer/PgP-Data'],
       args: [{
         key: 'repo',
-        prompt: 'Provide a github url for a Professor Pine data repo',
+        prompt: 'Provide a github url for a Professor Pine data repo.',
         type: 'string'
       }]
     });
@@ -77,22 +77,22 @@ module.exports = class ImportGyms extends commando.Command {
 
         const favoritesCount = (await this.migrateFavoriteGyms(gyms)
           .catch(err => log.error(err)));
-        msg.say(`Migrated ${favoritesCount} user favorites to new gym indices.`)
+        msg.say(`Migrated ${favoritesCount} user favorite(s) to new gym indices.`)
           .catch(err => log.error(err));
 
         const raidCounts = await this.migrateActiveRaids()
           .catch(err => log.error(err));
-        msg.say(`Migrated ${raidCounts} active raids to new gym indices.`)
+        msg.say(`Migrated ${raidCounts} active raid(s) to new gym indices.`)
           .catch(err => log.error(err));
 
         const trainCounts = await this.migrateActiveTrains()
           .catch(err => log.error(err));
-        msg.say(`Migrated ${trainCounts} active trains to new gym indices.`)
+        msg.say(`Migrated ${trainCounts} active train(s) to new gym indices.`)
           .catch(err => log.error(err));
 
         const pastRaidCounts = await this.migrateCompleteRaids()
           .catch(err => log.error(err));
-        msg.say(`Migrated ${pastRaidCounts} complete raids to new gym indices.`)
+        msg.say(`Migrated ${pastRaidCounts} complete raid(s) to new gym indices.`)
           .catch(err => log.error(err));
 
         thinkingReaction.users.remove(msg.client.user.id)
