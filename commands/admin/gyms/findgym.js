@@ -49,7 +49,7 @@ module.exports = class FindGym extends commando.Command {
         .catch(error => msg.say(error)
           .catch(err => log.error(err)));
     } else {
-      const results = await Gym.search(isBotLab ? null : msg.channel.id, args.term.split(/\s/g), false);
+      const results = Gym.search(isBotLab ? null : msg.channel.id, args.term.split(/\s/g), false);
       if (results.length > 0) {
         gym = results[0].gym;
       }

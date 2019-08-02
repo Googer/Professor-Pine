@@ -10,7 +10,7 @@ module.exports = class ImportRegions extends commando.Command {
   constructor(client) {
     super(client, {
       name: 'import',
-      aliases: ['importregions', 'import-regions'],
+      aliases: ['import-regions'],
       group: 'region',
       memberName: 'import',
       description: 'Imports multiple region area/bounds.',
@@ -115,7 +115,7 @@ module.exports = class ImportRegions extends commando.Command {
     } else {
       msg.delete()
         .catch(err => log.error(err));
-      msg.reply("Please add the `\timport-region` command as a comment when uploading a KML file.")
+      msg.reply("Please add the `\timport-regions` command as a comment when uploading a KML file.")
         .catch(err => log.error(err));
     }
   }

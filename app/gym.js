@@ -72,11 +72,18 @@ class GymCache {
       const expandedRegion = region ? Region.polygonStringFromRegion(expanded) : null;
 
       //Get gyms inside the enclosed polygon
+      let channelGyms = await Region.getGyms(Region.polygonStringFromRegion(regionObject));
       let expandedGyms = await Region.getGyms(expandedRegion);
-      if (!!expandedGyms) {
-        //Create lunr search index for this channel and add it to the cache
-        let index = new Gym(expandedGyms);
-        channels[channel] = index;
+
+      if (!!channelGyms && !!expandedGyms) {
+        let neighboringGyms = expandedGyms
+          .filter(gym => !channelGyms
+            .map(channelGym => channelGym.id).includes(gym.gymId));
+
+        //Create lunr search indices for this channel and add it to the cache
+        let localGymsIndex = new Gym(channelGyms);
+        let neighboringGymsIndex = new Gym(neighboringGyms);
+        channels[channel] = {local: localGymsIndex, neighboring: neighboringGymsIndex};
 
         resolve(true);
       } else {
@@ -104,7 +111,7 @@ class GymCache {
   }
 
   //Handle incoming searches and pass them to the proper search index based on channel
-  async search(channel, terms, nameOnly) {
+  search(channel, terms, nameOnly) {
     if (channel === null) {
       if (this.masterIndex) {
         return this.masterIndex.search(terms, nameOnly)
@@ -113,7 +120,10 @@ class GymCache {
       }
     } else {
       if (!!this.channels[channel]) {
-        return this.channels[channel].search(terms, nameOnly);
+        const localResults = this.channels[channel].local.search(terms, nameOnly);
+        return localResults.length > 0 ?
+          localResults :
+          this.channels[channel].neighboring.search(terms, nameOnly);
       } else {
         return false;
       }
@@ -127,8 +137,8 @@ class GymCache {
   getGym(gymId) {
     for (let key in this.channels) {
       let cache = this.channels[key];
-      if (cache.getGym(gymId) !== false) {
-        return cache.getGym(gymId);
+      if (cache.local.getGym(gymId) !== false) {
+        return cache.local.getGym(gymId);
       }
     }
 
@@ -376,7 +386,7 @@ class Gym extends Search {
     return results;
   }
 
-  async search(terms, nameOnly) {
+  search(terms, nameOnly) {
     return this.channelSearch(terms, nameOnly);
   }
 

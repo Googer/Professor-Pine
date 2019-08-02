@@ -17,7 +17,7 @@ class GymType extends Commando.ArgumentType {
       const nameOnly = !!arg.isScreenshot,
         creationChannelId = PartyManager.getCreationChannelId(message.channel.id),
         channelName = await PartyManager.getCreationChannelName(message.channel.id),
-        results = await Gym.search(creationChannelId, value.split(/\s/g), nameOnly);
+        results = Gym.search(creationChannelId, value.split(/\s/g), nameOnly);
       if (!results || results.length === 0) {
         if (arg && !arg.isScreenshot) {
           return `"${value}" returned no gyms.\n\nPlease try your search again, entering the text you want to search for.\n\n${arg.prompt}`;
@@ -87,7 +87,7 @@ class GymType extends Commando.ArgumentType {
       arg.isScreenshot :
       false,
       creationChannelId = PartyManager.getCreationChannelId(message.channel.id),
-      results = await Gym.search(creationChannelId, value.split(/\s/g), nameOnly);
+      results = Gym.search(creationChannelId, value.split(/\s/g), nameOnly);
 
     return results[0].gym.id;
   }

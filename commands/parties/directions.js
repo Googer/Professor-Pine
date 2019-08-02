@@ -32,9 +32,16 @@ class DirectionsCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    const raid = PartyManager.getParty(message.channel.id),
-      gymId = raid.gymId,
-      gym = Gym.getGym(gymId),
+    const party = PartyManager.getParty(message.channel.id),
+      gymId = party.type === PartyType.RAID ? party.gymId : party.route[party.currentGym];
+
+    if (!gymId) {
+      message.channel.send(`No location is set for this ${party.type}.`)
+        .catch(err => log.error(err));
+      return;
+    }
+
+    const gym = Gym.getGym(gymId),
       embed = new MessageEmbed();
 
     embed.setColor('GREEN');
