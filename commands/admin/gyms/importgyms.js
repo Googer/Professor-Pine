@@ -365,7 +365,11 @@ module.exports = class ImportGyms extends commando.Command {
         ++activeTrainCount;
 
         party.route = (await Promise.all(party.route
-          .map(gym => this.lookupGymId(gym.gymId))));
+          .map(gym => this.lookupGymId(gym.gymId)
+            .catch(err => log.error(err)))));
+
+        party.route = party.route
+          .filter(gymId => gymId !== undefined);
 
         await party.persist()
           .catch(err => log.error(err));
@@ -384,16 +388,19 @@ module.exports = class ImportGyms extends commando.Command {
     const migratedRaids = new Map();
 
     for (const gymId of gymIds) {
-      const newGymId = await this.lookupGymId(gymId);
+      const newGymId = await this.lookupGymId(gymId)
+        .catch(err => log.error(err));
 
-      const raids = await PartyManager.completedStorage.getItem(gymId);
+      if (newGymId) {
+        const raids = await PartyManager.completedStorage.getItem(gymId);
 
-      for (const raid of raids) {
-        ++completeRaidCount;
-        raid.gymId = newGymId;
+        for (const raid of raids) {
+          ++completeRaidCount;
+          raid.gymId = newGymId;
+        }
+
+        migratedRaids.set(newGymId.toString(), raids);
       }
-
-      migratedRaids.set(newGymId.toString(), raids);
     }
 
     await PartyManager.completedStorage.clear();
