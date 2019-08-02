@@ -26,7 +26,6 @@ function deg2rad(deg) {
 
 
 class MetaMachine {
-
   constructor() {
   }
 
@@ -57,7 +56,7 @@ class MetaMachine {
   async calculateNearestGyms() {
     const that = this;
     return new Promise(async (resolve, reject) => {
-      const gymQuery = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gymId";
+      const gymQuery = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId";
       const results = await dbhelper.query(gymQuery)
         .catch(error => {
           log.info(error);
@@ -66,7 +65,6 @@ class MetaMachine {
 
       const changed = [];
       const newGyms = [];
-      const collateral = [];
       const res = {};
 
       let print = true;
@@ -89,10 +87,11 @@ class MetaMachine {
           changed.push(nearest.id)
         }
 
-        updateQuery += "UPDATE GymMeta SET nearestGym = " + nearest.id + " WHERE gymId=" + gym.id + ";";
+        updateQuery += "UPDATE GymMeta SET nearestGym = " + nearest.id + " WHERE gymId = " + gym.id + ";";
       });
 
-      const result = await dbhelper.query(updateQuery).catch(error => reject(error));
+      const result = await dbhelper.query(updateQuery)
+        .catch(error => reject(error));
 
       res["new"] = newGyms;
       res["changed"] = changed;
@@ -106,7 +105,7 @@ class MetaMachine {
       const addressInfo = new Map();
       if (!json) {
         log.info("nothing");
-        reject(false)
+        reject(false);
       } else {
         const results = {};
         log.info("lets parse");
@@ -163,14 +162,14 @@ class MetaMachine {
           });
         } else {
           resolve(null);
-          return
+          return;
         }
 
         // Insert geocoded map info into map
         addressInfo.forEach((value, key) => {
           results[key] = Array.from(value).join(' ');
         });
-        resolve(results)
+        resolve(results);
       }
     });
   }
@@ -179,7 +178,7 @@ class MetaMachine {
   async updateGeocodeFormatForGyms() {
     const that = this;
     return new Promise(async (resolve, reject) => {
-      const gymQuery = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gymId";
+      const gymQuery = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId";
       const results = await dbhelper.query(gymQuery)
         .catch(error => {
           log.info(error);
@@ -202,7 +201,7 @@ class MetaMachine {
         }
       }
 
-      resolve({})
+      resolve({});
     });
   }
 
@@ -223,15 +222,16 @@ class MetaMachine {
 
             let json = JSON.stringify(geo);
             let updateQuery = "UPDATE GymMeta SET geodata = ? WHERE gymId = ?";
-            let dbresult = await dbhelper.query(updateQuery, [json, gym.id]).catch(error => reject("Unable to store geocode data"));
+            let dbresult = await dbhelper.query(updateQuery, [json, gym.id])
+              .catch(error => reject("Unable to store geocode data"));
 
             gym.geodata = json;
-            resolve(gym)
+            resolve(gym);
           } else {
-            reject("No valid geocode data")
+            reject("No valid geocode data");
           }
         } else {
-          reject(err)
+          reject(err);
         }
       })
     });
@@ -382,13 +382,13 @@ class MetaMachine {
             .catch(error => {
               log.error(error);
               log.error("Unable to update nearest gyms");
-              resolve(gym)
+              resolve(gym);
             });
         })
         .catch(error => {
           log.error(error);
           log.error("Unable to geocode gym #" + gym.id);
-          resolve(gym)
+          resolve(gym);
         });
     });
   }

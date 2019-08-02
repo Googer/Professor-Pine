@@ -4,6 +4,7 @@ const log = require('loglevel').getLogger('ImportGymsCommand'),
   oneLine = require('common-tags').oneLine,
   Helper = require('../../../app/helper'),
   Gym = require('../../../app/gym'),
+  Meta = require('../../../app/geocode'),
   PartyManager = require('../../../app/party-manager'),
   Region = require('../../../app/region'),
   request = require('request'),
@@ -290,6 +291,9 @@ module.exports = class ImportGyms extends commando.Command {
 
       await Region.importGym(statement, this.getMetaValues(gym));
     }
+
+    await Meta.calculateNearestGyms()
+      .catch(err => log.error(err));
 
     // Rebuild everything so bot doesnt need a hard restart
     await Gym.buildIndexes();
