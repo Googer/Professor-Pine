@@ -366,18 +366,19 @@ module.exports = class ImportGyms extends commando.Command {
     await Promise.all(Object.entries(PartyManager.parties)
       .filter(([channelId, party]) => [PartyType.RAID_TRAIN].indexOf(party.type) !== -1)
       .map(async ([channelId, party]) => {
-        ++activeTrainCount;
+        if (party.route) {
+          ++activeTrainCount;
 
-        party.route = (await Promise.all(party.route
-          .map(gym => this.lookupGymId(gym.gymId)
-            .catch(err => log.error(err)))));
+          party.route = (await Promise.all(party.route
+            .map(gym => this.lookupGymId(gym.gymId)
+              .catch(err => log.error(err)))));
 
-        party.route = party.route
-          .filter(gymId => gymId !== undefined);
+          party.route = party.route
+            .filter(gymId => gymId !== undefined);
 
-        await party.persist()
-          .catch(err => log.error(err));
-
+          await party.persist()
+            .catch(err => log.error(err));
+        }
         return 1;
       }));
 
@@ -398,12 +399,14 @@ module.exports = class ImportGyms extends commando.Command {
       if (newGymId) {
         const raids = await PartyManager.completedStorage.getItem(gymId);
 
-        for (const raid of raids) {
-          ++completeRaidCount;
-          raid.gymId = newGymId;
-        }
+        if (raids) {
+          for (const raid of raids) {
+            ++completeRaidCount;
+            raid.gymId = newGymId;
+          }
 
-        migratedRaids.set(newGymId.toString(), raids);
+          migratedRaids.set(newGymId.toString(), raids);
+        }
       }
     }
 
