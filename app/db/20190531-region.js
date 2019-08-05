@@ -7,6 +7,12 @@ exports.up = function (knex) {
       table.specificType('bounds', 'polygon')
         .notNullable();
 
+      table.integer('guildId')
+        .unsigned()
+        .references('id')
+        .inTable('Guild')
+        .onDelete('cascade');
+
       table.bigInteger('channelId')
         .unsigned();
 

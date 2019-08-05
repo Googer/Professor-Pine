@@ -1,12 +1,15 @@
 "use strict";
 
 const log = require('loglevel').getLogger('DB'),
+  AsyncLock = require('async-lock'),
   knex = require('knex'),
   privateSettings = require('../data/private-settings');
 
 class DBManager {
   constructor() {
+    this.initLock = new AsyncLock();
     this.initialized = false;
+
     this.connection = null;
 
     this.guilds = new Map();
@@ -27,11 +30,13 @@ class DBManager {
   }
 
   async init() {
-    if (!this.initialized) {
-      await this.knex.migrate.latest()
-        .then(() => this.initialized = true)
-        .catch(err => log.error(err));
-    }
+    await this.initLock.acquire('db', async () => {
+      if (!this.initialized) {
+        await this.knex.migrate.latest()
+          .then(() => this.initialized = true)
+          .catch(err => log.error(err));
+     }
+    });
   }
 
   async initialize(client) {

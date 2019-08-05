@@ -3,6 +3,7 @@ const log = require('loglevel').getLogger('RegionManager'),
   https = require('https'),
   tj = require('togeojson-with-extended-style'),
   lunr = require('lunr'),
+  DB = require('./db'),
   dbhelper = require('./dbhelper'),
   Meta = require('./geocode'),
   DOMParser = require('xmldom').DOMParser,
@@ -707,7 +708,7 @@ class RegionHelper {
     });
   }
 
-  storeRegion(polydata, channel, gymCache) {
+  storeRegion(polydata, channelId, guildId, gymCache) {
     const that = this;
     return new Promise(async (resolve, reject) => {
       //make sure first and last points are equal (closed polygon)
@@ -735,13 +736,21 @@ class RegionHelper {
       }
       polystring += "))";
 
-      await that.deletePreviousRegion(channel);
-      const insertQuery = "INSERT INTO Region (channelId,bounds) VALUES(?, ST_PolygonFromText(?));";
-      dbhelper.query(insertQuery, [channel, polystring])
+      await that.deletePreviousRegion(channelId);
+
+      const guildDbId = (await DB.DB('Guild')
+        .where('snowflake', guildId)
+        .pluck('id')
+        .first()
+        .catch(err => log.error(err)))
+        .id;
+
+      const insertQuery = "INSERT INTO Region (channelId, guildId, bounds) VALUES(?, ?, ST_PolygonFromText(?));";
+      dbhelper.query(insertQuery, [channelId, guildDbId, polystring])
         .then(result => {
-          log.info('Added region for channel id: ' + channel);
+          log.info('Added region for guild id: ' + guildId + ', channel id: ' + channelId);
           if (gymCache) {
-            gymCache.markChannelsForReindex([channel]);
+            gymCache.markChannelsForReindex([channelId]);
           }
           resolve(true);
         })
@@ -799,7 +808,7 @@ class RegionHelper {
           }, "For a region")
             .then(newChannel => {
               log.info("created new channel for " + name + " with id " + newChannel.id + " under category with id " + newCategory.id);
-              that.storeRegion(polydata, newChannel.id, gymCache)
+              that.storeRegion(polydata, newChannel.id, newChannel.guild.Id, gymCache)
                 .catch(error => {
                   log.error(error);
                   reject("An error occurred storing the region for " + name);
@@ -1043,7 +1052,7 @@ class RegionHelper {
 
   async getAllGyms() {
     return new Promise(async (resolve, reject) => {
-      const gymQuery = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gymId";
+      const gymQuery = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId";
       const results = await dbhelper.query(gymQuery)
         .catch(error => {
           log.error(error);
@@ -1060,7 +1069,7 @@ class RegionHelper {
   async getGyms(region) {
     return new Promise(async (resolve, reject) => {
       if (region) {
-        const gymQuery = `SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gymId WHERE ST_CONTAINS(ST_GeomFromText('${region}'), POINT(lat, lon))`;
+        const gymQuery = `SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId WHERE ST_CONTAINS(ST_GeomFromText('${region}'), POINT(lat, lon))`;
         const results = await dbhelper.query(gymQuery)
           .catch(error => {
             log.error(error);
@@ -1080,7 +1089,7 @@ class RegionHelper {
 
   async getGym(gymId) {
     return new Promise((resolve, reject) => {
-      const gymQuery = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gymId WHERE id = ?";
+      const gymQuery = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId WHERE id = ?";
       dbhelper.query(gymQuery, [gymId])
         .catch(error => {
           log.error(error);
@@ -1181,7 +1190,7 @@ class RegionHelper {
           const expanded = region ? that.enlargePolygonFromRegion(regionObject) : null;
           const polygon = region ? that.polygonStringFromRegion(expanded) : null;
 
-          const gymQuery = region ? `SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gymId WHERE ST_CONTAINS(ST_GeomFromText('${polygon}'), POINT(lat, lon)) AND Gym.id = ${gymId}` : null;
+          const gymQuery = region ? `SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId WHERE ST_CONTAINS(ST_GeomFromText('${polygon}'), POINT(lat, lon)) AND Gym.id = ${gymId}` : null;
           const results = await dbhelper.query(gymQuery)
             .catch(error => {
               log.error(error);
@@ -1216,7 +1225,7 @@ class RegionHelper {
       const that = this;
       return new Promise((resolve, reject) => {
         if (regionRaw || channel == null) {
-          const gymQuery = regionRaw ? `SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gymId WHERE ST_CONTAINS(ST_GeomFromText('${polygon}'), POINT(lat, lon))` : "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gymId";
+          const gymQuery = regionRaw ? `SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId WHERE ST_CONTAINS(ST_GeomFromText('${polygon}'), POINT(lat, lon))` : "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gymId";
           dbhelper.query(gymQuery)
             .then(async function (results) {
               const idx = lunr(function () {
@@ -1283,7 +1292,7 @@ class RegionHelper {
                   }
 
                   this.add(gymDocument);
-                }, this)
+                }, this);
               });
 
               const searchResults = idx.search(term);
@@ -1323,7 +1332,7 @@ class RegionHelper {
         }
       });
     } catch (error) {
-      log.error(error)
+      log.error(error);
     }
   }
 

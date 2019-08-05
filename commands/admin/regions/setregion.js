@@ -50,7 +50,7 @@ module.exports = class SetRegion extends commando.Command {
         .catch(error => false);
       if (data) {
         const polydata = data["features"][0]["geometry"]["coordinates"][0];
-        if (await Region.storeRegion(polydata, msg.channel.id, GymCache)
+        if (await Region.storeRegion(polydata, msg.channel.id, msg.channel.guild.id, GymCache)
           .catch(error => false)) {
           PartyManager.cacheRegionChannel(msg.channel.id);
           Region.getRegionDetailEmbed(msg.channel.id)

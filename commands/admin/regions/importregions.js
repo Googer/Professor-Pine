@@ -63,9 +63,10 @@ module.exports = class ImportRegions extends commando.Command {
         for (let i = 0; i < channelRegions.length; i++) {
           const feature = channelRegions[i];
           const channelName = Region.channelNameForFeature(feature);
+          const guildId = msg.channel.guild.id;
 
-          if (Helper.doesChannelExist(channelName)) {
-            const channel = Helper.getChannelForName(channelName);
+          if (Helper.doesChannelExist(channelName, guildId)) {
+            const channel = Helper.getChannelForName(channelName, guildId);
             if (Helper.isChannelChild(channel.id)) {
               const parent = Helper.getParentChannel(channel.id);
               if (PartyManager.categoryHasRegion(parent.id) && !Helper.isChannelBounded(channel.id, PartyManager.getRaidChannelCache())) {
@@ -88,9 +89,7 @@ module.exports = class ImportRegions extends commando.Command {
         for (let i = 0; i < toAdd.length; i++) {
           const feature = toAdd[i];
           Region.createNewRegion(feature, msg, GymCache)
-            .then(channel => {
-              PartyManager.cacheRegionChannel(channel);
-            })
+            .then(channelId => PartyManager.cacheRegionChannel(channelId))
             .catch(error => {
               log.error(error);
               msg.say("An error occurred")
@@ -102,9 +101,10 @@ module.exports = class ImportRegions extends commando.Command {
         for (let i = 0; i < toUpdate.length; i++) {
           const feature = toUpdate[i];
           const channelName = Region.channelNameForFeature(feature);
-          const channel = Helper.getChannelForName(channelName);
+          const channel = Helper.getChannelForName(channelName, msg.channel.guild.id);
           const polydata = feature.geometry.coordinates[0];
-          Region.storeRegion(polydata, channel.id, GymCache)
+          Region.storeRegion(polydata, channel.id, msg.channel.guild.id, GymCache)
+            .then(() => PartyManager.cacheRegionChannel(channel.id))
             .catch(error => reject("An error occurred storing the region for " + channelName));
         }
         Helper.client.emit('regionsUpdated');

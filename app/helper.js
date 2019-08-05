@@ -283,12 +283,12 @@ class Helper {
     return text;
   }
 
-  //check if channel exists by name
-  doesChannelExist(channel) {
-    const channels = this.client.channels.array();
+  //check if channel exists by name in a specific gulid
+  doesChannelExist(channelName, guildId) {
+    const channels = this.client.guilds.get(guildId).channels.array();
     for (let i = 0; i < channels.length; i++) {
       const chan = channels[i];
-      if (chan.name === channel && channels[i].permissionsFor(this.client.user.id).has('VIEW_CHANNEL')) {
+      if (chan.name === channelName && channels[i].permissionsFor(this.client.user.id).has('VIEW_CHANNEL')) {
         return true;
       }
     }
@@ -316,12 +316,12 @@ class Helper {
     return false;
   }
 
-  //gets channel based on provided name
-  getChannelForName(name) {
-    const channels = this.client.channels.array();
+  // Gets channel based on provided name
+  getChannelForName(channelName, guildId) {
+    const channels = this.client.guilds.get(guildId).channels.array();
     for (let i = 0; i < channels.length; i++) {
       const channel = channels[i];
-      if (channel.name === name && channels[i].permissionsFor(this.client.user.id).has('VIEW_CHANNEL')) {
+      if (channel.name === channelName && channels[i].permissionsFor(this.client.user.id).has('VIEW_CHANNEL')) {
         return channel;
       }
     }
@@ -329,7 +329,7 @@ class Helper {
     return null;
   }
 
-  //Get a channels category
+  // Get a channel's category
   getParentChannel(channelId) {
     if (this.isChannelChild(channelId)) {
       const channels = this.client.channels.array();
@@ -350,7 +350,7 @@ class Helper {
     return null;
   }
 
-  //get channels below a specified category
+  // Get channels below a specified category
   childrenForCategory(categoryId) {
     const channel = this.client.channels.get(categoryId);
     if (channel.children) {

@@ -37,7 +37,7 @@ class DBHelper {
   handleDisconnect(connection) {
     connection.connect((err) => { // The server is either down
       if (err) { // or restarting (takes a while sometimes).
-        console.log('error when connecting to db:', err);
+        log.error('error when connecting to db:', err);
         setTimeout(() => {
           this.handleDisconnect(connection);
         }, 2000); // We introduce a delay before attempting to reconnect,
@@ -45,7 +45,7 @@ class DBHelper {
     });
 
     connection.on('error', (err) => {
-      console.log('db error', err);
+      log.error('db error', err);
       if (err.code === 'PROTOCOL_CONNECTION_LOST') { // Connection to the MySQL server is usually
         this.handleDisconnect(connection); // lost due to either server restart, or a
       } else { // connnection idle timeout (the wait_timeout
@@ -80,6 +80,7 @@ class DBHelper {
     const that = this;
     return new Promise(async (resolve, reject) => {
       await DB.init();
+
       that.pool.getConnection(async (error, connection) => {
         connection.query("SET NAMES 'utf8mb4'");
         connection.query("SET CHARACTER SET 'utf8mb4'");

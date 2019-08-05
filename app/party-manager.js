@@ -87,8 +87,8 @@ class PartyManager {
             // party's end time is set (or last possible time) in the past, even past the grace period,
             // so schedule its deletion
             party.deletionTime = party.type === PartyType.RAID_TRAIN ?
-                              trainDeletionTime :
-                              deletionTime;
+              trainDeletionTime :
+              deletionTime;
 
             party.sendDeletionWarningMessage();
             await party.persist();
@@ -187,37 +187,41 @@ class PartyManager {
 
   async loadRegionChannels() {
     const that = this;
-    Region.checkRegionsExist().then(success => {
-      if (success) {
-        that.client.channels.forEach(async channel => {
-          const region = await Region.getRegionsRaw(channel.id).catch(error => false);
-          if (region) {
-            that.regionChannels.push(channel.id);
-          }
+    Region.checkRegionsExist()
+      .then(success => {
+        if (success) {
+          that.client.channels.forEach(async channel => {
+            const region = await Region.getRegionsRaw(channel.id)
+              .catch(error => false);
+            if (region) {
+              that.regionChannels.push(channel.id);
+            }
 
-          let last = that.client.channels.array().slice(-1)[0];
-          if (channel.id === last.id) {
-            that.clearOldRegionChannels();
-          }
-        })
-      }
-    }).catch(error => console.log(error))
+            let last = that.client.channels.array().slice(-1)[0];
+            if (channel.id === last.id) {
+              that.clearOldRegionChannels();
+            }
+          })
+        }
+      }).catch(error => log.error(error));
   }
 
   async clearOldRegionChannels() {
     const that = this;
-    Region.checkRegionsExist().then(async success => {
-      if (success) {
-        const regions = await Region.getAllRegions()
-          .catch(error => log.error(error));
-        log.debug("TOTAL REGIONS FOUND: " + regions.length);
-        const deleted = await Region.deleteRegionsNotInChannels(that.regionChannels)
-          .catch(error => log.error(error));
-        if (!!deleted && deleted.affectedRows) {
-          log.debug("DELETED " + deleted.affectedRows + " REGIONS NOT TIED TO CHANNELS")
+    Region.checkRegionsExist()
+      .then(async success => {
+        if (success) {
+          const regions = await Region.getAllRegions()
+            .catch(error => log.error(error));
+          log.debug("TOTAL REGIONS FOUND: " + regions.length);
+          const deleted = await Region.deleteRegionsNotInChannels(that.regionChannels)
+            .catch(error => log.error(error));
+          if (!!deleted && deleted.affectedRows) {
+            log.debug("DELETED " + deleted.affectedRows + " REGIONS NOT TIED TO CHANNELS")
+          }
         }
-      }
-    }).catch(error => console.log(error))
+      })
+      .catch(error => log.error(error));
   }
 
   cacheRegionChannel(channel) {
@@ -225,7 +229,6 @@ class PartyManager {
   }
 
   gymIsCached(gymId) {
-
     if (this.gymCache) {
       for (let i = 0; i < this.gymCache.length; i++) {
         const gym = this.gymCache[i];
@@ -247,7 +250,6 @@ class PartyManager {
       .filter(([channelId, party]) => party.type === PartyType.RAID)
       .forEach(async ([channelId, party]) => {
         if (!that.gymIsCached(party.gymId)) {
-          console.log(party);
           const gym = await Region.getGym(party.gymId);
           that.gymCache.push(gym);
         }
@@ -261,12 +263,9 @@ class PartyManager {
     if (!this.gymIsCached(gym.id)) {
       this.gymCache.push(gym);
     }
-
-    console.log(this.gymCache)
   }
 
   getCachedGym(gymId) {
-
     if (this.gymIsCached(gymId)) {
       for (let i = 0; i < this.gymCache.length; i++) {
         const gym = this.gymCache[i];
@@ -275,14 +274,14 @@ class PartyManager {
         }
       }
     } else {
-      console.log("not cached")
+      log.warn(`${gymId} not cached`);
     }
 
     return null;
   }
 
   getRaidChannelCache() {
-    return this.regionChannels
+    return this.regionChannels;
   }
 
   channelCanRaid(channelId) {
@@ -295,11 +294,11 @@ class PartyManager {
       for (let i = 0; i < children.length; i++) {
         const child = children[i];
         if (this.channelCanRaid(child.id)) {
-          return true
+          return true;
         }
       }
     } else {
-      return false
+      return false;
     }
   }
 
