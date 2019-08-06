@@ -16,7 +16,7 @@ class RemoveRouteCommand extends Commando.Command {
       group: CommandGroup.TRAIN,
       memberName: 'route-remove',
       aliases: ['remove-route', 'remove-gym', 'remove-location', 'gym-remove', 'location-remove'],
-      description: 'Adds a gym to a train\'s route.',
+      description: 'Removes a gym from a train\'s route.',
       details: 'Use this command to remove a location from a train\'s route.  This command is channel sensitive, meaning it only finds gyms associated with the enclosing region.',
       examples: ['\t!route-remove'],
       guildOnly: true
