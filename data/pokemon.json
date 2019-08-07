@@ -384,7 +384,9 @@
     "tier": 3
   },
   {
-    "name": "poliwag"
+    "name": "poliwag",
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "poliwhirl"
@@ -546,7 +548,8 @@
   },
   {
     "name": "cloyster",
-    "tier": 2
+    "tier": 2,
+    "shiny": true
   },
   {
     "name": "gastly",
@@ -814,7 +817,8 @@
     "name": "dragonair"
   },
   {
-    "name": "dragonite"
+    "name": "dragonite",
+    "tier": 4
   },
   {
     "name": "mewtwo"
@@ -1034,7 +1038,7 @@
   },
   {
     "name": "granbull",
-    "tier": 3
+    "tier": 4
   },
   {
     "name": "qwilfish"
@@ -1274,7 +1278,9 @@
     "tier": 4
   },
   {
-    "name": "taillow"
+    "name": "taillow",
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "swellow"
