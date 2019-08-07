@@ -295,16 +295,23 @@ class RegionHelper {
     });
   }
 
-  async getChannelsForGym(gym) {
+  async getChannelsForGym(gym, guildId) {
+    const guildDbId = (await DB.DB('Guild')
+      .where('snowflake', guildId)
+      .pluck('id')
+      .first()
+      .catch(err => log.error(err)))
+      .id;
+
     return new Promise(async (resolve, reject) => {
-      const q = "SELECT channelId FROM Region WHERE ST_CONTAINS(bounds, POINT(?, ?));";
-      const results = await dbhelper.query(q, [gym.lat, gym.lon])
+      const q = "SELECT channelId FROM Region WHERE ST_CONTAINS(bounds, POINT(?, ?)) AND guildId = ?;";
+      const results = await dbhelper.query(q, [gym.lat, gym.lon, guildDbId])
         .catch(error => reject(false));
       resolve(results);
     });
   }
 
-  async groupGymsByRegion(gyms, client) {
+  async groupGymsByRegion(gyms, guildId, client) {
     const channelMap = new Map();
 
     for (const gymId of gyms) {
@@ -314,7 +321,7 @@ class RegionHelper {
         continue;
       }
 
-      const channelId = (await this.getChannelsForGym(gym))[0].channelId,
+      const channelId = (await this.getChannelsForGym(gym, guildId))[0].channelId,
         channelName = client.channels.get(channelId).name;
 
       if (!channelMap.has(channelName)) {
@@ -1225,7 +1232,7 @@ class RegionHelper {
       const that = this;
       return new Promise((resolve, reject) => {
         if (regionRaw || channel == null) {
-          const gymQuery = regionRaw ? `SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId WHERE ST_CONTAINS(ST_GeomFromText('${polygon}'), POINT(lat, lon))` : "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id=GymMeta.gymId";
+          const gymQuery = regionRaw ? `SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId WHERE ST_CONTAINS(ST_GeomFromText('${polygon}'), POINT(lat, lon))` : "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId";
           dbhelper.query(gymQuery)
             .then(async function (results) {
               const idx = lunr(function () {

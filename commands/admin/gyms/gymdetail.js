@@ -43,7 +43,8 @@ module.exports = class GymDetail extends commando.Command {
           .catch(err => log.error(err)));
 
       if (gym !== undefined && gym["name"]) {
-        const channels = await Region.getChannelsForGym(gym).catch(error => []);
+        const channels = await Region.getChannelsForGym(gym, message.channel.guild.id)
+          .catch(error => []);
         const phrase = "Showing details for gym with ID " + args.term;
         await Region.showGymDetail(msg, gym, phrase, null, channels, false);
         const channelStrings = [];

@@ -38,7 +38,7 @@ class GymNotificationsCommand extends Commando.Command {
         embed.setTitle('Currently assigned gym notifications:');
         embed.setColor(4437377);
 
-        const regionGymList = await Region.groupGymsByRegion(results, message.client);
+        const regionGymList = await Region.groupGymsByRegion(results, message.channel.guild.id, message.client);
 
         if (regionGymList.size > 0) {
           new Map([...regionGymList.entries()].sort())

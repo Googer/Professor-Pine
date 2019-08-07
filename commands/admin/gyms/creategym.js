@@ -156,7 +156,7 @@ module.exports = class CreateGym extends Commando.Command {
                           thinkingReaction.users.remove(msg.client.user.id)
                             .catch(err => log.error(err));
 
-                          let channels = await Region.getChannelsForGym(finalGym);
+                          let channels = await Region.getChannelsForGym(finalGym, msg.channel.guild.id);
                           await Region.showGymDetail(msg, finalGym, "New Gym Added", null, false);
                           const channelStrings = [];
                           for (let i = 0; i < channels.length; i++) {
