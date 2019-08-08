@@ -1,24 +1,24 @@
 const log = require('loglevel').getLogger('RankCommand'),
-  Commando = require('discord.js-commando'),
-  {MessageEmbed} = require('discord.js'),
   {CommandGroup} = require('../../app/constants'),
-  CpmData = require('../../data/cpm');
-Helper = require('../../app/helper');
+  Commando = require('discord.js-commando'),
+  CpmData = require('../../data/cpm'),
+  Helper = require('../../app/helper'),
+  {MessageEmbed} = require('discord.js');
 
 class PvPRankingData {
   constructor(command, arg, client) {
     this.arg = arg;
     this.command = command;
-    this.pokemon_collector = new Commando.ArgumentCollector(client, [
+    this.pokemonCollector = new Commando.ArgumentCollector(client, [
       {
-        key: 'pvp_pokemon',
+        key: 'pvpPokemon',
         prompt: 'Which species of Pokémon would you like to evaluate a specific IV combination PvP rank for?',
         type: 'counterpokemontype',
       }
     ], 3);
-    this.atkCollector = new Commando.ArgumentCollector(client, [
+    this.attackCollector = new Commando.ArgumentCollector(client, [
       {
-        key: 'ATK_IV',
+        key: 'attackIV',
         label: 'Attack IV',
         prompt: 'Please enter the Pokemon\'s Attack IV (Integer between 0 and 15)',
         type: 'integer',
@@ -26,9 +26,9 @@ class PvPRankingData {
         max: 15
       }
     ], 3);
-    this.defCollector = new Commando.ArgumentCollector(client, [
+    this.defenseCollector = new Commando.ArgumentCollector(client, [
       {
-        key: 'DEF_IV',
+        key: 'defenseIV',
         label: 'Defense IV',
         prompt: 'Please enter the Pokemon\'s Defense IV (Integer between 0 and 15)',
         type: 'integer',
@@ -36,9 +36,9 @@ class PvPRankingData {
         max: 15
       }
     ], 3);
-    this.staCollector = new Commando.ArgumentCollector(client, [
+    this.staminaCollector = new Commando.ArgumentCollector(client, [
       {
-        key: 'STA_IV',
+        key: 'staminaIV',
         label: 'Stamina IV',
         prompt: 'Please enter the Pokemon\'s Stamina IV (Integer between 0 and 15)',
         type: 'integer',
@@ -49,69 +49,69 @@ class PvPRankingData {
   }
 
   async getUserRequest(message) {
-    let AttackIV = [''],
-      DefenseIV = [''],
-      StaminaIV = [''],
-      Filter = [''],
-      Flag = true;
+    let attackIV = [''],
+      defenseIV = [''],
+      staminaIV = [''],
+      filter = [''],
+      flag = true;
 
     let pokemonName = [''];
     let stringComponents = this.arg.split(' ');
     for (let i = 0; i < stringComponents.length; i++) {
-      if (!Number(stringComponents[i]) && Flag === true && stringComponents[i] !== '0') {
+      if (!Number(stringComponents[i]) && flag === true && stringComponents[i] !== '0') {
         pokemonName[0] += stringComponents[i] + ' ';
       } else {
-        Flag = false;
+        flag = false;
       }
-      if ((Number(stringComponents[i]) || stringComponents[i] === '0') && !AttackIV[0]) {
-        AttackIV[0] = stringComponents[i];
+      if ((Number(stringComponents[i]) || stringComponents[i] === '0') && !attackIV[0]) {
+        attackIV[0] = stringComponents[i];
         if (Number(stringComponents[i + 1]) || stringComponents[i + 1] === '0') {
-          DefenseIV[0] = stringComponents[i + 1];
+          defenseIV[0] = stringComponents[i + 1];
         }
         if (Number(stringComponents[i + 2]) || stringComponents[i + 2] === '0') {
-          StaminaIV[0] = stringComponents[i + 2];
+          staminaIV[0] = stringComponents[i + 2];
         }
       }
     }
     pokemonName[0] = pokemonName[0].trim().replace('-', ' ');
-    Filter[0] = stringComponents[stringComponents.length - 1];
-    if (Number(Filter[0]) || Filter[0] === '0') {
-      Filter[0] = [''];
+    filter[0] = stringComponents[stringComponents.length - 1];
+    if (Number(filter[0]) || filter[0] === '0') {
+      filter[0] = [''];
     }
 
     this.ivFilter;
     this.cpLeague = this.command === 'ultra' ? 2500 : 1500;
-    if (Filter[0] === 'raid' || Filter[0] === 'boss') {
+    if (filter[0] === 'raid' || filter[0] === 'boss') {
       this.ivFilter = 10;
       this.ivFilterText = "Raid";
-    } else if (Filter[0] !== "10") {
+    } else if (filter[0] !== "10") {
       this.ivFilter = 0;
     }
 
-    this.pokemon = await this.pokemon_collector.obtain(message, pokemonName); //Sees if pokemonName argument was included. If not, it prompts user for one.
+    this.pokemon = await this.pokemonCollector.obtain(message, pokemonName); //Sees if pokemonName argument was included. If not, it prompts user for one.
     if (!this.pokemon.cancelled) {
-      this.pokemon = this.pokemon.values.pvp_pokemon;
+      this.pokemon = this.pokemon.values.pvpPokemon;
     } else {
       this.flag = true; //This variable is used to stop the whole process (this function is nested- see displayInfo();)
       return;
     }
-    this.attackIV = await this.atkCollector.obtain(message, AttackIV); //Sees if Attack IV argument was included. If not, it prompts user for one.
+    this.attackIV = await this.attackCollector.obtain(message, attackIV); //Sees if Attack IV argument was included. If not, it prompts user for one.
     if (!this.attackIV.cancelled) {
-      this.attackIV = this.attackIV.values.ATK_IV;
+      this.attackIV = this.attackIV.values.attackIV;
     } else {
       this.flag = true;
       return;
     }
-    this.defenseIV = await this.defCollector.obtain(message, DefenseIV); //Sees if Defense IV argument was included. If not, it prompts user for one.
+    this.defenseIV = await this.defenseCollector.obtain(message, defenseIV); //Sees if Defense IV argument was included. If not, it prompts user for one.
     if (!this.defenseIV.cancelled) {
-      this.defenseIV = this.defenseIV.values.DEF_IV;
+      this.defenseIV = this.defenseIV.values.defenseIV;
     } else {
       this.flag = true;
       return;
     }
-    this.staminaIV = await this.staCollector.obtain(message, StaminaIV); //Sees if Stamina IV argument was included. If not, it prompts user for one.
+    this.staminaIV = await this.staminaCollector.obtain(message, staminaIV); //Sees if Stamina IV argument was included. If not, it prompts user for one.
     if (!this.staminaIV.cancelled) {
-      this.staminaIV = this.staminaIV.values.STA_IV;
+      this.staminaIV = this.staminaIV.values.staminaIV;
     } else {
       this.flag = true;
       return;
@@ -131,61 +131,61 @@ class PvPRankingData {
     }
   }
 
-  calculateCp(baseAtk, baseDef, baseSta, atkIv, defIv, staIv, cpmMultiplier) {
-    let totAtk = baseAtk + atkIv,
-      totDef = baseDef + defIv,
-      totSta = baseSta + staIv;
+  calculateCp(baseAttack, baseDefense, baseStamina, attackIV, defenseIV, staminaIV, cpmMultiplier) {
+    let totalAttack = baseAttack + attackIV,
+      totalDefense = baseDefense + defenseIV,
+      totalStamina = baseStamina + staminaIV;
 
-    let cp = Math.floor((totAtk * (totDef ** 0.5) * (totSta ** 0.5) * (cpmMultiplier ** 2)) / 10);
+    let cp = Math.floor((totalAttack * (totalDefense ** 0.5) * (totalStamina ** 0.5) * (cpmMultiplier ** 2)) / 10);
 
-    return cp >= 10 ? cp : 10 // min CP is 10
+    return cp >= 10 ? cp : 10; // min CP is 10
   }
 
-  generateRanks(CpmData) {
+  generateRanks(cpmData) {
     if (this.flag === true) {
       return;
     }
-     //If somebody cancels the command in scrape(), we don't want this function running.
-	  let ivArr = [],
+    //If somebody cancels the command in scrape(), we don't want this function running.
+    let ivArr = [],
       level,
       cpmMultiplier,
       cp,
-      rawAtk,
-      rawDef,
-      rawSta;
+      rawAttack,
+      rawDefense,
+      rawStamina;
 
-    let baseAtk = this.pokemon.atk,
-      baseDef = this.pokemon.def,
-      baseSta = this.pokemon.sta;
+    let baseAttack = this.pokemon.atk,
+      baseDefense = this.pokemon.def,
+      baseStamina = this.pokemon.sta;
 
     // insert the cpm data to iterate calculating from level 40 down
-    let reversedCpmData = CpmData.slice().reverse(); // slice to not mutate original array
+    let reversedCpmData = cpmData.slice().reverse(); // slice to not mutate original array
 
     // Iterates through each of the 4096 IV combinations (0-15).
     // Then starting at level 40, calculate the CP of the Pokemon at that IV.
     // If it is less than the league cap, add to the IV list and stop calculating.
     // The best will always be the highest level under the cap for a given IV.
-    for (let atkIv = this.ivFilter; atkIv <= 15; atkIv++) {
-      for (let defIv = this.ivFilter; defIv <= 15; defIv++) {
-        for (let staIv = this.ivFilter; staIv <= 15; staIv++) {
+    for (let attackIV = this.ivFilter; attackIV <= 15; attackIV++) {
+      for (let defenseIV = this.ivFilter; defenseIV <= 15; defenseIV++) {
+        for (let staminaIV = this.ivFilter; staminaIV <= 15; staminaIV++) {
           for (let cpmLevel of reversedCpmData) {
-            level = cpmLevel.level,
-              cpmMultiplier = cpmLevel.cpmMultiplier;
-            cp = this.calculateCp(baseAtk, baseDef, baseSta, atkIv, defIv, staIv, cpmMultiplier);
+            level = cpmLevel.level;
+            cpmMultiplier = cpmLevel.cpmMultiplier;
+            cp = this.calculateCp(baseAttack, baseDefense, baseStamina, attackIV, defenseIV, staminaIV, cpmMultiplier);
             if (cp <= this.cpLeague) {
-              rawAtk = (baseAtk + atkIv) * cpmMultiplier,
-                rawDef = (baseDef + defIv) * cpmMultiplier,
-                rawSta = Math.floor((baseSta + staIv) * cpmMultiplier);
+              rawAttack = (baseAttack + attackIV) * cpmMultiplier;
+              rawDefense = (baseDefense + defenseIV) * cpmMultiplier;
+              rawStamina = Math.floor((baseStamina + staminaIV) * cpmMultiplier);
               ivArr.push({
-                rawAtk: rawAtk,
-                rawDef: rawDef,
-                rawSta: rawSta,
-                atkIv: atkIv,
-                defIv: defIv,
-                staIv: staIv,
-                ivTotal: atkIv + defIv + staIv,
-                statProduct: Math.round(rawAtk * rawDef * rawSta),
-                rawStatProduct: rawAtk * rawDef * rawSta,
+                rawAtk: rawAttack,
+                rawDef: rawDefense,
+                rawSta: rawStamina,
+                atkIv: attackIV,
+                defIv: defenseIV,
+                staIv: staminaIV,
+                ivTotal: attackIV + defenseIV + staminaIV,
+                statProduct: Math.round(rawAttack * rawDefense * rawStamina),
+                rawStatProduct: rawAttack * rawDefense * rawStamina,
                 level: level,
                 cp: cp
               });
@@ -197,48 +197,50 @@ class PvPRankingData {
     }
 
     // Sort by raw stat product DESC, iv total DESC, and cp DESC
-    ivArr.sort(function (a, b) {
+    ivArr.sort((a, b) => {
       if (a.rawStatProduct > b.rawStatProduct) return -1;
       if (a.rawStatProduct < b.rawStatProduct) return 1;
       if (a.ivTotal > b.ivTotal) return -1;
       if (a.ivTotal < b.ivTotal) return 1;
       if (a.cp > b.cp) return -1;
       if (a.cp < b.cp) return 1;
-      return 0
+      return 0;
     });
 
     // Add rank based on index
-    ivArr.forEach(function (val, idx) {
+    ivArr.forEach((val, idx) => {
       val.rank = idx + 1;
     });
 
     // Add % max stat product
-    ivArr.forEach(function (val) {
+    ivArr.forEach(val => {
       val.pctMaxStatProduct = (val.rawStatProduct / ivArr[0].rawStatProduct) * 100;
     });
 
-    let rankData = ivArr.filter(x => x.atkIv === this.attackIV && x.defIv === this.defenseIV && x.staIv === this.staminaIV)[0];
+    let rankData = ivArr
+      .filter(x => x.atkIv === this.attackIV && x.defIv === this.defenseIV && x.staIv === this.staminaIV)[0];
     if (!rankData) {
       return;
     }
 
-    this.rank = rankData.rank,
-      this.level = rankData.level,
-      this.cp = rankData.cp,
-      this.atk = rankData.rawAtk,
-      this.def = rankData.rawDef,
-      this.sta = rankData.rawSta,
-      this.statproduct = rankData.statProduct,
-      this.pctMaxStatProduct = rankData.pctMaxStatProduct,
-      this.pctMaxStatProductStr = rankData.pctMaxStatProduct.toFixed(2).toString() + "%";
+    this.rank = rankData.rank;
+    this.level = rankData.level;
+    this.cp = rankData.cp;
+    this.atk = rankData.rawAtk;
+    this.def = rankData.rawDef;
+    this.sta = rankData.rawSta;
+    this.statproduct = rankData.statProduct;
+    this.pctMaxStatProduct = rankData.pctMaxStatProduct;
+    this.pctMaxStatProductStr = rankData.pctMaxStatProduct.toFixed(2).toString() + "%";
   }
 
   async displayInfo(message, command) {
     if (this.flag === true) {
       return;
     }
-     //If somebody cancels the command in scrape(), we don't want this function running.
-	  function embedColor(statProductPercent) {
+
+    //If somebody cancels the command in scrape(), we don't want this function running.
+    function embedColor(statProductPercent) {
       if (statProductPercent >= 99) {
         return '#ffd700' //'#ffa500';
       } else if (statProductPercent < 99 && statProductPercent >= 97) {
@@ -295,7 +297,8 @@ class PvPRankingData {
       userIVString += ` ${this.ivFilterText}`
     }
     let responseCommand = `\`${userCommand} ${userPokemon} ${userIVString}\` results:`, //Combined the above into the whole accepted command.
-      response = await message.channel.send(responseCommand.toLowerCase(), embed);
+      response = await message.channel.send(responseCommand.toLowerCase(), embed)
+        .catch(err => log.error(err));
     response.preserve = true;
   }
 }
@@ -311,7 +314,7 @@ class RankCommand extends Commando.Command {
       details: 'Use this command to obtain information on the PvP ranking of a specific IV combination for a specific species of Pokémon.' +
         '\n!great - This command restricts results to **Great League**\n!ultra - This command restricts results to **Ultra League**',
       examples: ['!<league> <Pokémon> <Attack IV> <Defense IV> <Stamina IV>\n!great altaria 4 1 2\n!ultra blastoise 10 14 15\n'],
-      guarded: false,
+      guarded: false
     });
 
     client.dispatcher.addInhibitor(message => {
