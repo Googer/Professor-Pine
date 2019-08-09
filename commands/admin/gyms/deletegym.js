@@ -3,6 +3,7 @@ const log = require('loglevel').getLogger('DeleteGymCommand'),
   oneLine = require('common-tags').oneLine,
   Gym = require('../../../app/gym'),
   Helper = require('../../../app/helper'),
+  PartyManager = require('../../../app/party-manager'),
   Region = require('../../../app/region'),
   Utility = require('../../../app/utility'),
   {CommandGroup} = require('../../../app/constants');
@@ -47,8 +48,9 @@ module.exports = class DeleteGym extends commando.Command {
         if (!Helper.isManagement(message)) {
           return ['unauthorized', message.reply('You are not authorized to use this command.')];
         }
-        if (!Helper.isBotChannel(message)) {
-          return ['invalid-channel', message.reply('This command must be run in a bot channel.')]
+
+        if (!Helper.isBotChannel(message) && !Helper.isChannelBounded(message.channel.id, PartyManager.getRaidChannelCache())) {
+          return ['invalid-channel', message.reply('Delete gyms from regional channels or a bot channel.')];
         }
       }
 

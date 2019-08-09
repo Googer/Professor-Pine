@@ -124,9 +124,9 @@ module.exports = class EditGym extends commando.Command {
         if (!Helper.isManagement(message)) {
           return ['unauthorized', message.reply('You are not authorized to use this command.')];
         }
-        if (!Helper.isBotChannel(message) &&
-          ((PartyManager.validParty(message.channel.id) || !Gym.isValidChannel(message.channel.id)))) {
-          return ['invalid-channel', message.reply('This command must be run in a bot or region channel.')]
+
+        if (!Helper.isBotChannel(message) && !Helper.isChannelBounded(message.channel.id, PartyManager.getRaidChannelCache())) {
+          return ['invalid-channel', message.reply('Edit gyms from regional channels or a bot channel.')];
         }
       }
 
