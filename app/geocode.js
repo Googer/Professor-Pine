@@ -92,8 +92,10 @@ class MetaMachine {
         }
       });
 
-      const result = await dbhelper.query(updateQuery)
-        .catch(error => reject(error));
+      if (updateQuery !== "") {
+        const result = await dbhelper.query(updateQuery)
+          .catch(error => reject(error));
+      }
 
       res["new"] = newGyms;
       res["changed"] = changed;
