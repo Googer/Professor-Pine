@@ -88,7 +88,7 @@ class DBHelper {
           connection.release();
           if (err) {
             log.error("mysql error: " + err);
-            throw err
+            throw err;
           } else {
             resolve(results);
           }

@@ -1336,7 +1336,7 @@ class RegionHelper {
                 } else {
                   const found = searchResults[0];
                   results.forEach(doc => {
-                    if (doc["id"] === found["ref"]) {
+                    if (doc["id"].toString() === found["ref"]) {
                       resolve(doc);
                     }
                   }, this);

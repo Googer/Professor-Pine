@@ -5,6 +5,7 @@ const log = require('loglevel').getLogger('EditGymCommand'),
   oneLine = require('common-tags').oneLine,
   Helper = require('../../../app/helper'),
   Gym = require('../../../app/gym'),
+  PartyManager = require('../../../app/party-manager'),
   Region = require('../../../app/region'),
   Utility = require('../../../app/utility'),
   {CommandGroup} = require('../../../app/constants');
@@ -123,8 +124,9 @@ module.exports = class EditGym extends commando.Command {
         if (!Helper.isManagement(message)) {
           return ['unauthorized', message.reply('You are not authorized to use this command.')];
         }
-        if (!Helper.isBotChannel(message)) {
-          return ['invalid-channel', message.reply('This command must be run in a bot channel.')]
+        if (!Helper.isBotChannel(message) &&
+          ((PartyManager.validParty(message.channel.id) || !Gym.isValidChannel(message.channel.id)))) {
+          return ['invalid-channel', message.reply('This command must be run in a bot or region channel.')]
         }
       }
 
