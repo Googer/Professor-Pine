@@ -10,7 +10,7 @@ const log = require('loglevel').getLogger('ExportTsvCommand'),
   turf = require('@turf/turf'),
   {CommandGroup} = require('../../../app/constants');
 
-module.exports = class ClearImageCache extends Commando.Command {
+module.exports = class ExportTsvCommand extends Commando.Command {
   constructor(client) {
     super(client, {
       name: 'export-tsvs',
