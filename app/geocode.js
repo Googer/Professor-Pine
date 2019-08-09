@@ -71,23 +71,25 @@ class MetaMachine {
       let updateQuery = "";
       results.forEach(gym => {
         log.info(gym.name + " - Lat: " + gym.lat + " Lon: " + gym.lon);
+
         const nearest = that.nearestGym(gym, results, print);
 
-        log.info(nearest.id);
-        print = false;
+        if (nearest) {
+          print = false;
 
-        if (gym.nearestGym) {
-          if (nearest.id !== gym.nearestGym) {
-            changed.push(gym.id);
-            changed.push(gym.nearestGym);
+          if (gym.nearestGym) {
+            if (nearest.id !== gym.nearestGym) {
+              changed.push(gym.id);
+              changed.push(gym.nearestGym);
+              changed.push(nearest.id)
+            }
+          } else {
+            newGyms.push(gym.id);
             changed.push(nearest.id)
           }
-        } else {
-          newGyms.push(gym.id);
-          changed.push(nearest.id)
-        }
 
-        updateQuery += "UPDATE GymMeta SET nearestGym = " + nearest.id + " WHERE gymId = " + gym.id + ";";
+          updateQuery += "UPDATE GymMeta SET nearestGym = " + nearest.id + " WHERE gymId = " + gym.id + ";";
+        }
       });
 
       const result = await dbhelper.query(updateQuery)
