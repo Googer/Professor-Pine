@@ -495,9 +495,9 @@ class RegionHelper {
         }
 
         if (gyms) {
-          embed.setDescription("There " + (gyms === 1 ? "is" : "are") + " " + (gyms !== 0 ? gyms : "no") + " gym" + (gyms < 1 || gyms > 1 ? "s" : "") + " within this region");
+          embed.setDescription("There " + (gyms === 1 ? "is" : "are") + " " + (gyms !== 0 ? gyms : "no") + " gym" + (gyms < 1 || gyms > 1 ? "s" : "") + " within this region.");
         } else {
-          embed.setDescription("There are currently no gyms within this region")
+          embed.setDescription("There are currently no gyms within this region.")
         }
 
         resolve(embed);
