@@ -66,7 +66,7 @@ module.exports = class DeleteGym extends commando.Command {
     }
 
     if (gymMessage) {
-      messagesToDelete = [...messagesToDelete, [gymMessage]];
+      messagesToDelete = [...messagesToDelete, gymMessage];
     }
 
     Utility.deleteMessages(messagesToDelete);
