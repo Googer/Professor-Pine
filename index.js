@@ -91,6 +91,7 @@ if (settings.features.roles) {
     require('./commands/admin/gyms/gymplaces'),
     require('./commands/admin/gyms/geocode'),
     require('./commands/admin/gyms/clearimagecache'),
+    require('./commands/admin/gyms/export-tsv'),
 
     require('./commands/admin/regions/importregions'),
     require('./commands/admin/regions/setregion'),

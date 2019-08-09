@@ -24,7 +24,7 @@ module.exports = class CheckGymQueue extends commando.Command {
           return ['unauthorized', message.reply('You are not authorized to use this command.')];
         }
         if (!Helper.isBotChannel(message)) {
-          return ['invalid-channel', message.reply('This command must be ran in a bot channel.')]
+          return ['invalid-channel', message.reply('This command must be run in a bot channel.')]
         }
       }
       return false;

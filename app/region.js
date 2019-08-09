@@ -384,10 +384,25 @@ class RegionHelper {
       });
   }
 
-  async getAllRegions() {
-    const selectQuery = "SELECT * FROM Region;";
+  async getAllRegions(guildId = undefined) {
+    let selectQuery;
+    const values = [];
+
+    if (!!guildId) {
+      const guildDbId = (await DB.DB('Guild')
+        .where('snowflake', guildId)
+        .pluck('id')
+        .first()
+        .catch(err => log.error(err)))
+        .id;
+
+      selectQuery = "SELECT * FROM Region WHERE guildId = ?;";
+      values.push(guildDbId);
+    } else {
+      selectQuery = "SELECT * FROM REGION;";
+    }
     return new Promise(async (resolve, reject) => {
-      const results = await dbhelper.query(selectQuery)
+      const results = await dbhelper.query(selectQuery, values)
         .catch(error => {
           log.error(error);
           return null;

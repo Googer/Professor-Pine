@@ -29,11 +29,12 @@ module.exports = class ImportGyms extends commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'import-gyms') {
-
-        if (!Helper.isBotChannel(message) && !Helper.isManagement(message)) {
-          return ['invalid-channel', message.reply('You are not authorized to run this command.')];
+        if (!Helper.isManagement(message)) {
+          return ['unauthorized', message.reply('You are not authorized to use this command.')];
         }
-
+        if (!Helper.isBotChannel(message)) {
+          return ['invalid-channel', message.reply('This command must be run in a bot channel.')]
+        }
       }
       return false;
     });

@@ -72,8 +72,10 @@ class GymCache {
       const expandedRegion = region ? Region.polygonStringFromRegion(expanded) : null;
 
       //Get gyms inside the enclosed polygon
-      let channelGyms = await Region.getGyms(Region.polygonStringFromRegion(regionObject));
-      let expandedGyms = await Region.getGyms(expandedRegion);
+      let channelGyms = await Region.getGyms(Region.polygonStringFromRegion(regionObject))
+        .catch(error => log.error(err));
+      let expandedGyms = await Region.getGyms(expandedRegion)
+        .catch(error => log.error(err));
 
       if (!!channelGyms && !!expandedGyms) {
         let neighboringGyms = expandedGyms

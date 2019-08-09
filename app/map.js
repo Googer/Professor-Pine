@@ -33,6 +33,7 @@ class Map {
       await Utility.sleep(1000);
     }
 
+    // TODO: make this guild-aware
     const regions = await Region.getAllRegions()
       .catch(err => log.error(err));
 
