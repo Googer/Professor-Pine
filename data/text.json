@@ -5,6 +5,9 @@
   "iam": {
     "warning": "Assign yourself roles in ${bot-channel}!"
   },
+  "pvp-rank": {
+    "warning": "Use the `!rank` commands in ${pvp-channel} to see the PvP ranking of a specific IV set for a Pokemon species."
+  },
   "iamnot": {
     "warning": "Unassign roles in ${bot-channel}!"
   },
