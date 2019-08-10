@@ -41,8 +41,16 @@ class Helper {
             exAnnounceChannel: guild.channels.find(channel => {
               return channel.name === settings.channels["ex-gym-raids"];
             }),
-            help: null,
+            pvp: guild.channels.find(channel => {
+              return channel.name === settings.channels["pvp"];
+            }),
           },
+          categories: {
+            pvp:  guild.channels.find(channel => {
+              return channel.name === settings.categories["pvp"] && channel.type === 'category';
+            })
+          },
+          help: null,
           roles,
           emojis: null
         }
@@ -83,7 +91,15 @@ class Helper {
             exAnnounceChannel: guild.channels.find(channel => {
               return channel.name === settings.channels["ex-gym-raids"];
             }),
+            pvp: guild.channels.find(channel => {
+              return channel.name === settings.channels["pvp"];
+            }),
             help: null,
+          },
+          categories: {
+            pvp:  guild.channels.find(channel => {
+              return channel.name === settings.categories["pvp"];
+            })
           },
           roles: new Map(guild.roles.map(role => [role.name.toLowerCase(), role])),
           emojis: null
@@ -203,7 +219,6 @@ class Helper {
     if (message.channel.type === 'dm') {
       return false;
     }
-
     const guild = this.guild.get(message.guild.id),
       botLabChannelId = guild.channels.botLab ?
         guild.channels.botLab.id :
@@ -219,9 +234,26 @@ class Helper {
     return message.channel.id === botLabChannelId || message.channel.id === modBotLabChannelId;
   }
 
+  isPvPCategory(message) {
+    if (message.channel.type === 'dm') {
+      return false;
+    }
+    const guild = this.guild.get(message.guild.id),
+      PvPCategoryId = guild.categories.pvp ?
+        guild.categories.pvp.id :
+        -1;
+
+    return message.channel.parentID === PvPCategoryId;
+  }
+
   getBotChannel(channel) {
     const guild = this.guild.get(channel.guild.id);
     return guild.channels.botLab;
+  }
+
+  getPvPCategory(channel){
+    const guild = this.guild.get(channel.guild.id);
+    return guild.categories.pvp;
   }
 
   getRole(guild, roleName) {
@@ -271,13 +303,17 @@ class Helper {
       const guildId = message && message.guild && message.guild.id ?
         message.guild.id :
         Array.from(this.client.guilds)
-          .find(guild => guild[1].members.has(message.author.id))[0],
+          .find(guild => guild[1].members.has(message.author.id))[0];
 
-        botChannelString = !!guildId ?
+        let botChannelString = !!guildId ?
           this.guild.get(guildId).channels.botLab.toString() :
           `#${settings.channels["bot-lab"]}`;
+        let pvpChannelString = !!guildId ?
+          this.guild.get(guildId).channels.pvp.toString() :
+          `#${settings.channels["pvp"]}`;
 
       text = text.replace(/\${bot-channel}/g, botChannelString);
+      text = text.replace(/\${pvp-channel}/g, pvpChannelString);
     }
 
     return text;
