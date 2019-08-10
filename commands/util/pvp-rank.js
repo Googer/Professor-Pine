@@ -234,7 +234,7 @@ class PvPRankingData {
     this.pctMaxStatProductStr = rankData.pctMaxStatProduct.toFixed(2).toString() + "%";
   }
 
-  async displayInfo(message, command) {
+  async displayInfo(message, command, isDM) {
     if (this.flag === true) {
       return;
     }
@@ -279,16 +279,22 @@ class PvPRankingData {
       embed = new MessageEmbed()
         .setColor(embedColor(this.pctMaxStatProduct))
         .addField(nameField, requestInfo)
-        .setThumbnail(this.pokemon.imageURL)
-        .setFooter(`Requested by ${message.member.displayName}`, message.author.displayAvatarURL());
+        .setThumbnail(this.pokemon.imageURL);
+
+      if (!isDM) {
+        embed.setFooter(`Requested by ${message.member.displayName}`, message.author.displayAvatarURL());
+      }
     } else { //If rank was not found. This is due to an IV request outside of the allowed IVs per the IV filter. (Asking for rank of IV: 5 from a raid boss when minimum is 10)
       let nameField = `**${this.embedName.replace(/_/g, ' ').titleCase()}**  ${this.attackIV}/${this.defenseIV}/${this.staminaIV}\n`; //nameField is pokemon name & IVs.
       let requestInfo = `\n**[${league} LEAGUE](${this.url})\nRank**:   *Not Found*\n**CP**: *Not Found*\n**Error**: ${this.embedErrorMessage}`;
       embed = new MessageEmbed()
         .setColor('ff0000')
         .addField(nameField, requestInfo)
-        .setThumbnail(this.pokemon.imageURL)
-        .setFooter(`Requested by ${message.member.displayName}`, message.author.displayAvatarURL());
+        .setThumbnail(this.pokemon.imageURL);
+
+      if (!isDM) {
+        embed.setFooter(`Requested by ${message.member.displayName}`, message.author.displayAvatarURL());
+      }
     }
     let userCommand = `${message.client.commandPrefix}${command}`, //Grabs the !great, !ultra or w/e from user inputs.
       userPokemon = `${this.commandName}`, //Grabs the accepted Pokémon name.
@@ -318,7 +324,7 @@ class RankCommand extends Commando.Command {
     });
 
     client.dispatcher.addInhibitor(message => {
-      if (!!message.command && message.command.name === 'rank' && !Helper.isPvPCategory(message)) {
+      if (!!message.command && message.command.name === 'rank' && !Helper.isPvPCategory(message) && message.channel.type !== 'dm') {
         return ['invalid-channel', message.reply(Helper.getText('pvp-rank.warning', message))];
       }
       return false;
@@ -332,18 +338,19 @@ class RankCommand extends Commando.Command {
       });
     };
 
-    let userCommand = message.content.substring(1).trim().split(' ').shift().toLowerCase();
+    const userCommand = message.content.toLowerCase()
+      .match(`\\${message.client.options.commandPrefix}?(\\s+)?(\\S+)`)[2];
 
     if (userCommand === 'great' || userCommand === 'rank') {
       let greatRank = new PvPRankingData(userCommand, args, message.client);
       await greatRank.getUserRequest(message, CpmData);
       await greatRank.generateRanks(CpmData);
-      await greatRank.displayInfo(message, userCommand);
+      await greatRank.displayInfo(message, userCommand, message.channel.type === 'dm');
     } else if (userCommand === 'ultra') {
       let ultraRank = new PvPRankingData(userCommand, args, message.client);
       await ultraRank.getUserRequest(message);
       await ultraRank.generateRanks(CpmData);
-      await ultraRank.displayInfo(message, userCommand);
+      await ultraRank.displayInfo(message, userCommand, message.channel.type === 'dm');
     }
   }
 }
