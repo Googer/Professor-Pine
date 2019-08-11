@@ -5,6 +5,7 @@ const log = require('loglevel').getLogger('EditGymCommand'),
   oneLine = require('common-tags').oneLine,
   Helper = require('../../../app/helper'),
   Gym = require('../../../app/gym'),
+  ImageCacher = require('../../../app/imagecacher'),
   PartyManager = require('../../../app/party-manager'),
   Region = require('../../../app/region'),
   Utility = require('../../../app/utility'),
@@ -39,13 +40,7 @@ module.exports = class EditGym extends commando.Command {
       key: 'field',
       prompt: 'What field of the gym do you wish to edit? Available fields: `location`,`name`,`nickname`,`description`,`keywords`,`exraid`,`notice`.',
       type: 'string',
-      validate: value => {
-        if (value === 'location' || value === 'name' || value === 'nickname' || value === 'description' || value === 'keywords' || value === 'exraid' || value === 'notice') {
-          return true;
-        } else {
-          return "Invalid field. Available fields: `location`,`name`,`nickname`,`description`,`keywords`,`exraid`,`notice`."
-        }
-      }
+      oneOf: ['location', 'name', 'nickname', 'description', 'keywords', 'exraid', 'notice']
     }], 3);
 
     this.nameCollector = new commando.ArgumentCollector(client, [{
@@ -218,6 +213,7 @@ module.exports = class EditGym extends commando.Command {
                         const result = await Region.setGymLocation(gym["id"], location, Gym)
                           .catch(error => msg.say("An error occurred changing the location of this gym.")
                             .catch(err => log.error(err)));
+                        ImageCacher.deleteCachedImage(`images/gyms/${gym["id"]}.png`);
                         if (result["id"]) {
                           that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
                           Region.showGymDetail(msg, result, "Updated Gym Location", msg.member.displayName, false);
