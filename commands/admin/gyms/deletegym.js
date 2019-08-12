@@ -30,17 +30,8 @@ module.exports = class DeleteGym extends commando.Command {
 
     this.confirmationCollector = new commando.ArgumentCollector(client, [{
       key: 'confirm',
-      prompt: 'Are you sure you want to remove this gym? Reply `(Y)es` or `(N)o`',
-      type: 'string',
-      validate: value => {
-        const v = value.toLowerCase();
-        const first = value.substring(0, 1);
-        if (v === 'y' || v === 'n' || v === 'yes' || v === 'no') {
-          return true;
-        } else {
-          return 'Please provide a `(Y)es` or `(N)o` response.';
-        }
-      }
+      prompt: 'Are you sure you want to remove this gym?',
+      type: 'boolean'
     }], 3);
 
     client.dispatcher.addInhibitor(message => {
@@ -85,9 +76,9 @@ module.exports = class DeleteGym extends commando.Command {
           that.confirmationCollector.obtain(msg)
             .then(async confirmResult => {
               if (!confirmResult.cancelled) {
-                const confirm = confirmResult.values['confirm'].substring(0, 1);
+                const confirm = confirmResult.values['confirm'];
 
-                if (confirm === 'y' || confirm === 'yes') {
+                if (confirm) {
                   const thinkingReaction = await msg.react('🤔')
                     .catch(err => log.error(err));
 

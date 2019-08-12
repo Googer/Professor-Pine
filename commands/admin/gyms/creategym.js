@@ -65,16 +65,7 @@ module.exports = class CreateGym extends Commando.Command {
       {
         key: 'confirm',
         prompt: 'An existing gym sits in close proximity to the point you are trying to add one too. If the gym shown above is the one you are attempting to add, type `yes` to cancel this command or `no` to continue adding a new gym.',
-        type: 'string',
-        validate: value => {
-          const v = value.toLowerCase();
-          const first = v.substring(0, 1);
-          if (first === "y" || first === "n") {
-            return true;
-          } else {
-            return "Please provide a `yes` or `no` response."
-          }
-        }
+        type: 'boolean'
       }
     ], 3);
 
@@ -211,9 +202,8 @@ module.exports = class CreateGym extends Commando.Command {
             that.confirmationCollector.obtain(msg)
               .then(async confirmResult => {
                 if (!confirmResult.cancelled) {
-                  const result = confirmResult.values["confirm"].toLowerCase();
-                  const first = result.substring(0, 1);
-                  if (first === "n") {
+                  const result = confirmResult.values["confirm"];
+                  if (!result) {
                     that.finishCollection(msg, locationResult);
                   } else {
                     that.cleanup(msg, locationResult)
