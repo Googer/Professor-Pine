@@ -7,9 +7,6 @@
         <option name="TAB_SIZE" value="2" />
       </value>
     </option>
-    <ScalaCodeStyleSettings>
-      <option name="MULTILINE_STRING_SUPPORT" value="-1" />
-    </ScalaCodeStyleSettings>
     <codeStyleSettings language="CFML">
       <option name="METHOD_BRACE_STYLE" value="1" />
       <option name="SPECIAL_ELSE_IF_TREATMENT" value="true" />

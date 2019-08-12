@@ -58,10 +58,15 @@ class RemoveRouteCommand extends Commando.Command {
           oneOf: validInputs
         }
       ], 3),
-      gymResults = await gymCollector.obtain(message),
-      gymToRemove = gymResults.values.gymId;
+      gymResults = await gymCollector.obtain(message);
 
     Utility.cleanCollector(gymResults);
+
+    if (gymResults.cancelled) {
+      return;
+    }
+
+    const gymToRemove = gymResults.values.gymId;
 
     let route = await party.removeRouteGym(Number.parseInt(gymToRemove) - 1);
 
