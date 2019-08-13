@@ -13,7 +13,7 @@ const log = require('loglevel').getLogger('ImageProcessor'),
   RegionHelper = require('./region'),
   settings = require('../data/settings'),
   Status = require('./status'),
-  {TesseractWorker, OEM} = require('tesseract.js'),
+  {TesseractWorker, OEM, PSM} = require('tesseract.js'),
   {PartyStatus, TimeParameter} = require('./constants'),
   uuidv1 = require('uuid/v1'),
   Utility = require('./utility');
@@ -82,7 +82,7 @@ class ImageProcessing {
     });
 
     this.timeTesseractOptions = Object.assign({}, this.baseTesseractOptions, {
-      'tessedit_pageseg_mode': '7',	// character mode; instead of word mode
+      'tessedit_pageseg_mode': PSM.SINGLE_LINE,
       'tessedit_char_whitelist': '0123456789:! APM',
       'numeric_punctuation': ':'
     });
