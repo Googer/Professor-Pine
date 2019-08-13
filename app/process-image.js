@@ -43,12 +43,20 @@ class ImageProcessing {
     this.imagePath = '/../assets/processing/';
 
     if (!fs.existsSync(path.join(__dirname, this.imagePath))) {
-      fs.mkdirSync(path.join(__dirname, this.imagePath));
+      fs.mkdirSync(path.join(__dirname, this.imagePath), {recursive: true});
     }
 
     this.gymPokemonTesseract = null;
-    this.timeTesseract = new TesseractWorker();
-    this.tierTesseract = new TesseractWorker();
+    this.timeTesseract = new TesseractWorker({
+      langPath: path.join(__dirname, '..', 'lang-data', 'v3'),
+      cachePath: path.join(__dirname, '..', 'lang-data', 'v3'),
+      cacheMethod: 'readOnly'
+    });
+    this.tierTesseract = new TesseractWorker({
+      langPath: path.join(__dirname, '..', 'lang-data', 'v3'),
+      cachePath: path.join(__dirname, '..', 'lang-data', 'v3'),
+      cacheMethod: 'readOnly'
+    });
 
     this.baseTesseractOptions = {
       'tessedit_ocr_engine_mode': OEM.TESSERACT_ONLY,
@@ -111,10 +119,11 @@ class ImageProcessing {
 
     Helper.client.on('gymsReindexed', async () => {
       log.info('Rebuilding custom dictionary...');
+
       const gyms = await RegionHelper.getAllGyms()
         .catch(err => log.error(err));
 
-      fs.writeFileSync('gyms-and-pokemon.txt',
+      fs.writeFileSync(path.join(__dirname, '..', 'lang-data', 'v4', 'gyms-and-pokemon.txt'),
         [...new Set([].concat(...gyms
           .map(gym => he.decode(gym.name.trim()))
           .map(gymName => gymName.split(/\s/)))
@@ -127,7 +136,11 @@ class ImageProcessing {
           .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
           .join('\n'));
 
-      this.gymPokemonTesseract = new TesseractWorker();
+      this.gymPokemonTesseract = new TesseractWorker({
+        langPath: path.join(__dirname, '..', 'lang-data', 'v4'),
+        cachePath: path.join(__dirname, '..', 'lang-data', 'v4'),
+        cacheMethod: 'readOnly'
+      });
     });
   }
 
