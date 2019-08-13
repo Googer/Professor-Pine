@@ -3,6 +3,7 @@
 const log = require('loglevel').getLogger('ImageProcessor'),
   Commando = require('discord.js-commando'),
   fs = require('fs'),
+  he = require('he'),
   Helper = require('./helper'),
   Jimp = require('jimp'),
   moment = require('moment'),
@@ -12,7 +13,7 @@ const log = require('loglevel').getLogger('ImageProcessor'),
   RegionHelper = require('./region'),
   settings = require('../data/settings'),
   Status = require('./status'),
-  tesseract = require('tesseract.js'),
+  {TesseractWorker, OEM} = require('tesseract.js'),
   {PartyStatus, TimeParameter} = require('./constants'),
   uuidv1 = require('uuid/v1'),
   Utility = require('./utility');
@@ -45,49 +46,51 @@ class ImageProcessing {
       fs.mkdirSync(path.join(__dirname, this.imagePath));
     }
 
-    this.gymPokemonTesseract = tesseract.create();
-    this.timeTesseract = tesseract.create();
-    this.tierTesseract = tesseract.create();
+    this.gymPokemonTesseract = null;
+    this.timeTesseract = new TesseractWorker();
+    this.tierTesseract = new TesseractWorker();
 
     this.baseTesseractOptions = {
-      load_bigram_dawg: '0',
-      load_fixed_length_dawgs: '0',
-      load_freq_dawg: '0',
-      load_unambig_dawg: '0',
-      load_punc_dawg: '0',
-      paragraph_text_based: '0',
-      language_model_penalty_non_dict_word: '1.5',
-      classify_misfit_junk_penalty: '0.8',
-      language_model_penalty_font: '0.8',
-      language_model_penalty_script: '0.8',
-      segment_penalty_dict_nonword: '1.5',
-      // segment_penalty_garbage: '2.0'
+      'tessedit_ocr_engine_mode': OEM.TESSERACT_ONLY,
+      'load_system_dawg': '0',
+      'load_bigram_dawg': '0',
+      'load_fixed_length_dawgs': '0',
+      'load_freq_dawg': '0',
+      'load_unambig_dawg': '0',
+      'load_punc_dawg': '0',
+      'paragraph_text_based': '0',
+      'language_model_penalty_non_dict_word': '1.0',
+      'classify_misfit_junk_penalty': '0.8',
+      'language_model_penalty_font': '0.8',
+      'language_model_penalty_script': '0.8',
+      'segment_penalty_dict_nonword': '1.0'
+      // 'segment_penalty_garbage': '2.0'
     };
 
     this.gymPokemonTesseractOptions = Object.assign({}, this.baseTesseractOptions, {
-      load_number_dawg: '0'
+      'tessedit_ocr_engine_mode': OEM.LSTM_ONLY,
+      'user_words_file': 'gyms-and-pokemon.txt',
+      'load_number_dawg': '0'
     });
 
     this.timeTesseractOptions = Object.assign({}, this.baseTesseractOptions, {
-      load_system_dawg: '0',
-      tessedit_pageseg_mode: '7',	// character mode; instead of word mode
-      tessedit_char_whitelist: '0123456789:! APM',
-      numeric_punctuation: ':'
+      'tessedit_pageseg_mode': '7',	// character mode; instead of word mode
+      'tessedit_char_whitelist': '0123456789:! APM',
+      'numeric_punctuation': ':'
     });
 
     this.timeRemainingTesseractOptions = Object.assign({}, this.baseTesseractOptions, {
-      load_system_dawg: '0',
-      // tessedit_pageseg_mode: '7',	// character mode; instead of word mode
-      tessedit_char_whitelist: '0123456789: ',
-      numeric_punctuation: ':'
+      // 'tessedit_pageseg_mode': '7',	// character mode; instead of word mode
+      'tessedit_char_whitelist': '0123456789: ',
+      'numeric_punctuation': ':'
     });
 
     this.tierTesseractOptions = Object.assign({}, this.baseTesseractOptions, {
-      load_system_dawg: '0',
-      load_punc_dawg: '0',
-      load_number_dawg: '0',
-      classify_misfit_junk_penalty: '0',
-      tessedit_char_whitelist: '@®©'
+      'load_system_dawg': '0',
+      'load_punc_dawg': '0',
+      'load_number_dawg': '0',
+      'classify_misfit_junk_penalty': '0',
+      'tessedit_char_whitelist': '@®©'
     });
   }
 
@@ -104,6 +107,27 @@ class ImageProcessing {
         this.process(message, imageUrl)
           .catch(err => log.error(err));
       }
+    });
+
+    Helper.client.on('gymsReindexed', async () => {
+      log.info('Rebuilding custom dictionary...');
+      const gyms = await RegionHelper.getAllGyms()
+        .catch(err => log.error(err));
+
+      fs.writeFileSync('gyms-and-pokemon.txt',
+        [...new Set([].concat(...gyms
+          .map(gym => he.decode(gym.name.trim()))
+          .map(gymName => gymName.split(/\s/)))
+          .filter(term => term.length > 0)
+          .concat(require('../data/pokemon')
+            .map(pokemon => pokemon.name)
+            .filter(name => name !== undefined)
+            .map(name => name.replace('_', ' '))
+            .map(pokemonName => `${pokemonName.charAt(0).toUpperCase()}${pokemonName.slice(1)}`)))]
+          .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
+          .join('\n'));
+
+      this.gymPokemonTesseract = new TesseractWorker();
     });
   }
 
@@ -613,7 +637,8 @@ class ImageProcessing {
             reject(err);
           }
 
-          this.timeTesseract.recognize(image, this.timeTesseractOptions)
+          this.timeTesseract.recognize(image, 'eng', this.timeTesseractOptions)
+            .progress(progress => log.debug(progress))
             .catch(err => reject(err))
             .then(result => {
               const match = this.tesseractProcessTime(result);
@@ -686,7 +711,8 @@ class ImageProcessing {
               reject(err);
             }
 
-            this.timeTesseract.recognize(image, this.timeRemainingTesseractOptions)
+            this.timeTesseract.recognize(image, 'eng', this.timeRemainingTesseractOptions)
+              .progress(progress => log.debug(progress))
               .catch(err => reject(err))
               .then(result => {
                 const confidentWords = this.tesseractGetConfidentSequences(result, true),
@@ -719,7 +745,8 @@ class ImageProcessing {
               reject(err);
             }
 
-            this.timeTesseract.recognize(image, this.timeRemainingTesseractOptions)
+            this.timeTesseract.recognize(image, 'eng', this.timeRemainingTesseractOptions)
+              .progress(progress => log.debug(progress))
               .catch(err => reject(err))
               .then(result => {
                 const confidentWords = this.tesseractGetConfidentSequences(result, true),
@@ -834,7 +861,12 @@ class ImageProcessing {
           reject(err);
         }
 
-        this.gymPokemonTesseract.recognize(image, this.gymPokemonTesseractOptions)
+        if (!this.gymPokemonTesseract) {
+          reject('Tesseract not initialized yet!');
+        }
+
+        this.gymPokemonTesseract.recognize(image, 'eng', this.gymPokemonTesseractOptions)
+          .progress(progress => log.debug(progress))
           .catch(err => reject(err))
           .then(result => {
             const confidentWords = this.tesseractGetConfidentSequences(result, true),
@@ -925,7 +957,8 @@ class ImageProcessing {
           reject(err);
         }
 
-        this.gymPokemonTesseract.recognize(image, this.gymPokemonTesseractOptions)
+        this.gymPokemonTesseract.recognize(image, 'eng', this.gymPokemonTesseractOptions)
+          .progress(progress => log.debug(progress))
           .catch(err => reject(err))
           .then(result => {
             const text = result.text.replace(/[^\w\n]/gi, '');
@@ -1015,7 +1048,8 @@ class ImageProcessing {
             reject(err);
           }
 
-          this.tierTesseract.recognize(image, this.tierTesseractOptions)
+          this.tierTesseract.recognize(image, 'eng', this.tierTesseractOptions)
+            .progress(progress => log.debug(progress))
             .catch(err => reject(err))
             .then(result => {
               let tier = 0;

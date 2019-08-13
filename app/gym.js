@@ -3,6 +3,7 @@
 const log = require('loglevel').getLogger('GymSearch'),
   lunr = require('lunr'),
   he = require('he'),
+  Helper = require('./helper'),
   removeDiacritics = require('diacritics').remove,
   Region = require('./region'),
   Search = require('./search'),
@@ -97,13 +98,13 @@ class GymCache {
   async rebuildMaster() {
     const that = this;
     return new Promise(async (resolve, reject) => {
-
       //Get all gyms
       let allGyms = await Region.getAllGyms();
       if (!!allGyms) {
-
         //Create lunr search index for all gyms
         that.masterIndex = new Gym(allGyms);
+
+        Helper.client.emit('gymsReindexed');
 
         resolve(true);
       } else {
