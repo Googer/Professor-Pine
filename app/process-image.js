@@ -46,6 +46,15 @@ class ImageProcessing {
       fs.mkdirSync(path.join(__dirname, this.imagePath), {recursive: true});
     }
 
+    fs.writeFileSync(path.join(__dirname, '..', 'lang-data', 'v4', 'pokemon.txt'),
+      require('../data/pokemon')
+        .map(pokemon => pokemon.name)
+        .filter(name => name !== undefined)
+        .map(name => name.replace('_', ' '))
+        .map(pokemonName => `${pokemonName.charAt(0).toUpperCase()}${pokemonName.slice(1)}`)
+        .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
+        .join('\n'));
+
     this.gymPokemonTesseract = null;
     this.timeTesseract = new TesseractWorker({
       langPath: path.join(__dirname, '..', 'lang-data', 'v3'),
@@ -75,9 +84,15 @@ class ImageProcessing {
       // 'segment_penalty_garbage': '2.0'
     };
 
-    this.gymPokemonTesseractOptions = Object.assign({}, this.baseTesseractOptions, {
+    this.gymTesseractOptions = Object.assign({}, this.baseTesseractOptions, {
       'tessedit_ocr_engine_mode': OEM.LSTM_ONLY,
-      'user_words_file': 'gyms-and-pokemon.txt',
+      'user_words_file': 'gyms.txt',
+      'load_number_dawg': '0'
+    });
+
+    this.pokemonTesseractOptions = Object.assign({}, this.baseTesseractOptions, {
+      'tessedit_ocr_engine_mode': OEM.LSTM_ONLY,
+      'user_words_file': 'pokemon.txt',
       'load_number_dawg': '0'
     });
 
@@ -123,16 +138,11 @@ class ImageProcessing {
       const gyms = await RegionHelper.getAllGyms()
         .catch(err => log.error(err));
 
-      fs.writeFileSync(path.join(__dirname, '..', 'lang-data', 'v4', 'gyms-and-pokemon.txt'),
+      fs.writeFileSync(path.join(__dirname, '..', 'lang-data', 'v4', 'gyms.txt'),
         [...new Set([].concat(...gyms
           .map(gym => he.decode(gym.name.trim()))
           .map(gymName => gymName.split(/\s/)))
-          .filter(term => term.length > 0)
-          .concat(require('../data/pokemon')
-            .map(pokemon => pokemon.name)
-            .filter(name => name !== undefined)
-            .map(name => name.replace('_', ' '))
-            .map(pokemonName => `${pokemonName.charAt(0).toUpperCase()}${pokemonName.slice(1)}`)))]
+          .filter(term => term.length > 0))]
           .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
           .join('\n'));
 
@@ -651,7 +661,6 @@ class ImageProcessing {
           }
 
           this.timeTesseract.recognize(image, 'eng', this.timeTesseractOptions)
-            .progress(progress => log.debug(progress))
             .catch(err => reject(err))
             .then(result => {
               const match = this.tesseractProcessTime(result);
@@ -725,7 +734,6 @@ class ImageProcessing {
             }
 
             this.timeTesseract.recognize(image, 'eng', this.timeRemainingTesseractOptions)
-              .progress(progress => log.debug(progress))
               .catch(err => reject(err))
               .then(result => {
                 const confidentWords = this.tesseractGetConfidentSequences(result, true),
@@ -759,7 +767,6 @@ class ImageProcessing {
             }
 
             this.timeTesseract.recognize(image, 'eng', this.timeRemainingTesseractOptions)
-              .progress(progress => log.debug(progress))
               .catch(err => reject(err))
               .then(result => {
                 const confidentWords = this.tesseractGetConfidentSequences(result, true),
@@ -878,8 +885,7 @@ class ImageProcessing {
           reject('Tesseract not initialized yet!');
         }
 
-        this.gymPokemonTesseract.recognize(image, 'eng', this.gymPokemonTesseractOptions)
-          .progress(progress => log.debug(progress))
+        this.gymPokemonTesseract.recognize(image, 'eng', this.gymTesseractOptions)
           .catch(err => reject(err))
           .then(result => {
             const confidentWords = this.tesseractGetConfidentSequences(result, true),
@@ -970,8 +976,7 @@ class ImageProcessing {
           reject(err);
         }
 
-        this.gymPokemonTesseract.recognize(image, 'eng', this.gymPokemonTesseractOptions)
-          .progress(progress => log.debug(progress))
+        this.gymPokemonTesseract.recognize(image, 'eng', this.pokemonTesseractOptions)
           .catch(err => reject(err))
           .then(result => {
             const text = result.text.replace(/[^\w\n]/gi, '');
@@ -1062,7 +1067,6 @@ class ImageProcessing {
           }
 
           this.tierTesseract.recognize(image, 'eng', this.tierTesseractOptions)
-            .progress(progress => log.debug(progress))
             .catch(err => reject(err))
             .then(result => {
               let tier = 0;
