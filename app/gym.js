@@ -14,9 +14,6 @@ const log = require('loglevel').getLogger('GymSearch'),
 //Instead we will create individual indexes based on region - which will reindex only affected regions whenever a change is made
 class GymCache {
   constructor() {
-    (async () => {
-      await this.buildIndexes();
-    })();
   }
 
   async buildIndexes() {

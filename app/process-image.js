@@ -1146,11 +1146,11 @@ class ImageProcessing {
       return false;
     }
 
-    // PHONE TIME
-    promises.push(this.getPhoneTime(id, message, image, phoneTimeCrop));
-
     // TIME REMAINING
     const timeRemaining = await this.getRaidTimeRemaining(id, message, image, allCrop);
+
+    // PHONE TIME
+    promises.push(this.getPhoneTime(id, message, image, phoneTimeCrop));
 
     // NOTE:  This seems like a bug in await syntax, but I can't use shorthands for settings values
     //        when they're await within an IF function like this... really stupid.

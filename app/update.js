@@ -11,7 +11,7 @@ class IntervalUpdater {
 
     // loop update gym indexes
     if (privateSettings.updater.channelIndexUpdateIntervalSeconds && privateSettings.updater.channelIndexUpdateIntervalSeconds > 0) {
-      const milliseconds = privateSettings.updater.channelIndexUpdateIntervalSeconds * 100;
+      const milliseconds = privateSettings.updater.channelIndexUpdateIntervalSeconds * 1000;
       this.updateIndexes = setInterval(() => {
         that.runIndexUpdate();
       }, milliseconds);
@@ -19,7 +19,7 @@ class IntervalUpdater {
 
     // loop update gym geocode & places
     if (privateSettings.updater.gymPlacesIndexUpdateIntervalSeconds && privateSettings.updater.gymPlacesIndexUpdateIntervalSeconds > 0) {
-      const milliseconds = privateSettings.updater.gymPlacesIndexUpdateIntervalSeconds * 100;
+      const milliseconds = privateSettings.updater.gymPlacesIndexUpdateIntervalSeconds * 1000;
       this.updatePlaces = setInterval(() => {
         that.runPlacesUpdate();
       }, milliseconds);

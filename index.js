@@ -30,6 +30,7 @@ const privateSettings = require('./data/private-settings'),
   }),
   DB = require('./app/db.js'),
   NodeCleanup = require('node-cleanup'),
+  Gym = require('./app/gym'),
   Helper = require('./app/helper'),
   IP = require('./app/process-image'),
   ExRaidChannel = require('./app/ex-gym-channel'),
@@ -226,6 +227,7 @@ Client.on('ready', async () => {
     await DB.initialize(Client);
     Map.initialize(Client);
     IP.initialize();
+    await Gym.buildIndexes();
 
     module.exports.isInitialized = isInitialized = true;
   }
@@ -287,7 +289,7 @@ NotifyClient.on('disconnect', event => {
   log.error(`Notify Client disconnected, code ${event.code}, reason '${event.reason}'...`);
 
   NotifyClient.destroy()
-    .then(() => Client.login(privateSettings.discordNotifyToken))
+    .then(() => NotifyClient.login(privateSettings.discordNotifyToken))
     .catch(err => log.error(err));
 });
 
