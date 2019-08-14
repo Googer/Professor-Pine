@@ -1,6 +1,7 @@
 "use strict";
 
 const log = require('loglevel').getLogger('ImageProcessor'),
+  AsyncLock = require('async-lock'),
   Commando = require('discord.js-commando'),
   fs = require('fs'),
   he = require('he'),
@@ -55,15 +56,14 @@ class ImageProcessing {
         .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
         .join('\n'));
 
-    this.gymPokemonTesseract = null;
-    this.timeTesseract = new TesseractWorker({
+    this.v3Tesseract = new TesseractWorker({
       langPath: path.join(__dirname, '..', 'lang-data', 'v3'),
       cachePath: path.join(__dirname, '..', 'lang-data', 'v3'),
       cacheMethod: 'readOnly'
     });
-    this.tierTesseract = new TesseractWorker({
-      langPath: path.join(__dirname, '..', 'lang-data', 'v3'),
-      cachePath: path.join(__dirname, '..', 'lang-data', 'v3'),
+    this.v4Tesseract = new TesseractWorker({
+      langPath: path.join(__dirname, '..', 'lang-data', 'v4'),
+      cachePath: path.join(__dirname, '..', 'lang-data', 'v4'),
       cacheMethod: 'readOnly'
     });
 
@@ -145,12 +145,6 @@ class ImageProcessing {
           .filter(term => term.length > 0))]
           .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
           .join('\n'));
-
-      this.gymPokemonTesseract = new TesseractWorker({
-        langPath: path.join(__dirname, '..', 'lang-data', 'v4'),
-        cachePath: path.join(__dirname, '..', 'lang-data', 'v4'),
-        cacheMethod: 'readOnly'
-      });
     });
   }
 
@@ -660,23 +654,25 @@ class ImageProcessing {
             reject(err);
           }
 
-          this.timeTesseract.recognize(image, 'eng', this.timeTesseractOptions)
-            .catch(err => reject(err))
-            .then(result => {
-              const match = this.tesseractProcessTime(result);
-              if (match && match.length) {
-                resolve({
-                  image: newImage,
-                  text: match[1],
-                  result
-                });
-              } else {
-                resolve({
-                  image: newImage,
-                  result
-                });
-              }
-            });
+          return ImageProcessing.lock.acquire('v3', () => {
+            this.v3Tesseract.recognize(image, 'eng', this.timeTesseractOptions)
+              .catch(err => reject(err))
+              .then(result => {
+                const match = this.tesseractProcessTime(result);
+                if (match && match.length) {
+                  resolve({
+                    image: newImage,
+                    text: match[1],
+                    result
+                  });
+                } else {
+                  resolve({
+                    image: newImage,
+                    result
+                  });
+                }
+              });
+          });
         });
       })
         .then(value => {
@@ -733,26 +729,28 @@ class ImageProcessing {
               reject(err);
             }
 
-            this.timeTesseract.recognize(image, 'eng', this.timeRemainingTesseractOptions)
-              .catch(err => reject(err))
-              .then(result => {
-                const confidentWords = this.tesseractGetConfidentSequences(result, true),
-                  match = confidentWords.length > 0 ?
-                    confidentWords[0].match(/(\d{1,2}:\d{2}:\d{2})/) :
-                    '';
-                if (match && match.length) {
-                  resolve({
-                    image: newImage,
-                    text: match[1],
-                    result
-                  });
-                } else {
-                  resolve({
-                    image: newImage,
-                    result
-                  });
-                }
-              });
+            return ImageProcessing.lock.acquire('v3', () => {
+              this.v3Tesseract.recognize(image, 'eng', this.timeRemainingTesseractOptions)
+                .catch(err => reject(err))
+                .then(result => {
+                  const confidentWords = this.tesseractGetConfidentSequences(result, true),
+                    match = confidentWords.length > 0 ?
+                      confidentWords[0].match(/(\d{1,2}:\d{2}:\d{2})/) :
+                      '';
+                  if (match && match.length) {
+                    resolve({
+                      image: newImage,
+                      text: match[1],
+                      result
+                    });
+                  } else {
+                    resolve({
+                      image: newImage,
+                      result
+                    });
+                  }
+                });
+            });
           });
       }));
 
@@ -766,26 +764,28 @@ class ImageProcessing {
               reject(err);
             }
 
-            this.timeTesseract.recognize(image, 'eng', this.timeRemainingTesseractOptions)
-              .catch(err => reject(err))
-              .then(result => {
-                const confidentWords = this.tesseractGetConfidentSequences(result, true),
-                  match = confidentWords.length > 0 ?
-                    confidentWords[0].match(/(\d{1,2}:\d{2}:\d{2})/) :
-                    '';
-                if (match && match.length) {
-                  resolve({
-                    image: newImage,
-                    text: match[1],
-                    result
-                  });
-                } else {
-                  resolve({
-                    image: newImage,
-                    result
-                  });
-                }
-              });
+            return ImageProcessing.lock.acquire('v3', () => {
+              this.v3Tesseract.recognize(image, 'eng', this.timeRemainingTesseractOptions)
+                .catch(err => reject(err))
+                .then(result => {
+                  const confidentWords = this.tesseractGetConfidentSequences(result, true),
+                    match = confidentWords.length > 0 ?
+                      confidentWords[0].match(/(\d{1,2}:\d{2}:\d{2})/) :
+                      '';
+                  if (match && match.length) {
+                    resolve({
+                      image: newImage,
+                      text: match[1],
+                      result
+                    });
+                  } else {
+                    resolve({
+                      image: newImage,
+                      result
+                    });
+                  }
+                });
+            });
           });
       }));
 
@@ -881,25 +881,23 @@ class ImageProcessing {
           reject(err);
         }
 
-        if (!this.gymPokemonTesseract) {
-          reject('Tesseract not initialized yet!');
-        }
-
-        this.gymPokemonTesseract.recognize(image, 'eng', this.gymTesseractOptions)
-          .catch(err => reject(err))
-          .then(result => {
-            const confidentWords = this.tesseractGetConfidentSequences(result, true),
-              text = confidentWords.length > 0 ?
-                confidentWords[0]
-                  .replace(/[^\w\s-]/g, '')
-                  .replace(/\n/g, ' ').trim() :
-                '';
-            resolve({
-              image: newImage,
-              text,
-              result
+        return ImageProcessing.lock.acquire('v4', () => {
+          this.v4Tesseract.recognize(image, 'eng', this.gymTesseractOptions)
+            .catch(err => reject(err))
+            .then(result => {
+              const confidentWords = this.tesseractGetConfidentSequences(result, true),
+                text = confidentWords.length > 0 ?
+                  confidentWords[0]
+                    .replace(/[^\w\s-]/g, '')
+                    .replace(/\n/g, ' ').trim() :
+                  '';
+              resolve({
+                image: newImage,
+                text,
+                result
+              });
             });
-          });
+        });
       });
     });
   }
@@ -976,32 +974,34 @@ class ImageProcessing {
           reject(err);
         }
 
-        this.gymPokemonTesseract.recognize(image, 'eng', this.pokemonTesseractOptions)
-          .catch(err => reject(err))
-          .then(result => {
-            const text = result.text.replace(/[^\w\n]/gi, '');
-            let matchCP = text.match(/\d{3,10}/g),
-              matchPokemon = text.replace(/(cp)?\s?\d+/g, ' ').match(/\w+/g),
-              pokemon = '',
-              cp = 0;
+        return ImageProcessing.lock.acquire('v4', () => {
+          this.v4Tesseract.recognize(image, 'eng', this.pokemonTesseractOptions)
+            .catch(err => reject(err))
+            .then(result => {
+              const text = result.text.replace(/[^\w\n]/gi, '');
+              let matchCP = text.match(/\d{3,10}/g),
+                matchPokemon = text.replace(/(cp)?\s?\d+/g, ' ').match(/\w+/g),
+                pokemon = '',
+                cp = 0;
 
-            // get longest matching word as "pokemon"
-            if (matchPokemon && matchPokemon.length) {
-              pokemon = matchPokemon.sort((a, b) => b.length - a.length)[0];
-            }
+              // get longest matching word as "pokemon"
+              if (matchPokemon && matchPokemon.length) {
+                pokemon = matchPokemon.sort((a, b) => b.length - a.length)[0];
+              }
 
-            // get longest matching number as "cp"
-            if (matchCP && matchCP.length) {
-              cp = Number(matchCP.sort((a, b) => b.length - a.length)[0]).valueOf();
-            }
+              // get longest matching number as "cp"
+              if (matchCP && matchCP.length) {
+                cp = Number(matchCP.sort((a, b) => b.length - a.length)[0]).valueOf();
+              }
 
-            resolve({
-              image: newImage,
-              cp,
-              pokemon,
-              result
+              resolve({
+                image: newImage,
+                cp,
+                pokemon,
+                result
+              });
             });
-          });
+        });
       });
     });
   }
@@ -1066,32 +1066,34 @@ class ImageProcessing {
             reject(err);
           }
 
-          this.tierTesseract.recognize(image, 'eng', this.tierTesseractOptions)
-            .catch(err => reject(err))
-            .then(result => {
-              let tier = 0;
+          return ImageProcessing.lock.acquire('v3', () => {
+            this.v3Tesseract.recognize(image, 'eng', this.tierTesseractOptions)
+              .catch(err => reject(err))
+              .then(result => {
+                let tier = 0;
 
-              // tier symbols will all be on the same line, so pick the text/line of whatever line has the most matches (assuming other lines are stray artifacts and/or clouds)
-              for (let i = 0; i < result.lines.length; i++) {
-                // replace characters that are almost always jibberish characters
-                const text = result.lines[i].text
-                  .replace(/\s/g, '')
-                  .replace(/“”‘’"'-_=\\\/\+/g, '');
+                // tier symbols will all be on the same line, so pick the text/line of whatever line has the most matches (assuming other lines are stray artifacts and/or clouds)
+                for (let i = 0; i < result.lines.length; i++) {
+                  // replace characters that are almost always jibberish characters
+                  const text = result.lines[i].text
+                    .replace(/\s/g, '')
+                    .replace(/“”‘’"'-_=\\\/\+/g, '');
 
-                // match highly probable / common character regex
-                const match = text.match(/[@Q9Wé®©]+/g);
+                  // match highly probable / common character regex
+                  const match = text.match(/[@Q9Wé®©]+/g);
 
-                if (match && match.length && match[0].length > tier) {
-                  tier = match[0].length;
+                  if (match && match.length && match[0].length > tier) {
+                    tier = match[0].length;
+                  }
                 }
-              }
 
-              resolve({
-                image: newImage,
-                tier,
-                result
+                resolve({
+                  image: newImage,
+                  tier,
+                  result
+                });
               });
-            });
+          });
         });
     });
   }
@@ -1380,5 +1382,7 @@ class ImageProcessing {
       .catch(err => log.error(err));
   }
 }
+
+ImageProcessing.lock = new AsyncLock();
 
 module.exports = new ImageProcessing();
