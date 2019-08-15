@@ -81,11 +81,11 @@ class MetaMachine {
             if (nearest.id !== gym.nearestGym) {
               changed.push(gym.id);
               changed.push(gym.nearestGym);
-              changed.push(nearest.id)
+              changed.push(nearest.id);
             }
           } else {
             newGyms.push(gym.id);
-            changed.push(nearest.id)
+            changed.push(nearest.id);
           }
 
           updateQuery += "UPDATE GymMeta SET nearestGym = " + nearest.id + " WHERE gymId = " + gym.id + ";";

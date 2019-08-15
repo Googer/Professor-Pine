@@ -56,12 +56,27 @@ class ImageProcessing {
         .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
         .join('\n'));
 
-    this.v3Tesseract = new TesseractWorker({
+    this.phoneTesseract = new TesseractWorker({
       langPath: path.join(__dirname, '..', 'lang-data', 'v3'),
       cachePath: path.join(__dirname, '..', 'lang-data', 'v3'),
       cacheMethod: 'readOnly'
     });
-    this.v4Tesseract = new TesseractWorker({
+    this.timeRemainingTesseract = new TesseractWorker({
+      langPath: path.join(__dirname, '..', 'lang-data', 'v3'),
+      cachePath: path.join(__dirname, '..', 'lang-data', 'v3'),
+      cacheMethod: 'readOnly'
+    });
+    this.tierTesseract = new TesseractWorker({
+      langPath: path.join(__dirname, '..', 'lang-data', 'v3'),
+      cachePath: path.join(__dirname, '..', 'lang-data', 'v3'),
+      cacheMethod: 'readOnly'
+    });
+    this.gymTesseract = new TesseractWorker({
+      langPath: path.join(__dirname, '..', 'lang-data', 'v4'),
+      cachePath: path.join(__dirname, '..', 'lang-data', 'v4'),
+      cacheMethod: 'readOnly'
+    });
+    this.pokemonTesseract = new TesseractWorker({
       langPath: path.join(__dirname, '..', 'lang-data', 'v4'),
       cachePath: path.join(__dirname, '..', 'lang-data', 'v4'),
       cacheMethod: 'readOnly'
@@ -96,7 +111,7 @@ class ImageProcessing {
       'load_number_dawg': '0'
     });
 
-    this.timeTesseractOptions = Object.assign({}, this.baseTesseractOptions, {
+    this.phoneTimeTesseractOptions = Object.assign({}, this.baseTesseractOptions, {
       'tessedit_pageseg_mode': PSM.SINGLE_LINE,
       'tessedit_char_whitelist': '0123456789:! APM',
       'numeric_punctuation': ':'
@@ -654,8 +669,8 @@ class ImageProcessing {
             reject(err);
           }
 
-          return ImageProcessing.lock.acquire('v3', () => {
-            this.v3Tesseract.recognize(image, 'eng', this.timeTesseractOptions)
+          return ImageProcessing.lock.acquire('phoneTime', () => {
+            this.phoneTesseract.recognize(image, 'eng', this.phoneTimeTesseractOptions)
               .catch(err => reject(err))
               .then(result => {
                 const match = this.tesseractProcessTime(result);
@@ -729,8 +744,8 @@ class ImageProcessing {
               reject(err);
             }
 
-            return ImageProcessing.lock.acquire('v3', () => {
-              this.v3Tesseract.recognize(image, 'eng', this.timeRemainingTesseractOptions)
+            return ImageProcessing.lock.acquire('timeRemaining', () => {
+              this.timeRemainingTesseract.recognize(image, 'eng', this.timeRemainingTesseractOptions)
                 .catch(err => reject(err))
                 .then(result => {
                   const confidentWords = this.tesseractGetConfidentSequences(result, true),
@@ -764,8 +779,8 @@ class ImageProcessing {
               reject(err);
             }
 
-            return ImageProcessing.lock.acquire('v3', () => {
-              this.v3Tesseract.recognize(image, 'eng', this.timeRemainingTesseractOptions)
+            return ImageProcessing.lock.acquire('timeRemaining', () => {
+              this.timeRemainingTesseract.recognize(image, 'eng', this.timeRemainingTesseractOptions)
                 .catch(err => reject(err))
                 .then(result => {
                   const confidentWords = this.tesseractGetConfidentSequences(result, true),
@@ -881,8 +896,8 @@ class ImageProcessing {
           reject(err);
         }
 
-        return ImageProcessing.lock.acquire('v4', () => {
-          this.v4Tesseract.recognize(image, 'eng', this.gymTesseractOptions)
+        return ImageProcessing.lock.acquire('gym', () => {
+          this.gymTesseract.recognize(image, 'eng', this.gymTesseractOptions)
             .catch(err => reject(err))
             .then(result => {
               const confidentWords = this.tesseractGetConfidentSequences(result, true),
@@ -974,8 +989,8 @@ class ImageProcessing {
           reject(err);
         }
 
-        return ImageProcessing.lock.acquire('v4', () => {
-          this.v4Tesseract.recognize(image, 'eng', this.pokemonTesseractOptions)
+        return ImageProcessing.lock.acquire('pokemon', () => {
+          this.pokemonTesseract.recognize(image, 'eng', this.pokemonTesseractOptions)
             .catch(err => reject(err))
             .then(result => {
               const text = result.text.replace(/[^\w\n]/gi, '');
@@ -1066,8 +1081,8 @@ class ImageProcessing {
             reject(err);
           }
 
-          return ImageProcessing.lock.acquire('v3', () => {
-            this.v3Tesseract.recognize(image, 'eng', this.tierTesseractOptions)
+          return ImageProcessing.lock.acquire('tier', () => {
+            this.tierTesseract.recognize(image, 'eng', this.tierTesseractOptions)
               .catch(err => reject(err))
               .then(result => {
                 let tier = 0;
