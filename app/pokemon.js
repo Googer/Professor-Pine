@@ -191,7 +191,7 @@ class Pokemon extends Search {
       .map(term => removeDiacritics(term))
       .map(term => term.replace(/[^\w\s*]+/g, ''))
       .map(term => term.toLowerCase())
-      .filter(term => this.stopWordFilter(term));
+      .filter(term => Search.stopWordFilter(term));
 
     if (filteredTerms.length === 0) {
       return [];

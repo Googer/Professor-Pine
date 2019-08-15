@@ -14,6 +14,8 @@ const log = require('loglevel').getLogger('GymSearch'),
 //Instead we will create individual indexes based on region - which will reindex only affected regions whenever a change is made
 class GymCache {
   constructor() {
+    lunr.Pipeline.registerFunction(Gym.blacklistWordFilter, 'blacklistWords');
+    lunr.Pipeline.registerFunction(Search.stopWordFilter, 'customStopwords');
   }
 
   async buildIndexes() {
@@ -81,8 +83,8 @@ class GymCache {
             .map(channelGym => channelGym.id).includes(gym.gymId));
 
         //Create lunr search indices for this channel and add it to the cache
-        let localGymsIndex = new Gym(channelGyms);
-        let neighboringGymsIndex = new Gym(neighboringGyms);
+        let localGymsIndex = new Gym(`${channel} [local]`, channelGyms);
+        let neighboringGymsIndex = new Gym(`${channel} [neighbor]`, neighboringGyms);
         channels[channel] = {local: localGymsIndex, neighboring: neighboringGymsIndex};
 
         resolve(true);
@@ -99,7 +101,7 @@ class GymCache {
       let allGyms = await Region.getAllGyms();
       if (!!allGyms) {
         //Create lunr search index for all gyms
-        that.masterIndex = new Gym(allGyms);
+        that.masterIndex = new Gym('master', allGyms);
 
         Helper.client.emit('gymsReindexed');
 
@@ -192,8 +194,9 @@ class GymCache {
 }
 
 class Gym extends Search {
-  constructor(gyms) {
+  constructor(name, gyms) {
     super();
+    this.name = name;
     this.gyms = gyms;
     this.buildIndex();
   }
@@ -203,15 +206,7 @@ class Gym extends Search {
       return;
     }
 
-    log.info('Splicing gym metadata and indexing gym data...');
-
-    const stopwordFilter = this.stopWordFilter,
-      blacklistWordFilter = lunr.generateStopWordFilter(settings.blacklistWords);
-
-    this.blacklistWordFilter = blacklistWordFilter;
-
-    lunr.Pipeline.registerFunction(blacklistWordFilter, 'blacklistWords');
-    lunr.Pipeline.registerFunction(stopwordFilter, 'customStopwords');
+    log.debug(`${this.name} - Splicing gym metadata and indexing gym data...`);
 
     const gyms = this.gyms;
 
@@ -246,8 +241,8 @@ class Gym extends Search {
 
       // replace default stop word filter with custom one
       this.pipeline.remove(lunr.stopWordFilter);
-      this.pipeline.after(lunr.trimmer, blacklistWordFilter);
-      this.pipeline.after(blacklistWordFilter, stopwordFilter);
+      this.pipeline.after(lunr.trimmer, Gym.blacklistWordFilter);
+      this.pipeline.after(Gym.blacklistWordFilter, Search.stopWordFilter);
 
       gyms.forEach(gym => {
         // Gym document is a object with its reference and fields to collection of values
@@ -299,7 +294,7 @@ class Gym extends Search {
       }, this);
     });
 
-    log.info('Indexing gym data complete');
+    log.debug(`${this.name} - Indexing gym data complete`);
   }
 
   internalSearch(terms, fields) {
@@ -315,8 +310,8 @@ class Gym extends Search {
       .map(term => removeDiacritics(term))
       .map(term => term.replace(/[^\w\s*]+/g, ''))
       .map(term => term.toLowerCase())
-      .filter(term => this.stopWordFilter(term))
-      .filter(term => this.blacklistWordFilter(term));
+      .filter(term => Search.stopWordFilter(term))
+      .filter(term => Gym.blacklistWordFilter(term));
 
     if (filteredTerms.length === 0) {
       return [];
@@ -397,9 +392,11 @@ class Gym extends Search {
         return gym;
       }
     }
-
     return false;
   }
+
 }
+
+Gym.blacklistWordFilter = lunr.generateStopWordFilter(settings.blacklistWords);
 
 module.exports = new GymCache();
