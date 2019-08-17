@@ -5,6 +5,7 @@ const log = require('loglevel').getLogger('CancelStartTimeCommand'),
   {CommandGroup, PartyStatus} = require('../../app/constants'),
   Helper = require('../../app/helper'),
   PartyManager = require('../../app/party-manager'),
+  {PartyType} = require('../../app/constants'),
   settings = require('../../data/settings');
 
 class CancelStartTimeCommand extends Commando.Command {
