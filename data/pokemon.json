@@ -507,7 +507,9 @@
     "name": "dodrio"
   },
   {
-    "name": "seel"
+    "name": "seel",
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "dewgong",
@@ -579,6 +581,7 @@
   },
   {
     "name": "krabby",
+    "tier": 1,
     "shiny": true
   },
   {
@@ -1041,7 +1044,8 @@
     "tier": 4
   },
   {
-    "name": "qwilfish"
+    "name": "qwilfish",
+    "tier": 2
   },
   {
     "name": "scizor"
@@ -1599,7 +1603,9 @@
     "tier": 4
   },
   {
-    "name": "clamperl"
+    "name": "clamperl",
+    "tier": 2,
+    "shiny": true
   },
   {
     "name": "huntail"
