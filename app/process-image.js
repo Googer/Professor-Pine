@@ -203,7 +203,9 @@ class ImageProcessing {
         id = uuidv1();
 
         // resize to some standard size to help tesseract
+        log.debug("Scaling image to standard size...");
         newImage = image.scaleToFit(1440, 2560, Jimp.RESIZE_HERMITE);
+        log.debug("...done");
 
         // determine if image is a raid image or not
         let screenshotType = ImageProcessing.SCREENSHOT_TYPE_NONE;
@@ -385,67 +387,7 @@ class ImageProcessing {
       blue = this.bitmap.data[idx + 2],
       alpha = this.bitmap.data[idx + 3];
 
-    if (red >= 170 && green >= 170 && blue >= 170) {
-      this.bitmap.data[idx + 0] = 255;
-      this.bitmap.data[idx + 1] = 255;
-      this.bitmap.data[idx + 2] = 255;
-    } else {
-      this.bitmap.data[idx + 0] = 0;
-      this.bitmap.data[idx + 1] = 0;
-      this.bitmap.data[idx + 2] = 0;
-    }
-  }
-
-  /**
-   * Normal body text will always be white-gray text, don't need to be as aggressive here
-   **/
-  filterBodyContent2(x, y, idx) {
-    const red = this.bitmap.data[idx + 0],
-      green = this.bitmap.data[idx + 1],
-      blue = this.bitmap.data[idx + 2],
-      alpha = this.bitmap.data[idx + 3];
-
-    if (red >= 210 && green >= 210 && blue >= 210) {
-      this.bitmap.data[idx + 0] = 255;
-      this.bitmap.data[idx + 1] = 255;
-      this.bitmap.data[idx + 2] = 255;
-    } else {
-      this.bitmap.data[idx + 0] = 0;
-      this.bitmap.data[idx + 1] = 0;
-      this.bitmap.data[idx + 2] = 0;
-    }
-  }
-
-  /**
-   * Large text such as the pokemon name, cp, or tier information is here and will always be white-gray
-   **/
-  filterLargeBodyContent(x, y, idx) {
-    const red = this.bitmap.data[idx + 0],
-      green = this.bitmap.data[idx + 1],
-      blue = this.bitmap.data[idx + 2],
-      alpha = this.bitmap.data[idx + 3];
-
-    if (red >= 200 && green >= 200 && blue >= 200) {
-      this.bitmap.data[idx + 0] = 255;
-      this.bitmap.data[idx + 1] = 255;
-      this.bitmap.data[idx + 2] = 255;
-    } else {
-      this.bitmap.data[idx + 0] = 0;
-      this.bitmap.data[idx + 1] = 0;
-      this.bitmap.data[idx + 2] = 0;
-    }
-  }
-
-  /**
-   * Large text such as the pokemon name, cp, or tier information is here and will always be white-gray
-   **/
-  filterLargeBodyContent2(x, y, idx) {
-    const red = this.bitmap.data[idx + 0],
-      green = this.bitmap.data[idx + 1],
-      blue = this.bitmap.data[idx + 2],
-      alpha = this.bitmap.data[idx + 3];
-
-    if (red >= 180 && green >= 180 && blue >= 180) {
+    if (red >= 190 && green >= 190 && blue >= 190) {
       this.bitmap.data[idx + 0] = 255;
       this.bitmap.data[idx + 1] = 255;
       this.bitmap.data[idx + 2] = 255;
@@ -699,17 +641,14 @@ class ImageProcessing {
     });
   }
 
-  async getRaidTimeRemaining(id, message, image, region) {
-    const debugImagePathA = path.join(__dirname, this.imagePath, `${id}-time-remaining-a.png`),
-      debugImagePathB = path.join(__dirname, this.imagePath, `${id}-time-remaining-b.png`),
-      values = await this.getOCRRaidTimeRemaining(id, message, image, region);
+  async getRaidTimeRemaining(id, message, image, region, screenshotType) {
+    const debugImagePath = path.join(__dirname, this.imagePath, `${id}-time-remaining.png`),
+      values = await this.getOCRRaidTimeRemaining(id, message, image, region, screenshotType);
 
     // something has gone wrong if no info was matched, save image for later analysis
     if (debugFlag || (!values.text && log.getLevel() === log.levels.DEBUG)) {
-      log.debug('Time Remaining (a): ', id, values.result1.text);
-      log.debug('Time Remaining (b): ', id, values.result2.text);
-      values.image1.write(debugImagePathA);
-      values.image2.write(debugImagePathB);
+      log.debug('Time Remaining: ', id, values.result.text);
+      values.image.write(debugImagePath);
     }
 
     // NOTE:  There is a chance timeRemaining could not be determined... not sure if we would want to do
@@ -717,150 +656,90 @@ class ImageProcessing {
     return values.text;
   }
 
-  getOCRRaidTimeRemaining(id, message, image, region) {
+  getOCRRaidTimeRemaining(id, message, image, region, screenshotType) {
     return new Promise((resolve, reject) => {
-      const region1 = {
+      if (screenshotType === ImageProcessing.SCREENSHOT_TYPE_ONGOING) {
+        region = {
           x: region.width - (region.width / 3.4),
           y: region.height - (region.height / 2.3),
           width: region.width / 4.0,
           height: region.height / 9.0
-        },
-        region2 = {
+        };
+      } else if (screenshotType === ImageProcessing.SCREENSHOT_TYPE_EGG) {
+        region = {
           x: (region.width / 2.0) - (region.width / 6.0),
           y: region.height / 5.5,
           width: region.width / 3.0,
           height: region.height / 7.5
         };
+      }
 
-      let promises = [];
+      const newImage = image.clone()
+        .crop(region.x, region.y, region.width, region.height)
+        .scan(0, 0, region.width, region.height, this.filterPureWhiteContent)
+        .blur(1)
+        .invert()
+        .getBuffer(Jimp.MIME_PNG, (err, image) => {
+          if (err) {
+            reject(err);
+          }
 
-      // check the middle-right portion of the screen for the time remaining (pokemon)
-      promises.push(new Promise((resolve, reject) => {
-        const newImage = image.clone()
-          .crop(region1.x, region1.y, region1.width, region1.height)
-          .scan(0, 0, region1.width, region1.height, this.filterPureWhiteContent)
-          .getBuffer(Jimp.MIME_PNG, (err, image) => {
-            if (err) {
-              reject(err);
-            }
-
-            return ImageProcessing.lock.acquire('timeRemaining', () => {
-              this.timeRemainingTesseract.recognize(image, 'eng', this.timeRemainingTesseractOptions)
-                .catch(err => reject(err))
-                .then(result => {
-                  const confidentWords = this.tesseractGetConfidentSequences(result, true),
-                    match = confidentWords.length > 0 ?
-                      confidentWords[0].match(/(\d{1,2}:\d{2}:\d{2})/) :
-                      '';
-                  if (match && match.length) {
-                    resolve({
-                      image: newImage,
-                      text: match[1],
-                      result
-                    });
-                  } else {
-                    resolve({
-                      image: newImage,
-                      result
-                    });
-                  }
-                });
-            });
+          return ImageProcessing.lock.acquire('timeRemaining', () => {
+            this.timeRemainingTesseract.recognize(image, 'eng', this.timeRemainingTesseractOptions)
+              .catch(err => reject(err))
+              .then(result => {
+                const confidentWords = this.tesseractGetConfidentSequences(result, true),
+                  match = confidentWords.length > 0 ?
+                    confidentWords[0].match(/(\d{1,2}:\d{2}:\d{2})/) :
+                    '';
+                if (match && match.length) {
+                  resolve({
+                    image: newImage,
+                    text: match[1],
+                    result
+                  });
+                } else {
+                  resolve({
+                    image: newImage,
+                    result
+                  });
+                }
+              });
           });
-      }));
-
-      // check the top-middle portion of the screen for the time remaining (egg)
-      promises.push(new Promise((resolve, reject) => {
-        const newImage = image.clone()
-          .crop(region2.x, region2.y, region2.width, region2.height)
-          .scan(0, 0, region2.width, region2.height, this.filterPureWhiteContent)
-          .getBuffer(Jimp.MIME_PNG, (err, image) => {
-            if (err) {
-              reject(err);
-            }
-
-            return ImageProcessing.lock.acquire('timeRemaining', () => {
-              this.timeRemainingTesseract.recognize(image, 'eng', this.timeRemainingTesseractOptions)
-                .catch(err => reject(err))
-                .then(result => {
-                  const confidentWords = this.tesseractGetConfidentSequences(result, true),
-                    match = confidentWords.length > 0 ?
-                      confidentWords[0].match(/(\d{1,2}:\d{2}:\d{2})/) :
-                      '';
-                  if (match && match.length) {
-                    resolve({
-                      image: newImage,
-                      text: match[1],
-                      result
-                    });
-                  } else {
-                    resolve({
-                      image: newImage,
-                      result
-                    });
-                  }
-                });
-            });
-          });
-      }));
-
-      // pass along collected data once all promises have resolved
-      Promise.all(promises)
-        .then(values => {
-          resolve({
-            image1: values[0].image,
-            image2: values[1].image,
-            text: values[0].text || values[1].text,
-            result1: values[0].result,
-            result2: values[1].result
-          });
-        })
-        .catch(err => {
-          reject(err);
         });
     });
   }
 
   async getGymName(id, message, image, region) {
     const GymType = Helper.client.registry.types.get('gym');
-    let values, gymName;
-    let validationResult = false;
 
-    // try different levels of processing to get gym name
-    for (let processingLevel = 0; processingLevel <= 1; processingLevel++) {
-      const debugImagePath = path.join(__dirname, this.imagePath, `${id}-gym-name-${processingLevel}.png`);
-      values = await this.getOCRGymName(id, message, image, region, processingLevel);
-
+    const debugImagePath = path.join(__dirname, this.imagePath, `${id}-gym-name.png`);
+    let values = await this.getOCRGymName(id, message, image, region),
       gymName = values.text;
-      const numGymWords = gymName.split(' ').length;
+    const numGymWords = gymName.split(' ').length;
 
-      // ensure gym exists and is allowed to be created
-      validationResult = await GymType.validate(gymName, message, {isScreenshot: true});
+    // ensure gym exists and is allowed to be created
+    let validationResult = await GymType.validate(gymName, message, {isScreenshot: true});
 
-      if (!validationResult) {
-        // If gymName doesn't exist, start popping off trailing words (likely to be partially obscured)
-        // to get a match
-        //    Example: 6 words = 3 attempts, 2 words = 1 attempt
-        for (let i = 0; i < Math.floor(numGymWords / 2); ++i) {
-          gymName = gymName.substr(gymName, gymName.lastIndexOf(' '));
+    if (!validationResult) {
+      // If gymName doesn't exist, start popping off trailing words (likely to be partially obscured)
+      // to get a match
+      //    Example: 6 words = 3 attempts, 2 words = 1 attempt
+      for (let i = 0; i < Math.floor(numGymWords / 2); ++i) {
+        gymName = gymName.substr(gymName, gymName.lastIndexOf(' '));
 
-          // ensure gym exists and is allowed to be created
-          validationResult = await GymType.validate(gymName, message, {isScreenshot: true});
+        // ensure gym exists and is allowed to be created
+        validationResult = await GymType.validate(gymName, message, {isScreenshot: true});
 
-          if (validationResult) {
-            break;
-          }
+        if (validationResult) {
+          break;
         }
       }
+    }
 
-      if (debugFlag || (!validationResult && log.getLevel() === log.levels.DEBUG)) {
-        log.debug('Gym Name: ', id, values.text);
-        values.image.write(debugImagePath);
-      }
-
-      if (validationResult) {
-        break;
-      }
+    if (debugFlag || (!validationResult && log.getLevel() === log.levels.DEBUG)) {
+      log.debug('Gym Name: ', id, values.text);
+      values.image.write(debugImagePath);
     }
 
     if (validationResult === true) {
@@ -879,41 +758,44 @@ class ImageProcessing {
     return false;
   }
 
-  getOCRGymName(id, message, image, region, level = 0) {
+  getOCRGymName(id, message, image, region) {
     return new Promise((resolve, reject) => {
-      let newImage = image.clone()
-        .crop(region.x, region.y, region.width, region.height);
+      const newImage = image.clone()
+          .crop(region.x, region.y, region.width, region.height),
+        blurredImage = newImage.clone()
+          .blur(50)
+          .composite(newImage, 0, 0, {
+            mode: Jimp.BLEND_LIGHTEN,
+            opacitySource: 1.0,
+            opacityDest: 1.0
+          })
+          .normalize()
+          .scan(0, 0, newImage.bitmap.width, newImage.bitmap.height, this.filterBodyContent)
+          .blur(1)
+          .invert()
+          .getBuffer(Jimp.MIME_PNG, (err, image) => {
+            if (err) {
+              reject(err);
+            }
 
-      // basic level 0 processing by default
-      if (level === 0) {
-        newImage = newImage.scan(0, 0, region.width, region.height, this.filterBodyContent);
-      } else {
-        newImage = newImage.scan(0, 0, region.width, region.height, this.filterBodyContent2);
-      }
+            return ImageProcessing.lock.acquire('gym', () => {
+              this.gymTesseract.recognize(image, 'eng', this.gymTesseractOptions)
+                .catch(err => reject(err))
+                .then(result => {
+                  const confidentWords = this.tesseractGetConfidentSequences(result, true),
+                    text = confidentWords.length > 0 ?
+                      confidentWords[0]
+                        .replace(/[^\w\s-]/g, '')
+                        .replace(/\n/g, ' ').trim() :
+                      '';
 
-      newImage.getBuffer(Jimp.MIME_PNG, (err, image) => {
-        if (err) {
-          reject(err);
-        }
-
-        return ImageProcessing.lock.acquire('gym', () => {
-          this.gymTesseract.recognize(image, 'eng', this.gymTesseractOptions)
-            .catch(err => reject(err))
-            .then(result => {
-              const confidentWords = this.tesseractGetConfidentSequences(result, true),
-                text = confidentWords.length > 0 ?
-                  confidentWords[0]
-                    .replace(/[^\w\s-]/g, '')
-                    .replace(/\n/g, ' ').trim() :
-                  '';
-              resolve({
-                image: newImage,
-                text,
-                result
-              });
+                  resolve({
+                    image: blurredImage,
+                    text
+                  })
+                });
             });
-        });
-      });
+          });
     });
   }
 
@@ -972,52 +854,53 @@ class ImageProcessing {
     };
 
     return new Promise((resolve, reject) => {
-      let newImage = image.clone();
+      let newImage = image.clone()
+          .crop(region.x, region.y, region.width, region.height),
+        blurredImage = newImage.clone()
+          .blur(50)
+          .composite(newImage, 0, 0, {
+            mode: Jimp.BLEND_LIGHTEN,
+            opacitySource: 1.0,
+            opacityDest: 1.0
+          })
+          .normalize()
+          .scan(0, 0, newImage.bitmap.width, newImage.bitmap.height, this.filterBodyContent)
+          .blur(1)
+          .invert()
+          .getBuffer(Jimp.MIME_PNG, (err, image) => {
+            if (err) {
+              reject(err);
+            }
 
-      newImage = newImage.crop(region.x, region.y, region.width, region.height)
-        .blur(3)
-        .brightness(-0.2);
+            return ImageProcessing.lock.acquire('pokemon', () => {
+              this.pokemonTesseract.recognize(image, 'eng', this.pokemonTesseractOptions)
+                .catch(err => reject(err))
+                .then(result => {
+                  const text = result.text.replace(/[^\w\n]/gi, '');
+                  let matchCP = text.match(/\d{3,10}/g),
+                    matchPokemon = text.replace(/(cp)?\s?\d+/g, ' ').match(/\w+/g),
+                    pokemon = '',
+                    cp = 0;
 
-      if (!(level % 2)) {
-        newImage = newImage.scan(0, 0, region.width, region.height, this.filterLargeBodyContent);
-      } else {
-        newImage = newImage.scan(0, 0, region.width, region.height, this.filterLargeBodyContent2);
-      }
+                  // get longest matching word as "pokemon"
+                  if (matchPokemon && matchPokemon.length) {
+                    pokemon = matchPokemon.sort((a, b) => b.length - a.length)[0];
+                  }
 
-      newImage.getBuffer(Jimp.MIME_PNG, (err, image) => {
-        if (err) {
-          reject(err);
-        }
+                  // get longest matching number as "cp"
+                  if (matchCP && matchCP.length) {
+                    cp = Number(matchCP.sort((a, b) => b.length - a.length)[0]).valueOf();
+                  }
 
-        return ImageProcessing.lock.acquire('pokemon', () => {
-          this.pokemonTesseract.recognize(image, 'eng', this.pokemonTesseractOptions)
-            .catch(err => reject(err))
-            .then(result => {
-              const text = result.text.replace(/[^\w\n]/gi, '');
-              let matchCP = text.match(/\d{3,10}/g),
-                matchPokemon = text.replace(/(cp)?\s?\d+/g, ' ').match(/\w+/g),
-                pokemon = '',
-                cp = 0;
-
-              // get longest matching word as "pokemon"
-              if (matchPokemon && matchPokemon.length) {
-                pokemon = matchPokemon.sort((a, b) => b.length - a.length)[0];
-              }
-
-              // get longest matching number as "cp"
-              if (matchCP && matchCP.length) {
-                cp = Number(matchCP.sort((a, b) => b.length - a.length)[0]).valueOf();
-              }
-
-              resolve({
-                image: newImage,
-                cp,
-                pokemon,
-                result
-              });
+                  resolve({
+                    image: blurredImage,
+                    cp,
+                    pokemon,
+                    result
+                  });
+                });
             });
-        });
-      });
+          });
     });
   }
 
@@ -1075,6 +958,7 @@ class ImageProcessing {
       const newImage = image.clone()
         .crop(region.x, region.y, region.width, region.height)
         .scan(0, 0, region.width, region.height, this.filterPureWhiteContent2)
+        .invert()
         .blur(1)
         .getBuffer(Jimp.MIME_PNG, (err, image) => {
           if (err) {
@@ -1162,7 +1046,7 @@ class ImageProcessing {
     }
 
     // TIME REMAINING
-    const timeRemaining = await this.getRaidTimeRemaining(id, message, image, allCrop);
+    const timeRemaining = await this.getRaidTimeRemaining(id, message, image, allCrop, screenshotType);
 
     // PHONE TIME
     promises.push(this.getPhoneTime(id, message, image, phoneTimeCrop));
