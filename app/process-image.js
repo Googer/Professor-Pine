@@ -398,6 +398,34 @@ class ImageProcessing {
     }
   }
 
+  showAnyContent(x, y, idx) {
+    const red = this.bitmap.data[idx + 0],
+      green = this.bitmap.data[idx + 1],
+      blue = this.bitmap.data[idx + 2],
+      alpha = this.bitmap.data[idx + 3];
+
+    if (red > 0 || green > 0 || blue > 0) {
+      this.bitmap.data[idx + 0] = 255;
+      this.bitmap.data[idx + 1] = 255;
+      this.bitmap.data[idx + 2] = 255;
+    }
+  }
+
+  hideSaturatedContent(tolerance) {
+    return function (x, y, idx) {
+      const red = this.bitmap.data[idx + 0],
+        green = this.bitmap.data[idx + 1],
+        blue = this.bitmap.data[idx + 2],
+        alpha = this.bitmap.data[idx + 3];
+
+      if ((Math.abs(red - green) > tolerance) || (Math.abs(red - blue) > tolerance) || (Math.abs(green - blue) > tolerance)) {
+        this.bitmap.data[idx + 0] = 128;
+        this.bitmap.data[idx + 1] = 128;
+        this.bitmap.data[idx + 2] = 128;
+      }
+    }
+  }
+
   /**
    * Trying to filter out near-pure white pixels
    **/
@@ -586,6 +614,8 @@ class ImageProcessing {
       new Promise((resolve, reject) => {
         let newImage = image.clone()
           .crop(croppedRegion.x, croppedRegion.y, croppedRegion.width, croppedRegion.height)
+          .convolute([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
+          .scan(0, 0, croppedRegion.width, croppedRegion.height, this.hideSaturatedContent(15))
           .scale(2, Jimp.RESIZE_HERMITE);
 
         switch (level) {
@@ -676,6 +706,8 @@ class ImageProcessing {
 
       const newImage = image.clone()
         .crop(region.x, region.y, region.width, region.height)
+        .convolute([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
+        .scan(0, 0, region.width, region.height, this.hideSaturatedContent(5))
         .scan(0, 0, region.width, region.height, this.filterPureWhiteContent)
         .blur(1)
         .invert()
@@ -761,7 +793,9 @@ class ImageProcessing {
   getOCRGymName(id, message, image, region) {
     return new Promise((resolve, reject) => {
       const newImage = image.clone()
-          .crop(region.x, region.y, region.width, region.height),
+          .crop(region.x, region.y, region.width, region.height)
+          .convolute([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
+          .scan(0, 0, image.bitmap.width, image.bitmap.height, this.hideSaturatedContent(5)),
         blurredImage = newImage.clone()
           .blur(50)
           .composite(newImage, 0, 0, {
@@ -855,16 +889,18 @@ class ImageProcessing {
 
     return new Promise((resolve, reject) => {
       let newImage = image.clone()
-          .crop(region.x, region.y, region.width, region.height),
-        blurredImage = newImage.clone()
-          .blur(50)
+          .crop(region.x, region.y, region.width, region.height)
+          .scan(0, 0, image.bitmap.width, image.bitmap.height, this.hideSaturatedContent(1)),
+        processedImage = newImage.clone()
+          .blur(1)
           .composite(newImage, 0, 0, {
-            mode: Jimp.BLEND_LIGHTEN,
+            mode: Jimp.BLEND_DIFFERENCE,
             opacitySource: 1.0,
             opacityDest: 1.0
           })
+          .blur(1)
           .normalize()
-          .scan(0, 0, newImage.bitmap.width, newImage.bitmap.height, this.filterBodyContent)
+          .scan(0, 0, image.bitmap.width, image.bitmap.height, this.showAnyContent)
           .blur(1)
           .invert()
           .getBuffer(Jimp.MIME_PNG, (err, image) => {
@@ -893,7 +929,7 @@ class ImageProcessing {
                   }
 
                   resolve({
-                    image: blurredImage,
+                    image: processedImage,
                     cp,
                     pokemon,
                     result
@@ -957,6 +993,7 @@ class ImageProcessing {
     return new Promise((resolve, reject) => {
       const newImage = image.clone()
         .crop(region.x, region.y, region.width, region.height)
+        .scan(0, 0, region.width, region.height, this.hideSaturatedContent(1))
         .scan(0, 0, region.width, region.height, this.filterPureWhiteContent2)
         .invert()
         .blur(1)
