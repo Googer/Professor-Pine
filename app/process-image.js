@@ -538,8 +538,8 @@ class ImageProcessing {
 
       // HACK: On a decent number of screenshots, a colon in the phone time is seen as a 1 or 2,
       // so try making a version of the time that replaces it to cover this possibility
-      if (text.match(/([0-2]?\d)([12])([0-5]\d)(\s?[ap]m)?/)) {
-        text = text.replace(/([0-2]?\d)([12])([0-5]\d)(\s?[ap]m)?/, '$1:$3') + ' ' + text;
+      if (text.match(/([0-2]?\d)([12])([0-5]\d)(\s?[ap]m)?/i)) {
+        text = text.replace(/([0-2]?\d)([12])([0-5]\d)(\s?[ap]m)?/i, '$1:$3') + ' ' + text;
       }
 
       let textMatch = text
@@ -565,6 +565,11 @@ class ImageProcessing {
       phoneTime = value.text;
 
       if (phoneTime) {
+        if (phoneTime.indexOf(':') === -1 && phoneTime.length === 3) {
+          // try inserting a colon in to help moment out
+          phoneTime = phoneTime.charAt(0) + ':' + phoneTime.substring(1);
+        }
+
         // Determine AM or PM time
         if (phoneTime.search(/([ap])m/gi) >= 0) {
           phoneTime = moment(phoneTime, ['hmm a', 'h:m a']);
