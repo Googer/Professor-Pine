@@ -1,5 +1,6 @@
 const log = require('loglevel').getLogger('PartyManager'),
   Helper = require('./helper'),
+  moment = require('moment'),
   settings = require('../data/settings'),
   storage = require('node-persist'),
   {PartyType} = require('./constants'),

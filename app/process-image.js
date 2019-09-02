@@ -56,31 +56,11 @@ class ImageProcessing {
         .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
         .join('\n'));
 
-    this.phoneTesseract = new TesseractWorker({
-      langPath: path.join(__dirname, '..', 'lang-data', 'v3'),
-      cachePath: path.join(__dirname, '..', 'lang-data', 'v3'),
-      cacheMethod: 'readOnly'
-    });
-    this.timeRemainingTesseract = new TesseractWorker({
-      langPath: path.join(__dirname, '..', 'lang-data', 'v3'),
-      cachePath: path.join(__dirname, '..', 'lang-data', 'v3'),
-      cacheMethod: 'readOnly'
-    });
-    this.tierTesseract = new TesseractWorker({
-      langPath: path.join(__dirname, '..', 'lang-data', 'v3'),
-      cachePath: path.join(__dirname, '..', 'lang-data', 'v3'),
-      cacheMethod: 'readOnly'
-    });
-    this.gymTesseract = new TesseractWorker({
-      langPath: path.join(__dirname, '..', 'lang-data', 'v4'),
-      cachePath: path.join(__dirname, '..', 'lang-data', 'v4'),
-      cacheMethod: 'readOnly'
-    });
-    this.pokemonTesseract = new TesseractWorker({
-      langPath: path.join(__dirname, '..', 'lang-data', 'v4'),
-      cachePath: path.join(__dirname, '..', 'lang-data', 'v4'),
-      cacheMethod: 'readOnly'
-    });
+    this.initializePhoneTimeTesseract();
+    this.initializeTimeRemainingTesseract();
+    this.initializeTierTesseract();
+    this.initializeGymTesseract();
+    this.initializePokemonTesseract();
 
     this.baseTesseractOptions = {
       'tessedit_ocr_engine_mode': OEM.TESSERACT_ONLY,
@@ -129,6 +109,71 @@ class ImageProcessing {
       'load_number_dawg': '0',
       'classify_misfit_junk_penalty': '0',
       'tessedit_char_whitelist': '@®©'
+    });
+  }
+
+  initializeGymTesseract() {
+    if (!!this.gymTesseract) {
+      log.warn('Reinitializing gym name tesseract worker...');
+      this.gymTesseract.terminate();
+    }
+
+    this.gymTesseract = new TesseractWorker({
+      langPath: path.join(__dirname, '..', 'lang-data', 'v4'),
+      cachePath: path.join(__dirname, '..', 'lang-data', 'v4'),
+      cacheMethod: 'readOnly'
+    });
+  }
+
+  initializePhoneTimeTesseract() {
+    if (!!this.phoneTesseract) {
+      log.warn('Reinitializing phone time tesseract worker...');
+      this.phoneTesseract.terminate();
+    }
+
+    this.phoneTesseract = new TesseractWorker({
+      langPath: path.join(__dirname, '..', 'lang-data', 'v3'),
+      cachePath: path.join(__dirname, '..', 'lang-data', 'v3'),
+      cacheMethod: 'readOnly'
+    });
+  }
+
+  initializeTimeRemainingTesseract() {
+    if (!!this.timeRemainingTesseract) {
+      log.warn('Reinitializing time remaining tesseract worker...');
+      this.timeRemainingTesseract.terminate();
+    }
+
+    this.timeRemainingTesseract = new TesseractWorker({
+      langPath: path.join(__dirname, '..', 'lang-data', 'v3'),
+      cachePath: path.join(__dirname, '..', 'lang-data', 'v3'),
+      cacheMethod: 'readOnly'
+    });
+  }
+
+  initializeTierTesseract() {
+    if (!!this.tierTesseract) {
+      log.warn('Reinitializing tier tesseract worker...');
+      this.tierTesseract.terminate();
+    }
+
+    this.tierTesseract = new TesseractWorker({
+      langPath: path.join(__dirname, '..', 'lang-data', 'v3'),
+      cachePath: path.join(__dirname, '..', 'lang-data', 'v3'),
+      cacheMethod: 'readOnly'
+    });
+  }
+
+  initializePokemonTesseract() {
+    if (!!this.pokemonTesseract) {
+      log.warn('Reinitializing pokemon tesseract worker...');
+      this.pokemonTesseract.terminate();
+    }
+
+    this.pokemonTesseract = new TesseractWorker({
+      langPath: path.join(__dirname, '..', 'lang-data', 'v4'),
+      cachePath: path.join(__dirname, '..', 'lang-data', 'v4'),
+      cacheMethod: 'readOnly'
     });
   }
 
@@ -561,7 +606,11 @@ class ImageProcessing {
     for (let processingLevel = 0; processingLevel <= 3; processingLevel++) {
       const debugImagePath = path.join(__dirname, this.imagePath, `${id}-phone-time-${processingLevel}.png`);
 
-      value = await this.getOCRPhoneTime(id, message, image, region, processingLevel);
+      value = await this.getOCRPhoneTime(id, message, image, region, processingLevel)
+        .catch(err => {
+          log.error(err);
+          this.initializePhoneTimeTesseract();
+        });
       phoneTime = value.text;
 
       if (phoneTime) {
@@ -678,7 +727,12 @@ class ImageProcessing {
 
   async getRaidTimeRemaining(id, message, image, region, screenshotType) {
     const debugImagePath = path.join(__dirname, this.imagePath, `${id}-time-remaining.png`),
-      values = await this.getOCRRaidTimeRemaining(id, message, image, region, screenshotType);
+      values = await this.getOCRRaidTimeRemaining(id, message, image, region, screenshotType)
+        .catch(err => {
+          log.error(err);
+          this.initializeTimeRemainingTesseract();
+          return undefined;
+        });
 
     // something has gone wrong if no info was matched, save image for later analysis
     if (debugFlag || (!values.text && log.getLevel() === log.levels.DEBUG)) {
@@ -751,7 +805,12 @@ class ImageProcessing {
     const GymType = Helper.client.registry.types.get('gym');
 
     const debugImagePath = path.join(__dirname, this.imagePath, `${id}-gym-name.png`);
-    let values = await this.getOCRGymName(id, message, image, region),
+    let values = await this.getOCRGymName(id, message, image, region)
+        .catch(err => {
+          log.error(err);
+          this.initializeGymTesseract();
+          return false;
+        }),
       gymName = values.text;
     const numGymWords = gymName.split(' ').length;
 
@@ -847,7 +906,15 @@ class ImageProcessing {
     // try different levels of processing to get pokemon
     for (let processingLevel = 0; processingLevel <= 4; processingLevel++) {
       const debugImagePath = path.join(__dirname, this.imagePath, `${id}-pokemon-name-${processingLevel}.png`);
-      values = await this.getOCRPokemonName(id, message, image, region, processingLevel);
+      values = await this.getOCRPokemonName(id, message, image, region, processingLevel)
+        .catch(err => {
+          log.error(err);
+          this.initializePokemonTesseract();
+          return {
+            pokemon: {placeholder: true, name: 'pokemon', tier: '????', egg: false},
+            cp: "0"
+          };
+        });
       pokemon = values.pokemon;
       cp = values.cp;
 
@@ -952,7 +1019,16 @@ class ImageProcessing {
     // try different levels of processing to get time
     for (let processingLevel = 0; processingLevel <= 2; processingLevel++) {
       const debugImagePath = path.join(__dirname, this.imagePath, `${id}-tier-${processingLevel}.png`);
-      values = await this.getOCRTier(id, message, image, region, processingLevel);
+      values = await this.getOCRTier(id, message, image, region, processingLevel)
+        .catch(err => {
+          log.error(err);
+          this.initializeTierTesseract();
+          return {
+            tier: '????',
+            pokemon: {placeholder: true, name: 'egg', egg: true, tier: '????'},
+            egg: true
+          }
+        });
 
       // NOTE: Expects string in validation of egg tier
       pokemon = `${values.tier}`;
