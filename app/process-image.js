@@ -610,6 +610,7 @@ class ImageProcessing {
         .catch(err => {
           log.error(err);
           this.initializePhoneTimeTesseract();
+          return {text: undefined};
         });
       phoneTime = value.text;
 
@@ -641,7 +642,9 @@ class ImageProcessing {
       // something has gone wrong if no info was matched, save image for later analysis
       if (debugFlag || ((!phoneTime || (phoneTime && !phoneTime.isValid())) && log.getLevel() === log.levels.DEBUG)) {
         log.debug('Phone Time: ', id, value.text);
-        value.image.write(debugImagePath);
+        if (value.image) {
+          value.image.write(debugImagePath);
+        }
       }
 
       // don't jump up to next level of processing if a time has been found
@@ -731,13 +734,15 @@ class ImageProcessing {
         .catch(err => {
           log.error(err);
           this.initializeTimeRemainingTesseract();
-          return undefined;
+          return {text: undefined, result: {text: undefined}};
         });
 
     // something has gone wrong if no info was matched, save image for later analysis
     if (debugFlag || (!values.text && log.getLevel() === log.levels.DEBUG)) {
       log.debug('Time Remaining: ', id, values.result.text);
-      values.image.write(debugImagePath);
+      if (values.image) {
+        values.image.write(debugImagePath);
+      }
     }
 
     // NOTE:  There is a chance timeRemaining could not be determined... not sure if we would want to do
@@ -809,7 +814,7 @@ class ImageProcessing {
         .catch(err => {
           log.error(err);
           this.initializeGymTesseract();
-          return false;
+          return {text: ''};
         }),
       gymName = values.text;
     const numGymWords = gymName.split(' ').length;
@@ -835,7 +840,9 @@ class ImageProcessing {
 
     if (debugFlag || (!validationResult && log.getLevel() === log.levels.DEBUG)) {
       log.debug('Gym Name: ', id, values.text);
-      values.image.write(debugImagePath);
+      if (values.image) {
+        values.image.write(debugImagePath);
+      }
     }
 
     if (validationResult === true) {
@@ -912,7 +919,7 @@ class ImageProcessing {
           this.initializePokemonTesseract();
           return {
             pokemon: {placeholder: true, name: 'pokemon', tier: '????', egg: false},
-            cp: "0"
+            cp: '0'
           };
         });
       pokemon = values.pokemon;
@@ -935,7 +942,9 @@ class ImageProcessing {
       // something has gone wrong if no info was matched, save image for later analysis
       if (debugFlag || (pokemon.placeholder && log.getLevel() === log.levels.DEBUG)) {
         log.debug('Pokemon Name: ', id, values.result.text);
-        values.image.write(debugImagePath);
+        if (values.image) {
+          values.image.write(debugImagePath);
+        }
       }
 
       // match found, can stop now
@@ -1042,7 +1051,9 @@ class ImageProcessing {
       // something has gone wrong if no info was matched, save image for later analysis
       log.debug('Tier: ', id, values.result.text);
       if (debugFlag || (pokemon.placeholder && log.getLevel() === log.levels.DEBUG)) {
-        values.image.write(debugImagePath);
+        if (values.image) {
+          values.image.write(debugImagePath);
+        }
       }
 
       if (!pokemon.placeholder) {
