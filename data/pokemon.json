@@ -868,7 +868,9 @@
     "tier": 4
   },
   {
-    "name": "sentret"
+    "name": "sentret",
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "furret"
@@ -995,6 +997,7 @@
   },
   {
     "name": "murkrow",
+    "tier": 1,
     "shiny": true
   },
   {
@@ -1026,7 +1029,9 @@
     "name": "dunsparce"
   },
   {
-    "name": "gligar"
+    "name": "gligar",
+    "tier": 2,
+    "shiny": true
   },
   {
     "name": "steelix"
@@ -1103,6 +1108,7 @@
   },
   {
     "name": "houndour",
+    "tier": 1,
     "shiny": true
   },
   {
@@ -1158,11 +1164,13 @@
   },
   {
     "name": "entei",
-    "tier": 5
+    "tier": 5,
+    "shiny": true
   },
   {
     "name": "suicune",
-    "tier": 5
+    "tier": 5,
+    "shiny": true
   },
   {
     "name": "larvitar",
