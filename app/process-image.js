@@ -918,8 +918,9 @@ class ImageProcessing {
           log.error(err);
           this.initializePokemonTesseract();
           return {
-            pokemon: {placeholder: true, name: 'pokemon', tier: '????', egg: false},
-            cp: '0'
+            pokemon: '',
+            cp: '0',
+            result: {text: ''}
           };
         });
       pokemon = values.pokemon;
