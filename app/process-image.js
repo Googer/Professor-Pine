@@ -309,7 +309,14 @@ class ImageProcessing {
         // write original image as a reference
         if (debugFlag ||
           ((data === false || (data && (!data.phoneTime || !data.gym || !data.timeRemaining || data.pokemon.placeholder))) && log.getLevel() === log.levels.DEBUG)) {
-          log.trace(data);
+          const sanitizedData = Object.assign({}, data);
+          if (sanitizedData.channel) {
+            sanitizedData.channel = sanitizedData.channel.id;
+          }
+          if (sanitizedData.pokemon && sanitizedData.pokemon.name) {
+            sanitizedData.pokemon = sanitizedData.pokemon.name;
+          }
+          log.debug(sanitizedData);
           newImage.write(path.join(__dirname, this.imagePath, `${id}.png`));
         }
 
@@ -780,12 +787,13 @@ class ImageProcessing {
                 const confidentText = this.tesseractGetConfidentSequences(result, false, 70);
 
                 const match = confidentText
-                  .find(text => text.match(/(\d{1,2}:\d{2}:\d{2})/));
+                  .map(text => text.match(/(\d{1,2}:\d{2}:\d{2})/))
+                  .find(match => match !== null);
 
                 if (match) {
                   resolve({
                     image: newImage,
-                    text: match,
+                    text: match[1],
                     result
                   });
                 } else {
