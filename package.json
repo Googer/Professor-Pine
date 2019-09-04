@@ -14,7 +14,7 @@
     "discord.js": "github:discordjs/discord.js",
     "discord.js-commando": "github:Googer/discord.js-commando",
     "he": "^1.2.0",
-    "jimp": "^0.6.7",
+    "jimp": "^0.6.8",
     "knex": "^0.19.3",
     "loglevel": "^1.6.3",
     "loglevel-prefix-persist": "^1.0.3",

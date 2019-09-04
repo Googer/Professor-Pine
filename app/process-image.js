@@ -708,10 +708,32 @@ class ImageProcessing {
                     result
                   });
                 } else {
-                  resolve({
-                    image: newImage,
-                    result
-                  });
+                  // try again with image inverted
+                  newImage
+                    .invert()
+                    .getBuffer(Jimp.MIME_PNG, (err, image) => {
+                      if (err) {
+                        reject(err);
+                      }
+
+                      this.phoneTesseract.recognize(image, 'eng', this.phoneTimeTesseractOptions)
+                        .catch(err => reject(err))
+                        .then(result => {
+                          const match = this.tesseractProcessTime(result);
+                          if (match && match.length) {
+                            resolve({
+                              image: newImage,
+                              text: match[1],
+                              result
+                            });
+                          } else {
+                            resolve({
+                              image: newImage,
+                              result
+                            });
+                          }
+                        });
+                    });
                 }
               });
           });
