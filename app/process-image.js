@@ -339,91 +339,7 @@ class ImageProcessing {
   }
 
   /**
-   * Header can contain black-gray text or white-gray text
-   *    need to turn these areas into extremes and filter out everything else
-   **/
-  filterNearWhiteContent(x, y, idx) {
-    const red = this.bitmap.data[idx + 0],
-      green = this.bitmap.data[idx + 1],
-      blue = this.bitmap.data[idx + 2],
-      alpha = this.bitmap.data[idx + 3];
-
-    if (red >= 210 && green >= 210 && blue >= 210) {
-      this.bitmap.data[idx + 0] = 255;
-      this.bitmap.data[idx + 1] = 255;
-      this.bitmap.data[idx + 2] = 255;
-    } else {
-      this.bitmap.data[idx + 0] = 0;
-      this.bitmap.data[idx + 1] = 0;
-      this.bitmap.data[idx + 2] = 0;
-    }
-  }
-
-  /**
-   * Header can contain black-gray text or white-gray text
-   *    need to turn these areas into extremes and filter out everything else
-   **/
-  filterSemiWhiteContent(x, y, idx) {
-    const red = this.bitmap.data[idx + 0],
-      green = this.bitmap.data[idx + 1],
-      blue = this.bitmap.data[idx + 2],
-      alpha = this.bitmap.data[idx + 3];
-
-    if (red >= 150 && green >= 150 && blue >= 150) {
-      this.bitmap.data[idx + 0] = 255;
-      this.bitmap.data[idx + 1] = 255;
-      this.bitmap.data[idx + 2] = 255;
-    } else {
-      this.bitmap.data[idx + 0] = 0;
-      this.bitmap.data[idx + 1] = 0;
-      this.bitmap.data[idx + 2] = 0;
-    }
-  }
-
-  /**
-   * Header can contain black-gray text or white-gray text
-   *    need to turn these areas into extremes and filter out everything else
-   **/
-  filterNearBlackContent(x, y, idx) {
-    const red = this.bitmap.data[idx + 0],
-      green = this.bitmap.data[idx + 1],
-      blue = this.bitmap.data[idx + 2],
-      alpha = this.bitmap.data[idx + 3];
-
-    if (red <= 18 && green <= 18 && blue <= 18) {
-      this.bitmap.data[idx + 0] = 255;
-      this.bitmap.data[idx + 1] = 255;
-      this.bitmap.data[idx + 2] = 255;
-    } else {
-      this.bitmap.data[idx + 0] = 0;
-      this.bitmap.data[idx + 1] = 0;
-      this.bitmap.data[idx + 2] = 0;
-    }
-  }
-
-  /**
-   * Header can contain black-gray text or white-gray text
-   *    need to turn these areas into extremes and filter out everything else
-   **/
-  filterSemiBlackContent(x, y, idx) {
-    const red = this.bitmap.data[idx + 0],
-      green = this.bitmap.data[idx + 1],
-      blue = this.bitmap.data[idx + 2],
-      alpha = this.bitmap.data[idx + 3];
-
-    if (red <= 50 && green <= 50 && blue <= 50) {
-      this.bitmap.data[idx + 0] = 255;
-      this.bitmap.data[idx + 1] = 255;
-      this.bitmap.data[idx + 2] = 255;
-    } else {
-      this.bitmap.data[idx + 0] = 0;
-      this.bitmap.data[idx + 1] = 0;
-      this.bitmap.data[idx + 2] = 0;
-    }
-  }
-
-  /**
-   * Normal body text will always be white-gray text, don't need to be as aggressive here
+   * Filter somewhat white pixels to white and anything else to black
    **/
   filterBodyContent(x, y, idx) {
     const red = this.bitmap.data[idx + 0],
@@ -442,6 +358,9 @@ class ImageProcessing {
     }
   }
 
+  /**
+   * Make pixels with any value at all white
+   */
   showAnyContent(x, y, idx) {
     const red = this.bitmap.data[idx + 0],
       green = this.bitmap.data[idx + 1],
@@ -455,6 +374,9 @@ class ImageProcessing {
     }
   }
 
+  /**
+   * Filter pixels more saturated than input tolerance to gray
+   */
   hideSaturatedContent(tolerance) {
     return function (x, y, idx) {
       const red = this.bitmap.data[idx + 0],
@@ -470,6 +392,25 @@ class ImageProcessing {
     }
   }
 
+  /**
+   * Filter any pixels below midtone to gray
+   */
+  hideDarkContent(x, y, idx) {
+    const red = this.bitmap.data[idx + 0],
+      green = this.bitmap.data[idx + 1],
+      blue = this.bitmap.data[idx + 2],
+      alpha = this.bitmap.data[idx + 3];
+
+    if (red < 128 & green < 128 && blue < 128) {
+      this.bitmap.data[idx + 0] = 128;
+      this.bitmap.data[idx + 1] = 128;
+      this.bitmap.data[idx + 2] = 128;
+    }
+  }
+
+  /**
+   * Filter very dark pixels to black, very bright pixels to white, and anything in between to gray
+   */
   hideMidLevelContent(x, y, idx) {
     const red = this.bitmap.data[idx + 0],
       green = this.bitmap.data[idx + 1],
@@ -493,7 +434,7 @@ class ImageProcessing {
   }
 
   /**
-   * Trying to filter out near-pure white pixels
+   * Filter nearly white pixels to white and anything else to black
    **/
   filterPureWhiteContent(x, y, idx) {
     const red = this.bitmap.data[idx + 0],
@@ -513,7 +454,7 @@ class ImageProcessing {
   }
 
   /**
-   * Trying to filter out near-pure white pixels
+   * Filter nearly white pixels to white and anything else to black
    **/
   filterPureWhiteContent2(x, y, idx) {
     const red = this.bitmap.data[idx + 0],
@@ -996,7 +937,8 @@ class ImageProcessing {
     return new Promise((resolve, reject) => {
       let newImage = image.clone()
           .crop(region.x, region.y, region.width, region.height)
-          .scan(0, 0, image.bitmap.width, image.bitmap.height, this.hideSaturatedContent(1)),
+          .scan(0, 0, image.bitmap.width, image.bitmap.height, this.hideSaturatedContent(1))
+          .scan(0, 0, image.bitmap.width, image.bitmap.height, this.hideDarkContent),
         processedImage = newImage.clone()
           .blur(1)
           .composite(newImage, 0, 0, {
