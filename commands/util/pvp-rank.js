@@ -427,13 +427,13 @@ class RankCommand extends Commando.Command {
 		aliases: ['great', 'ultra','master',`great-evo`,`ultra-evo`],
 		description: 'Provides PvP data based on a Pokémon species\'s IVs, including rank and CP.', 
 		details:'**SYNTAX:** `!<league> <Pokémon> <Attack IV> <Defense IV> <Stamina IV> <Filter (Optional)>`\n' +
-				'__League:__\n> Currently, `!great`, `!ultra`, and `!master` provide data on their respective leagues.\n> `!rank` defaults to great league.\n' +
-				'> `-evo` can be added to the end of great or ultra (`!great-evo` / `!ultra-evo`) to include comparisons across all family members of the input Pokemon species.\n' +
-				'__Pokemon:__\n> The name of the pokemon. Examples: Pikachu, Alolan Muk, Castform Snowy.\n__IVs:__\n' +
+				'__League:__\n> `!great` `!ultra` and `!master` provide data on their respective leagues.\n> `!rank` defaults to great league.\n' +
+				'> `-evo` can be added to the end of great or ultra (`!great-evo` / `!ultra-evo`) to compare all family members of the input Pokemon species.\n' +
+				'__Pokemon:__\n> The name of the pokemon. Examples: Pichu, Alolan Muk, Castform Snowy.\n__IVs:__\n' +
 				'> Number between 0 and 15 that represents the IV value for each of the three stats (Attack, Defense, Stamina)\n__Filter:__\n' +
 				'Some filters exist to rank Pokemon out of possibilities with a minimum IV requirement.\n`uf` sets the minimum IV to 3.\n`bf` sets the minimum IV to 5.\n' +
 				'`raid` sets the minimum  IV to 10.\n`lucky` sets the minimum  IV to 12.\n\nOther filters provide additional information to the bot\'s output.\n' +
-				'`stats` provides raw Attack, Defense, and Stamina values for the Pokemon eligible for the given League and CP limit.\n' +
+				'`stats` provides raw Attack, Defense, and Stamina values of the specific Pokemon.\n' +
 				'`top` provides the Rank 1 IV combination in addition for comparison.',//Use this command to obtain information on the PvP ranking of a specific IV combination for a species of Pokémon.' +
 			//'\n!great - This command restricts results to **Great League**\n!ultra - This command restricts results to **Ultra League**',
 		examples: ['!<league> <Pokémon> <Attack IV> <Defense IV> <Stamina IV> <Filter (Optional)>\n`!great Wigglytuff 10 12 13`\n' +
