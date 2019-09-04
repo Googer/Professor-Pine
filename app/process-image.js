@@ -63,7 +63,7 @@ class ImageProcessing {
     this.initializePokemonTesseract();
 
     this.baseTesseractOptions = {
-      'tessedit_ocr_engine_mode': OEM.TESSERACT_ONLY,
+      'tessedit_ocr_engine_mode': OEM.LSTM_ONLY,
       'load_system_dawg': '0',
       'load_bigram_dawg': '0',
       'load_fixed_length_dawgs': '0',
@@ -76,36 +76,28 @@ class ImageProcessing {
       'language_model_penalty_font': '0.8',
       'language_model_penalty_script': '0.8',
       'segment_penalty_dict_nonword': '1.0'
-      // 'segment_penalty_garbage': '2.0'
     };
 
     this.gymTesseractOptions = Object.assign({}, this.baseTesseractOptions, {
-      'tessedit_ocr_engine_mode': OEM.LSTM_ONLY,
       'user_words_file': 'gyms.txt',
       'load_number_dawg': '0'
     });
 
     this.pokemonTesseractOptions = Object.assign({}, this.baseTesseractOptions, {
-      'tessedit_ocr_engine_mode': OEM.LSTM_ONLY,
       'user_words_file': 'pokemon.txt',
       'load_number_dawg': '0'
     });
 
     this.phoneTimeTesseractOptions = Object.assign({}, this.baseTesseractOptions, {
-      'tessedit_pageseg_mode': PSM.SINGLE_LINE,
-      'tessedit_char_whitelist': '0123456789:! APM',
       'numeric_punctuation': ':'
     });
 
     this.timeRemainingTesseractOptions = Object.assign({}, this.baseTesseractOptions, {
-      // 'tessedit_pageseg_mode': '7',	// character mode; instead of word mode
-      'tessedit_char_whitelist': '0123456789: ',
       'numeric_punctuation': ':'
     });
 
     this.tierTesseractOptions = Object.assign({}, this.baseTesseractOptions, {
-      'load_system_dawg': '0',
-      'load_punc_dawg': '0',
+      'tessedit_ocr_engine_mode': OEM.TESSERACT_ONLY,
       'load_number_dawg': '0',
       'classify_misfit_junk_penalty': '0',
       'tessedit_char_whitelist': '@®©'
@@ -132,8 +124,8 @@ class ImageProcessing {
     }
 
     this.phoneTesseract = new TesseractWorker({
-      langPath: path.join(__dirname, '..', 'lang-data', 'v3'),
-      cachePath: path.join(__dirname, '..', 'lang-data', 'v3'),
+      langPath: path.join(__dirname, '..', 'lang-data', 'v4'),
+      cachePath: path.join(__dirname, '..', 'lang-data', 'v4'),
       cacheMethod: 'readOnly'
     });
   }
@@ -145,8 +137,8 @@ class ImageProcessing {
     }
 
     this.timeRemainingTesseract = new TesseractWorker({
-      langPath: path.join(__dirname, '..', 'lang-data', 'v3'),
-      cachePath: path.join(__dirname, '..', 'lang-data', 'v3'),
+      langPath: path.join(__dirname, '..', 'lang-data', 'v4'),
+      cachePath: path.join(__dirname, '..', 'lang-data', 'v4'),
       cacheMethod: 'readOnly'
     });
   }
@@ -471,6 +463,28 @@ class ImageProcessing {
     }
   }
 
+  hideMidLevelContent(x, y, idx) {
+    const red = this.bitmap.data[idx + 0],
+      green = this.bitmap.data[idx + 1],
+      blue = this.bitmap.data[idx + 2],
+      alpha = this.bitmap.data[idx + 3];
+
+    if (red > 16 && green > 16 && blue > 16 &&
+      red < 225 && green < 225 && blue < 225) {
+      this.bitmap.data[idx + 0] = 128;
+      this.bitmap.data[idx + 1] = 128;
+      this.bitmap.data[idx + 2] = 128;
+    } else if (red <= 16 && green <= 16 && blue <= 16) {
+      this.bitmap.data[idx + 0] = 0;
+      this.bitmap.data[idx + 1] = 0;
+      this.bitmap.data[idx + 2] = 0;
+    } else if (red >= 225 && green >= 225 && blue >= 225) {
+      this.bitmap.data[idx + 0] = 255;
+      this.bitmap.data[idx + 1] = 255;
+      this.bitmap.data[idx + 2] = 255;
+    }
+  }
+
   /**
    * Trying to filter out near-pure white pixels
    **/
@@ -602,54 +616,46 @@ class ImageProcessing {
   async getPhoneTime(id, message, image, region) {
     let value, phoneTime;
 
-    // try different levels of processing to get time
-    for (let processingLevel = 0; processingLevel <= 3; processingLevel++) {
-      const debugImagePath = path.join(__dirname, this.imagePath, `${id}-phone-time-${processingLevel}.png`);
+    const debugImagePath = path.join(__dirname, this.imagePath, `${id}-phone-time.png`);
 
-      value = await this.getOCRPhoneTime(id, message, image, region, processingLevel)
-        .catch(err => {
-          log.error(err);
-          this.initializePhoneTimeTesseract();
-          return {text: undefined};
-        });
-      phoneTime = value.text;
+    value = await this.getOCRPhoneTime(id, message, image, region)
+      .catch(err => {
+        log.error(err);
+        this.initializePhoneTimeTesseract();
+        return {text: undefined};
+      });
+    phoneTime = value.text;
 
-      if (phoneTime) {
-        if (phoneTime.indexOf(':') === -1 && phoneTime.length === 3) {
-          // try inserting a colon in to help moment out
-          phoneTime = phoneTime.charAt(0) + ':' + phoneTime.substring(1);
-        }
+    if (phoneTime) {
+      if (phoneTime.indexOf(':') === -1 && phoneTime.length === 3) {
+        // try inserting a colon in to help moment out
+        phoneTime = phoneTime.charAt(0) + ':' + phoneTime.substring(1);
+      }
 
-        // Determine AM or PM time
-        if (phoneTime.search(/([ap])m/gi) >= 0) {
-          phoneTime = moment(phoneTime, ['hmm a', 'h:m a']);
+      // Determine AM or PM time
+      if (phoneTime.search(/([ap])m/gi) >= 0) {
+        phoneTime = moment(phoneTime, ['hmm a', 'h:m a']);
+      } else {
+        // figure out if time should be AM or PM
+        const now = moment(),
+          timeAM = moment(phoneTime + ' am', ['hmm a', 'Hmm', 'h:m a', 'H:m']),
+          timePM = moment(phoneTime + ' pm', ['hmm a', 'Hmm', 'h:m a', 'H:m']),
+          times = [timeAM.diff(now), timePM.diff(now)];
+
+        // whatever time is closer to current time (less diff), use that
+        if (Math.abs(times[0]) < Math.abs(times[1])) {
+          phoneTime = timeAM;
         } else {
-          // figure out if time should be AM or PM
-          const now = moment(),
-            timeAM = moment(phoneTime + ' am', ['hmm a', 'Hmm', 'h:m a', 'H:m']),
-            timePM = moment(phoneTime + ' pm', ['hmm a', 'Hmm', 'h:m a', 'H:m']),
-            times = [timeAM.diff(now), timePM.diff(now)];
-
-          // whatever time is closer to current time (less diff), use that
-          if (Math.abs(times[0]) < Math.abs(times[1])) {
-            phoneTime = timeAM;
-          } else {
-            phoneTime = timePM;
-          }
+          phoneTime = timePM;
         }
       }
+    }
 
-      // something has gone wrong if no info was matched, save image for later analysis
-      if (debugFlag || ((!phoneTime || (phoneTime && !phoneTime.isValid())) && log.getLevel() === log.levels.DEBUG)) {
-        log.debug('Phone Time: ', id, value.text);
-        if (value.image) {
-          value.image.write(debugImagePath);
-        }
-      }
-
-      // don't jump up to next level of processing if a time has been found
-      if (phoneTime && phoneTime.isValid()) {
-        break;
+    // something has gone wrong if no info was matched, save image for later analysis
+    if (debugFlag || ((!phoneTime || (phoneTime && !phoneTime.isValid())) && log.getLevel() === log.levels.DEBUG)) {
+      log.debug('Phone Time: ', id, value.text);
+      if (value.image) {
+        value.image.write(debugImagePath);
       }
     }
 
@@ -659,7 +665,7 @@ class ImageProcessing {
     return {phoneTime: phoneTime};
   }
 
-  getOCRPhoneTime(id, message, image, region, level = 0) {
+  getOCRPhoneTime(id, message, image, region) {
     return new Promise((resolve, reject) => {
       const croppedRegion = {
         x: 0,
@@ -671,27 +677,12 @@ class ImageProcessing {
       new Promise((resolve, reject) => {
         let newImage = image.clone()
           .crop(croppedRegion.x, croppedRegion.y, croppedRegion.width, croppedRegion.height)
-          .convolute([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
-          .scan(0, 0, croppedRegion.width, croppedRegion.height, this.hideSaturatedContent(15))
-          .scale(2, Jimp.RESIZE_HERMITE);
-
-        switch (level) {
-          case 0:
-            newImage = newImage.scan(0, 0, croppedRegion.width * 2, croppedRegion.height * 2, this.filterNearBlackContent);
-            break;
-
-          case 1:
-            newImage = newImage.scan(0, 0, croppedRegion.width * 2, croppedRegion.height * 2, this.filterNearWhiteContent);
-            break;
-
-          case 2:
-            newImage = newImage.scan(0, 0, croppedRegion.width * 2, croppedRegion.height * 2, this.filterSemiBlackContent);
-            break;
-
-          case 3:
-            newImage = newImage.scan(0, 0, croppedRegion.width * 2, croppedRegion.height * 2, this.filterSemiWhiteContent);
-            break;
-        }
+          .grayscale()
+          .scan(0, 0, croppedRegion.width, croppedRegion.height, this.hideMidLevelContent)
+          .scale(2, Jimp.RESIZE_HERMITE)
+          // yes, blur slightly then sharpen to clean up edges around phone time
+          .blur(1)
+          .convolute([[0, -1, 0], [-1, 5, -1], [0, -1, 0]]);
 
         newImage.getBuffer(Jimp.MIME_PNG, (err, image) => {
           if (err) {
@@ -739,7 +730,7 @@ class ImageProcessing {
 
     // something has gone wrong if no info was matched, save image for later analysis
     if (debugFlag || (!values.text && log.getLevel() === log.levels.DEBUG)) {
-      log.debug('Time Remaining: ', id, values.result.text);
+      log.debug('Time Remaining: ', id, values.result.text, values.text ? `[${values.text}]` : '');
       if (values.image) {
         values.image.write(debugImagePath);
       }
@@ -770,10 +761,12 @@ class ImageProcessing {
 
       const newImage = image.clone()
         .crop(region.x, region.y, region.width, region.height)
-        .convolute([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
         .scan(0, 0, region.width, region.height, this.hideSaturatedContent(5))
         .scan(0, 0, region.width, region.height, this.filterPureWhiteContent)
+        .scale(2, Jimp.RESIZE_HERMITE)
+        // yes, blur slightly then sharpen to clean up edges around time remaining
         .blur(1)
+        .convolute([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
         .invert()
         .getBuffer(Jimp.MIME_PNG, (err, image) => {
           if (err) {
@@ -784,14 +777,15 @@ class ImageProcessing {
             this.timeRemainingTesseract.recognize(image, 'eng', this.timeRemainingTesseractOptions)
               .catch(err => reject(err))
               .then(result => {
-                const confidentWords = this.tesseractGetConfidentSequences(result, true),
-                  match = confidentWords.length > 0 ?
-                    confidentWords[0].match(/(\d{1,2}:\d{2}:\d{2})/) :
-                    '';
-                if (match && match.length) {
+                const confidentText = this.tesseractGetConfidentSequences(result, false, 70);
+
+                const match = confidentText
+                  .find(text => text.match(/(\d{1,2}:\d{2}:\d{2})/));
+
+                if (match) {
                   resolve({
                     image: newImage,
-                    text: match[1],
+                    text: match,
                     result
                   });
                 } else {
