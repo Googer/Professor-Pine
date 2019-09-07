@@ -194,8 +194,13 @@ module.exports = class ImportGyms extends commando.Command {
   }
 
   makeMetaInsert(gym) {
-    const geodata = JSON.stringify(this.formatGeodata(gym.gymInfo.addressComponents));
-    const places = gym.gymInfo.places.join(' ');
+    const geodata = !!gym.gymInfo.addressComponents ?
+      JSON.stringify(this.formatGeodata(gym.gymInfo.addressComponents)) :
+      '';
+    const places = !!gym.gymInfo.places ?
+      gym.gymInfo.places.join(' ') :
+      '';
+
     let statement = "INSERT INTO GymMeta (gymId,";
 
     const fields = ["description"];
@@ -246,8 +251,14 @@ module.exports = class ImportGyms extends commando.Command {
   }
 
   getMetaValues(gym) {
-    const geodata = JSON.stringify(this.formatGeodata(gym.gymInfo.addressComponents));
-    const places = gym.gymInfo.places.join(' ');
+    const geodata = !!gym.gymInfo.addressComponents ?
+      JSON.stringify(this.formatGeodata(gym.gymInfo.addressComponents)) :
+      '';
+
+    const places = !!gym.gymInfo.places ?
+      gym.gymInfo.places.join(' ') :
+      '';
+
     const content = this.getGymValues(gym);
     if (gym.meta) {
       if (gym.meta.nickname) {
