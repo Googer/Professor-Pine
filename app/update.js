@@ -1,7 +1,7 @@
 "use strict";
 
 const log = require('loglevel').getLogger('IntervalUpdater'),
-  privateSettings = require('../data/private-settings'),
+  settings = require('../data/settings'),
   GymCache = require('./gym'),
   Meta = require('./geocode');
 
@@ -10,16 +10,16 @@ class IntervalUpdater {
     const that = this;
 
     // loop update gym indexes
-    if (privateSettings.updater.channelIndexUpdateIntervalSeconds && privateSettings.updater.channelIndexUpdateIntervalSeconds > 0) {
-      const milliseconds = privateSettings.updater.channelIndexUpdateIntervalSeconds * 1000;
+    if (settings.updater.channelIndexUpdateIntervalSeconds && settings.updater.channelIndexUpdateIntervalSeconds > 0) {
+      const milliseconds = settings.updater.channelIndexUpdateIntervalSeconds * 1000;
       this.updateIndexes = setInterval(() => {
         that.runIndexUpdate();
       }, milliseconds);
     }
 
     // loop update gym geocode & places
-    if (privateSettings.updater.gymPlacesIndexUpdateIntervalSeconds && privateSettings.updater.gymPlacesIndexUpdateIntervalSeconds > 0) {
-      const milliseconds = privateSettings.updater.gymPlacesIndexUpdateIntervalSeconds * 1000;
+    if (settings.updater.gymPlacesIndexUpdateIntervalSeconds && settings.updater.gymPlacesIndexUpdateIntervalSeconds > 0) {
+      const milliseconds = settings.updater.gymPlacesIndexUpdateIntervalSeconds * 1000;
       this.updatePlaces = setInterval(() => {
         that.runPlacesUpdate();
       }, milliseconds);

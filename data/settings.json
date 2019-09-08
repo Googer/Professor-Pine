@@ -18,6 +18,10 @@
   "messageCleanupDelayStatus": 60000,
   "showUnknownMoves": true,
   "databaseRaids": true,
+  "updater": {
+    "channelIndexUpdateIntervalSeconds": 600,
+    "gymPlacesIndexUpdateIntervalSeconds": 600
+  },
   "emoji": {
     "thumbsUp": "pinethumbsup",
     "thumbsDown": "pinethumbsdown",
