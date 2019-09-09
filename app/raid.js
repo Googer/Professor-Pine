@@ -644,7 +644,7 @@ class Raid extends Party {
       gym = Gym.getGym(this.gymId),
       gymName = !!gym.nickname ?
         gym.nickname :
-        gym.gymName,
+        gym.name,
       member = this.createdById > 0 ?
         (await this.getMember(memberId)).member :
         null,
