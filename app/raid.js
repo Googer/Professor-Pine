@@ -604,7 +604,7 @@ class Raid extends Party {
       gym = Gym.getGym(this.gymId),
       gymName = (!!gym.nickname ?
         gym.nickname :
-        gym.gymName),
+        gym.name),
       totalAttendees = this.getAttendeeCount(),
       calendarFormat = {
         sameDay: 'LT',
