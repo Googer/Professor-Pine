@@ -231,10 +231,7 @@ class TimeType extends Commando.ArgumentType {
         pokemon.duration :
         isExRaid ?
           settings.exclusiveRaidHatchedDuration :
-          settings.standardRaidHatchedDuration,
-      partyType = partyExists ?
-        PartyManager.getParty(message.channel.id).type :
-        PartyType.RAID;
+          settings.standardRaidHatchedDuration;
 
     let firstPossibleTime,
       maxDuration,
