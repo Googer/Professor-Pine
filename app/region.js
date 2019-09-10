@@ -399,7 +399,7 @@ class RegionHelper {
       selectQuery = "SELECT * FROM Region WHERE guildId = ?;";
       values.push(guildDbId);
     } else {
-      selectQuery = "SELECT * FROM REGION;";
+      selectQuery = "SELECT * FROM Region;";
     }
     return new Promise(async (resolve, reject) => {
       const results = await dbhelper.query(selectQuery, values)
