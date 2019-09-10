@@ -1,6 +1,6 @@
 {
-  "standardRaidIncubateDuration": 60,
-  "standardRaidHatchedDuration": 45,
+  "standardRaidIncubateDuration": 15,
+  "standardRaidHatchedDuration": 90,
   "exclusiveRaidIncubateDuration": 20160,
   "exclusiveRaidHatchedDuration": 45,
   "maxMeetupLeadupDuration": 30240,
@@ -19,6 +19,10 @@
   "messageCleanupDelayStatus": 60000,
   "showUnknownMoves": true,
   "databaseRaids": true,
+  "updater": {
+    "channelIndexUpdateIntervalSeconds": 600,
+    "gymPlacesIndexUpdateIntervalSeconds": 600
+  },
   "emoji": {
     "thumbsUp": "pinethumbsup",
     "thumbsDown": "pinethumbsdown",

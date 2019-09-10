@@ -43,7 +43,7 @@ class SpawnCommand extends Commando.Command {
     });
 
     client.dispatcher.addInhibitor(message => {
-      if (!!message.command && message.command.name === 'spawn' && !Gym.isValidChannel(message.channel.name)) {
+      if (!!message.command && message.command.name === 'spawn' && !Gym.isValidChannel(message.channel.id)) {
         return ['invalid-channel', message.reply('Announce spawns from region channels!')];
       }
       return false;

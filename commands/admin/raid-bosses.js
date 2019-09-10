@@ -59,7 +59,7 @@ class RaidBossesCommand extends Commando.Command {
         });
 
         const formatted = parts.join(' '),
-              shiny = poke.shiny ? '*' : '';
+          shiny = poke.shiny ? '*' : '';
 
         if (poke.exclusive) {
           groups.ex.push(shiny + formatted + shiny);

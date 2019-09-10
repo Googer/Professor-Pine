@@ -221,7 +221,6 @@ class Raid extends Party {
                       }
 
                       userResponse = userResponse.substr(1).trim();
-
                     }
 
                     confirmation = message.client.registry.types.get('boolean').truthy.has(userResponse) || doneAliases.indexOf(userResponse) !== -1;
@@ -605,7 +604,7 @@ class Raid extends Party {
       gym = Gym.getGym(this.gymId),
       gymName = (!!gym.nickname ?
         gym.nickname :
-        gym.gymName),
+        gym.name),
       totalAttendees = this.getAttendeeCount(),
       calendarFormat = {
         sameDay: 'LT',
@@ -645,7 +644,7 @@ class Raid extends Party {
       gym = Gym.getGym(this.gymId),
       gymName = !!gym.nickname ?
         gym.nickname :
-        gym.gymName,
+        gym.name,
       member = this.createdById > 0 ?
         (await this.getMember(memberId)).member :
         null,
@@ -758,8 +757,8 @@ class Raid extends Party {
       gym = Gym.getGym(this.gymId),
       gymName = !!gym.nickname ?
         gym.nickname :
-        gym.gymName,
-      gymUrl = `https://www.google.com/maps/search/?api=1&query=${gym.gymInfo.latitude}%2C${gym.gymInfo.longitude}`,
+        gym.name,
+      gymUrl = `https://www.google.com/maps/search/?api=1&query=${gym.lat}%2C${gym.lon}`,
       attendeeEntries = Object.entries(this.attendees),
       totalAttendeeCount = attendeeEntries.length,
       attendeesWithMembers = (await Promise.all(attendeeEntries
@@ -906,19 +905,21 @@ class Raid extends Party {
     let additionalInformation = '';
 
     if (!this.isExclusive) {
-      if (gym.hasHostedEx) {
-        additionalInformation += 'Confirmed EX Raid location.';
-      } else if (gym.hasExTag) {
-        additionalInformation += 'Potential EX Raid location - This gym has the EX gym tag.';
+      if (gym.taggedEx) {
+        if (gym.confirmedEx) {
+          additionalInformation += 'Confirmed EX Raid location - This gym has the EX gym tag and has previously hosted an EX Raid.';
+        } else {
+          additionalInformation += 'Potential EX Raid location - This gym has the EX gym tag.';
+        }
       }
     }
 
-    if (!!gym.additionalInformation) {
+    if (!!gym.notice) {
       if (additionalInformation !== '') {
         additionalInformation += '\n\n';
       }
 
-      additionalInformation += gym.additionalInformation;
+      additionalInformation += gym.notice;
     }
 
     if (additionalInformation !== '') {
@@ -993,7 +994,7 @@ class Raid extends Party {
       gym = Gym.getGym(this.gymId),
       gymName = (!!gym.nickname ?
         removeDiacritics(gym.nickname) :
-        removeDiacritics(gym.gymName))
+        removeDiacritics(gym.name))
         .toLowerCase()
         .replace(nonCharCleaner, ' ')
         .split(' ')

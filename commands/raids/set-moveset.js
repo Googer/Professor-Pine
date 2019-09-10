@@ -2,7 +2,7 @@
 
 const log = require('loglevel').getLogger('MovesetCommand'),
   Commando = require('discord.js-commando'),
-  { CommandGroup, PartyType } = require('../../app/constants'),
+  {CommandGroup, PartyType} = require('../../app/constants'),
   Helper = require('../../app/helper'),
   PartyManager = require('../../app/party-manager'),
   settings = require('../../data/settings');

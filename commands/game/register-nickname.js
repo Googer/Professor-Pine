@@ -39,7 +39,7 @@ class RegisterNicknameCommand extends Commando.Command {
 
   async run(message, args) {
     const nickname = args['username'];
-    
+
     User.setNickname(message.member, nickname.toLowerCase())
       .then(result => message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍'))
       .catch(err => log.error(err));

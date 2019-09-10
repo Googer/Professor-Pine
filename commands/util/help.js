@@ -34,10 +34,10 @@ class HelpCommand extends Commando.Command {
   async run(message, args) {
     const groups = this.client.registry.groups,
       commands = this.client.registry.findCommands(args.command, false, message),
-      showAll = args.command && args.command.toLowerCase() === 'all',
-      embed = new MessageEmbed();
+      showAll = args.command && args.command.toLowerCase() === 'all';
 
-    embed.setColor(4437377);
+    let embed = new MessageEmbed();
+    embed.setColor('GREEN');
 
     if (args.command && !showAll) {
       if (commands.length === 1) {
@@ -89,18 +89,32 @@ class HelpCommand extends Commando.Command {
       try {
         embed.setTitle('All commands');
         embed.setDescription(`Begin all commands with \`${message.client.options.commandPrefix}\` - for example, \`${message.client.options.commandPrefix}join\`.`);
+        embed.setFooter(`Use ${this.usage('<command>', null, null)} to view detailed information about a specific command.`);
 
         const groupsToShow = groups
           .filter(group => group.commands.size > 0 &&
             ((showAll && (Helper.isManagement(message) || Helper.isBotManagement(message))) || settings.helpGroups.includes(group.id)));
 
-        groupsToShow.forEach(group =>
-          embed.addField(`**${group.name}**`,
-            group.commands
+        for (const group of groupsToShow.values()) {
+          const fieldName = `**${group.name}**`,
+            fieldContents = group.commands
               .map(command => `**${command.name}**: ${command.description}`)
-              .join('\n')));
+              .join('\n');
+          embed.addField(fieldName, fieldContents);
 
-        embed.setFooter(`Use ${this.usage('<command>', null, null)} to view detailed information about a specific command.`);
+          if (embed.length > 6000) {
+            embed.spliceField(embed.fields.length - 1, 1);
+            embed.setFooter('');
+
+            const msg = await message.direct({embed});
+            messages.push(msg);
+
+            embed = new MessageEmbed();
+            embed.setColor('GREEN');
+            embed.setFooter(`Use ${this.usage('<command>', null, null)} to view detailed information about a specific command.`);
+            embed.addField(fieldName, fieldContents);
+          }
+        }
 
         messages.push(await message.direct({embed}));
 

@@ -11,24 +11,7 @@ class Utility {
     const delay = settings.messageCleanupDelaySuccess,
       messagesToDelete = [...collectionResult.prompts, ...collectionResult.answers];
 
-    if (messagesToDelete.length === 0) {
-      return;
-    }
-
-    const channel = messagesToDelete[0].channel;
-
-    log.debug(`Deleting messages [${messagesToDelete.map(message => message.id).join(', ')}]`);
-    channel.client.setTimeout(
-      () => {
-        if (messagesToDelete.length > 1) {
-          channel.bulkDelete(messagesToDelete)
-            .catch(err => log.error(err))
-        } else {
-          messagesToDelete[0].delete()
-            .catch(err => log.error(err));
-        }
-      },
-      delay);
+    await Utility.deleteMessages(messagesToDelete, delay);
   }
 
   static async cleanConversation(initialMessage, commandSuccessful, deleteOriginal = false) {
@@ -55,22 +38,37 @@ class Utility {
           (message.author === bot && message.mentions.members.has(author.id))) &&
         !message.preserve));  // commandFinalize was deleting our results which happen to mention the user
 
-    if (messagesToDelete.length === 0) {
+    await Utility.deleteMessages(messagesToDelete, delay);
+  }
+
+  static async deleteMessages(messages, delay = 0) {
+    if (!messages || messages.length === 0) {
       return;
     }
 
-    log.debug(`Deleting messages [${messagesToDelete.map(message => message.id).join(', ')}]`);
-    channel.client.setTimeout(
-      () => {
-        if (messagesToDelete.length > 1) {
-          channel.bulkDelete(messagesToDelete)
-            .catch(err => log.error(err))
-        } else {
-          messagesToDelete[0].delete()
-            .catch(err => log.error(err));
-        }
-      },
-      delay);
+    log.debug(`Deleting messages [${messages.map(message => message.id).join(', ')}]`);
+
+    const channel = messages[0].channel;
+    if (delay > 0) {
+      channel.client.setTimeout(
+        () => {
+          if (messages.length > 1) {
+            channel.bulkDelete(messages)
+              .catch(err => log.error(err));
+          } else {
+            messages[0].delete()
+              .catch(err => log.error(err));
+          }
+        }, delay);
+    } else {
+      if (messages.length > 1) {
+        channel.bulkDelete(messages)
+          .catch(err => log.error(err));
+      } else {
+        messages[0].delete()
+          .catch(err => log.error(err));
+      }
+    }
   }
 
   static sleep(ms) {
