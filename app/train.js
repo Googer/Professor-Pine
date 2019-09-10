@@ -108,6 +108,19 @@ class RaidTrain extends Party {
     return {party: this};
   }
 
+  async cancelMeetingTime(memberId) {
+    const member = this.attendees[memberId];
+
+    if (!member) {
+      return {error: `You are not signed up for this ${this.type}!`};
+    }
+
+    delete this.startTime;
+
+    await this.persist();
+    return {party: this};
+  }
+
   async clearRoute() {
     this.route = [];
     await this.persist();

@@ -266,7 +266,7 @@ NotifyClient.on('disconnect', event => {
   log.error(`Notify Client disconnected, code ${event.code}, reason '${event.reason}'...`);
 
   NotifyClient.destroy()
-    .then(() => Client.login(privateSettings.discordNotifyToken))
+    .then(() => NotifyClient.login(privateSettings.discordNotifyToken))
     .catch(err => log.error(err));
 });
 
