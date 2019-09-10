@@ -3,44 +3,224 @@
 const log = require('loglevel').getLogger('GymSearch'),
   lunr = require('lunr'),
   he = require('he'),
+  Helper = require('./helper'),
   removeDiacritics = require('diacritics').remove,
+  Region = require('./region'),
   Search = require('./search'),
   settings = require('../data/settings');
 
-class Gym extends Search {
+//This will serve as the object that contains gym indexes for each region
+//Since lunr indexes are immutable, and it would be terribly inefficient to rebuild an index for all gyms in the server on every change
+//Instead we will create individual indexes based on region - which will reindex only affected regions whenever a change is made
+class GymCache {
   constructor() {
+    lunr.Pipeline.registerFunction(Gym.blacklistWordFilter, 'blacklistWords');
+    lunr.Pipeline.registerFunction(Search.stopWordFilter, 'customStopwords');
+  }
+
+  async buildIndexes() {
+    log.info('Beginning indexing of all channels');
+
+    this.channels = Object.create(null);
+    this.indexing = true;
+
+    let channels = await Region.getAllBoundedChannels();
+
+    this.placesQueue = []; //Gyms that need geo updates
+    this.indexQueue = []; //Channels that need reindexing
+
+    let channelsProcessed = 0;
+    for (const channel of channels) {
+      log.info("Indexing channel: " + channel["channelId"]);
+      await this.rebuildRegion(channel["channelId"]);
+      channelsProcessed++;
+      if (channelsProcessed === channels.length) {
+        await this.rebuildMaster();
+        this.indexing = false;
+        log.info('Indexing of all channels completed!');
+      }
+    }
+  }
+
+  async rebuildIndexesForChannels() {
+    const that = this;
+    if (this.indexQueue.length > 0) {
+      await this.rebuildMaster();
+    }
+
+    const removeIndex = this.indexQueue.slice(0);
+    removeIndex.forEach(async channelId => {
+      log.info(`Trying to rebuild region of channel: ${channelId}`);
+      await that.rebuildRegion(channelId);
+      let index = that.indexQueue.indexOf(channelId);
+      if (index > -1) {
+        that.indexQueue.splice(index, 1);
+      }
+    });
+  }
+
+  async rebuildRegion(channel) {
+    const channels = this.channels;
+    return new Promise(async (resolve, reject) => {
+      //Get the polygon of the defined region assigned to this channel
+      let region = channel ? await Region.getRegionsRaw(channel)
+        .catch(error => null) : null;
+
+      //Expand the polygon of this region outwards to include bordering gyms
+      let regionObject = region ? Region.getCoordRegionFromText(region) : null;
+      const expanded = region ? Region.enlargePolygonFromRegion(regionObject) : null;
+      const expandedRegion = region ? Region.polygonStringFromRegion(expanded) : null;
+
+      //Get gyms inside the enclosed polygon
+      let channelGyms = await Region.getGyms(Region.polygonStringFromRegion(regionObject))
+        .catch(error => log.error(err));
+      let expandedGyms = await Region.getGyms(expandedRegion)
+        .catch(error => log.error(err));
+
+      if (!!channelGyms && !!expandedGyms) {
+        let neighboringGyms = expandedGyms
+          .filter(gym => !channelGyms
+            .map(channelGym => channelGym.id).includes(gym.gymId));
+
+        //Create lunr search indices for this channel and add it to the cache
+        let localGymsIndex = new Gym(`${channel} [local]`, channelGyms);
+        let neighboringGymsIndex = new Gym(`${channel} [neighbor]`, neighboringGyms);
+        channels[channel] = {local: localGymsIndex, neighboring: neighboringGymsIndex};
+
+        resolve(true);
+      } else {
+        reject(false);
+      }
+    })
+  }
+
+  async rebuildMaster() {
+    const that = this;
+    return new Promise(async (resolve, reject) => {
+      //Get all gyms
+      let allGyms = await Region.getAllGyms();
+      if (!!allGyms) {
+        //Create lunr search index for all gyms
+        that.masterIndex = new Gym('master', allGyms);
+
+        Helper.client.emit('gymsReindexed');
+
+        resolve(true);
+      } else {
+        reject(false);
+      }
+    })
+  }
+
+  //Handle incoming searches and pass them to the proper search index based on channel
+  search(channel, terms, nameOnly) {
+    if (channel === null) {
+      if (this.masterIndex) {
+        return this.masterIndex.search(terms, nameOnly)
+      } else {
+        return false;
+      }
+    } else {
+      if (!!this.channels[channel]) {
+        const localResults = this.channels[channel].local.search(terms, nameOnly);
+        return localResults.length > 0 ?
+          localResults :
+          this.channels[channel].neighboring.search(terms, nameOnly);
+      } else {
+        return false;
+      }
+    }
+  }
+
+  isValidChannel(channel) {
+    return !!this.channels[channel.toString()];
+  }
+
+  getGym(gymId) {
+    for (let key in this.channels) {
+      let cache = this.channels[key];
+      if (cache.local.getGym(gymId) !== false) {
+        return cache.local.getGym(gymId);
+      }
+    }
+
+    return null;
+  }
+
+  markGymsForPlacesUpdates(gyms) {
+    log.info(`Marking ${gyms} for places updates`);
+    gyms.forEach(gymId => {
+      if (this.placesQueue.indexOf(gymId) === -1) {
+        this.placesQueue.push(gymId);
+      }
+    });
+  }
+
+  async markPlacesComplete(gym) {
+    if (this.placesQueue.indexOf(gym) > -1) {
+      this.placesQueue.splice(this.placesQueue.indexOf(gym), 1);
+    }
+
+    //Get channels that need to be re-indexed
+    //Add to queue
+    let affectedChannels = await Region.findAffectedChannels(gym);
+    this.markChannelsForReindex(affectedChannels);
+  }
+
+  getPlacesQueue() {
+    return this.placesQueue;
+  }
+
+  getIndexQueue() {
+    return this.indexQueue;
+  }
+
+  getNextGymsForPlacesUpdate() {
+    if (this.placesQueue.length > 10) {
+      return this.placesQueue.splice(0, 10);
+    } else {
+      return this.placesQueue.splice(0, this.placesQueue.length);
+    }
+  }
+
+  markChannelsForReindex(channelIds) {
+    log.info(`Marking ${channelIds} for index updates`);
+    channelIds.forEach(channelId => {
+      if (this.indexQueue.indexOf(channelId) === -1) {
+        this.indexQueue.push(channelId);
+      }
+    });
+  }
+}
+
+class Gym extends Search {
+  constructor(name, gyms) {
     super();
+    this.name = name;
+    this.gyms = gyms;
+    this.buildIndex();
   }
 
   buildIndex() {
-    log.info('Splicing gym metadata and indexing gym data...');
+    if (!this.gyms) {
+      return;
+    }
 
-    const gymsBase = require('PgP-Data/data/gyms'),
-      gymsMetadata = require('PgP-Data/data/gyms-metadata'),
-      mergedGyms = gymsBase
-        .map(gym => Object.assign({}, gym, gymsMetadata[gym.gymId])),
-      stopwordFilter = this.stopWordFilter,
-      blacklistWordFilter = lunr.generateStopWordFilter(settings.blacklistWords);
+    log.debug(`${this.name} - Splicing gym metadata and indexing gym data...`);
 
-    this.blacklistWordFilter = blacklistWordFilter;
-
-    lunr.Pipeline.registerFunction(blacklistWordFilter, 'blacklistWords');
-    lunr.Pipeline.registerFunction(stopwordFilter, 'customStopwords');
-
-    this.gyms = new Map(mergedGyms
-      .map(gym => [gym.gymId, gym]));
-
-    this.regionMap = require('PgP-Data/data/region-map');
-    this.regionGraph = require('PgP-Data/data/region-graph');
+    const gyms = this.gyms;
 
     this.index = lunr(function () {
       // reference will be the entire gym object so we can grab whatever we need from it (GPS coordinates, name, etc.)
       this.ref('object');
 
       // static fields for gym name, nickname, and description
+      this.field('id');
       this.field('name');
       this.field('nickname');
       this.field('description');
+      this.field('keywords');
+      this.field('notice');
 
       // fields from geocoding data, can add more if / when needed
       this.field('intersection');
@@ -59,66 +239,51 @@ class Gym extends Search {
       // field for places
       this.field('places');
 
-      // field from supplementary metadata
-      this.field('additionalTerms');
-
       // replace default stop word filter with custom one
       this.pipeline.remove(lunr.stopWordFilter);
-      this.pipeline.after(lunr.trimmer, blacklistWordFilter);
-      this.pipeline.after(blacklistWordFilter, stopwordFilter);
+      this.pipeline.after(lunr.trimmer, Gym.blacklistWordFilter);
+      this.pipeline.after(Gym.blacklistWordFilter, Search.stopWordFilter);
 
-      mergedGyms.forEach(gym => {
+      gyms.forEach(gym => {
         // Gym document is a object with its reference and fields to collection of values
         const gymDocument = Object.create(null);
 
-        gym.gymName = he.decode(gym.gymName);
-        gym.gymInfo.gymDescription = he.decode(gym.gymInfo.gymDescription);
+        gymDocument["id"] = gym.id;
+
+        gym.name = he.decode(gym.name);
+        if (gym.description) {
+          gym.description = he.decode(gym.description);
+        } else {
+          gym.description = "";
+        }
 
         // static fields
-        gymDocument['name'] = removeDiacritics(gym.gymName).replace(/[^\w\s-]+/g, '');
-        gymDocument['description'] = removeDiacritics(gym.gymInfo.gymDescription).replace(/[^\w\s-]+/g, '');
+        gymDocument['name'] = removeDiacritics(gym.name).replace(/[^\w\s-]+/g, '');
+        gymDocument['description'] = removeDiacritics(gym.description).replace(/[^\w\s-]+/g, '');
 
         if (gym.nickname) {
           gym.nickname = he.decode(gym.nickname);
           gymDocument['nickname'] = removeDiacritics(gym.nickname).replace(/[^\w\s-]+/g, '');
         }
 
-        // Build a map of the geocoded information:
-        //   key is the address component's type
-        //   value is a set of that type's values across all address components
-        const addressInfo = new Map();
-        if (!gym.gymInfo.addressComponents) {
-          log.warn('Gym "' + gym.gymName + '" has no geocode information!');
+        // keywords (formerly additionalTerms)
+        if (gym.keywords) {
+          gymDocument['keywords'] = removeDiacritics(gym.keywords);
+        }
+
+        if (!gym.geodata) {
+          log.error('Gym "' + gym.name + '" has no geocode information!');
         } else {
-          gym.gymInfo.addressComponents.forEach(addressComponent => {
-            addressComponent.addressComponents.forEach(addComp => {
-              addComp.types.forEach(type => {
-                const typeKey = type.toLowerCase();
-                let values = addressInfo.get(typeKey);
+          const geo = JSON.parse(gym.geodata);
+          const addressComponents = geo["addressComponents"];
 
-                if (!values) {
-                  values = new Set();
-                  addressInfo.set(typeKey, values);
-                }
-                values.add(addComp.shortName);
-              });
-            });
-          });
+          for (const [key, value] of Object.entries(addressComponents)) {
+            gymDocument[key] = removeDiacritics(Array.from(value).join(' '));
+          }
         }
 
-        // Insert geocoded map info into map
-        addressInfo.forEach((value, key) => {
-          gymDocument[key] = removeDiacritics(Array.from(value).join(' '));
-        });
-
-        // Add places into library
-        if (gym.gymInfo.places) {
-          gymDocument['places'] = removeDiacritics(he.decode(gym.gymInfo.places.join(' ')));
-        }
-
-        // merge in additional info from supplementary metadata file
-        if (gym.additionalTerms) {
-          gymDocument['additionalTerms'] = removeDiacritics(gym.additionalTerms);
+        if (gym.places) {
+          gymDocument["places"] = removeDiacritics(gym.places);
         }
 
         // reference
@@ -129,17 +294,10 @@ class Gym extends Search {
       }, this);
     });
 
-    this.gymMap = Object.create(null);
-
-    Object.entries(this.regionMap)
-      .forEach(([region, gyms]) => {
-        gyms.forEach(gym => this.gymMap[gym] = region);
-      });
-
-    log.info('Indexing gym data complete');
+    log.debug(`${this.name} - Indexing gym data complete`);
   }
 
-  internalSearch(channelNames, terms, fields) {
+  internalSearch(terms, fields) {
     // lunr does an OR of its search terms and we really want AND, so we'll get there by doing individual searches
     // on everything and getting the intersection of the hits
 
@@ -152,8 +310,8 @@ class Gym extends Search {
       .map(term => removeDiacritics(term))
       .map(term => term.replace(/[^\w\s*]+/g, ''))
       .map(term => term.toLowerCase())
-      .filter(term => this.stopWordFilter(term))
-      .filter(term => this.blacklistWordFilter(term));
+      .filter(term => Search.stopWordFilter(term))
+      .filter(term => Gym.blacklistWordFilter(term));
 
     if (filteredTerms.length === 0) {
       return [];
@@ -194,65 +352,51 @@ class Gym extends Search {
       .map(result => JSON.parse(result.ref))
       .map(gym => {
         const result = Object.create(null);
-        result.channelName = this.gymMap[gym.gymId];
         result.gym = gym;
 
         return result;
-      })
-      .filter(({channelName, gym}) => channelNames.indexOf(channelName) >= 0);
+      });
   }
 
-  channelSearch(channelNames, terms, nameOnly) {
+  channelSearch(terms, nameOnly) {
     let results;
 
     if (nameOnly) {
-      results = this.internalSearch(channelNames, terms, ['name']);
+      results = this.internalSearch(terms, ['name']);
     } else {
       // First try against name/nickname only
-      results = this.internalSearch(channelNames, terms, ['name', 'nickname']);
+      results = this.internalSearch(terms, ['name', 'nickname']);
 
       if (results.length === 0) {
-        // That didn't return anything, so now try the with description & additional terms as well
-        results = this.internalSearch(channelNames, terms, ['name', 'nickname', 'description', 'additionalTerms']);
+        // That didn't return anything, so now try the with description & keywords as well
+        results = this.internalSearch(terms, ['name', 'nickname', 'description', 'keywords']);
       }
 
       if (results.length === 0) {
         // That still didn't return anything, so now try with all fields
-        results = this.internalSearch(channelNames, terms);
+        results = this.internalSearch(terms);
       }
     }
 
     return results;
   }
 
-  async search(channelName, terms, nameOnly) {
-    let results = this.channelSearch([channelName], terms, nameOnly);
-
-    if (results.length === 0) {
-      results = this.channelSearch(this.regionGraph[channelName], terms, nameOnly);
-    }
-
-    return results;
-  }
-
-  isValidChannel(channelName) {
-    return !!this.regionMap[channelName];
+  search(terms, nameOnly) {
+    return this.channelSearch(terms, nameOnly);
   }
 
   getGym(gymId) {
-    return this.gyms.get(gymId);
+    for (let i = 0; i < this.gyms.length; i++) {
+      let gym = this.gyms[i];
+      if (gym.id === gymId) {
+        return gym;
+      }
+    }
+    return false;
   }
 
-  getUrl(latitude, longitude) {
-    return `https://www.google.com/maps/search/?api=1&query=${latitude}%2C${longitude}`;
-  }
-
-  filterRegions(gymIds) {
-    return Object.entries(this.regionMap)
-      .map(([region, gyms]) => [region, gymIds.filter(x => gyms.includes(x))])
-      .filter(([region, gyms]) => gyms.length > 0)
-      .sort(([regionA, gymsA], [regionB, gymsB]) => regionA.localeCompare(regionB));
-  }
 }
 
-module.exports = new Gym();
+Gym.blacklistWordFilter = lunr.generateStopWordFilter(settings.blacklistWords);
+
+module.exports = new GymCache();

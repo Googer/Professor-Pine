@@ -8,6 +8,7 @@ const log = require('loglevel').getLogger('FavoriteCommand'),
   Helper = require('../../app/helper'),
   Notify = require('../../app/notify'),
   PartyManager = require('../../app/party-manager'),
+  Region = require('../../app/region'),
   settings = require('../../data/settings'),
   Utility = require('../../app/utility');
 
@@ -43,7 +44,7 @@ class FavoriteCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'target' &&
         !PartyManager.validParty(message.channel.id, [PartyType.RAID]) &&
-        !Gym.isValidChannel(message.channel.name)) {
+        !Gym.isValidChannel(message.channel.id)) {
         return ['invalid-channel', message.reply(Helper.getText('favorite.warning', message))];
       }
       return false;
@@ -70,26 +71,11 @@ class FavoriteCommand extends Commando.Command {
     }
 
     if (!inRaidChannel || PartyManager.getParty(message.channel.id).gymId !== gymId) {
-      const gym = Gym.getGym(gymId),
-        gymName = !!gym.nickname ?
-          gym.nickname :
-          gym.gymName,
-        embed = new MessageEmbed();
-
-      embed.setTitle(`Map Link: ${gymName}`);
-      embed.setURL(`https://www.google.com/maps/search/?api=1&query=${gym.gymInfo.latitude}%2C${gym.gymInfo.longitude}`);
-      embed.setColor('GREEN');
-      embed.setImage(`attachment://${gymId}.png`);
+      const gym = Gym.getGym(gymId);
 
       let matchedGymMessage;
 
-      confirmationResponse = message.channel.send(
-        {
-          files: [
-            require.resolve(`PgP-Data/data/images/${gymId}.png`)
-          ],
-          embed
-        })
+      confirmationResponse = Region.showGymDetail(message, gym, 'Found Gym', null, false)
         .then(msg => {
           matchedGymMessage = msg;
           return this.confirmationCollector.obtain(message);

@@ -3,9 +3,11 @@
 const log = require('loglevel').getLogger('DirectionsCommand'),
   Commando = require('discord.js-commando'),
   {CommandGroup, PartyType} = require('../../app/constants'),
-  {MessageEmbed} = require('discord.js'),
+  {MessageAttachment, MessageEmbed} = require('discord.js'),
   Gym = require('../../app/gym'),
-  PartyManager = require('../../app/party-manager');
+  ImageCacher = require('../../app/imagecacher'),
+  PartyManager = require('../../app/party-manager'),
+  RegionHelper = require('../../app/region');
 
 class DirectionsCommand extends Commando.Command {
   constructor(client) {
@@ -30,19 +32,41 @@ class DirectionsCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    const raid = PartyManager.getParty(message.channel.id),
-      gymId = raid.gymId,
-      gym = Gym.getGym(gymId),
+    const party = PartyManager.getParty(message.channel.id),
+      gymId = party.type === PartyType.RAID ? party.gymId : party.route[party.currentGym];
+
+    if (!gymId) {
+      message.channel.send(`No location is set for this ${party.type}.`)
+        .catch(err => log.error(err));
+      return;
+    }
+
+    const gym = Gym.getGym(gymId),
       embed = new MessageEmbed();
 
     embed.setColor('GREEN');
-    embed.setImage(`attachment://${gymId}.png`);
+
+    let path = `images/gyms/${gym.id}.png`;
+    let url = RegionHelper.getGymMapLink(gym);
+    let imagePath = await ImageCacher.fetchAndCache(url, path)
+      .catch(error => {
+        log.error(error);
+        return false;
+      });
+
+    const attachments = [];
+    if (imagePath) {
+      let parts = imagePath.split("/");
+      let imageName = parts[parts.length - 1];
+      const attachment = new MessageAttachment(imagePath);
+      attachments.push(attachment);
+      embed.setImage(`attachment://${imageName}`);
+    }
+
+    embed.attachFiles(attachments);
 
     message.channel
-      .send(`https://www.google.com/maps/search/?api=1&query=${gym.gymInfo.latitude}%2C${gym.gymInfo.longitude}`, {
-        files: [
-          require.resolve(`PgP-Data/data/images/${gymId}.png`)
-        ],
+      .send(`https://www.google.com/maps/search/?api=1&query=${gym.lat}%2C${gym.lon}`, {
         embed
       })
       .catch(err => log.error(err));

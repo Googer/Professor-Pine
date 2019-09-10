@@ -193,9 +193,7 @@ class CountersCommand extends Commando.Command {
       friendship;
 
     String.prototype.titleCase = function () {
-      return this.replace(/\w\S*/g, function (str) {
-        return str.charAt(0).toUpperCase() + str.substr(1).toLowerCase();
-      });
+      return this.replace(/\w\S*/g, str => str.charAt(0).toUpperCase() + str.substr(1).toLowerCase());
     };
 
     pokebattlerId = await db.DB('User')
@@ -513,7 +511,7 @@ class CountersCommand extends Commando.Command {
     }
 
     // sort by TTW, deaths desc
-    counters.sort(function (a, b) {
+    counters.sort((a, b) => {
       if (a.ttw < b.ttw) return -1;
       if (a.ttw > b.ttw) return 1;
       if (a.deaths < b.deaths) return -1;

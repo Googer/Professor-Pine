@@ -1,8 +1,10 @@
 const log = require('loglevel').getLogger('PartyManager'),
   Helper = require('./helper'),
+  moment = require('moment'),
   settings = require('../data/settings'),
   storage = require('node-persist'),
   {PartyType} = require('./constants'),
+  Region = require('./region'),
   TimeType = require('../types/time');
 
 let Raid,
@@ -86,8 +88,8 @@ class PartyManager {
             // party's end time is set (or last possible time) in the past, even past the grace period,
             // so schedule its deletion
             party.deletionTime = party.type === PartyType.RAID_TRAIN ?
-                              trainDeletionTime :
-                              deletionTime;
+              trainDeletionTime :
+              deletionTime;
 
             party.sendDeletionWarningMessage();
             await party.persist();
@@ -118,7 +120,7 @@ class PartyManager {
     // maps channel ids to raid / train party info for that channel
     this.parties = Object.create(null);
 
-    this.activeStorage
+    await this.activeStorage
       .forEach(entry => {
         if (!entry) {
           return;
@@ -145,6 +147,8 @@ class PartyManager {
           log.error('INVALID PARTY: ' + channelId);
         }
       });
+
+    this.loadGymCache();
   }
 
   shutdown() {
@@ -153,6 +157,8 @@ class PartyManager {
 
   setClient(client) {
     this.client = client;
+    this.regionChannels = [];
+    this.loadRegionChannels();
 
     client.on('message', message => {
       if (message.author.id !== client.user.id) {
@@ -178,6 +184,123 @@ class PartyManager {
     //     }, gymId, false);
     //   }
     // });
+  }
+
+  async loadRegionChannels() {
+    const that = this;
+    Region.checkRegionsExist()
+      .then(success => {
+        if (success) {
+          that.client.channels.forEach(async channel => {
+            const region = await Region.getRegionsRaw(channel.id)
+              .catch(error => false);
+            if (region) {
+              that.regionChannels.push(channel.id);
+            }
+
+            let last = that.client.channels.array().slice(-1)[0];
+            if (channel.id === last.id) {
+              that.clearOldRegionChannels();
+            }
+          })
+        }
+      }).catch(error => log.error(error));
+  }
+
+  async clearOldRegionChannels() {
+    const that = this;
+    Region.checkRegionsExist()
+      .then(async success => {
+        if (success) {
+          const regions = await Region.getAllRegions()
+            .catch(error => log.error(error));
+          log.debug("TOTAL REGIONS FOUND: " + regions.length);
+          const deleted = await Region.deleteRegionsNotInChannels(that.regionChannels)
+            .catch(error => log.error(error));
+          if (!!deleted && deleted.affectedRows) {
+            log.debug("DELETED " + deleted.affectedRows + " REGIONS NOT TIED TO CHANNELS")
+          }
+        }
+      })
+      .catch(error => log.error(error));
+  }
+
+  cacheRegionChannel(channel) {
+    this.regionChannels.push(channel);
+  }
+
+  gymIsCached(gymId) {
+    if (this.gymCache) {
+      for (let i = 0; i < this.gymCache.length; i++) {
+        const gym = this.gymCache[i];
+        if (gym.id === gymId) {
+          return true;
+        }
+      }
+    }
+
+    return false;
+  }
+
+  async loadGymCache() {
+    if (!this.gymCache) {
+      this.gymCache = [];
+    }
+    const that = this;
+    Object.entries(this.parties)
+      .filter(([channelId, party]) => party.type === PartyType.RAID)
+      .forEach(async ([channelId, party]) => {
+        if (!that.gymIsCached(party.gymId)) {
+          const gym = await Region.getGym(party.gymId);
+          that.gymCache.push(gym);
+        }
+      });
+  }
+
+  cacheGym(gym) {
+    if (!this.gymCache) {
+      this.gymCache = [];
+    }
+    if (!this.gymIsCached(gym.id)) {
+      this.gymCache.push(gym);
+    }
+  }
+
+  getCachedGym(gymId) {
+    if (this.gymIsCached(gymId)) {
+      for (let i = 0; i < this.gymCache.length; i++) {
+        const gym = this.gymCache[i];
+        if (gym.id === gymId) {
+          return gym;
+        }
+      }
+    } else {
+      log.warn(`${gymId} not cached`);
+    }
+
+    return null;
+  }
+
+  getRaidChannelCache() {
+    return this.regionChannels;
+  }
+
+  channelCanRaid(channelId) {
+    return this.regionChannels.indexOf(channelId) > -1;
+  }
+
+  categoryHasRegion(category) {
+    const children = Helper.childrenForCategory(category);
+    if (children.length > 0) {
+      for (let i = 0; i < children.length; i++) {
+        const child = children[i];
+        if (this.channelCanRaid(child.id)) {
+          return true;
+        }
+      }
+    } else {
+      return false;
+    }
   }
 
   async getMember(channelId, memberId) {
@@ -357,6 +480,12 @@ class PartyManager {
     return Object.values(this.parties)
       .filter(party => channelId === undefined || party.sourceChannelId === channelId)
       .filter(party => party.type === type);
+  }
+
+  getCreationChannelId(channelId) {
+    return this.validParty(channelId) ?
+      this.getParty(channelId).sourceChannelId :
+      channelId;
   }
 
   getCreationChannelName(channelId) {

@@ -30,15 +30,18 @@ const privateSettings = require('./data/private-settings'),
   }),
   DB = require('./app/db.js'),
   NodeCleanup = require('node-cleanup'),
+  Gym = require('./app/gym'),
   Helper = require('./app/helper'),
   IP = require('./app/process-image'),
   ExRaidChannel = require('./app/ex-gym-channel'),
+  Map = require('./app/map'),
   Notify = require('./app/notify'),
   PartyManager = require('./app/party-manager'),
   Role = require('./app/role'),
   Utility = require('./app/utility'),
   WebServer = require('./app/web/server'),
   settings = require('./data/settings'),
+  IntervalUpdater = require('./app/update'),
   {CommandGroup} = require('./app/constants');
 
 NodeCleanup((exitCode, signal) => {
@@ -50,6 +53,7 @@ Client.registry.registerDefaultTypes();
 Client.registry.registerTypesIn(__dirname + '/types');
 Client.registry.registerTypesIn(__dirname + '/types/counters');
 
+Client.registry.registerGroup('region', 'Region setting');
 Client.registry.registerGroup(CommandGroup.ADMIN, 'Administration');
 Client.registry.registerGroup(CommandGroup.BASIC_RAID, 'Raid Basics');
 Client.registry.registerGroup(CommandGroup.RAID_CRUD, 'Raid Creation and Maintenance');
@@ -79,6 +83,21 @@ if (settings.features.roles) {
 
     require('./commands/roles/iam'),
     require('./commands/roles/iamnot'),
+
+    require('./commands/admin/gyms/importgyms'),
+    require('./commands/admin/gyms/creategym'),
+    require('./commands/admin/gyms/editgym'),
+    require('./commands/admin/gyms/deletegym'),
+    require('./commands/admin/gyms/findgym'),
+    require('./commands/admin/gyms/gymdetail'),
+    require('./commands/admin/gyms/gymqueue'),
+    require('./commands/admin/gyms/gymplaces'),
+    require('./commands/admin/gyms/geocode'),
+    require('./commands/admin/gyms/clearimagecache'),
+    require('./commands/admin/gyms/export-tsv'),
+
+    require('./commands/admin/regions/importregions'),
+    require('./commands/admin/regions/setregion'),
   ]);
 }
 
@@ -101,9 +120,12 @@ Client.registry.registerCommands([
   require('./commands/notifications/mention-groups'),
   require('./commands/notifications/mention-shouts'),
 
+  require('./commands/regions/bounds'),
+
   require('./commands/parties/join'),
   require('./commands/parties/interested'),
   require('./commands/parties/check-in'),
+
   require('./commands/raids/done'),
 
   require('./commands/parties/check-out'),
@@ -205,7 +227,9 @@ Client.on('ready', async () => {
 
     PartyManager.setClient(Client);
     await DB.initialize(Client);
+    Map.initialize(Client);
     IP.initialize();
+    await Gym.buildIndexes();
 
     if (settings.features.web) {
       WebServer.initialize();
