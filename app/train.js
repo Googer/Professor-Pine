@@ -278,6 +278,7 @@ class RaidTrain extends Party {
     this.endTime = endTime;
 
     await this.persist();
+  }
 
   async setLocation(gymId, newRegionChannel = undefined) {
     this.gymId = gymId;
