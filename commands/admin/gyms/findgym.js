@@ -40,8 +40,7 @@ module.exports = class FindGym extends commando.Command {
   async run(msg, args) {
     let gym;
     let isID = false;
-    let isModLab = msg.channel.name === "mod-bot-lab";
-    let isBotLab = msg.channel.name.includes("bot-lab");
+    let isBotLab = Helper.isBotChannel(msg);
 
     if (this.getValue(args.term) > -1) {
       isID = true;
@@ -61,7 +60,7 @@ module.exports = class FindGym extends commando.Command {
       const phrase = isID ? "Gym found with ID " + args.term : "Gym found with term '" + args.term + "'";
       await Region.showGymDetail(msg, gym, phrase, null, false);
 
-      const channelStrings = [];
+      const channelStrings =  [];
       for (let i = 0; i < channels.length; i++) {
         let channel = await PartyManager.getChannel(channels[i].channelId);
         channelStrings.push(channel.channel.toString());

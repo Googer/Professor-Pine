@@ -43,7 +43,7 @@ module.exports = class GymDetail extends commando.Command {
           .catch(err => log.error(err)));
 
       if (gym !== undefined && gym["name"]) {
-        const channels = await Region.getChannelsForGym(gym, message.channel.guild.id)
+        const channels = await Region.getChannelsForGym(gym, msg.channel.guild.id)
           .catch(error => []);
         const phrase = "Showing details for gym with ID " + args.term;
         await Region.showGymDetail(msg, gym, phrase, null, channels, false);
@@ -54,27 +54,30 @@ module.exports = class GymDetail extends commando.Command {
         }
 
         if (channelStrings.length > 0) {
-          msg.say("This gym is in " + channelStrings.join(", "))
+          msg.say("This gym is in " + channelStrings.join(", ") + ".")
             .catch(err => log.error(err));
         } else {
-          msg.say("This gym is not located in any region channels")
+          msg.say("This gym is not located in any region channels.")
             .catch(err => log.error(err));
         }
       } else {
-        msg.reply("No gym found with ID " + args.term)
+        msg.reply("No gym found with ID " + args.term + ".")
           .catch(err => log.error(err));
       }
 
     } else {
-      msg.reply("You must provide a valid gym id #")
+      msg.reply("You must provide a valid gym id #.")
         .catch(err => log.error(err));
     }
   }
 
   getValue(value) {
-    if (Number(value)) {
-      return Number(value);
+    const match = value.match(/\#?(\d+)/);
+
+    if (match) {
+      return Number(match[1]);
     }
+
     return -1;
   }
 };
