@@ -341,7 +341,7 @@ class MetaMachine {
             })
             .then(result => resolve(gym));
         } else {
-          reject(error);
+          reject(err);
         }
       })
     });
