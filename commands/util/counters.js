@@ -51,7 +51,7 @@ class CountersCommand extends Commando.Command {
 
 	async parseCounterType(val, message, arg, type) {
 		let isValid = await message.client.registry.types.get(type).validate(val, message, arg);
-		if (isValid == true) {
+		if (isValid === true) {
 			return await message.client.registry.types.get(type).parse(val, message, arg);
 		} else {
 			return false;
@@ -59,7 +59,7 @@ class CountersCommand extends Commando.Command {
 	}
 	
 	parseGrouped(val) {
-		return val.toLowerCase() == 'grouped' ? true : false
+		return val.toLowerCase() === 'grouped';
 	}
 
 	async collectParameter(message, prompt, type, tries = 3) {
@@ -146,7 +146,7 @@ class CountersCommand extends Commando.Command {
 			})
 			.catch(err => log.error(err));
 
-		if (movesetIdx == 0) return {move: counters.attackers[0].randomMove, randomMove: true, moveset: moveArr[0]};
+		if (movesetIdx === 0) return {move: counters.attackers[0].randomMove, randomMove: true, moveset: moveArr[0]};
 		return {move: counters.attackers[0].byMove[movesetIdx - 1], randomMove: false, moveset: moveArr[movesetIdx]};
 	}
 
@@ -181,7 +181,7 @@ class CountersCommand extends Commando.Command {
 				if (a[sortBy] > b[sortBy]) return 1;
 				return 0;
 			})
-		} else if (sortBy.toLowerCase() == 'tdo') {
+		} else if (sortBy.toLowerCase() === 'tdo') {
 			attackerArr.sort(function(a, b) {
 				if (a[sortBy] < b[sortBy]) return 1;
 				if (a[sortBy] > b[sortBy]) return -1;
@@ -195,7 +195,7 @@ class CountersCommand extends Commando.Command {
 			let uniquePokemon = [...new Set(attackerArr.map(x => x.pokemonName))];
 			let uniqueArr = [];
 			uniquePokemon.forEach(pokemon => {
-				uniqueArr.push(attackerArr.find(x => x.pokemonName == pokemon));
+				uniqueArr.push(attackerArr.find(x => x.pokemonName === pokemon));
 			});
 			returnArr = uniqueArr.slice(0, limit <= uniqueArr.length ? limit : uniqueArr.length);
 		} else {
@@ -223,8 +223,8 @@ class CountersCommand extends Commando.Command {
 
 			legacyFlag = !!pokemon.legacyDate ? true : legacyFlag;
 
-			fastMoveDisplayName = pokemon.fastMove
-			chargeMoveDisplayName = pokemon.chargeMove
+			fastMoveDisplayName = pokemon.fastMove;
+			chargeMoveDisplayName = pokemon.chargeMove;
 			thirdMoveDisplayName = !!pokemon.thirdMove ? pokemon.thirdMove : '';
 			
 			moveEmbedName = `${fastMoveDisplayName}/${chargeMoveDisplayName}` + (!!pokemon.thirdMove ? `/${thirdMoveDisplayName}` : '');
@@ -338,7 +338,7 @@ class CountersCommand extends Commando.Command {
 			'counterleveltype') : attacker;
 		if (!attacker) { await message.delete().catch(err => log.error(err)); return; }
 
-		let attackerType = !!attacker.type && attacker.type == 'userId' ? 'users' : 'levels'
+		let attackerType = !!attacker.type && attacker.type === 'userId' ? 'users' : 'levels';
 
 		weather = !weather ? await this.collectParameter(message, 'what is the current weather for your raid?\n', 'counterweathertype') : weather;
 		if (!weather) { await message.delete().catch(err => log.error(err)); return; }
@@ -356,10 +356,10 @@ class CountersCommand extends Commando.Command {
 			attackerName: attacker.pbName,
 			weatherName: weather.pbName,
 			friendshipName: friendship.pbName
-		})
+		});
 
 		if (!!countersData.counters.error) {
-			message.reply(`there was an issue communicating with Pokebattler, please try again later.`)
+			message.reply(`there was an issue communicating with Pokebattler, please try again later.`);
 			return;
 		}
 
@@ -383,7 +383,7 @@ class CountersCommand extends Commando.Command {
 			limit: 12,
 			grouped: grouped,
 			randomMove: !setMove && data.randomMove
-		})
+		});
 
 		let content = this.buildCountersContent(sortedData, moveset);
 
@@ -404,7 +404,7 @@ class CountersCommand extends Commando.Command {
 
 		if (message.channel.type !== 'dm') embed.setFooter(`Requested by ${message.member.displayName}`, message.author.displayAvatarURL());
 
-		if (attackerType == 'users') {
+		if (attackerType === 'users') {
 			let dmResponse = await message.reply(`I am sending you a DM with the \`${message.client.commandPrefix}counters\` results for your Pokebattler Pokebox.`).catch(err => log.error(err));
 			dmResponse.preserve = true;
 			await message.author.send(commandMessage, embed).catch(err => log.error(err));
@@ -413,7 +413,7 @@ class CountersCommand extends Commando.Command {
 		}
 
 		// Optionally prompt to save Pokebattler ID if it is new
-		if (attackerType == 'users' && (!dbPokebattlerId || (!!dbPokebattlerId && attacker.pbName != dbPokebattlerId.pokebattlerId))) {
+		if (attackerType === 'users' && (!dbPokebattlerId || (!!dbPokebattlerId && attacker.pbName !== dbPokebattlerId.pokebattlerId))) {
 			let shouldIStayOrShouldIGo = await this.collectParameter(message, `would you like to save your new Pokebattler ID (${attacker.pbName}) for future use?\n`, 'boolean');
 			if (shouldIStayOrShouldIGo) await this.savePokebattlerId(message.author.id, attacker.pbName);
 		}
