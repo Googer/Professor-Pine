@@ -61,23 +61,21 @@ module.exports = class GymDetail extends commando.Command {
             .catch(err => log.error(err));
         }
       } else {
-        msg.reply("No gym found with ID " + args.term)
+        msg.reply("No gym found with ID " + args.term + ".")
           .catch(err => log.error(err));
       }
 
     } else {
-      msg.reply("You must provide a valid gym id #")
+      msg.reply("You must provide a valid gym id #.")
         .catch(err => log.error(err));
     }
   }
 
   getValue(value) {
-    const first = value.substring(0, 1);
-    if (first === "#") {
-      const integer = value.substring(1, value.length);
-      if (Number(integer)) {
-        return Number(integer);
-      }
+    const match = value.match(/\#?(\d+)/);
+
+    if (match) {
+      return Number(match[1]);
     }
 
     return -1;
