@@ -116,7 +116,7 @@ class GymCache {
   search(channel, terms, nameOnly) {
     if (channel === null) {
       if (this.masterIndex) {
-        return this.masterIndex.search(terms, nameOnly)
+        return this.masterIndex.search(terms, nameOnly);
       } else {
         return false;
       }
@@ -278,7 +278,7 @@ class Gym extends Search {
           const addressComponents = geo["addressComponents"];
 
           for (const [key, value] of Object.entries(addressComponents)) {
-            gymDocument[key] = removeDiacritics(Array.from(value).join(' '));
+            gymDocument[key] = removeDiacritics(value);
           }
         }
 
