@@ -1,5 +1,6 @@
 const log = require('loglevel').getLogger('FindGymType'),
   commando = require('discord.js-commando'),
+  Helper = require('../app/helper'),
   Region = require('../app/region');
 
 class FindGymType extends commando.ArgumentType {
@@ -11,13 +12,14 @@ class FindGymType extends commando.ArgumentType {
     const that = this;
     return new Promise(
       async (resolve, reject) => {
-        let gym;
+        let gym,
+          isBotChannel = Helper.isBotChannel(message);
 
         if (that.getValue(value) > -1) {
           gym = await Region.getGym(that.getValue(value))
             .catch(error => resolve(error));
         } else {
-          gym = await Region.findGym(message.channel.id, value)
+          gym = await Region.findGym(isBotChannel ? null : message.channel.id, value)
             .catch(error => resolve(error));
         }
 

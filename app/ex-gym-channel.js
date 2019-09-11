@@ -9,8 +9,8 @@ class ExGymChannel {
   }
 
   initialize() {
-    Helper.client.on('raidCreated', (raid, reportingMemberId) => {
-      const gym = Gym.getGym(raid.gymId);
+    Helper.client.on('raidCreated', async (raid, reportingMemberId) => {
+      const gym = await Gym.getGym(raid.gymId);
 
       if ((gym.confirmedEx || gym.taggedEx) && !raid.isExclusive) {
         return raid.createPotentialExRaidMessage();

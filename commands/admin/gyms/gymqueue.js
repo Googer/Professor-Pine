@@ -34,8 +34,11 @@ module.exports = class CheckGymQueue extends commando.Command {
   async run(msg) {
     let message = "Gyms waiting for places updates:\n`";
     if (Gym.getPlacesQueue().length > 0) {
-      message += Gym.getPlacesQueue()
-        .map(gymId => Gym.getGym(gymId))
+      const gyms = await Promise.all(Gym.getPlacesQueue()
+        .map(gymId => Gym.getGym(gymId)));
+
+      message += gyms
+        .filter(gym => !!gym)
         .map(gym => gym.name)
         .join("`\n`");
     } else {

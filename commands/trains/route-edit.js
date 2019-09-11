@@ -41,7 +41,7 @@ class EditRouteCommand extends Commando.Command {
       }
     }
 
-    message.channel.send(`${message.author}, this is the train's route:`, party.getRouteEmbed())
+    message.channel.send(`${message.author}, this is the train's route:`, await party.getRouteEmbed())
       .then(routeMessage => {
         setTimeout(() => {
           routeMessage.delete();
@@ -65,7 +65,7 @@ class EditRouteCommand extends Commando.Command {
           if (!collectionResult.cancelled) {
             let gymToMove = collectionResult.values.gymId;
             let gymId = party.route[Number.parseInt(gymToMove) - 1];
-            let gym = Gym.getGym(gymId);
+            let gym = await Gym.getGym(gymId);
             let gymName = !!gym.nickname ? gym.nickname : gym.name;
             await party.removeRouteGym(Number.parseInt(gymToMove) - 1);
 
@@ -76,7 +76,7 @@ class EditRouteCommand extends Commando.Command {
               }
             }
 
-            message.channel.send(`${message.author}, this is the remaining route:`, party.getRouteEmbed())
+            message.channel.send(`${message.author}, this is the remaining route:`, await party.getRouteEmbed())
               .then(routeMessage => {
                 setTimeout(() => {
                   routeMessage.delete()

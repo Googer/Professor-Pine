@@ -71,7 +71,7 @@ class UnfavoriteCommand extends Commando.Command {
     }
 
     if (!inRaidChannel || PartyManager.getParty(message.channel.id).gymId !== gymId) {
-      const gym = Gym.getGym(gymId);
+      const gym = await Gym.getGym(gymId);
 
       let matchedGymMessage;
 

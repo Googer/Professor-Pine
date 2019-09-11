@@ -42,7 +42,7 @@ module.exports = class GymPlaces extends commando.Command {
   async run(msg, args) {
     let gym;
     let isID = false;
-    let isModLab = msg.channel.name === "mod-bot-lab";
+    let isBotLab = Helper.isBotChannel(msg);
 
     if (this.getValue(args.term) > -1) {
       isID = true;
@@ -50,7 +50,7 @@ module.exports = class GymPlaces extends commando.Command {
         .catch(error => msg.say(error)
           .catch(err => log.error(err)));
     } else {
-      gym = await Region.findGym(isModLab ?
+      gym = await Region.findGym(isBotLab ?
         null :
         msg.channel.id, args.term)
         .catch(error => msg.say(error)
