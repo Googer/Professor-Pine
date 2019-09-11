@@ -288,6 +288,20 @@ class Party {
       defaultGroupId: this.defaultGroupId
     });
   }
+  static parsePartyDetails(message) {
+    let party = PartyManager.getParty(message.channel.id),
+      boss,
+      tier;
+
+    return {
+      boss: boss = !!party && !!party.pokemon ? party.pokemon.name : boss,
+      tier: tier = !!party && !!party.pokemon
+        ? !!party.pokemon.tier
+          ? party.pokemon.tier.toString()
+          : party.pokemon.backupTier.toString()
+        : tier
+    }
+  }
 }
 
 module.exports = Party;
