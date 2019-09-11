@@ -1,220 +1,180 @@
-const log = require('loglevel').getLogger('HowManyCommand'),
-  Commando = require('discord.js-commando'),
-  {MessageEmbed} = require('discord.js'),
-  {CommandGroup} = require('../../app/constants'),
-  cheerio = require('cheerio'),
-  fetch = require('node-fetch'),
-  Party = require('../../app/party-manager'),
-  Utility = require('../../app/utility');
+const log = require('loglevel').getLogger('Silph'),
+	Commando = require('discord.js-commando'),
+	{MessageEmbed} = require('discord.js'),
+	{CommandGroup} = require('../../app/constants'),
+	fetch = require('node-fetch'),
+	cheerio = require('cheerio'),
+	Party = require('../../app/party'),
+	Utility = require('../../app/utility');
 
 class HowManyCommand extends Commando.Command {
-  constructor(client) {
-    super(client, {
-      name: 'howmany',
-      group: CommandGroup.UTIL,
-      memberName: 'howmany',
-      aliases: ['many', 'how-many'],
-      description: 'Scrapes The Silph Road raid bosses page for their Pokebattler estimates per counter tiers.',
-      details: 'Use this command to get an estimate of approximately how many trainers you need to defeat a raid boss based on your counter levels.',
-      examples: ['!howmany'],
-      guarded: false,
-      argsPromptLimit: 3,
-    });
+	constructor(client) {
+		super(client, {
+			name: 'howmany',
+			group: CommandGroup.UTIL,
+			memberName: 'howmany',
+			aliases: ['many', 'how-many'],
+			description: 'Scrapes The Silph Road raid bosses page for their Pokebattler estimates per counter tiers.',
+			details: 'Use this command to get an estimate of approximately how many trainers you need to defeat a raid boss based on your counter levels.',
+			examples: ['!howmany'],
+			guarded: false,
+			argsPromptLimit: 3,
+		});
 
-    this.protect = false;
-  }
+		this.protect = false;
+	}
 
-  async run(message, args) {
-    String.prototype.titleCase = function () {
-      return this.replace(/\w\S*/g, function (str) {
-        return str.charAt(0).toUpperCase() + str.substr(1).toLowerCase();
-      });
-    };
+	titleCase(str) {
+		return str.toLowerCase().split(' ').map(function(word) {
+			return word.replace(word[0], word[0].toUpperCase());
+		}).join(' ');
+	}
 
-    if (message.channel.type === 'dm') {
-      message.channel.send('This command is not supported in DMs.')
-        .catch(err => log.error(err));
-      return;
-    }
+	parseCounterType(val, message, arg, type) {
+		let isValid = message.client.registry.types.get(type).validate(val, message, arg);
+		if (isValid == true) {
+			return message.client.registry.types.get(type).parse(val, message, arg);
+		} else {
+			return false;
+		}
+	}
 
-    let raid = Party.getParty(message.channel.id);
+	async collectParameter(message, prompt, type, tries = 3) {
+		let collector = new Commando.ArgumentCollector(message.client, [
+			{
+				key: 'parameter',
+				prompt: prompt,
+				type: type
+			}
+		], tries);
+		let parameter;
+		await collector.obtain(message)
+			.then(collectionResult => {
+				if (!collectionResult.cancelled) {
+					parameter = collectionResult.values.parameter;
+				} else {
+					Utility.cleanCollector(collectionResult);
+				}
+			})
+			.catch(err => log.error(err));
+		return parameter;
+	}
 
-    let pokemon;
-    if (!!raid && !!raid.pokemon && !!raid.pokemon.name && raid.pokemon.name !== 'pokemon') {
-      pokemon = raid.pokemon;
-    } else {
-      let pokemonCollector = new Commando.ArgumentCollector(message.client, [
-        {
-          key: 'pokemon',
-          prompt: 'What raid boss would you like to battle against?\n',
-          type: 'pokemon'
-        }
-      ], 3);
+	async run(message, args) {
+		let partyPresets = Party.parsePartyDetails(message),
+			boss = !!partyPresets.boss ? this.parseCounterType(partyPresets.boss, message, args, 'counterpokemontype') : '';
 
-      await pokemonCollector.obtain(message)
-        .then(collectionResult => {
-          if (!collectionResult.cancelled) {
-            pokemon = collectionResult.values.pokemon;
-          } else {
-            Utility.cleanCollector(collectionResult);
-          }
-        })
-        .catch(err => log.error(err));
-      if (!pokemon) {
-        await message.delete();
-        return;
-      }
+		if (!boss) boss = this.parseCounterType(message.argString.trim(), message, args, 'counterpokemontype');
+		if (!boss) boss = await this.collectParameter(message, 'what raid boss would you like to battle against?\n', 'counterpokemontype')
+		if (!boss) return;
 
-      if (!pokemon.name) {
-        let response = message.channel.send(`${message.author}, please try again and enter a Pokémon name.`)
-          .catch(err => log.error(err));
-        response.preserve = true;
-        return;
-      }
-    }
+		let bossName = this.titleCase(boss.pbName.replace(/_/g, ' '));
 
-    let pokemonNumber = pokemon.number,
-      pokemonName = pokemon.name.toLowerCase().replace(/[^0-9a-z]/gi, '');
+		let bossUrl = 'https://thesilphroad.com/raid-bosses';
 
-    let alolanFlag;
-    if (pokemonName.includes('alolan')) {
-      alolanFlag = true; // flag because exeggutor and alolan exeggutor have been bosses at the same time
-      pokemonName = pokemonName.replace('alolan', '').trim() + 'alola'; // format 'properly' for silph to read
-    } else if (pokemonName === 'armoredmewtwo') {
-      pokemonName = 'mewtwoarmor' // because override name doesn't match game master
-    }
+		let $ = await fetch(bossUrl)
+			.then(res => res.text())
+			.then(body => cheerio.load(body))
+			.catch(err => log.error(err));
 
+		let silphBoss,
+			silphStyle,
+			silphSlug,
+			silphPokemon,
+			howManyArr = [],
+			howManyMap = [
+				'IMPOSSIBLE - can\'t be done',
+				'HARDCORE - technically possible, leave to experts',
+				'HARD - any of top 3 counters, Pokémon level 35',
+				'MEDIUM - any of top 6 counters, Pokémon level 30',
+				'EASY - any of top 12 counters, Pokémon level 25',
+				'VERY EASY - any of top 24 counters, Pokémon level 20',
+				'SPLIT UP! - too many, split in half'
+			];
 
-    let url = 'https://thesilphroad.com/raid-bosses';
+		let that = this;
+		$('.raid-boss-tiers-wrap').children().each(function() {
+			$(this).find('.raid-boss-tier').each(function() {
+				silphBoss = $(this).find('.pokemonOption');
+				silphStyle = silphBoss.attr('style');
+				if (!!silphStyle) {
+					silphSlug = silphBoss.attr('data-pokemon-slug');
+					silphPokemon = that.parseCounterType(silphSlug.replace(/-/g, ' '), message, '', 'counterpokemontype');
+					if (!!silphPokemon && silphPokemon.pbName == boss.pbName) {
+						$(this).find('.hexagons').children().each(function() {
+							howManyArr.push(parseInt($(this).attr('class').match(/difficulty(\d+)/)[1]));
+						});
+					}
+				}
+			})
+		});
 
-    let $ = await fetch(url)
-      .then(res => res.text())
-      .then(body => cheerio.load(body))
-      .catch(err => log.error(err));
+		if (!howManyArr.length) {
+			let response = message.channel.send(`${message.author}, ${bossName} is not an active raid boss.`);
+			response.preserve = true;
+			return;
+		}
 
-    let silphBoss,
-      silphStyle,
-      silphSlug,
-      numberMatch,
-      silphName,
-      silphNumber,
-      silphImageUrl,
-      howManyArr = [],
-      howManyMap = [
-        'IMPOSSIBLE - can\'t be done',
-        'HARDCORE - technically possible, leave to experts',
-        'HARD - any of top 3 counters, Pokémon level 35',
-        'MEDIUM - any of top 6 counters, Pokémon level 30',
-        'EASY - any of top 12 counters, Pokémon level 25',
-        'VERY EASY - any of top 24 counters, Pokémon level 20',
-        'SPLIT UP! - too many, split in half'
-      ];
+		let howManyData = [
+			{trainers: 1},
+			{trainers: 2},
+			{trainers: 3},
+			{trainers: 4},
+			{trainers: 5},
+			{trainers: 6},
+			{trainers: 7},
+			{trainers: 8}
+		];
 
-    $('.raid-boss-tiers-wrap').children().each(function () {
-      $(this).find('.raid-boss-tier').each(function () {
-        silphBoss = $(this).find('.pokemonOption');
-        silphStyle = silphBoss.attr('style');
-        if (!!silphStyle) {
-          numberMatch = silphStyle.match(/background-image:url.+\/(\d+)\.png.+/);
-          if (!!numberMatch && !alolanFlag) {
-            silphNumber = parseInt(numberMatch[1]);
-            silphSlug = '';
-          } else {
-            // fall back to the slug name if there's a non-standard sprite used, like "Armored Mewtwo" or "Deoxys Speed"
-            silphNumber = 0;
-            silphSlug = silphBoss.attr('data-pokemon-slug');
-            if (!!silphSlug) {
-              silphSlug = silphSlug.toLowerCase().replace(/[^0-9a-z]/gi, '');
-            } else {
-              silphSlug = '';
-            }
-          }
+		howManyData.map((val, idx) => {
+			val.difficultyNumber = howManyArr[idx];
+			val.difficultyName = howManyMap[howManyArr[idx]];
+		});
 
-          if (silphNumber === pokemonNumber || silphSlug.includes(pokemonName)) {
-            $(this).find('.hexagons').children().each(function () {
-              howManyArr.push(parseInt($(this).attr('class').match(/difficulty(\d+)/)[1]));
-            });
-            silphName = $(this).find('.boss-name').text();
-            silphImageUrl = silphStyle.match(/background-image:url\((.+?)\)/)[1];
-          }
-        }
-      })
-    });
+		// min value is 0 (impossible), max value is 6 (split up)
+		let difficultySpread = [...new Set(howManyData.filter(x => x.difficultyNumber > 0).map(x => x.difficultyNumber))];
+		// let recommendedTrainers = Math.min(...howManyData.filter(x => x.difficultyNumber == 5).map(x => x.trainers));
 
-    if (!howManyArr.length) {
-      let response = message.channel.send(`${message.author}, ${pokemon.name.titleCase()} is not an active raid boss.`)
-        .catch(err => log.error(err));
-      response.preserve = true;
-      return
-    }
+		let content = [],
+			difficultyNumber,
+			difficultyName,
+			minTrainers,
+			maxTrainers,
+			trainerStr,
+			contentStr;
 
-    let howManyData = [
-      {trainers: 1},
-      {trainers: 2},
-      {trainers: 3},
-      {trainers: 4},
-      {trainers: 5},
-      {trainers: 6},
-      {trainers: 7},
-      {trainers: 8}
-    ];
+		for (let i = 0; i < difficultySpread.length; i++) {
+			difficultyNumber = difficultySpread[i]
+			difficultyName = howManyData.filter(x => x.difficultyNumber == difficultyNumber)[0].difficultyName
 
-    howManyData.map((val, idx) => {
-      val.difficultyNumber = howManyArr[idx];
-      val.difficultyName = howManyMap[howManyArr[idx]];
-    });
+			minTrainers = Math.min(...howManyData.filter(x => x.difficultyNumber == difficultyNumber).map(x => x.trainers)).toString();
+			maxTrainers = Math.max(...howManyData.filter(x => x.difficultyNumber == difficultyNumber).map(x => x.trainers)).toString();
 
-    // min value is 0 (impossible), max value is 6 (split up)
-    let difficultySpread = [...new Set(howManyData
-      .filter(x => x.difficultyNumber > 0)
-      .map(x => x.difficultyNumber))];
+			if (i + 1 == difficultySpread.length) { // last element
+				trainerStr = minTrainers + '+';
+			} else if (minTrainers != maxTrainers) {
+				trainerStr = minTrainers + '-' + maxTrainers;
+			} else {
+				trainerStr = minTrainers;
+			}
 
-    let content = [],
-      difficultyNumber,
-      difficultyName,
-      minTrainers,
-      maxTrainers,
-      trainerStr,
-      contentStr;
+			contentStr = '**' + trainerStr + '**: ' + difficultyName;
+			content.push(contentStr);
+		}
 
-    for (let i = 0; i < difficultySpread.length; i++) {
-      difficultyNumber = difficultySpread[i];
-      difficultyName = howManyData.filter(x => x.difficultyNumber === difficultyNumber)[0].difficultyName;
+		content.push(`\nTo check the top counters, type \`${message.client.commandPrefix}counters\` and follow the prompts.`);
 
-      minTrainers = Math.min(...howManyData
-        .filter(x => x.difficultyNumber === difficultyNumber)
-        .map(x => x.trainers)).toString();
-      maxTrainers = Math.max(...howManyData
-        .filter(x => x.difficultyNumber === difficultyNumber)
-        .map(x => x.trainers)).toString();
+		const embed = new MessageEmbed()
+			.setAuthor('Data provided by The Silph Road')
+			.setURL('https://thesilphroad.com/research-tasks')
+			.setColor('#43B581')
+			.addField(`In order to beat ${bossName}, you need the following # of trainers:`, content)
+			.setThumbnail(boss.imageURL)
 
-      if (i + 1 === difficultySpread.length) { // last element
-        trainerStr = minTrainers + '+';
-      } else if (minTrainers !== maxTrainers) {
-        trainerStr = minTrainers + '-' + maxTrainers;
-      } else {
-        trainerStr = minTrainers;
-      }
+		if (message.channel.type !== 'dm') embed.setFooter(`Requested by ${message.member.displayName}`, message.author.displayAvatarURL());
 
-      contentStr = '**' + trainerStr + '**: ' + difficultyName;
-      content.push(contentStr);
-    }
-
-    content.push(`\nTo check the top counters, type \`${message.client.commandPrefix}counters\` and follow the prompts.`);
-
-    const embed = new MessageEmbed()
-      .setColor('#43B581')
-      .addField(`In order to beat ${silphName}, you need the following # of trainers:`, content)
-      .setThumbnail(silphImageUrl)
-      .setFooter('Data retrieved from https://thesilphroad.com/raid-bosses.');
-
-    let response = await message.channel.send(`${message.author}, here are your \`${message.client.commandPrefix}howmany\` results:`, embed)
-      .catch(err => log.error(err));
-    response.preserve = true;
-
-    await message.delete()
-      .catch(err => log.error(err));
-  }
+		await message.channel.send(`\`${message.client.commandPrefix}howmany\ ${bossName}\``, embed).catch(err => log.error(err));
+	}
 
 }
 
