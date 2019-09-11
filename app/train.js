@@ -430,7 +430,7 @@ class RaidTrain extends Party {
     } else if (currentGym >= route.length) {
       embed.addField('**Current Gym**', 'Route has been completed.');
     } else {
-      let gym = Gym.getGym(route[currentGym]);
+      let gym = await Gym.getGym(route[currentGym]);
       let currentName = !!gym.nickname ?
         gym.nickname :
         gym.name;
@@ -439,7 +439,7 @@ class RaidTrain extends Party {
       embed.addField('**Current Gym**', `[${currentName}](${currentUrl})`);
 
       if (route[currentGym + 1]) {
-        let nextGym = Gym.getGym(route[currentGym + 1]);
+        let nextGym = await Gym.getGym(route[currentGym + 1]);
         let nextName = !!nextGym.nickname ?
           nextGym.nickname :
           nextGym.name;
@@ -535,7 +535,7 @@ class RaidTrain extends Party {
 
     if (route && route.length) {
       let gymId = this.route[this.currentGym || 0],
-        gym = Gym.getGym(gymId);
+        gym = await Gym.getGym(gymId);
 
       if (!!gym && gym.taggedEx) {
         if (!!gym && gym.confirmedEx) {
@@ -618,7 +618,7 @@ class RaidTrain extends Party {
     }
   }
 
-  getRouteEmbed() {
+  async getRouteEmbed() {
     let embed = new Discord.MessageEmbed(),
       current = this.currentGym || 0;
 
@@ -626,20 +626,20 @@ class RaidTrain extends Party {
     let description = '';
 
     if (this.route && this.route.length) {
-      this.route.forEach((gymId, index) => {
+      for (let index = 0; index < this.route.length; ++index) {
         let complete = index < current ? '~~' : '',
           completeText = index < current ? ' (Completed)' : '',
-          gym = Gym.getGym(gymId),
+          gym = await Gym.getGym(this.route[index]),
           gymName = !!gym.nickname ?
             gym.nickname :
             gym.name;
 
         description += (index + 1) + `. ${complete}${gymName}${complete}${completeText}\n`;
-      });
+      }
 
-      embed.setDescription(description)
+      embed.setDescription(description);
     } else {
-      embed.setTitle('Route not set.')
+      embed.setTitle('Route not set.');
     }
 
     return embed;

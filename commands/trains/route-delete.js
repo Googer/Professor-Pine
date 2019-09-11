@@ -41,7 +41,7 @@ class RemoveRouteCommand extends Commando.Command {
       }
     }
 
-    message.channel.send(`${message.author}, this is the train's route:`, party.getRouteEmbed())
+    message.channel.send(`${message.author}, this is the train's route:`, await party.getRouteEmbed())
       .then(routeMessage => {
         setTimeout(() => {
           routeMessage.delete();

@@ -364,14 +364,14 @@ class MetaMachine {
               //Sort ids that need updated into single array
               const gymIds = [];
               affected["new"].filter(value => {
-                if (gymIds.indexOf(value) === -1 && value !== gym.id) {
+                if (gymIds.indexOf(value) === -1) {
                   gymIds.push(value);
                 }
                 return true;
               });
 
               affected["changed"].filter(value => {
-                if (gymIds.indexOf(value) === -1 && value !== gym.id) {
+                if (gymIds.indexOf(value) === -1) {
                   gymIds.push(value);
                 }
                 return true;

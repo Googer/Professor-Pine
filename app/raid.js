@@ -82,7 +82,7 @@ class Raid extends Party {
 
       if (!raidExists) {
         const sourceChannel = (await PartyManager.getChannel(sourceChannelId)).channel,
-          channelName = raid.generateChannelName();
+          channelName = await raid.generateChannelName();
 
         let newChannelId;
 
@@ -327,7 +327,7 @@ class Raid extends Party {
         .catch(err => log.error(err));
     }
 
-    const newChannelName = this.generateChannelName();
+    const newChannelName = await this.generateChannelName();
 
     await PartyManager.getChannel(this.channelId)
       .then(channelResult => {
@@ -424,7 +424,7 @@ class Raid extends Party {
         .catch(err => log.error(err));
     }
 
-    const newChannelName = this.generateChannelName();
+    const newChannelName = await this.generateChannelName();
 
     await PartyManager.getChannel(this.channelId)
       .then(channelResult => {
@@ -499,7 +499,7 @@ class Raid extends Party {
       await this.setEndTime(this.endTime);
     }
 
-    const newChannelName = this.generateChannelName();
+    const newChannelName = await this.generateChannelName();
 
     await PartyManager.getChannel(this.channelId)
       .then(channelResult => {
@@ -521,7 +521,7 @@ class Raid extends Party {
 
     await this.persist();
 
-    const newChannelName = this.generateChannelName();
+    const newChannelName = await this.generateChannelName();
 
     await PartyManager.getChannel(this.channelId)
       .then(channelResult => {
@@ -564,7 +564,7 @@ class Raid extends Party {
 
           return timeA - timeB;
         }),
-      summaryFields = (await Promise.all(raids.map(raid => raid.getSummaryField())))
+      summaryFields = (await Promise.all(raids.map(async raid => await raid.getSummaryField())))
         .filter(summaryField => summaryField !== ''),
       groupedRaids = Object.create(null);
 
@@ -595,13 +595,13 @@ class Raid extends Party {
     return embed;
   }
 
-  getSummaryField() {
+  async getSummaryField() {
     const pokemon = this.isExclusive ?
       'EX Raid' :
       this.pokemon.name ?
         this.pokemon.name.charAt(0).toUpperCase() + this.pokemon.name.slice(1) :
         'Tier ' + this.pokemon.tier,
-      gym = Gym.getGym(this.gymId),
+      gym = await Gym.getGym(this.gymId),
       gymName = (!!gym.nickname ?
         gym.nickname :
         gym.name),
@@ -641,7 +641,7 @@ class Raid extends Party {
       pokemonName = this.pokemon.name ?
         this.pokemon.name.charAt(0).toUpperCase() + this.pokemon.name.slice(1) :
         `a level ${this.pokemon.tier} boss`,
-      gym = Gym.getGym(this.gymId),
+      gym = await Gym.getGym(this.gymId),
       gymName = !!gym.nickname ?
         gym.nickname :
         gym.name,
@@ -754,7 +754,7 @@ class Raid extends Party {
           '__Egg Hatch Time__' :
         '',
       hatchStage = this.getHatchStage(),
-      gym = Gym.getGym(this.gymId),
+      gym = await Gym.getGym(this.gymId),
       gymName = !!gym.nickname ?
         gym.nickname :
         gym.name,
@@ -986,12 +986,12 @@ class Raid extends Party {
     }
   }
 
-  generateChannelName() {
+  async generateChannelName() {
     const nonCharCleaner = new RegExp(/[^\w]/, 'g'),
       pokemonName = (this.isExclusive ?
         'ex raid' :
         this.generatePokemonName(this.pokemon)),
-      gym = Gym.getGym(this.gymId),
+      gym = await Gym.getGym(this.gymId),
       gymName = (!!gym.nickname ?
         removeDiacritics(gym.nickname) :
         removeDiacritics(gym.name))

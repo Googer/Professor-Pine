@@ -1,6 +1,7 @@
 "use strict";
 
 const log = require('loglevel').getLogger('GymSearch'),
+  dbhelper = require('./dbhelper'),
   lunr = require('lunr'),
   he = require('he'),
   Helper = require('./helper'),
@@ -136,7 +137,7 @@ class GymCache {
     return !!this.channels[channel.toString()];
   }
 
-  getGym(gymId) {
+  async getGym(gymId) {
     for (let key in this.channels) {
       let cache = this.channels[key];
       if (cache.local.getGym(gymId) !== false) {
@@ -144,7 +145,16 @@ class GymCache {
       }
     }
 
-    return null;
+    const gymInfo = await dbhelper.query("SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId WHERE id = ?", [gymId])
+      .catch(error => {
+        log.error(error);
+      });
+
+    if (!gymInfo) {
+      return null;
+    }
+
+    return gymInfo[0];
   }
 
   markGymsForPlacesUpdates(gyms) {
@@ -392,9 +402,9 @@ class Gym extends Search {
         return gym;
       }
     }
+
     return false;
   }
-
 }
 
 Gym.blacklistWordFilter = lunr.generateStopWordFilter(settings.blacklistWords);

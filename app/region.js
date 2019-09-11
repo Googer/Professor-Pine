@@ -916,9 +916,10 @@ class RegionHelper {
             reject(error);
           })
           .then(async results => {
-            const gymInfo = await dbhelper.query("SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId WHERE id = ?", [gym]).catch(error => {
-              reject(error);
-            });
+            const gymInfo = await dbhelper.query("SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId WHERE id = ?", [gym])
+              .catch(error => {
+                reject(error);
+              });
 
             gym = gymInfo[0];
             ImageCacher.deleteCachedImage(`images/gyms/${gym}.png`);

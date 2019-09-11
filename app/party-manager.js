@@ -42,7 +42,7 @@ class PartyManager {
 
           if ((now > party.hatchTime && party.hatchTime > lastIntervalRunTime)
             || (now > party.endTime && party.endTime > lastIntervalRunTime)) {
-            const newChannelName = party.generateChannelName();
+            const newChannelName = await party.generateChannelName();
 
             await this.getChannel(party.channelId)
               .then(channelResult => {
