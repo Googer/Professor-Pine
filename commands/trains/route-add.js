@@ -44,7 +44,7 @@ class SetRouteAddCommand extends Commando.Command {
 
   async run(message, args) {
     const gymId = args['gymId'],
-      gym = Gym.getGym(gymId),
+      gym = await Gym.getGym(gymId),
       party = PartyManager.getParty(message.channel.id);
 
     if (!!message.adjacent) {

@@ -41,7 +41,7 @@ class DirectionsCommand extends Commando.Command {
       return;
     }
 
-    const gym = Gym.getGym(gymId),
+    const gym = await Gym.getGym(gymId),
       embed = new MessageEmbed();
 
     embed.setColor('GREEN');
