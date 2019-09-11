@@ -38,7 +38,7 @@ module.exports = class CheckGymQueue extends commando.Command {
         .map(gymId => Gym.getGym(gymId)));
 
       message += gyms
-        .filter(gym => gym !== null)
+        .filter(gym => !!gym)
         .map(gym => gym.name)
         .join("`\n`");
     } else {
