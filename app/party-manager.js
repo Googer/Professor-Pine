@@ -36,6 +36,12 @@ class PartyManager {
         .forEach(async ([channelId, party]) => {
           if ((party.hatchTime && now > party.hatchTime && party.hatchTime > lastIntervalTime) ||
             nowDay !== lastIntervalDay) {
+            const channelResult = await this.getChannel(channelId),
+              channelName = channelResult.ok ?
+                channelResult.channel.name :
+                'invalid';
+
+            log.debug(`Refreshing status messages for ${party.type} ${channelName}`);
             party.refreshStatusMessages()
               .catch(err => log.error(err));
           }
