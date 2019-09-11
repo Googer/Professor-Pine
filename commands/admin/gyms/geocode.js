@@ -49,7 +49,8 @@ module.exports = class GeocodeGym extends commando.Command {
         .catch(error => msg.say(error)
           .catch(err => log.error(err)));
     } else {
-      gym = await Region.findGym(msg.channel.id, args.term)
+      const isBotChannel = Helper.isBotChannel(msg);
+      gym = await Region.findGym(isBotChannel ? null : msg.channel.id, args.term)
         .catch(error => msg.say(error)
           .catch(err => log.error(err)));
     }
