@@ -562,6 +562,11 @@ class RaidTrain extends Party {
   }
 
   async refreshStatusMessages(replaceAnnouncementMessage) {
+    if (!this.messages) {
+      // odd, but ok... (actually can happen if all messages got removed from Pine's cache through Discord blips, etc.
+      return;
+    }
+
     const currentAnnouncementMessage = this.messages
       .find(messageCacheId => messageCacheId.split(':')[0] === this.oldSourceChannelId);
 
