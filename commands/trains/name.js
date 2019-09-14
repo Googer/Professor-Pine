@@ -47,7 +47,8 @@ class TrainNameCommand extends Commando.Command {
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .catch(err => log.error(err));
 
-    party.refreshStatusMessages();
+    party.refreshStatusMessages()
+      .catch(err => log.error(err));
   }
 }
 

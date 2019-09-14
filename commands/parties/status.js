@@ -25,7 +25,7 @@ class StatusCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'status' &&
         !PartyManager.validParty(message.channel.id) &&
-        !Gym.isValidChannel(message.channel.name)) {
+        !Gym.isValidChannel(message.channel.id)) {
         return ['invalid-channel', message.reply(Helper.getText('status.warning', message))];
       }
       return false;

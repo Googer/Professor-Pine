@@ -53,7 +53,8 @@ class NewGroupCommand extends Commando.Command {
         Notify.shout(message, members, `A new group has been created; if you wish to join it, type:\`\`\`${this.client.commandPrefix}group ${info.group}\`\`\``, 'groups');
       }
 
-      raid.refreshStatusMessages();
+      raid.refreshStatusMessages()
+        .catch(err => log.error(err));
     } else {
       message.reply(info.error)
         .catch(err => log.error(err));

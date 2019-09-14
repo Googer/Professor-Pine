@@ -48,7 +48,8 @@ class SetMovesetCommand extends Commando.Command {
       })
       .catch(err => log.error(err));
 
-    raid.refreshStatusMessages();
+    raid.refreshStatusMessages()
+      .catch(err => log.error(err));
   }
 }
 
