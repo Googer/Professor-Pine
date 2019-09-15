@@ -34,7 +34,8 @@ class NextCommand extends Commando.Command {
     const party = PartyManager.getParty(message.channel.id);
 
     if (party.conductor && party.conductor.username !== message.author.username) {
-      message.react(Helper.getEmoji(settings.emoji.thumbsDown) || '👎').catch(err => log.error(err));
+      message.react(Helper.getEmoji(settings.emoji.thumbsDown) || '👎')
+        .catch(err => log.error(err));
 
       message.channel.send(`${message.author}, you must be this train's conductor to move the gym along.`)
         .catch(err => log.error(err));
@@ -55,7 +56,8 @@ class NextCommand extends Commando.Command {
       message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
         .catch(err => log.error(err));
 
-      party.refreshStatusMessages();
+      party.refreshStatusMessages()
+        .catch(err => log.error(err));
     }
   }
 }

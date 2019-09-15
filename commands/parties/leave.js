@@ -37,7 +37,8 @@ class LeaveCommand extends Commando.Command {
       message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
         .catch(err => log.error(err));
 
-      raid.refreshStatusMessages();
+      raid.refreshStatusMessages()
+        .catch(err => log.error(err));
     } else {
       message.reply(info.error)
         .catch(err => log.error(err));

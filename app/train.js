@@ -563,10 +563,18 @@ class RaidTrain extends Party {
   }
 
   async refreshStatusMessages(replaceAnnouncementMessage) {
+    if (!this.messages) {
+      // odd, but ok... (actually can happen if all messages got removed from Pine's cache through Discord blips, etc.
+      return;
+    }
+
     const currentAnnouncementMessage = this.messages
       .find(messageCacheId => messageCacheId.split(':')[0] === this.oldSourceChannelId);
 
     // Refresh messages
+    let editMessageChain,
+      currentStep;
+
     [...this.messages, this.lastStatusMessage]
       .filter(messageCacheId => messageCacheId !== undefined)
       .forEach(async messageCacheId => {
@@ -583,26 +591,37 @@ class RaidTrain extends Party {
                 newSourceChannel = (await PartyManager.getChannel(this.sourceChannelId)).channel,
                 channelMovedMessageHeader = `${raidChannel} has been moved to ${newSourceChannel}.`;
 
-              message.edit(channelMovedMessageHeader, fullStatusMessage)
-                .then(message => message.delete({timeout: settings.messageCleanupDelayStatus}))
+              if (currentStep) {
+                currentStep = editMessageChain
+                  .then(() => message.edit(channelMovedMessageHeader, fullStatusMessage))
+              } else {
+                editMessageChain = message.edit(channelMovedMessageHeader, fullStatusMessage);
+                currentStep = editMessageChain;
+              }
+              currentStep = currentStep.then(message => message.delete({timeout: settings.messageCleanupDelayStatus}))
                 .then(async result => {
                   this.messages.splice(this.messages.indexOf(currentAnnouncementMessage), 1);
                   await this.persist();
-                })
-                .catch(err => log.error(err));
+                });
             } else {
               const channelMessage = (message.channel.id === this.channelId) ?
                 await this.getSourceChannelMessageHeader() :
                 message.content;
 
-              message.edit(channelMessage, fullStatusMessage)
-                .catch(err => log.error(err));
+              if (currentStep) {
+                currentStep = currentStep
+                  .then(() => message.edit(channelMessage, fullStatusMessage))
+              } else {
+                editMessageChain = message.edit(channelMessage, fullStatusMessage);
+                currentStep = editMessageChain;
+              }
             }
-
           }
         } catch (err) {
           log.error(err);
         }
+
+        return editMessageChain;
       });
 
     if (replaceAnnouncementMessage) {

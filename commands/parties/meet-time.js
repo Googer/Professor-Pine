@@ -89,7 +89,8 @@ class MeetTimeCommand extends Commando.Command {
         }
       });
 
-    raid.refreshStatusMessages();
+    raid.refreshStatusMessages()
+      .catch(err => log.error(err));
   }
 }
 
