@@ -930,8 +930,17 @@ class Raid extends Party {
   }
 
   async refreshStatusMessages(replaceAnnouncementMessage) {
+    if (!this.messages) {
+      // odd, but ok... (actually can happen if all messages got removed from Pine's cache through Discord blips, etc.
+      return;
+    }
+
     const currentAnnouncementMessage = this.messages
       .find(messageCacheId => messageCacheId.split(':')[0] === this.oldSourceChannelId);
+
+    // Refresh messages
+    let editMessageChain,
+      currentStep;
 
     // Refresh messages
     [...this.messages, this.lastStatusMessage]
@@ -950,26 +959,39 @@ class Raid extends Party {
                 newSourceChannel = (await PartyManager.getChannel(this.sourceChannelId)).channel,
                 channelMessage = `${raidChannel} has been moved to ${newSourceChannel}.`;
 
-              message.edit(channelMessage, formattedMessage)
+              if (currentStep) {
+                currentStep = currentStep
+                  .then(() => message.edit(channelMessage, formattedMessage));
+              } else {
+                editMessageChain = message.edit(channelMessage, formattedMessage);
+                currentStep = editMessageChain;
+              }
+
+              currentStep = currentStep
                 .then(message => message.delete({timeout: settings.messageCleanupDelayStatus}))
                 .then(async result => {
                   this.messages.splice(this.messages.indexOf(currentAnnouncementMessage), 1);
                   await this.persist();
-                })
-                .catch(err => log.error(err));
+                });
             } else {
               const channelMessage = (message.channel.id === this.channelId) ?
                 await this.getSourceChannelMessageHeader() :
                 message.content;
 
-              message.edit(channelMessage, formattedMessage)
-                .catch(err => log.error(err));
+              if (currentStep) {
+                currentStep = currentStep
+                  .then(() => message.edit(channelMessage, formattedMessage))
+              } else {
+                editMessageChain = message.edit(channelMessage, formattedMessage);
+                currentStep = editMessageChain;
+              }
             }
-
           }
         } catch (err) {
           log.error(err);
         }
+
+        return editMessageChain;
       });
 
     if (replaceAnnouncementMessage) {

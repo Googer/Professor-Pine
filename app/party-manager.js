@@ -31,7 +31,8 @@ class PartyManager {
         deletionGraceTime = settings.deletionGraceTime * 60 * 1000,
         deletionTime = now + (settings.deletionWarningTime * 60 * 1000),
         trainDeletionTime = now + (settings.trainDeletionWarningTime * 60 * 1000),
-        lastIntervalRunTime = lastIntervalTime - settings.cleanupInterval;
+        lastIntervalRunTime = lastIntervalTime - settings.cleanupInterval,
+        partiesToRefresh = new Set();
 
       Object.entries(this.parties)
         .filter(([channelId, party]) => [PartyType.RAID, PartyType.RAID_TRAIN].indexOf(party.type) !== -1)
@@ -44,8 +45,7 @@ class PartyManager {
                 'invalid';
 
             log.debug(`Refreshing status messages for ${party.type} ${channelName}`);
-            party.refreshStatusMessages()
-              .catch(err => log.error(err));
+            partiesToRefresh.add(party);
           }
 
           if ((now > party.hatchTime && party.hatchTime > lastIntervalRunTime)
@@ -55,8 +55,7 @@ class PartyManager {
             await this.getChannel(party.channelId)
               .then(channelResult => {
                 if (channelResult.ok) {
-                  party.refreshStatusMessages()
-                    .catch(err => log.error(err));
+                  partiesToRefresh.add(party);
 
                   return channelResult.channel.setName(newChannelName);
                 }
@@ -74,8 +73,7 @@ class PartyManager {
 
                   await party.persist();
 
-                  party.refreshStatusMessages()
-                    .catch(err => log.error(err));
+                  partiesToRefresh.add(party);
 
                   // ask members if they finished party
                   party.setPresentAttendeesToComplete(group.id)
@@ -85,11 +83,15 @@ class PartyManager {
 
                   await party.persist();
 
-                  party.refreshStatusMessages()
-                    .catch(err => log.error(err));
+                  partiesToRefresh.add(party);
                 }
               }
             });
+
+          for (const party of partiesToRefresh.values()) {
+            await party.refreshStatusMessages()
+              .catch(err => log.error(err));
+          }
 
           if (((party.endTime !== TimeType.UNDEFINED_END_TIME && now > party.endTime + deletionGraceTime) || now > party.lastPossibleTime + deletionGraceTime) &&
             !party.deletionTime) {

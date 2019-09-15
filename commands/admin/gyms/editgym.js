@@ -310,6 +310,7 @@ module.exports = class EditGym extends commando.Command {
 
                                 previousResult.prompts.forEach(message => {
                                   message.delete()
+                                    .catch(err => log.error(err));
                                 });
 
                                 that.cleanup(msg, gymResult, fieldResult, tagResult, gymMessage);
@@ -318,6 +319,7 @@ module.exports = class EditGym extends commando.Command {
                             } else {
                               previousResult.prompts.forEach(message => {
                                 message.delete()
+                                  .catch(err => log.error(err));
                               });
                               that.cleanup(msg, gymResult, fieldResult, tagResult, gymMessage);
                             }
