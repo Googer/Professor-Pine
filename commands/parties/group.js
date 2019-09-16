@@ -41,7 +41,7 @@ class GroupCommand extends Commando.Command {
     let prompt = 'Which group do you wish to join for this raid?\n\n';
 
     raid.groups.forEach(group => {
-      const start_time = !!group.startTime ?
+      const startTime = !!group.startTime ?
         moment(group.startTime) :
         '',
         totalAttendees = raid.getAttendeeCount(group.id);
@@ -57,7 +57,7 @@ class GroupCommand extends Commando.Command {
       }
 
       if (!!group.startTime) {
-        groupLabel += ` :: ${start_time.calendar(null, calendarFormat)}`;
+        groupLabel += ` :: ${startTime.calendar(null, calendarFormat)}`;
       }
 
       prompt += groupLabel + ` :: ${totalAttendees} possible trainers\n`;
@@ -84,7 +84,8 @@ class GroupCommand extends Commando.Command {
             message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
               .catch(err => log.error(err));
 
-            raid.refreshStatusMessages();
+            raid.refreshStatusMessages()
+              .catch(err => log.error(err));
           } else {
             return message.reply(info.error)
               .catch(err => log.error(err));

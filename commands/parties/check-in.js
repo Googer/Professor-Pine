@@ -53,8 +53,8 @@ class CheckInCommand extends Commando.Command {
 
     let statusPromise;
 
-    if (currentStatus === PartyStatus.NOT_INTERESTED && groupCount > 1 && groupId === false) {
-      const calendar_format = {
+    if (currentStatus === PartyStatus.NOT_INTERESTED && groupCount > 1) {
+      const calendarFormat = {
         sameDay: 'LT',
         sameElse: 'l LT'
       };
@@ -70,15 +70,15 @@ class CheckInCommand extends Commando.Command {
         let groupLabel = `**${group.id}**`;
 
         if (!!group.label) {
-          const truncated_label = group.label.length > 150 ?
+          const truncatedLabel = group.label.length > 150 ?
             group.label.substring(0, 149).concat('…') :
             group.label;
 
-          groupLabel += ` (${truncated_label})`;
+          groupLabel += ` (${truncatedLabel})`;
         }
 
         if (!!group.startTime) {
-          groupLabel += ` :: ${startTime.calendar(null, calendar_format)}`;
+          groupLabel += ` :: ${startTime.calendar(null, calendarFormat)}`;
         }
 
         prompt += groupLabel + ` :: ${totalAttendees} possible trainers\n`;
@@ -126,7 +126,8 @@ class CheckInCommand extends Commando.Command {
         message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
           .catch(err => log.error(err));
 
-        raid.refreshStatusMessages();
+        raid.refreshStatusMessages()
+          .catch(err => log.error(err));
       } else {
         message.reply(info.error)
           .catch(err => log.error(err));

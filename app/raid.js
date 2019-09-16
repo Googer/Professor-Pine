@@ -82,7 +82,7 @@ class Raid extends Party {
 
       if (!raidExists) {
         const sourceChannel = (await PartyManager.getChannel(sourceChannelId)).channel,
-          channelName = raid.generateChannelName();
+          channelName = await raid.generateChannelName();
 
         let newChannelId;
 
@@ -221,7 +221,6 @@ class Raid extends Party {
                       }
 
                       userResponse = userResponse.substr(1).trim();
-
                     }
 
                     confirmation = message.client.registry.types.get('boolean').truthy.has(userResponse) || doneAliases.indexOf(userResponse) !== -1;
@@ -328,7 +327,7 @@ class Raid extends Party {
         .catch(err => log.error(err));
     }
 
-    const newChannelName = this.generateChannelName();
+    const newChannelName = await this.generateChannelName();
 
     await PartyManager.getChannel(this.channelId)
       .then(channelResult => {
@@ -425,7 +424,7 @@ class Raid extends Party {
         .catch(err => log.error(err));
     }
 
-    const newChannelName = this.generateChannelName();
+    const newChannelName = await this.generateChannelName();
 
     await PartyManager.getChannel(this.channelId)
       .then(channelResult => {
@@ -500,7 +499,7 @@ class Raid extends Party {
       await this.setEndTime(this.endTime);
     }
 
-    const newChannelName = this.generateChannelName();
+    const newChannelName = await this.generateChannelName();
 
     await PartyManager.getChannel(this.channelId)
       .then(channelResult => {
@@ -522,7 +521,7 @@ class Raid extends Party {
 
     await this.persist();
 
-    const newChannelName = this.generateChannelName();
+    const newChannelName = await this.generateChannelName();
 
     await PartyManager.getChannel(this.channelId)
       .then(channelResult => {
@@ -565,7 +564,7 @@ class Raid extends Party {
 
           return timeA - timeB;
         }),
-      summaryFields = (await Promise.all(raids.map(raid => raid.getSummaryField())))
+      summaryFields = (await Promise.all(raids.map(async raid => await raid.getSummaryField())))
         .filter(summaryField => summaryField !== ''),
       groupedRaids = Object.create(null);
 
@@ -596,16 +595,16 @@ class Raid extends Party {
     return embed;
   }
 
-  getSummaryField() {
+  async getSummaryField() {
     const pokemon = this.isExclusive ?
       'EX Raid' :
       this.pokemon.name ?
         this.pokemon.name.charAt(0).toUpperCase() + this.pokemon.name.slice(1) :
         'Tier ' + this.pokemon.tier,
-      gym = Gym.getGym(this.gymId),
+      gym = await Gym.getGym(this.gymId),
       gymName = (!!gym.nickname ?
         gym.nickname :
-        gym.gymName),
+        gym.name),
       totalAttendees = this.getAttendeeCount(),
       calendarFormat = {
         sameDay: 'LT',
@@ -642,10 +641,10 @@ class Raid extends Party {
       pokemonName = this.pokemon.name ?
         this.pokemon.name.charAt(0).toUpperCase() + this.pokemon.name.slice(1) :
         `a level ${this.pokemon.tier} boss`,
-      gym = Gym.getGym(this.gymId),
+      gym = await Gym.getGym(this.gymId),
       gymName = !!gym.nickname ?
         gym.nickname :
-        gym.gymName,
+        gym.name,
       member = this.createdById > 0 ?
         (await this.getMember(memberId)).member :
         null,
@@ -755,11 +754,11 @@ class Raid extends Party {
           '__Egg Hatch Time__' :
         '',
       hatchStage = this.getHatchStage(),
-      gym = Gym.getGym(this.gymId),
+      gym = await Gym.getGym(this.gymId),
       gymName = !!gym.nickname ?
         gym.nickname :
-        gym.gymName,
-      gymUrl = `https://www.google.com/maps/search/?api=1&query=${gym.gymInfo.latitude}%2C${gym.gymInfo.longitude}`,
+        gym.name,
+      gymUrl = `https://www.google.com/maps/search/?api=1&query=${gym.lat}%2C${gym.lon}`,
       attendeeEntries = Object.entries(this.attendees),
       totalAttendeeCount = attendeeEntries.length,
       attendeesWithMembers = (await Promise.all(attendeeEntries
@@ -906,19 +905,21 @@ class Raid extends Party {
     let additionalInformation = '';
 
     if (!this.isExclusive) {
-      if (gym.hasHostedEx) {
-        additionalInformation += 'Confirmed EX Raid location.';
-      } else if (gym.hasExTag) {
-        additionalInformation += 'Potential EX Raid location - This gym has the EX gym tag.';
+      if (gym.taggedEx) {
+        if (gym.confirmedEx) {
+          additionalInformation += 'Confirmed EX Raid location - This gym has the EX gym tag and has previously hosted an EX Raid.';
+        } else {
+          additionalInformation += 'Potential EX Raid location - This gym has the EX gym tag.';
+        }
       }
     }
 
-    if (!!gym.additionalInformation) {
+    if (!!gym.notice) {
       if (additionalInformation !== '') {
         additionalInformation += '\n\n';
       }
 
-      additionalInformation += gym.additionalInformation;
+      additionalInformation += gym.notice;
     }
 
     if (additionalInformation !== '') {
@@ -929,8 +930,17 @@ class Raid extends Party {
   }
 
   async refreshStatusMessages(replaceAnnouncementMessage) {
+    if (!this.messages) {
+      // odd, but ok... (actually can happen if all messages got removed from Pine's cache through Discord blips, etc.
+      return;
+    }
+
     const currentAnnouncementMessage = this.messages
       .find(messageCacheId => messageCacheId.split(':')[0] === this.oldSourceChannelId);
+
+    // Refresh messages
+    let editMessageChain,
+      currentStep;
 
     // Refresh messages
     [...this.messages, this.lastStatusMessage]
@@ -949,26 +959,39 @@ class Raid extends Party {
                 newSourceChannel = (await PartyManager.getChannel(this.sourceChannelId)).channel,
                 channelMessage = `${raidChannel} has been moved to ${newSourceChannel}.`;
 
-              message.edit(channelMessage, formattedMessage)
+              if (currentStep) {
+                currentStep = currentStep
+                  .then(() => message.edit(channelMessage, formattedMessage));
+              } else {
+                editMessageChain = message.edit(channelMessage, formattedMessage);
+                currentStep = editMessageChain;
+              }
+
+              currentStep = currentStep
                 .then(message => message.delete({timeout: settings.messageCleanupDelayStatus}))
                 .then(async result => {
                   this.messages.splice(this.messages.indexOf(currentAnnouncementMessage), 1);
                   await this.persist();
-                })
-                .catch(err => log.error(err));
+                });
             } else {
               const channelMessage = (message.channel.id === this.channelId) ?
                 await this.getSourceChannelMessageHeader() :
                 message.content;
 
-              message.edit(channelMessage, formattedMessage)
-                .catch(err => log.error(err));
+              if (currentStep) {
+                currentStep = currentStep
+                  .then(() => message.edit(channelMessage, formattedMessage))
+              } else {
+                editMessageChain = message.edit(channelMessage, formattedMessage);
+                currentStep = editMessageChain;
+              }
             }
-
           }
         } catch (err) {
           log.error(err);
         }
+
+        return editMessageChain;
       });
 
     if (replaceAnnouncementMessage) {
@@ -985,15 +1008,15 @@ class Raid extends Party {
     }
   }
 
-  generateChannelName() {
+  async generateChannelName() {
     const nonCharCleaner = new RegExp(/[^\w]/, 'g'),
       pokemonName = (this.isExclusive ?
         'ex raid' :
         this.generatePokemonName(this.pokemon)),
-      gym = Gym.getGym(this.gymId),
+      gym = await Gym.getGym(this.gymId),
       gymName = (!!gym.nickname ?
         removeDiacritics(gym.nickname) :
-        removeDiacritics(gym.gymName))
+        removeDiacritics(gym.name))
         .toLowerCase()
         .replace(nonCharCleaner, ' ')
         .split(' ')

@@ -44,7 +44,7 @@ class SetRouteAddCommand extends Commando.Command {
 
   async run(message, args) {
     const gymId = args['gymId'],
-      gym = Gym.getGym(gymId),
+      gym = await Gym.getGym(gymId),
       party = PartyManager.getParty(message.channel.id);
 
     if (!!message.adjacent) {
@@ -74,7 +74,7 @@ class SetRouteAddCommand extends Commando.Command {
     let route = await party.addRouteGym(gymId);
 
     if (!route) {
-      let gymName = !!gym.nickname ? gym.nickname : gym.gymName;
+      let gymName = !!gym.nickname ? gym.nickname : gym.name;
       message.channel.send(`${message.author}, ${gymName} is already a part of this route.`)
         .catch(err => log.error(err));
     }
@@ -82,7 +82,8 @@ class SetRouteAddCommand extends Commando.Command {
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .catch(err => log.error(err));
 
-    party.refreshStatusMessages();
+    party.refreshStatusMessages()
+      .catch(err => log.error(err));
   }
 }
 

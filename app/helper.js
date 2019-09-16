@@ -314,6 +314,106 @@ class Helper {
 
     return text;
   }
+
+  //check if channel exists by name in a specific gulid
+  doesChannelExist(channelName, guildId) {
+    const channels = this.client.guilds.get(guildId).channels.array();
+    for (let i = 0; i < channels.length; i++) {
+      const chan = channels[i];
+      if (chan.name === channelName && channels[i].permissionsFor(this.client.user.id).has('VIEW_CHANNEL')) {
+        return true;
+      }
+    }
+
+    return false;
+  }
+
+  //check if channel is child of a category
+  isChannelChild(channelId) {
+    const channel = this.client.channels.get(channelId);
+    const channels = this.client.channels.array();
+    for (let i = 0; i < channels.length; i++) {
+      const check = channels[i];
+      if (check.children) {
+        const children = check.children.array();
+        for (let j = 0; j < children.length; j++) {
+          const child = children[j];
+          if (child.id === channelId && channels[i].permissionsFor(this.client.user.id).has('VIEW_CHANNEL')) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
+  }
+
+  // Gets channel based on provided name
+  getChannelForName(channelName, guildId) {
+    const channels = this.client.guilds.get(guildId).channels.array();
+    for (let i = 0; i < channels.length; i++) {
+      const channel = channels[i];
+      if (channel.name === channelName && channels[i].permissionsFor(this.client.user.id).has('VIEW_CHANNEL')) {
+        return channel;
+      }
+    }
+
+    return null;
+  }
+
+  // Get a channel's category
+  getParentChannel(channelId) {
+    if (this.isChannelChild(channelId)) {
+      const channels = this.client.channels.array();
+      for (let i = 0; i < channels.length; i++) {
+        const channel = channels[i];
+        if (channel.children) {
+          const children = this.childrenForCategory(channel.id);
+          for (let j = 0; j < children.length; j++) {
+            const child = children[j];
+            if (child.id === channelId) {
+              return channel;
+            }
+          }
+        }
+      }
+    }
+
+    return null;
+  }
+
+  // Get channels below a specified category
+  childrenForCategory(categoryId) {
+    const channel = this.client.channels.get(categoryId);
+    if (channel.children) {
+      return channel.children.array();
+    } else {
+      return [];
+    }
+  }
+
+  //is channel child of category and does it have a defined region
+  isChannelBounded(channelId, raidChannels) {
+    if (this.isChannelChild(channelId)) {
+      return raidChannels.indexOf(channelId) > -1;
+    } else {
+      return false;
+    }
+  }
+
+  //Get the region defined channel from a specified category
+  regionChannelForCategory(categoryId, raidChannels) {
+    const children = this.childrenForCategory(categoryId);
+    for (let i = 0; i < children.length; i++) {
+      const child = children[i];
+      for (let j = 0; j < raidChannels.length; j++) {
+        const regionChannel = raidChannels[j];
+        if (child.id === regionChannel) {
+          return child;
+        }
+      }
+    }
+  }
 }
 
 module.exports = new Helper();

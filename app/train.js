@@ -138,29 +138,27 @@ class RaidTrain extends Party {
   }
 
   async addRouteGym(gymId) {
-    let gym = Gym.getGym(gymId);
-
     if (!!!this.route) {
       this.route = [];
     }
 
-    if (this.route.find(gym => gym.gymId === gymId) !== undefined) {
+    if (this.route.find(existingGymId => existingGymId === gymId) !== undefined) {
       return false;
     }
 
-    this.route.push(gym);
+    this.route.push(gymId);
 
     await this.persist();
 
     return this.route;
   }
 
-  async insertRouteGym(index, gym) {
+  async insertRouteGym(index, gymId) {
     if (!!!this.route) {
       this.route = [];
     }
 
-    this.route.splice(index, 0, gym);
+    this.route.splice(index, 0, gymId);
 
     await this.persist();
 
@@ -386,9 +384,9 @@ class RaidTrain extends Party {
           .join('')}` :
         '',
       shiny = !!this.pokemon && this.pokemon.shiny ?
-      Helper.getEmoji(settings.emoji.shiny) || '✨' :
-      '',
-    attendeeEntries = Object.entries(this.attendees),
+        Helper.getEmoji(settings.emoji.shiny) || '✨' :
+        '',
+      attendeeEntries = Object.entries(this.attendees),
       totalAttendeeCount = attendeeEntries.length,
       attendeesWithMembers = (await Promise.all(attendeeEntries
         .map(async attendeeEntry => [await this.getMember(attendeeEntry[0]), attendeeEntry[1]])))
@@ -417,8 +415,8 @@ class RaidTrain extends Party {
           attendeeEntry[1].status === PartyStatus.COMPLETE_PENDING),
       embed = new Discord.MessageEmbed(),
       conductor = !!this.conductor ?
-          ` (Conductor: ${this.conductor.username})`:
-          '';
+        ` (Conductor: ${this.conductor.username})` :
+        '';
 
     embed.setColor('GREEN');
     embed.setTitle('Raid Train: ' + this.trainName + conductor);
@@ -432,18 +430,20 @@ class RaidTrain extends Party {
     } else if (currentGym >= route.length) {
       embed.addField('**Current Gym**', 'Route has been completed.');
     } else {
-      let currentName = !!route[currentGym].nickname ?
-          route[currentGym].nickname :
-          route[currentGym].gymName;
-      let currentUrl = Gym.getUrl(route[currentGym].gymInfo.latitude, route[currentGym].gymInfo.longitude);
+      let gym = await Gym.getGym(route[currentGym]);
+      let currentName = !!gym.nickname ?
+        gym.nickname :
+        gym.name;
+      let currentUrl = `https://www.google.com/maps/search/?api=1&query=${gym.lat}%2C${gym.lon}`;
 
       embed.addField('**Current Gym**', `[${currentName}](${currentUrl})`);
 
       if (route[currentGym + 1]) {
-        let nextName = !!route[currentGym + 1].nickname ?
-          route[currentGym + 1].nickname :
-          route[currentGym + 1].gymName;
-        let nextUrl = Gym.getUrl(route[currentGym + 1].gymInfo.latitude, route[currentGym + 1].gymInfo.longitude);
+        let nextGym = await Gym.getGym(route[currentGym + 1]);
+        let nextName = !!nextGym.nickname ?
+          nextGym.nickname :
+          nextGym.name;
+        let nextUrl = `https://www.google.com/maps/search/?api=1&query=${nextGym.lat}%2C${nextGym.lon}`;
 
         embed.addField('**Next Gym**', `[${nextName}](${nextUrl})`);
       }
@@ -534,20 +534,23 @@ class RaidTrain extends Party {
     let additionalInformation = '';
 
     if (route && route.length) {
-      let gym = this.route[this.currentGym || 0];
+      let gymId = this.route[this.currentGym || 0],
+        gym = await Gym.getGym(gymId);
 
-      if (!!gym && gym.hasHostedEx) {
-        additionalInformation += 'Confirmed EX Raid location.';
-      } else if (!!gym && gym.hasExTag) {
-        additionalInformation += 'Potential EX Raid location - This gym has the EX gym tag.';
+      if (!!gym && gym.taggedEx) {
+        if (!!gym && gym.confirmedEx) {
+          additionalInformation += 'Confirmed EX Raid location - This gym has the EX gym tag and has previously hosted an EX Raid.';
+        } else {
+          additionalInformation += 'Potential EX Raid location - This gym has the EX gym tag.';
+        }
       }
 
-      if (!!gym && !!gym.additionalInformation) {
+      if (!!gym && !!gym.notice) {
         if (additionalInformation !== '') {
           additionalInformation += '\n\n';
         }
 
-        additionalInformation += gym.additionalInformation;
+        additionalInformation += gym.notice;
       }
 
       if (additionalInformation !== '') {
@@ -559,10 +562,18 @@ class RaidTrain extends Party {
   }
 
   async refreshStatusMessages(replaceAnnouncementMessage) {
+    if (!this.messages) {
+      // odd, but ok... (actually can happen if all messages got removed from Pine's cache through Discord blips, etc.
+      return;
+    }
+
     const currentAnnouncementMessage = this.messages
       .find(messageCacheId => messageCacheId.split(':')[0] === this.oldSourceChannelId);
 
     // Refresh messages
+    let editMessageChain,
+      currentStep;
+
     [...this.messages, this.lastStatusMessage]
       .filter(messageCacheId => messageCacheId !== undefined)
       .forEach(async messageCacheId => {
@@ -579,26 +590,37 @@ class RaidTrain extends Party {
                 newSourceChannel = (await PartyManager.getChannel(this.sourceChannelId)).channel,
                 channelMovedMessageHeader = `${raidChannel} has been moved to ${newSourceChannel}.`;
 
-              message.edit(channelMovedMessageHeader, fullStatusMessage)
-                .then(message => message.delete({timeout: settings.messageCleanupDelayStatus}))
+              if (currentStep) {
+                currentStep = editMessageChain
+                  .then(() => message.edit(channelMovedMessageHeader, fullStatusMessage))
+              } else {
+                editMessageChain = message.edit(channelMovedMessageHeader, fullStatusMessage);
+                currentStep = editMessageChain;
+              }
+              currentStep = currentStep.then(message => message.delete({timeout: settings.messageCleanupDelayStatus}))
                 .then(async result => {
                   this.messages.splice(this.messages.indexOf(currentAnnouncementMessage), 1);
                   await this.persist();
-                })
-                .catch(err => log.error(err));
+                });
             } else {
               const channelMessage = (message.channel.id === this.channelId) ?
                 await this.getSourceChannelMessageHeader() :
                 message.content;
 
-              message.edit(channelMessage, fullStatusMessage)
-                .catch(err => log.error(err));
+              if (currentStep) {
+                currentStep = currentStep
+                  .then(() => message.edit(channelMessage, fullStatusMessage))
+              } else {
+                editMessageChain = message.edit(channelMessage, fullStatusMessage);
+                currentStep = editMessageChain;
+              }
             }
-
           }
         } catch (err) {
           log.error(err);
         }
+
+        return editMessageChain;
       });
 
     if (replaceAnnouncementMessage) {
@@ -615,7 +637,7 @@ class RaidTrain extends Party {
     }
   }
 
-  getRouteEmbed() {
+  async getRouteEmbed() {
     let embed = new Discord.MessageEmbed(),
       current = this.currentGym || 0;
 
@@ -623,17 +645,20 @@ class RaidTrain extends Party {
     let description = '';
 
     if (this.route && this.route.length) {
-      this.route.forEach((gym, index) => {
+      for (let index = 0; index < this.route.length; ++index) {
         let complete = index < current ? '~~' : '',
           completeText = index < current ? ' (Completed)' : '',
-          gymName = !!gym.nickname ? gym.nickname : gym.gymName;
+          gym = await Gym.getGym(this.route[index]),
+          gymName = !!gym.nickname ?
+            gym.nickname :
+            gym.name;
 
         description += (index + 1) + `. ${complete}${gymName}${complete}${completeText}\n`;
-      });
+      }
 
-      embed.setDescription(description)
+      embed.setDescription(description);
     } else {
-      embed.setTitle('Route not set.')
+      embed.setTitle('Route not set.');
     }
 
     return embed;

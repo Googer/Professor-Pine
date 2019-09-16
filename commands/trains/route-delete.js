@@ -41,7 +41,7 @@ class RemoveRouteCommand extends Commando.Command {
       }
     }
 
-    message.channel.send(`${message.author}, this is the train's route:`, party.getRouteEmbed())
+    message.channel.send(`${message.author}, this is the train's route:`, await party.getRouteEmbed())
       .then(routeMessage => {
         setTimeout(() => {
           routeMessage.delete();
@@ -58,28 +58,26 @@ class RemoveRouteCommand extends Commando.Command {
           oneOf: validInputs
         }
       ], 3),
-      gymResults = await gymCollector.obtain(message);
+      gymResults = await gymCollector.obtain(message),
+      gymToRemove = !gymResults.cancelled ? gymResults.values.gymId : null;
 
     Utility.cleanCollector(gymResults);
 
-    if (gymResults.cancelled) {
-      return;
-    }
+    if (gymToRemove) {
+      let route = await party.removeRouteGym(Number.parseInt(gymToRemove) - 1);
 
-    const gymToRemove = gymResults.values.gymId;
+      if (!route) {
+        let gymName = !!gym.nickname ? gym.nickname : gym.name;
+        message.channel.send(`${message.author}, ${gymName} is already a part of this route.`)
+          .catch(err => log.error(err));
+      }
 
-    let route = await party.removeRouteGym(Number.parseInt(gymToRemove) - 1);
+      message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
+        .catch(err => log.error(err));
 
-    if (!route) {
-      let gymName = !!gym.nickname ? gym.nickname : gym.gymName;
-      message.channel.send(`${message.author}, ${gymName} is already a part of this route.`)
+      party.refreshStatusMessages()
         .catch(err => log.error(err));
     }
-
-    message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
-      .catch(err => log.error(err));
-
-    party.refreshStatusMessages();
   }
 }
 

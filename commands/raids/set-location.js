@@ -88,7 +88,8 @@ class SetLocationCommand extends Commando.Command {
       })
       .catch(err => log.error(err));
 
-    party.refreshStatusMessages(!!message.adjacent);
+    party.refreshStatusMessages(!!message.adjacent)
+      .catch(err => log.error(err));
   }
 }
 
