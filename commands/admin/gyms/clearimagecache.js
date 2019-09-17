@@ -23,7 +23,7 @@ module.exports = class ClearImageCache extends commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'clear-image-cache') {
-        if (!Helper.isManagement(message)) {
+        if (!Helper.isBotManagement(message)) {
           return ['unauthorized', message.reply('You are not authorized to use this command.')];
         }
         if (!Helper.isBotChannel(message)) {

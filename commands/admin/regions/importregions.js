@@ -27,7 +27,7 @@ module.exports = class ImportRegions extends commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'import') {
-        if (!Helper.isManagement(message)) {
+        if (!Helper.isBotManagement(message)) {
           return ['unauthorized', message.reply('You are not authorized to use this command.')];
         }
         if (!Helper.isBotChannel(message)) {

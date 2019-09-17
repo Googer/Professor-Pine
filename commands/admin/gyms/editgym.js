@@ -116,7 +116,7 @@ module.exports = class EditGym extends commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'edit-gym') {
-        if (!Helper.isManagement(message)) {
+        if (!Helper.isBotManagement(message)) {
           return ['unauthorized', message.reply('You are not authorized to use this command.')];
         }
 
