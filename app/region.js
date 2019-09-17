@@ -216,7 +216,7 @@ class RegionHelper {
 
     try {
       const poly = turf.polygon([coords]);
-      const buffer = turf.buffer(poly, 2, {units: 'kilometers'});
+      const buffer = turf.transformScale(poly, 1.5);
 
       return this.regionFromGeoJSON(buffer);
     } catch (error) {
