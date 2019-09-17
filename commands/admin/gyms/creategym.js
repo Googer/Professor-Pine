@@ -9,6 +9,7 @@ const log = require('loglevel').getLogger('CreateGymCommand'),
   PartyManager = require('../../../app/party-manager'),
   Region = require('../../../app/region'),
   Utility = require('../../../app/utility'),
+  settings = require('../../../data/settings'),
   {CommandGroup} = require('../../../app/constants');
 
 module.exports = class CreateGym extends Commando.Command {
@@ -149,6 +150,11 @@ module.exports = class CreateGym extends Commando.Command {
 
                           let channels = await Region.getChannelsForGym(finalGym, msg.channel.guild.id);
                           await Region.showGymDetail(msg, finalGym, "New Gym Added", null, false);
+
+                          if (settings.postNewGyms) {
+                            await Region.showGymDetail(null, finalGym, "New Gym Added", null, false, Helper.getUpdatesChannel(msg.channel));
+                          }
+
                           const channelStrings = [];
                           for (let i = 0; i < channels.length; i++) {
                             let channel = await PartyManager.getChannel(channels[i].channelId);

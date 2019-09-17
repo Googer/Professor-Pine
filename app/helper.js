@@ -44,6 +44,9 @@ class Helper {
             pvp: guild.channels.find(channel => {
               return channel.name === settings.channels["pvp"];
             }),
+            butUpdates: guild.channels.find(channel => {
+              return channel.name === settings.channels['bot-updates'];
+            })
           },
           categories: {
             pvp:  guild.channels.find(channel => {
@@ -245,6 +248,11 @@ class Helper {
   getBotChannel(channel) {
     const guild = this.guild.get(channel.guild.id);
     return guild.channels.botLab;
+  }
+
+  getUpdatesChannel(channel) {
+    const guild = this.guild.get(channel.guild.id);
+    return guild.channels.butUpdates;
   }
 
   getPvPCategory(channel){

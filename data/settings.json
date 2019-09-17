@@ -18,6 +18,7 @@
   "messageCleanupDelayStatus": 60000,
   "showUnknownMoves": true,
   "databaseRaids": true,
+  "postNewGyms": true,
   "updater": {
     "channelIndexUpdateIntervalSeconds": 600,
     "gymPlacesIndexUpdateIntervalSeconds": 600
@@ -40,7 +41,8 @@
     "mod-bot-lab": "mod-bot-only",
     "unown": "unown-sightings",
     "ex-gym-raids": "potential-ex-gym-raids",
-    "pvp": "rank-checker"
+    "pvp": "rank-checker",
+    "bot-updates": "bot-updates"
   },
   "categories": {
     "pvp": "PVP CHAT AND TOURNAMENTS"
