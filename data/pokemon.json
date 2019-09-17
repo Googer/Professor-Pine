@@ -363,7 +363,7 @@
   {
     "name": "psyduck",
     "tier": 1,
-    "shine": true
+    "shiny": true
   },
   {
     "name": "golduck"
@@ -824,7 +824,9 @@
     "tier": 4
   },
   {
-    "name": "mewtwo"
+    "name": "mewtwo",
+    "tier": 5,
+    "shiny": true
   },
   {
     "name": "mewtwo_a",
@@ -1550,7 +1552,9 @@
     "name": "armaldo"
   },
   {
-    "name": "feebas"
+    "name": "feebas",
+    "tier": 2,
+    "shiny": true
   },
   {
     "name": "milotic"
@@ -2122,13 +2126,17 @@
     "name": "samurott"
   },
   {
-    "name": "patrat"
+    "name": "patrat",
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "watchog"
   },
   {
-    "name": "lillipup"
+    "name": "lillipup",
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "herdier"
@@ -2407,7 +2415,8 @@
     "name": "ferrothorn"
   },
   {
-    "name": "klink"
+    "name": "klink",
+    "tier": 1
   },
   {
     "name": "klang"
