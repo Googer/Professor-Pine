@@ -1052,7 +1052,7 @@ class RegionHelper {
     // returns message promise for optional chaining
 
     if (channel && !msg) {
-      channel.send({
+      return channel.send({
         embed
       });
     }
