@@ -1,6 +1,6 @@
 {
-  "standardRaidIncubateDuration": 15,
-  "standardRaidHatchedDuration": 90,
+  "standardRaidIncubateDuration": 60,
+  "standardRaidHatchedDuration": 45,
   "exclusiveRaidIncubateDuration": 20160,
   "exclusiveRaidHatchedDuration": 45,
   "maximumAdditionalAttendees": 20,
