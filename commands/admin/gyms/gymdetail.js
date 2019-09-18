@@ -46,7 +46,8 @@ module.exports = class GymDetail extends commando.Command {
         const channels = await Region.getChannelsForGym(gym, msg.channel.guild.id)
           .catch(error => []);
         const phrase = "Showing details for gym with ID " + args.term;
-        await Region.showGymDetail(msg, gym, phrase, null, channels, false);
+        await Region.showGymDetail(msg, gym, phrase, null, channels, false)
+          .catch(err => log.erro(err));
         const channelStrings = [];
         for (let i = 0; i < channels.length; i++) {
           let channel = await PartyManager.getChannel(channels[i].channelId);

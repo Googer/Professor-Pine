@@ -216,7 +216,8 @@ module.exports = class EditGym extends commando.Command {
                         ImageCacher.deleteCachedImage(`images/gyms/${gym["id"]}.png`);
                         if (result["id"]) {
                           that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
-                          Region.showGymDetail(msg, result, "Updated Gym Location", msg.member.displayName, false);
+                          Region.showGymDetail(msg, result, "Updated Gym Location", msg.member.displayName, false)
+                            .catch(err => log.error(err));
                         }
                       } else {
                         that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
@@ -232,7 +233,8 @@ module.exports = class EditGym extends commando.Command {
                             .catch(err => log.error(err)));
                         if (result["id"]) {
                           that.cleanup(msg, gymResult, fieldResult, collectionResult);
-                          Region.showGymDetail(msg, result, "Updated Gym Name", msg.member.displayName, false);
+                          Region.showGymDetail(msg, result, "Updated Gym Name", msg.member.displayName, false)
+                            .catch(err => log.error(err));
                         }
                       } else {
                         that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
@@ -248,7 +250,8 @@ module.exports = class EditGym extends commando.Command {
                             .catch(err => log.error(err)));
                         if (result["id"]) {
                           that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
-                          Region.showGymDetail(msg, result, "Updated Gym Nickname", msg.member.displayName, false);
+                          Region.showGymDetail(msg, result, "Updated Gym Nickname", msg.member.displayName, false)
+                            .catch(err => log.error(err));
                         }
                       } else {
                         that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
@@ -264,7 +267,8 @@ module.exports = class EditGym extends commando.Command {
                             .catch(err => log.error(err)));
                         if (result["id"]) {
                           that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
-                          Region.showGymDetail(msg, result, "Updated Gym Description", msg.member.displayName, false);
+                          Region.showGymDetail(msg, result, "Updated Gym Description", msg.member.displayName, false)
+                            .catch(err => log.error(err));
                         }
                       } else {
                         that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
@@ -284,7 +288,8 @@ module.exports = class EditGym extends commando.Command {
                             .catch(err => log.error(err)));
                         if (result["id"]) {
                           that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
-                          Region.showGymDetail(msg, result, "Updated Gym Keywords", msg.member.displayName, false);
+                          Region.showGymDetail(msg, result, "Updated Gym Keywords", msg.member.displayName, false)
+                            .catch(err => log.error(err));
                         }
                       } else {
                         that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
@@ -314,7 +319,8 @@ module.exports = class EditGym extends commando.Command {
                                 });
 
                                 that.cleanup(msg, gymResult, fieldResult, tagResult, gymMessage);
-                                Region.showGymDetail(msg, result, "Updated EX Raid Eligibility", msg.member.displayName, false);
+                                Region.showGymDetail(msg, result, "Updated EX Raid Eligibility", msg.member.displayName, false)
+                                  .catch(err => log.error(err));
                               }
                             } else {
                               previousResult.prompts.forEach(message => {

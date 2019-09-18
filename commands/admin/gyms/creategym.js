@@ -149,10 +149,12 @@ module.exports = class CreateGym extends Commando.Command {
                             .catch(err => log.error(err));
 
                           let channels = await Region.getChannelsForGym(finalGym, msg.channel.guild.id);
-                          await Region.showGymDetail(msg, finalGym, "New Gym Added", null, false);
+                          await Region.showGymDetail(msg, finalGym, "New Gym Added", null, false)
+                            .catch(err => log.error(err));
 
                           if (settings.postNewGyms) {
-                            await Region.showGymDetail(null, finalGym, "New Gym Added", null, false, Helper.getUpdatesChannel(msg.channel));
+                            await Region.showGymDetail(null, finalGym, "New Gym Added", null, false, Helper.getUpdatesChannel(msg.channel))
+                              .catch(err => log.error(err));
                           }
 
                           const channelStrings = [];
