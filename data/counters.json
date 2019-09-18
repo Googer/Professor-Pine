@@ -2924,7 +2924,7 @@
 			"sta": 214,
 			"gsName": [
 				"ARMORED MEWTWO",
-				"A MEWTWO",
+				"ARMORED MEWTWO",
 				"MEWTWO ARMORED"
 			],
 			"imageURL": "https://cdn.bulbagarden.net/upload/3/32/GO150A.png"
@@ -9250,6 +9250,2700 @@
 				"ARCEUS"
 			],
 			"imageURL": "https://cdn.bulbagarden.net/upload/8/8a/493Arceus_Water_Dream.png"
+		},
+		{
+			"number": 494,
+			"pbName": "VICTINI",
+			"family": "VICTINI",
+			"aliases": [
+				"VICTINI"
+			],
+			"dzName": "Victini",
+			"atk": 210,
+			"def": 210,
+			"sta": 225,
+			"gsName": [
+				"VICTINI"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/60/494Victini.png"
+		},
+		{
+			"number": 495,
+			"pbName": "SNIVY",
+			"family": "SNIVY",
+			"aliases": [
+				"SNIVY"
+			],
+			"dzName": "Snivy",
+			"atk": 88,
+			"def": 107,
+			"sta": 128,
+			"gsName": [
+				"SNIVY"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/7/75/495Snivy.png"
+		},
+		{
+			"number": 496,
+			"pbName": "SERVINE",
+			"family": "SNIVY",
+			"aliases": [
+				"SERVINE"
+			],
+			"dzName": "Servine",
+			"atk": 122,
+			"def": 152,
+			"sta": 155,
+			"gsName": [
+				"SERVINE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/7/73/496Servine.png"
+		},
+		{
+			"number": 497,
+			"pbName": "SERPERIOR",
+			"family": "SNIVY",
+			"aliases": [
+				"SERPERIOR"
+			],
+			"dzName": "Serperior",
+			"atk": 161,
+			"def": 204,
+			"sta": 181,
+			"gsName": [
+				"SERPERIOR"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/b/b7/497Serperior.png"
+		},
+		{
+			"number": 498,
+			"pbName": "TEPIG",
+			"family": "TEPIG",
+			"aliases": [
+				"TEPIG"
+			],
+			"dzName": "Tepig",
+			"atk": 115,
+			"def": 85,
+			"sta": 163,
+			"gsName": [
+				"TEPIG"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/5/5b/498Tepig.png"
+		},
+		{
+			"number": 499,
+			"pbName": "PIGNITE",
+			"family": "TEPIG",
+			"aliases": [
+				"PIGNITE",
+				"PIGNIGHT"
+			],
+			"dzName": "Pignite",
+			"atk": 173,
+			"def": 106,
+			"sta": 207,
+			"gsName": [
+				"PIGNITE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/e/e8/499Pignite.png"
+		},
+		{
+			"number": 500,
+			"pbName": "EMBOAR",
+			"family": "TEPIG",
+			"aliases": [
+				"EMBOAR"
+			],
+			"dzName": "Emboar",
+			"atk": 235,
+			"def": 127,
+			"sta": 242,
+			"gsName": [
+				"EMBOAR"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/1/18/500Emboar.png"
+		},
+		{
+			"number": 501,
+			"pbName": "OSHAWOTT",
+			"family": "OSHAWOTT",
+			"aliases": [
+				"OSHAWOTT",
+				"OSHOWATT"
+			],
+			"dzName": "Oshawott",
+			"atk": 117,
+			"def": 85,
+			"sta": 146,
+			"gsName": [
+				"OSHAWOTT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/3/3b/501Oshawott.png"
+		},
+		{
+			"number": 502,
+			"pbName": "DEWOTT",
+			"family": "OSHAWOTT",
+			"aliases": [
+				"DEWOTT",
+				"DEWOT"
+			],
+			"dzName": "Dewott",
+			"atk": 159,
+			"def": 116,
+			"sta": 181,
+			"gsName": [
+				"DEWOTT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/e/e4/502Dewott.png"
+		},
+		{
+			"number": 503,
+			"pbName": "SAMUROTT",
+			"family": "OSHAWOTT",
+			"aliases": [
+				"SAMUROTT"
+			],
+			"dzName": "Samurott",
+			"atk": 212,
+			"def": 157,
+			"sta": 216,
+			"gsName": [
+				"SAMUROTT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/b/b5/503Samurott.png"
+		},
+		{
+			"number": 504,
+			"pbName": "PATRAT",
+			"family": "PATRAT",
+			"aliases": [
+				"PATRAT",
+				"PACKRAT"
+			],
+			"dzName": "Patrat",
+			"atk": 98,
+			"def": 73,
+			"sta": 128,
+			"gsName": [
+				"PATRAT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/c/cb/504Patrat.png"
+		},
+		{
+			"number": 505,
+			"pbName": "WATCHOG",
+			"family": "PATRAT",
+			"aliases": [
+				"WATCHOG",
+				"WATCHHOG"
+			],
+			"dzName": "Watchog",
+			"atk": 165,
+			"def": 139,
+			"sta": 155,
+			"gsName": [
+				"WATCHOG"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/3/3e/505Watchog.png"
+		},
+		{
+			"number": 506,
+			"pbName": "LILLIPUP",
+			"family": "LILLIPUP",
+			"aliases": [
+				"LILLIPUP",
+				"LILIPUP"
+			],
+			"dzName": "Lillipup",
+			"atk": 107,
+			"def": 86,
+			"sta": 128,
+			"gsName": [
+				"LILLIPUP"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/7/7e/506Lillipup.png"
+		},
+		{
+			"number": 507,
+			"pbName": "HERDIER",
+			"family": "LILLIPUP",
+			"aliases": [
+				"HERDIER"
+			],
+			"dzName": "Herdier",
+			"atk": 145,
+			"def": 126,
+			"sta": 163,
+			"gsName": [
+				"HERDIER"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/9/96/507Herdier.png"
+		},
+		{
+			"number": 508,
+			"pbName": "STOUTLAND",
+			"family": "LILLIPUP",
+			"aliases": [
+				"STOUTLAND"
+			],
+			"dzName": "Stoutland",
+			"atk": 206,
+			"def": 182,
+			"sta": 198,
+			"gsName": [
+				"STOUTLAND"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/3/3e/508Stoutland.png"
+		},
+		{
+			"number": 509,
+			"pbName": "PURRLOIN",
+			"family": "PURRLOIN",
+			"aliases": [
+				"PURRLOIN"
+			],
+			"dzName": "Purrloin",
+			"atk": 98,
+			"def": 73,
+			"sta": 121,
+			"gsName": [
+				"VICTINI"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/4/46/509Purrloin.png"
+		},
+		{
+			"number": 510,
+			"pbName": "LIEPARD",
+			"family": "PURRLOIN",
+			"aliases": [
+				"LIEPARD"
+			],
+			"dzName": "Liepard",
+			"atk": 187,
+			"def": 106,
+			"sta": 162,
+			"gsName": [
+				"LIEPARD"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/0/09/510Liepard.png"
+		},
+		{
+			"number": 511,
+			"pbName": "PANSAGE",
+			"family": "PANSAGE",
+			"aliases": [
+				"PANSAGE"
+			],
+			"dzName": "Pansage",
+			"atk": 104,
+			"def": 94,
+			"sta": 137,
+			"gsName": [
+				"PANSAGE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/6b/511Pansage.png"
+		},
+		{
+			"number": 512,
+			"pbName": "SIMISAGE",
+			"family": "PANSAGE",
+			"aliases": [
+				"SIMISAGE"
+			],
+			"dzName": "Simisage",
+			"atk": 206,
+			"def": 133,
+			"sta": 181,
+			"gsName": [
+				"SIMISAGE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/2/24/512Simisage.png"
+		},
+		{
+			"number": 513,
+			"pbName": "PANSEAR",
+			"family": "PANSEAR",
+			"aliases": [
+				"PANSEAR"
+			],
+			"dzName": "Pansear",
+			"atk": 104,
+			"def": 94,
+			"sta": 137,
+			"gsName": [
+				"PANSEAR"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/e/e1/513Pansear.png"
+		},
+		{
+			"number": 514,
+			"pbName": "SIMISEAR",
+			"family": "PANSEAR",
+			"aliases": [
+				"SIMISEAR"
+			],
+			"dzName": "Simisear",
+			"atk": 206,
+			"def": 133,
+			"sta": 181,
+			"gsName": [
+				"SIMISEAR"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/7/7c/514Simisear.png"
+		},
+		{
+			"number": 515,
+			"pbName": "PANPOUR",
+			"family": "PANPOUR",
+			"aliases": [
+				"PANPOUR"
+			],
+			"dzName": "Panpour",
+			"atk": 104,
+			"def": 94,
+			"sta": 137,
+			"gsName": [
+				"PANPOUR"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/2/2f/515Panpour.png"
+		},
+		{
+			"number": 516,
+			"pbName": "SIMIPOUR",
+			"family": "PANPOUR",
+			"aliases": [
+				"SIMIPOUR"
+			],
+			"dzName": "Simipour",
+			"atk": 206,
+			"def": 133,
+			"sta": 181,
+			"gsName": [
+				"SIMIPOUR"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/8/83/516Simipour.png"
+		},
+		{
+			"number": 517,
+			"pbName": "MUNNA",
+			"family": "MUNNA",
+			"aliases": [
+				"MUNNA"
+			],
+			"dzName": "Munna",
+			"atk": 111,
+			"def": 92,
+			"sta": 183,
+			"gsName": [
+				"MUNNA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/61/517Munna.png"
+		},
+		{
+			"number": 518,
+			"pbName": "MUSHARNA",
+			"family": "MUNNA",
+			"aliases": [
+				"MUSHARNA"
+			],
+			"dzName": "Musharna",
+			"atk": 183,
+			"def": 166,
+			"sta": 253,
+			"gsName": [
+				"MUSHARNA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/2/2d/518Musharna.png"
+		},
+		{
+			"number": 519,
+			"pbName": "PIDOVE",
+			"family": "PIDOVE",
+			"aliases": [
+				"PIDOVE"
+			],
+			"dzName": "Pidove",
+			"atk": 98,
+			"def": 80,
+			"sta": 137,
+			"gsName": [
+				"PIDOVE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/c/c3/519Pidove.png"
+		},
+		{
+			"number": 520,
+			"pbName": "TRANQUILL",
+			"family": "PIDOVE",
+			"aliases": [
+				"TRANQUILL"
+			],
+			"dzName": "Tranquill",
+			"atk": 144,
+			"def": 107,
+			"sta": 158,
+			"gsName": [
+				"TRANQUILL"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/a3/520Tranquill.png"
+		},
+		{
+			"number": 521,
+			"pbName": "UNFEZANT",
+			"family": "PIDOVE",
+			"aliases": [
+				"UNFEZANT"
+			],
+			"dzName": "Unfezant",
+			"atk": 226,
+			"def": 146,
+			"sta": 190,
+			"gsName": [
+				"UNFEZANT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/d/d0/521Unfezant.png"
+		},
+		{
+			"number": 522,
+			"pbName": "BLITZLE",
+			"family": "BLITZLE",
+			"aliases": [
+				"BLITZLE"
+			],
+			"dzName": "Blitzle",
+			"atk": 118,
+			"def": 64,
+			"sta": 128,
+			"gsName": [
+				"BLITZLE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/af/522Blitzle.png"
+		},
+		{
+			"number": 523,
+			"pbName": "ZEBSTRIKA",
+			"family": "BLITZLE",
+			"aliases": [
+				"ZEBSTRIKA"
+			],
+			"dzName": "Zebstrika",
+			"atk": 211,
+			"def": 136,
+			"sta": 181,
+			"gsName": [
+				"ZEBSTRIKA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/a1/523Zebstrika.png"
+		},
+		{
+			"number": 524,
+			"pbName": "ROGGENROLA",
+			"family": "ROGGENROLA",
+			"aliases": [
+				"ROGGENROLA"
+			],
+			"dzName": "Roggenrola",
+			"atk": 121,
+			"def": 110,
+			"sta": 146,
+			"gsName": [
+				"ROGGENROLA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/69/524Roggenrola.png"
+		},
+		{
+			"number": 525,
+			"pbName": "BOLDORE",
+			"family": "ROGGENROLA",
+			"aliases": [
+				"BOLDORE"
+			],
+			"dzName": "Boldore",
+			"atk": 174,
+			"def": 143,
+			"sta": 172,
+			"gsName": [
+				"BOLDORE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/c/ce/525Boldore.png"
+		},
+		{
+			"number": 526,
+			"pbName": "GIGALITH",
+			"family": "ROGGENROLA",
+			"aliases": [
+				"GIGALITH"
+			],
+			"dzName": "Gigalith",
+			"atk": 226,
+			"def": 201,
+			"sta": 198,
+			"gsName": [
+				"GIGALITH"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/5/59/526Gigalith.png"
+		},
+		{
+			"number": 527,
+			"pbName": "WOOBAT",
+			"family": "WOOBAT",
+			"aliases": [
+				"WOOBAT"
+			],
+			"dzName": "Woobat",
+			"atk": 107,
+			"def": 85,
+			"sta": 163,
+			"gsName": [
+				"WOOBAT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/3/36/527Woobat.png"
+		},
+		{
+			"number": 528,
+			"pbName": "SWOOBAT",
+			"family": "WOOBAT",
+			"aliases": [
+				"SWOOBAT"
+			],
+			"dzName": "Swoobat",
+			"atk": 161,
+			"def": 119,
+			"sta": 167,
+			"gsName": [
+				"SWOOBAT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/9/9d/528Swoobat.png"
+		},
+		{
+			"number": 529,
+			"pbName": "DRILBUR",
+			"family": "DRILBUR",
+			"aliases": [
+				"DRILBUR",
+				"DRILLBUR"
+			],
+			"dzName": "Drilbur",
+			"atk": 154,
+			"def": 85,
+			"sta": 155,
+			"gsName": [
+				"DRILBUR"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/c/cf/529Drilbur.png"
+		},
+		{
+			"number": 530,
+			"pbName": "EXCADRILL",
+			"family": "DRILBUR",
+			"aliases": [
+				"EXCADRILL"
+			],
+			"dzName": "Excadrill",
+			"atk": 255,
+			"def": 129,
+			"sta": 242,
+			"gsName": [
+				"EXCADRILL"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/63/530Excadrill.png"
+		},
+		{
+			"number": 531,
+			"pbName": "AUDINO",
+			"family": "AUDINO",
+			"aliases": [
+				"AUDINO"
+			],
+			"dzName": "Audino",
+			"atk": 114,
+			"def": 163,
+			"sta": 230,
+			"gsName": [
+				"AUDINO"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/f/f5/531Audino.png"
+		},
+		{
+			"number": 532,
+			"pbName": "TIMBURR",
+			"family": "TIMBURR",
+			"aliases": [
+				"TIMBURR",
+				"TIMBUR"
+			],
+			"dzName": "Timburr",
+			"atk": 134,
+			"def": 87,
+			"sta": 181,
+			"gsName": [
+				"TIMBURR"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/69/532Timburr.png"
+		},
+		{
+			"number": 533,
+			"pbName": "GURDURR",
+			"family": "TIMBURR",
+			"aliases": [
+				"GURDURR"
+			],
+			"dzName": "Gurdurr",
+			"atk": 180,
+			"def": 134,
+			"sta": 198,
+			"gsName": [
+				"GURDURR"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/ad/533Gurdurr.png"
+		},
+		{
+			"number": 534,
+			"pbName": "CONKELDURR",
+			"family": "TIMBURR",
+			"aliases": [
+				"CONKELDURR"
+			],
+			"dzName": "Conkeldurr",
+			"atk": 243,
+			"def": 158,
+			"sta": 233,
+			"gsName": [
+				"CONKELDURR"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/1/11/534Conkeldurr.png"
+		},
+		{
+			"number": 535,
+			"pbName": "TYMPOLE",
+			"family": "TYMPOLE",
+			"aliases": [
+				"TYMPOLE"
+			],
+			"dzName": "Tympole",
+			"atk": 98,
+			"def": 78,
+			"sta": 137,
+			"gsName": [
+				"TYMPOLE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/c/c9/535Tympole.png"
+		},
+		{
+			"number": 536,
+			"pbName": "PALPITOAD",
+			"family": "TYMPOLE",
+			"aliases": [
+				"PALPITOAD"
+			],
+			"dzName": "Palpitoad",
+			"atk": 128,
+			"def": 109,
+			"sta": 181,
+			"gsName": [
+				"PALPITOAD"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/c/c9/536Palpitoad.png"
+		},
+		{
+			"number": 537,
+			"pbName": "SEISMITOAD",
+			"family": "TYMPOLE",
+			"aliases": [
+				"SEISMITOAD"
+			],
+			"dzName": "Seismitoad",
+			"atk": 188,
+			"def": 150,
+			"sta": 233,
+			"gsName": [
+				"SEISMITOAD"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/3/35/537Seismitoad.png"
+		},
+		{
+			"number": 538,
+			"pbName": "THROH",
+			"family": "THROH",
+			"aliases": [
+				"THROH"
+			],
+			"dzName": "Throh",
+			"atk": 172,
+			"def": 160,
+			"sta": 260,
+			"gsName": [
+				"THROH"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/7/74/538Throh.png"
+		},
+		{
+			"number": 539,
+			"pbName": "SAWK",
+			"family": "SAWK",
+			"aliases": [
+				"SAWK"
+			],
+			"dzName": "Sawk",
+			"atk": 231,
+			"def": 153,
+			"sta": 181,
+			"gsName": [
+				"SAWK"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/a8/539Sawk.png"
+		},
+		{
+			"number": 540,
+			"pbName": "SEWADDLE",
+			"family": "SEWADDLE",
+			"aliases": [
+				"SEWADDLE"
+			],
+			"dzName": "Sewaddle",
+			"atk": 96,
+			"def": 124,
+			"sta": 128,
+			"gsName": [
+				"SEWADDLE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/4/4a/540Sewaddle.png"
+		},
+		{
+			"number": 541,
+			"pbName": "SWADLOON",
+			"family": "SEWADDLE",
+			"aliases": [
+				"SWADLOON"
+			],
+			"dzName": "Swadloon",
+			"atk": 115,
+			"def": 162,
+			"sta": 146,
+			"gsName": [
+				"SWADLOON"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/2/2b/541Swadloon.png"
+		},
+		{
+			"number": 542,
+			"pbName": "LEAVANNY",
+			"family": "SEWADDLE",
+			"aliases": [
+				"LEAVANNY"
+			],
+			"dzName": "Leavanny",
+			"atk": 161,
+			"def": 119,
+			"sta": 167,
+			"gsName": [
+				"LEAVANNY"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/8/8e/542Leavanny.png"
+		},
+		{
+			"number": 543,
+			"pbName": "VENIPEDE",
+			"family": "VENIPEDE",
+			"aliases": [
+				"VENIPEDE"
+			],
+			"dzName": "Venipede",
+			"atk": 83,
+			"def": 99,
+			"sta": 102,
+			"gsName": [
+				"VENIPEDE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/0/0e/543Venipede.png"
+		},
+		{
+			"number": 544,
+			"pbName": "WHIRLIPEDE",
+			"family": "VENIPEDE",
+			"aliases": [
+				"WHIRLIPEDE"
+			],
+			"dzName": "Whirlipede",
+			"atk": 100,
+			"def": 173,
+			"sta": 120,
+			"gsName": [
+				"WHIRLIPEDE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/b/bc/544Whirlipede.png"
+		},
+		{
+			"number": 545,
+			"pbName": "SCOLIPEDE",
+			"family": "VENIPEDE",
+			"aliases": [
+				"SCOLIPEDE"
+			],
+			"dzName": "Scolipede",
+			"atk": 203,
+			"def": 175,
+			"sta": 155,
+			"gsName": [
+				"SCOLIPEDE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/c/cb/545Scolipede.png"
+		},
+		{
+			"number": 546,
+			"pbName": "COTTONEE",
+			"family": "COTTONEE",
+			"aliases": [
+				"COTTONEE"
+			],
+			"dzName": "Cottonee",
+			"atk": 71,
+			"def": 111,
+			"sta": 120,
+			"gsName": [
+				"COTTONEE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/4/44/546Cottonee.png"
+		},
+		{
+			"number": 547,
+			"pbName": "WHIMSICOTT",
+			"family": "COTTONEE",
+			"aliases": [
+				"WHIMSICOTT"
+			],
+			"dzName": "Whimsicott",
+			"atk": 164,
+			"def": 176,
+			"sta": 155,
+			"gsName": [
+				"WHIMSICOTT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/a2/547Whimsicott.png"
+		},
+		{
+			"number": 548,
+			"pbName": "PETILIL",
+			"family": "PETILIL",
+			"aliases": [
+				"PETILIL"
+			],
+			"dzName": "Petilil",
+			"atk": 119,
+			"def": 91,
+			"sta": 128,
+			"gsName": [
+				"PETILIL"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/0/0b/548Petilil.png"
+		},
+		{
+			"number": 549,
+			"pbName": "LILLIGANT",
+			"family": "PETILIL",
+			"aliases": [
+				"LILLIGANT"
+			],
+			"dzName": "Lilligant",
+			"atk": 214,
+			"def": 155,
+			"sta": 172,
+			"gsName": [
+				"LILLIGANT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/2/21/549Lilligant.png"
+		},
+		{
+			"number": 550,
+			"pbName": "BASCULIN",
+			"family": "BASCULIN",
+			"aliases": [
+				"BASCULIN",
+				"BASCULIN RED",
+				"BASCULIN BLUE",
+				"BASCULIN RED STRIPE",
+				"BASCULIN BLUE STRIPE"
+			],
+			"dzName": "Basculin",
+			"atk": 189,
+			"def": 129,
+			"sta": 172,
+			"gsName": [
+				"BASCULIN"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/2/2f/550Basculin.png"
+		},
+		{
+			"number": 551,
+			"pbName": "SANDILE",
+			"family": "SANDILE",
+			"aliases": [
+				"SANDILE"
+			],
+			"dzName": "Sandile",
+			"atk": 132,
+			"def": 69,
+			"sta": 137,
+			"gsName": [
+				"SANDILE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/2/26/551Sandile.png"
+		},
+		{
+			"number": 552,
+			"pbName": "KROKOROK",
+			"family": "SANDILE",
+			"aliases": [
+				"KROKOROK"
+			],
+			"dzName": "Krokorok",
+			"atk": 155,
+			"def": 90,
+			"sta": 155,
+			"gsName": [
+				"KROKOROK"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/d/d4/552Krokorok.png"
+		},
+		{
+			"number": 553,
+			"pbName": "KROOKODILE",
+			"family": "SANDILE",
+			"aliases": [
+				"KROOKODILE"
+			],
+			"dzName": "Krookodile",
+			"atk": 229,
+			"def": 158,
+			"sta": 216,
+			"gsName": [
+				"KROOKODILE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/e/e5/553Krookodile.png"
+		},
+		{
+			"number": 554,
+			"pbName": "DARUMAKA",
+			"family": "DARUMAKA",
+			"aliases": [
+				"DARUMAKA"
+			],
+			"dzName": "Darumaka",
+			"atk": 153,
+			"def": 86,
+			"sta": 172,
+			"gsName": [
+				"DARUMAKA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/4/4c/554Darumaka.png"
+		},
+		{
+			"number": 555,
+			"pbName": "DARMANITAN",
+			"family": "DARUMAKA",
+			"aliases": [
+				"DARMANITAN",
+				"DARMANITAN NORMAL"
+			],
+			"dzName": "Darmanitan",
+			"atk": 263,
+			"def": 114,
+			"sta": 233,
+			"gsName": [
+				"DARMANITAN"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/4/40/555Darmanitan.png"
+		},
+		{
+			"number": 555,
+			"pbName": "DARMANITAN_ZEN_FORM",
+			"family": "DARUMAKA",
+			"aliases": [
+				"DARMANITAN ZEN",
+				"DARMANITAN PSYCHIC",
+				"DARMANITAN ZEN FORM"
+			],
+			"dzName": "Darmanitan Zen Form",
+			"atk": 243,
+			"def": 202,
+			"sta": 233,
+			"gsName": [
+				"DARMANITAN ZEN FORM",
+				"DARMANITAN ZEN",
+				"ZEN DARMANITAN"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/f/fe/555Darmanitan-Zen.png"
+		},
+		{
+			"number": 556,
+			"pbName": "MARACTUS",
+			"family": "MARACTUS",
+			"aliases": [
+				"MARACTUS"
+			],
+			"dzName": "Maractus",
+			"atk": 201,
+			"def": 130,
+			"sta": 181,
+			"gsName": [
+				"MARACTUS"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/3/35/556Maractus.png"
+		},
+		{
+			"number": 557,
+			"pbName": "DWEBBLE",
+			"family": "DWEBBLE",
+			"aliases": [
+				"DWEBBLE"
+			],
+			"dzName": "Dwebble",
+			"atk": 118,
+			"def": 128,
+			"sta": 137,
+			"gsName": [
+				"DWEBBLE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/6b/557Dwebble.png"
+		},
+		{
+			"number": 558,
+			"pbName": "CRUSTLE",
+			"family": "DWEBBLE",
+			"aliases": [
+				"CRUSTLE"
+			],
+			"dzName": "Crustle",
+			"atk": 188,
+			"def": 200,
+			"sta": 172,
+			"gsName": [
+				"CRUSTLE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/1/19/558Crustle.png"
+		},
+		{
+			"number": 559,
+			"pbName": "SCRAGGY",
+			"family": "SCRAGGY",
+			"aliases": [
+				"SCRAGGY"
+			],
+			"dzName": "Scraggy",
+			"atk": 132,
+			"def": 132,
+			"sta": 137,
+			"gsName": [
+				"SCRAGGY"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/d/dc/559Scraggy.png"
+		},
+		{
+			"number": 560,
+			"pbName": "SCRAFTY",
+			"family": "SCRAGGY",
+			"aliases": [
+				"SCRAFTY"
+			],
+			"dzName": "Scrafty",
+			"atk": 163,
+			"def": 222,
+			"sta": 163,
+			"gsName": [
+				"SCRAFTY"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/e/e8/560Scrafty.png"
+		},
+		{
+			"number": 561,
+			"pbName": "SIGILYPH",
+			"family": "SIGILYPH",
+			"aliases": [
+				"SIGILYPH"
+			],
+			"dzName": "Sigilyph",
+			"atk": 204,
+			"def": 167,
+			"sta": 176,
+			"gsName": [
+				"SIGILYPH"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/67/561Sigilyph.png"
+		},
+		{
+			"number": 562,
+			"pbName": "YAMASK",
+			"family": "YAMASK",
+			"aliases": [
+				"YAMASK"
+			],
+			"dzName": "Yamask",
+			"atk": 95,
+			"def": 141,
+			"sta": 116,
+			"gsName": [
+				"YAMASK"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/a4/562Yamask.png"
+		},
+		{
+			"number": 563,
+			"pbName": "COFAGRIGUS",
+			"family": "YAMASK",
+			"aliases": [
+				"COFAGRIGUS"
+			],
+			"dzName": "Cofagrigus",
+			"atk": 163,
+			"def": 237,
+			"sta": 151,
+			"gsName": [
+				"COFAGRIGUS"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/f/f8/563Cofagrigus.png"
+		},
+		{
+			"number": 564,
+			"pbName": "TIRTOUGA",
+			"family": "TIRTOUGA",
+			"aliases": [
+				"TIRTOUGA"
+			],
+			"dzName": "Tirtouga",
+			"atk": 134,
+			"def": 146,
+			"sta": 144,
+			"gsName": [
+				"TIRTOUGA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/1/1a/564Tirtouga.png"
+		},
+		{
+			"number": 565,
+			"pbName": "CARRACOSTA",
+			"family": "TIRTOUGA",
+			"aliases": [
+				"CARRACOSTA"
+			],
+			"dzName": "Carracosta",
+			"atk": 192,
+			"def": 197,
+			"sta": 179,
+			"gsName": [
+				"CARRACOSTA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/d/d0/565Carracosta.png"
+		},
+		{
+			"number": 566,
+			"pbName": "ARCHEN",
+			"family": "ARCHEN",
+			"aliases": [
+				"ARCHEN"
+			],
+			"dzName": "Archen",
+			"atk": 213,
+			"def": 89,
+			"sta": 146,
+			"gsName": [
+				"ARCHEN"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/a3/566Archen.png"
+		},
+		{
+			"number": 567,
+			"pbName": "ARCHEOPS",
+			"family": "ARCHEN",
+			"aliases": [
+				"ARCHEOPS"
+			],
+			"dzName": "Archeops",
+			"atk": 292,
+			"def": 139,
+			"sta": 181,
+			"gsName": [
+				"ARCHEOPS"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/1/14/567Archeops.png"
+		},
+		{
+			"number": 568,
+			"pbName": "TRUBBISH",
+			"family": "TRUBBISH",
+			"aliases": [
+				"TRUBBISH"
+			],
+			"dzName": "Trubbish",
+			"atk": 96,
+			"def": 122,
+			"sta": 137,
+			"gsName": [
+				"TRUBBISH"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/e/e2/568Trubbish.png"
+		},
+		{
+			"number": 569,
+			"pbName": "GARBODOR",
+			"family": "TRUBBISH",
+			"aliases": [
+				"GARBODOR"
+			],
+			"dzName": "Garbodor",
+			"atk": 181,
+			"def": 164,
+			"sta": 190,
+			"gsName": [
+				"GARBODOR"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/c/c4/569Garbodor.png"
+		},
+		{
+			"number": 570,
+			"pbName": "ZORUA",
+			"family": "ZORUA",
+			"aliases": [
+				"ZORUA"
+			],
+			"dzName": "Zorua",
+			"atk": 153,
+			"def": 78,
+			"sta": 120,
+			"gsName": [
+				"ZORUA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/2/2b/570Zorua.png"
+		},
+		{
+			"number": 571,
+			"pbName": "ZOROARK",
+			"family": "ZORUA",
+			"aliases": [
+				"ZOROARK"
+			],
+			"dzName": "Zoroark",
+			"atk": 250,
+			"def": 127,
+			"sta": 155,
+			"gsName": [
+				"ZOROARK"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/a6/571Zoroark.png"
+		},
+		{
+			"number": 572,
+			"pbName": "MINCCINO",
+			"family": "MINCCINO",
+			"aliases": [
+				"MINCCINO"
+			],
+			"dzName": "Minccino",
+			"atk": 98,
+			"def": 80,
+			"sta": 146,
+			"gsName": [
+				"MINCCINO"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/e/ec/572Minccino.png"
+		},
+		{
+			"number": 573,
+			"pbName": "CINCCINO",
+			"family": "MINCCINO",
+			"aliases": [
+				"CINCCINO"
+			],
+			"dzName": "Cinccino",
+			"atk": 198,
+			"def": 130,
+			"sta": 181,
+			"gsName": [
+				"CINCCINO"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/9/94/573Cinccino.png"
+		},
+		{
+			"number": 574,
+			"pbName": "GOTHITA",
+			"family": "GOTHITA",
+			"aliases": [
+				"GOTHITA"
+			],
+			"dzName": "Gothita",
+			"atk": 98,
+			"def": 112,
+			"sta": 128,
+			"gsName": [
+				"GOTHITA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/7/71/574Gothita.png"
+		},
+		{
+			"number": 575,
+			"pbName": "GOTHORITA",
+			"family": "GOTHITA",
+			"aliases": [
+				"GOTHORITA"
+			],
+			"dzName": "Gothorita",
+			"atk": 137,
+			"def": 153,
+			"sta": 155,
+			"gsName": [
+				"GOTHORITA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/67/575Gothorita.png"
+		},
+		{
+			"number": 576,
+			"pbName": "GOTHITELLE",
+			"family": "GOTHITA",
+			"aliases": [
+				"GOTHITELLE"
+			],
+			"dzName": "Gothitelle",
+			"atk": 176,
+			"def": 205,
+			"sta": 172,
+			"gsName": [
+				"GOTHITELLE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/3/38/576Gothitelle.png"
+		},
+		{
+			"number": 577,
+			"pbName": "SOLOSIS",
+			"family": "SOLOSIS",
+			"aliases": [
+				"SOLOSIS"
+			],
+			"dzName": "Solosis",
+			"atk": 170,
+			"def": 83,
+			"sta": 128,
+			"gsName": [
+				"SOLOSIS"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/1/1e/577Solosis.png"
+		},
+		{
+			"number": 578,
+			"pbName": "DUOSION",
+			"family": "SOLOSIS",
+			"aliases": [
+				"DUOSION"
+			],
+			"dzName": "Duosion",
+			"atk": 208,
+			"def": 103,
+			"sta": 163,
+			"gsName": [
+				"DUOSION"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/8/83/578Duosion.png"
+		},
+		{
+			"number": 579,
+			"pbName": "REUNICLUS",
+			"family": "SOLOSIS",
+			"aliases": [
+				"REUNICLUS"
+			],
+			"dzName": "Reuniclus",
+			"atk": 192,
+			"def": 197,
+			"sta": 179,
+			"gsName": [
+				"REUNICLUS"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/1/19/579Reuniclus.png"
+		},
+		{
+			"number": 580,
+			"pbName": "DUCKLETT",
+			"family": "DUCKLETT",
+			"aliases": [
+				"DUCKLETT"
+			],
+			"dzName": "Ducklett",
+			"atk": 84,
+			"def": 96,
+			"sta": 158,
+			"gsName": [
+				"DUCKLETT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/4/4b/580Ducklett.png"
+		},
+		{
+			"number": 581,
+			"pbName": "SWANNA",
+			"family": "DUCKLETT",
+			"aliases": [
+				"SWANNA"
+			],
+			"dzName": "Swanna",
+			"atk": 182,
+			"def": 132,
+			"sta": 181,
+			"gsName": [
+				"SWANNA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/7/76/581Swanna.png"
+		},
+		{
+			"number": 582,
+			"pbName": "VANILLITE",
+			"family": "VANILLITE",
+			"aliases": [
+				"VANILLITE"
+			],
+			"dzName": "Vanillite",
+			"atk": 118,
+			"def": 106,
+			"sta": 113,
+			"gsName": [
+				"VANILLITE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/3/3f/582Vanillite.png"
+		},
+		{
+			"number": 583,
+			"pbName": "VANILLISH",
+			"family": "VANILLITE",
+			"aliases": [
+				"VANILLISH"
+			],
+			"dzName": "Vanillish",
+			"atk": 151,
+			"def": 138,
+			"sta": 139,
+			"gsName": [
+				"VANILLISH"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/2/2f/583Vanillish.png"
+		},
+		{
+			"number": 584,
+			"pbName": "VANILLUXE",
+			"family": "VANILLITE",
+			"aliases": [
+				"VANILLUXE"
+			],
+			"dzName": "Vanilluxe",
+			"atk": 218,
+			"def": 184,
+			"sta": 174,
+			"gsName": [
+				"VANILLUXE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/3/39/584Vanilluxe.png"
+		},
+		{
+			"number": 585,
+			"pbName": "DEERLING",
+			"family": "DEERLING",
+			"aliases": [
+				"DEERLING",
+				"DEERLING AUTUMN",
+				"DEERLING FALL",
+				"DEERLING SPRING",
+				"DEERLING WINTER",
+				"DEERLING SUMMER"
+			],
+			"dzName": "Deerling",
+			"atk": 115,
+			"def": 100,
+			"sta": 155,
+			"gsName": [
+				"DEERLING"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/68/585Deerling-Spring.png"
+		},
+		{
+			"number": 586,
+			"pbName": "SAWSBUCK",
+			"family": "DEERLING",
+			"aliases": [
+				"SAWSBUCK"
+			],
+			"dzName": "Sawsbuck",
+			"atk": 198,
+			"def": 146,
+			"sta": 190,
+			"gsName": [
+				"SAWSBUCK",
+				"SAWSBUCK AUTUMN",
+				"SAWSBUCK FALL",
+				"SAWSBUCK SPRING",
+				"SAWSBUCK WINTER",
+				"SAWSBUCK SUMMER"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/8/8d/586Sawsbuck-Spring.png"
+		},
+		{
+			"number": 587,
+			"pbName": "EMOLGA",
+			"family": "EMOLGA",
+			"aliases": [
+				"EMOLGA"
+			],
+			"dzName": "Emolga",
+			"atk": 158,
+			"def": 127,
+			"sta": 146,
+			"gsName": [
+				"EMOLGA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/b/b4/587Emolga.png"
+		},
+		{
+			"number": 588,
+			"pbName": "KARRABLAST",
+			"family": "KARRABLAST",
+			"aliases": [
+				"KARRABLAST"
+			],
+			"dzName": "Karrablast",
+			"atk": 137,
+			"def": 87,
+			"sta": 137,
+			"gsName": [
+				"KARRABLAST"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/60/588Karrablast.png"
+		},
+		{
+			"number": 589,
+			"pbName": "ESCAVALIER",
+			"family": "KARRABLAST",
+			"aliases": [
+				"ESCAVALIER"
+			],
+			"dzName": "Escavalier",
+			"atk": 223,
+			"def": 187,
+			"sta": 172,
+			"gsName": [
+				"ESCAVALIER"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/63/589Escavalier.png"
+		},
+		{
+			"number": 590,
+			"pbName": "FOONGUS",
+			"family": "FOONGUS",
+			"aliases": [
+				"FOONGUS"
+			],
+			"dzName": "Foongus",
+			"atk": 97,
+			"def": 91,
+			"sta": 170,
+			"gsName": [
+				"FOONGUS"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/c/cc/590Foongus.png"
+		},
+		{
+			"number": 591,
+			"pbName": "AMOONGUSS",
+			"family": "FOONGUS",
+			"aliases": [
+				"AMOONGUSS"
+			],
+			"dzName": "Amoonguss",
+			"atk": 155,
+			"def": 139,
+			"sta": 249,
+			"gsName": [
+				"AMOONGUSS"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/1/13/591Amoonguss.png"
+		},
+		{
+			"number": 592,
+			"pbName": "FRILLISH",
+			"family": "FRILLISH",
+			"aliases": [
+				"FRILLISH"
+			],
+			"dzName": "Frillish",
+			"atk": 115,
+			"def": 134,
+			"sta": 146,
+			"gsName": [
+				"FRILLISH"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/8/88/592Frillish.png"
+		},
+		{
+			"number": 593,
+			"pbName": "JELLICENT",
+			"family": "FRILLISH",
+			"aliases": [
+				"JELLICENT"
+			],
+			"dzName": "Jellicent",
+			"atk": 159,
+			"def": 178,
+			"sta": 225,
+			"gsName": [
+				"JELLICENT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/5/5c/593Jellicent.png"
+		},
+		{
+			"number": 594,
+			"pbName": "ALOMOMOLA",
+			"family": "ALOMOMOLA",
+			"aliases": [
+				"ALOMOMOLA"
+			],
+			"dzName": "Alomomola",
+			"atk": 138,
+			"def": 131,
+			"sta": 338,
+			"gsName": [
+				"CARRACOSTA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/1/10/594Alomomola.png"
+		},
+		{
+			"number": 595,
+			"pbName": "JOLTIK",
+			"family": "JOLTIK",
+			"aliases": [
+				"JOLTIK"
+			],
+			"dzName": "Joltik",
+			"atk": 110,
+			"def": 98,
+			"sta": 137,
+			"gsName": [
+				"JOLTIK"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/f/f8/595Joltik.png"
+		},
+		{
+			"number": 596,
+			"pbName": "GALVANTULA",
+			"family": "JOLTIK",
+			"aliases": [
+				"GALVANTULA"
+			],
+			"dzName": "Galvantula",
+			"atk": 201,
+			"def": 128,
+			"sta": 172,
+			"gsName": [
+				"GALVANTULA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/7/7a/596Galvantula.png"
+		},
+		{
+			"number": 597,
+			"pbName": "FERROSEED",
+			"family": "FERROSEED",
+			"aliases": [
+				"FERROSEED"
+			],
+			"dzName": "Ferroseed",
+			"atk": 82,
+			"def": 155,
+			"sta": 127,
+			"gsName": [
+				"FERROSEED"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/2/28/597Ferroseed.png"
+		},
+		{
+			"number": 598,
+			"pbName": "FERROTHORN",
+			"family": "FERROSEED",
+			"aliases": [
+				"FERROTHORN"
+			],
+			"dzName": "Ferrothorn",
+			"atk": 158,
+			"def": 223,
+			"sta": 179,
+			"gsName": [
+				"FERROTHORN"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/6c/598Ferrothorn.png"
+		},
+		{
+			"number": 599,
+			"pbName": "KLINK",
+			"family": "KLINK",
+			"aliases": [
+				"KLINK"
+			],
+			"dzName": "Klink",
+			"atk": 98,
+			"def": 121,
+			"sta": 120,
+			"gsName": [
+				"KLINK"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/e/ea/599Klink.png"
+		},
+		{
+			"number": 600,
+			"pbName": "KLANG",
+			"family": "KLINK",
+			"aliases": [
+				"KLANG"
+			],
+			"dzName": "Klang",
+			"atk": 150,
+			"def": 174,
+			"sta": 155,
+			"gsName": [
+				"KLANG"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/8/80/600Klang.png"
+		},
+		{
+			"number": 601,
+			"pbName": "KLINKLANG",
+			"family": "KLINK",
+			"aliases": [
+				"KLINKLANG"
+			],
+			"dzName": "Klinklang",
+			"atk": 199,
+			"def": 214,
+			"sta": 155,
+			"gsName": [
+				"KLINKLANG"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/c/cf/601Klinklang.png"
+		},
+		{
+			"number": 602,
+			"pbName": "TYNAMO",
+			"family": "TYNAMO",
+			"aliases": [
+				"TYNAMO"
+			],
+			"dzName": "Tynamo",
+			"atk": 105,
+			"def": 78,
+			"sta": 111,
+			"gsName": [
+				"TYNAMO"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/5/5e/602Tynamo.png"
+		},
+		{
+			"number": 603,
+			"pbName": "EELEKTRIK",
+			"family": "TYNAMO",
+			"aliases": [
+				"EELEKTRIK"
+			],
+			"dzName": "Eelektrik",
+			"atk": 156,
+			"def": 130,
+			"sta": 163,
+			"gsName": [
+				"EELEKTRIK"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/c/c7/603Eelektrik.png"
+		},
+		{
+			"number": 604,
+			"pbName": "EELEKTROSS",
+			"family": "TYNAMO",
+			"aliases": [
+				"EELEKTROSS"
+			],
+			"dzName": "Eelektross",
+			"atk": 217,
+			"def": 152,
+			"sta": 198,
+			"gsName": [
+				"EELEKTROSS"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/6c/604Eelektross.png"
+		},
+		{
+			"number": 605,
+			"pbName": "ELGYEM",
+			"family": "ELGYEM",
+			"aliases": [
+				"ELGYEM"
+			],
+			"dzName": "Elgyem",
+			"atk": 148,
+			"def": 100,
+			"sta": 146,
+			"gsName": [
+				"ELGYEM"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/f/fd/605Elgyem.png"
+		},
+		{
+			"number": 606,
+			"pbName": "BEHEEYEM",
+			"family": "ELGYEM",
+			"aliases": [
+				"BEHEEYEM"
+			],
+			"dzName": "Beheeyem",
+			"atk": 221,
+			"def": 163,
+			"sta": 181,
+			"gsName": [
+				"BEHEEYEM"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/2/2c/606Beheeyem.png"
+		},
+		{
+			"number": 607,
+			"pbName": "LITWICK",
+			"family": "LITWICK",
+			"aliases": [
+				"LITWICK"
+			],
+			"dzName": "Litwick",
+			"atk": 108,
+			"def": 98,
+			"sta": 137,
+			"gsName": [
+				"LITWICK"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/8/8e/607Litwick.png"
+		},
+		{
+			"number": 608,
+			"pbName": "LAMPENT",
+			"family": "LITWICK",
+			"aliases": [
+				"LAMPENT"
+			],
+			"dzName": "Lampent",
+			"atk": 169,
+			"def": 115,
+			"sta": 155,
+			"gsName": [
+				"LAMPENT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/a5/608Lampent.png"
+		},
+		{
+			"number": 609,
+			"pbName": "CHANDELURE",
+			"family": "LITWICK",
+			"aliases": [
+				"CHANDELURE"
+			],
+			"dzName": "Chandelure",
+			"atk": 271,
+			"def": 182,
+			"sta": 155,
+			"gsName": [
+				"CHANDELURE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/65/609Chandelure.png"
+		},
+		{
+			"number": 610,
+			"pbName": "AXEW",
+			"family": "AXEW",
+			"aliases": [
+				"AXEW"
+			],
+			"dzName": "Axew",
+			"atk": 154,
+			"def": 101,
+			"sta": 130,
+			"gsName": [
+				"AXEW"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/5/5c/610Axew.png"
+		},
+		{
+			"number": 611,
+			"pbName": "FRAXURE",
+			"family": "AXEW",
+			"aliases": [
+				"FRAXURE"
+			],
+			"dzName": "Fraxure",
+			"atk": 212,
+			"def": 123,
+			"sta": 165,
+			"gsName": [
+				"FRAXURE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/0/05/611Fraxure.png"
+		},
+		{
+			"number": 612,
+			"pbName": "HAXORUS",
+			"family": "AXEW",
+			"aliases": [
+				"HAXORUS"
+			],
+			"dzName": "Haxorus",
+			"atk": 284,
+			"def": 172,
+			"sta": 183,
+			"gsName": [
+				"HAXORUS"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/8/8f/612Haxorus.png"
+		},
+		{
+			"number": 613,
+			"pbName": "CUBCHOO",
+			"family": "CUBCHOO",
+			"aliases": [
+				"CUBCHOO"
+			],
+			"dzName": "Cubchoo",
+			"atk": 128,
+			"def": 74,
+			"sta": 146,
+			"gsName": [
+				"CUBCHOO"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/7/72/613Cubchoo.png"
+		},
+		{
+			"number": 614,
+			"pbName": "BEARTIC",
+			"family": "CUBCHOO",
+			"aliases": [
+				"BEARTIC"
+			],
+			"dzName": "Beartic",
+			"atk": 233,
+			"def": 152,
+			"sta": 216,
+			"gsName": [
+				"BEARTIC"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/4/40/614Beartic.png"
+		},
+		{
+			"number": 615,
+			"pbName": "CRYOGONAL",
+			"family": "CRYOGONAL",
+			"aliases": [
+				"CRYOGONAL"
+			],
+			"dzName": "Cryogonal",
+			"atk": 190,
+			"def": 218,
+			"sta": 190,
+			"gsName": [
+				"CRYOGONAL"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/1/11/615Cryogonal.png"
+		},
+		{
+			"number": 616,
+			"pbName": "SHELMET",
+			"family": "SHELMET",
+			"aliases": [
+				"SHELMET"
+			],
+			"dzName": "Shelmet",
+			"atk": 72,
+			"def": 140,
+			"sta": 137,
+			"gsName": [
+				"SHELMET"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/f/f6/616Shelmet.png"
+		},
+		{
+			"number": 617,
+			"pbName": "ACCELGOR",
+			"family": "SHELMET",
+			"aliases": [
+				"ACCELGOR"
+			],
+			"dzName": "Accelgor",
+			"atk": 220,
+			"def": 120,
+			"sta": 190,
+			"gsName": [
+				"ACCELGOR"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/3/34/617Accelgor.png"
+		},
+		{
+			"number": 618,
+			"pbName": "STUNFISK",
+			"family": "STUNFISK",
+			"aliases": [
+				"STUNFISK"
+			],
+			"dzName": "Stunfisk",
+			"atk": 144,
+			"def": 171,
+			"sta": 240,
+			"gsName": [
+				"STUNFISK"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/d/d2/618Stunfisk.png"
+		},
+		{
+			"number": 619,
+			"pbName": "MIENFOO",
+			"family": "MIENFOO",
+			"aliases": [
+				"MIENFOO"
+			],
+			"dzName": "Mienfoo",
+			"atk": 160,
+			"def": 98,
+			"sta": 128,
+			"gsName": [
+				"MIENFOO"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/4/41/619Mienfoo.png"
+		},
+		{
+			"number": 620,
+			"pbName": "MIENSHAO",
+			"family": "MIENFOO",
+			"aliases": [
+				"MIENSHAO"
+			],
+			"dzName": "Mienshao",
+			"atk": 258,
+			"def": 127,
+			"sta": 163,
+			"gsName": [
+				"MIENSHAO"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/2/20/620Mienshao.png"
+		},
+		{
+			"number": 621,
+			"pbName": "DRUDDIGON",
+			"family": "DRUDDIGON",
+			"aliases": [
+				"DRUDDIGON"
+			],
+			"dzName": "Druddigon",
+			"atk": 213,
+			"def": 170,
+			"sta": 184,
+			"gsName": [
+				"DRUDDIGON"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/ad/621Druddigon.png"
+		},
+		{
+			"number": 622,
+			"pbName": "GOLETT",
+			"family": "GOLETT",
+			"aliases": [
+				"GOLETT"
+			],
+			"dzName": "Golett",
+			"atk": 127,
+			"def": 92,
+			"sta": 153,
+			"gsName": [
+				"GOLETT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/ac/622Golett.png"
+		},
+		{
+			"number": 623,
+			"pbName": "GOLURK",
+			"family": "GOLETT",
+			"aliases": [
+				"GOLURK"
+			],
+			"dzName": "Golurk",
+			"atk": 222,
+			"def": 154,
+			"sta": 205,
+			"gsName": [
+				"GOLURK"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/68/623Golurk.png"
+		},
+		{
+			"number": 624,
+			"pbName": "PAWNIARD",
+			"family": "PAWNIARD",
+			"aliases": [
+				"PAWNIARD"
+			],
+			"dzName": "Pawniard",
+			"atk": 154,
+			"def": 114,
+			"sta": 128,
+			"gsName": [
+				"PAWNIARD"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/9/9c/624Pawniard.png"
+		},
+		{
+			"number": 625,
+			"pbName": "BISHARP",
+			"family": "PAWNIARD",
+			"aliases": [
+				"BISHARP"
+			],
+			"dzName": "Bisharp",
+			"atk": 232,
+			"def": 176,
+			"sta": 163,
+			"gsName": [
+				"BISHARP"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/7/74/625Bisharp.png"
+		},
+		{
+			"number": 626,
+			"pbName": "BOUFFALANT",
+			"family": "BOUFFALANT",
+			"aliases": [
+				"BOUFFALANT"
+			],
+			"dzName": "Bouffalant",
+			"atk": 195,
+			"def": 182,
+			"sta": 216,
+			"gsName": [
+				"BOUFFALANT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/a4/626Bouffalant.png"
+		},
+		{
+			"number": 627,
+			"pbName": "RUFFLET",
+			"family": "RUFFLET",
+			"aliases": [
+				"RUFFLET"
+			],
+			"dzName": "Rufflet",
+			"atk": 150,
+			"def": 97,
+			"sta": 172,
+			"gsName": [
+				"RUFFLET"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/b/bb/627Rufflet.png"
+		},
+		{
+			"number": 628,
+			"pbName": "BRAVIARY",
+			"family": "RUFFLET",
+			"aliases": [
+				"BRAVIARY"
+			],
+			"dzName": "Braviary",
+			"atk": 232,
+			"def": 152,
+			"sta": 225,
+			"gsName": [
+				"BRAVIARY"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/c/cf/628Braviary.png"
+		},
+		{
+			"number": 629,
+			"pbName": "VULLABY",
+			"family": "VULLABY",
+			"aliases": [
+				"VULLABY"
+			],
+			"dzName": "Vullaby",
+			"atk": 105,
+			"def": 139,
+			"sta": 172,
+			"gsName": [
+				"VULLABY"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/f/f2/629Vullaby.png"
+		},
+		{
+			"number": 630,
+			"pbName": "MANDIBUZZ",
+			"family": "VULLABY",
+			"aliases": [
+				"MANDIBUZZ"
+			],
+			"dzName": "Mandibuzz",
+			"atk": 129,
+			"def": 205,
+			"sta": 242,
+			"gsName": [
+				"MANDIBUZZ"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/0/00/630Mandibuzz.png"
+		},
+		{
+			"number": 631,
+			"pbName": "HEATMOR",
+			"family": "HEATMOR",
+			"aliases": [
+				"HEATMOR"
+			],
+			"dzName": "Heatmor",
+			"atk": 204,
+			"def": 129,
+			"sta": 198,
+			"gsName": [
+				"HEATMOR"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/b/b0/631Heatmor.png"
+		},
+		{
+			"number": 632,
+			"pbName": "DURANT",
+			"family": "DURANT",
+			"aliases": [
+				"DURANT"
+			],
+			"dzName": "Durant",
+			"atk": 217,
+			"def": 188,
+			"sta": 151,
+			"gsName": [
+				"DURANT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/1/1a/632Durant.png"
+		},
+		{
+			"number": 633,
+			"pbName": "DEINO",
+			"family": "DEINO",
+			"aliases": [
+				"DEINO"
+			],
+			"dzName": "Deino",
+			"atk": 116,
+			"def": 93,
+			"sta": 141,
+			"gsName": [
+				"DEINO"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/f/f7/633Deino.png"
+		},
+		{
+			"number": 634,
+			"pbName": "ZWEILOUS",
+			"family": "DEINO",
+			"aliases": [
+				"ZWEILOUS"
+			],
+			"dzName": "Zweilous",
+			"atk": 159,
+			"def": 135,
+			"sta": 176,
+			"gsName": [
+				"ZWEILOUS"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/a6/634Zweilous.png"
+		},
+		{
+			"number": 635,
+			"pbName": "HYDREIGON",
+			"family": "DEINO",
+			"aliases": [
+				"HYDREIGON"
+			],
+			"dzName": "Hydreigon",
+			"atk": 217,
+			"def": 188,
+			"sta": 151,
+			"gsName": [
+				"HYDREIGON"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/3/3e/635Hydreigon.png"
+		},
+		{
+			"number": 636,
+			"pbName": "LARVESTA",
+			"family": "LARVESTA",
+			"aliases": [
+				"LARVESTA"
+			],
+			"dzName": "Larvesta",
+			"atk": 156,
+			"def": 107,
+			"sta": 146,
+			"gsName": [
+				"LARVESTA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/f/f4/636Larvesta.png"
+		},
+		{
+			"number": 637,
+			"pbName": "VOLCARONA",
+			"family": "LARVESTA",
+			"aliases": [
+				"VOLCARONA"
+			],
+			"dzName": "Volcarona",
+			"atk": 264,
+			"def": 189,
+			"sta": 198,
+			"gsName": [
+				"VOLCARONA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/6b/637Volcarona.png"
+		},
+		{
+			"number": 638,
+			"pbName": "COBALION",
+			"family": "COBALION",
+			"aliases": [
+				"COBALION"
+			],
+			"dzName": "Cobalion",
+			"atk": 102,
+			"def": 229,
+			"sta": 209,
+			"gsName": [
+				"COBALION"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/65/638Cobalion.png"
+		},
+		{
+			"number": 639,
+			"pbName": "TERRAKION",
+			"family": "TERRAKION",
+			"aliases": [
+				"TERRAKION"
+			],
+			"dzName": "Terrakion",
+			"atk": 260,
+			"def": 192,
+			"sta": 209,
+			"gsName": [
+				"TERRAKION"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/ad/639Terrakion.png"
+		},
+		{
+			"number": 640,
+			"pbName": "VIRIZION",
+			"family": "VIRIZION",
+			"aliases": [
+				"VIRIZION"
+			],
+			"dzName": "Virizion",
+			"atk": 192,
+			"def": 229,
+			"sta": 209,
+			"gsName": [
+				"DURANT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/7/79/640Virizion.png"
+		},
+		{
+			"number": 641,
+			"pbName": "TORNADUS_INCARNATE_FORM",
+			"family": "TORNADUS_INCARNATE_FORM",
+			"aliases": [
+				"TORNADUS",
+				"TORNADUS INCARNATE",
+				"TORNADUS INCARNATE FORM",
+				"TORNADUS CLOUD",
+				"TORNADUS CLOUD FORM"
+			],
+			"dzName": "Tornadus",
+			"atk": 266,
+			"def": 164,
+			"sta": 188,
+			"gsName": [
+				"TORNADUS (INCARNATE)",
+				"TORNADUS",
+				"TORNADUS INCARNATE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/0/08/641Tornadus.png"
+		},
+		{
+			"number": 641,
+			"pbName": "TORNADUS_THERIAN_FORM",
+			"family": "TORNADUS_THERIAN_FORM",
+			"aliases": [
+				"TORNADUS THERIAN",
+				"TORNADUS THERIAN FORM",
+				"TORNADUS BIRD",
+				"TORNADUS BIRD FORM"
+			],
+			"dzName": "Tornadus_Therian",
+			"atk": 238,
+			"def": 189,
+			"sta": 188,
+			"gsName": [
+				"TORNADUS (THERIAN)",
+				"TORNADUS THERIAN",
+				"TORNADUS THERIAN"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/7/7e/641Tornadus-Therian.png"
+		},
+		{
+			"number": 642,
+			"pbName": "THUNDERUS_INCARNATE_FORM",
+			"family": "THUNDERUS_INCARNATE_FORM",
+			"aliases": [
+				"THUNDERUS",
+				"THUNDERUS INCARNATE",
+				"THUNDERUS INCARNATE FORM",
+				"THUNDERUS CLOUD",
+				"THUNDERUS CLOUD FORM"
+			],
+			"dzName": "Thunderus",
+			"atk": 266,
+			"def": 164,
+			"sta": 188,
+			"gsName": [
+				"THUNDERUS (INCARNATE)",
+				"THUNDERUS",
+				"THUNDERUS INCARNATE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/b/b8/642Thundurus.png"
+		},
+		{
+			"number": 642,
+			"pbName": "THUNDERUS_THERIAN_FORM",
+			"family": "THUNDERUS_THERIAN_FORM",
+			"aliases": [
+				"THUNDERUS THERIAN",
+				"THUNDERUS THERIAN FORM"
+			],
+			"dzName": "Thunderus_Therian",
+			"atk": 295,
+			"def": 161,
+			"sta": 188,
+			"gsName": [
+				"THUNDERUS (THERIAN)",
+				"THUNDERUS THERIAN",
+				"THUNDERUS THERIAN"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/8/86/642Thundurus-Therian.png"
+		},
+		{
+			"number": 643,
+			"pbName": "RESHIRAM",
+			"family": "RESHIRAM",
+			"aliases": [
+				"RESHIRAM"
+			],
+			"dzName": "Reshiram",
+			"atk": 275,
+			"def": 211,
+			"sta": 205,
+			"gsName": [
+				"RESHIRAM"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/8/8d/643Reshiram.png"
+		},
+		{
+			"number": 644,
+			"pbName": "ZEKROM",
+			"family": "ZEKROM",
+			"aliases": [
+				"ZEKROM"
+			],
+			"dzName": "Zekrom",
+			"atk": 275,
+			"def": 211,
+			"sta": 205,
+			"gsName": [
+				"ZEKROM"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/8/81/644Zekrom.png"
+		},
+		{
+			"number": 645,
+			"pbName": "LANDORUS_INCARNATE_FORM",
+			"family": "LANDORUS_INCARNATE_FORM",
+			"aliases": [
+				"LANDORUS",
+				"LANDORUS INCARNATE",
+				"LANDORUS INCARNATE FORM",
+				"LANDORUS CLOUD",
+				"LANDORUS CLOUD FORM"
+			],
+			"dzName": "Landorus",
+			"atk": 261,
+			"def": 182,
+			"sta": 205,
+			"gsName": [
+				"LANDORUS (INCARNATE)",
+				"LANDORUS",
+				"LANDORUS INCARNATE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/b/bb/645Landorus.png"
+		},
+		{
+			"number": 645,
+			"pbName": "LANDORUS_THERIAN_FORM",
+			"family": "LANDORUS_THERIAN_FORM",
+			"aliases": [
+				"LANDORUS",
+				"LANDORUS THERIAN",
+				"LANDORUS THERIAN FORM",
+				"LANDORUS TIGER",
+				"LANDORUS TIGER FORM"
+			],
+			"dzName": "Landorus_Therian",
+			"atk": 289,
+			"def": 179,
+			"sta": 205,
+			"gsName": [
+				"LANDORUS (THERIAN)",
+				"LANDORUS THERIAN",
+				"LANDORUS THERIAN"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/0/00/645Landorus-Therian.png"
+		},
+		{
+			"number": 646,
+			"pbName": "KYUREM",
+			"family": "KYUREM",
+			"aliases": [
+				"KYUREM"
+			],
+			"dzName": "Kyurem",
+			"atk": 246,
+			"def": 170,
+			"sta": 245,
+			"gsName": [
+				"KYUREM"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/d/d0/565Carracosta.png"
+		},
+		{
+			"number": 646,
+			"pbName": "KYUREM",
+			"family": "KYUREM",
+			"aliases": [
+				"KYUREM"
+			],
+			"dzName": "Kyurem",
+			"atk": 246,
+			"def": 170,
+			"sta": 245,
+			"gsName": [
+				"KYUREM"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/c/c3/646Kyurem.png"
+		},
+		{
+			"number": 646,
+			"pbName": "KYUREM_WHITE",
+			"family": "KYUREM",
+			"aliases": [
+				"KYUREM WHITE",
+				"WHITE KYUREM"
+			],
+			"dzName": "Kyurem_White",
+			"atk": 310,
+			"def": 183,
+			"sta": 245,
+			"gsName": [
+				"KYUREM WHITE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/8/81/646Kyurem-White.png"
+		},
+		{
+			"number": 646,
+			"pbName": "KYUREM_BLACK",
+			"family": "KYUREM",
+			"aliases": [
+				"KYUREM BLACK",
+				"BLACK KYUREM"
+			],
+			"dzName": "Kyurem_Black",
+			"atk": 310,
+			"def": 183,
+			"sta": 245,
+			"gsName": [
+				"KYUREM BLACK"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/1/16/646Kyurem-Black.png"
+		},
+		{
+			"number": 647,
+			"pbName": "KELDEO",
+			"family": "KELDEO",
+			"aliases": [
+				"KELDEO",
+				"RESOLUTE KELDEO",
+				"KELDEO RESOLUTE"
+			],
+			"dzName": "Keldeo",
+			"atk": 260,
+			"def": 192,
+			"sta": 209,
+			"gsName": [
+				"KELDEO"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/5/50/647Keldeo.png"
+		},
+		{
+			"number": 648,
+			"pbName": "MELOETTA_ARIA_FORM",
+			"family": "MELOETTA_ARIA_FORM",
+			"aliases": [
+				"MELOETTA ARIA FORM",
+				"MELOETTA",
+				"MELOETTA ARIA"
+			],
+			"dzName": "Meloetta_Aria",
+			"atk": 250,
+			"def": 225,
+			"sta": 225,
+			"gsName": [
+				"MELOETTA ARIA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/a3/648Meloetta.png"
+		},
+		{
+			"number": 648,
+			"pbName": "MELOETTA_PIROUETTE_FORM",
+			"family": "MELOETTA_PIROUETTE_FORM",
+			"aliases": [
+				"MELOETTA PIROUETTE FORM",
+				"MELOETTA PIROUETTE"
+			],
+			"dzName": "Meloetta_PIROUETTE",
+			"atk": 269,
+			"def": 188,
+			"sta": 225,
+			"gsName": [
+				"MELOETTA PIROUETTE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/3/36/648Meloetta-Pirouette.png"
+		},
+		{
+			"number": 649,
+			"pbName": "GENESECT",
+			"family": "GENESECT",
+			"aliases": [
+				"GENESECT",
+				"GENESECT BURN",
+				"GENESECT CHILL",
+				"GENESECT DOUSE",
+				"GENESECT SHOCK"
+			],
+			"dzName": "Genesect",
+			"atk": 252,
+			"def": 199,
+			"sta": 174,
+			"gsName": [
+				"GENESECT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/4/46/649Genesect.png"
 		},
 		{
 			"number": 808,
