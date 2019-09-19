@@ -185,7 +185,7 @@ class PvPRankingData {
           familyList.push(key1);
         }
       }
-      this.familyList = [familyList[0]]
+      this.familyList = [familyList[0]];
     }
 
     if (parseInt(this.inputAttackIV) < this.ivFilter || parseInt(this.inputDefenseIV) < this.ivFilter || parseInt(this.inputStaminaIV) < this.ivFilter) {
