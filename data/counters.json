@@ -3,6 +3,7 @@
 		{
 			"number": 1,
 			"pbName": "BULBASAUR",
+			"family": "BULBASAUR",
 			"aliases": [
 				"BULBASAUR",
 				"BULBA"
@@ -19,6 +20,7 @@
 		{
 			"number": 2,
 			"pbName": "IVYSAUR",
+			"family": "BULBASAUR",
 			"aliases": [
 				"IVYSAUR"
 			],
@@ -34,6 +36,7 @@
 		{
 			"number": 3,
 			"pbName": "VENUSAUR",
+			"family": "BULBASAUR",
 			"aliases": [
 				"VENUSAUR"
 			],
@@ -49,6 +52,7 @@
 		{
 			"number": 4,
 			"pbName": "CHARMANDER",
+			"family": "CHARMANDER",
 			"aliases": [
 				"CHARMANDER"
 			],
@@ -64,6 +68,7 @@
 		{
 			"number": 5,
 			"pbName": "CHARMELEON",
+			"family": "CHARMANDER",
 			"aliases": [
 				"CHARMELEON"
 			],
@@ -79,6 +84,7 @@
 		{
 			"number": 6,
 			"pbName": "CHARIZARD",
+			"family": "CHARMANDER",
 			"aliases": [
 				"CHARIZARD"
 			],
@@ -94,6 +100,7 @@
 		{
 			"number": 7,
 			"pbName": "SQUIRTLE",
+			"family": "SQUIRTLE",
 			"aliases": [
 				"SQUIRTLE"
 			],
@@ -109,6 +116,7 @@
 		{
 			"number": 8,
 			"pbName": "WARTORTLE",
+			"family": "SQUIRTLE",
 			"aliases": [
 				"WARTORTLE"
 			],
@@ -124,6 +132,7 @@
 		{
 			"number": 9,
 			"pbName": "BLASTOISE",
+			"family": "SQUIRTLE",
 			"aliases": [
 				"BLASTOISE"
 			],
@@ -139,6 +148,7 @@
 		{
 			"number": 10,
 			"pbName": "CATERPIE",
+			"family": "CATERPIE",
 			"aliases": [
 				"CATERPIE"
 			],
@@ -154,6 +164,7 @@
 		{
 			"number": 11,
 			"pbName": "METAPOD",
+			"family": "CATERPIE",
 			"aliases": [
 				"METAPOD"
 			],
@@ -169,6 +180,7 @@
 		{
 			"number": 12,
 			"pbName": "BUTTERFREE",
+			"family": "CATERPIE",
 			"aliases": [
 				"BUTTERFREE"
 			],
@@ -184,6 +196,7 @@
 		{
 			"number": 13,
 			"pbName": "WEEDLE",
+			"family": "WEEDLE",
 			"aliases": [
 				"WEEDLE"
 			],
@@ -199,6 +212,7 @@
 		{
 			"number": 14,
 			"pbName": "KAKUNA",
+			"family": "WEEDLE",
 			"aliases": [
 				"KAKUNA"
 			],
@@ -214,6 +228,7 @@
 		{
 			"number": 15,
 			"pbName": "BEEDRILL",
+			"family": "WEEDLE",
 			"aliases": [
 				"BEEDRILL"
 			],
@@ -229,6 +244,7 @@
 		{
 			"number": 16,
 			"pbName": "PIDGEY",
+			"family": "PIDGEY",
 			"aliases": [
 				"PIDGEY"
 			],
@@ -244,6 +260,7 @@
 		{
 			"number": 17,
 			"pbName": "PIDGEOTTO",
+			"family": "PIDGEY",
 			"aliases": [
 				"PIDGEOTTO"
 			],
@@ -259,6 +276,7 @@
 		{
 			"number": 18,
 			"pbName": "PIDGEOT",
+			"family": "PIDGEY",
 			"aliases": [
 				"PIDGEOT"
 			],
@@ -274,6 +292,7 @@
 		{
 			"number": 19,
 			"pbName": "RATTATA",
+			"family": "RATTATA",
 			"aliases": [
 				"RATTATA"
 			],
@@ -289,6 +308,7 @@
 		{
 			"number": 19,
 			"pbName": "RATTATA_ALOLA_FORM",
+			"family": "RATTATA_ALOLA_FORM",
 			"aliases": [
 				"RATTATA_ALOLA_FORM",
 				"ALOLAN RATTATA",
@@ -314,6 +334,7 @@
 		{
 			"number": 20,
 			"pbName": "RATICATE",
+			"family": "RATTATA",
 			"aliases": [
 				"RATICATE"
 			],
@@ -329,6 +350,7 @@
 		{
 			"number": 20,
 			"pbName": "RATICATE_ALOLA_FORM",
+			"family": "RATTATA_ALOLA_FORM",
 			"aliases": [
 				"RATICATE_ALOLA_FORM",
 				"ALOLAN RATICATE",
@@ -354,6 +376,7 @@
 		{
 			"number": 21,
 			"pbName": "SPEAROW",
+			"family": "SPEAROW",
 			"aliases": [
 				"SPEAROW"
 			],
@@ -369,6 +392,7 @@
 		{
 			"number": 22,
 			"pbName": "FEAROW",
+			"family": "SPEAROW",
 			"aliases": [
 				"FEAROW"
 			],
@@ -384,6 +408,7 @@
 		{
 			"number": 23,
 			"pbName": "EKANS",
+			"family": "EKANS",
 			"aliases": [
 				"EKANS"
 			],
@@ -399,6 +424,7 @@
 		{
 			"number": 24,
 			"pbName": "ARBOK",
+			"family": "EKANS",
 			"aliases": [
 				"ARBOK"
 			],
@@ -414,6 +440,7 @@
 		{
 			"number": 25,
 			"pbName": "PIKACHU",
+			"family": "PIKACHU",
 			"aliases": [
 				"PIKACHU",
 				"PIKA"
@@ -430,6 +457,7 @@
 		{
 			"number": 26,
 			"pbName": "RAICHU",
+			"family": "PIKACHU",
 			"aliases": [
 				"RAICHU"
 			],
@@ -445,6 +473,7 @@
 		{
 			"number": 26,
 			"pbName": "RAICHU_ALOLA_FORM",
+			"family": "RAICHU_ALOLA_FORM",
 			"aliases": [
 				"RAICHU_ALOLA_FORM",
 				"ALOLAN RAICHU",
@@ -470,6 +499,7 @@
 		{
 			"number": 27,
 			"pbName": "SANDSHREW",
+			"family": "SANDSHREW",
 			"aliases": [
 				"SANDSHREW"
 			],
@@ -485,6 +515,7 @@
 		{
 			"number": 27,
 			"pbName": "SANDSHREW_ALOLA_FORM",
+			"family": "SANDSHREW_ALOLA_FORM",
 			"aliases": [
 				"SANDSHREW_ALOLA_FORM",
 				"ALOLAN SANDSHREW",
@@ -510,6 +541,7 @@
 		{
 			"number": 28,
 			"pbName": "SANDSLASH",
+			"family": "SANDSHREW",
 			"aliases": [
 				"SANDSLASH"
 			],
@@ -525,6 +557,7 @@
 		{
 			"number": 28,
 			"pbName": "SANDSLASH_ALOLA_FORM",
+			"family": "SANDSHREW_ALOLA_FORM",
 			"aliases": [
 				"SANDSLASH_ALOLA_FORM",
 				"ALOLAN SANDSLASH",
@@ -550,6 +583,7 @@
 		{
 			"number": 29,
 			"pbName": "NIDORAN_FEMALE",
+			"family": "NIDORAN_FEMALE",
 			"aliases": [
 				"NIDORAN_FEMALE",
 				"NIDORANF",
@@ -563,13 +597,16 @@
 			"def": 89,
 			"sta": 146,
 			"gsName": [
-				"NIDORAN_FEMALE"
+				"NIDORAN_FEMALE",
+				"NIDORAN_FEMALE",
+				"NIDORAN_F"
 			],
 			"imageURL": "https://cdn.bulbagarden.net/upload/8/81/029Nidoran.png"
 		},
 		{
 			"number": 30,
 			"pbName": "NIDORINA",
+			"family": "NIDORAN_FEMALE",
 			"aliases": [
 				"NIDORINA"
 			],
@@ -585,6 +622,7 @@
 		{
 			"number": 31,
 			"pbName": "NIDOQUEEN",
+			"family": "NIDORAN_FEMALE",
 			"aliases": [
 				"NIDOQUEEN"
 			],
@@ -600,6 +638,7 @@
 		{
 			"number": 32,
 			"pbName": "NIDORAN_MALE",
+			"family": "NIDORAN_MALE",
 			"aliases": [
 				"NIDORAN_MALE",
 				"NIDORANM",
@@ -613,13 +652,16 @@
 			"def": 76,
 			"sta": 130,
 			"gsName": [
-				"NIDORAN_MALE"
+				"NIDORAN_MALE",
+				"NIDORAN_MALE",
+				"NIDORAN_M"
 			],
 			"imageURL": "https://cdn.bulbagarden.net/upload/4/4a/032Nidoran.png"
 		},
 		{
 			"number": 33,
 			"pbName": "NIDORINO",
+			"family": "NIDORAN_MALE",
 			"aliases": [
 				"NIDORINO"
 			],
@@ -635,6 +677,7 @@
 		{
 			"number": 34,
 			"pbName": "NIDOKING",
+			"family": "NIDORAN_MALE",
 			"aliases": [
 				"NIDOKING"
 			],
@@ -650,6 +693,7 @@
 		{
 			"number": 35,
 			"pbName": "CLEFAIRY",
+			"family": "CLEFAIRY",
 			"aliases": [
 				"CLEFAIRY"
 			],
@@ -665,6 +709,7 @@
 		{
 			"number": 36,
 			"pbName": "CLEFABLE",
+			"family": "CLEFAIRY",
 			"aliases": [
 				"CLEFABLE"
 			],
@@ -680,6 +725,7 @@
 		{
 			"number": 37,
 			"pbName": "VULPIX",
+			"family": "VULPIX",
 			"aliases": [
 				"VULPIX"
 			],
@@ -695,6 +741,7 @@
 		{
 			"number": 37,
 			"pbName": "VULPIX_ALOLA_FORM",
+			"family": "VULPIX_ALOLA_FORM",
 			"aliases": [
 				"VULPIX_ALOLA_FORM",
 				"ALOLAN VULPIX",
@@ -720,6 +767,7 @@
 		{
 			"number": 38,
 			"pbName": "NINETALES",
+			"family": "VULPIX",
 			"aliases": [
 				"NINETALES"
 			],
@@ -735,6 +783,7 @@
 		{
 			"number": 38,
 			"pbName": "NINETALES_ALOLA_FORM",
+			"family": "VULPIX_ALOLA_FORM",
 			"aliases": [
 				"NINETALES_ALOLA_FORM",
 				"ALOLAN NINETALES",
@@ -760,6 +809,7 @@
 		{
 			"number": 39,
 			"pbName": "JIGGLYPUFF",
+			"family": "JIGGLYPUFF",
 			"aliases": [
 				"JIGGLYPUFF",
 				"JIGGLY"
@@ -776,6 +826,7 @@
 		{
 			"number": 40,
 			"pbName": "WIGGLYTUFF",
+			"family": "JIGGLYPUFF",
 			"aliases": [
 				"WIGGLYTUFF",
 				"WIGGLY"
@@ -792,6 +843,7 @@
 		{
 			"number": 41,
 			"pbName": "ZUBAT",
+			"family": "ZUBAT",
 			"aliases": [
 				"ZUBAT"
 			],
@@ -807,6 +859,7 @@
 		{
 			"number": 42,
 			"pbName": "GOLBAT",
+			"family": "ZUBAT",
 			"aliases": [
 				"GOLBAT"
 			],
@@ -822,6 +875,7 @@
 		{
 			"number": 43,
 			"pbName": "ODDISH",
+			"family": "ODDISH",
 			"aliases": [
 				"ODDISH"
 			],
@@ -837,6 +891,7 @@
 		{
 			"number": 44,
 			"pbName": "GLOOM",
+			"family": "ODDISH",
 			"aliases": [
 				"GLOOM"
 			],
@@ -852,6 +907,7 @@
 		{
 			"number": 45,
 			"pbName": "VILEPLUME",
+			"family": "ODDISH",
 			"aliases": [
 				"VILEPLUME"
 			],
@@ -867,6 +923,7 @@
 		{
 			"number": 46,
 			"pbName": "PARAS",
+			"family": "PARAS",
 			"aliases": [
 				"PARAS"
 			],
@@ -882,6 +939,7 @@
 		{
 			"number": 47,
 			"pbName": "PARASECT",
+			"family": "PARAS",
 			"aliases": [
 				"PARASECT"
 			],
@@ -897,6 +955,7 @@
 		{
 			"number": 48,
 			"pbName": "VENONAT",
+			"family": "VENONAT",
 			"aliases": [
 				"VENONAT"
 			],
@@ -912,6 +971,7 @@
 		{
 			"number": 49,
 			"pbName": "VENOMOTH",
+			"family": "VENONAT",
 			"aliases": [
 				"VENOMOTH"
 			],
@@ -927,6 +987,7 @@
 		{
 			"number": 50,
 			"pbName": "DIGLETT",
+			"family": "DIGLETT",
 			"aliases": [
 				"DIGLETT"
 			],
@@ -942,6 +1003,7 @@
 		{
 			"number": 50,
 			"pbName": "DIGLETT_ALOLA_FORM",
+			"family": "DIGLETT_ALOLA_FORM",
 			"aliases": [
 				"DIGLETT_ALOLA_FORM",
 				"ALOLAN DIGLETT",
@@ -967,6 +1029,7 @@
 		{
 			"number": 51,
 			"pbName": "DUGTRIO",
+			"family": "DIGLETT",
 			"aliases": [
 				"DUGTRIO"
 			],
@@ -982,6 +1045,7 @@
 		{
 			"number": 51,
 			"pbName": "DUGTRIO_ALOLA_FORM",
+			"family": "DIGLETT_ALOLA_FORM",
 			"aliases": [
 				"DUGTRIO_ALOLA_FORM",
 				"ALOLAN DUGTRIO",
@@ -1007,6 +1071,7 @@
 		{
 			"number": 52,
 			"pbName": "MEOWTH",
+			"family": "MEOWTH",
 			"aliases": [
 				"MEOWTH"
 			],
@@ -1022,6 +1087,7 @@
 		{
 			"number": 52,
 			"pbName": "MEOWTH_ALOLA_FORM",
+			"family": "MEOWTH_ALOLA_FORM",
 			"aliases": [
 				"MEOWTH_ALOLA_FORM",
 				"ALOLAN MEOWTH",
@@ -1047,6 +1113,7 @@
 		{
 			"number": 53,
 			"pbName": "PERSIAN",
+			"family": "MEOWTH",
 			"aliases": [
 				"PERSIAN"
 			],
@@ -1062,6 +1129,7 @@
 		{
 			"number": 53,
 			"pbName": "PERSIAN_ALOLA_FORM",
+			"family": "MEOWTH_ALOLA_FORM",
 			"aliases": [
 				"PERSIAN_ALOLA_FORM",
 				"ALOLAN PERSIAN",
@@ -1087,6 +1155,7 @@
 		{
 			"number": 54,
 			"pbName": "PSYDUCK",
+			"family": "PSYDUCK",
 			"aliases": [
 				"PSYDUCK"
 			],
@@ -1102,6 +1171,7 @@
 		{
 			"number": 55,
 			"pbName": "GOLDUCK",
+			"family": "PSYDUCK",
 			"aliases": [
 				"GOLDUCK"
 			],
@@ -1117,6 +1187,7 @@
 		{
 			"number": 56,
 			"pbName": "MANKEY",
+			"family": "MANKEY",
 			"aliases": [
 				"MANKEY"
 			],
@@ -1132,6 +1203,7 @@
 		{
 			"number": 57,
 			"pbName": "PRIMEAPE",
+			"family": "MANKEY",
 			"aliases": [
 				"PRIMEAPE"
 			],
@@ -1147,6 +1219,7 @@
 		{
 			"number": 58,
 			"pbName": "GROWLITHE",
+			"family": "GROWLITHE",
 			"aliases": [
 				"GROWLITHE"
 			],
@@ -1162,6 +1235,7 @@
 		{
 			"number": 59,
 			"pbName": "ARCANINE",
+			"family": "GROWLITHE",
 			"aliases": [
 				"ARCANINE"
 			],
@@ -1177,6 +1251,7 @@
 		{
 			"number": 60,
 			"pbName": "POLIWAG",
+			"family": "POLIWAG",
 			"aliases": [
 				"POLIWAG"
 			],
@@ -1192,6 +1267,7 @@
 		{
 			"number": 61,
 			"pbName": "POLIWHIRL",
+			"family": "POLIWAG",
 			"aliases": [
 				"POLIWHIRL"
 			],
@@ -1207,6 +1283,7 @@
 		{
 			"number": 62,
 			"pbName": "POLIWRATH",
+			"family": "POLIWAG",
 			"aliases": [
 				"POLIWRATH"
 			],
@@ -1222,6 +1299,7 @@
 		{
 			"number": 63,
 			"pbName": "ABRA",
+			"family": "ABRA",
 			"aliases": [
 				"ABRA"
 			],
@@ -1237,6 +1315,7 @@
 		{
 			"number": 64,
 			"pbName": "KADABRA",
+			"family": "ABRA",
 			"aliases": [
 				"KADABRA"
 			],
@@ -1252,6 +1331,7 @@
 		{
 			"number": 65,
 			"pbName": "ALAKAZAM",
+			"family": "ABRA",
 			"aliases": [
 				"ALAKAZAM"
 			],
@@ -1267,6 +1347,7 @@
 		{
 			"number": 66,
 			"pbName": "MACHOP",
+			"family": "MACHOP",
 			"aliases": [
 				"MACHOP"
 			],
@@ -1282,6 +1363,7 @@
 		{
 			"number": 67,
 			"pbName": "MACHOKE",
+			"family": "MACHOP",
 			"aliases": [
 				"MACHOKE"
 			],
@@ -1297,6 +1379,7 @@
 		{
 			"number": 68,
 			"pbName": "MACHAMP",
+			"family": "MACHOP",
 			"aliases": [
 				"MACHAMP",
 				"CHAMP"
@@ -1313,6 +1396,7 @@
 		{
 			"number": 69,
 			"pbName": "BELLSPROUT",
+			"family": "BELLSPROUT",
 			"aliases": [
 				"BELLSPROUT"
 			],
@@ -1328,6 +1412,7 @@
 		{
 			"number": 70,
 			"pbName": "WEEPINBELL",
+			"family": "BELLSPROUT",
 			"aliases": [
 				"WEEPINBELL"
 			],
@@ -1343,6 +1428,7 @@
 		{
 			"number": 71,
 			"pbName": "VICTREEBEL",
+			"family": "BELLSPROUT",
 			"aliases": [
 				"VICTREEBEL"
 			],
@@ -1358,6 +1444,7 @@
 		{
 			"number": 72,
 			"pbName": "TENTACOOL",
+			"family": "TENTACOOL",
 			"aliases": [
 				"TENTACOOL"
 			],
@@ -1373,6 +1460,7 @@
 		{
 			"number": 73,
 			"pbName": "TENTACRUEL",
+			"family": "TENTACOOL",
 			"aliases": [
 				"TENTACRUEL"
 			],
@@ -1388,6 +1476,7 @@
 		{
 			"number": 74,
 			"pbName": "GEODUDE",
+			"family": "GEODUDE",
 			"aliases": [
 				"GEODUDE"
 			],
@@ -1403,6 +1492,7 @@
 		{
 			"number": 74,
 			"pbName": "GEODUDE_ALOLA_FORM",
+			"family": "GEODUDE_ALOLA_FORM",
 			"aliases": [
 				"GEODUDE_ALOLA_FORM",
 				"ALOLAN GEODUDE",
@@ -1428,6 +1518,7 @@
 		{
 			"number": 75,
 			"pbName": "GRAVELER",
+			"family": "GEODUDE",
 			"aliases": [
 				"GRAVELER"
 			],
@@ -1443,6 +1534,7 @@
 		{
 			"number": 75,
 			"pbName": "GRAVELER_ALOLA_FORM",
+			"family": "GEODUDE_ALOLA_FORM",
 			"aliases": [
 				"GRAVELER_ALOLA_FORM",
 				"ALOLAN GRAVELER",
@@ -1468,6 +1560,7 @@
 		{
 			"number": 76,
 			"pbName": "GOLEM",
+			"family": "GEODUDE",
 			"aliases": [
 				"GOLEM"
 			],
@@ -1483,6 +1576,7 @@
 		{
 			"number": 76,
 			"pbName": "GOLEM_ALOLA_FORM",
+			"family": "GEODUDE_ALOLA_FORM",
 			"aliases": [
 				"GOLEM_ALOLA_FORM",
 				"ALOLAN GOLEM",
@@ -1508,6 +1602,7 @@
 		{
 			"number": 77,
 			"pbName": "PONYTA",
+			"family": "PONYTA",
 			"aliases": [
 				"PONYTA"
 			],
@@ -1523,6 +1618,7 @@
 		{
 			"number": 78,
 			"pbName": "RAPIDASH",
+			"family": "PONYTA",
 			"aliases": [
 				"RAPIDASH"
 			],
@@ -1538,6 +1634,7 @@
 		{
 			"number": 79,
 			"pbName": "SLOWPOKE",
+			"family": "SLOWPOKE",
 			"aliases": [
 				"SLOWPOKE"
 			],
@@ -1553,6 +1650,7 @@
 		{
 			"number": 80,
 			"pbName": "SLOWBRO",
+			"family": "SLOWPOKE",
 			"aliases": [
 				"SLOWBRO"
 			],
@@ -1568,6 +1666,7 @@
 		{
 			"number": 81,
 			"pbName": "MAGNEMITE",
+			"family": "MAGNEMITE",
 			"aliases": [
 				"MAGNEMITE"
 			],
@@ -1583,6 +1682,7 @@
 		{
 			"number": 82,
 			"pbName": "MAGNETON",
+			"family": "MAGNEMITE",
 			"aliases": [
 				"MAGNETON"
 			],
@@ -1598,6 +1698,7 @@
 		{
 			"number": 83,
 			"pbName": "FARFETCHD",
+			"family": "FARFETCHD",
 			"aliases": [
 				"FARFETCHD",
 				"FARFETCH'D",
@@ -1617,6 +1718,7 @@
 		{
 			"number": 84,
 			"pbName": "DODUO",
+			"family": "DODUO",
 			"aliases": [
 				"DODUO"
 			],
@@ -1632,6 +1734,7 @@
 		{
 			"number": 85,
 			"pbName": "DODRIO",
+			"family": "DODUO",
 			"aliases": [
 				"DODRIO"
 			],
@@ -1647,6 +1750,7 @@
 		{
 			"number": 86,
 			"pbName": "SEEL",
+			"family": "SEEL",
 			"aliases": [
 				"SEEL"
 			],
@@ -1662,6 +1766,7 @@
 		{
 			"number": 87,
 			"pbName": "DEWGONG",
+			"family": "SEEL",
 			"aliases": [
 				"DEWGONG"
 			],
@@ -1677,6 +1782,7 @@
 		{
 			"number": 88,
 			"pbName": "GRIMER",
+			"family": "GRIMER",
 			"aliases": [
 				"GRIMER"
 			],
@@ -1692,6 +1798,7 @@
 		{
 			"number": 88,
 			"pbName": "GRIMER_ALOLA_FORM",
+			"family": "GRIMER_ALOLA_FORM",
 			"aliases": [
 				"GRIMER_ALOLA_FORM",
 				"ALOLAN GRIMER",
@@ -1717,6 +1824,7 @@
 		{
 			"number": 89,
 			"pbName": "MUK",
+			"family": "GRIMER",
 			"aliases": [
 				"MUK"
 			],
@@ -1732,6 +1840,7 @@
 		{
 			"number": 89,
 			"pbName": "MUK_ALOLA_FORM",
+			"family": "GRIMER_ALOLA_FORM",
 			"aliases": [
 				"MUK_ALOLA_FORM",
 				"ALOLAN MUK",
@@ -1757,6 +1866,7 @@
 		{
 			"number": 90,
 			"pbName": "SHELLDER",
+			"family": "SHELLDER",
 			"aliases": [
 				"SHELLDER"
 			],
@@ -1772,6 +1882,7 @@
 		{
 			"number": 91,
 			"pbName": "CLOYSTER",
+			"family": "SHELLDER",
 			"aliases": [
 				"CLOYSTER"
 			],
@@ -1787,6 +1898,7 @@
 		{
 			"number": 92,
 			"pbName": "GASTLY",
+			"family": "GASTLY",
 			"aliases": [
 				"GASTLY"
 			],
@@ -1802,6 +1914,7 @@
 		{
 			"number": 93,
 			"pbName": "HAUNTER",
+			"family": "GASTLY",
 			"aliases": [
 				"HAUNTER"
 			],
@@ -1817,6 +1930,7 @@
 		{
 			"number": 94,
 			"pbName": "GENGAR",
+			"family": "GASTLY",
 			"aliases": [
 				"GENGAR"
 			],
@@ -1832,6 +1946,7 @@
 		{
 			"number": 95,
 			"pbName": "ONIX",
+			"family": "ONIX",
 			"aliases": [
 				"ONIX"
 			],
@@ -1847,6 +1962,7 @@
 		{
 			"number": 96,
 			"pbName": "DROWZEE",
+			"family": "DROWZEE",
 			"aliases": [
 				"DROWZEE"
 			],
@@ -1862,6 +1978,7 @@
 		{
 			"number": 97,
 			"pbName": "HYPNO",
+			"family": "DROWZEE",
 			"aliases": [
 				"HYPNO"
 			],
@@ -1877,6 +1994,7 @@
 		{
 			"number": 98,
 			"pbName": "KRABBY",
+			"family": "KRABBY",
 			"aliases": [
 				"KRABBY"
 			],
@@ -1892,6 +2010,7 @@
 		{
 			"number": 99,
 			"pbName": "KINGLER",
+			"family": "KRABBY",
 			"aliases": [
 				"KINGLER"
 			],
@@ -1907,6 +2026,7 @@
 		{
 			"number": 100,
 			"pbName": "VOLTORB",
+			"family": "VOLTORB",
 			"aliases": [
 				"VOLTORB"
 			],
@@ -1922,6 +2042,7 @@
 		{
 			"number": 101,
 			"pbName": "ELECTRODE",
+			"family": "VOLTORB",
 			"aliases": [
 				"ELECTRODE"
 			],
@@ -1937,6 +2058,7 @@
 		{
 			"number": 102,
 			"pbName": "EXEGGCUTE",
+			"family": "EXEGGCUTE",
 			"aliases": [
 				"EXEGGCUTE"
 			],
@@ -1952,6 +2074,7 @@
 		{
 			"number": 103,
 			"pbName": "EXEGGUTOR",
+			"family": "EXEGGCUTE",
 			"aliases": [
 				"EXEGGUTOR"
 			],
@@ -1967,6 +2090,7 @@
 		{
 			"number": 103,
 			"pbName": "EXEGGUTOR_ALOLA_FORM",
+			"family": "EXEGGUTOR_ALOLA_FORM",
 			"aliases": [
 				"EXEGGUTOR_ALOLA_FORM",
 				"ALOLAN EXEGGUTOR",
@@ -1992,6 +2116,7 @@
 		{
 			"number": 104,
 			"pbName": "CUBONE",
+			"family": "CUBONE",
 			"aliases": [
 				"CUBONE"
 			],
@@ -2007,6 +2132,7 @@
 		{
 			"number": 105,
 			"pbName": "MAROWAK",
+			"family": "CUBONE",
 			"aliases": [
 				"MAROWAK"
 			],
@@ -2022,6 +2148,7 @@
 		{
 			"number": 105,
 			"pbName": "MAROWAK_ALOLA_FORM",
+			"family": "MAROWAK_ALOLA_FORM",
 			"aliases": [
 				"MAROWAK_ALOLA_FORM",
 				"ALOLAN MAROWAK",
@@ -2047,6 +2174,7 @@
 		{
 			"number": 106,
 			"pbName": "HITMONLEE",
+			"family": "TYROGUE",
 			"aliases": [
 				"HITMONLEE",
 				"LEE"
@@ -2063,6 +2191,7 @@
 		{
 			"number": 107,
 			"pbName": "HITMONCHAN",
+			"family": "TYROGUE",
 			"aliases": [
 				"HITMONCHAN",
 				"CHAN"
@@ -2079,6 +2208,7 @@
 		{
 			"number": 108,
 			"pbName": "LICKITUNG",
+			"family": "LICKITUNG",
 			"aliases": [
 				"LICKITUNG",
 				"LICKY"
@@ -2095,6 +2225,7 @@
 		{
 			"number": 109,
 			"pbName": "KOFFING",
+			"family": "KOFFING",
 			"aliases": [
 				"KOFFING"
 			],
@@ -2110,6 +2241,7 @@
 		{
 			"number": 110,
 			"pbName": "WEEZING",
+			"family": "KOFFING",
 			"aliases": [
 				"WEEZING"
 			],
@@ -2125,6 +2257,7 @@
 		{
 			"number": 111,
 			"pbName": "RHYHORN",
+			"family": "RHYHORN",
 			"aliases": [
 				"RHYHORN"
 			],
@@ -2140,6 +2273,7 @@
 		{
 			"number": 112,
 			"pbName": "RHYDON",
+			"family": "RHYHORN",
 			"aliases": [
 				"RHYDON"
 			],
@@ -2155,6 +2289,7 @@
 		{
 			"number": 113,
 			"pbName": "CHANSEY",
+			"family": "CHANSEY",
 			"aliases": [
 				"CHANSEY"
 			],
@@ -2170,6 +2305,7 @@
 		{
 			"number": 114,
 			"pbName": "TANGELA",
+			"family": "TANGELA",
 			"aliases": [
 				"TANGELA"
 			],
@@ -2185,6 +2321,7 @@
 		{
 			"number": 115,
 			"pbName": "KANGASKHAN",
+			"family": "KANGASKHAN",
 			"aliases": [
 				"KANGASKHAN"
 			],
@@ -2200,6 +2337,7 @@
 		{
 			"number": 116,
 			"pbName": "HORSEA",
+			"family": "HORSEA",
 			"aliases": [
 				"HORSEA"
 			],
@@ -2215,6 +2353,7 @@
 		{
 			"number": 117,
 			"pbName": "SEADRA",
+			"family": "HORSEA",
 			"aliases": [
 				"SEADRA"
 			],
@@ -2230,6 +2369,7 @@
 		{
 			"number": 118,
 			"pbName": "GOLDEEN",
+			"family": "GOLDEEN",
 			"aliases": [
 				"GOLDEEN"
 			],
@@ -2245,6 +2385,7 @@
 		{
 			"number": 119,
 			"pbName": "SEAKING",
+			"family": "GOLDEEN",
 			"aliases": [
 				"SEAKING"
 			],
@@ -2260,6 +2401,7 @@
 		{
 			"number": 120,
 			"pbName": "STARYU",
+			"family": "STARYU",
 			"aliases": [
 				"STARYU"
 			],
@@ -2275,6 +2417,7 @@
 		{
 			"number": 121,
 			"pbName": "STARMIE",
+			"family": "STARYU",
 			"aliases": [
 				"STARMIE"
 			],
@@ -2290,6 +2433,7 @@
 		{
 			"number": 122,
 			"pbName": "MR_MIME",
+			"family": "MR_MIME",
 			"aliases": [
 				"MR_MIME",
 				"MR. MIME",
@@ -2308,6 +2452,7 @@
 		{
 			"number": 123,
 			"pbName": "SCYTHER",
+			"family": "SCYTHER",
 			"aliases": [
 				"SCYTHER"
 			],
@@ -2323,6 +2468,7 @@
 		{
 			"number": 124,
 			"pbName": "JYNX",
+			"family": "JYNX",
 			"aliases": [
 				"JYNX"
 			],
@@ -2338,6 +2484,7 @@
 		{
 			"number": 125,
 			"pbName": "ELECTABUZZ",
+			"family": "ELECTABUZZ",
 			"aliases": [
 				"ELECTABUZZ"
 			],
@@ -2353,6 +2500,7 @@
 		{
 			"number": 126,
 			"pbName": "MAGMAR",
+			"family": "MAGMAR",
 			"aliases": [
 				"MAGMAR"
 			],
@@ -2368,6 +2516,7 @@
 		{
 			"number": 127,
 			"pbName": "PINSIR",
+			"family": "PINSIR",
 			"aliases": [
 				"PINSIR"
 			],
@@ -2383,6 +2532,7 @@
 		{
 			"number": 128,
 			"pbName": "TAUROS",
+			"family": "TAUROS",
 			"aliases": [
 				"TAUROS"
 			],
@@ -2398,6 +2548,7 @@
 		{
 			"number": 129,
 			"pbName": "MAGIKARP",
+			"family": "MAGIKARP",
 			"aliases": [
 				"MAGIKARP",
 				"KARP"
@@ -2414,6 +2565,7 @@
 		{
 			"number": 130,
 			"pbName": "GYARADOS",
+			"family": "MAGIKARP",
 			"aliases": [
 				"GYARADOS"
 			],
@@ -2429,6 +2581,7 @@
 		{
 			"number": 131,
 			"pbName": "LAPRAS",
+			"family": "LAPRAS",
 			"aliases": [
 				"LAPRAS"
 			],
@@ -2444,6 +2597,7 @@
 		{
 			"number": 132,
 			"pbName": "DITTO",
+			"family": "DITTO",
 			"aliases": [
 				"DITTO"
 			],
@@ -2459,6 +2613,7 @@
 		{
 			"number": 133,
 			"pbName": "EEVEE",
+			"family": "EEVEE",
 			"aliases": [
 				"EEVEE"
 			],
@@ -2474,6 +2629,7 @@
 		{
 			"number": 134,
 			"pbName": "VAPOREON",
+			"family": "EEVEE",
 			"aliases": [
 				"VAPOREON"
 			],
@@ -2489,6 +2645,7 @@
 		{
 			"number": 135,
 			"pbName": "JOLTEON",
+			"family": "EEVEE",
 			"aliases": [
 				"JOLTEON"
 			],
@@ -2504,6 +2661,7 @@
 		{
 			"number": 136,
 			"pbName": "FLAREON",
+			"family": "EEVEE",
 			"aliases": [
 				"FLAREON"
 			],
@@ -2519,6 +2677,7 @@
 		{
 			"number": 137,
 			"pbName": "PORYGON",
+			"family": "PORYGON",
 			"aliases": [
 				"PORYGON"
 			],
@@ -2534,6 +2693,7 @@
 		{
 			"number": 138,
 			"pbName": "OMANYTE",
+			"family": "OMANYTE",
 			"aliases": [
 				"OMANYTE"
 			],
@@ -2549,6 +2709,7 @@
 		{
 			"number": 139,
 			"pbName": "OMASTAR",
+			"family": "OMANYTE",
 			"aliases": [
 				"OMASTAR"
 			],
@@ -2564,6 +2725,7 @@
 		{
 			"number": 140,
 			"pbName": "KABUTO",
+			"family": "KABUTO",
 			"aliases": [
 				"KABUTO"
 			],
@@ -2579,6 +2741,7 @@
 		{
 			"number": 141,
 			"pbName": "KABUTOPS",
+			"family": "KABUTO",
 			"aliases": [
 				"KABUTOPS"
 			],
@@ -2594,6 +2757,7 @@
 		{
 			"number": 142,
 			"pbName": "AERODACTYL",
+			"family": "AERODACTYL",
 			"aliases": [
 				"AERODACTYL",
 				"AERO"
@@ -2610,6 +2774,7 @@
 		{
 			"number": 143,
 			"pbName": "SNORLAX",
+			"family": "SNORLAX",
 			"aliases": [
 				"SNORLAX"
 			],
@@ -2625,6 +2790,7 @@
 		{
 			"number": 144,
 			"pbName": "ARTICUNO",
+			"family": "ARTICUNO",
 			"aliases": [
 				"ARTICUNO",
 				"ARTY"
@@ -2641,6 +2807,7 @@
 		{
 			"number": 145,
 			"pbName": "ZAPDOS",
+			"family": "ZAPDOS",
 			"aliases": [
 				"ZAPDOS",
 				"ZAPPY"
@@ -2657,6 +2824,7 @@
 		{
 			"number": 146,
 			"pbName": "MOLTRES",
+			"family": "MOLTRES",
 			"aliases": [
 				"MOLTRES",
 				"MOLTY"
@@ -2673,6 +2841,7 @@
 		{
 			"number": 147,
 			"pbName": "DRATINI",
+			"family": "DRATINI",
 			"aliases": [
 				"DRATINI",
 				"NOODLE"
@@ -2689,6 +2858,7 @@
 		{
 			"number": 148,
 			"pbName": "DRAGONAIR",
+			"family": "DRATINI",
 			"aliases": [
 				"DRAGONAIR"
 			],
@@ -2704,6 +2874,7 @@
 		{
 			"number": 149,
 			"pbName": "DRAGONITE",
+			"family": "DRATINI",
 			"aliases": [
 				"DRAGONITE"
 			],
@@ -2719,6 +2890,7 @@
 		{
 			"number": 150,
 			"pbName": "MEWTWO",
+			"family": "MEWTWO",
 			"aliases": [
 				"MEWTWO",
 				"M2"
@@ -2735,6 +2907,7 @@
 		{
 			"number": 150,
 			"pbName": "MEWTWO_A_FORM",
+			"family": "MEWTWO_A_FORM",
 			"aliases": [
 				"ARMORED MEWTWO",
 				"ARMOR MEWTWO",
@@ -2751,7 +2924,7 @@
 			"sta": 214,
 			"gsName": [
 				"ARMORED MEWTWO",
-				"A MEWTWO",
+				"ARMORED MEWTWO",
 				"MEWTWO ARMORED"
 			],
 			"imageURL": "https://cdn.bulbagarden.net/upload/3/32/GO150A.png"
@@ -2759,6 +2932,7 @@
 		{
 			"number": 151,
 			"pbName": "MEW",
+			"family": "MEW",
 			"aliases": [
 				"MEW"
 			],
@@ -2774,6 +2948,7 @@
 		{
 			"number": 152,
 			"pbName": "CHIKORITA",
+			"family": "CHIKORITA",
 			"aliases": [
 				"CHIKORITA"
 			],
@@ -2789,6 +2964,7 @@
 		{
 			"number": 153,
 			"pbName": "BAYLEEF",
+			"family": "CHIKORITA",
 			"aliases": [
 				"BAYLEEF"
 			],
@@ -2804,6 +2980,7 @@
 		{
 			"number": 154,
 			"pbName": "MEGANIUM",
+			"family": "CHIKORITA",
 			"aliases": [
 				"MEGANIUM"
 			],
@@ -2819,6 +2996,7 @@
 		{
 			"number": 155,
 			"pbName": "CYNDAQUIL",
+			"family": "CYNDAQUIL",
 			"aliases": [
 				"CYNDAQUIL"
 			],
@@ -2834,6 +3012,7 @@
 		{
 			"number": 156,
 			"pbName": "QUILAVA",
+			"family": "CYNDAQUIL",
 			"aliases": [
 				"QUILAVA"
 			],
@@ -2849,6 +3028,7 @@
 		{
 			"number": 157,
 			"pbName": "TYPHLOSION",
+			"family": "CYNDAQUIL",
 			"aliases": [
 				"TYPHLOSION"
 			],
@@ -2864,6 +3044,7 @@
 		{
 			"number": 158,
 			"pbName": "TOTODILE",
+			"family": "TOTODILE",
 			"aliases": [
 				"TOTODILE",
 				"TOTO"
@@ -2880,6 +3061,7 @@
 		{
 			"number": 159,
 			"pbName": "CROCONAW",
+			"family": "TOTODILE",
 			"aliases": [
 				"CROCONAW"
 			],
@@ -2895,6 +3077,7 @@
 		{
 			"number": 160,
 			"pbName": "FERALIGATR",
+			"family": "TOTODILE",
 			"aliases": [
 				"FERALIGATR"
 			],
@@ -2910,6 +3093,7 @@
 		{
 			"number": 161,
 			"pbName": "SENTRET",
+			"family": "SENTRET",
 			"aliases": [
 				"SENTRET"
 			],
@@ -2925,6 +3109,7 @@
 		{
 			"number": 162,
 			"pbName": "FURRET",
+			"family": "SENTRET",
 			"aliases": [
 				"FURRET"
 			],
@@ -2940,6 +3125,7 @@
 		{
 			"number": 163,
 			"pbName": "HOOTHOOT",
+			"family": "HOOTHOOT",
 			"aliases": [
 				"HOOTHOOT"
 			],
@@ -2955,6 +3141,7 @@
 		{
 			"number": 164,
 			"pbName": "NOCTOWL",
+			"family": "HOOTHOOT",
 			"aliases": [
 				"NOCTOWL"
 			],
@@ -2970,6 +3157,7 @@
 		{
 			"number": 165,
 			"pbName": "LEDYBA",
+			"family": "LEDYBA",
 			"aliases": [
 				"LEDYBA"
 			],
@@ -2985,6 +3173,7 @@
 		{
 			"number": 166,
 			"pbName": "LEDIAN",
+			"family": "LEDYBA",
 			"aliases": [
 				"LEDIAN"
 			],
@@ -3000,6 +3189,7 @@
 		{
 			"number": 167,
 			"pbName": "SPINARAK",
+			"family": "SPINARAK",
 			"aliases": [
 				"SPINARAK"
 			],
@@ -3015,6 +3205,7 @@
 		{
 			"number": 168,
 			"pbName": "ARIADOS",
+			"family": "SPINARAK",
 			"aliases": [
 				"ARIADOS"
 			],
@@ -3030,6 +3221,7 @@
 		{
 			"number": 169,
 			"pbName": "CROBAT",
+			"family": "ZUBAT",
 			"aliases": [
 				"CROBAT"
 			],
@@ -3045,6 +3237,7 @@
 		{
 			"number": 170,
 			"pbName": "CHINCHOU",
+			"family": "CHINCHOU",
 			"aliases": [
 				"CHINCHOU"
 			],
@@ -3060,6 +3253,7 @@
 		{
 			"number": 171,
 			"pbName": "LANTURN",
+			"family": "CHINCHOU",
 			"aliases": [
 				"LANTURN"
 			],
@@ -3075,6 +3269,7 @@
 		{
 			"number": 172,
 			"pbName": "PICHU",
+			"family": "PIKEACHU",
 			"aliases": [
 				"PICHU"
 			],
@@ -3090,6 +3285,7 @@
 		{
 			"number": 173,
 			"pbName": "CLEFFA",
+			"family": "CLEFAIRY",
 			"aliases": [
 				"CLEFFA"
 			],
@@ -3105,6 +3301,7 @@
 		{
 			"number": 174,
 			"pbName": "IGGLYBUFF",
+			"family": "JIGGLYPUFF",
 			"aliases": [
 				"IGGLYBUFF",
 				"IGGLY"
@@ -3121,6 +3318,7 @@
 		{
 			"number": 175,
 			"pbName": "TOGEPI",
+			"family": "TOGEPI",
 			"aliases": [
 				"TOGEPI"
 			],
@@ -3136,6 +3334,7 @@
 		{
 			"number": 176,
 			"pbName": "TOGETIC",
+			"family": "TOGEPI",
 			"aliases": [
 				"TOGETIC"
 			],
@@ -3151,6 +3350,7 @@
 		{
 			"number": 177,
 			"pbName": "NATU",
+			"family": "NATU",
 			"aliases": [
 				"NATU"
 			],
@@ -3166,6 +3366,7 @@
 		{
 			"number": 178,
 			"pbName": "XATU",
+			"family": "NATU",
 			"aliases": [
 				"XATU"
 			],
@@ -3181,6 +3382,7 @@
 		{
 			"number": 179,
 			"pbName": "MAREEP",
+			"family": "MAREEP",
 			"aliases": [
 				"MAREEP"
 			],
@@ -3196,6 +3398,7 @@
 		{
 			"number": 180,
 			"pbName": "FLAAFFY",
+			"family": "MAREEP",
 			"aliases": [
 				"FLAAFFY"
 			],
@@ -3211,6 +3414,7 @@
 		{
 			"number": 181,
 			"pbName": "AMPHAROS",
+			"family": "MAREEP",
 			"aliases": [
 				"AMPHAROS"
 			],
@@ -3226,6 +3430,7 @@
 		{
 			"number": 182,
 			"pbName": "BELLOSSOM",
+			"family": "ODDISH",
 			"aliases": [
 				"BELLOSSOM"
 			],
@@ -3241,6 +3446,7 @@
 		{
 			"number": 183,
 			"pbName": "MARILL",
+			"family": "MARILL",
 			"aliases": [
 				"MARILL"
 			],
@@ -3256,6 +3462,7 @@
 		{
 			"number": 184,
 			"pbName": "AZUMARILL",
+			"family": "MARILL",
 			"aliases": [
 				"AZUMARILL"
 			],
@@ -3271,6 +3478,7 @@
 		{
 			"number": 185,
 			"pbName": "SUDOWOODO",
+			"family": "SUDOWOODO",
 			"aliases": [
 				"SUDOWOODO",
 				"FAKETREE",
@@ -3290,6 +3498,7 @@
 		{
 			"number": 186,
 			"pbName": "POLITOED",
+			"family": "POLIWAG",
 			"aliases": [
 				"POLITOED"
 			],
@@ -3305,6 +3514,7 @@
 		{
 			"number": 187,
 			"pbName": "HOPPIP",
+			"family": "HOPPIP",
 			"aliases": [
 				"HOPPIP"
 			],
@@ -3320,6 +3530,7 @@
 		{
 			"number": 188,
 			"pbName": "SKIPLOOM",
+			"family": "HOPPIP",
 			"aliases": [
 				"SKIPLOOM"
 			],
@@ -3335,6 +3546,7 @@
 		{
 			"number": 189,
 			"pbName": "JUMPLUFF",
+			"family": "HOPPIP",
 			"aliases": [
 				"JUMPLUFF"
 			],
@@ -3350,6 +3562,7 @@
 		{
 			"number": 190,
 			"pbName": "AIPOM",
+			"family": "AIPOM",
 			"aliases": [
 				"AIPOM"
 			],
@@ -3365,6 +3578,7 @@
 		{
 			"number": 191,
 			"pbName": "SUNKERN",
+			"family": "SUNKERN",
 			"aliases": [
 				"SUNKERN"
 			],
@@ -3380,6 +3594,7 @@
 		{
 			"number": 192,
 			"pbName": "SUNFLORA",
+			"family": "SUNKERN",
 			"aliases": [
 				"SUNFLORA"
 			],
@@ -3395,6 +3610,7 @@
 		{
 			"number": 193,
 			"pbName": "YANMA",
+			"family": "YANMA",
 			"aliases": [
 				"YANMA"
 			],
@@ -3410,6 +3626,7 @@
 		{
 			"number": 194,
 			"pbName": "WOOPER",
+			"family": "WOOPER",
 			"aliases": [
 				"WOOPER"
 			],
@@ -3425,6 +3642,7 @@
 		{
 			"number": 195,
 			"pbName": "QUAGSIRE",
+			"family": "WOOPER",
 			"aliases": [
 				"QUAGSIRE"
 			],
@@ -3440,6 +3658,7 @@
 		{
 			"number": 196,
 			"pbName": "ESPEON",
+			"family": "EEVEE",
 			"aliases": [
 				"ESPEON"
 			],
@@ -3455,6 +3674,7 @@
 		{
 			"number": 197,
 			"pbName": "UMBREON",
+			"family": "EEVEE",
 			"aliases": [
 				"UMBREON"
 			],
@@ -3470,6 +3690,7 @@
 		{
 			"number": 198,
 			"pbName": "MURKROW",
+			"family": "MURKROW",
 			"aliases": [
 				"MURKROW"
 			],
@@ -3485,6 +3706,7 @@
 		{
 			"number": 199,
 			"pbName": "SLOWKING",
+			"family": "SLOWPOKE",
 			"aliases": [
 				"SLOWKING"
 			],
@@ -3500,6 +3722,7 @@
 		{
 			"number": 200,
 			"pbName": "MISDREAVUS",
+			"family": "MISDREAVUS",
 			"aliases": [
 				"MISDREAVUS"
 			],
@@ -3515,6 +3738,7 @@
 		{
 			"number": 201,
 			"pbName": "UNOWN",
+			"family": "UNOWN",
 			"aliases": [
 				"UNOWN"
 			],
@@ -3530,6 +3754,7 @@
 		{
 			"number": 202,
 			"pbName": "WOBBUFFET",
+			"family": "WOBBUFFET",
 			"aliases": [
 				"WOBBUFFET",
 				"WOBB"
@@ -3546,6 +3771,7 @@
 		{
 			"number": 203,
 			"pbName": "GIRAFARIG",
+			"family": "GIRAFARIG",
 			"aliases": [
 				"GIRAFARIG"
 			],
@@ -3561,6 +3787,7 @@
 		{
 			"number": 204,
 			"pbName": "PINECO",
+			"family": "PINECO",
 			"aliases": [
 				"PINECO"
 			],
@@ -3576,6 +3803,7 @@
 		{
 			"number": 205,
 			"pbName": "FORRETRESS",
+			"family": "PINECO",
 			"aliases": [
 				"FORRETRESS"
 			],
@@ -3591,6 +3819,7 @@
 		{
 			"number": 206,
 			"pbName": "DUNSPARCE",
+			"family": "DUNSPARCE",
 			"aliases": [
 				"DUNSPARCE"
 			],
@@ -3606,6 +3835,7 @@
 		{
 			"number": 207,
 			"pbName": "GLIGAR",
+			"family": "GLIGAR",
 			"aliases": [
 				"GLIGAR"
 			],
@@ -3621,6 +3851,7 @@
 		{
 			"number": 208,
 			"pbName": "STEELIX",
+			"family": "ONIX",
 			"aliases": [
 				"STEELIX"
 			],
@@ -3636,6 +3867,7 @@
 		{
 			"number": 209,
 			"pbName": "SNUBBULL",
+			"family": "SNUBBULL",
 			"aliases": [
 				"SNUBBULL"
 			],
@@ -3651,6 +3883,7 @@
 		{
 			"number": 210,
 			"pbName": "GRANBULL",
+			"family": "SNUBBULL",
 			"aliases": [
 				"GRANBULL"
 			],
@@ -3666,6 +3899,7 @@
 		{
 			"number": 211,
 			"pbName": "QWILFISH",
+			"family": "QWILFISH",
 			"aliases": [
 				"QWILFISH"
 			],
@@ -3681,6 +3915,7 @@
 		{
 			"number": 212,
 			"pbName": "SCIZOR",
+			"family": "SCYTHER",
 			"aliases": [
 				"SCIZOR"
 			],
@@ -3696,6 +3931,7 @@
 		{
 			"number": 213,
 			"pbName": "SHUCKLE",
+			"family": "SHUCKLE",
 			"aliases": [
 				"SHUCKLE"
 			],
@@ -3711,6 +3947,7 @@
 		{
 			"number": 214,
 			"pbName": "HERACROSS",
+			"family": "HERACROSS",
 			"aliases": [
 				"HERACROSS"
 			],
@@ -3726,6 +3963,7 @@
 		{
 			"number": 215,
 			"pbName": "SNEASEL",
+			"family": "SNEASEL",
 			"aliases": [
 				"SNEASEL"
 			],
@@ -3741,6 +3979,7 @@
 		{
 			"number": 216,
 			"pbName": "TEDDIURSA",
+			"family": "TEDDIURSA",
 			"aliases": [
 				"TEDDIURSA"
 			],
@@ -3756,6 +3995,7 @@
 		{
 			"number": 217,
 			"pbName": "URSARING",
+			"family": "TEDDIURSA",
 			"aliases": [
 				"URSARING"
 			],
@@ -3771,6 +4011,7 @@
 		{
 			"number": 218,
 			"pbName": "SLUGMA",
+			"family": "SLUGMA",
 			"aliases": [
 				"SLUGMA"
 			],
@@ -3786,6 +4027,7 @@
 		{
 			"number": 219,
 			"pbName": "MAGCARGO",
+			"family": "SLUGMA",
 			"aliases": [
 				"MAGCARGO"
 			],
@@ -3801,6 +4043,7 @@
 		{
 			"number": 220,
 			"pbName": "SWINUB",
+			"family": "SWINUB",
 			"aliases": [
 				"SWINUB"
 			],
@@ -3816,6 +4059,7 @@
 		{
 			"number": 221,
 			"pbName": "PILOSWINE",
+			"family": "SWINUB",
 			"aliases": [
 				"PILOSWINE"
 			],
@@ -3831,6 +4075,7 @@
 		{
 			"number": 222,
 			"pbName": "CORSOLA",
+			"family": "CORSOLA",
 			"aliases": [
 				"CORSOLA"
 			],
@@ -3846,6 +4091,7 @@
 		{
 			"number": 223,
 			"pbName": "REMORAID",
+			"family": "REMORAID",
 			"aliases": [
 				"REMORAID"
 			],
@@ -3861,6 +4107,7 @@
 		{
 			"number": 224,
 			"pbName": "OCTILLERY",
+			"family": "REMORAID",
 			"aliases": [
 				"OCTILLERY"
 			],
@@ -3876,6 +4123,7 @@
 		{
 			"number": 225,
 			"pbName": "DELIBIRD",
+			"family": "DELIBIRD",
 			"aliases": [
 				"DELIBIRD",
 				"DOOLIEBIRB"
@@ -3892,6 +4140,7 @@
 		{
 			"number": 226,
 			"pbName": "MANTINE",
+			"family": "MANTINE",
 			"aliases": [
 				"MANTINE"
 			],
@@ -3907,6 +4156,7 @@
 		{
 			"number": 227,
 			"pbName": "SKARMORY",
+			"family": "SKARMORY",
 			"aliases": [
 				"SKARMORY"
 			],
@@ -3922,6 +4172,7 @@
 		{
 			"number": 228,
 			"pbName": "HOUNDOUR",
+			"family": "HOUNDOUR",
 			"aliases": [
 				"HOUNDOUR"
 			],
@@ -3937,6 +4188,7 @@
 		{
 			"number": 229,
 			"pbName": "HOUNDOOM",
+			"family": "HOUNDOUR",
 			"aliases": [
 				"HOUNDOOM"
 			],
@@ -3952,6 +4204,7 @@
 		{
 			"number": 230,
 			"pbName": "KINGDRA",
+			"family": "HORSEA",
 			"aliases": [
 				"KINGDRA"
 			],
@@ -3967,6 +4220,7 @@
 		{
 			"number": 231,
 			"pbName": "PHANPY",
+			"family": "PHANPY",
 			"aliases": [
 				"PHANPY"
 			],
@@ -3982,6 +4236,7 @@
 		{
 			"number": 232,
 			"pbName": "DONPHAN",
+			"family": "PHANPY",
 			"aliases": [
 				"DONPHAN"
 			],
@@ -3997,6 +4252,7 @@
 		{
 			"number": 233,
 			"pbName": "PORYGON2",
+			"family": "PORYGON",
 			"aliases": [
 				"PORYGON2",
 				"PORYGON 2",
@@ -4015,6 +4271,7 @@
 		{
 			"number": 234,
 			"pbName": "STANTLER",
+			"family": "STANTLER",
 			"aliases": [
 				"STANTLER"
 			],
@@ -4030,6 +4287,7 @@
 		{
 			"number": 235,
 			"pbName": "SMEARGLE",
+			"family": "SMEARGLE",
 			"aliases": [
 				"SMEARGLE"
 			],
@@ -4045,6 +4303,7 @@
 		{
 			"number": 236,
 			"pbName": "TYROGUE",
+			"family": "TYROGUE",
 			"aliases": [
 				"TYROGUE"
 			],
@@ -4060,6 +4319,7 @@
 		{
 			"number": 237,
 			"pbName": "HITMONTOP",
+			"family": "TYROGUE",
 			"aliases": [
 				"HITMONTOP",
 				"TOP"
@@ -4076,6 +4336,7 @@
 		{
 			"number": 238,
 			"pbName": "SMOOCHUM",
+			"family": "JYNX",
 			"aliases": [
 				"SMOOCHUM"
 			],
@@ -4091,6 +4352,7 @@
 		{
 			"number": 239,
 			"pbName": "ELEKID",
+			"family": "ELECTABUZZ",
 			"aliases": [
 				"ELEKID"
 			],
@@ -4106,6 +4368,7 @@
 		{
 			"number": 240,
 			"pbName": "MAGBY",
+			"family": "MAGMAR",
 			"aliases": [
 				"MAGBY"
 			],
@@ -4121,6 +4384,7 @@
 		{
 			"number": 241,
 			"pbName": "MILTANK",
+			"family": "MILTANK",
 			"aliases": [
 				"MILTANK"
 			],
@@ -4136,6 +4400,7 @@
 		{
 			"number": 242,
 			"pbName": "BLISSEY",
+			"family": "CHANSEY",
 			"aliases": [
 				"BLISSEY"
 			],
@@ -4151,6 +4416,7 @@
 		{
 			"number": 243,
 			"pbName": "RAIKOU",
+			"family": "RAIKOU",
 			"aliases": [
 				"RAIKOU"
 			],
@@ -4166,6 +4432,7 @@
 		{
 			"number": 244,
 			"pbName": "ENTEI",
+			"family": "ENTEI",
 			"aliases": [
 				"ENTEI"
 			],
@@ -4181,6 +4448,7 @@
 		{
 			"number": 245,
 			"pbName": "SUICUNE",
+			"family": "SUICUNE",
 			"aliases": [
 				"SUICUNE"
 			],
@@ -4196,6 +4464,7 @@
 		{
 			"number": 246,
 			"pbName": "LARVITAR",
+			"family": "LARVITAR",
 			"aliases": [
 				"LARVITAR"
 			],
@@ -4211,6 +4480,7 @@
 		{
 			"number": 247,
 			"pbName": "PUPITAR",
+			"family": "LARVITAR",
 			"aliases": [
 				"PUPITAR"
 			],
@@ -4226,6 +4496,7 @@
 		{
 			"number": 248,
 			"pbName": "TYRANITAR",
+			"family": "LARVITAR",
 			"aliases": [
 				"TYRANITAR",
 				"TTAR"
@@ -4242,6 +4513,7 @@
 		{
 			"number": 249,
 			"pbName": "LUGIA",
+			"family": "LUGIA",
 			"aliases": [
 				"LUGIA"
 			],
@@ -4257,6 +4529,7 @@
 		{
 			"number": 250,
 			"pbName": "HO_OH",
+			"family": "HO_OH",
 			"aliases": [
 				"HO_OH",
 				"HO OH",
@@ -4272,13 +4545,16 @@
 			"def": 244,
 			"sta": 214,
 			"gsName": [
-				"HO_OH"
+				"HO_OH",
+				"HO_OH",
+				"HO-OH"
 			],
 			"imageURL": "https://cdn.bulbagarden.net/upload/6/67/250Ho-Oh.png"
 		},
 		{
 			"number": 251,
 			"pbName": "CELEBI",
+			"family": "CELEBI",
 			"aliases": [
 				"CELEBI"
 			],
@@ -4294,6 +4570,7 @@
 		{
 			"number": 252,
 			"pbName": "TREECKO",
+			"family": "TREECKO",
 			"aliases": [
 				"TREECKO"
 			],
@@ -4309,6 +4586,7 @@
 		{
 			"number": 253,
 			"pbName": "GROVYLE",
+			"family": "TREECKO",
 			"aliases": [
 				"GROVYLE"
 			],
@@ -4324,6 +4602,7 @@
 		{
 			"number": 254,
 			"pbName": "SCEPTILE",
+			"family": "TREECKO",
 			"aliases": [
 				"SCEPTILE"
 			],
@@ -4339,6 +4618,7 @@
 		{
 			"number": 255,
 			"pbName": "TORCHIC",
+			"family": "TORCHIC",
 			"aliases": [
 				"TORCHIC"
 			],
@@ -4354,6 +4634,7 @@
 		{
 			"number": 256,
 			"pbName": "COMBUSKEN",
+			"family": "TORCHIC",
 			"aliases": [
 				"COMBUSKEN"
 			],
@@ -4369,6 +4650,7 @@
 		{
 			"number": 257,
 			"pbName": "BLAZIKEN",
+			"family": "TORCHIC",
 			"aliases": [
 				"BLAZIKEN"
 			],
@@ -4384,6 +4666,7 @@
 		{
 			"number": 258,
 			"pbName": "MUDKIP",
+			"family": "MUDKIP",
 			"aliases": [
 				"MUDKIP"
 			],
@@ -4399,6 +4682,7 @@
 		{
 			"number": 259,
 			"pbName": "MARSHTOMP",
+			"family": "MUDKIP",
 			"aliases": [
 				"MARSHTOMP"
 			],
@@ -4414,6 +4698,7 @@
 		{
 			"number": 260,
 			"pbName": "SWAMPERT",
+			"family": "MUDKIP",
 			"aliases": [
 				"SWAMPERT"
 			],
@@ -4429,6 +4714,7 @@
 		{
 			"number": 261,
 			"pbName": "POOCHYENA",
+			"family": "POOCHYENA",
 			"aliases": [
 				"POOCHYENA"
 			],
@@ -4444,6 +4730,7 @@
 		{
 			"number": 262,
 			"pbName": "MIGHTYENA",
+			"family": "POOCHYENA",
 			"aliases": [
 				"MIGHTYENA"
 			],
@@ -4459,6 +4746,7 @@
 		{
 			"number": 263,
 			"pbName": "ZIGZAGOON",
+			"family": "ZIGZAGOON",
 			"aliases": [
 				"ZIGZAGOON"
 			],
@@ -4474,6 +4762,7 @@
 		{
 			"number": 264,
 			"pbName": "LINOONE",
+			"family": "ZIGZAGOON",
 			"aliases": [
 				"LINOONE"
 			],
@@ -4489,6 +4778,7 @@
 		{
 			"number": 265,
 			"pbName": "WURMPLE",
+			"family": "WURMPLE",
 			"aliases": [
 				"WURMPLE"
 			],
@@ -4504,6 +4794,7 @@
 		{
 			"number": 266,
 			"pbName": "SILCOON",
+			"family": "WURMPLE",
 			"aliases": [
 				"SILCOON"
 			],
@@ -4519,6 +4810,7 @@
 		{
 			"number": 267,
 			"pbName": "BEAUTIFLY",
+			"family": "WURMPLE",
 			"aliases": [
 				"BEAUTIFLY"
 			],
@@ -4534,6 +4826,7 @@
 		{
 			"number": 268,
 			"pbName": "CASCOON",
+			"family": "WURMPLE",
 			"aliases": [
 				"CASCOON"
 			],
@@ -4549,6 +4842,7 @@
 		{
 			"number": 269,
 			"pbName": "DUSTOX",
+			"family": "WURMPLE",
 			"aliases": [
 				"DUSTOX"
 			],
@@ -4564,6 +4858,7 @@
 		{
 			"number": 270,
 			"pbName": "LOTAD",
+			"family": "LOTAD",
 			"aliases": [
 				"LOTAD"
 			],
@@ -4579,6 +4874,7 @@
 		{
 			"number": 271,
 			"pbName": "LOMBRE",
+			"family": "LOTAD",
 			"aliases": [
 				"LOMBRE"
 			],
@@ -4594,6 +4890,7 @@
 		{
 			"number": 272,
 			"pbName": "LUDICOLO",
+			"family": "LOTAD",
 			"aliases": [
 				"LUDICOLO"
 			],
@@ -4609,6 +4906,7 @@
 		{
 			"number": 273,
 			"pbName": "SEEDOT",
+			"family": "SEEDOT",
 			"aliases": [
 				"SEEDOT"
 			],
@@ -4624,6 +4922,7 @@
 		{
 			"number": 274,
 			"pbName": "NUZLEAF",
+			"family": "SEEDOT",
 			"aliases": [
 				"NUZLEAF"
 			],
@@ -4639,6 +4938,7 @@
 		{
 			"number": 275,
 			"pbName": "SHIFTRY",
+			"family": "SEEDOT",
 			"aliases": [
 				"SHIFTRY"
 			],
@@ -4654,6 +4954,7 @@
 		{
 			"number": 276,
 			"pbName": "TAILLOW",
+			"family": "TAILLOW",
 			"aliases": [
 				"TAILLOW"
 			],
@@ -4669,6 +4970,7 @@
 		{
 			"number": 277,
 			"pbName": "SWELLOW",
+			"family": "TAILLOW",
 			"aliases": [
 				"SWELLOW"
 			],
@@ -4684,6 +4986,7 @@
 		{
 			"number": 278,
 			"pbName": "WINGULL",
+			"family": "WINGULL",
 			"aliases": [
 				"WINGULL"
 			],
@@ -4699,6 +5002,7 @@
 		{
 			"number": 279,
 			"pbName": "PELIPPER",
+			"family": "WINGULL",
 			"aliases": [
 				"PELIPPER"
 			],
@@ -4714,6 +5018,7 @@
 		{
 			"number": 280,
 			"pbName": "RALTS",
+			"family": "RALTS",
 			"aliases": [
 				"RALTS"
 			],
@@ -4729,6 +5034,7 @@
 		{
 			"number": 281,
 			"pbName": "KIRLIA",
+			"family": "RALTS",
 			"aliases": [
 				"KIRLIA"
 			],
@@ -4744,6 +5050,7 @@
 		{
 			"number": 282,
 			"pbName": "GARDEVOIR",
+			"family": "RALTS",
 			"aliases": [
 				"GARDEVOIR"
 			],
@@ -4759,6 +5066,7 @@
 		{
 			"number": 283,
 			"pbName": "SURSKIT",
+			"family": "SURSKIT",
 			"aliases": [
 				"SURSKIT"
 			],
@@ -4774,6 +5082,7 @@
 		{
 			"number": 284,
 			"pbName": "MASQUERAIN",
+			"family": "SURSKIT",
 			"aliases": [
 				"MASQUERAIN"
 			],
@@ -4789,6 +5098,7 @@
 		{
 			"number": 285,
 			"pbName": "SHROOMISH",
+			"family": "SHROOMISH",
 			"aliases": [
 				"SHROOMISH"
 			],
@@ -4804,6 +5114,7 @@
 		{
 			"number": 286,
 			"pbName": "BRELOOM",
+			"family": "SHROOMISH",
 			"aliases": [
 				"BRELOOM"
 			],
@@ -4819,6 +5130,7 @@
 		{
 			"number": 287,
 			"pbName": "SLAKOTH",
+			"family": "SLAKOTH",
 			"aliases": [
 				"SLAKOTH"
 			],
@@ -4834,6 +5146,7 @@
 		{
 			"number": 288,
 			"pbName": "VIGOROTH",
+			"family": "SLAKOTH",
 			"aliases": [
 				"VIGOROTH"
 			],
@@ -4849,6 +5162,7 @@
 		{
 			"number": 289,
 			"pbName": "SLAKING",
+			"family": "SLAKOTH",
 			"aliases": [
 				"SLAKING"
 			],
@@ -4864,6 +5178,7 @@
 		{
 			"number": 290,
 			"pbName": "NINCADA",
+			"family": "NINCADA",
 			"aliases": [
 				"NINCADA"
 			],
@@ -4879,6 +5194,7 @@
 		{
 			"number": 291,
 			"pbName": "NINJASK",
+			"family": "NINCADA",
 			"aliases": [
 				"NINJASK"
 			],
@@ -4894,6 +5210,7 @@
 		{
 			"number": 292,
 			"pbName": "SHEDINJA",
+			"family": "NINCADA",
 			"aliases": [
 				"SHEDINJA"
 			],
@@ -4909,6 +5226,7 @@
 		{
 			"number": 293,
 			"pbName": "WHISMUR",
+			"family": "WHISMUR",
 			"aliases": [
 				"WHISMUR"
 			],
@@ -4924,6 +5242,7 @@
 		{
 			"number": 294,
 			"pbName": "LOUDRED",
+			"family": "WHISMUR",
 			"aliases": [
 				"LOUDRED"
 			],
@@ -4939,6 +5258,7 @@
 		{
 			"number": 295,
 			"pbName": "EXPLOUD",
+			"family": "WHISMUR",
 			"aliases": [
 				"EXPLOUD"
 			],
@@ -4954,6 +5274,7 @@
 		{
 			"number": 296,
 			"pbName": "MAKUHITA",
+			"family": "MAKUHITA",
 			"aliases": [
 				"MAKUHITA"
 			],
@@ -4969,6 +5290,7 @@
 		{
 			"number": 297,
 			"pbName": "HARIYAMA",
+			"family": "MAKUHITA",
 			"aliases": [
 				"HARIYAMA"
 			],
@@ -4984,6 +5306,7 @@
 		{
 			"number": 298,
 			"pbName": "AZURILL",
+			"family": "MARILL",
 			"aliases": [
 				"AZURILL"
 			],
@@ -5014,6 +5337,7 @@
 		{
 			"number": 300,
 			"pbName": "SKITTY",
+			"family": "SKITTY",
 			"aliases": [
 				"SKITTY"
 			],
@@ -5029,6 +5353,7 @@
 		{
 			"number": 301,
 			"pbName": "DELCATTY",
+			"family": "SKITTY",
 			"aliases": [
 				"DELCATTY"
 			],
@@ -5044,6 +5369,7 @@
 		{
 			"number": 302,
 			"pbName": "SABLEYE",
+			"family": "SABLEYE",
 			"aliases": [
 				"SABLEYE"
 			],
@@ -5059,6 +5385,7 @@
 		{
 			"number": 303,
 			"pbName": "MAWILE",
+			"family": "MAWILE",
 			"aliases": [
 				"MAWILE"
 			],
@@ -5074,6 +5401,7 @@
 		{
 			"number": 304,
 			"pbName": "ARON",
+			"family": "ARON",
 			"aliases": [
 				"ARON"
 			],
@@ -5089,6 +5417,7 @@
 		{
 			"number": 305,
 			"pbName": "LAIRON",
+			"family": "ARON",
 			"aliases": [
 				"LAIRON"
 			],
@@ -5104,6 +5433,7 @@
 		{
 			"number": 306,
 			"pbName": "AGGRON",
+			"family": "ARON",
 			"aliases": [
 				"AGGRON"
 			],
@@ -5119,6 +5449,7 @@
 		{
 			"number": 307,
 			"pbName": "MEDITITE",
+			"family": "MEDITITE",
 			"aliases": [
 				"MEDITITE"
 			],
@@ -5134,6 +5465,7 @@
 		{
 			"number": 308,
 			"pbName": "MEDICHAM",
+			"family": "MEDITITE",
 			"aliases": [
 				"MEDICHAM"
 			],
@@ -5149,6 +5481,7 @@
 		{
 			"number": 309,
 			"pbName": "ELECTRIKE",
+			"family": "ELECTRIKE",
 			"aliases": [
 				"ELECTRIKE"
 			],
@@ -5164,6 +5497,7 @@
 		{
 			"number": 310,
 			"pbName": "MANECTRIC",
+			"family": "ELECTRIKE",
 			"aliases": [
 				"MANECTRIC"
 			],
@@ -5179,6 +5513,7 @@
 		{
 			"number": 311,
 			"pbName": "PLUSLE",
+			"family": "PLUSLE",
 			"aliases": [
 				"PLUSLE"
 			],
@@ -5194,6 +5529,7 @@
 		{
 			"number": 312,
 			"pbName": "MINUN",
+			"family": "MINUN",
 			"aliases": [
 				"MINUN"
 			],
@@ -5209,6 +5545,7 @@
 		{
 			"number": 313,
 			"pbName": "VOLBEAT",
+			"family": "VOLBEAT",
 			"aliases": [
 				"VOLBEAT"
 			],
@@ -5224,6 +5561,7 @@
 		{
 			"number": 314,
 			"pbName": "ILLUMISE",
+			"family": "ILLUMISE",
 			"aliases": [
 				"ILLUMISE"
 			],
@@ -5239,6 +5577,7 @@
 		{
 			"number": 315,
 			"pbName": "ROSELIA",
+			"family": "ROSELIA",
 			"aliases": [
 				"ROSELIA"
 			],
@@ -5254,6 +5593,7 @@
 		{
 			"number": 316,
 			"pbName": "GULPIN",
+			"family": "GULPIN",
 			"aliases": [
 				"GULPIN"
 			],
@@ -5269,6 +5609,7 @@
 		{
 			"number": 317,
 			"pbName": "SWALOT",
+			"family": "GULPIN",
 			"aliases": [
 				"SWALOT"
 			],
@@ -5284,6 +5625,7 @@
 		{
 			"number": 318,
 			"pbName": "CARVANHA",
+			"family": "CARVANHA",
 			"aliases": [
 				"CARVANHA"
 			],
@@ -5299,6 +5641,7 @@
 		{
 			"number": 319,
 			"pbName": "SHARPEDO",
+			"family": "CARVANHA",
 			"aliases": [
 				"SHARPEDO"
 			],
@@ -5314,6 +5657,7 @@
 		{
 			"number": 320,
 			"pbName": "WAILMER",
+			"family": "WAILMER",
 			"aliases": [
 				"WAILMER"
 			],
@@ -5329,6 +5673,7 @@
 		{
 			"number": 321,
 			"pbName": "WAILORD",
+			"family": "WAILMER",
 			"aliases": [
 				"WAILORD"
 			],
@@ -5344,6 +5689,7 @@
 		{
 			"number": 322,
 			"pbName": "NUMEL",
+			"family": "NUMEL",
 			"aliases": [
 				"NUMEL"
 			],
@@ -5359,6 +5705,7 @@
 		{
 			"number": 323,
 			"pbName": "CAMERUPT",
+			"family": "NUMEL",
 			"aliases": [
 				"CAMERUPT"
 			],
@@ -5374,6 +5721,7 @@
 		{
 			"number": 324,
 			"pbName": "TORKOAL",
+			"family": "TORKOAL",
 			"aliases": [
 				"TORKOAL"
 			],
@@ -5389,6 +5737,7 @@
 		{
 			"number": 325,
 			"pbName": "SPOINK",
+			"family": "SPOINK",
 			"aliases": [
 				"SPOINK"
 			],
@@ -5404,6 +5753,7 @@
 		{
 			"number": 326,
 			"pbName": "GRUMPIG",
+			"family": "SPOINK",
 			"aliases": [
 				"GRUMPIG"
 			],
@@ -5419,6 +5769,7 @@
 		{
 			"number": 327,
 			"pbName": "SPINDA",
+			"family": "SPINDA",
 			"aliases": [
 				"SPINDA"
 			],
@@ -5434,6 +5785,7 @@
 		{
 			"number": 328,
 			"pbName": "TRAPINCH",
+			"family": "TRAPINCH",
 			"aliases": [
 				"TRAPINCH"
 			],
@@ -5449,6 +5801,7 @@
 		{
 			"number": 329,
 			"pbName": "VIBRAVA",
+			"family": "TRAPINCH",
 			"aliases": [
 				"VIBRAVA"
 			],
@@ -5464,6 +5817,7 @@
 		{
 			"number": 330,
 			"pbName": "FLYGON",
+			"family": "TRAPINCH",
 			"aliases": [
 				"FLYGON"
 			],
@@ -5479,6 +5833,7 @@
 		{
 			"number": 331,
 			"pbName": "CACNEA",
+			"family": "CACNEA",
 			"aliases": [
 				"CACNEA"
 			],
@@ -5494,6 +5849,7 @@
 		{
 			"number": 332,
 			"pbName": "CACTURNE",
+			"family": "CACNEA",
 			"aliases": [
 				"CACTURNE"
 			],
@@ -5509,6 +5865,7 @@
 		{
 			"number": 333,
 			"pbName": "SWABLU",
+			"family": "SWABLU",
 			"aliases": [
 				"SWABLU"
 			],
@@ -5524,6 +5881,7 @@
 		{
 			"number": 334,
 			"pbName": "ALTARIA",
+			"family": "SWABLU",
 			"aliases": [
 				"ALTARIA"
 			],
@@ -5539,6 +5897,7 @@
 		{
 			"number": 335,
 			"pbName": "ZANGOOSE",
+			"family": "ZANGOOSE",
 			"aliases": [
 				"ZANGOOSE"
 			],
@@ -5554,6 +5913,7 @@
 		{
 			"number": 336,
 			"pbName": "SEVIPER",
+			"family": "SEVIPER",
 			"aliases": [
 				"SEVIPER"
 			],
@@ -5569,6 +5929,7 @@
 		{
 			"number": 337,
 			"pbName": "LUNATONE",
+			"family": "LUNATONE",
 			"aliases": [
 				"LUNATONE"
 			],
@@ -5584,6 +5945,7 @@
 		{
 			"number": 338,
 			"pbName": "SOLROCK",
+			"family": "SOLROCK",
 			"aliases": [
 				"SOLROCK"
 			],
@@ -5599,6 +5961,7 @@
 		{
 			"number": 339,
 			"pbName": "BARBOACH",
+			"family": "BARBOACH",
 			"aliases": [
 				"BARBOACH"
 			],
@@ -5614,6 +5977,7 @@
 		{
 			"number": 340,
 			"pbName": "WHISCASH",
+			"family": "BARBOACH",
 			"aliases": [
 				"WHISCASH"
 			],
@@ -5629,6 +5993,7 @@
 		{
 			"number": 341,
 			"pbName": "CORPHISH",
+			"family": "CORPHISH",
 			"aliases": [
 				"CORPHISH"
 			],
@@ -5644,6 +6009,7 @@
 		{
 			"number": 342,
 			"pbName": "CRAWDAUNT",
+			"family": "CORPHISH",
 			"aliases": [
 				"CRAWDAUNT"
 			],
@@ -5659,6 +6025,7 @@
 		{
 			"number": 343,
 			"pbName": "BALTOY",
+			"family": "BALTOY",
 			"aliases": [
 				"BALTOY"
 			],
@@ -5674,6 +6041,7 @@
 		{
 			"number": 344,
 			"pbName": "CLAYDOL",
+			"family": "BALTOY",
 			"aliases": [
 				"CLAYDOL"
 			],
@@ -5689,6 +6057,7 @@
 		{
 			"number": 345,
 			"pbName": "LILEEP",
+			"family": "LILEEP",
 			"aliases": [
 				"LILEEP"
 			],
@@ -5704,6 +6073,7 @@
 		{
 			"number": 346,
 			"pbName": "CRADILY",
+			"family": "LILEEP",
 			"aliases": [
 				"CRADILY"
 			],
@@ -5719,6 +6089,7 @@
 		{
 			"number": 347,
 			"pbName": "ANORITH",
+			"family": "ANORITH",
 			"aliases": [
 				"ANORITH"
 			],
@@ -5734,6 +6105,7 @@
 		{
 			"number": 348,
 			"pbName": "ARMALDO",
+			"family": "ANORITH",
 			"aliases": [
 				"ARMALDO"
 			],
@@ -5749,6 +6121,7 @@
 		{
 			"number": 349,
 			"pbName": "FEEBAS",
+			"family": "FEEBAS",
 			"aliases": [
 				"FEEBAS"
 			],
@@ -5764,6 +6137,7 @@
 		{
 			"number": 350,
 			"pbName": "MILOTIC",
+			"family": "FEEBAS",
 			"aliases": [
 				"MILOTIC"
 			],
@@ -5779,6 +6153,7 @@
 		{
 			"number": 351,
 			"pbName": "CASTFORM",
+			"family": "CASTFORM",
 			"aliases": [
 				"CASTFORM",
 				"CASTFORM_NORMAL_FORM",
@@ -5798,11 +6173,14 @@
 		{
 			"number": 351,
 			"pbName": "CASTFORM_RAINY_FORM",
+			"family": "CASTFORM_RAINY_FORM",
 			"aliases": [
 				"CASTFORM_RAINY_FORM",
 				"RAINY CASTFORM",
 				"CASTFORM RAINY",
-				"CASTFORM RAINY FORM"
+				"CASTFORM RAINY FORM",
+				"CASTFORM WATER",
+				"WATER CASTFORM"
 			],
 			"dzName": "Castform-rainy",
 			"atk": 139,
@@ -5818,11 +6196,14 @@
 		{
 			"number": 351,
 			"pbName": "CASTFORM_SNOWY_FORM",
+			"family": "CASTFORM_SNOWY_FORM",
 			"aliases": [
 				"CASTFORM_SNOWY_FORM",
 				"SNOWY CASTFORM",
 				"CASTFORM SNOWY",
-				"CASTFORM SNOWY FORM"
+				"CASTFORM SNOWY FORM",
+				"CASTFORM ICE",
+				"ICE CASTFORM"
 			],
 			"dzName": "Castform-snowy",
 			"atk": 139,
@@ -5838,11 +6219,14 @@
 		{
 			"number": 351,
 			"pbName": "CASTFORM_SUNNY_FORM",
+			"family": "CASTFORM_SUNNY_FORM",
 			"aliases": [
 				"CASTFORM_SUNNY_FORM",
 				"SUNNY CASTFORM",
 				"CASTFORM SUNNY",
-				"CASTFORM SUNNY FORM"
+				"CASTFORM SUNNY FORM",
+				"CASTFORM FIRE",
+				"FIRE CASTFORM"
 			],
 			"dzName": "Castform-sunny",
 			"atk": 139,
@@ -5858,6 +6242,7 @@
 		{
 			"number": 352,
 			"pbName": "KECLEON",
+			"family": "KECLEON",
 			"aliases": [
 				"KECLEON"
 			],
@@ -5873,6 +6258,7 @@
 		{
 			"number": 353,
 			"pbName": "SHUPPET",
+			"family": "SHUPPET",
 			"aliases": [
 				"SHUPPET"
 			],
@@ -5888,6 +6274,7 @@
 		{
 			"number": 354,
 			"pbName": "BANETTE",
+			"family": "SHUPPET",
 			"aliases": [
 				"BANETTE"
 			],
@@ -5903,6 +6290,7 @@
 		{
 			"number": 355,
 			"pbName": "DUSKULL",
+			"family": "DUSKULL",
 			"aliases": [
 				"DUSKULL"
 			],
@@ -5918,6 +6306,7 @@
 		{
 			"number": 356,
 			"pbName": "DUSCLOPS",
+			"family": "DUSKULL",
 			"aliases": [
 				"DUSCLOPS"
 			],
@@ -5933,6 +6322,7 @@
 		{
 			"number": 357,
 			"pbName": "TROPIUS",
+			"family": "TROPIUS",
 			"aliases": [
 				"TROPIUS"
 			],
@@ -5948,6 +6338,7 @@
 		{
 			"number": 358,
 			"pbName": "CHIMECHO",
+			"family": "CHIMECHO",
 			"aliases": [
 				"CHIMECHO"
 			],
@@ -5963,6 +6354,7 @@
 		{
 			"number": 359,
 			"pbName": "ABSOL",
+			"family": "ABSOL",
 			"aliases": [
 				"ABSOL"
 			],
@@ -5978,6 +6370,7 @@
 		{
 			"number": 360,
 			"pbName": "WYNAUT",
+			"family": "WOBBUFFET",
 			"aliases": [
 				"WYNAUT",
 				"WHYNOT",
@@ -5995,6 +6388,7 @@
 		{
 			"number": 361,
 			"pbName": "SNORUNT",
+			"family": "SNORUNT",
 			"aliases": [
 				"SNORUNT"
 			],
@@ -6010,6 +6404,7 @@
 		{
 			"number": 362,
 			"pbName": "GLALIE",
+			"family": "SNORUNT",
 			"aliases": [
 				"GLALIE"
 			],
@@ -6025,6 +6420,7 @@
 		{
 			"number": 363,
 			"pbName": "SPHEAL",
+			"family": "SPHEAL",
 			"aliases": [
 				"SPHEAL"
 			],
@@ -6040,6 +6436,7 @@
 		{
 			"number": 364,
 			"pbName": "SEALEO",
+			"family": "SPHEAL",
 			"aliases": [
 				"SEALEO"
 			],
@@ -6055,6 +6452,7 @@
 		{
 			"number": 365,
 			"pbName": "WALREIN",
+			"family": "SPHEAL",
 			"aliases": [
 				"WALREIN"
 			],
@@ -6070,6 +6468,7 @@
 		{
 			"number": 366,
 			"pbName": "CLAMPERL",
+			"family": "CLAMPERL",
 			"aliases": [
 				"CLAMPERL"
 			],
@@ -6085,6 +6484,7 @@
 		{
 			"number": 367,
 			"pbName": "HUNTAIL",
+			"family": "CLAMPERL",
 			"aliases": [
 				"HUNTAIL"
 			],
@@ -6100,6 +6500,7 @@
 		{
 			"number": 368,
 			"pbName": "GOREBYSS",
+			"family": "CLAMPERL",
 			"aliases": [
 				"GOREBYSS"
 			],
@@ -6115,6 +6516,7 @@
 		{
 			"number": 369,
 			"pbName": "RELICANTH",
+			"family": "RELICANTH",
 			"aliases": [
 				"RELICANTH"
 			],
@@ -6130,6 +6532,7 @@
 		{
 			"number": 370,
 			"pbName": "LUVDISC",
+			"family": "LUVDISC",
 			"aliases": [
 				"LUVDISC"
 			],
@@ -6145,6 +6548,7 @@
 		{
 			"number": 371,
 			"pbName": "BAGON",
+			"family": "BAGON",
 			"aliases": [
 				"BAGON",
 				"BACON"
@@ -6161,6 +6565,7 @@
 		{
 			"number": 372,
 			"pbName": "SHELGON",
+			"family": "BAGON",
 			"aliases": [
 				"SHELGON"
 			],
@@ -6176,6 +6581,7 @@
 		{
 			"number": 373,
 			"pbName": "SALAMENCE",
+			"family": "BAGON",
 			"aliases": [
 				"SALAMENCE"
 			],
@@ -6191,6 +6597,7 @@
 		{
 			"number": 374,
 			"pbName": "BELDUM",
+			"family": "BELDUM",
 			"aliases": [
 				"BELDUM"
 			],
@@ -6206,6 +6613,7 @@
 		{
 			"number": 375,
 			"pbName": "METANG",
+			"family": "BELDUM",
 			"aliases": [
 				"METANG"
 			],
@@ -6221,6 +6629,7 @@
 		{
 			"number": 376,
 			"pbName": "METAGROSS",
+			"family": "BELDUM",
 			"aliases": [
 				"METAGROSS"
 			],
@@ -6236,6 +6645,7 @@
 		{
 			"number": 377,
 			"pbName": "REGIROCK",
+			"family": "REGIROCK",
 			"aliases": [
 				"REGIROCK"
 			],
@@ -6251,6 +6661,7 @@
 		{
 			"number": 378,
 			"pbName": "REGICE",
+			"family": "REGICE",
 			"aliases": [
 				"REGICE"
 			],
@@ -6266,6 +6677,7 @@
 		{
 			"number": 379,
 			"pbName": "REGISTEEL",
+			"family": "REGISTEEL",
 			"aliases": [
 				"REGISTEEL"
 			],
@@ -6281,6 +6693,7 @@
 		{
 			"number": 380,
 			"pbName": "LATIAS",
+			"family": "LATIAS",
 			"aliases": [
 				"LATIAS"
 			],
@@ -6296,6 +6709,7 @@
 		{
 			"number": 381,
 			"pbName": "LATIOS",
+			"family": "LATIOS",
 			"aliases": [
 				"LATIOS"
 			],
@@ -6311,6 +6725,7 @@
 		{
 			"number": 382,
 			"pbName": "KYOGRE",
+			"family": "KYOGRE",
 			"aliases": [
 				"KYOGRE"
 			],
@@ -6326,6 +6741,7 @@
 		{
 			"number": 383,
 			"pbName": "GROUDON",
+			"family": "GROUDON",
 			"aliases": [
 				"GROUDON",
 				"GROUPON"
@@ -6342,6 +6758,7 @@
 		{
 			"number": 384,
 			"pbName": "RAYQUAZA",
+			"family": "RAYQUAZA",
 			"aliases": [
 				"RAYQUAZA"
 			],
@@ -6357,6 +6774,7 @@
 		{
 			"number": 385,
 			"pbName": "JIRACHI",
+			"family": "JIRACHI",
 			"aliases": [
 				"JIRACHI"
 			],
@@ -6372,6 +6790,7 @@
 		{
 			"number": 386,
 			"pbName": "DEOXYS",
+			"family": "DEOXYS",
 			"aliases": [
 				"DEOXYS",
 				"DEOXYS_NORMAL_FORM",
@@ -6391,6 +6810,7 @@
 		{
 			"number": 386,
 			"pbName": "DEOXYS_ATTACK_FORM",
+			"family": "DEOXYS_ATTACK_FORM",
 			"aliases": [
 				"DEOXYS_ATTACK_FORM",
 				"ATTACK DEOXYS",
@@ -6411,6 +6831,7 @@
 		{
 			"number": 386,
 			"pbName": "DEOXYS_DEFENSE_FORM",
+			"family": "DEOXYS_DEFENSE_FORM",
 			"aliases": [
 				"DEOXYS_DEFENSE_FORM",
 				"DEFENSE DEOXYS",
@@ -6431,6 +6852,7 @@
 		{
 			"number": 386,
 			"pbName": "DEOXYS_SPEED_FORM",
+			"family": "DEOXYS_SPEED_FORM",
 			"aliases": [
 				"DEOXYS_SPEED_FORM",
 				"SPEED DEOXYS",
@@ -6451,6 +6873,7 @@
 		{
 			"number": 387,
 			"pbName": "TURTWIG",
+			"family": "TURTWIG",
 			"aliases": [
 				"TURTWIG"
 			],
@@ -6466,6 +6889,7 @@
 		{
 			"number": 388,
 			"pbName": "GROTLE",
+			"family": "TURTWIG",
 			"aliases": [
 				"GROTLE"
 			],
@@ -6481,6 +6905,7 @@
 		{
 			"number": 389,
 			"pbName": "TORTERRA",
+			"family": "TURTWIG",
 			"aliases": [
 				"TORTERRA"
 			],
@@ -6496,6 +6921,7 @@
 		{
 			"number": 390,
 			"pbName": "CHIMCHAR",
+			"family": "CHIMCHAR",
 			"aliases": [
 				"CHIMCHAR"
 			],
@@ -6511,6 +6937,7 @@
 		{
 			"number": 391,
 			"pbName": "MONFERNO",
+			"family": "CHIMCHAR",
 			"aliases": [
 				"MONFERNO"
 			],
@@ -6526,6 +6953,7 @@
 		{
 			"number": 392,
 			"pbName": "INFERNAPE",
+			"family": "CHIMCHAR",
 			"aliases": [
 				"INFERNAPE"
 			],
@@ -6541,6 +6969,7 @@
 		{
 			"number": 393,
 			"pbName": "PIPLUP",
+			"family": "PIPLUP",
 			"aliases": [
 				"PIPLUP"
 			],
@@ -6556,6 +6985,7 @@
 		{
 			"number": 394,
 			"pbName": "PRINPLUP",
+			"family": "PIPLUP",
 			"aliases": [
 				"PRINPLUP"
 			],
@@ -6571,6 +7001,7 @@
 		{
 			"number": 395,
 			"pbName": "EMPOLEON",
+			"family": "PIPLUP",
 			"aliases": [
 				"EMPOLEON"
 			],
@@ -6586,6 +7017,7 @@
 		{
 			"number": 396,
 			"pbName": "STARLY",
+			"family": "STARLY",
 			"aliases": [
 				"STARLY"
 			],
@@ -6601,6 +7033,7 @@
 		{
 			"number": 397,
 			"pbName": "STARAVIA",
+			"family": "STARLY",
 			"aliases": [
 				"STARAVIA"
 			],
@@ -6616,6 +7049,7 @@
 		{
 			"number": 398,
 			"pbName": "STARAPTOR",
+			"family": "STARLY",
 			"aliases": [
 				"STARAPTOR"
 			],
@@ -6631,6 +7065,7 @@
 		{
 			"number": 399,
 			"pbName": "BIDOOF",
+			"family": "BIDOOF",
 			"aliases": [
 				"BIDOOF"
 			],
@@ -6646,6 +7081,7 @@
 		{
 			"number": 400,
 			"pbName": "BIBAREL",
+			"family": "BIDOOF",
 			"aliases": [
 				"BIBAREL"
 			],
@@ -6661,6 +7097,7 @@
 		{
 			"number": 401,
 			"pbName": "KRICKETOT",
+			"family": "KRICKETOT",
 			"aliases": [
 				"KRICKETOT"
 			],
@@ -6676,6 +7113,7 @@
 		{
 			"number": 402,
 			"pbName": "KRICKETUNE",
+			"family": "KRICKETOT",
 			"aliases": [
 				"KRICKETUNE"
 			],
@@ -6691,6 +7129,7 @@
 		{
 			"number": 403,
 			"pbName": "SHINX",
+			"family": "SHINX",
 			"aliases": [
 				"SHINX"
 			],
@@ -6706,6 +7145,7 @@
 		{
 			"number": 404,
 			"pbName": "LUXIO",
+			"family": "SHINX",
 			"aliases": [
 				"LUXIO"
 			],
@@ -6721,6 +7161,7 @@
 		{
 			"number": 405,
 			"pbName": "LUXRAY",
+			"family": "SHINX",
 			"aliases": [
 				"LUXRAY"
 			],
@@ -6736,6 +7177,7 @@
 		{
 			"number": 406,
 			"pbName": "BUDEW",
+			"family": "ROSELIA",
 			"aliases": [
 				"BUDEW"
 			],
@@ -6751,6 +7193,7 @@
 		{
 			"number": 407,
 			"pbName": "ROSERADE",
+			"family": "ROSELIA",
 			"aliases": [
 				"ROSERADE"
 			],
@@ -6766,6 +7209,7 @@
 		{
 			"number": 408,
 			"pbName": "CRANIDOS",
+			"family": "CRANIDOS",
 			"aliases": [
 				"CRANIDOS"
 			],
@@ -6781,6 +7225,7 @@
 		{
 			"number": 409,
 			"pbName": "RAMPARDOS",
+			"family": "CRANIDOS",
 			"aliases": [
 				"RAMPARDOS"
 			],
@@ -6796,6 +7241,7 @@
 		{
 			"number": 410,
 			"pbName": "SHIELDON",
+			"family": "SHIELDON",
 			"aliases": [
 				"SHIELDON"
 			],
@@ -6811,6 +7257,7 @@
 		{
 			"number": 411,
 			"pbName": "BASTIODON",
+			"family": "SHIELDON",
 			"aliases": [
 				"BASTIODON"
 			],
@@ -6826,11 +7273,15 @@
 		{
 			"number": 412,
 			"pbName": "BURMY_PLANT_FORM",
+			"family": "BURMY_PLANT_FORM",
 			"aliases": [
+				"BURMY",
 				"BURMY_PLANT_FORM",
 				"PLANT BURMY",
 				"BURMY PLANT",
-				"BURMY PLANT FORM"
+				"BURMY PLANT FORM",
+				"BURMY GRASS",
+				"GRASS BURMY"
 			],
 			"dzName": "Burmy-plant",
 			"atk": 53,
@@ -6846,11 +7297,14 @@
 		{
 			"number": 412,
 			"pbName": "BURMY_SANDY_FORM",
+			"family": "BURMY_SANDY_FORM",
 			"aliases": [
 				"BURMY_SANDY_FORM",
 				"SANDY BURMY",
 				"BURMY SANDY",
-				"BURMY SANDY FORM"
+				"BURMY SANDY FORM",
+				"BURMY GROUND",
+				"GROUND BURMY"
 			],
 			"dzName": "Burmy-sandy",
 			"atk": 53,
@@ -6859,18 +7313,21 @@
 			"gsName": [
 				"SANDY BURMY",
 				"BURMY SANDY",
-				"BURMY SANDY"
+				"BURMY"
 			],
 			"imageURL": "https://cdn.bulbagarden.net/upload/1/1f/412Burmy-Sandy.png"
 		},
 		{
 			"number": 412,
 			"pbName": "BURMY_TRASH_FORM",
+			"family": "BURMY_TRASH_FORM",
 			"aliases": [
 				"BURMY_TRASH_FORM",
 				"TRASH BURMY",
 				"BURMY TRASH",
-				"BURMY TRASH FORM"
+				"BURMY TRASH FORM",
+				"BURMY STEEL",
+				"STEEL BURMY"
 			],
 			"dzName": "Burmy-trash",
 			"atk": 53,
@@ -6879,18 +7336,22 @@
 			"gsName": [
 				"TRASH BURMY",
 				"BURMY TRASH",
-				"BURMY TRASH"
+				"BURMY"
 			],
 			"imageURL": "https://cdn.bulbagarden.net/upload/8/8e/412Burmy-Trash.png"
 		},
 		{
 			"number": 413,
 			"pbName": "WORMADAM_PLANT_FORM",
+			"family": "BURMY_PLANT_FORM",
 			"aliases": [
+				"WORMADAM",
 				"WORMADAM_PLANT_FORM",
 				"PLANT WORMADAM",
 				"WORMADAM PLANT",
-				"WORMADAM PLANT FORM"
+				"WORMADAM PLANT FORM",
+				"WORMADAM GRASS",
+				"GRASS WORMADAM"
 			],
 			"dzName": "Wormadam-plant",
 			"atk": 141,
@@ -6899,18 +7360,21 @@
 			"gsName": [
 				"PLANT WORMADAM",
 				"WORMADAM PLANT",
-				"WORMADAM PLANT"
+				"WORMADAM"
 			],
 			"imageURL": "https://cdn.bulbagarden.net/upload/d/db/413Wormadam-Plant.png"
 		},
 		{
 			"number": 413,
 			"pbName": "WORMADAM_SANDY_FORM",
+			"family": "BURMY_SANDY_FORM",
 			"aliases": [
 				"WORMADAM_SANDY_FORM",
 				"SANDY WORMADAM",
 				"WORMADAM SANDY",
-				"WORMADAM SANDY FORM"
+				"WORMADAM SANDY FORM",
+				"WORMADAM GROUND",
+				"GROUND WORMADAM"
 			],
 			"dzName": "Wormadam-sandy",
 			"atk": 141,
@@ -6926,11 +7390,14 @@
 		{
 			"number": 413,
 			"pbName": "WORMADAM_TRASH_FORM",
+			"family": "BURMY_TRASH_FORM",
 			"aliases": [
 				"WORMADAM_TRASH_FORM",
 				"TRASH WORMADAM",
 				"WORMADAM TRASH",
-				"WORMADAM TRASH FORM"
+				"WORMADAM TRASH FORM",
+				"WORMADAM STEEL",
+				"STEEL WORMADAM"
 			],
 			"dzName": "Wormadam-trash",
 			"atk": 127,
@@ -6946,6 +7413,7 @@
 		{
 			"number": 414,
 			"pbName": "MOTHIM",
+			"family": "BURMY_PLANT_FORM",
 			"aliases": [
 				"MOTHIM"
 			],
@@ -6961,6 +7429,7 @@
 		{
 			"number": 415,
 			"pbName": "COMBEE",
+			"family": "COMBEE",
 			"aliases": [
 				"COMBEE"
 			],
@@ -6976,6 +7445,7 @@
 		{
 			"number": 416,
 			"pbName": "VESPIQUEN",
+			"family": "COMBEE",
 			"aliases": [
 				"VESPIQUEN"
 			],
@@ -6991,6 +7461,7 @@
 		{
 			"number": 417,
 			"pbName": "PACHIRISU",
+			"family": "PACHIRISU",
 			"aliases": [
 				"PACHIRISU"
 			],
@@ -7006,6 +7477,7 @@
 		{
 			"number": 418,
 			"pbName": "BUIZEL",
+			"family": "BUIZEL",
 			"aliases": [
 				"BUIZEL"
 			],
@@ -7021,6 +7493,7 @@
 		{
 			"number": 419,
 			"pbName": "FLOATZEL",
+			"family": "BUIZEL",
 			"aliases": [
 				"FLOATZEL"
 			],
@@ -7036,6 +7509,7 @@
 		{
 			"number": 420,
 			"pbName": "CHERUBI",
+			"family": "CHERUBI",
 			"aliases": [
 				"CHERUBI"
 			],
@@ -7051,6 +7525,7 @@
 		{
 			"number": 421,
 			"pbName": "CHERRIM",
+			"family": "CHERUBI",
 			"aliases": [
 				"CHERRIM",
 				"OVERCAST CHERRIM",
@@ -7072,6 +7547,7 @@
 		{
 			"number": 422,
 			"pbName": "SHELLOS",
+			"family": "SHELLOS",
 			"aliases": [
 				"SHELLOS",
 				"WEST SHELLOS",
@@ -7095,6 +7571,7 @@
 		{
 			"number": 423,
 			"pbName": "GASTRODON",
+			"family": "SHELLOS",
 			"aliases": [
 				"GASTRODON",
 				"WEST GASTRODON",
@@ -7118,6 +7595,7 @@
 		{
 			"number": 424,
 			"pbName": "AMBIPOM",
+			"family": "AIPOM",
 			"aliases": [
 				"AMBIPOM"
 			],
@@ -7133,6 +7611,7 @@
 		{
 			"number": 425,
 			"pbName": "DRIFLOON",
+			"family": "DRIFLOON",
 			"aliases": [
 				"DRIFLOON"
 			],
@@ -7148,6 +7627,7 @@
 		{
 			"number": 426,
 			"pbName": "DRIFBLIM",
+			"family": "DRIFLOON",
 			"aliases": [
 				"DRIFBLIM"
 			],
@@ -7163,6 +7643,7 @@
 		{
 			"number": 427,
 			"pbName": "BUNEARY",
+			"family": "BUNEARY",
 			"aliases": [
 				"BUNEARY"
 			],
@@ -7178,6 +7659,7 @@
 		{
 			"number": 428,
 			"pbName": "LOPUNNY",
+			"family": "BUNEARY",
 			"aliases": [
 				"LOPUNNY"
 			],
@@ -7193,6 +7675,7 @@
 		{
 			"number": 429,
 			"pbName": "MISMAGIUS",
+			"family": "MISDREAVUS",
 			"aliases": [
 				"MISMAGIUS"
 			],
@@ -7208,6 +7691,7 @@
 		{
 			"number": 430,
 			"pbName": "HONCHKROW",
+			"family": "MURKROW",
 			"aliases": [
 				"HONCHKROW"
 			],
@@ -7223,6 +7707,7 @@
 		{
 			"number": 431,
 			"pbName": "GLAMEOW",
+			"family": "GLAMEOW",
 			"aliases": [
 				"GLAMEOW"
 			],
@@ -7238,6 +7723,7 @@
 		{
 			"number": 432,
 			"pbName": "PURUGLY",
+			"family": "GLAMEOW",
 			"aliases": [
 				"PURUGLY"
 			],
@@ -7253,6 +7739,7 @@
 		{
 			"number": 433,
 			"pbName": "CHINGLING",
+			"family": "CHIMECHO",
 			"aliases": [
 				"CHINGLING"
 			],
@@ -7268,6 +7755,7 @@
 		{
 			"number": 434,
 			"pbName": "STUNKY",
+			"family": "STUNKY",
 			"aliases": [
 				"STUNKY"
 			],
@@ -7283,6 +7771,7 @@
 		{
 			"number": 435,
 			"pbName": "SKUNTANK",
+			"family": "STUNKY",
 			"aliases": [
 				"SKUNTANK"
 			],
@@ -7298,6 +7787,7 @@
 		{
 			"number": 436,
 			"pbName": "BRONZOR",
+			"family": "BRONZOR",
 			"aliases": [
 				"BRONZOR"
 			],
@@ -7313,6 +7803,7 @@
 		{
 			"number": 437,
 			"pbName": "BRONZONG",
+			"family": "BRONZOR",
 			"aliases": [
 				"BRONZONG"
 			],
@@ -7328,6 +7819,7 @@
 		{
 			"number": 438,
 			"pbName": "BONSLY",
+			"family": "SUDOWOODO",
 			"aliases": [
 				"BONSLY"
 			],
@@ -7343,6 +7835,7 @@
 		{
 			"number": 439,
 			"pbName": "MIME_JR",
+			"family": "MR_MIME",
 			"aliases": [
 				"MIME_JR",
 				"MIME JR.",
@@ -7362,6 +7855,7 @@
 		{
 			"number": 440,
 			"pbName": "HAPPINY",
+			"family": "CHANSEY",
 			"aliases": [
 				"HAPPINY"
 			],
@@ -7377,6 +7871,7 @@
 		{
 			"number": 441,
 			"pbName": "CHATOT",
+			"family": "CHATOT",
 			"aliases": [
 				"CHATOT"
 			],
@@ -7392,6 +7887,7 @@
 		{
 			"number": 442,
 			"pbName": "SPIRITOMB",
+			"family": "SPIRITOMB",
 			"aliases": [
 				"SPIRITOMB"
 			],
@@ -7407,6 +7903,7 @@
 		{
 			"number": 443,
 			"pbName": "GIBLE",
+			"family": "GIBLE",
 			"aliases": [
 				"GIBLE"
 			],
@@ -7422,6 +7919,7 @@
 		{
 			"number": 444,
 			"pbName": "GABITE",
+			"family": "GIBLE",
 			"aliases": [
 				"GABITE"
 			],
@@ -7437,6 +7935,7 @@
 		{
 			"number": 445,
 			"pbName": "GARCHOMP",
+			"family": "GIBLE",
 			"aliases": [
 				"GARCHOMP"
 			],
@@ -7452,6 +7951,7 @@
 		{
 			"number": 446,
 			"pbName": "MUNCHLAX",
+			"family": "SNORLAX",
 			"aliases": [
 				"MUNCHLAX"
 			],
@@ -7467,6 +7967,7 @@
 		{
 			"number": 447,
 			"pbName": "RIOLU",
+			"family": "RIOLU",
 			"aliases": [
 				"RIOLU"
 			],
@@ -7482,6 +7983,7 @@
 		{
 			"number": 448,
 			"pbName": "LUCARIO",
+			"family": "RIOLU",
 			"aliases": [
 				"LUCARIO"
 			],
@@ -7497,6 +7999,7 @@
 		{
 			"number": 449,
 			"pbName": "HIPPOPOTAS",
+			"family": "HIPPOPOTAS",
 			"aliases": [
 				"HIPPOPOTAS"
 			],
@@ -7512,6 +8015,7 @@
 		{
 			"number": 450,
 			"pbName": "HIPPOWDON",
+			"family": "HIPPOPOTAS",
 			"aliases": [
 				"HIPPOWDON"
 			],
@@ -7527,6 +8031,7 @@
 		{
 			"number": 451,
 			"pbName": "SKORUPI",
+			"family": "SKORUPI",
 			"aliases": [
 				"SKORUPI"
 			],
@@ -7542,6 +8047,7 @@
 		{
 			"number": 452,
 			"pbName": "DRAPION",
+			"family": "SKORUPI",
 			"aliases": [
 				"DRAPION"
 			],
@@ -7557,6 +8063,7 @@
 		{
 			"number": 453,
 			"pbName": "CROAGUNK",
+			"family": "CROAGUNK",
 			"aliases": [
 				"CROAGUNK"
 			],
@@ -7572,6 +8079,7 @@
 		{
 			"number": 454,
 			"pbName": "TOXICROAK",
+			"family": "CROAGUNK",
 			"aliases": [
 				"TOXICROAK"
 			],
@@ -7587,6 +8095,7 @@
 		{
 			"number": 455,
 			"pbName": "CARNIVINE",
+			"family": "CARNIVINE",
 			"aliases": [
 				"CARNIVINE"
 			],
@@ -7602,6 +8111,7 @@
 		{
 			"number": 456,
 			"pbName": "FINNEON",
+			"family": "FINNEON",
 			"aliases": [
 				"FINNEON"
 			],
@@ -7617,6 +8127,7 @@
 		{
 			"number": 457,
 			"pbName": "LUMINEON",
+			"family": "FINNEON",
 			"aliases": [
 				"LUMINEON"
 			],
@@ -7632,6 +8143,7 @@
 		{
 			"number": 458,
 			"pbName": "MANTYKE",
+			"family": "MANTINE",
 			"aliases": [
 				"MANTYKE"
 			],
@@ -7647,6 +8159,7 @@
 		{
 			"number": 459,
 			"pbName": "SNOVER",
+			"family": "SNOVER",
 			"aliases": [
 				"SNOVER"
 			],
@@ -7662,6 +8175,7 @@
 		{
 			"number": 460,
 			"pbName": "ABOMASNOW",
+			"family": "SNOVER",
 			"aliases": [
 				"ABOMASNOW"
 			],
@@ -7677,6 +8191,7 @@
 		{
 			"number": 461,
 			"pbName": "WEAVILE",
+			"family": "SNEASEL",
 			"aliases": [
 				"WEAVILE"
 			],
@@ -7692,6 +8207,7 @@
 		{
 			"number": 462,
 			"pbName": "MAGNEZONE",
+			"family": "MAGNEMITE",
 			"aliases": [
 				"MAGNEZONE"
 			],
@@ -7707,6 +8223,7 @@
 		{
 			"number": 463,
 			"pbName": "LICKILICKY",
+			"family": "LICKITUNG",
 			"aliases": [
 				"LICKILICKY"
 			],
@@ -7722,6 +8239,7 @@
 		{
 			"number": 464,
 			"pbName": "RHYPERIOR",
+			"family": "RHYHORN",
 			"aliases": [
 				"RHYPERIOR"
 			],
@@ -7737,6 +8255,7 @@
 		{
 			"number": 465,
 			"pbName": "TANGROWTH",
+			"family": "TANGELA",
 			"aliases": [
 				"TANGROWTH"
 			],
@@ -7752,6 +8271,7 @@
 		{
 			"number": 466,
 			"pbName": "ELECTIVIRE",
+			"family": "ELECTABUZZ",
 			"aliases": [
 				"ELECTIVIRE"
 			],
@@ -7767,6 +8287,7 @@
 		{
 			"number": 467,
 			"pbName": "MAGMORTAR",
+			"family": "MAGMAR",
 			"aliases": [
 				"MAGMORTAR"
 			],
@@ -7782,6 +8303,7 @@
 		{
 			"number": 468,
 			"pbName": "TOGEKISS",
+			"family": "TOGEPI",
 			"aliases": [
 				"TOGEKISS"
 			],
@@ -7797,6 +8319,7 @@
 		{
 			"number": 469,
 			"pbName": "YANMEGA",
+			"family": "YANMA",
 			"aliases": [
 				"YANMEGA"
 			],
@@ -7812,6 +8335,7 @@
 		{
 			"number": 470,
 			"pbName": "LEAFEON",
+			"family": "EEVEE",
 			"aliases": [
 				"LEAFEON"
 			],
@@ -7827,6 +8351,7 @@
 		{
 			"number": 471,
 			"pbName": "GLACEON",
+			"family": "EEVEE",
 			"aliases": [
 				"GLACEON"
 			],
@@ -7842,6 +8367,7 @@
 		{
 			"number": 472,
 			"pbName": "GLISCOR",
+			"family": "GLIGAR",
 			"aliases": [
 				"GLISCOR"
 			],
@@ -7857,6 +8383,7 @@
 		{
 			"number": 473,
 			"pbName": "MAMOSWINE",
+			"family": "SWINUB",
 			"aliases": [
 				"MAMOSWINE"
 			],
@@ -7872,6 +8399,7 @@
 		{
 			"number": 474,
 			"pbName": "PORYGON_Z",
+			"family": "PORYGON",
 			"aliases": [
 				"PORYGON_Z",
 				"PORYGONZ",
@@ -7882,13 +8410,16 @@
 			"def": 150,
 			"sta": 198,
 			"gsName": [
-				"PORYGON_Z"
+				"PORYGON_Z",
+				"PORYGON_Z",
+				"PORYGON Z"
 			],
 			"imageURL": "https://cdn.bulbagarden.net/upload/2/24/474Porygon-Z.png"
 		},
 		{
 			"number": 475,
 			"pbName": "GALLADE",
+			"family": "RALTS",
 			"aliases": [
 				"GALLADE"
 			],
@@ -7904,6 +8435,7 @@
 		{
 			"number": 476,
 			"pbName": "PROBOPASS",
+			"family": "NOSEPASS",
 			"aliases": [
 				"PROBOPASS"
 			],
@@ -7919,6 +8451,7 @@
 		{
 			"number": 477,
 			"pbName": "DUSKNOIR",
+			"family": "DUSKULL",
 			"aliases": [
 				"DUSKNOIR"
 			],
@@ -7934,6 +8467,7 @@
 		{
 			"number": 478,
 			"pbName": "FROSLASS",
+			"family": "SNORUNT",
 			"aliases": [
 				"FROSLASS"
 			],
@@ -7949,6 +8483,7 @@
 		{
 			"number": 479,
 			"pbName": "ROTOM",
+			"family": "ROTOM",
 			"aliases": [
 				"ROTOM",
 				"ROTOM_NORMAL_FORM",
@@ -7968,6 +8503,7 @@
 		{
 			"number": 479,
 			"pbName": "ROTOM_FAN_FORM",
+			"family": "ROTOM_FAN_FORM",
 			"aliases": [
 				"ROTOM_FAN_FORM",
 				"FAN ROTOM",
@@ -7988,6 +8524,7 @@
 		{
 			"number": 479,
 			"pbName": "ROTOM_FROST_FORM",
+			"family": "ROTOM_FROST_FORM",
 			"aliases": [
 				"ROTOM_FROST_FORM",
 				"FROST ROTOM",
@@ -8008,6 +8545,7 @@
 		{
 			"number": 479,
 			"pbName": "ROTOM_HEAT_FORM",
+			"family": "ROTOM_HEAT_FORM",
 			"aliases": [
 				"ROTOM_HEAT_FORM",
 				"HEAT ROTOM",
@@ -8028,6 +8566,7 @@
 		{
 			"number": 479,
 			"pbName": "ROTOM_MOW_FORM",
+			"family": "ROTOM_MOW_FORM",
 			"aliases": [
 				"ROTOM_MOW_FORM",
 				"MOW ROTOM",
@@ -8048,6 +8587,7 @@
 		{
 			"number": 479,
 			"pbName": "ROTOM_WASH_FORM",
+			"family": "ROTOM_WASH_FORM",
 			"aliases": [
 				"ROTOM_WASH_FORM",
 				"WASH ROTOM",
@@ -8068,6 +8608,7 @@
 		{
 			"number": 480,
 			"pbName": "UXIE",
+			"family": "UXIE",
 			"aliases": [
 				"UXIE"
 			],
@@ -8083,6 +8624,7 @@
 		{
 			"number": 481,
 			"pbName": "MESPRIT",
+			"family": "MESPRIT",
 			"aliases": [
 				"MESPRIT"
 			],
@@ -8098,6 +8640,7 @@
 		{
 			"number": 482,
 			"pbName": "AZELF",
+			"family": "AZELF",
 			"aliases": [
 				"AZELF"
 			],
@@ -8113,6 +8656,7 @@
 		{
 			"number": 483,
 			"pbName": "DIALGA",
+			"family": "DIALGA",
 			"aliases": [
 				"DIALGA"
 			],
@@ -8128,6 +8672,7 @@
 		{
 			"number": 484,
 			"pbName": "PALKIA",
+			"family": "PALKIA",
 			"aliases": [
 				"PALKIA"
 			],
@@ -8143,6 +8688,7 @@
 		{
 			"number": 485,
 			"pbName": "HEATRAN",
+			"family": "HEATRAN",
 			"aliases": [
 				"HEATRAN"
 			],
@@ -8158,6 +8704,7 @@
 		{
 			"number": 486,
 			"pbName": "REGIGIGAS",
+			"family": "REGIGIGAS",
 			"aliases": [
 				"REGIGIGAS"
 			],
@@ -8173,6 +8720,7 @@
 		{
 			"number": 487,
 			"pbName": "GIRATINA_ALTERED_FORM",
+			"family": "GIRATINA_ALTERED_FORM",
 			"aliases": [
 				"GIRATINA_ALTERED_FORM",
 				"GIRATINA",
@@ -8194,6 +8742,7 @@
 		{
 			"number": 487,
 			"pbName": "GIRATINA_ORIGIN_FORM",
+			"family": "GIRATINA_ORIGIN_FORM",
 			"aliases": [
 				"GIRATINA_ORIGIN_FORM",
 				"ORIGIN GIRATINA",
@@ -8214,6 +8763,7 @@
 		{
 			"number": 488,
 			"pbName": "CRESSELIA",
+			"family": "CRESSELIA",
 			"aliases": [
 				"CRESSELIA",
 				"CRES",
@@ -8234,6 +8784,7 @@
 		{
 			"number": 489,
 			"pbName": "PHIONE",
+			"family": "PHIONE",
 			"aliases": [
 				"PHIONE"
 			],
@@ -8249,6 +8800,7 @@
 		{
 			"number": 490,
 			"pbName": "MANAPHY",
+			"family": "MANAPHY",
 			"aliases": [
 				"MANAPHY"
 			],
@@ -8264,6 +8816,7 @@
 		{
 			"number": 491,
 			"pbName": "DARKRAI",
+			"family": "DARKRAI",
 			"aliases": [
 				"DARKRAI"
 			],
@@ -8279,6 +8832,7 @@
 		{
 			"number": 492,
 			"pbName": "SHAYMIN_LAND_FORM",
+			"family": "SHAYMIN_LAND_FORM",
 			"aliases": [
 				"SHAYMIN_LAND_FORM",
 				"SHAYMIN",
@@ -8300,6 +8854,7 @@
 		{
 			"number": 492,
 			"pbName": "SHAYMIN_SKY_FORM",
+			"family": "SHAYMIN_SKY_FORM",
 			"aliases": [
 				"SHAYMIN_SKY_FORM",
 				"SKY SHAYMIN",
@@ -8320,6 +8875,7 @@
 		{
 			"number": 493,
 			"pbName": "ARCEUS_NORMAL_FORM",
+			"family": "ARCEUS_NORMAL_FORM",
 			"aliases": [
 				"ARCEUS_NORMAL_FORM",
 				"ARCEUS",
@@ -8341,6 +8897,7 @@
 		{
 			"number": 493,
 			"pbName": "ARCEUS_BUG_FORM",
+			"family": "ARCEUS_BUG_FORM",
 			"aliases": [
 				"ARCEUS_BUG_FORM",
 				"BUG ARCEUS",
@@ -8361,6 +8918,7 @@
 		{
 			"number": 493,
 			"pbName": "ARCEUS_DARK_FORM",
+			"family": "ARCEUS_DARK_FORM",
 			"aliases": [
 				"ARCEUS_DARK_FORM",
 				"DARK ARCEUS",
@@ -8381,6 +8939,7 @@
 		{
 			"number": 493,
 			"pbName": "ARCEUS_DRAGON_FORM",
+			"family": "ARCEUS_DRAGON_FORM",
 			"aliases": [
 				"ARCEUS_DRAGON_FORM",
 				"DRAGON ARCEUS",
@@ -8401,6 +8960,7 @@
 		{
 			"number": 493,
 			"pbName": "ARCEUS_ELECTRIC_FORM",
+			"family": "ARCEUS_ELECTRIC_FORM",
 			"aliases": [
 				"ARCEUS_ELECTRIC_FORM",
 				"ELECTRIC ARCEUS",
@@ -8421,6 +8981,7 @@
 		{
 			"number": 493,
 			"pbName": "ARCEUS_FAIRY_FORM",
+			"family": "ARCEUS_FAIRY_FORM",
 			"aliases": [
 				"ARCEUS_FAIRY_FORM",
 				"FAIRY ARCEUS",
@@ -8441,6 +9002,7 @@
 		{
 			"number": 493,
 			"pbName": "ARCEUS_FIGHTING_FORM",
+			"family": "ARCEUS_FIGHTING_FORM",
 			"aliases": [
 				"ARCEUS_FIGHTING_FORM",
 				"FIGHTING ARCEUS",
@@ -8461,6 +9023,7 @@
 		{
 			"number": 493,
 			"pbName": "ARCEUS_FIRE_FORM",
+			"family": "ARCEUS_FIRE_FORM",
 			"aliases": [
 				"ARCEUS_FIRE_FORM",
 				"FIRE ARCEUS",
@@ -8481,6 +9044,7 @@
 		{
 			"number": 493,
 			"pbName": "ARCEUS_FLYING_FORM",
+			"family": "ARCEUS_FLYING_FORM",
 			"aliases": [
 				"ARCEUS_FLYING_FORM",
 				"FLYING ARCEUS",
@@ -8501,6 +9065,7 @@
 		{
 			"number": 493,
 			"pbName": "ARCEUS_GHOST_FORM",
+			"family": "ARCEUS_GHOST_FORM",
 			"aliases": [
 				"ARCEUS_GHOST_FORM",
 				"GHOST ARCEUS",
@@ -8521,6 +9086,7 @@
 		{
 			"number": 493,
 			"pbName": "ARCEUS_GRASS_FORM",
+			"family": "ARCEUS_GRASS_FORM",
 			"aliases": [
 				"ARCEUS_GRASS_FORM",
 				"GRASS ARCEUS",
@@ -8541,6 +9107,7 @@
 		{
 			"number": 493,
 			"pbName": "ARCEUS_GROUND_FORM",
+			"family": "ARCEUS_GROUND_FORM",
 			"aliases": [
 				"ARCEUS_GROUND_FORM",
 				"GROUND ARCEUS",
@@ -8561,6 +9128,7 @@
 		{
 			"number": 493,
 			"pbName": "ARCEUS_ICE_FORM",
+			"family": "ARCEUS_ICE_FORM",
 			"aliases": [
 				"ARCEUS_ICE_FORM",
 				"ICE ARCEUS",
@@ -8581,6 +9149,7 @@
 		{
 			"number": 493,
 			"pbName": "ARCEUS_POISON_FORM",
+			"family": "ARCEUS_POISON_FORM",
 			"aliases": [
 				"ARCEUS_POISON_FORM",
 				"POISON ARCEUS",
@@ -8601,6 +9170,7 @@
 		{
 			"number": 493,
 			"pbName": "ARCEUS_PSYCHIC_FORM",
+			"family": "ARCEUS_PSYCHIC_FORM",
 			"aliases": [
 				"ARCEUS_PSYCHIC_FORM",
 				"PSYCHIC ARCEUS",
@@ -8621,6 +9191,7 @@
 		{
 			"number": 493,
 			"pbName": "ARCEUS_ROCK_FORM",
+			"family": "ARCEUS_ROCK_FORM",
 			"aliases": [
 				"ARCEUS_ROCK_FORM",
 				"ROCK ARCEUS",
@@ -8641,6 +9212,7 @@
 		{
 			"number": 493,
 			"pbName": "ARCEUS_STEEL_FORM",
+			"family": "ARCEUS_STEEL_FORM",
 			"aliases": [
 				"ARCEUS_STEEL_FORM",
 				"STEEL ARCEUS",
@@ -8661,6 +9233,7 @@
 		{
 			"number": 493,
 			"pbName": "ARCEUS_WATER_FORM",
+			"family": "ARCEUS_WATER_FORM",
 			"aliases": [
 				"ARCEUS_WATER_FORM",
 				"WATER ARCEUS",
@@ -8677,6 +9250,2732 @@
 				"ARCEUS"
 			],
 			"imageURL": "https://cdn.bulbagarden.net/upload/8/8a/493Arceus_Water_Dream.png"
+		},
+		{
+			"number": 494,
+			"pbName": "VICTINI",
+			"family": "VICTINI",
+			"aliases": [
+				"VICTINI"
+			],
+			"dzName": "Victini",
+			"atk": 210,
+			"def": 210,
+			"sta": 225,
+			"gsName": [
+				"VICTINI"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/60/494Victini.png"
+		},
+		{
+			"number": 495,
+			"pbName": "SNIVY",
+			"family": "SNIVY",
+			"aliases": [
+				"SNIVY"
+			],
+			"dzName": "Snivy",
+			"atk": 88,
+			"def": 107,
+			"sta": 128,
+			"gsName": [
+				"SNIVY"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/7/75/495Snivy.png"
+		},
+		{
+			"number": 496,
+			"pbName": "SERVINE",
+			"family": "SNIVY",
+			"aliases": [
+				"SERVINE"
+			],
+			"dzName": "Servine",
+			"atk": 122,
+			"def": 152,
+			"sta": 155,
+			"gsName": [
+				"SERVINE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/7/73/496Servine.png"
+		},
+		{
+			"number": 497,
+			"pbName": "SERPERIOR",
+			"family": "SNIVY",
+			"aliases": [
+				"SERPERIOR"
+			],
+			"dzName": "Serperior",
+			"atk": 161,
+			"def": 204,
+			"sta": 181,
+			"gsName": [
+				"SERPERIOR"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/b/b7/497Serperior.png"
+		},
+		{
+			"number": 498,
+			"pbName": "TEPIG",
+			"family": "TEPIG",
+			"aliases": [
+				"TEPIG"
+			],
+			"dzName": "Tepig",
+			"atk": 115,
+			"def": 85,
+			"sta": 163,
+			"gsName": [
+				"TEPIG"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/5/5b/498Tepig.png"
+		},
+		{
+			"number": 499,
+			"pbName": "PIGNITE",
+			"family": "TEPIG",
+			"aliases": [
+				"PIGNITE",
+				"PIGNIGHT"
+			],
+			"dzName": "Pignite",
+			"atk": 173,
+			"def": 106,
+			"sta": 207,
+			"gsName": [
+				"PIGNITE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/e/e8/499Pignite.png"
+		},
+		{
+			"number": 500,
+			"pbName": "EMBOAR",
+			"family": "TEPIG",
+			"aliases": [
+				"EMBOAR"
+			],
+			"dzName": "Emboar",
+			"atk": 235,
+			"def": 127,
+			"sta": 242,
+			"gsName": [
+				"EMBOAR"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/1/18/500Emboar.png"
+		},
+		{
+			"number": 501,
+			"pbName": "OSHAWOTT",
+			"family": "OSHAWOTT",
+			"aliases": [
+				"OSHAWOTT",
+				"OSHOWATT"
+			],
+			"dzName": "Oshawott",
+			"atk": 117,
+			"def": 85,
+			"sta": 146,
+			"gsName": [
+				"OSHAWOTT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/3/3b/501Oshawott.png"
+		},
+		{
+			"number": 502,
+			"pbName": "DEWOTT",
+			"family": "OSHAWOTT",
+			"aliases": [
+				"DEWOTT",
+				"DEWOT"
+			],
+			"dzName": "Dewott",
+			"atk": 159,
+			"def": 116,
+			"sta": 181,
+			"gsName": [
+				"DEWOTT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/e/e4/502Dewott.png"
+		},
+		{
+			"number": 503,
+			"pbName": "SAMUROTT",
+			"family": "OSHAWOTT",
+			"aliases": [
+				"SAMUROTT"
+			],
+			"dzName": "Samurott",
+			"atk": 212,
+			"def": 157,
+			"sta": 216,
+			"gsName": [
+				"SAMUROTT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/b/b5/503Samurott.png"
+		},
+		{
+			"number": 504,
+			"pbName": "PATRAT",
+			"family": "PATRAT",
+			"aliases": [
+				"PATRAT",
+				"PACKRAT"
+			],
+			"dzName": "Patrat",
+			"atk": 98,
+			"def": 73,
+			"sta": 128,
+			"gsName": [
+				"PATRAT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/c/cb/504Patrat.png"
+		},
+		{
+			"number": 505,
+			"pbName": "WATCHOG",
+			"family": "PATRAT",
+			"aliases": [
+				"WATCHOG",
+				"WATCHHOG"
+			],
+			"dzName": "Watchog",
+			"atk": 165,
+			"def": 139,
+			"sta": 155,
+			"gsName": [
+				"WATCHOG"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/3/3e/505Watchog.png"
+		},
+		{
+			"number": 506,
+			"pbName": "LILLIPUP",
+			"family": "LILLIPUP",
+			"aliases": [
+				"LILLIPUP",
+				"LILIPUP"
+			],
+			"dzName": "Lillipup",
+			"atk": 107,
+			"def": 86,
+			"sta": 128,
+			"gsName": [
+				"LILLIPUP"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/7/7e/506Lillipup.png"
+		},
+		{
+			"number": 507,
+			"pbName": "HERDIER",
+			"family": "LILLIPUP",
+			"aliases": [
+				"HERDIER"
+			],
+			"dzName": "Herdier",
+			"atk": 145,
+			"def": 126,
+			"sta": 163,
+			"gsName": [
+				"HERDIER"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/9/96/507Herdier.png"
+		},
+		{
+			"number": 508,
+			"pbName": "STOUTLAND",
+			"family": "LILLIPUP",
+			"aliases": [
+				"STOUTLAND"
+			],
+			"dzName": "Stoutland",
+			"atk": 206,
+			"def": 182,
+			"sta": 198,
+			"gsName": [
+				"STOUTLAND"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/3/3e/508Stoutland.png"
+		},
+		{
+			"number": 509,
+			"pbName": "PURRLOIN",
+			"family": "PURRLOIN",
+			"aliases": [
+				"PURRLOIN"
+			],
+			"dzName": "Purrloin",
+			"atk": 98,
+			"def": 73,
+			"sta": 121,
+			"gsName": [
+				"VICTINI"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/4/46/509Purrloin.png"
+		},
+		{
+			"number": 510,
+			"pbName": "LIEPARD",
+			"family": "PURRLOIN",
+			"aliases": [
+				"LIEPARD"
+			],
+			"dzName": "Liepard",
+			"atk": 187,
+			"def": 106,
+			"sta": 162,
+			"gsName": [
+				"LIEPARD"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/0/09/510Liepard.png"
+		},
+		{
+			"number": 511,
+			"pbName": "PANSAGE",
+			"family": "PANSAGE",
+			"aliases": [
+				"PANSAGE"
+			],
+			"dzName": "Pansage",
+			"atk": 104,
+			"def": 94,
+			"sta": 137,
+			"gsName": [
+				"PANSAGE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/6b/511Pansage.png"
+		},
+		{
+			"number": 512,
+			"pbName": "SIMISAGE",
+			"family": "PANSAGE",
+			"aliases": [
+				"SIMISAGE"
+			],
+			"dzName": "Simisage",
+			"atk": 206,
+			"def": 133,
+			"sta": 181,
+			"gsName": [
+				"SIMISAGE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/2/24/512Simisage.png"
+		},
+		{
+			"number": 513,
+			"pbName": "PANSEAR",
+			"family": "PANSEAR",
+			"aliases": [
+				"PANSEAR"
+			],
+			"dzName": "Pansear",
+			"atk": 104,
+			"def": 94,
+			"sta": 137,
+			"gsName": [
+				"PANSEAR"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/e/e1/513Pansear.png"
+		},
+		{
+			"number": 514,
+			"pbName": "SIMISEAR",
+			"family": "PANSEAR",
+			"aliases": [
+				"SIMISEAR"
+			],
+			"dzName": "Simisear",
+			"atk": 206,
+			"def": 133,
+			"sta": 181,
+			"gsName": [
+				"SIMISEAR"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/7/7c/514Simisear.png"
+		},
+		{
+			"number": 515,
+			"pbName": "PANPOUR",
+			"family": "PANPOUR",
+			"aliases": [
+				"PANPOUR"
+			],
+			"dzName": "Panpour",
+			"atk": 104,
+			"def": 94,
+			"sta": 137,
+			"gsName": [
+				"PANPOUR"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/2/2f/515Panpour.png"
+		},
+		{
+			"number": 516,
+			"pbName": "SIMIPOUR",
+			"family": "PANPOUR",
+			"aliases": [
+				"SIMIPOUR"
+			],
+			"dzName": "Simipour",
+			"atk": 206,
+			"def": 133,
+			"sta": 181,
+			"gsName": [
+				"SIMIPOUR"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/8/83/516Simipour.png"
+		},
+		{
+			"number": 517,
+			"pbName": "MUNNA",
+			"family": "MUNNA",
+			"aliases": [
+				"MUNNA"
+			],
+			"dzName": "Munna",
+			"atk": 111,
+			"def": 92,
+			"sta": 183,
+			"gsName": [
+				"MUNNA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/61/517Munna.png"
+		},
+		{
+			"number": 518,
+			"pbName": "MUSHARNA",
+			"family": "MUNNA",
+			"aliases": [
+				"MUSHARNA"
+			],
+			"dzName": "Musharna",
+			"atk": 183,
+			"def": 166,
+			"sta": 253,
+			"gsName": [
+				"MUSHARNA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/2/2d/518Musharna.png"
+		},
+		{
+			"number": 519,
+			"pbName": "PIDOVE",
+			"family": "PIDOVE",
+			"aliases": [
+				"PIDOVE"
+			],
+			"dzName": "Pidove",
+			"atk": 98,
+			"def": 80,
+			"sta": 137,
+			"gsName": [
+				"PIDOVE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/c/c3/519Pidove.png"
+		},
+		{
+			"number": 520,
+			"pbName": "TRANQUILL",
+			"family": "PIDOVE",
+			"aliases": [
+				"TRANQUILL"
+			],
+			"dzName": "Tranquill",
+			"atk": 144,
+			"def": 107,
+			"sta": 158,
+			"gsName": [
+				"TRANQUILL"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/a3/520Tranquill.png"
+		},
+		{
+			"number": 521,
+			"pbName": "UNFEZANT",
+			"family": "PIDOVE",
+			"aliases": [
+				"UNFEZANT"
+			],
+			"dzName": "Unfezant",
+			"atk": 226,
+			"def": 146,
+			"sta": 190,
+			"gsName": [
+				"UNFEZANT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/d/d0/521Unfezant.png"
+		},
+		{
+			"number": 522,
+			"pbName": "BLITZLE",
+			"family": "BLITZLE",
+			"aliases": [
+				"BLITZLE"
+			],
+			"dzName": "Blitzle",
+			"atk": 118,
+			"def": 64,
+			"sta": 128,
+			"gsName": [
+				"BLITZLE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/af/522Blitzle.png"
+		},
+		{
+			"number": 523,
+			"pbName": "ZEBSTRIKA",
+			"family": "BLITZLE",
+			"aliases": [
+				"ZEBSTRIKA"
+			],
+			"dzName": "Zebstrika",
+			"atk": 211,
+			"def": 136,
+			"sta": 181,
+			"gsName": [
+				"ZEBSTRIKA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/a1/523Zebstrika.png"
+		},
+		{
+			"number": 524,
+			"pbName": "ROGGENROLA",
+			"family": "ROGGENROLA",
+			"aliases": [
+				"ROGGENROLA"
+			],
+			"dzName": "Roggenrola",
+			"atk": 121,
+			"def": 110,
+			"sta": 146,
+			"gsName": [
+				"ROGGENROLA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/69/524Roggenrola.png"
+		},
+		{
+			"number": 525,
+			"pbName": "BOLDORE",
+			"family": "ROGGENROLA",
+			"aliases": [
+				"BOLDORE"
+			],
+			"dzName": "Boldore",
+			"atk": 174,
+			"def": 143,
+			"sta": 172,
+			"gsName": [
+				"BOLDORE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/c/ce/525Boldore.png"
+		},
+		{
+			"number": 526,
+			"pbName": "GIGALITH",
+			"family": "ROGGENROLA",
+			"aliases": [
+				"GIGALITH"
+			],
+			"dzName": "Gigalith",
+			"atk": 226,
+			"def": 201,
+			"sta": 198,
+			"gsName": [
+				"GIGALITH"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/5/59/526Gigalith.png"
+		},
+		{
+			"number": 527,
+			"pbName": "WOOBAT",
+			"family": "WOOBAT",
+			"aliases": [
+				"WOOBAT"
+			],
+			"dzName": "Woobat",
+			"atk": 107,
+			"def": 85,
+			"sta": 163,
+			"gsName": [
+				"WOOBAT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/3/36/527Woobat.png"
+		},
+		{
+			"number": 528,
+			"pbName": "SWOOBAT",
+			"family": "WOOBAT",
+			"aliases": [
+				"SWOOBAT"
+			],
+			"dzName": "Swoobat",
+			"atk": 161,
+			"def": 119,
+			"sta": 167,
+			"gsName": [
+				"SWOOBAT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/9/9d/528Swoobat.png"
+		},
+		{
+			"number": 529,
+			"pbName": "DRILBUR",
+			"family": "DRILBUR",
+			"aliases": [
+				"DRILBUR",
+				"DRILLBUR"
+			],
+			"dzName": "Drilbur",
+			"atk": 154,
+			"def": 85,
+			"sta": 155,
+			"gsName": [
+				"DRILBUR"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/c/cf/529Drilbur.png"
+		},
+		{
+			"number": 530,
+			"pbName": "EXCADRILL",
+			"family": "DRILBUR",
+			"aliases": [
+				"EXCADRILL"
+			],
+			"dzName": "Excadrill",
+			"atk": 255,
+			"def": 129,
+			"sta": 242,
+			"gsName": [
+				"EXCADRILL"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/63/530Excadrill.png"
+		},
+		{
+			"number": 531,
+			"pbName": "AUDINO",
+			"family": "AUDINO",
+			"aliases": [
+				"AUDINO"
+			],
+			"dzName": "Audino",
+			"atk": 114,
+			"def": 163,
+			"sta": 230,
+			"gsName": [
+				"AUDINO"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/f/f5/531Audino.png"
+		},
+		{
+			"number": 532,
+			"pbName": "TIMBURR",
+			"family": "TIMBURR",
+			"aliases": [
+				"TIMBURR",
+				"TIMBUR"
+			],
+			"dzName": "Timburr",
+			"atk": 134,
+			"def": 87,
+			"sta": 181,
+			"gsName": [
+				"TIMBURR"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/69/532Timburr.png"
+		},
+		{
+			"number": 533,
+			"pbName": "GURDURR",
+			"family": "TIMBURR",
+			"aliases": [
+				"GURDURR"
+			],
+			"dzName": "Gurdurr",
+			"atk": 180,
+			"def": 134,
+			"sta": 198,
+			"gsName": [
+				"GURDURR"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/ad/533Gurdurr.png"
+		},
+		{
+			"number": 534,
+			"pbName": "CONKELDURR",
+			"family": "TIMBURR",
+			"aliases": [
+				"CONKELDURR"
+			],
+			"dzName": "Conkeldurr",
+			"atk": 243,
+			"def": 158,
+			"sta": 233,
+			"gsName": [
+				"CONKELDURR"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/1/11/534Conkeldurr.png"
+		},
+		{
+			"number": 535,
+			"pbName": "TYMPOLE",
+			"family": "TYMPOLE",
+			"aliases": [
+				"TYMPOLE"
+			],
+			"dzName": "Tympole",
+			"atk": 98,
+			"def": 78,
+			"sta": 137,
+			"gsName": [
+				"TYMPOLE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/c/c9/535Tympole.png"
+		},
+		{
+			"number": 536,
+			"pbName": "PALPITOAD",
+			"family": "TYMPOLE",
+			"aliases": [
+				"PALPITOAD"
+			],
+			"dzName": "Palpitoad",
+			"atk": 128,
+			"def": 109,
+			"sta": 181,
+			"gsName": [
+				"PALPITOAD"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/c/c9/536Palpitoad.png"
+		},
+		{
+			"number": 537,
+			"pbName": "SEISMITOAD",
+			"family": "TYMPOLE",
+			"aliases": [
+				"SEISMITOAD"
+			],
+			"dzName": "Seismitoad",
+			"atk": 188,
+			"def": 150,
+			"sta": 233,
+			"gsName": [
+				"SEISMITOAD"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/3/35/537Seismitoad.png"
+		},
+		{
+			"number": 538,
+			"pbName": "THROH",
+			"family": "THROH",
+			"aliases": [
+				"THROH"
+			],
+			"dzName": "Throh",
+			"atk": 172,
+			"def": 160,
+			"sta": 260,
+			"gsName": [
+				"THROH"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/7/74/538Throh.png"
+		},
+		{
+			"number": 539,
+			"pbName": "SAWK",
+			"family": "SAWK",
+			"aliases": [
+				"SAWK"
+			],
+			"dzName": "Sawk",
+			"atk": 231,
+			"def": 153,
+			"sta": 181,
+			"gsName": [
+				"SAWK"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/a8/539Sawk.png"
+		},
+		{
+			"number": 540,
+			"pbName": "SEWADDLE",
+			"family": "SEWADDLE",
+			"aliases": [
+				"SEWADDLE"
+			],
+			"dzName": "Sewaddle",
+			"atk": 96,
+			"def": 124,
+			"sta": 128,
+			"gsName": [
+				"SEWADDLE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/4/4a/540Sewaddle.png"
+		},
+		{
+			"number": 541,
+			"pbName": "SWADLOON",
+			"family": "SEWADDLE",
+			"aliases": [
+				"SWADLOON"
+			],
+			"dzName": "Swadloon",
+			"atk": 115,
+			"def": 162,
+			"sta": 146,
+			"gsName": [
+				"SWADLOON"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/2/2b/541Swadloon.png"
+		},
+		{
+			"number": 542,
+			"pbName": "LEAVANNY",
+			"family": "SEWADDLE",
+			"aliases": [
+				"LEAVANNY"
+			],
+			"dzName": "Leavanny",
+			"atk": 161,
+			"def": 119,
+			"sta": 167,
+			"gsName": [
+				"LEAVANNY"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/8/8e/542Leavanny.png"
+		},
+		{
+			"number": 543,
+			"pbName": "VENIPEDE",
+			"family": "VENIPEDE",
+			"aliases": [
+				"VENIPEDE"
+			],
+			"dzName": "Venipede",
+			"atk": 83,
+			"def": 99,
+			"sta": 102,
+			"gsName": [
+				"VENIPEDE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/0/0e/543Venipede.png"
+		},
+		{
+			"number": 544,
+			"pbName": "WHIRLIPEDE",
+			"family": "VENIPEDE",
+			"aliases": [
+				"WHIRLIPEDE"
+			],
+			"dzName": "Whirlipede",
+			"atk": 100,
+			"def": 173,
+			"sta": 120,
+			"gsName": [
+				"WHIRLIPEDE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/b/bc/544Whirlipede.png"
+		},
+		{
+			"number": 545,
+			"pbName": "SCOLIPEDE",
+			"family": "VENIPEDE",
+			"aliases": [
+				"SCOLIPEDE"
+			],
+			"dzName": "Scolipede",
+			"atk": 203,
+			"def": 175,
+			"sta": 155,
+			"gsName": [
+				"SCOLIPEDE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/c/cb/545Scolipede.png"
+		},
+		{
+			"number": 546,
+			"pbName": "COTTONEE",
+			"family": "COTTONEE",
+			"aliases": [
+				"COTTONEE"
+			],
+			"dzName": "Cottonee",
+			"atk": 71,
+			"def": 111,
+			"sta": 120,
+			"gsName": [
+				"COTTONEE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/4/44/546Cottonee.png"
+		},
+		{
+			"number": 547,
+			"pbName": "WHIMSICOTT",
+			"family": "COTTONEE",
+			"aliases": [
+				"WHIMSICOTT"
+			],
+			"dzName": "Whimsicott",
+			"atk": 164,
+			"def": 176,
+			"sta": 155,
+			"gsName": [
+				"WHIMSICOTT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/a2/547Whimsicott.png"
+		},
+		{
+			"number": 548,
+			"pbName": "PETILIL",
+			"family": "PETILIL",
+			"aliases": [
+				"PETILIL"
+			],
+			"dzName": "Petilil",
+			"atk": 119,
+			"def": 91,
+			"sta": 128,
+			"gsName": [
+				"PETILIL"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/0/0b/548Petilil.png"
+		},
+		{
+			"number": 549,
+			"pbName": "LILLIGANT",
+			"family": "PETILIL",
+			"aliases": [
+				"LILLIGANT"
+			],
+			"dzName": "Lilligant",
+			"atk": 214,
+			"def": 155,
+			"sta": 172,
+			"gsName": [
+				"LILLIGANT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/2/21/549Lilligant.png"
+		},
+		{
+			"number": 550,
+			"pbName": "BASCULIN",
+			"family": "BASCULIN",
+			"aliases": [
+				"BASCULIN",
+				"BASCULIN RED",
+				"BASCULIN BLUE",
+				"BASCULIN RED STRIPE",
+				"BASCULIN BLUE STRIPE"
+			],
+			"dzName": "Basculin",
+			"atk": 189,
+			"def": 129,
+			"sta": 172,
+			"gsName": [
+				"BASCULIN"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/2/2f/550Basculin.png"
+		},
+		{
+			"number": 551,
+			"pbName": "SANDILE",
+			"family": "SANDILE",
+			"aliases": [
+				"SANDILE"
+			],
+			"dzName": "Sandile",
+			"atk": 132,
+			"def": 69,
+			"sta": 137,
+			"gsName": [
+				"SANDILE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/2/26/551Sandile.png"
+		},
+		{
+			"number": 552,
+			"pbName": "KROKOROK",
+			"family": "SANDILE",
+			"aliases": [
+				"KROKOROK"
+			],
+			"dzName": "Krokorok",
+			"atk": 155,
+			"def": 90,
+			"sta": 155,
+			"gsName": [
+				"KROKOROK"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/d/d4/552Krokorok.png"
+		},
+		{
+			"number": 553,
+			"pbName": "KROOKODILE",
+			"family": "SANDILE",
+			"aliases": [
+				"KROOKODILE"
+			],
+			"dzName": "Krookodile",
+			"atk": 229,
+			"def": 158,
+			"sta": 216,
+			"gsName": [
+				"KROOKODILE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/e/e5/553Krookodile.png"
+		},
+		{
+			"number": 554,
+			"pbName": "DARUMAKA",
+			"family": "DARUMAKA",
+			"aliases": [
+				"DARUMAKA"
+			],
+			"dzName": "Darumaka",
+			"atk": 153,
+			"def": 86,
+			"sta": 172,
+			"gsName": [
+				"DARUMAKA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/4/4c/554Darumaka.png"
+		},
+		{
+			"number": 555,
+			"pbName": "DARMANITAN",
+			"family": "DARUMAKA",
+			"aliases": [
+				"DARMANITAN",
+				"DARMANITAN NORMAL"
+			],
+			"dzName": "Darmanitan",
+			"atk": 263,
+			"def": 114,
+			"sta": 233,
+			"gsName": [
+				"DARMANITAN"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/4/40/555Darmanitan.png"
+		},
+		{
+			"number": 555,
+			"pbName": "DARMANITAN_ZEN_FORM",
+			"family": "DARUMAKA",
+			"aliases": [
+				"DARMANITAN ZEN",
+				"DARMANITAN PSYCHIC",
+				"DARMANITAN ZEN FORM"
+			],
+			"dzName": "Darmanitan Zen Form",
+			"atk": 243,
+			"def": 202,
+			"sta": 233,
+			"gsName": [
+				"DARMANITAN ZEN FORM",
+				"DARMANITAN ZEN",
+				"ZEN DARMANITAN"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/f/fe/555Darmanitan-Zen.png"
+		},
+		{
+			"number": 556,
+			"pbName": "MARACTUS",
+			"family": "MARACTUS",
+			"aliases": [
+				"MARACTUS"
+			],
+			"dzName": "Maractus",
+			"atk": 201,
+			"def": 130,
+			"sta": 181,
+			"gsName": [
+				"MARACTUS"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/3/35/556Maractus.png"
+		},
+		{
+			"number": 557,
+			"pbName": "DWEBBLE",
+			"family": "DWEBBLE",
+			"aliases": [
+				"DWEBBLE"
+			],
+			"dzName": "Dwebble",
+			"atk": 118,
+			"def": 128,
+			"sta": 137,
+			"gsName": [
+				"DWEBBLE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/6b/557Dwebble.png"
+		},
+		{
+			"number": 558,
+			"pbName": "CRUSTLE",
+			"family": "DWEBBLE",
+			"aliases": [
+				"CRUSTLE"
+			],
+			"dzName": "Crustle",
+			"atk": 188,
+			"def": 200,
+			"sta": 172,
+			"gsName": [
+				"CRUSTLE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/1/19/558Crustle.png"
+		},
+		{
+			"number": 559,
+			"pbName": "SCRAGGY",
+			"family": "SCRAGGY",
+			"aliases": [
+				"SCRAGGY"
+			],
+			"dzName": "Scraggy",
+			"atk": 132,
+			"def": 132,
+			"sta": 137,
+			"gsName": [
+				"SCRAGGY"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/d/dc/559Scraggy.png"
+		},
+		{
+			"number": 560,
+			"pbName": "SCRAFTY",
+			"family": "SCRAGGY",
+			"aliases": [
+				"SCRAFTY"
+			],
+			"dzName": "Scrafty",
+			"atk": 163,
+			"def": 222,
+			"sta": 163,
+			"gsName": [
+				"SCRAFTY"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/e/e8/560Scrafty.png"
+		},
+		{
+			"number": 561,
+			"pbName": "SIGILYPH",
+			"family": "SIGILYPH",
+			"aliases": [
+				"SIGILYPH"
+			],
+			"dzName": "Sigilyph",
+			"atk": 204,
+			"def": 167,
+			"sta": 176,
+			"gsName": [
+				"SIGILYPH"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/67/561Sigilyph.png"
+		},
+		{
+			"number": 562,
+			"pbName": "YAMASK",
+			"family": "YAMASK",
+			"aliases": [
+				"YAMASK"
+			],
+			"dzName": "Yamask",
+			"atk": 95,
+			"def": 141,
+			"sta": 116,
+			"gsName": [
+				"YAMASK"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/a4/562Yamask.png"
+		},
+		{
+			"number": 563,
+			"pbName": "COFAGRIGUS",
+			"family": "YAMASK",
+			"aliases": [
+				"COFAGRIGUS"
+			],
+			"dzName": "Cofagrigus",
+			"atk": 163,
+			"def": 237,
+			"sta": 151,
+			"gsName": [
+				"COFAGRIGUS"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/f/f8/563Cofagrigus.png"
+		},
+		{
+			"number": 564,
+			"pbName": "TIRTOUGA",
+			"family": "TIRTOUGA",
+			"aliases": [
+				"TIRTOUGA"
+			],
+			"dzName": "Tirtouga",
+			"atk": 134,
+			"def": 146,
+			"sta": 144,
+			"gsName": [
+				"TIRTOUGA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/1/1a/564Tirtouga.png"
+		},
+		{
+			"number": 565,
+			"pbName": "CARRACOSTA",
+			"family": "TIRTOUGA",
+			"aliases": [
+				"CARRACOSTA"
+			],
+			"dzName": "Carracosta",
+			"atk": 192,
+			"def": 197,
+			"sta": 179,
+			"gsName": [
+				"CARRACOSTA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/d/d0/565Carracosta.png"
+		},
+		{
+			"number": 566,
+			"pbName": "ARCHEN",
+			"family": "ARCHEN",
+			"aliases": [
+				"ARCHEN"
+			],
+			"dzName": "Archen",
+			"atk": 213,
+			"def": 89,
+			"sta": 146,
+			"gsName": [
+				"ARCHEN"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/a3/566Archen.png"
+		},
+		{
+			"number": 567,
+			"pbName": "ARCHEOPS",
+			"family": "ARCHEN",
+			"aliases": [
+				"ARCHEOPS"
+			],
+			"dzName": "Archeops",
+			"atk": 292,
+			"def": 139,
+			"sta": 181,
+			"gsName": [
+				"ARCHEOPS"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/1/14/567Archeops.png"
+		},
+		{
+			"number": 568,
+			"pbName": "TRUBBISH",
+			"family": "TRUBBISH",
+			"aliases": [
+				"TRUBBISH"
+			],
+			"dzName": "Trubbish",
+			"atk": 96,
+			"def": 122,
+			"sta": 137,
+			"gsName": [
+				"TRUBBISH"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/e/e2/568Trubbish.png"
+		},
+		{
+			"number": 569,
+			"pbName": "GARBODOR",
+			"family": "TRUBBISH",
+			"aliases": [
+				"GARBODOR"
+			],
+			"dzName": "Garbodor",
+			"atk": 181,
+			"def": 164,
+			"sta": 190,
+			"gsName": [
+				"GARBODOR"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/c/c4/569Garbodor.png"
+		},
+		{
+			"number": 570,
+			"pbName": "ZORUA",
+			"family": "ZORUA",
+			"aliases": [
+				"ZORUA"
+			],
+			"dzName": "Zorua",
+			"atk": 153,
+			"def": 78,
+			"sta": 120,
+			"gsName": [
+				"ZORUA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/2/2b/570Zorua.png"
+		},
+		{
+			"number": 571,
+			"pbName": "ZOROARK",
+			"family": "ZORUA",
+			"aliases": [
+				"ZOROARK"
+			],
+			"dzName": "Zoroark",
+			"atk": 250,
+			"def": 127,
+			"sta": 155,
+			"gsName": [
+				"ZOROARK"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/a6/571Zoroark.png"
+		},
+		{
+			"number": 572,
+			"pbName": "MINCCINO",
+			"family": "MINCCINO",
+			"aliases": [
+				"MINCCINO"
+			],
+			"dzName": "Minccino",
+			"atk": 98,
+			"def": 80,
+			"sta": 146,
+			"gsName": [
+				"MINCCINO"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/e/ec/572Minccino.png"
+		},
+		{
+			"number": 573,
+			"pbName": "CINCCINO",
+			"family": "MINCCINO",
+			"aliases": [
+				"CINCCINO"
+			],
+			"dzName": "Cinccino",
+			"atk": 198,
+			"def": 130,
+			"sta": 181,
+			"gsName": [
+				"CINCCINO"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/9/94/573Cinccino.png"
+		},
+		{
+			"number": 574,
+			"pbName": "GOTHITA",
+			"family": "GOTHITA",
+			"aliases": [
+				"GOTHITA"
+			],
+			"dzName": "Gothita",
+			"atk": 98,
+			"def": 112,
+			"sta": 128,
+			"gsName": [
+				"GOTHITA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/7/71/574Gothita.png"
+		},
+		{
+			"number": 575,
+			"pbName": "GOTHORITA",
+			"family": "GOTHITA",
+			"aliases": [
+				"GOTHORITA"
+			],
+			"dzName": "Gothorita",
+			"atk": 137,
+			"def": 153,
+			"sta": 155,
+			"gsName": [
+				"GOTHORITA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/67/575Gothorita.png"
+		},
+		{
+			"number": 576,
+			"pbName": "GOTHITELLE",
+			"family": "GOTHITA",
+			"aliases": [
+				"GOTHITELLE"
+			],
+			"dzName": "Gothitelle",
+			"atk": 176,
+			"def": 205,
+			"sta": 172,
+			"gsName": [
+				"GOTHITELLE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/3/38/576Gothitelle.png"
+		},
+		{
+			"number": 577,
+			"pbName": "SOLOSIS",
+			"family": "SOLOSIS",
+			"aliases": [
+				"SOLOSIS"
+			],
+			"dzName": "Solosis",
+			"atk": 170,
+			"def": 83,
+			"sta": 128,
+			"gsName": [
+				"SOLOSIS"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/1/1e/577Solosis.png"
+		},
+		{
+			"number": 578,
+			"pbName": "DUOSION",
+			"family": "SOLOSIS",
+			"aliases": [
+				"DUOSION"
+			],
+			"dzName": "Duosion",
+			"atk": 208,
+			"def": 103,
+			"sta": 163,
+			"gsName": [
+				"DUOSION"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/8/83/578Duosion.png"
+		},
+		{
+			"number": 579,
+			"pbName": "REUNICLUS",
+			"family": "SOLOSIS",
+			"aliases": [
+				"REUNICLUS"
+			],
+			"dzName": "Reuniclus",
+			"atk": 192,
+			"def": 197,
+			"sta": 179,
+			"gsName": [
+				"REUNICLUS"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/1/19/579Reuniclus.png"
+		},
+		{
+			"number": 580,
+			"pbName": "DUCKLETT",
+			"family": "DUCKLETT",
+			"aliases": [
+				"DUCKLETT"
+			],
+			"dzName": "Ducklett",
+			"atk": 84,
+			"def": 96,
+			"sta": 158,
+			"gsName": [
+				"DUCKLETT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/4/4b/580Ducklett.png"
+		},
+		{
+			"number": 581,
+			"pbName": "SWANNA",
+			"family": "DUCKLETT",
+			"aliases": [
+				"SWANNA"
+			],
+			"dzName": "Swanna",
+			"atk": 182,
+			"def": 132,
+			"sta": 181,
+			"gsName": [
+				"SWANNA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/7/76/581Swanna.png"
+		},
+		{
+			"number": 582,
+			"pbName": "VANILLITE",
+			"family": "VANILLITE",
+			"aliases": [
+				"VANILLITE"
+			],
+			"dzName": "Vanillite",
+			"atk": 118,
+			"def": 106,
+			"sta": 113,
+			"gsName": [
+				"VANILLITE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/3/3f/582Vanillite.png"
+		},
+		{
+			"number": 583,
+			"pbName": "VANILLISH",
+			"family": "VANILLITE",
+			"aliases": [
+				"VANILLISH"
+			],
+			"dzName": "Vanillish",
+			"atk": 151,
+			"def": 138,
+			"sta": 139,
+			"gsName": [
+				"VANILLISH"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/2/2f/583Vanillish.png"
+		},
+		{
+			"number": 584,
+			"pbName": "VANILLUXE",
+			"family": "VANILLITE",
+			"aliases": [
+				"VANILLUXE"
+			],
+			"dzName": "Vanilluxe",
+			"atk": 218,
+			"def": 184,
+			"sta": 174,
+			"gsName": [
+				"VANILLUXE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/3/39/584Vanilluxe.png"
+		},
+		{
+			"number": 585,
+			"pbName": "DEERLING",
+			"family": "DEERLING",
+			"aliases": [
+				"DEERLING",
+				"DEERLING AUTUMN",
+				"DEERLING FALL",
+				"DEERLING SPRING",
+				"DEERLING WINTER",
+				"DEERLING SUMMER"
+			],
+			"dzName": "Deerling",
+			"atk": 115,
+			"def": 100,
+			"sta": 155,
+			"gsName": [
+				"DEERLING"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/68/585Deerling-Spring.png"
+		},
+		{
+			"number": 586,
+			"pbName": "SAWSBUCK",
+			"family": "DEERLING",
+			"aliases": [
+				"SAWSBUCK"
+			],
+			"dzName": "Sawsbuck",
+			"atk": 198,
+			"def": 146,
+			"sta": 190,
+			"gsName": [
+				"SAWSBUCK",
+				"SAWSBUCK AUTUMN",
+				"SAWSBUCK FALL",
+				"SAWSBUCK SPRING",
+				"SAWSBUCK WINTER",
+				"SAWSBUCK SUMMER"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/8/8d/586Sawsbuck-Spring.png"
+		},
+		{
+			"number": 587,
+			"pbName": "EMOLGA",
+			"family": "EMOLGA",
+			"aliases": [
+				"EMOLGA"
+			],
+			"dzName": "Emolga",
+			"atk": 158,
+			"def": 127,
+			"sta": 146,
+			"gsName": [
+				"EMOLGA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/b/b4/587Emolga.png"
+		},
+		{
+			"number": 588,
+			"pbName": "KARRABLAST",
+			"family": "KARRABLAST",
+			"aliases": [
+				"KARRABLAST"
+			],
+			"dzName": "Karrablast",
+			"atk": 137,
+			"def": 87,
+			"sta": 137,
+			"gsName": [
+				"KARRABLAST"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/60/588Karrablast.png"
+		},
+		{
+			"number": 589,
+			"pbName": "ESCAVALIER",
+			"family": "KARRABLAST",
+			"aliases": [
+				"ESCAVALIER"
+			],
+			"dzName": "Escavalier",
+			"atk": 223,
+			"def": 187,
+			"sta": 172,
+			"gsName": [
+				"ESCAVALIER"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/63/589Escavalier.png"
+		},
+		{
+			"number": 590,
+			"pbName": "FOONGUS",
+			"family": "FOONGUS",
+			"aliases": [
+				"FOONGUS"
+			],
+			"dzName": "Foongus",
+			"atk": 97,
+			"def": 91,
+			"sta": 170,
+			"gsName": [
+				"FOONGUS"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/c/cc/590Foongus.png"
+		},
+		{
+			"number": 591,
+			"pbName": "AMOONGUSS",
+			"family": "FOONGUS",
+			"aliases": [
+				"AMOONGUSS"
+			],
+			"dzName": "Amoonguss",
+			"atk": 155,
+			"def": 139,
+			"sta": 249,
+			"gsName": [
+				"AMOONGUSS"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/1/13/591Amoonguss.png"
+		},
+		{
+			"number": 592,
+			"pbName": "FRILLISH",
+			"family": "FRILLISH",
+			"aliases": [
+				"FRILLISH"
+			],
+			"dzName": "Frillish",
+			"atk": 115,
+			"def": 134,
+			"sta": 146,
+			"gsName": [
+				"FRILLISH"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/8/88/592Frillish.png"
+		},
+		{
+			"number": 593,
+			"pbName": "JELLICENT",
+			"family": "FRILLISH",
+			"aliases": [
+				"JELLICENT"
+			],
+			"dzName": "Jellicent",
+			"atk": 159,
+			"def": 178,
+			"sta": 225,
+			"gsName": [
+				"JELLICENT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/5/5c/593Jellicent.png"
+		},
+		{
+			"number": 594,
+			"pbName": "ALOMOMOLA",
+			"family": "ALOMOMOLA",
+			"aliases": [
+				"ALOMOMOLA"
+			],
+			"dzName": "Alomomola",
+			"atk": 138,
+			"def": 131,
+			"sta": 338,
+			"gsName": [
+				"CARRACOSTA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/1/10/594Alomomola.png"
+		},
+		{
+			"number": 595,
+			"pbName": "JOLTIK",
+			"family": "JOLTIK",
+			"aliases": [
+				"JOLTIK"
+			],
+			"dzName": "Joltik",
+			"atk": 110,
+			"def": 98,
+			"sta": 137,
+			"gsName": [
+				"JOLTIK"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/f/f8/595Joltik.png"
+		},
+		{
+			"number": 596,
+			"pbName": "GALVANTULA",
+			"family": "JOLTIK",
+			"aliases": [
+				"GALVANTULA"
+			],
+			"dzName": "Galvantula",
+			"atk": 201,
+			"def": 128,
+			"sta": 172,
+			"gsName": [
+				"GALVANTULA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/7/7a/596Galvantula.png"
+		},
+		{
+			"number": 597,
+			"pbName": "FERROSEED",
+			"family": "FERROSEED",
+			"aliases": [
+				"FERROSEED"
+			],
+			"dzName": "Ferroseed",
+			"atk": 82,
+			"def": 155,
+			"sta": 127,
+			"gsName": [
+				"FERROSEED"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/2/28/597Ferroseed.png"
+		},
+		{
+			"number": 598,
+			"pbName": "FERROTHORN",
+			"family": "FERROSEED",
+			"aliases": [
+				"FERROTHORN"
+			],
+			"dzName": "Ferrothorn",
+			"atk": 158,
+			"def": 223,
+			"sta": 179,
+			"gsName": [
+				"FERROTHORN"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/6c/598Ferrothorn.png"
+		},
+		{
+			"number": 599,
+			"pbName": "KLINK",
+			"family": "KLINK",
+			"aliases": [
+				"KLINK"
+			],
+			"dzName": "Klink",
+			"atk": 98,
+			"def": 121,
+			"sta": 120,
+			"gsName": [
+				"KLINK"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/e/ea/599Klink.png"
+		},
+		{
+			"number": 600,
+			"pbName": "KLANG",
+			"family": "KLINK",
+			"aliases": [
+				"KLANG"
+			],
+			"dzName": "Klang",
+			"atk": 150,
+			"def": 174,
+			"sta": 155,
+			"gsName": [
+				"KLANG"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/8/80/600Klang.png"
+		},
+		{
+			"number": 601,
+			"pbName": "KLINKLANG",
+			"family": "KLINK",
+			"aliases": [
+				"KLINKLANG"
+			],
+			"dzName": "Klinklang",
+			"atk": 199,
+			"def": 214,
+			"sta": 155,
+			"gsName": [
+				"KLINKLANG"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/c/cf/601Klinklang.png"
+		},
+		{
+			"number": 602,
+			"pbName": "TYNAMO",
+			"family": "TYNAMO",
+			"aliases": [
+				"TYNAMO"
+			],
+			"dzName": "Tynamo",
+			"atk": 105,
+			"def": 78,
+			"sta": 111,
+			"gsName": [
+				"TYNAMO"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/5/5e/602Tynamo.png"
+		},
+		{
+			"number": 603,
+			"pbName": "EELEKTRIK",
+			"family": "TYNAMO",
+			"aliases": [
+				"EELEKTRIK"
+			],
+			"dzName": "Eelektrik",
+			"atk": 156,
+			"def": 130,
+			"sta": 163,
+			"gsName": [
+				"EELEKTRIK"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/c/c7/603Eelektrik.png"
+		},
+		{
+			"number": 604,
+			"pbName": "EELEKTROSS",
+			"family": "TYNAMO",
+			"aliases": [
+				"EELEKTROSS"
+			],
+			"dzName": "Eelektross",
+			"atk": 217,
+			"def": 152,
+			"sta": 198,
+			"gsName": [
+				"EELEKTROSS"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/6c/604Eelektross.png"
+		},
+		{
+			"number": 605,
+			"pbName": "ELGYEM",
+			"family": "ELGYEM",
+			"aliases": [
+				"ELGYEM"
+			],
+			"dzName": "Elgyem",
+			"atk": 148,
+			"def": 100,
+			"sta": 146,
+			"gsName": [
+				"ELGYEM"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/f/fd/605Elgyem.png"
+		},
+		{
+			"number": 606,
+			"pbName": "BEHEEYEM",
+			"family": "ELGYEM",
+			"aliases": [
+				"BEHEEYEM"
+			],
+			"dzName": "Beheeyem",
+			"atk": 221,
+			"def": 163,
+			"sta": 181,
+			"gsName": [
+				"BEHEEYEM"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/2/2c/606Beheeyem.png"
+		},
+		{
+			"number": 607,
+			"pbName": "LITWICK",
+			"family": "LITWICK",
+			"aliases": [
+				"LITWICK"
+			],
+			"dzName": "Litwick",
+			"atk": 108,
+			"def": 98,
+			"sta": 137,
+			"gsName": [
+				"LITWICK"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/8/8e/607Litwick.png"
+		},
+		{
+			"number": 608,
+			"pbName": "LAMPENT",
+			"family": "LITWICK",
+			"aliases": [
+				"LAMPENT"
+			],
+			"dzName": "Lampent",
+			"atk": 169,
+			"def": 115,
+			"sta": 155,
+			"gsName": [
+				"LAMPENT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/a5/608Lampent.png"
+		},
+		{
+			"number": 609,
+			"pbName": "CHANDELURE",
+			"family": "LITWICK",
+			"aliases": [
+				"CHANDELURE"
+			],
+			"dzName": "Chandelure",
+			"atk": 271,
+			"def": 182,
+			"sta": 155,
+			"gsName": [
+				"CHANDELURE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/65/609Chandelure.png"
+		},
+		{
+			"number": 610,
+			"pbName": "AXEW",
+			"family": "AXEW",
+			"aliases": [
+				"AXEW"
+			],
+			"dzName": "Axew",
+			"atk": 154,
+			"def": 101,
+			"sta": 130,
+			"gsName": [
+				"AXEW"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/5/5c/610Axew.png"
+		},
+		{
+			"number": 611,
+			"pbName": "FRAXURE",
+			"family": "AXEW",
+			"aliases": [
+				"FRAXURE"
+			],
+			"dzName": "Fraxure",
+			"atk": 212,
+			"def": 123,
+			"sta": 165,
+			"gsName": [
+				"FRAXURE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/0/05/611Fraxure.png"
+		},
+		{
+			"number": 612,
+			"pbName": "HAXORUS",
+			"family": "AXEW",
+			"aliases": [
+				"HAXORUS"
+			],
+			"dzName": "Haxorus",
+			"atk": 284,
+			"def": 172,
+			"sta": 183,
+			"gsName": [
+				"HAXORUS"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/8/8f/612Haxorus.png"
+		},
+		{
+			"number": 613,
+			"pbName": "CUBCHOO",
+			"family": "CUBCHOO",
+			"aliases": [
+				"CUBCHOO"
+			],
+			"dzName": "Cubchoo",
+			"atk": 128,
+			"def": 74,
+			"sta": 146,
+			"gsName": [
+				"CUBCHOO"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/7/72/613Cubchoo.png"
+		},
+		{
+			"number": 614,
+			"pbName": "BEARTIC",
+			"family": "CUBCHOO",
+			"aliases": [
+				"BEARTIC"
+			],
+			"dzName": "Beartic",
+			"atk": 233,
+			"def": 152,
+			"sta": 216,
+			"gsName": [
+				"BEARTIC"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/4/40/614Beartic.png"
+		},
+		{
+			"number": 615,
+			"pbName": "CRYOGONAL",
+			"family": "CRYOGONAL",
+			"aliases": [
+				"CRYOGONAL"
+			],
+			"dzName": "Cryogonal",
+			"atk": 190,
+			"def": 218,
+			"sta": 190,
+			"gsName": [
+				"CRYOGONAL"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/1/11/615Cryogonal.png"
+		},
+		{
+			"number": 616,
+			"pbName": "SHELMET",
+			"family": "SHELMET",
+			"aliases": [
+				"SHELMET"
+			],
+			"dzName": "Shelmet",
+			"atk": 72,
+			"def": 140,
+			"sta": 137,
+			"gsName": [
+				"SHELMET"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/f/f6/616Shelmet.png"
+		},
+		{
+			"number": 617,
+			"pbName": "ACCELGOR",
+			"family": "SHELMET",
+			"aliases": [
+				"ACCELGOR"
+			],
+			"dzName": "Accelgor",
+			"atk": 220,
+			"def": 120,
+			"sta": 190,
+			"gsName": [
+				"ACCELGOR"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/3/34/617Accelgor.png"
+		},
+		{
+			"number": 618,
+			"pbName": "STUNFISK",
+			"family": "STUNFISK",
+			"aliases": [
+				"STUNFISK"
+			],
+			"dzName": "Stunfisk",
+			"atk": 144,
+			"def": 171,
+			"sta": 240,
+			"gsName": [
+				"STUNFISK"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/d/d2/618Stunfisk.png"
+		},
+		{
+			"number": 619,
+			"pbName": "MIENFOO",
+			"family": "MIENFOO",
+			"aliases": [
+				"MIENFOO"
+			],
+			"dzName": "Mienfoo",
+			"atk": 160,
+			"def": 98,
+			"sta": 128,
+			"gsName": [
+				"MIENFOO"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/4/41/619Mienfoo.png"
+		},
+		{
+			"number": 620,
+			"pbName": "MIENSHAO",
+			"family": "MIENFOO",
+			"aliases": [
+				"MIENSHAO"
+			],
+			"dzName": "Mienshao",
+			"atk": 258,
+			"def": 127,
+			"sta": 163,
+			"gsName": [
+				"MIENSHAO"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/2/20/620Mienshao.png"
+		},
+		{
+			"number": 621,
+			"pbName": "DRUDDIGON",
+			"family": "DRUDDIGON",
+			"aliases": [
+				"DRUDDIGON"
+			],
+			"dzName": "Druddigon",
+			"atk": 213,
+			"def": 170,
+			"sta": 184,
+			"gsName": [
+				"DRUDDIGON"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/ad/621Druddigon.png"
+		},
+		{
+			"number": 622,
+			"pbName": "GOLETT",
+			"family": "GOLETT",
+			"aliases": [
+				"GOLETT"
+			],
+			"dzName": "Golett",
+			"atk": 127,
+			"def": 92,
+			"sta": 153,
+			"gsName": [
+				"GOLETT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/ac/622Golett.png"
+		},
+		{
+			"number": 623,
+			"pbName": "GOLURK",
+			"family": "GOLETT",
+			"aliases": [
+				"GOLURK"
+			],
+			"dzName": "Golurk",
+			"atk": 222,
+			"def": 154,
+			"sta": 205,
+			"gsName": [
+				"GOLURK"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/68/623Golurk.png"
+		},
+		{
+			"number": 624,
+			"pbName": "PAWNIARD",
+			"family": "PAWNIARD",
+			"aliases": [
+				"PAWNIARD"
+			],
+			"dzName": "Pawniard",
+			"atk": 154,
+			"def": 114,
+			"sta": 128,
+			"gsName": [
+				"PAWNIARD"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/9/9c/624Pawniard.png"
+		},
+		{
+			"number": 625,
+			"pbName": "BISHARP",
+			"family": "PAWNIARD",
+			"aliases": [
+				"BISHARP"
+			],
+			"dzName": "Bisharp",
+			"atk": 232,
+			"def": 176,
+			"sta": 163,
+			"gsName": [
+				"BISHARP"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/7/74/625Bisharp.png"
+		},
+		{
+			"number": 626,
+			"pbName": "BOUFFALANT",
+			"family": "BOUFFALANT",
+			"aliases": [
+				"BOUFFALANT"
+			],
+			"dzName": "Bouffalant",
+			"atk": 195,
+			"def": 182,
+			"sta": 216,
+			"gsName": [
+				"BOUFFALANT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/a4/626Bouffalant.png"
+		},
+		{
+			"number": 627,
+			"pbName": "RUFFLET",
+			"family": "RUFFLET",
+			"aliases": [
+				"RUFFLET"
+			],
+			"dzName": "Rufflet",
+			"atk": 150,
+			"def": 97,
+			"sta": 172,
+			"gsName": [
+				"RUFFLET"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/b/bb/627Rufflet.png"
+		},
+		{
+			"number": 628,
+			"pbName": "BRAVIARY",
+			"family": "RUFFLET",
+			"aliases": [
+				"BRAVIARY"
+			],
+			"dzName": "Braviary",
+			"atk": 232,
+			"def": 152,
+			"sta": 225,
+			"gsName": [
+				"BRAVIARY"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/c/cf/628Braviary.png"
+		},
+		{
+			"number": 629,
+			"pbName": "VULLABY",
+			"family": "VULLABY",
+			"aliases": [
+				"VULLABY"
+			],
+			"dzName": "Vullaby",
+			"atk": 105,
+			"def": 139,
+			"sta": 172,
+			"gsName": [
+				"VULLABY"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/f/f2/629Vullaby.png"
+		},
+		{
+			"number": 630,
+			"pbName": "MANDIBUZZ",
+			"family": "VULLABY",
+			"aliases": [
+				"MANDIBUZZ"
+			],
+			"dzName": "Mandibuzz",
+			"atk": 129,
+			"def": 205,
+			"sta": 242,
+			"gsName": [
+				"MANDIBUZZ"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/0/00/630Mandibuzz.png"
+		},
+		{
+			"number": 631,
+			"pbName": "HEATMOR",
+			"family": "HEATMOR",
+			"aliases": [
+				"HEATMOR"
+			],
+			"dzName": "Heatmor",
+			"atk": 204,
+			"def": 129,
+			"sta": 198,
+			"gsName": [
+				"HEATMOR"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/b/b0/631Heatmor.png"
+		},
+		{
+			"number": 632,
+			"pbName": "DURANT",
+			"family": "DURANT",
+			"aliases": [
+				"DURANT"
+			],
+			"dzName": "Durant",
+			"atk": 217,
+			"def": 188,
+			"sta": 151,
+			"gsName": [
+				"DURANT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/1/1a/632Durant.png"
+		},
+		{
+			"number": 633,
+			"pbName": "DEINO",
+			"family": "DEINO",
+			"aliases": [
+				"DEINO"
+			],
+			"dzName": "Deino",
+			"atk": 116,
+			"def": 93,
+			"sta": 141,
+			"gsName": [
+				"DEINO"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/f/f7/633Deino.png"
+		},
+		{
+			"number": 634,
+			"pbName": "ZWEILOUS",
+			"family": "DEINO",
+			"aliases": [
+				"ZWEILOUS"
+			],
+			"dzName": "Zweilous",
+			"atk": 159,
+			"def": 135,
+			"sta": 176,
+			"gsName": [
+				"ZWEILOUS"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/a6/634Zweilous.png"
+		},
+		{
+			"number": 635,
+			"pbName": "HYDREIGON",
+			"family": "DEINO",
+			"aliases": [
+				"HYDREIGON"
+			],
+			"dzName": "Hydreigon",
+			"atk": 217,
+			"def": 188,
+			"sta": 151,
+			"gsName": [
+				"HYDREIGON"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/3/3e/635Hydreigon.png"
+		},
+		{
+			"number": 636,
+			"pbName": "LARVESTA",
+			"family": "LARVESTA",
+			"aliases": [
+				"LARVESTA"
+			],
+			"dzName": "Larvesta",
+			"atk": 156,
+			"def": 107,
+			"sta": 146,
+			"gsName": [
+				"LARVESTA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/f/f4/636Larvesta.png"
+		},
+		{
+			"number": 637,
+			"pbName": "VOLCARONA",
+			"family": "LARVESTA",
+			"aliases": [
+				"VOLCARONA"
+			],
+			"dzName": "Volcarona",
+			"atk": 264,
+			"def": 189,
+			"sta": 198,
+			"gsName": [
+				"VOLCARONA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/6b/637Volcarona.png"
+		},
+		{
+			"number": 638,
+			"pbName": "COBALION",
+			"family": "COBALION",
+			"aliases": [
+				"COBALION"
+			],
+			"dzName": "Cobalion",
+			"atk": 102,
+			"def": 229,
+			"sta": 209,
+			"gsName": [
+				"COBALION"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/6/65/638Cobalion.png"
+		},
+		{
+			"number": 639,
+			"pbName": "TERRAKION",
+			"family": "TERRAKION",
+			"aliases": [
+				"TERRAKION"
+			],
+			"dzName": "Terrakion",
+			"atk": 260,
+			"def": 192,
+			"sta": 209,
+			"gsName": [
+				"TERRAKION"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/ad/639Terrakion.png"
+		},
+		{
+			"number": 640,
+			"pbName": "VIRIZION",
+			"family": "VIRIZION",
+			"aliases": [
+				"VIRIZION"
+			],
+			"dzName": "Virizion",
+			"atk": 192,
+			"def": 229,
+			"sta": 209,
+			"gsName": [
+				"DURANT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/7/79/640Virizion.png"
+		},
+		{
+			"number": 641,
+			"pbName": "TORNADUS_INCARNATE_FORM",
+			"family": "TORNADUS_INCARNATE_FORM",
+			"aliases": [
+				"TORNADUS",
+				"TORNADUS INCARNATE",
+				"TORNADUS INCARNATE FORM",
+				"TORNADUS CLOUD",
+				"TORNADUS CLOUD FORM"
+			],
+			"dzName": "Tornadus",
+			"atk": 266,
+			"def": 164,
+			"sta": 188,
+			"gsName": [
+				"TORNADUS (INCARNATE)",
+				"TORNADUS",
+				"TORNADUS INCARNATE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/0/08/641Tornadus.png"
+		},
+		{
+			"number": 641,
+			"pbName": "TORNADUS_THERIAN_FORM",
+			"family": "TORNADUS_THERIAN_FORM",
+			"aliases": [
+				"TORNADUS THERIAN",
+				"TORNADUS THERIAN FORM",
+				"TORNADUS BIRD",
+				"TORNADUS BIRD FORM"
+			],
+			"dzName": "Tornadus_Therian",
+			"atk": 238,
+			"def": 189,
+			"sta": 188,
+			"gsName": [
+				"TORNADUS (THERIAN)",
+				"TORNADUS THERIAN",
+				"TORNADUS THERIAN"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/7/7e/641Tornadus-Therian.png"
+		},
+		{
+			"number": 642,
+			"pbName": "THUNDERUS_INCARNATE_FORM",
+			"family": "THUNDERUS_INCARNATE_FORM",
+			"aliases": [
+				"THUNDERUS",
+				"THUNDERUS INCARNATE",
+				"THUNDERUS INCARNATE FORM",
+				"THUNDERUS CLOUD",
+				"THUNDERUS CLOUD FORM"
+			],
+			"dzName": "Thunderus",
+			"atk": 266,
+			"def": 164,
+			"sta": 188,
+			"gsName": [
+				"THUNDERUS (INCARNATE)",
+				"THUNDERUS",
+				"THUNDERUS INCARNATE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/b/b8/642Thundurus.png"
+		},
+		{
+			"number": 642,
+			"pbName": "THUNDERUS_THERIAN_FORM",
+			"family": "THUNDERUS_THERIAN_FORM",
+			"aliases": [
+				"THUNDERUS THERIAN",
+				"THUNDERUS THERIAN FORM"
+			],
+			"dzName": "Thunderus_Therian",
+			"atk": 295,
+			"def": 161,
+			"sta": 188,
+			"gsName": [
+				"THUNDERUS (THERIAN)",
+				"THUNDERUS THERIAN",
+				"THUNDERUS THERIAN"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/8/86/642Thundurus-Therian.png"
+		},
+		{
+			"number": 643,
+			"pbName": "RESHIRAM",
+			"family": "RESHIRAM",
+			"aliases": [
+				"RESHIRAM"
+			],
+			"dzName": "Reshiram",
+			"atk": 275,
+			"def": 211,
+			"sta": 205,
+			"gsName": [
+				"RESHIRAM"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/8/8d/643Reshiram.png"
+		},
+		{
+			"number": 644,
+			"pbName": "ZEKROM",
+			"family": "ZEKROM",
+			"aliases": [
+				"ZEKROM"
+			],
+			"dzName": "Zekrom",
+			"atk": 275,
+			"def": 211,
+			"sta": 205,
+			"gsName": [
+				"ZEKROM"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/8/81/644Zekrom.png"
+		},
+		{
+			"number": 645,
+			"pbName": "LANDORUS_INCARNATE_FORM",
+			"family": "LANDORUS_INCARNATE_FORM",
+			"aliases": [
+				"LANDORUS",
+				"LANDORUS INCARNATE",
+				"LANDORUS INCARNATE FORM",
+				"LANDORUS CLOUD",
+				"LANDORUS CLOUD FORM"
+			],
+			"dzName": "Landorus",
+			"atk": 261,
+			"def": 182,
+			"sta": 205,
+			"gsName": [
+				"LANDORUS (INCARNATE)",
+				"LANDORUS",
+				"LANDORUS INCARNATE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/b/bb/645Landorus.png"
+		},
+		{
+			"number": 645,
+			"pbName": "LANDORUS_THERIAN_FORM",
+			"family": "LANDORUS_THERIAN_FORM",
+			"aliases": [
+				"LANDORUS",
+				"LANDORUS THERIAN",
+				"LANDORUS THERIAN FORM",
+				"LANDORUS TIGER",
+				"LANDORUS TIGER FORM"
+			],
+			"dzName": "Landorus_Therian",
+			"atk": 289,
+			"def": 179,
+			"sta": 205,
+			"gsName": [
+				"LANDORUS (THERIAN)",
+				"LANDORUS THERIAN",
+				"LANDORUS THERIAN"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/0/00/645Landorus-Therian.png"
+		},
+		{
+			"number": 646,
+			"pbName": "KYUREM",
+			"family": "KYUREM",
+			"aliases": [
+				"KYUREM"
+			],
+			"dzName": "Kyurem",
+			"atk": 246,
+			"def": 170,
+			"sta": 245,
+			"gsName": [
+				"KYUREM"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/d/d0/565Carracosta.png"
+		},
+		{
+			"number": 646,
+			"pbName": "KYUREM",
+			"family": "KYUREM",
+			"aliases": [
+				"KYUREM"
+			],
+			"dzName": "Kyurem",
+			"atk": 246,
+			"def": 170,
+			"sta": 245,
+			"gsName": [
+				"KYUREM"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/c/c3/646Kyurem.png"
+		},
+		{
+			"number": 646,
+			"pbName": "KYUREM_WHITE",
+			"family": "KYUREM",
+			"aliases": [
+				"KYUREM WHITE",
+				"WHITE KYUREM"
+			],
+			"dzName": "Kyurem_White",
+			"atk": 310,
+			"def": 183,
+			"sta": 245,
+			"gsName": [
+				"KYUREM WHITE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/8/81/646Kyurem-White.png"
+		},
+		{
+			"number": 646,
+			"pbName": "KYUREM_BLACK",
+			"family": "KYUREM",
+			"aliases": [
+				"KYUREM BLACK",
+				"BLACK KYUREM"
+			],
+			"dzName": "Kyurem_Black",
+			"atk": 310,
+			"def": 183,
+			"sta": 245,
+			"gsName": [
+				"KYUREM BLACK"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/1/16/646Kyurem-Black.png"
+		},
+		{
+			"number": 647,
+			"pbName": "KELDEO",
+			"family": "KELDEO",
+			"aliases": [
+				"KELDEO",
+				"RESOLUTE KELDEO",
+				"KELDEO RESOLUTE"
+			],
+			"dzName": "Keldeo",
+			"atk": 260,
+			"def": 192,
+			"sta": 209,
+			"gsName": [
+				"KELDEO"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/5/50/647Keldeo.png"
+		},
+		{
+			"number": 648,
+			"pbName": "MELOETTA_ARIA_FORM",
+			"family": "MELOETTA_ARIA_FORM",
+			"aliases": [
+				"MELOETTA ARIA FORM",
+				"MELOETTA",
+				"MELOETTA ARIA"
+			],
+			"dzName": "Meloetta_Aria",
+			"atk": 250,
+			"def": 225,
+			"sta": 225,
+			"gsName": [
+				"MELOETTA ARIA"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/a/a3/648Meloetta.png"
+		},
+		{
+			"number": 648,
+			"pbName": "MELOETTA_PIROUETTE_FORM",
+			"family": "MELOETTA_PIROUETTE_FORM",
+			"aliases": [
+				"MELOETTA PIROUETTE FORM",
+				"MELOETTA PIROUETTE"
+			],
+			"dzName": "Meloetta_PIROUETTE",
+			"atk": 269,
+			"def": 188,
+			"sta": 225,
+			"gsName": [
+				"MELOETTA PIROUETTE"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/3/36/648Meloetta-Pirouette.png"
+		},
+		{
+			"number": 649,
+			"pbName": "GENESECT",
+			"family": "GENESECT",
+			"aliases": [
+				"GENESECT",
+				"GENESECT BURN",
+				"GENESECT CHILL",
+				"GENESECT DOUSE",
+				"GENESECT SHOCK"
+			],
+			"dzName": "Genesect",
+			"atk": 252,
+			"def": 199,
+			"sta": 174,
+			"gsName": [
+				"GENESECT"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/4/46/649Genesect.png"
+		},
+		{
+			"number": 808,
+			"pbName": "MELTAN",
+			"family": "MELTAN",
+			"aliases": [
+				"MELTAN"
+			],
+			"dzName": "MELTAN",
+			"atk": 118,
+			"def": 99,
+			"sta": 130,
+			"gsName": [
+				"MELTAN"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/d/d1/808Meltan.png"
+		},
+		{
+			"number": 809,
+			"pbName": "MELMETAL",
+			"family": "MELTAN",
+			"aliases": [
+				"MELMETAL"
+			],
+			"dzName": "MELMETAL",
+			"atk": 226,
+			"def": 190,
+			"sta": 264,
+			"gsName": [
+				"MELMETAL"
+			],
+			"imageURL": "https://cdn.bulbagarden.net/upload/e/ea/809Melmetal.png"
 		}
 	],
 	"tier": [
