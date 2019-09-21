@@ -162,9 +162,9 @@ const log = require('loglevel').getLogger('RankCommand'),
 		}
 		
 		if (!this.pokemon.gsName[1]) { //If no more than 1 gsName, use 0 index for commandName.
-			this.commandName = this.pokemon.gsName[0].replace(/ /g, '-').replace(/_/g, '-').toLowerCase();
+			this.commandName = this.pokemon.gsName[0].replace(/_/g, ' ').toLowerCase();
 		} else { //If more than 1 gsName, use 1 index for commandName.
-			this.commandName = this.pokemon.gsName[1].replace(/ /g, '-').replace(/_/g, '-').toLowerCase();
+			this.commandName = this.pokemon.gsName[1].replace(/_/g, ' ').toLowerCase();
 		}
 		let inputname = this.pokemon.pbName;
 		let inputfamily = this.pokemon.family;
@@ -359,7 +359,6 @@ const log = require('loglevel').getLogger('RankCommand'),
 			league = command.toUpperCase();
 		}
 		let embed;
-		console.log("Test1");
 		if (!this.embedErrorMessage) { //If no error message was found.
 			let rankOutOf = this.ivFilter > 0 ? `/${Math.pow((16 - this.ivFilter), 3).toString()}` : ''; //If there is a filter, then give a Rank/HowMany. Otherwise, blank variable.
 			let requestInfo = `\n**[${league} LEAGUE](${this.familyList[0].url})\nRank**: ${this.familyList[0].rank}${rankOutOf}` +
