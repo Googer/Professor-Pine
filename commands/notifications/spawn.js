@@ -28,7 +28,7 @@ class SpawnCommand extends Commando.Command {
         {
           key: 'pokemon',
           prompt: 'What pokémon has spawned?\nExample: `lugia`\n',
-          type: 'pokemon',
+          type: 'raidpokemon',
         },
         {
           key: 'message',
