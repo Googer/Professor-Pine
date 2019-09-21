@@ -9509,7 +9509,7 @@
       "def": 73,
       "sta": 121,
       "gsName": [
-        "VICTINI"
+        "PURRLOIN"
       ],
       "imageURL": "https://cdn.bulbagarden.net/upload/4/46/509Purrloin.png"
     },
@@ -10906,7 +10906,7 @@
       "def": 131,
       "sta": 338,
       "gsName": [
-        "CARRACOSTA"
+        "ALOMOMOLA"
       ],
       "imageURL": "https://cdn.bulbagarden.net/upload/1/10/594Alomomola.png"
     },
@@ -11805,22 +11805,6 @@
         "LANDORUS THERIAN"
       ],
       "imageURL": "https://cdn.bulbagarden.net/upload/0/00/645Landorus-Therian.png"
-    },
-    {
-      "number": 646,
-      "pbName": "KYUREM",
-      "family": "KYUREM",
-      "aliases": [
-        "KYUREM"
-      ],
-      "dzName": "Kyurem",
-      "atk": 246,
-      "def": 170,
-      "sta": 245,
-      "gsName": [
-        "KYUREM"
-      ],
-      "imageURL": "https://cdn.bulbagarden.net/upload/d/d0/565Carracosta.png"
     },
     {
       "number": 646,
