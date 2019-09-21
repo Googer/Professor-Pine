@@ -1,14 +1,16 @@
 "use strict";
 
 const log = require('loglevel').getLogger('PokemonSearch'),
-  lunr = require('lunr'),
   DB = require('./db'),
   GameMaster = require('pokemongo-game-master'),
+  lunr = require('lunr'),
+  main = require('../index'),
+  privateSettings = require('../data/private-settings'),
   removeDiacritics = require('diacritics').remove,
   Search = require('./search'),
-  privateSettings = require('../data/private-settings'),
   settings = require('../data/settings'),
   types = require('../data/types'),
+  Utility = require('./utility'),
   weather = require('../data/weather');
 
 class Pokemon extends Search {
@@ -17,6 +19,11 @@ class Pokemon extends Search {
   }
 
   async buildIndex() {
+    // wait for main initialization to be complete to be sure DB is set up
+    while (!main.isInitialized) {
+      await Utility.sleep(1000);
+    }
+
     log.info('Indexing pokemon...');
 
     const gameMaster = await GameMaster.getVersion('latest', 'json'),
@@ -184,7 +191,7 @@ class Pokemon extends Search {
       .map(term => removeDiacritics(term))
       .map(term => term.replace(/[^\w\s*]+/g, ''))
       .map(term => term.toLowerCase())
-      .filter(term => this.stopWordFilter(term));
+      .filter(term => Search.stopWordFilter(term));
 
     if (filteredTerms.length === 0) {
       return [];
@@ -317,7 +324,7 @@ class Pokemon extends Search {
       .catch(err => log.error(err));
   }
 
-  addRaidBoss(pokemon, tier, shiny, nickname) {
+  setRaidBoss(pokemon, tier, shiny, nickname) {
     let updateObject = {};
 
     if (tier === 'ex') {

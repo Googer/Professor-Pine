@@ -15,7 +15,7 @@ class TrainCommand extends Commando.Command {
       group: CommandGroup.TRAIN,
       memberName: 'train',
       aliases: ['raid-train', 'new-train'],
-      description: 'Announces a new raid train.\n',
+      description: 'Announces a new raid train.',
       details: 'Use this command to start organizing a new raid train.',
       examples: ['\t!raid-train'],
       args: [
@@ -36,7 +36,7 @@ class TrainCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'train' &&
-        (PartyManager.validParty(message.channel.id) || !Gym.isValidChannel(message.channel.name))) {
+        (PartyManager.validParty(message.channel.id) || !Gym.isValidChannel(message.channel.id))) {
         return ['invalid-channel', message.reply('Create raid trains from region channels!')];
       }
       return false;
@@ -51,7 +51,7 @@ class TrainCommand extends Commando.Command {
     let train;
 
     RaidTrain.createRaidTrain(sourceChannel.id, message.member.id, trainName)
-      // create and send announcement message to region channel
+    // create and send announcement message to region channel
       .then(async info => {
         train = info.party;
         const channelMessageHeader = await train.getChannelMessageHeader(),

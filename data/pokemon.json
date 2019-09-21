@@ -155,7 +155,9 @@
     "name": "fearow"
   },
   {
-    "name": "ekans"
+    "name": "ekans",
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "arbok"
@@ -276,7 +278,9 @@
     "name": "wigglytuff"
   },
   {
-    "name": "zubat"
+    "name": "zubat",
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "golbat"
@@ -285,7 +289,8 @@
     "name": "oddish"
   },
   {
-    "name": "gloom"
+    "name": "gloom",
+    "tier": 2
   },
   {
     "name": "vileplume"
@@ -566,7 +571,8 @@
     "shiny": true
   },
   {
-    "name": "hypno"
+    "name": "hypno",
+    "tier": 3
   },
   {
     "name": "krabby",
@@ -600,7 +606,8 @@
       "exegg",
       "alex"
     ],
-    "tier": 2
+    "tier": 2,
+    "shiny": true
   },
   {
     "name": "cubone",
@@ -636,7 +643,9 @@
     "tier": 2
   },
   {
-    "name": "koffing"
+    "name": "koffing",
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "weezing",
@@ -1043,7 +1052,8 @@
   },
   {
     "name": "sneasel",
-    "tier": 2
+    "tier": 2,
+    "shiny": true
   },
   {
     "name": "teddiursa"
@@ -1600,7 +1610,8 @@
   },
   {
     "name": "bagon",
-    "tier": 1
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "shelgon"
@@ -1651,7 +1662,8 @@
   },
   {
     "name": "rayquaza",
-    "tier": 5
+    "tier": 5,
+    "shiny": true
   },
   {
     "name": "jirachi"

@@ -26,7 +26,7 @@ class Moves extends Search {
           const moveDocument = Object.create(null);
 
           moveDocument['move'] = move;
-          moveDocument['name'] = removeDiacritics(name.toLowerCase()  + ' ' + name.toLowerCase().replace(/\s/g, ''));
+          moveDocument['name'] = removeDiacritics(name.toLowerCase() + ' ' + name.toLowerCase().replace(/\s/g, ''));
 
           this.add(moveDocument);
         }, this);
@@ -49,7 +49,7 @@ class Moves extends Search {
       .map(term => removeDiacritics(term))
       .map(term => term.replace(/[^\w\s*]+/g, ''))
       .map(term => term.toLowerCase())
-      .filter(term => this.stopWordFilter(term));
+      .filter(term => Search.stopWordFilter(term));
 
     if (filteredTerms.length === 0) {
       return [];

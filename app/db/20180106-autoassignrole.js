@@ -1,6 +1,6 @@
-exports.up = function (knex, Promise) {
-  return Promise.all([
-    knex.schema.createTable('AutoAssignRole', table => {
+exports.up = function (knex) {
+  return knex.schema
+    .createTable('AutoAssignRole', table => {
       table.increments('id')
         .primary();
 
@@ -23,12 +23,9 @@ exports.up = function (knex, Promise) {
         .onDelete('cascade');
 
       table.unique('guildId');
-    }),
-  ])
+    });
 };
 
-exports.down = function (knex, Promise) {
-  return Promise.all([
-    knex.schema.dropTable('AutoAssignRole')
-  ])
+exports.down = function (knex) {
+  return knex.schema.dropTable('AutoAssignRole');
 };

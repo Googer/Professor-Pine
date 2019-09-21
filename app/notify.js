@@ -89,6 +89,7 @@ class Notify {
       .filter(memberId => areaChannel.guild.members.has(memberId))
       .filter(memberId => areaChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))
       .map(memberId => Helper.getMemberForNotification(message.channel.guild.id, memberId))
+      .filter(member => !!member)
       .forEach(async member => {
         member.send(header, {embed})
           .catch(err => log.error(err));
@@ -160,6 +161,7 @@ class Notify {
       .filter(memberId => raidChannel.guild.members.has(memberId))
       .filter(memberId => raidChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))
       .map(memberId => Helper.getMemberForNotification(guildId, memberId))
+      .filter(member => !!member)
       .forEach(async member => {
         const notificationMessageHeader = await raid.getNotificationMessageHeader(reportingMemberId),
           fullStatusMessage = await raid.getFullStatusMessage();

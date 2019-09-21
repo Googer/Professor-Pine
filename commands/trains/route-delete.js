@@ -16,7 +16,7 @@ class RemoveRouteCommand extends Commando.Command {
       group: CommandGroup.TRAIN,
       memberName: 'route-remove',
       aliases: ['remove-route', 'remove-gym', 'remove-location', 'gym-remove', 'location-remove'],
-      description: 'Adds a gym to a train\'s route.\n',
+      description: 'Removes a gym from a train\'s route.',
       details: 'Use this command to remove a location from a train\'s route.  This command is channel sensitive, meaning it only finds gyms associated with the enclosing region.',
       examples: ['\t!route-remove'],
       guildOnly: true
@@ -41,7 +41,14 @@ class RemoveRouteCommand extends Commando.Command {
       }
     }
 
-    message.channel.send(`${message.author}, this is the train's route:`, party.getRouteEmbed());
+    message.channel.send(`${message.author}, this is the train's route:`, await party.getRouteEmbed())
+      .then(routeMessage => {
+        setTimeout(() => {
+          routeMessage.delete();
+        }, 30000);
+      })
+      .catch(err => log.error(err));
+
     const gymCollector = new Commando.ArgumentCollector(message.client, [
         {
           key: 'gymId',
@@ -52,19 +59,25 @@ class RemoveRouteCommand extends Commando.Command {
         }
       ], 3),
       gymResults = await gymCollector.obtain(message),
-      gymToRemove = gymResults.values.gymId;
+      gymToRemove = !gymResults.cancelled ? gymResults.values.gymId : null;
 
-    let route = await party.removeRouteGym(Number.parseInt(gymToRemove) - 1);
+    Utility.cleanCollector(gymResults);
 
-    if (!route) {
-      let gymName = !!gym.nickname ? gym.nickname : gym.gymName;
-      message.channel.send(`${message.author}, ${gymName} is already a part of this route.`);
+    if (gymToRemove) {
+      let route = await party.removeRouteGym(Number.parseInt(gymToRemove) - 1);
+
+      if (!route) {
+        let gymName = !!gym.nickname ? gym.nickname : gym.name;
+        message.channel.send(`${message.author}, ${gymName} is already a part of this route.`)
+          .catch(err => log.error(err));
+      }
+
+      message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
+        .catch(err => log.error(err));
+
+      party.refreshStatusMessages()
+        .catch(err => log.error(err));
     }
-
-    message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
-      .catch(err => log.error(err));
-
-    party.refreshStatusMessages();
   }
 }
 

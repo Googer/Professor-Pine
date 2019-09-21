@@ -41,7 +41,7 @@ class RegisterFriendCodeCommand extends Commando.Command {
     const code = args['code'];
     let formatted = '';
 
-    for(let index = 0; index < 12; index++) {
+    for (let index = 0; index < 12; index++) {
       if (index === 4 || index === 8) {
         formatted += ' ';
       }

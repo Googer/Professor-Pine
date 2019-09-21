@@ -7,6 +7,7 @@
   "startClearTime": 10,
   "deletionGraceTime": 5,
   "deletionWarningTime": 10,
+  "trainDeletionWarningTime": 60,
   "raidCompleteTimeout": 5,
   "maximumMeetupLeadtime": 93,
   "screenshotMessageOffsetTime": 45,
@@ -17,6 +18,11 @@
   "messageCleanupDelayStatus": 60000,
   "showUnknownMoves": true,
   "databaseRaids": true,
+  "postNewGyms": true,
+  "updater": {
+    "channelIndexUpdateIntervalSeconds": 600,
+    "gymPlacesIndexUpdateIntervalSeconds": 600
+  },
   "emoji": {
     "thumbsUp": "pinethumbsup",
     "thumbsDown": "pinethumbsdown",
@@ -35,14 +41,16 @@
     "mod-bot-lab": "mod-bot-only",
     "unown": "unown-sightings",
     "ex-gym-raids": "potential-ex-gym-raids",
-    "pvp": "rank-checker"
+    "pvp": "rank-checker",
+    "bot-updates": "bot-updates"
   },
   "categories": {
-    "pvp": "pvp chat and tournaments"
+    "pvp": "PVP CHAT AND TOURNAMENTS"
   },
   "helpGroups": [
     "basic-raid",
     "raid-crud",
+    "train",
     "roles",
     "notifications",
     "friends",

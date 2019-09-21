@@ -9,7 +9,7 @@ class CounterPokemonType extends Commando.ArgumentType {
   }
 
   validate(value, message, arg) {
-    let parm = value.replace(/[^\w\s]/gi, '').toUpperCase();
+    let parm = value.replace(/[^\w\s]/gi, '').replace(/\s+/g, ' ').toUpperCase();
     let index = CountersData.pokemon.findIndex(x => x.aliases.includes(parm));
     if (index !== -1) {
       return true;
@@ -19,7 +19,7 @@ class CounterPokemonType extends Commando.ArgumentType {
   }
 
   parse(value, message, arg) {
-    let parm = value.replace(/[^\w\s]/gi, '').toUpperCase();
+    let parm = value.replace(/[^\w\s]/gi, '').replace(/\s+/g, ' ').toUpperCase();
     let index = CountersData.pokemon.findIndex(x => x.aliases.includes(parm));
     return CountersData.pokemon[index];
   }

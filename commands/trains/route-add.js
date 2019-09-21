@@ -16,7 +16,7 @@ class SetRouteAddCommand extends Commando.Command {
       group: CommandGroup.TRAIN,
       memberName: 'route-add',
       aliases: ['add-route', 'add-gym', 'add-location', 'gym-add', 'location-add'],
-      description: 'Adds a gym to a train\'s route.\n',
+      description: 'Adds a gym to a train\'s route.',
       details: 'Use this command to add a location to a train\'s route.  This command is channel sensitive, meaning it only finds gyms associated with the enclosing region.',
       examples: ['\t!route-add Unicorn', '\t!route-add \'Bellevue Park\'', '\t!route-add squirrel'],
       args: [
@@ -35,7 +35,7 @@ class SetRouteAddCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'route-add' &&
         !PartyManager.validParty(message.channel.id, [PartyType.RAID_TRAIN])) {
-          return ['invalid-channel', message.reply('To add to a route, you must be in a train\'s channel!')];
+        return ['invalid-channel', message.reply('To add to a route, you must be in a train\'s channel!')];
       }
 
       return false;
@@ -44,7 +44,7 @@ class SetRouteAddCommand extends Commando.Command {
 
   async run(message, args) {
     const gymId = args['gymId'],
-      gym = Gym.getGym(gymId),
+      gym = await Gym.getGym(gymId),
       party = PartyManager.getParty(message.channel.id);
 
     if (!!message.adjacent) {
@@ -74,14 +74,16 @@ class SetRouteAddCommand extends Commando.Command {
     let route = await party.addRouteGym(gymId);
 
     if (!route) {
-      let gymName = !!gym.nickname ? gym.nickname : gym.gymName;
-      message.channel.send(`${message.author}, ${gymName} is already a part of this route.`);
+      let gymName = !!gym.nickname ? gym.nickname : gym.name;
+      message.channel.send(`${message.author}, ${gymName} is already a part of this route.`)
+        .catch(err => log.error(err));
     }
 
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .catch(err => log.error(err));
 
-    party.refreshStatusMessages();
+    party.refreshStatusMessages()
+      .catch(err => log.error(err));
   }
 }
 

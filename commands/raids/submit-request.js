@@ -53,9 +53,9 @@ class SubmitRequestCommand extends Commando.Command {
         .join(' '),
       raid = PartyManager.getParty(message.channel.id),
       gymId = raid.gymId,
-      gym = Gym.getGym(gymId),
+      gym = await Gym.getGym(gymId),
       postData = JSON.stringify({
-        title: `Gym request: '${gym.gymName}' (id ${gymId})`,
+        title: `Gym request: '${gym.name}' (id ${gymId})`,
         body: reason,
         labels: [`${gymId}`]
       }),

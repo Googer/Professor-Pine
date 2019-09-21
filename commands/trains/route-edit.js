@@ -41,7 +41,14 @@ class EditRouteCommand extends Commando.Command {
       }
     }
 
-    message.channel.send(`${message.author}, this is the train's route:`, party.getRouteEmbed());
+    message.channel.send(`${message.author}, this is the train's route:`, await party.getRouteEmbed())
+      .then(routeMessage => {
+        setTimeout(() => {
+          routeMessage.delete();
+        }, 30000);
+      })
+      .catch(err => log.error(err));
+
     const gymCollector = new Commando.ArgumentCollector(message.client, [
         {
           key: 'gymId',
@@ -51,45 +58,60 @@ class EditRouteCommand extends Commando.Command {
           oneOf: validInputs
         }
       ], 3),
-      gymPromise = gymCollector.obtain(message).then(async collectionResult => {
-        Utility.cleanCollector(collectionResult);
+      gymPromise = await gymCollector.obtain(message)
+        .then(async collectionResult => {
+          Utility.cleanCollector(collectionResult);
 
-        if (!collectionResult.cancelled) {
-          let gymToMove = collectionResult.values.gymId;
-          let gym = party.route[Number.parseInt(gymToMove) - 1];
-          let gymName = !!gym.nickname ? gym.nickname : gym.gymName;
-          party.removeRouteGym(Number.parseInt(gymToMove) - 1);
+          if (!collectionResult.cancelled) {
+            let gymToMove = collectionResult.values.gymId;
+            let gymId = party.route[Number.parseInt(gymToMove) - 1];
+            let gym = await Gym.getGym(gymId);
+            let gymName = !!gym.nickname ? gym.nickname : gym.name;
+            await party.removeRouteGym(Number.parseInt(gymToMove) - 1);
 
-          validInputs = []
-          if (party.route) {
-            for (let i = 0; i < party.route.length; i++) {
-              validInputs.push((i + 1) + '');
+            validInputs = [];
+            if (party.route) {
+              for (let i = 0; i < party.route.length; i++) {
+                validInputs.push((i + 1) + '');
+              }
             }
-          }
 
-          message.channel.send(`${message.author}, this is the remaining route:`, party.getRouteEmbed());
-          const gymCollector2 = new Commando.ArgumentCollector(message.client, [
-            {
-              key: 'gymId',
-              label: 'gymId',
-              prompt: `Which gym number would you like ${gymName} to be before?`,
-              type: 'string',
-              oneOf: validInputs
-            }
-          ], 3);
+            message.channel.send(`${message.author}, this is the remaining route:`, await party.getRouteEmbed())
+              .then(routeMessage => {
+                setTimeout(() => {
+                  routeMessage.delete()
+                    .catch(err => log.error(err));
+                }, 30000);
+              })
+              .catch(err => log.error(err));
 
-          let beforeGym = await gymCollector2.obtain(message),
-              beforeIndexValue = !beforeGym.canceled ? beforeGym.values.gymId : gymToMove,
+            const gymCollector2 = new Commando.ArgumentCollector(message.client, [
+              {
+                key: 'gymId',
+                label: 'gymId',
+                prompt: `Which gym number would you like ${gymName} to be before?`,
+                type: 'string',
+                oneOf: validInputs
+              }
+            ], 3);
+
+            let beforeGym = await gymCollector2.obtain(message),
+              beforeIndexValue = !beforeGym.cancelled ? beforeGym.values.gymId : gymToMove,
               beforeIndex = Number.parseInt(beforeIndexValue) - 1;
 
-          party.insertRouteGym(beforeIndex, gym);
-        }
-      });
+            Utility.cleanCollector(beforeGym);
+
+            await party.insertRouteGym(beforeIndex, gymId);
+          }
+
+          Utility.cleanCollector(collectionResult);
+        });
 
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .catch(err => log.error(err));
 
-    party.refreshStatusMessages();
+    party.refreshStatusMessages()
+      .catch(err => log.error(err));
   }
 }
 

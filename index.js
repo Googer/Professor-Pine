@@ -30,13 +30,16 @@ const privateSettings = require('./data/private-settings'),
   }),
   DB = require('./app/db.js'),
   NodeCleanup = require('node-cleanup'),
+  Gym = require('./app/gym'),
   Helper = require('./app/helper'),
   IP = require('./app/process-image'),
   ExRaidChannel = require('./app/ex-gym-channel'),
+  Map = require('./app/map'),
   Notify = require('./app/notify'),
   PartyManager = require('./app/party-manager'),
   Role = require('./app/role'),
   Utility = require('./app/utility'),
+  IntervalUpdater = require('./app/update'),
   {CommandGroup} = require('./app/constants');
 
 NodeCleanup((exitCode, signal) => {
@@ -48,9 +51,11 @@ Client.registry.registerDefaultTypes();
 Client.registry.registerTypesIn(__dirname + '/types');
 Client.registry.registerTypesIn(__dirname + '/types/counters');
 
+Client.registry.registerGroup('region', 'Region setting');
 Client.registry.registerGroup(CommandGroup.ADMIN, 'Administration');
 Client.registry.registerGroup(CommandGroup.BASIC_RAID, 'Raid Basics');
 Client.registry.registerGroup(CommandGroup.RAID_CRUD, 'Raid Creation and Maintenance');
+Client.registry.registerGroup(CommandGroup.TRAIN, 'Trains');
 
 if (settings.features.roles) {
   Client.registry.registerGroup(CommandGroup.ROLES, 'Roles');
@@ -76,6 +81,21 @@ if (settings.features.roles) {
 
     require('./commands/roles/iam'),
     require('./commands/roles/iamnot'),
+
+    require('./commands/admin/gyms/importgyms'),
+    require('./commands/admin/gyms/creategym'),
+    require('./commands/admin/gyms/editgym'),
+    require('./commands/admin/gyms/deletegym'),
+    require('./commands/admin/gyms/findgym'),
+    require('./commands/admin/gyms/gymdetail'),
+    require('./commands/admin/gyms/gymqueue'),
+    require('./commands/admin/gyms/gymplaces'),
+    require('./commands/admin/gyms/geocode'),
+    require('./commands/admin/gyms/clearimagecache'),
+    require('./commands/admin/gyms/export-tsv'),
+
+    require('./commands/admin/regions/importregions'),
+    require('./commands/admin/regions/setregion'),
   ]);
 }
 
@@ -98,37 +118,51 @@ Client.registry.registerCommands([
   require('./commands/notifications/mention-groups'),
   require('./commands/notifications/mention-shouts'),
 
-  require('./commands/raids/join'),
-  require('./commands/raids/interested'),
-  require('./commands/raids/check-in'),
+  require('./commands/regions/bounds'),
+
+  require('./commands/parties/join'),
+  require('./commands/parties/interested'),
+  require('./commands/parties/check-in'),
+
   require('./commands/raids/done'),
 
-  require('./commands/raids/check-out'),
-  require('./commands/raids/leave'),
+  require('./commands/parties/check-out'),
+  require('./commands/parties/leave'),
 
   require('./commands/raids/cancel-start-time'),
-  require('./commands/raids/meet-time'),
-  require('./commands/raids/group'),
-  require('./commands/raids/label-group'),
-  require('./commands/raids/new-group'),
+  require('./commands/parties/meet-time'),
+  require('./commands/parties/group'),
+  require('./commands/parties/label-group'),
+  require('./commands/parties/new-group'),
 
-  require('./commands/raids/status'),
-  require('./commands/raids/directions'),
-  require('./commands/raids/shout'),
+  require('./commands/parties/status'),
+  require('./commands/parties/directions'),
+  require('./commands/parties/shout'),
 
   require('./commands/raids/raid'),
-  require('./commands/raids/delete'),
+  require('./commands/parties/delete'),
 
   require('./commands/raids/hatch-time'),
-  require('./commands/raids/time-left'),
-  require('./commands/raids/set-pokemon'),
+  require('./commands/parties/time-left'),
+  require('./commands/parties/set-pokemon'),
   require('./commands/raids/set-location'),
   require('./commands/raids/set-moveset'),
 
   require('./commands/raids/auto-status'),
   require('./commands/raids/report-privacy'),
 
-  require('./commands/raids/train'),
+  require('./commands/trains/train'),
+  require('./commands/trains/name'),
+  require('./commands/trains/route'),
+  require('./commands/trains/route-add'),
+  require('./commands/trains/route-delete'),
+  require('./commands/trains/route-edit'),
+  require('./commands/trains/route-clear'),
+  require('./commands/trains/previous'),
+  require('./commands/trains/next'),
+  require('./commands/trains/skip'),
+  require('./commands/trains/train-finished'),
+  require('./commands/trains/conductor'),
 
   require('./commands/raids/submit-request'),
 
@@ -169,7 +203,7 @@ if (privateSettings.googleApiKey !== '') {
 
 let isInitialized = false;
 
-Client.on('ready', () => {
+Client.on('ready', async () => {
   log.info('Client logged in');
 
   // Only initialize various classes once ever since ready event gets fired
@@ -190,10 +224,12 @@ Client.on('ready', () => {
     }
 
     PartyManager.setClient(Client);
-    DB.initialize(Client);
+    await DB.initialize(Client);
+    Map.initialize(Client);
     IP.initialize();
+    await Gym.buildIndexes();
 
-    isInitialized = true;
+    module.exports.isInitialized = isInitialized = true;
   }
 });
 
@@ -253,7 +289,7 @@ NotifyClient.on('disconnect', event => {
   log.error(`Notify Client disconnected, code ${event.code}, reason '${event.reason}'...`);
 
   NotifyClient.destroy()
-    .then(() => Client.login(privateSettings.discordNotifyToken))
+    .then(() => NotifyClient.login(privateSettings.discordNotifyToken))
     .catch(err => log.error(err));
 });
 
@@ -261,3 +297,5 @@ PartyManager.initialize()
   .then(() => Client.login(privateSettings.discordBotToken))
   .then(() => NotifyClient.login(privateSettings.discordNotifyToken))
   .catch(err => log.error(err));
+
+module.exports.isInitialized = isInitialized;

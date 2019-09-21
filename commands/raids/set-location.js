@@ -33,8 +33,12 @@ class SetLocationCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'gym' &&
-        !PartyManager.validParty(message.channel.id, [PartyType.RAID, PartyType.RAID_TRAIN])) {
-        return ['invalid-channel', message.reply('Set the location of a raid from its raid channel!')];
+        !PartyManager.validParty(message.channel.id, [PartyType.RAID])) {
+        if (PartyManager.validParty(message.channel.id, [PartyType.RAID_TRAIN])) {
+          return ['invalid-channel', message.reply('Set the route of a raid train from its train channel using `' + message.client.commandPrefix + 'route-add`!')];
+        } else {
+          return ['invalid-channel', message.reply('Set the location of a raid from its raid channel!')];
+        }
       }
       return false;
     });
@@ -84,7 +88,8 @@ class SetLocationCommand extends Commando.Command {
       })
       .catch(err => log.error(err));
 
-    party.refreshStatusMessages(!!message.adjacent);
+    party.refreshStatusMessages(!!message.adjacent)
+      .catch(err => log.error(err));
   }
 }
 

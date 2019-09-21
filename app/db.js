@@ -1,11 +1,15 @@
 "use strict";
 
 const log = require('loglevel').getLogger('DB'),
+  AsyncLock = require('async-lock'),
   knex = require('knex'),
   privateSettings = require('../data/private-settings');
 
 class DBManager {
   constructor() {
+    this.initLock = new AsyncLock();
+    this.initialized = false;
+
     this.connection = null;
 
     this.guilds = new Map();
@@ -25,15 +29,24 @@ class DBManager {
     });
   }
 
-  initialize(client) {
-    this.knex.migrate.latest()
-      .then(() => client.guilds.forEach(guild =>
-        this.insertIfAbsent('Guild', Object.assign({},
-          {
-            snowflake: guild.id
-          }))
-          .catch(err => log.error(err))))
-      .catch(err => log.error(err));
+  async init() {
+    await this.initLock.acquire('db', async () => {
+      if (!this.initialized) {
+        await this.knex.migrate.latest()
+          .then(() => this.initialized = true)
+          .catch(err => log.error(err));
+     }
+    });
+  }
+
+  async initialize(client) {
+    await this.init();
+    client.guilds.forEach(guild =>
+      this.insertIfAbsent('Guild', Object.assign({},
+        {
+          snowflake: guild.id
+        }))
+        .catch(err => log.error(err)));
 
     client.on('guildCreate', guild =>
       this.insertIfAbsent('Guild', Object.assign({},

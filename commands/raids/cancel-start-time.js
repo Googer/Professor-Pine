@@ -5,6 +5,7 @@ const log = require('loglevel').getLogger('CancelStartTimeCommand'),
   {CommandGroup, PartyStatus} = require('../../app/constants'),
   Helper = require('../../app/helper'),
   PartyManager = require('../../app/party-manager'),
+  {PartyType} = require('../../app/constants'),
   settings = require('../../data/settings');
 
 class CancelStartTimeCommand extends Commando.Command {
@@ -18,6 +19,14 @@ class CancelStartTimeCommand extends Commando.Command {
       details: 'Use this command to cancel when a raid group intends to do the raid.',
       examples: ['\t!cancel-meet'],
       guildOnly: true
+    });
+
+    client.dispatcher.addInhibitor(message => {
+      if (!!message.command && message.command.name === 'cancel-meet' &&
+        !PartyManager.validParty(message.channel.id, [PartyType.RAID])) {
+        return ['invalid-channel', message.reply('Canceling a meeting time must be done from a raid channel.')];
+      }
+      return false;
     });
   }
 
@@ -57,7 +66,8 @@ class CancelStartTimeCommand extends Commando.Command {
           .catch(err => log.error(err));
       });
 
-    raid.refreshStatusMessages();
+    raid.refreshStatusMessages()
+      .catch(err => log.error(err));
   }
 }
 

@@ -3,6 +3,8 @@
 const log = require('loglevel').getLogger('RouteCommand'),
   {MessageEmbed} = require('discord.js'),
   Commando = require('discord.js-commando'),
+  Helper = require('../../app/helper'),
+  settings = require('../../data/settings'),
   {CommandGroup, PartyStatus, PartyType} = require('../../app/constants'),
   PartyManager = require('../../app/party-manager');
 
@@ -20,7 +22,7 @@ class RouteCommand extends Commando.Command {
     });
 
     client.dispatcher.addInhibitor(message => {
-      if (!!message.command && message.command.name === 'new' &&
+      if (!!message.command && message.command.name === 'route' &&
         !PartyManager.validParty(message.channel.id, PartyType.RAID_TRAIN)) {
         return ['invalid-channel', message.reply('You can only view a route from a train channel!')];
       }
@@ -30,10 +32,10 @@ class RouteCommand extends Commando.Command {
 
   async run(message) {
     const raid = PartyManager.getParty(message.channel.id),
-          route = raid.route || [],
-          current = raid.currentGym || 0;
+      route = raid.route || [],
+      current = raid.currentGym || 0;
 
-    let embed = raid.getRouteEmbed();
+    let embed = await raid.getRouteEmbed();
 
     message.channel.send(`${message.author}, here is the route information:`, embed)
       .then(message => message.channel.send(`To edit this route, use the \`${message.client.commandPrefix}route-add\`, \`${message.client.commandPrefix}route-remove\`, and \`${message.client.commandPrefix}route-edit\` commands.`))
