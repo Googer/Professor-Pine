@@ -2416,7 +2416,8 @@
   },
   {
     "name": "klink",
-    "tier": 1
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "klang"
