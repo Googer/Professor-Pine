@@ -2064,7 +2064,8 @@
     "nickname": [
       "altered"
     ],
-    "tier": 5
+    "tier": 5,
+    "shiny": true
   },
   {
     "name": "giratina_origin",
