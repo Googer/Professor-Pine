@@ -952,7 +952,7 @@ class RegionHelper {
       `key=${privateSettings.googleApiKey}`
   }
 
-  async showGymDetail(msg, gym, heading, user, showAll) {
+  async showGymDetail(msg, gym, heading, user, showAll, channel) {
     let point = gym.point;
     if (!point) {
       point = gym.lat + ", " + gym.lon;
@@ -1050,6 +1050,12 @@ class RegionHelper {
     embed.setFooter(footer);
 
     // returns message promise for optional chaining
+
+    if (channel && !msg) {
+      return channel.send({
+        embed
+      });
+    }
     return msg.channel.send({
       embed
     });

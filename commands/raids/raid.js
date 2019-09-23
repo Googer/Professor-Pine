@@ -29,7 +29,7 @@ class RaidCommand extends Commando.Command {
         {
           key: 'pokemon',
           prompt: 'What pokémon (or tier if unhatched) is this raid?\nExample: `lugia`\n',
-          type: 'pokemon',
+          type: 'raidpokemon',
         },
         {
           key: 'gymId',
