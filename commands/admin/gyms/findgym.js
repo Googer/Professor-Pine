@@ -28,7 +28,6 @@ module.exports = class FindGym extends commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'findgym') {
-
         if (!Helper.isBotChannel(message) && !Helper.isChannelBounded(message.channel.id, PartyManager.getRaidChannelCache())) {
           return ['invalid-channel', message.reply('Find gyms from regional channels or a bot channel.')];
         }
@@ -58,7 +57,8 @@ module.exports = class FindGym extends commando.Command {
       const channels = await Region.getChannelsForGym(gym, msg.channel.guild.id)
         .catch(error => []);
       const phrase = isID ? "Gym found with ID " + args.term : "Gym found with term '" + args.term + "'";
-      await Region.showGymDetail(msg, gym, phrase, null, false);
+      await Region.showGymDetail(msg, gym, phrase, null, false)
+        .catch(err => log.error(err));
 
       const channelStrings =  [];
       for (let i = 0; i < channels.length; i++) {
