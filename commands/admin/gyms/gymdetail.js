@@ -26,7 +26,7 @@ module.exports = class GymDetail extends commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'gym-detail') {
-        if (!Helper.isManagement(message)) {
+        if (!Helper.isBotManagement(message)) {
           return ['unauthorized', message.reply('You are not authorized to use this command.')];
         }
       }
@@ -46,7 +46,8 @@ module.exports = class GymDetail extends commando.Command {
         const channels = await Region.getChannelsForGym(gym, msg.channel.guild.id)
           .catch(error => []);
         const phrase = "Showing details for gym with ID " + args.term;
-        await Region.showGymDetail(msg, gym, phrase, null, channels, false);
+        await Region.showGymDetail(msg, gym, phrase, null, channels, false)
+          .catch(err => log.erro(err));
         const channelStrings = [];
         for (let i = 0; i < channels.length; i++) {
           let channel = await PartyManager.getChannel(channels[i].channelId);

@@ -16,8 +16,8 @@ class NotifyCommand extends Commando.Command {
       group: CommandGroup.NOTIFICATIONS,
       memberName: 'want',
       aliases: ['i-want', 'notify'],
-      description: 'Adds notifications for a raid boss.',
-      details: 'Use this command to request notifications for a specific raid boss.',
+      description: 'Adds notifications for a raid boss or spawn.',
+      details: 'Use this command to request notifications for a specific raid boss or spawn.',
       examples: ['\t!want ttar'],
       args: [
         {

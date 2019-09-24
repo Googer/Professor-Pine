@@ -363,7 +363,7 @@
   {
     "name": "psyduck",
     "tier": 1,
-    "shine": true
+    "shiny": true
   },
   {
     "name": "golduck"
@@ -384,7 +384,9 @@
     "tier": 3
   },
   {
-    "name": "poliwag"
+    "name": "poliwag",
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "poliwhirl"
@@ -505,7 +507,9 @@
     "name": "dodrio"
   },
   {
-    "name": "seel"
+    "name": "seel",
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "dewgong",
@@ -546,7 +550,8 @@
   },
   {
     "name": "cloyster",
-    "tier": 2
+    "tier": 2,
+    "shiny": true
   },
   {
     "name": "gastly",
@@ -576,6 +581,7 @@
   },
   {
     "name": "krabby",
+    "tier": 1,
     "shiny": true
   },
   {
@@ -814,10 +820,13 @@
     "name": "dragonair"
   },
   {
-    "name": "dragonite"
+    "name": "dragonite",
+    "tier": 4
   },
   {
-    "name": "mewtwo"
+    "name": "mewtwo",
+    "tier": 5,
+    "shiny": true
   },
   {
     "name": "mewtwo_a",
@@ -864,7 +873,9 @@
     "tier": 4
   },
   {
-    "name": "sentret"
+    "name": "sentret",
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "furret"
@@ -991,6 +1002,7 @@
   },
   {
     "name": "murkrow",
+    "tier": 1,
     "shiny": true
   },
   {
@@ -1022,7 +1034,9 @@
     "name": "dunsparce"
   },
   {
-    "name": "gligar"
+    "name": "gligar",
+    "tier": 2,
+    "shiny": true
   },
   {
     "name": "steelix"
@@ -1034,10 +1048,11 @@
   },
   {
     "name": "granbull",
-    "tier": 3
+    "tier": 4
   },
   {
-    "name": "qwilfish"
+    "name": "qwilfish",
+    "tier": 2
   },
   {
     "name": "scizor"
@@ -1099,6 +1114,7 @@
   },
   {
     "name": "houndour",
+    "tier": 1,
     "shiny": true
   },
   {
@@ -1154,11 +1170,13 @@
   },
   {
     "name": "entei",
-    "tier": 5
+    "tier": 5,
+    "shiny": true
   },
   {
     "name": "suicune",
-    "tier": 5
+    "tier": 5,
+    "shiny": true
   },
   {
     "name": "larvitar",
@@ -1274,7 +1292,9 @@
     "tier": 4
   },
   {
-    "name": "taillow"
+    "name": "taillow",
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "swellow"
@@ -1532,7 +1552,9 @@
     "name": "armaldo"
   },
   {
-    "name": "feebas"
+    "name": "feebas",
+    "tier": 2,
+    "shiny": true
   },
   {
     "name": "milotic"
@@ -1593,7 +1615,9 @@
     "tier": 4
   },
   {
-    "name": "clamperl"
+    "name": "clamperl",
+    "tier": 2,
+    "shiny": true
   },
   {
     "name": "huntail"
@@ -2040,7 +2064,8 @@
     "nickname": [
       "altered"
     ],
-    "tier": 5
+    "tier": 5,
+    "shiny": true
   },
   {
     "name": "giratina_origin",
@@ -2102,13 +2127,17 @@
     "name": "samurott"
   },
   {
-    "name": "patrat"
+    "name": "patrat",
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "watchog"
   },
   {
-    "name": "lillipup"
+    "name": "lillipup",
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "herdier"
@@ -2387,7 +2416,9 @@
     "name": "ferrothorn"
   },
   {
-    "name": "klink"
+    "name": "klink",
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "klang"

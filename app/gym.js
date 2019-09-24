@@ -373,6 +373,12 @@ class Gym extends Search {
 
     if (nameOnly) {
       results = this.internalSearch(terms, ['name']);
+
+      if (results.length === 0) {
+        // That didn't return anything so try with keywords added as well (to accomodate gyms with cutoff names that
+        // can be added as keywords, etc.)
+        results = this.internalSearch(terms, ['name', 'keywords']);
+      }
     } else {
       // First try against name/nickname only
       results = this.internalSearch(terms, ['name', 'nickname']);

@@ -27,7 +27,7 @@ module.exports = class SetRegion extends commando.Command {
         if (PartyManager.validParty(message.channel.id)) {
           return ['unauthorized', message.reply('You may not define a region for a raid channel.')]
         }
-        if (!Helper.isManagement(message)) {
+        if (!Helper.isBotManagement(message)) {
           return ['unauthorized', message.reply('You are not authorized to use this command.')];
         }
 
