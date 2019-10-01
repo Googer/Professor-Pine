@@ -87,6 +87,7 @@ class Raid extends Party {
         let newChannelId;
 
         return sourceChannel.guild.channels.create(channelName, {
+          type: 'text',
           parent: sourceChannel.parent,
           overwrites: sourceChannel.permissionOverwrites
         })
