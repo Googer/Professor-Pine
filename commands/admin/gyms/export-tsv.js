@@ -88,7 +88,7 @@ module.exports = class ExportTsvCommand extends Commando.Command {
 
         outputFiles.set(`Standard-Gyms-${fileNumber}.tsv`,
           [gymHeader, ...currentGyms]
-            .map(gym => `${he.decode(gym.name.trim()).replace(/"/g, '\'')}\t${gym.lon}\t${gym.lat}\n`)
+            .map(gym => `${he.decode(gym.name.trim()).replace(/"/g, '\'')}\t${gym.lon}\t${gym.lat}`)
             .join('\n'));
       }
 
@@ -99,7 +99,7 @@ module.exports = class ExportTsvCommand extends Commando.Command {
 
         outputFiles.set(`EX-Tagged-Gyms-${fileNumber}.tsv`,
           [gymHeader, ...currentGyms]
-            .map(gym => `${he.decode(gym.name.trim()).replace(/"/g, '\'')}\t${gym.lon}\t${gym.lat}\n`)
+            .map(gym => `${he.decode(gym.name.trim()).replace(/"/g, '\'')}\t${gym.lon}\t${gym.lat}`)
             .join('\n'));
       }
 
@@ -110,7 +110,7 @@ module.exports = class ExportTsvCommand extends Commando.Command {
 
         outputFiles.set(`Confirmed-EX-Gyms-${fileNumber}.tsv`,
           [gymHeader, ...currentGyms]
-            .map(gym => `${he.decode(gym.name.trim()).replace(/"/g, '\'')}\t${gym.lon}\t${gym.lat}\n`)
+            .map(gym => `${he.decode(gym.name.trim()).replace(/"/g, '\'')}\t${gym.lon}\t${gym.lat}`)
             .join('\n'));
       }
 
