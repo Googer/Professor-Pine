@@ -62,28 +62,63 @@ module.exports = class ExportTsvCommand extends Commando.Command {
     if (polygons.length > 0) {
       const mergedRegion = Region.regionFromGeoJSON(turf.union(...polygons)),
         gyms = await Region.getGyms(Region.polygonStringFromRegion(mergedRegion))
-          .catch(err => log.error(err));
+          .catch(err => log.error(err)),
+        gymHeader = {name: 'Gym Name', lon: 'Longitude', lat: 'Latitude'},
 
-      let gymsList = 'Gym Name\tLongitude\tLatitude\n',
-        exTagsList = 'Gym Name\tLongitude\tLatitude\n',
-        confirmedExList = 'Gym Name\tLongitude\tLatitude\n';
+        outputFiles = new Map(),
+
+        standardGyms = [],
+        confirmedGyms = [],
+        taggedGyms = [];
 
       gyms.forEach(gym => {
-        const gymLine = `${he.decode(gym.name.trim()).replace(/"/g, '\'')}\t${gym.lon}\t${gym.lat}\n`;
-
         if (gym.confirmedEx) {
-          confirmedExList += gymLine;
+          confirmedGyms.push(gym);
         } else if (gym.taggedEx) {
-          exTagsList += gymLine;
+          taggedGyms.push(gym);
         } else {
-          gymsList += gymLine;
+          standardGyms.push(gym);
         }
       });
 
+      let fileNumber = 0;
+      while (standardGyms.length > 0) {
+        ++fileNumber;
+        const currentGyms = standardGyms.splice(0, 2000);
+
+        outputFiles.set(`Standard-Gyms-${fileNumber}.tsv`,
+          [gymHeader, ...currentGyms]
+            .map(gym => `${he.decode(gym.name.trim()).replace(/"/g, '\'')}\t${gym.lon}\t${gym.lat}\n`)
+            .join('\n'));
+      }
+
+      fileNumber = 0;
+      while (taggedGyms.length > 0) {
+        ++fileNumber;
+        const currentGyms = taggedGyms.splice(0, 2000);
+
+        outputFiles.set(`EX-Tagged-Gyms-${fileNumber}.tsv`,
+          [gymHeader, ...currentGyms]
+            .map(gym => `${he.decode(gym.name.trim()).replace(/"/g, '\'')}\t${gym.lon}\t${gym.lat}\n`)
+            .join('\n'));
+      }
+
+      fileNumber = 0;
+      while (confirmedGyms.length > 0) {
+        ++fileNumber;
+        const currentGyms = confirmedGyms.splice(0, 2000);
+
+        outputFiles.set(`Confirmed-EX-Gyms-${fileNumber}.tsv`,
+          [gymHeader, ...currentGyms]
+            .map(gym => `${he.decode(gym.name.trim()).replace(/"/g, '\'')}\t${gym.lon}\t${gym.lat}\n`)
+            .join('\n'));
+      }
+
+
       const attachments = [];
-      attachments.push(new MessageAttachment(Buffer.from(confirmedExList, 'utf8'), 'Confirmed-EX-Gyms.tsv'));
-      attachments.push(new MessageAttachment(Buffer.from(exTagsList, 'utf8'), 'EX-Tagged-Gyms.tsv'));
-      attachments.push(new MessageAttachment(Buffer.from(gymsList, 'utf8'), 'Standard-Gyms.tsv'));
+
+      outputFiles.forEach((fileContents, fileName) =>
+        attachments.push(new MessageAttachment(Buffer.from(fileContents, 'utf8'), fileName)));
 
       msg.channel.send('**TSV files**', attachments)
         .catch(err => log.error(err));
