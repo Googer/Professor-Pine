@@ -27,7 +27,7 @@
     "polygon-offset": "^0.3.1",
     "request-promise": "^4.2.4",
     "string-similarity": "^3.0.0",
-    "tesseract.js": "^2.0.0-alpha.16",
+    "tesseract.js": "2.0.0-alpha.16",
     "togeojson-with-extended-style": "^0.13.1",
     "uuid": "^3.3.3",
     "xmldom": "^0.1.27",
