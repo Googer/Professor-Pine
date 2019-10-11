@@ -117,6 +117,7 @@ Client.registry.registerCommands([
   require('./commands/notifications/mention'),
   require('./commands/notifications/mention-groups'),
   require('./commands/notifications/mention-shouts'),
+  require('./commands/notifications/mention-train-stops'),
 
   require('./commands/regions/bounds'),
 

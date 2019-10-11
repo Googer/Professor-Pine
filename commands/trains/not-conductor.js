@@ -21,7 +21,7 @@ class NotConductorCommand extends Commando.Command {
     });
 
     client.dispatcher.addInhibitor(message => {
-      if (!!message.command && message.command.name === 'conductor' &&
+      if (!!message.command && message.command.name === 'not-conductor' &&
         !PartyManager.validParty(message.channel.id, PartyType.RAID_TRAIN)) {
         return ['invalid-channel', message.reply('You can only remove the conductor of a train from the train\'s channel!')];
       }

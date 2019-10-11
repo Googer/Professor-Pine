@@ -441,6 +441,19 @@ class Notify {
       .catch(err => log.error(err));
   }
 
+  setMentionTrainGroups(member, mention) {
+    return DB.insertIfAbsent('User', Object.assign({},
+      {
+        userSnowflake: member.user.id
+      }))
+      .then(userId => DB.DB('User')
+        .where('id', userId)
+        .update({
+          trainMovement: mention
+        }))
+      .catch(err => log.error(err));
+  }
+
   async shout(message, members, text, type, fromMember = null) {
     const membersStrings = await Promise.all(members
         .map(async member => {
