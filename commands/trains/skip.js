@@ -72,7 +72,7 @@ class SkipCommand extends Commando.Command {
           skippedGymName = !!skippedGym.nickname ?
             skippedGym.nickname :
             skippedGym.name,
-          text = 'This train is moving to ' + gymName + ', while skipping ' + skippedGymName + '.';
+          text = `This train is moving to ${gymName}, while skipping ${skippedGymName}.\n\nGet Directions to ${gymName}: https://www.google.com/maps/search/?api=1&query=${gym.lat}%2C${gym.lon}`;
 
         Notify.shout(message, members, text, 'trainMovement', message.member);
       }

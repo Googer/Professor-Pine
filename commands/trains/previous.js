@@ -69,7 +69,7 @@ class PreviousCommand extends Commando.Command {
           gymName = !!gym.nickname ?
             gym.nickname :
             gym.name,
-          text = 'This train is moving back to ' + gymName + '.';
+          text = `This train is moving back to ${gymName}.\n\nGet Directions: https://www.google.com/maps/search/?api=1&query=${gym.lat}%2C${gym.lon}`;
 
         Notify.shout(message, members, text, 'trainMovement', message.member);
       }
