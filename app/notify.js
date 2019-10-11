@@ -45,11 +45,13 @@ class Notify {
       .pluck('gym');
   }
 
-  async notifyMembersOfSpawn(pokemon, reportingMemberId, location, message) {
+  async notifyMembersOfSpawn(pokemon, reportingMemberId, location, message, additionalPokemon = null) {
     const areaChannel = message.channel,
       guildId = message.guild.id,
       number = Notify.getDbPokemonNumber(pokemon),
-      dbPokemonNumbers = [...new Set([number])]
+      additionalNumber = additionalPokemon ? Notify.getDbPokemonNumber(additionalPokemon) : NaN,
+      numbers = additionalPokemon ? [number, additionalNumber] : [number],
+      dbPokemonNumbers = [...new Set(numbers)]
         .filter(number => !isNaN(number));
 
     // don't try to look up notifications from screenshot placeholders where
@@ -68,10 +70,11 @@ class Notify {
         .pluck('User.userSnowflake');
     }
 
-    const pokemonName = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1),
+    const pokemonName = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1)
+                      + (additionalPokemon ? ' ' + additionalPokemon.name.charAt(0).toUpperCase() + additionalPokemon.name.slice(1) : ''),
       regionChannel = (await PartyManager.getChannel(message.channel.id)).channel,
       reportingMember = (await PartyManager.getMember(regionChannel.id, reportingMemberId)).member,
-      shiny = pokemon.shiny ?
+      shiny = pokemon.shiny || (additionalPokemon && additionalPokemon.shiny) ?
         Helper.getEmoji(settings.emoji.shiny) || '✨' :
         '',
       header = `A ${pokemonName}${shiny} spawn has been reported in #${regionChannel.name} by ${reportingMember.displayName}:`,
@@ -81,16 +84,21 @@ class Notify {
     embed.setColor('GREEN');
     embed.setDescription(location + '\n\n**Warning: Spawns are user-reported. There is no way to know exactly how long a Pokémon will be there. Most spawns are 30 min. Use your discretion when chasing them.**');
 
-    if (pokemon.url) {
+    if (pokemon.url && !additionalPokemon) {
       embed.setThumbnail(pokemon.url);
+    } else if (additionalPokemon && additionalPokemon.url) {
+      embed.setThumbnail(additionalPokemon.url);
     }
 
-    pokemonMembers.filter(mem => mem !== reportingMemberId)
+      [... new Set(pokemonMembers)]
+      .filter(mem => mem !== reportingMemberId)
       .filter(memberId => areaChannel.guild.members.has(memberId))
       .filter(memberId => areaChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))
       .map(memberId => Helper.getMemberForNotification(message.channel.guild.id, memberId))
       .filter(member => !!member)
       .forEach(async member => {
+        console.log('sending to...');
+        console.log(member);
         member.send(header, {embed})
           .catch(err => log.error(err));
       });

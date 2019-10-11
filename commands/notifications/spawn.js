@@ -7,6 +7,7 @@ const log = require('loglevel').getLogger('SpawnCommand'),
   Helper = require('../../app/helper'),
   Notify = require('../../app/notify'),
   PartyManager = require('../../app/party-manager'),
+  Pokemon = require('../../app/pokemon'),
   {MessageEmbed} = require('discord.js'),
   settings = require('../../data/settings');
 
@@ -75,6 +76,27 @@ class SpawnCommand extends Commando.Command {
 
       unownChannel.send(header, {embed})
         .then(msg => message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍'))
+        .catch(err => log.error(err));
+    } else if (pokemon.name === 'perfect' || pokemon.name === 'zero') {
+      let terms = message.content.split(/[\s-]/);
+      terms.shift();
+      terms.shift();
+
+      let messagePokemon;
+
+      terms.forEach(term => {
+        if (messagePokemon) {
+          return;
+        }
+
+        let searchedPokemon = Pokemon.search([term]);
+
+        if (searchedPokemon && searchedPokemon.length) {
+          messagePokemon = searchedPokemon[0];
+        }
+      });
+
+      Notify.notifyMembersOfSpawn(pokemon, message.member.id, spawnDetails, message, messagePokemon)
         .catch(err => log.error(err));
     } else {
       Notify.notifyMembersOfSpawn(pokemon, message.member.id, spawnDetails, message)
