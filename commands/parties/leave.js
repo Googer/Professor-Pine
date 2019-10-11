@@ -5,6 +5,7 @@ const log = require('loglevel').getLogger('LeaveCommand'),
   {CommandGroup} = require('../../app/constants'),
   Helper = require('../../app/helper'),
   PartyManager = require('../../app/party-manager'),
+  {PartyType} = require('../../app/constants'),
   settings = require('../../data/settings');
 
 class LeaveCommand extends Commando.Command {
@@ -30,8 +31,14 @@ class LeaveCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    const raid = PartyManager.getParty(message.channel.id),
-      info = await raid.removeAttendee(message.member.id);
+    const raid = PartyManager.getParty(message.channel.id);
+    let info = await raid.removeAttendee(message.member.id);
+
+    if (!info.error && raid.type === PartyType.RAID_TRAIN) {
+      if (raid.conductor && raid.conductor.id === message.member.id) {
+        info = await raid.setConductor(null);
+      }
+    }
 
     if (!info.error) {
       message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
