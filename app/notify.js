@@ -455,7 +455,8 @@ class Notify {
   }
 
   async shout(message, members, text, type, fromMember = null) {
-    const membersStrings = await Promise.all(members
+    const party = await PartyManager.getParty(message.channel.id),
+      membersStrings = await Promise.all(members
         .map(async member => {
           const mention = await this.shouldMention(member, type);
 
@@ -477,7 +478,14 @@ class Notify {
     embed.setDescription(text);
 
     message.channel.send(membersString, embed)
-      .then(message => message.channel.send(`To enable or disable these notifications, use the \`${message.client.commandPrefix}mentions\`, \`${message.client.commandPrefix}mentions-groups\`, \`${message.client.commandPrefix}mentions-train-stops\` and \`${message.client.commandPrefix}mentions-shouts\` commands in ${botLabChannel.toString()}.`))
+      .then(shoutMessage => {
+        message.channel.send(`To enable or disable these notifications, use the \`${message.client.commandPrefix}mentions\`, \`${message.client.commandPrefix}mentions-groups\`, \`${message.client.commandPrefix}mentions-train-stops\` and \`${message.client.commandPrefix}mentions-shouts\` commands in ${botLabChannel.toString()}.`)
+          .then(shoutFooterMessage => {
+            if (type === 'trainMovement') {
+              party.removeLastTrainMovement(shoutMessage, shoutFooterMessage);
+            }
+          })
+      })
       .catch(err => log.error(err));
   }
 }

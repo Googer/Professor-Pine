@@ -708,6 +708,37 @@ class RaidTrain extends Party {
     await this.persist();
   }
 
+  async removeLastTrainMovement(message, secondaryMessage) {
+    const messageCacheId = `${message.channel.id.toString()}:${message.id.toString()}`;
+    const messageCacheSecondaryId = `${secondaryMessage.channel.id.toString()}:${secondaryMessage.id.toString()}`;
+
+
+    if (!!this.lastMovementMessage) {
+      PartyManager.getMessage(this.lastMovementMessage)
+        .then(messageResult => {
+          if (messageResult.ok) {
+            messageResult.message.delete();
+          }
+        })
+        .catch(err => log.error(err));
+    }
+
+    if (!!this.lastMovementMessageSecondary) {
+      PartyManager.getMessage(this.lastMovementMessageSecondary)
+        .then(messageResult => {
+          if (messageResult.ok) {
+            messageResult.message.delete();
+          }
+        })
+        .catch(err => log.error(err));
+    }
+
+    this.lastMovementMessage = messageCacheId;
+    this.lastMovementMessageSecondary = messageCacheSecondaryId;
+
+    await this.persist();
+  }
+
   async removeRouteMessage(message) {
     if (!!this.lastRouteMessage) {
       PartyManager.getMessage(this.lastRouteMessage)
@@ -748,7 +779,9 @@ class RaidTrain extends Party {
       endTime: this.endTime,
       nextLastRun: this.nextLastRun,
       lastRouteMessage: this.lastRouteMessage,
-      lastRouteMessageSecondary: this.lastRouteMessageSecondary
+      lastRouteMessageSecondary: this.lastRouteMessageSecondary,
+      lastMovementMessage: this.lastMovementMessage,
+      lastMovementMessageSecondary: this.lastMovementMessageSecondary
     });
   }
 }
