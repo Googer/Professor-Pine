@@ -477,7 +477,7 @@ class Notify {
     embed.setDescription(text);
 
     message.channel.send(membersString, embed)
-      .then(message => message.channel.send(`To enable or disable these notifications, use the \`${message.client.commandPrefix}mentions\`, \`${message.client.commandPrefix}mentions-groups\`, and \`${message.client.commandPrefix}mentions-shouts\` commands in ${botLabChannel.toString()}.`))
+      .then(message => message.channel.send(`To enable or disable these notifications, use the \`${message.client.commandPrefix}mentions\`, \`${message.client.commandPrefix}mentions-groups\`, \`${message.client.commandPrefix}mentions-train-stops\` and \`${message.client.commandPrefix}mentions-shouts\` commands in ${botLabChannel.toString()}.`))
       .catch(err => log.error(err));
   }
 }

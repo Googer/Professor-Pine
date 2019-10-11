@@ -677,6 +677,64 @@ class RaidTrain extends Party {
       .join('-');
   }
 
+  async removeLastRouteMessage(message, secondaryMessage) {
+    const messageCacheId = `${message.channel.id.toString()}:${message.id.toString()}`;
+    const messageCacheSecondaryId = `${secondaryMessage.channel.id.toString()}:${secondaryMessage.id.toString()}`;
+
+
+    if (!!this.lastRouteMessage) {
+      PartyManager.getMessage(this.lastRouteMessage)
+        .then(messageResult => {
+          if (messageResult.ok) {
+            messageResult.message.delete();
+          }
+        })
+        .catch(err => log.error(err));
+    }
+
+    if (!!this.lastRouteMessageSecondary) {
+      PartyManager.getMessage(this.lastRouteMessageSecondary)
+        .then(messageResult => {
+          if (messageResult.ok) {
+            messageResult.message.delete();
+          }
+        })
+        .catch(err => log.error(err));
+    }
+
+    this.lastRouteMessage = messageCacheId;
+    this.lastRouteMessageSecondary = messageCacheSecondaryId;
+
+    await this.persist();
+  }
+
+  async removeRouteMessage(message) {
+    if (!!this.lastRouteMessage) {
+      PartyManager.getMessage(this.lastRouteMessage)
+        .then(messageResult => {
+          if (messageResult.ok) {
+            messageResult.message.delete();
+          }
+        })
+        .catch(err => log.error(err));
+    }
+
+    if (!!this.lastRouteMessageSecondary) {
+      PartyManager.getMessage(this.lastRouteMessageSecondary)
+        .then(messageResult => {
+          if (messageResult.ok) {
+            messageResult.message.delete();
+          }
+        })
+        .catch(err => log.error(err));
+    }
+
+    this.lastRouteMessage = undefined;
+    this.lastRouteMessageSecondary = undefined;
+
+    await this.persist();
+  }
+
   toJSON() {
     return Object.assign(super.toJSON(), {
       trainName: this.trainName,
@@ -688,7 +746,9 @@ class RaidTrain extends Party {
       route: this.route,
       conductor: this.conductor,
       endTime: this.endTime,
-      nextLastRun: this.nextLastRun
+      nextLastRun: this.nextLastRun,
+      lastRouteMessage: this.lastRouteMessage,
+      lastRouteMessageSecondary: this.lastRouteMessageSecondary
     });
   }
 }

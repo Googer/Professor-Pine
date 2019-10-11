@@ -57,6 +57,7 @@ class SkipCommand extends Commando.Command {
           });
         return;
       }
+      info = await party.removeRouteMessage(message);
 
       if (attendees.length > 0 && party.currentGym <= party.route.length) {
         const members = (await Promise.all(attendees

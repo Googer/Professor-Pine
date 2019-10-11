@@ -58,6 +58,7 @@ class PreviousCommand extends Commando.Command {
           .catch(err => log.error(err));
         return;
       }
+      info = await party.removeRouteMessage(message);
 
       if (attendees.length > 0 && party.currentGym <= party.route.length) {
         const members = (await Promise.all(attendees
