@@ -79,6 +79,8 @@ class SetRouteAddCommand extends Commando.Command {
         .catch(err => log.error(err));
     }
 
+    route = await party.removeRouteMessage(message);
+
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .catch(err => log.error(err));
 
