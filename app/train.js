@@ -650,11 +650,13 @@ class RaidTrain extends Party {
         let complete = index < current ? '~~' : '',
           completeText = index < current ? ' (Completed)' : '',
           gym = await Gym.getGym(this.route[index]),
+          exText = (gym.taggedEx || gym.confirmedEx) ? ' (EX Eligible)**' : '',
+          exStart = (gym.taggedEx || gym.confirmedEx) ? '**' : '',
           gymName = !!gym.nickname ?
             gym.nickname :
             gym.name;
 
-        description += (index + 1) + `. ${complete}${gymName}${complete}${completeText}\n`;
+        description += (index + 1) + `. ${complete}${exStart}${gymName}${exText}${complete}${completeText}\n`;
       }
 
       embed.setDescription(description);
