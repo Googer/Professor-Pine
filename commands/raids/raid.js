@@ -52,6 +52,15 @@ class RaidCommand extends Commando.Command {
       }
     ], 3);
 
+    this.exHatchTimeCollector = new Commando.ArgumentCollector(client, [
+      {
+        key: TimeParameter.HATCH,
+        label: 'hatch time',
+        prompt: 'What is the date and time for this EX raid?\nExample: `4/12 1:00pm` (April 12th at 1:00pm)\n',
+        type: 'time'
+      }
+    ], 3);
+
     this.endTimeCollector = new Commando.ArgumentCollector(client, [
       {
         key: TimeParameter.END,
@@ -141,6 +150,10 @@ class RaidCommand extends Commando.Command {
               if (raid.pokemon.name && collectEndTime) {
                 return this.endTimeCollector.obtain(message);
               } else {
+                if (isExclusive) {
+                  return this.exHatchTimeCollector.obtain(message);
+                }
+
                 return this.hatchTimeCollector.obtain(message);
               }
             })
