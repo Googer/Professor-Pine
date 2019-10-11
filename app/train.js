@@ -766,6 +766,19 @@ class RaidTrain extends Party {
     await this.persist();
   }
 
+  async getNotificationMessageHeader(memberId) {
+    const raidChannel = (await PartyManager.getChannel(this.channelId)).channel,
+      regionChannel = (await PartyManager.getChannel(this.sourceChannelId)).channel,
+      member = this.createdById > 0 ?
+        (await this.getMember(memberId)).member :
+        null,
+      byLine = member !== null ?
+        ` by ${member.displayName}` :
+        '';
+
+    return `A new train has been announced in #${regionChannel.name}${byLine}: ${raidChannel.toString()}.`;
+  }
+
   toJSON() {
     return Object.assign(super.toJSON(), {
       trainName: this.trainName,

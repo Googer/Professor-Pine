@@ -17,6 +17,9 @@
   "bossset": {
     "warning": "Use the `!boss-set-notifications` command in ${bot-channel} to view current notifications for gyms."
   },
+  "newtrain": {
+    "warning": "Use the `!new-train-notifications` command in ${bot-channel} to view current notifications for gyms."
+  },
   "favorites": {
     "warning": "Use the `!targets` command in ${bot-channel} to view current notifications for gyms."
   },

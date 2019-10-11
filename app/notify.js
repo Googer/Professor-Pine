@@ -20,6 +20,9 @@ class Notify {
 
     Helper.client.on('raidGymSet', (raid, memberId) =>
       this.notifyMembers(raid, memberId));
+
+    Helper.client.on('trainCreated', (train, memberId) =>
+      this.notifyMembersOfTrain(train, memberId));
   }
 
   static getDbPokemonNumber(pokemon) {
@@ -43,6 +46,36 @@ class Notify {
       .where('User.userSnowflake', member.user.id)
       .andWhere('Guild.snowflake', member.guild.id)
       .pluck('gym');
+  }
+
+  async notifyMembersOfTrain(train, memberId) {
+      const trainChannel = (await PartyManager.getChannel(train.channelId)).channel,
+        guildId = trainChannel.guild.id;
+
+      let trainMembers = await DB.DB('User')
+          .where('User.newTrain', 1)
+          .pluck('User.userSnowflake');
+
+      console.log(
+        [...new Set([...trainMembers])]
+          .filter(mem => mem !== memberId)
+
+      );
+
+
+      [...new Set([...trainMembers])]
+        .filter(mem => mem !== memberId)
+        .filter(memberId => trainChannel.guild.members.has(memberId))
+        .filter(memberId => trainChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))
+        .map(memberId => Helper.getMemberForNotification(guildId, memberId))
+        .filter(member => !!member)
+        .forEach(async member => {
+          const notificationMessageHeader = await train.getNotificationMessageHeader(memberId),
+            fullStatusMessage = await train.getFullStatusMessage();
+
+          member.send(notificationMessageHeader, fullStatusMessage)
+            .catch(err => log.error(err));
+        });
   }
 
   async notifyMembersOfSpawn(pokemon, reportingMemberId, location, message, additionalPokemon = null) {
