@@ -95,11 +95,29 @@ class HelpCommand extends Commando.Command {
           .filter(group => group.commands.size > 0 &&
             ((showAll && (Helper.isManagement(message) || Helper.isBotManagement(message))) || settings.helpGroups.includes(group.id)));
 
+        const fields = [];
+
         for (const group of groupsToShow.values()) {
-          const fieldName = `**${group.name}**`,
-            fieldContents = group.commands
-              .map(command => `**${command.name}**: ${command.description}`)
-              .join('\n');
+          let fieldName = `**${group.name}**`,
+            fieldContents = '';
+
+          for (const command of group.commands.values()) {
+            const line = `**${command.name}**: ${command.description}`;
+            if (fieldContents.length + line.length > 1024) {
+              fields.push({fieldName, fieldContents});
+              if (fieldName.indexOf(' (continued)' === -1)) {
+                fieldName = fieldName + ' (continued)';
+              }
+              fieldContents = line;
+            } else {
+              fieldContents += '\n' + line;
+            }
+          }
+
+          fields.push({fieldName, fieldContents});
+        }
+
+        for (const {fieldName, fieldContents} of fields) {
           embed.addField(fieldName, fieldContents);
 
           if (embed.length > 6000) {
