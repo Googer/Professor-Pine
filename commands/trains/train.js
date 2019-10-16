@@ -57,8 +57,6 @@ class TrainCommand extends Commando.Command {
         const channelMessageHeader = await train.getChannelMessageHeader(),
           fullStatusMessage = await train.getFullStatusMessage();
 
-        Helper.client.emit('trainCreated', train, message.member.id);
-
         return sourceChannel.send(channelMessageHeader, fullStatusMessage);
       })
       .then(announcementMessage => PartyManager.addMessage(train.channelId, announcementMessage))
