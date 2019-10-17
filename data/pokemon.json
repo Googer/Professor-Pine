@@ -998,7 +998,7 @@
   },
   {
     "name": "umbreon",
-    "tier": 3
+    "tier": 4
   },
   {
     "name": "murkrow",
@@ -2088,7 +2088,8 @@
     "name": "manaphy"
   },
   {
-    "name": "darkrai"
+    "name": "darkrai",
+    "tier": 5
   },
   {
     "name": "shaymin"
@@ -2305,7 +2306,9 @@
     "name": "sigilyph"
   },
   {
-    "name": "yamask"
+    "name": "yamask",
+    "tier": 2,
+    "shiny": true
   },
   {
     "name": "cofagrigus"
