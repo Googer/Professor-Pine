@@ -643,6 +643,7 @@ class RaidTrain extends Party {
 
   async setRoute(route) {
     this.route = route;
+    this.currentGym = 0;
 
     await this.persist();
   }
