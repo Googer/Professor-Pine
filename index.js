@@ -139,6 +139,7 @@ Client.registry.registerCommands([
   require('./commands/parties/status'),
   require('./commands/parties/directions'),
   require('./commands/parties/shout'),
+  require('./commands/parties/save-party'),
 
   require('./commands/raids/raid'),
   require('./commands/parties/delete'),

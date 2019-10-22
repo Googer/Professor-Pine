@@ -102,7 +102,7 @@ class PartyManager {
             party.sendDeletionWarningMessage();
             await party.persist();
           }
-          if (party.deletionTime && now > party.deletionTime) {
+          if (party.deletionTime && now > party.deletionTime && party.deletionTime !== -1) {
             party.delete();
           }
 
