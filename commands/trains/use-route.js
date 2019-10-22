@@ -83,6 +83,9 @@ class UseRouteCommand extends Commando.Command {
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .catch(err => log.error(err));
 
+    message.delete({timeout: 30000})
+      .catch(err => log.error(err));
+
     party.refreshStatusMessages()
       .catch(err => log.error(err));
   }
