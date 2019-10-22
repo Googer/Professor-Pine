@@ -7,7 +7,10 @@ const log = require('loglevel').getLogger('Raid'),
   {PartyStatus, PartyType} = require('./constants'),
   Discord = require('discord.js'),
   Helper = require('./helper'),
-  Party = require('./party');
+  Party = require('./party'),
+  User = require('./user'),
+  Region = require('./region'),
+  DB = require('./db');
 
 let Gym,
   PartyManager;
@@ -638,6 +641,12 @@ class RaidTrain extends Party {
     }
   }
 
+  async setRoute(route) {
+    this.route = route;
+
+    await this.persist();
+  }
+
   async getRouteEmbed() {
     let embed = new Discord.MessageEmbed(),
       current = this.currentGym || 0;
@@ -777,6 +786,29 @@ class RaidTrain extends Party {
         '';
 
     return `A new train has been announced in #${regionChannel.name}${byLine}: ${raidChannel.toString()}.`;
+  }
+
+  async saveRoute(name, message) {
+    const userId = await User.getUserId(message),
+          regionId = await Region.getRegionId(this.sourceChannelId);
+
+    return DB.knex('SavedRoutes')
+      .insert({
+        name: name,
+        gyms: this.route.join(','),
+        userId: userId,
+        region: regionId
+      })
+      .returning('id');
+  }
+
+  async getSavedRoutes(message) {
+    const userId = await User.getUserId(message),
+      regionId = await Region.getRegionId(this.sourceChannelId);
+
+    return DB.knex('SavedRoutes')
+      .where('region', regionId)
+      .andWhere('userId', userId);
   }
 
   toJSON() {

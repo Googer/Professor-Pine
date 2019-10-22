@@ -165,6 +165,8 @@ Client.registry.registerCommands([
   require('./commands/trains/train-finished'),
   require('./commands/trains/conductor'),
   require('./commands/trains/not-conductor'),
+  require('./commands/trains/save-route'),
+  require('./commands/trains/use-route'),
 
   require('./commands/raids/submit-request'),
 
