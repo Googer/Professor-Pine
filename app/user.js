@@ -131,6 +131,17 @@ class User {
 
     return false;
   }
+
+  async getUserId(message) {
+
+    const result = await DB.DB('User')
+      .where('userSnowflake', message.author.id)
+      .first();
+
+    console.log(result);
+
+    return !!result ? result.id : null;
+  }
 }
 
 module.exports = new User();
