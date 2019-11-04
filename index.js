@@ -139,6 +139,7 @@ Client.registry.registerCommands([
   require('./commands/parties/status'),
   require('./commands/parties/directions'),
   require('./commands/parties/shout'),
+  require('./commands/parties/save-party'),
 
   require('./commands/raids/raid'),
   require('./commands/parties/delete'),
@@ -165,6 +166,8 @@ Client.registry.registerCommands([
   require('./commands/trains/train-finished'),
   require('./commands/trains/conductor'),
   require('./commands/trains/not-conductor'),
+  require('./commands/trains/save-route'),
+  require('./commands/trains/use-route'),
 
   require('./commands/raids/submit-request'),
 

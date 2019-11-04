@@ -1542,7 +1542,7 @@
   },
   {
     "name": "lileep",
-    "tier": 1,
+    "tier": 2,
     "shiny": true
   },
   {
@@ -1550,7 +1550,7 @@
   },
   {
     "name": "anorith",
-    "tier": 1,
+    "tier": 2,
     "shiny": true
   },
   {
@@ -1650,6 +1650,7 @@
   },
   {
     "name": "beldum",
+    "tier": 1,
     "shiny": true
   },
   {
