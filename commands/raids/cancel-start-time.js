@@ -59,9 +59,7 @@ class CancelStartTimeCommand extends Commando.Command {
         attendeeStatus.status !== PartyStatus.COMPLETE)
       .filter(([attendee, attendeeStatus]) => attendeeStatus.group === groupId)
       .forEach(([attendee, attendeeStatus]) => {
-        const member = Helper.getMemberForNotification(message.guild.id, attendee);
-
-        member.send(`${message.member.displayName} has canceled the meeting time for ${channel.toString()}. ` +
+        Helper.sendMessage(message.guild.id, attendee, `${message.member.displayName} has canceled the meeting time for ${channel.toString()}. ` +
           `There ${verb} currently **${totalAttendees}** ${noun} attending!`)
           .catch(err => log.error(err));
       });

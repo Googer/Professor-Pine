@@ -22,12 +22,6 @@ const privateSettings = require('./data/private-settings'),
     restTimeOffset: 1000,
     commandPrefix: settings.commandPrefix || '!'
   }),
-  NotifyClient = new Discord.Client({
-    owner: privateSettings.owner,
-    restWsBridgeTimeout: 10000,
-    restTimeOffset: 1000,
-    commandPrefix: settings.commandPrefix || '!'
-  }),
   DB = require('./app/db.js'),
   NodeCleanup = require('node-cleanup'),
   Gym = require('./app/gym'),
@@ -44,7 +38,6 @@ const privateSettings = require('./data/private-settings'),
 
 NodeCleanup((exitCode, signal) => {
   PartyManager.shutdown();
-  NotifyClient.destroy();
 });
 
 Client.registry.registerDefaultTypes();
@@ -278,30 +271,8 @@ Client.on('guildUnavailable', guild => {
   log.warn(`Guild ${guild.id} unavailable!`);
 });
 
-NotifyClient.on('ready', () => {
-  log.info('Notify client logged in');
-
-  Helper.setNotifyClient(NotifyClient);
-});
-
-NotifyClient.on('error', err => log.error(err));
-NotifyClient.on('warn', err => log.warn(err));
-NotifyClient.on('debug', err => log.debug(err));
-
-NotifyClient.on('rateLimit', event =>
-  log.warn(`Rate limited for ${event.timeout} ms, triggered by method '${event.method}', path '${event.path}', route '${event.route}'`));
-
-NotifyClient.on('disconnect', event => {
-  log.error(`Notify Client disconnected, code ${event.code}, reason '${event.reason}'...`);
-
-  NotifyClient.destroy()
-    .then(() => NotifyClient.login(privateSettings.discordNotifyToken))
-    .catch(err => log.error(err));
-});
-
 PartyManager.initialize()
   .then(() => Client.login(privateSettings.discordBotToken))
-  .then(() => NotifyClient.login(privateSettings.discordNotifyToken))
   .catch(err => log.error(err));
 
 module.exports.isInitialized = isInitialized;

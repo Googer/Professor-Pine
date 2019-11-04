@@ -13,20 +13,29 @@ class Notify {
 
   initialize() {
     Helper.client.on('raidCreated', (raid, memberId) =>
-      this.notifyMembers(raid, memberId));
+      this.notifyMembersOfRaid(raid, memberId));
 
     Helper.client.on('raidPokemonSet', (raid, memberId, egg) =>
-      this.notifyMembers(raid, memberId, egg));
+      this.notifyMembersOfRaid(raid, memberId, egg));
 
     Helper.client.on('raidGymSet', (raid, memberId) =>
-      this.notifyMembers(raid, memberId));
+      this.notifyMembersOfRaid(raid, memberId));
 
     Helper.client.on('trainCreated', (train, memberId) =>
       this.notifyMembersOfTrain(train, memberId));
+
+    Helper.client.on('spawnReported', (pokemon, memberId, location, message, additionalPokemon) =>
+      this.notifyMembersOfSpawn(pokemon, memberId, location, message, additionalPokemon));
   }
+
 
   static getDbPokemonNumber(pokemon) {
     return Number.parseInt(pokemon.number) || -pokemon.tier;
+  }
+
+  static sendMessage(member, header, embed) {
+    member.send(header, {embed})
+      .catch(err => log.error(err));
   }
 
   // get pokemon that member is interested in
@@ -48,34 +57,25 @@ class Notify {
       .pluck('gym');
   }
 
-  async notifyMembersOfTrain(train, memberId) {
-      const trainChannel = (await PartyManager.getChannel(train.channelId)).channel,
-        guildId = trainChannel.guild.id;
+  async notifyMembersOfTrain(train, reportingMemberId) {
+    const trainChannel = (await PartyManager.getChannel(train.channelId)).channel,
+      guildId = trainChannel.guild.id;
 
-      let trainMembers = await DB.DB('User')
-          .where('User.newTrain', 1)
-          .pluck('User.userSnowflake');
+    let trainMembers = await DB.DB('User')
+      .where('User.newTrain', 1)
+      .pluck('User.userSnowflake');
 
-      console.log(
-        [...new Set([...trainMembers])]
-          .filter(mem => mem !== memberId)
+    [...new Set([...trainMembers])]
+      .filter(memberId => memberId !== reportingMemberId)
+      .filter(memberId => trainChannel.guild.members.has(memberId))
+      .filter(memberId => trainChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))
+      .forEach(async memberId => {
+        const notificationMessageHeader = await train.getNotificationMessageHeader(reportingMemberId),
+          fullStatusMessage = await train.getFullStatusMessage();
 
-      );
-
-
-      [...new Set([...trainMembers])]
-        .filter(mem => mem !== memberId)
-        .filter(memberId => trainChannel.guild.members.has(memberId))
-        .filter(memberId => trainChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))
-        .map(memberId => Helper.getMemberForNotification(guildId, memberId))
-        .filter(member => !!member)
-        .forEach(async member => {
-          const notificationMessageHeader = await train.getNotificationMessageHeader(memberId),
-            fullStatusMessage = await train.getFullStatusMessage();
-
-          member.send(notificationMessageHeader, fullStatusMessage)
-            .catch(err => log.error(err));
-        });
+        Helper.sendMessage(guildId, memberId, notificationMessageHeader, fullStatusMessage)
+          .catch(err => log.error(err));
+      });
   }
 
   async notifyMembersOfSpawn(pokemon, reportingMemberId, location, message, additionalPokemon = null) {
@@ -104,7 +104,7 @@ class Notify {
     }
 
     const pokemonName = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1)
-                      + (additionalPokemon ? ' ' + additionalPokemon.name.charAt(0).toUpperCase() + additionalPokemon.name.slice(1) : ''),
+      + (additionalPokemon ? ' ' + additionalPokemon.name.charAt(0).toUpperCase() + additionalPokemon.name.slice(1) : ''),
       regionChannel = (await PartyManager.getChannel(message.channel.id)).channel,
       reportingMember = (await PartyManager.getMember(regionChannel.id, reportingMemberId)).member,
       shiny = pokemon.shiny || (additionalPokemon && additionalPokemon.shiny) ?
@@ -123,19 +123,6 @@ class Notify {
       embed.setThumbnail(additionalPokemon.url);
     }
 
-      [... new Set(pokemonMembers)]
-      .filter(mem => mem !== reportingMemberId)
-      .filter(memberId => areaChannel.guild.members.has(memberId))
-      .filter(memberId => areaChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))
-      .map(memberId => Helper.getMemberForNotification(message.channel.guild.id, memberId))
-      .filter(member => !!member)
-      .forEach(async member => {
-        console.log('sending to...');
-        console.log(member);
-        member.send(header, {embed})
-          .catch(err => log.error(err));
-      });
-
     message.channel.send(regionHeader, {embed})
       .then(message => {
         message.delete({timeout: 30 * settings.messageCleanupDelayStatus})
@@ -145,11 +132,18 @@ class Notify {
           .catch(err => log.error(err));
       })
       .catch(err => log.error(err));
+
+    [...new Set(pokemonMembers)]
+      .filter(memberId => memberId !== reportingMemberId)
+      .filter(memberId => areaChannel.guild.members.has(memberId))
+      .filter(memberId => areaChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))
+      .forEach(memberId => Helper.sendMessage(guildId, memberId, header, embed)
+        .catch(err => log.error(err)));
   }
 
   // notify interested members for the raid associated with the given channel and pokemon (and / or or gym),
   // filtering out the reporting member
-  async notifyMembers(raid, reportingMemberId, egg = false) {
+  async notifyMembersOfRaid(raid, reportingMemberId, egg = false) {
     // Don't send a notification for EX raids
     if (raid.pokemon.exclusive) {
       return;
@@ -198,16 +192,14 @@ class Notify {
     }
 
     [...new Set([...pokemonMembers, ...gymMembers, ...attendees])]
-      .filter(mem => mem !== reportingMemberId)
+      .filter(memberId => memberId !== reportingMemberId)
       .filter(memberId => raidChannel.guild.members.has(memberId))
       .filter(memberId => raidChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))
-      .map(memberId => Helper.getMemberForNotification(guildId, memberId))
-      .filter(member => !!member)
-      .forEach(async member => {
+      .forEach(async memberId => {
         const notificationMessageHeader = await raid.getNotificationMessageHeader(reportingMemberId),
           fullStatusMessage = await raid.getFullStatusMessage();
 
-        member.send(notificationMessageHeader, fullStatusMessage)
+        Helper.sendMessage(guildId, memberId, notificationMessageHeader, fullStatusMessage)
           .catch(err => log.error(err));
       });
   }

@@ -21,9 +21,12 @@ class SavePartyCommand extends Commando.Command {
     });
 
     client.dispatcher.addInhibitor(message => {
-      if (!!message.command && message.command.name === 'save-party' && !Helper.isBotManagement(message) &&
+      if (!!message.command && message.command.name === 'save-party' &&
         !PartyManager.validParty(message.channel.id, [PartyType.RAID_TRAIN, PartyType.RAID])) {
         return ['invalid-channel', message.reply('You can only save a raid or train channel from deletion!')];
+      }
+      if (!Helper.isBotManagement(message)) {
+        return ['unauthorized', message.reply('You are not authorized to use this command.')];
       }
       return false;
     });
