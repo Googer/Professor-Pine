@@ -28,14 +28,8 @@ class Notify {
       this.notifyMembersOfSpawn(pokemon, memberId, location, message, additionalPokemon));
   }
 
-
   static getDbPokemonNumber(pokemon) {
     return Number.parseInt(pokemon.number) || -pokemon.tier;
-  }
-
-  static sendMessage(member, header, embed) {
-    member.send(header, {embed})
-      .catch(err => log.error(err));
   }
 
   // get pokemon that member is interested in
