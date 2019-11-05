@@ -37,7 +37,16 @@ NodeCleanup((exitCode, signal) => {
 });
 
 async function sendMessage(userId, message, embed) {
-  const user = NotifyClient.users.get(userId);
+  const user = await NotifyClient.users.fetch(userId)
+    .catch(err => {
+      log.error(err);
+      return undefined;
+    });
+
+  if (!user) {
+    log.warn(`Could not find user ${userId}!`);
+    return Promise.resolve();
+  }
 
   if (embed) {
     await user.send(message, {embed})
