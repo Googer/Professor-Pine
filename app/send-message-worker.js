@@ -37,11 +37,9 @@ parentPort.on('message', async messages => {
   for (const {guildId, memberId, message, embed} of messages) {
     if (currentPromise) {
       currentPromise = currentPromise
-        .then(res => sendMessage(guildId, memberId, message, embed)
-          .catch(err => log.error(err)));
+        .then(() => sendMessage(guildId, memberId, message, embed))
     } else {
-      currentPromise = sendMessage(guildId, memberId, message, embed)
-        .catch(err => log.error(err));
+      currentPromise = sendMessage(guildId, memberId, message, embed);
       promiseChain = currentPromise;
     }
   }
