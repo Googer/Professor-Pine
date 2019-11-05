@@ -7,6 +7,7 @@
     "@google/maps": "^1.0.1",
     "@mapbox/polyline": "^1.1.0",
     "@turf/turf": "^5.1.6",
+    "async": "^3.1.0",
     "async-lock": "^1.2.2",
     "bufferutil": "^4.0.1",
     "cheerio": "^1.0.0-rc.3",

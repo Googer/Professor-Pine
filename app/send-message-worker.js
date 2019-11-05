@@ -1,8 +1,20 @@
 // Access the workerData by requiring it.
-const log = require('loglevel').getLogger('NotifyHelper'),
-  {parentPort} = require('worker_threads'),
+const log = require('loglevel').getLogger('NotifyHelper');
+require('loglevel-prefix-persist/server')(process.env.NODE_ENV, log, {
+  level: {
+    production: 'debug',
+    development: 'debug'
+  },
+  persist: 'debug',
+  max: 5
+});
+
+log.setLevel('debug');
+
+const async = require('async'),
   Discord = require('discord.js'),
   NodeCleanup = require('node-cleanup'),
+  {parentPort} = require('worker_threads'),
   privateSettings = require('../data/private-settings'),
   settings = require('../data/settings'),
   NotifyClient = new Discord.Client({
@@ -11,6 +23,14 @@ const log = require('loglevel').getLogger('NotifyHelper'),
     restTimeOffset: 1000,
     commandPrefix: settings.commandPrefix || '!'
   });
+
+const jobQueue = async.queue(async ({guildId, memberId, message, embed}) =>
+    await sendMessage(guildId, memberId, message, embed)
+      .catch(err => log.error(err)),
+  1);
+
+jobQueue.empty(() => log.info('Message queue empty'));
+jobQueue.drain(() => log.info('Message queue fully processed'));
 
 NodeCleanup((exitCode, signal) => {
   NotifyClient.destroy();
@@ -30,22 +50,13 @@ async function sendMessage(guildId, memberId, message, embed) {
   return Promise.resolve();
 }
 
-parentPort.on('message', async messages => {
-  let promiseChain,
-    currentPromise;
+parentPort.on('message', messages => {
+  messages
+    .forEach(message => jobQueue.push(message));
 
-  for (const {guildId, memberId, message, embed} of messages) {
-    if (currentPromise) {
-      currentPromise = currentPromise
-        .then(() => sendMessage(guildId, memberId, message, embed))
-    } else {
-      currentPromise = sendMessage(guildId, memberId, message, embed);
-      promiseChain = currentPromise;
-    }
-  }
+  log.info('Messages pushed to queue');
 
-  await promiseChain
-    .catch(err => log.error(err));
+  parentPort.postMessage(true);
 });
 
 NotifyClient.on('ready', () => {
