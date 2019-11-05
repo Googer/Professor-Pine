@@ -76,7 +76,8 @@ class Notify {
       });
     }
 
-    Helper.sendNotificationMessages(messagesToSend);
+    Helper.sendNotificationMessages(messagesToSend)
+      .catch(err => log.error(err));
   }
 
   async notifyMembersOfSpawn(pokemon, reportingMemberId, location, message, additionalPokemon = null) {
@@ -148,7 +149,8 @@ class Notify {
       });
     }
 
-    Helper.sendNotificationMessages(messagesToSend);
+    Helper.sendNotificationMessages(messagesToSend)
+      .catch(err => log.error(err));
   }
 
   // notify interested members for the raid associated with the given channel and pokemon (and / or or gym),
@@ -218,7 +220,8 @@ class Notify {
       });
     }
 
-    Helper.sendNotificationMessages(messagesToSend);
+    Helper.sendNotificationMessages(messagesToSend)
+      .catch(err => log.error(err));
   }
 
   // give pokemon notification to user

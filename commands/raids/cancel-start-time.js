@@ -68,7 +68,8 @@ class CancelStartTimeCommand extends Commando.Command {
       });
     }
 
-    Helper.sendNotificationMessages(messagesToSend);
+    Helper.sendNotificationMessages(messagesToSend)
+      .catch(err => log.error(err));
 
     raid.refreshStatusMessages()
       .catch(err => log.error(err));

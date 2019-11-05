@@ -174,7 +174,11 @@ class Helper {
   }
 
   sendNotificationMessages(messages) {
-    return this.notificationThreadPool.exec(messages);
+    if (!!messages && messages.length > 0) {
+      return this.notificationThreadPool.exec(messages);
+    } else {
+      return Promise.resolve();
+    }
   }
 
   getExRaidAnnounceChannel(guild) {

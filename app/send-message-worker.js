@@ -19,13 +19,11 @@ NodeCleanup((exitCode, signal) => {
 function sendMessage(guildId, memberId, message, embed) {
   const member = NotifyClient.guilds.get(guildId).members.get(memberId);
 
-  if (embed) {
-    return member.send(message, {embed})
+  return embed ?
+    member.send(message, {embed})
+      .catch(err => log.error(err)) :
+    member.send(message)
       .catch(err => log.error(err));
-  } else {
-    return member.send(message)
-      .catch(err => log.error(err));
-  }
 }
 
 parentPort.on('message', async messages => {
