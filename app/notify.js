@@ -59,20 +59,19 @@ class Notify {
       .where('User.newTrain', 1)
       .pluck('User.userSnowflake');
 
-    const messagesToSend = [];
+    const notificationMessageHeader = await train.getNotificationMessageHeader(reportingMemberId),
+      fullStatusMessage = await train.getFullStatusMessage(),
+      messagesToSend = [];
 
     for (const memberId of [...new Set([...trainMembers])]
       .filter(memberId => memberId !== reportingMemberId)
       .filter(memberId => trainChannel.guild.members.has(memberId))
       .filter(memberId => trainChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))) {
-      const notificationMessageHeader = await train.getNotificationMessageHeader(reportingMemberId),
-        fullStatusMessage = await train.getFullStatusMessage();
-
       messagesToSend.push({
         guildId,
         memberId,
         message: notificationMessageHeader,
-        embed: fullStatusMessage
+        embed: fullStatusMessage.embed
       });
     }
 
@@ -203,20 +202,19 @@ class Notify {
         .pluck('userSnowflake');
     }
 
-    const messagesToSend = [];
+    const notificationMessageHeader = await raid.getNotificationMessageHeader(reportingMemberId),
+      fullStatusMessage = await raid.getFullStatusMessage(),
+      messagesToSend = [];
 
     for (const memberId of [...new Set([...pokemonMembers, ...gymMembers, ...attendees])]
       .filter(memberId => memberId !== reportingMemberId)
       .filter(memberId => raidChannel.guild.members.has(memberId))
       .filter(memberId => raidChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))) {
-      const notificationMessageHeader = await raid.getNotificationMessageHeader(reportingMemberId),
-        fullStatusMessage = await raid.getFullStatusMessage();
-
       messagesToSend.push({
         guildId,
         memberId,
         message: notificationMessageHeader,
-        embed: fullStatusMessage
+        embed: fullStatusMessage.embed
       });
     }
 
