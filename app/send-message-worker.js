@@ -24,8 +24,8 @@ const async = require('async'),
     commandPrefix: settings.commandPrefix || '!'
   });
 
-const jobQueue = async.queue(async ({guildId, memberId, message, embed}) =>
-    await sendMessage(guildId, memberId, message, embed)
+const jobQueue = async.queue(async ({userId, message, embed}) =>
+    await sendMessage(userId, message, embed)
       .catch(err => log.error(err)),
   1);
 
@@ -36,14 +36,14 @@ NodeCleanup((exitCode, signal) => {
   NotifyClient.destroy();
 });
 
-async function sendMessage(guildId, memberId, message, embed) {
-  const member = NotifyClient.guilds.get(guildId).members.get(memberId);
+async function sendMessage(userId, message, embed) {
+  const user = NotifyClient.users.get(userId);
 
   if (embed) {
-    await member.send(message, {embed})
+    await user.send(message, {embed})
       .catch(err => log.error(err));
   } else {
-    await member.send(message)
+    await user.send(message)
       .catch(err => log.error(err));
   }
 

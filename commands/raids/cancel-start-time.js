@@ -61,8 +61,7 @@ class CancelStartTimeCommand extends Commando.Command {
         attendeeStatus.status !== PartyStatus.COMPLETE)
       .filter(([attendee, attendeeStatus]) => attendeeStatus.group === groupId)) {
       messagesToSend.push({
-        guildId: message.guild.id,
-        memberId: attendee,
+        userId: attendee,
         message: `${message.member.displayName} has canceled the meeting time for ${channel.toString()}. ` +
           `There ${verb} currently **${totalAttendees}** ${noun} attending!`
       });

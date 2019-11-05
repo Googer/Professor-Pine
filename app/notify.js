@@ -68,8 +68,7 @@ class Notify {
       .filter(memberId => trainChannel.guild.members.has(memberId))
       .filter(memberId => trainChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))) {
       messagesToSend.push({
-        guildId,
-        memberId,
+        userId: memberId,
         message: notificationMessageHeader,
         embed: fullStatusMessage.embed
       });
@@ -141,8 +140,7 @@ class Notify {
       .filter(memberId => areaChannel.guild.members.has(memberId))
       .filter(memberId => areaChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))) {
       messagesToSend.push({
-        guildId,
-        memberId,
+        userId: memberId,
         message: header,
         embed
       });
@@ -211,8 +209,7 @@ class Notify {
       .filter(memberId => raidChannel.guild.members.has(memberId))
       .filter(memberId => raidChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))) {
       messagesToSend.push({
-        guildId,
-        memberId,
+        userId: memberId,
         message: notificationMessageHeader,
         embed: fullStatusMessage.embed
       });

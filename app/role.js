@@ -26,8 +26,7 @@ class Role {
               VIEW_CHANNEL: true
             })
             .then(channel => Helper.sendNotificationMessages([{
-              guildId: channel.guild.id,
-              memberId: memberWithoutAccess,
+              userId: memberWithoutAccess,
               message: `${channel.toString()} has been ${isInitial ? 'created in' : 'moved to'} **${channel.parent.name}**, which you do not have access to!\n\n` +
                 `You have been granted permission to view this channel but you may want to revisit your region roles and correct them in ${Helper.getBotChannel(channel)}.`
             }]))

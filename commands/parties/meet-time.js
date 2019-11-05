@@ -83,8 +83,7 @@ class MeetTimeCommand extends Commando.Command {
         `There ${verb} currently **${totalAttendees}** ${noun} attending!`;
 
       messagesToSend.push({
-        guildId: message.guild.id,
-        memberId: attendee,
+        userId: attendee,
         message: messageToSend
       });
     }
