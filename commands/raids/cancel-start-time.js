@@ -53,16 +53,22 @@ class CancelStartTimeCommand extends Commando.Command {
         'trainers',
       channel = (await PartyManager.getChannel(raid.channelId)).channel;
 
+    const messagesToSend = [];
+
     // notify all attendees in same group that a time has been set
-    Object.entries(raid.attendees)
+    for (const [attendee, attendeeStatus] of Object.entries(raid.attendees)
       .filter(([attendee, attendeeStatus]) => attendee !== message.member.id &&
         attendeeStatus.status !== PartyStatus.COMPLETE)
-      .filter(([attendee, attendeeStatus]) => attendeeStatus.group === groupId)
-      .forEach(([attendee, attendeeStatus]) => {
-        Helper.sendMessage(message.guild.id, attendee, `${message.member.displayName} has canceled the meeting time for ${channel.toString()}. ` +
-          `There ${verb} currently **${totalAttendees}** ${noun} attending!`)
-          .catch(err => log.error(err));
+      .filter(([attendee, attendeeStatus]) => attendeeStatus.group === groupId)) {
+      messagesToSend.push({
+        guildId: message.guild.id,
+        memberId: attendee,
+        message: `${message.member.displayName} has canceled the meeting time for ${channel.toString()}. ` +
+          `There ${verb} currently **${totalAttendees}** ${noun} attending!`
       });
+    }
+
+    Helper.sendNotificationMessages(messagesToSend);
 
     raid.refreshStatusMessages()
       .catch(err => log.error(err));

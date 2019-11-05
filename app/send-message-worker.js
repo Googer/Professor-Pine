@@ -20,16 +20,32 @@ function sendMessage(guildId, memberId, message, embed) {
   const member = NotifyClient.guilds.get(guildId).members.get(memberId);
 
   if (embed) {
-    member.send(message, {embed})
+    return member.send(message, {embed})
       .catch(err => log.error(err));
   } else {
-    member.send(message)
+    return member.send(message)
       .catch(err => log.error(err));
   }
 }
 
-parentPort.on('message', ({guildId, memberId, header, embed}) => {
-  sendMessage(guildId, memberId, header, embed);
+parentPort.on('message', async messages => {
+  let promiseChain,
+    currentPromise;
+
+  for (const {guildId, memberId, message, embed} of messages) {
+    if (currentPromise) {
+      currentPromise = currentPromise
+        .then(res => sendMessage(guildId, memberId, message, embed)
+          .catch(err => log.error(err)));
+    } else {
+      currentPromise = sendMessage(guildId, memberId, message, embed)
+        .catch(err => log.error(err));
+      promiseChain = currentPromise;
+    }
+  }
+
+  await promiseChain
+    .catch(err => log.error(err));
 });
 
 NotifyClient.on('ready', () => {

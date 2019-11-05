@@ -59,17 +59,24 @@ class Notify {
       .where('User.newTrain', 1)
       .pluck('User.userSnowflake');
 
-    [...new Set([...trainMembers])]
+    const messagesToSend = [];
+
+    for (const memberId of [...new Set([...trainMembers])]
       .filter(memberId => memberId !== reportingMemberId)
       .filter(memberId => trainChannel.guild.members.has(memberId))
-      .filter(memberId => trainChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))
-      .forEach(async memberId => {
-        const notificationMessageHeader = await train.getNotificationMessageHeader(reportingMemberId),
-          fullStatusMessage = await train.getFullStatusMessage();
+      .filter(memberId => trainChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))) {
+      const notificationMessageHeader = await train.getNotificationMessageHeader(reportingMemberId),
+        fullStatusMessage = await train.getFullStatusMessage();
 
-        Helper.sendMessage(guildId, memberId, notificationMessageHeader, fullStatusMessage)
-          .catch(err => log.error(err));
+      messagesToSend.push({
+        guildId,
+        memberId,
+        message: notificationMessageHeader,
+        embed: fullStatusMessage
       });
+    }
+
+    Helper.sendNotificationMessages(messagesToSend);
   }
 
   async notifyMembersOfSpawn(pokemon, reportingMemberId, location, message, additionalPokemon = null) {
@@ -127,12 +134,21 @@ class Notify {
       })
       .catch(err => log.error(err));
 
-    [...new Set(pokemonMembers)]
+    const messagesToSend = [];
+
+    for (const memberId of [...new Set(pokemonMembers)]
       .filter(memberId => memberId !== reportingMemberId)
       .filter(memberId => areaChannel.guild.members.has(memberId))
-      .filter(memberId => areaChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))
-      .forEach(memberId => Helper.sendMessage(guildId, memberId, header, embed)
-        .catch(err => log.error(err)));
+      .filter(memberId => areaChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))) {
+      messagesToSend.push({
+        guildId,
+        memberId,
+        message: header,
+        embed
+      });
+    }
+
+    Helper.sendNotificationMessages(messagesToSend);
   }
 
   // notify interested members for the raid associated with the given channel and pokemon (and / or or gym),
@@ -185,17 +201,24 @@ class Notify {
         .pluck('userSnowflake');
     }
 
-    [...new Set([...pokemonMembers, ...gymMembers, ...attendees])]
+    const messagesToSend = [];
+
+    for (const memberId of [...new Set([...pokemonMembers, ...gymMembers, ...attendees])]
       .filter(memberId => memberId !== reportingMemberId)
       .filter(memberId => raidChannel.guild.members.has(memberId))
-      .filter(memberId => raidChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))
-      .forEach(async memberId => {
-        const notificationMessageHeader = await raid.getNotificationMessageHeader(reportingMemberId),
-          fullStatusMessage = await raid.getFullStatusMessage();
+      .filter(memberId => raidChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))) {
+      const notificationMessageHeader = await raid.getNotificationMessageHeader(reportingMemberId),
+        fullStatusMessage = await raid.getFullStatusMessage();
 
-        Helper.sendMessage(guildId, memberId, notificationMessageHeader, fullStatusMessage)
-          .catch(err => log.error(err));
+      messagesToSend.push({
+        guildId,
+        memberId,
+        message: notificationMessageHeader,
+        embed: fullStatusMessage
       });
+    }
+
+    Helper.sendNotificationMessages(messagesToSend);
   }
 
   // give pokemon notification to user

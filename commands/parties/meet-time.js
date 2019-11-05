@@ -82,8 +82,11 @@ class MeetTimeCommand extends Commando.Command {
           `${message.member.displayName} set a meeting time of ${formattedStartTime} for ${channel.toString()}. ` +
           `There ${verb} currently **${totalAttendees}** ${noun} attending!`;
 
-        Helper.sendMessage(message.guild.id, attendee, messageToSend)
-          .catch(err => log.error(err));
+        Helper.sendNotificationMessages([{
+          guildId: message.guild.id,
+          memberId: attendee,
+          message: messageToSend
+        }]);
       });
 
     raid.refreshStatusMessages()

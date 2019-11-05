@@ -15,7 +15,7 @@ class Helper {
     this.emojis = null;
 
     // pool of notification clients (just 1 for now)
-    this.pool = new StaticPool({
+    this.notificationThreadPool = new StaticPool({
       size: 1,
       task: './app/send-message-worker.js'
     });
@@ -173,8 +173,8 @@ class Helper {
     });
   }
 
-  sendMessage(guildId, memberId, message, embed) {
-    return this.pool.exec({guildId, memberId, message, embed});
+  sendNotificationMessages(messages) {
+    return this.notificationThreadPool.exec(messages);
   }
 
   getExRaidAnnounceChannel(guild) {
