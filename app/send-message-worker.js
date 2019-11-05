@@ -16,14 +16,18 @@ NodeCleanup((exitCode, signal) => {
   NotifyClient.destroy();
 });
 
-function sendMessage(guildId, memberId, message, embed) {
+async function sendMessage(guildId, memberId, message, embed) {
   const member = NotifyClient.guilds.get(guildId).members.get(memberId);
 
-  return embed ?
-    member.send(message, {embed})
-      .catch(err => log.error(err)) :
-    member.send(message)
+  if (embed) {
+    await member.send(message, {embed})
       .catch(err => log.error(err));
+  } else {
+    await member.send(message)
+      .catch(err => log.error(err));
+  }
+
+  return Promise.resolve();
 }
 
 parentPort.on('message', async messages => {
