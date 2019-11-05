@@ -1,18 +1,24 @@
 "use strict";
 
 const log = require('loglevel').getLogger('Helper'),
+  settings = require('../data/settings'),
+  {StaticPool} = require('node-worker-threads-pool'),
   text = require('../data/text'),
-  {Team} = require('./constants'),
-  settings = require('../data/settings');
+  {Team} = require('./constants');
 
 class Helper {
   constructor() {
     this.text = text;
     this.client = null;
-    this.notifyClient = null;
 
     // cache of emoji ids, populated on client login
     this.emojis = null;
+
+    // pool of notification clients (just 1 for now)
+    this.notificationThreadPool = new StaticPool({
+      size: 1,
+      task: './app/send-message-worker.js'
+    });
   }
 
   setClient(client) {
@@ -49,7 +55,7 @@ class Helper {
             })
           },
           categories: {
-            pvp:  guild.channels.find(channel => {
+            pvp: guild.channels.find(channel => {
               return channel.name === settings.categories["pvp"] && channel.type === 'category';
             })
           },
@@ -100,7 +106,7 @@ class Helper {
             help: null,
           },
           categories: {
-            pvp:  guild.channels.find(channel => {
+            pvp: guild.channels.find(channel => {
               return channel.name === settings.categories["pvp"];
             })
           },
@@ -167,12 +173,12 @@ class Helper {
     });
   }
 
-  setNotifyClient(client) {
-    this.notifyClient = client;
-  }
-
-  getMemberForNotification(guildId, memberId) {
-    return this.notifyClient.guilds.get(guildId).members.get(memberId)
+  sendNotificationMessages(messages) {
+    if (!!messages && messages.length > 0) {
+      return this.notificationThreadPool.exec(messages);
+    } else {
+      return Promise.resolve();
+    }
   }
 
   getExRaidAnnounceChannel(guild) {
@@ -255,7 +261,7 @@ class Helper {
     return guild.channels.botUpdates;
   }
 
-  getPvPCategory(channel){
+  getPvPCategory(channel) {
     const guild = this.guild.get(channel.guild.id);
     return guild.categories.pvp;
   }
@@ -309,12 +315,12 @@ class Helper {
         Array.from(this.client.guilds)
           .find(guild => guild[1].members.has(message.author.id))[0];
 
-        let botChannelString = !!guildId ?
-          this.guild.get(guildId).channels.botLab.toString() :
-          `#${settings.channels["bot-lab"]}`;
-        let pvpChannelString = !!guildId ?
-          this.guild.get(guildId).channels.pvp.toString() :
-          `#${settings.channels["pvp"]}`;
+      let botChannelString = !!guildId ?
+        this.guild.get(guildId).channels.botLab.toString() :
+        `#${settings.channels["bot-lab"]}`;
+      let pvpChannelString = !!guildId ?
+        this.guild.get(guildId).channels.pvp.toString() :
+        `#${settings.channels["pvp"]}`;
 
       text = text.replace(/\${bot-channel}/g, botChannelString);
       text = text.replace(/\${pvp-channel}/g, pvpChannelString);

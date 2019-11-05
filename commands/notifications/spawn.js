@@ -5,7 +5,6 @@ const log = require('loglevel').getLogger('SpawnCommand'),
   {CommandGroup} = require('../../app/constants'),
   Gym = require('../../app/gym'),
   Helper = require('../../app/helper'),
-  Notify = require('../../app/notify'),
   PartyManager = require('../../app/party-manager'),
   Pokemon = require('../../app/pokemon'),
   {MessageEmbed} = require('discord.js'),
@@ -96,11 +95,9 @@ class SpawnCommand extends Commando.Command {
         }
       });
 
-      Notify.notifyMembersOfSpawn(pokemon, message.member.id, spawnDetails, message, messagePokemon)
-        .catch(err => log.error(err));
+      Helper.client.emit('spawnReported', pokemon, message.member.id, spawnDetails, message, messagePokemon);
     } else {
-      Notify.notifyMembersOfSpawn(pokemon, message.member.id, spawnDetails, message)
-        .catch(err => log.error(err));
+      Helper.client.emit('spawnReported', pokemon, message.member.id, spawnDetails, message);
     }
   }
 }
