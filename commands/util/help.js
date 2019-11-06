@@ -92,8 +92,7 @@ class HelpCommand extends Commando.Command {
         embed.setFooter(`Use ${this.usage('<command>', null, null)} to view detailed information about a specific command.`);
 
         const groupsToShow = groups
-          .filter(group => group.commands.size > 0 &&
-            ((showAll && (Helper.isManagement(message) || Helper.isBotManagement(message))) || settings.helpGroups.includes(group.id)));
+          .filter(group => group.commands.size > 0 && settings.helpGroups.includes(group.id));
 
         const fields = [];
 
@@ -101,7 +100,8 @@ class HelpCommand extends Commando.Command {
           let fieldName = `**${group.name}**`,
             fieldContents = '';
 
-          for (const command of group.commands.values()) {
+          for (const command of [...group.commands.values()]
+            .filter(cmd => !cmd.hidden && (showAll || cmd.isUsable(message)))) {
             const line = `**${command.name}**: ${command.description}`;
             if (fieldContents.length + line.length > 1024) {
               fields.push({fieldName, fieldContents});
@@ -114,7 +114,9 @@ class HelpCommand extends Commando.Command {
             }
           }
 
-          fields.push({fieldName, fieldContents});
+          if (fieldContents.length > 0) {
+            fields.push({fieldName, fieldContents});
+          }
         }
 
         for (const {fieldName, fieldContents} of fields) {
