@@ -102,6 +102,7 @@ class EditRouteCommand extends Commando.Command {
             Utility.cleanCollector(beforeGym);
 
             await party.insertRouteGym(beforeIndex, gymId);
+            await party.removeRouteMessage(message);
           }
 
           Utility.cleanCollector(collectionResult);

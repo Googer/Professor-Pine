@@ -998,7 +998,7 @@
   },
   {
     "name": "umbreon",
-    "tier": 3
+    "tier": 4
   },
   {
     "name": "murkrow",
@@ -1537,7 +1537,7 @@
   },
   {
     "name": "lileep",
-    "tier": 1,
+    "tier": 2,
     "shiny": true
   },
   {
@@ -1545,7 +1545,7 @@
   },
   {
     "name": "anorith",
-    "tier": 1,
+    "tier": 2,
     "shiny": true
   },
   {
@@ -1645,6 +1645,7 @@
   },
   {
     "name": "beldum",
+    "tier": 1,
     "shiny": true
   },
   {
@@ -1896,7 +1897,8 @@
     "name": "stunky"
   },
   {
-    "name": "skuntank"
+    "name": "skuntank",
+    "tier": 3
   },
   {
     "name": "bronzor"
@@ -2088,7 +2090,8 @@
     "name": "manaphy"
   },
   {
-    "name": "darkrai"
+    "name": "darkrai",
+    "tier": 5
   },
   {
     "name": "shaymin"
@@ -2305,7 +2308,9 @@
     "name": "sigilyph"
   },
   {
-    "name": "yamask"
+    "name": "yamask",
+    "tier": 2,
+    "shiny": true
   },
   {
     "name": "cofagrigus"
@@ -2535,7 +2540,8 @@
     "name": "volcarona"
   },
   {
-    "name": "cobalion"
+    "name": "cobalion",
+    "tier": 5
   },
   {
     "name": "terrakion"

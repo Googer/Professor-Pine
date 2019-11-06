@@ -13,13 +13,19 @@ class Notify {
 
   initialize() {
     Helper.client.on('raidCreated', (raid, memberId) =>
-      this.notifyMembers(raid, memberId));
+      this.notifyMembersOfRaid(raid, memberId));
 
     Helper.client.on('raidPokemonSet', (raid, memberId, egg) =>
-      this.notifyMembers(raid, memberId, egg));
+      this.notifyMembersOfRaid(raid, memberId, egg));
 
     Helper.client.on('raidGymSet', (raid, memberId) =>
-      this.notifyMembers(raid, memberId));
+      this.notifyMembersOfRaid(raid, memberId));
+
+    Helper.client.on('trainCreated', (train, memberId) =>
+      this.notifyMembersOfTrain(train, memberId));
+
+    Helper.client.on('spawnReported', (pokemon, memberId, location, message, additionalPokemon) =>
+      this.notifyMembersOfSpawn(pokemon, memberId, location, message, additionalPokemon));
   }
 
   static getDbPokemonNumber(pokemon) {
@@ -45,11 +51,40 @@ class Notify {
       .pluck('gym');
   }
 
-  async notifyMembersOfSpawn(pokemon, reportingMemberId, location, message) {
+  async notifyMembersOfTrain(train, reportingMemberId) {
+    const trainChannel = (await PartyManager.getChannel(train.channelId)).channel,
+      guildId = trainChannel.guild.id;
+
+    let trainMembers = await DB.DB('User')
+      .where('User.newTrain', 1)
+      .pluck('User.userSnowflake');
+
+    const notificationMessageHeader = await train.getNotificationMessageHeader(reportingMemberId),
+      fullStatusMessage = await train.getFullStatusMessage(),
+      messagesToSend = [];
+
+    for (const memberId of [...new Set([...trainMembers])]
+      .filter(memberId => memberId !== reportingMemberId)
+      .filter(memberId => trainChannel.guild.members.has(memberId))
+      .filter(memberId => trainChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))) {
+      messagesToSend.push({
+        userId: memberId,
+        message: notificationMessageHeader,
+        embed: fullStatusMessage.embed
+      });
+    }
+
+    Helper.sendNotificationMessages(messagesToSend)
+      .catch(err => log.error(err));
+  }
+
+  async notifyMembersOfSpawn(pokemon, reportingMemberId, location, message, additionalPokemon = null) {
     const areaChannel = message.channel,
       guildId = message.guild.id,
       number = Notify.getDbPokemonNumber(pokemon),
-      dbPokemonNumbers = [...new Set([number])]
+      additionalNumber = additionalPokemon ? Notify.getDbPokemonNumber(additionalPokemon) : NaN,
+      numbers = additionalPokemon ? [number, additionalNumber] : [number],
+      dbPokemonNumbers = [...new Set(numbers)]
         .filter(number => !isNaN(number));
 
     // don't try to look up notifications from screenshot placeholders where
@@ -68,10 +103,11 @@ class Notify {
         .pluck('User.userSnowflake');
     }
 
-    const pokemonName = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1),
+    const pokemonName = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1)
+      + (additionalPokemon ? ' ' + additionalPokemon.name.charAt(0).toUpperCase() + additionalPokemon.name.slice(1) : ''),
       regionChannel = (await PartyManager.getChannel(message.channel.id)).channel,
       reportingMember = (await PartyManager.getMember(regionChannel.id, reportingMemberId)).member,
-      shiny = pokemon.shiny ?
+      shiny = pokemon.shiny || (additionalPokemon && additionalPokemon.shiny) ?
         Helper.getEmoji(settings.emoji.shiny) || '✨' :
         '',
       header = `A ${pokemonName}${shiny} spawn has been reported in #${regionChannel.name} by ${reportingMember.displayName}:`,
@@ -81,19 +117,11 @@ class Notify {
     embed.setColor('GREEN');
     embed.setDescription(location + '\n\n**Warning: Spawns are user-reported. There is no way to know exactly how long a Pokémon will be there. Most spawns are 30 min. Use your discretion when chasing them.**');
 
-    if (pokemon.url) {
+    if (pokemon.url && !additionalPokemon) {
       embed.setThumbnail(pokemon.url);
+    } else if (additionalPokemon && additionalPokemon.url) {
+      embed.setThumbnail(additionalPokemon.url);
     }
-
-    pokemonMembers.filter(mem => mem !== reportingMemberId)
-      .filter(memberId => areaChannel.guild.members.has(memberId))
-      .filter(memberId => areaChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))
-      .map(memberId => Helper.getMemberForNotification(message.channel.guild.id, memberId))
-      .filter(member => !!member)
-      .forEach(async member => {
-        member.send(header, {embed})
-          .catch(err => log.error(err));
-      });
 
     message.channel.send(regionHeader, {embed})
       .then(message => {
@@ -104,11 +132,27 @@ class Notify {
           .catch(err => log.error(err));
       })
       .catch(err => log.error(err));
+
+    const messagesToSend = [];
+
+    for (const memberId of [...new Set(pokemonMembers)]
+      .filter(memberId => memberId !== reportingMemberId)
+      .filter(memberId => areaChannel.guild.members.has(memberId))
+      .filter(memberId => areaChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))) {
+      messagesToSend.push({
+        userId: memberId,
+        message: header,
+        embed
+      });
+    }
+
+    Helper.sendNotificationMessages(messagesToSend)
+      .catch(err => log.error(err));
   }
 
   // notify interested members for the raid associated with the given channel and pokemon (and / or or gym),
   // filtering out the reporting member
-  async notifyMembers(raid, reportingMemberId, egg = false) {
+  async notifyMembersOfRaid(raid, reportingMemberId, egg = false) {
     // Don't send a notification for EX raids
     if (raid.pokemon.exclusive) {
       return;
@@ -156,19 +200,23 @@ class Notify {
         .pluck('userSnowflake');
     }
 
-    [...new Set([...pokemonMembers, ...gymMembers, ...attendees])]
-      .filter(mem => mem !== reportingMemberId)
-      .filter(memberId => raidChannel.guild.members.has(memberId))
-      .filter(memberId => raidChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))
-      .map(memberId => Helper.getMemberForNotification(guildId, memberId))
-      .filter(member => !!member)
-      .forEach(async member => {
-        const notificationMessageHeader = await raid.getNotificationMessageHeader(reportingMemberId),
-          fullStatusMessage = await raid.getFullStatusMessage();
+    const notificationMessageHeader = await raid.getNotificationMessageHeader(reportingMemberId),
+      fullStatusMessage = await raid.getFullStatusMessage(),
+      messagesToSend = [];
 
-        member.send(notificationMessageHeader, fullStatusMessage)
-          .catch(err => log.error(err));
+    for (const memberId of [...new Set([...pokemonMembers, ...gymMembers, ...attendees])]
+      .filter(memberId => memberId !== reportingMemberId)
+      .filter(memberId => raidChannel.guild.members.has(memberId))
+      .filter(memberId => raidChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))) {
+      messagesToSend.push({
+        userId: memberId,
+        message: notificationMessageHeader,
+        embed: fullStatusMessage.embed
       });
+    }
+
+    Helper.sendNotificationMessages(messagesToSend)
+      .catch(err => log.error(err));
   }
 
   // give pokemon notification to user
@@ -433,8 +481,22 @@ class Notify {
       .catch(err => log.error(err));
   }
 
+  setMentionTrainGroups(member, mention) {
+    return DB.insertIfAbsent('User', Object.assign({},
+      {
+        userSnowflake: member.user.id
+      }))
+      .then(userId => DB.DB('User')
+        .where('id', userId)
+        .update({
+          trainMovement: mention
+        }))
+      .catch(err => log.error(err));
+  }
+
   async shout(message, members, text, type, fromMember = null) {
-    const membersStrings = await Promise.all(members
+    const party = await PartyManager.getParty(message.channel.id),
+      membersStrings = await Promise.all(members
         .map(async member => {
           const mention = await this.shouldMention(member, type);
 
@@ -456,7 +518,14 @@ class Notify {
     embed.setDescription(text);
 
     message.channel.send(membersString, embed)
-      .then(message => message.channel.send(`To enable or disable these notifications, use the \`${message.client.commandPrefix}mentions\`, \`${message.client.commandPrefix}mentions-groups\`, and \`${message.client.commandPrefix}mentions-shouts\` commands in ${botLabChannel.toString()}.`))
+      .then(shoutMessage => {
+        message.channel.send(`To enable or disable these notifications, use the \`${message.client.commandPrefix}mentions\`, \`${message.client.commandPrefix}mentions-groups\`, \`${message.client.commandPrefix}mentions-train-stops\` and \`${message.client.commandPrefix}mentions-shouts\` commands in ${botLabChannel.toString()}.`)
+          .then(shoutFooterMessage => {
+            if (type === 'trainMovement') {
+              party.removeLastTrainMovement(shoutMessage, shoutFooterMessage);
+            }
+          })
+      })
       .catch(err => log.error(err));
   }
 }

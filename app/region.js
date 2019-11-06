@@ -1012,7 +1012,11 @@ class RegionHelper {
     }
 
     if (gym.confirmedEx || gym.taggedEx) {
-      const status = gym.taggedEx && gym.confirmedEx ? "This gym is eligible and has previously hosted an EX Raid" : gym.taggedEx ? "This gym is eligible to host an EX Raid" : "This gym has previously hosted an EX Raid but is not currently listed as eligible.";
+      const status = gym.taggedEx && gym.confirmedEx ?
+        "This gym is eligible and has previously hosted an EX Raid" :
+        gym.taggedEx ?
+          "This gym is eligible to host an EX Raid" :
+          "This gym has previously hosted an EX Raid but is not currently listed as eligible.";
       embed.addField("EX Raid Eligible", status);
     }
 
@@ -1050,7 +1054,6 @@ class RegionHelper {
     embed.setFooter(footer);
 
     // returns message promise for optional chaining
-
     if (channel && !msg) {
       return channel.send({
         embed
@@ -1090,7 +1093,7 @@ class RegionHelper {
       if (results && results.length > 0) {
         resolve(results);
       } else {
-        resolve([])
+        resolve([]);
       }
     });
   }

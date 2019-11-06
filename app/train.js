@@ -7,7 +7,10 @@ const log = require('loglevel').getLogger('Raid'),
   Discord = require('discord.js'),
   Helper = require('./helper'),
   Party = require('./party'),
+  User = require('./user'),
   uuidv1 = require('uuid/v1');
+  Region = require('./region'),
+  DB = require('./db');
 
 let Gym,
   PartyManager;
@@ -639,6 +642,13 @@ class RaidTrain extends Party {
     }
   }
 
+  async setRoute(route) {
+    this.route = route;
+    this.currentGym = 0;
+
+    await this.persist();
+  }
+
   async getRouteEmbed() {
     let embed = new Discord.MessageEmbed(),
       current = this.currentGym || 0;
@@ -651,11 +661,13 @@ class RaidTrain extends Party {
         let complete = index < current ? '~~' : '',
           completeText = index < current ? ' (Completed)' : '',
           gym = await Gym.getGym(this.route[index]),
+          exText = (gym.taggedEx || gym.confirmedEx) ? ' (EX Eligible)**' : '',
+          exStart = (gym.taggedEx || gym.confirmedEx) ? '**' : '',
           gymName = !!gym.nickname ?
             gym.nickname :
             gym.name;
 
-        description += (index + 1) + `. ${complete}${gymName}${complete}${completeText}\n`;
+        description += (index + 1) + `. ${complete}${exStart}${gymName}${exText}${complete}${completeText}\n`;
       }
 
       embed.setDescription(description);
@@ -676,6 +688,131 @@ class RaidTrain extends Party {
       .join('-');
   }
 
+  async removeLastRouteMessage(message, secondaryMessage) {
+    const messageCacheId = `${message.channel.id.toString()}:${message.id.toString()}`;
+    const messageCacheSecondaryId = `${secondaryMessage.channel.id.toString()}:${secondaryMessage.id.toString()}`;
+
+
+    if (!!this.lastRouteMessage) {
+      PartyManager.getMessage(this.lastRouteMessage)
+        .then(messageResult => {
+          if (messageResult.ok) {
+            messageResult.message.delete();
+          }
+        })
+        .catch(err => log.error(err));
+    }
+
+    if (!!this.lastRouteMessageSecondary) {
+      PartyManager.getMessage(this.lastRouteMessageSecondary)
+        .then(messageResult => {
+          if (messageResult.ok) {
+            messageResult.message.delete();
+          }
+        })
+        .catch(err => log.error(err));
+    }
+
+    this.lastRouteMessage = messageCacheId;
+    this.lastRouteMessageSecondary = messageCacheSecondaryId;
+
+    await this.persist();
+  }
+
+  async removeLastTrainMovement(message, secondaryMessage) {
+    const messageCacheId = `${message.channel.id.toString()}:${message.id.toString()}`;
+    const messageCacheSecondaryId = `${secondaryMessage.channel.id.toString()}:${secondaryMessage.id.toString()}`;
+
+
+    if (!!this.lastMovementMessage) {
+      PartyManager.getMessage(this.lastMovementMessage)
+        .then(messageResult => {
+          if (messageResult.ok) {
+            messageResult.message.delete();
+          }
+        })
+        .catch(err => log.error(err));
+    }
+
+    if (!!this.lastMovementMessageSecondary) {
+      PartyManager.getMessage(this.lastMovementMessageSecondary)
+        .then(messageResult => {
+          if (messageResult.ok) {
+            messageResult.message.delete();
+          }
+        })
+        .catch(err => log.error(err));
+    }
+
+    this.lastMovementMessage = messageCacheId;
+    this.lastMovementMessageSecondary = messageCacheSecondaryId;
+
+    await this.persist();
+  }
+
+  async removeRouteMessage(message) {
+    if (!!this.lastRouteMessage) {
+      PartyManager.getMessage(this.lastRouteMessage)
+        .then(messageResult => {
+          if (messageResult.ok) {
+            messageResult.message.delete();
+          }
+        })
+        .catch(err => log.error(err));
+    }
+
+    if (!!this.lastRouteMessageSecondary) {
+      PartyManager.getMessage(this.lastRouteMessageSecondary)
+        .then(messageResult => {
+          if (messageResult.ok) {
+            messageResult.message.delete();
+          }
+        })
+        .catch(err => log.error(err));
+    }
+
+    this.lastRouteMessage = undefined;
+    this.lastRouteMessageSecondary = undefined;
+
+    await this.persist();
+  }
+
+  async getNotificationMessageHeader(memberId) {
+    const raidChannel = (await PartyManager.getChannel(this.channelId)).channel,
+      regionChannel = (await PartyManager.getChannel(this.sourceChannelId)).channel,
+      member = this.createdById > 0 ?
+        (await this.getMember(memberId)).member :
+        null,
+      byLine = member !== null ?
+        ` by ${member.displayName}` :
+        '';
+
+    return `A new train has been announced in #${regionChannel.name}${byLine}: ${raidChannel.toString()}.`;
+  }
+
+  async saveRoute(name, message) {
+    const userId = await User.getUserId(message),
+          regionId = await Region.getRegionId(this.sourceChannelId);
+
+    return DB.knex('SavedRoutes')
+      .insert({
+        name: name,
+        gyms: this.route.join(','),
+        userId: userId,
+        region: regionId
+      })
+      .returning('id');
+  }
+
+  async getSavedRoutes(message) {
+    const userId = await User.getUserId(message),
+      regionId = await Region.getRegionId(this.sourceChannelId);
+
+    return DB.knex('SavedRoutes')
+      .where('region', regionId)
+      .andWhere('userId', userId);
+  }
+
   toJSON() {
     return Object.assign(super.toJSON(), {
       trainName: this.trainName,
@@ -688,7 +825,11 @@ class RaidTrain extends Party {
       route: this.route,
       conductor: this.conductor,
       endTime: this.endTime,
-      nextLastRun: this.nextLastRun
+      nextLastRun: this.nextLastRun,
+      lastRouteMessage: this.lastRouteMessage,
+      lastRouteMessageSecondary: this.lastRouteMessageSecondary,
+      lastMovementMessage: this.lastMovementMessage,
+      lastMovementMessageSecondary: this.lastMovementMessageSecondary
     });
   }
 }
