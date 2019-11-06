@@ -22,12 +22,6 @@ const privateSettings = require('./data/private-settings'),
     restTimeOffset: 1000,
     commandPrefix: settings.commandPrefix || '!'
   }),
-  NotifyClient = new Discord.Client({
-    owner: privateSettings.owner,
-    restWsBridgeTimeout: 10000,
-    restTimeOffset: 1000,
-    commandPrefix: settings.commandPrefix || '!'
-  }),
   DB = require('./app/db.js'),
   NodeCleanup = require('node-cleanup'),
   Gym = require('./app/gym'),
@@ -44,7 +38,6 @@ const privateSettings = require('./data/private-settings'),
 
 NodeCleanup((exitCode, signal) => {
   PartyManager.shutdown();
-  NotifyClient.destroy();
 });
 
 Client.registry.registerDefaultTypes();
@@ -117,6 +110,7 @@ Client.registry.registerCommands([
   require('./commands/notifications/mention'),
   require('./commands/notifications/mention-groups'),
   require('./commands/notifications/mention-shouts'),
+  require('./commands/notifications/mention-train-stops'),
 
   require('./commands/regions/bounds'),
 
@@ -138,6 +132,7 @@ Client.registry.registerCommands([
   require('./commands/parties/status'),
   require('./commands/parties/directions'),
   require('./commands/parties/shout'),
+  require('./commands/parties/save-party'),
 
   require('./commands/raids/raid'),
   require('./commands/parties/delete'),
@@ -163,6 +158,9 @@ Client.registry.registerCommands([
   require('./commands/trains/skip'),
   require('./commands/trains/train-finished'),
   require('./commands/trains/conductor'),
+  require('./commands/trains/not-conductor'),
+  require('./commands/trains/save-route'),
+  require('./commands/trains/use-route'),
 
   require('./commands/raids/meetup'),
   require('./commands/raids/set-desciption'),
@@ -190,7 +188,8 @@ Client.registry.registerCommands([
   require('./commands/game/register-nickname'),
   require('./commands/game/friend-code'),
   require('./commands/game/find-nickname'),
-  require('./commands/notifications/boss-set-notifications')
+  require('./commands/notifications/boss-set-notifications'),
+  require('./commands/notifications/new-train-notifications')
 ]);
 
 if (privateSettings.regionMapLink !== '') {
@@ -273,34 +272,8 @@ Client.on('reconnecting', () => log.info('Client reconnecting...'));
 
 Client.on('guildUnavailable', guild => log.warn(`Guild ${guild.id} unavailable!`));
 
-NotifyClient.on('ready', () => {
-  log.info('Notify client logged in');
-
-  Helper.setNotifyClient(NotifyClient);
-});
-
-NotifyClient.on('error', err => log.error(err));
-NotifyClient.on('warn', err => log.warn(err));
-NotifyClient.on('debug', err => log.debug(err));
-
-NotifyClient.on('rateLimit', event =>
-  log.warn(`Rate limited for ${event.timeout} ms, triggered by method '${event.method}', path '${event.path}', route '${event.route}'`));
-
-NotifyClient.on('disconnect', event => {
-  log.error(`Notify Client disconnected, code ${event.code}, reason '${event.reason}'...`);
-
-  NotifyClient.destroy()
-    .then(() => NotifyClient.login(privateSettings.discordNotifyToken))
-    .catch(err => log.error(err));
-});
-
-NotifyClient.on('reconnecting', () => log.info('Notify Client reconnecting...'));
-
-NotifyClient.on('guildUnavailable', guild => log.warn(`Guild ${guild.id} unavailable!`));
-
 PartyManager.initialize()
   .then(() => Client.login(privateSettings.discordBotToken))
-  .then(() => NotifyClient.login(privateSettings.discordNotifyToken))
   .catch(err => log.error(err));
 
 module.exports.isInitialized = isInitialized;

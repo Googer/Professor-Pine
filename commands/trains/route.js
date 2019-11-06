@@ -38,7 +38,15 @@ class RouteCommand extends Commando.Command {
     let embed = await raid.getRouteEmbed();
 
     message.channel.send(`${message.author}, here is the route information:`, embed)
-      .then(message => message.channel.send(`To edit this route, use the \`${message.client.commandPrefix}route-add\`, \`${message.client.commandPrefix}route-remove\`, and \`${message.client.commandPrefix}route-edit\` commands.`))
+      .then(routeMessage => {
+        routeMessage.channel.send(`To edit this route, use the \`${message.client.commandPrefix}route-add\`, \`${message.client.commandPrefix}route-remove\`, and \`${message.client.commandPrefix}route-edit\` commands.`)
+          .then(routeSecondMessage => {
+            raid.removeLastRouteMessage(routeMessage, routeSecondMessage);
+
+             message.delete()
+               .catch(err => log.error(err));
+          });
+      })
       .catch(err => log.error(err));
   }
 }

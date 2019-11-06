@@ -28,7 +28,7 @@ class ViewMemberSettingsCommand extends Commando.Command {
     });
 
     client.dispatcher.addInhibitor(message => {
-      if (!!message.command && message.command.name === 'find-anonymous-raids') {
+      if (!!message.command && message.command.name === 'view-member-settings') {
         if (!Helper.isBotManagement(message)) {
           return ['unauthorized', message.reply('You are not authorized to use this command.')];
         }

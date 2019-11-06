@@ -17,6 +17,9 @@
   "bossset": {
     "warning": "Use the `!boss-set-notifications` command in ${bot-channel} to view current notifications for gyms."
   },
+  "newtrain": {
+    "warning": "Use the `!new-train-notifications` command in ${bot-channel} to view current notifications for gyms."
+  },
   "favorites": {
     "warning": "Use the `!targets` command in ${bot-channel} to view current notifications for gyms."
   },
@@ -30,7 +33,7 @@
     "warning": "Use the `!untarget-all` command in ${bot-channel} to remove all notifications for gyms."
   },
   "mentions": {
-    "warning": "Use the `!mentions`, `!mentions-shouts`, and `!mentions-groups` command in ${bot-channel} to enable or disable being mentioned in messages by Professor Pine."
+    "warning": "Use the `!mentions`, `!mentions-shouts`, `!mentions-train-stops` and `!mentions-groups` command in ${bot-channel} to enable or disable being mentioned in messages by Professor Pine."
   },
   "register-silph": {
     "warning": "Use the `!register-silph` command in ${bot-channel} to register your Silph Road username."

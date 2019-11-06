@@ -68,26 +68,28 @@ class MeetTimeCommand extends Commando.Command {
         sameElse: 'l LT'
       },
       formattedStartTime = moment(startTime).calendar(null, calendarFormat),
-      channel = (await PartyManager.getChannel(raid.channelId)).channel;
+      channel = (await PartyManager.getChannel(raid.channelId)).channel,
+      messagesToSend = [];
 
     // notify all attendees in same group that a time has been set
-    Object.entries(raid.attendees)
+    for (const [attendee, attendeeStatus] of Object.entries(raid.attendees)
       .filter(([attendee, attendeeStatus]) => attendee !== message.member.id &&
         attendeeStatus.status !== PartyStatus.COMPLETE)
-      .filter(([attendee, attendeeStatus]) => attendeeStatus.group === groupId)
-      .forEach(([attendee, attendeeStatus]) => {
-        const member = Helper.getMemberForNotification(message.guild.id, attendee);
+      .filter(([attendee, attendeeStatus]) => attendeeStatus.group === groupId)) {
+      const messageToSend = startTime === -1 ?
+        `${message.member.displayName} has canceled the meeting time for ${channel.toString()}. ` +
+        `There ${verb} currently **${totalAttendees}** ${noun} attending!` :
+        `${message.member.displayName} set a meeting time of ${formattedStartTime} for ${channel.toString()}. ` +
+        `There ${verb} currently **${totalAttendees}** ${noun} attending!`;
 
-        if (startTime === -1) {
-          member.send(`${message.member.displayName} has canceled the meeting time for ${channel.toString()}. ` +
-            `There ${verb} currently **${totalAttendees}** ${noun} attending!`)
-            .catch(err => log.error(err));
-        } else {
-          member.send(`${message.member.displayName} set a meeting time of ${formattedStartTime} for ${channel.toString()}. ` +
-            `There ${verb} currently **${totalAttendees}** ${noun} attending!`)
-            .catch(err => log.error(err));
-        }
+      messagesToSend.push({
+        userId: attendee,
+        message: messageToSend
       });
+    }
+
+    Helper.sendNotificationMessages(messagesToSend)
+      .catch(err => log.error(err));
 
     raid.refreshStatusMessages()
       .catch(err => log.error(err));

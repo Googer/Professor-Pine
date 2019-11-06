@@ -90,7 +90,6 @@ class PvPRankingData {
       inputFilter[0] = [''];
     }
 
-    this.ivFilter;
     switch (this.command) {
       case 'master':
         this.cpLeague = 9001;
@@ -363,7 +362,6 @@ class PvPRankingData {
       league = command.toUpperCase();
     }
     let embed;
-    console.log("Test1");
     if (!this.embedErrorMessage) { //If no error message was found.
       let rankOutOf = this.ivFilter > 0 ? `/${Math.pow((16 - this.ivFilter), 3).toString()}` : ''; //If there is a filter, then give a Rank/HowMany. Otherwise, blank variable.
       let requestInfo = `\n**[${league} LEAGUE](${this.familyList[0].url})\nRank**: ${this.familyList[0].rank}${rankOutOf}` +
