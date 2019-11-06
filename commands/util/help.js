@@ -92,7 +92,8 @@ class HelpCommand extends Commando.Command {
         embed.setFooter(`Use ${this.usage('<command>', null, null)} to view detailed information about a specific command.`);
 
         const groupsToShow = groups
-          .filter(group => group.commands.size > 0 && settings.helpGroups.includes(group.id));
+          .filter(group => group.commands.size > 0 &&
+            ((showAll && (Helper.isManagement(message) || Helper.isBotManagement(message))) || settings.helpGroups.includes(group.id)));
 
         const fields = [];
 
