@@ -369,7 +369,9 @@
     "name": "golduck"
   },
   {
-    "name": "mankey"
+    "name": "mankey",
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "primeape",
@@ -377,6 +379,7 @@
   },
   {
     "name": "growlithe",
+    "tier": 1,
     "shiny": true
   },
   {
@@ -855,7 +858,7 @@
   },
   {
     "name": "quilava",
-    "tier": 1
+    "tier": 2
   },
   {
     "name": "typhlosion"
@@ -1230,7 +1233,8 @@
     "tier": 2
   },
   {
-    "name": "blaziken"
+    "name": "blaziken",
+    "tier": 4
   },
   {
     "name": "mudkip"
@@ -1363,7 +1367,8 @@
     "shiny": true
   },
   {
-    "name": "hariyama"
+    "name": "hariyama",
+    "tier": 3
   },
   {
     "name": "azurill",
