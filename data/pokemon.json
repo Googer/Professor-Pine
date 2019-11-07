@@ -1957,7 +1957,8 @@
     "name": "drapion"
   },
   {
-    "name": "croagunk"
+    "name": "croagunk",
+    "tier": 1
   },
   {
     "name": "toxicroak"
