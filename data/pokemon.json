@@ -336,6 +336,8 @@
   },
   {
     "name": "meowth",
+    "tier": 1,
+    "shiny": true,
     "nickname": [
       "kanto"
     ]
@@ -349,6 +351,7 @@
   },
   {
     "name": "persian",
+    "tier": 3,
     "nickname": [
       "kanto"
     ]
@@ -588,7 +591,8 @@
     "shiny": true
   },
   {
-    "name": "kingler"
+    "name": "kingler",
+    "tier": 2
   },
   {
     "name": "voltorb"
