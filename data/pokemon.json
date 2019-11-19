@@ -668,7 +668,7 @@
     "name": "weezing_galarian",
     "overrideName": "Galarian Weezing",
     "nickname": [
-      "galarian"
+      "galar"
     ],
     "tier": 4
   },
@@ -1269,7 +1269,21 @@
     "name": "zigzagoon"
   },
   {
+    "name": "zigzagoon_galarian",
+    "overrideName": "Galarian Zigzagoon",
+    "nickname": [
+      "galar"
+    ]
+  },
+  {
     "name": "linoone"
+  },
+  {
+    "name": "linoone_galarian",
+    "overrideName": "Galarian Linoone",
+    "nickname": [
+      "galar"
+    ]
   },
   {
     "name": "wurmple"
