@@ -665,6 +665,14 @@
     "tier": 2
   },
   {
+    "name": "weezing_galarian",
+    "overrideName": "Galarian Weezing",
+    "nickname": [
+      "galarian"
+    ],
+    "tier": 4
+  },
+  {
     "name": "rhyhorn"
   },
   {
