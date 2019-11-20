@@ -690,7 +690,8 @@
     "name": "kangaskhan"
   },
   {
-    "name": "horsea"
+    "name": "horsea",
+    "tier": 1
   },
   {
     "name": "seadra"
@@ -899,7 +900,8 @@
     "name": "hoothoot"
   },
   {
-    "name": "noctowl"
+    "name": "noctowl",
+    "tier": 2
   },
   {
     "name": "ledyba"
@@ -1121,7 +1123,8 @@
     "shiny": true
   },
   {
-    "name": "mantine"
+    "name": "mantine",
+    "tier": 3
   },
   {
     "name": "skarmory",
@@ -1335,7 +1338,8 @@
     "shiny": true
   },
   {
-    "name": "pelipper"
+    "name": "pelipper",
+    "tier": 3
   },
   {
     "name": "ralts"
@@ -1437,7 +1441,8 @@
     "shiny": true
   },
   {
-    "name": "medicham"
+    "name": "medicham",
+    "tier": 3
   },
   {
     "name": "electrike"
@@ -1520,7 +1525,8 @@
     "tier": 1
   },
   {
-    "name": "cacturne"
+    "name": "cacturne",
+    "tier": 3
   },
   {
     "name": "swablu",
@@ -2447,7 +2453,8 @@
     "name": "galvantula"
   },
   {
-    "name": "ferroseed"
+    "name": "ferroseed",
+    "tier": 3
   },
   {
     "name": "ferrothorn"
