@@ -167,9 +167,17 @@ module.exports = class CreateGym extends Commando.Command {
                           if (channelStrings.length > 0) {
                             msg.say("This gym is in " + channelStrings.join(", ") + ".")
                               .catch(err => log.error(err));
+
+                            if (settings.postNewGyms) {
+                              await Helper.getUpdatesChannel(channel).send("This gym is in " + channelStrings.join(", ") + ".");
+                            }
                           } else {
                             msg.say("This gym is not located in any region channels.")
                               .catch(err => log.error(err));
+
+                            if (settings.postNewGyms) {
+                              await Helper.getUpdatesChannel(channel).send("This gym is not located in any region channels.");
+                            }
                           }
 
                           that.cleanup(msg, locationResult, nameResult, nicknameResult, descriptionResult);
