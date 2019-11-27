@@ -1128,7 +1128,8 @@
   },
   {
     "name": "skarmory",
-    "tier": 3
+    "tier": 3,
+    "shiny": true
   },
   {
     "name": "houndour",
@@ -1506,7 +1507,8 @@
     "name": "spoink"
   },
   {
-    "name": "grumpig"
+    "name": "grumpig",
+    "tier": 2
   },
   {
     "name": "spinda"
@@ -1758,7 +1760,8 @@
     "name": "turtwig"
   },
   {
-    "name": "grotle"
+    "name": "grotle",
+    "tier": 2
   },
   {
     "name": "torterra"
@@ -2583,7 +2586,8 @@
     "tier": 5
   },
   {
-    "name": "terrakion"
+    "name": "terrakion",
+    "tier": 5
   },
   {
     "name": "virizion"
