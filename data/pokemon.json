@@ -1001,7 +1001,8 @@
   },
   {
     "name": "yanma",
-    "tier": 1
+    "tier": 2,
+    "shiny": true
   },
   {
     "name": "wooper"
@@ -1343,7 +1344,9 @@
     "tier": 3
   },
   {
-    "name": "ralts"
+    "name": "ralts",
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "kirlia",
@@ -1592,7 +1595,7 @@
   },
   {
     "name": "feebas",
-    "tier": 2,
+    "tier": 1,
     "shiny": true
   },
   {
@@ -1840,17 +1843,20 @@
   {
     "name": "burmy_plant",
     "overrideName": "Burmy (Plant Cloak)",
-    "tier": 1
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "burmy_sandy",
     "overrideName": "Burmy (Sandy Cloak)",
-    "tier": 1
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "burmy_trash",
     "overrideName": "Burmy (Trash Cloak)",
-    "tier": 1
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "wormadam_plant",
@@ -2253,7 +2259,8 @@
     "name": "drilbur"
   },
   {
-    "name": "excadrill"
+    "name": "excadrill",
+    "tier": 4
   },
   {
     "name": "audino"
