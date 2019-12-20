@@ -158,7 +158,7 @@ class Party {
       this.messagesSinceDeletionScheduled = 1;
     }
 
-    if (this.messagesSinceDeletionScheduled % 5 === 1) {
+    if (this.messagesSinceDeletionScheduled % 5 === 1 && this.deletionTime !== -1) {
       const timeUntilDeletion = moment(this.deletionTime).fromNow();
 
       PartyManager.getChannel(this.channelId)
@@ -170,6 +170,18 @@ class Party {
         .catch(err => log.error(err));
     }
   }
+
+  sendSavedWarningMessage() {
+    // send deletion warning message to this party every 5th call to this
+    PartyManager.getChannel(this.channelId)
+      .then(channelResult => {
+        if (channelResult.ok) {
+          channelResult.channel.send(`This channel will no longer self-destruct!`);
+        }
+      })
+      .catch(err => log.error(err));
+  }
+
 
   async replaceLastMessage(message) {
     const messageCacheId = `${message.channel.id.toString()}:${message.id.toString()}`;

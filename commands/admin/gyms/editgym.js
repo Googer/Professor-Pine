@@ -167,19 +167,16 @@ module.exports = class EditGym extends commando.Command {
     }
   }
 
-  cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage) {
-    let messagesToDelete = [msg, ...gymResult.prompts, ...gymResult.answers];
+  cleanup(msg, results, gymMessage) {
+    let messagesToDelete = [msg];
 
     if (gymMessage) {
       messagesToDelete = [...messagesToDelete, gymMessage];
     }
 
-    if (fieldResult) {
-      messagesToDelete = [...messagesToDelete, ...fieldResult.prompts, ...fieldResult.answers];
-    }
-
-    if (collectionResult) {
-      messagesToDelete = [...messagesToDelete, ...collectionResult.prompts, ...collectionResult.answers];
+    if (results && results.length > 0) {
+      results
+        .forEach(result => messagesToDelete = [...messagesToDelete, ...result.prompts, ...result.answers]);
     }
 
     Utility.deleteMessages(messagesToDelete);
@@ -215,12 +212,12 @@ module.exports = class EditGym extends commando.Command {
                             .catch(err => log.error(err)));
                         ImageCacher.deleteCachedImage(`images/gyms/${gym["id"]}.png`);
                         if (result["id"]) {
-                          that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
+                          that.cleanup(msg, [gymResult, fieldResult, collectionResult], gymMessage);
                           Region.showGymDetail(msg, result, "Updated Gym Location", msg.member.displayName, false)
                             .catch(err => log.error(err));
                         }
                       } else {
-                        that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
+                        that.cleanup(msg, [gymResult, fieldResult, collectionResult], gymMessage);
                       }
                     });
                 } else if (value === 'name') {
@@ -232,12 +229,12 @@ module.exports = class EditGym extends commando.Command {
                           .catch(error => msg.say("An error occurred setting the name of this gym.")
                             .catch(err => log.error(err)));
                         if (result["id"]) {
-                          that.cleanup(msg, gymResult, fieldResult, collectionResult);
+                          that.cleanup(msg, [gymResult, fieldResult, collectionResult], gymMessage);
                           Region.showGymDetail(msg, result, "Updated Gym Name", msg.member.displayName, false)
                             .catch(err => log.error(err));
                         }
                       } else {
-                        that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
+                        that.cleanup(msg, [gymResult, fieldResult, collectionResult], gymMessage);
                       }
                     });
                 } else if (value === 'nickname') {
@@ -249,12 +246,12 @@ module.exports = class EditGym extends commando.Command {
                           .catch(error => msg.say("An error occurred setting the nickname of this gym.")
                             .catch(err => log.error(err)));
                         if (result["id"]) {
-                          that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
+                          that.cleanup(msg, [gymResult, fieldResult, collectionResult], gymMessage);
                           Region.showGymDetail(msg, result, "Updated Gym Nickname", msg.member.displayName, false)
                             .catch(err => log.error(err));
                         }
                       } else {
-                        that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
+                        that.cleanup(msg, [gymResult, fieldResult, collectionResult], gymMessage);
                       }
                     });
                 } else if (value === 'description') {
@@ -266,12 +263,12 @@ module.exports = class EditGym extends commando.Command {
                           .catch(error => msg.say("An error occurred setting the description of this gym.")
                             .catch(err => log.error(err)));
                         if (result["id"]) {
-                          that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
+                          that.cleanup(msg, [gymResult, fieldResult, collectionResult], gymMessage);
                           Region.showGymDetail(msg, result, "Updated Gym Description", msg.member.displayName, false)
                             .catch(err => log.error(err));
                         }
                       } else {
-                        that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
+                        that.cleanup(msg, [gymResult, fieldResult, collectionResult], gymMessage);
                       }
                     });
                 } else if (value === 'keywords') {
@@ -287,12 +284,12 @@ module.exports = class EditGym extends commando.Command {
                           .catch(error => msg.say("An error occurred adding removing keywords from the gym.")
                             .catch(err => log.error(err)));
                         if (result["id"]) {
-                          that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
+                          that.cleanup(msg, [gymResult, fieldResult, collectionResult], gymMessage);
                           Region.showGymDetail(msg, result, "Updated Gym Keywords", msg.member.displayName, false)
                             .catch(err => log.error(err));
                         }
                       } else {
-                        that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
+                        that.cleanup(msg, [gymResult, fieldResult, collectionResult], gymMessage);
                       }
                     });
                 } else if (value === 'exraid') {
@@ -312,13 +309,7 @@ module.exports = class EditGym extends commando.Command {
                                 .catch(error => msg.say("An error occurred setting the EX eligibility of This gym.")
                                   .catch(err => log.error(err)));
                               if (result["id"]) {
-
-                                previousResult.prompts.forEach(message => {
-                                  message.delete()
-                                    .catch(err => log.error(err));
-                                });
-
-                                that.cleanup(msg, gymResult, fieldResult, tagResult, gymMessage);
+                                that.cleanup(msg, [gymResult, fieldResult, tagResult, previousResult], gymMessage);
                                 Region.showGymDetail(msg, result, "Updated EX Raid Eligibility", msg.member.displayName, false)
                                   .catch(err => log.error(err));
                               }
@@ -327,11 +318,11 @@ module.exports = class EditGym extends commando.Command {
                                 message.delete()
                                   .catch(err => log.error(err));
                               });
-                              that.cleanup(msg, gymResult, fieldResult, tagResult, gymMessage);
+                              that.cleanup(msg, [gymResult, fieldResult, tagResult, previousResult], gymMessage);
                             }
                           });
                       } else {
-                        that.cleanup(msg, gymResult, fieldResult, tagResult, gymMessage);
+                        that.cleanup(msg, [gymResult, fieldResult, tagResult], gymMessage);
                       }
                     });
                 } else if (value === 'notice') {
@@ -343,20 +334,20 @@ module.exports = class EditGym extends commando.Command {
                           .catch(error => msg.say("An error occurred setting the notice for this gym.")
                             .catch(err => log.error(err)));
                         if (result["id"]) {
-                          that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
+                          that.cleanup(msg, [gymResult, fieldResult, collectionResult], gymMessage);
                           Region.showGymDetail(msg, result, "Updated Gym Notice", msg.member.displayName, false);
                         }
                       } else {
-                        that.cleanup(msg, gymResult, fieldResult, collectionResult, gymMessage);
+                        that.cleanup(msg, [gymResult, fieldResult, collectionResult], gymMessage);
                       }
                     });
                 }
               } else {
-                that.cleanup(msg, gymResult, fieldResult, null, gymMessage);
+                that.cleanup(msg, [gymResult, fieldResult], gymMessage);
               }
             });
         } else {
-          that.cleanup(msg, gymResult, null, null, null);
+          that.cleanup(msg, [gymResult], null);
         }
       });
   }

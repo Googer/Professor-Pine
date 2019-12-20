@@ -6,6 +6,8 @@ const log = require('loglevel').getLogger('TrainFinishedCommand'),
   {CommandGroup, PartyStatus, PartyType} = require('../../app/constants'),
   Helper = require('../../app/helper'),
   settings = require('../../data/settings'),
+  Notify = require('../../app/notify'),
+  Gym = require('../../app/gym'),
   PartyManager = require('../../app/party-manager');
 
 class TrainFinishedCommand extends Commando.Command {
@@ -32,7 +34,11 @@ class TrainFinishedCommand extends Commando.Command {
   }
 
   async run(message) {
-    const party = PartyManager.getParty(message.channel.id);
+    const party = PartyManager.getParty(message.channel.id),
+      attendees = Object.entries(party.attendees)
+        .filter(([attendee, attendeeStatus]) => attendee !== message.member.id &&
+          attendeeStatus.status !== PartyStatus.COMPLETE)
+        .map(([attendee, attendeeStatus]) => attendee);
 
     if (party.conductor && party.conductor.username !== message.author.username) {
       message.react(Helper.getEmoji(settings.emoji.thumbsDown) || '👎')
@@ -52,6 +58,19 @@ class TrainFinishedCommand extends Commando.Command {
           })
           .catch(err => log.error(err));
         return;
+      }
+      info = await party.removeRouteMessage(message);
+
+
+
+      if (attendees.length > 0) {
+        const members = (await Promise.all(attendees
+            .map(async attendeeId => await party.getMember(attendeeId))))
+            .filter(member => member.ok === true)
+            .map(member => member.member),
+          text = `This train is finished! We hope you had fun raiding tonight!`;
+
+        Notify.shout(message, members, text, 'trainMovement', message.member);
       }
 
       message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')

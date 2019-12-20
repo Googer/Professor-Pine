@@ -87,6 +87,20 @@ class User {
       .catch(err => log.error(err));
   }
 
+  setNewTrainNotification(member, notification) {
+    return DB.insertIfAbsent('User', Object.assign({},
+      {
+        userSnowflake: member.user.id
+      }))
+      .then(userId => DB.DB('User')
+        .where('id', userId)
+        .update({
+          newTrain: notification
+        }))
+      .catch(err => log.error(err));
+  }
+
+
   setNickname(member, nickname) {
     return DB.insertIfAbsent('User', Object.assign({},
       {
@@ -116,6 +130,14 @@ class User {
     }
 
     return false;
+  }
+
+  async getUserId(message) {
+    const result = await DB.DB('User')
+      .where('userSnowflake', message.author.id)
+      .first();
+
+    return !!result ? result.id : null;
   }
 }
 

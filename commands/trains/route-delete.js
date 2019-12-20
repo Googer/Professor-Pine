@@ -71,6 +71,7 @@ class RemoveRouteCommand extends Commando.Command {
         message.channel.send(`${message.author}, ${gymName} is already a part of this route.`)
           .catch(err => log.error(err));
       }
+      route = await party.removeRouteMessage(message);
 
       message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
         .catch(err => log.error(err));

@@ -29,7 +29,7 @@ class RaidCommand extends Commando.Command {
         {
           key: 'pokemon',
           prompt: 'What pokémon (or tier if unhatched) is this raid?\nExample: `lugia`\n',
-          type: 'pokemon',
+          type: 'raidpokemon',
         },
         {
           key: 'gymId',
@@ -48,6 +48,15 @@ class RaidCommand extends Commando.Command {
         key: TimeParameter.HATCH,
         label: 'hatch time',
         prompt: 'How much time is remaining (in minutes) until the raid hatches?\nExample: `43`\n\n*or*\n\nWhen does this raid hatch?\nExample: `6:12`\n',
+        type: 'time'
+      }
+    ], 3);
+
+    this.exHatchTimeCollector = new Commando.ArgumentCollector(client, [
+      {
+        key: TimeParameter.HATCH,
+        label: 'hatch time',
+        prompt: 'What is the date and time for this EX raid?\nExample: `4/12 1:00pm` (April 12th at 1:00pm)\n',
         type: 'time'
       }
     ], 3);
@@ -141,6 +150,10 @@ class RaidCommand extends Commando.Command {
               if (raid.pokemon.name && collectEndTime) {
                 return this.endTimeCollector.obtain(message);
               } else {
+                if (isExclusive) {
+                  return this.exHatchTimeCollector.obtain(message);
+                }
+
                 return this.hatchTimeCollector.obtain(message);
               }
             })
