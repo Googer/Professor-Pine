@@ -2255,6 +2255,32 @@
       "imageURL": "https://cdn.bulbagarden.net/upload/4/42/110Weezing.png"
     },
     {
+      "number": 110,
+      "pbName": "WEEZING_GALARIAN_FORM",
+      "family": "WEEZING_GALARIAN_FORM",
+      "aliases": [
+        "WEEZING_GALARIAN_FORM",
+        "GALARIAN WEEZING",
+        "GALAR WEEZING",
+        "WEEZING GALARIAN",
+        "WEEZING GALAR",
+        "WEEZING GALARIAN FORM",
+        "WEEZING GALAR FORM",
+        "GWEEZING",
+        "G WEEZING"
+      ],
+      "dzName": "Weezing-Galar",
+      "atk": 174,
+      "def": 197,
+      "sta": 163,
+      "gsName": [
+        "GALARIAN WEEZING",
+        "G WEEZING",
+        "WEEZING GALARIAN"
+      ],
+      "imageURL": "https://cdn.bulbagarden.net/upload/3/38/110Weezing-Galar.png"
+    },
+    {
       "number": 111,
       "pbName": "RHYHORN",
       "family": "RHYHORN",
