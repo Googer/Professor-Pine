@@ -170,6 +170,7 @@
   },
   {
     "name": "raichu",
+    "tier": 2,
     "shiny": true,
     "nickname": [
       "kanto"
@@ -1123,6 +1124,7 @@
   },
   {
     "name": "delibird",
+    "tier": 3,
     "shiny": true
   },
   {
@@ -1157,7 +1159,9 @@
     "name": "porygon2"
   },
   {
-    "name": "stantler"
+    "name": "stantler",
+    "tier": 2,
+    "shiny": true
   },
   {
     "name": "smeargle"
@@ -2521,7 +2525,8 @@
     "name": "haxorus"
   },
   {
-    "name": "cubchoo"
+    "name": "cubchoo",
+    "tier": 1
   },
   {
     "name": "beartic"
