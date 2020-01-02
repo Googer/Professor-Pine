@@ -140,7 +140,8 @@
     "name": "raticate",
     "nickname": [
       "kanto"
-    ]
+    ],
+    "tier": 2
   },
   {
     "name": "raticate_alola",
@@ -1038,7 +1039,9 @@
     "name": "unown"
   },
   {
-    "name": "wobbuffet"
+    "name": "wobbuffet",
+    "tier": 2,
+    "shiny": true
   },
   {
     "name": "girafarig"
