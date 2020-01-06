@@ -758,17 +758,24 @@ class RegionHelper {
       }
       polystring += "))";
 
-      await that.deletePreviousRegion(channelId);
-
       const guildDbId = (await DB.DB('Guild')
         .where('snowflake', guildId)
         .pluck('id')
         .first()
-        .catch(err => log.error(err)))
-        .id;
+        .catch(err => {
+          log.error(err);
+          return {id: -1};
+        })).id;
 
-      const insertQuery = "INSERT INTO Region (channelId, guildId, bounds) VALUES(?, ?, ST_PolygonFromText(?));";
-      dbhelper.query(insertQuery, [channelId, guildDbId, polystring])
+      if (guildDbId === -1) {
+        resolve(false);
+      }
+
+      const regionId = DB.insertIfAbsent('Region', {channelId, guildId: guildDbId})
+        .then(regionDbId => {
+          const insertQuery = "UPDATE Region set bounds = ST_PolygonFromText(?) WHERE id = (?);";
+          return dbhelper.query(insertQuery, [polystring, regionDbId[0]])
+        })
         .then(result => {
           log.info('Added region for guild id: ' + guildId + ', channel id: ' + channelId);
           if (gymCache) {
@@ -776,7 +783,7 @@ class RegionHelper {
           }
           resolve(true);
         })
-        .catch(error => reject(error));
+        .catch(err => log.error(err));
     });
   }
 
