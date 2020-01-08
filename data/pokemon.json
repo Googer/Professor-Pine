@@ -141,7 +141,8 @@
     "nickname": [
       "kanto"
     ],
-    "tier": 2
+    "tier": 2,
+    "shiny": true
   },
   {
     "name": "raticate_alola",
@@ -189,6 +190,7 @@
   },
   {
     "name": "sandshrew",
+    "tier": 1,
     "shiny": true,
     "nickname": [
       "kanto"
@@ -1793,7 +1795,8 @@
     "name": "piplup"
   },
   {
-    "name": "prinplup"
+    "name": "prinplup",
+    "tier": 2
   },
   {
     "name": "empoleon"
@@ -2112,7 +2115,8 @@
   },
   {
     "name": "heatran",
-    "tier": 5
+    "tier": 5,
+    "shiny": true
   },
   {
     "name": "regigigas",
@@ -2180,7 +2184,8 @@
     "name": "emboar"
   },
   {
-    "name": "oshawott"
+    "name": "oshawott",
+    "tier": 1
   },
   {
     "name": "dewott"
