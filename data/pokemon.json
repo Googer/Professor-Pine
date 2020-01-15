@@ -53,7 +53,7 @@
   },
   {
     "name": "ivysaur",
-    "tier": 1,
+    "tier": 2,
     "shiny": true
   },
   {
@@ -68,7 +68,7 @@
   },
   {
     "name": "charmeleon",
-    "tier": 1,
+    "tier": 2,
     "shiny": true
   },
   {
@@ -83,7 +83,7 @@
   },
   {
     "name": "wartortle",
-    "tier": 1,
+    "tier": 2,
     "shiny": true
   },
   {
@@ -120,7 +120,8 @@
     "name": "pidgeotto"
   },
   {
-    "name": "pidgeot"
+    "name": "pidgeot",
+    "tier": 3
   },
   {
     "name": "rattata",
@@ -139,7 +140,9 @@
     "name": "raticate",
     "nickname": [
       "kanto"
-    ]
+    ],
+    "tier": 2,
+    "shiny": true
   },
   {
     "name": "raticate_alola",
@@ -152,7 +155,8 @@
     "name": "spearow"
   },
   {
-    "name": "fearow"
+    "name": "fearow",
+    "tier": 2
   },
   {
     "name": "ekans",
@@ -168,6 +172,7 @@
   },
   {
     "name": "raichu",
+    "tier": 2,
     "shiny": true,
     "nickname": [
       "kanto"
@@ -185,6 +190,7 @@
   },
   {
     "name": "sandshrew",
+    "tier": 1,
     "shiny": true,
     "nickname": [
       "kanto"
@@ -336,6 +342,8 @@
   },
   {
     "name": "meowth",
+    "tier": 1,
+    "shiny": true,
     "nickname": [
       "kanto"
     ]
@@ -349,6 +357,7 @@
   },
   {
     "name": "persian",
+    "tier": 3,
     "nickname": [
       "kanto"
     ]
@@ -369,7 +378,9 @@
     "name": "golduck"
   },
   {
-    "name": "mankey"
+    "name": "mankey",
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "primeape",
@@ -377,6 +388,7 @@
   },
   {
     "name": "growlithe",
+    "tier": 1,
     "shiny": true
   },
   {
@@ -585,7 +597,8 @@
     "shiny": true
   },
   {
-    "name": "kingler"
+    "name": "kingler",
+    "tier": 2
   },
   {
     "name": "voltorb"
@@ -658,6 +671,14 @@
     "tier": 2
   },
   {
+    "name": "weezing_galarian",
+    "overrideName": "Galarian Weezing",
+    "nickname": [
+      "galar"
+    ],
+    "tier": 4
+  },
+  {
     "name": "rhyhorn"
   },
   {
@@ -675,7 +696,8 @@
     "name": "kangaskhan"
   },
   {
-    "name": "horsea"
+    "name": "horsea",
+    "tier": 1
   },
   {
     "name": "seadra"
@@ -855,7 +877,7 @@
   },
   {
     "name": "quilava",
-    "tier": 1
+    "tier": 2
   },
   {
     "name": "typhlosion"
@@ -884,7 +906,8 @@
     "name": "hoothoot"
   },
   {
-    "name": "noctowl"
+    "name": "noctowl",
+    "tier": 2
   },
   {
     "name": "ledyba"
@@ -984,7 +1007,8 @@
   },
   {
     "name": "yanma",
-    "tier": 1
+    "tier": 2,
+    "shiny": true
   },
   {
     "name": "wooper"
@@ -1017,7 +1041,9 @@
     "name": "unown"
   },
   {
-    "name": "wobbuffet"
+    "name": "wobbuffet",
+    "tier": 2,
+    "shiny": true
   },
   {
     "name": "girafarig"
@@ -1103,14 +1129,17 @@
   },
   {
     "name": "delibird",
+    "tier": 3,
     "shiny": true
   },
   {
-    "name": "mantine"
+    "name": "mantine",
+    "tier": 3
   },
   {
     "name": "skarmory",
-    "tier": 3
+    "tier": 3,
+    "shiny": true
   },
   {
     "name": "houndour",
@@ -1135,7 +1164,9 @@
     "name": "porygon2"
   },
   {
-    "name": "stantler"
+    "name": "stantler",
+    "tier": 2,
+    "shiny": true
   },
   {
     "name": "smeargle"
@@ -1230,7 +1261,8 @@
     "tier": 2
   },
   {
-    "name": "blaziken"
+    "name": "blaziken",
+    "tier": 4
   },
   {
     "name": "mudkip"
@@ -1253,7 +1285,21 @@
     "name": "zigzagoon"
   },
   {
+    "name": "zigzagoon_galarian",
+    "overrideName": "Galarian Zigzagoon",
+    "nickname": [
+      "galar"
+    ]
+  },
+  {
     "name": "linoone"
+  },
+  {
+    "name": "linoone_galarian",
+    "overrideName": "Galarian Linoone",
+    "nickname": [
+      "galar"
+    ]
   },
   {
     "name": "wurmple"
@@ -1297,7 +1343,8 @@
     "shiny": true
   },
   {
-    "name": "swellow"
+    "name": "swellow",
+    "tier": 2
   },
   {
     "name": "wingull",
@@ -1305,10 +1352,13 @@
     "shiny": true
   },
   {
-    "name": "pelipper"
+    "name": "pelipper",
+    "tier": 3
   },
   {
-    "name": "ralts"
+    "name": "ralts",
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "kirlia",
@@ -1363,7 +1413,8 @@
     "shiny": true
   },
   {
-    "name": "hariyama"
+    "name": "hariyama",
+    "tier": 3
   },
   {
     "name": "azurill",
@@ -1406,7 +1457,8 @@
     "shiny": true
   },
   {
-    "name": "medicham"
+    "name": "medicham",
+    "tier": 3
   },
   {
     "name": "electrike"
@@ -1470,7 +1522,8 @@
     "name": "spoink"
   },
   {
-    "name": "grumpig"
+    "name": "grumpig",
+    "tier": 2
   },
   {
     "name": "spinda"
@@ -1489,7 +1542,8 @@
     "tier": 1
   },
   {
-    "name": "cacturne"
+    "name": "cacturne",
+    "tier": 3
   },
   {
     "name": "swablu",
@@ -1553,7 +1607,7 @@
   },
   {
     "name": "feebas",
-    "tier": 2,
+    "tier": 1,
     "shiny": true
   },
   {
@@ -1721,7 +1775,8 @@
     "name": "turtwig"
   },
   {
-    "name": "grotle"
+    "name": "grotle",
+    "tier": 2
   },
   {
     "name": "torterra"
@@ -1740,7 +1795,8 @@
     "name": "piplup"
   },
   {
-    "name": "prinplup"
+    "name": "prinplup",
+    "tier": 2
   },
   {
     "name": "empoleon"
@@ -1752,7 +1808,8 @@
     "name": "staravia"
   },
   {
-    "name": "staraptor"
+    "name": "staraptor",
+    "tier": 4
   },
   {
     "name": "bidoof",
@@ -1800,17 +1857,20 @@
   {
     "name": "burmy_plant",
     "overrideName": "Burmy (Plant Cloak)",
-    "tier": 1
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "burmy_sandy",
     "overrideName": "Burmy (Sandy Cloak)",
-    "tier": 1
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "burmy_trash",
     "overrideName": "Burmy (Trash Cloak)",
-    "tier": 1
+    "tier": 1,
+    "shiny": true
   },
   {
     "name": "wormadam_plant",
@@ -1952,7 +2012,8 @@
     "name": "drapion"
   },
   {
-    "name": "croagunk"
+    "name": "croagunk",
+    "tier": 1
   },
   {
     "name": "toxicroak"
@@ -2054,7 +2115,8 @@
   },
   {
     "name": "heatran",
-    "tier": 5
+    "tier": 5,
+    "shiny": true
   },
   {
     "name": "regigigas",
@@ -2112,7 +2174,8 @@
     "name": "serperior"
   },
   {
-    "name": "tepig"
+    "name": "tepig",
+    "tier": 1
   },
   {
     "name": "pignite"
@@ -2121,7 +2184,8 @@
     "name": "emboar"
   },
   {
-    "name": "oshawott"
+    "name": "oshawott",
+    "tier": 1
   },
   {
     "name": "dewott"
@@ -2179,7 +2243,8 @@
     "name": "musharna"
   },
   {
-    "name": "pidove"
+    "name": "pidove",
+    "tier": 1
   },
   {
     "name": "tranquill"
@@ -2212,13 +2277,15 @@
     "name": "drilbur"
   },
   {
-    "name": "excadrill"
+    "name": "excadrill",
+    "tier": 4
   },
   {
     "name": "audino"
   },
   {
-    "name": "timburr"
+    "name": "timburr",
+    "tier": 1
   },
   {
     "name": "gurdurr"
@@ -2415,7 +2482,8 @@
     "name": "galvantula"
   },
   {
-    "name": "ferroseed"
+    "name": "ferroseed",
+    "tier": 3
   },
   {
     "name": "ferrothorn"
@@ -2447,7 +2515,8 @@
     "name": "beheeyem"
   },
   {
-    "name": "litwick"
+    "name": "litwick",
+    "tier": 1
   },
   {
     "name": "lampent"
@@ -2465,7 +2534,8 @@
     "name": "haxorus"
   },
   {
-    "name": "cubchoo"
+    "name": "cubchoo",
+    "tier": 1
   },
   {
     "name": "beartic"
@@ -2544,10 +2614,12 @@
     "tier": 5
   },
   {
-    "name": "terrakion"
+    "name": "terrakion",
+    "tier": 5
   },
   {
-    "name": "virizion"
+    "name": "virizion",
+    "tier": 5
   },
   {
     "name": "tornadus"
