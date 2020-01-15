@@ -34,7 +34,6 @@ const privateSettings = require('./data/private-settings'),
   Role = require('./app/role'),
   Utility = require('./app/utility'),
   WebServer = require('./app/web/server'),
-  settings = require('./data/settings'),
   IntervalUpdater = require('./app/update'),
   {CommandGroup} = require('./app/constants');
 
