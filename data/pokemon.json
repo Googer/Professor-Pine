@@ -1723,11 +1723,13 @@
   },
   {
     "name": "latias",
-    "tier": 5
+    "tier": 5,
+    "shiny": true
   },
   {
     "name": "latios",
-    "tier": 5
+    "tier": 5,
+    "shiny": true
   },
   {
     "name": "kyogre",
