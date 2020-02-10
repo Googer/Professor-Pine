@@ -1782,7 +1782,8 @@
     "tier": 2
   },
   {
-    "name": "torterra"
+    "name": "torterra",
+    "tier": 4
   },
   {
     "name": "chimchar"
@@ -1792,7 +1793,8 @@
     "tier": 2
   },
   {
-    "name": "infernape"
+    "name": "infernape",
+    "tier": 4
   },
   {
     "name": "piplup"
