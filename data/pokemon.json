@@ -1933,7 +1933,8 @@
     "shiny": true
   },
   {
-    "name": "drifblim"
+    "name": "drifblim",
+    "tier": 3
   },
   {
     "name": "buneary",
