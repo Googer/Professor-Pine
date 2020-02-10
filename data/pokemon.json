@@ -2003,7 +2003,8 @@
     "name": "lucario"
   },
   {
-    "name": "hippopotas"
+    "name": "hippopotas",
+    "tier": 1
   },
   {
     "name": "hippowdon"
