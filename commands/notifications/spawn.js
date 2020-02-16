@@ -64,7 +64,8 @@ class SpawnCommand extends Commando.Command {
           Helper.getEmoji(settings.emoji.shiny) || '✨' :
           '',
         mention = unownRole ? '(' + unownRole.toString() + ') ' : '',
-        header = `A ${pokemonName}${shiny} ${mention}spawn has been reported in #${regionChannel.name} by ${reportingMember.displayName}: ${spawnDetails}`,
+        article = (pokemonName.match(/^[AEIOU]/i) !== null) ? 'An' : 'A',
+        header = `${article} ${pokemonName}${shiny} ${mention}spawn has been reported in #${regionChannel.name} by ${reportingMember.displayName}: ${spawnDetails}`,
         embed = new MessageEmbed();
       embed.setColor('GREEN');
       embed.setDescription('**Warning: Spawns are user-reported. There is no way to know exactly how long a Pokémon will be there. Most spawns are 30 min. Use your discretion when chasing them.**');
