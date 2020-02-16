@@ -110,8 +110,9 @@ class Notify {
       shiny = pokemon.shiny || (additionalPokemon && additionalPokemon.shiny) ?
         Helper.getEmoji(settings.emoji.shiny) || '✨' :
         '',
-      header = `A ${pokemonName}${shiny} spawn has been reported in #${regionChannel.name} by ${reportingMember.displayName}:`,
-      regionHeader = `A ${pokemonName}${shiny} spawn has been reported by ${reportingMember.displayName}:`,
+      article = (pokemonName.match(/^[AEIOU]/i) !== null) ? 'An' : 'A',
+      header = `${article} ${pokemonName}${shiny} spawn has been reported in #${regionChannel.name} by ${reportingMember.displayName}:`,
+      regionHeader = `${article} ${pokemonName}${shiny} spawn has been reported by ${reportingMember.displayName}:`,
       botLabChannel = message.guild.channels.find(channel => channel.name === settings.channels["bot-lab"]),
       embed = new MessageEmbed();
     embed.setColor('GREEN');
