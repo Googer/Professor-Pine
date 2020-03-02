@@ -11710,49 +11710,47 @@
       "sta": 188,
       "gsName": [
         "TORNADUS (THERIAN)",
-        "TORNADUS THERIAN",
         "TORNADUS THERIAN"
       ],
       "imageURL": "https://cdn.bulbagarden.net/upload/7/7e/641Tornadus-Therian.png"
     },
     {
       "number": 642,
-      "pbName": "THUNDERUS_INCARNATE_FORM",
-      "family": "THUNDERUS_INCARNATE_FORM",
+      "pbName": "THUNDURUS_INCARNATE_FORM",
+      "family": "THUNDURUS_INCARNATE_FORM",
       "aliases": [
-        "THUNDERUS",
-        "THUNDERUS INCARNATE",
-        "THUNDERUS INCARNATE FORM",
-        "THUNDERUS CLOUD",
-        "THUNDERUS CLOUD FORM"
+        "THUNDURUS",
+        "THUNDURUS INCARNATE",
+        "THUNDURUS INCARNATE FORM",
+        "THUNDURUS CLOUD",
+        "THUNDURUS CLOUD FORM"
       ],
-      "dzName": "Thunderus",
+      "dzName": "Thundurus",
       "atk": 266,
       "def": 164,
       "sta": 188,
       "gsName": [
-        "THUNDERUS (INCARNATE)",
-        "THUNDERUS",
-        "THUNDERUS INCARNATE"
+        "THUNDURUS (INCARNATE)",
+        "THUNDURUS",
+        "THUNDURUS INCARNATE"
       ],
       "imageURL": "https://cdn.bulbagarden.net/upload/b/b8/642Thundurus.png"
     },
     {
       "number": 642,
-      "pbName": "THUNDERUS_THERIAN_FORM",
-      "family": "THUNDERUS_THERIAN_FORM",
+      "pbName": "THUNDURUS_THERIAN_FORM",
+      "family": "THUNDURUS_THERIAN_FORM",
       "aliases": [
-        "THUNDERUS THERIAN",
-        "THUNDERUS THERIAN FORM"
+        "THUNDURUS THERIAN",
+        "THUNDURUS THERIAN FORM"
       ],
-      "dzName": "Thunderus_Therian",
+      "dzName": "Thundurus_Therian",
       "atk": 295,
       "def": 161,
       "sta": 188,
       "gsName": [
-        "THUNDERUS (THERIAN)",
-        "THUNDERUS THERIAN",
-        "THUNDERUS THERIAN"
+        "THUNDURUS (THERIAN)",
+        "THUNDURUS THERIAN"
       ],
       "imageURL": "https://cdn.bulbagarden.net/upload/8/86/642Thundurus-Therian.png"
     },
@@ -11827,7 +11825,6 @@
       "sta": 205,
       "gsName": [
         "LANDORUS (THERIAN)",
-        "LANDORUS THERIAN",
         "LANDORUS THERIAN"
       ],
       "imageURL": "https://cdn.bulbagarden.net/upload/0/00/645Landorus-Therian.png"
