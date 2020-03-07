@@ -24,11 +24,17 @@ module.exports = class GetBounds extends commando.Command {
       if (!!message.command && message.command.name === 'bounds') {
         if (PartyManager.validParty(message.channel.id)) {
           const channel = Helper.regionChannelForCategory(Helper.getParentChannel(message.channel.id).id, PartyManager.getRaidChannelCache());
-          return ['unauthorized', message.reply("This command is not available in raid channels. Please see " + channel.toString() + " for region info.")]
+          return {
+            reason: 'invalid-channel',
+            response: message.reply("This command is not available in raid channels. Please see " + channel.toString() + " for region info.")
+          };
         }
         if (Helper.isChannelChild(message.channel.id) && PartyManager.categoryHasRegion(Helper.getParentChannel(message.channel.id).id) && !PartyManager.channelCanRaid(message.channel.id)) {
           const channel = Helper.regionChannelForCategory(Helper.getParentChannel(message.channel.id).id, PartyManager.getRaidChannelCache());
-          return ['unauthorized', message.reply("No region defined for this channel. Please see " + channel.toString() + " for region info.")];
+          return {
+            reason: 'invalid-channel',
+            response: message.reply("No region defined for this channel. Please see " + channel.toString() + " for region info.")
+          };
         }
       }
       return false;

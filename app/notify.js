@@ -65,7 +65,7 @@ class Notify {
 
     for (const memberId of [...new Set([...trainMembers])]
       .filter(memberId => memberId !== reportingMemberId)
-      .filter(memberId => trainChannel.guild.members.has(memberId))
+      .filter(memberId => trainChannel.guild.members.cache.has(memberId))
       .filter(memberId => trainChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))) {
       messagesToSend.push({
         userId: memberId,
@@ -110,10 +110,9 @@ class Notify {
       shiny = pokemon.shiny || (additionalPokemon && additionalPokemon.shiny) ?
         Helper.getEmoji(settings.emoji.shiny) || '✨' :
         '',
-      article = (pokemonName.match(/^[AEIOU]/i) !== null) ? 'An' : 'A',
-      header = `${article} ${pokemonName}${shiny} spawn has been reported in #${regionChannel.name} by ${reportingMember.displayName}:`,
-      regionHeader = `${article} ${pokemonName}${shiny} spawn has been reported by ${reportingMember.displayName}:`,
-      botLabChannel = message.guild.channels.find(channel => channel.name === settings.channels["bot-lab"]),
+      header = `A wild ${pokemonName}${shiny} has been reported in #${regionChannel.name} by ${reportingMember.displayName}:`,
+      regionHeader = `A wild ${pokemonName}${shiny} has been reported by ${reportingMember.displayName}:`,
+      botLabChannel = message.guild.channels.cache.find(channel => channel.name === settings.channels["bot-lab"]),
       embed = new MessageEmbed();
     embed.setColor('GREEN');
     embed.setDescription(location + '\n\n**Warning: Spawns are user-reported. There is no way to know exactly how long a Pokémon will be there. Most spawns are 30 min. Use your discretion when chasing them.**');
@@ -138,7 +137,7 @@ class Notify {
 
     for (const memberId of [...new Set(pokemonMembers)]
       .filter(memberId => memberId !== reportingMemberId)
-      .filter(memberId => areaChannel.guild.members.has(memberId))
+      .filter(memberId => areaChannel.guild.members.cache.has(memberId))
       .filter(memberId => areaChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))) {
       messagesToSend.push({
         userId: memberId,
@@ -207,7 +206,7 @@ class Notify {
 
     for (const memberId of [...new Set([...pokemonMembers, ...gymMembers, ...attendees])]
       .filter(memberId => memberId !== reportingMemberId)
-      .filter(memberId => raidChannel.guild.members.has(memberId))
+      .filter(memberId => raidChannel.guild.members.cache.has(memberId))
       .filter(memberId => raidChannel.permissionsFor(memberId).has('VIEW_CHANNEL'))) {
       messagesToSend.push({
         userId: memberId,
@@ -508,7 +507,7 @@ class Notify {
         .catch(err => log.error(err)),
       membersString = membersStrings
         .reduce((prev, next) => prev + ', ' + next),
-      botLabChannel = message.guild.channels.find(channel => channel.name === settings.channels["bot-lab"]),
+      botLabChannel = message.guild.channels.cache.find(channel => channel.name === settings.channels["bot-lab"]),
       embed = new MessageEmbed();
 
     embed.setColor('GREEN');

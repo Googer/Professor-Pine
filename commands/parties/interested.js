@@ -38,7 +38,10 @@ class InterestedCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'maybe' &&
         !PartyManager.validParty(message.channel.id)) {
-        return ['invalid-channel', message.reply('Express interest in a raid from its raid channel!')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('Express interest in a raid from its raid channel!')
+        };
       }
       return false;
     });

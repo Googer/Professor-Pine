@@ -30,8 +30,11 @@ class RegisterSilphCommand extends Commando.Command {
     });
 
     client.dispatcher.addInhibitor(message => {
-      if (!!message.command && message.command.name === 'auto' && !Helper.isBotChannel(message)) {
-        return ['invalid-channel', message.reply(Helper.getText('register-silph.warning', message))];
+      if (!!message.command && message.command.name === 'register-silph' && !Helper.isBotChannel(message)) {
+        return {
+          reason: 'invalid-channel',
+          response: message.reply(Helper.getText('register-silph.warning', message))
+        };
       }
       return false;
     });

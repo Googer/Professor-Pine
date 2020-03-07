@@ -26,7 +26,10 @@ class UseRouteCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'use-route' &&
         !PartyManager.validParty(message.channel.id, [PartyType.RAID_TRAIN])) {
-        return ['invalid-channel', message.reply('To use a saved route, you must be in a train\'s channel!')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('To use a saved route, you must be in a train\'s channel!')
+        };
       }
 
       return false;

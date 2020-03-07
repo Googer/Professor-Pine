@@ -23,7 +23,10 @@ class CheckOutCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'not-here' &&
         !PartyManager.validParty(message.channel.id)) {
-        return ['invalid-channel', message.reply('Check out of a raid from its raid channel!')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('Check out of a raid from its raid channel!')
+        };
       }
       return false;
     });

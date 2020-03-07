@@ -322,7 +322,7 @@ class RegionHelper {
       }
 
       const channelId = (await this.getChannelsForGym(gym, guildId))[0].channelId,
-        channelName = client.channels.get(channelId).name;
+        channelName = client.channels.cache.get(channelId).name;
 
       if (!channelMap.has(channelName)) {
         channelMap.set(channelName, []);

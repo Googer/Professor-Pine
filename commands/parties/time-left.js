@@ -32,7 +32,10 @@ class TimeRemainingCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'left' &&
         !PartyManager.validParty(message.channel.id, [PartyType.RAID, PartyType.RAID_TRAIN])) {
-        return ['invalid-channel', message.reply('Set the time remaining for a raid from its raid channel or the completion time for a raid train from its train channel!')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('Set the time remaining for a raid from its raid channel or the completion time for a raid train from its train channel!')
+        };
       }
       return false;
     });
