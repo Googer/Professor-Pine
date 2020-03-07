@@ -30,7 +30,10 @@ class BossTierCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'boss-tier' && !Helper.isBotChannel(message)) {
-        return ['invalid-channel', message.reply(Helper.getText('bosstier.warning', message))];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply(Helper.getText('bosstier.warning', message))
+        };
       }
       return false;
     });

@@ -3,6 +3,7 @@
 const log = require('loglevel').getLogger('Raid'),
   moment = require('moment'),
   settings = require('../data/settings'),
+  text = require('../data/text.json'),
   {PartyStatus, PartyType} = require('./constants'),
   Discord = require('discord.js'),
   Helper = require('./helper'),
@@ -365,7 +366,7 @@ class RaidTrain extends Party {
       },
 
       reportingMember = (await this.getMember(this.createdById)).member,
-      raidReporter = `Originally reported by ${reportingMember.displayName}`,
+      raidReporter = text.train.footer.replace("${member}", reportingMember.displayName),
 
       meetingTime = !!this.startTime ?
         moment(this.startTime) :
@@ -488,12 +489,7 @@ class RaidTrain extends Party {
     }
 
     if (!!this.endTime && !isNaN(this.endTime)) {
-      if (timeFrame) {
-        timeFrame += ' - ';
-      }
-
-      timeFrame += finishTime.calendar(null, calendarFormat);
-
+      timeFrame += ' - ' + finishTime.calendar(null, calendarFormat);
     }
 
     if (timeFrame) {

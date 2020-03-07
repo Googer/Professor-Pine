@@ -35,7 +35,10 @@ class SetRouteAddCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'route-add' &&
         !PartyManager.validParty(message.channel.id, [PartyType.RAID_TRAIN])) {
-        return ['invalid-channel', message.reply('To add to a route, you must be in a train\'s channel!')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('To add to a route, you must be in a train\'s channel!')
+        };
       }
 
       return false;

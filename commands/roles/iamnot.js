@@ -23,7 +23,10 @@ class IAmNotCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'iamnot' &&
         !Helper.isBotChannel(message)) {
-        return ['invalid-channel', message.reply(Helper.getText('iamnot.warning', message))];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply(Helper.getText('iamnot.warning', message))
+        };
       }
       return false;
     });

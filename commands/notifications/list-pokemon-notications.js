@@ -23,7 +23,10 @@ class PokemonNotificationsCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'wants' && !Helper.isBotChannel(message)) {
-        return ['invalid-channel', message.reply(Helper.getText('notifications.warning', message))];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply(Helper.getText('notifications.warning', message))
+        };
       }
       return false;
     });

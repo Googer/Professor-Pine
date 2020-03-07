@@ -24,38 +24,38 @@ class Helper {
   setClient(client) {
     this.client = client;
 
-    this.emojis = new Map(this.client.emojis.map(emoji => [emoji.name.toLowerCase(), emoji]));
+    this.emojis = new Map(this.client.emojis.cache.map(emoji => [emoji.name.toLowerCase(), emoji]));
 
     // map out some shortcuts per connected guild, so that a lengthy "find" is not required constantly
     // TODO:  Some day instead of using a single configurable settings channel name, allow each guild to set a bot channel in DB
-    this.guild = new Map(this.client.guilds.map(guild => {
-      const roles = new Map(guild.roles.map(role => [role.name.toLowerCase(), role]));
+    this.guild = new Map(this.client.guilds.cache.map(guild => {
+      const roles = new Map(guild.roles.cache.map(role => [role.name.toLowerCase(), role]));
 
       return [
         guild.id,
         {
           channels: {
-            botLab: guild.channels.find(channel => {
+            botLab: guild.channels.cache.find(channel => {
               return channel.name === settings.channels["bot-lab"];
             }),
-            modBotLab: guild.channels.find(channel => {
+            modBotLab: guild.channels.cache.find(channel => {
               return channel.name === settings.channels["mod-bot-lab"];
             }),
-            unown: guild.channels.find(channel => {
+            unown: guild.channels.cache.find(channel => {
               return channel.name === settings.channels.unown;
             }),
-            exAnnounceChannel: guild.channels.find(channel => {
+            exAnnounceChannel: guild.channels.cache.find(channel => {
               return channel.name === settings.channels["ex-gym-raids"];
             }),
-            pvp: guild.channels.find(channel => {
+            pvp: guild.channels.cache.find(channel => {
               return channel.name === settings.channels["pvp"];
             }),
-            botUpdates: guild.channels.find(channel => {
+            botUpdates: guild.channels.cache.find(channel => {
               return channel.name === settings.channels['bot-updates'];
             })
           },
           categories: {
-            pvp: guild.channels.find(channel => {
+            pvp: guild.channels.cache.find(channel => {
               return channel.name === settings.categories["pvp"] && channel.type === 'category';
             })
           },
@@ -88,29 +88,29 @@ class Helper {
         guild.id,
         {
           channels: {
-            botLab: guild.channels.find(channel => {
+            botLab: guild.channels.cache.find(channel => {
               return channel.name === settings.channels["bot-lab"];
             }),
-            modBotLab: guild.channels.find(channel => {
+            modBotLab: guild.channels.cache.find(channel => {
               return channel.name === settings.channels["mod-bot-lab"];
             }),
-            unown: guild.channels.find(channel => {
+            unown: guild.channels.cache.find(channel => {
               return channel.name === settings.channels.unown;
             }),
-            exAnnounceChannel: guild.channels.find(channel => {
+            exAnnounceChannel: guild.channels.cache.find(channel => {
               return channel.name === settings.channels["ex-gym-raids"];
             }),
-            pvp: guild.channels.find(channel => {
+            pvp: guild.channels.cache.find(channel => {
               return channel.name === settings.channels["pvp"];
             }),
             help: null,
           },
           categories: {
-            pvp: guild.channels.find(channel => {
+            pvp: guild.channels.cache.find(channel => {
               return channel.name === settings.categories["pvp"];
             })
           },
-          roles: new Map(guild.roles.map(role => [role.name.toLowerCase(), role])),
+          roles: new Map(guild.roles.cache.map(role => [role.name.toLowerCase(), role])),
           emojis: null
         }
       ]);
@@ -203,8 +203,8 @@ class Helper {
           moderatorRole.id :
           -1;
 
-      isModOrAdmin = message.member.roles.has(adminRoleId) ||
-        message.member.roles.has(moderatorRoleId);
+      isModOrAdmin = message.member.roles.cache.has(adminRoleId) ||
+        message.member.roles.cache.has(moderatorRoleId);
     }
     return isModOrAdmin || this.client.isOwner(message.author);
   }
@@ -218,7 +218,7 @@ class Helper {
           botModRole.id :
           -1;
 
-      isBotMod = message.member.roles.has(botRoleId);
+      isBotMod = message.member.roles.cache.has(botRoleId);
     }
 
     return isModOrAdmin || isBotMod || this.client.isOwner(message.author);
@@ -281,15 +281,15 @@ class Helper {
   getTeam(member) {
     const roles = this.guild.get(member.guild.id).roles;
 
-    if (roles.has('instinct') && member.roles.has(roles.get('instinct').id)) {
+    if (roles.has('instinct') && member.roles.cache.has(roles.get('instinct').id)) {
       return Team.INSTINCT;
     }
 
-    if (roles.has('mystic') && member.roles.has(roles.get('mystic').id)) {
+    if (roles.has('mystic') && member.roles.cache.has(roles.get('mystic').id)) {
       return Team.MYSTIC;
     }
 
-    if (roles.has('valor') && member.roles.has(roles.get('valor').id)) {
+    if (roles.has('valor') && member.roles.cache.has(roles.get('valor').id)) {
       return Team.VALOR;
     }
 
@@ -312,8 +312,8 @@ class Helper {
       // replace guild related variables (if any exist)
       const guildId = message && message.guild && message.guild.id ?
         message.guild.id :
-        Array.from(this.client.guilds)
-          .find(guild => guild[1].members.has(message.author.id))[0];
+        Array.from(this.client.guilds.cache)
+          .find(guild => guild[1].members.cache.has(message.author.id))[0];
 
       let botChannelString = !!guildId ?
         this.guild.get(guildId).channels.botLab.toString() :
@@ -331,7 +331,7 @@ class Helper {
 
   //check if channel exists by name in a specific gulid
   doesChannelExist(channelName, guildId) {
-    const channels = this.client.guilds.get(guildId).channels.array();
+    const channels = this.client.guilds.resolve(guildId).channels.cache.array();
     for (let i = 0; i < channels.length; i++) {
       const chan = channels[i];
       if (chan.name === channelName && channels[i].permissionsFor(this.client.user.id).has('VIEW_CHANNEL')) {
@@ -344,8 +344,7 @@ class Helper {
 
   //check if channel is child of a category
   isChannelChild(channelId) {
-    const channel = this.client.channels.get(channelId);
-    const channels = this.client.channels.array();
+    const channels = this.client.channels.cache.array();
     for (let i = 0; i < channels.length; i++) {
       const check = channels[i];
       if (check.children) {
@@ -364,7 +363,7 @@ class Helper {
 
   // Gets channel based on provided name
   getChannelForName(channelName, guildId) {
-    const channels = this.client.guilds.get(guildId).channels.array();
+    const channels = this.client.guilds.resolve(guildId).channels.cache.array();
     for (let i = 0; i < channels.length; i++) {
       const channel = channels[i];
       if (channel.name === channelName && channels[i].permissionsFor(this.client.user.id).has('VIEW_CHANNEL')) {
@@ -378,7 +377,7 @@ class Helper {
   // Get a channel's category
   getParentChannel(channelId) {
     if (this.isChannelChild(channelId)) {
-      const channels = this.client.channels.array();
+      const channels = this.client.channels.cache.array();
       for (let i = 0; i < channels.length; i++) {
         const channel = channels[i];
         if (channel.children) {
@@ -398,7 +397,7 @@ class Helper {
 
   // Get channels below a specified category
   childrenForCategory(categoryId) {
-    const channel = this.client.channels.get(categoryId);
+    const channel = this.client.channels.cache.get(categoryId);
     if (channel.children) {
       return channel.children.array();
     } else {

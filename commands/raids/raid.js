@@ -73,7 +73,10 @@ class RaidCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'raid' &&
         (PartyManager.validParty(message.channel.id) || !Gym.isValidChannel(message.channel.id))) {
-        return ['invalid-channel', message.reply('Create raids from region channels!')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('Create raids from region channels!')
+        };
       }
       return false;
     });
@@ -115,7 +118,7 @@ class RaidCommand extends Commando.Command {
     let raid;
 
     Raid.createRaid(sourceChannel.id, message.member.id, pokemon, gymId, isExclusive)
-    // create and send announcement message to region channel
+      // create and send announcement message to region channel
       .then(async info => {
         raid = info.party;
 
@@ -213,7 +216,7 @@ class RaidCommand extends Commando.Command {
                   statusString = 'present';
                   break;
               }
-              replyMessage +=  ` You have been marked as ${statusString} in its channel.`;
+              replyMessage += ` You have been marked as ${statusString} in its channel.`;
             }
 
             message.reply(replyMessage)

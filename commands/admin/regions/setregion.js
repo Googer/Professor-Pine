@@ -25,15 +25,24 @@ module.exports = class SetRegion extends commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'setbounds') {
         if (PartyManager.validParty(message.channel.id)) {
-          return ['unauthorized', message.reply('You may not define a region for a raid channel.')]
+          return {
+            reason: 'invalid-channel',
+            response: message.reply('You may not define a region for a raid channel.')
+          };
         }
         if (!Helper.isBotManagement(message)) {
-          return ['unauthorized', message.reply('You are not authorized to use this command.')];
+          return {
+            reason: 'unauthorized',
+            response: message.reply('You are not authorized to use this command.')
+          };
         }
 
         if (Helper.isChannelChild(message.channel.id) && PartyManager.categoryHasRegion(Helper.getParentChannel(message.channel.id).id) && !PartyManager.channelCanRaid(message.channel.id)) {
           const channel = Helper.regionChannelForCategory(Helper.getParentChannel(message.channel.id).id, PartyManager.getRaidChannelCache());
-          return ['unauthorized', message.reply("This category already has a region channel. You may only have one region channel per category. Please see " + channel.toString() + " for region info.")];
+          return {
+            reason: 'invalid-channel',
+            response: message.reply("This category already has a region channel. You may only have one region channel per category. Please see " + channel.toString() + " for region info.")
+          };
         }
       }
 

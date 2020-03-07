@@ -38,7 +38,10 @@ class CheckInCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'here' &&
         !PartyManager.validParty(message.channel.id)) {
-        return ['invalid-channel', message.reply('Check into a raid from its raid channel!')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('Check into a raid from its raid channel!')
+        };
       }
       return false;
     });

@@ -33,7 +33,10 @@ class MeetTimeCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'meet' &&
         !PartyManager.validParty(message.channel.id)) {
-        return ['invalid-channel', message.reply('Set the meeting time for a raid from its raid channel!')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('Set the meeting time for a raid from its raid channel!')
+        };
       }
       return false;
     });

@@ -25,7 +25,10 @@ class RemoveRouteCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'route-remove' &&
         !PartyManager.validParty(message.channel.id, [PartyType.RAID_TRAIN])) {
-        return ['invalid-channel', message.reply('To remove a route location, you must be in a train\'s channel!')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('To remove a route location, you must be in a train\'s channel!')
+        };
       }
 
       return false;

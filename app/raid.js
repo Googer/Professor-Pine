@@ -13,6 +13,7 @@ const log = require('loglevel').getLogger('Raid'),
   Party = require('./party'),
   Status = require('./status'),
   Privacy = require('./privacy'),
+  text = require('../data/text.json'),
   TimeType = require('../types/time');
 
 let Gym,
@@ -741,11 +742,10 @@ class Raid extends Party {
       reportingMember = (this.createdById >= 0) ?
         (await this.getMember(this.createdById)).member :
         {displayName: '????'},
-      raidReporter = `originally reported by ${reportingMember.displayName}`,
 
       endTime = this.endTime !== TimeType.UNDEFINED_END_TIME ?
-        `Raid available until ${moment(this.endTime).calendar(null, calendarFormat)}, ` :
-        'Raid end time currently unset, ',
+        text.raid.time.remaining.replace("${time}", moment(this.endTime).calendar(null, calendarFormat)) :
+        text.raid.time.unset,
       hatchTime = !!this.hatchTime ?
         moment(this.hatchTime) :
         '',
@@ -846,8 +846,8 @@ class Raid extends Party {
       embed.addField('**Pokémon Information**', pokemonDataContent);
     }
 
-    embed.setFooter(endTime + raidReporter,
-      reportingMember.displayName !== '????' ?
+    embed.setFooter(text.raid.footer.replace("${timeFooter}", endTime).replace("${member}", reportingMember.displayName),
+      (!!reportingMember && reportingMember.displayName !== '????') ?
         reportingMember.user.displayAvatarURL() :
         Helper.client.rest.cdn.DefaultAvatar(0)
     );

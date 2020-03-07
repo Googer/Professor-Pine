@@ -24,7 +24,10 @@ class GroupCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'group' &&
         !PartyManager.validParty(message.channel.id, [PartyType.RAID, PartyType.RAID_TRAIN])) {
-        return ['invalid-channel', message.reply('Set your group for a raid from its raid channel!')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('Set your group for a raid from its raid channel!')
+        };
       }
       return false;
     });

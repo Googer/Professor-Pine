@@ -44,7 +44,10 @@ class SpawnCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'spawn' && !Gym.isValidChannel(message.channel.id)) {
-        return ['invalid-channel', message.reply('Announce spawns from region channels!')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply(message.reply('Announce spawns from region channels!'))
+        };
       }
       return false;
     });
@@ -64,8 +67,7 @@ class SpawnCommand extends Commando.Command {
           Helper.getEmoji(settings.emoji.shiny) || '✨' :
           '',
         mention = unownRole ? '(' + unownRole.toString() + ') ' : '',
-        article = (pokemonName.match(/^[AEIOU]/i) !== null) ? 'An' : 'A',
-        header = `${article} ${pokemonName}${shiny} ${mention}spawn has been reported in #${regionChannel.name} by ${reportingMember.displayName}: ${spawnDetails}`,
+        header = `A wild ${pokemonName}${shiny} ${mention}has been reported in #${regionChannel.name} by ${reportingMember.displayName}: ${spawnDetails}`,
         embed = new MessageEmbed();
       embed.setColor('GREEN');
       embed.setDescription('**Warning: Spawns are user-reported. There is no way to know exactly how long a Pokémon will be there. Most spawns are 30 min. Use your discretion when chasing them.**');

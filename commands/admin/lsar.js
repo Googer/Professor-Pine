@@ -22,7 +22,10 @@ class LsarCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'lsar') {
         if (!Helper.isManagement(message)) {
-          return ['unauthorized', message.reply('You are not authorized to use this command.')];
+          return {
+            reason: 'unauthorized',
+            response: message.reply('You are not authorized to use this command.')
+          };
         }
       }
 

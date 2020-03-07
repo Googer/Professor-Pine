@@ -32,7 +32,10 @@ class NotifyCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'want' && !Helper.isBotChannel(message)) {
-        return ['invalid-channel', message.reply(Helper.getText('notify.warning', message))];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply(Helper.getText('notify.warning', message))
+        };
       }
       return false;
     });
