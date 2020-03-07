@@ -32,7 +32,10 @@ class TrainNameCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'train-name' &&
         !PartyManager.validParty(message.channel.id, PartyType.RAID_TRAIN)) {
-        return ['invalid-channel', message.reply('You can only set a train\'s name from the train\'s channel!')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('You can only set a train\'s name from the train\'s channel!')
+        };
       }
       return false;
     });

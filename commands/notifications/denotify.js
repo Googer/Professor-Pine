@@ -31,7 +31,10 @@ class DenotifyCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'unwant' && !Helper.isBotChannel(message)) {
-        return ['invalid-channel', message.reply(Helper.getText('denotify.warning', message))];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply(Helper.getText('denotify.warning', message))
+        };
       }
       return false;
     });

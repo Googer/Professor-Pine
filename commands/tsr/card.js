@@ -35,7 +35,10 @@ class SilphCardCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'silph-card' && !Helper.isBotChannel(message)) {
-        return ['invalid-channel', message.reply(`Get a user's Silph Card in #${settings.channels["bot-lab"]}!`)];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply(`Get a user's Silph Card in #${settings.channels["bot-lab"]}!`)
+        };
       }
       return false;
     });

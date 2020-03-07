@@ -73,10 +73,16 @@ module.exports = class CreateGym extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'create-gym') {
         if (!Helper.isBotManagement(message)) {
-          return ['unauthorized', message.reply('You are not authorized to use this command.')];
+          return {
+            reason: 'unauthorized',
+            response: message.reply('You are not authorized to use this command.')
+          };
         }
         if (!Helper.isBotChannel(message)) {
-          return ['invalid-channel', message.reply('This command must be run in a bot channel.')]
+          return {
+            reason: 'invalid-channel',
+            response: message.reply('This command must be run in a bot channel.')
+          };
         }
       }
 

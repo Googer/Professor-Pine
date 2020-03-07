@@ -201,14 +201,14 @@ class PartyManager {
     Region.checkRegionsExist()
       .then(success => {
         if (success) {
-          that.client.channels.forEach(async channel => {
+          that.client.channels.cache.forEach(async channel => {
             const region = await Region.getRegionsRaw(channel.id)
               .catch(error => false);
             if (region) {
               that.regionChannels.push(channel.id);
             }
 
-            let last = that.client.channels.array().slice(-1)[0];
+            let last = that.client.channels.cache.array().slice(-1)[0];
             if (channel.id === last.id) {
               that.clearOldRegionChannels();
             }

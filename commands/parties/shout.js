@@ -26,7 +26,10 @@ class ShoutCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'new' &&
         !PartyManager.validParty(message.channel.id)) {
-        return ['invalid-channel', message.reply('Create a new raid group for a raid from its raid channel!')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('Shout from a party channel!')
+        };
       }
       return false;
     });

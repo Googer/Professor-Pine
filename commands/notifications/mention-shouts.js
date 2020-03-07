@@ -31,7 +31,10 @@ class MentionShoutsCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'mentions-shouts' && !Helper.isBotChannel(message)) {
-        return ['invalid-channel', message.reply(Helper.getText('mentions.warning', message))];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply(Helper.getText('mentions.warning', message))
+        };
       }
       return false;
     });

@@ -41,7 +41,10 @@ class SubmitRequestCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'request' &&
         !PartyManager.validParty(message.channel.id, [PartyType.RAID])) {
-        return ['invalid-channel', message.reply('Make gym change requests from a raid channel!')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('Make gym change requests from a raid channel!')
+        };
       }
       return false;
     });

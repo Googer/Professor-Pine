@@ -25,7 +25,10 @@ class EditRouteCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'route-edit' &&
         !PartyManager.validParty(message.channel.id, [PartyType.RAID_TRAIN])) {
-        return ['invalid-channel', message.reply('To edit a route location, you must be in a train\'s channel!')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('To edit a route location, you must be in a train\'s channel!')
+        };
       }
 
       return false;

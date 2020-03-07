@@ -31,7 +31,10 @@ class FriendCodeCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'auto' && !Helper.isBotChannel(message)) {
-        return ['invalid-channel', message.reply(Helper.getText('friend-code.warning', message))];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply(Helper.getText('friend-code.warning', message))
+        };
       }
       return false;
     });

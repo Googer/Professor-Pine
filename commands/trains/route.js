@@ -24,7 +24,10 @@ class RouteCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'route' &&
         !PartyManager.validParty(message.channel.id, PartyType.RAID_TRAIN)) {
-        return ['invalid-channel', message.reply('You can only view a route from a train channel!')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('You can only view a route from a train channel!')
+        };
       }
       return false;
     });

@@ -32,7 +32,10 @@ class HatchTimeCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'hatch' &&
         !PartyManager.validParty(message.channel.id, PartyType.RAID)) {
-        return ['invalid-channel', message.reply('Set the hatch time for a raid from its raid channel!')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('Set the hatch time for a raid from its raid channel!')
+        };
       }
       return false;
     });

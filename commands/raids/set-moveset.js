@@ -29,7 +29,10 @@ class SetMovesetCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'moveset' &&
         !PartyManager.validParty(message.channel.id, [PartyType.RAID])) {
-        return ['invalid-channel', message.reply('Set the pokémon\'s moveset of a raid from its raid channel.')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('Set the pokémon\'s moveset of a raid from its raid channel.')
+        };
       }
       return false;
     });

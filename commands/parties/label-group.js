@@ -32,7 +32,10 @@ class LabelGroupCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'label' &&
         !PartyManager.validParty(message.channel.id, [PartyType.RAID, PartyType.RAID_TRAIN])) {
-        return ['invalid-channel', message.reply('Set a label for a raid group from its raid channel!')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('Set a label for a raid group from its raid channel!')
+        };
       }
       return false;
     });

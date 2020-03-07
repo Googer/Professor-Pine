@@ -33,7 +33,10 @@ class SaveRouteCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'save-route' &&
         !PartyManager.validParty(message.channel.id, PartyType.RAID_TRAIN)) {
-        return ['invalid-channel', message.reply('You can only save a route from a train channel!')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('You can only save a route from a train channel!')
+        };
       }
       return false;
     });
@@ -41,7 +44,7 @@ class SaveRouteCommand extends Commando.Command {
 
   async run(message, args) {
     const train = PartyManager.getParty(message.channel.id),
-          name = args['name'];
+      name = args['name'];
 
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .then(result => {

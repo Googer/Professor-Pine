@@ -40,7 +40,7 @@ class Map {
     this.regions = {};
 
     for (const region of regions) {
-      const channelName = this.client.channels.get(region.channelId).name,
+      const channelName = this.client.channels.cache.get(region.channelId).name,
         regionRaw = await Region.getRegionsRaw(region.channelId)
           .catch(error => null),
         regionObject = !!regionRaw ?
