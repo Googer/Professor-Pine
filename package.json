@@ -15,7 +15,7 @@
     "discord.js": "^12.0.1",
     "discord.js-commando": "github:Googer/discord.js-commando",
     "erlpack": "^0.1.3",
-    "express": "^4.16.4",
+    "express": "^4.17.1",
     "he": "^1.2.0",
     "jimp": "^0.9.5",
     "knex": "^0.20.11",
