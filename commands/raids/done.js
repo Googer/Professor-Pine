@@ -23,7 +23,10 @@ class DoneCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'done' &&
         !PartyManager.validParty(message.channel.id, [PartyType.RAID, PartyType.RAID_TRAIN])) {
-        return ['invalid-channel', message.reply('Say you have completed a raid from its raid channel!')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('Say you have completed a raid from its raid channel!')
+        };
       }
       return false;
     });

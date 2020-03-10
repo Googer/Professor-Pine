@@ -27,7 +27,10 @@ class TrainFinishedCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'train-finished' &&
         !PartyManager.validParty(message.channel.id, PartyType.RAID_TRAIN)) {
-        return ['invalid-channel', message.reply('You can only mark a raid train as finished within a train channel!')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('You can only mark a raid train as finished within a train channel!')
+        };
       }
       return false;
     });

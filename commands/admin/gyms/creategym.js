@@ -73,10 +73,16 @@ module.exports = class CreateGym extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'create-gym') {
         if (!Helper.isBotManagement(message)) {
-          return ['unauthorized', message.reply('You are not authorized to use this command.')];
+          return {
+            reason: 'unauthorized',
+            response: message.reply('You are not authorized to use this command.')
+          };
         }
         if (!Helper.isBotChannel(message)) {
-          return ['invalid-channel', message.reply('This command must be run in a bot channel.')]
+          return {
+            reason: 'invalid-channel',
+            response: message.reply('This command must be run in a bot channel.')
+          };
         }
       }
 
@@ -167,9 +173,21 @@ module.exports = class CreateGym extends Commando.Command {
                           if (channelStrings.length > 0) {
                             msg.say("This gym is in " + channelStrings.join(", ") + ".")
                               .catch(err => log.error(err));
+
+                            if (settings.postNewGyms) {
+                              await Helper.getUpdatesChannel(msg.channel)
+                                .send("This gym is in " + channelStrings.join(", ") + ".")
+                                .catch(err => log.error(err));
+                            }
                           } else {
                             msg.say("This gym is not located in any region channels.")
                               .catch(err => log.error(err));
+
+                            if (settings.postNewGyms) {
+                              await Helper.getUpdatesChannel(msg.channel)
+                                .send("This gym is not located in any region channels.")
+                                .catch(err => log.error(err));
+                            }
                           }
 
                           that.cleanup(msg, locationResult, nameResult, nicknameResult, descriptionResult);

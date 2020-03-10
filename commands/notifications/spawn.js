@@ -5,7 +5,6 @@ const log = require('loglevel').getLogger('SpawnCommand'),
   {CommandGroup} = require('../../app/constants'),
   Gym = require('../../app/gym'),
   Helper = require('../../app/helper'),
-  Notify = require('../../app/notify'),
   PartyManager = require('../../app/party-manager'),
   Pokemon = require('../../app/pokemon'),
   {MessageEmbed} = require('discord.js'),
@@ -45,7 +44,10 @@ class SpawnCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'spawn' && !Gym.isValidChannel(message.channel.id)) {
-        return ['invalid-channel', message.reply('Announce spawns from region channels!')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply(message.reply('Announce spawns from region channels!'))
+        };
       }
       return false;
     });
@@ -65,7 +67,7 @@ class SpawnCommand extends Commando.Command {
           Helper.getEmoji(settings.emoji.shiny) || '✨' :
           '',
         mention = unownRole ? '(' + unownRole.toString() + ') ' : '',
-        header = `A ${pokemonName}${shiny} ${mention}spawn has been reported in #${regionChannel.name} by ${reportingMember.displayName}: ${spawnDetails}`,
+        header = `A wild ${pokemonName}${shiny} ${mention}has been reported in #${regionChannel.name} by ${reportingMember.displayName}: ${spawnDetails}`,
         embed = new MessageEmbed();
       embed.setColor('GREEN');
       embed.setDescription('**Warning: Spawns are user-reported. There is no way to know exactly how long a Pokémon will be there. Most spawns are 30 min. Use your discretion when chasing them.**');
@@ -96,11 +98,9 @@ class SpawnCommand extends Commando.Command {
         }
       });
 
-      Notify.notifyMembersOfSpawn(pokemon, message.member.id, spawnDetails, message, messagePokemon)
-        .catch(err => log.error(err));
+      Helper.client.emit('spawnReported', pokemon, message.member.id, spawnDetails, message, messagePokemon);
     } else {
-      Notify.notifyMembersOfSpawn(pokemon, message.member.id, spawnDetails, message)
-        .catch(err => log.error(err));
+      Helper.client.emit('spawnReported', pokemon, message.member.id, spawnDetails, message);
     }
   }
 }

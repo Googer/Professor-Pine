@@ -25,12 +25,18 @@ class ClearRouteCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'route-clear' &&
         !Helper.isBotManagement(message)) {
-        return ['invalid-channel', message.reply('To clear a route, you must be a member of staff!')];
+        return {
+          reason: 'unauthorized',
+          response: message.reply('To clear a route, you must be a member of staff!')
+        };
       }
 
       if (!!message.command && message.command.name === 'route-clear' &&
         !PartyManager.validParty(message.channel.id, [PartyType.RAID_TRAIN])) {
-        return ['invalid-channel', message.reply('To clear a route, you must be in a train\'s channel!')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('To clear a route, you must be in a train\'s channel!')
+        };
       }
 
       return false;

@@ -2255,6 +2255,32 @@
       "imageURL": "https://cdn.bulbagarden.net/upload/4/42/110Weezing.png"
     },
     {
+      "number": 110,
+      "pbName": "WEEZING_GALARIAN_FORM",
+      "family": "WEEZING_GALARIAN_FORM",
+      "aliases": [
+        "WEEZING_GALARIAN_FORM",
+        "GALARIAN WEEZING",
+        "GALAR WEEZING",
+        "WEEZING GALARIAN",
+        "WEEZING GALAR",
+        "WEEZING GALARIAN FORM",
+        "WEEZING GALAR FORM",
+        "GWEEZING",
+        "G WEEZING"
+      ],
+      "dzName": "Weezing-Galar",
+      "atk": 174,
+      "def": 197,
+      "sta": 163,
+      "gsName": [
+        "GALARIAN WEEZING",
+        "G WEEZING",
+        "WEEZING GALARIAN"
+      ],
+      "imageURL": "https://cdn.bulbagarden.net/upload/3/38/110Weezing-Galar.png"
+    },
+    {
       "number": 111,
       "pbName": "RHYHORN",
       "family": "RHYHORN",
@@ -9509,7 +9535,7 @@
       "def": 73,
       "sta": 121,
       "gsName": [
-        "VICTINI"
+        "PURRLOIN"
       ],
       "imageURL": "https://cdn.bulbagarden.net/upload/4/46/509Purrloin.png"
     },
@@ -10906,7 +10932,7 @@
       "def": 131,
       "sta": 338,
       "gsName": [
-        "CARRACOSTA"
+        "ALOMOMOLA"
       ],
       "imageURL": "https://cdn.bulbagarden.net/upload/1/10/594Alomomola.png"
     },
@@ -11684,49 +11710,47 @@
       "sta": 188,
       "gsName": [
         "TORNADUS (THERIAN)",
-        "TORNADUS THERIAN",
         "TORNADUS THERIAN"
       ],
       "imageURL": "https://cdn.bulbagarden.net/upload/7/7e/641Tornadus-Therian.png"
     },
     {
       "number": 642,
-      "pbName": "THUNDERUS_INCARNATE_FORM",
-      "family": "THUNDERUS_INCARNATE_FORM",
+      "pbName": "THUNDURUS_INCARNATE_FORM",
+      "family": "THUNDURUS_INCARNATE_FORM",
       "aliases": [
-        "THUNDERUS",
-        "THUNDERUS INCARNATE",
-        "THUNDERUS INCARNATE FORM",
-        "THUNDERUS CLOUD",
-        "THUNDERUS CLOUD FORM"
+        "THUNDURUS",
+        "THUNDURUS INCARNATE",
+        "THUNDURUS INCARNATE FORM",
+        "THUNDURUS CLOUD",
+        "THUNDURUS CLOUD FORM"
       ],
-      "dzName": "Thunderus",
+      "dzName": "Thundurus",
       "atk": 266,
       "def": 164,
       "sta": 188,
       "gsName": [
-        "THUNDERUS (INCARNATE)",
-        "THUNDERUS",
-        "THUNDERUS INCARNATE"
+        "THUNDURUS (INCARNATE)",
+        "THUNDURUS",
+        "THUNDURUS INCARNATE"
       ],
       "imageURL": "https://cdn.bulbagarden.net/upload/b/b8/642Thundurus.png"
     },
     {
       "number": 642,
-      "pbName": "THUNDERUS_THERIAN_FORM",
-      "family": "THUNDERUS_THERIAN_FORM",
+      "pbName": "THUNDURUS_THERIAN_FORM",
+      "family": "THUNDURUS_THERIAN_FORM",
       "aliases": [
-        "THUNDERUS THERIAN",
-        "THUNDERUS THERIAN FORM"
+        "THUNDURUS THERIAN",
+        "THUNDURUS THERIAN FORM"
       ],
-      "dzName": "Thunderus_Therian",
+      "dzName": "Thundurus_Therian",
       "atk": 295,
       "def": 161,
       "sta": 188,
       "gsName": [
-        "THUNDERUS (THERIAN)",
-        "THUNDERUS THERIAN",
-        "THUNDERUS THERIAN"
+        "THUNDURUS (THERIAN)",
+        "THUNDURUS THERIAN"
       ],
       "imageURL": "https://cdn.bulbagarden.net/upload/8/86/642Thundurus-Therian.png"
     },
@@ -11801,26 +11825,9 @@
       "sta": 205,
       "gsName": [
         "LANDORUS (THERIAN)",
-        "LANDORUS THERIAN",
         "LANDORUS THERIAN"
       ],
       "imageURL": "https://cdn.bulbagarden.net/upload/0/00/645Landorus-Therian.png"
-    },
-    {
-      "number": 646,
-      "pbName": "KYUREM",
-      "family": "KYUREM",
-      "aliases": [
-        "KYUREM"
-      ],
-      "dzName": "Kyurem",
-      "atk": 246,
-      "def": 170,
-      "sta": 245,
-      "gsName": [
-        "KYUREM"
-      ],
-      "imageURL": "https://cdn.bulbagarden.net/upload/d/d0/565Carracosta.png"
     },
     {
       "number": 646,
@@ -12027,6 +12034,18 @@
         "FOUR"
       ]
     },
+    {
+        "pbName": "4_5",
+        "name": "Tier 4.5",
+        "aliases": [
+          "45",
+          "T45",
+          "T 45",
+          "TIER45",
+          "TIER 45",
+          "FOUR FIVE"
+        ]
+      },
     {
       "pbName": "5",
       "name": "Tier 5",

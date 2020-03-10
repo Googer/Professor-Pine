@@ -22,7 +22,10 @@ class UnfavoriteAllCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'untarget-all' && !Helper.isBotChannel(message)) {
-        return ['invalid-channel', message.reply(Helper.getText('unfavoriteall.warning', message))];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply(Helper.getText('unfavoriteall.warning', message))
+        };
       }
       return false;
     });

@@ -38,6 +38,12 @@
   "register-silph": {
     "warning": "Use the `!register-silph` command in ${bot-channel} to register your Silph Road username."
   },
+  "register-friend-code": {
+    "warning": "Use the `!register-friend-code` command in ${bot-channel} to register your friend code."
+  },
+  "register-nickname": {
+    "warning": "Use the `!register-nickname` command in ${bot-channel} to register your nickname."
+  },
   "notifications": {
     "warning": "Use the `!notifications` command in ${bot-channel} to view current notifications for pokémon."
   },
@@ -60,5 +66,15 @@
   "regionMapDM": {
     "success": "Sent you a DM with the link.",
     "warning": "Unable to send you the DM. You probably have DMs disabled."
+  },
+  "raid": {
+    "time": {
+      "unset": "Raid end time currently unset",
+      "remaining": "Raid available until ${time}"
+    },
+    "footer": "${timeFooter}, originally reported by ${member}"
+  },
+  "train": {
+      "footer": "Originally reported by ${member}\nIn memory of KingKovifor"
   }
 }

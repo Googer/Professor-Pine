@@ -24,7 +24,10 @@ class CancelStartTimeCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'cancel-meet' &&
         !PartyManager.validParty(message.channel.id, [PartyType.RAID])) {
-        return ['invalid-channel', message.reply('Canceling a meeting time must be done from a raid channel.')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('Cancel the meeting time for a raid from its raid channel!')
+        };
       }
       return false;
     });
@@ -53,18 +56,22 @@ class CancelStartTimeCommand extends Commando.Command {
         'trainers',
       channel = (await PartyManager.getChannel(raid.channelId)).channel;
 
+    const messagesToSend = [];
+
     // notify all attendees in same group that a time has been set
-    Object.entries(raid.attendees)
+    for (const [attendee, attendeeStatus] of Object.entries(raid.attendees)
       .filter(([attendee, attendeeStatus]) => attendee !== message.member.id &&
         attendeeStatus.status !== PartyStatus.COMPLETE)
-      .filter(([attendee, attendeeStatus]) => attendeeStatus.group === groupId)
-      .forEach(([attendee, attendeeStatus]) => {
-        const member = Helper.getMemberForNotification(message.guild.id, attendee);
-
-        member.send(`${message.member.displayName} has canceled the meeting time for ${channel.toString()}. ` +
-          `There ${verb} currently **${totalAttendees}** ${noun} attending!`)
-          .catch(err => log.error(err));
+      .filter(([attendee, attendeeStatus]) => attendeeStatus.group === groupId)) {
+      messagesToSend.push({
+        userId: attendee,
+        message: `${message.member.displayName} has canceled the meeting time for ${channel.toString()}. ` +
+          `There ${verb} currently **${totalAttendees}** ${noun} attending!`
       });
+    }
+
+    Helper.sendNotificationMessages(messagesToSend)
+      .catch(err => log.error(err));
 
     raid.refreshStatusMessages()
       .catch(err => log.error(err));

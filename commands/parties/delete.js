@@ -23,7 +23,10 @@ class DeleteCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'delete' &&
         !PartyManager.validParty(message.channel.id)) {
-        return ['invalid-channel', message.reply('Delete a party from its raid channel!')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('Delete a party from its raid channel!')
+        };
       }
       return false;
     });

@@ -25,8 +25,11 @@ class GymNotificationsCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'targets' && !Helper.isBotChannel(message)) {
-        return ['invalid-channel', message.reply(Helper.getText('favorites.warning', message))];
-      }
+        return {
+          reason: 'invalid-channel',
+          response: message.reply(Helper.getText('favorites.warning', message))
+        };
+     }
       return false;
     });
   }

@@ -32,7 +32,7 @@ class Utility {
       messagesToDelete.push(initialMessage);
     }
 
-    messagesToDelete.push(...channel.messages.array() // cache of recent messages, should be sufficient
+    messagesToDelete.push(...channel.messages.cache.array() // cache of recent messages, should be sufficient
       .filter(message => (message.createdTimestamp > startTime) &&
         (message.author === author ||
           (message.author === bot && message.mentions.members.has(author.id))) &&

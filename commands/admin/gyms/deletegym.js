@@ -37,11 +37,17 @@ module.exports = class DeleteGym extends commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'delete-gym') {
         if (!Helper.isBotManagement(message)) {
-          return ['unauthorized', message.reply('You are not authorized to use this command.')];
+          return {
+            reason: 'unauthorized',
+            response: message.reply('You are not authorized to use this command.')
+          };
         }
 
         if (!Helper.isBotChannel(message) && !Helper.isChannelBounded(message.channel.id, PartyManager.getRaidChannelCache())) {
-          return ['invalid-channel', message.reply('Delete gyms from regional channels or a bot channel.')];
+          return {
+            reason: 'invalid-channel',
+            response: message.reply('Delete gyms from regional channels or a bot channel.')
+          };
         }
       }
 

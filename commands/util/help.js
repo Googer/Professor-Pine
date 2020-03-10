@@ -101,7 +101,8 @@ class HelpCommand extends Commando.Command {
           let fieldName = `**${group.name}**`,
             fieldContents = '';
 
-          for (const command of group.commands.values()) {
+          for (const command of [...group.commands.values()]
+            .filter(cmd => !cmd.hidden && (showAll || cmd.isUsable(message)))) {
             const line = `**${command.name}**: ${command.description}`;
             if (fieldContents.length + line.length > 1024) {
               fields.push({fieldName, fieldContents});
@@ -114,7 +115,9 @@ class HelpCommand extends Commando.Command {
             }
           }
 
-          fields.push({fieldName, fieldContents});
+          if (fieldContents.length > 0) {
+            fields.push({fieldName, fieldContents});
+          }
         }
 
         for (const {fieldName, fieldContents} of fields) {

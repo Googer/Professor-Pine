@@ -45,7 +45,10 @@ class FavoriteCommand extends Commando.Command {
       if (!!message.command && message.command.name === 'target' &&
         !PartyManager.validParty(message.channel.id, [PartyType.RAID]) &&
         !Gym.isValidChannel(message.channel.id)) {
-        return ['invalid-channel', message.reply(Helper.getText('favorite.warning', message))];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply(Helper.getText('favorite.warning', message))
+        };
       }
       return false;
     });
@@ -100,7 +103,7 @@ class FavoriteCommand extends Commando.Command {
         if (confirm) {
           Notify.assignGymNotification(message.member, gymId)
             .then(result => {
-              if (message.channel.messages.has(message.id)) {
+              if (message.channel.messages.cache.has(message.id)) {
                 message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍');
               }
             })

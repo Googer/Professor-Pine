@@ -27,9 +27,12 @@ module.exports = class FindGym extends commando.Command {
     });
 
     client.dispatcher.addInhibitor(message => {
-      if (!!message.command && message.command.name === 'findgym') {
+      if (!!message.command && message.command.name === 'find-gym') {
         if (!Helper.isBotChannel(message) && !Helper.isChannelBounded(message.channel.id, PartyManager.getRaidChannelCache())) {
-          return ['invalid-channel', message.reply('Find gyms from regional channels or a bot channel.')];
+          return {
+            reason: 'invalid-channel',
+            response: message.reply('Find gyms from regional channels or a bot channel.')
+          };
         }
       }
       return false;

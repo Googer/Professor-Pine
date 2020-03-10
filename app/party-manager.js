@@ -199,14 +199,14 @@ class PartyManager {
     Region.checkRegionsExist()
       .then(success => {
         if (success) {
-          that.client.channels.forEach(async channel => {
+          that.client.channels.cache.forEach(async channel => {
             const region = await Region.getRegionsRaw(channel.id)
               .catch(error => false);
             if (region) {
               that.regionChannels.push(channel.id);
             }
 
-            let last = that.client.channels.array().slice(-1)[0];
+            let last = that.client.channels.cache.array().slice(-1)[0];
             if (channel.id === last.id) {
               that.clearOldRegionChannels();
             }
@@ -314,7 +314,11 @@ class PartyManager {
   async getMember(channelId, memberId) {
     const party = this.getParty(channelId),
       channel = (await this.getChannel(channelId)).channel,
-      member = channel.guild.members.get(memberId);
+      member = await channel.guild.members.fetch(memberId)
+        .catch(err => {
+          log.error(err);
+          return undefined;
+        });
 
     if (!!member) {
       return Promise.resolve({member, ok: true});
@@ -341,9 +345,13 @@ class PartyManager {
       .includes(gymId);
   }
 
-  getChannel(channelId) {
+  async getChannel(channelId) {
     try {
-      const channel = this.client.channels.get(channelId);
+      const channel = await this.client.channels.fetch(channelId)
+        .catch(err => {
+          log.error(err);
+          return undefined;
+        });
 
       if (!channel) {
         if (this.validParty(channelId)) {
@@ -391,8 +399,17 @@ class PartyManager {
               return {error: new Error('Message does not exist'), ok: false};
             }
           } else {
-            const message = await channel.channel.messages.fetch(messageId);
-            return {message: message, ok: true};
+            const message = await channel.channel.messages.fetch(messageId)
+              .catch(err => {
+                log.error(err);
+                return undefined;
+              });
+
+            if (!!message) {
+              return {message: message, ok: true};
+            } else {
+              return {error: new Error('Could not fetch message'), ok: false};
+            }
           }
         })
         .catch(err => {

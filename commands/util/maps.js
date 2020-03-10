@@ -23,7 +23,10 @@ class MapCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'maps' &&
         PartyManager.validParty(message.channel.id)) {
-        return ['invalid-channel', message.reply('Ask for the complete region map from outside a raid channel!')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('Ask for the complete region map from outside a raid channel!')
+        };
       }
       return false;
     });

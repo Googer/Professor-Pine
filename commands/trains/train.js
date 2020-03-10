@@ -37,7 +37,10 @@ class TrainCommand extends Commando.Command {
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'train' &&
         (PartyManager.validParty(message.channel.id) || !Gym.isValidChannel(message.channel.id))) {
-        return ['invalid-channel', message.reply('Create raid trains from region channels!')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('Create raid trains from region channels!')
+        };
       }
       return false;
     });
@@ -51,7 +54,7 @@ class TrainCommand extends Commando.Command {
     let train;
 
     RaidTrain.createRaidTrain(sourceChannel.id, message.member.id, trainName)
-    // create and send announcement message to region channel
+      // create and send announcement message to region channel
       .then(async info => {
         train = info.party;
         const channelMessageHeader = await train.getChannelMessageHeader(),
