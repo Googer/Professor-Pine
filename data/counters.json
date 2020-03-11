@@ -12139,15 +12139,29 @@
         "40",
         "FORTY",
         "FOURTY",
-        "MAX",
-        "MAXIMUM",
         "LEVEL40",
         "LEVEL 40",
         "L40",
         "L 40"
       ],
       "type": "byLevel"
-    }
+    },
+    {
+        "pbName": "41",
+        "name": "Level 41",
+        "aliases": [
+          "41",
+          "FORTYONE",
+          "FORTY ONE",
+          "FOURTYONE",
+          "FOURTY ONE",
+          "LEVEL41",
+          "LEVEL 41",
+          "L41",
+          "L 41"
+        ],
+        "type": "byLevel"
+      }
   ],
   "weather": [
     {
