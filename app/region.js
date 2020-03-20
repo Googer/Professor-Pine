@@ -1047,9 +1047,7 @@ class RegionHelper {
 
       if (gym.places) {
         log.info(`places: ${gym.places}`);
-        embed.addBlankField(true);
-        embed.addField("Nearby Places", gym.places);
-        embed.addBlankField(true);
+        embed.addField("Nearby Places", gym.places.substr(0, 1024));
       }
     }
 

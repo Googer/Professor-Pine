@@ -377,7 +377,11 @@ class RaidTrain extends Party {
         '__Train Times__' :
         '',
       currentGym = this.currentGym || 0,
-      route = this.route ? this.route : [],
+      route = this.route ?
+        this.route[0] !== '' ?
+          this.route :
+          [] :
+        [],
       pokemon = !!this.pokemon ? this.pokemon.name.charAt(0).toUpperCase() + this.pokemon.name.slice(1) : '',
       pokemonUrl = !!this.pokemon && !!this.pokemon.url ?
         this.pokemon.url :
@@ -651,7 +655,7 @@ class RaidTrain extends Party {
     embed.setColor('GREEN');
     let description = '';
 
-    if (this.route && this.route.length) {
+    if (this.route && this.route.length && this.route[0] !== '') {
       for (let index = 0; index < this.route.length; ++index) {
         let complete = index < current ? '~~' : '',
           completeText = index < current ? ' (Completed)' : '',
@@ -787,7 +791,7 @@ class RaidTrain extends Party {
 
   async saveRoute(name, message) {
     const userId = await User.getUserId(message),
-          regionId = await Region.getRegionId(this.sourceChannelId);
+      regionId = await Region.getRegionId(this.sourceChannelId);
 
     return DB.knex('SavedRoutes')
       .insert({

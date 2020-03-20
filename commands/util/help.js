@@ -124,7 +124,7 @@ class HelpCommand extends Commando.Command {
           embed.addField(fieldName, fieldContents);
 
           if (embed.length > 6000) {
-            embed.spliceField(embed.fields.length - 1, 1);
+            embed.spliceFields(embed.fields.length - 1, 1);
             embed.setFooter('');
 
             const msg = await message.direct({embed});

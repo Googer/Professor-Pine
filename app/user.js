@@ -121,9 +121,9 @@ class User {
       .first();
 
     if (!!result) {
-      const channel = Helper.client.channels.get(message.channel.id),
+      const channel = Helper.client.channels.cache.get(message.channel.id),
         member = channel ?
-          channel.guild.members.get(result.userSnowflake) :
+          channel.guild.members.cache.get(result.userSnowflake) :
           false;
 
       return member;
