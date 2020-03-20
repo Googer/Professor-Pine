@@ -16,7 +16,7 @@ const log = require('loglevel').getLogger('ImageProcessor'),
   Status = require('./status'),
   {TesseractWorker, OEM, PSM} = require('tesseract.js'),
   {PartyStatus, TimeParameter} = require('./constants'),
-  uuidv1 = require('uuid/v1'),
+  {v1: uuidv1} = require('uuid'),
   Utility = require('./utility');
 
 // Will save all images regardless of how right or wrong, in order to better examine output
@@ -483,17 +483,17 @@ class ImageProcessing {
         [result.words
           .map(word => word.choices
             // choose highest-confidence word
-              .sort((choiceA, choiceB) => choiceB.confidence - choiceA.confidence)[0]
+            .sort((choiceA, choiceB) => choiceB.confidence - choiceA.confidence)[0]
           )
           .filter(word => word.confidence > minConfidence)
           .map(word => word.text)
           .join(' ')] :
         result.symbols
-        // strip out very low-confidence colons (tesseract will see them correctly but with low confidence)
+          // strip out very low-confidence colons (tesseract will see them correctly but with low confidence)
           .filter(symbol => symbol.text !== ':' || symbol.confidence >= 20)
           .map(symbol => Object.assign({}, symbol, symbol.choices
             // choose highest-confidence symbol - not always the default one from tesseract!
-              .sort((choiceA, choiceB) => choiceB.confidence - choiceA.confidence)[0]
+            .sort((choiceA, choiceB) => choiceB.confidence - choiceA.confidence)[0]
           ))
           .reduce((previous, current) => {
             /// separate into chunks using low-confidence symbols as separators
@@ -1180,7 +1180,7 @@ class ImageProcessing {
   }
 
   removeReaction(message) {
-    message.reactions
+    message.reactions.cache
       .filter(reaction => reaction.emoji.name === '🤔' && reaction.me)
       .forEach(reaction => reaction.users.remove(message.client.user.id)
         .catch(err => log.error(err)))
