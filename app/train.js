@@ -65,7 +65,7 @@ class RaidTrain extends Party {
         // move channel to end
         return newChannel.guild.setChannelPositions([{
           channel: newChannel,
-          position: newChannel.guild.channels.size - 1
+          position: newChannel.guild.channels.cache.size - 1
         }]);
       })
       .then(async guild => {
