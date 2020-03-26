@@ -30,7 +30,7 @@ class Pokemon extends Search {
       pokemonRegex = new RegExp('^V[0-9]+_POKEMON_(.*)'),
       formsRegex = new RegExp('^FORMS_V[0-9]+_POKEMON_(.*)'),
       pokemonMetadata = require('../data/pokemon'),
-      alternateForms = [].concat(...gameMaster.itemTemplates
+      alternateForms = [].concat(...gameMaster.itemTemplate
         .filter(item => formsRegex.test(item.templateId))
         .filter(form => !!form.formSettings.forms)
         .map(form => form.formSettings.forms))
@@ -42,23 +42,23 @@ class Pokemon extends Search {
                 '00',
             formSuffix: form.assetBundleSuffix
           })),
-      pokemon = gameMaster.itemTemplates
+      pokemon = gameMaster.itemTemplate
         .filter(item => pokemonRegex.test(item.templateId))
         .map(item => Object.assign({},
           {
-            name: item.pokemonSettings.form ?
-              item.pokemonSettings.form.toLowerCase() :
-              item.pokemonSettings.pokemonId.toLowerCase(),
+            name: item.pokemon.form ?
+              item.pokemon.form.toLowerCase() :
+              item.pokemon.uniqueId.toLowerCase(),
             number: Number.parseInt(item.templateId.split('_')[0].slice(2)),
-            stats: item.pokemonSettings.stats,
-            quickMoves: item.pokemonSettings.quickMoves,
-            cinematicMoves: item.pokemonSettings.cinematicMoves,
-            type: [item.pokemonSettings.type.split('_')[2].toLowerCase(), item.pokemonSettings.type2 ?
-              item.pokemonSettings.type2.split('_')[2].toLowerCase() :
+            stats: item.pokemon.stats,
+            quickMoves: item.pokemon.quickMoves,
+            cinematicMoves: item.pokemon.cinematicMoves,
+            type: [item.pokemon.type1.split('_')[2].toLowerCase(), item.pokemon.type2 ?
+              item.pokemon.type2.split('_')[2].toLowerCase() :
               null]
               .filter(type => !!type),
-            form: item.pokemonSettings.form ?
-              item.pokemonSettings.form.split('_')[1].toLowerCase() :
+            form: item.pokemon.form ?
+              item.pokemon.form.split('_')[1].toLowerCase() :
               'normal'
           })),
       updatedPokemon = await DB.DB('Pokemon').select(),

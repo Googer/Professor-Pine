@@ -14,7 +14,7 @@ const log = require('loglevel').getLogger('ImageProcessor'),
   RegionHelper = require('./region'),
   settings = require('../data/settings'),
   Status = require('./status'),
-  {TesseractWorker, OEM, PSM} = require('tesseract.js'),
+  {createWorker, OEM, PSM} = require('tesseract.js'),
   {PartyStatus, TimeParameter} = require('./constants'),
   {v1: uuidv1} = require('uuid'),
   Utility = require('./utility');
@@ -104,69 +104,64 @@ class ImageProcessing {
     });
   }
 
-  initializeGymTesseract() {
+  async createTesseractWorker(version, languages) {
+    const worker = await createWorker({
+      logger: message => log.debug(message),
+      langPath: path.join(__dirname, '..', 'lang-data', 'v' + version),
+      cachePath: path.join(__dirname, '..', 'lang-data', 'v' + version),
+      cacheMethod: 'readOnly'
+    });
+
+    await worker.load();
+    await worker.loadLanguage(languages);
+    await worker.initialize(languages);
+
+    return worker;
+  }
+
+  async initializeGymTesseract() {
     if (!!this.gymTesseract) {
       log.warn('Reinitializing gym name tesseract worker...');
       this.gymTesseract.terminate();
     }
 
-    this.gymTesseract = new TesseractWorker({
-      langPath: path.join(__dirname, '..', 'lang-data', 'v4'),
-      cachePath: path.join(__dirname, '..', 'lang-data', 'v4'),
-      cacheMethod: 'readOnly'
-    });
+    this.gymTesseract = await this.createTesseractWorker(4, 'eng+grc');
   }
 
-  initializePhoneTimeTesseract() {
+  async initializePhoneTimeTesseract() {
     if (!!this.phoneTesseract) {
       log.warn('Reinitializing phone time tesseract worker...');
       this.phoneTesseract.terminate();
     }
 
-    this.phoneTesseract = new TesseractWorker({
-      langPath: path.join(__dirname, '..', 'lang-data', 'v4'),
-      cachePath: path.join(__dirname, '..', 'lang-data', 'v4'),
-      cacheMethod: 'readOnly'
-    });
+    this.phoneTesseract = await this.createTesseractWorker(4, 'eng');
   }
 
-  initializeTimeRemainingTesseract() {
+  async initializeTimeRemainingTesseract() {
     if (!!this.timeRemainingTesseract) {
       log.warn('Reinitializing time remaining tesseract worker...');
       this.timeRemainingTesseract.terminate();
     }
 
-    this.timeRemainingTesseract = new TesseractWorker({
-      langPath: path.join(__dirname, '..', 'lang-data', 'v4'),
-      cachePath: path.join(__dirname, '..', 'lang-data', 'v4'),
-      cacheMethod: 'readOnly'
-    });
+    this.timeRemainingTesseract = await this.createTesseractWorker(4, 'eng');
   }
 
-  initializeTierTesseract() {
+  async initializeTierTesseract() {
     if (!!this.tierTesseract) {
       log.warn('Reinitializing tier tesseract worker...');
       this.tierTesseract.terminate();
     }
 
-    this.tierTesseract = new TesseractWorker({
-      langPath: path.join(__dirname, '..', 'lang-data', 'v3'),
-      cachePath: path.join(__dirname, '..', 'lang-data', 'v3'),
-      cacheMethod: 'readOnly'
-    });
+    this.tierTesseract = await this.createTesseractWorker(3, 'eng');
   }
 
-  initializePokemonTesseract() {
+  async initializePokemonTesseract() {
     if (!!this.pokemonTesseract) {
       log.warn('Reinitializing pokemon tesseract worker...');
       this.pokemonTesseract.terminate();
     }
 
-    this.pokemonTesseract = new TesseractWorker({
-      langPath: path.join(__dirname, '..', 'lang-data', 'v4'),
-      cachePath: path.join(__dirname, '..', 'lang-data', 'v4'),
-      cacheMethod: 'readOnly'
-    });
+    this.pokemonTesseract = await this.createTesseractWorker(4, 'eng');
   }
 
   initialize() {
@@ -638,15 +633,15 @@ class ImageProcessing {
           }
 
           return ImageProcessing.lock.acquire('phoneTime', () => {
-            this.phoneTesseract.recognize(image, 'eng', this.phoneTimeTesseractOptions)
+            this.phoneTesseract.recognize(image, this.phoneTimeTesseractOptions)
               .catch(err => reject(err))
               .then(result => {
-                const match = this.tesseractProcessTime(result);
+                const match = this.tesseractProcessTime(result.data);
                 if (match && match.length) {
                   resolve({
                     image: newImage,
                     text: match[1],
-                    result
+                    result: result.data
                   });
                 } else {
                   // try again with image inverted
@@ -657,20 +652,20 @@ class ImageProcessing {
                         reject(err);
                       }
 
-                      this.phoneTesseract.recognize(image, 'eng', this.phoneTimeTesseractOptions)
+                      this.phoneTesseract.recognize(image, this.phoneTimeTesseractOptions)
                         .catch(err => reject(err))
                         .then(result => {
-                          const match = this.tesseractProcessTime(result);
+                          const match = this.tesseractProcessTime(result.data);
                           if (match && match.length) {
                             resolve({
                               image: newImage,
                               text: match[1],
-                              result
+                              result: result.data
                             });
                           } else {
                             resolve({
                               image: newImage,
-                              result
+                              result: result.data
                             });
                           }
                         });
@@ -744,10 +739,10 @@ class ImageProcessing {
           }
 
           return ImageProcessing.lock.acquire('timeRemaining', () => {
-            this.timeRemainingTesseract.recognize(image, 'eng', this.timeRemainingTesseractOptions)
+            this.timeRemainingTesseract.recognize(image, this.timeRemainingTesseractOptions)
               .catch(err => reject(err))
               .then(result => {
-                const confidentText = this.tesseractGetConfidentSequences(result, false, 70);
+                const confidentText = this.tesseractGetConfidentSequences(result.data, false, 70);
 
                 const match = confidentText
                   .map(text => text.match(/(\d{1,2}:\d{2}:\d{2})/))
@@ -757,12 +752,12 @@ class ImageProcessing {
                   resolve({
                     image: newImage,
                     text: match[1],
-                    result
+                    result: result.data
                   });
                 } else {
                   resolve({
                     image: newImage,
-                    result
+                    result: result.data
                   });
                 }
               });
@@ -849,10 +844,10 @@ class ImageProcessing {
             }
 
             return ImageProcessing.lock.acquire('gym', () => {
-              this.gymTesseract.recognize(image, 'eng', this.gymTesseractOptions)
+              this.gymTesseract.recognize(image, this.gymTesseractOptions)
                 .catch(err => reject(err))
                 .then(result => {
-                  const confidentWords = this.tesseractGetConfidentSequences(result, true),
+                  const confidentWords = this.tesseractGetConfidentSequences(result.data, true),
                     text = confidentWords.length > 0 ?
                       confidentWords[0]
                         .replace(/[^\w\s-]/g, '')
@@ -957,10 +952,10 @@ class ImageProcessing {
             }
 
             return ImageProcessing.lock.acquire('pokemon', () => {
-              this.pokemonTesseract.recognize(image, 'eng', this.pokemonTesseractOptions)
+              this.pokemonTesseract.recognize(image, this.pokemonTesseractOptions)
                 .catch(err => reject(err))
                 .then(result => {
-                  const text = result.text.replace(/[^\w\n]/gi, '');
+                  const text = result.data.text.replace(/[^\w\n]/gi, '');
                   let matchCP = text.match(/\d{3,10}/g),
                     matchPokemon = text.replace(/(cp)?\s?\d+/g, ' ').match(/\w+/g),
                     pokemon = '',
@@ -980,7 +975,7 @@ class ImageProcessing {
                     image: processedImage,
                     cp,
                     pokemon,
-                    result
+                    result: result.data
                   });
                 });
             });
@@ -1062,15 +1057,15 @@ class ImageProcessing {
           }
 
           return ImageProcessing.lock.acquire('tier', () => {
-            this.tierTesseract.recognize(image, 'eng', this.tierTesseractOptions)
+            this.tierTesseract.recognize(image, this.tierTesseractOptions)
               .catch(err => reject(err))
               .then(result => {
                 let tier = 0;
 
                 // tier symbols will all be on the same line, so pick the text/line of whatever line has the most matches (assuming other lines are stray artifacts and/or clouds)
-                for (let i = 0; i < result.lines.length; i++) {
+                for (let i = 0; i < result.data.lines.length; i++) {
                   // replace characters that are almost always jibberish characters
-                  const text = result.lines[i].text
+                  const text = result.data.lines[i].text
                     .replace(/\s/g, '')
                     .replace(/“”‘’"'-_=\\\/\+/g, '');
 
@@ -1085,7 +1080,7 @@ class ImageProcessing {
                 resolve({
                   image: newImage,
                   tier,
-                  result
+                  result: result.data
                 });
               });
           });
