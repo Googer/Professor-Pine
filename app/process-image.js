@@ -847,7 +847,7 @@ class ImageProcessing {
               this.gymTesseract.recognize(image, this.gymTesseractOptions)
                 .catch(err => reject(err))
                 .then(result => {
-                  const confidentWords = this.tesseractGetConfidentSequences(result.data, true),
+                  const confidentWords = this.tesseractGetConfidentSequences(result.data, true, 80),
                     text = confidentWords.length > 0 ?
                       confidentWords[0]
                         .replace(/[^\w\s-]/g, '')
