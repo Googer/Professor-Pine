@@ -165,7 +165,9 @@ class ImageProcessing {
 
   initialize() {
     Helper.client.on('message', async message => {
-      if (message.author.id !== message.client.user.id && message.attachments.size > 0) {
+      const RaidCommand = Helper.client.registry.commands.get('raid');
+
+      if (RaidCommand.isEnabledIn(message.guild) && message.author.id !== message.client.user.id && message.attachments.size > 0) {
         const imageUrls = message.attachments
           .map(attachment => attachment.url)
           .filter(url => url.search(/jpg|jpeg|png/));
@@ -209,8 +211,7 @@ class ImageProcessing {
             .catch(err => log.error(err));
         }
       }
-    })
-
+    });
 
     Helper.client.on('gymsReindexed', async () => {
       log.info('Rebuilding custom dictionary...');
@@ -243,12 +244,6 @@ class ImageProcessing {
       log.info('Image Processing Start: ', message.author.id, message.channel.name, imageUrl);
 
       let newImage, id;
-
-      // if raid command is disabled, cancel out immediately
-      const RaidCommand = Helper.client.registry.commands.get('raid');
-      if (!RaidCommand.isEnabledIn(message.guild)) {
-        return;
-      }
 
       // if not in a proper raid channel, cancel out immediately
       const regionId = await RegionHelper.getRegionId(message.channel.id)
