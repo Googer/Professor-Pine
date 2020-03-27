@@ -106,7 +106,6 @@ class ImageProcessing {
 
   async createTesseractWorker(version, languages) {
     const worker = await createWorker({
-      logger: message => log.debug(message),
       langPath: path.join(__dirname, '..', 'lang-data', 'v' + version),
       cachePath: path.join(__dirname, '..', 'lang-data', 'v' + version),
       cacheMethod: 'readOnly'
@@ -166,18 +165,52 @@ class ImageProcessing {
 
   initialize() {
     Helper.client.on('message', async message => {
-      const imageUrl = (message.attachments.size) ?
-        message.attachments.first().url :
-        '';
+      if (message.author.id !== message.client.user.id && message.attachments.size > 0) {
+        const imageUrls = message.attachments
+          .map(attachment => attachment.url)
+          .filter(url => url.search(/jpg|jpeg|png/));
 
-      // attempt to process first attachment/image if it exists (maybe some day will go through all the attachments...)
-      if (imageUrl && imageUrl.search(/jpg|jpeg|png/)) {
-        log.info('Image Processing Start: ', message.author.id, message.channel.name, imageUrl);
-        message.temporaryProcessingTimestamp = Date.now();
-        this.process(message, imageUrl)
-          .catch(err => log.error(err));
+        if (imageUrls.length > 0) {
+          message.react('🤔')
+            .catch(err => log.error(err));
+
+          let raidCreated = false;
+
+          const processingChain = Promise.resolve();
+          let currentPromise = processingChain;
+
+          imageUrls
+            .forEach(imageUrl => {
+              currentPromise = currentPromise
+                .then(lastResult => {
+                  if (lastResult === true) {
+                    raidCreated = true;
+                  }
+
+                  return this.process(message, imageUrl);
+                });
+            });
+
+          currentPromise = currentPromise
+            .then(lastResult => {
+              if (lastResult === true) {
+                raidCreated = true;
+              }
+
+              if (raidCreated === true) {
+                message.delete()
+                  .catch(err => log.error(err));
+              } else {
+                this.removeReaction(message);
+              }
+            });
+
+          processingChain
+            .catch(err => log.error(err));
+        }
       }
-    });
+    })
+
 
     Helper.client.on('gymsReindexed', async () => {
       log.info('Rebuilding custom dictionary...');
@@ -205,71 +238,44 @@ class ImageProcessing {
       255);
   }
 
-  async process(message, url) {
-    let newImage, id;
+  process(message, imageUrl) {
+    return new Promise(async resolve => {
+      log.info('Image Processing Start: ', message.author.id, message.channel.name, imageUrl);
 
-    // if raid command is disabled, cancel out immediately
-    const RaidCommand = Helper.client.registry.commands.get('raid');
-    if (!RaidCommand.isEnabledIn(message.guild)) {
-      return;
-    }
+      let newImage, id;
 
-    // if not in a proper raid channel, cancel out immediately
-    const regionId = await RegionHelper.getRegionId(message.channel.id)
-      .catch(error => log.error(error));
+      // if raid command is disabled, cancel out immediately
+      const RaidCommand = Helper.client.registry.commands.get('raid');
+      if (!RaidCommand.isEnabledIn(message.guild)) {
+        return;
+      }
 
-    if (!regionId) {
-      log.info('Not in a region channel, won\'t attempt to process');
-      return;
-    }
+      // if not in a proper raid channel, cancel out immediately
+      const regionId = await RegionHelper.getRegionId(message.channel.id)
+        .catch(error => log.error(error));
 
-    // show users the bot is starting to process their image
-    message.react('🤔')
-      .catch(err => log.error(err));
+      if (!regionId) {
+        log.info('Not in a region channel, won\'t attempt to process');
+        return;
+      }
 
-    Jimp.read(url)
-      .then(image => {
-        if (!image) {
-          return;
-        }
-        id = uuidv1();
-
-        // resize to some standard size to help tesseract
-        log.debug("Scaling image to standard size...");
-        newImage = image.scaleToFit(1440, 2560, Jimp.RESIZE_HERMITE);
-        log.debug("...done");
-
-        // determine if image is a raid image or not
-        let screenshotType = ImageProcessing.SCREENSHOT_TYPE_NONE;
-
-        // check for pink "time remaining" pixels
-        newImage.scan(newImage.bitmap.width / 2, (newImage.bitmap.height / 4.34) - 80, 1, 160, function (x, y, idx) {
-          if (screenshotType !== ImageProcessing.SCREENSHOT_TYPE_NONE) {
+      return Jimp.read(imageUrl)
+        .then(image => {
+          if (!image) {
             return;
           }
+          id = uuidv1();
 
-          let red = this.bitmap.data[idx],
-            green = this.bitmap.data[idx + 1],
-            blue = this.bitmap.data[idx + 2];
+          // resize to some standard size to help tesseract
+          log.debug("Scaling image to standard size...");
+          newImage = image.scaleToFit(1440, 2560, Jimp.RESIZE_HERMITE);
+          log.debug("...done");
 
-          // pink = { r: 250, g: 135, b: 149 }
-          if (red <= 255 && red >= 227 && green <= 148 && green >= 122 && blue <= 162 && blue >= 136) {
-            screenshotType = ImageProcessing.SCREENSHOT_TYPE_EGG;
-            return;
-          }
+          // determine if image is a raid image or not
+          let screenshotType = ImageProcessing.SCREENSHOT_TYPE_NONE;
 
-          red = ImageProcessing.convertToFullRange(red);
-          green = ImageProcessing.convertToFullRange(green);
-          blue = ImageProcessing.convertToFullRange(blue);
-
-          if (red <= 255 && red >= 227 && green <= 148 && green >= 122 && blue <= 162 && blue >= 136) {
-            screenshotType = ImageProcessing.SCREENSHOT_TYPE_EGG;
-          }
-        });
-
-        if (screenshotType === ImageProcessing.SCREENSHOT_TYPE_NONE) {
-          // check for orange "time remaining" pixels
-          newImage.scan(newImage.bitmap.width / 1.19, (newImage.bitmap.height / 1.72) - 80, 1, 160, function (x, y, idx) {
+          // check for pink "time remaining" pixels
+          newImage.scan(newImage.bitmap.width / 2, (newImage.bitmap.height / 4.34) - 80, 1, 160, function (x, y, idx) {
             if (screenshotType !== ImageProcessing.SCREENSHOT_TYPE_NONE) {
               return;
             }
@@ -278,9 +284,9 @@ class ImageProcessing {
               green = this.bitmap.data[idx + 1],
               blue = this.bitmap.data[idx + 2];
 
-            // orange = { r: 255, g: 120, b: 55 }
-            if (red <= 255 && red >= 232 && green <= 133 && green >= 107 && blue <= 68 && blue >= 42) {
-              screenshotType = ImageProcessing.SCREENSHOT_TYPE_ONGOING;
+            // pink = { r: 250, g: 135, b: 149 }
+            if (red <= 255 && red >= 227 && green <= 148 && green >= 122 && blue <= 162 && blue >= 136) {
+              screenshotType = ImageProcessing.SCREENSHOT_TYPE_EGG;
               return;
             }
 
@@ -288,49 +294,69 @@ class ImageProcessing {
             green = ImageProcessing.convertToFullRange(green);
             blue = ImageProcessing.convertToFullRange(blue);
 
-            if (red <= 255 && red >= 232 && green <= 133 && green >= 107 && blue <= 68 && blue >= 42) {
-              screenshotType = ImageProcessing.SCREENSHOT_TYPE_ONGOING;
+            if (red <= 255 && red >= 227 && green <= 148 && green >= 122 && blue <= 162 && blue >= 136) {
+              screenshotType = ImageProcessing.SCREENSHOT_TYPE_EGG;
             }
           });
-        }
 
-        if (screenshotType === ImageProcessing.SCREENSHOT_TYPE_NONE) {
-          return null;
-        }
+          if (screenshotType === ImageProcessing.SCREENSHOT_TYPE_NONE) {
+            // check for orange "time remaining" pixels
+            newImage.scan(newImage.bitmap.width / 1.19, (newImage.bitmap.height / 1.72) - 80, 1, 160, function (x, y, idx) {
+              if (screenshotType !== ImageProcessing.SCREENSHOT_TYPE_NONE) {
+                return;
+              }
 
-        return this.getRaidData(id, message, newImage, screenshotType);
-      })
-      .then(async data => {
-        // write original image as a reference
-        if (debugFlag ||
-          ((data === false || (data && (!data.phoneTime || !data.gym || !data.timeRemaining || data.pokemon.placeholder))) && log.getLevel() === log.levels.DEBUG)) {
-          const sanitizedData = Object.assign({}, data);
-          if (sanitizedData.channel) {
-            sanitizedData.channel = sanitizedData.channel.id;
+              let red = this.bitmap.data[idx],
+                green = this.bitmap.data[idx + 1],
+                blue = this.bitmap.data[idx + 2];
+
+              // orange = { r: 255, g: 120, b: 55 }
+              if (red <= 255 && red >= 232 && green <= 133 && green >= 107 && blue <= 68 && blue >= 42) {
+                screenshotType = ImageProcessing.SCREENSHOT_TYPE_ONGOING;
+                return;
+              }
+
+              red = ImageProcessing.convertToFullRange(red);
+              green = ImageProcessing.convertToFullRange(green);
+              blue = ImageProcessing.convertToFullRange(blue);
+
+              if (red <= 255 && red >= 232 && green <= 133 && green >= 107 && blue <= 68 && blue >= 42) {
+                screenshotType = ImageProcessing.SCREENSHOT_TYPE_ONGOING;
+              }
+            });
           }
-          if (sanitizedData.pokemon && sanitizedData.pokemon.name) {
-            sanitizedData.pokemon = sanitizedData.pokemon.name;
-          }
-          log.debug(sanitizedData);
-          newImage.write(path.join(__dirname, this.imagePath, `${id}.png`));
-        }
 
-        if (data) {
-          return this.createRaid(message, data)
-            .then(result => message.delete())
-            .catch(err => log.error(err));
-        } else {
-          // this means no gym was found what-so-ever so either processing was really messed up or it's not a raid screenshot
-          this.removeReaction(message);
-        }
-      })
-      .catch(err => {
-        // something went very wrong
-        log.error(err);
-        this.removeReaction(message);
-        message.react('❌')
-          .catch(err => log.error(err));
-      });
+          if (screenshotType === ImageProcessing.SCREENSHOT_TYPE_NONE) {
+            return null;
+          }
+
+          return this.getRaidData(id, message, newImage, screenshotType);
+        })
+        .then(async data => {
+          // write original image as a reference
+          if (debugFlag ||
+            ((data === false || (data && (!data.phoneTime || !data.gym || !data.timeRemaining || data.pokemon.placeholder))) && log.getLevel() === log.levels.DEBUG)) {
+            const sanitizedData = Object.assign({}, data);
+            if (sanitizedData.channel) {
+              sanitizedData.channel = sanitizedData.channel.id;
+            }
+            if (sanitizedData.pokemon && sanitizedData.pokemon.name) {
+              sanitizedData.pokemon = sanitizedData.pokemon.name;
+            }
+            log.debug(sanitizedData);
+            newImage.write(path.join(__dirname, this.imagePath, `${id}.png`));
+          }
+
+          if (data) {
+            return this.createRaid(message, data, imageUrl)
+              .then(result => resolve(true))
+              .catch(err => log.error(err));
+          } else {
+            // this means no gym was found what-so-ever so either processing was really messed up or it's not a raid screenshot
+            resolve(false);
+          }
+        });
+    });
   }
 
   /**
@@ -844,6 +870,7 @@ class ImageProcessing {
             }
 
             return ImageProcessing.lock.acquire('gym', () => {
+              log.debug('Gym lock acquired');
               this.gymTesseract.recognize(image, this.gymTesseractOptions)
                 .catch(err => reject(err))
                 .then(result => {
@@ -1178,10 +1205,10 @@ class ImageProcessing {
     message.reactions.cache
       .filter(reaction => reaction.emoji.name === '🤔' && reaction.me)
       .forEach(reaction => reaction.users.remove(message.client.user.id)
-        .catch(err => log.error(err)))
+        .catch(err => log.error(err)));
   }
 
-  async createRaid(message, data) {
+  async createRaid(message, data, imageUrl) {
     const TimeType = Helper.client.registry.types.get('time'),
       messageTime = moment(message.createdAt),
       raidRegionChannel = data.channel,
@@ -1200,9 +1227,6 @@ class ImageProcessing {
       moment.invalid() :
       data.phoneTime,
       timeWarn = durationWarn;
-
-    // remove all reactions from processed image
-    this.removeReaction(message);
 
     if (raidRegionChannel !== message.channel && !PartyManager.findRaid(gymId, false)) {
       // Found gym is in an adjacent region and raid doesn't exist, ask about creating it there
@@ -1291,7 +1315,7 @@ class ImageProcessing {
                     await channel.channel
                       .send(raid.getIncompleteScreenshotMessage(), {
                         files: [
-                          message.attachments.first().url
+                          imageUrl
                         ]
                       })
                       .then(message => raid.setIncompleteScreenshotMessage(message))
