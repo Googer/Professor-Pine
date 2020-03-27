@@ -36,7 +36,6 @@ class RaidBossesCommand extends Commando.Command {
   async run(message, args) {
     const pokemon = await DB.DB('Pokemon')
         .select(),
-      header = 'Registered Raid Bosses & Rare Spawns',
       groups = {
         '1': [],
         '2': [],
@@ -45,7 +44,10 @@ class RaidBossesCommand extends Commando.Command {
         '5': [],
         'ex': [],
         'rare': []
-      };
+      },
+      fields = [];
+
+    let header = 'Registered Raid Bosses & Rare Spawns';
 
     pokemon
       .sort((a, b) => a.name.localeCompare(b.name))
@@ -73,22 +75,67 @@ class RaidBossesCommand extends Commando.Command {
         }
       });
 
-    const embed = new MessageEmbed();
-
     for (const tier in groups) {
       const pokes = groups[tier];
       if (tier === 'ex' && pokes.length) {
-        embed.addField('**EX Raids**', pokes.join(', ') + '\n\n');
+        RaidBossesCommand.addField(fields, 'EX Raids', pokes);
       } else if (tier === 'rare' && pokes.length) {
-        embed.addField('**Rare Spawns**', pokes.join(', '));
+        RaidBossesCommand.addField(fields, 'Rare Spawns', pokes);
       } else if (pokes.length) {
-        embed.addField(`**Tier ${tier}**`, pokes.join(', '));
+        RaidBossesCommand.addField(fields, `Tier ${tier}`, pokes);
+      }
+    }
+
+    let embed = new MessageEmbed();
+    embed.setColor('GREEN');
+
+    for (const {fieldName, fieldContents} of fields) {
+      embed.addField(fieldName, fieldContents);
+
+      if (embed.length > 6000) {
+        embed.spliceFields(embed.fields.length - 1, 1);
+        embed.setFooter('');
+
+        message.channel.send(header, {embed})
+          .catch(err => log.error(err));
+
+        if (header.indexOf(' (continued)' === -1)) {
+          header = header + ' (continued)';
+        }
+
+        embed = new MessageEmbed();
+        embed.setColor('GREEN');
+        embed.addField(fieldName, fieldContents);
       }
     }
 
     message.channel.send(header, {embed})
-      .then(result => message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍'))
       .catch(err => log.error(err));
+  }
+
+  static addField(fields, name, pokemonList) {
+    let fieldName = `**${name}**`,
+      fieldContents = '';
+
+    for (const pokemon of pokemonList) {
+      if (fieldContents.length + pokemon.length + 2 > 1024) {
+        fields.push({fieldName, fieldContents});
+        if (fieldName.indexOf(' (continued)' === -1)) {
+          fieldName = fieldName + ' (continued)';
+        }
+        fieldContents = pokemon;
+      } else {
+        if (fieldContents.length === 0) {
+          fieldContents = pokemon;
+        } else {
+          fieldContents += ', ' + pokemon;
+        }
+      }
+    }
+
+    if (fieldContents.length > 0) {
+      fields.push({fieldName, fieldContents});
+    }
   }
 }
 
