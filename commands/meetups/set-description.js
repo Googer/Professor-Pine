@@ -5,26 +5,25 @@ const log = require('loglevel').getLogger('DescriptionCommand'),
   {CommandGroup, PartyType} = require('../../app/constants'),
   Helper = require('../../app/helper'),
   PartyManager = require('../../app/party-manager'),
-  settings = require('../../data/settings');
+  settings = require('../../data/settings.json');
 
 class SetDescriptionCommand extends Commando.Command {
   constructor(client) {
     super(client, {
       name: 'info',
-      group: CommandGroup.RAID_CRUD,
+      group: CommandGroup.MEETUP,
       memberName: 'info',
       aliases: ['set-info', 'description', 'set-description'],
       description: 'Sets the information for a meetup.\n',
       details: 'Use this command to set the information for a meetup.',
-      examples: ['\t!gym Unicorn', '\t!location \'Bellevue Park\'', '\t!location squirrel'],
+      examples: ['\t!info Trade meetup at the library'],
       args: [
         {
           key: 'description',
           label: 'description',
           prompt: 'What information do you wish to set for this meetup?\n',
           type: 'string',
-          wait: 120,
-          infinite: true
+          wait: 120
         }
       ],
       argsPromptLimit: 3,
@@ -32,9 +31,12 @@ class SetDescriptionCommand extends Commando.Command {
     });
 
     client.dispatcher.addInhibitor(message => {
-      if (!!message.command && message.command.name === 'gym' &&
+      if (!!message.command && message.command.name === 'info' &&
         !PartyManager.validParty(message.channel.id, [PartyType.MEETUP])) {
-        return ['invalid-channel', message.reply('Set the information for a meetup from its channel!')];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('Set the information for a meetup from its channel!')
+        };
       }
       return false;
     });
@@ -52,6 +54,7 @@ class SetDescriptionCommand extends Commando.Command {
         return true;
       })
       .catch(err => log.error(err));
+
 
     meetup.refreshStatusMessages();
   }

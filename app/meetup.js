@@ -171,12 +171,12 @@ class Meetup extends Party {
 
     embed.setFooter(meetupReporter, reportingMember.user.displayAvatarURL());
 
-    if (!!this.startTime && !isNaN(this.startTime)) {
-      embed.addField(meetingLabel, meetingTime.calendar(null, calendarFormat));
-    }
-
     if (!!this.description) {
       embed.addField('__Meeting Information__', this.description);
+    }
+
+    if (!!this.startTime && !isNaN(this.startTime)) {
+      embed.addField(meetingLabel, meetingTime.calendar(null, calendarFormat));
     }
 
     this.groups

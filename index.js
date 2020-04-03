@@ -49,6 +49,7 @@ Client.registry.registerGroup(CommandGroup.ADMIN, 'Administration');
 Client.registry.registerGroup(CommandGroup.BASIC_RAID, 'Raid Basics');
 Client.registry.registerGroup(CommandGroup.RAID_CRUD, 'Raid Creation and Maintenance');
 Client.registry.registerGroup(CommandGroup.TRAIN, 'Trains');
+Client.registry.registerGroup(CommandGroup.MEETUP, 'Meetups');
 
 if (settings.features.roles) {
   Client.registry.registerGroup(CommandGroup.ROLES, 'Roles');
@@ -162,8 +163,8 @@ Client.registry.registerCommands([
   require('./commands/trains/save-route'),
   require('./commands/trains/use-route'),
 
-  require('./commands/raids/meetup'),
-  require('./commands/raids/set-desciption'),
+  require('./commands/meetups/meetup'),
+  require('./commands/meetups/set-description'),
 
   require('./commands/raids/submit-request'),
 

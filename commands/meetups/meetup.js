@@ -12,10 +12,10 @@ class MeetupCommand extends Commando.Command {
   constructor(client) {
     super(client, {
       name: 'meetup',
-      group: CommandGroup.RAID_CRUD,
+      group: CommandGroup.MEETUP,
       memberName: 'meetup',
       aliases: ['meet-up'],
-      description: 'Announces a new meetup.\n',
+      description: 'Announces a new meetup.',
       details: 'Use this command to start organizing a new meetup.',
       examples: ['\t!meetup'],
       args: [
@@ -36,8 +36,11 @@ class MeetupCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'meetup' &&
-        (PartyManager.validParty(message.channel.id) || !Gym.isValidChannel(message.channel.name))) {
-        return ['invalid-channel', message.reply('Create meetups from region channels!')];
+        (PartyManager.validParty(message.channel.id) || !Gym.isValidChannel(message.channel.id))) {
+        return {
+          reason: 'invalid-channel',
+          response: message.reply('Create meetups from region channels!')
+        };
       }
       return false;
     });

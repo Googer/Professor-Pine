@@ -5,6 +5,7 @@ const CommandGroup = {
   RAID_CRUD: 'raid-crud',
   REGION: 'region',
   TRAIN: 'train',
+  MEETUP: 'meetup',
   ROLES: 'roles',
   NOTIFICATIONS: 'notifications',
   FRIENDS: 'friends',
