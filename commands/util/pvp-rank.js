@@ -455,7 +455,10 @@ class RankCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'rank' && !Helper.isPvPCategory(message) && message.channel.type !== 'dm') {
-        return ['invalid-channel', message.reply(Helper.getText('pvp-rank.warning', message))];
+        return {
+          reason: 'invalid-channel',
+          response: message.reply(Helper.getText('pvp-rank.warning', message))
+        };
       }
       return false;
     });

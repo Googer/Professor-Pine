@@ -12,12 +12,12 @@
     "bufferutil": "^4.0.1",
     "cheerio": "^1.0.0-rc.3",
     "diacritics": "^1.3.0",
-    "discord.js": "^12.0.1",
+    "discord.js": "^12.0.2",
     "discord.js-commando": "github:Googer/discord.js-commando",
     "erlpack": "^0.1.3",
     "he": "^1.2.0",
-    "jimp": "^0.9.5",
-    "knex": "^0.20.11",
+    "jimp": "^0.9.6",
+    "knex": "^0.20.13",
     "loglevel": "^1.6.7",
     "loglevel-prefix-persist": "^1.0.3",
     "lunr": "^2.3.8",
@@ -29,17 +29,21 @@
     "polygon-offset": "^0.3.1",
     "request-promise": "^4.2.5",
     "string-similarity": "^4.0.1",
-    "tesseract.js": "2.0.0-alpha.16",
+    "tesseract.js": "^2.1.1",
     "togeojson-with-extended-style": "^0.13.1",
     "uuid": "^7.0.2",
-    "node-worker-threads-pool": "^1.2.1",
+    "node-worker-threads-pool": "^1.2.2",
     "xmldom": "^0.3.0",
     "zucc": "^0.1.2"
   },
-  "devDependencies": {},
+  "devDependencies": {
+    "eslint": "^6.8.0"
+  },
   "scripts": {
     "start": "node index.js",
-    "debug": "node %NODE_DEBUG_OPTION% index.js"
+    "debug": "node %NODE_DEBUG_OPTION% index.js",
+    "lint": "eslint .",
+    "lint:fix": "eslint --fix ."
   },
   "repository": {
     "type": "https",

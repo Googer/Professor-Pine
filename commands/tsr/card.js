@@ -29,7 +29,7 @@ class SilphCardCommand extends Commando.Command {
           type: 'string'
         }
       ],
-      argsPromptLimit: 0,
+      argsPromptLimit: 3,
       guildOnly: true
     });
 

@@ -34,20 +34,24 @@ class RouteCommand extends Commando.Command {
   }
 
   async run(message) {
-    const raid = PartyManager.getParty(message.channel.id),
-      route = raid.route || [],
-      current = raid.currentGym || 0;
+    const train = PartyManager.getParty(message.channel.id),
+      route = train.route ?
+        train.route[0] !== '' ?
+          train.route :
+          [] :
+        [],
+      current = train.currentGym || 0;
 
-    let embed = await raid.getRouteEmbed();
+    let embed = await train.getRouteEmbed();
 
     message.channel.send(`${message.author}, here is the route information:`, embed)
       .then(routeMessage => {
         routeMessage.channel.send(`To edit this route, use the \`${message.client.commandPrefix}route-add\`, \`${message.client.commandPrefix}route-remove\`, and \`${message.client.commandPrefix}route-edit\` commands.`)
           .then(routeSecondMessage => {
-            raid.removeLastRouteMessage(routeMessage, routeSecondMessage);
+            train.removeLastRouteMessage(routeMessage, routeSecondMessage);
 
-             message.delete()
-               .catch(err => log.error(err));
+            message.delete()
+              .catch(err => log.error(err));
           });
       })
       .catch(err => log.error(err));

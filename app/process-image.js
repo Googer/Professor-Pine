@@ -14,9 +14,9 @@ const log = require('loglevel').getLogger('ImageProcessor'),
   RegionHelper = require('./region'),
   settings = require('../data/settings'),
   Status = require('./status'),
-  {TesseractWorker, OEM, PSM} = require('tesseract.js'),
+  {createWorker, OEM, PSM} = require('tesseract.js'),
   {PartyStatus, TimeParameter} = require('./constants'),
-  uuidv1 = require('uuid/v1'),
+  {v1: uuidv1} = require('uuid'),
   Utility = require('./utility');
 
 // Will save all images regardless of how right or wrong, in order to better examine output
@@ -104,83 +104,112 @@ class ImageProcessing {
     });
   }
 
-  initializeGymTesseract() {
+  async createTesseractWorker(version, languages) {
+    const worker = await createWorker({
+      langPath: path.join(__dirname, '..', 'lang-data', 'v' + version),
+      cachePath: path.join(__dirname, '..', 'lang-data', 'v' + version),
+      cacheMethod: 'readOnly'
+    });
+
+    await worker.load();
+    await worker.loadLanguage(languages);
+    await worker.initialize(languages);
+
+    return worker;
+  }
+
+  async initializeGymTesseract() {
     if (!!this.gymTesseract) {
       log.warn('Reinitializing gym name tesseract worker...');
       this.gymTesseract.terminate();
     }
 
-    this.gymTesseract = new TesseractWorker({
-      langPath: path.join(__dirname, '..', 'lang-data', 'v4'),
-      cachePath: path.join(__dirname, '..', 'lang-data', 'v4'),
-      cacheMethod: 'readOnly'
-    });
+    this.gymTesseract = await this.createTesseractWorker(4, 'eng+grc');
   }
 
-  initializePhoneTimeTesseract() {
+  async initializePhoneTimeTesseract() {
     if (!!this.phoneTesseract) {
       log.warn('Reinitializing phone time tesseract worker...');
       this.phoneTesseract.terminate();
     }
 
-    this.phoneTesseract = new TesseractWorker({
-      langPath: path.join(__dirname, '..', 'lang-data', 'v4'),
-      cachePath: path.join(__dirname, '..', 'lang-data', 'v4'),
-      cacheMethod: 'readOnly'
-    });
+    this.phoneTesseract = await this.createTesseractWorker(4, 'eng');
   }
 
-  initializeTimeRemainingTesseract() {
+  async initializeTimeRemainingTesseract() {
     if (!!this.timeRemainingTesseract) {
       log.warn('Reinitializing time remaining tesseract worker...');
       this.timeRemainingTesseract.terminate();
     }
 
-    this.timeRemainingTesseract = new TesseractWorker({
-      langPath: path.join(__dirname, '..', 'lang-data', 'v4'),
-      cachePath: path.join(__dirname, '..', 'lang-data', 'v4'),
-      cacheMethod: 'readOnly'
-    });
+    this.timeRemainingTesseract = await this.createTesseractWorker(4, 'eng');
   }
 
-  initializeTierTesseract() {
+  async initializeTierTesseract() {
     if (!!this.tierTesseract) {
       log.warn('Reinitializing tier tesseract worker...');
       this.tierTesseract.terminate();
     }
 
-    this.tierTesseract = new TesseractWorker({
-      langPath: path.join(__dirname, '..', 'lang-data', 'v3'),
-      cachePath: path.join(__dirname, '..', 'lang-data', 'v3'),
-      cacheMethod: 'readOnly'
-    });
+    this.tierTesseract = await this.createTesseractWorker(3, 'eng');
   }
 
-  initializePokemonTesseract() {
+  async initializePokemonTesseract() {
     if (!!this.pokemonTesseract) {
       log.warn('Reinitializing pokemon tesseract worker...');
       this.pokemonTesseract.terminate();
     }
 
-    this.pokemonTesseract = new TesseractWorker({
-      langPath: path.join(__dirname, '..', 'lang-data', 'v4'),
-      cachePath: path.join(__dirname, '..', 'lang-data', 'v4'),
-      cacheMethod: 'readOnly'
-    });
+    this.pokemonTesseract = await this.createTesseractWorker(4, 'eng');
   }
 
   initialize() {
     Helper.client.on('message', async message => {
-      const imageUrl = (message.attachments.size) ?
-        message.attachments.first().url :
-        '';
+      const RaidCommand = Helper.client.registry.commands.get('raid');
 
-      // attempt to process first attachment/image if it exists (maybe some day will go through all the attachments...)
-      if (imageUrl && imageUrl.search(/jpg|jpeg|png/)) {
-        log.info('Image Processing Start: ', message.author.id, message.channel.name, imageUrl);
-        message.temporaryProcessingTimestamp = Date.now();
-        this.process(message, imageUrl)
-          .catch(err => log.error(err));
+      if (RaidCommand.isEnabledIn(message.guild) && message.author.id !== message.client.user.id && message.attachments.size > 0) {
+        const imageUrls = message.attachments
+          .map(attachment => attachment.url)
+          .filter(url => url.search(/jpg|jpeg|png/));
+
+        if (imageUrls.length > 0) {
+          message.react('🤔')
+            .catch(err => log.error(err));
+
+          let raidCreated = false;
+
+          const processingChain = Promise.resolve();
+          let currentPromise = processingChain;
+
+          imageUrls
+            .forEach(imageUrl => {
+              currentPromise = currentPromise
+                .then(lastResult => {
+                  if (lastResult === true) {
+                    raidCreated = true;
+                  }
+
+                  return this.process(message, imageUrl);
+                });
+            });
+
+          currentPromise = currentPromise
+            .then(lastResult => {
+              if (lastResult === true) {
+                raidCreated = true;
+              }
+
+              if (raidCreated === true) {
+                message.delete()
+                  .catch(err => log.error(err));
+              } else {
+                this.removeReaction(message);
+              }
+            });
+
+          processingChain
+            .catch(err => log.error(err));
+        }
       }
     });
 
@@ -210,71 +239,38 @@ class ImageProcessing {
       255);
   }
 
-  async process(message, url) {
-    let newImage, id;
+  process(message, imageUrl) {
+    return new Promise(async resolve => {
+      log.info('Image Processing Start: ', message.author.id, message.channel.name, imageUrl);
 
-    // if raid command is disabled, cancel out immediately
-    const RaidCommand = Helper.client.registry.commands.get('raid');
-    if (!RaidCommand.isEnabledIn(message.guild)) {
-      return;
-    }
+      let newImage, id;
 
-    // if not in a proper raid channel, cancel out immediately
-    const regionId = await RegionHelper.getRegionId(message.channel.id)
-      .catch(error => log.error(error));
+      // if not in a proper raid channel, cancel out immediately
+      const regionId = await RegionHelper.getRegionId(message.channel.id)
+        .catch(error => log.error(error));
 
-    if (!regionId) {
-      log.info('Not in a region channel, won\'t attempt to process');
-      return;
-    }
+      if (!regionId) {
+        log.info('Not in a region channel, won\'t attempt to process');
+        return;
+      }
 
-    // show users the bot is starting to process their image
-    message.react('🤔')
-      .catch(err => log.error(err));
-
-    Jimp.read(url)
-      .then(image => {
-        if (!image) {
-          return;
-        }
-        id = uuidv1();
-
-        // resize to some standard size to help tesseract
-        log.debug("Scaling image to standard size...");
-        newImage = image.scaleToFit(1440, 2560, Jimp.RESIZE_HERMITE);
-        log.debug("...done");
-
-        // determine if image is a raid image or not
-        let screenshotType = ImageProcessing.SCREENSHOT_TYPE_NONE;
-
-        // check for pink "time remaining" pixels
-        newImage.scan(newImage.bitmap.width / 2, (newImage.bitmap.height / 4.34) - 80, 1, 160, function (x, y, idx) {
-          if (screenshotType !== ImageProcessing.SCREENSHOT_TYPE_NONE) {
+      return Jimp.read(imageUrl)
+        .then(image => {
+          if (!image) {
             return;
           }
+          id = uuidv1();
 
-          let red = this.bitmap.data[idx],
-            green = this.bitmap.data[idx + 1],
-            blue = this.bitmap.data[idx + 2];
+          // resize to some standard size to help tesseract
+          log.debug("Scaling image to standard size...");
+          newImage = image.scaleToFit(1440, 2560, Jimp.RESIZE_HERMITE);
+          log.debug("...done");
 
-          // pink = { r: 250, g: 135, b: 149 }
-          if (red <= 255 && red >= 227 && green <= 148 && green >= 122 && blue <= 162 && blue >= 136) {
-            screenshotType = ImageProcessing.SCREENSHOT_TYPE_EGG;
-            return;
-          }
+          // determine if image is a raid image or not
+          let screenshotType = ImageProcessing.SCREENSHOT_TYPE_NONE;
 
-          red = ImageProcessing.convertToFullRange(red);
-          green = ImageProcessing.convertToFullRange(green);
-          blue = ImageProcessing.convertToFullRange(blue);
-
-          if (red <= 255 && red >= 227 && green <= 148 && green >= 122 && blue <= 162 && blue >= 136) {
-            screenshotType = ImageProcessing.SCREENSHOT_TYPE_EGG;
-          }
-        });
-
-        if (screenshotType === ImageProcessing.SCREENSHOT_TYPE_NONE) {
-          // check for orange "time remaining" pixels
-          newImage.scan(newImage.bitmap.width / 1.19, (newImage.bitmap.height / 1.72) - 80, 1, 160, function (x, y, idx) {
+          // check for pink "time remaining" pixels
+          newImage.scan(newImage.bitmap.width / 2, (newImage.bitmap.height / 4.34) - 80, 1, 160, function (x, y, idx) {
             if (screenshotType !== ImageProcessing.SCREENSHOT_TYPE_NONE) {
               return;
             }
@@ -283,9 +279,9 @@ class ImageProcessing {
               green = this.bitmap.data[idx + 1],
               blue = this.bitmap.data[idx + 2];
 
-            // orange = { r: 255, g: 120, b: 55 }
-            if (red <= 255 && red >= 232 && green <= 133 && green >= 107 && blue <= 68 && blue >= 42) {
-              screenshotType = ImageProcessing.SCREENSHOT_TYPE_ONGOING;
+            // pink = { r: 250, g: 135, b: 149 }
+            if (red <= 255 && red >= 227 && green <= 148 && green >= 122 && blue <= 162 && blue >= 136) {
+              screenshotType = ImageProcessing.SCREENSHOT_TYPE_EGG;
               return;
             }
 
@@ -293,49 +289,69 @@ class ImageProcessing {
             green = ImageProcessing.convertToFullRange(green);
             blue = ImageProcessing.convertToFullRange(blue);
 
-            if (red <= 255 && red >= 232 && green <= 133 && green >= 107 && blue <= 68 && blue >= 42) {
-              screenshotType = ImageProcessing.SCREENSHOT_TYPE_ONGOING;
+            if (red <= 255 && red >= 227 && green <= 148 && green >= 122 && blue <= 162 && blue >= 136) {
+              screenshotType = ImageProcessing.SCREENSHOT_TYPE_EGG;
             }
           });
-        }
 
-        if (screenshotType === ImageProcessing.SCREENSHOT_TYPE_NONE) {
-          return null;
-        }
+          if (screenshotType === ImageProcessing.SCREENSHOT_TYPE_NONE) {
+            // check for orange "time remaining" pixels
+            newImage.scan(newImage.bitmap.width / 1.19, (newImage.bitmap.height / 1.72) - 80, 1, 160, function (x, y, idx) {
+              if (screenshotType !== ImageProcessing.SCREENSHOT_TYPE_NONE) {
+                return;
+              }
 
-        return this.getRaidData(id, message, newImage, screenshotType);
-      })
-      .then(async data => {
-        // write original image as a reference
-        if (debugFlag ||
-          ((data === false || (data && (!data.phoneTime || !data.gym || !data.timeRemaining || data.pokemon.placeholder))) && log.getLevel() === log.levels.DEBUG)) {
-          const sanitizedData = Object.assign({}, data);
-          if (sanitizedData.channel) {
-            sanitizedData.channel = sanitizedData.channel.id;
+              let red = this.bitmap.data[idx],
+                green = this.bitmap.data[idx + 1],
+                blue = this.bitmap.data[idx + 2];
+
+              // orange = { r: 255, g: 120, b: 55 }
+              if (red <= 255 && red >= 232 && green <= 133 && green >= 107 && blue <= 68 && blue >= 42) {
+                screenshotType = ImageProcessing.SCREENSHOT_TYPE_ONGOING;
+                return;
+              }
+
+              red = ImageProcessing.convertToFullRange(red);
+              green = ImageProcessing.convertToFullRange(green);
+              blue = ImageProcessing.convertToFullRange(blue);
+
+              if (red <= 255 && red >= 232 && green <= 133 && green >= 107 && blue <= 68 && blue >= 42) {
+                screenshotType = ImageProcessing.SCREENSHOT_TYPE_ONGOING;
+              }
+            });
           }
-          if (sanitizedData.pokemon && sanitizedData.pokemon.name) {
-            sanitizedData.pokemon = sanitizedData.pokemon.name;
-          }
-          log.debug(sanitizedData);
-          newImage.write(path.join(__dirname, this.imagePath, `${id}.png`));
-        }
 
-        if (data) {
-          return this.createRaid(message, data)
-            .then(result => message.delete())
-            .catch(err => log.error(err));
-        } else {
-          // this means no gym was found what-so-ever so either processing was really messed up or it's not a raid screenshot
-          this.removeReaction(message);
-        }
-      })
-      .catch(err => {
-        // something went very wrong
-        log.error(err);
-        this.removeReaction(message);
-        message.react('❌')
-          .catch(err => log.error(err));
-      });
+          if (screenshotType === ImageProcessing.SCREENSHOT_TYPE_NONE) {
+            return null;
+          }
+
+          return this.getRaidData(id, message, newImage, screenshotType);
+        })
+        .then(async data => {
+          // write original image as a reference
+          if (debugFlag ||
+            ((data === false || (data && (!data.phoneTime || !data.gym || !data.timeRemaining || data.pokemon.placeholder))) && log.getLevel() === log.levels.DEBUG)) {
+            const sanitizedData = Object.assign({}, data);
+            if (sanitizedData.channel) {
+              sanitizedData.channel = sanitizedData.channel.id;
+            }
+            if (sanitizedData.pokemon && sanitizedData.pokemon.name) {
+              sanitizedData.pokemon = sanitizedData.pokemon.name;
+            }
+            log.debug(sanitizedData);
+            newImage.write(path.join(__dirname, this.imagePath, `${id}.png`));
+          }
+
+          if (data) {
+            return this.createRaid(message, data, imageUrl)
+              .then(result => resolve(true))
+              .catch(err => log.error(err));
+          } else {
+            // this means no gym was found what-so-ever so either processing was really messed up or it's not a raid screenshot
+            resolve(false);
+          }
+        });
+    });
   }
 
   /**
@@ -483,17 +499,17 @@ class ImageProcessing {
         [result.words
           .map(word => word.choices
             // choose highest-confidence word
-              .sort((choiceA, choiceB) => choiceB.confidence - choiceA.confidence)[0]
+            .sort((choiceA, choiceB) => choiceB.confidence - choiceA.confidence)[0]
           )
           .filter(word => word.confidence > minConfidence)
           .map(word => word.text)
           .join(' ')] :
         result.symbols
-        // strip out very low-confidence colons (tesseract will see them correctly but with low confidence)
+          // strip out very low-confidence colons (tesseract will see them correctly but with low confidence)
           .filter(symbol => symbol.text !== ':' || symbol.confidence >= 20)
           .map(symbol => Object.assign({}, symbol, symbol.choices
             // choose highest-confidence symbol - not always the default one from tesseract!
-              .sort((choiceA, choiceB) => choiceB.confidence - choiceA.confidence)[0]
+            .sort((choiceA, choiceB) => choiceB.confidence - choiceA.confidence)[0]
           ))
           .reduce((previous, current) => {
             /// separate into chunks using low-confidence symbols as separators
@@ -638,15 +654,15 @@ class ImageProcessing {
           }
 
           return ImageProcessing.lock.acquire('phoneTime', () => {
-            this.phoneTesseract.recognize(image, 'eng', this.phoneTimeTesseractOptions)
+            this.phoneTesseract.recognize(image, this.phoneTimeTesseractOptions)
               .catch(err => reject(err))
               .then(result => {
-                const match = this.tesseractProcessTime(result);
+                const match = this.tesseractProcessTime(result.data);
                 if (match && match.length) {
                   resolve({
                     image: newImage,
                     text: match[1],
-                    result
+                    result: result.data
                   });
                 } else {
                   // try again with image inverted
@@ -657,20 +673,20 @@ class ImageProcessing {
                         reject(err);
                       }
 
-                      this.phoneTesseract.recognize(image, 'eng', this.phoneTimeTesseractOptions)
+                      this.phoneTesseract.recognize(image, this.phoneTimeTesseractOptions)
                         .catch(err => reject(err))
                         .then(result => {
-                          const match = this.tesseractProcessTime(result);
+                          const match = this.tesseractProcessTime(result.data);
                           if (match && match.length) {
                             resolve({
                               image: newImage,
                               text: match[1],
-                              result
+                              result: result.data
                             });
                           } else {
                             resolve({
                               image: newImage,
-                              result
+                              result: result.data
                             });
                           }
                         });
@@ -744,10 +760,10 @@ class ImageProcessing {
           }
 
           return ImageProcessing.lock.acquire('timeRemaining', () => {
-            this.timeRemainingTesseract.recognize(image, 'eng', this.timeRemainingTesseractOptions)
+            this.timeRemainingTesseract.recognize(image, this.timeRemainingTesseractOptions)
               .catch(err => reject(err))
               .then(result => {
-                const confidentText = this.tesseractGetConfidentSequences(result, false, 70);
+                const confidentText = this.tesseractGetConfidentSequences(result.data, false, 70);
 
                 const match = confidentText
                   .map(text => text.match(/(\d{1,2}:\d{2}:\d{2})/))
@@ -757,12 +773,12 @@ class ImageProcessing {
                   resolve({
                     image: newImage,
                     text: match[1],
-                    result
+                    result: result.data
                   });
                 } else {
                   resolve({
                     image: newImage,
-                    result
+                    result: result.data
                   });
                 }
               });
@@ -849,10 +865,11 @@ class ImageProcessing {
             }
 
             return ImageProcessing.lock.acquire('gym', () => {
-              this.gymTesseract.recognize(image, 'eng', this.gymTesseractOptions)
+              log.debug('Gym lock acquired');
+              this.gymTesseract.recognize(image, this.gymTesseractOptions)
                 .catch(err => reject(err))
                 .then(result => {
-                  const confidentWords = this.tesseractGetConfidentSequences(result, true),
+                  const confidentWords = this.tesseractGetConfidentSequences(result.data, true, 80),
                     text = confidentWords.length > 0 ?
                       confidentWords[0]
                         .replace(/[^\w\s-]/g, '')
@@ -957,10 +974,10 @@ class ImageProcessing {
             }
 
             return ImageProcessing.lock.acquire('pokemon', () => {
-              this.pokemonTesseract.recognize(image, 'eng', this.pokemonTesseractOptions)
+              this.pokemonTesseract.recognize(image, this.pokemonTesseractOptions)
                 .catch(err => reject(err))
                 .then(result => {
-                  const text = result.text.replace(/[^\w\n]/gi, '');
+                  const text = result.data.text.replace(/[^\w\n]/gi, '');
                   let matchCP = text.match(/\d{3,10}/g),
                     matchPokemon = text.replace(/(cp)?\s?\d+/g, ' ').match(/\w+/g),
                     pokemon = '',
@@ -980,7 +997,7 @@ class ImageProcessing {
                     image: processedImage,
                     cp,
                     pokemon,
-                    result
+                    result: result.data
                   });
                 });
             });
@@ -1062,15 +1079,15 @@ class ImageProcessing {
           }
 
           return ImageProcessing.lock.acquire('tier', () => {
-            this.tierTesseract.recognize(image, 'eng', this.tierTesseractOptions)
+            this.tierTesseract.recognize(image, this.tierTesseractOptions)
               .catch(err => reject(err))
               .then(result => {
                 let tier = 0;
 
                 // tier symbols will all be on the same line, so pick the text/line of whatever line has the most matches (assuming other lines are stray artifacts and/or clouds)
-                for (let i = 0; i < result.lines.length; i++) {
+                for (let i = 0; i < result.data.lines.length; i++) {
                   // replace characters that are almost always jibberish characters
-                  const text = result.lines[i].text
+                  const text = result.data.lines[i].text
                     .replace(/\s/g, '')
                     .replace(/“”‘’"'-_=\\\/\+/g, '');
 
@@ -1085,7 +1102,7 @@ class ImageProcessing {
                 resolve({
                   image: newImage,
                   tier,
-                  result
+                  result: result.data
                 });
               });
           });
@@ -1180,13 +1197,13 @@ class ImageProcessing {
   }
 
   removeReaction(message) {
-    message.reactions
+    message.reactions.cache
       .filter(reaction => reaction.emoji.name === '🤔' && reaction.me)
       .forEach(reaction => reaction.users.remove(message.client.user.id)
-        .catch(err => log.error(err)))
+        .catch(err => log.error(err)));
   }
 
-  async createRaid(message, data) {
+  async createRaid(message, data, imageUrl) {
     const TimeType = Helper.client.registry.types.get('time'),
       messageTime = moment(message.createdAt),
       raidRegionChannel = data.channel,
@@ -1205,9 +1222,6 @@ class ImageProcessing {
       moment.invalid() :
       data.phoneTime,
       timeWarn = durationWarn;
-
-    // remove all reactions from processed image
-    this.removeReaction(message);
 
     if (raidRegionChannel !== message.channel && !PartyManager.findRaid(gymId, false)) {
       // Found gym is in an adjacent region and raid doesn't exist, ask about creating it there
@@ -1296,7 +1310,7 @@ class ImageProcessing {
                     await channel.channel
                       .send(raid.getIncompleteScreenshotMessage(), {
                         files: [
-                          message.attachments.first().url
+                          imageUrl
                         ]
                       })
                       .then(message => raid.setIncompleteScreenshotMessage(message))

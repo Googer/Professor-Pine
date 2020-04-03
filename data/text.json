@@ -44,6 +44,12 @@
   "register-nickname": {
     "warning": "Use the `!register-nickname` command in ${bot-channel} to register your nickname."
   },
+  "find-nickname": {
+    "warning": "Use the `!find-nickname` command in ${bot-channel} to find a user's nickname."
+  },
+  "friend-code": {
+    "warning": "Use the `!friend-code` command in ${bot-channel} to find a user's friend code."
+  },
   "notifications": {
     "warning": "Use the `!notifications` command in ${bot-channel} to view current notifications for pokémon."
   },

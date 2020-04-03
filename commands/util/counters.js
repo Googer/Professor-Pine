@@ -17,18 +17,20 @@ class CountersCommand extends Commando.Command {
       description: 'Retrieves data from Pokebattler for the best counters for a raid boss.',
       details: 'This command requires user-provided data to query Pokebattler.\n\n' +
         'The command will read what it can from a raid channel (tier and/or boss). ' +
-        'You may provide data in the initial command, comma-separating each piece:\n\n' +
+        'You may provide data in the initial command, comma-separating each piece. ' +
+        'Any optional data will not be prompted for, and you must include in the intital command.\n\n' +
         '`boss` - the name of the raid boss\n' +
         '`tier` - the raid tier (number of skulls)\n' +
         '`attacker` -\n' +
-        `• Pokémon level (enter 20, 25, 30, 35, or 40)\n` +
+        `• Pokémon level (enter 20, 25, 30, 35, 40, or 41)\n` +
         `• Your saved Pokebattler ID (enter 'yes')\n` +
         `• Pokebattler ID, located in the upper right after logging in (enter the digits)\n` +
         '`weather` - the current weather in-game\n' +
         '`friendship` - your highest friend level with another trainer in the raid\n' +
-        '`grouped` - *optional* type "grouped" to only show the top moveset for each unique Pokémon\n\n' +
-        'Otherwise, the command will prompt you for any missing data not provided in the initial command.',
-      examples: ['!counters Mewtwo, Tier 5, Level 30, No Weather, Best Friends'],
+        '`single` - *optional*: type "single" to show duplicate Pokémon with differently ranked movesets\n' +
+        '`shadow` - *optional*: type "shadow" to include Shadow Pokémon in your results\n\n' +
+        'The command will prompt you for any required data not provided in the initial command.',
+      examples: ['!counters Mewtwo, Tier 5, Level 30, No Weather, Best Friends', `!counters Mewtwo, Single, Shadow`],
       guarded: false,
       argsPromptLimit: 3,
     });
@@ -37,9 +39,10 @@ class CountersCommand extends Commando.Command {
   }
 
   titleCase(str) {
-    return str.toLowerCase().split(' ').map(function (word) {
-      return word.replace(word[0], word[0].toUpperCase());
-    }).join(' ');
+    return str.toLowerCase()
+      .split(' ')
+      .map(word => word.replace(word[0], word[0].toUpperCase()))
+      .join(' ');
   }
 
   async fetchPokebattlerId(message) {
@@ -59,7 +62,19 @@ class CountersCommand extends Commando.Command {
   }
 
   parseGrouped(val) {
-    return val.toLowerCase() === 'grouped';
+    if (val.toLowerCase() === 'grouped') {
+      return 'grouped';
+    }
+  }
+
+  parseSingle(val) {
+    if (val.toLowerCase() === 'single') {
+      return 'single';
+    }
+  }
+
+  parseShadow(val) {
+    return val.toLowerCase() === 'shadow';
   }
 
   async collectParameter(message, prompt, type, tries = 3) {
@@ -149,11 +164,21 @@ class CountersCommand extends Commando.Command {
       })
       .catch(err => log.error(err));
 
-    if (movesetIdx === 0) return {move: counters.attackers[0].randomMove, randomMove: true, moveset: moveArr[0]};
-    return {move: counters.attackers[0].byMove[movesetIdx - 1], randomMove: false, moveset: moveArr[movesetIdx]};
+    if (movesetIdx === 0) {
+      return {
+        move: counters.attackers[0].randomMove,
+        randomMove: true,
+        moveset: moveArr[0]
+      };
+    }
+    return {
+      move: counters.attackers[0].byMove[movesetIdx - 1],
+      randomMove: false,
+      moveset: moveArr[movesetIdx]
+    };
   }
 
-  sortResults({data, sortBy, limit = 12, grouped = true, randomMove = true}) {
+  sortResults({data, sortBy, limit = 12, grouped = true, shadow = false, randomMove = true}) {
     let attackers = data.defenders;
 
     // Transform
@@ -165,12 +190,22 @@ class CountersCommand extends Commando.Command {
           pokemonNickname: attacker.name,
           pokemonCp: attacker.cp,
           isUser: !!attacker.userId,
-          fastMove: this.titleCase(attackerMove.move1.replace('_FAST', '').replace(/_/g, ' ')),
-          chargeMove: this.titleCase(attackerMove.move2.replace('_FAST', '').replace(/_/g, ' ')),
-          thirdMove: !!attackerMove.move3 ? this.titleCase(attackerMove.move3.replace('_FAST', '').replace(/_/g, ' ')) : attackerMove.move3,
+          fastMove: this.titleCase(attackerMove.move1
+            .replace('_FAST', '')
+            .replace(/_/g, ' ')),
+          chargeMove: this.titleCase(attackerMove.move2
+            .replace('_FAST', '')
+            .replace(/_/g, ' ')),
+          thirdMove: !!attackerMove.move3 ?
+            this.titleCase(attackerMove.move3
+              .replace('_FAST', '')
+              .replace(/_/g, ' ')) :
+            attackerMove.move3,
           ttw: attackerMove.result.effectiveCombatTime / 1000,
           tdo: attackerMove.result.tdo,
-          deaths: !!attackerMove.result.effectiveDeaths ? attackerMove.result.effectiveDeaths : 0,
+          deaths: !!attackerMove.result.effectiveDeaths ?
+            attackerMove.result.effectiveDeaths :
+            0,
           trainers: attackerMove.result.estimator,
           legacyDate: attackerMove.legacyDate
         });
@@ -179,17 +214,21 @@ class CountersCommand extends Commando.Command {
 
     // Sort
     if (['ttw', 'deaths'].includes(sortBy.toLowerCase())) {
-      attackerArr.sort(function (a, b) {
+      attackerArr.sort((a, b) => {
         if (a[sortBy] < b[sortBy]) return -1;
         if (a[sortBy] > b[sortBy]) return 1;
-        return 0;
-      })
+      });
     } else if (sortBy.toLowerCase() === 'tdo') {
-      attackerArr.sort(function (a, b) {
+      attackerArr.sort((a, b) => {
         if (a[sortBy] < b[sortBy]) return 1;
         if (a[sortBy] > b[sortBy]) return -1;
         return 0;
-      })
+      });
+    }
+
+    // Shadow
+    if (!shadow) {
+      attackerArr = attackerArr.filter(x => !x.pokemonName.includes('Shadow Form'));
     }
 
     // Grouping
@@ -200,18 +239,34 @@ class CountersCommand extends Commando.Command {
       uniquePokemon.forEach(pokemon => {
         uniqueArr.push(attackerArr.find(x => x.pokemonName === pokemon));
       });
-      returnArr = uniqueArr.slice(0, limit <= uniqueArr.length ? limit : uniqueArr.length);
+      returnArr = uniqueArr.slice(0, limit <= uniqueArr.length ?
+        limit :
+        uniqueArr.length);
+      for (let ele of returnArr) {
+        if (attackerArr.slice(0, limit <= attackerArr.length ?
+          limit :
+          attackerArr.length)
+          .filter(x => x.pokemonName === ele.pokemonName).length > 1) {
+          ele.multipleMoves = true;
+        }
+      }
     } else {
-      returnArr = attackerArr.slice(0, limit <= attackerArr.length ? limit : attackerArr.length);
+      returnArr = attackerArr.slice(0, limit <= attackerArr.length ?
+        limit :
+        attackerArr.length);
     }
 
-    return {data: returnArr, randomMove: randomMove};
+    return {
+      data: returnArr,
+      randomMove: randomMove
+    };
   }
 
   buildCountersContent(sortedData, moveset) {
     let pokemonDisplayName,
       pokemonEmbedName,
       legacyFlag = false,
+      multipleMoveFlag = false,
       fastMoveDisplayName,
       chargeMoveDisplayName,
       thirdMoveDisplayName,
@@ -220,37 +275,66 @@ class CountersCommand extends Commando.Command {
 
     for (let [idx, pokemon] of sortedData.data.entries()) {
       pokemonDisplayName = pokemon.pokemonName;
-      pokemonEmbedName = !!pokemon.isUser
-        ? (!!pokemon.pokemonNickname ? pokemon.pokemonNickname : pokemonDisplayName) + ` (CP ${pokemon.pokemonCp})`
-        : pokemonDisplayName;
+      pokemonEmbedName = !!pokemon.isUser ?
+        (!!pokemon.pokemonNickname ?
+          pokemon.pokemonNickname :
+          pokemonDisplayName) + ` (CP ${pokemon.pokemonCp})` :
+        pokemonDisplayName;
 
-      legacyFlag = !!pokemon.legacyDate ? true : legacyFlag;
+      legacyFlag = !!pokemon.legacyDate ?
+        true :
+        legacyFlag;
+      multipleMoveFlag = !!pokemon.multipleMoves ?
+        true :
+        multipleMoveFlag;
 
       fastMoveDisplayName = pokemon.fastMove;
       chargeMoveDisplayName = pokemon.chargeMove;
-      thirdMoveDisplayName = !!pokemon.thirdMove ? pokemon.thirdMove : '';
+      thirdMoveDisplayName = !!pokemon.thirdMove ?
+        pokemon.thirdMove :
+        '';
 
-      moveEmbedName = `${fastMoveDisplayName}/${chargeMoveDisplayName}` + (!!pokemon.thirdMove ? `/${thirdMoveDisplayName}` : '');
+      moveEmbedName = `${fastMoveDisplayName}/${chargeMoveDisplayName}` + (!!pokemon.thirdMove ?
+        `/${thirdMoveDisplayName}` :
+        '');
 
       contentArr.push(
         `${'`#' + (idx + 1).toLocaleString('en-US', {minimumIntegerDigits: 2}) + '`'} **${pokemonEmbedName}**: ` +
         `${Math.round(pokemon.ttw)}s | ${pokemon.deaths.toFixed(1)} | ${Math.ceil(pokemon.trainers * 10) / 10}\n` +
         `*${moveEmbedName}` +
-        `${!!pokemon.legacyDate ? ' †' : ''}*`
+        `${!!pokemon.legacyDate ?
+          ' †' :
+          ''}` +
+        `${!!pokemon.multipleMoves ?
+          ' ‡' :
+          ''}*`
       );
     }
 
     // Footnotes
-    let legacyMessage = legacyFlag ? '*† - indicates legacy move*' : '';
-    let randomMessage = sortedData.randomMove ? '*†† - results based on averaged data of all movesets*' : '';
+    let legacyMessage = legacyFlag ?
+      '† *indicates legacy move*' :
+      '',
+      multipleMoveMessage = multipleMoveFlag ?
+        '‡ *has multiple top movesets*' :
+        '',
+      randomMessage = sortedData.randomMove ?
+        '§ *results based on averaged data of all movesets*' :
+        '';
 
     contentArr.push(''); // newline
-    !!legacyMessage ? contentArr.push(legacyMessage) : '';
-    !!randomMessage
-      ? contentArr.push(randomMessage)
-      : contentArr.push(`*Moveset: ${this.titleCase(moveset.move1.replace('_FAST', '').replace(/_/g, ' '))}/${this.titleCase(moveset.move2.replace(/_/g, ' '))}*`);
+    !!legacyMessage ?
+      contentArr.push(legacyMessage) :
+      '';
+    !!multipleMoveMessage ?
+      contentArr.push(multipleMoveMessage) :
+      '';
+    !!randomMessage ?
+      contentArr.push(randomMessage) :
+      contentArr.push(`*Moveset: ${this.titleCase(moveset.move1.replace('_FAST', '')
+        .replace(/_/g, ' '))}/${this.titleCase(moveset.move2.replace(/_/g, ' '))}*`);
 
-    return contentArr;
+    return contentArr;``
   }
 
   async savePokebattlerId(userSnowflake, pokebattlerId) {
@@ -284,11 +368,16 @@ class CountersCommand extends Commando.Command {
       attacker,
       weather,
       friendship,
-      grouped = false;
+      groupedFlag,
+      shadow = false;
 
     let partyPresets = Party.parsePartyDetails(message);
-    boss = !!partyPresets.boss ? await this.parseCounterType(partyPresets.boss, message, args, 'counterpokemontype') : boss;
-    tier = !!partyPresets.tier ? await this.parseCounterType(partyPresets.tier, message, args, 'countertiertype') : tier;
+    boss = !!partyPresets.boss ?
+      await this.parseCounterType(partyPresets.boss, message, args, 'counterpokemontype') :
+      boss;
+    tier = !!partyPresets.tier ?
+      await this.parseCounterType(partyPresets.tier, message, args, 'countertiertype') :
+      tier;
 
     let match;
     for (let arg of argArr) {
@@ -313,48 +402,70 @@ class CountersCommand extends Commando.Command {
         friendship = await this.parseCounterType(arg, message, args, 'counterfriendshiptype');
         match = !!friendship;
       }
-      if (!grouped && !match) {
-        grouped = this.parseGrouped(arg);
-        match = !!grouped;
+      if (!groupedFlag && !match) {
+        groupedFlag = this.parseGrouped(arg);
+        match = !!groupedFlag;
+      }
+      if (!groupedFlag && !match) {
+        groupedFlag = this.parseSingle(arg);
+        match = !!groupedFlag;
+      }
+      if (!shadow && !match) {
+        shadow = this.parseShadow(arg);
+        match = !!shadow;
       }
     }
 
     // Prompt all unset, mandatory parameters
 
-    boss = !boss ? await this.collectParameter(
-      message,
-      'what raid boss would you like to battle against?\n',
-      'counterpokemontype') : boss;
+    boss = !boss ?
+      await this.collectParameter(
+        message,
+        'what raid boss would you like to battle against?\n',
+        'counterpokemontype') :
+      boss;
     if (!boss) {
-      await message.delete().catch(err => log.error(err));
+      await message.delete()
+        .catch(err => log.error(err));
       return;
     }
 
-    tier = !tier ? await this.collectParameter(message, 'what raid tier would you like to battle at?\n', 'countertiertype') : tier;
+    tier = !tier ?
+      await this.collectParameter(message, 'what raid tier would you like to battle at?\n', 'countertiertype') :
+      tier;
     if (!tier) {
-      await message.delete().catch(err => log.error(err));
+      await message.delete()
+        .catch(err => log.error(err));
       return;
     }
 
     // Determine attacker messaging...
-    let pokebattlerMessage = !!dbPokebattlerId && !!dbPokebattlerId.pokebattler_id
-      ? `\n\nIf you wish to use your saved Pokébox (#${dbPokebattlerId.pokebattler_id}), respond 'Yes', or enter a different Pokebattler ID.\n`
-      : `\n\nAlternatively you may provide your Pokebattler ID, which is located on the upper right once you log in.\n`;
+    let pokebattlerMessage = !!dbPokebattlerId && !!dbPokebattlerId.pokebattler_id ?
+      `\n\nIf you wish to use your saved Pokébox (#${dbPokebattlerId.pokebattler_id}), respond 'Yes', or enter a different Pokebattler ID.\n` :
+      `\n\nAlternatively you may provide your Pokebattler ID, which is located on the upper right once you log in.\n`;
 
-    attacker = !attacker ? await this.collectParameter(
-      message,
-      `what level are your Pokémon you will be raiding with (20, 25, 30, 35, or 40)?${pokebattlerMessage}`,
-      'counterleveltype') : attacker;
+    attacker = !attacker ?
+      await this.collectParameter(
+        message,
+        `what level are your Pokémon you will be raiding with (20, 25, 30, 35, 40, or 41)?${pokebattlerMessage}`,
+        'counterleveltype') :
+      attacker;
     if (!attacker) {
-      await message.delete().catch(err => log.error(err));
+      await message.delete()
+        .catch(err => log.error(err));
       return;
     }
 
-    let attackerType = !!attacker.type && attacker.type === 'userId' ? 'users' : 'levels';
+    let attackerType = !!attacker.type && attacker.type === 'userId' ?
+      'users' :
+      'levels';
 
-    weather = !weather ? await this.collectParameter(message, 'what is the current weather for your raid?\n', 'counterweathertype') : weather;
+    weather = !weather ?
+      await this.collectParameter(message, 'what is the current weather for your raid?\n', 'counterweathertype') :
+      weather;
     if (!weather) {
-      await message.delete().catch(err => log.error(err));
+      await message.delete()
+        .catch(err => log.error(err));
       return;
     }
 
@@ -363,7 +474,8 @@ class CountersCommand extends Commando.Command {
       'what is the maximum friendship level you have with another trainer for this raid?\n',
       'counterfriendshiptype') : friendship;
     if (!friendship) {
-      await message.delete().catch(err => log.error(err));
+      await message.delete()
+        .catch(err => log.error(err));
       return;
     }
 
@@ -377,16 +489,16 @@ class CountersCommand extends Commando.Command {
     });
 
     if (!!countersData.counters.error) {
-      message.reply(`there was an issue communicating with Pokebattler, please try again later.`);
+      message.reply(`There was an issue communicating with Pokebattler; please try again later.`)
+        .catch(err => log.error(err));
       return;
     }
 
     let setMove,
       data;
     if (!!partyPresets.boss && !!partyPresets.boss.quickMove && !!partyPresets.boss.cinematicMove) {
-      setMove = countersData.counters.attackers[0].byMove.filter(
-        moveset => moveset.move1 === partyPresets.boss.quickMove && moveset.move2 === partyPresets.boss.cinematicMove
-      );
+      setMove = countersData.counters.attackers[0].byMove
+        .filter(moveset => moveset.move1 === partyPresets.boss.quickMove && moveset.move2 === partyPresets.boss.cinematicMove);
       if (!!setMove) data = setMove;
     }
     if (!data) {
@@ -394,15 +506,20 @@ class CountersCommand extends Commando.Command {
     }
 
     let moveset = {
-      move1: !!setMove ? partyPresets.boss.quickMove : data.moveset.move1,
-      move2: !!setMove ? partyPresets.boss.cinematicMove : data.moveset.move2
+      move1: !!setMove ?
+        partyPresets.boss.quickMove :
+        data.moveset.move1,
+      move2: !!setMove ?
+        partyPresets.boss.cinematicMove :
+        data.moveset.move2
     };
 
     let sortedData = this.sortResults({
       data: data.move,
       sortBy: 'ttw',
       limit: 12,
-      grouped: grouped,
+      grouped: groupedFlag === 'grouped' || !groupedFlag,
+      shadow: shadow,
       randomMove: !setMove && data.randomMove
     });
 
@@ -413,7 +530,12 @@ class CountersCommand extends Commando.Command {
       `${attacker.pbName}, ` +
       `${weather.name}, ` +
       `${friendship.name}` +
-      `${grouped ? ', Grouped' : ''}\``;
+      `${groupedFlag === 'single' ?
+        ', Single' :
+        ''}` +
+      `${shadow ?
+        ', Shadow' :
+        ''}\``;
 
     const embed = new MessageEmbed()
       .setAuthor('Data provided by Pokebattler', 'https://www.pokebattler.com/favicon-32x32.png')
@@ -423,20 +545,27 @@ class CountersCommand extends Commando.Command {
       .setThumbnail(boss.imageURL)
       .setDescription(content);
 
-    if (message.channel.type !== 'dm') embed.setFooter(`Requested by ${message.member.displayName}`, message.author.displayAvatarURL());
+    if (message.channel.type !== 'dm') {
+      embed.setFooter(`Requested by ${message.member.displayName}`, message.author.displayAvatarURL());
+    }
 
     if (attackerType === 'users') {
-      let dmResponse = await message.reply(`I am sending you a DM with the \`${message.client.commandPrefix}counters\` results for your Pokebattler Pokebox.`).catch(err => log.error(err));
+      let dmResponse = await message.reply(`I am sending you a DM with the \`${message.client.commandPrefix}counters\` results for your Pokebattler Pokebox.`)
+        .catch(err => log.error(err));
       dmResponse.preserve = true;
-      await message.author.send(commandMessage, embed).catch(err => log.error(err));
+      await message.author.send(commandMessage, embed)
+        .catch(err => log.error(err));
     } else {
-      await message.channel.send(commandMessage, embed).catch(err => log.error(err));
+      await message.channel.send(commandMessage, embed)
+        .catch(err => log.error(err));
     }
 
     // Optionally prompt to save Pokebattler ID if it is new
     if (attackerType === 'users' && (!dbPokebattlerId || (!!dbPokebattlerId && attacker.pbName !== dbPokebattlerId.pokebattlerId))) {
       let shouldIStayOrShouldIGo = await this.collectParameter(message, `would you like to save your new Pokebattler ID (${attacker.pbName}) for future use?\n`, 'boolean');
-      if (shouldIStayOrShouldIGo) await this.savePokebattlerId(message.author.id, attacker.pbName);
+      if (shouldIStayOrShouldIGo) {
+        await this.savePokebattlerId(message.author.id, attacker.pbName);
+      }
     }
   }
 }

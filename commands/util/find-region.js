@@ -62,7 +62,7 @@ class FindRegionsCommand extends Commando.Command {
       if (results.regions.length > 0) {
         const channels = results.regions
           .map(region => region.match(/^#?(.*)$/)[1])
-          .map(region => message.guild.channels
+          .map(region => message.guild.channels.cache
             .find(channel => channel.name === region))
           .map(channel => channel.toString())
           .join('\n');
