@@ -1399,7 +1399,7 @@ class RegionHelper {
         final = that.keywordStringFromArray(uniq(existing.concat(additions)));
       } else {
         if (keywords.toLowerCase() === "all") {
-          final = NULL;
+          final = null;
         } else {
           const removes = that.keywordArrayFromString(keywords);
           removes.forEach(item => {
