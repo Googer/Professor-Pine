@@ -78,7 +78,7 @@ module.exports = class EditGym extends commando.Command {
 
     this.keywordsCollector = new commando.ArgumentCollector(client, [{
       key: 'keywords',
-      prompt: 'Type `add` or `remove` followed by a list of keywords separated by commas. To remove all existing commas type `remove all`.',
+      prompt: 'Type `add` or `remove` followed by a list of keywords separated by commas. To remove all existing keywords type `remove all`.',
       type: 'keywords'
     }], 3);
 
