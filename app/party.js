@@ -4,6 +4,7 @@ const log = require('loglevel').getLogger('Party'),
   Helper = require('./helper'),
   moment = require('moment'),
   NaturalArgumentType = require('../types/natural'),
+  settings = require('../data/settings'),
   {PartyStatus, Team} = require('./constants');
 
 let PartyManager;
@@ -78,13 +79,33 @@ class Party {
       this.attendees[memberId] = {
         group: this.defaultGroupId,
         number: number,
-        status: status
+        status: status,
+        remote: false
       }
     } else {
       if (additionalAttendees !== NaturalArgumentType.UNDEFINED_NUMBER) {
         attendee.number = number;
       }
       attendee.status = status;
+    }
+
+    await this.persist();
+
+    return {party: this};
+  }
+
+  async setMemberRemote(memberId, remoteStatus) {
+    const attendee = this.attendees[memberId];
+
+    if (!attendee) {
+      this.attendees[memberId] = {
+        group: this.defaultGroupId,
+        number: 1,
+        status: PartyStatus.INTERESTED,
+        remote: remoteStatus
+      }
+    } else {
+      attendee.remote = remoteStatus;
     }
 
     await this.persist();
@@ -202,7 +223,8 @@ class Party {
   }
 
   static buildAttendeesList(attendeesList, emojiName, totalAttendeeCount) {
-    const emoji = Helper.getEmoji(emojiName).toString();
+    const emoji = Helper.getEmoji(emojiName).toString(),
+      remoteEmoji = Helper.getEmoji(settings.emoji.remote).toString() || ' 🚁 ';
 
     let result = '';
 
@@ -216,7 +238,11 @@ class Party {
           member.displayName.substring(0, 11).concat('…') :
           member.displayName;
 
-        result += emoji + ' ' + displayName;
+        const remoteStatus = !!attendee.remote ?
+          remoteEmoji :
+          ' ';
+
+        result += emoji + remoteStatus + displayName;
 
         // show how many additional attendees this user is bringing with them
         if (attendee.number > 1) {

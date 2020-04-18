@@ -120,6 +120,8 @@ Client.registry.registerCommands([
 
   require('./commands/raids/done'),
 
+  require('./commands/parties/local'),
+  require('./commands/parties/remote'),
   require('./commands/parties/check-out'),
   require('./commands/parties/leave'),
 

@@ -108,7 +108,7 @@ class Notify {
       regionChannel = (await PartyManager.getChannel(message.channel.id)).channel,
       reportingMember = (await PartyManager.getMember(regionChannel.id, reportingMemberId)).member,
       shiny = pokemon.shiny || (additionalPokemon && additionalPokemon.shiny) ?
-        Helper.getEmoji(settings.emoji.shiny) || '✨' :
+        Helper.getEmoji(settings.emoji.shiny).toString() || '✨' :
         '',
       header = `A wild ${pokemonName}${shiny} has been reported in #${regionChannel.name} by ${reportingMember.displayName}:`,
       regionHeader = `A wild ${pokemonName}${shiny} has been reported by ${reportingMember.displayName}:`,
