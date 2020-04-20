@@ -1,6 +1,7 @@
 "use strict";
 
 const log = require('loglevel').getLogger('Party'),
+  Discord = require('discord.js'),
   Helper = require('./helper'),
   moment = require('moment'),
   NaturalArgumentType = require('../types/natural'),
@@ -34,7 +35,7 @@ class Party {
 
   getAttendeeCount(group) {
     return Object.values(this.attendees)
-    // complete attendees shouldn't count
+      // complete attendees shouldn't count
       .filter(attendee => attendee.status !== PartyStatus.COMPLETE)
       .filter(attendee => !!group ?
         attendee.group === group :
@@ -67,6 +68,14 @@ class Party {
     return !!attendee ?
       attendee.status :
       PartyStatus.NOT_INTERESTED;
+  }
+
+  getMemberIsRemote(memberId) {
+    const attendee = this.attendees[memberId];
+
+    return !!attendee ?
+      !!attendee.remote :
+      false;
   }
 
   async setMemberStatus(memberId, status, additionalAttendees = NaturalArgumentType.UNDEFINED_NUMBER) {
@@ -185,11 +194,24 @@ class Party {
       PartyManager.getChannel(this.channelId)
         .then(channelResult => {
           if (channelResult.ok) {
-            channelResult.channel.send(`**WARNING**: This channel will self-destruct ${timeUntilDeletion}!`);
+            return channelResult.channel.send(`**WARNING**: This channel will self-destruct ${timeUntilDeletion}!`);
           }
         })
         .catch(err => log.error(err));
     }
+  }
+
+  postMessage(text, color) {
+    ``
+    return PartyManager.getChannel(this.channelId)
+      .then(channelResult => {
+        if (channelResult.ok) {
+          const embed = new Discord.MessageEmbed();
+          embed.setColor(color);
+          embed.setDescription(text);
+          return channelResult.channel.send({embed});
+        }
+      });
   }
 
   sendSavedWarningMessage() {
@@ -217,14 +239,15 @@ class Party {
         .catch(err => log.error(err));
     }
 
+    PartyManager.addReactions(message);
+
     this.lastStatusMessage = messageCacheId;
 
     await this.persist();
   }
 
-  static buildAttendeesList(attendeesList, emojiName, totalAttendeeCount) {
-    const emoji = Helper.getEmoji(emojiName).toString(),
-      remoteEmoji = Helper.getEmoji(settings.emoji.remote).toString() || ' 🚁 ';
+  static buildAttendeesList(attendeesList, totalAttendeeCount) {
+    const remoteEmoji = Helper.getEmoji(settings.emoji.remote).toString() || '📡';
 
     let result = '';
 
@@ -236,32 +259,36 @@ class Party {
 
         const displayName = member.displayName.length > 12 ?
           member.displayName.substring(0, 11).concat('…') :
-          member.displayName;
+          member.displayName,
 
-        const remoteStatus = !!attendee.remote ?
-          remoteEmoji :
-          ' ';
-
-        result += emoji + remoteStatus + displayName;
-
-        // show how many additional attendees this user is bringing with them
-        if (attendee.number > 1) {
-          result += ' +' + (attendee.number - 1);
-        }
+          remoteStatus = !!attendee.remote ?
+            ' ' + remoteEmoji :
+            '';
 
         // add role emoji indicators if role exists
         switch (Helper.getTeam(member)) {
           case Team.INSTINCT:
-            result += ' ' + Helper.getEmoji('instinct').toString();
+            result += Helper.getEmoji('instinct').toString() + ' ';
             break;
 
           case Team.MYSTIC:
-            result += ' ' + Helper.getEmoji('mystic').toString();
+            result += Helper.getEmoji('mystic').toString() + ' ';
             break;
 
           case Team.VALOR:
-            result += ' ' + Helper.getEmoji('valor').toString();
+            result += Helper.getEmoji('valor').toString() + ' ';
             break;
+
+          default:
+            result += Helper.getEmoji('teamless').toString() + ' ';
+            break;
+        }
+
+        result += displayName + remoteStatus;
+
+        // show how many additional attendees this user is bringing with them
+        if (attendee.number > 1) {
+          result += ' +' + (attendee.number - 1);
         }
 
         result += '\n';
@@ -275,28 +302,35 @@ class Party {
       attendeesList.forEach(([member, attendee]) => {
         const displayName = member.displayName.length > 12 ?
           member.displayName.substring(0, 11).concat('…') :
-          member.displayName;
-
-        result += '• ' + displayName;
-
-        // show how many additional attendees this user is bringing with them
-        if (attendee.number > 1) {
-          result += ' +' + (attendee.number - 1);
-        }
+          member.displayName,
+          remoteStatus = !!attendee.remote ?
+            ' 📡' :
+            '';
 
         // add role emoji indicators if role exists
         switch (Helper.getTeam(member)) {
           case Team.INSTINCT:
-            result += ' ⚡';
+            result += '⚡ ';
             break;
 
           case Team.MYSTIC:
-            result += ' ❄';
+            result += '❄ ';
             break;
 
           case Team.VALOR:
-            result += ' 🔥';
+            result += '🔥 ';
             break;
+
+          default:
+            result += '• ';
+            break;
+        }
+
+        result += displayName + remoteStatus;
+
+        // show how many additional attendees this user is bringing with them
+        if (attendee.number > 1) {
+          result += ' +' + (attendee.number - 1);
         }
 
         result += '\n';
@@ -326,6 +360,7 @@ class Party {
       defaultGroupId: this.defaultGroupId
     });
   }
+
   static parsePartyDetails(message) {
     let party = PartyManager.getParty(message.channel.id),
       boss,

@@ -33,16 +33,20 @@ class CheckOutCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    const raid = PartyManager.getParty(message.channel.id),
-      info = await raid.setMemberStatus(message.member.id, PartyStatus.INTERESTED);
+    const {isReaction, reactionMemberId} = args,
+      memberId = reactionMemberId || message.member.id,
+      raid = PartyManager.getParty(message.channel.id),
+      info = await raid.setMemberStatus(memberId, PartyStatus.INTERESTED);
 
     if (!info.error) {
-      message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
-        .catch(err => log.error(err));
+      if (!isReaction) {
+        message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
+          .catch(err => log.error(err));
+      }
 
       raid.refreshStatusMessages()
         .catch(err => log.error(err));
-    } else {
+    } else if (!isReaction) {
       message.reply(info.error)
         .catch(err => log.error(err));
     }

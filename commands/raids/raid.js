@@ -128,7 +128,10 @@ class RaidCommand extends Commando.Command {
             fullStatusMessage = await raid.getFullStatusMessage();
 
           return sourceChannel.send(channelMessageHeader, fullStatusMessage)
-            .then(announcementMessage => PartyManager.addMessage(raid.channelId, announcementMessage))
+            .then(announcementMessage => {
+              PartyManager.addMessage(raid.channelId, announcementMessage)
+                .catch(err => log.error(err));
+            })
             // create and send initial status message to raid channel
             .then(async botMessage => {
               const sourceChannelMessageHeader = await raid.getSourceChannelMessageHeader(),
@@ -141,7 +144,10 @@ class RaidCommand extends Commando.Command {
                 })
                 .catch(err => log.error(err));
             })
-            .then(channelRaidMessage => PartyManager.addMessage(raid.channelId, channelRaidMessage, true))
+            .then(channelRaidMessage => {
+              PartyManager.addMessage(raid.channelId, channelRaidMessage, true)
+                .catch(err => log.error(err));
+            })
             // now ask user about remaining time on this brand-new raid
             .then(result => {
               // somewhat hacky way of letting time type know of some additional information
