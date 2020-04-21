@@ -124,6 +124,19 @@ class Party {
 
     await this.setMemberGroup(memberId, newGroupId);
 
+    [...this.messages, ...[this.lastStatusMessage]]
+      .filter(message => message !== undefined)
+      .forEach(messageCacheId => {
+        PartyManager.getMessage(messageCacheId)
+          .then(messageResult => {
+            if (messageResult.ok) {
+              PartyManager.addGroupReactions(this, messageResult.message)
+                .catch(err => log.error(err));
+            }
+          }).catch(err => log.error(err));
+
+      });
+
     return {party: this, group: newGroupId};
   }
 
@@ -224,7 +237,9 @@ class Party {
         .catch(err => log.error(err));
     }
 
-    PartyManager.addReactions(message);
+    PartyManager.addReactions(message)
+      .then(() => PartyManager.addGroupReactions(this, message))
+      .catch(err => log.error(err));
 
     this.lastStatusMessage = messageCacheId;
 

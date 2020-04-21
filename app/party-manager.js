@@ -126,6 +126,14 @@ class PartyManager {
     });
     await this.completedStorage.init();
 
+    if (settings.features.reactionCommands) {
+      // map group reactions to group identifiers
+      this.groupEmojiToGroupId = {};
+
+      Object.keys(settings.groupReactions)
+        .forEach(key => this.groupEmojiToGroupId[settings.groupReactions[key]] = key);
+    }
+
     // maps channel ids to raid / train party info for that channel
     this.parties = Object.create(null);
 
@@ -313,9 +321,9 @@ class PartyManager {
 
           if (status !== PartyStatus.NOT_INTERESTED) {
             const attendee = party.getAttendee(user.id),
-            count = attendee.number > 2 ?
-              attendee.number - 2 :
-              0;
+              count = attendee.number > 2 ?
+                attendee.number - 2 :
+                0;
 
             party.setMemberStatus(user.id, status, count)
               .then(() => party.refreshStatusMessages())
@@ -367,6 +375,28 @@ class PartyManager {
 
           break;
         }
+
+        case settings.groupReactions.A:
+        case settings.groupReactions.B:
+        case settings.groupReactions.C:
+        case settings.groupReactions.D:
+        case settings.groupReactions.E:
+          const groupCommand = Helper.client.registry.resolveCommand('group'),
+            group = this.groupEmojiToGroupId[reaction.emoji.name],
+            statusMessageResult = await this.getMessage(party.messages
+              .filter(messageCacheId => messageCacheId.startsWith(party.channelId))[0]);
+
+          if (statusMessageResult.ok) {
+            groupCommand.run(statusMessageResult.message, group, {
+              isReaction: true,
+              reactionMemberId: user.id
+            })
+              .then(() => party.postMessage(`${displayName} has joined group ${group}!`, 'BLUE'))
+              .catch(err => log.error(err));
+          }
+
+          break;
+
       }
 
       // Remove user's reaction to keep things clean
@@ -757,7 +787,8 @@ class PartyManager {
         .catch(err => log.error(err));
     }
 
-    return this.addReactions(message);
+    return this.addReactions(message)
+      .then(() => this.addGroupReactions(party, message));
   }
 
   addReactions(message) {
@@ -770,6 +801,26 @@ class PartyManager {
 
       return reactionPromise;
     }
+  }
+
+  addGroupReactions(party, message) {
+    let reactionPromise = Promise.resolve();
+
+    if (settings.features.reactionCommands) {
+      const groupCount = party.groups.length;
+
+      if (groupCount > 1) {
+        party.groups.forEach(({id}) => {
+          const emoji = settings.groupReactions[id];
+          if (!message.reactions.resolve(emoji)) {
+            reactionPromise = reactionPromise
+              .then(result => message.react(emoji));
+          }
+        });
+      }
+    }
+
+    return reactionPromise;
   }
 }
 

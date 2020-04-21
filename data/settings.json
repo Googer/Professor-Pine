@@ -63,6 +63,13 @@
       "plain": "\uD83D\uDC4B"
     }
   },
+  "groupReactions": {
+    "A": "\uD83C\uDDE6",
+    "B": "\uD83C\uDDE7",
+    "C": "\uD83C\uDDE8",
+    "D": "\uD83C\uDDE9",
+    "E": "\uD83C\uDDEA"
+  },
   "features": {
     "exGymChannel": true,
     "reactionCommands": true,

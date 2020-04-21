@@ -33,13 +33,15 @@ class GroupCommand extends Commando.Command {
     });
   }
 
-  async run(message, args) {
+  async run(message, args, reactionInfo = undefined) {
     const raid = PartyManager.getParty(message.channel.id),
       calendarFormat = {
         sameDay: 'LT',
         sameElse: 'l LT'
       },
-      provided = message.constructor.parseArgs(args.trim(), 1, this.argsSingleQuotes);
+      provided = message.constructor.parseArgs(args.trim(), 1, this.argsSingleQuotes),
+      {isReaction, reactionMemberId} = reactionInfo,
+      memberId = reactionMemberId || message.member.id;
 
     let prompt = 'Which group do you wish to join for this raid?\n\n';
 
@@ -81,15 +83,17 @@ class GroupCommand extends Commando.Command {
 
         if (!collectionResult.cancelled) {
           const groupId = collectionResult.values['group'],
-            info = await raid.setMemberGroup(message.member.id, groupId);
+            info = await raid.setMemberGroup(memberId, groupId);
 
           if (!info.error) {
-            message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
-              .catch(err => log.error(err));
+            if (!isReaction) {
+              message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
+                .catch(err => log.error(err));
+            }
 
             raid.refreshStatusMessages()
               .catch(err => log.error(err));
-          } else {
+          } else if (!isReaction) {
             return message.reply(info.error)
               .catch(err => log.error(err));
           }
