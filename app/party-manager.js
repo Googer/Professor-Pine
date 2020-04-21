@@ -183,6 +183,17 @@ class PartyManager {
         return;
       }
 
+      // When we receive a reaction we check if the reaction is partial or not
+      if (reaction.partial) {
+        // If the message this reaction belongs to was removed the fetching might result in an API error, which we need to handle
+        try {
+          await reaction.fetch();
+        } catch (err) {
+          log.error(err);
+          return;
+        }
+      }
+
       const reactionMessageId = `${reaction.message.channel.id}:${reaction.message.id}`,
         party = this.getParty(reaction.message.channel.id) || Object.values(this.parties)
           .filter(party => party.sourceChannelId === reaction.message.channel.id)
