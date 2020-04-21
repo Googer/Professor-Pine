@@ -78,42 +78,29 @@ class Party {
       false;
   }
 
-  async setMemberStatus(memberId, status, additionalAttendees = NaturalArgumentType.UNDEFINED_NUMBER) {
+  async setMemberStatus(memberId, status, additionalAttendees = NaturalArgumentType.UNDEFINED_NUMBER, remote) {
     const attendee = this.attendees[memberId],
       number = (additionalAttendees !== NaturalArgumentType.UNDEFINED_NUMBER)
         ? 1 + additionalAttendees
-        : 1;
+        : 1,
+      remoteStatus = remote !== undefined ?
+        remote :
+        attendee ?
+          attendee.remote :
+          false;
 
     if (!attendee) {
       this.attendees[memberId] = {
         group: this.defaultGroupId,
         number: number,
-        status: status,
-        remote: false
+        status,
+        remote: remoteStatus
       }
     } else {
       if (additionalAttendees !== NaturalArgumentType.UNDEFINED_NUMBER) {
         attendee.number = number;
       }
       attendee.status = status;
-    }
-
-    await this.persist();
-
-    return {party: this};
-  }
-
-  async setMemberRemote(memberId, remoteStatus) {
-    const attendee = this.attendees[memberId];
-
-    if (!attendee) {
-      this.attendees[memberId] = {
-        group: this.defaultGroupId,
-        number: 1,
-        status: PartyStatus.INTERESTED,
-        remote: remoteStatus
-      }
-    } else {
       attendee.remote = remoteStatus;
     }
 
@@ -135,14 +122,12 @@ class Party {
     this.groups.push(newGroup);
     this.defaultGroupId = newGroupId;
 
-    await this.persist();
-
-    this.setMemberGroup(memberId, newGroupId);
+    await this.setMemberGroup(memberId, newGroupId);
 
     return {party: this, group: newGroupId};
   }
 
-  async getAttendee(memberId) {
+  getAttendee(memberId) {
     return this.attendees[memberId];
   }
 
@@ -151,7 +136,7 @@ class Party {
 
     if (!attendee) {
       // attendee isn't part of this party; set them as coming in default group
-      this.setMemberStatus(memberId, PartyStatus.COMING);
+      await this.setMemberStatus(memberId, PartyStatus.COMING);
 
       attendee = this.attendees[memberId];
     }

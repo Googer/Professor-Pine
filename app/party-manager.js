@@ -189,7 +189,7 @@ class PartyManager {
       switch (reaction.emoji.name) {
         case settings.reactionCommands.interested.custom:
         case settings.reactionCommands.interested.plain: {
-          const interestedCommand = Helper.client.registry.commands.get('maybe'),
+          const interestedCommand = Helper.client.registry.resolveCommand('maybe'),
             statusMessageResult = await this.getMessage(party.messages
               .filter(messageCacheId => messageCacheId.startsWith(party.channelId))[0]);
 
@@ -212,7 +212,7 @@ class PartyManager {
 
         case settings.reactionCommands.join.custom:
         case settings.reactionCommands.join.plain: {
-          const joinCommand = Helper.client.registry.commands.get('join'),
+          const joinCommand = Helper.client.registry.resolveCommand('join'),
             statusMessageResult = await this.getMessage(party.messages
               .filter(messageCacheId => messageCacheId.startsWith(party.channelId))[0]);
 
@@ -235,7 +235,7 @@ class PartyManager {
 
         case settings.reactionCommands.here.custom:
         case settings.reactionCommands.here.plain: {
-          const hereCommand = Helper.client.registry.commands.get('here'),
+          const hereCommand = Helper.client.registry.resolveCommand('here'),
             statusMessageResult = await this.getMessage(party.messages
               .filter(messageCacheId => messageCacheId.startsWith(party.channelId))[0]);
 
@@ -258,7 +258,7 @@ class PartyManager {
 
         case settings.reactionCommands.done.custom:
         case settings.reactionCommands.done.plain: {
-          const doneCommand = Helper.client.registry.commands.get('done'),
+          const doneCommand = Helper.client.registry.resolveCommand('done'),
             statusMessageResult = await this.getMessage(party.messages
               .filter(messageCacheId => messageCacheId.startsWith(party.channelId))[0]);
 
@@ -278,21 +278,49 @@ class PartyManager {
           break;
         }
 
-        case settings.reactionCommands.notInterested.custom:
-        case settings.reactionCommands.notInterested.plain: {
-          const leaveCommand = Helper.client.registry.commands.get('leave'),
-            statusMessageResult = await this.getMessage(party.messages
-              .filter(messageCacheId => messageCacheId.startsWith(party.channelId))[0]);
+        case settings.reactionCommands.incrementCount.plain: {
+          const status = party.getMemberStatus(user.id);
 
-          if (statusMessageResult.ok) {
-            leaveCommand.run(statusMessageResult.message, {
-              isReaction: true,
-              reactionMemberId: user.id
-            })
-              .then(() => party.postMessage(`${displayName} has left this raid!`, 'RED'))
+          if (status === PartyStatus.NOT_INTERESTED) {
+            // say interested in this raid
+            const interestedCommand = Helper.client.registry.resolveCommand('maybe'),
+              statusMessageResult = await this.getMessage(party.messages
+                .filter(messageCacheId => messageCacheId.startsWith(party.channelId))[0]);
+
+            if (statusMessageResult.ok) {
+              const arg = party.getMemberStatus(user.id) === PartyStatus.NOT_INTERESTED ?
+                party.defaultGroupId :
+                NaturalArgumentType.UNDEFINED_NUMBER;
+
+              interestedCommand.run(statusMessageResult.message, {
+                additionalAttendees: arg,
+                isReaction: true,
+                reactionMemberId: user.id
+              })
+                .then(() => party.postMessage(`${displayName} is interested in this raid!`, 'YELLOW'))
+                .catch(err => log.error(err));
+            }
+          } else {
+            party.setMemberStatus(user.id, status, party.getAttendee(user.id).number)
+              .then(() => party.refreshStatusMessages())
               .catch(err => log.error(err));
           }
+          break;
+        }
 
+        case settings.reactionCommands.decrementCount.plain: {
+          const status = party.getMemberStatus(user.id);
+
+          if (status !== PartyStatus.NOT_INTERESTED) {
+            const attendee = party.getAttendee(user.id),
+            count = attendee.number > 2 ?
+              attendee.number - 2 :
+              0;
+
+            party.setMemberStatus(user.id, status, count)
+              .then(() => party.refreshStatusMessages())
+              .catch(err => log.error(err));
+          }
           break;
         }
 
@@ -300,8 +328,8 @@ class PartyManager {
         case settings.reactionCommands.remote.plain: {
           const isRemote = party.getMemberIsRemote(user.id),
             command = isRemote ?
-              Helper.client.registry.commands.get('local') :
-              Helper.client.registry.commands.get('remote'),
+              Helper.client.registry.resolveCommand('local') :
+              Helper.client.registry.resolveCommand('remote'),
             statusMessageResult = await this.getMessage(party.messages
               .filter(messageCacheId => messageCacheId.startsWith(party.channelId))[0]);
 
@@ -318,6 +346,26 @@ class PartyManager {
               .then(() => party.postMessage(`${displayName} is doing this raid ${isRemote ? 'locally' : 'remotely'}!`, 'BLUE'))
               .catch(err => log.error(err));
           }
+
+          break;
+        }
+
+        case settings.reactionCommands.notInterested.custom:
+        case settings.reactionCommands.notInterested.plain: {
+          const leaveCommand = Helper.client.registry.resolveCommand('leave'),
+            statusMessageResult = await this.getMessage(party.messages
+              .filter(messageCacheId => messageCacheId.startsWith(party.channelId))[0]);
+
+          if (statusMessageResult.ok) {
+            leaveCommand.run(statusMessageResult.message, {
+              isReaction: true,
+              reactionMemberId: user.id
+            })
+              .then(() => party.postMessage(`${displayName} has left this raid!`, 'RED'))
+              .catch(err => log.error(err));
+          }
+
+          break;
         }
       }
 

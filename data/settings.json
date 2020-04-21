@@ -46,6 +46,14 @@
       "custom": "pinedone",
       "plain": "\uD83C\uDF89"
     },
+    "incrementCount": {
+      "custom": "",
+      "plain": "⬆️"
+    },
+    "decrementCount": {
+      "custom": "",
+      "plain": "⬇️"
+    },
     "remote": {
       "custom": "pineremote",
       "plain": "\uD83D\uDCE1"

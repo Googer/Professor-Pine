@@ -107,29 +107,25 @@ class RemoteCommand extends Commando.Command {
           }
 
           await raid.setMemberGroup(memberId, groupId);
-          await raid.setMemberStatus(memberId, PartyStatus.INTERESTED);
-          return await raid.setMemberRemote(memberId, true);
+          return raid.setMemberStatus(memberId, PartyStatus.INTERESTED, NaturalArgumentType.UNDEFINED_NUMBER, true);
         });
     } else if (groupId && currentStatus === PartyStatus.NOT_INTERESTED) {
       statusPromise = Promise.all([
         await raid.setMemberGroup(memberId, groupId),
-        await raid.setMemberStatus(memberId, PartyStatus.INTERESTED),
-        await raid.setMemberRemote(memberId, true)]);
+        await raid.setMemberStatus(memberId, PartyStatus.INTERESTED, NaturalArgumentType.UNDEFINED_NUMBER, true)]);
     } else if (groupId && currentStatus !== PartyStatus.NOT_INTERESTED) {
       const attendee = await raid.getAttendee(memberId),
         additional = attendee.number - 1;
       statusPromise = Promise.all([
         await raid.setMemberGroup(memberId, groupId),
-        await raid.setMemberStatus(memberId, currentStatus, additional),
-        await raid.setMemberRemote(memberId, true)]);
+        await raid.setMemberStatus(memberId, currentStatus, additional, true)]);
     } else {
       if (currentStatus === PartyStatus.NOT_INTERESTED) {
         currentStatus = PartyStatus.INTERESTED;
       }
 
-      statusPromise = Promise.all([
-        await raid.setMemberStatus(memberId, currentStatus, groupId ? 0 : additionalAttendees),
-        await raid.setMemberRemote(memberId, true)]);
+      statusPromise = Promise.resolve(
+        await raid.setMemberStatus(memberId, currentStatus, groupId ? 0 : additionalAttendees, true));
     }
 
     statusPromise
