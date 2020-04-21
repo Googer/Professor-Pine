@@ -204,7 +204,7 @@ class Party {
     PartyManager.getChannel(this.channelId)
       .then(channelResult => {
         if (channelResult.ok) {
-          channelResult.channel.send(`This channel will no longer self-destruct!`);
+          return channelResult.channel.send(`This channel will no longer self-destruct!`);
         }
       })
       .catch(err => log.error(err));
@@ -218,7 +218,7 @@ class Party {
       PartyManager.getMessage(this.lastStatusMessage)
         .then(messageResult => {
           if (messageResult.ok) {
-            messageResult.message.delete();
+            return messageResult.message.delete();
           }
         })
         .catch(err => log.error(err));
@@ -269,14 +269,14 @@ class Party {
             break;
         }
 
-        result += displayName + remoteStatus;
+        result += displayName;
 
         // show how many additional attendees this user is bringing with them
         if (attendee.number > 1) {
           result += ' +' + (attendee.number - 1);
         }
 
-        result += '\n';
+        result += remoteStatus + '\n';
       });
     }
 
