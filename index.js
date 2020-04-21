@@ -20,6 +20,7 @@ const privateSettings = require('./data/private-settings'),
     owner: privateSettings.owner,
     restWsBridgeTimeout: 10000,
     restTimeOffset: 1000,
+    partials: ['MESSAGE', 'CHANNEL', 'REACTION'],
     commandPrefix: settings.commandPrefix || '!'
   }),
   DB = require('./app/db.js'),

@@ -171,43 +171,6 @@ class Helper {
       this.emojis.delete(oldEmoji.name.toLowerCase());
       this.emojis.set(newEmoji.name.toLowerCase(), newEmoji);
     });
-
-    // this listener is used to emit messageReactionAdd events for non-cached messages
-    this.client.on('raw', packet => {
-      // We don't want this to run on unrelated packets
-      if (packet.t !== 'MESSAGE_REACTION_ADD') {
-        return;
-      }
-
-      // Grab the channel to check the message from
-      const channel = this.client.channels.cache.get(packet.d.channel_id);
-      // There's no need to emit if the message is cached, because the event will fire anyway for that
-      if (channel.messages.cache.has(packet.d.message_id)) {
-        return;
-      }
-
-      // Since we have confirmed the message is not cached, let's fetch it
-      channel.messages.fetch(packet.d.message_id)
-        .then(async message => {
-          // Emojis can have identifiers in id format (custom emojis), so we have to account for that case as well
-          const emoji = packet.d.emoji.id ?
-            packet.d.emoji.id :
-            packet.d.emoji.name;
-
-          // This gives us the reaction we need to emit the event properly, in top of the message object
-          const reaction = message.reactions.cache.get(emoji);
-
-          // Adds the currently reacting user to the reaction's users collection.
-          const user = await this.client.users.fetch(packet.d.user_id);
-
-          if (reaction) {
-            reaction.users.cache.set(packet.d.user_id, user);
-          }
-
-          this.client.emit('messageReactionAdd', reaction, user);
-        })
-        .catch(err => log.error(err));
-    });
   }
 
   sendNotificationMessages(messages) {
