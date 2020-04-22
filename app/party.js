@@ -200,14 +200,13 @@ class Party {
   }
 
   postMessage(text, color) {
-    ``
     return PartyManager.getChannel(this.channelId)
-      .then(channelResult => {
+      .then(async channelResult => {
         if (channelResult.ok) {
           const embed = new Discord.MessageEmbed();
           embed.setColor(color);
           embed.setDescription(text);
-          return channelResult.channel.send({embed});
+          return channelResult.channel.send({embed, allowedMentions: {"parse": []}});
         }
       });
   }

@@ -203,7 +203,7 @@ class PartyManager {
         return;
       }
 
-      const displayName = reaction.message.guild.members.cache.get(user.id).displayName || user.username;
+      const displayName = reaction.message.guild.members.cache.get(user.id).toString() || user.username;
 
       switch (reaction.emoji.name) {
         case settings.reactionCommands.interested.custom:
