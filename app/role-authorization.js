@@ -17,7 +17,7 @@ class RoleAuthorization {
             .map(role => role.id),
           roles = this.getRoles(message.channel.guild, message.command);
 
-        if (userRoles.filter(role => roles.includes(role)).length === 0) {
+        if (!userRoles.some(role => roles.includes(role))) {
           return {
             reason: 'unauthorized',
             response: message.reply('You are not authorized to use this command.')
