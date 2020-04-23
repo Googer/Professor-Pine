@@ -45,7 +45,8 @@ class SavePartyCommand extends Commando.Command {
     party.deletionTime = -1;
     await party.persist();
 
-    party.sendSavedWarningMessage();
+    party.sendSavedWarningMessage()
+      .catch(err => log.error(err));
 
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .catch(err => log.error(err));

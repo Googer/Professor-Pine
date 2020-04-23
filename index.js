@@ -32,6 +32,7 @@ const privateSettings = require('./data/private-settings'),
   Notify = require('./app/notify'),
   PartyManager = require('./app/party-manager'),
   Role = require('./app/role'),
+  RoleAuthorization = require('./app/role-authorization'),
   Utility = require('./app/utility'),
   IntervalUpdater = require('./app/update'),
   {CommandGroup} = require('./app/constants');
@@ -74,22 +75,7 @@ if (settings.features.roles) {
     require('./commands/admin/aar'),
 
     require('./commands/roles/iam'),
-    require('./commands/roles/iamnot'),
-
-    require('./commands/admin/gyms/importgyms'),
-    require('./commands/admin/gyms/creategym'),
-    require('./commands/admin/gyms/editgym'),
-    require('./commands/admin/gyms/deletegym'),
-    require('./commands/admin/gyms/findgym'),
-    require('./commands/admin/gyms/gymdetail'),
-    require('./commands/admin/gyms/gymqueue'),
-    require('./commands/admin/gyms/gymplaces'),
-    require('./commands/admin/gyms/geocode'),
-    require('./commands/admin/gyms/clearimagecache'),
-    require('./commands/admin/gyms/export-tsv'),
-
-    require('./commands/admin/regions/importregions'),
-    require('./commands/admin/regions/setregion'),
+    require('./commands/roles/iamnot')
   ]);
 }
 
@@ -174,6 +160,28 @@ Client.registry.registerCommands([
   require('./commands/util/counters'),
   require('./commands/util/howmany'),
   require('./commands/util/pvp-rank'),
+
+  require('./commands/admin/roleAuthorization/require-role'),
+  require('./commands/admin/roleAuthorization/add-role'),
+  require('./commands/admin/roleAuthorization/remove-role'),
+  require('./commands/admin/roleAuthorization/show-roleauthorization'),
+  require('./commands/admin/roleAuthorization/show-roleauthorizations'),
+
+  require('./commands/admin/gyms/importgyms'),
+  require('./commands/admin/gyms/creategym'),
+  require('./commands/admin/gyms/editgym'),
+  require('./commands/admin/gyms/deletegym'),
+  require('./commands/admin/gyms/findgym'),
+  require('./commands/admin/gyms/gymdetail'),
+  require('./commands/admin/gyms/gymqueue'),
+  require('./commands/admin/gyms/gymplaces'),
+  require('./commands/admin/gyms/geocode'),
+  require('./commands/admin/gyms/clearimagecache'),
+  require('./commands/admin/gyms/export-tsv'),
+
+  require('./commands/admin/regions/importregions'),
+  require('./commands/admin/regions/setregion'),
+
   require('./commands/admin/raid-boss'),
   require('./commands/admin/raid-bosses'),
   require('./commands/admin/populate-raid-bosses'),
@@ -183,14 +191,17 @@ Client.registry.registerCommands([
   require('./commands/admin/autoset'),
   require('./commands/admin/shiny'),
   require('./commands/admin/not-shiny'),
+
   require('./commands/tsr/card'),
   require('./commands/tsr/register'),
   require('./commands/admin/rare'),
-  require('./commands/notifications/spawn'),
   require('./commands/game/register-friend-code'),
   require('./commands/game/register-nickname'),
   require('./commands/game/friend-code'),
   require('./commands/game/find-nickname'),
+
+  require('./commands/notifications/spawn'),
+
   require('./commands/notifications/boss-set-notifications'),
   require('./commands/notifications/new-train-notifications')
 ]);
@@ -230,6 +241,7 @@ Client.on('ready', async () => {
 
     PartyManager.setClient(Client);
     await DB.initialize(Client);
+    RoleAuthorization.initialize(Client);
     Map.initialize(Client);
     IP.initialize();
     await Gym.buildIndexes();

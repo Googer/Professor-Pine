@@ -203,7 +203,6 @@ class Party {
       .catch(err => log.error(err));
   }
 
-
   async replaceLastMessage(message) {
     const messageCacheId = `${message.channel.id.toString()}:${message.id.toString()}`;
 
