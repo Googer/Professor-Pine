@@ -1,27 +1,26 @@
 "use strict";
 
-const log = require('loglevel').getLogger('TrainNameCommand'),
+const log = require('loglevel').getLogger('NameCommand'),
   Commando = require('discord.js-commando'),
   {CommandGroup, PartyType} = require('../../app/constants'),
   Helper = require('../../app/helper'),
-  settings = require('../../data/settings'),
+  settings = require('../../data/settings.json'),
   PartyManager = require('../../app/party-manager');
 
-class TrainNameCommand extends Commando.Command {
+class NameCommand extends Commando.Command {
   constructor(client) {
     super(client, {
-      name: 'train-name',
+      name: 'name',
       group: CommandGroup.TRAIN,
-      memberName: 'train-name',
-      aliases: ['name'],
-      description: 'Modify and set the train\'s name.\n',
-      details: 'Use this command to update a train\'s name and update the channel name.',
-      examples: ['\t!train-name Raid Hour is happening!'],
+      memberName: 'name',
+      description: 'Modify and set a raid train\'s or meetup\'s name.\n',
+      details: 'Use this command to update the name for a raid train or meetup and update the channel name.',
+      examples: ['\t!name Raid Hour is happening!'],
       args: [
         {
           key: 'name',
           label: 'name',
-          prompt: 'What do you wish to name this raid train?',
+          prompt: 'What do you wish to set the name to?',
           type: 'string'
         }
       ],
@@ -30,11 +29,11 @@ class TrainNameCommand extends Commando.Command {
     });
 
     client.dispatcher.addInhibitor(message => {
-      if (!!message.command && message.command.name === 'train-name' &&
-        !PartyManager.validParty(message.channel.id, PartyType.RAID_TRAIN)) {
+      if (!!message.command && message.command.name === 'name' &&
+        !PartyManager.validParty(message.channel.id, [PartyType.RAID_TRAIN, PartyType.MEETUP])) {
         return {
           reason: 'invalid-channel',
-          response: message.reply('You can only set a train\'s name from the train\'s channel!')
+          response: message.reply('You can only set a raid train\'s or meetup\'s name from the its channel!')
         };
       }
       return false;
@@ -55,4 +54,4 @@ class TrainNameCommand extends Commando.Command {
   }
 }
 
-module.exports = TrainNameCommand;
+module.exports = NameCommand;
