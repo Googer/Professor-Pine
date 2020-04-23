@@ -27,7 +27,8 @@
   "emoji": {
     "thumbsUp": "pinethumbsup",
     "thumbsDown": "pinethumbsdown",
-    "shiny": "pineshiny"
+    "shiny": "pineshiny",
+    "remote": "pineremote"
   },
   "features": {
     "exGymChannel": true,

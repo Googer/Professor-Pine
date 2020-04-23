@@ -390,8 +390,8 @@ class RaidTrain extends Party {
           .map(condition => Helper.getEmoji(condition))
           .join('')}` :
         '',
-      shiny = !!this.pokemon && this.pokemon.shiny ?
-        Helper.getEmoji(settings.emoji.shiny) || '✨' :
+      shiny = this.pokemon.shiny ?
+        Helper.getEmoji(settings.emoji.shiny).toString() || '✨' :
         '',
       attendeeEntries = Object.entries(this.attendees),
       totalAttendeeCount = attendeeEntries.length,

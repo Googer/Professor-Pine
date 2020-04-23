@@ -64,7 +64,7 @@ class SpawnCommand extends Commando.Command {
         reportingMember = (await PartyManager.getMember(regionChannel.id, message.member.id)).member,
         unownRole = Helper.guild.get(message.guild.id).roles.get('unown'),
         shiny = pokemon.shiny ?
-          Helper.getEmoji(settings.emoji.shiny) || '✨' :
+          Helper.getEmoji(settings.emoji.shiny).toString() || '✨' :
           '',
         mention = unownRole ? '(' + unownRole.toString() + ') ' : '',
         header = `A wild ${pokemonName}${shiny} ${mention}has been reported in #${regionChannel.name} by ${reportingMember.displayName}: ${spawnDetails}`,
