@@ -41,10 +41,10 @@ class NameCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    const trainName = args['name'],
-          party = PartyManager.getParty(message.channel.id);
+    const {name} = args,
+      party = PartyManager.getParty(message.channel.id);
 
-    await party.setTrainName(trainName);
+    await party.setName(name);
 
     message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
       .catch(err => log.error(err));

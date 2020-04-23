@@ -62,10 +62,20 @@ class Meetup extends Party {
       });
   }
 
-  async setName(name) {
-    this.meetupName = name;
+  async setName(meetupName) {
+    this.meetupName = meetupName;
 
     await this.persist();
+
+    const newChannelName = this.generateChannelName();
+
+    await PartyManager.getChannel(this.channelId)
+      .then(channelResult => {
+        if (channelResult.ok) {
+          return channelResult.channel.setName(newChannelName);
+        }
+      })
+      .catch(err => log.error(err));
 
     return {party: this};
   }
@@ -77,7 +87,6 @@ class Meetup extends Party {
 
     return {party: this};
   }
-
 
   async setMeetingTime(memberId, startTime) {
     const member = this.attendees[memberId];
@@ -168,6 +177,7 @@ class Meetup extends Party {
       embed = new Discord.MessageEmbed();
 
     embed.setColor('GREEN');
+    embed.setTitle('Meetup: ' + this.meetupName);
 
     embed.setFooter(meetupReporter, reportingMember.user.displayAvatarURL());
 
