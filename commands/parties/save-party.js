@@ -22,10 +22,10 @@ class SavePartyCommand extends Commando.Command {
 
     client.dispatcher.addInhibitor(message => {
       if (!!message.command && message.command.name === 'save-party') {
-        if (!PartyManager.validParty(message.channel.id, [PartyType.RAID_TRAIN, PartyType.RAID])) {
+        if (!PartyManager.validParty(message.channel.id)) {
           return {
             reason: 'invalid-channel',
-            response: message.reply('You can only save a raid or train channel from deletion!')
+            response: message.reply('You can only save a party channel from deletion!')
           };
         }
         if (!Helper.isBotManagement(message)) {
