@@ -12,9 +12,10 @@ class RemoveRoleCommand extends Commando.Command {
     super(client, {
       name: 'remove-role',
       group: CommandGroup.ADMIN,
-      memberName: 'romove-role',
+      memberName: 'remove-role',
       description: 'Removes an authorized role from a command.',
       examples: ['\t!remove-role meetup @Meetup'],
+      aliases: ['delete-role'],
       args: [
         {
           key: 'command',
