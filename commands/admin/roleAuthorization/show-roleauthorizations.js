@@ -5,8 +5,7 @@ const log = require('loglevel').getLogger('ShowRoleAuthorizationsCommand'),
   {CommandGroup} = require('../../../app/constants'),
   Discord = require('discord.js'),
   Helper = require('../../../app/helper'),
-  RoleAuthorization = require('../../../app/role-authorization'),
-  settings = require('../../../data/settings.json');
+  RoleAuthorization = require('../../../app/role-authorization');
 
 class ShowRoleAuthorizationsCommand extends Commando.Command {
   constructor(client) {
