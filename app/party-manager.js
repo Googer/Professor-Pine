@@ -35,7 +35,7 @@ class PartyManager {
         partiesToRefresh = new Set();
 
       Object.entries(this.parties)
-        .filter(([channelId, party]) => [PartyType.RAID, PartyType.RAID_TRAIN].indexOf(party.type) !== -1)
+        .filter(([channelId, party]) => [PartyType.RAID, PartyType.RAID_TRAIN, PartyType.MEETUP].indexOf(party.type) !== -1)
         .forEach(async ([channelId, party]) => {
           if ((party.hatchTime && now > party.hatchTime && party.hatchTime > lastIntervalTime) ||
             nowDay !== lastIntervalDay) {
