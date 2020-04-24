@@ -30,7 +30,7 @@ class PartyManager {
         startClearTime = now + (settings.startClearTime * 60 * 1000),
         deletionGraceTime = settings.deletionGraceTime * 60 * 1000,
         deletionTime = now + (settings.deletionWarningTime * 60 * 1000),
-        trainDeletionTime = now + (settings.trainDeletionWarningTime * 60 * 1000),
+        trainOrMeetupDeletionTime = now + (settings.trainOrMeetupDeletionWarningTime * 60 * 1000),
         lastIntervalRunTime = lastIntervalTime - settings.cleanupInterval,
         partiesToRefresh = new Set();
 
@@ -97,8 +97,8 @@ class PartyManager {
             !party.deletionTime) {
             // party's end time is set (or last possible time) in the past, even past the grace period,
             // so schedule its deletion
-            party.deletionTime = party.type === PartyType.RAID_TRAIN ?
-              trainDeletionTime :
+            party.deletionTime = (party.type === PartyType.RAID_TRAIN || party.type === PartyType.MEETUP) ?
+              trainOrMeetupDeletionTime :
               deletionTime;
 
             party.sendDeletionWarningMessage();

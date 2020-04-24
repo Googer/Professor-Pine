@@ -45,11 +45,11 @@ class TimeType extends Commando.ArgumentType {
     let firstPossibleTime,
       maxDuration,
       lastPossibleTime,
-      isTrain,
-      trainMeetingTime;
+      isTrainOrMeetup,
+      trainOrMeetupMeetingTime;
 
-    isTrain = (partyType === PartyType.RAID_TRAIN);
-    trainMeetingTime = isTrain ?
+    isTrainOrMeetup = (partyType === PartyType.RAID_TRAIN || partyType === PartyType.MEETUP);
+    trainOrMeetupMeetingTime = isTrainOrMeetup ?
       moment(party.startTime) :
       undefined;
 
@@ -81,7 +81,7 @@ class TimeType extends Commando.ArgumentType {
               moment(endTime) :
               partyCreationTime.clone().add(incubationDuration + hatchedDuration, 'minutes');
 
-            if (isTrain) {
+            if (isTrainOrMeetup) {
               maxDuration = settings.maximumMeetupLeadtime;
               lastPossibleTime = partyCreationTime.clone().add(maxDuration, 'days');
             } else {
@@ -115,7 +115,7 @@ class TimeType extends Commando.ArgumentType {
         // End time - valid range is now through incubation plus hatch duration past creation time
         firstPossibleTime = now;
 
-        if (isTrain) {
+        if (isTrainOrMeetup) {
           maxDuration = settings.maximumMeetupLeadtime + 1;
           lastPossibleTime = partyCreationTime.clone().add(maxDuration, 'days');
         } else {
@@ -140,7 +140,7 @@ class TimeType extends Commando.ArgumentType {
     } else if (['unset', 'cancel', 'none'].indexOf(valueToParse.toLowerCase()) !== -1) {
       // mark this is a valid time.
       return true;
-    } else if (isTrain === true) {
+    } else if (isTrainOrMeetup === true) {
       timeMode = TimeMode.ABSOLUTE;
     } else {
       const absoluteMatch = valueToParse.match(/^at(.*)|(.*[ap]m?)$/i);
@@ -182,7 +182,7 @@ class TimeType extends Commando.ArgumentType {
       const enteredDate = moment(valueToParse, ['hmm a', 'Hmm', 'h:m a', 'H:m', 'M-D hmm a', 'M-D Hmm', 'M-D h:m a', 'M-D H:m', 'M-D h a', 'M-D H']);
 
       if (enteredDate.isValid()) {
-        possibleTimes.push(...TimeType.generateTimes(enteredDate, arg.key, partyType, isTrain ? trainMeetingTime : raidHatchTime));
+        possibleTimes.push(...TimeType.generateTimes(enteredDate, arg.key, partyType, isTrainOrMeetup ? trainOrMeetupMeetingTime : raidHatchTime));
       }
     }
 
@@ -236,11 +236,11 @@ class TimeType extends Commando.ArgumentType {
     let firstPossibleTime,
       maxDuration,
       lastPossibleTime,
-      isTrain,
-      trainMeetingTime;
+      isTrainOrMeetup,
+      trainOrMeetupMeetingTime;
 
-    isTrain = (partyType === PartyType.RAID_TRAIN);
-    trainMeetingTime = isTrain ?
+    isTrainOrMeetup = (partyType === PartyType.RAID_TRAIN || partyType === PartyType.MEETUP);
+    trainOrMeetupMeetingTime = isTrainOrMeetup ?
       moment(party.startTime) :
       undefined;
 
@@ -272,7 +272,7 @@ class TimeType extends Commando.ArgumentType {
               moment(endTime) :
               partyCreationTime.clone().add(incubationDuration + hatchedDuration, 'minutes');
 
-            if (isTrain) {
+            if (isTrainOrMeetup) {
               maxDuration = settings.maximumMeetupLeadtime;
               lastPossibleTime = partyCreationTime.clone().add(maxDuration, 'days');
             } else {
@@ -305,7 +305,7 @@ class TimeType extends Commando.ArgumentType {
       case TimeParameter.END: {
         // End time - valid range is now through incubation plus hatch duration past creation time
         firstPossibleTime = now;
-        if (isTrain) {
+        if (isTrainOrMeetup) {
           maxDuration = settings.maximumMeetupLeadtime + 1;
           lastPossibleTime = partyCreationTime.clone().add(maxDuration, 'days');
         } else {
@@ -330,7 +330,7 @@ class TimeType extends Commando.ArgumentType {
     } else if (['unset', 'cancel', 'none'].indexOf(valueToParse.toLowerCase()) !== -1) {
       // return a value to indicate unset & meet.
       return -1;
-    } else if (isTrain === true) {
+    } else if (isTrainOrMeetup === true) {
       timeMode = TimeMode.ABSOLUTE;
     } else {
       const absoluteMatch = valueToParse.match(/^at(.*)|(.*[ap]m?)$/i);
@@ -372,7 +372,7 @@ class TimeType extends Commando.ArgumentType {
       const enteredDate = moment(valueToParse, ['hmm a', 'Hmm', 'h:m a', 'H:m', 'M-D hmm a', 'M-D Hmm', 'M-D h:m a', 'M-D H:m', 'M-D h a', 'M-D H']);
 
       if (enteredDate.isValid()) {
-        possibleTimes.push(...TimeType.generateTimes(enteredDate, arg.key, partyType, isTrain ? trainMeetingTime : raidHatchTime));
+        possibleTimes.push(...TimeType.generateTimes(enteredDate, arg.key, partyType, isTrainOrMeetup ? trainOrMeetupMeetingTime : raidHatchTime));
       }
     }
 
@@ -401,7 +401,7 @@ class TimeType extends Commando.ArgumentType {
       possibleDate.year(partyMeetingOrHatchTime.year());
     }
 
-    if (partyType === PartyType.RAID_TRAIN && timeParameter === TimeParameter.END && !containsDate && partyMeetingOrHatchTime !== undefined) {
+    if ((partyType === PartyType.RAID_TRAIN || partyType === PartyType.MEETUP) && timeParameter === TimeParameter.END && !containsDate && partyMeetingOrHatchTime !== undefined) {
       possibleDate.date(partyMeetingOrHatchTime.date());
       possibleDate.month(partyMeetingOrHatchTime.month());
       possibleDate.year(partyMeetingOrHatchTime.year());

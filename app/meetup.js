@@ -115,6 +115,12 @@ class Meetup extends Party {
     return {party: this};
   }
 
+  async setEndTime(endTime) {
+    this.endTime = endTime;
+
+    await this.persist();
+  }
+
   getChannelMessageHeader() {
     return PartyManager.getChannel(this.channelId)
       .then(channelResult => channelResult.ok ?
@@ -143,8 +149,11 @@ class Meetup extends Party {
       meetingTime = !!this.startTime ?
         moment(this.startTime) :
         '',
-      meetingLabel = !!this.startTime ?
-        '__Meeting Time__' :
+      finishTime = !!this.endTime ?
+        moment(this.endTime) :
+        '',
+      meetingLabel = !!this.startTime || !!this.endTime ?
+        '__Meetup Times__' :
         '',
 
       totalAttendeeCount = attendeeEntries.length,
@@ -185,8 +194,18 @@ class Meetup extends Party {
       embed.addField('__Meeting Information__', this.description);
     }
 
+    let timeFrame = '';
+
     if (!!this.startTime && !isNaN(this.startTime)) {
-      embed.addField(meetingLabel, meetingTime.calendar(null, calendarFormat));
+      timeFrame += meetingTime.calendar(null, calendarFormat);
+    }
+
+    if (!!this.endTime && !isNaN(this.endTime)) {
+      timeFrame += ' - ' + finishTime.calendar(null, calendarFormat);
+    }
+
+    if (timeFrame) {
+      embed.addField(meetingLabel, timeFrame);
     }
 
     this.groups
@@ -266,7 +285,8 @@ class Meetup extends Party {
     return Object.assign(super.toJSON(), {
       meetupName: this.meetupName,
       description: this.description,
-      startTime: this.startTime
+      startTime: this.startTime,
+      endTime: this.endTime
     });
   }
 }
