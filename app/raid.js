@@ -803,7 +803,7 @@ class Raid extends Party {
     embed.setTitle(`Map Link: ${gymName}`);
     embed.setURL(gymUrl);
 
-    const shiny = this.pokemon.shiny ?
+    const shiny = !!this.pokemon && this.pokemon.shiny ?
       Helper.getEmoji(settings.emoji.shiny).toString() || '✨' :
       '';
     embed.setDescription(raidDescription + shiny);
