@@ -42,6 +42,8 @@ class DoneCommand extends Commando.Command {
         .catch(err => log.error(err));
     } else {
       await party.removeAttendee(memberId);
+      party.refreshStatusMessages()
+        .catch(err => log.error(err));
     }
 
     if (!isReaction) {
