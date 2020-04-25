@@ -1,9 +1,10 @@
 const log = require('loglevel').getLogger('PartyManager'),
   Helper = require('./helper'),
   moment = require('moment'),
+  NaturalArgumentType = require('../types/natural'),
   settings = require('../data/settings'),
   storage = require('node-persist'),
-  {PartyType} = require('./constants'),
+  {PartyStatus, PartyType} = require('./constants'),
   Region = require('./region'),
   TimeType = require('../types/time');
 
@@ -127,6 +128,14 @@ class PartyManager {
     });
     await this.completedStorage.init();
 
+    if (settings.features.reactionCommands) {
+      // map group reactions to group identifiers
+      this.groupEmojiToGroupId = {};
+
+      Object.keys(settings.groupReactions)
+        .forEach(key => this.groupEmojiToGroupId[settings.groupReactions[key]] = key);
+    }
+
     // maps channel ids to raid / train party info for that channel
     this.parties = Object.create(null);
 
@@ -159,6 +168,255 @@ class PartyManager {
       });
 
     this.loadGymCache();
+
+    this.messageDeleteListener = message => {
+      if (message.author.id !== this.client.user.id) {
+        // if this is a raid channel that's scheduled for deletion, trigger deletion warning message
+        const raid = this.getParty(message.channel.id);
+
+        if (!!raid && !!raid.deletionTime) {
+          raid.sendDeletionWarningMessage();
+        }
+      }
+    };
+
+    this.messageReactionListener = async (reaction, user) => {
+      if (user.bot) {
+        return;
+      }
+
+      // When we receive a reaction we check if the reaction is partial or not
+      if (reaction.partial) {
+        // If the message this reaction belongs to was removed the fetching might result in an API error, which we need to handle
+        try {
+          await reaction.fetch();
+        } catch (err) {
+          log.error(err);
+          return;
+        }
+      }
+
+      const reactionMessageId = `${reaction.message.channel.id}:${reaction.message.id}`,
+        party = this.getParty(reaction.message.channel.id) || Object.values(this.parties)
+          .filter(party => party.sourceChannelId === reaction.message.channel.id)
+          .filter(party => party.messages.indexOf(reactionMessageId) !== -1)[0];
+
+      if (!party) {
+        return;
+      }
+
+      const displayName = reaction.message.guild.members.cache.get(user.id).toString() || user.username;
+
+      switch (reaction.emoji.name) {
+        case settings.reactionCommands.interested.custom:
+        case settings.reactionCommands.interested.plain: {
+          const interestedCommand = Helper.client.registry.resolveCommand('maybe'),
+            statusMessageResult = await this.getMessage(party.messages
+              .filter(messageCacheId => messageCacheId.startsWith(party.channelId))[0]);
+
+          if (statusMessageResult.ok) {
+            const arg = party.getMemberStatus(user.id) === PartyStatus.NOT_INTERESTED ?
+              party.defaultGroupId :
+              NaturalArgumentType.UNDEFINED_NUMBER;
+
+            interestedCommand.run(statusMessageResult.message, {
+              additionalAttendees: arg,
+              isReaction: true,
+              reactionMemberId: user.id
+            })
+              .then(() => party.postMessage(`${displayName} is interested in this raid!`, 'YELLOW'))
+              .catch(err => log.error(err));
+          }
+
+          break;
+        }
+
+        case settings.reactionCommands.join.custom:
+        case settings.reactionCommands.join.plain: {
+          const joinCommand = Helper.client.registry.resolveCommand('join'),
+            statusMessageResult = await this.getMessage(party.messages
+              .filter(messageCacheId => messageCacheId.startsWith(party.channelId))[0]);
+
+          if (statusMessageResult.ok) {
+            const arg = party.getMemberStatus(user.id) === PartyStatus.NOT_INTERESTED ?
+              party.defaultGroupId :
+              NaturalArgumentType.UNDEFINED_NUMBER;
+
+            joinCommand.run(statusMessageResult.message, {
+              additionalAttendees: arg,
+              isReaction: true,
+              reactionMemberId: user.id
+            })
+              .then(() => party.postMessage(`${displayName} has joined this raid!`, 'AQUA'))
+              .catch(err => log.error(err));
+          }
+
+          break;
+        }
+
+        case settings.reactionCommands.here.custom:
+        case settings.reactionCommands.here.plain: {
+          const hereCommand = Helper.client.registry.resolveCommand('here'),
+            statusMessageResult = await this.getMessage(party.messages
+              .filter(messageCacheId => messageCacheId.startsWith(party.channelId))[0]);
+
+          if (statusMessageResult.ok) {
+            const arg = party.getMemberStatus(user.id) === PartyStatus.NOT_INTERESTED ?
+              party.defaultGroupId :
+              NaturalArgumentType.UNDEFINED_NUMBER;
+
+            hereCommand.run(statusMessageResult.message, {
+              additionalAttendees: arg,
+              isReaction: true,
+              reactionMemberId: user.id
+            })
+              .then(() => party.postMessage(`${displayName} has arrived at this raid!`, 'GREEN'))
+              .catch(err => log.error(err));
+          }
+
+          break;
+        }
+
+        case settings.reactionCommands.done.custom:
+        case settings.reactionCommands.done.plain: {
+          const doneCommand = Helper.client.registry.resolveCommand('done'),
+            statusMessageResult = await this.getMessage(party.messages
+              .filter(messageCacheId => messageCacheId.startsWith(party.channelId))[0]);
+
+          if (statusMessageResult.ok) {
+            const arg = party.getMemberStatus(user.id) === PartyStatus.NOT_INTERESTED ?
+              party.defaultGroupId :
+              NaturalArgumentType.UNDEFINED_NUMBER;
+
+            doneCommand.run(statusMessageResult.message, {
+              isReaction: true,
+              reactionMemberId: user.id
+            })
+              .then(() => party.postMessage(`${displayName} has completed this raid!`, 'DARK_GREEN'))
+              .catch(err => log.error(err));
+          }
+
+          break;
+        }
+
+        case settings.reactionCommands.incrementCount.plain: {
+          const status = party.getMemberStatus(user.id);
+
+          if (status === PartyStatus.NOT_INTERESTED) {
+            // say interested in this raid
+            const interestedCommand = Helper.client.registry.resolveCommand('maybe'),
+              statusMessageResult = await this.getMessage(party.messages
+                .filter(messageCacheId => messageCacheId.startsWith(party.channelId))[0]);
+
+            if (statusMessageResult.ok) {
+              const arg = party.getMemberStatus(user.id) === PartyStatus.NOT_INTERESTED ?
+                party.defaultGroupId :
+                NaturalArgumentType.UNDEFINED_NUMBER;
+
+              interestedCommand.run(statusMessageResult.message, {
+                additionalAttendees: arg,
+                isReaction: true,
+                reactionMemberId: user.id
+              })
+                .then(() => party.postMessage(`${displayName} is interested in this raid!`, 'YELLOW'))
+                .catch(err => log.error(err));
+            }
+          } else {
+            party.setMemberStatus(user.id, status, party.getAttendee(user.id).number)
+              .then(() => party.refreshStatusMessages())
+              .catch(err => log.error(err));
+          }
+          break;
+        }
+
+        case settings.reactionCommands.decrementCount.plain: {
+          const status = party.getMemberStatus(user.id);
+
+          if (status !== PartyStatus.NOT_INTERESTED) {
+            const attendee = party.getAttendee(user.id),
+              count = attendee.number > 2 ?
+                attendee.number - 2 :
+                0;
+
+            party.setMemberStatus(user.id, status, count)
+              .then(() => party.refreshStatusMessages())
+              .catch(err => log.error(err));
+          }
+          break;
+        }
+
+        case settings.reactionCommands.remote.custom:
+        case settings.reactionCommands.remote.plain: {
+          const isRemote = party.getMemberIsRemote(user.id),
+            command = isRemote ?
+              Helper.client.registry.resolveCommand('local') :
+              Helper.client.registry.resolveCommand('remote'),
+            statusMessageResult = await this.getMessage(party.messages
+              .filter(messageCacheId => messageCacheId.startsWith(party.channelId))[0]);
+
+          if (statusMessageResult.ok) {
+            const arg = party.getMemberStatus(user.id) === PartyStatus.NOT_INTERESTED ?
+              party.defaultGroupId :
+              NaturalArgumentType.UNDEFINED_NUMBER;
+
+            command.run(statusMessageResult.message, {
+              additionalAttendees: arg,
+              isReaction: true,
+              reactionMemberId: user.id
+            })
+              .then(() => party.postMessage(`${displayName} is doing this raid ${isRemote ? 'locally' : 'remotely'}!`, 'BLUE'))
+              .catch(err => log.error(err));
+          }
+
+          break;
+        }
+
+        case settings.reactionCommands.notInterested.custom:
+        case settings.reactionCommands.notInterested.plain: {
+          const leaveCommand = Helper.client.registry.resolveCommand('leave'),
+            statusMessageResult = await this.getMessage(party.messages
+              .filter(messageCacheId => messageCacheId.startsWith(party.channelId))[0]);
+
+          if (statusMessageResult.ok) {
+            leaveCommand.run(statusMessageResult.message, {
+              isReaction: true,
+              reactionMemberId: user.id
+            })
+              .then(() => party.postMessage(`${displayName} has left this raid!`, 'RED'))
+              .catch(err => log.error(err));
+          }
+
+          break;
+        }
+
+        case settings.groupReactions.A:
+        case settings.groupReactions.B:
+        case settings.groupReactions.C:
+        case settings.groupReactions.D:
+        case settings.groupReactions.E:
+          const groupCommand = Helper.client.registry.resolveCommand('group'),
+            group = this.groupEmojiToGroupId[reaction.emoji.name],
+            statusMessageResult = await this.getMessage(party.messages
+              .filter(messageCacheId => messageCacheId.startsWith(party.channelId))[0]);
+
+          if (statusMessageResult.ok) {
+            groupCommand.run(statusMessageResult.message, group, {
+              isReaction: true,
+              reactionMemberId: user.id
+            })
+              .then(() => party.postMessage(`${displayName} has joined group ${group}!`, 'BLUE'))
+              .catch(err => log.error(err));
+          }
+
+          break;
+
+      }
+
+      // Remove user's reaction to keep things clean
+      reaction.users.remove(user)
+        .catch(err => log.error(err));
+    }
+    ;
   }
 
   shutdown() {
@@ -170,16 +428,11 @@ class PartyManager {
     this.regionChannels = [];
     this.loadRegionChannels();
 
-    client.on('message', message => {
-      if (message.author.id !== client.user.id) {
-        // if this is a raid channel that's scheduled for deletion, trigger deletion warning message
-        const raid = this.getParty(message.channel.id);
+    client.on('message', this.messageDeleteListener);
 
-        if (!!raid && !!raid.deletionTime) {
-          raid.sendDeletionWarningMessage();
-        }
-      }
-    });
+    if (settings.features.reactionCommands) {
+      client.on('messageReactionAdd', this.messageReactionListener);
+    }
 
     // client.on('trainGymChanged', async (gymId, train) => {
     //   // train set a new location, create a new raid automatically if it hasn't already been reported
@@ -543,9 +796,46 @@ class PartyManager {
     this.persistParty(party);
 
     if (pin) {
-      return message.pin();
+      message.pin()
+        .catch(err => log.error(err));
     }
+
+    return this.addReactions(message)
+      .then(() => this.addGroupReactions(party, message));
+  }
+
+  addReactions(message) {
+    let reactionPromise = Promise.resolve();
+
+    if (settings.features.reactionCommands) {
+      Object.values(settings.reactionCommands)
+        .forEach(emoji => reactionPromise = reactionPromise
+          .then(result => message.react(Helper.getEmoji(emoji.custom) || emoji.plain)));
+
+      return reactionPromise;
+    }
+  }
+
+  addGroupReactions(party, message) {
+    let reactionPromise = Promise.resolve();
+
+    if (settings.features.reactionCommands) {
+      const groupCount = party.groups.length;
+
+      if (groupCount > 1) {
+        party.groups.forEach(({id}) => {
+          const emoji = settings.groupReactions[id];
+          if (!message.reactions.resolve(emoji)) {
+            reactionPromise = reactionPromise
+              .then(result => message.react(emoji));
+          }
+        });
+      }
+    }
+
+    return reactionPromise;
   }
 }
 
-module.exports = new PartyManager();
+module
+  .exports = new PartyManager();

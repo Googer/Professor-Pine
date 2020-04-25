@@ -496,15 +496,21 @@ class Notify {
 
   async shout(message, members, text, type, fromMember = null) {
     const party = await PartyManager.getParty(message.channel.id),
+      userMentions = [],
       membersStrings = await Promise.all(members
         .map(async member => {
           const mention = await this.shouldMention(member, type);
 
-          return mention ?
-            member.toString() :
-            `**${member.displayName}**`;
+          if (mention) {
+           userMentions.push(member.user.id);
+          }
+
+          return member.toString();
         }))
-        .catch(err => log.error(err)),
+        .catch(err => {
+          log.error(err);
+          return [];
+        }),
       membersString = membersStrings
         .reduce((prev, next) => prev + ', ' + next),
       botLabChannel = message.guild.channels.cache.find(channel => channel.name === settings.channels["bot-lab"]),
@@ -517,7 +523,7 @@ class Notify {
     }
     embed.setDescription(text);
 
-    message.channel.send(membersString, embed)
+    message.channel.send(membersString, {embed, allowedMentions: {users: userMentions}})
       .then(shoutMessage => {
         message.channel.send(`To enable or disable these notifications, use the \`${message.client.commandPrefix}mentions\`, \`${message.client.commandPrefix}mentions-groups\`, \`${message.client.commandPrefix}mentions-train-stops\` and \`${message.client.commandPrefix}mentions-shouts\` commands in ${botLabChannel.toString()}.`)
           .then(shoutFooterMessage => {

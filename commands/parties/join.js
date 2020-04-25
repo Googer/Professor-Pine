@@ -48,10 +48,11 @@ class JoinCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    const additionalAttendees = args['additionalAttendees'],
+    const {additionalAttendees, isReaction, reactionMemberId} = args,
+      memberId = reactionMemberId || message.member.id,
       groupId = typeof additionalAttendees === 'string' && additionalAttendees !== NaturalArgumentType.UNDEFINED_NUMBER ? additionalAttendees : false,
       raid = PartyManager.getParty(message.channel.id),
-      currentStatus = raid.getMemberStatus(message.member.id),
+      currentStatus = raid.getMemberStatus(memberId),
       groupCount = raid.groups.length;
 
     let statusPromise;
@@ -106,32 +107,34 @@ class JoinCommand extends Commando.Command {
             groupId = collectionResult.values['group'];
           }
 
-          await raid.setMemberGroup(message.member.id, groupId);
-          return await raid.setMemberStatus(message.member.id, PartyStatus.COMING, groupId ? 0 : additionalAttendees);
+          await raid.setMemberGroup(memberId, groupId);
+          return await raid.setMemberStatus(memberId, PartyStatus.COMING, groupId ? 0 : additionalAttendees);
         });
     } else if (groupId && currentStatus === PartyStatus.NOT_INTERESTED) {
       statusPromise = Promise.all([
-        await raid.setMemberGroup(message.member.id, groupId),
-        await raid.setMemberStatus(message.member.id, PartyStatus.COMING)]);
+        await raid.setMemberGroup(memberId, groupId),
+        await raid.setMemberStatus(memberId, PartyStatus.COMING)]);
     } else if (groupId && currentStatus !== PartyStatus.NOT_INTERESTED) {
-      const attendee = await raid.getAttendee(message.member.id),
+      const attendee = await raid.getAttendee(memberId),
         additional = attendee.number - 1;
       statusPromise = Promise.all([
-        await raid.setMemberGroup(message.member.id, groupId),
-        await raid.setMemberStatus(message.member.id, PartyStatus.COMING, additional)]);
+        await raid.setMemberGroup(memberId, groupId),
+        await raid.setMemberStatus(memberId, PartyStatus.COMING, additional)]);
     } else {
       statusPromise = Promise.resolve(
-        await raid.setMemberStatus(message.member.id, PartyStatus.COMING, groupId ? 0 : additionalAttendees));
+        await raid.setMemberStatus(memberId, PartyStatus.COMING, groupId ? 0 : additionalAttendees));
     }
 
     statusPromise.then(info => {
       if (!info.error) {
-        message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
-          .catch(err => log.error(err));
+        if (!isReaction) {
+          message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
+            .catch(err => log.error(err));
+        }
 
         raid.refreshStatusMessages()
           .catch(err => log.error(err));
-      } else {
+      } else if (!isReaction) {
         message.reply(info.error)
           .catch(err => log.error(err));
       }

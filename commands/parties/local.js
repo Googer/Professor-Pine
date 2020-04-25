@@ -47,12 +47,13 @@ class LocalCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    const additionalAttendees = args['additionalAttendees'],
+    const {additionalAttendees, isReaction, reactionMemberId} = args,
+      memberId = reactionMemberId || message.member.id,
       groupId = typeof additionalAttendees === 'string' && additionalAttendees !== NaturalArgumentType.UNDEFINED_NUMBER ? additionalAttendees : false,
       raid = PartyManager.getParty(message.channel.id),
       groupCount = raid.groups.length;
 
-    let currentStatus = raid.getMemberStatus(message.member.id),
+    let currentStatus = raid.getMemberStatus(memberId),
       statusPromise;
 
     if (currentStatus === PartyStatus.NOT_INTERESTED && groupCount > 1 && groupId === false) {
@@ -105,41 +106,39 @@ class LocalCommand extends Commando.Command {
             groupId = collectionResult.values['group'];
           }
 
-          await raid.setMemberGroup(message.member.id, groupId);
-          await raid.setMemberStatus(message.member.id, PartyStatus.INTERESTED);
-          return await raid.setMemberRemote(message.member.id, false);
+          await raid.setMemberGroup(memberId, groupId);
+          return await raid.setMemberStatus(memberId, PartyStatus.INTERESTED, NaturalArgumentType.UNDEFINED_NUMBER, false);
         });
     } else if (groupId && currentStatus === PartyStatus.NOT_INTERESTED) {
       statusPromise = Promise.all([
-        await raid.setMemberGroup(message.member.id, groupId),
-        await raid.setMemberStatus(message.member.id, PartyStatus.INTERESTED),
-        await raid.setMemberRemote(message.member.id, false)]);
+        await raid.setMemberGroup(memberId, groupId),
+        await raid.setMemberStatus(memberId, PartyStatus.INTERESTED, NaturalArgumentType.UNDEFINED_NUMBER, false)]);
     } else if (groupId && currentStatus !== PartyStatus.NOT_INTERESTED) {
       const attendee = await raid.getAttendee(message.member.id),
         additional = attendee.number - 1;
       statusPromise = Promise.all([
-        await raid.setMemberGroup(message.member.id, groupId),
-        await raid.setMemberStatus(message.member.id, currentStatus, additional),
-        await raid.setMemberRemote(message.member.id, false)]);
+        await raid.setMemberGroup(memberId, groupId),
+        await raid.setMemberStatus(memberId, currentStatus, additional, false)]);
     } else {
       if (currentStatus === PartyStatus.NOT_INTERESTED) {
         currentStatus = PartyStatus.INTERESTED;
       }
 
-      statusPromise = Promise.all([
-        await raid.setMemberStatus(message.member.id, currentStatus, groupId ? 0 : additionalAttendees),
-        await raid.setMemberRemote(message.member.id, false)]);
+      statusPromise = Promise.resolve(
+        await raid.setMemberStatus(memberId, currentStatus, groupId ? 0 : additionalAttendees, false));
     }
 
     statusPromise
       .then(info => {
         if (!info.error) {
-          message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
-            .catch(err => log.error(err));
+          if (!isReaction) {
+            message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
+              .catch(err => log.error(err));
+          }
 
           raid.refreshStatusMessages()
             .catch(err => log.error(err));
-        } else {
+        } else if (!isReaction) {
           message.reply(info.error)
             .catch(err => log.error(err));
         }

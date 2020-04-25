@@ -34,22 +34,26 @@ class LeaveCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    const raid = PartyManager.getParty(message.channel.id);
-    let info = await raid.removeAttendee(message.member.id);
+    const {isReaction, reactionMemberId} = args,
+      raid = PartyManager.getParty(message.channel.id),
+      memberId = reactionMemberId || message.member.id;
+    let info = await raid.removeAttendee(memberId);
 
     if (!info.error && raid.type === PartyType.RAID_TRAIN) {
-      if (raid.conductor && raid.conductor.id === message.member.id) {
+      if (raid.conductor && raid.conductor.id === memberId) {
         info = await raid.setConductor(null);
       }
     }
 
     if (!info.error) {
-      message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
-        .catch(err => log.error(err));
+      if (!isReaction) {
+        message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
+          .catch(err => log.error(err));
+      }
 
       raid.refreshStatusMessages()
         .catch(err => log.error(err));
-    } else {
+    } else if (!isReaction) {
       message.reply(info.error)
         .catch(err => log.error(err));
     }

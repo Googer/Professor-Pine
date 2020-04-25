@@ -33,17 +33,21 @@ class DoneCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    const party = PartyManager.getParty(message.channel.id);
+    const {isReaction, reactionMemberId} = args,
+      memberId = reactionMemberId || message.member.id,
+      party = PartyManager.getParty(message.channel.id);
 
     if (party.type === PartyType.RAID) {
-      party.setPresentAttendeesToComplete(undefined, message.member.id)
+      await party.setPresentAttendeesToComplete(undefined, memberId)
         .catch(err => log.error(err));
     } else {
-      party.removeAttendee(message.member.id);
+      await party.removeAttendee(message.member.id);
     }
 
-    message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
-      .catch(err => log.error(err));
+    if (!isReaction) {
+      message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍')
+        .catch(err => log.error(err));
+    }
   }
 }
 

@@ -156,17 +156,17 @@ class Helper {
       }
     });
 
-    client.on('emojiCreate', emoji => {
+    this.client.on('emojiCreate', emoji => {
       // add new emoji to emojis cache
       this.emojis.set(emoji.name.toLowerCase(), emoji);
     });
 
-    client.on('emojiDelete', emoji => {
+    this.client.on('emojiDelete', emoji => {
       // delete emoji from emojis cache
       this.emojis.delete(emoji.name.toLowerCase());
     });
 
-    client.on('emojiUpdate', (oldEmoji, newEmoji) => {
+    this.client.on('emojiUpdate', (oldEmoji, newEmoji) => {
       // delete old emoji from emojis cache and add new one to it
       this.emojis.delete(oldEmoji.name.toLowerCase());
       this.emojis.set(newEmoji.name.toLowerCase(), newEmoji);
