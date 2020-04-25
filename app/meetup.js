@@ -234,13 +234,13 @@ class Meetup extends Party {
             .filter(attendeeEntry => attendeeEntry[1].group === group.id);
 
         if (groupInterestedAttendees.length > 0) {
-          embed.addField('Interested', Party.buildAttendeesList(groupInterestedAttendees, 'pokeball', totalAttendeeCount), true);
+          embed.addField('Interested', Party.buildAttendeesList(groupInterestedAttendees, totalAttendeeCount), true);
         }
         if (groupComingAttendees.length > 0) {
-          embed.addField('Coming', Party.buildAttendeesList(groupComingAttendees, 'greatball', totalAttendeeCount), true);
+          embed.addField('Coming', Party.buildAttendeesList(groupComingAttendees, totalAttendeeCount), true);
         }
         if (groupPresentAttendees.length > 0) {
-          embed.addField('Present', Party.buildAttendeesList(groupPresentAttendees, 'ultraball', totalAttendeeCount), true);
+          embed.addField('Present', Party.buildAttendeesList(groupPresentAttendees, totalAttendeeCount), true);
         }
       });
 

@@ -224,7 +224,7 @@ class PartyManager {
               isReaction: true,
               reactionMemberId: user.id
             })
-              .then(() => party.postMessage(`${displayName} is interested in this raid!`, 'YELLOW'))
+              .then(() => party.postMessage(`${displayName} is interested in this ${party.type}!`, 'YELLOW'))
               .catch(err => log.error(err));
           }
 
@@ -247,7 +247,7 @@ class PartyManager {
               isReaction: true,
               reactionMemberId: user.id
             })
-              .then(() => party.postMessage(`${displayName} has joined this raid!`, 'AQUA'))
+              .then(() => party.postMessage(`${displayName} has joined this ${party.type}!`, 'AQUA'))
               .catch(err => log.error(err));
           }
 
@@ -270,7 +270,7 @@ class PartyManager {
               isReaction: true,
               reactionMemberId: user.id
             })
-              .then(() => party.postMessage(`${displayName} has arrived at this raid!`, 'GREEN'))
+              .then(() => party.postMessage(`${displayName} has arrived at this ${party.type}!`, 'GREEN'))
               .catch(err => log.error(err));
           }
 
@@ -292,7 +292,7 @@ class PartyManager {
               isReaction: true,
               reactionMemberId: user.id
             })
-              .then(() => party.postMessage(`${displayName} has completed this raid!`, 'DARK_GREEN'))
+              .then(() => party.postMessage(`${displayName} has completed this ${party.type}!`, 'DARK_GREEN'))
               .catch(err => log.error(err));
           }
 
@@ -303,7 +303,7 @@ class PartyManager {
           const status = party.getMemberStatus(user.id);
 
           if (status === PartyStatus.NOT_INTERESTED) {
-            // say interested in this raid
+            // say interested in this ${party.type}
             const interestedCommand = Helper.client.registry.resolveCommand('maybe'),
               statusMessageResult = await this.getMessage(party.messages
                 .filter(messageCacheId => messageCacheId.startsWith(party.channelId))[0]);
@@ -318,7 +318,7 @@ class PartyManager {
                 isReaction: true,
                 reactionMemberId: user.id
               })
-                .then(() => party.postMessage(`${displayName} is interested in this raid!`, 'YELLOW'))
+                .then(() => party.postMessage(`${displayName} is interested in this ${party.type}!`, 'YELLOW'))
                 .catch(err => log.error(err));
             }
           } else {
@@ -364,7 +364,7 @@ class PartyManager {
               isReaction: true,
               reactionMemberId: user.id
             })
-              .then(() => party.postMessage(`${displayName} is doing this raid ${isRemote ? 'locally' : 'remotely'}!`, 'BLUE'))
+              .then(() => party.postMessage(`${displayName} is doing this ${party.type} ${isRemote ? 'locally' : 'remotely'}!`, 'BLUE'))
               .catch(err => log.error(err));
           }
 
@@ -382,7 +382,7 @@ class PartyManager {
               isReaction: true,
               reactionMemberId: user.id
             })
-              .then(() => party.postMessage(`${displayName} has left this raid!`, 'RED'))
+              .then(() => party.postMessage(`${displayName} has left this ${party.type}!`, 'RED'))
               .catch(err => log.error(err));
           }
 
