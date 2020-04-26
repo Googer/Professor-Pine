@@ -94,17 +94,15 @@ class RoleAuthorization {
   }
 
   getAuthorizationInformation(guild, command) {
-    if (!guild) {
-      return {roleRequired: false, roles: []};
-    }
+    if (!!guild) {
+      const guildMap = this.roleAuthorizations.get(guild.id);
 
-    const guildMap = this.roleAuthorizations.get(guild.id);
+      if (guildMap) {
+        const commandProperties = guildMap.get(command.name);
 
-    if (guildMap) {
-      const commandProperties = guildMap.get(command.name);
-
-      if (commandProperties) {
-        return commandProperties;
+        if (commandProperties) {
+          return commandProperties;
+        }
       }
     }
 
