@@ -94,6 +94,10 @@ class RoleAuthorization {
   }
 
   getAuthorizationInformation(guild, command) {
+    if (!guild) {
+      return {roleRequired: false, roles: []};
+    }
+
     const guildMap = this.roleAuthorizations.get(guild.id);
 
     if (guildMap) {
