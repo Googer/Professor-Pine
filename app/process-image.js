@@ -168,6 +168,16 @@ class ImageProcessing {
       const RaidCommand = Helper.client.registry.commands.get('raid');
 
       if (RaidCommand.isEnabledIn(message.guild) && message.author.id !== message.client.user.id && message.attachments.size > 0) {
+        const regionId = await RegionHelper.getRegionId(message.channel.id)
+          .catch(error => {
+            return null;
+          });
+
+        if (!regionId) {
+          log.info('Image(s) not in a region channel, won\'t be processed');
+          return;
+        }
+
         const imageUrls = message.attachments
           .map(attachment => attachment.url)
           .filter(url => url.search(/jpg|jpeg|png/));
@@ -244,15 +254,6 @@ class ImageProcessing {
       log.info('Image Processing Start: ', message.author.id, message.channel.name, imageUrl);
 
       let newImage, id;
-
-      // if not in a proper raid channel, cancel out immediately
-      const regionId = await RegionHelper.getRegionId(message.channel.id)
-        .catch(error => log.error(error));
-
-      if (!regionId) {
-        log.info('Not in a region channel, won\'t attempt to process');
-        return;
-      }
 
       return Jimp.read(imageUrl)
         .then(image => {
