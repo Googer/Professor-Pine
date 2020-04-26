@@ -1,6 +1,7 @@
 "use strict";
 
 const log = require('loglevel').getLogger('ImageCacher'),
+  path = require('path'),
   request = require("request"),
   fs = require('fs');
 
@@ -8,21 +9,27 @@ class ImageCacher {
   constructor() {
   }
 
-  async fetchAndCache(url, path) {
+  async fetchAndCache(url, fileName) {
     return new Promise(async (resolve, reject) => {
-      if (fs.existsSync(path)) {
-        resolve(path);
+      if (fs.existsSync(fileName)) {
+        resolve(fileName);
       } else {
+        const outputDir = path.dirname(fileName).split(path.sep).pop();
+
+        if (!fs.existsSync(outputDir)) {
+          fs.mkdirSync(outputDir, {recursive: true});
+        }
+
         const stream = request
           .get(url)
           .on('error', response => {
-            log.error(`Something went wrong caching image for path ${path} from url: ${url}`);
+            log.error(`Something went wrong caching image for path ${fileName} from url: ${url}`);
             reject(false);
           })
-          .pipe(fs.createWriteStream(path));
+          .pipe(fs.createWriteStream(fileName));
 
         stream.on('finish', async () => {
-          resolve(path);
+          resolve(fileName);
         });
       }
     });
