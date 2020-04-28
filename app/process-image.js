@@ -1300,7 +1300,10 @@ class ImageProcessing {
             fullStatusMessage = await raid.getFullStatusMessage();
 
           return raidRegionChannel.send(channelMessageHeader, fullStatusMessage)
-            .then(announcementMessage => PartyManager.addMessage(raid.channelId, announcementMessage, true))
+            .then(announcementMessage => {
+              PartyManager.addMessage(raid.channelId, announcementMessage, true)
+                .catch(err => log.error(err));
+            })
             .then(async result => {
               await PartyManager.getChannel(raid.channelId)
                 .then(async channel => {
@@ -1326,7 +1329,8 @@ class ImageProcessing {
                 .catch(err => log.error(err));
             })
             .then(channelRaidMessage => {
-              PartyManager.addMessage(raid.channelId, channelRaidMessage, true);
+              PartyManager.addMessage(raid.channelId, channelRaidMessage, true)
+                .catch(err => log.error(err));
             })
             .then(async result => {
               Helper.client.emit('raidCreated', raid, message.member.id);
