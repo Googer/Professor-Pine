@@ -197,9 +197,9 @@ class PartyManager {
       }
 
       const reactionMessageId = `${reaction.message.channel.id}:${reaction.message.id}`,
-        party = this.getParty(reaction.message.channel.id) || Object.values(this.parties)
-          .filter(party => party.sourceChannelId === reaction.message.channel.id)
-          .filter(party => party.messages.indexOf(reactionMessageId) !== -1)[0];
+        party = Object.values(this.parties)
+          .filter(party => party.messages.indexOf(reactionMessageId) !== -1 ||
+            party.lastStatusMessage === reactionMessageId)[0];
 
       if (!party) {
         return;

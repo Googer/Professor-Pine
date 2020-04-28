@@ -36,7 +36,7 @@ class GymType extends Commando.ArgumentType {
           gym.name;
 
       if (resultChannelName !== channelName) {
-        const adjacentChannel = message.channel.guild.channels
+        const adjacentChannel = message.channel.guild.channels.cache
           .find(channel => channel.name === resultChannelName &&
             channel.permissionsFor(message.client.user).has('VIEW_CHANNEL'));
 
