@@ -56,14 +56,7 @@ class ImageProcessing {
         .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
         .join('\n'));
 
-    this.initializePhoneTimeTesseract();
-    this.initializeTimeRemainingTesseract();
-    this.initializeTierTesseract();
-    this.initializeGymTesseract();
-    this.initializePokemonTesseract();
-
     this.baseTesseractOptions = {
-      'tessedit_ocr_engine_mode': OEM.LSTM_ONLY,
       'load_system_dawg': '0',
       'load_bigram_dawg': '0',
       'load_fixed_length_dawgs': '0',
@@ -102,18 +95,26 @@ class ImageProcessing {
       'classify_misfit_junk_penalty': '0',
       'tessedit_char_whitelist': '@®©'
     });
+
+    this.initializePhoneTimeTesseract();
+    this.initializeTimeRemainingTesseract();
+    this.initializeTierTesseract();
+    this.initializeGymTesseract();
+    this.initializePokemonTesseract();
   }
 
-  async createTesseractWorker(version, languages) {
-    const worker = await createWorker({
+  async createTesseractWorker(version, languages, parameters) {
+    const worker = createWorker({
       langPath: path.join(__dirname, '..', 'lang-data', 'v' + version),
       cachePath: path.join(__dirname, '..', 'lang-data', 'v' + version),
-      cacheMethod: 'readOnly'
+      cacheMethod: 'readOnly',
+      errorHandler: err => log.error(err)
     });
 
     await worker.load();
     await worker.loadLanguage(languages);
     await worker.initialize(languages);
+    await worker.setParameters(parameters);
 
     return worker;
   }
@@ -121,46 +122,45 @@ class ImageProcessing {
   async initializeGymTesseract() {
     if (!!this.gymTesseract) {
       log.warn('Reinitializing gym name tesseract worker...');
-      this.gymTesseract.terminate();
+      await this.gymTesseract.terminate();
     }
 
-    this.gymTesseract = await this.createTesseractWorker(4, 'eng+grc');
+    this.gymTesseract = await this.createTesseractWorker(4, 'eng+grc', this.gymTesseractOptions);
   }
 
   async initializePhoneTimeTesseract() {
     if (!!this.phoneTesseract) {
       log.warn('Reinitializing phone time tesseract worker...');
-      this.phoneTesseract.terminate();
+      await this.phoneTesseract.terminate();
     }
 
-    this.phoneTesseract = await this.createTesseractWorker(4, 'eng');
-  }
+    this.phoneTesseract = await this.createTesseractWorker(4, 'eng', this.phoneTimeTesseractOptions);}
 
   async initializeTimeRemainingTesseract() {
     if (!!this.timeRemainingTesseract) {
       log.warn('Reinitializing time remaining tesseract worker...');
-      this.timeRemainingTesseract.terminate();
+      await this.timeRemainingTesseract.terminate();
     }
 
-    this.timeRemainingTesseract = await this.createTesseractWorker(4, 'eng');
+    this.timeRemainingTesseract = await this.createTesseractWorker(4, 'eng', this.timeRemainingTesseractOptions);
   }
 
   async initializeTierTesseract() {
     if (!!this.tierTesseract) {
       log.warn('Reinitializing tier tesseract worker...');
-      this.tierTesseract.terminate();
+      await this.tierTesseract.terminate();
     }
 
-    this.tierTesseract = await this.createTesseractWorker(3, 'eng');
+    this.tierTesseract = await this.createTesseractWorker(3, 'eng', this.tierTesseractOptions);
   }
 
   async initializePokemonTesseract() {
     if (!!this.pokemonTesseract) {
       log.warn('Reinitializing pokemon tesseract worker...');
-      this.pokemonTesseract.terminate();
+      await this.pokemonTesseract.terminate();
     }
 
-    this.pokemonTesseract = await this.createTesseractWorker(4, 'eng');
+    this.pokemonTesseract = await this.createTesseractWorker(4, 'eng', this.pokemonTesseractOptions);
   }
 
   initialize() {
@@ -655,7 +655,7 @@ class ImageProcessing {
           }
 
           return ImageProcessing.lock.acquire('phoneTime', () => {
-            this.phoneTesseract.recognize(image, this.phoneTimeTesseractOptions)
+            this.phoneTesseract.recognize(image)
               .catch(err => reject(err))
               .then(result => {
                 const match = this.tesseractProcessTime(result.data);
@@ -674,7 +674,7 @@ class ImageProcessing {
                         reject(err);
                       }
 
-                      this.phoneTesseract.recognize(image, this.phoneTimeTesseractOptions)
+                      this.phoneTesseract.recognize(image)
                         .catch(err => reject(err))
                         .then(result => {
                           const match = this.tesseractProcessTime(result.data);
@@ -761,7 +761,7 @@ class ImageProcessing {
           }
 
           return ImageProcessing.lock.acquire('timeRemaining', () => {
-            this.timeRemainingTesseract.recognize(image, this.timeRemainingTesseractOptions)
+            this.timeRemainingTesseract.recognize(image)
               .catch(err => reject(err))
               .then(result => {
                 const confidentText = this.tesseractGetConfidentSequences(result.data, false, 70);
@@ -866,8 +866,7 @@ class ImageProcessing {
             }
 
             return ImageProcessing.lock.acquire('gym', () => {
-              log.debug('Gym lock acquired');
-              this.gymTesseract.recognize(image, this.gymTesseractOptions)
+              this.gymTesseract.recognize(image)
                 .catch(err => reject(err))
                 .then(result => {
                   const confidentWords = this.tesseractGetConfidentSequences(result.data, true, 80),
@@ -975,7 +974,7 @@ class ImageProcessing {
             }
 
             return ImageProcessing.lock.acquire('pokemon', () => {
-              this.pokemonTesseract.recognize(image, this.pokemonTesseractOptions)
+              this.pokemonTesseract.recognize(image)
                 .catch(err => reject(err))
                 .then(result => {
                   const text = result.data.text.replace(/[^\w\n]/gi, '');
@@ -1080,7 +1079,7 @@ class ImageProcessing {
           }
 
           return ImageProcessing.lock.acquire('tier', () => {
-            this.tierTesseract.recognize(image, this.tierTesseractOptions)
+            this.tierTesseract.recognize(image)
               .catch(err => reject(err))
               .then(result => {
                 let tier = 0;

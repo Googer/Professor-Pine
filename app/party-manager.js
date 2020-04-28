@@ -393,7 +393,7 @@ class PartyManager {
         case settings.groupReactions.B:
         case settings.groupReactions.C:
         case settings.groupReactions.D:
-        case settings.groupReactions.E:
+        case settings.groupReactions.E: {
           const groupCommand = Helper.client.registry.resolveCommand('group'),
             group = this.groupEmojiToGroupId[reaction.emoji.name],
             statusMessageResult = await this.getMessage(party.messages
@@ -409,14 +409,13 @@ class PartyManager {
           }
 
           break;
-
+        }
       }
 
       // Remove user's reaction to keep things clean
       reaction.users.remove(user)
         .catch(err => log.error(err));
     }
-    ;
   }
 
   shutdown() {
