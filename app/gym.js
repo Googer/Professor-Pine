@@ -138,10 +138,11 @@ class GymCache {
   }
 
   async getGym(gymId) {
-    for (let key in this.channels) {
-      let cache = this.channels[key];
-      if (cache.local.getGym(gymId) !== false) {
-        return cache.local.getGym(gymId);
+    for (const key in this.channels) {
+      const cache = this.channels[key],
+        gym = cache.local.getGym(gymId);
+      if (!!gym) {
+        return gym;
       }
     }
 
@@ -402,14 +403,8 @@ class Gym extends Search {
   }
 
   getGym(gymId) {
-    for (let i = 0; i < this.gyms.length; i++) {
-      let gym = this.gyms[i];
-      if (gym.id === gymId) {
-        return gym;
-      }
-    }
-
-    return false;
+    return this.gyms
+      .find(g => g.id === gymId);
   }
 }
 

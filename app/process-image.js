@@ -82,10 +82,12 @@ class ImageProcessing {
     });
 
     this.phoneTimeTesseractOptions = Object.assign({}, this.baseTesseractOptions, {
+      'tessedit_char_whitelist': '0123456789:APM',
       'numeric_punctuation': ':'
     });
 
     this.timeRemainingTesseractOptions = Object.assign({}, this.baseTesseractOptions, {
+      'tessedit_char_whitelist': '0123456789:',
       'numeric_punctuation': ':'
     });
 
@@ -252,6 +254,7 @@ class ImageProcessing {
   process(message, imageUrl) {
     return new Promise(async resolve => {
       log.info('Image Processing Start: ', message.author.id, message.channel.name, imageUrl);
+      message.temporaryProcessingTimestamp = Date.now();
 
       let newImage, id;
 
@@ -493,7 +496,7 @@ class ImageProcessing {
   /**
    * Given a tesseract result, find the highest-confidence subsequences in the result text
    */
-  tesseractGetConfidentSequences(result, useWords = false, minConfidence = 60) {
+  tesseractGetConfidentSequences(result, useWords = false, minConfidence = 60, acceptZeroConfidence = false) {
     return result.text === '' ?
       [] :
       useWords ?
@@ -502,10 +505,18 @@ class ImageProcessing {
             // choose highest-confidence word
             .sort((choiceA, choiceB) => choiceB.confidence - choiceA.confidence)[0]
           )
-          .filter(word => word.confidence > minConfidence)
+          .filter(word => word.confidence > minConfidence || (word.confidence === 0 && acceptZeroConfidence))
           .map(word => word.text)
           .join(' ')] :
         result.symbols
+          .map(symbol => {
+            // hack - tesseract likes to occasionally return a confidence of 0 with things it actually read very clearly
+            if (symbol.confidence === 0 && acceptZeroConfidence) {
+              symbol.confidence = minConfidence;
+            }
+
+            return symbol;
+          })
           // strip out very low-confidence colons (tesseract will see them correctly but with low confidence)
           .filter(symbol => symbol.text !== ':' || symbol.confidence >= 20)
           .map(symbol => Object.assign({}, symbol, symbol.choices
@@ -546,36 +557,27 @@ class ImageProcessing {
    * Basically try to augment tesseract text confidence in by replacing low confidence with spaces and searching for colons
    **/
   tesseractProcessTime(result) {
-    const confidentText = this.tesseractGetConfidentSequences(result, false, 70);
+    const confidentText = new Set([...this.tesseractGetConfidentSequences(result, false, 90),
+      ...this.tesseractGetConfidentSequences(result, false, 90, true)]),
+      iterator = confidentText.values();
 
-    let match = '';
+    let next = iterator.next();
 
-    confidentText.forEach(text => {
-      if (match !== '') {
-        return;
-      }
+    while (!next.done) {
+      let text = next.value;
 
-      // if still no colon, replace common matches with colon in an attempt to get a match
-      if (text.search(':') < 0) {
-        text = text.replace(/!/g, ':');
-      }
-
-      // HACK: On a decent number of screenshots, a colon in the phone time is seen as a 1 or 2,
-      // so try making a version of the time that replaces it to cover this possibility
-      if (text.match(/([0-2]?\d)([12])([0-5]\d)(\s?[ap]m)?/i)) {
-        text = text.replace(/([0-2]?\d)([12])([0-5]\d)(\s?[ap]m)?/i, '$1:$3') + ' ' + text;
-      }
-
-      let textMatch = text
+      const match = text
         .replace(/[^\w\s:!]/g, ' ')
         .match(/([0-2]?\d:?([0-5]\d)(\s?[ap]m)?)/i);
 
-      if (textMatch) {
-        match = textMatch;
+      if (match) {
+        return match;
       }
-    });
 
-    return match;
+      next = iterator.next();
+    }
+
+    return '';
   }
 
   async getPhoneTime(id, message, image, region) {
@@ -764,7 +766,7 @@ class ImageProcessing {
             this.timeRemainingTesseract.recognize(image)
               .catch(err => reject(err))
               .then(result => {
-                const confidentText = this.tesseractGetConfidentSequences(result.data, false, 70);
+                const confidentText = this.tesseractGetConfidentSequences(result.data, false, 90);
 
                 const match = confidentText
                   .map(text => text.match(/(\d{1,2}:\d{2}:\d{2})/))
@@ -1117,7 +1119,7 @@ class ImageProcessing {
       gymNameCrop = {
         x: image.bitmap.width / 4.5,
         y: image.bitmap.height / 18.0,
-        width: image.bitmap.width - (image.bitmap.width / 2.25),
+        width: image.bitmap.width - (image.bitmap.width / 4.5),
         height: image.bitmap.height / 9.0
       },
       phoneTimeCrop = {
