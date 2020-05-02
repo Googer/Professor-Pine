@@ -64,11 +64,12 @@ class ImageProcessing {
       'load_unambig_dawg': '0',
       'load_punc_dawg': '0',
       'paragraph_text_based': '0',
-      'language_model_penalty_non_dict_word': '1.0',
+      'language_model_penalty_non_dict_word': '1',
+      'language_model_penalty_non_freq_dict_word': '1',
       'classify_misfit_junk_penalty': '0.8',
       'language_model_penalty_font': '0.8',
       'language_model_penalty_script': '0.8',
-      'segment_penalty_dict_nonword': '1.0'
+      'segment_penalty_dict_nonword': '1'
     };
 
     this.gymTesseractOptions = Object.assign({}, this.baseTesseractOptions, {
@@ -82,13 +83,17 @@ class ImageProcessing {
     });
 
     this.phoneTimeTesseractOptions = Object.assign({}, this.baseTesseractOptions, {
-      'tessedit_char_whitelist': '0123456789:APM',
-      'numeric_punctuation': ':'
+      'tessedit_char_whitelist': '0123456789:',
+      'tessedit_pageseg_mode': 13, //PSM.SPARSE_TEXT,
+      'numeric_punctuation': ':',
+      'user_patterns_file': 'phone-patterns.txt'
     });
 
     this.timeRemainingTesseractOptions = Object.assign({}, this.baseTesseractOptions, {
       'tessedit_char_whitelist': '0123456789:',
-      'numeric_punctuation': ':'
+      'tessedit_pageseg_mode': 13, //PSM.SPARSE_TEXT,
+      'numeric_punctuation': ':',
+      'user_patterns_file': 'time-remaining-patterns.txt'
     });
 
     this.tierTesseractOptions = Object.assign({}, this.baseTesseractOptions, {
@@ -136,7 +141,8 @@ class ImageProcessing {
       await this.phoneTesseract.terminate();
     }
 
-    this.phoneTesseract = await this.createTesseractWorker(4, 'eng', this.phoneTimeTesseractOptions);}
+    this.phoneTesseract = await this.createTesseractWorker(4, 'eng', this.phoneTimeTesseractOptions);
+  }
 
   async initializeTimeRemainingTesseract() {
     if (!!this.timeRemainingTesseract) {
@@ -496,79 +502,68 @@ class ImageProcessing {
   /**
    * Given a tesseract result, find the highest-confidence subsequences in the result text
    */
-  tesseractGetConfidentSequences(result, useWords = false, minConfidence = 60, acceptZeroConfidence = false) {
-    return result.text === '' ?
+  tesseractGetConfidentSequences(result, minConfidence = 60, acceptZeroConfidence = false) {
+    return result.symbols.length === 0 ?
       [] :
-      useWords ?
-        [result.words
-          .map(word => word.choices
-            // choose highest-confidence word
-            .sort((choiceA, choiceB) => choiceB.confidence - choiceA.confidence)[0]
-          )
-          .filter(word => word.confidence > minConfidence || (word.confidence === 0 && acceptZeroConfidence))
-          .map(word => word.text)
-          .join(' ')] :
-        result.symbols
-          .map(symbol => {
-            // hack - tesseract likes to occasionally return a confidence of 0 with things it actually read very clearly
-            if (symbol.confidence === 0 && acceptZeroConfidence) {
-              symbol.confidence = minConfidence;
-            }
+      result.symbols
+        .map(symbol => {
+          // hack - tesseract likes to occasionally return a confidence of 0 with things it actually read very clearly
+          if (symbol.confidence === 0 && symbol.choices.length === 1 && acceptZeroConfidence) {
+            symbol.confidence = minConfidence;
+            symbol.choices[0].confidence = minConfidence;
+          }
 
-            return symbol;
-          })
-          // strip out very low-confidence colons (tesseract will see them correctly but with low confidence)
-          .filter(symbol => symbol.text !== ':' || symbol.confidence >= 20)
-          .map(symbol => Object.assign({}, symbol, symbol.choices
-            // choose highest-confidence symbol - not always the default one from tesseract!
-            .sort((choiceA, choiceB) => choiceB.confidence - choiceA.confidence)[0]
-          ))
-          .reduce((previous, current) => {
-            /// separate into chunks using low-confidence symbols as separators
-            let chunk;
+          return symbol;
+        })
+        // strip out very low-confidence colons (tesseract will see them correctly but with low confidence)
+        .filter(symbol => symbol.text !== ':' || symbol.confidence >= 20)
+        .map(symbol => Object.assign({}, symbol, symbol.choices
+          // choose highest-confidence symbol - not always the default one from tesseract!
+          .sort((choiceA, choiceB) => choiceB.confidence - choiceA.confidence)[0]
+        ))
+        .reduce((previous, current) => {
+          /// separate into chunks using low-confidence symbols as separators
+          let chunk;
 
-            if (current.confidence < minConfidence || previous.length === 0 ||
-              current.word.baseline !== previous[previous.length - 1][previous[previous.length - 1].length - 1].word.baseline
-            ) {
-              chunk = [];
-              previous.push(chunk);
-            } else {
-              chunk = previous[previous.length - 1];
-            }
+          if (current.confidence < minConfidence || previous.length === 0 ||
+            current.word.baseline !== previous[previous.length - 1][previous[previous.length - 1].length - 1].word.baseline) {
+            chunk = [];
+            previous.push(chunk);
+          } else {
+            chunk = previous[previous.length - 1];
+          }
 
-            chunk.push(current);
+          chunk.push(current);
 
-            return previous;
-          }, [])
-          // strip out symbols below min threshold
-          .map(array => array.filter(symbol => symbol.confidence >= minConfidence))
-          // sort to put highest-confidence tokens first
-          .sort((arrA, arrB) => ((arrB
-              .map(symbol => symbol.confidence)
-              .reduce((total, current) => total + current, 0) / arrB.length) || 0) -
-            ((arrA
-              .map(symbol => symbol.confidence)
-              .reduce((total, current) => total + current, 0) / arrA.length) || 0))
-          .map(symbols => symbols.map(symbol => symbol.text)
-            .join(''));
+          return previous;
+        }, [])
+        // strip out symbols below min threshold
+        .map(array => array.filter(symbol => symbol.confidence >= minConfidence))
+        // sort to put highest-confidence tokens first
+        .sort((arrA, arrB) => ((arrB
+            .map(symbol => symbol.confidence)
+            .reduce((total, current) => total + current, 0) / arrB.length) || 0) -
+          ((arrA
+            .map(symbol => symbol.confidence)
+            .reduce((total, current) => total + current, 0) / arrA.length) || 0))
+        .map(symbols => symbols.map(symbol => symbol.text)
+          .join(''));
   }
 
   /**
    * Basically try to augment tesseract text confidence in by replacing low confidence with spaces and searching for colons
    **/
   tesseractProcessTime(result) {
-    const confidentText = new Set([...this.tesseractGetConfidentSequences(result, false, 90),
-      ...this.tesseractGetConfidentSequences(result, false, 90, true)]),
+    const confidentText = new Set([...this.tesseractGetConfidentSequences(result, 80),
+        ...this.tesseractGetConfidentSequences(result, 80, true)]),
       iterator = confidentText.values();
 
     let next = iterator.next();
 
     while (!next.done) {
-      let text = next.value;
-
-      const match = text
+      const match = next.value
         .replace(/[^\w\s:!]/g, ' ')
-        .match(/([0-2]?\d:?([0-5]\d)(\s?[ap]m)?)/i);
+        .match(/([0-2]?\d:?([0-5]\d))/i);
 
       if (match) {
         return match;
@@ -599,22 +594,17 @@ class ImageProcessing {
         phoneTime = phoneTime.charAt(0) + ':' + phoneTime.substring(1);
       }
 
-      // Determine AM or PM time
-      if (phoneTime.search(/([ap])m/gi) >= 0) {
-        phoneTime = moment(phoneTime, ['hmm a', 'h:m a']);
-      } else {
-        // figure out if time should be AM or PM
-        const now = moment(),
-          timeAM = moment(phoneTime + ' am', ['hmm a', 'Hmm', 'h:m a', 'H:m']),
-          timePM = moment(phoneTime + ' pm', ['hmm a', 'Hmm', 'h:m a', 'H:m']),
-          times = [timeAM.diff(now), timePM.diff(now)];
+      // figure out if time should be AM or PM
+      const now = moment(),
+        timeAM = moment(phoneTime + ' am', ['hmm a', 'Hmm', 'h:m a', 'H:m']),
+        timePM = moment(phoneTime + ' pm', ['hmm a', 'Hmm', 'h:m a', 'H:m']),
+        times = [timeAM.diff(now), timePM.diff(now)];
 
-        // whatever time is closer to current time (less diff), use that
-        if (Math.abs(times[0]) < Math.abs(times[1])) {
-          phoneTime = timeAM;
-        } else {
-          phoneTime = timePM;
-        }
+      // whatever time is closer to current time (less diff), use that
+      if (Math.abs(times[0]) < Math.abs(times[1])) {
+        phoneTime = timeAM;
+      } else {
+        phoneTime = timePM;
       }
     }
 
@@ -646,7 +636,7 @@ class ImageProcessing {
           .crop(croppedRegion.x, croppedRegion.y, croppedRegion.width, croppedRegion.height)
           .grayscale()
           .scan(0, 0, croppedRegion.width, croppedRegion.height, this.hideMidLevelContent)
-          .scale(2, Jimp.RESIZE_HERMITE)
+          .scale(2, Jimp.RESIZE_BEZIER)
           // yes, blur slightly then sharpen to clean up edges around phone time
           .blur(1)
           .convolute([[0, -1, 0], [-1, 5, -1], [0, -1, 0]]);
@@ -660,41 +650,42 @@ class ImageProcessing {
             this.phoneTesseract.recognize(image)
               .catch(err => reject(err))
               .then(result => {
-                const match = this.tesseractProcessTime(result.data);
-                if (match && match.length) {
-                  resolve({
-                    image: newImage,
-                    text: match[1],
-                    result: result.data
-                  });
-                } else {
-                  // try again with image inverted
-                  newImage
-                    .invert()
-                    .getBuffer(Jimp.MIME_PNG, (err, image) => {
-                      if (err) {
-                        reject(err);
-                      }
+                // Put very low-confidence separator in so normal and inverted results definitely remain separated from each other
+                result.data.symbols.push({
+                  text: ' ',
+                  confidence: '0.01',
+                  choices: [{text: ' ', confidence: '0.01'}],
+                  word: {baseline: {}}
+                });
 
-                      this.phoneTesseract.recognize(image)
-                        .catch(err => reject(err))
-                        .then(result => {
-                          const match = this.tesseractProcessTime(result.data);
-                          if (match && match.length) {
-                            resolve({
-                              image: newImage,
-                              text: match[1],
-                              result: result.data
-                            });
-                          } else {
-                            resolve({
-                              image: newImage,
-                              result: result.data
-                            });
-                          }
-                        });
-                    });
-                }
+                // try again with image inverted
+                newImage
+                  .invert()
+                  .getBuffer(Jimp.MIME_PNG, (err, image) => {
+                    if (err) {
+                      reject(err);
+                    }
+
+                    this.phoneTesseract.recognize(image)
+                      .catch(err => reject(err))
+                      .then(invertedResult => {
+                        result.data.symbols.push(...invertedResult.data.symbols);
+
+                        const match = this.tesseractProcessTime(result.data);
+                        if (match && match.length) {
+                          resolve({
+                            image: newImage,
+                            text: match[1],
+                            result: result
+                          });
+                        } else {
+                          resolve({
+                            image: newImage,
+                            result: result
+                          });
+                        }
+                      });
+                  });
               });
           });
         });
@@ -727,7 +718,7 @@ class ImageProcessing {
 
     // NOTE:  There is a chance timeRemaining could not be determined... not sure if we would want to do
     //        a different time of image processing at that point or not...
-    return values.text;
+    return {timeRemaining: values.text};
   }
 
   getOCRRaidTimeRemaining(id, message, image, region, screenshotType) {
@@ -752,7 +743,7 @@ class ImageProcessing {
         .crop(region.x, region.y, region.width, region.height)
         .scan(0, 0, region.width, region.height, this.hideSaturatedContent(5))
         .scan(0, 0, region.width, region.height, this.filterPureWhiteContent)
-        .scale(2, Jimp.RESIZE_HERMITE)
+        .scale(2, Jimp.RESIZE_BEZIER)
         // yes, blur slightly then sharpen to clean up edges around time remaining
         .blur(1)
         .convolute([[0, -1, 0], [-1, 5, -1], [0, -1, 0]])
@@ -766,7 +757,7 @@ class ImageProcessing {
             this.timeRemainingTesseract.recognize(image)
               .catch(err => reject(err))
               .then(result => {
-                const confidentText = this.tesseractGetConfidentSequences(result.data, false, 90);
+                const confidentText = this.tesseractGetConfidentSequences(result.data, 80);
 
                 const match = confidentText
                   .map(text => text.match(/(\d{1,2}:\d{2}:\d{2})/))
@@ -871,12 +862,12 @@ class ImageProcessing {
               this.gymTesseract.recognize(image)
                 .catch(err => reject(err))
                 .then(result => {
-                  const confidentWords = this.tesseractGetConfidentSequences(result.data, true, 80),
-                    text = confidentWords.length > 0 ?
-                      confidentWords[0]
-                        .replace(/[^\w\s-]/g, '')
-                        .replace(/\n/g, ' ').trim() :
-                      '';
+                  const confidentWords = this.tesseractGetConfidentSequences(result.data, 80),
+                    text = confidentWords
+                      .map(word => word.replace(/[^\wα-ωΑ-Ω\s-\/]/g, '')
+                        .replace(/\n/g, ' ').trim())
+                      .filter(word => word.length > 0)
+                      .join(' ');
 
                   resolve({
                     image: blurredImage,
@@ -1094,7 +1085,7 @@ class ImageProcessing {
                     .replace(/“”‘’"'-_=\\\/\+/g, '');
 
                   // match highly probable / common character regex
-                  const match = text.match(/[@Q9Wé®©]+/g);
+                  const match = text.match(/[@®©]+/g);
 
                   if (match && match.length && match[0].length > tier) {
                     tier = match[0].length;
@@ -1161,7 +1152,7 @@ class ImageProcessing {
     }
 
     // TIME REMAINING
-    const timeRemaining = await this.getRaidTimeRemaining(id, message, image, allCrop, screenshotType);
+    promises.push(this.getRaidTimeRemaining(id, message, image, allCrop, screenshotType));
 
     // PHONE TIME
     promises.push(this.getPhoneTime(id, message, image, phoneTimeCrop));
@@ -1185,11 +1176,11 @@ class ImageProcessing {
             message.adjacent.channel :
             message.channel,
           gym,
-          timeRemaining: timeRemaining,
-          phoneTime: values[0].phoneTime,
-          tier: values[1].tier || (values[2] && values[2].tier) || 0,
-          cp: values[1].cp || 0,
-          pokemon: values[1].pokemon
+          timeRemaining: values[0].timeRemaining,
+          phoneTime: values[1].phoneTime,
+          tier: values[2].tier || 0,
+          cp: values[2].cp || 0,
+          pokemon: values[2].pokemon
         };
       })
       .catch(err => {
