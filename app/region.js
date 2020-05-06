@@ -836,8 +836,8 @@ class RegionHelper {
             overwrites: newCategory.permissionOverwrites
           }, "For a region")
             .then(newChannel => {
-              log.info("created new channel for " + name + " with id " + newChannel.id + " under category with id " + newCategory.id);
-              that.storeRegion(polydata, newChannel.id, newChannel.guild.Id, gymCache)
+              log.info("created new channel for " + name + " with id " + newChannel.id + " under category with id " + newCategory.id + " for guild id " + newChannel.guild.id);
+              that.storeRegion(polydata, newChannel.id, newChannel.guild.id, gymCache)
                 .catch(error => {
                   log.error(error);
                   reject("An error occurred storing the region for " + name);
@@ -849,7 +849,6 @@ class RegionHelper {
         }).catch(error => reject(error));
     })
   }
-
   async addGym(args, gymCache) {
     const that = this;
     return new Promise(async (resolve, reject) => {
