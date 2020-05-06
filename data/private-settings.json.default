@@ -4,12 +4,13 @@
   "owner": "",
   "pokemonUrlBase": "",
   "githubRepo": "",
-  "hithubUser": "",
+  "githubUser": "",
   "githubPassword": "",
   "googleApiKey": "",
   "regionMapLink": "",
   "db": {
     "host": "localhost",
+    "port": "3306",
     "user": "root",
     "password": "",
     "schema": "pine"

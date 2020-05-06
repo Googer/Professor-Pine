@@ -1,8 +1,11 @@
 # Professor Pine Discord Bot
 
+### Official Discord server (setup help, support, feedback, etc.)
+ - https://discord.com/invite/8FkjJVe
+
 ### What you need
  - Discord account, 2x bot tokens
- - Node
+ - Node (v12+)
  - MySQL, create an empty schema to hold bot data
  - Native build system (to build zlib-sync)
    - `npm install -g node-gyp`
@@ -21,6 +24,7 @@ Copy data/private-settings.json.default to data/private-settings.json and fill i
   "githubPassword": "<github password for creating gym change requests>",
   "db": {
     "host": "<host for mysql db (localhost if running on same machine as bot)>",
+    "port": "<mysql db port>",
     "user": "<mysql username>",
     "password: "<mysql password>",
     "schema": "<mysql schema name for pine's data>"
