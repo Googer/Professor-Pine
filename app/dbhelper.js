@@ -12,6 +12,7 @@ class DBHelper {
       user: privateSettings.db.user,
       password: privateSettings.db.password,
       database: privateSettings.db.schema,
+      port: privateSettings.db.port || '3306',
       multipleStatements: true,
       supportBigNumbers: true,
       bigNumberStrings: true

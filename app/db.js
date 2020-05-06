@@ -20,7 +20,8 @@ class DBManager {
         host: privateSettings.db.host,
         user: privateSettings.db.user,
         password: privateSettings.db.password,
-        database: privateSettings.db.schema
+        database: privateSettings.db.schema,
+        port: privateSettings.db.port || '3306',
       },
       migrations: {
         directory: './app/db'
