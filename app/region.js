@@ -473,8 +473,7 @@ class RegionHelper {
       const url = that.googleMapsLinkForRegion(region);
       if (url != null) {
         const embed = new Discord.MessageEmbed()
-          .setTitle("This channel covers the following area")
-          .setURL(url);
+          .setTitle("This channel covers the following area");
 
         if (regionId) {
           let url = that.googleMapsLinkForRegion(region);
@@ -530,7 +529,6 @@ class RegionHelper {
       if (url != null) {
         const embed = new Discord.MessageEmbed()
           .setTitle("This channel covers the following area")
-          .setURL(url)
           .setImage(url);
 
         if (gyms) {
