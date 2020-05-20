@@ -3,6 +3,7 @@
   "standardRaidHatchedDuration": 45,
   "exclusiveRaidIncubateDuration": 20160,
   "exclusiveRaidHatchedDuration": 45,
+  "maxRaidHatchedDuration": 180,
   "maxMeetupLeadupDuration": 30240,
   "maximumAdditionalAttendees": 20,
   "startClearTime": 10,

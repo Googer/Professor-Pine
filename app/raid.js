@@ -291,10 +291,9 @@ class Raid extends Party {
     hatchTimeMoment.milliseconds(0);
     hatchTime = hatchTimeMoment.valueOf();
 
-    if (this.pokemon.duration) {
-      endTime = hatchTime + (this.pokemon.duration * 60 * 1000);
-    }
-    if (this.isExclusive) {
+    if (this.duration) {
+      endTime = hatchTime + this.duration * 60 * 1000;
+    } else if (this.isExclusive) {
       endTime = hatchTime + (settings.exclusiveRaidHatchedDuration * 60 * 1000);
     } else {
       endTime = hatchTime + (settings.standardRaidHatchedDuration * 60 * 1000);
@@ -389,8 +388,8 @@ class Raid extends Party {
   async setEndTime(endTime) {
     let hatchTime;
 
-    if (this.pokemon.duration) {
-      hatchTime = endTime - (this.pokemon.duration * 60 * 1000);
+    if (this.duration) {
+      hatchTime = endTime - (this.duration * 60 * 1000);
     } else if (this.isExclusive) {
       hatchTime = endTime - (settings.exclusiveRaidHatchedDuration * 60 * 1000);
     } else {
@@ -424,6 +423,28 @@ class Raid extends Party {
           }
         })
         .catch(err => log.error(err));
+    }
+
+    const newChannelName = await this.generateChannelName();
+
+    await PartyManager.getChannel(this.channelId)
+      .then(channelResult => {
+        if (channelResult.ok) {
+          return channelResult.channel.setName(newChannelName);
+        }
+      })
+      .catch(err => log.error(err));
+
+    await this.persist();
+
+    return {party: this};
+  }
+
+  async setDuration(duration) {
+    this.duration = duration;
+
+    if (this.hatchTime) {
+      this.endTime = this.hatchTime + this.duration * 60 * 1000;
     }
 
     const newChannelName = await this.generateChannelName();
@@ -491,8 +512,8 @@ class Raid extends Party {
         .catch(err => log.error(err));
     }
 
-    this.lastPossibleTime = Math.max(this.creationTime + (pokemon.duration ?
-      (pokemon.incubation + pokemon.duration) * 60 * 1000 : this.isExclusive ?
+    this.lastPossibleTime = Math.max(this.creationTime + (this.duration ?
+      (settings.standardRaidIncubateDuration + this.duration) * 60 * 1000 : this.isExclusive ?
         (settings.exclusiveRaidIncubateDuration + settings.exclusiveRaidHatchedDuration) * 60 * 1000 :
         (settings.standardRaidIncubateDuration + settings.standardRaidHatchedDuration) * 60 * 1000),
       this.lastPossibleTime);
@@ -1076,6 +1097,7 @@ class Raid extends Party {
       timeWarn: this.timeWarn,
       hatchTime: this.hatchTime,
       endTime: this.endTime,
+      duration: this.duration,
       pokemon: this.pokemon,
       gymId: this.gymId,
       quickMove: this.quickMove,

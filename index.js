@@ -129,6 +129,7 @@ Client.registry.registerCommands([
 
   require('./commands/raids/hatch-time'),
   require('./commands/parties/time-left'),
+  require('./commands/raids/set-duration'),
   require('./commands/parties/set-pokemon'),
   require('./commands/raids/set-location'),
   require('./commands/raids/set-moveset'),

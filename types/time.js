@@ -28,16 +28,11 @@ class TimeType extends Commando.ArgumentType {
       raidHatchTime = partyExists && !!party.hatchTime ?
         moment(party.hatchTime) :
         undefined,
-      pokemon = partyExists ?
-        PartyManager.getParty(message.channel.id).pokemon :
-        message.pokemon,
-      incubationDuration = pokemon && !!pokemon.incubation ?
-        pokemon.incubation :
-        isExRaid ?
-          settings.exclusiveRaidIncubateDuration :
-          settings.standardRaidIncubateDuration,
-      hatchedDuration = pokemon && !!pokemon.duration ?
-        pokemon.duration :
+      incubationDuration = isExRaid ?
+        settings.exclusiveRaidIncubateDuration :
+        settings.standardRaidIncubateDuration,
+      hatchedDuration = partyExists && !!party.duration ?
+        party.duration :
         isExRaid ?
           settings.exclusiveRaidHatchedDuration :
           settings.standardRaidHatchedDuration;
@@ -60,9 +55,9 @@ class TimeType extends Commando.ArgumentType {
           case PartyType.RAID: {
             // Start time - valid range is now (or hatch time if it exists, whichever is later)
             // through raid's end time
-        const hatchTime = party ?
-                party.hatchTime :
-                undefined,
+            const hatchTime = party ?
+              party.hatchTime :
+              undefined,
               endTime = party ?
                 party.endTime :
                 undefined;
@@ -219,16 +214,11 @@ class TimeType extends Commando.ArgumentType {
       raidHatchTime = partyExists && !!PartyManager.getParty(message.channel.id).hatchTime ?
         moment(party.hatchTime) :
         undefined,
-      pokemon = partyExists ?
-        party.pokemon :
-        message.pokemon,
-      incubationDuration = pokemon && !!pokemon.incubation ?
-        pokemon.incubation :
-        isExRaid ?
-          settings.exclusiveRaidIncubateDuration :
-          settings.standardRaidIncubateDuration,
-      hatchedDuration = pokemon && !!pokemon.duration ?
-        pokemon.duration :
+      incubationDuration = isExRaid ?
+        settings.exclusiveRaidIncubateDuration :
+        settings.standardRaidIncubateDuration,
+      hatchedDuration = partyExists && !!party.duration ?
+        party.duration :
         isExRaid ?
           settings.exclusiveRaidHatchedDuration :
           settings.standardRaidHatchedDuration;
@@ -251,10 +241,10 @@ class TimeType extends Commando.ArgumentType {
           case PartyType.RAID: {
             // Start time - valid range is now (or hatch time if it exists, whichever is later)
             // through raid's end time
-        const hatchTime = partyExists ?
-                party.hatchTime :
-                undefined,
-          endTime = partyExists ?
+            const hatchTime = partyExists ?
+              party.hatchTime :
+              undefined,
+              endTime = partyExists ?
                 party.endTime :
                 undefined;
 
