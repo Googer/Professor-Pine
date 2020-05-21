@@ -133,7 +133,7 @@ class RaidCommand extends Commando.Command {
                 .catch(err => log.error(err));
             })
             // create and send initial status message to raid channel
-            .then(async botMessage => {
+            .then(async result => {
               const sourceChannelMessageHeader = await raid.getSourceChannelMessageHeader(),
                 fullStatusMessage = await raid.getFullStatusMessage();
               return PartyManager.getChannel(raid.channelId)

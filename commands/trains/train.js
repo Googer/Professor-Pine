@@ -62,9 +62,10 @@ class TrainCommand extends Commando.Command {
 
         return sourceChannel.send(channelMessageHeader, fullStatusMessage);
       })
-      .then(announcementMessage => PartyManager.addMessage(train.channelId, announcementMessage))
+      .then(announcementMessage => PartyManager.addMessage(train.channelId, announcementMessage)
+        .catch(err => log.error(err)))
       // create and send initial status message to raid train channel
-      .then(async botMessage => {
+      .then(async result => {
         const sourceChannelMessageHeader = await train.getSourceChannelMessageHeader(),
           fullStatusMessage = await train.getFullStatusMessage();
         return PartyManager.getChannel(train.channelId)
@@ -75,7 +76,8 @@ class TrainCommand extends Commando.Command {
           })
           .catch(err => log.error(err));
       })
-      .then(channelTrainMessage => PartyManager.addMessage(train.channelId, channelTrainMessage, true))
+      .then(channelTrainMessage => PartyManager.addMessage(train.channelId, channelTrainMessage, true)
+        .catch(err => log.error(err)))
       .then(async result => {
         Helper.client.emit('trainCreated', train, message.member.id);
 
