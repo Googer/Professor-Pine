@@ -356,6 +356,13 @@
     ]
   },
   {
+    "name": "meowth_galarian",
+    "overrideName": "Galarian Meowth",
+    "nickname": [
+      "galar"
+    ]
+  },
+  {
     "name": "persian",
     "tier": 3,
     "nickname": [
@@ -510,7 +517,15 @@
     "tier": 2
   },
   {
-    "name": "farfetch'd"
+    "name": "farfetchd",
+    "overrideName": "Farfetch'd"
+  },
+  {
+    "name": "farfetchd_galarian",
+    "overrideName": "Galarian Farfetch'd",
+    "nickname": [
+      "galar"
+    ]
   },
   {
     "name": "doduo"
@@ -2367,7 +2382,28 @@
     "name": "darumaka"
   },
   {
+    "name": "darumaka_galarian",
+    "overrideName": "Galarian Darumaka",
+    "nickname": [
+      "galar"
+    ]
+  },
+  {
     "name": "darmanitan"
+  },
+  {
+    "name": "darmanitan_galarian_standard",
+    "overrideName": "Galarian Darmanitan",
+    "nickname": [
+      "galar"
+    ]
+  },
+  {
+    "name": "darmanitan_galarian_zen",
+    "overrideName": "Galarian Darmanitan (Zen)",
+    "nickname": [
+      "galar"
+    ]
   },
   {
     "name": "maractus"
@@ -2564,6 +2600,13 @@
   },
   {
     "name": "stunfisk"
+  },
+  {
+    "name": "stunfisk_galarian",
+    "overrideName": "Galarian Stunfisk",
+    "nickname": [
+      "galar"
+    ]
   },
   {
     "name": "mienfoo"
@@ -3135,5 +3178,20 @@
   },
   {
     "name": "zeraora"
+  },
+  {
+    "name": "meltan"
+  },
+  {
+    "name": "melmetal"
+  },
+  {
+    "name": "obstagoon"
+  },
+  {
+    "name": "perrserker"
+  },
+  {
+    "name": "sirfetch'd"
   }
 ]

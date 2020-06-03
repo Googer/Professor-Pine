@@ -56,7 +56,9 @@ class RaidBossesCommand extends Commando.Command {
           return;
         }
 
-        const name = poke.name.replace(/[_]/g, ' ').replace('alola', '(Alolan)'),
+        const name = poke.name.replace(/[_]/g, ' ')
+            .replace('alola', '(Alolan)')
+            .replace('galarian', '(Galarian)'),
           parts = name.split(' ');
 
         parts.forEach((part, index) => {
