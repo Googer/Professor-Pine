@@ -810,11 +810,9 @@ class PartyManager {
       Object.values(settings.reactionCommands)
         .forEach(emoji => reactionPromise = reactionPromise
           .then(result => message.react(Helper.getEmoji(emoji.custom) || emoji.plain)));
-
-      return reactionPromise;
-    } else {
-      return Promise.resolve();
     }
+
+    return reactionPromise;
   }
 
   addGroupReactions(party, message) {
