@@ -812,6 +812,8 @@ class PartyManager {
           .then(result => message.react(Helper.getEmoji(emoji.custom) || emoji.plain)));
 
       return reactionPromise;
+    } else {
+      return Promise.resolve();
     }
   }
 
