@@ -2,6 +2,7 @@ const log = require('loglevel').getLogger('DeleteGymCommand'),
   commando = require('discord.js-commando'),
   oneLine = require('common-tags').oneLine,
   Gym = require('../../../app/gym'),
+  he = require('he'),
   Helper = require('../../../app/helper'),
   PartyManager = require('../../../app/party-manager'),
   Region = require('../../../app/region'),
@@ -94,7 +95,7 @@ module.exports = class DeleteGym extends commando.Command {
                         .catch(err => log.error(err));
 
                       if (result) {
-                        msg.reply(gym.name + ' was removed successfully.')
+                        msg.reply(he.decode(gym.name) + ' was removed successfully.')
                           .catch(err => log.error(err));
                       } else {
                         msg.reply('An error occurred while deleting ' + gym.name + '.')
