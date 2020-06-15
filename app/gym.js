@@ -277,6 +277,10 @@ class Gym extends Search {
           gymDocument['nickname'] = removeDiacritics(gym.nickname).replace(/[^\w\s-]+/g, '');
         }
 
+        if (gym.notice) {
+          gym.notice = he.decode(gym.notice);
+        }
+
         // keywords (formerly additionalTerms)
         if (gym.keywords) {
           gymDocument['keywords'] = removeDiacritics(gym.keywords);

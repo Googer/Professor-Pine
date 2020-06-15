@@ -62,8 +62,10 @@ class MeetupCommand extends Commando.Command {
 
         return sourceChannel.send(channelMessageHeader, fullStatusMessage);
       })
-      .then(announcementMessage => PartyManager.addMessage(meetup.channelId, announcementMessage)
-        .catch(err => log.error(err)))
+      .then(announcementMessage => {
+        PartyManager.addMessage(meetup.channelId, announcementMessage)
+          .catch(err => log.error(err));
+      })
       // create and send initial status message to meetup channel
       .then(async result => {
         const sourceChannelMessageHeader = await meetup.getSourceChannelMessageHeader(),
@@ -76,8 +78,10 @@ class MeetupCommand extends Commando.Command {
           })
           .catch(err => log.error(err));
       })
-      .then(meetupMessage => PartyManager.addMessage(meetup.channelId, meetupMessage, true)
-        .catch(err => log.error(err)))
+      .then(meetupMessage => {
+        PartyManager.addMessage(meetup.channelId, meetupMessage, true)
+          .catch(err => log.error(err));
+      })
       .then(async result => {
         Helper.client.emit('meetupCreated', meetup, message.member.id);
 

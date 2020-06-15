@@ -1,16 +1,17 @@
 const log = require('loglevel').getLogger('RegionManager'),
   Discord = require('discord.js'),
-  https = require('https'),
-  tj = require('togeojson-with-extended-style'),
-  lunr = require('lunr'),
   DB = require('./db'),
-  dbhelper = require('./dbhelper'),
-  Meta = require('./geocode'),
   DOMParser = require('xmldom').DOMParser,
+  dbhelper = require('./dbhelper'),
+  he = require('he'),
+  https = require('https'),
   ImageCacher = require('./imagecacher'),
+  lunr = require('lunr'),
+  Meta = require('./geocode'),
   stringSimilarity = require('string-similarity'),
   privateSettings = require('../data/private-settings'),
   request = require('request'),
+  tj = require('togeojson-with-extended-style'),
   turf = require('@turf/turf');
 
 //This gets the decimal lat/lon value from a string of degree/minute/seconds
@@ -847,64 +848,67 @@ class RegionHelper {
         }).catch(error => reject(error));
     })
   }
+
   async addGym(args, gymCache) {
     const that = this;
     return new Promise(async (resolve, reject) => {
-      that.coordStringFromText(args.location).then(async coords => {
-        let point = that.pointFromCoordString(coords);
-        const insertQuery = `INSERT INTO Gym (lat,lon,name) VALUES(${point.x},${point.y},\"${args.name}\")`;
-        let metaQuery = "INSERT INTO GymMeta (gymId";
-        let values = "";
+      that.coordStringFromText(args.location)
+        .then(async coords => {
+          let point = that.pointFromCoordString(coords);
+          const insertQuery = `INSERT INTO Gym (lat,lon,name) VALUES(${point.x},${point.y},\"${he.encode(args.name)}\")`;
+          let metaQuery = "INSERT INTO GymMeta (gymId";
+          let values = "";
 
-        log.info("Adding gym...");
-        log.info(point);
-        log.info(args.name);
+          log.info("Adding gym...");
+          log.info(point);
+          log.info(args.name);
 
-        const gym = {
-          "name": args.name,
-          "point": coords
-        };
+          const gym = {
+            "name": args.name,
+            "point": coords
+          };
 
-        if (args.nickname.toLowerCase() !== "skip" && args.nickname.toLowerCase() !== "n") {
-          log.info(args.nickname);
-          metaQuery += ",nickname";
-          values += `,\"${args.nickname}\"`;
-          gym.nickname = args.nickname;
-        }
+          if (args.nickname.toLowerCase() !== "skip" && args.nickname.toLowerCase() !== "n") {
+            log.info(args.nickname);
+            metaQuery += ",nickname";
+            values += `,\"${he.encode(args.nickname)}\"`;
+            gym.nickname = args.nickname;
+          }
 
-        if (args.description.toLowerCase() !== "skip" && args.description.toLowerCase() !== "n") {
-          log.info(args.description);
-          metaQuery += ",description";
-          values += `,\"${args.description}\"`;
-          gym.description = args.description;
-        }
+          if (args.description.toLowerCase() !== "skip" && args.description.toLowerCase() !== "n") {
+            log.info(args.description);
+            metaQuery += ",description";
+            values += `,\"${he.encode(args.description)}\"`;
+            gym.description = args.description;
+          }
 
-        const results = await dbhelper.query(insertQuery)
-          .catch(error => {
-            log.error(error);
-            reject(error);
-          });
+          const results = await dbhelper.query(insertQuery)
+            .catch(error => {
+              log.error(error);
+              reject(error);
+            });
 
-        const id = results.insertId;
-        gym.id = id;
-        gym.lat = point.x;
-        gym.lon = point.y;
+          const id = results.insertId;
+          gym.id = id;
+          gym.lat = point.x;
+          gym.lon = point.y;
 
-        metaQuery += `) VALUES(${id}${values})`;
-        await dbhelper.query(metaQuery)
-          .catch(error => {
-            log.error(error);
-            reject(error);
-          })
-          .then(async () => {
-            Meta.beginGeoUpdates(gym, gymCache)
-              .catch(error => resolve(gym))
-              .then(result => resolve(result));
-          });
-      }).catch(error => {
-        log.error(error);
-        reject(error);
-      })
+          metaQuery += `) VALUES(${id}${values})`;
+          await dbhelper.query(metaQuery)
+            .catch(error => {
+              log.error(error);
+              reject(error);
+            })
+            .then(async () => {
+              Meta.beginGeoUpdates(gym, gymCache)
+                .catch(error => resolve(gym))
+                .then(result => resolve(result));
+            });
+        })
+        .catch(error => {
+          log.error(error);
+          reject(error);
+        })
     });
   }
 
@@ -962,9 +966,9 @@ class RegionHelper {
       point = gym.lat + ", " + gym.lon;
     }
 
-    let title = gym.name;
+    let title = he.decode(gym.name);
     if (gym.nickname && gym.nickname !== "skip") {
-      title += " (" + gym.nickname + ")";
+      title += " (" + he.decode(gym.nickname) + ")";
     }
 
     const attachments = [];
@@ -1006,7 +1010,7 @@ class RegionHelper {
     embed.attachFiles(attachments);
 
     if (gym.description && gym.description !== "skip" && gym.description !== "null") {
-      embed.setDescription(gym.description);
+      embed.setDescription(he.decode(gym.description));
     }
 
     if (showAll) {
@@ -1025,7 +1029,7 @@ class RegionHelper {
     }
 
     if (gym.notice) {
-      embed.addField("Notice :no_entry:", gym.notice);
+      embed.addField("Notice :no_entry:", he.decode(gym.notice));
     }
 
     if (showAll) {
@@ -1293,13 +1297,13 @@ class RegionHelper {
                   // Gym document is a object with its reference and fields to collection of values
                   const gymDocument = Object.create(null);
                   gymDocument["id"] = gym.id;
-                  gymDocument["name"] = gym.name;
+                  gymDocument["name"] = he.decode(gym.name);
                   if (gym.nickname) {
-                    gymDocument["nickname"] = gym.nickname;
+                    gymDocument["nickname"] = he.decode(gym.nickname);
                   }
 
                   if (gym.description) {
-                    gymDocument["description"] = gym.description;
+                    gymDocument["description"] = he.decode(gym.description);
                   }
 
                   if (gym.keywords) {
@@ -1307,7 +1311,7 @@ class RegionHelper {
                   }
 
                   if (gym.notice) {
-                    gymDocument["notice"] = gym.notice;
+                    gymDocument["notice"] = he.decode(gym.notice);
                   }
 
                   if (!gym.geodata) {
@@ -1460,7 +1464,7 @@ class RegionHelper {
       if (description.toLowerCase() === "remove") {
         query = `UPDATE GymMeta SET description = NULL WHERE gymId = ${gym["id"]}`;
       } else {
-        query = `UPDATE GymMeta SET description = '${description}' WHERE gymId = ${gym["id"]}`;
+        query = `UPDATE GymMeta SET description = '${he.encode(description)}' WHERE gymId = ${gym["id"]}`;
       }
 
       const result = await dbhelper.query(query)
@@ -1485,7 +1489,7 @@ class RegionHelper {
   async setGymNickname(gym, nickname, gymCache) {
     const that = this;
     return new Promise(async (resolve, reject) => {
-      let query = `UPDATE GymMeta SET nickname = '${nickname}' WHERE gymId = ${gym["id"]}`;
+      let query = `UPDATE GymMeta SET nickname = '${he.encode(nickname)}' WHERE gymId = ${gym["id"]}`;
       if (nickname.toLowerCase() === "remove") {
         query = `UPDATE GymMeta SET nickname = NULL WHERE gymId = ${gym["id"]}`;
       }
@@ -1513,7 +1517,7 @@ class RegionHelper {
     const that = this;
     return new Promise(async (resolve, reject) => {
       let query = "UPDATE Gym SET name = ? WHERE id = ?";
-      const result = await dbhelper.query(query, [name, gym["id"]])
+      const result = await dbhelper.query(query, [he.encode(name), gym["id"]])
         .catch(error => {
           log.error(error);
           reject(error);
@@ -1535,7 +1539,7 @@ class RegionHelper {
   async setGymNotice(gym, notice, gymCache) {
     const that = this;
     return new Promise(async (resolve, reject) => {
-      let query = `UPDATE GymMeta SET notice = '${notice}' WHERE gymId=${gym["id"]}`;
+      let query = `UPDATE GymMeta SET notice = '${he.encode(notice)}' WHERE gymId=${gym["id"]}`;
       if (notice.toLowerCase() === "remove") {
         query = `UPDATE GymMeta SET notice = NULL WHERE gymId=${gym["id"]}`;
       }
