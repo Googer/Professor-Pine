@@ -98,7 +98,7 @@ module.exports = class DeleteGym extends commando.Command {
                         msg.reply(he.decode(gym.name) + ' was removed successfully.')
                           .catch(err => log.error(err));
                       } else {
-                        msg.reply('An error occurred while deleting ' + gym.name + '.')
+                        msg.reply('An error occurred while deleting ' + he.decode(gym.name) + '.')
                           .catch(err => log.error(err));
                       }
                     })
