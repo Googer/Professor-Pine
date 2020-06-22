@@ -213,7 +213,7 @@ class Party {
 
   sendSavedWarningMessage() {
     // send deletion warning message to this party every 5th call to this
-    PartyManager.getChannel(this.channelId)
+    return PartyManager.getChannel(this.channelId)
       .then(channelResult => {
         if (channelResult.ok) {
           return channelResult.channel.send(`This channel will no longer self-destruct!`);
