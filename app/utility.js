@@ -74,6 +74,16 @@ class Utility {
   static sleep(ms) {
     return new Promise(resolve => setTimeout(resolve, ms));
   }
+
+  static chunk(array, chunkSize) {
+    const chunkedArray = [];
+
+    while (array.length) {
+      chunkedArray.push(array.splice(0, chunkSize));
+    }
+
+    return chunkedArray;
+  }
 }
 
 module.exports = Utility;

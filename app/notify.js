@@ -5,7 +5,8 @@ const log = require('loglevel').getLogger('Notify'),
   Helper = require('./helper'),
   {MessageEmbed} = require('discord.js'),
   PartyManager = require('./party-manager'),
-  settings = require('../data/settings');
+  settings = require('../data/settings'),
+  Utility = require('./utility');
 
 class Notify {
   constructor() {
@@ -502,7 +503,7 @@ class Notify {
           const mention = await this.shouldMention(member, type);
 
           if (mention) {
-           userMentions.push(member.user.id);
+            userMentions.push(member.user.id);
           }
 
           return member.toString();
@@ -511,19 +512,22 @@ class Notify {
           log.error(err);
           return [];
         }),
-      membersString = membersStrings
-        .reduce((prev, next) => prev + ', ' + next),
-      botLabChannel = message.guild.channels.cache.find(channel => channel.name === settings.channels["bot-lab"]),
-      embed = new MessageEmbed();
+      membersString = Utility.chunk(membersStrings, 20)
+        .map(membersString => membersString.reduce((prev, next) => prev + ', ' + next))
+        .reduce((prev, next) => prev + '\n' + next),
+      botLabChannel = message.guild.channels.cache.find(channel => channel.name === settings.channels["bot-lab"]);
 
-    embed.setColor('GREEN');
-
+    let messageText = text + '\n\n';
     if (!!fromMember) {
-      embed.setTitle(`Message from **${fromMember.displayName}**`);
+      messageText +=`-- ${fromMember.displayName}\n\n`;
     }
-    embed.setDescription(text);
+    messageText += membersString;
 
-    message.channel.send(membersString, {embed, allowedMentions: {users: userMentions}})
+    message.channel.send(messageText, {
+      allowedMentions: {users: userMentions},
+      split: {char: '\n'},
+      disableMentions: 'everyone'
+    })
       .then(shoutMessage => {
         message.channel.send(`To enable or disable these notifications, use the \`${message.client.commandPrefix}mentions\`, \`${message.client.commandPrefix}mentions-groups\`, \`${message.client.commandPrefix}mentions-train-stops\` and \`${message.client.commandPrefix}mentions-shouts\` commands in ${botLabChannel.toString()}.`)
           .then(shoutFooterMessage => {
