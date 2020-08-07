@@ -170,7 +170,7 @@ class RaidTrain extends Party {
   }
 
   async moveToNextGym(author) {
-    if (!!!this.route || !this.route.length || this.currentGym === (this.route.length + 1)) {
+    if (!!!this.route || !this.route.length || this.currentGym > this.route.length) {
       return true;
     }
 
@@ -202,8 +202,7 @@ class RaidTrain extends Party {
       return {error: 'You are not signed up for this train!'};
     }
 
-
-    this.currentGym = this.currentGym + 2;
+    this.currentGym = Math.min(this.currentGym + 2, this.route.length + 1);
 
     let present = await this.getPresentAttendees();
     await this.setAttendeesToComing(present);
@@ -719,7 +718,6 @@ class RaidTrain extends Party {
   async removeLastTrainMovement(message, secondaryMessage) {
     const messageCacheId = `${message.channel.id.toString()}:${message.id.toString()}`;
     const messageCacheSecondaryId = `${secondaryMessage.channel.id.toString()}:${secondaryMessage.id.toString()}`;
-
 
     if (!!this.lastMovementMessage) {
       PartyManager.getMessage(this.lastMovementMessage)

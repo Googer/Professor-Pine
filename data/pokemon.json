@@ -1057,6 +1057,184 @@
     "name": "unown"
   },
   {
+    "name": "unown_a",
+    "overrideName": "Unown (A)",
+    "nickname": "a",
+    "base": "unown",
+    "tier": 2,
+    "shiny": true
+  },
+  {
+    "name": "unown_b",
+    "overrideName": "Unown (B)",
+    "nickname": "b",
+    "base": "unown"
+  },
+  {
+    "name": "unown_c",
+    "overrideName": "Unown (C)",
+    "nickname": "c",
+    "base": "unown"
+  },
+  {
+    "name": "unown_d",
+    "overrideName": "Unown (D)",
+    "nickname": "d",
+    "base": "unown"
+  },
+  {
+    "name": "unown_e",
+    "overrideName": "Unown (E)",
+    "nickname": "e",
+    "base": "unown"
+  },
+  {
+    "name": "unown_f",
+    "overrideName": "Unown (F)",
+    "nickname": "f",
+    "base": "unown"
+  },
+  {
+    "name": "unown_g",
+    "overrideName": "Unown (G)",
+    "nickname": "g",
+    "base": "unown"
+  },
+  {
+    "name": "unown_h",
+    "overrideName": "Unown (H)",
+    "nickname": "h",
+    "base": "unown"
+  },
+  {
+    "name": "unown_i",
+    "overrideName": "Unown (I)",
+    "nickname": "i",
+    "base": "unown"
+  },
+  {
+    "name": "unown_j",
+    "overrideName": "Unown (J)",
+    "nickname": "j",
+    "base": "unown"
+  },
+  {
+    "name": "unown_k",
+    "overrideName": "Unown (K)",
+    "nickname": "k",
+    "base": "unown"
+  },
+  {
+    "name": "unown_l",
+    "overrideName": "Unown (L)",
+    "nickname": "l",
+    "base": "unown",
+    "tier": 2,
+    "shiny": true
+  },
+  {
+    "name": "unown_m",
+    "overrideName": "Unown (M)",
+    "nickname": "m",
+    "base": "unown"
+  },
+  {
+    "name": "unown_n",
+    "overrideName": "Unown (N)",
+    "nickname": "n",
+    "base": "unown"
+  },
+  {
+    "name": "unown_o",
+    "overrideName": "Unown (O)",
+    "nickname": "o",
+    "base": "unown"
+  },
+  {
+    "name": "unown_p",
+    "overrideName": "Unown (P)",
+    "nickname": "p",
+    "base": "unown"
+  },
+  {
+    "name": "unown_q",
+    "overrideName": "Unown (Q)",
+    "nickname": "q",
+    "base": "unown"
+  },
+  {
+    "name": "unown_r",
+    "overrideName": "Unown (R)",
+    "nickname": "r",
+    "base": "unown",
+    "tier": 2,
+    "shiny": true
+  },
+  {
+    "name": "unown_s",
+    "overrideName": "Unown (S)",
+    "nickname": "s",
+    "base": "unown"
+  },
+  {
+    "name": "unown_t",
+    "overrideName": "Unown (T)",
+    "nickname": "t",
+    "base": "unown",
+    "tier": 2,
+    "shiny": true
+  },
+  {
+    "name": "unown_u",
+    "overrideName": "Unown (U)",
+    "nickname": "u",
+    "base": "unown",
+    "tier": 2,
+    "shiny": true
+  },
+  {
+    "name": "unown_v",
+    "overrideName": "Unown (V)",
+    "nickname": "v",
+    "base": "unown"
+  },
+  {
+    "name": "unown_w",
+    "overrideName": "Unown (W)",
+    "nickname": "w",
+    "base": "unown"
+  },
+  {
+    "name": "unown_x",
+    "overrideName": "Unown (X)",
+    "nickname": "x",
+    "base": "unown"
+  },
+  {
+    "name": "unown_y",
+    "overrideName": "Unown (Y)",
+    "nickname": "y",
+    "base": "unown"
+  },
+  {
+    "name": "unown_z",
+    "overrideName": "Unown (Z)",
+    "nickname": "z",
+    "base": "unown"
+  },
+  {
+    "name": "unown_exclamation_point",
+    "overrideName": "Unown (!)",
+    "nickname": "!",
+    "base": "unown"
+  },
+  {
+    "name": "unown_question_mark",
+    "overrideName": "Unown (?)",
+    "nickname": "?",
+    "base": "unown"
+  },
+  {
     "name": "wobbuffet",
     "tier": 2,
     "shiny": true

@@ -87,7 +87,11 @@ class Pokemon extends Search {
             }
           }
 
-          return Object.assign({}, poke, pokemon.find(p => p.name === poke.name))
+          const result = Object.assign({}, poke, pokemon.find(p => p.name === poke.base || p.name === poke.name));
+          // Don't let base form's name override this form's name
+          result.name = poke.name;
+
+          return result;
         });
 
     updatedPokemon.forEach(poke => {
@@ -133,7 +137,7 @@ class Pokemon extends Search {
         paddedNumber = '000' + poke.number,
         lastThree = paddedNumber.substr(paddedNumber.length - 3);
 
-      poke.formName = poke.name;``
+      poke.formName = poke.name;
       poke.name = poke.overrideName ?
         poke.overrideName :
         poke.name;
@@ -156,6 +160,7 @@ class Pokemon extends Search {
       this.ref('object');
       this.field('name');
       this.field('nickname');
+      this.field('formName');
       this.field('number');
       this.field('tier');
       this.field('bossCP');
@@ -167,6 +172,7 @@ class Pokemon extends Search {
         pokemonDocument['number'] = pokemon.number;
         pokemonDocument['name'] = pokemon.name;
         pokemonDocument['nickname'] = (pokemon.nickname) ? pokemon.nickname.join(' ') : '';
+        pokemonDocument['formName'] = pokemon.formName;
         pokemonDocument['tier'] = pokemon.tier;
         pokemonDocument['bossCP'] = pokemon.bossCP;
 
@@ -242,8 +248,8 @@ class Pokemon extends Search {
       return results;
     }
 
-    // Try based on name and nickname
-    results = this.internalSearch(terms, ['name', 'nickname']);
+    // Try based on name, nickname, and formName
+    results = this.internalSearch(terms, ['name', 'nickname', 'formName']);
     if (results !== undefined && results.length > 0) {
       return results;
     }

@@ -25,9 +25,9 @@ class HowManyCommand extends Commando.Command {
   }
 
   titleCase(str) {
-    return str.toLowerCase().split(' ').map(function (word) {
-      return word.replace(word[0], word[0].toUpperCase());
-    }).join(' ');
+    return str.toLowerCase().split(' ')
+      .map(word => word.replace(word[0], word[0].toUpperCase()))
+      .join(' ');
   }
 
   parseCounterType(val, message, arg, type) {

@@ -355,7 +355,8 @@ class Party {
       groups: this.groups,
       messages: this.messages,
       lastStatusMessage: this.lastStatusMessage,
-      defaultGroupId: this.defaultGroupId
+      defaultGroupId: this.defaultGroupId,
+      deletionTime: this.deletionTime
     });
   }
 

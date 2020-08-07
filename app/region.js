@@ -423,7 +423,7 @@ class RegionHelper {
 
       for (let i = 0; i < channels.length; i++) {
         const option = " channelId <> " + channels[i];
-        orOptions.push(option)
+        orOptions.push(option);
       }
 
       selectQuery += orOptions.join(' AND');
