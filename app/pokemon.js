@@ -165,6 +165,9 @@ class Pokemon extends Search {
       this.field('tier');
       this.field('bossCP');
 
+      // remove stopword filter
+      this.pipeline.remove(lunr.stopWordFilter);
+
       mergedPokemon.forEach(pokemon => {
         const pokemonDocument = Object.create(null);
 
@@ -196,8 +199,7 @@ class Pokemon extends Search {
     const filteredTerms = splitTerms
       .map(term => removeDiacritics(term))
       .map(term => term.replace(/[^\w\s*]+/g, ''))
-      .map(term => term.toLowerCase())
-      .filter(term => Search.stopWordFilter(term));
+      .map(term => term.toLowerCase());
 
     if (filteredTerms.length === 0) {
       return [];
