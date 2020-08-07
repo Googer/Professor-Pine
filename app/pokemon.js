@@ -38,8 +38,8 @@ class Pokemon extends Search {
           {
             formName: form.form.toLocaleLowerCase(),
             formId: !!form.assetBundleValue ?
-                `${form.assetBundleValue}` :
-                '00',
+              `${form.assetBundleValue}` :
+              '00',
             formSuffix: form.assetBundleSuffix
           })),
       pokemon = gameMaster.itemTemplate
@@ -175,7 +175,7 @@ class Pokemon extends Search {
         pokemonDocument['number'] = pokemon.number;
         pokemonDocument['name'] = pokemon.name;
         pokemonDocument['nickname'] = (pokemon.nickname) ? pokemon.nickname.join(' ') : '';
-        pokemonDocument['formName'] = pokemon.formName;
+        pokemonDocument['formName'] = (pokemon.formName) ? pokemon.formName.replace(/_/g, ' ') : '';
         pokemonDocument['tier'] = pokemon.tier;
         pokemonDocument['bossCP'] = pokemon.bossCP;
 
