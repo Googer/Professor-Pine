@@ -1225,13 +1225,13 @@
   {
     "name": "unown_exclamation_point",
     "overrideName": "Unown (!)",
-    "nickname": "!",
+    "nickname": "exclamation point",
     "base": "unown"
   },
   {
     "name": "unown_question_mark",
     "overrideName": "Unown (?)",
-    "nickname": "?",
+    "nickname": "question mark",
     "base": "unown"
   },
   {
