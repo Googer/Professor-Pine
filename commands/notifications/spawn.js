@@ -57,7 +57,7 @@ class SpawnCommand extends Commando.Command {
     const pokemon = args['pokemon'],
       spawnDetails = args['message'];
 
-    if (pokemon.name === 'unown' && settings.channels.unown) {
+    if (pokemon.name.toLocaleLowerCase('unown') >= 0 && settings.channels.unown) {
       const unownChannel = Helper.getUnownChannel(message.guild),
         pokemonName = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1),
         regionChannel = (await PartyManager.getChannel(message.channel.id)).channel,
