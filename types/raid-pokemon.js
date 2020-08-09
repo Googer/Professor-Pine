@@ -27,10 +27,10 @@ class RaidPokemonType extends Commando.ArgumentType {
 
     const validPokemon = pokemon
       .find(pokemon => {
-        if (!message.command || message.command.name === 'raid') {
+        if (!message.command || message.command.name === 'raid' || message.command.name === 'boss') {
           return pokemon.exclusive || (pokemon.tier && pokemon.tier < 7);
         }
-        return pokemon.exclusive || pokemon.tier || (pokemon.name === 'unown' && settings.roles.unown && settings.channels.unown);
+        return pokemon.exclusive || pokemon.tier || (pokemon.name.toLocaleLowerCase().startsWith('unown') && settings.roles.unown && settings.channels.unown);
       });
 
     if (!validPokemon) {
@@ -62,8 +62,8 @@ class RaidPokemonType extends Commando.ArgumentType {
       .map(term => term.match(/(?:<:)?([\w*]+)(?::[0-9]+>)?/)[1])
       .map(term => term.toLowerCase());
 
-   let pokemon = Pokemon.search(terms)
-      .find(pokemon => pokemon.exclusive || pokemon.tier || (pokemon.name === 'unown' && settings.roles.unown && settings.channels.unown));
+    let pokemon = Pokemon.search(terms)
+      .find(pokemon => pokemon.exclusive || pokemon.tier || (pokemon.name.toLocaleLowerCase().startsWith('unown') && settings.roles.unown && settings.channels.unown));
 
     message.isExclusive = !!pokemon.exclusive;
 
@@ -72,3 +72,4 @@ class RaidPokemonType extends Commando.ArgumentType {
 }
 
 module.exports = RaidPokemonType;
+z
