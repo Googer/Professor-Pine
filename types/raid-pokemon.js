@@ -72,4 +72,3 @@ class RaidPokemonType extends Commando.ArgumentType {
 }
 
 module.exports = RaidPokemonType;
-z
