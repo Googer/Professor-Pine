@@ -61,6 +61,27 @@ class Pokemon extends Search {
               item.pokemon.form.split('_')[1].toLowerCase() :
               'normal'
           })),
+      // temporaryPokemon = gameMaster.itemTemplate
+      //   .filter(item => pokemonRegex.test(item.templateId))
+      //   // TODO: rename this when it's no longer obsuscated
+      //   .filter(pokemon => !!pokemon.temporaryEvolutions)
+      //   .map(item => Object.assign({},
+      //     {
+      //       name: item.pokemon.form ?
+      //         item.pokemon.form.toLowerCase() :
+      //         item.pokemon.uniqueId.toLowerCase(),
+      //       number: Number.parseInt(item.templateId.split('_')[0].slice(2)),
+      //       stats: item.pokemon.stats,
+      //       quickMoves: item.pokemon.quickMoves,
+      //       cinematicMoves: item.pokemon.cinematicMoves,
+      //       type: [item.pokemon.type1.split('_')[2].toLowerCase(), item.pokemon.type2 ?
+      //         item.pokemon.type2.split('_')[2].toLowerCase() :
+      //         null]
+      //         .filter(type => !!type),
+      //       form: item.pokemon.form ?
+      //         item.pokemon.form.split('_')[1].toLowerCase() :
+      //         'normal'
+      //     })),
       updatedPokemon = await DB.DB('Pokemon').select(),
       mergedPokemon = pokemonMetadata
         .map(poke => {
@@ -73,6 +94,11 @@ class Pokemon extends Search {
             if (poke.exclusive) {
               poke.backupExclusive = poke.exclusive;
               delete poke.exclusive;
+            }
+
+            if (poke.mega) {
+              poke.backupMega = poke.mega;
+              delete poke.mega;
             }
 
             // store just in case we eventually need this for some reason. DB Raids are populated solely by DB fields.
@@ -95,22 +121,29 @@ class Pokemon extends Search {
         });
 
     updatedPokemon.forEach(poke => {
-      let isTier = ['1', '2', '3', '4', '5', 'ex'].indexOf(poke.name) !== -1;
+      let isTier = ['1', '2', '3', '4', '5', 'ex', 'mega'].indexOf(poke.name) !== -1;
 
       let pokeDataIndex = mergedPokemon.findIndex(p => {
-        let tierFound = isTier && p.name === undefined && p.backupTier === poke.tier && !p.backupExclusive;
-        let exclusiveFound = isTier && p.name === undefined && p.backupTier === undefined && p.backupExclusive === !!poke.exclusive && !!poke.exclusive;
+        let tierFound = isTier && p.name === undefined && p.backupTier === poke.tier && !p.backupExclusive && !p.backupMega;
+        let exclusiveFound = isTier && p.name === undefined && p.backupTier === undefined && p.backupExclusive === !!poke.exclusive && !!poke.exclusive && !p.backupMega;
+        let megaFound = isTier && p.name === undefined && p.backupTier === undefined && !p.backupExclusive && p.backupMega === !!poke.mega;
 
-        return poke.name === p.name || tierFound || exclusiveFound;
+        return poke.name === p.name || tierFound || exclusiveFound || megaFound;
       });
 
       if (pokeDataIndex !== -1) {
+        mergedPokemon[pokeDataIndex].inDB = true;
+
         if (!!poke.tier) {
           mergedPokemon[pokeDataIndex].tier = poke.tier;
         }
 
         if (!!poke.exclusive) {
           mergedPokemon[pokeDataIndex].exclusive = !!poke.exclusive;
+        }
+
+        if (!!poke.mega) {
+          mergedPokemon[pokeDataIndex].mega = !!poke.mega;
         }
 
         if (!!poke.shiny) {
@@ -145,7 +178,14 @@ class Pokemon extends Search {
       poke.boostedConditions = Pokemon.calculateBoostConditions(poke.type);
       poke.url = `${privateSettings.pokemonUrlBase}pokemon_icon_${!!formSuffix ? formSuffix : lastThree + '_' + formId}.png`;
 
-      if (poke.number && poke.tier && poke.tier <= 5) {
+      if (!poke.inDB) {
+        poke.tier = poke.backupTier;
+        poke.mega = poke.backupMega;
+        poke.exclusive = poke.backupExclusive;
+        poke.shiny = poke.backupShiny;
+      }
+
+      if (poke.number && ((poke.tier && poke.tier <= 5)) || poke.mega || poke.exclusive) {
         poke.bossCP = Pokemon.calculateBossCP(poke);
         poke.minBaseCP = Pokemon.calculateCP(poke, 20, 10, 10, 10);
         poke.maxBaseCP = Pokemon.calculateCP(poke, 20, 15, 15, 15);
@@ -346,7 +386,18 @@ class Pokemon extends Search {
       updateObject.exclusive = false;
     }
 
-    if (['0', '1', '2', '3', '4', '5', '7'].indexOf(tier) !== -1) {
+    if (tier === 'mega') {
+      if (pokemon !== 'mega') {
+        updateObject.tier = 5;
+      }
+      updateObject.mega = true;
+    }
+
+    if (tier === 'unset-mega') {
+      updateObject.mega = false;
+    }
+
+    if (['0', '1', '3', '5', '7'].indexOf(tier) !== -1) {
       updateObject.tier = tier;
     }
 
@@ -385,23 +436,19 @@ class Pokemon extends Search {
   }
 
   async getDefaultTierBoss(tier) {
-    if (tier === 'ex') {
-      tier = 6;
-    }
-
     const result = await DB.DB('AutosetPokemon')
       .where('tier', tier)
       .pluck('name')
       .first();
 
     if (result) {
-      const terms = result.name.split(/[\s-]/)
+      const terms = result.name.split(/[\s-_]/)
         .filter(term => term.length > 0)
         .map(term => term.match(/(?:<:)?([\w*]+)(?::[0-9]+>)?/)[1])
         .map(term => term.toLowerCase());
 
       return this.search(terms)
-        .find(pokemon => pokemon.exclusive || pokemon.tier);
+        .find(pokemon => pokemon.exclusive || pokemon.mega || pokemon.tier);
     }
 
     return null;
@@ -493,6 +540,10 @@ class Pokemon extends Search {
     }
 
     if (pokemon.exclusive) {
+      stamina = 15000;
+    }
+
+    if (pokemon.mega) {
       stamina = 15000;
     }
 

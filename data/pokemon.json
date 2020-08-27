@@ -42,6 +42,11 @@
     "exclusive": true
   },
   {
+    "name": "mega",
+    "mega": true,
+    "egg": true
+  },
+  {
     "nickname": [
       "????"
     ]
@@ -62,6 +67,12 @@
     "shiny": true
   },
   {
+    "name": "venusaur_mega",
+    "mega": true,
+    "overrideName": "Mega Venusaur",
+    "nickname": "mega"
+  },
+  {
     "name": "charmander",
     "tier": 1,
     "shiny": true
@@ -77,6 +88,17 @@
     "shiny": true
   },
   {
+    "name": "charizard_mega_x",
+    "mega": true,
+    "overrideName": "Mega Charizard X",
+    "nickname": "mega"
+  },
+  {
+    "name": "charizard_mega_y",
+    "overrideName": "Mega Charizard Y",
+    "nickname": "mega"
+  },
+  {
     "name": "squirtle",
     "tier": 1,
     "shiny": true
@@ -90,6 +112,12 @@
     "name": "blastoise",
     "tier": 4,
     "shiny": true
+  },
+  {
+    "name": "blastoise_mega",
+    "mega": true,
+    "overrideName": "Mega Blastoise",
+    "nickname": "mega"
   },
   {
     "name": "caterpie",
@@ -114,6 +142,11 @@
     "name": "beedrill"
   },
   {
+    "name": "beedrill_mega",
+    "overrideName": "Mega Beedrill",
+    "nickname": "mega"
+  },
+  {
     "name": "pidgey"
   },
   {
@@ -122,6 +155,11 @@
   {
     "name": "pidgeot",
     "tier": 3
+  },
+  {
+    "name": "pidgeot_mega",
+    "overrideName": "Mega Pidgeot",
+    "nickname": "mega"
   },
   {
     "name": "rattata",
@@ -425,6 +463,11 @@
     "tier": 3
   },
   {
+    "name": "alakazam_mega",
+    "overrideName": "Mega Alakazam",
+    "nickname": "mega"
+  },
+  {
     "name": "machop"
   },
   {
@@ -506,6 +549,11 @@
   {
     "name": "slowbro",
     "tier": 2
+  },
+  {
+    "name": "slowbro_mega",
+    "overrideName": "Mega Slowbro",
+    "nickname": "mega"
   },
   {
     "name": "magnemite",
@@ -591,6 +639,11 @@
   {
     "name": "gengar",
     "tier": 3
+  },
+  {
+    "name": "gengar_mega",
+    "overrideName": "Mega Gengar",
+    "nickname": "mega"
   },
   {
     "name": "onix",
@@ -711,6 +764,11 @@
     "name": "kangaskhan"
   },
   {
+    "name": "kangaskhan_mega",
+    "overrideName": "Mega Kangaskhan",
+    "nickname": "mega"
+  },
+  {
     "name": "horsea",
     "tier": 1
   },
@@ -756,6 +814,11 @@
     "shiny": true
   },
   {
+    "name": "pinsir_mega",
+    "overrideName": "Mega Pinsir",
+    "nickname": "mega"
+  },
+  {
     "name": "tauros"
   },
   {
@@ -768,6 +831,11 @@
   },
   {
     "name": "gyarados"
+  },
+  {
+    "name": "gyarados_mega",
+    "overrideName": "Mega Gyarados",
+    "nickname": "mega"
   },
   {
     "name": "lapras",
@@ -821,6 +889,11 @@
     "shiny": true
   },
   {
+    "name": "aerodactyl_mega",
+    "overrideName": "Mega Aerodactyl",
+    "nickname": "mega"
+  },
+  {
     "name": "snorlax",
     "tier": 4
   },
@@ -864,6 +937,16 @@
     "name": "mewtwo",
     "tier": 5,
     "shiny": true
+  },
+  {
+    "name": "mewtwo_mega_x",
+    "overrideName": "Mega Mewtwo X",
+    "nickname": "mega"
+  },
+  {
+    "name": "mewtwo_mega_y",
+    "overrideName": "Mega Mewtwo Y",
+    "nickname": "mega"
   },
   {
     "name": "mewtwo_a",
@@ -980,6 +1063,11 @@
   },
   {
     "name": "ampharos"
+  },
+  {
+    "name": "ampharos_mega",
+    "overrideName": "Mega Ampharos",
+    "nickname": "mega"
   },
   {
     "name": "bellossom"
@@ -1262,6 +1350,11 @@
     "name": "steelix"
   },
   {
+    "name": "steelix_mega",
+    "overrideName": "Mega Steelix",
+    "nickname": "mega"
+  },
+  {
     "name": "snubbull",
     "tier": 1,
     "shiny": true
@@ -1278,12 +1371,22 @@
     "name": "scizor"
   },
   {
+    "name": "scizor_mega",
+    "overrideName": "Mega Scizor",
+    "nickname": "mega"
+  },
+  {
     "name": "shuckle",
     "tier": 3,
     "shiny": true
   },
   {
     "name": "heracross"
+  },
+  {
+    "name": "heracross_mega",
+    "overrideName": "Mega Heracross",
+    "nickname": "mega"
   },
   {
     "name": "sneasel",
@@ -1343,6 +1446,11 @@
   {
     "name": "houndoom",
     "tier": 4
+  },
+  {
+    "name": "houndoom_mega",
+    "overrideName": "Mega Houndoom",
+    "nickname": "mega"
   },
   {
     "name": "kingdra"
@@ -1418,6 +1526,11 @@
     "tier": 4
   },
   {
+    "name": "tyranitar_mega",
+    "overrideName": "Mega Tyranitar",
+    "nickname": "mega"
+  },
+  {
     "name": "lugia",
     "tier": 5,
     "shiny": true
@@ -1448,6 +1561,11 @@
     "name": "sceptile"
   },
   {
+    "name": "sceptile_mega",
+    "overrideName": "Mega Sceptile",
+    "nickname": "mega"
+  },
+  {
     "name": "torchic"
   },
   {
@@ -1459,6 +1577,11 @@
     "tier": 4
   },
   {
+    "name": "blaziken_mega",
+    "overrideName": "Mega Blaziken",
+    "nickname": "mega"
+  },
+  {
     "name": "mudkip"
   },
   {
@@ -1467,6 +1590,11 @@
   },
   {
     "name": "swampert"
+  },
+  {
+    "name": "swampert_mega",
+    "overrideName": "Mega Swampert",
+    "nickname": "mega"
   },
   {
     "name": "poochyena",
@@ -1562,6 +1690,11 @@
     "name": "gardevoir"
   },
   {
+    "name": "gardevoir_mega",
+    "overrideName": "Mega Gardevoir",
+    "nickname": "mega"
+  },
+  {
     "name": "surskit"
   },
   {
@@ -1630,9 +1763,19 @@
     "shiny": true
   },
   {
+    "name": "sableye_mega",
+    "overrideName": "Mega Sableye",
+    "nickname": "mega"
+  },
+  {
     "name": "mawile",
     "tier": 2,
     "shiny": true
+  },
+  {
+    "name": "mawile_mega",
+    "overrideName": "Mega Mawile",
+    "nickname": "mega"
   },
   {
     "name": "aron",
@@ -1646,6 +1789,11 @@
     "tier": 4
   },
   {
+    "name": "aggron_mega",
+    "overrideName": "Mega Aggron",
+    "nickname": "mega"
+  },
+  {
     "name": "meditite",
     "tier": 1,
     "shiny": true
@@ -1655,11 +1803,21 @@
     "tier": 3
   },
   {
+    "name": "medicham_mega",
+    "overrideName": "Mega Medicham",
+    "nickname": "mega"
+  },
+  {
     "name": "electrike"
   },
   {
     "name": "manectric",
     "tier": 2
+  },
+  {
+    "name": "manectric_mega",
+    "overrideName": "Mega Manectric",
+    "nickname": "mega"
   },
   {
     "name": "plusle",
@@ -1696,6 +1854,11 @@
     "tier": 3
   },
   {
+    "name": "sharpedo_mega",
+    "overrideName": "Mega Sharpedo",
+    "nickname": "mega"
+  },
+  {
     "name": "wailmer",
     "tier": 1,
     "shiny": true
@@ -1708,6 +1871,11 @@
   },
   {
     "name": "camerupt"
+  },
+  {
+    "name": "camerupt_mega",
+    "overrideName": "Mega Camerupt",
+    "nickname": "mega"
   },
   {
     "name": "torkoal"
@@ -1746,6 +1914,11 @@
   },
   {
     "name": "altaria"
+  },
+  {
+    "name": "altaria_mega",
+    "overrideName": "Mega Altaria",
+    "nickname": "mega"
   },
   {
     "name": "zangoose"
@@ -1822,6 +1995,11 @@
     "name": "banette"
   },
   {
+    "name": "banette_mega",
+    "overrideName": "Mega Banette",
+    "nickname": "mega"
+  },
+  {
     "name": "duskull",
     "tier": 1,
     "shiny": true
@@ -1841,6 +2019,11 @@
     "shiny": true
   },
   {
+    "name": "absol_mega",
+    "overrideName": "Mega Absol",
+    "nickname": "mega"
+  },
+  {
     "name": "wynaut",
     "shiny": true
   },
@@ -1851,6 +2034,11 @@
   },
   {
     "name": "glalie"
+  },
+  {
+    "name": "glalie_mega",
+    "overrideName": "Mega Glalie",
+    "nickname": "mega"
   },
   {
     "name": "spheal"
@@ -1892,6 +2080,11 @@
     "name": "salamence"
   },
   {
+    "name": "salamence_mega",
+    "overrideName": "Mega Salamence",
+    "nickname": "mega"
+  },
+  {
     "name": "beldum",
     "tier": 1,
     "shiny": true
@@ -1902,6 +2095,11 @@
   {
     "name": "metagross",
     "tier": 4
+  },
+  {
+    "name": "metagross_mega",
+    "overrideName": "Mega Metagross",
+    "nickname": "mega"
   },
   {
     "name": "regirock",
@@ -1921,9 +2119,19 @@
     "shiny": true
   },
   {
+    "name": "latias_mega",
+    "overrideName": "Mega Latias",
+    "nickname": "mega"
+  },
+  {
     "name": "latios",
     "tier": 5,
     "shiny": true
+  },
+  {
+    "name": "latios_mega",
+    "overrideName": "Mega Latios",
+    "nickname": "mega"
   },
   {
     "name": "kyogre",
@@ -1931,14 +2139,27 @@
     "shiny": true
   },
   {
+    "name": "kyogre_primal",
+    "overrideName": "Primal Kyogre"
+  },
+  {
     "name": "groudon",
     "tier": 5,
     "shiny": true
   },
   {
+    "name": "groudon_primal",
+    "overrideName": "Primal Groudon"
+  },
+  {
     "name": "rayquaza",
     "tier": 5,
     "shiny": true
+  },
+  {
+    "name": "rayquaza_mega",
+    "overrideName": "Mega Rayquaza",
+    "nickname": "mega"
   },
   {
     "name": "jirachi"
@@ -2140,6 +2361,11 @@
     "name": "lopunny"
   },
   {
+    "name": "lopunny_mega",
+    "overrideName": "Mega Lopunny",
+    "nickname": "mega"
+  },
+  {
     "name": "mismagius"
   },
   {
@@ -2192,6 +2418,11 @@
     "name": "garchomp"
   },
   {
+    "name": "garchomp_mega",
+    "overrideName": "Mega Garchomp",
+    "nickname": "mega"
+  },
+  {
     "name": "munchlax"
   },
   {
@@ -2199,6 +2430,11 @@
   },
   {
     "name": "lucario"
+  },
+  {
+    "name": "lucario_mega",
+    "overrideName": "Mega Lucario",
+    "nickname": "mega"
   },
   {
     "name": "hippopotas",
@@ -2239,6 +2475,11 @@
   },
   {
     "name": "abomasnow"
+  },
+  {
+    "name": "abomasnow_mega",
+    "overrideName": "Mega Abomasnow",
+    "nickname": "mega"
   },
   {
     "name": "weavile"
@@ -2284,6 +2525,11 @@
   },
   {
     "name": "gallade"
+  },
+  {
+    "name": "gallade_mega",
+    "overrideName": "Mega Gallade",
+    "nickname": "mega"
   },
   {
     "name": "probopass"
@@ -2488,6 +2734,11 @@
   },
   {
     "name": "audino"
+  },
+  {
+    "name": "audino_mega",
+    "overrideName": "Mega Audino",
+    "nickname": "mega"
   },
   {
     "name": "timburr",
@@ -3092,6 +3343,11 @@
   },
   {
     "name": "diancie"
+  },
+  {
+    "name": "diancie_mega",
+    "overrideName": "Mega Diancie",
+    "nickname": "mega"
   },
   {
     "name": "hoopa"

@@ -2,6 +2,9 @@
   "auto-status": {
     "warning": "Use the `!auto` command in ${bot-channel} to set your automatically-set status when reporting raids!"
   },
+  "privacy": {
+    "warning": "Use the `!privacy` command in ${bot-channel} for enabling or disabling anonymous raid reporting!"
+  },
   "iam": {
     "warning": "Assign yourself roles in ${bot-channel}!"
   },

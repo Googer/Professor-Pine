@@ -39,8 +39,12 @@ class Raid extends Party {
         memberPrivacy = await Privacy.getPrivacyStatus(memberId);
 
       if (!raidExists) {
-        if (pokemon.name === undefined) {
-          let defaultBoss = await Pokemon.getDefaultTierBoss(!!pokemon.exclusive ? 'ex' : pokemon.tier);
+        if (pokemon.name === undefined || pokemon.name === 'mega') {
+          let defaultBoss = await Pokemon.getDefaultTierBoss(!!pokemon.exclusive ?
+            'ex' :
+            !!pokemon.mega ?
+              'mega' :
+              pokemon.tier);
 
           if (!!defaultBoss) {
             pokemon = defaultBoss;
@@ -62,6 +66,7 @@ class Raid extends Party {
           memberId;
         raid.originallyCreatedBy = memberId;
         raid.isExclusive = !!pokemon.exclusive;
+        raid.isMega = !!pokemon.mega;
         raid.sourceChannelId = sourceChannelId;
         raid.creationTime = moment().valueOf();
         raid.lastPossibleTime = raid.creationTime + (raid.isExclusive ?
@@ -479,6 +484,7 @@ class Raid extends Party {
   async setPokemon(pokemon) {
     this.pokemon = pokemon;
     this.isExclusive = !!pokemon.exclusive;
+    this.isMega = !!pokemon.mega;
 
     // clear any set moves
     delete this.quickMove;
@@ -619,11 +625,14 @@ class Raid extends Party {
   }
 
   async getSummaryField() {
-    const pokemon = this.isExclusive ?
-      'EX Raid' :
-      this.pokemon.name ?
-        this.pokemon.name.charAt(0).toUpperCase() + this.pokemon.name.slice(1) :
-        'Tier ' + this.pokemon.tier,
+    const pokemonName = this.pokemon.name ?
+      this.pokemon.name.charAt(0).toUpperCase() + this.pokemon.name.slice(1) :
+      '',
+      pokemon = this.isExclusive ?
+        'EX Raid' :
+        pokemonName.length > 0 ?
+          pokemonName :
+          'Tier ' + this.pokemon.tier,
       gym = await Gym.getGym(this.gymId),
       gymName = (!!gym.nickname ?
         gym.nickname :
@@ -731,7 +740,7 @@ class Raid extends Party {
   }
 
   async getFullStatusMessage() {
-    const pokemon = !!this.pokemon.name ?
+    const pokemon = !!this.pokemon.name && this.pokemon.name !== 'mega' ?
       this.pokemon.name.charAt(0).toUpperCase() + this.pokemon.name.slice(1) :
       '????',
       pokemonUrl = !!this.pokemon.url ?
@@ -751,7 +760,9 @@ class Raid extends Party {
         '????',
       raidDescription = this.isExclusive ?
         `EX Raid against ${pokemon}` :
-        `Level ${this.pokemon.tier} Raid against ${pokemon}`,
+        this.isMega ?
+          `Mega Raid against ${pokemon}` :
+          `Level ${this.pokemon.tier} Raid against ${pokemon}`,
 
       now = moment(),
 
@@ -1054,13 +1065,13 @@ class Raid extends Party {
       prefixType = this.getHatchStage();
 
     if (prefixType === 1) {
-      type = 'egg ' + pokemon.tier;
+      type = 'egg ' + pokemon.mega ? 'mega' : pokemon.tier;
     } else if (prefixType === 3 && pokemon.name === undefined) {
-      type = 'expired ' + pokemon.tier;
+      type = 'expired ' + pokemon.mega ? 'mega' : pokemon.tier;
     } else if (prefixType === 3 && pokemon.name !== undefined) {
       type = 'expired ' + pokemon.name;
     } else if (prefixType === 2 && pokemon.name === undefined) {
-      type = 'boss ' + pokemon.tier;
+      type = 'boss ' + pokemon.mega ? 'mega' : pokemon.tier;
     } else if (prefixType === 2 && pokemon.name !== undefined) {
       type = pokemon.name;
     }
@@ -1093,6 +1104,7 @@ class Raid extends Party {
     return Object.assign(super.toJSON(), {
       originallyCreatedBy: this.originallyCreatedBy,
       isExclusive: this.isExclusive,
+      isMega: this.isMega,
       lastPossibleTime: this.lastPossibleTime,
       timeWarn: this.timeWarn,
       hatchTime: this.hatchTime,

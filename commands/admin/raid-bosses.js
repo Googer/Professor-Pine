@@ -1,10 +1,10 @@
 "use strict";
 
 const log = require('loglevel').getLogger('RaidBossesCommand'),
-  Commando = require('discord.js-commando'),
-  DB = require('../../app/db'),
-  {MessageEmbed} = require('discord.js'),
   {CommandGroup} = require('../../app/constants'),
+  Commando = require('discord.js-commando'),
+  {MessageEmbed} = require('discord.js'),
+  Pokemon = require('../../app/pokemon'),
   Helper = require('../../app/helper'),
   settings = require('../../data/settings');
 
@@ -34,29 +34,29 @@ class RaidBossesCommand extends Commando.Command {
   }
 
   async run(message, args) {
-    const pokemon = await DB.DB('Pokemon')
-        .select(),
-      groups = {
+    const groups = {
         '1': [],
-        '2': [],
         '3': [],
-        '4': [],
         '5': [],
         'ex': [],
+        'mega': [],
         'rare': []
       },
       fields = [];
 
     let header = 'Registered Raid Bosses & Rare Spawns';
 
-    pokemon
+    Pokemon.index.search('*')
+      .map(res => JSON.parse(res.ref))
+      .filter(pokemon => !!pokemon.name)
+      .filter(pokemon => !!pokemon.tier || !!pokemon.mega || !!pokemon.exclusive)
       .sort((a, b) => a.name.localeCompare(b.name))
-      .forEach(poke => {
-        if (['1', '2', '3', '4', '5', 'ex'].indexOf(poke.name) !== -1) {
+      .forEach(pokemon => {
+        if (['1', '3', '5', 'ex', 'mega'].indexOf(pokemon.name) !== -1) {
           return;
         }
 
-        const name = poke.name.replace(/[_]/g, ' ')
+        const name = pokemon.name.replace(/[_]/g, ' ')
             .replace('alola', '(Alolan)')
             .replace('galarian', '(Galarian)'),
           parts = name.split(' ');
@@ -66,25 +66,29 @@ class RaidBossesCommand extends Commando.Command {
         });
 
         const formatted = parts.join(' '),
-          shiny = poke.shiny ? '*' : '';
+          shiny = pokemon.shiny ? '*' : '';
 
-        if (poke.exclusive) {
+        if (pokemon.exclusive) {
           groups.ex.push(shiny + formatted + shiny);
-        } else if (poke.tier === 7) {
+        } else if (pokemon.mega) {
+          groups.mega.push(shiny + formatted + shiny);
+        } else if (pokemon.tier === 7) {
           groups.rare.push(shiny + formatted + shiny);
-        } else if (poke.tier !== 0) {
-          groups[poke.tier].push(shiny + formatted + shiny);
+        } else if (pokemon.tier !== 0) {
+          groups[pokemon.tier].push(shiny + formatted + shiny);
         }
       });
 
     for (const tier in groups) {
-      const pokes = groups[tier];
-      if (tier === 'ex' && pokes.length) {
-        RaidBossesCommand.addField(fields, 'EX Raids', pokes);
-      } else if (tier === 'rare' && pokes.length) {
-        RaidBossesCommand.addField(fields, 'Rare Spawns', pokes);
-      } else if (pokes.length) {
-        RaidBossesCommand.addField(fields, `Tier ${tier}`, pokes);
+      const groupPokemon = groups[tier];
+      if (tier === 'ex' && groupPokemon.length) {
+        RaidBossesCommand.addField(fields, 'EX Raids', groupPokemon);
+      } else if (tier === 'mega' && groupPokemon.length) {
+        RaidBossesCommand.addField(fields, 'Mega Raids', groupPokemon);
+      } else if (tier === 'rare' && groupPokemon.length) {
+        RaidBossesCommand.addField(fields, 'Rare Spawns', groupPokemon);
+      } else if (groupPokemon.length) {
+        RaidBossesCommand.addField(fields, `Tier ${tier}`, groupPokemon);
       }
     }
 

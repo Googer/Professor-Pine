@@ -836,5 +836,4 @@ class PartyManager {
   }
 }
 
-module
-  .exports = new PartyManager();
+module.exports = new PartyManager();

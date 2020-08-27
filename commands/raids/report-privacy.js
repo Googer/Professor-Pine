@@ -33,7 +33,7 @@ class PrivacyCommand extends Commando.Command {
       if (!!message.command && message.command.name === 'privacy' && !Helper.isBotChannel(message)) {
         return {
           reason: 'invalid-channel',
-          response: message.reply(Helper.getText('auto-status.warning', message))
+          response: message.reply(Helper.getText('privacy.warning', message))
         };
       }
       return false;

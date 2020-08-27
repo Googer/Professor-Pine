@@ -6,11 +6,16 @@ node_modules/
 
 # ignore private settings
 data/private-settings.json
+knexfile.js
 
 # ignore persisted raid data
 raids/**
 parties/**
 images/**
+
+# ignore generated custom dictionaries
+lang-data/v4/gyms.txt
+lang-data/v4/pokemon.txt
 
 # ignore log files
 *.log

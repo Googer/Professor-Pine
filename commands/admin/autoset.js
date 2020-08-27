@@ -23,9 +23,9 @@ class AutosetCommand extends Commando.Command {
         },
         {
           key: 'tier',
-          prompt: 'What tier are you defaulting? (`1`, `2`, `3`, `4`, `5`, `ex`)',
+          prompt: 'What tier are you defaulting? (`1`, `3`, `5`, `ex`, `mega`)',
           type: 'string',
-          oneOf: ['1', '2', '3', '4', '5', 'ex']
+          oneOf: ['1', '3', '5', 'ex', 'mega']
         }
       ],
       guildOnly: true
@@ -49,11 +49,7 @@ class AutosetCommand extends Commando.Command {
     let pokemon = args['pokemon'],
       tier = args['tier'];
 
-    if (tier === 'ex') {
-      tier = 6;
-    }
-
-    Pokemon.setDefaultTierBoss(pokemon.name || tier, tier)
+    Pokemon.setDefaultTierBoss(pokemon.formName || tier, tier)
       .then(result => {
         message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍');
       }).catch(err => log.error(err));

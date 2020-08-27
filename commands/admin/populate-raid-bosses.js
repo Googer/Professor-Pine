@@ -40,17 +40,22 @@ class PopulateRaidBossesCommand extends Commando.Command {
       if (pokemon.backupExclusive) {
         names.push(pokemon.name || 'ex');
         promises.push(Pokemon.setRaidBoss(pokemon.name || 'ex', 'ex', pokemon.shiny || pokemon.backupShiny, pokemon.nickname || pokemon.backupNickname));
+      } else if (pokemon.backupMega) {
+        names.push(pokemon.name || 'mega');
+        promises.push(Pokemon.setRaidBoss(pokemon.name || 'mega', 'mega', pokemon.shiny || pokemon.backupShiny, pokemon.nickname || pokemon.backupNickname));
       } else if (pokemon.backupTier || pokemon.backupNickname) {
         names.push(pokemon.name || pokemon.backupTier + '');
-        promises.push(Pokemon.setRaidBoss(pokemon.name || pokemon.backupTier + '', pokemon.backupTier + '', pokemon.shiny || pokemon.backupShiny,  pokemon.nickname || pokemon.backupNickname));
+        promises.push(Pokemon.setRaidBoss(pokemon.name || pokemon.backupTier + '', pokemon.backupTier + '', pokemon.shiny || pokemon.backupShiny, pokemon.nickname || pokemon.backupNickname));
       }
     });
 
-    Promise.all(promises).then(result => {
-      Pokemon.buildIndex();
-      message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍');
-      log.debug('Added ' + names.join(', '));
-    }).catch(err => log.error(err));
+    Promise.all(promises)
+      .then(result => {
+        log.debug('Added ' + names.join(', '));
+        Pokemon.buildIndex();
+        return message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍');
+      })
+      .catch(err => log.error(err));
   }
 }
 

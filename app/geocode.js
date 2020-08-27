@@ -3,7 +3,8 @@
 const privateSettings = require('../data/private-settings'),
   log = require('loglevel').getLogger('Geocoder'),
   dbhelper = require('./dbhelper'),
-  googleMaps = require('@google/maps').createClient({
+  {Client} = require('@googlemaps/google-maps-services-js'),
+  googleMaps = new Client({
     key: privateSettings.googleApiKey
   });
 
@@ -273,7 +274,7 @@ class MetaMachine {
       const gymQuery = "SELECT * FROM Gym LEFT JOIN GymMeta ON Gym.id = GymMeta.gymId WHERE id = " + id;
       log.info(gymQuery);
 
-      dbhelper.query(gymQuery)
+      return dbhelper.query(gymQuery)
         .catch(error => log.error(error))
         .then(async result => {
           if (result && result.length > 0 && result[0].id) {
@@ -295,7 +296,7 @@ class MetaMachine {
             log.info("no result for gym");
           }
         });
-    })
+    });
   }
 
   async findPlacesNearGym(gym) {
