@@ -3,8 +3,7 @@
 const privateSettings = require('../data/private-settings'),
   log = require('loglevel').getLogger('Geocoder'),
   dbhelper = require('./dbhelper'),
-  {Client} = require('@googlemaps/google-maps-services-js'),
-  googleMaps = new Client({
+  googleMaps = require('@google/maps').createClient({
     key: privateSettings.googleApiKey
   });
 
