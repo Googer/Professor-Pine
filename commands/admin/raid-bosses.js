@@ -107,7 +107,7 @@ class RaidBossesCommand extends Commando.Command {
         message.channel.send(header, {embed})
           .catch(err => log.error(err));
 
-        if (header.indexOf(' (continued)' === -1)) {
+        if (header.indexOf(' (continued)') === -1) {
           header = header + ' (continued)';
         }
 
@@ -128,7 +128,7 @@ class RaidBossesCommand extends Commando.Command {
     for (const pokemon of pokemonList) {
       if (fieldContents.length + pokemon.length + 2 > 1024) {
         fields.push({fieldName, fieldContents});
-        if (fieldName.indexOf(' (continued)' === -1)) {
+        if (fieldName.indexOf(' (continued)') === -1) {
           fieldName = fieldName + ' (continued)';
         }
         fieldContents = pokemon;
