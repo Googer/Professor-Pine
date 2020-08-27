@@ -95,6 +95,7 @@
   },
   {
     "name": "charizard_mega_y",
+    "mega": true,
     "overrideName": "Mega Charizard Y",
     "nickname": "mega"
   },
