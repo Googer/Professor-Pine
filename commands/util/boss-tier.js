@@ -47,11 +47,22 @@ class BossTierCommand extends Commando.Command {
         let name = (pokemon.name || pokemon.tier + '').split('');
         name[0] = name[0].toUpperCase();
         name = name.join('');
-        let tier = ' tier ' + pokemon.tier + '';
-        if (pokemon.exclusive) {
-          tier = 'n exclusive';
+        let tier;
+
+        if (!pokemon.tier) {
+          tier = 'not a';
+        } else {
+          tier = 'a tier ' + pokemon.tier + '';
         }
-        message.channel.send(name + ' is a' + tier + ' raid boss.');
+
+        if (pokemon.exclusive) {
+          tier = 'an exclusive';
+        } else if (pokemon.mega) {
+          tier = 'a mega';
+        }
+
+        message.channel.send(name + ' is ' + tier + ' raid boss.')
+          .catch(err => log.error(err));
 
         return true;
       })
