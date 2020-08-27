@@ -106,7 +106,7 @@ class HelpCommand extends Commando.Command {
             const line = `**${command.name}**: ${command.description}`;
             if (fieldContents.length + line.length > 1024) {
               fields.push({fieldName, fieldContents});
-              if (fieldName.indexOf(' (continued)' === -1)) {
+              if (fieldName.indexOf(' (continued)') === -1) {
                 fieldName = fieldName + ' (continued)';
               }
               fieldContents = line;
