@@ -1065,13 +1065,13 @@ class Raid extends Party {
       prefixType = this.getHatchStage();
 
     if (prefixType === 1) {
-      type = 'egg ' + pokemon.mega ? 'mega' : pokemon.tier;
+      type = 'egg ' + (pokemon.mega ? 'mega' : pokemon.tier);
     } else if (prefixType === 3 && pokemon.name === undefined) {
-      type = 'expired ' + pokemon.mega ? 'mega' : pokemon.tier;
+      type = 'expired ' + (pokemon.mega ? 'mega' : pokemon.tier);
     } else if (prefixType === 3 && pokemon.name !== undefined) {
       type = 'expired ' + pokemon.name;
     } else if (prefixType === 2 && pokemon.name === undefined) {
-      type = 'boss ' + pokemon.mega ? 'mega' : pokemon.tier;
+      type = 'boss ' + (pokemon.mega ? 'mega' : pokemon.tier);
     } else if (prefixType === 2 && pokemon.name !== undefined) {
       type = pokemon.name;
     }
