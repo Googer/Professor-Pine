@@ -36,7 +36,9 @@ class RaidBossesCommand extends Commando.Command {
   async run(message, args) {
     const groups = {
         '1': [],
+        '2': [],
         '3': [],
+        '4': [],
         '5': [],
         'ex': [],
         'mega': [],
