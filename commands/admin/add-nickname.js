@@ -49,7 +49,7 @@ class AddNickNameCommand extends Commando.Command {
     const pokemon = args['pokemon'],
       nickname = args['nickname'];
 
-    Pokemon.addNickname(pokemon.formName, nickname)
+    Pokemon.addNickname(pokemon, nickname)
       .then(result => {
         message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍');
         Pokemon.buildIndex();

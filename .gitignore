@@ -24,3 +24,5 @@ lang-data/v4/pokemon.txt
 assets/processing
 
 yarn.lock
+
+.eslintcache

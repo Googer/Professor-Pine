@@ -26,7 +26,7 @@ class Pokemon extends Search {
 
     log.info('Indexing pokemon...');
 
-    const gameMaster = await GameMaster.getVersion('latest', 'json'),
+    const gameMaster = await GameMaster.getVersion('1595879989869', 'json'),
       pokemonRegex = new RegExp('^V[0-9]+_POKEMON_(.*)'),
       formsRegex = new RegExp('^FORMS_V[0-9]+_POKEMON_(.*)'),
       pokemonMetadata = require('../data/pokemon'),
@@ -339,7 +339,7 @@ class Pokemon extends Search {
   }
 
   convertNicknamesToArray(nicknames) {
-    return nicknames.split(', ');
+    return !!nicknames ? nicknames.split(', ') : [];
   }
 
   convertNicknamesToString(nicknames) {
@@ -347,7 +347,7 @@ class Pokemon extends Search {
   }
 
   async addNickname(pokemon, nickname) {
-    const nicknames = await this.getPokemonNicknames(pokemon),
+    const nicknames = await this.getPokemonNicknames(pokemon.formName),
       nicknameArray = this.convertNicknamesToArray(nicknames);
 
     if (nicknameArray[0] === '') {
@@ -362,7 +362,10 @@ class Pokemon extends Search {
 
     return DB.insertIfAbsent('Pokemon', Object.assign({},
       {
-        name: pokemon
+        name: pokemon.formName,
+        tier: (!!pokemon.tier ? pokemontier : 0),
+        exclusive: (!!pokemon.exclusive ? pokemon.exclusive : false),
+        mega: (!!pokemon.mega ? pokemon.mega : false)
       }))
       .then(pokemonId => DB.DB('Pokemon')
         .where('id', pokemonId)
