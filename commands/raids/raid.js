@@ -154,7 +154,7 @@ class RaidCommand extends Commando.Command {
               message.pokemon = raid.pokemon;
               message.isExclusive = raid.isExclusive;
 
-              let collectEndTime = !raid.defaulted;
+              let collectEndTime = !raid.defaulted && !raid.pokemon.egg;
 
               if (raid.pokemon.name && collectEndTime) {
                 return this.endTimeCollector.obtain(message);
