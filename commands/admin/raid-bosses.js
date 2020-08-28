@@ -48,8 +48,7 @@ class RaidBossesCommand extends Commando.Command {
 
     let header = 'Registered Raid Bosses & Rare Spawns';
 
-    Pokemon.index.search('*')
-      .map(res => JSON.parse(res.ref))
+    Pokemon.pokemon
       .filter(pokemon => !!pokemon.name)
       .filter(pokemon => !!pokemon.tier || !!pokemon.mega || !!pokemon.exclusive)
       .sort((a, b) => a.name.localeCompare(b.name))
