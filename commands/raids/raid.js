@@ -168,7 +168,7 @@ class RaidCommand extends Commando.Command {
             })
             .then(async collectionResult => {
               Utility.cleanCollector(collectionResult);
-              let collectEndTime = !raid.defaulted;
+              let collectEndTime = !raid.defaulted  && !raid.pokemon.egg;
 
               if (!collectionResult.cancelled) {
                 if (raid.pokemon.name && collectEndTime) {
