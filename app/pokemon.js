@@ -2,7 +2,7 @@
 
 const log = require('loglevel').getLogger('PokemonSearch'),
   DB = require('./db'),
-  GameMaster = require('pokemongo-game-master'),
+  {downloadGameMaster} = require('./game-master'),
   lunr = require('lunr'),
   main = require('../index'),
   privateSettings = require('../data/private-settings'),
@@ -26,11 +26,12 @@ class Pokemon extends Search {
 
     log.info('Indexing pokemon...');
 
-    const gameMaster = await GameMaster.getVersion('1595879989869', 'json'),
+    const gameMaster = (await downloadGameMaster())
+        .map(item => item.data),
       pokemonRegex = new RegExp('^V[0-9]+_POKEMON_(.*)'),
       formsRegex = new RegExp('^FORMS_V[0-9]+_POKEMON_(.*)'),
       pokemonMetadata = require('../data/pokemon'),
-      alternateForms = [].concat(...gameMaster.itemTemplate
+      alternateForms = [].concat(...gameMaster
         .filter(item => formsRegex.test(item.templateId))
         .filter(form => !!form.formSettings.forms)
         .map(form => form.formSettings.forms))
@@ -42,47 +43,48 @@ class Pokemon extends Search {
               '00',
             formSuffix: form.assetBundleSuffix
           })),
-      pokemon = gameMaster.itemTemplate
+      pokemon = gameMaster
         .filter(item => pokemonRegex.test(item.templateId))
-        .map(item => Object.assign({},
+        .map(pokemon => Object.assign({},
           {
-            name: item.pokemon.form ?
-              item.pokemon.form.toLowerCase() :
-              item.pokemon.uniqueId.toLowerCase(),
-            number: Number.parseInt(item.templateId.split('_')[0].slice(2)),
-            stats: item.pokemon.stats,
-            quickMoves: item.pokemon.quickMoves,
-            cinematicMoves: item.pokemon.cinematicMoves,
-            type: [item.pokemon.type1.split('_')[2].toLowerCase(), item.pokemon.type2 ?
-              item.pokemon.type2.split('_')[2].toLowerCase() :
+            name: pokemon.pokemonSettings.form ?
+              pokemon.pokemonSettings.form.toLowerCase() :
+              pokemon.pokemonSettings.pokemonId.toLowerCase(),
+            number: Number.parseInt(pokemon.templateId.split('_')[0].slice(2)),
+            stats: pokemon.pokemonSettings.stats,
+            quickMoves: pokemon.pokemonSettings.quickMoves,
+            cinematicMoves: pokemon.pokemonSettings.cinematicMoves,
+            type: [pokemon.pokemonSettings.type.split('_')[2].toLowerCase(), pokemon.pokemonSettings.type2 ?
+              pokemon.pokemonSettings.type2.split('_')[2].toLowerCase() :
               null]
               .filter(type => !!type),
-            form: item.pokemon.form ?
-              item.pokemon.form.split('_')[1].toLowerCase() :
+            form: pokemon.pokemonSettings.form ?
+              pokemon.pokemonSettings.form.split('_')[1].toLowerCase() :
               'normal'
           })),
-      // temporaryPokemon = gameMaster.itemTemplate
-      //   .filter(item => pokemonRegex.test(item.templateId))
-      //   // TODO: rename this when it's no longer obsuscated
-      //   .filter(pokemon => !!pokemon.temporaryEvolutions)
-      //   .map(item => Object.assign({},
-      //     {
-      //       name: item.pokemon.form ?
-      //         item.pokemon.form.toLowerCase() :
-      //         item.pokemon.uniqueId.toLowerCase(),
-      //       number: Number.parseInt(item.templateId.split('_')[0].slice(2)),
-      //       stats: item.pokemon.stats,
-      //       quickMoves: item.pokemon.quickMoves,
-      //       cinematicMoves: item.pokemon.cinematicMoves,
-      //       type: [item.pokemon.type1.split('_')[2].toLowerCase(), item.pokemon.type2 ?
-      //         item.pokemon.type2.split('_')[2].toLowerCase() :
-      //         null]
-      //         .filter(type => !!type),
-      //       form: item.pokemon.form ?
-      //         item.pokemon.form.split('_')[1].toLowerCase() :
-      //         'normal'
-      //     })),
-      updatedPokemon = await DB.DB('Pokemon').select(),
+      temporaryPokemon = gameMaster
+        .filter(item => pokemonRegex.test(item.templateId))
+        .filter(pokemon => !!pokemon.pokemonSettings.obTemporaryEvolutions)
+        .map(pokemon => pokemon.pokemonSettings.obTemporaryEvolutions
+          .map(evolution => Object.assign({}, {
+            name: ((pokemon.pokemonSettings.form ?
+              pokemon.pokemonSettings.form :
+              pokemon.pokemonSettings.pokemonId) + evolution.obTemporaryEvolution.substring(14)).toLowerCase(),
+            number: Number.parseInt(pokemon.templateId.split('_')[0].slice(2)),
+            temporaryStats: evolution.stats,
+            stats: pokemon.pokemonSettings.stats,
+            quickMoves: pokemon.pokemonSettings.quickMoves,
+            cinematicMoves: pokemon.pokemonSettings.cinematicMoves,
+            type: [evolution.type.split('_')[2].toLowerCase(), evolution.type2 ?
+              evolution.type2.split('_')[2].toLowerCase() :
+              null]
+              .filter(type => !!type),
+            form: pokemon.pokemonSettings.form ?
+              pokemon.pokemonSettings.form.split('_')[1].toLowerCase() :
+              'normal'
+          })))
+        .flat(),
+      databasePokemon = await DB.DB('Pokemon').select(),
       mergedPokemon = pokemonMetadata
         .map(poke => {
           if (settings.databaseRaids) {
@@ -113,14 +115,15 @@ class Pokemon extends Search {
             }
           }
 
-          const result = Object.assign({}, poke, pokemon.find(p => p.name === poke.base || p.name === poke.name));
+          const result = Object.assign({}, poke, pokemon.find(p => p.name === poke.name) ||
+            temporaryPokemon.find(p => p.name === poke.name));
           // Don't let base form's name override this form's name
           result.name = poke.name;
 
           return result;
         });
 
-    updatedPokemon.forEach(poke => {
+    databasePokemon.forEach(poke => {
       let isTier = ['1', '2', '3', '4', '5', 'ex', 'mega'].indexOf(poke.name) !== -1;
 
       let pokeDataIndex = mergedPokemon.findIndex(p => {
@@ -550,7 +553,11 @@ class Pokemon extends Search {
       stamina = 15000;
     }
 
-    return Math.floor(((pokemon.stats.baseAttack + 15) * Math.sqrt(pokemon.stats.baseDefense + 15) *
+    const stats = !!pokemon.temporaryStats ?
+      pokemon.temporaryStats :
+      pokemon.stats;
+
+    return Math.floor(((stats.baseAttack + 15) * Math.sqrt(stats.baseDefense + 15) *
       Math.sqrt(stamina)) / 10);
   }
 

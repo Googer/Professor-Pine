@@ -2,7 +2,7 @@
 
 const log = require('loglevel').getLogger('ImageCacher'),
   path = require('path'),
-  request = require("request"),
+  request = require('request'),
   fs = require('fs');
 
 class ImageCacher {
