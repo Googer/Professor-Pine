@@ -30,8 +30,9 @@ class Pokemon extends Search {
         .map(item => item.data),
       pokemonRegex = new RegExp('^V[0-9]+_POKEMON_(.*)'),
       formsRegex = new RegExp('^FORMS_V[0-9]+_POKEMON_(.*)'),
+      temporaryRegex = new RegExp('^TEMPORARY_EVOLUTION_V[0-9]+_POKEMON_(.*)'),
       pokemonMetadata = require('../data/pokemon'),
-      alternateForms = [].concat(...gameMaster
+      alternateForms = ([].concat(...gameMaster
         .filter(item => formsRegex.test(item.templateId))
         .filter(form => !!form.formSettings.forms)
         .map(form => form.formSettings.forms))
@@ -42,8 +43,17 @@ class Pokemon extends Search {
               `${form.assetBundleValue}` :
               '00',
             formSuffix: form.assetBundleSuffix
-          })),
-      pokemon = gameMaster
+          })))
+        .concat(gameMaster
+          .filter(item => temporaryRegex.test(item.templateId))
+          .map(temporaryForm => temporaryForm.temporaryEvolutionSettings.obTemporaryEvolutions
+            .map(evolution => Object.assign({},
+              {
+                formName: (temporaryRegex.exec(temporaryForm.templateId)[1] + evolution.obTemporaryEvolution.substring(14)).toLocaleLowerCase(),
+                formId: evolution.assetBundleValue
+              })))
+          .flat()),
+      pokemon = [].concat(...gameMaster
         .filter(item => pokemonRegex.test(item.templateId))
         .map(pokemon => Object.assign({},
           {
@@ -61,8 +71,8 @@ class Pokemon extends Search {
             form: pokemon.pokemonSettings.form ?
               pokemon.pokemonSettings.form.split('_')[1].toLowerCase() :
               'normal'
-          })),
-      temporaryPokemon = gameMaster
+          }))),
+      temporaryPokemon = [].concat(...gameMaster
         .filter(item => pokemonRegex.test(item.templateId))
         .filter(pokemon => !!pokemon.pokemonSettings.obTemporaryEvolutions)
         .map(pokemon => pokemon.pokemonSettings.obTemporaryEvolutions
@@ -75,15 +85,19 @@ class Pokemon extends Search {
             stats: pokemon.pokemonSettings.stats,
             quickMoves: pokemon.pokemonSettings.quickMoves,
             cinematicMoves: pokemon.pokemonSettings.cinematicMoves,
-            type: [evolution.type.split('_')[2].toLowerCase(), evolution.type2 ?
+            temporaryType: [evolution.type.split('_')[2].toLowerCase(), evolution.type2 ?
               evolution.type2.split('_')[2].toLowerCase() :
+              null]
+              .filter(type => !!type),
+            type: [pokemon.pokemonSettings.type.split('_')[2].toLowerCase(), pokemon.pokemonSettings.type2 ?
+              pokemon.pokemonSettings.type2.split('_')[2].toLowerCase() :
               null]
               .filter(type => !!type),
             form: pokemon.pokemonSettings.form ?
               pokemon.pokemonSettings.form.split('_')[1].toLowerCase() :
               'normal'
           })))
-        .flat(),
+        .flat()),
       databasePokemon = await DB.DB('Pokemon').select(),
       mergedPokemon = pokemonMetadata
         .map(poke => {
@@ -177,7 +191,7 @@ class Pokemon extends Search {
       poke.name = poke.overrideName ?
         poke.overrideName :
         poke.name;
-      poke.weakness = Pokemon.calculateWeaknesses(poke.type);
+      poke.weakness = Pokemon.calculateWeaknesses(poke.temporaryType || poke.type);
       poke.boostedConditions = Pokemon.calculateBoostConditions(poke.type);
       poke.url = `${privateSettings.pokemonUrlBase}pokemon_icon_${!!formSuffix ? formSuffix : lastThree + '_' + formId}.png`;
 
@@ -501,17 +515,14 @@ class Pokemon extends Search {
       return;
     }
 
-    let allConditions = ["sunny", "clear", "rain", "partlycloudy", "cloudy", "windy", "snow", "fog"],
-      boostedConditions = [];
-
-    types.forEach(type => {
-      boostedConditions.push(...weather[type]);
-    });
-
-    boostedConditions = [...new Set(boostedConditions)];
+    const boostedConditions = [...new Set(types
+      .map(type => weather[type])
+      .flat())];
 
     return {
-      standard: allConditions.filter(condition => !boostedConditions.includes(condition)),
+      standard: [...new Set(Object.values(weather)
+        .flat())]
+        .filter(condition => !boostedConditions.includes(condition)),
       boosted: boostedConditions
     };
   }
