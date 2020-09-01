@@ -17,6 +17,7 @@ const log = require('loglevel').getLogger('ImageProcessor'),
   {createWorker, OEM, PSM} = require('tesseract.js'),
   {PartyStatus, TimeParameter} = require('./constants'),
   {v1: uuidv1} = require('uuid'),
+  TimeType = require('../types/time'),
   Utility = require('./utility');
 
 // Will save all images regardless of how right or wrong, in order to better examine output
@@ -245,6 +246,10 @@ class ImageProcessing {
           .sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
           .join('\n'));
     });
+
+    this.gymType = Helper.client.registry.types.get('gym');
+    this.pokemonType = Helper.client.registry.types.get('raidpokemon');
+    this.timeType = Helper.client.registry.types.get('time');
   }
 
   /**
@@ -502,52 +507,61 @@ class ImageProcessing {
   /**
    * Given a tesseract result, find the highest-confidence subsequences in the result text
    */
-  tesseractGetConfidentSequences(result, minConfidence = 60, acceptZeroConfidence = false) {
+  tesseractGetConfidentSequences(result, minConfidence = 60, acceptZeroConfidence = false, useWords = false) {
     return result.symbols.length === 0 ?
       [] :
-      result.symbols
-        .map(symbol => {
-          // hack - tesseract likes to occasionally return a confidence of 0 with things it actually read very clearly
-          if (symbol.confidence === 0 && symbol.choices.length === 1 && acceptZeroConfidence) {
-            symbol.confidence = minConfidence;
-            symbol.choices[0].confidence = minConfidence;
-          }
+      useWords ?
+        [result.words
+          .map(word => word.choices
+            // choose highest-confidence word
+            .sort((choiceA, choiceB) => choiceB.confidence - choiceA.confidence)[0]
+          )
+          .filter(word => word.confidence > minConfidence)
+          .map(word => word.text)
+          .join(' ')] :
+        result.symbols
+          .map(symbol => {
+            // hack - tesseract likes to occasionally return a confidence of 0 with things it actually read very clearly
+            if (symbol.confidence === 0 && symbol.choices.length === 1 && acceptZeroConfidence) {
+              symbol.confidence = minConfidence;
+              symbol.choices[0].confidence = minConfidence;
+            }
 
-          return symbol;
-        })
-        // strip out very low-confidence colons (tesseract will see them correctly but with low confidence)
-        .filter(symbol => symbol.text !== ':' || symbol.confidence >= 20)
-        .map(symbol => Object.assign({}, symbol, symbol.choices
-          // choose highest-confidence symbol - not always the default one from tesseract!
-          .sort((choiceA, choiceB) => choiceB.confidence - choiceA.confidence)[0]
-        ))
-        .reduce((previous, current) => {
-          /// separate into chunks using low-confidence symbols as separators
-          let chunk;
+            return symbol;
+          })
+          // strip out very low-confidence colons (tesseract will see them correctly but with low confidence)
+          .filter(symbol => symbol.text !== ':' || symbol.confidence >= 20)
+          .map(symbol => Object.assign({}, symbol, symbol.choices
+            // choose highest-confidence symbol - not always the default one from tesseract!
+            .sort((choiceA, choiceB) => choiceB.confidence - choiceA.confidence)[0]
+          ))
+          .reduce((previous, current) => {
+            /// separate into chunks using low-confidence symbols as separators
+            let chunk;
 
-          if (current.confidence < minConfidence || previous.length === 0 ||
-            current.word.baseline !== previous[previous.length - 1][previous[previous.length - 1].length - 1].word.baseline) {
-            chunk = [];
-            previous.push(chunk);
-          } else {
-            chunk = previous[previous.length - 1];
-          }
+            if (current.confidence < minConfidence || previous.length === 0 ||
+              current.word.baseline !== previous[previous.length - 1][previous[previous.length - 1].length - 1].word.baseline) {
+              chunk = [];
+              previous.push(chunk);
+            } else {
+              chunk = previous[previous.length - 1];
+            }
 
-          chunk.push(current);
+            chunk.push(current);
 
-          return previous;
-        }, [])
-        // strip out symbols below min threshold
-        .map(array => array.filter(symbol => symbol.confidence >= minConfidence))
-        // sort to put highest-confidence tokens first
-        .sort((arrA, arrB) => ((arrB
-            .map(symbol => symbol.confidence)
-            .reduce((total, current) => total + current, 0) / arrB.length) || 0) -
-          ((arrA
-            .map(symbol => symbol.confidence)
-            .reduce((total, current) => total + current, 0) / arrA.length) || 0))
-        .map(symbols => symbols.map(symbol => symbol.text)
-          .join(''));
+            return previous;
+          }, [])
+          // strip out symbols below min threshold
+          .map(array => array.filter(symbol => symbol.confidence >= minConfidence))
+          // sort to put highest-confidence tokens first
+          .sort((arrA, arrB) => ((arrB
+              .map(symbol => symbol.confidence)
+              .reduce((total, current) => total + current, 0) / arrB.length) || 0) -
+            ((arrA
+              .map(symbol => symbol.confidence)
+              .reduce((total, current) => total + current, 0) / arrA.length) || 0))
+          .map(symbols => symbols.map(symbol => symbol.text)
+            .join(''));
   }
 
   /**
@@ -781,21 +795,11 @@ class ImageProcessing {
     });
   }
 
-  async getGymName(id, message, image, region) {
-    const GymType = Helper.client.registry.types.get('gym');
-
-    const debugImagePath = path.join(__dirname, this.imagePath, `${id}-gym-name.png`);
-    let values = await this.getOCRGymName(id, message, image, region)
-        .catch(err => {
-          log.error(err);
-          this.initializeGymTesseract();
-          return {text: ''};
-        }),
-      gymName = values.text;
+  async validateGymName(gymName, message) {
     const numGymWords = gymName.split(' ').length;
 
     // ensure gym exists and is allowed to be created
-    let validationResult = await GymType.validate(gymName, message, {isScreenshot: true});
+    let validationResult = await this.gymType.validate(gymName, message, {isScreenshot: true});
 
     if (!validationResult) {
       // If gymName doesn't exist, start popping off trailing words (likely to be partially obscured)
@@ -805,7 +809,7 @@ class ImageProcessing {
         gymName = gymName.substr(gymName, gymName.lastIndexOf(' '));
 
         // ensure gym exists and is allowed to be created
-        validationResult = await GymType.validate(gymName, message, {isScreenshot: true});
+        validationResult = await this.gymType.validate(gymName, message, {isScreenshot: true});
 
         if (validationResult) {
           break;
@@ -813,18 +817,44 @@ class ImageProcessing {
       }
     }
 
+    return {
+      result: validationResult,
+      gymName
+    }
+  }
+
+  async getGymName(id, message, image, region) {
+    const debugImagePath = path.join(__dirname, this.imagePath, `${id}-gym-name.png`);
+    let values = await this.getOCRGymName(id, message, image, region)
+      .catch(err => {
+        log.error(err);
+        this.initializeGymTesseract();
+        return {
+          symbols: '',
+          words: ''
+        };
+      });
+
+    let gymWordsName = values.words,
+      gymSymbolsName = values.symbols;
+
+    const validationResult = [
+      (await this.validateGymName(gymWordsName, message)),
+      (await this.validateGymName(gymSymbolsName, message))
+    ].find(result => result.result !== false);
+
     if (debugFlag || (!validationResult && log.getLevel() === log.levels.DEBUG)) {
-      log.debug('Gym Name: ', id, values.text);
+      log.debug('Gym Name: ', id, `[${values.words}]`, `[${values.symbols}]`);
       if (values.image) {
         values.image.write(debugImagePath);
       }
     }
 
-    if (validationResult === true) {
-      return await GymType.parse(gymName, message, {isScreenshot: true});
+    if (validationResult.result === true) {
+      return await this.gymType.parse(validationResult.gymName, message, {isScreenshot: true});
     }
 
-    if (validationResult !== true && validationResult !== false) {
+    if (validationResult.result !== true && validationResult.result !== false) {
       message.channel.send(validationResult)
         .then(validationMessage => validationMessage.delete({timeout: settings.messageCleanupDelayError}))
         .then(result => message.delete())
@@ -862,8 +892,14 @@ class ImageProcessing {
               this.gymTesseract.recognize(image)
                 .catch(err => reject(err))
                 .then(result => {
-                  const confidentWords = this.tesseractGetConfidentSequences(result.data, 80),
-                    text = confidentWords
+                  const confidentSymbols = this.tesseractGetConfidentSequences(result.data, 80),
+                    confidentWords = this.tesseractGetConfidentSequences(result.data, 80, false, true),
+                    symbols = confidentSymbols
+                      .map(word => word.replace(/[^\wα-ωΑ-Ω\s-\/]/g, '')
+                        .replace(/\n/g, ' ').trim())
+                      .filter(word => word.length > 0)
+                      .join(' '),
+                    words = confidentWords
                       .map(word => word.replace(/[^\wα-ωΑ-Ω\s-\/]/g, '')
                         .replace(/\n/g, ' ').trim())
                       .filter(word => word.length > 0)
@@ -871,7 +907,8 @@ class ImageProcessing {
 
                   resolve({
                     image: blurredImage,
-                    text
+                    symbols,
+                    words
                   })
                 });
             });
@@ -880,7 +917,6 @@ class ImageProcessing {
   }
 
   async getPokemonName(id, message, image, region) {
-    const PokemonType = Helper.client.registry.types.get('raidpokemon');
     let values,
       pokemon,
       cp;
@@ -901,10 +937,10 @@ class ImageProcessing {
       pokemon = values.pokemon;
       cp = values.cp;
 
-      if (PokemonType.validate(pokemon, message) === true) {
-        pokemon = PokemonType.parse(pokemon, message);
-      } else if (PokemonType.validate(`${cp}`, message) === true) {
-        pokemon = PokemonType.parse(`${cp}`, message);
+      if (this.pokemonType.validate(pokemon, message) === true) {
+        pokemon = this.pokemonType.parse(pokemon, message);
+      } else if (cp > 0 && this.pokemonType.validate(`${cp}`, message) === true) {
+        pokemon = this.pokemonType.parse(`${cp}`, message);
       } else {
         // if not a valid pokemon, use some placeholder information
         pokemon = {
@@ -999,7 +1035,6 @@ class ImageProcessing {
   }
 
   async getTier(id, message, image, region) {
-    const PokemonType = Helper.client.registry.types.get('raidpokemon');
     let values, pokemon;
 
     // try different levels of processing to get time
@@ -1018,8 +1053,8 @@ class ImageProcessing {
 
       // NOTE: Expects string in validation of egg tier
       pokemon = `${values.tier}`;
-      if (PokemonType.validate(pokemon, message) === true) {
-        pokemon = PokemonType.parse(pokemon, message);
+      if (this.pokemonType.validate(pokemon, message) === true) {
+        pokemon = this.pokemonType.parse(pokemon, message);
       } else {
         // if not a valid tier, use some placeholder information
         pokemon = {placeholder: true, name: 'egg', egg: true, tier: '????'};
@@ -1197,8 +1232,7 @@ class ImageProcessing {
   }
 
   async createRaid(message, data, imageUrl) {
-    const TimeType = Helper.client.registry.types.get('time'),
-      messageTime = moment(message.createdAt),
+    const messageTime = moment(message.createdAt),
       raidRegionChannel = data.channel,
       earliestAcceptedTime = messageTime.clone()
         .subtract(settings.standardRaidIncubateDuration, 'minutes')
@@ -1264,8 +1298,8 @@ class ImageProcessing {
       }
     }
 
-    if (TimeType.validate(time.format('[at] h:mma'), message, arg) === true) {
-      time = TimeType.parse(time.format('[at] h:mma'), message, arg);
+    if (this.timeType.validate(time.format('[at] h:mma'), message, arg) === true) {
+      time = this.timeType.parse(time.format('[at] h:mma'), message, arg);
     } else {
       time = false;
     }
