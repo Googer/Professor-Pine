@@ -380,7 +380,7 @@ class Pokemon extends Search {
     return DB.insertIfAbsent('Pokemon', Object.assign({},
       {
         name: pokemon.formName,
-        tier: (!!pokemon.tier ? pokemontier : 0),
+        tier: (!!pokemon.tier ? pokemon.tier : 0),
         exclusive: (!!pokemon.exclusive ? pokemon.exclusive : false),
         mega: (!!pokemon.mega ? pokemon.mega : false)
       }))
