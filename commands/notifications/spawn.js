@@ -14,7 +14,7 @@ class SpawnCommand extends Commando.Command {
   constructor(client) {
     super(client, {
       name: 'spawn',
-      group: CommandGroup.RAID_CRUD,
+      group: CommandGroup.NOTIFICATIONS,
       memberName: 'spawn',
       aliases: ['wild'],
       description: 'Announces a rare pokémon spawn.',
@@ -31,7 +31,7 @@ class SpawnCommand extends Commando.Command {
           type: 'raidpokemon',
         },
         {
-          key: 'message',
+          key: 'spawnDetails',
           label: 'message',
           prompt: 'What spawn details can you provide?\nExample: `At the stop by the point`\n',
           type: 'string',
@@ -53,10 +53,7 @@ class SpawnCommand extends Commando.Command {
     });
   }
 
-  async run(message, args) {
-    const pokemon = args['pokemon'],
-      spawnDetails = args['message'];
-
+  async run(message, {pokemon, spawnDetails}) {
     if (pokemon.name.toLocaleLowerCase().indexOf('unown') >= 0 && settings.channels.unown) {
       const unownChannel = Helper.getUnownChannel(message.guild),
         pokemonName = pokemon.name.charAt(0).toUpperCase() + pokemon.name.slice(1),
