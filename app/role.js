@@ -33,6 +33,19 @@ class Role {
             .catch(err => log.error(err))
         });
     });
+
+    Helper.client.on('partyChannelReaction', (raid, channel, memberId) => {
+      // Go through party members and check their permissions on the raid's channel,
+      // adding permission if necessary and informing via DM that they didn't and they
+      // probably want to go to the bot lab to fix this...
+      if (!channel.permissionsFor(memberId).has('VIEW_CHANNEL')) {
+        channel.updateOverwrite(memberId,
+          {
+            VIEW_CHANNEL: true
+          })
+          .catch(err => log.error(err));
+      }
+    });
   }
 
   // update or insert roles

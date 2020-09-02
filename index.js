@@ -32,6 +32,7 @@ const privateSettings = require('./data/private-settings'),
   Map = require('./app/map'),
   Notify = require('./app/notify'),
   PartyManager = require('./app/party-manager'),
+  RemoteRaidChannel = require('./app/remote-raid-channel'),
   Role = require('./app/role'),
   RoleAuthorization = require('./app/role-authorization'),
   Utility = require('./app/utility'),
@@ -231,6 +232,10 @@ Client.on('ready', async () => {
 
     if (settings.features.exGymChannel) {
       ExRaidChannel.initialize();
+    }
+
+    if (settings.features.remoteRaidChannel) {
+      RemoteRaidChannel.initialize();
     }
 
     if (settings.features.notifications) {

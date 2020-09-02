@@ -207,9 +207,13 @@ class PartyManager {
 
       const displayName = reaction.message.guild.members.cache.get(user.id).toString() || user.username;
 
+      let reactionEmoji = false;
+
       switch (reaction.emoji.name) {
         case settings.reactionCommands.interested.custom:
         case settings.reactionCommands.interested.plain: {
+          reactionEmoji = true;
+
           const interestedCommand = Helper.client.registry.resolveCommand('maybe'),
             statusMessageResult = await this.getMessage(party.messages
               .filter(messageCacheId => messageCacheId.startsWith(party.channelId))[0]);
@@ -233,6 +237,8 @@ class PartyManager {
 
         case settings.reactionCommands.join.custom:
         case settings.reactionCommands.join.plain: {
+          reactionEmoji = true;
+
           const joinCommand = Helper.client.registry.resolveCommand('join'),
             statusMessageResult = await this.getMessage(party.messages
               .filter(messageCacheId => messageCacheId.startsWith(party.channelId))[0]);
@@ -256,6 +262,8 @@ class PartyManager {
 
         case settings.reactionCommands.here.custom:
         case settings.reactionCommands.here.plain: {
+          reactionEmoji = true;
+
           const hereCommand = Helper.client.registry.resolveCommand('here'),
             statusMessageResult = await this.getMessage(party.messages
               .filter(messageCacheId => messageCacheId.startsWith(party.channelId))[0]);
@@ -279,6 +287,8 @@ class PartyManager {
 
         case settings.reactionCommands.done.custom:
         case settings.reactionCommands.done.plain: {
+          reactionEmoji = true;
+
           const doneCommand = Helper.client.registry.resolveCommand('done'),
             statusMessageResult = await this.getMessage(party.messages
               .filter(messageCacheId => messageCacheId.startsWith(party.channelId))[0]);
@@ -300,6 +310,8 @@ class PartyManager {
         }
 
         case settings.reactionCommands.incrementCount.plain: {
+          reactionEmoji = true;
+
           const status = party.getMemberStatus(user.id);
 
           if (status === PartyStatus.NOT_INTERESTED) {
@@ -330,6 +342,8 @@ class PartyManager {
         }
 
         case settings.reactionCommands.decrementCount.plain: {
+          reactionEmoji = true;
+
           const status = party.getMemberStatus(user.id);
 
           if (status !== PartyStatus.NOT_INTERESTED) {
@@ -347,6 +361,8 @@ class PartyManager {
 
         case settings.reactionCommands.remote.custom:
         case settings.reactionCommands.remote.plain: {
+          reactionEmoji = true;
+
           const isRemote = party.getMemberIsRemote(user.id),
             command = isRemote ?
               Helper.client.registry.resolveCommand('local') :
@@ -373,6 +389,8 @@ class PartyManager {
 
         case settings.reactionCommands.notInterested.custom:
         case settings.reactionCommands.notInterested.plain: {
+          reactionEmoji = true;
+
           const leaveCommand = Helper.client.registry.resolveCommand('leave'),
             statusMessageResult = await this.getMessage(party.messages
               .filter(messageCacheId => messageCacheId.startsWith(party.channelId))[0]);
@@ -394,6 +412,8 @@ class PartyManager {
         case settings.groupReactions.C:
         case settings.groupReactions.D:
         case settings.groupReactions.E: {
+          reactionEmoji = true;
+
           const groupCommand = Helper.client.registry.resolveCommand('group'),
             group = this.groupEmojiToGroupId[reaction.emoji.name],
             statusMessageResult = await this.getMessage(party.messages
@@ -409,6 +429,13 @@ class PartyManager {
           }
 
           break;
+        }
+      }
+
+      if (reactionEmoji) {
+        const partyChannel = (await this.getChannel(party.channelId)).channel;
+        if (!!partyChannel) {
+          Helper.client.emit('partyChannelReaction', party, partyChannel, user.id)
         }
       }
 

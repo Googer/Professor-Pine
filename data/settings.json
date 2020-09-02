@@ -74,6 +74,7 @@
   },
   "features": {
     "exGymChannel": true,
+    "remoteRaidChannel": true,
     "reactionCommands": true,
     "notifications": true,
     "roles": true
@@ -86,6 +87,7 @@
     "mod-bot-lab": "mod-bot-only",
     "unown": "unown-sightings",
     "ex-gym-raids": "potential-ex-gym-raids",
+    "remote-raids": "remote-raids",
     "pvp": "rank-checker",
     "bot-updates": "bot-updates"
   },

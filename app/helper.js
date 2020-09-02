@@ -47,6 +47,9 @@ class Helper {
             exAnnounceChannel: guild.channels.cache.find(channel => {
               return channel.name === settings.channels["ex-gym-raids"];
             }),
+            remoteRaidAnnounceChannel: guild.channels.cache.find(channel => {
+              return channel.name === settings.channels["remote-raids"];
+            }),
             pvp: guild.channels.cache.find(channel => {
               return channel.name === settings.channels["pvp"];
             }),
@@ -99,6 +102,9 @@ class Helper {
             }),
             exAnnounceChannel: guild.channels.cache.find(channel => {
               return channel.name === settings.channels["ex-gym-raids"];
+            }),
+            remoteRaidAnnounceChannel: guild.channels.cache.find(channel => {
+              return channel.name === settings.channels["remote-raids"];
             }),
             pvp: guild.channels.cache.find(channel => {
               return channel.name === settings.channels["pvp"];
@@ -183,6 +189,10 @@ class Helper {
 
   getExRaidAnnounceChannel(guild) {
     return this.guild.get(guild.id).channels.exAnnounceChannel;
+  }
+
+  getRemoteRaidAnnounceChannel(guild) {
+    return this.guild.get(guild.id).channels.remoteRaidAnnounceChannel;
   }
 
   getUnownChannel(guild) {

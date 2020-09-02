@@ -723,6 +723,25 @@ class Raid extends Party {
       .catch(err => log.error(err));
   }
 
+  createRemoteRaidChannelMessage() {
+    PartyManager.getChannel(this.channelId)
+      .then(async channelResult => {
+        if (channelResult.ok) {
+          const raidChannel = channelResult.channel;
+
+          const remoteRaidAnnounceChannel = Helper.getRemoteRaidAnnounceChannel(raidChannel.guild);
+
+          if (remoteRaidAnnounceChannel) {
+            const formattedMessage = await this.getFullStatusMessage();
+
+            return remoteRaidAnnounceChannel.send(formattedMessage)
+              .then(remoteRaidStatusMessage => PartyManager.addMessage(this.channelId, remoteRaidStatusMessage))
+          }
+        }
+      })
+      .catch(err => log.error(err));
+  }
+
   getIncompleteScreenshotMessage() {
     let message = '';
 
