@@ -2,9 +2,11 @@
 
 const log = require('loglevel').getLogger('MovesSearch'),
   lunr = require('lunr'),
-  moves = require('../data/moves'),
+  main = require('../index'),
+  {downloadGameMaster, downloadText} = require('./pogo-data'),
   removeDiacritics = require('diacritics').remove,
-  Search = require('./search');
+  Search = require('./search'),
+  Utility = require('./utility');
 
 class Moves extends Search {
   constructor() {
@@ -12,7 +14,32 @@ class Moves extends Search {
   }
 
   async buildIndex() {
+    while (!main.isInitialized) {
+      await Utility.sleep(1000);
+    }
+
     log.info('Indexing moves...');
+
+    const gameMaster = await downloadGameMaster(),
+      text = await downloadText(),
+      moveRegex = new RegExp('^move_name_([0-9]+)$'),
+      moveNames = Object.create(null);
+
+    for (let i = 0; i < text.data.length; ++i) {
+      const match = moveRegex.exec(text.data[i]);
+
+      if (!!match) {
+        const internalNameRegex = new RegExp(`^V${match[1]}_MOVE_(.*)$`),
+          internalName = gameMaster
+            .map(item => item.templateId)
+            .map(templateId => internalNameRegex.exec(templateId))
+            .find(item => !!item);
+
+        if (internalName) {
+          moveNames[internalName[1]] = text.data[i + 1];
+        }
+      }
+    }
 
     this.index = lunr(function () {
       this.ref('move');
@@ -21,7 +48,7 @@ class Moves extends Search {
       // remove stop word filter
       this.pipeline.remove(lunr.stopWordFilter);
 
-      Object.entries(moves)
+      Object.entries(moveNames)
         .forEach(([move, name]) => {
           const moveDocument = Object.create(null);
 
@@ -32,7 +59,13 @@ class Moves extends Search {
         }, this);
     });
 
+    this.moveNames = moveNames;
+
     log.info('Indexing moves complete');
+  }
+
+  getFriendlyName(internalName) {
+    return this.moveNames[internalName];
   }
 
   internalSearch(terms, fields) {

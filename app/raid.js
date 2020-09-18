@@ -5,10 +5,10 @@ const log = require('loglevel').getLogger('Raid'),
   AsyncLock = require('async-lock'),
   moment = require('moment'),
   settings = require('../data/settings'),
-  moves = require('../data/moves'),
   {PartyStatus, PartyType} = require('./constants'),
   Discord = require('discord.js'),
   Helper = require('./helper'),
+  Moves = require('./moves'),
   Pokemon = require('./pokemon'),
   Party = require('./party'),
   Status = require('./status'),
@@ -772,10 +772,10 @@ class Raid extends Party {
           .join('')}` :
         '',
       pokemonQuickMove = !!this.quickMove ?
-        moves[this.quickMove] :
+        Moves.getFriendlyName(this.quickMove) :
         '????',
       pokemonCinematicMove = !!this.cinematicMove ?
-        moves[this.cinematicMove] :
+        Moves.getFriendlyName(this.cinematicMove) :
         '????',
       raidDescription = this.isExclusive ?
         `EX Raid against ${pokemon}` :

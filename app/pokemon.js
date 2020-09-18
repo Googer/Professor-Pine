@@ -2,7 +2,7 @@
 
 const log = require('loglevel').getLogger('PokemonSearch'),
   DB = require('./db'),
-  {downloadGameMaster} = require('./game-master'),
+  {downloadGameMaster} = require('./pogo-data'),
   lunr = require('lunr'),
   main = require('../index'),
   privateSettings = require('../data/private-settings'),
