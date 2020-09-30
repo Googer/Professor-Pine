@@ -13,7 +13,7 @@ const log = require('loglevel').getLogger('Raid'),
   Party = require('./party'),
   Status = require('./status'),
   Privacy = require('./privacy'),
-  text = require('../data/text.json'),
+  text = require('../data/text'),
   TimeType = require('../types/time');
 
 let Gym,

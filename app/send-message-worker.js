@@ -1,4 +1,3 @@
-// Access the workerData by requiring it.
 const log = require('loglevel').getLogger('NotifyHelper');
 require('loglevel-prefix-persist/server')(process.env.NODE_ENV, log, {
   level: {
@@ -12,17 +11,22 @@ require('loglevel-prefix-persist/server')(process.env.NODE_ENV, log, {
 log.setLevel('debug');
 
 const async = require('async'),
-  Discord = require('discord.js'),
+  {Client, Intents} = require('discord.js'),
+  myIntents = new Intents(),
   NodeCleanup = require('node-cleanup'),
   {parentPort} = require('worker_threads'),
   privateSettings = require('../data/private-settings'),
-  settings = require('../data/settings'),
-  NotifyClient = new Discord.Client({
-    owner: privateSettings.owner,
-    restWsBridgeTimeout: 10000,
-    restTimeOffset: 1000,
-    commandPrefix: settings.commandPrefix || '!'
-  });
+  settings = require('../data/settings');
+
+myIntents.add('DIRECT_MESSAGES');
+
+const NotifyClient = new Client({
+  owner: privateSettings.owner,
+  restWsBridgeTimeout: 10000,
+  restTimeOffset: 1000,
+  commandPrefix: settings.commandPrefix || '!',
+  ws: {intents: myIntents}
+});
 
 const jobQueue = async.queue(async ({userId, message, embed}) =>
     await sendMessage(userId, message, embed)

@@ -368,9 +368,11 @@ class Party {
     return {
       boss: boss = !!party && !!party.pokemon ? party.pokemon.name : boss,
       tier: tier = !!party && !!party.pokemon
-        ? !!party.pokemon.tier
-          ? party.pokemon.tier.toString()
-          : party.pokemon.backupTier.toString()
+        ? party.pokemon.mega ?
+          'MEGA' :
+          !!party.pokemon.tier
+            ? party.pokemon.tier.toString()
+            : party.pokemon.backupTier.toString()
         : tier
     }
   }

@@ -1,10 +1,9 @@
 const log = require('loglevel').getLogger('RankCommand'),
   {CommandGroup} = require('../../app/constants'),
   Commando = require('discord.js-commando'),
-  CountersData = require('../../data/counters'),
-  CpmData = require('../../data/cpm'),
   Helper = require('../../app/helper'),
-  {MessageEmbed} = require('discord.js');
+  {MessageEmbed} = require('discord.js'),
+  Pokemon = require('../../app/pokemon');
 
 class PvPRankingData {
   constructor(command, arg, client) {
@@ -14,7 +13,7 @@ class PvPRankingData {
       {
         key: 'pvpPokemon',
         prompt: 'Which species of Pokémon would you like to evaluate a specific IV combination PvP rank for?',
-        type: 'counterpokemontype',
+        type: 'pokemon',
       }
     ], 3);
     this.attackCollector = new Commando.ArgumentCollector(client, [
@@ -162,47 +161,27 @@ class PvPRankingData {
       return;
     }
 
+    this.commandName = this.pokemon.name;
     if (!this.pokemon.gsName[1]) { //If no more than 1 gsName, use 0 index for commandName.
       this.commandName = this.pokemon.gsName[0].replace(/ /g, '-').replace(/_/g, '-').toLowerCase();
     } else { //If more than 1 gsName, use 1 index for commandName.
       this.commandName = this.pokemon.gsName[1].replace(/ /g, '-').replace(/_/g, '-').toLowerCase();
     }
-    let inputname = this.pokemon.pbName;
-    let inputfamily = this.pokemon.family;
-    let familyList = [];
-    let clone = JSON.parse(JSON.stringify(CountersData));
+
+    let familyList;
     if (this.command === 'great-evo' || this.command === 'greatevo' || this.command === 'ultra-evo' || this.command === 'ultraevo') {
-      for (let key1 of clone.pokemon) {
-        if (key1.family === inputfamily) {
-          familyList.push(key1);
-        }
-      }
-      this.familyList = familyList;
+      familyList = Pokemon.getFamily(this.pokemon);
     } else {
-      for (let key1 of clone.pokemon) {
-        if (key1.pbName === inputname) {
-          familyList.push(key1);
-        }
-      }
-      this.familyList = [familyList[0]];
+      familyList = [this.pokemon];
     }
+    this.familyList = familyList;
 
     if (parseInt(this.inputAttackIV) < this.ivFilter || parseInt(this.inputDefenseIV) < this.ivFilter || parseInt(this.inputStaminaIV) < this.ivFilter) {
       this.embedErrorMessage = `IV outside of filter range. __**Minimum IV: ${this.ivFilter}**__`;
     }
   }
 
-  calculateCp(baseAttack, baseDefense, baseStamina, attackIV, defenseIV, staminaIV, cpmMultiplier) {
-    let totalAttack = baseAttack + attackIV,
-      totalDefense = baseDefense + defenseIV,
-      totalStamina = baseStamina + staminaIV;
-
-    let cp = Math.floor((totalAttack * (totalDefense ** 0.5) * (totalStamina ** 0.5) * (cpmMultiplier ** 2)) / 10);
-
-    return cp >= 10 ? cp : 10; // min CP is 10
-  }
-
-  generateRanks(cpmData) {
+  generateRanks() {
     if (this.flag === true) {
       // If somebody cancels the command in scrape(), we don't want this function running.
       return;
@@ -226,11 +205,11 @@ class PvPRankingData {
         rawDefense,
         rawStamina;
 
-      let baseAttack = this.familyList[i].atk,
-        baseDefense = this.familyList[i].def,
-        baseStamina = this.familyList[i].sta;
-      // insert the cpm data to iterate calculating from level 40 down
-      let reversedCpmData = cpmData.slice().reverse(); // slice to not mutate original array
+      let baseAttack = this.familyList[i].stats.baseAttack,
+        baseDefense = this.familyList[i].stats.baseDefense,
+        baseStamina = this.familyList[i].stats.baseStamina;
+      // insert the cpm data to iterate on
+      const cpmData = Pokemon.getCPTable();
 
       // Iterates through each of the 4096 IV combinations (0-15).
       // Then starting at level 40, calculate the CP of the Pokemon at that IV.
@@ -240,10 +219,8 @@ class PvPRankingData {
       for (let attackIV = this.ivFilter; attackIV <= 15; attackIV++) {
         for (let defenseIV = this.ivFilter; defenseIV <= 15; defenseIV++) {
           for (let staminaIV = this.ivFilter; staminaIV <= 15; staminaIV++) {
-            for (let cpmLevel of reversedCpmData) {
-              level = cpmLevel.level;
-              cpmMultiplier = cpmLevel.cpmMultiplier;
-              cp = this.calculateCp(baseAttack, baseDefense, baseStamina, attackIV, defenseIV, staminaIV, cpmMultiplier);
+            for (const {level, cpmMultiplier} of cpmData) {
+              cp = Pokemon.calculateCP(this.familyList[i], level, attackIV, defenseIV, staminaIV);
               if (cp <= this.cpLeague) {
                 rawAttack = (baseAttack + attackIV) * cpmMultiplier;
                 rawDefense = (baseDefense + defenseIV) * cpmMultiplier;
@@ -289,7 +266,7 @@ class PvPRankingData {
         val.pctMaxStatProduct = (val.rawStatProduct / ivArr[0].rawStatProduct) * 100;
       });
 
-      this.familyList[i].url = `https://gostadium.club/pvp/iv?pokemon=` +
+      this.familyList[i].gsUrl = `https://gostadium.club/pvp/iv?pokemon=` +
         `${this.familyList[i].goStadiumName.replace(' ', '+').replace('_', '+')}` +
         `&max_cp=${this.cpLeague}` +
         `&min_iv=${this.ivFilter}` +
@@ -324,14 +301,16 @@ class PvPRankingData {
       this.familyList[i].zdefiv = ivArr[0].defIv;
       this.familyList[i].zstaiv = ivArr[0].staIv;
     }
+
     //Sort list of ranked pokemon. Highest rank gets index 0.
-    this.familyList.sort(function (a, b) {
+    this.familyList.sort((a, b) => {
       if ((b.cp - a.cp) > 300) return 1;
       if ((a.cp - b.cp) > 300) return -1;
       if (a.rank > b.rank) return 1;
       if (a.rank < b.rank) return -1;
       return 0
     });
+
     this.embedName = this.familyList[0].gsName[0]; //Sets name shown above hyperlink next to IV combination (First line of embed)
   }
 
@@ -364,12 +343,12 @@ class PvPRankingData {
     let embed;
     if (!this.embedErrorMessage) { //If no error message was found.
       let rankOutOf = this.ivFilter > 0 ? `/${Math.pow((16 - this.ivFilter), 3).toString()}` : ''; //If there is a filter, then give a Rank/HowMany. Otherwise, blank variable.
-      let requestInfo = `\n**[${league} LEAGUE](${this.familyList[0].url})\nRank**: ${this.familyList[0].rank}${rankOutOf}` +
+      let requestInfo = `\n**[${league} LEAGUE](${this.familyList[0].gsUrl})\nRank**: ${this.familyList[0].rank}${rankOutOf}` +
         ` (${this.familyList[0].pctMaxStatProductStr})\n**CP**: ${this.familyList[0].cp} @ Level ${this.familyList[0].level}\n`;
 
       let requestInfo2 = ``;
       for (let i = 1; i < this.familyList.length; i++) {
-        requestInfo2 += `**[${this.familyList[i].gsName[0].titleCase()}](${this.familyList[i].url})**` +
+        requestInfo2 += `**[${this.familyList[i].gsName[0].titleCase()}](${this.familyList[i].gsUrl})**` +
           `   Rank: ${this.familyList[i].rank} | ${this.familyList[i].cp}CP @ L${this.familyList[i].level}\n`;
       }
 
@@ -393,7 +372,7 @@ class PvPRankingData {
       embed = new MessageEmbed()
         .setColor(embedColor(this.familyList[0].pctMaxStatProduct))
         .addField(nameField, requestInfo)
-        .setThumbnail(this.familyList[0].imageURL);
+        .setThumbnail(this.familyList[0].url);
 
       if (!!requestInfo2) {
         embed.addField("\n__**Family Ranks**__", requestInfo2);
@@ -404,11 +383,11 @@ class PvPRankingData {
       }
     } else { //If rank was not found. This is due to an IV request outside of the allowed IVs per the IV filter. (Asking for rank of IV: 5 from a raid boss when minimum is 10)
       let nameField = `**${this.embedName.replace(/_/g, ' ').titleCase()}**  ${this.inputAttackIV}/${this.inputDefenseIV}/${this.inputStaminaIV}\n`; //nameField is pokemon name & IVs.
-      let requestInfo = `\n**[${league} LEAGUE](${this.url})\nRank**:   *Not Found*\n**CP**: *Not Found*\n**Error**: ${this.embedErrorMessage}`;
+      let requestInfo = `\n**[${league} LEAGUE](${this.gsUrl})\nRank**:   *Not Found*\n**CP**: *Not Found*\n**Error**: ${this.embedErrorMessage}`;
       embed = new MessageEmbed()
         .setColor('ff0000')
         .addField(nameField, requestInfo)
-        .setThumbnail(this.pokemon.imageURL);
+        .setThumbnail(this.pokemon.url);
 
       if (!isDM) {
         embed.setFooter(`Requested by ${message.member.displayName}`, message.author.displayAvatarURL());
@@ -477,12 +456,12 @@ class RankCommand extends Commando.Command {
     if (userCommand === 'great' || userCommand === 'rank' || userCommand === 'great-evo' || userCommand === 'greatevo') {
       let greatRank = new PvPRankingData(userCommand, args, message.client);
       await greatRank.getUserRequest(message, userCommand);
-      await greatRank.generateRanks(CpmData);
+      await greatRank.generateRanks();
       await greatRank.displayInfo(message, userCommand, message.channel.type === 'dm');
     } else if (userCommand === 'ultra' || userCommand === 'ultra-evo' || userCommand === 'ultraevo' || userCommand === 'master') {
       let ultraRank = new PvPRankingData(userCommand, args, message.client);
       await ultraRank.getUserRequest(message, userCommand);
-      await ultraRank.generateRanks(CpmData);
+      await ultraRank.generateRanks();
       await ultraRank.displayInfo(message, userCommand, message.channel.type === 'dm');
     }
   }

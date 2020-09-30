@@ -1,4 +1,4 @@
-const log = require('loglevel').getLogger('Silph'),
+const log = require('loglevel').getLogger('HowManyCommand'),
   Commando = require('discord.js-commando'),
   {MessageEmbed} = require('discord.js'),
   {CommandGroup} = require('../../app/constants'),
@@ -62,13 +62,13 @@ class HowManyCommand extends Commando.Command {
 
   async run(message, args) {
     let partyPresets = Party.parsePartyDetails(message),
-      boss = !!partyPresets.boss ? this.parseCounterType(partyPresets.boss, message, args, 'counterpokemontype') : '';
+      boss = !!partyPresets.boss ? this.parseCounterType(partyPresets.boss, message, args, 'raidpokemon') : '';
 
-    if (!boss) boss = this.parseCounterType(message.argString.trim(), message, args, 'counterpokemontype');
-    if (!boss) boss = await this.collectParameter(message, 'what raid boss would you like to battle against?\n', 'counterpokemontype');
+    if (!boss) boss = this.parseCounterType(message.argString.trim(), message, args, 'raidpokemon');
+    if (!boss) boss = await this.collectParameter(message, 'what raid boss would you like to battle against?\n', 'raidpokemon');
     if (!boss) return;
 
-    let bossName = this.titleCase(boss.pbName.replace(/_/g, ' '));
+    let bossName = this.titleCase(boss.name);
 
     let bossUrl = 'https://thesilphroad.com/raid-bosses';
 
@@ -99,7 +99,7 @@ class HowManyCommand extends Commando.Command {
         silphStyle = silphBoss.attr('style');
         if (!!silphStyle) {
           silphSlug = silphBoss.attr('data-pokemon-slug');
-          silphPokemon = that.parseCounterType(silphSlug.replace(/-/g, ' '), message, '', 'counterpokemontype');
+          silphPokemon = that.parseCounterType(silphSlug.replace(/-/g, ' '), message, '', 'raidpokemon');
           if (!!silphPokemon && silphPokemon.pbName === boss.pbName) {
             $(this).find('.hexagons').children().each(function () {
               howManyArr.push(parseInt($(this).attr('class').match(/difficulty(\d+)/)[1]));
@@ -170,7 +170,7 @@ class HowManyCommand extends Commando.Command {
       .setURL('https://thesilphroad.com/research-tasks')
       .setColor('#43B581')
       .addField(`In order to beat ${bossName}, you need the following # of trainers:`, content)
-      .setThumbnail(boss.imageURL);
+      .setThumbnail(boss.url);
 
     if (message.channel.type !== 'dm') {
       embed.setFooter(`Requested by ${message.member.displayName}`, message.author.displayAvatarURL());

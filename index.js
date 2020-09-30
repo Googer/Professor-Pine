@@ -15,13 +15,18 @@ log.setLevel('debug');
 const privateSettings = require('./data/private-settings'),
   settings = require('./data/settings'),
   Commando = require('discord.js-commando'),
-  Discord = require('discord.js'),
-  Client = new Commando.Client({
+  {Intents} = require('discord.js'),
+  myIntents = new Intents();
+
+myIntents.add('GUILDS', 'GUILD_MEMBERS', 'GUILD_EMOJIS', 'GUILD_MESSAGES', 'GUILD_MESSAGE_REACTIONS', 'GUILD_PRESENCES', 'DIRECT_MESSAGES');
+
+const Client = new Commando.Client({
     owner: privateSettings.owner,
     restWsBridgeTimeout: 10000,
     restTimeOffset: 1000,
     partials: ['MESSAGE', 'CHANNEL', 'REACTION'],
-    commandPrefix: settings.commandPrefix || '!'
+    commandPrefix: settings.commandPrefix || '!',
+    ws: {intents: myIntents}
   }),
   DB = require('./app/db.js'),
   NodeCleanup = require('node-cleanup'),
@@ -220,41 +225,35 @@ if (privateSettings.googleApiKey !== '') {
     require('./commands/util/find-region'));
 }
 
-let isInitialized = false;
-
-Client.on('ready', async () => {
+Client.once('ready', async () => {
   log.info('Client logged in');
 
-  // Only initialize various classes once ever since ready event gets fired
-  // upon reconnecting after longer outages
-  if (!isInitialized) {
-    Helper.setClient(Client);
+  Helper.setClient(Client);
 
-    if (settings.features.exGymChannel) {
-      ExRaidChannel.initialize();
-    }
-
-    if (settings.features.remoteRaidChannel) {
-      RemoteRaidChannel.initialize();
-    }
-
-    if (settings.features.notifications) {
-      Notify.initialize();
-    }
-
-    if (settings.features.roles) {
-      Role.initialize();
-    }
-
-    PartyManager.setClient(Client);
-    await DB.initialize(Client);
-    RoleAuthorization.initialize(Client);
-    Map.initialize(Client);
-    IP.initialize();
-    await Gym.buildIndexes();
-
-    module.exports.isInitialized = isInitialized = true;
+  if (settings.features.exGymChannel) {
+    ExRaidChannel.initialize();
   }
+
+  if (settings.features.remoteRaidChannel) {
+    RemoteRaidChannel.initialize();
+  }
+
+  if (settings.features.notifications) {
+    Notify.initialize();
+  }
+
+  if (settings.features.roles) {
+    Role.initialize();
+  }
+
+  PartyManager.setClient(Client);
+  await DB.initialize(Client);
+  RoleAuthorization.initialize(Client);
+  Map.initialize(Client);
+  IP.initialize();
+  await Gym.buildIndexes();
+
+  Helper.setInitialized();
 });
 
 process.on('unhandledRejection', (reason, promise) => {
@@ -297,5 +296,3 @@ Client.on('guildUnavailable', guild => log.warn(`Guild ${guild.id} unavailable!`
 PartyManager.initialize()
   .then(() => Client.login(privateSettings.discordBotToken))
   .catch(err => log.error(err));
-
-module.exports.isInitialized = isInitialized;

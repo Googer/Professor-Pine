@@ -3,8 +3,8 @@
 const log = require('loglevel').getLogger('PokemonSearch'),
   DB = require('./db'),
   {downloadGameMaster} = require('./pogo-data'),
+  Helper = require('./helper'),
   lunr = require('lunr'),
-  main = require('../index'),
   privateSettings = require('../data/private-settings'),
   removeDiacritics = require('diacritics').remove,
   Search = require('./search'),
@@ -20,7 +20,7 @@ class Pokemon extends Search {
 
   async buildIndex() {
     // wait for main initialization to be complete to be sure DB is set up
-    while (!main.isInitialized) {
+    while (!Helper.isInitialized()) {
       await Utility.sleep(1000);
     }
 
@@ -31,6 +31,7 @@ class Pokemon extends Search {
       pokemonRegex = new RegExp('^V[0-9]+_POKEMON_(.*)'),
       formsRegex = new RegExp('^FORMS_V[0-9]+_POKEMON_(.*)'),
       temporaryRegex = new RegExp('^TEMPORARY_EVOLUTION_V[0-9]+_POKEMON_(.*)'),
+      familyRegex = new RegExp('^FAMILY_(.*)$'),
       pokemonMetadata = require('../data/pokemon'),
       alternateForms = ([].concat(...gameMaster
         .filter(item => formsRegex.test(item.templateId))
@@ -64,6 +65,7 @@ class Pokemon extends Search {
             stats: pokemon.pokemonSettings.stats,
             quickMoves: pokemon.pokemonSettings.quickMoves,
             cinematicMoves: pokemon.pokemonSettings.cinematicMoves,
+            family: familyRegex.exec(pokemon.pokemonSettings.familyId)[1],
             type: [pokemon.pokemonSettings.type.split('_')[2].toLowerCase(), pokemon.pokemonSettings.type2 ?
               pokemon.pokemonSettings.type2.split('_')[2].toLowerCase() :
               null]
@@ -137,6 +139,8 @@ class Pokemon extends Search {
           return result;
         });
 
+    this.buildCPTable(gameMaster);
+
     databasePokemon.forEach(poke => {
       let isTier = ['1', '2', '3', '4', '5', 'ex', 'mega'].indexOf(poke.name) !== -1;
 
@@ -204,10 +208,10 @@ class Pokemon extends Search {
 
       if (poke.number && ((poke.tier && poke.tier <= 5)) || poke.mega || poke.exclusive) {
         poke.bossCP = Pokemon.calculateBossCP(poke);
-        poke.minBaseCP = Pokemon.calculateCP(poke, 20, 10, 10, 10);
-        poke.maxBaseCP = Pokemon.calculateCP(poke, 20, 15, 15, 15);
-        poke.minBoostedCP = Pokemon.calculateCP(poke, 25, 10, 10, 10);
-        poke.maxBoostedCP = Pokemon.calculateCP(poke, 25, 15, 15, 15);
+        poke.minBaseCP = this.calculateCP(poke, 20, 10, 10, 10);
+        poke.maxBaseCP = this.calculateCP(poke, 20, 15, 15, 15);
+        poke.minBoostedCP = this.calculateCP(poke, 25, 10, 10, 10);
+        poke.maxBoostedCP = this.calculateCP(poke, 25, 15, 15, 15);
       }
     });
 
@@ -241,6 +245,40 @@ class Pokemon extends Search {
     });
 
     log.info('Indexing pokemon complete');
+  }
+
+  buildCPTable(gamemaster) {
+    const wholeLevelCPs = gamemaster
+      .find(item => item.templateId === 'PLAYER_LEVEL_SETTINGS')
+      .playerLevel.cpMultiplier
+      .map(cp => Math.fround(cp));
+
+    const cpTable = Object.create({});
+
+    for (let i = 0; i < wholeLevelCPs.length; ++i) {
+      cpTable[`${i + 1}`] = wholeLevelCPs[i];
+    }
+
+    for (let i = 0; i < wholeLevelCPs.length - 1; ++i) {
+      cpTable[`${i + 1}.5`] = Math.sqrt((wholeLevelCPs[i] * wholeLevelCPs[i]) - (wholeLevelCPs[i] * wholeLevelCPs[i] / 2.0) + (wholeLevelCPs[i + 1] * wholeLevelCPs[i + 1] / 2.0));
+    }
+
+    this.cpTable = cpTable;
+  }
+
+  getCPTable(maxLevel = 40) {
+    return Object.entries(this.cpTable)
+      .map(([level, cpMultiplier]) => Object.assign({}, {
+        level,
+        cpmMultiplier: cpMultiplier
+      }))
+      .filter(({level}) => parseFloat(level) <= maxLevel)
+      .sort((a, b) => parseFloat(b.level) - parseFloat(a.level));
+  }
+
+  getFamily(pokemon) {
+    return this.pokemon
+      .filter(poke => poke.family === pokemon.family);
   }
 
   internalSearch(terms, fields) {
@@ -356,7 +394,9 @@ class Pokemon extends Search {
   }
 
   convertNicknamesToArray(nicknames) {
-    return !!nicknames ? nicknames.split(', ') : [];
+    return !!nicknames ?
+      nicknames.split(', ') :
+      [];
   }
 
   convertNicknamesToString(nicknames) {
@@ -572,333 +612,17 @@ class Pokemon extends Search {
       Math.sqrt(stamina)) / 10);
   }
 
-  static calculateCP(pokemon, level, attackIV, defenseIV, staminaIV) {
+  calculateCP(pokemon, level, attackIV, defenseIV, staminaIV) {
     if (!pokemon.stats) {
       return 0;
     }
 
-    let cpMultiplier;
-
-    switch (level) {
-      case 1:
-        cpMultiplier = 0.094;
-        break;
-
-      case 1.5:
-        cpMultiplier = 0.135137432;
-        break;
-
-      case 2:
-        cpMultiplier = 0.16639787;
-        break;
-
-      case 2.5:
-        cpMultiplier = 0.192650919;
-        break;
-
-      case 3:
-        cpMultiplier = 0.21573247;
-        break;
-
-      case 3.5:
-        cpMultiplier = 0.236572661;
-        break;
-
-      case 4:
-        cpMultiplier = 0.25572005;
-        break;
-
-      case 4.5:
-        cpMultiplier = 0.273530381;
-        break;
-
-      case 5:
-        cpMultiplier = 0.29024988;
-        break;
-
-      case 5.5:
-        cpMultiplier = 0.306057377;
-        break;
-
-      case 6:
-        cpMultiplier = 0.3210876;
-        break;
-
-      case 6.5:
-        cpMultiplier = 0.335445036;
-        break;
-
-      case 7:
-        cpMultiplier = 0.34921268;
-        break;
-
-      case 7.5:
-        cpMultiplier = 0.362457751;
-        break;
-
-      case 8:
-        cpMultiplier = 0.37523559;
-        break;
-
-      case 8.5:
-        cpMultiplier = 0.387592406;
-        break;
-
-      case 9:
-        cpMultiplier = 0.39956728;
-        break;
-
-      case 9.5:
-        cpMultiplier = 0.411193551;
-        break;
-
-      case 10:
-        cpMultiplier = 0.42250001;
-        break;
-
-      case 10.5:
-        cpMultiplier = 0.432926419;
-        break;
-
-      case 11:
-        cpMultiplier = 0.44310755;
-        break;
-
-      case 11.5:
-        cpMultiplier = 0.4530599578;
-        break;
-
-      case 12:
-        cpMultiplier = 0.46279839;
-        break;
-
-      case 12.5:
-        cpMultiplier = 0.472336083;
-        break;
-
-      case 13:
-        cpMultiplier = 0.48168495;
-        break;
-
-      case 13.5:
-        cpMultiplier = 0.4908558;
-        break;
-
-      case 14:
-        cpMultiplier = 0.49985844;
-        break;
-
-      case 14.5:
-        cpMultiplier = 0.508701765;
-        break;
-
-      case 15:
-        cpMultiplier = 0.51739395;
-        break;
-
-      case 15.5:
-        cpMultiplier = 0.525942511;
-        break;
-
-      case 16:
-        cpMultiplier = 0.53435433;
-        break;
-
-      case 16.5:
-        cpMultiplier = 0.542635767;
-        break;
-
-      case 17:
-        cpMultiplier = 0.55079269;
-        break;
-
-      case 17.5:
-        cpMultiplier = 0.558830576;
-        break;
-
-      case 18:
-        cpMultiplier = 0.56675452;
-        break;
-
-      case 18.5:
-        cpMultiplier = 0.574569153;
-        break;
-
-      case 19:
-        cpMultiplier = 0.58227891;
-        break;
-
-      case 19.5:
-        cpMultiplier = 0.589887917;
-        break;
-
-      case 20:
-        cpMultiplier = 0.59740001;
-        break;
-
-      case 20.5:
-        cpMultiplier = 0.604818814;
-        break;
-
-      case 21:
-        cpMultiplier = 0.61215729;
-        break;
-
-      case 21.5:
-        cpMultiplier = 0.619399365;
-        break;
-
-      case 22:
-        cpMultiplier = 0.62656713;
-        break;
-
-      case 22.5:
-        cpMultiplier = 0.633644533;
-        break;
-
-      case 23:
-        cpMultiplier = 0.64065295;
-        break;
-
-      case 23.5:
-        cpMultiplier = 0.647576426;
-        break;
-
-      case 24:
-        cpMultiplier = 0.65443563;
-        break;
-
-      case 24.5:
-        cpMultiplier = 0.661214806;
-        break;
-
-      case 25:
-        cpMultiplier = 0.667934;
-        break;
-
-      case 25.5:
-        cpMultiplier = 0.674577537;
-        break;
-
-      case 26:
-        cpMultiplier = 0.68116492;
-        break;
-
-      case 26.5:
-        cpMultiplier = 0.687680648;
-        break;
-
-      case 27:
-        cpMultiplier = 0.69414365;
-        break;
-
-      case 27.5:
-        cpMultiplier = 0.700538673;
-        break;
-
-      case 28:
-        cpMultiplier = 0.70688421;
-        break;
-
-      case 28.5:
-        cpMultiplier = 0.713164996;
-        break;
-
-      case 29:
-        cpMultiplier = 0.71939909;
-        break;
-
-      case 29.5:
-        cpMultiplier = 0.725571552;
-        break;
-
-      case 30:
-        cpMultiplier = 0.7317;
-        break;
-
-      case 30.5:
-        cpMultiplier = 0.734741009;
-        break;
-
-      case 31:
-        cpMultiplier = 0.73776948;
-        break;
-
-      case 31.5:
-        cpMultiplier = 0.740785574;
-        break;
-
-      case 32:
-        cpMultiplier = 0.74378943;
-        break;
-
-      case 32.5:
-        cpMultiplier = 0.746781211;
-        break;
-
-      case 33:
-        cpMultiplier = 0.74976104;
-        break;
-
-      case 33.5:
-        cpMultiplier = 0.752729087;
-        break;
-
-      case 34:
-        cpMultiplier = 0.75568551;
-        break;
-
-      case 34.5:
-        cpMultiplier = 0.758630378;
-        break;
-
-      case 35:
-        cpMultiplier = 0.76156384;
-        break;
-
-      case 35.5:
-        cpMultiplier = 0.764486065;
-        break;
-
-      case 36:
-        cpMultiplier = 0.76739717;
-        break;
-
-      case 36.5:
-        cpMultiplier = 0.770297266;
-        break;
-
-      case 37:
-        cpMultiplier = 0.7731865;
-        break;
-
-      case 37.5:
-        cpMultiplier = 0.776064962;
-        break;
-
-      case 38:
-        cpMultiplier = 0.77893275;
-        break;
-
-      case 38.5:
-        cpMultiplier = 0.781790055;
-        break;
-
-      case 39:
-        cpMultiplier = 0.78463697;
-        break;
-
-      case 39.5:
-        cpMultiplier = 0.787473578;
-        break;
-
-      case 40:
-        cpMultiplier = 0.79030001;
-        break;
-    }
-
-    return Math.floor((pokemon.stats.baseAttack + attackIV) * Math.sqrt(pokemon.stats.baseDefense + defenseIV) *
-      Math.sqrt(pokemon.stats.baseStamina + staminaIV) * Math.pow(cpMultiplier, 2) / 10);
+    const cpMultiplier = this.cpTable[`${level}`];
+
+    return Math.max(
+      Math.floor((pokemon.stats.baseAttack + attackIV) * Math.sqrt(pokemon.stats.baseDefense + defenseIV) *
+        Math.sqrt(pokemon.stats.baseStamina + staminaIV) * Math.pow(cpMultiplier, 2) / 10),
+      10);
   }
 }
 

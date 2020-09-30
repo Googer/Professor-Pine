@@ -46,118 +46,242 @@
   {
     "name": "bulbasaur",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "BULBASAUR",
+    "gsName": [
+      "BULBASAUR"
+    ]
   },
   {
     "name": "ivysaur",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "IVYSAUR",
+    "family": "BULBASAUR",
+    "gsName": [
+      "IVYSAUR"
+    ]
   },
   {
     "name": "venusaur",
     "tier": 3,
-    "shiny": true
+    "shiny": true,
+    "pbName": "VENUSAUR",
+    "family": "BULBASAUR",
+    "gsName": [
+      "VENUSAUR"
+    ]
   },
   {
     "name": "venusaur_mega",
     "mega": true,
     "overrideName": "Mega Venusaur",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "VENUSAUR_MEGA",
+    "family": "BULBASAUR",
+    "gsName": [
+      "VENUSAUR MEGA"
+    ]
   },
   {
     "name": "charmander",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "CHARMANDER",
+    "family": "CHARMANDER",
+    "gsName": [
+      "CHARMANDER"
+    ]
   },
   {
     "name": "charmeleon",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "CHARMELEON",
+    "family": "CHARMANDER",
+    "gsName": [
+      "CHARMELEON"
+    ]
   },
   {
     "name": "charizard",
     "tier": 3,
-    "shiny": true
+    "shiny": true,
+    "pbName": "CHARIZARD",
+    "family": "CHARMANDER",
+    "gsName": [
+      "CHARIZARD"
+    ]
   },
   {
     "name": "charizard_mega_x",
     "mega": true,
     "overrideName": "Mega Charizard X",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "CHARIZARD_X_MEGA",
+    "family": "CHARMANDER",
+    "gsName": [
+      "CHARIZARD MEGA X"
+    ]
   },
   {
     "name": "charizard_mega_y",
     "mega": true,
     "overrideName": "Mega Charizard Y",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "CHARIZARD_Y_MEGA",
+    "family": "CHARMANDER",
+    "gsName": [
+      "CHARIZARD MEGA Y"
+    ]
   },
   {
     "name": "squirtle",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "SQUIRTLE",
+    "family": "SQUIRTLE",
+    "gsName": [
+      "SQUIRTLE"
+    ]
   },
   {
     "name": "wartortle",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "WARTORTLE",
+    "family": "SQUIRTLE",
+    "gsName": [
+      "WARTORTLE"
+    ]
   },
   {
     "name": "blastoise",
     "tier": 3,
-    "shiny": true
+    "shiny": true,
+    "pbName": "BLASTOISE",
+    "family": "SQUIRTLE",
+    "gsName": [
+      "BLASTOISE"
+    ]
   },
   {
     "name": "blastoise_mega",
     "mega": true,
     "overrideName": "Mega Blastoise",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "BLASTOISE_MEGA",
+    "family": "SQUIRTLE",
+    "gsName": [
+      "BLASTOISE MEGA"
+    ]
   },
   {
     "name": "caterpie",
-    "shiny": true
+    "shiny": true,
+    "pbName": "CATERPIE",
+    "family": "CATERPIE",
+    "gsName": [
+      "CATERPIE"
+    ]
   },
   {
     "name": "metapod",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "METAPOD",
+    "family": "CATERPIE",
+    "gsName": [
+      "METAPOD"
+    ]
   },
   {
     "name": "butterfree",
-    "shiny": true
+    "shiny": true,
+    "pbName": "BUTTERFREE",
+    "family": "CATERPIE",
+    "gsName": [
+      "BUTTERFREE"
+    ]
   },
   {
-    "name": "weedle"
+    "name": "weedle",
+    "pbName": "WEEDLE",
+    "family": "WEEDLE",
+    "gsName": [
+      "WEEDLE"
+    ]
   },
   {
-    "name": "kakuna"
+    "name": "kakuna",
+    "pbName": "KAKUNA",
+    "family": "WEEDLE",
+    "gsName": [
+      "KAKUNA"
+    ]
   },
   {
-    "name": "beedrill"
+    "name": "beedrill",
+    "pbName": "BEEDRILL",
+    "family": "WEEDLE",
+    "gsName": [
+      "BEEDRILL"
+    ]
   },
   {
     "name": "beedrill_mega",
     "overrideName": "Mega Beedrill",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "BEEDRILL_MEGA",
+    "family": "WEEDLE",
+    "gsName": [
+      "BEEDRILL MEGA"
+    ]
   },
   {
-    "name": "pidgey"
+    "name": "pidgey",
+    "pbName": "PIDGEY",
+    "family": "PIDGEY",
+    "gsName": [
+      "PIDGEY"
+    ]
   },
   {
-    "name": "pidgeotto"
+    "name": "pidgeotto",
+    "pbName": "PIDGEOTTO",
+    "family": "PIDGEY",
+    "gsName": [
+      "PIDGEOTTO"
+    ]
   },
   {
     "name": "pidgeot",
-    "tier": 3
+    "tier": 3,
+    "pbName": "PIDGEOT",
+    "family": "PIDGEY",
+    "gsName": [
+      "PIDGEOT"
+    ]
   },
   {
     "name": "pidgeot_mega",
     "overrideName": "Mega Pidgeot",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "PIDGEOT_MEGA",
+    "family": "PIDGEY",
+    "gsName": [
+      "PIDGEOT MEGA"
+    ]
   },
   {
     "name": "rattata",
     "nickname": [
       "kanto"
+    ],
+    "pbName": "RATTATA",
+    "family": "RATTATA",
+    "gsName": [
+      "RATTATA"
     ]
   },
   {
@@ -165,6 +289,13 @@
     "overrideName": "Alolan Rattata",
     "nickname": [
       "alo"
+    ],
+    "pbName": "RATTATA_ALOLA_FORM",
+    "family": "RATTATA_ALOLA_FORM",
+    "gsName": [
+      "ALOLAN RATTATA",
+      "A RATTATA",
+      "RATTATA ALOLAN"
     ]
   },
   {
@@ -173,33 +304,70 @@
       "kanto"
     ],
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "RATICATE",
+    "family": "RATTATA",
+    "gsName": [
+      "RATICATE"
+    ]
   },
   {
     "name": "raticate_alola",
     "overrideName": "Alolan Raticate",
     "nickname": [
       "alo"
+    ],
+    "pbName": "RATICATE_ALOLA_FORM",
+    "family": "RATTATA_ALOLA_FORM",
+    "gsName": [
+      "ALOLAN RATICATE",
+      "A RATICATE",
+      "RATICATE ALOLAN"
     ]
   },
   {
-    "name": "spearow"
+    "name": "spearow",
+    "pbName": "SPEAROW",
+    "family": "SPEAROW",
+    "gsName": [
+      "SPEAROW"
+    ]
   },
   {
     "name": "fearow",
-    "tier": 1
+    "tier": 1,
+    "pbName": "FEAROW",
+    "family": "SPEAROW",
+    "gsName": [
+      "FEAROW"
+    ]
   },
   {
     "name": "ekans",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "EKANS",
+    "family": "EKANS",
+    "gsName": [
+      "EKANS"
+    ]
   },
   {
-    "name": "arbok"
+    "name": "arbok",
+    "pbName": "ARBOK",
+    "family": "EKANS",
+    "gsName": [
+      "ARBOK"
+    ]
   },
   {
     "name": "pikachu",
-    "shiny": true
+    "shiny": true,
+    "pbName": "PIKACHU",
+    "family": "PIKACHU",
+    "gsName": [
+      "PIKACHU"
+    ]
   },
   {
     "name": "raichu",
@@ -207,6 +375,11 @@
     "shiny": true,
     "nickname": [
       "kanto"
+    ],
+    "pbName": "RAICHU",
+    "family": "PIKACHU",
+    "gsName": [
+      "RAICHU"
     ]
   },
   {
@@ -217,7 +390,14 @@
       "alochu"
     ],
     "tier": 3,
-    "shiny": true
+    "shiny": true,
+    "pbName": "RAICHU_ALOLA_FORM",
+    "family": "RAICHU_ALOLA_FORM",
+    "gsName": [
+      "ALOLAN RAICHU",
+      "A RAICHU",
+      "RAICHU ALOLAN"
+    ]
   },
   {
     "name": "sandshrew",
@@ -225,6 +405,11 @@
     "shiny": true,
     "nickname": [
       "kanto"
+    ],
+    "pbName": "SANDSHREW",
+    "family": "SANDSHREW",
+    "gsName": [
+      "SANDSHREW"
     ]
   },
   {
@@ -232,6 +417,13 @@
     "overrideName": "Alolan Sandshrew",
     "nickname": [
       "alo"
+    ],
+    "pbName": "SANDSHREW_ALOLA_FORM",
+    "family": "SANDSHREW_ALOLA_FORM",
+    "gsName": [
+      "ALOLAN SANDSHREW",
+      "A SANDSHREW",
+      "SANDSHREW ALOLAN"
     ]
   },
   {
@@ -239,6 +431,11 @@
     "tier": 1,
     "nickname": [
       "kanto"
+    ],
+    "pbName": "SANDSLASH",
+    "family": "SANDSHREW",
+    "gsName": [
+      "SANDSLASH"
     ]
   },
   {
@@ -246,19 +443,46 @@
     "overrideName": "Alolan Sandslash",
     "nickname": [
       "alo"
+    ],
+    "pbName": "SANDSLASH_ALOLA_FORM",
+    "family": "SANDSHREW_ALOLA_FORM",
+    "gsName": [
+      "ALOLAN SANDSLASH",
+      "A SANDSLASH",
+      "SANDSLASH ALOLAN"
     ]
   },
   {
     "name": "nidoran♀",
-    "shiny": true
+    "shiny": true,
+    "nickname": [
+      "female"
+    ],
+    "pbName": "NIDORAN_FEMALE",
+    "family": "NIDORAN_FEMALE",
+    "gsName": [
+      "NIDORAN_FEMALE",
+      "NIDORAN_FEMALE",
+      "NIDORAN_F"
+    ]
   },
   {
     "name": "nidorina",
-    "shiny": true
+    "shiny": true,
+    "pbName": "NIDORINA",
+    "family": "NIDORAN_FEMALE",
+    "gsName": [
+      "NIDORINA"
+    ]
   },
   {
     "name": "nidoqueen",
-    "tier": 3
+    "tier": 3,
+    "pbName": "NIDOQUEEN",
+    "family": "NIDORAN_FEMALE",
+    "gsName": [
+      "NIDOQUEEN"
+    ]
   },
   {
     "name": "nidoran♂",
@@ -266,25 +490,57 @@
     "tier": 1,
     "nickname": [
       "male"
+    ],
+    "pbName": "NIDORAN_MALE",
+    "family": "NIDORAN_MALE",
+    "gsName": [
+      "NIDORAN_MALE",
+      "NIDORAN_MALE",
+      "NIDORAN_M"
     ]
   },
   {
-    "name": "nidorino"
+    "name": "nidorino",
+    "pbName": "NIDORINO",
+    "family": "NIDORAN_MALE",
+    "gsName": [
+      "NIDORINO"
+    ]
   },
   {
     "name": "nidoking",
-    "tier": 3
+    "tier": 3,
+    "pbName": "NIDOKING",
+    "family": "NIDORAN_MALE",
+    "gsName": [
+      "NIDOKING"
+    ]
   },
   {
-    "name": "clefairy"
+    "name": "clefairy",
+    "pbName": "CLEFAIRY",
+    "family": "CLEFAIRY",
+    "gsName": [
+      "CLEFAIRY"
+    ]
   },
   {
-    "name": "clefable"
+    "name": "clefable",
+    "pbName": "CLEFABLE",
+    "family": "CLEFAIRY",
+    "gsName": [
+      "CLEFABLE"
+    ]
   },
   {
     "name": "vulpix",
     "nickname": [
       "kanto"
+    ],
+    "pbName": "VULPIX",
+    "family": "VULPIX",
+    "gsName": [
+      "VULPIX"
     ]
   },
   {
@@ -292,6 +548,13 @@
     "overrideName": "Alolan Vulpix",
     "nickname": [
       "alo"
+    ],
+    "pbName": "VULPIX_ALOLA_FORM",
+    "family": "VULPIX_ALOLA_FORM",
+    "gsName": [
+      "ALOLAN VULPIX",
+      "A VULPIX",
+      "VULPIX ALOLAN"
     ]
   },
   {
@@ -299,6 +562,11 @@
     "tier": 3,
     "nickname": [
       "kanto"
+    ],
+    "pbName": "NINETALES",
+    "family": "VULPIX",
+    "gsName": [
+      "NINETALES"
     ]
   },
   {
@@ -306,49 +574,116 @@
     "overrideName": "Alolan Ninetales",
     "nickname": [
       "alo"
+    ],
+    "pbName": "NINETALES_ALOLA_FORM",
+    "family": "VULPIX_ALOLA_FORM",
+    "gsName": [
+      "ALOLAN NINETALES",
+      "A NINETALES",
+      "NINETALES ALOLAN"
     ]
   },
   {
-    "name": "jigglypuff"
+    "name": "jigglypuff",
+    "pbName": "JIGGLYPUFF",
+    "family": "JIGGLYPUFF",
+    "gsName": [
+      "JIGGLYPUFF"
+    ]
   },
   {
-    "name": "wigglytuff"
+    "name": "wigglytuff",
+    "pbName": "WIGGLYTUFF",
+    "family": "JIGGLYPUFF",
+    "gsName": [
+      "WIGGLYTUFF"
+    ]
   },
   {
     "name": "zubat",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "ZUBAT",
+    "family": "ZUBAT",
+    "gsName": [
+      "ZUBAT"
+    ]
   },
   {
-    "name": "golbat"
+    "name": "golbat",
+    "pbName": "GOLBAT",
+    "family": "ZUBAT",
+    "gsName": [
+      "GOLBAT"
+    ]
   },
   {
-    "name": "oddish"
+    "name": "oddish",
+    "pbName": "ODDISH",
+    "family": "ODDISH",
+    "gsName": [
+      "ODDISH"
+    ]
   },
   {
     "name": "gloom",
-    "tier": 1
+    "tier": 1,
+    "pbName": "GLOOM",
+    "family": "ODDISH",
+    "gsName": [
+      "GLOOM"
+    ]
   },
   {
-    "name": "vileplume"
+    "name": "vileplume",
+    "pbName": "VILEPLUME",
+    "family": "ODDISH",
+    "gsName": [
+      "VILEPLUME"
+    ]
   },
   {
-    "name": "paras"
+    "name": "paras",
+    "pbName": "PARAS",
+    "family": "PARAS",
+    "gsName": [
+      "PARAS"
+    ]
   },
   {
-    "name": "parasect"
+    "name": "parasect",
+    "pbName": "PARASECT",
+    "family": "PARAS",
+    "gsName": [
+      "PARASECT"
+    ]
   },
   {
-    "name": "venonat"
+    "name": "venonat",
+    "pbName": "VENONAT",
+    "family": "VENONAT",
+    "gsName": [
+      "VENONAT"
+    ]
   },
   {
     "name": "venomoth",
-    "tier": 1
+    "tier": 1,
+    "pbName": "VENOMOTH",
+    "family": "VENONAT",
+    "gsName": [
+      "VENOMOTH"
+    ]
   },
   {
     "name": "diglett",
     "nickname": [
       "kanto"
+    ],
+    "pbName": "DIGLETT",
+    "family": "DIGLETT",
+    "gsName": [
+      "DIGLETT"
     ]
   },
   {
@@ -356,12 +691,24 @@
     "overrideName": "Alolan Diglett",
     "nickname": [
       "alo"
+    ],
+    "pbName": "DIGLETT_ALOLA_FORM",
+    "family": "DIGLETT_ALOLA_FORM",
+    "gsName": [
+      "ALOLAN DIGLETT",
+      "A DIGLETT",
+      "DIGLETT ALOLAN"
     ]
   },
   {
     "name": "dugtrio",
     "nickname": [
       "kanto"
+    ],
+    "pbName": "DUGTRIO",
+    "family": "DIGLETT",
+    "gsName": [
+      "DUGTRIO"
     ]
   },
   {
@@ -369,6 +716,13 @@
     "overrideName": "Alolan Dugtrio",
     "nickname": [
       "alo"
+    ],
+    "pbName": "DUGTRIO_ALOLA_FORM",
+    "family": "DIGLETT_ALOLA_FORM",
+    "gsName": [
+      "ALOLAN DUGTRIO",
+      "A DUGTRIO",
+      "DUGTRIO ALOLAN"
     ]
   },
   {
@@ -377,6 +731,11 @@
     "shiny": true,
     "nickname": [
       "kanto"
+    ],
+    "pbName": "MEOWTH",
+    "family": "MEOWTH",
+    "gsName": [
+      "MEOWTH"
     ]
   },
   {
@@ -384,6 +743,13 @@
     "overrideName": "Alolan Meowth",
     "nickname": [
       "alo"
+    ],
+    "pbName": "MEOWTH_ALOLA_FORM",
+    "family": "MEOWTH_ALOLA_FORM",
+    "gsName": [
+      "ALOLAN MEOWTH",
+      "A MEOWTH",
+      "MEOWTH ALOLAN"
     ]
   },
   {
@@ -391,6 +757,13 @@
     "overrideName": "Galarian Meowth",
     "nickname": [
       "galar"
+    ],
+    "pbName": "MEOWTH_GALAR_FORM",
+    "family": "MEOWTH_GALAR_FORM",
+    "gsName": [
+      "GALARIAN MEOWTH",
+      "G MEOWTH",
+      "MEOWTH GALARIAN"
     ]
   },
   {
@@ -398,6 +771,11 @@
     "tier": 3,
     "nickname": [
       "kanto"
+    ],
+    "pbName": "PERSIAN",
+    "family": "MEOWTH",
+    "gsName": [
+      "PERSIAN"
     ]
   },
   {
@@ -405,87 +783,199 @@
     "overrideName": "Alolan Persian",
     "nickname": [
       "alo"
+    ],
+    "pbName": "PERSIAN_ALOLA_FORM",
+    "family": "MEOWTH_ALOLA_FORM",
+    "gsName": [
+      "ALOLAN PERSIAN",
+      "A PERSIAN",
+      "PERSIAN ALOLAN"
     ]
   },
   {
     "name": "psyduck",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "PSYDUCK",
+    "family": "PSYDUCK",
+    "gsName": [
+      "PSYDUCK"
+    ]
   },
   {
-    "name": "golduck"
+    "name": "golduck",
+    "pbName": "GOLDUCK",
+    "family": "PSYDUCK",
+    "gsName": [
+      "GOLDUCK"
+    ]
   },
   {
     "name": "mankey",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "MANKEY",
+    "family": "MANKEY",
+    "gsName": [
+      "MANKEY"
+    ]
   },
   {
     "name": "primeape",
-    "tier": 1
+    "tier": 1,
+    "pbName": "PRIMEAPE",
+    "family": "MANKEY",
+    "gsName": [
+      "PRIMEAPE"
+    ]
   },
   {
     "name": "growlithe",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "GROWLITHE",
+    "family": "GROWLITHE",
+    "gsName": [
+      "GROWLITHE"
+    ]
   },
   {
     "name": "arcanine",
-    "tier": 3
+    "tier": 3,
+    "pbName": "ARCANINE",
+    "family": "GROWLITHE",
+    "gsName": [
+      "ARCANINE"
+    ]
   },
   {
     "name": "poliwag",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "POLIWAG",
+    "family": "POLIWAG",
+    "gsName": [
+      "POLIWAG"
+    ]
   },
   {
-    "name": "poliwhirl"
+    "name": "poliwhirl",
+    "pbName": "POLIWHIRL",
+    "family": "POLIWAG",
+    "gsName": [
+      "POLIWHIRL"
+    ]
   },
   {
     "name": "poliwrath",
-    "tier": 3
+    "tier": 3,
+    "pbName": "POLIWRATH",
+    "family": "POLIWAG",
+    "gsName": [
+      "POLIWRATH"
+    ]
   },
   {
-    "name": "abra"
+    "name": "abra",
+    "pbName": "ABRA",
+    "family": "ABRA",
+    "gsName": [
+      "ABRA"
+    ]
   },
   {
-    "name": "kadabra"
+    "name": "kadabra",
+    "pbName": "KADABRA",
+    "family": "ABRA",
+    "gsName": [
+      "KADABRA"
+    ]
   },
   {
     "name": "alakazam",
-    "tier": 3
+    "tier": 3,
+    "pbName": "ALAKAZAM",
+    "family": "ABRA",
+    "gsName": [
+      "ALAKAZAM"
+    ]
   },
   {
     "name": "alakazam_mega",
     "overrideName": "Mega Alakazam",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "ALAKAZAM_MEGA",
+    "family": "ABRA",
+    "gsName": [
+      "ALAKAZAM MEGA"
+    ]
   },
   {
-    "name": "machop"
+    "name": "machop",
+    "pbName": "MACHOP",
+    "family": "MACHOP",
+    "gsName": [
+      "MACHOP"
+    ]
   },
   {
-    "name": "machoke"
+    "name": "machoke",
+    "pbName": "MACHOKE",
+    "family": "MACHOP",
+    "gsName": [
+      "MACHOKE"
+    ]
   },
   {
     "name": "machamp",
-    "tier": 3
+    "tier": 3,
+    "pbName": "MACHAMP",
+    "family": "MACHOP",
+    "gsName": [
+      "MACHAMP"
+    ]
   },
   {
-    "name": "bellsprout"
+    "name": "bellsprout",
+    "pbName": "BELLSPROUT",
+    "family": "BELLSPROUT",
+    "gsName": [
+      "BELLSPROUT"
+    ]
   },
   {
-    "name": "weepinbell"
+    "name": "weepinbell",
+    "pbName": "WEEPINBELL",
+    "family": "BELLSPROUT",
+    "gsName": [
+      "WEEPINBELL"
+    ]
   },
   {
     "name": "victreebel",
-    "tier": 3
+    "tier": 3,
+    "pbName": "VICTREEBEL",
+    "family": "BELLSPROUT",
+    "gsName": [
+      "VICTREEBEL"
+    ]
   },
   {
-    "name": "tentacool"
+    "name": "tentacool",
+    "pbName": "TENTACOOL",
+    "family": "TENTACOOL",
+    "gsName": [
+      "TENTACOOL"
+    ]
   },
   {
     "name": "tentacruel",
-    "tier": 1
+    "tier": 1,
+    "pbName": "TENTACRUEL",
+    "family": "TENTACOOL",
+    "gsName": [
+      "TENTACRUEL"
+    ]
   },
   {
     "name": "geodude",
@@ -493,6 +983,11 @@
     "shiny": true,
     "nickname": [
       "kanto"
+    ],
+    "pbName": "GEODUDE",
+    "family": "GEODUDE",
+    "gsName": [
+      "GEODUDE"
     ]
   },
   {
@@ -500,12 +995,24 @@
     "overrideName": "Alolan Geodude",
     "nickname": [
       "alo"
+    ],
+    "pbName": "GEODUDE_ALOLA_FORM",
+    "family": "GEODUDE_ALOLA_FORM",
+    "gsName": [
+      "ALOLAN GEODUDE",
+      "A GEODUDE",
+      "GEODUDE ALOLAN"
     ]
   },
   {
     "name": "graveler",
     "nickname": [
       "kanto"
+    ],
+    "pbName": "GRAVELER",
+    "family": "GEODUDE",
+    "gsName": [
+      "GRAVELER"
     ]
   },
   {
@@ -513,6 +1020,13 @@
     "overrideName": "Alolan Graveler",
     "nickname": [
       "alo"
+    ],
+    "pbName": "GRAVELER_ALOLA_FORM",
+    "family": "GEODUDE_ALOLA_FORM",
+    "gsName": [
+      "ALOLAN GRAVELER",
+      "A GRAVELER",
+      "GRAVELER ALOLAN"
     ]
   },
   {
@@ -520,6 +1034,11 @@
     "tier": 3,
     "nickname": [
       "kanto"
+    ],
+    "pbName": "GOLEM",
+    "family": "GEODUDE",
+    "gsName": [
+      "GOLEM"
     ]
   },
   {
@@ -527,67 +1046,168 @@
     "overrideName": "Alolan Golem",
     "nickname": [
       "alo"
+    ],
+    "pbName": "GOLEM_ALOLA_FORM",
+    "family": "GEODUDE_ALOLA_FORM",
+    "gsName": [
+      "ALOLAN GOLEM",
+      "A GOLEM",
+      "GOLEM ALOLAN"
     ]
   },
   {
     "name": "ponyta",
-    "shiny": true
+    "shiny": true,
+    "pbName": "PONYTA",
+    "family": "PONYTA",
+    "gsName": [
+      "PONYTA"
+    ]
   },
   {
-    "name": "rapidash"
+    "name": "ponyta_galarian",
+    "overrideName": "Galarian Ponyta",
+    "pbName": "PONYTA_GALAR_FORM",
+    "family": "PONYTA_GALAR_FORM",
+    "gsName": [
+      "GALARIAN PONYTA",
+      "G PONYTA",
+      "PONYTA GALARIAN"
+    ]
   },
   {
-    "name": "slowpoke"
+    "name": "rapidash",
+    "pbName": "RAPIDASH",
+    "family": "PONYTA",
+    "gsName": [
+      "RAPIDASH"
+    ]
+  },
+  {
+    "name": "rapidash_galarian",
+    "overrideName": "Galarian Rapidash",
+    "pbName": "RAPIDASH_GALAR_FORM",
+    "family": "RAPIDASH_GALAR_FORM",
+    "gsName": [
+      "GALARIAN RAPIDASH",
+      "G RAPIDASH",
+      "RAPIDASH GALARIAN"
+    ]
+  },
+  {
+    "name": "slowpoke",
+    "pbName": "SLOWPOKE",
+    "family": "SLOWPOKE",
+    "gsName": [
+      "SLOWPOKE"
+    ]
   },
   {
     "name": "slowbro",
-    "tier": 1
+    "tier": 1,
+    "pbName": "SLOWBRO",
+    "family": "SLOWPOKE",
+    "gsName": [
+      "SLOWBRO"
+    ]
   },
   {
     "name": "slowbro_mega",
     "overrideName": "Mega Slowbro",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "SLOWBRO_MEGA",
+    "family": "SLOWPOKE",
+    "gsName": [
+      "SLOWBRO MEGA"
+    ]
   },
   {
     "name": "magnemite",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "MAGNEMITE",
+    "family": "MAGNEMITE",
+    "gsName": [
+      "MAGNEMITE"
+    ]
   },
   {
     "name": "magneton",
-    "tier": 1
+    "tier": 1,
+    "pbName": "MAGNETON",
+    "family": "MAGNEMITE",
+    "gsName": [
+      "MAGNETON"
+    ]
   },
   {
     "name": "farfetchd",
-    "overrideName": "Farfetch'd"
+    "overrideName": "Farfetch'd",
+    "pbName": "FARFETCHD",
+    "family": "FARFETCHD",
+    "gsName": [
+      "FARFETCHD"
+    ]
   },
   {
     "name": "farfetchd_galarian",
     "overrideName": "Galarian Farfetch'd",
     "nickname": [
       "galar"
+    ],
+    "pbName": "FARFETCHD_GALAR_FORM",
+    "family": "FARFETCHD_GALAR_FORM",
+    "gsName": [
+      "GALARIAN FARFETCHD",
+      "G FARFETCHD",
+      "FARFETCHD GALARIAN"
     ]
   },
   {
-    "name": "doduo"
+    "name": "doduo",
+    "pbName": "DODUO",
+    "family": "DODUO",
+    "gsName": [
+      "DODUO"
+    ]
   },
   {
-    "name": "dodrio"
+    "name": "dodrio",
+    "pbName": "DODRIO",
+    "family": "DODUO",
+    "gsName": [
+      "DODRIO"
+    ]
   },
   {
     "name": "seel",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "SEEL",
+    "family": "SEEL",
+    "gsName": [
+      "SEEL"
+    ]
   },
   {
     "name": "dewgong",
-    "tier": 1
+    "tier": 1,
+    "pbName": "DEWGONG",
+    "family": "SEEL",
+    "gsName": [
+      "DEWGONG"
+    ]
   },
   {
     "name": "grimer",
     "shiny": true,
     "nickname": [
       "kanto"
+    ],
+    "pbName": "GRIMER",
+    "family": "GRIMER",
+    "gsName": [
+      "GRIMER"
     ]
   },
   {
@@ -595,6 +1215,13 @@
     "overrideName": "Alolan Grimer",
     "nickname": [
       "alo"
+    ],
+    "pbName": "GRIMER_ALOLA_FORM",
+    "family": "GRIMER_ALOLA_FORM",
+    "gsName": [
+      "ALOLAN GRIMER",
+      "A GRIMER",
+      "GRIMER ALOLAN"
     ]
   },
   {
@@ -602,6 +1229,11 @@
     "tier": 1,
     "nickname": [
       "kanto"
+    ],
+    "pbName": "MUK",
+    "family": "GRIMER",
+    "gsName": [
+      "MUK"
     ]
   },
   {
@@ -609,66 +1241,143 @@
     "overrideName": "Alolan Muk",
     "nickname": [
       "alo"
+    ],
+    "pbName": "MUK_ALOLA_FORM",
+    "family": "GRIMER_ALOLA_FORM",
+    "gsName": [
+      "ALOLAN MUK",
+      "A MUK",
+      "MUK ALOLAN"
     ]
   },
   {
     "name": "shellder",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "SHELLDER",
+    "family": "SHELLDER",
+    "gsName": [
+      "SHELLDER"
+    ]
   },
   {
     "name": "cloyster",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "CLOYSTER",
+    "family": "SHELLDER",
+    "gsName": [
+      "CLOYSTER"
+    ]
   },
   {
     "name": "gastly",
-    "shiny": true
+    "shiny": true,
+    "pbName": "GASTLY",
+    "family": "GASTLY",
+    "gsName": [
+      "GASTLY"
+    ]
   },
   {
     "name": "haunter",
-    "shiny": true
+    "shiny": true,
+    "pbName": "HAUNTER",
+    "family": "GASTLY",
+    "gsName": [
+      "HAUNTER"
+    ]
   },
   {
     "name": "gengar",
-    "tier": 3
+    "tier": 3,
+    "pbName": "GENGAR",
+    "family": "GASTLY",
+    "gsName": [
+      "GENGAR"
+    ]
   },
   {
     "name": "gengar_mega",
     "overrideName": "Mega Gengar",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "GENGAR_MEGA",
+    "family": "GASTLY",
+    "gsName": [
+      "GENGAR MEGA"
+    ]
   },
   {
     "name": "onix",
     "tier": 3,
-    "shiny": true
+    "shiny": true,
+    "pbName": "ONIX",
+    "family": "ONIX",
+    "gsName": [
+      "ONIX"
+    ]
   },
   {
     "name": "drowzee",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "DROWZEE",
+    "family": "DROWZEE",
+    "gsName": [
+      "DROWZEE"
+    ]
   },
   {
     "name": "hypno",
-    "tier": 3
+    "tier": 3,
+    "pbName": "HYPNO",
+    "family": "DROWZEE",
+    "gsName": [
+      "HYPNO"
+    ]
   },
   {
     "name": "krabby",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "KRABBY",
+    "family": "KRABBY",
+    "gsName": [
+      "KRABBY"
+    ]
   },
   {
     "name": "kingler",
-    "tier": 1
+    "tier": 1,
+    "pbName": "KINGLER",
+    "family": "KRABBY",
+    "gsName": [
+      "KINGLER"
+    ]
   },
   {
-    "name": "voltorb"
+    "name": "voltorb",
+    "pbName": "VOLTORB",
+    "family": "VOLTORB",
+    "gsName": [
+      "VOLTORB"
+    ]
   },
   {
-    "name": "electrode"
+    "name": "electrode",
+    "pbName": "ELECTRODE",
+    "family": "VOLTORB",
+    "gsName": [
+      "ELECTRODE"
+    ]
   },
   {
-    "name": "exeggcute"
+    "name": "exeggcute",
+    "pbName": "EXEGGCUTE",
+    "family": "EXEGGCUTE",
+    "gsName": [
+      "EXEGGCUTE"
+    ]
   },
   {
     "name": "exeggutor",
@@ -676,7 +1385,12 @@
       "kanto",
       "exegg"
     ],
-    "tier": 1
+    "tier": 1,
+    "pbName": "EXEGGUTOR",
+    "family": "EXEGGCUTE",
+    "gsName": [
+      "EXEGGUTOR"
+    ]
   },
   {
     "name": "exeggutor_alola",
@@ -687,17 +1401,34 @@
       "alex"
     ],
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "EXEGGUTOR_ALOLA_FORM",
+    "family": "EXEGGUTOR_ALOLA_FORM",
+    "gsName": [
+      "ALOLAN EXEGGUTOR",
+      "A EXEGGUTOR",
+      "EXEGGUTOR ALOLAN"
+    ]
   },
   {
     "name": "cubone",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "CUBONE",
+    "family": "CUBONE",
+    "gsName": [
+      "CUBONE"
+    ]
   },
   {
     "name": "marowak",
     "nickname": [
       "kanto"
+    ],
+    "pbName": "MAROWAK",
+    "family": "CUBONE",
+    "gsName": [
+      "MAROWAK"
     ]
   },
   {
@@ -708,28 +1439,60 @@
       "alowak"
     ],
     "tier": 3,
-    "shiny": true
+    "shiny": true,
+    "pbName": "MAROWAK_ALOLA_FORM",
+    "family": "MAROWAK_ALOLA_FORM",
+    "gsName": [
+      "ALOLAN MAROWAK",
+      "A MAROWAK",
+      "MAROWAK ALOLAN"
+    ]
   },
   {
     "name": "hitmonlee",
-    "tier": 3
+    "tier": 3,
+    "pbName": "HITMONLEE",
+    "family": "TYROGUE",
+    "gsName": [
+      "HITMONLEE"
+    ]
   },
   {
     "name": "hitmonchan",
-    "tier": 3
+    "tier": 3,
+    "pbName": "HITMONCHAN",
+    "family": "TYROGUE",
+    "gsName": [
+      "HITMONCHAN"
+    ]
   },
   {
     "name": "lickitung",
-    "tier": 1
+    "tier": 1,
+    "pbName": "LICKITUNG",
+    "family": "LICKITUNG",
+    "gsName": [
+      "LICKITUNG"
+    ]
   },
   {
     "name": "koffing",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "KOFFING",
+    "family": "KOFFING",
+    "gsName": [
+      "KOFFING"
+    ]
   },
   {
     "name": "weezing",
-    "tier": 1
+    "tier": 1,
+    "pbName": "WEEZING",
+    "family": "KOFFING",
+    "gsName": [
+      "WEEZING"
+    ]
   },
   {
     "name": "weezing_galarian",
@@ -737,82 +1500,189 @@
     "nickname": [
       "galar"
     ],
-    "tier": 3
+    "tier": 3,
+    "pbName": "WEEZING_GALARIAN_FORM",
+    "family": "WEEZING_GALARIAN_FORM",
+    "gsName": [
+      "GALARIAN WEEZING",
+      "G WEEZING",
+      "WEEZING GALARIAN"
+    ]
   },
   {
-    "name": "rhyhorn"
+    "name": "rhyhorn",
+    "pbName": "RHYHORN",
+    "family": "RHYHORN",
+    "gsName": [
+      "RHYHORN"
+    ]
   },
   {
     "name": "rhydon",
-    "tier": 3
+    "tier": 3,
+    "pbName": "RHYDON",
+    "family": "RHYHORN",
+    "gsName": [
+      "RHYDON"
+    ]
   },
   {
-    "name": "chansey"
+    "name": "chansey",
+    "pbName": "CHANSEY",
+    "family": "CHANSEY",
+    "gsName": [
+      "CHANSEY"
+    ]
   },
   {
     "name": "tangela",
-    "tier": 3
+    "tier": 3,
+    "pbName": "TANGELA",
+    "family": "TANGELA",
+    "gsName": [
+      "TANGELA"
+    ]
   },
   {
-    "name": "kangaskhan"
+    "name": "kangaskhan",
+    "pbName": "KANGASKHAN",
+    "family": "KANGASKHAN",
+    "gsName": [
+      "KANGASKHAN"
+    ]
   },
   {
     "name": "kangaskhan_mega",
     "overrideName": "Mega Kangaskhan",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "KANGASKHAN_MEGA",
+    "family": "KANGASKHAN",
+    "gsName": [
+      "KANGASKHAN MEGA"
+    ]
   },
   {
     "name": "horsea",
-    "tier": 1
+    "tier": 1,
+    "pbName": "HORSEA",
+    "family": "HORSEA",
+    "gsName": [
+      "HORSEA"
+    ]
   },
   {
-    "name": "seadra"
+    "name": "seadra",
+    "pbName": "SEADRA",
+    "family": "HORSEA",
+    "gsName": [
+      "SEADRA"
+    ]
   },
   {
-    "name": "goldeen"
+    "name": "goldeen",
+    "pbName": "GOLDEEN",
+    "family": "GOLDEEN",
+    "gsName": [
+      "GOLDEEN"
+    ]
   },
   {
-    "name": "seaking"
+    "name": "seaking",
+    "pbName": "SEAKING",
+    "family": "GOLDEEN",
+    "gsName": [
+      "SEAKING"
+    ]
   },
   {
-    "name": "staryu"
+    "name": "staryu",
+    "pbName": "STARYU",
+    "family": "STARYU",
+    "gsName": [
+      "STARYU"
+    ]
   },
   {
     "name": "starmie",
-    "tier": 3
+    "tier": 3,
+    "pbName": "STARMIE",
+    "family": "STARYU",
+    "gsName": [
+      "STARMIE"
+    ]
   },
   {
-    "name": "mr. mime"
+    "name": "mr. mime",
+    "pbName": "MR_MIME",
+    "family": "MR_MIME",
+    "gsName": [
+      "MR_MIME"
+    ]
   },
   {
     "name": "scyther",
     "tier": 3,
-    "shiny": true
+    "shiny": true,
+    "pbName": "SCYTHER",
+    "family": "SCYTHER",
+    "gsName": [
+      "SCYTHER"
+    ]
   },
   {
     "name": "jynx",
-    "tier": 3
+    "tier": 3,
+    "pbName": "JYNX",
+    "family": "JYNX",
+    "gsName": [
+      "JYNX"
+    ]
   },
   {
     "name": "electabuzz",
-    "tier": 1
+    "tier": 1,
+    "pbName": "ELECTABUZZ",
+    "family": "ELECTABUZZ",
+    "gsName": [
+      "ELECTABUZZ"
+    ]
   },
   {
     "name": "magmar",
-    "tier": 1
+    "tier": 1,
+    "pbName": "MAGMAR",
+    "family": "MAGMAR",
+    "gsName": [
+      "MAGMAR"
+    ]
   },
   {
     "name": "pinsir",
     "tier": 3,
-    "shiny": true
+    "shiny": true,
+    "pbName": "PINSIR",
+    "family": "PINSIR",
+    "gsName": [
+      "PINSIR"
+    ]
   },
   {
     "name": "pinsir_mega",
     "overrideName": "Mega Pinsir",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "PINSIR_MEGA",
+    "family": "PINSIR",
+    "gsName": [
+      "PINSIR MEGA"
+    ]
   },
   {
-    "name": "tauros"
+    "name": "tauros",
+    "pbName": "TAUROS",
+    "family": "TAUROS",
+    "gsName": [
+      "TAUROS"
+    ]
   },
   {
     "name": "magikarp",
@@ -820,75 +1690,160 @@
       "karp"
     ],
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "MAGIKARP",
+    "family": "MAGIKARP",
+    "gsName": [
+      "MAGIKARP"
+    ]
   },
   {
-    "name": "gyarados"
+    "name": "gyarados",
+    "pbName": "GYARADOS",
+    "family": "MAGIKARP",
+    "gsName": [
+      "GYARADOS"
+    ]
   },
   {
     "name": "gyarados_mega",
     "overrideName": "Mega Gyarados",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "GYARADOS_MEGA",
+    "family": "MAGIKARP",
+    "gsName": [
+      "GYARADOS MEGA"
+    ]
   },
   {
     "name": "lapras",
     "tier": 3,
-    "shiny": true
+    "shiny": true,
+    "pbName": "LAPRAS",
+    "family": "LAPRAS",
+    "gsName": [
+      "LAPRAS"
+    ]
   },
   {
-    "name": "ditto"
+    "name": "ditto",
+    "pbName": "DITTO",
+    "family": "DITTO",
+    "gsName": [
+      "DITTO"
+    ]
   },
   {
     "name": "eevee",
-    "shiny": true
+    "shiny": true,
+    "pbName": "EEVEE",
+    "family": "EEVEE",
+    "gsName": [
+      "EEVEE"
+    ]
   },
   {
     "name": "vaporeon",
-    "tier": 3
+    "tier": 3,
+    "pbName": "VAPOREON",
+    "family": "EEVEE",
+    "gsName": [
+      "VAPOREON"
+    ]
   },
   {
     "name": "jolteon",
-    "tier": 3
+    "tier": 3,
+    "pbName": "JOLTEON",
+    "family": "EEVEE",
+    "gsName": [
+      "JOLTEON"
+    ]
   },
   {
     "name": "flareon",
-    "tier": 3
+    "tier": 3,
+    "pbName": "FLAREON",
+    "family": "EEVEE",
+    "gsName": [
+      "FLAREON"
+    ]
   },
   {
     "name": "porygon",
-    "tier": 3
+    "tier": 3,
+    "pbName": "PORYGON",
+    "family": "PORYGON",
+    "gsName": [
+      "PORYGON"
+    ]
   },
   {
     "name": "omanyte",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "OMANYTE",
+    "family": "OMANYTE",
+    "gsName": [
+      "OMANYTE"
+    ]
   },
   {
     "name": "omastar",
-    "tier": 3
+    "tier": 3,
+    "pbName": "OMASTAR",
+    "family": "OMANYTE",
+    "gsName": [
+      "OMASTAR"
+    ]
   },
   {
     "name": "kabuto",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "KABUTO",
+    "family": "KABUTO",
+    "gsName": [
+      "KABUTO"
+    ]
   },
   {
     "name": "kabutops",
-    "tier": 3
+    "tier": 3,
+    "pbName": "KABUTOPS",
+    "family": "KABUTO",
+    "gsName": [
+      "KABUTOPS"
+    ]
   },
   {
     "name": "aerodactyl",
     "tier": 3,
-    "shiny": true
+    "shiny": true,
+    "pbName": "AERODACTYL",
+    "family": "AERODACTYL",
+    "gsName": [
+      "AERODACTYL"
+    ]
   },
   {
     "name": "aerodactyl_mega",
     "overrideName": "Mega Aerodactyl",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "AERODACTYL_MEGA",
+    "family": "AERODACTYL",
+    "gsName": [
+      "AERODACTYL MEGA"
+    ]
   },
   {
     "name": "snorlax",
-    "tier": 3
+    "tier": 3,
+    "pbName": "SNORLAX",
+    "family": "SNORLAX",
+    "gsName": [
+      "SNORLAX"
+    ]
   },
   {
     "name": "articuno",
@@ -896,7 +1851,12 @@
       "arty"
     ],
     "tier": 5,
-    "shiny": true
+    "shiny": true,
+    "pbName": "ARTICUNO",
+    "family": "ARTICUNO",
+    "gsName": [
+      "ARTICUNO"
+    ]
   },
   {
     "name": "zapdos",
@@ -904,7 +1864,12 @@
       "zappy"
     ],
     "tier": 5,
-    "shiny": true
+    "shiny": true,
+    "pbName": "ZAPDOS",
+    "family": "ZAPDOS",
+    "gsName": [
+      "ZAPDOS"
+    ]
   },
   {
     "name": "moltres",
@@ -912,230 +1877,535 @@
       "molty"
     ],
     "tier": 5,
-    "shiny": true
+    "shiny": true,
+    "pbName": "MOLTRES",
+    "family": "MOLTRES",
+    "gsName": [
+      "MOLTRES"
+    ]
   },
   {
     "name": "dratini",
+    "nickname": [
+      "noodle"
+    ],
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "DRATINI",
+    "family": "DRATINI",
+    "gsName": [
+      "DRATINI"
+    ]
   },
   {
-    "name": "dragonair"
+    "name": "dragonair",
+    "pbName": "DRAGONAIR",
+    "family": "DRATINI",
+    "gsName": [
+      "DRAGONAIR"
+    ]
   },
   {
     "name": "dragonite",
-    "tier": 3
+    "tier": 3,
+    "pbName": "DRAGONITE",
+    "family": "DRATINI",
+    "gsName": [
+      "DRAGONITE"
+    ]
   },
   {
     "name": "mewtwo",
     "tier": 5,
-    "shiny": true
+    "shiny": true,
+    "pbName": "MEWTWO",
+    "family": "MEWTWO",
+    "gsName": [
+      "MEWTWO"
+    ]
   },
   {
     "name": "mewtwo_mega_x",
     "overrideName": "Mega Mewtwo X",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "MEWTWO_MEGA_X",
+    "family": "MEWTWO",
+    "gsName": [
+      "MEWTWO MEGA X"
+    ]
   },
   {
     "name": "mewtwo_mega_y",
     "overrideName": "Mega Mewtwo Y",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "MEWTWO_MEGA_Y",
+    "family": "MEWTWO",
+    "gsName": [
+      "MEWTWO MEGA Y"
+    ]
   },
   {
     "name": "mewtwo_a",
     "overrideName": "Armored Mewtwo",
-    "tier": 5
+    "tier": 5,
+    "pbName": "MEWTWO_A_FORM",
+    "family": "MEWTWO_A_FORM",
+    "gsName": [
+      "ARMORED MEWTWO",
+      "ARMORED MEWTWO",
+      "MEWTWO ARMORED"
+    ]
   },
   {
-    "name": "mew"
+    "name": "mew",
+    "pbName": "MEW",
+    "family": "MEW",
+    "gsName": [
+      "MEW"
+    ]
   },
   {
     "name": "chikorita",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "CHIKORITA",
+    "family": "CHIKORITA",
+    "gsName": [
+      "CHIKORITA"
+    ]
   },
   {
     "name": "bayleef",
-    "tier": 1
+    "tier": 1,
+    "pbName": "BAYLEEF",
+    "family": "CHIKORITA",
+    "gsName": [
+      "BAYLEEF"
+    ]
   },
   {
-    "name": "meganium"
+    "name": "meganium",
+    "pbName": "MEGANIUM",
+    "family": "CHIKORITA",
+    "gsName": [
+      "MEGANIUM"
+    ]
   },
   {
     "name": "cyndaquil",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "CYNDAQUIL",
+    "family": "CYNDAQUIL",
+    "gsName": [
+      "CYNDAQUIL"
+    ]
   },
   {
     "name": "quilava",
-    "tier": 1
+    "tier": 1,
+    "pbName": "QUILAVA",
+    "family": "CYNDAQUIL",
+    "gsName": [
+      "QUILAVA"
+    ]
   },
   {
-    "name": "typhlosion"
+    "name": "typhlosion",
+    "pbName": "TYPHLOSION",
+    "family": "CYNDAQUIL",
+    "gsName": [
+      "TYPHLOSION"
+    ]
   },
   {
     "name": "totodile",
-    "tier": 1
+    "tier": 1,
+    "pbName": "TOTODILE",
+    "family": "TOTODILE",
+    "gsName": [
+      "TOTODILE"
+    ]
   },
   {
     "name": "croconaw",
-    "tier": 1
+    "tier": 1,
+    "pbName": "CROCONAW",
+    "family": "TOTODILE",
+    "gsName": [
+      "CROCONAW"
+    ]
   },
   {
     "name": "feraligatr",
-    "tier": 3
+    "tier": 3,
+    "pbName": "FERALIGATR",
+    "family": "TOTODILE",
+    "gsName": [
+      "FERALIGATR"
+    ]
   },
   {
     "name": "sentret",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "SENTRET",
+    "family": "SENTRET",
+    "gsName": [
+      "SENTRET"
+    ]
   },
   {
-    "name": "furret"
+    "name": "furret",
+    "pbName": "FURRET",
+    "family": "SENTRET",
+    "gsName": [
+      "FURRET"
+    ]
   },
   {
-    "name": "hoothoot"
+    "name": "hoothoot",
+    "pbName": "HOOTHOOT",
+    "family": "HOOTHOOT",
+    "gsName": [
+      "HOOTHOOT"
+    ]
   },
   {
     "name": "noctowl",
-    "tier": 1
+    "tier": 1,
+    "pbName": "NOCTOWL",
+    "family": "HOOTHOOT",
+    "gsName": [
+      "NOCTOWL"
+    ]
   },
   {
-    "name": "ledyba"
+    "name": "ledyba",
+    "pbName": "LEDYBA",
+    "family": "LEDYBA",
+    "gsName": [
+      "LEDYBA"
+    ]
   },
   {
-    "name": "ledian"
+    "name": "ledian",
+    "pbName": "LEDIAN",
+    "family": "LEDYBA",
+    "gsName": [
+      "LEDIAN"
+    ]
   },
   {
-    "name": "spinarak"
+    "name": "spinarak",
+    "pbName": "SPINARAK",
+    "family": "SPINARAK",
+    "gsName": [
+      "SPINARAK"
+    ]
   },
   {
-    "name": "ariados"
+    "name": "ariados",
+    "pbName": "ARIADOS",
+    "family": "SPINARAK",
+    "gsName": [
+      "ARIADOS"
+    ]
   },
   {
-    "name": "crobat"
+    "name": "crobat",
+    "pbName": "CROBAT",
+    "family": "ZUBAT",
+    "gsName": [
+      "CROBAT"
+    ]
   },
   {
-    "name": "chinchou"
+    "name": "chinchou",
+    "pbName": "CHINCHOU",
+    "family": "CHINCHOU",
+    "gsName": [
+      "CHINCHOU"
+    ]
   },
   {
     "name": "lanturn",
-    "tier": 1
+    "tier": 1,
+    "pbName": "LANTURN",
+    "family": "CHINCHOU",
+    "gsName": [
+      "LANTURN"
+    ]
   },
   {
-    "name": "pichu"
+    "name": "pichu",
+    "pbName": "PICHU",
+    "family": "PIKEACHU",
+    "gsName": [
+      "PICHU"
+    ]
   },
   {
-    "name": "cleffa"
+    "name": "cleffa",
+    "pbName": "CLEFFA",
+    "family": "CLEFAIRY",
+    "gsName": [
+      "CLEFFA"
+    ]
   },
   {
-    "name": "igglybuff"
+    "name": "igglybuff",
+    "pbName": "IGGLYBUFF",
+    "family": "JIGGLYPUFF",
+    "gsName": [
+      "IGGLYBUFF"
+    ]
   },
   {
     "name": "togepi",
-    "shiny": true
+    "shiny": true,
+    "pbName": "TOGEPI",
+    "family": "TOGEPI",
+    "gsName": [
+      "TOGEPI"
+    ]
   },
   {
     "name": "togetic",
-    "tier": 3
+    "tier": 3,
+    "pbName": "TOGETIC",
+    "family": "TOGEPI",
+    "gsName": [
+      "TOGETIC"
+    ]
   },
   {
-    "name": "natu"
+    "name": "natu",
+    "pbName": "NATU",
+    "family": "NATU",
+    "gsName": [
+      "NATU"
+    ]
   },
   {
-    "name": "xatu"
+    "name": "xatu",
+    "pbName": "XATU",
+    "family": "NATU",
+    "gsName": [
+      "XATU"
+    ]
   },
   {
     "name": "mareep",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "MAREEP",
+    "family": "MAREEP",
+    "gsName": [
+      "MAREEP"
+    ]
   },
   {
     "name": "flaaffy",
-    "tier": 3
+    "tier": 3,
+    "pbName": "FLAAFFY",
+    "family": "MAREEP",
+    "gsName": [
+      "FLAAFFY"
+    ]
   },
   {
-    "name": "ampharos"
+    "name": "ampharos",
+    "pbName": "AMPHAROS",
+    "family": "MAREEP",
+    "gsName": [
+      "AMPHAROS"
+    ]
   },
   {
     "name": "ampharos_mega",
     "overrideName": "Mega Ampharos",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "AMPHAROS_MEGA",
+    "family": "MAREEP",
+    "gsName": [
+      "AMPHAROS MEGA"
+    ]
   },
   {
-    "name": "bellossom"
+    "name": "bellossom",
+    "pbName": "BELLOSSOM",
+    "family": "ODDISH",
+    "gsName": [
+      "BELLOSSOM"
+    ]
   },
   {
     "name": "marill",
-    "shiny": true
+    "shiny": true,
+    "pbName": "MARILL",
+    "family": "MARILL",
+    "gsName": [
+      "MARILL"
+    ]
   },
   {
     "name": "azumarill",
-    "tier": 3
+    "tier": 3,
+    "pbName": "AZUMARILL",
+    "family": "MARILL",
+    "gsName": [
+      "AZUMARILL"
+    ]
   },
   {
     "name": "sudowoodo",
-    "tier": 1
+    "tier": 1,
+    "pbName": "SUDOWOODO",
+    "family": "SUDOWOODO",
+    "gsName": [
+      "SUDOWOODO"
+    ]
   },
   {
-    "name": "politoed"
+    "name": "politoed",
+    "pbName": "POLITOED",
+    "family": "POLIWAG",
+    "gsName": [
+      "POLITOED"
+    ]
   },
   {
-    "name": "hoppip"
+    "name": "hoppip",
+    "pbName": "HOPPIP",
+    "family": "HOPPIP",
+    "gsName": [
+      "HOPPIP"
+    ]
   },
   {
-    "name": "skiploom"
+    "name": "skiploom",
+    "pbName": "SKIPLOOM",
+    "family": "HOPPIP",
+    "gsName": [
+      "SKIPLOOM"
+    ]
   },
   {
-    "name": "jumpluff"
+    "name": "jumpluff",
+    "pbName": "JUMPLUFF",
+    "family": "HOPPIP",
+    "gsName": [
+      "JUMPLUFF"
+    ]
   },
   {
     "name": "aipom",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "AIPOM",
+    "family": "AIPOM",
+    "gsName": [
+      "AIPOM"
+    ]
   },
   {
     "name": "sunkern",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "SUNKERN",
+    "family": "SUNKERN",
+    "gsName": [
+      "SUNKERN"
+    ]
   },
   {
-    "name": "sunflora"
+    "name": "sunflora",
+    "pbName": "SUNFLORA",
+    "family": "SUNKERN",
+    "gsName": [
+      "SUNFLORA"
+    ]
   },
   {
     "name": "yanma",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "YANMA",
+    "family": "YANMA",
+    "gsName": [
+      "YANMA"
+    ]
   },
   {
-    "name": "wooper"
+    "name": "wooper",
+    "pbName": "WOOPER",
+    "family": "WOOPER",
+    "gsName": [
+      "WOOPER"
+    ]
   },
   {
-    "name": "quagsire"
+    "name": "quagsire",
+    "pbName": "QUAGSIRE",
+    "family": "WOOPER",
+    "gsName": [
+      "QUAGSIRE"
+    ]
   },
   {
     "name": "espeon",
-    "tier": 3
+    "tier": 3,
+    "pbName": "ESPEON",
+    "family": "EEVEE",
+    "gsName": [
+      "ESPEON"
+    ]
   },
   {
     "name": "umbreon",
-    "tier": 3
+    "tier": 3,
+    "pbName": "UMBREON",
+    "family": "EEVEE",
+    "gsName": [
+      "UMBREON"
+    ]
   },
   {
     "name": "murkrow",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "MURKROW",
+    "family": "MURKROW",
+    "gsName": [
+      "MURKROW"
+    ]
   },
   {
-    "name": "slowking"
+    "name": "slowking",
+    "pbName": "SLOWKING",
+    "family": "SLOWPOKE",
+    "gsName": [
+      "SLOWKING"
+    ]
   },
   {
     "name": "misdreavus",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "MISDREAVUS",
+    "family": "MISDREAVUS",
+    "gsName": [
+      "MISDREAVUS"
+    ]
   },
   {
-    "name": "unown"
+    "name": "unown",
+    "pbName": "UNOWN",
+    "family": "UNOWN",
+    "gsName": [
+      "UNOWN"
+    ]
   },
   {
     "name": "unown_a",
@@ -1318,215 +2588,480 @@
   {
     "name": "wobbuffet",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "WOBBUFFET",
+    "family": "WOBBUFFET",
+    "gsName": [
+      "WOBBUFFET"
+    ]
   },
   {
-    "name": "girafarig"
+    "name": "girafarig",
+    "pbName": "GIRAFARIG",
+    "family": "GIRAFARIG",
+    "gsName": [
+      "GIRAFARIG"
+    ]
   },
   {
     "name": "pineco",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "PINECO",
+    "family": "PINECO",
+    "gsName": [
+      "PINECO"
+    ]
   },
   {
-    "name": "forretress"
+    "name": "forretress",
+    "pbName": "FORRETRESS",
+    "family": "PINECO",
+    "gsName": [
+      "FORRETRESS"
+    ]
   },
   {
-    "name": "dunsparce"
+    "name": "dunsparce",
+    "pbName": "DUNSPARCE",
+    "family": "DUNSPARCE",
+    "gsName": [
+      "DUNSPARCE"
+    ]
   },
   {
     "name": "gligar",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "GLIGAR",
+    "family": "GLIGAR",
+    "gsName": [
+      "GLIGAR"
+    ]
   },
   {
-    "name": "steelix"
+    "name": "steelix",
+    "pbName": "STEELIX",
+    "family": "ONIX",
+    "gsName": [
+      "STEELIX"
+    ]
   },
   {
     "name": "steelix_mega",
     "overrideName": "Mega Steelix",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "STEELIX_MEGA",
+    "family": "ONIX",
+    "gsName": [
+      "STEELIX MEGA"
+    ]
   },
   {
     "name": "snubbull",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "SNUBBULL",
+    "family": "SNUBBULL",
+    "gsName": [
+      "SNUBBULL"
+    ]
   },
   {
     "name": "granbull",
-    "tier": 3
+    "tier": 3,
+    "pbName": "GRANBULL",
+    "family": "SNUBBULL",
+    "gsName": [
+      "GRANBULL"
+    ]
   },
   {
     "name": "qwilfish",
-    "tier": 1
+    "tier": 1,
+    "pbName": "QWILFISH",
+    "family": "QWILFISH",
+    "gsName": [
+      "QWILFISH"
+    ]
   },
   {
-    "name": "scizor"
+    "name": "scizor",
+    "pbName": "SCIZOR",
+    "family": "SCYTHER",
+    "gsName": [
+      "SCIZOR"
+    ]
   },
   {
     "name": "scizor_mega",
     "overrideName": "Mega Scizor",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "SCIZOR_MEGA",
+    "family": "SCYTHER",
+    "gsName": [
+      "SCIZOR MEGA"
+    ]
   },
   {
     "name": "shuckle",
     "tier": 3,
-    "shiny": true
+    "shiny": true,
+    "pbName": "SHUCKLE",
+    "family": "SHUCKLE",
+    "gsName": [
+      "SHUCKLE"
+    ]
   },
   {
-    "name": "heracross"
+    "name": "heracross",
+    "pbName": "HERACROSS",
+    "family": "HERACROSS",
+    "gsName": [
+      "HERACROSS"
+    ]
   },
   {
     "name": "heracross_mega",
     "overrideName": "Mega Heracross",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "HERACROSS_MEGA",
+    "family": "HERACROSS",
+    "gsName": [
+      "HERACROSS MEGA"
+    ]
   },
   {
     "name": "sneasel",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "SNEASEL",
+    "family": "SNEASEL",
+    "gsName": [
+      "SNEASEL"
+    ]
   },
   {
-    "name": "teddiursa"
+    "name": "teddiursa",
+    "pbName": "TEDDIURSA",
+    "family": "TEDDIURSA",
+    "gsName": [
+      "TEDDIURSA"
+    ]
   },
   {
     "name": "ursaring",
-    "tier": 3
+    "tier": 3,
+    "pbName": "URSARING",
+    "family": "TEDDIURSA",
+    "gsName": [
+      "URSARING"
+    ]
   },
   {
-    "name": "slugma"
+    "name": "slugma",
+    "pbName": "SLUGMA",
+    "family": "SLUGMA",
+    "gsName": [
+      "SLUGMA"
+    ]
   },
   {
     "name": "magcargo",
-    "tier": 1
+    "tier": 1,
+    "pbName": "MAGCARGO",
+    "family": "SLUGMA",
+    "gsName": [
+      "MAGCARGO"
+    ]
   },
   {
-    "name": "swinub"
+    "name": "swinub",
+    "pbName": "SWINUB",
+    "family": "SWINUB",
+    "gsName": [
+      "SWINUB"
+    ]
   },
   {
     "name": "piloswine",
-    "tier": 3
+    "tier": 3,
+    "pbName": "PILOSWINE",
+    "family": "SWINUB",
+    "gsName": [
+      "PILOSWINE"
+    ]
   },
   {
-    "name": "corsola"
+    "name": "corsola",
+    "pbName": "CORSOLA",
+    "family": "CORSOLA",
+    "gsName": [
+      "CORSOLA"
+    ]
   },
   {
-    "name": "remoraid"
+    "name": "remoraid",
+    "pbName": "REMORAID",
+    "family": "REMORAID",
+    "gsName": [
+      "REMORAID"
+    ]
   },
   {
     "name": "octillery",
-    "tier": 1
+    "tier": 1,
+    "pbName": "OCTILLERY",
+    "family": "REMORAID",
+    "gsName": [
+      "OCTILLERY"
+    ]
   },
   {
     "name": "delibird",
     "tier": 3,
-    "shiny": true
+    "shiny": true,
+    "pbName": "DELIBIRD",
+    "family": "DELIBIRD",
+    "gsName": [
+      "DELIBIRD"
+    ]
   },
   {
     "name": "mantine",
-    "tier": 3
+    "tier": 3,
+    "pbName": "MANTINE",
+    "family": "MANTINE",
+    "gsName": [
+      "MANTINE"
+    ]
   },
   {
     "name": "skarmory",
     "tier": 3,
-    "shiny": true
+    "shiny": true,
+    "pbName": "SKARMORY",
+    "family": "SKARMORY",
+    "gsName": [
+      "SKARMORY"
+    ]
   },
   {
     "name": "houndour",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "HOUNDOUR",
+    "family": "HOUNDOUR",
+    "gsName": [
+      "HOUNDOUR"
+    ]
   },
   {
     "name": "houndoom",
-    "tier": 3
+    "tier": 3,
+    "pbName": "HOUNDOOM",
+    "family": "HOUNDOUR",
+    "gsName": [
+      "HOUNDOOM"
+    ]
   },
   {
     "name": "houndoom_mega",
     "overrideName": "Mega Houndoom",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "HOUNDOOM_MEGA",
+    "family": "HOUNDOUR",
+    "gsName": [
+      "HOUNDOOM MEGA"
+    ]
   },
   {
-    "name": "kingdra"
+    "name": "kingdra",
+    "pbName": "KINGDRA",
+    "family": "HORSEA",
+    "gsName": [
+      "KINGDRA"
+    ]
   },
   {
-    "name": "phanpy"
+    "name": "phanpy",
+    "pbName": "PHANPY",
+    "family": "PHANPY",
+    "gsName": [
+      "PHANPY"
+    ]
   },
   {
     "name": "donphan",
-    "tier": 3
+    "tier": 3,
+    "pbName": "DONPHAN",
+    "family": "PHANPY",
+    "gsName": [
+      "DONPHAN"
+    ]
   },
   {
-    "name": "porygon2"
+    "name": "porygon2",
+    "pbName": "PORYGON2",
+    "family": "PORYGON",
+    "gsName": [
+      "PORYGON2"
+    ]
   },
   {
     "name": "stantler",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "STANTLER",
+    "family": "STANTLER",
+    "gsName": [
+      "STANTLER"
+    ]
   },
   {
-    "name": "smeargle"
+    "name": "smeargle",
+    "pbName": "SMEARGLE",
+    "family": "SMEARGLE",
+    "gsName": [
+      "SMEARGLE"
+    ]
   },
   {
-    "name": "tyrogue"
+    "name": "tyrogue",
+    "pbName": "TYROGUE",
+    "family": "TYROGUE",
+    "gsName": [
+      "TYROGUE"
+    ]
   },
   {
-    "name": "hitmontop"
+    "name": "hitmontop",
+    "pbName": "HITMONTOP",
+    "family": "TYROGUE",
+    "gsName": [
+      "HITMONTOP"
+    ]
   },
   {
-    "name": "smoochum"
+    "name": "smoochum",
+    "pbName": "SMOOCHUM",
+    "family": "JYNX",
+    "gsName": [
+      "SMOOCHUM"
+    ]
   },
   {
     "name": "elekid",
-    "shiny": true
+    "shiny": true,
+    "pbName": "ELEKID",
+    "family": "ELECTABUZZ",
+    "gsName": [
+      "ELEKID"
+    ]
   },
   {
     "name": "magby",
-    "shiny": true
+    "shiny": true,
+    "pbName": "MAGBY",
+    "family": "MAGMAR",
+    "gsName": [
+      "MAGBY"
+    ]
   },
   {
-    "name": "miltank"
+    "name": "miltank",
+    "pbName": "MILTANK",
+    "family": "MILTANK",
+    "gsName": [
+      "MILTANK"
+    ]
   },
   {
-    "name": "blissey"
+    "name": "blissey",
+    "pbName": "BLISSEY",
+    "family": "CHANSEY",
+    "gsName": [
+      "BLISSEY"
+    ]
   },
   {
     "name": "raikou",
     "tier": 5,
-    "shiny": true
+    "shiny": true,
+    "pbName": "RAIKOU",
+    "family": "RAIKOU",
+    "gsName": [
+      "RAIKOU"
+    ]
   },
   {
     "name": "entei",
     "tier": 5,
-    "shiny": true
+    "shiny": true,
+    "pbName": "ENTEI",
+    "family": "ENTEI",
+    "gsName": [
+      "ENTEI"
+    ]
   },
   {
     "name": "suicune",
     "tier": 5,
-    "shiny": true
+    "shiny": true,
+    "pbName": "SUICUNE",
+    "family": "SUICUNE",
+    "gsName": [
+      "SUICUNE"
+    ]
   },
   {
     "name": "larvitar",
-    "shiny": true
+    "shiny": true,
+    "pbName": "LARVITAR",
+    "family": "LARVITAR",
+    "gsName": [
+      "LARVITAR"
+    ]
   },
   {
-    "name": "pupitar"
+    "name": "pupitar",
+    "pbName": "PUPITAR",
+    "family": "LARVITAR",
+    "gsName": [
+      "PUPITAR"
+    ]
   },
   {
     "name": "tyranitar",
     "nickname": [
       "ttar"
     ],
-    "tier": 3
+    "tier": 3,
+    "pbName": "TYRANITAR",
+    "family": "LARVITAR",
+    "gsName": [
+      "TYRANITAR"
+    ]
   },
   {
     "name": "tyranitar_mega",
     "overrideName": "Mega Tyranitar",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "TYRANITAR_MEGA",
+    "family": "LARVITAR",
+    "gsName": [
+      "TYRANITAR MEGA"
+    ]
   },
   {
     "name": "lugia",
     "tier": 5,
-    "shiny": true
+    "shiny": true,
+    "pbName": "LUGIA",
+    "family": "LUGIA",
+    "gsName": [
+      "LUGIA"
+    ]
   },
   {
     "name": "ho_oh",
@@ -1538,598 +3073,1408 @@
       "santa"
     ],
     "tier": 5,
-    "shiny": true
+    "shiny": true,
+    "pbName": "HO_OH",
+    "family": "HO_OH",
+    "gsName": [
+      "HO_OH",
+      "HO_OH",
+      "HO-OH"
+    ]
   },
   {
-    "name": "celebi"
+    "name": "celebi",
+    "pbName": "CELEBI",
+    "family": "CELEBI",
+    "gsName": [
+      "CELEBI"
+    ]
   },
   {
-    "name": "treecko"
+    "name": "treecko",
+    "pbName": "TREECKO",
+    "family": "TREECKO",
+    "gsName": [
+      "TREECKO"
+    ]
   },
   {
     "name": "grovyle",
-    "tier": 1
+    "tier": 1,
+    "pbName": "GROVYLE",
+    "family": "TREECKO",
+    "gsName": [
+      "GROVYLE"
+    ]
   },
   {
-    "name": "sceptile"
+    "name": "sceptile",
+    "pbName": "SCEPTILE",
+    "family": "TREECKO",
+    "gsName": [
+      "SCEPTILE"
+    ]
   },
   {
     "name": "sceptile_mega",
     "overrideName": "Mega Sceptile",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "SCEPTILE_MEGA",
+    "family": "TREECKO",
+    "gsName": [
+      "SCEPTILE MEGA"
+    ]
   },
   {
-    "name": "torchic"
+    "name": "torchic",
+    "pbName": "TORCHIC",
+    "family": "TORCHIC",
+    "gsName": [
+      "TORCHIC"
+    ]
   },
   {
     "name": "combusken",
-    "tier": 1
+    "tier": 1,
+    "pbName": "COMBUSKEN",
+    "family": "TORCHIC",
+    "gsName": [
+      "COMBUSKEN"
+    ]
   },
   {
     "name": "blaziken",
-    "tier": 3
+    "tier": 3,
+    "pbName": "BLAZIKEN",
+    "family": "TORCHIC",
+    "gsName": [
+      "BLAZIKEN"
+    ]
   },
   {
     "name": "blaziken_mega",
     "overrideName": "Mega Blaziken",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "BLAZIKEN_MEGA",
+    "family": "TORCHIC",
+    "gsName": [
+      "BLAZIKEN MEGA"
+    ]
   },
   {
-    "name": "mudkip"
+    "name": "mudkip",
+    "pbName": "MUDKIP",
+    "family": "MUDKIP",
+    "gsName": [
+      "MUDKIP"
+    ]
   },
   {
     "name": "marshtomp",
-    "tier": 1
+    "tier": 1,
+    "pbName": "MARSHTOMP",
+    "family": "MUDKIP",
+    "gsName": [
+      "MARSHTOMP"
+    ]
   },
   {
-    "name": "swampert"
+    "name": "swampert",
+    "pbName": "SWAMPERT",
+    "family": "MUDKIP",
+    "gsName": [
+      "SWAMPERT"
+    ]
   },
   {
     "name": "swampert_mega",
     "overrideName": "Mega Swampert",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "SWAMPERT_MEGA",
+    "family": "MUDKIP",
+    "gsName": [
+      "SWAMPERT MEGA"
+    ]
   },
   {
     "name": "poochyena",
-    "shiny": true
+    "shiny": true,
+    "pbName": "POOCHYENA",
+    "family": "POOCHYENA",
+    "gsName": [
+      "POOCHYENA"
+    ]
   },
   {
-    "name": "mightyena"
+    "name": "mightyena",
+    "pbName": "MIGHTYENA",
+    "family": "POOCHYENA",
+    "gsName": [
+      "MIGHTYENA"
+    ]
   },
   {
-    "name": "zigzagoon"
+    "name": "zigzagoon",
+    "pbName": "ZIGZAGOON",
+    "family": "ZIGZAGOON",
+    "gsName": [
+      "ZIGZAGOON"
+    ]
   },
   {
     "name": "zigzagoon_galarian",
     "overrideName": "Galarian Zigzagoon",
     "nickname": [
       "galar"
+    ],
+    "pbName": "ZIGZAGOON_GALAR_FORM",
+    "family": "ZIGZAGOON_GALAR_FORM",
+    "gsName": [
+      "GALARIAN ZIGZAGOON",
+      "G ZIGZAGOON",
+      "ZIGZAGOON GALARIAN"
     ]
   },
   {
-    "name": "linoone"
+    "name": "linoone",
+    "pbName": "LINOONE",
+    "family": "ZIGZAGOON",
+    "gsName": [
+      "LINOONE"
+    ]
   },
   {
     "name": "linoone_galarian",
     "overrideName": "Galarian Linoone",
     "nickname": [
       "galar"
+    ],
+    "pbName": "LINOONE_GALAR_FORM",
+    "family": "LINOONE_GALAR_FORM",
+    "gsName": [
+      "GALARIAN LINOONE",
+      "G LINOONE",
+      "LINOONE GALARIAN"
     ]
   },
   {
-    "name": "wurmple"
+    "name": "wurmple",
+    "pbName": "WURMPLE",
+    "family": "WURMPLE",
+    "gsName": [
+      "WURMPLE"
+    ]
   },
   {
-    "name": "silcoon"
+    "name": "silcoon",
+    "pbName": "SILCOON",
+    "family": "WURMPLE",
+    "gsName": [
+      "SILCOON"
+    ]
   },
   {
-    "name": "beautifly"
+    "name": "beautifly",
+    "pbName": "BEAUTIFLY",
+    "family": "WURMPLE",
+    "gsName": [
+      "BEAUTIFLY"
+    ]
   },
   {
-    "name": "cascoon"
+    "name": "cascoon",
+    "pbName": "CASCOON",
+    "family": "WURMPLE",
+    "gsName": [
+      "CASCOON"
+    ]
   },
   {
-    "name": "dustox"
+    "name": "dustox",
+    "pbName": "DUSTOX",
+    "family": "WURMPLE",
+    "gsName": [
+      "DUSTOX"
+    ]
   },
   {
     "name": "lotad",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "LOTAD",
+    "family": "LOTAD",
+    "gsName": [
+      "LOTAD"
+    ]
   },
   {
-    "name": "lombre"
+    "name": "lombre",
+    "pbName": "LOMBRE",
+    "family": "LOTAD",
+    "gsName": [
+      "LOMBRE"
+    ]
   },
   {
-    "name": "ludicolo"
+    "name": "ludicolo",
+    "pbName": "LUDICOLO",
+    "family": "LOTAD",
+    "gsName": [
+      "LUDICOLO"
+    ]
   },
   {
-    "name": "seedot"
+    "name": "seedot",
+    "pbName": "SEEDOT",
+    "family": "SEEDOT",
+    "gsName": [
+      "SEEDOT"
+    ]
   },
   {
-    "name": "nuzleaf"
+    "name": "nuzleaf",
+    "pbName": "NUZLEAF",
+    "family": "SEEDOT",
+    "gsName": [
+      "NUZLEAF"
+    ]
   },
   {
     "name": "shiftry",
-    "tier": 3
+    "tier": 3,
+    "pbName": "SHIFTRY",
+    "family": "SEEDOT",
+    "gsName": [
+      "SHIFTRY"
+    ]
   },
   {
     "name": "taillow",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "TAILLOW",
+    "family": "TAILLOW",
+    "gsName": [
+      "TAILLOW"
+    ]
   },
   {
     "name": "swellow",
-    "tier": 1
+    "tier": 1,
+    "pbName": "SWELLOW",
+    "family": "TAILLOW",
+    "gsName": [
+      "SWELLOW"
+    ]
   },
   {
     "name": "wingull",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "WINGULL",
+    "family": "WINGULL",
+    "gsName": [
+      "WINGULL"
+    ]
   },
   {
     "name": "pelipper",
-    "tier": 3
+    "tier": 3,
+    "pbName": "PELIPPER",
+    "family": "WINGULL",
+    "gsName": [
+      "PELIPPER"
+    ]
   },
   {
     "name": "ralts",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "RALTS",
+    "family": "RALTS",
+    "gsName": [
+      "RALTS"
+    ]
   },
   {
     "name": "kirlia",
-    "tier": 1
+    "tier": 1,
+    "pbName": "KIRLIA",
+    "family": "RALTS",
+    "gsName": [
+      "KIRLIA"
+    ]
   },
   {
-    "name": "gardevoir"
+    "name": "gardevoir",
+    "pbName": "GARDEVOIR",
+    "family": "RALTS",
+    "gsName": [
+      "GARDEVOIR"
+    ]
   },
   {
     "name": "gardevoir_mega",
     "overrideName": "Mega Gardevoir",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "GARDEVOIR_MEGA",
+    "family": "RALTS",
+    "gsName": [
+      "GARDEVOIR MEGA"
+    ]
   },
   {
-    "name": "surskit"
+    "name": "surskit",
+    "pbName": "SURSKIT",
+    "family": "SURSKIT",
+    "gsName": [
+      "SURSKIT"
+    ]
   },
   {
-    "name": "masquerain"
+    "name": "masquerain",
+    "pbName": "MASQUERAIN",
+    "family": "SURSKIT",
+    "gsName": [
+      "MASQUERAIN"
+    ]
   },
   {
-    "name": "shroomish"
+    "name": "shroomish",
+    "pbName": "SHROOMISH",
+    "family": "SHROOMISH",
+    "gsName": [
+      "SHROOMISH"
+    ]
   },
   {
     "name": "breloom",
-    "tier": 1
+    "tier": 1,
+    "pbName": "BRELOOM",
+    "family": "SHROOMISH",
+    "gsName": [
+      "BRELOOM"
+    ]
   },
   {
-    "name": "slakoth"
+    "name": "slakoth",
+    "pbName": "SLAKOTH",
+    "family": "SLAKOTH",
+    "gsName": [
+      "SLAKOTH"
+    ]
   },
   {
-    "name": "vigoroth"
+    "name": "vigoroth",
+    "pbName": "VIGOROTH",
+    "family": "SLAKOTH",
+    "gsName": [
+      "VIGOROTH"
+    ]
   },
   {
-    "name": "slaking"
+    "name": "slaking",
+    "pbName": "SLAKING",
+    "family": "SLAKOTH",
+    "gsName": [
+      "SLAKING"
+    ]
   },
   {
-    "name": "nincada"
+    "name": "nincada",
+    "pbName": "NINCADA",
+    "family": "NINCADA",
+    "gsName": [
+      "NINCADA"
+    ]
   },
   {
-    "name": "ninjask"
+    "name": "ninjask",
+    "pbName": "NINJASK",
+    "family": "NINCADA",
+    "gsName": [
+      "NINJASK"
+    ]
   },
   {
-    "name": "shedinja"
+    "name": "shedinja",
+    "pbName": "SHEDINJA",
+    "family": "NINCADA",
+    "gsName": [
+      "SHEDINJA"
+    ]
   },
   {
-    "name": "whismur"
+    "name": "whismur",
+    "pbName": "WHISMUR",
+    "family": "WHISMUR",
+    "gsName": [
+      "WHISMUR"
+    ]
   },
   {
-    "name": "loudred"
+    "name": "loudred",
+    "pbName": "LOUDRED",
+    "family": "WHISMUR",
+    "gsName": [
+      "LOUDRED"
+    ]
   },
   {
-    "name": "exploud"
+    "name": "exploud",
+    "pbName": "EXPLOUD",
+    "family": "WHISMUR",
+    "gsName": [
+      "EXPLOUD"
+    ]
   },
   {
     "name": "makuhita",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "MAKUHITA",
+    "family": "MAKUHITA",
+    "gsName": [
+      "MAKUHITA"
+    ]
   },
   {
     "name": "hariyama",
-    "tier": 3
+    "tier": 3,
+    "pbName": "HARIYAMA",
+    "family": "MAKUHITA",
+    "gsName": [
+      "HARIYAMA"
+    ]
   },
   {
     "name": "azurill",
-    "shiny": true
+    "shiny": true,
+    "pbName": "AZURILL",
+    "family": "MARILL",
+    "gsName": [
+      "AZURILL"
+    ]
   },
   {
     "name": "nosepass",
-    "tier": 1
+    "tier": 1,
+    "pbName": "NOSEPASS",
+    "family": "NOSEPASS",
+    "gsName": [
+      "NOSEPASS"
+    ]
   },
   {
-    "name": "skitty"
+    "name": "skitty",
+    "pbName": "SKITTY",
+    "family": "SKITTY",
+    "gsName": [
+      "SKITTY"
+    ]
   },
   {
-    "name": "delcatty"
+    "name": "delcatty",
+    "pbName": "DELCATTY",
+    "family": "SKITTY",
+    "gsName": [
+      "DELCATTY"
+    ]
   },
   {
     "name": "sableye",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "SABLEYE",
+    "family": "SABLEYE",
+    "gsName": [
+      "SABLEYE"
+    ]
   },
   {
     "name": "sableye_mega",
     "overrideName": "Mega Sableye",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "SABLEYE_MEGA",
+    "family": "SABLEYE",
+    "gsName": [
+      "SABLEYE MEGA"
+    ]
   },
   {
     "name": "mawile",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "MAWILE",
+    "family": "MAWILE",
+    "gsName": [
+      "MAWILE"
+    ]
   },
   {
     "name": "mawile_mega",
     "overrideName": "Mega Mawile",
-    "nickname": "mega"
+    "nickname": "mega",
+    "shiny": true,
+    "pbName": "MAWILE_MEGA",
+    "family": "MAWILE",
+    "gsName": [
+      "MAWILE MEGA"
+    ]
   },
   {
     "name": "aron",
-    "shiny": true
+    "shiny": true,
+    "pbName": "ARON",
+    "family": "ARON",
+    "gsName": [
+      "ARON"
+    ]
   },
   {
-    "name": "lairon"
+    "name": "lairon",
+    "pbName": "LAIRON",
+    "family": "ARON",
+    "gsName": [
+      "LAIRON"
+    ]
   },
   {
     "name": "aggron",
-    "tier": 3
+    "tier": 3,
+    "pbName": "AGGRON",
+    "family": "ARON",
+    "gsName": [
+      "AGGRON"
+    ]
   },
   {
     "name": "aggron_mega",
     "overrideName": "Mega Aggron",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "AGGRON_MEGA",
+    "family": "ARON",
+    "gsName": [
+      "AGGRON MEGA"
+    ]
   },
   {
     "name": "meditite",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "MEDITITE",
+    "family": "MEDITITE",
+    "gsName": [
+      "MEDITITE"
+    ]
   },
   {
     "name": "medicham",
-    "tier": 3
+    "tier": 3,
+    "pbName": "MEDICHAM",
+    "family": "MEDITITE",
+    "gsName": [
+      "MEDICHAM"
+    ]
   },
   {
     "name": "medicham_mega",
     "overrideName": "Mega Medicham",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "MEDICHAM_MEGA",
+    "family": "MEDITITE",
+    "gsName": [
+      "MEDICHAM MEGA"
+    ]
   },
   {
-    "name": "electrike"
+    "name": "electrike",
+    "pbName": "ELECTRIKE",
+    "family": "ELECTRIKE",
+    "gsName": [
+      "ELECTRIKE"
+    ]
   },
   {
     "name": "manectric",
-    "tier": 1
+    "tier": 1,
+    "pbName": "MANECTRIC",
+    "family": "ELECTRIKE",
+    "gsName": [
+      "MANECTRIC"
+    ]
   },
   {
     "name": "manectric_mega",
     "overrideName": "Mega Manectric",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "MANECTRIC_MEGA",
+    "family": "ELECTRIKE",
+    "gsName": [
+      "MANECTRIC MEGA"
+    ]
   },
   {
     "name": "plusle",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "PLUSLE",
+    "family": "PLUSLE",
+    "gsName": [
+      "PLUSLE"
+    ]
   },
   {
     "name": "minun",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "MINUN",
+    "family": "MINUN",
+    "gsName": [
+      "MINUN"
+    ]
   },
   {
-    "name": "volbeat"
+    "name": "volbeat",
+    "pbName": "VOLBEAT",
+    "family": "VOLBEAT",
+    "gsName": [
+      "VOLBEAT"
+    ]
   },
   {
-    "name": "illumise"
+    "name": "illumise",
+    "pbName": "ILLUMISE",
+    "family": "ILLUMISE",
+    "gsName": [
+      "ILLUMISE"
+    ]
   },
   {
     "name": "roselia",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "ROSELIA",
+    "family": "ROSELIA",
+    "gsName": [
+      "ROSELIA"
+    ]
   },
   {
-    "name": "gulpin"
+    "name": "gulpin",
+    "pbName": "GULPIN",
+    "family": "GULPIN",
+    "gsName": [
+      "GULPIN"
+    ]
   },
   {
-    "name": "swalot"
+    "name": "swalot",
+    "pbName": "SWALOT",
+    "family": "GULPIN",
+    "gsName": [
+      "SWALOT"
+    ]
   },
   {
-    "name": "carvanha"
+    "name": "carvanha",
+    "pbName": "CARVANHA",
+    "family": "CARVANHA",
+    "gsName": [
+      "CARVANHA"
+    ]
   },
   {
     "name": "sharpedo",
-    "tier": 3
+    "tier": 3,
+    "pbName": "SHARPEDO",
+    "family": "CARVANHA",
+    "gsName": [
+      "SHARPEDO"
+    ]
   },
   {
     "name": "sharpedo_mega",
     "overrideName": "Mega Sharpedo",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "SHARPEDO_MEGA",
+    "family": "CARVANHA",
+    "gsName": [
+      "SHARPEDO MEGA"
+    ]
   },
   {
     "name": "wailmer",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "WAILMER",
+    "family": "WAILMER",
+    "gsName": [
+      "WAILMER"
+    ]
   },
   {
-    "name": "wailord"
+    "name": "wailord",
+    "pbName": "WAILORD",
+    "family": "WAILMER",
+    "gsName": [
+      "WAILORD"
+    ]
   },
   {
-    "name": "numel"
+    "name": "numel",
+    "pbName": "NUMEL",
+    "family": "NUMEL",
+    "gsName": [
+      "NUMEL"
+    ]
   },
   {
-    "name": "camerupt"
+    "name": "camerupt",
+    "pbName": "CAMERUPT",
+    "family": "NUMEL",
+    "gsName": [
+      "CAMERUPT"
+    ]
   },
   {
     "name": "camerupt_mega",
     "overrideName": "Mega Camerupt",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "CAMERUPT_MEGA",
+    "family": "NUMEL",
+    "gsName": [
+      "CAMERUPT MEGA"
+    ]
   },
   {
-    "name": "torkoal"
+    "name": "torkoal",
+    "pbName": "TORKOAL",
+    "family": "TORKOAL",
+    "gsName": [
+      "TORKOAL"
+    ]
   },
   {
-    "name": "spoink"
+    "name": "spoink",
+    "pbName": "SPOINK",
+    "family": "SPOINK",
+    "gsName": [
+      "SPOINK"
+    ]
   },
   {
     "name": "grumpig",
-    "tier": 1
+    "tier": 1,
+    "pbName": "GRUMPIG",
+    "family": "SPOINK",
+    "gsName": [
+      "GRUMPIG"
+    ]
   },
   {
-    "name": "spinda"
+    "name": "spinda",
+    "pbName": "SPINDA",
+    "family": "SPINDA",
+    "gsName": [
+      "SPINDA"
+    ]
   },
   {
-    "name": "trapinch"
+    "name": "trapinch",
+    "pbName": "TRAPINCH",
+    "family": "TRAPINCH",
+    "gsName": [
+      "TRAPINCH"
+    ]
   },
   {
-    "name": "vibrava"
+    "name": "vibrava",
+    "pbName": "VIBRAVA",
+    "family": "TRAPINCH",
+    "gsName": [
+      "VIBRAVA"
+    ]
   },
   {
-    "name": "flygon"
+    "name": "flygon",
+    "pbName": "FLYGON",
+    "family": "TRAPINCH",
+    "gsName": [
+      "FLYGON"
+    ]
   },
   {
     "name": "cacnea",
-    "tier": 1
+    "tier": 1,
+    "pbName": "CACNEA",
+    "family": "CACNEA",
+    "gsName": [
+      "CACNEA"
+    ]
   },
   {
     "name": "cacturne",
-    "tier": 3
+    "tier": 3,
+    "pbName": "CACTURNE",
+    "family": "CACNEA",
+    "gsName": [
+      "CACTURNE"
+    ]
   },
   {
     "name": "swablu",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "SWABLU",
+    "family": "SWABLU",
+    "gsName": [
+      "SWABLU"
+    ]
   },
   {
-    "name": "altaria"
+    "name": "altaria",
+    "pbName": "ALTARIA",
+    "family": "SWABLU",
+    "gsName": [
+      "ALTARIA"
+    ]
   },
   {
     "name": "altaria_mega",
     "overrideName": "Mega Altaria",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "ALTARIA_MEGA",
+    "family": "SWABLU",
+    "gsName": [
+      "ALTARIA MEGA"
+    ]
   },
   {
-    "name": "zangoose"
+    "name": "zangoose",
+    "pbName": "ZANGOOSE",
+    "family": "ZANGOOSE",
+    "gsName": [
+      "ZANGOOSE"
+    ]
   },
   {
-    "name": "seviper"
+    "name": "seviper",
+    "pbName": "SEVIPER",
+    "family": "SEVIPER",
+    "gsName": [
+      "SEVIPER"
+    ]
   },
   {
     "name": "lunatone",
     "tier": 3,
-    "shiny": true
+    "shiny": true,
+    "pbName": "LUNATONE",
+    "family": "LUNATONE",
+    "gsName": [
+      "LUNATONE"
+    ]
   },
   {
     "name": "solrock",
     "tier": 3,
-    "shiny": true
+    "shiny": true,
+    "pbName": "SOLROCK",
+    "family": "SOLROCK",
+    "gsName": [
+      "SOLROCK"
+    ]
   },
   {
-    "name": "barboach"
+    "name": "barboach",
+    "pbName": "BARBOACH",
+    "family": "BARBOACH",
+    "gsName": [
+      "BARBOACH"
+    ]
   },
   {
-    "name": "whiscash"
+    "name": "whiscash",
+    "pbName": "WHISCASH",
+    "family": "BARBOACH",
+    "gsName": [
+      "WHISCASH"
+    ]
   },
   {
-    "name": "corphish"
+    "name": "corphish",
+    "pbName": "CORPHISH",
+    "family": "CORPHISH",
+    "gsName": [
+      "CORPHISH"
+    ]
   },
   {
     "name": "crawdaunt",
-    "tier": 3
+    "tier": 3,
+    "pbName": "CRAWDAUNT",
+    "family": "CORPHISH",
+    "gsName": [
+      "CRAWDAUNT"
+    ]
   },
   {
-    "name": "baltoy"
+    "name": "baltoy",
+    "pbName": "BALTOY",
+    "family": "BALTOY",
+    "gsName": [
+      "BALTOY"
+    ]
   },
   {
     "name": "claydol",
-    "tier": 3
+    "tier": 3,
+    "pbName": "CLAYDOL",
+    "family": "BALTOY",
+    "gsName": [
+      "CLAYDOL"
+    ]
   },
   {
     "name": "lileep",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "LILEEP",
+    "family": "LILEEP",
+    "gsName": [
+      "LILEEP"
+    ]
   },
   {
-    "name": "cradily"
+    "name": "cradily",
+    "pbName": "CRADILY",
+    "family": "LILEEP",
+    "gsName": [
+      "CRADILY"
+    ]
   },
   {
     "name": "anorith",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "ANORITH",
+    "family": "ANORITH",
+    "gsName": [
+      "ANORITH"
+    ]
   },
   {
-    "name": "armaldo"
+    "name": "armaldo",
+    "pbName": "ARMALDO",
+    "family": "ANORITH",
+    "gsName": [
+      "ARMALDO"
+    ]
   },
   {
     "name": "feebas",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "FEEBAS",
+    "family": "FEEBAS",
+    "gsName": [
+      "FEEBAS"
+    ]
   },
   {
-    "name": "milotic"
+    "name": "milotic",
+    "pbName": "MILOTIC",
+    "family": "FEEBAS",
+    "gsName": [
+      "MILOTIC"
+    ]
   },
   {
-    "name": "castform"
+    "name": "castform",
+    "pbName": "CASTFORM",
+    "family": "CASTFORM",
+    "gsName": [
+      "CASTFORM"
+    ]
   },
   {
-    "name": "kecleon"
+    "name": "castform_rainy_form",
+    "overrideName": "Rainy Castform",
+    "pbName": "CASTFORM_RAINY_FORM",
+    "family": "CASTFORM_RAINY_FORM",
+    "gsName": [
+      "CASTFORM RAINY",
+      "CASTFORM RAINY",
+      "CASTFORM"
+    ]
+  },
+  {
+    "name": "castform_snowy_form",
+    "overrideName": "Snowy Castform",
+    "pbName": "CASTFORM_SNOWY_FORM",
+    "family": "CASTFORM_SNOWY_FORM",
+    "gsName": [
+      "CASTFORM SNOWY",
+      "CASTFORM SNOWY",
+      "CASTFORM"
+    ]
+  },
+  {
+    "name": "castform_sunny_form",
+    "overrideName": "Sunny Castform",
+    "pbName": "CASTFORM_SUNNY_FORM",
+    "family": "CASTFORM_SUNNY_FORM",
+    "gsName": [
+      "CASTFORM SUNNY",
+      "CASTFORM SUNNY",
+      "CASTFORM"
+    ]
+  },
+  {
+    "name": "kecleon",
+    "pbName": "KECLEON",
+    "family": "KECLEON",
+    "gsName": [
+      "KECLEON"
+    ]
   },
   {
     "name": "shuppet",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "SHUPPET",
+    "family": "SHUPPET",
+    "gsName": [
+      "SHUPPET"
+    ]
   },
   {
-    "name": "banette"
+    "name": "banette",
+    "pbName": "BANETTE",
+    "family": "SHUPPET",
+    "gsName": [
+      "BANETTE"
+    ]
   },
   {
     "name": "banette_mega",
     "overrideName": "Mega Banette",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "BANETTE_MEGA",
+    "family": "SHUPPET",
+    "gsName": [
+      "BANETTE MEGA"
+    ]
   },
   {
     "name": "duskull",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "DUSKULL",
+    "family": "DUSKULL",
+    "gsName": [
+      "DUSKULL"
+    ]
   },
   {
-    "name": "dusclops"
+    "name": "dusclops",
+    "pbName": "DUSCLOPS",
+    "family": "DUSKULL",
+    "gsName": [
+      "DUSCLOPS"
+    ]
   },
   {
-    "name": "tropius"
+    "name": "tropius",
+    "pbName": "TROPIUS",
+    "family": "TROPIUS",
+    "gsName": [
+      "TROPIUS"
+    ]
   },
   {
-    "name": "chimecho"
+    "name": "chimecho",
+    "pbName": "CHIMECHO",
+    "family": "CHIMECHO",
+    "gsName": [
+      "CHIMECHO"
+    ]
   },
   {
     "name": "absol",
     "tier": 3,
-    "shiny": true
+    "shiny": true,
+    "pbName": "ABSOL",
+    "family": "ABSOL",
+    "gsName": [
+      "ABSOL"
+    ]
   },
   {
     "name": "absol_mega",
     "overrideName": "Mega Absol",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "ABSOL_MEGA",
+    "family": "ABSOL",
+    "gsName": [
+      "ABSOL MEGA"
+    ]
   },
   {
     "name": "wynaut",
-    "shiny": true
+    "shiny": true,
+    "pbName": "WYNAUT",
+    "family": "WOBBUFFET",
+    "gsName": [
+      "WYNAUT"
+    ]
   },
   {
     "name": "snorunt",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "SNORUNT",
+    "family": "SNORUNT",
+    "gsName": [
+      "SNORUNT"
+    ]
   },
   {
-    "name": "glalie"
+    "name": "glalie",
+    "pbName": "GLALIE",
+    "family": "SNORUNT",
+    "gsName": [
+      "GLALIE"
+    ]
   },
   {
     "name": "glalie_mega",
     "overrideName": "Mega Glalie",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "GLALIE_MEGA",
+    "family": "SNORUNT",
+    "gsName": [
+      "GLALIE MEGA"
+    ]
   },
   {
-    "name": "spheal"
+    "name": "spheal",
+    "pbName": "SPHEAL",
+    "family": "SPHEAL",
+    "gsName": [
+      "SPHEAL"
+    ]
   },
   {
-    "name": "sealeo"
+    "name": "sealeo",
+    "pbName": "SEALEO",
+    "family": "SPHEAL",
+    "gsName": [
+      "SEALEO"
+    ]
   },
   {
     "name": "walrein",
-    "tier": 3
+    "tier": 3,
+    "pbName": "WALREIN",
+    "family": "SPHEAL",
+    "gsName": [
+      "WALREIN"
+    ]
   },
   {
     "name": "clamperl",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "CLAMPERL",
+    "family": "CLAMPERL",
+    "gsName": [
+      "CLAMPERL"
+    ]
   },
   {
-    "name": "huntail"
+    "name": "huntail",
+    "pbName": "HUNTAIL",
+    "family": "CLAMPERL",
+    "gsName": [
+      "HUNTAIL"
+    ]
   },
   {
-    "name": "gorebyss"
+    "name": "gorebyss",
+    "pbName": "GOREBYSS",
+    "family": "CLAMPERL",
+    "gsName": [
+      "GOREBYSS"
+    ]
   },
   {
-    "name": "relicanth"
+    "name": "relicanth",
+    "pbName": "RELICANTH",
+    "family": "RELICANTH",
+    "gsName": [
+      "RELICANTH"
+    ]
   },
   {
     "name": "luvdisc",
-    "shiny": true
+    "shiny": true,
+    "pbName": "LUVDISC",
+    "family": "LUVDISC",
+    "gsName": [
+      "LUVDISC"
+    ]
   },
   {
     "name": "bagon",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "BAGON",
+    "family": "BAGON",
+    "gsName": [
+      "BAGON"
+    ]
   },
   {
-    "name": "shelgon"
+    "name": "shelgon",
+    "pbName": "SHELGON",
+    "family": "BAGON",
+    "gsName": [
+      "SHELGON"
+    ]
   },
   {
-    "name": "salamence"
+    "name": "salamence",
+    "pbName": "SALAMENCE",
+    "family": "BAGON",
+    "gsName": [
+      "SALAMENCE"
+    ]
   },
   {
     "name": "salamence_mega",
     "overrideName": "Mega Salamence",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "SALAMENCE_MEGA",
+    "family": "BAGON",
+    "gsName": [
+      "SALAMENCE MEGA"
+    ]
   },
   {
     "name": "beldum",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "BELDUM",
+    "family": "BELDUM",
+    "gsName": [
+      "BELDUM"
+    ]
   },
   {
-    "name": "metang"
+    "name": "metang",
+    "pbName": "METANG",
+    "family": "BELDUM",
+    "gsName": [
+      "METANG"
+    ]
   },
   {
     "name": "metagross",
-    "tier": 3
+    "tier": 3,
+    "pbName": "METAGROSS",
+    "family": "BELDUM",
+    "gsName": [
+      "METAGROSS"
+    ]
   },
   {
     "name": "metagross_mega",
     "overrideName": "Mega Metagross",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "METAGROSS_MEGA",
+    "family": "BELDUM",
+    "gsName": [
+      "METAGROSS MEGA"
+    ]
   },
   {
     "name": "regirock",
-    "tier": 5
+    "tier": 5,
+    "pbName": "REGIROCK",
+    "family": "REGIROCK",
+    "gsName": [
+      "REGIROCK"
+    ]
   },
   {
     "name": "regice",
-    "tier": 5
+    "tier": 5,
+    "pbName": "REGICE",
+    "family": "REGICE",
+    "gsName": [
+      "REGICE"
+    ]
   },
   {
     "name": "registeel",
-    "tier": 5
+    "tier": 5,
+    "pbName": "REGISTEEL",
+    "family": "REGISTEEL",
+    "gsName": [
+      "REGISTEEL"
+    ]
   },
   {
     "name": "latias",
     "tier": 5,
-    "shiny": true
+    "shiny": true,
+    "pbName": "LATIAS",
+    "family": "LATIAS",
+    "gsName": [
+      "LATIAS"
+    ]
   },
   {
     "name": "latias_mega",
     "overrideName": "Mega Latias",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "LATIAS_MEGA",
+    "family": "LATIAS",
+    "gsName": [
+      "LATIAS MEGA"
+    ]
   },
   {
     "name": "latios",
     "tier": 5,
-    "shiny": true
+    "shiny": true,
+    "pbName": "LATIOS",
+    "family": "LATIOS",
+    "gsName": [
+      "LATIOS"
+    ]
   },
   {
     "name": "latios_mega",
     "overrideName": "Mega Latios",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "LATIOS_MEGA",
+    "family": "LATIOS",
+    "gsName": [
+      "LATIOS MEGA"
+    ]
   },
   {
     "name": "kyogre",
     "tier": 5,
-    "shiny": true
+    "shiny": true,
+    "pbName": "KYOGRE",
+    "family": "KYOGRE",
+    "gsName": [
+      "KYOGRE"
+    ]
   },
   {
     "name": "kyogre_primal",
@@ -2138,7 +4483,12 @@
   {
     "name": "groudon",
     "tier": 5,
-    "shiny": true
+    "shiny": true,
+    "pbName": "GROUDON",
+    "family": "GROUDON",
+    "gsName": [
+      "GROUDON"
+    ]
   },
   {
     "name": "groudon_primal",
@@ -2147,423 +4497,1072 @@
   {
     "name": "rayquaza",
     "tier": 5,
-    "shiny": true
+    "shiny": true,
+    "pbName": "RAYQUAZA",
+    "family": "RAYQUAZA",
+    "gsName": [
+      "RAYQUAZA"
+    ]
   },
   {
     "name": "rayquaza_mega",
     "overrideName": "Mega Rayquaza",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "RAYQUAZA_MEGA",
+    "family": "RAYQUAZA",
+    "gsName": [
+      "RAYQUAZA MEGA"
+    ]
   },
   {
-    "name": "jirachi"
+    "name": "jirachi",
+    "pbName": "JIRACHI",
+    "family": "JIRACHI",
+    "gsName": [
+      "JIRACHI"
+    ]
   },
   {
     "name": "deoxys_normal",
     "overrideName": "Deoxys - Normal",
     "tier": 5,
-    "exclusive": true
+    "exclusive": true,
+    "pbName": "DEOXYS",
+    "family": "DEOXYS",
+    "gsName": [
+      "DEOXYS"
+    ]
   },
   {
     "name": "deoxys_attack",
     "overrideName": "Deoxys - Attack",
     "tier": 5,
-    "exclusive": true
+    "exclusive": true,
+    "pbName": "DEOXYS_ATTACK_FORM",
+    "family": "DEOXYS_ATTACK_FORM",
+    "gsName": [
+      "ATTACK DEOXYS",
+      "DEOXYS ATTACK",
+      "DEOXYS ATTACK"
+    ]
   },
   {
     "name": "deoxys_defense",
     "overrideName": "Deoxys - Defense",
     "tier": 5,
-    "exclusive": true
+    "exclusive": true,
+    "pbName": "DEOXYS_DEFENSE_FORM",
+    "family": "DEOXYS_DEFENSE_FORM",
+    "gsName": [
+      "DEFENSE DEOXYS",
+      "DEOXYS DEFENSE",
+      "DEOXYS DEFENSE"
+    ]
   },
   {
     "name": "deoxys_speed",
     "overrideName": "Deoxys - Speed",
     "tier": 5,
-    "exclusive": true
+    "exclusive": true,
+    "pbName": "DEOXYS_SPEED_FORM",
+    "family": "DEOXYS_SPEED_FORM",
+    "gsName": [
+      "SPEED DEOXYS",
+      "DEOXYS SPEED",
+      "DEOXYS SPEED"
+    ]
   },
   {
-    "name": "turtwig"
+    "name": "turtwig",
+    "pbName": "TURTWIG",
+    "family": "TURTWIG",
+    "gsName": [
+      "TURTWIG"
+    ]
   },
   {
     "name": "grotle",
-    "tier": 1
+    "tier": 1,
+    "pbName": "GROTLE",
+    "family": "TURTWIG",
+    "gsName": [
+      "GROTLE"
+    ]
   },
   {
     "name": "torterra",
-    "tier": 3
+    "tier": 3,
+    "pbName": "TORTERRA",
+    "family": "TURTWIG",
+    "gsName": [
+      "TORTERRA"
+    ]
   },
   {
-    "name": "chimchar"
+    "name": "chimchar",
+    "pbName": "CHIMCHAR",
+    "family": "CHIMCHAR",
+    "gsName": [
+      "CHIMCHAR"
+    ]
   },
   {
     "name": "monferno",
-    "tier": 1
+    "tier": 1,
+    "pbName": "MONFERNO",
+    "family": "CHIMCHAR",
+    "gsName": [
+      "MONFERNO"
+    ]
   },
   {
     "name": "infernape",
-    "tier": 3
+    "tier": 3,
+    "pbName": "INFERNAPE",
+    "family": "CHIMCHAR",
+    "gsName": [
+      "INFERNAPE"
+    ]
   },
   {
-    "name": "piplup"
+    "name": "piplup",
+    "pbName": "PIPLUP",
+    "family": "PIPLUP",
+    "gsName": [
+      "PIPLUP"
+    ]
   },
   {
     "name": "prinplup",
-    "tier": 1
+    "tier": 1,
+    "pbName": "PRINPLUP",
+    "family": "PIPLUP",
+    "gsName": [
+      "PRINPLUP"
+    ]
   },
   {
-    "name": "empoleon"
+    "name": "empoleon",
+    "pbName": "EMPOLEON",
+    "family": "PIPLUP",
+    "gsName": [
+      "EMPOLEON"
+    ]
   },
   {
-    "name": "starly"
+    "name": "starly",
+    "pbName": "STARLY",
+    "family": "STARLY",
+    "gsName": [
+      "STARLY"
+    ]
   },
   {
-    "name": "staravia"
+    "name": "staravia",
+    "pbName": "STARAVIA",
+    "family": "STARLY",
+    "gsName": [
+      "STARAVIA"
+    ]
   },
   {
     "name": "staraptor",
-    "tier": 3
+    "tier": 3,
+    "pbName": "STARAPTOR",
+    "family": "STARLY",
+    "gsName": [
+      "STARAPTOR"
+    ]
   },
   {
     "name": "bidoof",
-    "tier": 1
+    "tier": 1,
+    "pbName": "BIDOOF",
+    "family": "BIDOOF",
+    "gsName": [
+      "BIDOOF"
+    ]
   },
   {
-    "name": "bibarel"
+    "name": "bibarel",
+    "pbName": "BIBAREL",
+    "family": "BIDOOF",
+    "gsName": [
+      "BIBAREL"
+    ]
   },
   {
     "name": "kricketot",
-    "tier": 1
+    "tier": 1,
+    "pbName": "KRICKETOT",
+    "family": "KRICKETOT",
+    "gsName": [
+      "KRICKETOT"
+    ]
   },
   {
     "name": "kricketune",
-    "tier": 1
+    "tier": 1,
+    "pbName": "KRICKETUNE",
+    "family": "KRICKETOT",
+    "gsName": [
+      "KRICKETUNE"
+    ]
   },
   {
     "name": "shinx",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "SHINX",
+    "family": "SHINX",
+    "gsName": [
+      "SHINX"
+    ]
   },
   {
-    "name": "luxio"
+    "name": "luxio",
+    "pbName": "LUXIO",
+    "family": "SHINX",
+    "gsName": [
+      "LUXIO"
+    ]
   },
   {
-    "name": "luxray"
+    "name": "luxray",
+    "pbName": "LUXRAY",
+    "family": "SHINX",
+    "gsName": [
+      "LUXRAY"
+    ]
   },
   {
-    "name": "budew"
+    "name": "budew",
+    "pbName": "BUDEW",
+    "family": "ROSELIA",
+    "gsName": [
+      "BUDEW"
+    ]
   },
   {
-    "name": "roserade"
+    "name": "roserade",
+    "pbName": "ROSERADE",
+    "family": "ROSELIA",
+    "gsName": [
+      "ROSERADE"
+    ]
   },
   {
-    "name": "cranidos"
+    "name": "cranidos",
+    "pbName": "CRANIDOS",
+    "family": "CRANIDOS",
+    "gsName": [
+      "CRANIDOS"
+    ]
   },
   {
-    "name": "rampardos"
+    "name": "rampardos",
+    "pbName": "RAMPARDOS",
+    "family": "CRANIDOS",
+    "gsName": [
+      "RAMPARDOS"
+    ]
   },
   {
-    "name": "shieldon"
+    "name": "shieldon",
+    "pbName": "SHIELDON",
+    "family": "SHIELDON",
+    "gsName": [
+      "SHIELDON"
+    ]
   },
   {
-    "name": "bastiodon"
+    "name": "bastiodon",
+    "pbName": "BASTIODON",
+    "family": "SHIELDON",
+    "gsName": [
+      "BASTIODON"
+    ]
   },
   {
     "name": "burmy_plant",
     "overrideName": "Burmy (Plant Cloak)",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "BURMY_PLANT_FORM",
+    "family": "BURMY_PLANT_FORM",
+    "gsName": [
+      "PLANT BURMY",
+      "BURMY PLANT"
+    ]
   },
   {
     "name": "burmy_sandy",
     "overrideName": "Burmy (Sandy Cloak)",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "BURMY_SANDY_FORM",
+    "family": "BURMY_SANDY_FORM",
+    "gsName": [
+      "SANDY BURMY",
+      "BURMY SANDY"
+    ]
   },
   {
     "name": "burmy_trash",
     "overrideName": "Burmy (Trash Cloak)",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "BURMY_TRASH_FORM",
+    "family": "BURMY_TRASH_FORM",
+    "gsName": [
+      "TRASH BURMY",
+      "BURMY TRASH"
+    ]
   },
   {
     "name": "wormadam_plant",
-    "overrideName": "Wormadam (Plant Cloak)"
+    "overrideName": "Wormadam (Plant Cloak)",
+    "pbName": "WORMADAM_PLANT_FORM",
+    "family": "BURMY_PLANT_FORM",
+    "gsName": [
+      "PLANT WORMADAM",
+      "WORMADAM PLANT"
+    ]
   },
   {
     "name": "wormadam_sandy",
-    "overrideName": "Wormadam (Sandy Cloak)"
+    "overrideName": "Wormadam (Sandy Cloak)",
+    "pbName": "WORMADAM_SANDY_FORM",
+    "family": "BURMY_SANDY_FORM",
+    "gsName": [
+      "SANDY WORMADAM",
+      "WORMADAM SANDY"
+    ]
   },
   {
     "name": "wormadam_trash",
-    "overrideName": "Wormadam (Trash Cloak)"
+    "overrideName": "Wormadam (Trash Cloak)",
+    "pbName": "WORMADAM_TRASH_FORM",
+    "family": "BURMY_TRASH_FORM",
+    "gsName": [
+      "TRASH WORMADAM",
+      "WORMADAM TRASH"
+    ]
   },
   {
-    "name": "mothim"
+    "name": "mothim",
+    "pbName": "MOTHIM",
+    "family": "BURMY_PLANT_FORM",
+    "gsName": [
+      "MOTHIM"
+    ]
   },
   {
-    "name": "combee"
+    "name": "combee",
+    "pbName": "COMBEE",
+    "family": "COMBEE",
+    "gsName": [
+      "COMBEE"
+    ]
   },
   {
-    "name": "vespiquen"
+    "name": "vespiquen",
+    "pbName": "VESPIQUEN",
+    "family": "COMBEE",
+    "gsName": [
+      "VESPIQUEN"
+    ]
   },
   {
-    "name": "pachirisu"
+    "name": "pachirisu",
+    "pbName": "PACHIRISU",
+    "family": "PACHIRISU",
+    "gsName": [
+      "PACHIRISU"
+    ]
   },
   {
     "name": "buizel",
-    "tier": 1
+    "tier": 1,
+    "pbName": "BUIZEL",
+    "family": "BUIZEL",
+    "gsName": [
+      "BUIZEL"
+    ]
   },
   {
     "name": "floatzel",
-    "tier": 3
+    "tier": 3,
+    "pbName": "FLOATZEL",
+    "family": "BUIZEL",
+    "gsName": [
+      "FLOATZEL"
+    ]
   },
   {
-    "name": "cherubi"
+    "name": "cherubi",
+    "pbName": "CHERUBI",
+    "family": "CHERUBI",
+    "gsName": [
+      "CHERUBI"
+    ]
   },
   {
     "name": "cherrim_overcast",
-    "overrideName": "Cherrim (Overcast)"
+    "overrideName": "Cherrim (Overcast)",
+    "pbName": "CHERRIM",
+    "family": "CHERUBI",
+    "gsName": [
+      "CHERRIM"
+    ]
   },
   {
     "name": "cherrim_sunny",
-    "overrideName": "Cherrim (Sunny)"
+    "overrideName": "Cherrim (Sunny)",
+    "pbName": "CHERRIM",
+    "family": "CHERUBI",
+    "gsName": [
+      "CHERRIM"
+    ]
   },
   {
-    "name": "shellos"
+    "name": "shellos",
+    "pbName": "SHELLOS",
+    "family": "SHELLOS",
+    "gsName": [
+      "SHELLOS"
+    ]
   },
   {
-    "name": "gastrodon"
+    "name": "gastrodon",
+    "pbName": "GASTRODON",
+    "family": "SHELLOS",
+    "gsName": [
+      "GASTRODON"
+    ]
   },
   {
-    "name": "ambipom"
+    "name": "ambipom",
+    "pbName": "AMBIPOM",
+    "family": "AIPOM",
+    "gsName": [
+      "AMBIPOM"
+    ]
   },
   {
     "name": "drifloon",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "DRIFLOON",
+    "family": "DRIFLOON",
+    "gsName": [
+      "DRIFLOON"
+    ]
   },
   {
     "name": "drifblim",
-    "tier": 3
+    "tier": 3,
+    "pbName": "DRIFBLIM",
+    "family": "DRIFLOON",
+    "gsName": [
+      "DRIFBLIM"
+    ]
   },
   {
     "name": "buneary",
-    "tier": 1
+    "tier": 1,
+    "pbName": "BUNEARY",
+    "family": "BUNEARY",
+    "gsName": [
+      "BUNEARY"
+    ]
   },
   {
-    "name": "lopunny"
+    "name": "lopunny",
+    "pbName": "LOPUNNY",
+    "family": "BUNEARY",
+    "gsName": [
+      "LOPUNNY"
+    ]
   },
   {
     "name": "lopunny_mega",
     "overrideName": "Mega Lopunny",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "LOPUNNY_MEGA",
+    "family": "BUNEARY",
+    "gsName": [
+      "LOPUNNY MEGA"
+    ]
   },
   {
-    "name": "mismagius"
+    "name": "mismagius",
+    "pbName": "MISMAGIUS",
+    "family": "MISDREAVUS",
+    "gsName": [
+      "MISMAGIUS"
+    ]
   },
   {
-    "name": "honchkrow"
+    "name": "honchkrow",
+    "pbName": "HONCHKROW",
+    "family": "MURKROW",
+    "gsName": [
+      "HONCHKROW"
+    ]
   },
   {
-    "name": "glameow"
+    "name": "glameow",
+    "pbName": "GLAMEOW",
+    "family": "GLAMEOW",
+    "gsName": [
+      "GLAMEOW"
+    ]
   },
   {
-    "name": "purugly"
+    "name": "purugly",
+    "pbName": "PURUGLY",
+    "family": "GLAMEOW",
+    "gsName": [
+      "PURUGLY"
+    ]
   },
   {
-    "name": "chingling"
+    "name": "chingling",
+    "pbName": "CHINGLING",
+    "family": "CHIMECHO",
+    "gsName": [
+      "CHINGLING"
+    ]
   },
   {
-    "name": "stunky"
+    "name": "stunky",
+    "pbName": "STUNKY",
+    "family": "STUNKY",
+    "gsName": [
+      "STUNKY"
+    ]
   },
   {
     "name": "skuntank",
-    "tier": 3
+    "tier": 3,
+    "pbName": "SKUNTANK",
+    "family": "STUNKY",
+    "gsName": [
+      "SKUNTANK"
+    ]
   },
   {
-    "name": "bronzor"
+    "name": "bronzor",
+    "pbName": "BRONZOR",
+    "family": "BRONZOR",
+    "gsName": [
+      "BRONZOR"
+    ]
   },
   {
-    "name": "bronzong"
+    "name": "bronzong",
+    "pbName": "BRONZONG",
+    "family": "BRONZOR",
+    "gsName": [
+      "BRONZONG"
+    ]
   },
   {
-    "name": "bonsly"
+    "name": "bonsly",
+    "pbName": "BONSLY",
+    "family": "SUDOWOODO",
+    "gsName": [
+      "BONSLY"
+    ]
   },
   {
-    "name": "mime jr."
+    "name": "mime jr.",
+    "pbName": "MIME_JR",
+    "family": "MR_MIME",
+    "gsName": [
+      "MIME_JR"
+    ]
   },
   {
-    "name": "happiny"
+    "name": "happiny",
+    "pbName": "HAPPINY",
+    "family": "CHANSEY",
+    "gsName": [
+      "HAPPINY"
+    ]
   },
   {
-    "name": "chatot"
+    "name": "chatot",
+    "pbName": "CHATOT",
+    "family": "CHATOT",
+    "gsName": [
+      "CHATOT"
+    ]
   },
   {
-    "name": "spiritomb"
+    "name": "spiritomb",
+    "pbName": "SPIRITOMB",
+    "family": "SPIRITOMB",
+    "gsName": [
+      "SPIRITOMB"
+    ]
   },
   {
-    "name": "gible"
+    "name": "gible",
+    "pbName": "GIBLE",
+    "family": "GIBLE",
+    "gsName": [
+      "GIBLE"
+    ]
   },
   {
-    "name": "gabite"
+    "name": "gabite",
+    "pbName": "GABITE",
+    "family": "GIBLE",
+    "gsName": [
+      "GABITE"
+    ]
   },
   {
-    "name": "garchomp"
+    "name": "garchomp",
+    "pbName": "GARCHOMP",
+    "family": "GIBLE",
+    "gsName": [
+      "GARCHOMP"
+    ]
   },
   {
     "name": "garchomp_mega",
     "overrideName": "Mega Garchomp",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "GARCHOMP_MEGA",
+    "family": "GIBLE",
+    "gsName": [
+      "GARCHOMP MEGA"
+    ]
   },
   {
-    "name": "munchlax"
+    "name": "munchlax",
+    "pbName": "MUNCHLAX",
+    "family": "SNORLAX",
+    "gsName": [
+      "MUNCHLAX"
+    ]
   },
   {
-    "name": "riolu"
+    "name": "riolu",
+    "pbName": "RIOLU",
+    "family": "RIOLU",
+    "gsName": [
+      "RIOLU"
+    ]
   },
   {
-    "name": "lucario"
+    "name": "lucario",
+    "pbName": "LUCARIO",
+    "family": "RIOLU",
+    "gsName": [
+      "LUCARIO"
+    ]
   },
   {
     "name": "lucario_mega",
     "overrideName": "Mega Lucario",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "LUCARIO_MEGA",
+    "family": "RIOLU",
+    "gsName": [
+      "LUCARIO MEGA"
+    ]
   },
   {
     "name": "hippopotas",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "HIPPOPOTAS",
+    "family": "HIPPOPOTAS",
+    "gsName": [
+      "HIPPOPOTAS"
+    ]
   },
   {
-    "name": "hippowdon"
+    "name": "hippowdon",
+    "pbName": "HIPPOWDON",
+    "family": "HIPPOPOTAS",
+    "gsName": [
+      "HIPPOWDON"
+    ]
   },
   {
-    "name": "skorupi"
+    "name": "skorupi",
+    "pbName": "SKORUPI",
+    "family": "SKORUPI",
+    "gsName": [
+      "SKORUPI"
+    ]
   },
   {
-    "name": "drapion"
+    "name": "drapion",
+    "pbName": "DRAPION",
+    "family": "SKORUPI",
+    "gsName": [
+      "DRAPION"
+    ]
   },
   {
     "name": "croagunk",
-    "tier": 1
+    "tier": 1,
+    "pbName": "CROAGUNK",
+    "family": "CROAGUNK",
+    "gsName": [
+      "CROAGUNK"
+    ]
   },
   {
     "name": "toxicroak",
-    "tier": 3
+    "tier": 3,
+    "pbName": "TOXICROAK",
+    "family": "CROAGUNK",
+    "gsName": [
+      "TOXICROAK"
+    ]
   },
   {
-    "name": "carnivine"
+    "name": "carnivine",
+    "pbName": "CARNIVINE",
+    "family": "CARNIVINE",
+    "gsName": [
+      "CARNIVINE"
+    ]
   },
   {
-    "name": "finneon"
+    "name": "finneon",
+    "pbName": "FINNEON",
+    "family": "FINNEON",
+    "gsName": [
+      "FINNEON"
+    ]
   },
   {
-    "name": "lumineon"
+    "name": "lumineon",
+    "pbName": "LUMINEON",
+    "family": "FINNEON",
+    "gsName": [
+      "LUMINEON"
+    ]
   },
   {
-    "name": "mantyke"
+    "name": "mantyke",
+    "pbName": "MANTYKE",
+    "family": "MANTINE",
+    "gsName": [
+      "MANTYKE"
+    ]
   },
   {
-    "name": "snover"
+    "name": "snover",
+    "pbName": "SNOVER",
+    "family": "SNOVER",
+    "gsName": [
+      "SNOVER"
+    ]
   },
   {
-    "name": "abomasnow"
+    "name": "abomasnow",
+    "pbName": "ABOMASNOW",
+    "family": "SNOVER",
+    "gsName": [
+      "ABOMASNOW"
+    ]
   },
   {
     "name": "abomasnow_mega",
     "overrideName": "Mega Abomasnow",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "ABOMASNOW_MEGA",
+    "family": "SNOVER",
+    "gsName": [
+      "ABOMASNOW MEGA"
+    ]
   },
   {
-    "name": "weavile"
+    "name": "weavile",
+    "pbName": "WEAVILE",
+    "family": "SNEASEL",
+    "gsName": [
+      "WEAVILE"
+    ]
   },
   {
-    "name": "magnezone"
+    "name": "magnezone",
+    "pbName": "MAGNEZONE",
+    "family": "MAGNEMITE",
+    "gsName": [
+      "MAGNEZONE"
+    ]
   },
   {
-    "name": "lickilicky"
+    "name": "lickilicky",
+    "pbName": "LICKILICKY",
+    "family": "LICKITUNG",
+    "gsName": [
+      "LICKILICKY"
+    ]
   },
   {
-    "name": "rhyperior"
+    "name": "rhyperior",
+    "pbName": "RHYPERIOR",
+    "family": "RHYHORN",
+    "gsName": [
+      "RHYPERIOR"
+    ]
   },
   {
-    "name": "tangrowth"
+    "name": "tangrowth",
+    "pbName": "TANGROWTH",
+    "family": "TANGELA",
+    "gsName": [
+      "TANGROWTH"
+    ]
   },
   {
-    "name": "electivire"
+    "name": "electivire",
+    "pbName": "ELECTIVIRE",
+    "family": "ELECTABUZZ",
+    "gsName": [
+      "ELECTIVIRE"
+    ]
   },
   {
-    "name": "magmortar"
+    "name": "magmortar",
+    "pbName": "MAGMORTAR",
+    "family": "MAGMAR",
+    "gsName": [
+      "MAGMORTAR"
+    ]
   },
   {
-    "name": "togekiss"
+    "name": "togekiss",
+    "pbName": "TOGEKISS",
+    "family": "TOGEPI",
+    "gsName": [
+      "TOGEKISS"
+    ]
   },
   {
-    "name": "yanmega"
+    "name": "yanmega",
+    "pbName": "YANMEGA",
+    "family": "YANMA",
+    "gsName": [
+      "YANMEGA"
+    ]
   },
   {
-    "name": "leafeon"
+    "name": "leafeon",
+    "pbName": "LEAFEON",
+    "family": "EEVEE",
+    "gsName": [
+      "LEAFEON"
+    ]
   },
   {
-    "name": "glaceon"
+    "name": "glaceon",
+    "pbName": "GLACEON",
+    "family": "EEVEE",
+    "gsName": [
+      "GLACEON"
+    ]
   },
   {
-    "name": "gliscor"
+    "name": "gliscor",
+    "pbName": "GLISCOR",
+    "family": "GLIGAR",
+    "gsName": [
+      "GLISCOR"
+    ]
   },
   {
-    "name": "mamoswine"
+    "name": "mamoswine",
+    "pbName": "MAMOSWINE",
+    "family": "SWINUB",
+    "gsName": [
+      "MAMOSWINE"
+    ]
   },
   {
-    "name": "porygon-z"
+    "name": "porygon-z",
+    "pbName": "PORYGON_Z",
+    "family": "PORYGON",
+    "gsName": [
+      "PORYGON_Z",
+      "PORYGON_Z",
+      "PORYGON Z"
+    ]
   },
   {
-    "name": "gallade"
+    "name": "gallade",
+    "pbName": "GALLADE",
+    "family": "RALTS",
+    "gsName": [
+      "GALLADE"
+    ]
   },
   {
     "name": "gallade_mega",
     "overrideName": "Mega Gallade",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "GALLADE_MEGA",
+    "family": "RALTS",
+    "gsName": [
+      "GALLADE MEGA"
+    ]
   },
   {
-    "name": "probopass"
+    "name": "probopass",
+    "pbName": "PROBOPASS",
+    "family": "NOSEPASS",
+    "gsName": [
+      "PROBOPASS"
+    ]
   },
   {
-    "name": "dusknoir"
+    "name": "dusknoir",
+    "pbName": "DUSKNOIR",
+    "family": "DUSKULL",
+    "gsName": [
+      "DUSKNOIR"
+    ]
   },
   {
-    "name": "froslass"
+    "name": "froslass",
+    "pbName": "FROSLASS",
+    "family": "SNORUNT",
+    "gsName": [
+      "FROSLASS"
+    ]
   },
   {
-    "name": "rotom"
+    "name": "rotom",
+    "pbName": "ROTOM",
+    "family": "ROTOM",
+    "gsName": [
+      "ROTOM"
+    ]
+  },
+  {
+    "name": "rotom_fan",
+    "overrideName": "Rotom (Fan)",
+    "pbName": "ROTOM_FAN_FORM",
+    "family": "ROTOM_FAN_FORM",
+    "gsName": [
+      "FAN ROTOM",
+      "ROTOM FAN"
+    ]
+  },
+  {
+    "name": "rotom_frost",
+    "overrideName": "Rotom (Frost)",
+    "pbName": "ROTOM_FROST_FORM",
+    "family": "ROTOM_FROST_FORM",
+    "gsName": [
+      "FROST ROTOM",
+      "ROTOM FROST"
+    ]
+  },
+  {
+    "name": "rotom_heat",
+    "overrideName": "Rotom (Heat)",
+    "pbName": "ROTOM_HEAT_FORM",
+    "family": "ROTOM_HEAT_FORM",
+    "gsName": [
+      "HEAT ROTOM",
+      "ROTOM HEAT"
+    ]
+  },
+  {
+    "name": "rotom_mow",
+    "overrideName": "Rotom (Mow)",
+    "pbName": "ROTOM_MOW_FORM",
+    "family": "ROTOM_MOW_FORM",
+    "gsName": [
+      "MOW ROTOM",
+      "ROTOM MOW"
+    ]
+  },
+  {
+    "name": "rotom_wash",
+    "overrideName": "Rotom (Wash)",
+    "pbName": "ROTOM_WASH_FORM",
+    "family": "ROTOM_WASH_FORM",
+    "gsName": [
+      "WASH ROTOM",
+      "ROTOM WASH"
+    ]
   },
   {
     "name": "uxie",
-    "tier": 5
+    "tier": 5,
+    "pbName": "UXIE",
+    "family": "UXIE",
+    "gsName": [
+      "UXIE"
+    ]
   },
   {
     "name": "mesprit",
-    "tier": 5
+    "tier": 5,
+    "pbName": "MESPRIT",
+    "family": "MESPRIT",
+    "gsName": [
+      "MESPRIT"
+    ]
   },
   {
     "name": "azelf",
-    "tier": 5
+    "tier": 5,
+    "pbName": "AZELF",
+    "family": "AZELF",
+    "gsName": [
+      "AZELF"
+    ]
   },
   {
     "name": "dialga",
-    "tier": 5
+    "tier": 5,
+    "pbName": "DIALGA",
+    "family": "DIALGA",
+    "gsName": [
+      "DIALGA"
+    ]
   },
   {
     "name": "palkia",
-    "tier": 5
+    "tier": 5,
+    "pbName": "PALKIA",
+    "family": "PALKIA",
+    "gsName": [
+      "PALKIA"
+    ]
   },
   {
     "name": "heatran",
     "tier": 5,
-    "shiny": true
+    "shiny": true,
+    "pbName": "HEATRAN",
+    "family": "HEATRAN",
+    "gsName": [
+      "HEATRAN"
+    ]
   },
   {
     "name": "regigigas",
-    "tier": 5
+    "tier": 5,
+    "pbName": "REGIGIGAS",
+    "family": "REGIGIGAS",
+    "gsName": [
+      "REGIGIGAS"
+    ]
   },
   {
     "name": "giratina_altered",
@@ -2572,12 +5571,25 @@
       "altered"
     ],
     "tier": 5,
-    "shiny": true
+    "shiny": true,
+    "pbName": "GIRATINA_ALTERED_FORM",
+    "family": "GIRATINA_ALTERED_FORM",
+    "gsName": [
+      "GIRATINA",
+      "GIRATINA ALTERED"
+    ]
   },
   {
     "name": "giratina_origin",
     "overrideName": "Giratina - Origin",
-    "tier": 5
+    "tier": 5,
+    "pbName": "GIRATINA_ORIGIN_FORM",
+    "family": "GIRATINA_ORIGIN_FORM",
+    "gsName": [
+      "ORIGIN GIRATINA",
+      "GIRATINA ORIGIN",
+      "GIRATINA ORIGIN"
+    ]
   },
   {
     "name": "cresselia",
@@ -2586,238 +5598,792 @@
       "regiswan"
     ],
     "tier": 5,
-    "shiny": true
+    "shiny": true,
+    "pbName": "CRESSELIA",
+    "family": "CRESSELIA",
+    "gsName": [
+      "CRESSELIA"
+    ]
   },
   {
-    "name": "phione"
+    "name": "phione",
+    "pbName": "PHIONE",
+    "family": "PHIONE",
+    "gsName": [
+      "PHIONE"
+    ]
   },
   {
-    "name": "manaphy"
+    "name": "manaphy",
+    "pbName": "MANAPHY",
+    "family": "MANAPHY",
+    "gsName": [
+      "MANAPHY"
+    ]
   },
   {
     "name": "darkrai",
-    "tier": 5
+    "tier": 5,
+    "pbName": "DARKRAI",
+    "family": "DARKRAI",
+    "gsName": [
+      "DARKRAI"
+    ]
   },
   {
-    "name": "shaymin"
+    "name": "shaymin_land",
+    "overrideName": "Shaymin (Land)",
+    "pbName": "SHAYMIN_LAND_FORM",
+    "family": "SHAYMIN_LAND_FORM",
+    "gsName": [
+      "SHAYMIN",
+      "SHAYMIN LAND"
+    ]
   },
   {
-    "name": "arceus"
+    "name": "shaymin_sky",
+    "overrideName": "Shaymin (Sky)",
+    "pbName": "SHAYMIN_SKY_FORM",
+    "family": "SHAYMIN_SKY_FORM",
+    "gsName": [
+      "SKY SHAYMIN",
+      "SHAYMIN SKY"
+    ]
   },
   {
-    "name": "victini"
+    "name": "arceus",
+    "overrideName": "Arceus (Normal)",
+    "pbName": "ARCEUS_NORMAL_FORM",
+    "family": "ARCEUS_NORMAL_FORM",
+    "gsName": [
+      "ARCEUS NORMAL",
+      "NORMAL ARCEUS",
+      "ARCEUS"
+    ]
   },
   {
-    "name": "snivy"
+    "name": "arceus_bug",
+    "overrideName": "Arceus (Bug)",
+    "pbName": "ARCEUS_BUG_FORM",
+    "family": "ARCEUS_BUG_FORM",
+    "gsName": [
+      "ARCEUS BUG FORM",
+      "ARCEUS BUG"
+    ]
   },
   {
-    "name": "servine"
+    "name": "arceus_dark",
+    "overrideName": "Arceus (Dark)",
+    "pbName": "ARCEUS_DARK_FORM",
+    "family": "ARCEUS_DARK_FORM",
+    "gsName": [
+      "ARCEUS DARK FORM",
+      "ARCEUS DARK"
+    ]
   },
   {
-    "name": "serperior"
+    "name": "arceus_dragon",
+    "overrideName": "Arceus (Dragon)",
+    "pbName": "ARCEUS_DRAGON_FORM",
+    "family": "ARCEUS_DRAGON_FORM",
+    "gsName": [
+      "ARCEUS DRAGON FORM",
+      "ARCEUS DRAGON"
+    ]
+  },
+  {
+    "name": "arceus_electric",
+    "overrideName": "Arceus (Electric)",
+    "pbName": "ARCEUS_ELECTRIC_FORM",
+    "family": "ARCEUS_ELECTRIC_FORM",
+    "gsName": [
+      "ARCEUS ELECTRIC FORM",
+      "ARCEUS ELECTRIC"
+    ]
+  },
+  {
+    "name": "arceus_fairy",
+    "overrideName": "Arceus (Fairy)",
+    "pbName": "ARCEUS_FAIRY_FORM",
+    "family": "ARCEUS_FAIRY_FORM",
+    "gsName": [
+      "ARCEUS FAIRY FORM",
+      "ARCEUS FAIRY"
+    ]
+  },
+  {
+    "name": "arceus_fighting",
+    "overrideName": "Arceus (Fighting)",
+    "pbName": "ARCEUS_FIGHTING_FORM",
+    "family": "ARCEUS_FIGHTING_FORM",
+    "gsName": [
+      "ARCEUS FIGHTING FORM",
+      "ARCEUS FIGHTING"
+    ]
+  },
+  {
+    "name": "arceus_fire",
+    "overrideName": "Arceus (Fire)",
+    "pbName": "ARCEUS_FIRE_FORM",
+    "family": "ARCEUS_FIRE_FORM",
+    "gsName": [
+      "ARCEUS FIRE FORM",
+      "ARCEUS FIRE"
+    ]
+  },
+  {
+    "name": "arceus_flying",
+    "overrideName": "Arceus (Flying)",
+    "pbName": "ARCEUS_FLYING_FORM",
+    "family": "ARCEUS_FLYING_FORM",
+    "gsName": [
+      "ARCEUS FLYING FORM",
+      "ARCEUS FLYING"
+    ]
+  },
+  {
+    "name": "arceus_ghost",
+    "overrideName": "Arceus (Ghost)",
+    "pbName": "ARCEUS_GHOST_FORM",
+    "family": "ARCEUS_GHOST_FORM",
+    "gsName": [
+      "ARCEUS GHOST FORM",
+      "ARCEUS GHOST"
+    ]
+  },
+  {
+    "name": "arceus_grass",
+    "overrideName": "Arceus (Grass)",
+    "pbName": "ARCEUS_GRASS_FORM",
+    "family": "ARCEUS_GRASS_FORM",
+    "gsName": [
+      "ARCEUS GRASS FORM",
+      "ARCEUS GRASS"
+    ]
+  },
+  {
+    "name": "arceus_ground",
+    "overrideName": "Arceus (Ground)",
+    "pbName": "ARCEUS_GROUND_FORM",
+    "family": "ARCEUS_GROUND_FORM",
+    "gsName": [
+      "ARCEUS GROUND FORM",
+      "ARCEUS GROUND"
+    ]
+  },
+  {
+    "name": "arceus_ice",
+    "overrideName": "Arceus (Ice)",
+    "pbName": "ARCEUS_ICE_FORM",
+    "family": "ARCEUS_ICE_FORM",
+    "gsName": [
+      "ARCEUS ICE FORM",
+      "ARCEUS ICE"
+    ]
+  },
+  {
+    "name": "arceus_poison",
+    "overrideName": "Arceus (Poison)",
+    "pbName": "ARCEUS_POISON_FORM",
+    "family": "ARCEUS_POISON_FORM",
+    "gsName": [
+      "ARCEUS POISON FORM",
+      "ARCEUS POISON"
+    ]
+  },
+  {
+    "name": "arceus_psychic",
+    "overrideName": "Arceus (Psychic)",
+    "pbName": "ARCEUS_PSYCHIC_FORM",
+    "family": "ARCEUS_PSYCHIC_FORM",
+    "gsName": [
+      "ARCEUS PSYCHIC FORM",
+      "ARCEUS PSYCHIC"
+    ]
+  },
+  {
+    "name": "arceus_rock",
+    "overrideName": "Arceus (Rock)",
+    "pbName": "ARCEUS_ROCK_FORM",
+    "family": "ARCEUS_ROCK_FORM",
+    "gsName": [
+      "ARCEUS ROCK FORM",
+      "ARCEUS ROCK"
+    ]
+  },
+  {
+    "name": "arceus_steel",
+    "overrideName": "Arceus (Steel)",
+    "pbName": "ARCEUS_STEEL_FORM",
+    "family": "ARCEUS_STEEL_FORM",
+    "gsName": [
+      "ARCEUS STEEL FORM",
+      "ARCEUS STEEL"
+    ]
+  },
+  {
+    "name": "arceus_water",
+    "overrideName": "Arceus (Water)",
+    "pbName": "ARCEUS_WATER_FORM",
+    "family": "ARCEUS_WATER_FORM",
+    "gsName": [
+      "ARCEUS WATER FORM",
+      "ARCEUS WATER"
+    ]
+  },
+  {
+    "name": "victini",
+    "pbName": "VICTINI",
+    "family": "VICTINI",
+    "gsName": [
+      "VICTINI"
+    ]
+  },
+  {
+    "name": "snivy",
+    "pbName": "SNIVY",
+    "family": "SNIVY",
+    "gsName": [
+      "SNIVY"
+    ]
+  },
+  {
+    "name": "servine",
+    "pbName": "SERVINE",
+    "family": "SNIVY",
+    "gsName": [
+      "SERVINE"
+    ]
+  },
+  {
+    "name": "serperior",
+    "pbName": "SERPERIOR",
+    "family": "SNIVY",
+    "gsName": [
+      "SERPERIOR"
+    ]
   },
   {
     "name": "tepig",
-    "tier": 1
+    "tier": 1,
+    "pbName": "TEPIG",
+    "family": "TEPIG",
+    "gsName": [
+      "TEPIG"
+    ]
   },
   {
-    "name": "pignite"
+    "name": "pignite",
+    "pbName": "PIGNITE",
+    "family": "TEPIG",
+    "gsName": [
+      "PIGNITE"
+    ]
   },
   {
-    "name": "emboar"
+    "name": "emboar",
+    "pbName": "EMBOAR",
+    "family": "TEPIG",
+    "gsName": [
+      "EMBOAR"
+    ]
   },
   {
     "name": "oshawott",
-    "tier": 1
+    "tier": 1,
+    "pbName": "OSHAWOTT",
+    "family": "OSHAWOTT",
+    "gsName": [
+      "OSHAWOTT"
+    ]
   },
   {
-    "name": "dewott"
+    "name": "dewott",
+    "pbName": "DEWOTT",
+    "family": "OSHAWOTT",
+    "gsName": [
+      "DEWOTT"
+    ]
   },
   {
-    "name": "samurott"
+    "name": "samurott",
+    "pbName": "SAMUROTT",
+    "family": "OSHAWOTT",
+    "gsName": [
+      "SAMUROTT"
+    ]
   },
   {
     "name": "patrat",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "PATRAT",
+    "family": "PATRAT",
+    "gsName": [
+      "PATRAT"
+    ]
   },
   {
-    "name": "watchog"
+    "name": "watchog",
+    "pbName": "WATCHOG",
+    "family": "PATRAT",
+    "gsName": [
+      "WATCHOG"
+    ]
   },
   {
     "name": "lillipup",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "LILLIPUP",
+    "family": "LILLIPUP",
+    "gsName": [
+      "LILLIPUP"
+    ]
   },
   {
-    "name": "herdier"
+    "name": "herdier",
+    "pbName": "HERDIER",
+    "family": "LILLIPUP",
+    "gsName": [
+      "HERDIER"
+    ]
   },
   {
-    "name": "stoutland"
+    "name": "stoutland",
+    "pbName": "STOUTLAND",
+    "family": "LILLIPUP",
+    "gsName": [
+      "STOUTLAND"
+    ]
   },
   {
-    "name": "purrloin"
+    "name": "purrloin",
+    "pbName": "PURRLOIN",
+    "family": "PURRLOIN",
+    "gsName": [
+      "PURRLOIN"
+    ]
   },
   {
-    "name": "liepard"
+    "name": "liepard",
+    "pbName": "LIEPARD",
+    "family": "PURRLOIN",
+    "gsName": [
+      "LIEPARD"
+    ]
   },
   {
-    "name": "pansage"
+    "name": "pansage",
+    "pbName": "PANSAGE",
+    "family": "PANSAGE",
+    "gsName": [
+      "PANSAGE"
+    ]
   },
   {
-    "name": "simisage"
+    "name": "simisage",
+    "pbName": "SIMISAGE",
+    "family": "PANSAGE",
+    "gsName": [
+      "SIMISAGE"
+    ]
   },
   {
-    "name": "pansear"
+    "name": "pansear",
+    "pbName": "PANSEAR",
+    "family": "PANSEAR",
+    "gsName": [
+      "PANSEAR"
+    ]
   },
   {
-    "name": "simisear"
+    "name": "simisear",
+    "pbName": "SIMISEAR",
+    "family": "PANSEAR",
+    "gsName": [
+      "SIMISEAR"
+    ]
   },
   {
-    "name": "panpour"
+    "name": "panpour",
+    "pbName": "PANPOUR",
+    "family": "PANPOUR",
+    "gsName": [
+      "PANPOUR"
+    ]
   },
   {
-    "name": "simipour"
+    "name": "simipour",
+    "pbName": "SIMIPOUR",
+    "family": "PANPOUR",
+    "gsName": [
+      "SIMIPOUR"
+    ]
   },
   {
-    "name": "munna"
+    "name": "munna",
+    "pbName": "MUNNA",
+    "family": "MUNNA",
+    "gsName": [
+      "MUNNA"
+    ]
   },
   {
-    "name": "musharna"
+    "name": "musharna",
+    "pbName": "MUSHARNA",
+    "family": "MUNNA",
+    "gsName": [
+      "MUSHARNA"
+    ]
   },
   {
     "name": "pidove",
-    "tier": 1
+    "tier": 1,
+    "pbName": "PIDOVE",
+    "family": "PIDOVE",
+    "gsName": [
+      "PIDOVE"
+    ]
   },
   {
-    "name": "tranquill"
+    "name": "tranquill",
+    "pbName": "TRANQUILL",
+    "family": "PIDOVE",
+    "gsName": [
+      "TRANQUILL"
+    ]
   },
   {
-    "name": "unfezant"
+    "name": "unfezant",
+    "pbName": "UNFEZANT",
+    "family": "PIDOVE",
+    "gsName": [
+      "UNFEZANT"
+    ]
   },
   {
     "name": "blitzle",
-    "tier": 1
+    "tier": 1,
+    "pbName": "BLITZLE",
+    "family": "BLITZLE",
+    "gsName": [
+      "BLITZLE"
+    ]
   },
   {
-    "name": "zebstrika"
+    "name": "zebstrika",
+    "pbName": "ZEBSTRIKA",
+    "family": "BLITZLE",
+    "gsName": [
+      "ZEBSTRIKA"
+    ]
   },
   {
     "name": "roggenrola",
-    "tier": 1
+    "tier": 1,
+    "pbName": "ROGGENROLA",
+    "family": "ROGGENROLA",
+    "gsName": [
+      "ROGGENROLA"
+    ]
   },
   {
-    "name": "boldore"
+    "name": "boldore",
+    "pbName": "BOLDORE",
+    "family": "ROGGENROLA",
+    "gsName": [
+      "BOLDORE"
+    ]
   },
   {
-    "name": "gigalith"
+    "name": "gigalith",
+    "pbName": "GIGALITH",
+    "family": "ROGGENROLA",
+    "gsName": [
+      "GIGALITH"
+    ]
   },
   {
-    "name": "woobat"
+    "name": "woobat",
+    "pbName": "WOOBAT",
+    "family": "WOOBAT",
+    "gsName": [
+      "WOOBAT"
+    ]
   },
   {
-    "name": "swoobat"
+    "name": "swoobat",
+    "pbName": "SWOOBAT",
+    "family": "WOOBAT",
+    "gsName": [
+      "SWOOBAT"
+    ]
   },
   {
-    "name": "drilbur"
+    "name": "drilbur",
+    "pbName": "DRILBUR",
+    "family": "DRILBUR",
+    "gsName": [
+      "DRILBUR"
+    ]
   },
   {
     "name": "excadrill",
-    "tier": 3
+    "tier": 3,
+    "pbName": "EXCADRILL",
+    "family": "DRILBUR",
+    "gsName": [
+      "EXCADRILL"
+    ]
   },
   {
-    "name": "audino"
+    "name": "audino",
+    "pbName": "AUDINO",
+    "family": "AUDINO",
+    "gsName": [
+      "AUDINO"
+    ]
   },
   {
     "name": "audino_mega",
     "overrideName": "Mega Audino",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "AUDINO_MEGA",
+    "family": "AUDINO",
+    "gsName": [
+      "AUDINO MEGA"
+    ]
   },
   {
     "name": "timburr",
-    "tier": 1
+    "tier": 1,
+    "pbName": "TIMBURR",
+    "family": "TIMBURR",
+    "gsName": [
+      "TIMBURR"
+    ]
   },
   {
-    "name": "gurdurr"
+    "name": "gurdurr",
+    "pbName": "GURDURR",
+    "family": "TIMBURR",
+    "gsName": [
+      "GURDURR"
+    ]
   },
   {
-    "name": "conkeldurr"
+    "name": "conkeldurr",
+    "pbName": "CONKELDURR",
+    "family": "TIMBURR",
+    "gsName": [
+      "CONKELDURR"
+    ]
   },
   {
-    "name": "tympole"
+    "name": "tympole",
+    "pbName": "TYMPOLE",
+    "family": "TYMPOLE",
+    "gsName": [
+      "TYMPOLE"
+    ]
   },
   {
-    "name": "palpitoad"
+    "name": "palpitoad",
+    "pbName": "PALPITOAD",
+    "family": "TYMPOLE",
+    "gsName": [
+      "PALPITOAD"
+    ]
   },
   {
-    "name": "seismitoad"
+    "name": "seismitoad",
+    "pbName": "SEISMITOAD",
+    "family": "TYMPOLE",
+    "gsName": [
+      "SEISMITOAD"
+    ]
   },
   {
-    "name": "throh"
+    "name": "throh",
+    "pbName": "THROH",
+    "family": "THROH",
+    "gsName": [
+      "THROH"
+    ]
   },
   {
-    "name": "sawk"
+    "name": "sawk",
+    "pbName": "SAWK",
+    "family": "SAWK",
+    "gsName": [
+      "SAWK"
+    ]
   },
   {
-    "name": "sewaddle"
+    "name": "sewaddle",
+    "pbName": "SEWADDLE",
+    "family": "SEWADDLE",
+    "gsName": [
+      "SEWADDLE"
+    ]
   },
   {
-    "name": "swadloon"
+    "name": "swadloon",
+    "pbName": "SWADLOON",
+    "family": "SEWADDLE",
+    "gsName": [
+      "SWADLOON"
+    ]
   },
   {
-    "name": "leavanny"
+    "name": "leavanny",
+    "pbName": "LEAVANNY",
+    "family": "SEWADDLE",
+    "gsName": [
+      "LEAVANNY"
+    ]
   },
   {
-    "name": "venipede"
+    "name": "venipede",
+    "pbName": "VENIPEDE",
+    "family": "VENIPEDE",
+    "gsName": [
+      "VENIPEDE"
+    ]
   },
   {
-    "name": "whirlipede"
+    "name": "whirlipede",
+    "pbName": "WHIRLIPEDE",
+    "family": "VENIPEDE",
+    "gsName": [
+      "WHIRLIPEDE"
+    ]
   },
   {
-    "name": "scolipede"
+    "name": "scolipede",
+    "pbName": "SCOLIPEDE",
+    "family": "VENIPEDE",
+    "gsName": [
+      "SCOLIPEDE"
+    ]
   },
   {
-    "name": "cottonee"
+    "name": "cottonee",
+    "pbName": "COTTONEE",
+    "family": "COTTONEE",
+    "gsName": [
+      "COTTONEE"
+    ]
   },
   {
-    "name": "whimsicott"
+    "name": "whimsicott",
+    "pbName": "WHIMSICOTT",
+    "family": "COTTONEE",
+    "gsName": [
+      "WHIMSICOTT"
+    ]
   },
   {
-    "name": "petilil"
+    "name": "petilil",
+    "pbName": "PETILIL",
+    "family": "PETILIL",
+    "gsName": [
+      "PETILIL"
+    ]
   },
   {
-    "name": "lilligant"
+    "name": "lilligant",
+    "pbName": "LILLIGANT",
+    "family": "PETILIL",
+    "gsName": [
+      "LILLIGANT"
+    ]
   },
   {
-    "name": "basculin"
+    "name": "basculin",
+    "pbName": "BASCULIN",
+    "family": "BASCULIN",
+    "gsName": [
+      "BASCULIN"
+    ]
   },
   {
-    "name": "sandile"
+    "name": "sandile",
+    "pbName": "SANDILE",
+    "family": "SANDILE",
+    "gsName": [
+      "SANDILE"
+    ]
   },
   {
-    "name": "krokorok"
+    "name": "krokorok",
+    "pbName": "KROKOROK",
+    "family": "SANDILE",
+    "gsName": [
+      "KROKOROK"
+    ]
   },
   {
-    "name": "krookodile"
+    "name": "krookodile",
+    "pbName": "KROOKODILE",
+    "family": "SANDILE",
+    "gsName": [
+      "KROOKODILE"
+    ]
   },
   {
-    "name": "darumaka"
+    "name": "darumaka",
+    "pbName": "DARUMAKA",
+    "family": "DARUMAKA",
+    "gsName": [
+      "DARUMAKA"
+    ]
   },
   {
     "name": "darumaka_galarian",
     "overrideName": "Galarian Darumaka",
     "nickname": [
       "galar"
+    ],
+    "pbName": "DARUMAKA_GALARIAN_FORM",
+    "family": "DARUMAKA_GALARIAN_FORM",
+    "gsName": [
+      "GALARIAN DARUMAKA",
+      "G DARUMAKA",
+      "DARUMAKA GALARIAN"
     ]
   },
   {
-    "name": "darmanitan"
+    "name": "darmanitan",
+    "pbName": "DARMANITAN",
+    "family": "DARUMAKA",
+    "gsName": [
+      "DARMANITAN"
+    ]
+  },
+  {
+    "name": "darmanitan_zen",
+    "pbName": "DARMANITAN_ZEN_FORM",
+    "family": "DARUMAKA",
+    "gsName": [
+      "DARMANITAN ZEN FORM",
+      "DARMANITAN ZEN",
+      "ZEN DARMANITAN"
+    ]
   },
   {
     "name": "darmanitan_galarian_standard",
     "overrideName": "Galarian Darmanitan",
     "nickname": [
       "galar"
+    ],
+    "pbName": "DARMANITAN_GALARIAN_FORM",
+    "family": "DARUMAKA_GALARIAN_FORM",
+    "gsName": [
+      "GALARIAN DARMANITAN",
+      "G DARMANITAN",
+      "DARMANITAN GALARIAN"
     ]
   },
   {
@@ -2825,307 +6391,861 @@
     "overrideName": "Galarian Darmanitan (Zen)",
     "nickname": [
       "galar"
+    ],
+    "pbName": "DARMANITAN_ZEN_GALARIAN_FORM",
+    "family": "DARUMAKA_GALARIAN_FORM",
+    "gsName": [
+      "GALARIAN ZEN_DARMANITAN",
+      "G ZEN DARMANITAN",
+      "DARMANITAN ZEN GALARIAN"
     ]
   },
   {
-    "name": "maractus"
+    "name": "maractus",
+    "pbName": "MARACTUS",
+    "family": "MARACTUS",
+    "gsName": [
+      "MARACTUS"
+    ]
   },
   {
-    "name": "dwebble"
+    "name": "dwebble",
+    "pbName": "DWEBBLE",
+    "family": "DWEBBLE",
+    "gsName": [
+      "DWEBBLE"
+    ]
   },
   {
-    "name": "crustle"
+    "name": "crustle",
+    "pbName": "CRUSTLE",
+    "family": "DWEBBLE",
+    "gsName": [
+      "CRUSTLE"
+    ]
   },
   {
-    "name": "scraggy"
+    "name": "scraggy",
+    "pbName": "SCRAGGY",
+    "family": "SCRAGGY",
+    "gsName": [
+      "SCRAGGY"
+    ]
   },
   {
-    "name": "scrafty"
+    "name": "scrafty",
+    "pbName": "SCRAFTY",
+    "family": "SCRAGGY",
+    "gsName": [
+      "SCRAFTY"
+    ]
   },
   {
-    "name": "sigilyph"
+    "name": "sigilyph",
+    "pbName": "SIGILYPH",
+    "family": "SIGILYPH",
+    "gsName": [
+      "SIGILYPH"
+    ]
   },
   {
     "name": "yamask",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "YAMASK",
+    "family": "YAMASK",
+    "gsName": [
+      "YAMASK"
+    ]
   },
   {
-    "name": "cofagrigus"
+    "name": "cofagrigus",
+    "pbName": "COFAGRIGUS",
+    "family": "YAMASK",
+    "gsName": [
+      "COFAGRIGUS"
+    ]
   },
   {
-    "name": "tirtouga"
+    "name": "tirtouga",
+    "pbName": "TIRTOUGA",
+    "family": "TIRTOUGA",
+    "gsName": [
+      "TIRTOUGA"
+    ]
   },
   {
-    "name": "carracosta"
+    "name": "carracosta",
+    "pbName": "CARRACOSTA",
+    "family": "TIRTOUGA",
+    "gsName": [
+      "CARRACOSTA"
+    ]
   },
   {
-    "name": "archen"
+    "name": "archen",
+    "pbName": "ARCHEN",
+    "family": "ARCHEN",
+    "gsName": [
+      "ARCHEN"
+    ]
   },
   {
-    "name": "archeops"
+    "name": "archeops",
+    "pbName": "ARCHEOPS",
+    "family": "ARCHEN",
+    "gsName": [
+      "ARCHEOPS"
+    ]
   },
   {
-    "name": "trubbish"
+    "name": "trubbish",
+    "pbName": "TRUBBISH",
+    "family": "TRUBBISH",
+    "gsName": [
+      "TRUBBISH"
+    ]
   },
   {
-    "name": "garbodor"
+    "name": "garbodor",
+    "pbName": "GARBODOR",
+    "family": "TRUBBISH",
+    "gsName": [
+      "GARBODOR"
+    ]
   },
   {
-    "name": "zorua"
+    "name": "zorua",
+    "pbName": "ZORUA",
+    "family": "ZORUA",
+    "gsName": [
+      "ZORUA"
+    ]
   },
   {
-    "name": "zoroark"
+    "name": "zoroark",
+    "pbName": "ZOROARK",
+    "family": "ZORUA",
+    "gsName": [
+      "ZOROARK"
+    ]
   },
   {
-    "name": "minccino"
+    "name": "minccino",
+    "pbName": "MINCCINO",
+    "family": "MINCCINO",
+    "gsName": [
+      "MINCCINO"
+    ]
   },
   {
-    "name": "cinccino"
+    "name": "cinccino",
+    "pbName": "CINCCINO",
+    "family": "MINCCINO",
+    "gsName": [
+      "CINCCINO"
+    ]
   },
   {
-    "name": "gothita"
+    "name": "gothita",
+    "pbName": "GOTHITA",
+    "family": "GOTHITA",
+    "gsName": [
+      "GOTHITA"
+    ]
   },
   {
-    "name": "gothorita"
+    "name": "gothorita",
+    "pbName": "GOTHORITA",
+    "family": "GOTHITA",
+    "gsName": [
+      "GOTHORITA"
+    ]
   },
   {
-    "name": "gothitelle"
+    "name": "gothitelle",
+    "pbName": "GOTHITELLE",
+    "family": "GOTHITA",
+    "gsName": [
+      "GOTHITELLE"
+    ]
   },
   {
-    "name": "solosis"
+    "name": "solosis",
+    "pbName": "SOLOSIS",
+    "family": "SOLOSIS",
+    "gsName": [
+      "SOLOSIS"
+    ]
   },
   {
-    "name": "duosion"
+    "name": "duosion",
+    "pbName": "DUOSION",
+    "family": "SOLOSIS",
+    "gsName": [
+      "DUOSION"
+    ]
   },
   {
-    "name": "reuniclus"
+    "name": "reuniclus",
+    "pbName": "REUNICLUS",
+    "family": "SOLOSIS",
+    "gsName": [
+      "REUNICLUS"
+    ]
   },
   {
-    "name": "ducklett"
+    "name": "ducklett",
+    "pbName": "DUCKLETT",
+    "family": "DUCKLETT",
+    "gsName": [
+      "DUCKLETT"
+    ]
   },
   {
-    "name": "swanna"
+    "name": "swanna",
+    "pbName": "SWANNA",
+    "family": "DUCKLETT",
+    "gsName": [
+      "SWANNA"
+    ]
   },
   {
-    "name": "vanillite"
+    "name": "vanillite",
+    "pbName": "VANILLITE",
+    "family": "VANILLITE",
+    "gsName": [
+      "VANILLITE"
+    ]
   },
   {
-    "name": "vanillish"
+    "name": "vanillish",
+    "pbName": "VANILLISH",
+    "family": "VANILLITE",
+    "gsName": [
+      "VANILLISH"
+    ]
   },
   {
-    "name": "vanilluxe"
+    "name": "vanilluxe",
+    "pbName": "VANILLUXE",
+    "family": "VANILLITE",
+    "gsName": [
+      "VANILLUXE"
+    ]
   },
   {
-    "name": "deerling"
+    "name": "deerling",
+    "pbName": "DEERLING",
+    "family": "DEERLING",
+    "gsName": [
+      "DEERLING"
+    ]
   },
   {
-    "name": "sawsbuck"
+    "name": "sawsbuck",
+    "pbName": "SAWSBUCK",
+    "family": "DEERLING",
+    "gsName": [
+      "SAWSBUCK",
+      "SAWSBUCK AUTUMN",
+      "SAWSBUCK FALL",
+      "SAWSBUCK SPRING",
+      "SAWSBUCK WINTER",
+      "SAWSBUCK SUMMER"
+    ]
   },
   {
-    "name": "emolga"
+    "name": "emolga",
+    "pbName": "EMOLGA",
+    "family": "EMOLGA",
+    "gsName": [
+      "EMOLGA"
+    ]
   },
   {
-    "name": "karrablast"
+    "name": "karrablast",
+    "pbName": "KARRABLAST",
+    "family": "KARRABLAST",
+    "gsName": [
+      "KARRABLAST"
+    ]
   },
   {
-    "name": "escavalier"
+    "name": "escavalier",
+    "pbName": "ESCAVALIER",
+    "family": "KARRABLAST",
+    "gsName": [
+      "ESCAVALIER"
+    ]
   },
   {
-    "name": "foongus"
+    "name": "foongus",
+    "pbName": "FOONGUS",
+    "family": "FOONGUS",
+    "gsName": [
+      "FOONGUS"
+    ]
   },
   {
-    "name": "amoonguss"
+    "name": "amoonguss",
+    "pbName": "AMOONGUSS",
+    "family": "FOONGUS",
+    "gsName": [
+      "AMOONGUSS"
+    ]
   },
   {
-    "name": "frillish"
+    "name": "frillish",
+    "pbName": "FRILLISH",
+    "family": "FRILLISH",
+    "gsName": [
+      "FRILLISH"
+    ]
   },
   {
-    "name": "jellicent"
+    "name": "jellicent",
+    "pbName": "JELLICENT",
+    "family": "FRILLISH",
+    "gsName": [
+      "JELLICENT"
+    ]
   },
   {
-    "name": "alomomola"
+    "name": "alomomola",
+    "pbName": "ALOMOMOLA",
+    "family": "ALOMOMOLA",
+    "gsName": [
+      "ALOMOMOLA"
+    ]
   },
   {
-    "name": "joltik"
+    "name": "joltik",
+    "pbName": "JOLTIK",
+    "family": "JOLTIK",
+    "gsName": [
+      "JOLTIK"
+    ]
   },
   {
-    "name": "galvantula"
+    "name": "galvantula",
+    "pbName": "GALVANTULA",
+    "family": "JOLTIK",
+    "gsName": [
+      "GALVANTULA"
+    ]
   },
   {
     "name": "ferroseed",
-    "tier": 3
+    "tier": 3,
+    "pbName": "FERROSEED",
+    "family": "FERROSEED",
+    "gsName": [
+      "FERROSEED"
+    ]
   },
   {
-    "name": "ferrothorn"
+    "name": "ferrothorn",
+    "pbName": "FERROTHORN",
+    "family": "FERROSEED",
+    "gsName": [
+      "FERROTHORN"
+    ]
   },
   {
     "name": "klink",
     "tier": 1,
-    "shiny": true
+    "shiny": true,
+    "pbName": "KLINK",
+    "family": "KLINK",
+    "gsName": [
+      "KLINK"
+    ]
   },
   {
-    "name": "klang"
+    "name": "klang",
+    "pbName": "KLANG",
+    "family": "KLINK",
+    "gsName": [
+      "KLANG"
+    ]
   },
   {
-    "name": "klinklang"
+    "name": "klinklang",
+    "pbName": "KLINKLANG",
+    "family": "KLINK",
+    "gsName": [
+      "KLINKLANG"
+    ]
   },
   {
-    "name": "tynamo"
+    "name": "tynamo",
+    "pbName": "TYNAMO",
+    "family": "TYNAMO",
+    "gsName": [
+      "TYNAMO"
+    ]
   },
   {
-    "name": "eelektrik"
+    "name": "eelektrik",
+    "pbName": "EELEKTRIK",
+    "family": "TYNAMO",
+    "gsName": [
+      "EELEKTRIK"
+    ]
   },
   {
-    "name": "eelektross"
+    "name": "eelektross",
+    "pbName": "EELEKTROSS",
+    "family": "TYNAMO",
+    "gsName": [
+      "EELEKTROSS"
+    ]
   },
   {
-    "name": "elgyem"
+    "name": "elgyem",
+    "pbName": "ELGYEM",
+    "family": "ELGYEM",
+    "gsName": [
+      "ELGYEM"
+    ]
   },
   {
-    "name": "beheeyem"
+    "name": "beheeyem",
+    "pbName": "BEHEEYEM",
+    "family": "ELGYEM",
+    "gsName": [
+      "BEHEEYEM"
+    ]
   },
   {
     "name": "litwick",
-    "tier": 1
+    "tier": 1,
+    "pbName": "LITWICK",
+    "family": "LITWICK",
+    "gsName": [
+      "LITWICK"
+    ]
   },
   {
-    "name": "lampent"
+    "name": "lampent",
+    "pbName": "LAMPENT",
+    "family": "LITWICK",
+    "gsName": [
+      "LAMPENT"
+    ]
   },
   {
-    "name": "chandelure"
+    "name": "chandelure",
+    "pbName": "CHANDELURE",
+    "family": "LITWICK",
+    "gsName": [
+      "CHANDELURE"
+    ]
   },
   {
-    "name": "axew"
+    "name": "axew",
+    "pbName": "AXEW",
+    "family": "AXEW",
+    "gsName": [
+      "AXEW"
+    ]
   },
   {
-    "name": "fraxure"
+    "name": "fraxure",
+    "pbName": "FRAXURE",
+    "family": "AXEW",
+    "gsName": [
+      "FRAXURE"
+    ]
   },
   {
-    "name": "haxorus"
+    "name": "haxorus",
+    "pbName": "HAXORUS",
+    "family": "AXEW",
+    "gsName": [
+      "HAXORUS"
+    ]
   },
   {
     "name": "cubchoo",
-    "tier": 1
+    "tier": 1,
+    "pbName": "CUBCHOO",
+    "family": "CUBCHOO",
+    "gsName": [
+      "CUBCHOO"
+    ]
   },
   {
-    "name": "beartic"
+    "name": "beartic",
+    "pbName": "BEARTIC",
+    "family": "CUBCHOO",
+    "gsName": [
+      "BEARTIC"
+    ]
   },
   {
-    "name": "cryogonal"
+    "name": "cryogonal",
+    "pbName": "CRYOGONAL",
+    "family": "CRYOGONAL",
+    "gsName": [
+      "CRYOGONAL"
+    ]
   },
   {
-    "name": "shelmet"
+    "name": "shelmet",
+    "pbName": "SHELMET",
+    "family": "SHELMET",
+    "gsName": [
+      "SHELMET"
+    ]
   },
   {
-    "name": "accelgor"
+    "name": "accelgor",
+    "pbName": "ACCELGOR",
+    "family": "SHELMET",
+    "gsName": [
+      "ACCELGOR"
+    ]
   },
   {
-    "name": "stunfisk"
+    "name": "stunfisk",
+    "pbName": "STUNFISK",
+    "family": "STUNFISK",
+    "gsName": [
+      "STUNFISK"
+    ]
   },
   {
     "name": "stunfisk_galarian",
     "overrideName": "Galarian Stunfisk",
     "nickname": [
       "galar"
+    ],
+    "pbName": "STUNFISK_GALAR_FORM",
+    "family": "STUNFISK_GALAR_FORM",
+    "gsName": [
+      "GALARIAN STUNFISK",
+      "G STUNFISK",
+      "STUNFISK GALARIAN"
     ]
   },
   {
-    "name": "mienfoo"
+    "name": "mienfoo",
+    "pbName": "MIENFOO",
+    "family": "MIENFOO",
+    "gsName": [
+      "MIENFOO"
+    ]
   },
   {
-    "name": "mienshao"
+    "name": "mienshao",
+    "pbName": "MIENSHAO",
+    "family": "MIENFOO",
+    "gsName": [
+      "MIENSHAO"
+    ]
   },
   {
-    "name": "druddigon"
+    "name": "druddigon",
+    "pbName": "DRUDDIGON",
+    "family": "DRUDDIGON",
+    "gsName": [
+      "DRUDDIGON"
+    ]
   },
   {
-    "name": "golett"
+    "name": "golett",
+    "pbName": "GOLETT",
+    "family": "GOLETT",
+    "gsName": [
+      "GOLETT"
+    ]
   },
   {
-    "name": "golurk"
+    "name": "golurk",
+    "pbName": "GOLURK",
+    "family": "GOLETT",
+    "gsName": [
+      "GOLURK"
+    ]
   },
   {
-    "name": "pawniard"
+    "name": "pawniard",
+    "pbName": "PAWNIARD",
+    "family": "PAWNIARD",
+    "gsName": [
+      "PAWNIARD"
+    ]
   },
   {
-    "name": "bisharp"
+    "name": "bisharp",
+    "pbName": "BISHARP",
+    "family": "PAWNIARD",
+    "gsName": [
+      "BISHARP"
+    ]
   },
   {
-    "name": "bouffalant"
+    "name": "bouffalant",
+    "pbName": "BOUFFALANT",
+    "family": "BOUFFALANT",
+    "gsName": [
+      "BOUFFALANT"
+    ]
   },
   {
-    "name": "rufflet"
+    "name": "rufflet",
+    "pbName": "RUFFLET",
+    "family": "RUFFLET",
+    "gsName": [
+      "RUFFLET"
+    ]
   },
   {
-    "name": "braviary"
+    "name": "braviary",
+    "pbName": "BRAVIARY",
+    "family": "RUFFLET",
+    "gsName": [
+      "BRAVIARY"
+    ]
   },
   {
-    "name": "vullaby"
+    "name": "vullaby",
+    "pbName": "VULLABY",
+    "family": "VULLABY",
+    "gsName": [
+      "VULLABY"
+    ]
   },
   {
-    "name": "mandibuzz"
+    "name": "mandibuzz",
+    "pbName": "MANDIBUZZ",
+    "family": "VULLABY",
+    "gsName": [
+      "MANDIBUZZ"
+    ]
   },
   {
-    "name": "heatmor"
+    "name": "heatmor",
+    "pbName": "HEATMOR",
+    "family": "HEATMOR",
+    "gsName": [
+      "HEATMOR"
+    ]
   },
   {
-    "name": "durant"
+    "name": "durant",
+    "pbName": "DURANT",
+    "family": "DURANT",
+    "gsName": [
+      "DURANT"
+    ]
   },
   {
-    "name": "deino"
+    "name": "deino",
+    "pbName": "DEINO",
+    "family": "DEINO",
+    "gsName": [
+      "DEINO"
+    ]
   },
   {
-    "name": "zweilous"
+    "name": "zweilous",
+    "pbName": "ZWEILOUS",
+    "family": "DEINO",
+    "gsName": [
+      "ZWEILOUS"
+    ]
   },
   {
-    "name": "hydreigon"
+    "name": "hydreigon",
+    "pbName": "HYDREIGON",
+    "family": "DEINO",
+    "gsName": [
+      "HYDREIGON"
+    ]
   },
   {
-    "name": "larvesta"
+    "name": "larvesta",
+    "pbName": "LARVESTA",
+    "family": "LARVESTA",
+    "gsName": [
+      "LARVESTA"
+    ]
   },
   {
-    "name": "volcarona"
+    "name": "volcarona",
+    "pbName": "VOLCARONA",
+    "family": "LARVESTA",
+    "gsName": [
+      "VOLCARONA"
+    ]
   },
   {
     "name": "cobalion",
-    "tier": 5
+    "tier": 5,
+    "pbName": "COBALION",
+    "family": "COBALION",
+    "gsName": [
+      "COBALION"
+    ]
   },
   {
     "name": "terrakion",
-    "tier": 5
+    "tier": 5,
+    "pbName": "TERRAKION",
+    "family": "TERRAKION",
+    "gsName": [
+      "TERRAKION"
+    ]
   },
   {
     "name": "virizion",
-    "tier": 5
+    "tier": 5,
+    "pbName": "VIRIZION",
+    "family": "VIRIZION",
+    "gsName": [
+      "VIRIZION"
+    ]
   },
   {
     "name": "tornadus",
-    "tier": 5
+    "overrideName": "Tornadus (Incarnate)",
+    "tier": 5,
+    "pbName": "TORNADUS_INCARNATE_FORM",
+    "family": "TORNADUS_INCARNATE_FORM",
+    "gsName": [
+      "TORNADUS (INCARNATE)",
+      "TORNADUS",
+      "TORNADUS INCARNATE"
+    ]
   },
   {
-    "name": "thundurus"
+    "name": "tornadus_therian",
+    "overrideName": "Tornadus (Therian)",
+    "pbName": "TORNADUS_THERIAN_FORM",
+    "family": "TORNADUS_THERIAN_FORM",
+    "gsName": [
+      "TORNADUS (THERIAN)",
+      "TORNADUS THERIAN"
+    ]
   },
   {
-    "name": "reshiram"
+    "name": "thundurus",
+    "overrideName": "Thundurus (Incarnate)",
+    "pbName": "THUNDURUS_INCARNATE_FORM",
+    "family": "THUNDURUS_INCARNATE_FORM",
+    "gsName": [
+      "THUNDURUS (INCARNATE)",
+      "THUNDURUS",
+      "THUNDURUS INCARNATE"
+    ]
   },
   {
-    "name": "zekrom"
+    "name": "thundurus_therian",
+    "overrideName": "Thundurus (Therian)",
+    "pbName": "THUNDURUS_THERIAN_FORM",
+    "family": "THUNDURUS_THERIAN_FORM",
+    "gsName": [
+      "THUNDURUS (THERIAN)",
+      "THUNDURUS THERIAN"
+    ]
   },
   {
-    "name": "landorus"
+    "name": "reshiram",
+    "pbName": "RESHIRAM",
+    "family": "RESHIRAM",
+    "gsName": [
+      "RESHIRAM"
+    ]
   },
   {
-    "name": "kyurem"
+    "name": "zekrom",
+    "pbName": "ZEKROM",
+    "family": "ZEKROM",
+    "gsName": [
+      "ZEKROM"
+    ]
   },
   {
-    "name": "keldeo"
+    "name": "landorus",
+    "overrideName": "Landorus (Incarnate)",
+    "pbName": "LANDORUS_INCARNATE_FORM",
+    "family": "LANDORUS_INCARNATE_FORM",
+    "gsName": [
+      "LANDORUS (INCARNATE)",
+      "LANDORUS",
+      "LANDORUS INCARNATE"
+    ]
   },
   {
-    "name": "meloetta"
+    "name": "landorus_therian",
+    "overrideName": "Landorus (Therian)",
+    "pbName": "LANDORUS_THERIAN_FORM",
+    "family": "LANDORUS_THERIAN_FORM",
+    "gsName": [
+      "LANDORUS (THERIAN)",
+      "LANDORUS THERIAN"
+    ]
   },
   {
-    "name": "genesect"
+    "name": "kyurem",
+    "pbName": "KYUREM",
+    "family": "KYUREM",
+    "gsName": [
+      "KYUREM"
+    ]
+  },
+  {
+    "name": "kyurem_white",
+    "pbName": "KYUREM_WHITE",
+    "family": "KYUREM",
+    "gsName": [
+      "KYUREM WHITE"
+    ]
+  },
+  {
+    "name": "kyurem_black",
+    "pbName": "KYUREM_BLACK",
+    "family": "KYUREM",
+    "gsName": [
+      "KYUREM BLACK"
+    ]
+  },
+  {
+    "name": "keldeo",
+    "pbName": "KELDEO",
+    "family": "KELDEO",
+    "gsName": [
+      "KELDEO"
+    ]
+  },
+  {
+    "name": "meloetta",
+    "overrideName": "Meloetta (Aria)",
+    "pbName": "MELOETTA_ARIA_FORM",
+    "family": "MELOETTA_ARIA_FORM",
+    "gsName": [
+      "MELOETTA ARIA"
+    ]
+  },
+  {
+    "name": "meloetta_pirouette",
+    "overrideName": "Meloetta (Pirouette)",
+    "pbName": "MELOETTA_PIROUETTE_FORM",
+    "family": "MELOETTA_PIROUETTE_FORM",
+    "gsName": [
+      "MELOETTA PIROUETTE"
+    ]
+  },
+  {
+    "name": "genesect",
+    "pbName": "GENESECT",
+    "family": "GENESECT",
+    "gsName": [
+      "GENESECT"
+    ]
   },
   {
     "name": "chespin"
@@ -3607,16 +7727,36 @@
     "name": "zeraora"
   },
   {
-    "name": "meltan"
+    "name": "meltan",
+    "pbName": "MELTAN",
+    "family": "MELTAN",
+    "gsName": [
+      "MELTAN"
+    ]
   },
   {
-    "name": "melmetal"
+    "name": "melmetal",
+    "pbName": "MELMETAL",
+    "family": "MELTAN",
+    "gsName": [
+      "MELMETAL"
+    ]
   },
   {
-    "name": "obstagoon"
+    "name": "obstagoon",
+    "pbName": "OBSTAGOON",
+    "family": "ZIGZAGOON_GALAR_FORM",
+    "gsName": [
+      "OBSTAGOON"
+    ]
   },
   {
-    "name": "perrserker"
+    "name": "perrserker",
+    "pbName": "PERRSERKER",
+    "family": "MEOWTH_GALAR_FORM",
+    "gsName": [
+      "PERRSERKER"
+    ]
   },
   {
     "name": "sirfetch'd"

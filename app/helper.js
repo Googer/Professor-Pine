@@ -19,6 +19,8 @@ class Helper {
       size: 1,
       task: './app/send-message-worker.js'
     });
+
+    this.initialized = false;
   }
 
   setClient(client) {
@@ -177,6 +179,14 @@ class Helper {
       this.emojis.delete(oldEmoji.name.toLowerCase());
       this.emojis.set(newEmoji.name.toLowerCase(), newEmoji);
     });
+  }
+
+  setInitialized() {
+    this.initialized = true;
+  }
+
+  isInitialized() {
+    return this.initialized;
   }
 
   sendNotificationMessages(messages) {

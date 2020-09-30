@@ -12,8 +12,9 @@ class RaidPokemonType extends Commando.ArgumentType {
   validate(value, message, arg) {
     const terms = value.split(/[\s-]/)
         .filter(term => term.length > 0)
-        .map(term => term.match(/(?:<:)?([\w*]+)(?::[0-9]+>)?/)[1])
-        .map(term => term.toLowerCase()),
+        .map(term => term.match(/(?:<:)?([\w*]+)(?::[0-9]+>)?/))
+        .filter(term => !!term && term.length > 1)
+        .map(term => term[1].toLowerCase()),
       pokemon = Pokemon.search(terms);
 
     if (!pokemon || pokemon.length === 0) {
@@ -59,8 +60,9 @@ class RaidPokemonType extends Commando.ArgumentType {
   parse(value, message, arg) {
     const terms = value.split(/[\s-]/)
       .filter(term => term.length > 0)
-      .map(term => term.match(/(?:<:)?([\w*]+)(?::[0-9]+>)?/)[1])
-      .map(term => term.toLowerCase());
+      .map(term => term.match(/(?:<:)?([\w*]+)(?::[0-9]+>)?/))
+      .filter(term => !!term && term.length > 1)
+      .map(term => term[1].toLowerCase());
 
     let pokemon = Pokemon.search(terms)
       .find(pokemon => pokemon.exclusive || pokemon.mega || pokemon.tier || (pokemon.name.toLocaleLowerCase().startsWith('unown') && settings.roles.unown && settings.channels.unown));

@@ -17,12 +17,12 @@
     "erlpack": "^0.1.3",
     "he": "^1.2.0",
     "jimp": "^0.16.1",
-    "knex": "^0.21.5",
+    "knex": "^0.21.6",
     "loglevel": "^1.7.0",
     "loglevel-prefix-persist": "^1.0.3",
     "lru-cache": "^6.0.0",
     "lunr": "^2.3.9",
-    "moment": "^2.28.0",
+    "moment": "^2.29.0",
     "mysql": "^2.18.1",
     "node-cleanup": "^2.1.2",
     "node-persist": "^3.1.0",
@@ -38,13 +38,13 @@
     "zucc": "^0.1.2"
   },
   "devDependencies": {
-    "@types/node": "^14.11.1",
-    "eslint": "^7.9.0",
-    "eslint-config-prettier": "^6.11.0",
+    "@types/node": "^14.11.2",
+    "eslint": "^7.10.0",
+    "eslint-config-prettier": "^6.12.0",
     "husky": "^4.3.0",
     "lint-staged": "^10.4.0",
     "prettier": "^2.1.2",
-    "typescript": "^4.0.2"
+    "typescript": "^4.0.3"
   },
   "scripts": {
     "start": "node index.js",

@@ -3,7 +3,7 @@
 const log = require('loglevel').getLogger('RaidTrain'),
   moment = require('moment'),
   settings = require('../data/settings'),
-  text = require('../data/text.json'),
+  text = require('../data/text'),
   {PartyStatus, PartyType} = require('./constants'),
   Discord = require('discord.js'),
   Helper = require('./helper'),

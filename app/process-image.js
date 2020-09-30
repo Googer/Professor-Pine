@@ -1077,6 +1077,13 @@ class ImageProcessing {
     return {tier: values.tier, pokemon, egg: true};
   }
 
+  getMegaOrTierOne(image) {
+    // Try to guess if egg is mega or a T1 based on egg coloring
+    // (will be mostly pinkish if T1 and have a lot of ivory if mega)
+    // TODO: Make this actually guess based on image colors instead of assuming mega
+    return 'mega';
+  }
+
   async getOCRTier(id, message, image, region, level = 0) {
     let y;
 
@@ -1110,7 +1117,7 @@ class ImageProcessing {
             this.tierTesseract.recognize(image)
               .catch(err => reject(err))
               .then(result => {
-                let tier = 0;
+                let tier = -1;
 
                 // tier symbols will all be on the same line, so pick the text/line of whatever line has the most matches (assuming other lines are stray artifacts and/or clouds)
                 for (let i = 0; i < result.data.lines.length; i++) {
@@ -1127,9 +1134,15 @@ class ImageProcessing {
                   }
                 }
 
+                if (tier === 1) {
+                  tier = this.getMegaOrTierOne(image);
+                }
+
                 resolve({
                   image: newImage,
-                  tier,
+                  tier: tier !== -1 ?
+                    tier :
+                    '????',
                   result: result.data
                 });
               });

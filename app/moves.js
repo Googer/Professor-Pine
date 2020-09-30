@@ -1,9 +1,9 @@
 "use strict";
 
 const log = require('loglevel').getLogger('MovesSearch'),
-  lunr = require('lunr'),
-  main = require('../index'),
   {downloadGameMaster, downloadText} = require('./pogo-data'),
+  Helper = require('./helper'),
+  lunr = require('lunr'),
   removeDiacritics = require('diacritics').remove,
   Search = require('./search'),
   Utility = require('./utility');
@@ -14,7 +14,7 @@ class Moves extends Search {
   }
 
   async buildIndex() {
-    while (!main.isInitialized) {
+    while (!Helper.isInitialized()) {
       await Utility.sleep(1000);
     }
 

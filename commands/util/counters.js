@@ -1,9 +1,9 @@
 const log = require('loglevel').getLogger('CountersCommand'),
-  Commando = require('discord.js-commando'),
-  {MessageEmbed} = require('discord.js'),
   {CommandGroup} = require('../../app/constants'),
-  fetch = require('node-fetch'),
+  Commando = require('discord.js-commando'),
   db = require('../../app/db'),
+  fetch = require('node-fetch'),
+  {MessageEmbed} = require('discord.js'),
   Party = require('../../app/party'),
   Utility = require('../../app/utility');
 
@@ -75,6 +75,10 @@ class CountersCommand extends Commando.Command {
 
   parseShadow(val) {
     return val.toLowerCase() === 'shadow';
+  }
+
+  parseMega(val) {
+    return val.toLowerCase() === 'mega';
   }
 
   async collectParameter(message, prompt, type, tries = 3) {
@@ -178,7 +182,7 @@ class CountersCommand extends Commando.Command {
     };
   }
 
-  sortResults({data, sortBy, limit = 12, grouped = true, shadow = false, randomMove = true}) {
+  sortResults({data, sortBy, limit = 12, grouped = true, shadow = false, mega = false, randomMove = true}) {
     let attackers = data.defenders;
 
     // Transform
@@ -229,6 +233,10 @@ class CountersCommand extends Commando.Command {
     // Shadow
     if (!shadow) {
       attackerArr = attackerArr.filter(x => !x.pokemonName.includes('Shadow Form'));
+    }
+
+    if (!mega) {
+      attackerArr = attackerArr.filter(x => !x.pokemonName.startsWith('Mega '));
     }
 
     // Grouping
@@ -334,7 +342,7 @@ class CountersCommand extends Commando.Command {
       contentArr.push(`*Moveset: ${this.titleCase(moveset.move1.replace('_FAST', '')
         .replace(/_/g, ' '))}/${this.titleCase(moveset.move2.replace(/_/g, ' '))}*`);
 
-    return contentArr;``
+    return contentArr;
   }
 
   async savePokebattlerId(userSnowflake, pokebattlerId) {
@@ -362,18 +370,22 @@ class CountersCommand extends Commando.Command {
     let dbPokebattlerId = await this.fetchPokebattlerId(message);
 
     // Replace '/' with ',' to support entering moveset like 'Thunder Shock/Thunderbolt'
-    let argArr = message.argString.replace('/', ',').split(',').filter(arg => !!arg).map(arg => arg.trim()),
+    let argArr = message.argString.replace('/', ',')
+        .split(',')
+        .filter(arg => !!arg)
+        .map(arg => arg.trim()),
       boss,
       tier,
       attacker,
       weather,
       friendship,
       groupedFlag,
-      shadow = false;
+      shadow = false,
+      mega = false;
 
     let partyPresets = Party.parsePartyDetails(message);
     boss = !!partyPresets.boss ?
-      await this.parseCounterType(partyPresets.boss, message, args, 'counterpokemontype') :
+      await this.parseCounterType(partyPresets.boss, message, args, 'pokemon') :
       boss;
     tier = !!partyPresets.tier ?
       await this.parseCounterType(partyPresets.tier, message, args, 'countertiertype') :
@@ -383,7 +395,7 @@ class CountersCommand extends Commando.Command {
     for (let arg of argArr) {
       match = false;
       if (!boss && !match) {
-        boss = await this.parseCounterType(arg, message, args, 'counterpokemontype');
+        boss = await this.parseCounterType(arg, message, args, 'pokemon');
         match = !!boss;
       }
       if (!tier && !match) {
@@ -414,6 +426,10 @@ class CountersCommand extends Commando.Command {
         shadow = this.parseShadow(arg);
         match = !!shadow;
       }
+      if (!mega && !match) {
+        mega = this.parseMega(arg);
+        match = !!mega;
+      }
     }
 
     // Prompt all unset, mandatory parameters
@@ -422,7 +438,7 @@ class CountersCommand extends Commando.Command {
       await this.collectParameter(
         message,
         'what raid boss would you like to battle against?\n',
-        'counterpokemontype') :
+        'pokemon') :
       boss;
     if (!boss) {
       await message.delete()
@@ -520,6 +536,7 @@ class CountersCommand extends Commando.Command {
       limit: 12,
       grouped: groupedFlag === 'grouped' || !groupedFlag,
       shadow: shadow,
+      mega: mega,
       randomMove: !setMove && data.randomMove
     });
 
@@ -535,6 +552,9 @@ class CountersCommand extends Commando.Command {
         ''}` +
       `${shadow ?
         ', Shadow' :
+        ''}` +
+      `${mega ?
+        ', Mega' :
         ''}\``;
 
     const embed = new MessageEmbed()
@@ -542,7 +562,7 @@ class CountersCommand extends Commando.Command {
       .setColor('#43B581')
       .setTitle(`Click here for full results`)
       .setURL(countersData.url)
-      .setThumbnail(boss.imageURL)
+      .setThumbnail(boss.url)
       .setDescription(content);
 
     if (message.channel.type !== 'dm') {
