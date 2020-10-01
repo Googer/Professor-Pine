@@ -612,16 +612,22 @@ class Pokemon extends Search {
       Math.sqrt(stamina)) / 10);
   }
 
-  calculateCP(pokemon, level, attackIV, defenseIV, staminaIV) {
+  calculateCP(pokemon, level, attackIV, defenseIV, staminaIV, useTemporaryStats = false) {
     if (!pokemon.stats) {
       return 0;
     }
 
     const cpMultiplier = this.cpTable[`${level}`];
 
+    const stats = (useTemporaryStats ?
+      !!pokemon.temporaryStats ?
+        pokemon.temporaryStats :
+        pokemon.stats :
+      pokemon.stats);
+
     return Math.max(
-      Math.floor((pokemon.stats.baseAttack + attackIV) * Math.sqrt(pokemon.stats.baseDefense + defenseIV) *
-        Math.sqrt(pokemon.stats.baseStamina + staminaIV) * Math.pow(cpMultiplier, 2) / 10),
+      Math.floor((stats.baseAttack + attackIV) * Math.sqrt(stats.baseDefense + defenseIV) *
+        Math.sqrt(stats.baseStamina + staminaIV) * Math.pow(cpMultiplier, 2) / 10),
       10);
   }
 }
