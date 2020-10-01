@@ -220,7 +220,7 @@ class PvPRankingData {
         for (let defenseIV = this.ivFilter; defenseIV <= 15; defenseIV++) {
           for (let staminaIV = this.ivFilter; staminaIV <= 15; staminaIV++) {
             for (const {level, cpmMultiplier} of cpmData) {
-              cp = Pokemon.calculateCP(this.familyList[i], level, attackIV, defenseIV, staminaIV);
+              cp = Pokemon.calculateCP(this.familyList[i], level, attackIV, defenseIV, staminaIV, true);
               if (cp <= this.cpLeague) {
                 rawAttack = (baseAttack + attackIV) * cpmMultiplier;
                 rawDefense = (baseDefense + defenseIV) * cpmMultiplier;
