@@ -7743,7 +7743,8 @@
     ]
   },
   {
-    "name": "obstagoon",
+    "name": "obstagoon_normal",
+    "overrideName": "Obstagoon",
     "pbName": "OBSTAGOON",
     "family": "ZIGZAGOON_GALAR_FORM",
     "gsName": [
@@ -7751,7 +7752,8 @@
     ]
   },
   {
-    "name": "perrserker",
+    "name": "perrserker_normal",
+    "overrideName": "Perrserker",
     "pbName": "PERRSERKER",
     "family": "MEOWTH_GALAR_FORM",
     "gsName": [

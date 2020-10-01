@@ -267,7 +267,7 @@ class PvPRankingData {
       });
 
       this.familyList[i].gsUrl = `https://gostadium.club/pvp/iv?pokemon=` +
-        `${this.familyList[i].goStadiumName.replace(' ', '+').replace('_', '+')}` +
+        `${this.familyList[i].goStadiumName.replaceAll(' ', '+').replaceAll('_', '+')}` +
         `&max_cp=${this.cpLeague}` +
         `&min_iv=${this.ivFilter}` +
         `&att_iv=${this.inputAttackIV}` +

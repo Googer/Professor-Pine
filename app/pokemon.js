@@ -31,7 +31,7 @@ class Pokemon extends Search {
       pokemonRegex = new RegExp('^V[0-9]+_POKEMON_(.*)'),
       formsRegex = new RegExp('^FORMS_V[0-9]+_POKEMON_(.*)'),
       temporaryRegex = new RegExp('^TEMPORARY_EVOLUTION_V[0-9]+_POKEMON_(.*)'),
-      familyRegex = new RegExp('^FAMILY_(.*)$'),
+      // familyRegex = new RegExp('^FAMILY_(.*)$'),
       pokemonMetadata = require('../data/pokemon'),
       alternateForms = ([].concat(...gameMaster
         .filter(item => formsRegex.test(item.templateId))
@@ -65,7 +65,7 @@ class Pokemon extends Search {
             stats: pokemon.pokemonSettings.stats,
             quickMoves: pokemon.pokemonSettings.quickMoves,
             cinematicMoves: pokemon.pokemonSettings.cinematicMoves,
-            family: familyRegex.exec(pokemon.pokemonSettings.familyId)[1],
+            // family: familyRegex.exec(pokemon.pokemonSettings.familyId)[1],
             type: [pokemon.pokemonSettings.type.split('_')[2].toLowerCase(), pokemon.pokemonSettings.type2 ?
               pokemon.pokemonSettings.type2.split('_')[2].toLowerCase() :
               null]
