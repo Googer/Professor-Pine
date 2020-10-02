@@ -13,7 +13,7 @@ class PvPRankingData {
       {
         key: 'pvpPokemon',
         prompt: 'Which species of Pokémon would you like to evaluate a specific IV combination PvP rank for?',
-        type: 'pokemon',
+        type: 'rankpokemon',
       }
     ], 3);
     this.attackCollector = new Commando.ArgumentCollector(client, [
@@ -161,16 +161,14 @@ class PvPRankingData {
       return;
     }
 
-    this.commandName = this.pokemon.name;
-    if (!this.pokemon.gsName[1]) { //If no more than 1 gsName, use 0 index for commandName.
-      this.commandName = this.pokemon.gsName[0].replace(/ /g, '-').replace(/_/g, '-').toLowerCase();
-    } else { //If more than 1 gsName, use 1 index for commandName.
-      this.commandName = this.pokemon.gsName[1].replace(/ /g, '-').replace(/_/g, '-').toLowerCase();
-    }
+    this.commandName = this.pokemon.name.indexOf(' ') !== -1 ?
+      `"${this.pokemon.name}"` :
+      this.pokemon.name;
 
     let familyList;
     if (this.command === 'great-evo' || this.command === 'greatevo' || this.command === 'ultra-evo' || this.command === 'ultraevo') {
-      familyList = Pokemon.getFamily(this.pokemon);
+      familyList = Pokemon.getFamily(this.pokemon)
+        .filter(poke => !!poke.stats);
     } else {
       familyList = [this.pokemon];
     }
