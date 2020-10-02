@@ -61,11 +61,7 @@ class RaidTrain extends Party {
         PartyManager.parties[newChannelId] = train;
         train.channelId = newChannelId;
 
-        // move channel to end
-        return newChannel.guild.setChannelPositions([{
-          channel: newChannel,
-          position: newChannel.guild.channels.cache.size - 1
-        }]);
+        return PartyManager.orderChannels(train);
       })
       .then(async guild => {
         return {party: train};
@@ -283,6 +279,9 @@ class RaidTrain extends Party {
     this.endTime = endTime;
 
     await this.persist();
+
+    PartyManager.orderChannels(this)
+      .catch(err => log.error(err));
   }
 
   async setLocation(gymId, newRegionChannel = undefined) {

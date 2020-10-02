@@ -51,11 +51,7 @@ class Meetup extends Party {
         PartyManager.parties[newChannelId] = meetup;
         meetup.channelId = newChannelId;
 
-        // move channel to end
-        return newChannel.guild.setChannelPositions([{
-          channel: newChannel,
-          position: newChannel.guild.channels.cache.size - 1
-        }]);
+        return PartyManager.orderChannels(meetup);
       })
       .then(async guild => {
         return {party: meetup};
@@ -119,6 +115,9 @@ class Meetup extends Party {
     this.endTime = endTime;
 
     await this.persist();
+
+    PartyManager.orderChannels(this)
+      .catch(err => log.error(err));
   }
 
   getChannelMessageHeader() {

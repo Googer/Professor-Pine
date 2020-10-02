@@ -475,6 +475,101 @@ class PartyManager {
     // });
   }
 
+  async orderChannels(party) {
+    const partyChannelResult = await this.getChannel(party.channelId);
+    if (partyChannelResult.ok) {
+      const guild = partyChannelResult.channel.guild,
+        partyChannels = await Promise.all(Object.entries(this.parties)
+          .map(async ([channelId, party]) => Object.assign({}, {
+            party,
+            channelResult: await (this.getChannel(channelId))
+          }))),
+        sortedGuildPartyChannels = partyChannels
+          .filter(({channelResult}) => channelResult.ok)
+          .map(({party, channelResult}) => Object.assign({}, {party, channel: channelResult.channel}))
+          .filter(({channel}) => channel.guild.id === guild.id)
+          .sort((a, b) => {
+            let result;
+
+            // First sort by type - meetups, then raid trains, then raids
+            switch (a.party.type) {
+              case PartyType.MEETUP:
+                switch (b.party.type) {
+                  case PartyType.MEETUP:
+                    result = 0;
+                    break;
+
+                  case PartyType.RAID:
+                  case PartyType.RAID_TRAIN:
+                    result = -1;
+                    break;
+                }
+                break;
+
+              case PartyType.RAID:
+                switch (b.party.type) {
+                  case PartyType.MEETUP:
+                  case PartyType.RAID_TRAIN:
+                    result = 1;
+                    break;
+
+                  case PartyType.RAID:
+                    result = 0;
+                    break;
+                }
+                break;
+
+              case PartyType.RAID_TRAIN:
+                switch (b.party.type) {
+                  case PartyType.MEETUP:
+                    result = 1;
+                    break;
+
+                  case PartyType.RAID:
+                    result = -1;
+                    break;
+
+                  case PartyType.RAID_TRAIN:
+                    result = 0;
+                    break;
+                }
+                break;
+            }
+
+            if (result === 0) {
+              // Sort by end time, unset always first
+              const aEndTime = a.party.endTime ?
+                a.party.endTime :
+                0;
+
+              const bEndTime = b.party.endTime ?
+                b.party.endTime :
+                0;
+
+              result = aEndTime - bEndTime;
+            }
+
+            if (result === 0) {
+              // Just compare channel names
+              result = a.channel.name.localeCompare(b.channel.name);
+            }
+
+            return result;
+          }),
+        guildChannelSize = guild.channels.cache.size,
+        channelPositions = [];
+
+      for (let i = 0; i < sortedGuildPartyChannels.length; ++i) {
+        channelPositions.push(Object.assign({}, {
+          channel: sortedGuildPartyChannels[i].channel.id,
+          position: guildChannelSize - sortedGuildPartyChannels.length + i
+        }));
+      }
+
+      return guild.setChannelPositions(channelPositions);
+    }
+  }
+
   async loadRegionChannels() {
     const that = this;
     Region.checkRegionsExist()

@@ -617,13 +617,10 @@ class Pokemon extends Search {
       return 0;
     }
 
-    const cpMultiplier = this.cpTable[`${level}`];
-
-    const stats = (useTemporaryStats ?
-      !!pokemon.temporaryStats ?
+    const cpMultiplier = this.cpTable[`${level}`],
+      stats = (useTemporaryStats && !!pokemon.temporaryStats ?
         pokemon.temporaryStats :
-        pokemon.stats :
-      pokemon.stats);
+        pokemon.stats);
 
     return Math.max(
       Math.floor((stats.baseAttack + attackIV) * Math.sqrt(stats.baseDefense + defenseIV) *

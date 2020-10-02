@@ -103,11 +103,7 @@ class Raid extends Party {
             PartyManager.parties[newChannelId] = raid;
             raid.channelId = newChannelId;
 
-            // move channel to end
-            return newChannel.guild.setChannelPositions([{
-              channel: newChannel,
-              position: newChannel.guild.channels.cache.size - 1
-            }]);
+            return PartyManager.orderChannels(raid);
           })
           .then(async guild => {
             if (time === TimeType.UNDEFINED_END_TIME) {
@@ -345,6 +341,9 @@ class Raid extends Party {
 
     await this.persist();
 
+    PartyManager.orderChannels(this)
+      .catch(err => log.error(err));
+
     return {party: this};
   }
 
@@ -441,6 +440,9 @@ class Raid extends Party {
       .catch(err => log.error(err));
 
     await this.persist();
+
+    PartyManager.orderChannels(this)
+      .catch(err => log.error(err));
 
     return {party: this};
   }
