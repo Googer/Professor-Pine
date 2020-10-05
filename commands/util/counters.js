@@ -235,8 +235,9 @@ class CountersCommand extends Commando.Command {
       attackerArr = attackerArr.filter(x => !x.pokemonName.includes('Shadow Form'));
     }
 
+    // Mega`
     if (!mega) {
-      attackerArr = attackerArr.filter(x => !x.pokemonName.startsWith('Mega '));
+      attackerArr = attackerArr.filter(x => x.pokemonName.split(' ').indexOf('Mega') === -1);
     }
 
     // Grouping
@@ -542,7 +543,7 @@ class CountersCommand extends Commando.Command {
 
     let content = this.buildCountersContent(sortedData, moveset);
 
-    let commandMessage = `\`${message.client.commandPrefix}counters ${this.titleCase(boss.pbName.replace(/_/g, ' '))}, ` +
+    let commandMessage = `\`${message.client.commandPrefix}counters ${this.titleCase(boss.name)}, ` +
       `${tier.name}, ` +
       `${attacker.pbName}, ` +
       `${weather.name}, ` +
