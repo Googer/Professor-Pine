@@ -77,9 +77,7 @@ class SpawnCommand extends Commando.Command {
         .then(msg => message.react(Helper.getEmoji(settings.emoji.thumbsUp) || '👍'))
         .catch(err => log.error(err));
     } else if (pokemon.name === 'perfect' || pokemon.name === 'zero') {
-      let terms = message.content.split(/[\s-]/);
-      terms.shift();
-      terms.shift();
+      const terms = spawnDetails.split(/[\s-]/);
 
       let messagePokemon;
 
