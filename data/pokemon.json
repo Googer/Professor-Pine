@@ -7784,7 +7784,8 @@
     ]
   },
   {
-    "name": "sirfetch'd",
+    "name": "sirfetchd",
+    "overrideName": "Sirfetch'd",
     "pbName": "SIRFETCHD",
     "family": "FARFETCHD_GALAR_FORM",
     "gsName": [
