@@ -6459,6 +6459,20 @@
     ]
   },
   {
+    "name": "yamask_galarian",
+    "overrideName": "Galarian Yamask",
+    "nickname": [
+      "galar"
+    ],
+    "pbName": "YAMASK_GALAR_FORM",
+    "family": "YAMASK_GALAR_FORM",
+    "gsName": [
+      "GALARIAN YAMASK",
+      "G YAMASK",
+      "YAMASK GALARIAN"
+    ]
+  },
+  {
     "name": "cofagrigus",
     "pbName": "COFAGRIGUS",
     "family": "YAMASK",
@@ -7761,6 +7775,20 @@
     ]
   },
   {
-    "name": "sirfetch'd"
+    "name": "runerigus_normal",
+    "overrideName": "Runerigus",
+    "pbName": "RUNERIGUS",
+    "family": "YAMASK_GALAR_FORM",
+    "gsName": [
+      "RUNERIGUS"
+    ]
+  },
+  {
+    "name": "sirfetch'd",
+    "pbName": "SIRFETCHD",
+    "family": "FARFETCHD_GALAR_FORM",
+    "gsName": [
+      "SIRFETCHD"
+    ]
   }
 ]
