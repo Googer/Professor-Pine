@@ -1,4 +1,5 @@
 const log = require('loglevel').getLogger('PartyManager'),
+  Gym = require('./gym'),
   Helper = require('./helper'),
   moment = require('moment'),
   NaturalArgumentType = require('../types/natural'),
@@ -18,13 +19,19 @@ process.nextTick(() => {
   RaidTrain = require('./train');
 });
 
+async function asyncForEach(array, callback) {
+  for (let index = 0; index < array.length; index++) {
+    await callback(array[index], index, array);
+  }
+}
+
 class PartyManager {
   constructor() {
     let lastIntervalTime = moment().valueOf(),
       lastIntervalDay = moment().dayOfYear();
 
     // loop to clean up raids periodically
-    this.update = setInterval(() => {
+    this.update = setInterval(async () => {
       const nowMoment = moment(),
         nowDay = nowMoment.dayOfYear(),
         now = nowMoment.valueOf(),
@@ -35,9 +42,9 @@ class PartyManager {
         lastIntervalRunTime = lastIntervalTime - settings.cleanupInterval,
         partiesToRefresh = new Set();
 
-      Object.entries(this.parties)
-        .filter(([channelId, party]) => [PartyType.RAID, PartyType.RAID_TRAIN, PartyType.MEETUP].indexOf(party.type) !== -1)
-        .forEach(async ([channelId, party]) => {
+      await asyncForEach(Object.entries(this.parties)
+          .filter(([channelId, party]) => [PartyType.RAID, PartyType.RAID_TRAIN, PartyType.MEETUP].indexOf(party.type) !== -1),
+        async ([channelId, party]) => {
           if ((party.hatchTime && now > party.hatchTime && party.hatchTime > lastIntervalTime) ||
             nowDay !== lastIntervalDay) {
             const channelResult = await this.getChannel(channelId),
@@ -89,11 +96,6 @@ class PartyManager {
               }
             });
 
-          for (const party of partiesToRefresh.values()) {
-            await party.refreshStatusMessages()
-              .catch(err => log.error(err));
-          }
-
           if (((party.endTime !== TimeType.UNDEFINED_END_TIME && now > party.endTime + deletionGraceTime) || now > party.lastPossibleTime + deletionGraceTime) &&
             !party.deletionTime) {
             // party's end time is set (or last possible time) in the past, even past the grace period,
@@ -112,6 +114,11 @@ class PartyManager {
           lastIntervalTime = now;
           lastIntervalDay = nowDay;
         });
+
+      for (const party of partiesToRefresh.values()) {
+        await party.refreshStatusMessages()
+          .catch(err => log.error(err));
+      }
     }, settings.cleanupInterval);
   }
 
@@ -877,10 +884,26 @@ class PartyManager {
       .filter(party => party.type === type);
   }
 
-  getCreationChannelId(channelId) {
-    return this.validParty(channelId) ?
-      this.getParty(channelId).sourceChannelId :
-      channelId;
+  async getCreationChannelId(channelId) {
+    if (!this.validParty(channelId)) {
+      return channelId;
+    }
+
+    const party = this.getParty(channelId);
+
+    if (party.type === PartyType.RAID_TRAIN && !!party.route && party.route.length > 0) {
+      const [lastGymId] = party.route.slice(-1),
+        channelResult = await this.getChannel(party.sourceChannelId);
+
+      if (channelResult.ok) {
+        const guildId = channelResult.channel.guild.id,
+          lastGym = await Gym.getGym(lastGymId),
+          regions = await Region.getChannelsForGym(lastGym, guildId);
+        return regions[0]["channelId"];
+      }
+    }
+
+    return party.sourceChannelId;
   }
 
   getCreationChannelName(channelId) {
