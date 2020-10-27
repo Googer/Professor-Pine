@@ -3,7 +3,6 @@
 const log = require('loglevel').getLogger('Map'),
   fs = require('fs'),
   Helper = require('./helper'),
-  main = require('../index'),
   polyline = require('@mapbox/polyline'),
   privateSettings = require('../data/private-settings'),
   querystring = require('querystring'),
@@ -29,7 +28,7 @@ class Map {
     log.debug('Rebuilding region map cache...');
 
     // wait for main initialization to be complete to be sure DB is set up
-    while (!main.isInitialized) {
+    while (!Helper.isInitialized()) {
       await Utility.sleep(1000);
     }
 
@@ -67,75 +66,77 @@ class Map {
         'User-Agent': 'Professor Pine Pokemon Go Raid Coordination Discord Bot/1.0'
       },
       json: true
-    }).then(body => {
-      const results = body
-        .map(body => body.geojson);
+    })
+      .then(body => {
+        const results = body
+          .map(body => body.geojson);
 
-      if (results.length === 0) {
-        // No matches
-        return {
-          feature: null,
-          regions: []
-        };
-      }
-
-      if (results[0].type === 'LineString') {
-        // Sort longest result to be first
-        results.sort((a, b) => turf.length(b) - turf.length(a));
-      } else {
-        // Sort largest result to be first
-        results.sort((a, b) => turf.area(b) - turf.area(a));
-      }
-
-      const searchedRegion = results[0];
-
-      switch (searchedRegion.type) {
-        case 'Polygon': {
+        if (results.length === 0) {
+          // No matches
           return {
-            feature: searchedRegion,
-            regions: this.findMatches(searchedRegion)
+            feature: null,
+            regions: []
           };
         }
 
-        case 'MultiPolygon': {
-          const matchingRegions = new Set();
-
-          searchedRegion.coordinates
-            .map(coordinates => turf.polygon(coordinates))
-            .forEach(polygon => {
-              this.findMatches(polygon)
-                .forEach(matchingRegion => matchingRegions.add(matchingRegion));
-            });
-
-          return {
-            feature: searchedRegion,
-            regions: Array.from(matchingRegions.values())
-          };
+        if (results[0].type === 'LineString') {
+          // Sort longest result to be first
+          results.sort((a, b) => turf.length(b) - turf.length(a));
+        } else {
+          // Sort largest result to be first
+          results.sort((a, b) => turf.area(b) - turf.area(a));
         }
 
-        case 'LineString': {
-          const matchingRegions = new Set();
-          searchedRegion.coordinates
-            .map(coordinates => turf.point(coordinates))
-            .forEach(point => {
-              this.findMatch(point)
-                .forEach(matchingRegion => matchingRegions.add(matchingRegion));
-            });
+        const searchedRegion = results[0];
 
-          return {
-            feature: searchedRegion,
-            regions: Array.from(matchingRegions.values())
-          };
-        }
+        switch (searchedRegion.type) {
+          case 'Polygon': {
+            return {
+              feature: searchedRegion,
+              regions: this.findMatches(searchedRegion)
+            };
+          }
 
-        case 'Point': {
-          return {
-            feature: searchedRegion,
-            regions: this.findMatch(searchedRegion)
-          };
+          case 'MultiPolygon': {
+            const matchingRegions = new Set();
+
+            searchedRegion.coordinates
+              .map(coordinates => turf.polygon(coordinates))
+              .forEach(polygon => {
+                this.findMatches(polygon)
+                  .forEach(matchingRegion => matchingRegions.add(matchingRegion));
+              });
+
+            return {
+              feature: searchedRegion,
+              regions: Array.from(matchingRegions.values())
+            };
+          }
+
+          case 'LineString': {
+            const matchingRegions = new Set();
+            searchedRegion.coordinates
+              .map(coordinates => turf.point(coordinates))
+              .forEach(point => {
+                this.findMatch(point)
+                  .forEach(matchingRegion => matchingRegions.add(matchingRegion));
+              });
+
+            return {
+              feature: searchedRegion,
+              regions: Array.from(matchingRegions.values())
+            };
+          }
+
+          case 'Point': {
+            return {
+              feature: searchedRegion,
+              regions: this.findMatch(searchedRegion)
+            };
+          }
         }
-      }
-    }).catch(err => log.error(err));
+      })
+      .catch(err => log.error(err));
   }
 
   findMatches(polygon) {
