@@ -91,6 +91,8 @@ class PvPRankingData {
 
     switch (this.command) {
       case 'master':
+      case 'master-evo':
+      case 'masterevo':
         this.cpLeague = 9001;
         break;
       case 'ultra':
@@ -169,7 +171,7 @@ class PvPRankingData {
       this.pokemon.name;
 
     let familyList;
-    if (this.command === 'great-evo' || this.command === 'greatevo' || this.command === 'ultra-evo' || this.command === 'ultraevo') {
+    if (this.command.endsWith('evo')) {
       familyList = Pokemon.getFamily(this.pokemon)
         .filter(poke => !!poke.stats);
     } else {
