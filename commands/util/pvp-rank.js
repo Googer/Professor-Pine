@@ -98,6 +98,9 @@ class PvPRankingData {
       case 'ultraevo':
         this.cpLeague = 2500;
         break;
+      case 'little':
+        this.cpLeague = 500;
+        break;
       default:
         this.cpLeague = 1500;
     }
@@ -196,8 +199,6 @@ class PvPRankingData {
       }
 
       let ivArr = [],
-        level,
-        cpmMultiplier,
         cp,
         rawAttack,
         rawDefense,
@@ -330,18 +331,46 @@ class PvPRankingData {
       }
     }
 
-    let league = '';
-    if (command === 'rank' || command === 'great-evo' || command === 'greatevo') {
-      league = 'GREAT';
-    } else if (command === 'ultra-evo' || command === 'ultraevo') {
-      league = 'ULTRA';
-    } else {
-      league = command.toUpperCase();
+    let league;
+
+    switch (command) {
+      case 'rank':
+      case 'great':
+      case 'great-evo':
+      case 'greatevo': {
+        league = 'GREAT LEAGUE';
+        break;
+      }
+
+      case 'ultra':
+      case 'ultra-evo':
+      case  'ultraevo': {
+        league = 'ULTRA LEAGUE';
+        break;
+      }
+
+      case 'master':
+      case 'masterevo':
+      case 'master-evo': {
+        league = 'MASTER LEAGUE';
+        break;
+      }
+
+      case 'little': {
+        league = 'LITTLE CUP';
+        break;
+      }
+
+      default: {
+        league = command.toUpperCase() + ' LEAGUE';
+      }
     }
+
     let embed;
+
     if (!this.embedErrorMessage) { //If no error message was found.
       let rankOutOf = this.ivFilter > 0 ? `/${Math.pow((16 - this.ivFilter), 3).toString()}` : ''; //If there is a filter, then give a Rank/HowMany. Otherwise, blank variable.
-      let requestInfo = `\n**[${league} LEAGUE](${this.familyList[0].gsUrl})\nRank**: ${this.familyList[0].rank}${rankOutOf}` +
+      let requestInfo = `\n**[${league}](${this.familyList[0].gsUrl})\nRank**: ${this.familyList[0].rank}${rankOutOf}` +
         ` (${this.familyList[0].pctMaxStatProductStr})\n**CP**: ${this.familyList[0].cp} @ Level ${this.familyList[0].level}\n`;
 
       let requestInfo2 = ``;
@@ -412,7 +441,7 @@ class RankCommand extends Commando.Command {
       name: 'rank',
       group: CommandGroup.UTIL,
       memberName: 'rank',
-      aliases: ['great', 'ultra', 'master', `great-evo`, `ultra-evo`],
+      aliases: ['great', 'ultra', 'master', 'master-evo', `great-evo`, `ultra-evo`, 'little'],
       description: 'Provides PvP data based on a Pokémon species\'s IVs, including rank and CP.',
       details: '**SYNTAX:** `!<league> <Pokémon> <Attack IV> <Defense IV> <Stamina IV> <Filter (Optional)>`\n' +
         '__League:__\n> `!great` `!ultra` and `!master` provide data on their respective leagues.\n> `!rank` defaults to great league.\n' +
@@ -449,19 +478,11 @@ class RankCommand extends Commando.Command {
     };
 
     const userCommand = message.content.toLowerCase()
-      .match(`\\${message.client.options.commandPrefix}?(\\s+)?(\\S+)`)[2];
-
-    if (userCommand === 'great' || userCommand === 'rank' || userCommand === 'great-evo' || userCommand === 'greatevo') {
-      let greatRank = new PvPRankingData(userCommand, args, message.client);
-      await greatRank.getUserRequest(message, userCommand);
-      await greatRank.generateRanks();
-      await greatRank.displayInfo(message, userCommand, message.channel.type === 'dm');
-    } else if (userCommand === 'ultra' || userCommand === 'ultra-evo' || userCommand === 'ultraevo' || userCommand === 'master') {
-      let ultraRank = new PvPRankingData(userCommand, args, message.client);
-      await ultraRank.getUserRequest(message, userCommand);
-      await ultraRank.generateRanks();
-      await ultraRank.displayInfo(message, userCommand, message.channel.type === 'dm');
-    }
+        .match(`\\${message.client.options.commandPrefix}?(\\s+)?(\\S+)`)[2],
+      rankData = new PvPRankingData(userCommand, args, message.client);
+    await rankData.getUserRequest(message, userCommand);
+    await rankData.generateRanks();
+    await rankData.displayInfo(message, userCommand, message.channel.type === 'dm');
   }
 }
 
