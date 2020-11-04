@@ -47,10 +47,10 @@ class Pokemon extends Search {
           })))
         .concat(gameMaster
           .filter(item => temporaryRegex.test(item.templateId))
-          .map(temporaryForm => temporaryForm.temporaryEvolutionSettings.obTemporaryEvolutions
+          .map(temporaryForm => temporaryForm.temporaryEvolutionSettings.temporaryEvolutions
             .map(evolution => Object.assign({},
               {
-                formName: (temporaryRegex.exec(temporaryForm.templateId)[1] + evolution.obTemporaryEvolution.substring(14)).toLocaleLowerCase(),
+                formName: (temporaryRegex.exec(temporaryForm.templateId)[1] + evolution.temporaryEvolutionId.substring(14)).toLocaleLowerCase(),
                 formId: evolution.assetBundleValue
               })))
           .flat()),
@@ -76,19 +76,19 @@ class Pokemon extends Search {
           }))),
       temporaryPokemon = [].concat(...gameMaster
         .filter(item => pokemonRegex.test(item.templateId))
-        .filter(pokemon => !!pokemon.pokemonSettings.obTemporaryEvolutions)
-        .map(pokemon => pokemon.pokemonSettings.obTemporaryEvolutions
+        .filter(pokemon => !!pokemon.pokemonSettings.tempEvoOverrides)
+        .map(pokemon => pokemon.pokemonSettings.tempEvoOverrides
           .map(evolution => Object.assign({}, {
             name: ((pokemon.pokemonSettings.form ?
               pokemon.pokemonSettings.form :
-              pokemon.pokemonSettings.pokemonId) + evolution.obTemporaryEvolution.substring(14)).toLowerCase(),
+              pokemon.pokemonSettings.pokemonId) + evolution.tempEvoId.substring(14)).toLowerCase(),
             number: Number.parseInt(pokemon.templateId.split('_')[0].slice(2)),
             temporaryStats: evolution.stats,
             stats: pokemon.pokemonSettings.stats,
             quickMoves: pokemon.pokemonSettings.quickMoves,
             cinematicMoves: pokemon.pokemonSettings.cinematicMoves,
-            temporaryType: [evolution.type.split('_')[2].toLowerCase(), evolution.type2 ?
-              evolution.type2.split('_')[2].toLowerCase() :
+            temporaryType: [evolution.typeOverride1.split('_')[2].toLowerCase(), evolution.typeOverride2 ?
+              evolution.typeOverride2.split('_')[2].toLowerCase() :
               null]
               .filter(type => !!type),
             type: [pokemon.pokemonSettings.type.split('_')[2].toLowerCase(), pokemon.pokemonSettings.type2 ?
