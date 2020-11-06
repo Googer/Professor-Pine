@@ -110,10 +110,10 @@ class PartyManager {
           if (party.deletionTime && now > party.deletionTime && party.deletionTime !== -1) {
             party.delete();
           }
-
-          lastIntervalTime = now;
-          lastIntervalDay = nowDay;
         });
+
+      lastIntervalTime = now;
+      lastIntervalDay = nowDay;
 
       for (const party of partiesToRefresh.values()) {
         await party.refreshStatusMessages()
