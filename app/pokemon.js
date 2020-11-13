@@ -56,6 +56,7 @@ class Pokemon extends Search {
           .flat()),
       pokemon = [].concat(...gameMaster
         .filter(item => pokemonRegex.test(item.templateId))
+        .filter(pokemon => !!pokemon.pokemonSettings)
         .map(pokemon => Object.assign({},
           {
             name: pokemon.pokemonSettings.form ?
@@ -76,6 +77,7 @@ class Pokemon extends Search {
           }))),
       temporaryPokemon = [].concat(...gameMaster
         .filter(item => pokemonRegex.test(item.templateId))
+        .filter(pokemon => !!pokemon.pokemonSettings)
         .filter(pokemon => !!pokemon.pokemonSettings.tempEvoOverrides)
         .map(pokemon => pokemon.pokemonSettings.tempEvoOverrides
           .map(evolution => Object.assign({}, {

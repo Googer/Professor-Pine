@@ -1,7 +1,7 @@
 const LRU = require('lru-cache'),
   request = require('request'),
   GAME_MASTER_URL = 'https://raw.githubusercontent.com/PokeMiners/game_masters/master/latest/latest.json',
-  TEXT_URL = 'https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Texts/Latest%20APK/i18n_english.json',
+  TEXT_URL = 'https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Texts/Latest%20APK/English.txt',
   cache = new LRU({
     max: 2,
     maxAge: 1000 * 30,
@@ -9,7 +9,7 @@ const LRU = require('lru-cache'),
   }),
   Lock = new (require('async-lock')),
 
-  download = url => {
+  download = (url, isJson) => {
     return Lock.acquire(url, async () => {
       let result = cache.get(url);
 
@@ -24,7 +24,9 @@ const LRU = require('lru-cache'),
             }
 
             try {
-              const parsedBody = JSON.parse(body);
+              const parsedBody = isJson ?
+                JSON.parse(body) :
+                body;
               cache.set(url, parsedBody);
               resolve(parsedBody);
             } catch (exception) {
@@ -39,7 +41,7 @@ const LRU = require('lru-cache'),
     });
   },
 
-  downloadGameMaster = async () => await download(GAME_MASTER_URL),
-  downloadText = async () => await download(TEXT_URL);
+  downloadGameMaster = async () => await download(GAME_MASTER_URL, true),
+  downloadText = async () => await download(TEXT_URL, false);
 
 module.exports = {downloadGameMaster, downloadText};

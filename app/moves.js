@@ -21,12 +21,15 @@ class Moves extends Search {
     log.info('Indexing moves...');
 
     const gameMaster = await downloadGameMaster(),
-      text = await downloadText(),
-      moveRegex = new RegExp('^move_name_([0-9]+)$'),
+      text = (await downloadText())
+        .split(/r?\n/g)
+        .map(line => line.trim()),
+      moveRegex = new RegExp('^RESOURCE ID: move_name_([0-9]+)$'),
+      moveNameRegex = new RegExp('^TEXT: (.*)$'),
       moveNames = Object.create(null);
 
-    for (let i = 0; i < text.data.length; ++i) {
-      const match = moveRegex.exec(text.data[i]);
+    for (let i = 0; i < text.length; ++i) {
+      const match = moveRegex.exec(text[i]);
 
       if (!!match) {
         const internalNameRegex = new RegExp(`^V${match[1]}_MOVE_(.*)$`),
@@ -36,7 +39,7 @@ class Moves extends Search {
             .find(item => !!item);
 
         if (internalName) {
-          moveNames[internalName[1]] = text.data[i + 1];
+          moveNames[internalName[1]] = moveNameRegex.exec(text[i + 1])[1];
         }
       }
     }
