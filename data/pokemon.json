@@ -7262,225 +7262,608 @@
     ]
   },
   {
-    "name": "chespin"
+    "name": "chespin",
+    "pbName": "CHESPIN",
+    "family": "CHESPIN",
+    "gsName": [
+      "CHESPIN"
+    ]
+  },
+  {
+    "name": "quilladin",
+    "pbName": "QUILLADIN",
+    "family": "CHESPIN",
+    "gsName": [
+      "QUILLADIN"
+    ]
+  },
+  {
+    "name": "chesnaught",
+    "pbName": "CHESNAUGHT",
+    "family": "CHESPIN",
+    "gsName": [
+      "CHESNAUGHT"
+    ]
+  },
+  {
+    "name": "fennekin",
+    "pbName": "FENNEKIN",
+    "family": "FENNEKIN",
+    "gsName": [
+      "FENNEKIN"
+    ]
+  },
+  {
+    "name": "braixen",
+    "pbName": "BRAIXEN",
+    "family": "FENNEKIN",
+    "gsName": [
+      "BRAIXEN"
+    ]
+  },
+  {
+    "name": "delphox",
+    "pbName": "DELPHOX",
+    "family": "FENNEKIN",
+    "gsName": [
+      "DELPHOX"
+    ]
+  },
+  {
+    "name": "froakie",
+    "pbName": "FROAKIE",
+    "family": "FROAKIE",
+    "gsName": [
+      "FROAKIE"
+    ]
+  },
+  {
+    "name": "frogadier",
+    "pbName": "FROGADIER",
+    "family": "FROAKIE",
+    "gsName": [
+      "FROGADIER"
+    ]
+  },
+  {
+    "name": "greninja",
+    "pbName": "GRENINJA",
+    "family": "FROAKIE",
+    "gsName": [
+      "GRENINJA"
+    ]
+  },
+  {
+    "name": "bunnelby",
+    "pbName": "BUNNELBY",
+    "family": "BUNNELBY",
+    "gsName": [
+      "BUNNELBY"
+    ]
+  },
+  {
+    "name": "diggersby",
+    "pbName": "DIGGERSBY",
+    "family": "BUNNELBY",
+    "gsName": [
+      "DIGGERSBY"
+    ]
+  },
+  {
+    "name": "fletchling",
+    "pbName": "FLETCHLING",
+    "family": "FLETCHLING",
+    "gsName": [
+      "FLETCHLING"
+    ]
+  },
+  {
+    "name": "fletchinder",
+    "pbName": "FLETCHINDER",
+    "family": "FLETCHLING",
+    "gsName": [
+      "FLETCHINDER"
+    ]
   },
   {
-    "name": "quilladin"
+    "name": "talonflame",
+    "pbName": "TALONFLAME",
+    "family": "FLETCHLING",
+    "gsName": [
+      "TALONFLAME"
+    ]
   },
   {
-    "name": "chesnaught"
+    "name": "scatterbug",
+    "pbName": "SCATTERBUG",
+    "family": "SCATTERBUG",
+    "gsName": [
+      "SCATTERBUG"
+    ]
   },
   {
-    "name": "fennekin"
+    "name": "spewpa",
+    "pbName": "SPEWPA",
+    "family": "SCATTERBUG",
+    "gsName": [
+      "SPEWPA"
+    ]
   },
   {
-    "name": "braixen"
+    "name": "vivillon",
+    "pbName": "VIVILLON",
+    "family": "SCATTERBUG",
+    "gsName": [
+      "VIVILLON"
+    ]
   },
   {
-    "name": "delphox"
+    "name": "litleo",
+    "pbName": "LITLEO",
+    "family": "LITLEO",
+    "gsName": [
+      "LITLEO"
+    ]
   },
   {
-    "name": "froakie"
+    "name": "pyroar",
+    "pbName": "PYROAR",
+    "family": "LITLEO",
+    "gsName": [
+      "PYROAR"
+    ]
   },
   {
-    "name": "frogadier"
+    "name": "flabébé",
+    "pbName": "FLABEBE",
+    "family": "FLABEBE",
+    "gsName": [
+      "FLABEBE"
+    ]
   },
   {
-    "name": "greninja"
+    "name": "floette",
+    "pbName": "FLOETTE",
+    "family": "FLABEBE",
+    "gsName": [
+      "FLOETTE"
+    ]
   },
   {
-    "name": "bunnelby"
+    "name": "florges",
+    "pbName": "FLORGES",
+    "family": "FLABEBE",
+    "gsName": [
+      "FLORGES"
+    ]
   },
   {
-    "name": "diggersby"
+    "name": "skiddo",
+    "pbName": "SKIDDO",
+    "family": "SKIDDO",
+    "gsName": [
+      "SKIDDO"
+    ]
   },
   {
-    "name": "fletchling"
+    "name": "gogoat",
+    "pbName": "GOGOAT",
+    "family": "SKIDDO",
+    "gsName": [
+      "GOGOAT"
+    ]
   },
   {
-    "name": "fletchinder"
+    "name": "pancham",
+    "pbName": "PANCHAM",
+    "family": "PANCHAM",
+    "gsName": [
+      "PANCHAM"
+    ]
   },
   {
-    "name": "talonflame"
+    "name": "pangoro",
+    "pbName": "PANGORO",
+    "family": "PANCHAM",
+    "gsName": [
+      "PANGORO"
+    ]
   },
   {
-    "name": "scatterbug"
+    "name": "furfrou",
+    "pbName": "FURFROU",
+    "family": "FURFROU",
+    "gsName": [
+      "FURFROU"
+    ]
   },
   {
-    "name": "spewpa"
+    "name": "espurr",
+    "pbName": "ESPURR",
+    "family": "ESPURR",
+    "gsName": [
+      "ESPURR"
+    ]
   },
   {
-    "name": "vivillon"
+    "name": "meowstic",
+    "pbName": "MEOWSTIC",
+    "family": "ESPURR",
+    "gsName": [
+      "MEOWSTIC"
+    ]
   },
   {
-    "name": "litleo"
+    "name": "honedge",
+    "pbName": "HONEDGE",
+    "family": "HONEDGE",
+    "gsName": [
+      "HONEDGE"
+    ]
   },
   {
-    "name": "pyroar"
+    "name": "doublade",
+    "pbName": "DOUBLADE",
+    "family": "HONEDGE",
+    "gsName": [
+      "DOUBLADE"
+    ]
   },
   {
-    "name": "flabébé"
+    "name": "aegislash",
+    "pbName": "AEGISLASH",
+    "family": "HONEDGE",
+    "gsName": [
+      "AEGISLASH"
+    ]
   },
   {
-    "name": "floette"
+    "name": "spritzee",
+    "pbName": "SPRITZEE",
+    "family": "SPRITZEE",
+    "gsName": [
+      "SPRITZEE"
+    ]
   },
   {
-    "name": "florges"
+    "name": "aromatisse",
+    "pbName": "AROMATISSE",
+    "family": "SPRITZEE",
+    "gsName": [
+      "AROMATISSE"
+    ]
   },
   {
-    "name": "skiddo"
+    "name": "swirlix",
+    "pbName": "SWIRLIX",
+    "family": "SWIRLIX",
+    "gsName": [
+      "SWIRLIX"
+    ]
   },
   {
-    "name": "gogoat"
+    "name": "slurpuff",
+    "pbName": "SLURPUFF",
+    "family": "SWIRLIX",
+    "gsName": [
+      "SLURPUFF"
+    ]
   },
   {
-    "name": "pancham"
+    "name": "inkay",
+    "pbName": "INKAY",
+    "family": "INKAY",
+    "gsName": [
+      "INKAY"
+    ]
   },
   {
-    "name": "pangoro"
+    "name": "malamar",
+    "pbName": "MALAMAR",
+    "family": "INKAY",
+    "gsName": [
+      "MALAMAR"
+    ]
   },
   {
-    "name": "furfrou"
+    "name": "binacle",
+    "pbName": "BINACLE",
+    "family": "BINACLE",
+    "gsName": [
+      "BINACLE"
+    ]
   },
   {
-    "name": "espurr"
+    "name": "barbaracle",
+    "pbName": "BARBARACLE",
+    "family": "BINACLE",
+    "gsName": [
+      "BARBARACLE"
+    ]
   },
   {
-    "name": "meowstic"
+    "name": "skrelp",
+    "pbName": "SKRELP",
+    "family": "SKRELP",
+    "gsName": [
+      "SKRELP"
+    ]
   },
   {
-    "name": "honedge"
+    "name": "dragalge",
+    "pbName": "DRAGALGE",
+    "family": "SKRELP",
+    "gsName": [
+      "DRAGALGE"
+    ]
   },
   {
-    "name": "doublade"
+    "name": "clauncher",
+    "pbName": "CLAUNCHER",
+    "family": "CLAUNCHER",
+    "gsName": [
+      "CLAUNCHER"
+    ]
   },
   {
-    "name": "aegislash"
+    "name": "clawitzer",
+    "pbName": "CLAWITZER",
+    "family": "CLAUNCHER",
+    "gsName": [
+      "CLAWITZER"
+    ]
   },
   {
-    "name": "spritzee"
+    "name": "helioptile",
+    "pbName": "HELIOPTILE",
+    "family": "HELIOPTILE",
+    "gsName": [
+      "HELIOPTILE"
+    ]
   },
   {
-    "name": "aromatisse"
+    "name": "heliolisk",
+    "pbName": "HELIOLISK",
+    "family": "HELIOPTILE",
+    "gsName": [
+      "HELIOLISK"
+    ]
   },
   {
-    "name": "swirlix"
+    "name": "tyrunt",
+    "pbName": "TYRUNT",
+    "family": "TYRUNT",
+    "gsName": [
+      "TYRUNT"
+    ]
   },
   {
-    "name": "slurpuff"
+    "name": "tyrantrum",
+    "pbName": "TYRANTRUM",
+    "family": "TYRUNT",
+    "gsName": [
+      "TYRANTRUM"
+    ]
   },
   {
-    "name": "inkay"
+    "name": "amaura",
+    "pbName": "AMAURA",
+    "family": "AMAURA",
+    "gsName": [
+      "AMAURA"
+    ]
   },
   {
-    "name": "malamar"
+    "name": "aurorus",
+    "pbName": "AURORUS",
+    "family": "AMAURA",
+    "gsName": [
+      "AURORUS"
+    ]
   },
   {
-    "name": "binacle"
+    "name": "sylveon",
+    "pbName": "SYLVEON",
+    "family": "EEVEE",
+    "gsName": [
+      "SYLVEON"
+    ]
   },
   {
-    "name": "barbaracle"
+    "name": "hawlucha",
+    "pbName": "HAWLUCHA",
+    "family": "HAWLUCHA",
+    "gsName": [
+      "HAWLUCHA"
+    ]
   },
   {
-    "name": "skrelp"
+    "name": "dedenne",
+    "pbName": "DEDENNE",
+    "family": "DEDENNE",
+    "gsName": [
+      "DEDENNE"
+    ]
   },
   {
-    "name": "dragalge"
+    "name": "carbink",
+    "pbName": "CARBINK",
+    "family": "CARBINK",
+    "gsName": [
+      "CARBINK"
+    ]
   },
   {
-    "name": "clauncher"
+    "name": "goomy",
+    "pbName": "GOOMY",
+    "family": "GOOMY",
+    "gsName": [
+      "GOOMY"
+    ]
   },
   {
-    "name": "clawitzer"
+    "name": "sliggoo",
+    "pbName": "SLIGGOO",
+    "family": "GOOMY",
+    "gsName": [
+      "SLIGGOO"
+    ]
   },
   {
-    "name": "helioptile"
+    "name": "goodra",
+    "pbName": "GOODRA",
+    "family": "GOOMY",
+    "gsName": [
+      "GOODRA"
+    ]
   },
   {
-    "name": "heliolisk"
-  },
-  {
-    "name": "tyrunt"
-  },
-  {
-    "name": "tyrantrum"
-  },
-  {
-    "name": "amaura"
-  },
-  {
-    "name": "aurorus"
-  },
-  {
-    "name": "sylveon"
-  },
-  {
-    "name": "hawlucha"
-  },
-  {
-    "name": "dedenne"
-  },
-  {
-    "name": "carbink"
-  },
-  {
-    "name": "goomy"
-  },
-  {
-    "name": "sliggoo"
-  },
-  {
-    "name": "goodra"
-  },
-  {
-    "name": "klefki"
-  },
-  {
-    "name": "phantump"
-  },
-  {
-    "name": "trevenant"
-  },
-  {
-    "name": "pumpkaboo"
-  },
-  {
-    "name": "gourgeist"
-  },
-  {
-    "name": "bergmite"
-  },
-  {
-    "name": "avalugg"
-  },
-  {
-    "name": "noibat"
-  },
-  {
-    "name": "noivern"
-  },
-  {
-    "name": "xerneas"
-  },
-  {
-    "name": "yveltal"
-  },
-  {
-    "name": "zygarde"
-  },
-  {
-    "name": "diancie"
+    "name": "klefki",
+    "pbName": "KLEFKI",
+    "family": "KLEFKI",
+    "gsName": [
+      "KLEFKI"
+    ]
+  },
+  {
+    "name": "phantump",
+    "pbName": "PHANTUMP",
+    "family": "PHANTUMP",
+    "gsName": [
+      "PHANTUMP"
+    ]
+  },
+  {
+    "name": "trevenant",
+    "pbName": "TREVENANT",
+    "family": "PHANTUMP",
+    "gsName": [
+      "TREVENANT"
+    ]
+  },
+  {
+    "name": "pumpkaboo",
+    "pbName": "PUMPKABOO",
+    "family": "PUMPKABOO",
+    "gsName": [
+      "PUMPKABOO"
+    ]
+  },
+  {
+    "name": "gourgeist",
+    "pbName": "GOURGEIST",
+    "family": "PUMPKABOO",
+    "gsName": [
+      "GOURGEIST"
+    ]
+  },
+  {
+    "name": "bergmite",
+    "pbName": "BERGMITE",
+    "family": "BERGMITE",
+    "gsName": [
+      "BERGMITE"
+    ]
+  },
+  {
+    "name": "avalugg",
+    "pbName": "AVALUGG",
+    "family": "BERGMITE",
+    "gsName": [
+      "AVALUGG"
+    ]
+  },
+  {
+    "name": "noibat",
+    "pbName": "NOIBAT",
+    "family": "NOIBAT",
+    "gsName": [
+      "NOIBAT"
+    ]
+  },
+  {
+    "name": "noivern",
+    "pbName": "NOIVERN",
+    "family": "NOIBAT",
+    "gsName": [
+      "NOIVERN"
+    ]
+  },
+  {
+    "name": "xerneas",
+    "pbName": "NOIVERN",
+    "family": "NOIBAT",
+    "gsName": [
+      "NOIVERN"
+    ]
+  },
+  {
+    "name": "yveltal",
+    "pbName": "YVELTAL",
+    "family": "YVELTAL",
+    "gsName": [
+      "YVELTAL"
+    ]
+  },
+  {
+    "name": "zygarde",
+    "pbName": "ZYGARDE",
+    "family": "ZYGARDE",
+    "gsName": [
+      "ZYGARDE"
+    ]
+  },
+  {
+    "name": "diancie",
+    "pbName": "DIANCIE",
+    "family": "DIANCIE",
+    "gsName": [
+      "DIANCIE"
+    ]
   },
   {
     "name": "diancie_mega",
     "overrideName": "Mega Diancie",
-    "nickname": "mega"
+    "nickname": "mega",
+    "pbName": "DIANCIE_MEGA",
+    "family": "DIANCIE",
+    "gsName": [
+      "DIANCIE_MEGA"
+    ]
   },
   {
-    "name": "hoopa"
+    "name": "hoopa",
+    "pbName": "HOOPA",
+    "family": "HOOPA",
+    "gsName": [
+      "HOOPA"
+    ]
   },
   {
-    "name": "volcanion"
+    "name": "hoopa_confined",
+    "overrideName": "Hoopa (Confined)",
+    "pbName": "HOOPA_CONFINED",
+    "family": "HOOPA",
+    "gsName": [
+      "HOOPA_CONFINED"
+    ]
+  },
+  {
+    "name": "hoopa_unbound",
+    "overrideName": "Hoopa (Unbound)",
+    "pbName": "HOOPA_UNBOUND",
+    "family": "HOOPA",
+    "gsName": [
+      "HOOPA_UNBOUND"
+    ]
+  },
+  {
+    "name": "volcanion",
+    "pbName": "VOLCANION",
+    "family": "VOLCANION",
+    "gsName": [
+      "VOLCANION"
+    ]
   },
   {
     "name": "rowlet"
