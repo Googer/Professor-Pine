@@ -375,10 +375,21 @@ class PvPRankingData {
       let requestInfo = `\n**[${league}](${this.familyList[0].gsUrl})\nRank**: ${this.familyList[0].rank}${rankOutOf}` +
         ` (${this.familyList[0].pctMaxStatProductStr})\n**CP**: ${this.familyList[0].cp} @ Level ${this.familyList[0].level}\n`;
 
-      let requestInfo2 = ``;
+      let requestInfo2 = [];
+      let requestInfo2Index = 0;
       for (let i = 1; i < this.familyList.length; i++) {
-        requestInfo2 += `**[${this.familyList[i].gsName[0].titleCase()}](${this.familyList[i].gsUrl})**` +
+        const familyInfoLine = `**[${this.familyList[i].gsName[0].titleCase()}](${this.familyList[i].gsUrl})**` +
           `   Rank: ${this.familyList[i].rank} | ${this.familyList[i].cp}CP @ L${this.familyList[i].level}\n`;
+        if (!requestInfo2[requestInfo2Index]) {
+          requestInfo2.push('');
+        }
+
+        if (requestInfo2[requestInfo2Index].length + familyInfoLine.length > 1024) {
+          requestInfo2Index++;
+          requestInfo2.push('');
+        }
+
+        requestInfo2[requestInfo2Index] += familyInfoLine;
       }
 
       if (this.ivFilterDescription) { //Add filter line to requestInfo if a filter exists.
@@ -404,7 +415,12 @@ class PvPRankingData {
         .setThumbnail(this.familyList[0].url);
 
       if (!!requestInfo2) {
-        embed.addField("\n__**Family Ranks**__", requestInfo2);
+        let first = true;
+
+        for (const requestInfoField of requestInfo2) {
+          embed.addField(`${first ? '\n' : ''}__**Family Ranks**__${!first ? ' (continued)' : ''}`, requestInfoField);
+          first = false;
+        }
       }
 
       if (!isDM) {
