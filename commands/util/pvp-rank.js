@@ -107,7 +107,7 @@ class PvPRankingData {
         this.cpLeague = 1500;
     }
 
-    if (typeof (inputFilter[0]) == 'string') {
+    if (typeof (inputFilter[0]) === 'string') {
       inputFilter[0] = inputFilter[0].toLowerCase();
     }
     switch (inputFilter[0]) {
@@ -184,7 +184,7 @@ class PvPRankingData {
     }
   }
 
-  generateRanks() {
+  generateRanks(levelCap) {
     if (this.flag === true) {
       // If somebody cancels the command in scrape(), we don't want this function running.
       return;
@@ -210,13 +210,13 @@ class PvPRankingData {
         baseDefense = this.familyList[i].stats.baseDefense,
         baseStamina = this.familyList[i].stats.baseStamina;
       // insert the cpm data to iterate on
-      const cpmData = Pokemon.getCPTable();
+      const cpmData = Pokemon.getCPTable(levelCap);
 
       // Iterates through each of the 4096 IV combinations (0-15).
       // Then starting at level 40, calculate the CP of the Pokemon at that IV.
       // If it is larger than the league cap, go down to the next half-level. Repeat until CP is lower than cap.
       // If it is less than the league cap, add to the IV list and stop calculating. Start at level 40 with new IV combination.
-      // The best will always be the highest level under the cap for a given IV.
+      // The best will always bep the highest level under the cap for a given IV.
       for (let attackIV = this.ivFilter; attackIV <= 15; attackIV++) {
         for (let defenseIV = this.ivFilter; defenseIV <= 15; defenseIV++) {
           for (let staminaIV = this.ivFilter; staminaIV <= 15; staminaIV++) {
@@ -236,9 +236,10 @@ class PvPRankingData {
                   ivTotal: attackIV + defenseIV + staminaIV,
                   statProduct: Math.round(rawAttack * rawDefense * rawStamina),
                   rawStatProduct: rawAttack * rawDefense * rawStamina,
-                  level: level,
+                  level: parseInt(level),
                   cp: cp
                 });
+
                 break;
               }
             }
@@ -275,41 +276,51 @@ class PvPRankingData {
         `&def_iv=${this.inputDefenseIV}` +
         `&sta_iv=${this.inputStaminaIV}`;
 
-      let rankData = ivArr.filter(x => x.atkIv === this.inputAttackIV && x.defIv === this.inputDefenseIV && x.staIv === this.inputStaminaIV)[0];
+      const rankData = ivArr
+        .filter(x => x.atkIv === this.inputAttackIV && x.defIv === this.inputDefenseIV && x.staIv === this.inputStaminaIV)[0];
+
       if (!rankData) {
         this.embedName = this.pokemon.gsName[0];
         return;
       }
+      ``
+      if (!this.familyList[i].data) {
+        this.familyList[i].data = Object.create({});
+      }
 
-      this.familyList[i].rank = rankData.rank;
-      this.familyList[i].level = rankData.level;
-      this.familyList[i].cp = rankData.cp;
-      this.familyList[i].atk = Math.round(rankData.rawAtk * 10) / 10;
-      this.familyList[i].def = Math.round(rankData.rawDef * 10) / 10;
-      this.familyList[i].sta = Math.round(rankData.rawSta * 10) / 10;
-      this.familyList[i].statproduct = rankData.statProduct;
-      this.familyList[i].pctMaxStatProduct = rankData.pctMaxStatProduct;
-      this.familyList[i].pctMaxStatProductStr = rankData.pctMaxStatProduct.toFixed(2).toString() + "%";
+      this.familyList[i].data[`${levelCap}`] = Object.create({});
+
+      this.familyList[i].data[`${levelCap}`].rank = rankData.rank;
+      this.familyList[i].data[`${levelCap}`].level = rankData.level;
+      this.familyList[i].data[`${levelCap}`].cp = rankData.cp;
+      this.familyList[i].data[`${levelCap}`].atk = Math.round(rankData.rawAtk * 10) / 10;
+      this.familyList[i].data[`${levelCap}`].def = Math.round(rankData.rawDef * 10) / 10;
+      this.familyList[i].data[`${levelCap}`].sta = Math.round(rankData.rawSta * 10) / 10;
+      this.familyList[i].data[`${levelCap}`].statproduct = rankData.statProduct;
+      this.familyList[i].data[`${levelCap}`].pctMaxStatProduct = rankData.pctMaxStatProduct;
+      this.familyList[i].data[`${levelCap}`].pctMaxStatProductStr = rankData.pctMaxStatProduct.toFixed(2).toString() + "%";
 
       //These z-values are the values associated with the Rank 1 IV combination. These 9 values are only ones that matter.
-      this.familyList[i].zrank = ivArr[0].rank;
-      this.familyList[i].zlevel = ivArr[0].level;
-      this.familyList[i].zcp = ivArr[0].cp;
-      this.familyList[i].zatk = Math.round(ivArr[0].rawAtk * 10) / 10;
-      this.familyList[i].zdef = Math.round(ivArr[0].rawDef * 10) / 10;
-      this.familyList[i].zsta = Math.round(ivArr[0].rawSta * 10) / 10;
-      this.familyList[i].zatkiv = ivArr[0].atkIv;
-      this.familyList[i].zdefiv = ivArr[0].defIv;
-      this.familyList[i].zstaiv = ivArr[0].staIv;
+      this.familyList[i].data[`${levelCap}`].zrank = ivArr[0].rank;
+      this.familyList[i].data[`${levelCap}`].zlevel = ivArr[0].level;
+      this.familyList[i].data[`${levelCap}`].zcp = ivArr[0].cp;
+      this.familyList[i].data[`${levelCap}`].zatk = Math.round(ivArr[0].rawAtk * 10) / 10;
+      this.familyList[i].data[`${levelCap}`].zdef = Math.round(ivArr[0].rawDef * 10) / 10;
+      this.familyList[i].data[`${levelCap}`].zsta = Math.round(ivArr[0].rawSta * 10) / 10;
+      this.familyList[i].data[`${levelCap}`].zatkiv = ivArr[0].atkIv;
+      this.familyList[i].data[`${levelCap}`].zdefiv = ivArr[0].defIv;
+      this.familyList[i].data[`${levelCap}`].zstaiv = ivArr[0].staIv;
     }
 
     //Sort list of ranked pokemon. Highest rank gets index 0.
     this.familyList.sort((a, b) => {
-      if ((b.cp - a.cp) > 300) return 1;
-      if ((a.cp - b.cp) > 300) return -1;
-      if (a.rank > b.rank) return 1;
-      if (a.rank < b.rank) return -1;
-      return 0
+      if ((b.data[`${levelCap}`].cp - a.data[`${levelCap}`].cp) > 300) return 1;
+      if ((a.data[`${levelCap}`].cp - b.data[`${levelCap}`].cp) > 300) return -1;
+
+      if (a.data[`${levelCap}`].rank > b.data[`${levelCap}`].rank) return 1;
+      if (a.data[`${levelCap}`].rank < b.data[`${levelCap}`].rank) return -1;
+
+      return 0;
     });
 
     this.embedName = this.familyList[0].gsName[0]; //Sets name shown above hyperlink next to IV combination (First line of embed)
@@ -323,13 +334,13 @@ class PvPRankingData {
 
     function embedColor(statProductPercent) {
       if (statProductPercent >= 99) {
-        return '#ffd700'
+        return '#ffd700';
       } else if (statProductPercent < 99 && statProductPercent >= 97) {
-        return '#c0c0c0'
+        return '#c0c0c0';
       } else if (statProductPercent < 97 && statProductPercent >= 95) {
-        return '#cd7f32'
+        return '#cd7f32';
       } else {
-        return '#30839f'
+        return '#30839f';
       }
     }
 
@@ -371,15 +382,62 @@ class PvPRankingData {
     let embed;
 
     if (!this.embedErrorMessage) { //If no error message was found.
-      let rankOutOf = this.ivFilter > 0 ? `/${Math.pow((16 - this.ivFilter), 3).toString()}` : ''; //If there is a filter, then give a Rank/HowMany. Otherwise, blank variable.
-      let requestInfo = `\n**[${league}](${this.familyList[0].gsUrl})\nRank**: ${this.familyList[0].rank}${rankOutOf}` +
-        ` (${this.familyList[0].pctMaxStatProductStr})\n**CP**: ${this.familyList[0].cp} @ Level ${this.familyList[0].level}\n`;
+      const rankOutOf = this.ivFilter > 0 ? `/${Math.pow((16 - this.ivFilter), 3).toString()}` : ''; //If there is a filter, then give a Rank/HowMany. Otherwise, blank variable.
+      const displayBothRanks = this.familyList[0].data['51'].zlevel !== this.familyList[0].data['40'].zlevel ||
+        this.familyList[0].data['51'].rank !== this.familyList[0].data['40'].rank;
+
+      let requestInfo = `\n**[${league}](${this.familyList[0].gsUrl})\n` +
+        (displayBothRanks ? '__All Levels__\n' : '') +
+        `Rank**: ${this.familyList[0].data['51'].rank}${rankOutOf}` +
+        ` (${this.familyList[0].data['51'].pctMaxStatProductStr})\n` +
+        `**CP**: ${this.familyList[0].data['51'].cp} @ Level ${this.familyList[0].data['51'].level}\n`;
+
+      if (this.ivFilterCommand === "stats" && this.familyList.length === 1) {
+        requestInfo += `**:crossed_swords: ${this.familyList[0].data['51'].atk} :shield: ${this.familyList[0].data['51'].def} :heart: ${this.familyList[0].data['51'].sta}**\n`;
+
+        requestInfo += `\n**:trophy: #1:** ${this.familyList[0].data['51'].zatkiv}/${this.familyList[0].data['51'].zdefiv}/${this.familyList[0].data['51'].zstaiv} **|**`;
+        requestInfo += ` ${this.familyList[0].data['51'].zcp}CP @ Level ${this.familyList[0].data['51'].zlevel}\n**:crossed_swords: ${this.familyList[0].data['51'].zatk}` +
+          ` :shield: ${this.familyList[0].data['51'].zdef} :heart: ${this.familyList[0].data['51'].zsta}**\n`;
+      }
+      if (this.ivFilterCommand === "top") {
+        requestInfo += `\n**:trophy: **#1: ${this.familyList[0].data['51'].zatkiv}/${this.familyList[0].data['51'].zdefiv}/${this.familyList[0].data['51'].zstaiv} **|** ` +
+          `${this.familyList[0].data['51'].zcp}CP @ Level ${this.familyList[0].data['51'].zlevel}\n`;
+      }
+
+      requestInfo += (displayBothRanks ?
+        '\n**__Level 40 Cap__\n' +
+        `Rank**: ${this.familyList[0].data['40'].rank}${rankOutOf}` +
+        ` (${this.familyList[0].data['40'].pctMaxStatProductStr})\n` :
+        '') +
+        (displayBothRanks ?
+          `**CP**: ${this.familyList[0].data['40'].cp} @ Level ${this.familyList[0].data['40'].level}\n` :
+          '');
+
+      if (displayBothRanks) {
+        if (this.ivFilterCommand === "stats" && this.familyList.length === 1) {
+          requestInfo += `**:crossed_swords: ${this.familyList[0].data['40'].atk} :shield: ${this.familyList[0].data['40'].def} :heart: ${this.familyList[0].data['40'].sta}**`;
+          requestInfo += `\n\n**:trophy: #1:** ${this.familyList[0].data['40'].zatkiv}/${this.familyList[0].data['40'].zdefiv}/${this.familyList[0].data['40'].zstaiv} **|**`;
+          requestInfo += ` ${this.familyList[0].data['40'].zcp}CP @ Level ${this.familyList[0].data['40'].zlevel}\n**:crossed_swords: ${this.familyList[0].data['40'].zatk}` +
+            ` :shield: ${this.familyList[0].data['40'].zdef} :heart: ${this.familyList[0].data['40'].zsta}**\n`;
+        }
+        if (this.ivFilterCommand === "top") {
+          requestInfo += `\n**:trophy: **#1: ${this.familyList[0].data['40'].zatkiv}/${this.familyList[0].data['40'].zdefiv}/${this.familyList[0].data['40'].zstaiv} **|** ` +
+            `${this.familyList[0].data['40'].zcp}CP @ Level ${this.familyList[0].data['40'].zlevel}\n`;
+        }
+      }
 
       let requestInfo2 = [];
       let requestInfo2Index = 0;
       for (let i = 1; i < this.familyList.length; i++) {
+        const displayBothFamilyRanks = this.familyList[i].data['51'].zlevel !== this.familyList[i].data['40'].zlevel &&
+          this.familyList[i].data['51'].rank !== this.familyList[i].data['40'].rank,
+          displayBothFamilyCPs = this.familyList[i].data['51'].cp !== this.familyList[i].data['40'].cp;
         const familyInfoLine = `**[${this.familyList[i].gsName[0].titleCase()}](${this.familyList[i].gsUrl})**` +
-          `   Rank: ${this.familyList[i].rank} | ${this.familyList[i].cp}CP @ L${this.familyList[i].level}\n`;
+          `   Rank: ${this.familyList[i].data['51'].rank} | ${this.familyList[i].data['51'].cp}CP @ L${this.familyList[i].data['51'].level}\n` +
+          (displayBothFamilyRanks || displayBothFamilyCPs ?
+            `**[${this.familyList[i].gsName[0].titleCase()}](${this.familyList[i].gsUrl})**` +
+            `   Rank: ${this.familyList[i].data['40'].rank} | ${this.familyList[i].data['40'].cp}CP @ L${this.familyList[i].data['40'].level}\n` :
+            '');
         if (!requestInfo2[requestInfo2Index]) {
           requestInfo2.push('');
         }
@@ -392,22 +450,12 @@ class PvPRankingData {
         requestInfo2[requestInfo2Index] += familyInfoLine;
       }
 
-      if (this.ivFilterDescription) { //Add filter line to requestInfo if a filter exists.
-        if (this.ivFilter > 0) {
-          requestInfo += `**Filter**: ${this.ivFilterDescription}\n`;
-        }
-        if (this.ivFilterCommand === "stats" && this.familyList.length === 1) {
-          requestInfo += `**:crossed_swords: ${this.familyList[0].atk} :shield: ${this.familyList[0].def} :heart: ${this.familyList[0].sta}` +
-            `\n\n:trophy: #1:** ${this.familyList[0].zatkiv}/${this.familyList[0].zdefiv}/${this.familyList[0].zstaiv} **|**`;
-          requestInfo += ` ${this.familyList[0].zcp}CP @ Level ${this.familyList[0].zlevel}\n**:crossed_swords: ${this.familyList[0].zatk}` +
-            ` :shield: ${this.familyList[0].zdef} :heart: ${this.familyList[0].zsta}**\n`
-        }
-        if (this.ivFilterCommand === "top") {
-          requestInfo += `\n:trophy: **#1:** ${this.familyList[0].zatkiv}/${this.familyList[0].zdefiv}/${this.familyList[0].zstaiv} **|** ` +
-            `${this.familyList[0].zcp}CP @ Level ${this.familyList[0].zlevel}\n`
-        }
+      if (this.ivFilterDescription && this.ivFilter > 0) {
+        //Add filter line to requestInfo if a filter exists.
+        requestInfo += `**Filter**: ${this.ivFilterDescription}\n`;
       }
-      let nameField = `**${this.embedName.replace(/_/g, ' ').titleCase()}**  ${this.inputAttackIV}/${this.inputDefenseIV}/${this.inputStaminaIV}\n`; //nameField is pokemon name & IVs.
+
+      const nameField = `**${this.embedName.replace(/_/g, ' ').titleCase()}**  ${this.inputAttackIV}/${this.inputDefenseIV}/${this.inputStaminaIV}\n`; //nameField is pokemon name & IVs.
 
       embed = new MessageEmbed()
         .setColor(embedColor(this.familyList[0].pctMaxStatProduct))
@@ -427,8 +475,8 @@ class PvPRankingData {
         embed.setFooter(`Requested by ${message.member.displayName}`, message.author.displayAvatarURL());
       }
     } else { //If rank was not found. This is due to an IV request outside of the allowed IVs per the IV filter. (Asking for rank of IV: 5 from a raid boss when minimum is 10)
-      let nameField = `**${this.embedName.replace(/_/g, ' ').titleCase()}**  ${this.inputAttackIV}/${this.inputDefenseIV}/${this.inputStaminaIV}\n`; //nameField is pokemon name & IVs.
-      let requestInfo = `\n**[${league} LEAGUE](${this.gsUrl})\nRank**:   *Not Found*\n**CP**: *Not Found*\n**Error**: ${this.embedErrorMessage}`;
+      const nameField = `**${this.embedName.replace(/_/g, ' ').titleCase()}**  ${this.inputAttackIV}/${this.inputDefenseIV}/${this.inputStaminaIV}\n`; //nameField is pokemon name & IVs.
+      const requestInfo = `\n**[${league} LEAGUE](${this.gsUrl})\nRank**:   *Not Found*\n**CP**: *Not Found*\n**Error**: ${this.embedErrorMessage}`;
       embed = new MessageEmbed()
         .setColor('ff0000')
         .addField(nameField, requestInfo)
@@ -499,7 +547,8 @@ class RankCommand extends Commando.Command {
         .match(`\\${message.client.options.commandPrefix}?(\\s+)?(\\S+)`)[2],
       rankData = new PvPRankingData(userCommand, args, message.client);
     await rankData.getUserRequest(message, userCommand);
-    await rankData.generateRanks();
+    await rankData.generateRanks(51);
+    await rankData.generateRanks(40);
     await rankData.displayInfo(message, userCommand, message.channel.type === 'dm');
   }
 }

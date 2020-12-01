@@ -268,7 +268,7 @@ class Pokemon extends Search {
     this.cpTable = cpTable;
   }
 
-  getCPTable(maxLevel = 40) {
+  getCPTable(maxLevel = 51) {
     return Object.entries(this.cpTable)
       .map(([level, cpMultiplier]) => Object.assign({}, {
         level,
