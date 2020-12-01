@@ -458,7 +458,7 @@ class PvPRankingData {
       const nameField = `**${this.embedName.replace(/_/g, ' ').titleCase()}**  ${this.inputAttackIV}/${this.inputDefenseIV}/${this.inputStaminaIV}\n`; //nameField is pokemon name & IVs.
 
       embed = new MessageEmbed()
-        .setColor(embedColor(this.familyList[0].pctMaxStatProduct))
+        .setColor(embedColor(this.familyList[0].data['51'].pctMaxStatProduct))
         .addField(nameField, requestInfo)
         .setThumbnail(this.familyList[0].url);
 
