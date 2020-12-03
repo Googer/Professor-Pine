@@ -8,7 +8,7 @@ class CounterLevelType extends Commando.ArgumentType {
   constructor(client) {
     super(client, 'counterleveltype');
 
-    this.savedPokebattlerAnswers = ['Y', 'YES', 'POKEBATTLER', 'ME', 'MINE', 'BOX', 'MYBOX', 'MY BOX', 'POKEBOX', 'POKÉBOX', 'MYPOKEBOX', 'MY POKEBOX', 'MYPOKÉBOX', 'MY POKÉBOX']
+    this.savedPokebattlerAnswers = ['Y', 'YES', 'POKEBATTLER', 'ME', 'MINE', 'BOX', 'MYBOX', 'MY BOX', 'POKEBOX', 'POKÉBOX', 'MYPOKEBOX', 'MY POKEBOX', 'MYPOKÉBOX', 'MY POKÉBOX'];
   }
 
   async validate(value, message, arg) {

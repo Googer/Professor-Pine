@@ -118,7 +118,7 @@
     "mega": true,
     "overrideName": "Mega Charizard X",
     "nickname": "mega",
-    "pbName": "CHARIZARD_X_MEGA",
+    "pbName": "CHARIZARD_MEGA_X",
     "family": "CHARMANDER",
     "gsName": [
       "CHARIZARD MEGA X"
@@ -129,7 +129,7 @@
     "mega": true,
     "overrideName": "Mega Charizard Y",
     "nickname": "mega",
-    "pbName": "CHARIZARD_Y_MEGA",
+    "pbName": "CHARIZARD_MEGA_Y",
     "family": "CHARMANDER",
     "gsName": [
       "CHARIZARD MEGA Y"

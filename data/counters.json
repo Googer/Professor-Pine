@@ -49,17 +49,17 @@
       ]
     },
     {
-        "pbName": "4_5",
-        "name": "Tier 4.5",
-        "aliases": [
-          "45",
-          "T45",
-          "T 45",
-          "TIER45",
-          "TIER 45",
-          "FOUR FIVE"
-        ]
-      },
+      "pbName": "4_5",
+      "name": "Tier 4.5",
+      "aliases": [
+        "45",
+        "T45",
+        "T 45",
+        "TIER45",
+        "TIER 45",
+        "FOUR FIVE"
+      ]
+    },
     {
       "pbName": "5",
       "name": "Tier 5",
@@ -174,21 +174,64 @@
       "type": "byLevel"
     },
     {
-        "pbName": "41",
-        "name": "Level 41",
-        "aliases": [
-          "41",
-          "FORTYONE",
-          "FORTY ONE",
-          "FOURTYONE",
-          "FOURTY ONE",
-          "LEVEL41",
-          "LEVEL 41",
-          "L41",
-          "L 41"
-        ],
-        "type": "byLevel"
-      }
+      "pbName": "41",
+      "name": "Level 41",
+      "aliases": [
+        "41",
+        "FORTYONE",
+        "FORTY ONE",
+        "FOURTYONE",
+        "FOURTY ONE",
+        "LEVEL41",
+        "LEVEL 41",
+        "L41",
+        "L 41"
+      ],
+      "type": "byLevel"
+    },
+    {
+      "pbName": "45",
+      "name": "Level 45",
+      "aliases": [
+        "45",
+        "FORTY FIVE",
+        "FORTYFIVE",
+        "FOURTY FIVE",
+        "FOURTYFIVE",
+        "LEVEL45",
+        "LEVEL 45",
+        "L45",
+        "L 45"
+      ],
+      "type": "byLevel"
+    },
+    {
+      "pbName": "50",
+      "name": "Level 50",
+      "aliases": [
+        "50",
+        "FIFTY",
+        "LEVEL50",
+        "LEVEL 50",
+        "L50",
+        "L 50"
+      ],
+      "type": "byLevel"
+    },
+    {
+      "pbName": "51",
+      "name": "Level 51",
+      "aliases": [
+        "51",
+        "FIFTYONE",
+        "FIFTY ONE",
+        "LEVEL51",
+        "LEVEL 51",
+        "L51",
+        "L 51"
+      ],
+      "type": "byLevel"
+    }
   ],
   "weather": [
     {

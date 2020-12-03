@@ -464,7 +464,7 @@ class CountersCommand extends Commando.Command {
     attacker = !attacker ?
       await this.collectParameter(
         message,
-        `what level are your Pokémon you will be raiding with (20, 25, 30, 35, 40, or 41)?${pokebattlerMessage}`,
+        `what level are your Pokémon you will be raiding with (20, 25, 30, 35, 40, 41, 45, 50, or 51)?${pokebattlerMessage}`,
         'counterleveltype') :
       attacker;
     if (!attacker) {
