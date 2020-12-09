@@ -236,7 +236,7 @@ class PvPRankingData {
                   ivTotal: attackIV + defenseIV + staminaIV,
                   statProduct: Math.round(rawAttack * rawDefense * rawStamina),
                   rawStatProduct: rawAttack * rawDefense * rawStamina,
-                  level: parseInt(level),
+                  level: parseFloat(level),
                   cp: cp
                 });
 
@@ -394,7 +394,6 @@ class PvPRankingData {
 
       if (this.ivFilterCommand === "stats" && this.familyList.length === 1) {
         requestInfo += `**:crossed_swords: ${this.familyList[0].data['51'].atk} :shield: ${this.familyList[0].data['51'].def} :heart: ${this.familyList[0].data['51'].sta}**\n`;
-
         requestInfo += `\n**:trophy: #1:** ${this.familyList[0].data['51'].zatkiv}/${this.familyList[0].data['51'].zdefiv}/${this.familyList[0].data['51'].zstaiv} **|**`;
         requestInfo += ` ${this.familyList[0].data['51'].zcp}CP @ Level ${this.familyList[0].data['51'].zlevel}\n**:crossed_swords: ${this.familyList[0].data['51'].zatk}` +
           ` :shield: ${this.familyList[0].data['51'].zdef} :heart: ${this.familyList[0].data['51'].zsta}**\n`;
@@ -404,16 +403,12 @@ class PvPRankingData {
           `${this.familyList[0].data['51'].zcp}CP @ Level ${this.familyList[0].data['51'].zlevel}\n`;
       }
 
-      requestInfo += (displayBothRanks ?
-        '\n**__Level 40 Cap__\n' +
-        `Rank**: ${this.familyList[0].data['40'].rank}${rankOutOf}` +
-        ` (${this.familyList[0].data['40'].pctMaxStatProductStr})\n` :
-        '') +
-        (displayBothRanks ?
-          `**CP**: ${this.familyList[0].data['40'].cp} @ Level ${this.familyList[0].data['40'].level}\n` :
-          '');
-
       if (displayBothRanks) {
+        requestInfo += '\n**__Level 40 Cap__\n' +
+          `Rank**: ${this.familyList[0].data['40'].rank}${rankOutOf}` +
+          ` (${this.familyList[0].data['40'].pctMaxStatProductStr})\n` +
+          `**CP**: ${this.familyList[0].data['40'].cp} @ Level ${this.familyList[0].data['40'].level}\n`;
+
         if (this.ivFilterCommand === "stats" && this.familyList.length === 1) {
           requestInfo += `**:crossed_swords: ${this.familyList[0].data['40'].atk} :shield: ${this.familyList[0].data['40'].def} :heart: ${this.familyList[0].data['40'].sta}**`;
           requestInfo += `\n\n**:trophy: #1:** ${this.familyList[0].data['40'].zatkiv}/${this.familyList[0].data['40'].zdefiv}/${this.familyList[0].data['40'].zstaiv} **|**`;
@@ -429,15 +424,15 @@ class PvPRankingData {
       let requestInfo2 = [];
       let requestInfo2Index = 0;
       for (let i = 1; i < this.familyList.length; i++) {
-        const displayBothFamilyRanks = this.familyList[i].data['51'].zlevel !== this.familyList[i].data['40'].zlevel &&
-          this.familyList[i].data['51'].rank !== this.familyList[i].data['40'].rank,
-          displayBothFamilyCPs = this.familyList[i].data['51'].cp !== this.familyList[i].data['40'].cp;
-        const familyInfoLine = `**[${this.familyList[i].gsName[0].titleCase()}](${this.familyList[i].gsUrl})**` +
-          `   Rank: ${this.familyList[i].data['51'].rank} | ${this.familyList[i].data['51'].cp}CP @ L${this.familyList[i].data['51'].level}\n` +
-          (displayBothFamilyRanks || displayBothFamilyCPs ?
-            `**[${this.familyList[i].gsName[0].titleCase()}](${this.familyList[i].gsUrl})**` +
-            `   Rank: ${this.familyList[i].data['40'].rank} | ${this.familyList[i].data['40'].cp}CP @ L${this.familyList[i].data['40'].level}\n` :
-            '');
+        const displayBothFamilyRanks = (this.familyList[i].data['51'].zlevel !== this.familyList[i].data['40'].zlevel &&
+          this.familyList[i].data['51'].rank !== this.familyList[i].data['40'].rank) ||
+          this.familyList[i].data['51'].cp !== this.familyList[i].data['40'].cp,
+          familyInfoLine = `**[${this.familyList[i].gsName[0].titleCase()}](${this.familyList[i].gsUrl})**` +
+            `   Rank: ${this.familyList[i].data['51'].rank} | ${this.familyList[i].data['51'].cp}CP @ L${this.familyList[i].data['51'].level}\n` +
+            (displayBothFamilyRanks ?
+              `**[${this.familyList[i].gsName[0].titleCase()}](${this.familyList[i].gsUrl})**` +
+              `   Rank: ${this.familyList[i].data['40'].rank} | ${this.familyList[i].data['40'].cp}CP @ L${this.familyList[i].data['40'].level}\n` :
+              '');
         if (!requestInfo2[requestInfo2Index]) {
           requestInfo2.push('');
         }
