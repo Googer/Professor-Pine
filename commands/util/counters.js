@@ -543,7 +543,7 @@ class CountersCommand extends Commando.Command {
 
     let content = this.buildCountersContent(sortedData, moveset);
 
-    let commandMessage = `\`${message.client.commandPrefix}counters ${this.titleCase(boss.name)}, ` +
+    let commandMessage = `\`${message.client.commandPrefix}counters ${boss.name}, ` +
       `${tier.name}, ` +
       `${attacker.pbName}, ` +
       `${weather.name}, ` +
