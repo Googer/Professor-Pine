@@ -7262,6 +7262,42 @@
     ]
   },
   {
+    "name": "genesect_burn",
+    "overrideName": "Genesect (Burn Drive)",
+    "pbName": "GENESECT_BURN_FORM",
+    "family": "GENESECT",
+    "gsName": [
+      "GENESECT_BURN_FORM"
+    ]
+  },
+  {
+    "name": "genesect_chill",
+    "overrideName": "Genesect (Chill Drive)",
+    "pbName": "GENESECT_CHILL_FORM",
+    "family": "GENESECT",
+    "gsName": [
+      "GENESECT_CHILL_FORM"
+    ]
+  },
+  {
+    "name": "genesect_douse",
+    "overrideName": "Genesect (Douse Drive)",
+    "pbName": "GENESECT_DOUSE_FORM",
+    "family": "GENESECT",
+    "gsName": [
+      "GENESECT_DOUSE_FORM"
+    ]
+  },
+  {
+    "name": "genesect_shock",
+    "overrideName": "Genesect (Shock Drive)",
+    "pbName": "GENESECT_SHOCK_FORM",
+    "family": "GENESECT",
+    "gsName": [
+      "GENESECT_SHOCK_FORM"
+    ]
+  },
+  {
     "name": "chespin",
     "pbName": "CHESPIN",
     "family": "CHESPIN",
