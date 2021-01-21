@@ -24,12 +24,6 @@ class HowManyCommand extends Commando.Command {
     this.protect = false;
   }
 
-  titleCase(str) {
-    return str.toLowerCase().split(' ')
-      .map(word => word.replace(word[0], word[0].toUpperCase()))
-      .join(' ');
-  }
-
   parseCounterType(val, message, arg, type) {
     let isValid = message.client.registry.types.get(type).validate(val, message, arg);
     if (isValid === true) {
@@ -67,8 +61,6 @@ class HowManyCommand extends Commando.Command {
     if (!boss) boss = this.parseCounterType(message.argString.trim(), message, args, 'raidpokemon');
     if (!boss) boss = await this.collectParameter(message, 'what raid boss would you like to battle against?\n', 'raidpokemon');
     if (!boss) return;
-
-    let bossName = this.titleCase(boss.name);
 
     let bossUrl = 'https://thesilphroad.com/raid-bosses';
 
@@ -110,7 +102,7 @@ class HowManyCommand extends Commando.Command {
     });
 
     if (!howManyArr.length) {
-      let response = message.channel.send(`${message.author}, ${bossName} is not an active raid boss.`)
+      let response = message.channel.send(`${message.author}, ${boss.name} is not an active raid boss.`)
         .catch(err => log.error(err));
       response.preserve = true;
       return;
@@ -169,14 +161,14 @@ class HowManyCommand extends Commando.Command {
       .setAuthor('Data provided by The Silph Road')
       .setURL('https://thesilphroad.com/research-tasks')
       .setColor('#43B581')
-      .addField(`In order to beat ${bossName}, you need the following # of trainers:`, content)
+      .addField(`In order to beat ${boss.name}, you need the following # of trainers:`, content)
       .setThumbnail(boss.url);
 
     if (message.channel.type !== 'dm') {
       embed.setFooter(`Requested by ${message.member.displayName}`, message.author.displayAvatarURL());
     }
 
-    await message.channel.send(`\`${message.client.commandPrefix}howmany\ ${bossName}\``, embed)
+    await message.channel.send(`\`${message.client.commandPrefix}howmany\ ${boss.name}\``, embed)
       .catch(err => log.error(err));
   }
 

@@ -65,7 +65,12 @@ class RaidPokemonType extends Commando.ArgumentType {
       .map(term => term[1].toLowerCase());
 
     let pokemon = Pokemon.search(terms)
-      .find(pokemon => pokemon.exclusive || pokemon.mega || pokemon.tier || (pokemon.name.toLocaleLowerCase().startsWith('unown') && settings.roles.unown && settings.channels.unown));
+      .find(pokemon => {
+        if (!message.command || message.command.name === 'raid' || message.command.name === 'boss') {
+          return pokemon.exclusive || pokemon.mega || (pokemon.tier && pokemon.tier < 7);
+        }
+        return pokemon.exclusive || pokemon.mega || pokemon.tier || (pokemon.name.toLocaleLowerCase().startsWith('unown') && settings.roles.unown && settings.channels.unown);
+      });
 
     message.isExclusive = !!pokemon.exclusive;
     message.isMega = !!pokemon.mega;
