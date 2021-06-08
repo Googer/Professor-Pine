@@ -1103,12 +1103,40 @@
     ]
   },
   {
+    "name": "slowpoke_galarian",
+    "overrideName": "Galarian Slowpoke",
+    "nickname": [
+      "galar"
+    ],
+    "pbName": "SLOWPOKE_GALAR_FORM",
+    "family": "SLOWPOKE_GALAR_FORM",
+    "gsName": [
+      "GALARIAN SLOWPOKE",
+      "G SLOWPOKE",
+      "SLOWPOKE GALARIAN"
+    ]
+  },
+  {
     "name": "slowbro",
     "tier": 1,
     "pbName": "SLOWBRO",
     "family": "SLOWPOKE",
     "gsName": [
       "SLOWBRO"
+    ]
+  },
+  {
+    "name": "slowbro_galarian",
+    "overrideName": "Galarian Slowbro",
+    "nickname": [
+      "galar"
+    ],
+    "pbName": "SLOWBRO_GALAR_FORM",
+    "family": "SLOWPOKE_GALAR_FORM",
+    "gsName": [
+      "GALARIAN SLOWBRO",
+      "G SLOWBRO",
+      "SLOWBRO GALARIAN"
     ]
   },
   {
@@ -2387,6 +2415,20 @@
     "family": "SLOWPOKE",
     "gsName": [
       "SLOWKING"
+    ]
+  },
+  {
+    "name": "slowking_galarian",
+    "overrideName": "Galarian Slowking",
+    "nickname": [
+      "galar"
+    ],
+    "pbName": "SLOWKING_GALAR_FORM",
+    "family": "SLOWPOKE_GALAR_FORM",
+    "gsName": [
+      "GALARIAN SLOWKING",
+      "G SLOWKING",
+      "SLOWKING GALARIAN"
     ]
   },
   {
