@@ -44,20 +44,23 @@ class GymCache {
   }
 
   async rebuildIndexesForChannels() {
-    const that = this;
-    if (this.indexQueue.length > 0) {
-      await this.rebuildMaster();
-    }
+    if (this.indexQueue) {
+      const that = this;
 
-    const removeIndex = this.indexQueue.slice(0);
-    removeIndex.forEach(async channelId => {
-      log.info(`Trying to rebuild region of channel: ${channelId}`);
-      await that.rebuildRegion(channelId);
-      let index = that.indexQueue.indexOf(channelId);
-      if (index > -1) {
-        that.indexQueue.splice(index, 1);
+      if (this.indexQueue.length > 0) {
+        await this.rebuildMaster();
       }
-    });
+
+      const removeIndex = this.indexQueue.slice(0);
+      removeIndex.forEach(async channelId => {
+        log.info(`Trying to rebuild region of channel: ${channelId}`);
+        await that.rebuildRegion(channelId);
+        let index = that.indexQueue.indexOf(channelId);
+        if (index > -1) {
+          that.indexQueue.splice(index, 1);
+        }
+      });
+    }
   }
 
   async rebuildRegion(channel) {
@@ -187,10 +190,12 @@ class GymCache {
   }
 
   getNextGymsForPlacesUpdate() {
-    if (this.placesQueue.length > 10) {
-      return this.placesQueue.splice(0, 10);
-    } else {
-      return this.placesQueue.splice(0, this.placesQueue.length);
+    if (this.placesQueue) {
+      if (this.placesQueue.length > 10) {
+        return this.placesQueue.splice(0, 10);
+      } else {
+        return this.placesQueue.splice(0, this.placesQueue.length);
+      }
     }
   }
 

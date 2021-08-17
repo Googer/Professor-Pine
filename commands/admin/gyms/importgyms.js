@@ -1,5 +1,5 @@
 const log = require('loglevel').getLogger('ImportGymsCommand'),
-  commando = require('discord.js-commando'),
+  Commando = require('discord.js-commando'),
   DB = require('../../../app/db'),
   oneLine = require('common-tags').oneLine,
   Helper = require('../../../app/helper'),
@@ -10,7 +10,7 @@ const log = require('loglevel').getLogger('ImportGymsCommand'),
   request = require('request'),
   {CommandGroup, PartyType} = require('../../../app/constants');
 
-module.exports = class ImportGyms extends commando.Command {
+module.exports = class ImportGyms extends Commando.Command {
   constructor(client) {
     super(client, {
       name: 'import-gyms',

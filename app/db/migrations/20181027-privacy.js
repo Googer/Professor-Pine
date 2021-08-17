@@ -1,4 +1,4 @@
-const {PrivacyOpts} = require('../constants');
+const {PrivacyOpts} = require('../../constants');
 
 exports.up = function (knex) {
   return knex.schema

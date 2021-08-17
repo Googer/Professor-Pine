@@ -24,7 +24,10 @@ class DBManager {
         port: privateSettings.db.port || '3306',
       },
       migrations: {
-        directory: './app/db'
+        directory: './app/db/migrations'
+      },
+      seeds: {
+        directory: './app/db/seeds'
       },
       debug: true
     });
@@ -34,6 +37,7 @@ class DBManager {
     await this.initLock.acquire('db', async () => {
       if (!this.initialized) {
         await this.knex.migrate.latest()
+          .then(() => this.knex.seed.run())
           .then(() => this.initialized = true)
           .catch(err => log.error(err));
      }

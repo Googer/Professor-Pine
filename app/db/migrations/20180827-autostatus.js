@@ -1,4 +1,4 @@
-const {PartyStatus} = require('../constants');
+const {PartyStatus} = require('../../constants');
 
 exports.up = function (knex) {
   return knex.schema

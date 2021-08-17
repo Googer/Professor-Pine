@@ -1,4 +1,4 @@
-const DB = require('../db');
+const DB = require('../../db');
 
 exports.up = async function (knex) {
   let promises = [],

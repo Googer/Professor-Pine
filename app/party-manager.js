@@ -1,4 +1,5 @@
 const log = require('loglevel').getLogger('PartyManager'),
+  DB = require('./db'),
   Gym = require('./gym'),
   Helper = require('./helper'),
   moment = require('moment'),
@@ -128,12 +129,6 @@ class PartyManager {
       forgiveParseErrors: true
     });
     await this.activeStorage.init();
-
-    this.completedStorage = storage.create({
-      dir: 'parties/complete',
-      forgiveParseErrors: true
-    });
-    await this.completedStorage.init();
 
     if (settings.features.reactionCommands) {
       // map group reactions to group identifiers
@@ -845,17 +840,75 @@ class PartyManager {
         delete party.messagesSinceDeletionScheduled;
 
         if (party.type === PartyType.RAID) {
-          // TODO: this is only really right for raids, not trains or generic meetups, so rethink / revisit this
-          this.completedStorage.getItem(party.gymId.toString())
-            .then(gymRaids => {
-              if (!gymRaids) {
-                gymRaids = [];
-              }
-              gymRaids.push(party);
-              return this.completedStorage.setItem(party.gymId.toString(), gymRaids);
-            })
-            .then(result => this.activeStorage.removeItem(channelId))
-            .catch(err => log.error(err));
+          DB.DB.transaction(transaction => {
+            let promiseNext = Promise.resolve();
+
+            promiseNext = promiseNext
+              .then(() => DB.DB('Pokemon')
+                .where('name', !!party.pokemon.name ?
+                  party.pokemon.name :
+                  ''))
+              .then(pokemon => {
+                const pokemonId = pokemon.length > 0 ?
+                  pokemon[0].id :
+                  null;
+
+                return DB.DB('CompletedRaid').transacting(transaction)
+                  .returning('id')
+                  .insert(Object.assign({}, {
+                    gymId: party.gymId,
+                    pokemonId,
+                    channelSnowflake: party.sourceChannelId,
+                    creationTime: party.creationTime,
+                    reportedBySnowflake: party.originallyCreatedBy
+                  }));
+              })
+              .then(completedRaidId => {
+                const attendees = Object.entries(party.attendees)
+                  .map(([userSnowflake, userStatus]) => {
+                    let status;
+
+                    switch (userStatus.status) {
+                      case PartyStatus.INTERESTED:
+                        status = 'interested';
+                        break;
+                      case PartyStatus.COMING:
+                        status = 'coming';
+                        break;
+                      case PartyStatus.PRESENT:
+                        status = 'present';
+                        break;
+                      case PartyStatus.COMPLETE_PENDING:
+                      case PartyStatus.COMPLETE:
+                        status = 'complete';
+                        break;
+                      default:
+                        status = null;
+                        break;
+                    }
+                    return Object.assign({}, {
+                      raidId: completedRaidId,
+                      userSnowflake,
+                      number: parseInt(userStatus.number) > 20 ?
+                        20 :
+                        parseInt(userStatus.number),
+                      groupId: userStatus.group,
+                      status
+                    });
+                  });
+
+                return DB.DB('CompletedRaidAttendee').transacting(transaction)
+                  .insert(attendees);
+              });
+
+            promiseNext
+              .then(transaction.commit)
+              .then(() => this.activeStorage.removeItem(channelId))
+              .catch(err => {
+                transaction.rollback();
+                reject(err);
+              });
+          });
         } else {
           this.activeStorage.removeItem(channelId)
             .catch(err => log.error(err));
