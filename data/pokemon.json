@@ -770,7 +770,7 @@
     "nickname": [
       "galar"
     ],
-    "pbName": "MEOWTH_GALAR_FORM",
+    "pbName": "MEOWTH_GALARIAN_FORM",
     "family": "MEOWTH_GALAR_FORM",
     "gsName": [
       "GALARIAN MEOWTH",
@@ -1081,7 +1081,7 @@
   {
     "name": "ponyta_galarian",
     "overrideName": "Galarian Ponyta",
-    "pbName": "PONYTA_GALAR_FORM",
+    "pbName": "PONYTA_GALARIAN_FORM",
     "family": "PONYTA_GALAR_FORM",
     "gsName": [
       "GALARIAN PONYTA",
@@ -1100,7 +1100,7 @@
   {
     "name": "rapidash_galarian",
     "overrideName": "Galarian Rapidash",
-    "pbName": "RAPIDASH_GALAR_FORM",
+    "pbName": "RAPIDASH_GALARIAN_FORM",
     "family": "PONYTA_GALAR_FORM",
     "gsName": [
       "GALARIAN RAPIDASH",
@@ -1122,7 +1122,7 @@
     "nickname": [
       "galar"
     ],
-    "pbName": "SLOWPOKE_GALAR_FORM",
+    "pbName": "SLOWPOKE_GALARIAN_FORM",
     "family": "SLOWPOKE_GALAR_FORM",
     "gsName": [
       "GALARIAN SLOWPOKE",
@@ -1145,7 +1145,7 @@
     "nickname": [
       "galar"
     ],
-    "pbName": "SLOWBRO_GALAR_FORM",
+    "pbName": "SLOWBRO_GALARIAN_FORM",
     "family": "SLOWPOKE_GALAR_FORM",
     "gsName": [
       "GALARIAN SLOWBRO",
@@ -1199,7 +1199,7 @@
     "nickname": [
       "galar"
     ],
-    "pbName": "FARFETCHD_GALAR_FORM",
+    "pbName": "FARFETCHD_GALARIAN_FORM",
     "family": "FARFETCHD_GALAR_FORM",
     "gsName": [
       "GALARIAN FARFETCHD",
@@ -1673,7 +1673,7 @@
     "nickname": [
       "galar"
     ],
-    "pbName": "MR_MIME_GALAR_FORM",
+    "pbName": "MR_MIME_GALARIAN_FORM",
     "family": "MR_MIME_GALAR_FORM",
     "gsName": [
       "MR_MIME_GALAR_FORM"
@@ -2467,7 +2467,7 @@
     "nickname": [
       "galar"
     ],
-    "pbName": "SLOWKING_GALAR_FORM",
+    "pbName": "SLOWKING_GALARIAN_FORM",
     "family": "SLOWPOKE_GALAR_FORM",
     "gsName": [
       "GALARIAN SLOWKING",
@@ -2954,7 +2954,7 @@
     "nickname": [
       "galar"
     ],
-    "pbName": "CORSOLA_GALAR_FORM",
+    "pbName": "CORSOLA_GALARIAN_FORM",
     "family": "CORSOLA_GALAR_FORM",
     "gsName": [
       "CORSOLA_GALAR_FORM"
@@ -3397,7 +3397,7 @@
     "nickname": [
       "galar"
     ],
-    "pbName": "ZIGZAGOON_GALAR_FORM",
+    "pbName": "ZIGZAGOON_GALARIAN_FORM",
     "family": "ZIGZAGOON_GALAR_FORM",
     "gsName": [
       "GALARIAN ZIGZAGOON",
@@ -3419,7 +3419,7 @@
     "nickname": [
       "galar"
     ],
-    "pbName": "LINOONE_GALAR_FORM",
+    "pbName": "LINOONE_GALARIAN_FORM",
     "family": "LINOONE_GALAR_FORM",
     "gsName": [
       "GALARIAN LINOONE",
@@ -6680,7 +6680,7 @@
     "nickname": [
       "galar"
     ],
-    "pbName": "YAMASK_GALAR_FORM",
+    "pbName": "YAMASK_GALARIAN_FORM",
     "family": "YAMASK_GALAR_FORM",
     "gsName": [
       "GALARIAN YAMASK",
@@ -7152,7 +7152,7 @@
     "nickname": [
       "galar"
     ],
-    "pbName": "STUNFISK_GALAR_FORM",
+    "pbName": "STUNFISK_GALARIAN_FORM",
     "family": "STUNFISK_GALAR_FORM",
     "gsName": [
       "GALARIAN STUNFISK",
@@ -9482,16 +9482,36 @@
   },
   {
     "name": "zacian",
+    "overrideName": "Zacian (Hero Form)",
     "family": "ZACIAN",
-    "pbName": "ZACIAN",
+    "pbName": "ZACIAN_HERO_FORM",
+    "gsName": [
+      "ZACIAN"
+    ]
+  },
+  {
+    "name": "zacian_hero_form",
+    "overrideName": "Zacian (Hero Form)",
+    "family": "ZACIAN",
+    "pbName": "ZACIAN_HERO_FORM",
     "gsName": [
       "ZACIAN"
     ]
   },
   {
     "name": "zamazenta",
+    "overrideName": "Zamazenta (Hero Form)",
     "family": "ZAMAZENTA",
-    "pbName": "ZAMAZENTA",
+    "pbName": "ZAMAZENTA_HERO_FORM",
+    "gsName": [
+      "ZAMAZENTA"
+    ]
+  },
+  {
+    "name": "zamazenta_hero_form",
+    "overrideName": "Zamazenta (Hero Form)",
+    "family": "ZAMAZENTA",
+    "pbName": "ZAMAZENTA_HERO_FORM",
     "gsName": [
       "ZAMAZENTA"
     ]
