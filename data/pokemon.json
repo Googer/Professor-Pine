@@ -9481,7 +9481,7 @@
     ]
   },
   {
-    "name": "zacian",
+    "name": "zacian_hero",
     "overrideName": "Zacian (Hero Form)",
     "family": "ZACIAN",
     "pbName": "ZACIAN_HERO_FORM",
@@ -9490,25 +9490,7 @@
     ]
   },
   {
-    "name": "zacian_hero_form",
-    "overrideName": "Zacian (Hero Form)",
-    "family": "ZACIAN",
-    "pbName": "ZACIAN_HERO_FORM",
-    "gsName": [
-      "ZACIAN"
-    ]
-  },
-  {
-    "name": "zamazenta",
-    "overrideName": "Zamazenta (Hero Form)",
-    "family": "ZAMAZENTA",
-    "pbName": "ZAMAZENTA_HERO_FORM",
-    "gsName": [
-      "ZAMAZENTA"
-    ]
-  },
-  {
-    "name": "zamazenta_hero_form",
+    "name": "zamazenta_hero",
     "overrideName": "Zamazenta (Hero Form)",
     "family": "ZAMAZENTA",
     "pbName": "ZAMAZENTA_HERO_FORM",
