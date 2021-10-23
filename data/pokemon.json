@@ -7995,6 +7995,7 @@
   },
   {
     "name": "pumpkaboo",
+    "overrideName": "Pumpkaboo",
     "pbName": "PUMPKABOO",
     "family": "PUMPKABOO",
     "gsName": [
@@ -8002,11 +8003,84 @@
     ]
   },
   {
+    "name": "pumpkaboo_small",
+    "overrrideName": "Pumpkaboo (Small)",
+    "pbName": "PUMPKABOO_SMALL",
+    "family": "PUMPKABOO_SMALL",
+    "gsName": [
+      "PUMPKABOO_SMALL"
+    ]
+  },
+  {
+    "name": "pumpkaboo_average",
+    "overrrideName": "Pumpkaboo (Average)",
+    "pbName": "PUMPKABOO_AVERAGE",
+    "family": "PUMPKABOO_AVERAGE",
+    "gsName": [
+      "PUMPKABOO_AVERAGE"
+    ]
+  },
+  {
+    "name": "pumpkaboo_large",
+    "overrrideName": "Pumpkaboo (Large)",
+    "pbName": "PUMPKABOO_LARGE",
+    "family": "PUMPKABOO_LARGE",
+    "gsName": [
+      "PUMPKABOO_LARGE"
+    ]
+  },
+  {
+    "name": "pumpkaboo_super",
+    "overrrideName": "Pumpkaboo (Super)",
+    "pbName": "PUMPKABOO_SUPER",
+    "family": "PUMPKABOO_SUPER",
+    "gsName": [
+      "PUMPKABOO_SUPER"
+    ]
+  },
+  {
     "name": "gourgeist",
+    "overrideName": "Gourgeist",
     "pbName": "GOURGEIST",
     "family": "PUMPKABOO",
     "gsName": [
       "GOURGEIST"
+    ]
+  },
+  {
+    "name": "gourgeist_small",
+    "overrrideName": "Gourgeist (Small)",
+    "pbName": "GOURGEIST_SMALL",
+    "family": "PUMPKABOO_SMALL",
+    "gsName": [
+      "GOURGEIST_SMALL"
+    ]
+  },
+  {
+    "name": "gourgeist_average",
+    "overrrideName": "Gourgeist (Average)",
+    "pbName": "GOURGEIST_AVERAGE",
+    "family": "PUMPKABOO_AVERAGE",
+    "gsName": [
+      "GOURGEIST_AVERAGE"
+    ]
+  },
+  {
+    "name": "gourgeist_large",
+    "overrrideName": "Gourgeist (Large)",
+    "pbName": "GOURGEIST_LARGE",
+    "family": "PUMPKABOO_LARGE",
+    "gsName": [
+      "GOURGEIST_LARGE"
+    ]
+  },
+  {
+    "name": "gourgeist_super",
+    "overrrideName": "Gourgeist (Super)",
+    "pbName": "GOURGEIST_SUPER",
+    "family": "PUMPKABOO_SUPER",
+    "gsName": [
+      "GOURGEIST_SUPER"
     ]
   },
   {

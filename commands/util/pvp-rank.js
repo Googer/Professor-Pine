@@ -427,10 +427,10 @@ class PvPRankingData {
         const displayBothFamilyRanks = (this.familyList[i].data['51'].zlevel !== this.familyList[i].data['40'].zlevel &&
           this.familyList[i].data['51'].rank !== this.familyList[i].data['40'].rank) ||
           this.familyList[i].data['51'].cp !== this.familyList[i].data['40'].cp,
-          familyInfoLine = `**[${this.familyList[i].gsName[0].titleCase()}](${this.familyList[i].gsUrl})**` +
+          familyInfoLine = `**[${this.familyList[i].gsName[0].replace(/_/g, ' ').titleCase()}](${this.familyList[i].gsUrl})**` +
             `   Rank: ${this.familyList[i].data['51'].rank} | ${this.familyList[i].data['51'].cp}CP @ L${this.familyList[i].data['51'].level}\n` +
             (displayBothFamilyRanks ?
-              `**[${this.familyList[i].gsName[0].titleCase()}](${this.familyList[i].gsUrl})**` +
+              `**[${this.familyList[i].gsName[0].replace(/_/g, ' ').titleCase()}](${this.familyList[i].gsUrl})**` +
               `   Rank: ${this.familyList[i].data['40'].rank} | ${this.familyList[i].data['40'].cp}CP @ L${this.familyList[i].data['40'].level}\n` :
               '');
         if (!requestInfo2[requestInfo2Index]) {
