@@ -852,12 +852,40 @@
     ]
   },
   {
+    "name": "growlithe_hisuian",
+    "overrideName": "Hisuian Growlithe",
+    "nickname": [
+      "hisu"
+    ],
+    "pbName": "GROWLITHE_HISUIAN_FORM",
+    "family": "GROWLITHE_HISUIAN_FORM",
+    "gsName": [
+      "HISUIAN GROWLITHE",
+      "H GROWLITHE",
+      "GROWLITHE HISUIAN"
+    ]
+  },
+  {
     "name": "arcanine",
     "tier": 3,
     "pbName": "ARCANINE",
     "family": "GROWLITHE",
     "gsName": [
       "ARCANINE"
+    ]
+  },
+  {
+    "name": "arcanine_hisuian",
+    "overrideName": "Hisuian Arcanine",
+    "nickname": [
+      "hisu"
+    ],
+    "pbName": "ARCANINE_HISUIAN_FORM",
+    "family": "GROWLITHE_HISUIAN_FORM",
+    "gsNAME": [
+      "HISUIAN ARCANINE",
+      "H ARCANINE",
+      "ARCANINE HISUIAN"
     ]
   },
   {
@@ -1410,11 +1438,39 @@
     ]
   },
   {
+    "name": "voltorb_hisuian",
+    "overrideName": "Hisuian Voltorb",
+    "nickname": [
+      "hisu"
+    ],
+    "pbName": "VOLTORB_HISUIAN_FORM",
+    "family": "VOLTORB_HISUIAN_FORM",
+    "gsName": [
+      "HISUIAN VOLTORB",
+      "H VOLTORB",
+      "VOLTORB HISUIAN"
+    ]
+  },
+  {
     "name": "electrode",
     "pbName": "ELECTRODE",
     "family": "VOLTORB",
     "gsName": [
       "ELECTRODE"
+    ]
+  },
+  {
+    "name": "electrode_hisuian",
+    "overrideName": "Hisuian Electrode",
+    "nickname": [
+      "hisu"
+    ],
+    "pbName": "ELECTRODE_HISUIAN_FORM",
+    "family": "VOLTORB_HISUIAN_FORM",
+    "gsName": [
+      "HISUIAN ELECTRODE",
+      "H ELECTRODE",
+      "ELECTRODE HISUIAN"
     ]
   },
   {
@@ -1687,6 +1743,15 @@
     "family": "SCYTHER",
     "gsName": [
       "SCYTHER"
+    ]
+  },
+  {
+    "name": "kleavor",
+    "shiny": true,
+    "pbName": "KLEAVOR",
+    "family": "SCYTHER",
+    "gsName": [
+      "KLEAVOR"
     ]
   },
   {
@@ -2086,6 +2151,20 @@
     "family": "CYNDAQUIL",
     "gsName": [
       "TYPHLOSION"
+    ]
+  },
+  {
+    "name": "typhlosion_hisuian",
+    "overrideName": "Hisuian Typhlosion",
+    "nickname": [
+      "hisu"
+    ],
+    "pbName": "TYPHLOSION_HISUIAN_FORM",
+    "family": "CYNDAQUIL",
+    "gsName": [
+      "HISUIAN TYPHLOSION",
+      "H TYPHLOSION",
+      "TYPHLOSION HISUIAN"
     ]
   },
   {
@@ -2830,6 +2909,28 @@
     ]
   },
   {
+    "name": "qwilfish_hisuian",
+    "overrideName": "Hisuian Qwilfish",
+    "nickname": [
+      "hisu"
+    ],
+    "pbName": "QWILFISH_HISUIAN_FORM",
+    "family": "QWILFISH_HISUIAN_FORM",
+    "gsName": [
+      "HISUIAN QWILFISH",
+      "H QWILFISH",
+      "QWILFISH HISUIAN"
+    ]
+  },
+  {
+    "name": "overqwil",
+    "pbName": "OVERQWIL",
+    "family": "QWILFISH_HISUIAN_FORM",
+    "gsName": [
+      "OVERQWIL"
+    ]
+  },
+  {
     "name": "scizor",
     "pbName": "SCIZOR",
     "family": "SCYTHER",
@@ -2890,6 +2991,28 @@
     ]
   },
   {
+    "name": "sneasel_hisuian",
+    "overrideName": "Hisuian Sneasel",
+    "nickname": [
+      "hisu"
+    ],
+    "pbName": "SNEASEL_HISUIAN_FORM",
+    "family": "SNEASEL_HISUIAN_FORM",
+    "gsName": [
+      "HISUIAN SNEASEL",
+      "H SNEASEL",
+      "SNEASEL HISUIAN"
+    ]
+  },
+  {
+    "name": "sneasler",
+    "pbName": "SNEASLER",
+    "family": "SNEASEL_HISUIAN_FORM",
+    "gsName": [
+      "SNEASLER"
+    ]
+  },
+  {
     "name": "teddiursa",
     "pbName": "TEDDIURSA",
     "family": "TEDDIURSA",
@@ -2904,6 +3027,14 @@
     "family": "TEDDIURSA",
     "gsName": [
       "URSARING"
+    ]
+  },
+  {
+    "name": "ursaluna",
+    "pbName": "URSALUNA",
+    "family": "TEDDIURSA",
+    "gsName": [
+      "URSALUNA"
     ]
   },
   {
@@ -3078,6 +3209,14 @@
     "family": "STANTLER",
     "gsName": [
       "STANTLER"
+    ]
+  },
+  {
+    "name": "wyrdeer",
+    "pbName": "WYRDEER",
+    "family": "STANTLER",
+    "gsName": [
+      "WYRDEER"
     ]
   },
   {
@@ -5751,12 +5890,32 @@
     ]
   },
   {
+    "name": "dialga_origin",
+    "overrideName": "Dialga Origin",
+    "tier": 5,
+    "pbName": "DIALGA_ORIGIN_FORM",
+    "family": "DIALGA_ORIGIN_FORM",
+    "gsName": [
+      "DIALGA_ORIGIN_FORM"
+    ]
+  },
+  {
     "name": "palkia",
     "tier": 5,
     "pbName": "PALKIA",
     "family": "PALKIA",
     "gsName": [
       "PALKIA"
+    ]
+  },
+  {
+    "name": "palkia_origin",
+    "overrideName": "Palkia Origin",
+    "tier": 5,
+    "pbName": "PALKIA_ORIGIN_FORM",
+    "family": "PALKIA_ORIGIN_FORM",
+    "gsName": [
+      "PALKIA_ORIGIN_FORM"
     ]
   },
   {
@@ -6125,6 +6284,20 @@
     "family": "OSHAWOTT",
     "gsName": [
       "SAMUROTT"
+    ]
+  },
+  {
+    "name": "samurott_hisuian",
+    "overrideName": "Hisuian Samurott",
+    "nickname": [
+      "hisu"
+    ],
+    "pbName": "SAMUROTT_HISUIAN_FORM",
+    "family": "OSHAWOTT",
+    "gsName": [
+      "HISUIAN SAMUROTT",
+      "H SAMUROTT",
+      "SAMUROTT HISUIAN"
     ]
   },
   {
@@ -6517,11 +6690,37 @@
     ]
   },
   {
+    "name": "lilligant_hisuian",
+    "overrideName": "Hisuian Lilligant",
+    "pbName": "LILLIGANT_HISUIAN_FORM",
+    "family": "PETILIL",
+    "gsName": [
+      "LILLIGANT_HISUIAN_FORM"
+    ]
+  },
+  {
     "name": "basculin",
     "pbName": "BASCULIN",
     "family": "BASCULIN",
     "gsName": [
       "BASCULIN"
+    ]
+  },
+  {
+    "name": "basculin_white_stripe",
+    "overrideName": "Basculin (White Stripe)",
+    "pbName": "BASCULIN_WHITE_STRIPE",
+    "family": "BASCULIN_WHITE_STRIPE",
+    "gsName": [
+      "BASCULIN_WHITE_STRIPE"
+    ]
+  },
+  {
+    "name": "basculegion",
+    "pbName": "BASCULEGION",
+    "family": "BASCULIN_WHITE_STRIPE",
+    "gsName": [
+      "BASCULEGION"
     ]
   },
   {
@@ -6753,11 +6952,39 @@
     ]
   },
   {
+    "name": "zorua_hisuian",
+    "overrideName": "Hisuian Zorua",
+    "nickname": [
+      "hisu"
+    ],
+    "pbName": "ZORUA_HISUIAN_FORM",
+    "family": "ZORUA_HISUIAN_FORM",
+    "gsName": [
+      "HISUIAN ZORUA",
+      "H ZORUA",
+      "ZORUA HISUIAN"
+    ]
+  },
+  {
     "name": "zoroark",
     "pbName": "ZOROARK",
     "family": "ZORUA",
     "gsName": [
       "ZOROARK"
+    ]
+  },
+  {
+    "name": "zoroark_hisuian",
+    "overrideName": "Hisuian Zoroark",
+    "nickname": [
+      "hisu"
+    ],
+    "pbName": "ZOROARK_HISUIAN_FORM",
+    "family": "ZORUA_HISUIAN_FORM",
+    "gsName": [
+      "HISUIAN ZOROARK",
+      "H ZOROARK",
+      "ZOROARK HISUIAN"
     ]
   },
   {
@@ -7238,6 +7465,15 @@
     "family": "RUFFLET",
     "gsName": [
       "BRAVIARY"
+    ]
+  },
+  {
+    "name": "braviary_hisuian",
+    "overrideName": "Hisuian Braviary",
+    "pbName": "BRAVIARY_HISUIAN_FORM",
+    "family": "RUFFLET",
+    "gsName": [
+      "BRAVIARY_HISUIAN_FORM"
     ]
   },
   {
@@ -7962,11 +8198,29 @@
     ]
   },
   {
+    "name": "sliggoo_hisuian",
+    "overrideName": "Hisuian Sliggoo",
+    "pbName": "SLIGGOO_HISUIAN_FORM",
+    "family": "GOOMY",
+    "gsName": [
+      "SLIGGOO_HISUIAN_FORM"
+    ]
+  },
+  {
     "name": "goodra",
     "pbName": "GOODRA",
     "family": "GOOMY",
     "gsName": [
       "GOODRA"
+    ]
+  },
+  {
+    "name": "goodra_hisuian",
+    "overrideName": "Hisuian Goodra",
+    "pbName": "GOODRA_HISUIAN_FORM",
+    "family": "GOOMY",
+    "gsName": [
+      "GOODRA_HISUIAN_FORM"
     ]
   },
   {
@@ -8100,6 +8354,15 @@
     ]
   },
   {
+    "name": "avalugg_hisuian",
+    "overrideName": "Hisuian Avalugg",
+    "pbName": "AVALUGG_HISUIAN_FORM",
+    "family": "BERGMITE",
+    "gsName": [
+      "AVALUGG_HISUIAN_FORM"
+    ]
+  },
+  {
     "name": "noibat",
     "pbName": "NOIBAT",
     "family": "NOIBAT",
@@ -8203,18 +8466,32 @@
   },
   {
     "name": "dartrix",
-    "pbName": "ROWLET",
-    "family": "DARTRIX",
+    "family": "ROWLET",
+    "pbName": "DARTRIX",
     "gsName": [
       "DARTRIX"
     ]
   },
   {
     "name": "decidueye",
-    "pbName": "ROWLET",
-    "family": "DECIDUEYE",
+    "family": "ROWLET",
+    "pbName": "DECIDUEYE",
     "gsName": [
       "DECIDUEYE"
+    ]
+  },
+  {
+    "name": "decidueye_hisuian",
+    "overrideName": "Hisuian Decidueye",
+    "nickname": [
+      "hisu"
+    ],
+    "pbName": "DECIDUEYE_HISUIAN_FORM",
+    "family": "ROWLET",
+    "gsName": [
+      "HISUIAN DECIDUEYE",
+      "H DECIDUEYE",
+      "DECIDUEYE HISUIAN"
     ]
   },
   {
@@ -9642,6 +9919,27 @@
     "pbName": "CALYREX",
     "gsName": [
       "CALYREX"
+    ]
+  },
+  {
+    "name": "enamorus",
+    "overrideName": "Enamorus (Incarnate)",
+    "pbName": "ENAMORUS_INCARNATE_FORM",
+    "family": "ENAMORUS_INCARNATE_FORM",
+    "gsName": [
+      "ENAMORUS (INCARNATE)",
+      "ENAMORUS",
+      "ENAMORUS INCARNATE"
+    ]
+  },
+  {
+    "name": "enamorus_therian",
+    "overrideName": "Enamorus (Therian)",
+    "pbName": "ENAMORUS_THERIAN_FORM",
+    "family": "ENAMORUS_THERIAN_FORM",
+    "gsName": [
+      "ENAMORUS (THERIAN)",
+      "ENAMORUS THERIAN"
     ]
   }
 ]
