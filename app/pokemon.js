@@ -37,6 +37,7 @@ class Pokemon extends Search {
         .filter(item => formsRegex.test(item.templateId))
         .filter(form => !!form.formSettings.forms)
         .map(form => form.formSettings.forms))
+        .filter(form => !!form.form)
         .map(form => Object.assign({},
           {
             formName: form.form.toLocaleLowerCase(),
