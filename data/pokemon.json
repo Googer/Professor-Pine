@@ -5742,7 +5742,8 @@
     ]
   },
   {
-    "name": "porygon-z",
+    "name": "porygon_z",
+    "overrideName": "Porygon-Z",
     "pbName": "PORYGON_Z",
     "family": "PORYGON",
     "gsName": [
@@ -8953,7 +8954,8 @@
     ]
   },
   {
-    "name": "jangmo-o",
+    "name": "jangmo_o",
+    "overrideName": "Jangmo-O",
     "pbName": "JANGMO-O",
     "family": "JANGMO-O",
     "gsName": [
@@ -8961,7 +8963,8 @@
     ]
   },
   {
-    "name": "hakamo-o",
+    "name": "hakamo_o",
+    "overrideName": "Hakamo-O",
     "pbName": "HAKAMO-O",
     "family": "JANGMO-O",
     "gsName": [
@@ -8969,7 +8972,8 @@
     ]
   },
   {
-    "name": "kommo-o",
+    "name": "kommo_o",
+    "overrideName": "Kommo-O",
     "pbName": "KOMMO-O",
     "family": "JANGMO-O",
     "gsName": [
