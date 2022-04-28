@@ -24,22 +24,6 @@ const log = require('loglevel').getLogger('ImageProcessor'),
 const debugFlag = true;
 
 class ImageProcessing {
-  static get SCREENSHOT_TYPE_NONE() {
-    return 0;
-  }
-
-  static get SCREENSHOT_TYPE_EGG() {
-    return 1;
-  }
-
-  static get SCREENSHOT_TYPE_ONGOING() {
-    return 2;
-  }
-
-  static get SCREENSHOT_TYPE_EX() {
-    return 3;
-  }
-
   constructor() {
     // store debug information into this folder
     this.imagePath = '/../assets/processing/';
@@ -109,6 +93,32 @@ class ImageProcessing {
     this.initializeTierTesseract();
     this.initializeGymTesseract();
     this.initializePokemonTesseract();
+  }
+
+  static get SCREENSHOT_TYPE_NONE() {
+    return 0;
+  }
+
+  static get SCREENSHOT_TYPE_EGG() {
+    return 1;
+  }
+
+  static get SCREENSHOT_TYPE_ONGOING() {
+    return 2;
+  }
+
+  static get SCREENSHOT_TYPE_EX() {
+    return 3;
+  }
+
+  /**
+   * Convert a suspected limited-range pixel value from limited range (16-235)
+   * to full range (0-255), clamping as necessary
+   */
+  static convertToFullRange(value) {
+    return Math.min(
+      Math.max((value - 16) * (256 / 219), 0),
+      255);
   }
 
   async createTesseractWorker(version, languages, parameters) {
@@ -250,16 +260,6 @@ class ImageProcessing {
     this.gymType = Helper.client.registry.types.get('gym');
     this.pokemonType = Helper.client.registry.types.get('raidpokemon');
     this.timeType = Helper.client.registry.types.get('time');
-  }
-
-  /**
-   * Convert a suspected limited-range pixel value from limited range (16-235)
-   * to full range (0-255), clamping as necessary
-   */
-  static convertToFullRange(value) {
-    return Math.min(
-      Math.max((value - 16) * (256 / 219), 0),
-      255);
   }
 
   process(message, imageUrl) {
@@ -1077,13 +1077,6 @@ class ImageProcessing {
     return {tier: values.tier, pokemon, egg: true};
   }
 
-  getMegaOrTierOne(image) {
-    // Try to guess if egg is mega or a T1 based on egg coloring
-    // (will be mostly pinkish if T1 and have a lot of ivory if mega)
-    // TODO: Make this actually guess based on image colors instead of assuming mega
-    return 'mega';
-  }
-
   async getOCRTier(id, message, image, region, level = 0) {
     let y;
 
@@ -1134,8 +1127,9 @@ class ImageProcessing {
                   }
                 }
 
-                if (tier === 1) {
-                  tier = this.getMegaOrTierOne(image);
+                // Megas are currently tier 4, and the _only_ T4 in fact
+                if (tier === 4) {
+                  tier = 'mega';
                 }
 
                 resolve({
@@ -1259,8 +1253,8 @@ class ImageProcessing {
       durationWarn = (!duration.isValid() || duration.asMilliseconds() === 0);
 
     let time = durationWarn ?
-      moment.invalid() :
-      data.phoneTime,
+        moment.invalid() :
+        data.phoneTime,
       timeWarn = durationWarn;
 
     if (raidRegionChannel !== message.channel && !PartyManager.findRaid(gymId, false)) {
