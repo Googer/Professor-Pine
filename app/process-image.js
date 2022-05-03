@@ -1132,6 +1132,11 @@ class ImageProcessing {
                   tier = 'mega';
                 }
 
+                // Legendary mega raids are T6
+                if (tier === 6) {
+                  tier = 'mega-legendary';
+                }
+
                 resolve({
                   image: newImage,
                   tier: tier !== -1 ?

@@ -145,7 +145,7 @@ class Pokemon extends Search {
     this.buildCPTable(gameMaster);
 
     databasePokemon.forEach(poke => {
-      let isTier = ['1', '2', '3', '4', '5', 'ex', 'mega'].indexOf(poke.name) !== -1;
+      let isTier = ['1', '2', '3', '4', '5', '6', 'ex', 'mega'].indexOf(poke.name) !== -1;
 
       let pokeDataIndex = mergedPokemon.findIndex(p => {
         let tierFound = isTier && p.name === undefined && p.backupTier === poke.tier && !p.backupExclusive && !p.backupMega;
@@ -209,7 +209,7 @@ class Pokemon extends Search {
         poke.shiny = poke.backupShiny;
       }
 
-      if (poke.number && ((poke.tier && poke.tier <= 5)) || poke.mega || poke.exclusive) {
+      if (poke.number && ((poke.tier && poke.tier <= 6)) || poke.mega || poke.exclusive) {
         poke.bossCP = Pokemon.calculateBossCP(poke);
         poke.minBaseCP = this.calculateCP(poke, 20, 10, 10, 10);
         poke.maxBaseCP = this.calculateCP(poke, 20, 15, 15, 15);
@@ -451,7 +451,14 @@ class Pokemon extends Search {
 
     if (tier === 'mega') {
       if (pokemon !== 'mega') {
-        updateObject.tier = 5;
+        updateObject.tier = 4;
+      }
+      updateObject.mega = true;
+    }
+
+    if (tier === 'mega-legendary') {
+      if (pokemon !== 'mega') {
+        updateObject.tier = 6;
       }
       updateObject.mega = true;
     }
@@ -597,15 +604,19 @@ class Pokemon extends Search {
       case 5:
         stamina = 15000;
         break;
+
+      case 6:
+        stamina = 22500;
+        break;
     }
 
     if (pokemon.exclusive) {
       stamina = 15000;
     }
 
-    if (pokemon.mega) {
-      stamina = 15000;
-    }
+    // if (pokemon.mega) {
+    //   stamina = 15000;
+    // }
 
     const stats = !!pokemon.temporaryStats ?
       pokemon.temporaryStats :

@@ -42,6 +42,7 @@ class RaidBossesCommand extends Commando.Command {
         '5': [],
         'ex': [],
         'mega': [],
+        'mega-legendary': [],
         'rare': []
       },
       fields = [];
@@ -71,6 +72,8 @@ class RaidBossesCommand extends Commando.Command {
 
         if (pokemon.exclusive) {
           groups.ex.push(shiny + formatted + shiny);
+        } else if (pokemon.tier === 6) {
+          groups['mega-legendary'].push(shiny + formatted + shiny);
         } else if (pokemon.mega) {
           groups.mega.push(shiny + formatted + shiny);
         } else if (pokemon.tier === 7) {
@@ -86,6 +89,8 @@ class RaidBossesCommand extends Commando.Command {
         RaidBossesCommand.addField(fields, 'EX Raids', groupPokemon);
       } else if (tier === 'mega' && groupPokemon.length) {
         RaidBossesCommand.addField(fields, 'Mega Raids', groupPokemon);
+      } else if (tier === 'mega-legendary' && groupPokemon.length) {
+        RaidBossesCommand.addField(fields, 'Mega Legendary Raids', groupPokemon);
       } else if (tier === 'rare' && groupPokemon.length) {
         RaidBossesCommand.addField(fields, 'Rare Spawns', groupPokemon);
       } else if (groupPokemon.length) {

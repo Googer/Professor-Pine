@@ -23,7 +23,17 @@
     "egg": true
   },
   {
+    "tier": 4,
+    "mega": true,
+    "egg": true
+  },
+  {
     "tier": 5,
+    "egg": true
+  },
+  {
+    "tier": 6,
+    "mega": true,
     "egg": true
   },
   {
@@ -4775,6 +4785,7 @@
   },
   {
     "name": "latias_mega",
+    "tier": 6,
     "overrideName": "Mega Latias",
     "nickname": [
       "mega"
@@ -4797,6 +4808,7 @@
   },
   {
     "name": "latios_mega",
+    "tier": 6,
     "overrideName": "Mega Latios",
     "nickname": [
       "mega"
