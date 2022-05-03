@@ -25,6 +25,127 @@ class Party {
     }
   }
 
+  static buildAttendeesList(attendeesList, totalAttendeeCount) {
+    const remoteEmoji = Helper.getEmoji(settings.emoji.remote).toString() || '📡';
+
+    let result = '';
+
+    if (totalAttendeeCount < 60) {
+      attendeesList.forEach(([member, attendee]) => {
+        if (result.length > 1024) {
+          return;
+        }
+
+        const displayName = member.displayName.length > 12 ?
+            member.displayName.substring(0, 11).concat('…') :
+            member.displayName,
+
+          remoteStatus = !!attendee.remote ?
+            ' ' + remoteEmoji :
+            '';
+
+        // add role emoji indicators if role exists
+        switch (Helper.getTeam(member)) {
+          case Team.INSTINCT:
+            result += Helper.getEmoji('instinct').toString() + ' ';
+            break;
+
+          case Team.MYSTIC:
+            result += Helper.getEmoji('mystic').toString() + ' ';
+            break;
+
+          case Team.VALOR:
+            result += Helper.getEmoji('valor').toString() + ' ';
+            break;
+
+          default:
+            result += Helper.getEmoji('teamless').toString() + ' ';
+            break;
+        }
+
+        result += displayName;
+
+        // show how many additional attendees this user is bringing with them
+        if (attendee.number > 1) {
+          result += ' +' + (attendee.number - 1);
+        }
+
+        result += remoteStatus + '\n';
+      });
+    }
+
+    if (result.length === 0 || result.length > 1024) {
+      // try again with 'plain' emoji
+      result = '';
+
+      attendeesList.forEach(([member, attendee]) => {
+        const displayName = member.displayName.length > 12 ?
+            member.displayName.substring(0, 11).concat('…') :
+            member.displayName,
+          remoteStatus = !!attendee.remote ?
+            ' 📡' :
+            '';
+
+        // add role emoji indicators if role exists
+        switch (Helper.getTeam(member)) {
+          case Team.INSTINCT:
+            result += '⚡ ';
+            break;
+
+          case Team.MYSTIC:
+            result += '❄ ';
+            break;
+
+          case Team.VALOR:
+            result += '🔥 ';
+            break;
+
+          default:
+            result += '• ';
+            break;
+        }
+
+        result += displayName + remoteStatus;
+
+        // show how many additional attendees this user is bringing with them
+        if (attendee.number > 1) {
+          result += ' +' + (attendee.number - 1);
+        }
+
+        result += '\n';
+      });
+
+      if (result.length > 1024) {
+        // one last check, just truncate if it's still too long -
+        // it's better than blowing up! sorry people with late alphabetical names!
+        result = result.substring(0, 1022) + '…';
+      }
+    }
+
+    return result;
+  };
+
+  static parsePartyDetails(message) {
+    let party = PartyManager.getParty(message.channel.id);
+
+    return {
+      boss: !!party && !!party.pokemon ?
+        party.pokemon.name :
+        undefined,
+      tier: !!party && !!party.pokemon ?
+        party.pokemon.mega ?
+          !!party.pokemon.tier ?
+            party.pokemon.tier === 6 ?
+              'MEGA_5' :
+              'MEGA' :
+            'MEGA' :
+          !!party.pokemon.tier ?
+            party.pokemon.tier.toString() :
+            party.pokemon.backupTier.toString() :
+        undefined
+    }
+  }
+
   async persist() {
     await PartyManager.persistParty(this);
   }
@@ -244,106 +365,6 @@ class Party {
     await this.persist();
   }
 
-  static buildAttendeesList(attendeesList, totalAttendeeCount) {
-    const remoteEmoji = Helper.getEmoji(settings.emoji.remote).toString() || '📡';
-
-    let result = '';
-
-    if (totalAttendeeCount < 60) {
-      attendeesList.forEach(([member, attendee]) => {
-        if (result.length > 1024) {
-          return;
-        }
-
-        const displayName = member.displayName.length > 12 ?
-          member.displayName.substring(0, 11).concat('…') :
-          member.displayName,
-
-          remoteStatus = !!attendee.remote ?
-            ' ' + remoteEmoji :
-            '';
-
-        // add role emoji indicators if role exists
-        switch (Helper.getTeam(member)) {
-          case Team.INSTINCT:
-            result += Helper.getEmoji('instinct').toString() + ' ';
-            break;
-
-          case Team.MYSTIC:
-            result += Helper.getEmoji('mystic').toString() + ' ';
-            break;
-
-          case Team.VALOR:
-            result += Helper.getEmoji('valor').toString() + ' ';
-            break;
-
-          default:
-            result += Helper.getEmoji('teamless').toString() + ' ';
-            break;
-        }
-
-        result += displayName;
-
-        // show how many additional attendees this user is bringing with them
-        if (attendee.number > 1) {
-          result += ' +' + (attendee.number - 1);
-        }
-
-        result += remoteStatus + '\n';
-      });
-    }
-
-    if (result.length === 0 || result.length > 1024) {
-      // try again with 'plain' emoji
-      result = '';
-
-      attendeesList.forEach(([member, attendee]) => {
-        const displayName = member.displayName.length > 12 ?
-          member.displayName.substring(0, 11).concat('…') :
-          member.displayName,
-          remoteStatus = !!attendee.remote ?
-            ' 📡' :
-            '';
-
-        // add role emoji indicators if role exists
-        switch (Helper.getTeam(member)) {
-          case Team.INSTINCT:
-            result += '⚡ ';
-            break;
-
-          case Team.MYSTIC:
-            result += '❄ ';
-            break;
-
-          case Team.VALOR:
-            result += '🔥 ';
-            break;
-
-          default:
-            result += '• ';
-            break;
-        }
-
-        result += displayName + remoteStatus;
-
-        // show how many additional attendees this user is bringing with them
-        if (attendee.number > 1) {
-          result += ' +' + (attendee.number - 1);
-        }
-
-        result += '\n';
-      });
-
-      if (result.length > 1024) {
-        // one last check, just truncate if it's still too long -
-        // it's better than blowing up! sorry people with late alphabetical names!
-        result = result.substring(0, 1022) + '…';
-      }
-    }
-
-    return result;
-  };
-
   toJSON() {
     return Object.assign({}, {
       type: this.type,
@@ -358,23 +379,6 @@ class Party {
       defaultGroupId: this.defaultGroupId,
       deletionTime: this.deletionTime
     });
-  }
-
-  static parsePartyDetails(message) {
-    let party = PartyManager.getParty(message.channel.id),
-      boss,
-      tier;
-
-    return {
-      boss: boss = !!party && !!party.pokemon ? party.pokemon.name : boss,
-      tier: tier = !!party && !!party.pokemon
-        ? party.pokemon.mega ?
-          'MEGA' :
-          !!party.pokemon.tier
-            ? party.pokemon.tier.toString()
-            : party.pokemon.backupTier.toString()
-        : tier
-    }
   }
 }
 

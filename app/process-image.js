@@ -1173,9 +1173,9 @@ class ImageProcessing {
         height: image.bitmap.height / 4.7
       },
       tierCrop = {
-        x: image.bitmap.width / 3.8,
+        x: image.bitmap.width / 5,
         y: image.bitmap.height / 3.33,
-        width: image.bitmap.width - (image.bitmap.width / 1.9),
+        width: image.bitmap.width - (image.bitmap.width / 2.5),
         height: image.bitmap.height / 8.0
       },
       allCrop = {

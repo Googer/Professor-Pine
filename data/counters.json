@@ -97,6 +97,15 @@
         "TIER MEGA",
         "MEGA TIER"
       ]
+    },
+    {
+      "pbName": "MEGA_5",
+      "name": "Mega Legendary",
+      "aliases": [
+        "MEGA_5",
+        "LM",
+        "ML"
+      ]
     }
   ],
   "level": [
