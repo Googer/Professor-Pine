@@ -84,15 +84,13 @@ class Pokemon extends Search {
           .map(evolution => Object.assign({}, {
             name: ((pokemon.pokemonSettings.form ?
               pokemon.pokemonSettings.form :
-              pokemon.pokemonSettings.pokemonId) + evolution.tempEvoId.substring(14)).toLowerCase(),
+              pokemon.pokemonSettings.pokemonId) + evolution?.tempEvoId?.substring(14)).toLowerCase(),
             number: Number.parseInt(pokemon.templateId.split('_')[0].slice(2)),
             temporaryStats: evolution.stats,
             stats: pokemon.pokemonSettings.stats,
             quickMoves: pokemon.pokemonSettings.quickMoves,
             cinematicMoves: pokemon.pokemonSettings.cinematicMoves,
-            temporaryType: [evolution.typeOverride1.split('_')[2].toLowerCase(), evolution.typeOverride2 ?
-              evolution.typeOverride2.split('_')[2].toLowerCase() :
-              null]
+            temporaryType: [evolution?.typeOverride1?.split('_')[2]?.toLowerCase(), evolution?.typeOverride2?.split('_')[2]?.toLowerCase()]
               .filter(type => !!type),
             type: [pokemon.pokemonSettings.type.split('_')[2].toLowerCase(), pokemon.pokemonSettings.type2 ?
               pokemon.pokemonSettings.type2.split('_')[2].toLowerCase() :
