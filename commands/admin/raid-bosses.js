@@ -54,7 +54,7 @@ class RaidBossesCommand extends Commando.Command {
       .filter(pokemon => !!pokemon.tier || !!pokemon.mega || !!pokemon.exclusive)
       .sort((a, b) => a.name.localeCompare(b.name))
       .forEach(pokemon => {
-        if (['1', '3', '5', 'ex', 'mega'].indexOf(pokemon.name) !== -1) {
+        if (['1', '2', '3', '4', '5', 'ex', 'mega'].indexOf(pokemon.name) !== -1) {
           return;
         }
 
