@@ -465,7 +465,7 @@ class Pokemon extends Search {
       updateObject.mega = false;
     }
 
-    if (['0', '1', '3', '4', '5', '7'].indexOf(tier) !== -1) {
+    if (['0', '1', '3', '5', '7'].indexOf(tier) !== -1) {
       updateObject.tier = tier;
     }
 

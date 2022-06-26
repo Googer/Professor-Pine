@@ -1128,9 +1128,9 @@ class ImageProcessing {
                 }
 
                 // Megas are currently tier 4, and the _only_ T4 in fact
-                // if (tier === 4) {
-                //   tier = 'mega';
-                // }
+                if (tier === 4) {
+                  tier = 'mega';
+                }
 
                 // Legendary mega raids are T6
                 if (tier === 6) {
