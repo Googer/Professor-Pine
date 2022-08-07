@@ -66,7 +66,12 @@ module.exports = class ExportTsvCommand extends Commando.Command {
     }
 
     if (polygons.length > 0) {
-      const mergedRegion = Region.regionFromGeoJSON(turf.union(...polygons)),
+      let mergedPolygon = polygons[0];
+      for (let i = 1; i < polygons.length; ++i) {
+        mergedPolygon = turf.union(mergedPolygon, polygons[i]);
+      }
+
+      const mergedRegion = Region.regionFromGeoJSON(mergedPolygon),
         gyms = await Region.getGyms(Region.polygonStringFromRegion(mergedRegion))
           .catch(err => log.error(err)),
         gymHeader = {name: 'Gym Name', lon: 'Longitude', lat: 'Latitude'},
