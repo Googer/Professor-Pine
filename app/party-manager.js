@@ -946,15 +946,19 @@ class PartyManager {
         .catch(err => log.error(err));
     }
 
-    return this.addReactions(message)
+    return this.addReactions(party, message)
       .then(() => this.addGroupReactions(party, message));
   }
 
-  addReactions(message) {
+  addReactions(party, message) {
     let reactionPromise = Promise.resolve();
 
     if (settings.features.reactionCommands) {
       Object.values(settings.reactionCommands)
+        .filter(reactionCommand => reactionCommand.localOnly ?
+          !party.isElite :
+          true
+        )
         .forEach(emoji => reactionPromise = reactionPromise
           .then(result => message.react(Helper.getEmoji(emoji.custom) || emoji.plain)));
     }

@@ -36,35 +36,43 @@
   "reactionCommands": {
     "interested": {
       "custom": "pineinterested",
-      "plain": "🤔"
+      "plain": "🤔",
+      "localOnly": false
     },
     "join": {
       "custom": "pinejoin",
-      "plain": "\uD83C\uDFC3"
+      "plain": "\uD83C\uDFC3",
+      "localOnly": false
     },
     "here": {
       "custom": "pinehere",
-      "plain": "✅"
+      "plain": "✅",
+      "localOnly": false
     },
     "done": {
       "custom": "pinedone",
-      "plain": "\uD83C\uDF89"
+      "plain": "\uD83C\uDF89",
+      "localOnly": false
     },
     "incrementCount": {
       "custom": "",
-      "plain": "⬆️"
+      "plain": "⬆️",
+      "localOnly": false
     },
     "decrementCount": {
       "custom": "",
-      "plain": "⬇️"
+      "plain": "⬇️",
+      "localOnly": false
     },
     "remote": {
       "custom": "pineremote",
-      "plain": "\uD83D\uDCE1"
+      "plain": "\uD83D\uDCE1",
+      "localOnly": true
     },
     "notInterested": {
       "custom": "pineleave",
-      "plain": "\uD83D\uDC4B"
+      "plain": "\uD83D\uDC4B",
+      "localOnly": false
     }
   },
   "groupReactions": {

@@ -42,6 +42,7 @@ class RemoteCommand extends Commando.Command {
           response: message.reply('Set yourself as doing a raid remotely from its channel!')
         };
       }
+
       return false;
     });
   }
@@ -52,6 +53,12 @@ class RemoteCommand extends Commando.Command {
       groupId = typeof additionalAttendees === 'string' && additionalAttendees !== NaturalArgumentType.UNDEFINED_NUMBER ? additionalAttendees : false,
       raid = PartyManager.getParty(message.channel.id),
       groupCount = raid.groups.length;
+
+    if (raid.isElite) {
+      message.reply('Elite raids must be completed in-person!')
+        .catch(err => log.error(err));
+      return null;
+    }
 
     let currentStatus = raid.getMemberStatus(memberId),
       statusPromise;
