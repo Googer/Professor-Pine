@@ -9,7 +9,11 @@ class RemoteRaidChannel {
   }
 
   initialize() {
-    Helper.client.on('raidCreated', async (raid, reportingMemberId) => raid.createRemoteRaidChannelMessage());
+    Helper.client.on('raidCreated', async (raid, reportingMemberId) => {
+      if (!raid.isElite) {
+        raid.createRemoteRaidChannelMessage();
+      }
+    });
   }
 }
 
