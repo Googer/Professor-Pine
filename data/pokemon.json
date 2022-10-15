@@ -50,7 +50,8 @@
   },
   {
     "name": "elite",
-    "elite": true
+    "elite": true,
+    "egg": true
   },
   {
     "nickname": [
