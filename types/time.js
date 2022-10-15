@@ -14,8 +14,52 @@ class TimeType extends Commando.ArgumentType {
     super(client, 'time');
   }
 
+  static get UNDEFINED_END_TIME() {
+    return 'unset';
+  }
+
+  static generateTimes(possibleDate, timeParameter, partyType, partyMeetingOrHatchTime) {
+    const possibleDates = [],
+      dateFormat = possibleDate.creationData().format,
+      hour = possibleDate.hour(),
+      ambiguouslyAM = hour < 12 && !dateFormat.endsWith('a'),
+      containsDate = dateFormat.includes('D');
+
+    if (timeParameter === TimeParameter.MEET && !containsDate && partyMeetingOrHatchTime !== undefined) {
+      possibleDate.date(partyMeetingOrHatchTime.date());
+      possibleDate.month(partyMeetingOrHatchTime.month());
+      possibleDate.year(partyMeetingOrHatchTime.year());
+    }
+
+    if ((partyType === PartyType.RAID_TRAIN || partyType === PartyType.MEETUP) && timeParameter === TimeParameter.END && !containsDate && partyMeetingOrHatchTime !== undefined) {
+      possibleDate.date(partyMeetingOrHatchTime.date());
+      possibleDate.month(partyMeetingOrHatchTime.month());
+      possibleDate.year(partyMeetingOrHatchTime.year());
+    }
+
+    possibleDates.push(possibleDate);
+
+    // try next year to allow for year wrap
+    possibleDates.push(possibleDate.clone()
+      .year(possibleDate.year() + 1));
+
+    if (ambiguouslyAM) {
+      // try pm time as well
+      possibleDates.push(possibleDate.clone()
+        .hour(possibleDate.hour() + 12));
+
+      // try next year pm time as well
+      possibleDates.push(possibleDate.clone()
+        .hour(possibleDate.hour() + 12)
+        .year(possibleDate.year() + 1));
+    }
+
+    return possibleDates;
+  }
+
   validate(value, message, arg) {
     const isExRaid = this.isExclusiveRaid(value, message, arg),
+      isEliteRaid = this.isEliteRaid(value, message, arg),
       partyExists = PartyManager.validParty(message.channel.id),
       party = PartyManager.getParty(message.channel.id),
       partyType = partyExists ?
@@ -30,12 +74,16 @@ class TimeType extends Commando.ArgumentType {
         undefined,
       incubationDuration = isExRaid ?
         settings.exclusiveRaidIncubateDuration :
-        settings.standardRaidIncubateDuration,
+        isEliteRaid ?
+          settings.eliteRaidIncubateDuration :
+          settings.standardRaidIncubateDuration,
       hatchedDuration = partyExists && !!party.duration ?
         party.duration :
         isExRaid ?
           settings.exclusiveRaidHatchedDuration :
-          settings.standardRaidHatchedDuration;
+          isEliteRaid ?
+            settings.eliteRaidHatchedDuration :
+            settings.standardRaidHatchedDuration;
 
     let firstPossibleTime,
       maxDuration,
@@ -56,8 +104,8 @@ class TimeType extends Commando.ArgumentType {
             // Start time - valid range is now (or hatch time if it exists, whichever is later)
             // through raid's end time
             const hatchTime = party ?
-              party.hatchTime :
-              undefined,
+                party.hatchTime :
+                undefined,
               endTime = party ?
                 party.endTime :
                 undefined;
@@ -202,6 +250,7 @@ class TimeType extends Commando.ArgumentType {
 
   parse(value, message, arg) {
     const isExRaid = this.isExclusiveRaid(value, message, arg),
+      isEliteRaid = this.isEliteRaid(value, message, arg),
       partyExists = PartyManager.validParty(message.channel.id),
       party = PartyManager.getParty(message.channel.id),
       partyType = partyExists ?
@@ -216,12 +265,16 @@ class TimeType extends Commando.ArgumentType {
         undefined,
       incubationDuration = isExRaid ?
         settings.exclusiveRaidIncubateDuration :
-        settings.standardRaidIncubateDuration,
+        isEliteRaid ?
+          settings.eliteRaidIncubateDuration :
+          settings.standardRaidIncubateDuration,
       hatchedDuration = partyExists && !!party.duration ?
         party.duration :
         isExRaid ?
           settings.exclusiveRaidHatchedDuration :
-          settings.standardRaidHatchedDuration;
+          isEliteRaid ?
+            settings.eliteRaidHatchedDuration :
+            settings.standardRaidHatchedDuration;
 
     let firstPossibleTime,
       maxDuration,
@@ -242,8 +295,8 @@ class TimeType extends Commando.ArgumentType {
             // Start time - valid range is now (or hatch time if it exists, whichever is later)
             // through raid's end time
             const hatchTime = partyExists ?
-              party.hatchTime :
-              undefined,
+                party.hatchTime :
+                undefined,
               endTime = partyExists ?
                 party.endTime :
                 undefined;
@@ -378,51 +431,16 @@ class TimeType extends Commando.ArgumentType {
       PartyManager.getParty(message.channel.id).isExclusive;
   }
 
-  static generateTimes(possibleDate, timeParameter, partyType, partyMeetingOrHatchTime) {
-    const possibleDates = [],
-      dateFormat = possibleDate.creationData().format,
-      hour = possibleDate.hour(),
-      ambiguouslyAM = hour < 12 && !dateFormat.endsWith('a'),
-      containsDate = dateFormat.includes('D');
-
-    if (timeParameter === TimeParameter.MEET && !containsDate && partyMeetingOrHatchTime !== undefined) {
-      possibleDate.date(partyMeetingOrHatchTime.date());
-      possibleDate.month(partyMeetingOrHatchTime.month());
-      possibleDate.year(partyMeetingOrHatchTime.year());
-    }
-
-    if ((partyType === PartyType.RAID_TRAIN || partyType === PartyType.MEETUP) && timeParameter === TimeParameter.END && !containsDate && partyMeetingOrHatchTime !== undefined) {
-      possibleDate.date(partyMeetingOrHatchTime.date());
-      possibleDate.month(partyMeetingOrHatchTime.month());
-      possibleDate.year(partyMeetingOrHatchTime.year());
-    }
-
-    possibleDates.push(possibleDate);
-
-    // try next year to allow for year wrap
-    possibleDates.push(possibleDate.clone()
-      .year(possibleDate.year() + 1));
-
-    if (ambiguouslyAM) {
-      // try pm time as well
-      possibleDates.push(possibleDate.clone()
-        .hour(possibleDate.hour() + 12));
-
-      // try next year pm time as well
-      possibleDates.push(possibleDate.clone()
-        .hour(possibleDate.hour() + 12)
-        .year(possibleDate.year() + 1));
-    }
-
-    return possibleDates;
+  isEliteRaid(value, message, arg) {
+    // first check is message has isElite set - the create command embeds it in the
+    // CommandMessage for the sole purpose of checking it here from outside the raid channel
+    return message.isElite !== undefined ?
+      message.isElite :
+      PartyManager.getParty(message.channel.id).isElite;
   }
 
   isValidTime(dateToCheck, firstPossibleTime, lastPossibleTime) {
     return dateToCheck.isBetween(firstPossibleTime, lastPossibleTime, undefined, '[]');
-  }
-
-  static get UNDEFINED_END_TIME() {
-    return 'unset';
   }
 }
 

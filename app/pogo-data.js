@@ -4,7 +4,9 @@ const LRU = require('lru-cache'),
   TEXT_URL = 'https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Texts/Latest%20APK/English.txt',
   cache = new LRU({
     max: 2,
-    maxAge: 1000 * 30,
+    options: {
+      ttl: 1000 * 30
+    },
     updateAgeOnGet: false
   }),
   Lock = new (require('async-lock')),

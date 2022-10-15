@@ -89,6 +89,7 @@ class RaidTrain extends Party {
   async setPokemon(pokemon) {
     this.pokemon = pokemon;
     this.isExclusive = !!pokemon.exclusive;
+    this.isElite = !!pokemon.elite;
     this.isMega = !!pokemon.mega;
 
     await this.persist();
@@ -816,6 +817,7 @@ class RaidTrain extends Party {
       gymId: this.gymId,
       startTime: this.startTime,
       isExclusive: this.isExclusive,
+      isElite: this.isElite,
       isMega: this.isMega,
       pokemon: this.pokemon,
       currentGym: this.currentGym,
