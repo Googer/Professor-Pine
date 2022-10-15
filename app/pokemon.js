@@ -631,8 +631,10 @@ class Pokemon extends Search {
         break;
     }
 
-    if (pokemon.exclusive || pokemon.elite) {
+    if (pokemon.exclusive) {
       stamina = 15000;
+    } else if (pokemon.elite) {
+      stamina = 20000;
     }
 
     // if (pokemon.mega) {
