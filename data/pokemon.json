@@ -48,6 +48,11 @@
     "egg": true
   },
   {
+    "name": "elite",
+    "elite": true,
+    "egg": true
+  },
+  {
     "nickname": [
       "????"
     ]

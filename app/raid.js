@@ -29,22 +29,24 @@ class Raid extends Party {
     super(PartyType.RAID, data);
   }
 
-  static async createRaid(sourceChannelId, memberId, pokemon, gymId, isExclusive, time = TimeType.UNDEFINED_END_TIME) {
+  static async createRaid(sourceChannelId, memberId, pokemon, gymId, isExclusive, isElite, time = TimeType.UNDEFINED_END_TIME) {
     return Raid.lock.acquire(gymId, async () => {
-      const raidExists = PartyManager.raidExistsForGym(gymId, isExclusive),
+      const raidExists = PartyManager.raidExistsForGym(gymId, isExclusive, isElite),
         raid = raidExists ?
-          PartyManager.findRaid(gymId, isExclusive) :
+          PartyManager.findRaid(gymId, isExclusive, isElite) :
           new Raid(),
         memberStatus = await Status.getAutoStatus(memberId),
         memberPrivacy = await Privacy.getPrivacyStatus(memberId);
 
       if (!raidExists) {
-        if (pokemon.name === undefined || pokemon.name === 'mega') {
+        if (pokemon.name === undefined || pokemon.name === 'mega' || pokemon.name === 'elite') {
           let defaultBoss = await Pokemon.getDefaultTierBoss(!!pokemon.exclusive ?
             'ex' :
-            !!pokemon.mega ?
-              'mega' :
-              pokemon.tier);
+            !!pokemon.elite ?
+              'elite' :
+              !!pokemon.mega ?
+                'mega' :
+                pokemon.tier);
 
           if (!!defaultBoss) {
             pokemon = defaultBoss;
@@ -66,12 +68,15 @@ class Raid extends Party {
           memberId;
         raid.originallyCreatedBy = memberId;
         raid.isExclusive = !!pokemon.exclusive;
+        raid.isElite = !!pokemon.elite;
         raid.isMega = !!pokemon.mega;
         raid.sourceChannelId = sourceChannelId;
         raid.creationTime = moment().valueOf();
         raid.lastPossibleTime = raid.creationTime + (raid.isExclusive ?
           (settings.exclusiveRaidIncubateDuration + settings.exclusiveRaidHatchedDuration) * 60 * 1000 :
-          (settings.standardRaidIncubateDuration + settings.standardRaidHatchedDuration) * 60 * 1000);
+          raid.isElite ?
+            (settings.eliteRaidIncubateDuration + settings.eliteRaidHatchedDuration) * 60 * 1000 :
+            (settings.standardRaidIncubateDuration + settings.standardRaidHatchedDuration) * 60 * 1000);
 
         raid.pokemon = pokemon;
         raid.gymId = gymId;
@@ -127,6 +132,50 @@ class Raid extends Party {
         };
       }
     });
+  }
+
+  static async getRaidsFormattedMessage(channelId) {
+    const raids = PartyManager.getAllParties(channelId, PartyType.RAID)
+        .filter(raid => !!!raid.isExclusive)
+        .sort((raidA, raidB) => {
+          const timeA = !!raidA.endTime ?
+              raidA.endTime :
+              raidA.lastPossibleTime,
+            timeB = !!raidB.endTime ?
+              raidB.endTime :
+              raidB.lastPossibleTime;
+
+          return timeA - timeB;
+        }),
+      summaryFields = (await Promise.all(raids.map(async raid => await raid.getSummaryField())))
+        .filter(summaryField => summaryField !== ''),
+      groupedRaids = Object.create(null);
+
+    summaryFields
+      .forEach(summaryField => {
+        const pokemon = summaryField.name,
+          field = summaryField.value,
+          fields = groupedRaids[pokemon];
+
+        if (!fields) {
+          groupedRaids[pokemon] = [field];
+        } else {
+          fields.push(field);
+        }
+      });
+
+    if (Object.keys(groupedRaids).length === 0) {
+      return 'No non-EX raids exist for this channel.  Create one with \`!raid\`!';
+    }
+
+    const embed = new Discord.MessageEmbed();
+    embed.setColor('GREEN');
+    embed.setTitle('Currently Active Raids');
+
+    Object.keys(groupedRaids).sort()
+      .forEach(pokemon => embed.addField(pokemon, groupedRaids[pokemon].join('\n')));
+
+    return embed;
   }
 
   async setIncompleteScreenshotMessage(message) {
@@ -296,6 +345,8 @@ class Raid extends Party {
       endTime = hatchTime + this.duration * 60 * 1000;
     } else if (this.isExclusive) {
       endTime = hatchTime + (settings.exclusiveRaidHatchedDuration * 60 * 1000);
+    } else if (this.isElite) {
+      endTime = hatchTime + (settings.eliteRaidHatchedDuration * 60 * 1000);
     } else {
       endTime = hatchTime + (settings.standardRaidHatchedDuration * 60 * 1000);
     }
@@ -396,6 +447,8 @@ class Raid extends Party {
       hatchTime = endTime - (this.duration * 60 * 1000);
     } else if (this.isExclusive) {
       hatchTime = endTime - (settings.exclusiveRaidHatchedDuration * 60 * 1000);
+    } else if (this.isElite) {
+      hatchTime = endTime - (settings.eliteRaidHatchedDuration * 60 * 1000);
     } else {
       hatchTime = endTime - (settings.standardRaidHatchedDuration * 60 * 1000);
     }
@@ -486,6 +539,7 @@ class Raid extends Party {
   async setPokemon(pokemon) {
     this.pokemon = pokemon;
     this.isExclusive = !!pokemon.exclusive;
+    this.isElite = !!pokemon.elite;
     this.isMega = !!pokemon.mega;
 
     // clear any set moves
@@ -523,7 +577,9 @@ class Raid extends Party {
     this.lastPossibleTime = Math.max(this.creationTime + (this.duration ?
       (settings.standardRaidIncubateDuration + this.duration) * 60 * 1000 : this.isExclusive ?
         (settings.exclusiveRaidIncubateDuration + settings.exclusiveRaidHatchedDuration) * 60 * 1000 :
-        (settings.standardRaidIncubateDuration + settings.standardRaidHatchedDuration) * 60 * 1000),
+        this.isElite ?
+          (settings.eliteRaidIncubateDuration + settings.eliteRaidHatchedDuration) * 60 * 1000 :
+          (settings.standardRaidIncubateDuration + settings.standardRaidHatchedDuration) * 60 * 1000),
       this.lastPossibleTime);
 
     if (this.endTime !== TimeType.UNDEFINED_END_TIME) {
@@ -582,59 +638,17 @@ class Raid extends Party {
     return {party: this};
   }
 
-  static async getRaidsFormattedMessage(channelId) {
-    const raids = PartyManager.getAllParties(channelId, PartyType.RAID)
-        .filter(raid => !!!raid.isExclusive)
-        .sort((raidA, raidB) => {
-          const timeA = !!raidA.endTime ?
-            raidA.endTime :
-            raidA.lastPossibleTime,
-            timeB = !!raidB.endTime ?
-              raidB.endTime :
-              raidB.lastPossibleTime;
-
-          return timeA - timeB;
-        }),
-      summaryFields = (await Promise.all(raids.map(async raid => await raid.getSummaryField())))
-        .filter(summaryField => summaryField !== ''),
-      groupedRaids = Object.create(null);
-
-    summaryFields
-      .forEach(summaryField => {
-        const pokemon = summaryField.name,
-          field = summaryField.value,
-          fields = groupedRaids[pokemon];
-
-        if (!fields) {
-          groupedRaids[pokemon] = [field];
-        } else {
-          fields.push(field);
-        }
-      });
-
-    if (Object.keys(groupedRaids).length === 0) {
-      return 'No non-EX raids exist for this channel.  Create one with \`!raid\`!';
-    }
-
-    const embed = new Discord.MessageEmbed();
-    embed.setColor('GREEN');
-    embed.setTitle('Currently Active Raids');
-
-    Object.keys(groupedRaids).sort()
-      .forEach(pokemon => embed.addField(pokemon, groupedRaids[pokemon].join('\n')));
-
-    return embed;
-  }
-
   async getSummaryField() {
     const pokemonName = this.pokemon.name ?
-      this.pokemon.name.charAt(0).toUpperCase() + this.pokemon.name.slice(1) :
-      '',
+        this.pokemon.name.charAt(0).toUpperCase() + this.pokemon.name.slice(1) :
+        '',
       pokemon = this.isExclusive ?
         'EX Raid' :
-        pokemonName.length > 0 ?
-          pokemonName :
-          'Tier ' + this.pokemon.tier,
+        this.isElite ?
+          'Elite Raid' :
+          pokemonName.length > 0 ?
+            pokemonName :
+            'Tier ' + this.pokemon.tier,
       gym = await Gym.getGym(this.gymId),
       gymName = (!!gym.nickname ?
         gym.nickname :
@@ -762,8 +776,8 @@ class Raid extends Party {
 
   async getFullStatusMessage() {
     const pokemon = !!this.pokemon.name && this.pokemon.name !== 'mega' ?
-      this.pokemon.name.charAt(0).toUpperCase() + this.pokemon.name.slice(1) :
-      '????',
+        this.pokemon.name.charAt(0).toUpperCase() + this.pokemon.name.slice(1) :
+        '????',
       pokemonUrl = !!this.pokemon.url ?
         this.pokemon.url :
         '',
@@ -781,9 +795,11 @@ class Raid extends Party {
         '????',
       raidDescription = this.isExclusive ?
         `EX Raid against ${pokemon}` :
-        this.isMega ?
-          `Mega Raid against ${pokemon}` :
-          `Level ${this.pokemon.tier} Raid against ${pokemon}`,
+        this.isElite ?
+          `Elite Raid against ${pokemon}` :
+          this.isMega ?
+            `Mega Raid against ${pokemon}` :
+            `Level ${this.pokemon.tier} Raid against ${pokemon}`,
 
       now = moment(),
 
@@ -908,8 +924,8 @@ class Raid extends Party {
     this.groups
       .forEach(group => {
         const startTime = !!group.startTime ?
-          moment(group.startTime) :
-          '',
+            moment(group.startTime) :
+            '',
           totalAttendees = this.getAttendeeCount(group.id);
 
         let groupLabel = `__Group ${group.id}__`;
@@ -1066,7 +1082,9 @@ class Raid extends Party {
     const nonCharCleaner = new RegExp(/[^\w]/, 'g'),
       pokemonName = (this.isExclusive ?
         'ex raid' :
-        this.generatePokemonName(this.pokemon)),
+        this.isElite ?
+          'elite raid' :
+          this.generatePokemonName(this.pokemon)),
       gym = await Gym.getGym(this.gymId),
       gymName = (!!gym.nickname ?
         removeDiacritics(gym.nickname) :
@@ -1125,6 +1143,7 @@ class Raid extends Party {
     return Object.assign(super.toJSON(), {
       originallyCreatedBy: this.originallyCreatedBy,
       isExclusive: this.isExclusive,
+      isElite: this.isElite,
       isMega: this.isMega,
       lastPossibleTime: this.lastPossibleTime,
       timeWarn: this.timeWarn,

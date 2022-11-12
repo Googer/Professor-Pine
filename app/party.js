@@ -356,7 +356,7 @@ class Party {
         .catch(err => log.error(err));
     }
 
-    PartyManager.addReactions(message)
+    PartyManager.addReactions(this, message)
       .then(() => PartyManager.addGroupReactions(this, message))
       .catch(err => log.error(err));
 

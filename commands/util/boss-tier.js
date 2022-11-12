@@ -57,6 +57,8 @@ class BossTierCommand extends Commando.Command {
 
         if (pokemon.exclusive) {
           tier = 'an exclusive';
+        } else if (pokemon.elite) {
+          tier = 'an elite';
         } else if (pokemon.mega) {
           tier = 'a mega';
         }

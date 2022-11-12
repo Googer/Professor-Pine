@@ -29,9 +29,9 @@ class RaidPokemonType extends Commando.ArgumentType {
     const validPokemon = pokemon
       .find(pokemon => {
         if (!message.command || message.command.name === 'raid' || message.command.name === 'boss') {
-          return pokemon.exclusive || pokemon.mega || (pokemon.tier && pokemon.tier < 7);
+          return pokemon.exclusive || pokemon.elite || pokemon.mega || (pokemon.tier && pokemon.tier < 7);
         }
-        return pokemon.exclusive || pokemon.mega || pokemon.tier || (pokemon.name.toLocaleLowerCase().startsWith('unown') && settings.roles.unown && settings.channels.unown);
+        return pokemon.exclusive || pokemon.elite || pokemon.mega || pokemon.tier || (pokemon.name.toLocaleLowerCase().startsWith('unown') && settings.roles.unown && settings.channels.unown);
       });
 
     if (!validPokemon) {
@@ -67,12 +67,13 @@ class RaidPokemonType extends Commando.ArgumentType {
     let pokemon = Pokemon.search(terms)
       .find(pokemon => {
         if (!message.command || message.command.name === 'raid' || message.command.name === 'boss') {
-          return pokemon.exclusive || pokemon.mega || (pokemon.tier && pokemon.tier < 7);
+          return pokemon.exclusive || pokemon.elite || pokemon.mega || (pokemon.tier && pokemon.tier < 7);
         }
-        return pokemon.exclusive || pokemon.mega || pokemon.tier || (pokemon.name.toLocaleLowerCase().startsWith('unown') && settings.roles.unown && settings.channels.unown);
+        return pokemon.exclusive || pokemon.elite || pokemon.mega || pokemon.tier || (pokemon.name.toLocaleLowerCase().startsWith('unown') && settings.roles.unown && settings.channels.unown);
       });
 
     message.isExclusive = !!pokemon.exclusive;
+    message.isElite = !!pokemon.elite;
     message.isMega = !!pokemon.mega;
 
     return pokemon;

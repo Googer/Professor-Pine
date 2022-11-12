@@ -1297,6 +1297,7 @@ class ImageProcessing {
     // NOTE:  all time must be "end time" due to how createRaid works / expects end time
     message.argString = '';
     message.isExclusive = false;
+    message.isElite = false;
     arg.prompt = '';
     arg.key = TimeParameter.END;
 
@@ -1325,7 +1326,7 @@ class ImageProcessing {
 
     let raid;
 
-    Raid.createRaid(raidRegionChannel.id, message.member.id, pokemon, gymId, false, time)
+    Raid.createRaid(raidRegionChannel.id, message.member.id, pokemon, gymId, false, false, time)
       .then(async info => {
         raid = info.party;
 

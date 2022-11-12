@@ -52,11 +52,11 @@ class RaidCommand extends Commando.Command {
       }
     ], 3);
 
-    this.exHatchTimeCollector = new Commando.ArgumentCollector(client, [
+    this.exEliteHatchTimeCollector = new Commando.ArgumentCollector(client, [
       {
         key: TimeParameter.HATCH,
         label: 'hatch time',
-        prompt: 'What is the date and time for this EX raid?\nExample: `4/12 1:00pm` (April 12th at 1:00pm)\n',
+        prompt: 'What is the date and time for this raid?\nExample: `4/12 1:00pm` (April 12th at 1:00pm)\n',
         type: 'time'
       }
     ], 3);
@@ -85,7 +85,8 @@ class RaidCommand extends Commando.Command {
   async run(message, args) {
     const pokemon = args['pokemon'],
       gymId = args['gymId'],
-      isExclusive = message.isExclusive;
+      isExclusive = message.isExclusive,
+      isElite = message.isElite;
 
     let sourceChannel = message.channel;
 
@@ -117,7 +118,7 @@ class RaidCommand extends Commando.Command {
 
     let raid;
 
-    Raid.createRaid(sourceChannel.id, message.member.id, pokemon, gymId, isExclusive)
+    Raid.createRaid(sourceChannel.id, message.member.id, pokemon, gymId, isExclusive, isElite)
       // create and send announcement message to region channel
       .then(async info => {
         raid = info.party;
@@ -153,14 +154,15 @@ class RaidCommand extends Commando.Command {
               // somewhat hacky way of letting time type know of some additional information
               message.pokemon = raid.pokemon;
               message.isExclusive = raid.isExclusive;
+              message.isElite = raid.isElite;
 
               let collectEndTime = !raid.defaulted && !raid.pokemon.egg;
 
               if (raid.pokemon.name && collectEndTime) {
                 return this.endTimeCollector.obtain(message);
               } else {
-                if (isExclusive) {
-                  return this.exHatchTimeCollector.obtain(message);
+                if (isExclusive || isElite) {
+                  return this.exEliteHatchTimeCollector.obtain(message);
                 }
 
                 return this.hatchTimeCollector.obtain(message);

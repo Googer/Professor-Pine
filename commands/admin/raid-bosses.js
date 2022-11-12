@@ -41,6 +41,7 @@ class RaidBossesCommand extends Commando.Command {
         '4': [],
         '5': [],
         'ex': [],
+        'elite': [],
         'mega': [],
         'mega-legendary': [],
         'rare': []
@@ -51,10 +52,10 @@ class RaidBossesCommand extends Commando.Command {
 
     Pokemon.pokemon
       .filter(pokemon => !!pokemon.name)
-      .filter(pokemon => !!pokemon.tier || !!pokemon.mega || !!pokemon.exclusive)
+      .filter(pokemon => !!pokemon.tier || !!pokemon.mega || !!pokemon.exclusive || !!pokemon.elite)
       .sort((a, b) => a.name.localeCompare(b.name))
       .forEach(pokemon => {
-        if (['1', '2', '3', '4', '5', 'ex', 'mega'].indexOf(pokemon.name) !== -1) {
+        if (['1', '2', '3', '4', '5', 'elite', 'ex', 'mega'].indexOf(pokemon.name) !== -1) {
           return;
         }
 
@@ -72,6 +73,8 @@ class RaidBossesCommand extends Commando.Command {
 
         if (pokemon.exclusive) {
           groups.ex.push(shiny + formatted + shiny);
+        } else if (pokemon.elite) {
+          groups.elite.push(shiny + formatted + shiny);
         } else if (pokemon.tier === 6) {
           groups['mega-legendary'].push(shiny + formatted + shiny);
         } else if (pokemon.mega) {
@@ -87,6 +90,8 @@ class RaidBossesCommand extends Commando.Command {
       const groupPokemon = groups[tier];
       if (tier === 'ex' && groupPokemon.length) {
         RaidBossesCommand.addField(fields, 'EX Raids', groupPokemon);
+      } else if (tier === 'elite' && groupPokemon.length) {
+        RaidBossesCommand.addField(fields, 'Elite Raids', groupPokemon);
       } else if (tier === 'mega' && groupPokemon.length) {
         RaidBossesCommand.addField(fields, 'Mega Raids', groupPokemon);
       } else if (tier === 'mega-legendary' && groupPokemon.length) {

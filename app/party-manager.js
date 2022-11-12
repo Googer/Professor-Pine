@@ -713,17 +713,19 @@ class PartyManager {
     return Promise.resolve({error: new Error(`Member ${memberId} does not exist!`), ok: false});
   }
 
-  findRaid(gymId, isExclusive) {
+  findRaid(gymId, isExclusive, isElite) {
     return Object.values(this.parties)
       .filter(party => party.type === PartyType.RAID)
       .filter(raid => (!!raid.isExclusive) === isExclusive)
+      .filter(raid => (!!raid.isElite) === isElite)
       .find(raid => raid.gymId === gymId);
   }
 
-  raidExistsForGym(gymId, isExclusive) {
+  raidExistsForGym(gymId, isExclusive, isElite) {
     return Object.values(this.parties)
       .filter(party => party.type === PartyType.RAID)
       .filter(raid => (!!raid.isExclusive) === isExclusive)
+      .filter(raid => (!!raid.isElite) === isElite)
       .map(raid => raid.gymId)
       .includes(gymId);
   }
@@ -944,15 +946,19 @@ class PartyManager {
         .catch(err => log.error(err));
     }
 
-    return this.addReactions(message)
+    return this.addReactions(party, message)
       .then(() => this.addGroupReactions(party, message));
   }
 
-  addReactions(message) {
+  addReactions(party, message) {
     let reactionPromise = Promise.resolve();
 
     if (settings.features.reactionCommands) {
       Object.values(settings.reactionCommands)
+        .filter(reactionCommand => reactionCommand.localOnly ?
+          !party.isElite :
+          true
+        )
         .forEach(emoji => reactionPromise = reactionPromise
           .then(result => message.react(Helper.getEmoji(emoji.custom) || emoji.plain)));
     }

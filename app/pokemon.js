@@ -115,6 +115,11 @@ class Pokemon extends Search {
               delete poke.exclusive;
             }
 
+            if (poke.elite) {
+              poke.backupElite = poke.elite;
+              delete poke.elite;
+            }
+
             if (poke.mega) {
               poke.backupMega = poke.mega;
               delete poke.mega;
@@ -146,11 +151,12 @@ class Pokemon extends Search {
       let isTier = ['1', '2', '3', '4', '5', '6', 'ex', 'mega'].indexOf(poke.name) !== -1;
 
       let pokeDataIndex = mergedPokemon.findIndex(p => {
-        let tierFound = isTier && p.name === undefined && p.backupTier === poke.tier && !p.backupExclusive && !p.backupMega;
-        let exclusiveFound = isTier && p.name === undefined && p.backupTier === undefined && p.backupExclusive === !!poke.exclusive && !!poke.exclusive && !p.backupMega;
-        let megaFound = isTier && p.name === undefined && p.backupTier === undefined && !p.backupExclusive && p.backupMega === !!poke.mega;
+        let tierFound = isTier && p.name === undefined && p.backupTier === poke.tier && !p.backupExclusive && !p.backupElite && !p.backupMega;
+        let exclusiveFound = isTier && p.name === undefined && p.backupTier === undefined && p.backupExclusive === !!poke.exclusive && !!poke.exclusive && !p.backupElite && !p.backupMega;
+        let eliteFound = isTier && p.name === undefined && p.backupTier === undefined && p.backupElite === !!poke.elite && !poke.exclusive && !!poke.elite && !p.backupMega;
+        let megaFound = isTier && p.name === undefined && p.backupTier === undefined && !p.backupExclusive && !p.backupElite && p.backupMega === !!poke.mega;
 
-        return poke.name === p.name || tierFound || exclusiveFound || megaFound;
+        return poke.name === p.name || tierFound || exclusiveFound || eliteFound || megaFound;
       });
 
       if (pokeDataIndex !== -1) {
@@ -162,6 +168,10 @@ class Pokemon extends Search {
 
         if (!!poke.exclusive) {
           mergedPokemon[pokeDataIndex].exclusive = !!poke.exclusive;
+        }
+
+        if (!!poke.elite) {
+          mergedPokemon[pokeDataIndex].elite = !!poke.elite;
         }
 
         if (!!poke.mega) {
@@ -204,6 +214,7 @@ class Pokemon extends Search {
         poke.tier = poke.backupTier;
         poke.mega = poke.backupMega;
         poke.exclusive = poke.backupExclusive;
+        poke.elite = poke.backupElite;
         poke.shiny = poke.backupShiny;
       }
 
@@ -423,6 +434,7 @@ class Pokemon extends Search {
         name: pokemon.formName,
         tier: (!!pokemon.tier ? pokemon.tier : 0),
         exclusive: (!!pokemon.exclusive ? pokemon.exclusive : false),
+        elite: (!!pokemon.elite ? pokemon.elite : false),
         mega: (!!pokemon.mega ? pokemon.mega : false)
       }))
       .then(pokemonId => DB.DB('Pokemon')
@@ -445,6 +457,17 @@ class Pokemon extends Search {
 
     if (tier === 'unset-ex') {
       updateObject.exclusive = false;
+    }
+
+    if (tier === 'elite') {
+      if (pokemon !== 'elite') {
+        updateObject.tier = 5;
+      }
+      updateObject.elite = true;
+    }
+
+    if (tier === 'unset-elite') {
+      updateObject.elite = false;
     }
 
     if (tier === 'mega') {
@@ -516,7 +539,7 @@ class Pokemon extends Search {
         .map(term => term.toLowerCase());
 
       return this.search(terms)
-        .find(pokemon => pokemon.exclusive || pokemon.mega || pokemon.tier);
+        .find(pokemon => pokemon.exclusive ||pokemon.elite || pokemon.mega || pokemon.tier);
     }
 
     return null;
@@ -610,6 +633,8 @@ class Pokemon extends Search {
 
     if (pokemon.exclusive) {
       stamina = 15000;
+    } else if (pokemon.elite) {
+      stamina = 20000;
     }
 
     // if (pokemon.mega) {
