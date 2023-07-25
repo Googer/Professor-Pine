@@ -38,6 +38,7 @@ class Pokemon extends Search {
         .filter(form => !!form.formSettings.forms)
         .map(form => form.formSettings.forms))
         .filter(form => !!form.form)
+        .filter(form => typeof form.form === 'string')
         .map(form => Object.assign({},
           {
             formName: form.form.toLocaleLowerCase(),
@@ -60,7 +61,7 @@ class Pokemon extends Search {
         .filter(pokemon => !!pokemon.pokemonSettings)
         .map(pokemon => Object.assign({},
           {
-            name: pokemon.pokemonSettings.form ?
+            name: pokemon.pokemonSettings.form && typeof pokemon.pokemonSettings.form === 'string' ?
               pokemon.pokemonSettings.form.toLowerCase() :
               pokemon.pokemonSettings.pokemonId.toLowerCase(),
             number: Number.parseInt(pokemon.templateId.split('_')[0].slice(2)),
@@ -72,7 +73,7 @@ class Pokemon extends Search {
               pokemon.pokemonSettings.type2.split('_')[2].toLowerCase() :
               null]
               .filter(type => !!type),
-            form: pokemon.pokemonSettings.form ?
+            form: pokemon.pokemonSettings.form && typeof pokemon.pokemonSettings.form === 'string' ?
               pokemon.pokemonSettings.form.split('_')[1].toLowerCase() :
               'normal'
           }))),
