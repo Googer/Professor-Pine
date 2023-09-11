@@ -9945,6 +9945,910 @@
   },
   {
     "name": "enamorus",
+    "family": "ENAMORUS",
+    "pbName": "ENAMORUS",
+    "gsName": [
+      "ENAMORUS"
+    ]
+  },
+  {
+    "name": "sprigatito",
+    "family": "SPRIGATITO",
+    "pbName": "SPRIGATITO",
+    "gsName": [
+      "SPRIGATITO"
+    ]
+  },
+  {
+    "name": "floragato",
+    "family": "SPRIGATITO",
+    "pbName": "FLORAGATO",
+    "gsName": [
+      "FLORAGATO"
+    ]
+  },
+  {
+    "name": "meowscarada",
+    "family": "SPRIGATITO",
+    "pbName": "MEOWSCARADA",
+    "gsName": [
+      "MEOWSCARADA"
+    ]
+  },
+  {
+    "name": "fuecoco",
+    "family": "FUECOCO",
+    "pbName": "FUECOCO",
+    "gsName": [
+      "FUECOCO"
+    ]
+  },
+  {
+    "name": "crocalor",
+    "family": "FUECOCO",
+    "pbName": "CROCALOR",
+    "gsName": [
+      "CROCALOR"
+    ]
+  },
+  {
+    "name": "skeledirge",
+    "family": "FUECOCO",
+    "pbName": "SKELEDIRGE",
+    "gsName": [
+      "SKELEDIRGE"
+    ]
+  },
+  {
+    "name": "quaxly",
+    "family": "QUAXLY",
+    "pbName": "QUAXLY",
+    "gsName": [
+      "QUAXLY"
+    ]
+  },
+  {
+    "name": "quaxwell",
+    "family": "QUAXLY",
+    "pbName": "QUAXWELL",
+    "gsName": [
+      "QUAXWELL"
+    ]
+  },
+  {
+    "name": "quaquaval",
+    "family": "QUAXLY",
+    "pbName": "QUAQUAVAL",
+    "gsName": [
+      "QUAQUAVAL"
+    ]
+  },
+  {
+    "name": "lechonk",
+    "family": "LECHONK",
+    "pbName": "LECHONK",
+    "gsName": [
+      "LECHONK"
+    ]
+  },
+  {
+    "name": "oinkologne",
+    "family": "LECHONK",
+    "pbName": "OINKOLOGNE",
+    "gsName": [
+      "OINKOLOGNE"
+    ]
+  },
+  {
+    "name": "oinkologne_normal",
+    "overrideName": "Oinkologne",
+    "family": "LECHONK",
+    "pbName": "OINKOLOGNE",
+    "gsName": [
+      "OINKOLOGNE"
+    ]
+  },
+  {
+    "name": "OINKOLOGNE_FEMALE",
+    "overrideName": "Oinkologne (Female)",
+    "family": "LECHONK",
+    "pbName": "OINKOLOGNE",
+    "gsName": [
+      "OINKOLOGNE"
+    ]
+  },
+  {
+    "name": "tarountula",
+    "family": "TAROUNTULA",
+    "pbName": "TAROUNTULA",
+    "gsName": [
+      "TAROUNTULA"
+    ]
+  },
+  {
+    "name": "spidops",
+    "family": "TAROUNTULA",
+    "pbName": "SPIDOPS",
+    "gsName": [
+      "SPIDOPS"
+    ]
+  },
+  {
+    "name": "nymble",
+    "family": "NYMBLE",
+    "pbName": "NYMBLE",
+    "gsName": [
+      "NYMBLE"
+    ]
+  },
+  {
+    "name": "lokix",
+    "family": "NYMBLE",
+    "pbName": "LOKIX",
+    "gsName": [
+      "LOKIX"
+    ]
+  },
+  {
+    "name": "pawmi",
+    "family": "PAWMI",
+    "pbName": "PAWMI",
+    "gsName": [
+      "PAWMI"
+    ]
+  },
+  {
+    "name": "pawmo",
+    "family": "PAWMI",
+    "pbName": "PAWMO",
+    "gsName": [
+      "PAWMO"
+    ]
+  },
+  {
+    "name": "pawmot",
+    "family": "PAWMI",
+    "pbName": "PAWMOT",
+    "gsName": [
+      "PAWMOT"
+    ]
+  },
+  {
+    "name": "tandemaus",
+    "family": "TANDEMAUS",
+    "pbName": "TANDEMAUS",
+    "gsName": [
+      "TANDEMAUS"
+    ]
+  },
+  {
+    "name": "maushold",
+    "family": "TANDEMAUS",
+    "pbName": "MAUSHOLD",
+    "gsName": [
+      "MAUSHOLD"
+    ]
+  },
+  {
+    "name": "maushold_family_of_three",
+    "overrideName": "Maushold (Family of Three)",
+    "family": "TANDEMAUS",
+    "pbName": "MAUSHOLD",
+    "gsName": [
+      "MAUSHOLD"
+    ]
+  },
+  {
+    "name": "maushold_family_of_four",
+    "overrideName": "Maushold (Family of Four)",
+    "family": "TANDEMAUS",
+    "pbName": "MAUSHOLD",
+    "gsName": [
+      "MAUSHOLD"
+    ]
+  },
+  {
+    "name": "fidough",
+    "family": "FIDOUGH",
+    "pbName": "FIDOUGH",
+    "gsName": [
+      "FIDOUGH"
+    ]
+  },
+  {
+    "name": "dachsbun",
+    "family": "FIDOUGH",
+    "pbName": "DACHSBUN",
+    "gsName": [
+      "DACHSBUN"
+    ]
+  },
+  {
+    "name": "smoliv",
+    "family": "SMOLIV",
+    "pbName": "SMOLIV",
+    "gsName": [
+      "SMOLIV"
+    ]
+  },
+  {
+    "name": "dolliv",
+    "family": "SMOLIV",
+    "pbName": "DOLLIV",
+    "gsName": [
+      "DOLLIV"
+    ]
+  },
+  {
+    "name": "arboliva",
+    "family": "SMOLIV",
+    "pbName": "ARBOLIVA",
+    "gsName": [
+      "ARBOLIVA"
+    ]
+  },
+  {
+    "name": "squawkabilly",
+    "family": "SQUAWKABILLY",
+    "pbName": "SQUAWKABILLY",
+    "gsName": [
+      "SQUAWKABILLY"
+    ]
+  },
+  {
+    "name": "nacli",
+    "family": "NACLI",
+    "pbName": "NACLI",
+    "gsName": [
+      "NACLI"
+    ]
+  },
+  {
+    "name": "naclstack",
+    "family": "NACLI",
+    "pbName": "NACLSTACK",
+    "gsName": [
+      "NACLSTACK"
+    ]
+  },
+  {
+    "name": "garganacl",
+    "family": "NACLI",
+    "pbName": "GARGANACL",
+    "gsName": [
+      "GARGANACL"
+    ]
+  },
+  {
+    "name": "charcadet",
+    "family": "CHARCADET",
+    "pbName": "CHARCADET",
+    "gsName": [
+      "CHARCADET"
+    ]
+  },
+  {
+    "name": "armarouge",
+    "family": "CHARCADET",
+    "pbName": "ARMAROUGE",
+    "gsName": [
+      "ARMAROUGE"
+    ]
+  },
+  {
+    "name": "ceruledge",
+    "family": "CHARCADET",
+    "pbName": "CERULEDGE",
+    "gsName": [
+      "CERULEDGE"
+    ]
+  },
+  {
+    "name": "tadbulb",
+    "family": "TADBULB",
+    "pbName": "TADBULB",
+    "gsName": [
+      "TADBULB"
+    ]
+  },
+  {
+    "name": "bellibolt",
+    "family": "TADBULB",
+    "pbName": "BELLIBOLT",
+    "gsName": [
+      "BELLIBOLT"
+    ]
+  },
+  {
+    "name": "wattrel",
+    "family": "WATTREL",
+    "pbName": "WATTREL",
+    "gsName": [
+      "WATTREL"
+    ]
+  },
+  {
+    "name": "kilowattrel",
+    "family": "WATTREL",
+    "pbName": "KILOWATTREL",
+    "gsName": [
+      "KILOWATTREL"
+    ]
+  },
+  {
+    "name": "maschiff",
+    "family": "MASCHIFF",
+    "pbName": "MASCHIFF",
+    "gsName": [
+      "MASCHIFF"
+    ]
+  },
+  {
+    "name": "mabosstiff",
+    "family": "MASCHIFF",
+    "pbName": "MABOSSTIFF",
+    "gsName": [
+      "MABOSSTIFF"
+    ]
+  },
+  {
+    "name": "shroodle",
+    "family": "SHROODLE",
+    "pbName": "SHROODLE",
+    "gsName": [
+      "SHROODLE"
+    ]
+  },
+  {
+    "name": "grafaiai",
+    "family": "SHROODLE",
+    "pbName": "GRAFAIAI",
+    "gsName": [
+      "GRAFAIAI"
+    ]
+  },
+  {
+    "name": "bramblin",
+    "family": "BRAMBLIN",
+    "pbName": "BRAMBLIN",
+    "gsName": [
+      "BRAMBLIN"
+    ]
+  },
+  {
+    "name": "brambleghast",
+    "family": "BRAMBLIN",
+    "pbName": "BRAMBLEGHAST",
+    "gsName": [
+      "BRAMBLEGHAST"
+    ]
+  },
+  {
+    "name": "toedscool",
+    "family": "TOEDSCOOL",
+    "pbName": "TOEDSCOOL",
+    "gsName": [
+      "TOEDSCOOL"
+    ]
+  },
+  {
+    "name": "toedscruel",
+    "family": "TOEDSCOOL",
+    "pbName": "TOEDSCRUEL",
+    "gsName": [
+      "TOEDSCRUEL"
+    ]
+  },
+  {
+    "name": "klawf",
+    "family": "KLAWF",
+    "pbName": "KLAWF",
+    "gsName": [
+      "KLAWF"
+    ]
+  },
+  {
+    "name": "capsakid",
+    "family": "CAPSAKID",
+    "pbName": "CAPSAKID",
+    "gsName": [
+      "CAPSAKID"
+    ]
+  },
+  {
+    "name": "scovillain",
+    "family": "CAPSAKID",
+    "pbName": "SCOVILLAIN",
+    "gsName": [
+      "SCOVILLAIN"
+    ]
+  },
+  {
+    "name": "rellor",
+    "family": "RELLOR",
+    "pbName": "RELLOR",
+    "gsName": [
+      "RELLOR"
+    ]
+  },
+  {
+    "name": "rabsca",
+    "family": "RELLOR",
+    "pbName": "RABSCA",
+    "gsName": [
+      "RABSCA"
+    ]
+  },
+  {
+    "name": "flittle",
+    "family": "FLITTLE",
+    "pbName": "FLITTLE",
+    "gsName": [
+      "FLITTLE"
+    ]
+  },
+  {
+    "name": "espathra",
+    "family": "FLITTLE",
+    "pbName": "ESPATHRA",
+    "gsName": [
+      "ESPATHRA"
+    ]
+  },
+  {
+    "name": "tinkatink",
+    "family": "TINKATINK",
+    "pbName": "TINKATINK",
+    "gsName": [
+      "TINKATINK"
+    ]
+  },
+  {
+    "name": "tinkatuff",
+    "family": "TINKATINK",
+    "pbName": "TINKATUFF",
+    "gsName": [
+      "TINKATUFF"
+    ]
+  },
+  {
+    "name": "tinkaton",
+    "family": "TINKATINK",
+    "pbName": "TINKATON",
+    "gsName": [
+      "TINKATON"
+    ]
+  },
+  {
+    "name": "wiglett",
+    "family": "WIGLETT",
+    "pbName": "WIGLETT",
+    "gsName": [
+      "WIGLETT"
+    ]
+  },
+  {
+    "name": "wugtrio",
+    "family": "WIGLETT",
+    "pbName": "WUGTRIO",
+    "gsName": [
+      "WUGTRIO"
+    ]
+  },
+  {
+    "name": "bombirdier",
+    "family": "BOMBIRDIER",
+    "pbName": "BOMBIRDIER",
+    "gsName": [
+      "BOMBIRDIER"
+    ]
+  },
+  {
+    "name": "finizen",
+    "family": "FINIZEN",
+    "pbName": "FINIZEN",
+    "gsName": [
+      "FINIZEN"
+    ]
+  },
+  {
+    "name": "palafin",
+    "family": "FINIZEN",
+    "pbName": "PALAFIN",
+    "gsName": [
+      "PALAFIN"
+    ]
+  },
+  {
+    "name": "palafin_hero",
+    "overrideName": "Palafin (Hero)",
+    "family": "FINIZEN",
+    "pbName": "PALAFIN",
+    "gsName": [
+      "PALAFIN"
+    ]
+  },
+  {
+    "name": "palafin_zero",
+    "overrideName": "Palafin (Zero)",
+    "family": "FINIZEN",
+    "pbName": "PALAFIN",
+    "gsName": [
+      "PALAFIN"
+    ]
+  },
+  {
+    "name": "varoom",
+    "family": "VAROOM",
+    "pbName": "VAROOM",
+    "gsName": [
+      "VAROOM"
+    ]
+  },
+  {
+    "name": "revavroom",
+    "family": "VAROOM",
+    "pbName": "REVAVROOM",
+    "gsName": [
+      "REVAVROOM"
+    ]
+  },
+  {
+    "name": "cyclizar",
+    "family": "CYCLIZAR",
+    "pbName": "CYCLIZAR",
+    "gsName": [
+      "CYCLIZAR"
+    ]
+  },
+  {
+    "name": "orthworm",
+    "family": "ORTHWORM",
+    "pbName": "ORTHWORM",
+    "gsName": [
+      "ORTHWORM"
+    ]
+  },
+  {
+    "name": "glimmet",
+    "family": "GLIMMET",
+    "pbName": "GLIMMET",
+    "gsName": [
+      "GLIMMET"
+    ]
+  },
+  {
+    "name": "glimmora",
+    "family": "GLIMMET",
+    "pbName": "GLIMMORA",
+    "gsName": [
+      "GLIMMORA"
+    ]
+  },
+  {
+    "name": "greavard",
+    "family": "GREAVARD",
+    "pbName": "GREAVARD",
+    "gsName": [
+      "GREAVARD"
+    ]
+  },
+  {
+    "name": "houndstone",
+    "family": "GREAVARD",
+    "pbName": "HOUNDSTONE",
+    "gsName": [
+      "HOUNDSTONE"
+    ]
+  },
+  {
+    "name": "flamigo",
+    "family": "FLAMIGO",
+    "pbName": "FLAMIGO",
+    "gsName": [
+      "FLAMIGO"
+    ]
+  },
+  {
+    "name": "cetoddle",
+    "family": "CETODDLE",
+    "pbName": "CETODDLE",
+    "gsName": [
+      "CETODDLE"
+    ]
+  },
+  {
+    "name": "cetitan",
+    "family": "CETODDLE",
+    "pbName": "CETITAN",
+    "gsName": [
+      "CETITAN"
+    ]
+  },
+  {
+    "name": "veluza",
+    "family": "VELUZA",
+    "pbName": "VELUZA",
+    "gsName": [
+      "VELUZA"
+    ]
+  },
+  {
+    "name": "dondozo",
+    "family": "DONDOZO",
+    "pbName": "DONDOZO",
+    "gsName": [
+      "DONDOZO"
+    ]
+  },
+  {
+    "name": "tatsugiri",
+    "family": "TATSUGIRI",
+    "pbName": "TATSUGIRI",
+    "gsName": [
+      "TATSUGIRI"
+    ]
+  },
+  {
+    "name": "annihilape",
+    "family": "MANKEY",
+    "pbName": "ANNIHILAPE",
+    "gsName": [
+      "ANNIHILAPE"
+    ]
+  },
+  {
+    "name": "clodsire",
+    "family": "WOOPER",
+    "pbName": "CLODSIRE",
+    "gsName": [
+      "CLODSIRE"
+    ]
+  },
+  {
+    "name": "farigiraf",
+    "family": "GIRAFARIG",
+    "pbName": "FARIGIRAF",
+    "gsName": [
+      "FARIGIRAF"
+    ]
+  },
+  {
+    "name": "dudunsparce",
+    "family": "DUNSPARCE",
+    "pbName": "DUDUNSPARCE",
+    "gsName": [
+      "DUDUNSPARCE"
+    ]
+  },
+  {
+    "name": "kingambit",
+    "family": "PAWNIARD",
+    "pbName": "KINGAMBIT",
+    "gsName": [
+      "KINGAMBIT"
+    ]
+  },
+  {
+    "name": "greattusk",
+    "overrideName": "Great Tusk",
+    "family": "GREATTUSK",
+    "pbName": "GREATTUSK",
+    "gsName": [
+      "GREATTUSK"
+    ]
+  },
+  {
+    "name": "screamtail",
+    "overrideName": "Scream Tail",
+    "family": "SCREAMTAIL",
+    "pbName": "SCREAMTAIL",
+    "gsName": [
+      "SCREAMTAIL"
+    ]
+  },
+  {
+    "name": "brutebonnet",
+    "overrideName": "Brute Bonnet",
+    "family": "BRUTEBONNET",
+    "pbName": "BRUTEBONNET",
+    "gsName": [
+      "BRUTEBONNET"
+    ]
+  },
+  {
+    "name": "fluttermane",
+    "overrideName": "Flutter Mane",
+    "family": "FLUTTERMANE",
+    "pbName": "FLUTTERMANE",
+    "gsName": [
+      "FLUTTERMANE"
+    ]
+  },
+  {
+    "name": "slitherwing",
+    "overrideName": "Slither Wing",
+    "family": "SLITHERWING",
+    "pbName": "SLITHERWING",
+    "gsName": [
+      "SLITHERWING"
+    ]
+  },
+  {
+    "name": "sandyshocks",
+    "overrideName": "Sandy Shocks",
+    "family": "SANDYSHOCKS",
+    "pbName": "SANDYSHOCKS",
+    "gsName": [
+      "SANDYSHOCKS"
+    ]
+  },
+  {
+    "name": "irontreads",
+    "overrideName": "Iron Treads",
+    "family": "IRONTREADS",
+    "pbName": "IRONTREADS",
+    "gsName": [
+      "IRONTREADS"
+    ]
+  },
+  {
+    "name": "ironbundle",
+    "overrideName": "Iron Bundle",
+    "family": "IRONBUNDLE",
+    "pbName": "IRONBUNDLE",
+    "gsName": [
+      "IRONBUNDLE"
+    ]
+  },
+  {
+    "name": "ironhands",
+    "overrideName": "Iron Hands",
+    "family": "IRONHANDS",
+    "pbName": "IRONHANDS",
+    "gsName": [
+      "IRONHANDS"
+    ]
+  },
+  {
+    "name": "ironjugulis",
+    "overrideName": "Iron Jugulis",
+    "family": "IRONJUGULIS",
+    "pbName": "IRONJUGULIS",
+    "gsName": [
+      "IRONJUGULIS"
+    ]
+  },
+  {
+    "name": "ironmoth",
+    "overrideName": "Iron Moth",
+    "family": "IRONMOTH",
+    "pbName": "IRONMOTH",
+    "gsName": [
+      "IRONMOTH"
+    ]
+  },
+  {
+    "name": "ironthorns",
+    "overrideName": "Iron Thorns",
+    "family": "IRONTHORNS",
+    "pbName": "IRONTHORNS",
+    "gsName": [
+      "IRONTHORNS"
+    ]
+  },
+  {
+    "name": "frigibax",
+    "family": "FRIGIBAX",
+    "pbName": "FRIGIBAX",
+    "gsName": [
+      "FRIGIBAX"
+    ]
+  },
+  {
+    "name": "arctibax",
+    "family": "FRIGIBAX",
+    "pbName": "ARCTIBAX",
+    "gsName": [
+      "ARCTIBAX"
+    ]
+  },
+  {
+    "name": "baxcalibur",
+    "family": "FRIGIBAX",
+    "pbName": "BAXCALIBUR",
+    "gsName": [
+      "BAXCALIBUR"
+    ]
+  },
+  {
+    "name": "gimmighoul",
+    "family": "GIMMIGHOUL",
+    "pbName": "GIMMIGHOUL",
+    "gsName": [
+      "GIMMIGHOUL"
+    ]
+  },
+  {
+    "name": "gholdengo",
+    "family": "GHOLDENGO",
+    "pbName": "GHOLDENGO",
+    "gsName": [
+      "GHOLDENGO"
+    ]
+  },
+  {
+    "name": "wochien",
+    "overrideName": "Wo-Chien",
+    "family": "WOCHIEN",
+    "pbName": "WOCHIEN",
+    "gsName": [
+      "WOCHIEN"
+    ]
+  },
+  {
+    "name": "chienpao",
+    "overrideName": "Chien-Pao",
+    "family": "CHIENPAO",
+    "pbName": "CHIENPAO",
+    "gsName": [
+      "CHIENPAO"
+    ]
+  },
+  {
+    "name": "tinglu",
+    "overrideName": "Ting-Lu",
+    "family": "TINGLU",
+    "pbName": "TINGLU",
+    "gsName": [
+      "TINGLU"
+    ]
+  },
+  {
+    "name": "chiyu",
+    "overrideName": "Chi-Yu",
+    "family": "CHIYU",
+    "pbName": "CHIYU",
+    "gsName": [
+      "CHIYU"
+    ]
+  },
+  {
+    "name": "roaringmoon",
+    "overrideName": "Roaring Moon",
+    "family": "ROARINGMOON",
+    "pbName": "ROARINGMOON",
+    "gsName": [
+      "ROARINGMOON"
+    ]
+  },
+  {
+    "name": "ironvaliant",
+    "overrideName": "Iron Valiant",
+    "family": "IRONVALIANT",
+    "pbName": "IRONVALIANT",
+    "gsName": [
+      "IRONVALIANT"
+    ]
+  },
+  {
+    "name": "koraidon",
+    "family": "KORAIDON",
+    "pbName": "KORAIDON",
+    "gsName": [
+      "KORAIDON"
+    ]
+  },
+  {
+    "name": "miraidon",
+    "family": "MIRAIDON",
+    "pbName": "MIRAIDON",
+    "gsName": [
+      "MIRAIDON"
+    ]
+  },
+  {
+    "name": "enamorus",
     "overrideName": "Enamorus (Incarnate)",
     "pbName": "ENAMORUS_INCARNATE_FORM",
     "family": "ENAMORUS_INCARNATE_FORM",
