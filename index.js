@@ -18,7 +18,10 @@ const privateSettings = require('./data/private-settings'),
   {Intents} = require('discord.js'),
   myIntents = new Intents();
 
-myIntents.add('GUILDS', 'GUILD_MEMBERS', 'GUILD_EMOJIS', 'GUILD_MESSAGES', 'GUILD_MESSAGE_REACTIONS', 'GUILD_PRESENCES', 'DIRECT_MESSAGES');
+// No privileged intents (Server Members, Presence): Discord withdraws them from large applications that were not
+// reviewed, and a login that asks for one it does not have is refused. Without them the member cache holds only
+// members seen since start (messages, reactions), so notifications reach only those and new members get no auto role.
+myIntents.add('GUILDS', 'GUILD_EMOJIS', 'GUILD_MESSAGES', 'GUILD_MESSAGE_REACTIONS', 'DIRECT_MESSAGES');
 
 const Client = new Commando.Client({
     owner: privateSettings.owner,

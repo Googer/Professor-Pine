@@ -330,10 +330,13 @@ class Helper {
     // quick search for variables to replace
     if (text.search(/\${.*?}/g) >= 0) {
       // replace guild related variables (if any exist)
-      const guildId = message && message.guild && message.guild.id ?
-        message.guild.id :
-        Array.from(this.client.guilds.cache)
-          .find(guild => guild[1].members.cache.has(message.author.id))[0];
+      const memberGuild = message && message.guild && message.guild.id ?
+          undefined :
+          Array.from(this.client.guilds.cache)
+            .find(guild => guild[1].members.cache.has(message.author.id)),
+        guildId = message && message.guild && message.guild.id ?
+          message.guild.id :
+          (memberGuild ? memberGuild[0] : undefined);
 
       let botChannelString = !!guildId ?
         this.guild.get(guildId).channels.botLab.toString() :

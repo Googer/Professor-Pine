@@ -19,7 +19,11 @@ class Role {
       // probably want to go to the bot lab to fix this...
       Object.entries(raid.attendees)
         .map(([attendee, attendeeStatus]) => attendee)
-        .filter(memberId => !(channel.permissionsFor(memberId).has('VIEW_CHANNEL')))
+        .filter(memberId => {
+          // null for a member not in the cache (no Server Members intent): leave them be
+          const permissions = channel.permissionsFor(memberId);
+          return !!permissions && !permissions.has('VIEW_CHANNEL');
+        })
         .forEach(memberWithoutAccess => {
           channel.updateOverwrite(memberWithoutAccess,
             {
@@ -38,7 +42,9 @@ class Role {
       // Go through party members and check their permissions on the raid's channel,
       // adding permission if necessary and informing via DM that they didn't and they
       // probably want to go to the bot lab to fix this...
-      if (!channel.permissionsFor(memberId).has('VIEW_CHANNEL')) {
+      const permissions = channel.permissionsFor(memberId);
+
+      if (!!permissions && !permissions.has('VIEW_CHANNEL')) {
         channel.updateOverwrite(memberId,
           {
             VIEW_CHANNEL: true

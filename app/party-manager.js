@@ -212,7 +212,8 @@ class PartyManager {
         return;
       }
 
-      const displayName = reaction.message.guild.members.cache.get(user.id).toString() || user.username;
+      const reactingMember = reaction.message.guild.members.cache.get(user.id),
+        displayName = (reactingMember && reactingMember.toString()) || user.username;
 
       let reactionEmoji = false;
 
