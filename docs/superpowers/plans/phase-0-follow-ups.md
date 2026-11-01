@@ -2927,3 +2927,10 @@ Matt asked for "Start train here" and "Hold meetup here" as the map's labels, an
 
 - **Claude's calls, for Matt to object to:** the button shows at every PokéStop to a member who may report, as at a gym: the page knows no rulings, so what the safety says is told when the form is sent. A flagged name still goes to the moderators and a place refused for good is refused, after the form is filled in. Hiding it at refused stops would need the rulings in the map's data.
 - **Seen live (2026-11-01, the Air, Googer):** the labels at a gym and a Power Spot, which offers no meetup; at Greenridge Estates the button, the form in the popup with the stop as its place, the meetup made and archived. **Not seen:** a flagged name going to the moderators, since Googer is staff and staff skip the check (Tester's, or the unit tests'); a real phone.
+
+## From one head for a place's popup (2026-11-01)
+
+Matt: gyms, PokéStops and Power Spots should open alike, without a region line. All now show name, address where known, distance once your location is known and Directions (`placeHead`), Find's places too.
+
+- **Claude's calls, for Matt to object to:** a gym's nickname stays under its name, and its notice and description now come after Directions. A stop's buttons stand one under another, so they no longer depend on the width of its name. A stop's or spot's address is what Wayfarer gave, so some have none and show no line.
+- **To see live:** the three popups, and the stop's three buttons, with a short and a long name.

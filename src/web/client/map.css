@@ -2930,6 +2930,13 @@ path.highlighted {
   margin-top: 6px;
 }
 
+/* A stop's buttons one under another, whatever the width its name gives the popup. */
+.stop-actions {
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: flex-start;
+}
+
 .stop-report .take-back-question .form-text {
   margin: 0;
   color: var(--text);

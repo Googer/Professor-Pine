@@ -160,6 +160,14 @@ describe("a PokéStop's popup without reports (plan 8M-9B, B11)", () => {
       { id: 'stop-9', title: 'Blue Bench', lat: 40.441, lon: -79.95 },
       { ...ctx, actions: [{ tag: 'button', text: 'Report Rocket here' }] },
     );
+    expect(
+      texts(
+        plainStopPopup(
+          { id: 'stop-9', title: 'Blue Bench', lat: 40.441, lon: -79.95, address: '1 Main St' },
+          ctx,
+        ),
+      ).slice(0, 2),
+    ).toEqual(['Blue Bench', '1 Main St']);
     expect(texts(node)).toEqual([
       'Blue Bench',
       '360 ft',

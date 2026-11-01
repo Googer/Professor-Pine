@@ -17,6 +17,8 @@ export interface FoundPlace {
   name: string;
   lat: number;
   lon: number;
+  /** Its address as one line, where anything of it is known. */
+  address?: string | null;
   /**
    * Found only by a misspelling (`placeFit` `guess`, plan 8M-13, O1): the page shows such places
    * only when Find found nothing else for the text. They come last within their kind.

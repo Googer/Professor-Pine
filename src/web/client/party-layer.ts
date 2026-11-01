@@ -32,6 +32,7 @@ import { listAskLimit, LiveConnection, LiveList, liveSource } from './live.js';
 import { RING_TAP_PANE, RING_TAP_PANE_Z, TRAIN_LINE_PANE, TRAIN_LINE_PANE_Z } from './panes.js';
 import {
   gymPopup as gymOwnPopup,
+  placeHead,
   popupMaxHeight,
   renderNode,
   type MapGym,
@@ -412,6 +413,8 @@ export interface MapRaids {
    * now (`reportOffered`); none otherwise.
    */
   spotControls(spot: MapSpot): HTMLElement[];
+  /** A Power Spot's popup without its controls (`placeHead`). */
+  spotPopup(spot: MapSpot & { address?: string | null }): HTMLElement;
   /** The Power Spots whose battle is drawn in place of their dot (A6). */
   battleSpots(): ReadonlySet<string>;
   /**
@@ -885,6 +888,20 @@ export function showParties(
       more: (report, kind) => (offered && kind === 'research' ? [sameTaskButton(report)] : []),
     };
   };
+  /** A Power Spot's popup without its controls: how every place's opens. */
+  const spotHead = (spot: {
+    title: string;
+    address?: string | null;
+    lat: number;
+    lon: number;
+  }): PageNode => ({
+    tag: 'div',
+    className: 'place-popup',
+    children: placeHead(
+      { name: spot.title, address: spot.address ?? null, lat: spot.lat, lon: spot.lon },
+      { located: frame.located(), units: frame.units },
+    ),
+  });
   /** A report shown by its id (an ended one too: its popup stays, B14). */
   const stopReportById = (id: string | undefined): StopReport | undefined => {
     const reports = stopReports.view;
@@ -1666,12 +1683,12 @@ export function showParties(
     if (!line.key.startsWith('place:') || !line.point) return undefined;
     if (line.kind === 'gyms') {
       const gym = gyms.get(Number(line.id));
-      return gym && gymOwnPopup(gym, regionNames);
+      return gym && gymOwnPopup(gym, { located: frame.located(), units: frame.units });
     }
-    const place = { id: line.id, title: line.name, ...line.point };
+    const place = { id: line.id, title: line.name, address: line.address, ...line.point };
     return line.kind === 'stops'
       ? plainStopPopup(place, stopContext({ key: place.id, name: place.title, at: line.point }))
-      : { tag: 'div', className: 'place-popup', children: [{ tag: 'strong', text: line.name }] };
+      : spotHead(place);
   };
   const whatIsOn = new WhatIsOn({
     section: listSection,
@@ -2919,6 +2936,7 @@ export function showParties(
           stopContext({ key: stop.id, name: stop.title, at: { lat: stop.lat, lon: stop.lon } }),
         ),
       ),
+    spotPopup: (spot) => draw(spotHead(spot)),
     gymControls: (gym) =>
       reportOffered(mayReport, view)
         ? [

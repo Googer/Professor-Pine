@@ -53,11 +53,11 @@ export type MeetupChange = (typeof MEETUP_CHANGES)[number];
 
 /**
  * The PokéStops of a server in a box of the map (`GET /s/<guild>/api/stops`), for picking a
- * meetup's place: `[id, lat, lon, title]`, the nearest to the box's middle first, at most
+ * meetup's place: `[id, lat, lon, title, address]`, the nearest to the box's middle first, at most
  * `MAX_MAP_STOPS`; `more` when the box holds more (the page asks to zoom in).
  */
 export interface StopsView {
-  stops: Array<[string, number, number, string]>;
+  stops: Array<[string, number, number, string, (string | null)?]>;
   more: boolean;
 }
 

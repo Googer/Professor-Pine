@@ -123,7 +123,7 @@ export function meetupAtStopBox(stop: PickedStop): PageNode {
             ? { 'data-stop-lat': String(stop.at.lat), 'data-stop-lon': String(stop.at.lon) }
             : {}),
         },
-        'meetup-here',
+        'press',
       ),
     ],
   };
@@ -160,7 +160,7 @@ export function gymPick(gym: MapGym): PickedPlace {
 }
 
 /** A PokéStop as `/api/stops` gives it: `[id, lat, lon, title]`. */
-export type MapStop = [string, number, number, string];
+export type MapStop = [string, number, number, string, (string | null)?];
 
 /** A PokéStop picked in "pick a place" mode. */
 export function stopPick(stop: MapStop, regions: GeoView['regions']): PickedPlace {

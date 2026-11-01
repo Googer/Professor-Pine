@@ -133,7 +133,7 @@ describe("the controls of a place in a popup's tree", () => {
   });
 
   it("are siblings under a gym's own popup, as `gymControls` adds them", () => {
-    const popup = gymPopup(GYM, new Map());
+    const popup = gymPopup(GYM);
     const controls = [reportBox(1), spawnBox(1), meetupHereBox(1), trainHereBox('1')];
     const root = { ...popup, children: [...(popup.children ?? []), ...controls] };
     expect(checked(root, 'gym-popup')).toEqual(controls);

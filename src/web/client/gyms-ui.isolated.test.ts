@@ -204,7 +204,7 @@ function shown(zoom: number, more: { on?: boolean; thins?: () => boolean; typed?
   const dots = showGymDots({
     map,
     gyms: GYMS,
-    names: new Map(),
+    where: () => ({ located: undefined, units: 'imperial' }),
     registry,
     filter,
     extras: () => [],

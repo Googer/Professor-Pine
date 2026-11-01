@@ -125,6 +125,8 @@ export interface PlacesHooks {
    * actions, made by the parties; none: its name alone.
    */
   stopPopup?(stop: PlaceSpot): HTMLElement | undefined;
+  /** A Power Spot's popup, its controls then added under it (`placeHead`); none: its name alone. */
+  spotPopup?(spot: PlaceSpot): HTMLElement | undefined;
   /**
    * A dot tapped that nothing took (Matt, 2026-10-30): what it opens, `own` or the list of what is
    * at its place; none: `own`.
@@ -138,6 +140,7 @@ export interface PlaceSpot {
   title: string;
   lat: number;
   lon: number;
+  address?: string | null;
 }
 
 /** What the places give the page: asked for anew, or drawn again from their last answers. */
@@ -191,7 +194,7 @@ export function showPlaces(
    * 8M-9A); its element.
    */
   const placePopup = (id: 'stops' | 'spots', place: PlaceSpot): HTMLElement | undefined => {
-    const made = id === 'stops' ? hooks?.stopPopup?.(place) : undefined;
+    const made = id === 'stops' ? hooks?.stopPopup?.(place) : hooks?.spotPopup?.(place);
     const content =
       made ??
       renderNode(
@@ -223,7 +226,7 @@ export function showPlaces(
       const shown = unoccupied(view.stops, hooks?.occupied(layer.id) ?? new Set<string>());
       // While the Report button's step 2 picks them, each has a larger target to tap (R1-10).
       const picked = hooks?.forced(layer.id) === true;
-      for (const [id, lat, lon, title] of shown) {
+      for (const [id, lat, lon, title, address] of shown) {
         const marker = L.circleMarker([lat, lon], {
           radius: 5,
           weight: 2,
@@ -236,10 +239,11 @@ export function showPlaces(
         // a Power Spot where a battle stands opens the battle (review B1).
         const open = (): void => {
           if (layer.id === 'spots' && hooks?.openBattle(id) === true) return;
-          placePopup(layer.id, { id, title, lat, lon });
+          placePopup(layer.id, { id, title, lat, lon, address });
         };
         const tapped = (): void => {
-          if (hooks?.placeTapped) hooks.placeTapped(layer.id, { id, title, lat, lon }, open);
+          if (hooks?.placeTapped)
+            hooks.placeTapped(layer.id, { id, title, lat, lon, address }, open);
           else open();
         };
         const targets = [
@@ -302,7 +306,7 @@ export function showPlaces(
         draw(view);
         told(
           layer.id,
-          view.stops.map(([id, lat, lon, title]) => ({ id, title, lat, lon })),
+          view.stops.map(([id, lat, lon, title, address]) => ({ id, title, lat, lon, address })),
         );
       },
       more: (more) => {

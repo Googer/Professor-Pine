@@ -22,11 +22,6 @@ const gym = (more: Partial<MapGym> = {}): MapGym => ({
   ...more,
 });
 
-const regions = new Map([
-  [1, 'west'],
-  [2, 'east'],
-]);
-
 describe("a popup's room at the map's top left", () => {
   // Leaflet's zoom buttons with a touch screen's size, from the map's top left: a 10 px margin and
   // a bar 34 wide, 65 tall (`leaflet.css`).
@@ -126,18 +121,17 @@ function fakeDocument() {
 }
 
 describe('gymPopup', () => {
-  it('names the gym, its nickname, regions, address and notes, and a way there', () => {
-    const popup = gymPopup(gym(), regions);
+  it('names the gym, its nickname and address, a way there, then its notes', () => {
+    const popup = gymPopup(gym());
     expect(texts(popup)).toEqual([
       'Pinewood Public Library',
       'The Stacks',
-      'Regions: west, east',
       '12 Maple Avenue, Pinewood',
+      'Directions',
       'Closed on Sundays',
       'Mural of readers',
-      'Directions',
     ]);
-    const link = popup.children?.at(-1);
+    const link = popup.children?.find((one) => one.className === 'map-line')?.children?.at(-1);
     expect(link).toMatchObject({
       tag: 'a',
       attributes: {
@@ -148,21 +142,32 @@ describe('gymPopup', () => {
     });
   });
 
-  it('says one region, leaves out what the gym does not have, and never calls it an elite raid gym', () => {
+  it("says how far the gym is once your location is known, in the settings' units", () => {
+    const popup = gymPopup(gym({ nickname: null, description: null, notice: null }), {
+      located: { lat: 40.05, lon: -80.05 },
+      units: 'imperial',
+    });
+    expect(texts(popup)).toEqual([
+      'Pinewood Public Library',
+      '12 Maple Avenue, Pinewood',
+      '0 ft',
+      ' · ',
+      'Directions',
+    ]);
+  });
+
+  it('leaves out what the gym does not have, and never calls it an elite raid gym', () => {
     // A view of an older server still marked such gyms: the page shows no mark all the same.
-    const popup = gymPopup(
-      {
-        ...gym({ nickname: null, address: null, description: null, notice: null, regionIds: [2] }),
-        ...{ elite: true },
-      },
-      regions,
-    );
-    expect(texts(popup)).toEqual(['Pinewood Public Library', 'Region: east', 'Directions']);
+    const popup = gymPopup({
+      ...gym({ nickname: null, address: null, description: null, notice: null, regionIds: [2] }),
+      ...{ elite: true },
+    });
+    expect(texts(popup)).toEqual(['Pinewood Public Library', 'Directions']);
   });
 
   it('keeps markup in what members wrote as text, never as HTML', () => {
     const name = '<img src=x onerror="alert(1)">';
-    const popup = gymPopup(gym({ name, nickname: '<b>bold</b>' }), regions);
+    const popup = gymPopup(gym({ name, nickname: '<b>bold</b>' }));
     const element = renderNode(popup, fakeDocument());
     expect(element.children[0]).toMatchObject({ tag: 'strong', textContent: name });
     expect(element.children[1]).toMatchObject({ textContent: '<b>bold</b>' });
@@ -170,13 +175,9 @@ describe('gymPopup', () => {
   });
 
   it('builds an element per node, with its class and attributes', () => {
-    const element = renderNode(gymPopup(gym(), regions), fakeDocument());
+    const element = renderNode(gymPopup(gym()), fakeDocument());
     expect(element).toMatchObject({ tag: 'div', className: 'gym-popup' });
-    expect(element.children.at(-1)).toMatchObject({
-      tag: 'a',
-      textContent: 'Directions',
-      attributes: { target: '_blank' },
-    });
+    expect(element.children[2]).toMatchObject({ className: 'address' });
   });
 });
 

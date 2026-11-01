@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from 'vitest';
+import { wayspotAddressLine } from '../domain/geo/wayfarer-address.js';
 import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
 import {
   EAST_CHANNEL,
@@ -467,13 +468,14 @@ describe('the PokéStops of a box of the map', () => {
       'south=40.06&west=-80.07&north=40.07&east=-80.06',
     );
     expect(answer.status).toBe(200);
-    expect(answer.json).toEqual({
-      stops: [
-        [wayspotId(2), 40.062, -80.062, 'Little Free Library'],
-        [wayspotId(1), 40.061, -80.061, 'Market Fountain'],
-      ],
-      more: false,
-    });
+    const shown = answer.json;
+    expect(shown.more).toBe(false);
+    expect(shown.stops.map((stop) => stop.slice(0, 4))).toEqual([
+      [wayspotId(2), 40.062, -80.062, 'Little Free Library'],
+      [wayspotId(1), 40.061, -80.061, 'Market Fountain'],
+    ]);
+    // Its address as one line, for the popup's head (Matt, 2026-11-01); null where none is known.
+    expect(shown.stops[1]?.[4]).toBe(wayspotAddressLine(FOUNTAIN_STOP.address) || null);
     const outside = await stopsIn(map.web, cookie, 'south=40.2&west=-80.1&north=40.3&east=-80.0');
     expect(outside.json).toEqual({ stops: [], more: false });
   });
@@ -485,7 +487,7 @@ describe('the PokéStops of a box of the map', () => {
     const cookie = await map.web.loggedIn(ALICE, 'Alice');
     const answer = await stopsIn(map.web, cookie, 'near=40.0612,-80.0612&count=1');
     expect(answer.json).toEqual({
-      stops: [[wayspotId(1), 40.061, -80.061, 'Market Fountain']],
+      stops: [[wayspotId(1), 40.061, -80.061, 'Market Fountain', expect.anything()]],
       more: false,
     });
   });

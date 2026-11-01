@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { AppContext } from '../app-context.js';
+import { wayspotAddressLine } from '../domain/geo/wayfarer-address.js';
 import { nearestPlaces } from '../domain/search/nearest.js';
 
 /**
@@ -20,8 +21,23 @@ export const boxSchema = z
 
 export type MapBox = z.infer<typeof boxSchema>;
 
-/** A Wayspot as the map lists it: `[id, lat, lon, title]`. */
-export type BoxedWayspot = [string, number, number, string];
+/** A Wayspot as the map lists it: `[id, lat, lon, title, address]`. */
+export type BoxedWayspot = [string, number, number, string, string | null];
+
+/** A Wayspot's line of the map's lists; its address where anything of it is known. */
+const boxed = ({
+  id,
+  lat,
+  lon,
+  title,
+  address,
+}: {
+  id: string;
+  lat: number;
+  lon: number;
+  title: string;
+  address: string | null;
+}): BoxedWayspot => [id, lat, lon, title, wayspotAddressLine(address) || null];
 
 /**
  * The kept Wayspots of `kind` with a title in a region of the server (`row`) inside the box, the
@@ -44,7 +60,7 @@ export function wayspotsInBox(
       if (wayspot.kind !== kind || wayspot.title.trim() === '') continue;
       const { lat, lon } = wayspot;
       if (lat < south || lat > north || lon < west || lon > east) continue;
-      found.set(wayspot.id, [wayspot.id, lat, lon, wayspot.title]);
+      found.set(wayspot.id, boxed(wayspot));
     }
   }
   const distance = ([, lat, lon]: BoxedWayspot): number =>
@@ -97,7 +113,7 @@ export function wayspotsNear(
     if (region.guildId !== row || row === undefined || region.bounds === null) continue;
     for (const wayspot of ctx.wayspots.inRegion(region.channelId)) {
       if (wayspot.kind !== kind || wayspot.title.trim() === '') continue;
-      places.set(wayspot.id, [wayspot.id, wayspot.lat, wayspot.lon, wayspot.title]);
+      places.set(wayspot.id, boxed(wayspot));
     }
   }
   return nearestPlaces(places.values(), [at], {

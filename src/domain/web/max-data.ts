@@ -10,11 +10,11 @@ export type { MapMaxTier };
 
 /**
  * The power spots of a server in a box of the map (`GET /s/<guild>/api/powerspots`), as
- * `/api/stops` gives the PokéStops: `[id, lat, lon, title]`, the nearest to the box's middle
+ * `/api/stops` gives the PokéStops: `[id, lat, lon, title, address]`, the nearest to the box's middle
  * first, at most `MAX_MAP_SPOTS`; `more` when the box holds more (the page asks to zoom in).
  */
 export interface PowerSpotsView {
-  spots: Array<[string, number, number, string]>;
+  spots: Array<[string, number, number, string, (string | null)?]>;
   more: boolean;
 }
 

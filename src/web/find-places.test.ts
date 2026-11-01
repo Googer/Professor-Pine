@@ -55,22 +55,22 @@ describe('the places Find finds on the map (plan 8M-12)', () => {
     const { places } = answer.json<FoundPlacesView>();
     expect(places).toEqual(
       expect.arrayContaining([
-        {
+        expect.objectContaining({
           kind: 'gym',
           id: '1',
           name: 'Pinewood Public Library',
           lat: 40.05,
           lon: -80.05,
           guess: false,
-        },
-        {
+        }),
+        expect.objectContaining({
           kind: 'powerspot',
           id: wayspotId(5),
           name: 'Library Garden',
           lat: 40.0502,
           lon: -80.0502,
           guess: false,
-        },
+        }),
       ]),
     );
     // The beginning of a word as typed, accents and case ignored.

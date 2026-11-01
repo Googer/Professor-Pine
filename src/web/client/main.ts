@@ -142,7 +142,10 @@ async function showGeo(
   const dots = showGymDots({
     map,
     gyms: view.gyms,
-    names,
+    where: () => ({
+      located: you.located(),
+      units: document.body.dataset.distanceUnits === 'metric' ? 'metric' : 'imperial',
+    }),
     registry,
     filter: byId('filter') as HTMLInputElement,
     extras: (gym) => gymExtras.of(gym),
@@ -453,6 +456,7 @@ function start(): void {
         openBattle: () => false,
         stopTapped: () => false,
         stopPopup: () => undefined,
+        spotPopup: () => undefined,
       };
       const places = showPlaces(
         map,
@@ -469,6 +473,7 @@ function start(): void {
           openBattle: (spotId) => placesHooks.openBattle(spotId),
           stopTapped: (stop) => placesHooks.stopTapped(stop),
           stopPopup: (stop) => placesHooks.stopPopup?.(stop),
+          spotPopup: (spot) => placesHooks.spotPopup?.(spot),
           placeTapped: (layer, place, own) => {
             if (placesHooks.placeTapped) placesHooks.placeTapped(layer, place, own);
             else own();
@@ -582,6 +587,7 @@ function start(): void {
       placesHooks.stopTapped = (stop) => raids.stopTapped(stop);
       // A PokéStop's popup: how far, Directions, its actions (plan 8M-9B, B11).
       placesHooks.stopPopup = (stop) => raids.stopPopup(stop);
+      placesHooks.spotPopup = (spot) => raids.spotPopup(spot);
       placesHooks.placeTapped = (layer, place, own) => {
         raids.placeTapped(layer, place, own);
       };

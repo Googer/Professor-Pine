@@ -157,6 +157,7 @@ export function placeLine(place: FoundPlace): ListLine {
     name: place.name,
     place: words,
     point: { lat: place.lat, lon: place.lon },
+    address: place.address,
     picture: null,
     going: 0,
     soonest: null,

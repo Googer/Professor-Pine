@@ -392,6 +392,20 @@ describe('the Power Spots and PokéStops of the view (showPlaces)', () => {
   });
 
   // Review B6: in step 2 of a spawn a PokéStop tapped is the place, as a gym or a spot is.
+  it("draws a Power Spot's popup by the parties' hook, its controls under it", async () => {
+    const asked: unknown[] = [];
+    const { dotOf } = await shownWith(
+      hooks({
+        spotPopup: (spot) => {
+          asked.push(spot.title);
+          return undefined;
+        },
+      }),
+    );
+    dotOf('spot-dot')?.fire('click');
+    expect(asked).toHaveLength(1);
+  });
+
   it("gives a PokéStop's tap to the Report button's step 2, its popup opened only where it is not taken", async () => {
     const tapped: unknown[] = [];
     let taken = true;

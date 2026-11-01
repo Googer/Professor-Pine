@@ -5,8 +5,7 @@ import type {
   MapReward,
 } from '../../domain/web/stop-report-data.js';
 import type { DistanceUnits, Place } from './distance.js';
-import { addressLine, type PageNode } from './popup.js';
-import { mapLine } from './post-draw.js';
+import { placeHead, type PageNode } from './popup.js';
 import { timeLeft } from './raid-marker.js';
 import { iconNode } from './report-menu.js';
 import { REPORT_ICONS } from './report-icons.js';
@@ -200,19 +199,6 @@ function hideoutPart(report: MapHideout, ctx: StopPopupContext): PageNode {
   ]);
 }
 
-/** The stop's own lines: its name, its address, how far it is and Directions. */
-function stopHead(
-  stop: { name: string; address: string | null; lat: number; lon: number },
-  ctx: StopPopupContext,
-  address: boolean,
-): PageNode[] {
-  return [
-    { tag: 'strong', className: 'name', text: stop.name },
-    ...(address ? addressLine(stop) : []),
-    mapLine(stop, '', ctx.located, ctx.units),
-  ];
-}
-
 /** The stop's own actions, where offered. */
 function actionsPart(ctx: StopPopupContext): PageNode[] {
   return ctx.actions === undefined || ctx.actions.length === 0
@@ -227,7 +213,7 @@ export function stopPopup(at: StopReports, ctx: StopPopupContext): PageNode {
     className: 'stop-popup',
     attributes: { 'data-stop': at.stop.key },
     children: [
-      ...stopHead(at.stop, ctx, true),
+      ...placeHead(at.stop, ctx),
       ...at.research.map((report) => researchPart(report, ctx)),
       ...at.grunts.map((report) => gruntPart(report, ctx)),
       ...at.hideouts.map((report) => hideoutPart(report, ctx)),
@@ -237,11 +223,10 @@ export function stopPopup(at: StopReports, ctx: StopPopupContext): PageNode {
 }
 
 /**
- * A PokéStop's popup without reports (B11): its name, how far it is and Directions (no address
- * line: `/api/stops` gives none), then its own actions.
+ * A PokéStop's popup without reports (B11): `placeHead`, then its own actions.
  */
 export function plainStopPopup(
-  stop: { id: string; title: string; lat: number; lon: number },
+  stop: { id: string; title: string; lat: number; lon: number; address?: string | null },
   ctx: StopPopupContext,
 ): PageNode {
   return {
@@ -249,7 +234,10 @@ export function plainStopPopup(
     className: 'stop-popup plain',
     attributes: { 'data-stop': stop.id },
     children: [
-      ...stopHead({ name: stop.title, address: null, lat: stop.lat, lon: stop.lon }, ctx, false),
+      ...placeHead(
+        { name: stop.title, address: stop.address ?? null, lat: stop.lat, lon: stop.lon },
+        ctx,
+      ),
       ...actionsPart(ctx),
     ],
   };

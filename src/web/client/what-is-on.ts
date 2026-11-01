@@ -44,6 +44,8 @@ const GROUPS: ReadonlyArray<[ListKind, string]> = [
 
 /** A thing of the list, as the page has it from the list of parties. */
 export interface ListLine {
+  /** A place of Find: its address, where anything of it is known. */
+  address?: string | null;
   /** `raid:<id>`, `max:<id>`, `train:<id>`, `meetup:<id>`. */
   key: string;
   kind: ListKind;

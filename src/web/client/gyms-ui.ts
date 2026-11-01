@@ -3,7 +3,7 @@ import { ClusterLayer } from './cluster-layer.js';
 import { shownGyms } from './gym-dots.js';
 import type { LayerRegistry } from './layer-registry.js';
 import { GYM_DOT, gymClicks } from './party-layer.js';
-import { gymPopup, popupMaxHeight, renderNode, type MapGym } from './popup.js';
+import { gymPopup, popupMaxHeight, renderNode, type MapGym, type PopupWhere } from './popup.js';
 import type { RouteFocus } from './route-focus.js';
 import { stopName } from './train-forms.js';
 import { heldContent } from './raid-forms.js';
@@ -30,7 +30,8 @@ export interface GymDots {
 export interface GymDotsDeps {
   map: L.Map;
   gyms: readonly MapGym[];
-  names: ReadonlyMap<number, string>;
+  /** Where the reader is, for how far a gym is, as its popup opens. */
+  where(): PopupWhere;
   registry: LayerRegistry;
   filter: HTMLInputElement;
   /** What a gym's popup shows beyond the gym: "Report raid" and the rest, for a member. */
@@ -76,7 +77,7 @@ export function showGymDots(deps: GymDotsDeps): GymDots {
     }).bindPopup(
       heldContent(
         () => {
-          const popup = renderNode(gymPopup(gym, deps.names), document);
+          const popup = renderNode(gymPopup(gym, deps.where()), document);
           popup.append(...deps.extras(gym));
           return popup;
         },

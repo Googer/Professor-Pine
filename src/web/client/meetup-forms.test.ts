@@ -130,6 +130,8 @@ describe('"Hold meetup here" in a PokéStop\'s popup', () => {
     expect(box).toMatchObject({ className: 'meetup-box place-control' });
     const text = JSON.stringify(box);
     expect(text).toContain('Hold meetup here');
+    // As the stop's other buttons, nothing added of the gym's button.
+    expect(text).toContain('"className":"press"');
     expect(
       stopFromMeetupButton({
         meetupAtStop: 'abc.16',

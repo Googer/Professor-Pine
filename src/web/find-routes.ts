@@ -50,6 +50,7 @@ function foundPlace(choice: PlaceChoice): FoundPlace {
     kind: choice.kind satisfies FoundPlaceKind,
     id: choice.id,
     name: choice.title,
+    address: choice.address || null,
     lat: choice.point.lat,
     lon: choice.point.lon,
     // Last within its kind already: `mergePlaces` ranks a guess after every other fit, so the

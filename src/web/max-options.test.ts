@@ -193,8 +193,8 @@ describe('GET /s/<guild>/api/powerspots', () => {
     expect(answer.answer.headers['cache-control']).toBe('private, no-store');
     expect(answer.json).toEqual({
       spots: [
-        [wayspotId(3), 40.0651, -80.0651, 'Bandstand'],
-        [wayspotId(2), 40.062, -80.062, 'Salon'],
+        [wayspotId(3), 40.0651, -80.0651, 'Bandstand', expect.anything()],
+        [wayspotId(2), 40.062, -80.062, 'Salon', expect.anything()],
       ],
       more: false,
     });
@@ -225,8 +225,8 @@ describe('GET /s/<guild>/api/powerspots', () => {
     expect(answer.status).toBe(200);
     expect(answer.json).toEqual({
       spots: [
-        [wayspotId(3), 40.0651, -80.0651, 'Bandstand'],
-        [wayspotId(2), 40.062, -80.062, 'Salon'],
+        [wayspotId(3), 40.0651, -80.0651, 'Bandstand', expect.anything()],
+        [wayspotId(2), 40.062, -80.062, 'Salon', expect.anything()],
       ],
       more: false,
     });

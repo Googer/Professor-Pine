@@ -8,10 +8,12 @@ import type {
   PostViewBlock,
 } from '../../domain/web/party-data.js';
 import { completionAsk, NOT_YET, TAKEN_AS_DONE, YES_DONE } from '../../render/completion-words.js';
-import { distanceWords, metersBetween, type DistanceUnits, type Place } from './distance.js';
+import type { DistanceUnits, Place } from './distance.js';
 import { meetupActions, meetupHereBox } from './meetup-forms.js';
 import { groupPick, STATUS_WORDS } from './parties.js';
-import { directionsLink, type PageNode } from './popup.js';
+import { mapLine, type PageNode } from './popup.js';
+
+export { mapLine };
 import { postTime, type TimeShown } from './post-time.js';
 import { spawnBox } from './spawn-forms.js';
 import { trainHereBox } from './train-forms.js';
@@ -561,50 +563,6 @@ export function mapControls(party: MapParty): PageNode[] {
     ...(party.mayReport === true ? [control('Report…', 'data-report-party')] : []),
     ...(party.close === undefined ? [] : [control('Delete…', 'data-close-party')]),
   ];
-}
-
-/**
- * The map's line under a post: how far it is (from where the member is, once the browser said;
- * `distanceWords` in the server's units), Directions (Google Maps, a route to the place),
- * Open on Discord (the post), and the map's own controls (`controls`, `mapControls`).
- */
-export function mapLine(
-  place: Place | undefined,
-  link: string,
-  located: Place | undefined,
-  units: DistanceUnits,
-  controls: readonly PageNode[] = [],
-): PageNode {
-  const parts: PageNode[] = [
-    ...(place !== undefined && located !== undefined
-      ? [
-          {
-            tag: 'span',
-            className: 'distance',
-            text: distanceWords(metersBetween(located, place), units),
-          },
-        ]
-      : []),
-    ...(place === undefined ? [] : [directionsLink(place)]),
-    ...(link.startsWith('https://discord.com/channels/')
-      ? [
-          {
-            tag: 'a',
-            className: 'post-link',
-            text: 'Open on Discord',
-            attributes: { href: link, ...NEW_TAB },
-          },
-        ]
-      : []),
-    ...controls,
-  ];
-  return {
-    tag: 'div',
-    className: 'map-line',
-    children: parts.flatMap((part, index) =>
-      index === 0 ? [part] : [{ tag: 'span', className: 'sep', text: ' · ' }, part],
-    ),
-  };
 }
 
 /** A raid among several at one gym, as the list of them names it. */

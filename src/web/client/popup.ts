@@ -1,4 +1,5 @@
 import type { GeoView } from '../../domain/web/geo-data.js';
+import { distanceWords, metersBetween, type DistanceUnits, type Place } from './distance.js';
 
 /** A gym as the page has it from `/api/geo`. */
 export type MapGym = GeoView['gyms'][number];
@@ -93,32 +94,88 @@ export function directionsLink(gym: Pick<MapGym, 'lat' | 'lon'>): PageNode {
   };
 }
 
+const NEW_TAB = { target: '_blank', rel: 'noopener noreferrer' } as const;
+
 /**
- * The popup of a gym (spec 3.1): its name, nickname, its regions, address
- * line, notice and description, and "Directions" (Google Maps, a route to its place, in a new
- * tab that does not learn where it came from).
+ * The map's line: how far a place is once your location is known, "Directions", the post on
+ * Discord where given, and `controls`; a place's and a party's popup alike.
  */
-export function gymPopup(gym: MapGym, regionNames: ReadonlyMap<number, string>): PageNode {
-  const regions = gym.regionIds.flatMap((id) => {
-    const name = regionNames.get(id);
-    return name === undefined ? [] : [name];
-  });
+export function mapLine(
+  place: Place | undefined,
+  link: string,
+  located: Place | undefined,
+  units: DistanceUnits,
+  controls: readonly PageNode[] = [],
+): PageNode {
+  const parts: PageNode[] = [
+    ...(place !== undefined && located !== undefined
+      ? [
+          {
+            tag: 'span',
+            className: 'distance',
+            text: distanceWords(metersBetween(located, place), units),
+          },
+        ]
+      : []),
+    ...(place === undefined ? [] : [directionsLink(place)]),
+    ...(link.startsWith('https://discord.com/channels/')
+      ? [
+          {
+            tag: 'a',
+            className: 'post-link',
+            text: 'Open on Discord',
+            attributes: { href: link, ...NEW_TAB },
+          },
+        ]
+      : []),
+    ...controls,
+  ];
+  return {
+    tag: 'div',
+    className: 'map-line',
+    children: parts.flatMap((part, index) =>
+      index === 0 ? [part] : [{ tag: 'span', className: 'sep', text: ' · ' }, part],
+    ),
+  };
+}
+
+/** Where the reader is, for how far a place is: none until the browser said. */
+export interface PopupWhere {
+  located: Place | undefined;
+  units: DistanceUnits;
+}
+
+/**
+ * How every place's popup opens, a gym's, a PokéStop's and a Power Spot's alike (Matt, 2026-11-01):
+ * its name, its address where anything of it is known, how far it is and Directions.
+ */
+export function placeHead(
+  place: { name: string; address: string | null; lat: number; lon: number },
+  where: PopupWhere,
+  nickname: readonly PageNode[] = [],
+): PageNode[] {
+  return [
+    { tag: 'strong', className: 'name', text: place.name },
+    ...nickname,
+    ...addressLine(place),
+    mapLine(place, '', where.located, where.units),
+  ];
+}
+
+/**
+ * The popup of a gym (spec 3.1): `placeHead` with its nickname, then its notice and description.
+ */
+export function gymPopup(
+  gym: MapGym,
+  where: PopupWhere = { located: undefined, units: 'imperial' },
+): PageNode {
   return {
     tag: 'div',
     className: 'gym-popup',
     children: [
-      { tag: 'strong', className: 'name', text: gym.name },
-      ...line('nickname', gym.nickname),
-      ...line(
-        'regions',
-        regions.length === 0
-          ? null
-          : `${regions.length === 1 ? 'Region' : 'Regions'}: ${regions.join(', ')}`,
-      ),
-      ...addressLine(gym),
+      ...placeHead(gym, where, line('nickname', gym.nickname)),
       ...line('notice', gym.notice),
       ...line('description', gym.description),
-      directionsLink(gym),
     ],
   };
 }
