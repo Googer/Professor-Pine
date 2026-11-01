@@ -84,6 +84,9 @@ services:
   # restarts nothing but the pine service of this project. Root inside, since the socket is.
   watchdog:
     image: professor-pine:${COMPOSE_PROJECT_NAME:-pine}
+    # The pine service builds this image; it is on no registry, and `./pine update`'s pull skips
+    # only what is told not to pull or has a build of its own.
+    pull_policy: never
     command: ['node', '--enable-source-maps', 'dist/ops/watchdog-cli.js']
     user: '0'
     # Only what it needs of `.env`: no database password in a container that holds the socket.

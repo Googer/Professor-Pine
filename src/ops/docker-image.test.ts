@@ -91,3 +91,21 @@ describe('./pine', () => {
     expect(commands.some((line) => /\brun pull --ignore-buildable\b/.test(line))).toBe(true);
   });
 });
+
+// `compose pull --ignore-buildable` skips only a service with its own `build:`. The bot's image is
+// on no registry, so one more service on it without a way to skip made `./pine update` stop there.
+describe('compose.yaml', () => {
+  const services = read('compose.yaml')
+    .split(/^ {2}(?=[a-z-]+:\r?$)/m)
+    .slice(1);
+
+  it('never pulls the bot image, which only a build makes', () => {
+    const onBotImage = services.filter((text) => /^ {4}image: professor-pine:/m.test(text));
+    expect(onBotImage.length).toBeGreaterThan(1);
+    for (const text of onBotImage) {
+      expect(/^ {4}build:/m.test(text) || /^ {4}pull_policy: never\r?$/m.test(text), text).toBe(
+        true,
+      );
+    }
+  });
+});
