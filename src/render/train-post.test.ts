@@ -601,6 +601,13 @@ describe('renderTrainPost', () => {
     expect(post.brief.lines[0]).toBe('**Raid Train: \\*\\*Bold\\*\\* train**');
   });
 
+  it('makes no link of an address in the name in its brief, which other members are sent', () => {
+    const post = renderTrainPost(view(testTrain({ name: 'Passes at https://evil.example/login' })));
+    expect(post.brief.lines[0]).toContain('Passes at');
+    expect(post.brief.lines[0]).not.toContain('https://');
+    expect(post.brief.lines[0]).not.toContain('evil.example/');
+  });
+
   it('stays a message Discord takes with the longest route and a crowd in five groups', () => {
     const long = (id: number): PostGym => ({
       name: `${'Long gym name '.repeat(6)}${id}`,

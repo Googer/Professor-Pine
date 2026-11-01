@@ -39,7 +39,7 @@ import {
   WHERE_HEADING,
   type ShownBoss,
 } from './raid-post.js';
-import { LIMITS, memberByName, memberName, plain, truncate } from './text.js';
+import { LIMITS, memberByName, memberName, plain, plainNoLinks, truncate } from './text.js';
 import { describeTimes, shownAsOver, TIMED_COLOUR, type TimedPostView } from './timed-post.js';
 import { stopLabel, stopLink, stopWhere, type StopLookup } from './train-stops.js';
 import { TRAIN_KIND_WORDS } from './train-words.js';
@@ -82,8 +82,8 @@ export function trainTags(party: TrainParty, now: number): ForumTag[] {
 }
 
 /** `Max Battle Train: Wild Area`: what the train is, by its kind, and its name, made plain. */
-function headline(party: TrainParty): string {
-  return `${TRAIN_KIND_WORDS[party.train.kind]}: ${plain(nameOf(party))}`;
+function headline(party: TrainParty, shown: (text: string) => string = plain): string {
+  return `${TRAIN_KIND_WORDS[party.train.kind]}: ${shown(nameOf(party))}`;
 }
 
 /**
@@ -357,8 +357,9 @@ function trainLayout(view: TrainPostView): PostLayout {
 
 /**
  * The train in brief, for a direct message: its name (the sentence of a new train does not say
- * it), what it is after, where it is, its times as the post says them and how many come, with
- * the colour of its post and the boss's picture.
+ * it; a member's words, sent to members who did not ask for them, so no address in it is a link),
+ * what it is after, where it is, its times as the post says them and how many come, with the
+ * colour of its post and the boss's picture.
  */
 function trainBrief(view: TrainPostView): PartyBrief {
   const { party, boss } = view;
@@ -366,7 +367,7 @@ function trainBrief(view: TrainPostView): PartyBrief {
     accent: colour(view),
     ...(boss?.image === undefined ? {} : { picture: boss.image }),
     lines: [
-      `**${headline(party)}**`,
+      `**${headline(party, plainNoLinks)}**`,
       ...afterLine(view),
       placeLine(view),
       view.closed ?? describeTimes(view),
