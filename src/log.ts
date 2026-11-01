@@ -2,7 +2,15 @@ import { pino, type DestinationStream, type Logger, type LoggerOptions } from 'p
 
 export type { Logger } from 'pino';
 
-const SECRET_KEYS = ['DISCORD_TOKEN', 'DB_PASSWORD', 'GITHUB_TOKEN', 'GOOGLE_API_KEY'] as const;
+const SECRET_KEYS = [
+  'DISCORD_TOKEN',
+  'DISCORD_CLIENT_SECRET',
+  'DB_PASSWORD',
+  'DB_ROOT_PASSWORD',
+  'GITHUB_TOKEN',
+  'GOOGLE_API_KEY',
+  'CLOUDFLARE_TUNNEL_TOKEN',
+] as const;
 /**
  * Where an env object usually sits in a log entry: bare, as `env`, inside a config or context, or one level down.
  *

@@ -107,7 +107,15 @@ describe('secret redaction', () => {
   });
 
   it('covers every secret environment variable under every prefix', () => {
-    for (const key of ['DISCORD_TOKEN', 'DB_PASSWORD', 'GITHUB_TOKEN', 'GOOGLE_API_KEY']) {
+    for (const key of [
+      'DISCORD_TOKEN',
+      'DISCORD_CLIENT_SECRET',
+      'DB_PASSWORD',
+      'DB_ROOT_PASSWORD',
+      'GITHUB_TOKEN',
+      'GOOGLE_API_KEY',
+      'CLOUDFLARE_TUNNEL_TOKEN',
+    ]) {
       for (const prefix of ['', 'env.', 'config.env.', 'ctx.config.env.', '*.']) {
         expect(REDACT_PATHS).toContain(`${prefix}${key}`);
       }
