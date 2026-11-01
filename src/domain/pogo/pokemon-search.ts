@@ -1,6 +1,12 @@
 import { distance } from 'fastest-levenshtein';
 import MiniSearch from 'minisearch';
-import { MATCH_WEIGHTS, allowedTypos, searchText, searchTokens } from '../search/text.js';
+import {
+  MATCH_WEIGHTS,
+  allowedTypos,
+  firstWords,
+  searchText,
+  searchTokens,
+} from '../search/text.js';
 import type { PokemonCatalogue } from './catalogue.js';
 import { feedLookupOf } from './feed-lookup.js';
 import type { PokemonEntry } from './game-master.js';
@@ -414,9 +420,10 @@ export class PokemonSearch {
    * every proper match. A text that names an entry outright is not guessed at: `mawile` is no
    * misspelling of Marill, and what begins with it (`kabuto` and Kabutops) is all it brings
    * besides. The species whose Pokédex number the text is stands first as well, but as a
-   * `loose` hit: a number is not a name.
+   * `loose` hit: a number is not a name. A long text goes by its first words (`firstWords`).
    */
-  find(text: string, options: PokemonSearchOptions = {}): PokemonHit[] {
+  find(typed: string, options: PokemonSearchOptions = {}): PokemonHit[] {
+    const text = firstWords(typed);
     const { filter, limit } = options;
     const plain = options.plain === true;
     const folded = searchText(text);

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { testGyms } from '../../../test/support/gyms.js';
 import { GymIndex, searchedWords, type GymSearchOptions, type SearchableGym } from './gym-index.js';
+import { MAX_SEARCH_WORDS } from './text.js';
 
 const IGNORED = ['ex', 'raid', 'gym', 'sponsored'];
 const index = new GymIndex(testGyms(), IGNORED);
@@ -172,6 +173,15 @@ function invented(id: number, name: string, extra: Partial<SearchableGym> = {}):
     ...extra,
   };
 }
+
+describe('GymIndex: a long text', () => {
+  it('goes by its first words', () => {
+    const name = Array.from({ length: MAX_SEARCH_WORDS }, (_, i) => `w${i}`).join(' ');
+    const [hit] = new GymIndex([invented(1, name)]).search(`${name} and nothing like these`);
+    expect(hit?.gym.id).toBe(1);
+    expect(hit?.allWords).toBe(true);
+  });
+});
 
 describe('GymIndex: the word as typed comes before a correction', () => {
   const pizza = invented(1, 'Pizza Hut');

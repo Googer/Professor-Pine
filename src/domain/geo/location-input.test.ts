@@ -20,6 +20,12 @@ describe('readLocation', () => {
     expect(readLocation(text)).toEqual(point(lat, lon));
   });
 
+  it('reads a long run of white space as one space', () => {
+    expect(readLocation(`40.4406${' '.repeat(2_000)}-79.9959`)).toEqual(point(40.4406, -79.9959));
+    expect(readLocation(`40.4406${'\n'.repeat(500)}N 79.9959 W`)).toEqual(point(40.4406, -79.9959));
+    expect(readLocation(`1${' '.repeat(500)}N${' '.repeat(998)}x`)).toEqual({ kind: 'unreadable' });
+  });
+
   it('reads degrees, minutes and seconds, whichever comes first', () => {
     const read = readLocation(`40°26'26.2"N 79°59'45.2"W`);
     expect(read.kind).toBe('point');

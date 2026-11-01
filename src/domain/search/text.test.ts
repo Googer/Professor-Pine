@@ -1,12 +1,33 @@
 import { describe, expect, it } from 'vitest';
 import {
+  MAX_SEARCH_WORDS,
   STOP_WORDS,
   allowedTypos,
+  firstWords,
   foldText,
   readsEvery,
   searchText,
   searchTokens,
 } from './text.js';
+
+describe('firstWords', () => {
+  const words = (count: number) => Array.from({ length: count }, (_, i) => `w${i}`).join(' ');
+
+  it('leaves a text within the limit as it is', () => {
+    expect(firstWords('St. Paul’s Church')).toBe('St. Paul’s Church');
+    expect(firstWords(words(MAX_SEARCH_WORDS))).toBe(words(MAX_SEARCH_WORDS));
+  });
+
+  it('keeps the first words of a longer text', () => {
+    expect(firstWords(`${words(MAX_SEARCH_WORDS)} more and more`)).toBe(words(MAX_SEARCH_WORDS));
+  });
+
+  it('cuts a word too long to be one of a name', () => {
+    const [word = '', ...rest] = searchTokens(firstWords(`${'x'.repeat(1_500)} park`));
+    expect(word.length).toBeLessThan(100);
+    expect(rest).toEqual(['park']);
+  });
+});
 
 describe('foldText', () => {
   it('lower-cases and removes accents', () => {

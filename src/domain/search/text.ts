@@ -41,6 +41,29 @@ export function searchText(text: string): string {
   return searchTokens(text).join(' ');
 }
 
+/** How many words of a text a search goes by: more than a name has. */
+export const MAX_SEARCH_WORDS = 16;
+/** How much of a word a search goes by: longer than any word of a name. */
+const MAX_SEARCH_WORD_LETTERS = 40;
+
+/**
+ * The text a search goes by: as it is, unless it has more than `MAX_SEARCH_WORDS` words or a word
+ * longer than `MAX_SEARCH_WORD_LETTERS`; then its first words, cut to that. Searches run on the
+ * thread that holds the gateway, whose every typed word costs something for every hit, and what
+ * an option's list is asked has no throttle: 500 short words took seconds over a city's stops.
+ */
+export function firstWords(text: string): string {
+  const words = searchTokens(text);
+  const fits =
+    words.length <= MAX_SEARCH_WORDS &&
+    words.every((word) => word.length <= MAX_SEARCH_WORD_LETTERS);
+  if (fits) return text;
+  return words
+    .slice(0, MAX_SEARCH_WORDS)
+    .map((word) => word.slice(0, MAX_SEARCH_WORD_LETTERS))
+    .join(' ');
+}
+
 /**
  * How many letters of a word may be wrong and still match: none up to three letters, one up to
  * five, two beyond. Two letters typed in the wrong order count as two.

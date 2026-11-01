@@ -68,9 +68,11 @@ function fromDms(
 /**
  * Two numbers as coordinates, latitude first: `40.44,-79.99`, with a space instead of the comma
  * or after it, with the letters of the compass, or as degrees, minutes and seconds. Undefined
- * for a text that is none of these.
+ * for a text that is none of these. A run of white space counts as one space: the patterns take
+ * white space in several places in a row, and long runs would make them try every way to share it.
  */
-export function readPair(text: string): LocationReading | undefined {
+export function readPair(typed: string): LocationReading | undefined {
+  const text = typed.replace(/\s+/g, ' ');
   const plain = PAIR.exec(text);
   if (plain) return checked({ lat: Number(plain[1]), lon: Number(plain[2]) });
   const compass = COMPASS_PAIR.exec(text);

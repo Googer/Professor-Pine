@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { catalogueFixture } from '../../../test/support/game-data.js';
+import { MAX_SEARCH_WORDS } from '../search/text.js';
 import { CURATED_NICKNAMES } from './nicknames.js';
 import { PokemonSearch, mergeNicknames } from './pokemon-search.js';
 
@@ -404,6 +405,12 @@ describe('PokemonSearch: forms that differ in looks only', () => {
 });
 
 describe('PokemonSearch: options', () => {
+  it('goes by the first words of a long text', () => {
+    expect(keys(`${'charizard '.repeat(MAX_SEARCH_WORDS)}nothing like these`, 1)).toEqual([
+      'charizard',
+    ]);
+  });
+
   it('limits the results', () => {
     expect(keys('mega', 5)).toHaveLength(5);
     expect(keys('charizard', 1)).toEqual(['charizard']);

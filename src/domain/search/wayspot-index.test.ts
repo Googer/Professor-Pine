@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { MAX_SEARCH_WORDS } from './text.js';
 import { WayspotIndex, type SearchableWayspot } from './wayspot-index.js';
 
 const stops: SearchableWayspot[] = [
@@ -13,6 +14,14 @@ const stops: SearchableWayspot[] = [
 const ids = (found: { wayspot: { id: string } }[]) => found.map((hit) => hit.wayspot.id);
 
 describe('WayspotIndex', () => {
+  it('goes by the first words of a long text', () => {
+    const title = Array.from({ length: MAX_SEARCH_WORDS }, (_, i) => `w${i}`).join(' ');
+    const index = new WayspotIndex([...stops, { id: 'long', title, address: null }]);
+    const [hit] = index.search(`${title} and nothing like these`);
+    expect(hit?.wayspot.id).toBe('long');
+    expect(hit?.allWords).toBe(true);
+  });
+
   it('finds a Wayspot by every word of its title, beginnings too, best first', () => {
     const index = new WayspotIndex(stops);
     expect(ids(index.search('little free library'))).toEqual(['s1']);

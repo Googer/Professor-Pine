@@ -1,6 +1,6 @@
 import MiniSearch from 'minisearch';
 import { addressText } from '../geo/geodata.js';
-import { MATCH_WEIGHTS, namedReading, STOP_WORDS, searchTokens } from './text.js';
+import { firstWords, MATCH_WEIGHTS, namedReading, STOP_WORDS, searchTokens } from './text.js';
 
 /** What the search needs to know of a gym (`Gym` of the gym repository has all of it). */
 export interface SearchableGym {
@@ -197,9 +197,11 @@ export class GymIndex<G extends SearchableGym> {
    * has a single letter beside other words ("pinewood l", an unfinished word), the same two
    * steps are made again without the single letters. Only when all of that found nothing, the
    * gyms that have some of the words as typed (`allWords` false), again as typed first and
-   * corrected after. Ties go to the lower id. Empty when no word is left to search by.
+   * corrected after. Ties go to the lower id. Empty when no word is left to search by. A long
+   * text goes by its first words (`firstWords`).
    */
-  search(text: string, options: GymSearchOptions = {}): GymMatch<G>[] {
+  search(typed: string, options: GymSearchOptions = {}): GymMatch<G>[] {
+    const text = firstWords(typed);
     const { limit, words = 'best' } = options;
     let matches: GymMatch<G>[] = [];
     if (words !== 'any') {

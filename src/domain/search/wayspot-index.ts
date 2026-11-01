@@ -1,6 +1,6 @@
 import MiniSearch from 'minisearch';
 import { wayfarerAddressParts } from '../geo/wayfarer-address.js';
-import { MATCH_WEIGHTS, namedReading, STOP_WORDS, searchTokens } from './text.js';
+import { firstWords, MATCH_WEIGHTS, namedReading, STOP_WORDS, searchTokens } from './text.js';
 
 /**
  * Finding a kind of kept Wayspot (PokéStops, power spots) by what members type (plan 8W-2; Matt,
@@ -118,9 +118,10 @@ export class WayspotIndex<W extends SearchableWayspot> {
   /**
    * The matches as typed; else those with one letter wrong; else the guesses. Ties: by id. A
    * word as typed that looks misspelt (`looksMisspelt`) does not hide the corrections: they
-   * follow its hits as typed.
+   * follow its hits as typed. A long text goes by its first words (`firstWords`).
    */
-  search(text: string, options: WayspotSearchOptions = {}): WayspotMatch<W>[] {
+  search(wholeText: string, options: WayspotSearchOptions = {}): WayspotMatch<W>[] {
+    const text = firstWords(wholeText);
     const typed = this.run(text, 'AND', false, options);
     if (typed.length > 0) {
       if (!this.looksMisspelt(text, options)) return typed;

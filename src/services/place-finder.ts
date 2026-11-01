@@ -23,6 +23,7 @@ import {
   type PlaceKind,
 } from '../domain/search/place-merge.js';
 import { anchorMetres, nearestPlaces } from '../domain/search/nearest.js';
+import { firstWords } from '../domain/search/text.js';
 import { streetOf, WayspotIndex } from '../domain/search/wayspot-index.js';
 import type { WayspotPlaces } from './wayspot-places.js';
 import type { Wayspot } from '../domain/wayspots/kept.js';
@@ -147,15 +148,17 @@ export class PlaceFinder {
    * (a meetup is never at a power spot: Matt, 2026-10-17), every kind without. `kindsFirst`
    * offers those kinds first among places that fit as well (`mergePlaces`; plan 8X-4). `anchors`,
    * the places named before (the other stops of `/research`, a train's last stop), offer the
-   * nearer of places that fit alike first (`PlaceHit.distance`; Matt, 2026-10-27).
+   * nearer of places that fit alike first (`PlaceHit.distance`; Matt, 2026-10-27). A long text
+   * goes by its first words (`firstWords`), for how each hit fits it too.
    */
   find(
     guildId: number,
     regionChannelId: string | undefined,
-    text: string,
+    typed: string,
     kinds: readonly PlaceKind[] = ALL_PLACE_KINDS,
     order: { kindsFirst?: readonly PlaceKind[]; anchors?: readonly LatLon[] } = {},
   ): PlaceChoice[] {
+    const text = firstWords(typed);
     const { kindsFirst, anchors = [] } = order;
     const channels = this.channelsOf(guildId);
     if (channels.size === 0) return [];

@@ -5,6 +5,7 @@ import { createTestLogger } from '../../test/support/test-logger.js';
 import { keptRow, wayspotId } from '../../test/support/wayspot-cases.js';
 import { wayspotsWith } from '../../test/support/wayspots.js';
 import type { Gym } from '../db/repositories/gym-repository.js';
+import { MAX_SEARCH_WORDS } from '../domain/search/text.js';
 import type { WayspotRow } from '../domain/wayspots/kept.js';
 import { clearOf, PlaceFinder, placeValue, readPlaceValue } from './place-finder.js';
 import { MemoryWayspotLookups } from './wayspot-lookups.js';
@@ -40,6 +41,16 @@ async function finderWith(extra: { rows?: WayspotRow[]; gyms?: Gym[] } = {}) {
 }
 
 describe('PlaceFinder', () => {
+  it('goes by the first words of a long text, and fits them to the name', async () => {
+    const title = Array.from({ length: MAX_SEARCH_WORDS }, (_, i) => `w${i}`).join(' ');
+    const { finder } = await finderWith({
+      rows: [keptRow(9, { title, lat: 40.0602, lon: -80.0602 })],
+    });
+    const [choice] = finder.find(1, undefined, `${title} and nothing like these`);
+    expect(choice?.title).toBe(title);
+    expect(choice?.fit).toBe('exact');
+  });
+
   it('makes a pin in the server’s regions, named by the nearest place within 50 metres', async () => {
     const { finder } = await finderWith();
     // The power spot by the library is nearer than the library itself (gym 1, 40.05, -80.05).
