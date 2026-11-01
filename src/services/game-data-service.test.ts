@@ -4,8 +4,9 @@ import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeTimeoutSignals } from '../../test/support/timers.js';
 import { readEnglishSample, readGameMasterSample } from '../../test/support/game-data.js';
+import { textAnswer } from '../../test/support/responses.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
-import { GameDataService, type FetchText } from './game-data-service.js';
+import { GameDataService, MAX_DOWNLOAD_BYTES, type FetchText } from './game-data-service.js';
 
 const GAME_MASTER_URL = 'https://example.test/latest.json';
 const TEXT_URL = 'https://example.test/English.txt';
@@ -39,7 +40,7 @@ const gameMaster = JSON.stringify(readGameMasterSample());
 const english = `RESOURCE ID: pokemon_name_0001\nTEXT: Bulbasaur\n${readEnglishSample()}`;
 
 function ok(body: string) {
-  return { ok: true, status: 200, text: () => Promise.resolve(body) };
+  return textAnswer(200, body);
 }
 
 function stalls(): FetchText {
@@ -141,7 +142,7 @@ describe('GameDataService', () => {
     it('does not keep the game data from loading when it cannot be downloaded', async () => {
       for (const answer of [
         () => Promise.reject(new Error('getaddrinfo ENOTFOUND')),
-        () => Promise.resolve({ ok: false, status: 403, text: () => Promise.resolve('') }),
+        () => Promise.resolve(textAnswer(403)),
         () => Promise.resolve(ok('not json')),
         () => Promise.resolve(ok(JSON.stringify({ message: 'API rate limit exceeded' }))),
         () => Promise.resolve(ok(JSON.stringify({ tree: [{ path: 'README.md' }] }))),
@@ -435,10 +436,27 @@ describe('GameDataService', () => {
   });
 
   it('fails to start only when there is no download and no saved copy', async () => {
-    respond = () => Promise.resolve({ ok: false, status: 503, text: () => Promise.resolve('') });
+    respond = () => Promise.resolve(textAnswer(503));
     await expect(service().gameData.load()).rejects.toThrow(
       /Could not download the game data \(https:\/\/example\.test\/\S+ answered 503\) and there is no saved copy at .*game-data-cache\.json/,
     );
+  });
+
+  it('follows no address that leads elsewhere', async () => {
+    const answered = respond;
+    const redirects: unknown[] = [];
+    respond = (url, init) => {
+      redirects.push(init.redirect);
+      return answered(url, init);
+    };
+    await service().gameData.load();
+    expect(redirects).toEqual(['error', 'error']);
+  });
+
+  it('gives up a download longer than any it should be', async () => {
+    const tooLong = { 'content-length': String(MAX_DOWNLOAD_BYTES + 1) };
+    respond = () => Promise.resolve(textAnswer(200, '', tooLong));
+    await expect(service().gameData.load()).rejects.toThrow(/sent more than \d+ bytes/);
   });
 
   it('keeps the data in use when a refresh returns rubbish', async () => {

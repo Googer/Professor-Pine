@@ -271,6 +271,7 @@ export class RocketLineupService implements RocketLineupProvider {
       const response = await this.options.fetch(url, {
         signal: AbortSignal.any([timeout, controller.signal]),
         headers: { Accept: 'application/json', 'User-Agent': PINE_USER_AGENT },
+        redirect: 'error',
       });
       if (!response.ok) throw new Error(`${url} answered ${String(response.status)}`);
       const body = await readLimitedJson(response, MAX_ROCKET_FEED_BYTES);

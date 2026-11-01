@@ -21,7 +21,7 @@ const NOW = Date.UTC(2026, 9, 21, 22);
 function serviceWith(answer: () => ReturnType<FetchPage>, store = new MemoryResearchTasks()) {
   const { log, entries } = createTestLogger();
   const clock = { now: NOW };
-  const asked: { url: string; headers: Record<string, string> }[] = [];
+  const asked: { url: string; headers: Record<string, string>; redirect: string }[] = [];
   const prepared: string[][] = [];
   /** Whether each `prepare` was a background one's (branch review W5). */
   const inBackground: boolean[] = [];
@@ -40,7 +40,7 @@ function serviceWith(answer: () => ReturnType<FetchPage>, store = new MemoryRese
     store,
     gameData: { catalogue: catalogueFixture() },
     fetch: (url, init) => {
-      asked.push({ url, headers: init.headers });
+      asked.push({ url, headers: init.headers, redirect: init.redirect });
       return answer();
     },
     log,
@@ -93,7 +93,11 @@ describe('ResearchTaskService', () => {
     expect(service.tasks()).toEqual([]);
     expect(await service.refresh()).toEqual({ status: 'updated', tasks: 58 });
     expect(asked).toEqual([
-      { url: URL, headers: { Accept: 'text/html', 'User-Agent': PINE_USER_AGENT } },
+      {
+        url: URL,
+        headers: { Accept: 'text/html', 'User-Agent': PINE_USER_AGENT },
+        redirect: 'error',
+      },
     ]);
     expect(service.tasks()).toHaveLength(58);
     expect(service.readAt()).toBe(NOW);

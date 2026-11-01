@@ -6,6 +6,7 @@ import {
   readRotationFixture,
   readScrapedDuckRaidsText,
 } from '../../test/support/raid-manifest.js';
+import { textAnswer } from '../../test/support/responses.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { raidTierLabel } from '../domain/pogo/raid-tier.js';
 import { AFTER_CHANGE_MS } from './boss-feed-service.js';
@@ -24,12 +25,7 @@ const FROM_FALLBACK = 'raid bosses read from the fallback feed';
 type Response = Awaited<ReturnType<FetchFeed>>;
 
 function reply(status: number, body = '', headers: Record<string, string> = {}): Response {
-  return {
-    ok: status >= 200 && status <= 299,
-    status,
-    headers: { get: (name) => headers[name.toLowerCase()] ?? null },
-    text: () => Promise.resolve(body),
-  };
+  return textAnswer(status, body, headers);
 }
 
 /** A wall-clock time in New York as epoch milliseconds. */
@@ -246,7 +242,7 @@ describe('RaidBossService with Leek Duck’s raid manifest', () => {
       [
         'the manifest is far too long',
         () => route(MANIFEST, reply(200, ' '.repeat(300_000))),
-        /manifest.*300000 characters/,
+        /manifest.*sent more than \d+ bytes/,
       ],
       [
         'the document is no manifest',

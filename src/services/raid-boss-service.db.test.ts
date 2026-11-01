@@ -3,6 +3,7 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { catalogueFixture } from '../../test/support/game-data.js';
 import { startMigratedDatabase } from '../../test/support/migrated-db.js';
 import { readRaidBossFeed } from '../../test/support/raid-bosses.js';
+import { textAnswer } from '../../test/support/responses.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { RaidBossRepository } from '../db/repositories/raid-boss-repository.js';
 import type { DB } from '../db/types.js';
@@ -22,13 +23,7 @@ describe('RaidBossService with the database', () => {
   let body: string;
   let status: number;
 
-  const respond: FetchFeed = () =>
-    Promise.resolve({
-      ok: status === 200,
-      status,
-      headers: { get: (name) => (name === 'etag' ? '"v1"' : null) },
-      text: () => Promise.resolve(body),
-    });
+  const respond: FetchFeed = () => Promise.resolve(textAnswer(status, body, { etag: '"v1"' }));
 
   function service() {
     const changes: BossListChange[] = [];

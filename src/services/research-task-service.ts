@@ -30,10 +30,10 @@ const MINUTE_MS = 60_000;
 /** The longest delay `setTimeout` accepts. */
 const MAX_TIMER_MS = 2 ** 31 - 1;
 
-/** The part of `fetch` this service needs. */
+/** The part of `fetch` this service needs: an address that leads elsewhere is not followed. */
 export type FetchPage = (
   url: string,
-  init: { signal: AbortSignal; headers: Record<string, string> },
+  init: { signal: AbortSignal; headers: Record<string, string>; redirect: 'error' },
 ) => Promise<LimitedResponse & { ok: boolean }>;
 
 export interface ResearchTaskOptions {
@@ -383,6 +383,7 @@ export class ResearchTaskService implements ResearchTaskProvider {
       const response = await this.options.fetch(url, {
         signal: AbortSignal.any([timeout, controller.signal]),
         headers: { Accept: 'text/html', 'User-Agent': PINE_USER_AGENT },
+        redirect: 'error',
       });
       if (!response.ok) throw new Error(`${url} answered ${String(response.status)}`);
       const body = await readLimitedText(response, MAX_RESEARCH_PAGE_BYTES);

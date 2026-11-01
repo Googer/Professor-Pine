@@ -18,6 +18,25 @@ export function jsonResponse(
   return bytesResponse(new TextEncoder().encode(options.raw ?? JSON.stringify(body)), options);
 }
 
+/**
+ * A text answer that a fake may give again and again: its body is read from the start each time.
+ * Headers by their lower-case names; a `content-length` there is refused by what reads with a limit.
+ */
+export function textAnswer(
+  status: number,
+  body = '',
+  headers: Record<string, string> = {},
+): LimitedResponse & { ok: boolean } {
+  return {
+    ok: status >= 200 && status <= 299,
+    status,
+    headers: { get: (name) => headers[name.toLowerCase()] ?? null },
+    get body() {
+      return jsonResponse(null, { raw: body }).body;
+    },
+  };
+}
+
 /** `jsonResponse` of bytes as they are: a picture (plan 8R-6). */
 export function bytesResponse(
   bytes: Uint8Array,

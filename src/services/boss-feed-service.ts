@@ -16,6 +16,7 @@ import type { Logger } from '../log.js';
 import type { CatchUpOutcome } from './catch-up.js';
 import { failureReason } from './failure-reason.js';
 import type { GameDataProvider } from './game-data-service.js';
+import { readLimitedText, type LimitedResponse } from './limited-json.js';
 
 /** The longest delay `setTimeout` accepts; anything longer fires immediately. */
 const MAX_TIMER_MS = 2 ** 31 - 1;
@@ -103,16 +104,11 @@ class FeedFailure extends Error {
   }
 }
 
-/** The part of `fetch` this service needs. */
+/** The part of `fetch` this service needs: an address that leads elsewhere is not followed. */
 export type FetchFeed = (
   url: string,
-  init: { signal: AbortSignal; headers: Record<string, string> },
-) => Promise<{
-  ok: boolean;
-  status: number;
-  headers: { get(name: string): string | null };
-  text(): Promise<string>;
-}>;
+  init: { signal: AbortSignal; headers: Record<string, string>; redirect: 'error' },
+) => Promise<LimitedResponse & { ok: boolean }>;
 
 /**
  * A download for a `FeedSource`: the body of a 2xx answer of at most `maxChars` characters.
@@ -696,28 +692,36 @@ export class BossFeedService<T> implements BossAdmin<T> {
   }
 
   /**
-   * One request of a read, with its own time limit, ended by `stop` through `controller`. Throws
-   * `SyncStopped` when stopped, a `FeedFailure` when no answer came; any status is returned.
+   * One request of a read, with its own time limit, ended by `stop` through `controller`, its
+   * body read up to `maxChars` bytes. Throws `SyncStopped` when stopped, a `FeedFailure` when no
+   * answer came or the body is longer or no text; any other status is returned.
    */
   private async download(
     url: string,
     headers: Record<string, string>,
     controller: AbortController,
+    maxChars: number,
   ): Promise<{ status: number; body: string; validators: BossFeedService<T>['validators'] }> {
     const timeout = AbortSignal.timeout(this.timeoutMs);
     const signal = AbortSignal.any([timeout, controller.signal]);
     try {
-      const response = await this.options.fetch(url, { signal, headers });
+      const response = await this.options.fetch(url, { signal, headers, redirect: 'error' });
       if (!response.ok) return { status: response.status, body: '', validators: {} };
+      const read = await readLimitedText(response, maxChars);
+      if (!read.ok) {
+        const said = read.reason === 'too-large' ? `more than ${maxChars} bytes` : 'no text';
+        throw new FeedFailure(`${url} sent ${said}`, 'unreadable');
+      }
       return {
         status: response.status,
-        body: await response.text(),
+        body: read.text,
         validators: {
           etag: response.headers.get('etag') ?? undefined,
           lastModified: response.headers.get('last-modified') ?? undefined,
         },
       };
     } catch (err) {
+      if (err instanceof FeedFailure) throw err;
       if (controller.signal.aborted) throw new SyncStopped();
       if (timeout.aborted) {
         throw new FeedFailure(
@@ -748,12 +752,9 @@ export class BossFeedService<T> implements BossAdmin<T> {
     const { source } = this.options;
     if (!source) return undefined;
     const get: GetText = async (url, { accept, maxChars }) => {
-      const { status, body } = await this.download(url, { Accept: accept }, controller);
+      const { status, body } = await this.download(url, { Accept: accept }, controller, maxChars);
       if (status < 200 || status > 299) {
         throw new FeedFailure(`${url} answered ${status}`, 'status', status);
-      }
-      if (body.length > maxChars) {
-        throw new FeedFailure(`${url} sent ${body.length} characters`, 'unreadable');
       }
       return body;
     };
@@ -810,7 +811,6 @@ export class BossFeedService<T> implements BossAdmin<T> {
     now: number,
   ): Promise<FeedRead<T>> {
     const { url } = this.options;
-    const { noun } = this.family;
     const headers: Record<string, string> = { Accept: 'application/json' };
     if (this.validatorsCatalogue === catalogue) {
       if (this.validators.etag) headers['If-None-Match'] = this.validators.etag;
@@ -818,7 +818,12 @@ export class BossFeedService<T> implements BossAdmin<T> {
     }
 
     const conditional = 'If-None-Match' in headers || 'If-Modified-Since' in headers;
-    const { status, body, validators } = await this.download(url, headers, controller);
+    const { status, body, validators } = await this.download(
+      url,
+      headers,
+      controller,
+      this.family.maxFeedChars,
+    );
 
     if (status === 304) {
       if (!conditional) {
@@ -828,12 +833,6 @@ export class BossFeedService<T> implements BossAdmin<T> {
     }
     if (status < 200 || status > 299) {
       throw new FeedFailure(`${url} answered ${status}`, 'status', status);
-    }
-    if (body.length > this.family.maxFeedChars) {
-      throw new FeedFailure(
-        `${url} sent ${body.length} characters, which is not the ${noun} feed`,
-        'unreadable',
-      );
     }
     let json: unknown;
     try {

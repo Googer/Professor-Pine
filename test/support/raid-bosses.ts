@@ -21,6 +21,7 @@ import {
   type RaidBossProvider,
 } from '../../src/services/raid-boss-service.js';
 import { catalogueFixture } from './game-data.js';
+import { textAnswer } from './responses.js';
 import { createTestLogger } from './test-logger.js';
 
 const fixtures = path.resolve(import.meta.dirname, '../fixtures');
@@ -182,12 +183,7 @@ export function raidBossesFixture(overrides: readonly BossOverride[] = []): Raid
 
 /** A response of the feed's address, as `RaidBossService` reads it. */
 export function feedReply(status: number, body = ''): Awaited<ReturnType<FetchFeed>> {
-  return {
-    ok: status >= 200 && status <= 299,
-    status,
-    headers: { get: () => null },
-    text: () => Promise.resolve(body),
-  };
+  return textAnswer(status, body);
 }
 
 /** When the stored list of `raidBossServiceWith` was read: the fixtures' day. */

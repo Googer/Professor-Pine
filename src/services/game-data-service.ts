@@ -12,9 +12,13 @@ import { parseTextFile } from '../domain/pogo/text.js';
 import type { Logger } from '../log.js';
 import type { CatchUpOutcome } from './catch-up.js';
 import { failureReason } from './failure-reason.js';
+import { readLimitedText, type LimitedResponse } from './limited-json.js';
 
 /** A download that got no answer: the request or its body failed, or ran out of time. */
 class DownloadFailure extends Error {}
+
+/** The game master, the largest download, was 20 MB on 2026-11-01. */
+export const MAX_DOWNLOAD_BYTES = 100 * 1024 * 1024;
 
 /** The longest delay `setTimeout` accepts; anything longer fires immediately. */
 const MAX_TIMER_MS = 2 ** 31 - 1;
@@ -40,11 +44,11 @@ interface CacheFile {
   icons?: string[];
 }
 
-/** The part of `fetch` this service needs. */
+/** The part of `fetch` this service needs: an address that leads elsewhere is not followed. */
 export type FetchText = (
   url: string,
-  init: { signal: AbortSignal },
-) => Promise<{ ok: boolean; status: number; text(): Promise<string> }>;
+  init: { signal: AbortSignal; redirect: 'error' },
+) => Promise<LimitedResponse & { ok: boolean }>;
 
 export interface GameDataOptions {
   gameMasterUrl: string;
@@ -486,16 +490,23 @@ export class GameDataService implements GameDataProvider {
     const signal = AbortSignal.timeout(this.timeoutMs);
     let response: Awaited<ReturnType<FetchText>>;
     try {
-      response = await this.options.fetch(url, { signal });
+      response = await this.options.fetch(url, { signal, redirect: 'error' });
     } catch (err) {
       throw this.downloadFailure(url, err, signal);
     }
     if (!response.ok) throw new Error(`${url} answered ${response.status}`);
+    let read: Awaited<ReturnType<typeof readLimitedText>>;
     try {
-      return await response.text();
+      read = await readLimitedText(response, MAX_DOWNLOAD_BYTES);
     } catch (err) {
       throw this.downloadFailure(url, err, signal);
     }
+    if (read.ok) return read.text;
+    throw new Error(
+      read.reason === 'too-large'
+        ? `${url} sent more than ${MAX_DOWNLOAD_BYTES} bytes`
+        : `${url} sent no text`,
+    );
   }
 
   /** undici's `fetch failed` hides the real reason in `cause`; say which address failed and why. */

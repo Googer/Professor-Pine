@@ -24,9 +24,10 @@ import type { ListedEventStorage } from '../db/repositories/listed-event-reposit
 import type { Logger } from '../log.js';
 import type { CatchUpOutcome } from './catch-up.js';
 import { failureReason } from './failure-reason.js';
+import { readLimitedText, type LimitedResponse, type LimitedText } from './limited-json.js';
 
-/** The feed is about 60,000 characters; anything near this size is not the feed. */
-const MAX_FEED_CHARS = 5_000_000;
+/** The feed is about 60,000 bytes; anything near this size is not the feed. */
+const MAX_FEED_BYTES = 5_000_000;
 const MINUTE_MS = 60_000;
 /** How long a research event is kept after its end (a report's period outlives none of it). */
 const RESEARCH_KEPT_MS = 30 * 24 * 60 * MINUTE_MS;
@@ -56,11 +57,11 @@ function inOrder<T extends { start: number; name: string }>(events: T[]): T[] {
 /** Thrown inside a download that `stop` ended; not worth a warning. */
 class RefreshStopped extends Error {}
 
-/** The part of `fetch` this service needs. */
+/** The part of `fetch` this service needs: an address that leads elsewhere is not followed. */
 export type FetchEvents = (
   url: string,
-  init: { signal: AbortSignal; headers: Record<string, string> },
-) => Promise<{ ok: boolean; status: number; text(): Promise<string> }>;
+  init: { signal: AbortSignal; headers: Record<string, string>; redirect: 'error' },
+) => Promise<LimitedResponse & { ok: boolean }>;
 
 export interface RaidEventOptions {
   /** Address of the events feed. */
@@ -735,14 +736,15 @@ export class RaidEventService
     const controller = new AbortController();
     this.controller = controller;
     let status: number;
-    let body = '';
+    let read: LimitedText | undefined;
     try {
       const response = await this.options.fetch(url, {
         signal: AbortSignal.any([timeout, controller.signal]),
         headers: { Accept: 'application/json' },
+        redirect: 'error',
       });
       status = response.status;
-      if (response.ok) body = await response.text();
+      if (response.ok) read = await readLimitedText(response, MAX_FEED_BYTES);
     } catch (err) {
       if (controller.signal.aborted) throw new RefreshStopped('stopped', { cause: err });
       const reason = timeout.aborted ? `timed out after ${this.timeoutMs} ms` : failureReason(err);
@@ -751,11 +753,14 @@ export class RaidEventService
       if (this.controller === controller) this.controller = undefined;
     }
     if (status < 200 || status > 299) throw new Error(`${url} answered ${status}`);
-    if (body.length > MAX_FEED_CHARS) {
-      throw new Error(`${url} sent ${body.length} characters, which is not the events feed`);
+    if (read?.ok === false && read.reason === 'too-large') {
+      throw new Error(
+        `${url} sent more than ${MAX_FEED_BYTES} bytes, which is not the events feed`,
+      );
     }
+    if (!read?.ok) throw new Error(`${url} did not send JSON`);
     try {
-      return JSON.parse(body) as unknown;
+      return JSON.parse(read.text) as unknown;
     } catch {
       throw new Error(`${url} did not send JSON`);
     }

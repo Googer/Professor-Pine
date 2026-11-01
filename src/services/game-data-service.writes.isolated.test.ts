@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { readEnglishSample, readGameMasterSample } from '../../test/support/game-data.js';
+import { textAnswer } from '../../test/support/responses.js';
 import { Tally } from '../../test/support/tally.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { watchImmediates } from '../../test/support/timers.js';
@@ -49,14 +50,12 @@ const english = `RESOURCE ID: pokemon_name_0001\nTEXT: Bulbasaur\n${readEnglishS
 const iconListing = JSON.stringify({ truncated: false, tree: [{ path: 'pm147.icon.png' }] });
 
 const fetch: FetchText = (url) =>
-  Promise.resolve({
-    ok: true,
-    status: 200,
-    text: () =>
-      Promise.resolve(
-        url === GAME_MASTER_URL ? gameMaster : url === ICONS_URL ? iconListing : english,
-      ),
-  });
+  Promise.resolve(
+    textAnswer(
+      200,
+      url === GAME_MASTER_URL ? gameMaster : url === ICONS_URL ? iconListing : english,
+    ),
+  );
 
 describe('GameDataService: the two writers of the saved copy', () => {
   let dir: string;

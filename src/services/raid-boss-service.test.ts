@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeTimeoutSignals, watchBackground } from '../../test/support/timers.js';
 import { catalogueFixture, gameDataFixture } from '../../test/support/game-data.js';
 import { MemoryRaidBossStore, readRaidBossFeed } from '../../test/support/raid-bosses.js';
+import { textAnswer } from '../../test/support/responses.js';
 import { Tally } from '../../test/support/tally.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { PokemonCatalogue } from '../domain/pogo/catalogue.js';
@@ -23,12 +24,7 @@ const T5: RaidTier = { level: 'T5', shadow: false };
 type Response = Awaited<ReturnType<FetchFeed>>;
 
 function reply(status: number, body = '', headers: Record<string, string> = {}): Response {
-  return {
-    ok: status >= 200 && status <= 299,
-    status,
-    headers: { get: (name) => headers[name.toLowerCase()] ?? null },
-    text: () => Promise.resolve(body),
-  };
+  return textAnswer(status, body, headers);
 }
 
 const HEADINGS: Record<string, string> = {
@@ -102,6 +98,20 @@ describe('RaidBossService', () => {
     });
     return { raidBosses, entries, changes, stale };
   }
+
+  describe('the download', () => {
+    it('follows no address that leads elsewhere', async () => {
+      const redirects: unknown[] = [];
+      respond = (_url, init) => {
+        redirects.push(init.redirect);
+        return Promise.resolve(reply(200, downloaded));
+      };
+      const { raidBosses } = service();
+      await raidBosses.load();
+      await raidBosses.sync();
+      expect(redirects).toEqual(['error']);
+    });
+  });
 
   describe('the list in effect, the very same until it changes', () => {
     it('gives one list, a new one after a read, an override added or one run out', async () => {
@@ -686,7 +696,7 @@ describe('RaidBossService', () => {
       [
         'an enormous body',
         () => Promise.resolve(reply(200, ' '.repeat(2_000_001))),
-        /not the raid boss feed/,
+        /sent more than 2000000 bytes/,
         { kind: 'unreadable' },
       ],
       [

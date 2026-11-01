@@ -4,6 +4,7 @@ import { at } from '../../test/support/max-bosses.js';
 import { readMaxEventFeed } from '../../test/support/max-events.js';
 import { featuredAt } from '../domain/time/max-events.js';
 import { readRaidEventFeed } from '../../test/support/raid-events.js';
+import { textAnswer } from '../../test/support/responses.js';
 import { readSpawnEventFeed } from '../../test/support/spawn-events.js';
 import { MAX_FINALE } from '../../test/support/event-reach.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
@@ -24,7 +25,7 @@ const downloaded = JSON.stringify(readRaidEventFeed());
 type Response = Awaited<ReturnType<FetchEvents>>;
 
 function reply(status: number, body = ''): Response {
-  return { ok: status >= 200 && status <= 299, status, text: () => Promise.resolve(body) };
+  return textAnswer(status, body);
 }
 
 function service(
@@ -72,7 +73,7 @@ describe('RaidEventService', () => {
     ]);
     expect(fetch).toHaveBeenCalledWith(
       URL,
-      expect.objectContaining({ headers: { Accept: 'application/json' } }),
+      expect.objectContaining({ headers: { Accept: 'application/json' }, redirect: 'error' }),
     );
     expect(entries.find((entry) => entry.msg === 'raid events read')).toMatchObject({
       events: 5,
