@@ -1,0 +1,198 @@
+import type { FastifyInstance, FastifyRequest } from 'fastify';
+import { isSnowflake } from '../db/snowflake.js';
+import { sendFailure, shortPage } from './answers.js';
+import { editorRoutes } from './editor-routes.js';
+import { findRoutes } from './find-routes.js';
+import { etagMatches } from './geo-cache.js';
+import { liveRoutes } from './live-routes.js';
+import { countsOnTheMap, mapMembers } from './map-members.js';
+import { maxRoutes } from './max-routes.js';
+import { meetupRoutes } from './meetup-routes.js';
+import { shownTiles } from './headers.js';
+import type { PacedMembers } from './paced-members.js';
+import { mapPage } from './page.js';
+import { partyRoutes } from './party-routes.js';
+import { postControlRoutes } from './post-control-routes.js';
+import { PartyViewers } from './party-viewers.js';
+import { raidRoutes } from './raid-routes.js';
+import { limitedPerAddress, RateLimiter } from './rate-limit.js';
+import { mayEditRegions } from './region-staff.js';
+import { spawnRoutes } from './spawn-routes.js';
+import { stopRoutes } from './stop-routes.js';
+import type { WebDeps } from './server.js';
+import { trainRoutes } from './train-routes.js';
+
+/** The requests for a server's regions and gyms one address may make in a minute (spec 5). */
+const GEO_PER_MINUTE = 60;
+/** The requests for who is asking one address may make in a minute (each page load asks once). */
+const ME_PER_MINUTE = 60;
+
+/** The request of an address of one server, `/s/<guild>/…`. */
+export type GuildRequest = FastifyRequest<{ Params: { guild: string } }>;
+
+/**
+ * The addresses of one Discord server, `/s/<guild>/…` (spec 2.1): a server the bot is not in,
+ * or no snowflake at all, is not found before anything else is looked at.
+ */
+export function guildRoutes(
+  scope: FastifyInstance,
+  deps: WebDeps,
+  pacedMembers: PacedMembers,
+): void {
+  const { sessions } = deps;
+  // Who counts as a member on the map (`settings.web.memberRole`): the parties (`/api/me` judges
+  // it by `countsOnTheMap` itself, to tell a member without the role which role it is); the
+  // region editor asks its own question (staff) and is not affected.
+  const judged = mapMembers(deps.members, deps.settings.memberRole);
+  const map: WebDeps = {
+    ...deps,
+    members: {
+      find: (guildId, userId) => judged.find(guildId, userId),
+      holds: (guildId, userId) => deps.members.holds(guildId, userId),
+    },
+  };
+  scope.addHook('onRequest', async (request: GuildRequest, reply) => {
+    const { guild } = request.params;
+    if (!isSnowflake(guild) || !deps.servers.has(guild)) return sendFailure(request, reply, 404);
+  });
+
+  // The map page (spec 3.1): the static template, told the server, the tiles and how to log in.
+  scope.get('/map', async (request: GuildRequest, reply) => {
+    void reply.type('text/html; charset=utf-8').header('cache-control', 'no-cache');
+    const { manifest } = deps.assets;
+    if (!manifest) {
+      return reply
+        .code(503)
+        .send(shortPage('The map has not been built yet: run npm run web:build.'));
+    }
+    const tiles = shownTiles(deps.settings.tiles, deps.googleKey);
+    return reply.send(
+      mapPage(
+        {
+          guildId: request.params.guild,
+          tiles,
+          googleKey: tiles === 'google' ? deps.googleKey : undefined,
+          login: deps.oauth ? 'discord' : 'links',
+          distanceUnits: deps.distanceUnits,
+        },
+        manifest,
+      ),
+    );
+  });
+
+  // Who is asking (spec 2.5): the page's header, whether they are a member of this server (one
+  // login for every server: membership is asked per server, from Discord, kept a minute by the
+  // directory; without the map's member role a member is none here, and is told the role's name,
+  // `missingRole`: they are in the server, whose roles they see on Discord), and the CSRF token
+  // its POSTs carry. When Discord cannot say, the page is read-only. Every request counts against
+  // the address, as it may ask Discord. Somebody logged in whom the directory finds not in the
+  // server is given the server's invite where the settings have one (`invite`, plan 8M-11B):
+  // nobody logged out (they may be a member), no member without the role, nobody while read-only.
+  const meLimiter = new RateLimiter({ uses: ME_PER_MINUTE, perMs: 60_000 });
+  const { memberRole, invites } = deps.settings;
+  scope.get(
+    '/api/me',
+    { onRequest: limitedPerAddress(meLimiter, { now: deps.now }) },
+    async (request: GuildRequest, reply) => {
+      void reply.header('cache-control', 'no-store');
+      const session = await sessions.of(request, reply);
+      if (!session) return { loggedIn: false };
+      let member = false;
+      let missingRole: string | undefined;
+      let readOnly = false;
+      let mayEdit = false;
+      let invite: string | undefined;
+      try {
+        const found = await deps.members.find(request.params.guild, session.userId);
+        if (found === undefined) invite = invites?.[request.params.guild];
+        member = found !== undefined && countsOnTheMap(found.standing, memberRole);
+        if (found !== undefined && !member) missingRole = memberRole;
+        // Whether to offer "Edit regions" (plan 8M-10): a hint by the member as the directory
+        // keeps them, never asked of Discord for it; the editor's data asks fresh and decides.
+        mayEdit =
+          found?.standing !== undefined &&
+          mayEditRegions(found.standing, session.userId, deps.parties.ownerId);
+      } catch (err) {
+        deps.log.warn(
+          { err, guild: request.params.guild, user: session.userId },
+          'could not ask whether somebody on the web pages is a member',
+        );
+        readOnly = true;
+      }
+      return {
+        loggedIn: true,
+        name: session.userName,
+        // Whose staged region edits the page counts in "Edit regions" (plan 8M-11C, S31): the
+        // browser keeps them per server and member. The member's own id, to themselves alone.
+        userId: session.userId,
+        member,
+        csrf: sessions.csrfToken(session),
+        readOnly,
+        mayEditRegions: mayEdit,
+        ...(missingRole === undefined ? {} : { missingRole }),
+        ...(invite === undefined ? {} : { invite }),
+      };
+    },
+  );
+
+  // The regions and gyms of the server (spec 3.1): public, kept until they change, answered
+  // with 304 when the page has them already; every request counts against the address.
+  const geoLimiter = new RateLimiter({ uses: GEO_PER_MINUTE, perMs: 60_000 });
+  scope.get(
+    '/api/geo',
+    {
+      onRequest: limitedPerAddress(geoLimiter, { now: deps.now }),
+    },
+    async (request: GuildRequest, reply) => {
+      const view = await deps.geo.view(request.params.guild);
+      void reply.header('cache-control', 'no-cache').header('etag', view.etag);
+      if (etagMatches(request.headers['if-none-match'], view.etag)) return reply.code(304).send();
+      return reply.type('application/json; charset=utf-8').send(view.body);
+    },
+  );
+
+  // The region editor (plan 8M-2): its data for the server's staff.
+  editorRoutes(scope, deps);
+
+  // Who sees which parties and reports at stops on the map (spec 2.5): one for both, so that what
+  // Discord said of a member and a forum serves the two lists a page polls.
+  const viewers = new PartyViewers({
+    members: map.members,
+    asks: mapMembers(pacedMembers, deps.settings.memberRole),
+    forums: deps.parties.forums,
+    log: deps.log,
+    now: deps.now,
+  });
+
+  // The parties on the live map, and joining them (plan 8M-3): for members of the server (with
+  // the map's member role, when the settings name one).
+  partyRoutes(scope, map, viewers);
+
+  // The post's controls that open a dialog on Discord, as forms of the map (plan 8M-8B).
+  postControlRoutes(scope, map);
+
+  // Reporting and changing raids on the live map (plan 8M-4): for the same members.
+  raidRoutes(scope, map);
+
+  // Reporting wild Pokémon on the live map (plan 8M-4S): for the same members.
+  spawnRoutes(scope, map);
+
+  // Starting, arranging and moving trains on the live map (plan 8M-5): for the same members.
+  trainRoutes(scope, map);
+
+  // Making and changing meetups on the live map (plan 8M-5M): for the same members.
+  meetupRoutes(scope, map);
+
+  // Max battles on the live map (plan 8X-5): the power spots, the pick lists and reports, for the
+  // same members.
+  maxRoutes(scope, map);
+
+  // Reports at stops on the live map (plan 8R-3): today's reports, for the same members.
+  stopRoutes(scope, map, viewers);
+
+  // Find's places by name on the live map (plan 8M-12): for the same members.
+  findRoutes(scope, map);
+
+  // The stream that says a list changed (live updates): for the same members.
+  liveRoutes(scope, map, viewers);
+}

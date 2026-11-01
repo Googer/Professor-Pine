@@ -1,0 +1,90 @@
+[
+  {
+    "eventID": "october-communityday2026",
+    "name": "Zorua Community Day",
+    "eventType": "community-day",
+    "heading": "Community Day",
+    "start": "2026-10-10T14:00:00.000",
+    "end": "2026-10-10T17:00:00.000"
+  },
+  {
+    "eventID": "gbl-twilight-trails_great-league-mega-edition_ultra-league-mega-edition_master-league-mega-edition-split-2",
+    "name": "Great League: Mega Edition, Ultra League: Mega Edition, and Master League: Mega Edition | Twilight Trails",
+    "eventType": "go-battle-league",
+    "heading": "GO Battle League",
+    "start": "2026-10-06T20:00:00.000Z",
+    "end": "2026-10-13T20:00:00.000Z"
+  },
+  {
+    "eventID": "mega-blastoise-in-mega-raids-october-2026",
+    "name": "Mega Blastoise in Mega Raids",
+    "eventType": "raid-battles",
+    "heading": "Raid Battles",
+    "start": "2026-10-07T06:00:00.000",
+    "end": "2026-10-13T22:00:00.000"
+  },
+  {
+    "eventID": "yveltal-in-5-star-raid-battles-october-2026",
+    "name": "Yveltal in 5-star Raid Battles",
+    "eventType": "raid-battles",
+    "heading": "Raid Battles",
+    "start": "2026-10-07T06:00:00.000",
+    "end": "2026-10-13T22:00:00.000"
+  },
+  {
+    "eventID": "raidhour20261014",
+    "name": "Dialga Raid Hour",
+    "eventType": "raid-hour",
+    "heading": "Raid Hour",
+    "start": "2026-10-14T18:00:00.000",
+    "end": "2026-10-14T19:00:00.000"
+  },
+  {
+    "eventID": "pokemonspotlighthour2026-10-15",
+    "name": "Stufful Spotlight Hour",
+    "eventType": "pokemon-spotlight-hour",
+    "heading": "Pokémon Spotlight Hour",
+    "start": "2026-10-15T18:00:00.000",
+    "end": "2026-10-15T19:00:00.000"
+  },
+  {
+    "eventID": "raidhour20261021",
+    "name": "Palkia Raid Hour",
+    "eventType": "raid-hour",
+    "heading": "Raid Hour",
+    "start": "2026-10-21T18:00:00.000",
+    "end": "2026-10-21T19:00:00.000"
+  },
+  {
+    "eventID": "raidhour20261028",
+    "name": "Giratina (Origin Forme) Raid Hour",
+    "eventType": "raid-hour",
+    "heading": "Raid Hour",
+    "start": "2026-10-28T18:00:00.000",
+    "end": "2026-10-28T19:00:00.000"
+  },
+  {
+    "eventID": "super-mega-raid-day-october-2026",
+    "name": "Super Mega Raid Day",
+    "eventType": "raid-day",
+    "heading": "Raid Day",
+    "start": "2026-10-31T14:00:00.000",
+    "end": "2026-10-31T17:00:00.000"
+  },
+  {
+    "eventID": "super-mega-raid-day-november-2026",
+    "name": "Super Mega Raid Day",
+    "eventType": "raid-day",
+    "heading": "Raid Day",
+    "start": "2026-11-28T14:00:00.000",
+    "end": "2026-11-28T17:00:00.000"
+  },
+  {
+    "eventID": "season-24-twilight-trails",
+    "name": "Twilight Trails",
+    "eventType": "season",
+    "heading": "Season",
+    "start": "2026-09-08T10:00:00.000",
+    "end": "2026-12-01T10:00:00.000"
+  }
+]

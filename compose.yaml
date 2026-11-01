@@ -1,0 +1,177 @@
+# The whole of Professor Pine: the bot and its MySQL. Run it through `./pine` (see
+# `./pine help` and docs/architecture/operations.md); the host needs only Docker and git.
+#
+# Settings and secrets: `.env` beside this file (copy `.env.example`), read by Compose for the
+# values below and handed to the bot whole; the installation's settings, `pine-settings.json`
+# beside it (git-ignored; made from `data/settings.json`), mounted read-only.
+name: pine
+
+services:
+  mysql:
+    image: mysql:8.4
+    # utf8mb4 with the collation the bot's tables are created with. Table names stay case
+    # sensitive (lower_case_table_names=0, the Linux default, and only settable when the data
+    # directory is created): the bot's tables are named `Guild`, `GymMeta` and so on, and a dump
+    # from a Windows server, whose names are lower case, is renamed by `./pine restore`.
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --lower-case-table-names=0
+    environment:
+      # The database and the bot's user are made from the bot's own settings on the first start.
+      MYSQL_DATABASE: ${DB_SCHEMA:?DB_SCHEMA must be set in .env}
+      MYSQL_USER: ${DB_USER:?DB_USER must be set in .env}
+      MYSQL_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in .env}
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD must be set in .env}
+    volumes:
+      - mysql-data:/var/lib/mysql
+    healthcheck:
+      # Over TCP: the server the image runs while it creates a new database listens on no port.
+      test: ['CMD-SHELL', 'MYSQL_PWD="$$MYSQL_ROOT_PASSWORD" mysqladmin ping -h 127.0.0.1 -uroot']
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 2m
+    restart: unless-stopped
+
+  pine:
+    build: .
+    image: professor-pine:${COMPOSE_PROJECT_NAME:-pine}
+    env_file: ${PINE_ENV_FILE:-.env}
+    environment:
+      # Inside the stack the database is the `mysql` service, whatever `.env` says.
+      DB_HOST: mysql
+      DB_PORT: '3306'
+      NODE_ENV: production
+      SETTINGS_PATH: data/settings.json
+      # The bot needs no root password: the one in `.env` is MySQL's only.
+      DB_ROOT_PASSWORD: ''
+      # The legacy bot's parties folder, for /admin cleanup-legacy: mounted below where
+      # LEGACY_PARTIES_DIR names one, blank (none) otherwise.
+      LEGACY_PARTIES_DIR: ${LEGACY_PARTIES_DIR:+/legacy-parties}
+    volumes:
+      - ${PINE_SETTINGS:-./pine-settings.json}:/app/data/settings.json:ro
+      - pine-var:/app/var
+      - ${LEGACY_PARTIES_DIR:-./legacy-parties}:/legacy-parties:ro
+      # The Wayspot export tool, on the owner's instance only (the private repository's
+      # `npm run deploy` writes it there): read when asked, served at /userscript to the admins
+      # the owner approved. `./pine` makes the folder when missing; empty, nothing is served.
+      - ${PINE_TOOL_DIR:-./wayspot-tool}:/app/wayspot-tool:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+    # tini as process 1: it hands SIGTERM to the bot and reaps the screen reader's process.
+    init: true
+    restart: unless-stopped
+    # Every shutdown step has its own limit (src/app.ts): two minutes all together, of which the
+    # queued direct messages take up to fifteen seconds; half a minute more before Docker kills.
+    stop_grace_period: 2m30s
+    # The bot's heartbeat (var/health/status.json), read by a small command of the image: fresh,
+    # connected to Discord (or not for long), the database answering. The start period covers a
+    # slow first start (the game data's download, the migrations of a large database).
+    healthcheck:
+      test: ['CMD', 'node', 'dist/ops/health-cli.js']
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10m
+    # No port of the bot is published to the host.
+
+  # Restarts the bot when it has been stuck for a while (a stale heartbeat, which neither an
+  # exit nor the restart policy catches) and DMs the owner of that, of an unhealthy bot a restart
+  # would not mend, of a bot that keeps restarting, and of failed backups. The Docker socket gives it control of Docker on this host
+  # (root, in effect): accepted for a home server, since a stuck bot cannot restart itself. It
+  # restarts nothing but the pine service of this project. Root inside, since the socket is.
+  watchdog:
+    image: professor-pine:${COMPOSE_PROJECT_NAME:-pine}
+    command: ['node', '--enable-source-maps', 'dist/ops/watchdog-cli.js']
+    user: '0'
+    # Only what it needs of `.env`: no database password in a container that holds the socket.
+    environment:
+      DISCORD_TOKEN: ${DISCORD_TOKEN:-}
+      OWNER_ID: ${OWNER_ID:-}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      WATCHDOG_INTERVAL_SECONDS: ${WATCHDOG_INTERVAL_SECONDS:-}
+      WATCHDOG_UNHEALTHY_MINUTES: ${WATCHDOG_UNHEALTHY_MINUTES:-}
+      WATCHDOG_ALERT_MINUTES: ${WATCHDOG_ALERT_MINUTES:-}
+      WATCHDOG_GATEWAY_RESTART_MINUTES: ${WATCHDOG_GATEWAY_RESTART_MINUTES:-}
+      WATCHDOG_RESTARTS: ${WATCHDOG_RESTARTS:-}
+      WATCHDOG_RESTART_WINDOW_MINUTES: ${WATCHDOG_RESTART_WINDOW_MINUTES:-}
+      WATCHDOG_BACKUP_HOURS: ${WATCHDOG_BACKUP_HOURS:-}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # The backup's result to read, and what it told (kept across its own restarts).
+      - ops:/ops
+    depends_on:
+      - pine
+    init: true
+    restart: unless-stopped
+
+  # A verified dump of the database every night (docker/backup.sh, `./pine backup` for one now),
+  # into BACKUP_DIR on the host. On the mysql:8.4 image for its own mysqldump and mysqld: a
+  # MariaDB client against MySQL 8 is a trap, and the check loads each dump into a scratch
+  # server of its own. Its result goes to the ops volume, where the watchdog reads it.
+  backup:
+    image: mysql:8.4
+    entrypoint: ['sh', '/pine/backup.sh']
+    command: ['schedule']
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD must be set in .env}
+      DB_SCHEMA: ${DB_SCHEMA:?DB_SCHEMA must be set in .env}
+      BACKUP_TIME: ${BACKUP_TIME:-03:30}
+      BACKUP_TZ: ${BACKUP_TZ:-}
+      BACKUP_KEEP_DAYS: ${BACKUP_KEEP_DAYS:-90}
+      # Blank switches backups off (a development or rehearsal stack): only whether it is set is
+      # read in here; the folder is the mount below.
+      BACKUP_DIR: ${BACKUP_DIR:-}
+      # Who writes in BACKUP_DIR: an NFS share that squashes root needs its owner's ids.
+      BACKUP_UID: ${BACKUP_UID:-0}
+      BACKUP_GID: ${BACKUP_GID:-0}
+      # The stack the backup folder belongs to (its .pine-backups file names it).
+      BACKUP_STACK: ${COMPOSE_PROJECT_NAME:-pine}
+    volumes:
+      # The folder, not the file: a pulled change of the script is a new file, which a mount of
+      # the old one would never show. `./pine update` recreates this service.
+      - ./docker:/pine:ro
+      # For the default time zone of the backups: the bot's `timezone`.
+      - ${PINE_SETTINGS:-./pine-settings.json}:/pine-settings.json:ro
+      # rslave: a share the host mounts there after Docker started still shows inside.
+      - type: bind
+        source: ${BACKUP_DIR:-./backups}
+        target: /backups
+        bind:
+          propagation: rslave
+      - ops:/ops
+      # The scratch server of the check: room for the database about twice over, off the
+      # container's own layer.
+      - backup-scratch:/scratch
+    depends_on:
+      mysql:
+        condition: service_healthy
+    init: true
+    restart: unless-stopped
+    # A stop during a check shuts the scratch server down first.
+    stop_grace_period: 30s
+
+  # The Cloudflare Tunnel to the bot's web pages (docs/web-setup.md), only with the profile
+  # `tunnel` (COMPOSE_PROFILES=tunnel in the env file): a stack without the web pages needs none.
+  # The bot's web server listens on 0.0.0.0 inside this network (pine-settings.json:
+  # `web.host` "0.0.0.0", `web.port`, `web.trustProxy` true, `web.publicUrl` the tunnel's
+  # address); its port is not published, and the tunnel's public hostname points at
+  # http://pine:<web.port>. The token comes from the env file, never from a file here.
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    profiles: ['tunnel']
+    command: ['tunnel', '--no-autoupdate', 'run']
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
+    depends_on:
+      - pine
+    restart: unless-stopped
+
+volumes:
+  mysql-data:
+  pine-var:
+  # The backup's last result, which the watchdog reads, and what the watchdog told.
+  ops:
+  backup-scratch:

@@ -1,0 +1,643 @@
+#!/bin/sh
+# Professor Pine's operator commands: every step of running the stack is `./pine <command>`
+# (`./pine help` lists them). POSIX sh, for Debian and for Git Bash on Windows; it needs Docker
+# with Compose, and git for `update`, nothing else on the host. See
+# docs/architecture/operations.md.
+#
+# A command is a function `cmd_<name>` (a hyphen in the name is an underscore here) and a line of
+# `usage`; nothing else needs to know of it.
+set -eu
+
+# Git Bash would turn every argument that starts with a slash (a path in a container) into a
+# Windows path. Elsewhere the variable means nothing.
+MSYS_NO_PATHCONV=1
+export MSYS_NO_PATHCONV
+
+# Where the operator ran the script: a path they give (a dump) is theirs, not this folder's.
+CALLER_DIR=$(pwd)
+cd "$(dirname "$0")"
+
+# The settings and secrets of the stack; other files for a second stack on the same machine
+# (with COMPOSE_PROJECT_NAME). compose.yaml reads the variables for the bot's `env_file` and its
+# settings. The settings are the installation's own, never the repository's `data/settings.json`.
+PINE_ENV_FILE=${PINE_ENV_FILE:-.env}
+PINE_SETTINGS=${PINE_SETTINGS:-./pine-settings.json}
+# Compose takes a bare name for a volume's: a relative path starts with ./ for it.
+case $PINE_SETTINGS in
+  /* | ./* | ../* | [A-Za-z]:*) ;;
+  *) PINE_SETTINGS=./$PINE_SETTINGS ;;
+esac
+# The project's name is Compose's to resolve, never set here: from the shell's
+# COMPOSE_PROJECT_NAME, else the env file's (a rehearsal names itself there), else compose.yaml's
+# `pine`. Set here, it would outrank the env file and a rehearsal would act on production.
+export PINE_ENV_FILE PINE_SETTINGS
+
+say() {
+  printf '%s\n' "$*"
+}
+
+fail() {
+  printf 'pine: %s\n' "$*" >&2
+  exit 1
+}
+
+# A command that stopped the bot sets this; if it then fails, the operator is told.
+bot_stopped=
+on_exit() {
+  status=$?
+  if [ "$status" != 0 ] && [ -n "$bot_stopped" ]; then
+    printf "pine: The bot, its watchdog and the backups are stopped: './pine up' starts them again.\n" >&2
+  fi
+}
+trap on_exit EXIT
+
+# A path the operator gave, as seen from where they ran ./pine.
+from_caller() {
+  case $1 in
+    /* | [A-Za-z]:[\\/]*) printf '%s\n' "$1" ;;
+    *) printf '%s\n' "$CALLER_DIR/$1" ;;
+  esac
+}
+
+compose() {
+  docker compose --env-file "$PINE_ENV_FILE" "$@"
+}
+
+# A Compose command, said before it runs.
+run() {
+  say "> docker compose $*"
+  compose "$@"
+}
+
+need_docker() {
+  command -v docker >/dev/null 2>&1 ||
+    fail "Docker is not installed (or not on the PATH). The stack needs Docker with Compose."
+  docker compose version >/dev/null 2>&1 ||
+    fail "Docker Compose is missing: 'docker compose version' does not answer."
+}
+
+need_stack() {
+  need_docker
+  [ -f "$PINE_ENV_FILE" ] ||
+    fail "There is no $PINE_ENV_FILE here. Copy .env.example to .env and fill it in ('./pine convert-settings' makes its lines from a legacy installation)."
+  # Without it Docker would mount an empty folder in its place.
+  [ -f "$PINE_SETTINGS" ] ||
+    fail "There is no $PINE_SETTINGS here. Copy data/settings.json to pine-settings.json and edit it (timezone, channel names), or make it from a legacy installation with './pine convert-settings'."
+  make_tool_dir
+}
+
+# PINE_TOOL_DIR (blank: ./wayspot-tool) holds the Wayspot export tool on the owner's instance:
+# every container of the bot mounts it read-only.
+tool_dir_of() {
+  tool_dir=$(env_value PINE_TOOL_DIR)
+  tool_dir=${tool_dir:-./wayspot-tool}
+}
+
+# Before every command that needs the stack: the folder made when missing, so that Docker does not
+# make it as root (a deploy writes into it as its owner), and readable by others whatever the
+# umask. Nothing is refused here: what the bot cannot read matters only where it starts.
+make_tool_dir() {
+  tool_dir_of
+  [ ! -e "$tool_dir" ] || return 0
+  { mkdir -p "$tool_dir" && chmod a+rx "$tool_dir"; } ||
+    printf 'pine: PINE_TOOL_DIR in %s names %s, which could not be made: make the folder, or leave PINE_TOOL_DIR blank.\n' "$PINE_ENV_FILE" "$tool_dir" >&2
+}
+
+# Before a command that starts the bot (as check_legacy_parties): a folder the bot can read, and the
+# two files it serves readable. The bot runs as the image's user `node`, likely not the folder's
+# owner: so others must be able to read them (what this user may read says nothing of that).
+# Other files there (a deploy's dotfiles, its .tmp while it writes) are not the bot's.
+check_tool_dir() {
+  tool_dir_of
+  [ -d "$tool_dir" ] ||
+    fail "PINE_TOOL_DIR in $PINE_ENV_FILE names $tool_dir, which is no folder: name a folder, or leave PINE_TOOL_DIR blank."
+  [ -n "$(find "$tool_dir" -maxdepth 0 -perm -o=rx)" ] ||
+    fail "The bot cannot read the folder $tool_dir (PINE_TOOL_DIR): let others read it (chmod a+rx)."
+  for served in pine-wayspot-export.user.js CHANGELOG.md; do
+    [ ! -f "$tool_dir/$served" ] || [ -n "$(find "$tool_dir/$served" -maxdepth 0 -perm -o=r)" ] ||
+      fail "The bot cannot read $tool_dir/$served (PINE_TOOL_DIR): let others read it (chmod a+r)."
+  done
+}
+
+# A value of the env file as written there (surrounding quotes and a Windows line end taken
+# off); empty when it is not, or when there is no env file.
+env_value() {
+  [ -f "$PINE_ENV_FILE" ] || return 0
+  sed -n "s/^$1=//p" "$PINE_ENV_FILE" | tail -n 1 | tr -d '\r' |
+    sed "s/^'\(.*\)'\$/\1/; s/^\"\(.*\)\"\$/\1/"
+}
+
+# LEGACY_PARTIES_DIR, when set, must be the legacy bot's parties folder: the stack mounts it
+# read-only for /admin cleanup-legacy (a path relative to compose.yaml, or absolute).
+check_legacy_parties() {
+  legacy_dir=$(env_value LEGACY_PARTIES_DIR)
+  [ -n "$legacy_dir" ] || return 0
+  [ -d "$legacy_dir/active" ] ||
+    fail "LEGACY_PARTIES_DIR in $PINE_ENV_FILE names $legacy_dir, which has no folder active: name the legacy bot's parties folder, or leave it blank."
+}
+
+# A folder the operator gave (as seen from where they ran ./pine), as Docker takes it for a bind
+# mount: an absolute path; in Git Bash the Windows form (C:/...), which Docker Desktop takes.
+docker_folder() {
+  dir=$(from_caller "$1")
+  [ -d "$dir" ] || fail "There is no folder $dir."
+  (cd "$dir" && { pwd -W 2>/dev/null || pwd; })
+}
+
+# The bot's image, built from this checkout (quick when nothing changed).
+build_image() {
+  say "Building the bot's image from this checkout."
+  run build --pull pine
+}
+
+# MySQL alone, started and healthy.
+start_database() {
+  say "Starting the database."
+  run up -d --wait mysql
+}
+
+usage() {
+  cat <<'EOF'
+Usage: ./pine <command>
+
+  up                 build the bot's image and start the stack (a new install creates the database)
+  down               stop the stack (the database and the bot's files are kept)
+  restart [service]  restart the bot, or the service named
+  logs [service]     follow the logs of the stack, or of the service named
+  status             the services and their health
+  migrate            run the database migrations only, without starting the bot
+  backup             a verified backup now (as the nightly one), into BACKUP_DIR
+  restore <dump> [--replace [--no-backup]] [--start | --no-start]
+                     load a dump (.sql or .sql.gz; legacy or Pine) into the stack's database;
+                     --replace drops a database that has tables, after a verified backup of it;
+                     then the stack starts (logging the bot in) on a terminal or with --start
+  deploy-commands [--global | --guild <id> | --rehearsal | --clear-guild]
+                     register the slash commands with Discord (everywhere by default); in
+                     rehearsal mode --rehearsal, in the database's servers only (the admin
+                     restricts who sees them under Integrations);
+                     --clear-guild takes those away again
+  update             back up the database, then fetch the newest code (git pull), rebuild
+                     and restart what changed (nothing when there is nothing new)
+  convert-settings <legacy data folder> [--out <folder>] [--force]
+                     make pine-settings.json and env-from-legacy.txt (the lines of .env) from a
+                     legacy installation's settings.json and private-settings.json
+  cutover-check [--legacy-parties <folder>]
+                     whether the installation is ready for the cutover: the database, the
+                     bot's permissions, forums, settings, emoji (reads Discord's REST API);
+                     with the legacy parties folder, what /admin cleanup-legacy would delete
+  emoji-upload [--apply]
+                     the game's icons the bot's application lacks as its emoji: a dry run
+                     (reads the application's emoji from Discord); --apply uploads them
+  role-auth-export [--json]
+                     the legacy role authorization of the database, mapped to the new commands
+  shell              a shell in the bot's container
+  import-history <folder> [--server <server id>]
+                     import the legacy bot's parties folder into the party history (reads the
+                     folder only; once per instance, and safe to run again); --server names the
+                     server of parties whose region is gone
+  seed-stops <file> --server <server id> [--apply]
+                     add the stops of Pine's own (sponsored stops) of a CSV file
+                     (id,name,lat,lon,region,basis) to a server: a dry run without --apply;
+                     skips rows near a known stop or outside its regions, so safe to run again
+  help              this list
+EOF
+}
+
+cmd_help() {
+  usage
+}
+
+cmd_up() {
+  need_stack
+  check_legacy_parties
+  check_tool_dir
+  build_image
+  say "Starting Professor Pine and its database."
+  run up -d
+  say "Started. './pine logs pine' follows the bot, './pine status' shows its health."
+}
+
+cmd_down() {
+  need_stack
+  say "Stopping the stack. The database and the bot's files stay in their volumes."
+  run down
+}
+
+cmd_restart() {
+  need_stack
+  check_legacy_parties
+  check_tool_dir
+  service=${1:-pine}
+  say "Restarting $service."
+  run restart "$service"
+}
+
+cmd_logs() {
+  need_stack
+  if [ $# -gt 0 ]; then
+    run logs --follow --tail=200 "$1"
+  else
+    run logs --follow --tail=200
+  fi
+}
+
+cmd_status() {
+  need_stack
+  run ps --all
+  if [ -n "$(compose ps --quiet --status running pine 2>/dev/null)" ]; then
+    printf 'The bot: '
+    compose exec -T pine node dist/ops/health-cli.js || true
+  else
+    say "The bot is not running."
+  fi
+  if [ -n "$(compose ps --quiet --status running backup 2>/dev/null)" ]; then
+    printf 'The last backup: '
+    compose exec -T backup sh /pine/backup.sh status
+  else
+    say "The backup service is not running: there are no nightly backups."
+  fi
+}
+
+cmd_migrate() {
+  need_stack
+  build_image
+  start_database
+  say "Running the migrations (the bot does not start, Discord is not contacted)."
+  run run --rm --no-deps pine node --enable-source-maps dist/db/migrate-cli.js
+}
+
+# Before anything is stopped: the dump is whole (a gzip file that unpacks) and complete
+# (mysqldump's last line). A copy cut off on the way is refused here, not half-loaded.
+check_dump() {
+  say "Checking that $1 is whole and complete."
+  case $1 in
+    *.gz)
+      gzip -t "$1" 2>/dev/null ||
+        fail "$1 is not a whole gzip file: the copy may have been cut off."
+      last=$(gzip -dc "$1" | tail -n 1)
+      ;;
+    *) last=$(tail -n 1 "$1") ;;
+  esac
+  case $last in
+    '-- Dump completed'*) ;;
+    *) fail "$1 does not end with mysqldump's '-- Dump completed' line: it was cut off, or is no dump." ;;
+  esac
+}
+
+cmd_backup() {
+  need_stack
+  start_database
+  say "Starting the backup service (it also makes the nightly backups)."
+  run up -d backup
+  say "Making a backup now and verifying it in a scratch server."
+  made=0
+  run exec -T backup sh /pine/backup.sh now || made=$?
+  case $made in
+    0) ;;
+    3) fail "Backups are off: BACKUP_DIR is blank in $PINE_ENV_FILE." ;;
+    *) fail "The backup failed (it said why above)." ;;
+  esac
+}
+
+# backup_first <tag> <sentence> [<off sentence>]: a verified backup before the database changes.
+# Fails with the sentence; where backups are off (BACKUP_DIR blank) it fails with the third one
+# if given, and otherwise says so and the change goes on.
+backup_first() {
+  run up -d backup
+  made=0
+  run exec -T backup sh /pine/backup.sh now "$1" || made=$?
+  case $made in
+    0) ;;
+    3)
+      if [ -n "${3:-}" ]; then fail "$3"; fi
+      say "Backups are off (BACKUP_DIR is blank): none is made first."
+      ;;
+    *) fail "$2" ;;
+  esac
+}
+
+cmd_deploy_commands() {
+  need_stack
+  [ $# -gt 0 ] || set -- --global
+  build_image
+  # The rehearsal's registration and its removal are for the servers of the database.
+  case $1 in
+    --rehearsal | --clear-guild) start_database ;;
+  esac
+  say "Registering the slash commands with Discord ($*)."
+  run run --rm --no-deps pine node --enable-source-maps dist/discord/deploy-cli.js "$@"
+}
+
+# Without the stack's files (it makes them): the image is built and run by plain docker, since
+# Compose would refuse to read compose.yaml without .env.
+cmd_convert_settings() {
+  need_docker
+  usage_line="Usage: ./pine convert-settings <legacy data folder> [--out <folder>] [--force]"
+  legacy=
+  out=
+  force=
+  while [ $# -gt 0 ]; do
+    case $1 in
+      --force) force=--force ;;
+      --out)
+        [ $# -gt 1 ] || fail "--out needs a folder. $usage_line"
+        out=$2
+        shift
+        ;;
+      -*) fail "convert-settings does not know '$1'. $usage_line" ;;
+      *)
+        [ -z "$legacy" ] || fail "Name one legacy data folder only. $usage_line"
+        legacy=$1
+        ;;
+    esac
+    shift
+  done
+  [ -n "$legacy" ] || fail "Name the legacy bot's data folder (with settings.json and private-settings.json). $usage_line"
+  legacy=$(docker_folder "$legacy")
+  # By default the files go beside compose.yaml, where ./pine looks for them.
+  if [ -n "$out" ]; then
+    out=$(docker_folder "$out")
+  else
+    out=$(pwd -W 2>/dev/null || pwd)
+  fi
+  # An image of its own: building under a stack's tag would re-tag the image that stack runs.
+  image=professor-pine:convert-settings
+  say "Building the bot's image from this checkout."
+  say "> docker build --pull -t $image ."
+  docker build --pull -t "$image" . || fail "The image could not be built (Docker said why above)."
+  say "Converting the legacy settings in $legacy (read only) into $out."
+  # As the operator's own user, so that the files written are theirs.
+  docker run --rm --user "$(id -u):$(id -g)" \
+    -v "$legacy:/legacy:ro" -v "$out:/out" \
+    "$image" node dist/ops/convert-settings-cli.js /legacy --out /out ${force:+"$force"}
+}
+
+cmd_cutover_check() {
+  need_stack
+  parties=
+  case ${1:-} in
+    '') ;;
+    --legacy-parties)
+      [ $# -eq 2 ] || fail "Usage: ./pine cutover-check [--legacy-parties <folder>]"
+      parties=$(docker_folder "$2")
+      [ -d "$(from_caller "$2")/active" ] ||
+        fail "$2 has no folder active: name the legacy bot's parties folder."
+      ;;
+    *) fail "Usage: ./pine cutover-check [--legacy-parties <folder>]" ;;
+  esac
+  build_image
+  start_database
+  say "Checking whether this installation is ready for the cutover: the database (read only) and Discord (its REST API, reading only; the bot is not logged in)."
+  if [ -n "$parties" ]; then
+    say "The legacy parties folder $parties is read (read only) for the count of the cleanup."
+    run run --rm --no-deps -v "$parties:/legacy-check:ro" pine \
+      node --enable-source-maps dist/ops/cutover-check-cli.js --legacy-parties /legacy-check
+  else
+    run run --rm --no-deps pine node --enable-source-maps dist/ops/cutover-check-cli.js
+  fi
+}
+
+cmd_emoji_upload() {
+  need_stack
+  build_image
+  if [ "${1:-}" = --apply ]; then
+    say "Uploading the icons the application lacks as its emoji (contacts Discord)."
+  else
+    say "A dry run: the icons the application lacks (reads its emoji from Discord; --apply uploads)."
+  fi
+  run run --rm --no-deps pine node --enable-source-maps dist/ops/emoji-upload-cli.js "$@"
+}
+
+cmd_role_auth_export() {
+  need_stack
+  build_image
+  start_database
+  say "The legacy role authorization of the database (reads only; Discord is not contacted)."
+  run run --rm --no-deps pine node --enable-source-maps dist/ops/role-auth-cli.js "$@"
+}
+
+cmd_update() {
+  need_stack
+  check_legacy_parties
+  check_tool_dir
+  command -v git >/dev/null 2>&1 || fail "git is not installed: update fetches the code with git."
+  git rev-parse --git-dir >/dev/null 2>&1 || fail "This folder is not a git clone: update needs one."
+  # The installation's own files (.env, pine-settings.json) are not the repository's; a change
+  # to the repository's would be lost or conflict.
+  changes=$(git status --porcelain --untracked-files=no)
+  if [ -n "$changes" ]; then
+    fail "This clone has changes of its own ('git status' lists them): commit or undo them first."
+  fi
+  git rev-parse --abbrev-ref '@{upstream}' >/dev/null 2>&1 ||
+    fail "This branch follows no upstream branch: 'git branch -u origin/<branch>' sets one."
+  say "Fetching the newest code."
+  say "> git fetch"
+  git fetch || fail "git could not fetch the newest code (it said why above)."
+  if [ "$(git rev-list --count 'HEAD..@{upstream}')" = 0 ]; then
+    say "Already up to date: there is nothing to update. (An update that stopped after its pull is finished by './pine up', which builds and starts the new version.)"
+    return 0
+  fi
+  # Before anything changes, the database is backed up through the stack as it is now: a pulled
+  # change could upgrade MySQL itself or migrate the data.
+  start_database
+  has_tables=0
+  restore_step check --replace || has_tables=$?
+  case $has_tables in
+    0) say "The database is empty: there is nothing to back up before the update." ;;
+    3)
+      say "Backing up the database before the update (into BACKUP_DIR)."
+      backup_first before-update \
+        "The backup before the update failed (it said why above): nothing was changed."
+      ;;
+    *) fail "The database could not be checked before the update (it said why above): nothing was changed." ;;
+  esac
+  say "> git pull --ff-only"
+  git pull --ff-only || fail "git could not bring the code up to date (it said why above)."
+  pulled="The code is updated but the stack still runs the old version: './pine up' builds and starts it."
+  # The images the stack does not build (MySQL, the tunnel) are kept as first fetched until
+  # pulled: an update fetches their newest builds of the same tag, with their security fixes.
+  say "Fetching the newest MySQL and tunnel images."
+  run pull --ignore-buildable || fail "$pulled"
+  say "Building the bot's image from this checkout."
+  run build --pull pine || fail "$pulled"
+  say "Restarting what changed; the bot's migrator brings the database up to date."
+  run up -d || fail "$pulled"
+  # Compose recreates a service whose definition changed, not one whose mounted files did: the
+  # backup service runs a script of the checkout, and both run what the update brought.
+  run up -d --force-recreate backup watchdog || fail "$pulled"
+}
+
+cmd_shell() {
+  need_stack
+  if [ -n "$(compose ps --quiet --status running pine 2>/dev/null)" ]; then
+    run exec pine sh
+  else
+    say "The bot is not running: a shell in a container of its own instead."
+    run run --rm --no-deps pine sh
+  fi
+}
+
+# A folder the operator gave (as seen from where they ran ./pine), as Docker takes it for a bind
+# mount: absolute, and in Git Bash in its Windows form (C:/...), which Docker Desktop takes.
+mount_folder() {
+  dir=$(from_caller "$1")
+  [ -d "$dir" ] || fail "There is no folder $dir."
+  (cd "$dir" && { pwd -W 2>/dev/null || pwd; })
+}
+
+cmd_import_history() {
+  need_stack
+  usage_import="Usage: ./pine import-history <folder> [--server <server id>]"
+  case $# in
+    1) server= ;;
+    3)
+      [ "$2" = --server ] || fail "$usage_import"
+      server=$3
+      ;;
+    *) fail "$usage_import" ;;
+  esac
+  folder=$(mount_folder "$1")
+  [ -d "$folder/complete" ] || [ -d "$folder/active" ] ||
+    fail "$folder has neither active/ nor complete/: name the legacy bot's parties folder."
+  build_image
+  start_database
+  say "Bringing the database up to date first (the bot does not start, Discord is not contacted)."
+  run run --rm --no-deps pine node --enable-source-maps dist/db/migrate-cli.js
+  say "Importing the legacy parties of $folder into the party history (the folder is only read; a large one takes minutes)."
+  run run --rm --no-deps -v "$folder:/legacy-history:ro" pine \
+    node --enable-source-maps dist/ops/history-import-cli.js /legacy-history \
+    ${server:+--server "$server"}
+}
+
+cmd_seed_stops() {
+  need_stack
+  usage_seed="Usage: ./pine seed-stops <file> --server <server id> [--apply]"
+  [ $# -ge 3 ] || fail "$usage_seed"
+  case $1 in -*) fail "$usage_seed" ;; esac
+  file=$(from_caller "$1")
+  shift
+  [ -f "$file" ] || fail "There is no file $file."
+  folder=$(mount_folder "$(dirname "$file")")
+  name=$(basename "$file")
+  build_image
+  start_database
+  say "Bringing the database up to date first (the bot does not start, Discord is not contacted)."
+  run run --rm --no-deps pine node --enable-source-maps dist/db/migrate-cli.js
+  say "Seeding the stops of Pine's own from $file (the file is only read; without --apply nothing is written)."
+  run run --rm --no-deps -v "$folder:/seed:ro" pine \
+    node --enable-source-maps dist/ops/stop-seed-cli.js "/seed/$name" "$@"
+}
+
+# The database half of a restore, in a one-off container of the bot's image (src/ops/restore-cli.ts).
+restore_step() {
+  run run --rm --no-deps pine node --enable-source-maps dist/ops/restore-cli.js "$@"
+}
+
+cmd_restore() {
+  need_stack
+  dump=
+  replace=
+  no_backup=
+  # Starting the stack logs the bot in: by default only for an operator at a terminal.
+  start=
+  if [ -t 0 ]; then start=yes; fi
+  for arg in "$@"; do
+    case $arg in
+      --replace) replace=--replace ;;
+      --no-backup) no_backup=yes ;;
+      --start) start=yes ;;
+      --no-start) start= ;;
+      -*) fail "restore does not know '$arg'. Usage: ./pine restore <dump> [--replace [--no-backup]] [--start | --no-start]" ;;
+      *)
+        [ -z "$dump" ] || fail "Name one dump only."
+        dump=$arg
+        ;;
+    esac
+  done
+  [ -n "$dump" ] || fail "Name the dump to load: ./pine restore <dump.sql or dump.sql.gz> [--replace]"
+  # Checked before anything is stopped, when the restore ends by starting the bot.
+  [ -z "$start" ] || check_tool_dir
+  dump=$(from_caller "$dump")
+  if [ ! -f "$dump" ] || [ ! -r "$dump" ]; then
+    fail "There is no readable file $dump."
+  fi
+  case $dump in
+    *.gz) kind=gz ;;
+    *) kind=sql ;;
+  esac
+
+  check_dump "$dump"
+  build_image
+  start_database
+  # Refused here, while the bot still runs, if the database has tables and --replace is missing;
+  # with --replace, what it drops is backed up first (3: it has tables).
+  checked=0
+  restore_step check ${replace:+"$replace"} || checked=$?
+  case $checked in
+    0) ;;
+    3)
+      if [ -n "$no_backup" ]; then
+        say "No backup first (--no-backup): the tables are dropped as they are."
+      else
+        say "Backing up the database before --replace drops it (into BACKUP_DIR)."
+        backup_first before-restore \
+          "The backup before --replace failed (it said why above); nothing was stopped or dropped. --no-backup drops the tables without one." \
+          "Backups are off (BACKUP_DIR is blank), so --replace would drop the tables unsaved: nothing was stopped or dropped. --no-backup drops them without a backup."
+      fi
+      ;;
+    *) exit "$checked" ;;
+  esac
+  say "Stopping the bot, its watchdog and the backups while the database is replaced."
+  run stop pine watchdog backup
+  bot_stopped=yes
+  restore_step prepare ${replace:+"$replace"}
+  say "Loading $dump into the database; a large dump takes minutes."
+  # Streamed from the file through the mysql service's own client, never copied; as MySQL's root,
+  # so that whatever the dump sets (its time zone, the checks it turns off) is allowed. gzip's
+  # status is kept aside (sh has no pipefail): a dump that breaks while it unpacks is a failure.
+  say "> docker compose exec -T mysql mysql $(basename "$dump") < $dump"
+  # shellcheck disable=SC2016 # expanded in the container, which has the variables
+  compose exec -T mysql sh -c '
+    { if [ "$0" = gz ]; then gzip -dc; else cat; fi; echo $? >/tmp/unpacked; } |
+      MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql --default-character-set=utf8mb4 -uroot "$MYSQL_DATABASE" &&
+      [ "$(cat /tmp/unpacked)" = 0 ]' "$kind" <"$dump" ||
+    fail "The dump did not load (MySQL or gzip said why above). The database may hold part of it: './pine restore $dump --replace' starts again."
+  finished=0
+  restore_step finish || finished=$?
+  case $finished in
+    0) ;;
+    4)
+      # The bot would only fail on this database at every start: no "./pine up" offered.
+      bot_stopped=
+      fail "The loaded database is not one the bot can start on (said above), so the bot, its watchdog and the backups stay stopped: restore another dump with --replace."
+      ;;
+    *) fail "The load could not be finished (said above)." ;;
+  esac
+  if [ -n "$start" ]; then
+    say "Starting the stack: the bot's migrator takes the database over or brings it up to date."
+    run up -d
+    bot_stopped=
+  else
+    say "Not started. './pine migrate' brings the database up to date without the bot; './pine up' starts the stack (and logs the bot in)."
+  fi
+}
+
+# Runs the command named first. A function, so that sh has read all of it before it runs: `update`
+# replaces this file while it runs (git writes a new file, so the rest read is the old one's).
+main() {
+  [ $# -gt 0 ] || {
+    usage
+    exit 1
+  }
+  name=$1
+  shift
+  case $name in
+    *[!a-z-]*) fail "There is no command '$name'. './pine help' lists them." ;;
+  esac
+  handler=cmd_$(printf '%s' "$name" | tr '-' '_')
+  command -v "$handler" >/dev/null 2>&1 ||
+    fail "There is no command '$name'. './pine help' lists them."
+  "$handler" "$@"
+}
+
+main "$@"

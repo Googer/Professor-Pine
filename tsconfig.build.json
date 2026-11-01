@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rootDir": "src",
+    "outDir": "dist",
+    // The bot is compiled against the package's built declarations (`npm run build` builds the
+    // package first), never its sources, which lie outside `rootDir`.
+    "customConditions": []
+  },
+  "include": ["src"],
+  "exclude": ["src/**/*.test.ts", "src/web/client"]
+}

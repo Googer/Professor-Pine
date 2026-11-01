@@ -1,0 +1,58 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run format:check
+      - run: npm run typecheck
+      - run: npm test
+      - name: Generated database types are current
+        run: npm run db:codegen -- --verify
+      - run: npm run build
+
+  # The Docker stack: the image builds, the operator scripts pass shellcheck, and a new install
+  # on the stack's own MySQL runs every migration. The migrations run before any login, so the
+  # dummy token below is never used: nothing contacts Discord.
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Shell scripts
+        run: docker run --rm -v "$PWD:/mnt:ro" koalaman/shellcheck:stable -s sh /mnt/pine /mnt/docker/backup.sh
+      - name: Settings of the stack (dummy values)
+        run: |
+          cat > .env <<'ENV'
+          DISCORD_TOKEN=not-a-token
+          DISCORD_APP_ID=123456789012345678
+          OWNER_ID=223456789012345678
+          DB_USER=pine
+          DB_PASSWORD=ci-pine
+          DB_SCHEMA=pine
+          DB_ROOT_PASSWORD=ci-root
+          POKEMON_IMAGE_BASE=https://images.example/pokemon/
+          ENV
+          cp data/settings.json pine-settings.json
+      - name: Image and migrations on a new install
+        run: ./pine migrate
+      - name: Every migration was recorded
+        run: |
+          applied=$(docker compose exec -T mysql sh -c \
+            'MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql -uroot -N -B -e "select count(*) from pine.kysely_migration"')
+          expected=$(ls src/db/migrations/2*.ts | grep -vc '\.test\.ts$')
+          echo "migrations applied: $applied of $expected"
+          test "$applied" -eq "$expected"
+      - name: Stop the stack
+        if: always()
+        run: docker compose down --volumes

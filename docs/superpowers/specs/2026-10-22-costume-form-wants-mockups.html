@@ -1,0 +1,888 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Costume and form wants: mockups</title>
+    <style>
+      :root {
+        --bg: #313338;
+        --modal: #313338;
+        --field: #1e1f22;
+        --text: #dbdee1;
+        --head: #f2f3f5;
+        --muted: #949ba4;
+        --blurple: #5865f2;
+        --line: #3f4147;
+        --red: #da373c;
+        --chat: #313338;
+        --card: #2b2d31;
+        --green: #248046;
+      }
+      body {
+        margin: 0;
+        background: #1e1f22;
+        color: var(--text);
+        font:
+          15px/1.4 'gg sans',
+          'Noto Sans',
+          'Helvetica Neue',
+          Arial,
+          sans-serif;
+        padding: 24px 16px;
+      }
+      h1 {
+        color: var(--head);
+        font-size: 20px;
+        margin: 0 0 4px;
+      }
+      .intro {
+        color: var(--muted);
+        margin: 0 0 24px;
+        max-width: 900px;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+        gap: 28px;
+        align-items: start;
+      }
+      .cap {
+        color: var(--muted);
+        font-size: 13px;
+        margin: 0 0 8px;
+      }
+      .modal {
+        background: var(--modal);
+        border-radius: 8px;
+        width: 100%;
+        max-width: 440px;
+        overflow: hidden;
+        box-shadow: 0 0 0 1px #0004;
+      }
+      .mh {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 16px 16px 8px;
+      }
+      .mh .icon {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        background: #2f7d5b;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 12px;
+        color: #fff;
+      }
+      .mh .title {
+        color: var(--head);
+        font-weight: 600;
+        font-size: 20px;
+        flex: 1;
+      }
+      .mh .x {
+        color: var(--muted);
+        font-size: 20px;
+      }
+      .mb {
+        padding: 4px 16px 16px;
+      }
+      .txt {
+        margin: 0 0 16px;
+      }
+      .lab {
+        color: var(--head);
+        font-weight: 600;
+        font-size: 15px;
+        margin: 0 0 2px;
+      }
+      .desc {
+        color: var(--muted);
+        font-size: 13px;
+        margin: 0 0 8px;
+      }
+      .field {
+        margin: 0 0 18px;
+      }
+      .opt {
+        display: flex;
+        gap: 10px;
+        align-items: flex-start;
+        background: var(--field);
+        border-radius: 8px;
+        padding: 9px 10px;
+        margin: 0 0 6px;
+      }
+      .cb {
+        width: 20px;
+        height: 20px;
+        border-radius: 6px;
+        border: 2px solid #80848e;
+        flex: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 13px;
+        color: #fff;
+        margin-top: 1px;
+        box-sizing: border-box;
+      }
+      .cb.on {
+        background: var(--blurple);
+        border-color: var(--blurple);
+      }
+      .ol {
+        color: var(--text);
+      }
+      .od {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .single {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+      }
+      .sel {
+        background: var(--field);
+        border-radius: 8px;
+        padding: 10px 12px;
+        display: flex;
+        justify-content: space-between;
+        color: var(--text);
+      }
+      .list {
+        background: #2b2d31;
+        border: 1px solid #1e1f22;
+        border-radius: 8px;
+        margin-top: 4px;
+        max-height: 240px;
+        overflow: auto;
+      }
+      .li {
+        display: flex;
+        justify-content: space-between;
+        padding: 8px 12px;
+      }
+      .li.on {
+        background: #404249;
+      }
+      .mf {
+        background: #2b2d31;
+        display: flex;
+        justify-content: flex-end;
+        gap: 8px;
+        padding: 16px;
+      }
+      .btn {
+        border-radius: 8px;
+        padding: 8px 16px;
+        font-size: 14px;
+        font-weight: 500;
+      }
+      .b-blurple {
+        background: var(--blurple);
+        color: #fff;
+      }
+      .b-plain {
+        color: #fff;
+      }
+      .b-grey {
+        background: #4e5058;
+        color: #fff;
+      }
+      .b-red {
+        background: var(--red);
+        color: #fff;
+      }
+      .b-off {
+        background: #4e5058;
+        color: #fff;
+        opacity: 0.5;
+      }
+      .msg {
+        display: flex;
+        gap: 14px;
+        max-width: 520px;
+      }
+      .av {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #2f7d5b;
+        flex: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #fff;
+        font-weight: 600;
+      }
+      .who {
+        color: var(--head);
+        font-weight: 600;
+      }
+      .tag {
+        background: var(--blurple);
+        color: #fff;
+        font-size: 10px;
+        border-radius: 4px;
+        padding: 1px 4px;
+        margin-left: 4px;
+        vertical-align: 2px;
+      }
+      .time {
+        color: var(--muted);
+        font-size: 12px;
+        margin-left: 6px;
+      }
+      .ctr {
+        background: var(--card);
+        border: 1px solid #3f4147;
+        border-radius: 8px;
+        padding: 14px 16px;
+        margin-top: 6px;
+      }
+      .small {
+        color: var(--muted);
+        font-size: 13px;
+      }
+      .sect {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 10px;
+        padding: 6px 0;
+      }
+      .row {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+        margin: 10px 0;
+      }
+      .sep {
+        border-top: 1px solid var(--line);
+        margin: 10px 0;
+      }
+      .eph {
+        color: var(--muted);
+        font-size: 12px;
+        margin-top: 6px;
+      }
+      .pic {
+        width: 72px;
+        height: 72px;
+        border-radius: 8px;
+        background: #3a3c42;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--muted);
+        font-size: 11px;
+        flex: none;
+        text-align: center;
+      }
+      @media (max-width: 440px) {
+        .grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Costume and form wants (8R-4): mockups</h1>
+    <p class="intro">
+      Drawn after Discord's dark theme. Design:
+      <code>2026-10-22-costume-form-wants-design.md</code>. Field names and texts are proposals; the
+      real look is confirmed at staging.
+    </p>
+
+    <div class="grid">
+      <!-- 1 -->
+      <div>
+        <p class="cap">1. <code>/want pikachu</code>, no want yet: one form, can be costumed</p>
+        <div class="modal">
+          <div class="mh">
+            <span class="icon">P</span><span class="title">Pikachu: what for?</span
+            ><span class="x">✕</span>
+          </div>
+          <div class="mb">
+            <p class="txt">
+              Tick what you want a DM about, in the regions you can see. Nothing ticked takes it off
+              your list.
+            </p>
+            <div class="field">
+              <p class="lab">Tell me about</p>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div>
+                  <div class="ol">Raids</div>
+                  <div class="od">Pikachu raids and their eggs</div>
+                </div>
+              </div>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div>
+                  <div class="ol">Dynamax</div>
+                  <div class="od">Dynamax max battles</div>
+                </div>
+              </div>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div>
+                  <div class="ol">Gigantamax</div>
+                  <div class="od">Gigantamax max battles</div>
+                </div>
+              </div>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div>
+                  <div class="ol">Spawns</div>
+                  <div class="od">Wild Pikachu reported</div>
+                </div>
+              </div>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div>
+                  <div class="ol">Research</div>
+                  <div class="od">Field research that rewards it</div>
+                </div>
+              </div>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div>
+                  <div class="ol">Shadow</div>
+                  <div class="od">Shadow raids and Team GO Rocket catches</div>
+                </div>
+              </div>
+            </div>
+            <div class="field" style="margin: 0">
+              <p class="lab">Only costumed Pikachu</p>
+              <p class="desc">Any costume, now or later. Unticked, costumed ones come too.</p>
+              <div class="single">
+                <span class="cb">&nbsp;</span><span class="ol">Only costumed ones</span>
+              </div>
+            </div>
+          </div>
+          <div class="mf">
+            <span class="btn b-plain">Cancel</span><span class="btn b-blurple">Submit</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2 -->
+      <div>
+        <p class="cap">
+          2. <code>/want corsola</code>, holding a Galarian Corsola want: forms, a costume of
+          Galarian, Remove
+        </p>
+        <div class="modal">
+          <div class="mh">
+            <span class="icon">C</span><span class="title">Corsola: what for?</span
+            ><span class="x">✕</span>
+          </div>
+          <div class="mb">
+            <p class="txt">Tick what you want a DM about, in the regions you can see.</p>
+            <div class="field">
+              <p class="lab">Tell me about</p>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div><div class="ol">Raids</div></div>
+              </div>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div><div class="ol">Spawns</div></div>
+              </div>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div><div class="ol">Research</div></div>
+              </div>
+              <div class="opt">
+                <span class="cb">&nbsp;</span>
+                <div><div class="ol">Shadow</div></div>
+              </div>
+            </div>
+            <div class="field">
+              <p class="lab">Which Corsola</p>
+              <div class="opt">
+                <span class="cb">&nbsp;</span>
+                <div class="ol">Corsola</div>
+              </div>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div class="ol">Galarian Corsola</div>
+              </div>
+            </div>
+            <div class="field">
+              <p class="lab">Only costumed ones</p>
+              <p class="desc">Of the forms ticked, any costume, now or later.</p>
+              <div class="single">
+                <span class="cb">&nbsp;</span><span class="ol">Only costumed ones</span>
+              </div>
+            </div>
+            <div class="field" style="margin: 0">
+              <p class="lab">Remove Corsola from my list</p>
+              <p class="desc">Ticked, Submit removes it, whatever else is ticked.</p>
+              <div class="single"><span class="cb">&nbsp;</span><span class="ol">Remove</span></div>
+            </div>
+          </div>
+          <div class="mf">
+            <span class="btn b-plain">Cancel</span><span class="btn b-blurple">Submit</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3 -->
+      <div>
+        <p class="cap">
+          3. <code>/want charizard</code>: the megas among the forms (a mega counts for Raids only)
+        </p>
+        <div class="modal">
+          <div class="mh">
+            <span class="icon">C</span><span class="title">Charizard: what for?</span
+            ><span class="x">✕</span>
+          </div>
+          <div class="mb">
+            <p class="txt">
+              Tick what you want a DM about, in the regions you can see. Nothing ticked takes it off
+              your list. A mega is told for raids only.
+            </p>
+            <div class="field">
+              <p class="lab">Tell me about</p>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div class="ol">Raids</div>
+              </div>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div class="ol">Dynamax</div>
+              </div>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div class="ol">Gigantamax</div>
+              </div>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div class="ol">Spawns</div>
+              </div>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div class="ol">Research</div>
+              </div>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div class="ol">Shadow</div>
+              </div>
+            </div>
+            <div class="field">
+              <p class="lab">Which Charizard</p>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div class="ol">Charizard</div>
+              </div>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div class="ol">Mega Charizard X</div>
+              </div>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div class="ol">Mega Charizard Y</div>
+              </div>
+            </div>
+            <div class="field" style="margin: 0">
+              <p class="lab">Only costumed ones</p>
+              <p class="desc">Of the forms ticked, any costume, now or later.</p>
+              <div class="single">
+                <span class="cb">&nbsp;</span><span class="ol">Only costumed ones</span>
+              </div>
+            </div>
+          </div>
+          <div class="mf">
+            <span class="btn b-plain">Cancel</span><span class="btn b-blurple">Submit</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4 -->
+      <div>
+        <p class="cap">4. <code>/want arceus</code>: 18 forms in a dropdown (shown open)</p>
+        <div class="modal">
+          <div class="mh">
+            <span class="icon">A</span><span class="title">Arceus: what for?</span
+            ><span class="x">✕</span>
+          </div>
+          <div class="mb">
+            <p class="txt">
+              Arceus is told for raids, in the regions you can see. Pick the forms you want; none
+              picked takes it off your list.
+            </p>
+            <div class="field" style="margin: 0">
+              <p class="lab">Which Arceus</p>
+              <div class="sel"><span>Arceus, Dragon Arceus, Fire Arceus</span><span>⌃</span></div>
+              <div class="list">
+                <div class="li on"><span>Arceus</span><span>✓</span></div>
+                <div class="li"><span>Bug Arceus</span></div>
+                <div class="li"><span>Dark Arceus</span></div>
+                <div class="li on"><span>Dragon Arceus</span><span>✓</span></div>
+                <div class="li"><span>Electric Arceus</span></div>
+                <div class="li"><span>Fairy Arceus</span></div>
+                <div class="li"><span>Fighting Arceus</span></div>
+                <div class="li on"><span>Fire Arceus</span><span>✓</span></div>
+                <div class="li"><span>Flying Arceus</span></div>
+                <div class="li small">… 9 more as you scroll</div>
+              </div>
+            </div>
+          </div>
+          <div class="mf">
+            <span class="btn b-plain">Cancel</span><span class="btn b-blurple">Submit</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 5 -->
+      <div>
+        <p class="cap">
+          5. The answer after Submit of dialog 1 with Only costumed ticked (only you can see it)
+        </p>
+        <div class="msg">
+          <div class="av">P</div>
+          <div style="flex: 1">
+            <div>
+              <span class="who">Professor Pine</span><span class="tag">APP</span
+              ><span class="time">Today at 9:41 AM</span>
+            </div>
+            <div class="ctr">
+              <div>
+                <b>Costumed Pikachu</b>: Raids, Dynamax, Gigantamax, Spawns, Research, Shadow. You
+                will get a DM when one is reported in a region you can see.
+              </div>
+              <div class="small" style="margin-top: 8px">
+                Costumed Pokémon haven't appeared in max battles or as shadows so far, so Dynamax,
+                Gigantamax and Shadow stay quiet unless that changes.
+              </div>
+            </div>
+            <div class="eph">👁 Only you can see this • Dismiss message</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6 -->
+      <div>
+        <p class="cap">
+          6. A DM, with Change… beside the reason; after a Submit from it, the button reads Changed
+        </p>
+        <div class="msg">
+          <div class="av">P</div>
+          <div style="flex: 1">
+            <div>
+              <span class="who">Professor Pine</span><span class="tag">APP</span
+              ><span class="time">Today at 6:12 PM</span>
+            </div>
+            <div class="ctr">
+              <div style="display: flex; gap: 12px; justify-content: space-between">
+                <div>
+                  <div>
+                    <b>Field research for Pikachu wearing a Cosmog suit</b> at Market Square
+                    Fountain, Downtown.
+                  </div>
+                  <div class="small" style="margin-top: 6px">
+                    Spin 26 PokéStops or Gyms · reported by Ash
+                  </div>
+                </div>
+                <div class="pic">costumed<br />Pikachu</div>
+              </div>
+              <div class="row">
+                <span class="btn b-grey">Go to post ↗</span><span class="btn b-grey">Map ↗</span>
+              </div>
+              <div class="sep"></div>
+              <div class="small">You asked to be told about</div>
+              <div class="sect">
+                <span>Costumed Pikachu · Research</span><span class="btn b-grey">Change…</span>
+              </div>
+              <div class="sep"></div>
+              <div class="small">After a Submit from it:</div>
+              <div class="sect">
+                <span>Costumed Pikachu · Research</span><span class="btn b-off">Changed</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 6b -->
+      <div>
+        <p class="cap">
+          6b. What Change… in that DM opens: the same dialog, as the want is stored, with Remove
+        </p>
+        <div class="modal">
+          <div class="mh">
+            <span class="icon">P</span><span class="title">Pikachu: what for?</span
+            ><span class="x">✕</span>
+          </div>
+          <div class="mb">
+            <p class="txt">
+              Your Pikachu want in Pittsburgh Pokémon GO. Change what you want a DM about, or tick
+              Remove to stop them all.
+            </p>
+            <div class="field">
+              <p class="lab">Tell me about</p>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div>
+                  <div class="ol">Raids</div>
+                  <div class="od">Pikachu raids and their eggs</div>
+                </div>
+              </div>
+              <div class="opt">
+                <span class="cb">&nbsp;</span>
+                <div>
+                  <div class="ol">Dynamax</div>
+                  <div class="od">Dynamax max battles</div>
+                </div>
+              </div>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div>
+                  <div class="ol">Gigantamax</div>
+                  <div class="od">Gigantamax max battles</div>
+                </div>
+              </div>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div>
+                  <div class="ol">Spawns</div>
+                  <div class="od">Wild Pikachu reported</div>
+                </div>
+              </div>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div>
+                  <div class="ol">Research</div>
+                  <div class="od">Field research that rewards it</div>
+                </div>
+              </div>
+              <div class="opt">
+                <span class="cb">&nbsp;</span>
+                <div>
+                  <div class="ol">Shadow</div>
+                  <div class="od">Shadow raids and Team GO Rocket catches</div>
+                </div>
+              </div>
+            </div>
+            <div class="field">
+              <p class="lab">Only costumed Pikachu</p>
+              <p class="desc">Any costume, now or later. Unticked, costumed ones come too.</p>
+              <div class="single">
+                <span class="cb on">✓</span><span class="ol">Only costumed ones</span>
+              </div>
+            </div>
+            <div class="field" style="margin: 0">
+              <p class="lab">Remove Pikachu from my list</p>
+              <p class="desc">Ticked, Submit removes it, whatever else is ticked.</p>
+              <div class="single"><span class="cb">&nbsp;</span><span class="ol">Remove</span></div>
+            </div>
+          </div>
+          <div class="mf">
+            <span class="btn b-plain">Cancel</span><span class="btn b-blurple">Submit</span>
+          </div>
+        </div>
+        <p class="cap" style="margin-top: 8px">
+          Submit edits the DM's button to "Changed" (or "Removed") and answers as in 5. From a DM
+          the dialog names the server, since a member may be in several.
+        </p>
+      </div>
+
+      <!-- 4b -->
+      <div>
+        <p class="cap">
+          4b. <code>/want mewtwo</code>: a legendary has no Research box (unless today's task list
+          has it as a reward)
+        </p>
+        <div class="modal">
+          <div class="mh">
+            <span class="icon">M</span><span class="title">Mewtwo: what for?</span
+            ><span class="x">✕</span>
+          </div>
+          <div class="mb">
+            <p class="txt">
+              Tick what you want a DM about, in the regions you can see. Nothing ticked takes it off
+              your list. A mega is told for raids only.
+            </p>
+            <div class="field">
+              <p class="lab">Tell me about</p>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div class="ol">Raids</div>
+              </div>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div class="ol">Shadow</div>
+              </div>
+            </div>
+            <div class="field" style="margin: 0">
+              <p class="lab">Which Mewtwo</p>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div class="ol">Mewtwo</div>
+              </div>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div class="ol">Armored Mewtwo</div>
+              </div>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div class="ol">Mega Mewtwo X</div>
+              </div>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div class="ol">Mega Mewtwo Y</div>
+              </div>
+            </div>
+          </div>
+          <div class="mf">
+            <span class="btn b-plain">Cancel</span><span class="btn b-blurple">Submit</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 7 -->
+      <div>
+        <p class="cap">
+          7. <code>/wants</code>: Change… opens the want's dialog (as 6b, from the server); what has
+          no dialog keeps Remove
+        </p>
+        <div class="msg">
+          <div class="av">P</div>
+          <div style="flex: 1">
+            <div>
+              <span class="who">Professor Pine</span><span class="tag">APP</span
+              ><span class="time">Today at 9:45 AM</span>
+            </div>
+            <div class="ctr">
+              <div style="font-weight: 600; font-size: 17px">Your wants</div>
+              <div class="small">10 wants</div>
+              <div class="sep"></div>
+              <div class="sect">
+                <span>Arceus, Dragon Arceus, Fire Arceus: Raids</span
+                ><span class="btn b-grey">Change…</span>
+              </div>
+              <div class="sect">
+                <span>Galarian Corsola: Raids, Spawns, Research</span
+                ><span class="btn b-grey">Change…</span>
+              </div>
+              <div class="sect">
+                <span>Dratini: Raids, Research, Shadow</span><span class="btn b-grey">Change…</span>
+              </div>
+              <div class="sect">
+                <span>Costumed Pikachu: Raids, Gigantamax, Spawns, Research</span
+                ><span class="btn b-grey">Change…</span>
+              </div>
+              <div class="sect">
+                <span>Vivillon (17 of 21 forms): Spawns</span
+                ><span class="btn b-grey">Change…</span>
+              </div>
+              <div class="sect">
+                <span>Tier 5 raids: Raids, Shadow raids</span
+                ><span class="btn b-grey">Change…</span>
+              </div>
+              <div class="sect">
+                <span>Team GO Rocket: Water and Fire grunts, Arlo, Giovanni</span
+                ><span class="btn b-grey">Change…</span>
+              </div>
+              <div class="sect">
+                <span>Rare Candy XL: Research</span><span class="btn b-red">Remove</span>
+              </div>
+              <div class="sect">
+                <span>Perfect IVs: Spawns</span><span class="btn b-red">Remove</span>
+              </div>
+              <div class="sect">
+                <span>Zero IVs: Spawns</span><span class="btn b-red">Remove</span>
+              </div>
+              <div class="row"><span class="btn b-grey">Remove all…</span></div>
+              <div class="small">Add one with /want.</div>
+            </div>
+            <div class="eph">👁 Only you can see this • Dismiss message</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 8 -->
+      <div>
+        <p class="cap">
+          8. <code>/want rocket</code> (or Change… on a Rocket line or DM): one dialog for every
+          Team GO Rocket want
+        </p>
+        <div class="modal">
+          <div class="mh">
+            <span class="icon">R</span><span class="title">Team GO Rocket: what for?</span
+            ><span class="x">✕</span>
+          </div>
+          <div class="mb">
+            <p class="txt">
+              Pick what you want a DM about, in the regions you can see. A grunt type is told at
+              most once an hour.
+            </p>
+            <div class="field">
+              <p class="lab">Grunts</p>
+              <p class="desc">
+                By type, whatever their lineup. For one Pokémon they give, tick Shadow in its own
+                /want.
+              </p>
+              <div class="sel"><span>Fire-type grunts, Water-type grunts</span><span>⌃</span></div>
+              <div class="list">
+                <div class="li"><span>Bug-type grunts</span></div>
+                <div class="li"><span>Dark-type grunts</span></div>
+                <div class="li"><span>Dragon-type grunts</span></div>
+                <div class="li"><span>Electric-type grunts</span></div>
+                <div class="li"><span>Fairy-type grunts</span></div>
+                <div class="li"><span>Fighting-type grunts</span></div>
+                <div class="li on"><span>Fire-type grunts</span><span>✓</span></div>
+                <div class="li"><span>Flying-type grunts</span></div>
+                <div class="li"><span>Ghost-type grunts</span></div>
+                <div class="li small">
+                  … Grass to Water, Grunts without a type, Decoy grunt as you scroll
+                </div>
+              </div>
+            </div>
+            <div class="field">
+              <p class="lab">Leaders</p>
+              <div class="opt">
+                <span class="cb">&nbsp;</span>
+                <div class="ol">Cliff</div>
+              </div>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div class="ol">Arlo</div>
+              </div>
+              <div class="opt">
+                <span class="cb">&nbsp;</span>
+                <div class="ol">Sierra</div>
+              </div>
+              <div class="opt">
+                <span class="cb">&nbsp;</span>
+                <div>
+                  <div class="ol">Any leader</div>
+                  <div class="od">Every leader, also future ones</div>
+                </div>
+              </div>
+              <div class="opt">
+                <span class="cb on">✓</span>
+                <div class="ol">Giovanni</div>
+              </div>
+            </div>
+            <div class="field" style="margin: 0">
+              <p class="lab">Remove all my Team GO Rocket wants</p>
+              <p class="desc">Ticked, Submit removes them, whatever else is picked.</p>
+              <div class="single"><span class="cb">&nbsp;</span><span class="ol">Remove</span></div>
+            </div>
+          </div>
+          <div class="mf">
+            <span class="btn b-plain">Cancel</span><span class="btn b-blurple">Submit</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

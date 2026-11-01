@@ -1,13 +1,12 @@
 {
   "standardRaidIncubateDuration": 60,
   "standardRaidHatchedDuration": 45,
-  "exclusiveRaidIncubateDuration": 20160,
-  "exclusiveRaidHatchedDuration": 45,
   "eliteRaidIncubateDuration": 1440,
   "eliteRaidHatchedDuration": 30,
   "maxRaidHatchedDuration": 180,
   "maxMeetupLeadupDuration": 133920,
   "maximumAdditionalAttendees": 20,
+  "lobbies": { "raid": 20, "dynamax": 4, "gigantamax": 100 },
   "startClearTime": 10,
   "deletionGraceTime": 5,
   "deletionWarningTime": 10,
@@ -16,13 +15,13 @@
   "maximumMeetupLeadtime": 93,
   "screenshotMessageOffsetTime": 45,
   "cleanupInterval": 60000,
-  "commandPrefix": "!",
   "messageCleanupDelaySuccess": 5000,
   "messageCleanupDelayError": 30000,
   "messageCleanupDelayStatus": 60000,
   "showUnknownMoves": true,
   "databaseRaids": true,
   "postNewGyms": true,
+  "wayspotTool": "https://profpine.com/userscript",
   "updater": {
     "channelIndexUpdateIntervalSeconds": 60,
     "gymPlacesIndexUpdateIntervalSeconds": 60
@@ -33,59 +32,9 @@
     "shiny": "pineshiny",
     "remote": "pineremote"
   },
-  "reactionCommands": {
-    "interested": {
-      "custom": "pineinterested",
-      "plain": "🤔",
-      "localOnly": false
-    },
-    "join": {
-      "custom": "pinejoin",
-      "plain": "\uD83C\uDFC3",
-      "localOnly": false
-    },
-    "here": {
-      "custom": "pinehere",
-      "plain": "✅",
-      "localOnly": false
-    },
-    "done": {
-      "custom": "pinedone",
-      "plain": "\uD83C\uDF89",
-      "localOnly": false
-    },
-    "incrementCount": {
-      "custom": "",
-      "plain": "⬆️",
-      "localOnly": false
-    },
-    "decrementCount": {
-      "custom": "",
-      "plain": "⬇️",
-      "localOnly": false
-    },
-    "remote": {
-      "custom": "pineremote",
-      "plain": "\uD83D\uDCE1",
-      "localOnly": true
-    },
-    "notInterested": {
-      "custom": "pineleave",
-      "plain": "\uD83D\uDC4B",
-      "localOnly": false
-    }
-  },
-  "groupReactions": {
-    "A": "\uD83C\uDDE6",
-    "B": "\uD83C\uDDE7",
-    "C": "\uD83C\uDDE8",
-    "D": "\uD83C\uDDE9",
-    "E": "\uD83C\uDDEA"
-  },
   "features": {
     "exGymChannel": true,
     "remoteRaidChannel": true,
-    "reactionCommands": true,
     "notifications": true,
     "roles": true
   },
@@ -96,10 +45,12 @@
     "bot-lab": "the-bot-lab",
     "mod-bot-lab": "mod-bot-only",
     "unown": "unown-sightings",
-    "ex-gym-raids": "potential-ex-gym-raids",
+    "elite-gym-raids": "elite-gym-raids",
     "remote-raids": "remote-raids",
     "pvp": "rank-checker",
-    "bot-updates": "bot-updates"
+    "bot-updates": "bot-updates",
+    "moderation": "",
+    "events": ""
   },
   "categories": {
     "pvp": "PVP CHAT AND TOURNAMENTS"
@@ -112,9 +63,10 @@
     "roles",
     "notifications",
     "friends",
-    "silph",
     "util"
   ],
+  "wildSpawnExceptions": ["Uxie", "Mesprit", "Azelf"],
+  "regionForumSuffix": "-board",
   "blacklistWords": [
     "ex",
     "raid",
@@ -127,5 +79,35 @@
     "exraidgym",
     "exraldgym",
     "sponsored"
-  ]
+  ],
+  "timezone": "America/New_York",
+  "distanceUnits": "imperial",
+  "archiveRetentionDays": null,
+  "ocr": {
+    "passive": false,
+    "debug": false
+  },
+  "autoAssignRole": false,
+  "gameData": {
+    "gameMasterUrl": "https://raw.githubusercontent.com/PokeMiners/game_masters/master/latest/latest.json",
+    "textUrl": "https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Texts/Latest%20APK/English.txt",
+    "iconsUrl": "https://api.github.com/repos/PokeMiners/pogo_assets/git/trees/master:Images/Pokemon/Addressable%20Assets",
+    "refreshHours": 24
+  },
+  "raidBosses": {
+    "url": "https://raw.githubusercontent.com/bigfoott/ScrapedDuck/data/raids.min.json",
+    "refreshMinutes": 60,
+    "staleAfterHours": 48,
+    "announceChanges": false
+  },
+  "raidEvents": {
+    "url": "https://raw.githubusercontent.com/bigfoott/ScrapedDuck/data/events.min.json",
+    "refreshHours": 6,
+    "weeklyRaidHour": { "weekday": 3, "hour": 18, "minutes": 60 },
+    "hatchedDuration": { "raid-hour": 25, "raid-day": 30 }
+  },
+  "findRegion": {
+    "url": "https://nominatim.openstreetmap.org",
+    "userAgent": "Professor Pine Discord bot (+https://github.com/Googer/Professor-Pine)"
+  }
 }

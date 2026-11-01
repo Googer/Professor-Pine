@@ -1,0 +1,147 @@
+@import './theme.css';
+
+/* The page of the Wayspot export tool (`/userscript`, plan 8W-P): the map's header and look. */
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: var(--font-size);
+  color: var(--text);
+  background: var(--page-bg);
+}
+
+a {
+  color: var(--link);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+#header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  padding: 8px 12px;
+  background: var(--panel-bg);
+  color: var(--text);
+  border-bottom: 1px solid var(--line);
+}
+
+#header .title {
+  font-weight: 700;
+}
+
+#account {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+#notice {
+  margin: 0;
+  padding: 6px 12px;
+  background: var(--notice-bg);
+  border-bottom: 1px solid var(--notice-border);
+}
+
+#tool {
+  max-width: 960px;
+  padding: 8px 16px 24px;
+}
+
+h1 {
+  font-size: 1.4em;
+}
+
+h2 {
+  font-size: 1.2em;
+  margin-top: 1.6em;
+}
+
+h3 {
+  font-size: 1em;
+  margin: 1em 0 0.2em;
+}
+
+button,
+a.install {
+  display: inline-block;
+  padding: 6px 12px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--secondary);
+  color: var(--secondary-text);
+  font: inherit;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+button:hover {
+  background: var(--secondary-hover);
+}
+
+a.install {
+  background: var(--primary);
+  color: var(--on-color);
+}
+
+a.install:hover {
+  background: var(--primary-hover);
+}
+
+.ask {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.ask label {
+  flex-basis: 100%;
+}
+
+#community {
+  flex: 1 1 280px;
+  max-width: 480px;
+  padding: 6px 10px;
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius);
+  background: var(--field-bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.link code {
+  word-break: break-all;
+  color: var(--text-soft);
+}
+
+.changes {
+  margin: 0 0 6px;
+  color: var(--text-soft);
+}
+
+ul.changes {
+  padding-left: 20px;
+}
+
+table.requests {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+table.requests th,
+table.requests td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  vertical-align: top;
+}
+
+table.requests small {
+  color: var(--muted);
+}

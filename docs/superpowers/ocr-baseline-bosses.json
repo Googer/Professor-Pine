@@ -1,0 +1,154 @@
+[
+  {
+    "key": "beldum",
+    "name": "Beldum",
+    "tier": {
+      "level": "T1",
+      "shadow": false
+    }
+  },
+  {
+    "key": "slowpoke_galarian",
+    "name": "Galarian Slowpoke",
+    "tier": {
+      "level": "T1",
+      "shadow": false
+    }
+  },
+  {
+    "key": "voltorb_hisuian",
+    "name": "Hisuian Voltorb",
+    "tier": {
+      "level": "T1",
+      "shadow": false
+    }
+  },
+  {
+    "key": "nincada",
+    "name": "Nincada",
+    "tier": {
+      "level": "T1",
+      "shadow": false
+    }
+  },
+  {
+    "key": "gastly",
+    "name": "Gastly",
+    "tier": {
+      "level": "T1",
+      "shadow": true
+    }
+  },
+  {
+    "key": "gible",
+    "name": "Gible",
+    "tier": {
+      "level": "T1",
+      "shadow": true
+    }
+  },
+  {
+    "key": "shieldon",
+    "name": "Shieldon",
+    "tier": {
+      "level": "T1",
+      "shadow": true
+    }
+  },
+  {
+    "key": "totodile",
+    "name": "Totodile",
+    "tier": {
+      "level": "T1",
+      "shadow": true
+    }
+  },
+  {
+    "key": "arcanine_hisuian",
+    "name": "Hisuian Arcanine",
+    "tier": {
+      "level": "T3",
+      "shadow": false
+    }
+  },
+  {
+    "key": "kleavor",
+    "name": "Kleavor",
+    "tier": {
+      "level": "T3",
+      "shadow": false
+    }
+  },
+  {
+    "key": "snorlax",
+    "name": "Snorlax",
+    "tier": {
+      "level": "T3",
+      "shadow": false
+    }
+  },
+  {
+    "key": "drapion",
+    "name": "Drapion",
+    "tier": {
+      "level": "T3",
+      "shadow": true
+    }
+  },
+  {
+    "key": "kirlia",
+    "name": "Kirlia",
+    "tier": {
+      "level": "T3",
+      "shadow": true
+    }
+  },
+  {
+    "key": "primeape",
+    "name": "Primeape",
+    "tier": {
+      "level": "T3",
+      "shadow": true
+    }
+  },
+  {
+    "key": "dialga",
+    "name": "Dialga",
+    "tier": {
+      "level": "T5",
+      "shadow": false
+    }
+  },
+  {
+    "key": "landorus_incarnate",
+    "name": "Landorus (Incarnate Forme)",
+    "tier": {
+      "level": "T5",
+      "shadow": true
+    }
+  },
+  {
+    "key": "dragonite_mega",
+    "name": "Mega Dragonite",
+    "tier": {
+      "level": "Mega",
+      "shadow": false
+    }
+  },
+  {
+    "key": "elgyem",
+    "name": "Elgyem",
+    "tier": {
+      "level": "T1",
+      "shadow": false
+    }
+  },
+  {
+    "key": "yveltal",
+    "name": "Yveltal",
+    "tier": {
+      "level": "T5",
+      "shadow": false
+    }
+  }
+]

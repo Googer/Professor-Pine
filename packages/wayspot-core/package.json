@@ -1,0 +1,19 @@
+{
+  "name": "@pine/wayspot-core",
+  "version": "1.0.0",
+  "description": "The Wayspot export format, S2 cells and the geometry Professor Pine and its export tool share",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    "./fixtures/*": "./fixtures/*",
+    "./*": {
+      "pine-source": "./src/*.ts",
+      "types": "./dist/*.d.ts",
+      "default": "./dist/*.js"
+    }
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json"
+  }
+}

@@ -1,0 +1,164 @@
+@import './theme.css';
+
+/*
+ * The short pages Pine answers (plan 8M-7): a failure, `/` (since plan 8M-14 its login or its
+ * servers, below), a login link's page with its button
+ * (and its one inline script, `continue-script.ts`), the login a page needs (`answers.ts`). Built as `assets/page.css`, a name
+ * without a hash, since they are answered where the bundle's manifest is not at hand.
+ */
+
+body.short {
+  margin: 0;
+  min-height: 100vh;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  background: var(--page-bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: var(--font-size);
+}
+
+/* P1 (plan 8M-15): every card the full 480 pixels where the screen allows, whatever it holds;
+   narrower only on a narrow screen, the 16 pixel gutters kept. */
+body.short main {
+  flex: 0 1 480px;
+  max-width: 480px;
+  margin: 48px 16px;
+  padding: 16px 20px;
+  background: var(--card-bg);
+  border-left: var(--card-bar) solid var(--accent);
+  border-radius: var(--card-radius);
+}
+
+body.short p {
+  margin: 0 0 12px;
+}
+
+body.short p:last-child {
+  margin-bottom: 0;
+}
+
+body.short a {
+  color: var(--link);
+}
+
+body.short button {
+  padding: 8px 16px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--primary);
+  color: var(--on-color);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+body.short button:hover {
+  background: var(--primary-hover);
+}
+
+/*
+ * The top page (plan 8M-14, `top-page.ts`): "Log in with Discord" as the primary button, the
+ * visitor's name (a line of its own that may wrap, `<span>`) with Log out as the map's header
+ * has them (a gray button), the servers as a list of links, each server to join with its invite
+ * as a primary button; a long name is broken anywhere rather than widening the page.
+ */
+body.short a.top-login,
+body.short a.top-join {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: var(--radius);
+  background: var(--primary);
+  color: var(--on-color);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+body.short a.top-join {
+  padding: 4px 12px;
+}
+
+body.short a.top-login:hover,
+body.short a.top-join:hover {
+  background: var(--primary-hover);
+}
+
+body.short .top-account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--muted);
+}
+
+body.short .top-account span {
+  min-width: 0;
+}
+
+body.short .top-account bdi {
+  color: var(--text);
+  font-weight: 500;
+  overflow-wrap: anywhere;
+}
+
+body.short button.top-logout {
+  padding: 6px 12px;
+  background: var(--secondary);
+  color: var(--secondary-text);
+}
+
+body.short button.top-logout:hover {
+  background: var(--secondary-hover);
+}
+
+body.short .top-notice,
+body.short .top-failed,
+body.short .top-partial {
+  padding: 8px 12px;
+  border-radius: var(--radius);
+  background: var(--notice-bg);
+  border: 1px solid var(--notice-border);
+}
+
+body.short h1 {
+  margin: 0 0 8px;
+  font-size: 1.25em;
+  font-weight: 600;
+}
+
+body.short h2 {
+  margin: 16px 0 8px;
+  font-size: 1em;
+  font-weight: 600;
+}
+
+body.short ul.top-servers {
+  list-style: none;
+  margin: 0 0 12px;
+  padding: 0;
+}
+
+body.short ul.top-servers li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 0;
+  border-top: 1px solid var(--line);
+  overflow-wrap: anywhere;
+}
+
+body.short ul.top-servers li:first-child {
+  border-top: 0;
+}
+
+body.short ul.top-servers li > a:only-child {
+  font-weight: 500;
+}
+
+body.short [hidden] {
+  display: none;
+}

@@ -26,3 +26,19 @@ assets/processing
 yarn.lock
 
 .eslintcache
+
+# new TypeScript bot
+dist/
+coverage/
+var/
+.env
+# the settings of a Docker installation (./pine), and the .env lines the converter makes
+/pine-settings.json
+/env-from-legacy.txt
+
+# backups of the Docker stack (BACKUP_DIR)
+/backups/
+# what Docker mounts for LEGACY_PARTIES_DIR when it is blank (an empty folder)
+/legacy-parties/
+# the Wayspot export tool of the owner's instance (PINE_TOOL_DIR; ./pine makes the folder)
+/wayspot-tool/

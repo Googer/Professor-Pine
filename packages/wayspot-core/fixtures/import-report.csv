@@ -1,0 +1,14 @@
+﻿gym,name,what,wayspot,title,kind,metres,cell,region
+1,Library,matched-id,00000000000000000000000000000001.16,Title 1,gym,1.0,,
+2,Fountain,renamed,00000000000000000000000000000002.16,Title 2,gym,1.0,,
+3,Church,moved,00000000000000000000000000000003.16,Title 3,gym,4.3,,
+4,Bridge,review-match,0000000000000000000000000000001e.16,Bench,stop,12.3,,
+5,,review-unknown,,,,,,
+6,,not-in-wayfarer,,,,,,
+7,Mural 8834ee1b,not-covered,,,,,8834ede1,
+8,"Cafe ""Corner"", the old one",not-covered,,,,,8834f1fd,
+9,,answered,,,,,,
+,,added,00000000000000000000000000000032.16,New Mural,gym,,,
+4,Bridge,held,00000000000000000000000000000046.16,Sixth Mural,gym,,,
+,,outside,0000000000000000000000000000003c.16,Water Tower,gym,212.3,,squirrel-hill
+10,,beyond,,,,812.5,,

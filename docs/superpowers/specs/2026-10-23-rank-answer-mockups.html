@@ -1,0 +1,864 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>/rank answer: mockups</title>
+    <style>
+      :root {
+        --bg: #313338;
+        --card: #2b2d31;
+        --field: #1e1f22;
+        --text: #dbdee1;
+        --head: #f2f3f5;
+        --muted: #949ba4;
+        --blurple: #5865f2;
+        --line: #3f4147;
+        --grey: #4e5058;
+        --gold: #ffd700;
+        --teal: #30839f;
+        --silver: #c0c0c0;
+      }
+      body {
+        margin: 0;
+        background: #1e1f22;
+        color: var(--text);
+        font:
+          15px/1.4 'gg sans',
+          'Noto Sans',
+          'Helvetica Neue',
+          Arial,
+          sans-serif;
+        padding: 24px 16px;
+      }
+      h1 {
+        color: var(--head);
+        font-size: 20px;
+        margin: 0 0 4px;
+      }
+      h2 {
+        color: var(--head);
+        font-size: 16px;
+        margin: 0 0 6px;
+      }
+      .intro {
+        color: var(--muted);
+        margin: 0 0 24px;
+        max-width: 960px;
+      }
+      .intro li {
+        margin: 2px 0;
+      }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(420px, 1fr));
+        gap: 32px;
+        align-items: start;
+      }
+      .cap {
+        color: var(--muted);
+        font-size: 13px;
+        margin: 0 0 10px;
+        max-width: 520px;
+      }
+      .budget {
+        color: var(--muted);
+        font-size: 12px;
+        margin: 8px 0 0;
+        font-family: Consolas, monospace;
+      }
+      .msg {
+        display: flex;
+        gap: 14px;
+        max-width: 560px;
+        background: var(--bg);
+        padding: 12px;
+        border-radius: 8px;
+      }
+      .av {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: #2f7d5b;
+        flex: none;
+      }
+      .who {
+        color: var(--head);
+        font-weight: 600;
+      }
+      .tag {
+        background: var(--blurple);
+        color: #fff;
+        font-size: 10px;
+        border-radius: 3px;
+        padding: 1px 4px;
+        margin-left: 4px;
+        vertical-align: 2px;
+      }
+      .box {
+        background: var(--card);
+        border-radius: 8px;
+        border-left: 4px solid var(--teal);
+        padding: 12px 14px;
+        margin-top: 4px;
+        min-width: 0;
+      }
+      .box.gold {
+        border-left-color: var(--gold);
+      }
+      .sec {
+        display: flex;
+        gap: 12px;
+        align-items: flex-start;
+        justify-content: space-between;
+      }
+      .sec + .sec,
+      .t + .sec,
+      .sec + .t {
+        margin-top: 8px;
+      }
+      .thumb {
+        width: 64px;
+        height: 64px;
+        border-radius: 6px;
+        background: transparent;
+        flex: none;
+        object-fit: contain;
+      }
+      .thumb.s {
+        width: 44px;
+        height: 44px;
+      }
+      .h3 {
+        color: var(--head);
+        font-weight: 700;
+        font-size: 17px;
+      }
+      .t {
+        white-space: normal;
+      }
+      .small {
+        color: var(--muted);
+        font-size: 12.5px;
+      }
+      b {
+        color: var(--head);
+      }
+      hr {
+        border: 0;
+        border-top: 1px solid var(--line);
+        margin: 10px 0;
+      }
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 10px;
+      }
+      .btn {
+        border-radius: 8px;
+        padding: 6px 14px;
+        font-size: 14px;
+        font-weight: 500;
+        background: var(--grey);
+        color: #fff;
+      }
+      .btn.tog {
+        background: var(--blurple);
+      }
+      .btn.on {
+        background: var(--blurple);
+        opacity: 0.6;
+      }
+      .link {
+        border-radius: 8px;
+        padding: 5px 9px;
+        font-size: 13px;
+        background: var(--grey);
+        color: #fff;
+        flex: none;
+        white-space: nowrap;
+      }
+      .emo {
+        width: 20px;
+        height: 20px;
+        object-fit: contain;
+        vertical-align: -4px;
+      }
+      a.ml {
+        color: #00a8fc;
+        text-decoration: none;
+      }
+      .link .ext {
+        font-size: 11px;
+        opacity: 0.8;
+        margin-left: 3px;
+      }
+      .menu {
+        margin-top: 10px;
+        background: var(--field);
+        border-radius: 8px;
+        padding: 9px 12px;
+        display: flex;
+        justify-content: space-between;
+        color: var(--muted);
+      }
+      .open {
+        background: var(--card);
+        border: 1px solid var(--field);
+        border-radius: 8px;
+        margin-top: 4px;
+      }
+      .opt {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        padding: 7px 12px;
+      }
+      .opt.on {
+        background: #404249;
+      }
+      .opt img {
+        width: 24px;
+        height: 24px;
+      }
+      .od {
+        color: var(--muted);
+        font-size: 12.5px;
+      }
+      .gallery {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 4px;
+        margin-top: 8px;
+      }
+      .gallery img {
+        width: 100%;
+        aspect-ratio: 1;
+        object-fit: contain;
+        background: transparent;
+        border-radius: 4px;
+      }
+      .note {
+        background: #3b3d44;
+        border-radius: 6px;
+        padding: 8px 10px;
+        font-size: 13px;
+        color: var(--text);
+        margin-top: 10px;
+        max-width: 560px;
+      }
+      .mark {
+        color: var(--gold);
+      }
+    </style>
+  </head>
+  <body>
+    <h1>/rank answer: mockups (2026-10-23)</h1>
+    <div class="intro">
+      Matt's three ideas: pictures for the evolution line, a small link beside each "Up to level"
+      block instead of a row of pvpivs buttons, and switching the shown Pokémon to another of the
+      line. What Discord allows decides the shape:
+      <ul>
+        <li>
+          A message holds at most <b>40 components</b>, every nested one counted (a section with a
+          picture is 3: the section, its text, the picture).
+        </li>
+        <li>
+          A section's accessory is <b>one</b> thing: a picture <i>or</i> a button. So a line member
+          cannot have both its picture and a "Show" button beside it.
+        </li>
+        <li>
+          A link button always carries Discord's own ↗ mark; a label can be just an emoji (🔗).
+        </li>
+      </ul>
+      The numbers are Pine's real ranks today. Each mockup ends with its component count.
+    </div>
+
+    <div class="grid">
+      <!-- A -->
+      <div>
+        <h2>A. A short line: a picture per member (recommended)</h2>
+        <p class="cap">
+          <code>/master</code> Mega Malamar 10/12/13, evolution line shown. Each "Up to level" block
+          heading ends in a 🔗, a link in the text itself (no button, so no component); one small
+          print line says where they go. The leagues and the evolution line's button share one row.
+          "Show another…" switches the shown Pokémon, same IVs and league. ▸ marks the one shown.
+        </p>
+        <div class="msg">
+          <div class="av"></div>
+          <div style="min-width: 0; flex: 1">
+            <span class="who">Professor Pine</span><span class="tag">APP</span>
+            <div class="box">
+              <div class="sec">
+                <div class="t">
+                  <div class="h3">Mega Malamar 10/12/13</div>
+                  <img
+                    class="emo"
+                    src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Combat/pogo_master_league.png"
+                    alt=""
+                  />
+                  Master League<br /><b>Rank 280</b> of 4,096 · 95.44%
+                </div>
+                <img
+                  class="thumb"
+                  src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Mega%20Portraits%20512x512/pm687.fMEGA.portrait.png"
+                  alt=""
+                />
+              </div>
+              <hr />
+              <div class="sec">
+                <div class="t">
+                  <b>Up to level 50</b> · <a class="ml">🔗</a><br />3436 CP at level 50 · Attack
+                  183.19 · Defense 196.63 · HP 178<br /><span class="small"
+                    >Best: 15/15/15 · 3554 CP at level 50</span
+                  >
+                </div>
+              </div>
+              <div class="sec">
+                <div class="t">
+                  <b>Up to level 51 (best buddy)</b> · rank 214 · 95.98% · <a class="ml">🔗</a
+                  ><br />3477 CP at level 51 · Attack 184.28 · Defense 197.80 · HP 180<br /><span
+                    class="small"
+                    >Best: 15/15/15 · 3596 CP at level 51</span
+                  >
+                </div>
+              </div>
+              <div class="sec">
+                <div class="t">
+                  <b>Up to level 52 (Super Mega)</b> · rank 217 · 95.99% · <a class="ml">🔗</a
+                  ><br />3518 CP at level 52 · Attack 185.37 · Defense 198.97 · HP 181<br /><span
+                    class="small"
+                    >Best: 15/15/15 · 3639 CP at level 52</span
+                  >
+                </div>
+              </div>
+              <div class="sec">
+                <div class="t">
+                  <b>Up to level 53 (Super Mega, best buddy)</b> · rank 229 · 95.99% ·
+                  <a class="ml">🔗</a><br />3560 CP at level 53 · Attack 186.46 · Defense 200.14 ·
+                  HP 182<br /><span class="small">Best: 15/15/15 · 3682 CP at level 53</span>
+                </div>
+              </div>
+              <hr />
+              <div class="t"><b>Evolution line</b></div>
+              <div class="sec">
+                <div class="t">
+                  <b>Inkay</b> · rank 265 · 92.25%<br /><span class="small"
+                    >982 CP at level 50 · best buddy: rank 248</span
+                  >
+                </div>
+                <img
+                  class="thumb s"
+                  src="https://cdn.leekduck.com/assets/img/pokemon_icons/pm686.icon.png"
+                  alt=""
+                />
+              </div>
+              <div class="sec">
+                <div class="t">
+                  <b>Malamar</b> · rank 281 · 94.70%<br /><span class="small"
+                    >2563 CP at level 50 · best buddy: rank 221</span
+                  >
+                </div>
+                <img
+                  class="thumb s"
+                  src="https://cdn.leekduck.com/assets/img/pokemon_icons/pm687.icon.png"
+                  alt=""
+                />
+              </div>
+              <div class="sec">
+                <div class="t">
+                  <span class="mark">▸</span> <b>Mega Malamar</b> · rank 280 · 95.44%<br /><span
+                    class="small"
+                    >3436 CP at level 50 · best buddy: rank 214 · Super Mega: 217, with best buddy:
+                    229</span
+                  >
+                </div>
+                <img
+                  class="thumb s"
+                  src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Mega%20Portraits%20512x512/pm687.fMEGA.portrait.png"
+                  alt=""
+                />
+              </div>
+              <hr />
+              <div class="small">🔗 opens that ranking on pvpivs.com</div>
+              <div class="row">
+                <span class="btn"
+                  ><img
+                    class="emo"
+                    src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Combat/GBL_littlecup.png"
+                    alt="Little" /></span
+                ><span class="btn"
+                  ><img
+                    class="emo"
+                    src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Combat/pogo_great_league.png"
+                    alt="Great" /></span
+                ><span class="btn"
+                  ><img
+                    class="emo"
+                    src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Combat/pogo_ultra_league.png"
+                    alt="Ultra" /></span
+                ><span class="btn on"
+                  ><img
+                    class="emo"
+                    src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Combat/pogo_master_league.png"
+                    alt="Master" /></span
+                ><span class="btn tog">🧬 Family</span>
+              </div>
+              <div class="menu"><span>Show another of the family…</span><span>⌄</span></div>
+            </div>
+          </div>
+        </div>
+        <p class="budget">
+          1 box + 3 head + 4 levels + 1 heading + 3×3 line + 3 rules + 1 note + 6 row + 2 menu = 30
+          of 40
+        </p>
+        <div class="note">
+          A member's line keeps rank and share up top and moves CP and the other levels' ranks into
+          small print, so no line wraps the way Mega Malamar's does today. Mega pictures: Pine shows
+          a mega's own icon when PokeMiners' icon list names it (48 of 61 megas, Mega Charizard X
+          among them); the 13 newest (Mega Malamar, Mega Mewtwo X and Y, Mega Dragonite…) are
+          missing there but are in PokeMiners' "Mega Portraits 512x512" folder. Proposed: read that
+          folder's list too and show the portrait where the icon is missing (all 61 then have one).
+          The mockup shows that portrait for Mega Malamar.
+        </div>
+        <div class="note">
+          The league buttons are icons only (E2), the one shown pressed and dimmed. "🧬 Family" is a
+          toggle: blue while the line is shown (A, B), grey while it is hidden (A2), no "Hide" in
+          its words. pvpivs.com calls the same thing the family.
+        </div>
+      </div>
+
+      <!-- A2 -->
+      <div>
+        <h2>A2. The same answer with the line hidden</h2>
+        <p class="cap">
+          After pressing "🧬 Family" again: the evolution line goes and the toggle turns grey.
+          Everything else stays, the "Show another of the family…" menu too (Matt: it costs little
+          and switching is still handy).
+        </p>
+        <div class="msg">
+          <div class="av"></div>
+          <div style="min-width: 0; flex: 1">
+            <span class="who">Professor Pine</span><span class="tag">APP</span>
+            <div class="box">
+              <div class="sec">
+                <div class="t">
+                  <div class="h3">Mega Malamar 10/12/13</div>
+                  <img
+                    class="emo"
+                    src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Combat/pogo_master_league.png"
+                    alt=""
+                  />
+                  Master League<br /><b>Rank 280</b> of 4,096 · 95.44%
+                </div>
+                <img
+                  class="thumb"
+                  src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Mega%20Portraits%20512x512/pm687.fMEGA.portrait.png"
+                  alt=""
+                />
+              </div>
+              <hr />
+              <div class="t">
+                <b>Up to level 50</b> · <a class="ml">🔗</a><br />3436 CP at level 50 · Attack
+                183.19 · Defense 196.63 · HP 178<br /><span class="small"
+                  >Best: 15/15/15 · 3554 CP at level 50</span
+                >
+              </div>
+              <div class="t" style="margin-top: 8px">
+                <b>Up to level 51 (best buddy)</b> · rank 214 · 95.98% · <a class="ml">🔗</a
+                ><br />3477 CP at level 51 · Attack 184.28 · Defense 197.80 · HP 180<br /><span
+                  class="small"
+                  >Best: 15/15/15 · 3596 CP at level 51</span
+                >
+              </div>
+              <div class="t" style="margin-top: 8px">
+                <b>Up to level 52 (Super Mega)</b> · rank 217 · 95.99% · <a class="ml">🔗</a
+                ><br />3518 CP at level 52 · Attack 185.37 · Defense 198.97 · HP 181<br /><span
+                  class="small"
+                  >Best: 15/15/15 · 3639 CP at level 52</span
+                >
+              </div>
+              <div class="t" style="margin-top: 8px">
+                <b>Up to level 53 (Super Mega, best buddy)</b> · rank 229 · 95.99% ·
+                <a class="ml">🔗</a><br />3560 CP at level 53 · Attack 186.46 · Defense 200.14 · HP
+                182<br /><span class="small">Best: 15/15/15 · 3682 CP at level 53</span>
+              </div>
+              <hr />
+              <div class="small">🔗 opens that ranking on pvpivs.com</div>
+              <div class="row">
+                <span class="btn"
+                  ><img
+                    class="emo"
+                    src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Combat/GBL_littlecup.png"
+                    alt="Little" /></span
+                ><span class="btn"
+                  ><img
+                    class="emo"
+                    src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Combat/pogo_great_league.png"
+                    alt="Great" /></span
+                ><span class="btn"
+                  ><img
+                    class="emo"
+                    src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Combat/pogo_ultra_league.png"
+                    alt="Ultra" /></span
+                ><span class="btn on"
+                  ><img
+                    class="emo"
+                    src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Combat/pogo_master_league.png"
+                    alt="Master" /></span
+                ><span class="btn">🧬 Family</span>
+              </div>
+              <div class="menu"><span>Show another of the family…</span><span>⌄</span></div>
+            </div>
+          </div>
+        </div>
+        <p class="budget">
+          1 box + 3 head + 4 levels + 2 rules + 1 note + 6 row + 2 menu = 19 of 40
+        </p>
+      </div>
+
+      <!-- E -->
+      <div>
+        <h2>E. League icons</h2>
+        <p class="cap">
+          The game's league icons (PokeMiners' <code>Images/Combat</code>: Little Cup, Great, Ultra,
+          Master) as application emoji, before the league's name in the top section and on the
+          league buttons. E1 keeps the words on the buttons; E2 shows icons only.
+        </p>
+        <p class="cap"><b>E1: icon and word</b> (the line hidden, the menu kept)</p>
+        <div class="msg">
+          <div class="av"></div>
+          <div style="min-width: 0; flex: 1">
+            <span class="who">Professor Pine</span><span class="tag">APP</span>
+            <div class="box">
+              <div class="sec">
+                <div class="t">
+                  <div class="h3">Malamar 5/5/13</div>
+                  <img
+                    class="emo"
+                    src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Combat/pogo_ultra_league.png"
+                    alt=""
+                  />
+                  Ultra League<br /><b>Rank 2,084</b> of 4,096 · 94.43%
+                </div>
+                <img
+                  class="thumb"
+                  src="https://cdn.leekduck.com/assets/img/pokemon_icons/pm687.icon.png"
+                  alt=""
+                />
+              </div>
+              <hr />
+              <div class="t">
+                <b>Up to level 50</b> · <a class="ml">🔗</a><br />2445 CP at level 50 · Attack
+                152.93 · Defense 142.85 · HP 178<br /><span class="small"
+                  >Best: 3/15/15 · 2500 CP at level 50</span
+                >
+              </div>
+              <div class="t" style="margin-top: 8px">
+                <b>Up to level 51 (best buddy)</b> · rank 862 · 96.56% · <a class="ml">🔗</a
+                ><br />2474 CP at level 51 · Attack 153.84 · Defense 143.70 · HP 180<br /><span
+                  class="small"
+                  >Best: 2/14/13 · 2497 CP at level 51</span
+                >
+              </div>
+              <hr />
+              <div class="small">🔗 opens that ranking on pvpivs.com</div>
+              <div class="row">
+                <span class="btn"
+                  ><img
+                    class="emo"
+                    src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Combat/GBL_littlecup.png"
+                    alt=""
+                  />
+                  Little</span
+                ><span class="btn"
+                  ><img
+                    class="emo"
+                    src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Combat/pogo_great_league.png"
+                    alt=""
+                  />
+                  Great</span
+                ><span class="btn on"
+                  ><img
+                    class="emo"
+                    src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Combat/pogo_ultra_league.png"
+                    alt=""
+                  />
+                  Ultra</span
+                ><span class="btn"
+                  ><img
+                    class="emo"
+                    src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Combat/pogo_master_league.png"
+                    alt=""
+                  />
+                  Master</span
+                ><span class="btn">Evolution line</span>
+              </div>
+              <div class="menu"><span>Show another of the family…</span><span>⌄</span></div>
+            </div>
+          </div>
+        </div>
+        <p class="cap" style="margin-top: 16px"><b>E2: icon only on the buttons</b></p>
+        <div class="msg">
+          <div class="av"></div>
+          <div style="min-width: 0; flex: 1">
+            <span class="who">Professor Pine</span><span class="tag">APP</span>
+            <div class="box">
+              <div class="sec">
+                <div class="t">
+                  <div class="h3">Malamar 5/5/13</div>
+                  <img
+                    class="emo"
+                    src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Combat/pogo_ultra_league.png"
+                    alt=""
+                  />
+                  Ultra League<br /><b>Rank 2,084</b> of 4,096 · 94.43%
+                </div>
+                <img
+                  class="thumb"
+                  src="https://cdn.leekduck.com/assets/img/pokemon_icons/pm687.icon.png"
+                  alt=""
+                />
+              </div>
+              <hr />
+              <div class="t">
+                <b>Up to level 50</b> · <a class="ml">🔗</a><br />2445 CP at level 50 · Attack
+                152.93 · Defense 142.85 · HP 178<br /><span class="small"
+                  >Best: 3/15/15 · 2500 CP at level 50</span
+                >
+              </div>
+              <div class="t" style="margin-top: 8px">
+                <b>Up to level 51 (best buddy)</b> · rank 862 · 96.56% · <a class="ml">🔗</a
+                ><br />2474 CP at level 51 · Attack 153.84 · Defense 143.70 · HP 180<br /><span
+                  class="small"
+                  >Best: 2/14/13 · 2497 CP at level 51</span
+                >
+              </div>
+              <hr />
+              <div class="small">🔗 opens that ranking on pvpivs.com</div>
+              <div class="row">
+                <span class="btn"
+                  ><img
+                    class="emo"
+                    src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Combat/GBL_littlecup.png"
+                    alt="" /></span
+                ><span class="btn"
+                  ><img
+                    class="emo"
+                    src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Combat/pogo_great_league.png"
+                    alt="" /></span
+                ><span class="btn on"
+                  ><img
+                    class="emo"
+                    src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Combat/pogo_ultra_league.png"
+                    alt="" /></span
+                ><span class="btn"
+                  ><img
+                    class="emo"
+                    src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Combat/pogo_master_league.png"
+                    alt="" /></span
+                ><span class="btn">Evolution line</span>
+              </div>
+              <div class="menu"><span>Show another of the family…</span><span>⌄</span></div>
+            </div>
+          </div>
+        </div>
+        <div class="note">
+          The four are uploaded once with the other emoji (<code>npm run emoji:upload</code>, Matt
+          runs it), and like every emoji they fall back to the plain words when the application
+          lacks them. The Little Cup icon is wider than tall, so in its square it reads smaller than
+          the three triangles. E2 is narrower but leaves a newcomer to know the triangles; E1 is my
+          pick.
+        </div>
+      </div>
+
+      <!-- B -->
+      <div>
+        <h2>B. Eevee's line: a text list, the picture on the shown one only</h2>
+        <p class="cap">
+          <code>/great</code> Eevee 0/15/14, evolution line shown. Nine members with a picture each
+          would be 27 components on their own: only a line too long for A (Eevee's, today the only
+          one) is a text list, each member's rank on its own line, the picture kept for the shown
+          Pokemon at the top. The menu switches as in A.
+        </p>
+        <div class="msg">
+          <div class="av"></div>
+          <div style="min-width: 0; flex: 1">
+            <span class="who">Professor Pine</span><span class="tag">APP</span>
+            <div class="box">
+              <div class="sec">
+                <div class="t">
+                  <div class="h3">Eevee 0/15/14</div>
+                  <img
+                    class="emo"
+                    src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Combat/pogo_great_league.png"
+                    alt=""
+                  />
+                  Great League<br /><b>Rank 1,255</b> of 4,096 · 86.74%
+                </div>
+                <img
+                  class="thumb"
+                  src="https://cdn.leekduck.com/assets/img/pokemon_icons/pm133.icon.png"
+                  alt=""
+                />
+              </div>
+              <hr />
+              <div class="t">
+                <b>Up to level 50</b> · <a class="ml">🔗</a><br />1055 CP at level 50 · Attack 87.39
+                · Defense 108.40 · HP 134<br /><span class="small"
+                  >Best: 15/15/15 · 1210 CP at level 50</span
+                >
+              </div>
+              <div class="t" style="margin-top: 8px">
+                <b>Up to level 51 (best buddy)</b> · rank 1,234 · 86.75% · <a class="ml">🔗</a
+                ><br />1067 CP at level 51 · Attack 87.91 · Defense 109.04 · HP 135<br /><span
+                  class="small"
+                  >Best: 15/15/15 · 1225 CP at level 51</span
+                >
+              </div>
+              <hr />
+              <div class="t">
+                <b>Evolution line</b><br />
+                <span class="mark">▸</span> <b>Eevee</b> · rank 1,255 · 86.74%
+                <span class="small">· best buddy: 1,234</span><br />
+                <b>Vaporeon</b> · rank 21 · 98.91%<br />
+                <b>Jolteon</b> · rank 297 · 97.05%<br />
+                <b>Flareon</b> · rank 588 · 96.33%<br />
+                <b>Espeon</b> · rank 15 · 98.98%<br />
+                <b>Umbreon</b> · rank 2 · 100.00%<br />
+                <b>Leafeon</b> · rank 7 · 99.53%<br />
+                <b>Glaceon</b> · rank 816 · 96.24%<br />
+                <b>Sylveon</b> · rank 547 · 96.55%
+              </div>
+              <hr />
+              <div class="small">🔗 opens that ranking on pvpivs.com</div>
+              <div class="row">
+                <span class="btn"
+                  ><img
+                    class="emo"
+                    src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Combat/GBL_littlecup.png"
+                    alt="Little" /></span
+                ><span class="btn on"
+                  ><img
+                    class="emo"
+                    src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Combat/pogo_great_league.png"
+                    alt="Great" /></span
+                ><span class="btn"
+                  ><img
+                    class="emo"
+                    src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Combat/pogo_ultra_league.png"
+                    alt="Ultra" /></span
+                ><span class="btn"
+                  ><img
+                    class="emo"
+                    src="https://raw.githubusercontent.com/PokeMiners/pogo_assets/master/Images/Combat/pogo_master_league.png"
+                    alt="Master" /></span
+                ><span class="btn tog">🧬 Family</span>
+              </div>
+              <div class="menu"><span>Show another of the family…</span><span>⌄</span></div>
+            </div>
+          </div>
+        </div>
+        <p class="budget">
+          1 box + 3 head + 2 levels + 1 line + 3 rules + 1 note + 6 row + 2 menu = 19 of 40
+        </p>
+        <div class="note">
+          The rule: A while it fits in 40, that is 18 + one per level shown + three per member (a
+          line of six with four Super Mega levels, seven with two); otherwise B. Of all the game's
+          lines only Eevee's (nine) is longer; Ralts' (six, with its megas) fits A.
+        </div>
+      </div>
+
+      <!-- C -->
+      <div>
+        <h2>C. "Show another of the family…" opened</h2>
+        <p class="cap">
+          One menu instead of a button per member: it fits every line (Eevee's nine too) in two
+          components, and each option can carry the member's rank. Picking one redraws the answer
+          for that Pokémon, same IVs, league and filter, line still shown. As with the league
+          buttons, the member who asked changes the answer; anybody else gets a private copy.
+        </p>
+        <div class="msg">
+          <div class="av"></div>
+          <div style="min-width: 0; flex: 1">
+            <div class="menu"><span>Show another of the family…</span><span>⌃</span></div>
+            <div class="open">
+              <div class="opt">
+                <div>
+                  <div>Inkay</div>
+                  <div class="od">Rank 265 · 92.25%</div>
+                </div>
+              </div>
+              <div class="opt on">
+                <div>
+                  <div>Malamar</div>
+                  <div class="od">Rank 281 · 94.70%</div>
+                </div>
+              </div>
+              <div class="opt">
+                <div>
+                  <div>Mega Malamar (shown)</div>
+                  <div class="od">Rank 280 · 95.44%</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="note">
+          Options can show an emoji but not a picture, so the menu is names and ranks. Its custom id
+          carries the league, IVs and filter like the buttons do; the chosen Pokémon is the picked
+          value. Nothing is kept in memory.
+        </div>
+      </div>
+
+      <!-- D -->
+      <div>
+        <h2>D. The alternative: a "Show" button beside each member</h2>
+        <p class="cap">
+          Your "small button for each Pokémon": the member's accessory is a button instead of its
+          picture. It costs the same as a picture (one component each), so the line loses its
+          pictures; and Eevee's nine would not fit with their buttons in the same 40.
+        </p>
+        <div class="msg">
+          <div class="av"></div>
+          <div style="min-width: 0; flex: 1">
+            <div class="box">
+              <div class="t"><b>Evolution line</b></div>
+              <div class="sec">
+                <div class="t">
+                  <b>Inkay</b> · rank 265 · 92.25%<br /><span class="small"
+                    >982 CP at level 50 · best buddy: rank 248</span
+                  >
+                </div>
+                <span class="link">Show</span>
+              </div>
+              <div class="sec">
+                <div class="t">
+                  <b>Malamar</b> · rank 281 · 94.70%<br /><span class="small"
+                    >2563 CP at level 50 · best buddy: rank 221</span
+                  >
+                </div>
+                <span class="link">Show</span>
+              </div>
+              <div class="sec">
+                <div class="t">
+                  <span class="mark">▸</span> <b>Mega Malamar</b> · rank 280 · 95.44%<br /><span
+                    class="small"
+                    >3436 CP at level 50 · best buddy: 214 · Super Mega: 217, with best buddy:
+                    229</span
+                  >
+                </div>
+                <span class="link" style="opacity: 0.5">Shown</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="note">
+          My recommendation is A with B as its fallback, and C for switching: pictures where they
+          fit, one menu that works for any line.
+        </div>
+      </div>
+    </div>
+  </body>
+</html>

@@ -1,0 +1,136 @@
+[
+  {
+    "eventID": "pokemon-night-out-los-angeles-2026",
+    "name": "Pokémon Night Out 2026 - Los Angeles",
+    "eventType": "event",
+    "link": "https://leekduck.com/events/pokemon-night-out-los-angeles-2026/",
+    "start": "2026-10-25T02:30:00.000Z",
+    "end": "2026-10-25T06:59:59.000Z",
+    "extraData": {
+      "generic": {
+        "hasSpawns": true,
+        "hasFieldResearchTasks": false
+      }
+    }
+  },
+  {
+    "eventID": "pokemon-go-city-safari-boston-2026-rescheduled",
+    "name": "Pokémon GO City Safari: Boston (Rescheduled)",
+    "eventType": "city-safari",
+    "link": "https://leekduck.com/events/pokemon-go-city-safari-boston-2026-rescheduled/",
+    "start": "2026-10-24T10:00:00.000",
+    "end": "2026-10-25T18:00:00.000",
+    "extraData": {
+      "generic": {
+        "hasSpawns": true,
+        "hasFieldResearchTasks": true
+      }
+    }
+  },
+  {
+    "eventID": "pokemon-go-wild-area-2026-mexico-city",
+    "name": "Pokémon GO Wild Area 2026: Mexico City",
+    "eventType": "wild-area",
+    "link": "https://leekduck.com/events/pokemon-go-wild-area-2026-mexico-city/",
+    "start": "2026-11-06T16:00:00.000Z",
+    "end": "2026-11-09T00:00:00.000Z",
+    "extraData": {
+      "generic": {
+        "hasSpawns": true,
+        "hasFieldResearchTasks": false
+      }
+    }
+  },
+  {
+    "eventID": "into-the-wild-2026",
+    "name": "Into the Wild",
+    "eventType": "event",
+    "link": "https://leekduck.com/events/into-the-wild-2026/",
+    "start": "2026-11-09T10:00:00.000",
+    "end": "2026-11-13T20:00:00.000",
+    "extraData": {
+      "generic": {
+        "hasSpawns": true,
+        "hasFieldResearchTasks": true
+      }
+    }
+  },
+  {
+    "eventID": "pokemon-go-wild-area-2026-global",
+    "name": "Pokémon GO Wild Area 2026: Global",
+    "eventType": "wild-area",
+    "link": "https://leekduck.com/events/pokemon-go-wild-area-2026-global/",
+    "start": "2026-11-14T10:00:00.000",
+    "end": "2026-11-15T18:00:00.000",
+    "extraData": {
+      "generic": {
+        "hasSpawns": true,
+        "hasFieldResearchTasks": false
+      }
+    }
+  },
+  {
+    "eventID": "november-communityday2026",
+    "name": "Pawniard Community Day",
+    "eventType": "community-day",
+    "link": "https://leekduck.com/events/november-communityday2026/",
+    "start": "2026-11-21T14:00:00.000",
+    "end": "2026-11-21T17:00:00.000",
+    "extraData": {
+      "generic": {
+        "hasSpawns": true,
+        "hasFieldResearchTasks": true
+      },
+      "communityday": {
+        "spawns": [
+          {
+            "name": "Pawniard",
+            "image": "https://cdn.leekduck.com/assets/img/pokemon_icons/pokemon_icon_624_00.png"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "eventID": "pokemon-go-tour-alola-kaohsiung-2027",
+    "name": "Pokémon GO Tour: Alola - Kaohsiung 2027",
+    "eventType": "pokemon-go-tour",
+    "link": "https://leekduck.com/events/pokemon-go-tour-alola-kaohsiung-2027/",
+    "start": "2027-02-18T16:00:00.000Z",
+    "end": "2027-02-21T15:59:59.000Z",
+    "extraData": {
+      "generic": {
+        "hasSpawns": false,
+        "hasFieldResearchTasks": false
+      }
+    }
+  },
+  {
+    "eventID": "pokemon-go-tour-alola-los-angeles-2027",
+    "name": "Pokémon GO Tour: Alola - Los Angeles 2027",
+    "eventType": "pokemon-go-tour",
+    "link": "https://leekduck.com/events/pokemon-go-tour-alola-los-angeles-2027/",
+    "start": "2027-02-19T08:00:00.000Z",
+    "end": "2027-02-22T07:59:59.000Z",
+    "extraData": {
+      "generic": {
+        "hasSpawns": false,
+        "hasFieldResearchTasks": false
+      }
+    }
+  },
+  {
+    "eventID": "pokemon-go-tour-alola-global-2027",
+    "name": "Pokémon GO Tour: Alola - Global 2027",
+    "eventType": "pokemon-go-tour",
+    "link": "https://leekduck.com/events/pokemon-go-tour-alola-global-2027/",
+    "start": "2027-02-27T00:00:00.000",
+    "end": "2027-02-28T23:59:59.000",
+    "extraData": {
+      "generic": {
+        "hasSpawns": false,
+        "hasFieldResearchTasks": false
+      }
+    }
+  }
+]
