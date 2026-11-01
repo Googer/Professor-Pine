@@ -178,7 +178,7 @@ The takeover ran on a copy, so the old host's database and folders are as the le
 ### N8. The first push (done 2026-11-01)
 
 - [x] The migration was pushed as one commit on top of the old bot, on `main-dev`; the old bot with its intents patch is the branch `legacy`; the local history is kept in a private backup, on the Synology and Matt's PC.
-- [ ] The Air's clone: `git remote set-url origin https://github.com/Googer/Professor-Pine.git`, `git fetch origin`, then `git switch -C main-dev origin/main-dev` once, so that `./pine update` pulls from then on.
+- [x] The Air's clone: `git remote set-url origin https://github.com/Googer/Professor-Pine.git`, `git fetch origin`, then `git switch -C main-dev origin/main-dev` once, so that `./pine update` pulls from then on.
 - [ ] The old host's checkout must never pull `main-dev`: it holds the new bot. Its updates come from `legacy` only.
 - [x] The private repository is `Googer/Professor-Pine-Wayfarer-Export`; its `package.json` names Pine's package by a path beside it, so its checkout stays beside a Pine checkout.
 
