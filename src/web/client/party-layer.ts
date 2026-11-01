@@ -5,7 +5,7 @@ import type { PowerSpotsView } from '../../domain/web/max-data.js';
 import type { StopsView } from '../../domain/web/meetup-data.js';
 import { NEAREST_COUNT, regionHolding } from './report-flow.js';
 import { byId, getJson, say } from './common.js';
-import { meetupActions, meetupHereBox } from './meetup-forms.js';
+import { meetupActions, meetupAtStopBox, meetupHereBox } from './meetup-forms.js';
 import { meetupUi } from './meetup-ui.js';
 import type { Me } from './notice.js';
 import {
@@ -881,7 +881,7 @@ export function showParties(
       zone: readerZone(),
       located: frame.located(),
       units: frame.units,
-      actions: offered ? [researchButton(stop), rocketBox(stop)] : [],
+      actions: offered ? [researchButton(stop), rocketBox(stop), meetupAtStopBox(stop)] : [],
       more: (report, kind) => (offered && kind === 'research' ? [sameTaskButton(report)] : []),
     };
   };
@@ -1243,6 +1243,9 @@ export function showParties(
       } else if (target.dataset.reportResearch !== undefined) {
         // "Report research here" (plan 8M-9B): the research form in the place of the control.
         researchForms.researchClicked(target);
+      } else if (target.dataset.meetupAtStop !== undefined) {
+        // "Hold meetup here": the form of a new meetup in the place of the button.
+        meetupForms.meetupAtStopClicked(target);
       } else if (target.dataset.sameTask !== undefined) {
         // "Same task at more stops…" (goal 8): the report's task at more stops picked on the map.
         const report = stopReportById(target.dataset.sameTask);
@@ -2453,7 +2456,7 @@ export function showParties(
     else if (target.dataset.newMeetup !== undefined) meetupForms.newMeetupClicked();
   });
 
-  // Meetups (plan 8M-5M): "New meetup" in the side panel's box and "Meetup here" in a gym's popup
+  // Meetups (plan 8M-5M): "New meetup" in the side panel's box and "Hold meetup here" in a gym's popup
   // open the form there; "Pick on the map" shows the PokéStops of the view (from `/api/stops`,
   // asked again after the map moves) and takes a gym, a stop or a point clicked as the place;
   // "Manage…" opens a meetup's editor there. Held like the other forms; after a success the list at
@@ -2535,7 +2538,7 @@ export function showParties(
       redrawParties();
     },
   });
-  /** "Meetup here" for a gym's own popup (`gymControls`), which opens the form with the gym. */
+  /** "Hold meetup here" for a gym's own popup (`gymControls`), which opens the form with the gym. */
   const meetupHereControl = (gym: MapGym): HTMLElement => {
     const box = renderNode(meetupHereBox(gym.id), document);
     // On the button: the form is drawn into the box, and its clicks bubble there.
@@ -2553,7 +2556,7 @@ export function showParties(
   ): void => {
     trainForms.trainHereClicked(first, regionHolding(place, regions), control);
   };
-  /** "Train here" for a gym's own popup or a Power Spot's, which opens the form at the place. */
+  /** "Start train here" for a gym's own popup or a Power Spot's, which opens the form at the place. */
   const trainHereControl = (id: string, first: FirstStop, place: LatLon): HTMLElement => {
     const box = renderNode(trainHereBox(id), document);
     const button = box.querySelector('button');

@@ -869,7 +869,7 @@ describe('the review’s fixes (8M-8A fix round 1)', () => {
         .flatMap((box) => all(box))
         .filter((one) => one.tag === 'button')
         .map((one) => one.text),
-    ).toEqual(['Report spawn here', 'Meetup here', 'Train here']);
+    ).toEqual(['Report spawn here', 'Hold meetup here', 'Start train here']);
   });
 });
 

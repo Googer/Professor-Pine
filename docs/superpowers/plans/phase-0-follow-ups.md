@@ -2920,3 +2920,10 @@ Matt ran `/counters` in raid posts during the Mega Chandelure event (14:23 and 1
 
 - Matt ended the local-only rule on 2026-11-01: the migration reached GitHub as one commit on top of the old bot. The branch that was `typescript-migration` is now `main-dev`, and the old bot with its intents patch is `legacy`. Later commits are pushed as they land. Its tree leaves out the plans and designs of the Wayfarer work up to 8W-P, so older sections here name files that are not in this repository. Commit ids in older docs refer to the local history, which is kept in a private backup.
 - `src/wayspot-tool-private.test.ts` refuses the tool's old folders.
+
+## From "Hold meetup here" at PokéStops (2026-11-01)
+
+Matt asked for "Start train here" and "Hold meetup here" as the map's labels, and the meetup button at allowed stops. Power Spots still offer none (his decision of 2026-10-17).
+
+- **Claude's calls, for Matt to object to:** the button shows at every PokéStop to a member who may report, as at a gym: the page knows no rulings, so what the safety says is told when the form is sent. A flagged name still goes to the moderators and a place refused for good is refused, after the form is filled in. Hiding it at refused stops would need the rulings in the map's data.
+- **To see live:** the button in a stop's popup and on a phone's card, the form in its place, a meetup made at a stop with a plain name and at one with a flagged name.

@@ -489,7 +489,7 @@ const editorOf = (tools: FakeElement): FakeElement => {
   return editor;
 };
 
-describe('"Train here": a train started at a gym or a Power Spot', () => {
+describe('"Start train here": a train started at a gym or a Power Spot', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });

@@ -20,6 +20,8 @@ import {
   regionChosenBy,
   sendMeetupForm,
   StopLoads,
+  meetupAtStopBox,
+  stopFromMeetupButton,
   stopPick,
   stopsBox,
   type PickedPlace,
@@ -119,6 +121,32 @@ function fieldValue(node: PageNode, name: string): string | undefined {
   return withAttribute(node, 'name').find((each) => each.attributes?.name === name)?.attributes
     ?.value;
 }
+
+describe('"Hold meetup here" in a PokéStop\'s popup', () => {
+  const STOP = { key: 'abc.16', name: 'Market Fountain', at: { lat: 40.05, lon: -79.95 } };
+
+  it('names the stop on its button, in a box of its own, and reads it back', () => {
+    const box = meetupAtStopBox(STOP);
+    expect(box).toMatchObject({ className: 'meetup-box place-control' });
+    const text = JSON.stringify(box);
+    expect(text).toContain('Hold meetup here');
+    expect(
+      stopFromMeetupButton({
+        meetupAtStop: 'abc.16',
+        stopName: 'Market Fountain',
+        stopLat: '40.05',
+        stopLon: '-79.95',
+      }),
+    ).toEqual(['abc.16', 40.05, -79.95, 'Market Fountain']);
+  });
+
+  it('reads nothing from a button that does not say all of it', () => {
+    expect(stopFromMeetupButton({ stopName: 'Market Fountain' })).toBeUndefined();
+    expect(
+      stopFromMeetupButton({ meetupAtStop: 'abc.16', stopName: 'Market Fountain' }),
+    ).toBeUndefined();
+  });
+});
 
 describe('the places a meetup may be picked at on the map', () => {
   it('names a gym as its post does, a PokéStop and a pin, each with the regions it lies in', () => {

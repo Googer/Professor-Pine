@@ -12,12 +12,13 @@ import {
 import type { MapMeetup } from '../../domain/web/party-data.js';
 import { pressParty, type PressSteps, type Pressed } from './parties.js';
 import type { MapGym, PageNode } from './popup.js';
+import type { PickedStop } from './research-forms.js';
 import { zoneHintNodes, type FormZones } from './raid-forms.js';
 import { regionsAt, spawnPoint, type PointRegion } from './spawn-forms.js';
 
 /**
  * Meetups on the live map (plan 8M-5M, spec 3.7), the parts that need no Leaflet: "New meetup"
- * and "Meetup here", the place picked on the map (a gym, a PokéStop or a pin; never a power spot),
+ * and "Hold meetup here", the place picked on the map (a gym, a PokéStop or a pin; never a power spot),
  * the form of a new meetup and the editor of one, the bodies they send, reading an answer, and
  * sending one with the page's CSRF token as a press is sent. Everything is a tree of nodes
  * (`renderNode` sets every text as text). What a member types is read by the server with the
@@ -94,13 +95,49 @@ export function newMeetupButton(): PageNode {
   return button('New meetup', { 'data-new-meetup': '' }, 'press new-meetup');
 }
 
-/** "Meetup here" in a gym's popup: the form of a new meetup with the gym as its place. */
+/** "Hold meetup here" in a gym's popup: the form of a new meetup with the gym as its place. */
 export function meetupHereBox(gymId: number): PageNode {
   return {
     tag: 'div',
     className: 'meetup-box place-control',
-    children: [button('Meetup here', { 'data-meetup-here': String(gymId) }, 'meetup-here')],
+    children: [button('Hold meetup here', { 'data-meetup-here': String(gymId) }, 'meetup-here')],
   };
+}
+
+/**
+ * "Hold meetup here" in a PokéStop's popup: the form of a new meetup with the stop as its place, in
+ * a box of its own beside the stop's other actions. Whether a meetup may be held there is asked
+ * when it is sent, as at a gym (`MeetupSafety`): a Power Spot never offers it.
+ */
+export function meetupAtStopBox(stop: PickedStop): PageNode {
+  return {
+    tag: 'div',
+    className: 'meetup-box place-control',
+    children: [
+      button(
+        'Hold meetup here',
+        {
+          'data-meetup-at-stop': stop.key,
+          'data-stop-name': stop.name,
+          ...(stop.at
+            ? { 'data-stop-lat': String(stop.at.lat), 'data-stop-lon': String(stop.at.lon) }
+            : {}),
+        },
+        'meetup-here',
+      ),
+    ],
+  };
+}
+
+/** The stop a "Hold meetup here" button names (`meetupAtStopBox`), or none. */
+export function stopFromMeetupButton(
+  data: Readonly<Record<string, string | undefined>>,
+): MapStop | undefined {
+  const { meetupAtStop: key, stopName: name, stopLat, stopLon } = data;
+  if (key === undefined || name === undefined || stopLat === undefined || stopLon === undefined) {
+    return undefined;
+  }
+  return [key, Number(stopLat), Number(stopLon), name];
 }
 
 /**
@@ -113,7 +150,7 @@ export interface PickedPlace {
   regionIds: number[];
 }
 
-/** A gym picked (its dot, the marker of its raids, "Meetup here"). */
+/** A gym picked (its dot, the marker of its raids, "Hold meetup here"). */
 export function gymPick(gym: MapGym): PickedPlace {
   return {
     body: { kind: 'gym', id: String(gym.id) },

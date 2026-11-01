@@ -121,7 +121,7 @@ describe('the zone the start form reads a typed time in (review N4)', () => {
   });
 });
 
-describe('a train started at a place ("Train here")', () => {
+describe('a train started at a place ("Start train here")', () => {
   const gym = {
     id: 7,
     name: 'Harbor Lighthouse Mural',
@@ -168,7 +168,7 @@ describe('a train started at a place ("Train here")', () => {
 
   it('offers the button by its place, which is how an open form turns it off', () => {
     expect(JSON.stringify(trainHereBox('7'))).toContain('"data-train-here":"7"');
-    expect(JSON.stringify(trainHereBox('abc'))).toContain('Train here');
+    expect(JSON.stringify(trainHereBox('abc'))).toContain('Start train here');
   });
 });
 

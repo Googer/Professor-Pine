@@ -297,7 +297,7 @@ describe("a meetup's Manage… on the map (Matt, 2026-10-30)", () => {
     expect(made.said).toContain('This meetup is over.');
   });
 
-  it('"Meetup here" opens in the popup, and goes to the side pane to pick a place', () => {
+  it('"Hold meetup here" opens in the popup, and goes to the side pane to pick a place', () => {
     const made = managing([]);
     made.section.querySelector('button[data-cancel]')?.dispatch('click');
     const box = make('div');
@@ -457,7 +457,7 @@ describe("a meetup's Manage… on the map (Matt, 2026-10-30)", () => {
   });
 
   describe('a new meetup at a place whose popup closed meanwhile (review, finding 4)', () => {
-    /** "Meetup here" in the popup, the form filled in; `submit` sends it. */
+    /** "Hold meetup here" in the popup, the form filled in; `submit` sends it. */
     const madeAt = (answers: readonly { status: number; body: unknown }[]) => {
       const made = managing(answers);
       made.section.querySelector('button[data-cancel]')?.dispatch('click');

@@ -2554,6 +2554,25 @@ describe('the reports at stops on the map (plan 8M-9B)', () => {
     expect(page.active?.getAttribute('data-report-near')).toBe('stop-9');
   });
 
+  it('offers a meetup at a PokéStop, the form in its popup, the stop its place', async () => {
+    const { markerOf, panel, raids } = await started({
+      raids: true,
+      regions: REGIONS,
+      stops: STOPS,
+    });
+    markerOf('Yellow Mural 5')?.fire('click', {});
+    popupNow()?.querySelector('button[data-meetup-at-stop]')?.dispatch('click');
+    expect(panel.querySelector('[data-form="meetup"]')).toBeNull();
+    const form = popupNow()?.querySelector('[data-form="meetup"]');
+    expect(form?.querySelector('.picked')?.textContent).toBe('Yellow Mural 5 (PokéStop)');
+    // Never at a Power Spot (Matt, 2026-10-17): it offers a train, no meetup.
+    const spot = { id: 'abc', title: 'Old Mill', lat: 40.44, lon: -79.95 };
+    const atSpot = placeShowing('party-card', raids.spotControls(spot));
+    expect(atSpot.querySelector('button[data-train-here]')).not.toBeNull();
+    expect(atSpot.querySelector('button[data-meetup-here]')).toBeNull();
+    expect(atSpot.querySelector('button[data-meetup-at-stop]')).toBeNull();
+  });
+
   // Re-review X2: "Add stops…" zooms to the form's last stop, the map's middle while it has none.
   it('zooms to the last stop of the form as stops are added, the middle with none', async () => {
     const { markerOf, panel, flights } = await started({ raids: true, stops: STOPS });
@@ -2912,7 +2931,7 @@ describe("Find's pick on the map (plan 8M-12)", () => {
 
   // Matt, 2026-10-30: a train reported from a gym or a Power Spot, with it as the first stop; if a
   // form can be anchored to a place, it is.
-  it("offers Train here in a gym's and a Power Spot's popup or card, the form in its place", async () => {
+  it("offers Start train here in a gym's and a Power Spot's popup or card, the form in its place", async () => {
     const { raids, panel, card, markerOf, reportHeader } = await started({
       raids: true,
       phone: true,
@@ -2977,7 +2996,7 @@ describe("Find's pick on the map (plan 8M-12)", () => {
     const notice = () => page.byId.get('notice-text')?.textContent;
     const FORM_OPEN = 'Close the form that is open first.';
 
-    it('takes the clicks of the form of Meetup here as its own, and Cancel leaves the hold free', async () => {
+    it('takes the clicks of the form of Hold meetup here as its own, and Cancel leaves the hold free', async () => {
       const { raids, panel, reportHeader } = await started({ raids: true, regions: REGIONS });
       const popup = placeShowing('leaflet-popup', raids.gymControls(LIBRARY));
       popup.querySelector('button[data-meetup-here]')?.dispatch('click');

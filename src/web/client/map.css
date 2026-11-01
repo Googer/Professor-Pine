@@ -2131,7 +2131,7 @@ path.highlighted {
   color: var(--stop-number-here-text);
 }
 
-/* Meetups from the map (plan 8M-5M): "New meetup", "Meetup here", the form, the editor. */
+/* Meetups from the map (plan 8M-5M): "New meetup", "Hold meetup here", the form, the editor. */
 .new-meetup,
 .meetup-here,
 .meetup-actions .press {
@@ -2143,7 +2143,7 @@ path.highlighted {
   margin-left: 0;
 }
 
-/* A train started at a place: "Train here" in its popup, the place named in the form. */
+/* A train started at a place: "Start train here" in its popup, the place named in the form. */
 .train-here {
   margin-top: 6px;
 }

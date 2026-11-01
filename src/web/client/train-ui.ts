@@ -177,7 +177,7 @@ export function trainUi(deps: TrainUiDeps) {
         filled: RouteEditorFilled;
         /** What is said under the editor, until the next edit: a redraw says it again. */
         said?: string;
-        /** What the train's making said ("Train here"): said with the answer of its first stop. */
+        /** What the train's making said ("Start train here"): said with the answer of its first stop. */
         made?: string;
       }
     | undefined;
@@ -480,7 +480,7 @@ export function trainUi(deps: TrainUiDeps) {
   };
 
   /**
-   * The start form in the side panel, in place of "New train"; with `first` ("Train here") it names
+   * The start form in the side panel, in place of "New train"; with `first` ("Start train here") it names
    * the place, and from a popup or card (`control`) it is drawn there, in the place of the control;
    * the train it makes has the place added in route mode, as a tap on the place adds it. A form gone
    * with its popup meanwhile opens nothing over what the member does now: the train is said and the
@@ -601,7 +601,7 @@ export function trainUi(deps: TrainUiDeps) {
     },
 
     /**
-     * A click on "Train here" in a gym's or a Power Spot's popup: the start form with the place
+     * A click on "Start train here" in a gym's or a Power Spot's popup: the start form with the place
      * as its first stop, its region prefilled where one region alone holds the place.
      */
     trainHereClicked(first: FirstStop, region?: number, control?: HTMLButtonElement | null): void {

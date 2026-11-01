@@ -21,6 +21,8 @@ import {
   regionChosenBy,
   sendMeetupForm,
   StopLoads,
+  stopFromMeetupButton,
+  stopPick,
   stopsBox,
   type EditorState,
   type MapBox,
@@ -41,7 +43,7 @@ import { newTrainButton } from './train-forms.js';
 
 /**
  * The meetups of the live map in the page (plan 8M-5M, spec 3.7): "New meetup" in the side
- * panel's box (and "Meetup here" in a gym's popup, the gym as its place) opens the form of a new
+ * panel's box (and "Hold meetup here" in a gym's popup, the gym as its place) opens the form of a new
  * meetup there; "Pick on the map" puts the map in "pick a place" mode, in which a gym clicked (its
  * dot or the marker of its raids), a PokéStop clicked (the stops of the view are shown meanwhile,
  * from `/api/stops`) or a point of the map clicked becomes its place, and no popup opens; "Manage…"
@@ -469,9 +471,15 @@ export function meetupUi(deps: MeetupUiDeps) {
       }
     },
 
-    /** A click on "Meetup here" in a gym's popup: the form there, the gym its place. */
+    /** A click on "Hold meetup here" in a gym's popup: the form there, the gym its place. */
     meetupHereClicked(gym: MapGym, control?: HTMLButtonElement): void {
       openMaking(gymPick(gym), control);
+    },
+
+    /** A click on "Hold meetup here" in a PokéStop's popup: the form there, the stop its place. */
+    meetupAtStopClicked(control: HTMLButtonElement): void {
+      const stop = stopFromMeetupButton(control.dataset);
+      if (stop) openMaking(stopPick(stop, deps.regions), control);
     },
 
     /** A click on "Manage…" in a meetup's popup or item: its editor in the place of its post. */

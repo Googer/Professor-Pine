@@ -95,7 +95,7 @@ export function newTrainButton(): PageNode {
 }
 
 /**
- * "Train here" in a gym's or a Power Spot's popup: the form of a new train with the place as its
+ * "Start train here" in a gym's or a Power Spot's popup: the form of a new train with the place as its
  * first stop. The place's id is how an open form turns the button off (`formControls`), and how
  * a gym that shows its raid, whose popup is drawn as a tree, finds its gym; a popup of a place
  * listens to its own button.
@@ -104,7 +104,7 @@ export function trainHereBox(placeId: string): PageNode {
   return {
     tag: 'div',
     className: 'train-here-box place-control',
-    children: [button('Train here', { 'data-train-here': placeId }, 'train-here')],
+    children: [button('Start train here', { 'data-train-here': placeId }, 'train-here')],
   };
 }
 
@@ -144,7 +144,7 @@ export interface StartValues {
  * The form of a new train, as `/train` takes it and `/meet` its start: its name, the region it
  * is made in (any region of the server, `/api/geo`'s), when it starts (a clock time, a date and
  * a time, or `in 30`; empty for none yet) and what it does at the end of its route; `firstStop`
- * names the place it starts at ("Train here").
+ * names the place it starts at ("Start train here").
  */
 export function startForm(
   regions: ReadonlyArray<{ id: number; name: string }>,

@@ -661,8 +661,8 @@ export function raidChoices(
 }
 
 /**
- * What a gym that shows its raid offers under it (review 8A-2): "Report spawn here", "Meetup here"
- * and "Train here", no "Report raid" (the popup offers the raid; reporting one where one stands opens it
+ * What a gym that shows its raid offers under it (review 8A-2): "Report spawn here", "Hold meetup here"
+ * and "Start train here", no "Report raid" (the popup offers the raid; reporting one where one stands opens it
  * anyway: `reportClosesForm`).
  */
 export function gymWithRaidBoxes(gymId: number): PageNode[] {
