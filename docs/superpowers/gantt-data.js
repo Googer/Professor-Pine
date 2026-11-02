@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-01T21:48",
+  "updated": "2026-11-01T22:28",
   "items": [
     {
       "id": "0",
@@ -10036,11 +10036,15 @@ window.GANTT = {
       "kind": "plan",
       "parent": "16",
       "name": "8Z Security pass before the cutover",
-      "status": "progress",
+      "status": "done",
       "size": 1,
       "dependsOn": [],
       "scope": "Meetups after approval, pins in /wild near:, group pings, floods, the map's writes and logins, Google by hand, the map's Delete…, the Docker socket through a proxy",
-      "doneWhen": "Merged into main-dev"
+      "doneWhen": "Merged into main-dev",
+      "review": {
+        "start": "2026-11-01T22:05",
+        "end": "2026-11-01T22:18"
+      }
     },
     {
       "id": "8Z.1",
