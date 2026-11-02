@@ -5,7 +5,7 @@ Discord bot for organizing Pokémon Go raids, in TypeScript on discord.js v14: o
 ## Hard rules
 
 - **Push what lands on `main-dev`** (Matt, 2026-11-01), never force. `legacy` is the old bot with its intents patch: leave it alone. No PRs unless Matt asks. Older docs call `main-dev` `typescript-migration`.
-- **Nothing of the Wayspot export tool reaches this repository.** Its code, its docs and how it works live only in the private `Googer/Professor-Pine-Wayfarer-Export` (local `../Professor-Pine-Wayspot-Export`). Pine keeps the export format and geometry (`packages/wayspot-core`) and the page that hands the built file out. Branches cut before 2026-11-01 hold the old history with the tool: never push them; start from the current `main-dev`.
+- **Nothing of the Wayspot export tool reaches this repository.** Its code, its docs and how it works live only in the private `Googer/Professor-Pine-Wayfarer-Export` (local `../Professor-Pine-Wayfarer-Export`). Pine keeps the export format and geometry (`packages/wayspot-core`) and the page that hands the built file out. The history before 2026-11-01 holds the tool: it is only in the git-ignored `var/archive/local-branches-2026-11-01.bundle`; never push it, and start from the current `main-dev`.
 - **Never contact Discord unasked.** Do not start the bot (`npm start`, `npm run dev`, or in the Docker stack `./pine up`, `./pine restart`, `./pine update`, `./pine restore` without `--no-start`) or run `npm run deploy-commands` / `./pine deploy-commands` or `npm run emoji:upload` / `./pine emoji-upload` (its dry run reads the application's emoji; `--apply` uploads) or `npm run cutover:check` / `./pine cutover-check` (reads Discord's REST API with the token) unless Matt asks; there is a live production bot.
 - **Never open `.env`** (it holds the bot token): check a value only with a command that reports set or empty, and change one only with a script that prints no values.
 - **Database changes are additive only.** `knex_migrations` is read, never written; Kysely tracks its own migrations in `kysely_migration`.
@@ -20,7 +20,8 @@ Discord bot for organizing Pokémon Go raids, in TypeScript on discord.js v14: o
 | What each phase built, as CLAUDE.md said it until 2026-11-01 | `docs/superpowers/status-history.md` |
 | Gantt chart of every phase and task, with status | `docs/superpowers/gantt.html` |
 | Execution ledger for a plan in progress (git-ignored) | `.superpowers/sdd/<plan-name>/progress.md` |
-| Ledgers, briefs and stage scripts of removed area worktrees (git-ignored, in the main checkout) | `var/archive/<area>/` |
+| Ledgers, briefs and stage scripts of removed worktrees (git-ignored, in the main checkout) | `var/archive/` |
+| The commits older docs name by hash, and every branch removed on 2026-11-01 (git-ignored; `git fetch <bundle> <branch>`) | `var/archive/local-branches-2026-11-01.bundle` |
 | Conventions of each subsystem (see "Area index") | `docs/architecture/` |
 | Setting up the web pages (settings, OAuth redirect, tunnel, Google key) | `docs/web-setup.md` |
 | Guides for admins: moving a legacy instance, starting a new one, a macOS host | `docs/guides/` |
