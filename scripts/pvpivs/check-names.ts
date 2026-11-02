@@ -17,11 +17,10 @@ import { PVPIVS_SPECULATIVE, pvpivsName } from '../../src/render/pvp-rank.js';
 const LIST_URL = 'https://pvpivs.com/includes/pokeListObj.js';
 const MARK = '_SPECULATIVE';
 const repoRoot = path.resolve(import.meta.dirname, '../..');
-/** On the game master, but no form a player meets, and the site has no page for it. */
+/** In the game data, but only met as a max battle's boss, never owned; the site has no page for it. */
 const NO_PAGE: ReadonlySet<string> = new Set(['eternatus_eternamax']);
 const say = (text: string): void => {
-  process.stdout.write(`${text}
-`);
+  process.stdout.write(`${text}\n`);
 };
 
 function loadGameData(): { data: GameData; source: string } {
