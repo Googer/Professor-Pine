@@ -558,9 +558,8 @@ cmd_restore() {
   # Checked before anything is stopped, when the restore ends by starting the bot.
   [ -z "$start" ] || check_tool_dir
   dump=$(from_caller "$dump")
-  if [ ! -f "$dump" ] || [ ! -r "$dump" ]; then
-    fail "There is no readable file $dump."
-  fi
+  [ -f "$dump" ] || fail "There is no readable file $dump."
+  [ -r "$dump" ] || fail "You may not read $dump. A backup is for its owner alone (BACKUP_UID and BACKUP_GID, root unless set): run this with sudo, or set them to your own ids for the next backups."
   case $dump in
     *.gz) kind=gz ;;
     *) kind=sql ;;
@@ -595,11 +594,12 @@ cmd_restore() {
   # Streamed from the file through the mysql service's own client, never copied; as MySQL's root,
   # so that whatever the dump sets (its time zone, the checks it turns off) is allowed. gzip's
   # status is kept aside (sh has no pipefail): a dump that breaks while it unpacks is a failure.
+  # --commands=OFF: what a dump asks of the client (`\!` runs a program, as root here) is not done.
   say "> docker compose exec -T mysql mysql $(basename "$dump") < $dump"
   # shellcheck disable=SC2016 # expanded in the container, which has the variables
   compose exec -T mysql sh -c '
     { if [ "$0" = gz ]; then gzip -dc; else cat; fi; echo $? >/tmp/unpacked; } |
-      MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql --default-character-set=utf8mb4 -uroot "$MYSQL_DATABASE" &&
+      MYSQL_PWD="$MYSQL_ROOT_PASSWORD" mysql --commands=OFF --default-character-set=utf8mb4 -uroot "$MYSQL_DATABASE" &&
       [ "$(cat /tmp/unpacked)" = 0 ]' "$kind" <"$dump" ||
     fail "The dump did not load (MySQL or gzip said why above). The database may hold part of it: './pine restore $dump --replace' starts again."
   finished=0

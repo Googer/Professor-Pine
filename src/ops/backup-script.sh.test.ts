@@ -79,6 +79,25 @@ describe('the lock of docker/backup.sh', () => {
   });
 });
 
+describe('the dump of docker/backup.sh', () => {
+  // The mode itself means nothing in Git Bash: the umask of whoever writes the file does.
+  it('is written for its owner alone', (context) => {
+    const { out, env } = folders();
+    const run = runBackupScript(
+      [
+        'OWNER_UID=0 OWNER_GID=0 SCHEMA=pine',
+        'mysqldump() { echo "-- Dump completed"; }',
+        'as_owner() { umask >>"$OUT/umasks"; "$@"; }',
+        'make_dump "$OUT/dump.sql.gz" && echo made',
+      ].join('\n'),
+      env,
+    );
+    if (!run) return context.skip('no sh here');
+    expect(run.stdout).toContain('made');
+    expect(readFileSync(path.join(out, 'umasks'), 'utf8').split(/\r?\n/)[0]).toBe('0077');
+  });
+});
+
 describe('the backup folder of docker/backup.sh', () => {
   // A delete that fails (and its warning) cannot be made on every machine the tests run on.
   it('deletes only its own dumps older than the days kept', (context) => {

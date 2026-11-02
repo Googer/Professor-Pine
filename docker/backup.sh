@@ -177,8 +177,9 @@ live_count() {
   printf '%s\n' "$counted"
 }
 
-# make_dump <file>: the schema, gzipped, written as the folder's owner. Sets `reason` and fails
-# when mysqldump or the write does.
+# make_dump <file>: the schema, gzipped, written as the folder's owner and readable by that owner
+# alone (it holds members' ids and the keys of the export tool). Sets `reason` and fails when
+# mysqldump or the write does.
 make_dump() {
   rc_file=$(mktemp)
   # No pipefail in sh: the status of mysqldump and of the write are kept aside. In the
@@ -190,7 +191,10 @@ make_dump() {
       --hex-blob --no-tablespaces --set-gtid-purged=OFF --default-character-set=utf8mb4 \
       "$SCHEMA" 2>"$rc_file.err"
     echo $? >"$rc_file"
-  } | gzip -6 | as_owner sh -c 'cat >"$1"' sh "$1" &
+  } | gzip -6 | (
+    umask 077
+    as_owner sh -c 'cat >"$1"' sh "$1"
+  ) &
   if ! wait $!; then
     reason="the dump could not be written to $OUT"
     rm -f "$rc_file" "$rc_file.err"
@@ -259,8 +263,9 @@ verify_dump() {
     reason="the scratch server took no database"
     return 1
   fi
-  # In the background, waited for, as the dump: a stop is heard at once.
-  as_owner cat "$1" | gzip -dc | in_scratch --default-character-set=utf8mb4 verify \
+  # In the background, waited for, as the dump: a stop is heard at once. --commands=OFF: what a
+  # dump asks of the client (`\!` runs a program, as root here) is not done.
+  as_owner cat "$1" | gzip -dc | in_scratch --commands=OFF --default-character-set=utf8mb4 verify \
     2>"$scratch/load.err" &
   if ! wait $!; then
     reason="the dump did not load into a scratch server: $(tail -n 1 "$scratch/load.err")"

@@ -2,9 +2,15 @@
 # `./pine help` and docs/architecture/operations.md); the host needs only Docker and git.
 #
 # Settings and secrets: `.env` beside this file (copy `.env.example`), read by Compose for the
-# values below and handed to the bot whole; the installation's settings, `pine-settings.json`
-# beside it (git-ignored; made from `data/settings.json`), mounted read-only.
+# values below and handed to the bot, but for MySQL's root password and the tunnel's token; the
+# installation's settings, `pine-settings.json` beside it (git-ignored; made from
+# `data/settings.json`), mounted read-only.
 name: pine
+
+# Every service's log in five files of 20 MB at most: Docker's default on a plain host keeps it all.
+x-logging: &logging
+  driver: json-file
+  options: { max-size: 20m, max-file: '5' }
 
 services:
   mysql:
@@ -33,6 +39,7 @@ services:
       retries: 6
       start_period: 2m
     restart: unless-stopped
+    logging: *logging
 
   pine:
     build: .
@@ -46,6 +53,8 @@ services:
       SETTINGS_PATH: data/settings.json
       # The bot needs no root password: the one in `.env` is MySQL's only.
       DB_ROOT_PASSWORD: ''
+      # Nor the tunnel's token, which is cloudflared's: with it, all the web pages' traffic can be read.
+      CLOUDFLARE_TUNNEL_TOKEN: ''
       # The legacy bot's parties folder, for /admin cleanup-legacy: mounted below where
       # LEGACY_PARTIES_DIR names one, blank (none) otherwise.
       LEGACY_PARTIES_DIR: ${LEGACY_PARTIES_DIR:+/legacy-parties}
@@ -63,6 +72,14 @@ services:
     # tini as process 1: it hands SIGTERM to the bot and reaps the screen reader's process.
     init: true
     restart: unless-stopped
+    logging: *logging
+    # The service that takes what strangers send: it needs no capability, and its limits (the screen
+    # reader's process counts, some 700 MB at its peak) keep a runaway from MySQL's and the other
+    # stacks' memory on the same host.
+    security_opt: ['no-new-privileges:true']
+    cap_drop: ['ALL']
+    mem_limit: 4g
+    pids_limit: 512
     # Every shutdown step has its own limit (src/app.ts): two minutes all together, of which the
     # queued direct messages take up to fifteen seconds; half a minute more before Docker kills.
     stop_grace_period: 2m30s
@@ -109,6 +126,12 @@ services:
       - pine
     init: true
     restart: unless-stopped
+    logging: *logging
+    # Root is for the socket's owner alone: no capability is needed for it.
+    security_opt: ['no-new-privileges:true']
+    cap_drop: ['ALL']
+    mem_limit: 512m
+    pids_limit: 128
 
   # A verified dump of the database every night (docker/backup.sh, `./pine backup` for one now),
   # into BACKUP_DIR on the host. On the mysql:8.4 image for its own mysqldump and mysqld: a
@@ -153,6 +176,7 @@ services:
         condition: service_healthy
     init: true
     restart: unless-stopped
+    logging: *logging
     # A stop during a check shuts the scratch server down first.
     stop_grace_period: 30s
 
@@ -171,6 +195,11 @@ services:
     depends_on:
       - pine
     restart: unless-stopped
+    logging: *logging
+    security_opt: ['no-new-privileges:true']
+    cap_drop: ['ALL']
+    mem_limit: 512m
+    pids_limit: 256
 
 volumes:
   mysql-data:

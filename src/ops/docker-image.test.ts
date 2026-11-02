@@ -90,6 +90,14 @@ describe('./pine', () => {
   it('fetches the newest MySQL and tunnel images on an update', () => {
     expect(commands.some((line) => /\brun pull --ignore-buildable\b/.test(line))).toBe(true);
   });
+
+  // A dump's `\!` runs on the client, as root in the container, even inside a /*!…*/ comment.
+  it('runs no client command a dump holds, on a restore or in the backup’s check', () => {
+    expect(pine).toMatch(/\bmysql --commands=OFF --default-character-set=utf8mb4 -uroot /);
+    expect(read('docker/backup.sh')).toMatch(
+      /\bin_scratch --commands=OFF --default-character-set=utf8mb4 verify/,
+    );
+  });
 });
 
 // `compose pull --ignore-buildable` skips only a service with its own `build:`. The bot's image is
@@ -107,5 +115,27 @@ describe('compose.yaml', () => {
         true,
       );
     }
+  });
+
+  const service = (name: string): string =>
+    services.find((text) => text.startsWith(`${name}:`)) ?? '';
+
+  it('gives the bot neither MySQL’s root password nor the tunnel’s token', () => {
+    expect(service('pine')).toMatch(/^ {6}DB_ROOT_PASSWORD: ''\r?$/m);
+    expect(service('pine')).toMatch(/^ {6}CLOUDFLARE_TUNNEL_TOKEN: ''\r?$/m);
+  });
+
+  it.each(['pine', 'watchdog', 'cloudflared'])('limits what %s may do and use', (name) => {
+    const text = service(name);
+    expect(text).toMatch(/^ {4}security_opt: \['no-new-privileges:true'\]\r?$/m);
+    expect(text).toMatch(/^ {4}cap_drop: \['ALL'\]\r?$/m);
+    expect(text).toMatch(/^ {4}mem_limit: \d+[mg]\r?$/m);
+    expect(text).toMatch(/^ {4}pids_limit: \d+\r?$/m);
+  });
+
+  it('keeps the logs of every service to a size', () => {
+    const running = services.filter((text) => /^ {4}image: /m.test(text));
+    expect(running).toHaveLength(5);
+    for (const text of running) expect(text, text).toMatch(/^ {4}logging: \*logging\r?$/m);
   });
 });
