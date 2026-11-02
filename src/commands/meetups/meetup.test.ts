@@ -31,6 +31,7 @@ import {
   testRaid,
   testTrain,
 } from '../../../test/support/parties.js';
+import { DIALOG_READ_MS, SLOW_READ } from '../../discord/dialog.js';
 import { MAX_OPEN_PARTIES } from '../../domain/party/open-parties.js';
 import type { PartyStore } from '../../services/party-store.js';
 import { OPEN_PARTIES_FULL } from '../parties/open-parties.js';
@@ -104,6 +105,27 @@ describe('/meetup and the open trains and meetups of a member (plan 8Z)', () => 
     await made.held({ maker: { id: ALICE, name: 'Alice' } });
     const used = await made.command('One more');
     expect(sent(used.reply).content).toBe(OPEN_PARTIES_FULL);
+  });
+
+  it('answers SLOW_READ when what it reads before the form takes too long, and counts nothing', async () => {
+    const made = await setup({}, {});
+    const asked = Promise.withResolvers<undefined>();
+    const pendingOf = vi.spyOn(made.storage, 'pendingOf').mockImplementation(() => {
+      asked.resolve(undefined);
+      return new Promise(() => undefined);
+    });
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'], now: PARTY_NOW });
+    const using = made.command('One more');
+    await asked.promise;
+    await vi.advanceTimersByTimeAsync(DIALOG_READ_MS);
+    const used = await using;
+    expect(used.showModal).not.toHaveBeenCalled();
+    expect(sent(used.reply)).toEqual({ content: SLOW_READ, flags: MessageFlags.Ephemeral });
+    // The use is as good as given back: all of the limit is left.
+    pendingOf.mockRestore();
+    for (let use = 0; use < MEETUP_THROTTLE.uses; use += 1) {
+      expect((await made.command(`Another ${use}`)).showModal).toHaveBeenCalledOnce();
+    }
   });
 
   it('never refuses an approval: a moderator decided', async () => {

@@ -8,6 +8,7 @@ import {
 import type { AppContext } from '../../app-context.js';
 import type { ComponentHandler, Guard, SimpleCommand } from '../../discord/command.js';
 import { encodeCustomId } from '../../discord/custom-id.js';
+import { readInTime } from '../../discord/dialog.js';
 import { UserError } from '../../discord/errors.js';
 import { guildIdOf, isStaff, regionChannelOf, requireGuild } from '../../discord/guards.js';
 import { memberInfo } from '../../discord/member-info.js';
@@ -212,11 +213,15 @@ const readings = new WeakMap<ChatInputCommandInteraction, Asked>();
  * Everything that can be known before the form: a `near` that names no place it can take, a
  * start it cannot read or that has passed, a place refused for good, a member blocked from
  * making meetups, a start too soon for the moderators. Refused here, so that it does not count;
- * what it read is kept for `execute`.
+ * what it read is kept for `execute`. Read within a dialog's time (`readInTime`), since the form
+ * must open within Discord's three seconds: past it the member is told `SLOW_READ`, uncounted.
  */
 const requireMeetupAsked: Guard = async (interaction, ctx) => {
   if (!interaction.isChatInputCommand()) return;
-  readings.set(interaction, await readAsked(interaction, ctx, Date.now()));
+  const asked = await readInTime(ctx.log, interaction, () =>
+    readAsked(interaction, ctx, Date.now()),
+  );
+  readings.set(interaction, asked);
 };
 
 /** The form `/meetup` opens: the meetup's information, required (plan 8S-1). */
