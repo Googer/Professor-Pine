@@ -12,6 +12,7 @@ import {
   MAX_EXPORT_WAYSPOTS,
   MAX_WAYSPOT_TEXT,
   mergeExportParts,
+  withGameKinds,
   readWayspotExport,
   writeWayspotExport,
   type ExportedWayspot,
@@ -416,5 +417,40 @@ describe('an export in parts', () => {
       problem: { kind: 'not-parts' },
     });
     expect(mergeExportParts([file, file])).toEqual({ ok: false, problem: { kind: 'not-parts' } });
+  });
+});
+
+describe('what a Wayspot of an export is in the game', () => {
+  const kinds = (...wayspots: ExportedWayspot[]) =>
+    withGameKinds(exported({ wayspots })).wayspots.map(({ kind, status }) => [kind, status]);
+
+  it('takes a stop Wayfarer has as inactive for a Power Spot', () => {
+    expect(kinds(wayspot(1, { kind: 'stop', status: 'INACTIVE' }))).toEqual([
+      ['powerspot', 'INACTIVE'],
+    ]);
+  });
+
+  it('leaves everything else as Wayfarer has it', () => {
+    expect(
+      kinds(
+        wayspot(1, { kind: 'stop', status: 'ACTIVE' }),
+        wayspot(2, { kind: 'powerspot', status: 'INACTIVE' }),
+        wayspot(3, { kind: 'gym', status: 'INACTIVE' }),
+      ),
+    ).toEqual([
+      ['stop', 'ACTIVE'],
+      ['powerspot', 'INACTIVE'],
+      ['gym', 'INACTIVE'],
+    ]);
+  });
+
+  it('keeps the rest of the file, and answers the same file where nothing changes', () => {
+    const file = exported({ wayspots: [wayspot(1, { kind: 'stop', status: 'INACTIVE' })] });
+    const { wayspots, ...rest } = withGameKinds(file);
+    const { wayspots: _before, ...before } = file;
+    expect(rest).toEqual(before);
+    expect(wayspots[0]).toEqual({ ...file.wayspots[0], kind: 'powerspot' });
+    const plain = exported();
+    expect(withGameKinds(plain)).toBe(plain);
   });
 });

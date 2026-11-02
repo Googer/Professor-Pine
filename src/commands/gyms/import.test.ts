@@ -66,12 +66,12 @@ function wayspot(
   n: number,
   title: string,
   place: LatLon,
-  more: { kind?: WayspotKind; image?: string } = {},
+  more: { kind?: WayspotKind; image?: string; status?: string } = {},
 ): ExportedWayspot {
   return {
     id: idOf(n),
     kind: more.kind ?? 'gym',
-    status: 'ACTIVE',
+    status: more.status ?? 'ACTIVE',
     lat: place.lat,
     lon: place.lon,
     title,
@@ -472,6 +472,23 @@ describe('/gym import: the preview', () => {
       'Little Free Library',
       'Water Tower',
     ]);
+  });
+
+  it('keeps a stop Wayfarer has as inactive as a Power Spot', async () => {
+    const made = await gymCommandsWith();
+    const city = cityFile(made);
+    const file = {
+      ...city,
+      wayspots: [
+        ...city.wayspots,
+        wayspot(8, 'Rammummy', at(gymOf(made, 6), 20), { kind: 'stop', status: 'INACTIVE' }),
+      ],
+    };
+    const { answer } = await importing(made, packed(file));
+    await pressV2(made, buttonId(answer, 'Import'));
+    await made.settle();
+    const kept = (await made.wayspotStore.all()).find((row) => row.title === 'Rammummy');
+    expect(kept?.kind).toBe('powerspot');
   });
 
   it('offers an import when the kept PokéStops cannot be read, and says why it cannot tell', async () => {

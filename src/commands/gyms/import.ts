@@ -23,6 +23,7 @@ import {
   forImport,
   mergeExportParts,
   readWayspotExport,
+  withGameKinds,
   WAYSPOT_EXPORT_VERSION,
   type ExportProblem,
   type PartsProblem,
@@ -314,7 +315,7 @@ async function attachedExport(
   if (!merged.ok) {
     throw new UserError(partsText(merged.problem, files[0]?.part?.count ?? files.length));
   }
-  return merged.file;
+  return withGameKinds(merged.file);
 }
 
 /** How much room the lines by region may take. */

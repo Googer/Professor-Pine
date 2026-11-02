@@ -2985,3 +2985,9 @@ On the Air's dev stack, Googer in the built-in browser, Tester through Claude in
 
 - **Claude's calls, for Matt to object to:** an added gym gets the list's id as its `pogoId`, no picture and no address (Google's line gives the address at the next start); a marked legacy gym keeps its `pogoId`.
 - **Spot checks on the game's map (2026-11-02):** legacy 3066, 3071, 3072 are Verizon stops with no gym of their own, as the list says. The list's Starbucks in Washington is legacy 1483: one gym there, so the row was dropped and the gym is moved in the runbook. Honus Wagner Statue has both a gym and a stop; Penn Center Clock Tower (legacy 1286, Rey Azteca Clock) is a gym with a Starbucks stop beside it: no change. Every Best Buy, GameStop and Target gym on the list is gone from PGAN too (checked live by id), so their rows are dropped; the rest of the list, gyms and stops, is there.
+
+## From inactive stops as Power Spots (2026-11-02)
+
+`withGameKinds` (`packages/wayspot-core/src/export-file.ts`), applied by `/gym import`: a stop Wayfarer has as `INACTIVE` is taken for a Power Spot, in older files too. No change to the export tool or the file's format. Checked on one Wayspot in the game (a Power Spot, no PokéStop on the game's map); the rest rest on the rule. Inactive Power Spots stay Power Spots: they come and go from day to day (Matt), so a Power Spot missing from the game's map says nothing.
+
+Matt on the sources: with this rule Wayfarer's map is reliable for Power Spots. What it misses are sponsored locations, and those are only ever stops or gyms as far as he has seen, so a sponsored list needs no Power Spots.

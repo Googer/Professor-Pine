@@ -21,7 +21,7 @@ export interface ExportedWayspot {
   /** Wayfarer's `poiId` (`isWayfarerId`). */
   id: string;
   kind: WayspotKind;
-  /** The game's status as observed (`ACTIVE`, `INACTIVE`): kept, never acted on. */
+  /** The game's status as observed (`ACTIVE`, `INACTIVE`): acted on only by `withGameKinds`. */
   status: string;
   lat: number;
   lon: number;
@@ -362,9 +362,31 @@ export function coveredCells(file: WayspotExport): Set<string> {
   return new Set([...file.cells, ...file.bareCells.filter((token) => !shown.has(token))]);
 }
 
+/** The status of a Wayspot that is not in the game as Wayfarer lists it. */
+const INACTIVE = 'INACTIVE';
+
+/**
+ * An export with each Wayspot as it is in the game (Matt, 2026-11-02): a stop Wayfarer has as
+ * inactive is a Power Spot (Rammummy, in Squirrel Hill: a Power Spot in the game, `POKESTOP`,
+ * `INACTIVE` in Wayfarer, and no PokéStop on the game's map). An inactive Power Spot stays one:
+ * Power Spots come and go from day to day. The same file where nothing changes.
+ */
+export function withGameKinds(file: WayspotExport): WayspotExport {
+  const isOne = (wayspot: ExportedWayspot): boolean =>
+    wayspot.kind === 'stop' && wayspot.status === INACTIVE;
+  if (!file.wayspots.some(isOne)) return file;
+  return {
+    ...file,
+    wayspots: file.wayspots.map((wayspot) =>
+      isOne(wayspot) ? { ...wayspot, kind: 'powerspot' } : wayspot,
+    ),
+  };
+}
+
 /**
  * An export with only what an import reads of it: every Wayspot without its description (the
- * longest text of a Wayspot, which nothing of Pine keeps) and its status (never acted on).
+ * longest text of a Wayspot, which nothing of Pine keeps) and its status (`withGameKinds` has
+ * read it by then).
  * `/gym import` keeps this while its preview waits for Import (half an hour, three at most).
  */
 export function forImport(file: WayspotExport): WayspotExport {
