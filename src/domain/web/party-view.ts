@@ -1,6 +1,7 @@
 import { allowedPicture } from './picture.js';
 import { stopKey } from '../party/stops.js';
 import { maxEnded } from '../party/max.js';
+import { mayEditMeetup } from '../party/meetup.js';
 import {
   attendeeOf,
   inLetterOrder,
@@ -298,21 +299,6 @@ function attendanceOf(party: Party, input: PartyViewInput, hatched: boolean): Ma
     ...(until === undefined ? {} : { asked: { until, word: partyWord(party) } }),
     ...(regroup === undefined ? {} : { regroup }),
   };
-}
-
-/**
- * Whether a member may change a meetup on the map (spec 3.7, "its maker and staff"; plan 8M-5M):
- * the member who made it, or staff (an admin, a moderator, the bot's owner). The commands let
- * anybody in the post change its name, information and end; the map asks more (a meetup's text
- * is safety-relevant since plan 8S-1; plan 8M-8B leaves it so, Matt to confirm). A start also
- * needs what `/meet` asks, a sign-up (`mayArrange`).
- */
-export function mayEditMeetup(
-  party: Pick<MeetupParty, 'createdById'>,
-  memberId: string,
-  staff: boolean,
-): boolean {
-  return staff || party.createdById === memberId;
 }
 
 function raidOf(party: RaidParty, link: string, input: PartyViewInput): MapRaid | null {

@@ -4,7 +4,12 @@ import type { Guard } from '../../discord/command.js';
 import { UserError } from '../../discord/errors.js';
 import { partyOf, regionChannelOf } from '../../discord/guards.js';
 import type { Throttle } from '../../discord/throttle.js';
-import { partyWord, type PartyProblem, type TimedParty } from '../../domain/party/party.js';
+import {
+  isMeetup,
+  partyWord,
+  type PartyProblem,
+  type TimedParty,
+} from '../../domain/party/party.js';
 import {
   nameOf,
   startTimeOf,
@@ -168,7 +173,10 @@ function when(ctx: Pick<AppContext, 'config'>, time: number, now: number): strin
  * change a timed party (plan 8M-5M: the live map calls the same functions): the timed parties,
  * the limits of the words, the settings (the zone of the times).
  */
-export type TimedChanging = Pick<AppContext, 'timedParties' | 'attendance' | 'config'>;
+export type TimesChanging = Pick<AppContext, 'timedParties' | 'attendance' | 'config'>;
+
+/** `TimesChanging`, and for `/name` and `/info` who tells the moderators of the change. */
+export type TimedChanging = TimesChanging & Pick<AppContext, 'meetupSafety'>;
 
 /**
  * What came of a change of a timed party, in the command's words: `ok`; `refused` with the
@@ -216,12 +224,14 @@ export async function replyTimed(
 }
 
 /**
- * `/name` as the member: another name for the train or meetup (anybody in the post may), in its
- * words. `drawn`: the name the change was drawn from (the live map), refused when the party has
- * another by now.
+ * `/name` as the member: another name for the train or meetup, in its words; the caller has
+ * asked whether they may (`meetupChangeRefusal`, for a meetup). The moderators are told of an
+ * approved meetup's new name, in the background (`MeetupSafety.tellChange`). `drawn`: the name
+ * the change was drawn from (the live map), refused when the party has another by now.
  */
 export async function renameAs(
   ctx: TimedChanging,
+  serverId: string,
   party: TimedParty,
   member: Member,
   text: string,
@@ -229,6 +239,14 @@ export async function renameAs(
 ): Promise<TimedAnswer> {
   const word = partyWord(party);
   const outcome = await ctx.timedParties.setName(party.id, member, text, drawn);
+  if (outcome.kind === 'ok' && outcome.changed && isMeetup(outcome.party)) {
+    ctx.meetupSafety.tellChange({
+      serverId,
+      party: outcome.party,
+      by: member,
+      change: { kind: 'name', name: nameOf(outcome.party) },
+    });
+  }
   return timedAnswer(ctx, party, outcome, (ok) => {
     const called = `**${plain(nameOf(ok.party))}**`;
     return ok.changed
@@ -244,7 +262,7 @@ export async function renameAs(
  * (the live map).
  */
 export async function startAs(
-  ctx: TimedChanging,
+  ctx: TimesChanging,
   party: TimedParty,
   member: Member,
   time: number | null,
@@ -272,7 +290,7 @@ export async function startAs(
  * `drawn`: the end the change was drawn from (the live map).
  */
 export async function endAs(
-  ctx: TimedChanging,
+  ctx: TimesChanging,
   party: TimedParty,
   member: Member,
   text: string,
@@ -358,7 +376,7 @@ export function readTimes(
  * map).
  */
 export async function setTimesAs(
-  ctx: TimedChanging,
+  ctx: TimesChanging,
   party: TimedParty,
   member: Member,
   asked: TimesRead,

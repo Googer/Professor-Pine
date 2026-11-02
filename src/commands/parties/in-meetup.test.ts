@@ -764,19 +764,22 @@ describe('what a member of a meetup is told', () => {
       ['admin', { keep: false }, staff],
       ['done'],
       ['name', { name: 'Evening picnic' }],
-      ['name', { name: 'Evening picnic' }],
-      ['name', { name: '   ' }],
+      ['name', { name: 'Evening picnic' }, { roleNames: ['Admin'] }],
+      ['name', { name: 'Evening picnic' }, { roleNames: ['Admin'] }],
+      ['name', { name: '   ' }, { roleNames: ['Admin'] }],
       ['meetup', { name: 'Another one' }],
       ['meetup', { name: '   ' }],
     ];
     for (const [command, options, extra] of tries) await made.run(command, options, extra);
     // The form of `/info`: sent, sent again unchanged, and with more than it takes.
-    expect((await made.run('info')).showModal).toHaveBeenCalledOnce();
+    const asStaff = { roleNames: ['Admin'] };
+    expect((await made.run('info', {}, asStaff)).showModal).toHaveBeenCalledOnce();
     for (const text of ['Bring snacks.', 'Bring snacks.', 'x'.repeat(1001), '']) {
       await made.handle(
         fakeModal({
           customId: infoForm(made.current()).custom_id,
           userId: ALICE,
+          ...asStaff,
           fields: { [INFO_INPUT]: text },
           ...made.where,
         }),

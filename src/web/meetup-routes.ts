@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppContext } from '../app-context.js';
 import { describeAs } from '../commands/meetups/info.js';
+import { BLOCKED_FROM_CHANGING } from '../commands/meetups/meetup-changes.js';
 import {
   ASK_ON_DISCORD,
   makeMeetupAs,
@@ -35,7 +36,7 @@ import type { MemberStanding } from '../discord/member-directory.js';
 import type { MemberAccess } from '../discord/party-gateway.js';
 import type { Place } from '../domain/geo/place.js';
 import { rulingKeyOf } from '../domain/meetups/safety.js';
-import { tidyDescription } from '../domain/party/meetup.js';
+import { mayEditMeetup, tidyDescription } from '../domain/party/meetup.js';
 import {
   isMeetup,
   MAX_MEETUP_DESCRIPTION,
@@ -52,7 +53,7 @@ import {
   type StopsView,
 } from '../domain/web/meetup-data.js';
 import type { MapMeetup } from '../domain/web/party-data.js';
-import { mapParty, mayEditMeetup } from '../domain/web/party-view.js';
+import { mapParty } from '../domain/web/party-view.js';
 import { problemText } from '../render/activity.js';
 import { MEETUP_PLACE_KINDS } from '../services/place-finder.js';
 import {
@@ -120,6 +121,9 @@ export const MAP_PLACE_KINDS_ONLY = 'A meetup can be at a gym, a PokéStop or a 
  * it points them to `/meetup` (8S-1's follow-up).
  */
 export const MAP_BLOCKED = `${NO_MEETUPS_FOR_YOU} To appeal, use /meetup on Discord and press "Appeal…".`;
+
+/** `/name` and `/info`'s refusal of a blocked maker, on the map, which has no Appeal button. */
+export const MAP_BLOCKED_FROM_CHANGING = `${BLOCKED_FROM_CHANGING} To appeal, use /meetup on Discord and press "Appeal…".`;
 
 /** What the map's answer adds after a meetup is made: how to change it there. */
 export const MANAGE_IN_POPUP = 'Manage… in its popup changes its name, information and times.';
@@ -508,6 +512,17 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
       const writing = await meetupWrite(request, reply, guild, partyId, userId);
       if ('sent' in writing) return writing.sent;
       const { row, party, member, standing, meetupNow } = writing;
+      // As `/name` and `/info`: a maker blocked from meetups changes no text (start and end stay).
+      if (
+        (input.change === 'name' || input.change === 'info') &&
+        (await ctx.meetupSafety.blocked(
+          guild,
+          userId,
+          isMapStaff(standing, userId, parties.ownerId),
+        ))
+      ) {
+        return refuse(reply, 403, MAP_BLOCKED_FROM_CHANGING, meetupNow());
+      }
       // Checked here, uncounted, and again inside the store, for a change on its way meanwhile.
       if (asDrawn(drawnOf(party, input.change), input.drawn) !== undefined) {
         const stale = problemText('changed-meanwhile', ctx.attendance.limits(), 'meetup');
@@ -540,9 +555,9 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
         answer = await countedOnTheMap(deps, counted, userId, throttle, () => {
           switch (input.change) {
             case 'name':
-              return renameAs(ctx, party, member, input.name, input.drawn);
+              return renameAs(ctx, guild, party, member, input.name, input.drawn);
             case 'info':
-              return describeAs(ctx, party, member, input.info, input.drawn);
+              return describeAs(ctx, guild, party, member, input.info, input.drawn);
             case 'start':
               return startAs(ctx, party, member, start, now, input.drawn);
             case 'end':

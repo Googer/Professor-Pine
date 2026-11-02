@@ -439,6 +439,17 @@ export class MemoryMeetupSafety implements MeetupSafetyStore {
     );
   }
 
+  async approvedRequestOf(serverId: string, makerId: string, partyId: string) {
+    await this.check('approvedRequestOf');
+    return [...this.requests.values()].find(
+      (one) =>
+        one.serverId === serverId &&
+        one.makerId === makerId &&
+        one.status === 'approved' &&
+        one.partyId === partyId,
+    );
+  }
+
   async duePending(now: number) {
     await this.check('duePending');
     return this.sorted((one) => one.status === 'pending' && one.expiresAt <= now);

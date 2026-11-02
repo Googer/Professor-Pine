@@ -39,8 +39,10 @@ import {
   appealOutcomeDm,
   blockedDm,
   blockLiftedDm,
+  meetupChangeNotice,
   requestMessage,
   requestOutcomeDm,
+  type MeetupTextChange,
 } from '../render/meetup-safety.js';
 import { postLink } from '../render/notify-dm.js';
 import { ASK_OPEN_DAYS, askMessage, askOutcomeDm } from '../render/place-asks.js';
@@ -135,6 +137,15 @@ export type CloseIfBlocked =
   /** Blocked, but the meetup could not be closed (logged): it is still there. */
   | 'close-failed';
 
+/** A change of a meetup's name or information that the moderators may have to hear of. */
+export interface ApprovedMeetupChange {
+  serverId: string;
+  /** The meetup as it is now. */
+  party: Pick<MeetupParty, 'id' | 'createdById' | 'forumPostId' | 'timed'>;
+  by: { id: string; name?: string | undefined };
+  change: MeetupTextChange;
+}
+
 export interface MeetupSafetyOptions {
   storage: MeetupSafetyStore;
   gateway: Pick<
@@ -176,6 +187,7 @@ export interface MeetupSafetyOptions {
 export class MeetupSafety {
   private readonly now: () => number;
   private readonly flaggedWords: readonly string[];
+  private readonly changesOnTheirWay = new Set<Promise<void>>();
 
   constructor(private readonly options: MeetupSafetyOptions) {
     this.now = options.now ?? (() => Date.now());
@@ -266,6 +278,46 @@ export class MeetupSafety {
   async blocked(serverId: string, memberId: string, staff: boolean): Promise<boolean> {
     if (!this.on || staff) return false;
     return (await this.options.storage.block(serverId, memberId)) !== undefined;
+  }
+
+  /**
+   * Tells the moderators, in the background, that an approved meetup's name or information
+   * changed (plan 8Z; `/name`, `/info` and the map alike): into the channel of its request, which
+   * is what "approved" means (`approvedRequestOf`). Nobody is told of a meetup that needed no
+   * approval, nor while the safety is off. The change is made already and is never failed or held
+   * up for this: what goes wrong is logged. `flushChanges` waits for those on their way.
+   */
+  tellChange(change: ApprovedMeetupChange): void {
+    if (!this.on) return;
+    const telling: Promise<void> = this.tellOfChange(change)
+      .catch((err: unknown) => {
+        this.options.log.warn(
+          { err, party: change.party.id },
+          'could not tell the moderators of a change of an approved meetup',
+        );
+      })
+      .finally(() => {
+        this.changesOnTheirWay.delete(telling);
+      });
+    this.changesOnTheirWay.add(telling);
+  }
+
+  private async tellOfChange({ serverId, party, by, change }: ApprovedMeetupChange): Promise<void> {
+    const { storage, gateway } = this.options;
+    const request = await storage.approvedRequestOf(serverId, party.createdById, party.id);
+    if (request === undefined) return;
+    await gateway.sendMessage(
+      request.channelId,
+      meetupChangeNotice(party.timed.name, by, change, {
+        post: party.forumPostId === null ? undefined : postLink(serverId, party.forumPostId),
+        request: postLink(serverId, request.channelId, request.messageId),
+      }),
+    );
+  }
+
+  /** Waits for the moderators to be told of the changes on their way (`tellChange`). */
+  async flushChanges(): Promise<void> {
+    await Promise.all(this.changesOnTheirWay);
   }
 
   /**

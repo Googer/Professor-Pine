@@ -106,10 +106,10 @@ export class TimedPartyService {
   }
 
   /**
-   * Another name for the party; the title of its post follows with the next render. Anybody in
-   * the post may. Refused with `bad-name` for a text that is no name. `drawn`: the name the
-   * change was drawn from (the live map), refused with `changed-meanwhile` when the party has
-   * another by now; left out, none is asked (the commands).
+   * Another name for the party; the title of its post follows with the next render. Who may is
+   * the caller's to ask (a meetup's: `meetupChangeRefusal`). Refused with `bad-name` for a text
+   * that is no name. `drawn`: the name the change was drawn from (the live map), refused with
+   * `changed-meanwhile` when the party has another by now; left out, none is asked (the commands).
    */
   setName(
     partyId: string,
@@ -134,8 +134,9 @@ export class TimedPartyService {
 
   /**
    * What the post of a meetup says about it (`/info`); a text of nothing but white space
-   * removes it. Anybody in the post may. The line in the post says that it changed, not what
-   * to: the text is in the post itself. Only a meetup has it: any other party is `gone`.
+   * removes it. Who may is the caller's to ask (`meetupChangeRefusal`). The line in the post says
+   * that it changed, not what to: the text is in the post itself. Only a meetup has it: any other
+   * party is `gone`.
    */
   setDescription(
     partyId: string,

@@ -65,6 +65,20 @@ export function tidyDescription(text: string): string | null | undefined {
 }
 
 /**
+ * Whether a member may change a meetup's text (`/name`, `/info`) and, on the map, its other
+ * details (spec 3.7, "its maker and staff"; plan 8Z on Discord): the member who made it, or staff
+ * (an admin, a moderator, the bot's owner). A meetup's text is safety-relevant since plan 8S-1. A
+ * start also needs what `/meet` asks, a sign-up (`mayArrange`).
+ */
+export function mayEditMeetup(
+  party: Pick<MeetupParty, 'createdById'>,
+  memberId: string,
+  staff: boolean,
+): boolean {
+  return staff || party.createdById === memberId;
+}
+
+/**
  * Sets what the post says about the meetup (`/info`); a text of nothing but white space removes
  * it. The lines stay as they were typed, without white space at their ends and without more than
  * one empty line in a row (`tidyDescription`). Refused with `description-too-long`; the very

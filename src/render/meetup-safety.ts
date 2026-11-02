@@ -173,6 +173,43 @@ function outcomeOf(
   }
 }
 
+/** A change of an approved meetup's text, as the moderators are told of it. */
+export type MeetupTextChange =
+  | { kind: 'name'; name: string }
+  /** `info`: what it says now; null when it was removed. */
+  | { kind: 'info'; info: string | null };
+
+/**
+ * What the moderators are told when an approved meetup's name or information changes (plan 8Z,
+ * also staff's own changes): who changed it, the text as it is now (`plain`, never cut: not old
+ * and new side by side, a meetup's post and the moderators' request show those), Go to post and
+ * the request. A member's name reaches them by `memberText`; nobody is pinged.
+ */
+export function meetupChangeNotice(
+  meetupName: string,
+  by: { id: string; name?: string | undefined },
+  change: MeetupTextChange,
+  links: { post: string | undefined; request: string },
+): V2Message {
+  const who = memberText(by);
+  const lines =
+    change.kind === 'name'
+      ? [`${who} renamed it: **${plain(change.name)}**.`]
+      : change.info === null
+        ? [`${who} removed its information.`]
+        : [`${who} changed its information:`, plainLines(change.info)];
+  return textMessage(
+    PENDING_ACCENT,
+    [`### An approved meetup changed: ${plain(meetupName)}`, ...lines],
+    [
+      actionRow([
+        ...(links.post === undefined ? [] : [linkButton('Go to post', undefined, links.post)]),
+        linkButton('Go to request', undefined, links.request),
+      ]),
+    ],
+  );
+}
+
 /**
  * The custom-id kind of appeals (`mappeal`): `mappeal:<server>:open` (the Appeal button of
  * `/meetup`'s refusal of a blocked member) and `mappeal:<server>:form` (its form), with the

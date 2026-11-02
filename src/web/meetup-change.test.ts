@@ -2,7 +2,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { PRESS_SHOWN_MS } from './post-drawn.js';
 import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
 import { WEST_FORUM } from '../../test/support/gyms.js';
+import { MOD, MODERATOR, SAFETY_SERVER } from '../../test/support/meetup-safety-cases.js';
+import { MOD_CHANNEL, meetupSafetyWith } from '../../test/support/meetup-safety-service.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
+import { textOf } from '../../test/support/messages.js';
 import { ALICE, at, BOB, CAROL, PARTY_NOW } from '../../test/support/parties.js';
 import { createdMeetup } from '../../test/support/party-service.js';
 import { gymsFixture } from '../../test/support/providers.js';
@@ -22,7 +25,7 @@ import { variedThrottleKey } from '../discord/router.js';
 import { Throttles } from '../discord/throttle.js';
 import { PartyStatus } from '../domain/party/status.js';
 import type { MeetupAnswer } from '../domain/web/meetup-data.js';
-import { NOT_YOURS } from './meetup-routes.js';
+import { MAP_BLOCKED_FROM_CHANGING, NOT_YOURS } from './meetup-routes.js';
 
 const START = at('2026-10-13T18:00');
 const END = at('2026-10-13T20:00');
@@ -225,6 +228,84 @@ describe('changing a meetup on the map', () => {
       json: { ok: false, text: 'You are not signed up for this meetup.' },
     });
     expect(map.made.current().timed).toMatchObject({ name: 'Staff picnic', startTime: START });
+  });
+
+  describe('with meetup safety on', () => {
+    /** Alice's approved book swap on the map, Alice and the owner (staff) members of the server. */
+    const approved = async () => {
+      const made = await meetupSafetyWith();
+      const request = await made.held({ maker: { id: ALICE, name: 'Alice' } });
+      await made.safety.decide(request.id, 'approve-once', { id: MODERATOR }, SAFETY_SERVER);
+      const kept = await made.storage.request(request.id);
+      const party = made.store.get(kept?.partyId ?? '');
+      if (party?.type !== 'meetup') throw new Error('not approved');
+      const { ctx } = createTestContext({
+        partyService: made.service,
+        attendance: made.attendance,
+        timedParties: made.timed,
+        parties: made.store,
+        regions: made.regions,
+        meetupSafety: made.safety,
+      });
+      const members = new FakeMemberDirectory().add(ALICE, 'Alice').add(TEST_OWNER_ID, 'Owner');
+      const acting = new FakeActingMembers().add(ALICE, 'Alice').add(TEST_OWNER_ID, 'Owner');
+      const web = webServerWith({
+        members,
+        parties: partyWebWith(made, { acting, drawn: new RecordingDraws(made.store) }),
+        meetups: meetupWebWith(ctx),
+      });
+      web.clock.now = made.clock.now;
+      const alice = await web.posting(ALICE, 'Alice');
+      const send = async (what: string, body: unknown, sent = alice) => {
+        const answer = await web.app.inject({
+          method: 'POST',
+          url: `/s/${FAKE_GUILD_ID}/api/meetups/${party.id}/${what}`,
+          headers: { ...sent, 'content-type': 'application/json' },
+          payload: JSON.stringify(body),
+        });
+        return { status: answer.statusCode, json: answer.json<MeetupAnswer>() };
+      };
+      return { made, web, send, partyId: party.id, requestPost: request.messageId };
+    };
+
+    it('tells the moderators of a new name and new information from the map, once each', async () => {
+      const map = await approved();
+      web = map.web;
+      await map.send('name', { drawn: 'Book swap', name: 'Paperback swap' });
+      await map.send('info', { drawn: 'Bring a book.', info: 'Bring two.' });
+      // A start is no such change.
+      await map.send('end', { drawn: null, time: 'none' });
+      await map.made.safety.flushChanges();
+      const told = map.made.gateway
+        .messagesIn(MOD_CHANNEL)
+        .filter((message) => message.id !== map.requestPost)
+        .map((message) => textOf(message.message));
+      expect(told).toHaveLength(2);
+      expect(told[0]).toContain('renamed it: **Paperback swap**.');
+      expect(told[1]).toContain('Bring two.');
+    });
+
+    it('refuses a blocked maker a new name and new information, not the times; staff are never blocked', async () => {
+      const map = await approved();
+      web = map.web;
+      await map.made.storage.addBlock(SAFETY_SERVER, ALICE, MOD);
+      for (const [what, body] of [
+        ['name', { drawn: 'Book swap', name: 'Still mine' }],
+        ['info', { drawn: 'Bring a book.', info: 'Still mine.' }],
+      ] as const) {
+        const refused = await map.send(what, body);
+        expect(refused).toMatchObject({
+          status: 403,
+          json: { ok: false, text: MAP_BLOCKED_FROM_CHANGING },
+        });
+      }
+      const party = map.made.store.get(map.partyId);
+      expect(party?.type === 'meetup' ? party.timed.name : '').toBe('Book swap');
+      expect((await map.send('end', { drawn: null, time: 'none' })).status).toBe(200);
+      const owner = await map.web.posting(TEST_OWNER_ID, 'Owner');
+      const staff = await map.send('name', { drawn: 'Book swap', name: 'Staff swap' }, owner);
+      expect(staff.status).toBe(200);
+    });
   });
 
   it("counts each change in its command's own window, a start in that of /meet in a meetup", async () => {

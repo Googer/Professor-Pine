@@ -346,11 +346,17 @@ export function meetupSafetyCases(made: () => Promise<MeetupSafetyStore>): void 
       decidedByName: 'Mod',
       decidedAt: MOD.at,
     });
+    expect(await store.approvedRequestOf(SAFETY_SERVER, MAKER, PARTY)).toBeUndefined();
     expect(await store.settleApproval(requestId(1), { partyId: PARTY })).toBe(true);
     expect(await store.request(requestId(1))).toMatchObject({
       status: 'approved',
       partyId: PARTY,
     });
+    // Found by the meetup it made, in its server, of its maker (plan 8Z).
+    expect((await store.approvedRequestOf(SAFETY_SERVER, MAKER, PARTY))?.id).toBe(requestId(1));
+    expect(await store.approvedRequestOf(OTHER_SERVER, MAKER, PARTY)).toBeUndefined();
+    expect(await store.approvedRequestOf(SAFETY_SERVER, MODERATOR, PARTY)).toBeUndefined();
+    expect(await store.approvedRequestOf(SAFETY_SERVER, MAKER, 'another')).toBeUndefined();
     await store.addRequest(newRequest(2));
     await store.decideRequest(requestId(2), 'approved', 'approve-once', MOD);
     const refused = {

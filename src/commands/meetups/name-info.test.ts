@@ -36,7 +36,7 @@ function inputsOf(form: ReturnType<typeof infoForm>) {
 
 /** A meetup with its post, and beside it a raid that has one too. */
 async function setup() {
-  const made = await createdMeetup();
+  const made = await createdMeetup({ creatorId: ALICE });
   const raid = { ...testRaid(), forumChannelId: WEST_FORUM, forumPostId: RAID_POST };
   await made.store.add(raid);
   const { ctx } = createTestContext({
@@ -102,8 +102,6 @@ describe('/name', () => {
     ]);
     expect(made.post()).toMatchObject({ title: 'Meetup · Raid hour meet', renames: 1 });
     expect(header(made.post()?.message)[0]).toBe('### Meetup: Raid hour meet');
-    // Anybody in the post may: Alice is not signed up, and is not signed up by it.
-    expect(attendeeOf(made.current(), ALICE)).toBeUndefined();
   });
 
   it('answers privately, and says nothing for the name the meetup has', async () => {
@@ -208,10 +206,10 @@ describe('/info', () => {
     ]);
   });
 
-  it('opens the form with the text as it is, for the next member to correct', async () => {
+  it('opens the form with the text as it is, for the next staff member to correct', async () => {
     const made = await setup();
     await made.submit('Bring snacks.');
-    const used = await made.run('info', {}, { userId: BOB });
+    const used = await made.run('info', {}, { userId: BOB, roleNames: ['Moderator'] });
     expect(used.showModal).toHaveBeenCalledExactlyOnceWith(infoForm(made.current()));
     expect(inputsOf(infoForm(made.current()))[0]).toMatchObject({ value: 'Bring snacks.' });
   });
@@ -236,9 +234,9 @@ describe('/info', () => {
     expect(textOf(made.post()?.message)).not.toContain('Information');
   });
 
-  it('is for anybody in the post, and signs nobody up', async () => {
+  it('signs nobody up, staff or its maker', async () => {
     const made = await setup();
-    await made.submit('Bring snacks.', { userId: BOB });
+    await made.submit('Bring snacks.', { userId: BOB, roleNames: ['Moderator'] });
     expect(attendeeOf(made.current(), BOB)).toBeUndefined();
     await made.attendance.signUp(made.party.id, { id: ALICE }, PartyStatus.Coming);
     await made.submit('Bring more snacks.');

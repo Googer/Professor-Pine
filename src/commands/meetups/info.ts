@@ -11,14 +11,20 @@ import { channelContext } from '../../discord/channel-context.js';
 import type { ComponentHandler, SimpleCommand } from '../../discord/command.js';
 import { encodeCustomId } from '../../discord/custom-id.js';
 import { UserError } from '../../discord/errors.js';
-import { partyOf, requireGuild, requireMeetup } from '../../discord/guards.js';
+import { guildIdOf, isStaff, partyOf, requireGuild, requireMeetup } from '../../discord/guards.js';
 import { STALE_COMPONENT } from '../../discord/router.js';
-import { MAX_MEETUP_DESCRIPTION, type MeetupParty } from '../../domain/party/party.js';
+import { isMeetup, MAX_MEETUP_DESCRIPTION, type MeetupParty } from '../../domain/party/party.js';
 import { LIMITS, truncate } from '../../render/text.js';
 import type { Member } from '../../services/attendance-service.js';
 import { commandMeetup, partyOver } from '../parties/reply.js';
 import { timedAnswer, type TimedAnswer, type TimedChanging } from '../parties/timed.js';
 import { CHANGE_THROTTLE, changingMember } from '../raids/change.js';
+import {
+  BLOCKED_FROM_CHANGING,
+  meetupChangeRefusal,
+  NOT_YOUR_MEETUP,
+  requireMeetupChanger,
+} from './meetup-changes.js';
 
 /** The custom-id kind of the form `/info` opens. */
 export const INFO_KIND = 'info';
@@ -85,10 +91,10 @@ export function refusedWithText(refusal: string, text: string): string {
 
 /**
  * `/info` (spec 4.2): what the post of a meetup says about it, under "Meeting Information". It
- * opens a form with the text as it is; anybody in the post may change it, and the post says who
- * did.
- * Of two members who have the form open at once the later one wins, with the text they started
- * from: nothing tells them that it changed meanwhile.
+ * opens a form with the text as it is; its maker and staff may change it (`requireMeetupChanger`,
+ * asked again at the Submit; plan 8Z), and the post says who did.
+ * Of two who have the form open at once the later one wins, with the text they started from:
+ * nothing tells them that it changed meanwhile.
  */
 export const info: SimpleCommand = {
   data: new SlashCommandBuilder()
@@ -97,12 +103,13 @@ export const info: SimpleCommand = {
   help: {
     category: 'meetup',
     details:
-      'Use it in the post of the meetup. A form opens with the text as it is now: where to ' +
-      'meet, what to bring, how long it goes.\n\nWhat you send is shown in the post under ' +
-      '"Meeting Information"; sent back empty, it removes the text. The post says who changed it.',
+      'Use it in the post of the meetup; only its maker or a moderator can. A form opens with ' +
+      'the text as it is now: where to meet, what to bring, how long it goes.\n\nWhat you send ' +
+      'is shown in the post under "Meeting Information"; sent back empty, it removes the text. ' +
+      'The post says who changed it.',
     examples: ['/info'],
   },
-  guards: [requireMeetup],
+  guards: [requireMeetup, requireMeetupChanger],
   throttle: CHANGE_THROTTLE,
   async execute(interaction, ctx) {
     await interaction.showModal(infoForm(commandMeetup(interaction, ctx)));
@@ -162,26 +169,50 @@ async function submitted(
     if (!isThread && baseChannelId !== undefined) throw new UserError(STALE_COMPONENT);
     throw refuse(partyOver({ type: 'meetup' }));
   }
-  if (here.id !== partyId) throw new UserError(STALE_COMPONENT);
+  if (here.id !== partyId || !isMeetup(here)) throw new UserError(STALE_COMPONENT);
+  // Decided again: a form can be sent from anywhere, and a block may have come while it was open.
+  const serverId = guildIdOf(interaction);
+  const refusal = await meetupChangeRefusal(
+    ctx,
+    serverId,
+    here,
+    interaction.user.id,
+    isStaff(interaction, ctx),
+  );
+  if (refusal === 'not-yours') throw refuse(NOT_YOUR_MEETUP);
+  if (refusal === 'blocked') {
+    throw refuse(`${BLOCKED_FROM_CHANGING} To appeal, use \`/meetup\` and press "Appeal…".`);
+  }
   const meetup = { id: partyId, type: 'meetup' } as const;
-  const answer = await describeAs(ctx, meetup, changingMember(interaction), text);
+  const answer = await describeAs(ctx, serverId, meetup, changingMember(interaction), text);
   if (answer.kind !== 'ok') throw refuse(answer.text);
   await interaction.reply({ content: answer.text, flags: MessageFlags.Ephemeral });
 }
 
 /**
- * `/info` as the member: what the post of a meetup says about it (anybody in the post may; a
- * text of nothing but white space removes it), in its words. `drawn`: the information the change
- * was drawn from (the live map), refused when the meetup has other by now.
+ * `/info` as the member: what the post of a meetup says about it (a text of nothing but white
+ * space removes it), in its words; the caller has asked whether they may
+ * (`meetupChangeRefusal`). The moderators are told of an approved meetup's new information, in
+ * the background (`MeetupSafety.tellChange`). `drawn`: the information the change was drawn from
+ * (the live map), refused when the meetup has other by now.
  */
 export async function describeAs(
   ctx: TimedChanging,
+  serverId: string,
   party: Pick<MeetupParty, 'id' | 'type'>,
   member: Member,
   text: string,
   drawn?: string | null,
 ): Promise<TimedAnswer> {
   const outcome = await ctx.timedParties.setDescription(party.id, member, text, drawn);
+  if (outcome.kind === 'ok' && outcome.changed) {
+    ctx.meetupSafety.tellChange({
+      serverId,
+      party: outcome.party,
+      by: member,
+      change: { kind: 'info', info: outcome.party.meetup.description },
+    });
+  }
   return timedAnswer(ctx, party, outcome, (ok) =>
     !ok.changed
       ? 'Nothing changed: that is what the post says already.'

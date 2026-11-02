@@ -335,6 +335,15 @@ export interface MeetupSafetyStore {
   /** A member's pending requests in a server, oldest first. */
   pendingOf(serverId: string, makerId: string): Promise<MeetupRequestRecord[]>;
   /**
+   * The approved request that made this meetup of its maker (plan 8Z); undefined for a meetup
+   * that needed none, also one at a place an earlier Approve allowed.
+   */
+  approvedRequestOf(
+    serverId: string,
+    makerId: string,
+    partyId: string,
+  ): Promise<MeetupRequestRecord | undefined>;
+  /**
    * The pending requests whose time is up at `now`, oldest first. One of them that cannot be
    * read is marked failed instead (and logged, once).
    */

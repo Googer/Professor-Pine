@@ -617,6 +617,22 @@ export class MeetupSafetyRepository implements MeetupSafetyStore {
     return this.readRequests(rows);
   }
 
+  async approvedRequestOf(
+    serverId: string,
+    makerId: string,
+    partyId: string,
+  ): Promise<MeetupRequestRecord | undefined> {
+    const row = await this.db
+      .selectFrom('MeetupRequest')
+      .selectAll()
+      .where('serverId', '=', serverId)
+      .where('makerId', '=', makerId)
+      .where('status', '=', 'approved')
+      .where('partyId', '=', partyId)
+      .executeTakeFirst();
+    return row && this.readRequest(row);
+  }
+
   async duePending(now: number): Promise<MeetupRequestRecord[]> {
     const rows = await this.db
       .selectFrom('MeetupRequest')
