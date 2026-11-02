@@ -63,7 +63,7 @@ export function apiError(
 export class FakeDiscordApi {
   readonly requests: ApiRequest[] = [];
   readonly guilds = new Map<string, FakeApiGuild>();
-  application = { id: FAKE_APP_ID, name: 'Professor Pine', flags: 0 };
+  application = { id: FAKE_APP_ID, name: 'Professor Pine', flags: 0, bot_public: false };
   bot = { id: FAKE_BOT_ID, username: 'Professor Pine' };
   /** The names of the application's emoji. */
   emoji: string[] = [];

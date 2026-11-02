@@ -24,7 +24,8 @@ In the [Discord Developer Portal](https://discord.com/developers/applications):
 1. **New Application**, and give it a name (members see it as the bot's name).
 2. **General Information**: note the **Application ID**.
 3. **Bot**: reset and copy the **token** (it is shown once; it is the bot's password, keep it secret). Leave all three **Privileged Gateway Intents** off: Pine needs none of them. (One optional setting, reading every screenshot posted in a region channel, would need Message Content; see the [README](../../README.md), "Privileged intents". Applications whose servers reach 10,000 users must be reviewed by Discord to keep them, which is why Pine does without.)
-4. Invite the bot to your server with the scopes **`bot`** and **`applications.commands`** and these permissions for its role (the portal's OAuth2 URL generator, or its Installation page, builds the link):
+4. **Keep the bot private.** On **Installation**, set **Install Link** to **None** and save; then on **Bot**, turn **Public Bot** off (Discord refuses it while the application has an install link). You can still add the bot to your server yourself; nobody else can add it to one of theirs. That matters: the staff of any server the bot is in can change what all its servers share, such as the raid boss list, and gyms and stops.
+5. Invite the bot to your server with the scopes **`bot`** and **`applications.commands`** and these permissions for its role (the portal's **OAuth2** page has the URL generator that builds the link). Open the link as the application's owner, with **Manage Server** on your server. If somebody else administers that server, turn **Public Bot** on just long enough for them to open the link, then off again; `./pine cutover-check` warns while it is on.
    - View Channels, Send Messages, Send Messages in Threads, Embed Links, Attach Files, Read Message History
    - Manage Channels (the forums, and the channels `/region import` creates)
    - Manage Roles (self-assigned roles, and who may see a forum)
@@ -86,6 +87,8 @@ Fill in:
   ```bash
   echo pine > /srv/pine-backups/.pine-backups
   ```
+
+  A backup can be read by its owner alone: on Linux, also set `BACKUP_UID` and `BACKUP_GID` in `.env` to your own ids (`id -u` and `id -g`), or the files are root's and `./pine restore` needs `sudo`.
 
   On Windows, in Git Bash:
 

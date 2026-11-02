@@ -53,6 +53,8 @@ Pine does not open ports or talk to your router. Pick one:
 
 Whichever you pick, check once that it sends the visitor's address. Pine logs no addresses, so ask for `<publicUrl>/auth/login` 21 times within a minute from one place, then once from another network (a phone without Wi-Fi). If the second is refused too ("Too many requests"), the tunnel sends no `X-Forwarded-For` and every visitor shares one limit.
 
+With Cloudflare, also set these for the domain (the dashboard's home, then the domain, then SSL/TLS → Edge Certificates; they are not the tunnel's settings): **Always Use HTTPS** on, **HTTP Strict Transport Security (HSTS)** on with a Max Age of a month to begin with and its subdomains and preload left off, and **Minimum TLS Version** 1.2. Pine sends no HSTS itself. You need no certificate of your own: Cloudflare gets and renews one for the domain and its subdomains, one level down (`map.example.org`, not `a.map.example.org`).
+
 With Cloudflare, the browser's console may show that a script from `static.cloudflareinsights.com` (`beacon.min.js`) violates the Content Security Policy. That is Cloudflare Web Analytics, whose automatic setup is on for the domain and adds its script to every page. Pine's Content Security Policy blocks it on purpose, and nothing on the page breaks. To stop it, open Web analytics in the Cloudflare dashboard's account home (under Analytics & Logs, or Observability → Analytics), choose Manage site for the domain and set Automatic setup to Disable. The change can take a few minutes to reach every server.
 
 ## 4. Map tiles

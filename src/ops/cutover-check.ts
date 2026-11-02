@@ -58,6 +58,7 @@ export interface CheckLine {
     | 'database'
     | 'web'
     | 'application'
+    | 'public-bot'
     | 'intents'
     | 'emoji'
     | 'commands'
@@ -851,7 +852,7 @@ async function discordLines(
   selfRoles: readonly CutoverSelfRole[],
 ): Promise<CheckLine[]> {
   const { discord, appId, settings } = options;
-  let application: { id: string; name: string; flags?: number };
+  let application: { id: string; name: string; flags?: number; bot_public?: boolean };
   try {
     application = (await discord.get(Routes.currentApplication())) as typeof application;
   } catch (err) {
@@ -877,6 +878,16 @@ async function discordLines(
       what: 'application',
       status: 'pass',
       text: `application: ${application.name}, the application of DISCORD_TOKEN`,
+    });
+  }
+  if (application.bot_public === true) {
+    lines.push({
+      what: 'public-bot',
+      status: 'warn',
+      text:
+        'public bot: anybody can add this bot to a server of theirs, and the staff of any server ' +
+        'it is in can change what all its servers share. Turn it off in the Developer Portal: ' +
+        'Installation, Install Link None; then Bot, Public Bot.',
     });
   }
   lines.push(intentsLine(application.flags ?? 0, settings));

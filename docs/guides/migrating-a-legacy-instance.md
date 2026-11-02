@@ -82,6 +82,8 @@ You need:
 
 The new Pine uses the **same Discord application and token** as the legacy bot. Nobody re-invites anything.
 
+**Keep the bot private.** Check that **Public Bot** is off: on the application's **Installation** page set **Install Link** to **None** and save, then turn **Public Bot** off on its **Bot** page (Discord refuses it while there is an install link). The servers the bot is in keep it. While it is on, anybody can add the bot to a server of theirs, and the staff of any server it is in can change what all its servers share, such as the raid boss list, and gyms and stops. `./pine cutover-check` warns while it is on.
+
 The move has been tried with dumps from MySQL 8.0. A dump from an older MySQL (5.7) or from MariaDB has not been tried: if that is what you run, do the dry run (step 4.2) first.
 
 ## 4. The move, step by step
@@ -154,6 +156,8 @@ Put the lines of `env-from-legacy.txt` into `.env` in place of the ones there, t
   echo pine > /srv/pine-backups/.pine-backups
   ```
 
+  A backup can be read by its owner alone: on Linux, also set `BACKUP_UID` and `BACKUP_GID` in `.env` to your own ids (`id -u` and `id -g`), or the files are root's and `./pine restore` needs `sudo`.
+
   On Windows, in Git Bash:
 
   ```bash
@@ -220,6 +224,7 @@ It reads the database and, with the bot's token, Discord's API (reading only; it
 
 - **database**: what the migrator does with your database. A `FAIL` quotes why it would refuse it.
 - **application**: `DISCORD_APP_ID` must be the token's application. A `FAIL` names the right one.
+- **public bot**: a warning while **Public Bot** is on (section 3).
 - **intents**: the settings ask for none, so this passes.
 - **emoji**: warns until you upload the game's icons as the application's emoji (below).
 - **servers**, **server …** and the region lines: whether the bot is in the database's server, and the permissions its role lacks in the server, in each region's channel and in the category where its forum will be. A missing required one is a `FAIL` that says what it is for; give the bot's role that permission in Server Settings → Roles (or fix the category's overwrites), and run the check again. In a region's forum the line names the permissions as the forum's settings do: Manage Posts (Manage Threads), without which the bot makes no post with its tags there, Create Posts (Send Messages), Send Messages in Posts. Pin Messages is no longer asked for: "Today’s Stops" is posted in the region's board, the post "Today and coming up" of its forum, where writing takes Send Messages in Posts and pinning Manage Posts (Manage Threads). Manage Messages missing in a forum is a `WARN`: the board works, but what members write there stays instead of being deleted.

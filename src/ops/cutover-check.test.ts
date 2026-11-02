@@ -213,6 +213,12 @@ describe('cutoverCheck', () => {
       expect(line(await check(), 'application')).toMatchObject({ status: 'fail' });
     });
 
+    it('warns while anybody can add the bot to a server', async () => {
+      expect((await check()).some((one) => one.what === 'public-bot')).toBe(false);
+      api.application.bot_public = true;
+      expect(line(await check(), 'public-bot')).toMatchObject({ status: 'warn' });
+    });
+
     it('fails once when Discord cannot be read, and still checks the database', async () => {
       api.failWith = new Error('401: Unauthorized');
       const lines = await check();

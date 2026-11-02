@@ -222,7 +222,7 @@ The backups in `~/pine-backups` live on the Mac's own disk, which is soldered in
 
 ## 9. The tunnel (the web pages)
 
-Only if the instance serves its web pages ([docs/web-setup.md](../web-setup.md)). In the Cloudflare dashboard, Zero Trust → Networks → Tunnels: create a tunnel (say `pine-prod`), and add a public hostname on your domain pointing to the service `http://pine:8080`. Copy its token into `.env` as `CLOUDFLARE_TUNNEL_TOKEN`, with `COMPOSE_PROFILES=tunnel`. It starts with the bot (`./pine up`), so it is tried when the bot logs in. Nothing on the Mac is opened to the internet.
+Only if the instance serves its web pages ([docs/web-setup.md](../web-setup.md)). In the Cloudflare dashboard, Zero Trust → Networks → Tunnels: create a tunnel (say `pine-prod`), and add a public hostname on your domain pointing to the service `http://pine:8080`. Copy its token into `.env` as `CLOUDFLARE_TUNNEL_TOKEN`, with `COMPOSE_PROFILES=tunnel`. It starts with the bot (`./pine up`), so it is tried when the bot logs in. Nothing on the Mac is opened to the internet. Also set the domain's HTTPS settings ([web setup](../web-setup.md), section 3).
 
 ## 10. Living with it
 
