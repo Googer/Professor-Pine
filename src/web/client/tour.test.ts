@@ -109,7 +109,7 @@ describe('the steps', () => {
       for (const step of tourSteps(facts)) {
         for (const words of [step.words ?? [], ...step.targets.map((one) => one.words)]) {
           // Reading the map says the most: it is the one thing the page cannot show by itself.
-          expect(words.join(' ').length).toBeLessThanOrEqual(step.id === 'read' ? 300 : 240);
+          expect(words.join(' ').length).toBeLessThanOrEqual(step.id === 'read' ? 320 : 240);
         }
       }
     }

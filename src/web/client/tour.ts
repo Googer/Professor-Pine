@@ -7,6 +7,7 @@ import type { ViewStorage } from './view.js';
  * and the card go. A step says what it points at per width: the first target with something
  * showing is the one used, so that one list serves the desktop and the phone. The words explain
  * this page, not the game (Matt, 2026-11-02): only a raid train and what meetups are for are said.
+ * They read as the Discord tutorial does (`src/render/tutorial.ts`), its voice and its emoji.
  * `tour-ui.ts` is the page's side.
  */
 
@@ -84,15 +85,18 @@ const LAYERS_PHONE = ['.layers-button'];
 function layersStep(audience: TourAudience): TourStep {
   const row =
     audience === 'member'
-      ? ['Press a layer to turn it on or off. Try it.', 'More has gyms, PokéStops and others.']
-      : ['Open More and turn on Gyms. Try it.'];
+      ? [
+          '🗺️ Simply press a layer to turn it on or off. Try it!',
+          'More has gyms, PokéStops and others.',
+        ]
+      : ['🗺️ Simply open More and turn on Gyms. Try it!'];
   const phone =
     audience === 'member'
-      ? ['Press Layers to turn things on or off. Try it.']
-      : ['Press Layers and turn on Gyms. Try it.'];
+      ? ['🗺️ Simply press Layers to turn things on or off. Try it!']
+      : ['🗺️ Simply press Layers and turn on Gyms. Try it!'];
   return {
     id: 'layers',
-    heading: 'Choose what shows',
+    heading: 'Choosing What Shows',
     targets: [
       { selectors: LAYERS_WHILE_MORE_OPEN, words: row },
       { selectors: LAYERS_PHONE, words: phone },
@@ -108,10 +112,10 @@ function findStep(finds: boolean): TourStep {
   const by = finds ? 'a name' : "a gym's name";
   return {
     id: 'find',
-    heading: 'Find something',
+    heading: 'Finding Something',
     targets: [
-      { selectors: ['#search-button'], words: [`Press Find, then type ${by} to find ${what}.`] },
-      { selectors: ['#filter'], words: [`Type ${by} to find ${what}.`] },
+      { selectors: ['#search-button'], words: [`🔍 Press Find, then type ${by} to find ${what}!`] },
+      { selectors: ['#filter'], words: [`🔍 Type ${by} to find ${what}!`] },
     ],
     required: true,
   };
@@ -119,25 +123,32 @@ function findStep(finds: boolean): TourStep {
 
 const AGAIN_STEP: TourStep = {
   id: 'again',
-  heading: 'See this again',
-  targets: [{ selectors: ['#account .account-menu'], words: ['Map tour is in this menu.'] }],
+  heading: 'Seeing This Again',
+  targets: [
+    {
+      selectors: ['#account .account-menu'],
+      words: ['👋 Map tour is in this menu whenever you want it!'],
+    },
+  ],
   required: true,
 };
 
 function memberSteps(facts: TourFacts): TourStep[] {
-  const browse = ['Everything your layers show, across the server.', 'Press a line to go to it.'];
+  const browse = ['📋 Everything your layers show, across the server. Press a line to go to it!'];
   return [
     {
       id: 'welcome',
-      heading: 'Welcome to the map',
+      heading: 'Welcome to the Map!',
       targets: [],
-      words: ['See what is going on, join in and report. A quick look around.'],
+      words: [
+        'Professor Pine is our friendly neighborhood raid bot, and this is the map! Here is a quick look around.',
+      ],
       required: false,
     },
     layersStep('member'),
     {
       id: 'read',
-      heading: 'Read the map',
+      heading: 'Reading the Map',
       targets: [{ selectors: ['#map .raid-marker'], words: READ_WORDS }],
       words: READ_WORDS,
       required: false,
@@ -145,9 +156,9 @@ function memberSteps(facts: TourFacts): TourStep[] {
     },
     {
       id: 'browse',
-      heading: 'Browse what is on',
+      heading: 'Browsing What Is On',
       targets: [
-        { selectors: ['#list-button'], words: ['Press List.', ...browse] },
+        { selectors: ['#list-button'], words: ['📋 Simply press List.', ...browse] },
         { selectors: ['#parties'], words: browse },
       ],
       required: true,
@@ -155,7 +166,7 @@ function memberSteps(facts: TourFacts): TourStep[] {
     findStep(facts.finds),
     {
       id: 'report',
-      heading: 'Report something',
+      heading: 'Reporting Something',
       targets: [
         { selectors: ['.report-control .report'], words: REPORT_WORDS },
         { selectors: ['#report-button'], words: REPORT_WORDS },
@@ -168,44 +179,46 @@ function memberSteps(facts: TourFacts): TourStep[] {
 
 /** Under the sample of a marker: how to read what is drawn, and the two things to say. */
 const READ_WORDS = [
-  'A circle shows the boss or egg, the time and how many are going. Its ring shows the tier. Zoom in for all of it.',
-  'Press anything to open it and join.',
-  'A line between gyms is a raid train: a group raiding gym after gym.',
-  'A ring with no line is a meetup: trades, lure parties, playing as a group.',
+  '🥚 A circle shows the boss or egg, the time and how many are going. Its ring shows the tier. Zoom in to see it all!',
+  '👆 Press anything to open it and join.',
+  '🚂 A line between gyms is a raid train: a group raiding gym after gym.',
+  '🤝 A ring with no line is a meetup: trades, lure parties, playing as a group.',
 ];
 
 const REPORT_WORDS = [
-  'Press Report, pick what, pick where on the map, then fill in the form. It posts on Discord.',
+  '📣 Press Report, pick what you saw, pick where on the map, then fill in the form. Professor Pine posts it on Discord for you!',
 ];
 
 function visitorSteps(facts: TourFacts): TourStep[] {
   const login: Record<TourFacts['more'], TourTarget> = {
     discord: {
       selectors: ['#account a.login'],
-      words: ['Log in to see raids, trains and meetups, and to report.'],
+      words: ['🔑 Log in to see raids, trains and meetups, and to report them!'],
     },
     links: {
       selectors: ['#account .line'],
-      words: ['Log in this way to see raids, trains and meetups, and to report.'],
+      words: ['🔑 Log in this way to see raids, trains and meetups, and to report them!'],
     },
     lacking: {
       selectors: ['#account .line'],
-      words: ['This says what you need to see raids, trains and meetups, and to report.'],
+      words: ['🔑 This says what you need to see raids, trains and meetups, and to report them!'],
     },
   };
   return [
     {
       id: 'welcome',
-      heading: 'Welcome to the map',
+      heading: 'Welcome to the Map!',
       targets: [],
-      words: ["This server's gyms and regions. A quick look around."],
+      words: [
+        "Professor Pine is our friendly neighborhood raid bot, and these are this server's gyms and regions! Here is a quick look around.",
+      ],
       required: false,
     },
     layersStep('visitor'),
     findStep(false),
     {
       id: 'more',
-      heading: facts.more === 'lacking' ? 'See more' : 'Log in',
+      heading: facts.more === 'lacking' ? 'Seeing More' : 'Logging In',
       targets: [login[facts.more]],
       required: true,
     },
@@ -222,24 +235,24 @@ export function tourSteps(facts: TourFacts): readonly TourStep[] {
 export const EDITOR_TOUR_STEPS: readonly TourStep[] = [
   {
     id: 'draw',
-    heading: 'Draw and reshape',
+    heading: 'Drawing and Reshaping',
     targets: [
       {
         selectors: ['#editor-map .leaflet-pm-toolbar'],
-        words: ['Draw a new region, reshape an outline, or move one.'],
+        words: ['✏️ Draw a new region, reshape an outline, or move one.'],
       },
     ],
     required: true,
   },
   {
     id: 'panel',
-    heading: 'Regions and problems',
+    heading: 'Regions and Problems',
     targets: [
       {
         selectors: ['#editor-panel'],
         words: [
-          'Pick a region here to split or remove it.',
-          'Overlaps and gaps are listed here, with Fix.',
+          '📍 Pick a region here to split or remove it.',
+          '🩹 Overlaps and gaps are listed here too, with Fix!',
         ],
       },
     ],
@@ -247,12 +260,12 @@ export const EDITOR_TOUR_STEPS: readonly TourStep[] = [
   },
   {
     id: 'save',
-    heading: 'Save when ready',
+    heading: 'Saving Your Work',
     targets: [
       {
         selectors: ['#editor-tools'],
         words: [
-          'Nothing goes live until Save…, which checks it first.',
+          '💾 Nothing goes live until Save…, which checks it first!',
           'Unsaved changes stay in this browser. Undo, Redo and KML files are here too.',
         ],
       },
@@ -261,11 +274,11 @@ export const EDITOR_TOUR_STEPS: readonly TourStep[] = [
   },
   {
     id: 'back',
-    heading: 'Back to the map',
+    heading: 'Back to the Map',
     targets: [
       {
         selectors: ['#editor-back'],
-        words: ['Leave the editor here. Editor tour is in your menu.'],
+        words: ['👋 Leave the editor here. Editor tour is in your menu whenever you want it!'],
       },
     ],
     required: true,

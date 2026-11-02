@@ -3205,6 +3205,7 @@ path.highlighted {
 .tour-card h2 {
   margin: 0 0 6px;
   font-size: 16px;
+  text-decoration: underline;
 }
 
 .tour-body {
