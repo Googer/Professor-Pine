@@ -4,14 +4,7 @@ var/
 /pine-settings.json
 node_modules/
 package-lock.json
-/index.js
-/app/
-/commands/
-/types/
-/lang-data/
 /data/
-/assets/
-/images/
 src/db/types.ts
 src/db/baseline/legacy-schema.ts
 test/fixtures/

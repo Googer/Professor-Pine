@@ -1,6 +1,6 @@
 /**
  * Extra names people search Pokémon by, keyed by catalogue key. Copied once from the legacy
- * data/pokemon.json (scripts/game-data/make-nicknames.ts); maintained here by hand since.
+ * data/pokemon.json; maintained here by hand since.
  * Nicknames added by moderators live in the Pokemon table (PokemonRepository).
  */
 export const CURATED_NICKNAMES: Readonly<Record<string, readonly string[]>> = {

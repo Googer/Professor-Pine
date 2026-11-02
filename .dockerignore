@@ -1,5 +1,5 @@
 # Only what the image is built from goes to Docker: everything else (`.env`, `var/`, `.git`,
-# `node_modules`, `dist/`, the docs, the legacy bot, the tests, `wayspot-tool/`) stays out.
+# `node_modules`, `dist/`, the docs, the tests, `wayspot-tool/`) stays out.
 *
 !package.json
 !package-lock.json

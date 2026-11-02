@@ -28,7 +28,7 @@ branch and is no longer maintained; the rewrite's design is
 - To develop, or to run without Docker:
   - Node 26
   - MySQL 8 with either the existing Professor Pine database (the legacy bot must have applied all its migrations) or an empty schema for a new install
-  - Docker, for the database tests and for `db:codegen` / `db:legacy-fixture`
+  - Docker, for the database tests and for `db:codegen`
 
 ## Run with Docker
 
@@ -86,4 +86,3 @@ disabled and logs which toggle to enable.
 | `npm test`                  | all tests, including database tests (needs Docker)     |
 | `npm run migrate`           | apply database migrations                              |
 | `npm run db:codegen`        | regenerate `src/db/types.ts` after adding a migration  |
-| `npm run db:legacy-fixture` | rebuild the legacy schema test fixture (rarely needed) |

@@ -1,7 +1,9 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { FIXED_MIGRATION_TIME } from '../../scripts/legacy-schema/normalise.js';
 import { LEGACY_SCHEMA_FIXTURE } from '../support/mysql.js';
+
+/** Every knex_migrations row of the fixture has this time. */
+const FIXED_MIGRATION_TIME = '2022-10-14 00:00:00';
 
 describe('legacy schema fixture', () => {
   const fixture = readFileSync(LEGACY_SCHEMA_FIXTURE, 'utf8');

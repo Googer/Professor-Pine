@@ -71,12 +71,6 @@ export default defineConfig([
     '.claude/worktrees/',
     // the private Wayspot export tool's built file, which the owner's instance serves (git-ignored)
     'wayspot-tool/',
-    // legacy JavaScript, kept as reference until the cutover phase
-    'index.js',
-    'app/',
-    'commands/',
-    'types/',
-    'lang-data/',
     'src/db/types.ts',
     'src/db/baseline/legacy-schema.ts',
     // the data of the Gantt chart page: JSON in a script file, written by scripts/gantt/update.ts

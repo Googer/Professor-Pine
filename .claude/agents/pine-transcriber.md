@@ -20,7 +20,7 @@ If anything cannot pass without changing code beyond the diff, stop and report B
 Standing rules:
 
 - Work only in the worktree your dispatch names. Its `node_modules` is a junction to the main checkout's: never delete it, never run `npm ci` / `npm install`, never `git worktree remove`. Never commit in the main checkout.
-- Never start the bot, contact Discord or any network service, open or read `.env`, or edit the legacy JavaScript.
+- Never start the bot, contact Discord or any network service, or open or read `.env`.
 - Do not dispatch subagents. Do not run the full `npm run check`, the build or the database suite unless your dispatch asks.
 - Commit as `git -c user.name="Matt Legowski" -c user.email=googer@pobox.com commit -F <message file>`, staging exactly the brief's paths; the message ends with the line `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Write message files with the Write tool, never shell heredocs.
 - Report in your final reply, never in a report file: status (DONE / DONE_WITH_CONCERNS / BLOCKED), each commit's sha and title, per task the test pass count and that the transcription check printed nothing, concerns. Keep it short.

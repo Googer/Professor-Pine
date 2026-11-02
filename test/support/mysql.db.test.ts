@@ -1,4 +1,3 @@
-import { readdirSync } from 'node:fs';
 import mysql from 'mysql2/promise';
 import { afterAll, beforeAll, describe, expect, inject, it } from 'vitest';
 import { LEGACY_SCHEMA_STATEMENTS } from '../../src/db/baseline/legacy-schema.js';
@@ -89,14 +88,13 @@ describe('legacy schema fixture', () => {
   });
 
   it('records one knex_migrations row per legacy migration file', async () => {
-    const files = readdirSync('app/db')
-      .filter((f) => f.endsWith('.js'))
-      .sort();
     const rows = await database.query<{ name: string }>(
       'select name from knex_migrations order by name',
     );
-    expect(rows.map((r) => r.name)).toEqual(files);
-    expect(files).toContain('20221014-pokemon-elite.js');
+    // The 27 files of app/db on the branch `legacy`, which no longer change.
+    expect(rows).toHaveLength(27);
+    expect(rows[0]?.name).toBe('20171229-master.js');
+    expect(rows.at(-1)?.name).toBe('20221014-pokemon-elite.js');
   });
 
   it('generates one new-install statement per legacy table', () => {

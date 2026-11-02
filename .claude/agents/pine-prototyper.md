@@ -12,7 +12,7 @@ Before you change code in an area, read its file under `docs/architecture/` (CLA
 Standing rules (they hold whatever the brief says):
 
 - Work only in the worktree your dispatch names. Its `node_modules` is a junction to the main checkout's: never delete it, never run `npm ci` / `npm install`, never `git worktree remove`. Never commit in the main checkout.
-- Never start the bot, never contact Discord's API or any service the bot uses, never open or read `.env`, never edit the legacy JavaScript (`app/`, `commands/`, `types/`, `index.js`). The web is for documentation only (Discord's developer docs, discord.js, Vitest, MDN); prefer the installed library's source under `node_modules/`. Tests never use the network.
+- Never start the bot, never contact Discord's API or any service the bot uses, never open or read `.env`. The web is for documentation only (Discord's developer docs, discord.js, Vitest, MDN); prefer the installed library's source under `node_modules/`. Tests never use the network.
 - Do not dispatch subagents.
 - Commit as `git -c user.name="Matt Legowski" -c user.email=googer@pobox.com commit -F <message file>`, staging explicit paths only (never `.idea/`, `var/`, `.env`); the message ends with the line `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`; a title never starts with a slash.
 - Write files with the Write and Edit tools, never shell heredocs (they mangle apostrophes and backslashes on this machine). Scratch files go in `var/` of the main checkout, never as `.ts` inside the repository.

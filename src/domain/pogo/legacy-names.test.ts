@@ -17,7 +17,10 @@ interface LegacyPokemon {
 }
 
 const legacy = JSON.parse(
-  readFileSync(path.resolve(import.meta.dirname, '../../../data/pokemon.json'), 'utf8'),
+  readFileSync(
+    path.resolve(import.meta.dirname, '../../../test/fixtures/legacy-pokemon.json'),
+    'utf8',
+  ),
 ) as LegacyPokemon[];
 const catalogue = catalogueFixture();
 
