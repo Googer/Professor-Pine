@@ -2934,3 +2934,10 @@ Matt: gyms, PokéStops and Power Spots should open alike, without a region line.
 
 - **Claude's calls, for Matt to object to:** a gym's nickname stays under its name, and its notice and description now come after Directions. A stop's buttons stand one under another, so they no longer depend on the width of its name. A stop's or spot's address is what Wayfarer gave, so some have none and show no line.
 - **To see live:** the three popups, and the stop's three buttons, with a short and a long name.
+
+## From the small security fixes (2026-11-01)
+
+- **The overrides** of `glob` and `minimatch` in `package.json` (advisories of 2026-10-30) go once `@fastify/static`, eslint, typescript-eslint and testcontainers' `archiver` ask for fixed versions themselves.
+- **To see at the next `./pine update`:** the bot, the watchdog and the tunnel under their new limits. Their libraries, the socket and the binary were tried in one-off containers on the Air, not as a running stack. A screenshot report shows that the reader still works.
+- **Backups already made** keep mode 644 until they are pruned: `chmod 600` them by hand, or let them age out.
+- **Public Bot** is off on both applications (Matt, 2026-11-01); `cutover-check` warns if it comes back on.
