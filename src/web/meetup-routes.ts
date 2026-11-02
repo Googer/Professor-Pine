@@ -2,7 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppContext } from '../app-context.js';
 import { describeAs } from '../commands/meetups/info.js';
-import { BLOCKED_FROM_CHANGING } from '../commands/meetups/meetup-changes.js';
+import { BLOCKED_FROM_CHANGING, meetupChangeRefusal } from '../commands/meetups/meetup-changes.js';
 import {
   ASK_ON_DISCORD,
   makeMeetupAs,
@@ -475,7 +475,8 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
   // `/meet`'s, `START_THROTTLE`); then its code path as the member, with the value drawn.
   /**
    * What every change of a meetup asks after its body: who changes it, the meetup, its forum, and
-   * whether the member may change it here.
+   * for its times (`mayEdit`) whether the member may change it here; the text's caller asks
+   * `meetupChangeRefusal`, the rule of `/name` and `/info`.
    */
   const meetupWrite = async (
     request: FastifyRequest,
@@ -483,6 +484,7 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
     guild: string,
     partyId: string,
     userId: string,
+    mayEdit = true,
   ) => {
     const doing = 'changed a meetup';
     const acting = await actingOnTheMap(deps, request, reply, guild, userId, doing);
@@ -499,7 +501,7 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
     }
     const { member, standing } = acting;
     const meetupNow = () => viewOf(guild, row, party, userId, standing);
-    if (!mayEditMeetup(party, userId, isMapStaff(standing, userId, parties.ownerId))) {
+    if (mayEdit && !mayEditMeetup(party, userId, isMapStaff(standing, userId, parties.ownerId))) {
       return { sent: refuse(reply, 403, NOT_YOURS, meetupNow()) };
     }
     return { row, party, member, standing, meetupNow };
@@ -520,19 +522,18 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
       const input = changeInput(change, request.body ?? {});
       if (!input) return sendFailure(request, reply, 400);
       const { userId } = session;
-      const writing = await meetupWrite(request, reply, guild, partyId, userId);
+      const isText = input.change === 'name' || input.change === 'info';
+      const writing = await meetupWrite(request, reply, guild, partyId, userId, !isText);
       if ('sent' in writing) return writing.sent;
       const { row, party, member, standing, meetupNow } = writing;
-      // As `/name` and `/info`: a maker blocked from meetups changes no text (start and end stay).
-      if (
-        (input.change === 'name' || input.change === 'info') &&
-        (await ctx.meetupSafety.blocked(
-          guild,
-          userId,
-          isMapStaff(standing, userId, parties.ownerId),
-        ))
-      ) {
-        return refuse(reply, 403, MAP_BLOCKED_FROM_CHANGING, meetupNow());
+      // The text by the one rule of `/name` and `/info`: start and end stay `mayEditMeetup`'s.
+      if (isText) {
+        const staff = isMapStaff(standing, userId, parties.ownerId);
+        const refusal = await meetupChangeRefusal(ctx, guild, party, userId, staff);
+        if (refusal !== undefined) {
+          const text = refusal === 'blocked' ? MAP_BLOCKED_FROM_CHANGING : NOT_YOURS;
+          return refuse(reply, 403, text, meetupNow());
+        }
       }
       // Checked here, uncounted, and again inside the store, for a change on its way meanwhile.
       if (asDrawn(drawnOf(party, input.change), input.drawn) !== undefined) {
