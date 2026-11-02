@@ -73,7 +73,7 @@ describe('RaidEventService', () => {
     ]);
     expect(fetch).toHaveBeenCalledWith(
       URL,
-      expect.objectContaining({ headers: { Accept: 'application/json' }, redirect: 'error' }),
+      expect.objectContaining({ headers: { Accept: 'application/json' }, redirect: 'manual' }),
     );
     expect(entries.find((entry) => entry.msg === 'raid events read')).toMatchObject({
       events: 5,

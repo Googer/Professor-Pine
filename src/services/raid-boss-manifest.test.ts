@@ -186,6 +186,27 @@ describe('RaidBossService with Leek Duck’s raid manifest', () => {
       ]);
     });
 
+    it('reads a page where Leek Duck’s site moved it', async () => {
+      const slug = 'palkia-mega-charizard-x-mega-charizard-y';
+      route(`${PAGES}${slug}.html`, reply(308, '', { location: `${PAGES}${slug}` }));
+      route(`${PAGES}${slug}`, reply(200, readRotationFixture(slug)));
+      const { raidBosses, entries } = service();
+      await raidBosses.load();
+      await raidBosses.sync();
+      expect(sourceLines(entries)).toMatchObject([{ msg: FROM_MANIFEST }]);
+      expect(requests.map((r) => r.url)).not.toContain(FEED);
+    });
+
+    it('goes nowhere a page leads off Leek Duck’s site', async () => {
+      const slug = 'palkia-mega-charizard-x-mega-charizard-y';
+      route(`${PAGES}${slug}.html`, reply(302, '', { location: 'http://mysql:3306/' }));
+      const { raidBosses } = service();
+      await raidBosses.load();
+      await raidBosses.sync();
+      expect(requests.map((r) => r.url)).toContain(`${PAGES}${slug}.html`);
+      expect(requests.map((r) => r.url)).not.toContain('http://mysql:3306/');
+    });
+
     it('has no shadow bosses when no shadow rotation is in force', async () => {
       route(
         MANIFEST,

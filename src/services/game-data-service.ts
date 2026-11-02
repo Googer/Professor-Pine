@@ -13,6 +13,7 @@ import type { Logger } from '../log.js';
 import type { CatchUpOutcome } from './catch-up.js';
 import { failureReason } from './failure-reason.js';
 import { readLimitedText, type LimitedResponse } from './limited-json.js';
+import { fetchOnItsHost } from './same-host-fetch.js';
 
 /** A download that got no answer: the request or its body failed, or ran out of time. */
 class DownloadFailure extends Error {}
@@ -44,10 +45,10 @@ interface CacheFile {
   icons?: string[];
 }
 
-/** The part of `fetch` this service needs: an address that leads elsewhere is not followed. */
+/** The part of `fetch` this service needs: `fetchOnItsHost` decides where a redirect goes. */
 export type FetchText = (
   url: string,
-  init: { signal: AbortSignal; redirect: 'error' },
+  init: { signal: AbortSignal; redirect: 'manual' },
 ) => Promise<LimitedResponse & { ok: boolean }>;
 
 export interface GameDataOptions {
@@ -490,7 +491,7 @@ export class GameDataService implements GameDataProvider {
     const signal = AbortSignal.timeout(this.timeoutMs);
     let response: Awaited<ReturnType<FetchText>>;
     try {
-      response = await this.options.fetch(url, { signal, redirect: 'error' });
+      response = await fetchOnItsHost(this.options.fetch, url, { signal, redirect: 'manual' });
     } catch (err) {
       throw this.downloadFailure(url, err, signal);
     }

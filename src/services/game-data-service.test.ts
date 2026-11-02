@@ -442,7 +442,7 @@ describe('GameDataService', () => {
     );
   });
 
-  it('follows no address that leads elsewhere', async () => {
+  it('leaves where a redirect goes to fetchOnItsHost', async () => {
     const answered = respond;
     const redirects: unknown[] = [];
     respond = (url, init) => {
@@ -450,7 +450,7 @@ describe('GameDataService', () => {
       return answered(url, init);
     };
     await service().gameData.load();
-    expect(redirects).toEqual(['error', 'error']);
+    expect(redirects).toEqual(['manual', 'manual']);
   });
 
   it('gives up a download longer than any it should be', async () => {

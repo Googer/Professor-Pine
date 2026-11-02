@@ -17,6 +17,7 @@ import type { CatchUpOutcome } from './catch-up.js';
 import { failureReason } from './failure-reason.js';
 import type { GameDataProvider } from './game-data-service.js';
 import { readLimitedText, type LimitedResponse } from './limited-json.js';
+import { fetchOnItsHost } from './same-host-fetch.js';
 
 /** The longest delay `setTimeout` accepts; anything longer fires immediately. */
 const MAX_TIMER_MS = 2 ** 31 - 1;
@@ -104,10 +105,10 @@ class FeedFailure extends Error {
   }
 }
 
-/** The part of `fetch` this service needs: an address that leads elsewhere is not followed. */
+/** The part of `fetch` this service needs: `fetchOnItsHost` decides where a redirect goes. */
 export type FetchFeed = (
   url: string,
-  init: { signal: AbortSignal; headers: Record<string, string>; redirect: 'error' },
+  init: { signal: AbortSignal; headers: Record<string, string>; redirect: 'manual' },
 ) => Promise<LimitedResponse & { ok: boolean }>;
 
 /**
@@ -705,7 +706,11 @@ export class BossFeedService<T> implements BossAdmin<T> {
     const timeout = AbortSignal.timeout(this.timeoutMs);
     const signal = AbortSignal.any([timeout, controller.signal]);
     try {
-      const response = await this.options.fetch(url, { signal, headers, redirect: 'error' });
+      const response = await fetchOnItsHost(this.options.fetch, url, {
+        signal,
+        headers,
+        redirect: 'manual',
+      });
       if (!response.ok) return { status: response.status, body: '', validators: {} };
       const read = await readLimitedText(response, maxChars);
       if (!read.ok) {

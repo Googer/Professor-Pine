@@ -84,7 +84,7 @@ describe('RocketLineupService', () => {
       {
         url: URL,
         headers: { Accept: 'application/json', 'User-Agent': PINE_USER_AGENT },
-        redirect: 'error',
+        redirect: 'manual',
       },
     ]);
     expect(service.readAt()).toBe(NOW);

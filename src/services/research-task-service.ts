@@ -19,6 +19,7 @@ import type { CatchUpOutcome } from './catch-up.js';
 import { failureReason } from './failure-reason.js';
 import type { GameDataProvider } from './game-data-service.js';
 import { readLimitedText, type LimitedResponse } from './limited-json.js';
+import { fetchOnItsHost } from './same-host-fetch.js';
 
 /** How Pine names itself to the sites it reads. */
 export const PINE_USER_AGENT = 'Professor-Pine';
@@ -30,10 +31,10 @@ const MINUTE_MS = 60_000;
 /** The longest delay `setTimeout` accepts. */
 const MAX_TIMER_MS = 2 ** 31 - 1;
 
-/** The part of `fetch` this service needs: an address that leads elsewhere is not followed. */
+/** The part of `fetch` this service needs: `fetchOnItsHost` decides where a redirect goes. */
 export type FetchPage = (
   url: string,
-  init: { signal: AbortSignal; headers: Record<string, string>; redirect: 'error' },
+  init: { signal: AbortSignal; headers: Record<string, string>; redirect: 'manual' },
 ) => Promise<LimitedResponse & { ok: boolean }>;
 
 export interface ResearchTaskOptions {
@@ -380,10 +381,10 @@ export class ResearchTaskService implements ResearchTaskProvider {
     const controller = new AbortController();
     this.controller = controller;
     try {
-      const response = await this.options.fetch(url, {
+      const response = await fetchOnItsHost(this.options.fetch, url, {
         signal: AbortSignal.any([timeout, controller.signal]),
         headers: { Accept: 'text/html', 'User-Agent': PINE_USER_AGENT },
-        redirect: 'error',
+        redirect: 'manual',
       });
       if (!response.ok) throw new Error(`${url} answered ${String(response.status)}`);
       const body = await readLimitedText(response, MAX_RESEARCH_PAGE_BYTES);

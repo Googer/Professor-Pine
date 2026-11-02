@@ -96,7 +96,7 @@ describe('ResearchTaskService', () => {
       {
         url: URL,
         headers: { Accept: 'text/html', 'User-Agent': PINE_USER_AGENT },
-        redirect: 'error',
+        redirect: 'manual',
       },
     ]);
     expect(service.tasks()).toHaveLength(58);

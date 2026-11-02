@@ -100,7 +100,7 @@ describe('RaidBossService', () => {
   }
 
   describe('the download', () => {
-    it('follows no address that leads elsewhere', async () => {
+    it('leaves where a redirect goes to fetchOnItsHost', async () => {
       const redirects: unknown[] = [];
       respond = (_url, init) => {
         redirects.push(init.redirect);
@@ -109,7 +109,7 @@ describe('RaidBossService', () => {
       const { raidBosses } = service();
       await raidBosses.load();
       await raidBosses.sync();
-      expect(redirects).toEqual(['error']);
+      expect(redirects).toEqual(['manual']);
     });
   });
 
@@ -664,10 +664,10 @@ describe('RaidBossService', () => {
         { kind: 'status', httpStatus: 503 },
       ],
       [
-        'a redirect it was not sent',
-        () => Promise.resolve(reply(302)),
-        /answered 302/,
-        { kind: 'status', httpStatus: 302 },
+        'a redirect that leads off its host',
+        () => Promise.resolve(reply(302, '', { location: 'http://mysql:3306/' })),
+        /another host/,
+        { kind: 'unreachable' },
       ],
       [
         'a page that is not JSON',

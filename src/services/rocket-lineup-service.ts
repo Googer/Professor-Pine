@@ -7,6 +7,7 @@ import { failureReason } from './failure-reason.js';
 import type { GameDataProvider } from './game-data-service.js';
 import { readLimitedJson } from './limited-json.js';
 import { PINE_USER_AGENT, type FetchPage, type PictureMaking } from './research-task-service.js';
+import { fetchOnItsHost } from './same-host-fetch.js';
 
 /** The feed was 38 KB on 2026-10-22; anything much larger is not the feed. */
 export const MAX_ROCKET_FEED_BYTES = 1024 * 1024;
@@ -268,10 +269,10 @@ export class RocketLineupService implements RocketLineupProvider {
     const controller = new AbortController();
     this.controller = controller;
     try {
-      const response = await this.options.fetch(url, {
+      const response = await fetchOnItsHost(this.options.fetch, url, {
         signal: AbortSignal.any([timeout, controller.signal]),
         headers: { Accept: 'application/json', 'User-Agent': PINE_USER_AGENT },
-        redirect: 'error',
+        redirect: 'manual',
       });
       if (!response.ok) throw new Error(`${url} answered ${String(response.status)}`);
       const body = await readLimitedJson(response, MAX_ROCKET_FEED_BYTES);

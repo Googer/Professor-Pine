@@ -2938,6 +2938,7 @@ Matt: gyms, PokéStops and Power Spots should open alike, without a region line.
 ## From the small security fixes (2026-11-01)
 
 - **The overrides** of `glob` and `minimatch` in `package.json` (advisories of 2026-10-30) go once `@fastify/static`, eslint, typescript-eslint and testcontainers' `archiver` ask for fixed versions themselves.
-- **To see at the next `./pine update`:** the bot, the watchdog and the tunnel under their new limits. Their libraries, the socket and the binary were tried in one-off containers on the Air, not as a running stack. A screenshot report shows that the reader still works.
+- **Seen at the dev stack's update of 2026-11-01:** the bot, the watchdog and the tunnel run under their new limits, healthy and connected. A screenshot report is still to show that the reader works under them.
+- **A regression that update found:** `redirect: 'error'` on the feeds (7e021457) stopped the raid boss sync, since Leek Duck answers a rotation's `<slug>.html` with a 308 to `<slug>`; the check before it covered the manifest and not its pages. The feeds now follow a redirect on their own host only (`fetchOnItsHost`), checked against every real address with all the rotation pages.
 - **Backups already made** keep mode 644 until they are pruned: `chmod 600` them by hand, or let them age out.
 - **Public Bot** is off on both applications (Matt, 2026-11-01); `cutover-check` warns if it comes back on.

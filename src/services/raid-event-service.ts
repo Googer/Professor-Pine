@@ -25,6 +25,7 @@ import type { Logger } from '../log.js';
 import type { CatchUpOutcome } from './catch-up.js';
 import { failureReason } from './failure-reason.js';
 import { readLimitedText, type LimitedResponse, type LimitedText } from './limited-json.js';
+import { fetchOnItsHost } from './same-host-fetch.js';
 
 /** The feed is about 60,000 bytes; anything near this size is not the feed. */
 const MAX_FEED_BYTES = 5_000_000;
@@ -57,10 +58,10 @@ function inOrder<T extends { start: number; name: string }>(events: T[]): T[] {
 /** Thrown inside a download that `stop` ended; not worth a warning. */
 class RefreshStopped extends Error {}
 
-/** The part of `fetch` this service needs: an address that leads elsewhere is not followed. */
+/** The part of `fetch` this service needs: `fetchOnItsHost` decides where a redirect goes. */
 export type FetchEvents = (
   url: string,
-  init: { signal: AbortSignal; headers: Record<string, string>; redirect: 'error' },
+  init: { signal: AbortSignal; headers: Record<string, string>; redirect: 'manual' },
 ) => Promise<LimitedResponse & { ok: boolean }>;
 
 export interface RaidEventOptions {
@@ -738,10 +739,10 @@ export class RaidEventService
     let status: number;
     let read: LimitedText | undefined;
     try {
-      const response = await this.options.fetch(url, {
+      const response = await fetchOnItsHost(this.options.fetch, url, {
         signal: AbortSignal.any([timeout, controller.signal]),
         headers: { Accept: 'application/json' },
-        redirect: 'error',
+        redirect: 'manual',
       });
       status = response.status;
       if (response.ok) read = await readLimitedText(response, MAX_FEED_BYTES);
