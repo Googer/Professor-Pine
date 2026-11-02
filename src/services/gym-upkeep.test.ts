@@ -397,6 +397,104 @@ describe('GymUpkeep.removed', () => {
   });
 });
 
+describe('the cap of lookups by hand (plan 8Z)', () => {
+  /** Pacific noon on a day of the fixtures' choosing: the month and the day it counts in. */
+  const NOW = new Date('2026-10-11T12:00:00-07:00').getTime();
+  const TODAY = '2026-10-11';
+  const capped = async (cap: number, used = 0) => {
+    const use = new MemoryGoogleUse();
+    for (let n = 0; n < used; n += 1) await use.use(TODAY, 'hand');
+    const lookups = new MemoryGymLookups();
+    const made = await upkeepWith({ use, lookups, byHandPerMonth: cap, now: () => NOW });
+    return { ...made, use, lookups };
+  };
+  const byHand = (use: MemoryGoogleUse) => use.days.get(TODAY)?.byHand ?? 0;
+
+  it('counts one lookup for a refresh that reached Google, on top of its questions', async () => {
+    const { upkeep, use } = await capped(500);
+    await upkeep.refresh(2);
+    expect(byHand(use)).toBe(1);
+    expect(use.total('places')).toBe(1);
+    expect(use.total('geocode')).toBe(1);
+  });
+
+  it.each(['no-key', 'denied'] as const)(
+    'counts none for %s: nothing reached Google',
+    async (reason) => {
+      const { upkeep, use, geo } = await capped(500);
+      geo.failing = { geocode: reason, places: reason };
+      await upkeep.refresh(2);
+      expect(byHand(use)).toBe(0);
+    },
+  );
+
+  it('asks nothing at the cap, and says so', async () => {
+    const { upkeep, geo, gyms } = await capped(3, 3);
+    gyms.writes.length = 0;
+    const refused = await upkeep.refresh(2);
+    expect(refused).toMatchObject({ geodata: 'capped', places: 'capped', gym: { id: 2 } });
+    expect(geo.asked).toEqual([]);
+    expect(gyms.writes).toEqual([]);
+  });
+
+  it('leaves a gym in the line when a refresh is capped: nobody asked about it', async () => {
+    const { upkeep, lookups } = await capped(3, 3);
+    await lookups.add([{ gymId: 2, address: false, rank: 1 }], 1);
+    await upkeep.refresh(2);
+    expect((await lookups.list()).map((one) => one.gymId)).toEqual([2]);
+  });
+
+  it('takes a gym out of the line when a refresh below the cap answers', async () => {
+    const { upkeep, lookups } = await capped(3, 2);
+    await lookups.add([{ gymId: 2, address: false, rank: 1 }], 1);
+    await upkeep.refresh(2);
+    expect(await lookups.list()).toEqual([]);
+  });
+
+  it('lets at most the cap through among lookups at once', async () => {
+    const { upkeep, use } = await capped(2, 1);
+    const answers = await Promise.all([upkeep.refresh(2), upkeep.refresh(3), upkeep.refresh(4)]);
+    const asked = answers.filter((one) => one?.places !== 'capped');
+    expect(asked.length).toBeLessThanOrEqual(1);
+    expect(byHand(use)).toBeLessThanOrEqual(2);
+  });
+
+  it('takes a count it cannot read as the cap: nothing asked, logged', async () => {
+    const { upkeep, use, geo, entries } = await capped(500);
+    use.usedOn = () => Promise.reject(new Error('the database is away'));
+    await expect(upkeep.refresh(2)).resolves.toMatchObject({ places: 'capped' });
+    expect(geo.asked).toEqual([]);
+    expect(entries.map((entry) => entry.msg)).toContain('could not read the lookups by hand');
+  });
+
+  it('puts a gym added or moved at the cap in the line, without failing and without asking', async () => {
+    const { upkeep, geo, lookups, add } = await capped(1, 1);
+    const id = await add(40.5, -80.5);
+    await upkeep.placed(id);
+    expect(geo.asked).toEqual([]);
+    expect((await lookups.list()).map((one) => one.gymId)).toContain(id);
+  });
+
+  it('asks about a gym added below the cap at once, and counts it', async () => {
+    const { upkeep, geo, use, add } = await capped(5);
+    const id = await add(40.5, -80.5);
+    await upkeep.placed(id);
+    await upkeep.flush();
+    expect(geo.asked.slice(0, 2).map((one) => one.what)).toEqual(['geocode', 'places']);
+    expect(byHand(use)).toBe(1);
+  });
+
+  it("leaves the line's own questions out of the cap", async () => {
+    const { upkeep, geo, use, lookups, add } = await capped(0);
+    const id = await add(40.5, -80.5);
+    await lookups.add([{ gymId: id, address: false, rank: 1 }], 1);
+    await upkeep.resume();
+    await upkeep.flush();
+    expect(geo.asked.some((one) => one.what === 'places')).toBe(true);
+    expect(byHand(use)).toBe(0);
+  });
+});
+
 describe('GymUpkeep.refresh', () => {
   it('asks about a gym now and says what it got', async () => {
     const { upkeep, gyms, geo } = await upkeepWith();

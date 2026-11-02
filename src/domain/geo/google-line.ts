@@ -63,11 +63,15 @@ export interface GoogleBudget {
   geocodes: number;
 }
 
-/** What was asked of Google this month: places questions (and of them today), geocodes. */
+/**
+ * What was asked of Google this month: places questions (and of them today), geocodes; and
+ * lookups by hand (plan 8Z), whose questions are among those, for their cap alone.
+ */
 export interface GoogleUsed {
   monthPlaces: number;
   todayPlaces: number;
   monthGeocodes: number;
+  monthByHand: number;
 }
 
 /** What the line may ask now. */

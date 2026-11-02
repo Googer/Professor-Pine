@@ -147,15 +147,18 @@ describe('loadSettings', () => {
     expect(settings.googleLookupsPerMonth).toBe(4_500);
     expect(settings.googleLookupsReserve).toBe(500);
     expect(settings.googleGeocodesPerMonth).toBe(9_000);
+    expect(settings.googleByHandPerMonth).toBe(500);
     const own = writeSettings((s) => {
       s.googleLookupsPerMonth = 1_000;
       s.googleLookupsReserve = 100;
       s.googleGeocodesPerMonth = 0;
+      s.googleByHandPerMonth = 20;
     });
     expect(loadSettings(own)).toMatchObject({
       googleLookupsPerMonth: 1_000,
       googleLookupsReserve: 100,
       googleGeocodesPerMonth: 0,
+      googleByHandPerMonth: 20,
     });
     // A budget of nothing, with nothing kept back: the line is stopped.
     const stopped = writeSettings((s) => {

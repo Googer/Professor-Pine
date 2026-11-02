@@ -656,6 +656,7 @@ export async function startApp(
       reserve: config.settings.googleLookupsReserve,
       geocodes: config.settings.googleGeocodesPerMonth,
     },
+    byHandPerMonth: config.settings.googleByHandPerMonth,
     // The line goes by the raids of each place's best region (plan 8W-6), from the history.
     ranks: new GoogleRanks({
       regions,

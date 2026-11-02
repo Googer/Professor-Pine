@@ -168,6 +168,13 @@ const settingsObject = z.strictObject({
   googleLookupsReserve: z.number().int().min(0).default(500),
   googleGeocodesPerMonth: z.number().int().min(0).default(9_000),
   /**
+   * A hard cap on the lookups by hand in a Pacific month (plan 8Z): `/gym refresh`, a gym added or
+   * moved, each one geocode and one places search. Past it `/gym refresh` asks nothing, and a gym
+   * added or moved waits in the line. Counted per database, so per instance: where instances
+   * share a billing account, split it with the budget above (a dev instance set low).
+   */
+  googleByHandPerMonth: z.number().int().min(0).default(500),
+  /**
    * Where admins ask for the Pine Wayspot export tool, which makes the file `/gym import` reads
    * (plan 8W-P; Matt, 2026-10-19): the page `/userscript` of the instance that hands it out. Its
    * help and `docs/guides/new-instance.md` name it.

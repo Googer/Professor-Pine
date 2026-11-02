@@ -15,7 +15,7 @@ const pacific = (local: string, offset = '-07:00'): number =>
   new Date(`${local}${offset}`).getTime();
 
 const BUDGET: GoogleBudget = { places: 4_500, reserve: 500, geocodes: 9_000 };
-const NONE = { monthPlaces: 0, todayPlaces: 0, monthGeocodes: 0 };
+const NONE = { monthPlaces: 0, todayPlaces: 0, monthGeocodes: 0, monthByHand: 0 };
 
 describe('googleMonth', () => {
   it('starts the month on the 1st at midnight Pacific time, whatever the zone of the bot', () => {
@@ -49,7 +49,7 @@ describe('lineAllowance', () => {
     // Gyms used 3,000 today already: they go on, stops wait for tomorrow.
     const busy = lineAllowance(
       now,
-      { monthPlaces: 3_000, todayPlaces: 3_000, monthGeocodes: 0 },
+      { monthPlaces: 3_000, todayPlaces: 3_000, monthGeocodes: 0, monthByHand: 0 },
       BUDGET,
     );
     expect(busy).toMatchObject({ gyms: true, wayspots: false, share: 190 });
@@ -60,7 +60,7 @@ describe('lineAllowance', () => {
     // 2,000 used before today, 10 of it today: (4,000 − 1,990) ÷ 21 = 95 a day.
     const allowance = lineAllowance(
       now,
-      { monthPlaces: 2_000, todayPlaces: 10, monthGeocodes: 0 },
+      { monthPlaces: 2_000, todayPlaces: 10, monthGeocodes: 0, monthByHand: 0 },
       BUDGET,
     );
     expect(allowance).toMatchObject({ share: 95, wayspots: true });
@@ -69,7 +69,7 @@ describe('lineAllowance', () => {
   it('stops the line when only the reserve is left, until the month resets', () => {
     const allowance = lineAllowance(
       now,
-      { monthPlaces: 4_000, todayPlaces: 0, monthGeocodes: 0 },
+      { monthPlaces: 4_000, todayPlaces: 0, monthGeocodes: 0, monthByHand: 0 },
       BUDGET,
     );
     expect(allowance).toMatchObject({ gyms: false, wayspots: false });
@@ -77,7 +77,7 @@ describe('lineAllowance', () => {
     // Questions outside the line went past the budget: the line still waits, it does not break.
     const over = lineAllowance(
       now,
-      { monthPlaces: 4_700, todayPlaces: 0, monthGeocodes: 0 },
+      { monthPlaces: 4_700, todayPlaces: 0, monthGeocodes: 0, monthByHand: 0 },
       BUDGET,
     );
     expect(over).toMatchObject({ gyms: false, wayspots: false, share: 0 });
@@ -86,7 +86,7 @@ describe('lineAllowance', () => {
   it('stops asking addresses once the geocodes of the month are used', () => {
     const allowance = lineAllowance(
       now,
-      { monthPlaces: 0, todayPlaces: 0, monthGeocodes: 9_000 },
+      { monthPlaces: 0, todayPlaces: 0, monthGeocodes: 9_000, monthByHand: 0 },
       BUDGET,
     );
     expect(allowance).toMatchObject({ gyms: true, geocode: false });

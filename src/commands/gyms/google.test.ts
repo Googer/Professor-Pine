@@ -48,6 +48,7 @@ describe('/gym google', () => {
       await made.googleUse.use('2026-10-11', 'places');
     for (let n = 0; n < (options.geocodes ?? 1); n++)
       await made.googleUse.use('2026-10-11', 'geocode');
+    await made.googleUse.use('2026-10-11', 'hand');
     return made;
   }
 
@@ -63,6 +64,7 @@ describe('/gym google', () => {
           'gyms added or moved by hand and `/gym refresh`. 1 of 9,000 addresses is used. The ' +
           `month starts again ${stamp(new Date('2026-11-01T00:00:00-07:00').getTime(), 'f')}, ` +
           'when Google’s free amounts reset.',
+        '1 of 500 lookups by hand is used this month.',
         'At this pace everything of this server is asked about today, the gyms first.',
         '-# The line and the budget are this instance’s, for its one Google key; the counts ' +
           'are this server’s part of it.',

@@ -1,13 +1,18 @@
 import { AttachmentBuilder, SlashCommandSubcommandBuilder } from 'discord.js';
 import type { SubcommandPart } from '../../discord/command-group.js';
 import { UserError } from '../../discord/errors.js';
+import type { Throttle } from '../../discord/throttle.js';
 import type { Gym } from '../../db/repositories/gym-repository.js';
+import { googleMonth } from '../../domain/geo/google-line.js';
 import { gymsTsv } from '../../domain/gyms/gym-export.js';
 import { gymWithId } from '../../render/gym-view.js';
-import { count } from '../../render/text.js';
+import { count, timestamp } from '../../render/text.js';
 import type { FetchOutcome } from '../../services/gym-upkeep.js';
 import { chosenGym, respondWithGyms, withGymOption } from './gym-option.js';
 import { answerGym, GYM_GONE, gymViewMessage, staffPlace } from './shared.js';
+
+/** How often one member may ask Google about a gym by hand (plan 8Z); the cap is the instance's. */
+const GYM_REFRESH_THROTTLE: Throttle = { uses: 10, perSeconds: 600 };
 
 /** The name of the file `/gym export` attaches. */
 export const EXPORT_FILE = 'gyms.tsv';
@@ -29,6 +34,8 @@ function fetched(what: 'address' | 'nearby places', api: string, outcome: FetchO
       );
     case 'failed':
       return `Its ${what} could not be fetched (the log says why). It keeps what it had.`;
+    case 'capped':
+      return `Its ${what} could not be fetched: this month's lookups by hand are used.`;
   }
 }
 
@@ -46,9 +53,12 @@ export const refreshGym: SubcommandPart = {
     details:
       'A gym is also found by the street it is on and by the names of places around it, ' +
       'which I fetch from Google when a gym is added or moved. Use this when that failed, or ' +
-      'when the surroundings of a gym have changed.',
+      'when the surroundings of a gym have changed.\n\nEach member may use this ten times in ten ' +
+      'minutes, and this instance may look up a limited number of gyms by hand in a month: ' +
+      '`/gym google` says how many are used.',
     examples: ['/gym refresh gym:Big Fountain'],
   },
+  throttle: GYM_REFRESH_THROTTLE,
   defer: 'ephemeral',
   async execute(interaction, ctx) {
     const chosen = await chosenGym(interaction, ctx);
@@ -56,12 +66,19 @@ export const refreshGym: SubcommandPart = {
     if (!refreshed) throw new UserError(GYM_GONE);
     const { gym, geodata, places } = refreshed;
     const lines =
-      geodata === 'no-key' && places === 'no-key'
-        ? ['No Google API key is configured, so there is nothing to fetch.']
-        : [
-            fetched('address', 'Geocoding API', geodata),
-            fetched('nearby places', 'Places API (New)', places),
-          ];
+      geodata === 'capped'
+        ? [
+            `I did not ask Google: this instance has used its ` +
+              `${ctx.config.settings.googleByHandPerMonth} lookups by hand for this month. They ` +
+              `start again ${timestamp(googleMonth(Date.now()).nextReset, 'f')}. The gym keeps ` +
+              'what it has.',
+          ]
+        : geodata === 'no-key' && places === 'no-key'
+          ? ['No Google API key is configured, so there is nothing to fetch.']
+          : [
+              fetched('address', 'Geocoding API', geodata),
+              fetched('nearby places', 'Places API (New)', places),
+            ];
     const place = await staffPlace(interaction, ctx);
     await answerGym(
       interaction,

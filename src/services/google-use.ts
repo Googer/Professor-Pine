@@ -12,15 +12,24 @@ import { googleMonth, type GoogleUsed } from '../domain/geo/google-line.js';
 /** A Places search (Nearby Search Pro) or a Geocoding (reverse geocoding). */
 export type GoogleQuestion = 'places' | 'geocode';
 
+/**
+ * What is counted: a question, or `hand`, a lookup by hand that reached Google (plan 8Z,
+ * `/gym refresh`, a gym added or moved), on top of the questions it asked: the monthly cap of
+ * those (`settings.googleByHandPerMonth`) is counted apart, and the budget still sees them all.
+ */
+export type GoogleCount = GoogleQuestion | 'hand';
+
 /** What one day used. */
 export interface DayUse {
   places: number;
   geocodes: number;
+  /** Lookups by hand, whose questions are counted in the two above as well. */
+  byHand: number;
 }
 
 export interface GoogleUse {
-  /** Counts one question on a day (`YYYY-MM-DD`, Pacific time). */
-  use(day: string, question: GoogleQuestion): Promise<void>;
+  /** Counts one question, or one lookup by hand, on a day (`YYYY-MM-DD`, Pacific time). */
+  use(day: string, counted: GoogleCount): Promise<void>;
   /**
    * What these days used; a day without questions is left out. The gyms the line before plan
    * 8W-6 counted on a day (`GymLookupDay`) count as places questions of that day.
@@ -33,13 +42,15 @@ export class MemoryGoogleUse implements GoogleUse {
   readonly days = new Map<string, DayUse>();
   readonly legacy = new Map<string, number>();
 
-  use(day: string, question: GoogleQuestion): Promise<void> {
-    const kept = this.days.get(day) ?? { places: 0, geocodes: 0 };
+  use(day: string, counted: GoogleCount): Promise<void> {
+    const kept = this.days.get(day) ?? { places: 0, geocodes: 0, byHand: 0 };
     this.days.set(
       day,
-      question === 'places'
+      counted === 'places'
         ? { ...kept, places: kept.places + 1 }
-        : { ...kept, geocodes: kept.geocodes + 1 },
+        : counted === 'geocode'
+          ? { ...kept, geocodes: kept.geocodes + 1 }
+          : { ...kept, byHand: kept.byHand + 1 },
     );
     return Promise.resolve();
   }
@@ -53,6 +64,7 @@ export class MemoryGoogleUse implements GoogleUse {
       used.set(day, {
         places: (kept?.places ?? 0) + old,
         geocodes: kept?.geocodes ?? 0,
+        byHand: kept?.byHand ?? 0,
       });
     }
     return Promise.resolve(used);
@@ -72,9 +84,16 @@ export async function usedThisMonth(use: GoogleUse, now: number): Promise<Google
   const days = await use.usedOn(month.days);
   let monthPlaces = 0;
   let monthGeocodes = 0;
+  let monthByHand = 0;
   for (const day of days.values()) {
     monthPlaces += day.places;
     monthGeocodes += day.geocodes;
+    monthByHand += day.byHand;
   }
-  return { monthPlaces, monthGeocodes, todayPlaces: days.get(month.today)?.places ?? 0 };
+  return {
+    monthPlaces,
+    monthGeocodes,
+    monthByHand,
+    todayPlaces: days.get(month.today)?.places ?? 0,
+  };
 }

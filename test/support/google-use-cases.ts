@@ -20,9 +20,24 @@ export function googleUseCases(
     const used = await use.usedOn(['2026-10-24', '2026-10-25', '2026-10-26', '2026-10-27']);
     expect(used).toEqual(
       new Map([
-        ['2026-10-24', { places: 40, geocodes: 0 }],
-        ['2026-10-25', { places: 5, geocodes: 1 }],
-        ['2026-10-26', { places: 0, geocodes: 1 }],
+        ['2026-10-24', { places: 40, geocodes: 0, byHand: 0 }],
+        ['2026-10-25', { places: 5, geocodes: 1, byHand: 0 }],
+        ['2026-10-26', { places: 0, geocodes: 1, byHand: 0 }],
+      ]),
+    );
+  });
+
+  it('counts a lookup by hand apart, never as a question of the budget (plan 8Z)', async () => {
+    const { use } = await made();
+    await use.use('2026-10-25', 'hand');
+    await use.use('2026-10-25', 'hand');
+    await use.use('2026-10-25', 'places');
+    await use.use('2026-10-26', 'hand');
+    const used = await use.usedOn(['2026-10-25', '2026-10-26']);
+    expect(used).toEqual(
+      new Map([
+        ['2026-10-25', { places: 1, geocodes: 0, byHand: 2 }],
+        ['2026-10-26', { places: 0, geocodes: 0, byHand: 1 }],
       ]),
     );
   });

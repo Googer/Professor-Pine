@@ -13,12 +13,7 @@ import {
   type GoogleBudget,
   type GoogleUsed,
 } from '../domain/geo/google-line.js';
-import {
-  MemoryGoogleUse,
-  usedThisMonth,
-  type GoogleQuestion,
-  type GoogleUse,
-} from './google-use.js';
+import { MemoryGoogleUse, usedThisMonth, type GoogleCount, type GoogleUse } from './google-use.js';
 import type { GoogleRanks } from './google-ranks.js';
 import { MemoryGymLookups, type GymLookups, type WaitingGym } from './gym-lookups.js';
 import type { WayspotProvider } from './wayspot-directory.js';
@@ -34,12 +29,20 @@ import { WayspotPlaces } from './wayspot-places.js';
  * What came of fetching one thing about a gym: it was written (`updated`), it is what the gym
  * had already (`unchanged`), or why Google gave nothing (the gym then keeps what it had).
  */
-export type FetchOutcome = 'updated' | 'unchanged' | GeoFailure;
+export type FetchOutcome = 'updated' | 'unchanged' | 'capped' | GeoFailure;
 
-/** Whether a question about a gym reached Google: a refused key or none asks nothing. */
+/**
+ * Whether a question about a gym reached Google: a refused key or none asks nothing, and neither
+ * does a lookup by hand past its cap (`capped`).
+ */
 function reachedGoogle(outcome: FetchOutcome | undefined): boolean {
-  return outcome !== undefined && outcome !== 'denied' && outcome !== 'no-key';
+  return (
+    outcome !== undefined && outcome !== 'denied' && outcome !== 'no-key' && outcome !== 'capped'
+  );
 }
+
+/** The monthly cap of lookups by hand unless the settings say otherwise (plan 8Z). */
+export const DEFAULT_BY_HAND_PER_MONTH = 500;
 
 /** More gyms than this that get another nearest gym through one change are noted in the log. */
 const MANY_NEAREST = 10;
@@ -100,6 +103,8 @@ export interface GoogleLineSnapshot {
   wayspots: WaitingWayspot[];
   used: GoogleUsed;
   budget: GoogleBudget;
+  /** The monthly cap of lookups by hand (`GymUpkeepOptions.byHandPerMonth`). */
+  byHandPerMonth: number;
   /** One question every so often. */
   everyMs: number;
   now: number;
@@ -139,6 +144,11 @@ export interface GymUpkeepOptions {
   use?: GoogleUse;
   /** The monthly budget (`DEFAULT_GOOGLE_BUDGET`). */
   budget?: GoogleBudget;
+  /**
+   * How many lookups by hand (`/gym refresh`, a gym added or moved) may reach Google in a Pacific
+   * month, counted in this database (`DEFAULT_BY_HAND_PER_MONTH`; `settings.googleByHandPerMonth`).
+   */
+  byHandPerMonth?: number;
   /** The ranks of the places of the line (`GoogleRanks` in the bot); default all alike. */
   ranks?: LineRanks;
   /**
@@ -173,7 +183,9 @@ export interface GymUpkeepOptions {
  * gym), one every few seconds, the gyms of the best-ranked region first (`LineRanks`), within a
  * monthly budget (plan 8W-6, `lineAllowance`: the line stops when only the reserve is left;
  * every question that reaches Google counts, by hand too, and those by hand may use the reserve
- * and go past the budget). The line is kept in the database
+ * and go past the budget, up to a hard monthly cap of their own, `byHandPerMonth`, plan 8Z: past
+ * it a gym added or moved waits in the line like the others, and `/gym refresh` asks nothing).
+ * The line is kept in the database
  * (`GymLookups`): a restart loses nothing, and `resume` takes it up at start. Only tests and the
  * shutdown wait for it (`flush`, `stop`). While Google refuses the key for places, the line
  * keeps its gyms and looks again when the refusal is over.
@@ -194,6 +206,9 @@ export class GymUpkeep {
   private readonly lookups: GymLookups;
   private readonly use: GoogleUse;
   private readonly budget: GoogleBudget;
+  private readonly byHandPerMonth: number;
+  /** The lookups by hand on their way, not counted yet: the cap holds for those at once. */
+  private byHandOnTheirWay = 0;
   private readonly ranks: LineRanks;
   /** The PokéStops and Power Spots that wait for Google. */
   private readonly wayspotLookups: WayspotLookups;
@@ -252,6 +267,7 @@ export class GymUpkeep {
     this.lookups = options.lookups ?? new MemoryGymLookups();
     this.use = options.use ?? new MemoryGoogleUse();
     this.budget = options.budget ?? DEFAULT_GOOGLE_BUDGET;
+    this.byHandPerMonth = options.byHandPerMonth ?? DEFAULT_BY_HAND_PER_MONTH;
     this.ranks = options.ranks ?? SAME_RANK;
     this.wayspotLookups = options.wayspotLookups ?? new MemoryWayspotLookups();
     this.places =
@@ -298,6 +314,7 @@ export class GymUpkeep {
       wayspots: await this.wayspotLookups.list(),
       used: await usedThisMonth(this.use, now),
       budget: this.budget,
+      byHandPerMonth: this.byHandPerMonth,
       everyMs: this.placesEveryMs,
       now,
     };
@@ -498,13 +515,14 @@ export class GymUpkeep {
     const others = [...changed, ...pointing].filter((other) => other !== id);
     // Their circle follows the distance to this gym: what was asked in the old circle is void.
     for (const other of pointing) this.outdate('places', other);
-    if (places === 'later') {
+    // Past the cap of lookups by hand it never fails: it waits in the line like an import's.
+    if (places === 'later' || !(await this.takeByHand())) {
       await this.queueGyms([id], address);
       await this.queuePlaces(others);
       return;
     }
     this.aside(async () => {
-      const refreshed = await this.refreshNow(id);
+      const refreshed = await this.askByHand(id);
       // Refused for now: it waits in the line like the others, for when the API may be asked.
       if (refreshed?.places === 'denied') await this.queuePlaces([id]);
       else if (refreshed) await this.answered(id);
@@ -583,17 +601,59 @@ export class GymUpkeep {
 
   /**
    * Asks Google about one gym now, its address and then its places, and writes what differs
-   * (`/gym refresh`). Undefined when there is no such gym. Rejects when a write fails.
+   * (`/gym refresh`); past the cap of lookups by hand asks nothing and changes nothing (`capped`,
+   * a gym in the line stays there). Undefined when there is no such gym. Rejects when a write
+   * fails.
    */
   refresh(id: number): Promise<GymRefresh | undefined> {
-    const work = this.refreshNow(id)
+    const work = this.refreshByHand(id)
       .then(async (refreshed) => {
-        if (refreshed && refreshed.places !== 'denied') await this.answered(id);
+        if (refreshed && refreshed.places !== 'denied' && refreshed.places !== 'capped') {
+          await this.answered(id);
+        }
         return refreshed;
       })
       .finally(() => this.running.delete(work));
     this.running.add(work);
     return work;
+  }
+
+  private async refreshByHand(id: number): Promise<GymRefresh | undefined> {
+    const gym = this.options.directory.get(id);
+    if (!gym) return undefined;
+    if (!(await this.takeByHand())) return { gym, geodata: 'capped', places: 'capped' };
+    return this.askByHand(id);
+  }
+
+  /**
+   * Takes one of this month's lookups by hand (`askByHand` gives it back), false past the cap: a
+   * hard one, so that a count that cannot be read counts as the cap, and those on their way
+   * count as used. Without a Google key nothing is asked, and nothing needs counting.
+   */
+  private async takeByHand(): Promise<boolean> {
+    this.byHandOnTheirWay += 1;
+    if (!this.fetches) return true;
+    const left = await usedThisMonth(this.use, this.now())
+      .then((used) => used.monthByHand + this.byHandOnTheirWay <= this.byHandPerMonth)
+      .catch((err: unknown) => {
+        this.options.log.warn({ err }, 'could not read the lookups by hand');
+        return false;
+      });
+    if (!left) this.byHandOnTheirWay -= 1;
+    return left;
+  }
+
+  /** A lookup by hand `takeByHand` took: counted once it reached Google. */
+  private async askByHand(id: number): Promise<GymRefresh | undefined> {
+    try {
+      const refreshed = await this.refreshNow(id);
+      if (refreshed && (reachedGoogle(refreshed.geodata) || reachedGoogle(refreshed.places))) {
+        await this.count('hand');
+      }
+      return refreshed;
+    } finally {
+      this.byHandOnTheirWay -= 1;
+    }
   }
 
   private async refreshNow(id: number): Promise<GymRefresh | undefined> {
@@ -751,8 +811,8 @@ export class GymUpkeep {
     return { gymId, address, rank: this.ranks.ofGym(gymId) };
   }
 
-  /** Counts a question that reached Google, on its Pacific day. Never rejects. */
-  private async count(question: GoogleQuestion): Promise<void> {
+  /** Counts a question or a lookup by hand that reached Google, on its Pacific day. Never rejects. */
+  private async count(question: GoogleCount): Promise<void> {
     try {
       await this.use.use(googleMonth(this.now()).today, question);
     } catch (err) {

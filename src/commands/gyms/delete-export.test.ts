@@ -16,6 +16,7 @@ import {
 } from '../../../test/support/gym-commands.js';
 import { WEST_CHANNEL } from '../../../test/support/gyms.js';
 import { ALICE, asTrain, BOB, REPORTER, inGyms, stops } from '../../../test/support/parties.js';
+import { googleMonth } from '../../domain/geo/google-line.js';
 import { PartyStatus } from '../../domain/party/status.js';
 import { DIALOG_READ_MS, SLOW_READ } from '../../discord/dialog.js';
 import { LIMITS } from '../../render/text.js';
@@ -272,6 +273,30 @@ describe('/gym delete', () => {
 });
 
 describe('/gym refresh', () => {
+  it('asks nothing at the monthly cap of lookups by hand, and says until when (plan 8Z)', async () => {
+    const made = await gymCommandsWith();
+    const month = googleMonth(Date.now());
+    const cap = made.ctx.config.settings.googleByHandPerMonth;
+    for (let n = 0; n < cap; n += 1) await made.googleUse.use(month.today, 'hand');
+    made.geo.asked.length = 0;
+    const answer = answerOf(await made.use('refresh', { gym: 'id:2' }));
+    expect(said(answer).split('\n')).toEqual([
+      '**Old Stone Fountain** (#2):',
+      `I did not ask Google: this instance has used its ${cap} lookups by hand for this month. ` +
+        `They start again <t:${Math.floor(month.nextReset / 1000)}:f>. The gym keeps what it has.`,
+    ]);
+    expect(made.geo.asked).toEqual([]);
+  });
+
+  it('is held to 10 in 10 minutes per member (plan 8Z)', async () => {
+    const made = await gymCommandsWith();
+    for (let n = 0; n < 10; n += 1) {
+      expect(said(answerOf(await made.use('refresh', { gym: 'id:2' })))).toContain('Old Stone');
+    }
+    const eleventh = await made.use('refresh', { gym: 'id:2' });
+    expect(sent(eleventh.reply).content).toMatch(/^You can use \/gym refresh again in /u);
+  });
+
   it('asks Google again and says what it got', async () => {
     const made = await gymCommandsWith();
     const refreshed = await made.use('refresh', { gym: 'id:2' });

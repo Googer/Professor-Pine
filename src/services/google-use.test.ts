@@ -23,9 +23,11 @@ describe('usedThisMonth', () => {
     await use.use('2026-10-31', 'places');
     await use.use('2026-10-31', 'geocode');
     await use.use('2026-11-01', 'places');
+    await use.use('2026-10-15', 'hand');
+    await use.use('2026-11-01', 'hand');
     use.legacy.set('2026-10-02', 10);
     // 23:30 on October 31 in California: November 1 in UTC, still October for Google.
     const used = await usedThisMonth(use, new Date('2026-10-31T23:30:00-07:00').getTime());
-    expect(used).toEqual({ monthPlaces: 12, todayPlaces: 1, monthGeocodes: 1 });
+    expect(used).toEqual({ monthPlaces: 12, todayPlaces: 1, monthGeocodes: 1, monthByHand: 1 });
   });
 });

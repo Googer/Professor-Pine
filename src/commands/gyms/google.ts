@@ -96,6 +96,9 @@ export function googleLineTexts(line: GoogleLineSnapshot, share: ServerShare): s
     `${amount(budget.geocodes)} addresses ${used.monthGeocodes === 1 ? 'is' : 'are'} used. The ` +
     `month starts again ${timestamp(googleMonth(now).nextReset, 'f')}, when Google’s free ` +
     'amounts reset.';
+  const byHand =
+    `${amount(used.monthByHand)} of ${amount(line.byHandPerMonth)} lookups by hand ` +
+    `${used.monthByHand === 1 ? 'is' : 'are'} used this month.`;
   const estimate = estimateLine({
     now,
     used,
@@ -120,6 +123,7 @@ export function googleLineTexts(line: GoogleLineSnapshot, share: ServerShare): s
     heading,
     waiting,
     month,
+    byHand,
     ...(pace === undefined ? [] : [pace]),
     '-# The line and the budget are this instance’s, for its one Google key; the counts are ' +
       'this server’s part of it.',

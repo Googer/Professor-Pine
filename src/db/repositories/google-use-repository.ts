@@ -1,5 +1,5 @@
 import { sql, type Kysely } from 'kysely';
-import type { DayUse, GoogleQuestion, GoogleUse } from '../../services/google-use.js';
+import type { DayUse, GoogleCount, GoogleUse } from '../../services/google-use.js';
 import type { DB } from '../types.js';
 
 /**
@@ -10,10 +10,10 @@ import type { DB } from '../types.js';
 export class GoogleUseRepository implements GoogleUse {
   constructor(private readonly db: Kysely<DB>) {}
 
-  async use(day: string, question: GoogleQuestion): Promise<void> {
+  async use(day: string, counted: GoogleCount): Promise<void> {
     await this.db
       .insertInto('GoogleUseDay')
-      .values({ day, kind: question, questions: 1 })
+      .values({ day, kind: counted, questions: 1 })
       .onDuplicateKeyUpdate({ questions: sql`questions + 1` })
       .execute();
   }
@@ -21,9 +21,13 @@ export class GoogleUseRepository implements GoogleUse {
   async usedOn(days: readonly string[]): Promise<Map<string, DayUse>> {
     const used = new Map<string, DayUse>();
     if (days.length === 0) return used;
-    const add = (day: string, places: number, geocodes: number): void => {
-      const kept = used.get(day) ?? { places: 0, geocodes: 0 };
-      used.set(day, { places: kept.places + places, geocodes: kept.geocodes + geocodes });
+    const add = (day: string, places: number, geocodes: number, byHand = 0): void => {
+      const kept = used.get(day) ?? { places: 0, geocodes: 0, byHand: 0 };
+      used.set(day, {
+        places: kept.places + places,
+        geocodes: kept.geocodes + geocodes,
+        byHand: kept.byHand + byHand,
+      });
     };
     const rows = await this.db
       .selectFrom('GoogleUseDay')
@@ -32,6 +36,7 @@ export class GoogleUseRepository implements GoogleUse {
       .execute();
     for (const row of rows) {
       if (row.kind === 'geocode') add(row.day, 0, row.questions);
+      else if (row.kind === 'hand') add(row.day, 0, 0, row.questions);
       else add(row.day, row.questions, 0);
     }
     const old = await this.db
