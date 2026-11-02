@@ -22,6 +22,7 @@
     "fixtures:game-data": "tsx --conditions=pine-source scripts/game-data/make-fixtures.ts",
     "eggs:make": "tsx --conditions=pine-source scripts/eggs/make-eggs.ts",
     "raid-bosses:check": "tsx --conditions=pine-source scripts/raid-bosses/check-feed.ts",
+    "pvpivs:check": "tsx --conditions=pine-source scripts/pvpivs/check-names.ts",
     "ocr:check": "tsx --conditions=pine-source scripts/ocr/check.ts",
     "ocr:review": "tsx --conditions=pine-source scripts/ocr/review.ts",
     "role-auth:export": "tsx --conditions=pine-source --env-file-if-exists=.env src/ops/role-auth-cli.ts",

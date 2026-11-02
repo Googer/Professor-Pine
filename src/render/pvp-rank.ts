@@ -62,7 +62,85 @@ const PVPIVS_NAMES: Readonly<Record<string, string>> = {
   oinkologne: 'Oinkologne_Male',
   enamorus_incarnate: 'Enamorus',
   gimmighoul: 'Gimmighoul_Roaming',
+  zygarde: 'Zygarde_Fifty_Percent',
+  zygarde_complete_fifty_percent: 'Zygarde_Fifty_Percent',
+  zygarde_complete_ten_percent: 'Zygarde_Ten_Percent',
+  minior: 'Minior_Meteor',
+  minior_blue: 'Minior_Core',
+  minior_green: 'Minior_Core',
+  minior_indigo: 'Minior_Core',
+  minior_orange: 'Minior_Core',
+  minior_red: 'Minior_Core',
+  minior_violet: 'Minior_Core',
+  minior_yellow: 'Minior_Core',
+  terapagos: 'Terapagos_Normal',
 };
+
+/**
+ * The names pvpivs.com's list has with `_SPECULATIVE` after them (2026-11-01), released Pokémon
+ * among them (Mega Mewtwo X and Y): the site reads only the whole name, so a link without the mark
+ * opens no ranking. The site's author takes marks away and adds new ones: `npm run pvpivs:check`
+ * tells what has changed.
+ */
+export const PVPIVS_SPECULATIVE: ReadonlySet<string> = new Set([
+  'Archaludon',
+  'Fezandipiti',
+  'Gouging_Fire',
+  'Great_Tusk',
+  'Iron_Boulder',
+  'Iron_Crown',
+  'Iron_Hands',
+  'Mega_Barbaracle',
+  'Mega_Baxcalibur',
+  'Mega_Chandelure',
+  'Mega_Chesnaught',
+  'Mega_Chimecho',
+  'Mega_Clefable',
+  'Mega_Crabominable',
+  'Mega_Darkrai',
+  'Mega_Delphox',
+  'Mega_Dragalge',
+  'Mega_Drampa',
+  'Mega_Eelektross',
+  'Mega_Emboar',
+  'Mega_Excadrill',
+  'Mega_Falinks',
+  'Mega_Feraligatr',
+  'Mega_Floette',
+  'Mega_Froslass',
+  'Mega_Glimmora',
+  'Mega_Golisopod',
+  'Mega_Golurk',
+  'Mega_Greninja',
+  'Mega_Hawlucha',
+  'Mega_Heatran',
+  'Mega_Magearna',
+  'Mega_Meowstic',
+  'Mega_Mewtwo_X',
+  'Mega_Mewtwo_Y',
+  'Mega_Pyroar',
+  'Mega_Raichu_X',
+  'Mega_Raichu_Y',
+  'Mega_Scolipede',
+  'Mega_Scovillain',
+  'Mega_Scrafty',
+  'Mega_Skarmory',
+  'Mega_Staraptor',
+  'Mega_Starmie',
+  'Mega_Tatsugiri',
+  'Mega_Zeraora',
+  'Mega_Zygarde',
+  'Munkidori',
+  'Ogerpon',
+  'Okidogi',
+  'Palafin_Hero',
+  'Pecharunt',
+  'Raging_Bolt',
+  'Roaring_Moon',
+  'Terapagos_Normal',
+  'Terapagos_Stellar',
+  'Terapagos_Terastal',
+]);
 
 /** `RAICHU_ALOLA` → `Raichu_Alola`. */
 const titled = (id: string): string =>
@@ -75,13 +153,20 @@ const titled = (id: string): string =>
 /**
  * The Pokémon's name in pvpivs.com's list, which the site reads only exactly (2026-10-23): the
  * game master's id in title case (`Raichu_Alola`, `Giratina_Origin`, `Mr_Mime`), a species whose
- * id runs its words together by its English name (`Great_Tusk`, `Chien_Pao`), `_Paldean` for
+ * id runs its words together by its English name (`Iron_Treads`, `Chien_Pao`), `_Paldean` for
  * the game master's `_PALDEA`, a mega as `Mega_Charizard_X`, and the few the site names
- * otherwise from `PVPIVS_NAMES`. A form that changes only the looks (Unown's letters, Castform's
- * weather: every form of the Pokédex number but the regional ones and megas has the same stats)
- * is the species there. `sameDex` is every entry of the Pokémon's Pokédex number.
+ * otherwise from `PVPIVS_NAMES`, with the mark of `PVPIVS_SPECULATIVE` where the site has one. A
+ * form that changes only the looks (Unown's letters, Castform's weather: every form of the Pokédex
+ * number but the regional ones and megas has the same stats) is the species there. `sameDex` is
+ * every entry of the Pokémon's Pokédex number.
  */
 export function pvpivsName(entry: PokemonEntry, sameDex: readonly PokemonEntry[]): string {
+  const name = unmarkedName(entry, sameDex);
+  return PVPIVS_SPECULATIVE.has(name) ? `${name}_SPECULATIVE` : name;
+}
+
+/** The name `pvpivsName` gives, before the mark. */
+function unmarkedName(entry: PokemonEntry, sameDex: readonly PokemonEntry[]): string {
   const named = PVPIVS_NAMES[entry.key];
   if (named !== undefined) return named;
   if (entry.tempEvolution !== null) {

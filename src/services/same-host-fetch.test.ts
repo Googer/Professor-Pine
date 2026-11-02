@@ -51,7 +51,7 @@ describe('fetchOnItsHost', () => {
     'https://feeds.example:8443/raids/page',
     'http://feeds.example/raids/page',
     'http://mysql:3306/',
-    'http://192.168.1.1/',
+    'http://10.0.0.1/',
   ])('goes nowhere near %s', async (location) => {
     const { fetch, asked } = answering({ [HOME]: leadingTo(location) });
     await expect(fetchOnItsHost(fetch, HOME, init)).rejects.toThrow('another host');

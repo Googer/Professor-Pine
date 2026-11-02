@@ -67,6 +67,7 @@ npm run db:codegen     # regenerate src/db/types.ts (add `-- --verify` to check 
 npm run db:legacy-fixture   # regenerate the legacy schema fixture from the knex migrations
 npm run fixtures:game-data   # rebuild the game-data test fixtures (add -- --download for a newer game master)
 npm run raid-bosses:check    # download the raid boss feed and print the list Pine makes of it (writes nothing)
+npm run pvpivs:check         # compare /rank's link names with pvpivs.com's own list (writes nothing)
 npm run role-auth:export     # print the legacy role authorization per server, mapped to the new commands (reads only; --json)
 npm run emoji:upload         # upload the game's type, weather and team icons and the posts' button icons (legacy Pine's, `pictures/emoji/`) the bot's application lacks as its emoji (a dry run; --apply uploads)
 npm run settings:convert -- <legacy data folder> [--out <dir>] [--force]   # the settings converter on the checkout (as ./pine convert-settings)

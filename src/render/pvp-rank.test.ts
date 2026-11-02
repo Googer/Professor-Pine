@@ -71,6 +71,40 @@ describe('pvpivsLink', () => {
     expect(nameOf('tauros_paldea_blaze')).toBe('Tauros_Paldean');
     expect(nameOf('calyrex_shadow_rider')).toBe('Shadow_Rider_Calyrex');
   });
+
+  it('marks what the site’s list marks as speculative, released or not', () => {
+    const nameOf = (key: string) =>
+      /mon=([^&]*)/.exec(
+        pvpivsLink(entry(key), 'master', ivs, {
+          levelCap: 50,
+          sameDex: catalogue.byDex(entry(key).dex),
+        }),
+      )?.[1];
+    expect(nameOf('mewtwo_mega_y')).toBe('Mega_Mewtwo_Y_SPECULATIVE');
+    expect(nameOf('mewtwo_mega_x')).toBe('Mega_Mewtwo_X_SPECULATIVE');
+    expect(nameOf('raichu_mega_x')).toBe('Mega_Raichu_X_SPECULATIVE');
+    expect(nameOf('terapagos')).toBe('Terapagos_Normal_SPECULATIVE');
+    // Its own mega has the mark on the site; Mewtwo itself does not.
+    expect(nameOf('mewtwo')).toBe('Mewtwo');
+    expect(nameOf('charizard_mega_x')).toBe('Mega_Charizard_X');
+  });
+
+  it('names the forms the site has under another name', () => {
+    const nameOf = (key: string) =>
+      /mon=([^&]*)/.exec(
+        pvpivsLink(entry(key), 'great', ivs, {
+          levelCap: 50,
+          sameDex: catalogue.byDex(entry(key).dex),
+        }),
+      )?.[1];
+    expect(nameOf('zygarde')).toBe('Zygarde_Fifty_Percent');
+    expect(nameOf('zygarde_complete_fifty_percent')).toBe('Zygarde_Fifty_Percent');
+    expect(nameOf('zygarde_complete_ten_percent')).toBe('Zygarde_Ten_Percent');
+    expect(nameOf('minior')).toBe('Minior_Meteor');
+    for (const colour of ['blue', 'green', 'indigo', 'orange', 'red', 'violet', 'yellow']) {
+      expect(nameOf(`minior_${colour}`)).toBe('Minior_Core');
+    }
+  });
 });
 
 describe('rankColour', () => {
