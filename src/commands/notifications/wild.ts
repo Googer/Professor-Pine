@@ -200,7 +200,7 @@ export function wildChoices(ctx: WildReading, typed: string): Choice[] {
 
 /**
  * What `/wild` says to a member blocked from meetups who names a pin (plan 8Z, `blockedAtPin`):
- * a known place is still theirs to report at, and nobody else's pin is checked.
+ * a known place is still theirs to report at.
  */
 export const WILD_PIN_BLOCKED =
   'You are blocked from making meetups in this server, so you cannot report a wild Pokémon at a ' +

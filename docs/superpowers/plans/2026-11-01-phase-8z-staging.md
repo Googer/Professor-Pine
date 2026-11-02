@@ -5,7 +5,7 @@ Every step needs Matt's go-ahead. Matt starts the bot and restarts the stack whe
 - **Accounts:** Googer (the owner, staff), Tester (a member with the map's role), and a moderator: a role named `moderator` on Tester, with and without Manage Messages, where a step says so.
 - **Where:** the dev stack on the Air (`~/pine-dev.sh <command>`, `docs/guides/macos-host.md`) and its test server.
 - **Writes:** the parties and blocks of the steps are made in a region of the test server, and ended or lifted afterwards. No migration and no command definition changes: no deploy of commands.
-- **Settings:** `googleByHandPerMonth` is new, 500 unless set. Set it low on the dev stack (say 20), beside its low budget, before anything else: the two instances share one billing account.
+- **Settings:** `googleByHandPerMonth` is new, 500 unless set. Set it low on the dev stack (say 20), beside its low budget, before anything else.
 
 ## The Air: the socket proxy (item 9)
 

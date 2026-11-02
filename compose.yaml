@@ -105,7 +105,7 @@ services:
     # only what is told not to pull or has a build of its own.
     pull_policy: never
     command: ['node', '--enable-source-maps', 'dist/ops/watchdog-cli.js']
-    # Only what it needs of `.env`: no database password.
+    # Only what it needs of `.env`.
     environment:
       DISCORD_TOKEN: ${DISCORD_TOKEN:-}
       OWNER_ID: ${OWNER_ID:-}
@@ -137,12 +137,12 @@ services:
     pids_limit: 128
 
   # The one service that holds the Docker socket: a proxy that answers the watchdog, on a network
-  # with no way out that the two alone share, and refuses everything else. A rule is a regular
-  # expression of the path, which it anchors at both ends: the list, and this stack's bot by name
-  # to inspect and restart. So it never reads another container (with its environment, which is
-  # where a second stack on this machine keeps its token), and never makes one. Read-only `:ro`
-  # says nothing of what the API may do: these rules do. What it lets through was proved on an
-  # engine with a scratch container, a 150-second stop included (plan 8Z's staging checklist).
+  # with no way out that the two alone share. A rule is a regular expression of the path, which it
+  # anchors at both ends. It allows the list of containers, and this stack's bot by name to inspect
+  # and restart. It refuses everything else: create, exec, stop, kill, archive, logs, another
+  # container's inspect or restart. Read-only `:ro` says nothing of what the API may do: these
+  # rules do. They were proved on an engine with scratch containers, a 150-second stop included
+  # (plan 8Z's staging checklist).
   # It runs as root (user 0, no capabilities) where its own example gives the socket's group: that
   # group's id differs per host, and the socket's owner is root everywhere.
   docker-proxy:
