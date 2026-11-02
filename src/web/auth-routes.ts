@@ -25,6 +25,8 @@ const OAUTH_SECONDS = 600;
 const AUTH_PER_MINUTE = 20;
 /** A state: 16 random bytes, base64url. */
 const STATE = /^[A-Za-z0-9_-]{22}$/;
+/** An authorization code as Discord gives one: a short plain token. */
+const OAUTH_CODE = /^[A-Za-z0-9._~-]{1,128}$/;
 
 /** The attributes of the cookie of a login with Discord: for `/auth/` alone, ten minutes. */
 export function oauthCookie(secure: boolean, maxAge = OAUTH_SECONDS): CookieSerializeOptions {
@@ -105,6 +107,8 @@ export function authRoutes(app: FastifyInstance, deps: WebDeps): void {
       return failed('state');
     }
     if (typeof code !== 'string' || code === '') return failed('declined');
+    // Discord's codes are short plain tokens: anything else never reaches it (plan 8Z).
+    if (!OAUTH_CODE.test(code)) return failed('bad code');
     const token = await oauth.gateway.exchange(code, callbackUrl);
     if ('failed' in token) return failed(`exchange: ${token.failed}`);
     const user = await oauth.gateway.who(token.accessToken);

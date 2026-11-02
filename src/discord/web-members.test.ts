@@ -19,7 +19,7 @@ function apiError(code: number, status: number): DiscordAPIError {
  * `DiscordWebMembers` over a client whose cache has the one server, whose `members.fetch`
  * answers what `fetched` gives (or rejects with it); `asked` records each fetch's options.
  */
-function setup(fetched: () => unknown) {
+function setup(fetched: () => unknown, now: () => number = () => 1_000) {
   const asked: unknown[] = [];
   const guild = {
     members: {
@@ -31,7 +31,7 @@ function setup(fetched: () => unknown) {
     },
   };
   const client = { guilds: { cache: new Collection([[SERVER, guild]]) } } as unknown as Client;
-  return { members: new DiscordWebMembers(client), asked };
+  return { members: new DiscordWebMembers(client, now), asked };
 }
 
 /**
@@ -104,5 +104,54 @@ describe('the member who presses a button on the live map, asked of Discord', ()
   it('rejects when Discord cannot be asked', async () => {
     const { members } = setup(() => apiError(0, 503));
     await expect(members.acting(SERVER, USER)).rejects.toThrow();
+  });
+});
+
+describe('the forced fetch, shared for 2 seconds per member (plan 8Z)', () => {
+  const OTHER = '700000000000000002';
+
+  it('asks once for two asks at once, the one answer for both', async () => {
+    const held = Promise.withResolvers<unknown>();
+    const { members, asked } = setup(() => held.promise);
+    const first = members.acting(SERVER, USER);
+    const second = members.acting(SERVER, USER);
+    held.resolve(member('Alice', []));
+    expect(await first).toEqual(await second);
+    expect(asked).toHaveLength(1);
+  });
+
+  it('reuses the answer until 2 seconds after it came, not after it was asked', async () => {
+    const clock = { now: 1_000 };
+    const held = Promise.withResolvers<unknown>();
+    const { members, asked } = setup(
+      () => held.promise,
+      () => clock.now,
+    );
+    const first = members.acting(SERVER, USER);
+    clock.now += 500;
+    held.resolve(member('Alice', []));
+    await first;
+    clock.now += 1_999;
+    await members.acting(SERVER, USER);
+    expect(asked).toHaveLength(1);
+    clock.now += 1;
+    await members.acting(SERVER, USER);
+    expect(asked).toHaveLength(2);
+  });
+
+  it('keeps no failure: the next ask asks again', async () => {
+    let fails = true;
+    const { members, asked } = setup(() => (fails ? apiError(0, 503) : member('Alice', [])));
+    await expect(members.acting(SERVER, USER)).rejects.toThrow();
+    fails = false;
+    expect((await members.acting(SERVER, USER)).kind).toBe('member');
+    expect(asked).toHaveLength(2);
+  });
+
+  it('shares it with the same member of the same server alone', async () => {
+    const { members, asked } = setup(() => member('Alice', []));
+    await members.acting(SERVER, USER);
+    await members.acting(SERVER, OTHER);
+    expect(asked).toHaveLength(2);
   });
 });

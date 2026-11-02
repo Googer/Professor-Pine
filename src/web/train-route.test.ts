@@ -25,7 +25,7 @@ import { MAX_ROUTE_STOPS } from '../domain/party/party.js';
 import { PartyStatus } from '../domain/party/status.js';
 import type { PartiesView } from '../domain/web/party-data.js';
 import type { SavedRoutesView, TrainAnswer } from '../domain/web/train-data.js';
-import { UNREACHABLE } from './acting.js';
+import { MAP_WRITES_FULL, MAP_WRITES_PER_MINUTE, UNREACHABLE } from './acting.js';
 
 const WEST = 1;
 
@@ -110,6 +110,50 @@ describe("a train's route on the map", () => {
   afterEach(async () => {
     await web?.app.close();
     web = undefined;
+  });
+
+  describe('the map writes of a member in a minute (plan 8Z)', () => {
+    /**
+     * A route's stop added by Alice from a second address each time: the per-address limit, which
+     * a household shares, is not what is tried here. `drawn` is stale, so nothing changes.
+     */
+    const writing = (map: Awaited<ReturnType<typeof arranging>>, sent = map.headers) => {
+      let address = 0;
+      return async () => {
+        address += 1;
+        const answer = await map.web.app.inject({
+          method: 'POST',
+          url: `/s/${FAKE_GUILD_ID}/api/trains/${map.made.party.id}/route/add`,
+          headers: { ...sent, 'content-type': 'application/json' },
+          payload: JSON.stringify({ drawn: ['nothing'], stop: '2' }),
+          remoteAddress: `198.51.100.${address}`,
+        });
+        return {
+          status: answer.statusCode,
+          error: answer.json<{ error?: string }>().error,
+          retryAfter: answer.headers['retry-after'],
+        };
+      };
+    };
+
+    it('are refused past the limit before the forced fetch, 429 with the wait, in words the route mode shows', async () => {
+      const map = await arranging();
+      web = map.web;
+      const write = writing(map);
+      for (let use = 0; use < MAP_WRITES_PER_MINUTE; use += 1) {
+        expect((await write()).status).not.toBe(429);
+      }
+      expect(map.acting.asked).toHaveLength(MAP_WRITES_PER_MINUTE);
+      expect(await write()).toEqual({ status: 429, error: MAP_WRITES_FULL, retryAfter: '60' });
+      // No fetch for it.
+      expect(map.acting.asked).toHaveLength(MAP_WRITES_PER_MINUTE);
+      // Another member's own.
+      const bob = await map.web.posting(BOB, 'Bob');
+      expect((await writing(map, bob)()).status).not.toBe(429);
+      // A minute on, room again.
+      map.web.clock.now += 60_000;
+      expect((await write()).status).not.toBe(429);
+    });
   });
 
   it("adds a gym as /route add does: the line in the post, the command's words as text, the train as it is now", async () => {

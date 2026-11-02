@@ -32,6 +32,88 @@ describe('authorizeUrl', () => {
   });
 });
 
+describe("DiscordOAuth's limits (plan 8Z)", () => {
+  const CALLBACK = 'https://map.example.test/auth/callback';
+  /** An OAuth gateway over `answers`, on a clock the test moves. */
+  const limited = (...answers: Array<Response | Error>) => {
+    const { fetch, asked } = fakeFetch(...answers);
+    const clock = { now: 1_000_000 };
+    const oauth = new DiscordOAuth({
+      appId: APP,
+      secret: 's3cret',
+      fetch,
+      now: () => clock.now,
+    });
+    return { oauth, asked, clock };
+  };
+  const token = () => json({ access_token: 'tok' });
+  const tooMany = (retryAfter?: string) =>
+    new Response('{}', {
+      status: 429,
+      headers: retryAfter === undefined ? {} : { 'retry-after': retryAfter },
+    });
+
+  it('exchanges at most one code a second, failing fast above that without asking Discord', async () => {
+    const { oauth, asked, clock } = limited(token(), token());
+    expect(await oauth.exchange('one', CALLBACK)).toEqual({ accessToken: 'tok' });
+    expect(await oauth.exchange('two', CALLBACK)).toEqual({ failed: 'busy' });
+    expect(asked).toHaveLength(1);
+    clock.now += 999;
+    expect(await oauth.exchange('two', CALLBACK)).toEqual({ failed: 'busy' });
+    clock.now += 1;
+    expect(await oauth.exchange('two', CALLBACK)).toEqual({ accessToken: 'tok' });
+    expect(asked).toHaveLength(2);
+  });
+
+  it('stops for as long as a 429 says, every ask refused meanwhile', async () => {
+    const { oauth, asked, clock } = limited(tooMany('30'), token());
+    expect(await oauth.exchange('one', CALLBACK)).toEqual({ failed: 'status 429' });
+    clock.now += 29_999;
+    expect(await oauth.exchange('two', CALLBACK)).toEqual({ failed: 'busy' });
+    expect(await oauth.who('tok')).toEqual({ failed: 'busy' });
+    expect(asked).toHaveLength(1);
+    clock.now += 1;
+    expect(await oauth.exchange('two', CALLBACK)).toEqual({ accessToken: 'tok' });
+  });
+
+  it('reads a Retry-After with a fraction of a second', async () => {
+    const { oauth, clock } = limited(tooMany('1.5'), token());
+    await oauth.exchange('one', CALLBACK);
+    clock.now += 1_499;
+    expect(await oauth.exchange('two', CALLBACK)).toEqual({ failed: 'busy' });
+    clock.now += 1;
+    expect(await oauth.exchange('two', CALLBACK)).toEqual({ accessToken: 'tok' });
+  });
+
+  it.each([
+    ['missing', undefined],
+    ['unreadable', 'soon'],
+    ['negative', '-5'],
+  ])('waits 60 seconds when the Retry-After is %s', async (_what, header) => {
+    const { oauth, clock } = limited(tooMany(header), token());
+    await oauth.exchange('one', CALLBACK);
+    clock.now += 59_999;
+    expect(await oauth.exchange('two', CALLBACK)).toEqual({ failed: 'busy' });
+    clock.now += 1;
+    expect(await oauth.exchange('two', CALLBACK)).toEqual({ accessToken: 'tok' });
+  });
+
+  it('takes a 429 on who as a stop for the exchange too', async () => {
+    const { oauth, asked, clock } = limited(tooMany('10'), token());
+    expect(await oauth.who('tok')).toEqual({ failed: 'status 429' });
+    expect(await oauth.exchange('one', CALLBACK)).toEqual({ failed: 'busy' });
+    expect(asked).toHaveLength(1);
+    clock.now += 10_000;
+    expect(await oauth.exchange('one', CALLBACK)).toEqual({ accessToken: 'tok' });
+  });
+
+  it('never limits who by the second: it follows the exchange of the same login', async () => {
+    const { oauth } = limited(token(), json({ id: '123456789012345678', username: 'alice' }));
+    await oauth.exchange('one', CALLBACK);
+    expect(await oauth.who('tok')).toEqual({ id: '123456789012345678', name: 'alice' });
+  });
+});
+
 describe('DiscordOAuth', () => {
   it('exchanges a code for a token with the application id and secret, form-encoded', async () => {
     const { fetch, asked } = fakeFetch(json({ access_token: 'tok', token_type: 'Bearer' }));

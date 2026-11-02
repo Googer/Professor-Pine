@@ -49,6 +49,8 @@ import { DiscordMemberDirectory } from './discord/member-directory.js';
 import { managementRoleIdsOf } from './discord/guards.js';
 import { DiscordRegionStaff } from './discord/web-staff.js';
 import { DiscordWebMembers } from './discord/web-members.js';
+import { MAP_WRITES_PER_MINUTE } from './web/acting.js';
+import { RateLimiter } from './web/rate-limit.js';
 import { Throttles } from './discord/throttle.js';
 import { DiscordRoleGateway } from './discord/role-gateway.js';
 import { postedMessage } from './discord/screenshot-message.js';
@@ -1321,6 +1323,7 @@ export async function startApp(
         perSecond: MEMBER_LOOKUPS_PER_SECOND,
         setTimer: (run, ms) => LIVE_ON_THE_CLOCK.setTimer(run, ms),
       },
+      mapWrites: new RateLimiter({ uses: MAP_WRITES_PER_MINUTE, perMs: 60_000 }),
       sessions: webSessions,
       // "Log in with Discord" only with the client secret; the links of /maps work without it.
       oauth: config.env.DISCORD_CLIENT_SECRET

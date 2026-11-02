@@ -130,7 +130,10 @@ export async function editorViewer(
   const { userId } = session;
   let answer: StaffAnswer;
   try {
-    answer = await deps.editor.staff.check(guild, userId);
+    // The directory first (plan 8Z): somebody who is not in the server costs no forced fetch.
+    answer = (await deps.members.find(guild, userId))
+      ? await deps.editor.staff.check(guild, userId)
+      : { kind: 'not-member' };
   } catch (err) {
     deps.log.warn(
       { err, guild, user: userId },

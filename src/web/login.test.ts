@@ -154,6 +154,29 @@ describe('logging in with Discord', () => {
     ]);
   });
 
+  it('never asks Discord about a code that is no short plain token', async () => {
+    const oauth = new FakeOAuth();
+    web = webServerWith({ oauth });
+    for (const code of ['a'.repeat(129), 'has space', 'a/b', 'a%0Ab', 'a&b=c', '<x>']) {
+      const { state, cookie } = await started(web);
+      const answer = await web.app.inject({
+        url: `/auth/callback?code=${encodeURIComponent(code)}&state=${state}`,
+        headers: { cookie },
+      });
+      expect(answer.headers.location, code).toBe(`${MAP}?login=failed`);
+    }
+    expect(oauth.exchanged).toEqual([]);
+    // A code as Discord gives them goes through, to the edge of the length.
+    for (const code of ['a'.repeat(128), 'aZ09._~-']) {
+      const { state, cookie } = await started(web);
+      await web.app.inject({
+        url: `/auth/callback?code=${code}&state=${state}`,
+        headers: { cookie },
+      });
+    }
+    expect(oauth.exchanged).toHaveLength(2);
+  });
+
   it('says the login failed when Discord refuses, or the member declined', async () => {
     const oauth = new FakeOAuth().knows('good-code', { id: ASH, name: 'Ash' });
     oauth.whoFails = true;

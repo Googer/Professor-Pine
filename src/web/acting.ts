@@ -13,6 +13,12 @@ import type { WebDeps } from './server.js';
 export const UNREACHABLE =
   'Discord cannot be reached just now, so nothing can be changed. Try again in a moment.';
 
+/** The writes one member may send the map in a minute, counted before the forced fetch (plan 8Z). */
+export const MAP_WRITES_PER_MINUTE = 60;
+
+/** What a write answers past `MAP_WRITES_PER_MINUTE`. */
+export const MAP_WRITES_FULL = 'That was a lot of changes in a minute. Try again in a moment.';
+
 /** What a write answers a member who may not act in the server now. */
 const HELD_BACK: Readonly<Record<'timed-out' | 'pending', string>> = {
   'timed-out': 'You are timed out in this server, so you cannot do that now.',
@@ -29,7 +35,9 @@ export type Acting = { member: Member; standing: MemberStanding } | { sent: Fast
  * The checks of every write of a member on the map, in this order (spec 2.5): whether they are
  * a member (the member directory, kept a minute, also "not a member", and with the map's member
  * role one without it: 403 without asking Discord anything more, so that a non-member's writes
- * cost no fetch); the member fetched fresh (`ActingMembers`: not in the server, or without the
+ * cost no fetch); `MAP_WRITES_PER_MINUTE` of the member (429, plan 8Z: before the fetch, and a
+ * form's opening counts as a write does); the member fetched fresh, the answer shared for 2
+ * seconds (`ActingMembers`: not in the server, or without the
  * map's member role, 403 whatever they name, so that nobody but a member learns which ids
  * exist; timed out or not through the membership screening 403 in words of their own; Discord
  * unreachable 503, logged with `doing`). None of these counts against a throttle.
@@ -46,6 +54,16 @@ export async function actingOnTheMap(
   try {
     if (!(await deps.members.find(guild, userId))) {
       return { sent: sendFailure(request, reply, 403) };
+    }
+    const allowed = deps.mapWrites.take(userId, deps.now());
+    if (!allowed.ok) {
+      return {
+        sent: reply
+          .code(429)
+          .header('retry-after', String(allowed.retryAfterSeconds))
+          .header('cache-control', 'no-store')
+          .send({ error: MAP_WRITES_FULL }),
+      };
     }
     acting = await deps.parties.acting.acting(guild, userId);
   } catch (err) {

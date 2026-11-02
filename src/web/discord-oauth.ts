@@ -43,20 +43,57 @@ export function authorizeUrl(appId: string, redirectUri: string, state: string):
 
 type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
 
+/** One code exchange in this long, across the process (plan 8Z). */
+export const EXCHANGE_SPACING_MS = 1_000;
+/** How long a 429 without a readable `Retry-After` stops the logins. */
+const NO_RETRY_AFTER_MS = 60_000;
+/** The answer of a login over the limit, or while a 429 stops them. */
+const BUSY = { failed: 'busy' } as const;
+
+/** A `Retry-After` of seconds (Discord's may have a fraction) as milliseconds. */
+function retryAfterMs(header: string | null): number {
+  const seconds = header === null || header.trim() === '' ? Number.NaN : Number(header);
+  return Number.isFinite(seconds) && seconds >= 0 ? seconds * 1_000 : NO_RETRY_AFTER_MS;
+}
+
 /**
  * The real exchange (OAuth2 authorization code flow) with `fetch`: the code for a token
  * (form-encoded, the application's id and secret in the body), the token for `/users/@me`.
  * Each answer is read up to `MAX_ANSWER_BYTES` (`readLimitedJson`); a larger one fails. Every
  * failure is an answer saying why in a few words, never with the code, the token or the
  * secret; the token is used once and not kept.
+ *
+ * Discord limits this application's token asks, and a flood of logins must not get it stopped
+ * (plan 8Z): at most one `exchange` in `EXCHANGE_SPACING_MS` across the process, failing fast
+ * above that (`{ failed: 'busy' }`, without asking); a 429 on either stops both for as long as
+ * its `Retry-After` says (`NO_RETRY_AFTER_MS` when it says nothing readable).
  */
 export class DiscordOAuth implements OAuthGateway {
-  constructor(private readonly options: { appId: string; secret: string; fetch: Fetch }) {}
+  private readonly now: () => number;
+  private lastExchange: number | undefined;
+  private stoppedUntil: number | undefined;
+
+  constructor(
+    private readonly options: {
+      appId: string;
+      secret: string;
+      fetch: Fetch;
+      now?: () => number;
+    },
+  ) {
+    this.now = options.now ?? (() => Date.now());
+  }
 
   async exchange(
     code: string,
     redirectUri: string,
   ): Promise<{ accessToken: string } | { failed: string }> {
+    const now = this.now();
+    if (this.lastExchange !== undefined && now - this.lastExchange < EXCHANGE_SPACING_MS) {
+      return BUSY;
+    }
+    if (this.stopped(now)) return BUSY;
+    this.lastExchange = now;
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
       code,
@@ -77,6 +114,7 @@ export class DiscordOAuth implements OAuthGateway {
   }
 
   async who(accessToken: string): Promise<OAuthUser | { failed: string }> {
+    if (this.stopped(this.now())) return BUSY;
     const answer = await this.ask(`${API}/users/@me`, {
       headers: { authorization: `Bearer ${accessToken}` },
     });
@@ -92,6 +130,10 @@ export class DiscordOAuth implements OAuthGateway {
     return { id: user.id, name };
   }
 
+  private stopped(now: number): boolean {
+    return this.stoppedUntil !== undefined && now < this.stoppedUntil;
+  }
+
   private async ask(
     url: string,
     init: RequestInit,
@@ -102,6 +144,9 @@ export class DiscordOAuth implements OAuthGateway {
         signal: AbortSignal.timeout(TIMEOUT_MS),
       });
       if (!response.ok) {
+        if (response.status === 429) {
+          this.stoppedUntil = this.now() + retryAfterMs(response.headers.get('retry-after'));
+        }
         discardBody(response);
         return { failed: `status ${response.status}` };
       }

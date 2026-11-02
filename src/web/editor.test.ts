@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
+import { FakeMemberDirectory } from '../../test/support/members.js';
 import { keptRow } from '../../test/support/wayspot-cases.js';
 import {
   editorSourcesWith,
@@ -58,6 +59,46 @@ describe("the region editor's data", () => {
       `${FAKE_GUILD_ID}:${STAFF}`,
       `${FAKE_GUILD_ID}:${STAFF}`,
     ]);
+  });
+
+  it('asks the member directory first: a non-member is refused, and Discord is asked no forced fetch', async () => {
+    const editor = await editorSourcesWith([]);
+    const staff = new FakeRegionStaff();
+    web = webServerWith({ staff, editor, members: new FakeMemberDirectory().add(STAFF, 'Brock') });
+    const cookie = await web.loggedIn(MEMBER, 'Misty');
+    const refused = await web.app.inject({ url: DATA, headers: { cookie } });
+    expect(refused.statusCode).toBe(403);
+    expect(staff.asked).toEqual([]);
+    // The page and the writes go the same way.
+    const page = await web.app.inject({
+      url: `/s/${FAKE_GUILD_ID}/regions/edit`,
+      headers: { cookie },
+    });
+    expect(page.statusCode).toBe(403);
+    expect(staff.asked).toEqual([]);
+    const preview = await web.app.inject({
+      method: 'POST',
+      url: `/s/${FAKE_GUILD_ID}/api/regions/preview`,
+      headers: { ...(await web.posting(MEMBER, 'Misty')), 'content-type': 'application/json' },
+      payload: JSON.stringify({ changes: [] }),
+    });
+    expect(preview.statusCode).toBe(403);
+    expect(staff.asked).toEqual([]);
+    // A member goes on to be asked.
+    const brock = await web.loggedIn(STAFF, 'Brock');
+    await web.app.inject({ url: DATA, headers: { cookie: brock } });
+    expect(staff.asked).toEqual([`${FAKE_GUILD_ID}:${STAFF}`]);
+  });
+
+  it('takes a directory that cannot answer as Discord being away, not as nobody', async () => {
+    const editor = await editorSourcesWith([]);
+    const staff = new FakeRegionStaff().asStaff(STAFF);
+    const members = new FakeMemberDirectory().add(STAFF, 'Brock');
+    web = webServerWith({ staff, editor, members });
+    const cookie = await web.loggedIn(STAFF, 'Brock');
+    members.failing = new Error('Discord is away');
+    expect((await web.app.inject({ url: DATA, headers: { cookie } })).statusCode).toBe(503);
+    expect(staff.asked).toEqual([]);
   });
 
   it('gives the regions, gyms, Wayspots near them and the channels a new region may take', async () => {

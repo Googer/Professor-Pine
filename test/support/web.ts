@@ -13,6 +13,8 @@ import { RegionDirectory } from '../../src/services/region-directory.js';
 import type { OAuthGateway, OAuthUser } from '../../src/web/discord-oauth.js';
 import { EditorCache, type EditorSources } from '../../src/web/editor-cache.js';
 import { GeoCache, type GeoSources } from '../../src/web/geo-cache.js';
+import { MAP_WRITES_PER_MINUTE } from '../../src/web/acting.js';
+import { RateLimiter } from '../../src/web/rate-limit.js';
 import type { RegionStaffSource, StaffAnswer } from '../../src/web/region-staff.js';
 import { LoginLinks } from '../../src/web/login-links.js';
 import type { MapServer, MapServers } from '../../src/web/map-servers.js';
@@ -626,6 +628,8 @@ export interface WebTestOptions {
   trains?: TrainWebDeps;
   /** Making and changing meetups on the map (`meetupWebWith`); none by default. */
   meetups?: MeetupWebDeps;
+  /** The writes a member may send in a minute; the map's own by default. */
+  mapWrites?: RateLimiter;
   /** Max battles on the map: power spots, pick lists, reports (`maxWebWith`); none by default. */
   maxes?: MaxWebDeps;
   /** Reports at stops on the map (`stopWebWith`); none by default. */
@@ -829,6 +833,14 @@ class HandTimers {
  * `servers` says otherwise; sessions in memory, on a clock of the test's. Close `app` after the
  * test.
  */
+function membersForEditor(staff: RegionStaffSource | undefined): FakeMemberDirectory {
+  const members = new FakeMemberDirectory();
+  if (staff !== undefined) {
+    members.find = (_guildId, userId) => Promise.resolve({ id: userId, name: 'Member' });
+  }
+  return members;
+}
+
 export function webServerWith(options: WebTestOptions = {}): TestWeb {
   const { log, entries } = createTestLogger();
   const clock = { now: WEB_START };
@@ -868,8 +880,11 @@ export function webServerWith(options: WebTestOptions = {}): TestWeb {
     distanceUnits: options.distanceUnits ?? 'imperial',
     servers: options.servers ?? { has: (guildId) => guildId === FAKE_GUILD_ID },
     serversWithMap: serversWithMapOf(options.serversWithMap),
-    members: options.members ?? new FakeMemberDirectory(),
+    // Those a test of the region editor names by `staff` are not listed as members as well: the
+    // editor asks the directory first (plan 8Z), and a test of that gives its own.
+    members: options.members ?? membersForEditor(options.staff),
     memberPace: { perSecond: MEMBER_LOOKUPS_PER_SECOND, setTimer: liveTimers.setTimer },
+    mapWrites: options.mapWrites ?? new RateLimiter({ uses: MAP_WRITES_PER_MINUTE, perMs: 60_000 }),
     sessions: sessionService,
     oauth: gateway && { appId: TEST_APP_ID, gateway },
     loginLinks,

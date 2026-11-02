@@ -26,6 +26,7 @@ import type { MeetupWebDeps } from './meetup-routes.js';
 import { PacedMembers, type MemberPace, type PacedDirectory } from './paced-members.js';
 import { HASHED_NAME, type WebAssets } from './page.js';
 import type { PartyWebDeps } from './party-routes.js';
+import type { RateLimiter } from './rate-limit.js';
 import type { RaidWebDeps } from './raid-routes.js';
 import type { Sessions } from './sessions.js';
 import type { SpawnWebDeps } from './spawn-routes.js';
@@ -60,6 +61,8 @@ export interface WebDeps {
   members: PacedDirectory;
   /** How fast the map's own asks may cause fresh look-ups of members (`PacedMembers`). */
   memberPace: MemberPace;
+  /** The writes of a member on the map, by their id (`MAP_WRITES_PER_MINUTE`, plan 8Z). */
+  mapWrites: RateLimiter;
   sessions: Sessions;
   /** "Log in with Discord": the application and Discord's side; undefined without the secret. */
   oauth: { appId: string; gateway: OAuthGateway } | undefined;
