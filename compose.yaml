@@ -154,9 +154,16 @@ services:
       SP_ALLOWFROM: 0.0.0.0/0
       SP_ALLOW_GET: '(/v[0-9.]+)?/containers/(json|${COMPOSE_PROJECT_NAME:-pine}-pine-[0-9]+/json)'
       SP_ALLOW_POST: '(/v[0-9.]+)?/containers/${COMPOSE_PROJECT_NAME:-pine}-pine-[0-9]+/restart'
+      # For the binary below alone, on 127.0.0.1 inside the container.
+      SP_ALLOWHEALTHCHECK: 'true'
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock:ro
     networks: [docker-proxy]
+    healthcheck:
+      test: ['CMD', './healthcheck']
+      interval: 30s
+      timeout: 5s
+      retries: 3
     restart: unless-stopped
     logging: *logging
     read_only: true

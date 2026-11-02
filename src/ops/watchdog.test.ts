@@ -1,10 +1,13 @@
+import { mkdtempSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { composeLabels, FakeDockerApi } from '../../test/support/fake-docker.js';
 import { FakeAlertRest } from '../../test/support/fake-rest.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import type { BackupsOff, BackupStatus } from './backup-status.js';
 import { MemoryStamps, OwnerAlerts } from './owner-alerts.js';
-import { MemoryWatchdogState, Watchdog, watchdogConfig } from './watchdog.js';
+import { FileWatchdogState, MemoryWatchdogState, Watchdog, watchdogConfig } from './watchdog.js';
 
 const START = Date.UTC(2026, 9, 16, 12, 0);
 const MINUTE = 60_000;
@@ -406,6 +409,134 @@ describe('Watchdog: backups', () => {
       `No backup has run since the watchdog started at <t:${START / 1000}:f>. ` +
         "'./pine logs backup' shows why.",
     ]);
+  });
+});
+
+describe('Watchdog: Docker out of its reach', () => {
+  const REFUSED = new Error('the Docker Engine answered 403 to GET /containers/json');
+  const AWAY = new Error('connect ECONNREFUSED docker-proxy:2375');
+  const told = (text: string) => text.includes('cannot reach Docker');
+
+  it.each([
+    ['refuses', REFUSED],
+    ['does not answer', AWAY],
+  ])('tells the owner once, after the alert time, when the proxy %s', async (_how, failure) => {
+    const { docker, rest, watchdog, clock } = watchdogWith({ backupService: false });
+    docker.failWith = failure;
+    await watchdog.tick();
+    clock.now += 15 * MINUTE - 1;
+    await watchdog.tick();
+    expect(rest.messages()).toEqual([]);
+    clock.now += 1;
+    await watchdog.tick();
+    expect(rest.messages()).toEqual([
+      `The watchdog cannot reach Docker, for 15 minutes now (${failure.message}), so it cannot ` +
+        "restart a stuck bot. './pine logs docker-proxy' shows why.",
+    ]);
+    clock.now += 2 * HOUR;
+    await watchdog.tick();
+    expect(rest.messages()).toHaveLength(1);
+  });
+
+  it('counts a spell only while the asks fail in a row: a good ask clears it', async () => {
+    const { docker, rest, watchdog, clock } = watchdogWith({ backupService: false });
+    docker.failWith = AWAY;
+    await watchdog.tick();
+    clock.now += 14 * MINUTE;
+    await watchdog.tick();
+    docker.failWith = undefined;
+    await watchdog.tick();
+    docker.failWith = AWAY;
+    clock.now += 14 * MINUTE;
+    await watchdog.tick();
+    clock.now += 14 * MINUTE;
+    await watchdog.tick();
+    expect(rest.messages()).toEqual([]);
+  });
+
+  it('tells again of a new spell after a good ask', async () => {
+    const { docker, rest, watchdog, clock } = watchdogWith({ backupService: false });
+    docker.failWith = AWAY;
+    await watchdog.tick();
+    clock.now += 15 * MINUTE;
+    await watchdog.tick();
+    expect(rest.messages().filter(told)).toHaveLength(1);
+    docker.failWith = undefined;
+    await watchdog.tick();
+    docker.failWith = AWAY;
+    clock.now += HOUR;
+    await watchdog.tick();
+    clock.now += 15 * MINUTE;
+    await watchdog.tick();
+    expect(rest.messages().filter(told)).toHaveLength(2);
+  });
+
+  it('tries again when the message did not go out', async () => {
+    const { docker, rest, watchdog, clock } = watchdogWith({ backupService: false });
+    docker.failWith = AWAY;
+    await watchdog.tick();
+    clock.now += 15 * MINUTE;
+    rest.failWith = new Error('Discord is away');
+    await watchdog.tick();
+    expect(rest.messages()).toEqual([]);
+    rest.failWith = undefined;
+    clock.now += MINUTE;
+    await watchdog.tick();
+    expect(rest.messages().filter(told)).toHaveLength(1);
+  });
+
+  it('keeps the spell and what it told across its own restarts', async () => {
+    const state = new MemoryWatchdogState();
+    const first = watchdogWith({ backupService: false, state });
+    first.docker.failWith = AWAY;
+    await first.watchdog.tick();
+    first.clock.now += 10 * MINUTE;
+    await first.watchdog.tick();
+
+    const second = watchdogWith({ backupService: false, state });
+    second.docker.failWith = AWAY;
+    second.clock.now = first.clock.now + 5 * MINUTE;
+    await second.watchdog.tick();
+    expect(second.rest.messages().filter(told)).toHaveLength(1);
+
+    const third = watchdogWith({ backupService: false, state });
+    third.docker.failWith = AWAY;
+    third.clock.now = second.clock.now + 5 * MINUTE;
+    await third.watchdog.tick();
+    expect(third.rest.messages()).toEqual([]);
+  });
+
+  it('still tells the owner when what it told cannot be kept', async () => {
+    const state = new MemoryWatchdogState();
+    state.write = () => undefined;
+    const { docker, rest, watchdog, clock } = watchdogWith({ backupService: false, state });
+    docker.failWith = AWAY;
+    await watchdog.tick();
+    clock.now += 15 * MINUTE;
+    await watchdog.tick();
+    expect(rest.messages().filter(told)).toHaveLength(1);
+    clock.now += HOUR;
+    await watchdog.tick();
+    expect(rest.messages().filter(told)).toHaveLength(1);
+  });
+});
+
+describe('FileWatchdogState', () => {
+  it('keeps a spell of Docker out of reach, and reads it back', () => {
+    const { log } = createTestLogger();
+    const file = path.join(mkdtempSync(path.join(tmpdir(), 'pine-state-')), 'state.json');
+    new FileWatchdogState(file, log).write({ dockerAway: { since: 5, told: true } });
+    expect(new FileWatchdogState(file, log).read()).toEqual({
+      dockerAway: { since: 5, told: true },
+    });
+  });
+
+  it('says so in the log when it cannot write', () => {
+    const { log, entries } = createTestLogger();
+    const folder = mkdtempSync(path.join(tmpdir(), 'pine-state-'));
+    writeFileSync(path.join(folder, 'a-file'), '');
+    new FileWatchdogState(path.join(folder, 'a-file', 'state.json'), log).write({ toldOff: true });
+    expect(entries.map((entry) => entry.msg)).toContain('could not keep what the watchdog told');
   });
 });
 

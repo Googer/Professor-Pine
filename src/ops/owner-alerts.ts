@@ -16,6 +16,7 @@ export type AlertKind =
   | 'backup'
   | 'backup-missing'
   | 'backups-off'
+  | 'docker-away'
   | 'rehearsal';
 
 /** What became of an alert: sent, held back by the interval, or failed (logged). */
@@ -49,10 +50,13 @@ export class MemoryStamps implements AlertStamps {
 /**
  * Stamps in a small JSON file (`var/health/alerts.json`), so that the interval holds across the
  * restarts of a bot that crashes at every start. A file that cannot be read counts as empty; one
- * that cannot be written only costs the interval.
+ * that cannot be written is logged, and only costs the interval.
  */
 export class FileStamps implements AlertStamps {
-  constructor(private readonly file: string) {}
+  constructor(
+    private readonly file: string,
+    private readonly log: Pick<Logger, 'warn'>,
+  ) {}
 
   last(kind: AlertKind): number | undefined {
     const at = this.read()[kind];
@@ -65,8 +69,9 @@ export class FileStamps implements AlertStamps {
       const next = `${this.file}.next`;
       writeFileSync(next, JSON.stringify({ ...this.read(), [kind]: at }));
       renameSync(next, this.file);
-    } catch {
+    } catch (err) {
       // The alert went out; only its interval is not remembered.
+      this.log.warn({ err, file: this.file }, 'could not keep when an alert went out');
     }
   }
 

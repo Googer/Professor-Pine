@@ -1,4 +1,4 @@
-import { mkdtempSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -75,15 +75,24 @@ describe('OwnerAlerts', () => {
       'alerts.json',
     );
     const at = { now: Date.UTC(2026, 9, 16, 3, 0) };
-    const before = alertsWith({ stamps: new FileStamps(file), at });
+    const { log } = createTestLogger();
+    const before = alertsWith({ stamps: new FileStamps(file, log), at });
     await before.alerts.send('fatal', 'crash one');
 
     at.now += MINUTE;
-    const after = alertsWith({ stamps: new FileStamps(file), at });
+    const after = alertsWith({ stamps: new FileStamps(file, log), at });
     expect(await after.alerts.send('fatal', 'crash two')).toBe('held');
     at.now += 15 * MINUTE;
     expect(await after.alerts.send('fatal', 'crash three')).toBe('sent');
     expect(after.rest.messages()).toEqual(['crash three']);
+  });
+
+  it('says so in the log when the stamps cannot be written', () => {
+    const { log, entries } = createTestLogger();
+    const folder = mkdtempSync(path.join(tmpdir(), 'pine-alerts-'));
+    writeFileSync(path.join(folder, 'a-file'), '');
+    new FileStamps(path.join(folder, 'a-file', 'alerts.json'), log).set('fatal', 1);
+    expect(entries.map((entry) => entry.msg)).toContain('could not keep when an alert went out');
   });
 
   it('logs a failed alert and does not throw; the next one is not held back', async () => {

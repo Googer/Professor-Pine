@@ -39,7 +39,7 @@ if (!project) {
 const alerts = ownerAlertsFrom(
   process.env,
   log,
-  new FileStamps(path.join(STATE_DIR, 'watchdog-alerts.json')),
+  new FileStamps(path.join(STATE_DIR, 'watchdog-alerts.json'), log),
 );
 if (!alerts)
   log.warn('DISCORD_TOKEN or OWNER_ID is missing: the watchdog tells nobody what it does');
@@ -57,7 +57,7 @@ const watchdog = new Watchdog({
     read: () => readBackupStatus(config.backupStatusFile),
     maxAgeMs: config.backupMaxAgeMs,
   },
-  state: new FileWatchdogState(path.join(STATE_DIR, 'watchdog-state.json')),
+  state: new FileWatchdogState(path.join(STATE_DIR, 'watchdog-state.json'), log),
 });
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {

@@ -62,6 +62,10 @@ The proxy's rules, its linux/amd64 run and a 150-second stop were proved on the 
 
 24. **Manage Messages.** Tester with the role `moderator` and without Manage Messages: no Delete… in a party's post on the map; `POST …/close` by hand is refused. Give Manage Messages: within a minute or two Delete… shows, and works. Googer, the owner, has it whatever the roles.
 
+### The watchdog without Docker (item 9)
+
+25. **The owner told.** On the dev stack, `docker stop <project>-docker-proxy-1`. `sh ~/pine-dev.sh logs watchdog` says `could not ask Docker about the bot` at each look. After `WATCHDOG_ALERT_MINUTES` (15) the owner gets one DM, "The watchdog cannot reach Docker …", and no second one. `docker start <project>-docker-proxy-1`: the log is quiet again. Stop it once more for the alert time: a new DM (at least 15 minutes after the last). Start it.
+
 ## Afterwards
 
-25. **Cleanup.** The block lifted, the settings back, the parties ended.
+26. **Cleanup.** The block lifted, the settings back, the parties ended, the proxy running.

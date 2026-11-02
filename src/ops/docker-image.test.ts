@@ -170,6 +170,12 @@ describe('compose.yaml', () => {
       expect(read('Dockerfile')).toMatch(/^RUN .*mkdir -p .*\/watchdog\b.*chown .*node:node/m);
     });
 
+    it('checks the proxy’s health with the binary its image carries', () => {
+      const proxy = service('docker-proxy');
+      expect(proxy).toMatch(/^ {6}SP_ALLOWHEALTHCHECK: 'true'\r?$/m);
+      expect(proxy).toMatch(/^ {6}test: \['CMD', '\.\/healthcheck'\]\r?$/m);
+    });
+
     it('runs the proxy with nothing to write and little to use', () => {
       const proxy = service('docker-proxy');
       expect(proxy).toMatch(/^ {4}read_only: true\r?$/m);

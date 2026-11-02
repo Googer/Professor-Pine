@@ -104,6 +104,14 @@ export interface WatchdogMemory {
   toldMissing?: number;
   /** Whether the owner was told that this stack's backups are off. */
   toldOff?: boolean;
+  /** Since when every ask of Docker about the bot failed, and whether the owner was told. */
+  dockerAway?: DockerAway;
+}
+
+/** A spell of Docker out of the watchdog's reach. */
+export interface DockerAway {
+  since: number;
+  told: boolean;
 }
 
 /** Where the watchdog keeps what it told. */
@@ -126,20 +134,27 @@ export class MemoryWatchdogState implements WatchdogState {
 }
 
 /**
- * In a small JSON file of the `ops` volume (`/ops/watchdog-state.json`), so that a watchdog
- * recreated by `./pine update` does not tell again what it told. A file that cannot be read
- * counts as empty; one that cannot be written only costs a repeated alert.
+ * In a small JSON file of the watchdog's own volume (`/watchdog/watchdog-state.json`), so that a
+ * watchdog recreated by `./pine update` does not tell again what it told. A file that cannot be
+ * read counts as empty; one that cannot be written is logged, and only costs a repeated alert.
  */
 export class FileWatchdogState implements WatchdogState {
-  constructor(private readonly file: string) {}
+  constructor(
+    private readonly file: string,
+    private readonly log: Pick<Logger, 'warn'>,
+  ) {}
 
   read(): WatchdogMemory {
     try {
       const raw = JSON.parse(readFileSync(this.file, 'utf8')) as Record<string, unknown>;
+      const away = raw.dockerAway as Partial<DockerAway> | undefined;
       return {
         ...(typeof raw.toldFailure === 'number' ? { toldFailure: raw.toldFailure } : {}),
         ...(typeof raw.toldMissing === 'number' ? { toldMissing: raw.toldMissing } : {}),
         ...(raw.toldOff === true ? { toldOff: true } : {}),
+        ...(typeof away?.since === 'number'
+          ? { dockerAway: { since: away.since, told: away.told === true } }
+          : {}),
       };
     } catch {
       return {};
@@ -151,8 +166,9 @@ export class FileWatchdogState implements WatchdogState {
       mkdirSync(path.dirname(this.file), { recursive: true });
       writeFileSync(`${this.file}.next`, JSON.stringify(memory));
       renameSync(`${this.file}.next`, this.file);
-    } catch {
+    } catch (err) {
       // Only an alert may be told twice.
+      this.log.warn({ err, file: this.file }, 'could not keep what the watchdog told');
     }
   }
 }
@@ -218,24 +234,63 @@ export class Watchdog {
   private saidNoBackups = false;
   /** Whether the backup service said backups are off, and that was logged. */
   private saidBackupsOff = false;
+  /** The spell of Docker out of reach, as kept across the watchdog's restarts. */
+  private dockerAway: DockerAway | undefined;
 
   constructor(private readonly options: WatchdogOptions) {
     this.now = options.now ?? Date.now;
     this.startedAt = this.now();
+    this.dockerAway = options.state.read().dockerAway;
   }
 
   /** One look at the bot and the backups. Never throws. */
   async tick(): Promise<void> {
     try {
       await this.watchBot();
+      this.dockerAnswered();
     } catch (err) {
       this.options.log.warn({ err }, 'could not ask Docker about the bot');
+      await this.dockerDidNotAnswer(err);
     }
     try {
       await this.watchBackups();
     } catch (err) {
       this.options.log.warn({ err }, 'could not ask Docker about the backups');
     }
+  }
+
+  /** An ask about the bot went through: a spell of Docker out of reach is over. */
+  private dockerAnswered(): void {
+    if (this.dockerAway === undefined) return;
+    this.dockerAway = undefined;
+    const { dockerAway: _over, ...memory } = this.options.state.read();
+    this.options.state.write(memory);
+  }
+
+  /**
+   * An ask about the bot failed: the proxy is gone or refuses, so a stuck bot would not be
+   * restarted and nothing else would say so. After `alertMs` of asks failing in a row the owner is
+   * told, once per spell (remembered only once it went out: an alert that failed or was held back
+   * is tried again at the next look). Kept with what else it told, for its own restarts; held in
+   * memory too, so that a state that cannot be written does not silence it.
+   */
+  private async dockerDidNotAnswer(err: unknown): Promise<void> {
+    const { alerts, alertMs, state } = this.options;
+    const now = this.now();
+    const spell = this.dockerAway ?? { since: now, told: false };
+    const isNew = this.dockerAway === undefined;
+    this.dockerAway = spell;
+    if (isNew) state.write({ ...state.read(), dockerAway: spell });
+    if (spell.told || now - spell.since < alertMs) return;
+    const minutes = Math.round((now - spell.since) / 60_000);
+    const outcome = await alerts.send(
+      'docker-away',
+      `The watchdog cannot reach Docker, for ${minutes} minutes now (${firstLine(err)}), so it ` +
+        "cannot restart a stuck bot. './pine logs docker-proxy' shows why.",
+    );
+    if (outcome !== 'sent') return;
+    this.dockerAway = { ...spell, told: true };
+    state.write({ ...state.read(), dockerAway: this.dockerAway });
   }
 
   private async watchBot(): Promise<void> {

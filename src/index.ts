@@ -9,7 +9,7 @@ import { REHEARSAL_ALERT } from './services/rehearsal.js';
 // The owner's alerts and the crash marker work before the config is read and after it failed:
 // they need only the token and OWNER_ID, and log through a logger of their own.
 const opsLog = loggerFromEnv(process.env);
-const alerts = ownerAlertsFrom(process.env, opsLog, new FileStamps(healthFiles().alerts));
+const alerts = ownerAlertsFrom(process.env, opsLog, new FileStamps(healthFiles().alerts, opsLog));
 const crashes = new CrashRecord({ dir: HEALTH_DIR });
 // Two bots with one token answer every interaction twice, each from its own parties in memory.
 const other = crashes.runningElsewhere();
