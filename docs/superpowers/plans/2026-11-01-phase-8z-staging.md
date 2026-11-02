@@ -2,7 +2,7 @@
 
 Every step needs Matt's go-ahead. Matt starts the bot and restarts the stack where a step says so. Claude drives the map and Discord in its own tab as Googer; Matt's hand is needed with Tester.
 
-- **Accounts:** Googer (the owner, staff), Tester (a member with the map's role), and a moderator: a role named `moderator` on Tester, with and without Manage Messages, where a step says so.
+- **Accounts:** two. Googer is the owner, so always staff. Tester is a member with the map's role, and a moderator where a step says so: a role named `moderator` on Tester, with or without Manage Messages.
 - **Where:** the dev stack on the Air (`~/pine-dev.sh <command>`, `docs/guides/macos-host.md`) and its test server.
 - **Writes:** the parties and blocks of the steps are made in a region of the test server, and ended or lifted afterwards. No migration and no command definition changes: no deploy of commands.
 - **Settings:** `googleByHandPerMonth` is new, 500 unless set. Set it low on the dev stack (say 20), beside its low budget, before anything else.
@@ -24,14 +24,14 @@ The proxy's rules, its linux/amd64 run and a 150-second stop were proved on the 
 
 ### Meetups after approval (item 1)
 
-9. **The rule on Discord.** In a meetup made by Tester, Googer without staff (or a third account) uses `/name` and `/info`: refused in plain words. Tester's own work; a moderator's too, without a sign-up. A train's `/name` still works for anybody in the post.
+9. **The rule on Discord.** In a meetup Googer made, Tester uses `/name` and `/info`: refused in plain words. Googer's own work. With the role `moderator`, Tester's work too, without a sign-up; take the role off again. In a train Googer made, Tester's `/name` works.
 10. **The block.** Block Tester from a request's post, with a meetup of Tester's whose closing is made to fail, or block by hand in the database: Tester's `/name` and `/info` are refused with Appeal…; a form open since before the block is refused at Submit with the text given back; the map's Manage… is refused for the name and the information, and takes the times.
-11. **The moderators told.** Tester's meetup at a pin, approved once. Tester renames it and changes its information from Discord, then from the map: a message for each in the moderators' channel, with who, the new text, Go to post and Go to request (both open the right place). Staff's own change is told too. A meetup that needed no approval tells nobody. Names and information with markdown, a link and `@everyone` show as plain text.
+11. **The moderators told.** Tester's meetup at a pin, approved once. Tester renames it and changes its information from Discord, then from the map: a message for each in the moderators' channel, with who, the new text, Go to post and Go to request (both open the right place). Googer's own change is told too. Markdown, `@everyone` and a masked link `[text](address)` in a name or the information show as plain text; a bare address stays a link, as `plain()` leaves it on purpose.
 12. **The safety off.** With no `channels.moderation`: `/name` and `/info` still follow the rule, nothing is told, and no error is logged.
 
 ### Pins in `/wild near:` (item 2)
 
-13. **Blocked.** Tester blocked: `/wild near:` with a maps link is refused, uncounted, naming the way out; `near:` a gym, or none, reports. On the map, Tester's every spawn report is refused with the map's words. Lift the block: all work again. Another member's pin works throughout.
+13. **Blocked.** Tester blocked: `/wild near:` with a maps link is refused, uncounted, naming the way out; `near:` a gym, or none, reports. On the map, Tester's every spawn report is refused with the map's words. Lift the block: all work again.
 
 ### Role-gated forums (item 3)
 
@@ -44,13 +44,13 @@ The proxy's rules, its linux/amd64 run and a 150-second stop were proved on the 
 ### Floods (item 5)
 
 16. **A split in `/train`'s limit.** As a member: split a group off (Split…): done. `/train` once: done. Split… again: refused before the dialog opens, "You can use /train again in …". On the map the form says "You can do that again in …". A refused Submit (the groups changed meanwhile) gives its use back.
-17. **Staff too.** As Googer without being the owner, or a moderator: the third split in 15 minutes waits. The help of `/group split` says so.
-18. **Five open.** Tester with five open trains and meetups (a pin's meetup waiting for a moderator among them): `/train`, `/meetup`, Split… and the map's forms are refused in one sentence, uncounted. A moderator approving Tester's waiting meetup still works. A moderator is held to no cap.
+17. **Staff too.** With the role `moderator` on Tester: the third split in 15 minutes waits. The help of `/group split` says so.
+18. **Five open.** Tester with five open trains and meetups (a pin's meetup waiting for a moderator among them): `/train`, `/meetup`, Split… and the map's forms are refused in one sentence, uncounted. Googer approving Tester's waiting meetup still works. Googer is held to no cap.
 
 ### Map and login load (item 6)
 
 19. **The writes.** On the map, laying a route at full speed for a minute: past 60 writes the answer under the route mode says "That was a lot of changes in a minute", the mode stays open, and a moment later it works.
-20. **The editor.** Logged in as an account that is no member of the server: the region editor's address answers 403, and the bot's debug log shows no member fetch beyond the directory's.
+20. **The editor.** Tester, logged in, leaves the server for this step: the region editor's address answers 403, and the bot's debug log shows no member fetch beyond the directory's (it keeps a member for a minute or so, so wait that out first). Tester joins again, and gets the roles back.
 21. **Logging in.** Log in with Discord twice within a second from two browsers: one gets `?login=failed`, and the log says `exchange: busy`; a moment later it works. An address `/auth/callback?code=<200 characters>&state=…` from a started login fails without asking Discord (the log says `bad code`).
 
 ### Google by hand (item 7)
