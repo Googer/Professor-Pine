@@ -912,7 +912,9 @@ export async function startApp(
   };
   const commands = enabledCommands(allCommands, config);
   const messageCommands = enabledMessageCommands(allMessageCommands, config);
+  const throttles = new Throttles();
   const ctx: AppContext = {
+    throttles,
     config,
     log,
     db,
@@ -1022,10 +1024,7 @@ export async function startApp(
   wildExceptionsOf(ctx);
   // The uses of commands and controls, counted by the router and by the live map, whose presses
   // of a party's buttons count as clicks on the post (plan 8M-3).
-  const throttles = new Throttles();
-  const router = new InteractionRouter(ctx, [...commands, ...messageCommands], components, {
-    throttles,
-  });
+  const router = new InteractionRouter(ctx, [...commands, ...messageCommands], components);
   // The region's board is open to members' commands, and what they write there is deleted
   // (plan 8R-9F); after any message there the summary checks its pin (B7, review W6).
   const boardKeeper = new BoardKeeper({

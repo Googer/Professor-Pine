@@ -2,8 +2,9 @@ import { SlashCommandBuilder, type ChatInputCommandInteraction } from 'discord.j
 import type { AppContext } from '../../app-context.js';
 import { DATE_EXAMPLE, type SimpleCommand } from '../../discord/command.js';
 import { UserError } from '../../discord/errors.js';
-import { regionChannelOf, requireGuild } from '../../discord/guards.js';
+import { guildIdOf, isStaff, regionChannelOf, requireGuild } from '../../discord/guards.js';
 import type { Throttle } from '../../discord/throttle.js';
+import { MAX_OPEN_PARTIES } from '../../domain/party/open-parties.js';
 import {
   attendeeOf,
   isTrainAtEnd,
@@ -18,6 +19,7 @@ import {
   TRAIN_KIND_WORDS,
   trainKindChoice,
 } from '../../render/train-words.js';
+import { OPEN_PARTIES_FULL, openPartiesFull } from '../parties/open-parties.js';
 import { actingMember } from '../parties/reply.js';
 import { newPartyTimes, requirePlaceForNew, typedTimedTime } from '../parties/timed.js';
 import { DISCORD_NAMES } from '../raids/report.js';
@@ -114,7 +116,8 @@ export const train: SimpleCommand = {
       'also before the train has a stop.\n\n`start` says when it starts, as `/meet` takes it, so ' +
       'that a train planned days ahead says so from the first; its route can wait until the ' +
       'day.\n\nA train is archived an hour after it is over: after its end, or without one a day ' +
-      'after its start. One without any time goes a day after it was made; its post says when.',
+      'after its start. One without any time goes a day after it was made; its post says when.' +
+      `\n\nYou may have ${MAX_OPEN_PARTIES} open trains and meetups at a time, here and on the map.`,
     examples: [
       '/train name:Saturday legendaries',
       '/train name:Park loop at-end:Loop',
@@ -127,6 +130,13 @@ export const train: SimpleCommand = {
     // A start it cannot read is refused before anything is made, and is not counted.
     (interaction, ctx) => {
       if (interaction.isChatInputCommand()) typedStart(interaction, ctx);
+    },
+    // As many open trains and meetups as one member may have (plan 8Z): not counted either.
+    async (interaction, ctx) => {
+      const staff = isStaff(interaction, ctx);
+      if (await openPartiesFull(ctx, guildIdOf(interaction), interaction.user.id, staff)) {
+        throw new UserError(OPEN_PARTIES_FULL);
+      }
     },
   ],
   defer: 'ephemeral',

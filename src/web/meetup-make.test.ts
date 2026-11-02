@@ -15,7 +15,9 @@ import {
 } from '../../test/support/meetup-safety-service.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
 import { textOf } from '../../test/support/messages.js';
-import { ALICE, at, BOB, PARTY_NOW } from '../../test/support/parties.js';
+import { ALICE, at, BOB, PARTY_NOW, testTrain } from '../../test/support/parties.js';
+import { OPEN_PARTIES_FULL } from '../commands/parties/open-parties.js';
+import { MAX_OPEN_PARTIES } from '../domain/party/open-parties.js';
 import { createTestContext } from '../../test/support/test-context.js';
 import { keptRow, wayspotId } from '../../test/support/wayspot-cases.js';
 import { wayspotsWith } from '../../test/support/wayspots.js';
@@ -212,6 +214,24 @@ describe('making a meetup on the map', () => {
     expect((await map.make(asked({ kind: 'gym', id: '10' }))).status).toBe(422);
     expect((await map.make(asked({ kind: 'stop', id: wayspotId(99) }))).status).toBe(422);
     expect((await map.make(asked({ lat: 40.5, lon: -80.05 }))).status).toBe(422);
+    expect(map.throttles.use('meetup', ALICE, MEETUP_THROTTLE, PARTY_NOW)).toBeUndefined();
+  });
+
+  it('refuses past the cap of open trains and meetups (plan 8Z), before its limit; requests waiting count', async () => {
+    const map = await making();
+    web = map.web;
+    for (let n = 0; n < MAX_OPEN_PARTIES - 1; n += 1) {
+      await map.made.store.add({
+        ...testTrain({ id: `00000000-0000-4000-8000-00000000010${n}`, createdById: ALICE }),
+        forumChannelId: WEST_FORUM,
+        forumPostId: `30000000000000010${n}`,
+      });
+    }
+    await map.made.held({ maker: { id: ALICE, name: 'Alice' } });
+    const refused = await map.make(asked({ kind: 'gym', id: '2' }));
+    expect(refused).toMatchObject({ status: 422, json: { ok: false, text: OPEN_PARTIES_FULL } });
+    expect(map.meetups()).toEqual([]);
+    expect(map.throttles.use('meetup', ALICE, MEETUP_THROTTLE, PARTY_NOW)).toBeUndefined();
     expect(map.throttles.use('meetup', ALICE, MEETUP_THROTTLE, PARTY_NOW)).toBeUndefined();
   });
 

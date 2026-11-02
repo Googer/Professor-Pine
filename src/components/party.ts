@@ -13,7 +13,7 @@ import { submitPartyReport } from '../commands/parties/report.js';
 import { openManage, openMove, submitManage, submitMove } from '../commands/trains/move.js';
 import { RAID_IS_OVER } from '../commands/raids/raid-input.js';
 import { showWholeRoute } from '../commands/trains/route.js';
-import { openSplit, submitSplit } from '../commands/trains/split.js';
+import { openSplit, SPLIT_WINDOW, submitSplit } from '../commands/trains/split.js';
 import { MEET_WINDOW } from '../commands/parties/meet.js';
 import { openMeet } from '../commands/parties/meet-dialog.js';
 import type { ComponentHandler } from '../discord/command.js';
@@ -54,8 +54,11 @@ export const partyButtons: ComponentHandler = {
   kind: PARTY_KIND,
   guards: [requireGuild],
   throttle: ACTION_THROTTLE,
-  // Meet… opens a dialog whose Submit counts in `/meet`'s window: refused while it is full.
-  checks: (_interaction, id) => (id.action === 'meet' ? MEET_WINDOW : undefined),
+  // Meet… opens a dialog whose Submit counts in `/meet`'s window: refused while it is full. Split…
+  // likewise in `/train`'s (plan 8Z). The throttle itself stays one object: a function would
+  // rename the window of every press (`variedThrottleKey`), which the map shares.
+  checks: (_interaction, id) =>
+    id.action === 'meet' ? MEET_WINDOW : id.action === 'split' ? SPLIT_WINDOW : undefined,
 
   async button(interaction, id, ctx) {
     const { attendance } = ctx;

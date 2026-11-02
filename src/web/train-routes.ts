@@ -47,6 +47,7 @@ import { splitForm } from '../render/train-split.js';
 import { RaidPrivacy } from '../domain/party/status.js';
 import { aheadOnTheMap, formChoice, movesOnTheMap, refusalOnTheMap } from './train-views.js';
 import { NO_START_TO_REMOVE, TRAIN_COMMAND, TRAIN_THROTTLE } from '../commands/trains/train.js';
+import { OPEN_PARTIES_FULL, openPartiesFull } from '../commands/parties/open-parties.js';
 import type { Region } from '../db/repositories/region-repository.js';
 import { UserError } from '../discord/errors.js';
 import type { MemberStanding } from '../discord/member-directory.js';
@@ -120,7 +121,7 @@ import type { WebDeps } from './server.js';
  */
 export type TrainWebContext = TrainStarting &
   TrainManaging &
-  Pick<AppContext, 'config' | 'regions'>;
+  Pick<AppContext, 'config' | 'regions' | 'meetupSafety'>;
 
 /** What the trains of the live map need beyond the parties' own (`PartyWebDeps`). */
 export interface TrainWebDeps {
@@ -264,6 +265,12 @@ type TrainRequest = FastifyRequest<{
 export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
   const { sessions, parties, trains } = deps;
   const { ctx } = trains;
+  /** What the cap of open trains and meetups reads (plan 8Z). */
+  const openParties = () => ({
+    parties: parties.store,
+    guilds: parties.guilds,
+    meetupSafety: ctx.meetupSafety,
+  });
 
   /** The words of a command as text of the page, in the posts' zone. */
   const words = (text: string): string => pageWords(text, parties.zone, deps.now());
@@ -466,6 +473,10 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
         if (!(err instanceof UserError)) throw err;
         return refuse(reply, 422, err.message);
       }
+    }
+    const staff = isMapStaff(acting.standing, userId, parties.ownerId);
+    if (await openPartiesFull(openParties(), guild, userId, staff)) {
+      return refuse(reply, 422, OPEN_PARTIES_FULL);
     }
     const throttled = throttledOnTheMap(
       deps,
@@ -879,6 +890,20 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
       if (first === undefined) {
         return reply.code(422).send({ error: words(splitRefusalFor(ctx, party, userId, staff)) });
       }
+      // A split counts in `/train`'s window and against the cap of open parties (plan 8Z): asked
+      // here, counted at the Submit.
+      const windowFull = throttledOnTheMap(
+        deps,
+        reply,
+        { command: TRAIN_COMMAND },
+        userId,
+        TRAIN_THROTTLE,
+        { count: false },
+      );
+      if (windowFull) return windowFull;
+      if (await openPartiesFull(openParties(), request.params.guild, userId, staff)) {
+        return reply.code(422).send({ error: words(OPEN_PARTIES_FULL) });
+      }
       const settings = await ctx.users.get(userId);
       const form = splitForm(
         {
@@ -928,21 +953,35 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
           return refuse(reply, 403, splitRefusal(ctx, party, problem, group), train);
         }
       }
+      if (await openPartiesFull(openParties(), guild, userId, staff)) {
+        const train = viewOf(guild, row, party, userId, standing);
+        return refuse(reply, 422, OPEN_PARTIES_FULL, train);
+      }
       const counted = { control: PARTY_KIND };
       const throttled = throttledOnTheMap(deps, reply, counted, userId, ACTION_THROTTLE);
       if (throttled) return throttled;
       const countedAt = deps.now();
+      // A split makes a train: `/train`'s window as well, its use given back for anything but a
+      // train made (plan 8Z), as on Discord.
+      const trainWindow = { command: TRAIN_COMMAND };
+      const windowFull = throttledOnTheMap(deps, reply, trainWindow, userId, TRAIN_THROTTLE);
+      if (windowFull) return windowFull;
+      const noTrain = () => {
+        givenBackOnTheMap(deps, trainWindow, userId, TRAIN_THROTTLE, countedAt);
+      };
       let split: SplitAnswer;
       try {
         split = await countedOnTheMap(deps, counted, userId, ACTION_THROTTLE, () =>
           splitGroupAs(ctx, { party, member, group, staff, drawn: mark }, splitNames),
         );
       } catch (err) {
+        noTrain();
         // The use went back (`countedOnTheMap`); the member is told nothing was split off.
         deps.log.error({ err, guild, party: party.id }, 'a split on the map failed');
         const failed: TrainAnswer = { ok: false, text: SPLIT_FAILED };
         return reply.code(500).send(failed);
       }
+      if (split.kind !== 'split') noTrain();
       deps.log.info(
         { user: userId, guild, party: party.id, outcome: split.kind },
         'a train was split on the map',

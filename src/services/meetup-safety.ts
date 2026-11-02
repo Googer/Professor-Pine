@@ -281,6 +281,15 @@ export class MeetupSafety {
   }
 
   /**
+   * How many meetups of a member wait for a moderator in a server, which count as open ones (plan
+   * 8Z, `openPartiesFull`); none while the safety is off.
+   */
+  async pendingCount(serverId: string, memberId: string): Promise<number> {
+    if (!this.on) return 0;
+    return (await this.options.storage.pendingOf(serverId, memberId)).length;
+  }
+
+  /**
    * Tells the moderators, in the background, that an approved meetup's name or information
    * changed (plan 8Z; `/name`, `/info` and the map alike): into the channel of its request, which
    * is what "approved" means (`approvedRequestOf`). Nobody is told of a meetup that needed no

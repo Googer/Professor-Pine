@@ -37,6 +37,10 @@ import { isTrain, type GroupId } from '../../domain/party/party.js';
 import { PartyStatus, RaidPrivacy } from '../../domain/party/status.js';
 import { groupMark } from '../../domain/party/train.js';
 import { group } from '../parties/group.js';
+import { OPEN_PARTIES_FULL } from '../parties/open-parties.js';
+import { MAX_OPEN_PARTIES, openPartiesOf } from '../../domain/party/open-parties.js';
+import { testTrain } from '../../../test/support/parties.js';
+import { TRAIN_COMMAND, TRAIN_THROTTLE } from './train.js';
 import { help, helpControls } from '../util/help.js';
 import { SPLIT_GROUP_INPUT, splitDialog } from '../../render/train-split.js';
 import { DIALOG_READ_MS, SLOW_READ } from '../../discord/dialog.js';
@@ -189,6 +193,107 @@ function answerOf(submitted: FakeInteraction): string | undefined {
   expect(submitted.deferReply).toHaveBeenCalledWith({ flags: MessageFlags.Ephemeral });
   return sent(submitted.editReply).content;
 }
+
+describe("a split in /train's limit and the cap of open parties (plan 8Z)", () => {
+  /** Uses Alice's window of `/train` up, as two trains made would. */
+  const fillWindow = (made: Awaited<ReturnType<typeof setup>>) => {
+    for (let use = 0; use < TRAIN_THROTTLE.uses; use += 1) {
+      made.ctx.throttles.use(TRAIN_COMMAND, ALICE, TRAIN_THROTTLE, PARTY_NOW);
+    }
+  };
+  /** Gives Alice as many open trains as the cap allows. */
+  const fillCap = async (made: Awaited<ReturnType<typeof setup>>) => {
+    for (let n = 0; n < MAX_OPEN_PARTIES; n += 1) {
+      await made.store.add({
+        ...testTrain({ id: `00000000-0000-4000-8000-00000000020${n}`, createdById: ALICE }),
+        forumChannelId: WEST_FORUM,
+        forumPostId: `30000000000000020${n}`,
+      });
+    }
+  };
+  const WINDOW_FULL = /^You can use \/train again in /u;
+
+  it('counts a split made in the window of /train', async () => {
+    const made = await setup();
+    await made.submit(made.drawn(['B']));
+    expect(made.fresh()).toBeDefined();
+    // One use is gone: one more goes, the next does not.
+    expect(made.ctx.throttles.use(TRAIN_COMMAND, ALICE, TRAIN_THROTTLE, PARTY_NOW)).toBeUndefined();
+    expect(
+      made.ctx.throttles.use(TRAIN_COMMAND, ALICE, TRAIN_THROTTLE, PARTY_NOW),
+    ).not.toBeUndefined();
+  });
+
+  it('refuses the button, the command and the Submit while that window is full, staff too', async () => {
+    const made = await setup();
+    fillWindow(made);
+    const pressed = await made.click(`party:${made.party.id}:split`);
+    expect(dialogOf(pressed)).toBeUndefined();
+    expect(sent(pressed.reply).content).toMatch(WINDOW_FULL);
+    const typed = await made.split();
+    expect(dialogOf(typed)).toBeUndefined();
+    expect(sent(typed.reply).content).toMatch(WINDOW_FULL);
+    const submitted = await made.submit(made.drawn(['B']));
+    expect(sent(submitted.followUp).content).toMatch(WINDOW_FULL);
+    expect(made.fresh()).toBeUndefined();
+    // The moderators are held to it as well (Matt, 2026-11-01).
+    for (let use = 0; use < TRAIN_THROTTLE.uses; use += 1) {
+      made.ctx.throttles.use(TRAIN_COMMAND, DAVE, TRAIN_THROTTLE, PARTY_NOW);
+    }
+    const staff = await made.click(`party:${made.party.id}:split`, STAFF);
+    expect(sent(staff.reply).content).toMatch(WINDOW_FULL);
+  });
+
+  it('gives the use back for a Submit that made no train', async () => {
+    const made = await setup();
+    const dialog = made.drawn(['B']);
+    await made.submit(dialog);
+    const fresh = made.fresh();
+    expect(fresh).toBeDefined();
+    // A second Submit of one dialog: where it went, and no second use gone.
+    const second = await made.submit(dialog);
+    expect(answerOf(second)).toMatch(/^Split off: /u);
+    expect(made.ctx.throttles.use(TRAIN_COMMAND, ALICE, TRAIN_THROTTLE, PARTY_NOW)).toBeUndefined();
+  });
+
+  it('gives the use back for a split that throws', async () => {
+    const made = await setup();
+    vi.spyOn(made.trains, 'split').mockRejectedValueOnce(new Error('the database is away'));
+    await made.submit(made.drawn(['B']));
+    for (let use = 0; use < TRAIN_THROTTLE.uses; use += 1) {
+      expect(
+        made.ctx.throttles.use(TRAIN_COMMAND, ALICE, TRAIN_THROTTLE, PARTY_NOW),
+      ).toBeUndefined();
+    }
+  });
+
+  it('refuses the button, the command and the Submit past the cap, uncounted; staff exempt', async () => {
+    const made = await setup();
+    await fillCap(made);
+    const pressed = await made.click(`party:${made.party.id}:split`);
+    expect(dialogOf(pressed)).toBeUndefined();
+    expect(sent(pressed.reply).content).toBe(OPEN_PARTIES_FULL);
+    const typed = await made.split();
+    expect(dialogOf(typed)).toBeUndefined();
+    expect(sent(typed.reply).content).toBe(OPEN_PARTIES_FULL);
+    const before = made.store.active().length;
+    const submitted = await made.submit(made.drawn(['B']));
+    expect(sent(submitted.followUp).content).toBe(OPEN_PARTIES_FULL);
+    expect(made.store.active()).toHaveLength(before);
+    for (let use = 0; use < TRAIN_THROTTLE.uses; use += 1) {
+      expect(
+        made.ctx.throttles.use(TRAIN_COMMAND, ALICE, TRAIN_THROTTLE, PARTY_NOW),
+      ).toBeUndefined();
+    }
+  });
+
+  it("holds the train split off against the member who pressed, not the old train's maker", async () => {
+    const made = await setup();
+    await made.submit(made.drawn(['B']));
+    expect(openPartiesOf(made.store.active(), 1, ALICE)).toBe(1);
+    expect(openPartiesOf(made.store.active(), 1, REPORTER)).toBe(1);
+  });
+});
 
 describe('the button "Split group…" of a train post', () => {
   it('opens the dialog of the one group a member of it may split, and says nothing else', async () => {
@@ -544,8 +649,9 @@ describe('a Submit of the dialog', () => {
   it('says plainly where the bot may not make the new post, and counts none of the Submits', async () => {
     const made = await setup();
     made.gateway.refusePosts.set(WEST_FORUM, ['Manage Posts']);
-    // More Submits than the post's controls allow a minute: none of them is the member's doing.
-    for (let n = 0; n <= ACTION_THROTTLE.uses; n++) {
+    // None of them is the member's doing: they go back, as far as a window gives uses back
+    // (`Throttles.giveBack`: `/train`'s window, the narrowest, holds them to twice its limit).
+    for (let n = 0; n < 2 * TRAIN_THROTTLE.uses; n++) {
       const submitted = await made.submit(made.drawn());
       expect(answerOf(submitted)).toBe(
         `I am not allowed to make posts in <#${WEST_FORUM}>: I lack the permission Manage Posts ` +

@@ -15,7 +15,12 @@ import {
   type TestWeb,
   RecordingDraws,
 } from '../../test/support/web.js';
+import { OPEN_PARTIES_FULL } from '../commands/parties/open-parties.js';
 import { ACTION_THROTTLE } from '../commands/parties/reply.js';
+import { TRAIN_COMMAND, TRAIN_THROTTLE } from '../commands/trains/train.js';
+import { MAX_OPEN_PARTIES } from '../domain/party/open-parties.js';
+import { groupMark } from '../domain/party/train.js';
+import { testTrain } from '../../test/support/parties.js';
 import { controlThrottleKey } from '../discord/router.js';
 import { Throttles } from '../discord/throttle.js';
 import { attendeeOf, isTrain } from '../domain/party/party.js';
@@ -125,6 +130,81 @@ describe('Split… of a train on the map (plan 8M-8C)', () => {
   afterEach(async () => {
     await web?.app.close();
     web = undefined;
+  });
+
+  describe("in /train's limit and under the cap of open parties (plan 8Z)", () => {
+    const fillWindow = (throttles: Throttles, userId = ALICE) => {
+      for (let use = 0; use < TRAIN_THROTTLE.uses; use += 1) {
+        throttles.use(TRAIN_COMMAND, userId, TRAIN_THROTTLE, PARTY_NOW);
+      }
+    };
+    const fillCap = async (map: Awaited<ReturnType<typeof splitting>>) => {
+      for (let n = 0; n < MAX_OPEN_PARTIES; n += 1) {
+        await map.made.store.add({
+          ...testTrain({ id: `00000000-0000-4000-8000-00000000020${n}`, createdById: ALICE }),
+          forumChannelId: WEST_FORUM,
+          forumPostId: `30000000000000020${n}`,
+        });
+      }
+    };
+    const toSubmit = (map: Awaited<ReturnType<typeof splitting>>) => ({
+      group: 'B',
+      mark: groupMark(map.made.current(), 'B'),
+    });
+
+    it('counts a split in the window of /train, shared with Discord', async () => {
+      const throttles = new Throttles();
+      const map = await splitting({ throttles });
+      web = map.web;
+      const done = await map.submit(toSubmit(map));
+      expect(done.status).toBe(200);
+      expect(throttles.use(TRAIN_COMMAND, ALICE, TRAIN_THROTTLE, PARTY_NOW)).toBeUndefined();
+      expect(throttles.use(TRAIN_COMMAND, ALICE, TRAIN_THROTTLE, PARTY_NOW)).not.toBeUndefined();
+    });
+
+    it('refuses opening and the Submit while it is full, staff too', async () => {
+      const throttles = new Throttles();
+      const map = await splitting({ throttles });
+      web = map.web;
+      const body = toSubmit(map);
+      fillWindow(throttles);
+      expect((await map.open()).status).toBe(429);
+      expect((await map.submit(body)).status).toBe(429);
+      expect(map.made.store.active()).toHaveLength(1);
+      fillWindow(throttles, TEST_OWNER_ID);
+      expect((await map.open(TEST_OWNER_ID)).status).toBe(429);
+    });
+
+    it('gives the use back for a Submit that made no train', async () => {
+      const throttles = new Throttles();
+      const map = await splitting({ throttles });
+      web = map.web;
+      const body = toSubmit(map);
+      expect((await map.submit(body)).status).toBe(200);
+      // The same Submit again: said as done, no second use gone.
+      await map.submit(body);
+      // A group that went by now is no train either.
+      await map.submit({ group: 'B', mark: 'gone' });
+      expect(throttles.use(TRAIN_COMMAND, ALICE, TRAIN_THROTTLE, PARTY_NOW)).toBeUndefined();
+    });
+
+    it('refuses opening and the Submit past the cap, uncounted; staff exempt', async () => {
+      const throttles = new Throttles();
+      const map = await splitting({ throttles });
+      web = map.web;
+      const body = toSubmit(map);
+      await fillCap(map);
+      expect(await map.open()).toMatchObject({ status: 422, json: { error: OPEN_PARTIES_FULL } });
+      const before = map.made.store.active().length;
+      expect(await map.submit(body)).toMatchObject({
+        status: 422,
+        json: { ok: false, text: OPEN_PARTIES_FULL },
+      });
+      expect(map.made.store.active()).toHaveLength(before);
+      fillWindow(throttles, BOB);
+      expect(throttles.use(TRAIN_COMMAND, ALICE, TRAIN_THROTTLE, PARTY_NOW)).toBeUndefined();
+      expect((await map.open(TEST_OWNER_ID)).status).toBe(200);
+    });
   });
 
   it("opens for a member of a group with the dialog of that group alone, in the dialog's words", async () => {

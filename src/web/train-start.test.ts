@@ -19,6 +19,9 @@ import {
   type TestWeb,
 } from '../../test/support/web.js';
 import { TRAIN_COMMAND, TRAIN_THROTTLE } from '../commands/trains/train.js';
+import { OPEN_PARTIES_FULL } from '../commands/parties/open-parties.js';
+import { MAX_OPEN_PARTIES } from '../domain/party/open-parties.js';
+import { testTrain } from '../../test/support/parties.js';
 import { Throttles } from '../discord/throttle.js';
 import { isTrain, type TrainParty } from '../domain/party/party.js';
 import { PartyStatus, RaidPrivacy } from '../domain/party/status.js';
@@ -231,6 +234,25 @@ describe('starting a train on the map', () => {
     expect((await map.start({ region: 1, name: 'Park loop' })).status).toBe(200);
     expect((await map.start({ region: 1, name: 'Lake loop' })).status).toBe(200);
     expect((await map.start({ region: 1, name: 'Hill loop' })).status).toBe(429);
+  });
+
+  it('refuses past the cap of open trains and meetups (plan 8Z), uncounted; others not held by it', async () => {
+    const throttles = new Throttles();
+    const map = await starting({ throttles });
+    web = map.web;
+    for (let n = 0; n < MAX_OPEN_PARTIES; n += 1) {
+      await map.made.store.add({
+        ...testTrain({ id: `00000000-0000-4000-8000-00000000010${n}`, createdById: ALICE }),
+        forumChannelId: WEST_FORUM,
+        forumPostId: `30000000000000010${n}`,
+      });
+    }
+    const refused = await map.start({ region: 1, name: 'One more' });
+    expect(refused).toMatchObject({ status: 422, json: { ok: false, text: OPEN_PARTIES_FULL } });
+    expect(throttles.use(TRAIN_COMMAND, ALICE, TRAIN_THROTTLE, PARTY_NOW)).toBeUndefined();
+    expect(throttles.use(TRAIN_COMMAND, ALICE, TRAIN_THROTTLE, PARTY_NOW)).toBeUndefined();
+    const bob = await map.web.posting(BOB, 'Bob');
+    expect((await map.start({ region: 1, name: 'Of Bob' }, bob)).status).toBe(200);
   });
 
   it('counts in the window of /train: two from the map and Discord together', async () => {

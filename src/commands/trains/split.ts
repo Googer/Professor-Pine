@@ -8,9 +8,12 @@ import {
 import type { AppContext } from '../../app-context.js';
 import type { SubcommandPart } from '../../discord/command-group.js';
 import { deferSubmit, readInTime, withoutOpenToken } from '../../discord/dialog.js';
+import type { ControlThrottle } from '../../discord/command.js';
 import { UserError } from '../../discord/errors.js';
-import { isStaff, notATrain } from '../../discord/guards.js';
-import { STALE_COMPONENT } from '../../discord/router.js';
+import { guildIdOf, isStaff, notATrain } from '../../discord/guards.js';
+import { commandRefusal, STALE_COMPONENT } from '../../discord/router.js';
+import { waitText } from '../../discord/throttle.js';
+import { MAX_OPEN_PARTIES } from '../../domain/party/open-parties.js';
 import { isGroupId, isTrain, type GroupId, type TrainParty } from '../../domain/party/party.js';
 import { RaidPrivacy } from '../../domain/party/status.js';
 import { mayNotSplit, splittableGroups } from '../../domain/party/train.js';
@@ -24,6 +27,8 @@ import {
   typedGroup,
 } from '../parties/reply.js';
 import { DISCORD_NAMES } from '../raids/report.js';
+import { OPEN_PARTIES_FULL, openPartiesFull } from '../parties/open-parties.js';
+import { TRAIN_COMMAND, TRAIN_THROTTLE } from './train.js';
 import {
   GROUPS_CHANGED,
   SPLIT_FAILED,
@@ -41,6 +46,27 @@ import {
  */
 
 const A_TRAIN = { type: 'train' } as const;
+
+/**
+ * `/train`'s window, in which a split made counts (plan 8Z, for staff too: a split makes a train).
+ * The press and the command that open the dialog only ask it, and its Submit counts.
+ */
+export const SPLIT_WINDOW: ControlThrottle = { ...TRAIN_THROTTLE, as: TRAIN_COMMAND };
+
+/**
+ * Refuses a dialog of the split past the cap of open trains and meetups (`openPartiesFull`, read
+ * within `DIALOG_READ_MS`), which the Submit asks again.
+ */
+async function requireRoomForSplit(
+  interaction: ButtonInteraction | ChatInputCommandInteraction,
+  ctx: AppContext,
+  staff: boolean,
+): Promise<void> {
+  const full = await readInTime(ctx.log, interaction, () =>
+    openPartiesFull(ctx, guildIdOf(interaction), interaction.user.id, staff),
+  );
+  if (full) throw new UserError(OPEN_PARTIES_FULL);
+}
 
 /**
  * The dialog for this member, of these groups, as things stand now; who leads the new train as
@@ -87,6 +113,7 @@ export async function openSplit(
   if (first === undefined) {
     throw new UserError(splitRefusalFor(ctx, party, interaction.user.id, staff));
   }
+  await requireRoomForSplit(interaction, ctx, staff);
   await interaction.showModal(
     await dialogFor(interaction, ctx, party, interaction.user.id, staff, [first, ...rest]),
   );
@@ -136,10 +163,22 @@ export async function submitSplit(
   const member = actingMember(interaction);
   const staff = isStaff(interaction, ctx);
   await deferSubmit(interaction);
+  if (await openPartiesFull(ctx, guildIdOf(interaction), member.id, staff)) {
+    throw new UserError(OPEN_PARTIES_FULL);
+  }
+  // A split makes a train: it counts in `/train`'s window, here where the train is made, on top
+  // of the controls' own. Whatever comes of it but a train gives this use back (plan 8Z).
+  const countedAt = Date.now();
+  const wait = ctx.throttles.use(TRAIN_COMMAND, member.id, TRAIN_THROTTLE, countedAt);
+  if (wait !== undefined) throw new UserError(commandRefusal(TRAIN_COMMAND, waitText(wait)));
+  const giveBack = () => {
+    ctx.throttles.giveBack(TRAIN_COMMAND, member.id, TRAIN_THROTTLE, Date.now(), countedAt);
+  };
   let answer;
   try {
     answer = await splitGroupAs(ctx, { party, member, group, staff, drawn: mark }, DISCORD_NAMES);
   } catch (err) {
+    giveBack();
     // The answer must not leave the member waiting: the router says what went wrong below it.
     // An answer that cannot be given is logged, so that the router gets the split's own failure.
     await interaction.editReply({ content: SPLIT_FAILED }).catch((noteErr: unknown) => {
@@ -147,6 +186,7 @@ export async function submitSplit(
     });
     throw err;
   }
+  if (answer.kind !== 'split') giveBack();
   const text =
     answer.kind === 'refused' && answer.reason === 'group-changed' ? GROUPS_CHANGED : answer.text;
   await interaction.editReply({ content: text });
@@ -167,6 +207,9 @@ async function splitByCommand(
   const staff = isStaff(interaction, ctx);
   const problem = mayNotSplit(party, interaction.user.id, staff, group);
   if (problem) throw new UserError(splitRefusal(ctx, party, problem, group));
+  const wait = ctx.throttles.wait(TRAIN_COMMAND, interaction.user.id, TRAIN_THROTTLE, Date.now());
+  if (wait !== undefined) throw new UserError(commandRefusal(TRAIN_COMMAND, waitText(wait)));
+  await requireRoomForSplit(interaction, ctx, staff);
   await interaction.showModal(
     await dialogFor(interaction, ctx, party, interaction.user.id, staff, [group]),
   );
@@ -191,7 +234,10 @@ export const splitGroupPart: SubcommandPart = {
       "group's members moved there. Both posts link the other, and the members who moved are " +
       'pinged in the new one.\n\nYou are asked first, in a dialog. A member of the group may split ' +
       'it off, unless the conductor is in it; the conductor and the moderators may split any ' +
-      'group.\n\nThe same as the button "Split…" on the post. Only in the post of a train.',
+      'group.\n\nA split makes a train, so it counts in the limit of `/train`, two in a quarter ' +
+      'of an hour, for moderators too; and the new train is one of your open trains and meetups, ' +
+      `of which you may have ${MAX_OPEN_PARTIES}.\n\nThe same as the button "Split…" on the ` +
+      'post. Only in the post of a train.',
     examples: ['/group split letter:B'],
   },
   throttle: ACTION_THROTTLE,

@@ -17,6 +17,7 @@ import { CAMPFIRE_DISCOVER_URL } from '../../domain/campfire.js';
 import type { Place } from '../../domain/geo/place.js';
 import { mayRequestReview, type MeetupVerdict } from '../../domain/meetups/safety.js';
 import { tidyDescription } from '../../domain/party/meetup.js';
+import { MAX_OPEN_PARTIES } from '../../domain/party/open-parties.js';
 import { MAX_PARTY_NAME, type MeetupParty } from '../../domain/party/party.js';
 import { noPostWords, problemText } from '../../render/activity.js';
 import { blockedAnswer } from '../../render/meetup-safety.js';
@@ -31,6 +32,7 @@ import {
 } from '../parties/timed.js';
 import { MAX_PLACE_TEXT, namedPlace, nearChoices, type PlaceKindsOnly } from '../place-option.js';
 import { MEETUP_PLACE_KINDS } from '../../services/place-finder.js';
+import { OPEN_PARTIES_FULL, openPartiesFull } from '../parties/open-parties.js';
 import { DISCORD_NAMES, type ReportNames } from '../raids/report.js';
 import { INFO_INPUT, infoInput, refusedWithText } from './info.js';
 import { placeRefusal } from './place-ask.js';
@@ -162,6 +164,7 @@ async function readAsked(
   const makerId = interaction.user.id;
   const staff = isStaff(interaction, ctx);
   if (await ctx.meetupSafety.blocked(serverId, makerId, staff)) throw blockedRefusal(serverId);
+  if (await openPartiesFull(ctx, serverId, makerId, staff)) throw new UserError(OPEN_PARTIES_FULL);
   const place = await namedPlace(
     interaction,
     ctx,
@@ -276,9 +279,11 @@ export const meetup: SimpleCommand = {
       'are told by direct message once they have decided (so give a start at least two hours ' +
       'ahead).\n\nIn the post, change when it starts with `/meet`, set when it ends with `/end`, ' +
       'change the information with `/info`, and rename it with `/name`. Members sign up with ' +
-      'the buttons, as for a raid.\n\nA meetup is archived an hour after it is over: after its ' +
-      'end, or without one a day after its start. One whose start was removed goes a day after ' +
-      'it was made, or after its last time was removed; its post says when.\n\nOfficial meetups ' +
+      `the buttons, as for a raid.\n\nYou may have ${MAX_OPEN_PARTIES} open trains and meetups ` +
+      'at a time, here and on the map; meetups waiting for a moderator count.\n\nA meetup is ' +
+      'archived an hour after it is over: after its end, or without one a day after its start. ' +
+      'One whose start was removed goes a day after it was made, or after its last time was ' +
+      'removed; its post says when.\n\nOfficial meetups ' +
       `by Community Ambassadors are on Campfire: ${CAMPFIRE_DISCOVER_URL}`,
     examples: [
       '/meetup name:Community Day picnic near:Riverside Park start:2pm',
@@ -355,6 +360,11 @@ async function submitted(
   if (tidyDescription(text) === null) throw refuse(NO_INFORMATION);
   if (asked.startTime <= Date.now()) throw refuse(START_PASSED);
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  const staff = isStaff(interaction, ctx);
+  // One made or asked for with the form open: `/meetup`'s guard asked before it opened.
+  if (await openPartiesFull(ctx, asked.serverId, interaction.user.id, staff)) {
+    throw refuse(OPEN_PARTIES_FULL);
+  }
   const answer = await makeMeetupAs(
     ctx,
     {
@@ -365,7 +375,7 @@ async function submitted(
       name: asked.name,
       startTime: asked.startTime,
       description: text,
-      staff: isStaff(interaction, ctx),
+      staff,
     },
     DISCORD_NAMES,
   );

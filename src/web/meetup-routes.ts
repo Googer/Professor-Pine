@@ -12,6 +12,7 @@ import {
   NO_MEETUPS_FOR_YOU,
   refusalOf,
 } from '../commands/meetups/meetup.js';
+import { OPEN_PARTIES_FULL, openPartiesFull } from '../commands/parties/open-parties.js';
 import { partyOver } from '../commands/parties/reply.js';
 import {
   endAs,
@@ -346,6 +347,16 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
     }
     if (refusal !== undefined) return refused(422, refusal);
     if (tidyDescription(body.data.info) === null) return refused(422, NO_INFORMATION);
+    if (
+      await openPartiesFull(
+        { parties: parties.store, guilds: parties.guilds, meetupSafety: ctx.meetupSafety },
+        guild,
+        userId,
+        staff,
+      )
+    ) {
+      return refused(422, OPEN_PARTIES_FULL, 'open-parties');
+    }
     const throttled = throttledOnTheMap(
       deps,
       reply,

@@ -158,7 +158,7 @@ export class InteractionRouter {
     this.now = options.now ?? Date.now;
     this.lateDeferMs = options.lateDeferMs ?? LATE_DEFER_MS;
     this.setTimer = options.setTimer;
-    this.throttles = options.throttles ?? new Throttles();
+    this.throttles = options.throttles ?? ctx.throttles;
     for (const command of commands) {
       if (isMessageCommand(command)) {
         if (this.messageCommands.has(command.data.name))
@@ -579,7 +579,7 @@ interface Spent {
 }
 
 /** What a member is told who used a command too often: its name, as typed. */
-function commandRefusal(name: string, wait: string): string {
+export function commandRefusal(name: string, wait: string): string {
   return `You can use /${name} again in ${wait}.`;
 }
 

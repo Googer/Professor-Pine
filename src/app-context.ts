@@ -12,6 +12,7 @@ import type { ClickAnswers } from './discord/click-answers.js';
 import type { CommandModule, MessageCommand } from './discord/command.js';
 import type { IntentFlags } from './discord/intents.js';
 import type { MemberDirectory } from './discord/member-directory.js';
+import type { Throttles } from './discord/throttle.js';
 import type { Logger } from './log.js';
 import type { EmojiFinder } from './services/application-emoji.js';
 import type { AttachmentGateway } from './services/attachment-gateway.js';
@@ -160,6 +161,11 @@ export interface AppContext {
    * meetup safety; without it a party's report goes into its post.
    */
   readonly reports: ModerationReports;
+  /**
+   * The uses of commands and controls, the router's and the live map's (plan 8Z: a split is
+   * counted in `/train`'s window by the code that makes the train).
+   */
+  readonly throttles: Throttles;
   /** What members change about a meetup or a train: its name, its times, what a meetup says. */
   readonly timedParties: TimedPartyService;
   /** What members change about a train as such: its route, where it is, its conductor, its boss. */

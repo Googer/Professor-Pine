@@ -1,5 +1,6 @@
 import type { Kysely } from 'kysely';
 import type { AppContext } from '../../src/app-context.js';
+import { Throttles } from '../../src/discord/throttle.js';
 import { loadEnv } from '../../src/config/env.js';
 import { loadSettings } from '../../src/config/settings.js';
 import { ClickAnswers } from '../../src/discord/click-answers.js';
@@ -152,6 +153,8 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
     attachments: new FakeAttachments(),
     // The invented regions belong to the guild of row 1, the server of the fake interactions.
     guilds: { idFor: (snowflake) => Promise.resolve(snowflake === FAKE_GUILD_ID ? 1 : undefined) },
+    // What a router over this context counts in, unless a test gives it its own.
+    throttles: new Throttles(),
     parties: noParties(),
     // Every member has the default settings.
     users: new MemoryUsers(),

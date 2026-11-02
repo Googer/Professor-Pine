@@ -2,6 +2,7 @@ import { MessageFlags } from 'discord.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   asV2,
+  FAKE_GUILD_ID,
   fakeAutocomplete,
   fakeChatInput,
   fakeModal,
@@ -22,7 +23,17 @@ import {
   type SafetyOptions,
 } from '../../../test/support/meetup-safety-service.js';
 import { buttonsOf, textDisplays, textOf } from '../../../test/support/messages.js';
-import { ALICE, BOB, MINUTE, PARTY_NOW, testRaid } from '../../../test/support/parties.js';
+import {
+  ALICE,
+  BOB,
+  MINUTE,
+  PARTY_NOW,
+  testRaid,
+  testTrain,
+} from '../../../test/support/parties.js';
+import { MAX_OPEN_PARTIES } from '../../domain/party/open-parties.js';
+import type { PartyStore } from '../../services/party-store.js';
+import { OPEN_PARTIES_FULL } from '../parties/open-parties.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { MemoryUsers } from '../../../test/support/users.js';
 import { keptRow, wayspotId } from '../../../test/support/wayspot-cases.js';
@@ -46,6 +57,76 @@ import {
   meetup,
   meetupFormControls,
 } from './meetup.js';
+
+/** `count` open trains of Alice's in the party store of `made`. */
+async function openTrains(made: { store: PartyStore }, count: number): Promise<void> {
+  for (let n = 0; n < count; n += 1) {
+    await made.store.add({
+      ...testTrain({ id: `00000000-0000-4000-8000-00000000010${n}`, createdById: ALICE }),
+      forumChannelId: WEST_FORUM,
+      forumPostId: `30000000000000010${n}`,
+    });
+  }
+}
+
+describe('/meetup and the open trains and meetups of a member (plan 8Z)', () => {
+  it('is refused before the form past the cap, uncounted, and at the form', async () => {
+    const made = await setup();
+    await openTrains(made, MAX_OPEN_PARTIES);
+    for (let use = 0; use <= MEETUP_THROTTLE.uses; use += 1) {
+      const used = await made.command('One more');
+      expect(used.showModal).not.toHaveBeenCalled();
+      expect(sent(used.reply).content).toBe(OPEN_PARTIES_FULL);
+    }
+    expect(made.meetups()).toEqual([]);
+  });
+
+  it('refuses at the Submit too, the typed text given back, when one was made with the form open', async () => {
+    const made = await setup();
+    await openTrains(made, MAX_OPEN_PARTIES - 1);
+    const used = await made.command('One more');
+    expect(used.showModal).toHaveBeenCalledOnce();
+    await made.store.add({
+      ...testTrain({ id: '00000000-0000-4000-8000-000000000199', createdById: ALICE }),
+      forumChannelId: WEST_FORUM,
+      forumPostId: '300000000000000199',
+    });
+    const submitted = await made.submit(used, 'Bring snacks.');
+    if (!submitted) throw new Error('the form did not open');
+    expect(told(submitted)).toContain(OPEN_PARTIES_FULL);
+    expect(told(submitted)).toContain('Bring snacks.');
+    expect(made.meetups()).toEqual([]);
+  });
+
+  it('counts the meetups waiting for a moderator, so that requests cannot flood them', async () => {
+    const made = await setup({}, {});
+    await openTrains(made, MAX_OPEN_PARTIES - 1);
+    await made.held({ maker: { id: ALICE, name: 'Alice' } });
+    const used = await made.command('One more');
+    expect(sent(used.reply).content).toBe(OPEN_PARTIES_FULL);
+  });
+
+  it('never refuses an approval: a moderator decided', async () => {
+    const made = await setup({}, {});
+    const request = await made.held({ maker: { id: ALICE, name: 'Alice' } });
+    await openTrains(made, MAX_OPEN_PARTIES);
+    const outcome = await made.safety.decide(
+      request.id,
+      'approve-once',
+      { id: MOD.id },
+      FAKE_GUILD_ID,
+    );
+    expect(outcome.kind).toBe('done');
+    expect(made.meetups()).toHaveLength(1);
+  });
+
+  it('holds staff to nothing', async () => {
+    const made = await setup();
+    await openTrains(made, MAX_OPEN_PARTIES);
+    await made.run('As staff', { roleNames: ['Moderator'] });
+    expect(made.meetups()).toHaveLength(1);
+  });
+});
 
 const RAID_POST = '300000000000000055';
 const HOUR = 60 * MINUTE;

@@ -12,7 +12,19 @@ import {
   WEST_CHANNEL,
   WEST_FORUM,
 } from '../../../test/support/gyms.js';
-import { ALICE, at, BOB, PARTY_NOW, testRaid, stops, gym } from '../../../test/support/parties.js';
+import {
+  ALICE,
+  at,
+  BOB,
+  PARTY_NOW,
+  testMeetup,
+  testRaid,
+  testTrain,
+  stops,
+  gym,
+} from '../../../test/support/parties.js';
+import { MAX_OPEN_PARTIES } from '../../domain/party/open-parties.js';
+import { OPEN_PARTIES_FULL } from '../parties/open-parties.js';
 import { partyServiceWith } from '../../../test/support/party-service.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { MemoryUsers } from '../../../test/support/users.js';
@@ -63,6 +75,38 @@ async function setup(overrides: Partial<AppContext> = {}) {
   const trains = () => made.store.active().filter((party) => party.type === 'train');
   return { ...made, ctx, router, run, answer, trains };
 }
+
+describe('/train and the open trains and meetups of a member (plan 8Z)', () => {
+  /** `setup` with `MAX_OPEN_PARTIES` open parties of Alice's: trains, and a meetup among them. */
+  async function full() {
+    const made = await setup();
+    for (let n = 0; n < MAX_OPEN_PARTIES; n += 1) {
+      const id = `00000000-0000-4000-8000-00000000010${n}`;
+      const forumPostId = `30000000000000010${n}`;
+      const open =
+        n === 0 ? testMeetup({ id, createdById: ALICE }) : testTrain({ id, createdById: ALICE });
+      await made.store.add({ ...open, forumChannelId: WEST_FORUM, forumPostId });
+    }
+    return made;
+  }
+
+  it('is refused past the cap, by a guard: nothing is made and the use does not count', async () => {
+    const made = await full();
+    const before = made.trains().length;
+    expect(await made.answer('One more')).toBe(OPEN_PARTIES_FULL);
+    expect(made.trains()).toHaveLength(before);
+    expect(await made.answer('One more')).toBe(OPEN_PARTIES_FULL);
+    // Past the cap for staff too would be a limit message; here it never counted.
+    await made.answer('As staff', { roleNames: ['Moderator'] });
+    expect(made.trains()).toHaveLength(before + 1);
+  });
+
+  it('counts per member: others are not held by it', async () => {
+    const made = await full();
+    await made.answer('Of Bob', { userId: BOB });
+    expect(made.trains().some((party) => party.createdById === BOB)).toBe(true);
+  });
+});
 
 describe('/train', () => {
   it('makes a train with its post in the forum of the region, and links to it privately', async () => {
