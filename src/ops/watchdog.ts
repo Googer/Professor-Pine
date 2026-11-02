@@ -28,12 +28,15 @@ const count = (fallback: number, max: number) =>
   );
 
 const watchdogEnvSchema = z.object({
-  /** The Docker Engine's socket, mounted into the watchdog. */
-  DOCKER_SOCKET: z.preprocess(
+  /** The socket proxy's host and port, on the network the watchdog shares with it alone. */
+  DOCKER_PROXY: z.preprocess(
     (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
-    z.string().default('/var/run/docker.sock'),
+    z
+      .string()
+      .regex(/^[A-Za-z0-9.-]+:\d+$/, 'must be host:port')
+      .default('docker-proxy:2375'),
   ),
-  /** The Compose project; read from the watchdog's own container when unset. */
+  /** The Compose project (compose.yaml names it; the proxy lets through its bot alone). */
   WATCHDOG_PROJECT: z.preprocess(
     (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
     z.string().optional(),
@@ -55,7 +58,7 @@ const watchdogEnvSchema = z.object({
 });
 
 export interface WatchdogConfig {
-  socketPath: string;
+  engine: { host: string; port: number };
   project: string | undefined;
   intervalMs: number;
   unhealthyMs: number;
@@ -67,6 +70,11 @@ export interface WatchdogConfig {
   backupMaxAgeMs: number;
 }
 
+function engineAddress(hostAndPort: string): { host: string; port: number } {
+  const colon = hostAndPort.lastIndexOf(':');
+  return { host: hostAndPort.slice(0, colon), port: Number(hostAndPort.slice(colon + 1)) };
+}
+
 /** The watchdog's settings from the environment (`.env`, see `.env.example`). */
 export function watchdogConfig(raw: Record<string, string | undefined>): WatchdogConfig {
   const parsed = watchdogEnvSchema.safeParse(raw);
@@ -75,7 +83,7 @@ export function watchdogConfig(raw: Record<string, string | undefined>): Watchdo
   }
   const env = parsed.data;
   return {
-    socketPath: env.DOCKER_SOCKET,
+    engine: engineAddress(env.DOCKER_PROXY),
     project: env.WATCHDOG_PROJECT,
     intervalMs: env.WATCHDOG_INTERVAL_SECONDS * 1000,
     unhealthyMs: env.WATCHDOG_UNHEALTHY_MINUTES * MINUTE,
@@ -232,30 +240,30 @@ export class Watchdog {
 
   private async watchBot(): Promise<void> {
     const { docker, project } = this.options;
-    const [id] = await docker.containerIds([
+    const [name] = await docker.containerNames([
       `com.docker.compose.project=${project}`,
       'com.docker.compose.service=pine',
       'com.docker.compose.oneoff=False',
     ]);
-    const bot = id === undefined ? undefined : await docker.container(id);
-    if (!bot) {
+    const bot = name === undefined ? undefined : await docker.container(name);
+    if (name === undefined || !bot) {
       this.unhealthy = undefined;
       this.seen = undefined;
       return;
     }
     await this.countRestarts(bot.id, bot.restartCount, bot.exitCode);
-    await this.checkHealth(bot.id, bot.running && bot.health === 'unhealthy', bot.healthOutput);
+    await this.checkHealth(name, bot.running && bot.health === 'unhealthy', bot.healthOutput);
   }
 
   /** Whether the stack has a backup service (running or not): only then are backups watched. */
   private async hasBackupService(): Promise<boolean> {
     const { docker, project } = this.options;
-    const ids = await docker.containerIds([
+    const names = await docker.containerNames([
       `com.docker.compose.project=${project}`,
       'com.docker.compose.service=backup',
       'com.docker.compose.oneoff=False',
     ]);
-    return ids.length > 0;
+    return names.length > 0;
   }
 
   private async countRestarts(id: string, restartCount: number, exitCode: number) {
@@ -280,7 +288,7 @@ export class Watchdog {
     );
   }
 
-  private async checkHealth(id: string, unhealthy: boolean, output: string | undefined) {
+  private async checkHealth(name: string, unhealthy: boolean, output: string | undefined) {
     const now = this.now();
     if (!unhealthy) {
       this.unhealthy = undefined;
@@ -320,7 +328,7 @@ export class Watchdog {
     const was = `Professor Pine was unhealthy for ${minutes} minutes (${why})`;
     log.warn({ minutes, health: why }, 'the bot is unhealthy; restarting it');
     try {
-      await docker.restart(id);
+      await docker.restart(name);
       await alerts.send('unhealthy', `${was}; the watchdog restarted it.`);
     } catch (err) {
       log.error({ err }, 'could not restart the bot');

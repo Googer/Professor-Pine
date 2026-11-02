@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Tally } from '../../test/support/tally.js';
-import { SocketDockerApi } from './docker-api.js';
+import { EngineDockerApi } from './docker-api.js';
 
 /** What the fake Engine was asked: method and path with its query. */
 const asked: string[] = [];
@@ -54,7 +54,10 @@ async function fakeEngine(): Promise<string> {
     };
     const url = new URL(request.url ?? '/', 'http://engine');
     if (request.method === 'GET' && url.pathname === '/containers/json') {
-      return answer(200, [{ Id: 'abc123' }, { Id: 'def456' }]);
+      return answer(200, [
+        { Id: 'abc123', Names: ['/pine-pine-1'] },
+        { Id: 'def456', Names: ['/other-1'] },
+      ]);
     }
     if (request.method === 'GET' && url.pathname === '/containers/abc123/json') {
       return answer(200, PINE);
@@ -93,19 +96,35 @@ afterEach(async () => {
   server = undefined;
 });
 
-describe('SocketDockerApi', () => {
+describe('EngineDockerApi', () => {
   it('lists the containers, stopped ones too, that carry every label asked for', async () => {
-    const docker = new SocketDockerApi(await fakeEngine());
+    const docker = new EngineDockerApi({ socketPath: await fakeEngine() });
 
-    const ids = await docker.containerIds(['com.docker.compose.project=pine', 'a=b']);
+    const names = await docker.containerNames(['com.docker.compose.project=pine', 'a=b']);
 
-    expect(ids).toEqual(['abc123', 'def456']);
+    expect(names).toEqual(['pine-pine-1', 'other-1']);
     const filters = JSON.stringify({ label: ['com.docker.compose.project=pine', 'a=b'] });
     expect(asked).toEqual([`GET /containers/json?all=true&filters=${encodeURIComponent(filters)}`]);
   });
 
+  it('asks the proxy by its host and port as it asks a socket (plan 8Z)', async () => {
+    server = http.createServer((request, response) => {
+      asked.push(`${request.method} ${request.url}`);
+      response.writeHead(204);
+      response.end();
+    });
+    await new Promise<void>((resolve) => server?.listen(0, '127.0.0.1', resolve));
+    const address = server.address();
+    if (address === null || typeof address === 'string') throw new Error('no port');
+    const docker = new EngineDockerApi({ host: '127.0.0.1', port: address.port });
+
+    await docker.restart('pine-pine-1');
+
+    expect(asked).toEqual(['POST /containers/pine-pine-1/restart?t=150']);
+  });
+
   it('reads a container: running, its health and the last output of its health check', async () => {
-    const docker = new SocketDockerApi(await fakeEngine());
+    const docker = new EngineDockerApi({ socketPath: await fakeEngine() });
 
     expect(await docker.container('abc123')).toEqual({
       id: 'abc123',
@@ -119,7 +138,7 @@ describe('SocketDockerApi', () => {
   });
 
   it('reads a container without a health check, and none that is not there', async () => {
-    const docker = new SocketDockerApi(await fakeEngine());
+    const docker = new EngineDockerApi({ socketPath: await fakeEngine() });
 
     expect(await docker.container('plain')).toMatchObject({
       running: false,
@@ -130,7 +149,7 @@ describe('SocketDockerApi', () => {
   });
 
   it("restarts a container, and fails with the Engine's own words", async () => {
-    const docker = new SocketDockerApi(await fakeEngine());
+    const docker = new EngineDockerApi({ socketPath: await fakeEngine() });
 
     await docker.restart('abc123');
     await expect(docker.restart('broken')).rejects.toThrow(
@@ -143,7 +162,7 @@ describe('SocketDockerApi', () => {
   });
 
   it('waits for a restart as long as the bot may take to stop, and no longer for a question', async () => {
-    const docker = new SocketDockerApi(await fakeEngine());
+    const docker = new EngineDockerApi({ socketPath: await fakeEngine() });
     vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
 
     const restarting = docker.restart('slow');

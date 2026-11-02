@@ -23,6 +23,8 @@ export function composeLabels(project: string, service: string): Record<string, 
 export class FakeDockerApi implements DockerApi {
   readonly containers: FakeContainer[] = [];
   readonly restarted: string[] = [];
+  /** The names the watchdog asked about, in order. */
+  readonly inspected: string[] = [];
   failRestart: Error | undefined;
   failWith: Error | undefined;
 
@@ -39,7 +41,7 @@ export class FakeDockerApi implements DockerApi {
     return made;
   }
 
-  containerIds(labels: readonly string[]): Promise<string[]> {
+  containerNames(labels: readonly string[]): Promise<string[]> {
     if (this.failWith) return Promise.reject(this.failWith);
     return Promise.resolve(
       this.containers
@@ -49,26 +51,25 @@ export class FakeDockerApi implements DockerApi {
             return container.labels[key] === value;
           }),
         )
-        .map((container) => container.id),
+        .map((container) => container.name),
     );
   }
 
-  container(id: string): Promise<ContainerState | undefined> {
+  container(name: string): Promise<ContainerState | undefined> {
     if (this.failWith) return Promise.reject(this.failWith);
-    const found = this.containers.find(
-      (container) => container.id === id || container.id.startsWith(id),
-    );
+    this.inspected.push(name);
+    const found = this.containers.find((container) => container.name === name);
     if (!found) return Promise.resolve(undefined);
     const { name: _name, ...state } = found;
     return Promise.resolve({ ...state, labels: { ...state.labels } });
   }
 
-  restart(id: string): Promise<void> {
+  restart(name: string): Promise<void> {
     if (this.failWith) return Promise.reject(this.failWith);
     if (this.failRestart) return Promise.reject(this.failRestart);
-    const found = this.containers.find((container) => container.id === id);
-    if (!found) return Promise.reject(new Error(`No such container: ${id}`));
-    this.restarted.push(id);
+    const found = this.containers.find((container) => container.name === name);
+    if (!found) return Promise.reject(new Error(`No such container: ${name}`));
+    this.restarted.push(name);
     found.health = 'starting';
     delete found.healthOutput;
     return Promise.resolve();

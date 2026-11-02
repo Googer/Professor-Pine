@@ -1,18 +1,20 @@
-import { hostname } from 'node:os';
 import path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { ConfigError } from '../config/errors.js';
 import { loggerFromEnv } from '../log.js';
 import { readBackupStatus } from './backup-status.js';
-import { SocketDockerApi } from './docker-api.js';
+import { EngineDockerApi } from './docker-api.js';
 import { FileStamps, ownerAlertsFrom } from './owner-alerts.js';
 import { FileWatchdogState, Watchdog, watchdogConfig, type WatchdogConfig } from './watchdog.js';
 
-/** The stack's `ops` volume: the backup's result, and what the watchdog told. */
-const OPS_DIR = '/ops';
+/**
+ * The volume `watchdog-state`: what the watchdog told. Its own, since it runs as the image's user
+ * and reads the root-owned `ops` volume, where the backup leaves its result, without writing there.
+ */
+const STATE_DIR = '/watchdog';
 
-// The stack's watchdog service (compose.yaml): the bot's image with this command, the Docker
-// socket mounted. See `Watchdog`.
+// The stack's watchdog service (compose.yaml): the bot's image with this command, on the network
+// of the socket proxy, as the image's user. See `Watchdog`.
 const log = loggerFromEnv(process.env);
 
 let config: WatchdogConfig;
@@ -25,23 +27,19 @@ try {
   process.exit(1);
 }
 
-const docker = new SocketDockerApi(config.socketPath);
-// Compose names the container's host after the container: its labels name the project.
-const project =
-  config.project ??
-  (await docker.container(hostname()).catch(() => undefined))?.labels['com.docker.compose.project'];
+const docker = new EngineDockerApi(config.engine);
+// compose.yaml names it: the proxy lets through this project's bot alone, so that the watchdog
+// cannot read it from its own container's labels.
+const project = config.project;
 if (!project) {
-  log.fatal(
-    { socket: config.socketPath },
-    'cannot tell which Compose project to watch: is the Docker socket mounted? (or set WATCHDOG_PROJECT)',
-  );
+  log.fatal('cannot tell which Compose project to watch: set WATCHDOG_PROJECT');
   process.exit(1);
 }
 
 const alerts = ownerAlertsFrom(
   process.env,
   log,
-  new FileStamps(path.join(OPS_DIR, 'watchdog-alerts.json')),
+  new FileStamps(path.join(STATE_DIR, 'watchdog-alerts.json')),
 );
 if (!alerts)
   log.warn('DISCORD_TOKEN or OWNER_ID is missing: the watchdog tells nobody what it does');
@@ -59,7 +57,7 @@ const watchdog = new Watchdog({
     read: () => readBackupStatus(config.backupStatusFile),
     maxAgeMs: config.backupMaxAgeMs,
   },
-  state: new FileWatchdogState(path.join(OPS_DIR, 'watchdog-state.json')),
+  state: new FileWatchdogState(path.join(STATE_DIR, 'watchdog-state.json')),
 });
 
 for (const signal of ['SIGINT', 'SIGTERM'] as const) {

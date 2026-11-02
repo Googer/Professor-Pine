@@ -125,17 +125,72 @@ describe('compose.yaml', () => {
     expect(service('pine')).toMatch(/^ {6}CLOUDFLARE_TUNNEL_TOKEN: ''\r?$/m);
   });
 
-  it.each(['pine', 'watchdog', 'cloudflared'])('limits what %s may do and use', (name) => {
-    const text = service(name);
-    expect(text).toMatch(/^ {4}security_opt: \['no-new-privileges:true'\]\r?$/m);
-    expect(text).toMatch(/^ {4}cap_drop: \['ALL'\]\r?$/m);
-    expect(text).toMatch(/^ {4}mem_limit: \d+[mg]\r?$/m);
-    expect(text).toMatch(/^ {4}pids_limit: \d+\r?$/m);
+  // These read the file: what the proxy lets through was proved on an engine (plan 8Z's staging).
+  describe('the Docker socket behind a proxy (plan 8Z)', () => {
+    const ALLOW_GET =
+      '(/v[0-9.]+)?/containers/(json|${COMPOSE_PROJECT_NAME:-pine}-pine-[0-9]+/json)';
+    const ALLOW_POST = '(/v[0-9.]+)?/containers/${COMPOSE_PROJECT_NAME:-pine}-pine-[0-9]+/restart';
+
+    it('holds the socket in the proxy alone', () => {
+      const withSocket = services.filter((text) => /docker\.sock/.test(text.replace(/#.*$/gm, '')));
+      expect(withSocket.map((text) => text.split(':')[0])).toEqual(['docker-proxy']);
+      expect(service('docker-proxy')).toMatch(
+        /^ {6}- \/var\/run\/docker\.sock:\/var\/run\/docker\.sock:ro\r?$/m,
+      );
+    });
+
+    it('lets through what the watchdog asks, of this stack’s bot, and nothing else', () => {
+      const proxy = service('docker-proxy');
+      expect(proxy).toContain(`SP_ALLOW_GET: '${ALLOW_GET}'`);
+      expect(proxy).toContain(`SP_ALLOW_POST: '${ALLOW_POST}'`);
+      expect(proxy).not.toMatch(/SP_ALLOW_(PUT|DELETE|PATCH|HEAD)/);
+    });
+
+    it('keeps the proxy on an internal network of its own, shared with the watchdog alone', () => {
+      expect(read('compose.yaml')).toMatch(/^ {2}docker-proxy:\r?\n {4}internal: true\r?$/m);
+      expect(service('docker-proxy')).toMatch(/^ {4}networks: \[docker-proxy\]\r?$/m);
+      expect(service('watchdog')).toMatch(/^ {4}networks: \[default, docker-proxy\]\r?$/m);
+      const onIt = services.filter((text) => /^ {4}networks: .*docker-proxy/m.test(text));
+      expect(onIt).toHaveLength(2);
+    });
+
+    it('starts the watchdog after the proxy, naming its project, as the image’s user', () => {
+      const watchdog = service('watchdog');
+      expect(watchdog).toMatch(/^ {6}- docker-proxy\r?$/m);
+      expect(watchdog).toMatch(/^ {6}WATCHDOG_PROJECT: \$\{COMPOSE_PROJECT_NAME:-pine\}\r?$/m);
+      expect(watchdog).not.toMatch(/^ {4}user:/m);
+    });
+
+    it('gives the watchdog a place of its own to write, and the ops volume to read alone', () => {
+      const watchdog = service('watchdog');
+      expect(watchdog).toMatch(/^ {6}- ops:\/ops:ro\r?$/m);
+      expect(watchdog).toMatch(/^ {6}- watchdog-state:\/watchdog\r?$/m);
+      expect(read('compose.yaml')).toMatch(/^ {2}watchdog-state:\r?$/m);
+      // A new volume takes the folder's owner: the image's user can write there.
+      expect(read('Dockerfile')).toMatch(/^RUN .*mkdir -p .*\/watchdog\b.*chown .*node:node/m);
+    });
+
+    it('runs the proxy with nothing to write and little to use', () => {
+      const proxy = service('docker-proxy');
+      expect(proxy).toMatch(/^ {4}read_only: true\r?$/m);
+      expect(proxy).toMatch(/^ {4}restart: unless-stopped\r?$/m);
+    });
   });
+
+  it.each(['pine', 'watchdog', 'cloudflared', 'docker-proxy'])(
+    'limits what %s may do and use',
+    (name) => {
+      const text = service(name);
+      expect(text).toMatch(/^ {4}security_opt: \['no-new-privileges:true'\]\r?$/m);
+      expect(text).toMatch(/^ {4}cap_drop: \['ALL'\]\r?$/m);
+      expect(text).toMatch(/^ {4}mem_limit: \d+[mg]\r?$/m);
+      expect(text).toMatch(/^ {4}pids_limit: \d+\r?$/m);
+    },
+  );
 
   it('keeps the logs of every service to a size', () => {
     const running = services.filter((text) => /^ {4}image: /m.test(text));
-    expect(running).toHaveLength(5);
+    expect(running).toHaveLength(6);
     for (const text of running) expect(text, text).toMatch(/^ {4}logging: \*logging\r?$/m);
   });
 });

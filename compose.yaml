@@ -96,21 +96,21 @@ services:
 
   # Restarts the bot when it has been stuck for a while (a stale heartbeat, which neither an
   # exit nor the restart policy catches) and DMs the owner of that, of an unhealthy bot a restart
-  # would not mend, of a bot that keeps restarting, and of failed backups. The Docker socket gives it control of Docker on this host
-  # (root, in effect): accepted for a home server, since a stuck bot cannot restart itself. It
-  # restarts nothing but the pine service of this project. Root inside, since the socket is.
+  # would not mend, of a bot that keeps restarting, and of failed backups. It reaches Docker only
+  # through docker-proxy, below, which lets it list containers and inspect and restart this
+  # stack's bot, by name, and nothing else. It holds no socket and runs as the image's user.
   watchdog:
     image: professor-pine:${COMPOSE_PROJECT_NAME:-pine}
     # The pine service builds this image; it is on no registry, and `./pine update`'s pull skips
     # only what is told not to pull or has a build of its own.
     pull_policy: never
     command: ['node', '--enable-source-maps', 'dist/ops/watchdog-cli.js']
-    user: '0'
-    # Only what it needs of `.env`: no database password in a container that holds the socket.
+    # Only what it needs of `.env`: no database password.
     environment:
       DISCORD_TOKEN: ${DISCORD_TOKEN:-}
       OWNER_ID: ${OWNER_ID:-}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      WATCHDOG_PROJECT: ${COMPOSE_PROJECT_NAME:-pine}
       WATCHDOG_INTERVAL_SECONDS: ${WATCHDOG_INTERVAL_SECONDS:-}
       WATCHDOG_UNHEALTHY_MINUTES: ${WATCHDOG_UNHEALTHY_MINUTES:-}
       WATCHDOG_ALERT_MINUTES: ${WATCHDOG_ALERT_MINUTES:-}
@@ -119,19 +119,51 @@ services:
       WATCHDOG_RESTART_WINDOW_MINUTES: ${WATCHDOG_RESTART_WINDOW_MINUTES:-}
       WATCHDOG_BACKUP_HOURS: ${WATCHDOG_BACKUP_HOURS:-}
     volumes:
-      - /var/run/docker.sock:/var/run/docker.sock
-      # The backup's result to read, and what it told (kept across its own restarts).
-      - ops:/ops
+      # The backup's result to read.
+      - ops:/ops:ro
+      # What it told, kept across its own restarts.
+      - watchdog-state:/watchdog
+    # The default network for its direct messages to Discord; the proxy's alone for Docker.
+    networks: [default, docker-proxy]
     depends_on:
       - pine
+      - docker-proxy
     init: true
     restart: unless-stopped
     logging: *logging
-    # Root is for the socket's owner alone: no capability is needed for it.
     security_opt: ['no-new-privileges:true']
     cap_drop: ['ALL']
     mem_limit: 512m
     pids_limit: 128
+
+  # The one service that holds the Docker socket: a proxy that answers the watchdog, on a network
+  # with no way out that the two alone share, and refuses everything else. A rule is a regular
+  # expression of the path, which it anchors at both ends: the list, and this stack's bot by name
+  # to inspect and restart. So it never reads another container (with its environment, which is
+  # where a second stack on this machine keeps its token), and never makes one. Read-only `:ro`
+  # says nothing of what the API may do: these rules do. What it lets through was proved on an
+  # engine with a scratch container, a 150-second stop included (plan 8Z's staging checklist).
+  # It runs as root (user 0, no capabilities) where its own example gives the socket's group: that
+  # group's id differs per host, and the socket's owner is root everywhere.
+  docker-proxy:
+    image: wollomatic/socket-proxy:1
+    user: '0'
+    environment:
+      SP_LISTENIP: 0.0.0.0
+      # The network is the fence: nobody else is on it.
+      SP_ALLOWFROM: 0.0.0.0/0
+      SP_ALLOW_GET: '(/v[0-9.]+)?/containers/(json|${COMPOSE_PROJECT_NAME:-pine}-pine-[0-9]+/json)'
+      SP_ALLOW_POST: '(/v[0-9.]+)?/containers/${COMPOSE_PROJECT_NAME:-pine}-pine-[0-9]+/restart'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    networks: [docker-proxy]
+    restart: unless-stopped
+    logging: *logging
+    read_only: true
+    security_opt: ['no-new-privileges:true']
+    cap_drop: ['ALL']
+    mem_limit: 64m
+    pids_limit: 64
 
   # A verified dump of the database every night (docker/backup.sh, `./pine backup` for one now),
   # into BACKUP_DIR on the host. On the mysql:8.4 image for its own mysqldump and mysqld: a
@@ -204,6 +236,13 @@ services:
 volumes:
   mysql-data:
   pine-var:
-  # The backup's last result, which the watchdog reads, and what the watchdog told.
+  # The backup's last result, which the watchdog reads.
   ops:
+  # What the watchdog told, which it writes as the image's user.
+  watchdog-state:
   backup-scratch:
+
+networks:
+  # Between the watchdog and the socket proxy, with no way out.
+  docker-proxy:
+    internal: true

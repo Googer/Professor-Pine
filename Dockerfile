@@ -57,6 +57,8 @@ COPY data/settings.json ./data/settings.json
 # `var/` is a volume (game data cache, map pictures, the screen reader's models and screenshots,
 # the health files): a new volume takes this folder's owner, so the bot can write to it.
 RUN mkdir -p var && chown node:node var
+# The watchdog's own volume: what it told, written as this user (plan 8Z).
+RUN mkdir -p /watchdog && chown node:node /watchdog
 USER node
 # The bot shuts down cleanly on SIGTERM (src/index.ts); compose.yaml gives it the time.
 STOPSIGNAL SIGTERM

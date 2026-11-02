@@ -409,10 +409,28 @@ describe('Watchdog: backups', () => {
   });
 });
 
+describe('the watchdog asks the Engine by name (plan 8Z: its proxy lets through no other)', () => {
+  it("inspects and restarts the bot by the name from the list, never by the Engine's id", async () => {
+    const { docker, pine, clock, watchdog } = watchdogWith();
+    pine.name = 'pine-pine-1';
+    pine.id = 'f00dcafe';
+    await watchdog.tick();
+    pine.running = true;
+    pine.health = 'unhealthy';
+    pine.healthOutput = 'stale: the last heartbeat is 9 minutes old';
+    await watchdog.tick();
+    clock.now += 6 * MINUTE;
+    await watchdog.tick();
+    expect(docker.inspected).toContain('pine-pine-1');
+    expect(docker.inspected).not.toContain('f00dcafe');
+    expect(docker.restarted).toEqual(['pine-pine-1']);
+  });
+});
+
 describe('watchdogConfig', () => {
   it('has a default for everything', () => {
     expect(watchdogConfig({})).toEqual({
-      socketPath: '/var/run/docker.sock',
+      engine: { host: 'docker-proxy', port: 2375 },
       project: undefined,
       intervalMs: 30_000,
       unhealthyMs: 5 * MINUTE,
@@ -443,5 +461,13 @@ describe('watchdogConfig', () => {
     expect(() => watchdogConfig({ WATCHDOG_UNHEALTHY_MINUTES: 'soon' })).toThrow(
       /WATCHDOG_UNHEALTHY_MINUTES/,
     );
+  });
+
+  it('reads where the proxy is, and refuses what is no host and port', () => {
+    expect(watchdogConfig({ DOCKER_PROXY: 'proxy.internal:1234' }).engine).toEqual({
+      host: 'proxy.internal',
+      port: 1234,
+    });
+    expect(() => watchdogConfig({ DOCKER_PROXY: '/var/run/docker.sock' })).toThrow(/DOCKER_PROXY/);
   });
 });

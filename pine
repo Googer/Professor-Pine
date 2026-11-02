@@ -454,9 +454,10 @@ cmd_update() {
   say "> git pull --ff-only"
   git pull --ff-only || fail "git could not bring the code up to date (it said why above)."
   pulled="The code is updated but the stack still runs the old version: './pine up' builds and starts it."
-  # The images the stack does not build (MySQL, the tunnel) are kept as first fetched until
-  # pulled: an update fetches their newest builds of the same tag, with their security fixes.
-  say "Fetching the newest MySQL and tunnel images."
+  # The images the stack does not build (MySQL, the tunnel, the Docker socket's proxy) are kept as
+  # first fetched until pulled: an update fetches their newest builds of the same tag, with their
+  # security fixes.
+  say "Fetching the newest MySQL, tunnel and socket proxy images."
   run pull --ignore-buildable || fail "$pulled"
   say "Building the bot's image from this checkout."
   run build --pull pine || fail "$pulled"
