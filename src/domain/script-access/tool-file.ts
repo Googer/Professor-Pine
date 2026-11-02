@@ -1,5 +1,5 @@
 /**
- * The Pine Wayspot export tool's file as the owner's instance serves it (plan 8W-P): built by the
+ * The Pine Wayfarer export tool's file as the owner's instance serves it (plan 8W-P): built by the
  * private repository with the placeholders `{{PINE_META_URL}}` and `{{PINE_SCRIPT_URL}}` in
  * its `==UserScript==` header, which the server fills with the addresses of each admin's key,
  * and its `CHANGELOG.md` (`## <version>` headings, newest first). Pure: the reading of the
@@ -7,9 +7,9 @@
  */
 
 /** The tool file's name, in the folder and in its addresses. */
-export const TOOL_FILE = 'pine-wayspot-export.user.js';
+export const TOOL_FILE = 'pine-wayfarer-export.user.js';
 /** The header block's name in its addresses: what Tampermonkey asks for an update. */
-export const META_FILE = 'pine-wayspot-export.meta.js';
+export const META_FILE = 'pine-wayfarer-export.meta.js';
 /** The changelog beside the tool file. */
 export const CHANGELOG_FILE = 'CHANGELOG.md';
 /** How many of the changelog's newest entries the page shows. */

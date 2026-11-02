@@ -9,7 +9,7 @@ import { checkForcedDark, withForcedDark } from './forced-dark.js';
  * `assets/editor-<hash>.js` with Leaflet and Geoman, `assets/editor-<hash>.css` with Geoman's
  * style, an add-on of the map's beside which the map loads it when the editor is first turned on
  * (plan 8M-10), and the script of its worker, `assets/editor-worker-<hash>.js`) and the page of the
- * Wayspot export tool (plan 8W-P: `assets/userscript-<hash>.js` and `.css`), each an IIFE for
+ * Wayfarer export tool (plan 8W-P: `assets/userscript-<hash>.js` and `.css`), each an IIFE for
  * ES2022, minified, with Leaflet's pictures, every file named by a hash of its content so that
  * the server can let browsers keep them for good; `dist/web/assets.json` names each page's
  * script and style and the worker. The short pages' stylesheet (plan 8M-7) is `assets/page.css`

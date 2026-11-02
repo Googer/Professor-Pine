@@ -10,7 +10,7 @@ import { CHANGELOG_FILE, TOOL_FILE } from '../../src/domain/script-access/tool-f
 export function toolText(version = '1.2.0'): string {
   return [
     '// ==UserScript==',
-    '// @name         Pine Wayspot export',
+    '// @name         Pine Wayfarer export',
     `// @version      ${version}`,
     '// @match        https://wayfarer.example.test/*',
     '// @updateURL    {{PINE_META_URL}}',

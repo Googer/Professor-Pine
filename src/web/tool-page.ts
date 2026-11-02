@@ -12,7 +12,7 @@ import type { PageAssets } from './page.js';
 
 /** The page's words that the routes answer with too. */
 export const TOOL_WORDS = {
-  lead: "Professor Pine's Wayspot export tool, for the admins of servers that run Pine.",
+  lead: "Professor Pine's Wayfarer export tool, for the admins of servers that run Pine.",
   notAvailable: 'Not available on this Pine.',
   askQuestion: 'Which community do you run Pine for?',
   ask: 'Ask for access',
@@ -280,7 +280,7 @@ function head(assets: PageAssets): string[] {
     '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1">',
     COLOR_SCHEME_META,
-    '<title>Professor Pine: Wayspot export tool</title>',
+    '<title>Professor Pine: Wayfarer export tool</title>',
     `<link rel="stylesheet" href="/assets/${escapeHtml(assets.style)}">`,
     `<script src="/assets/${escapeHtml(assets.script)}" defer></script>`,
     '</head>',
@@ -309,7 +309,7 @@ export function toolPage(view: ToolPageView, assets: PageAssets): string {
       `<span id="account">${memberWords(view.name)} ${button('logout', 'Log out')}</span></header>`,
     '<p id="notice" role="status" hidden></p>',
     '<main id="tool">',
-    '<h1>Wayspot export tool</h1>',
+    '<h1>Wayfarer export tool</h1>',
     paragraph(TOOL_WORDS.lead),
     body,
     '</main>',

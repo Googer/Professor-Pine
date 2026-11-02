@@ -12,8 +12,8 @@ import { toolText } from '../../../test/support/wayspot-tool.js';
 const TOOL_TEXT = toolText();
 
 const URLS = {
-  meta: 'https://pine.example.test/userscript/abc/pine-wayspot-export.meta.js',
-  script: 'https://pine.example.test/userscript/abc/pine-wayspot-export.user.js',
+  meta: 'https://pine.example.test/userscript/abc/pine-wayfarer-export.meta.js',
+  script: 'https://pine.example.test/userscript/abc/pine-wayfarer-export.user.js',
 };
 
 function read(text: string): ToolFile {
@@ -86,7 +86,7 @@ describe('the files served', () => {
     const meta = servedMeta(read(TOOL_TEXT), URLS);
     expect(meta.split('\n')).toEqual([
       '// ==UserScript==',
-      '// @name         Pine Wayspot export',
+      '// @name         Pine Wayfarer export',
       '// @version      1.2.0',
       '// @match        https://wayfarer.example.test/*',
       `// @updateURL    ${URLS.meta}`,

@@ -214,7 +214,7 @@ export interface AppContext {
   readonly emoji: EmojiFinder;
   /** The login links of the web pages that `/maps` gives (plan 8M-1), shared with the server. */
   readonly loginLinks: LoginLinks;
-  /** Who may have the Wayspot export tool (plan 8W-P): the owner's DM buttons and `/userscript`. */
+  /** Who may have the Wayfarer export tool (plan 8W-P): the owner's DM buttons and `/userscript`. */
   readonly scriptAccess: ScriptAccessService;
   /** Privileged-intent features actually granted at login (may be fewer than configured). */
   features: IntentFlags;

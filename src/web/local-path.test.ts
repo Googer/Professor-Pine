@@ -45,7 +45,7 @@ describe('localPath', () => {
       '/userscript#x',
       '//userscript',
       '/USERSCRIPT',
-      '/userscript/abc/pine-wayspot-export.user.js',
+      '/userscript/abc/pine-wayfarer-export.user.js',
       ['/userscript'],
     ]) {
       expect(localPath(path), JSON.stringify(path)).toBeUndefined();

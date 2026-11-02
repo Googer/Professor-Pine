@@ -86,7 +86,7 @@ need_stack() {
   make_tool_dir
 }
 
-# PINE_TOOL_DIR (blank: ./wayspot-tool) holds the Wayspot export tool on the owner's instance:
+# PINE_TOOL_DIR (blank: ./wayspot-tool) holds the Wayfarer export tool on the owner's instance:
 # every container of the bot mounts it read-only.
 tool_dir_of() {
   tool_dir=$(env_value PINE_TOOL_DIR)
@@ -113,7 +113,7 @@ check_tool_dir() {
     fail "PINE_TOOL_DIR in $PINE_ENV_FILE names $tool_dir, which is no folder: name a folder, or leave PINE_TOOL_DIR blank."
   [ -n "$(find "$tool_dir" -maxdepth 0 -perm -o=rx)" ] ||
     fail "The bot cannot read the folder $tool_dir (PINE_TOOL_DIR): let others read it (chmod a+rx)."
-  for served in pine-wayspot-export.user.js CHANGELOG.md; do
+  for served in pine-wayfarer-export.user.js CHANGELOG.md; do
     [ ! -f "$tool_dir/$served" ] || [ -n "$(find "$tool_dir/$served" -maxdepth 0 -perm -o=r)" ] ||
       fail "The bot cannot read $tool_dir/$served (PINE_TOOL_DIR): let others read it (chmod a+r)."
   done

@@ -32,7 +32,7 @@ describe('WayspotToolFiles', () => {
       expect.objectContaining({
         level: 40,
         reason: 'it does not open with // ==UserScript==',
-        msg: 'the Wayspot export tool file does not read: it is not served',
+        msg: 'the Wayfarer export tool file does not read: it is not served',
       }),
     ]);
   });
@@ -55,7 +55,7 @@ describe('WayspotToolFiles', () => {
     expect(entries).toEqual([
       expect.objectContaining({
         level: 40,
-        msg: 'the Wayspot export tool file could not be read',
+        msg: 'the Wayfarer export tool file could not be read',
       }),
     ]);
     readable = true;

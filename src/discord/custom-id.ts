@@ -152,7 +152,7 @@
  * battle at a pin is `maxpin:<party id>:delete` (`src/components/max-pin.ts`), which opens that
  * dialog.
  *
- * The owner's buttons under the DM of a request for the Wayspot export tool (plan 8W-P) are
+ * The owner's buttons under the DM of a request for the Wayfarer export tool (plan 8W-P) are
  * `scriptaccess:<row id>:approve|refuse:<asked at>` (`src/components/script-access.ts`): the row
  * of `ScriptAccess`, read from the database at the press, and the time of the asking the DM was
  * drawn for in base 36 (a request asked again after a refusal is not decided by an old DM).

@@ -230,7 +230,7 @@ describe('/gym import: its help', () => {
     const text = (wayspotTool: string): string =>
       typeof details === 'function' ? details({ ...settings, wayspotTool }) : '';
     expect(text('https://pine.example.test/userscript')).toContain(
-      'The export is made by the Pine Wayspot export tool: ask for it at ' +
+      'The export is made by the Pine Wayfarer export tool: ask for it at ' +
         'https://pine.example.test/userscript.',
     );
     expect(text(settings.wayspotTool)).toContain('ask for it at https://profpine.com/userscript.');
@@ -659,7 +659,7 @@ describe('/gym import: files it refuses', () => {
     return { text: said(answer) ?? '', made };
   };
   const HOW =
-    'Attach the file the Pine Wayspot export tool saves (`pine-wayspots-<date>.json.gz`): ' +
+    'Attach the file the Pine Wayfarer export tool saves (`pine-wayspots-<date>.json.gz`): ' +
     '`/help command:gym import` says where to ask for the tool.';
 
   it('refuses a file larger than Discord takes without downloading it', async () => {
@@ -690,7 +690,7 @@ describe('/gym import: files it refuses', () => {
     const made = await gymCommandsWith();
     const newer = writeWayspotExport(cityFile(made)).replace('"version":1', '"version":2');
     expect((await refused(gzipSync(newer))).text).toBe(
-      'That export was saved by a newer version of the Pine Wayspot export tool (file ' +
+      'That export was saved by a newer version of the Pine Wayfarer export tool (file ' +
         'version 2) than this bot reads (version 1). The bot has to be updated first, or the ' +
         'export saved again with the version handed out at https://profpine.com/userscript.',
     );
@@ -702,7 +702,7 @@ describe('/gym import: files it refuses', () => {
       writeWayspotExport(cityFile(made)),
     ) as Record<string, unknown>;
     expect((await refused(gzipSync(JSON.stringify(older)))).text).toBe(
-      'That export was saved by an older version of the Pine Wayspot export tool, without the ' +
+      'That export was saved by an older version of the Pine Wayfarer export tool, without the ' +
         'outlines of its areas. Install the current version (ask for it at ' +
         'https://profpine.com/userscript), then save the export again.',
     );

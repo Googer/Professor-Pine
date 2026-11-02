@@ -90,7 +90,7 @@ export class WayspotToolFiles implements ToolSource {
       text = await this.readText(file);
     } catch (err) {
       // Kept under its stamp as a file that does not read: said once, read again once changed.
-      this.log.warn({ err }, 'the Wayspot export tool file could not be read');
+      this.log.warn({ err }, 'the Wayfarer export tool file could not be read');
       this.script = { stamp, value: undefined };
       return undefined;
     }
@@ -98,7 +98,7 @@ export class WayspotToolFiles implements ToolSource {
     if (!read.ok) {
       this.log.warn(
         { reason: read.reason },
-        'the Wayspot export tool file does not read: it is not served',
+        'the Wayfarer export tool file does not read: it is not served',
       );
     }
     this.script = { stamp, value: read.ok ? read.tool : undefined };

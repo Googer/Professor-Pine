@@ -78,7 +78,7 @@ function setup() {
   return { store, clock, ctx, entries, press, pressOn, dmOf, idOn, edited };
 }
 
-describe('Approve and Refuse in the owner’s DM of a request for the Wayspot export tool', () => {
+describe('Approve and Refuse in the owner’s DM of a request for the Wayfarer export tool', () => {
   it('approves the request with a key, and the DM says so, without its buttons', async () => {
     const made = setup();
     const { access } = await made.store.ask(accessRequest());
@@ -144,7 +144,7 @@ describe('Approve and Refuse in the owner’s DM of a request for the Wayspot ex
       const pressed = await made.press(access.id, 'approve', '200000000000000099');
       expect(pressed.editReply).not.toHaveBeenCalled();
       expect(sent(pressed.reply).content).toBe(
-        'Only the owner of this Pine decides who gets the Wayspot export tool.',
+        'Only the owner of this Pine decides who gets the Wayfarer export tool.',
       );
     }
     expect((await made.store.byId(access.id))?.state).toBe('asked');

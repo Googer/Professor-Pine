@@ -4,7 +4,7 @@ import { importReportCsv } from '../../src/render/wayfarer-report.js';
 
 /**
  * The input of `@pine/wayspot-core/fixtures/import-report.csv`, the import's report as
- * `/gym import` attaches it: the file is a contract with the Pine Wayspot export tool, and
+ * `/gym import` attaches it: the file is a contract with the Pine Wayfarer export tool, and
  * `wayfarer-report.contract.test.ts` checks that the writer still makes exactly it. A change of the
  * writer that changes the file is checked against the tool before the fixture is made anew. Every kind of
  * line, two gyms in cells the export did not cover (one named with a comma and quotes), a cell

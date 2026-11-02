@@ -4,7 +4,7 @@
  */
 const SERVER_PAGE = /^\/s\/\d{15,20}(?:\/(?!\.\.?(?:\/|$))[A-Za-z0-9._~-]+)*\/?$/;
 const MAX_LENGTH = 200;
-/** The page of the Wayspot export tool (plan 8W-P), not of a server: taken only exactly. */
+/** The page of the Wayfarer export tool (plan 8W-P), not of a server: taken only exactly. */
 const TOOL_PAGE = '/userscript';
 /** The top page (plan 8M-14): its servers or the login; taken only exactly. */
 const TOP_PAGE = '/';

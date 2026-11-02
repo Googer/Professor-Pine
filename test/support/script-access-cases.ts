@@ -29,7 +29,7 @@ export function accessRequest(overrides: Partial<AccessRequest> = {}): AccessReq
 }
 
 /**
- * What the access rows of the Wayspot export tool do, run against the repository and its twin
+ * What the access rows of the Wayfarer export tool do, run against the repository and its twin
  * in memory alike. `made` gives a fresh, empty store.
  */
 export function scriptAccessCases(made: () => Promise<ScriptAccessStore>): void {

@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { coveredCells, readWayspotExport, writeWayspotExport } from './export-file.js';
 
 /**
- * Version 1 of the export, pinned: the file the Pine Wayspot export tool saves and `/gym import`
+ * Version 1 of the export, pinned: the file the Pine Wayfarer export tool saves and `/gym import`
  * reads. Its private repository tests its exports against the same fixture
  * (`@pine/wayspot-core/fixtures/export-v1.json`). A change that breaks this test is a new
  * `version`, and the bot keeps reading this one.

@@ -64,7 +64,7 @@ async function withKey<T>(key: string | null, work: () => Promise<T>): Promise<T
 }
 
 /**
- * Who may have the Wayspot export tool, in the table `ScriptAccess` (migration 024). Every
+ * Who may have the Wayfarer export tool, in the table `ScriptAccess` (migration 024). Every
  * change is one statement conditioned on the row as the caller saw it, so that two decisions
  * at once (the owner's DM and page) take effect once. Its twin in memory is
  * `MemoryScriptAccess`; both run `scriptAccessCases` (`test/support/script-access-cases.ts`).

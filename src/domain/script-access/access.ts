@@ -1,5 +1,5 @@
 /**
- * Who may have the Pine Wayspot export tool (plan 8W-P): the admins of servers that run
+ * Who may have the Pine Wayfarer export tool (plan 8W-P): the admins of servers that run
  * Pine ask for it on the owner's instance (`/userscript`), the owner approves, refuses or
  * revokes, and an approved admin fetches the tool at an address carrying a key of their own. One
  * row per member (`ScriptAccess`, migration 024; `ScriptAccessRepository`, its twin

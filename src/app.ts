@@ -761,7 +761,7 @@ export async function startApp(
       store: new WebSessionRepository(db),
       secure: config.settings.web.publicUrl.startsWith('https:'),
     });
-  // Who may have the Wayspot export tool (plan 8W-P): asked for and decided on /userscript.
+  // Who may have the Wayfarer export tool (plan 8W-P): asked for and decided on /userscript.
   const scriptAccess = new ScriptAccessService({
     store: new ScriptAccessRepository(db),
     ownerId: config.env.OWNER_ID,
@@ -1431,7 +1431,7 @@ export async function startApp(
         posts: stopPosts,
         grunts: gruntMessages,
       },
-      // The Wayspot export tool (plan 8W-P): served from wayspot-tool/ to the admins the owner
+      // The Wayfarer export tool (plan 8W-P): served from wayspot-tool/ to the admins the owner
       // approved, on an instance that has the file (the owner's).
       tool: {
         files: new WayspotToolFiles({ log }),

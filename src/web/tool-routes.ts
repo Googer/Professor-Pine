@@ -17,7 +17,7 @@ import type { WebDeps } from './server.js';
 import type { WebSession } from './session-model.js';
 import { ownAccess, TOOL_LOGIN, TOOL_WORDS, toolPage } from './tool-page.js';
 
-/** The Wayspot export tool on the owner's instance (plan 8W-P): its file, and who may have it. */
+/** The Wayfarer export tool on the owner's instance (plan 8W-P): its file, and who may have it. */
 export interface ToolWebDeps {
   /** The tool file of `wayspot-tool/`, undefined while there is none that reads. */
   files: ToolSource;
@@ -69,7 +69,7 @@ type KeyParams = { key: string };
 
 /**
  * The tool and its header block at the addresses of a key (spec "Keys and links"):
- * `GET /userscript/<key>/pine-wayspot-export.user.js` and `….meta.js`, the placeholders of the
+ * `GET /userscript/<key>/pine-wayfarer-export.user.js` and `….meta.js`, the placeholders of the
  * header filled with that key's two addresses. A key that is not an approved member's (unknown,
  * replaced, revoked, refused, asked), or anything else under `/userscript/`, answers the same
  * plain 404, so that nothing says a key once worked. Every answer is `text/javascript` and
@@ -109,7 +109,7 @@ export function toolFileRoutes(app: FastifyInstance, deps: WebDeps): void {
               access: access.id,
               version: offered.version,
             },
-            'the Wayspot export tool was fetched',
+            'the Wayfarer export tool was fetched',
           );
           const urls = toolUrls(settings.publicUrl, key);
           return reply

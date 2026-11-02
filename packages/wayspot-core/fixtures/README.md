@@ -1,6 +1,6 @@
-# The contracts with the Wayspot export tool
+# The contracts with the Wayfarer export tool
 
-The Pine Wayspot export tool, kept in a repository of its own, reads these files in its tests:
+The Pine Wayfarer export tool, kept in a repository of its own, reads these files in its tests:
 
 - `export-v1.json` and `export-v1.json.gz`: a version-1 export, as the tool saves it and `/gym import` reads it (`src/export-contract.test.ts`).
 - `import-report.csv`: the report `/gym import` attaches; the tool's tests read this file (`src/render/wayfarer-report.contract.test.ts` in Pine).

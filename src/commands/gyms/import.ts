@@ -155,7 +155,7 @@ export function unpackExport(bytes: Uint8Array, limit = MAX_UNPACKED_BYTES): Unp
 }
 
 const NOT_AN_EXPORT =
-  `Attach the file the Pine Wayspot export tool saves (${EXPORT_NAME}): ` +
+  `Attach the file the Pine Wayfarer export tool saves (${EXPORT_NAME}): ` +
   '`/help command:gym import` says where to ask for the tool.';
 
 /** What is wrong with a Wayspot of a file, as the end of a sentence. */
@@ -179,13 +179,13 @@ function problemText(problem: ExportProblem, tool: string): string {
       return `That file is JSON, but no export of Wayspots. ${NOT_AN_EXPORT}`;
     case 'no-outlines':
       return (
-        'That export was saved by an older version of the Pine Wayspot export tool, without ' +
+        'That export was saved by an older version of the Pine Wayfarer export tool, without ' +
         `the outlines of its areas. Install the current version (ask for it at ${tool}), ` +
         'then save the export again.'
       );
     case 'version':
       return (
-        'That export was saved by a newer version of the Pine Wayspot export tool (file ' +
+        'That export was saved by a newer version of the Pine Wayfarer export tool (file ' +
         `version ${problem.version}) than this bot reads (version ${WAYSPOT_EXPORT_VERSION}). ` +
         'The bot has to be updated first, or the export saved again with the version handed ' +
         `out at ${tool}.`
@@ -817,7 +817,7 @@ export const importGyms: SubcommandPart = {
     .addAttachmentOption((option) =>
       option
         .setName('file')
-        .setDescription('The file the Pine Wayspot export tool saved (.json.gz), or its part 1')
+        .setDescription('The file the Pine Wayfarer export tool saved (.json.gz), or its part 1')
         .setRequired(true),
     )
     .addAttachmentOption((option) =>
@@ -834,7 +834,7 @@ export const importGyms: SubcommandPart = {
     ),
   help: {
     details: (settings) =>
-      'The true list of gyms is Wayfarer’s. The export is made by the Pine Wayspot export ' +
+      'The true list of gyms is Wayfarer’s. The export is made by the Pine Wayfarer export ' +
       `tool: ask for it at ${settings.wayspotTool}. It takes the KML file of \`/region export\`.\n\n` +
       `Attach the file it saves (${EXPORT_NAME}) here; an export too large for one upload ` +
       `is saved in up to ${MAX_EXPORT_PARTS} parts (\`…-part1of3.json.gz\` and so on): attach ` +

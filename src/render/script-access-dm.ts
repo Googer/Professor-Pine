@@ -37,7 +37,7 @@ const capitalised = (text: string): string => text.charAt(0).toUpperCase() + tex
 function requestLines(access: ScriptAccess, askedAt = access.askedAt): string[] {
   const own = askedAt === access.askedAt;
   return [
-    '### Wayspot export tool: a request',
+    '### Wayfarer export tool: a request',
     `**${plainNoLinks(access.name)}** · ${access.userId}`,
     ...(own ? [`Community: ${plainNoLinks(access.community)}`] : []),
     `Asked ${timestamp(askedAt, 'f')}.`,
@@ -45,7 +45,7 @@ function requestLines(access: ScriptAccess, askedAt = access.askedAt): string[] 
 }
 
 /**
- * The DM to the owner of a request for the Wayspot export tool (plan 8W-P): who asks (their
+ * The DM to the owner of a request for the Wayfarer export tool (plan 8W-P): who asks (their
  * Discord name through `plainNoLinks` and their id as plain text: no mention), their community
  * line (through `plainNoLinks`), when, and Approve and Refuse
  * (`scriptaccess:<row id>:approve|refuse:<asked at>`: the asking's time in base 36, so that a

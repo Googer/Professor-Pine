@@ -5,7 +5,7 @@ import { isWayfarerCell, wayfarerCellAt } from './s2.js';
 import { isScanMargin } from './scan-area.js';
 
 /**
- * The Wayspot export, the file the Pine Wayspot export tool saves and `/gym import` reads: the
+ * The Wayspot export, the file the Pine Wayfarer export tool saves and `/gym import` reads: the
  * gyms, PokéStops and power spots of Wayfarer over an area, and the level-14 cells whose
  * Wayspots it holds in full, which is what makes a Wayspot's absence mean something. Version 1
  * is pinned by `fixtures/export-v1.json`.

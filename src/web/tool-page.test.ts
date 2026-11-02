@@ -72,7 +72,7 @@ describe('the page /userscript', () => {
     expect(answer.statusCode).toBe(200);
     expect(answer.headers['cache-control']).toBe('no-store');
     expect(answer.body).toContain(
-      'Professor Pine&#39;s Wayspot export tool, for the admins of servers that run Pine.',
+      'Professor Pine&#39;s Wayfarer export tool, for the admins of servers that run Pine.',
     );
     expect(answer.body).toContain(
       '<a href="/auth/login?next=%2Fuserscript">Log in with Discord</a>',
@@ -138,7 +138,7 @@ describe('the page /userscript', () => {
     ({ web } = made);
     const { key } = await approvedAsh(made.tool);
     const page = (await pageOf(web, ADMIN)).body;
-    const link = `https://map.example.test/userscript/${key}/pine-wayspot-export.user.js`;
+    const link = `https://map.example.test/userscript/${key}/pine-wayfarer-export.user.js`;
     expect(page).toContain(`<a class="install" href="${link}">Install</a>`);
     expect(page).toContain(`<code>${link}</code>`);
     expect(page).toContain('Version 1.2.0');

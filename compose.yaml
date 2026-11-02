@@ -62,7 +62,7 @@ services:
       - ${PINE_SETTINGS:-./pine-settings.json}:/app/data/settings.json:ro
       - pine-var:/app/var
       - ${LEGACY_PARTIES_DIR:-./legacy-parties}:/legacy-parties:ro
-      # The Wayspot export tool, on the owner's instance only (the private repository's
+      # The Wayfarer export tool, on the owner's instance only (the private repository's
       # `npm run deploy` writes it there): read when asked, served at /userscript to the admins
       # the owner approved. `./pine` makes the folder when missing; empty, nothing is served.
       - ${PINE_TOOL_DIR:-./wayspot-tool}:/app/wayspot-tool:ro

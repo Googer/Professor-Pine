@@ -124,7 +124,7 @@ describe('loadSettings', () => {
     expect(() => loadSettings(wrong)).toThrow(/regionMapLink/);
   });
 
-  it('names where the Wayspot export tool is asked for, profpine.com unless set', () => {
+  it('names where the Wayfarer export tool is asked for, profpine.com unless set', () => {
     expect(loadSettings(REPO_SETTINGS).wayspotTool).toBe('https://profpine.com/userscript');
     const unset = writeSettings((s) => {
       delete s.wayspotTool;

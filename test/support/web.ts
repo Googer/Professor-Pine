@@ -636,7 +636,7 @@ export interface WebTestOptions {
   stops?: StopWebDeps;
   /** Staff's Delete… and reports to the moderators on the map (`postWebWith`); none by default. */
   posts?: PostWebDeps;
-  /** The Wayspot export tool and who may have it (`toolWebWith`); no tool file by default. */
+  /** The Wayfarer export tool and who may have it (`toolWebWith`); no tool file by default. */
   tool?: ToolWebDeps;
   /**
    * The square pictures of the stops (plan 8R-6): none made by default, and every source named
@@ -648,7 +648,7 @@ export interface WebTestOptions {
 }
 
 /**
- * The Wayspot export tool over a folder of the test's (`toolFolder`: the small tool file of
+ * The Wayfarer export tool over a folder of the test's (`toolFolder`: the small tool file of
  * `toolText` and `TOOL_CHANGELOG` unless `script` or `changelog` say otherwise, null for none),
  * who may have it through a `ScriptAccessService` (`access`) over rows in memory (`store`, a
  * `MemoryScriptAccess`) on a clock of its own (`clock`, from `WEB_START`), the owner `ownerId`

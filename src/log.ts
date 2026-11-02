@@ -25,7 +25,7 @@ const COPIED_KEYS = ['password', 'token'] as const;
  * A failed Discord request, logged as `{ err }`, carries the address (for interaction callbacks and
  * follow-ups it contains the interaction token) and the request body (whole image files). A
  * failed query (mysql2) carries its statement as `sql`, formatted with its values on the client
- * (a key of the Wayspot export tool, say). Pino's serializer writes a cause's message and stack,
+ * (a key of the Wayfarer export tool, say). Pino's serializer writes a cause's message and stack,
  * not its fields; the cause's paths are covered all the same.
  */
 const REQUEST_DETAIL_PATHS = ['url', 'requestBody', 'sql'].flatMap((key) => [

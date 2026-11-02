@@ -23,7 +23,7 @@ const request = (overrides: Partial<ScriptAccess> = {}): ScriptAccess => ({
   ...overrides,
 });
 
-describe('the DM of a request for the Wayspot export tool', () => {
+describe('the DM of a request for the Wayfarer export tool', () => {
   it('says who asks by name and id, for which community, when, and pings nobody', () => {
     const message = accessRequestDm(request());
     checkDm(message);

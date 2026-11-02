@@ -172,7 +172,7 @@ Draw the outlines in a map editor such as [Google My Maps](https://www.google.co
 
 - **One at a time:** `/gym add` with the link Pokémon GO shares for the gym (or its coordinates) and its name. `/gym edit`, `/gym move` and `/gym delete` change it later.
 - **PokéStops Wayfarer does not list** (sponsored ones): `/pokestop add` with its name and the link Pokémon GO shares for it (or a maps link, or its coordinates); `/pokestop edit` and `/pokestop remove` change it later. Members find it wherever a PokéStop is asked for.
-- **All at once, from Wayfarer:** `/gym import` reads an export of the gyms, PokéStops and Power Spots Wayfarer has. The export is made by the Pine Wayspot export tool: ask for it at https://profpine.com/userscript (your settings' `wayspotTool`, which `/help gym` names). It takes the KML file of `/region export`. Then attach the file it saves to `/gym import`: it shows what it would do first, and what needs a person goes to `/gym review`. `/help gym` has the details, and [wayfarer.md](../architecture/wayfarer.md) the whole design.
+- **All at once, from Wayfarer:** `/gym import` reads an export of the gyms, PokéStops and Power Spots Wayfarer has. The export is made by the Pine Wayfarer export tool: ask for it at https://profpine.com/userscript (your settings' `wayspotTool`, which `/help gym` names). It takes the KML file of `/region export`. Then attach the file it saves to `/gym import`: it shows what it would do first, and what needs a person goes to `/gym review`. `/help gym` has the details, and [wayfarer.md](../architecture/wayfarer.md) the whole design.
 
 ## 7. Forums
 

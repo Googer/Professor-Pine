@@ -44,7 +44,7 @@ export interface ScriptAccessServiceOptions {
 }
 
 /**
- * Who may have the Pine Wayspot export tool (plan 8W-P), for the page `/userscript`, the tool's
+ * Who may have the Pine Wayfarer export tool (plan 8W-P), for the page `/userscript`, the tool's
  * addresses and the owner's DM: asking, the owner's decisions (a new key at every approval, none
  * kept by a refusal or a revocation), a new link, the owner's own link. Every decision is taken
  * on the row as it is (`ScriptAccessStore.decide`); keys are never logged.
@@ -106,7 +106,7 @@ export class ScriptAccessService {
     });
     this.log.info(
       { user: member.id, access: outcome.access.id, outcome: outcome.kind },
-      'the Wayspot export tool was asked for',
+      'the Wayfarer export tool was asked for',
     );
     if (outcome.kind === 'asked') await this.tellOwner(outcome.access);
     return outcome;
@@ -155,7 +155,7 @@ export class ScriptAccessService {
     });
     this.log.info(
       { access: id, decision, from, outcome: outcome.kind },
-      'a request for the Wayspot export tool was decided',
+      'a request for the Wayfarer export tool was decided',
     );
     return outcome;
   }

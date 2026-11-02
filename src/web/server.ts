@@ -90,7 +90,7 @@ export interface WebDeps {
   stops: StopWebDeps;
   /** Staff's Delete… and reports to the moderators on the live map (plan 8M-8B). */
   posts: PostWebDeps;
-  /** The Wayspot export tool and who may have it (plan 8W-P): `/userscript`. */
+  /** The Wayfarer export tool and who may have it (plan 8W-P): `/userscript`. */
   tool: ToolWebDeps;
   /**
    * The square pictures of the reports at stops (plan 8R-6, `StopPictures`): `/pictures/`, and

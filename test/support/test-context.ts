@@ -277,7 +277,7 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
     });
   }
   if (overrides.scriptAccess === undefined) {
-    // Nobody has asked for the Wayspot export tool; the owner is the environment's. A test of
+    // Nobody has asked for the Wayfarer export tool; the owner is the environment's. A test of
     // the owner's buttons passes its own over a MemoryScriptAccess it reads.
     (ctx as { scriptAccess: ScriptAccessService }).scriptAccess = new ScriptAccessService({
       store: new MemoryScriptAccess(),

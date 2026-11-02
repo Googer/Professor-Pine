@@ -3,8 +3,8 @@ import { accessKey, accessRequest, ADMIN } from '../../test/support/script-acces
 import { toolWebWith, webServerWith, WEB_START, type TestWeb } from '../../test/support/web.js';
 
 const JS = 'text/javascript; charset=utf-8';
-const scriptUrl = (key: string) => `/userscript/${key}/pine-wayspot-export.user.js`;
-const metaUrl = (key: string) => `/userscript/${key}/pine-wayspot-export.meta.js`;
+const scriptUrl = (key: string) => `/userscript/${key}/pine-wayfarer-export.user.js`;
+const metaUrl = (key: string) => `/userscript/${key}/pine-wayfarer-export.meta.js`;
 
 /** The tool of `toolWebWith`, with Ash approved under `accessKey(1)`. */
 async function withApprovedAsh(options: Parameters<typeof toolWebWith>[0] = {}) {
@@ -35,8 +35,8 @@ describe('the tool file and its header at a key', () => {
     expect(answer.headers['content-type']).toBe(JS);
     expect(answer.headers['cache-control']).toBe('no-store');
     const base = `https://map.example.test/userscript/${accessKey(1)}`;
-    expect(answer.body).toContain(`// @updateURL    ${base}/pine-wayspot-export.meta.js\n`);
-    expect(answer.body).toContain(`// @downloadURL  ${base}/pine-wayspot-export.user.js\n`);
+    expect(answer.body).toContain(`// @updateURL    ${base}/pine-wayfarer-export.meta.js\n`);
+    expect(answer.body).toContain(`// @downloadURL  ${base}/pine-wayfarer-export.user.js\n`);
     expect(answer.body).toContain('"{{PINE_META_URL}} stays in the body"');
     expect(await tool.store.byId(id)).toMatchObject({
       lastFetchAt: WEB_START + 5_000,
@@ -52,7 +52,7 @@ describe('the tool file and its header at a key', () => {
     expect(answer.headers['content-type']).toBe(JS);
     expect(answer.body.startsWith('// ==UserScript==\n')).toBe(true);
     expect(answer.body.endsWith('// ==/UserScript==\n')).toBe(true);
-    expect(answer.body).toContain(`/userscript/${accessKey(1)}/pine-wayspot-export.meta.js`);
+    expect(answer.body).toContain(`/userscript/${accessKey(1)}/pine-wayfarer-export.meta.js`);
   });
 
   it('logs a fetch by the route and the row, never the key', async () => {
@@ -61,11 +61,11 @@ describe('the tool file and its header at a key', () => {
     await web.app.inject({ url: scriptUrl(accessKey(1)) });
     expect(web.entries.filter((entry) => entry.level === 30)).toEqual([
       expect.objectContaining({
-        route: '/userscript/:key/pine-wayspot-export.user.js',
+        route: '/userscript/:key/pine-wayfarer-export.user.js',
         method: 'GET',
         access: id,
         version: '1.2.0',
-        msg: 'the Wayspot export tool was fetched',
+        msg: 'the Wayfarer export tool was fetched',
       }),
     ]);
     expect(JSON.stringify(web.entries)).not.toContain(accessKey(1));

@@ -14,7 +14,7 @@ import {
 export const SCRIPT_ACCESS_THROTTLE: Throttle = { uses: 20, perSeconds: 60 };
 
 /** What anybody but the owner is told of a press. */
-export const OWNER_ONLY = 'Only the owner of this Pine decides who gets the Wayspot export tool.';
+export const OWNER_ONLY = 'Only the owner of this Pine decides who gets the Wayfarer export tool.';
 
 /** Only the instance's owner (`OWNER_ID`) decides: the DM goes to nobody else. */
 const requireOwner: Guard = (interaction, ctx) => {
@@ -25,7 +25,7 @@ const isDecision = (action: string): action is DmDecision =>
   (DM_DECISIONS as readonly string[]).includes(action);
 
 /**
- * Approve and Refuse under the owner's DM of a request for the Wayspot export tool (plan 8W-P;
+ * Approve and Refuse under the owner's DM of a request for the Wayfarer export tool (plan 8W-P;
  * custom-id kind `scriptaccess`, the id the request's row id, the argument the time of the asking
  * the DM was drawn for, in base 36). Only the owner may press (a guard:
  * Discord's own check of who pressed, so the page's fresh login is not needed here). A press

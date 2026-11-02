@@ -175,7 +175,7 @@ const settingsObject = z.strictObject({
    */
   googleByHandPerMonth: z.number().int().min(0).default(500),
   /**
-   * Where admins ask for the Pine Wayspot export tool, which makes the file `/gym import` reads
+   * Where admins ask for the Pine Wayfarer export tool, which makes the file `/gym import` reads
    * (plan 8W-P; Matt, 2026-10-19): the page `/userscript` of the instance that hands it out. Its
    * help and `docs/guides/new-instance.md` name it.
    */

@@ -74,7 +74,7 @@ describe('ScriptAccessService', () => {
         access: id,
         decision: 'approve',
         outcome: 'decided',
-        msg: 'a request for the Wayspot export tool was decided',
+        msg: 'a request for the Wayfarer export tool was decided',
       }),
     );
     const key = approved.kind === 'decided' ? (approved.access.key ?? 'none') : 'none';

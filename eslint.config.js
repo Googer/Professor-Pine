@@ -69,7 +69,7 @@ export default defineConfig([
     'node_modules/',
     // other sessions' worktrees, each a whole checkout: linted with them, ESLint ran out of memory
     '.claude/worktrees/',
-    // the private Wayspot export tool's built file, which the owner's instance serves (git-ignored)
+    // the private Wayfarer export tool's built file, which the owner's instance serves (git-ignored)
     'wayspot-tool/',
     'src/db/types.ts',
     'src/db/baseline/legacy-schema.ts',
@@ -137,7 +137,7 @@ export default defineConfig([
     rules: { 'no-restricted-syntax': ['error', ...TEST_SYNTAX] },
   },
   {
-    // The package Pine shares with the Wayspot export tool stands alone and runs in a browser
+    // The package Pine shares with the Wayfarer export tool stands alone and runs in a browser
     // too: no Node module (its tests may read the fixtures), no Discord or database library,
     // nothing of Pine outside the package (CLAUDE.md, "Domain and parties").
     files: ['packages/*/src/**/*.ts'],
@@ -168,7 +168,7 @@ export default defineConfig([
         },
       ],
       // Plan 8Y: the root tsconfig's lib has Temporal for the bot, but the package runs in
-      // browsers (the Wayspot export tool) that may lack it.
+      // browsers (the Wayfarer export tool) that may lack it.
       'no-restricted-globals': [
         'error',
         {
