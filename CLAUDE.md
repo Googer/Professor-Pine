@@ -82,12 +82,13 @@ npm run settings:convert -- <legacy data folder> [--out <dir>] [--force]   # the
 npm run cutover:check  # whether the installation is ready for the cutover (reads Discord's REST API): only when Matt asks
 npm run migrate        # run Kysely migrations against the configured database
 npm run history:import -- <legacy parties folder> [--server <id>]   # import the legacy parties/ folder into the party history (no member ids; safe to run again)
+npm run gyms:seed -- <csv> --server <id> [--apply]    # mark sponsored gyms "not in Wayfarer", adding those not there; a dry run without --apply; safe to run again
 npm run stops:seed -- <csv> --server <id> [--apply]   # add stops of Pine's own from a file; a dry run without --apply; safe to run again
 npm run ocr:check -- <folder> [--labels <file>] [--baseline <file>] [--write-baseline <file>] [--bosses <file>] [--write-bosses <file>] [--device cpu|cuda|directml] [--threads n] [--priority low|normal]   # read screenshots with the real models
 npm run ocr:review -- <folder> [--show-text]   # triage of a review folder (their texts and ids only with --show-text)
 ```
 
-The Docker stack (`compose.yaml`; a host needs only Docker and git) is run with `./pine`, never with Node on the host. `./pine help` lists its commands and `operations.md` explains them. Those that contact Discord are named in the hard rules; `down`, `logs`, `status`, `migrate`, `backup`, `restore <dump> --no-start`, `shell`, `import-history`, `seed-stops`, `role-auth-export` do not. `convert-settings` reads a legacy installation's private settings: Matt runs it.
+The Docker stack (`compose.yaml`; a host needs only Docker and git) is run with `./pine`, never with Node on the host. `./pine help` lists its commands and `operations.md` explains them. Those that contact Discord are named in the hard rules; `down`, `logs`, `status`, `migrate`, `backup`, `restore <dump> --no-start`, `shell`, `import-history`, `seed-gyms`, `seed-stops`, `role-auth-export` do not. `convert-settings` reads a legacy installation's private settings: Matt runs it.
 
 Format the files you touch with `npx prettier --write <files>`; `format:check` is part of `check`.
 

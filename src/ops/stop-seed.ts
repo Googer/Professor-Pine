@@ -34,7 +34,7 @@ export interface SeedStepDeps {
 }
 
 /** The arguments, or undefined where they are not as `SEED_USAGE` says. */
-function argsOf(
+export function seedArgs(
   args: readonly string[],
 ): { file: string; server: string; apply: boolean } | undefined {
   let file: string | undefined;
@@ -69,7 +69,7 @@ function where(outcome: SeedOutcome): string {
 export async function seedStep(args: readonly string[], deps: SeedStepDeps): Promise<number> {
   const { db, say, log } = deps;
   const now = deps.now ?? (() => Date.now());
-  const parsed = argsOf(args);
+  const parsed = seedArgs(args);
   if (!parsed) {
     say(SEED_USAGE);
     return 2;

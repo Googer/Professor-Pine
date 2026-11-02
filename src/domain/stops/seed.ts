@@ -29,12 +29,12 @@ export interface SeedFile {
 }
 
 /** A CSV record (RFC 4180: quoted fields, `""` for a quote, line breaks inside quotes). */
-interface CsvRecord {
+export interface CsvRecord {
   line: number;
   fields: string[];
 }
 
-function records(text: string): CsvRecord[] {
+export function csvRecords(text: string): CsvRecord[] {
   const found: CsvRecord[] = [];
   let fields: string[] = [];
   let field = '';
@@ -77,7 +77,7 @@ function records(text: string): CsvRecord[] {
 }
 
 /** A number of the file within its bounds, or undefined. */
-function coordinate(text: string, limit: number): number | undefined {
+export function seedCoordinate(text: string, limit: number): number | undefined {
   const trimmed = text.trim();
   if (!/^[-+]?\d+(\.\d+)?$/u.test(trimmed)) return undefined;
   const value = Number(trimmed);
@@ -86,7 +86,7 @@ function coordinate(text: string, limit: number): number | undefined {
 
 /** Reads the file of stops: the rows it can read, and a line for each it cannot. */
 export function readSeedCsv(text: string): SeedFile {
-  const [header, ...rest] = records(text.replace(/^\uFEFF/u, ''));
+  const [header, ...rest] = csvRecords(text.replace(/^\uFEFF/u, ''));
   const names = header?.fields.map((one) => one.trim().toLowerCase());
   if (names?.join(',') !== SEED_COLUMNS.join(',')) {
     return {
@@ -104,8 +104,8 @@ export function readSeedCsv(text: string): SeedFile {
     }
     const [id = '', typed = '', latText = '', lonText = '', region = '', basis = ''] = fields;
     const name = tidyLine(typed);
-    const lat = coordinate(latText, 90);
-    const lon = coordinate(lonText, 180);
+    const lat = seedCoordinate(latText, 90);
+    const lon = seedCoordinate(lonText, 180);
     if (name === '') problem('no name');
     else if (name.length > MAX_PINE_STOP_NAME) {
       problem(`the name is longer than ${String(MAX_PINE_STOP_NAME)} characters`);

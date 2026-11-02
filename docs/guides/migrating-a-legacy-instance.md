@@ -298,7 +298,18 @@ They can take a little while to show up in Discord.
 
 It imports the ended legacy parties into the new party history (without member ids), runs the migrations first, reads the folder without changing it, and prints counts. It does not contact Discord and can run while the bot runs. Run before the bot's first start (or before your first `/gym import`, then `./pine restart`), it also lets the bot ask Google about the busiest regions' gyms first (section 6); later, the bot ranks by it from the next day. It is safe to run again: nothing is imported twice. Add `--server <server id>` (your server's id) and run it again only if its `Skipped:` line counts parties "of no known server" (their region is gone and it could not tell the server). Keep the folder afterwards.
 
-### 4.12 Sponsored stops from a file, once
+### 4.12 Sponsored gyms and stops from files, once
+
+Wayfarer does not list sponsored gyms either. If you have a list of them as a CSV file with the columns `gym,id,name,lat,lon,region,basis`, run this **before** your first `/gym import`, so that the import leaves them alone:
+
+```bash
+./pine seed-gyms ~/pine-legacy/sponsored-gyms.csv --server <server id>
+./pine seed-gyms ~/pine-legacy/sponsored-gyms.csv --server <server id> --apply
+```
+
+A row with a number in `gym` marks that gym "not in Wayfarer"; a row without adds a gym with `id` as its Niantic id and marks it. The first command only says what it would do. It runs the migrations first, does not contact Discord, and is safe to run again. The running bot sees the gyms at its next start (`./pine restart pine`).
+
+The stops come after the import:
 
 Wayfarer does not list sponsored PokéStops (a business's stops), so `/research`, `/rocket` and `/wild near:` do not know them until staff add them with `/pokestop add`. If you have a list of them as a CSV file with the columns `id,name,lat,lon,region,basis` (Pittsburgh has one, made beside its Wayfarer export: run this once for Pittsburgh), add them all at once, after `/gym import` of your Wayfarer export:
 

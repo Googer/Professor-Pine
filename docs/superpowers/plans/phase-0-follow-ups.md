@@ -2110,7 +2110,7 @@ Design `docs/superpowers/specs/2026-10-21-stop-reports-design.md`, approved by M
 
 Matt made a one-time list, from another community map, of the sponsored locations Wayfarer never shows. The files are git-ignored in `var/sponsored-export/`: `sponsored-ruled.json` (140 sponsored: 51 gyms, 89 stops, each with the basis of its ruling), the legacy gyms in no source (`legacy-gyms-gone.md`, 82) and those matched by position only (`legacy-gyms-place-only.md`, with Matt's rulings in `legacy-place-only-rulings.json`, made against Campfire).
 
-- **Cutover step: the first Wayfarer import (Matt, 2026-10-22).** In the runbook since 2026-11-01 (N7); how step 2's marks and additions are made is still open:
+- **Cutover step: the first Wayfarer import (Matt, 2026-10-22).** In the runbook since 2026-11-01 (N7); step 2 is `./pine seed-gyms` since 2026-11-02:
   1. Cut over as planned: the legacy database taken over as it is, the new bot starting with legacy's gyms.
   2. Before any import, mark the 14 sponsored legacy gyms "not in Wayfarer" (legacy ids 1424, 1453, 1454, 1455, 1468, 1472, 1531, 1534, 1483 Starbucks; 3066, 3071, 3072 Verizon, 3122 Verizon Wireless; 2996 Bantha Tea Bar), then add the sponsored gyms legacy lacks (the other 37 gyms of `sponsored-ruled.json`) and mark them too. A marked gym the export lacks is left alone and never queued (`matchGyms`, `notInWayfarer`); Wayfarer having it after all clears the mark. How the marks and additions are made (a script, or the review's "Not in Wayfarer" answer) is for the cutover work.
   3. Make a fresh Wayfarer export of every region close to the cutover, not the 2026-10-16 file: what is gone is decided by the scan's date.
@@ -2978,3 +2978,9 @@ On the Air's dev stack, Googer in the built-in browser, Tester through Claude in
   - Step 24's real press of Delete… in the popup (the API's close was used).
 - **Cleanup:** the parties closed, the block lifted, `googleByHandPerMonth` and the moderators' channel back, the proxy running. Tester's role is as Matt left it. A few plain chat messages of Tester's stayed in #oakmont-springdale and one post, from commands sent before Discord's list had loaded.
 - **For the next run:** a tab in the background loads Discord's command list slowly, so a script waits for the list before pressing Tab. `/end` sets a meetup's end, so it cannot close one early; `/delete` or the map's Delete… does.
+
+## From the sponsored gyms' seed (2026-11-02)
+
+`./pine seed-gyms`, `src/ops/gym-seed.ts`, settles step 2 of the first Wayfarer import. Pittsburgh's file is `var/sponsored-export/sponsored-gyms.csv`, git-ignored, made from `sponsored-ruled.json` and the runbook's 14 legacy ids: 14 marks and 40 additions, not 14 and 37 as first counted, since legacy 3066, 3071 and 3072 (Verizon) are on the list only as stops.
+
+- **Claude's calls, for Matt to object to:** an added gym gets the list's id as its `pogoId`, no picture and no address (Google's line gives the address at the next start); a marked legacy gym keeps its `pogoId`.

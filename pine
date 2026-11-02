@@ -199,6 +199,10 @@ Usage: ./pine <command>
                      add the stops of Pine's own (sponsored stops) of a CSV file
                      (id,name,lat,lon,region,basis) to a server: a dry run without --apply;
                      skips rows near a known stop or outside its regions, so safe to run again
+  seed-gyms <file> --server <server id> [--apply]
+                     mark the sponsored gyms of a CSV file (gym,id,name,lat,lon,region,basis)
+                     "not in Wayfarer", adding those not there, before the first Wayfarer import:
+                     a dry run without --apply; safe to run again
   help              this list
 EOF
 }
@@ -527,6 +531,24 @@ cmd_seed_stops() {
   say "Seeding the stops of Pine's own from $file (the file is only read; without --apply nothing is written)."
   run run --rm --no-deps -v "$folder:/seed:ro" pine \
     node --enable-source-maps dist/ops/stop-seed-cli.js "/seed/$name" "$@"
+}
+
+cmd_seed_gyms() {
+  need_stack
+  usage_seed="Usage: ./pine seed-gyms <file> --server <server id> [--apply]"
+  [ $# -ge 3 ] || fail "$usage_seed"
+  case $1 in -*) fail "$usage_seed" ;; esac
+  file=$(from_caller "$1")
+  shift
+  [ -f "$file" ] || fail "There is no file $file."
+  folder=$(mount_folder "$(dirname "$file")")
+  name=$(basename "$file")
+  build_image
+  start_database
+  say "Bringing the database up to date first (the bot does not start, Discord is not contacted)."
+  run run --rm --no-deps pine node --enable-source-maps dist/db/migrate-cli.js
+  say "Seeding the sponsored gyms from $file (the file is only read; without --apply nothing is written)."
+  run run --rm --no-deps -v "$folder:/seed:ro" pine     node --enable-source-maps dist/ops/gym-seed-cli.js "/seed/$name" "$@"
 }
 
 # The database half of a restore, in a one-off container of the bot's image (src/ops/restore-cli.ts).

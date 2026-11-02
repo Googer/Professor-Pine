@@ -1,0 +1,7 @@
+gym,id,name,lat,lon,region,basis
+1001,,Old Coffee,40.05,-80.05,#west,made up: a gym of before
+,f00000000000000000000000000000011.16,New Coffee,40.06,-80.06,#west,made up: to add
+,f00000000000000000000000000000012.16,New Coffee again,40.06005,-80.06,#west,made up: listed twice
+,f00000000000000000000000000000013.16,Beside Old Coffee,40.05005,-80.05,#west,made up: a gym is there
+,f00000000000000000000000000000014.16,Far Away,41.0,-80.0,#nowhere,made up: outside every region
+,f00000000000000000000000000000015.16,No Latitude,north,-80.05,#west,made up: unreadable
