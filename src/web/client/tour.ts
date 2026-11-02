@@ -104,15 +104,14 @@ function layersStep(audience: TourAudience): TourStep {
 }
 
 function findStep(finds: boolean): TourStep {
-  const words = finds
-    ? ['Type a name to find reports, trains, meetups and places.']
-    : ["Type a gym's name. Gyms must be on."];
+  const what = finds ? 'reports, trains, meetups and places' : 'a gym on the map';
+  const by = finds ? 'a name' : "a gym's name";
   return {
     id: 'find',
     heading: 'Find something',
     targets: [
-      { selectors: ['#search-button'], words },
-      { selectors: ['#filter'], words },
+      { selectors: ['#search-button'], words: [`Press Find, then type ${by} to find ${what}.`] },
+      { selectors: ['#filter'], words: [`Type ${by} to find ${what}.`] },
     ],
     required: true,
   };
@@ -169,13 +168,15 @@ function memberSteps(facts: TourFacts): TourStep[] {
 
 /** Under the sample of a marker: how to read what is drawn, and the two things to say. */
 const READ_WORDS = [
-  'A circle shows the boss or egg, the time and how many are going. Zoom in for all of it.',
+  'A circle shows the boss or egg, the time and how many are going. Its ring shows the tier. Zoom in for all of it.',
   'Press anything to open it and join.',
-  'A line is a raid train: a group raiding gym after gym.',
-  'A ring is a meetup: trades, lure parties, playing as a group.',
+  'A line between gyms is a raid train: a group raiding gym after gym.',
+  'A ring with no line is a meetup: trades, lure parties, playing as a group.',
 ];
 
-const REPORT_WORDS = ['Press Report, pick what, pick where on the map, then fill in the form.'];
+const REPORT_WORDS = [
+  'Press Report, pick what, pick where on the map, then fill in the form. It posts on Discord.',
+];
 
 function visitorSteps(facts: TourFacts): TourStep[] {
   const login: Record<TourFacts['more'], TourTarget> = {
@@ -354,7 +355,7 @@ export function shownTarget(
   return undefined;
 }
 
-function unionOf(one: Rect, other: Rect): Rect {
+export function unionOf(one: Rect, other: Rect): Rect {
   const left = Math.min(one.left, other.left);
   const top = Math.min(one.top, other.top);
   return {
@@ -363,6 +364,13 @@ function unionOf(one: Rect, other: Rect): Rect {
     width: Math.max(one.left + one.width, other.left + other.width) - left,
     height: Math.max(one.top + one.height, other.top + other.height) - top,
   };
+}
+
+/** The control Tab goes to from where the focus is: round the list, in from outside it. */
+export function nextStop<T>(stops: readonly T[], active: unknown, back: boolean): T | undefined {
+  const from = stops.indexOf(active as T);
+  if (from < 0) return back ? stops.at(-1) : stops[0];
+  return stops[(from + (back ? -1 : 1) + stops.length) % stops.length];
 }
 
 /** Which step of a tour is showing; a required step with nothing to point at is passed over. */

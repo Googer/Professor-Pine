@@ -61,6 +61,7 @@ Every line very clear and concise. The reader knows Pokémon GO: never explain w
 - **Dialog:** no `aria-modal` on the Layers step; the Tab list is built anew from the visible controls; Esc is the tour's own, and it takes no keys while `.sheet-wrap` or `.report-wrap` shows.
 - **Stacking:** dimming, ring and card at z-index 1500: over the map's controls, menus and the card (1100), under the sheets (2000).
 - **Words:** the Log in step by `data-login` (no button on a server of links alone). More "and more", not a closed list.
+- **As built, after the branch's review:** no separate phone sheet: `cardPlace` puts a width-limited card on the side with room, which on a phone is above or below the hole. Margin 12 px. The dimming is `--scrim`. The words for reading the map run past two sentences, since the page cannot show them by itself.
 - **A guard:** a test reads the sources and holds every selector of the steps to what `page.ts`, `map.css` or the code that makes it names.
 
 ## The region editor's tour (Matt, 2026-11-02)

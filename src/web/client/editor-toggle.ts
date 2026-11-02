@@ -184,6 +184,8 @@ export function loadOnce<T>(
 
 /** What the toggle needs of the page. */
 export interface ToggleDeps {
+  /** The editor is up, its map and tools drawn (plan 8M-17: its tour, the first time). */
+  opened?: () => void;
   /** Whether a form of the map holds (`FormHold`, route mode, Meet…, a report's step 2). */
   held(): boolean;
   /** The editor's mount, its files loaded first (once). */
@@ -263,6 +265,7 @@ export class EditorToggle {
     }
     if (opened.ok) {
       this.state = 'on';
+      deps.opened?.();
       return;
     }
     if (shown) this.closed(this.mount?.close());

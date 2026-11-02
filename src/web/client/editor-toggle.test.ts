@@ -234,6 +234,7 @@ function toggleWith(
   options: {
     held?: () => boolean;
     noMount?: boolean;
+    up?: () => void;
     open?: (opening: EditorOpening) => Promise<EditorOpened>;
   } = {},
 ) {
@@ -257,6 +258,7 @@ function toggleWith(
     },
   };
   const toggle = new EditorToggle({
+    ...(options.up === undefined ? {} : { opened: options.up }),
     held: () => options.held?.() ?? false,
     mount: () =>
       options.noMount === true ? Promise.reject(new Error('no file')) : Promise.resolve(mount),
@@ -297,6 +299,28 @@ function toggleWith(
 const OPENING = `say ${OPENING_WORDS}`;
 
 describe('turning the editor on and off (C4, C8)', () => {
+  it('tells that it is up only once it is, not when the editor failed after showing', async () => {
+    let told = 0;
+    const up = (): void => {
+      told += 1;
+    };
+    const fine = toggleWith({ up });
+    const on = fine.toggle.turnOn();
+    (await fine.opened()).show();
+    expect(told).toBe(0);
+    fine.answer({ ok: true });
+    await on;
+    expect(told).toBe(1);
+    expect(fine.toggle.used).toBe(true);
+    told = 0;
+    const failed = toggleWith({ up });
+    const off = failed.toggle.turnOn();
+    (await failed.opened()).show();
+    failed.answer({ ok: false, words: 'no' });
+    await off;
+    expect(told).toBe(0);
+  });
+
   it('says that it is opening the region editor', () => {
     expect(OPENING_WORDS).toBe('Opening the region editor…');
   });

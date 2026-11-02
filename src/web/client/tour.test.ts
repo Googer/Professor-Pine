@@ -8,6 +8,7 @@ import {
   dimmedAround,
   holeOnScreen,
   keepTourSeen,
+  nextStop,
   readTourSeen,
   shownTarget,
   TOUR_KEY,
@@ -84,13 +85,13 @@ describe('the steps', () => {
     }
   });
 
-  it('says what the box does as it is: Find, or "Find a gym" that needs the layer', () => {
+  it('says what the box does as it is: Find, or "Find a gym"', () => {
     const said = (finds: boolean) =>
       tourSteps({ ...MEMBER, finds })
         .find((step) => step.id === 'find')
         ?.targets[0]?.words.join(' ');
     expect(said(true)).toContain('reports');
-    expect(said(false)).toContain('Gyms must be on');
+    expect(said(false)).toContain('a gym on the map');
   });
 
   it('says what a raid train and a meetup are for, and explains nothing else of the game', () => {
@@ -107,7 +108,8 @@ describe('the steps', () => {
     for (const facts of [MEMBER, VISITOR]) {
       for (const step of tourSteps(facts)) {
         for (const words of [step.words ?? [], ...step.targets.map((one) => one.words)]) {
-          expect(words.join(' ').length).toBeLessThanOrEqual(240);
+          // Reading the map says the most: it is the one thing the page cannot show by itself.
+          expect(words.join(' ').length).toBeLessThanOrEqual(step.id === 'read' ? 300 : 240);
         }
       }
     }
@@ -262,6 +264,18 @@ describe('going through the steps', () => {
 
   it('has no step where nothing can be shown', () => {
     expect(new TourRun(steps, () => false).current()).toBeUndefined();
+  });
+});
+
+describe('Tab', () => {
+  it('goes round the list both ways, and in from outside it', () => {
+    const stops = ['a', 'b', 'c'];
+    expect(nextStop(stops, 'a', false)).toBe('b');
+    expect(nextStop(stops, 'c', false)).toBe('a');
+    expect(nextStop(stops, 'a', true)).toBe('c');
+    expect(nextStop(stops, 'outside', false)).toBe('a');
+    expect(nextStop(stops, 'outside', true)).toBe('c');
+    expect(nextStop([], 'outside', false)).toBeUndefined();
   });
 });
 

@@ -9,4 +9,5 @@ Needs Matt's go-ahead (a real login). Checked before merge in a browser on a stu
 5. **A visitor** logged out, then logging in: the short tour, then the member's tour once. On a server without `DISCORD_CLIENT_SECRET`: the step points at the `/maps` line.
 6. **Logged in without the map's role:** the short tour, its last steps at the line that says what is lacking.
 7. **Staff:** open the editor from the menu for the first time: its tour opens over it; "Editor tour" in the menu while on, "Map tour" while off. Opened by `/region edit`'s link in a fresh browser: the editor's tour, not the map's.
-8. **A busy server:** live updates redraw under the tour with the ring staying on target.
+8. **The keyboard:** Tab on Layers goes through the toggles, More and the card and round, with More open or closed; Shift+Tab back; Escape ends the tour and closes More.
+9. **A busy server:** live updates redraw under the tour with the ring staying on target.

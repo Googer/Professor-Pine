@@ -185,7 +185,7 @@ a {
 
 /*
  * Light, Dark or Device (plan 8M-13, S10): "Theme: Light · Dark · Device" in the account menu,
- * the current one pressed; a visitor's ⋮ button in the account's place holds it alone.
+ * the current one pressed; a visitor's ⋮ button in the account's place holds it, under "Map tour".
  */
 .theme-choice {
   display: flex;
@@ -3194,6 +3194,7 @@ path.highlighted {
   width: 320px;
   max-width: calc(100vw - 24px);
   max-height: calc(100vh - 24px);
+  max-height: calc(100dvh - 24px);
   padding: 12px 16px;
   border-radius: var(--card-radius);
   background: var(--card-bg);
@@ -3237,4 +3238,11 @@ path.highlighted {
 body.editing-regions .tour-item,
 body:not(.editing-regions) .editor-tour-item {
   display: none;
+}
+
+/* A phone on its side: the card goes beside what it points at, which takes the narrower card. */
+@media (max-height: 500px) {
+  .tour-card {
+    width: 280px;
+  }
 }

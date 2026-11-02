@@ -3,9 +3,11 @@ import {
   cardPlace,
   dimmedAround,
   holeOnScreen,
+  nextStop,
   SAMPLE_MARKER,
   shownTarget,
   TourRun,
+  unionOf,
   type Rect,
   type TourStep,
 } from './tour.js';
@@ -50,16 +52,19 @@ const rectOf = (element: Element): Rect => {
 };
 
 /**
- * What a selector shows on the screen. Of the markers, the first wholly in the map's box: one
- * panned out of sight is still in its pane.
+ * What a selector shows on the screen. Of the markers, the first wholly in the map's box, with
+ * its time and count, which hang outside it: one panned out of sight is still in its pane.
  */
 function rectsOf(selector: string): Rect[] {
-  const rects = [...document.querySelectorAll(selector)].map(rectOf);
-  if (!selector.startsWith('#map ')) return rects;
+  const elements = [...document.querySelectorAll(selector)];
+  if (!selector.startsWith('#map ')) return elements.map(rectOf);
   const shown = document.querySelector('#map');
   if (shown === null) return [];
   const box = rectOf(shown);
-  return rects
+  return elements
+    .map((element) =>
+      [...element.querySelectorAll('.badge, .going')].map(rectOf).reduce(unionOf, rectOf(element)),
+    )
     .filter(
       (rect) =>
         rect.left >= box.left &&
@@ -77,10 +82,8 @@ const place = (element: HTMLElement, rect: Rect): void => {
   element.style.height = `${rect.height}px`;
 };
 
-const shows = (element: Element): boolean => {
-  const { width, height } = element.getBoundingClientRect();
-  return width > 0 && height > 0;
-};
+/** Whether it can take the focus: what a closed `<details>` holds has a size, and cannot. */
+const shows = (element: Element): boolean => element.checkVisibility();
 
 export function tourUi(): TourUi {
   const root = document.createElement('div');
@@ -140,7 +143,7 @@ export function tourUi(): TourUi {
     const step = run?.current();
     if (step === undefined || run === undefined) return;
     const found = shownTarget(step, rectsOf);
-    const words = found?.target.words ?? step.words ?? [];
+    const words = found?.target.words ?? step.words ?? shownWords ?? [];
     if (step !== shownStep || words !== shownWords) {
       shownStep = step;
       shownWords = words;
@@ -194,7 +197,7 @@ export function tourUi(): TourUi {
             ),
           )
         : [];
-    return [...under, ...card.querySelectorAll<HTMLElement>('button')].filter(shows);
+    return [...new Set([...under, ...card.querySelectorAll<HTMLElement>('button')])].filter(shows);
   };
 
   const shown = (): void => {
@@ -222,12 +225,9 @@ export function tourUi(): TourUi {
         event.stopPropagation();
         end();
       } else if (event.key === 'Tab') {
-        const stops = tabStops();
-        const from = stops.indexOf(document.activeElement as HTMLElement);
-        const to = from < 0 ? 0 : (from + (event.shiftKey ? -1 : 1) + stops.length) % stops.length;
         event.preventDefault();
         event.stopPropagation();
-        stops[to]?.focus();
+        nextStop(tabStops(), document.activeElement, event.shiftKey)?.focus();
       }
     },
     true,
@@ -245,6 +245,7 @@ export function tourUi(): TourUi {
     open(steps, focusAfter) {
       after = focusAfter;
       shownStep = undefined;
+      shownWords = undefined;
       run = new TourRun(
         steps,
         (step) => !step.required || shownTarget(step, rectsOf) !== undefined,

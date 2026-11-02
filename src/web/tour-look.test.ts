@@ -12,9 +12,10 @@ describe("the map's tour (plan 8M-17)", () => {
     const folder = path.join(process.cwd(), 'src/web/client');
     const sources = [
       readFileSync(path.join(process.cwd(), 'src/web/page.ts'), 'utf8'),
-      readFileSync(path.join(folder, 'map.css'), 'utf8'),
       ...readdirSync(folder)
-        .filter((name) => name.endsWith('.ts') && !name.startsWith('tour'))
+        .filter(
+          (name) => name.endsWith('.ts') && !name.startsWith('tour') && !name.includes('.test.'),
+        )
         .map((name) => readFileSync(path.join(folder, name), 'utf8')),
     ].join('\n');
     const selectors = [MEMBER, VISITOR, { ...VISITOR, more: 'links' as const }]
@@ -28,7 +29,7 @@ describe("the map's tour (plan 8M-17)", () => {
         expect(sources, name).toMatch(
           name.startsWith('#')
             ? new RegExp(`id="${bare}"`, 'u')
-            : new RegExp(`\\.${bare}\\b|className = '[^']*\\b${bare}\\b`, 'u'),
+            : new RegExp(`className[ =:]+['\`][^'\`]*\\b${bare}\\b`, 'u'),
         );
       }
     }

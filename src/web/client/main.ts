@@ -225,12 +225,15 @@ function editorToggle(
   load: MapLoad,
   /** "Edit regions" drawn again with what the browser holds now (S31). */
   editLabel: { redraw(): void },
-  /** The editor was shown (plan 8M-17: its tour, the first time). */
-  editorShown: { tell(): void },
+  /** The editor is up (plan 8M-17: its tour, the first time). */
+  editorUp: { tell(): void },
 ): EditorToggle {
   const data = document.body.dataset;
   const back = byId('editor-back') as HTMLButtonElement;
   const toggle = new EditorToggle({
+    opened: () => {
+      editorUp.tell();
+    },
     held: () => account.held(),
     mount: loadOnce(
       document,
@@ -280,7 +283,6 @@ function editorToggle(
       }
       // The focus where the member goes on (F7): "Back to the map", or the account's menu; left
       // where it is on a refusal before the editor was shown (review 2, R1).
-      if (on) editorShown.tell();
       if (!focus) return;
       if (on) back.focus();
       else document.querySelector<HTMLElement>('#account summary')?.focus();
@@ -377,12 +379,12 @@ function start(): void {
       // Drawn once "Edit regions" is built (`editItem`).
     },
   };
-  const editorShown = {
+  const editorUp = {
     tell: () => {
       // Given below, once the tour is made.
     },
   };
-  const toggle = editorToggle(map, guild, activity, asker, load, editLabel, editorShown);
+  const toggle = editorToggle(map, guild, activity, asker, load, editLabel, editorUp);
   /** What the map's tour (plan 8M-17) asks of what is made further down. */
   const tourHooks = {
     /** The map is drawn or could not be: the press of "Map tour" waits for it. */
@@ -393,6 +395,8 @@ function start(): void {
     },
     /** The box is a member's Find (plan 8M-12), not "Find a gym". */
     finds: false,
+    /** The last list said the map is read-only. */
+    listReadOnly: false,
   };
   const tour = tourUi();
   map.on('move zoomend', () => {
@@ -411,11 +415,8 @@ function start(): void {
     };
   };
   const editorBack = (): HTMLElement => byId('editor-back');
-  // After the editor's own focus and drawing: the toolbar its map adds is there by then.
-  editorShown.tell = () => {
-    queueMicrotask(() => {
-      if (editorTourOpens(browserStorage())) tour.open(EDITOR_TOUR_STEPS, editorBack());
-    });
+  editorUp.tell = () => {
+    if (editorTourOpens(browserStorage())) tour.open(EDITOR_TOUR_STEPS, editorBack());
   };
   /** "Editor tour" in the account's menu, shown while the editor is on (`map.css`). */
   const editorTourItem = (): HTMLElement => {
@@ -446,7 +447,9 @@ function start(): void {
         tourHooks.clear();
         const { audience, steps } = tourFor(asker.me);
         // A tour by hand while Discord is away is not the tour of a normal visit.
-        if (!(asker.me.loggedIn && asker.me.readOnly)) keepTourSeen(browserStorage(), audience);
+        if (!tourHooks.listReadOnly && !(asker.me.loggedIn && asker.me.readOnly)) {
+          keepTourSeen(browserStorage(), audience);
+        }
         tour.open(steps, document.querySelector<HTMLElement>('#account summary') ?? undefined);
       });
     });
@@ -530,6 +533,11 @@ function start(): void {
       filterBox.value = '';
       filterBox.dispatchEvent(new Event('input'));
     }
+  };
+  tourHooks.clear = () => {
+    map.closePopup();
+    showList(false);
+    showSearch(false);
   };
   searchButton.addEventListener('click', () => {
     showSearch(!document.body.classList.contains('search-open'));
@@ -622,9 +630,10 @@ function start(): void {
         },
         listDrawn: (list) => {
           tour.replace();
+          tourHooks.listReadOnly = list.readOnly;
           if (listSeen) return;
           listSeen = true;
-          tourByItself(me, list.readOnly);
+          tourByItself(me, list.readOnly || (me.loggedIn && me.readOnly));
         },
         located: () => you.located(),
         onMove: (listener) => {
@@ -690,10 +699,10 @@ function start(): void {
       });
       // "Edit regions" is refused while a form of the map holds (plan 8M-10, C8).
       asker.held = () => raids.editing();
+      const clearPage = tourHooks.clear;
       tourHooks.clear = () => {
         raids.closeOpen();
-        showList(false);
-        showSearch(false);
+        clearPage();
       };
       tourHooks.finds = mayReport;
       gymExtras.editing = () => raids.editing();

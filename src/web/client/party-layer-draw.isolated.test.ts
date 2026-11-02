@@ -984,6 +984,7 @@ async function started(options: {
   /** Who hears of the PokéStops of the view (the places layer's `onStops`), told by the test. */
   const stopListeners: Array<(answer: readonly MapSpot[] | 'failed' | 'zoom') => void> = [];
   /** What Find told the frame (plan 8M-12): the list opened or closed, a pick, a gym opened. */
+  let listWaiter: () => void = () => undefined;
   const frameTold: {
     finding: boolean[];
     picked: number;
@@ -1042,6 +1043,7 @@ async function started(options: {
       },
       listDrawn: (list) => {
         frameTold.listsDrawn.push(list.readOnly);
+        listWaiter();
       },
       located: () => options.located,
       onMove: () => undefined,
@@ -1151,6 +1153,11 @@ async function started(options: {
     nextDraw,
     /** The `n`th draw from now, once it is done. */
     drawsAhead: (n: number) => drawNumber(draws + n),
+    /** The next list told as drawn. */
+    listTold: () =>
+      new Promise<void>((resolve) => {
+        listWaiter = resolve;
+      }),
     /** How many times the parties were drawn so far. */
     drawCount: () => draws,
     /** `/api/parties` answers now (`partiesLate`). */
@@ -1174,7 +1181,7 @@ async function started(options: {
 
 describe("a list told as drawn, for the map's tour (plan 8M-17)", () => {
   it('tells of a list the server gave, not of the empty draws before it comes', async () => {
-    const { frameTold, drawCount, nextDraw, releaseParties, registry } = await started({
+    const { frameTold, drawCount, nextDraw, listTold, releaseParties, registry } = await started({
       raids: true,
       partiesLate: true,
     });
@@ -1182,13 +1189,11 @@ describe("a list told as drawn, for the map's tour (plan 8M-17)", () => {
     const empty = nextDraw();
     registry.set('raids', false);
     await empty;
-    await Promise.resolve();
     expect(drawCount()).toBeGreaterThan(0);
-    expect(frameTold.listsDrawn).toEqual([]);
-    const drawn = nextDraw();
+    const told = listTold();
     releaseParties();
-    await drawn;
-    await Promise.resolve();
+    await told;
+    // One entry: the empty draw told nothing.
     expect(frameTold.listsDrawn).toEqual([false]);
   });
 });
