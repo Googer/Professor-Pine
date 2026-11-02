@@ -225,6 +225,9 @@ export class EditorToggle {
     return this.state === 'on';
   }
 
+  /** It was asked for on this visit, shown or not (plan 8M-17: the map's tour stays away). */
+  used = false;
+
   async turnOn(): Promise<void> {
     const { deps } = this;
     if (this.state !== 'off') return;
@@ -233,6 +236,7 @@ export class EditorToggle {
       return;
     }
     this.state = 'opening';
+    this.used = true;
     deps.say(OPENING_WORDS);
     // Whether the editor's hosts were shown, and whether a form opened while it loaded (F4).
     let shown = false;

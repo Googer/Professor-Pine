@@ -318,6 +318,11 @@ export interface PartyFrame {
   registry: LayerRegistry;
   /** Called after each draw: the gyms follow (route mode, a place picked, raids drawn). */
   afterDraw: () => void;
+  /**
+   * Called after a draw of a list the server gave (plan 8M-17), not of the empty one the reports
+   * at stops or a change of layers draw before it comes: the page is settled for the map's tour.
+   */
+  listDrawn?: (list: Pick<PartiesView, 'readOnly'>) => void;
   /** Your location, once the browser said; distances are from the map's middle until then. */
   located: () => LatLon | undefined;
   /** Tells `listener` each new fix of your location. */
@@ -372,6 +377,8 @@ export interface PartyFrame {
 }
 
 export interface MapRaids {
+  /** Closes the popup and the phone card (plan 8M-17: the map's tour clears the page). */
+  closeOpen(): void;
   /**
    * "Report raid" and "Report spawn here" for a gym's own popup, when they are offered now
    * (`reportOffered`); none otherwise.
@@ -2222,6 +2229,12 @@ export function showParties(
     counted();
     // The gyms follow: route mode or a place picked shows every gym (plan 8M-7).
     afterDraw();
+    // A real list was drawn (plan 8M-17), told once this draw has returned.
+    if (next !== noParties) {
+      queueMicrotask(() => {
+        frame.listDrawn?.(next);
+      });
+    }
     // A gym to be clicked or a form ended with this draw: the box's text is Find's again (N1).
     findFollows();
     if (reopen !== undefined) popups.get(reopen)?.openPopup(reopenAt);
@@ -2909,6 +2922,10 @@ export function showParties(
   stopReports.start();
   live.start();
   return {
+    closeOpen: () => {
+      map.closePopup();
+      card.close();
+    },
     // Find takes no word while it stands aside (BR-1): the box thins the gyms then, and a search
     // shown before ends, so that nothing draws into the hidden list.
     find: (text) => {

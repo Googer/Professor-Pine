@@ -3160,3 +3160,81 @@ path.highlighted {
 .rocket-form .form-text {
   margin: 0;
 }
+
+/*
+ * The map's walk-through (plan 8M-17, `tour-ui.ts`): all but what a step points at dimmed, a ring
+ * round it, and a card beside it, placed from the script. Over the map's controls, the menus and
+ * the phone card (1100), under the sheets (2000), so that the layers' sheet opens over the tour.
+ */
+.tour-dim,
+.tour-ring,
+.tour-card {
+  position: fixed;
+  z-index: 1500;
+}
+
+.tour-dim {
+  background: var(--scrim);
+}
+
+.tour-ring {
+  box-sizing: border-box;
+  border: 2px solid var(--primary);
+  border-radius: var(--radius);
+}
+
+.tour-ring.through {
+  pointer-events: none;
+}
+
+.tour-card {
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  width: 320px;
+  max-width: calc(100vw - 24px);
+  max-height: calc(100vh - 24px);
+  padding: 12px 16px;
+  border-radius: var(--card-radius);
+  background: var(--card-bg);
+  color: var(--text);
+  box-shadow: 0 8px 24px var(--shadow);
+}
+
+.tour-card h2 {
+  margin: 0 0 6px;
+  font-size: 16px;
+}
+
+.tour-body {
+  overflow-y: auto;
+}
+
+.tour-body p {
+  margin: 0 0 6px;
+}
+
+/* A marker drawn as the map draws it, its badge under it: room in the flow of the card. */
+.tour-body .raid-marker {
+  margin: 8px 0 26px 30px;
+}
+
+.tour-foot {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.tour-count {
+  margin-right: auto;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* "Map tour" on the map, "Editor tour" in the region editor. */
+body.editing-regions .tour-item,
+body:not(.editing-regions) .editor-tour-item {
+  display: none;
+}

@@ -30,6 +30,16 @@ import { RouteFocus } from './route-focus.js';
 import { hiddenGyms } from './shared-place.js';
 import { onThemeChange, theme } from './theme.js';
 import { BOUNDS_VISCOSITY, browserStorage, placeTheMap } from './view-ui.js';
+import {
+  EDITOR_TOUR_STEPS,
+  editorTourOpens,
+  keepTourSeen,
+  readTourSeen,
+  tourAudience,
+  tourOpensByItself,
+  tourSteps,
+} from './tour.js';
+import { quietPage, tourUi } from './tour-ui.js';
 import { showWhereYouAre, type You } from './you-ui.js';
 
 /**
@@ -182,6 +192,9 @@ async function showGeo(
 /** Said when the live map's data could not be loaded. */
 const MAP_FAILED = 'The map could not be loaded. Try again in a moment.';
 
+/** Said when "Map tour" is pressed while a form holds. */
+const FORM_OPEN = 'Close the form that is open first.';
+
 /** Whether the live map's data failed to load (review 2, R3): its line is not lost. */
 interface MapLoad {
   failed: boolean;
@@ -212,6 +225,8 @@ function editorToggle(
   load: MapLoad,
   /** "Edit regions" drawn again with what the browser holds now (S31). */
   editLabel: { redraw(): void },
+  /** The editor was shown (plan 8M-17: its tour, the first time). */
+  editorShown: { tell(): void },
 ): EditorToggle {
   const data = document.body.dataset;
   const back = byId('editor-back') as HTMLButtonElement;
@@ -265,6 +280,7 @@ function editorToggle(
       }
       // The focus where the member goes on (F7): "Back to the map", or the account's menu; left
       // where it is on a refusal before the editor was shown (review 2, R1).
+      if (on) editorShown.tell();
       if (!focus) return;
       if (on) back.focus();
       else document.querySelector<HTMLElement>('#account summary')?.focus();
@@ -361,7 +377,97 @@ function start(): void {
       // Drawn once "Edit regions" is built (`editItem`).
     },
   };
-  const toggle = editorToggle(map, guild, activity, asker, load, editLabel);
+  const editorShown = {
+    tell: () => {
+      // Given below, once the tour is made.
+    },
+  };
+  const toggle = editorToggle(map, guild, activity, asker, load, editLabel, editorShown);
+  /** What the map's tour (plan 8M-17) asks of what is made further down. */
+  const tourHooks = {
+    /** The map is drawn or could not be: the press of "Map tour" waits for it. */
+    settled: Promise.resolve() as Promise<unknown>,
+    /** Clears the page for a tour by hand: popups, the card, the phone's list, Find. */
+    clear: () => {
+      // Given below, once they are made.
+    },
+    /** The box is a member's Find (plan 8M-12), not "Find a gym". */
+    finds: false,
+  };
+  const tour = tourUi();
+  map.on('move zoomend', () => {
+    tour.replace();
+  });
+  /** The steps for who is asking now, and where the browser is told it saw them. */
+  const tourFor = (me: Me) => {
+    const audience = tourAudience(me);
+    return {
+      audience,
+      steps: tourSteps({
+        audience,
+        finds: tourHooks.finds,
+        more: me.loggedIn ? 'lacking' : data.login === 'discord' ? 'discord' : 'links',
+      }),
+    };
+  };
+  const editorBack = (): HTMLElement => byId('editor-back');
+  // After the editor's own focus and drawing: the toolbar its map adds is there by then.
+  editorShown.tell = () => {
+    queueMicrotask(() => {
+      if (editorTourOpens(browserStorage())) tour.open(EDITOR_TOUR_STEPS, editorBack());
+    });
+  };
+  /** "Editor tour" in the account's menu, shown while the editor is on (`map.css`). */
+  const editorTourItem = (): HTMLElement => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'editor-tour-item';
+    item.textContent = 'Editor tour';
+    item.addEventListener('click', () => {
+      tour.open(EDITOR_TOUR_STEPS, editorBack());
+    });
+    return item;
+  };
+  const tourItem = (): HTMLElement => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'tour-item';
+    item.textContent = 'Map tour';
+    item.addEventListener('click', () => {
+      if (asker.held()) {
+        sayOverMap(FORM_OPEN, load);
+        return;
+      }
+      void tourHooks.settled.then(() => {
+        if (load.failed) {
+          say(MAP_FAILED, { lasting: true });
+          return;
+        }
+        tourHooks.clear();
+        const { audience, steps } = tourFor(asker.me);
+        // A tour by hand while Discord is away is not the tour of a normal visit.
+        if (!(asker.me.loggedIn && asker.me.readOnly)) keepTourSeen(browserStorage(), audience);
+        tour.open(steps, document.querySelector<HTMLElement>('#account summary') ?? undefined);
+      });
+    });
+    return item;
+  };
+  /** The region editor was asked by address: read now, the address changes as it opens. */
+  const editorAsked = editingAsked(location.search);
+  /**
+   * The tour opens by itself once, on a quiet page; else it stays due for the next visit. Marked
+   * seen as it opens: a browser that cannot keep that does not get it at every load.
+   */
+  const tourByItself = (me: Me, readOnly: boolean): void => {
+    const storage = browserStorage();
+    const { audience, steps } = tourFor(me);
+    const open = tourOpensByItself(readTourSeen(storage), audience, {
+      readOnly,
+      editorAlone: !toggle.used && !editorAsked,
+      quiet: !asker.held() && quietPage(byId('filter') as HTMLInputElement),
+    });
+    if (open && !tour.running() && keepTourSeen(storage, audience)) tour.open(steps);
+  };
   // The layers (plan 8M-7): the member's choice kept per browser.
   const registry = new LayerRegistry(browserStorage());
   for (const layer of MAP_LAYERS) registry.register(layer);
@@ -372,8 +478,10 @@ function start(): void {
     guild,
     data.login === 'discord' ? 'discord' : 'links',
     'map',
-    (me) => (editingOffered(me) ? [editItem(toggle, load, guild, me, editLabel)] : []),
+    (me) =>
+      editingOffered(me) ? [editItem(toggle, load, guild, me, editLabel), editorTourItem()] : [],
     true,
+    () => [tourItem()],
   ).then((me) => {
     asker.me = me;
     return me;
@@ -496,8 +604,11 @@ function start(): void {
         pane.replaceChildren(section);
         pane.hidden = false;
         map.invalidateSize();
+        tourByItself(me, false);
         return;
       }
+      /** Only the first list opens the map's tour (plan 8M-17). */
+      let listSeen = false;
       const mayReport = me.member && !me.readOnly;
       const raids = showParties(map, guild, me, gyms, names, regions, mayReport, {
         registry,
@@ -508,6 +619,12 @@ function start(): void {
         afterDraw: () => {
           dots.refresh();
           places.redrawn();
+        },
+        listDrawn: (list) => {
+          tour.replace();
+          if (listSeen) return;
+          listSeen = true;
+          tourByItself(me, list.readOnly);
         },
         located: () => you.located(),
         onMove: (listener) => {
@@ -573,6 +690,12 @@ function start(): void {
       });
       // "Edit regions" is refused while a form of the map holds (plan 8M-10, C8).
       asker.held = () => raids.editing();
+      tourHooks.clear = () => {
+        raids.closeOpen();
+        showList(false);
+        showSearch(false);
+      };
+      tourHooks.finds = mayReport;
       gymExtras.editing = () => raids.editing();
       gymExtras.of = (gym) => raids.gymControls(gym);
       gymExtras.clicked = (gym) => raids.gymClicked(gym);
@@ -628,6 +751,7 @@ function start(): void {
     load.failed = true;
     say(MAP_FAILED, { lasting: true });
   });
+  tourHooks.settled = loaded;
   // `/s/<guild>/regions/edit` led here (plan 8M-10, C5): once the map is drawn or could not be
   // (review 1, F8: the editor opens at its view either way), and the member is known.
   void editorByAddress(editingAsked(location.search), [loaded, account], {

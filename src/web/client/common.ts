@@ -271,7 +271,8 @@ function closesByItself(menu: HTMLDetailsElement): void {
  * `items`: what its menu holds before the theme and Log out for the member (the map's "Edit
  * regions", plan 8M-10); a press of one closes the menu. `themed`: the page offers Light, Dark
  * or Device (plan 8M-13, S10: the map and its region editor), in the member's menu, or for a
- * visitor, who has none, in a small ⋮ button of its own in its place.
+ * visitor, who has none, in a small ⋮ button of its own in its place. `everyone`: what either
+ * of those menus holds whoever asks (the map's "Map tour", plan 8M-17).
  */
 export async function showAccount(
   guild: string,
@@ -279,6 +280,7 @@ export async function showAccount(
   page: WebPage,
   items: (me: Me) => HTMLElement[] = () => [],
   themed = false,
+  everyone: () => HTMLElement[] = () => [],
 ): Promise<Me> {
   const account = byId('account');
   const me = await whoIsAsking(guild);
@@ -304,10 +306,16 @@ export async function showAccount(
     menu.className = 'account-menu theme-menu';
     const summary = document.createElement('summary');
     summary.textContent = '⋮';
-    summary.setAttribute('aria-label', 'Theme');
-    summary.title = 'Theme';
+    summary.setAttribute('aria-label', 'Menu');
+    summary.title = 'Menu';
     const held = document.createElement('div');
     held.className = 'menu';
+    for (const item of everyone()) {
+      item.addEventListener('click', () => {
+        menu.open = false;
+      });
+      held.append(item);
+    }
     held.append(themeItem());
     menu.append(summary, held);
     closesByItself(menu);
@@ -348,7 +356,7 @@ export async function showAccount(
     summary.append(name);
     const held = document.createElement('div');
     held.className = 'menu';
-    for (const item of items(me)) {
+    for (const item of [...items(me), ...everyone()]) {
       item.addEventListener('click', () => {
         menu.open = false;
       });

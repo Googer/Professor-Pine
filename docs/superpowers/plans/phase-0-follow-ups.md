@@ -2991,3 +2991,9 @@ On the Air's dev stack, Googer in the built-in browser, Tester through Claude in
 `withGameKinds` (`packages/wayspot-core/src/export-file.ts`), applied by `/gym import`: a stop Wayfarer has as `INACTIVE` is taken for a Power Spot, in older files too. No change to the export tool or the file's format. Checked on one Wayspot in the game (a Power Spot, no PokéStop on the game's map); the rest rest on the rule. Inactive Power Spots stay Power Spots: they come and go from day to day (Matt), so a Power Spot missing from the game's map says nothing.
 
 Matt on the sources: with this rule Wayfarer's map is reliable for Power Spots. What it misses are sponsored locations, and those are only ever stops or gyms as far as he has seen, so a sponsored list needs no Power Spots.
+
+## From Phase 8M-17 (the map's and the region editor's tours, 2026-11-02)
+
+- **Staging not run:** `2026-11-02-phase-8m17-staging.md`; needs Matt's go-ahead.
+- **A crash course on Discord** (Matt, 2026-11-02): after the web tours, a few basics posted in a channel, not interactive. In Pittsburgh it replaces what is in `#raid-bot-tutorial`, written for legacy Pine and obsolete. Read that channel first (Matt offers his Googer login for it): his go-ahead covers reading it, not posting.
+- **Read-only editor:** its tour opens as usual though Save and the drawing tools are off; Discord being away the first time a member opens the editor is rare, left so.

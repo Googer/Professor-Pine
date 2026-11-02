@@ -993,7 +993,10 @@ async function started(options: {
     boxChanged: number;
     /** How many times the box was emptied (M2). */
     cleared: number;
+    /** The lists told as drawn, by whether they were read-only (plan 8M-17). */
+    listsDrawn: boolean[];
   } = {
+    listsDrawn: [],
     finding: [],
     picked: 0,
     gyms: [],
@@ -1036,6 +1039,9 @@ async function started(options: {
           waiting.splice(waiting.indexOf(waiter), 1);
           waiter.resolve();
         }
+      },
+      listDrawn: (list) => {
+        frameTold.listsDrawn.push(list.readOnly);
       },
       located: () => options.located,
       onMove: () => undefined,
@@ -1165,6 +1171,27 @@ async function started(options: {
     },
   };
 }
+
+describe("a list told as drawn, for the map's tour (plan 8M-17)", () => {
+  it('tells of a list the server gave, not of the empty draws before it comes', async () => {
+    const { frameTold, drawCount, nextDraw, releaseParties, registry } = await started({
+      raids: true,
+      partiesLate: true,
+    });
+    // A change of layers draws the parties with no list yet.
+    const empty = nextDraw();
+    registry.set('raids', false);
+    await empty;
+    await Promise.resolve();
+    expect(drawCount()).toBeGreaterThan(0);
+    expect(frameTold.listsDrawn).toEqual([]);
+    const drawn = nextDraw();
+    releaseParties();
+    await drawn;
+    await Promise.resolve();
+    expect(frameTold.listsDrawn).toEqual([false]);
+  });
+});
 
 describe('a party a report made or found, opened with the Raids layer off (review B1)', () => {
   it('opens a max battle on its own marker after its form, the raids drawn while it shows', async () => {
