@@ -3,6 +3,13 @@ node_modules/
 
 # ignore IDEA workspace file
 .idea/workspace.xml
+# and what IDEA keeps of this machine: cookies of its HTTP client, database connections
+.idea/httpRequests/
+.idea/dataSources/
+.idea/dataSources.local.xml
+
+# the ledgers, briefs and mockups of plans in progress
+.superpowers/
 
 # ignore private settings
 data/private-settings.json
