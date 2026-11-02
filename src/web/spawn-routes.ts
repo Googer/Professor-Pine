@@ -22,8 +22,10 @@ import { UserError } from '../discord/errors.js';
 import type { WildExceptions } from '../domain/pogo/wild.js';
 import type { SpawnAnswer } from '../domain/web/spawn-data.js';
 import { regionsAtPoint } from '../services/region-directory.js';
+import { blockedAtPin } from '../commands/max/max-report.js';
 import {
   actingOnTheMap,
+  isMapStaff,
   memberOrFailure,
   countedOnTheMap,
   throttledOnTheMap,
@@ -51,7 +53,16 @@ export const SPAWN_WRITES_PER_ADDRESS_MINUTE = 30;
  */
 export type SpawnWebContext = WildReading &
   SpawnReporting &
-  Pick<AppContext, 'placeFinder' | 'regions'>;
+  Pick<AppContext, 'placeFinder' | 'regions' | 'meetupSafety'>;
+
+/**
+ * What a member blocked from meetups is told on the map (plan 8Z, `blockedAtPin`): every report
+ * here is at a pin; `/wild` still takes one at a known place.
+ */
+export const MAP_SPAWN_BLOCKED =
+  'You are blocked from making meetups in this server, so you cannot report a wild Pokémon at a ' +
+  'pin, and every report on the map is at one. Use /wild on Discord, with a place from its list. ' +
+  'To appeal the block, use /meetup there and press "Appeal…".';
 
 /** What the spawn reports of the live map need beyond the parties' own (`PartyWebDeps`). */
 export interface SpawnWebDeps {
@@ -240,6 +251,12 @@ export function spawnRoutes(scope: FastifyInstance, deps: WebDeps): void {
     }
     const pin = ctx.placeFinder.pin(row, point, null);
     if (!pin) return noted('not-here', refusal(PIN_NOT_HERE), picked.id);
+    // Every spawn on the map is at a pin: as `/wild near:`, before its limit.
+    const staff = isMapStaff(acting.standing, userId, parties.ownerId);
+    if (await blockedAtPin(ctx, guild, userId, staff, pin)) {
+      const blocked: SpawnAnswer = { ok: false, text: words(MAP_SPAWN_BLOCKED) };
+      return noted('blocked', reply.code(403).send(blocked), picked.id);
+    }
     const counted = { command: WILD_COMMAND };
     const throttled = throttledOnTheMap(deps, reply, counted, userId, WILD_THROTTLE);
     if (throttled) return noted('throttled', throttled, picked.id);

@@ -22,7 +22,11 @@ import { Throttles } from '../discord/throttle.js';
 import { pokemonTarget } from '../domain/pogo/notification-target.js';
 import { RaidPrivacy } from '../domain/party/status.js';
 import type { SpawnAnswer, WildOptionsView } from '../domain/web/spawn-data.js';
+import { MOD, SAFETY_SERVER } from '../../test/support/meetup-safety-cases.js';
+import { meetupSafetyWith } from '../../test/support/meetup-safety-service.js';
+import type { MeetupSafety } from '../services/meetup-safety.js';
 import { UNREACHABLE } from './acting.js';
+import { MAP_SPAWN_BLOCKED } from './spawn-routes.js';
 
 const SPAWNS = `/s/${FAKE_GUILD_ID}/api/spawns`;
 const OPTIONS = `/s/${FAKE_GUILD_ID}/api/wild-options`;
@@ -46,12 +50,14 @@ async function reporting(
     settings?: Map<string, Partial<UserSettings>>;
     exceptions?: string[];
     channelNames?: Map<string, string>;
+    meetupSafety?: MeetupSafety;
   } = {},
 ) {
   const throttles = options.throttles ?? new Throttles();
   const made = await partyServiceWith();
   const base = createTestContext({}).ctx.config;
   const { ctx } = createTestContext({
+    ...(options.meetupSafety ? { meetupSafety: options.meetupSafety } : {}),
     partyService: made.service,
     parties: made.store,
     regions: made.regions,
@@ -106,6 +112,27 @@ describe('reporting a wild Pokémon on the map', () => {
     vi.useRealTimers();
     await web?.app.close();
     web = undefined;
+  });
+
+  it('refuses a member blocked from meetups, every spawn on the map being a pin; uncounted, nothing posted', async () => {
+    const safe = await meetupSafetyWith();
+    await safe.storage.addBlock(SAFETY_SERVER, ALICE, MOD);
+    const map = await reporting({ meetupSafety: safe.safety });
+    web = map.web;
+    const body = { pokemon: 'dratini', details: 'by the bench', ...IN_WEST };
+    const refused = await map.report(body);
+    expect(refused).toMatchObject({
+      status: 403,
+      json: { ok: false, text: MAP_SPAWN_BLOCKED },
+    });
+    expect(map.reports()).toHaveLength(0);
+    for (let use = 0; use < WILD_THROTTLE.uses; use += 1) {
+      expect(map.throttles.use(WILD_COMMAND, ALICE, WILD_THROTTLE, PARTY_NOW)).toBeUndefined();
+    }
+    // Others keep their pins.
+    const bob = await map.web.posting(BOB, 'Bob');
+    expect((await map.report(body, bob)).status).toBe(200);
+    expect(map.reports()).toHaveLength(1);
   });
 
   it("reports at the point as /wild does: as the member, the point as a pin, the command's words, and who wants it is told", async () => {

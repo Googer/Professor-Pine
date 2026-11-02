@@ -34,7 +34,15 @@ import { DM_PRIORITY } from '../../services/dm-sender.js';
 import { SPAWN_CAUTION, SPAWN_FOOTER, SPAWN_WARNING } from '../../render/spawn.js';
 import { commands } from '../index.js';
 import { renderCommandHelp } from '../util/help-render.js';
-import { MAX_DETAILS, WILD_THROTTLE, wildCommand, wildExceptionsOf } from './wild.js';
+import { MOD, SAFETY_SERVER } from '../../../test/support/meetup-safety-cases.js';
+import { meetupSafetyWith } from '../../../test/support/meetup-safety-service.js';
+import {
+  MAX_DETAILS,
+  WILD_PIN_BLOCKED,
+  WILD_THROTTLE,
+  wildCommand,
+  wildExceptionsOf,
+} from './wild.js';
 
 const SIGHTINGS = '100000000000000031';
 const PERFECT: NotificationTarget = { kind: 'iv', iv: 'perfect' };
@@ -735,6 +743,47 @@ describe('/wild: Unown', () => {
     expect(made.entries.some((entry) => entry.msg === 'could not post an Unown sighting')).toBe(
       true,
     );
+  });
+});
+
+describe('/wild near: a pin and a member blocked from meetups', () => {
+  /** `setup` with meetup safety on, Alice blocked and Bob not. */
+  async function withABlock() {
+    const safe = await meetupSafetyWith();
+    await safe.storage.addBlock(SAFETY_SERVER, ALICE, MOD);
+    return setup({}, { meetupSafety: safe.safety });
+  }
+  const A_PIN = 'https://www.google.com/maps?q=40.02,-80.02';
+
+  it('refuses the pin, uncounted, in words that name the way out and the appeal', async () => {
+    const made = await withABlock();
+    const used = await made.run({ pokemon: 'dratini', near: A_PIN });
+    expect(sent(used.reply).content).toBe(WILD_PIN_BLOCKED);
+    expect(made.reports()).toHaveLength(0);
+    // Refused by the guard: all of the limit is left.
+    for (let n = 0; n < WILD_THROTTLE.uses; n++) await made.run({ pokemon: 'dratini' });
+    expect(made.reports()).toHaveLength(WILD_THROTTLE.uses);
+  });
+
+  it('leaves them a report at a known place, or with no place', async () => {
+    const made = await withABlock();
+    await made.run({ pokemon: 'dratini', near: 'gym:2' });
+    await made.run({ pokemon: 'dratini' });
+    expect(made.reports()).toHaveLength(2);
+  });
+
+  it('leaves other members their pins, and staff', async () => {
+    const made = await withABlock();
+    await made.run({ pokemon: 'dratini', near: A_PIN }, { userId: BOB });
+    expect(made.reports()).toHaveLength(1);
+    await made.run({ pokemon: 'dratini', near: A_PIN }, { roleNames: ['Moderator'] });
+    expect(made.reports()).toHaveLength(2);
+  });
+
+  it('refuses nobody while the safety is off', async () => {
+    const made = await setup();
+    await made.run({ pokemon: 'dratini', near: A_PIN });
+    expect(made.reports()).toHaveLength(1);
   });
 });
 

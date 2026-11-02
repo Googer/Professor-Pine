@@ -187,14 +187,15 @@ export async function maxBarred(
  * safety is off) asks for a new battle at a pin, a place nobody checked (Matt, 2026-10-21, final
  * review G1): refused then (`MAX_PIN_BLOCKED`). Ask it only for a new battle: joining the battle
  * there is allowed (fix review 4); `reportMaxAs` asks it again where that battle ended before
- * the report was written (8X-5 final review F4). A member appeals the block with `/meetup`.
+ * the report was written (8X-5 final review F4). A member appeals the block with `/meetup`. A
+ * spawn at a pin is asked the same (`/wild near:` and the map, `WILD_PIN_BLOCKED`; plan 8Z).
  */
 export async function blockedAtPin(
   ctx: Pick<AppContext, 'meetupSafety'>,
   serverId: string,
   memberId: string,
   staff: boolean,
-  spot: MaxSpot,
+  spot: { kind: string },
 ): Promise<boolean> {
   if (spot.kind !== 'pin') return false;
   return ctx.meetupSafety.blocked(serverId, memberId, staff);

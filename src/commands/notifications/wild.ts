@@ -3,7 +3,7 @@ import type { AppContext } from '../../app-context.js';
 import type { Guard, SimpleCommand } from '../../discord/command.js';
 import { MAX_PLACE_TEXT, namedPlace, nearChoices, orList } from '../place-option.js';
 import { UserError } from '../../discord/errors.js';
-import { guildIdOf, regionChannelOf, requireGuild } from '../../discord/guards.js';
+import { guildIdOf, isStaff, regionChannelOf, requireGuild } from '../../discord/guards.js';
 import { memberInfo } from '../../discord/member-info.js';
 import type { Throttle } from '../../discord/throttle.js';
 import type { PokemonCatalogue } from '../../domain/pogo/catalogue.js';
@@ -14,6 +14,7 @@ import { SPAWN_MINUTES } from '../../render/spawn.js';
 import { count, plain, truncate } from '../../render/text.js';
 import { CHOICE_NAME, MAX_CHOICES, type Choice } from '../choices.js';
 import { answer } from '../../discord/late-reply.js';
+import { blockedAtPin } from '../max/max-report.js';
 import { DISCORD_SPAWN_NAMES, reportSpawnAs } from './spawn-report.js';
 
 /** Where `/wild` works, said wherever it does not. */
@@ -198,9 +199,19 @@ export function wildChoices(ctx: WildReading, typed: string): Choice[] {
 }
 
 /**
+ * What `/wild` says to a member blocked from meetups who names a pin (plan 8Z, `blockedAtPin`):
+ * a known place is still theirs to report at, and nobody else's pin is checked.
+ */
+export const WILD_PIN_BLOCKED =
+  'You are blocked from making meetups in this server, so you cannot report a wild Pokémon at a ' +
+  'pin. Pick a place from the list, or leave `near` out. To appeal the block, use `/meetup` and ' +
+  'press "Appeal…".';
+
+/**
  * What can be known before anything is posted is refused here, so that a use that came to
  * nothing does not count against the limit: the place, the Pokémon, details that say nothing,
- * and a `near` that names no place of the server's regions.
+ * a `near` that names no place of the server's regions, and a pin of a member blocked from
+ * meetups.
  */
 const requireSpawnReport: Guard = async (interaction, ctx) => {
   if (regionChannelOf(interaction, ctx) === undefined) throw new UserError(WILD_FROM_A_REGION);
@@ -213,7 +224,19 @@ const requireSpawnReport: Guard = async (interaction, ctx) => {
       interaction.options.getString('pokemon', true),
       interaction.options.getString('details'),
     );
-    await namedPlace(interaction, ctx, interaction.options.getString('near'));
+    const place = await namedPlace(interaction, ctx, interaction.options.getString('near'));
+    if (
+      place !== undefined &&
+      (await blockedAtPin(
+        ctx,
+        guildIdOf(interaction),
+        interaction.user.id,
+        isStaff(interaction, ctx),
+        place,
+      ))
+    ) {
+      throw new UserError(WILD_PIN_BLOCKED);
+    }
   }
 };
 
