@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-10-31T13:15",
+  "updated": "2026-11-01T21:48",
   "items": [
     {
       "id": "0",
@@ -10030,6 +10030,98 @@ window.GANTT = {
       "status": "done",
       "start": "2026-10-31T12:50",
       "end": "2026-10-31T13:07"
+    },
+    {
+      "id": "8Z",
+      "kind": "plan",
+      "parent": "16",
+      "name": "8Z Security pass before the cutover",
+      "status": "progress",
+      "size": 1,
+      "dependsOn": [],
+      "scope": "Meetups after approval, pins in /wild near:, group pings, floods, the map's writes and logins, Google by hand, the map's Delete…, the Docker socket through a proxy",
+      "doneWhen": "Merged into main-dev"
+    },
+    {
+      "id": "8Z.1",
+      "kind": "task",
+      "parent": "8Z",
+      "name": "A meetup's name and information for its maker and staff, the moderators told",
+      "status": "done",
+      "start": "2026-11-01T20:56",
+      "end": "2026-11-01T20:56"
+    },
+    {
+      "id": "8Z.2",
+      "kind": "task",
+      "parent": "8Z",
+      "name": "Pins in /wild near: refused to a blocked member",
+      "status": "done",
+      "start": "2026-11-01T20:56",
+      "end": "2026-11-01T20:59"
+    },
+    {
+      "id": "8Z.3",
+      "kind": "task",
+      "parent": "8Z",
+      "name": "Role-gated forums in the guides",
+      "status": "done",
+      "start": "2026-11-01T20:59",
+      "end": "2026-11-01T20:59"
+    },
+    {
+      "id": "8Z.4",
+      "kind": "task",
+      "parent": "8Z",
+      "name": "At most one ping of a new group per party every 5 minutes",
+      "status": "done",
+      "start": "2026-11-01T20:59",
+      "end": "2026-11-01T21:02"
+    },
+    {
+      "id": "8Z.5",
+      "kind": "task",
+      "parent": "8Z",
+      "name": "Splits in /train's limit, at most 5 open trains and meetups",
+      "status": "done",
+      "start": "2026-11-01T21:02",
+      "end": "2026-11-01T21:17"
+    },
+    {
+      "id": "8Z.6",
+      "kind": "task",
+      "parent": "8Z",
+      "name": "Map writes, the shared member fetch, the editor and the OAuth exchange",
+      "status": "done",
+      "start": "2026-11-01T21:17",
+      "end": "2026-11-01T21:25"
+    },
+    {
+      "id": "8Z.7",
+      "kind": "task",
+      "parent": "8Z",
+      "name": "Google by hand: /gym refresh limited, a monthly cap",
+      "status": "done",
+      "start": "2026-11-01T21:25",
+      "end": "2026-11-01T21:32"
+    },
+    {
+      "id": "8Z.8",
+      "kind": "task",
+      "parent": "8Z",
+      "name": "The map's Delete… needs Manage Messages",
+      "status": "done",
+      "start": "2026-11-01T21:32",
+      "end": "2026-11-01T21:35"
+    },
+    {
+      "id": "8Z.9",
+      "kind": "task",
+      "parent": "8Z",
+      "name": "The Docker socket through a proxy, the watchdog without root",
+      "status": "done",
+      "start": "2026-11-01T21:35",
+      "end": "2026-11-01T21:45"
     },
     {
       "id": "8F-1",

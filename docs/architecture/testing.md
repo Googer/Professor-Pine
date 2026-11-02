@@ -44,7 +44,7 @@ Tests are colocated, use real MySQL and real loggers, never the network, and run
 
 ## Meetup safety
 
-- `MeetupSafetyRepository` and `MemoryMeetupSafety` (`test/support/meetup-safety.ts`, `failing` per method) run the same cases (`meetupSafetyCases`, `test/support/meetup-safety-cases.ts`, with `LIBRARY`, `SAFETY_PIN`, `newRequest`, `newAppeal`, `MOD`). The service and the controls are tested over `meetupSafetyWith(options)` (`test/support/meetup-safety-service.ts`; `meetup-safety.md`); `createTestContext`'s own `meetupSafety` is off.
+- `MeetupSafetyRepository` and `MemoryMeetupSafety` (`test/support/meetup-safety.ts`, `failing` per method) run the same cases (`meetupSafetyCases`, `test/support/meetup-safety-cases.ts`, with `LIBRARY`, `SAFETY_PIN`, `newRequest`, `newAppeal`, `MOD`). The service and the controls are tested over `meetupSafetyWith(options)` (`test/support/meetup-safety-service.ts`; `meetup-safety.md`); `createTestContext`'s own `meetupSafety` is off. What the moderators are told of an approved meetup's change goes in the background: await `safety.flushChanges()` before reading the channel (`meetup-changes.test.ts`). `createTestContext` gives `ctx.throttles`, which a router over that context counts in unless it is given its own (plan 8Z: a test of a split fills `/train`'s window there); a test of map writes past `MAP_WRITES_PER_MINUTE` sends them from other addresses (`remoteAddress` of `inject`), or the per-address limit answers first.
 
 ## Reports to the moderators
 
