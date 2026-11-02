@@ -2960,3 +2960,21 @@ Nine items, a commit each, branch `security-pass`; its staging checklist is `202
 - **Checked on the laptop's engine, 2026-11-01** (compose.yaml's own service, scratch containers, no bot, no secrets, all removed afterwards): the list, and this stack's bot by name, pass, with or without an API version; `create`, `archive`, `export`, `logs`, `top`, `exec`, `stop`, `kill`, another container, a one-off's name, and the bot by its hex id are refused with 403, `PUT` and `DELETE` with 405; the proxy cannot be reached from outside its network; a restart of a container that ignores SIGTERM took 152 seconds through it and answered 204; the image has linux/arm64; a new volume takes a folder's `node` owner, and a read-only `ops` volume reads, with a scratch image.
 - **Unproven until the checklist runs:** nothing of this has met Discord; the proxy on the Air's OrbStack (its arm64 image running, the socket's owner there), the bot's real image under the watchdog's user, and a real restart by the watchdog through the proxy.
 - **Not done here:** the status in `CLAUDE.md` and the memory are the controller's at the plan's close, and so is the Gantt chart's review row (`npm run gantt -- review 8Z …`). The chart's task dates are the times the commits were first made: a folding of wording afterwards moved their shas, not the work.
+
+## From the staging run of 8Z (2026-11-01/02)
+
+On the Air's dev stack, Googer in the built-in browser, Tester through Claude in Chrome, Matt setting Tester's role and Manage Messages. Writes on the map were sent through its API from the logged-in page, since its markers are drawn on a canvas.
+
+- **Pass:** steps 1 to 13, 15 to 18, 23 and 25. The frozen bot of step 7 was restarted through the proxy after a 150-second stop; step 25 gave one DM per spell. Step 8 ran with another project's proxy alone, which refuses the dev bot; no second watchdog ran. Step 10 blocked by hand in the dev database, since a real block closes the member's meetups.
+- **Finding T1, Minor, not fixed:** step 19. 60 writes a minute from one address meet `TRAIN_WRITES_PER_ADDRESS_MINUTE` (60) first, so a route laid at full speed hears the general "Too many requests. Try again in a minute." and not `MAP_WRITES_FULL`. The checklist's words appear only when a member's writes go through several routes. The burst was made with `clear`, which also has its own limit; the route mode's look was not seen.
+- **Not run:**
+  - Step 14's comparison with Join on a role-gated forum (the guides' words were read and say what the plan says).
+  - Step 15's "another party is not held by it".
+  - Step 16's refused Submit giving its use back.
+  - Step 18's "Googer is held to no cap".
+  - Step 20: it needs Tester to leave the server.
+  - Step 21's two logins within a second.
+  - Step 22's `/gym add` or `/gym move` waiting in the line.
+  - Step 24's real press of Delete… in the popup (the API's close was used).
+- **Cleanup:** the parties closed, the block lifted, `googleByHandPerMonth` and the moderators' channel back, the proxy running. Tester's role is as Matt left it. A few plain chat messages of Tester's stayed in #oakmont-springdale and one post, from commands sent before Discord's list had loaded.
+- **For the next run:** a tab in the background loads Discord's command list slowly, so a script waits for the list before pressing Tab. `/end` sets a meetup's end, so it cannot close one early; `/delete` or the map's Delete… does.

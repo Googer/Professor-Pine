@@ -36,7 +36,7 @@ Discord bot for organizing Pokémon Go raids, in TypeScript on discord.js v14: o
 
 Every phase up to the security pass 8Z is built and merged. What is left before the production bot moves:
 
-- **8Z's staging** (`docs/superpowers/plans/2026-11-01-phase-8z-staging.md`), in progress on the Air's dev stack.
+- **8Z's staging** ran on 2026-11-01/02 on the Air's dev stack: nearly every step passes, one Minor finding and a few steps are left (follow-ups, "From the staging run of 8Z").
 - **The cutover rehearsal**, paused at runbook R4 for a permission on Pittsburgh's server, then R5 and R6.
 - **The deadline:** about 2026-11-11 the production application loses its privileged intents, which the unpatched legacy bot depends on (follow-ups, "Needs Matt").
 
