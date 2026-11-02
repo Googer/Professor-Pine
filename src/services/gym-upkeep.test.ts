@@ -459,12 +459,38 @@ describe('the cap of lookups by hand (plan 8Z)', () => {
     expect(byHand(use)).toBeLessThanOrEqual(2);
   });
 
-  it('takes a count it cannot read as the cap: nothing asked, logged', async () => {
-    const { upkeep, use, geo, entries } = await capped(500);
+  it('asks nothing when it cannot read the count, and says that apart from the cap; logged', async () => {
+    const { upkeep, use, geo, entries, lookups } = await capped(500);
+    await lookups.add([{ gymId: 2, address: false, rank: 1 }], 1);
     use.usedOn = () => Promise.reject(new Error('the database is away'));
-    await expect(upkeep.refresh(2)).resolves.toMatchObject({ places: 'capped' });
+    await expect(upkeep.refresh(2)).resolves.toMatchObject({
+      geodata: 'count-unread',
+      places: 'count-unread',
+    });
     expect(geo.asked).toEqual([]);
     expect(entries.map((entry) => entry.msg)).toContain('could not read the lookups by hand');
+    expect((await lookups.list()).map((one) => one.gymId)).toEqual([2]);
+  });
+
+  it('counts a lookup whose gym went while Google was asked: Google was asked', async () => {
+    const { upkeep, use, geo, gyms, directory } = await capped(500);
+    const held = Promise.withResolvers<undefined>();
+    geo.hold = held.promise.then(() => undefined);
+    const refreshing = upkeep.refresh(2);
+    await background.settle();
+    expect(geo.asked).toHaveLength(1);
+    await gyms.delete(2);
+    await directory.refreshGym(2);
+    held.resolve(undefined);
+    await expect(refreshing).resolves.toBeUndefined();
+    expect(byHand(use)).toBe(1);
+  });
+
+  it('counts a lookup whose answer could not be written: Google was asked', async () => {
+    const { upkeep, use, gyms } = await capped(500);
+    gyms.failingOn.update = new Error('the database is away');
+    await expect(upkeep.refresh(2)).rejects.toThrow('the database is away');
+    expect(byHand(use)).toBe(1);
   });
 
   it('puts a gym added or moved at the cap in the line, without failing and without asking', async () => {

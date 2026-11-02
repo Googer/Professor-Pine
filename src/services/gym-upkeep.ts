@@ -29,15 +29,22 @@ import { WayspotPlaces } from './wayspot-places.js';
  * What came of fetching one thing about a gym: it was written (`updated`), it is what the gym
  * had already (`unchanged`), or why Google gave nothing (the gym then keeps what it had).
  */
-export type FetchOutcome = 'updated' | 'unchanged' | 'capped' | GeoFailure;
+export type FetchOutcome = 'updated' | 'unchanged' | ByHandRefused | GeoFailure;
+
+/** Why a lookup by hand asked nothing: past its cap, or a count that could not be read. */
+type ByHandRefused = 'capped' | 'count-unread';
 
 /**
  * Whether a question about a gym reached Google: a refused key or none asks nothing, and neither
- * does a lookup by hand past its cap (`capped`).
+ * does a lookup by hand that was refused (`ByHandRefused`).
  */
 function reachedGoogle(outcome: FetchOutcome | undefined): boolean {
   return (
-    outcome !== undefined && outcome !== 'denied' && outcome !== 'no-key' && outcome !== 'capped'
+    outcome !== undefined &&
+    outcome !== 'denied' &&
+    outcome !== 'no-key' &&
+    outcome !== 'capped' &&
+    outcome !== 'count-unread'
   );
 }
 
@@ -516,7 +523,7 @@ export class GymUpkeep {
     // Their circle follows the distance to this gym: what was asked in the old circle is void.
     for (const other of pointing) this.outdate('places', other);
     // Past the cap of lookups by hand it never fails: it waits in the line like an import's.
-    if (places === 'later' || !(await this.takeByHand())) {
+    if (places === 'later' || (await this.takeByHand()) !== undefined) {
       await this.queueGyms([id], address);
       await this.queuePlaces(others);
       return;
@@ -608,7 +615,12 @@ export class GymUpkeep {
   refresh(id: number): Promise<GymRefresh | undefined> {
     const work = this.refreshByHand(id)
       .then(async (refreshed) => {
-        if (refreshed && refreshed.places !== 'denied' && refreshed.places !== 'capped') {
+        if (
+          refreshed &&
+          refreshed.places !== 'denied' &&
+          refreshed.places !== 'capped' &&
+          refreshed.places !== 'count-unread'
+        ) {
           await this.answered(id);
         }
         return refreshed;
@@ -621,45 +633,51 @@ export class GymUpkeep {
   private async refreshByHand(id: number): Promise<GymRefresh | undefined> {
     const gym = this.options.directory.get(id);
     if (!gym) return undefined;
-    if (!(await this.takeByHand())) return { gym, geodata: 'capped', places: 'capped' };
+    const refused = await this.takeByHand();
+    if (refused !== undefined) return { gym, geodata: refused, places: refused };
     return this.askByHand(id);
   }
 
   /**
-   * Takes one of this month's lookups by hand (`askByHand` gives it back), false past the cap: a
-   * hard one, so that a count that cannot be read counts as the cap, and those on their way
-   * count as used. Without a Google key nothing is asked, and nothing needs counting.
+   * Takes one of this month's lookups by hand (`askByHand` gives it back), or says why not: past
+   * the cap, a hard one, or a count that cannot be read, for which nothing is asked either. Those
+   * on their way count as used. Without a Google key nothing is asked, and nothing needs counting.
    */
-  private async takeByHand(): Promise<boolean> {
+  private async takeByHand(): Promise<ByHandRefused | undefined> {
     this.byHandOnTheirWay += 1;
-    if (!this.fetches) return true;
-    const left = await usedThisMonth(this.use, this.now())
-      .then((used) => used.monthByHand + this.byHandOnTheirWay <= this.byHandPerMonth)
+    if (!this.fetches) return undefined;
+    const refused = await usedThisMonth(this.use, this.now())
+      .then((used): ByHandRefused | undefined =>
+        used.monthByHand + this.byHandOnTheirWay <= this.byHandPerMonth ? undefined : 'capped',
+      )
       .catch((err: unknown) => {
         this.options.log.warn({ err }, 'could not read the lookups by hand');
-        return false;
+        return 'count-unread' as const;
       });
-    if (!left) this.byHandOnTheirWay -= 1;
-    return left;
+    if (refused !== undefined) this.byHandOnTheirWay -= 1;
+    return refused;
   }
 
-  /** A lookup by hand `takeByHand` took: counted once it reached Google. */
+  /**
+   * A lookup by hand `takeByHand` took: counted once either of its questions reached Google,
+   * whatever came after (the gym gone meanwhile, an answer that could not be written).
+   */
   private async askByHand(id: number): Promise<GymRefresh | undefined> {
+    let reached = false;
     try {
-      const refreshed = await this.refreshNow(id);
-      if (refreshed && (reachedGoogle(refreshed.geodata) || reachedGoogle(refreshed.places))) {
-        await this.count('hand');
-      }
-      return refreshed;
+      return await this.refreshNow(id, () => {
+        reached = true;
+      });
     } finally {
+      if (reached) await this.count('hand');
       this.byHandOnTheirWay -= 1;
     }
   }
 
-  private async refreshNow(id: number): Promise<GymRefresh | undefined> {
-    const geodata = await this.fetchGeodata(id);
+  private async refreshNow(id: number, onReached?: () => void): Promise<GymRefresh | undefined> {
+    const geodata = await this.fetchGeodata(id, onReached);
     if (geodata === undefined) return undefined;
-    const places = await this.fetchPlaces(id);
+    const places = await this.fetchPlaces(id, onReached);
     const gym = this.options.directory.get(id);
     return places === undefined || !gym ? undefined : { gym, geodata, places };
   }
@@ -693,13 +711,19 @@ export class GymUpkeep {
   }
 
   /** The address of a gym's place; undefined when the gym is gone. */
-  private async fetchGeodata(id: number): Promise<FetchOutcome | undefined> {
+  private async fetchGeodata(
+    id: number,
+    onReached?: () => void,
+  ): Promise<FetchOutcome | undefined> {
     const { gyms, directory, geo } = this.options;
     const asked = directory.get(id);
     if (!asked) return undefined;
     const wanted = this.question('address', id);
     const answer = await geo.reverseGeocode({ lat: asked.lat, lon: asked.lon });
-    if (answer.ok || reachedGoogle(answer.reason)) await this.count('geocode');
+    if (answer.ok || reachedGoogle(answer.reason)) {
+      onReached?.();
+      await this.count('geocode');
+    }
     const gym = directory.get(id);
     if (!gym) return undefined;
     if (!answer.ok) {
@@ -718,7 +742,7 @@ export class GymUpkeep {
   }
 
   /** The places around a gym, within half the way to its nearest gym; undefined when it is gone. */
-  private async fetchPlaces(id: number): Promise<FetchOutcome | undefined> {
+  private async fetchPlaces(id: number, onReached?: () => void): Promise<FetchOutcome | undefined> {
     const { gyms, directory, geo } = this.options;
     const asked = directory.get(id);
     if (!asked) return undefined;
@@ -726,7 +750,10 @@ export class GymUpkeep {
     const radius = placesRadius(nearest && metresBetween(asked, nearest));
     const wanted = this.question('places', id);
     const answer = await geo.placesNear({ lat: asked.lat, lon: asked.lon }, radius);
-    if (answer.ok || reachedGoogle(answer.reason)) await this.count('places');
+    if (answer.ok || reachedGoogle(answer.reason)) {
+      onReached?.();
+      await this.count('places');
+    }
     const gym = directory.get(id);
     if (!gym) return undefined;
     if (!answer.ok) {

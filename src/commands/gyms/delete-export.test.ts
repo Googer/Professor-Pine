@@ -288,6 +288,19 @@ describe('/gym refresh', () => {
     expect(made.geo.asked).toEqual([]);
   });
 
+  it('says it could not read the count, not that the lookups are used, when that read fails', async () => {
+    const made = await gymCommandsWith();
+    made.geo.asked.length = 0;
+    vi.spyOn(made.googleUse, 'usedOn').mockRejectedValue(new Error('the database is away'));
+    const answer = answerOf(await made.use('refresh', { gym: 'id:2' }));
+    expect(said(answer).split('\n')).toEqual([
+      '**Old Stone Fountain** (#2):',
+      'I did not ask Google: I could not read how many lookups by hand this month has used. ' +
+        'Try again in a moment. The gym keeps what it has.',
+    ]);
+    expect(made.geo.asked).toEqual([]);
+  });
+
   it('is held to 10 in 10 minutes per member (plan 8Z)', async () => {
     const made = await gymCommandsWith();
     for (let n = 0; n < 10; n += 1) {

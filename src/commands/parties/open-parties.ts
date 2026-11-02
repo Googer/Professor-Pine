@@ -30,6 +30,6 @@ export async function openPartiesFull(
   const guildId = await reading.guilds.idFor(serverId);
   if (guildId === undefined) return false;
   const open = openPartiesOf(reading.parties.active(), guildId, memberId);
-  if (!mayOpenParty(open, 0, false)) return true;
-  return !mayOpenParty(open, await reading.meetupSafety.pendingCount(serverId, memberId), false);
+  if (!mayOpenParty(open, 0)) return true;
+  return !mayOpenParty(open, await reading.meetupSafety.pendingCount(serverId, memberId));
 }

@@ -23,14 +23,10 @@ describe('openPartiesOf', () => {
 
 describe('mayOpenParty', () => {
   it('allows up to the cap, what waits for a moderator counted', () => {
-    expect(mayOpenParty(MAX_OPEN_PARTIES - 1, 0, false)).toBe(true);
-    expect(mayOpenParty(MAX_OPEN_PARTIES, 0, false)).toBe(false);
-    expect(mayOpenParty(MAX_OPEN_PARTIES - 1, 1, false)).toBe(false);
-    expect(mayOpenParty(0, MAX_OPEN_PARTIES, false)).toBe(false);
-  });
-
-  it('holds staff to nothing', () => {
-    expect(mayOpenParty(MAX_OPEN_PARTIES * 2, 3, true)).toBe(true);
+    expect(mayOpenParty(MAX_OPEN_PARTIES - 1, 0)).toBe(true);
+    expect(mayOpenParty(MAX_OPEN_PARTIES, 0)).toBe(false);
+    expect(mayOpenParty(MAX_OPEN_PARTIES - 1, 1)).toBe(false);
+    expect(mayOpenParty(0, MAX_OPEN_PARTIES)).toBe(false);
   });
 
   it('is five', () => {

@@ -36,6 +36,8 @@ function fetched(what: 'address' | 'nearby places', api: string, outcome: FetchO
       return `Its ${what} could not be fetched (the log says why). It keeps what it had.`;
     case 'capped':
       return `Its ${what} could not be fetched: this month's lookups by hand are used.`;
+    case 'count-unread':
+      return `Its ${what} could not be fetched: I could not read this month's lookups by hand.`;
   }
 }
 
@@ -73,12 +75,17 @@ export const refreshGym: SubcommandPart = {
               `start again ${timestamp(googleMonth(Date.now()).nextReset, 'f')}. The gym keeps ` +
               'what it has.',
           ]
-        : geodata === 'no-key' && places === 'no-key'
-          ? ['No Google API key is configured, so there is nothing to fetch.']
-          : [
-              fetched('address', 'Geocoding API', geodata),
-              fetched('nearby places', 'Places API (New)', places),
-            ];
+        : geodata === 'count-unread'
+          ? [
+              'I did not ask Google: I could not read how many lookups by hand this month has ' +
+                'used. Try again in a moment. The gym keeps what it has.',
+            ]
+          : geodata === 'no-key' && places === 'no-key'
+            ? ['No Google API key is configured, so there is nothing to fetch.']
+            : [
+                fetched('address', 'Geocoding API', geodata),
+                fetched('nearby places', 'Places API (New)', places),
+              ];
     const place = await staffPlace(interaction, ctx);
     await answerGym(
       interaction,

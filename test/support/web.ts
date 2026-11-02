@@ -828,11 +828,6 @@ class HandTimers {
   }
 }
 
-/**
- * The web server over fakes: the bot is in the server of the fake interactions alone, unless
- * `servers` says otherwise; sessions in memory, on a clock of the test's. Close `app` after the
- * test.
- */
 function membersForEditor(staff: RegionStaffSource | undefined): FakeMemberDirectory {
   const members = new FakeMemberDirectory();
   if (staff !== undefined) {
@@ -841,6 +836,11 @@ function membersForEditor(staff: RegionStaffSource | undefined): FakeMemberDirec
   return members;
 }
 
+/**
+ * The web server over fakes: the bot is in the server of the fake interactions alone, unless
+ * `servers` says otherwise; sessions in memory, on a clock of the test's. Close `app` after the
+ * test.
+ */
 export function webServerWith(options: WebTestOptions = {}): TestWeb {
   const { log, entries } = createTestLogger();
   const clock = { now: WEB_START };

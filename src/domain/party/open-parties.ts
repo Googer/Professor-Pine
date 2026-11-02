@@ -23,9 +23,10 @@ export function openPartiesOf(parties: Iterable<Party>, guildId: number, memberI
 }
 
 /**
- * Whether a member may make one more train or meetup: `open` parties of theirs
- * (`openPartiesOf`) and `pending` meetups waiting for a moderator leave room; staff always.
+ * Whether a member held to the cap may make one more train or meetup: `open` parties of theirs
+ * (`openPartiesOf`) and `pending` meetups waiting for a moderator leave room. Who is held to it is
+ * the caller's to say (`openPartiesFull`: staff are not, and nothing is read for them).
  */
-export function mayOpenParty(open: number, pending: number, staff: boolean): boolean {
-  return staff || open + pending < MAX_OPEN_PARTIES;
+export function mayOpenParty(open: number, pending: number): boolean {
+  return open + pending < MAX_OPEN_PARTIES;
 }
