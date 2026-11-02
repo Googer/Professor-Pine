@@ -201,8 +201,9 @@ describe('Split… of a train on the map (plan 8M-8C)', () => {
         json: { ok: false, text: OPEN_PARTIES_FULL },
       });
       expect(map.made.store.active()).toHaveLength(before);
-      fillWindow(throttles, BOB);
-      expect(throttles.use(TRAIN_COMMAND, ALICE, TRAIN_THROTTLE, PARTY_NOW)).toBeUndefined();
+      for (let use = 0; use < TRAIN_THROTTLE.uses; use += 1) {
+        expect(throttles.use(TRAIN_COMMAND, ALICE, TRAIN_THROTTLE, PARTY_NOW)).toBeUndefined();
+      }
       expect((await map.open(TEST_OWNER_ID)).status).toBe(200);
     });
   });
