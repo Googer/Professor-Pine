@@ -2966,7 +2966,7 @@ Nine items, a commit each, branch `security-pass`; its staging checklist is `202
 On the Air's dev stack, Googer in the built-in browser, Tester through Claude in Chrome, Matt setting Tester's role and Manage Messages. Writes on the map were sent through its API from the logged-in page, since its markers are drawn on a canvas.
 
 - **Pass:** steps 1 to 13, 15 to 18, 23 and 25. The frozen bot of step 7 was restarted through the proxy after a 150-second stop; step 25 gave one DM per spell. Step 8 ran with another project's proxy alone, which refuses the dev bot; no second watchdog ran. Step 10 blocked by hand in the dev database, since a real block closes the member's meetups.
-- **Finding T1, Minor, not fixed:** step 19. 60 writes a minute from one address meet `TRAIN_WRITES_PER_ADDRESS_MINUTE` (60) first, so a route laid at full speed hears the general "Too many requests. Try again in a minute." and not `MAP_WRITES_FULL`. The checklist's words appear only when a member's writes go through several routes. The burst was made with `clear`, which also has its own limit; the route mode's look was not seen.
+- **Finding T1, Minor, fixed:** step 19. 60 writes a minute from one address met `TRAIN_WRITES_PER_ADDRESS_MINUTE` (60) first, so a route laid at full speed heard the general "Too many requests. Try again in a minute." and not `MAP_WRITES_FULL`. The address now holds 120, twice a member's limit, and a test sends them all from one address. The route mode's look was not seen.
 - **Not run:**
   - Step 14's comparison with Join on a role-gated forum (the guides' words were read and say what the plan says).
   - Step 15's "another party is not held by it".

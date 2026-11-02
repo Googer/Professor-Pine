@@ -154,6 +154,28 @@ describe("a train's route on the map", () => {
       map.web.clock.now += 60_000;
       expect((await write()).status).not.toBe(429);
     });
+
+    it('in the same words from one address, which holds room for more than one member', async () => {
+      const map = await arranging();
+      web = map.web;
+      const fromHome = async (sent: Record<string, string>) => {
+        const answer = await map.web.app.inject({
+          method: 'POST',
+          url: `/s/${FAKE_GUILD_ID}/api/trains/${map.made.party.id}/route/add`,
+          headers: { ...sent, 'content-type': 'application/json' },
+          payload: JSON.stringify({ drawn: ['nothing'], stop: '2' }),
+          remoteAddress: '198.51.100.7',
+        });
+        return { status: answer.statusCode, error: answer.json<{ error?: string }>().error };
+      };
+      for (let use = 0; use < MAP_WRITES_PER_MINUTE; use += 1) {
+        expect((await fromHome(map.headers)).status).not.toBe(429);
+      }
+      expect(await fromHome(map.headers)).toEqual({ status: 429, error: MAP_WRITES_FULL });
+      // Another member at the same address still has theirs.
+      const bob = await map.web.posting(BOB, 'Bob');
+      expect((await fromHome(bob)).status).not.toBe(429);
+    });
   });
 
   it("adds a gym as /route add does: the line in the post, the command's words as text, the train as it is now", async () => {

@@ -132,9 +132,10 @@ export interface TrainWebDeps {
 
 /**
  * The writes of trains one address may send in a minute, whoever sends them: a route is laid a
- * click a stop, and a household shares an address.
+ * click a stop, and a household shares an address. Twice a member's own limit
+ * (`MAP_WRITES_PER_MINUTE`), so that a member at full speed hears that limit's words.
  */
-export const TRAIN_WRITES_PER_ADDRESS_MINUTE = 60;
+export const TRAIN_WRITES_PER_ADDRESS_MINUTE = 120;
 
 /** The requests for a member's saved routes one address may make in a minute. */
 const ROUTES_PER_MINUTE = 30;
