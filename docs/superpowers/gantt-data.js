@@ -10032,6 +10032,52 @@ window.GANTT = {
       "end": "2026-10-31T13:07"
     },
     {
+      "id": "8M-17",
+      "kind": "plan",
+      "parent": "16",
+      "name": "8M-17 Tours of the map and the region editor",
+      "status": "done",
+      "size": 1,
+      "dependsOn": [],
+      "scope": "A skippable spotlight walk-through on a first visit, for members and visitors, on desktop and phone; the region editor has its own; both come back from the menu",
+      "doneWhen": "Merged into main-dev",
+      "planning": {
+        "start": "2026-11-02T13:30",
+        "end": "2026-11-02T15:10"
+      },
+      "review": {
+        "start": "2026-11-02T15:55",
+        "end": "2026-11-02T16:15"
+      }
+    },
+    {
+      "id": "8M-17.1",
+      "kind": "task",
+      "parent": "8M-17",
+      "name": "The map's tour",
+      "status": "done",
+      "start": "2026-11-02T15:10",
+      "end": "2026-11-02T15:45"
+    },
+    {
+      "id": "8M-17.2",
+      "kind": "task",
+      "parent": "8M-17",
+      "name": "The region editor's tour",
+      "status": "done",
+      "start": "2026-11-02T15:45",
+      "end": "2026-11-02T15:55"
+    },
+    {
+      "id": "8M-17.3",
+      "kind": "task",
+      "parent": "8M-17",
+      "name": "Fixes of the review",
+      "status": "done",
+      "start": "2026-11-02T16:00",
+      "end": "2026-11-02T16:30"
+    },
+    {
       "id": "8Z",
       "kind": "plan",
       "parent": "16",
