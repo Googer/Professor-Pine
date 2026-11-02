@@ -482,6 +482,88 @@ describe('AttendanceService: groups', () => {
     expect(made.current().defaultGroupId).toBe('B');
   });
 
+  describe('the pings of a new group (plan 8Z)', () => {
+    const OPENED_BY_BOB =
+      `**Bob** (<@${BOB}>) opened group C. To move to it, press Group… on the post or use ` +
+      '`/group join`.';
+    /** A raid with Alice, Bob and Carol signed up; Alice has opened group B, which pinged. */
+    const onePingGone = async () => {
+      const made = await reportedRaid();
+      const id = made.party.id;
+      await made.attendance.signUp(id, bob, PartyStatus.Coming);
+      await made.attendance.signUp(id, carol, PartyStatus.Coming);
+      await made.attendance.flush();
+      await made.attendance.newGroup(id, alice);
+      await made.attendance.flush();
+      const first = made.gateway.messagesIn(made.postId).at(-1);
+      expect(first?.message.mention?.users).toContain(CAROL);
+      return { made, id };
+    };
+
+    it('opens a second group within 5 minutes and says so, without mentions', async () => {
+      const { made, id } = await onePingGone();
+      made.clock.now += 5 * MINUTE - 1;
+      const outcome = await made.attendance.newGroup(id, bob);
+      expect(outcome).toMatchObject({ kind: 'ok', group: 'C' });
+      await made.attendance.flush();
+      const notice = made.gateway.messagesIn(made.postId).at(-1);
+      expect(notice?.message.content).toBe(OPENED_BY_BOB);
+      expect(notice?.message.mention?.users ?? []).toEqual([]);
+    });
+
+    it('pings again once 5 minutes have passed', async () => {
+      const { made, id } = await onePingGone();
+      made.clock.now += 5 * MINUTE;
+      await made.attendance.newGroup(id, bob);
+      await made.attendance.flush();
+      const notice = made.gateway.messagesIn(made.postId).at(-1);
+      expect(notice?.message.mention?.users).toContain(CAROL);
+    });
+
+    it('pings one of two groups opened at once', async () => {
+      const made = await reportedRaid();
+      const id = made.party.id;
+      await made.attendance.signUp(id, bob, PartyStatus.Coming);
+      await made.attendance.signUp(id, carol, PartyStatus.Coming);
+      await made.attendance.flush();
+      const before = made.gateway.messagesIn(made.postId).length;
+      await Promise.all([made.attendance.newGroup(id, alice), made.attendance.newGroup(id, bob)]);
+      await made.attendance.flush();
+      const said = made.gateway.messagesIn(made.postId).slice(before);
+      expect(said).toHaveLength(2);
+      expect(said.filter((one) => (one.message.mention?.users ?? []).length > 0)).toHaveLength(1);
+    });
+
+    it('counts per party: another party pings all the same', async () => {
+      const { made, id } = await onePingGone();
+      const otherPost = '300000000000000099';
+      const other = { ...made.current(), id: `${id}-other`, forumPostId: otherPost };
+      await made.store.add(other);
+      await made.attendance.newGroup(other.id, bob);
+      await made.attendance.flush();
+      const notice = made.gateway.messagesIn(otherPost).at(-1);
+      expect(notice?.message.mention?.users ?? []).not.toEqual([]);
+    });
+
+    it('takes no turn when nobody could be pinged', async () => {
+      const made = await reportedRaid();
+      const id = made.party.id;
+      made.userSettings.set(REPORTER, { mentionsGroups: false });
+      made.userSettings.set(BOB, { mentionsGroups: false });
+      await made.attendance.signUp(id, bob, PartyStatus.Coming);
+      await made.attendance.signUp(id, carol, PartyStatus.Coming);
+      await made.attendance.flush();
+      made.userSettings.set(CAROL, { mentionsGroups: false });
+      await made.attendance.newGroup(id, alice);
+      await made.attendance.flush();
+      expect(made.gateway.messagesIn(made.postId).at(-1)?.message.mention?.users ?? []).toEqual([]);
+      made.userSettings.delete(CAROL);
+      await made.attendance.newGroup(id, bob);
+      await made.attendance.flush();
+      expect(made.gateway.messagesIn(made.postId).at(-1)?.message.mention?.users).toContain(CAROL);
+    });
+  });
+
   it('opens a group with its label (Group…, plan 8X-1B), and names it in the notice', async () => {
     const made = await reportedRaid();
     const id = made.party.id;

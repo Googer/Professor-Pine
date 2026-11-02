@@ -1,3 +1,4 @@
+import { BoundedMap } from '../bounded-map.js';
 import type { Settings } from '../config/settings.js';
 import type { UserSettings, UserSettingsReader } from '../db/repositories/user-repository.js';
 import type { PartyGateway } from '../discord/party-gateway.js';
@@ -102,6 +103,12 @@ export interface AttendanceServiceOptions {
   lobbySize?: (party: Party) => number | undefined;
 }
 
+/** How long after one new group's pings another new group of the party pings nobody (plan 8Z). */
+export const GROUP_PING_MS = 5 * 60_000;
+
+/** The parties whose last ping of a new group is remembered. */
+const GROUP_PINGS_KEPT = 10_000;
+
 /** What the post is told when a member has left; the conductor of a train leaves it without one. */
 function leftLine(member: Member, result: { conductorLeft?: true }): string {
   return result.conductorLeft
@@ -146,6 +153,8 @@ export class AttendanceService {
   private readonly now: () => number;
   /** Messages being sent or deleted on the side; `flush` waits for them. */
   private readonly background = new Set<Promise<void>>();
+  /** When a new group of a party last pinged anybody, by party; a restart forgets it. */
+  private readonly groupPings = new BoundedMap<string, number>(GROUP_PINGS_KEPT);
 
   /** How many trainers one group of a party holds, where it has a size (`lobbySize`). */
   private readonly lobbySize: (party: Party) => number | undefined;
@@ -690,8 +699,15 @@ export class AttendanceService {
   ): Promise<void> {
     const postId = party.forumPostId;
     if (postId === null) return;
-    const pingable = await this.pingable(others, (settings) => settings.mentionsGroups, Infinity);
+    const wanting = await this.pingable(others, (settings) => settings.mentionsGroups, Infinity);
     if (!this.options.store.get(party.id)) return;
+    // At most one ping of a new group per party in `GROUP_PING_MS`, however it was opened (plan
+    // 8Z); no await between reading the stamp and setting it, and a sentence that pings nobody
+    // takes no turn. The group opens and the sentence is said in any case.
+    const now = this.now();
+    const lastPing = this.groupPings.get(party.id);
+    const pingable = lastPing !== undefined && now - lastPing < GROUP_PING_MS ? [] : wanting;
+    if (pingable.length > 0) this.groupPings.set(party.id, now);
     const opened = `${memberText(member)} opened ${groupWords(groupOf(party, group) ?? { id: group })}.`;
     if (others.length === 0) {
       await this.options.gateway.sendMessage(postId, { content: opened, mention: { users: [] } });
