@@ -2995,5 +2995,5 @@ Matt on the sources: with this rule Wayfarer's map is reliable for Power Spots. 
 ## From Phase 8M-17 (the map's and the region editor's tours, 2026-11-02)
 
 - **Staging not run:** `2026-11-02-phase-8m17-staging.md`; needs Matt's go-ahead.
-- **A crash course on Discord** (Matt, 2026-11-02): after the web tours, a few basics posted in a channel, not interactive. In Pittsburgh it replaces what is in `#raid-bot-tutorial`, written for legacy Pine and obsolete. Read that channel first (Matt offered the Googer login for it): that go-ahead covers reading it, not posting.
+- **A crash course on Discord:** built as 8M-18, `/admin tutorial`. Staging needs Matt's go-ahead (`2026-11-02-phase-8m18-staging.md`). In Pittsburgh it replaces `#raid-bot-tutorial` on cutover day (the runbook's last section), when a moderator deletes the old posts. The old channel's banners and art are not in the repository: to bring them back, Matt's call.
 - **Read-only editor:** its tour opens as usual though Save and the drawing tools are off; Discord being away the first time a member opens the editor is rare, left so.

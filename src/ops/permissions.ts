@@ -99,7 +99,11 @@ const ATTACH = need(
   'Attach Files',
   'map pictures, lists sent as files, eggs without the web pages',
 );
-const HISTORY = need(P.ReadMessageHistory, 'Read Message History', 'replies, the cleanup');
+const HISTORY = need(
+  P.ReadMessageHistory,
+  'Read Message History',
+  'replies, the cleanup, the tutorial',
+);
 const MANAGE_CHANNELS = need(
   P.ManageChannels,
   'Manage Channels',
@@ -178,6 +182,9 @@ export const REGION_CHANNEL_NEEDS: readonly Need[] = [
  * channel, Unown sightings, the elite and remote raid channels).
  */
 export const ANNOUNCE_NEEDS: readonly Need[] = [VIEW, SEND, EMBED, ATTACH];
+
+/** What `/admin tutorial` needs in its channel (plan 8M-18): to find its own messages too. */
+export const TUTORIAL_NEEDS: readonly Need[] = [VIEW, SEND, EMBED, HISTORY];
 
 /**
  * What it needs in the moderators' channel of meetup safety (`settings.channels.moderation`,

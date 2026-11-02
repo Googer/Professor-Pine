@@ -83,6 +83,10 @@ export interface FakeOptions {
    * category is that of the channel the thread belongs to.
    */
   thread?: { parentId?: string; parentName?: string; categoryName?: string };
+  /** Added to `interaction.channel`: its `type`, and its `messages` and `send` for a test that posts. */
+  channelMore?: object;
+  /** What the bot may do here: `interaction.appPermissions` (everything unless given). */
+  appPermissions?: bigint;
   /** The channel is not in the cache (an archived forum post): `interaction.channel` is null. */
   uncachedChannel?: boolean;
   isDm?: boolean;
@@ -345,6 +349,7 @@ function fakeChannel(o: FakeOptions, id: string) {
     };
   }
   return {
+    ...o.channelMore,
     id,
     name: o.channelName ?? 'general',
     parentId: null,
@@ -855,6 +860,7 @@ function base(kind: Kind, o: FakeOptions) {
             },
           },
     channel: fakeChannel(o, channelId),
+    appPermissions: new PermissionsBitField(o.appPermissions ?? PermissionsBitField.All).freeze(),
     // As in discord.js, only what comes from a message has one: a control, and a modal.
     ...(kind === 'button' || kind === 'select' || kind === 'modal'
       ? { message: shownMessage() }

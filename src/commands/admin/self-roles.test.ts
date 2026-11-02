@@ -76,7 +76,7 @@ describe('/admin self-roles', () => {
     // legacy channels) are not looked at here.
     const paths = (config: typeof ctx.config) =>
       declaredSubcommands(enabledCommands([admin], config)[0]?.data.toJSON().options).filter(
-        (path) => !/^(boss|nickname) |^member-settings$|^cleanup-legacy$/.test(path),
+        (path) => !/^(boss|nickname) |^member-settings$|^cleanup-legacy$|^tutorial$/.test(path),
       );
     expect(paths(ctx.config)).toEqual([
       'setup-forums',

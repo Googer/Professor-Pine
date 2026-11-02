@@ -11,6 +11,7 @@ import { NICKNAME_DESCRIPTION, NICKNAME_GROUP, nicknameParts } from './nicknames
 import { saveParty } from './save-party.js';
 import { SELF_ROLES_DESCRIPTION, SELF_ROLES_GROUP, selfRoleParts } from './self-roles.js';
 import { setupForums } from './setup-forums.js';
+import { tutorial } from './tutorial.js';
 
 /**
  * The subcommands of `/admin`. Each lives in a file of its own in this folder; a later plan
@@ -27,6 +28,7 @@ const parts: readonly SubcommandPart[] = [
   ...nicknameParts,
   memberSettings,
   cleanupLegacy,
+  tutorial,
 ];
 
 /** `/admin`: for staff. Discord offers it only to members who may manage the server. */

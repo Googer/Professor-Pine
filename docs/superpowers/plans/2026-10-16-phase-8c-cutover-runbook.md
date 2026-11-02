@@ -182,3 +182,6 @@ The takeover ran on a copy, so the old host's database and folders are as the le
 - [ ] The old host's checkout must never pull `main-dev`: it holds the new bot. Its updates come from `legacy` only.
 - [x] The private repository is `Googer/Professor-Pine-Wayfarer-Export`; its `package.json` names Pine's package by a path beside it, so its checkout stays beside a Pine checkout.
 
+## After the move: the tutorial (plan 8M-18)
+
+Once the commands are deployed and `emoji:upload` has run, and not before (the legacy tutorial stays right until then): a moderator deletes the old posts of `#raid-bot-tutorial` and runs `/admin tutorial` there. Not in rehearsal mode, which refuses it.

@@ -232,6 +232,20 @@ export function statusIcon(icons: ControlIcons, status: ShownStatus): string {
 /** The plain emoji of Meet… until the application has `pinemeet` (the game's Select Time icon). */
 const MEET_PLAIN = '⏰';
 
+/** The plain emoji of Leave and Remote until the application has `pineleave`, `pineremote`. */
+const LEAVE_PLAIN = '👋';
+const REMOTE_PLAIN = '📡';
+
+/** Leave's icon as message text, for the tutorial (plan 8M-18). */
+export function leaveIcon(icons: ControlIcons): string {
+  return iconText(icons, 'pineleave', LEAVE_PLAIN);
+}
+
+/** Remote's icon as message text, for the tutorial (plan 8M-18). */
+export function remoteIcon(icons: ControlIcons): string {
+  return iconText(icons, 'pineremote', REMOTE_PLAIN);
+}
+
 /** Meet…'s icon as message text, for the hints that name it (plan 8X-1B). */
 export function meetIcon(icons: ControlIcons): string {
   return iconText(icons, 'pinemeet', MEET_PLAIN);
@@ -364,7 +378,7 @@ export function bottomControls(party: Party, options: BottomOptions): PostButton
     statusButton(party, 'coming', emoji),
     statusButton(party, 'present', emoji),
     ...(isBattle(party) ? [statusButton(party, 'complete', emoji)] : []),
-    iconButton(emoji, 'pineleave', '👋', (icon) =>
+    iconButton(emoji, 'pineleave', LEAVE_PLAIN, (icon) =>
       partyButton(id, 'leave', undefined, ButtonStyle.Danger, undefined, icon),
     ),
   ];
@@ -377,7 +391,7 @@ export function bottomControls(party: Party, options: BottomOptions): PostButton
     { button: partyButton(id, 'more', undefined, ButtonStyle.Secondary, undefined, '⬆️') },
     ...(remoteAllowed(party)
       ? [
-          iconButton(emoji, 'pineremote', '📡', (icon) =>
+          iconButton(emoji, 'pineremote', REMOTE_PLAIN, (icon) =>
             partyButton(id, 'remote', undefined, ButtonStyle.Secondary, undefined, icon),
           ),
         ]
