@@ -23,7 +23,6 @@ import { MEET_THROTTLE, meetingWords } from '../commands/parties/meet.js';
 import { RAID_IS_OVER } from '../commands/raids/raid-input.js';
 import { meetRefusalOf, meetSubmitRefusal } from '../commands/parties/meet-dialog.js';
 import { ACTION_THROTTLE, outcomeWords, partyOver } from '../commands/parties/reply.js';
-import { STAFF_ONLY } from '../discord/guards.js';
 import type { MemberStanding } from '../discord/member-directory.js';
 import type { MemberAccess } from '../discord/party-gateway.js';
 import { attendeeOf, isGroupId, partyWord, type Party } from '../domain/party/party.js';
@@ -35,7 +34,8 @@ import type { AttendanceOutcome, Member } from '../services/attendance-service.j
 import {
   actingOnTheMap,
   countedOnTheMap,
-  isMapStaff,
+  DELETE_NEEDS_MANAGE_MESSAGES,
+  mayDeleteOnTheMap,
   memberOrFailure,
   throttledOnTheMap,
   unreachableOnTheMap,
@@ -392,8 +392,8 @@ export function postControlRoutes(scope: FastifyInstance, deps: WebDeps): void {
       const { userId } = session;
       const found = await target(request, reply, userId, 'closed a party');
       if ('sent' in found) return found.sent;
-      if (!isMapStaff(found.standing, userId, parties.ownerId)) {
-        return reply.code(403).send({ error: STAFF_ONLY });
+      if (!mayDeleteOnTheMap(found.standing, userId, parties.ownerId)) {
+        return reply.code(403).send({ error: DELETE_NEEDS_MANAGE_MESSAGES });
       }
       const counted = { control: CLOSE_KIND };
       const throttled = throttledOnTheMap(deps, reply, counted, userId, CLOSE_THROTTLE);

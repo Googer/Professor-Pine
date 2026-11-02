@@ -57,6 +57,7 @@ import {
   countedOnTheMap,
   isMapBotStaff,
   isMapStaff,
+  mayDeleteOnTheMap,
   throttledOnTheMap,
   UNREACHABLE,
 } from './acting.js';
@@ -378,6 +379,7 @@ export function partyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
     lobbySize: (party) => parties.attendance.lobbyOf(party),
     staff: isMapStaff(viewer.standing, memberId, parties.ownerId),
     botStaff: isMapBotStaff(viewer.standing, memberId, parties.ownerId),
+    mayClose: mayDeleteOnTheMap(viewer.standing, memberId, parties.ownerId),
     look: (raid) => parties.look(raid),
     ...(parties.maxLook === undefined ? {} : { maxLook: parties.maxLook }),
     ...(parties.spotOf === undefined ? {} : { spotOf: parties.spotOf }),

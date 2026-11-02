@@ -41,14 +41,24 @@ export interface MemberStanding {
    * (`mayEditRegions`, plan 8M-10); not said: none.
    */
   manageGuild?: boolean;
+  /**
+   * Manage Messages in the server (also as an administrator), which the map's Delete… asks as
+   * well as a staff role, as `/delete`'s `default_member_permissions` does (plan 8Z); not said:
+   * none.
+   */
+  manageMessages?: boolean;
 }
 
-/** The roles, the administrator permission and Manage Server of a member as discord.js gives them. */
+/**
+ * The roles, the administrator permission, Manage Server and Manage Messages of a member as
+ * discord.js gives them.
+ */
 export function memberStanding(member: GuildMember): MemberStanding {
   return {
     roleNames: member.roles.cache.map((role) => role.name),
     administrator: member.permissions.has(PermissionFlagsBits.Administrator),
     manageGuild: member.permissions.has(PermissionFlagsBits.ManageGuild),
+    manageMessages: member.permissions.has(PermissionFlagsBits.ManageMessages),
   };
 }
 

@@ -121,6 +121,8 @@ export interface PartyViewInput {
   lobbySize?: (party: Party) => number | undefined;
   /** Who asks is staff of the server (an admin, a moderator, the bot's owner): may change raids. */
   staff: boolean;
+  /** Who asks may press staff's Delete… (plan 8Z, `mayDeleteOnTheMap`); left out: no. */
+  mayClose?: boolean;
   /**
    * Who asks is staff as `/route clear` has it (also a bot developer, `isBotManagement`); left
    * out: as `staff`.
@@ -173,9 +175,12 @@ export interface PartyViewInput {
   trainAhead?: (party: TrainParty) => string | undefined;
 }
 
-/** Staff's Delete… of a party (plan 8M-8B): for staff alone, never while read-only. */
+/**
+ * Staff's Delete… of a party (plan 8M-8B): for who may press it (`mayClose`, plan 8Z: staff with
+ * Manage Messages), never while read-only. The route decides again, by the member as they are now.
+ */
 function closeOf(party: Party, input: PartyViewInput): { close?: MapClose } {
-  if (!input.staff || input.readOnly || input.closing === undefined) return {};
+  if (input.mayClose !== true || input.readOnly || input.closing === undefined) return {};
   return { close: { ...input.closing(party), word: partyWord(party) } };
 }
 

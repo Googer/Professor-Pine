@@ -62,7 +62,12 @@ describe('the member who presses a button on the live map, asked of Discord', ()
     expect(await members.acting(SERVER, USER)).toEqual({
       kind: 'member',
       member: { id: USER, name: 'Alice', team: 'mystic' },
-      standing: { roleNames: ['Trainer', 'Mystic'], administrator: false, manageGuild: false },
+      standing: {
+        roleNames: ['Trainer', 'Mystic'],
+        administrator: false,
+        manageGuild: false,
+        manageMessages: false,
+      },
     });
     expect(asked).toEqual([{ user: USER, force: true }]);
   });
@@ -97,7 +102,23 @@ describe('the member who presses a button on the live map, asked of Discord', ()
     expect(await members.acting(SERVER, USER)).toEqual({
       kind: 'member',
       member: { id: USER, name: 'Alice', team: 'valor' },
-      standing: { roleNames: ['Valor'], administrator: true, manageGuild: true },
+      standing: {
+        roleNames: ['Valor'],
+        administrator: true,
+        manageGuild: true,
+        manageMessages: true,
+      },
+    });
+  });
+
+  it('says whether they may manage messages, for the map’s Delete… (plan 8Z)', async () => {
+    const plain = setup(() => member('Alice', ['Moderator']));
+    expect(await plain.members.acting(SERVER, USER)).toMatchObject({
+      standing: { manageMessages: false },
+    });
+    const admin = setup(() => member('Alice', [], { admin: true }));
+    expect(await admin.members.acting(SERVER, USER)).toMatchObject({
+      standing: { manageMessages: true },
     });
   });
 

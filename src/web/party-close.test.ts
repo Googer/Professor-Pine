@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
 import { WEST_FORUM } from '../../test/support/gyms.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
-import { ALICE, BOB, PARTY_NOW } from '../../test/support/parties.js';
+import { ALICE, BOB, CAROL, PARTY_NOW } from '../../test/support/parties.js';
 import { reportedRaid } from '../../test/support/party-service.js';
 import { createTestContext } from '../../test/support/test-context.js';
 import {
@@ -17,6 +17,7 @@ import { CLOSE_KIND, CLOSE_THROTTLE } from '../commands/parties/delete.js';
 import { controlThrottleKey } from '../discord/router.js';
 import { Throttles } from '../discord/throttle.js';
 import type { PartiesView, PressAnswer } from '../domain/web/party-data.js';
+import { DELETE_NEEDS_MANAGE_MESSAGES } from './acting.js';
 
 /**
  * A hatched raid on the map, with staff's Delete…: the bot's owner and Bob, a moderator by role,
@@ -32,17 +33,22 @@ async function closing(throttles = new Throttles()) {
     parties: made.store,
     regions: made.regions,
   });
-  const moderator = { roleNames: ['Moderator'], administrator: false };
+  const moderator = { roleNames: ['Moderator'], administrator: false, manageMessages: true };
+  const noManaging = { roleNames: ['Moderator'], administrator: false };
   const members = new FakeMemberDirectory()
     .add(ALICE, 'Alice')
     .add(BOB, 'Bob')
+    .add(CAROL, 'Carol')
     .add(TEST_OWNER_ID, 'Owner')
-    .standing(BOB, moderator);
+    .standing(BOB, moderator)
+    .standing(CAROL, noManaging);
   const acting = new FakeActingMembers()
     .add(ALICE, 'Alice')
     .add(BOB, 'Bob')
+    .add(CAROL, 'Carol')
     .add(TEST_OWNER_ID, 'Owner')
-    .standing(BOB, moderator);
+    .standing(BOB, moderator)
+    .standing(CAROL, noManaging);
   const web = webServerWith({
     members,
     parties: partyWebWith(made, { acting, throttles }),
@@ -66,7 +72,7 @@ async function closing(throttles = new Throttles()) {
     });
     return answer.json<PartiesView>();
   };
-  return { made, id, web, close, listed, throttles };
+  return { made, id, web, close, listed, throttles, acting };
 }
 
 describe("staff's Delete… on the map (plan 8M-8B)", () => {
@@ -74,6 +80,43 @@ describe("staff's Delete… on the map (plan 8M-8B)", () => {
   afterEach(async () => {
     await web?.app.close();
     web = undefined;
+  });
+
+  describe('Manage Messages as well as a staff role (plan 8Z)', () => {
+    it('neither offers Delete… to a moderator without it, nor takes their Delete…', async () => {
+      const map = await closing();
+      web = map.web;
+      expect((await map.listed(CAROL, 'Carol')).raids[0]).not.toHaveProperty('close');
+      expect(await map.close({ removal: 'archive' }, CAROL, 'Carol')).toEqual({
+        status: 403,
+        json: { error: DELETE_NEEDS_MANAGE_MESSAGES },
+      });
+      expect(map.made.store.get(map.id)).toBeDefined();
+      // Uncounted, as any Delete… a member may not press.
+      for (let use = 0; use < CLOSE_THROTTLE.uses; use += 1) {
+        expect(
+          map.throttles.use(controlThrottleKey(CLOSE_KIND), CAROL, CLOSE_THROTTLE, PARTY_NOW),
+        ).toBeUndefined();
+      }
+    });
+
+    it('holds the bot owner to nothing, as the guards do', async () => {
+      const map = await closing();
+      web = map.web;
+      expect((await map.listed(TEST_OWNER_ID, 'Owner')).raids[0]?.close).toBeDefined();
+      const done = await map.close({ removal: 'archive' }, TEST_OWNER_ID, 'Owner');
+      expect(done.status).toBe(200);
+    });
+
+    it('decides by the member as they are now, not by the kept view', async () => {
+      const map = await closing();
+      web = map.web;
+      // A moderator by role in the list a minute ago, without the permission since.
+      map.acting.standing(BOB, { roleNames: ['Moderator'], administrator: false });
+      const refused = await map.close({ removal: 'archive' });
+      expect(refused.status).toBe(403);
+      expect(map.made.store.get(map.id)).toBeDefined();
+    });
   });
 
   it('offers Delete… to staff alone, saying whether the bot may delete the post, its forum named', async () => {
@@ -137,7 +180,9 @@ describe("staff's Delete… on the map (plan 8M-8B)", () => {
     const refused = await map.close({ removal: 'archive' }, ALICE, 'Alice');
     expect(refused).toEqual({
       status: 403,
-      json: { error: 'Only admins and moderators can do that.' },
+      json: {
+        error: 'Only admins and moderators with the permission Manage Messages can do that.',
+      },
     });
     expect(map.throttles.size).toBe(0);
     expect(map.made.store.get(map.id)).toBeDefined();

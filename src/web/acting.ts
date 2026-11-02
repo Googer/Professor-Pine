@@ -19,6 +19,10 @@ export const MAP_WRITES_PER_MINUTE = 60;
 /** What a write answers past `MAP_WRITES_PER_MINUTE`. */
 export const MAP_WRITES_FULL = 'That was a lot of changes in a minute. Try again in a moment.';
 
+/** What staff's Delete… on the map answers a member who may not press it (plan 8Z). */
+export const DELETE_NEEDS_MANAGE_MESSAGES =
+  'Only admins and moderators with the permission Manage Messages can do that.';
+
 /** What a write answers a member who may not act in the server now. */
 const HELD_BACK: Readonly<Record<'timed-out' | 'pending', string>> = {
   'timed-out': 'You are timed out in this server, so you cannot do that now.',
@@ -137,6 +141,21 @@ export function isMapStaff(
   ownerId: string,
 ): boolean {
   return isManagement(standing?.roleNames ?? [], userId, ownerId);
+}
+
+/**
+ * Whether a member may press staff's Delete… on the map (plan 8Z): staff who also have Manage
+ * Messages, the bot's owner by themselves as in the guards. Other staff writes ask `isMapStaff`.
+ */
+export function mayDeleteOnTheMap(
+  standing: MemberStanding | undefined,
+  userId: string,
+  ownerId: string,
+): boolean {
+  return (
+    userId === ownerId ||
+    (isMapStaff(standing, userId, ownerId) && standing?.manageMessages === true)
+  );
 }
 
 /**
