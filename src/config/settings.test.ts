@@ -270,7 +270,7 @@ describe('loadSettings', () => {
 
   it('refuses a moderators’ channel that is another channel of the settings', () => {
     // The public bot updates channel (or any other the bot posts in) would show the requests.
-    for (const other of ['bot-updates', 'pvp', 'mod-bot-lab'] as const) {
+    for (const other of ['bot-updates', 'pvp'] as const) {
       expect(() =>
         loadSettings(
           writeSettings((s) => {
@@ -280,6 +280,16 @@ describe('loadSettings', () => {
         ),
       ).toThrow(/moderation/);
     }
+  });
+
+  it('lets the moderators’ channel be their bot channel, which only staff see (Matt, 2026-11-02)', () => {
+    const settings = loadSettings(
+      writeSettings((s) => {
+        const channels = s.channels as Record<string, string>;
+        s.channels = { ...channels, moderation: channels['mod-bot-lab'] };
+      }),
+    );
+    expect(settings.channels.moderation).toBe(settings.channels['mod-bot-lab']);
   });
 
   // Plan 8V-1: the events forum, by name; blank is unset (no events forum).

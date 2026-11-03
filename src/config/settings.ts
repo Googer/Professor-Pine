@@ -211,7 +211,7 @@ const settingsObject = z.strictObject({
        * `2026-10-17-meetup-safety-design.md`): a meetup at a place that might be private (a pin,
        * a Wayspot whose title looks like a front-yard feature) waits there for a moderator, and
        * appeals of blocked members go there. It must be seen by staff only, and is never another
-       * channel of these settings (refused: the public bot updates channel would show the
+       * channel of these settings but `mod-bot-lab` (refused: the public bot updates channel would show the
        * requests, and the other channels get the bot's other posts). Unset (the default; blank is
        * unset): meetup safety is off, every place is allowed, and there are no requests or blocks;
        * the start logs a warning per server and `cutover-check` warns. Unlike the other channels
@@ -228,7 +228,8 @@ const settingsObject = z.strictObject({
       events: optionalChannelName,
     })
     .superRefine((channels, ctx) => {
-      const { moderation, ...others } = channels;
+      // The moderators' own bot channel may be it (Matt, 2026-11-02): only staff see it.
+      const { moderation, 'mod-bot-lab': _staffOnly, ...others } = channels;
       if (moderation === undefined) return;
       // Also the events forum (R13): its posts are everyone's.
       const same = Object.entries(others).find(
