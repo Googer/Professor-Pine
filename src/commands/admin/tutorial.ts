@@ -9,11 +9,15 @@ import { isTutorialMessage, tutorialMessages, tutorialPlan } from '../../render/
 /** How much of the channel's history a run looks through for its own messages. */
 const LOOKS_BACK = 100;
 
+/** Said where the channel holds more than a run looks through. */
+const BUSY_CHANNEL = ` This channel has more than ${String(LOOKS_BACK)} messages, and I only look through the last ${String(LOOKS_BACK)}: older tutorial messages here stay as they were, so check for leftovers.`;
+
 /**
  * `/admin tutorial` (plan 8M-18): posts the crash course in this channel, or, run again, edits it
  * in place, adding or deleting the difference. The channel is the record: its own messages carry
  * `TUTORIAL_MARK`, so that nothing else of Pine's is touched, nor anybody else's messages. Staff
- * only, as every `/admin`; refused in a rehearsal, which reaches no member.
+ * only, as every `/admin`; refused in a rehearsal, which reaches no member. Two runs at once can
+ * post it twice; the next run mends that (it keeps the oldest), so no lock is kept for it.
  */
 export const tutorial: SubcommandPart = {
   data: new SlashCommandSubcommandBuilder()
@@ -83,6 +87,10 @@ export const tutorial: SubcommandPart = {
       ...(plan.edits.length > 0 ? [`updated ${count(plan.edits.length, 'message')}`] : []),
       ...(plan.deletes.length > 0 ? [`deleted ${count(plan.deletes.length, 'message')}`] : []),
     ];
-    await interaction.editReply({ content: `Done: ${did.join(', ')}.` });
+    // Its older messages may lie further back, where a run cannot see them (a busy channel).
+    const full = history.size >= LOOKS_BACK;
+    await interaction.editReply({
+      content: `Done: ${did.join(', ')}.${full ? BUSY_CHANNEL : ''}`,
+    });
   },
 };

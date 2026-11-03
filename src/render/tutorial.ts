@@ -85,7 +85,7 @@ function joining({ icons }: TutorialFacts): string {
     `${leaveIcon(icons)} Leave if you can no longer make it`,
     '⬆️ ⬇️ Bringing a friend? Change your count.',
     `${remoteIcon(icons)} Raiding remotely? Say so.`,
-    `${meetIcon(icons)} Set when your group meets (on an egg with no time yet, Set time… first).`,
+    `${meetIcon(icons)} Set when your group meets (on a raid with no time yet, Set time… first).`,
     'Group… moves you to another group or starts a new one.',
     '*Your status shows on the post, so everyone can see who has arrived.*',
   ].join('\n');
@@ -96,7 +96,7 @@ function notifications(facts: TutorialFacts): string | undefined {
   return [
     '__**Get Notified!**__',
     'Professor Pine sends these by DM, so make sure you have those enabled!',
-    '🎯 `/want` Absol, then tick what for: a DM when one is reported in a region you can see. It also works for raid tiers and research rewards.',
+    `🎯 \`/want\` Absol, then tick what for: a DM when one is reported in a region you can see. It also works for raid tiers${facts.hasStops ? ' and research rewards' : ''}.`,
     '⭐ `/target` a gym: a DM when a raid is reported there.',
     '`/wants` and `/targets` list yours; `/unwant` and `/untarget` take one off.',
   ].join('\n');

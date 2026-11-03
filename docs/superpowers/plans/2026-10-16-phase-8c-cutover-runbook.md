@@ -184,4 +184,4 @@ The takeover ran on a copy, so the old host's database and folders are as the le
 
 ## After the move: the tutorial (plan 8M-18)
 
-Once the commands are deployed and `emoji:upload` has run, and not before (the legacy tutorial stays right until then): a moderator deletes the old posts of `#raid-bot-tutorial` and runs `/admin tutorial` there. Not in rehearsal mode, which refuses it.
+Once the commands are deployed, `emoji:upload` has run and the bot has restarted since (it reads the emoji at its start), and not before (the legacy tutorial stays right until then): a moderator deletes the old posts of `#raid-bot-tutorial` and runs `/admin tutorial` there. Not in rehearsal mode, which refuses it.

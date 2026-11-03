@@ -1,4 +1,4 @@
-import { ChannelType, Collection, PermissionFlagsBits } from 'discord.js';
+import { ChannelType, Collection, MessageFlags, PermissionFlagsBits } from 'discord.js';
 import { describe, expect, it, vi } from 'vitest';
 import { fakeChatInput } from '../../../test/support/fake-interactions.js';
 import { createTestContext } from '../../../test/support/test-context.js';
@@ -84,6 +84,12 @@ describe('/admin tutorial', () => {
     const request = inHistory('4', BOT, 5, 99);
     const { send } = await run([second, someoneElse, first, request]);
     const firstText = JSON.stringify(first.edit.mock.calls[0]);
+    // An edit stays a components-v2 message that pings nobody.
+    const [edited] = first.edit.mock.calls[0] as unknown as [
+      { flags: number; allowedMentions: { parse: string[] } },
+    ];
+    expect(edited.flags).toBe(MessageFlags.IsComponentsV2);
+    expect(edited.allowedMentions.parse).toEqual([]);
     expect(firstText).toContain('Meet Professor Pine');
     expect(JSON.stringify(second.edit.mock.calls[0])).toContain('Creat');
     // The rest of the course follows.
@@ -120,6 +126,25 @@ describe('/admin tutorial', () => {
     const { interaction, send } = await run([], { channelName: named });
     expect(answerOf(interaction)).toContain('another job');
     expect(send).not.toHaveBeenCalled();
+  });
+
+  it("is refused in a region's channel", async () => {
+    const { ctx, run } = setup();
+    vi.spyOn(ctx.regions, 'byChannel').mockReturnValue({ id: 1 } as never);
+    const { interaction, send } = await run();
+    expect(answerOf(interaction)).toContain('another job');
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('says so where the channel holds more than it looks through', async () => {
+    const { run } = setup();
+    const crowded = Array.from({ length: 100 }, (_, index) =>
+      inHistory(String(index + 1), '7', index + 1),
+    );
+    const { interaction } = await run(crowded);
+    expect(answerOf(interaction)).toContain('more than 100 messages');
+    const { interaction: quiet } = await run();
+    expect(answerOf(quiet)).not.toContain('more than 100');
   });
 
   it('names what it lacks, before it reads or posts anything', async () => {

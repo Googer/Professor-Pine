@@ -1,3 +1,4 @@
+import { ComponentType, createComponent } from 'discord.js';
 import { describe, expect, it } from 'vitest';
 import { FakePartyGateway } from '../../test/support/fake-gateway.js';
 import { commands } from '../commands/index.js';
@@ -65,6 +66,8 @@ describe('the course', () => {
     expect(noStops).not.toContain('/research report');
     expect(noStops).not.toContain('/rocket report');
     expect(noStops).toContain('/max');
+    expect(noStops).not.toContain('research rewards');
+    expect(allText(FACTS)).toContain('research rewards');
     expect(allText({ ...FACTS, meetupsChecked: false })).not.toContain('moderators');
   });
 
@@ -122,6 +125,15 @@ describe('what a run does', () => {
 describe('which messages are its own', () => {
   const BOT = '42';
   const marked = [{ id: TUTORIAL_MARK }];
+
+  it('reads the mark where discord.js puts it on a message it fetched', () => {
+    const container = createComponent({
+      type: ComponentType.Container,
+      id: TUTORIAL_MARK,
+      components: [],
+    });
+    expect(isTutorialMessage({ author: { id: BOT }, components: [container] }, BOT)).toBe(true);
+  });
 
   it('only Pine’s, and only marked', () => {
     expect(isTutorialMessage({ author: { id: BOT }, components: marked }, BOT)).toBe(true);

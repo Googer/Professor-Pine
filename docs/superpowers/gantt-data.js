@@ -10078,6 +10078,43 @@ window.GANTT = {
       "end": "2026-11-02T16:30"
     },
     {
+      "id": "8M-18",
+      "kind": "plan",
+      "parent": "16",
+      "name": "8M-18 The tutorial on Discord",
+      "status": "done",
+      "size": 1,
+      "dependsOn": [],
+      "scope": "A crash course for members, posted and kept current by /admin tutorial, in the voice of the legacy tutorial, which the web tours now share",
+      "doneWhen": "Merged into main-dev",
+      "planning": {
+        "start": "2026-11-02T16:30",
+        "end": "2026-11-02T16:50"
+      },
+      "review": {
+        "start": "2026-11-02T18:52",
+        "end": "2026-11-02T19:10"
+      }
+    },
+    {
+      "id": "8M-18.1",
+      "kind": "task",
+      "parent": "8M-18",
+      "name": "The tours in the tutorial’s voice",
+      "status": "done",
+      "start": "2026-11-02T16:43",
+      "end": "2026-11-02T16:50"
+    },
+    {
+      "id": "8M-18.2",
+      "kind": "task",
+      "parent": "8M-18",
+      "name": "/admin tutorial",
+      "status": "done",
+      "start": "2026-11-02T16:50",
+      "end": "2026-11-02T18:52"
+    },
+    {
       "id": "8Z",
       "kind": "plan",
       "parent": "16",
