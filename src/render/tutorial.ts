@@ -39,9 +39,8 @@ export interface TutorialFacts {
 }
 
 const ACKNOWLEDGEMENTS =
-  'Professor Pine was coded by Googer, KingKovifor and ForcedUnknown, with special contributions ' +
-  'from aallshouse, Exo, msten19, PaintedSandbox and nserror. The art was drawn by strawbanya. ' +
-  'The code is open-source: https://github.com/Googer/Professor-Pine';
+  'Professor Pine was designed by Googer and coded with help from Claude. The art was drawn by ' +
+  'strawbanya. The code is open-source: https://github.com/Googer/Professor-Pine';
 
 function welcome(): string {
   return [

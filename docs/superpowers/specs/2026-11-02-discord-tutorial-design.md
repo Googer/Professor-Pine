@@ -29,7 +29,7 @@ Pure, in `src/render/tutorial.ts`: `tutorialMessages(settings, enabledNames, ico
 Draft (each block one message):
 
 1. **Welcome.**
-   `__**Meet Professor Pine!**__` Professor Pine is our friendly neighborhood raid bot! Pine has been studying our raid habits and has tools to help us catch our favorite Pokémon. Here are the basics. Credits line: coded by our users Googer, KingKovifor and ForcedUnknown, with special contributions from aallshouse, Exo, msten19, PaintedSandbox and nserror; art by strawbanya; the code at `https://github.com/Googer/Professor-Pine`. (Names as plain text: nobody is pinged.)
+   `__**Meet Professor Pine!**__` Professor Pine is our friendly neighborhood raid bot! Pine has been studying our raid habits and has tools to help us catch our favorite Pokémon. Here are the basics. Credits line (Matt, 2026-11-02; this version is a full rewrite): designed by Googer and coded with help from Claude; art by strawbanya; the code at `https://github.com/Googer/Professor-Pine`. (Names as plain text: nobody is pinged.)
 
 2. **Reporting a raid.**
    `__**Create a Raid via Screenshot**__` Simply post an in-game screenshot in your regional channel and mention @Professor Pine, clearly showing the raid egg or boss and the timer. Professor Pine will read it and create the raid for you! You can also attach one to `/raid`.
