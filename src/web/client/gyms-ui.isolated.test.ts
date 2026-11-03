@@ -144,6 +144,8 @@ afterEach(() => {
 /** The gyms' layer over a map at `zoom` that shows Oakland, the raids hiding `hidden`. */
 function shown(zoom: number, more: { on?: boolean; thins?: () => boolean; typed?: string } = {}) {
   vi.stubGlobal('document', {
+    // The hover names watch the pointer used (`hover-name.ts`).
+    addEventListener: () => undefined,
     createElement: () => {
       const element = { textContent: null as string | null };
       return new Proxy(element, {
