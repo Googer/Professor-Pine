@@ -1,4 +1,4 @@
-import { ComponentType, createComponent } from 'discord.js';
+import { ComponentType, ContainerComponent } from 'discord.js';
 import { describe, expect, it } from 'vitest';
 import { FakePartyGateway } from '../../test/support/fake-gateway.js';
 import { commands } from '../commands/index.js';
@@ -127,7 +127,9 @@ describe('which messages are its own', () => {
   const marked = [{ id: TUTORIAL_MARK }];
 
   it('reads the mark where discord.js puts it on a message it fetched', () => {
-    const container = createComponent({
+    // As discord.js builds it from a fetched message (`Message._patch`); its constructor is internal.
+    const Built = ContainerComponent as unknown as new (data: object) => { id?: number };
+    const container = new Built({
       type: ComponentType.Container,
       id: TUTORIAL_MARK,
       components: [],
