@@ -129,7 +129,7 @@ describe('screenshots posted with a mention of the bot', () => {
     expect(did).toEqual([`react ${READING}`, `unreact ${READING}`, `react ${DONE}`]);
   });
 
-  it('answers in one reply what it could not make a raid of, and keeps the message', async () => {
+  it('answers in one reply what it could not make a raid of, and lets the message go with it', async () => {
     const { trigger, image, store } = await setup();
     // The reply's timer (the setup's 20 ms) by the clock of the test.
     vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'], now: PARTY_NOW });
@@ -149,8 +149,30 @@ describe('screenshots posted with a mention of the bot', () => {
     expect(did).not.toContain('deleted');
     vi.advanceTimersByTime(19);
     expect(did).not.toContain('reply deleted');
+    // Nothing is left for the message to do: it goes with its reply (Matt, 2026-11-03).
     vi.advanceTimersByTime(1);
     expect(did).toContain('reply deleted');
+    expect(did).toContain('deleted');
+  });
+
+  it('lets a message of one refused screenshot go with its reply, but keeps one with words', async () => {
+    const { trigger, image } = await setup();
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'], now: PARTY_NOW });
+    const cat = readingOf({ gym: 'Old Stone Fountain' });
+    const bare = posted([image('a.png', cat)]);
+    await trigger.handle(bare.message);
+    expect(bare.did).not.toContain('deleted');
+    vi.advanceTimersByTime(19);
+    expect(bare.did).not.toContain('deleted');
+    // The message and its reply go together, in either order.
+    vi.advanceTimersByTime(1);
+    expect(bare.did.slice(0, 3)).toEqual([`react ${READING}`, `unreact ${READING}`, 'reply']);
+    expect(bare.did.slice(3).sort()).toEqual(['deleted', 'reply deleted']);
+    // A message that says more than the mention says it to the others too: it stays.
+    const said = posted([image('b.png', cat)], { bare: false });
+    await trigger.handle(said.message);
+    vi.advanceTimersByTime(20);
+    expect(said.did).toEqual([`react ${READING}`, `unreact ${READING}`, 'reply', 'reply deleted']);
   });
 
   it('answers a screenshot of a raid that exists with its post, and lets the message go', async () => {

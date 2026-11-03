@@ -77,7 +77,8 @@ import {
  * could not be made a raid, and the posts of the raids that existed, are said in one reply for
  * the whole message. Once every image made or
  * joined a raid the message has done its work: it is deleted when it says nothing but the
- * mention (or, read passively, nothing at all), and marked ✅ otherwise. Replies go after a while (a question after two minutes,
+ * mention (or, read passively, nothing at all), and marked ✅ otherwise. A mention alone whose
+ * images were answered without a question, some refused, goes with its reply. Replies go after a while (a question after two minutes,
  * and as soon as it is answered). Passive reading answers nothing but the raids that exist and
  * a clear gym of another region, which it asks Yes or No about (pinging the author, whose
  * message may be gone): ordinary pictures draw no answer.
@@ -477,6 +478,8 @@ export class ScreenshotTrigger {
     let wait = 0;
     let stopped: Exclude<ScreenshotOutcome, { kind: 'read' }> | undefined;
     let reacted = false;
+    /** Questions asked: their answers decide what becomes of the message. */
+    let asked = 0;
     try {
       for (const image of images) {
         if (this.closed) return false;
@@ -536,6 +539,7 @@ export class ScreenshotTrigger {
           } else if (result.kind === 'refused' || result.kind === 'told') {
             refusals.set(result.words, (refusals.get(result.words) ?? 0) + 1);
           } else if (result.kind === 'stopped') stopped = result.outcome;
+          else if (result.kind === 'asked') asked++;
         }
       }
     } finally {
@@ -563,7 +567,20 @@ export class ScreenshotTrigger {
           `You have sent many screenshots just now, so I did not read the other screen of ${which}. Try again in ${waitText(wait)}.`,
         );
       }
-      if (lines.length > 0) await this.say(message, { content: truncate(lines.join('\n'), 2_000) });
+      // A message of nothing but the mention whose screenshots were all answered, some refused,
+      // has nothing left to do: it goes with its reply, read by then (Matt, 2026-11-03). One
+      // whose screenshots all made raids goes at once (`finished`); one asked about waits for
+      // the answers.
+      const settled = message.bare && asked === 0 && batch.made < batch.images;
+      if (settled) batch.done = true;
+      if (lines.length > 0) {
+        await this.say(
+          message,
+          { content: truncate(lines.join('\n'), 2_000) },
+          undefined,
+          settled ? () => void this.letGo(message) : undefined,
+        );
+      }
     } else if (existing.length > 0 || toldAloud.length > 0) {
       // Read passively, only a raid or max battle that exists is said (Matt, 2026-10-15), and a
       // max battle's Power Spot that could not be told (Matt, 2026-10-22): the member is signed
@@ -1179,16 +1196,18 @@ export class ScreenshotTrigger {
     batch.done = true;
     const { message } = batch;
     // Read passively or with a mention alike (Matt, 2026-10-14; the legacy bot deleted it too).
-    if (message.bare) {
-      await message.delete().catch((err: unknown) => {
-        this.options.ctx.log.warn(
-          { err },
-          'could not delete a message whose screenshots were reported',
-        );
-      });
-    } else {
-      await message.react(DONE).catch(() => undefined);
-    }
+    if (message.bare) await this.letGo(message);
+    else await message.react(DONE).catch(() => undefined);
+  }
+
+  /** Deletes a message whose screenshots were all answered. */
+  private async letGo(message: PostedMessage): Promise<void> {
+    await message.delete().catch((err: unknown) => {
+      this.options.ctx.log.warn(
+        { err },
+        'could not delete a message whose screenshots were answered',
+      );
+    });
   }
 
   /**
