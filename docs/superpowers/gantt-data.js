@@ -10115,6 +10115,30 @@ window.GANTT = {
       "end": "2026-11-02T18:52"
     },
     {
+      "id": "8M-19",
+      "kind": "plan",
+      "parent": "16",
+      "name": "8M-19 Hover names and a wrong tap in Report",
+      "status": "done",
+      "size": 1,
+      "dependsOn": [],
+      "scope": "A place's name on a mouse's hover, never on a tap; \"← Another gym\" (Power Spot, PokéStop) on the forms a tap in Report's step 2 opened",
+      "doneWhen": "Merged into main-dev",
+      "review": {
+        "start": "2026-11-02T22:20",
+        "end": "2026-11-02T22:50"
+      }
+    },
+    {
+      "id": "8M-19.1",
+      "kind": "task",
+      "parent": "8M-19",
+      "name": "Hover names and ← Another",
+      "status": "done",
+      "start": "2026-11-02T21:50",
+      "end": "2026-11-02T22:20"
+    },
+    {
       "id": "8Z",
       "kind": "plan",
       "parent": "16",
