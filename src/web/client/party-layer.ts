@@ -2768,14 +2768,14 @@ export function showParties(
     toRaidForm: (gym) => {
       // The gym's popup, drawn now, and its "Report raid" pressed (A6: the form in its place).
       const button = frame.openGym?.(gym)?.querySelector<HTMLButtonElement>('button[data-report]');
-      if (button) raidForms.reportClicked(button, gym, true);
+      if (button) raidForms.reportClicked(button, gym, true, 'raid');
     },
     openBattle,
     toMaxForm: (spot) => {
       const button = frame
         .openSpot?.(spot)
         ?.querySelector<HTMLButtonElement>('button[data-report-max]');
-      if (button) maxForms.maxClicked(button, spot, true);
+      if (button) maxForms.maxClicked(button, spot, true, 'max');
     },
     maxAt: (point) => {
       maxForms.maxAt(point, true);
@@ -2803,7 +2803,7 @@ export function showParties(
         return;
       }
       const button = shown?.querySelector<HTMLButtonElement>('button[data-report-rocket]');
-      if (button) rocketForms.rocketClicked(button, true);
+      if (button) rocketForms.rocketClicked(button, true, 'rocket');
     },
   });
   report.refresh();

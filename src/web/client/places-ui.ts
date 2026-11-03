@@ -3,6 +3,7 @@ import type { PowerSpotsView } from '../../domain/web/max-data.js';
 import type { StopsView } from '../../domain/web/meetup-data.js';
 import { PlacesInView, placesWanted, unoccupied } from './cluster.js';
 import { getJson } from './common.js';
+import { hoverName } from './hover-name.js';
 import type { LayerRegistry } from './layer-registry.js';
 import { StopLoads, stopsBox } from './meetup-forms.js';
 import type { MapActivity } from './parties.js';
@@ -260,6 +261,7 @@ export function showPlaces(
             : []),
         ];
         for (const target of targets) {
+          hoverName(map, target, title);
           // A Power Spot tapped (or Enter on it) in route mode is the next stop of the train
           // (plan 8M-8C, R5; review C10), as a gym is (`placeClicks`): no popup then.
           if (layer.id === 'spots') {

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { PageNode } from './popup.js';
 import { REPORT_ICONS } from './report-icons.js';
-import { REPORT_KINDS, reportMenuNode } from './report-menu.js';
+import { pickAgainNode, REPORT_KINDS, reportMenuNode } from './report-menu.js';
 
 /** Every text of a tree, in order. */
 const texts = (node: PageNode): string[] => [
@@ -88,5 +88,30 @@ describe("the Report button's step 1 (plan 8M-9A)", () => {
         .filter((span) => span.attributes?.['data-mask'] !== undefined)
         .map((span) => span.attributes?.['data-mask']),
     ).toEqual(['max', 'research', 'spawn', 'meetup']);
+  });
+});
+
+describe('"← Another …" on a form step 2 opened (Matt, 2026-11-02)', () => {
+  const kind = (id: string) => {
+    const found = REPORT_KINDS.find((one) => one.id === id);
+    if (!found) throw new Error(id);
+    return found;
+  };
+
+  it('names what step 2 picked, and carries its kind', () => {
+    expect(pickAgainNode(kind('raid'))).toEqual({
+      tag: 'button',
+      className: 'press',
+      text: '← Another gym',
+      attributes: { type: 'button', 'data-pick-again': 'raid' },
+    });
+    expect(pickAgainNode(kind('max'))?.text).toBe('← Another Power Spot');
+    expect(pickAgainNode(kind('rocket'))?.text).toBe('← Another PokéStop');
+  });
+
+  it('is not offered where a wrong pick costs nothing: research, a pin, or no step 2', () => {
+    for (const id of ['research', 'spawn', 'train', 'meetup']) {
+      expect(pickAgainNode(kind(id))).toBeUndefined();
+    }
   });
 });

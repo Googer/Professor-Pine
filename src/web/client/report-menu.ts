@@ -100,6 +100,30 @@ export function iconNode(icon: ReportIcon): PageNode {
   }
 }
 
+/** "← Another …" by what step 2 picked (`pickAgainNode`). */
+const PICK_AGAIN: Readonly<Partial<Record<ReportPick, string>>> = {
+  gyms: '← Another gym',
+  spots: '← Another Power Spot',
+  stops: '← Another PokéStop',
+};
+
+/**
+ * The button a form opened by a tap in step 2 has before its Cancel (Matt, 2026-11-02): step 2 of
+ * the same kind again, so that a wrong tap on a phone costs one tap, not the whole report. None
+ * for a pin (moved by another tap before "Report here") nor for research, whose stops are chips a
+ * × takes off and "Add stops…" adds to.
+ */
+export function pickAgainNode(kind: ReportKind): PageNode | undefined {
+  const text = kind.id === 'research' ? undefined : PICK_AGAIN[kind.pick];
+  if (text === undefined) return undefined;
+  return {
+    tag: 'button',
+    className: 'press',
+    text,
+    attributes: { type: 'button', 'data-pick-again': kind.id },
+  };
+}
+
 /** The menu of step 1: a button per kind with its icon and label, then Cancel. */
 export function reportMenuNode(kinds: readonly ReportKind[]): PageNode {
   return {

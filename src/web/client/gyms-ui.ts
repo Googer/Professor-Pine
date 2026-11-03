@@ -1,6 +1,7 @@
 import * as L from 'leaflet';
 import { ClusterLayer } from './cluster-layer.js';
 import { shownGyms } from './gym-dots.js';
+import { hoverName } from './hover-name.js';
 import type { LayerRegistry } from './layer-registry.js';
 import { GYM_DOT, gymClicks } from './party-layer.js';
 import { gymPopup, popupMaxHeight, renderNode, type MapGym, type PopupWhere } from './popup.js';
@@ -88,6 +89,7 @@ export function showGymDots(deps: GymDotsDeps): GymDots {
     // In route mode a click (or Enter on the dot, a Tab stop then: `focus`) adds the gym as a
     // stop: its popup is not opened.
     deps.focus?.watch(marker, stopName(gym, String(gym.id)));
+    hoverName(map, marker, gym.name);
     gymClicks(
       marker,
       () => deps.clicked(gym),

@@ -2,7 +2,9 @@ import { formKeys } from './form-keys.js';
 import type { RocketOptionsView } from '../../domain/web/stop-report-data.js';
 import { getJson, say } from './common.js';
 import type { Me } from './notice.js';
+import { addPickAgain } from './pick-again.js';
 import { renderNode } from './popup.js';
+import type { ReportKindId } from './report-icons.js';
 import { formPlace, type FormClaim, type FormHold } from './raid-forms.js';
 import { sayUnder } from './raid-ui.js';
 import {
@@ -84,6 +86,8 @@ export function rocketUi(deps: RocketUiDeps) {
     claim: FormClaim,
     finish: () => void,
     focusFirst: boolean,
+    /** Opened by a tap in step 2: "← Another PokéStop" (`addPickAgain`). */
+    again: ReportKindId | undefined,
   ): Promise<void> => {
     let lists: RocketOptionsView;
     try {
@@ -97,6 +101,7 @@ export function rocketUi(deps: RocketUiDeps) {
     let state: RocketFormState = { filled: {} };
     const draw = (focus?: string): void => {
       const form = renderNode(rocketForm(lists, state), document);
+      addPickAgain(form, again);
       form.querySelector('select[name="who"]')?.addEventListener('change', () => {
         // A report on its way keeps every control off (branch review W3).
         state = { filled: valuesOf(form), ...(state.sending === true ? { sending: true } : {}) };
@@ -164,7 +169,11 @@ export function rocketUi(deps: RocketUiDeps) {
   };
 
   /** A click on "Report Rocket here" (`rocketBox`): the form in place of the button. */
-  const rocketClicked = (button: HTMLButtonElement, focusFirst = false): void => {
+  const rocketClicked = (
+    button: HTMLButtonElement,
+    focusFirst = false,
+    again?: ReportKindId,
+  ): void => {
     const box = button.parentElement;
     const stop = button.dataset.reportRocket;
     if (!box || stop === undefined) return;
@@ -181,6 +190,7 @@ export function rocketUi(deps: RocketUiDeps) {
         hold.release(claim);
       },
       focusFirst,
+      again,
     );
   };
 

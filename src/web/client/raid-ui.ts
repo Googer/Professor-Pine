@@ -7,10 +7,12 @@ import type {
 import { getJson, say } from './common.js';
 import { liveControl } from './list-ui.js';
 import type { Me } from './notice.js';
+import { addPickAgain } from './pick-again.js';
 import { renderNode, type MapGym } from './popup.js';
 import { focusBack } from './post-forms.js';
 import type { PressAnswer } from './press-answer.js';
 import { readerZone } from './post-time.js';
+import type { ReportKindId } from './report-icons.js';
 import {
   changeForm,
   changesAsked,
@@ -175,6 +177,8 @@ export function raidUi(deps: RaidUiDeps) {
     restore: () => void,
     /** The Report button's step 3 (plan 8M-9A, R1-3): the boss menu takes the focus. */
     focusFirst = false,
+    /** Opened by a tap in step 2: "← Another gym" (`addPickAgain`). */
+    again?: ReportKindId,
   ) => {
     const { hold } = deps;
     const claim = hold.take(formPlace(box));
@@ -189,6 +193,7 @@ export function raidUi(deps: RaidUiDeps) {
     }
     if (!hold.ready(claim, box.isConnected)) return;
     const form = renderNode(reportForm(gym, lists, deps.regionNames, {}, readerZone()), document);
+    addPickAgain(form, again);
     const boss = form.querySelector<HTMLSelectElement>('select[name="boss"]');
     const label = form.querySelector<HTMLElement>('.time-row span');
     boss?.addEventListener('change', () => {
@@ -348,7 +353,12 @@ export function raidUi(deps: RaidUiDeps) {
   };
 
   /** A click on "Report raid" (`reportBox`): the form in place of the button, in its box. */
-  const reportClicked = (button: HTMLButtonElement, gym: MapGym, focusFirst = false): void => {
+  const reportClicked = (
+    button: HTMLButtonElement,
+    gym: MapGym,
+    focusFirst = false,
+    again?: ReportKindId,
+  ): void => {
     const box = button.parentElement;
     if (!box) return;
     void openReport(
@@ -358,6 +368,7 @@ export function raidUi(deps: RaidUiDeps) {
         box.replaceChildren(button);
       },
       focusFirst,
+      again,
     );
   };
 

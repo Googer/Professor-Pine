@@ -18,8 +18,10 @@ import {
   type MaxWhere,
 } from './max-forms.js';
 import type { Me } from './notice.js';
+import { addPickAgain } from './pick-again.js';
 import { renderNode } from './popup.js';
 import { readerZone } from './post-time.js';
+import type { ReportKindId } from './report-icons.js';
 import { formPlace, type FormClaim, type FormHold } from './raid-forms.js';
 import { fieldsOf, sayUnder } from './raid-ui.js';
 import { regionsAt, spawnPoint } from './spawn-forms.js';
@@ -123,6 +125,8 @@ export function maxUi(deps: MaxUiDeps) {
     finish: () => void,
     /** The Report button's step 3 (R1-3): the form's first field takes the focus. */
     focusFirst = false,
+    /** Opened by a tap in step 2: "← Another Power Spot" (`addPickAgain`). */
+    again?: ReportKindId,
   ): Promise<void> => {
     let lists: MaxOptionsView;
     try {
@@ -145,6 +149,7 @@ export function maxUi(deps: MaxUiDeps) {
       const active = document.activeElement;
       const had = active instanceof HTMLElement && box.contains(active) ? active : undefined;
       const form = renderNode(maxForm(name, lists, state, readerZone()), document);
+      addPickAgain(form, again);
       const boss = form.querySelector<HTMLSelectElement>('select[name="boss"]');
       // A boss on no list is typed, with its tier: those rows only for it.
       boss?.addEventListener('change', () => {
@@ -224,7 +229,12 @@ export function maxUi(deps: MaxUiDeps) {
   };
 
   /** A click on "Report max battle here" (`maxBox`): the form in place of the button. */
-  const maxClicked = (button: HTMLButtonElement, spot: MapSpot, focusFirst = false): void => {
+  const maxClicked = (
+    button: HTMLButtonElement,
+    spot: MapSpot,
+    focusFirst = false,
+    again?: ReportKindId,
+  ): void => {
     const box = button.parentElement;
     if (!box) return;
     const claim = hold.take(formPlace(box));
@@ -239,6 +249,7 @@ export function maxUi(deps: MaxUiDeps) {
         hold.release(claim);
       },
       focusFirst,
+      again,
     );
   };
 

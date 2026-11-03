@@ -6,6 +6,7 @@ import type { DistanceUnits } from './distance.js';
 import { SheetFocus } from './layers-ui.js';
 import { sameControl } from './list-ui.js';
 import type { MapSpot } from './max-ui.js';
+import { pickAgainPressed } from './pick-again.js';
 import { renderNode, type MapGym, type PageNode } from './popup.js';
 import type { FormClaim, FormHold } from './raid-forms.js';
 import {
@@ -744,6 +745,20 @@ export function reportUi(deps: ReportUiDeps) {
     deps.showMap();
     openMenu(floating);
   });
+  // "← Another …" of a form step 2 opened (`addPickAgain`): the form's Cancel, then step 2 of its
+  // kind again. Captured: Leaflet stops a click inside a popup from reaching the document.
+  document.addEventListener(
+    'click',
+    (event) => {
+      if (!(event.target instanceof Element)) return;
+      const pressed = pickAgainPressed(event.target, (id) => {
+        const kind = REPORT_KINDS.find((one) => one.id === id);
+        if (kind) flow.choose(kind);
+      });
+      if (pressed) event.stopPropagation();
+    },
+    true,
+  );
   // Before Leaflet's own Escape (the map's keyboard closes a popup), so that Escape with a popup
   // open closes the popup alone (R1-3).
   document.addEventListener(

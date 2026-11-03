@@ -1997,6 +1997,7 @@ path.highlighted {
 
 .raid-form .form-buttons {
   display: flex;
+  flex-wrap: wrap;
   gap: 6px;
 }
 
