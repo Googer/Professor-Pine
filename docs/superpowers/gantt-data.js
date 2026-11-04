@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-04T14:58",
+  "updated": "2026-11-04T15:24",
   "items": [
     {
       "id": "0",
@@ -10313,7 +10313,7 @@ window.GANTT = {
       "doneWhen": "Merged into main-dev",
       "planning": {
         "start": "2026-11-04T11:39",
-        "end": "2026-11-04T11:44",
+        "end": "2026-11-04T15:24",
         "review": {
           "start": "2026-11-04T12:43",
           "end": "2026-11-04T14:41"
