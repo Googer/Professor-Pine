@@ -168,6 +168,12 @@ const settingsObject = z.strictObject({
   googleLookupsReserve: z.number().int().min(0).default(500),
   googleGeocodesPerMonth: z.number().int().min(0).default(9_000),
   /**
+   * The geocodes of `googleGeocodesPerMonth` that a Power Spot's address, asked as the map opens
+   * its popup, leaves for gyms (design `2026-11-04-power-spot-address-design.md`): those stop when
+   * only this many are left. At most `googleGeocodesPerMonth` (a dev instance of 50 keeps 10).
+   */
+  googleGeocodesReserve: z.number().int().min(0).default(500),
+  /**
    * A hard cap on the lookups by hand in a Pacific month (plan 8Z): `/gym refresh`, a gym added or
    * moved, each one geocode and one places search. Past it `/gym refresh` asks nothing, and a gym
    * added or moved waits in the line. Counted per database, so per instance: where instances
@@ -617,15 +623,20 @@ const settingsObject = z.strictObject({
 });
 
 /** The settings, with the checks across keys. */
-export const settingsSchema = settingsObject.refine(
-  (settings) =>
-    settings.googleLookupsReserve < settings.googleLookupsPerMonth ||
-    (settings.googleLookupsPerMonth === 0 && settings.googleLookupsReserve === 0),
-  {
-    error: 'must be below googleLookupsPerMonth (both 0 stop the line)',
-    path: ['googleLookupsReserve'],
-  },
-);
+export const settingsSchema = settingsObject
+  .refine(
+    (settings) =>
+      settings.googleLookupsReserve < settings.googleLookupsPerMonth ||
+      (settings.googleLookupsPerMonth === 0 && settings.googleLookupsReserve === 0),
+    {
+      error: 'must be below googleLookupsPerMonth (both 0 stop the line)',
+      path: ['googleLookupsReserve'],
+    },
+  )
+  .refine((settings) => settings.googleGeocodesReserve <= settings.googleGeocodesPerMonth, {
+    error: 'must be at most googleGeocodesPerMonth',
+    path: ['googleGeocodesReserve'],
+  });
 
 export type Settings = z.output<typeof settingsSchema>;
 

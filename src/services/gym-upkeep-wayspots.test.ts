@@ -123,7 +123,7 @@ describe('GymUpkeep: PokéStops and Power Spots in the line', () => {
     // day begins in four hours (within the longest timer the line sets).
     let now = new Date('2026-10-11T20:00:00-07:00').getTime();
     const made = await lineWith([STOP, SPOT], {
-      budget: { places: 23, reserve: 2, geocodes: 100 },
+      budget: { places: 23, reserve: 2, geocodes: 100, geocodesReserve: 0 },
       now: () => now,
     });
     await made.upkeep.resume();
@@ -150,7 +150,7 @@ describe('GymUpkeep: PokéStops and Power Spots in the line', () => {
     const made = await lineWith([STOP, SPOT], {
       gyms,
       directory,
-      budget: { places: 23, reserve: 2, geocodes: 100 },
+      budget: { places: 23, reserve: 2, geocodes: 100, geocodesReserve: 0 },
       now: () => now,
     });
     await made.upkeep.resume();

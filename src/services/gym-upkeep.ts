@@ -2,6 +2,7 @@ import { gymStop, hasStop } from '../domain/party/stops.js';
 import type { Gym, GymStorage } from '../db/repositories/gym-repository.js';
 import { metresBetween } from '@pine/wayspot-core/distance';
 import { geodataJson, placesRadius, placesText } from '../domain/geo/google.js';
+import { WAYSPOT_MOVED_METRES } from '../domain/geo/spot-address.js';
 import { nearestGymChanges, type NearestEvent } from '../domain/gyms/nearest.js';
 import { isMeetup, isRaid, isTrain, type Party } from '../domain/party/party.js';
 import type { Logger } from '../log.js';
@@ -60,7 +61,12 @@ const MANY_NEAREST = 10;
  * searches (Nearby Search Pro) and 10,000 Geocodings a month, less a margin; the line leaves 500
  * places questions for gyms added and moved by hand and `/gym refresh`.
  */
-export const DEFAULT_GOOGLE_BUDGET: GoogleBudget = { places: 4_500, reserve: 500, geocodes: 9_000 };
+export const DEFAULT_GOOGLE_BUDGET: GoogleBudget = {
+  places: 4_500,
+  reserve: 500,
+  geocodes: 9_000,
+  geocodesReserve: 500,
+};
 
 /** What the line needs of the ranks of places (`GoogleRanks`); without it every place ranks 0. */
 export type LineRanks = Pick<GoogleRanks, 'refresh' | 'ofGym' | 'ofWayspot'>;
@@ -77,12 +83,6 @@ const MAX_RETRY_WAIT_MS = 3_600_000;
  * (about 24.8 days) and fires a longer one at once, which would ask the database again and again.
  */
 export const MAX_TIMER_MS = 6 * 3_600_000;
-
-/**
- * A PokéStop or Power Spot moved farther than this since its places were asked waits again: a
- * few meters change no circle of places, and an import corrects thousands of points a little.
- */
-export const WAYSPOT_MOVED_METRES = 10;
 
 /** How far around a Wayspot its nearest gym, PokéStop or Power Spot is looked for. */
 const NEAREST_PLACE_METRES = 1_000;

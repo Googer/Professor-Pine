@@ -54,13 +54,15 @@ export function googleMonth(now: number): GoogleMonth {
 
 /**
  * The monthly budget (`settings.googleLookupsPerMonth`, `googleLookupsReserve`,
- * `googleGeocodesPerMonth`): places questions a month, of which the line leaves `reserve` for the
- * questions outside it, and geocodes a month.
+ * `googleGeocodesPerMonth`, `googleGeocodesReserve`): places questions a month, of which the line
+ * leaves `reserve` for the questions outside it, and geocodes a month, of which a Power Spot's
+ * address the map asks for leaves `geocodesReserve` for gyms.
  */
 export interface GoogleBudget {
   places: number;
   reserve: number;
   geocodes: number;
+  geocodesReserve: number;
 }
 
 /**
@@ -82,6 +84,11 @@ export interface LineAllowance {
   wayspots: boolean;
   /** An address may be asked (the month's geocodes are not used). */
   geocode: boolean;
+  /**
+   * A Power Spot's address may be asked for the map (design `2026-11-04-power-spot-address`):
+   * the month's geocodes are below the budget less the reserve kept for gyms.
+   */
+  spotAddress: boolean;
   /** Today's share of places questions, while stops and Power Spots are asked. */
   share: number;
   /**
@@ -107,6 +114,7 @@ export function lineAllowance(now: number, used: GoogleUsed, budget: GoogleBudge
     gyms,
     wayspots: gyms && used.todayPlaces < share,
     geocode: used.monthGeocodes < budget.geocodes,
+    spotAddress: used.monthGeocodes < budget.geocodes - budget.geocodesReserve,
     share,
     waitMs: (gyms ? month.tomorrow : month.nextReset) - now,
   };

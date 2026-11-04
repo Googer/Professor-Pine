@@ -93,7 +93,9 @@ export function googleLineTexts(line: GoogleLineSnapshot, share: ServerShare): s
     `${used.monthPlaces === 1 ? 'is' : 'are'} used; the line stops when ` +
     `${amount(budget.reserve)} ${budget.reserve === 1 ? 'is' : 'are'} left, for gyms added or ` +
     `moved by hand and \`/gym refresh\`. ${amount(used.monthGeocodes)} of ` +
-    `${amount(budget.geocodes)} addresses ${used.monthGeocodes === 1 ? 'is' : 'are'} used. The ` +
+    `${amount(budget.geocodes)} addresses ${used.monthGeocodes === 1 ? 'is' : 'are'} used; ` +
+    `Power Spots’ addresses on the map stop when ${amount(budget.geocodesReserve)} ` +
+    `${budget.geocodesReserve === 1 ? 'is' : 'are'} left, for gyms. The ` +
     `month starts again ${timestamp(googleMonth(now).nextReset, 'f')}, when Google’s free ` +
     'amounts reset.';
   const byHand =

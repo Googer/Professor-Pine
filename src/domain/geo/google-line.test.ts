@@ -14,7 +14,12 @@ import {
 const pacific = (local: string, offset = '-07:00'): number =>
   new Date(`${local}${offset}`).getTime();
 
-const BUDGET: GoogleBudget = { places: 4_500, reserve: 500, geocodes: 9_000 };
+const BUDGET: GoogleBudget = {
+  places: 4_500,
+  reserve: 500,
+  geocodes: 9_000,
+  geocodesReserve: 500,
+};
 const NONE = { monthPlaces: 0, todayPlaces: 0, monthGeocodes: 0, monthByHand: 0 };
 
 describe('googleMonth', () => {
@@ -92,9 +97,36 @@ describe('lineAllowance', () => {
     expect(allowance).toMatchObject({ gyms: true, geocode: false });
   });
 
+  it("asks a Power Spot's address only while the geocodes above their reserve are not used", () => {
+    const used = (monthGeocodes: number) => ({ ...NONE, monthGeocodes });
+    expect(lineAllowance(now, used(8_499), BUDGET)).toMatchObject({
+      geocode: true,
+      spotAddress: true,
+    });
+    // The last 500 stay for gyms: their addresses go on, a Power Spot's is not asked.
+    expect(lineAllowance(now, used(8_500), BUDGET)).toMatchObject({
+      geocode: true,
+      spotAddress: false,
+    });
+    expect(lineAllowance(now, used(9_000), BUDGET)).toMatchObject({
+      geocode: false,
+      spotAddress: false,
+    });
+  });
+
   it('asks nothing with a budget of nothing', () => {
-    const allowance = lineAllowance(now, NONE, { places: 0, reserve: 0, geocodes: 0 });
-    expect(allowance).toMatchObject({ gyms: false, wayspots: false, geocode: false });
+    const allowance = lineAllowance(now, NONE, {
+      places: 0,
+      reserve: 0,
+      geocodes: 0,
+      geocodesReserve: 0,
+    });
+    expect(allowance).toMatchObject({
+      gyms: false,
+      wayspots: false,
+      geocode: false,
+      spotAddress: false,
+    });
   });
 });
 
@@ -193,7 +225,7 @@ describe('estimateLine', () => {
     expect(estimateLine({ ...pace, gyms: 0, allGyms: 10, wayspots: 0 })).toEqual({});
     const never = estimateLine({
       ...pace,
-      budget: { places: 0, reserve: 0, geocodes: 0 },
+      budget: { places: 0, reserve: 0, geocodes: 0, geocodesReserve: 0 },
       gyms: 1,
       allGyms: 1,
       wayspots: 0,

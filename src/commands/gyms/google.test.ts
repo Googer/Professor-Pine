@@ -61,7 +61,8 @@ describe('/gym google', () => {
         '### The line for Google',
         '2 gyms and 2 PokéStops or Power Spots of this server wait for Google.',
         'This month 3 of 4,500 places searches are used; the line stops when 500 are left, for ' +
-          'gyms added or moved by hand and `/gym refresh`. 1 of 9,000 addresses is used. The ' +
+          'gyms added or moved by hand and `/gym refresh`. 1 of 9,000 addresses is used; ' +
+          'Power Spots’ addresses on the map stop when 500 are left, for gyms. The ' +
           `month starts again ${stamp(new Date('2026-11-01T00:00:00-07:00').getTime(), 'f')}, ` +
           'when Google’s free amounts reset.',
         '1 of 500 lookups by hand is used this month.',

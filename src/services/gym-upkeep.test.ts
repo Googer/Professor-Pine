@@ -784,7 +784,7 @@ describe('the line of gyms that wait for Google', () => {
     const { upkeep, geo, waits, timers } = await threeQueued({
       lookups,
       use,
-      budget: { places: 4, reserve: 2, geocodes: 100 },
+      budget: { places: 4, reserve: 2, geocodes: 100, geocodesReserve: 0 },
       now: () => now,
     });
     const queued = await upkeep.waiting();
@@ -826,7 +826,7 @@ describe('the line of gyms that wait for Google', () => {
     const { upkeep, geo, waits, timers } = await threeQueued({
       lookups: new MemoryGymLookups(),
       use,
-      budget: { places: 0, reserve: 0, geocodes: 100 },
+      budget: { places: 0, reserve: 0, geocodes: 100, geocodesReserve: 0 },
       now: () => now,
     });
     await upkeep.flush();
@@ -851,7 +851,7 @@ describe('the line of gyms that wait for Google', () => {
     const { upkeep, geo, add } = await upkeepWith({
       lookups,
       use,
-      budget: { places: 1, reserve: 1, geocodes: 100 },
+      budget: { places: 1, reserve: 1, geocodes: 100, geocodesReserve: 0 },
     });
     const id = await add(40.01, -80.09, 'One');
     await lookups.add([{ gymId: id, address: true, rank: 0 }], 1);
@@ -873,7 +873,7 @@ describe('the line of gyms that wait for Google', () => {
     const lookups = new MemoryGymLookups();
     const { upkeep, geo, gyms, add } = await upkeepWith({
       lookups,
-      budget: { places: 100, reserve: 0, geocodes: 0 },
+      budget: { places: 100, reserve: 0, geocodes: 0, geocodesReserve: 0 },
     });
     const one = await add(40.01, -80.09, 'One');
     const two = await add(40.03, -80.09, 'Two');
@@ -1061,7 +1061,7 @@ describe('the line of gyms that wait for Google', () => {
     const { upkeep, geo, ids } = await threeQueued({
       lookups,
       use,
-      budget: { places: 2, reserve: 0, geocodes: 100 },
+      budget: { places: 2, reserve: 0, geocodes: 100, geocodesReserve: 0 },
     });
     geo.failing = { geocode: 'denied', places: 'denied' };
     await upkeep.flush();
@@ -1082,7 +1082,7 @@ describe('the line of gyms that wait for Google', () => {
       lookups,
       use,
       // One gym's worth: the gym is not asked again and again for the address that fails.
-      budget: { places: 1, reserve: 0, geocodes: 100 },
+      budget: { places: 1, reserve: 0, geocodes: 100, geocodesReserve: 0 },
     });
     const id = await add(40.01, -80.09, 'One');
     await lookups.add([{ gymId: id, address: true, rank: 0 }], 1);

@@ -147,17 +147,20 @@ describe('loadSettings', () => {
     expect(settings.googleLookupsPerMonth).toBe(4_500);
     expect(settings.googleLookupsReserve).toBe(500);
     expect(settings.googleGeocodesPerMonth).toBe(9_000);
+    expect(settings.googleGeocodesReserve).toBe(500);
     expect(settings.googleByHandPerMonth).toBe(500);
     const own = writeSettings((s) => {
       s.googleLookupsPerMonth = 1_000;
       s.googleLookupsReserve = 100;
       s.googleGeocodesPerMonth = 0;
+      s.googleGeocodesReserve = 0;
       s.googleByHandPerMonth = 20;
     });
     expect(loadSettings(own)).toMatchObject({
       googleLookupsPerMonth: 1_000,
       googleLookupsReserve: 100,
       googleGeocodesPerMonth: 0,
+      googleGeocodesReserve: 0,
       googleByHandPerMonth: 20,
     });
     // A budget of nothing, with nothing kept back: the line is stopped.
@@ -175,6 +178,16 @@ describe('loadSettings', () => {
       s.googleGeocodesPerMonth = -1;
     });
     expect(() => loadSettings(negative)).toThrow(/googleGeocodesPerMonth/);
+    // The geocodes kept back for gyms from Power Spots' addresses are within the month's.
+    const dev = writeSettings((s) => {
+      s.googleGeocodesPerMonth = 50;
+      s.googleGeocodesReserve = 10;
+    });
+    expect(loadSettings(dev).googleGeocodesReserve).toBe(10);
+    const over = writeSettings((s) => {
+      s.googleGeocodesPerMonth = 50;
+    });
+    expect(() => loadSettings(over)).toThrow(/googleGeocodesReserve/);
     // The daily limit before plan 8W-6 is gone: a file that still names it is refused.
     const old = writeSettings((s) => {
       s.googleLookupsPerDay = 100;
