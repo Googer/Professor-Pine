@@ -33,7 +33,8 @@ Every report at a stop that ends is kept as a history record, so that Parts D an
 - **A new table, `StopReportHistory`** (additive migration): one row per report version that ends. Its columns:
   - `serverId`, `kind` (`research` / `rocket`), `periodKey`;
   - the subject: `subjectKey`, the task's key and text and the rewards as the report kept them, the Rocket key;
-  - the `Region.id`s its stop lies in, not the stop itself (rule 2; see Q1), as `PartyHistory.regionId` keeps them. They are fixed when the report is made: an additive column on `StopReport`, filled from the regions the service works out already (`RocketService.channelsAt`, research's `changed`), copied at the end. A report in two regions counts once in each region's board and once in a member's own total (review H9);
+  - the S2 cell of level 14 its stop lies in (about 600 m across; Q1), not the stop itself: fine enough for a map of where reports come from, coarse enough not to be a doorstep. Level 15 (about 300 m, a block or two) was turned down as too fine. A cell is shown only in counts of the whole server, with the heatmap's minimum of three, never per member (rule 1). Built with `@pine/wayspot-core`'s S2 module;
+  - the `Region.id`s its stop lies in, as `PartyHistory.regionId` keeps them. They are fixed when the report is made: an additive column on `StopReport`, filled from the regions the service works out already (`RocketService.channelsAt`, research's `changed`), copied at the end. A report in two regions counts once in each region's board and once in a member's own total (review H9);
   - `madeAt`, `endsAt`, `endedAt`;
   - `reporterId`, only with the reporter's history opt-in, else null. No name column (review H12);
   - a typed task's text through `withoutMembers`, as the party history keeps member text (review H12);
@@ -60,6 +61,7 @@ Every report at a stop that ends is kept as a history record, so that Parts D an
 - **Rehearsal mode:** writes to its database copy like everything else.
 - **The opt-in** is extended to these rows, as to the party history. Opting out takes the member's id out of their `StopReportHistory` rows too (an index on `serverId, reporterId`), and the answer's count includes them (review H14).
 - **The opt-in starts empty** (review H13): from the cutover, `reporterId` is null for everyone who has not opted in. Counts by region and by task start at once; Parts D and E start empty for each member until they opt in (Q5).
+- **Want counts:** a daily count of wants per target (`WantCountDay`, Part D), no member.
 - **Reach (Q3):** "sent to N members", counted where the notifier queues DMs. For a party, a `PartyHistoryStep` of kind `reach`, summed into its record (no `Party` write). For research, one DM covers several stops' reports, so the count goes to the news' first report (review H16). Queued, not delivered, so the words are "sent to".
 
 ## Part B: the activity heatmap on the web map
@@ -96,7 +98,9 @@ Members who opted in, ranked by what other members confirm (rule 3; Matt, 2026-1
 - trains they conducted, and meetups they hosted, that others came to;
 - field research and Rocket reports that counted (Part A).
 
-Shown as a few separate boards rather than one score. Periods are a month, a year and all time; live records only, since the legacy history has no members. Where a member must agree to appear on it: Q2.
+Shown as a few separate boards rather than one score. Periods are a month, a year and all time; live records only, since the legacy history has no members. A member appears on it only with a switch of its own, `/settings leaderboard`, off by default and per server (Q2); the history opt-in alone keeps their records but ranks them nowhere. Rule 4's "never named" means: not without this switch.
+
+**Boards of things, not people** (Matt, Q3): the most wanted Pokémon (from the wants as they stand, counts only, no names), the bosses whose raids were sent to the most members, the most reported tasks of an event. Wants keep no history, so a trend of the most wanted needs a daily count per target (an additive table, `WantCountDay`: server, day, target, count; no member), recorded from Part A on.
 
 ## Part E: a member's own stats and year in review
 
@@ -143,12 +147,20 @@ Legacy trains get their route only.
 
 A first, before the cutover. Then B (the most useful for members), then C, D and E together (one set of counts), then F and G. Each part is a plan of its own, prototyped and reviewed as usual.
 
+## Part H: filling in a member's legacy history (idea, open)
+
+Matt, 2026-11-04: a member who opts in might have their legacy parties filled in with their id. The import keeps no member ids (Matt, 2026-10-16), so this means reading the legacy `parties/` files again for that one member: each legacy record is found by its `legacyKey` and its attendees by `seq` (the import wrote them in the files' order), and the member's id is set where the file names them, as reporter, conductor or attendee. Only for a member who asks, and an opt-out takes it out again as for live rows. The files hold no times, so this fills in counts (parties, bosses, regions, years) and none of the confirmations Part D ranks by. Where the files are kept for this: Q6.
+
+## Answers (Matt, 2026-11-04)
+
+- **Q1. A report's place:** an S2 cell, which Matt suggested at level 14 or 15; level 14 taken (Part A), since level 15 is a block or two.
+- **Q2. Boards:** a separate switch, `/settings leaderboard`.
+- **Q3. Reach:** recorded; boards of things as well as of people (Part D).
+- **Q4. Research that stood:** counts, with its confirmations shown beside it.
+- **Q5. Asking to opt in:** one line in the cutover announcement and in the Discord tutorial; no DM.
+
 ## Open questions
 
-- **Q1. Keep a report's stop, or only its regions?** Recommended: regions only. Nothing planned needs the stop, and a member's stops over months are a trace of where they go. The party history does keep gyms with opted-in members, but a gym's raid draws many people, while a stop's report is one person's walk.
-- **Q2. Does the history opt-in also put a member on the boards?** Recommended: a separate switch, `/settings leaderboard`, off by default. Agreeing to keep one's history is not agreeing to be ranked in public.
-- **Q3. Record reach (DMs sent) in Part A?** Recommended: yes, as Part A words it, the count only, since every day not kept is lost.
-- **Q4. Does a research report that merely stood count on the board?** Nobody confirmed it, which strains rule 3. Recommended: record `confirmations` now; the board counts reports that stood, and shows confirmations beside them, rather than counting only confirmed ones (most correct reports are never confirmed, because the second member sees the first and does not report).
-- **Q5. Does Pine ask members to opt in at the cutover?** Recommended: one line in the cutover announcement and in the Discord tutorial, nothing more; no DM.
+- **Q6. Where the legacy files live for Part H.** Recommended: a read-only copy of `parties/` on the Air beside the stack, mounted into the bot's container, read only when a member asks. Not a table of every legacy member's id in the database, which would keep the ids of members who never opted in.
 
 A fresh reviewer read the draft (findings H1–H23); the defaults it raised are folded in above, marked by their numbers.
