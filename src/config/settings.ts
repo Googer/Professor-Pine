@@ -111,7 +111,8 @@ const optionalChannelName = z.preprocess(
     .optional(),
 );
 
-const settingsObject = z.strictObject({
+/** The settings' keys and their checks, before the checks across keys (`settingsSchema`). */
+export const settingsObject = z.strictObject({
   standardRaidIncubateDuration: minutes,
   standardRaidHatchedDuration: minutes,
   eliteRaidIncubateDuration: minutes,
@@ -170,9 +171,11 @@ const settingsObject = z.strictObject({
   /**
    * The geocodes of `googleGeocodesPerMonth` that a Power Spot's address, asked as the map opens
    * its popup, leaves for gyms (design `2026-11-04-power-spot-address-design.md`): those stop when
-   * only this many are left. At most `googleGeocodesPerMonth` (a dev instance of 50 keeps 10).
+   * only this many are left. Unset, 500 or the whole month where that is less (a month of 50 asks
+   * no Power Spot's address); set, at most `googleGeocodesPerMonth` (a dev instance of 50 that
+   * tests the lookups keeps 10).
    */
-  googleGeocodesReserve: z.number().int().min(0).default(500),
+  googleGeocodesReserve: z.number().int().min(0).optional(),
   /**
    * A hard cap on the lookups by hand in a Pacific month (plan 8Z): `/gym refresh`, a gym added or
    * moved, each one geocode and one places search. Past it `/gym refresh` asks nothing, and a gym
@@ -622,6 +625,9 @@ const settingsObject = z.strictObject({
     })),
 });
 
+/** The geocodes a month kept for gyms from Power Spots' addresses unless set (at most the month's). */
+const DEFAULT_GEOCODES_RESERVE = 500;
+
 /** The settings, with the checks across keys. */
 export const settingsSchema = settingsObject
   .refine(
@@ -633,10 +639,18 @@ export const settingsSchema = settingsObject
       path: ['googleLookupsReserve'],
     },
   )
-  .refine((settings) => settings.googleGeocodesReserve <= settings.googleGeocodesPerMonth, {
-    error: 'must be at most googleGeocodesPerMonth',
-    path: ['googleGeocodesReserve'],
-  });
+  .refine(
+    (settings) =>
+      settings.googleGeocodesReserve === undefined ||
+      settings.googleGeocodesReserve <= settings.googleGeocodesPerMonth,
+    { error: 'must be at most googleGeocodesPerMonth', path: ['googleGeocodesReserve'] },
+  )
+  .transform((settings) => ({
+    ...settings,
+    googleGeocodesReserve:
+      settings.googleGeocodesReserve ??
+      Math.min(DEFAULT_GEOCODES_RESERVE, settings.googleGeocodesPerMonth),
+  }));
 
 export type Settings = z.output<typeof settingsSchema>;
 

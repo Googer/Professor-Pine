@@ -3,7 +3,7 @@ import path from 'node:path';
 import { isDeepStrictEqual } from 'node:util';
 import { z } from 'zod';
 import { CATEGORY_LABELS } from '../commands/categories.js';
-import { settingsSchema, withoutRetiredSettings } from '../config/settings.js';
+import { settingsObject, settingsSchema, withoutRetiredSettings } from '../config/settings.js';
 
 /*
  * The settings converter (`./pine convert-settings`, `npm run settings:convert`): a legacy
@@ -144,7 +144,7 @@ function merge(
   prefix: string,
   into: Conversion & { ok: true },
 ) {
-  const topLevel: readonly string[] = Object.keys(settingsSchema.shape);
+  const topLevel: readonly string[] = Object.keys(settingsObject.shape);
   for (const [key, value] of Object.entries(legacy)) {
     const at = prefix === '' ? key : `${prefix}.${key}`;
     const known = Object.hasOwn(defaults, key) || (prefix === '' && topLevel.includes(key));

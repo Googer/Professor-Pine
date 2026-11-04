@@ -153,7 +153,6 @@ describe('loadSettings', () => {
       s.googleLookupsPerMonth = 1_000;
       s.googleLookupsReserve = 100;
       s.googleGeocodesPerMonth = 0;
-      s.googleGeocodesReserve = 0;
       s.googleByHandPerMonth = 20;
     });
     expect(loadSettings(own)).toMatchObject({
@@ -184,8 +183,16 @@ describe('loadSettings', () => {
       s.googleGeocodesReserve = 10;
     });
     expect(loadSettings(dev).googleGeocodesReserve).toBe(10);
+    // Unset, it is 500 or the whole month where that is less: a month of 50 keeps all 50 for
+    // gyms, so no Power Spot's address is looked up, and the bot starts.
+    const small = writeSettings((s) => {
+      s.googleGeocodesPerMonth = 50;
+    });
+    expect(loadSettings(small).googleGeocodesReserve).toBe(50);
+    // Set above the month's geocodes, it is refused.
     const over = writeSettings((s) => {
       s.googleGeocodesPerMonth = 50;
+      s.googleGeocodesReserve = 51;
     });
     expect(() => loadSettings(over)).toThrow(/googleGeocodesReserve/);
     // The daily limit before plan 8W-6 is gone: a file that still names it is refused.
