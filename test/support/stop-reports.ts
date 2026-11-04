@@ -1,7 +1,6 @@
 import {
   decisionOf,
   newerThan,
-  OVERTAKEN_ENDINGS,
   savedAt,
   type Removal,
   type ReportPlace,
@@ -265,13 +264,15 @@ export class MemoryStopReports implements StopReportStorage {
     return Promise.resolve(ended.length);
   }
 
-  endedAs(id: number, madeAt: number, ending: ReportEnding): Promise<boolean> {
+  endedAs(
+    id: number,
+    madeAt: number,
+    ending: ReportEnding,
+    from: readonly ReportEnding[],
+  ): Promise<boolean> {
     this.fail('endedAs');
     const found = this.records.filter(
-      (one) =>
-        one.reportId === id &&
-        one.reportMadeAt === madeAt &&
-        OVERTAKEN_ENDINGS.includes(one.ending),
+      (one) => one.reportId === id && one.reportMadeAt === madeAt && from.includes(one.ending),
     );
     for (const one of found) one.ending = ending;
     return Promise.resolve(found.length > 0);

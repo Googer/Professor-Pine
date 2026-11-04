@@ -15,6 +15,7 @@ import {
   reportCell,
   researchFate,
   rocketFate,
+  type ReportEnding,
   type TakeBackBy,
 } from '../domain/stops/report-history.js';
 import {
@@ -732,17 +733,28 @@ export class StopReportService {
 
   /**
    * A grunt overtaken while its messages went out (`RocketService`, fix F3; plan 8H-2, review
-   * H4): seen by nobody, so its record ends `unposted`, whatever replaced or took it back. A
-   * failure is logged: the record keeps the ending it had.
+   * H4): seen by nobody, so its record ends `unposted` where another report replaced it
+   * (`churned`); one taken back keeps its take-back's ending (8H2-2). A failure is logged: the
+   * record keeps the ending it had.
    */
-  async overtaken(report: RocketReport): Promise<void> {
+  overtaken(report: RocketReport): Promise<void> {
+    return this.unseen(report, ['churned']);
+  }
+
+  /**
+   * A grunt posted nowhere that was refined in place meanwhile (`RocketService`, K1; 8H2-1): the
+   * version before the refine was seen by nobody, so its record ends `unposted`, not `refined`.
+   */
+  refinedUnseen(report: RocketReport): Promise<void> {
+    return this.unseen(report, ['refined']);
+  }
+
+  /** A version's record as `unposted`, where it ended as one of `from`; a failure is logged. */
+  private async unseen(report: RocketReport, from: readonly ReportEnding[]): Promise<void> {
     try {
-      await this.options.store.endedAs(report.id, report.madeAt, 'unposted');
+      await this.options.store.endedAs(report.id, report.madeAt, 'unposted', from);
     } catch (err) {
-      this.options.log.warn(
-        { err, report: report.id },
-        'could not record an overtaken grunt as unposted',
-      );
+      this.options.log.warn({ err, report: report.id }, 'could not record a grunt as unposted');
     }
   }
 

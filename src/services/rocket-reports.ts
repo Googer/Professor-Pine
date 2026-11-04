@@ -81,7 +81,13 @@ export function rocketSubject(choice: RocketChoice): RocketSubject {
 export interface RocketServiceOptions {
   reports: Pick<
     StopReportService,
-    'reportRocket' | 'takeBack' | 'restore' | 'kept' | 'linksChanged' | 'overtaken'
+    | 'reportRocket'
+    | 'takeBack'
+    | 'restore'
+    | 'kept'
+    | 'linksChanged'
+    | 'overtaken'
+    | 'refinedUnseen'
   >;
   /** The grunts' messages; none in rehearsal mode, which posts nothing outside party posts. */
   messages: Pick<GruntMessageService, 'post' | 'refine' | 'messagesOf'> | undefined;
@@ -164,6 +170,8 @@ export class RocketService {
       // refined version, whose undo then finds it gone.
       if (now !== report) {
         if (channels.length > 0 && posted.length === 0) {
+          // The version refined was seen by nobody either (8H2-1).
+          await this.options.reports.refinedUnseen(report);
           return { kind: 'unposted', channels, ...(await this.undoRefined(now, outcome.replaced)) };
         }
         return { kind: 'reported', report: now, replaced: outcome.replaced, channels, posted };

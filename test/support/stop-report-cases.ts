@@ -681,18 +681,20 @@ export function stopReportCases<S extends StopReportStorage>(
         rocketReport({ subjectKey: 'grunt:fire', madeAt: REPORT_NOW + 60_000 }),
         { place: PLACE },
       );
-      expect(await store.endedAs(report.id, REPORT_NOW - 1, 'unposted')).toBe(false);
+      expect(await store.endedAs(report.id, REPORT_NOW - 1, 'unposted', ['churned'])).toBe(false);
       // Still standing: no record to change.
-      expect(await store.endedAs(fire.report.id, REPORT_NOW + 60_000, 'unposted')).toBe(false);
-      expect(await store.endedAs(report.id, REPORT_NOW, 'unposted')).toBe(true);
+      expect(
+        await store.endedAs(fire.report.id, REPORT_NOW + 60_000, 'unposted', ['churned']),
+      ).toBe(false);
+      expect(await store.endedAs(report.id, REPORT_NOW, 'unposted', ['churned'])).toBe(true);
       expect(await store.historyOf(REPORT_SERVER)).toEqual([
         recordOf(report, { ending: 'unposted', endedAt: REPORT_NOW + 60_000 }),
       ]);
     });
 
-    it('changes only a record churned, withdrawn or taken back by staff into another ending (P5)', async () => {
+    it('changes a record only from the endings it is asked to change (8H2-1, 8H2-2)', async () => {
       const store = await made();
-      // G1 posted, refined in place by Misty (G1'), G1' taken back; then G1 found overtaken.
+      // G1 posted, refined in place by Misty (G1'), G1' taken back by Misty.
       const { report: first } = await store.save(rocketReport(), { place: PLACE });
       const refined = await store.saveUnless(
         magikarpLineup(),
@@ -705,17 +707,17 @@ export function stopReportCases<S extends StopReportStorage>(
         as: 'member',
         at: REPORT_NOW + 120_000,
       });
-      expect(await store.endedAs(first.id, first.madeAt, 'unposted')).toBe(false);
-      expect((await store.historyOf(REPORT_SERVER)).map((record) => record.ending)).toEqual([
-        'refined',
-        'withdrawn',
-      ]);
-      // G1' withdrawn, then overtaken: nobody saw it.
-      expect(await store.endedAs(first.id, refined.report.madeAt, 'unposted')).toBe(true);
-      expect((await store.historyOf(REPORT_SERVER)).map((record) => record.ending)).toEqual([
-        'refined',
-        'unposted',
-      ]);
+      const endings = async () =>
+        (await store.historyOf(REPORT_SERVER)).map((record) => record.ending);
+      // An overtaken grunt changes only a churned record: G1 stays refined, G1' withdrawn.
+      expect(await store.endedAs(first.id, first.madeAt, 'unposted', ['churned'])).toBe(false);
+      expect(await store.endedAs(first.id, refined.report.madeAt, 'unposted', ['churned'])).toBe(
+        false,
+      );
+      expect(await endings()).toEqual(['refined', 'withdrawn']);
+      // Asked to change a refined version (a grunt posted nowhere, refined meanwhile): it does.
+      expect(await store.endedAs(first.id, first.madeAt, 'unposted', ['refined'])).toBe(true);
+      expect(await endings()).toEqual(['unposted', 'withdrawn']);
     });
 
     it('forgets the record of a hideout put back, and records the grunt it replaces (review H4)', async () => {

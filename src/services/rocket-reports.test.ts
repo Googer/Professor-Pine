@@ -550,6 +550,21 @@ describe('RocketService', () => {
       expect(await made.reports.standing(FAKE_GUILD_ID)).toEqual([]);
     });
 
+    it('records the version nobody saw as unposted, not as refined (8H2-1)', async () => {
+      const made = rocketWith();
+      await refinedWhileUnposted(made);
+      expect(
+        made.store.records.map(({ subjectKey, reportMadeAt, ending }) => [
+          subjectKey,
+          reportMadeAt,
+          ending,
+        ]),
+      ).toEqual([
+        ['grunt:water', REPORT_NOW, 'unposted'],
+        ['grunt:water:male', expect.any(Number), 'unposted'],
+      ]);
+    });
+
     it('puts back the hideout it had replaced: Arlo comes back (K1)', async () => {
       const made = rocketWith();
       const arlo = await made.report('leader:arlo', WEST, { by: MISTY });

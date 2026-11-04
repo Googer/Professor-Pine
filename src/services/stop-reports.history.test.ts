@@ -311,4 +311,27 @@ describe('StopReportService and the history of reports at stops (plan 8H-2)', ()
       expect(store.records).toMatchObject([{ ending: 'unposted' }]);
     });
   });
+
+  describe('a grunt overtaken while its messages went out (8H2-2)', () => {
+    it('records one another report replaced as unposted, one taken back as its take-back says', async () => {
+      const { service, store, clock } = historyServiceWith({ start: at('2026-10-22T12:00') });
+      const churned = await rocket(service, WATER);
+      clock.now += 60_000;
+      await rocket(service, NONE, OTHER_REPORTER);
+      const withdrawn = await service.reportRocket({
+        serverId: REPORT_SERVER,
+        stop: reportedStop(2),
+        subject: WATER,
+        reporter: REPORTER,
+      });
+      if (churned.kind !== 'reported' || withdrawn.kind !== 'reported') throw new Error('kept');
+      await service.takeBack(REPORT_SERVER, [withdrawn.report.id], REPORTER.id, 'member');
+      await service.overtaken(churned.report);
+      await service.overtaken(withdrawn.report);
+      expect(store.records.map(({ reportId, ending }) => [reportId, ending])).toEqual([
+        [churned.report.id, 'unposted'],
+        [withdrawn.report.id, 'withdrawn'],
+      ]);
+    });
+  });
 });
