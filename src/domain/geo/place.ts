@@ -4,7 +4,7 @@ import { metresBetween } from '@pine/wayspot-core/distance';
 /**
  * A gym, PokéStop or power spot as a member named it (`/wild near:`, a meetup's place): its kind
  * and id (a gym's number as text, a Wayspot's Wayfarer id), title, place, address line (a gym's
- * `addressLine`, a Wayspot's `wayspotAddressLine`; null or empty for none) and picture (shown
+ * `addressLine`, a Wayspot's `wayspotAddress`; null or empty for none) and picture (shown
  * only as `wayspotPicture` allows), as it was when it was named: a snapshot (Matt, 2026-10-17),
  * since an import may delete a Wayspot and staff a gym while it is shown.
  */

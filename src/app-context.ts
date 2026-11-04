@@ -55,6 +55,7 @@ import type { TimedPartyService } from './services/timed-party-service.js';
 import type { TrainService } from './services/train-service.js';
 import type { WayfarerImportService } from './services/wayfarer-import-service.js';
 import type { WayfarerReviewService } from './services/wayfarer-review-service.js';
+import type { WayspotAddresses } from './services/wayspot-addresses.js';
 import type { WayspotProvider } from './services/wayspot-directory.js';
 import type { Rehearsal } from './services/rehearsal.js';
 import type { EventForumService } from './services/event-forum.js';
@@ -125,6 +126,11 @@ export interface AppContext {
    * Wayfarer gyms Pine did not take, by id, region and place.
    */
   readonly wayspots: WayspotProvider;
+  /**
+   * The addresses of Power Spots, looked up as the map opens their popups within a budget
+   * (design `2026-11-04-power-spot-address-design.md`), which `wayspots.addressOf` reads.
+   */
+  readonly wayspotAddresses: WayspotAddresses;
   /** The PokéStops of Pine's own (plan 8R-1, `/pokestop`), which `wayspots` holds too. */
   readonly pineStops: PineStopService;
   /** Gyms, PokéStops and power spots of a server by what members type (`/wild near:`). */

@@ -8,7 +8,9 @@ import {
   testRegions,
   WEST_CHANNEL,
 } from '../../test/support/gyms.js';
+import { regionsFixture } from '../../test/support/providers.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
+import { geodataJson } from '../domain/geo/google.js';
 import { keptRow, wayspotId } from '../../test/support/wayspot-cases.js';
 import { MemoryWayspots } from '../../test/support/wayspots.js';
 import type { Region } from '../db/repositories/region-repository.js';
@@ -57,6 +59,38 @@ describe('WayspotDirectory', () => {
     expect(directory.regionsOf(wayspotId(5))).toEqual([]);
     expect(directory.regionsOf(wayspotId(4))).toEqual([EAST_CHANNEL]);
     expect(directory.all()).toHaveLength(5);
+  });
+
+  it("gives a Wayspot's address line: Wayfarer's, else a Power Spot's looked-up one (one path)", async () => {
+    const { storage } = await directoryWith();
+    const looked = new Map([
+      [
+        wayspotId(2),
+        {
+          lat: 40.0501,
+          lon: -80.05,
+          geodata: geodataJson({ formatted_address: '600 Grant St, Pittsburgh, PA 15219, USA' }),
+          askedAt: 1,
+        },
+      ],
+    ]);
+    const directory = new WayspotDirectory({
+      wayspots: storage,
+      regions: regionsFixture(),
+      log: createTestLogger().log,
+      addresses: { lookedUp: (id) => looked.get(id) },
+    });
+    await directory.load();
+    const [stop, spot] = [directory.byId(wayspotId(1)), directory.byId(wayspotId(2))];
+    if (!stop || !spot) throw new Error('kept Wayspots missing');
+    expect(directory.addressOf(stop)).toBe('1 Main St, Pittsburgh, PA 15213, USA');
+    expect(directory.addressOf({ ...spot, address: null })).toBe(
+      '600 Grant St, Pittsburgh, PA 15219, USA',
+    );
+    // Without looked-up addresses, Wayfarer's alone.
+    const plain = (await directoryWith()).directory;
+    await plain.load();
+    expect(plain.addressOf({ ...spot, address: null })).toBe('');
   });
 
   it('gives the Wayspots near a point, nearest first, of the kinds asked for', async () => {

@@ -188,6 +188,22 @@ describe('maxLook: a max battle on the live map (plan 8X-5)', () => {
     });
   });
 
+  it("gives the Power Spot's address as the kept Wayspots word it, a looked-up one too", () => {
+    const now = keptRow(1, {
+      id: TEST_SPOT.id,
+      kind: 'powerspot',
+      title: 'Gazebo of the Park',
+      lat: TEST_SPOT.lat,
+      lon: TEST_SPOT.lon,
+      address: null,
+    });
+    const looked = view(testMax(), {
+      wayspot: (id) => (id === TEST_SPOT.id ? now : undefined),
+      addressOf: (wayspot) => (wayspot.id === TEST_SPOT.id ? '600 Grant St, Pittsburgh' : ''),
+    });
+    expect(maxLook(looked).place.address).toBe('600 Grant St, Pittsburgh');
+  });
+
   it('gives a pin as an unlisted power spot, with no spot and no address', () => {
     expect(maxLook(view(testMax({ spot: TEST_PIN })))).toMatchObject({
       place: { name: 'Unlisted power spot', lat: 40.002, lon: -80.002, address: null },

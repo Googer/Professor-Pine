@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import type { AppContext } from '../app-context.js';
-import { wayspotAddressLine } from '../domain/geo/wayfarer-address.js';
 import { nearestPlaces } from '../domain/search/nearest.js';
+import type { Wayspot } from '../domain/wayspots/kept.js';
+import type { WayspotProvider } from '../services/wayspot-directory.js';
 
 /**
  * The kept Wayspots of one kind in a box of the map (plans 8M-5M, 8X-5): the PokéStops of
@@ -24,20 +25,17 @@ export type MapBox = z.infer<typeof boxSchema>;
 /** A Wayspot as the map lists it: `[id, lat, lon, title, address]`. */
 export type BoxedWayspot = [string, number, number, string, string | null];
 
-/** A Wayspot's line of the map's lists; its address where anything of it is known. */
-const boxed = ({
-  id,
-  lat,
-  lon,
-  title,
-  address,
-}: {
-  id: string;
-  lat: number;
-  lon: number;
-  title: string;
-  address: string | null;
-}): BoxedWayspot => [id, lat, lon, title, wayspotAddressLine(address) || null];
+/**
+ * A Wayspot's line of the map's lists; its address where anything of it is known
+ * (`WayspotProvider.addressOf`: a Power Spot's looked-up one too).
+ */
+const boxed = (wayspots: Pick<WayspotProvider, 'addressOf'>, wayspot: Wayspot): BoxedWayspot => [
+  wayspot.id,
+  wayspot.lat,
+  wayspot.lon,
+  wayspot.title,
+  wayspots.addressOf(wayspot) || null,
+];
 
 /**
  * The kept Wayspots of `kind` with a title in a region of the server (`row`) inside the box, the
@@ -60,7 +58,7 @@ export function wayspotsInBox(
       if (wayspot.kind !== kind || wayspot.title.trim() === '') continue;
       const { lat, lon } = wayspot;
       if (lat < south || lat > north || lon < west || lon > east) continue;
-      found.set(wayspot.id, boxed(wayspot));
+      found.set(wayspot.id, boxed(ctx.wayspots, wayspot));
     }
   }
   const distance = ([, lat, lon]: BoxedWayspot): number =>
@@ -113,7 +111,7 @@ export function wayspotsNear(
     if (region.guildId !== row || row === undefined || region.bounds === null) continue;
     for (const wayspot of ctx.wayspots.inRegion(region.channelId)) {
       if (wayspot.kind !== kind || wayspot.title.trim() === '') continue;
-      places.set(wayspot.id, boxed(wayspot));
+      places.set(wayspot.id, boxed(ctx.wayspots, wayspot));
     }
   }
   return nearestPlaces(places.values(), [at], {

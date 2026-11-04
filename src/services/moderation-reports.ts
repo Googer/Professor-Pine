@@ -4,7 +4,6 @@ import type { Gym } from '../db/repositories/gym-repository.js';
 import type { PartyGateway } from '../discord/party-gateway.js';
 import { addressLine } from '../domain/geo/google.js';
 import { cutWhole, type Place } from '../domain/geo/place.js';
-import { wayspotAddressLine } from '../domain/geo/wayfarer-address.js';
 import type { Wayspot } from '../domain/wayspots/kept.js';
 import type { WayspotProvider } from './wayspot-directory.js';
 import {
@@ -165,7 +164,7 @@ export interface ModerationReportsOptions {
   /** The gyms, for a raid's and a train's place and a gym's official name. */
   gyms?: Pick<GymProvider, 'get'>;
   /** The kept Wayspots, for a train at a power spot (plan 8X-4); without them it is at no place. */
-  wayspots?: Pick<WayspotProvider, 'byId'>;
+  wayspots?: Pick<WayspotProvider, 'byId' | 'addressOf'>;
   settings: Settings;
   log: Logger;
   now?: () => number;
@@ -929,8 +928,11 @@ export class ModerationReports {
     const at = isTrain(party) ? currentStop(party) : undefined;
     if (at?.kind === 'powerspot') {
       // A power spot of a train's route (plan 8X-4), as it is kept now.
-      const kept = this.options.wayspots?.byId(at.id);
-      return kept?.kind === 'powerspot' ? spotPlace(kept) : null;
+      const { wayspots } = this.options;
+      const kept = wayspots?.byId(at.id);
+      return wayspots && kept?.kind === 'powerspot'
+        ? spotPlace(kept, wayspots.addressOf(kept))
+        : null;
     }
     const gymId = isTrain(party) ? at?.id : party.gymId;
     const gym = gymId === undefined || gymId === null ? undefined : this.options.gyms?.get(gymId);
@@ -1005,14 +1007,14 @@ export class ModerationReports {
 }
 
 /** A kept power spot as a place a report shows. */
-function spotPlace(spot: Wayspot): Place {
+function spotPlace(spot: Wayspot, address: string): Place {
   return {
     kind: 'powerspot',
     id: spot.id,
     title: spot.title,
     lat: spot.lat,
     lon: spot.lon,
-    address: wayspotAddressLine(spot.address) || null,
+    address: address || null,
     image: spot.image,
   };
 }

@@ -57,6 +57,7 @@ import { MemoryTargetWants } from './target-wants.js';
 import { MemoryWantBoxes } from './want-boxes.js';
 import type { WantBoxStorage } from '../../src/db/repositories/want-box-repository.js';
 import { noWayspots } from './wayspots.js';
+import type { WayspotAddresses } from '../../src/services/wayspot-addresses.js';
 import { LoginLinks } from '../../src/web/login-links.js';
 import { MeetupSafety } from '../../src/services/meetup-safety.js';
 import type { PartyGateway } from '../../src/discord/party-gateway.js';
@@ -141,6 +142,10 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
     regions: regionsFixture(),
     // No Wayspot is kept; a test passes its own directory (`wayspotsWith`, or wayfarerImportWith).
     wayspots: noWayspots(),
+    wayspotAddresses: unavailable<WayspotAddresses>(
+      'wayspotAddresses',
+      'pass { wayspotAddresses: addresses, wayspots } from wayspotAddressesWith() and wayspotsWith()',
+    ),
     regionAdmin: unavailable<RegionAdminService>(
       'regionAdmin',
       'pass { regionAdmin, regions, gyms: directory, … } from regionAdminWith()',

@@ -103,6 +103,8 @@ import { PineStopRepository } from './db/repositories/pine-stop-repository.js';
 import { GymUpkeep } from './services/gym-upkeep.js';
 import { GymLookupRepository } from './db/repositories/gym-lookup-repository.js';
 import { GoogleUseRepository } from './db/repositories/google-use-repository.js';
+import { WayspotAddressRepository } from './db/repositories/wayspot-address-repository.js';
+import { WayspotAddresses } from './services/wayspot-addresses.js';
 import { GoogleRanks } from './services/google-ranks.js';
 import { WayspotLookupRepository } from './db/repositories/wayspot-lookup-repository.js';
 import { WayspotPlaces } from './services/wayspot-places.js';
@@ -364,7 +366,34 @@ export async function startApp(
   const regions = new RegionDirectory({ regions: regionRepository, log });
   // The kept Wayspots of the Wayfarer imports, placed in the regions by their outlines.
   const wayspotRepository = new WayspotRepository(db);
-  const wayspots = new WayspotDirectory({ wayspots: wayspotRepository, regions, log });
+  // Google, asked about the place of a gym and a Power Spot's address; without a key nothing is
+  // asked. Every question counts in one monthly count of each kind (`GoogleUse`).
+  const geo = new GoogleGeo({
+    apiKey: config.env.GOOGLE_API_KEY,
+    fetch: (url, init) => fetch(url, init),
+    log,
+  });
+  const googleUse = new GoogleUseRepository(db);
+  const googleBudget = {
+    places: config.settings.googleLookupsPerMonth,
+    reserve: config.settings.googleLookupsReserve,
+    geocodes: config.settings.googleGeocodesPerMonth,
+    geocodesReserve: config.settings.googleGeocodesReserve,
+  };
+  // The addresses of Power Spots the map asked for, which every reader of the kept Wayspots shows.
+  const wayspotAddresses = new WayspotAddresses({
+    storage: new WayspotAddressRepository(db),
+    geo,
+    use: googleUse,
+    budget: googleBudget,
+    log,
+  });
+  const wayspots = new WayspotDirectory({
+    wayspots: wayspotRepository,
+    regions,
+    log,
+    addresses: wayspotAddresses,
+  });
   const history = new HistoryRepository(db);
   // Every party that ends is kept in the party history (plan 8H), with what the store writes;
   // in rehearsal mode too (only Discord is narrowed then, not the store).
@@ -632,12 +661,6 @@ export async function startApp(
     splits: partyService,
     log,
   });
-  // Google, asked about the place of a gym; without a key nothing is asked.
-  const geo = new GoogleGeo({
-    apiKey: config.env.GOOGLE_API_KEY,
-    fetch: (url, init) => fetch(url, init),
-    log,
-  });
   // The PokéStops and Power Spots that wait for Google, and the places it gave around them
   // (plan 8W-6), which the search reads.
   const wayspotLookups = new WayspotLookupRepository(db);
@@ -650,13 +673,8 @@ export async function startApp(
     posts: partyService,
     log,
     lookups: new GymLookupRepository(db),
-    use: new GoogleUseRepository(db),
-    budget: {
-      places: config.settings.googleLookupsPerMonth,
-      reserve: config.settings.googleLookupsReserve,
-      geocodes: config.settings.googleGeocodesPerMonth,
-      geocodesReserve: config.settings.googleGeocodesReserve,
-    },
+    use: googleUse,
+    budget: googleBudget,
     byHandPerMonth: config.settings.googleByHandPerMonth,
     // The line goes by the raids of each place's best region (plan 8W-6), from the history.
     ranks: new GoogleRanks({
@@ -886,6 +904,7 @@ export async function startApp(
     await raidEvents.loadListed();
     await gyms.load();
     await regions.load();
+    await wayspotAddresses.load();
     await wayspots.load();
     await pineStops.load();
     await wayspotPlaces.load();
@@ -944,6 +963,7 @@ export async function startApp(
     wayfarer,
     wayfarerReview,
     wayspots,
+    wayspotAddresses,
     pineStops,
     placeFinder: new PlaceFinder({ gyms, wayspots, places: wayspotPlaces, regions, log }),
     regions,

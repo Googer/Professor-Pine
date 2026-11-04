@@ -2,7 +2,6 @@ import type { Gym } from '../db/repositories/gym-repository.js';
 import type { Region } from '../db/repositories/region-repository.js';
 import { metresBetween } from '@pine/wayspot-core/distance';
 import { addressLine, geodataParts } from '../domain/geo/google.js';
-import { wayspotAddressLine } from '../domain/geo/wayfarer-address.js';
 import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import {
   cutWhole,
@@ -47,7 +46,7 @@ export interface PlaceChoice {
   point: LatLon;
   image: string | null;
   /**
-   * Its address as one line (a gym's `addressLine`, a Wayspot's `wayspotAddressLine`); empty
+   * Its address as one line (a gym's `addressLine`, a Wayspot's `WayspotProvider.addressOf`); empty
    * for none.
    */
   address: string;
@@ -203,7 +202,7 @@ export class PlaceFinder {
         const regions = wayspots.regionsOf(match.wayspot.id);
         const fit = placeFit(text, [match.wayspot.title], match);
         hits.push({
-          item: wayspotChoice(match.wayspot, fit, local(regions)),
+          item: wayspotChoice(this.options.wayspots, match.wayspot, fit, local(regions)),
           kind,
           title: match.wayspot.title,
           fit,
@@ -265,7 +264,7 @@ export class PlaceFinder {
       choice: described(
         item.gym
           ? gymChoice(item.gym, 'exact', false)
-          : wayspotChoice(item.wayspot, 'exact', false),
+          : wayspotChoice(this.options.wayspots, item.wayspot, 'exact', false),
         serverGyms,
       ),
       metres,
@@ -292,7 +291,10 @@ export class PlaceFinder {
     ) {
       return undefined;
     }
-    return described(wayspotChoice(wayspot, 'exact', false), this.gymsOf(channels));
+    return described(
+      wayspotChoice(this.options.wayspots, wayspot, 'exact', false),
+      this.gymsOf(channels),
+    );
   }
 
   /**
@@ -385,7 +387,13 @@ export class PlaceFinder {
           wayspot.title.trim() !== '' &&
           wayspots.regionsOf(wayspot.id).some((channelId) => channels.has(channelId)),
       );
-    return spot && described(wayspotChoice(spot.wayspot, 'exact', false), this.gymsOf(channels));
+    return (
+      spot &&
+      described(
+        wayspotChoice(this.options.wayspots, spot.wayspot, 'exact', false),
+        this.gymsOf(channels),
+      )
+    );
   }
 
   /**
@@ -521,7 +529,12 @@ function described(choice: PlaceChoice, gyms: ReadonlyMap<number, Gym>): PlaceCh
   return nearest ? { ...choice, where: `near ${nearest.gym.name}` } : choice;
 }
 
-function wayspotChoice(wayspot: Wayspot, fit: PlaceFit, local: boolean): PlaceChoice {
+function wayspotChoice(
+  wayspots: Pick<WayspotProvider, 'addressOf'>,
+  wayspot: Wayspot,
+  fit: PlaceFit,
+  local: boolean,
+): PlaceChoice {
   return {
     kind: wayspot.kind,
     id: wayspot.id,
@@ -531,6 +544,6 @@ function wayspotChoice(wayspot: Wayspot, fit: PlaceFit, local: boolean): PlaceCh
     local,
     point: { lat: wayspot.lat, lon: wayspot.lon },
     image: wayspot.image,
-    address: wayspotAddressLine(wayspot.address),
+    address: wayspots.addressOf(wayspot),
   };
 }

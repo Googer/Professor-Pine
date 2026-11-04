@@ -126,7 +126,7 @@ export interface TrainServiceOptions {
    * The kept Wayspots (plan 8X-4), to name a power spot of a route as it is now; without them every
    * power spot is unknown.
    */
-  wayspots?: Pick<WayspotProvider, 'byId' | 'regionsOf' | 'size'>;
+  wayspots?: Pick<WayspotProvider, 'byId' | 'addressOf' | 'regionsOf' | 'size'>;
   /** The regions, to tell the gyms of the server of a train from those of another. */
   regions: Pick<RegionProvider, 'byChannel'>;
   /** The routes members saved (the table `SavedRoutes`). */

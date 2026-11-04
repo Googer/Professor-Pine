@@ -4,6 +4,7 @@ import { FakeMemberDirectory } from '../../test/support/members.js';
 import { maxReportingWith, MAX_THURSDAY } from '../../test/support/max-reporting.js';
 import { ALICE, BOB } from '../../test/support/parties.js';
 import { keptRow, wayspotId } from '../../test/support/wayspot-cases.js';
+import { wayspotAddressesWith } from '../../test/support/wayspot-addresses.js';
 import { maxWebWith, partyWebWith, webServerWith, type TestWeb } from '../../test/support/web.js';
 import type { WayspotRow } from '../domain/wayspots/kept.js';
 import { maxChoiceValue } from '../commands/max/max-input.js';
@@ -255,5 +256,116 @@ describe('GET /s/<guild>/api/powerspots', () => {
     expect((await spotsIn(web, cookie, 'south=41&west=-80.1&north=40&east=-80')).status).toBe(400);
     for (let n = 0; n < 117; n++) expect((await spotsIn(web, cookie, box)).status).toBe(200);
     expect((await spotsIn(web, cookie, box)).status).toBe(429);
+  });
+});
+
+describe("GET /s/<guild>/api/powerspots/<id>/address (a Power Spot's address)", () => {
+  let web: TestWeb | undefined;
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'], now: MAX_THURSDAY });
+  });
+  afterEach(async () => {
+    vi.useRealTimers();
+    await web?.app.close();
+    web = undefined;
+  });
+
+  /** A Power Spot of the server's West without Wayfarer's address. */
+  const SALON = keptRow(2, { kind: 'powerspot', lat: 40.062, lon: -80.062, title: 'Salon' });
+  const BARE = { ...SALON, address: null };
+
+  /** The map of the fakes' server with the kept power spots `rows` and their addresses. */
+  async function servingAddresses(rows: readonly WayspotRow[]) {
+    const looked = await wayspotAddressesWith();
+    looked.geo.addresses.set(`${BARE.lat},${BARE.lon}`, {
+      route: 'Grant St',
+      formatted_address: '600 Grant St, Pittsburgh, PA 15219, USA',
+    });
+    const made = await maxReportingWith({ moderation: null }, rows, looked.addresses);
+    const members = new FakeMemberDirectory().add(ALICE, 'Alice');
+    const web = webServerWith({
+      members,
+      parties: partyWebWith(made),
+      maxes: maxWebWith(made.ctx),
+    });
+    web.clock.now = MAX_THURSDAY;
+    return { ...made, looked, web };
+  }
+
+  const addressOf = async (map: TestWeb, cookie: string | undefined, id: string) => {
+    const answer = await map.app.inject({
+      url: `/s/${FAKE_GUILD_ID}/api/powerspots/${encodeURIComponent(id)}/address`,
+      headers: cookie === undefined ? {} : { cookie },
+    });
+    return { status: answer.statusCode, answer };
+  };
+
+  it('looks up the address of a Power Spot without one, keeps it, and lists it with the spot', async () => {
+    const made = await servingAddresses([BARE]);
+    web = made.web;
+    const cookie = await web.loggedIn(ALICE, 'Alice');
+    const first = await addressOf(web, cookie, BARE.id);
+    expect(first.status).toBe(200);
+    expect(first.answer.headers['cache-control']).toBe('private, no-store');
+    expect(first.answer.json()).toEqual({ address: '600 Grant St, Pittsburgh, PA 15219, USA' });
+    expect(made.looked.geo.questions('geocode')).toHaveLength(1);
+    expect(made.looked.use.total('geocode')).toBe(1);
+    // Kept: asked again, nothing goes to Google; the list of the box gives it as a PokéStop's.
+    expect((await addressOf(web, cookie, BARE.id)).answer.json()).toEqual({
+      address: '600 Grant St, Pittsburgh, PA 15219, USA',
+    });
+    expect(made.looked.geo.questions('geocode')).toHaveLength(1);
+    const listed = await web.app.inject({
+      url: `/s/${FAKE_GUILD_ID}/api/powerspots?south=40.06&west=-80.07&north=40.07&east=-80.06`,
+      headers: { cookie },
+    });
+    expect(listed.json<PowerSpotsView>().spots).toEqual([
+      [BARE.id, BARE.lat, BARE.lon, 'Salon', '600 Grant St, Pittsburgh, PA 15219, USA'],
+    ]);
+  });
+
+  it("answers Wayfarer's address where it gives one, without asking Google", async () => {
+    const made = await servingAddresses([SALON]);
+    web = made.web;
+    const cookie = await web.loggedIn(ALICE, 'Alice');
+    expect((await addressOf(web, cookie, SALON.id)).answer.json()).toEqual({
+      address: SALON.address,
+    });
+    expect(made.looked.geo.asked).toEqual([]);
+  });
+
+  it('answers null when Google gives nothing, and asks nothing past the budget', async () => {
+    const made = await servingAddresses([BARE]);
+    web = made.web;
+    const cookie = await web.loggedIn(ALICE, 'Alice');
+    made.looked.geo.failing.geocode = 'denied';
+    expect((await addressOf(web, cookie, BARE.id)).answer.json()).toEqual({ address: null });
+    made.looked.geo.failing = {};
+    for (let n = 0; n < 8_500; n++) await made.looked.use.use('2026-10-22', 'geocode');
+    expect((await addressOf(web, cookie, BARE.id)).answer.json()).toEqual({ address: null });
+    expect(made.looked.geo.questions('geocode')).toEqual([]);
+  });
+
+  it("is 404 for a PokéStop, a spot of no region of this server's, or one not kept", async () => {
+    const stop = keptRow(5, { lat: 40.064, lon: -80.064, address: null });
+    const away = keptRow(7, { kind: 'powerspot', lat: 45, lon: -70, address: null });
+    const made = await servingAddresses([BARE, stop, away]);
+    web = made.web;
+    const cookie = await web.loggedIn(ALICE, 'Alice');
+    for (const id of [stop.id, away.id, wayspotId(99), 'x'.repeat(61)]) {
+      expect((await addressOf(web, cookie, id)).status, id).toBe(404);
+    }
+    expect(made.looked.geo.asked).toEqual([]);
+  });
+
+  it('is for members alone, and 120 a minute from one address', async () => {
+    const made = await servingAddresses([SALON]);
+    web = made.web;
+    expect((await addressOf(web, undefined, SALON.id)).status).toBe(401);
+    const stranger = await web.loggedIn(BOB, 'Bob');
+    expect((await addressOf(web, stranger, SALON.id)).status).toBe(403);
+    const cookie = await web.loggedIn(ALICE, 'Alice');
+    for (let n = 0; n < 118; n++) expect((await addressOf(web, cookie, SALON.id)).status).toBe(200);
+    expect((await addressOf(web, cookie, SALON.id)).status).toBe(429);
   });
 });

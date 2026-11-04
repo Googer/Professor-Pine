@@ -5,6 +5,7 @@ import { createTestLogger } from '../../test/support/test-logger.js';
 import { keptRow, wayspotId } from '../../test/support/wayspot-cases.js';
 import { wayspotsWith } from '../../test/support/wayspots.js';
 import type { Gym } from '../db/repositories/gym-repository.js';
+import { geodataJson } from '../domain/geo/google.js';
 import { MAX_SEARCH_WORDS } from '../domain/search/text.js';
 import type { WayspotRow } from '../domain/wayspots/kept.js';
 import { clearOf, PlaceFinder, placeValue, readPlaceValue } from './place-finder.js';
@@ -41,6 +42,33 @@ async function finderWith(extra: { rows?: WayspotRow[]; gyms?: Gym[] } = {}) {
 }
 
 describe('PlaceFinder', () => {
+  it("gives a Power Spot's looked-up address, as every reader of the kept Wayspots does", async () => {
+    const spot = keptRow(2, {
+      title: 'Library Garden',
+      kind: 'powerspot',
+      lat: 40.0502,
+      lon: -80.0502,
+      address: null,
+    });
+    const geodata = geodataJson({ formatted_address: '600 Grant St, Pittsburgh, PA 15219, USA' });
+    const { wayspots } = await wayspotsWith([spot], regionsFixture(), {
+      lookedUp: (id) =>
+        id === spot.id ? { lat: spot.lat, lon: spot.lon, geodata, askedAt: 1 } : undefined,
+    });
+    const finder = new PlaceFinder({
+      gyms: gymsFixture(),
+      wayspots,
+      regions: regionsFixture(),
+      log: createTestLogger().log,
+    });
+    await finder.built();
+    const [choice] = finder.find(1, undefined, 'Library Garden');
+    expect(choice).toMatchObject({
+      title: 'Library Garden',
+      address: '600 Grant St, Pittsburgh, PA 15219, USA',
+    });
+  });
+
   it('goes by the first words of a long text, and fits them to the name', async () => {
     const title = Array.from({ length: MAX_SEARCH_WORDS }, (_, i) => `w${i}`).join(' ');
     const { finder } = await finderWith({

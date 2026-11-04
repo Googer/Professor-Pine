@@ -156,6 +156,7 @@ import type { MaxBossProvider } from './max-boss-service.js';
 import type { RaidBossProvider } from './raid-boss-service.js';
 import type { RaidEventProvider } from './raid-event-service.js';
 import type { WayspotProvider } from './wayspot-directory.js';
+import type { AddressedWayspot } from '../domain/geo/spot-address.js';
 import {
   gymRegionsInGuild,
   regionsAtPoint,
@@ -714,7 +715,7 @@ export interface PartyServiceOptions {
    * (`shownPlace`), and is shown anew after every change of what they are. Without them it
    * shows the place as it was named.
    */
-  wayspots?: Pick<WayspotProvider, 'byId' | 'whenChanged' | 'regionsOf' | 'size'>;
+  wayspots?: Pick<WayspotProvider, 'byId' | 'addressOf' | 'whenChanged' | 'regionsOf' | 'size'>;
 }
 
 /**
@@ -1162,7 +1163,12 @@ export class PartyService {
     return {
       ...this.timedView(party),
       gym: (id) => gyms.get(id),
-      ...(wayspots === undefined ? {} : { wayspot: (id: string) => wayspots.byId(id) }),
+      ...(wayspots === undefined
+        ? {}
+        : {
+            wayspot: (id: string) => wayspots.byId(id),
+            addressOf: (wayspot: AddressedWayspot & { id: string }) => wayspots.addressOf(wayspot),
+          }),
     };
   }
 
@@ -1206,7 +1212,11 @@ export class PartyService {
     const { spot } = party.max;
     const { wayspots } = this.options;
     if (spot.kind === 'pin' || wayspots === undefined) return spot;
-    return spotNow(spot, (id) => wayspots.byId(id));
+    return spotNow(
+      spot,
+      (id) => wayspots.byId(id),
+      (wayspot) => wayspots.addressOf(wayspot),
+    );
   }
 
   /**
@@ -1258,7 +1268,12 @@ export class PartyService {
       boss: shownMaxBoss(party, catalogue, maxBosses.bosses(), gameData.icons),
       catalogue,
       emoji: this.emoji(party),
-      ...(wayspots === undefined ? {} : { wayspot: (id: string) => wayspots.byId(id) }),
+      ...(wayspots === undefined
+        ? {}
+        : {
+            wayspot: (id: string) => wayspots.byId(id),
+            addressOf: (wayspot: AddressedWayspot & { id: string }) => wayspots.addressOf(wayspot),
+          }),
       ...this.lobbiesOf(party),
     };
   }

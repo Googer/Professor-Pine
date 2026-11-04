@@ -1,4 +1,4 @@
-import { wayspotAddressLine } from '../domain/geo/wayfarer-address.js';
+import type { AddressedWayspot } from '../domain/geo/spot-address.js';
 import type { StopRef } from '../domain/party/stops.js';
 import type { Wayspot } from '../domain/wayspots/kept.js';
 import { wayspotPicture } from '../domain/wayspots/picture.js';
@@ -30,7 +30,7 @@ export interface PostSpot {
   title: string;
   lat: number;
   lon: number;
-  /** One line (`wayspotAddressLine`); empty for none. */
+  /** One line (`WayspotProvider.addressOf`); empty for none. */
   address: string;
   image: string | null;
 }
@@ -48,7 +48,10 @@ export type StopLookup = (ref: StopRef) => PostStop;
  */
 export function stopsFrom(
   gyms: { get(id: number): PostGym | undefined },
-  wayspots?: { byId(id: string): Wayspot | undefined },
+  wayspots?: {
+    byId(id: string): Wayspot | undefined;
+    addressOf(wayspot: AddressedWayspot & { id: string }): string;
+  },
 ): StopLookup {
   return (ref) => {
     if (ref.kind === 'gym') return { kind: 'gym', gym: gyms.get(ref.id) };
@@ -56,12 +59,12 @@ export function stopsFrom(
     return {
       kind: 'powerspot',
       spot:
-        kept?.kind === 'powerspot'
+        wayspots && kept?.kind === 'powerspot'
           ? {
               title: kept.title,
               lat: kept.lat,
               lon: kept.lon,
-              address: wayspotAddressLine(kept.address),
+              address: wayspots.addressOf(kept),
               image: kept.image,
             }
           : undefined,

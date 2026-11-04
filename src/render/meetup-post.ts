@@ -20,7 +20,7 @@ import {
 } from './party-post.js';
 import { addressLine } from '../domain/geo/google.js';
 import { shownPlace, type KnownPlace } from '../domain/geo/place.js';
-import { wayspotAddressLine } from '../domain/geo/wayfarer-address.js';
+import { wayspotAddress, type AddressedWayspot } from '../domain/geo/spot-address.js';
 import { wayspotPicture } from '../domain/wayspots/picture.js';
 import type { Wayspot } from '../domain/wayspots/kept.js';
 import { PLACE_KIND_WORDS, pinLine } from './place.js';
@@ -45,6 +45,11 @@ import { describeTimes, shownAsOver, TIMED_COLOUR, type TimedPostView } from './
 export interface MeetupPostView extends TimedPostView<MeetupParty> {
   gym?: (id: number) => PostGym | undefined;
   wayspot?: (id: string) => Wayspot | undefined;
+  /**
+   * A kept Wayspot's address line (`WayspotProvider.addressOf`: a Power Spot's looked-up one too);
+   * without it, Wayfarer's alone (`wayspotAddress`).
+   */
+  addressOf?: (wayspot: AddressedWayspot & { id: string }) => string;
 }
 
 /** A known place as it is shown: the place, and the notice of a gym as it is now. */
@@ -96,7 +101,7 @@ function placeNow(view: MeetupPostView, snapshot: KnownPlace): ShownPlace {
           title: wayspot.title.trim() === '' ? snapshot.title : wayspot.title,
           lat: wayspot.lat,
           lon: wayspot.lon,
-          address: wayspotAddressLine(wayspot.address),
+          address: view.addressOf?.(wayspot) ?? wayspotAddress(wayspot, undefined),
           image: wayspot.image,
         },
         notice: null,

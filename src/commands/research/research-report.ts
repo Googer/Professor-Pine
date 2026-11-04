@@ -1,5 +1,4 @@
 import type { AppContext } from '../../app-context.js';
-import { wayspotAddressLine } from '../../domain/geo/wayfarer-address.js';
 import { cutWhole } from '../../domain/geo/place.js';
 import type {
   Reporter,
@@ -101,7 +100,7 @@ export async function stopsByKey(
     ) {
       return [];
     }
-    const address = wayspotAddressLine(wayspot.address);
+    const address = ctx.wayspots.addressOf(wayspot);
     return [
       {
         key,

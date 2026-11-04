@@ -1,4 +1,5 @@
 import type { WayspotRow } from '../../src/domain/wayspots/kept.js';
+import type { WayspotAddresses } from '../../src/services/wayspot-addresses.js';
 import { parseBigEventFeed, parseMaxEventFeed } from '../../src/domain/time/max-events.js';
 import { at, TEST_SPOT } from './parties.js';
 import { MAX_ZONE } from './max-bosses.js';
@@ -32,11 +33,13 @@ export const SPOT_ROW = keptRow(1, {
  * bosses of the recorded feed, the recorded max and big events, the kept power spot `SPOT_ROW`
  * (and `rows` beside it), the members' settings of `made.userSettings`, in a context
  * (`createTestContext`) whose place search is built. The services read `Date.now()`: fake `Date`
- * to the day of the test (`MAX_THURSDAY`) before calling it.
+ * to the day of the test (`MAX_THURSDAY`) before calling it. `addresses`: the Power Spots' addresses
+ * the map asks for (`wayspotAddressesWith`), read by the kept Wayspots; none by default.
  */
 export async function maxReportingWith(
   safety: SafetyOptions = { moderation: null },
   rows: readonly WayspotRow[] = [],
+  addresses?: WayspotAddresses,
 ) {
   const made = await reportsWith(safety);
   // The services read the faked Date, as the bot's read the clock (a battle is made when reported).
@@ -45,7 +48,7 @@ export async function maxReportingWith(
   await bosses.service.sync();
   // The service's clock is the test's (Date is faked to the day of each test).
   bosses.state.now = Date.now();
-  const { wayspots } = await wayspotsWith([SPOT_ROW, ...rows]);
+  const { wayspots } = await wayspotsWith([SPOT_ROW, ...rows], undefined, addresses);
   const feed = readMaxEventFeed();
   const { ctx, entries } = createTestContext({
     partyService: made.service,
@@ -59,6 +62,7 @@ export async function maxReportingWith(
       big: parseBigEventFeed(feed, MAX_ZONE),
     }),
     wayspots,
+    ...(addresses === undefined ? {} : { wayspotAddresses: addresses }),
     users: new MemoryUsers(made.userSettings),
     maxBattles: made.maxes,
     meetupSafety: made.safety,

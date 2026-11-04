@@ -18,6 +18,15 @@ export interface PowerSpotsView {
   more: boolean;
 }
 
+/**
+ * A Power Spot's address (`GET /s/<guild>/api/powerspots/<id>/address`; design
+ * `2026-11-04-power-spot-address-design.md`): its line as every reader words it, looked up of
+ * Google when none was known and the budget allowed; null for none.
+ */
+export interface SpotAddressView {
+  address: string | null;
+}
+
 /** As many power spots as one answer of `/api/powerspots` gives (as `MAX_MAP_STOPS`). */
 export const MAX_MAP_SPOTS = 300;
 

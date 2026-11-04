@@ -1,4 +1,4 @@
-import type { FastifyInstance, FastifyReply } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppContext } from '../app-context.js';
 import {
@@ -41,6 +41,7 @@ import {
   type MaxAnswer,
   type MaxNeed,
   type PowerSpotsView,
+  type SpotAddressView,
 } from '../domain/web/max-data.js';
 import type { MapMax } from '../domain/web/party-data.js';
 import { mapParty } from '../domain/web/party-view.js';
@@ -77,7 +78,7 @@ import { placesFor, placesQuerySchema } from './wayspot-box.js';
 export type MaxWebContext = MaxReading &
   MaxReporting &
   SpotReading &
-  Pick<AppContext, 'meetupSafety' | 'regions' | 'parties'>;
+  Pick<AppContext, 'meetupSafety' | 'regions' | 'parties' | 'wayspotAddresses'>;
 
 /** What the max battles of the live map need beyond the parties' own (`PartyWebDeps`). */
 export interface MaxWebDeps {
@@ -91,6 +92,12 @@ const OPTIONS_PER_MINUTE = 30;
 
 /** The questions for the power spots in a box one address may ask in a minute (each pan). */
 const SPOTS_PER_MINUTE = 120;
+
+/** The longest Power Spot id a question of its address may name (as a report's `spot`). */
+const MAX_SPOT_ID = 60;
+
+/** A question of a Power Spot's address: the server and the spot's Wayfarer id. */
+type SpotAddressRequest = FastifyRequest<{ Params: { guild: string; spot: string } }>;
 
 /** The reports of max battles one address may send in a minute, whoever sends them. */
 export const MAX_WRITES_PER_ADDRESS_MINUTE = 30;
@@ -305,6 +312,39 @@ export function maxRoutes(scope: FastifyInstance, deps: WebDeps): void {
       const { found, more } = placesFor(ctx, row, box.data, 'powerspot', MAX_MAP_SPOTS);
       const view: PowerSpotsView = { spots: found, more };
       return view;
+    },
+  );
+
+  // A Power Spot's address (design `2026-11-04-power-spot-address-design.md`), asked as the page
+  // opens its popup: members only, limited per address as the list of the Power Spots is (its
+  // own count); a titled Power Spot of a region of this server, else 404; its address as every
+  // reader words it, looked up of Google when none is known and the budget and the member's day
+  // leave room (`WayspotAddresses.ask`), else null.
+  const addressLimiter = new RateLimiter({ uses: SPOTS_PER_MINUTE, perMs: 60_000 });
+  scope.get(
+    '/api/powerspots/:spot/address',
+    { onRequest: limitedPerAddress(addressLimiter, { now: deps.now }) },
+    async (request: SpotAddressRequest, reply) => {
+      void reply.header('cache-control', 'private, no-store');
+      const session = await sessions.of(request, reply);
+      if (!session) return sendFailure(request, reply, 401);
+      const { guild, spot: id } = request.params;
+      const refused = await memberOrFailure(deps, request, reply, guild, session.userId);
+      if (refused) return refused;
+      const row = await parties.guilds.idFor(guild);
+      const spot = id.length > MAX_SPOT_ID ? undefined : ctx.wayspots.byId(id);
+      const ours =
+        row !== undefined &&
+        spot?.kind === 'powerspot' &&
+        spot.title.trim() !== '' &&
+        ctx.wayspots.regionsOf(spot.id).some((channel) => {
+          return ctx.regions.byChannel(channel)?.guildId === row;
+        });
+      if (!spot || !ours) return sendFailure(request, reply, 404);
+      const answer: SpotAddressView = {
+        address: await ctx.wayspotAddresses.ask(spot, { guildId: guild, userId: session.userId }),
+      };
+      return answer;
     },
   );
 

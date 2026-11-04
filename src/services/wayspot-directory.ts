@@ -4,6 +4,11 @@ import { metresBetween } from '@pine/wayspot-core/distance';
 import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import { containment } from '@pine/wayspot-core/region-membership';
 import type { WayspotKind } from '@pine/wayspot-core/export-file';
+import {
+  wayspotAddress,
+  type AddressedWayspot,
+  type LookedUpAddress,
+} from '../domain/geo/spot-address.js';
 import type { PineStop } from '../domain/stops/pine-stop.js';
 import { pineStopKey } from '../domain/stops/report.js';
 import type { Wayspot } from '../domain/wayspots/kept.js';
@@ -42,6 +47,11 @@ export interface WayspotProvider {
   /** Calls `listener` after every change of `contentGeneration` (it should not throw). */
   whenChanged(listener: () => void): void;
   byId(id: string): Wayspot | undefined;
+  /**
+   * A Wayspot's address as one line for every reader (`wayspotAddress`): Wayfarer's where it
+   * gives one, else a Power Spot's looked-up address while it is where it was asked. Empty for none.
+   */
+  addressOf(wayspot: AddressedWayspot & { id: string }): string;
   /** Every kept Wayspot, in no particular order (a new list). */
   all(): Wayspot[];
   /** The Wayspots in the region of this channel (a new list). */
@@ -60,6 +70,11 @@ export interface WayspotDirectoryOptions {
    */
   regions: { all(): readonly Region[]; readonly generation?: number };
   log: Logger;
+  /**
+   * The addresses Google gave for Power Spots the map asked about (`WayspotAddresses`), by
+   * Wayfarer id; without it a Wayspot has Wayfarer's address alone.
+   */
+  addresses?: { lookedUp(id: string): LookedUpAddress | undefined };
 }
 
 const METRES_PER_DEGREE = (6_371_000 * Math.PI) / 180;
@@ -207,6 +222,10 @@ export class WayspotDirectory implements WayspotProvider {
 
   byId(id: string): Wayspot | undefined {
     return this.rows.get(id) ?? this.pine.get(id)?.wayspot;
+  }
+
+  addressOf(wayspot: AddressedWayspot & { id: string }): string {
+    return wayspotAddress(wayspot, this.options.addresses?.lookedUp(wayspot.id));
   }
 
   /** Every kept Wayspot and stop of Pine's own. */

@@ -27,11 +27,13 @@ export function noWayspots(): WayspotDirectory {
 /**
  * A directory of these kept Wayspots over the invented regions, loaded (seen at 1,000): pass it
  * as `wayspots` to `createTestContext`. `storage` holds their rows. `regions`: other regions
- * (a `RegionDirectory` whose loads change them).
+ * (a `RegionDirectory` whose loads change them). `addresses`: the Power Spots' looked-up
+ * addresses (`wayspotAddressesWith`'s; none by default).
  */
 export async function wayspotsWith(
   rows: readonly WayspotRow[],
   regions: WayspotDirectoryOptions['regions'] = regionsFixture(),
+  addresses?: WayspotDirectoryOptions['addresses'],
 ) {
   const storage = new MemoryWayspots();
   await storage.saveFromImport({ upsert: rows, remove: [] }, 1_000);
@@ -39,6 +41,7 @@ export async function wayspotsWith(
     wayspots: storage,
     regions,
     log: createTestLogger().log,
+    ...(addresses === undefined ? {} : { addresses }),
   });
   await wayspots.load();
   return { storage, wayspots };

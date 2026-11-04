@@ -1,5 +1,5 @@
 import { shownPlace, type KnownPlace } from '../domain/geo/place.js';
-import { wayspotAddressLine } from '../domain/geo/wayfarer-address.js';
+import { wayspotAddress, type AddressedWayspot } from '../domain/geo/spot-address.js';
 import { maxEnded, maxSpotName, UNLISTED_SPOT } from '../domain/party/max.js';
 import { memberOf, type MaxParty, type PowerSpot } from '../domain/party/party.js';
 import type { PokemonCatalogue } from '../domain/pogo/catalogue.js';
@@ -58,6 +58,11 @@ export interface MaxPostView extends TrainersView {
    * the same place (`shownPlace`), else as it was named. Without it, as it was named.
    */
   wayspot?: (id: string) => WayspotRow | undefined;
+  /**
+   * A kept Wayspot's address line (`WayspotProvider.addressOf`: a Power Spot's looked-up one too);
+   * without it, Wayfarer's alone (`wayspotAddress`).
+   */
+  addressOf?: (wayspot: AddressedWayspot & { id: string }) => string;
   /** The sentence of its last showing when staff closed it (`RaidPostView.closed`). */
   closed?: string;
 }
@@ -96,6 +101,7 @@ function shownOver(view: MaxPostView): boolean {
 export function spotNow(
   spot: PowerSpot,
   wayspot: ((id: string) => WayspotRow | undefined) | undefined,
+  addressOf?: (wayspot: AddressedWayspot & { id: string }) => string,
 ): PowerSpot {
   const kept = wayspot?.(spot.id);
   if (!kept) return spot;
@@ -106,7 +112,7 @@ export function spotNow(
     title: kept.title.trim() === '' ? spot.title : kept.title,
     lat: kept.lat,
     lon: kept.lon,
-    address: wayspotAddressLine(kept.address),
+    address: addressOf?.(kept) ?? wayspotAddress(kept, undefined),
     image: kept.image,
   };
   const shown = shownPlace(spot, now);
@@ -122,7 +128,7 @@ export function spotNow(
 export function maxLook(view: MaxPostView): MaxLook {
   const { spot } = view.party.max;
   const picture = view.boss.image;
-  const shown = spot.kind === 'pin' ? undefined : spotNow(spot, view.wayspot);
+  const shown = spot.kind === 'pin' ? undefined : spotNow(spot, view.wayspot, view.addressOf);
   return {
     ...(picture === undefined ? {} : { picture }),
     boss: view.boss.name,
@@ -190,7 +196,7 @@ function maxWhere(view: MaxPostView, fit: Fit): PostBlock {
       content: `${WHERE_HEADING}\n📍 **${UNLISTED_SPOT}** · ${mapMarkdown(spot)}`,
     };
   }
-  const shown = spotNow(spot, view.wayspot);
+  const shown = spotNow(spot, view.wayspot, view.addressOf);
   return placeSection(fit, {
     heading: WHERE_HEADING,
     line: (address) =>
@@ -207,7 +213,7 @@ function maxWhere(view: MaxPostView, fit: Fit): PostBlock {
 function briefSpot(view: MaxPostView): { line: string; map: string } {
   const { spot } = view.party.max;
   if (spot.kind === 'pin') return { line: `📍 **${UNLISTED_SPOT}**`, map: gymMapsUrl(spot) };
-  const shown = spotNow(spot, view.wayspot);
+  const shown = spotNow(spot, view.wayspot, view.addressOf);
   const address = shown.address ? plainNoLinks(shown.address) : '';
   return {
     line: [spotWords(shown, plainNoLinks), ...(address === '' ? [] : [address])].join(' · '),
