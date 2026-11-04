@@ -8,7 +8,7 @@ import {
 import { keptRow, wayspotId } from '../../test/support/wayspot-cases.js';
 import type { GoogleBudget } from '../domain/geo/google-line.js';
 import { NONE_FOUND_AGAIN_MS } from '../domain/geo/spot-address.js';
-import { MemoryGoogleUse } from './google-use.js';
+import { MemoryGoogleUse, type GoogleUse } from './google-use.js';
 import {
   MEMBER_LOOKUPS_PER_DAY,
   MemoryWayspotAddresses,
@@ -181,6 +181,62 @@ describe("a Power Spot's address asked for the map (WayspotAddresses)", () => {
     expect(made.geo.questions('geocode')).toHaveLength(1);
     expect(await made.addresses.ask(spot(7), BOB)).toBeNull();
     expect(made.geo.questions('geocode')).toHaveLength(1);
+  });
+
+  // Review: a read of the month that begins before an earlier question's count is written, and
+  // ends after it, must not miss that question.
+  it('never passes the reserve when a read of the month straddles the count of a question', async () => {
+    const memory = new MemoryGoogleUse();
+    for (let n = 0; n < 9; n++) await memory.use('2026-11-02', 'geocode');
+    /** A's count, held once it is on its way; the next read of the month, held once its snapshot is taken. */
+    let writeOnItsWay!: () => void;
+    const writing = new Promise<void>((resolve) => {
+      writeOnItsWay = resolve;
+    });
+    let landWrite!: () => void;
+    const writeHeld = new Promise<void>((resolve) => {
+      landWrite = resolve;
+    });
+    let readHeld: Promise<void> | undefined;
+    const use: GoogleUse = {
+      use: async (day, counted) => {
+        writeOnItsWay();
+        await writeHeld;
+        await memory.use(day, counted);
+      },
+      usedOn: async (days) => {
+        const snapshot = await memory.usedOn(days);
+        const held = readHeld;
+        readHeld = undefined;
+        await held;
+        return snapshot;
+      },
+    };
+    const geo = new FakeGeoGateway();
+    const addresses = new WayspotAddresses({
+      storage: new MemoryWayspotAddresses(),
+      geo,
+      use,
+      // One geocode left above the reserve.
+      budget: { ...BUDGET, geocodes: 12, geocodesReserve: 2 },
+      log: createTestLogger().log,
+      now: () => NOON,
+    });
+    await addresses.load();
+    const a = addresses.ask(spot(1), ALICE);
+    await writing;
+    // C's read of the month starts while A's count is on its way, and ends after it landed.
+    let endRead!: () => void;
+    readHeld = new Promise<void>((resolve) => {
+      endRead = resolve;
+    });
+    const c = addresses.ask(spot(6), BOB);
+    landWrite();
+    await a;
+    endRead();
+    expect(await c).toBeNull();
+    expect(geo.questions('geocode')).toHaveLength(1);
+    expect(memory.total('geocode')).toBe(10);
   });
 
   it('asks at most 100 new addresses a member a Pacific day; kept ones still show', async () => {

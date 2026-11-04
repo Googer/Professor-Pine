@@ -84,6 +84,8 @@ export class WayspotAddresses {
   private readonly members = new BoundedMap<string, { day: string; count: number }>(
     MEMBERS_COUNTED,
   );
+  /** The month's reads with their takes, and the counts with their releases, one at a time. */
+  private gate: Promise<void> = Promise.resolve();
   /** Geocodes the budget let through that are not counted yet. */
   private onTheirWay = 0;
   private readonly now: () => number;
@@ -142,20 +144,28 @@ export class WayspotAddresses {
     let reached = false;
     let onItsWay = false;
     try {
-      // The questions on their way and not counted yet count as asked.
-      const used = await usedThisMonth(this.options.use, now);
-      const allowance = lineAllowance(
-        now,
-        { ...used, monthGeocodes: used.monthGeocodes + this.onTheirWay },
-        this.options.budget,
-      );
-      if (!allowance.spotAddress) return null;
-      this.onTheirWay += 1;
+      // The month read, the check and the take run in one line with the counts written and the
+      // questions let go (`gated`): a read never begins before a count and ends after it. The
+      // questions on their way and not counted yet count as asked.
+      const taken = await this.gated(async () => {
+        const used = await usedThisMonth(this.options.use, now);
+        const allowance = lineAllowance(
+          now,
+          { ...used, monthGeocodes: used.monthGeocodes + this.onTheirWay },
+          this.options.budget,
+        );
+        if (!allowance.spotAddress) return false;
+        this.onTheirWay += 1;
+        return true;
+      });
+      if (!taken) return null;
       onItsWay = true;
       const answer = await geo.reverseGeocode({ lat: spot.lat, lon: spot.lon });
       reached = answer.ok || answer.reason === 'failed';
-      if (reached) await this.count();
-      this.onTheirWay -= 1;
+      await this.gated(async () => {
+        if (reached) await this.count();
+        this.onTheirWay -= 1;
+      });
       onItsWay = false;
       if (!answer.ok) {
         if (answer.reason === 'failed') this.aside.set(spot.id, googleMonth(this.now()).today);
@@ -180,6 +190,16 @@ export class WayspotAddresses {
       if (onItsWay) this.onTheirWay -= 1;
       if (!reached) giveBack();
     }
+  }
+
+  /** Runs `work` after every work given before it has settled: one at a time. */
+  private gated<T>(work: () => Promise<T>): Promise<T> {
+    const run = this.gate.then(work);
+    this.gate = run.then(
+      () => undefined,
+      () => undefined,
+    );
+    return run;
   }
 
   /** Counts a geocode that reached Google on its Pacific day. Never rejects. */
