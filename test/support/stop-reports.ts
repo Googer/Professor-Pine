@@ -1,12 +1,27 @@
 import {
+  decisionOf,
   newerThan,
+  savedAt,
+  type Removal,
+  type ReportPlace,
+  type SaveOptions,
   type SaveOutcome,
   type SavedStopReport,
+  type StandingDecision,
   type StandingVerdict,
   type StopReportStorage,
 } from '../../src/db/repositories/stop-report-repository.js';
 import type { TaskReward } from '../../src/domain/research/task.js';
 import { rewardHash } from '../../src/domain/research/versions.js';
+import {
+  confirmedWith,
+  detailWithoutMembers,
+  endingOfRow,
+  reportCell,
+  takeBackEnding,
+  type ReportEnding,
+  type StopReportRecord,
+} from '../../src/domain/stops/report-history.js';
 import type { NewStopReport, StopReport } from '../../src/domain/stops/report.js';
 import { catalogueFixture } from './game-data.js';
 
@@ -21,14 +36,31 @@ export function fixtureRewardHash(reward: TaskReward): string {
 /** Methods a test can make fail (`failing`). */
 type Method = keyof StopReportStorage;
 
+/** A report that goes, and how its record ends. */
+interface Ended {
+  row: StopReport;
+  ending: ReportEnding;
+  endedAt: number;
+  confirmedBy?: string;
+}
+
 /**
  * The reports at stops in memory (`StopReportStorage`), for tests: the twin of
  * `StopReportRepository`, running `stopReportCases` as it does. `rows` are the kept reports by
- * id; `failing` makes a method reject with the error given.
+ * id; `failing` makes a method reject with the error given. Plan 8H-2: `places` and `confirmedBy`
+ * are what the live rows keep beside the report (by id), `records` the history of the reports
+ * that ended, `optIn` a member's history opt-in, and `historyFailing` makes the records of a
+ * save or a take-back fail (logged and lost there, review H11) and the sweep's (its rows kept,
+ * H10, and nothing forgotten).
  */
 export class MemoryStopReports implements StopReportStorage {
   readonly rows = new Map<number, StopReport>();
   readonly failing = new Map<Method, Error>();
+  readonly places = new Map<number, ReportPlace>();
+  readonly confirmedBy = new Map<number, readonly string[]>();
+  readonly records: StopReportRecord[] = [];
+  historyFailing: Error | undefined;
+  private readonly optedIn = new Set<string>();
   private nextId = 1;
 
   private fail(method: Method): void {
@@ -36,17 +68,35 @@ export class MemoryStopReports implements StopReportStorage {
     if (err) throw err;
   }
 
-  async save(report: NewStopReport): Promise<SavedStopReport> {
+  /** Opts a member in to the history of a server (`HistoryOptIn`). */
+  optIn(serverId: string, memberId: string): void {
+    this.optedIn.add(`${serverId}:${memberId}`);
+  }
+
+  /** Opts a member out, taking their id out of the server's records, as `optOut` does. */
+  optOut(serverId: string, memberId: string): number {
+    this.optedIn.delete(`${serverId}:${memberId}`);
+    let forgotten = 0;
+    for (const record of this.records) {
+      if (record.serverId === serverId && record.reporterId === memberId) {
+        record.reporterId = null;
+        forgotten += 1;
+      }
+    }
+    return forgotten;
+  }
+
+  async save(report: NewStopReport, options: SaveOptions = {}): Promise<SavedStopReport> {
     this.fail('save');
-    const outcome = await this.saveUnless(report, () => 'replace');
+    const outcome = await this.saveUnless(report, () => 'replace', options);
     if (!outcome.saved) throw new Error('a report kept what stood without being asked to');
     return outcome;
   }
 
   saveUnless(
     report: NewStopReport,
-    decide: (standing: StopReport) => StandingVerdict,
-    standingAt?: number,
+    decide: (standing: StopReport) => StandingVerdict | StandingDecision,
+    { standingAt, place, restoring }: SaveOptions = {},
   ): Promise<SaveOutcome> {
     this.fail('saveUnless');
     const rows = [...this.rows.values()]
@@ -61,27 +111,102 @@ export class MemoryStopReports implements StopReportStorage {
       .sort((a, b) => a.madeAt - b.madeAt || a.id - b.id);
     const live = standingAt === undefined ? [] : rows.filter((row) => row.endsAt > standingAt);
     const before = live.at(-1) ?? rows.find((row) => row.periodKey === report.periodKey);
-    const verdict = before ? decide(structuredClone(before)) : 'replace';
-    if (before && verdict === 'keep') {
+    const decision: StandingDecision = before
+      ? decisionOf(decide(structuredClone(before)))
+      : { verdict: 'replace' };
+    if (before && decision.verdict === 'keep') {
+      if (decision.confirms) this.confirm(before, report.reporter.id);
       return Promise.resolve({ saved: false, standing: structuredClone(before) });
     }
+    const inPlace = before !== undefined && decision.verdict === 'update';
+    // A version strictly newer than the one it changes (F1), its length kept.
+    const written = inPlace ? newerThan(report, before.madeAt) : report;
+    const at = savedAt(written.madeAt, standingAt);
+    // A hideout put back forgets its record and takes its place (P3, P4).
+    const placed = restoring
+      ? (this.forgetRecord(restoring) ??
+        place ?? { cell: reportCell(report.stop), regionIds: null })
+      : place;
+    this.recordBehindSavepoint(
+      rows.map((row) => ({
+        row,
+        ...endingOfRow(row, at, row === before ? decision.ending : undefined),
+        ...(row === before && decision.confirms ? { confirmedBy: report.reporter.id } : {}),
+      })),
+    );
     // A replacement is a report of its own: the replaced one's id is gone for good. Changed in
     // place (plan 8R-4L), the standing one keeps its id.
-    for (const row of rows) this.rows.delete(row.id);
-    const inPlace = before !== undefined && verdict === 'update';
+    for (const row of rows) this.forget(row.id);
     const id = inPlace ? before.id : this.nextId++;
-    // A version strictly newer than the one it changes (F1), its length kept.
-    const kept: StopReport = structuredClone({
-      ...(inPlace ? newerThan(report, before.madeAt) : report),
-      id,
-    });
+    const kept: StopReport = structuredClone({ ...written, id });
     this.rows.set(id, kept);
+    if (placed) this.places.set(id, structuredClone(placed));
     return Promise.resolve({
       saved: true,
       inPlace,
       report: structuredClone(kept),
       replaced: before,
     });
+  }
+
+  private forget(id: number): void {
+    this.rows.delete(id);
+    this.places.delete(id);
+    this.confirmedBy.delete(id);
+  }
+
+  private confirm(row: StopReport, member: string): void {
+    const before = this.confirmedBy.get(row.id) ?? [];
+    this.confirmedBy.set(row.id, confirmedWith(before, member, row.reporter.id));
+  }
+
+  /** The record of a hideout's version put back, forgotten; its place, where it kept one. */
+  private forgetRecord(version: { id: number; madeAt: number }): ReportPlace | undefined {
+    const at = this.records.findIndex(
+      (one) => one.reportId === version.id && one.reportMadeAt === version.madeAt,
+    );
+    if (at < 0) return undefined;
+    const [gone] = this.records.splice(at, 1);
+    return gone?.cell === null || gone === undefined
+      ? undefined
+      : { cell: gone.cell, regionIds: gone.regionIds };
+  }
+
+  /** As the repository writes them: a failure is lost, and the report's write goes on. */
+  private recordBehindSavepoint(ended: readonly Ended[]): void {
+    if (this.historyFailing) return;
+    this.record(ended);
+  }
+
+  private record(ended: readonly Ended[]): void {
+    for (const { row, ending, endedAt, confirmedBy } of ended) {
+      const confirmed = this.confirmedBy.get(row.id) ?? [];
+      const place = this.places.get(row.id);
+      this.records.push(
+        structuredClone({
+          reportId: row.id,
+          reportMadeAt: row.madeAt,
+          serverId: row.serverId,
+          kind: row.kind,
+          periodKey: row.periodKey,
+          subjectKey: row.subjectKey,
+          detail: detailWithoutMembers(row.kind === 'research' ? row.research : row.rocket),
+          cell: place?.cell ?? null,
+          regionIds: place?.regionIds ?? null,
+          madeAt: row.madeAt,
+          endsAt: row.endsAt,
+          endedAt,
+          reporterId: this.optedIn.has(`${row.serverId}:${row.reporter.id}`)
+            ? row.reporter.id
+            : null,
+          confirmations: (confirmedBy === undefined
+            ? confirmed
+            : confirmedWith(confirmed, confirmedBy, row.reporter.id)
+          ).length,
+          ending,
+        }),
+      );
+    }
   }
 
   byId(id: number): Promise<StopReport | undefined> {
@@ -121,25 +246,41 @@ export class MemoryStopReports implements StopReportStorage {
     return Promise.resolve(latest && structuredClone(latest));
   }
 
-  remove(id: number, serverId: string, madeAt?: number): Promise<StopReport | undefined> {
+  remove(
+    id: number,
+    serverId: string,
+    why: Removal,
+    madeAt?: number,
+  ): Promise<StopReport | undefined> {
     this.fail('remove');
     const row = this.rows.get(id);
     if (row?.serverId !== serverId || (madeAt !== undefined && row.madeAt !== madeAt)) {
       return Promise.resolve(undefined);
     }
-    this.rows.delete(id);
+    const ending = takeBackEnding(row.reporter.id, why.by, why.as);
+    this.recordBehindSavepoint([{ row, ...endingOfRow(row, why.at, ending) }]);
+    this.forget(id);
     return Promise.resolve(row);
   }
 
   removeEnded(before: number): Promise<number> {
     this.fail('removeEnded');
-    let gone = 0;
-    for (const [id, row] of this.rows) {
-      if (row.endsAt <= before) {
-        this.rows.delete(id);
-        gone += 1;
-      }
-    }
-    return Promise.resolve(gone);
+    const ended = [...this.rows.values()]
+      .filter((row) => row.endsAt <= before)
+      .sort((a, b) => a.endsAt - b.endsAt || a.id - b.id);
+    if (ended.length === 0) return Promise.resolve(0);
+    // A record that fails keeps the rows for the next sweep (review H10).
+    // Records that fail keep their rows for the next sweep (review H10, P7).
+    if (this.historyFailing) return Promise.resolve(0);
+    this.record(ended.map((row) => ({ row, ...endingOfRow(row, before, undefined) })));
+    for (const row of ended) this.forget(row.id);
+    return Promise.resolve(ended.length);
+  }
+
+  historyOf(serverId: string): Promise<StopReportRecord[]> {
+    this.fail('historyOf');
+    return Promise.resolve(
+      this.records.filter((one) => one.serverId === serverId).map((one) => structuredClone(one)),
+    );
   }
 }

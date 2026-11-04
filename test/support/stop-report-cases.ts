@@ -1,7 +1,17 @@
-import { expect, it } from 'vitest';
-import type { StopReportStorage } from '../../src/db/repositories/stop-report-repository.js';
+import { describe, expect, it } from 'vitest';
+import type {
+  Removal,
+  ReportPlace,
+  StopReportStorage,
+} from '../../src/db/repositories/stop-report-repository.js';
+import type { StopReportRecord } from '../../src/domain/stops/report-history.js';
 import type { RocketCatch } from '../../src/domain/rocket/lineups.js';
-import type { ReportedStop, ResearchReport, RocketReport } from '../../src/domain/stops/report.js';
+import type {
+  ReportedStop,
+  ResearchReport,
+  RocketReport,
+  StopReport,
+} from '../../src/domain/stops/report.js';
 import { taskKeyOf, type TaskReward } from '../../src/domain/research/task.js';
 
 /** When the reports of these cases are made (2026-10-21 10:00 in New York). */
@@ -23,6 +33,12 @@ export const DRATINI: TaskReward = {
   cp: { min: 397, max: 430 },
   image: 'https://cdn.leekduck.com/assets/img/pokemon_icons_crop/pm147.icon.png',
 };
+
+/** Brock taking back his own report at `REPORT_NOW` (plan 8H-2: a removal says why). */
+export const TAKEN_BACK: Removal = { by: REPORTER.id, as: 'member', at: REPORT_NOW };
+
+/** Where a report's stop lies (plan 8H-2): an S2 cell of level 14 and two regions. */
+export const PLACE: ReportPlace = { cell: '8834cf5c', regionIds: [3, 7] };
 
 /** An invented stop: a kept Wayspot by its key (`n` makes another). */
 export function reportedStop(n = 1, overrides: Partial<ReportedStop> = {}): ReportedStop {
@@ -111,9 +127,12 @@ export function rocketReport(
 
 /**
  * What the reports at stops do, run against the repository and its twin in memory alike. `made`
- * gives a fresh, empty store.
+ * gives a fresh, empty store; `optIn` opts a member in to the history of a server (plan 8H-2).
  */
-export function stopReportCases(made: () => Promise<StopReportStorage>): void {
+export function stopReportCases<S extends StopReportStorage>(
+  made: () => Promise<S>,
+  optIn: (store: S, serverId: string, memberId: string) => Promise<void>,
+): void {
   it('keeps a report and reads it back by id and among the standing ones', async () => {
     const store = await made();
     const { report, replaced } = await store.save(researchReport());
@@ -161,7 +180,7 @@ export function stopReportCases(made: () => Promise<StopReportStorage>): void {
     // gone (an old answer's Take back finds nothing).
     expect(second.report.id).not.toBe(first.report.id);
     expect(await store.byId(first.report.id)).toBeUndefined();
-    expect(await store.remove(first.report.id, REPORT_SERVER)).toBeUndefined();
+    expect(await store.remove(first.report.id, REPORT_SERVER, TAKEN_BACK)).toBeUndefined();
     expect(await store.standing(REPORT_SERVER, REPORT_NOW)).toEqual([second.report]);
   });
 
@@ -196,9 +215,9 @@ export function stopReportCases(made: () => Promise<StopReportStorage>): void {
   it('takes back a report of its own server only, once', async () => {
     const store = await made();
     const { report } = await store.save(researchReport());
-    expect(await store.remove(report.id, OTHER_SERVER)).toBeUndefined();
-    expect(await store.remove(report.id, REPORT_SERVER)).toEqual(report);
-    expect(await store.remove(report.id, REPORT_SERVER)).toBeUndefined();
+    expect(await store.remove(report.id, OTHER_SERVER, TAKEN_BACK)).toBeUndefined();
+    expect(await store.remove(report.id, REPORT_SERVER, TAKEN_BACK)).toEqual(report);
+    expect(await store.remove(report.id, REPORT_SERVER, TAKEN_BACK)).toBeUndefined();
     expect(await store.standing(REPORT_SERVER, REPORT_NOW)).toEqual([]);
   });
 
@@ -294,9 +313,9 @@ export function stopReportCases(made: () => Promise<StopReportStorage>): void {
     await store.saveUnless(magikarpLineup(), () => 'update');
     const { id } = notSure.report;
     // The id stays, the version is gone: a Take back of the report as it stood removes nothing.
-    expect(await store.remove(id, REPORT_SERVER, REPORT_NOW)).toBeUndefined();
+    expect(await store.remove(id, REPORT_SERVER, TAKEN_BACK, REPORT_NOW)).toBeUndefined();
     expect(await store.byId(id)).toEqual({ ...magikarpLineup(), id });
-    expect(await store.remove(id, REPORT_SERVER, REPORT_NOW + 60_000)).toEqual({
+    expect(await store.remove(id, REPORT_SERVER, TAKEN_BACK, REPORT_NOW + 60_000)).toEqual({
       ...magikarpLineup(),
       id,
     });
@@ -310,7 +329,9 @@ export function stopReportCases(made: () => Promise<StopReportStorage>): void {
     );
     // Today's grunt at the stop, ended already: it goes, as a replacement takes it.
     const ended = await store.save(rocketReport({ subjectKey: 'grunt:fire', endsAt: REPORT_NOW }));
-    const refined = await store.saveUnless(magikarpLineup(), () => 'update', REPORT_NOW);
+    const refined = await store.saveUnless(magikarpLineup(), () => 'update', {
+      standingAt: REPORT_NOW,
+    });
     const expected = { ...magikarpLineup(), id: yesterday.report.id };
     expect(refined).toEqual({
       saved: true,
@@ -336,14 +357,14 @@ export function stopReportCases(made: () => Promise<StopReportStorage>): void {
         asked.push(standing);
         return 'keep';
       },
-      REPORT_NOW,
+      { standingAt: REPORT_NOW },
     );
     expect(keep).toEqual({ saved: false, standing: yesterday.report });
     expect(asked).toEqual([yesterday.report]);
     const replaced = await store.saveUnless(
       rocketReport({ subjectKey: 'grunt:fire' }),
       () => 'replace',
-      REPORT_NOW,
+      { standingAt: REPORT_NOW },
     );
     expect(replaced).toMatchObject({ saved: true, replaced: yesterday.report });
     // The other kind of report at the stop is left alone.
@@ -434,8 +455,301 @@ export function stopReportCases(made: () => Promise<StopReportStorage>): void {
     );
     expect(await store.latestBy(REPORT_SERVER, REPORTER.id, REPORT_NOW)).toEqual(again);
     // Taken back, a report is no longer his latest.
-    await store.remove(again.id, REPORT_SERVER);
-    await store.remove(grunt.id, REPORT_SERVER);
+    await store.remove(again.id, REPORT_SERVER, TAKEN_BACK);
+    await store.remove(grunt.id, REPORT_SERVER, TAKEN_BACK);
     expect(await store.latestBy(REPORT_SERVER, REPORTER.id, REPORT_NOW)).toEqual(research);
+  });
+
+  describe('the history of reports that end (plan 8H-2)', () => {
+    /** The record of a version as these cases expect it, from the report as kept. */
+    const recordOf = (
+      report: StopReport,
+      overrides: Partial<StopReportRecord> & Pick<StopReportRecord, 'ending' | 'endedAt'>,
+    ): StopReportRecord => ({
+      reportId: report.id,
+      reportMadeAt: report.madeAt,
+      serverId: report.serverId,
+      kind: report.kind,
+      periodKey: report.periodKey,
+      subjectKey: report.subjectKey,
+      detail: report.kind === 'research' ? report.research : report.rocket,
+      cell: PLACE.cell,
+      regionIds: PLACE.regionIds,
+      madeAt: report.madeAt,
+      endsAt: report.endsAt,
+      reporterId: null,
+      confirmations: 0,
+      ...overrides,
+    });
+    const catching = (overrides: Partial<Omit<ResearchReport, 'id'>> = {}) =>
+      researchReport({
+        subjectKey: taskKeyOf('Catch 7 Pokémon'),
+        research: { text: 'Catch 7 Pokémon', category: 'Catching', rewards: [], typed: false },
+        reporter: OTHER_REPORTER,
+        madeAt: REPORT_NOW + 60_000,
+        ...overrides,
+      });
+
+    it('records a report replaced, with its place and how it ended, and no stop or name', async () => {
+      const store = await made();
+      const { report } = await store.save(researchReport(), { place: PLACE });
+      await store.saveUnless(catching(), () => ({ verdict: 'replace', ending: 'contradicted' }), {
+        place: PLACE,
+      });
+      expect(await store.historyOf(REPORT_SERVER)).toEqual([
+        recordOf(report, { ending: 'contradicted', endedAt: REPORT_NOW + 60_000 }),
+      ]);
+      expect(await store.historyOf(OTHER_SERVER)).toEqual([]);
+    });
+
+    it('records a row whose end had passed as stood, ended at its own end (review H3)', async () => {
+      const store = await made();
+      const { report } = await store.save(researchReport({ endsAt: REPORT_NOW + 1_000 }), {
+        place: PLACE,
+      });
+      await store.saveUnless(catching(), () => ({ verdict: 'replace', ending: 'contradicted' }));
+      expect(await store.historyOf(REPORT_SERVER)).toEqual([
+        recordOf(report, { ending: 'stood', endedAt: REPORT_NOW + 1_000 }),
+      ]);
+    });
+
+    it('keeps the reporter’s id only with their opt-in to that server’s history', async () => {
+      const store = await made();
+      await optIn(store, REPORT_SERVER, REPORTER.id);
+      const here = await store.save(researchReport(), { place: PLACE });
+      const there = await store.save(researchReport({ serverId: OTHER_SERVER }), { place: PLACE });
+      await store.save(catching());
+      await store.save(catching({ serverId: OTHER_SERVER }));
+      expect(await store.historyOf(REPORT_SERVER)).toEqual([
+        recordOf(here.report, {
+          ending: 'churned',
+          endedAt: REPORT_NOW + 60_000,
+          reporterId: REPORTER.id,
+        }),
+      ]);
+      expect(await store.historyOf(OTHER_SERVER)).toEqual([
+        recordOf(there.report, { ending: 'churned', endedAt: REPORT_NOW + 60_000 }),
+      ]);
+    });
+
+    it('counts each other member who confirmed the version once, its own reporter never (review H6)', async () => {
+      const store = await made();
+      const { report } = await store.save(researchReport(), { place: PLACE });
+      const by = (reporter: { id: string; name: string }) =>
+        store.saveUnless(researchReport({ reporter, madeAt: REPORT_NOW + 5_000 }), () => ({
+          verdict: 'keep',
+          confirms: true,
+        }));
+      // Misty twice, Brock himself, then Gary narrows it: two members confirmed it.
+      for (const reporter of [OTHER_REPORTER, OTHER_REPORTER, REPORTER]) await by(reporter);
+      // What a confirmation writes keeps the version as it was.
+      expect(await store.byId(report.id)).toEqual(report);
+      await store.saveUnless(
+        catching({ reporter: { id: '200000000000000033', name: 'Gary' } }),
+        () => ({ verdict: 'replace', ending: 'narrowed', confirms: true }),
+      );
+      expect(await store.historyOf(REPORT_SERVER)).toEqual([
+        recordOf(report, { ending: 'narrowed', endedAt: REPORT_NOW + 60_000, confirmations: 2 }),
+      ]);
+    });
+
+    it('records the version a refine in place ends, then the refined one as its own (review H15)', async () => {
+      const store = await made();
+      const { report } = await store.save(rocketReport(), { place: PLACE });
+      await store.saveUnless(rocketReport({ reporter: OTHER_REPORTER }), () => ({
+        verdict: 'keep',
+        confirms: true,
+      }));
+      const refined = await store.saveUnless(
+        magikarpLineup(),
+        () => ({ verdict: 'update', ending: 'refined' }),
+        { place: PLACE },
+      );
+      if (!refined.saved) throw new Error('the refine was kept out');
+      const first = recordOf(report, {
+        ending: 'refined',
+        endedAt: REPORT_NOW + 60_000,
+        confirmations: 1,
+      });
+      expect(await store.historyOf(REPORT_SERVER)).toEqual([first]);
+      // The refined version is a record of its own once it ends, its confirmations its own.
+      expect(await store.removeEnded(REPORT_NOW + 31 * 60_000)).toBe(1);
+      expect(await store.historyOf(REPORT_SERVER)).toEqual([
+        first,
+        recordOf(refined.report, { ending: 'stood', endedAt: REPORT_NOW + 31 * 60_000 }),
+      ]);
+    });
+
+    it('churns another row of the stop that still stood, and records an ended one as stood (fix A2)', async () => {
+      const store = await made();
+      const yesterday = await store.save(
+        rocketReport({ periodKey: 'day:2026-10-20', endsAt: REPORT_NOW + 60_000 }),
+        { place: PLACE },
+      );
+      const today = await store.save(
+        rocketReport({ subjectKey: 'grunt:fire', madeAt: REPORT_NOW + 1_000 }),
+        { place: PLACE },
+      );
+      const arlo = rocketReport({
+        subjectKey: 'leader:arlo',
+        rocket: { name: 'Arlo', catches: [] },
+        endsAt: REPORT_MIDNIGHT,
+        reporter: OTHER_REPORTER,
+        madeAt: REPORT_NOW + 2_000,
+      });
+      await store.saveUnless(arlo, () => ({ verdict: 'replace', ending: 'churned' }), {
+        standingAt: REPORT_NOW + 2_000,
+      });
+      expect(await store.historyOf(REPORT_SERVER)).toEqual([
+        recordOf(yesterday.report, { ending: 'churned', endedAt: REPORT_NOW + 2_000 }),
+        recordOf(today.report, { ending: 'churned', endedAt: REPORT_NOW + 2_000 }),
+      ]);
+    });
+
+    it('records a report taken back as its removal says (review H8)', async () => {
+      const store = await made();
+      const own = await store.save(researchReport(), { place: PLACE });
+      const misty = await store.save(rocketReport({ reporter: OTHER_REPORTER }), { place: PLACE });
+      const grunt = await store.save(rocketReport({ stop: reportedStop(2) }), { place: PLACE });
+      const later = REPORT_NOW + 120_000;
+      await store.remove(own.report.id, REPORT_SERVER, {
+        by: REPORTER.id,
+        as: 'member',
+        at: later,
+      });
+      await store.remove(misty.report.id, REPORT_SERVER, {
+        by: REPORTER.id,
+        as: 'staff',
+        at: later,
+      });
+      // Of another version than the one kept: nothing is taken back, nothing recorded.
+      await store.remove(
+        grunt.report.id,
+        REPORT_SERVER,
+        { by: REPORTER.id, as: 'unposted', at: later },
+        REPORT_NOW - 1,
+      );
+      await store.remove(
+        grunt.report.id,
+        REPORT_SERVER,
+        { by: REPORTER.id, as: 'unposted', at: later },
+        REPORT_NOW,
+      );
+      expect(await store.historyOf(REPORT_SERVER)).toEqual([
+        recordOf(own.report, { ending: 'withdrawn', endedAt: later }),
+        recordOf(misty.report, { ending: 'staff', endedAt: later }),
+        recordOf(grunt.report, { ending: 'unposted', endedAt: later }),
+      ]);
+    });
+
+    it('records what the sweep forgets as stood, without the members its text names', async () => {
+      const store = await made();
+      await optIn(store, REPORT_SERVER, OTHER_REPORTER.id);
+      const text = `Trade with <@${OTHER_REPORTER.id}>`;
+      const typed = await store.save(
+        researchReport({
+          subjectKey: `typed:${taskKeyOf(text)}`,
+          research: { text, category: null, rewards: [], typed: true },
+        }),
+      );
+      const grunt = await store.save(rocketReport({ reporter: OTHER_REPORTER }), {
+        place: PLACE,
+      });
+      expect(await store.removeEnded(REPORT_NOW + 30 * 60_000)).toBe(1);
+      expect(await store.removeEnded(REPORT_MIDNIGHT)).toBe(1);
+      expect(await store.historyOf(REPORT_SERVER)).toEqual([
+        recordOf(grunt.report, {
+          ending: 'stood',
+          endedAt: REPORT_NOW + 30 * 60_000,
+          reporterId: OTHER_REPORTER.id,
+        }),
+        // Saved without its place (a row of before): none.
+        recordOf(typed.report, {
+          ending: 'stood',
+          endedAt: REPORT_MIDNIGHT,
+          cell: null,
+          regionIds: null,
+          detail: { text: 'Trade with @member', category: null, rewards: [], typed: true },
+        }),
+      ]);
+    });
+
+    it('forgets the record of a hideout put back, and records the grunt it replaces (review H4)', async () => {
+      const store = await made();
+      const arlo = rocketReport({
+        subjectKey: 'leader:arlo',
+        rocket: { name: 'Arlo', catches: [] },
+        endsAt: REPORT_MIDNIGHT,
+        reporter: OTHER_REPORTER,
+      });
+      const hideout = await store.save(arlo, { place: PLACE });
+      const grunt = await store.saveUnless(
+        rocketReport({ madeAt: REPORT_NOW + 60_000, endsAt: REPORT_NOW + 31 * 60_000 }),
+        () => ({ verdict: 'replace', ending: 'churned' }),
+        { place: PLACE },
+      );
+      if (!grunt.saved) throw new Error('the grunt was kept out');
+      await store.saveUnless(arlo, () => ({ verdict: 'replace', ending: 'unposted' }), {
+        standingAt: REPORT_NOW + 90_000,
+        place: PLACE,
+        restoring: { id: hideout.report.id, madeAt: hideout.report.madeAt },
+      });
+      expect(await store.historyOf(REPORT_SERVER)).toEqual([
+        recordOf(grunt.report, { ending: 'unposted', endedAt: REPORT_NOW + 90_000 }),
+      ]);
+    });
+
+    it('gives a hideout put back the place of the record it forgets, its confirmations none (P4)', async () => {
+      const store = await made();
+      const arlo = rocketReport({
+        subjectKey: 'leader:arlo',
+        rocket: { name: 'Arlo', catches: [] },
+        endsAt: REPORT_MIDNIGHT,
+        reporter: OTHER_REPORTER,
+      });
+      const hideout = await store.save(arlo, { place: PLACE });
+      await store.saveUnless(
+        rocketReport({ reporter: { id: '200000000000000033', name: 'Gary' } }),
+        () => ({
+          verdict: 'keep',
+          confirms: true,
+        }),
+      );
+      await store.saveUnless(
+        rocketReport({ madeAt: REPORT_NOW + 60_000, endsAt: REPORT_NOW + 31 * 60_000 }),
+        () => ({ verdict: 'replace', ending: 'churned' }),
+      );
+      // Put back without a place of its own: the forgotten record's is taken.
+      const back = await store.saveUnless(
+        arlo,
+        () => ({ verdict: 'replace', ending: 'unposted' }),
+        {
+          standingAt: REPORT_NOW + 90_000,
+          restoring: { id: hideout.report.id, madeAt: hideout.report.madeAt },
+        },
+      );
+      if (!back.saved) throw new Error('the hideout was kept out');
+      await store.removeEnded(REPORT_MIDNIGHT);
+      expect((await store.historyOf(REPORT_SERVER)).at(-1)).toEqual(
+        recordOf(back.report, { ending: 'stood', endedAt: REPORT_MIDNIGHT }),
+      );
+    });
+
+    it('records the ended rows of a sweep in the order they ended, then by id (P6)', async () => {
+      const store = await made();
+      const later = await store.save(researchReport({ stop: reportedStop(1) }));
+      const earlier = await store.save(
+        researchReport({ stop: reportedStop(2), endsAt: REPORT_NOW + 1_000 }),
+      );
+      const alike = await store.save(
+        researchReport({ stop: reportedStop(3), endsAt: REPORT_NOW + 1_000 }),
+      );
+      expect(await store.removeEnded(REPORT_MIDNIGHT)).toBe(3);
+      expect((await store.historyOf(REPORT_SERVER)).map((record) => record.reportId)).toEqual([
+        earlier.report.id,
+        alike.report.id,
+        later.report.id,
+      ]);
+    });
   });
 }

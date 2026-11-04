@@ -515,7 +515,7 @@ export class StopReportService {
         }
       },
       // What still stands at the stop, also from yesterday past midnight (fix A2).
-      madeAt,
+      { standingAt: madeAt },
     );
     if (!outcome.saved) {
       const { standing } = outcome;
@@ -602,7 +602,12 @@ export class StopReportService {
         continue;
       }
       // With its row locked the version is asked again: one refined meanwhile is kept.
-      const gone = await this.options.store.remove(id, serverId, madeAt);
+      const gone = await this.options.store.remove(
+        id,
+        serverId,
+        { by, as: staff ? 'staff' : 'member', at: this.now() },
+        madeAt,
+      );
       if (gone) {
         removed.push(gone);
         if (gone.reporter.id === by) this.forgetReport(serverId, by, gone.madeAt);
@@ -645,7 +650,7 @@ export class StopReportService {
       // The grunt as it was (review L1): one refined in place since keeps its id, not its time.
       (standing) =>
         standing.id === grunt.id && standing.madeAt === grunt.madeAt ? 'replace' : 'keep',
-      now,
+      { standingAt: now },
     );
     if (!outcome.saved || !isRocketReport(outcome.report)) return undefined;
     const { report } = outcome;

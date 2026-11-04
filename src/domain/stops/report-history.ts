@@ -49,6 +49,32 @@ export function reportCell(point: LatLon): string {
 }
 
 /**
+ * A version of a report that ended, as the history keeps it (`StopReportHistory`): the live
+ * row's id and `madeAt` (`reportId`, `reportMadeAt`: a version, review L1), what it was of (the
+ * detail with every member it names written `@member`), where (the S2 cell of level 14 and the
+ * regions that held its stop when it was made, null for a report of before; no stop, name or
+ * point), when, the reporter only with their opt-in (else null; never a name), how many other
+ * members confirmed it, and how it ended.
+ */
+export interface StopReportRecord {
+  reportId: number;
+  reportMadeAt: number;
+  serverId: string;
+  kind: string;
+  periodKey: string;
+  subjectKey: string;
+  detail: unknown;
+  cell: string | null;
+  regionIds: readonly number[] | null;
+  madeAt: number;
+  endsAt: number;
+  endedAt: number;
+  reporterId: string | null;
+  confirmations: number;
+  ending: ReportEnding;
+}
+
+/**
  * Who takes a report back (`StopReportService.takeBack`, review H8): a member (their own), staff
  * (anyone's), or Pine itself undoing a grunt that shows nowhere (`unposted`).
  */
