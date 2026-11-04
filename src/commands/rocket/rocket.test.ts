@@ -186,6 +186,24 @@ describe('/rocket report', () => {
     expect(posted(made)[0]).toContain('### Water-type grunt');
   });
 
+  it('records a grunt its reporter takes back by Take back as withdrawn (plan 8H-2)', async () => {
+    const made = await setup();
+    const ash = answerOf(await made.report({ who: 'grunt:water', stop: stop(1) }));
+    await made.press(buttonId(ash, 'Take back'));
+    expect(made.store.records.map(({ subjectKey, ending }) => [subjectKey, ending])).toEqual([
+      ['grunt:water', 'withdrawn'],
+    ]);
+  });
+
+  it('records a grunt staff take back by /rocket remove as staff’s (plan 8H-2)', async () => {
+    const made = await setup();
+    await made.report({ who: 'grunt:fire', stop: stop(2) }, made.as(MISTY));
+    await made.remove(stop(2), { ...made.as(ASH), roleNames: ['Moderator'] });
+    expect(made.store.records.map(({ subjectKey, ending }) => [subjectKey, ending])).toEqual([
+      ['grunt:fire', 'staff'],
+    ]);
+  });
+
   it('answers the same grunt again as reported already, with a link, and posts nothing', async () => {
     const made = await setup();
     await made.report({ who: 'grunt:water', stop: stop(1) });

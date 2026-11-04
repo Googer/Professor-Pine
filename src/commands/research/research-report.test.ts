@@ -175,6 +175,22 @@ describe('takeBackAs', () => {
     expect(store.rows.size).toBe(0);
   });
 
+  it('records a report staff take back as staff’s, and one its reporter takes back as withdrawn (plan 8H-2)', async () => {
+    const { ctx, store } = await setup();
+    const { outcome } = await reportResearchAs(ctx, FAKE_GUILD_ID, {
+      stops: await stopsByKey(ctx, FAKE_GUILD_ID, [wayspotId(1), wayspotId(2)]),
+      subject: readTask(ctx, DRAGON.key, null),
+      reporter: ASH,
+    });
+    const [mural, inti] = outcome.saved.map(({ report }) => report.id);
+    await takeBackAs(ctx, FAKE_GUILD_ID, mural ?? 0, MISTY.id, true);
+    await takeBackAs(ctx, FAKE_GUILD_ID, inti ?? 0, ASH.id, false);
+    expect(store.records.map(({ reportId, ending }) => [reportId, ending])).toEqual([
+      [mural, 'staff'],
+      [inti, 'withdrawn'],
+    ]);
+  });
+
   // Final review of 8X-F, F3: the sentence ends once after a stop whose name ends in a period.
   it('ends its answer once after a stop whose name ends in a period', async () => {
     const { ctx } = await setup();

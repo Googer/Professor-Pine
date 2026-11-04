@@ -529,7 +529,7 @@ describe('reports at stops from the map', () => {
         reporter,
       });
       const takenId = taken.saved[0]?.report.id ?? 0;
-      await made.ctx.stopReports.takeBack(FAKE_GUILD_ID, [takenId], ALICE, false);
+      await made.ctx.stopReports.takeBack(FAKE_GUILD_ID, [takenId], ALICE, 'member');
       const elsewhere = await made.ctx.stopReports.reportResearch({
         serverId: OTHER_GUILD_ID,
         stops: await stopsByKey(made.ctx, FAKE_GUILD_ID, [wayspotId(2)]),

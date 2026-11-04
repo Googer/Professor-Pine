@@ -367,7 +367,7 @@ describe('NotifyService: Team GO Rocket is reported (plan 8R-2, design 7)', () =
     // The same hideout again, or reported anew after being taken back: nobody told twice.
     await made.report('leader:arlo', west(1), { id: BOB, name: 'Bob' });
     const standing = await made.reports.rocketAt(made.gateway.guildId, west(1).key);
-    await made.reports.takeBack(made.gateway.guildId, [standing?.id ?? 0], BOB, false);
+    await made.reports.takeBack(made.gateway.guildId, [standing?.id ?? 0], BOB, 'member');
     await made.report('leader:arlo');
     expect(made.dms.to(ALICE)).toHaveLength(1);
     // Arlo at another stop is news.

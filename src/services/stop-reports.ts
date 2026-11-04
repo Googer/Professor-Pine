@@ -1,5 +1,5 @@
 import { BoundedMap } from '../bounded-map.js';
-import type { StopReportStorage } from '../db/repositories/stop-report-repository.js';
+import type { ReportPlace, StopReportStorage } from '../db/repositories/stop-report-repository.js';
 import { isHideout, parseRocketKey } from '../domain/rocket/lineups.js';
 import {
   decideResearch,
@@ -11,6 +11,12 @@ import {
 } from '../domain/research/reports.js';
 import type { TaskReward } from '../domain/research/task.js';
 import { decideRocket, rocketDay, type RocketDecision } from '../domain/rocket/reports.js';
+import {
+  reportCell,
+  researchFate,
+  rocketFate,
+  type TakeBackBy,
+} from '../domain/stops/report-history.js';
 import {
   isResearchReport,
   isRocketReport,
@@ -26,6 +32,7 @@ import { localDayStart } from '../domain/time/local-day.js';
 import { periodAt, type ResearchPeriod } from '../domain/time/research-periods.js';
 import type { Logger } from '../log.js';
 import type { ResearchEventProvider } from './raid-event-service.js';
+import { regionsAtPoint } from './region-directory.js';
 
 /** What a research report is of: its subject (a task's key, `typed:<key>`) and what it says. */
 export interface ResearchSubject {
@@ -169,6 +176,22 @@ export interface StopReportServiceOptions {
    * catalogue no reward is costumed, and a costumed reward over its "one of" would ask.
    */
   rewardHash: (reward: TaskReward) => string;
+  /**
+   * The server's row by its snowflake, and the regions as the directory holds them (plan 8H-2):
+   * the regions whose outlines hold a report's stop are kept with it when it is made, and in its
+   * record when it ends, found as `RocketService.channelsAt`, the notifier and the map find them
+   * (`regionsAtPoint`). Asked before the save, outside its transaction; a lookup that fails is
+   * logged and the report kept with its regions unknown (null). Neither given: unknown.
+   */
+  guilds?: { idFor(snowflake: string): Promise<number | undefined> };
+  regions?: {
+    all(): readonly {
+      id: number;
+      guildId: number | null;
+      channelId: string;
+      bounds: readonly { lat: number; lon: number }[] | null;
+    }[];
+  };
 }
 
 /**
@@ -257,6 +280,29 @@ export class StopReportService {
         ? [there]
         : [];
     });
+  }
+
+  /**
+   * Where a report at a stop is kept to have been (plan 8H-2): its S2 cell (`reportCell`) and the
+   * ids of the server's regions that hold it now (none, `[]`, for a stop in no region or a
+   * server without a row), or null for them where they cannot be read (logged: the report goes
+   * on without them, review H11).
+   */
+  private async placeOf(serverId: string, stop: ReportedStop): Promise<ReportPlace> {
+    const cell = reportCell(stop);
+    const { guilds, regions } = this.options;
+    if (!guilds || !regions) return { cell, regionIds: null };
+    try {
+      const row = await guilds.idFor(serverId);
+      if (row === undefined) return { cell, regionIds: [] };
+      return { cell, regionIds: regionsAtPoint(regions.all(), row, stop).map(({ id }) => id) };
+    } catch (err) {
+      this.options.log.warn(
+        { err, guild: serverId, stop: stop.key },
+        'could not find the regions of a stop',
+      );
+      return { cell, regionIds: null };
+    }
   }
 
   /** Adds a listener; it must not throw (what it throws is logged). */
@@ -370,8 +416,10 @@ export class StopReportService {
     const already: ResearchReport[] = [];
     const asks: ResearchReport[] = [];
     const asked = this.researchAt(input.subject);
+    // Where each stop lies, before any save and outside its transaction (plan 8H-2).
+    const places = await Promise.all(input.stops.map((stop) => this.placeOf(input.serverId, stop)));
     try {
-      for (const stop of input.stops) {
+      for (const [n, stop] of input.stops.entries()) {
         // Set by the decision inside the transaction (an object: a closure's write is not narrowed).
         const decided: { decision: ResearchDecision } = { decision: 'new' };
         const outcome = await this.options.store.saveUnless(
@@ -395,17 +443,20 @@ export class StopReportService {
               input.reporter.id,
               input.replacing,
             );
+            // How the standing report ends, and whether this one confirms it (plan 8H-2).
+            const fate = researchFate(decided.decision, standing.reporter.id, input.reporter.id);
             switch (decided.decision) {
               case 'less':
               case 'again':
               case 'asks':
-                return 'keep';
+                return { verdict: 'keep', ...fate };
               case 'new':
               case 'narrow':
               case 'correct':
-                return 'replace';
+                return { verdict: 'replace', ...fate };
             }
           },
+          places[n] === undefined ? {} : { place: places[n] },
         );
         if (!outcome.saved) {
           const { standing } = outcome;
@@ -488,6 +539,8 @@ export class StopReportService {
     const madeAt = this.now();
     const day = rocketDay(madeAt, this.options.zone);
     const hideout = isHideout(who);
+    // Where the stop lies, before the save and outside its transaction (plan 8H-2).
+    const place = await this.placeOf(input.serverId, input.stop);
     // Set by the decision inside the transaction (an object: a closure's write is not narrowed).
     const asked: { decision: RocketDecision } = { decision: 'report' };
     const outcome = await this.options.store.saveUnless(
@@ -504,18 +557,20 @@ export class StopReportService {
       },
       (standing) => {
         asked.decision = decideRocket(standing, input.subject, madeAt, input.replacing);
+        // How the standing report ends, and whether this one confirms it (plan 8H-2).
+        const fate = rocketFate(asked.decision, standing.reporter.id, input.reporter.id);
         switch (asked.decision) {
           case 'already':
           case 'asks':
-            return 'keep';
+            return { verdict: 'keep', ...fate };
           case 'refine':
-            return 'update';
+            return { verdict: 'update', ...fate };
           case 'report':
-            return 'replace';
+            return { verdict: 'replace', ...fate };
         }
       },
       // What still stands at the stop, also from yesterday past midnight (fix A2).
-      { standingAt: madeAt },
+      { standingAt: madeAt, place },
     );
     if (!outcome.saved) {
       const { standing } = outcome;
@@ -573,8 +628,10 @@ export class StopReportService {
   }
 
   /**
-   * Takes back reports of a server by their ids or versions (`ReportRef`): those of `by`, or
-   * every one for `staff`; one gone or ended already is passed over. A replaced report does not
+   * Takes back reports of a server by their ids or versions (`ReportRef`): those of `by` as a
+   * `member`, any one as `staff` or as Pine undoing a grunt that shows nowhere (`unposted`); one
+   * gone or ended already is passed over. Each is recorded (plan 8H-2, review H8): `withdrawn`
+   * where it was `by`'s own, `staff` where it was another's, `unposted` for Pine's undo. A replaced report does not
    * come back (design 9.13). One asked for by a version it no longer is (refined in place since,
    * review L1) is `changed`, before whose it is: its first reporter is told it changed, not that
    * it is another's. A member who takes back their latest report has it forgotten as where they
@@ -584,7 +641,7 @@ export class StopReportService {
     serverId: string,
     refs: readonly ReportRef[],
     by: string,
-    staff: boolean,
+    as: TakeBackBy,
   ): Promise<TakenBack> {
     const removed: StopReport[] = [];
     const notYours: StopReport[] = [];
@@ -597,7 +654,7 @@ export class StopReportService {
         changed.push(report);
         continue;
       }
-      if (!staff && report.reporter.id !== by) {
+      if (as === 'member' && report.reporter.id !== by) {
         notYours.push(report);
         continue;
       }
@@ -605,7 +662,7 @@ export class StopReportService {
       const gone = await this.options.store.remove(
         id,
         serverId,
-        { by, as: staff ? 'staff' : 'member', at: this.now() },
+        { by, as, at: this.now() },
         madeAt,
       );
       if (gone) {
@@ -625,7 +682,7 @@ export class StopReportService {
       this.tell((listener) => listener.ended?.(removed));
       this.linksChanged(serverId);
       this.options.log.info(
-        { guild: serverId, by, staff, reports: removed.map((report) => report.id) },
+        { guild: serverId, by, as, reports: removed.map((report) => report.id) },
         'stop reports taken back',
       );
     }
@@ -637,7 +694,11 @@ export class StopReportService {
    * posted nowhere (fixes R2, S4): the same subject, reporter, day and end under a new id, the
    * grunt replaced in the same step (told as `ended`), unless the hideout's day has ended or
    * another report than the grunt stands at the stop by now (then nothing comes back, and the
-   * caller takes the grunt back). The posts are drawn anew. Gives the report put back.
+   * caller takes the grunt back). The posts are drawn anew. Gives the report put back. The
+   * hideout's record (written when the grunt took its place) is forgotten and the grunt is
+   * recorded as `unposted`, in the same step (plan 8H-2, review H4): a hideout never counts twice.
+   * It takes the cell and regions of that record (P4), and starts with no confirmations. Where
+   * forgetting the record fails, the restore throws (P3), and the caller takes the grunt back.
    */
   async restore(hideout: RocketReport, grunt: RocketReport): Promise<RocketReport | undefined> {
     const now = this.now();
@@ -649,8 +710,10 @@ export class StopReportService {
       again,
       // The grunt as it was (review L1): one refined in place since keeps its id, not its time.
       (standing) =>
-        standing.id === grunt.id && standing.madeAt === grunt.madeAt ? 'replace' : 'keep',
-      { standingAt: now },
+        standing.id === grunt.id && standing.madeAt === grunt.madeAt
+          ? { verdict: 'replace', ending: 'unposted' }
+          : 'keep',
+      { standingAt: now, restoring: { id: hideout.id, madeAt: hideout.madeAt } },
     );
     if (!outcome.saved || !isRocketReport(outcome.report)) return undefined;
     const { report } = outcome;
@@ -665,6 +728,22 @@ export class StopReportService {
       'a hideout put back',
     );
     return report;
+  }
+
+  /**
+   * A grunt overtaken while its messages went out (`RocketService`, fix F3; plan 8H-2, review
+   * H4): seen by nobody, so its record ends `unposted`, whatever replaced or took it back. A
+   * failure is logged: the record keeps the ending it had.
+   */
+  async overtaken(report: RocketReport): Promise<void> {
+    try {
+      await this.options.store.endedAs(report.id, report.madeAt, 'unposted');
+    } catch (err) {
+      this.options.log.warn(
+        { err, report: report.id },
+        'could not record an overtaken grunt as unposted',
+      );
+    }
   }
 
   /**

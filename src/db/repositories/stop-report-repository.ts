@@ -160,11 +160,25 @@ export interface StopReportStorage {
    */
   removeEnded(before: number): Promise<number>;
   /**
+   * Says how a version's record ended after all (plan 8H-2: a grunt overtaken while its messages
+   * went out was seen by nobody, `unposted`, whatever replaced or took it back); only a record
+   * that ended by another report or a take-back (`OVERTAKEN_ENDINGS`: `churned`, `withdrawn`,
+   * `staff`, P5), never one refined in place or put back. False where no such record of that
+   * version is kept (it failed, the report still stands, or it ended otherwise).
+   */
+  endedAs(id: number, madeAt: number, ending: ReportEnding): Promise<boolean>;
+  /**
    * The records of a server's reports that ended (plan 8H-2), oldest record first. For tests: no
    * surface reads the history yet.
    */
   historyOf(serverId: string): Promise<StopReportRecord[]>;
 }
+
+/**
+ * The endings of a grunt's version that `endedAs` changes (P5): what another report or a
+ * take-back made of it. A version `refined` in place ended as such, overtaken or not.
+ */
+export const OVERTAKEN_ENDINGS: readonly ReportEnding[] = ['churned', 'withdrawn', 'staff'];
 
 /**
  * How many rows in a row the sweep's row-by-row pass may fail before it keeps the rest of the
@@ -784,6 +798,17 @@ export class StopReportRepository implements StopReportStorage {
       }
     }
     return { seen: ids.length, forgotten };
+  }
+
+  async endedAs(id: number, madeAt: number, ending: ReportEnding): Promise<boolean> {
+    const changed = await this.db
+      .updateTable('StopReportHistory')
+      .set({ ending })
+      .where('reportId', '=', id)
+      .where('reportMadeAt', '=', String(madeAt))
+      .where('ending', 'in', [...OVERTAKEN_ENDINGS])
+      .executeTakeFirst();
+    return changed.numUpdatedRows > 0n;
   }
 
   async historyOf(serverId: string): Promise<StopReportRecord[]> {

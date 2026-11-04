@@ -81,7 +81,7 @@ export function rocketSubject(choice: RocketChoice): RocketSubject {
 export interface RocketServiceOptions {
   reports: Pick<
     StopReportService,
-    'reportRocket' | 'takeBack' | 'restore' | 'kept' | 'linksChanged'
+    'reportRocket' | 'takeBack' | 'restore' | 'kept' | 'linksChanged' | 'overtaken'
   >;
   /** The grunts' messages; none in rehearsal mode, which posts nothing outside party posts. */
   messages: Pick<GruntMessageService, 'post' | 'refine' | 'messagesOf'> | undefined;
@@ -151,8 +151,12 @@ export class RocketService {
     if (posted.length > 0) this.options.reports.linksChanged(input.serverId);
     if (grunt && messages) {
       const now = await this.asNow(report);
-      // Replaced or taken back while it was posted: its messages go, and nobody is told.
-      if (!now) return { kind: 'overtaken', channels };
+      // Replaced or taken back while it was posted: its messages go, and nobody is told; nobody
+      // saw it, which its record says (plan 8H-2).
+      if (!now) {
+        await this.options.reports.overtaken(report);
+        return { kind: 'overtaken', channels };
+      }
       // Refined meanwhile (review R2): the refine edits the messages and tells. The member is
       // answered with the report as it stands, unless it was posted nowhere (F9, K1): then the
       // refine's turn finds no message either and takes it back, so the member's grunt is
@@ -192,7 +196,10 @@ export class RocketService {
     const posted = edited?.standing ?? [];
     if (messages) {
       const now = await this.asNow(report);
-      if (!now) return { kind: 'overtaken', channels };
+      if (!now) {
+        await this.options.reports.overtaken(report);
+        return { kind: 'overtaken', channels };
+      }
       // Refined again meanwhile (review R2): that refine tells.
       if (now !== report) {
         return { kind: 'reported', report: now, replaced, channels, posted, changed: true };
@@ -308,7 +315,13 @@ export class RocketService {
     try {
       // By its version (review L1): a refine meanwhile is not taken back with it.
       const version = { id: report.id, madeAt: report.madeAt };
-      await this.options.reports.takeBack(report.serverId, [version], report.reporter.id, true);
+      // Pine's own undo (plan 8H-2): recorded as `unposted`, whoever reported it.
+      await this.options.reports.takeBack(
+        report.serverId,
+        [version],
+        report.reporter.id,
+        'unposted',
+      );
     } catch (err) {
       this.options.log.warn({ err, report: report.id }, 'could not take back a Rocket report');
     }

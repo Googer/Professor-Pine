@@ -426,12 +426,12 @@ export const rocketControls: ComponentHandler = {
       throw new UserError(STALE_COMPONENT);
     }
     const serverId = guildIdOf(interaction);
-    const staff = isStaff(interaction, ctx);
+    const as = isStaff(interaction, ctx) ? 'staff' : 'member';
     const taken = await ctx.stopReports.takeBack(
       serverId,
       [versionOf(Number(id.id), id.args)],
       interaction.user.id,
-      staff,
+      as,
     );
     // Refined in place since the answer (review L1): its first reporter and staff alike are told.
     if (taken.changed.length > 0) throw new UserError(REPORT_CHANGED);
@@ -445,7 +445,7 @@ export const rocketControls: ComponentHandler = {
           serverId,
           [meant.id],
           interaction.user.id,
-          staff,
+          as,
         ));
       }
     }

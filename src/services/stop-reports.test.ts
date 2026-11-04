@@ -154,20 +154,24 @@ describe('StopReportService', () => {
       reporter: REPORTER,
     });
     const [one, two] = saved.map(({ report }) => report.id);
-    expect(await service.takeBack(REPORT_SERVER, [one!], OTHER_REPORTER.id, false)).toMatchObject({
+    expect(
+      await service.takeBack(REPORT_SERVER, [one!], OTHER_REPORTER.id, 'member'),
+    ).toMatchObject({
       removed: [],
       notYours: [{ id: one }],
     });
-    expect(await service.takeBack('100000000000000009', [one!], REPORTER.id, false)).toEqual({
+    expect(await service.takeBack('100000000000000009', [one!], REPORTER.id, 'member')).toEqual({
       removed: [],
       notYours: [],
       changed: [],
     });
     expect(
-      (await service.takeBack(REPORT_SERVER, [one!], REPORTER.id, false)).removed.map((r) => r.id),
+      (await service.takeBack(REPORT_SERVER, [one!], REPORTER.id, 'member')).removed.map(
+        (r) => r.id,
+      ),
     ).toEqual([one]);
     expect(
-      (await service.takeBack(REPORT_SERVER, [two!], OTHER_REPORTER.id, true)).removed.map(
+      (await service.takeBack(REPORT_SERVER, [two!], OTHER_REPORTER.id, 'staff')).removed.map(
         (r) => r.id,
       ),
     ).toEqual([two]);
@@ -295,11 +299,11 @@ describe('StopReportService', () => {
       it('takes back nothing by a version refined since, for staff and the first reporter alike', async () => {
         const { service, ended, before, now } = await refinedByMisty();
         const stale = { id: before.id, madeAt: before.madeAt };
-        for (const [by, staff] of [
-          ['200000000000000099', true],
-          [REPORTER.id, false],
+        for (const [by, as] of [
+          ['200000000000000099', 'staff'],
+          [REPORTER.id, 'member'],
         ] as const) {
-          expect(await service.takeBack(REPORT_SERVER, [stale], by, staff)).toEqual({
+          expect(await service.takeBack(REPORT_SERVER, [stale], by, as)).toEqual({
             removed: [],
             notYours: [],
             changed: [now],
@@ -310,7 +314,7 @@ describe('StopReportService', () => {
         // The version that stands is taken back.
         const current = { id: now.id, madeAt: now.madeAt };
         expect(
-          (await service.takeBack(REPORT_SERVER, [current], OTHER_REPORTER.id, false)).removed,
+          (await service.takeBack(REPORT_SERVER, [current], OTHER_REPORTER.id, 'member')).removed,
         ).toEqual([now]);
       });
 
@@ -406,7 +410,7 @@ describe('StopReportService', () => {
         REPORT_SERVER,
         [grunt.report.id],
         REPORTER.id,
-        false,
+        'member',
       );
       expect(removed).toEqual([grunt.report]);
       expect(ended).toEqual([[grunt.report.id]]);
@@ -418,9 +422,9 @@ describe('StopReportService', () => {
       const arlo = await rocket(service, ARLO, { stop: 2 });
       if (grunt.kind !== 'reported' || arlo.kind !== 'reported') throw new Error('not reported');
       changed.length = 0;
-      await service.takeBack(REPORT_SERVER, [grunt.report.id], REPORTER.id, false);
+      await service.takeBack(REPORT_SERVER, [grunt.report.id], REPORTER.id, 'member');
       expect(changed).toEqual([]);
-      await service.takeBack(REPORT_SERVER, [arlo.report.id], REPORTER.id, false);
+      await service.takeBack(REPORT_SERVER, [arlo.report.id], REPORTER.id, 'member');
       expect(changed).toEqual([[REPORT_SERVER, [reportedStop(2).key]]]);
     });
 
@@ -776,7 +780,7 @@ describe('StopReportService.latestToday (Matt, 2026-10-27: "Last today")', () =>
     // Taking back an earlier report leaves the latest recorded.
     clock.now = at('2026-11-22T09:06');
     expect(
-      (await service.takeBack(REPORT_SERVER, [earlier.report.id], REPORTER.id, false)).removed,
+      (await service.takeBack(REPORT_SERVER, [earlier.report.id], REPORTER.id, 'member')).removed,
     ).toEqual([earlier.report]);
     expect(await service.latestToday(REPORT_SERVER, REPORTER.id)).toEqual(
       where(2, at('2026-11-22T09:05')),
@@ -786,12 +790,12 @@ describe('StopReportService.latestToday (Matt, 2026-10-27: "Last today")', () =>
     const third = await grunt(service, 3);
     if (third.kind !== 'reported') throw new Error(third.kind);
     const version = { id: third.report.id, madeAt: third.report.madeAt };
-    await service.takeBack(REPORT_SERVER, [version], REPORTER.id, false);
+    await service.takeBack(REPORT_SERVER, [version], REPORTER.id, 'member');
     expect(await service.latestToday(REPORT_SERVER, REPORTER.id)).toEqual(
       where(2, at('2026-11-22T09:05')),
     );
     // And the grunt at stop 2 by its id: the research at stop 1 is all that is left of today.
-    await service.takeBack(REPORT_SERVER, [wrong.report.id], REPORTER.id, false);
+    await service.takeBack(REPORT_SERVER, [wrong.report.id], REPORTER.id, 'member');
     expect(await service.latestToday(REPORT_SERVER, REPORTER.id)).toEqual(
       where(1, at('2026-11-22T09:00')),
     );
@@ -801,7 +805,7 @@ describe('StopReportService.latestToday (Matt, 2026-10-27: "Last today")', () =>
     const { service, clock } = serviceWith([], at('2026-11-22T09:00'));
     const ash = await grunt(service, 2);
     if (ash.kind !== 'reported') throw new Error(ash.kind);
-    await service.takeBack(REPORT_SERVER, [ash.report.id], OTHER_REPORTER.id, true);
+    await service.takeBack(REPORT_SERVER, [ash.report.id], OTHER_REPORTER.id, 'staff');
     expect(await service.latestToday(REPORT_SERVER, REPORTER.id)).toEqual(
       where(2, at('2026-11-22T09:00')),
     );
@@ -812,7 +816,7 @@ describe('StopReportService.latestToday (Matt, 2026-10-27: "Last today")', () =>
     if (refined.kind !== 'refined') throw new Error(refined.kind);
     const version = { id: refined.report.id, madeAt: refined.report.madeAt };
     expect(
-      (await service.takeBack(REPORT_SERVER, [version], OTHER_REPORTER.id, false)).removed,
+      (await service.takeBack(REPORT_SERVER, [version], OTHER_REPORTER.id, 'member')).removed,
     ).toHaveLength(1);
     expect(await service.latestToday(REPORT_SERVER, OTHER_REPORTER.id)).toBeUndefined();
     expect(await service.latestToday(REPORT_SERVER, REPORTER.id)).toEqual(

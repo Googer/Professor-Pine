@@ -26,9 +26,10 @@ function rocketWith(options: { rehearsal?: boolean; overlap?: boolean } = {}) {
   const clock = { now: REPORT_NOW };
   const { log } = createTestLogger();
   const gateway = new FakePartyGateway();
+  const store = new MemoryStopReports();
   const reports = new StopReportService({
     rewardHash: fixtureRewardHash,
-    store: new MemoryStopReports(),
+    store,
     events: { researchEvents: () => [] },
     zone: 'America/New_York',
     log,
@@ -149,6 +150,7 @@ function rocketWith(options: { rehearsal?: boolean; overlap?: boolean } = {}) {
     clock,
     gateway,
     reports,
+    store,
     messages,
     gruntStore,
     rocket,
@@ -324,6 +326,19 @@ describe('RocketService', () => {
     ]);
     expect(made.gateway.messagesIn(WEST_CHANNEL).map((one) => textOf(one.message))).toEqual([
       expect.stringContaining('### Fire-type grunt'),
+    ]);
+  });
+
+  it('records a grunt posted nowhere, and one overtaken, as unposted: nobody saw it (plan 8H-2)', async () => {
+    const made = rocketWith();
+    made.failSend.set(WEST_CHANNEL, new Error('503 Service Unavailable'));
+    await made.report('grunt:water');
+    made.failSend.clear();
+    made.hooks.duringSend = () => made.report('grunt:fire', WEST, { by: MISTY });
+    expect(await made.report('grunt:water')).toMatchObject({ kind: 'overtaken' });
+    expect(made.store.records.map(({ subjectKey, ending }) => [subjectKey, ending])).toEqual([
+      ['grunt:water', 'unposted'],
+      ['grunt:water', 'unposted'],
     ]);
   });
 

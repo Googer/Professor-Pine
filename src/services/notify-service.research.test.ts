@@ -182,7 +182,7 @@ describe('NotifyService: field research is reported (plan 8R-1, design 7)', () =
     ]);
     // Taken back and reported again in the period: no news for who was told.
     const id = first.saved[0]?.report.id ?? 0;
-    await made.reports.takeBack(made.gateway.guildId, [id], REPORTER, false);
+    await made.reports.takeBack(made.gateway.guildId, [id], REPORTER, 'member');
     await made.report(DRAGON, [west(1)]);
     expect(made.dms.to(ALICE)).toHaveLength(2);
   });
@@ -403,7 +403,7 @@ describe('NotifyService: field research is reported (plan 8R-1, design 7)', () =
         reporter: RITA,
       });
       const first = oneOf.saved[0]?.report.id ?? 0;
-      await made.reports.takeBack(made.gateway.guildId, [first], REPORTER, false);
+      await made.reports.takeBack(made.gateway.guildId, [first], REPORTER, 'member');
       release();
       await made.notify.flush();
       expect(made.dms.to(ALICE).map((message) => dmBrief(message).slice(1, -1))).toEqual([

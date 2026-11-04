@@ -674,6 +674,50 @@ export function stopReportCases<S extends StopReportStorage>(
       ]);
     });
 
+    it('changes how a version’s record ended, and no other version’s (an overtaken grunt)', async () => {
+      const store = await made();
+      const { report } = await store.save(rocketReport(), { place: PLACE });
+      const fire = await store.save(
+        rocketReport({ subjectKey: 'grunt:fire', madeAt: REPORT_NOW + 60_000 }),
+        { place: PLACE },
+      );
+      expect(await store.endedAs(report.id, REPORT_NOW - 1, 'unposted')).toBe(false);
+      // Still standing: no record to change.
+      expect(await store.endedAs(fire.report.id, REPORT_NOW + 60_000, 'unposted')).toBe(false);
+      expect(await store.endedAs(report.id, REPORT_NOW, 'unposted')).toBe(true);
+      expect(await store.historyOf(REPORT_SERVER)).toEqual([
+        recordOf(report, { ending: 'unposted', endedAt: REPORT_NOW + 60_000 }),
+      ]);
+    });
+
+    it('changes only a record churned, withdrawn or taken back by staff into another ending (P5)', async () => {
+      const store = await made();
+      // G1 posted, refined in place by Misty (G1'), G1' taken back; then G1 found overtaken.
+      const { report: first } = await store.save(rocketReport(), { place: PLACE });
+      const refined = await store.saveUnless(
+        magikarpLineup(),
+        () => ({ verdict: 'update', ending: 'refined' }),
+        { place: PLACE },
+      );
+      if (!refined.saved) throw new Error('the refine was kept out');
+      await store.remove(first.id, REPORT_SERVER, {
+        by: OTHER_REPORTER.id,
+        as: 'member',
+        at: REPORT_NOW + 120_000,
+      });
+      expect(await store.endedAs(first.id, first.madeAt, 'unposted')).toBe(false);
+      expect((await store.historyOf(REPORT_SERVER)).map((record) => record.ending)).toEqual([
+        'refined',
+        'withdrawn',
+      ]);
+      // G1' withdrawn, then overtaken: nobody saw it.
+      expect(await store.endedAs(first.id, refined.report.madeAt, 'unposted')).toBe(true);
+      expect((await store.historyOf(REPORT_SERVER)).map((record) => record.ending)).toEqual([
+        'refined',
+        'unposted',
+      ]);
+    });
+
     it('forgets the record of a hideout put back, and records the grunt it replaces (review H4)', async () => {
       const store = await made();
       const arlo = rocketReport({

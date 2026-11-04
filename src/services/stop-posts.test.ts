@@ -470,7 +470,7 @@ describe('StopPostService', () => {
     // A report in East, and one taken back there: West's post is left alone.
     const { saved } = await made.report(pageTask('Catch 7 Pokémon'), [east]);
     await made.posts.flush();
-    await made.reports.takeBack(FAKE_GUILD_ID, [saved[0]!.report.id], ASH.id, false);
+    await made.reports.takeBack(FAKE_GUILD_ID, [saved[0]!.report.id], ASH.id, 'member');
     await made.posts.flush();
     expect(made.gateway.messagesIn(made.west)[0]?.edits).toBe(0);
     expect(made.gateway.calls.filter((call) => call.includes(westPost?.id ?? '-'))).toEqual([]);

@@ -246,7 +246,12 @@ export async function takeBackAs(
   by: string,
   staff: boolean,
 ): Promise<TakenBackAs> {
-  const { removed, notYours, changed } = await ctx.stopReports.takeBack(serverId, [ref], by, staff);
+  const { removed, notYours, changed } = await ctx.stopReports.takeBack(
+    serverId,
+    [ref],
+    by,
+    staff ? 'staff' : 'member',
+  );
   const [gone] = removed;
   if (gone) return { kind: 'removed', report: gone, text: tookBackWords(gone) };
   const [since] = changed;

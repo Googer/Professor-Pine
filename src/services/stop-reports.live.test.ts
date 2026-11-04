@@ -117,9 +117,9 @@ describe('who hears that the list of reports changed (listChanged)', () => {
     const { service, told, rocket } = serviceWith();
     const grunt = await rocket(WATER);
     if (grunt.kind !== 'reported') throw new Error(grunt.kind);
-    await service.takeBack(REPORT_SERVER, [grunt.report.id], OTHER_REPORTER.id, false);
+    await service.takeBack(REPORT_SERVER, [grunt.report.id], OTHER_REPORTER.id, 'member');
     expect(told).toHaveLength(1);
-    await service.takeBack(REPORT_SERVER, [grunt.report.id], REPORTER.id, false);
+    await service.takeBack(REPORT_SERVER, [grunt.report.id], REPORTER.id, 'member');
     expect(told).toHaveLength(2);
   });
 

@@ -342,6 +342,12 @@ export async function startApp(
     fetch: (url, init) => fetch(url, init),
     log,
   });
+  // One memory of the `Guild` and `User` rows this process has seen, for the repositories that
+  // would otherwise ask for a row id before every statement (plan 4F).
+  const rowIds = new RowIds();
+  const guilds = new GuildRepository(db, rowIds);
+  const regionRepository = new RegionRepository(db);
+  const regions = new RegionDirectory({ regions: regionRepository, log });
   // Reports at stops (plan 8R-1), each in the research period of the stored events.
   const stopReports = new StopReportService({
     store: new StopReportRepository(db, log),
@@ -351,6 +357,10 @@ export async function startApp(
     gruntMs: config.settings.rocket.gruntMinutes * 60_000,
     // A costume is told by the game data (plan 8R-5): a costumed reward's version is its own.
     rewardHash: (reward) => rewardHash(reward, gameData.catalogue),
+    // The regions whose outlines hold a stop, kept with a report when it is made (plan 8H-2), as
+    // the directory holds them: as the grunts' channels, the notifier and the map find them.
+    guilds,
+    regions,
     log,
   });
   // A typed task's reward, on no list, made square once reported (plan 8M-9B).
@@ -362,8 +372,6 @@ export async function startApp(
     ignoredWords: config.settings.blacklistWords,
     log,
   });
-  const regionRepository = new RegionRepository(db);
-  const regions = new RegionDirectory({ regions: regionRepository, log });
   // The kept Wayspots of the Wayfarer imports, placed in the regions by their outlines.
   const wayspotRepository = new WayspotRepository(db);
   // Google, asked about the place of a gym and a Power Spot's address; without a key nothing is
@@ -464,10 +472,6 @@ export async function startApp(
     storage: new AccessGrantRepository(db),
     log,
   });
-  // One memory of the `Guild` and `User` rows this process has seen, for the repositories that
-  // would otherwise ask for a row id before every statement (plan 4F).
-  const rowIds = new RowIds();
-  const guilds = new GuildRepository(db, rowIds);
   // The PokéStops of Pine's own (plan 8R-1), held by the directory beside the kept Wayspots.
   const pineStops = new PineStopService({
     storage: new PineStopRepository(db),

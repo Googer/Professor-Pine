@@ -674,7 +674,7 @@ export const researchControls: ComponentHandler = {
       guildIdOf(interaction),
       ids.map(Number),
       interaction.user.id,
-      isStaff(interaction, ctx),
+      isStaff(interaction, ctx) ? 'staff' : 'member',
     );
     if (removed.length === 0 && notYours.length > 0) throw new UserError(NOT_YOUR_REPORT);
     const [first] = removed;
