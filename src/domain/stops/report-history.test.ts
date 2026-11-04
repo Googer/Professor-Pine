@@ -84,6 +84,17 @@ describe('how each row a save takes away ends', () => {
       endedAt: at,
     });
   });
+
+  it('says a row this version cannot read ended unreadable, whatever else it was (8H2-5)', () => {
+    expect(endingOfRow({ endsAt: 20_000 }, at, 'contradicted', false)).toEqual({
+      ending: 'unreadable',
+      endedAt: at,
+    });
+    expect(endingOfRow({ endsAt: 9_000 }, at, undefined, false)).toEqual({
+      ending: 'unreadable',
+      endedAt: 9_000,
+    });
+  });
 });
 
 describe('how a report taken back ends (review H8)', () => {

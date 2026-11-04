@@ -23,7 +23,9 @@ import type { RocketDecision } from '../rocket/reports.js';
  *   another day that still stood when today's took it (review H5);
  * - `withdrawn`: its reporter took it back (review H8);
  * - `staff`: staff took back somebody else's;
- * - `unposted`: Pine took back a grunt posted nowhere, or one overtaken (review H4).
+ * - `unposted`: Pine took back a grunt posted nowhere, or one overtaken (review H4);
+ * - `unreadable`: a row this version cannot read (any kind) that a save took (8H2-5); it counts
+ *   toward nothing.
  */
 export type ReportEnding =
   | 'stood'
@@ -34,7 +36,8 @@ export type ReportEnding =
   | 'churned'
   | 'withdrawn'
   | 'staff'
-  | 'unposted';
+  | 'unposted'
+  | 'unreadable';
 
 /**
  * The level of the S2 cell a report's place is kept as (Q1): about 600 m across, fine enough for
@@ -136,15 +139,18 @@ export function rocketFate(decision: RocketDecision, standingBy: string, by: str
 }
 
 /**
- * How a row that a save takes away at `at` ends: one whose end had passed stood, ended at its own
- * end (review H3); the row decided about as its fate says (`decided`); any other that still stood
- * (a grunt of yesterday past midnight, fix A2) churned. Ended at `at` but where it stood.
+ * How a row that a save takes away at `at` ends: one this version cannot read (`readable`
+ * false) unreadable, whatever else it was (8H2-5); one whose end had passed stood, ended at its
+ * own end (review H3); the row decided about as its fate says (`decided`); any other that still
+ * stood (a grunt of yesterday past midnight, fix A2) churned. Ended at `at` but where it stood.
  */
 export function endingOfRow(
   row: { endsAt: number },
   at: number,
   decided: ReportEnding | undefined,
+  readable = true,
 ): { ending: ReportEnding; endedAt: number } {
+  if (!readable) return { ending: 'unreadable', endedAt: Math.min(row.endsAt, at) };
   if (row.endsAt <= at) return { ending: 'stood', endedAt: row.endsAt };
   return { ending: decided ?? 'churned', endedAt: at };
 }

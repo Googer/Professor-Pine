@@ -388,6 +388,20 @@ describe('StopReportRepository', () => {
       ]);
     });
 
+    it('records a row this version cannot read that a save replaces as unreadable (8H2-5)', async () => {
+      const store = await fresh();
+      const { report } = await store.save(researchReport(), { place: PLACE });
+      await db
+        .updateTable('StopReport')
+        .set({ detail: JSON.stringify({ balloon: true }) })
+        .where('id', '=', report.id)
+        .execute();
+      await store.save(researchReport({ reporter: OTHER_REPORTER, madeAt: REPORT_NOW + 60_000 }));
+      expect(await store.historyOf(REPORT_SERVER)).toMatchObject([
+        { reportId: report.id, detail: { balloon: true }, ending: 'unreadable' },
+      ]);
+    });
+
     it('records a row this version cannot read, raw, as the sweep forgets it', async () => {
       const store = await fresh();
       const { report } = await store.save(researchReport(), { place: PLACE });

@@ -53,6 +53,7 @@ Every report at a stop that ends is kept as a history record, so that Parts D an
   | `withdrawn` | the reporter took it back (`gone.reporter.id === by`, review H8) | neutral |
   | `staff` | staff took back somebody else's | against |
   | `unposted` | `RocketService` took back a grunt posted nowhere, or one `overtaken` (review H4) | nothing |
+  | `unreadable` | a row this version cannot read, of any kind, that a save replaced (plan 8H-2's review, 8H2-5) | nothing |
 
   `takeBack` and `remove` take a reason, since the `staff` flag alone is wrong (review H8). `restore` deletes the history row of the hideout it puts back (rows keep the `StopReport` id), so a hideout is never counted twice (review H4). No `cutover` ending: stop reports are new with Pine, and survive a restart (review H7).
 - **Where it is written:**

@@ -274,6 +274,13 @@ const rocketDocument = z.object({
 
 const KINDS: ReadonlySet<string> = new Set<StopReportKind>(['research', 'rocket']);
 
+/** Whether this version can read a row: a kind it knows, with a detail of that kind's shape. */
+function readable(row: Selectable<StopReportRow>): boolean {
+  if (!KINDS.has(row.kind)) return false;
+  const detail = parsedJson(row.detail);
+  return (row.kind === 'research' ? researchDocument : rocketDocument).safeParse(detail).success;
+}
+
 /** Member ids in a JSON column (`confirmedBy`); none for null or a value that is no such list. */
 function memberIds(value: unknown): string[] {
   const parsed = z.array(z.string()).safeParse(parsedJson(value));
@@ -327,7 +334,7 @@ export class StopReportRepository implements StopReportStorage {
     const detail = parsedJson(row.detail);
     const research = row.kind === 'research' ? researchDocument.safeParse(detail) : undefined;
     const rocket = row.kind === 'rocket' ? rocketDocument.safeParse(detail) : undefined;
-    if (!KINDS.has(row.kind) || !(research?.success ?? rocket?.success ?? false)) {
+    if (!readable(row)) {
       this.log?.warn(
         { report: row.id, kind: row.kind },
         'a stop report cannot be read; left alone',
@@ -497,6 +504,8 @@ export class StopReportRepository implements StopReportStorage {
         { endsAt: Number(row.endsAt) },
         at,
         row === before ? decision.ending : undefined,
+        // A row this version cannot read counts toward nothing (8H2-5).
+        readable(row),
       ),
       ...(row === before && decision.confirms ? { confirmedBy: report.reporter.id } : {}),
     }));
