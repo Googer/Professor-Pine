@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-04T15:24",
+  "updated": "2026-11-04T16:39",
   "items": [
     {
       "id": "0",
@@ -10318,6 +10318,11 @@ window.GANTT = {
           "start": "2026-11-04T12:43",
           "end": "2026-11-04T14:41"
         }
+      },
+      "status": "done",
+      "review": {
+        "start": "2026-11-04T15:39",
+        "end": "2026-11-04T16:39"
       }
     },
     {
@@ -10325,42 +10330,54 @@ window.GANTT = {
       "kind": "task",
       "parent": "8H-2",
       "name": "Migration 035: the history table, cells, regions and confirmations on StopReport",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-04T15:24",
+      "end": "2026-11-04T15:29"
     },
     {
       "id": "8H-2.2",
       "kind": "task",
       "parent": "8H-2",
       "name": "The endings of a stop report in the domain",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-04T15:29",
+      "end": "2026-11-04T15:31"
     },
     {
       "id": "8H-2.3",
       "kind": "task",
       "parent": "8H-2",
       "name": "The repository: history written on save, take back, sweep and restore",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-04T15:31",
+      "end": "2026-11-04T15:33"
     },
     {
       "id": "8H-2.4",
       "kind": "task",
       "parent": "8H-2",
       "name": "The service and its callers: cells, regions, reasons",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-04T15:33",
+      "end": "2026-11-04T15:35"
     },
     {
       "id": "8H-2.5",
       "kind": "task",
       "parent": "8H-2",
       "name": "The opt-out covers stop reports; the words of /settings history",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-04T15:35",
+      "end": "2026-11-04T15:38"
     },
     {
       "id": "8H-2.6",
       "kind": "task",
       "parent": "8H-2",
       "name": "Docs: history.md and stop-reports.md",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-04T15:38",
+      "end": "2026-11-04T15:39"
     },
     {
       "id": "16-staging",
