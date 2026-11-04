@@ -57,6 +57,7 @@ export const PINE_TABLES: readonly string[] = [
   'TargetWant',
   'UnownWantGift',
   'Wayspot',
+  'WayspotAddress',
   'WayspotLookup',
   'WayspotPlaces',
   'WayspotImport',

@@ -691,6 +691,14 @@ export interface Wayspot {
   title: string;
 }
 
+export interface WayspotAddress {
+  askedAt: string;
+  geodata: string | null;
+  lat: number;
+  lon: number;
+  wayspotId: string;
+}
+
 export interface WayspotImport {
   counts: Json;
   finishedAt: string | null;
@@ -785,6 +793,7 @@ export interface DB {
   UnownWantGift: UnownWantGift;
   User: User;
   Wayspot: Wayspot;
+  WayspotAddress: WayspotAddress;
   WayspotImport: WayspotImport;
   WayspotLookup: WayspotLookup;
   WayspotPlaces: WayspotPlaces;
