@@ -46,7 +46,7 @@ function rocketWith(options: { rehearsal?: boolean; overlap?: boolean } = {}) {
     /** The next lookup of the server's row, held until the test releases it (L-1). */
     holdGuilds?: HeldCall;
     /** Called as the service asks for a grunt's messages to be refined (review R1). */
-    refining?: () => void;
+    refining?: () => unknown;
   } = {};
   /** The next send in a channel, held until the test releases it (review R1). */
   const heldSends = new Map<string, HeldCall>();
@@ -93,8 +93,9 @@ function rocketWith(options: { rehearsal?: boolean; overlap?: boolean } = {}) {
     post: service.post.bind(service),
     messagesOf: service.messagesOf.bind(service),
     flush: service.flush.bind(service),
-    refine: (report: RocketReport) => {
-      hooks.refining?.();
+    refine: async (report: RocketReport) => {
+      // What happens as the refine begins, waited for (plan 8H-2: a report meanwhile).
+      await hooks.refining?.();
       return service.refine(report);
     },
   };
@@ -268,6 +269,30 @@ describe('RocketService', () => {
           (one) => one.subjectKey === arlo.subjectKey,
         ),
       ).toEqual([]);
+    });
+
+    it('records the grunt unposted and forgets the record of the hideout put back (8H2-7)', async () => {
+      const made = rocketWith();
+      const { outcome } = await arloThenUnposted(made);
+      expect(outcome).toMatchObject({ kind: 'unposted', restored: { subjectKey: 'leader:arlo' } });
+      expect(made.store.records.map(({ subjectKey, ending }) => [subjectKey, ending])).toEqual([
+        ['grunt:water', 'unposted'],
+      ]);
+    });
+
+    it('keeps the hideout’s record where putting it back fails, the grunt unposted (8H2-7)', async () => {
+      const made = rocketWith();
+      const { outcome } = await arloThenUnposted(made, () => {
+        made.store.failing.set('saveUnless', new Error('the database is away'));
+        return Promise.resolve();
+      });
+      made.store.failing.delete('saveUnless');
+      expect(outcome).toMatchObject({ kind: 'unposted' });
+      if (outcome.kind === 'unposted') expect(outcome.restored).toBeUndefined();
+      expect(made.store.records.map(({ subjectKey, ending }) => [subjectKey, ending])).toEqual([
+        ['leader:arlo', 'churned'],
+        ['grunt:water', 'unposted'],
+      ]);
     });
 
     it('stores nothing when finding the channels throws, and passes the error on (L-1)', async () => {
@@ -582,6 +607,34 @@ describe('RocketService', () => {
       if (outcome.kind === 'unposted') expect(standing).toEqual([outcome.restored]);
       expect(made.told.map((news) => news.report.subjectKey)).toEqual(['leader:arlo']);
     });
+  });
+
+  it('records a refine another report overtook while its messages were edited as unposted (8H2-7)', async () => {
+    const made = rocketWith();
+    const first = await made.report('grunt:water');
+    if (first.kind !== 'reported') throw new Error(first.kind);
+    let before: string[][] = [];
+    made.hooks.refining = async () => {
+      delete made.hooks.refining;
+      await made.report('grunt:fire');
+      before = made.store.records.map(({ subjectKey, ending }) => [subjectKey, ending]);
+    };
+    expect(await made.refine()).toMatchObject({ kind: 'overtaken' });
+    // The fire grunt churned the refined version; found overtaken, nobody saw it.
+    expect(before).toEqual([
+      ['grunt:water', 'refined'],
+      ['grunt:water:male', 'churned'],
+    ]);
+    expect(
+      made.store.records.map(({ subjectKey, reportMadeAt, ending }) => [
+        subjectKey,
+        reportMadeAt === first.report.madeAt,
+        ending,
+      ]),
+    ).toEqual([
+      ['grunt:water', true, 'refined'],
+      ['grunt:water:male', false, 'unposted'],
+    ]);
   });
 
   it('takes a refined grunt back whose messages are all gone, naming what is lost (R5)', async () => {
