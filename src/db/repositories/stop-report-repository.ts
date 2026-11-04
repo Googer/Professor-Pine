@@ -155,8 +155,10 @@ export interface StopReportStorage {
    * Forgets the reports that ended at or before `before`, each recorded as `stood` (plan 8H-2),
    * in batches of one transaction each (`SWEEP_BATCH`): a batch whose records fail is tried row
    * by row, and a row whose record fails is kept back for the next sweep and logged (review H10,
-   * P7; after `ONE_BY_ONE_FAILURES` failures in a row the rest of the batch is kept back unread,
-   * logged once). Gives how many it forgot; throws only where the ended rows cannot be read.
+   * P7; after `ONE_BY_ONE_FAILURES` failures in a row the rest is kept back unread and the sweep
+   * ends there, logged once, 8H2-3); a row whose record still fails `KEPT_UNRECORDED_MS` after
+   * its end is deleted without it (8H2-4, logged). Gives how many it forgot; throws only where
+   * the ended rows cannot be read.
    */
   removeEnded(before: number): Promise<number>;
   /**
@@ -184,6 +186,13 @@ export interface StopReportStorage {
  * row.
  */
 export const ONE_BY_ONE_FAILURES = 5;
+
+/**
+ * How long after its end a row whose record keeps failing is kept for another try (8H2-4): past
+ * it, the sweep deletes the row without its record, so that no member's id stays in the live
+ * table for good (logged with its id and kind, no member).
+ */
+export const KEPT_UNRECORDED_MS = 7 * 24 * 60 * 60_000;
 
 /** How many ended reports one transaction of the sweep records and forgets. */
 export const SWEEP_BATCH = 500;
@@ -686,7 +695,7 @@ export class StopReportRepository implements StopReportStorage {
     // The rows whose own records failed in this sweep: kept for the next one (P7).
     const keptBack = new Set<number>();
     for (;;) {
-      let batch: { seen: number; forgotten: number };
+      let batch: { seen: number; forgotten: number; gaveUp?: boolean };
       try {
         batch = await retryOnDeadlock(this.db, () => this.sweepBatch(before, keptBack));
       } catch (err) {
@@ -697,7 +706,8 @@ export class StopReportRepository implements StopReportStorage {
         batch = await this.sweepOneByOne(before, keptBack);
       }
       forgotten += batch.forgotten;
-      if (batch.seen < SWEEP_BATCH) return forgotten;
+      // Given up row by row (8H2-3): the rest waits for the next sweep, one give-up line a sweep.
+      if (batch.gaveUp || batch.seen < SWEEP_BATCH) return forgotten;
     }
   }
 
@@ -746,21 +756,21 @@ export class StopReportRepository implements StopReportStorage {
   private async sweepOneByOne(
     before: number,
     keptBack: Set<number>,
-  ): Promise<{ seen: number; forgotten: number }> {
-    const ids = (await this.endedRows(this.db, before, keptBack).select('id').execute()).map(
-      (row) => row.id,
-    );
+  ): Promise<{ seen: number; forgotten: number; gaveUp: boolean }> {
+    const rows = await this.endedRows(this.db, before, keptBack)
+      .select(['id', 'endsAt', 'kind'])
+      .execute();
     let forgotten = 0;
     let failures = 0;
-    for (const [n, id] of ids.entries()) {
+    for (const [n, { id, endsAt, kind }] of rows.entries()) {
       if (failures >= ONE_BY_ONE_FAILURES) {
-        const rest = ids.slice(n);
-        for (const one of rest) keptBack.add(one);
+        const rest = rows.slice(n);
+        for (const one of rest) keptBack.add(one.id);
         this.log?.error(
           { keptBack: rest.length },
           'gave up recording ended stop reports one by one; the rest are kept for the next sweep',
         );
-        break;
+        return { seen: rows.length, forgotten, gaveUp: true };
       }
       try {
         const gone = await retryOnDeadlock(this.db, () =>
@@ -787,6 +797,19 @@ export class StopReportRepository implements StopReportStorage {
         if (gone) forgotten += 1;
         failures = 0;
       } catch (err) {
+        // A week past its end the row goes without its record (8H2-4): no member's id is kept
+        // in the live table for good.
+        if (
+          Number(endsAt) < before - KEPT_UNRECORDED_MS &&
+          (await this.dropUnrecorded(id, before))
+        ) {
+          forgotten += 1;
+          this.log?.error(
+            { err, report: id, kind },
+            'deleted an ended stop report without its record, which failed for a week',
+          );
+          continue;
+        }
         failures += 1;
         keptBack.add(id);
         this.log?.error(
@@ -795,7 +818,22 @@ export class StopReportRepository implements StopReportStorage {
         );
       }
     }
-    return { seen: ids.length, forgotten };
+    return { seen: rows.length, forgotten, gaveUp: false };
+  }
+
+  /** Deletes an ended row without its record (8H2-4); false where that fails too (logged). */
+  private async dropUnrecorded(id: number, before: number): Promise<boolean> {
+    try {
+      await this.db
+        .deleteFrom('StopReport')
+        .where('id', '=', id)
+        .where('endsAt', '<=', String(before))
+        .execute();
+      return true;
+    } catch (err) {
+      this.log?.error({ err, report: id }, 'could not delete an ended stop report');
+      return false;
+    }
   }
 
   async endedAs(

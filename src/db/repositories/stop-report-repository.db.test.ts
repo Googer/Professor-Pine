@@ -7,6 +7,7 @@ import {
   REPORT_MIDNIGHT,
   REPORT_NOW,
   REPORT_SERVER,
+  REPORTER,
   reportedStop,
   researchReport,
   rocketReport,
@@ -226,6 +227,72 @@ describe('StopReportRepository', () => {
             'gave up recording ended stop reports one by one; the rest are kept for the next sweep',
         ),
       ).toMatchObject([{ keptBack: 3 }]);
+    });
+
+    it('stops the whole sweep where the row-by-row pass gives up, with one give-up line (8H2-3)', async () => {
+      const { log, entries } = createTestLogger();
+      const store = await fresh();
+      const logged = new StopReportRepository(db, log);
+      const rows = Array.from({ length: SWEEP_BATCH + 3 }, (_, n) => ({
+        serverId: REPORT_SERVER,
+        stopKey: `stop-${String(n)}`,
+        kind: 'research',
+        periodKey: 'day:2026-10-21',
+        endsAt: String(REPORT_MIDNIGHT),
+        stopName: 'Yellow Mural',
+        lat: 40.44,
+        lon: -79.99,
+        subjectKey: 'a'.repeat(16),
+        detail: JSON.stringify(researchReport().research),
+        reporterId: OTHER_REPORTER.id,
+        reporterName: OTHER_REPORTER.name,
+        madeAt: String(REPORT_NOW),
+      }));
+      await db.insertInto('StopReport').values(rows).execute();
+      await withoutHistory(async () => {
+        expect(await logged.removeEnded(REPORT_MIDNIGHT)).toBe(0);
+      });
+      const said = (msg: string) =>
+        entries.filter((entry) => entry.level === 50 && entry.msg === msg).length;
+      expect(said('could not record a batch of ended stop reports; trying them one by one')).toBe(
+        1,
+      );
+      expect(said('could not record an ended stop report; it is kept for the next sweep')).toBe(5);
+      expect(
+        said(
+          'gave up recording ended stop reports one by one; the rest are kept for the next sweep',
+        ),
+      ).toBe(1);
+      expect(await db.selectFrom('StopReport').select('id').execute()).toHaveLength(
+        SWEEP_BATCH + 3,
+      );
+      expect(await store.removeEnded(REPORT_MIDNIGHT)).toBe(SWEEP_BATCH + 3);
+    });
+
+    it('deletes a row whose record still fails a week after its end, without it, logged (8H2-4)', async () => {
+      const { log, entries } = createTestLogger();
+      await fresh();
+      const store = new StopReportRepository(db, log);
+      const week = 7 * 24 * 60 * 60_000;
+      const old = await store.save(
+        researchReport({ stop: reportedStop(1), endsAt: REPORT_MIDNIGHT - week - 1 }),
+      );
+      const recent = await store.save(
+        researchReport({ stop: reportedStop(2), endsAt: REPORT_MIDNIGHT - week + 1 }),
+      );
+      await withoutHistory(async () => {
+        expect(await store.removeEnded(REPORT_MIDNIGHT)).toBe(1);
+      });
+      expect(await db.selectFrom('StopReport').select('id').execute()).toEqual([
+        { id: recent.report.id },
+      ]);
+      const dropped = entries.filter(
+        (entry) =>
+          entry.msg === 'deleted an ended stop report without its record, which failed for a week',
+      );
+      expect(dropped).toMatchObject([{ level: 50, report: old.report.id, kind: 'research' }]);
+      expect(JSON.stringify(dropped)).not.toContain(REPORTER.id);
+      expect(await store.historyOf(REPORT_SERVER)).toEqual([]);
     });
 
     it('keeps back only the row whose record fails, the rest of its batch swept (P7)', async () => {

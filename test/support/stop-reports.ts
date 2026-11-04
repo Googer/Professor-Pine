@@ -1,5 +1,6 @@
 import {
   decisionOf,
+  KEPT_UNRECORDED_MS,
   newerThan,
   savedAt,
   type Removal,
@@ -257,8 +258,13 @@ export class MemoryStopReports implements StopReportStorage {
       .sort((a, b) => a.endsAt - b.endsAt || a.id - b.id);
     if (ended.length === 0) return Promise.resolve(0);
     // A record that fails keeps the rows for the next sweep (review H10).
-    // Records that fail keep their rows for the next sweep (review H10, P7).
-    if (this.historyFailing) return Promise.resolve(0);
+    // Records that fail keep their rows for the next sweep (review H10, P7), but a week past
+    // their end the rows go without them (8H2-4).
+    if (this.historyFailing) {
+      const dropped = ended.filter((row) => row.endsAt < before - KEPT_UNRECORDED_MS);
+      for (const row of dropped) this.forget(row.id);
+      return Promise.resolve(dropped.length);
+    }
     this.record(ended.map((row) => ({ row, ...endingOfRow(row, before, undefined) })));
     for (const row of ended) this.forget(row.id);
     return Promise.resolve(ended.length);
