@@ -21,19 +21,32 @@ export interface SpotAddressesDeps {
   /** An address came for a spot. */
   heard?(spotId: string, address: string): void;
   document: { createElement(tag: string): HTMLElement };
+  /** Default `Date.now`. */
+  now?: () => number;
 }
+
+/** A spot whose question failed is not asked again for this long (a minute). */
+export const FAILED_AGAIN_MS = 60_000;
 
 export class SpotAddresses {
   /** The answers, by spot: an address, or null where none came. */
   private readonly known = new Map<string, string | null>();
   private readonly asking = new Map<string, Promise<string | null>>();
+  /** When a spot's last question failed: none is asked again until `FAILED_AGAIN_MS` after. */
+  private readonly failedAt = new Map<string, number>();
+  private readonly now: () => number;
 
-  constructor(private readonly deps: SpotAddressesDeps) {}
+  constructor(private readonly deps: SpotAddressesDeps) {
+    this.now = deps.now ?? Date.now;
+  }
 
   /**
    * Fills a Power Spot's popup in with the spot's address, asked for where the page has none:
-   * at once when it is known, else when the answer comes and the popup is still open. Its promise
-   * settles once that is done (or nothing was to be done); it never rejects.
+   * at once when it is known, else when the answer comes and the name line it was asked under is
+   * still in the page (a form that took the popup's place took it). A popup without a name line
+   * (a battle's post) asks nothing: nothing would be drawn there. A spot whose question failed
+   * is not asked again for `FAILED_AGAIN_MS`. Its promise settles once that is done (or nothing
+   * was to be done); it never rejects.
    */
   fill(
     popup: Popup | undefined,
@@ -41,15 +54,18 @@ export class SpotAddresses {
   ): Promise<void> {
     const { id } = spot;
     if (!popup || !id || (spot.address ?? '').trim() !== '') return Promise.resolve();
-    if (popup.querySelector('.address')) return Promise.resolve();
+    const name = popup.querySelector('.name');
+    if (!name || popup.querySelector('.address')) return Promise.resolve();
     if (this.known.has(id)) {
       const known = this.known.get(id);
-      if (known) this.draw(popup, known);
+      if (known) this.draw(name, known);
       return Promise.resolve();
     }
+    const failed = this.failedAt.get(id);
+    if (failed !== undefined && this.now() - failed < FAILED_AGAIN_MS) return Promise.resolve();
     return this.answerOf(id).then((address) => {
-      if (address && popup.isConnected && !popup.querySelector('.address')) {
-        this.draw(popup, address);
+      if (address && popup.isConnected && name.isConnected && !popup.querySelector('.address')) {
+        this.draw(name, address);
       }
     });
   }
@@ -63,10 +79,14 @@ export class SpotAddresses {
       .then((address) => {
         const line = address === null || address.trim() === '' ? null : address;
         this.known.set(id, line);
+        this.failedAt.delete(id);
         if (line) this.deps.heard?.(id, line);
         return line;
       })
-      .catch(() => null)
+      .catch(() => {
+        this.failedAt.set(id, this.now());
+        return null;
+      })
       .finally(() => {
         this.asking.delete(id);
       });
@@ -74,11 +94,10 @@ export class SpotAddresses {
     return answer;
   }
 
-  /** The address line under the popup's name, as `placeHead` draws it. */
-  private draw(popup: Popup, address: string): void {
-    const name = popup.querySelector('.name');
+  /** The address line under the popup's name line, as `placeHead` draws it. */
+  private draw(name: Element, address: string): void {
     const [node] = addressLine({ address });
-    if (!name || !node) return;
+    if (!node) return;
     name.after(renderNode(node, this.deps.document));
   }
 }

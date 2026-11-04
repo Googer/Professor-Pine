@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { SpotAddresses, type SpotAddressesDeps } from './spot-address.js';
+import { FAILED_AGAIN_MS, SpotAddresses, type SpotAddressesDeps } from './spot-address.js';
 
 /** Just enough of an element for a popup's head: its class, text, children, and a place in the page. */
 class FakeElement {
@@ -133,16 +133,50 @@ describe("a Power Spot's address on the page (SpotAddresses)", () => {
     expect(google.asked).toEqual(['spot-1', 'spot-2']);
   });
 
-  it('asks again after a question that failed', async () => {
+  // Review: a popup drawn anew (a poll) must not ask again at once after a failure.
+  it('asks again after a question that failed, not before a minute has passed', async () => {
     const google = server({ 'spot-1': new Error('429') });
-    const addresses = new SpotAddresses({ ask: google.ask, document });
+    const clock = { now: 1_000_000 };
+    const addresses = new SpotAddresses({ ask: google.ask, document, now: () => clock.now });
     const popup = spotPopup();
     const filled = addresses.fill(asHtml(popup), { id: 'spot-1' });
     google.answer();
     await filled;
     expect(classes(popup)).toEqual(['name', 'map-line']);
+    clock.now += FAILED_AGAIN_MS - 1;
+    void addresses.fill(asHtml(spotPopup()), { id: 'spot-1' });
+    expect(google.asked).toEqual(['spot-1']);
+    clock.now += 1;
     void addresses.fill(asHtml(spotPopup()), { id: 'spot-1' });
     expect(google.asked).toEqual(['spot-1', 'spot-1']);
+    expect(FAILED_AGAIN_MS).toBe(60_000);
+  });
+
+  // Review: step 3 of a max report puts its form in the popup in place of the spot's head.
+  it('draws nothing when the name it was asked under is gone, the popup still open', async () => {
+    const google = server({ 'spot-1': '600 Grant St' });
+    const addresses = new SpotAddresses({ ask: google.ask, document });
+    const popup = spotPopup();
+    const filled = addresses.fill(asHtml(popup), { id: 'spot-1' });
+    const name = popup.querySelector('.name');
+    if (name) name.isConnected = false;
+    popup.children.splice(0, 2);
+    const form = new FakeElement('strong');
+    form.className = 'name';
+    popup.append(form);
+    google.answer();
+    await filled;
+    expect(classes(popup)).toEqual(['name']);
+  });
+
+  // Matt's ruling: a battle's post has no name line of the map's, so nothing would be drawn.
+  it('asks nothing for a popup without a name line (a post)', () => {
+    const google = server({ 'spot-1': '600 Grant St' });
+    const addresses = new SpotAddresses({ ask: google.ask, document });
+    const post = new FakeElement('div');
+    post.className = 'party-popup post-popup max';
+    void addresses.fill(asHtml(post), { id: 'spot-1' });
+    expect(google.asked).toEqual([]);
   });
 
   it('asks nothing for a spot with an address, a pin, or a popup that shows one already', () => {
