@@ -74,19 +74,6 @@ export class MemoryStopReports implements StopReportStorage {
     this.optedIn.add(`${serverId}:${memberId}`);
   }
 
-  /** Opts a member out, taking their id out of the server's records, as `optOut` does. */
-  optOut(serverId: string, memberId: string): number {
-    this.optedIn.delete(`${serverId}:${memberId}`);
-    let forgotten = 0;
-    for (const record of this.records) {
-      if (record.serverId === serverId && record.reporterId === memberId) {
-        record.reporterId = null;
-        forgotten += 1;
-      }
-    }
-    return forgotten;
-  }
-
   async save(report: NewStopReport, options: SaveOptions = {}): Promise<SavedStopReport> {
     this.fail('save');
     const outcome = await this.saveUnless(report, () => 'replace', options);

@@ -26,6 +26,7 @@ describe('HistoryRepository: who is named in the history', () => {
   beforeEach(async () => {
     await db.deleteFrom('PartyHistory').execute();
     await db.deleteFrom('HistoryOptIn').execute();
+    await db.deleteFrom('StopReportHistory').execute();
   });
 
   /** A party of the history in a server (by snowflake), made by `creator`, with these attendees. */
@@ -43,6 +44,33 @@ describe('HistoryRepository: who is named in the history', () => {
     }
     return id;
   };
+  /** A record of a report at a stop that ended in a server (plan 8H-2), by `reporter`. */
+  const reported = async (server: string, reporter: string | null) => {
+    const made = await db
+      .insertInto('StopReportHistory')
+      .values({
+        reportId: 1,
+        reportMadeAt: String(NOW),
+        serverId: server,
+        kind: 'research',
+        periodKey: 'day:2027-01-15',
+        subjectKey: 'a'.repeat(16),
+        detail: JSON.stringify({}),
+        madeAt: String(NOW),
+        endsAt: String(NOW + 1),
+        endedAt: String(NOW + 1),
+        reporterId: reporter,
+        ending: 'stood',
+      })
+      .executeTakeFirstOrThrow();
+    return Number(made.insertId);
+  };
+  const reporters = async () =>
+    db
+      .selectFrom('StopReportHistory')
+      .select(['id', 'serverId', 'reporterId'])
+      .orderBy('id')
+      .execute();
   const named = async () => {
     const parties = await db
       .selectFrom('PartyHistory')
@@ -128,6 +156,24 @@ describe('HistoryRepository: who is named in the history', () => {
         { historyId: elsewhere, seq: 0, memberId: ALICE },
       ],
     });
+  });
+
+  it('forgets a member who opts out in their reports at stops of that server too, counted (plan 8H-2)', async () => {
+    await history.optIn(ALICE, HOME, NOW);
+    await kept(HOME, ALICE, [ALICE]);
+    const mine = await reported(HOME, ALICE);
+    const again = await reported(HOME, ALICE);
+    const his = await reported(HOME, BOB);
+    const away = await reported(AWAY, ALICE);
+    // One party and two reports.
+    expect(await history.optOut(ALICE, HOME)).toEqual({ changed: true, forgotten: 3 });
+    expect(await reporters()).toEqual([
+      { id: mine, serverId: HOME, reporterId: null },
+      { id: again, serverId: HOME, reporterId: null },
+      { id: his, serverId: HOME, reporterId: BOB },
+      { id: away, serverId: AWAY, reporterId: ALICE },
+    ]);
+    expect(await history.optOut(ALICE, HOME)).toEqual({ changed: false, forgotten: 0 });
   });
 
   it('forgets a member who opts out even when they were not opted in, or the server left', async () => {

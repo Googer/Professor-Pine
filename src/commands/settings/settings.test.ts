@@ -158,8 +158,9 @@ describe('/settings', () => {
     const AWAY = '412345678901234568';
     expect(await made.answer('history', { enabled: true })).toBe(
       'The party history of this server keeps your Discord id with what you sign up for and how ' +
-        'far you get in every raid, max battle, train and meetup that ends from now on, those under way ' +
-        'included. `/settings history enabled:False` takes it out again.',
+        'far you get in every raid, max battle, train and meetup, and with every field research and ' +
+        'Team GO Rocket report of yours, that ends from now on, those under way included. ' +
+        '`/settings history enabled:False` takes it out again.',
     );
     expect(await made.history.isOptedIn(ALICE, FAKE_GUILD_ID)).toBe(true);
     expect(await made.history.isOptedIn(ALICE, AWAY)).toBe(false);
@@ -178,7 +179,15 @@ describe('/settings', () => {
     made.history.named(ALICE, FAKE_GUILD_ID, 3);
     expect(await made.answer('history', { enabled: false })).toBe(
       'The party history of this server no longer keeps your Discord id. It was taken out of ' +
-        'the 3 raids, max battles, trains and meetups kept with it so far, which still count, without it.',
+        'the 3 records of raids, max battles, trains, meetups and reports at stops kept with it so ' +
+        'far, which still count, without it.',
+    );
+    await made.run('history', { enabled: true });
+    made.history.named(ALICE, FAKE_GUILD_ID, 1);
+    expect(await made.answer('history', { enabled: false })).toBe(
+      'The party history of this server no longer keeps your Discord id. It was taken out of ' +
+        'the one record of a raid, max battle, train, meetup or report at a stop kept with it so ' +
+        'far, which still counts, without it.',
     );
     expect(await made.history.isOptedIn(ALICE, FAKE_GUILD_ID)).toBe(false);
     expect(made.history.namedIn(ALICE, FAKE_GUILD_ID)).toBe(0);
@@ -205,6 +214,13 @@ describe('/settings', () => {
     const details = settings.subcommands.get('history')?.help?.details ?? '';
     expect(details).toContain('You always count in it, without your name.');
     expect(details).toContain('never tied to you');
+    // Reports at stops as well (plan 8H-2), never the stop itself.
+    expect(details).toContain(
+      'It keeps every field research and Team GO Rocket report that ends as well: what was ' +
+        'reported, the area and the region of its stop (never the stop itself), when, how it ended ' +
+        'and how many others reported the same.',
+    );
+    expect(details).toContain('and the reports you make');
   });
 
   it('says what each switch means now', async () => {

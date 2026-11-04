@@ -120,15 +120,16 @@ const NEW_TRAIN = {
 
 /**
  * Whether the party history keeps the member's id: per server, like new trains (plan 8H; the
- * history of a server is that server's).
+ * history of a server is that server's); also with their reports at stops that end (plan 8H-2).
  */
 const HISTORY = {
   name: 'history',
   label: "Named in this server's party history",
   on:
     'The party history of this server keeps your Discord id with what you sign up for and how ' +
-    'far you get in every raid, max battle, train and meetup that ends from now on, those under way ' +
-    'included. `/settings history enabled:False` takes it out again.',
+    'far you get in every raid, max battle, train and meetup, and with every field research and ' +
+    'Team GO Rocket report of yours, that ends from now on, those under way included. ' +
+    '`/settings history enabled:False` takes it out again.',
   off: 'The party history of this server no longer keeps your Discord id.',
   /** Said in a DM with the bot, where there is no server to set it for. */
   inDm:
@@ -136,13 +137,16 @@ const HISTORY = {
     'in the server you mean.',
 } as const;
 
-/** What opting out adds when the history named the member somewhere. */
-function forgottenIn(parties: number): string {
+/**
+ * What opting out adds when the history named the member somewhere: in how many records, of
+ * parties and of reports at stops (plan 8H-2) together.
+ */
+function forgottenIn(records: number): string {
   const what =
-    parties === 1
-      ? 'the raid, max battle, train or meetup'
-      : `the ${String(parties)} raids, max battles, trains and meetups`;
-  const count = parties === 1 ? 'which still counts' : 'which still count';
+    records === 1
+      ? 'the one record of a raid, max battle, train, meetup or report at a stop'
+      : `the ${String(records)} records of raids, max battles, trains, meetups and reports at stops`;
+  const count = records === 1 ? 'which still counts' : 'which still count';
   return ` It was taken out of ${what} kept with it so far, ${count}, without it.`;
 }
 
@@ -391,12 +395,15 @@ const history: SubcommandPart = {
     details:
       'Professor Pine keeps a history of every raid, max battle, train and meetup of this server that has ' +
       'ended: what it was, where and when, and how many signed up, came and completed it. You ' +
-      'always count in it, without your name.\n\nWith this on, your Discord id is kept as well with ' +
-      'what you do from now on (what you sign up for, when, and how far you get), for statistics ' +
-      'of your own later. Off takes your id out of everything kept so far: it all still counts, ' +
-      'without it.\n\nWhile a raid, max battle, train or meetup is still going on, I keep who signed up and ' +
-      'when, as I must to run it; when it ends, only the ids of members who opted in are kept, ' +
-      'and the rest is deleted.\n\nIt is set per server: use it in the server you mean, not in a DM ' +
+      'always count in it, without your name.\n\nIt keeps every field research and Team GO ' +
+      'Rocket report that ends as well: what was reported, the area and the region of its stop ' +
+      '(never the stop itself), when, how it ended and how many others reported the same.\n\n' +
+      'With this on, your Discord id is kept as well with what you do from now on (what you sign ' +
+      'up for, when, and how far you get, and the reports you make), for statistics of your own ' +
+      'later. Off takes your id out of everything kept so far: it all still counts, without ' +
+      'it.\n\nWhile a raid, max battle, train or meetup is still going on, or a report stands, I ' +
+      'keep who signed up or reported it and when, as I must to run it; when it ends, only the ' +
+      'ids of members who opted in are kept, and the rest is deleted.\n\nIt is set per server: use it in the server you mean, not in a DM ' +
       'with me. The history of the old bot, from before this one, is never tied to you.',
     examples: [`/settings ${HISTORY.name} enabled:True`, `/settings ${HISTORY.name} enabled:False`],
   },

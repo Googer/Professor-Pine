@@ -21,8 +21,9 @@ export interface HistoryOptIns {
   optIn(memberId: string, guildId: string, now: number): Promise<boolean>;
   /**
    * Opts the member out for this server and takes their id out of every party of its history
-   * (as an attendee, as who made it, as its conductor): the rows stay, without it. `changed`:
-   * they were opted in; `forgotten`: in how many parties the history named them.
+   * (as an attendee, as who made it, as its conductor) and out of every record of their reports
+   * at stops (plan 8H-2): the rows stay, without it. `changed`: they were opted in; `forgotten`:
+   * in how many records (parties and reports together) the history named them.
    */
   optOut(memberId: string, guildId: string): Promise<{ changed: boolean; forgotten: number }>;
 }
@@ -432,9 +433,10 @@ export class HistoryRepository implements HistoryOptIns, HistoryStorage {
 
   /**
    * One transaction: the opt-in goes, and the member's id goes from every party of the
-   * server's history, also where no opt-in row says it should be there. The parties are counted
-   * from three lookups by index (maker, conductor, attendee), so that neither the count nor the
-   * updates scan the server's history.
+   * server's history and every record of their reports at stops, also where no opt-in row says
+   * it should be there. The parties are counted from three lookups by index (maker, conductor,
+   * attendee), the reports by the index of server and reporter, so that neither the counts nor
+   * the updates scan the server's history.
    */
   optOut(memberId: string, guildId: string): Promise<{ changed: boolean; forgotten: number }> {
     // Two members opting out at once, each in a party the other made, deadlock: the join locks
@@ -478,9 +480,16 @@ export class HistoryRepository implements HistoryOptIns, HistoryStorage {
         .where('conductorId', '=', memberId)
         .where('serverId', '=', guildId)
         .execute();
+      // The reports at stops (plan 8H-2): one record per version, each counted.
+      const reports = await trx
+        .updateTable('StopReportHistory')
+        .set({ reporterId: null })
+        .where('serverId', '=', guildId)
+        .where('reporterId', '=', memberId)
+        .executeTakeFirst();
       return {
         changed: gone.numDeletedRows > 0n,
-        forgotten: Number(named.rows[0]?.n ?? 0),
+        forgotten: Number(named.rows[0]?.n ?? 0) + Number(reports.numUpdatedRows),
       };
     });
   }
