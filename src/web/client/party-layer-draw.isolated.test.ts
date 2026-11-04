@@ -996,8 +996,11 @@ async function started(options: {
     cleared: number;
     /** The lists told as drawn, by whether they were read-only (plan 8M-17). */
     listsDrawn: boolean[];
+    /** The Power Spots whose address a popup asked for, with the popup (design 2026-11-04). */
+    addressed: Array<{ id: string | null | undefined; popup: unknown }>;
   } = {
     listsDrawn: [],
+    addressed: [],
     finding: [],
     picked: 0,
     gyms: [],
@@ -1079,6 +1082,9 @@ async function started(options: {
       },
       onStops: (listener) => {
         stopListeners.push(listener);
+      },
+      spotAddress: (popup, spot) => {
+        frameTold.addressed.push({ id: spot.id, popup });
       },
       ...(options.activity === undefined ? {} : { activity: options.activity }),
     },
@@ -1214,6 +1220,16 @@ describe('a party a report made or found, opened with the Raids layer off (revie
     const marker = markerOf('Level 5 raid against Yveltal');
     expect(marker?.group?.onMap).toBe(true);
     expect(fake.shown.popupOf).toBe(marker);
+  });
+
+  // Design 2026-11-04: the spot's address asked as its battle's popup opens, never a pin's.
+  it("asks for a Power Spot's address as its battle's popup opens, not for a pin's", async () => {
+    const { raids, markerOf, frameTold } = await started({ raids: true });
+    expect(raids.openBattle('spot-1')).toBe(true);
+    expect(frameTold.addressed.map((asked) => asked.id)).toEqual(['spot-1']);
+    expect(frameTold.addressed[0]?.popup === popupNow()).toBe(true);
+    markerOf(pinBattle().title)?.openPopup();
+    expect(frameTold.addressed).toHaveLength(1);
   });
 
   it("opens the battle at a Power Spot for a tap of the spot's dot, none where none stands", async () => {

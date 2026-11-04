@@ -129,6 +129,11 @@ export interface PlacesHooks {
   /** A Power Spot's popup, its controls then added under it (`placeHead`); none: its name alone. */
   spotPopup?(spot: PlaceSpot): HTMLElement | undefined;
   /**
+   * A Power Spot's popup opened (design 2026-11-04): its address asked for where it has none, and
+   * drawn in the popup when it comes (`SpotAddresses.fill`).
+   */
+  spotAddress?(spot: PlaceSpot, popup: HTMLElement | undefined): void;
+  /**
    * A dot tapped that nothing took (Matt, 2026-10-30): what it opens, `own` or the list of what is
    * at its place; none: `own`.
    */
@@ -158,6 +163,11 @@ export interface ShownPlaces {
   onSpots(listener: (spots: readonly PlaceSpot[] | 'failed' | 'zoom') => void): void;
   /** Tells `listener` each answer of the PokéStops of the view (plan 8M-9B, B9), as `onSpots`. */
   onStops(listener: (stops: readonly PlaceSpot[] | 'failed' | 'zoom') => void): void;
+  /**
+   * An address came for a Power Spot (design 2026-11-04): kept in the last list of the Power
+   * Spots, so that the spot's next popup has it at once.
+   */
+  addressFound(spotId: string, address: string): void;
 }
 
 export function showPlaces(
@@ -211,12 +221,17 @@ export function showPlaces(
       .setLatLng([place.lat, place.lon])
       .setContent(content)
       .openOn(map);
-    return popup.getElement();
+    const element = popup.getElement();
+    if (id === 'spots') hooks?.spotAddress?.(place, element);
+    return element;
+  };
+  /** The last answer of each layer shown, drawn again when what the parties draw changes. */
+  const lasts: Record<'stops' | 'spots', StopsView | undefined> = {
+    stops: undefined,
+    spots: undefined,
   };
   for (const layer of LAYERS) {
     const group = L.layerGroup().addTo(map);
-    /** The last answer shown, drawn again when what the parties draw changes. */
-    let last: StopsView | undefined;
     /**
      * The places of an answer as dots, but those whose own thing the parties draw in their place
      * (`unoccupied`: a Power Spot with a battle shows the battle, plan 8M-9A).
@@ -227,7 +242,10 @@ export function showPlaces(
       const shown = unoccupied(view.stops, hooks?.occupied(layer.id) ?? new Set<string>());
       // While the Report button's step 2 picks them, each has a larger target to tap (R1-10).
       const picked = hooks?.forced(layer.id) === true;
-      for (const [id, lat, lon, title, address] of shown) {
+      for (const place of shown) {
+        const [id, lat, lon, title] = place;
+        // Read as the popup opens: an address found since is in the tuple (`addressFound`).
+        const address = (): string | null | undefined => place[4];
         const marker = L.circleMarker([lat, lon], {
           radius: 5,
           weight: 2,
@@ -240,11 +258,11 @@ export function showPlaces(
         // a Power Spot where a battle stands opens the battle (review B1).
         const open = (): void => {
           if (layer.id === 'spots' && hooks?.openBattle(id) === true) return;
-          placePopup(layer.id, { id, title, lat, lon, address });
+          placePopup(layer.id, { id, title, lat, lon, address: address() });
         };
         const tapped = (): void => {
           if (hooks?.placeTapped)
-            hooks.placeTapped(layer.id, { id, title, lat, lon, address }, open);
+            hooks.placeTapped(layer.id, { id, title, lat, lon, address: address() }, open);
           else open();
         };
         const targets = [
@@ -284,6 +302,7 @@ export function showPlaces(
       registry.setCount(layer.id, shown.length);
     };
     redraws.push(() => {
+      const last = lasts[layer.id];
       if (last) draw(last);
     });
     const loads = new StopLoads({
@@ -304,7 +323,7 @@ export function showPlaces(
         return layer.read(await getJson<unknown>(`${layer.url(guild)}?${query.toString()}`));
       },
       show: (view) => {
-        last = view;
+        lasts[layer.id] = view;
         draw(view);
         told(
           layer.id,
@@ -328,7 +347,7 @@ export function showPlaces(
     const places = new PlacesInView({
       loads,
       clear: () => {
-        last = undefined;
+        lasts[layer.id] = undefined;
         group.clearLayers();
         quiet.set(layer.id, undefined);
         registry.setCount(layer.id, 0);
@@ -370,6 +389,10 @@ export function showPlaces(
     },
     onStops: (listener) => {
       placeListeners.stops.push(listener);
+    },
+    addressFound: (spotId, address) => {
+      const place = lasts.spots?.stops.find(([id]) => id === spotId);
+      if (place) place[4] = address;
     },
   };
 }

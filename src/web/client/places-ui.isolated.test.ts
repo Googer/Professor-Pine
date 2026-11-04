@@ -406,6 +406,40 @@ describe('the Power Spots and PokéStops of the view (showPlaces)', () => {
     expect(asked).toHaveLength(1);
   });
 
+  // Design 2026-11-04: a Power Spot's address asked as its popup opens, kept in the last list.
+  it("asks for a Power Spot's address as its popup opens, and never a PokéStop's", async () => {
+    const asked: unknown[] = [];
+    const { dotOf, places } = await shownWith(
+      hooks({
+        spotAddress: (spot) => {
+          asked.push([spot.id, spot.address]);
+        },
+      }),
+    );
+    dotOf('spot-dot')?.fire('click');
+    dotOf('stop-dot')?.fire('click');
+    places.openSpot({ id: 'spot-9', title: 'Bandstand', lat: 40.46, lon: -79.93 });
+    expect(asked).toEqual([
+      ['spot-1', undefined],
+      ['spot-9', undefined],
+    ]);
+  });
+
+  it("keeps an address found in its last list: the spot's next popup has it at once", async () => {
+    const shown: unknown[] = [];
+    const { dotOf, places } = await shownWith(
+      hooks({
+        spotPopup: (spot) => {
+          shown.push(spot.address);
+          return undefined;
+        },
+      }),
+    );
+    places.addressFound('spot-1', '600 Grant St, Pittsburgh');
+    dotOf('spot-dot')?.fire('click');
+    expect(shown).toEqual(['600 Grant St, Pittsburgh']);
+  });
+
   it("gives a PokéStop's tap to the Report button's step 2, its popup opened only where it is not taken", async () => {
     const tapped: unknown[] = [];
     let taken = true;

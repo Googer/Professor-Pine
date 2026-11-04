@@ -360,6 +360,14 @@ export interface PartyFrame {
   openGym?: (gym: MapGym) => HTMLElement | undefined;
   /** A Power Spot's popup opened at it (step 3 of a max battle, A6). */
   openSpot?: (spot: MapSpot) => HTMLElement | undefined;
+  /**
+   * A popup or line of a Power Spot opened (design 2026-11-04): its battle's, or the spot's own
+   * in the list of what is on; its address asked for where it has none (`SpotAddresses.fill`).
+   */
+  spotAddress?: (
+    popup: HTMLElement | undefined,
+    spot: { id: string | null; address?: string | null },
+  ) => void;
   /** Tells `listener` each answer of the Power Spots of the view, or why none came (A4, R1-6). */
   onSpots?: (listener: (spots: readonly MapSpot[] | 'failed' | 'zoom') => void) => void;
   /** A layer's toggle says its filter of the reports at stops, or none (plan 8M-9B, goal 5). */
@@ -1752,6 +1760,13 @@ export function showParties(
       if (!node) return undefined;
       const element = draw(node);
       element.classList.add('line-detail');
+      // A Power Spot's line, or its battle's: the spot's address asked for where it has none.
+      const max = line.key.startsWith('max:')
+        ? view?.maxes.find((one) => one.id === line.id)
+        : undefined;
+      if (max) frame.spotAddress?.(element, { id: max.spotId, address: max.place.address });
+      else if (line.kind === 'spots' && line.key.startsWith('place:'))
+        frame.spotAddress?.(element, { id: line.id, address: line.address });
       return element;
     },
   });
@@ -1901,6 +1916,15 @@ export function showParties(
           openAt(key, marker);
         },
       ).addTo(groups.raids);
+      // Its Power Spot's address asked for as its popup (or the phone card) opens, where it has none.
+      marker.on('popupopen', () => {
+        if (max.spotId === null) return;
+        const shown = cardWanted()
+          ? (document.querySelector<HTMLElement>('.party-card:not([hidden]) .party-popup') ??
+            undefined)
+          : showing.popup?.getElement();
+        frame.spotAddress?.(shown, { id: max.spotId, address: max.place.address });
+      });
       placed.push({
         key,
         layer: 'raids',

@@ -27,6 +27,8 @@ import { quietLine, showPlaces, type PlacesHooks } from './places-ui.js';
 import { REGION_OUTLINE } from './panes.js';
 import { popupPanPadding, regionLabel, renderNode, type MapGym } from './popup.js';
 import { RouteFocus } from './route-focus.js';
+import { SpotAddresses } from './spot-address.js';
+import type { SpotAddressView } from '../../domain/web/max-data.js';
 import { hiddenGyms } from './shared-place.js';
 import { onThemeChange, theme } from './theme.js';
 import { BOUNDS_VISCOSITY, browserStorage, placeTheMap } from './view-ui.js';
@@ -590,6 +592,9 @@ function start(): void {
           stopTapped: (stop) => placesHooks.stopTapped(stop),
           stopPopup: (stop) => placesHooks.stopPopup?.(stop),
           spotPopup: (spot) => placesHooks.spotPopup?.(spot),
+          spotAddress: (spot, popup) => {
+            void spotAddresses.fill(popup, spot);
+          },
           placeTapped: (layer, place, own) => {
             if (placesHooks.placeTapped) placesHooks.placeTapped(layer, place, own);
             else own();
@@ -597,6 +602,20 @@ function start(): void {
         },
         activity,
       );
+      // A Power Spot's address asked for as one of its popups opens (design 2026-11-04), once per
+      // spot while the page lives, kept in the places' last list when it comes.
+      const spotAddresses = new SpotAddresses({
+        ask: async (id) =>
+          (
+            await getJson<SpotAddressView>(
+              `/s/${guild}/api/powerspots/${encodeURIComponent(id)}/address`,
+            )
+          ).address,
+        heard: (id, address) => {
+          places.addressFound(id, address);
+        },
+        document,
+      });
       if (!me.loggedIn || !member) {
         // The side pane says how to see what is on (plan 8M-7).
         const pane = byId('parties');
@@ -691,6 +710,10 @@ function start(): void {
           places.onStops(listener);
         },
         openStop: (stop) => places.openStop(stop),
+        // A battle's popup or a Power Spot's line asks the spot's address (design 2026-11-04).
+        spotAddress: (popup, spot) => {
+          void spotAddresses.fill(popup, spot);
+        },
         routeMode: (on) => {
           routeFocus.set(on);
         },
