@@ -2935,7 +2935,8 @@ Matt asked for "Start train here" and "Hold meetup here" as the map's labels, an
 Matt: gyms, PokéStops and Power Spots should open alike, without a region line. All now show name, address where known, distance once your location is known and Directions (`placeHead`), Find's places too.
 
 - **Claude's calls, for Matt to object to:** a gym's nickname stays under its name, and its notice and description now come after Directions. A stop's buttons stand one under another, so they no longer depend on the width of its name. A stop's or spot's address is what Wayfarer gave, so some have none and show no line.
-- **To see live:** the three popups, and the stop's three buttons, with a short and a long name.
+- **Seen live (2026-11-04, the Air, Googer):** a gym, a PokéStop and a Power Spot open alike, with no region line; a stop's three buttons stand one under another, the same size and style. Distance not seen: the browser gave no location (the unit tests cover it).
+- **Open for Matt:** a Power Spot has no address to show. No Power Spot holds one (none of the Air's 86 near Verona, none of the laptop copy's 15,956; PokéStops nearly all have one), and the Google line asks a Wayspot's nearby places, not its address. A Power Spot could get one from a reverse geocode when its popup opens, kept once asked, from the monthly geocode budget; or stay without.
 
 ## From the small security fixes (2026-11-01)
 
