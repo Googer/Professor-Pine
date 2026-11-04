@@ -257,7 +257,6 @@ export class MemoryStopReports implements StopReportStorage {
       .filter((row) => row.endsAt <= before)
       .sort((a, b) => a.endsAt - b.endsAt || a.id - b.id);
     if (ended.length === 0) return Promise.resolve(0);
-    // A record that fails keeps the rows for the next sweep (review H10).
     // Records that fail keep their rows for the next sweep (review H10, P7), but a week past
     // their end the rows go without them (8H2-4).
     if (this.historyFailing) {

@@ -165,11 +165,11 @@ describe('/settings', () => {
     expect(await made.history.isOptedIn(ALICE, FAKE_GUILD_ID)).toBe(true);
     expect(await made.history.isOptedIn(ALICE, AWAY)).toBe(false);
     expect(await made.answer('show')).toContain(
-      "- Named in this server's party history: **on** · `/settings history`",
+      "- Named in this server's history: **on** · `/settings history`",
     );
     const elsewhere = await made.run('show', {}, { guildId: AWAY });
     expect(answered(elsewhere).content).toContain(
-      "- Named in this server's party history: **off** · `/settings history`",
+      "- Named in this server's history: **off** · `/settings history`",
     );
   });
 
@@ -206,7 +206,7 @@ describe('/settings', () => {
     expect(made.history.rows).toEqual([]);
     const shown = await made.run('show', {}, { isDm: true });
     expect(answered(shown).content).toContain(
-      '- Named in the party history: set per server · `/settings history` in a server',
+      '- Named in the history: set per server · `/settings history` in a server',
     );
   });
 
@@ -334,7 +334,7 @@ describe('/settings show', () => {
         '- Pings when a train moves: **on** · `/settings mentions-train-stops`',
         '- DM when an egg gets its boss: **off** · `/settings boss-set`',
         '- DM for a new train in this server: **off** · `/settings new-train`',
-        "- Named in this server's party history: **off** · `/settings history`",
+        "- Named in this server's history: **off** · `/settings history`",
         '- Status when you report a raid or make a train: **Interested** · `/settings auto-status`',
         '- Raid reports and trains: **Visible** · `/settings privacy`',
         '- Pokémon, raid tiers and rewards on your list in this server: **0** · `/wants`',

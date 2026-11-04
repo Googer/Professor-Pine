@@ -65,7 +65,7 @@ describe('/admin member-settings', () => {
       '- Pings when a train moves: **on** (quiet while all pings are off)',
       '- DM when an egg gets its boss: **off**',
       '- DM for a new train in this server: **on**',
-      "- Named in this server's party history: **on**",
+      "- Named in this server's history: **on**",
       '- Status when they report a raid or make a train: **Coming**',
       '- Raid reports and trains: **Anonymous**',
       '- Friend code: **1234 5678 9012**',

@@ -124,7 +124,7 @@ const NEW_TRAIN = {
  */
 const HISTORY = {
   name: 'history',
-  label: "Named in this server's party history",
+  label: "Named in this server's history",
   on:
     'The party history of this server keeps your Discord id with what you sign up for and how ' +
     'far you get in every raid, max battle, train and meetup, and with every field research and ' +
@@ -236,7 +236,7 @@ export function settingsLines(
       ? `DM for a new train: set per server${via(`/settings ${NEW_TRAIN.name}`)}${commands ? ' in a server' : ''}`
       : `${NEW_TRAIN.label}: **${onOff(newTrain)}**${via(`/settings ${NEW_TRAIN.name}`)}`,
     options.history === undefined
-      ? `Named in the party history: set per server${via(`/settings ${HISTORY.name}`)}${commands ? ' in a server' : ''}`
+      ? `Named in the history: set per server${via(`/settings ${HISTORY.name}`)}${commands ? ' in a server' : ''}`
       : `${HISTORY.label}: **${onOff(options.history)}**${via(`/settings ${HISTORY.name}`)}`,
     `Status when ${commands ? 'you report' : 'they report'} a raid or make a train: **${autoStatusName(settings.autoStatus)}**${via('/settings auto-status')}`,
     `Raid reports and trains: **${settings.raidPrivacy === RaidPrivacy.Anonymous ? 'Anonymous' : 'Visible'}**${via('/settings privacy')}`,
