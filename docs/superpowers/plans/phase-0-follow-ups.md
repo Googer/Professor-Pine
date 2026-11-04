@@ -2936,7 +2936,7 @@ Matt: gyms, PokéStops and Power Spots should open alike, without a region line.
 
 - **Claude's calls, for Matt to object to:** a gym's nickname stays under its name, and its notice and description now come after Directions. A stop's buttons stand one under another, so they no longer depend on the width of its name. A stop's or spot's address is what Wayfarer gave, so some have none and show no line.
 - **Seen live (2026-11-04, the Air, Googer):** a gym, a PokéStop and a Power Spot open alike, with no region line; a stop's three buttons stand one under another, the same size and style. Distance not seen: the browser gave no location (the unit tests cover it).
-- **Open for Matt:** a Power Spot has no address to show. No Power Spot holds one (none of the Air's 86 near Verona, none of the laptop copy's 15,956; PokéStops nearly all have one), and the Google line asks a Wayspot's nearby places, not its address. A Power Spot could get one from a reverse geocode when its popup opens, kept once asked, from the monthly geocode budget; or stay without.
+- **A Power Spot's address, later (Matt, 2026-11-04: a nice-to-have):** no Power Spot holds one (none of the Air's 86 near Verona, none of the laptop copy's 15,956; PokéStops nearly all have one), and the Google line asks a Wayspot's nearby places, not its address. If built: a reverse geocode when its popup opens, kept once asked, within a monthly budget that keeps Pine inside Google's free use, as the gyms' line does (`googleGeocodesPerMonth`).
 
 ## From the small security fixes (2026-11-01)
 
