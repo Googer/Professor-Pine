@@ -27,8 +27,7 @@ import { quietLine, showPlaces, type PlacesHooks } from './places-ui.js';
 import { REGION_OUTLINE } from './panes.js';
 import { popupPanPadding, regionLabel, renderNode, type MapGym } from './popup.js';
 import { RouteFocus } from './route-focus.js';
-import { SpotAddresses } from './spot-address.js';
-import type { SpotAddressView } from '../../domain/web/max-data.js';
+import { pageSpotAddresses } from './spot-address.js';
 import { hiddenGyms } from './shared-place.js';
 import { onThemeChange, theme } from './theme.js';
 import { BOUNDS_VISCOSITY, browserStorage, placeTheMap } from './view-ui.js';
@@ -604,18 +603,7 @@ function start(): void {
       );
       // A Power Spot's address asked for as one of its popups opens (design 2026-11-04), once per
       // spot while the page lives, kept in the places' last list when it comes.
-      const spotAddresses = new SpotAddresses({
-        ask: async (id) =>
-          (
-            await getJson<SpotAddressView>(
-              `/s/${guild}/api/powerspots/${encodeURIComponent(id)}/address`,
-            )
-          ).address,
-        heard: (id, address) => {
-          places.addressFound(id, address);
-        },
-        document,
-      });
+      const spotAddresses = pageSpotAddresses({ guild, getJson, places, document });
       if (!me.loggedIn || !member) {
         // The side pane says how to see what is on (plan 8M-7).
         const pane = byId('parties');

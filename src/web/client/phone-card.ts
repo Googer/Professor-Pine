@@ -62,6 +62,8 @@ export interface PhoneCardHooks {
 export class PhoneCard {
   private state: CardState = 'closed';
   private shown: { key: string; content: () => HTMLElement } | undefined;
+  /** The content drawn last, in the card's body. */
+  private drawn: HTMLElement | undefined;
   private parts: CardParts | undefined;
   private swipeFrom: number | undefined;
   /** A swipe just ended: the click the browser fires after it is no tap. */
@@ -79,6 +81,11 @@ export class PhoneCard {
     return this.state === 'closed' ? undefined : this.shown?.key;
   }
 
+  /** What the card shows while it is open (its party's content); undefined while closed. */
+  content(): HTMLElement | undefined {
+    return this.state === 'closed' ? undefined : this.drawn;
+  }
+
   /** How tall the card is, in pixels (the map pans what was tapped above it). */
   get height(): number {
     return this.parts?.element.getBoundingClientRect?.().height ?? 0;
@@ -94,7 +101,8 @@ export class PhoneCard {
     // Another party in its place: the first is closed for the page, a form in it with it.
     if (this.state !== 'closed' && this.shown?.key !== key) this.hooks.onClose?.();
     this.shown = { key, content };
-    body.replaceChildren(content());
+    this.drawn = content();
+    body.replaceChildren(this.drawn);
     this.named();
     this.go('summary');
     handle.focus();
@@ -108,7 +116,8 @@ export class PhoneCard {
       return;
     }
     this.shown = { key: this.shown.key, content };
-    this.made().body.replaceChildren(content());
+    this.drawn = content();
+    this.made().body.replaceChildren(this.drawn);
     this.named();
   }
 

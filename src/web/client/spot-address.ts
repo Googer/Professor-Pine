@@ -1,3 +1,5 @@
+import type { SpotAddressView } from '../../domain/web/max-data.js';
+import type { ShownPlaces } from './places-ui.js';
 import { addressLine, renderNode } from './popup.js';
 
 /**
@@ -100,4 +102,29 @@ export class SpotAddresses {
     if (!node) return;
     name.after(renderNode(node, this.deps.document));
   }
+}
+
+/**
+ * The map's helper (`main.ts`): it asks the server's route of the map's server
+ * (`SpotAddressView`, through the page's `getJson`) and keeps an address that came in the places'
+ * last list (`ShownPlaces.addressFound`).
+ */
+export function pageSpotAddresses(page: {
+  guild: string;
+  getJson: <T>(url: string) => Promise<T>;
+  places: Pick<ShownPlaces, 'addressFound'>;
+  document: SpotAddressesDeps['document'];
+}): SpotAddresses {
+  return new SpotAddresses({
+    ask: async (id) =>
+      (
+        await page.getJson<SpotAddressView>(
+          `/s/${page.guild}/api/powerspots/${encodeURIComponent(id)}/address`,
+        )
+      ).address,
+    heard: (id, address) => {
+      page.places.addressFound(id, address);
+    },
+    document: page.document,
+  });
 }

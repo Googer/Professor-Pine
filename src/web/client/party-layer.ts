@@ -1919,10 +1919,7 @@ export function showParties(
       // Its Power Spot's address asked for as its popup (or the phone card) opens, where it has none.
       marker.on('popupopen', () => {
         if (max.spotId === null) return;
-        const shown = cardWanted()
-          ? (document.querySelector<HTMLElement>('.party-card:not([hidden]) .party-popup') ??
-            undefined)
-          : showing.popup?.getElement();
+        const shown = cardWanted() ? card.content() : showing.popup?.getElement();
         frame.spotAddress?.(shown, { id: max.spotId, address: max.place.address });
       });
       placed.push({

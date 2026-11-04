@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { FAILED_AGAIN_MS, SpotAddresses, type SpotAddressesDeps } from './spot-address.js';
+import {
+  FAILED_AGAIN_MS,
+  pageSpotAddresses,
+  SpotAddresses,
+  type SpotAddressesDeps,
+} from './spot-address.js';
 
 /** Just enough of an element for a popup's head: its class, text, children, and a place in the page. */
 class FakeElement {
@@ -74,6 +79,31 @@ function server(answers: Record<string, string | null | Error>) {
   };
   return { ask, asked, answer };
 }
+
+describe("the map's helper for Power Spots' addresses (pageSpotAddresses, as main.ts makes it)", () => {
+  it("asks the server's route of the map's server, and keeps an address in the places' last list", async () => {
+    const asked: string[] = [];
+    const found: unknown[] = [];
+    const addresses = pageSpotAddresses({
+      guild: '100000000000000001',
+      getJson: <T>(url: string) => {
+        asked.push(url);
+        return Promise.resolve({ address: '600 Grant St' } as T);
+      },
+      places: {
+        addressFound: (id, address) => {
+          found.push([id, address]);
+        },
+      },
+      document,
+    });
+    const popup = spotPopup();
+    await addresses.fill(asHtml(popup), { id: 'c0ffee.16' });
+    expect(asked).toEqual(['/s/100000000000000001/api/powerspots/c0ffee.16/address']);
+    expect(found).toEqual([['c0ffee.16', '600 Grant St']]);
+    expect(addressText(popup)).toBe('600 Grant St');
+  });
+});
 
 describe("a Power Spot's address on the page (SpotAddresses)", () => {
   it('asks for it as the popup opens and draws the line under the name when it comes', async () => {

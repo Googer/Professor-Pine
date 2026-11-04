@@ -227,6 +227,15 @@ describe('the phone card on the page (review 8A-1, 8A-8)', () => {
     expect(closed).toEqual([1]);
   });
 
+  it('gives the content it shows while it is open, none once closed', () => {
+    const { doc, card } = opened();
+    const second = doc.createElement('div');
+    card.open('train:t1', () => second as unknown as HTMLElement);
+    expect(card.content() === (second as unknown as HTMLElement)).toBe(true);
+    card.close();
+    expect(card.content()).toBeUndefined();
+  });
+
   it('takes no tap after a swipe, moves the focus in and gives it back (8A-8)', () => {
     const { doc, element, part, outside } = opened();
     const handle = part('card-handle');

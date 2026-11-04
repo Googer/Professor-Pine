@@ -222,10 +222,16 @@ const fake = vi.hoisted(() => {
     ) {
       card.made = this;
     }
-    open(key: string) {
+    /** What it shows while open, as the party layer drew it. */
+    drawn: unknown;
+    open(key: string, content?: () => unknown) {
       // As the real card: another party in its place closes the first for the page.
       if (this.key !== undefined && this.key !== key) this.hooks.onClose?.();
       this.key = key;
+      this.drawn = content?.();
+    }
+    content() {
+      return this.key === undefined ? undefined : this.drawn;
     }
     /** As the real card: without content its party is gone, and it closes. */
     refresh(content?: unknown) {
@@ -1230,6 +1236,16 @@ describe('a party a report made or found, opened with the Raids layer off (revie
     expect(frameTold.addressed[0]?.popup === popupNow()).toBe(true);
     markerOf(pinBattle().title)?.openPopup();
     expect(frameTold.addressed).toHaveLength(1);
+  });
+
+  it("asks for it on a phone as the battle's card opens, with the card's content", async () => {
+    const { raids, card, frameTold } = await started({ raids: true, phone: true });
+    expect(raids.openBattle('spot-1')).toBe(true);
+    expect(card()?.key).toBe(`max:${spotBattle().id}`);
+    const shown = card()?.content();
+    expect(shown).toBeDefined();
+    expect(frameTold.addressed.map((asked) => asked.id)).toEqual(['spot-1']);
+    expect(frameTold.addressed[0]?.popup === shown).toBe(true);
   });
 
   it("opens the battle at a Power Spot for a tap of the spot's dot, none where none stands", async () => {
@@ -3168,6 +3184,39 @@ describe("Find's pick on the map (plan 8M-12)", () => {
       times: {},
     }) as PageElement | undefined;
     expect(place).toBeDefined();
+  });
+
+  // Design 2026-11-04 (review): Find's results and the list of what is on ask the spot's address.
+  it("asks for a Power Spot's address under its line, and under its battle's", async () => {
+    const { frameTold } = await started({ raids: true });
+    const line = {
+      marker: null,
+      picture: null,
+      going: 0,
+      soonest: null,
+      times: {},
+    };
+    const spot = fake.list.detail?.({
+      ...line,
+      key: 'place:powerspot:spot-7',
+      kind: 'spots',
+      id: 'spot-7',
+      name: 'Bandstand',
+      place: 'Power Spot',
+      point: { lat: 40.46, lon: -79.93 },
+    }) as PageElement | undefined;
+    const battle = fake.list.detail?.({
+      ...line,
+      key: `max:${spotBattle().id}`,
+      kind: 'raids',
+      id: spotBattle().id,
+      name: spotBattle().title,
+      place: 'Lake Gazebo',
+      point: { lat: 40.45, lon: -79.94 },
+    }) as PageElement | undefined;
+    expect(frameTold.addressed.map((asked) => asked.id)).toEqual(['spot-7', 'spot-1']);
+    expect(frameTold.addressed[0]?.popup === spot).toBe(true);
+    expect(frameTold.addressed[1]?.popup === battle).toBe(true);
   });
 
   // Branch review BR-1: while a gym is to be clicked (route mode, a meetup's place, the Report
