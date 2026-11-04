@@ -1,6 +1,6 @@
 # Showing Pine's history (design sketch)
 
-Status: draft, 2026-11-04. A brainstorm with Matt in one session. Nothing is built yet; each part below becomes a plan of its own. Part A comes before the cutover (Matt, 2026-11-04); the rest may follow in any order.
+Status: approved, 2026-11-04 (Matt). A brainstorm with Matt in one session; a fresh reviewer read the draft. Nothing is built yet; each part below becomes a plan of its own. Part A comes before the cutover (Matt, 2026-11-04); the rest may follow in any order.
 
 Background: what the party history keeps is `docs/architecture/history.md`; reports at stops are `docs/architecture/stop-reports.md`; the web map is `docs/architecture/web.md`.
 
@@ -147,9 +147,9 @@ Legacy trains get their route only.
 
 A first, before the cutover. Then B (the most useful for members), then C, D and E together (one set of counts), then F and G. Each part is a plan of its own, prototyped and reviewed as usual.
 
-## Part H: filling in a member's legacy history (idea, open)
+## Part H: filling in a member's legacy history
 
-Matt, 2026-11-04: a member who opts in might have their legacy parties filled in with their id. The import keeps no member ids (Matt, 2026-10-16), so this means reading the legacy `parties/` files again for that one member: each legacy record is found by its `legacyKey` and its attendees by `seq` (the import wrote them in the files' order), and the member's id is set where the file names them, as reporter, conductor or attendee. Only for a member who asks, and an opt-out takes it out again as for live rows. The files hold no times, so this fills in counts (parties, bosses, regions, years) and none of the confirmations Part D ranks by. Where the files are kept for this: Q6.
+Matt, 2026-11-04: a member who opts in might have their legacy parties filled in with their id. The import keeps no member ids (Matt, 2026-10-16), so this means reading the legacy `parties/` files again for that one member: each legacy record is found by its `legacyKey` and its attendees by `seq` (the import wrote them in the files' order), and the member's id is set where the file names them, as reporter, conductor or attendee. Only for a member who asks, and an opt-out takes it out again as for live rows. The files hold no times, so this fills in counts (parties, bosses, regions, years) and none of the confirmations Part D ranks by. Where the files are kept for this: Q6 below.
 
 ## Answers (Matt, 2026-11-04)
 
@@ -159,8 +159,6 @@ Matt, 2026-11-04: a member who opts in might have their legacy parties filled in
 - **Q4. Research that stood:** counts, with its confirmations shown beside it.
 - **Q5. Asking to opt in:** one line in the cutover announcement and in the Discord tutorial; no DM.
 
-## Open questions
-
-- **Q6. Where the legacy files live for Part H.** Recommended: a read-only copy of `parties/` on the Air beside the stack, mounted into the bot's container, read only when a member asks. Not a table of every legacy member's id in the database, which would keep the ids of members who never opted in.
+- **Q6. Where the legacy files live for Part H:** alongside wherever Pine is installed (for Pittsburgh, at first, the Air): a read-only copy of the legacy `parties/` folder beside the stack, mounted read-only into the bot's container, read only when a member asks. Members fill in their own history from `/settings history`. Not a table of every legacy member's id in the database, which would keep the ids of members who never opted in, and not a step run by hand. The guide for moving a legacy instance (`docs/guides/`) says to copy the folder there; an installation without it does not offer the fill-in.
 
 A fresh reviewer read the draft (findings H1–H23); the defaults it raised are folded in above, marked by their numbers.
