@@ -54,6 +54,7 @@ export const PINE_TABLES: readonly string[] = [
   'StopLine',
   'StopPost',
   'StopReport',
+  'StopReportHistory',
   'TargetWant',
   'UnownWantGift',
   'Wayspot',

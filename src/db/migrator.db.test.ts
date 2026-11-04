@@ -74,6 +74,7 @@ const ADDED_TABLES = [
   'EventPost',
   'ListedEvent',
   'WayspotAddress',
+  'StopReportHistory',
 ];
 /** The columns it adds to tables of the legacy bot, as `Table.column`. */
 const ADDED_COLUMNS = [
@@ -205,6 +206,7 @@ describe('runMigrations', () => {
       '2026_10_29_033_events_forum',
       '2026_10_31_034_research_task_ends',
       '2026_11_04_035_wayspot_address',
+      '2026_11_04_036_stop_report_history',
     ]);
     expect(
       await describeSchema(

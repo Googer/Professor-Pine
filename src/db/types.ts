@@ -628,6 +628,8 @@ export interface StopPost {
 }
 
 export interface StopReport {
+  cell: string | null;
+  confirmedBy: Json | null;
   detail: Json;
   endsAt: string;
   id: Generated<number>;
@@ -636,6 +638,7 @@ export interface StopReport {
   lon: number;
   madeAt: string;
   periodKey: string;
+  regionIds: Json | null;
   reporterId: string;
   reporterName: string;
   serverId: string;
@@ -643,6 +646,25 @@ export interface StopReport {
   stopImage: string | null;
   stopKey: string;
   stopName: string;
+  subjectKey: string;
+}
+
+export interface StopReportHistory {
+  cell: string | null;
+  confirmations: Generated<number>;
+  detail: Json;
+  endedAt: string;
+  ending: string;
+  endsAt: string;
+  id: Generated<number>;
+  kind: string;
+  madeAt: string;
+  periodKey: string;
+  regionIds: Json | null;
+  reporterId: string | null;
+  reportId: number;
+  reportMadeAt: string;
+  serverId: string;
   subjectKey: string;
 }
 
@@ -789,6 +811,7 @@ export interface DB {
   StopLine: StopLine;
   StopPost: StopPost;
   StopReport: StopReport;
+  StopReportHistory: StopReportHistory;
   TargetWant: TargetWant;
   UnownWantGift: UnownWantGift;
   User: User;

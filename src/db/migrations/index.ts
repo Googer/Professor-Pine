@@ -34,6 +34,7 @@ import { googleLine } from './2026_10_26_032_google_line.js';
 import { eventsForum } from './2026_10_29_033_events_forum.js';
 import { researchTaskEnds } from './2026_10_31_034_research_task_ends.js';
 import { wayspotAddress } from './2026_11_04_035_wayspot_address.js';
+import { stopReportHistory } from './2026_11_04_036_stop_report_history.js';
 
 /**
  * Every migration, keyed by name. Kysely applies them in name order, so names are
@@ -75,4 +76,5 @@ export const migrations: Record<string, Migration> = {
   '2026_10_29_033_events_forum': eventsForum,
   '2026_10_31_034_research_task_ends': researchTaskEnds,
   '2026_11_04_035_wayspot_address': wayspotAddress,
+  '2026_11_04_036_stop_report_history': stopReportHistory,
 };
