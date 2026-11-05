@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-05T12:15",
+  "updated": "2026-11-05T13:29",
   "items": [
     {
       "id": "0",
@@ -10668,6 +10668,34 @@ window.GANTT = {
       "status": "done",
       "start": "2026-11-05T11:09",
       "end": "2026-11-05T11:10"
+    },
+    {
+      "id": "8H-6A",
+      "kind": "plan",
+      "parent": "16",
+      "name": "8H-6A Every conductor recorded",
+      "size": 1,
+      "dependsOn": [],
+      "scope": "A train's every conductor credited in its record (a conduct step, PartyHistoryAttendee.conducted), before the cutover, for Part D's board",
+      "doneWhen": "Merged into main-dev",
+      "status": "planned",
+      "planning": {
+        "start": "2026-11-05T12:45",
+        "end": "2026-11-05T13:29"
+      }
+    },
+    {
+      "id": "8H-6",
+      "kind": "plan",
+      "parent": "16",
+      "name": "8H-6 Boards and your own stats",
+      "size": 1,
+      "dependsOn": [
+        "8H-6A"
+      ],
+      "scope": "Contribution boards with /settings leaderboard, boards of things, /stats me and /stats boards with Share, the history page Boards section and Your Pine (history design Parts D and E)",
+      "doneWhen": "Merged into main-dev",
+      "status": "planned"
     },
     {
       "id": "16-staging",
