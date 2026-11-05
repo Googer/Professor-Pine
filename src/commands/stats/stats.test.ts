@@ -197,19 +197,16 @@ describe('/stats regions', () => {
     expect(textDisplays(asV2(answered(await made.ask()))).slice(0, 2)).toEqual(MONTH_TALLY);
   });
 
-  it('leaves out a region whose forum the member cannot see by their roles, as one kept out (R-B)', async () => {
+  it('keeps a region whose forum only the member’s roles hide, as the map does (spec 2.5)', async () => {
     const made = await setup();
     made.gateway.shutOut(EAST_FORUM, MISTY);
     const misty = asV2(answered(await made.ask({}, MISTY)));
-    expect(textDisplays(misty)[0]).not.toContain(EAST_CHANNEL);
-    expect(textDisplays(misty)[1]).toBe(
-      'No longer a region: 2 raids, 1 max battle\n**Total:** 6 raids, 2 max battles',
-    );
+    expect(textDisplays(misty).slice(0, 2)).toEqual(MONTH_TALLY);
   });
 
   it('judges a region without a forum by its text channel (8H5-2)', async () => {
     const made = await setup();
-    made.gateway.shutOut(UNBOUNDED_CHANNEL, MISTY);
+    made.gateway.barred.set(UNBOUNDED_CHANNEL, new Set([MISTY]));
     const misty = asV2(answered(await made.ask({}, MISTY)));
     expect(textDisplays(misty)[0]).not.toContain('Region 3');
     expect(textDisplays(asV2(answered(await made.ask()))).slice(0, 2)).toEqual(MONTH_TALLY);
@@ -368,12 +365,14 @@ describe('Share of the region tally', () => {
     expect(keeps).toHaveBeenCalledTimes(1);
   });
 
-  it('says nothing under Share where it would drop only a region the member does not see (R-B)', async () => {
+  it('shows a region only roles hide from the member, and says under Share that a share drops it', async () => {
     const made = await setup();
     moderatorsEast(made.gateway);
     const misty = asV2(answered(await made.ask({}, MISTY)));
-    expect(textDisplays(misty)[0]).not.toContain(EAST_CHANNEL);
-    expect(textDisplays(misty)).toHaveLength(2);
+    // The map's rule (spec 2.5): East's roles hide it from Misty, but nothing bars her.
+    expect(textDisplays(misty)[0]).toContain(EAST_CHANNEL);
+    expect(textDisplays(misty)).toHaveLength(3);
+    expect(textDisplays(misty)[2]).toContain('leaves out');
   });
 
   it('keeps a region shared among those who all see it: a moderators’ channel on a gated server', async () => {

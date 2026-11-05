@@ -38,12 +38,15 @@ export type ForumStanding = 'visible' | 'hidden' | 'barred';
 
 /**
  * Whether how a member stands to a region's forum keeps the region off their tally and their
- * heatmap (Matt, 2026-11-05, R-B; the one rule `/stats regions`, the history page and the map's
- * activity layer all ask): kept out (`barred`) or not shown it by their roles (`hidden`) alike;
- * undefined (the forum is gone, or the member left) keeps nobody out.
+ * heatmap (the one rule `/stats regions`, the history page and the map's activity layer all
+ * ask): only `barred`, an overwrite somebody set to keep them out, as the party layer decides
+ * (spec 2.5: the map crosses region roles; Matt, 2026-11-05, reversing R-B's `hidden` so the
+ * history and the live map agree). A forum only the member's roles hide (`hidden`), or none
+ * (the forum is gone, or the member left), keeps nobody out. Share keeps its own stricter rule
+ * for a public post (`shareKeeps`).
  */
 export function keptOut(standing: ForumStanding | undefined): boolean {
-  return standing === 'barred' || standing === 'hidden';
+  return standing === 'barred';
 }
 
 /**

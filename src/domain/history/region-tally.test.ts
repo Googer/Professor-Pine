@@ -76,10 +76,10 @@ describe('the region tally', () => {
   });
 });
 
-describe('who a forum keeps from a region (R-B)', () => {
-  it('keeps out a member barred from the forum or not shown it by their roles, nobody else', () => {
+describe('who a forum keeps from a region (the map’s rule, Matt 2026-11-05)', () => {
+  it('keeps out a member barred from the forum, not one its roles only hide it from', () => {
     expect(keptOut('barred')).toBe(true);
-    expect(keptOut('hidden')).toBe(true);
+    expect(keptOut('hidden')).toBe(false);
     expect(keptOut('visible')).toBe(false);
     // The forum is gone, or the member left: nothing keeps them out.
     expect(keptOut(undefined)).toBe(false);

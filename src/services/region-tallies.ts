@@ -76,9 +76,9 @@ export class RegionTallies {
 
   /**
    * The tally as a member may see it: without the regions whose forum (or text channel, where
-   * they have none: `regionGate`, 8H5-2) they do not see (`memberAccess` `barred` or `hidden`,
-   * `keptOut`: Matt's ruling R-B, the heatmap's rule too; a channel that is gone keeps nobody
-   * out). Rejects while Discord cannot say.
+   * they have none: `regionGate`, 8H5-2) that keeps them out (`memberAccess` `barred`, `keptOut`,
+   * the party layer's and the heatmap's rule; one only their roles hide is shown; a channel that
+   * is gone keeps nobody out). Rejects while Discord cannot say.
    */
   forMember(
     serverId: string,

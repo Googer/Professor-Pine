@@ -152,7 +152,7 @@ describe('the activity heatmap on the map', () => {
     expect(bob.leftOut).toBe(2);
   });
 
-  it('leaves out what lies only in a region whose forum the member cannot see by their roles (R-B)', async () => {
+  it('keeps what lies in a region whose forum only the member’s roles hide, as the map does (spec 2.5)', async () => {
     const made = await setup();
     web = made.web;
     await made.activity.add(FAKE_GUILD_ID, [
@@ -161,7 +161,7 @@ describe('the activity heatmap on the map', () => {
     ]);
     made.made.gateway.shutOut(EAST_FORUM, ALICE);
     const alice = (await made.ask()).json<ActivityView>();
-    expect(alice.places.map((place) => place.id)).toEqual(['1']);
+    expect(alice.places.map((place) => place.id)).toEqual(['1', '7']);
     const bob = (await made.ask('', BOB)).json<ActivityView>();
     expect(bob.places.map((place) => place.id)).toEqual(['1', '7']);
   });
@@ -174,7 +174,7 @@ describe('the activity heatmap on the map', () => {
       activityBucket(2, '2026-10', 4, 18, { regionId: 3 }),
     ]);
     made.made.gateway.addChannel(UNBOUNDED_CHANNEL, 'unbounded');
-    made.made.gateway.shutOut(UNBOUNDED_CHANNEL, ALICE);
+    made.made.gateway.barred.set(UNBOUNDED_CHANNEL, new Set([ALICE]));
     const alice = (await made.ask()).json<ActivityView>();
     expect(alice.places.map((place) => place.id)).toEqual(['1']);
     const bob = (await made.ask('', BOB)).json<ActivityView>();

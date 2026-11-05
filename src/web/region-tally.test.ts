@@ -119,20 +119,19 @@ describe('the region tally on the web', () => {
     expect(bob.rows.map((row) => row.name)).toEqual(['#east', '#west', 'Region 3']);
   });
 
-  it('leaves out a region whose forum the member cannot see by their roles, as one kept out (R-B)', async () => {
+  it('keeps a region whose forum only the member’s roles hide, as the map does (spec 2.5)', async () => {
     const made = await setup();
     web = made.web;
     made.made.gateway.shutOut(EAST_FORUM, ALICE);
     const alice = (await made.ask()).json<RegionTallyView>();
-    expect(alice.rows.map((row) => row.name)).toEqual(['#west', 'Region 3']);
-    expect(alice.total).toEqual({ raids: 6, maxes: 1 });
+    expect(alice.rows.map((row) => row.name)).toEqual(['#east', '#west', 'Region 3']);
   });
 
   it('judges a region without a forum by its text channel (8H5-2)', async () => {
     const made = await setup();
     web = made.web;
     made.made.gateway.addChannel(UNBOUNDED_CHANNEL, 'unbounded');
-    made.made.gateway.shutOut(UNBOUNDED_CHANNEL, ALICE);
+    made.made.gateway.barred.set(UNBOUNDED_CHANNEL, new Set([ALICE]));
     const alice = (await made.ask()).json<RegionTallyView>();
     expect(alice.rows.map((row) => row.name)).toEqual(['#east', '#west']);
     const bob = (await made.ask('', BOB)).json<RegionTallyView>();

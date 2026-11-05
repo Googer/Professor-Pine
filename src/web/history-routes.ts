@@ -49,7 +49,7 @@ export const TALLY_PER_MINUTE = 60;
 
 /**
  * Whether a member's forum keeps a region's activity and tally lines from them: the domain's
- * `keptOut` (Matt, 2026-11-05, R-B), of how `PartyViewers` found them to stand to it.
+ * `keptOut` (barred only, as the party layer), of how `PartyViewers` found them to stand to it.
  */
 function keptOutOf(viewer: { barred: Set<string>; hidden: Set<string> }, forum: string): boolean {
   return keptOut(
@@ -99,8 +99,8 @@ const activityQuery = z
  * /s/<guild>/api/activity`. For members only, as every layer but the gyms and the outlines:
  * membership is asked before anything of the server is read (`askedMembership`), the forums of
  * the buckets' regions after, or their text channels where they have none (`PartyViewers`,
- * shared with the parties, and `regionGate`: a region whose forum keeps the member out, or that
- * their roles do not show them, is left out; R-B, `keptOutOf`). The
+ * shared with the parties, and `regionGate`: a region whose forum keeps the member out is left
+ * out, one only their roles hide is shown, as on the party layer; `keptOutOf`). The
  * weights are the domain's (`activityWeights`); a gym or Power Spot is placed where the map has
  * it now, and one it no longer has counts among those left out. An ETag of the member's JSON,
  * `private, no-cache`.
@@ -148,9 +148,9 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
       // Only an existing channel keeps out (`PartyGateway.memberAccess`): a region of 0 (a record
       // without one) and a region no longer in the directory (deleted since, its forum with it)
       // are seen by every member and counted normally (the controller's ruling, 8H4-1). A
-      // region's forum, or its text channel where it has none, that the member is kept out of or
-      // not shown by their roles keeps them out alike (Matt, 2026-11-05, R-B: the region tally's
-      // rule, `keptOutOf`).
+      // region's forum, or its text channel where it has none, that keeps the member out leaves
+      // the region out; one only their roles hide does not (the party layer's rule and the
+      // region tally's, `keptOutOf`; spec 2.5).
       const seen = buckets.filter((bucket) => {
         const gate = gateOf.get(bucket.regionId);
         return gate === undefined || !keptOutOf(viewer, gate);
@@ -189,8 +189,8 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
   // The region tally (plan 8H-5, design Part C): `/stats regions`' tally as the member may see
   // it, for the history page. Shaped as /api/activity: membership first, then the forums of the
   // server's regions, or their text channels where they have none (`PartyViewers`,
-  // `regionGate`: one that keeps the member out, or that their roles do not show them, leaves
-  // its region out of every line and the total; R-B); regions gone and records without one are
+  // `regionGate`: one that keeps the member out leaves its region out of every line and the
+  // total, one only their roles hide does not); regions gone and records without one are
   // "No longer a region", seen by everyone.
   const tallyLimiter = new RateLimiter({ uses: TALLY_PER_MINUTE, perMs: 60_000 });
   scope.get(
