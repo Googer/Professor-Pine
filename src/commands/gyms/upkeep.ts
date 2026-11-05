@@ -56,8 +56,8 @@ export const refreshGym: SubcommandPart = {
       'A gym is also found by the street it is on and by the names of places around it, ' +
       'which I fetch from Google when a gym is added or moved. Use this when that failed, or ' +
       'when the surroundings of a gym have changed.\n\nEach member may use this ten times in ten ' +
-      'minutes, and this instance may look up a limited number of gyms by hand in a month: ' +
-      '`/gym google` says how many are used.',
+      'minutes, and I may look up only so many gyms this way in a month: `/gym google` says ' +
+      'how many are used.',
     examples: ['/gym refresh gym:Big Fountain'],
   },
   throttle: GYM_REFRESH_THROTTLE,

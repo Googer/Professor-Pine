@@ -165,8 +165,9 @@ export const googleLine: SubcommandPart = {
       'Gyms are also found by the names of the places around them, and PokéStops and Power ' +
       'Spots too, which I ask Google for one at a time within a monthly budget that stays ' +
       'within its free amounts: gyms first, the busiest regions first, then PokéStops and Power ' +
-      'Spots a little every day.\n\nThis says how many of this server wait, how much of the ' +
-      'month’s budget is used, and when they will be done at this pace.',
+      'Spots a little every day.\n\nThis says how many places of this server are still ' +
+      'waiting, how much of the month’s budget is used, and when they will be done at this ' +
+      'pace.',
     examples: ['/gym google'],
   },
   defer: 'ephemeral',

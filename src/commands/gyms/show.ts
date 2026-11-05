@@ -16,12 +16,13 @@ export const showGym: SubcommandPart = {
   ),
   help: {
     details:
-      'Name, nickname and number, a link to the place, description, notice, whether it is an ' +
-      'elite raid gym, keywords, the regions of this server it lies in, the nearest gym, how ' +
-      'many members have it as a gym target, and the address and nearby places Google gave, ' +
-      'by which it is also found, with its map.\n\nButtons under it edit its texts, mark it as an ' +
-      'elite raid gym or take the mark away, move it and delete it, as the commands do. Pick ' +
-      'the gym from the list, or give its number.',
+      'A gym in full: its name, nickname and number, a link to the place, its ' +
+      'description, notice and keywords, whether it is an elite raid gym, the regions of this ' +
+      'server it lies in, the nearest gym, how many members have it as a gym target, the ' +
+      'address and nearby places Google gave (by which it is also found), and its map.\n\n' +
+      'Buttons under it edit its texts, mark it as an elite raid gym or take the mark away, ' +
+      'move it and delete it, as the commands do. Pick the gym from the list, or give its ' +
+      'number.',
     examples: ['/gym show gym:Big Fountain', '/gym show gym:#123'],
   },
   defer: 'ephemeral',

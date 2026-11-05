@@ -35,6 +35,7 @@ export const eliteGym: SubcommandPart = {
   ),
   help: {
     details:
+      'Marks a gym as an elite raid gym, or takes the mark away with `eligible:False`.\n\n' +
       'Members are not shown the mark (the posts, train routes and `/find-gym` say nothing of ' +
       'it); a raid at an elite raid gym is also shown in the channel for raids at elite raid ' +
       'gyms, where the server has one, and staff see the mark in `/gym show`.',

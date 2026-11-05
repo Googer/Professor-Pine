@@ -841,8 +841,8 @@ export const importGyms: SubcommandPart = {
       'every part at once, as `file`, `file2` and so on, in any order.\n\nI show what the ' +
       'import would do ' +
       'before anything is changed: gyms found in Wayfarer take the Wayspot’s name and place, ' +
-      'Wayfarer gyms that no gym is are added, and every gym is listed in the attached report.\n\n' +
-      'An import never deletes a gym: what needs a person (which Wayspot a gym is, a gym ' +
+      'Wayfarer gyms that match none of ours are added, and every gym is listed in the attached ' +
+      'report.\n\nAn import never deletes a gym: what needs a person to decide (which Wayspot a gym is, a gym ' +
       'Wayfarer no longer has) goes to the review queue of `/gym review`.\n\nThe scan also goes a ' +
       `little beyond the regions (${distanceWords(DEFAULT_SCAN_MARGIN, settings.distanceUnits)} unless set otherwise): Wayfarer gyms found ` +
       'there are never added, but the report lists them as `outside`, so you see where an ' +
