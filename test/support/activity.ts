@@ -10,7 +10,8 @@ import {
 /**
  * The activity buckets in memory (`ActivityReader`), the repository's twin for the map's route:
  * `add(serverId, buckets)` puts them in place, summed into those there as the hourly adding sums
- * them; `reads` counts every read of buckets, `failing` makes every read reject.
+ * them; `reads` counts every read, of buckets and of months (8H4-4), `failing` makes every read
+ * reject.
  */
 export class MemoryActivity implements ActivityReader {
   readonly rows = new Map<string, ActivityBucket[]>();
@@ -33,6 +34,7 @@ export class MemoryActivity implements ActivityReader {
   }
 
   months(serverId: string): Promise<{ first: string; last: string } | null> {
+    this.reads += 1;
     if (this.failing) return Promise.reject(this.failing);
     const months = (this.rows.get(serverId) ?? [])
       .map((bucket) => bucket.month)

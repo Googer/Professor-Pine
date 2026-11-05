@@ -252,10 +252,15 @@ describe('the activity heatmap on the map', () => {
     web = made.web;
     expect((await made.web.app.inject({ method: 'GET', url: URL })).statusCode).toBe(401);
     expect((await made.ask('', '200000000000000099')).statusCode).toBe(403);
+    // Neither the buckets nor the months were read (`reads` counts both, 8H4-4).
     expect(made.activity.reads).toBe(0);
     made.members.failing = new Error('Discord is away');
     expect((await made.ask()).statusCode).toBe(503);
     expect(made.activity.reads).toBe(0);
+    // A member's question reads both.
+    made.members.failing = undefined;
+    expect((await made.ask()).statusCode).toBe(200);
+    expect(made.activity.reads).toBe(2);
   });
 
   it('refuses a mode it does not know, and History without one year or one month', async () => {
