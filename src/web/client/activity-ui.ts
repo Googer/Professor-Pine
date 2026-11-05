@@ -291,9 +291,10 @@ export function showActivity(
 
   /**
    * The answer drawn: the glow's places set at once (Play's step drawn in one go, no blink), the
-   * popups' counts and the invisible circles with it.
+   * popups' counts and the invisible circles with it, worded by `answerStep`, History's step the
+   * answer is of (review 8H4H-4: the slider may have been dragged on since it was asked).
    */
-  const draw = (): void => {
+  const draw = (answerStep: string | undefined): void => {
     const shown = view;
     heat.setPlaces(
       (shown?.places ?? []).map((place) => ({
@@ -302,7 +303,7 @@ export function showActivity(
         value: heatValue(place.weight),
       })),
     );
-    drawnStep = step;
+    drawnStep = answerStep;
     counts = shown === undefined ? undefined : new ActivityCounts(shown, drawnStep);
     fillLines();
     for (const listener of countListeners) listener();
@@ -353,7 +354,7 @@ export function showActivity(
         step = wanted ?? asking.step;
         if (wanted !== undefined && wanted !== asking.step) return await load();
       }
-      draw();
+      draw(asking.mode === 'history' ? asking.step : undefined);
       drawHistory();
       say(mode === 'history' && answer.months === null ? NO_HISTORY : leftOutWords(answer.leftOut));
       scheduleHour(answer);
@@ -446,7 +447,7 @@ export function showActivity(
       // layer shows only what its new question brings, and nothing where that fails.
       asked += 1;
       view = undefined;
-      draw();
+      draw(undefined);
     }
   };
   registry.onChange((id, on) => {
