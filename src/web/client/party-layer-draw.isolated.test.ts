@@ -1102,6 +1102,9 @@ async function started(options: {
     fake.shown.markers.findLast((marker) => marker.options.title === title);
   /** The server's list changed: the page shown again asks for it, and it is drawn. */
   const poll = async (next: PartiesView) => {
+    // The page draws a list only when its text changed: the same one would wait for ever, or pass
+    // only where the clock moved on between the two views (their ends from `Date.now()`).
+    if (JSON.stringify(next) === listed) throw new Error('poll: the list is the same as before');
     listed = JSON.stringify(next);
     page.visibility = 'visible';
     const drawnNext = nextDraw();
@@ -2037,11 +2040,14 @@ describe('a battle at a Power Spot and one at a pin on the map', () => {
       });
 
       it('draws none on a train being routed', async () => {
+        // The clock still: the same view twice is the same list (no end a millisecond later).
+        vi.useFakeTimers({ toFake: ['Date'] });
         const { poll } = await started({ raids: false, parties: view({ trains: [loop(1)] }) });
         ringOf()?.openPopup();
         expect(numbers()).toEqual(['1', '2']);
         fake.route.routed = 't1';
-        await poll(view({ trains: [loop(1)] }));
+        // A list that changed (the train moved on): one the same as before is never drawn again.
+        await poll(view({ trains: [loop(2)] }));
         expect(numbers()).toEqual([]);
       });
 
