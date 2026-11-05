@@ -188,13 +188,13 @@ export const removeRegion: SubcommandPart = {
   ),
   help: {
     details:
-      'For a region that is given up, or whose channel was deleted.\n\nI ask first, in a dialog, ' +
-      'and say what goes with it: its active raids, max battles, trains and meetups are ended (their posts ' +
+      'Removes a region that is given up, or whose channel was deleted.\n\nA dialog asks first ' +
+      'and says what goes with it: its active raids, max battles, trains and meetups are ended (their posts ' +
       'say why), the routes members saved for it are deleted, and its gyms lie in no region of ' +
       'this server afterwards (they are never deleted).\n\nIts text channel is not touched. You ' +
       'choose what becomes of its forum: it can stay as history, with its posts archived and ' +
       'locked, or be deleted with every post in it (if you may manage channels).\n\nA region is ' +
-      'never removed by itself, also not when its channel is gone: `/region list` shows ' +
+      'never removed by itself, even when its channel is gone: `/region list` shows ' +
       'such a region as a deleted channel, and it can be picked here.',
     examples: ['/region remove region:#north-hills'],
   },

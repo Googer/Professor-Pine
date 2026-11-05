@@ -54,7 +54,7 @@ export const bounds: SimpleCommand = {
     category: 'util',
     details:
       'Use it in the channel of a region, in its forum or in a post there: I show you a map ' +
-      'with the outline of the region and say how many gyms lie in it.',
+      'with the outline of the region and say how many gyms lie in it. Only you see the answer.',
     examples: ['/bounds'],
   },
   guards: [requireGuild],
