@@ -3134,6 +3134,6 @@ Every command's `/help` read against Matt's rule (clear, concise prose for membe
 
 Plan `docs/superpowers/plans/2026-11-05-phase-8h6a-every-conductor.md`; migration 039 adds `PartyHistoryAttendee.conducted`. Built before the cutover (Matt): a train's record credits every member who led it, for plan 8H-6's "trains conducted" board. Nothing shows yet.
 
-- **Calls for Matt to object to (made while he was away):** the credit is a count of arrivals led, not a flag (review 8H6A-1: a flag let a member take the role a moment and earn credit); Finish and a cleared route are not arrivals (R1); back moves and route edits that change the current stop are; a move counts for whoever conducted the train when it was made, staff's moves included; a train running across the deploy credits its first known conductor from its first step.
+- **Calls made while Matt was away, approved by him (2026-11-05):** the credit is a count of arrivals led, not a flag (review 8H6A-1: a flag let a member take the role a moment and earn credit); Finish and a cleared route are not arrivals (R1); back moves and route edits that change the current stop are; a move counts for whoever conducted the train when it was made, staff's moves included; a train running across the deploy credits its first known conductor from its first step.
 - **Whole-branch review:** not run again: the branch is byte-identical to the prototype's tip, which had a review and a re-review (Opus).
 - **Staging** (Air's dev stack after the next update, Matt's go-ahead): the plan's "Staging" steps 1–3.
