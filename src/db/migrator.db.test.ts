@@ -78,6 +78,7 @@ const ADDED_TABLES = [
   'WantCountDay',
   'ActivityBucket',
   'ActivityProgress',
+  'LeaderboardOptIn',
 ];
 /** The columns it adds to tables of the legacy bot, as `Table.column`. */
 const ADDED_COLUMNS = [
@@ -213,6 +214,7 @@ describe('runMigrations', () => {
       '2026_11_04_037_reach_and_want_counts',
       '2026_11_05_038_activity_buckets',
       '2026_11_05_039_conductors',
+      '2026_11_05_040_leaderboard_opt_in',
     ]);
     expect(
       await describeSchema(

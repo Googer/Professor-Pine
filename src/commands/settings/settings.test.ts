@@ -72,6 +72,7 @@ describe('/settings', () => {
       'boss-set',
       'new-train',
       'history',
+      'leaderboard',
       'auto-status',
       'privacy',
       'pokebattler-id',
@@ -193,6 +194,59 @@ describe('/settings', () => {
     expect(made.history.namedIn(ALICE, FAKE_GUILD_ID)).toBe(0);
     expect(await made.answer('history', { enabled: false })).toBe(
       'The party history of this server no longer keeps your Discord id.',
+    );
+  });
+
+  it('leaderboard puts the member on this server’s boards, turning the history on with it', async () => {
+    const made = setup();
+    const AWAY = '412345678901234568';
+    expect(await made.answer('leaderboard', { enabled: true })).toBe(
+      'You are on this server’s boards from now on: `/stats boards` ranks you by the raids you ' +
+        'reported that others completed, the trains you conducted and the meetups you hosted ' +
+        'that others came to, and your reports at stops that counted. ' +
+        '`/settings leaderboard enabled:False` takes you off again. Your history opt-in was ' +
+        'off, so I turned it on: the party history of this server keeps your Discord id with ' +
+        'what you do from now on, which the boards count. `/settings history enabled:False` ' +
+        'turns both off.',
+    );
+    expect(await made.history.isOnBoards(ALICE, FAKE_GUILD_ID)).toBe(true);
+    expect(await made.history.isOptedIn(ALICE, FAKE_GUILD_ID)).toBe(true);
+    expect(await made.history.isOnBoards(ALICE, AWAY)).toBe(false);
+    // On already, the history with it: nothing more to say about the history.
+    expect(await made.answer('leaderboard', { enabled: true })).toMatch(/takes you off again\.$/u);
+    const shown = await made.answer('show');
+    expect(shown).toContain("- On this server's boards: **on** · `/settings leaderboard`");
+    expect(await made.answer('leaderboard', { enabled: false })).toBe(
+      'You are no longer on this server’s boards. Your history opt-in stays as it was.',
+    );
+    expect(await made.history.isOnBoards(ALICE, FAKE_GUILD_ID)).toBe(false);
+    expect(await made.history.isOptedIn(ALICE, FAKE_GUILD_ID)).toBe(true);
+    expect(await made.answer('show')).toContain(
+      "- On this server's boards: **off** · `/settings leaderboard`",
+    );
+  });
+
+  it('history off takes the member off the boards too, and says so', async () => {
+    const made = setup();
+    await made.run('leaderboard', { enabled: true });
+    expect(await made.answer('history', { enabled: false })).toBe(
+      'The party history of this server no longer keeps your Discord id. You are off this ' +
+        'server’s boards too.',
+    );
+    expect(await made.history.isOnBoards(ALICE, FAKE_GUILD_ID)).toBe(false);
+  });
+
+  it('leaderboard says in a DM with the bot to use it in a server, and sets nothing', async () => {
+    const made = setup();
+    const used = await made.run('leaderboard', { enabled: true }, { isDm: true });
+    expect(answered(used).content).toBe(
+      'Whether you are on the boards is set per server. Use `/settings leaderboard` in the ' +
+        'server you mean.',
+    );
+    expect(made.history.rows).toEqual([]);
+    const shown = await made.run('show', {}, { isDm: true });
+    expect(answered(shown).content).toContain(
+      '- On the boards: set per server · `/settings leaderboard` in a server',
     );
   });
 
@@ -335,6 +389,7 @@ describe('/settings show', () => {
         '- DM when an egg gets its boss: **off** · `/settings boss-set`',
         '- DM for a new train in this server: **off** · `/settings new-train`',
         "- Named in this server's history: **off** · `/settings history`",
+        "- On this server's boards: **off** · `/settings leaderboard`",
         '- Status when you report a raid or max battle, or make a train: **Interested** · `/settings auto-status`',
         '- Your reports and trains: **Visible** · `/settings privacy`',
         '- Pokémon, raid tiers and rewards on your list in this server: **0** · `/wants`',

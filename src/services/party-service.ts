@@ -23,7 +23,7 @@ import {
   type V2Message,
 } from '../discord/party-gateway.js';
 import { MAX_CATEGORY_CHANNELS, MAX_SERVER_CHANNELS } from '../domain/regions/region-import.js';
-import type { PartyEnd } from '../domain/history/party-history.js';
+import { closedEnd, type PartyEnd } from '../domain/history/party-history.js';
 import type { PostRemoval } from '../domain/moderation/reports.js';
 import { applyAutoStatus, noteMember, type MemberInfo } from '../domain/party/attendance.js';
 import { lobbySize, splitLobby } from '../domain/party/lobby.js';
@@ -3275,9 +3275,12 @@ export class PartyService {
   private async postGone(party: Party, postId: string): Promise<void> {
     const { gateway, log } = this.options;
     log.warn({ party: party.id, post: postId }, 'a party post is gone; ending the party');
-    const ended = await this.abandon(party.id, 'could not end a party whose post is gone', {
-      how: 'cancelled',
-    });
+    // Only staff may delete the bot's posts: the history keeps that staff closed it (R-A1).
+    const ended = await this.abandon(
+      party.id,
+      'could not end a party whose post is gone',
+      closedEnd('staff'),
+    );
     this.ended(party);
     // Only of a party that has really ended: one that stays active keeps its copies.
     if (ended) {

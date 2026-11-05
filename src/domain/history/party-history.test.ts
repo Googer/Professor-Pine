@@ -34,6 +34,7 @@ import {
   partySteps,
   withoutMembers,
   type HistoryBoss,
+  type HistoryInput,
   type HistoryStep,
 } from './party-history.js';
 
@@ -497,6 +498,26 @@ describe('historyOfParty', () => {
     expect(record([])).toMatchObject({ createdById: null, conductorId: null, ending: 'cancelled' });
     expect(record([REPORTER, ALICE])).toMatchObject({ createdById: REPORTER, conductorId: ALICE });
     expect(historyMembers(led, [])).toEqual([REPORTER, ALICE]);
+  });
+
+  it('keeps who closed it, staff or the moderators, also where it took place (plan 8H-6, A1)', () => {
+    const came = withAttendees(testMeetup(), { [ALICE]: { status: PartyStatus.Present } });
+    const record = (end: HistoryInput['end']) =>
+      historyOfParty(endParty(came), {
+        end,
+        steps: [],
+        optedIn: new Set(),
+        describeBoss,
+        shiny: null,
+      });
+    expect(record({ how: 'cancelled', by: 'staff' })).toMatchObject({
+      ending: 'completed',
+      closedBy: 'staff',
+    });
+    expect(record({ how: 'cancelled', by: 'moderators' }).closedBy).toBe('moderators');
+    expect(record({ how: 'cancelled' }).closedBy).toBeNull();
+    expect(record({ how: 'clock' }).closedBy).toBeNull();
+    expect(record(undefined).closedBy).toBeNull();
   });
 
   it('keeps the members of the steps and of the party for the opt-in', () => {

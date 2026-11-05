@@ -23,9 +23,37 @@ export interface HistoryOptIns {
    * Opts the member out for this server and takes their id out of every party of its history
    * (as an attendee, as who made it, as its conductor) and out of every record of their reports
    * at stops (plan 8H-2): the rows stay, without it. `changed`: they were opted in; `forgotten`:
-   * in how many records (parties and reports together) the history named them.
+   * in how many records (parties and reports together) the history named them; `leftBoards`:
+   * they were on the server's boards, which they leave with it (plan 8H-6).
    */
-  optOut(memberId: string, guildId: string): Promise<{ changed: boolean; forgotten: number }>;
+  optOut(memberId: string, guildId: string): Promise<OptedOut>;
+  /**
+   * Whether the member is on the boards of this server (`/settings leaderboard`, plan 8H-6):
+   * both their history opt-in and their board row are there.
+   */
+  isOnBoards(memberId: string, guildId: string): Promise<boolean>;
+  /**
+   * Puts the member on the boards of this server, opting them in to its history first where
+   * they were not (`historyOn`), in one transaction: the board row is written from the history
+   * opt-in row, so an opt-out at the same moment never leaves a board row behind. `joined`: they
+   * were not on the boards before. `now` is when.
+   */
+  joinBoards(memberId: string, guildId: string, now: number): Promise<JoinedBoards>;
+  /** Takes the member off the boards of this server; true when they were on them. */
+  leaveBoards(memberId: string, guildId: string): Promise<boolean>;
+}
+
+/** What an opt-out did (`HistoryOptIns.optOut`). */
+export interface OptedOut {
+  changed: boolean;
+  forgotten: number;
+  leftBoards: boolean;
+}
+
+/** What switching the boards on did (`HistoryOptIns.joinBoards`). */
+export interface JoinedBoards {
+  joined: boolean;
+  historyOn: boolean;
 }
 
 /** An ended party whose row is still there: nothing recorded it, dropped it or took it along. */
@@ -105,6 +133,7 @@ function historyRow(record: HistoryRecord): Insertable<DB['PartyHistory']> {
     endTime: epoch(record.endTime),
     endedAt: epoch(record.endedAt),
     ending: record.ending,
+    closedBy: record.closedBy,
     createdById: record.createdById,
     conductorId: record.conductorId,
     anonymous: flag(record.anonymous),
@@ -197,8 +226,9 @@ async function insertChunked<T>(rows: T[], insert: (chunk: T[]) => Promise<unkno
 
 /**
  * The party history: `PartyHistory` and its attendees, groups and stops, the steps of active
- * parties that become it (`PartyHistoryStep`) and who may be named in it (`HistoryOptIn`, a row
- * per member and server that is on, none for off). A server is its snowflake, never a `Guild`
+ * parties that become it (`PartyHistoryStep`), who may be named in it (`HistoryOptIn`, a row
+ * per member and server that is on, none for off) and who is on its boards (`LeaderboardOptIn`,
+ * migration 040, plan 8H-6: ranked only beside a history opt-in). A server is its snowflake, never a `Guild`
  * row: the history outlives the row. See migration 018 and docs/architecture/history.md.
  *
  * The opt-in rows are a member's rows of a server but hang on no `User` row, so they are written
@@ -458,20 +488,69 @@ export class HistoryRepository implements HistoryOptIns, HistoryStorage {
    * attendee), the reports by the index of server and reporter, so that neither the counts nor
    * the updates scan the server's history.
    */
-  optOut(memberId: string, guildId: string): Promise<{ changed: boolean; forgotten: number }> {
+  async isOnBoards(memberId: string, guildId: string): Promise<boolean> {
+    const row = await this.db
+      .selectFrom('LeaderboardOptIn as l')
+      .innerJoin('HistoryOptIn as h', (join) =>
+        join.onRef('h.serverId', '=', 'l.serverId').onRef('h.memberId', '=', 'l.memberId'),
+      )
+      .select('l.memberId')
+      .where('l.serverId', '=', guildId)
+      .where('l.memberId', '=', memberId)
+      .executeTakeFirst();
+    return row !== undefined;
+  }
+
+  joinBoards(memberId: string, guildId: string, now: number): Promise<JoinedBoards> {
+    // Beside an opt-out of the same member, which locks the same rows in another order, a
+    // deadlock is possible (review A10): the loser runs again and finds what is left to do.
+    return retryOnDeadlock(this.db, () => this.join(memberId, guildId, now));
+  }
+
+  private join(memberId: string, guildId: string, now: number): Promise<JoinedBoards> {
+    return inTransaction(this.db, async (trx) => {
+      const history = await sql`
+        insert ignore into HistoryOptIn (serverId, memberId, createdAt)
+        values (${guildId}, ${memberId}, ${String(now)})`.execute(trx);
+      // From the history opt-in row, locked shared by the select: an opt-out that deleted it
+      // meanwhile has committed or waits for this transaction, so no board row outlives it.
+      const board = await sql`
+        insert ignore into LeaderboardOptIn (serverId, memberId, createdAt)
+        select serverId, memberId, ${String(now)} from HistoryOptIn
+        where serverId = ${guildId} and memberId = ${memberId}`.execute(trx);
+      return {
+        joined: Number(board.numAffectedRows ?? 0) > 0,
+        historyOn: Number(history.numAffectedRows ?? 0) > 0,
+      };
+    });
+  }
+
+  async leaveBoards(memberId: string, guildId: string): Promise<boolean> {
+    const gone = await this.db
+      .deleteFrom('LeaderboardOptIn')
+      .where('serverId', '=', guildId)
+      .where('memberId', '=', memberId)
+      .executeTakeFirst();
+    return gone.numDeletedRows > 0n;
+  }
+
+  optOut(memberId: string, guildId: string): Promise<OptedOut> {
     // Two members opting out at once, each in a party the other made, deadlock: the join locks
     // the parties of the attendee rows shared, then each clears the parties its member made. The
     // loser runs again; every step finds what is left to do.
     return retryOnDeadlock(this.db, () => this.forget(memberId, guildId));
   }
 
-  private forget(
-    memberId: string,
-    guildId: string,
-  ): Promise<{ changed: boolean; forgotten: number }> {
+  private forget(memberId: string, guildId: string): Promise<OptedOut> {
     return inTransaction(this.db, async (trx) => {
       const gone = await trx
         .deleteFrom('HistoryOptIn')
+        .where('serverId', '=', guildId)
+        .where('memberId', '=', memberId)
+        .executeTakeFirst();
+      // Off the boards with it (plan 8H-6): a board row without the history opt-in ranks nobody.
+      const boards = await trx
+        .deleteFrom('LeaderboardOptIn')
         .where('serverId', '=', guildId)
         .where('memberId', '=', memberId)
         .executeTakeFirst();
@@ -510,6 +589,7 @@ export class HistoryRepository implements HistoryOptIns, HistoryStorage {
       return {
         changed: gone.numDeletedRows > 0n,
         forgotten: Number(named.rows[0]?.n ?? 0) + Number(reports.numUpdatedRows),
+        leftBoards: boards.numDeletedRows > 0n,
       };
     });
   }

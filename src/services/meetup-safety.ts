@@ -1,3 +1,4 @@
+import { closedEnd, type PartyEnd } from '../domain/history/party-history.js';
 import { randomUUID } from 'node:crypto';
 import type { Settings } from '../config/settings.js';
 import type { PartyGateway } from '../discord/party-gateway.js';
@@ -649,7 +650,10 @@ export class MeetupSafety {
       return false;
     }
     try {
-      await parties.end(made.partyId, undefined, { lastWords: CLOSED_BY_MODERATORS });
+      await parties.end(made.partyId, undefined, {
+        lastWords: CLOSED_BY_MODERATORS,
+        ended: CLOSED_BY_THEM,
+      });
       return 'closed';
     } catch (err) {
       log.error({ err, party: made.partyId }, 'could not close a meetup of a blocked member');
@@ -768,6 +772,7 @@ export class MeetupSafety {
         try {
           const ended = await parties.end(party.id, undefined, {
             lastWords: CLOSED_BY_MODERATORS,
+            ended: CLOSED_BY_THEM,
           });
           if (ended) closed += 1;
         } catch (err) {
@@ -1579,6 +1584,9 @@ const APPEAL_OPEN_DAYS = 7;
 
 /** What the post of a meetup closed because its maker was blocked says last. */
 export const CLOSED_BY_MODERATORS = 'This meetup was closed by the moderators.';
+
+/** How such a meetup ends for the party history: closed by the moderators (plan 8H-6, A1). */
+const CLOSED_BY_THEM: PartyEnd = closedEnd('moderators');
 
 /** What `/places` lists of meetup safety in a server (`MeetupSafety.overview`). */
 export interface SafetyOverview {

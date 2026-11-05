@@ -205,6 +205,12 @@ export interface HistoryOptIn {
   serverId: string;
 }
 
+export interface LeaderboardOptIn {
+  createdAt: string;
+  memberId: string;
+  serverId: string;
+}
+
 export interface ListedEvent {
   endsAt: string;
   eventId: string;
@@ -388,6 +394,7 @@ export interface PartyHistory {
   bossName: string | null;
   bossSpecies: string | null;
   chargedMove: string | null;
+  closedBy: string | null;
   conductorId: string | null;
   createdAt: string;
   createdById: string | null;
@@ -809,6 +816,7 @@ export interface DB {
   GymReview: GymReview;
   GymWayfarer: GymWayfarer;
   HistoryOptIn: HistoryOptIn;
+  LeaderboardOptIn: LeaderboardOptIn;
   ListedEvent: ListedEvent;
   MaxEvent: MaxEvent;
   MeetupAppeal: MeetupAppeal;

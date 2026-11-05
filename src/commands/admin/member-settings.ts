@@ -34,10 +34,11 @@ export async function memberSettingsLines(
   memberId: string,
   guildId: string,
 ): Promise<string[]> {
-  const [settings, newTrain, history, wants, targets] = await Promise.all([
+  const [settings, newTrain, history, leaderboard, wants, targets] = await Promise.all([
     ctx.users.get(memberId),
     ctx.newTrains.isOn(memberId, guildId),
     ctx.historyOptIns.isOptedIn(memberId, guildId),
+    ctx.historyOptIns.isOnBoards(memberId, guildId),
     ctx.wants.list(memberId, guildId),
     ctx.gymTargets.list(memberId, guildId),
   ]);
@@ -46,7 +47,7 @@ export async function memberSettingsLines(
     return gym ? plain(gym.name) : `gym #${String(id)} (gone)`;
   });
   return [
-    ...settingsLines(settings, newTrain, { commands: false, history }),
+    ...settingsLines(settings, newTrain, { commands: false, history, leaderboard }),
     listLine(
       'Wants in this server',
       wants.wants.map((want) => plain(wantLabel(ctx, want.target))),

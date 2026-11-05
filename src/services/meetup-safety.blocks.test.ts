@@ -65,6 +65,9 @@ describe('MeetupSafety: Block member', () => {
     expect(
       made.gateway.messagesIn(made.alices.forumPostId ?? '').map((one) => one.message.content),
     ).toContain('This meetup was closed by the moderators.');
+    expect(made.history.records.find((one) => one.partyId === made.alices.id)?.closedBy).toBe(
+      'moderators',
+    );
     expect(made.store.get(made.bobs.id)).toBeDefined();
     // One direct message, about the block; none for each request.
     expect(made.dms.to(ALICE).map((dm) => textOf(dm))).toEqual([
@@ -297,6 +300,10 @@ describe('MeetupSafety: Block member', () => {
     expect(made.store.active().map((one) => one.id)).toContain(made.alices.id);
     expect(await made.safety.closeIfBlocked({ ...alices, staff: false })).toBe('closed');
     expect(made.store.active().map((one) => one.id)).not.toContain(made.alices.id);
+    // Closed by the moderators, as the history keeps it (plan 8H-6, A1).
+    expect(made.history.records.find((one) => one.partyId === made.alices.id)?.closedBy).toBe(
+      'moderators',
+    );
   });
 
   it('says a close that failed apart from one that was not needed', async () => {

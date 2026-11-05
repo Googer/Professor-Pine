@@ -1,6 +1,8 @@
 import type {
   HistoryOptIns,
   HistoryStorage,
+  JoinedBoards,
+  OptedOut,
   UnrecordedParty,
 } from '../../src/db/repositories/history-repository.js';
 import type {
@@ -203,6 +205,8 @@ export class MemoryHistoryOptIns implements HistoryOptIns {
   failing: Error | undefined;
   readonly rows: { memberId: string; guildId: string; createdAt: number }[] = [];
   private readonly naming = new Map<string, number>();
+  /** Who is on the boards (`<server>:<member>`, plan 8H-6). */
+  private readonly boards = new Set<string>();
 
   private attempt<T>(work: () => T): Promise<T> {
     return new Promise((resolve, reject) => {
@@ -240,13 +244,44 @@ export class MemoryHistoryOptIns implements HistoryOptIns {
     });
   }
 
-  optOut(memberId: string, guildId: string): Promise<{ changed: boolean; forgotten: number }> {
+  optOut(memberId: string, guildId: string): Promise<OptedOut> {
     return this.attempt(() => {
       const at = this.index(memberId, guildId);
       if (at >= 0) this.rows.splice(at, 1);
       const forgotten = this.namedIn(memberId, guildId);
       this.naming.delete(`${guildId}:${memberId}`);
-      return { changed: at >= 0, forgotten };
+      const leftBoards = this.boards.delete(`${guildId}:${memberId}`);
+      return { changed: at >= 0, forgotten, leftBoards };
     });
+  }
+
+  isOnBoards(memberId: string, guildId: string): Promise<boolean> {
+    return this.attempt(
+      () => this.boards.has(`${guildId}:${memberId}`) && this.index(memberId, guildId) >= 0,
+    );
+  }
+
+  joinBoards(memberId: string, guildId: string, now: number): Promise<JoinedBoards> {
+    return this.attempt(() => {
+      const historyOn = this.index(memberId, guildId) < 0;
+      if (historyOn) this.rows.push({ memberId, guildId, createdAt: now });
+      const key = `${guildId}:${memberId}`;
+      const joined = !this.boards.has(key);
+      this.boards.add(key);
+      return { joined, historyOn };
+    });
+  }
+
+  leaveBoards(memberId: string, guildId: string): Promise<boolean> {
+    return this.attempt(() => this.boards.delete(`${guildId}:${memberId}`));
+  }
+
+  /** The members on the boards of a server (both rows there), for the boards' readers. */
+  onBoards(guildId: string): Set<string> {
+    return new Set(
+      this.rows
+        .filter((row) => row.guildId === guildId && this.boards.has(`${guildId}:${row.memberId}`))
+        .map((row) => row.memberId),
+    );
   }
 }

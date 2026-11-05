@@ -86,6 +86,7 @@ describe('legacyRecord', () => {
         endTime: CREATED + 75 * MINUTE,
         endedAt: CREATED + 90 * MINUTE,
         ending: 'completed',
+        closedBy: null,
         createdById: null,
         conductorId: null,
         anonymous: false,

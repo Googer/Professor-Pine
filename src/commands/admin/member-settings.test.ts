@@ -66,6 +66,7 @@ describe('/admin member-settings', () => {
       '- DM when an egg gets its boss: **off**',
       '- DM for a new train in this server: **on**',
       "- Named in this server's history: **on**",
+      "- On this server's boards: **off**",
       '- Status when they report a raid or max battle, or make a train: **Coming**',
       '- Their reports and trains: **Anonymous**',
       '- Friend code: **1234 5678 9012**',

@@ -453,6 +453,19 @@ describe('PartyService: keeping posts up to date', () => {
     );
   });
 
+  it('records a party whose post was deleted as closed by staff, who alone may (R-A1)', async () => {
+    const made = await withRaid();
+    made.gateway.gone.add(made.postId);
+    await made.store.update(made.party.id, (p) =>
+      setAttendance(p, ALICE, PartyStatus.Coming, {}, limits),
+    );
+    made.service.changed(made.party.id);
+    await made.service.flush();
+    expect(made.history.records).toEqual([
+      expect.objectContaining({ partyId: made.party.id, ending: 'cancelled', closedBy: 'staff' }),
+    ]);
+  });
+
   it('warns of an edit that failed for the network, and errors for any other failure (plan 8X-H)', async () => {
     const { service, store, gateway, party, entries } = await withRaid();
     const failed = () => entries.filter((entry) => entry.msg === 'could not update a party post');

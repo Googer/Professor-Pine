@@ -1,3 +1,4 @@
+import { closedEnd } from '../../domain/history/party-history.js';
 import {
   PermissionFlagsBits,
   SlashCommandBuilder,
@@ -143,6 +144,8 @@ export async function closePartyAs(
   const closed = await ctx.partyService.endAs(party.id, undefined, {
     lastWords: `This ${partyWord(party)} was closed by ${memberText(moderator)}.`,
     removal,
+    // Staff closed it: the history keeps that (plan 8H-6, A1).
+    ended: closedEnd('staff'),
     ...(left === undefined ? {} : { left }),
   });
   if (closed === false) {

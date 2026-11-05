@@ -138,6 +138,33 @@ const HISTORY = {
 } as const;
 
 /**
+ * Whether the member is ranked on the boards of a server (`/stats boards`, plan 8H-6; design
+ * Part D, Q2): per server, off by default, apart from the history opt-in, which it needs and turns
+ * on with it.
+ */
+const LEADERBOARD = {
+  name: 'leaderboard',
+  label: "On this server's boards",
+  on:
+    'You are on this server’s boards from now on: `/stats boards` ranks you by the raids you ' +
+    'reported that others completed, the trains you conducted and the meetups you hosted that ' +
+    'others came to, and your reports at stops that counted. ' +
+    '`/settings leaderboard enabled:False` takes you off again.',
+  /** Added where switching it on turned the history opt-in on as well. */
+  historyToo:
+    ' Your history opt-in was off, so I turned it on: the party history of this server keeps ' +
+    'your Discord id with what you do from now on, which the boards count. ' +
+    '`/settings history enabled:False` turns both off.',
+  off: 'You are no longer on this server’s boards. Your history opt-in stays as it was.',
+  /** Said in a DM with the bot, where there is no server to set it for. */
+  inDm:
+    'Whether you are on the boards is set per server. Use `/settings leaderboard` in the ' +
+    'server you mean.',
+  /** Added to the history's opt-out where it took the member off the boards too. */
+  leftWithHistory: ' You are off this server’s boards too.',
+} as const;
+
+/**
  * What opting out adds when the history named the member somewhere: in how many records, of
  * parties and of reports at stops (plan 8H-2) together.
  */
@@ -211,15 +238,16 @@ function autoStatusName(status: PartyStatus): string {
 
 /**
  * Everything a member has set, each line with the command that changes it. `newTrain` is
- * whether they are told of new trains in the server the command was used in, and `history`
- * whether that server's party history keeps their id; undefined in a DM, where the lines say
- * that they are set per server. With `commands: false` the lines leave the commands out, for
- * staff who look at another member's settings (`/admin member-settings`).
+ * whether they are told of new trains in the server the command was used in, `history`
+ * whether that server's party history keeps their id and `leaderboard` whether they are on its
+ * boards; undefined in a DM, where the lines say that they are set per server. With
+ * `commands: false` the lines leave the commands out, for staff who look at another member's
+ * settings (`/admin member-settings`).
  */
 export function settingsLines(
   settings: UserSettings,
   newTrain?: boolean,
-  options: { commands?: boolean; history?: boolean } = {},
+  options: { commands?: boolean; history?: boolean; leaderboard?: boolean } = {},
 ): string[] {
   const commands = options.commands ?? true;
   const via = (command: string): string => (commands ? ` · \`${command}\`` : '');
@@ -238,6 +266,9 @@ export function settingsLines(
     options.history === undefined
       ? `Named in the history: set per server${via(`/settings ${HISTORY.name}`)}${commands ? ' in a server' : ''}`
       : `${HISTORY.label}: **${onOff(options.history)}**${via(`/settings ${HISTORY.name}`)}`,
+    options.leaderboard === undefined
+      ? `On the boards: set per server${via(`/settings ${LEADERBOARD.name}`)}${commands ? ' in a server' : ''}`
+      : `${LEADERBOARD.label}: **${onOff(options.leaderboard)}**${via(`/settings ${LEADERBOARD.name}`)}`,
     `Status when ${commands ? 'you report' : 'they report'} a raid or max battle, or make a train: **${autoStatusName(settings.autoStatus)}**${via('/settings auto-status')}`,
     `${commands ? 'Your' : 'Their'} reports and trains: **${settings.raidPrivacy === RaidPrivacy.Anonymous ? 'Anonymous' : 'Visible'}**${via('/settings privacy')}`,
   );
@@ -299,15 +330,20 @@ const show: SubcommandPart = {
   async execute(interaction, ctx) {
     const settings = await ctx.users.get(interaction.user.id);
     const { guildId } = interaction;
-    const [newTrain, history] =
+    const [newTrain, history, leaderboard] =
       guildId === null
-        ? [undefined, undefined]
+        ? [undefined, undefined, undefined]
         : await Promise.all([
             ctx.newTrains.isOn(interaction.user.id, guildId),
             ctx.historyOptIns.isOptedIn(interaction.user.id, guildId),
+            ctx.historyOptIns.isOnBoards(interaction.user.id, guildId),
           ]);
     const lines = [
-      ...settingsLines(settings, newTrain, history === undefined ? {} : { history }),
+      ...settingsLines(
+        settings,
+        newTrain,
+        history === undefined || leaderboard === undefined ? {} : { history, leaderboard },
+      ),
       ...(await listLines(interaction, ctx)),
     ];
     await answer(interaction, {
@@ -424,10 +460,55 @@ const history: SubcommandPart = {
       await answer(interaction, { content: HISTORY.on });
       return;
     }
-    const { forgotten } = await ctx.historyOptIns.optOut(memberId, guildId);
+    const { forgotten, leftBoards } = await ctx.historyOptIns.optOut(memberId, guildId);
     await answer(interaction, {
-      content: forgotten > 0 ? HISTORY.off + forgottenIn(forgotten) : HISTORY.off,
+      content:
+        (forgotten > 0 ? HISTORY.off + forgottenIn(forgotten) : HISTORY.off) +
+        (leftBoards ? LEADERBOARD.leftWithHistory : ''),
     });
+  },
+};
+
+const leaderboard: SubcommandPart = {
+  data: new SlashCommandSubcommandBuilder()
+    .setName(LEADERBOARD.name)
+    .setDescription('Whether this server’s boards rank you (/stats boards)')
+    .addBooleanOption((option) =>
+      option.setName('enabled').setDescription('True puts you on them').setRequired(true),
+    ),
+  help: {
+    details:
+      'The boards of `/stats boards` rank members by what others confirm: raids they reported ' +
+      'that others completed, trains they conducted and meetups they hosted that others came ' +
+      'to, and reports at stops that counted. Only members who switched this on are ranked; ' +
+      'it is off until you do.\n\nThe boards count what the history of this server keeps with ' +
+      'your id, so switching this on also turns on `/settings history` where it was off. ' +
+      'Turning the history off takes you off the boards too.\n\nIt is set per server: use it ' +
+      'in the server you mean, not in a DM with me.',
+    examples: [
+      `/settings ${LEADERBOARD.name} enabled:True`,
+      `/settings ${LEADERBOARD.name} enabled:False`,
+    ],
+  },
+  defer: 'late',
+  throttle: MEMBER_WRITE_THROTTLE,
+  async execute(interaction, ctx) {
+    const enabled = interaction.options.getBoolean('enabled', true);
+    const { guildId } = interaction;
+    if (guildId === null) {
+      await answer(interaction, { content: LEADERBOARD.inDm });
+      return;
+    }
+    const memberId = interaction.user.id;
+    if (enabled) {
+      const { historyOn } = await ctx.historyOptIns.joinBoards(memberId, guildId, Date.now());
+      await answer(interaction, {
+        content: historyOn ? LEADERBOARD.on + LEADERBOARD.historyToo : LEADERBOARD.on,
+      });
+      return;
+    }
+    await ctx.historyOptIns.leaveBoards(memberId, guildId);
+    await answer(interaction, { content: LEADERBOARD.off });
   },
 };
 
@@ -545,5 +626,14 @@ export const settings = commandGroup({
       '`/settings show` lists it all. Nobody else sees your answers.',
     examples: ['/settings show', '/settings mentions enabled:False'],
   },
-  parts: [show, ...FLAGS.map(flagPart), newTrain, history, autoStatus, privacy, pokebattlerId],
+  parts: [
+    show,
+    ...FLAGS.map(flagPart),
+    newTrain,
+    history,
+    leaderboard,
+    autoStatus,
+    privacy,
+    pokebattlerId,
+  ],
 });

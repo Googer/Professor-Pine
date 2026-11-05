@@ -1,5 +1,6 @@
 import { sql, type Kysely } from 'kysely';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { leaderboardCases } from '../../../test/support/leaderboard-cases.js';
 import { startMigratedDatabase } from '../../../test/support/migrated-db.js';
 import type { DB } from '../types.js';
 import { HistoryRepository } from './history-repository.js';
@@ -26,6 +27,7 @@ describe('HistoryRepository: who is named in the history', () => {
   beforeEach(async () => {
     await db.deleteFrom('PartyHistory').execute();
     await db.deleteFrom('HistoryOptIn').execute();
+    await db.deleteFrom('LeaderboardOptIn').execute();
     await db.deleteFrom('StopReportHistory').execute();
   });
 
@@ -113,8 +115,8 @@ describe('HistoryRepository: who is named in the history', () => {
       const his = await kept(HOME, BOB, [ALICE]);
       const both = await Promise.all([history.optOut(ALICE, HOME), history.optOut(BOB, HOME)]);
       expect(both).toEqual([
-        { changed: false, forgotten: 2 },
-        { changed: false, forgotten: 2 },
+        { changed: false, forgotten: 2, leftBoards: false },
+        { changed: false, forgotten: 2, leftBoards: false },
       ]);
       expect(await named()).toEqual({
         parties: [
@@ -137,7 +139,11 @@ describe('HistoryRepository: who is named in the history', () => {
     const elsewhere = await kept(AWAY, ALICE, [ALICE]);
 
     // Named as maker, conductor and attendee of the first party: it counts once.
-    expect(await history.optOut(ALICE, HOME)).toEqual({ changed: true, forgotten: 2 });
+    expect(await history.optOut(ALICE, HOME)).toEqual({
+      changed: true,
+      forgotten: 2,
+      leftBoards: false,
+    });
     expect(await history.isOptedIn(ALICE, HOME)).toBe(false);
     expect(await history.isOptedIn(ALICE, AWAY)).toBe(true);
     // The rows stay, without her id; the other server and the other member keep theirs.
@@ -166,20 +172,57 @@ describe('HistoryRepository: who is named in the history', () => {
     const his = await reported(HOME, BOB);
     const away = await reported(AWAY, ALICE);
     // One party and two reports.
-    expect(await history.optOut(ALICE, HOME)).toEqual({ changed: true, forgotten: 3 });
+    expect(await history.optOut(ALICE, HOME)).toEqual({
+      changed: true,
+      forgotten: 3,
+      leftBoards: false,
+    });
     expect(await reporters()).toEqual([
       { id: mine, serverId: HOME, reporterId: null },
       { id: again, serverId: HOME, reporterId: null },
       { id: his, serverId: HOME, reporterId: BOB },
       { id: away, serverId: AWAY, reporterId: ALICE },
     ]);
-    expect(await history.optOut(ALICE, HOME)).toEqual({ changed: false, forgotten: 0 });
+    expect(await history.optOut(ALICE, HOME)).toEqual({
+      changed: false,
+      forgotten: 0,
+      leftBoards: false,
+    });
   });
 
   it('forgets a member who opts out even when they were not opted in, or the server left', async () => {
     const id = await kept(NOWHERE, null, [ALICE]);
-    expect(await history.optOut(ALICE, NOWHERE)).toEqual({ changed: false, forgotten: 1 });
+    expect(await history.optOut(ALICE, NOWHERE)).toEqual({
+      changed: false,
+      forgotten: 1,
+      leftBoards: false,
+    });
     expect((await named()).attendees).toEqual([{ historyId: id, seq: 0, memberId: null }]);
-    expect(await history.optOut(ALICE, HOME)).toEqual({ changed: false, forgotten: 0 });
+    expect(await history.optOut(ALICE, HOME)).toEqual({
+      changed: false,
+      forgotten: 0,
+      leftBoards: false,
+    });
+  });
+
+  describe('the switch of the boards (plan 8H-6)', () => {
+    leaderboardCases(() => Promise.resolve(history));
+
+    it('never leaves a board row without its history opt-in when an opt-out runs at once (B11, A10)', async () => {
+      for (let n = 0; n < 25; n++) {
+        await Promise.all([history.joinBoards(ALICE, HOME, NOW + n), history.optOut(ALICE, HOME)]);
+        const orphans = await sql<{ n: number }>`
+          select count(*) as n from LeaderboardOptIn l
+          where not exists (select 1 from HistoryOptIn h
+                            where h.serverId = l.serverId and h.memberId = l.memberId)`.execute(db);
+        expect(Number(orphans.rows[0]?.n), `round ${String(n)}`).toBe(0);
+      }
+    });
+
+    it('keeps when the member switched the boards on, by the server’s snowflake', async () => {
+      expect(await history.joinBoards(ALICE, HOME, NOW)).toEqual({ joined: true, historyOn: true });
+      const rows = await db.selectFrom('LeaderboardOptIn').selectAll().execute();
+      expect(rows).toEqual([{ serverId: HOME, memberId: ALICE, createdAt: String(NOW) }]);
+    });
   });
 });

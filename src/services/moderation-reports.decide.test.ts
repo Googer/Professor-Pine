@@ -39,7 +39,11 @@ describe('ModerationReports: a moderator decides a report of a party', () => {
       'This meetup was closed by the moderators.',
     );
     expect(made.history.records).toEqual([
-      expect.objectContaining({ partyId: made.party.id, ending: 'cancelled' }),
+      expect.objectContaining({
+        partyId: made.party.id,
+        ending: 'cancelled',
+        closedBy: 'moderators',
+      }),
     ]);
     expect(await made.stored()).toMatchObject({
       status: 'closed',

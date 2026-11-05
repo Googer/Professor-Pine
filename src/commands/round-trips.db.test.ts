@@ -333,8 +333,9 @@ describe('round trips to the database per command', () => {
       // One statement: the row is written, or made, in one.
       '/settings mentions': { answered: 1, settled: 1 },
       // The settings, the new-train row, the history opt-in, the member's wants of both tables
-      // (the lines of `/wants`, plan 8R-1) and their gyms: one read each.
-      '/settings show': { answered: 6, settled: 6 },
+      // (the lines of `/wants`, plan 8R-1), their gyms and the switch of the boards (plan 8H-6):
+      // one read each.
+      '/settings show': { answered: 7, settled: 7 },
       // begin, the lock on the member's row, their rows, the insert, commit.
       '/want': { answered: 5, settled: 5 },
       // The dialog's read (plan 8R-1): the subject's rows of both tables, by their keys.

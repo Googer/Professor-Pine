@@ -67,7 +67,24 @@ export type HistoryTier =
  * history: the one it moved to is, and one that failed never was.
  */
 export type PartyEnd =
-  { how: 'clock' } | { how: 'cancelled' } | { how: 'moved'; to: string } | { how: 'failed' };
+  | { how: 'clock' }
+  | { how: 'cancelled'; by?: ClosedBy }
+  | { how: 'moved'; to: string }
+  | { how: 'failed' };
+
+/**
+ * Who closed a party, where it was not its maker or the clock (plan 8H-6, migration 040, review
+ * A1): `staff` (`/delete` and the map's Delete…, `closePartyAs`), `moderators` (a decision of a
+ * report to the moderators, or a block of a meetup's maker). Kept in the record
+ * (`PartyHistory.closedBy`), since its ending says `completed` whenever the party took place,
+ * however it was closed: the boards leave such a meetup out.
+ */
+export type ClosedBy = 'staff' | 'moderators';
+
+/** How a party staff or the moderators closed ends, for the party history (`PartyClosing.ended`). */
+export function closedEnd(by: ClosedBy): PartyEnd {
+  return { how: 'cancelled', by };
+}
 
 /** A boss the catalogue knows, by its ids; or the name it was given, when it does not. */
 export type HistoryBoss =
@@ -193,6 +210,11 @@ export interface HistoryRecord {
   endTime: number | null;
   endedAt: number | null;
   ending: PartyEnding;
+  /**
+   * Who closed it, where staff or the moderators did (`ClosedBy`, migration 040); null for every
+   * other end, for a legacy party and for a record of before 040.
+   */
+  closedBy: ClosedBy | null;
   createdById: string | null;
   conductorId: string | null;
   anonymous: boolean;
@@ -571,7 +593,7 @@ function endingOf(
 
 export interface HistoryInput {
   /** How it ended; undefined when whoever ended it did not say. */
-  end: { how: 'clock' } | { how: 'cancelled' } | undefined;
+  end: { how: 'clock' } | { how: 'cancelled'; by?: ClosedBy } | undefined;
   /** Its steps, oldest first. */
   steps: readonly HistoryStep[];
   /** The members who opted in to be named in the history of its server. */
@@ -646,6 +668,7 @@ export function historyOfParty(party: Party, input: HistoryInput): LiveRecord {
     endTime: party.endTime,
     endedAt: party.updatedAt,
     ending: endingOf(party, input.end, attendees),
+    closedBy: input.end?.how === 'cancelled' ? (input.end.by ?? null) : null,
     createdById: named(party.createdById),
     conductorId: isTrain(party) ? named(party.train.conductorId) : null,
     anonymous: party.anonymous,

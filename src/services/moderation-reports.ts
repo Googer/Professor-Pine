@@ -1,3 +1,4 @@
+import { closedEnd } from '../domain/history/party-history.js';
 import { randomUUID } from 'node:crypto';
 import type { Settings } from '../config/settings.js';
 import type { Gym } from '../db/repositories/gym-repository.js';
@@ -753,6 +754,7 @@ export class ModerationReports {
       removed = await parties.endAs(party.id, undefined, {
         lastWords: `This ${partyWord(party)} was closed by the moderators.`,
         removal,
+        ended: closedEnd('moderators'),
       });
     } catch (err) {
       log.error({ err, report: report.id }, 'could not carry out a decision of a report');

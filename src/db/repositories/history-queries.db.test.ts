@@ -80,6 +80,7 @@ function record(more: Partial<HistoryRecord>): HistoryRecord {
     endTime: null,
     endedAt: null,
     ending: 'completed',
+    closedBy: null,
     createdById: null,
     conductorId: null,
     anonymous: false,

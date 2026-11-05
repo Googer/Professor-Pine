@@ -288,6 +288,7 @@ export function legacyRecord(raw: unknown, context: LegacyContext): LegacyRead {
           ? null
           : (timeOf(raw.deletionTime) ?? timeOf(raw.lastPossibleTime)),
       ending: ended,
+      closedBy: null,
       createdById: null,
       conductorId: null,
       anonymous: false,

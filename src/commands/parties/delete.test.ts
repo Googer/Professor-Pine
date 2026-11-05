@@ -169,7 +169,7 @@ describe('/delete', () => {
     expect(store.get(made.party.id)).toBeUndefined();
     // Recorded in the history as closed, and its row (with its members' ids) deleted.
     expect(made.history.records).toEqual([
-      expect.objectContaining({ partyId: made.party.id, ending: 'cancelled' }),
+      expect.objectContaining({ partyId: made.party.id, ending: 'cancelled', closedBy: 'staff' }),
     ]);
     expect(made.said().at(-1)).toBe(`This raid was closed by **Member** (<@${ALICE}>).`);
     const post = gateway.posts.get(postId);

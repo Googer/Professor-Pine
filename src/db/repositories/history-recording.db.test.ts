@@ -537,7 +537,11 @@ describe('the party history, written with the parties', () => {
       ALICE,
     ]);
     // Her id goes from the record of the first; her row and its credit stay without it.
-    expect(await history.optOut(ALICE, HISTORY_SERVER)).toEqual({ changed: true, forgotten: 1 });
+    expect(await history.optOut(ALICE, HISTORY_SERVER)).toEqual({
+      changed: true,
+      forgotten: 1,
+      leftBoards: false,
+    });
     expect(await credits(riders.id)).toEqual([
       { seq: 0, memberId: null, status: 'interested', conducted: 0 },
       { seq: 1, memberId: null, status: null, conducted: 1 },
@@ -1042,6 +1046,33 @@ describe('the party history, written with the parties', () => {
     expect(await parties.findById(raid.id)).toEqual({ ok: true, party: raid });
     expect(failures.map((failure) => failure.note)).toEqual([note]);
     expect(failures[0]?.err).toBeInstanceOf(Error);
+  });
+
+  it('keeps who closed a party, staff or the moderators (plan 8H-6, A1)', async () => {
+    const meetup = withAttendees(testMeetup(), { [ALICE]: { status: PartyStatus.Present } });
+    const record = (by: 'staff' | 'moderators' | undefined) => ({
+      ...historyOfParty(endParty({ ...meetup, id: crypto.randomUUID() }), {
+        end: by === undefined ? { how: 'clock' as const } : { how: 'cancelled' as const, by },
+        steps: [],
+        optedIn: new Set<string>(),
+        describeBoss: () => ({ name: 'Somebody' }),
+        shiny: null,
+      }),
+      serverId: HISTORY_SERVER,
+    });
+    await new HistoryRepository(db).insertRecords([
+      record('staff'),
+      record('moderators'),
+      record(undefined),
+    ]);
+    const rows = await db.selectFrom('PartyHistory').select(['ending', 'closedBy']).execute();
+    expect(rows).toEqual(
+      expect.arrayContaining([
+        { ending: 'completed', closedBy: 'staff' },
+        { ending: 'completed', closedBy: 'moderators' },
+        { ending: 'completed', closedBy: null },
+      ]),
+    );
   });
 
   it('writes a party without a note as before', async () => {
