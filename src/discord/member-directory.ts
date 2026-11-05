@@ -220,8 +220,9 @@ interface LineJob {
  * time, each after the one before it has settled and the budget's turn (`RequestBudget.take`),
  * so that `viewers` and `named` never have two requests for members on their way at once and
  * keep to one budget between them. The requests of `viewers` (the notifier's) go ahead of names
- * waiting; names (`{ names: true }`) may start `NAMES_PER_MINUTE` times in any minute, and are
- * refused beyond it (`MembersBusy`), never queued for later.
+ * waiting, also the next batch of a lookup chained on the one just settled (F2); names may start
+ * `NAMES_PER_MINUTE` times in any minute, an ask's batches reserved all at once
+ * (`reserveNames`, F1), and are refused beyond it (`MembersBusy`), never queued for later.
  */
 export class BudgetLine {
   private busy = false;
@@ -235,15 +236,25 @@ export class BudgetLine {
     private readonly now: () => number = () => Date.now(),
   ) {}
 
-  run<T>(request: () => Promise<T>, options: { names?: boolean } = {}): Promise<T> {
-    if (options.names === true) {
-      const now = this.now();
-      while (this.namesAt.length > 0 && (this.namesAt[0] ?? 0) <= now - MINUTE_MS) {
-        this.namesAt.shift();
-      }
-      if (this.namesAt.length >= NAMES_PER_MINUTE) return Promise.reject(new MembersBusy());
-      this.namesAt.push(now);
+  /**
+   * Reserves `starts` requests for names in this minute's share, all of an ask's batches at once
+   * (F1): where there is no room for them all, nothing is spent and `MembersBusy` is thrown, so a
+   * second batch can never be refused after a first one spent its start for nothing.
+   */
+  reserveNames(starts: number): void {
+    const now = this.now();
+    while (this.namesAt.length > 0 && (this.namesAt[0] ?? 0) <= now - MINUTE_MS) {
+      this.namesAt.shift();
     }
+    if (this.namesAt.length + starts > NAMES_PER_MINUTE) throw new MembersBusy();
+    for (let n = 0; n < starts; n++) this.namesAt.push(now);
+  }
+
+  /**
+   * Runs a request in its turn: names (`{ names: true }`, reserved with `reserveNames` first)
+   * behind every request of `viewers` waiting.
+   */
+  run<T>(request: () => Promise<T>, options: { names?: boolean } = {}): Promise<T> {
     return new Promise<T>((resolve, reject) => {
       const job: LineJob = {
         request,
@@ -257,17 +268,26 @@ export class BudgetLine {
     });
   }
 
+  /**
+   * The next turn (F2): the budget's turn taken first, then the job chosen a turn of the event
+   * loop later, so that a request of `viewers` chained on the one just settled (the next batch
+   * of a lookup) is in line by then and goes ahead of the names, and no names job holds the line
+   * while it sleeps for the budget.
+   */
   private next(): void {
-    if (this.busy) return;
-    const job = this.first.shift() ?? this.then.shift();
-    if (job === undefined) return;
+    if (this.busy || this.first.length + this.then.length === 0) return;
     this.busy = true;
     void (async () => {
+      let job: LineJob | undefined;
       try {
         await this.budget.take();
-        job.resolve(await job.request());
+        await new Promise<void>((resolve) => {
+          setImmediate(resolve);
+        });
+        job = this.first.shift() ?? this.then.shift();
+        if (job !== undefined) job.resolve(await job.request());
       } catch (err) {
-        job.reject(err);
+        job?.reject(err);
       } finally {
         this.busy = false;
         this.next();
@@ -324,7 +344,7 @@ export class DiscordMemberDirectory implements MemberDirectory {
       retryAfterMs: gatewayRetryAfterMs,
     });
     this.now = now;
-    this.line = new BudgetLine(new RequestBudget({ ...MEMBER_REQUEST_BUDGET, now }));
+    this.line = new BudgetLine(new RequestBudget({ ...MEMBER_REQUEST_BUDGET, now }), now);
     this.cached = new CachedMemberDirectory(async (guildId, userId) => {
       const guild = this.current?.guilds.cache.get(guildId);
       const found = guild && (await fetchGuildMember(guild, userId, true));
@@ -427,6 +447,8 @@ export class DiscordMemberDirectory implements MemberDirectory {
       if (cached) found.push({ id, name: cached.displayName });
       else ask.push(id);
     }
+    // Every batch's start reserved at once, or none (F1).
+    if (ask.length > 0) this.line.reserveNames(Math.ceil(ask.length / MEMBERS_PER_LOOKUP));
     for (let start = 0; start < ask.length; start += MEMBERS_PER_LOOKUP) {
       const batch = ask.slice(start, start + MEMBERS_PER_LOOKUP);
       const members = await this.line.run(() => this.freshMembers(guild, batch), {

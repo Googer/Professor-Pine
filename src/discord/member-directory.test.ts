@@ -6,6 +6,7 @@ import {
   NAMES_PER_MINUTE,
   type ServerMember,
 } from './member-directory.js';
+import { CachedViewers, MEMBERS_PER_LOOKUP } from './member-viewers.js';
 
 const GUILD = '100000000000000001';
 const OTHER_GUILD = '100000000000000002';
@@ -193,24 +194,62 @@ describe('BudgetLine: one request for members at a time (R-A4)', () => {
         },
         { names },
       );
-    // The first is on its way at once; the rest wait, and the viewers go first.
+    // Chosen once the budget's turn is taken (F2): the viewers go first, also ahead of names asked
+    // before them.
     await Promise.all([
       request('names 1', true),
       request('names 2', true),
       request('viewers', false),
       request('names 3', true),
     ]);
-    expect(started).toEqual(['names 1', 'viewers', 'names 2', 'names 3']);
+    expect(started).toEqual(['viewers', 'names 1', 'names 2', 'names 3']);
   });
 
   it('refuses names beyond ten requests a minute, viewers never (W1)', async () => {
     let now = 1_000;
     const line = new BudgetLine({ take: () => Promise.resolve() }, () => now);
-    const names = () => line.run(() => Promise.resolve('named'), { names: true });
+    const names = () => {
+      line.reserveNames(1);
+      return line.run(() => Promise.resolve('named'), { names: true });
+    };
     for (let n = 0; n < NAMES_PER_MINUTE; n++) await names();
-    await expect(names()).rejects.toBeInstanceOf(MembersBusy);
+    expect(() => line.reserveNames(1)).toThrow(MembersBusy);
     expect(await line.run(() => Promise.resolve('seen'))).toBe('seen');
     now += 60_000;
     expect(await names()).toBe('named');
+  });
+
+  it('reserves every batch of an ask at once, or none, spending nothing on a refusal (F1)', () => {
+    const line = new BudgetLine({ take: () => Promise.resolve() }, () => 1_000);
+    line.reserveNames(NAMES_PER_MINUTE - 1);
+    // 200 ids are three batches: with one start left, refused at once.
+    expect(() => line.reserveNames(Math.ceil(200 / MEMBERS_PER_LOOKUP))).toThrow(MembersBusy);
+    // The start left is still there.
+    expect(() => line.reserveNames(1)).not.toThrow();
+    expect(() => line.reserveNames(1)).toThrow(MembersBusy);
+  });
+
+  it('lets the second request of a lookup of viewers go ahead of the names waiting (F2)', async () => {
+    const line = new BudgetLine({ take: () => Promise.resolve() });
+    const started: string[] = [];
+    const viewers = new CachedViewers((_guild, _channel, ids) =>
+      line.run(() => {
+        started.push(`viewers of ${String(ids.length)}`);
+        return Promise.resolve(new Set(ids));
+      }),
+    );
+    const many = Array.from({ length: MEMBERS_PER_LOOKUP + 1 }, (_, n) =>
+      String(312345678901234567n + BigInt(n)),
+    );
+    const seeing = viewers.viewers('412345678901234567', '512345678901234567', many);
+    const named = line.run(
+      () => {
+        started.push('names');
+        return Promise.resolve();
+      },
+      { names: true },
+    );
+    await Promise.all([seeing, named]);
+    expect(started).toEqual([`viewers of ${String(MEMBERS_PER_LOOKUP)}`, 'viewers of 1', 'names']);
   });
 });
