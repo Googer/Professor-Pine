@@ -1,4 +1,11 @@
 import type { MemberStats } from '../domain/history/member-stats.js';
+import {
+  anonymousNote,
+  bossesWords,
+  confirmationsNote,
+  MEMBER_STAT_LABELS,
+  membersWords,
+} from '../domain/history/member-stats-words.js';
 
 /** What a member's card shows beside their numbers, as the caller names it. */
 export interface MemberStatsView {
@@ -28,29 +35,26 @@ export function memberStatsTitle(year: number | null, whose = 'Your Pine'): stri
  */
 export function memberStatsTexts(view: MemberStatsView): string[] {
   const { stats } = view;
-  const anonymous = (count: number): string =>
-    view.own && count > 0 ? ` (${count.toLocaleString('en-US')} anonymous, on no board)` : '';
-  const confirmations =
-    stats.reports.confirmations === 0
-      ? ''
-      : ` (${stats.reports.confirmations.toLocaleString('en-US')} ${stats.reports.confirmations === 1 ? 'confirmation' : 'confirmations'})`;
+  const L = MEMBER_STAT_LABELS;
+  const anonymous = (count: number): string => (view.own ? anonymousNote(count) : '');
   const confirmed = [
     `### ${view.title}`,
-    `Raids and max battles reported that others completed: ${n(stats.raids.count)}${anonymous(stats.raids.anonymous)}`,
-    `Trains conducted that others came to: ${n(stats.trains.count)}${anonymous(stats.trains.anonymous)}`,
-    `Meetups hosted that others came to: ${n(stats.meetups.count)}${anonymous(stats.meetups.anonymous)}`,
-    `Reports at stops that counted: ${n(stats.reports.count)}${confirmations}`,
+    `${L.raids}: ${n(stats.raids.count)}${anonymous(stats.raids.anonymous)}`,
+    `${L.trains}: ${n(stats.trains.count)}${anonymous(stats.trains.anonymous)}`,
+    `${L.meetups}: ${n(stats.meetups.count)}${anonymous(stats.meetups.anonymous)}`,
+    `${L.reports}: ${n(stats.reports.count)}${confirmationsNote(stats.reports.confirmations)}`,
   ].join('\n');
   const bosses = stats.bosses.flatMap((boss) => {
     const name = view.bossName(boss.bossKey);
-    return name === undefined ? [] : [`${name} (${String(boss.count)})`];
+    return name === undefined ? [] : [{ name, count: boss.count }];
   });
+  const [sent, ...members] = membersWords(stats.sent).split(' ');
   const own = [
-    `Raids and max battles completed: ${n(stats.completed)}`,
-    `Trains ridden: ${n(stats.trainsCame)} · Meetups attended: ${n(stats.meetupsCame)}`,
-    ...(view.region === undefined ? [] : [`Busiest region: ${view.region}`]),
-    ...(bosses.length === 0 ? [] : [`Bosses done most: ${bosses.join(', ')}`]),
-    `Raids, max battles, trains and reports sent to ${n(stats.sent)} ${stats.sent === 1 ? 'member' : 'members'}`,
+    `${L.completed}: ${n(stats.completed)}`,
+    `${L.trainsCame}: ${n(stats.trainsCame)} · ${L.meetupsCame}: ${n(stats.meetupsCame)}`,
+    ...(view.region === undefined ? [] : [`${L.region}: ${view.region}`]),
+    ...(bosses.length === 0 ? [] : [`${L.bosses}: ${bossesWords(bosses)}`]),
+    `${L.sent} **${sent ?? ''}** ${members.join(' ')}`,
   ].join('\n');
   return [confirmed, own];
 }

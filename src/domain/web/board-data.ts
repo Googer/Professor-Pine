@@ -80,3 +80,6 @@ export type MemberStatsView =
       /** By local month, oldest first, for the page's chart. */
       months: { month: string; came: number; reports: number }[];
     };
+
+/** A member's card on the web: their numbers, of a year they have something in or all time. */
+export type MemberCardView = Extract<MemberStatsView, { raids: CountedView }>;

@@ -4,6 +4,7 @@ import {
   historyItemNode,
   historyOffered,
   inviteNode,
+  meItemNode,
   loginNotice,
   loginNoticeFor,
   NOTICE_MS,
@@ -60,6 +61,15 @@ describe("the map's way to the history page (plan 8H-5)", () => {
       className: 'history-link',
       text: 'History',
       attributes: { href: '/s/412345678901234567/history' },
+    });
+  });
+
+  it('has "Your Pine" beside it, the member’s own numbers (plan 8H-6)', () => {
+    expect(meItemNode('412345678901234567')).toEqual({
+      tag: 'a',
+      className: 'history-link',
+      text: 'Your Pine',
+      attributes: { href: '/s/412345678901234567/me' },
     });
   });
 

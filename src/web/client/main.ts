@@ -20,7 +20,14 @@ import { showGymDots, type GymDots } from './gyms-ui.js';
 import { LayerRegistry, MAP_LAYERS, regionLabelsShown } from './layer-registry.js';
 import { showLayerControls } from './layers-ui.js';
 import { loggedOutPane } from './list-ui.js';
-import { historyItemNode, historyOffered, loginNotice, loginNoticeFor, type Me } from './notice.js';
+import {
+  historyItemNode,
+  historyOffered,
+  loginNotice,
+  loginNoticeFor,
+  meItemNode,
+  type Me,
+} from './notice.js';
 import { MapActivity } from './parties.js';
 import { showParties } from './party-layer.js';
 import { quietLine, showPlaces, type PlacesHooks } from './places-ui.js';
@@ -499,9 +506,12 @@ function start(): void {
     guild,
     data.login === 'discord' ? 'discord' : 'links',
     'map',
-    // The server's history page (plan 8H-5) for a member, then the region editor's items.
+    // The server's history page (plan 8H-5) and "Your Pine" (plan 8H-6) for a member, then the
+    // region editor's items.
     (me) => [
-      ...(historyOffered(me) ? [renderNode(historyItemNode(guild), document)] : []),
+      ...(historyOffered(me)
+        ? [renderNode(historyItemNode(guild), document), renderNode(meItemNode(guild), document)]
+        : []),
       ...(editingOffered(me)
         ? [editItem(toggle, load, guild, me, editLabel), editorTourItem()]
         : []),

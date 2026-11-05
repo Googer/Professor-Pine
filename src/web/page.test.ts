@@ -252,6 +252,15 @@ describe('the history page (plan 8H-5)', () => {
     }
   });
 
+  it('holds the boards’ places and leads to "Your Pine" (plan 8H-6)', async () => {
+    web = webServerWith({ assets: builtAssets() });
+    const page = await web.app.inject({ url: HISTORY });
+    for (const id of ['boards-title', 'boards-periods', 'boards-status', 'boards-list']) {
+      expect(page.body, id).toContain(`id="${id}"`);
+    }
+    expect(page.body).toContain(`<a href="/s/${FAKE_GUILD_ID}/me">Your Pine</a>`);
+  });
+
   it('offers no login with Discord without the client secret', async () => {
     web = webServerWith({ assets: builtAssets(), oauth: undefined });
     const page = await web.app.inject({ url: HISTORY });
@@ -266,6 +275,58 @@ describe('the history page (plan 8H-5)', () => {
     const page = await web.app.inject({ url: HISTORY });
     expect(page.statusCode).toBe(503);
     expect(page.body).toContain('npm run web:build');
+  });
+});
+
+describe('the "Your Pine" page (plan 8H-6)', () => {
+  const ME = `/s/${FAKE_GUILD_ID}/me`;
+  let web: TestWeb | undefined;
+  afterEach(async () => {
+    await web?.app.close();
+    web = undefined;
+  });
+
+  it('is the history page’s bundle told to draw the member’s own numbers, nothing inline', async () => {
+    web = webServerWith({ assets: builtAssets() });
+    const page = await web.app.inject({ url: ME });
+    expect(page.statusCode).toBe(200);
+    expect(page.headers['cache-control']).toBe('no-cache');
+    expect(page.body).toContain('<title>Professor Pine: your Pine</title>');
+    expect(page.body).toContain('<script src="/assets/history-EFGHIJKL.js" defer></script>');
+    expect(page.body).not.toMatch(/<script(?![^>]*\ssrc=)[^>]*>/);
+    expect(page.body).not.toMatch(/<style|\sstyle=|\son\w+=/i);
+    expect(bodyData(page.body)).toEqual({
+      'data-guild': FAKE_GUILD_ID,
+      'data-login': 'discord',
+      'data-page': 'me',
+    });
+    for (const id of [
+      'me-title',
+      'me-year-line',
+      'me-year',
+      'me-status',
+      'me-list',
+      'me-chart',
+      'me-table',
+    ]) {
+      expect(page.body, id).toContain(`id="${id}"`);
+    }
+    expect(page.body).toContain(`<a href="/s/${FAKE_GUILD_ID}/history">History</a>`);
+    // The chart is for the eye; a screen reader reads the table (B1).
+    expect(page.body).toContain('<svg id="me-chart" aria-hidden="true" focusable="false">');
+    expect(page.body).not.toContain('role="img"');
+    // The table is named by the chart's heading (R-B2).
+    expect(page.body).toContain(
+      '<table id="me-table" class="visually-hidden" aria-labelledby="me-chart-title">',
+    );
+  });
+
+  it('is not found for a server the bot is not in, and says so when the bundle was not built', async () => {
+    web = webServerWith({ assets: builtAssets() });
+    expect((await web.app.inject({ url: '/s/412345678901234999/me' })).statusCode).toBe(404);
+    await web.app.close();
+    web = webServerWith();
+    expect((await web.app.inject({ url: ME })).statusCode).toBe(503);
   });
 });
 

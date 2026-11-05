@@ -11,7 +11,7 @@ import { meetupRoutes } from './meetup-routes.js';
 import { shownTiles } from './headers.js';
 import type { PacedMembers } from './paced-members.js';
 import { historyRoutes } from './history-routes.js';
-import { historyPage, mapPage } from './page.js';
+import { historyPage, mapPage, mePage } from './page.js';
 import { partyRoutes } from './party-routes.js';
 import { postControlRoutes } from './post-control-routes.js';
 import { PartyViewers } from './party-viewers.js';
@@ -96,6 +96,21 @@ export function guildRoutes(
         { guildId: request.params.guild, login: deps.oauth ? 'discord' : 'links' },
         manifest,
       ),
+    );
+  });
+
+  // "Your Pine" (plan 8H-6): the history page's bundle drawing the member's own numbers; its
+  // data (`/api/stats/me`) is the member's alone.
+  scope.get('/me', async (request: GuildRequest, reply) => {
+    void reply.type('text/html; charset=utf-8').header('cache-control', 'no-cache');
+    const { manifest } = deps.assets;
+    if (!manifest) {
+      return reply
+        .code(503)
+        .send(shortPage('This page has not been built yet: run npm run web:build.'));
+    }
+    return reply.send(
+      mePage({ guildId: request.params.guild, login: deps.oauth ? 'discord' : 'links' }, manifest),
     );
   });
 

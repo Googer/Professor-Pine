@@ -217,6 +217,15 @@ export function historyPage(data: HistoryPageData, assets: AssetManifest): strin
       '</tr></thead><tbody id="tally-rows"></tbody><tfoot id="tally-foot"></tfoot></table>',
     '<p id="tally-quiet" hidden></p>',
     '</section>',
+    // The boards (plan 8H-6, design Part D): every board of a period, filled by the script from
+    // `/api/stats/boards`; the member's own numbers on "Your Pine".
+    '<section id="boards" aria-labelledby="boards-title">',
+    '<h2 id="boards-title">Boards</h2>',
+    `<p>The members who did the most that others confirmed, among those who switched on /settings leaderboard; and the most wanted Pokémon, the bosses whose raids were sent to the most members and the tasks reported most. Your own numbers are on <a href="/s/${escapeHtml(data.guildId)}/me">Your Pine</a>.</p>`,
+    '<div id="boards-periods" class="periods" role="group" aria-label="Period"></div>',
+    '<p id="boards-status" role="status"></p>',
+    '<div id="boards-list" class="boards"></div>',
+    '</section>',
     '<section id="activity" aria-labelledby="activity-title">',
     '<h2 id="activity-title">Activity on the map</h2>',
     '<p>Where raids and max battles took place, month by month: the map’s Activity layer in ' +
@@ -224,6 +233,42 @@ export function historyPage(data: HistoryPageData, assets: AssetManifest): strin
     '</section>',
     '</main>',
     '<noscript><p>The history page needs JavaScript.</p></noscript>',
+    '</body>',
+    '</html>',
+  ].join('\n');
+}
+
+/**
+ * The "Your Pine" page `/s/<guild>/me` (plan 8H-6, design Part E): the member's own numbers, as
+ * `/stats me` counts them, with a year to choose and a chart of their months, drawn by the
+ * history page's own script and style (`data-page="me"`) from `/api/stats/me`. Public as the
+ * history page is; its data is the member's alone.
+ */
+export function mePage(data: HistoryPageData, assets: AssetManifest): string {
+  const guild = escapeHtml(data.guildId);
+  return [
+    ...head('Professor Pine: your Pine', { ...assets.history, theme: assets.map.theme }),
+    `<body data-guild="${guild}" data-login="${data.login}" data-page="me">`,
+    '<header id="header"><span class="title"><span class="title-first">Professor </span>Pine</span>',
+    `<a id="map-link" class="map-link" href="/s/${guild}/map">Map</a>`,
+    '<span id="account"></span></header>',
+    '<p id="notice" role="status" hidden></p>',
+    '<main id="history">',
+    '<h1 id="me-title">Your Pine</h1>',
+    '<p id="me-year-line"><label for="me-year">Year</label> <select id="me-year"></select></p>',
+    '<p id="me-status" role="status"></p>',
+    '<dl id="me-list" class="me-list" hidden></dl>',
+    '<section id="me-months" aria-labelledby="me-chart-title" hidden>',
+    '<h2 id="me-chart-title">By month</h2>',
+    '<p class="legend"><span class="key came">What you came to</span> ' +
+      '<span class="key reports">Reports at stops that counted</span></p>',
+    // The chart for the eye; its numbers for a screen reader in the table under it (B1).
+    '<div class="chart"><svg id="me-chart" aria-hidden="true" focusable="false"></svg></div>',
+    '<table id="me-table" class="visually-hidden" aria-labelledby="me-chart-title"></table>',
+    '</section>',
+    `<p><a href="/s/${guild}/history">History</a> of this server.</p>`,
+    '</main>',
+    '<noscript><p>This page needs JavaScript.</p></noscript>',
     '</body>',
     '</html>',
   ].join('\n');

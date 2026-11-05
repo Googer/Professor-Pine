@@ -197,6 +197,19 @@ export function historyItemNode(guild: string): PageNode {
   };
 }
 
+/**
+ * "Your Pine" in the map's account menu (plan 8H-6): the member's own numbers, offered beside
+ * "History" (`historyOffered`), its look the same.
+ */
+export function meItemNode(guild: string): PageNode {
+  return {
+    tag: 'a',
+    className: 'history-link',
+    text: 'Your Pine',
+    attributes: { href: `/s/${guild}/me` },
+  };
+}
+
 /** Whether the map's account menu offers "History": to a member of the server. */
 export function historyOffered(me: Me): boolean {
   return me.loggedIn && me.member;
