@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { BudgetLine, CachedMemberDirectory, type ServerMember } from './member-directory.js';
+import {
+  BudgetLine,
+  CachedMemberDirectory,
+  MembersBusy,
+  NAMES_PER_MINUTE,
+  type ServerMember,
+} from './member-directory.js';
 
 const GUILD = '100000000000000001';
 const OTHER_GUILD = '100000000000000002';
@@ -174,5 +180,37 @@ describe('BudgetLine: one request for members at a time (R-A4)', () => {
     expect((await all).map((one) => one.status)).toEqual(['fulfilled', 'rejected', 'fulfilled']);
     expect(seen).toEqual([['first'], ['second', 'first'], ['third', 'first', 'second']]);
     expect(takes).toBe(3);
+  });
+
+  it('lets who sees a channel (the notifier) go ahead of the names waiting (W1)', async () => {
+    const line = new BudgetLine({ take: () => Promise.resolve() });
+    const started: string[] = [];
+    const request = (name: string, names: boolean) =>
+      line.run(
+        () => {
+          started.push(name);
+          return Promise.resolve(name);
+        },
+        { names },
+      );
+    // The first is on its way at once; the rest wait, and the viewers go first.
+    await Promise.all([
+      request('names 1', true),
+      request('names 2', true),
+      request('viewers', false),
+      request('names 3', true),
+    ]);
+    expect(started).toEqual(['names 1', 'viewers', 'names 2', 'names 3']);
+  });
+
+  it('refuses names beyond ten requests a minute, viewers never (W1)', async () => {
+    let now = 1_000;
+    const line = new BudgetLine({ take: () => Promise.resolve() }, () => now);
+    const names = () => line.run(() => Promise.resolve('named'), { names: true });
+    for (let n = 0; n < NAMES_PER_MINUTE; n++) await names();
+    await expect(names()).rejects.toBeInstanceOf(MembersBusy);
+    expect(await line.run(() => Promise.resolve('seen'))).toBe('seen');
+    now += 60_000;
+    expect(await names()).toBe('named');
   });
 });

@@ -190,27 +190,89 @@ export class CachedMemberDirectory implements Pick<MemberDirectory, 'find'> {
   }
 }
 
+/** A minute, in milliseconds. */
+const MINUTE_MS = 60_000;
+
 /**
- * The one line of the gateway's requests for members (reviews A7, R-A4): `run` waits for the
- * request before it to settle and for the budget's turn (`RequestBudget.take`), then makes its
- * own and holds the line until it settles, so that `viewers` and `named` never have two requests
- * for members on their way at once and keep to one budget between them.
+ * As many requests for the names of a board (`named`) as may start in a minute (W1): their share
+ * of the line's `MEMBER_REQUEST_BUDGET` (thirty a minute), so that a busy history page never
+ * holds back who is told of a raid (`viewers`, the notifier's). Beyond it `named` rejects with
+ * `MembersBusy`.
+ */
+export const NAMES_PER_MINUTE = 10;
+
+/** Thrown by `named` when the names have had their share of the line's minute (W1). */
+export class MembersBusy extends Error {
+  constructor() {
+    super('The names of members were asked for too often in the last minute');
+    this.name = 'MembersBusy';
+  }
+}
+
+interface LineJob {
+  request: () => Promise<unknown>;
+  resolve: (value: unknown) => void;
+  reject: (err: unknown) => void;
+}
+
+/**
+ * The one line of the gateway's requests for members (reviews A7, R-A4, W1): one request at a
+ * time, each after the one before it has settled and the budget's turn (`RequestBudget.take`),
+ * so that `viewers` and `named` never have two requests for members on their way at once and
+ * keep to one budget between them. The requests of `viewers` (the notifier's) go ahead of names
+ * waiting; names (`{ names: true }`) may start `NAMES_PER_MINUTE` times in any minute, and are
+ * refused beyond it (`MembersBusy`), never queued for later.
  */
 export class BudgetLine {
-  private last: Promise<void> = Promise.resolve();
+  private busy = false;
+  private readonly first: LineJob[] = [];
+  private readonly then: LineJob[] = [];
+  /** When each request for names of the last minute was let in. */
+  private readonly namesAt: number[] = [];
 
-  constructor(private readonly budget: Pick<RequestBudget, 'take'>) {}
+  constructor(
+    private readonly budget: Pick<RequestBudget, 'take'>,
+    private readonly now: () => number = () => Date.now(),
+  ) {}
 
-  run<T>(request: () => Promise<T>): Promise<T> {
-    const turn = this.last.then(async () => {
-      await this.budget.take();
-      return request();
+  run<T>(request: () => Promise<T>, options: { names?: boolean } = {}): Promise<T> {
+    if (options.names === true) {
+      const now = this.now();
+      while (this.namesAt.length > 0 && (this.namesAt[0] ?? 0) <= now - MINUTE_MS) {
+        this.namesAt.shift();
+      }
+      if (this.namesAt.length >= NAMES_PER_MINUTE) return Promise.reject(new MembersBusy());
+      this.namesAt.push(now);
+    }
+    return new Promise<T>((resolve, reject) => {
+      const job: LineJob = {
+        request,
+        resolve: (value) => {
+          resolve(value as T);
+        },
+        reject,
+      };
+      (options.names === true ? this.then : this.first).push(job);
+      this.next();
     });
-    this.last = turn.then(
-      () => undefined,
-      () => undefined,
-    );
-    return turn;
+  }
+
+  private next(): void {
+    if (this.busy) return;
+    const job = this.first.shift() ?? this.then.shift();
+    if (job === undefined) return;
+    this.busy = true;
+    void (async () => {
+      try {
+        await this.budget.take();
+        job.resolve(await job.request());
+      } catch (err) {
+        job.reject(err);
+      } finally {
+        this.busy = false;
+        this.next();
+      }
+    })();
   }
 }
 
@@ -348,7 +410,9 @@ export class DiscordMemberDirectory implements MemberDirectory {
    * leaving). Only while the gateway rests after a failure (`GatewayWithFallback.restsUntil`) are
    * the cache's members taken as it has them, the rest asked over REST one by one
    * (`freshMembers`). Its requests take turns with those of `viewers`, one at a time on one
-   * budget (`line`, reviews A7, R-A4). A server the cache lacks rejects (A8): nothing can be said of its members.
+   * budget (`line`, reviews A7, R-A4), behind those of `viewers` and at most `NAMES_PER_MINUTE`
+   * a minute, beyond which it rejects (`MembersBusy`, W1). A server the cache lacks rejects (A8):
+   * nothing can be said of its members.
    */
   async named(guildId: string, userIds: readonly string[]): Promise<ServerMember[]> {
     if (!this.current) throw new Error('Discord is not connected yet');
@@ -365,7 +429,9 @@ export class DiscordMemberDirectory implements MemberDirectory {
     }
     for (let start = 0; start < ask.length; start += MEMBERS_PER_LOOKUP) {
       const batch = ask.slice(start, start + MEMBERS_PER_LOOKUP);
-      const members = await this.line.run(() => this.freshMembers(guild, batch));
+      const members = await this.line.run(() => this.freshMembers(guild, batch), {
+        names: true,
+      });
       found.push(...members.map((member) => ({ id: member.id, name: member.displayName })));
     }
     return found;
