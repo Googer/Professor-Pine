@@ -518,6 +518,19 @@ export class FakePartyGateway implements PartyGateway {
     this.outsiders.set(forumId, outside);
   }
 
+  /**
+   * A member's permissions in the server, as `shareKeeps` takes them: the everyone role's
+   * (`serverRoles` by the server's id, `DEFAULT_EVERYONE` unless a test gives it) and their
+   * roles'; everything for an administrator.
+   */
+  private basePermissions(roleIds: readonly string[]): bigint {
+    let permissions = this.serverRoles.get(this.guildId)?.permissions ?? DEFAULT_EVERYONE;
+    for (const id of roleIds) permissions |= this.serverRoles.get(id)?.permissions ?? 0n;
+    return (permissions & PermissionFlagsBits.Administrator) !== 0n
+      ? PermissionsBitField.All
+      : permissions;
+  }
+
   /** Whether the member can see the forum now: by their roles, or because they were let in. */
   canSee(forumId: string, memberId: string): boolean {
     if (this.barred.get(forumId)?.has(memberId)) return false;
@@ -525,11 +538,12 @@ export class FakePartyGateway implements PartyGateway {
     if (overwrites) {
       if (this.admitted.get(forumId)?.has(memberId)) return true;
       const member = { id: memberId, roleIds: this.memberRoles.get(memberId) ?? [] };
-      // Everyone may see the server's channels unless an overwrite says otherwise.
-      const base =
-        PermissionFlagsBits.ViewChannel |
-        member.roleIds.reduce((all, id) => all | (this.serverRoles.get(id)?.permissions ?? 0n), 0n);
-      const seen = channelPermissions(base, this.guildId, member, overwrites);
+      const seen = channelPermissions(
+        this.basePermissions(member.roleIds),
+        this.guildId,
+        member,
+        overwrites,
+      );
       return (seen & PermissionFlagsBits.ViewChannel) !== 0n;
     }
     return (

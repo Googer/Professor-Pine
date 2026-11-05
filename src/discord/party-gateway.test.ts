@@ -341,6 +341,29 @@ describe('FakePartyGateway', () => {
     expect(gateway.findChannel('100000000000000001', 'remote-raids')).toBeUndefined();
   });
 
+  it('says who sees a forum of overwrites from the everyone role’s permissions as its shares do (8H5-3)', async () => {
+    const gateway = new FakePartyGateway();
+    gateway.addForum('forum');
+    const view = String(PermissionFlagsBits.ViewChannel);
+    gateway.forumOverwrites.set('forum', [
+      { id: 'mods', type: OverwriteType.Role, allow: view, deny: '0' },
+    ]);
+    gateway.memberRoles.set('ash', []);
+    gateway.memberRoles.set('brock', ['admins']);
+    gateway.serverRoles.set('admins', {
+      name: 'Admin',
+      permissions: PermissionFlagsBits.Administrator,
+    });
+    // Discord's default everyone role sees the forum, as `shareKeeps` takes it.
+    expect(gateway.canSee('forum', 'ash')).toBe(true);
+    expect([...((await gateway.shareKeeps('forum', ['forum'])) ?? [])]).toEqual(['forum']);
+    // A gated server: the everyone role sees nothing, an administrator everything.
+    gateway.serverRoles.set(gateway.guildId, { name: '@everyone', permissions: 0n });
+    expect(gateway.canSee('forum', 'ash')).toBe(false);
+    expect(await gateway.memberAccess('forum', 'ash')).toBe('hidden');
+    expect(gateway.canSee('forum', 'brock')).toBe(true);
+  });
+
   it('judges a share as the real gateway does, fetching the members a channel names (plan 8H-5, R2)', async () => {
     const gateway = new FakePartyGateway();
     gateway.addForum('forum');
