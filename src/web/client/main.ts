@@ -20,7 +20,7 @@ import { showGymDots, type GymDots } from './gyms-ui.js';
 import { LayerRegistry, MAP_LAYERS, regionLabelsShown } from './layer-registry.js';
 import { showLayerControls } from './layers-ui.js';
 import { loggedOutPane } from './list-ui.js';
-import { loginNotice, loginNoticeFor, type Me } from './notice.js';
+import { historyItemNode, historyOffered, loginNotice, loginNoticeFor, type Me } from './notice.js';
 import { MapActivity } from './parties.js';
 import { showParties } from './party-layer.js';
 import { quietLine, showPlaces, type PlacesHooks } from './places-ui.js';
@@ -483,8 +483,13 @@ function start(): void {
     guild,
     data.login === 'discord' ? 'discord' : 'links',
     'map',
-    (me) =>
-      editingOffered(me) ? [editItem(toggle, load, guild, me, editLabel), editorTourItem()] : [],
+    // The server's history page (plan 8H-5) for a member, then the region editor's items.
+    (me) => [
+      ...(historyOffered(me) ? [renderNode(historyItemNode(guild), document)] : []),
+      ...(editingOffered(me)
+        ? [editItem(toggle, load, guild, me, editLabel), editorTourItem()]
+        : []),
+    ],
     true,
     () => [tourItem()],
   ).then((me) => {

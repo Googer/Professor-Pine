@@ -16,13 +16,15 @@ export interface PageAssets {
 /**
  * The names of the bundle's files the pages load (`dist/web/assets.json`): the map's, and the
  * region editor's with the script of its worker (plan 8M-2), and the page of the Wayspot export
- * tool (`/userscript`, plan 8W-P). The map's `theme` is its head script (plan 8M-13, S10: the
- * theme chosen set before the page is drawn).
+ * tool (`/userscript`, plan 8W-P), and the history page (plan 8H-5). The map's `theme` is its
+ * head script (plan 8M-13, S10: the theme chosen set before the page is drawn), which the history
+ * page loads too.
  */
 export interface AssetManifest {
   map: PageAssets & { theme: string };
   editor: PageAssets & { worker: string };
   userscript: PageAssets;
+  history: PageAssets;
 }
 
 /** The built bundle: its folder, served at `/assets/`, and the names the page loads. */
@@ -57,16 +59,21 @@ export async function readAssets(root = WEB_DIST): Promise<WebAssets> {
       map?: { theme?: unknown };
       editor?: { worker?: unknown };
       userscript?: unknown;
+      history?: unknown;
     };
     const map = pageAssets(read.map);
     const editor = pageAssets(read.editor);
     const worker = read.editor?.worker;
     const theme = read.map?.theme;
     const userscript = pageAssets(read.userscript);
-    if (!map || !editor || !userscript || !isText(worker) || !isText(theme)) {
+    const history = pageAssets(read.history);
+    if (!map || !editor || !userscript || !history || !isText(worker) || !isText(theme)) {
       return { dir, manifest: undefined };
     }
-    return { dir, manifest: { map: { ...map, theme }, editor: { ...editor, worker }, userscript } };
+    return {
+      dir,
+      manifest: { map: { ...map, theme }, editor: { ...editor, worker }, userscript, history },
+    };
   } catch {
     return { dir, manifest: undefined };
   }
@@ -169,6 +176,53 @@ export function mapPage(data: MapPageData, assets: AssetManifest): string {
       '<div id="editor-map" class="editor-only" role="region" aria-label="Map of the regions" hidden></div>' +
       '<aside id="editor-panel" class="editor-only" aria-label="Regions" hidden></aside></div>',
     '<noscript><p>The map needs JavaScript.</p></noscript>',
+    '</body>',
+    '</html>',
+  ].join('\n');
+}
+
+/** What the history page is told: in `data-` attributes of `<body>`, escaped. */
+export interface HistoryPageData {
+  guildId: string;
+  /** How a member logs in: with Discord, or only through the links of `/maps`. */
+  login: 'discord' | 'links';
+}
+
+/**
+ * The history page `/s/<guild>/history` (plan 8H-5; design Part G's "history page", which Parts
+ * D, E and G add sections to): a static template as the map's, public as the map is (its data
+ * is for members only), its own script and style and the map's head script of the theme,
+ * nothing inline. The header leads back to the map; the region board's places (its title, the
+ * periods, the line of what it says, the table) are filled by the script from
+ * `/api/stats/regions`; the heatmap's History is on the map, linked.
+ */
+export function historyPage(data: HistoryPageData, assets: AssetManifest): string {
+  const map = `/s/${escapeHtml(data.guildId)}/map`;
+  return [
+    ...head('Professor Pine: history', { ...assets.history, theme: assets.map.theme }),
+    `<body data-guild="${escapeHtml(data.guildId)}" data-login="${data.login}">`,
+    '<header id="header"><span class="title"><span class="title-first">Professor </span>Pine</span>',
+    `<a id="map-link" class="map-link" href="${map}">Map</a>`,
+    '<span id="account"></span></header>',
+    '<p id="notice" role="status" hidden></p>',
+    '<main id="history">',
+    "<h1>This server's history</h1>",
+    '<section id="board" aria-labelledby="board-title">',
+    '<h2 id="board-title">Raids and max battles by region</h2>',
+    '<div id="board-periods" class="periods" role="group" aria-label="Period"></div>',
+    '<p id="board-status" role="status"></p>',
+    '<table id="board-table" hidden>' +
+      '<thead><tr><th scope="col">#</th><th scope="col">Region</th>' +
+      '<th scope="col" class="count">Raids</th><th scope="col" class="count">Max battles</th>' +
+      '</tr></thead><tbody id="board-rows"></tbody><tfoot id="board-foot"></tfoot></table>',
+    '</section>',
+    '<section id="activity" aria-labelledby="activity-title">',
+    '<h2 id="activity-title">Activity on the map</h2>',
+    '<p>Where raids and max battles took place, month by month: the map’s Activity layer in ' +
+      `History. <a href="${map}">Open the map</a>, turn on Activity and choose History.</p>`,
+    '</section>',
+    '</main>',
+    '<noscript><p>The history page needs JavaScript.</p></noscript>',
     '</body>',
     '</html>',
   ].join('\n');

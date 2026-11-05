@@ -155,7 +155,13 @@ describe("the pages' look", () => {
   it('writes colours in the stylesheets only as custom properties of theme.css', () => {
     const sheets = files.filter((file) => file.endsWith('.css') && file !== 'theme.css');
     expect(sheets).toEqual(
-      expect.arrayContaining(['map.css', 'editor.css', 'userscript.css', 'pages.css']),
+      expect.arrayContaining([
+        'map.css',
+        'editor.css',
+        'userscript.css',
+        'pages.css',
+        'history.css',
+      ]),
     );
     for (const file of sheets) {
       const written = declarations(read(file)).filter(([, , value]) =>
@@ -195,7 +201,7 @@ describe("the pages' look", () => {
   });
 
   it('is loaded by the stylesheet of every page Pine serves (plan 8M-7)', () => {
-    for (const sheet of ['map.css', 'userscript.css', 'pages.css']) {
+    for (const sheet of ['map.css', 'userscript.css', 'pages.css', 'history.css']) {
       expect(read(sheet), sheet).toMatch(/@import '\.\/theme\.css';/u);
     }
   });

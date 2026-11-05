@@ -780,6 +780,8 @@ export function builtAssets(): WebAssets {
   writeFileSync(path.join(dir, 'editor-worker-GHIJKLMN.js'), 'console.log("worker");');
   writeFileSync(path.join(dir, 'userscript-OPQRSTUV.js'), 'console.log("tool");');
   writeFileSync(path.join(dir, 'userscript-WXYZABCD.css'), 'body { margin: 0; }');
+  writeFileSync(path.join(dir, 'history-EFGHIJKL.js'), 'console.log("history");');
+  writeFileSync(path.join(dir, 'history-MNOPQRST.css'), 'body { margin: 0; }');
   writeFileSync(path.join(dir, 'notes.txt'), 'notes');
   writeFileSync(path.join(root, 'assets.json'), '{}');
   return {
@@ -792,6 +794,7 @@ export function builtAssets(): WebAssets {
         worker: 'editor-worker-GHIJKLMN.js',
       },
       userscript: { script: 'userscript-OPQRSTUV.js', style: 'userscript-WXYZABCD.css' },
+      history: { script: 'history-EFGHIJKL.js', style: 'history-MNOPQRST.css' },
     },
   };
 }

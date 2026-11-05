@@ -1,0 +1,272 @@
+@import './theme.css';
+
+/*
+ * The history page (plan 8H-5): the map's header and look, light or dark as the device or the
+ * choice made on the map is, and its sections (for now the region board) one under another, the
+ * width of a phone too.
+ */
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: var(--font-size);
+  color: var(--text);
+  background: var(--page-bg);
+}
+
+a {
+  color: var(--link);
+}
+
+[hidden] {
+  display: none !important;
+}
+
+#header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 12px;
+  padding: 8px 12px;
+  background: var(--panel-bg);
+  color: var(--text);
+  border-bottom: 1px solid var(--line);
+}
+
+#header .title {
+  font-weight: 700;
+}
+
+#header a,
+#header button,
+#header summary {
+  white-space: nowrap;
+}
+
+#header .map-link,
+#account a,
+#account button {
+  color: var(--secondary-text);
+  background: var(--secondary);
+  border: 0;
+  border-radius: var(--radius);
+  padding: 6px 12px;
+  font: inherit;
+  font-weight: 500;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+#header .map-link:hover,
+#account button:hover {
+  background: var(--secondary-hover);
+}
+
+#account {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+}
+
+#account a.login,
+#account a.invite {
+  color: var(--on-color);
+  background: var(--primary);
+}
+
+#account a.login:hover,
+#account a.invite:hover {
+  background: var(--primary-hover);
+}
+
+#account a.login .short {
+  display: none;
+}
+
+#account .line {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* The member's name as one button, whose small menu holds the theme and Log out (as the map's). */
+.account-menu {
+  position: relative;
+}
+
+.account-menu summary {
+  padding: 6px 12px;
+  border-radius: var(--radius);
+  background: var(--secondary);
+  color: var(--secondary-text);
+  font-weight: 500;
+  cursor: pointer;
+  list-style: none;
+}
+
+.account-menu summary::-webkit-details-marker {
+  display: none;
+}
+
+.account-menu summary::after {
+  content: ' ▾';
+}
+
+.theme-menu summary::after {
+  content: none;
+}
+
+.account-menu .menu {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 6px);
+  right: 0;
+  padding: 8px;
+  border-radius: var(--card-radius);
+  background: var(--card-bg);
+  box-shadow: 0 8px 24px var(--shadow);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+}
+
+.theme-choice {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+}
+
+#account .theme-choice .theme-option {
+  padding: 4px 8px;
+}
+
+#account .theme-choice .theme-option.chosen {
+  background: var(--primary);
+  color: var(--on-color);
+}
+
+:root[data-theme='light'] {
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  color-scheme: dark;
+}
+
+#notice {
+  margin: 0;
+  padding: 6px 12px;
+  background: var(--notice-bg);
+  border-bottom: 1px solid var(--notice-border);
+}
+
+#history {
+  max-width: 720px;
+  padding: 8px 16px 24px;
+}
+
+h1 {
+  font-size: 1.4em;
+}
+
+h2 {
+  font-size: 1.2em;
+  margin-top: 1.4em;
+}
+
+/* The periods of the board: the one shown pressed. */
+.periods {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.periods button {
+  padding: 6px 12px;
+  border: 0;
+  border-radius: var(--radius);
+  background: var(--secondary);
+  color: var(--secondary-text);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.periods button:hover {
+  background: var(--secondary-hover);
+}
+
+.periods button[aria-pressed='true'] {
+  background: var(--primary);
+  color: var(--on-color);
+}
+
+#board-status {
+  color: var(--muted);
+}
+
+#board-status:empty {
+  display: none;
+}
+
+#board-table {
+  border-collapse: collapse;
+  width: 100%;
+  margin-top: 8px;
+}
+
+#board-table th,
+#board-table td {
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--line);
+  text-align: left;
+  /* A long region name breaks anywhere rather than widening a phone (P10). */
+  overflow-wrap: anywhere;
+}
+
+#board-table .count {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+#board-table tfoot td {
+  font-weight: 600;
+}
+
+/* A phone (as the map's header): "Pine" alone, "Log in", the table's own width. */
+@media (max-width: 767px) {
+  #header {
+    gap: 6px;
+    padding: 8px;
+  }
+
+  #header .title-first {
+    display: none;
+  }
+
+  #account a.login .full {
+    display: none;
+  }
+
+  #account a.login .short {
+    display: inline;
+  }
+
+  #account .line {
+    flex-basis: 100%;
+    font-size: 12px;
+    text-align: right;
+  }
+
+  #history {
+    padding: 8px 10px 20px;
+  }
+
+  #board-table th,
+  #board-table td {
+    padding: 4px 3px;
+  }
+}

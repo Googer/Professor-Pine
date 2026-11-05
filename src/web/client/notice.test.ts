@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
   headerLines,
+  historyItemNode,
+  historyOffered,
   inviteNode,
   loginNotice,
   loginNoticeFor,
@@ -51,7 +53,37 @@ describe('loginNoticeFor (review fix 5)', () => {
   });
 });
 
+describe("the map's way to the history page (plan 8H-5)", () => {
+  it('is an item of the member’s menu that opens the server’s history page', () => {
+    expect(historyItemNode('412345678901234567')).toEqual({
+      tag: 'a',
+      className: 'history-link',
+      text: 'History',
+      attributes: { href: '/s/412345678901234567/history' },
+    });
+  });
+
+  it('is offered to members only, whose data the page shows', () => {
+    const me = { loggedIn: true as const, name: 'Ash', csrf: 't', member: true, readOnly: false };
+    expect(historyOffered(me)).toBe(true);
+    expect(historyOffered({ ...me, member: false })).toBe(false);
+    expect(historyOffered({ loggedIn: false })).toBe(false);
+  });
+});
+
 describe('headerLines', () => {
+  it('tells a member without the map’s role on the history page what it takes (plan 8H-5)', () => {
+    const me = { loggedIn: true as const, name: 'Ash', csrf: 't', member: false, readOnly: false };
+    expect(headerLines({ ...me, missingRole: 'Verified' }, 'discord', 'history')).toEqual({
+      login: false,
+      name: 'Ash',
+      lines: ["To see this server's history, you need the Verified role in this server."],
+    });
+    expect(headerLines({ ...me, readOnly: true }, 'discord', 'history').lines).toEqual([
+      'Discord cannot be reached just now.',
+    ]);
+  });
+
   it('offers the login there is to somebody who is not logged in', () => {
     expect(headerLines({ loggedIn: false }, 'discord', 'map')).toEqual({ login: true, lines: [] });
     expect(headerLines({ loggedIn: false }, 'links', 'map')).toEqual({

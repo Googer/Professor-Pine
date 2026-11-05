@@ -60,6 +60,8 @@ const result = await build({
     { in: path.join(client, 'editor-worker.ts'), out: 'editor-worker' },
     { in: path.join(client, 'userscript.ts'), out: 'userscript' },
     { in: path.join(client, 'userscript.css'), out: 'userscript' },
+    { in: path.join(client, 'history.ts'), out: 'history' },
+    { in: path.join(client, 'history.css'), out: 'history' },
   ],
   tsconfig: path.join(client, 'tsconfig.json'),
   // `@pine/wayspot-core` from its sources (tsconfig.json, `customConditions`).
@@ -133,6 +135,10 @@ const files = {
     script: named(/^userscript-[A-Z0-9]{8}\.js$/),
     style: named(/^userscript-[A-Z0-9]{8}\.css$/),
   },
+  history: {
+    script: named(/^history-[A-Z0-9]{8}\.js$/),
+    style: named(/^history-[A-Z0-9]{8}\.css$/),
+  },
 };
 // Each page's stylesheet must hold the forced-dark rules its sources call for (review BR-6 of the
 // small pass, re-review N1): a plugin that did not run would otherwise ship a page that ignores a
@@ -142,6 +148,7 @@ const styleSources: Array<[string, string[]]> = [
   [files.editor.style, ['editor.css']],
   ['page.css', ['pages.css', 'theme.css']],
   [files.userscript.style, ['userscript.css', 'theme.css']],
+  [files.history.style, ['history.css', 'theme.css']],
 ];
 for (const [style, sources] of styleSources) {
   checkForcedDark(

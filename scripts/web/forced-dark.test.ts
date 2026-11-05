@@ -120,6 +120,7 @@ describe("the build's check of the pages' forced-dark rules", () => {
     ['editor.css'],
     ['pages.css', 'theme.css'],
     ['userscript.css', 'theme.css'],
+    ['history.css', 'theme.css'],
   ] as const;
 
   it('passes each page built with them', async () => {

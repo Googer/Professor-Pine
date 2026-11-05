@@ -11,7 +11,7 @@ import { meetupRoutes } from './meetup-routes.js';
 import { shownTiles } from './headers.js';
 import type { PacedMembers } from './paced-members.js';
 import { historyRoutes } from './history-routes.js';
-import { mapPage } from './page.js';
+import { historyPage, mapPage } from './page.js';
 import { partyRoutes } from './party-routes.js';
 import { postControlRoutes } from './post-control-routes.js';
 import { PartyViewers } from './party-viewers.js';
@@ -76,6 +76,24 @@ export function guildRoutes(
           login: deps.oauth ? 'discord' : 'links',
           distanceUnits: deps.distanceUnits,
         },
+        manifest,
+      ),
+    );
+  });
+
+  // The history page (plan 8H-5): the static template, told the server and how to log in; its
+  // data (`/api/stats/regions`) is for members only.
+  scope.get('/history', async (request: GuildRequest, reply) => {
+    void reply.type('text/html; charset=utf-8').header('cache-control', 'no-cache');
+    const { manifest } = deps.assets;
+    if (!manifest) {
+      return reply
+        .code(503)
+        .send(shortPage('The history page has not been built yet: run npm run web:build.'));
+    }
+    return reply.send(
+      historyPage(
+        { guildId: request.params.guild, login: deps.oauth ? 'discord' : 'links' },
         manifest,
       ),
     );

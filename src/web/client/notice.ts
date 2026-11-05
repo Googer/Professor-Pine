@@ -139,8 +139,8 @@ export function loginNoticeFor(notice: { text: string } | undefined, me: Me): st
   return notice !== undefined && !me.loggedIn ? notice.text : undefined;
 }
 
-/** Which of the web pages a header is of: the live map or the region editor. */
-export type WebPage = 'map' | 'editor';
+/** Which of the web pages a header is of: the live map, the region editor or the history page. */
+export type WebPage = 'map' | 'editor' | 'history';
 
 /** What the page says of somebody who is not in the server. */
 export const NOT_A_MEMBER = 'You are not a member of this server.';
@@ -163,19 +163,43 @@ export function headerLines(
       : { login: false, lines: ['Use /maps in Discord to log in.'] };
   }
   const lines = me.readOnly
-    ? ['Discord cannot be reached just now, so the map is read-only.']
+    ? [
+        page === 'history'
+          ? 'Discord cannot be reached just now.'
+          : 'Discord cannot be reached just now, so the map is read-only.',
+      ]
     : me.member
       ? []
       : me.missingRole === undefined
         ? [NOT_A_MEMBER]
         : page === 'editor'
           ? []
-          : [
-              'You can look around the map. To join or report here, you need the ' +
-                `${me.missingRole} role in this server.`,
-            ];
+          : page === 'history'
+            ? [`To see this server's history, you need the ${me.missingRole} role in this server.`]
+            : [
+                'You can look around the map. To join or report here, you need the ' +
+                  `${me.missingRole} role in this server.`,
+              ];
   const invite = lines.length === 1 && lines[0] === NOT_A_MEMBER ? me.invite : undefined;
   return { login: false, name: me.name, lines, ...(invite === undefined ? {} : { invite }) };
+}
+
+/**
+ * "History" in the map's account menu (plan 8H-5): the server's history page, for members only,
+ * whose data it shows (`historyOffered`); the page leads back to the map from its header.
+ */
+export function historyItemNode(guild: string): PageNode {
+  return {
+    tag: 'a',
+    className: 'history-link',
+    text: 'History',
+    attributes: { href: `/s/${guild}/history` },
+  };
+}
+
+/** Whether the map's account menu offers "History": to a member of the server. */
+export function historyOffered(me: Me): boolean {
+  return me.loggedIn && me.member;
 }
 
 /**

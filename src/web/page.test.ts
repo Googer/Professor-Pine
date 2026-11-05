@@ -9,7 +9,7 @@ import { readAssets } from './page.js';
 const MAP = `/s/${FAKE_GUILD_ID}/map`;
 
 describe("the bundle's manifest", () => {
-  it("names the map's, the editor's and the tool page's files, and is none when it lacks one", async () => {
+  it("names the map's, the editor's, the tool page's and the history page's files, and is none when it lacks one", async () => {
     const root = mkdtempSync(path.join(tmpdir(), 'pine-web-'));
     onTestFinished(() => {
       rmSync(root, { recursive: true, force: true, maxRetries: 3 });
@@ -18,6 +18,7 @@ describe("the bundle's manifest", () => {
       map: { script: 'map-A.js', style: 'map-B.css', theme: 'theme-H.js' },
       editor: { script: 'editor-C.js', style: 'editor-D.css', worker: 'editor-worker-E.js' },
       userscript: { script: 'userscript-F.js', style: 'userscript-G.css' },
+      history: { script: 'history-I.js', style: 'history-J.css' },
     };
     writeFileSync(path.join(root, 'assets.json'), JSON.stringify(manifest));
     expect(await readAssets(root)).toEqual({ dir: path.resolve(root, 'assets'), manifest });
@@ -40,6 +41,10 @@ describe("the bundle's manifest", () => {
       path.join(root, 'assets.json'),
       JSON.stringify({ ...manifest, map: { script: 'map-A.js', style: 'map-B.css' } }),
     );
+    expect((await readAssets(root)).manifest).toBeUndefined();
+    // What the build before the history page wrote (plan 8H-5).
+    const { history: _history, ...before } = manifest;
+    writeFileSync(path.join(root, 'assets.json'), JSON.stringify(before));
     expect((await readAssets(root)).manifest).toBeUndefined();
   });
 });
@@ -199,6 +204,60 @@ describe('the map page', () => {
   it('says so when the bundle was not built', async () => {
     web = webServerWith();
     const page = await web.app.inject({ url: MAP });
+    expect(page.statusCode).toBe(503);
+    expect(page.body).toContain('npm run web:build');
+  });
+});
+
+describe('the history page (plan 8H-5)', () => {
+  const HISTORY = `/s/${FAKE_GUILD_ID}/history`;
+  let web: TestWeb | undefined;
+  afterEach(async () => {
+    await web?.app.close();
+    web = undefined;
+  });
+
+  it("loads its own script and style and the map's theme, nothing inline, open to anybody", async () => {
+    web = webServerWith({ assets: builtAssets() });
+    // No session: the page is public as the map is; its data is for members only.
+    const page = await web.app.inject({ url: HISTORY });
+    expect(page.statusCode).toBe(200);
+    expect(page.headers['content-type']).toMatch(/^text\/html/);
+    expect(page.headers['cache-control']).toBe('no-cache');
+    expect(page.body).toContain('<title>Professor Pine: history</title>');
+    expect(page.body).toContain('<script src="/assets/history-EFGHIJKL.js" defer></script>');
+    expect(page.body).toContain('<link rel="stylesheet" href="/assets/history-MNOPQRST.css">');
+    // The theme chosen on the map, set before the page is drawn.
+    const head = page.body.slice(0, page.body.indexOf('</head>'));
+    expect(head.indexOf('<script src="/assets/theme-STUVWXYZ.js"></script>')).toBeGreaterThan(0);
+    expect(page.body).not.toMatch(/<script(?![^>]*\ssrc=)[^>]*>/);
+    expect(page.body).not.toMatch(/<style|\sstyle=|\son\w+=/i);
+    expect(bodyData(page.body)).toEqual({ 'data-guild': FAKE_GUILD_ID, 'data-login': 'discord' });
+    // Back to the map from the header; the heatmap's History by the map.
+    expect(page.body).toContain(
+      `<a id="map-link" class="map-link" href="/s/${FAKE_GUILD_ID}/map">Map</a>`,
+    );
+    expect(page.body).toContain(`<a href="/s/${FAKE_GUILD_ID}/map">Open the map</a>`);
+    // The heatmap's months are the server's, which may not reach back to 2018 (P6).
+    expect(page.body).not.toMatch(/since 20\d\d/u);
+    // The region board's places, which the script fills.
+    for (const id of ['board-title', 'board-periods', 'board-status', 'board-table']) {
+      expect(page.body, id).toContain(`id="${id}"`);
+    }
+  });
+
+  it('offers no login with Discord without the client secret', async () => {
+    web = webServerWith({ assets: builtAssets(), oauth: undefined });
+    const page = await web.app.inject({ url: HISTORY });
+    expect(bodyData(page.body)['data-login']).toBe('links');
+  });
+
+  it('is not found for a server the bot is not in, and says so when the bundle was not built', async () => {
+    web = webServerWith({ assets: builtAssets() });
+    expect((await web.app.inject({ url: '/s/412345678901234999/history' })).statusCode).toBe(404);
+    await web.app.close();
+    web = webServerWith();
+    const page = await web.app.inject({ url: HISTORY });
     expect(page.statusCode).toBe(503);
     expect(page.body).toContain('npm run web:build');
   });
