@@ -435,6 +435,25 @@ describe("a gym cluster's activity on hover (plan 8H-4H)", () => {
     expect(cluster.attributes['aria-label']).toBe('6 gyms');
   });
 
+  // Review 8H4H-2: the words open over a cluster follow the sums, and go when it moves.
+  it('keeps the words open over a cluster to the sums, and closes them when the cluster moves', () => {
+    const sums = { now: 60 as number | undefined };
+    const { fire, dots, hidden } = hovered((_gyms) =>
+      sums.now === undefined ? undefined : sum(sums.now),
+    );
+    fire('mouseover');
+    sums.now = 90;
+    dots.names();
+    expect(open()).toEqual(['6 gyms · ≈ 90 parties in this area']);
+    sums.now = undefined;
+    dots.names();
+    expect(open()).toEqual(['6 gyms']);
+    // A raid hides one of its gyms: its marker moves to the middle of the five left.
+    hidden.add(6);
+    dots.refresh();
+    expect(open()).toEqual([]);
+  });
+
   // Review R4: nothing worked out per cluster while the layer has nothing to say.
   it('asks nothing of the gyms while the layer has no counts, and asks the hidden ones once a draw', () => {
     const asked: number[][] = [];

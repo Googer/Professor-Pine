@@ -1,7 +1,7 @@
 import * as L from 'leaflet';
 import { CLUSTER_BELOW } from './cluster.js';
 import { dotKey, planDots, wantedDots, type DrawnDot, type WantedDot } from './gym-dots.js';
-import { hoverName } from './hover-name.js';
+import { hoverName, type HoverName } from './hover-name.js';
 import type { Box } from './view.js';
 
 /**
@@ -56,7 +56,14 @@ interface Bubble<P> {
   points: readonly P[];
   /** Its words as its element's `aria-label` has them; none before it is on the map. */
   named: string | undefined;
+  /** Its words on hover, kept to what it says while open (review 8H4H-2). */
+  hover: HoverName;
+  /** Where its marker stands. */
+  at: { lat: number; lon: number };
 }
+
+/** No hover name yet: a bubble's until `hoverName` gives it its own. */
+const NO_HOVER: HoverName = { refresh: () => undefined, hide: () => undefined };
 
 export class ClusterLayer<P extends ClusterPlace> {
   /** What is drawn, by its key (`wantedDots`), with what a cluster shows (`planDots`). */
@@ -133,7 +140,11 @@ export class ClusterLayer<P extends ClusterPlace> {
 
   /** Every cluster's words set again (what `look.hover` adds changed: review R3 of 8H-4H). */
   names(): void {
-    for (const bubble of this.bubbles.values()) this.name(bubble);
+    for (const bubble of this.bubbles.values()) {
+      this.name(bubble);
+      // Its words open on hover follow (review 8H4H-2).
+      bubble.hover.refresh();
+    }
   }
 
   /** Everything taken off the map and forgotten (new places). */
@@ -182,7 +193,14 @@ export class ClusterLayer<P extends ClusterPlace> {
       keyboard: true,
       pmIgnore: true,
     });
-    const made: Bubble<P> = { marker, label, points, named: undefined };
+    const made: Bubble<P> = {
+      marker,
+      label,
+      points,
+      named: undefined,
+      hover: NO_HOVER,
+      at: { lat, lon },
+    };
     marker.on('click', () => {
       const box = L.latLngBounds(made.points.map((point) => [point.lat, point.lon]));
       const zoom = Math.min(
@@ -202,13 +220,14 @@ export class ClusterLayer<P extends ClusterPlace> {
     });
     // A desktop's mouse over it, over its badge; a tap still zooms in (`hoverName` shows nothing
     // for a finger).
-    hoverName(this.map, marker, () => this.name(made), undefined, HOVER_OFFSET);
+    made.hover = hoverName(this.map, marker, () => this.name(made), undefined, HOVER_OFFSET);
     return made;
   }
 
   /**
    * A cluster's marker shows `item` (plan 8M-11B, S13): its count, its title, its places and its
-   * ring, and it moves to their middle; only what changed is touched.
+   * ring, and it moves to their middle; only what changed is touched. Its words open on hover
+   * follow, or close where it moves (review 8H4H-2: they would stand over another cluster).
    */
   private reshow(shown: Bubble<P>, item: { points: P[]; lat: number; lon: number }): void {
     const count = String(item.points.length);
@@ -218,6 +237,9 @@ export class ClusterLayer<P extends ClusterPlace> {
     shown.points = item.points;
     this.name(shown);
     this.ring(shown);
+    if (shown.at.lat === item.lat && shown.at.lon === item.lon) shown.hover.refresh();
+    else shown.hover.hide();
+    shown.at = { lat: item.lat, lon: item.lon };
     shown.marker.setLatLng([item.lat, item.lon]);
   }
 }

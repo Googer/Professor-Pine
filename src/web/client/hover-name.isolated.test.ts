@@ -189,6 +189,43 @@ describe('a place named on hover (Matt, 2026-11-02)', () => {
     expect(open()).toEqual(['≈ 12 parties in this area']);
   });
 
+  // Review 8H4H-2: a gym cluster's words change while its name is open (a new answer, the layer
+  // off), and its marker moves to another cluster.
+  it('reads its words again when refreshed while open, and closes when hidden', () => {
+    const { map: page } = map();
+    const cluster = dot();
+    const other = dot(40.45, -79.94);
+    const words = { now: '6 gyms · ≈ 60 parties in this area' as string | undefined };
+    const named = hoverName(
+      page,
+      cluster.named,
+      () => words.now,
+      () => true,
+    );
+    const elsewhere = hoverName(page, other.named, 'Fountain', () => true);
+    // Nothing open: nothing to refresh.
+    named.refresh();
+    expect(tips.made).toEqual([]);
+    cluster.fire('mouseover');
+    words.now = '6 gyms · ≈ 90 parties in this area';
+    named.refresh();
+    expect(open()).toEqual(['6 gyms · ≈ 90 parties in this area']);
+    // Another dot's refresh and hide leave it as it is.
+    elsewhere.refresh();
+    elsewhere.hide();
+    expect(open()).toEqual(['6 gyms · ≈ 90 parties in this area']);
+    words.now = undefined;
+    named.refresh();
+    expect(open()).toEqual([]);
+    words.now = '6 gyms';
+    cluster.fire('mouseover');
+    named.hide();
+    expect(open()).toEqual([]);
+    // Hidden, it opens again at the next hover.
+    cluster.fire('mouseover');
+    expect(open()).toEqual(['6 gyms']);
+  });
+
   // Review P6: over a cluster's badge (34 pixels), not into it.
   it('stands over the dot by the offset given, six pixels up without one', () => {
     const { map: page } = map();

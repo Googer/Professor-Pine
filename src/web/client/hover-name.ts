@@ -59,7 +59,8 @@ function namesOf(map: NamesMap): MapNames {
  * are taken off and set anew by `gymClicks`) and by any popup opening (a stop's or Power Spot's
  * popup is the map's own, not the dot's). A touch device loses nothing: the name is the popup's
  * first line. Not Leaflet's `bindTooltip`, which opens its tooltip on a click too, beside the
- * popup. The name goes in as a node: Leaflet takes a string as HTML.
+ * popup. The name goes in as a node: Leaflet takes a string as HTML. Its words read again while
+ * open by `refresh`, and closed by `hide` (review 8H4H-2: a gym cluster's sum, its marker moved).
  */
 export function hoverName(
   map: NamesMap,
@@ -72,7 +73,7 @@ export function hoverName(
   hovers: () => boolean = deviceHovers,
   /** Where the words stand from the dot's place, in pixels: over a cluster's badge, `[0, -17]`. */
   offset: L.PointExpression = [0, -6],
-): void {
+): HoverName {
   const state = namesOf(map);
   watchPointer();
   const hide = (): void => {
@@ -80,20 +81,42 @@ export function hoverName(
     state.shown.tip.remove();
     state.shown = undefined;
   };
+  const read = (): string | undefined => (typeof name === 'string' ? name : name());
+  /** The words as an element of ours: Leaflet takes a string as HTML. */
+  const node = (text: string): HTMLElement => {
+    const words = document.createElement('span');
+    words.textContent = text;
+    return words;
+  };
   dot.on('mouseover', () => {
     if (state.shown?.dot === dot || lastPointer !== 'mouse' || !hovers()) return;
     const at = dot.getLatLng();
     if (state.popupAt?.equals(at) === true) return;
-    const text = typeof name === 'string' ? name : name();
+    const text = read();
     if (text === undefined) return;
     state.shown?.tip.remove();
-    const words = document.createElement('span');
-    words.textContent = text;
     const tip = L.tooltip({ direction: 'top', offset, className: 'hover-name' })
       .setLatLng(at)
-      .setContent(words)
+      .setContent(node(text))
       .openOn(map as L.Map);
     state.shown = { dot, tip };
   });
   for (const type of ['mouseout', 'mousedown', 'remove']) dot.on(type, hide);
+  return {
+    refresh: () => {
+      if (state.shown?.dot !== dot) return;
+      const text = read();
+      if (text === undefined) hide();
+      else state.shown.tip.setContent(node(text));
+    },
+    hide,
+  };
+}
+
+/** A dot's hover name, as the caller may change it while it is open (review 8H4H-2). */
+export interface HoverName {
+  /** The words read again where its name is open now (none: it closes); nothing otherwise. */
+  refresh(): void;
+  /** Its name closed where it is open (its dot moved away from under it). */
+  hide(): void;
 }
