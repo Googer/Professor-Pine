@@ -162,6 +162,10 @@ const LEADERBOARD = {
     'server you mean.',
   /** Added to the history's opt-out where it took the member off the boards too. */
   leftWithHistory: ' You are off this server’s boards too.',
+  /** Added where the member's posts are anonymous (`/settings privacy`, W6). */
+  anonymous:
+    ' Your raids and trains are anonymous (`/settings privacy`): they count on no board, only ' +
+    'in `/stats me`.',
 } as const;
 
 /**
@@ -483,7 +487,8 @@ const leaderboard: SubcommandPart = {
       'to, and reports at stops that counted. Only members who switched this on are ranked; ' +
       'it is off until you do.\n\nThe boards count what the history of this server keeps with ' +
       'your id, so switching this on also turns on `/settings history` where it was off. ' +
-      'Turning the history off takes you off the boards too.\n\nIt is set per server: use it ' +
+      'Turning the history off takes you off the boards too. A raid or train you report ' +
+      'anonymously counts on no board.\n\nIt is set per server: use it ' +
       'in the server you mean, not in a DM with me.',
     examples: [
       `/settings ${LEADERBOARD.name} enabled:True`,
@@ -501,9 +506,16 @@ const leaderboard: SubcommandPart = {
     }
     const memberId = interaction.user.id;
     if (enabled) {
-      const { historyOn } = await ctx.historyOptIns.joinBoards(memberId, guildId, Date.now());
+      const [{ historyOn }, settings] = await Promise.all([
+        ctx.historyOptIns.joinBoards(memberId, guildId, Date.now()),
+        ctx.users.get(memberId),
+      ]);
+      const anonymous = settings.raidPrivacy === RaidPrivacy.Anonymous;
       await answer(interaction, {
-        content: historyOn ? LEADERBOARD.on + LEADERBOARD.historyToo : LEADERBOARD.on,
+        content:
+          LEADERBOARD.on +
+          (historyOn ? LEADERBOARD.historyToo : '') +
+          (anonymous ? LEADERBOARD.anonymous : ''),
       });
       return;
     }

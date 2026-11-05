@@ -226,6 +226,20 @@ describe('/settings', () => {
     );
   });
 
+  it('leaderboard on says that anonymous raids and trains count for no board (W6)', async () => {
+    const made = setup();
+    await made.users.update(ALICE, { raidPrivacy: RaidPrivacy.Anonymous });
+    const said = await made.answer('leaderboard', { enabled: true });
+    expect(said).toMatch(
+      / Your raids and trains are anonymous \(`\/settings privacy`\): they count on no board, only in `\/stats me`\.$/u,
+    );
+    await made.users.update(ALICE, { raidPrivacy: RaidPrivacy.Visible });
+    expect(await made.answer('leaderboard', { enabled: true })).not.toMatch(/anonymous/u);
+    expect(settings.subcommands.get('leaderboard')?.help?.details).toContain(
+      'A raid or train you report anonymously counts on no board.',
+    );
+  });
+
   it('history off takes the member off the boards too, and says so', async () => {
     const made = setup();
     await made.run('leaderboard', { enabled: true });
