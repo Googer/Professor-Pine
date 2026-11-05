@@ -1535,6 +1535,10 @@ export async function startApp(
         zone: config.settings.timezone,
         tallies: ctx.regionTallies,
         channelName: (channelId) => partyGateway.channelName(channelId),
+        // The boards and "Your Pine" (plan 8H-6): /stats boards' and /stats me's own paths.
+        boards: ctx.boards,
+        memberStats: ctx.memberStats,
+        bossName: (key) => gameData.catalogue.byKey(key)?.name,
       },
       // The Wayfarer export tool (plan 8W-P): served from wayspot-tool/ to the admins the owner
       // approved, on an instance that has the file (the owner's).

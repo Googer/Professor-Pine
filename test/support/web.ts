@@ -37,6 +37,7 @@ import { maxLook } from '../../src/render/max-post.js';
 import { inThisThread } from '../../src/web/save-check.js';
 import type { RegionEditing } from '../../src/web/editor-save.js';
 import { Sessions, sessionHash } from '../../src/web/sessions.js';
+import { catalogueFixture } from './game-data.js';
 import { FakePartyGateway } from './fake-gateway.js';
 import { FAKE_GUILD_ID } from './fake-interactions.js';
 import { TEST_ENV } from './test-env.js';
@@ -508,9 +509,20 @@ export function stopWebWith(
  * no channel has a name unless `channelName` says it.
  */
 export function activityWebWith(
-  deps: Omit<ActivityWebDeps, 'tallies' | 'channelName'> & Partial<ActivityWebDeps>,
+  deps: Omit<ActivityWebDeps, 'tallies' | 'channelName' | 'boards' | 'memberStats' | 'bossName'> &
+    Partial<ActivityWebDeps>,
 ): ActivityWebDeps {
+  const none = (what: string) =>
+    new Proxy({} as never, {
+      get(_target, property) {
+        if (typeof property === 'symbol' || property === 'then') return undefined;
+        throw new Error(`no ${what} in this test: give boardsWith()'s to activityWebWith`);
+      },
+    });
   return {
+    boards: none('boards'),
+    memberStats: none('member stats'),
+    bossName: (key) => catalogueFixture().byKey(key)?.name,
     tallies: new RegionTallies({
       reader: deps.reader,
       regions: deps.regions,

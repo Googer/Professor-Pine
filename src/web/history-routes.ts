@@ -1,4 +1,4 @@
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 import { z } from 'zod';
 import type { ActivityReader } from '../db/repositories/activity-repository.js';
 import type { Region } from '../db/repositories/region-repository.js';
@@ -14,6 +14,19 @@ import { TALLY_PERIODS, tallyTitle } from '../domain/history/tally-periods.js';
 import { keptOut, regionGate } from '../domain/history/region-tally.js';
 import { ACTIVITY_MODES, type ActivityView } from '../domain/web/activity-data.js';
 import type { RegionTallyView } from '../domain/web/region-tally-data.js';
+import type { BoardsView, BoardView, MemberStatsView } from '../domain/web/board-data.js';
+import {
+  BOARDS,
+  boardCountWords,
+  boardTitle,
+  emptyBoardText,
+  wantedDayText,
+} from '../domain/history/board-words.js';
+import { viewerText } from '../render/boards.js';
+import { memberStatsTitle, NOT_OPTED_IN, nothingInYear } from '../render/member-stats.js';
+import type { Boards, ShownBoard } from '../services/boards.js';
+import type { MemberStatsService } from '../services/member-stats.js';
+import { pageWords } from './page-words.js';
 import type { RegionTallies } from '../services/region-tallies.js';
 import { sendFailure } from './answers.js';
 import { etagMatches, etagOf } from './geo-cache.js';
@@ -39,6 +52,66 @@ export interface ActivityWebDeps {
   tallies: Pick<RegionTallies, 'tally'>;
   /** A region's channel by name, as the bot sees it; undefined for one it does not. */
   channelName: (channelId: string) => string | undefined;
+  /** The boards (plan 8H-6): `/stats boards`' own path (`Boards.board`). */
+  boards: Pick<Boards, 'board'>;
+  /** A member's own stats (plan 8H-6): `/stats me`'s own path (`MemberStatsService.stats`). */
+  memberStats: Pick<MemberStatsService, 'stats'>;
+  /** The catalogue's name of a boss by its key, for "Your Pine"'s bosses. */
+  bossName: (bossKey: string) => string | undefined;
+}
+
+/**
+ * The requests for a server's boards, or a member's own stats, one address may make in a
+ * minute: as many as the region tally's, a page of tabs needing no more.
+ */
+export const BOARDS_PER_MINUTE = 60;
+
+/** `?year=2026`, all time without. */
+const meQuery = z
+  .object({
+    year: z
+      .string()
+      .regex(/^\d{4}$/u)
+      .transform(Number)
+      .optional(),
+  })
+  .strict();
+
+/** A board as the web shows it, in the words of `/stats boards` (`render/boards.ts`'s rules). */
+function boardView(shown: ShownBoard, words: (text: string) => string): BoardView {
+  const rows =
+    shown.kind === 'people'
+      ? shown.rows.map((row) => ({
+          rank: row.rank,
+          name: row.name,
+          count: boardCountWords(shown.board, row.count, row.confirmations),
+        }))
+      : shown.rows.map((row) => ({
+          rank: row.rank,
+          name: row.name,
+          count: boardCountWords(shown.board, row.count),
+        }));
+  const day = shown.kind === 'things' ? shown.day : undefined;
+  return {
+    board: shown.board,
+    title: boardTitle(shown.board, shown.period),
+    rows,
+    empty: rows.length > 0 ? null : emptyBoardText(shown.board, shown.period, day !== undefined),
+    note: day === undefined ? null : wantedDayText(day),
+    viewer:
+      shown.kind === 'people' && shown.viewer !== undefined
+        ? words(viewerText(shown.board, shown.viewer))
+        : null,
+  };
+}
+
+/** A JSON answer with its ETag, `private, no-cache` set before: 304 where the page has it. */
+function sendJson(request: GuildRequest, reply: FastifyReply, view: unknown) {
+  const body = JSON.stringify(view);
+  const etag = etagOf(body);
+  void reply.header('etag', etag);
+  if (etagMatches(request.headers['if-none-match'], etag)) return reply.code(304).send();
+  return reply.type('application/json; charset=utf-8').send(body);
 }
 
 /**
@@ -245,11 +318,117 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
         gone: shown.tally.gone,
         total: shown.tally.total,
       };
-      const body = JSON.stringify(view);
-      const etag = etagOf(body);
-      void reply.header('etag', etag);
-      if (etagMatches(request.headers['if-none-match'], etag)) return reply.code(304).send();
-      return reply.type('application/json; charset=utf-8').send(body);
+      return sendJson(request, reply, view);
+    },
+  );
+
+  // The boards (plan 8H-6, design Part D): every board of a period as `/stats boards` ranks
+  // them (`Boards.board`), with where the member stands. Membership first, as the tally's; the
+  // boards place nobody, so no forum is asked.
+  const boardsLimiter = new RateLimiter({ uses: BOARDS_PER_MINUTE, perMs: 60_000 });
+  scope.get(
+    '/api/stats/boards',
+    { onRequest: limitedPerAddress(boardsLimiter, { now: deps.now }) },
+    async (request: GuildRequest, reply) => {
+      void reply.header('cache-control', 'private, no-cache');
+      const session = await sessions.of(request, reply);
+      if (!session) return sendFailure(request, reply, 401);
+      const query = tallyQuery.safeParse(request.query ?? {});
+      if (!query.success) return sendFailure(request, reply, 400);
+      const { guild } = request.params;
+      const member = await viewers.askedMembership(guild, session.userId);
+      if (member.kind === 'not-member') return sendFailure(request, reply, 403);
+      if (member.kind === 'unconfirmed') return reply.code(503).send({ error: UNCONFIRMED });
+      const { period } = query.data;
+      const now = deps.now();
+      let shown: ShownBoard[];
+      try {
+        shown = await Promise.all(
+          BOARDS.map((board) =>
+            activity.boards.board(guild, board, period, now, { id: session.userId }),
+          ),
+        );
+      } catch (err) {
+        // The names are Discord's (`MemberNames`): while it cannot say, as for membership (B5).
+        request.log.warn({ err }, 'could not name the members of the boards');
+        return reply.code(503).send({ error: UNCONFIRMED });
+      }
+      const words = (text: string) => pageWords(text, activity.zone, now);
+      const view: BoardsView = { period, boards: shown.map((one) => boardView(one, words)) };
+      return sendJson(request, reply, view);
+    },
+  );
+
+  // A member's own stats, "Your Pine" (plan 8H-6, design Part E): `/stats me`'s own path, all
+  // time or of a year, the busiest region by its channel (rule 2: a region, never a place).
+  const meLimiter = new RateLimiter({ uses: BOARDS_PER_MINUTE, perMs: 60_000 });
+  scope.get(
+    '/api/stats/me',
+    { onRequest: limitedPerAddress(meLimiter, { now: deps.now }) },
+    async (request: GuildRequest, reply) => {
+      void reply.header('cache-control', 'private, no-cache');
+      const session = await sessions.of(request, reply);
+      if (!session) return sendFailure(request, reply, 401);
+      const query = meQuery.safeParse(request.query ?? {});
+      if (!query.success) return sendFailure(request, reply, 400);
+      const { guild } = request.params;
+      const member = await viewers.askedMembership(guild, session.userId);
+      if (member.kind === 'not-member') return sendFailure(request, reply, 403);
+      if (member.kind === 'unconfirmed') return reply.code(503).send({ error: UNCONFIRMED });
+      const { year } = query.data;
+      const shown = await activity.memberStats.stats(
+        guild,
+        session.userId,
+        year === undefined ? {} : { year },
+      );
+      if (!shown.optedIn) {
+        const text = pageWords(NOT_OPTED_IN, activity.zone, deps.now());
+        return sendJson(request, reply, { optedIn: false, text });
+      }
+      // A year without anything of theirs: what /stats me says of it (B3).
+      if (year !== undefined && !shown.years.includes(year)) {
+        const empty: MemberStatsView = {
+          optedIn: true,
+          empty: nothingInYear(year),
+          title: memberStatsTitle(year),
+          year,
+          years: shown.years,
+        };
+        return sendJson(request, reply, empty);
+      }
+      const { stats } = shown;
+      const regionId = stats.busiestRegion?.regionId;
+      const region =
+        regionId === undefined
+          ? undefined
+          : activity.regions.all().find((one) => one.id === regionId);
+      const channel = region === undefined ? undefined : activity.channelName(region.channelId);
+      const view: MemberStatsView = {
+        optedIn: true,
+        year: stats.year,
+        years: shown.years,
+        title: memberStatsTitle(stats.year),
+        raids: stats.raids,
+        trains: stats.trains,
+        meetups: stats.meetups,
+        reports: stats.reports,
+        completed: stats.completed,
+        trainsCame: stats.trainsCame,
+        meetupsCame: stats.meetupsCame,
+        busiestRegion:
+          region === undefined
+            ? null
+            : channel === undefined
+              ? `Region ${region.id}`
+              : `#${channel}`,
+        bosses: stats.bosses.flatMap((boss) => {
+          const name = activity.bossName(boss.bossKey);
+          return name === undefined ? [] : [{ name, count: boss.count }];
+        }),
+        sent: stats.sent,
+        months: stats.months,
+      };
+      return sendJson(request, reply, view);
     },
   );
 }

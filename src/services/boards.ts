@@ -90,15 +90,16 @@ export class Boards {
   constructor(private readonly options: BoardsOptions) {}
 
   /**
-   * A board of a server for a period at `now`. `viewer`: the member asking and their name, whose
-   * own place is said where the board does not show them.
+   * A board of a server for a period at `now`. `viewer`: the member asking, whose own place is
+   * said where the board does not show them, and their name in the server where the caller has
+   * it (an interaction's; asked of Discord otherwise, as everybody's).
    */
   async board(
     serverId: string,
     board: BoardName,
     period: TallyPeriod,
     now: number,
-    viewer?: { id: string; name: string },
+    viewer?: { id: string; name?: string },
   ): Promise<ShownBoard> {
     if (!isPeopleBoard(board)) return this.things(serverId, board, period, now);
     const since = periodStart(period, now, this.options.zone);
@@ -108,7 +109,7 @@ export class Boards {
     ]);
     // Everybody's place, and of them the members on the boards, ranked (A6).
     const { standings, ranked: boarded } = peopleStandings(credits, onBoards);
-    const given = new Map(viewer === undefined ? [] : [[viewer.id, viewer.name]]);
+    const given = new Map(viewer?.name === undefined ? [] : [[viewer.id, viewer.name] as const]);
     const rows: PersonRow[] = [];
     // Named a batch at a time until ten have a name, fifty asked at most (B4).
     const asked = boarded.slice(0, BOARD_NAME_ASKS);
