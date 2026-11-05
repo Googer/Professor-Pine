@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-05T14:29",
+  "updated": "2026-11-05T14:43",
   "items": [
     {
       "id": "0",
@@ -10678,7 +10678,7 @@ window.GANTT = {
       "dependsOn": [],
       "scope": "A train's every conductor credited in its record (a conduct step, PartyHistoryAttendee.conducted), before the cutover, for Part D's board",
       "doneWhen": "Merged into main-dev",
-      "status": "planned",
+      "status": "done",
       "planning": {
         "start": "2026-11-05T12:45",
         "end": "2026-11-05T14:29",
@@ -10686,6 +10686,10 @@ window.GANTT = {
           "start": "2026-11-05T13:33",
           "end": "2026-11-05T13:41"
         }
+      },
+      "review": {
+        "start": "2026-11-05T14:34",
+        "end": "2026-11-05T14:34"
       }
     },
     {
@@ -10693,21 +10697,27 @@ window.GANTT = {
       "kind": "task",
       "parent": "8H-6A",
       "name": "Steps conduct and unlead",
-      "status": "planned"
+      "status": "done",
+      "start": "2026-11-05T14:29",
+      "end": "2026-11-05T14:31"
     },
     {
       "id": "8H-6A.2",
       "kind": "task",
       "parent": "8H-6A",
       "name": "Migration 039: stops each conductor led",
-      "status": "planned"
+      "status": "done",
+      "start": "2026-11-05T14:31",
+      "end": "2026-11-05T14:33"
     },
     {
       "id": "8H-6A.3",
       "kind": "task",
       "parent": "8H-6A",
       "name": "Docs: history.md, trains.md",
-      "status": "planned"
+      "status": "done",
+      "start": "2026-11-05T14:33",
+      "end": "2026-11-05T14:34"
     },
     {
       "id": "8H-6",
@@ -10720,7 +10730,11 @@ window.GANTT = {
       ],
       "scope": "Contribution boards with /settings leaderboard, boards of things, /stats me and /stats boards with Share, the history page Boards section and Your Pine (history design Parts D and E)",
       "doneWhen": "Merged into main-dev",
-      "status": "planned"
+      "status": "planned",
+      "planning": {
+        "start": "2026-11-05T14:21",
+        "end": "2026-11-05T14:31"
+      }
     },
     {
       "id": "16-staging",
