@@ -3072,7 +3072,11 @@ path.highlighted {
   font-size: 12px;
 }
 
-.activity-popup {
+/*
+ * Scoped under the popup's content (review 8H4H-1): leaflet.css's `.leaflet-popup-content p`, a
+ * class and a tag, would beat a class alone.
+ */
+.leaflet-popup-content .activity-popup {
   margin: 0;
 }
 
@@ -3080,7 +3084,7 @@ path.highlighted {
  * A gym's or Power Spot's line of its activity in its popup while the layer is on (plan 8H-4H),
  * under the place, over its controls.
  */
-.activity-line {
+.leaflet-popup-content .activity-line {
   margin: 4px 0;
   color: var(--muted);
   font-size: 12px;

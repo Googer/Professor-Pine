@@ -15,6 +15,16 @@ describe("the map's look", () => {
     );
   });
 
+  // Review 8H4H-1: leaflet.css's `.leaflet-popup-content p` (a class and a tag) would beat a rule
+  // of the class alone, giving the activity's lines a paragraph's margins.
+  it("keeps the activity's popup lines to their own margins, over leaflet.css's for a paragraph", () => {
+    const css = clientSheet('map.css');
+    expect(blockAt(css, /\.leaflet-popup-content \.activity-popup\s*\{/u)).toMatch(/margin:\s*0;/u);
+    expect(blockAt(css, /\.leaflet-popup-content \.activity-line\s*\{/u)).toMatch(
+      /margin:\s*4px 0;/u,
+    );
+  });
+
   it("draws a train's flow in the dark set's own color: dark dashes on the orange, not white", () => {
     const flow = (css: string) => /--train-flow:\s*([^;]+);/u.exec(css)?.[1];
     const sheet = clientSheet('theme.css');
