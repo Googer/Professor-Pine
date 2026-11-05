@@ -138,6 +138,40 @@ describe('WantCountRepository (plan 8H-3)', () => {
     );
   });
 
+  it('counts only the wants the notifier could act on: none of a member row without a snowflake (review 8H3-1)', async () => {
+    await wants.set(ASH, HERE, pokemonTarget(25), 'raid');
+    const row = await db
+      .selectFrom('PokemonNotification')
+      .select('guildId')
+      .executeTakeFirstOrThrow();
+    const nobody = await db
+      .insertInto('User')
+      .values({ userSnowflake: null })
+      .executeTakeFirstOrThrow();
+    const userId = Number(nobody.insertId);
+    const guildId = row.guildId ?? 0;
+    await db
+      .insertInto('PokemonNotification')
+      .values({ guildId, userId, pokemon: 25, type: 'raid' })
+      .execute();
+    await db
+      .insertInto('TargetWant')
+      .values({ guildId, userId, target: 'research:pokemon:147', createdAt: '1' })
+      .execute();
+    await db.insertInto('GymNotification').values({ guildId, userId, gym: '7' }).execute();
+    expect(await counts.countNow()).toEqual(
+      new Map([
+        [
+          HERE,
+          new Map([
+            ['pokemon:25@raid', 1],
+            ['species:25', 1],
+          ]),
+        ],
+      ]),
+    );
+  });
+
   it('writes a server’s day all or nothing, so that a day cut short is counted again (review P2)', async () => {
     // More rows than one insert takes, the last of them a key the column cannot hold.
     const many = new Map(

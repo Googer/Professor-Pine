@@ -24,7 +24,8 @@ export interface WantCountStorage {
   /**
    * The wants of every server as they stand now, by the server's snowflake: how many members want
    * each key, of every kind of want (`PokemonNotification`, `TargetWant`, `GymNotification`,
-   * `NewTrainNotification`); rows that cannot be read are no want. A server without wants is
+   * `NewTrainNotification`); rows that cannot be read are no want, nor are those of a member
+   * row without a snowflake, which the notifier cannot reach either. A server without wants is
    * not there.
    */
   countNow(): Promise<Map<string, Map<string, number>>>;
@@ -43,11 +44,11 @@ export interface WantCountStorage {
 class ByServer {
   readonly pairs = new Map<string, [string, string][]>();
 
-  add(serverId: string | null, member: string | number | null, key: string | undefined): void {
+  add(serverId: string | null, member: string | null, key: string | undefined): void {
     if (serverId === null || member === null || key === undefined) return;
     const known = this.pairs.get(serverId);
-    if (known) known.push([String(member), key]);
-    else this.pairs.set(serverId, [[String(member), key]]);
+    if (known) known.push([member, key]);
+    else this.pairs.set(serverId, [[member, key]]);
   }
 }
 
@@ -60,16 +61,19 @@ export class WantCountRepository implements WantCountStorage {
   ) {}
 
   async countNow(): Promise<Map<string, Map<string, number>>> {
-    // Each table's members by its own column: `User` row ids for the wants, the targets and the
-    // gyms, snowflakes for new trains. Only a species (`species:<dex>`) is counted over two
-    // tables, `PokemonNotification` and `TargetWant`, which share the `User` row ids.
+    // Only the wants the notifier could act on (review 8H3-1): a member is their `User` row's
+    // snowflake, joined as the notifier's reads join it (`wanting` of the wants and the targets,
+    // `targeting` of the gyms), and a row whose member has none is no one's want; new trains hold
+    // the snowflake themselves. Only a species (`species:<dex>`) is counted over two tables,
+    // `PokemonNotification` and `TargetWant`, which share the members' snowflakes.
     const found = new ByServer();
     const pokemon = await this.db
       .selectFrom('PokemonNotification as n')
       .innerJoin('Guild as g', 'g.id', 'n.guildId')
+      .innerJoin('User as u', 'u.id', 'n.userId')
       .select([
         'g.snowflake as serverId',
-        'n.userId',
+        'u.userSnowflake as memberId',
         'n.pokemon',
         'n.type',
         'n.form',
@@ -81,11 +85,11 @@ export class WantCountRepository implements WantCountStorage {
     // A member's rows together: duplicates of a target are one want (`readWants`).
     const rowsOf = new Map<
       string,
-      { serverId: string; userId: number; rows: StoredNotification[] }
+      { serverId: string; memberId: string; rows: StoredNotification[] }
     >();
     for (const row of pokemon) {
-      if (row.serverId === null || row.userId === null) continue;
-      const key = `${row.serverId} ${String(row.userId)}`;
+      if (row.serverId === null || row.memberId === null) continue;
+      const key = `${row.serverId} ${row.memberId}`;
       const stored: StoredNotification = {
         // A row without a number means nothing: 0 is what the codec reads as unreadable.
         pokemon: row.pokemon ?? 0,
@@ -96,25 +100,27 @@ export class WantCountRepository implements WantCountStorage {
       };
       const known = rowsOf.get(key);
       if (known) known.rows.push(stored);
-      else rowsOf.set(key, { serverId: row.serverId, userId: row.userId, rows: [stored] });
+      else rowsOf.set(key, { serverId: row.serverId, memberId: row.memberId, rows: [stored] });
     }
-    for (const { serverId, userId, rows } of rowsOf.values()) {
-      for (const key of pokemonWantKeys(rows, this.forms)) found.add(serverId, userId, key);
+    for (const { serverId, memberId, rows } of rowsOf.values()) {
+      for (const key of pokemonWantKeys(rows, this.forms)) found.add(serverId, memberId, key);
     }
     const targets = await this.db
       .selectFrom('TargetWant as w')
       .innerJoin('Guild as g', 'g.id', 'w.guildId')
-      .select(['g.snowflake as serverId', 'w.userId', 'w.target'])
+      .innerJoin('User as u', 'u.id', 'w.userId')
+      .select(['g.snowflake as serverId', 'u.userSnowflake as memberId', 'w.target'])
       .execute();
-    for (const row of targets) found.add(row.serverId, row.userId, targetWantKey(row.target));
+    for (const row of targets) found.add(row.serverId, row.memberId, targetWantKey(row.target));
     const gyms = await this.db
       .selectFrom('GymNotification as n')
       .innerJoin('Guild as g', 'g.id', 'n.guildId')
-      .select(['g.snowflake as serverId', 'n.userId', 'n.gym'])
+      .innerJoin('User as u', 'u.id', 'n.userId')
+      .select(['g.snowflake as serverId', 'u.userSnowflake as memberId', 'n.gym'])
       .execute();
     for (const row of gyms) {
       const gymId = targetGymId(row.gym);
-      found.add(row.serverId, row.userId, gymId === undefined ? undefined : gymWantKey(gymId));
+      found.add(row.serverId, row.memberId, gymId === undefined ? undefined : gymWantKey(gymId));
     }
     const trains = await this.db
       .selectFrom('NewTrainNotification as n')
