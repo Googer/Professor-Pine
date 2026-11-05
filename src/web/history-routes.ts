@@ -3,6 +3,7 @@ import { z } from 'zod';
 import type { ActivityReader } from '../db/repositories/activity-repository.js';
 import type { Region } from '../db/repositories/region-repository.js';
 import {
+  activityMonths,
   activityWeights,
   activityWhen,
   activityWindow,
@@ -138,7 +139,8 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
           return point === undefined ? [] : [{ ...place, lat: point.lat, lon: point.lon }];
         }),
         leftOut: weights.leftOut,
-        months,
+        // Bounded to the game's launch and this month: one bad time stretches no slider (8H4-3).
+        months: activityMonths(months, now, zone),
         // How long until the window moves on, not when: a page whose clock runs fast would
         // otherwise ask again and again (review P5).
         changesInMs: mode.kind === 'now' ? nextActivityHour(now, zone) - now : null,

@@ -220,6 +220,19 @@ describe('the activity heatmap on the map', () => {
     expect(view.leftOut).toBe(8);
   });
 
+  it('bounds the slider’s months to the game’s launch and this month, whatever a bucket says (8H4-3)', async () => {
+    const made = await setup();
+    web = made.web;
+    await made.activity.add(FAKE_GUILD_ID, [
+      activityBucket(1, '2019-06', 4, 18),
+      // Buckets of a bad time, written before the months were bounded.
+      activityBucket(2, '2010-01', 4, 18),
+      activityBucket(3, '2099-05', 4, 18),
+    ]);
+    const view = (await made.ask('?mode=evenings')).json<ActivityView>();
+    expect(view.months).toEqual({ first: '2016-07', last: '2026-10' });
+  });
+
   it('answers 304 for the view the page has, and anew once the hour moves on', async () => {
     const made = await setup();
     web = made.web;

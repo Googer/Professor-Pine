@@ -29,6 +29,8 @@ export interface ActivityRepositoryOptions {
   zone: string;
   /** Records read per transaction; `ACTIVITY_BATCH` by default. */
   batch?: number;
+  /** The clock (`Date.now` by default): a record after this month is bucketed at no time. */
+  now?: () => number;
 }
 
 /**
@@ -41,12 +43,14 @@ export interface ActivityRepositoryOptions {
  */
 export class ActivityRepository implements ActivityReader {
   private readonly batch: number;
+  private readonly now: () => number;
 
   constructor(
     private readonly db: Kysely<DB>,
     private readonly options: ActivityRepositoryOptions,
   ) {
     this.batch = options.batch ?? ACTIVITY_BATCH;
+    this.now = options.now ?? (() => Date.now());
   }
 
   /**
@@ -173,6 +177,7 @@ export class ActivityRepository implements ActivityReader {
           for share`.execute(trx);
         const last = rows.rows.at(-1);
         if (last === undefined) return 0;
+        const now = this.now();
         const buckets = sumBuckets(
           rows.rows.flatMap((row) => {
             const bucket = bucketOf(
@@ -188,6 +193,7 @@ export class ActivityRepository implements ActivityReader {
                 doneHeads: Number(row.doneHeads),
               },
               this.options.zone,
+              now,
             );
             return bucket === undefined ? [] : [bucket];
           }),

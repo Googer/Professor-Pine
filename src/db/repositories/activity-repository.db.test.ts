@@ -243,11 +243,17 @@ describe('ActivityRepository', () => {
   });
 
   it('adds a record of a time no month holds at no place, and goes on past it', async () => {
-    await record({ hatchTime: String(8.64e15) }, { gymId: 2 });
-    expect(await repository().addNew()).toBe(2);
+    await record(
+      { hatchTime: String(8.64e15) },
+      { gymId: 2 },
+      // Before the game's launch and after this month (8H4-3): no month of the heatmap either.
+      { hatchTime: String(at('2015-03-01T12:00')) },
+      { hatchTime: String(at('2099-05-05T18:00')) },
+    );
+    expect(await repository().addNew()).toBe(4);
     expect(await bucketsOf()).toMatchObject([
       { placeKind: 'gym', placeId: '2', raids: 1 },
-      { placeKind: 'none', month: UNKNOWN_MONTH, weekday: 0, raids: 1 },
+      { placeKind: 'none', month: UNKNOWN_MONTH, weekday: 0, raids: 3 },
     ]);
     expect(await progressOf()).toBe(await lastId());
     // The slider's months leave it out.

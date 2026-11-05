@@ -71,6 +71,26 @@ const MONTH_TEXT = /^\d{4}-\d{2}$/u;
  */
 export const UNKNOWN_MONTH = '0000-00';
 
+/** The game's launch, the first month the heatmap has (8H4-3). */
+export const ACTIVITY_FIRST_MONTH = '2016-07';
+
+/**
+ * A server's first and last month (`ActivityReader.months`) bounded to the heatmap's months,
+ * `ACTIVITY_FIRST_MONTH` to this month in `zone`, so that a bucket of a bad time written before
+ * the bound (or by another bot) does not stretch History's slider; null where none is left.
+ */
+export function activityMonths(
+  months: { first: string; last: string } | null,
+  now: number,
+  zone: string,
+): { first: string; last: string } | null {
+  if (months === null) return null;
+  const thisMonth = activityWhen(now, zone).month;
+  const first = months.first < ACTIVITY_FIRST_MONTH ? ACTIVITY_FIRST_MONTH : months.first;
+  const last = months.last > thisMonth ? thisMonth : months.last;
+  return first > last ? null : { first, last };
+}
+
 /** The local month, weekday and hour of a moment in `zone`. */
 export function activityWhen(ms: number, zone: string): ActivityWhen {
   const time = zoned(ms, zone);
@@ -87,16 +107,27 @@ export function activityWhen(ms: number, zone: string): ActivityWhen {
  * `raids-by-hour` of `history.md` counts); where: a raid's gym, a max battle's Power Spot, else
  * no place. Whether that gym or Power Spot is still kept is asked when the map reads the buckets
  * (`activityWeights`' `kept`), so that a gym added back is drawn again without a rebuild.
+ * `now` is when it is added: a time after this month in `zone` is a bad one.
  */
-export function bucketOf(record: ActivityRecord, zone: string): ActivityBucket | undefined {
+export function bucketOf(
+  record: ActivityRecord,
+  zone: string,
+  now: number,
+): ActivityBucket | undefined {
   if (!countsAsActivity(record)) return undefined;
   const raid = record.kind === 'raid';
   const ms = record.hatchTime ?? record.createdAt;
   const when = isMoment(ms) ? activityWhen(ms, zone) : undefined;
   // A time no `yyyy-mm` holds (beyond year 9999, before year 0, no moment at all) would be
-  // refused by the table and stall the server's adding for good: it is kept at no place and no
-  // time, which no window reads (weekday 0), so it is neither drawn nor counted as left out.
-  const known = when !== undefined && MONTH_TEXT.test(when.month);
+  // refused by the table and stall the server's adding for good, and one before the game's
+  // launch or after this month would stretch History's slider (8H4-3): it is kept at no place
+  // and no time, which no window reads (weekday 0), so it is neither drawn nor counted as left
+  // out.
+  const known =
+    when !== undefined &&
+    MONTH_TEXT.test(when.month) &&
+    when.month >= ACTIVITY_FIRST_MONTH &&
+    when.month <= activityWhen(now, zone).month;
   const place: Pick<ActivityBucket, 'placeKind' | 'placeId'> =
     known && raid && record.gymId !== null
       ? { placeKind: 'gym', placeId: String(record.gymId) }
