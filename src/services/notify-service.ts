@@ -288,6 +288,29 @@ export interface NotifyServiceOptions {
    * once is one message.
    */
   meetingDelayMs?: number;
+  /**
+   * Hears how many members the news reached (plan 8H-3, "sent to": DMs put in line, not
+   * delivered), once per batch of a run (99 members) that put any in line. Without it nothing
+   * is counted.
+   */
+  reach?: ReachRecorder;
+}
+
+/**
+ * What a run of the notifier's news is counted for (plan 8H-3): a party (`subject` the event,
+ * `reported`, `boss`, `gym`), or a version of a report at a stop (its id and `madeAt`; field
+ * research: the news' first report, review H16).
+ */
+export type ReachOf = { party: string; subject: string } | { report: number; madeAt: number };
+
+/**
+ * Keeps how many members the news reached (`ReachRecords`, `src/services/reach.ts`). A member
+ * is counted once per party while the notifier remembers the party (a restart forgets), and once
+ * per news of a report at a stop; `at` is when the batch was put in line. May reject: the
+ * notifier logs it, and the count is lost.
+ */
+export interface ReachRecorder {
+  reached(of: ReachOf, members: number, at: number): Promise<void>;
 }
 
 /**
@@ -361,6 +384,14 @@ interface Announcement {
   priority(reasons: readonly NotifyReason[]): DmPriority;
   /** Told of each member a message was put in line for (a max battle's hour, Q8). */
   sent?(memberId: string): void;
+  /**
+   * What the members its DMs reach count for (plan 8H-3): only news, never a time to meet at
+   * (`toAll`: who is in already) or a spawn (nothing of it is kept). A party's member counts
+   * once while the party is remembered (`Told.reached`); the news of a report at a stop shares
+   * `members` between the announcements of its regions, so that a member told in two counts
+   * once.
+   */
+  reach?: { of: ReachOf; members?: Set<string> };
 }
 
 /** What one member was already told about one party. */
@@ -369,6 +400,8 @@ interface Told {
   reasons: Set<string>;
   /** The boss (`bossId`) of the last "your egg has its boss" they were told or caused. */
   boss: string | undefined;
+  /** Counted in the party's reach (plan 8H-3): a DM of its news was put in line for them. */
+  reached?: true;
 }
 
 const nextTurn = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
@@ -589,6 +622,7 @@ export class NotifyService implements PartyNotifier {
       sent: (id) => {
         this.maxHeard.set(heard(id), this.now());
       },
+      reach: { of: { party: party.id, subject: event } },
     });
   }
 
@@ -693,6 +727,7 @@ export class NotifyService implements PartyNotifier {
         );
       },
       priority: () => DM_PRIORITY.normal,
+      reach: { of: { party: party.id, subject: 'reported' } },
     });
   }
 
@@ -959,6 +994,8 @@ export class NotifyService implements PartyNotifier {
           reports.includes(report) && (viewing.get(channelId)?.has(memberId) ?? true),
       );
     const inAny = [...new Set([...byChannel.values()].flat())];
+    // Counted for the news' first report (review H16), each member once over its regions.
+    const reach = { of: { report: first.id, madeAt: first.madeAt }, members: new Set<string>() };
     /** Whether a member is sent confirmations, decided at their first message of the news. */
     const confirming = new Map<string, boolean>();
     const confirms = (memberId: string): boolean => {
@@ -1069,6 +1106,7 @@ export class NotifyService implements PartyNotifier {
             this.researchTold.set(toldKey(id, report), true);
           }
         },
+        reach,
       };
     });
   }
@@ -1107,6 +1145,8 @@ export class NotifyService implements PartyNotifier {
     const toldKey = (id: string): string =>
       `${news.serverId} ${id} ${report.periodKey} ${report.subjectKey} ${report.stop.key}`;
     const actors = [report.reporter.id, ...(news.alsoActors ?? [])];
+    // Counted for the version reported (a refine's for the refined one), each member once.
+    const reach = { of: { report: report.id, madeAt: report.madeAt }, members: new Set<string>() };
     for (const { channelId, messageId: posted } of news.channels) {
       const eventAt = this.now();
       // A grunt's message in the channel; a hideout's message of the board (plan 8R-9, B1).
@@ -1219,6 +1259,7 @@ export class NotifyService implements PartyNotifier {
           if (hideout) this.rocketTold.set(toldKey(id), true);
           else this.rocketHeard.set(quietKey(id), this.now());
         },
+        reach,
       });
     }
   }
@@ -1420,6 +1461,7 @@ export class NotifyService implements PartyNotifier {
         reasons.some((reason) => reason.kind === 'boss-set')
           ? DM_PRIORITY.urgent
           : DM_PRIORITY.normal,
+      reach: { of: { party: party.id, subject: event } },
     });
   }
 
@@ -1559,84 +1601,137 @@ export class NotifyService implements PartyNotifier {
     /** The message per set of reasons; null for a set whose message could not be made. */
     const messages = new Map<string, OutgoingMessage | null>();
     let told = 0;
-    for (let start = 0; start < ids.length; start += BATCH) {
-      // The party ended meanwhile: nobody else is told, and nothing more is remembered.
-      if (!this.alive(event)) return;
-      // Looking members up can take minutes (the look-ups have a budget): a message that
-      // would be dropped when its turn to be sent comes is not asked about any more.
-      if (this.now() >= event.expiresAt) return;
-      // Shutting down: the batch that was being asked about was put in line, no other begins,
-      // not even the first of an event that was still reading who it is for.
-      if (this.closed && !event.toAll) return;
-      const firing = new Map<string, NotifyReason[]>();
-      for (const id of ids.slice(start, start + BATCH)) {
-        if (event.toAll) {
-          if (id !== event.actorId) firing.set(id, []);
-          continue;
-        }
-        const reasons = this.unsaid(event.partyId, id, reasonsOf(id));
-        if (reasons.length === 0) continue;
-        // Whoever caused it knows: not told, now or for these reasons later.
-        if (id === event.actorId) this.remember(event.partyId, id, reasons);
-        else firing.set(id, reasons);
-      }
-      if (firing.size > 0) {
-        let seeing: ReadonlySet<string> | undefined;
-        if (event.toAll) {
-          seeing = new Set(firing.keys());
-        } else {
-          try {
-            seeing = await members.viewers(guildId, event.channelId, [...firing.keys()]);
-          } catch (err) {
-            log.warn(
-              { err, party: event.partyId, members: firing.size },
-              'could not find out who can see an event; they are not told',
-            );
+    /** Those of `told` in this batch its reach counts (plan 8H-3), handed over after each batch. */
+    let reached = 0;
+    try {
+      for (let start = 0; start < ids.length; start += BATCH) {
+        // The party ended meanwhile: nobody else is told, and nothing more is remembered.
+        if (!this.alive(event)) return;
+        // Looking members up can take minutes (the look-ups have a budget): a message that
+        // would be dropped when its turn to be sent comes is not asked about any more.
+        if (this.now() >= event.expiresAt) return;
+        // Shutting down: the batch that was being asked about was put in line, no other begins,
+        // not even the first of an event that was still reading who it is for.
+        if (this.closed && !event.toAll) return;
+        const firing = new Map<string, NotifyReason[]>();
+        for (const id of ids.slice(start, start + BATCH)) {
+          if (event.toAll) {
+            if (id !== event.actorId) firing.set(id, []);
+            continue;
           }
-          if (!this.alive(event)) return;
+          const reasons = this.unsaid(event.partyId, id, reasonsOf(id));
+          if (reasons.length === 0) continue;
+          // Whoever caused it knows: not told, now or for these reasons later.
+          if (id === event.actorId) this.remember(event.partyId, id, reasons);
+          else firing.set(id, reasons);
         }
-        for (const [id, reasons] of firing) {
-          if (!seeing?.has(id)) continue;
-          const key = [event.variant?.(id) ?? '', ...reasons.map(shownReasonKey)].join('\n');
-          let message = messages.get(key);
-          if (message === undefined) {
-            // Made before anything is remembered: a member whose message could not be made
-            // was not told, and the next event that fires the reason tells them.
+        if (firing.size > 0) {
+          let seeing: ReadonlySet<string> | undefined;
+          if (event.toAll) {
+            seeing = new Set(firing.keys());
+          } else {
             try {
-              message = event.message(guildId, reasons, id);
+              seeing = await members.viewers(guildId, event.channelId, [...firing.keys()]);
             } catch (err) {
-              message = null;
               log.warn(
-                { err, party: event.partyId, reasons: reasons.map(reasonKey) },
-                'could not make the direct message for an event',
+                { err, party: event.partyId, members: firing.size },
+                'could not find out who can see an event; they are not told',
               );
             }
-            messages.set(key, message);
+            if (!this.alive(event)) return;
           }
-          if (message === null) continue;
-          if (!event.toAll) this.remember(event.partyId, id, reasons);
-          dms.send({
-            userId: id,
-            message,
-            priority: event.priority(reasons),
-            eventAt: event.eventAt,
-            expiresAt: event.expiresAt,
-          });
-          event.sent?.(id);
-          told += 1;
+          for (const [id, reasons] of firing) {
+            if (!seeing?.has(id)) continue;
+            const key = [event.variant?.(id) ?? '', ...reasons.map(shownReasonKey)].join('\n');
+            let message = messages.get(key);
+            if (message === undefined) {
+              // Made before anything is remembered: a member whose message could not be made
+              // was not told, and the next event that fires the reason tells them.
+              try {
+                message = event.message(guildId, reasons, id);
+              } catch (err) {
+                message = null;
+                log.warn(
+                  { err, party: event.partyId, reasons: reasons.map(reasonKey) },
+                  'could not make the direct message for an event',
+                );
+              }
+              messages.set(key, message);
+            }
+            if (message === null) continue;
+            if (!event.toAll) this.remember(event.partyId, id, reasons);
+            dms.send({
+              userId: id,
+              message,
+              priority: event.priority(reasons),
+              eventAt: event.eventAt,
+              expiresAt: event.expiresAt,
+            });
+            event.sent?.(id);
+            told += 1;
+            if (this.newlyReached(event, id)) reached += 1;
+          }
         }
+        // Handed over batch by batch, while the party's row is there: a party that ends before
+        // the next batch is recorded with what reached members until then (review P4).
+        this.recordReach(event, reached);
+        reached = 0;
+        // The event loop gets its turn between the batches, whatever the fakes or caches answer.
+        await nextTurn();
       }
-      // The event loop gets its turn between the batches, whatever the fakes or caches answer.
-      await nextTurn();
+      // Candidates and nobody told is worth a look when it keeps happening (nobody can see the
+      // channel, or the look-ups fail): at info. Everything else is the usual course.
+      const numbers = { party: event.partyId, candidates: ids.length, told };
+      if (ids.length > 0 && told === 0) {
+        log.info(numbers, 'an event had candidates and nobody was told');
+      } else {
+        log.debug(numbers, 'members were told');
+      }
+    } finally {
+      // What a batch put in line and did not hand over yet (a failure while it sent): it went out
+      // all the same.
+      this.recordReach(event, reached);
     }
-    // Candidates and nobody told is worth a look when it keeps happening (nobody can see the
-    // channel, or the look-ups fail): at info. Everything else is the usual course.
-    const numbers = { party: event.partyId, candidates: ids.length, told };
-    if (ids.length > 0 && told === 0) {
-      log.info(numbers, 'an event had candidates and nobody was told');
-    } else {
-      log.debug(numbers, 'members were told');
+  }
+
+  /**
+   * Whether the reach of an event counts this member it put a DM in line for (plan 8H-3): once
+   * per party while it is remembered (a move shares the memory, a restart forgets it), once per
+   * news of a report at a stop over its regions.
+   */
+  private newlyReached(event: Announcement, memberId: string): boolean {
+    if (!event.reach) return false;
+    if (event.partyId !== undefined) {
+      const said = this.told.get(event.partyId)?.get(memberId);
+      if (said === undefined || said.reached) return false;
+      said.reached = true;
+      return true;
     }
+    const { members } = event.reach;
+    if (members?.has(memberId)) return false;
+    members?.add(memberId);
+    return true;
+  }
+
+  /**
+   * Hands a run's reach to the recorder, on the side (`flush` and `close` wait for it): a failure
+   * is logged and the count lost; it never stops a DM.
+   */
+  private recordReach(event: Announcement, members: number): void {
+    const { reach, log } = this.options;
+    if (!reach || !event.reach || members === 0) return;
+    const { of } = event.reach;
+    const at = this.now();
+    const work = Promise.resolve()
+      .then(() => reach.reached(of, members, at))
+      .catch((err: unknown) => {
+        log.warn(
+          { err, of, members },
+          'could not record how many members news reached; it is lost',
+        );
+      })
+      .finally(() => this.background.delete(work));
+    this.background.add(work);
   }
 
   /** Announces the meeting times that wait for their delay now. For tests and `close`. */

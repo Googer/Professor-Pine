@@ -16,6 +16,7 @@ import { MemoryGruntMessages } from '../../test/support/rocket-store.js';
 import { reportedStop } from '../../test/support/stop-report-cases.js';
 import { MemoryStopReports, fixtureRewardHash } from '../../test/support/stop-reports.js';
 import { watchEachTest } from '../../test/support/timers.js';
+import { RecordingReach } from '../../test/support/reach.js';
 import type { TargetWant } from '../domain/notify/target-wants.js';
 import { lineupChoice, type RocketLineupChoice } from '../domain/rocket/lineups.js';
 import { pokemonTarget } from '../domain/pogo/notification-target.js';
@@ -280,6 +281,25 @@ describe('NotifyService: Team GO Rocket is reported (plan 8R-2, design 7)', () =
           refined.kind === 'reported' ? (refined.posted[0]?.messageId ?? '') : '',
         )}`,
       ]);
+    });
+
+    it('counts what each version reached for that version (plan 8H-3)', async () => {
+      const reach = new RecordingReach();
+      const made = await rocketWith({ reach });
+      await made.want(ALICE, rocketWant('grunt:water'));
+      await made.wants.set(BOB, made.gateway.guildId, pokemonTarget(129, undefined, true), 'raid');
+      const grunt = await reportLineup(made, mudkips, west(1));
+      const refined = await reportLineup(made, magikarps, west(1), {
+        id: '200000000000000099',
+        name: 'Misty',
+      });
+      if (grunt.kind !== 'reported' || refined.kind !== 'reported') throw new Error('not reported');
+      expect(refined.report.id).toBe(grunt.report.id);
+      expect(reach.runs.map(({ of, members }) => ({ of, members }))).toEqual([
+        { of: { report: grunt.report.id, madeAt: grunt.report.madeAt }, members: 1 },
+        { of: { report: grunt.report.id, madeAt: refined.report.madeAt }, members: 1 },
+      ]);
+      expect(refined.report.madeAt).not.toBe(grunt.report.madeAt);
     });
   });
 

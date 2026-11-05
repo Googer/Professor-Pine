@@ -26,6 +26,7 @@ import type { NotifyServiceOptions } from './notify-service.js';
 import { DM_PRIORITY } from './dm-sender.js';
 import { StopReportService, type ResearchSubject } from './stop-reports.js';
 import { zonedAt } from '../../test/support/time.js';
+import { RecordingReach } from '../../test/support/reach.js';
 
 const background = watchEachTest();
 const at = (local: string): number => zonedAt(local, 'America/New_York');
@@ -199,6 +200,45 @@ describe('NotifyService: field research is reported (plan 8R-1, design 7)', () =
     ]);
     expect(made.dms.to(BOB).map(dmSentence)).toEqual([
       expect.stringContaining(`<#${WEST_CHANNEL}>`),
+    ]);
+  });
+
+  it('counts the members the news reached for its first report, each once over its regions (plan 8H-3)', async () => {
+    const reach = new RecordingReach();
+    const made = await researchWith({ reach });
+    await made.want(ALICE, RESEARCH_DRATINI);
+    await made.want(BOB, RESEARCH_DRATINI);
+    made.gateway.shutOut(EAST_CHANNEL, BOB);
+    const outcome = await made.report(DRAGON, [west(1), east]);
+    // Three DMs: Alice's of each region, Bob's of West; two members.
+    expect(made.dms.jobs).toHaveLength(3);
+    const first = outcome.saved[0]?.report;
+    expect(reach.runs).toEqual([
+      {
+        of: { report: first?.id, madeAt: first?.madeAt },
+        members: 2,
+        at: made.clock.now,
+      },
+    ]);
+    // The same task again tells nobody, and counts nothing.
+    await made.report(DRAGON, [west(1)]);
+    expect(reach.runs).toHaveLength(1);
+  });
+
+  it('counts the members of each region for the first report, also a stop of another region (plan 8H-3)', async () => {
+    const reach = new RecordingReach();
+    const made = await researchWith({ reach });
+    await made.want(ALICE, RESEARCH_DRATINI);
+    await made.want(BOB, RESEARCH_DRATINI);
+    made.gateway.shutOut(EAST_CHANNEL, ALICE);
+    made.gateway.shutOut(WEST_CHANNEL, BOB);
+    const outcome = await made.report(DRAGON, [west(1), east]);
+    expect(made.dms.recipients.sort()).toEqual([ALICE, BOB].sort());
+    const first = outcome.saved[0]?.report;
+    const of = { report: first?.id, madeAt: first?.madeAt };
+    expect(reach.runs).toEqual([
+      { of, members: 1, at: made.clock.now },
+      { of, members: 1, at: made.clock.now },
     ]);
   });
 
