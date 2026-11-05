@@ -1006,9 +1006,10 @@ export class NotifyService implements PartyNotifier {
           reports.includes(report) && (viewing.get(channelId)?.has(memberId) ?? true),
       );
     const inAny = [...new Set([...byChannel.values()].flat())];
-    // Counted for the news' first report (review H16), each member once over its regions; for the
-    // first one still standing when the count is handed over, where the first was replaced or
-    // taken back since (review 8H3-4): a version gone takes nothing.
+    // Counted for the news' first report (review H16), each member once over its regions. For a
+    // "one of" (the only news whose standing is read again) the first one still standing when the
+    // count is handed over, where the first was replaced or taken back since (review 8H3-4); any
+    // other news counts for its first report, and a version gone takes nothing.
     const reach = {
       of: (): ReachOf | undefined => {
         const kept = news.reports.find((report) => standing.has(report.id));
