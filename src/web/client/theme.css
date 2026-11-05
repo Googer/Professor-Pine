@@ -124,6 +124,8 @@
   /* The reports at stops (plan 8M-9B): a marker's ring and the layers' dots, the research icon. */
   --research: #d68910;
   --rocket: #a93226;
+  /* The activity heatmap (plan 8H-4): its circles, by weight. */
+  --activity: #e8590c;
   /* The ring of a raid's marker, by tier group (plan 8M-7), and its count of those going. */
   --tier-1: #e0609c;
   --tier-3: #d79b00;
@@ -263,6 +265,7 @@
     --stop: #5b9cf6;
     --research: #f5b041;
     --rocket: #f1948a;
+    --activity: #ff922b;
     --tier-1: #f07ab3;
     --tier-3: #f1c40f;
     --tier-5: #b06ad0;

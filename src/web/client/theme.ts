@@ -30,6 +30,8 @@ export const DRAWN_COLOURS = {
   meetup: '--meetup',
   /** The PokéStops shown while a meetup's place is picked. */
   stop: '--stop',
+  /** The activity heatmap's circles (plan 8H-4). */
+  activity: '--activity',
   /** Your location (plan 8M-7): the blue dot and its accuracy, and the dot's edge. */
   you: '--you',
   youEdge: '--you-edge',

@@ -28,6 +28,14 @@ export const RING_TAP_PANE = 'ring-taps';
 export const RING_TAP_PANE_Z = 395;
 
 /**
+ * The pane of the activity heatmap (plan 8H-4): under the regions' names (350), so that a busy
+ * place never hides one, and under every dot, line and marker, whose taps win; with a canvas
+ * renderer of its own (hundreds of circles).
+ */
+export const ACTIVITY_PANE = 'activity';
+export const ACTIVITY_PANE_Z = 340;
+
+/**
  * A region's outline on the live map. It takes no tap: over a train's line on its lower pane, its
  * fill would take the line's.
  */

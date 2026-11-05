@@ -67,6 +67,8 @@ describe('the layers of the map (plan 8M-7)', () => {
       ['gyms', false],
       ['stops', false],
       ['spots', false],
+      // The party history as a heatmap (plan 8H-4): off until a member turns it on.
+      ['activity', false],
       ['outlines', true],
     ]);
     // The desktop row: the live ones as toggles, the background ones under "More".
@@ -92,7 +94,7 @@ describe('the layers of the map (plan 8M-7)', () => {
         .layers()
         .filter((layer) => layer.kind === 'background')
         .map((l) => l.name),
-    ).toEqual(['Wild spawns', 'Gyms', 'PokéStops', 'Power Spots', 'Region outlines']);
+    ).toEqual(['Wild spawns', 'Gyms', 'PokéStops', 'Power Spots', 'Activity', 'Region outlines']);
   });
 
   it('keeps the choice in the browser, and reads it back on the next visit', () => {
@@ -160,6 +162,17 @@ describe('the layers of the map (plan 8M-7)', () => {
     expect(registry.countOn(true)).toBe(7);
     // A visitor is offered the outlines alone of these: the rest is not counted, though on.
     expect(registry.countOn(false)).toBe(1);
+  });
+
+  it('offers the activity heatmap to members, off and under More until turned on (plan 8H-4)', () => {
+    const registry = mapRegistry(storage());
+    expect(registry.isOffered('activity', false)).toBe(false);
+    expect(registry.isOffered('activity', true)).toBe(true);
+    expect(registry.isOn('activity')).toBe(false);
+    expect(MAP_LAYERS.find((layer) => layer.id === 'activity')).toMatchObject({
+      name: 'Activity',
+      kind: 'background',
+    });
   });
 
   // Plan 8M-13 (L1): logged out, or not a member, the server gives the gyms and the regions'

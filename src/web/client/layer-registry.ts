@@ -92,6 +92,15 @@ export const MAP_LAYERS: readonly LayerSpec[] = [
     hint: 'Shown from street level',
     membersOnly: true,
   },
+  // The party history as a heatmap (plan 8H-4): `/api/activity`, a member's.
+  {
+    id: 'activity',
+    name: 'Activity',
+    on: false,
+    kind: 'background',
+    hint: 'Where raids and max battles happen, by the hour',
+    membersOnly: true,
+  },
   { id: 'outlines', name: 'Region outlines', on: true, kind: 'background' },
 ];
 

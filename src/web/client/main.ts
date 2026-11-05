@@ -24,6 +24,7 @@ import { loginNotice, loginNoticeFor, type Me } from './notice.js';
 import { MapActivity } from './parties.js';
 import { showParties } from './party-layer.js';
 import { quietLine, showPlaces, type PlacesHooks } from './places-ui.js';
+import { showActivity } from './activity-ui.js';
 import { REGION_OUTLINE } from './panes.js';
 import { popupPanPadding, regionLabel, renderNode, type MapGym } from './popup.js';
 import { RouteFocus } from './route-focus.js';
@@ -622,6 +623,8 @@ function start(): void {
         tourByItself(me, false);
         return;
       }
+      // The party history as a heatmap (plan 8H-4): a member's layer, under More.
+      showActivity(map, guild, registry);
       /** Only the first list opens the map's tour (plan 8M-17). */
       let listSeen = false;
       const mayReport = me.member && !me.readOnly;

@@ -3005,6 +3005,85 @@ path.highlighted {
   background: var(--secondary-hover);
 }
 
+/*
+ * The activity layer's panel (plan 8H-4): over the map at the top right while the layer is on,
+ * as the filters' line; its mode, History's slider and Play, the parties left out.
+ */
+.activity-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-width: min(320px, 70vw);
+  padding: 6px 10px;
+  border: 2px solid var(--activity);
+  border-radius: var(--radius);
+  background: var(--card-bg);
+  color: var(--text);
+  box-shadow: 0 1px 4px var(--shadow);
+  font-size: 13px;
+}
+
+.activity-panel[hidden],
+.activity-history[hidden],
+.activity-note[hidden] {
+  display: none;
+}
+
+.activity-mode {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.activity-title {
+  font-weight: 600;
+}
+
+.activity-panel select {
+  padding: 4px 8px;
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius);
+  background: var(--field-bg);
+  color: var(--text);
+  font: inherit;
+}
+
+.activity-history {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.activity-slider {
+  flex: 1 1 120px;
+  min-width: 0;
+  accent-color: var(--activity);
+}
+
+.activity-step {
+  min-width: 7.5em;
+  font-variant-numeric: tabular-nums;
+}
+
+.activity-note {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.activity-popup {
+  margin: 0;
+}
+
+/* On a phone the panel keeps to the width left beside the map's controls. */
+@media (max-width: 1023px) {
+  .activity-panel {
+    max-width: calc(100vw - 72px);
+    font-size: 12px;
+  }
+}
+
 .what-is-on h3 .filter-words {
   color: var(--text);
 }
