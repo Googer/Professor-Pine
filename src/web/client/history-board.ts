@@ -21,7 +21,10 @@ export function boardAddress(guild: string, period: BoardPeriod): string {
   return `/s/${guild}/api/stats/regions?period=${period}`;
 }
 
-/** The period the page's address names (`?period=`, kept as the member switches), else this month. */
+/**
+ * The period the page's address names (`?period=`, kept as the member switches), else this
+ * month.
+ */
 export function periodOfAddress(search: string): BoardPeriod {
   const asked = new URLSearchParams(search).get('period') ?? undefined;
   return isBoardPeriod(asked) ? asked : 'month';

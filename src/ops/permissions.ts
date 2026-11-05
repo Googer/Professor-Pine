@@ -151,7 +151,10 @@ export function shareKeeps(view: ShareView): boolean {
   return true;
 }
 
-/** The members a share channel's overwrites let in by name (View allowed), whom `shareKeeps` asks of. */
+/**
+ * The members a share channel's overwrites let in by name (View allowed), whom `shareKeeps` asks
+ * of.
+ */
 export function namedViewers(share: readonly ApiOverwrite[]): string[] {
   return share
     .filter(

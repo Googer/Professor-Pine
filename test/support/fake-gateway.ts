@@ -44,7 +44,10 @@ import {
 import { postNeeds } from '../../src/domain/party/post-permissions.js';
 import { Tally } from './tally.js';
 
-/** The everyone role's permissions in the fake's server unless a test gives them (Discord's default). */
+/**
+ * The everyone role's permissions in the fake's server unless a test gives them (Discord's
+ * default).
+ */
 const DEFAULT_EVERYONE = PermissionFlagsBits.ViewChannel | PermissionFlagsBits.SendMessages;
 
 /** What Discord answers a change the bot lacks the permission for (50013). */
@@ -1763,7 +1766,10 @@ export class FakePartyGateway implements PartyGateway {
     return where.some((id) => this.noEmbeds.has(id)) ? 'plain' : 'v2';
   }
 
-  /** Channels where the bot may not post a shared answer (`mayShare`, plan 8H-5): none unless a test says. */
+  /**
+   * Channels where the bot may not post a shared answer (`mayShare`, plan 8H-5): none unless a
+   * test says.
+   */
   readonly noSharing = new Set<string>();
 
   mayShare(channelId: string): boolean {

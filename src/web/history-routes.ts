@@ -99,9 +99,10 @@ const activityQuery = z
  * /s/<guild>/api/activity`. For members only, as every layer but the gyms and the outlines:
  * membership is asked before anything of the server is read (`askedMembership`), the forums of
  * the buckets' regions after (`PartyViewers`, shared with the parties: a region whose forum keeps
- * the member out, or that their roles do not show them, is left out; R-B, `keptOutOf`). The weights are the
- * domain's (`activityWeights`); a gym or Power Spot is placed where the map has it now, and one
- * it no longer has counts among those left out. An ETag of the member's JSON, `private, no-cache`.
+ * the member out, or that their roles do not show them, is left out; R-B, `keptOutOf`). The
+ * weights are the domain's (`activityWeights`); a gym or Power Spot is placed where the map has
+ * it now, and one it no longer has counts among those left out. An ETag of the member's JSON,
+ * `private, no-cache`.
  */
 export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewers): void {
   const { sessions, activity } = deps;
@@ -184,8 +185,8 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
   // The region board (plan 8H-5, design Part C): `/stats regions`' board as the member may see
   // it, for the history page. Shaped as /api/activity: membership first, then the forums of the
   // server's regions (`PartyViewers`: an existing forum that keeps the member out, or that their
-  // roles do not show them, leaves its region out of every line and the total; R-B); regions gone and records without one are "No
-  // longer a region", seen by everyone.
+  // roles do not show them, leaves its region out of every line and the total; R-B); regions
+  // gone and records without one are "No longer a region", seen by everyone.
   const boardLimiter = new RateLimiter({ uses: BOARD_PER_MINUTE, perMs: 60_000 });
   scope.get(
     '/api/stats/regions',
