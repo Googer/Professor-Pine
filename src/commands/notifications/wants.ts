@@ -487,22 +487,22 @@ export const want: SimpleCommand = {
       'one is reported in a region you can see.\n\nFor a Pokémon a dialog asks what for: Raids, ' +
       'Dynamax and Gigantamax max battles, Spawns, Research (field research that may reward ' +
       'it) and Shadow (shadow raids and Team GO Rocket catches), each only where the game has ' +
-      'it; tick what you want, and untick everything to take it off.\n\nWhere a Pokémon has ' +
-      'several forms (megas included, which are told for raids only) it asks which; every form ' +
-      'ticked is the whole species, forms that come later included. Where it can wear a ' +
-      'costume, "Only costumed" narrows the want to costumed ones (any costume); unticked, ' +
-      'costumed ones come too.\n\nPicking a form from the list (`Galarian Corsola`) opens its ' +
-      'species with that form ticked. Remove takes the Pokémon off your list. A raid tier asks ' +
-      'about its raids and its shadow raids.\n\n' +
-      '`/want rocket` (or a grunt type, a leader or Giovanni) asks in one dialog which grunt ' +
-      'types (at most one direct message an hour for each), the untyped and decoy grunts, ' +
-      'Cliff, Arlo, Sierra, any leader and Giovanni you want.\n\nWanting something again shows ' +
-      'what you ticked. A first want opens with no box ticked, and Submit waits till one is.\n\n' +
-      'In the post of a raid or a max battle, `/want` alone is its boss (an egg: its tier; a ' +
-      'boss Pine does not know yet has to be named), and the dialog ticks that kind of battle ' +
-      'only (Raids, Shadow for a shadow raid, Dynamax or Gigantamax), also for a Pokémon you ' +
-      'type there; anywhere else, name a Pokémon.\n\nPick from the list that appears while you ' +
-      'type, or type a name or a tier such as `t5`, `mega`, `elite`, `perfect` or `zero`.',
+      'it. Tick what you want; untick everything, or press Remove, to take it off your ' +
+      'list.\n\nWhere a Pokémon has several forms, the dialog asks which; ticking every form ' +
+      'wants the whole species, forms that come later included (megas are told for raids ' +
+      'only). Picking a form from the list (`Galarian Corsola`) opens its species with that ' +
+      'form ticked.\n\nWhere a Pokémon can wear a costume, "Only costumed" asks for costumed ' +
+      'ones only (any costume); otherwise costumed ones come too.\n\nA raid tier asks about its ' +
+      'raids and its shadow raids. `/want rocket` (or a grunt type, a leader or Giovanni) asks ' +
+      'in one dialog which grunt types (at most one direct message an hour for each), untyped ' +
+      'and decoy grunts, Cliff, Arlo, Sierra, any leader and Giovanni you want.\n\nWanting ' +
+      'something again shows what you ticked. A first want opens with no box ticked, and ' +
+      'Submit waits until one is.\n\nIn the post of a raid or a max battle, `/want` alone ' +
+      'wants its boss (for an egg, its tier; a boss I do not know yet has to be named), and ' +
+      'the dialog ticks only that kind of battle (Raids, Shadow for a shadow raid, Dynamax or ' +
+      'Gigantamax), also for a Pokémon you type there. Anywhere else, name one.\n\nPick from ' +
+      'the list that appears while you type, or type a name or a tier such as `t5`, `mega`, ' +
+      '`elite`, `perfect` or `zero`.',
     examples: [
       '/want target:Dratini',
       '/want target:t5',
@@ -998,9 +998,10 @@ export const unwant: SimpleCommand = {
     details:
       'Takes a Pokémon, a raid tier, perfect or zero IVs, a research reward or a Team GO Rocket ' +
       'target off your list for this server, whatever you ticked for it. A Pokémon takes all ' +
-      'its forms off with it.\n\nA form (`Galarian Corsola`) is taken off where you want it by ' +
-      'itself; where your want of the whole species covers it, nothing is taken off, and ' +
-      '`/want` on the species changes which forms. Unown’s letters are wants of their own.\n\n' +
+      'its forms off with it.\n\nA form (`Galarian Corsola`) is taken off when you want that ' +
+      'form by itself. When your want of the whole species covers it, nothing is taken off: ' +
+      'use `/want` on the species to change which forms you want. Unown’s letters are wants ' +
+      'of their own.\n\n' +
       '"Team GO Rocket" takes every Rocket want off; a grunt type or leader, that one alone.\n\nThe ' +
       'list that appears while you type shows what is on it; you can also type the name as for ' +
       '`/want`. To keep some of what you ticked, use `/want` again instead.',
@@ -1209,9 +1210,9 @@ export const wants: SimpleCommand = {
     details:
       'Shows your list for this server, ten to a page: each Pokémon once with its forms and what ' +
       'you want it for (`Dratini: Raids, Research, Shadow`), by name, then the raid tiers, Team ' +
-      'GO Rocket, the research rewards and perfect or zero IVs.\n\nA Pokémon or a tier has Manage…, ' +
-      'which opens its dialog (Remove there takes it off); the others a Remove button. "Remove ' +
-      'all…" asks before it empties the list.',
+      'GO Rocket, the research rewards and perfect or zero IVs. Only you see it.\n\nA Pokémon ' +
+      'or a tier has a Manage… button, which opens its dialog (Remove there takes it off); ' +
+      'everything else has a Remove button. "Remove all…" asks before it empties the list.',
     examples: ['/wants'],
   },
   enabled: notificationsEnabled,
