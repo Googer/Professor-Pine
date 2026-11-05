@@ -1004,7 +1004,10 @@ async function started(options: {
     listsDrawn: boolean[];
     /** The Power Spots whose address a popup asked for, with the popup (design 2026-11-04). */
     addressed: Array<{ id: string | null | undefined; popup: unknown }>;
+    /** Whether a place is picked, as the page was told each time it changed (plan 8H-4H, R1). */
+    picks: boolean[];
   } = {
+    picks: [],
     listsDrawn: [],
     addressed: [],
     finding: [],
@@ -1091,6 +1094,9 @@ async function started(options: {
       },
       spotAddress: (popup, spot) => {
         frameTold.addressed.push({ id: spot.id, popup });
+      },
+      picksChanged: () => {
+        frameTold.picks.push(raids.picksPlace());
       },
       ...(options.activity === undefined ? {} : { activity: options.activity }),
     },
@@ -3128,6 +3134,18 @@ describe("Find's pick on the map (plan 8M-12)", () => {
       expect(panel.querySelector('[data-form="meetup"]')).not.toBeNull();
       expect(popup.querySelector('[data-form="meetup"]')).toBeNull();
       expect(reportHeader()?.disabled).toBe(true);
+    });
+
+    // Review R1 of 8H-4H: the activity layer's circles give way while a meetup's place is picked.
+    it("tells the page as a meetup's place picking starts and ends", async () => {
+      const { raids, panel, frameTold } = await started({ raids: true, regions: REGIONS });
+      const popup = placeShowing('leaflet-popup', raids.gymControls(LIBRARY));
+      popup.querySelector('button[data-meetup-here]')?.dispatch('click');
+      expect(frameTold.picks).toEqual([]);
+      popup.querySelector('button[data-pick="start"]')?.dispatch('click');
+      expect(frameTold.picks).toEqual([true]);
+      panel.querySelector('button[data-pick="stop"]')?.dispatch('click');
+      expect(frameTold.picks).toEqual([true, false]);
     });
 
     it("leaves no phone card over the pane when Pick on the map moves a meetup's form there", async () => {

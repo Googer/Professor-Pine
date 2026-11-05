@@ -356,6 +356,12 @@ export interface PartyFrame {
   routeMode?: (on: boolean) => void;
   /** The Report button's step 2 began or ended (plan 8M-9A): the gyms and places it draws follow. */
   placesChanged?: () => void;
+  /**
+   * Whether a place or a point is picked (`picksPlace`) changed, told as the parties are drawn
+   * anew, which every picking does as it starts and ends (plan 8H-4H, review R1: a meetup's place
+   * too): the activity layer's circles follow.
+   */
+  picksChanged?: () => void;
   /** A gym's own popup opened, its dot drawn for it whatever the layer (step 3 of a raid, A6). */
   openGym?: (gym: MapGym) => HTMLElement | undefined;
   /** A Power Spot's popup opened at it (step 3 of a max battle, A6). */
@@ -447,6 +453,12 @@ export interface MapRaids {
    * their layer says, as `forced` draws the gyms.
    */
   forcedPlaces(layer: 'stops' | 'spots'): boolean;
+  /**
+   * Whether a place or a point is being picked (a meetup's place, the Report button's step 2,
+   * research's stops, route mode): the activity layer's circles take no tap meanwhile (plan
+   * 8H-4H, review P4); the page is told of a change by `picksChanged` (review R1).
+   */
+  picksPlace(): boolean;
   /** Whether the raids are drawn: their layer on, or a raid's step 2 picking gyms (C1). */
   raidsShown(): boolean;
   /**
@@ -2250,6 +2262,7 @@ export function showParties(
     counted();
     // The gyms follow: route mode or a place picked shows every gym (plan 8M-7).
     afterDraw();
+    tellPicks();
     // A real list was drawn (plan 8M-17), told once this draw has returned.
     if (next !== noParties) {
       queueMicrotask(() => {
@@ -2686,6 +2699,17 @@ export function showParties(
       own,
     );
   };
+  /** Whether a place or a point is picked: the activity layer's circles give way (review P4). */
+  const picksPlace = (): boolean => pickingPlace() || trainForms.routing() !== undefined;
+  /** Whether a place or a point is picked, as the page was last told (`picksChanged`). */
+  let picksTold = false;
+  /** The page told when whether a place or a point is picked changed (review R1). */
+  const tellPicks = (): void => {
+    const now = picksPlace();
+    if (now === picksTold) return;
+    picksTold = now;
+    frame.picksChanged?.();
+  };
   /** While a place is picked the trains' and meetups' rings and lines let taps through. */
   const pickingPlace = (): boolean =>
     meetupForms.picking() || report.inTools() || researchForms.adding();
@@ -2991,6 +3015,7 @@ export function showParties(
       trainForms.routing() !== undefined || meetupForms.picking() || report.picks('gyms'),
     // The PokéStops are drawn to pick also while the research form adds stops (plan 8M-9B).
     forcedPlaces: (layer) => report.picks(layer) || (layer === 'stops' && researchForms.adding()),
+    picksPlace,
     raidsShown,
     raidGyms: () => raidGyms,
     spotControls: (spot) =>

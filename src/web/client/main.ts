@@ -645,7 +645,9 @@ function start(): void {
       }
       // The party history as a heatmap (plan 8H-4): a member's layer, under More; its counts in
       // the gyms' and Power Spots' popups and on the gyms' clusters (plan 8H-4H).
-      activityShown.now = showActivity(map, guild, registry);
+      // No circle takes a tap while a place is picked (review P4), once the parties are drawn.
+      const picks = { now: (): boolean => false };
+      activityShown.now = showActivity(map, guild, registry, () => picks.now());
       // The gyms' clusters are named anew as the counts change (review R3).
       activityShown.now.onCounts(() => {
         dots.names();
@@ -714,6 +716,7 @@ function start(): void {
           places.refresh();
           // Their targets to tap follow whether step 2 picks them (R1-10).
           places.redrawn();
+          activityShown.now?.refresh();
         },
         // Its step 3 (A6): a gym's or Power Spot's own popup, whatever the layers draw.
         openGym: (gym) => dots.open(gym),
@@ -732,10 +735,17 @@ function start(): void {
         },
         routeMode: (on) => {
           routeFocus.set(on);
+          activityShown.now?.refresh();
+        },
+        // A place picked or no longer (a meetup's too, review R1): the circles give way or come back.
+        picksChanged: () => {
+          activityShown.now?.refresh();
         },
         // Nothing polled while the region editor is on (plan 8M-10).
         activity,
       });
+      picks.now = () => raids.picksPlace();
+      activityShown.now.refresh();
       // "Edit regions" is refused while a form of the map holds (plan 8M-10, C8).
       asker.held = () => raids.editing();
       const clearPage = tourHooks.clear;

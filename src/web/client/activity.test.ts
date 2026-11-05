@@ -16,10 +16,12 @@ import {
   RETRY_AFTER_FAILURE_MS,
   sliderSteps,
   stepWords,
+  tappablePlaces,
   tapRadius,
   todayStep,
   type PlayerTimer,
 } from './activity.js';
+import { CLUSTER_BELOW } from './cluster.js';
 
 const place = (parties: number): ActivityPlaceView => ({
   kind: 'gym',
@@ -269,6 +271,37 @@ describe("the activity's counts in the map's popups and clusters (plan 8H-4H)", 
       '2019-06',
     );
     expect(history.line('gym', '7')).toBe('Activity: 4 parties in June 2019');
+  });
+
+  it('leaves the places tappable only at street zoom, and only where their own layer is off', () => {
+    const places = [at('gym', '7', 12), at('spot', 'abc.16', 4)];
+    const ids = (shown: ActivityPlaceView[]) => shown.map((place) => place.id);
+    // At the zoom the gyms are drawn one by one (`CLUSTER_BELOW`) and closer.
+    expect(ids(tappablePlaces(places, CLUSTER_BELOW, { gyms: false, spots: false }))).toEqual([
+      '7',
+      'abc.16',
+    ]);
+    expect(ids(tappablePlaces(places, 18, { gyms: true, spots: false }))).toEqual(['abc.16']);
+    expect(ids(tappablePlaces(places, 18, { gyms: false, spots: true }))).toEqual(['7']);
+    expect(tappablePlaces(places, 18, { gyms: true, spots: true })).toEqual([]);
+    // Zoomed out nothing is tappable, whatever the layers.
+    expect(tappablePlaces(places, CLUSTER_BELOW - 1, { gyms: false, spots: false })).toEqual([]);
+  });
+
+  // Review P4: a place or a point picked (the Report button's step 2, route mode) takes the taps.
+  it('leaves nothing tappable while a place or a point is being picked', () => {
+    const places = [at('gym', '7', 12), at('spot', 'abc.16', 4)];
+    expect(tappablePlaces(places, 18, { gyms: false, spots: false, picking: true })).toEqual([]);
+  });
+
+  // Review P3: hundreds of circles at street zoom are kept to the view and its margin.
+  it('leaves tappable only the places in the box given', () => {
+    const near = { ...at('gym', '7', 12), lat: 40.44, lon: -79.95 };
+    const far = { ...at('gym', '8', 12), lat: 40.6, lon: -79.95 };
+    const box = { south: 40.4, west: -80, north: 40.5, east: -79.9 };
+    expect(
+      tappablePlaces([near, far], 18, { gyms: false, spots: false }, box).map(({ id }) => id),
+    ).toEqual(['7']);
   });
 
   it('gives no line for a place the glow does not draw, nor for one of the other kind', () => {

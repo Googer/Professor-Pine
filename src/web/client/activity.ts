@@ -3,6 +3,7 @@ import type {
   ActivityPlaceView,
   ActivityView,
 } from '../../domain/web/activity-data.js';
+import { CLUSTER_BELOW } from './cluster.js';
 
 /*
  * The activity layer of the live map (plan 8H-4, design Part B), its pure part: the panel's
@@ -154,6 +155,33 @@ const RADIUS = { least: 8, most: 28 };
 export function tapRadius(weight: number): number {
   const w = Math.min(1, Math.max(0, weight));
   return RADIUS.least + (RADIUS.most - RADIUS.least) * Math.sqrt(w);
+}
+
+/**
+ * The places drawn as invisible circles, which a tap on the glow finds (plan 8H-4H): from street
+ * zoom only (`CLUSTER_BELOW`, where the gyms are drawn one by one; the Power Spots' `PLACES_FROM`
+ * is the same zoom), and only where the place's own layer is off: with the Gyms layer (or the
+ * Power Spots layer) on, its dots' popups carry the count. Zoomed out nothing is tappable, nor
+ * while a place or a point is being picked (review P4: the Report button's step 2, a meetup's
+ * place, research's stops, route mode take the taps). Only those in `box` where one is given
+ * (review P3: the view and its margin).
+ */
+export function tappablePlaces(
+  places: readonly ActivityPlaceView[],
+  zoom: number,
+  shown: { gyms: boolean; spots: boolean; picking?: boolean },
+  box?: { south: number; west: number; north: number; east: number },
+): ActivityPlaceView[] {
+  if (zoom < CLUSTER_BELOW || shown.picking === true) return [];
+  return places.filter(
+    (place) =>
+      !(place.kind === 'gym' ? shown.gyms : shown.spots) &&
+      (box === undefined ||
+        (place.lat >= box.south &&
+          place.lat <= box.north &&
+          place.lon >= box.west &&
+          place.lon <= box.east)),
+  );
 }
 
 /** The timers of Play (`window.setTimeout` on the page; a test's own by hand). */

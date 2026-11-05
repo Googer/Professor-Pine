@@ -16,11 +16,12 @@ import {
   placeWords,
   sliderSteps,
   stepWords,
-  tapRadius,
+  tappablePlaces,
   todayStep,
   type ActivityChoice,
   type ActivitySpan,
 } from './activity.js';
+import { ActivityCircles, tapCircle } from './activity-circles.js';
 import { getJson } from './common.js';
 import { heatValue } from './heat.js';
 import { HeatLayer } from './heat-layer.js';
@@ -33,12 +34,13 @@ import { onThemeChange, theme } from './theme.js';
  * side: the places of `/api/activity` as a heat glow (`HeatLayer` over simpleheat, in a pane of
  * its own under every dot and marker, `HEAT_PANE`, its gradient the theme's `--heat-*`), and as
  * invisible circles on a canvas of their own pane over it (`ACTIVITY_PANE`; no fill and no
- * stroke, sized by weight, `tapRadius`), a tap on one showing its parties as text; and while the
- * layer is on, a panel over the map (`.activity-panel`,
- * a Leaflet control at the top right, as the filters' line): the mode, History's slider (by month
- * or by year) and Play, and the parties left out. Asked again when the mode, the slider or the
- * server's hour changes (`changesInMs`, `nextAskWait`; a minute after a failed answer in Expected
- * now); nothing is polled. For members only: `main.ts` makes it
+ * stroke, sized by weight, `tapRadius`) at street zoom where the place's own layer is off
+ * (`tappablePlaces`), a tap on one showing its parties as text; the counts in the gyms' and Power
+ * Spots' popups and on the gyms' clusters (`ActivityShown`); and while the layer is on, a panel
+ * over the map (`.activity-panel`, a Leaflet control at the top right, as the filters' line): the
+ * mode, History's slider (by month or by year) and Play, and the parties left out. Asked again
+ * when the mode, the slider or the server's hour changes (`changesInMs`, `nextAskWait`; a minute
+ * after a failed answer in Expected now); nothing is polled. For members only: `main.ts` makes it
  * once `/api/me` says the visitor is one. Its pure part is `activity.ts`; this is tried at staging.
  */
 
@@ -75,12 +77,27 @@ export interface ActivityShown {
   active(): boolean;
   /** Tells `listener` after each answer drawn, and when the layer is turned off (review R3). */
   onCounts(listener: () => void): void;
+  /** Whether a place is being picked changed: the circles drawn as it now says. */
+  refresh(): void;
 }
 
 /** The class of a popup's activity line, by which the lines open are found to be kept current. */
 const LINE_CLASS = 'activity-line';
 
-export function showActivity(map: L.Map, guild: string, registry: LayerRegistry): ActivityShown {
+/** How far round the view the invisible circles are drawn, in views (review P3). */
+const CIRCLES_MARGIN = 0.5;
+
+export function showActivity(
+  map: L.Map,
+  guild: string,
+  registry: LayerRegistry,
+  /**
+   * Whether a place or a point is being picked (the Report button's step 2, a meetup's place,
+   * research's stops, route mode): the circles take no tap meanwhile (review P4); `refresh` is
+   * called when it changes. Left out: never.
+   */
+  picking: () => boolean = () => false,
+): ActivityShown {
   const pane = map.createPane(ACTIVITY_PANE);
   // Leaflet sets a pane's place by its style from the script (as the regions' names' pane).
   pane.style.zIndex = String(ACTIVITY_PANE_Z);
@@ -93,7 +110,23 @@ export function showActivity(map: L.Map, guild: string, registry: LayerRegistry)
   heatPane.style.pointerEvents = 'none';
   const heat = new HeatLayer(HEAT_PANE, theme().heat);
   const group = L.layerGroup([heat]);
-  const circles: L.CircleMarker[] = [];
+  /** A place's circle on the circles' canvas, its popup the words it is given as it opens. */
+  const circles = new ActivityCircles((place, words) => {
+    const circle = L.circleMarker([place.lat, place.lon], {
+      renderer,
+      stroke: false,
+      fill: false,
+    }).addTo(group);
+    return tapCircle(
+      circle,
+      place,
+      words,
+      (text) => element('p', 'activity-popup', text),
+      () => {
+        group.removeLayer(circle);
+      },
+    );
+  });
   let view: ActivityView | undefined;
   /** The counts of the answer drawn, while the layer is on (plan 8H-4H). */
   let counts: ActivityCounts | undefined;
@@ -215,13 +248,42 @@ export function showActivity(map: L.Map, guild: string, registry: LayerRegistry)
     }
   };
 
+  /** History's step of the answer drawn, for its circles' popups. */
+  let drawnStep: string | undefined;
+
+  /**
+   * The invisible circles as the zoom, the view and the layers stand (`tappablePlaces`, plan
+   * 8H-4H): at street zoom, those of the places in the view and half a view round it whose own
+   * layer (Gyms, Power Spots) is off, none while a place is picked; kept by place through a pan, a
+   * zoom and a new answer (`ActivityCircles`, review P3).
+   */
+  const drawCircles = (): void => {
+    const shown = view;
+    if (shown === undefined || !registry.isOn('activity')) {
+      circles.clear();
+      return;
+    }
+    const near = map.getBounds().pad(CIRCLES_MARGIN);
+    const tappable = tappablePlaces(
+      shown.places,
+      map.getZoom(),
+      { gyms: registry.isOn('gyms'), spots: registry.isOn('spots'), picking: picking() },
+      {
+        south: near.getSouth(),
+        west: near.getWest(),
+        north: near.getNorth(),
+        east: near.getEast(),
+      },
+    );
+    const shownStep = drawnStep;
+    circles.show(tappable, (place) => placeWords(shown, place, shownStep));
+  };
+
   /**
    * The answer drawn: the glow's places set at once (Play's step drawn in one go, no blink), the
-   * invisible circles made anew.
+   * popups' counts and the invisible circles with it.
    */
   const draw = (): void => {
-    for (const circle of circles) group.removeLayer(circle);
-    circles.length = 0;
     const shown = view;
     heat.setPlaces(
       (shown?.places ?? []).map((place) => ({
@@ -230,21 +292,11 @@ export function showActivity(map: L.Map, guild: string, registry: LayerRegistry)
         value: heatValue(place.weight),
       })),
     );
-    const shownStep = step;
-    counts = shown === undefined ? undefined : new ActivityCounts(shown, shownStep);
+    drawnStep = step;
+    counts = shown === undefined ? undefined : new ActivityCounts(shown, drawnStep);
     fillLines();
     for (const listener of countListeners) listener();
-    if (shown === undefined) return;
-    for (const place of shown.places) {
-      const circle = L.circleMarker([place.lat, place.lon], {
-        renderer,
-        radius: tapRadius(place.weight),
-        stroke: false,
-        fill: false,
-      }).bindPopup(() => element('p', 'activity-popup', placeWords(shown, place, shownStep)));
-      circle.addTo(group);
-      circles.push(circle);
-    }
+    drawCircles();
     inView();
   };
 
@@ -389,8 +441,12 @@ export function showActivity(map: L.Map, guild: string, registry: LayerRegistry)
   };
   registry.onChange((id, on) => {
     if (id === 'activity') turned(on);
+    // The Gyms or Power Spots layer turned: their places' circles follow (plan 8H-4H).
+    if (id === 'gyms' || id === 'spots') drawCircles();
   });
   map.on('moveend', inView);
+  // The circles follow the view and the zoom: kept where still wanted, from street zoom only.
+  map.on('moveend', drawCircles);
   // The page turned light or dark: the glow takes the new gradient.
   onThemeChange((changed) => {
     heat.setStops(changed.heat);
@@ -409,5 +465,6 @@ export function showActivity(map: L.Map, guild: string, registry: LayerRegistry)
     onCounts: (listener) => {
       countListeners.push(listener);
     },
+    refresh: drawCircles,
   };
 }
