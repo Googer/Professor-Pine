@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-05T11:03",
+  "updated": "2026-11-05T12:15",
   "items": [
     {
       "id": "0",
@@ -10617,6 +10617,11 @@ window.GANTT = {
           "start": "2026-11-05T09:37",
           "end": "2026-11-05T10:54"
         }
+      },
+      "status": "done",
+      "review": {
+        "start": "2026-11-05T11:10",
+        "end": "2026-11-05T12:06"
       }
     },
     {
@@ -10624,35 +10629,45 @@ window.GANTT = {
       "kind": "task",
       "parent": "8H-4H",
       "name": "simpleheat as our own module",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-05T11:03",
+      "end": "2026-11-05T11:05"
     },
     {
       "id": "8H-4H.2",
       "kind": "task",
       "parent": "8H-4H",
       "name": "The heat layer in place of the circles",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-05T11:05",
+      "end": "2026-11-05T11:06"
     },
     {
       "id": "8H-4H.3",
       "kind": "task",
       "parent": "8H-4H",
       "name": "Counts in the gym and Power Spot popups, the cluster tooltip",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-05T11:06",
+      "end": "2026-11-05T11:07"
     },
     {
       "id": "8H-4H.4",
       "kind": "task",
       "parent": "8H-4H",
       "name": "Invisible circles at street zoom without Gyms",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-05T11:07",
+      "end": "2026-11-05T11:09"
     },
     {
       "id": "8H-4H.5",
       "kind": "task",
       "parent": "8H-4H",
       "name": "Docs",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-05T11:09",
+      "end": "2026-11-05T11:10"
     },
     {
       "id": "16-staging",
