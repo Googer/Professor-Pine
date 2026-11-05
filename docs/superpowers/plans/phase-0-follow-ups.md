@@ -3105,3 +3105,16 @@ Matt asked that the history and the live map be consistent; the party layer show
 ## The tours and the tutorial after the history parts (Matt, 2026-11-05)
 
 When the history work is done (the heat layer, the region tally, D–H), revisit the Discord tutorial (`/admin tutorial`, plan 8M-18) for `/stats` and Share, and, optionally, the web tours (plan 8M-17) for the Activity layer, the history page and the regions on the map. Every new command's `/help` stays clear, concise prose for members, in short paragraphs.
+
+## From Phase 8H-4H (the heat layer, 2026-11-05)
+
+Plan `docs/superpowers/plans/2026-11-05-phase-8h4h-heat-layer.md`; client only. The Activity layer is a heat glow (simpleheat and Leaflet.heat's grid as Pine's own code, both BSD-2 notices kept), counts in the gym and Power Spot popups and a desktop cluster tooltip ("6 gyms · ≈ 140 parties in this area"; screen readers hear "6 gyms, about 140 parties in this area"), invisible circles at street zoom where a place's dot is not drawn. Matt: raid and battle popups carry no line.
+
+- **Staging** (Air's dev stack after the next update, Matt's go-ahead; production's history already in the dev database): the plan's "Staging" steps 1–6, with the demo artifact beside it for the look; the numbers above zoom 15 are a first guess.
+- **Admitted, for staging to judge:** a double-click on a count popup that auto-panned under the pointer does not zoom; no test reaches main.ts's glue from picking to the circles (the pure parts and `showActivity` are tested).
+
+## The help pass (2026-11-05)
+
+Every command's `/help` read against Matt's rule (clear, concise prose for members, short paragraphs): 73 of 144 texts rewritten (02bf3244 and the commits before it), six that described behavior wrongly fixed (/finish, /settings auto-status, privacy, new-train, /group label, /gym elite), reviewed against the code. `/settings show`'s lines now name max battles too.
+
+- **With the cutover's deploy** (descriptions need one): `/settings auto-status`'s `status` option and `/settings privacy`'s description leave out max battles; `/settings history`'s says "party history" (suggest "this server's history"); `/status`'s says "list a region's parties" (suggest "list what is going on in a region").
