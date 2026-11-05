@@ -29,13 +29,16 @@ export async function rebuildStep(args: readonly string[], deps: RebuildStepDeps
   say('Rebuilding the activity heatmap from the party history (the bot may keep running).');
   try {
     const done = await deps.activity.rebuild(server);
-    say(
-      `Rebuilt the activity of ${counted(done.servers, 'server', 'servers')} from ${counted(
-        done.records,
-        'record',
-        'records',
-      )} of the party history.`,
-    );
+    // Each server's final mark and its records up to it, not what this run read alone: beside
+    // the bot's hourly adding, that takes some of the batches (8H4-7).
+    for (const one of done) {
+      say(
+        one.records === 0
+          ? `Server ${one.serverId}: no records of the party history.`
+          : `Server ${one.serverId}: ${counted(one.records, 'record', 'records')} of the party history counted, up to record ${String(one.lastHistoryId)}.`,
+      );
+    }
+    say(`Rebuilt the activity of ${counted(done.length, 'server', 'servers')}.`);
     return 0;
   } catch (err) {
     say(err instanceof Error ? err.message : String(err));

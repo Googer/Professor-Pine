@@ -1,8 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import type { RebuiltServer } from '../db/repositories/activity-repository.js';
 import { rebuildStep, USAGE } from './activity-rebuild.js';
 
-/** A rebuild that records what it was asked, answering with `records` per server. */
-function rebuilding(answer: { servers: number; records: number } | Error) {
+/** A rebuild that records what it was asked, answering with `answer`'s servers. */
+function rebuilding(answer: RebuiltServer[] | Error) {
   const asked: Array<string | undefined> = [];
   return {
     asked,
@@ -15,9 +16,15 @@ function rebuilding(answer: { servers: number; records: number } | Error) {
   };
 }
 
+const WEST = '412345678901234567';
+const EAST = '412345678901234568';
+
 describe('npm run activity:rebuild', () => {
-  it('rebuilds every server’s buckets and says how many records it counted', async () => {
-    const made = rebuilding({ servers: 2, records: 253_118 });
+  it('rebuilds every server’s buckets and says each one’s final mark and its records (8H4-7)', async () => {
+    const made = rebuilding([
+      { serverId: WEST, lastHistoryId: 301_544, records: 253_118 },
+      { serverId: EAST, lastHistoryId: 301_540, records: 1 },
+    ]);
     const said: string[] = [];
     expect(await rebuildStep([], { activity: made.activity, say: (line) => said.push(line) })).toBe(
       0,
@@ -25,29 +32,43 @@ describe('npm run activity:rebuild', () => {
     expect(made.asked).toEqual([undefined]);
     expect(said).toEqual([
       'Rebuilding the activity heatmap from the party history (the bot may keep running).',
-      'Rebuilt the activity of 2 servers from 253,118 records of the party history.',
+      `Server ${WEST}: 253,118 records of the party history counted, up to record 301544.`,
+      `Server ${EAST}: 1 record of the party history counted, up to record 301540.`,
+      'Rebuilt the activity of 2 servers.',
     ]);
   });
 
   it('rebuilds one server with --server', async () => {
-    const made = rebuilding({ servers: 1, records: 1 });
+    const made = rebuilding([{ serverId: WEST, lastHistoryId: 7, records: 1 }]);
     const said: string[] = [];
-    const server = '412345678901234567';
     expect(
-      await rebuildStep(['--server', server], {
+      await rebuildStep(['--server', WEST], {
         activity: made.activity,
         say: (line) => said.push(line),
       }),
     ).toBe(0);
-    expect(made.asked).toEqual([server]);
-    expect(said.at(-1)).toBe(
-      'Rebuilt the activity of 1 server from 1 record of the party history.',
+    expect(made.asked).toEqual([WEST]);
+    expect(said.slice(1)).toEqual([
+      `Server ${WEST}: 1 record of the party history counted, up to record 7.`,
+      'Rebuilt the activity of 1 server.',
+    ]);
+  });
+
+  it('says a server whose history is gone counted none', async () => {
+    const made = rebuilding([{ serverId: WEST, lastHistoryId: 0, records: 0 }]);
+    const said: string[] = [];
+    expect(await rebuildStep([], { activity: made.activity, say: (line) => said.push(line) })).toBe(
+      0,
     );
+    expect(said.slice(1)).toEqual([
+      `Server ${WEST}: no records of the party history.`,
+      'Rebuilt the activity of 1 server.',
+    ]);
   });
 
   it('is used wrongly with anything else, and rebuilds nothing', async () => {
     for (const args of [['--server'], ['--server', 'west'], ['extra'], ['--server', '1', 'x']]) {
-      const made = rebuilding({ servers: 0, records: 0 });
+      const made = rebuilding([]);
       const said: string[] = [];
       expect(
         await rebuildStep(args, { activity: made.activity, say: (line) => said.push(line) }),

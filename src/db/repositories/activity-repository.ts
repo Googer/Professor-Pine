@@ -24,6 +24,15 @@ export const ACTIVITY_BATCH = 2_000;
 const PLACE_KINDS: readonly string[] = ['gym', 'spot', 'none'] satisfies ActivityPlaceKind[];
 const isPlaceKind = (kind: string): kind is ActivityPlaceKind => PLACE_KINDS.includes(kind);
 
+/** What a rebuild says of a server: where its mark ended, and its records up to there. */
+export interface RebuiltServer {
+  serverId: string;
+  /** The server's mark once its rebuild ended (`ActivityProgress.lastHistoryId`). */
+  lastHistoryId: number;
+  /** The server's records of the party history up to the mark, counted or not. */
+  records: number;
+}
+
 export interface ActivityRepositoryOptions {
   /** `settings.timezone`: the local month, weekday and hour of a bucket. */
   zone: string;
@@ -77,9 +86,11 @@ export class ActivityRepository implements ActivityReader {
    * Starts one server (or every server that has a history or buckets) from nothing and adds its
    * whole history again: its buckets deleted and its mark set to 0 in one transaction, then the
    * adding of `addNew` from there. Safe to run again, and beside the bot's hourly adding: both take
-   * the mark's row first, so a batch is never counted twice.
+   * the mark's row first, so a batch is never counted twice. Says each server's final mark and
+   * the records of its history up to it (8H4-7): beside the hourly adding, some of the batches
+   * are the adding's to read, so what this run read alone says little.
    */
-  async rebuild(serverId?: string): Promise<{ servers: number; records: number }> {
+  async rebuild(serverId?: string): Promise<RebuiltServer[]> {
     const servers =
       serverId === undefined
         ? [
@@ -95,7 +106,7 @@ export class ActivityRepository implements ActivityReader {
             ),
           ].sort()
         : [serverId];
-    let records = 0;
+    const rebuilt: RebuiltServer[] = [];
     for (const server of servers) {
       // A deadlock with an adding under way (both reach the buckets) runs the reset again.
       await retryOnDeadlock(this.db, () =>
@@ -109,9 +120,26 @@ export class ActivityRepository implements ActivityReader {
             .execute();
         }),
       );
-      records += (await this.addServer(server)).read;
+      await this.addServer(server);
+      rebuilt.push(await this.reached(server));
     }
-    return { servers: servers.length, records };
+    return rebuilt;
+  }
+
+  /** A server's mark and the records of its history up to it: one count along `(serverId, id)`. */
+  private async reached(serverId: string): Promise<RebuiltServer> {
+    const row = await sql<{ mark: number | string; records: number | string }>`
+      select p.lastHistoryId as mark,
+             (select count(*) from PartyHistory h
+              where h.serverId = p.serverId and h.id <= p.lastHistoryId) as records
+      from ActivityProgress p
+      where p.serverId = ${serverId}`.execute(this.db);
+    const found = row.rows[0];
+    return {
+      serverId,
+      lastHistoryId: Number(found?.mark ?? 0),
+      records: Number(found?.records ?? 0),
+    };
   }
 
   private async addServer(

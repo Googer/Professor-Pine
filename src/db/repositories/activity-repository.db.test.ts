@@ -77,9 +77,15 @@ describe('ActivityRepository', () => {
         .executeTakeFirst()
     )?.lastHistoryId;
 
-  const lastId = async () =>
+  const lastId = async (serverId?: string) =>
     Number(
-      (await db.selectFrom('PartyHistory').select(db.fn.max('id').as('id')).executeTakeFirst())?.id,
+      (
+        await db
+          .selectFrom('PartyHistory')
+          .select(db.fn.max('id').as('id'))
+          .$if(serverId !== undefined, (query) => query.where('serverId', '=', serverId ?? ''))
+          .executeTakeFirst()
+      )?.id,
     );
 
   const repository = (batch?: number) =>
@@ -213,16 +219,23 @@ describe('ActivityRepository', () => {
     const other = await bucketsOf(OTHER_ACTIVITY_SERVER);
     // A bucket made wrong (by hand): the rebuild starts the server from nothing.
     await sql`update ActivityBucket set raids = 99 where serverId = ${ACTIVITY_SERVER}`.execute(db);
-    expect(await activity.rebuild(ACTIVITY_SERVER)).toEqual({ servers: 1, records: 7 });
+    // Each server's final mark, and the records of its history up to it (8H4-7).
+    const mine = { serverId: ACTIVITY_SERVER, lastHistoryId: await lastId(), records: 7 };
+    const others = {
+      serverId: OTHER_ACTIVITY_SERVER,
+      lastHistoryId: await lastId(OTHER_ACTIVITY_SERVER),
+      records: 1,
+    };
+    expect(await activity.rebuild(ACTIVITY_SERVER)).toEqual([mine]);
     expect(await bucketsOf()).toEqual(hourly);
     expect(await progressOf()).toBe(await lastId());
     // The other server's are left as they were; a rebuild of every server makes both again.
     expect(await bucketsOf(OTHER_ACTIVITY_SERVER)).toEqual(other);
-    expect(await activity.rebuild()).toEqual({ servers: 2, records: 8 });
+    expect(await activity.rebuild()).toEqual([mine, others]);
     expect(await bucketsOf()).toEqual(hourly);
     expect(await bucketsOf(OTHER_ACTIVITY_SERVER)).toEqual(other);
     // Safe to run again.
-    expect(await activity.rebuild()).toEqual({ servers: 2, records: 8 });
+    expect(await activity.rebuild()).toEqual([mine, others]);
     expect(await bucketsOf()).toEqual(hourly);
   });
 
@@ -231,6 +244,7 @@ describe('ActivityRepository', () => {
     await repository().addNew();
     const once = await bucketsOf();
     // Each on a connection of its own (the pool's), all at the server's mark at once.
+    const done = [{ serverId: ACTIVITY_SERVER, lastHistoryId: await lastId(), records: 9 }];
     for (let round = 0; round < 5; round++) {
       await Promise.all([
         repository(2).rebuild(ACTIVITY_SERVER),
@@ -238,6 +252,16 @@ describe('ActivityRepository', () => {
         repository(2).addNew(),
         repository(2).rebuild(ACTIVITY_SERVER),
       ]);
+      expect(await bucketsOf()).toEqual(once);
+      // Beside the hourly adding, a rebuild says the server's final mark and its records,
+      // however many of the batches the adders read instead (8H4-7). (Beside another rebuild
+      // there is no final mark to say: either may reset it while the other ends.)
+      const [rebuilt] = await Promise.all([
+        repository(2).rebuild(ACTIVITY_SERVER),
+        repository(2).addNew(),
+        repository(2).addNew(),
+      ]);
+      expect(rebuilt).toEqual(done);
       expect(await bucketsOf()).toEqual(once);
     }
   });
@@ -267,7 +291,9 @@ describe('ActivityRepository', () => {
     await record({});
     await repository().addNew();
     await sql`delete from PartyHistory`.execute(db);
-    expect(await repository().rebuild()).toEqual({ servers: 1, records: 0 });
+    expect(await repository().rebuild()).toEqual([
+      { serverId: ACTIVITY_SERVER, lastHistoryId: 0, records: 0 },
+    ]);
     expect(await bucketsOf()).toEqual([]);
     expect(await progressOf()).toBe(0);
   });
