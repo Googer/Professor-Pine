@@ -1,3 +1,4 @@
+import { hasShownName } from '../render/text.js';
 import { BoundedMap } from '../bounded-map.js';
 import type { MemberDirectory } from '../discord/member-directory.js';
 
@@ -78,7 +79,7 @@ export class MemberNames {
     const named = new Map<string, string>();
     for (const id of memberIds) {
       const name = found.get(id);
-      if (name !== null && name !== undefined && name.trim() !== '') named.set(id, name);
+      if (name !== null && name !== undefined && hasShownName(name)) named.set(id, name);
     }
     return named;
   }

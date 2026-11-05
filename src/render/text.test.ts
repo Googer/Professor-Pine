@@ -7,6 +7,7 @@ import {
   endSentence,
   fitItems,
   fitMessages,
+  hasShownName,
   inMessages,
   isFarOff,
   memberName,
@@ -452,5 +453,16 @@ describe('inMessages', () => {
       { content: text, mention: { users: [] } },
       { content: `<@${all[0]}> <@${all[1]}>`, mention: { users: all } },
     ]);
+  });
+});
+
+describe('hasShownName (W4)', () => {
+  it('says whether a name shows as something, or a mention would stand in its place', () => {
+    expect(hasShownName('Ash')).toBe(true);
+    expect(hasShownName('*Ash*')).toBe(true);
+    for (const nothing of ['', '   ', '\\', '\\\\']) {
+      expect(hasShownName(nothing), JSON.stringify(nothing)).toBe(false);
+      expect(memberName({ id: '1', name: nothing })).toBe('<@1>');
+    }
   });
 });

@@ -73,6 +73,12 @@ describe('MemberNames: the names of the members a board shows', () => {
     expect((await names.names(FAKE_GUILD_ID, [ASH])).get(ASH)).toBe('Ash');
   });
 
+  it('leaves out a name that shows as nothing, which a line would show as a mention (W4)', async () => {
+    const { members, names } = namesWith();
+    members.add(MISTY, '\\');
+    expect([...(await names.names(FAKE_GUILD_ID, [ASH, MISTY]))]).toEqual([[ASH, 'Ash']]);
+  });
+
   it('takes the names a caller knows already without asking', async () => {
     const { members, names } = namesWith();
     const named = await names.names(FAKE_GUILD_ID, [ASH, MISTY], new Map([[MISTY, 'Misty']]));

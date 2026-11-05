@@ -175,6 +175,14 @@ function shownName(member: NamedMember): string {
 }
 
 /**
+ * Whether a name shows as something: `memberName` and the others put the mention in the place
+ * of one that does not (blank, or only backslashes), which a board must never show (W4).
+ */
+export function hasShownName(name: string): boolean {
+  return shownName({ id: '', name }).trim() !== '';
+}
+
+/**
  * Text of several lines that a member wrote (the information about a meetup), made safe like
  * `plain`, line by line: the lines stay lines, with one empty line between them at most.
  */
