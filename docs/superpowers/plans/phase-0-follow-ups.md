@@ -3118,3 +3118,14 @@ Plan `docs/superpowers/plans/2026-11-05-phase-8h4h-heat-layer.md`; client only. 
 Every command's `/help` read against Matt's rule (clear, concise prose for members, short paragraphs): 73 of 144 texts rewritten (02bf3244 and the commits before it), six that described behavior wrongly fixed (/finish, /settings auto-status, privacy, new-train, /group label, /gym elite), reviewed against the code. `/settings show`'s lines now name max battles too.
 
 - **With the cutover's deploy** (descriptions need one): `/settings auto-status`'s `status` option and `/settings privacy`'s description leave out max battles; `/settings history`'s says "party history" (suggest "this server's history"); `/status`'s says "list a region's parties" (suggest "list what is going on in a region").
+
+## From the staging run of 8H-5 and 8H-4H (2026-11-05, Air's dev stack at b6ce7f4d, production's history in the dev database)
+
+`./pine update`, then `./pine deploy-commands --global` (73 commands; Matt's "Stage both now"). Googer in the built-in browser.
+
+- **8H-5, pass:** `/stats regions` answers privately with this month's tally (28 regions, "Total: 6 raids, 1 max battle"); All time switches in place (253,290 raids, "No longer a region: 27,741 raids", the gyms production had and the dev list lacks); Share in #oakland posts the same tally, "Shared by Googer", no ping, and says "Shared in this channel." privately; the fourth Share within ten minutes is refused ("Try again in 10 minutes."). The history page: tabs, table, `?period=all` kept, totals; at 375 px in the dark theme no sideways scroll. "History" in the map's account menu not looked at.
+- **8H-5, fixed at once:** at phone width a two-digit rank broke over two lines ("1" over "0"); only the region name breaks now (the fix after b6ce7f4d).
+- **8H-5, for Matt to judge:** this month's tally lists every quiet region as "none" (22 of 28 lines this month); a collapsed line ("No raids: …") may read better.
+- **8H-5, not run:** a Share in a channel whose readers do not all see a private region (the test regions are all visible to #oakland's readers); Tester with a hidden region (now shown, by the map's rule; barred is what keeps out).
+- **8H-4H, pass:** the glow at the region view (Weekday evenings) like the demo; a cluster's hover "92 gyms · ≈ 4,039 parties in this area", `aria-label` "92 gyms, about 4,039 parties in this area", no native tooltip; Find's flight to Cathedral of Learning lands the glow on the gyms; the gym's popup has "Activity: 95 parties on weekday evenings, over the years"; with Gyms off at zoom 16 a tap on the glow opens "95 parties on weekday evenings, over the years"; a double-click there zooms to 17 and leaves no count open; the dark theme reads well.
+- **8H-4H, not run:** pinch on a phone, Play's smoothness by eye, the Report button's step 2 and a meetup's place picking over the circles (tested in code), a Power Spot's line.
