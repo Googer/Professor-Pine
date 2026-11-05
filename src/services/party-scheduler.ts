@@ -51,6 +51,12 @@ export interface PartySchedulerOptions {
    */
   history?: { sweep(options: { isStopped: () => boolean }): Promise<unknown> };
   /**
+   * The activity heatmap's buckets (plan 8H-4, `ActivityRepository.addNew`): the records the
+   * history gained since the last upkeep are added after its sweep, batch by batch; told of the
+   * clock's stop, it ends there (the next upkeep goes on from its mark).
+   */
+  activity?: { addNew(options: { isStopped: () => boolean }): Promise<unknown> };
+  /**
    * The routes of the trains, swept with the forums: stops whose gym the gym list no longer
    * knows are taken off (`TrainService.removeUnknownStops`).
    */
@@ -300,13 +306,14 @@ export class PartyScheduler {
    * gone, has the spawn reports and grunts' messages deleted that no process deleted at their
    * time, forgets the reports at stops that ended, and the kept
    * screenshots that are due, and the expired sessions of the web pages, settles the new trains
-   * of splits left pending, records the parties the party history was left without, and reads the
-   * application's emoji anew: at start and hourly.
+   * of splits left pending, records the parties the party history was left without and adds the
+   * history's new records to the activity heatmap, and reads the application's emoji anew: at
+   * start and hourly.
    */
   private upkeep(): void {
     const { posts, access, routes, spawns, pictures, screenshots, emoji, webSessions, log } =
       this.options;
-    const { history, splits, stops, grunts, eventForum } = this.options;
+    const { history, activity, splits, stops, grunts, eventForum } = this.options;
     this.lastUpkeep = this.now();
     // Each by itself: one that fails does not keep the others from running. Once the clock has
     // stopped none starts: the shutdown waits for the upkeep (review r1 C3).
@@ -337,6 +344,8 @@ export class PartyScheduler {
       if (splits) await step(() => splits.settlePendingSplits(PENDING_SPLIT_MS));
       // Party by party, over what may be many old rows: it ends with the clock's stop.
       if (history) await step(() => history.sweep({ isStopped: () => this.stopped }));
+      // After the sweep, whose records it adds too; batch by batch, it ends with the clock's stop.
+      if (activity) await step(() => activity.addNew({ isStopped: () => this.stopped }));
     })()
       .catch((err: unknown) => {
         log.error({ err }, 'the upkeep of the forums failed');

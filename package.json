@@ -16,6 +16,7 @@
     "dev": "tsx watch --conditions=pine-source --env-file-if-exists=.env src/index.ts",
     "migrate": "tsx --conditions=pine-source --env-file-if-exists=.env src/db/migrate-cli.ts",
     "history:import": "tsx --conditions=pine-source --env-file-if-exists=.env src/ops/history-import-cli.ts",
+    "activity:rebuild": "tsx --conditions=pine-source --env-file-if-exists=.env src/ops/activity-rebuild-cli.ts",
     "gyms:seed": "tsx --conditions=pine-source --env-file-if-exists=.env src/ops/gym-seed-cli.ts",
     "stops:seed": "tsx --conditions=pine-source --env-file-if-exists=.env src/ops/stop-seed-cli.ts",
     "deploy-commands": "tsx --conditions=pine-source --env-file-if-exists=.env src/discord/deploy-cli.ts",

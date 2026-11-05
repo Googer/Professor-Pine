@@ -20,6 +20,7 @@ import { GymNotificationRepository } from './db/repositories/gym-notification-re
 import { GymRemovalRepository } from './db/repositories/gym-removal-repository.js';
 import { NewTrainRepository } from './db/repositories/new-train-repository.js';
 import { GymRepository } from './db/repositories/gym-repository.js';
+import { ActivityRepository } from './db/repositories/activity-repository.js';
 import { HistoryRepository } from './db/repositories/history-repository.js';
 import { PartyRepository } from './db/repositories/party-repository.js';
 import { PokemonNotificationRepository } from './db/repositories/pokemon-notification-repository.js';
@@ -407,6 +408,9 @@ export async function startApp(
     addresses: wayspotAddresses,
   });
   const history = new HistoryRepository(db);
+  // The activity heatmap's buckets (plan 8H-4): derived from the history, added hourly by the
+  // upkeep after its sweep, read by the map's /api/activity.
+  const activity = new ActivityRepository(db, { zone: config.settings.timezone });
   // Every party that ends is kept in the party history (plan 8H), with what the store writes;
   // in rehearsal mode too (only Discord is narrowed then, not the store).
   // A party left without its record (its tries failed, the bot stopped first, or it ended
@@ -847,6 +851,14 @@ export async function startApp(
   const scheduler = new PartyScheduler({
     store: parties,
     history: partyHistory,
+    // The history's new records into the activity heatmap, with a line when there were any.
+    activity: {
+      addNew: async (options) => {
+        const records = await activity.addNew(options);
+        if (records > 0)
+          log.info({ records }, 'added records of the history to the activity heatmap');
+      },
+    },
     // The expiry of meetup safety and, with it, the sweep of the reports (plan 8S-2).
     requests: {
       expire: async () => {

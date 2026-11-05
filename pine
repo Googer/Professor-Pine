@@ -195,6 +195,9 @@ Usage: ./pine <command>
                      import the legacy bot's parties folder into the party history (reads the
                      folder only; once per instance, and safe to run again); --server names the
                      server of parties whose region is gone
+  rebuild-activity [--server <server id>]
+                     rebuild the activity heatmap from the party history (writes only the
+                     heatmap's counts; safe to run again, also while the bot runs)
   seed-stops <file> --server <server id> [--apply]
                      add the stops of Pine's own (sponsored stops) of a CSV file
                      (id,name,lat,lon,region,basis) to a server: a dry run without --apply;
@@ -512,6 +515,21 @@ cmd_import_history() {
   run run --rm --no-deps -v "$folder:/legacy-history:ro" pine \
     node --enable-source-maps dist/ops/history-import-cli.js /legacy-history \
     ${server:+--server "$server"}
+}
+
+cmd_rebuild_activity() {
+  need_stack
+  case $# in
+    0) ;;
+    2) [ "$1" = --server ] || fail "Usage: ./pine rebuild-activity [--server <server id>]" ;;
+    *) fail "Usage: ./pine rebuild-activity [--server <server id>]" ;;
+  esac
+  build_image
+  start_database
+  say "Bringing the database up to date first (the bot does not start, Discord is not contacted)."
+  run run --rm --no-deps pine node --enable-source-maps dist/db/migrate-cli.js
+  say "Rebuilding the activity heatmap from the party history (a large history takes a minute or two)."
+  run run --rm --no-deps pine node --enable-source-maps dist/ops/activity-rebuild-cli.js "$@"
 }
 
 cmd_seed_stops() {

@@ -1015,6 +1015,46 @@ describe('PartyScheduler: running', () => {
     await scheduler.whenIdle();
     expect(swept).toBe(1);
   });
+
+  it('adds the new records of the history to the activity heatmap after the history’s sweep (plan 8H-4)', async () => {
+    const made = await reportedRaid();
+    const order: string[] = [];
+    let stopped: (() => boolean) | undefined;
+    const { PartyScheduler } = await import('./party-scheduler.js');
+    const scheduler = new PartyScheduler({
+      store: made.store,
+      posts: made.service,
+      attendance: made.attendance,
+      history: {
+        sweep: () => {
+          order.push('history');
+          return Promise.resolve();
+        },
+      },
+      activity: {
+        addNew: (options) => {
+          order.push('activity');
+          stopped = options.isStopped;
+          return Promise.resolve(0);
+        },
+      },
+      lines: made.lines,
+      gateway: made.gateway,
+      raidBosses: { autoset: () => undefined },
+      settings: made.settings,
+      log: made.log,
+      now: () => made.clock.now,
+      upkeepMs: 0,
+    });
+    await scheduler.tick();
+    await scheduler.whenIdle();
+    // The sweep's records first, so that the heatmap has them within the same upkeep.
+    expect(order).toEqual(['history', 'activity']);
+    // Told of the clock's stop, as the sweep is: a first start over a large history ends there.
+    expect(stopped?.()).toBe(false);
+    await scheduler.stop();
+    expect(stopped?.()).toBe(true);
+  });
 });
 
 /** A second raid that has ended and whose post a late message opened again; gives the post. */
