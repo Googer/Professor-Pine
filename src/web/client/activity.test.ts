@@ -311,12 +311,20 @@ describe("the activity's counts in the map's popups and clusters (plan 8H-4H)", 
   });
 
   it("sums a cluster's gyms that the glow draws, and says nothing for a quiet cluster", () => {
-    expect(counts.area(['7', '9', '8'])).toBe('≈ 142 parties in this area');
-    expect(counts.area(['7'])).toBe('≈ 12 parties in this area');
+    expect(counts.area(['7', '9', '8'])?.shown).toBe('≈ 142 parties in this area');
+    expect(counts.area(['7'])?.shown).toBe('≈ 12 parties in this area');
     expect(counts.area(['8', '10'])).toBeUndefined();
     expect(counts.area([])).toBeUndefined();
-    expect(new ActivityCounts(view({ places: [at('gym', '1', 1_204)] })).area(['1'])).toBe(
+    expect(new ActivityCounts(view({ places: [at('gym', '1', 1_204)] })).area(['1'])?.shown).toBe(
       '≈ 1,204 parties in this area',
     );
+  });
+
+  // Review 8H4H-7: a screen reader hears words, not the symbols.
+  it("says a cluster's sum in words for a screen reader, its symbol only where it is seen", () => {
+    expect(counts.area(['7', '9', '8'])).toEqual({
+      shown: '≈ 142 parties in this area',
+      spoken: 'about 142 parties in this area',
+    });
   });
 });

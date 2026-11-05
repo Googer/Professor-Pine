@@ -130,13 +130,27 @@ export class ActivityCounts {
 
   /**
    * A gym cluster's parties, its gyms' summed (by their ids in decimal): "≈ 140 parties in this
-   * area", about as many since its quiet gyms are not counted; none where none is drawn.
+   * area" seen, "about 140 parties in this area" spoken (review 8H4H-7), about as many since its
+   * quiet gyms are not counted; none where none is drawn.
    */
-  area(gymIds: readonly string[]): string | undefined {
+  area(gymIds: readonly string[]): AreaWords | undefined {
     let sum = 0;
     for (const id of gymIds) sum += this.places.get(`gym:${id}`)?.parties ?? 0;
-    return sum === 0 ? undefined : `≈ ${parties(sum)} in this area`;
+    if (sum === 0) return undefined;
+    return {
+      shown: `≈ ${parties(sum)} in this area`,
+      spoken: `about ${parties(sum)} in this area`,
+    };
   }
+}
+
+/**
+ * What a gym cluster says of its area (review 8H4H-7): `shown` in its tooltip, with the symbol
+ * "≈"; `spoken` in words, for its `aria-label`.
+ */
+export interface AreaWords {
+  shown: string;
+  spoken: string;
 }
 
 /** The panel's line of the parties the map cannot draw; none when it drew them all. */

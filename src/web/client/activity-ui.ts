@@ -8,6 +8,7 @@ import {
   ACTIVITY_MODE_CHOICES,
   activityAddress,
   ActivityCounts,
+  type AreaWords,
   CANVAS_TOLERANCE,
   historyStep,
   leftOutWords,
@@ -71,8 +72,11 @@ export interface ActivityShown {
    * drawn while its popup is open.
    */
   line(kind: ActivityPlaceView['kind'], id: string): HTMLElement;
-  /** A gym cluster's parties ("≈ 140 parties in this area"), by its gyms' ids; none: nothing. */
-  area(gymIds: readonly string[]): string | undefined;
+  /**
+   * A gym cluster's parties ("≈ 140 parties in this area" seen, "about 140 …" spoken), by its
+   * gyms' ids; none: nothing.
+   */
+  area(gymIds: readonly string[]): AreaWords | undefined;
   /** Whether the layer has counts now: an answer drawn, the layer on (review R4). */
   active(): boolean;
   /** Tells `listener` after each answer drawn, and when the layer is turned off (review R3). */

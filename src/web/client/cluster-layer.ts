@@ -43,9 +43,10 @@ export interface ClusterLook<P extends ClusterPlace> {
   /**
    * What a cluster's words add after its title, read at each hover (`hoverName`) and as it is
    * drawn (plan 8H-4H: the gyms' parties while the Activity layer is on); its title alone while
-   * it gives none, and without it.
+   * it gives none, and without it: `shown` on hover, after "·"; `spoken` in its `aria-label`,
+   * after a comma (review 8H4H-7: words, not symbols, for a screen reader).
    */
-  hover?: (points: readonly P[]) => string | undefined;
+  hover?: (points: readonly P[]) => { shown: string; spoken: string } | undefined;
 }
 
 /** A cluster as drawn: its marker, its count's text, and its places. */
@@ -144,21 +145,22 @@ export class ClusterLayer<P extends ClusterPlace> {
 
   /**
    * A cluster's words (review P6 of 8H-4H): its title and what `look.hover` adds, "6 gyms · ≈ 140
-   * parties in this area", shown on hover and set as its element's `aria-label` (no `title`, whose
-   * tooltip the browser would show beside the page's own), touched only when they changed.
+   * parties in this area" shown on hover (returned), and "6 gyms, about 140 parties in this area"
+   * set as its element's `aria-label` (review 8H4H-7; no `title`, whose tooltip the browser would
+   * show beside the page's own), touched only when they changed.
    */
   private name(bubble: Bubble<P>): string {
     const more = this.look.hover?.(bubble.points);
     const title = this.look.title(bubble.points.length);
-    const words = more === undefined ? title : `${title} · ${more}`;
-    if (bubble.named !== words) {
+    const label = more === undefined ? title : `${title}, ${more.spoken}`;
+    if (bubble.named !== label) {
       const element = bubble.marker.getElement();
       if (element) {
-        element.setAttribute('aria-label', words);
-        bubble.named = words;
+        element.setAttribute('aria-label', label);
+        bubble.named = label;
       }
     }
-    return words;
+    return more === undefined ? title : `${title} · ${more.shown}`;
   }
 
   private ring(bubble: Bubble<P>): void {

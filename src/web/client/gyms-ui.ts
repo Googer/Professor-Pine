@@ -1,4 +1,5 @@
 import * as L from 'leaflet';
+import type { AreaWords } from './activity.js';
 import { inCellsOf } from './cluster.js';
 import { ClusterLayer } from './cluster-layer.js';
 import { shownGyms } from './gym-dots.js';
@@ -61,7 +62,7 @@ export interface GymDotsDeps {
    * What a mouse over a cluster shows of its gyms (plan 8H-4H: their parties while the Activity
    * layer is on, `ActivityCounts.area`); none: nothing. Its badge counts gyms whatever it says.
    */
-  area?: (gyms: readonly MapGym[]) => string | undefined;
+  area?: (gyms: readonly MapGym[]) => AreaWords | undefined;
   /** Whether the Activity layer has counts now: nothing is worked out without (review R4). */
   counting?: () => boolean;
 }

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { showGymDots, type GymDotsDeps } from './gyms-ui.js';
+import type { AreaWords } from './activity.js';
 import type { MapGym } from './popup.js';
 
 /**
@@ -183,7 +184,7 @@ function shown(
     on?: boolean;
     thins?: () => boolean;
     typed?: string;
-    area?: (gyms: readonly MapGym[]) => string | undefined;
+    area?: (gyms: readonly MapGym[]) => AreaWords | undefined;
     /** Whether the Activity layer has counts now (review R4); always without it. */
     counting?: () => boolean;
   } = {},
@@ -348,9 +349,15 @@ describe("the gyms' clusters (plan 8M-11B, S13)", () => {
   });
 });
 
+/** An area's parties as `ActivityCounts.area` words them: a symbol seen, words spoken. */
+const sum = (parties: number): AreaWords => ({
+  shown: `≈ ${String(parties)} parties in this area`,
+  spoken: `about ${String(parties)} parties in this area`,
+});
+
 describe("a gym cluster's activity on hover (plan 8H-4H)", () => {
   /** What a mouse over a cluster shows, and the cluster of the six gyms. */
-  const hovered = (area: (gyms: readonly MapGym[]) => string | undefined) => {
+  const hovered = (area: (gyms: readonly MapGym[]) => AreaWords | undefined) => {
     const made = shown(12, { area });
     const cluster = [...made.group.layers].find((layer) => labelOf(layer) === '6');
     if (!cluster) throw new Error('no cluster of the six gyms');
@@ -365,7 +372,7 @@ describe("a gym cluster's activity on hover (plan 8H-4H)", () => {
     const asked: number[][] = [];
     const { cluster, fire } = hovered((gyms) => {
       asked.push(gyms.map((gym) => gym.id));
-      return `≈ ${String(gyms.length * 10)} parties in this area`;
+      return sum(gyms.length * 10);
     });
     fire('mouseover');
     expect(open()).toEqual(['6 gyms · ≈ 60 parties in this area']);
@@ -382,7 +389,7 @@ describe("a gym cluster's activity on hover (plan 8H-4H)", () => {
     const asked: number[][] = [];
     const { cluster, fire, dots, hidden } = hovered((gyms) => {
       asked.push(gyms.map((gym) => gym.id));
-      return `≈ ${String(gyms.length * 10)} parties in this area`;
+      return sum(gyms.length * 10);
     });
     hidden.add(6);
     hidden.add(7);
@@ -403,27 +410,26 @@ describe("a gym cluster's activity on hover (plan 8H-4H)", () => {
     expect(open()).toEqual(['6 gyms']);
   });
 
-  // Review P6: a screen reader hears the same, and the browser shows no tooltip of its own.
+  // Review P6: a screen reader hears the same, and the browser shows no tooltip of its own; in
+  // words, not "·" and "≈" (review 8H4H-7).
   it('names it by an aria-label, no title, its parties in it while the layer has them', () => {
-    const { cluster, dots, hidden } = hovered(
-      (gyms) => `≈ ${String(gyms.length * 10)} parties in this area`,
-    );
+    const { cluster, dots, hidden } = hovered((gyms) => sum(gyms.length * 10));
     expect(cluster.options.title).toBeUndefined();
-    expect(cluster.attributes['aria-label']).toBe('6 gyms · ≈ 60 parties in this area');
+    expect(cluster.attributes['aria-label']).toBe('6 gyms, about 60 parties in this area');
     hidden.add(6);
     dots.refresh();
-    expect(cluster.attributes['aria-label']).toBe('5 gyms · ≈ 60 parties in this area');
+    expect(cluster.attributes['aria-label']).toBe('5 gyms, about 60 parties in this area');
   });
 
   // Review R3: a new answer of the Activity layer, or the layer turned off, reaches the labels.
   it('names its clusters anew when told, as the Activity sums change', () => {
     const sums = { now: 60 as number | undefined };
     const { cluster, dots } = hovered((_gyms) =>
-      sums.now === undefined ? undefined : `≈ ${String(sums.now)} parties in this area`,
+      sums.now === undefined ? undefined : sum(sums.now),
     );
     sums.now = 90;
     dots.names();
-    expect(cluster.attributes['aria-label']).toBe('6 gyms · ≈ 90 parties in this area');
+    expect(cluster.attributes['aria-label']).toBe('6 gyms, about 90 parties in this area');
     sums.now = undefined;
     dots.names();
     expect(cluster.attributes['aria-label']).toBe('6 gyms');
