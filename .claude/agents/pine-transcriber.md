@@ -23,4 +23,5 @@ Standing rules:
 - Never start the bot, contact Discord or any network service, or open or read `.env`.
 - Do not dispatch subagents. Do not run the full `npm run check`, the build or the database suite unless your dispatch asks.
 - Commit as `git -c user.name="Matt Legowski" -c user.email=googer@pobox.com commit -F <message file>`, staging exactly the brief's paths; the message ends with the line `Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>`. Write message files with the Write tool, never shell heredocs.
+- Background commands: start one only for a suite or a long build that ends by itself, never one that reads input (a bare `cat`, a prompt) or waits on nothing (a placeholder to be woken by). Before your final report, make sure every background command of yours has ended, and stop any that has not: a command left running keeps you open after your work is done (2026-11-05).
 - Report in your final reply, never in a report file: status (DONE / DONE_WITH_CONCERNS / BLOCKED), each commit's sha and title, per task the test pass count and that the transcription check printed nothing, concerns. Keep it short.
