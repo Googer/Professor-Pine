@@ -71,5 +71,5 @@ On the Air's dev stack after `./pine update`, with production's history in the d
 2. **Pinch on a phone, and Find's `flyTo`:** the glow follows without freezing or jumping.
 3. **Popups:** a gym's popup has the "Activity:" line; a Power Spot's too at street zoom. A raid's popup has none.
 4. **Clusters:** on desktop, the hover shows "N gyms · ≈ M parties in this area", with no second native tooltip.
-5. **Gyms off, at street zoom:** tapping the glow opens a circle's count. Then pick a meetup's place and the Report button's step 2: the pick lands and no count opens.
+5. **Gyms off, at street zoom:** tapping the glow opens a circle's count; a double-click (a double tap on the phone) on the glow zooms in and leaves no count open (review 8H4H-6). Then pick a meetup's place and the Report button's step 2: the pick lands and no count opens.
 6. **Both themes, and phone width.**

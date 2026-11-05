@@ -45,6 +45,9 @@ function drawn() {
       refresh: () => {
         if (circle.open) circle.refreshed.push(words());
       },
+      close: () => {
+        circle.open = false;
+      },
       remove: () => {
         circle.removed = true;
       },
@@ -197,6 +200,35 @@ describe("the activity's invisible circles", () => {
     tapped.show({ ...at('1', 9, 1), lat: 40.45, lon: -79.94 });
     expect(circle.at).toEqual([40.45, -79.94]);
     expect(circle.radius).toBe(tapRadius(1));
+  });
+
+  // Review 8H4H-6: a double-click on the glow zooms the map; the count its first click opened goes.
+  it("closes every circle's popup when asked, keeping the circles", () => {
+    const { circles, made, standing } = drawn();
+    circles.show([at('1', 4), at('2', 9)], words);
+    for (const circle of made) circle.open = true;
+    circles.close();
+    expect(made.map((circle) => circle.open)).toEqual([false, false]);
+    expect(standing()).toEqual(['1', '2']);
+    const leaflet = {
+      closed: 0,
+      bindPopup: () => leaflet,
+      setRadius: () => leaflet,
+      setLatLng: () => leaflet,
+      getPopup: () => undefined,
+      closePopup() {
+        leaflet.closed += 1;
+        return leaflet;
+      },
+    };
+    tapCircle(
+      leaflet,
+      at('1', 4),
+      () => '4 parties',
+      () => ({}) as HTMLElement,
+      () => undefined,
+    ).close();
+    expect(leaflet.closed).toBe(1);
   });
 
   it('tells a gym from a Power Spot of the same id', () => {

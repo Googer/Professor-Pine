@@ -15,6 +15,8 @@ export interface TapCircle {
   show(place: ActivityPlaceView): void;
   /** Its words changed: its popup, where open, drawn anew. */
   refresh(): void;
+  /** Its popup closed, where open (review 8H4H-6: a double-click zooms the map). */
+  close(): void;
   remove(): void;
 }
 
@@ -24,6 +26,7 @@ export interface PopupCircle {
   setRadius(radius: number): unknown;
   setLatLng(at: [number, number]): unknown;
   getPopup(): { update(): unknown } | undefined;
+  closePopup(): unknown;
 }
 
 /**
@@ -48,6 +51,9 @@ export function tapCircle(
     refresh: () => {
       // Its bound content read again (review R2): a content set here would stay as it was.
       circle.getPopup()?.update();
+    },
+    close: () => {
+      circle.closePopup();
     },
     remove,
   };
@@ -83,6 +89,14 @@ export class ActivityCircles {
       const circle = this.make(place, () => entry.words);
       this.drawn.set(key, Object.assign(entry, { circle }));
     }
+  }
+
+  /**
+   * Every circle's popup closed, the circles kept (review 8H4H-6): a double-click on the glow
+   * zooms the map, and its first click's count goes with it.
+   */
+  close(): void {
+    for (const { circle } of this.drawn.values()) circle.close();
   }
 
   /** Every circle taken off. */

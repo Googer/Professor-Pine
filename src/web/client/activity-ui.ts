@@ -451,6 +451,11 @@ export function showActivity(
   map.on('moveend', inView);
   // The circles follow the view and the zoom: kept where still wanted, from street zoom only.
   map.on('moveend', drawCircles);
+  // A double-click on the glow zooms the map (the circle's dblclick bubbles to it, Leaflet's
+  // `DoubleClickZoom`), and closes the count its first click opened (review 8H4H-6).
+  map.on('dblclick', () => {
+    circles.close();
+  });
   // The page turned light or dark: the glow takes the new gradient.
   onThemeChange((changed) => {
     heat.setStops(changed.heat);
