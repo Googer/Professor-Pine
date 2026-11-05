@@ -24,6 +24,14 @@ import type { MemberNames } from './member-names.js';
 
 /** As many members a board asks names of at most, its viewer aside (B4: about fifty). */
 export const BOARD_NAME_ASKS = 50;
+/** A board that could not be shown for want of its members' names (W5). */
+export class NamesUnavailable extends Error {
+  constructor(cause: unknown) {
+    super('Could not name the members of a board', { cause });
+    this.name = 'NamesUnavailable';
+  }
+}
+
 /** How long a board's read of a server and period is used for (W2). */
 export const BOARD_READ_FRESH_MS = 60_000;
 /** As many reads as are kept at once; the oldest goes first. */
@@ -195,10 +203,17 @@ export class Boards {
       ),
     ];
     const given = new Map(viewer?.name === undefined ? [] : [[viewer.id, viewer.name] as const]);
-    const names =
-      ids.length === 0
-        ? new Map<string, string>()
-        : await this.options.names.names(serverId, ids, given);
+    let names: Map<string, string>;
+    try {
+      names =
+        ids.length === 0
+          ? new Map<string, string>()
+          : await this.options.names.names(serverId, ids, given);
+    } catch (err) {
+      // Discord could not say, or the names had their share of its minute (W1): the board
+      // cannot be shown, and the caller says so (W5).
+      throw new NamesUnavailable(err);
+    }
     const shownPeople = new Map(
       placed.map((one) => [one.board, peopleBoard(one, period, names, onBoards, viewer)]),
     );

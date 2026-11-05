@@ -53,6 +53,7 @@ import { tallyMessage, type TallyView } from '../../render/region-tally.js';
 import { memberByName } from '../../render/text.js';
 import { actionRow, container, LIST_COLOUR, textDisplay } from '../../render/v2.js';
 import type { ShownTally } from '../../services/region-tallies.js';
+import { NamesUnavailable, type ShownBoard } from '../../services/boards.js';
 
 /**
  * The controls of `/stats`' answers: `stats:regions:show:<period>:<note|none>` switches the
@@ -313,6 +314,25 @@ const regionsPart: SubcommandPart = {
   },
 };
 
+/** What a board says where Discord cannot name its members just now (W5). */
+export const BOARDS_UNNAMED =
+  'Discord is not giving me the names of members just now, so I cannot show the board. ' +
+  'Try again in a moment.';
+
+/**
+ * A board, or the refusal in words where its members could not be named (W5: Discord away, or
+ * the names' share of its minute spent, W1), the use given back.
+ */
+async function namedBoard(ctx: AppContext, shown: Promise<ShownBoard>): Promise<ShownBoard> {
+  try {
+    return await shown;
+  } catch (err) {
+    if (!(err instanceof NamesUnavailable)) throw err;
+    ctx.log.warn({ err }, 'could not name the members of a board');
+    throw new UserError(BOARDS_UNNAMED, { givesBack: true });
+  }
+}
+
 /** A button of a board's controls: `stats:boards:<action>:<board>:<period>`. */
 function boardButton(
   action: string,
@@ -344,10 +364,13 @@ async function privateBoard(
 ): Promise<V2Message> {
   // The most wanted goes by the latest day of want counts: no period to choose.
   const period = board === 'wanted' ? 'month' : asked;
-  const view = await ctx.boards.board(guildIdOf(interaction), board, period, Date.now(), {
-    id: interaction.user.id,
-    name: memberInfo(interaction).name ?? interaction.user.username,
-  });
+  const view = await namedBoard(
+    ctx,
+    ctx.boards.board(guildIdOf(interaction), board, period, Date.now(), {
+      id: interaction.user.id,
+      name: memberInfo(interaction).name ?? interaction.user.username,
+    }),
+  );
   const place =
     view.kind === 'people' && view.viewer !== undefined
       ? [textDisplay(`-# ${viewerText(board, view.viewer)}`)]
@@ -379,9 +402,10 @@ function shareBoard(
     BOARD_SHARE,
     (channelId) => ctx.boards.mayShare(channelId),
     async (_channelId, sharedBy) =>
-      boardMessage(await ctx.boards.board(guildIdOf(interaction), board, period, Date.now()), [
-        sharedBy,
-      ]),
+      boardMessage(
+        await namedBoard(ctx, ctx.boards.board(guildIdOf(interaction), board, period, Date.now())),
+        [sharedBy],
+      ),
     (channelId, message) => ctx.boards.post(channelId, message),
   );
 }

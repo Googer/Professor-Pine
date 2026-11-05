@@ -16,7 +16,7 @@ import { createTestContext } from '../../../test/support/test-context.js';
 import { zonedAt } from '../../../test/support/time.js';
 import type { HistoryRecord } from '../../domain/history/party-history.js';
 import { InteractionRouter, STALE_COMPONENT } from '../../discord/router.js';
-import { BOARD_SHARE_REFUSED, stats, statsControls } from './stats.js';
+import { BOARD_SHARE_REFUSED, BOARDS_UNNAMED, stats, statsControls } from './stats.js';
 
 const ASH = '700000000000000001';
 const MISTY = '700000000000000002';
@@ -233,6 +233,23 @@ describe('/stats boards', () => {
     expect(textDisplays(message)[0]).toMatch(
       /^### Raids reported that others completed, all time\n1\. Brock: 6 raids/u,
     );
+  });
+
+  it('says so in words of its own where Discord cannot name the members, for the command, a press and Share (W5)', async () => {
+    const made = await setup();
+    const named = vi.spyOn(made.members, 'named').mockRejectedValue(new Error('Discord is away'));
+    const asked = await made.ask();
+    expect(answered(asked).content).toBe(BOARDS_UNNAMED);
+    const pressed = await made.press('stats:boards:show:raids:all');
+    expect(sent(pressed.reply).content).toBe(BOARDS_UNNAMED);
+    const shared = await made.press('stats:boards:share:raids:year');
+    expect(sent(shared.followUp).content).toBe(BOARDS_UNNAMED);
+    expect(made.gateway.messagesIn(WEST_CHANNEL)).toEqual([]);
+    expect(BOARDS_UNNAMED).toBe(
+      'Discord is not giving me the names of members just now, so I cannot show the board. ' +
+        'Try again in a moment.',
+    );
+    named.mockRestore();
   });
 
   it('refuses a control of a board it does not know as no longer active', async () => {
