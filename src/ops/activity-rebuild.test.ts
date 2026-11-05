@@ -32,8 +32,8 @@ describe('npm run activity:rebuild', () => {
     expect(made.asked).toEqual([undefined]);
     expect(said).toEqual([
       'Rebuilding the activity heatmap from the party history (the bot may keep running).',
-      `Server ${WEST}: 253,118 records of the party history counted, up to record 301544.`,
-      `Server ${EAST}: 1 record of the party history counted, up to record 301540.`,
+      `Server ${WEST}: 253,118 records of the party history read, up to record 301544.`,
+      `Server ${EAST}: 1 record of the party history read, up to record 301540.`,
       'Rebuilt the activity of 2 servers.',
     ]);
   });
@@ -49,7 +49,7 @@ describe('npm run activity:rebuild', () => {
     ).toBe(0);
     expect(made.asked).toEqual([WEST]);
     expect(said.slice(1)).toEqual([
-      `Server ${WEST}: 1 record of the party history counted, up to record 7.`,
+      `Server ${WEST}: 1 record of the party history read, up to record 7.`,
       'Rebuilt the activity of 1 server.',
     ]);
   });

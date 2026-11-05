@@ -35,7 +35,7 @@ export async function rebuildStep(args: readonly string[], deps: RebuildStepDeps
       say(
         one.records === 0
           ? `Server ${one.serverId}: no records of the party history.`
-          : `Server ${one.serverId}: ${counted(one.records, 'record', 'records')} of the party history counted, up to record ${String(one.lastHistoryId)}.`,
+          : `Server ${one.serverId}: ${counted(one.records, 'record', 'records')} of the party history read, up to record ${String(one.lastHistoryId)}.`,
       );
     }
     say(`Rebuilt the activity of ${counted(done.length, 'server', 'servers')}.`);
