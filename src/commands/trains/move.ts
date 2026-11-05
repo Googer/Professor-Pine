@@ -83,30 +83,31 @@ async function moveByCommand(
 
 /**
  * One of the four commands that move a train. `details` says what the move is; `here` says what
- * becomes of who was here, where that is not the rule of the others. The help names the post's
- * button that does the same (plan 8X-G: Move…, and Manage… for Finish).
+ * becomes of who was here and what the others are told, where that is not the rule of the
+ * others. The help names the post's button that does the same (plan 8X-G: Move…, and Manage…
+ * for Finish).
  */
 function moveCommand(
   name: string,
   move: TrainMove,
   description: string,
   details: string,
-  here = 'Everybody who was here is coming again (not once the route is finished: there is ' +
-    'nowhere to come to)',
+  here = 'Everybody who was here is coming again (unless this finishes the route: then they ' +
+    'stay here), and the others are told where the train is going',
 ): SimpleCommand {
   const button =
     move === 'finish'
       ? 'The same as "Finish it here" in the dialog of the button "Manage…" on the post, which ' +
-        'also reverses the route, sets what the train does at its end and what it is mainly for.'
-      : 'The same as the button "Move…" on the post; its button "Manage…" also reverses the ' +
+        'also reverses the route and sets what the train does at its end and what it is ' +
+        'mainly for.'
+      : 'The same as the button "Move…" on the post; the button "Manage…" also reverses the ' +
         'route, finishes it and sets what the train does at its end.';
   return {
     data: new SlashCommandBuilder().setName(name).setDescription(description),
     help: {
       category: 'train',
       details:
-        `${details}\n\n${here}, and the others are told where ` +
-        'the train is going, with a ping for those who allow it.\n\nWhile the train has a ' +
+        `${details}\n\n${here}, with a ping for those who allow it.\n\nWhile the train has a ` +
         'conductor, only they and the moderators can move it; otherwise anybody who is signed ' +
         `up can.\n\n${button} Use it in the post of the train.`,
       examples: [`/${name}`],
@@ -123,7 +124,7 @@ export const next = moveCommand(
   'Move this train to its next stop',
   'Takes the train to the next stop of its route. From the last stop it finishes the route, ' +
     'or, as the train is set (`/train at-end`, or Manage… on the post), goes round to the ' +
-    'first stop (loop) or turns back and runs the route backwards (turn back).',
+    'first stop or turns back and runs the route backwards.',
 );
 
 export const previous = moveCommand(
@@ -133,7 +134,8 @@ export const previous = moveCommand(
   'Takes the train one stop back; a train that loops goes from its first stop to its last. ' +
     'From the end of its route it goes back to the stop it was at when the route was ' +
     'finished, which takes a mistaken `/finish` back.',
-  'Who was here stays here when a `/finish` is taken back and is coming again otherwise',
+  'Who was here is coming again, or stays here when a `/finish` is taken back, and the ' +
+    'others are told where the train is going',
 );
 
 export const skip = moveCommand(
@@ -151,6 +153,8 @@ export const finish = moveCommand(
   'Marks the route as finished, whatever the train does at the end of it otherwise. The ' +
     'train itself goes on until its end time: finishing the route does not close its post. ' +
     '`/previous` takes a mistaken finish back.',
+  'Who was here stays here (there is no next stop to come to), and the others are told that ' +
+    'the route is finished',
 );
 
 /** The train of a press, for who may move it (also staff), refused privately otherwise. */

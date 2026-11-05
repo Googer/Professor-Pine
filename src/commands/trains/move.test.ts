@@ -109,6 +109,17 @@ describe('/next, /previous, /skip and /finish', () => {
     expect(textOf(message)).toMatch(/\*\*Where · stop \d+ of \d+\*\*\n\*\*The Stacks\*\* · /);
   });
 
+  it('/finish leaves who was here here, as its help says', async () => {
+    const made = await setup();
+    await made.attendance.signUp(made.party.id, { id: BOB }, PartyStatus.Present);
+    await made.run('finish');
+    expect(attendeeOf(made.current(), BOB)?.status).toBe(PartyStatus.Present);
+    const details = finish.help.details;
+    const text = typeof details === 'function' ? details(made.ctx.config.settings) : details;
+    expect(text).toContain('Who was here stays here');
+    expect(text).not.toContain('is coming again');
+  });
+
   it('each says where the train is afterwards', async () => {
     const made = await setup();
     expect(await made.answer('skip')).toBe(

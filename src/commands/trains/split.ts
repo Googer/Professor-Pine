@@ -230,14 +230,14 @@ export const splitGroupPart: SubcommandPart = {
   help: {
     details:
       'Makes a group of this train a train of its own, for those who want to go at their own ' +
-      'pace: the same route, at the same stop, with the same end mode, boss and start, and the ' +
-      "group's members moved there. Both posts link the other, and the members who moved are " +
-      'pinged in the new one.\n\nYou are asked first, in a dialog. A member of the group may split ' +
-      'it off, unless the conductor is in it; the conductor and the moderators may split any ' +
-      'group.\n\nA split makes a train, so it counts in the limit of `/train`, two in a quarter ' +
-      'of an hour, for moderators too; and the new train is one of your open trains and meetups, ' +
-      `of which you may have ${MAX_OPEN_PARTIES}.\n\nThe same as the button "Split…" on the ` +
-      'post. Only in the post of a train.',
+      'pace: the same route and stop, doing the same at its end, with the same boss and start, ' +
+      "and the group's members moved there. Both posts link the other, and the " +
+      'members who moved are pinged in the new one.\n\nA dialog asks first. A member of the ' +
+      'group may split it off, unless the conductor is in it; the conductor and the moderators ' +
+      'may split any group.\n\nA split makes a train, so it counts toward the limit of ' +
+      '`/train` (two in a quarter of an hour, for moderators too), and the new train is one ' +
+      `of your open trains and meetups, of which you may have ${MAX_OPEN_PARTIES}.\n\nThe ` +
+      'same as the button "Split…" on the post. Only in the post of a train.',
     examples: ['/group split letter:B'],
   },
   throttle: ACTION_THROTTLE,

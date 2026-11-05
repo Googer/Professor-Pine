@@ -99,23 +99,24 @@ export const train: SimpleCommand = {
   help: {
     category: 'train',
     details:
-      'For a group that goes from gym to gym, or Power Spot to Power Spot.\n\nUse it in the channel ' +
-      'of a region; the train gets a post in the forum of that region. You are signed up for it ' +
-      'as `/settings auto-status` says (interested unless you changed it; coming for Here), and ' +
-      'the post names you unless your `/settings privacy` is Anonymous.\n\nIn the post, `/route ' +
-      'add` adds the gyms and Power Spots it visits (also of other regions), `/meet` sets when ' +
-      'it starts and `/end` when it ends, `/boss` says which Pokémon it is after, and ' +
-      '`/conductor set` makes you the one who moves it.\n\nMembers sign up with the buttons, as ' +
-      'for a raid, and the button "Move…" or `/next` takes it to its next stop.\n\n`at-end` ' +
-      'says what the train does at the last stop: it finishes the route (the default), loops ' +
-      'back to the first stop, or turns back and runs the route backwards; the button "Manage…" ' +
-      `changes that later, and reverses or finishes the route.\n\n\`kind\` says what the train is mainly for: raids (a ` +
+      'Makes a train: a group that goes from gym to gym, or Power Spot to Power Spot, with a ' +
+      'post of its own in the forum of this region. Use it in the channel of a region.\n\nYou ' +
+      'are signed up as `/settings auto-status` says: interested unless you changed it, and ' +
+      'coming where it says here, since the train is at no stop yet. The post names you unless ' +
+      'your `/settings privacy` is Anonymous.\n\nIn the post, `/route add` adds the gyms and ' +
+      'Power Spots it visits (also in other regions), `/meet` sets when it starts and `/end` ' +
+      'when it ends, `/boss` names the Pokémon it is after, and `/conductor set` makes you the ' +
+      'one who moves it.\n\nMembers sign up with the buttons, as for a raid; the button ' +
+      '"Move…" or `/next` takes the train to its next stop.\n\n`at-end` is what the train does ' +
+      'at the last stop: finish the route (the default), loop back to the first stop, or turn ' +
+      'back and run the route backwards. The button "Manage…" changes that later, and can also ' +
+      `reverse or finish the route.\n\n\`kind\` is what the train is mainly for: raids (a ` +
       `${TRAIN_KIND_WORDS.raid}, the default), Dynamax battles (a ${TRAIN_KIND_WORDS.dynamax}: ` +
       `lobbies form on the spot) or Gigantamax battles (a ${TRAIN_KIND_WORDS.gigantamax}: Join ` +
-      'fills its groups up to a Gigantamax lobby); "Manage…" changes that later too, ' +
-      'also before the train has a stop.\n\n`start` says when it starts, as `/meet` takes it, so ' +
-      'that a train planned days ahead says so from the first; its route can wait until the ' +
-      'day.\n\nA train is archived an hour after it is over: after its end, or without one a day ' +
+      'fills its groups up to a Gigantamax lobby). "Manage…" changes that later too, even ' +
+      'before the train has a stop.\n\n`start` is when it starts, written as for `/meet`, so ' +
+      'that a train planned days ahead shows its day from the first; the route can wait until ' +
+      'then.\n\nA train is archived an hour after it is over: after its end, or without one a day ' +
       'after its start. One without any time goes a day after it was made; its post says when.' +
       `\n\nYou may have ${MAX_OPEN_PARTIES} open trains and meetups at a time, here and on the map.`,
     examples: [

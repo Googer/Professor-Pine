@@ -400,17 +400,16 @@ const add: SubcommandPart = {
     ),
   help: {
     details:
-      'You must be signed up (moderators need not be). The stop is a gym or a Power Spot (where ' +
-      'max battles are), and may lie in another region of this server: the list says what each ' +
-      `is and where.\n\nA ${TRAIN_KIND_WORDS.dynamax} or ${TRAIN_KIND_WORDS.gigantamax} is offered ` +
-      `Power Spots first, a ${TRAIN_KIND_WORDS.raid} gyms, among places that fit as well. ` +
-      'On a route with a stop the list puts nearby places first: of places that fit alike, the ' +
-      'nearer to the last stop; with nothing typed, the gyms and Power Spots nearest it, with ' +
-      'their distances.\n\n' +
-      'A stop is on a route once, and a route ' +
-      `has at most ${MAX_ROUTE_STOPS} stops. A stop added to a route that was finished makes ` +
-      'the train go on there, which moves the train: with a conductor only they and the ' +
-      'moderators can do that, and the others are told.',
+      'Adds a gym or a Power Spot (where max battles are) to the end of the route; it may lie ' +
+      'in another region of this server. You must be signed up (moderators need not be).\n\n' +
+      `The list that appears while you type puts Power Spots first for a ` +
+      `${TRAIN_KIND_WORDS.dynamax} or ${TRAIN_KIND_WORDS.gigantamax}, gyms first for a ` +
+      `${TRAIN_KIND_WORDS.raid}, and says what each is and where. Once the route has a stop, ` +
+      'places near the last stop come first; with nothing typed, it lists those nearest it, ' +
+      'with their distances.\n\nA stop is on a route once, and a route has at most ' +
+      `${MAX_ROUTE_STOPS} stops. A stop added to a finished route makes the train go on ` +
+      'there, which moves the train: with a conductor only they and the moderators can do ' +
+      'that, and the others are told.',
     examples: ['/route add stop:Big Fountain'],
   },
   throttle: ROUTE_STOP_THROTTLE,
@@ -545,9 +544,10 @@ const remove: SubcommandPart = {
     ),
   help: {
     details:
-      'You must be signed up (moderators need not be). The train stays at the gym it is at; ' +
-      'when that very stop is removed, the one after it is the current one, which moves the ' +
-      'train: with a conductor only they and the moderators can do that, and the others are told.',
+      'Takes a stop off the route, by its number in `/route show`. You must be signed up ' +
+      '(moderators need not be).\n\nThe train stays at the stop it is at. When that very stop ' +
+      'is removed, the train moves on to the one after it: with a conductor only they and the ' +
+      'moderators can do that, and the others are told.',
     examples: ['/route remove stop:3'],
   },
   throttle: ROUTE_STOP_THROTTLE,
@@ -592,8 +592,9 @@ const move: SubcommandPart = {
     ),
   help: {
     details:
-      'You must be signed up (moderators need not be). `to` is the number the stop has ' +
-      'afterwards, so the last number moves it to the end. The train stays at the gym it is at.',
+      'Moves a stop to another place in the route. `to` is the number the stop has afterwards, ' +
+      'so the last number moves it to the end. The train stays at the stop it is at. You must ' +
+      'be signed up (moderators need not be).',
     examples: ['/route move from:5 to:2'],
   },
   throttle: ROUTE_STOP_THROTTLE,
@@ -624,8 +625,9 @@ const clear: SubcommandPart = {
     .setDescription('Remove every stop from the route of this train (conductor, moderators)'),
   help: {
     details:
-      'For the conductor of the train, and for admins, moderators and bot developers. The ' +
-      'train is then at the start again: the first stop that is added is where it is.',
+      'Takes every stop off the route, so the train is at the start again: the first stop ' +
+      'added is where it is. For the conductor of the train, and for admins, moderators and ' +
+      'bot developers.',
     examples: ['/route clear'],
   },
   throttle: CHANGE_THROTTLE,
@@ -753,10 +755,11 @@ const load: SubcommandPart = {
     .addStringOption(routeOption('One of your saved routes of this region: pick from the list')),
   help: {
     details:
-      'The route of the train is replaced, and the train is at its first stop: that moves the ' +
-      'train, so with a conductor only they and the moderators can do it, and otherwise you ' +
-      'must be signed up.\n\nThe train then does at the end what it did when the route was ' +
-      'saved (finish, loop or turn back). Gyms and Power Spots that no longer exist are left out.',
+      'Replaces the route of the train with one you saved, and puts the train at its first ' +
+      'stop. That moves the train, so with a conductor only they and the moderators can do ' +
+      'it; otherwise you must be signed up.\n\nThe train then does at the end what it did when ' +
+      'the route was saved (finish, loop or turn back). Gyms and Power Spots that no longer ' +
+      'exist are left out.',
     examples: ['/route load route:Downtown loop'],
   },
   throttle: CHANGE_THROTTLE,
@@ -815,10 +818,10 @@ export const route = commandGroup({
   help: {
     category: 'train',
     details:
-      'Use it in the post of the train. A stop is a gym or a Power Spot. The current stop ' +
-      'follows its place through every change of the route: the train stays where it is.\n\nA saved route keeps the order of its stops ' +
-      'and what the train does at its end (finish, loop or turn back); loading it sets both. ' +
-      'The route is reversed, or finished, in the dialog of the button "Manage…" on the post.',
+      'Use it in the post of the train. A stop is a gym or a Power Spot. When stops are ' +
+      'added, removed or moved, the train stays at the stop it is at.\n\nA saved route keeps ' +
+      'the order of its stops and what the train does at its end (finish, loop or turn back); ' +
+      'loading it sets both. The button "Manage…" on the post reverses or finishes the route.',
   },
   guards: [requireTrain],
   parts: [show, add, remove, move, clear, save, load, forget],

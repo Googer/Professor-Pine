@@ -713,7 +713,7 @@ describe('/help group split', () => {
     expect(page).toMatch(/^### \/group split/u);
     expect(page).toContain('/group split letter:B');
     expect(page).toContain('"Split…"');
-    expect(page).toContain('You are asked first, in a dialog.');
+    expect(page).toContain('A dialog asks first.');
     expect((await ask('group')).split('\n')).toContain(
       '`/group split <letter>` Split a group off this train into a train of its own',
     );

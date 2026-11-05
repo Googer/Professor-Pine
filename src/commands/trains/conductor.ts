@@ -12,9 +12,9 @@ const setConductor: SubcommandPart = {
     .setDescription('Become the conductor of this train: the one who moves it'),
   help: {
     details:
-      'You must be signed up. While a train has a conductor, only they and the moderators can ' +
-      'move it along its route, so nobody moves it by accident. You can take over from ' +
-      'another conductor (who may have gone offline); the post says so.',
+      'Makes you the conductor. While a train has a conductor, only they and the moderators ' +
+      'can move it along its route, so nobody moves it by accident. You can take over from ' +
+      'another conductor (who may have gone offline); the post says so. You must be signed up.',
     examples: ['/conductor set'],
   },
   throttle: CHANGE_THROTTLE,
@@ -33,8 +33,8 @@ const clearConductor: SubcommandPart = {
   help: {
     details:
       'Leaves the train without a conductor: anybody who is signed up can move it again. For ' +
-      'the conductor themself, and for moderators. A conductor who leaves the train stops ' +
-      'being it by that.',
+      'the conductor themself, and for moderators. A conductor who leaves the train is no ' +
+      'longer its conductor.',
     examples: ['/conductor clear'],
   },
   throttle: CHANGE_THROTTLE,
