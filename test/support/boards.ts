@@ -12,6 +12,7 @@ import {
   type RideCredit,
   type SplitLink,
 } from '../../src/domain/history/boards.js';
+import type { MemberParty, MemberReport } from '../../src/domain/history/member-stats.js';
 import type { HistoryRecord, HistoryStatus } from '../../src/domain/history/party-history.js';
 import type { KeptReport } from './board-cases.js';
 import { MemoryHistoryOptIns } from './history.js';
@@ -240,6 +241,40 @@ export class MemoryBoards implements BoardReader {
       }
       return [...subjects].map(([subjectKey, row]) => ({ subjectKey, ...row }));
     });
+  }
+
+  memberParties(serverId: string, memberId: string): Promise<MemberParty[]> {
+    return this.answer(() =>
+      this.records.flatMap((record) => {
+        if (record.serverId !== serverId) return [];
+        const own = record.attendees.find((one) => one.memberId === memberId);
+        const made = record.createdById === memberId;
+        if (!made && own === undefined) return [];
+        const { boss } = record;
+        return [
+          {
+            partyId: record.partyId ?? record.legacyKey ?? '',
+            splitFromId: record.splitFromId,
+            kind: record.kind,
+            at: record.createdAt,
+            regionId: record.regionId,
+            bossKey: boss !== null && 'key' in boss ? boss.key : null,
+            anonymous: record.anonymous,
+            made,
+            furthest: own?.furthest ?? null,
+            reached: record.reached,
+          },
+        ];
+      }),
+    );
+  }
+
+  memberReports(serverId: string, memberId: string): Promise<MemberReport[]> {
+    return this.answer(() =>
+      this.reports
+        .filter((report) => report.serverId === serverId && report.reporterId === memberId)
+        .map((report) => ({ at: report.endedAt, reach: report.reach })),
+    );
   }
 }
 

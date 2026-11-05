@@ -8,6 +8,8 @@ import {
   type RideCredit,
   type SplitLink,
 } from '../../domain/history/boards.js';
+import type { MemberParty, MemberReport } from '../../domain/history/member-stats.js';
+import type { HistoryKind, HistoryStatus } from '../../domain/history/party-history.js';
 import type { DB } from '../types.js';
 
 /**
@@ -72,6 +74,13 @@ export interface BoardReader {
     serverId: string,
     since: number | null,
   ): Promise<{ subjectKey: string; text: string | null; reports: number }[]>;
+  /**
+   * Every record of the server a member is in, as its maker or an attendee, live and legacy (a
+   * legacy record has an id only once Part H fills it in), for their own stats (`/stats me`).
+   */
+  memberParties(serverId: string, memberId: string): Promise<MemberParty[]>;
+  /** Every record of a member's reports at stops of the server, however it ended. */
+  memberReports(serverId: string, memberId: string): Promise<MemberReport[]>;
 }
 
 const counting = sql.join(COUNTING_ENDINGS.map((ending) => sql.lit(ending)));
@@ -262,5 +271,54 @@ export class BoardRepository implements BoardReader {
       text: row.text,
       reports: Number(row.reports),
     }));
+  }
+
+  async memberParties(serverId: string, memberId: string): Promise<MemberParty[]> {
+    // The records by two indexes, as the opt-out counts them: made by the member, or with an
+    // attendee row of theirs.
+    const rows = await sql<{
+      partyId: string;
+      splitFromId: string | null;
+      kind: HistoryKind;
+      at: string;
+      regionId: number | null;
+      bossKey: string | null;
+      anonymous: number;
+      made: number;
+      furthest: HistoryStatus | null;
+      reached: number;
+    }>`
+      select coalesce(h.partyId, h.legacyKey) as partyId, h.splitFromId, h.kind, h.createdAt as at, h.regionId, h.bossKey, h.anonymous,
+             coalesce(h.createdById = ${memberId}, 0) as made, a.furthest, h.reached
+      from PartyHistory h
+      left join PartyHistoryAttendee a on a.historyId = h.id and a.memberId = ${memberId}
+      where h.id in (select id from PartyHistory
+                     where createdById = ${memberId} and serverId = ${serverId}
+                     union
+                     select x.historyId from PartyHistoryAttendee x
+                     join PartyHistory y on y.id = x.historyId
+                     where x.memberId = ${memberId} and y.serverId = ${serverId})`.execute(this.db);
+    return rows.rows.map((row) => ({
+      partyId: row.partyId,
+      splitFromId: row.splitFromId,
+      kind: row.kind,
+      at: Number(row.at),
+      regionId: row.regionId,
+      bossKey: row.bossKey,
+      anonymous: Number(row.anonymous) === 1,
+      made: Number(row.made) === 1,
+      furthest: row.furthest,
+      reached: Number(row.reached),
+    }));
+  }
+
+  async memberReports(serverId: string, memberId: string): Promise<MemberReport[]> {
+    const rows = await this.db
+      .selectFrom('StopReportHistory')
+      .select(['endedAt', 'reach'])
+      .where('serverId', '=', serverId)
+      .where('reporterId', '=', memberId)
+      .execute();
+    return rows.map((row) => ({ at: Number(row.endedAt), reach: Number(row.reach) }));
   }
 }

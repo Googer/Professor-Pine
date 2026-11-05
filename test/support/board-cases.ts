@@ -387,6 +387,92 @@ export function boardReaderCases(made: () => Promise<BoardWorld>): void {
     );
   });
 
+  it('reads the records a member is in, as maker or attendee, live and legacy alike', async () => {
+    const world = await made();
+    const raid = boardRecord({ reached: 12, regionId: 3, anonymous: true });
+    await world.party(raid);
+    const train = boardRecord({
+      kind: 'train',
+      boss: null,
+      createdAt: BOARD_NOW + HOUR,
+      attendees: [boardAttendee(BROCK, 'here')],
+      reached: 4,
+      splitFromId: '00000000-0000-4000-8000-999999999999',
+    });
+    await world.party(train);
+    await world.party(
+      boardRecord({
+        source: 'legacy',
+        partyId: null,
+        legacyKey: 'x:1',
+        createdById: null,
+        createdAt: 1,
+        attendees: [boardAttendee(ASH, 'joined')],
+      }),
+    );
+    await world.party(boardRecord({ serverId: OTHER_BOARD_SERVER }));
+    await world.party(
+      boardRecord({ createdById: BROCK, attendees: [boardAttendee(BROCK, 'done')] }),
+    );
+    const parties = await world.reader.memberParties(BOARD_SERVER, ASH);
+    expect(parties).toEqual(
+      expect.arrayContaining([
+        {
+          partyId: raid.partyId,
+          splitFromId: null,
+          kind: 'raid',
+          at: BOARD_NOW,
+          regionId: 3,
+          bossKey: 'MEWTWO',
+          anonymous: true,
+          made: true,
+          furthest: 'done',
+          reached: 12,
+        },
+        {
+          partyId: train.partyId,
+          splitFromId: '00000000-0000-4000-8000-999999999999',
+          kind: 'train',
+          at: BOARD_NOW + HOUR,
+          regionId: 1,
+          bossKey: null,
+          anonymous: false,
+          made: true,
+          furthest: null,
+          reached: 4,
+        },
+        {
+          partyId: 'x:1',
+          splitFromId: null,
+          kind: 'raid',
+          at: 1,
+          regionId: 1,
+          bossKey: 'MEWTWO',
+          anonymous: false,
+          made: false,
+          furthest: 'joined',
+          reached: 0,
+        },
+      ]),
+    );
+    expect(parties).toHaveLength(3);
+  });
+
+  it('reads a member’s reports at stops however they ended, with their reach', async () => {
+    const world = await made();
+    await world.report(keptReport({ reach: 5 }));
+    await world.report(keptReport({ ending: 'withdrawn', reach: 2, endedAt: BOARD_NOW + 1 }));
+    await world.report(keptReport({ reporterId: BROCK, reach: 9 }));
+    await world.report(keptReport({ serverId: OTHER_BOARD_SERVER, reach: 9 }));
+    expect(await world.reader.memberReports(BOARD_SERVER, ASH)).toEqual(
+      expect.arrayContaining([
+        { at: BOARD_NOW, reach: 5 },
+        { at: BOARD_NOW + 1, reach: 2 },
+      ]),
+    );
+    expect(await world.reader.memberReports(BOARD_SERVER, ASH)).toHaveLength(2);
+  });
+
   it('counts the research reports that counted by subject, with the words they kept', async () => {
     const world = await made();
     await world.report(keptReport());

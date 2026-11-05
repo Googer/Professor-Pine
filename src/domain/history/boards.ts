@@ -115,12 +115,12 @@ export function peopleStandings(
 }
 
 /**
- * The trains of a member as rides (B9): trains linked by `splitFromId`, and their own splits,
- * are one ride, which credits each member once, at its earliest record they conducted.
+ * The ride a train is part of (B9): the first train of its lineage, up its `splitFromId` links
+ * (a loop of links, which no split makes, ends where it closes).
  */
-export function rides(credits: readonly RideCredit[], links: readonly SplitLink[]): BoardCredit[] {
+export function rideRoot(links: readonly SplitLink[]): (partyId: string) => string {
   const parent = new Map(links.map((link) => [link.partyId, link.splitFromId]));
-  const rootOf = (partyId: string): string => {
+  return (partyId) => {
     let root = partyId;
     const seen = new Set<string>();
     for (let up = parent.get(root); up !== undefined && !seen.has(up); up = parent.get(root)) {
@@ -129,6 +129,14 @@ export function rides(credits: readonly RideCredit[], links: readonly SplitLink[
     }
     return root;
   };
+}
+
+/**
+ * The trains of a member as rides (B9): trains linked by `splitFromId`, and their own splits,
+ * are one ride, which credits each member once, at its earliest record they conducted.
+ */
+export function rides(credits: readonly RideCredit[], links: readonly SplitLink[]): BoardCredit[] {
+  const rootOf = rideRoot(links);
   const kept = new Map<string, BoardCredit>();
   for (const credit of [...credits].sort((a, b) => a.at - b.at)) {
     const key = `${credit.memberId}:${rootOf(credit.partyId)}`;

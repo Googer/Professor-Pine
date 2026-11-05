@@ -161,5 +161,7 @@ describe('BoardRepository: what the boards read', () => {
     expect(await reader.meetupCredits(BOARD_SERVER, all)).toHaveLength(1_000);
     expect(await reader.reportCredits(BOARD_SERVER, all)).toHaveLength(3_428);
     expect(await reader.reportScores(BOARD_SERVER)).toHaveLength(40);
+    const one = members[0] ?? ASH;
+    expect((await reader.memberParties(BOARD_SERVER, one)).length).toBeGreaterThan(100);
   });
 });
