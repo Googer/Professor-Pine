@@ -25,6 +25,8 @@ import {
   ANSWERED_BELOW,
   answerApart,
   pressAnswer,
+  inTime,
+  readOrDeferPress,
   sayInPlace,
   showInPlace,
   v2Answer,
@@ -333,6 +335,47 @@ describe('a press on the controls of an answer', () => {
     await deferPress(slow as unknown as ModalSubmitInteraction, 'update');
     expect(slow.deferUpdate).not.toHaveBeenCalled();
     expect(slow.deferReply).toHaveBeenCalledExactlyOnceWith({ flags: MessageFlags.Ephemeral });
+  });
+});
+
+describe('a read raced against what is left of a budget (R7)', () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('gives what came back in time, and nothing for what did not, by the interaction’s age', async () => {
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+    const made = Date.now();
+    await expect(inTime(Promise.resolve(7), 1_000, made)).resolves.toEqual({ value: 7 });
+    vi.setSystemTime(made + 400);
+    // 400 ms of the budget are gone: what is left, 600, decides.
+    const late = inTime(new Promise<number>(() => undefined), 1_000, made);
+    await vi.advanceTimersByTimeAsync(600);
+    await expect(late).resolves.toBeUndefined();
+    // A read that fails passes its error on.
+    await expect(inTime(Promise.reject(new Error('away')), 1_000, made)).rejects.toThrow('away');
+  });
+
+  it('answers a press at once when its read is quick, and defers it as it will answer otherwise', async () => {
+    const quick = fakeButton({ customId: 'x:y:z', ephemeralMessage: true, v2Message: true });
+    await expect(
+      readOrDeferPress(quick as unknown as ButtonInteraction, 'update', Promise.resolve('board')),
+    ).resolves.toBe('board');
+    expect(quick.deferUpdate).not.toHaveBeenCalled();
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+    const slow = fakeButton({ customId: 'x:y:z', ephemeralMessage: true, v2Message: true });
+    let release: (value: string) => void = () => undefined;
+    const reading = readOrDeferPress(
+      slow as unknown as ButtonInteraction,
+      'update',
+      new Promise<string>((resolve) => {
+        release = resolve;
+      }),
+    );
+    await vi.advanceTimersByTimeAsync(LATE_DEFER_MS);
+    expect(slow.deferUpdate).toHaveBeenCalledTimes(1);
+    release('board');
+    await expect(reading).resolves.toBe('board');
   });
 });
 

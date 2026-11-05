@@ -33,6 +33,19 @@ export function boardMonths(period: BoardPeriod, now: number, zone: string): Mon
   }
 }
 
+/** How a member stands to a region's forum, as Discord says it (`PartyGateway.memberAccess`). */
+export type ForumStanding = 'visible' | 'hidden' | 'barred';
+
+/**
+ * Whether how a member stands to a region's forum keeps the region off their board and their
+ * heatmap (Matt, 2026-11-05, R-B; the one rule `/stats regions`, the history page and the map's
+ * activity layer all ask): kept out (`barred`) or not shown it by their roles (`hidden`) alike;
+ * undefined (the forum is gone, or the member left) keeps nobody out.
+ */
+export function keptOut(standing: ForumStanding | undefined): boolean {
+  return standing === 'barred' || standing === 'hidden';
+}
+
 /** A region's raids and max battles over a period; region 0 is a record without one. */
 export interface RegionCount {
   regionId: number;

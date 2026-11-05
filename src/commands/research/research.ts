@@ -22,7 +22,7 @@ import {
 } from '../../discord/dialog.js';
 import { UserError } from '../../discord/errors.js';
 import { guildIdOf, isStaff, regionChannelOf, requireGuild } from '../../discord/guards.js';
-import { answer, answerApart, showInPlace, v2Answer } from '../../discord/late-reply.js';
+import { answer, answerApart, inTime, showInPlace, v2Answer } from '../../discord/late-reply.js';
 import { memberInfo } from '../../discord/member-info.js';
 import { STALE_COMPONENT, whenCounted } from '../../discord/router.js';
 import { MEMBER_WRITE_THROTTLE, type Throttle } from '../../discord/throttle.js';
@@ -365,17 +365,8 @@ async function readOrDefer<T>(
   interaction: AnySelectMenuInteraction,
   work: Promise<T>,
 ): Promise<{ value: T; deferred: boolean }> {
-  const age = Math.max(0, Date.now() - interaction.createdTimestamp);
-  let timer: NodeJS.Timeout | undefined;
-  const late = new Promise<'late'>((resolve) => {
-    timer = setTimeout(() => resolve('late'), Math.max(0, DIALOG_READ_MS - age));
-  });
-  try {
-    const first = await Promise.race([work.then((value) => ({ value })), late]);
-    if (first !== 'late') return { value: first.value, deferred: false };
-  } finally {
-    clearTimeout(timer);
-  }
+  const first = await inTime(work, DIALOG_READ_MS, interaction.createdTimestamp);
+  if (first !== undefined) return { value: first.value, deferred: false };
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   return { value: await work, deferred: true };
 }

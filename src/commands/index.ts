@@ -41,6 +41,7 @@ import { bounds } from './regions/bounds.js';
 import { region } from './regions/index.js';
 import { iam, iamnot } from './roles/iam.js';
 import { settings } from './settings/settings.js';
+import { stats } from './stats/stats.js';
 import { conductor } from './trains/conductor.js';
 import { finish, next, previous, skip } from './trains/move.js';
 import { route } from './trains/route.js';
@@ -129,5 +130,6 @@ export const commands: readonly CommandModule[] = [
   maps,
   findGym,
   findRegion,
+  stats,
   request,
 ];

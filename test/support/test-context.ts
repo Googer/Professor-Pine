@@ -16,6 +16,7 @@ import { WayspotDirectory } from '../../src/services/wayspot-directory.js';
 import { MemoryPineStops } from './pine-stops.js';
 import { StopReportService } from '../../src/services/stop-reports.js';
 import { rewardHash } from '../../src/domain/research/versions.js';
+import type { RegionBoards } from '../../src/services/region-boards.js';
 import { RocketService } from '../../src/services/rocket-reports.js';
 import { MemoryStopReports } from './stop-reports.js';
 import type { RaidChangeService } from '../../src/services/raid-change-service.js';
@@ -172,6 +173,10 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
     newTrains: new MemoryNewTrains(),
     // Nobody is named in the party history; a test passes its own to opt members in.
     historyOptIns: new MemoryHistoryOptIns(),
+    regionBoards: unavailable<RegionBoards>(
+      'regionBoards',
+      'pass { regionBoards: boards } from regionBoardsWith()',
+    ),
     // Nobody is a member of any server; a test passes its own directory with members.
     members: new FakeMemberDirectory(),
     // No server offers any role; a test passes { selfRoles } from selfRolesWith().

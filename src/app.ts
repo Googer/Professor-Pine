@@ -141,6 +141,7 @@ import { RaidEventService } from './services/raid-event-service.js';
 import { RegionAdminService } from './services/region-admin-service.js';
 import { WayfarerImportService } from './services/wayfarer-import-service.js';
 import { WayfarerReviewService } from './services/wayfarer-review-service.js';
+import { RegionBoards } from './services/region-boards.js';
 import { RegionDirectory } from './services/region-directory.js';
 import { SelfRoleService } from './services/self-role-service.js';
 import { SpawnService } from './services/spawn-service.js';
@@ -409,7 +410,7 @@ export async function startApp(
   });
   const history = new HistoryRepository(db);
   // The activity heatmap's buckets (plan 8H-4): derived from the history, added hourly by the
-  // upkeep after its sweep, read by the map's /api/activity.
+  // upkeep after its sweep, read by the map's /api/activity and the region board (plan 8H-5).
   const activity = new ActivityRepository(db, { zone: config.settings.timezone });
   // Every party that ends is kept in the party history (plan 8H), with what the store writes;
   // in rehearsal mode too (only Discord is narrowed then, not the store).
@@ -1022,6 +1023,14 @@ export async function startApp(
     gymTargets,
     newTrains,
     historyOptIns: history,
+    // The region board (plan 8H-5): the heatmap's buckets summed per region, for /stats.
+    regionBoards: new RegionBoards({
+      reader: activity,
+      regions,
+      guilds,
+      gateway: partyGateway,
+      zone: config.settings.timezone,
+    }),
     members,
     selfRoles,
     spawns,

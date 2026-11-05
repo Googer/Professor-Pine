@@ -167,6 +167,45 @@ export async function deferPress(press: Press, how: PressAnswer): Promise<void> 
 }
 
 /**
+ * A read raced against what is left of a budget of `budgetMs` since `since` (an interaction's
+ * `createdTimestamp`): its value when it came back in time, undefined when it did not (it goes
+ * on; the caller awaits it). A read that fails passes its error on. Shared by the press of an
+ * answer (`readOrDeferPress`) and `/research report`'s read before its dialog (`readOrDefer`).
+ */
+export async function inTime<T>(
+  work: Promise<T>,
+  budgetMs: number,
+  since: number,
+): Promise<{ value: T } | undefined> {
+  const left = Math.max(0, budgetMs - Math.max(0, Date.now() - since));
+  let timer: NodeJS.Timeout | undefined;
+  const late = new Promise<undefined>((resolve) => {
+    timer = setTimeout(() => resolve(undefined), left);
+  });
+  try {
+    return await Promise.race([work.then((value) => ({ value })), late]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/**
+ * The read of a press on an answer's controls (plan 8H-5, P5): back within what is left of
+ * `LATE_DEFER_MS` since the press, the press is answered at once; else it is acknowledged as it
+ * will be answered (`deferPress`) and the read awaited.
+ */
+export async function readOrDeferPress<T>(
+  press: Press,
+  how: PressAnswer,
+  work: Promise<T>,
+): Promise<T> {
+  const first = await inTime(work, LATE_DEFER_MS, press.createdTimestamp);
+  if (first !== undefined) return first.value;
+  await deferPress(press, how);
+  return work;
+}
+
+/**
  * Shows `message` as the answer to a press, as `how` says: the answer itself changed, or a
  * private copy. After `deferPress` it edits what that acknowledged.
  */

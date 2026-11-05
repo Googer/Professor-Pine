@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { zonedAt } from '../../../test/support/time.js';
 import { ACTIVITY_FIRST_MONTH, UNKNOWN_MONTH } from './activity.js';
-import { boardMonths, regionBoard, type RegionCount } from './region-board.js';
+import { boardMonths, keptOut, regionBoard, type RegionCount } from './region-board.js';
 
 const ZONE = 'America/New_York';
 const at = (local: string): number => zonedAt(local, ZONE);
@@ -73,5 +73,15 @@ describe('the region board', () => {
     expect(board.rows).toEqual([count(1, 3, 1)]);
     // Gone ones with nothing are no line.
     expect(board.gone).toBeNull();
+  });
+});
+
+describe('who a forum keeps from a region (R-B)', () => {
+  it('keeps out a member barred from the forum or not shown it by their roles, nobody else', () => {
+    expect(keptOut('barred')).toBe(true);
+    expect(keptOut('hidden')).toBe(true);
+    expect(keptOut('visible')).toBe(false);
+    // The forum is gone, or the member left: nothing keeps them out.
+    expect(keptOut(undefined)).toBe(false);
   });
 });
