@@ -9,7 +9,11 @@ import {
   FAKE_GUILD_ID,
   sent,
 } from '../../../test/support/fake-interactions.js';
-import { FakePartyGateway, missingPermissions } from '../../../test/support/fake-gateway.js';
+import {
+  archivedThread,
+  FakePartyGateway,
+  missingPermissions,
+} from '../../../test/support/fake-gateway.js';
 import { EAST_CHANNEL, EAST_FORUM, WEST_CHANNEL } from '../../../test/support/gyms.js';
 import { buttonsOf, textDisplays, v2 } from '../../../test/support/messages.js';
 import { regionBoardsWith } from '../../../test/support/region-boards.js';
@@ -412,6 +416,49 @@ describe('Share of the region board', () => {
       expect(sent(pressed.followUp).content).toBe('Shared in this channel.');
     }
     expect(made.gateway.messagesIn(WEST_CHANNEL)).toHaveLength(3);
+  });
+
+  it('refuses in words in an ended post (archived and locked), never opening it, counting no use', async () => {
+    const made = await setup();
+    const post =
+      (await made.gateway.createPost(EAST_FORUM, {
+        title: 'Raids',
+        message: { content: 'x' },
+        tagIds: [],
+      })) ?? '';
+    await made.gateway.archivePost(post);
+    const before = made.gateway.messagesIn(post).length;
+    const pressIn = async () => {
+      const pressed = fakeButton({
+        customId: 'stats:regions:share:month',
+        userId: ASH,
+        displayName: 'Ash',
+        channelId: post,
+        askedBy: ASH,
+        ephemeralMessage: true,
+        v2Message: true,
+      });
+      await made.router.handle(pressed as never);
+      return pressed;
+    };
+    for (let n = 0; n < 4; n++) {
+      const pressed = await pressIn();
+      expect(sent(pressed.reply).content).toBe(SHARE_REFUSED);
+    }
+    expect(made.gateway.messagesIn(post)).toHaveLength(before);
+    expect(made.gateway.posts.get(post)).toMatchObject({ archived: true, locked: true });
+  });
+
+  it('refuses in words where Discord says the post is archived (50083), counting no use', async () => {
+    const made = await setup();
+    made.gateway.failing.set('sendMessage', archivedThread('POST'));
+    for (let n = 0; n < 4; n++) {
+      const pressed = await made.press('stats:regions:share:month');
+      expect(sent(pressed.followUp).content).toBe(SHARE_REFUSED);
+    }
+    made.gateway.failing.delete('sendMessage');
+    const shared = await made.press('stats:regions:share:month');
+    expect(sent(shared.followUp).content).toBe('Shared in this channel.');
   });
 
   it('refuses in words where it cannot tell who sees the channel, posting nothing (R3)', async () => {

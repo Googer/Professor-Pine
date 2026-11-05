@@ -482,8 +482,9 @@ export interface PartyGateway {
   /**
    * Whether the bot may post a shared answer in a channel (plan 8H-5, P2), from the cache: View
    * Channel and Send Messages, or Send Messages in Threads in a thread (a post); no Embed Links,
-   * which a components-v2 message does not need. A channel not in the cache counts as allowed,
-   * so that the send decides.
+   * which a components-v2 message does not need; never in an ended post (archived and locked),
+   * which refuses a message and is not opened for a share. A channel not in the cache counts as
+   * allowed, so that the send decides.
    */
   mayShare(channelId: string): boolean;
   /**
@@ -828,6 +829,11 @@ export function isMissingPermission(err: unknown): boolean {
     (err.code === RESTJSONErrorCodes.MissingPermissions ||
       err.code === RESTJSONErrorCodes.MissingAccess)
   );
+}
+
+/** Whether Discord refused a message because the post is archived (and locked; 50083). */
+export function isArchivedThread(err: unknown): boolean {
+  return hasCode(err, RESTJSONErrorCodes.InvalidActionOnArchivedThread);
 }
 
 /** Whether Discord refused because the channel has as many permission overwrites as it can have. */
@@ -2081,6 +2087,8 @@ export class DiscordPartyGateway implements PartyGateway {
   mayShare(channelId: string): boolean {
     const channel = this.client.channels.cache.get(channelId);
     if (!channel || channel.isDMBased()) return true;
+    // An ended post (archived and locked) refuses a message (50083); a share never opens it.
+    if (channel.isThread() && channel.archived === true && channel.locked === true) return false;
     const me = channel.guild.members.me;
     if (me === null) return true;
     const send = channel.isThread()

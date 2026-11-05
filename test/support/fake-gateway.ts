@@ -1768,11 +1768,14 @@ export class FakePartyGateway implements PartyGateway {
 
   /**
    * Channels where the bot may not post a shared answer (`mayShare`, plan 8H-5): none unless a
-   * test says.
+   * test says, and, as the gateway says, no ended post (archived and locked).
    */
   readonly noSharing = new Set<string>();
 
   mayShare(channelId: string): boolean {
+    // As the gateway: never in an ended post (archived and locked).
+    const post = this.posts.get(channelId);
+    if (post?.archived === true && post.locked) return false;
     return !this.noSharing.has(channelId);
   }
 

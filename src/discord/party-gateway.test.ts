@@ -2154,11 +2154,12 @@ describe('the events forum’s posts (plan 8V-1)', () => {
       expect(fetched).toHaveLength(10);
     });
 
-    it('may share where it may view and send, Send Messages in Threads in a post, no Embed Links asked (P2)', () => {
+    it('may share where it may view and send, Send Messages in Threads in a post, no Embed Links asked, never in an ended post (P2)', () => {
       const me = {};
-      const has = (bits: bigint, thread = false) => ({
+      const has = (bits: bigint, thread = false, ended = false) => ({
         isDMBased: () => false,
         isThread: () => thread,
+        ...(thread ? { archived: ended, locked: ended } : {}),
         guild: { members: { me } },
         permissionsFor: (member: unknown) => (member === me ? new PermissionsBitField(bits) : null),
       });
@@ -2168,6 +2169,7 @@ describe('the events forum’s posts (plan 8V-1)', () => {
         ['mute', has(P.ViewChannel | P.EmbedLinks)],
         ['post', has(P.ViewChannel | P.SendMessagesInThreads, true)],
         ['closed-post', has(P.ViewChannel | P.SendMessages, true)],
+        ['ended-post', has(P.ViewChannel | P.SendMessagesInThreads, true, true)],
       ]);
       const gateway = new DiscordPartyGateway();
       gateway.use({ channels: { cache: channels }, user: { id: 'bot' } } as unknown as Client);
@@ -2175,6 +2177,8 @@ describe('the events forum’s posts (plan 8V-1)', () => {
       expect(gateway.mayShare('mute')).toBe(false);
       expect(gateway.mayShare('post')).toBe(true);
       expect(gateway.mayShare('closed-post')).toBe(false);
+      // An ended post (archived and locked) refuses a message, and is never opened for a share.
+      expect(gateway.mayShare('ended-post')).toBe(false);
       // Not in the cache: the send decides.
       expect(gateway.mayShare('unknown')).toBe(true);
     });

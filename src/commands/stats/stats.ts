@@ -22,7 +22,11 @@ import {
 } from '../../discord/late-reply.js';
 import { UserError } from '../../discord/errors.js';
 import { memberInfo } from '../../discord/member-info.js';
-import { isMissingPermission, type V2Message } from '../../discord/party-gateway.js';
+import {
+  isArchivedThread,
+  isMissingPermission,
+  type V2Message,
+} from '../../discord/party-gateway.js';
 import { STALE_COMPONENT } from '../../discord/router.js';
 import { MEMBER_READ_THROTTLE, type Throttle } from '../../discord/throttle.js';
 import {
@@ -142,8 +146,8 @@ export const SHARE_THROTTLE: Throttle = { uses: 3, perSeconds: 600 };
  * asked in (`forShare`: without a region somebody who sees that channel may not see, whatever the
  * sharer sees; R-A), posted there by the bot, its sharer named in the small print
  * (`memberByName`, P7), mentions off as every send is. Refused in words where the bot may not
- * post there (`mayShare` before, a refused permission after: no doing of the member's, the use
- * given back).
+ * post there (`mayShare` before, a refused permission or an ended post after: no doing of the
+ * member's, the use given back); an ended post is never opened for it.
  */
 async function share(
   interaction: ButtonInteraction,
@@ -170,7 +174,8 @@ async function share(
   try {
     posted = await ctx.regionBoards.post(channelId, message);
   } catch (err) {
-    if (!isMissingPermission(err)) throw err;
+    // A post that ended since the check (archived and locked) refuses it as well (50083).
+    if (!isMissingPermission(err) && !isArchivedThread(err)) throw err;
     throw new UserError(SHARE_REFUSED, { givesBack: true });
   }
   if (posted === undefined) throw new UserError(SHARE_GONE, { givesBack: true });
