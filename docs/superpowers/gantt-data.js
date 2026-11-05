@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-05T13:29",
+  "updated": "2026-11-05T14:29",
   "items": [
     {
       "id": "0",
@@ -10681,8 +10681,33 @@ window.GANTT = {
       "status": "planned",
       "planning": {
         "start": "2026-11-05T12:45",
-        "end": "2026-11-05T13:29"
+        "end": "2026-11-05T14:29",
+        "review": {
+          "start": "2026-11-05T13:33",
+          "end": "2026-11-05T13:41"
+        }
       }
+    },
+    {
+      "id": "8H-6A.1",
+      "kind": "task",
+      "parent": "8H-6A",
+      "name": "Steps conduct and unlead",
+      "status": "planned"
+    },
+    {
+      "id": "8H-6A.2",
+      "kind": "task",
+      "parent": "8H-6A",
+      "name": "Migration 039: stops each conductor led",
+      "status": "planned"
+    },
+    {
+      "id": "8H-6A.3",
+      "kind": "task",
+      "parent": "8H-6A",
+      "name": "Docs: history.md, trains.md",
+      "status": "planned"
     },
     {
       "id": "8H-6",
