@@ -8,6 +8,7 @@ import {
   isoDate,
   localTime,
   minuteStamp,
+  monthStart,
   sameDay,
   shortDateWords,
   shortDayWords,
@@ -54,6 +55,15 @@ describe('starts', () => {
     const time = zoned(Date.UTC(2026, 9, 28, 19, 5, 7, 250), ZONE);
     expect(startOfHour(time).epochMilliseconds).toBe(Date.UTC(2026, 9, 28, 19));
     expect(startOfMonth(time).epochMilliseconds).toBe(Date.UTC(2026, 9, 1, 4));
+  });
+
+  it('starts a month given by its year and number, in the zone', () => {
+    expect(monthStart(2026, 10, ZONE).epochMilliseconds).toBe(Date.UTC(2026, 9, 1, 4));
+    // December's start is in standard time, five hours behind.
+    expect(monthStart(2019, 12, ZONE).epochMilliseconds).toBe(Date.UTC(2019, 11, 1, 5));
+    expect(monthStart(2019, 12, ZONE).add({ months: 1 }).epochMilliseconds).toBe(
+      Date.UTC(2020, 0, 1, 5),
+    );
   });
 
   it('keeps the hour of a time in the repeated hour of the fall', () => {

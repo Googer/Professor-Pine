@@ -1,4 +1,4 @@
-import { isMoment, startOfHour, startOfMonth, zoned } from '../time/zoned.js';
+import { isMoment, monthStart, startOfHour, zoned } from '../time/zoned.js';
 
 /*
  * The activity heatmap (plan 8H-4; design `2026-11-04-history-on-show-design.md`, Part B): what
@@ -229,11 +229,7 @@ export function inWindow(window: ActivityWindow, bucket: ActivityWhen): boolean 
 /** The middle of a local month (`yyyy-mm`) in `zone`, epoch ms: where its age is counted from. */
 function middleOfMonth(month: string, zone: string): number {
   const [year, number] = month.split('-').map(Number);
-  const start = startOfMonth(
-    Temporal.PlainDate.from({ year: year ?? 1970, month: number ?? 1, day: 1 }).toZonedDateTime(
-      zone,
-    ),
-  );
+  const start = monthStart(year ?? 1970, number ?? 1, zone);
   const next = start.add({ months: 1 });
   return (start.epochMilliseconds + next.epochMilliseconds) / 2;
 }

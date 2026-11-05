@@ -41,6 +41,17 @@ export function startOfMonth(time: Temporal.ZonedDateTime): Temporal.ZonedDateTi
   return time.with({ day: 1 }).startOfDay();
 }
 
+/**
+ * The start of a local month (`month` 1–12 of `year`) in `zone`: its first day's start (the
+ * first moment of it where midnight does not exist). Throws a `RangeError` for a month that is
+ * none.
+ */
+export function monthStart(year: number, month: number, zone: string): Temporal.ZonedDateTime {
+  return Temporal.PlainDate.from({ year, month, day: 1 }, { overflow: 'reject' })
+    .toZonedDateTime(zone)
+    .startOfDay();
+}
+
 /** Whether two zoned times fall on the same local date (Luxon's `hasSame(…, 'day')`). */
 export function sameDay(a: Temporal.ZonedDateTime, b: Temporal.ZonedDateTime): boolean {
   return a.toPlainDate().equals(b.toPlainDate());
