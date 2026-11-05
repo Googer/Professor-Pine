@@ -830,5 +830,37 @@ export function stopReportCases<S extends StopReportStorage>(
       expect(await store.removeEnded(REPORT_NOW + 31 * 60_000)).toBe(1);
       expect((await store.historyOf(REPORT_SERVER)).map((record) => record.reach)).toEqual([2, 1]);
     });
+
+    it('gives a hideout put back the reach of the record it forgets (review 8H3-5)', async () => {
+      const store = await made();
+      const arlo = rocketReport({
+        subjectKey: 'leader:arlo',
+        rocket: { name: 'Arlo', catches: [] },
+        endsAt: REPORT_MIDNIGHT,
+        reporter: OTHER_REPORTER,
+      });
+      const hideout = await store.save(arlo, { place: PLACE });
+      await store.addReach(hideout.report.id, hideout.report.madeAt, 4);
+      await store.saveUnless(
+        rocketReport({ madeAt: REPORT_NOW + 60_000, endsAt: REPORT_NOW + 31 * 60_000 }),
+        () => ({ verdict: 'replace', ending: 'churned' }),
+        { place: PLACE },
+      );
+      const back = await store.saveUnless(
+        arlo,
+        () => ({ verdict: 'replace', ending: 'unposted' }),
+        {
+          standingAt: REPORT_NOW + 90_000,
+          restoring: { id: hideout.report.id, madeAt: hideout.report.madeAt },
+        },
+      );
+      if (!back.saved) throw new Error('the hideout was kept out');
+      // What its news reaches from now on adds to what it had.
+      expect(await store.addReach(back.report.id, back.report.madeAt, 1)).toBe(true);
+      await store.removeEnded(REPORT_MIDNIGHT);
+      expect((await store.historyOf(REPORT_SERVER)).at(-1)).toEqual(
+        recordOf(back.report, { ending: 'stood', endedAt: REPORT_MIDNIGHT, reach: 5 }),
+      );
+    });
   });
 }

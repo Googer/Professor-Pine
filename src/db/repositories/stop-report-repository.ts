@@ -69,7 +69,8 @@ export interface SaveOptions {
    * The version of a hideout put back (`StopReportService.restore`, review H4): its record,
    * written when the grunt took its place, is forgotten in the same transaction, so that it
    * never counts twice, and its cell and regions are the new row's (P4; `place` only where no
-   * record is kept, else the stop's cell and no regions known). Not behind the savepoint (P3):
+   * record is kept, else the stop's cell and no regions known), and so is its reach (review
+   * 8H3-5; 0 where no record is kept). Not behind the savepoint (P3):
    * where forgetting it fails, the save fails, and the caller takes the grunt back.
    */
   restoring?: { id: number; madeAt: number };
@@ -370,14 +371,15 @@ export class StopReportRepository implements StopReportStorage {
     return undefined;
   }
 
-  private columns(report: NewStopReport, place: ReportPlace | undefined) {
+  /** `reach`: what a hideout put back reached before (review 8H3-5); 0 for any other. */
+  private columns(report: NewStopReport, place: ReportPlace | undefined, reach = 0) {
     return {
       cell: place?.cell ?? null,
       regionIds: place?.regionIds ? JSON.stringify(place.regionIds) : null,
       // A version of its own: who confirmed the one before do not confirm it (review H15), and
       // what its news reached is its own (plan 8H-3).
       confirmedBy: null,
-      reach: 0,
+      reach,
       serverId: report.serverId,
       stopKey: report.stop.key,
       kind: report.kind,
@@ -518,11 +520,13 @@ export class StopReportRepository implements StopReportStorage {
       ),
       ...(row === before && decision.confirms ? { confirmedBy: report.reporter.id } : {}),
     }));
-    // A hideout put back forgets its record and takes its place (P3, P4: not behind the savepoint).
+    // A hideout put back forgets its record and takes its place (P3, P4: not behind the savepoint)
+    // and what its news reached (review 8H3-5).
+    const forgotten = restoring ? await forgetRecord(trx, restoring) : undefined;
     const placed = restoring
-      ? ((await forgetRecord(trx, restoring)) ??
-        place ?? { cell: reportCell(report.stop), regionIds: null })
+      ? (forgotten?.place ?? place ?? { cell: reportCell(report.stop), regionIds: null })
       : place;
+    const reach = forgotten?.reach ?? 0;
     await this.recordBehindSavepoint(trx, ended, lost);
     // A replacement is a report of its own (review A1): the replaced row is deleted and a new one
     // made, under the same lock, so an id never changes what it is; an old answer's Take back or
@@ -532,14 +536,14 @@ export class StopReportRepository implements StopReportStorage {
     if (standing && kept !== undefined) {
       await trx
         .updateTable('StopReport')
-        .set(this.columns(written, placed))
+        .set(this.columns(written, placed, reach))
         .where('id', '=', kept)
         .execute();
       return { saved: true, inPlace: true, report: { ...written, id: kept }, replaced: standing };
     }
     const made = await trx
       .insertInto('StopReport')
-      .values(this.columns(report, placed))
+      .values(this.columns(report, placed, reach))
       .executeTakeFirstOrThrow();
     const id = Number(made.insertId);
     return { saved: true, inPlace: false, report: { ...report, id }, replaced: standing };
@@ -982,16 +986,17 @@ function historyRow(
 }
 
 /**
- * Forgets the record of a hideout's version put back (review H4) and gives its place (P4), or
- * undefined where none is kept (it failed, or was forgotten already).
+ * Forgets the record of a hideout's version put back (review H4) and gives its place (P4), where
+ * it kept one, and what its news reached (review 8H3-5); undefined where no record is kept (it
+ * failed, or was forgotten already).
  */
 async function forgetRecord(
   trx: Kysely<DB>,
   version: { id: number; madeAt: number },
-): Promise<ReportPlace | undefined> {
+): Promise<{ place: ReportPlace | undefined; reach: number } | undefined> {
   const kept = await trx
     .selectFrom('StopReportHistory')
-    .select(['id', 'cell', 'regionIds'])
+    .select(['id', 'cell', 'regionIds', 'reach'])
     .where('reportId', '=', version.id)
     .where('reportMadeAt', '=', String(version.madeAt))
     .forUpdate()
@@ -1006,7 +1011,12 @@ async function forgetRecord(
     )
     .execute();
   const [first] = kept;
-  return first === undefined || first.cell === null
-    ? undefined
-    : { cell: first.cell, regionIds: regionIdsOf(first.regionIds) };
+  if (first === undefined) return undefined;
+  return {
+    place:
+      first.cell === null
+        ? undefined
+        : { cell: first.cell, regionIds: regionIdsOf(first.regionIds) },
+    reach: first.reach,
+  };
 }

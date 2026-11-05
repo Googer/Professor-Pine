@@ -112,10 +112,10 @@ export class MemoryStopReports implements StopReportStorage {
     // A version strictly newer than the one it changes (F1), its length kept.
     const written = inPlace ? newerThan(report, before.madeAt) : report;
     const at = savedAt(written.madeAt, standingAt);
-    // A hideout put back forgets its record and takes its place (P3, P4).
+    // A hideout put back forgets its record and takes its place (P3, P4) and its reach (8H3-5).
+    const forgotten = restoring ? this.forgetRecord(restoring) : undefined;
     const placed = restoring
-      ? (this.forgetRecord(restoring) ??
-        place ?? { cell: reportCell(report.stop), regionIds: null })
+      ? (forgotten?.place ?? place ?? { cell: reportCell(report.stop), regionIds: null })
       : place;
     this.recordBehindSavepoint(
       rows.map((row) => ({
@@ -131,6 +131,7 @@ export class MemoryStopReports implements StopReportStorage {
     const kept: StopReport = structuredClone({ ...written, id });
     this.rows.set(id, kept);
     if (placed) this.places.set(id, structuredClone(placed));
+    if (forgotten && forgotten.reach > 0) this.reach.set(id, forgotten.reach);
     return Promise.resolve({
       saved: true,
       inPlace,
@@ -151,16 +152,24 @@ export class MemoryStopReports implements StopReportStorage {
     this.confirmedBy.set(row.id, confirmedWith(before, member, row.reporter.id));
   }
 
-  /** The record of a hideout's version put back, forgotten; its place, where it kept one. */
-  private forgetRecord(version: { id: number; madeAt: number }): ReportPlace | undefined {
+  /**
+   * The record of a hideout's version put back, forgotten; its place, where it kept one, and its
+   * reach.
+   */
+  private forgetRecord(version: {
+    id: number;
+    madeAt: number;
+  }): { place: ReportPlace | undefined; reach: number } | undefined {
     const at = this.records.findIndex(
       (one) => one.reportId === version.id && one.reportMadeAt === version.madeAt,
     );
     if (at < 0) return undefined;
     const [gone] = this.records.splice(at, 1);
-    return gone?.cell === null || gone === undefined
-      ? undefined
-      : { cell: gone.cell, regionIds: gone.regionIds };
+    if (gone === undefined) return undefined;
+    return {
+      place: gone.cell === null ? undefined : { cell: gone.cell, regionIds: gone.regionIds },
+      reach: gone.reach,
+    };
   }
 
   /** As the repository writes them: a failure is lost, and the report's write goes on. */

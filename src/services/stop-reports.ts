@@ -698,7 +698,8 @@ export class StopReportService {
    * caller takes the grunt back). The posts are drawn anew. Gives the report put back. The
    * hideout's record (written when the grunt took its place) is forgotten and the grunt is
    * recorded as `unposted`, in the same step (plan 8H-2, review H4): a hideout never counts twice.
-   * It takes the cell and regions of that record (P4), and starts with no confirmations. Where
+   * It takes the cell and regions of that record (P4) and what its news reached (review 8H3-5),
+   * and starts with no confirmations. Where
    * forgetting the record fails, the restore throws (P3), and the caller takes the grunt back.
    */
   async restore(hideout: RocketReport, grunt: RocketReport): Promise<RocketReport | undefined> {
