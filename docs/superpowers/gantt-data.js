@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-04T22:23",
+  "updated": "2026-11-04T23:39",
   "items": [
     {
       "id": "0",
@@ -10395,6 +10395,11 @@ window.GANTT = {
           "start": "2026-11-04T21:47",
           "end": "2026-11-04T22:17"
         }
+      },
+      "status": "done",
+      "review": {
+        "start": "2026-11-04T22:29",
+        "end": "2026-11-04T23:39"
       }
     },
     {
@@ -10402,35 +10407,45 @@ window.GANTT = {
       "kind": "task",
       "parent": "8H-3",
       "name": "Migration 037: reach columns and WantCountDay",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-04T22:23",
+      "end": "2026-11-04T22:25"
     },
     {
       "id": "8H-3.2",
       "kind": "task",
       "parent": "8H-3",
       "name": "Reach counted in the notifier",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-04T22:25",
+      "end": "2026-11-04T22:26"
     },
     {
       "id": "8H-3.3",
       "kind": "task",
       "parent": "8H-3",
       "name": "Reach recorded on parties and stop reports",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-04T22:26",
+      "end": "2026-11-04T22:27"
     },
     {
       "id": "8H-3.4",
       "kind": "task",
       "parent": "8H-3",
       "name": "Want counts each local midnight",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-04T22:27",
+      "end": "2026-11-04T22:28"
     },
     {
       "id": "8H-3.5",
       "kind": "task",
       "parent": "8H-3",
       "name": "Docs: history.md and notifications-and-dms.md",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-04T22:28",
+      "end": "2026-11-04T22:29"
     },
     {
       "id": "16-staging",
