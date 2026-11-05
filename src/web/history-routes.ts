@@ -113,12 +113,11 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
       const viewer = await viewers.viewer(guild, session.userId, forums, member);
       if (viewer.kind === 'not-member') return sendFailure(request, reply, 403);
       if (viewer.kind === 'unconfirmed') return reply.code(503).send({ error: UNCONFIRMED });
-      // A region of 0 is a record without one, seen by every member. A region no longer in the
-      // directory (deleted since) has no forum to ask: its parties are neither drawn nor counted
-      // as left out (the controller's ruling, review P7), as nobody can say who may see them.
+      // Only an existing forum bars, as on the party layer (`PartyGateway.memberAccess`): a
+      // region of 0 (a record without one), a region no longer in the directory (deleted since,
+      // its forum with it) and one without a forum are seen by every member and counted
+      // normally (the controller's ruling, 8H4-1).
       const seen = buckets.filter((bucket) => {
-        if (bucket.regionId === 0) return true;
-        if (!forumOf.has(bucket.regionId)) return false;
         const forum = forumOf.get(bucket.regionId);
         return forum === undefined || forum === null || !viewer.barred.has(forum);
       });

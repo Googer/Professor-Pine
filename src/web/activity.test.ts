@@ -173,20 +173,26 @@ describe('the activity heatmap on the map', () => {
     expect(alice.leftOut).toBe(0);
   });
 
-  it('leaves out the parties of a region no longer there, neither drawn nor counted (P7)', async () => {
+  it('shows every member the parties of a region no longer there, as those of region 0 (8H4-1)', async () => {
     const made = await setup();
     web = made.web;
     await made.activity.add(FAKE_GUILD_ID, [
       activityBucket(1, '2026-10', 4, 18, { raids: 3 }),
-      // Region 99 was deleted since: whose forum it had cannot be asked.
+      // Region 99 was deleted since: its forum is gone, and nobody is barred from it.
       activityBucket(2, '2026-10', 4, 18, { regionId: 99, raids: 6 }),
       activityBucket(0, '2026-10', 4, 18, { regionId: 99, placeKind: 'none', placeId: '0' }),
       // Region 0 is a record without one, which every member sees.
       activityBucket(3, '2026-10', 4, 18, { regionId: 0, raids: 3 }),
     ]);
+    // Alice is barred from East's forum: that bars nothing of a region without a forum.
+    made.made.gateway.barred.set(EAST_FORUM, new Set([ALICE]));
     const view = (await made.ask()).json<ActivityView>();
-    expect(view.places.map((place) => place.id)).toEqual(['1', '3']);
-    expect(view.leftOut).toBe(0);
+    expect(view.places.map((place) => [place.id, place.parties])).toEqual([
+      ['1', 3],
+      ['2', 6],
+      ['3', 3],
+    ]);
+    expect(view.leftOut).toBe(3);
   });
 
   it('counts as left out the parties at gyms no longer listed, at Power Spots gone and at pins', async () => {
