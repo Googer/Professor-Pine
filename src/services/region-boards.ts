@@ -1,6 +1,6 @@
 import type { ActivityReader } from '../db/repositories/activity-repository.js';
 import type { Region } from '../db/repositories/region-repository.js';
-import type { PartyGateway } from '../discord/party-gateway.js';
+import type { PartyGateway, V2Message } from '../discord/party-gateway.js';
 import type { BoardPeriod } from '../domain/history/board-periods.js';
 import {
   boardMonths,
@@ -16,8 +16,15 @@ export interface RegionBoardsOptions {
   regions: { all(): readonly Region[] };
   /** The row of a server (`Guild.id`), by which its regions say whose they are. */
   guilds: { idFor(snowflake: string): Promise<number | undefined> };
-  /** Who a forum keeps out (`memberAccess`), and a region's channel by name. */
-  gateway: Pick<PartyGateway, 'memberAccess' | 'channelName'>;
+  /**
+   * Who a forum keeps out (`memberAccess`), a region's channel by name, whether a region may be
+   * shared into a channel (`shareKeeps`), and the shared board's post (`mayShare`,
+   * `sendMessage`).
+   */
+  gateway: Pick<
+    PartyGateway,
+    'memberAccess' | 'channelName' | 'shareKeeps' | 'mayShare' | 'sendMessage'
+  >;
   /** `settings.timezone`: the months of a period. */
   zone: string;
 }
@@ -89,6 +96,57 @@ export class RegionBoards {
       );
       return new Set(barred.flat());
     });
+  }
+
+  /**
+   * The regions of `regions` a board shared into a channel leaves out (Matt, 2026-11-05, R-A):
+   * those whose forum (or text channel, where they have none) somebody who can view that channel
+   * cannot view (`PartyGateway.shareKeeps`), whatever its sharer sees, so that a region's counts
+   * reach nobody its forum keeps them from. Undefined where nothing can be said of the channel
+   * (not in the cache, R3).
+   */
+  async notShared(
+    regions: readonly Region[],
+    shareChannelId: string,
+  ): Promise<Set<number> | undefined> {
+    const channelOf = (region: Region) => region.forumChannelId ?? region.channelId;
+    const kept = await this.options.gateway.shareKeeps(shareChannelId, regions.map(channelOf));
+    if (kept === undefined) return undefined;
+    return new Set(
+      regions.filter((region) => !kept.has(channelOf(region))).map((region) => region.id),
+    );
+  }
+
+  /**
+   * The board as it may be shared into a channel: without the regions `notShared` names;
+   * undefined where nothing can be said of the channel (R3), so that nothing is shared there.
+   */
+  async forShare(
+    serverId: string,
+    period: BoardPeriod,
+    shareChannelId: string,
+    now: number,
+  ): Promise<ShownBoard | undefined> {
+    let unknown = false;
+    const shown = await this.board(serverId, period, now, async (regions) => {
+      const left = await this.notShared(regions, shareChannelId);
+      if (left === undefined) unknown = true;
+      return left ?? new Set(regions.map((region) => region.id));
+    });
+    return unknown ? undefined : shown;
+  }
+
+  /** Whether the bot may post a shared board in a channel (from the cache: `mayShare`). */
+  mayShare(channelId: string): boolean {
+    return this.options.gateway.mayShare(channelId);
+  }
+
+  /**
+   * Posts a shared board in a channel; its id, or undefined where the channel is gone (or, in
+   * rehearsal mode, outside the posts of parties). Rejects as Discord refuses it.
+   */
+  post(channelId: string, message: V2Message): Promise<string | undefined> {
+    return this.options.gateway.sendMessage(channelId, message);
   }
 
   /** A region on Discord: its channel as a mention, or its number where the bot sees no channel. */

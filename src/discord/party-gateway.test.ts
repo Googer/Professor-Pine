@@ -341,6 +341,30 @@ describe('FakePartyGateway', () => {
     expect(gateway.findChannel('100000000000000001', 'remote-raids')).toBeUndefined();
   });
 
+  it('judges a share as the real gateway does, fetching the members a channel names (plan 8H-5, R2)', async () => {
+    const gateway = new FakePartyGateway();
+    gateway.addForum('forum');
+    gateway.addChannel('room', 'room');
+    const view = String(PermissionFlagsBits.ViewChannel);
+    gateway.forumOverwrites.set('room', [
+      { id: gateway.guildId, type: OverwriteType.Role, allow: '0', deny: view },
+      { id: 'brock', type: OverwriteType.Member, allow: view, deny: '0' },
+    ]);
+    gateway.forumOverwrites.set('forum', [
+      { id: 'muted', type: OverwriteType.Role, allow: '0', deny: view },
+    ]);
+    // Brock is not in the cache and cannot be fetched: the forum is not kept.
+    expect([...((await gateway.shareKeeps('room', ['forum'])) ?? [])]).toEqual([]);
+    gateway.fetchableMembers.set('brock', []);
+    expect([...((await gateway.shareKeeps('room', ['forum'])) ?? [])]).toEqual(['forum']);
+    gateway.fetchableMembers.set('brock', ['muted']);
+    expect([...((await gateway.shareKeeps('room', ['forum'])) ?? [])]).toEqual([]);
+    expect(gateway.memberFetches).toEqual(['brock', 'brock', 'brock']);
+    // Shared into the forum itself: the same audience.
+    expect([...((await gateway.shareKeeps('forum', ['forum'])) ?? [])]).toEqual(['forum']);
+    expect(await gateway.shareKeeps('nowhere', ['forum'])).toBeUndefined();
+  });
+
   it('says where the bot may post embeds: everywhere but in the channels a test names', () => {
     const gateway = new FakePartyGateway();
     expect(gateway.mayPost('500000000000000001')).toBe(true);
@@ -1979,6 +2003,180 @@ describe('the events forum’s posts (plan 8V-1)', () => {
       await expect(gateway.rolesWithoutReplies('f', ['Member', 'Nobody'])).resolves.toEqual([
         '@everyone',
       ]);
+    });
+
+    it('keeps the regions of a share where everybody who sees the channel sees their forum, from the cache (plan 8H-5, R-A)', async () => {
+      const guildId = 'g';
+      const role = (id: string, bits: bigint) => ({
+        id,
+        permissions: new PermissionsBitField(bits),
+      });
+      const overwrite = (id: string, allow: bigint, deny: bigint, type = OverwriteType.Role) => ({
+        id,
+        type,
+        allow: new PermissionsBitField(allow),
+        deny: new PermissionsBitField(deny),
+      });
+      const view = PermissionFlagsBits.ViewChannel;
+      const cachedMembers = new Map<string, unknown>();
+      const fetched: string[] = [];
+      /** Members Discord has but the cache does not: Brock with the member role. */
+      const known = new Map([['brock', ['m']]]);
+      const guild = {
+        id: guildId,
+        roles: {
+          cache: new Map([
+            [guildId, role(guildId, 0n)],
+            ['m', role('m', view)],
+          ]),
+        },
+        members: {
+          cache: cachedMembers,
+          fetch: ({ user }: { user: string }) => {
+            fetched.push(user);
+            const roles = known.get(user);
+            if (roles === undefined) return Promise.reject(new Error('Discord is away'));
+            const member = { id: user, roles: { cache: new Map(roles.map((id) => [id, {}])) } };
+            cachedMembers.set(user, member);
+            return Promise.resolve(member);
+          },
+        },
+      };
+      const channel = (id: string, overwrites: ReturnType<typeof overwrite>[]) => ({
+        id,
+        guild,
+        isDMBased: () => false,
+        isThread: () => false,
+        permissionOverwrites: { cache: new Map(overwrites.map((one) => [one.id, one])) },
+      });
+      const general = channel('general', []);
+      const modsForum = channel('mods-forum', [overwrite('m', 0n, view)]);
+      const channels = new Map<string, unknown>([
+        ['general', general],
+        ['open-forum', channel('open-forum', [])],
+        ['mods-forum', modsForum],
+        [
+          'post',
+          { id: 'post', guild, isDMBased: () => false, isThread: () => true, parent: general },
+        ],
+        [
+          'mods-post',
+          {
+            id: 'mods-post',
+            guild,
+            isDMBased: () => false,
+            isThread: () => true,
+            parent: modsForum,
+          },
+        ],
+        [
+          'brocks-room',
+          channel('brocks-room', [
+            overwrite(guildId, 0n, view),
+            overwrite('brock', view, 0n, OverwriteType.Member),
+            overwrite('misty', view, 0n, OverwriteType.Member),
+          ]),
+        ],
+      ]);
+      const gateway = new DiscordPartyGateway();
+      gateway.use({ channels: { cache: channels }, user: { id: 'bot' } } as unknown as Client);
+      const kept = async (share: string, ...regions: string[]) => {
+        const found = await gateway.shareKeeps(share, regions);
+        return found === undefined ? undefined : [...found].sort();
+      };
+      // A gated server: everyone sees nothing, the member role sees what is not kept from it.
+      expect(await kept('general', 'open-forum', 'mods-forum')).toEqual(['open-forum']);
+      // A post is judged by the channel it is in; its own forum has the same audience (R2).
+      expect(await kept('post', 'open-forum', 'mods-forum')).toEqual(['open-forum']);
+      expect(await kept('mods-post', 'mods-forum')).toEqual(['mods-forum']);
+      // A region the cache does not have is not known to be safe.
+      expect(await kept('general', 'gone')).toEqual([]);
+      // A share channel the cache does not have: nothing can be said (R3).
+      expect(await kept('unknown', 'open-forum')).toBeUndefined();
+      // Members let in by name and not cached are fetched (R2): Brock has the member role and
+      // sees the open forum; Misty cannot be fetched, so nothing is kept for her channel.
+      expect(await kept('brocks-room', 'open-forum')).toEqual([]);
+      expect(fetched.sort()).toEqual(['brock', 'misty']);
+      known.set('misty', ['m']);
+      expect(await kept('brocks-room', 'open-forum', 'mods-forum')).toEqual(['open-forum']);
+    });
+
+    it('fetches at most ten members named on the share channel, and keeps nothing past them (R2)', async () => {
+      const guildId = 'g';
+      const view = PermissionFlagsBits.ViewChannel;
+      const fetched: string[] = [];
+      const guild = {
+        id: guildId,
+        roles: {
+          cache: new Map([[guildId, { id: guildId, permissions: new PermissionsBitField(view) }]]),
+        },
+        members: {
+          cache: new Map(),
+          fetch: ({ user }: { user: string }) => {
+            fetched.push(user);
+            return Promise.resolve({ id: user, roles: { cache: new Map() } });
+          },
+        },
+      };
+      const overwrites = [
+        {
+          id: guildId,
+          type: OverwriteType.Role,
+          allow: new PermissionsBitField(0n),
+          deny: new PermissionsBitField(view),
+        },
+        ...Array.from({ length: 11 }, (_, n) => ({
+          id: `member${String(n)}`,
+          type: OverwriteType.Member,
+          allow: new PermissionsBitField(view),
+          deny: new PermissionsBitField(0n),
+        })),
+      ];
+      const room = {
+        id: 'room',
+        guild,
+        isDMBased: () => false,
+        isThread: () => false,
+        permissionOverwrites: { cache: new Map(overwrites.map((one) => [one.id, one])) },
+      };
+      const forum = { ...room, id: 'forum', permissionOverwrites: { cache: new Map() } };
+      const gateway = new DiscordPartyGateway();
+      gateway.use({
+        channels: {
+          cache: new Map<string, unknown>([
+            ['room', room],
+            ['forum', forum],
+          ]),
+        },
+        user: { id: 'bot' },
+      } as unknown as Client);
+      expect([...((await gateway.shareKeeps('room', ['forum'])) ?? [])]).toEqual([]);
+      expect(fetched).toHaveLength(10);
+    });
+
+    it('may share where it may view and send, Send Messages in Threads in a post, no Embed Links asked (P2)', () => {
+      const me = {};
+      const has = (bits: bigint, thread = false) => ({
+        isDMBased: () => false,
+        isThread: () => thread,
+        guild: { members: { me } },
+        permissionsFor: (member: unknown) => (member === me ? new PermissionsBitField(bits) : null),
+      });
+      const P = PermissionFlagsBits;
+      const channels = new Map<string, unknown>([
+        ['text', has(P.ViewChannel | P.SendMessages)],
+        ['mute', has(P.ViewChannel | P.EmbedLinks)],
+        ['post', has(P.ViewChannel | P.SendMessagesInThreads, true)],
+        ['closed-post', has(P.ViewChannel | P.SendMessages, true)],
+      ]);
+      const gateway = new DiscordPartyGateway();
+      gateway.use({ channels: { cache: channels }, user: { id: 'bot' } } as unknown as Client);
+      expect(gateway.mayShare('text')).toBe(true);
+      expect(gateway.mayShare('mute')).toBe(false);
+      expect(gateway.mayShare('post')).toBe(true);
+      expect(gateway.mayShare('closed-post')).toBe(false);
+      // Not in the cache: the send decides.
+      expect(gateway.mayShare('unknown')).toBe(true);
     });
 
     // Re-review RR-4: only a role that can see the forum and cannot write in its posts.

@@ -17,6 +17,7 @@ import {
   type ForumChannel,
   type AnyThreadChannel,
   type Guild,
+  type GuildChannel,
   type GuildMember,
 } from 'discord.js';
 import { readFile } from 'node:fs/promises';
@@ -29,7 +30,14 @@ import {
   type PostsRefused,
 } from '../domain/party/post-permissions.js';
 import { BoundedMap } from '../bounded-map.js';
-import { channelPermissions, FORUM_NEEDS, SERVER_NEEDS } from '../ops/permissions.js';
+import {
+  channelPermissions,
+  FORUM_NEEDS,
+  SERVER_NEEDS,
+  namedViewers,
+  regionsKept,
+  type ApiOverwrite,
+} from '../ops/permissions.js';
 import { fetchGuildMember } from './member-directory.js';
 
 /** How many message ids the gateway keeps as known components-v2 messages. */
@@ -472,6 +480,27 @@ export interface PartyGateway {
    */
   mayPost(channelId: string): boolean;
   /**
+   * Whether the bot may post a shared answer in a channel (plan 8H-5, P2), from the cache: View
+   * Channel and Send Messages, or Send Messages in Threads in a thread (a post); no Embed Links,
+   * which a components-v2 message does not need. A channel not in the cache counts as allowed,
+   * so that the send decides.
+   */
+  mayShare(channelId: string): boolean;
+  /**
+   * The regions of `regionChannelIds` (each region's forum, or text channel where it has none)
+   * whose counts may be shared into a channel (plan 8H-5, Matt's ruling R-A): a region whose
+   * channel is the share channel, or the channel a shared-in post is in, at once; any other only
+   * if everybody who can view the share channel (its parent's overwrites for a post) can view the
+   * region's channel (`regionsKept` of `src/ops/permissions.ts`, from the cache; members the share
+   * channel names and the cache lacks fetched first, at most `SHARE_MEMBER_FETCHES`). A region
+   * channel the cache lacks is not kept; undefined where the cache lacks the share channel (or a
+   * post's parent), of which nothing can be said.
+   */
+  shareKeeps(
+    shareChannelId: string,
+    regionChannelIds: readonly string[],
+  ): Promise<ReadonlySet<string> | undefined>;
+  /**
    * A custom emoji, by name, of the server a channel is in, as message text (`<:name:id>`).
    * From the cache; undefined when the server has none of that name.
    */
@@ -714,6 +743,17 @@ export type CreatedChannel =
       reason:
         'no-permission' | 'server-full' | 'category-full' | 'bad-name' | 'no-server' | 'base-gone';
     };
+
+/**
+ * How many members a share channel names (and the cache lacks) a Share fetches before it decides
+ * (plan 8H-5, R2); one past them stays unknown, and drops the regions it might not see.
+ */
+export const SHARE_MEMBER_FETCHES = 10;
+
+/** A member's roles but the server's everyone role, as `shareKeeps` takes them. */
+function rolesBesideEveryone(member: GuildMember, guildId: string): string[] {
+  return [...member.roles.cache.keys()].filter((id) => id !== guildId);
+}
 
 /** What the bot needs in a channel to put a copy of a party's message there. */
 const CAN_POST = [
@@ -2036,6 +2076,71 @@ export class DiscordPartyGateway implements PartyGateway {
     // would not say (it drops the embed silently). On a ready client the bot's own member is
     // always cached, so this does not happen for it.
     return me === null || (channel.permissionsFor(me)?.has(CAN_POST) ?? false);
+  }
+
+  mayShare(channelId: string): boolean {
+    const channel = this.client.channels.cache.get(channelId);
+    if (!channel || channel.isDMBased()) return true;
+    const me = channel.guild.members.me;
+    if (me === null) return true;
+    const send = channel.isThread()
+      ? PermissionFlagsBits.SendMessagesInThreads
+      : PermissionFlagsBits.SendMessages;
+    return channel.permissionsFor(me)?.has([PermissionFlagsBits.ViewChannel, send]) ?? false;
+  }
+
+  async shareKeeps(
+    shareChannelId: string,
+    regionChannelIds: readonly string[],
+  ): Promise<ReadonlySet<string> | undefined> {
+    const cache = this.client.channels.cache;
+    const shared = cache.get(shareChannelId);
+    if (!shared || shared.isDMBased()) return undefined;
+    const into = shared.isThread() ? shared.parent : shared;
+    if (!into) return undefined;
+    const { guild } = into;
+    const overwrites = (channel: GuildChannel): ApiOverwrite[] =>
+      [...channel.permissionOverwrites.cache.values()].map((one) => ({
+        id: one.id,
+        type: one.type,
+        allow: String(one.allow.bitfield),
+        deny: String(one.deny.bitfield),
+      }));
+    const share = overwrites(into);
+    // Members the share channel lets in by name whom the cache lacks are asked for, at most
+    // `SHARE_MEMBER_FETCHES` (R2): one who cannot be fetched stays unknown, and drops the region.
+    const roles = new Map<string, readonly string[] | null>();
+    const missing = namedViewers(share).filter((id) => !guild.members.cache.has(id));
+    await Promise.all(
+      missing.slice(0, SHARE_MEMBER_FETCHES).map(async (id) => {
+        try {
+          const member = await fetchGuildMember(guild, id);
+          roles.set(id, member === undefined ? null : rolesBesideEveryone(member, guild.id));
+        } catch (err) {
+          this.log?.debug({ err, member: id }, 'could not fetch a member a shared board asks of');
+        }
+      }),
+    );
+    const regions = regionChannelIds.flatMap((id) => {
+      const channel = cache.get(id);
+      return channel && !channel.isDMBased() && !channel.isThread() && channel.guild.id === guild.id
+        ? [{ id, overwrites: overwrites(channel) }]
+        : [];
+    });
+    return regionsKept({
+      guildId: guild.id,
+      roles: [...guild.roles.cache.values()].map((role) => ({
+        id: role.id,
+        permissions: role.permissions.bitfield,
+      })),
+      share,
+      shareIds: [shared.id, into.id],
+      regions,
+      rolesOf: (memberId) => {
+        const member = guild.members.cache.get(memberId);
+        return member === undefined ? roles.get(memberId) : rolesBesideEveryone(member, guild.id);
+      },
+    });
   }
 
   emoji(channelId: string, name: string): string | undefined {

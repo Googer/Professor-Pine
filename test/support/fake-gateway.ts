@@ -7,7 +7,13 @@ import {
   PermissionsBitField,
   RESTJSONErrorCodes,
 } from 'discord.js';
-import { channelPermissions, type ApiOverwrite } from '../../src/ops/permissions.js';
+import {
+  channelPermissions,
+  namedViewers,
+  regionsKept,
+  type ApiOverwrite,
+} from '../../src/ops/permissions.js';
+
 import type { ServerChannel } from '../../src/domain/regions/region-import.js';
 import type {
   AutoArchiveMinutes,
@@ -33,9 +39,13 @@ import {
   MAX_FORUM_TAGS,
   BOARD_SLOWMODE_SECONDS,
   PostsRefusedError,
+  SHARE_MEMBER_FETCHES,
 } from '../../src/discord/party-gateway.js';
 import { postNeeds } from '../../src/domain/party/post-permissions.js';
 import { Tally } from './tally.js';
+
+/** The everyone role's permissions in the fake's server unless a test gives them (Discord's default). */
+const DEFAULT_EVERYONE = PermissionFlagsBits.ViewChannel | PermissionFlagsBits.SendMessages;
 
 /** What Discord answers a change the bot lacks the permission for (50013). */
 export function missingPermissions(method: string): DiscordAPIError {
@@ -1751,6 +1761,66 @@ export class FakePartyGateway implements PartyGateway {
       return 'refused';
     }
     return where.some((id) => this.noEmbeds.has(id)) ? 'plain' : 'v2';
+  }
+
+  /** Channels where the bot may not post a shared answer (`mayShare`, plan 8H-5): none unless a test says. */
+  readonly noSharing = new Set<string>();
+
+  mayShare(channelId: string): boolean {
+    return !this.noSharing.has(channelId);
+  }
+
+  /**
+   * Members Discord has and the cache lacks (`memberRoles` is the cache): `shareKeeps` fetches
+   * them, at most `SHARE_MEMBER_FETCHES`, each recorded in `memberFetches`; null for somebody not
+   * in the server. One in neither cannot be fetched.
+   */
+  readonly fetchableMembers = new Map<string, string[] | null>();
+  readonly memberFetches: string[] = [];
+
+  /**
+   * `regionsKept` of `src/ops/permissions.ts` as the real gateway asks it (plan 8H-5, R-A, R2),
+   * over the fake's own: a channel's overwrites are its `forumOverwrites` (any channel's, text
+   * channels too; none given, none), the server's roles `serverRoles` (the everyone role, the
+   * server's id, Discord's default of View Channel and Send Messages unless a test gives it), a
+   * member's roles `memberRoles` (the cache) or `fetchableMembers` (fetched). A post is judged by
+   * its forum; a region channel the fake does not know (no forum or channel of that id) is not
+   * kept, and an unknown share channel answers undefined.
+   */
+  shareKeeps(
+    shareChannelId: string,
+    regionChannelIds: readonly string[],
+  ): Promise<ReadonlySet<string> | undefined> {
+    const known = (id: string) => this.forums.has(id) || this.channels.has(id);
+    const into = this.posts.get(shareChannelId)?.forumId ?? shareChannelId;
+    if (!known(into)) return Promise.resolve(undefined);
+    const share = this.forumOverwrites.get(into) ?? [];
+    const fetched = new Map<string, readonly string[] | null>();
+    for (const id of namedViewers(share)
+      .filter((one) => !this.memberRoles.has(one))
+      .slice(0, SHARE_MEMBER_FETCHES)) {
+      this.memberFetches.push(id);
+      const roles = this.fetchableMembers.get(id);
+      if (roles !== undefined) fetched.set(id, roles);
+    }
+    const everyone = this.serverRoles.get(this.guildId)?.permissions ?? DEFAULT_EVERYONE;
+    return Promise.resolve(
+      regionsKept({
+        guildId: this.guildId,
+        roles: [
+          { id: this.guildId, permissions: everyone },
+          ...[...this.serverRoles]
+            .filter(([id]) => id !== this.guildId)
+            .map(([id, role]) => ({ id, permissions: role.permissions })),
+        ],
+        share,
+        shareIds: [shareChannelId, into],
+        regions: regionChannelIds
+          .filter((id) => known(id))
+          .map((id) => ({ id, overwrites: this.forumOverwrites.get(id) ?? [] })),
+        rolesOf: (memberId) => this.memberRoles.get(memberId) ?? fetched.get(memberId),
+      }),
+    );
   }
 
   /** The bot may post embeds everywhere but in the channels of `noEmbeds`. */

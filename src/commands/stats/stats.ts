@@ -1,6 +1,8 @@
 import {
   ButtonStyle,
   ComponentType,
+  MessageFlags,
+  type ButtonInteraction,
   SlashCommandBuilder,
   SlashCommandSubcommandBuilder,
   type APIButtonComponentWithCustomId,
@@ -19,9 +21,10 @@ import {
   v2Answer,
 } from '../../discord/late-reply.js';
 import { UserError } from '../../discord/errors.js';
-import type { V2Message } from '../../discord/party-gateway.js';
+import { memberInfo } from '../../discord/member-info.js';
+import { isMissingPermission, type V2Message } from '../../discord/party-gateway.js';
 import { STALE_COMPONENT } from '../../discord/router.js';
-import { MEMBER_READ_THROTTLE } from '../../discord/throttle.js';
+import { MEMBER_READ_THROTTLE, type Throttle } from '../../discord/throttle.js';
 import {
   BOARD_PERIODS,
   isBoardPeriod,
@@ -29,16 +32,19 @@ import {
   type BoardPeriod,
 } from '../../domain/history/board-periods.js';
 import { boardMessage, type BoardView } from '../../render/region-board.js';
-import { actionRow } from '../../render/v2.js';
+import { memberByName } from '../../render/text.js';
+import { actionRow, textDisplay } from '../../render/v2.js';
 import type { ShownBoard } from '../../services/region-boards.js';
 
 /**
  * The controls of `/stats`' answers: `stats:regions:show:<period>` switches the region board's
- * period in the private answer.
+ * period in the private answer, `stats:regions:share:<period>` posts that period's board in the
+ * channel.
  */
 export const STATS_KIND = 'stats';
 const BOARD_ID = 'regions';
 const SHOW = 'show';
+const SHARE = 'share';
 
 /** A board as Discord names its regions: by their channels (`RegionBoards.regionText`). */
 export function boardView(ctx: AppContext, shown: ShownBoard): BoardView {
@@ -73,12 +79,16 @@ function boardButton(
   };
 }
 
-/** The private answer: the board as the member may see it, and the periods to switch to. */
+/**
+ * The private answer: the board as the member may see it, the periods to switch to and Share;
+ * `channelId` where it was asked, which a Share posts into.
+ */
 async function privateBoard(
   ctx: AppContext,
   serverId: string,
   period: BoardPeriod,
   memberId: string,
+  channelId: string,
 ): Promise<V2Message> {
   const shown = await ctx.regionBoards.forMember(serverId, period, memberId, Date.now());
   const periods = BOARD_PERIODS.map((one) =>
@@ -86,8 +96,85 @@ async function privateBoard(
       ? boardButton(SHOW, one, PERIOD_LABELS[one], ButtonStyle.Primary, true)
       : boardButton(SHOW, one, PERIOD_LABELS[one], ButtonStyle.Secondary),
   );
-  const more: APIComponentInContainer[] = [actionRow(periods)];
+  const share = boardButton(SHARE, period, 'Share in this channel', ButtonStyle.Success);
+  // A board shared here leaves out a region somebody who sees this channel may not see: said
+  // where it would drop one of the member's own (R-A).
+  const dropped = await ctx.regionBoards.notShared([...shown.regions.values()], channelId);
+  const leavesOut = shown.board.rows.some((row) => dropped?.has(row.regionId) === true);
+  const more: APIComponentInContainer[] = [
+    actionRow([...periods, share]),
+    ...(leavesOut ? [textDisplay(SHARE_LEAVES_OUT)] : []),
+  ];
   return boardMessage(boardView(ctx, shown), more);
+}
+
+/** What the private answer says under Share where a shared board would leave regions out. */
+const SHARE_LEAVES_OUT =
+  '-# Shared here, the board leaves out the regions not everyone who sees this channel can see.';
+
+/**
+ * The refusal of a Share into a channel of which nothing can be said (not in the cache, or a
+ * post whose channel is not, R3): who sees it is not known.
+ */
+export const SHARE_UNKNOWN =
+  'I cannot tell who sees this channel just now, so I cannot share the board here. Try again ' +
+  'in a moment.';
+
+/** The refusal of a Share where the bot may not post. */
+export const SHARE_REFUSED =
+  'I may not post in this channel, so I cannot share the board here. Try it in a channel ' +
+  'where I can post.';
+
+/**
+ * The refusal of a Share whose channel is gone (or, in rehearsal mode, outside the posts of
+ * parties: the gateway posts nothing there).
+ */
+const SHARE_GONE = 'I could not post the board in this channel.';
+
+/**
+ * How often a member may share a board: three times in ten minutes, in a window of its own (a
+ * share is a message in a channel for all, not a read).
+ */
+export const SHARE_THROTTLE: Throttle = { uses: 3, perSeconds: 600 };
+
+/**
+ * Share: the board computed again at the press, as it may be shown in the channel the answer was
+ * asked in (`forShare`: without a region somebody who sees that channel may not see, whatever the
+ * sharer sees; R-A), posted there by the bot, its sharer named in the small print
+ * (`memberByName`, P7), mentions off as every send is. Refused in words where the bot may not
+ * post there (`mayShare` before, a refused permission after: no doing of the member's, the use
+ * given back).
+ */
+async function share(
+  interaction: ButtonInteraction,
+  ctx: AppContext,
+  period: BoardPeriod,
+): Promise<void> {
+  const { channelId } = interaction;
+  if (!ctx.regionBoards.mayShare(channelId)) {
+    throw new UserError(SHARE_REFUSED, { givesBack: true });
+  }
+  // Sending to the channel comes before the answer: acknowledged first, the answer left as it is.
+  await interaction.deferUpdate();
+  const shown = await ctx.regionBoards.forShare(
+    guildIdOf(interaction),
+    period,
+    channelId,
+    Date.now(),
+  );
+  // Nothing can be said of who sees a channel the cache lacks: nothing is shared there (R3).
+  if (shown === undefined) throw new UserError(SHARE_UNKNOWN, { givesBack: true });
+  const sharer = memberByName({ id: interaction.user.id, name: memberInfo(interaction).name });
+  const message = boardMessage(boardView(ctx, shown), [textDisplay(`-# Shared by ${sharer}`)]);
+  let posted: string | undefined;
+  try {
+    posted = await ctx.regionBoards.post(channelId, message);
+  } catch (err) {
+    if (!isMissingPermission(err)) throw err;
+    throw new UserError(SHARE_REFUSED, { givesBack: true });
+  }
+  if (posted === undefined) throw new UserError(SHARE_GONE, { givesBack: true });
+  await interaction.followUp({ content: 'Shared in this channel.', flags: MessageFlags.Ephemeral });
 }
 
 const regionsPart: SubcommandPart = {
@@ -110,7 +197,9 @@ const regionsPart: SubcommandPart = {
       'How many raids and max battles took place in each region of this server, the busiest ' +
       'first: this month, this year or all time. Only you see the answer.\n\n' +
       'A raid or max battle counts whether or not anybody marked it done, unless it was ' +
-      'deleted. Those of regions that are gone are counted on one line, "No longer a region".',
+      'deleted. Those of regions that are gone are counted on one line, "No longer a region".' +
+      '\n\n"Share in this channel" posts the board where you asked, for everybody, with your ' +
+      'name. It leaves out the regions not everyone who sees that channel can see.',
     examples: ['/stats regions', '/stats regions period:This year'],
   },
   defer: 'late',
@@ -120,7 +209,15 @@ const regionsPart: SubcommandPart = {
     const period = isBoardPeriod(asked ?? undefined) ? (asked as BoardPeriod) : 'month';
     await answer(
       interaction,
-      v2Answer(await privateBoard(ctx, guildIdOf(interaction), period, interaction.user.id)),
+      v2Answer(
+        await privateBoard(
+          ctx,
+          guildIdOf(interaction),
+          period,
+          interaction.user.id,
+          interaction.channelId,
+        ),
+      ),
     );
   },
 };
@@ -144,19 +241,31 @@ export const stats = commandGroup({
 /**
  * The controls of `/stats`' answers (plan 8H-5): another period of the region board, read again
  * at the press and shown in the private answer itself (`pressAnswer`: a private answer is always
- * changed in place). Everything is in the custom id. Counted as the command's reads are, in a
- * window of its own.
+ * changed in place), counted as the command's reads are in a window of its own; and Share
+ * (`share`), three in ten minutes (`SHARE_THROTTLE`), counted apart. Everything is in the custom
+ * id. Only the answer's member can press them: the answer is private.
  */
 export const statsControls: ComponentHandler = {
   kind: STATS_KIND,
-  throttle: MEMBER_READ_THROTTLE,
+  throttle: (_interaction, id) => (id.action === SHARE ? SHARE_THROTTLE : MEMBER_READ_THROTTLE),
   async button(interaction, id, ctx) {
     const [period, ...more] = id.args;
-    if (id.id !== BOARD_ID || id.action !== SHOW || !isBoardPeriod(period) || more.length > 0) {
+    const known = id.action === SHOW || id.action === SHARE;
+    if (id.id !== BOARD_ID || !known || !isBoardPeriod(period) || more.length > 0) {
       throw new UserError(STALE_COMPONENT);
     }
+    if (id.action === SHARE) {
+      await share(interaction, ctx, period);
+      return;
+    }
     const how = pressAnswer(interaction);
-    const reading = privateBoard(ctx, guildIdOf(interaction), period, interaction.user.id);
+    const reading = privateBoard(
+      ctx,
+      guildIdOf(interaction),
+      period,
+      interaction.user.id,
+      interaction.channelId,
+    );
     await answerPress(interaction, how, await readOrDeferPress(interaction, how, reading));
   },
 };

@@ -75,6 +75,114 @@ export function channelPermissions(
   return permissions;
 }
 
+/**
+ * What a Share of the region board (plan 8H-5) reads of a server, from the gateway's cache: every
+ * role with its permissions (the everyone role, whose id is the server's, among them), the
+ * overwrites of the region's forum (or its text channel where it has none) and of the channel
+ * shared into (its parent's for a thread), and a member's roles where the cache has the member.
+ */
+export interface ShareView {
+  guildId: string;
+  roles: ReadonlyArray<{ id: string; permissions: bigint }>;
+  region: readonly ApiOverwrite[];
+  share: readonly ApiOverwrite[];
+  /**
+   * The roles of a member (not the everyone role): undefined when nobody can say (not in the
+   * cache, and not fetched), null for somebody who is not in the server (their overwrite lets
+   * nobody in).
+   */
+  rolesOf(memberId: string): readonly string[] | null | undefined;
+}
+
+/**
+ * Whether a region's counts may go into a channel (Matt, 2026-11-05, R-A): only if everybody who
+ * can view the channel shared into can view the region's forum, judged as Discord computes it
+ * (`channelPermissions`), the gateway and its fake alike:
+ * - each role alone, the everyone role included (a member of no role): one that views the share
+ *   channel must view the region;
+ * - each role beside each role the region's overwrites name: a denial on the forum of a role held
+ *   beside one that views the share channel is a gap, as allowances beat denials among roles;
+ * - each member the share channel's overwrites let in by name: dropped unless their roles are
+ *   known and they view the region (one not in the server lets nobody in).
+ * A member's own denial on the forum is accepted: the board names nobody.
+ *
+ * These sets are complete (R1): take any set of roles S that views the share channel and not the
+ * region. It views the share channel through one role W of S alone (a role allowing View there,
+ * or, where no role of S allows and none denies it, the role whose server permissions or the
+ * everyone overwrite give it; W empty for everyone), so W alone views it too. S does not view the
+ * region: no role of S allows View there, so either W alone does not view it either (a single
+ * catches it), or some role D of S denies it there, a role the region's overwrites name; then
+ * {W, D} views the share channel (W allows, or D denied nothing there, else S would need a role
+ * allowing it, which is then W) and not the region (D denies, nothing allows): a pair catches it.
+ * An administrator sees both. `permissions.test.ts` checks this against a search over every set
+ * of four roles on random servers.
+ */
+export function shareKeeps(view: ShareView): boolean {
+  const { guildId, region, share } = view;
+  const permissionsOf = new Map(view.roles.map((role) => [role.id, role.permissions]));
+  const base = (roleIds: readonly string[]): bigint => {
+    let permissions = permissionsOf.get(guildId) ?? 0n;
+    for (const id of roleIds) permissions |= permissionsOf.get(id) ?? 0n;
+    return (permissions & P.Administrator) === P.Administrator ? ALL : permissions;
+  };
+  const views = (overwrites: readonly ApiOverwrite[], member: ApiMember): boolean =>
+    (channelPermissions(base(member.roleIds), guildId, member, overwrites) & P.ViewChannel) !== 0n;
+  const others = view.roles.map((role) => role.id).filter((id) => id !== guildId);
+  const named = region
+    .filter((one) => one.type === OverwriteType.Role && one.id !== guildId)
+    .map((one) => one.id);
+  const sets: string[][] = [
+    [],
+    ...others.map((id) => [id]),
+    ...named.flatMap((denied) =>
+      [...others, ...named].filter((id) => id !== denied).map((id) => [id, denied]),
+    ),
+  ];
+  for (const roleIds of sets) {
+    const member = { id: '', roleIds };
+    if (views(share, member) && !views(region, member)) return false;
+  }
+  for (const one of share) {
+    if (one.type !== OverwriteType.Member || (BigInt(one.allow) & P.ViewChannel) === 0n) continue;
+    const roleIds = view.rolesOf(one.id);
+    if (roleIds === null) continue;
+    if (roleIds === undefined || !views(region, { id: one.id, roleIds })) return false;
+  }
+  return true;
+}
+
+/** The members a share channel's overwrites let in by name (View allowed), whom `shareKeeps` asks of. */
+export function namedViewers(share: readonly ApiOverwrite[]): string[] {
+  return share
+    .filter(
+      (one) => one.type === OverwriteType.Member && (BigInt(one.allow) & P.ViewChannel) !== 0n,
+    )
+    .map((one) => one.id);
+}
+
+/**
+ * The regions a board shared into a channel keeps (plan 8H-5, R-A, R2), by their forum's (or
+ * text channel's) id: a region whose channel is the share channel or the channel a shared-in
+ * post is in has the same audience and is kept before anything is checked; every other region by
+ * `shareKeeps`.
+ */
+export function regionsKept(
+  view: Omit<ShareView, 'region'> & {
+    /** The share channel's id, and its parent's for a post. */
+    shareIds: readonly string[];
+    regions: ReadonlyArray<{ id: string; overwrites: readonly ApiOverwrite[] }>;
+  },
+): Set<string> {
+  return new Set(
+    view.regions
+      .filter(
+        (region) =>
+          view.shareIds.includes(region.id) || shareKeeps({ ...view, region: region.overwrites }),
+      )
+      .map((region) => region.id),
+  );
+}
+
 /** A permission the bot needs: its flag, its name in Discord's settings, and what for. */
 export interface Need {
   flag: bigint;

@@ -120,6 +120,11 @@
  * `rank:<key>:show:<league>:<a>-<d>-<s>:<filter>:<0|1>` (the last: the evolution line shown).
  * Nothing is kept anywhere else (`rankButtonId`, `src/render/pvp-rank.ts`).
  *
+ * The buttons under the private answer of `/stats regions` (plan 8H-5) have the kind `stats` and
+ * the board as the id: `stats:regions:show:<period>` (another period, in the answer itself) and
+ * `stats:regions:share:<period>` (the board posted in the channel), the period `month`, `year`
+ * or `all` (`src/commands/stats/stats.ts`). Nothing is kept anywhere else.
+ *
  * The controls of a page of `/help` have the kind `help`; the id is the kind of page they are on
  * (`overview`, `group`, `command`), the action which page (a category, a command's path), and
  * the first argument what the control does: `help:overview:group` (the menu of groups),
