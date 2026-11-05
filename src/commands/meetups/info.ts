@@ -105,7 +105,7 @@ export const info: SimpleCommand = {
     details:
       'Use it in the post of the meetup; only its maker or a moderator can. A form opens with ' +
       'the text as it is now: where to meet, what to bring, how long it goes.\n\nWhat you send ' +
-      'is shown in the post under "Meeting Information"; sent back empty, it removes the text. ' +
+      'is shown in the post under "Meeting Information"; an empty form removes the text. ' +
       'The post says who changed it.',
     examples: ['/info'],
   },

@@ -109,11 +109,12 @@ export const places: SimpleCommand = {
     category: 'admin',
     details:
       'For admins and moderators. With a place: whether meetups there are allowed or refused ' +
-      'for good, who decided, when and from which post, with Undo ruling (a meetup there is ' +
-      'then checked by its name again; nobody is told).\n\nWithout: refused and allowed places, ' +
-      'pending meetup requests, asks about places, blocked members (with Lift block), open ' +
-      'appeals and open reports, each with a link to its post in the moderators’ channel. ' +
-      'Server Settings › Integrations decide who sees it (Manage Messages by default).',
+      'for good, who decided, when and from which post, with the button Undo ruling (meetups ' +
+      'there are then checked as usual again; nobody is told).\n\nWithout a place: the refused ' +
+      'and allowed places, meetup requests waiting for a decision, members asking to allow a ' +
+      'refused place, blocked members (with Lift block), and open appeals and reports, each ' +
+      'with a link to its post in the moderators’ channel.\n\nServer Settings › Integrations ' +
+      'decide who sees it (Manage Messages by default). Only you see the answer.',
     examples: ['/places', '/places place:Riverside Park Gazebo'],
   },
   guards: [requireGuild, requireManagement],

@@ -273,13 +273,13 @@ export const meetup: SimpleCommand = {
   help: {
     category: 'meetup',
     details:
-      'For anything that is not a raid at one gym: a Community Day in the park, a trade ' +
-      'evening. Use it in the channel of a region; the meetup gets a post in the forum of that ' +
-      'region, and you are marked as interested.\n\n`near` says the gym or PokéStop ' +
-      'it is near (pick one from the list that appears while you type), or a place you paste ' +
-      'as a link from a maps app or as coordinates; the post shows the place with a map link, ' +
-      'and it cannot be changed afterwards.\n\n`start` says when it starts. A form then asks what ' +
-      'there is to know: where exactly to meet, what to bring.\n\nA meetup at a pin, or at a place ' +
+      'Makes a meetup, for anything that is not a raid at one gym: a Community Day in the ' +
+      'park, a trade evening. Use it in the channel of a region; the meetup gets a post in the ' +
+      'forum of that region, and you are marked as interested.\n\n`near` is the gym or ' +
+      'PokéStop it is near (pick one from the list that appears while you type), or a place ' +
+      'you paste as a link from a maps app or as coordinates. The post shows the place with a ' +
+      'map link, and it cannot be changed afterwards.\n\n`start` is when it starts. A form then ' +
+      'asks what there is to know: where exactly to meet, what to bring.\n\nA meetup at a pin, or at a place ' +
       "that might be somebody's home, needs a moderator's approval before it is posted: you " +
       'are told by direct message once they have decided (so give a start at least two hours ' +
       'ahead).\n\nIn the post, change when it starts with `/meet`, set when it ends with `/end`, ' +
@@ -287,7 +287,7 @@ export const meetup: SimpleCommand = {
       `the buttons, as for a raid.\n\nYou may have ${MAX_OPEN_PARTIES} open trains and meetups ` +
       'at a time, here and on the map; meetups waiting for a moderator count.\n\nA meetup is ' +
       'archived an hour after it is over: after its end, or without one a day after its start. ' +
-      'One whose start was removed goes a day after it was made, or after its last time was ' +
+      'One without any time is archived a day after it was made, or after its last time was ' +
       'removed; its post says when.\n\nOfficial meetups ' +
       `by Community Ambassadors are on Campfire: ${CAMPFIRE_DISCOVER_URL}`,
     examples: [
