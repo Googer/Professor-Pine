@@ -76,6 +76,34 @@ describe('matchPowerSpot', () => {
     expect(ids(matchPowerSpot('MAPLE BENCH', twins))).toEqual(['c1', 'c2']);
   });
 
+  it('offers a title whose words all stand, in order, in a longer name the game shows (7P-H)', () => {
+    // The game says "TANSY STREET SHELTER" where Wayfarer has "Tansy Shelter": 71% alike.
+    const shelter: SpotTitle = { id: 'e1', title: 'Tansy Shelter', local: true };
+    const away: SpotTitle = { id: 'e2', title: 'Tansy Shelter', local: false };
+    expect(matchPowerSpot('TANSY STREET SHELTER', [shelter])).toEqual({
+      kind: 'candidates',
+      spots: [shelter],
+    });
+    // Never clear, even alone in the server: asked, the region's first, extra words anywhere.
+    expect(ids(matchPowerSpot('OLD TANSY STREET SHELTER', [away, shelter]))).toEqual(['e1', 'e2']);
+    // A space the reader lost between two words of the title is no matter.
+    const glued: SpotTitle = { id: 'e3', title: "Juniper's Swing Corner", local: true };
+    expect(ids(matchPowerSpot("NORTH JUNIPER'SSWING PLAYGROUND CORNER", [glued]))).toEqual(['e3']);
+    // Out of order, a word missing, or a title too small a share of the name: none.
+    expect(matchPowerSpot('SHELTER STREET TANSY', [shelter]).kind).toBe('unknown');
+    expect(matchPowerSpot('TANSY STREET', [shelter]).kind).toBe('unknown');
+    const short: SpotTitle = { id: 'e4', title: 'Oak Bell', local: true };
+    expect(matchPowerSpot('OAK GROVE COMMUNITY CHURCH BELL', [short]).kind).toBe('unknown');
+    // Beside a title alike, one more candidate; a title the name starts or equals stays clear.
+    const alike: SpotTitle = { id: 'e5', title: 'Tansy Streat Shelter', local: false };
+    expect(ids(matchPowerSpot('TANSY STREET SHELTER', [alike, shelter]))).toEqual(['e1', 'e5']);
+    const longer: SpotTitle = { id: 'e6', title: 'Tansy Street Shelter West', local: true };
+    expect(matchPowerSpot('TANSY STREET SHELTER', [shelter, longer])).toEqual({
+      kind: 'clear',
+      spot: longer,
+    });
+  });
+
   it('knows no spot that is not even 80% alike, nor a name that was not read', () => {
     expect(matchPowerSpot('HARBOR SIGNAL TOWER', SPOTS)).toEqual({ kind: 'unknown' });
     expect(matchPowerSpot(null, SPOTS)).toEqual({ kind: 'unknown' });

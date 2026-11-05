@@ -4,7 +4,8 @@ import { nameSimilarity } from './screenshot-report.js';
  * Which Power Spot the name on a max battle's screen is (design
  * `2026-10-22-max-battle-screenshots-design.md`, sections 3 and 9): pure, over the titles it is
  * given. The game shows the name in capitals, and the reader may lose a space
- * (`JUNIPER'SSWING CORNER`) or get a name the screen cut short.
+ * (`JUNIPER'SSWING CORNER`) or get a name the screen cut short; the game's name may also have
+ * words more than the Wayfarer title (plan 7P-H).
  */
 
 /** A Power Spot the name may be: its Wayfarer id, its title, and whether it lies in the channel's region. */
@@ -17,8 +18,8 @@ export interface SpotTitle {
 
 /**
  * `clear`: the one spot it is. `candidates`: the spots it may be, the region's first, then the
- * most alike (a menu asks which). `unknown`: no title is even 80% alike (`SPOT_ALIKE`), or no
- * name was read.
+ * most alike (a menu asks which). `unknown`: no title is even 80% alike (`SPOT_ALIKE`) nor
+ * within the name read (`wordsWithin`), or no name was read.
  */
 export type SpotMatch =
   | { kind: 'clear'; spot: SpotTitle }
@@ -35,6 +36,13 @@ export const SPOT_ALIKE = 0.8;
 const CUT_NAME_MIN = 6;
 
 /**
+ * A title whose words all stand, in order, in a longer name read (`wordsWithin`) is offered only
+ * when it is at least this share of the name's letters and digits: one or two short words of a
+ * long name say little.
+ */
+const WITHIN_SHARE = 0.5;
+
+/**
  * Letters and digits only, without case or accents: `Juniper's Swing` → `juniperswing`; also the
  * key of the moderators' note of a Power Spot Pine may be missing (`ModerationReports.missingSpot`).
  */
@@ -44,6 +52,33 @@ export function spotNameKey(text: string): string {
     .replace(/\p{M}/gu, '')
     .toLowerCase()
     .replace(/[^\p{L}\p{N}]/gu, '');
+}
+
+/**
+ * Whether every word of `title` stands, in order, among the words of the name read, which has
+ * words more (the game showed "BARTLETT STREET SHELTER" where Wayfarer has "Bartlett Shelter";
+ * plan 7P-H): the title, letters and digits only, is some of the name's words joined, skipping
+ * the others, so a space the reader lost between two of the title's words is no matter. The
+ * title is at least `CUT_NAME_MIN` letters and digits and `WITHIN_SHARE` of the name's.
+ */
+function wordsWithin(read: string, title: string): boolean {
+  const key = spotNameKey(title);
+  const words = read
+    .split(/\s+/)
+    .map(spotNameKey)
+    .filter((word) => word.length > 0);
+  const letters = words.join('').length;
+  if (key.length < CUT_NAME_MIN || key.length >= letters || key.length < letters * WITHIN_SHARE) {
+    return false;
+  }
+  // Where in the title the words taken so far may end: each word read is taken or skipped.
+  let ends = new Set([0]);
+  for (const word of words) {
+    const next = new Set(ends);
+    for (const end of ends) if (key.startsWith(word, end)) next.add(end + word.length);
+    ends = next;
+  }
+  return ends.has(key.length);
 }
 
 /**
@@ -63,8 +98,9 @@ function onlyOne(found: readonly SpotTitle[]): SpotTitle | undefined {
  * failing any there, exactly one in the server, is clear; only without an equal title are the
  * titles it is the start of looked at, and one of them is clear only when it is the only one in
  * the server (plan 8F-1: a cut name that fits a spot of the region and spots of other regions is
- * asked). Otherwise every match and every title at least 80% alike is a candidate, the region's
- * first; none: unknown.
+ * asked). Otherwise every match, every title whose words all stand in order in a longer name read
+ * (`wordsWithin`, plan 7P-H: never clear), and every title at least 80% alike is a candidate, the
+ * region's first; none: unknown.
  */
 export function matchPowerSpot(read: string | null, spots: readonly SpotTitle[]): SpotMatch {
   const name = read === null ? '' : spotNameKey(read);
@@ -79,7 +115,12 @@ export function matchPowerSpot(read: string | null, spots: readonly SpotTitle[])
   // than a wrong spot.
   const clear = equal.length > 0 ? onlyOne(equal) : starts.length === 1 ? starts[0] : undefined;
   if (clear) return { kind: 'clear', spot: clear };
-  const matches = [...equal, ...starts];
+  // A title within a longer name read is only ever asked about (plan 7P-H).
+  const within = spots.filter(
+    (spot) =>
+      !equal.includes(spot) && !starts.includes(spot) && wordsWithin(read ?? '', spot.title),
+  );
+  const matches = [...equal, ...starts, ...within];
   const alike = spots
     .map((spot) => ({ spot, score: nameSimilarity(read ?? '', spot.title) }))
     .filter(({ spot, score }) => score >= SPOT_ALIKE || matches.includes(spot))
