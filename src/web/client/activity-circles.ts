@@ -11,7 +11,7 @@ import { tapRadius } from './activity.js';
 
 /** A circle as the caller draws it. */
 export interface TapCircle {
-  /** The place as it stands now: its size by its weight. */
+  /** The place as it stands now: where it is, its size by its weight. */
   show(place: ActivityPlaceView): void;
   /** Its words changed: its popup, where open, drawn anew. */
   refresh(): void;
@@ -22,6 +22,7 @@ export interface TapCircle {
 export interface PopupCircle {
   bindPopup(content: () => HTMLElement): unknown;
   setRadius(radius: number): unknown;
+  setLatLng(at: [number, number]): unknown;
   getPopup(): { update(): unknown } | undefined;
 }
 
@@ -40,6 +41,8 @@ export function tapCircle(
   circle.bindPopup(() => content(words()));
   return {
     show: (place) => {
+      // Where the answer has the place now (review 8H4H-5), as its size.
+      circle.setLatLng([place.lat, place.lon]);
       circle.setRadius(tapRadius(place.weight));
     },
     refresh: () => {

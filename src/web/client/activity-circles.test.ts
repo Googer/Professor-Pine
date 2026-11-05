@@ -125,6 +125,7 @@ describe("the activity's invisible circles", () => {
           circle.radius = radius;
           return circle;
         },
+        setLatLng: () => circle,
         isPopupOpen: () => popup.open,
         setPopupContent(content: { text: string }) {
           popup.content = content;
@@ -167,6 +168,35 @@ describe("the activity's invisible circles", () => {
     circles.show([at('1', 20)], words);
     circle.openPopup();
     expect(circle.getPopup().shown).toBe('20 parties');
+  });
+
+  // Review 8H4H-5: a place kept through a new answer stands where the answer has it.
+  it("moves a kept circle to where the new answer has its place, its size the answer's", () => {
+    const circle = {
+      at: undefined as [number, number] | undefined,
+      radius: 0,
+      bindPopup: () => circle,
+      setRadius(radius: number) {
+        circle.radius = radius;
+        return circle;
+      },
+      setLatLng(at: [number, number]) {
+        circle.at = at;
+        return circle;
+      },
+      getPopup: () => undefined,
+      closePopup: () => circle,
+    };
+    const tapped = tapCircle(
+      circle,
+      at('1', 4),
+      () => '4 parties',
+      () => ({}) as HTMLElement,
+      () => undefined,
+    );
+    tapped.show({ ...at('1', 9, 1), lat: 40.45, lon: -79.94 });
+    expect(circle.at).toEqual([40.45, -79.94]);
+    expect(circle.radius).toBe(tapRadius(1));
   });
 
   it('tells a gym from a Power Spot of the same id', () => {
