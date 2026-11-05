@@ -173,6 +173,27 @@ export function boardReaderCases(made: () => Promise<BoardWorld>): void {
     expect(await world.reader.raidCredits(BOARD_SERVER, all)).toEqual([]);
   });
 
+  it('credits no raid the moderators closed, but one staff closed (W3)', async () => {
+    const world = await made();
+    await world.party(boardRecord({ closedBy: 'moderators' }));
+    await world.party(boardRecord({ kind: 'max', closedBy: 'moderators' }));
+    await world.party(boardRecord({ closedBy: 'staff', createdAt: BOARD_NOW + HOUR }));
+    expect(await world.reader.raidCredits(BOARD_SERVER, all)).toEqual([
+      { memberId: ASH, at: BOARD_NOW + HOUR, anonymous: false },
+    ]);
+  });
+
+  it('credits no train the moderators closed, but one staff closed (W3)', async () => {
+    const world = await made();
+    const led = [boardAttendee(ASH, 'here', { conducted: 2 }), boardAttendee(BROCK, 'here')];
+    await world.party(boardRecord({ kind: 'train', closedBy: 'moderators', attendees: led }));
+    const kept = boardRecord({ kind: 'train', closedBy: 'staff', attendees: led });
+    await world.party(kept);
+    expect(await world.reader.trainCredits(BOARD_SERVER, all)).toEqual([
+      { memberId: ASH, at: BOARD_NOW, anonymous: false, partyId: kept.partyId },
+    ]);
+  });
+
   it('says which raids were anonymous, reads from a moment on and of one member', async () => {
     const world = await made();
     await world.party(boardRecord({ anonymous: true }));

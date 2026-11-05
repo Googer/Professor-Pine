@@ -100,6 +100,7 @@ export class MemoryBoards implements BoardReader {
         if (maker === null || (range.memberId !== undefined && maker !== range.memberId)) {
           return [];
         }
+        if (record.closedBy === 'moderators') return [];
         if (record.ending === CLOSED_ENDING || !MemoryBoards.another(record, maker, ['done'])) {
           return [];
         }
@@ -114,7 +115,7 @@ export class MemoryBoards implements BoardReader {
         record.attendees.flatMap((one) => {
           const id = one.memberId;
           if (id === null || (range.memberId !== undefined && id !== range.memberId)) return [];
-          if ((one.conducted ?? 0) < 1) return [];
+          if ((one.conducted ?? 0) < 1 || record.closedBy === 'moderators') return [];
           if (!MemoryBoards.another(record, id, ['here', 'done'])) return [];
           return [{ ...MemoryBoards.credit(record, id), partyId: record.partyId ?? '' }];
         }),

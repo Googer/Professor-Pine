@@ -98,6 +98,12 @@ const another = (member: RawBuilder<unknown>, furthest: readonly string[]) => sq
           where o.historyId = h.id and o.furthest in (${sql.join(furthest.map((f) => sql.lit(f)))})
             and (o.memberId is null or o.memberId <> ${member}))`;
 
+/**
+ * Not closed by the moderators (W3): a raid or train they closed credits nobody. One staff
+ * closed (a clean-up) still counts; a meetup either way (`meetupCredits`).
+ */
+const notByModerators = sql`(h.closedBy is null or h.closedBy <> 'moderators')`;
+
 interface CreditRow {
   memberId: string;
   at: string;
@@ -121,7 +127,7 @@ export class BoardRepository implements BoardReader {
       where h.serverId = ${serverId} and h.kind in ('raid', 'max') and h.source = 'live'
         ${from(sql.ref('h.createdAt'), range.since)}
         and h.createdById is not null ${ofMember(sql.ref('h.createdById'), range.memberId)}
-        and h.ending <> ${CLOSED_ENDING}
+        and h.ending <> ${CLOSED_ENDING} and ${notByModerators}
         and ${another(sql.ref('h.createdById'), ['done'])}`.execute(this.db);
     return rows.rows.map(credit);
   }
@@ -134,7 +140,7 @@ export class BoardRepository implements BoardReader {
       where h.serverId = ${serverId} and h.kind = 'train' and h.source = 'live'
         ${from(sql.ref('h.createdAt'), range.since)}
         and a.memberId is not null ${ofMember(sql.ref('a.memberId'), range.memberId)}
-        and a.conducted >= 1
+        and a.conducted >= 1 and ${notByModerators}
         and ${another(sql.ref('a.memberId'), ['here', 'done'])}`.execute(this.db);
     return rows.rows.map((row) => ({ ...credit(row), partyId: row.partyId }));
   }
