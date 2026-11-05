@@ -90,6 +90,43 @@ export function activityReaderCases(
     ).toEqual([june]);
   });
 
+  it('sums a server’s raids and max battles per region over a span of months (plan 8H-5)', async () => {
+    const { reader, add } = await made();
+    expect(await reader.regionSums(ACTIVITY_SERVER, { first: '2019-01', last: '2019-12' })).toEqual(
+      [],
+    );
+    await add(ACTIVITY_SERVER, [
+      activityBucket(1, '2019-06', 1, 3, { raids: 2 }),
+      activityBucket(2, '2019-12', 7, 23, { raids: 1, maxes: 4 }),
+      activityBucket(0, '2019-07', 2, 18, {
+        regionId: 2,
+        placeKind: 'none',
+        placeId: '0',
+        raids: 5,
+        maxes: 0,
+      }),
+      activityBucket(3, '2019-08', 2, 18, { regionId: 0, raids: 0, maxes: 2 }),
+      // Out of the span, before and after.
+      activityBucket(1, '2018-12', 1, 3),
+      activityBucket(1, '2020-01', 1, 3),
+      // At no time: in no span.
+      activityBucket(0, UNKNOWN_MONTH, 0, 0, { placeKind: 'none', placeId: '0' }),
+    ]);
+    await add(OTHER_ACTIVITY_SERVER, [activityBucket(1, '2019-06', 1, 3)]);
+    const sums = await reader.regionSums(ACTIVITY_SERVER, { first: '2019-01', last: '2019-12' });
+    expect([...sums].sort((a, b) => a.regionId - b.regionId)).toEqual([
+      { regionId: 0, raids: 0, maxes: 2 },
+      { regionId: 1, raids: 3, maxes: 4 },
+      { regionId: 2, raids: 5, maxes: 0 },
+    ]);
+    expect(await reader.regionSums(ACTIVITY_SERVER, { first: '2019-06', last: '2019-06' })).toEqual(
+      [{ regionId: 1, raids: 2, maxes: 0 }],
+    );
+    expect(
+      await reader.regionSums(ACTIVITY_SERVER, { first: '2016-07', last: '2026-11' }),
+    ).toHaveLength(3);
+  });
+
   it('says the first and the last month a server has buckets of, none for a server without', async () => {
     const { reader, add } = await made();
     expect(await reader.months(ACTIVITY_SERVER)).toBeNull();

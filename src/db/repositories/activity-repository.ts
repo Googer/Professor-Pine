@@ -7,6 +7,7 @@ import {
   type ActivityPlaceKind,
   type ActivityWindow,
 } from '../../domain/history/activity.js';
+import type { MonthRange, RegionCount } from '../../domain/history/region-board.js';
 import { inTransaction, retryOnDeadlock } from '../transaction.js';
 import type { DB } from '../types.js';
 
@@ -16,6 +17,11 @@ export interface ActivityReader {
   buckets(serverId: string, window: ActivityWindow): Promise<ActivityBucket[]>;
   /** The first and the last month a server has buckets of, for History's slider; null for none. */
   months(serverId: string): Promise<{ first: string; last: string } | null>;
+  /**
+   * A server's raids and max battles per region over a span of local months (the region board,
+   * plan 8H-5), along the `(serverId, month)` index; a region without any has no entry.
+   */
+  regionSums(serverId: string, months: MonthRange): Promise<RegionCount[]>;
 }
 
 /** As many records of the history as one transaction of the adding reads (and buckets it writes). */
@@ -299,5 +305,26 @@ export class ActivityRepository implements ActivityReader {
       .where('month', '>', UNKNOWN_MONTH)
       .executeTakeFirst();
     return row?.first == null || row.last == null ? null : { first: row.first, last: row.last };
+  }
+
+  async regionSums(serverId: string, months: MonthRange): Promise<RegionCount[]> {
+    const rows = await this.db
+      .selectFrom('ActivityBucket')
+      .select((eb) => [
+        'regionId',
+        eb.fn.sum<number | string>('raids').as('raids'),
+        eb.fn.sum<number | string>('maxes').as('maxes'),
+      ])
+      .where('serverId', '=', serverId)
+      .where('month', '>=', months.first)
+      .where('month', '<=', months.last)
+      .groupBy('regionId')
+      .execute();
+    // MySQL sums integers as decimals, which the driver gives as text.
+    return rows.map((row) => ({
+      regionId: row.regionId,
+      raids: Number(row.raids),
+      maxes: Number(row.maxes),
+    }));
   }
 }
