@@ -107,6 +107,33 @@ describe('WantCountService (plan 8H-3)', () => {
     expect(await made.storage.serversCounted('2026-11-03')).toEqual(new Set());
   });
 
+  it('writes the servers after one whose write fails, and names the one that failed (review 8H3-3)', async () => {
+    const made = counting('2026-11-04T10:00');
+    const YONDER = '100000000000000003';
+    made.storage.standing = new Map([
+      [HERE, new Map([['trains', 1]])],
+      [THERE, new Map([['trains', 2]])],
+      [YONDER, new Map([['trains', 3]])],
+    ]);
+    const err = new Error('a row too long');
+    made.storage.failingWrites.set(THERE, err);
+    made.service.start();
+    await made.service.idle();
+    expect(await made.storage.serversCounted('2026-11-03')).toEqual(new Set([HERE, YONDER]));
+    expect(await made.storage.countsOf(YONDER, '2026-11-03')).toEqual(new Map([['trains', 3]]));
+    expect(made.entries.filter((entry) => Number(entry.level) >= 40)).toEqual([
+      expect.objectContaining({
+        level: 40,
+        msg: 'could not write the want counts of a server; that day is lost for it',
+        day: '2026-11-03',
+        server: THERE,
+      }),
+    ]);
+    expect(made.entries.filter((entry) => entry.msg === 'counted the wants of a day')).toEqual([
+      expect.objectContaining({ level: 30, day: '2026-11-03', servers: 2, targets: 2 }),
+    ]);
+  });
+
   it('counts the day before the midnight it waited for and the day before now, when its timer fires late', async () => {
     const made = counting('2026-11-04T10:00');
     made.service.start();

@@ -19,7 +19,8 @@ export interface WantCountServiceOptions {
  * just ended; and at start, under the day before, for each server that has no counts of that day
  * yet (a bot down over midnight loses the hours it was down, not the day). A server's day is
  * written once: a second count of it changes nothing. A count that fails is logged and that day
- * is lost; the next midnight counts the next one. No member is kept.
+ * is lost; the next midnight counts the next one. A server whose write fails loses that day by
+ * itself, and is named in the log. No member is kept.
  */
 export class WantCountService {
   private readonly now: () => number;
@@ -88,13 +89,25 @@ export class WantCountService {
       const servers = [...(await storage.countNow())].filter(
         ([serverId]) => !counted.has(serverId),
       );
+      let written = 0;
       let targets = 0;
       for (const [serverId, counts] of servers) {
         if (this.stopped) return;
-        await storage.write(serverId, day, counts);
+        // A server's write that fails loses that server's day alone (review 8H3-3): the servers
+        // after it are written all the same.
+        try {
+          await storage.write(serverId, day, counts);
+        } catch (err) {
+          log.warn(
+            { err, day, server: serverId },
+            'could not write the want counts of a server; that day is lost for it',
+          );
+          continue;
+        }
+        written += 1;
         targets += counts.size;
       }
-      log.info({ day, servers: servers.length, targets }, 'counted the wants of a day');
+      log.info({ day, servers: written, targets }, 'counted the wants of a day');
     } catch (err) {
       log.warn({ err, day }, 'could not count the wants of a day; that day is lost');
     }
