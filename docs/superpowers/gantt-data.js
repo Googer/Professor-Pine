@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-05T08:05",
+  "updated": "2026-11-05T09:08",
   "items": [
     {
       "id": "0",
@@ -10540,6 +10540,11 @@ window.GANTT = {
           "start": "2026-11-05T04:32",
           "end": "2026-11-05T07:52"
         }
+      },
+      "status": "done",
+      "review": {
+        "start": "2026-11-05T08:11",
+        "end": "2026-11-05T09:00"
       }
     },
     {
@@ -10547,42 +10552,54 @@ window.GANTT = {
       "kind": "task",
       "parent": "8H-5",
       "name": "The board in the domain, and the sum per region",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-05T08:05",
+      "end": "2026-11-05T08:07"
     },
     {
       "id": "8H-5.2",
       "kind": "task",
       "parent": "8H-5",
       "name": "The stats regions command",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-05T08:07",
+      "end": "2026-11-05T08:08"
     },
     {
       "id": "8H-5.3",
       "kind": "task",
       "parent": "8H-5",
       "name": "Share: the board posted in the channel",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-05T08:08",
+      "end": "2026-11-05T08:08"
     },
     {
       "id": "8H-5.4",
       "kind": "task",
       "parent": "8H-5",
       "name": "The route of the board",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-05T08:08",
+      "end": "2026-11-05T08:09"
     },
     {
       "id": "8H-5.5",
       "kind": "task",
       "parent": "8H-5",
       "name": "The history page",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-05T08:09",
+      "end": "2026-11-05T08:10"
     },
     {
       "id": "8H-5.6",
       "kind": "task",
       "parent": "8H-5",
       "name": "Docs",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-05T08:10",
+      "end": "2026-11-05T08:11"
     },
     {
       "id": "16-staging",
