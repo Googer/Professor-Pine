@@ -3051,3 +3051,11 @@ Plan `docs/superpowers/plans/2026-11-04-phase-8h3-reach-and-want-counts.md`; mig
 - **Staging** (Air's dev stack after the next update, Matt's go-ahead, with 8H-2's): `./pine migrate` reaches 037; a raid reported for a boss two testers want (neither in the raid) ends with `PartyHistory.reached` 2; a research report a tester wants has `reach` 1 in its `StopReportHistory` row after the sweep; the morning after a midnight with the bot up, `WantCountDay` has the day's rows with `species:<dex>` beside the testers' wants, and a restart that day adds nothing.
 - **Known losses, by design:** a member may count twice for reach across a restart (the notifier's memory); a count that arrives after its party is recorded, or for a report version replaced meanwhile (other than a "one of"'s first report), is lost; a midnight count missed with the bot down over two midnights loses the days in between; a server's failed write loses that day for that server.
 - **Not measured:** the nightly want count reads every want row once; its time on Pittsburgh's production data is unknown. Look at the info line `counted the wants of a day` after the cutover.
+
+## From the staging run of 8H-2 and 8H-3 (2026-11-05, Air's dev stack at 7321a0ac)
+
+Googer alone (Tester was not signed in where Claude could reach it). Everything run passes.
+
+- **Pass:** `./pine update` migrated to 037. A research report (Hatch 5 Eggs, Poffin, at Cathedral of Learning Lawn) had its cell, region and live `reach` 1 (Tester, who wants Poffins, was told); taken back, its record is `withdrawn` with `reach` 1 and Googer's id (opted in). A Fire grunt left to end was recorded `stood` (`endedAt` = `endsAt`) by the sweep at the next start. At start the catch-up counted 2026-11-04: 43 keys, `species:493` once for 17 Arceus forms; a restart counted nothing more (`servers: 0`).
+- **Left, needing Tester:** a raid reported by one member for a boss the other wants (not in the raid) ends with `PartyHistory.reached` 1; a report by Tester (not opted in) has a null `reporterId` in its record.
+- **Left, by the clock:** the first count at a local midnight with the bot up (2026-11-06 00:00 counts 2026-11-05): `WantCountDay` gains that day's rows.
