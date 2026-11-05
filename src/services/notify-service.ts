@@ -393,7 +393,12 @@ interface Announcement {
    * its attendees of any status as the announcement sees the party (`partyReach`), get their DM
    * and are never counted.
    */
-  reach?: { of: ReachOf; members?: Set<string>; inParty?: ReadonlySet<string> };
+  reach?: {
+    /** Read as each count is handed over; one it gives none for is not recorded. */
+    of: ReachOf | (() => ReachOf | undefined);
+    members?: Set<string>;
+    inParty?: ReadonlySet<string>;
+  };
 }
 
 /** What a party's news counts for: the party and its subject, never one of its attendees. */
@@ -1001,8 +1006,16 @@ export class NotifyService implements PartyNotifier {
           reports.includes(report) && (viewing.get(channelId)?.has(memberId) ?? true),
       );
     const inAny = [...new Set([...byChannel.values()].flat())];
-    // Counted for the news' first report (review H16), each member once over its regions.
-    const reach = { of: { report: first.id, madeAt: first.madeAt }, members: new Set<string>() };
+    // Counted for the news' first report (review H16), each member once over its regions; for the
+    // first one still standing when the count is handed over, where the first was replaced or
+    // taken back since (review 8H3-4): a version gone takes nothing.
+    const reach = {
+      of: (): ReachOf | undefined => {
+        const kept = news.reports.find((report) => standing.has(report.id));
+        return kept && { report: kept.id, madeAt: kept.madeAt };
+      },
+      members: new Set<string>(),
+    };
     /** Whether a member is sent confirmations, decided at their first message of the news. */
     const confirming = new Map<string, boolean>();
     const confirms = (memberId: string): boolean => {
@@ -1730,7 +1743,8 @@ export class NotifyService implements PartyNotifier {
   private recordReach(event: Announcement, members: number): void {
     const { reach, log } = this.options;
     if (!reach || !event.reach || members === 0) return;
-    const { of } = event.reach;
+    const of = typeof event.reach.of === 'function' ? event.reach.of() : event.reach.of;
+    if (of === undefined) return;
     const at = this.now();
     const work = Promise.resolve()
       .then(() => reach.reached(of, members, at))

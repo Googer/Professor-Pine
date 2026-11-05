@@ -448,6 +448,42 @@ describe('NotifyService: field research is reported (plan 8R-1, design 7)', () =
       expect(dmBrief(gible).slice(0, -1)).toEqual(['**Rewards** Gible', westDm(1)]);
     });
 
+    it('counts the reach of news whose first report was replaced before its turn for the first still standing (review 8H3-4)', async () => {
+      const reach = new RecordingReach();
+      const made = await researchWith({ reach });
+      await made.want(ALICE, WANT_GIBLE);
+      let release = (): void => undefined;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      const wanting = made.targetWants.wanting.bind(made.targetWants);
+      vi.spyOn(made.targetWants, 'wanting').mockImplementationOnce(async (...args) => {
+        await gate;
+        return wanting(...args);
+      });
+      const oneOf = await made.reports.reportResearch({
+        serverId: made.gateway.guildId,
+        stops: [west(1), west(2)],
+        subject: ONE_OF,
+        reporter: RITA,
+      });
+      // Bob narrows Yellow Mural 1 while the "one of" waits: its first report is replaced.
+      const gible = await made.reports.reportResearch({
+        serverId: made.gateway.guildId,
+        stops: [west(1)],
+        subject: GIBLE,
+        reporter: BOB_,
+      });
+      release();
+      await made.notify.flush();
+      const standing = oneOf.saved[1]?.report;
+      const narrowed = gible.saved[0]?.report;
+      expect(reach.runs).toEqual([
+        { of: { report: standing?.id, madeAt: standing?.madeAt }, members: 1, at: made.clock.now },
+        { of: { report: narrowed?.id, madeAt: narrowed?.madeAt }, members: 1, at: made.clock.now },
+      ]);
+    });
+
     it('leaves a stop taken back before its turn out of the "one of" DM (R6)', async () => {
       const made = await researchWith();
       await made.want(ALICE, WANT_GIBLE);
