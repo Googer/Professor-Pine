@@ -389,9 +389,16 @@ interface Announcement {
    * (`toAll`: who is in already) or a spawn (nothing of it is kept). A party's member counts
    * once while the party is remembered (`Told.reached`); the news of a report at a stop shares
    * `members` between the announcements of its regions, so that a member told in two counts
-   * once.
+   * once. Reach is news to members not in the party already (Matt, review 8H3-2): `inParty`,
+   * its attendees of any status as the announcement sees the party (`partyReach`), get their DM
+   * and are never counted.
    */
-  reach?: { of: ReachOf; members?: Set<string> };
+  reach?: { of: ReachOf; members?: Set<string>; inParty?: ReadonlySet<string> };
+}
+
+/** What a party's news counts for: the party and its subject, never one of its attendees. */
+function partyReach(party: Party, subject: string): NonNullable<Announcement['reach']> {
+  return { of: { party: party.id, subject }, inParty: new Set(Object.keys(party.attendees)) };
 }
 
 /** What one member was already told about one party. */
@@ -622,7 +629,7 @@ export class NotifyService implements PartyNotifier {
       sent: (id) => {
         this.maxHeard.set(heard(id), this.now());
       },
-      reach: { of: { party: party.id, subject: event } },
+      reach: partyReach(party, event),
     });
   }
 
@@ -727,7 +734,7 @@ export class NotifyService implements PartyNotifier {
         );
       },
       priority: () => DM_PRIORITY.normal,
-      reach: { of: { party: party.id, subject: 'reported' } },
+      reach: partyReach(party, 'reported'),
     });
   }
 
@@ -1461,7 +1468,7 @@ export class NotifyService implements PartyNotifier {
         reasons.some((reason) => reason.kind === 'boss-set')
           ? DM_PRIORITY.urgent
           : DM_PRIORITY.normal,
-      reach: { of: { party: party.id, subject: event } },
+      reach: partyReach(party, event),
     });
   }
 
@@ -1697,10 +1704,13 @@ export class NotifyService implements PartyNotifier {
   /**
    * Whether the reach of an event counts this member it put a DM in line for (plan 8H-3): once
    * per party while it is remembered (a move shares the memory, a restart forgets it), once per
-   * news of a report at a stop over its regions.
+   * news of a report at a stop over its regions. Never a member in the party already (review
+   * 8H3-2): it is no news to them, and they are not remembered as reached, so that one who left
+   * counts when later news tells them.
    */
   private newlyReached(event: Announcement, memberId: string): boolean {
     if (!event.reach) return false;
+    if (event.reach.inParty?.has(memberId)) return false;
     if (event.partyId !== undefined) {
       const said = this.told.get(event.partyId)?.get(memberId);
       if (said === undefined || said.reached) return false;

@@ -43,6 +43,34 @@ describe('NotifyService: how many members its news reached (plan 8H-3)', () => {
     ]);
   });
 
+  it('counts no member already in the party: an egg’s hatch reaches only who was not in it (review 8H3-2)', async () => {
+    const reach = new RecordingReach();
+    const userSettings = new Map([
+      [ALICE, { bossSetNotification: true }],
+      [BOB, { bossSetNotification: true }],
+    ]);
+    const made = await reportedRaid(
+      { time: { hatch: at('2026-10-13T14:30') } },
+      { notifying: { reach } },
+      { userSettings },
+    );
+    const guild = made.gateway.guildId;
+    // Alice and Bob are coming and asked to hear the boss; Bob wants it too, and so does Dora,
+    // who is not in the raid.
+    await made.attendance.signUp(made.party.id, member(ALICE, 'Alice'), PartyStatus.Coming);
+    await made.attendance.signUp(made.party.id, member(BOB, 'Bob'), PartyStatus.Coming);
+    await made.wants.set(BOB, guild, YVELTAL, 'raid');
+    await made.wants.set(DORA, guild, YVELTAL, 'raid');
+    await made.notify.flush();
+    await made.raids.setBoss(made.party.id, member(REPORTER, 'Rita'), yveltal);
+    await made.notify.flush();
+    // All three get their DM; only Dora is news reached.
+    expect(made.dms.recipients.sort()).toEqual([ALICE, BOB, DORA].sort());
+    expect(reach.runs).toEqual([
+      { of: { party: made.party.id, subject: 'boss' }, members: 1, at: made.clock.now },
+    ]);
+  });
+
   it('counts a new train', async () => {
     const reach = new RecordingReach();
     const trains = await partyServiceWith([], { notifying: { reach } });
