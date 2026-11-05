@@ -18,6 +18,7 @@ import { StopReportService } from '../../src/services/stop-reports.js';
 import { rewardHash } from '../../src/domain/research/versions.js';
 import type { RegionTallies } from '../../src/services/region-tallies.js';
 import type { Boards } from '../../src/services/boards.js';
+import type { MemberStatsService } from '../../src/services/member-stats.js';
 import { RocketService } from '../../src/services/rocket-reports.js';
 import { MemoryStopReports } from './stop-reports.js';
 import type { RaidChangeService } from '../../src/services/raid-change-service.js';
@@ -180,6 +181,7 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
       'pass { regionTallies: tallies } from regionTalliesWith()',
     ),
     boards: unavailable<Boards>('boards', 'pass the context of boardsWith()'),
+    memberStats: unavailable<MemberStatsService>('memberStats', 'pass the context of boardsWith()'),
     // Nobody is a member of any server; a test passes its own directory with members.
     members: new FakeMemberDirectory(),
     // Over the context's members (below), unless a test passes its own.

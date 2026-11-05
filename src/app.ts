@@ -144,6 +144,7 @@ import { WayfarerReviewService } from './services/wayfarer-review-service.js';
 import { RegionTallies } from './services/region-tallies.js';
 import { MemberNames } from './services/member-names.js';
 import { Boards } from './services/boards.js';
+import { MemberStatsService } from './services/member-stats.js';
 import { BoardRepository } from './db/repositories/board-repository.js';
 import { RegionDirectory } from './services/region-directory.js';
 import { SelfRoleService } from './services/self-role-service.js';
@@ -468,6 +469,8 @@ export async function startApp(
   bossAnnouncer.attach(raidBosses);
   const members = new DiscordMemberDirectory({ log });
   const memberNames = new MemberNames({ members });
+  // What the boards and a member's own stats read of the history (plan 8H-6).
+  const boardReader = new BoardRepository(db);
   const roleGateway = new DiscordRoleGateway();
   const selfRoles = new SelfRoleService({
     storage: new SelfRoleRepository(db),
@@ -1040,7 +1043,7 @@ export async function startApp(
     memberNames,
     // The boards (plan 8H-6): /stats boards and the history page's.
     boards: new Boards({
-      reader: new BoardRepository(db),
+      reader: boardReader,
       names: memberNames,
       // The catalogue of the game data now (it is replaced on a refresh).
       catalogue: {
@@ -1049,6 +1052,11 @@ export async function startApp(
       },
       tasks: researchTasks,
       gateway: partyGateway,
+      zone: config.settings.timezone,
+    }),
+    memberStats: new MemberStatsService({
+      reader: boardReader,
+      optIns: history,
       zone: config.settings.timezone,
     }),
     selfRoles,

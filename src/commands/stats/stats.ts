@@ -43,9 +43,15 @@ import {
   type BoardName,
 } from '../../domain/history/board-words.js';
 import { boardMessage, viewerText } from '../../render/boards.js';
+import {
+  memberStatsTexts,
+  memberStatsTitle,
+  NOT_OPTED_IN,
+  nothingInYear,
+} from '../../render/member-stats.js';
 import { tallyMessage, type TallyView } from '../../render/region-tally.js';
 import { memberByName } from '../../render/text.js';
-import { actionRow, textDisplay } from '../../render/v2.js';
+import { actionRow, container, LIST_COLOUR, textDisplay } from '../../render/v2.js';
 import type { ShownTally } from '../../services/region-tallies.js';
 
 /**
@@ -57,6 +63,8 @@ export const STATS_KIND = 'stats';
 const TALLY_ID = 'regions';
 /** The boards' controls (plan 8H-6): `stats:boards:show|share:<board>:<period>`. */
 const BOARDS_ID = 'boards';
+/** The member's own card's Share (plan 8H-6): `stats:me:share:<year|all>`. */
+const ME_ID = 'me';
 const SHOW = 'show';
 const SHARE = 'share';
 
@@ -426,10 +434,184 @@ const boardsPart: SubcommandPart = {
   },
 };
 
+/** How a card's Share is refused (B8). */
+const CARD_SHARE: ShareWords = {
+  refused:
+    'I may not post in this channel, so I cannot share your numbers here. Try it in a ' +
+    'channel where I can post.',
+  gone: 'I could not post your numbers in this channel.',
+};
+
+/** A card's Share refused because the member opted out of the history since (R-B3). */
+const CARD_OPTED_OUT =
+  'Your history is off in this server now, so I did not share your numbers. ' +
+  '`/settings history enabled:True` turns it back on.';
+
+/** A year of `/stats me`'s Share, or all time: `stats:me:share:<year|all>`. */
+const ALL_TIME = 'all';
+
+/** A busiest region as a card names it: its channel; undefined for a region that is gone. */
+function regionWords(ctx: AppContext, regionId: number | undefined): string | undefined {
+  const region = regionId === undefined ? undefined : ctx.regions.byId(regionId);
+  return region === undefined ? undefined : ctx.regionTallies.regionText(region);
+}
+
+/** A boss of a card by the catalogue's name. */
+const bossNameOf = (ctx: AppContext) => (key: string) => ctx.gameData.catalogue.byKey(key)?.name;
+
+/** A private answer of sentences alone, in one container. */
+const sentence = (text: string): V2Message => ({
+  v2: true,
+  components: [container(LIST_COLOUR, [textDisplay(text)])],
+});
+
+/**
+ * The private card of `/stats me`: the member's numbers, all time or of a year, with Share;
+ * without the opt-in what would be counted and how to turn it on, and of a year with nothing,
+ * that it has nothing.
+ */
+async function privateCard(
+  interaction: ChatInputCommandInteraction,
+  ctx: AppContext,
+  year: number | undefined,
+): Promise<V2Message> {
+  const shown = await ctx.memberStats.stats(
+    guildIdOf(interaction),
+    interaction.user.id,
+    year === undefined ? {} : { year },
+  );
+  if (!shown.optedIn) return sentence(NOT_OPTED_IN);
+  if (year !== undefined && !shown.years.includes(year)) return sentence(nothingInYear(year));
+  const { stats: counted } = shown;
+  const region = regionWords(ctx, counted.busiestRegion?.regionId);
+  const texts = memberStatsTexts({
+    stats: counted,
+    title: memberStatsTitle(counted.year),
+    own: true,
+    ...(region === undefined ? {} : { region }),
+    bossName: bossNameOf(ctx),
+  });
+  const share: APIButtonComponentWithCustomId = {
+    type: ComponentType.Button,
+    style: ButtonStyle.Success,
+    label: 'Share in this channel',
+    custom_id: encodeCustomId({
+      kind: STATS_KIND,
+      id: ME_ID,
+      action: SHARE,
+      args: [year === undefined ? ALL_TIME : String(year)],
+    }),
+  };
+  return {
+    v2: true,
+    components: [
+      container(LIST_COLOUR, [...texts.map((text) => textDisplay(text)), actionRow([share])]),
+    ],
+  };
+}
+
+/**
+ * Share of a member's card (design Part E): computed again at the press without anything
+ * anonymous (B2, B3), its busiest region only where everyone who sees the channel sees it
+ * (`notShared`, Q-G; left out where that cannot be said), titled and signed with its sharer's
+ * name (`memberByName`). Refused in words where the member opted out meanwhile.
+ */
+function shareCard(
+  interaction: ButtonInteraction,
+  ctx: AppContext,
+  year: number | undefined,
+): Promise<void> {
+  return shareMessage(
+    interaction,
+    CARD_SHARE,
+    (channelId) => ctx.boards.mayShare(channelId),
+    // Its sharer is named in its title: no "Shared by" under it (B8).
+    async (channelId) => {
+      const shown = await ctx.memberStats.stats(guildIdOf(interaction), interaction.user.id, {
+        ...(year === undefined ? {} : { year }),
+        shared: true,
+      });
+      if (!shown.optedIn) throw new UserError(CARD_OPTED_OUT, { givesBack: true });
+      const { stats: counted } = shown;
+      const regionId = counted.busiestRegion?.regionId;
+      const region = regionId === undefined ? undefined : ctx.regions.byId(regionId);
+      const dropped =
+        region === undefined ? undefined : await ctx.regionTallies.notShared([region], channelId);
+      const kept = region !== undefined && dropped?.has(region.id) === false;
+      const sharer = memberByName({
+        id: interaction.user.id,
+        name: memberInfo(interaction).name,
+      });
+      const texts = memberStatsTexts({
+        stats: counted,
+        title: memberStatsTitle(counted.year, `Pine of ${sharer}`),
+        own: false,
+        ...(kept ? { region: ctx.regionTallies.regionText(region) } : {}),
+        bossName: bossNameOf(ctx),
+      });
+      return {
+        v2: true,
+        components: [
+          container(
+            LIST_COLOUR,
+            texts.map((text) => textDisplay(text)),
+          ),
+        ],
+      };
+    },
+    (channelId, message) => ctx.boards.post(channelId, message),
+  );
+}
+
+const mePart: SubcommandPart = {
+  data: new SlashCommandSubcommandBuilder()
+    .setName('me')
+    .setDescription('Your own numbers in this server, all time or of a year')
+    .addIntegerOption((option) =>
+      option
+        .setName('year')
+        .setDescription('A calendar year (all time unless you choose)')
+        .setMinValue(2016)
+        .setMaxValue(9999)
+        .setAutocomplete(true),
+    ),
+  help: {
+    details:
+      'Your own numbers in this server: the raids and max battles you reported that others ' +
+      'completed, the trains you conducted and the meetups you hosted that others came to, ' +
+      'and your reports at stops that counted.\n\nBeside them: the raids and max battles you ' +
+      'completed, the trains and meetups you came to, the region you were busiest in, the ' +
+      'bosses you beat most, and how many members were told of what you reported. Only you ' +
+      'see the answer.\n\nChoose a year to see that year alone; without one you see all ' +
+      'time.\n\nI count only what you did while `/settings history` was on. Raids and trains ' +
+      'you reported anonymously count here, but on no board.\n\n"Share in this channel" ' +
+      'posts your numbers where you asked, under your name. It leaves out what you reported ' +
+      'anonymously, and your busiest region unless everyone who sees the channel can see that ' +
+      'region.',
+    examples: ['/stats me', '/stats me year:2026'],
+  },
+  defer: 'late',
+  throttle: MEMBER_READ_THROTTLE,
+  async execute(interaction, ctx) {
+    const year = interaction.options.getInteger('year') ?? undefined;
+    await answer(interaction, v2Answer(await privateCard(interaction, ctx, year)));
+  },
+  async autocomplete(interaction, ctx) {
+    const years = await ctx.memberStats.years(guildIdOf(interaction), interaction.user.id);
+    const typed = String(interaction.options.getFocused());
+    await interaction.respond(
+      years
+        .filter((year) => String(year).startsWith(typed))
+        .slice(0, 25)
+        .map((year) => ({ name: String(year), value: year })),
+    );
+  },
+};
+
 /**
  * `/stats` (plan 8H-5, design Parts C, D and E): what Pine's history of this server says.
  * `regions` is the region tally, `boards` the boards (plan 8H-6), each answered privately with
- * the periods to switch to and Share.
+ * the periods to switch to and Share; `me` the member's own card, with Share.
  */
 export const stats = commandGroup({
   data: new SlashCommandBuilder().setName('stats').setDescription('Pine’s history of this server'),
@@ -437,11 +619,11 @@ export const stats = commandGroup({
     category: 'util',
     details:
       'Numbers from my history of this server: how many raids and max battles each region ' +
-      'had, and boards of who did the most that others confirmed, among the members who ' +
-      'asked to be ranked.',
-    examples: ['/stats regions', '/stats boards'],
+      'had, boards of who did the most that others confirmed, among the members who asked to ' +
+      'be ranked, and your own numbers.',
+    examples: ['/stats regions', '/stats boards', '/stats me'],
   },
-  parts: [regionsPart, boardsPart],
+  parts: [regionsPart, boardsPart, mePart],
 });
 
 /**
@@ -455,6 +637,15 @@ export const statsControls: ComponentHandler = {
   kind: STATS_KIND,
   throttle: (_interaction, id) => (id.action === SHARE ? SHARE_THROTTLE : MEMBER_READ_THROTTLE),
   async button(interaction, id, ctx) {
+    if (id.id === ME_ID) {
+      const [year, ...rest] = id.args;
+      const known = id.action === SHARE && rest.length === 0;
+      if (!known || year === undefined || (year !== ALL_TIME && !/^\d{4}$/u.test(year))) {
+        throw new UserError(STALE_COMPONENT);
+      }
+      await shareCard(interaction, ctx, year === ALL_TIME ? undefined : Number(year));
+      return;
+    }
     if (id.id === BOARDS_ID) {
       const [board, period, ...rest] = id.args;
       const known = (id.action === SHARE || id.action === SHOW) && rest.length === 0;

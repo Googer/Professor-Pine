@@ -16,6 +16,7 @@ import type { MemberParty, MemberReport } from '../../src/domain/history/member-
 import type { HistoryRecord, HistoryStatus } from '../../src/domain/history/party-history.js';
 import { Boards } from '../../src/services/boards.js';
 import { MemberNames } from '../../src/services/member-names.js';
+import { MemberStatsService } from '../../src/services/member-stats.js';
 import type { KeptReport } from './board-cases.js';
 import { catalogueFixture } from './game-data.js';
 import { MemoryHistoryOptIns } from './history.js';
@@ -305,6 +306,7 @@ export function boardsWith(zone = 'America/New_York') {
     gateway: made.gateway,
     zone,
   });
+  const memberStats = new MemberStatsService({ reader, optIns, zone });
   return {
     ...made,
     reader,
@@ -312,8 +314,10 @@ export function boardsWith(zone = 'America/New_York') {
     members,
     names,
     boards,
+    memberStats,
     context: {
       boards,
+      memberStats,
       historyOptIns: optIns,
       members,
       memberNames: names,
