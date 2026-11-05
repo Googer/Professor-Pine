@@ -2061,13 +2061,20 @@ describe('the events forum’s posts (plan 8V-1)', () => {
         permissionsFor: (member: { id: string }) =>
           new PermissionsBitField(member.id === 'ash' ? view : 0n),
       };
+      // A region's channel may be an announcement channel: the same overwrites, the same rule.
+      const news = { ...text, id: 'news', type: ChannelType.GuildAnnouncement };
+      const channels = new Map<string, unknown>([
+        ['text', text],
+        ['news', news],
+      ]);
       const gateway = new DiscordPartyGateway();
       gateway.use({
-        channels: { fetch: (id: string) => Promise.resolve(id === 'text' ? text : null) },
+        channels: { fetch: (id: string) => Promise.resolve(channels.get(id) ?? null) },
         user: { id: 'bot' },
       } as unknown as Client);
       expect(await gateway.memberAccess('text', 'ash')).toBe('visible');
       expect(await gateway.memberAccess('text', 'misty')).toBe('hidden');
+      expect(await gateway.memberAccess('news', 'misty')).toBe('hidden');
       expect(await gateway.memberAccess('nowhere', 'ash')).toBeUndefined();
     });
 

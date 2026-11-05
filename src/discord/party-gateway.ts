@@ -19,6 +19,7 @@ import {
   type Guild,
   type GuildChannel,
   type GuildMember,
+  type NewsChannel,
   type TextChannel,
 } from 'discord.js';
 import { readFile } from 'node:fs/promises';
@@ -1956,10 +1957,13 @@ export class DiscordPartyGateway implements PartyGateway {
   }
 
   async memberAccess(forumId: string, memberId: string): Promise<MemberAccess | undefined> {
-    // A forum, or the text channel of a region that has none (plan 8H-5, `regionGate`).
+    // A forum, or the text (or announcement) channel of a region that has none (plan 8H-5,
+    // `regionGate`; review F4: the same overwrites, so the same rule as Share's).
     const channel = await this.unlessGone(() => this.client.channels.fetch(forumId));
     const forum =
-      channel?.type === ChannelType.GuildForum || channel?.type === ChannelType.GuildText
+      channel?.type === ChannelType.GuildForum ||
+      channel?.type === ChannelType.GuildText ||
+      channel?.type === ChannelType.GuildAnnouncement
         ? channel
         : undefined;
     if (!forum) return undefined;
@@ -1995,7 +1999,7 @@ export class DiscordPartyGateway implements PartyGateway {
    * member holds; `everybody` says whether the role everybody has counts.
    */
   private static roleDenies(
-    forum: ForumChannel | TextChannel,
+    forum: ForumChannel | TextChannel | NewsChannel,
     member: GuildMember,
     permission: bigint,
     everybody: boolean,

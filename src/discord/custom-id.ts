@@ -121,8 +121,9 @@
  * Nothing is kept anywhere else (`rankButtonId`, `src/render/pvp-rank.ts`).
  *
  * The buttons under the private answer of `/stats regions` (plan 8H-5) have the kind `stats` and
- * the board as the id: `stats:regions:show:<period>` (another period, in the answer itself) and
- * `stats:regions:share:<period>` (the board posted in the channel), the period `month`, `year`
+ * the tally as the id: `stats:regions:show:<period>:<note|none>` (another period, in the answer
+ * itself; the last part carries whether the answer's note about Share is shown) and
+ * `stats:regions:share:<period>` (the tally posted in the channel), the period `month`, `year`
  * or `all` (`src/commands/stats/stats.ts`). Nothing is kept anywhere else.
  *
  * The controls of a page of `/help` have the kind `help`; the id is the kind of page they are on
