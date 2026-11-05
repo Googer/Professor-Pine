@@ -222,7 +222,7 @@ const add: SubcommandPart = {
       'the description, the aliases and the group of one that is. An option you leave out stays ' +
       'as it is; aliases you give replace the ones it had.\n\nI never hand out a role that grants a ' +
       'permission of moderation or administration (in the server or through the settings of a ' +
-      'channel), a role whose name makes its holder staff of mine (admin, moderator, bot ' +
+      'channel), a role whose name makes its holder one of my staff (admin, moderator, bot ' +
       'developer), a role an integration manages, or a role that is not below my own.\n\nYou can ' +
       'add a role only if you could give it to somebody yourself: ' +
       'with the Manage Roles permission and a role of your own above it, or as the owner of the ' +

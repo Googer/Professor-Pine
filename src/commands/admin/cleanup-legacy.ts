@@ -271,9 +271,11 @@ export const cleanupLegacy: SubcommandPart = {
     ),
   help: {
     details:
-      'For the move from the legacy bot. Lists the channels of its parties in this server: those ' +
-      'its files of active parties name (the folder LEGACY_PARTIES_DIR), and those it left behind, ' +
-      'found by their category, their name and the bot’s own first message.\n\nWhat only looks like ' +
+      'For the move from the legacy bot. Lists the channels of its raids, trains and ' +
+      'meetups in this server: those named in its saved files of what was going on (where its ' +
+      'folder of them is set up for me), and ' +
+      'those it left behind, found by their category, their name and the bot’s own first ' +
+      'message.\n\nWhat only looks like ' +
       'such a channel is listed apart and never deleted, and so are the channels of its trains, ' +
       'meetups and saved parties, which stay as plain channels.\n\nNothing is deleted until you press ' +
       `"Delete" under the list, within ${CLEANUP_MINUTES} minutes; the channels then go one at a time.`,

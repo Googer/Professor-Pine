@@ -335,9 +335,9 @@ export const addBoss: SubcommandPart = {
       'are on.\n\nA boss has one tier at a time among the Dynamax tiers, the raid tiers (Elite ' +
       'included) and the shadow raid tiers: adding it at one of them moves it there, and the ' +
       "feed's listing of it at another tier of the same kind is left out while the add lasts " +
-      '(Gigantamax and mega tiers are kinds of their own).\n\nBattles running at the tier it ' +
-      'moved from, in every server, move with it, said in their posts; removing the add does ' +
-      `not move them back (\`/boss\` fixes one battle). It lasts ${String(DEFAULT_DAYS)} days unless you give \`days\`; \`days:0\` keeps ` +
+      '(Gigantamax and mega tiers are kinds of their own).\n\nRaids and max battles on now ' +
+      'at the tier it moved from, in every server, move with it and their posts say so; ' +
+      `removing the add does not move them back (\`/boss\` fixes one). It lasts ${String(DEFAULT_DAYS)} days unless you give \`days\`; \`days:0\` keeps ` +
       'it until you remove it with `/admin boss remove`. Adding it again replaces the earlier one.',
     examples: [
       '/admin boss add pokemon:Zekrom tier:T5',

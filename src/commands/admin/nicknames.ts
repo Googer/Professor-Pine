@@ -189,8 +189,8 @@ export const removeNickname: SubcommandPart = {
     ),
   help: {
     details:
-      "Only nicknames staff added can be removed; the bot's own are part of it. The list " +
-      'offers the nicknames of the Pokémon picked first.',
+      "Only nicknames staff added can be removed; the bot's own always stay. Pick the Pokémon " +
+      'first: the list then offers its nicknames.',
     examples: ['/admin nickname remove pokemon:Dratini nickname:danger noodle'],
   },
   defer: 'ephemeral',

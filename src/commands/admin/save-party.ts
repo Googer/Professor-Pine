@@ -22,10 +22,10 @@ export const saveParty: SubcommandPart = {
     ),
   help: {
     details:
-      'Use it in the post of a raid, a max battle, a train or a meetup. A kept post stays open after that has ended: ' +
-      'nothing warns that it will be archived and nothing archives it, until you run this with ' +
-      '`keep:False` or close it with `/delete`. The post says who kept it.\n\nUsed anywhere ' +
-      'else without an option, it lists the posts that are kept. For admins and moderators.',
+      'In the post of a raid, max battle, train or meetup: keeps the post open after it has ' +
+      'ended. Nothing warns that it will be archived and nothing archives it, until you run ' +
+      'this with `keep:False` or close it with `/delete`. The post says who kept it.\n\nUsed ' +
+      'anywhere else without an option, it lists the kept posts. For admins and moderators.',
     examples: ['/admin save-party', '/admin save-party keep:False'],
   },
   guards: [requireManagement],
