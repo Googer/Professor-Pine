@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-04T16:39",
+  "updated": "2026-11-04T22:23",
   "items": [
     {
       "id": "0",
@@ -10378,6 +10378,59 @@ window.GANTT = {
       "status": "done",
       "start": "2026-11-04T15:38",
       "end": "2026-11-04T15:39"
+    },
+    {
+      "id": "8H-3",
+      "kind": "plan",
+      "parent": "16",
+      "name": "8H-3 Reach and want counts",
+      "size": 1,
+      "dependsOn": [],
+      "scope": "How many members each report was sent to (parties and reports at stops), and a daily count of wants per target, no member (history design Part A)",
+      "doneWhen": "Merged into main-dev",
+      "planning": {
+        "start": "2026-11-04T21:04",
+        "end": "2026-11-04T22:23",
+        "review": {
+          "start": "2026-11-04T21:47",
+          "end": "2026-11-04T22:17"
+        }
+      }
+    },
+    {
+      "id": "8H-3.1",
+      "kind": "task",
+      "parent": "8H-3",
+      "name": "Migration 037: reach columns and WantCountDay",
+      "status": "todo"
+    },
+    {
+      "id": "8H-3.2",
+      "kind": "task",
+      "parent": "8H-3",
+      "name": "Reach counted in the notifier",
+      "status": "todo"
+    },
+    {
+      "id": "8H-3.3",
+      "kind": "task",
+      "parent": "8H-3",
+      "name": "Reach recorded on parties and stop reports",
+      "status": "todo"
+    },
+    {
+      "id": "8H-3.4",
+      "kind": "task",
+      "parent": "8H-3",
+      "name": "Want counts each local midnight",
+      "status": "todo"
+    },
+    {
+      "id": "8H-3.5",
+      "kind": "task",
+      "parent": "8H-3",
+      "name": "Docs: history.md and notifications-and-dms.md",
+      "status": "todo"
     },
     {
       "id": "16-staging",
