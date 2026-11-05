@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-05T09:08",
+  "updated": "2026-11-05T11:03",
   "items": [
     {
       "id": "0",
@@ -10600,6 +10600,59 @@ window.GANTT = {
       "status": "done",
       "start": "2026-11-05T08:10",
       "end": "2026-11-05T08:11"
+    },
+    {
+      "id": "8H-4H",
+      "kind": "plan",
+      "parent": "16",
+      "name": "8H-4H The heat layer",
+      "size": 1,
+      "dependsOn": [],
+      "scope": "The Activity layer drawn as a heat glow (simpleheat, our own module), its counts in the gym and Power Spot popups and a desktop cluster tooltip, invisible circles at street zoom when Gyms is off",
+      "doneWhen": "Merged into main-dev",
+      "planning": {
+        "start": "2026-11-05T09:08",
+        "end": "2026-11-05T11:03",
+        "review": {
+          "start": "2026-11-05T09:37",
+          "end": "2026-11-05T10:54"
+        }
+      }
+    },
+    {
+      "id": "8H-4H.1",
+      "kind": "task",
+      "parent": "8H-4H",
+      "name": "simpleheat as our own module",
+      "status": "todo"
+    },
+    {
+      "id": "8H-4H.2",
+      "kind": "task",
+      "parent": "8H-4H",
+      "name": "The heat layer in place of the circles",
+      "status": "todo"
+    },
+    {
+      "id": "8H-4H.3",
+      "kind": "task",
+      "parent": "8H-4H",
+      "name": "Counts in the gym and Power Spot popups, the cluster tooltip",
+      "status": "todo"
+    },
+    {
+      "id": "8H-4H.4",
+      "kind": "task",
+      "parent": "8H-4H",
+      "name": "Invisible circles at street zoom without Gyms",
+      "status": "todo"
+    },
+    {
+      "id": "8H-4H.5",
+      "kind": "task",
+      "parent": "8H-4H",
+      "name": "Docs",
+      "status": "todo"
     },
     {
       "id": "16-staging",
