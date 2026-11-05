@@ -67,6 +67,7 @@ import type { ModerationReports } from './services/moderation-reports.js';
 import type { ScriptAccessService } from './services/script-access-service.js';
 import type { EventSpawnProvider } from './services/event-spawn-service.js';
 import type { RegionTallies } from './services/region-tallies.js';
+import type { Boards } from './services/boards.js';
 
 /** Everything a handler may use. Later phases add services here. */
 export interface AppContext {
@@ -199,6 +200,8 @@ export interface AppContext {
    * period, as a member or the public may see them.
    */
   readonly regionTallies: RegionTallies;
+  /** The boards (plan 8H-6, `/stats boards` and the history page), over the history's reads. */
+  readonly boards: Boards;
   /** Members of a server other than the one who is acting: one by id, or who of many can see a channel. */
   readonly members: MemberDirectory;
   /** The names of the members a board shows (plan 8H-6): over `members`, kept a minute. */

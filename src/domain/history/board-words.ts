@@ -3,6 +3,8 @@
  * that the web page, whose type check has no Temporal, can import them (as `tally-periods.ts`).
  */
 
+import { PERIOD_WORDS, type TallyPeriod } from './tally-periods.js';
+
 /** The boards of people: what others confirmed a member did (the design's rule 3). */
 export const PEOPLE_BOARDS = ['raids', 'trains', 'meetups', 'reports'] as const;
 export type PeopleBoard = (typeof PEOPLE_BOARDS)[number];
@@ -48,6 +50,29 @@ export const BOARD_TITLES: Readonly<Record<BoardName, string>> = {
   sent: 'The bosses whose raids were sent to the most members',
   tasks: 'The field research tasks reported most',
 };
+
+/**
+ * A board's title: "Raids reported that others completed, this month"; the most wanted, which
+ * goes by the latest day of want counts, has no period.
+ */
+export function boardTitle(board: BoardName, period: TallyPeriod): string {
+  return board === 'wanted'
+    ? BOARD_TITLES[board]
+    : `${BOARD_TITLES[board]}, ${PERIOD_WORDS[period]}`;
+}
+
+/** What a board says where it has nothing to show. */
+export function emptyBoardText(board: BoardName, period: TallyPeriod, counted: boolean): string {
+  if (board === 'wanted')
+    return counted ? 'Nobody wants a Pokémon yet.' : 'No wants are counted yet.';
+  const when = period === 'all' ? 'yet' : PERIOD_WORDS[period];
+  return isPeopleBoard(board) ? `Nobody is ranked here ${when}.` : `Nothing to list ${when}.`;
+}
+
+/** The small print of the most wanted: the day its counts are of. */
+export function wantedDayText(day: string): string {
+  return `Wants on file as of ${day}.`;
+}
 
 /** A line's count: "12 raids", "1 train", "4 reports (9 confirmations)", "37 members". */
 export function boardCountWords(board: BoardName, count: number, confirmations?: number): string {

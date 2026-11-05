@@ -3,6 +3,7 @@ import {
   ComponentType,
   MessageFlags,
   type ButtonInteraction,
+  type ChatInputCommandInteraction,
   SlashCommandBuilder,
   SlashCommandSubcommandBuilder,
   type APIButtonComponentWithCustomId,
@@ -35,6 +36,13 @@ import {
   PERIOD_LABELS,
   type TallyPeriod,
 } from '../../domain/history/tally-periods.js';
+import {
+  BOARD_LABELS,
+  BOARDS,
+  isBoardName,
+  type BoardName,
+} from '../../domain/history/board-words.js';
+import { boardMessage, viewerText } from '../../render/boards.js';
 import { tallyMessage, type TallyView } from '../../render/region-tally.js';
 import { memberByName } from '../../render/text.js';
 import { actionRow, textDisplay } from '../../render/v2.js';
@@ -47,6 +55,8 @@ import type { ShownTally } from '../../services/region-tallies.js';
  */
 export const STATS_KIND = 'stats';
 const TALLY_ID = 'regions';
+/** The boards' controls (plan 8H-6): `stats:boards:show|share:<board>:<period>`. */
+const BOARDS_ID = 'boards';
 const SHOW = 'show';
 const SHARE = 'share';
 
@@ -160,6 +170,26 @@ export const SHARE_REFUSED =
  */
 const SHARE_GONE = 'I could not post the list in this channel.';
 
+/** How a Share is refused, in the words of what it shares (B8). */
+interface ShareWords {
+  /** Where the bot may not post. */
+  refused: string;
+  /** Where the channel is gone. */
+  gone: string;
+}
+
+const TALLY_SHARE: ShareWords = { refused: SHARE_REFUSED, gone: SHARE_GONE };
+
+/** The refusal of a board's Share where the bot may not post (B8). */
+export const BOARD_SHARE_REFUSED =
+  'I may not post in this channel, so I cannot share the board here. Try it in a channel ' +
+  'where I can post.';
+
+const BOARD_SHARE: ShareWords = {
+  refused: BOARD_SHARE_REFUSED,
+  gone: 'I could not post the board in this channel.',
+};
+
 /**
  * How often a member may share a tally: three times in ten minutes, in a window of its own (a
  * share is a message in a channel for all, not a read).
@@ -179,31 +209,54 @@ async function share(
   ctx: AppContext,
   period: TallyPeriod,
 ): Promise<void> {
+  await shareMessage(
+    interaction,
+    TALLY_SHARE,
+    (channelId) => ctx.regionTallies.mayShare(channelId),
+    async (channelId, sharedBy) => {
+      const shown = await ctx.regionTallies.forShare(
+        guildIdOf(interaction),
+        period,
+        channelId,
+        Date.now(),
+      );
+      return shown === undefined ? undefined : tallyMessage(tallyView(ctx, shown), [sharedBy]);
+    },
+    (channelId, message) => ctx.regionTallies.post(channelId, message),
+  );
+}
+
+/**
+ * A Share of any of `/stats`' answers (`discord-framework.md`, "Share"): refused in words where
+ * the bot may not post (`mayShare`), acknowledged before the send, the message made at the press
+ * (`made`, with its sharer's small print; undefined where nothing can be said of who sees the
+ * channel, R3), posted by the bot (`post`) and said privately. A refused permission, an ended
+ * post or a channel that is gone are refused in words, the use given back.
+ */
+async function shareMessage(
+  interaction: ButtonInteraction,
+  words: ShareWords,
+  mayShare: (channelId: string) => boolean,
+  made: (channelId: string, sharedBy: APIComponentInContainer) => Promise<V2Message | undefined>,
+  post: (channelId: string, message: V2Message) => Promise<string | undefined>,
+): Promise<void> {
   const { channelId } = interaction;
-  if (!ctx.regionTallies.mayShare(channelId)) {
-    throw new UserError(SHARE_REFUSED, { givesBack: true });
-  }
+  if (!mayShare(channelId)) throw new UserError(words.refused, { givesBack: true });
   // Sending to the channel comes before the answer: acknowledged first, the answer left as it is.
   await interaction.deferUpdate();
-  const shown = await ctx.regionTallies.forShare(
-    guildIdOf(interaction),
-    period,
-    channelId,
-    Date.now(),
-  );
-  // Nothing can be said of who sees a channel the cache lacks: nothing is shared there (R3).
-  if (shown === undefined) throw new UserError(SHARE_UNKNOWN, { givesBack: true });
   const sharer = memberByName({ id: interaction.user.id, name: memberInfo(interaction).name });
-  const message = tallyMessage(tallyView(ctx, shown), [textDisplay(`-# Shared by ${sharer}`)]);
+  const message = await made(channelId, textDisplay(`-# Shared by ${sharer}`));
+  // Nothing can be said of who sees a channel the cache lacks: nothing is shared there (R3).
+  if (message === undefined) throw new UserError(SHARE_UNKNOWN, { givesBack: true });
   let posted: string | undefined;
   try {
-    posted = await ctx.regionTallies.post(channelId, message);
+    posted = await post(channelId, message);
   } catch (err) {
     // A post that ended since the check (archived and locked) refuses it as well (50083).
     if (!isMissingPermission(err) && !isArchivedThread(err)) throw err;
-    throw new UserError(SHARE_REFUSED, { givesBack: true });
+    throw new UserError(words.refused, { givesBack: true });
   }
-  if (posted === undefined) throw new UserError(SHARE_GONE, { givesBack: true });
+  if (posted === undefined) throw new UserError(words.gone, { givesBack: true });
   await interaction.followUp({ content: 'Shared in this channel.', flags: MessageFlags.Ephemeral });
 }
 
@@ -252,9 +305,131 @@ const regionsPart: SubcommandPart = {
   },
 };
 
+/** A button of a board's controls: `stats:boards:<action>:<board>:<period>`. */
+function boardButton(
+  action: string,
+  board: BoardName,
+  period: TallyPeriod,
+  label: string,
+  style: ButtonStyle.Primary | ButtonStyle.Secondary | ButtonStyle.Success,
+  disabled = false,
+): APIButtonComponentWithCustomId {
+  return {
+    type: ComponentType.Button,
+    style,
+    label,
+    custom_id: encodeCustomId({ kind: STATS_KIND, id: BOARDS_ID, action, args: [board, period] }),
+    ...(disabled ? { disabled: true } : {}),
+  };
+}
+
 /**
- * `/stats` (plan 8H-5, design Parts C and E): what Pine's history of this server says. `regions`
- * is the region tally, answered privately with the periods to switch to; Part E adds `me`.
+ * The private answer of a board: the board as the boards rank it, the viewer's own place where
+ * it does not show them (Q-H), the periods to switch to (none for the most wanted, which goes by
+ * the latest day) and Share.
+ */
+async function privateBoard(
+  interaction: ChatInputCommandInteraction | ButtonInteraction,
+  ctx: AppContext,
+  board: BoardName,
+  asked: TallyPeriod,
+): Promise<V2Message> {
+  // The most wanted goes by the latest day of want counts: no period to choose.
+  const period = board === 'wanted' ? 'month' : asked;
+  const view = await ctx.boards.board(guildIdOf(interaction), board, period, Date.now(), {
+    id: interaction.user.id,
+    name: memberInfo(interaction).name ?? interaction.user.username,
+  });
+  const place =
+    view.kind === 'people' && view.viewer !== undefined
+      ? [textDisplay(`-# ${viewerText(board, view.viewer)}`)]
+      : [];
+  const periods =
+    board === 'wanted'
+      ? []
+      : TALLY_PERIODS.map((one) =>
+          one === period
+            ? boardButton(SHOW, board, one, PERIOD_LABELS[one], ButtonStyle.Primary, true)
+            : boardButton(SHOW, board, one, PERIOD_LABELS[one], ButtonStyle.Secondary),
+        );
+  const share = boardButton(SHARE, board, period, 'Share in this channel', ButtonStyle.Success);
+  return boardMessage(view, [...place, actionRow([...periods, share])]);
+}
+
+/**
+ * Share of a board: the board computed again at the press with nobody's own place, the members
+ * on the board only (both switches on), posted in the channel the answer was asked in.
+ */
+function shareBoard(
+  interaction: ButtonInteraction,
+  ctx: AppContext,
+  board: BoardName,
+  period: TallyPeriod,
+): Promise<void> {
+  return shareMessage(
+    interaction,
+    BOARD_SHARE,
+    (channelId) => ctx.boards.mayShare(channelId),
+    async (_channelId, sharedBy) =>
+      boardMessage(await ctx.boards.board(guildIdOf(interaction), board, period, Date.now()), [
+        sharedBy,
+      ]),
+    (channelId, message) => ctx.boards.post(channelId, message),
+  );
+}
+
+const boardsPart: SubcommandPart = {
+  data: new SlashCommandSubcommandBuilder()
+    .setName('boards')
+    .setDescription('Who did the most that others confirmed, and the most wanted and reported')
+    .addStringOption((option) =>
+      option
+        .setName('board')
+        .setDescription('Which board (raids reported unless you choose)')
+        .addChoices(BOARDS.map((board) => ({ name: BOARD_LABELS[board], value: board }))),
+    )
+    .addStringOption((option) =>
+      option
+        .setName('period')
+        .setDescription('Which period (this month unless you choose)')
+        .addChoices(
+          TALLY_PERIODS.map((period) => ({
+            name: PERIOD_LABELS[period],
+            value: period,
+          })),
+        ),
+    ),
+  help: {
+    details:
+      'The top ten of this server for this month, this year or all time, on one of these ' +
+      'boards: raids reported that others completed, trains conducted and meetups hosted that ' +
+      'others came to, and reports at stops that counted. Only you see the answer.\n\n' +
+      'Only members who switched on `/settings leaderboard` are ranked, and an anonymous raid ' +
+      'or train counts for nobody. If you are not in the top ten, the answer says where you ' +
+      'are, or where you would be.\n\n' +
+      'A report at a stop counts unless another member said it was wrong. If more of your ' +
+      'reports were said to be wrong than were confirmed, only the confirmed ones count.\n\n' +
+      'Three boards name nobody: the most wanted Pokémon, the bosses whose raids were sent to ' +
+      'the most members, and the field research tasks reported most.\n\n' +
+      '"Share in this channel" posts the board where you asked, for everybody, with your name. ' +
+      'It is a snapshot: it shows the board as it was when you shared it.',
+    examples: ['/stats boards', '/stats boards board:Trains conducted period:This year'],
+  },
+  defer: 'late',
+  throttle: MEMBER_READ_THROTTLE,
+  async execute(interaction, ctx) {
+    const askedBoard = interaction.options.getString('board') ?? undefined;
+    const askedPeriod = interaction.options.getString('period') ?? undefined;
+    const board = isBoardName(askedBoard) ? askedBoard : 'raids';
+    const period = isTallyPeriod(askedPeriod) ? askedPeriod : 'month';
+    await answer(interaction, v2Answer(await privateBoard(interaction, ctx, board, period)));
+  },
+};
+
+/**
+ * `/stats` (plan 8H-5, design Parts C, D and E): what Pine's history of this server says.
+ * `regions` is the region tally, `boards` the boards (plan 8H-6), each answered privately with
+ * the periods to switch to and Share.
  */
 export const stats = commandGroup({
   data: new SlashCommandBuilder().setName('stats').setDescription('Pine’s history of this server'),
@@ -262,10 +437,11 @@ export const stats = commandGroup({
     category: 'util',
     details:
       'Numbers from my history of this server: how many raids and max battles each region ' +
-      'had. Nobody is named.',
-    examples: ['/stats regions'],
+      'had, and boards of who did the most that others confirmed, among the members who ' +
+      'asked to be ranked.',
+    examples: ['/stats regions', '/stats boards'],
   },
-  parts: [regionsPart],
+  parts: [regionsPart, boardsPart],
 });
 
 /**
@@ -279,6 +455,21 @@ export const statsControls: ComponentHandler = {
   kind: STATS_KIND,
   throttle: (_interaction, id) => (id.action === SHARE ? SHARE_THROTTLE : MEMBER_READ_THROTTLE),
   async button(interaction, id, ctx) {
+    if (id.id === BOARDS_ID) {
+      const [board, period, ...rest] = id.args;
+      const known = (id.action === SHARE || id.action === SHOW) && rest.length === 0;
+      if (!known || !isBoardName(board) || !isTallyPeriod(period)) {
+        throw new UserError(STALE_COMPONENT);
+      }
+      if (id.action === SHARE) {
+        await shareBoard(interaction, ctx, board, period);
+        return;
+      }
+      const how = pressAnswer(interaction);
+      const reading = privateBoard(interaction, ctx, board, period);
+      await answerPress(interaction, how, await readOrDeferPress(interaction, how, reading));
+      return;
+    }
     const [period, ...more] = id.args;
     const [note, ...rest] = more;
     const known =

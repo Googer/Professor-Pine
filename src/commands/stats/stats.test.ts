@@ -265,7 +265,7 @@ describe('/stats regions', () => {
   it('is filed under Utility in /help and says what it counts (P9)', () => {
     expect(stats.help.category).toBe('util');
     const json = stats.data.toJSON();
-    expect(json.options?.map((option) => option.name)).toEqual(['regions']);
+    expect(json.options?.map((option) => option.name)).toEqual(['regions', 'boards']);
     const details = String(stats.subcommands.get('regions')?.help?.details);
     expect(details.split('\n\n')[0]).toBe(
       'How many raids and max battles took place in each region of this server, the busiest ' +

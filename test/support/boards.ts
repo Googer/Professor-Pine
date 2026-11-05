@@ -14,8 +14,14 @@ import {
 } from '../../src/domain/history/boards.js';
 import type { MemberParty, MemberReport } from '../../src/domain/history/member-stats.js';
 import type { HistoryRecord, HistoryStatus } from '../../src/domain/history/party-history.js';
+import { Boards } from '../../src/services/boards.js';
+import { MemberNames } from '../../src/services/member-names.js';
 import type { KeptReport } from './board-cases.js';
+import { catalogueFixture } from './game-data.js';
 import { MemoryHistoryOptIns } from './history.js';
+import { FakeMemberDirectory } from './members.js';
+import { regionTalliesWith } from './region-tallies.js';
+import { researchTasksFixture } from './research.js';
 
 /** A report to the moderators about a party, as decided. */
 interface Moderated {
@@ -276,6 +282,44 @@ export class MemoryBoards implements BoardReader {
         .map((report) => ({ at: report.endedAt, reach: report.reach })),
     );
   }
+}
+
+/**
+ * The boards (plan 8H-6) over memory, as the bot wires them: `reader` (`MemoryBoards`, empty)
+ * over `optIns` (a `MemoryHistoryOptIns`, which `/settings leaderboard` writes), the names of
+ * `members` (a `FakeMemberDirectory`: nobody until `add`) through `names`, the fixtures'
+ * catalogue and task list, and the region tally's fake gateway (`regionTalliesWith`), which a
+ * Share posts through. Pass `context` to `createTestContext`.
+ */
+export function boardsWith(zone = 'America/New_York') {
+  const made = regionTalliesWith(zone);
+  const optIns = new MemoryHistoryOptIns();
+  const reader = new MemoryBoards(optIns);
+  const members = new FakeMemberDirectory();
+  const names = new MemberNames({ members });
+  const boards = new Boards({
+    reader,
+    names,
+    catalogue: catalogueFixture(),
+    tasks: researchTasksFixture(),
+    gateway: made.gateway,
+    zone,
+  });
+  return {
+    ...made,
+    reader,
+    optIns,
+    members,
+    names,
+    boards,
+    context: {
+      boards,
+      historyOptIns: optIns,
+      members,
+      memberNames: names,
+      regionTallies: made.tallies,
+    },
+  };
 }
 
 /** The world of `boardReaderCases` over a `MemoryBoards`. */

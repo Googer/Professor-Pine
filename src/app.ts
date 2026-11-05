@@ -143,6 +143,8 @@ import { WayfarerImportService } from './services/wayfarer-import-service.js';
 import { WayfarerReviewService } from './services/wayfarer-review-service.js';
 import { RegionTallies } from './services/region-tallies.js';
 import { MemberNames } from './services/member-names.js';
+import { Boards } from './services/boards.js';
+import { BoardRepository } from './db/repositories/board-repository.js';
 import { RegionDirectory } from './services/region-directory.js';
 import { SelfRoleService } from './services/self-role-service.js';
 import { SpawnService } from './services/spawn-service.js';
@@ -1036,6 +1038,19 @@ export async function startApp(
     members,
     // The names the boards show (plan 8H-6), for Discord and the web alike.
     memberNames,
+    // The boards (plan 8H-6): /stats boards and the history page's.
+    boards: new Boards({
+      reader: new BoardRepository(db),
+      names: memberNames,
+      // The catalogue of the game data now (it is replaced on a refresh).
+      catalogue: {
+        species: (dex) => gameData.catalogue.species(dex),
+        byKey: (key) => gameData.catalogue.byKey(key),
+      },
+      tasks: researchTasks,
+      gateway: partyGateway,
+      zone: config.settings.timezone,
+    }),
     selfRoles,
     spawns,
     dms: memberDms,
