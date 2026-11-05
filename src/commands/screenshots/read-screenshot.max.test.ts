@@ -138,6 +138,6 @@ describe('/read-screenshot of a max battle’s screenshot', () => {
   // Matt, 2026-10-23 (review r4 B4).
   it('writes Power Spot in its help as the game does', () => {
     const { details } = readScreenshot.help ?? {};
-    expect(typeof details === 'string' ? details : '').toContain('of a max battle the Power Spot');
+    expect(typeof details === 'string' ? details : '').toContain('the gym or Power Spot');
   });
 });

@@ -167,12 +167,11 @@ export const readScreenshot: SimpleCommand = {
   help: {
     category: 'raid-crud',
     details:
-      'Reads the screenshot and tells you, privately, what I read on it and what I make of it: ' +
-      'the gym, the time, egg or hatched, the tier and the boss, each as read and as ' +
-      'understood; of a max battle the Power Spot, the time, the tier and the boss. Nothing is ' +
-      'reported.\n\nTell me with the buttons whether I read it right: ' +
-      'screenshots with your answer are kept for a while to improve the reader.\n\nOutside a ' +
-      'region channel the gym is looked for among all of this server’s gyms.',
+      'Shows you what I read on a raid or max battle screenshot and what I make of it: the gym ' +
+      'or Power Spot, the time, whether it is an egg, the tier and the boss. Nothing is ' +
+      'reported, and only you see the answer.\n\nTell me with the buttons whether I read it ' +
+      'right: screenshots with your answer are kept for a while to improve the reader.\n\n' +
+      'Outside a region channel I look for the gym among all of this server’s gyms.',
     examples: ['/read-screenshot screenshot:(a raid screenshot)'],
   },
   enabled: (config) => config.settings.ocr.enabled,

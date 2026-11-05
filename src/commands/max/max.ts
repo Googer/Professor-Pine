@@ -257,12 +257,13 @@ const DETAILS =
   "Creates a post for a max battle in the raid forum of the spot's region. Pick the boss and " +
   'the Power Spot from the lists that appear while you type (the bosses of an event that is ' +
   'on come first); a Pokémon that can Dynamax may be typed in full, with `tier` when it is on ' +
-  'no list.\n\nA spot Pine does not know can be given as a maps link or coordinates: it becomes ' +
-  'an unlisted power spot.\n\nA battle lasts until the end of its rotation (the next half hour ' +
-  'in a short event, the next hour all day and for Gigantamax), otherwise until the last ' +
-  'battle of the day, or the start of a max event later that day; `end` sets another.\n\nIf the ' +
-  'spot already has a battle of that boss, you are shown its post instead; one ending within ' +
-  'five minutes is asked about first.';
+  'no list.\n\nA Power Spot I do not know can be given as a maps link or coordinates: the ' +
+  'battle is then at an unlisted Power Spot.\n\nDuring a short max event (a Max Battle Day) a ' +
+  'battle lasts to the next half hour, during an all-day one (a Max Monday) to the next full ' +
+  'hour. Outside max events a Gigantamax battle lasts to the next full hour, a Dynamax battle ' +
+  "to the day's last battle time or the start of a max event later that day. `end` sets " +
+  'another.\n\nIf the Power Spot already has a battle of that boss, you are shown its ' +
+  'post instead; when that one ends within five minutes, I ask first.';
 
 const SCREENSHOT_DETAILS =
   'Or attach a screenshot of the max battle instead: I read the Power Spot, the boss, its ' +

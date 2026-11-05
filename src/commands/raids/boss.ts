@@ -102,15 +102,14 @@ export const boss: SimpleCommand = {
   help: {
     category: 'raid-crud',
     details:
-      'For an egg whose boss is known now, or a raid that was reported wrongly. The times stay ' +
-      'as they are: naming the boss does not hatch the egg.\n\nA boss that has only one fast or ' +
-      `one charged move gets it set. ${IN_A_RAID_POST}\n\nIn the post of a train: says which ` +
-      'Pokémon the train is after, which the post then shows with its weaknesses and catch ' +
-      'CP. It may be any Pokémon, also one that is no boss right now; a train has no tier, ' +
-      'and `none` takes the boss off again.\n\nIn the post of a max battle: the boss of the ' +
-      'rotation, picked from the max bosses (its tier follows it); a Dynamax boss on no list ' +
-      'needs `tier:`, as with `/max`. A Dynamax battle cannot become a Gigantamax one, nor ' +
-      'the other way round.',
+      'In the post of a raid: for an egg whose boss is known now, or a raid that was reported ' +
+      'wrongly. The times stay as they are: naming the boss does not hatch the egg. Where the ' +
+      'boss has only one possible fast or charged move, that move is set too.\n\nIn the post of ' +
+      'a max battle: the boss of the current rotation, picked from the max bosses (its tier ' +
+      'follows it); a Dynamax boss on no list needs `tier`, as with `/max`. A Dynamax battle ' +
+      'cannot become a Gigantamax one, nor the other way round.\n\nIn the post of a train: the ' +
+      'Pokémon the train is after, which the post then shows with its weaknesses and catch CP. ' +
+      'It may be any Pokémon, also one that is no boss right now; `none` takes it off again.',
     examples: ['/boss pokemon:yveltal', '/boss pokemon:t3', '/boss pokemon:alakazam tier:D4'],
   },
   guards: [requireRaidOrTrain],
