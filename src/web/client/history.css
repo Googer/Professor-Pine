@@ -223,8 +223,17 @@ h2 {
   padding: 4px 6px;
   border-bottom: 1px solid var(--line);
   text-align: left;
-  /* A long region name breaks anywhere rather than widening a phone (P10). */
+}
+
+/* A long region name breaks anywhere rather than widening a phone (P10). */
+#tally-table td:nth-child(2) {
   overflow-wrap: anywhere;
+}
+
+/* A rank or a count never breaks ("10" over two lines, staging of 8H-5). */
+#tally-table .count,
+#tally-table td:first-child {
+  white-space: nowrap;
 }
 
 #tally-table .count {
