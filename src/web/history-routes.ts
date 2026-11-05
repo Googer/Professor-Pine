@@ -11,7 +11,7 @@ import {
   type ActivityMode,
 } from '../domain/history/activity.js';
 import { BOARD_PERIODS, boardTitle } from '../domain/history/board-periods.js';
-import { keptOut } from '../domain/history/region-board.js';
+import { keptOut, regionGate } from '../domain/history/region-board.js';
 import { ACTIVITY_MODES, type ActivityView } from '../domain/web/activity-data.js';
 import type { RegionBoardView } from '../domain/web/region-board-data.js';
 import type { RegionBoards } from '../services/region-boards.js';
@@ -98,8 +98,9 @@ const activityQuery = z
  * The party history on the live map (plan 8H-4, design Part B): the activity heatmap, `GET
  * /s/<guild>/api/activity`. For members only, as every layer but the gyms and the outlines:
  * membership is asked before anything of the server is read (`askedMembership`), the forums of
- * the buckets' regions after (`PartyViewers`, shared with the parties: a region whose forum keeps
- * the member out, or that their roles do not show them, is left out; R-B, `keptOutOf`). The
+ * the buckets' regions after, or their text channels where they have none (`PartyViewers`,
+ * shared with the parties, and `regionGate`: a region whose forum keeps the member out, or that
+ * their roles do not show them, is left out; R-B, `keptOutOf`). The
  * weights are the domain's (`activityWeights`); a gym or Power Spot is placed where the map has
  * it now, and one it no longer has counts among those left out. An ETag of the member's JSON,
  * `private, no-cache`.
@@ -128,28 +129,31 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
         activity.reader.buckets(guild, activityWindow(mode, now, zone)),
         activity.reader.months(guild),
       ]);
-      const forumOf = new Map(
-        activity.regions.all().map((region) => [region.id, region.forumChannelId]),
+      // Each region by the channel that decides who sees it: its forum, or its text channel
+      // where it has none (`regionGate`, 8H5-2).
+      const gateOf = new Map(
+        activity.regions.all().map((region) => [region.id, regionGate(region)]),
       );
-      const forums = [
+      const gates = [
         ...new Set(
           buckets.flatMap((bucket) => {
-            const forum = forumOf.get(bucket.regionId);
-            return forum === undefined || forum === null ? [] : [forum];
+            const gate = gateOf.get(bucket.regionId);
+            return gate === undefined ? [] : [gate];
           }),
         ),
       ];
-      const viewer = await viewers.viewer(guild, session.userId, forums, member);
+      const viewer = await viewers.viewer(guild, session.userId, gates, member);
       if (viewer.kind === 'not-member') return sendFailure(request, reply, 403);
       if (viewer.kind === 'unconfirmed') return reply.code(503).send({ error: UNCONFIRMED });
-      // Only an existing forum keeps out (`PartyGateway.memberAccess`): a region of 0 (a record
-      // without one), a region no longer in the directory (deleted since, its forum with it) and
-      // one without a forum are seen by every member and counted normally (the controller's
-      // ruling, 8H4-1). A forum the member is kept out of or not shown by their roles keeps them
-      // out alike (Matt, 2026-11-05, R-B: the region board's rule, `keptOutOf`).
+      // Only an existing channel keeps out (`PartyGateway.memberAccess`): a region of 0 (a record
+      // without one) and a region no longer in the directory (deleted since, its forum with it)
+      // are seen by every member and counted normally (the controller's ruling, 8H4-1). A
+      // region's forum, or its text channel where it has none, that the member is kept out of or
+      // not shown by their roles keeps them out alike (Matt, 2026-11-05, R-B: the region board's
+      // rule, `keptOutOf`).
       const seen = buckets.filter((bucket) => {
-        const forum = forumOf.get(bucket.regionId);
-        return forum === undefined || forum === null || !keptOutOf(viewer, forum);
+        const gate = gateOf.get(bucket.regionId);
+        return gate === undefined || !keptOutOf(viewer, gate);
       });
       const pointOf = (kind: 'gym' | 'spot', id: string) =>
         kind === 'gym' ? activity.gyms.get(Number(id)) : activity.wayspots.byId(id);
@@ -184,9 +188,10 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
 
   // The region board (plan 8H-5, design Part C): `/stats regions`' board as the member may see
   // it, for the history page. Shaped as /api/activity: membership first, then the forums of the
-  // server's regions (`PartyViewers`: an existing forum that keeps the member out, or that their
-  // roles do not show them, leaves its region out of every line and the total; R-B); regions
-  // gone and records without one are "No longer a region", seen by everyone.
+  // server's regions, or their text channels where they have none (`PartyViewers`,
+  // `regionGate`: one that keeps the member out, or that their roles do not show them, leaves
+  // its region out of every line and the total; R-B); regions gone and records without one are
+  // "No longer a region", seen by everyone.
   const boardLimiter = new RateLimiter({ uses: BOARD_PER_MINUTE, perMs: 60_000 });
   scope.get(
     '/api/stats/regions',
@@ -208,20 +213,15 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
         query.data.period,
         deps.now(),
         async (regions) => {
-          const forums = regions.flatMap((region) =>
-            region.forumChannelId === null ? [] : [region.forumChannelId],
-          );
-          const viewer = await viewers.viewer(guild, session.userId, forums, member);
+          const gates = regions.map(regionGate);
+          const viewer = await viewers.viewer(guild, session.userId, gates, member);
           if (viewer.kind !== 'member') {
             refused = viewer.kind;
             return new Set(regions.map((region) => region.id));
           }
           return new Set(
             regions
-              .filter(
-                (region) =>
-                  region.forumChannelId !== null && keptOutOf(viewer, region.forumChannelId),
-              )
+              .filter((region) => keptOutOf(viewer, regionGate(region)))
               .map((region) => region.id),
           );
         },

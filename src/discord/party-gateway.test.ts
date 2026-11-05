@@ -1,5 +1,6 @@
 import {
   ChannelType,
+  Collection,
   ComponentType,
   DiscordAPIError,
   MessageFlags,
@@ -2026,6 +2027,48 @@ describe('the events forum’s posts (plan 8V-1)', () => {
       await expect(gateway.rolesWithoutReplies('f', ['Member', 'Nobody'])).resolves.toEqual([
         '@everyone',
       ]);
+    });
+
+    it('says how a member stands to a region’s text channel as to a forum (8H5-2)', async () => {
+      const view = PermissionFlagsBits.ViewChannel;
+      const members = new Map([
+        ['ash', { id: 'ash', roles: { cache: new Map([['m', {}]]) } }],
+        ['misty', { id: 'misty', roles: { cache: new Map() } }],
+      ]);
+      const guild = {
+        id: 'g',
+        members: {
+          fetch: ({ user }: { user: string }) => Promise.resolve(members.get(user)),
+        },
+      };
+      const text = {
+        id: 'text',
+        type: ChannelType.GuildText,
+        guild,
+        permissionOverwrites: {
+          cache: new Collection([
+            [
+              'm',
+              {
+                id: 'm',
+                type: OverwriteType.Role,
+                allow: new PermissionsBitField(view),
+                deny: new PermissionsBitField(0n),
+              },
+            ],
+          ]),
+        },
+        permissionsFor: (member: { id: string }) =>
+          new PermissionsBitField(member.id === 'ash' ? view : 0n),
+      };
+      const gateway = new DiscordPartyGateway();
+      gateway.use({
+        channels: { fetch: (id: string) => Promise.resolve(id === 'text' ? text : null) },
+        user: { id: 'bot' },
+      } as unknown as Client);
+      expect(await gateway.memberAccess('text', 'ash')).toBe('visible');
+      expect(await gateway.memberAccess('text', 'misty')).toBe('hidden');
+      expect(await gateway.memberAccess('nowhere', 'ash')).toBeUndefined();
     });
 
     it('keeps the regions of a share where everybody who sees the channel sees their forum, from the cache (plan 8H-5, R-A)', async () => {

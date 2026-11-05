@@ -19,6 +19,7 @@ import {
   type Guild,
   type GuildChannel,
   type GuildMember,
+  type TextChannel,
 } from 'discord.js';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -438,8 +439,9 @@ export interface PartyGateway {
   ): Promise<'deleted' | 'gone' | 'not-allowed'>;
   /**
    * Whether a member of the server can see a forum (and with it the posts in it), by their
-   * roles and the forum's permission overwrites. Undefined when the forum is gone or the member
-   * is not in its server.
+   * roles and the forum's permission overwrites; the same of a text channel, which decides who
+   * sees a region without a forum (`regionGate`, plan 8H-5). Undefined when the channel is gone
+   * (or neither a forum nor a text channel) or the member is not in its server.
    */
   memberAccess(forumId: string, memberId: string): Promise<MemberAccess | undefined>;
   /**
@@ -1940,7 +1942,12 @@ export class DiscordPartyGateway implements PartyGateway {
   }
 
   async memberAccess(forumId: string, memberId: string): Promise<MemberAccess | undefined> {
-    const forum = await this.forum(forumId);
+    // A forum, or the text channel of a region that has none (plan 8H-5, `regionGate`).
+    const channel = await this.unlessGone(() => this.client.channels.fetch(forumId));
+    const forum =
+      channel?.type === ChannelType.GuildForum || channel?.type === ChannelType.GuildText
+        ? channel
+        : undefined;
     if (!forum) return undefined;
     // The interaction that brought the member here has put them into the cache with the roles
     // they have now; anybody else is asked for (that needs no privileged intent). Without the
@@ -1970,11 +1977,11 @@ export class DiscordPartyGateway implements PartyGateway {
   }
 
   /**
-   * Whether the forum has an overwrite that denies a permission to a role the member holds;
-   * `everybody` says whether the role everybody has counts.
+   * Whether the forum (or text channel) has an overwrite that denies a permission to a role the
+   * member holds; `everybody` says whether the role everybody has counts.
    */
   private static roleDenies(
-    forum: ForumChannel,
+    forum: ForumChannel | TextChannel,
     member: GuildMember,
     permission: bigint,
     everybody: boolean,

@@ -6,6 +6,7 @@ import {
   boardMonths,
   keptOut,
   regionBoard,
+  regionGate,
   type RegionBoard,
 } from '../domain/history/region-board.js';
 
@@ -74,10 +75,10 @@ export class RegionBoards {
   }
 
   /**
-   * The board as a member may see it: without the regions whose forum they do not see
-   * (`memberAccess` `barred` or `hidden`, `keptOut`: Matt's ruling R-B, the heatmap's rule too;
-   * a region without a forum, or whose forum is gone, keeps nobody out). Rejects while Discord
-   * cannot say.
+   * The board as a member may see it: without the regions whose forum (or text channel, where
+   * they have none: `regionGate`, 8H5-2) they do not see (`memberAccess` `barred` or `hidden`,
+   * `keptOut`: Matt's ruling R-B, the heatmap's rule too; a channel that is gone keeps nobody
+   * out). Rejects while Discord cannot say.
    */
   forMember(
     serverId: string,
@@ -88,8 +89,7 @@ export class RegionBoards {
     return this.board(serverId, period, now, async (regions) => {
       const barred = await Promise.all(
         regions.map(async (region) =>
-          region.forumChannelId !== null &&
-          keptOut(await this.options.gateway.memberAccess(region.forumChannelId, memberId))
+          keptOut(await this.options.gateway.memberAccess(regionGate(region), memberId))
             ? [region.id]
             : [],
         ),
@@ -109,11 +109,10 @@ export class RegionBoards {
     regions: readonly Region[],
     shareChannelId: string,
   ): Promise<Set<number> | undefined> {
-    const channelOf = (region: Region) => region.forumChannelId ?? region.channelId;
-    const kept = await this.options.gateway.shareKeeps(shareChannelId, regions.map(channelOf));
+    const kept = await this.options.gateway.shareKeeps(shareChannelId, regions.map(regionGate));
     if (kept === undefined) return undefined;
     return new Set(
-      regions.filter((region) => !kept.has(channelOf(region))).map((region) => region.id),
+      regions.filter((region) => !kept.has(regionGate(region))).map((region) => region.id),
     );
   }
 

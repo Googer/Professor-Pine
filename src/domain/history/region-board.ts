@@ -46,6 +46,15 @@ export function keptOut(standing: ForumStanding | undefined): boolean {
   return standing === 'barred' || standing === 'hidden';
 }
 
+/**
+ * The channel whose viewers may see a region's counts (8H5-2, the one rule of `/stats regions`,
+ * its Share, the history page and the map's activity layer): its forum, or its text channel
+ * where it has none.
+ */
+export function regionGate(region: { forumChannelId: string | null; channelId: string }): string {
+  return region.forumChannelId ?? region.channelId;
+}
+
 /** A region's raids and max battles over a period; region 0 is a record without one. */
 export interface RegionCount {
   regionId: number;

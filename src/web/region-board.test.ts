@@ -2,7 +2,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { activityBucket } from '../../test/support/activity-cases.js';
 import { MemoryActivity } from '../../test/support/activity.js';
 import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
-import { EAST_CHANNEL, EAST_FORUM, WEST_CHANNEL } from '../../test/support/gyms.js';
+import {
+  EAST_CHANNEL,
+  EAST_FORUM,
+  UNBOUNDED_CHANNEL,
+  WEST_CHANNEL,
+} from '../../test/support/gyms.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
 import { ALICE, BOB } from '../../test/support/parties.js';
 import { partyServiceWith } from '../../test/support/party-service.js';
@@ -121,6 +126,17 @@ describe('the region board on the web', () => {
     const alice = (await made.ask()).json<RegionBoardView>();
     expect(alice.rows.map((row) => row.name)).toEqual(['#west', 'Region 3']);
     expect(alice.total).toEqual({ raids: 6, maxes: 1 });
+  });
+
+  it('judges a region without a forum by its text channel (8H5-2)', async () => {
+    const made = await setup();
+    web = made.web;
+    made.made.gateway.addChannel(UNBOUNDED_CHANNEL, 'unbounded');
+    made.made.gateway.shutOut(UNBOUNDED_CHANNEL, ALICE);
+    const alice = (await made.ask()).json<RegionBoardView>();
+    expect(alice.rows.map((row) => row.name)).toEqual(['#east', '#west']);
+    const bob = (await made.ask('', BOB)).json<RegionBoardView>();
+    expect(bob.rows.map((row) => row.name)).toEqual(['#east', '#west', 'Region 3']);
   });
 
   it('answers 304 for the board the page has, and anew once it changed', async () => {

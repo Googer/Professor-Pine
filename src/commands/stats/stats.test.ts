@@ -14,7 +14,12 @@ import {
   FakePartyGateway,
   missingPermissions,
 } from '../../../test/support/fake-gateway.js';
-import { EAST_CHANNEL, EAST_FORUM, WEST_CHANNEL } from '../../../test/support/gyms.js';
+import {
+  EAST_CHANNEL,
+  EAST_FORUM,
+  UNBOUNDED_CHANNEL,
+  WEST_CHANNEL,
+} from '../../../test/support/gyms.js';
 import { buttonsOf, textDisplays, v2 } from '../../../test/support/messages.js';
 import { regionBoardsWith } from '../../../test/support/region-boards.js';
 import { createTestContext } from '../../../test/support/test-context.js';
@@ -200,6 +205,14 @@ describe('/stats regions', () => {
     expect(textDisplays(misty)[1]).toBe(
       'No longer a region: 2 raids, 1 max battle\n**Total:** 6 raids, 2 max battles',
     );
+  });
+
+  it('judges a region without a forum by its text channel (8H5-2)', async () => {
+    const made = await setup();
+    made.gateway.shutOut(UNBOUNDED_CHANNEL, MISTY);
+    const misty = asV2(answered(await made.ask({}, MISTY)));
+    expect(textDisplays(misty)[0]).not.toContain('Region 3');
+    expect(textDisplays(asV2(answered(await made.ask()))).slice(0, 2)).toEqual(MONTH_BOARD);
   });
 
   it('switches the period at once, or deferred when the read takes longer than a second (P5)', async () => {

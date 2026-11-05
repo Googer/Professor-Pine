@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { zonedAt } from '../../../test/support/time.js';
 import { ACTIVITY_FIRST_MONTH, UNKNOWN_MONTH } from './activity.js';
-import { boardMonths, keptOut, regionBoard, type RegionCount } from './region-board.js';
+import { boardMonths, keptOut, regionBoard, regionGate, type RegionCount } from './region-board.js';
 
 const ZONE = 'America/New_York';
 const at = (local: string): number => zonedAt(local, ZONE);
@@ -83,5 +83,12 @@ describe('who a forum keeps from a region (R-B)', () => {
     expect(keptOut('visible')).toBe(false);
     // The forum is gone, or the member left: nothing keeps them out.
     expect(keptOut(undefined)).toBe(false);
+  });
+});
+
+describe('the channel that decides who sees a region (8H5-2)', () => {
+  it('is its forum, or its text channel where it has none', () => {
+    expect(regionGate({ forumChannelId: 'forum', channelId: 'text' })).toBe('forum');
+    expect(regionGate({ forumChannelId: null, channelId: 'text' })).toBe('text');
   });
 });

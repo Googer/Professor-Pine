@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { activityBucket } from '../../test/support/activity-cases.js';
 import { MemoryActivity } from '../../test/support/activity.js';
 import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
-import { EAST_FORUM } from '../../test/support/gyms.js';
+import { EAST_FORUM, UNBOUNDED_CHANNEL } from '../../test/support/gyms.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
 import { ALICE, BOB } from '../../test/support/parties.js';
 import { partyServiceWith } from '../../test/support/party-service.js';
@@ -164,6 +164,21 @@ describe('the activity heatmap on the map', () => {
     expect(alice.places.map((place) => place.id)).toEqual(['1']);
     const bob = (await made.ask('', BOB)).json<ActivityView>();
     expect(bob.places.map((place) => place.id)).toEqual(['1', '7']);
+  });
+
+  it('judges a region without a forum by its text channel (8H5-2)', async () => {
+    const made = await setup();
+    web = made.web;
+    await made.activity.add(FAKE_GUILD_ID, [
+      activityBucket(1, '2026-10', 4, 18),
+      activityBucket(2, '2026-10', 4, 18, { regionId: 3 }),
+    ]);
+    made.made.gateway.addChannel(UNBOUNDED_CHANNEL, 'unbounded');
+    made.made.gateway.shutOut(UNBOUNDED_CHANNEL, ALICE);
+    const alice = (await made.ask()).json<ActivityView>();
+    expect(alice.places.map((place) => place.id)).toEqual(['1']);
+    const bob = (await made.ask('', BOB)).json<ActivityView>();
+    expect(bob.places.map((place) => place.id).sort()).toEqual(['1', '2']);
   });
 
   it('counts a place in a visible and a barred region by the visible parties alone', async () => {

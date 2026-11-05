@@ -1692,7 +1692,9 @@ export class FakePartyGateway implements PartyGateway {
       'memberAccess',
       forumId,
       () => {
-        if (!this.forums.has(forumId) || this.gone.has(forumId)) return undefined;
+        // A forum, or a text channel (a region's without a forum, plan 8H-5), as the gateway.
+        const known = this.forums.has(forumId) || this.channels.get(forumId)?.kind === 'text';
+        if (!known || this.gone.has(forumId)) return undefined;
         if (this.leftServer.has(memberId)) return undefined;
         if (this.canSee(forumId, memberId)) return 'visible';
         return this.barred.get(forumId)?.has(memberId) ? 'barred' : 'hidden';
