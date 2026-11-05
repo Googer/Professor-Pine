@@ -3037,8 +3037,17 @@ Design `docs/superpowers/specs/2026-11-04-power-spot-address-design.md`; branch 
 
 Plan `docs/superpowers/plans/2026-11-04-phase-8h2-stop-report-history.md`; migration 036 adds `StopReportHistory` and three columns on `StopReport`. Nothing here shows on Discord or the web yet.
 
-- **Next, before the cutover:** plan 8H-3, the rest of Part A (reach counts as `PartyHistoryStep` of kind `reach` and on the news' first report, `WantCountDay`).
+- **Done:** plan 8H-3, the rest of Part A (below).
 - **Staging** (Air's dev stack after the next update, Matt's go-ahead): `./pine migrate` reaches 036; a research report taken back and a grunt left to end each leave one `StopReportHistory` row after the hourly sweep (`withdrawn`, `stood`); a tester with `/settings history` on has their id there, one without has null.
 - **Words still saying "party history"** in `/settings history`: the off answer, the DM text and the option's description (`settings.ts` ~133, ~136, ~390). The description needs a deploy; do it with the cutover's deploy.
 - **Sweep under a systemic failure (review R2, R3, Minor):** the week's drop logs one line per row with no cap, and its words say "failed for a week" for a row that is only old (an outage longer than a week); five rows that always fail, one after another, hold back the healthy rows behind them until they are a week old. Only when the history table is broken; log the drops once per sweep, and start the next sweep after the ids it gave up on, if it is ever seen.
 - **`src/domain/wayspots/match.test.ts`** ("plans a city of 3,200 gyms and 30,000 Wayspots") timed out at 15 seconds once in a full `npm run check` on the laptop; passed alone and on the rerun. A unit test near its limit is a fault to look into (CLAUDE.md).
+
+## From Phase 8H-3 (reach and want counts, 2026-11-04)
+
+Plan `docs/superpowers/plans/2026-11-04-phase-8h3-reach-and-want-counts.md`; migration 037 adds `PartyHistory.reached`, `StopReport.reach`, `StopReportHistory.reach` and `WantCountDay`. Part A of the history design is complete; nothing shows on Discord or the web yet. Parts B to H come after the cutover.
+
+- **Matt's rulings (2026-11-04):** every kind of want is counted (extensibility), with `species:<dex>` for a most-wanted board; want counts follow the notifier's rule (a member with a Discord id) and still include members who left the server (no `GuildMembers` intent), so the boards read them as wants on file; reach leaves out members already in the party when the DM goes out.
+- **Staging** (Air's dev stack after the next update, Matt's go-ahead, with 8H-2's): `./pine migrate` reaches 037; a raid reported for a boss two testers want (neither in the raid) ends with `PartyHistory.reached` 2; a research report a tester wants has `reach` 1 in its `StopReportHistory` row after the sweep; the morning after a midnight with the bot up, `WantCountDay` has the day's rows with `species:<dex>` beside the testers' wants, and a restart that day adds nothing.
+- **Known losses, by design:** a member may count twice for reach across a restart (the notifier's memory); a count that arrives after its party is recorded, or for a report version replaced meanwhile (other than a "one of"'s first report), is lost; a midnight count missed with the bot down over two midnights loses the days in between; a server's failed write loses that day for that server.
+- **Not measured:** the nightly want count reads every want row once; its time on Pittsburgh's production data is unknown. Look at the info line `counted the wants of a day` after the cutover.
