@@ -40,6 +40,23 @@ describe('everyLocalMidnight (plan 8V-1: the summariesâ€™ and the events forumâ€
     expect(set[1]?.ms).toBe(25 * 60 * 60_000);
   });
 
+  it('tells the run the midnight it was set for, also when its timer fires late (plan 8H-3)', () => {
+    const clock = { now: at('2026-11-04T10:00') };
+    const { set, setTimer } = timers();
+    const midnights: number[] = [];
+    everyLocalMidnight({
+      zone: ZONE,
+      now: () => clock.now,
+      setTimer,
+      run: (midnight) => midnights.push(midnight),
+    });
+    // The machine slept through the night: the timer fires the next morning.
+    clock.now = at('2026-11-06T00:30');
+    set[0]?.run();
+    expect(midnights).toEqual([at('2026-11-05T00:00')]);
+    expect(set[1]?.ms).toBe(at('2026-11-07T00:00') - clock.now + 1_000);
+  });
+
   it('stops for good once cancelled', () => {
     const clock = { now: at('2026-10-31T22:00') };
     const { set, setTimer } = timers();

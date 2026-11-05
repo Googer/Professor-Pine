@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { localDay, localDayStart, nextLocalMidnight } from './local-day.js';
+import { dayBefore, localDay, localDayStart, nextLocalMidnight } from './local-day.js';
 import { zonedAt } from '../../../test/support/time.js';
 
 const ZONE = 'America/New_York';
@@ -40,5 +40,16 @@ describe('nextLocalMidnight', () => {
     // 2026-03-08: clocks go forward.
     const springForward = at('2026-03-08T00:00');
     expect(nextLocalMidnight(springForward, ZONE) - springForward).toBe(23 * 3_600_000);
+  });
+});
+
+describe('dayBefore', () => {
+  it('is the local day that ended before the day of a moment (plan 8H-3: the want counts)', () => {
+    expect(dayBefore(at('2026-11-21T00:00:01'), ZONE)).toBe('2026-11-20');
+    expect(dayBefore(at('2026-11-21T23:59'), ZONE)).toBe('2026-11-20');
+    expect(dayBefore(at('2027-01-01T00:00:01'), ZONE)).toBe('2026-12-31');
+    // The day of 25 hours, and the one of 23.
+    expect(dayBefore(at('2026-11-02T00:00:01'), ZONE)).toBe('2026-11-01');
+    expect(dayBefore(at('2026-03-09T00:00:01'), ZONE)).toBe('2026-03-08');
   });
 });

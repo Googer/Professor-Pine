@@ -7,8 +7,11 @@ export interface LocalMidnightOptions {
   now: () => number;
   /** Sets a timer; gives what cancels it (the services' own, injected in tests). */
   setTimer: (run: () => void, ms: number) => () => void;
-  /** Called a second after each local midnight. Must not throw. */
-  run: () => void;
+  /**
+   * Called a second after each local midnight, with the midnight it was set for (plan 8H-3: a
+   * timer that fires late, the machine asleep, still says which midnight it is). Must not throw.
+   */
+  run: (midnight: number) => void;
 }
 
 /**
@@ -23,14 +26,15 @@ export function everyLocalMidnight(options: LocalMidnightOptions): { cancel(): v
   let cancelled = false;
   const next = (): void => {
     const now = options.now();
+    const midnight = nextLocalMidnight(now, options.zone);
     cancelTimer = options.setTimer(
       () => {
         cancelTimer = undefined;
         if (cancelled) return;
-        options.run();
+        options.run(midnight);
         if (!cancelled) next();
       },
-      nextLocalMidnight(now, options.zone) - now + 1_000,
+      midnight - now + 1_000,
     );
   };
   next();

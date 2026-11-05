@@ -112,6 +112,8 @@ import { ImageCache } from './services/image-cache.js';
 import { EmojiPictures, PlacePictures } from './services/post-pictures.js';
 import { NotifyService } from './services/notify-service.js';
 import { ReachRecords } from './services/reach.js';
+import { WantCountService } from './services/want-counts.js';
+import { WantCountRepository } from './db/repositories/want-count-repository.js';
 import { OcrAssets } from './services/ocr-assets.js';
 import { OcrService } from './services/ocr-service.js';
 import { ScreenshotService } from './services/screenshot-service.js';
@@ -522,6 +524,16 @@ export async function startApp(
   );
   const gymTargets = new GymNotificationRepository(db, rowIds);
   const newTrains = new NewTrainRepository(db);
+  // The wants of every server counted each local midnight, and at start for the day before
+  // (plan 8H-3, `WantCountDay`); in rehearsal mode too, as everything rehearsal writes.
+  const wantCounts = new WantCountService({
+    storage: new WantCountRepository(
+      db,
+      formReader(() => gameData.catalogue),
+    ),
+    zone: config.settings.timezone,
+    log,
+  });
   // The posts of the stops, for the links of research DMs: set once they are made below.
   const researchPostLinks: { posts?: StopPostService | undefined } = {};
   // Made after the party service, whose briefs of parties it sends, and told by it from here on.
@@ -1292,6 +1304,10 @@ export async function startApp(
   void connected.then(() => {
     eventForum?.start();
   });
+  // The want counts (plan 8H-3), once the game data reads the forms of the wants.
+  void connected.then(() => {
+    wantCounts.start();
+  });
   void connected.then(() =>
     stopPosts
       ?.start()
@@ -1513,6 +1529,7 @@ export async function startApp(
           reconnect.catchUp?.close();
           // The events forum first (BR-2): the clock's upkeep then draws nothing of it.
           eventForum?.stop();
+          wantCounts.stop();
           await scheduler.stop();
         },
       },
@@ -1629,7 +1646,11 @@ export async function startApp(
             },
           ]
         : []),
-      { name: 'unown wants', timeoutMs: 5_000, run: () => unownWants.flush() },
+      // The want counts' second is the Unown wants' (plan 8H-3): the limits still add up to 145 s.
+      { name: 'unown wants', timeoutMs: 4_000, run: () => unownWants.flush() },
+      // A day's count under way writes its server's day, or none of it, before the pool closes
+      // (review P3); one cut short is counted again at the next start.
+      { name: 'want counts', timeoutMs: 1_000, run: () => wantCounts.idle() },
       // A write in flight must finish before the pool closes.
       { name: 'parties', timeoutMs: 5_000, run: () => parties.whenIdle() },
       // A record of the party history that waits for another try gets it now, while the

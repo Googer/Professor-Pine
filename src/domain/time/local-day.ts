@@ -25,3 +25,11 @@ export function localDayStart(time: number, zone: string): number {
 export function nextLocalMidnight(time: number, zone: string): number {
   return addDays(zoned(time, zone).startOfDay(), 1).epochMilliseconds;
 }
+
+/**
+ * The local day that ended before the day of `time` in `zone` began, `yyyy-mm-dd` (Temporal): the
+ * day a start catches up on (plan 8H-3, `WantCountDay`).
+ */
+export function dayBefore(time: number, zone: string): string {
+  return localDay(localDayStart(time, zone) - 1, zone);
+}
