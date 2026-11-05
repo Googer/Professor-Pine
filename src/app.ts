@@ -1499,7 +1499,16 @@ export async function startApp(
         grunts: gruntMessages,
       },
       // The activity heatmap (plan 8H-4): the buckets, placed at the gyms and Power Spots kept now.
-      activity: { reader: activity, regions, gyms, wayspots, zone: config.settings.timezone },
+      // The region board of the history page (plan 8H-5): /stats regions' own RegionBoards.
+      activity: {
+        reader: activity,
+        regions,
+        gyms,
+        wayspots,
+        zone: config.settings.timezone,
+        boards: ctx.regionBoards,
+        channelName: (channelId) => partyGateway.channelName(channelId),
+      },
       // The Wayfarer export tool (plan 8W-P): served from wayspot-tool/ to the admins the owner
       // approved, on an instance that has the file (the owner's).
       tool: {

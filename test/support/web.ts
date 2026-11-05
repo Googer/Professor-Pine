@@ -9,6 +9,7 @@ import { onTestFinished } from 'vitest';
 import type { MemberStanding } from '../../src/discord/member-directory.js';
 import type { ServerChannel } from '../../src/domain/regions/region-import.js';
 import type { WayspotRow } from '../../src/domain/wayspots/kept.js';
+import { RegionBoards } from '../../src/services/region-boards.js';
 import { RegionDirectory } from '../../src/services/region-directory.js';
 import type { OAuthGateway, OAuthUser } from '../../src/web/discord-oauth.js';
 import { EditorCache, type EditorSources } from '../../src/web/editor-cache.js';
@@ -36,6 +37,7 @@ import { maxLook } from '../../src/render/max-post.js';
 import { inThisThread } from '../../src/web/save-check.js';
 import type { RegionEditing } from '../../src/web/editor-save.js';
 import { Sessions, sessionHash } from '../../src/web/sessions.js';
+import { FakePartyGateway } from './fake-gateway.js';
 import { FAKE_GUILD_ID } from './fake-interactions.js';
 import { TEST_ENV } from './test-env.js';
 import { gymDirectoryWith } from './gym-store.js';
@@ -501,10 +503,26 @@ export function stopWebWith(
 /**
  * The activity heatmap on the map over a test's buckets (`MemoryActivity`), as the bot wires it
  * (plan 8H-4): the gyms, regions and kept Wayspots that place it, and the posts' zone. Pass as
- * `activity`.
+ * `activity`. The region board (plan 8H-5) is a `RegionBoards` over the same reader and regions,
+ * the invented regions those of the fakes' server (row 1), unless a test gives its own `boards`;
+ * no channel has a name unless `channelName` says it.
  */
-export function activityWebWith(deps: ActivityWebDeps): ActivityWebDeps {
-  return deps;
+export function activityWebWith(
+  deps: Omit<ActivityWebDeps, 'boards' | 'channelName'> & Partial<ActivityWebDeps>,
+): ActivityWebDeps {
+  return {
+    boards: new RegionBoards({
+      reader: deps.reader,
+      regions: deps.regions,
+      guilds: {
+        idFor: (snowflake) => Promise.resolve(snowflake === FAKE_GUILD_ID ? 1 : undefined),
+      },
+      gateway: new FakePartyGateway(),
+      zone: deps.zone,
+    }),
+    channelName: () => undefined,
+    ...deps,
+  };
 }
 
 /** No activity: a test that has it passes `activityWebWith`. */

@@ -152,6 +152,20 @@ describe('the activity heatmap on the map', () => {
     expect(bob.leftOut).toBe(2);
   });
 
+  it('leaves out what lies only in a region whose forum the member cannot see by their roles (R-B)', async () => {
+    const made = await setup();
+    web = made.web;
+    await made.activity.add(FAKE_GUILD_ID, [
+      activityBucket(1, '2026-10', 4, 18),
+      activityBucket(7, '2026-10', 4, 18, { regionId: 2 }),
+    ]);
+    made.made.gateway.shutOut(EAST_FORUM, ALICE);
+    const alice = (await made.ask()).json<ActivityView>();
+    expect(alice.places.map((place) => place.id)).toEqual(['1']);
+    const bob = (await made.ask('', BOB)).json<ActivityView>();
+    expect(bob.places.map((place) => place.id)).toEqual(['1', '7']);
+  });
+
   it('counts a place in a visible and a barred region by the visible parties alone', async () => {
     const made = await setup();
     web = made.web;
