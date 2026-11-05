@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-05T02:56",
+  "updated": "2026-11-05T08:05",
   "items": [
     {
       "id": "0",
@@ -10523,6 +10523,66 @@ window.GANTT = {
       "status": "done",
       "start": "2026-11-05T02:11",
       "end": "2026-11-05T02:12"
+    },
+    {
+      "id": "8H-5",
+      "kind": "plan",
+      "parent": "16",
+      "name": "8H-5 The region board",
+      "size": 1,
+      "dependsOn": [],
+      "scope": "Raids and max battles per region this month, this year and all time, legacy included: a private answer with Share on Discord, and the start of the web history page (history design Part C)",
+      "doneWhen": "Merged into main-dev",
+      "planning": {
+        "start": "2026-11-05T02:56",
+        "end": "2026-11-05T08:05",
+        "review": {
+          "start": "2026-11-05T04:32",
+          "end": "2026-11-05T07:52"
+        }
+      }
+    },
+    {
+      "id": "8H-5.1",
+      "kind": "task",
+      "parent": "8H-5",
+      "name": "The board in the domain, and the sum per region",
+      "status": "todo"
+    },
+    {
+      "id": "8H-5.2",
+      "kind": "task",
+      "parent": "8H-5",
+      "name": "The stats regions command",
+      "status": "todo"
+    },
+    {
+      "id": "8H-5.3",
+      "kind": "task",
+      "parent": "8H-5",
+      "name": "Share: the board posted in the channel",
+      "status": "todo"
+    },
+    {
+      "id": "8H-5.4",
+      "kind": "task",
+      "parent": "8H-5",
+      "name": "The route of the board",
+      "status": "todo"
+    },
+    {
+      "id": "8H-5.5",
+      "kind": "task",
+      "parent": "8H-5",
+      "name": "The history page",
+      "status": "todo"
+    },
+    {
+      "id": "8H-5.6",
+      "kind": "task",
+      "parent": "8H-5",
+      "name": "Docs",
+      "status": "todo"
     },
     {
       "id": "16-staging",
