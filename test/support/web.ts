@@ -27,6 +27,7 @@ import type { MeetupWebContext, MeetupWebDeps } from '../../src/web/meetup-route
 import type { MaxWebContext, MaxWebDeps } from '../../src/web/max-routes.js';
 import type { PostWebContext, PostWebDeps } from '../../src/web/post-control-routes.js';
 import type { StopWebContext, StopWebDeps } from '../../src/web/stop-routes.js';
+import type { ActivityWebDeps } from '../../src/web/history-routes.js';
 import { Throttles } from '../../src/discord/throttle.js';
 import type { Party, Team } from '../../src/domain/party/party.js';
 import type { Member } from '../../src/services/attendance-service.js';
@@ -497,6 +498,23 @@ export function stopWebWith(
   return { ctx, channelName: () => undefined, posts: undefined, grunts: undefined, ...options };
 }
 
+/**
+ * The activity heatmap on the map over a test's buckets (`MemoryActivity`), as the bot wires it
+ * (plan 8H-4): the gyms, regions and kept Wayspots that place it, and the posts' zone. Pass as
+ * `activity`.
+ */
+export function activityWebWith(deps: ActivityWebDeps): ActivityWebDeps {
+  return deps;
+}
+
+/** No activity: a test that has it passes `activityWebWith`. */
+const NO_ACTIVITY: ActivityWebDeps = new Proxy({} as ActivityWebDeps, {
+  get(_target, property) {
+    if (typeof property === 'symbol' || property === 'then') return undefined;
+    throw new Error('no activity heatmap in this test: give activityWebWith');
+  },
+});
+
 /** No reports at stops: a test that has them passes `stopWebWith`. */
 const NO_STOPS: StopWebDeps = {
   ctx: new Proxy({} as StopWebContext, {
@@ -634,6 +652,8 @@ export interface WebTestOptions {
   maxes?: MaxWebDeps;
   /** Reports at stops on the map (`stopWebWith`); none by default. */
   stops?: StopWebDeps;
+  /** The activity heatmap on the map (`activityWebWith`); none by default. */
+  activity?: ActivityWebDeps;
   /** Staff's Delete… and reports to the moderators on the map (`postWebWith`); none by default. */
   posts?: PostWebDeps;
   /** The Wayfarer export tool and who may have it (`toolWebWith`); no tool file by default. */
@@ -903,6 +923,7 @@ export function webServerWith(options: WebTestOptions = {}): TestWeb {
     meetups: options.meetups ?? NO_MEETUPS,
     maxes: options.maxes ?? NO_MAXES,
     stops: options.stops ?? NO_STOPS,
+    activity: options.activity ?? NO_ACTIVITY,
     posts: options.posts ?? NO_POSTS,
     tool: options.tool ?? NO_TOOL,
     pictures: {

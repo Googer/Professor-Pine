@@ -10,6 +10,7 @@ import { maxRoutes } from './max-routes.js';
 import { meetupRoutes } from './meetup-routes.js';
 import { shownTiles } from './headers.js';
 import type { PacedMembers } from './paced-members.js';
+import { historyRoutes } from './history-routes.js';
 import { mapPage } from './page.js';
 import { partyRoutes } from './party-routes.js';
 import { postControlRoutes } from './post-control-routes.js';
@@ -189,6 +190,10 @@ export function guildRoutes(
 
   // Reports at stops on the live map (plan 8R-3): today's reports, for the same members.
   stopRoutes(scope, map, viewers);
+
+  // The activity heatmap of the party history (plan 8H-4): for the same members, the regions
+  // they are barred from left out by the same viewers.
+  historyRoutes(scope, map, viewers);
 
   // Find's places by name on the live map (plan 8M-12): for the same members.
   findRoutes(scope, map);
