@@ -227,6 +227,22 @@ export function hourWait(view: ActivityView): number | undefined {
   return Math.max(0, view.changesInMs) + AFTER_THE_HOUR_MS;
 }
 
+/** How long Expected now waits to ask again after an answer failed (8H4-2). */
+export const RETRY_AFTER_FAILURE_MS = 60_000;
+
+/**
+ * When the panel asks again by itself, in the mode it is in now: in Expected now the hour after
+ * a good answer (`hourWait`), a minute after a failed one (`answer` undefined), so that one
+ * failure does not end its hourly questions (8H4-2); in another mode never.
+ */
+export function nextAskWait(
+  mode: ActivityModeName,
+  answer: ActivityView | undefined,
+): number | undefined {
+  if (mode !== 'now') return undefined;
+  return answer === undefined ? RETRY_AFTER_FAILURE_MS : hourWait(answer);
+}
+
 /**
  * The step History opens on (review P8): this month (or year) where the server has it, else its
  * last; none while it has no months.

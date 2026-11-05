@@ -10,8 +10,10 @@ import {
   hourWait,
   leftOutWords,
   MonthPlayer,
+  nextAskWait,
   placeWords,
   PLAY_STEP_MS,
+  RETRY_AFTER_FAILURE_MS,
   sliderSteps,
   stepWords,
   todayStep,
@@ -137,6 +139,18 @@ describe('the activity layer’s panel (plan 8H-4)', () => {
     // However late the answer was drawn, and whatever the page's clock says.
     expect(hourWait(view({ changesInMs: 0 }))).toBe(AFTER_THE_HOUR_MS);
     expect(hourWait(view({ mode: 'evenings', weekday: null }))).toBeUndefined();
+  });
+
+  it('asks Expected now again a minute after a failed answer, the hour after a good one (8H4-2)', () => {
+    expect(nextAskWait('now', undefined)).toBe(RETRY_AFTER_FAILURE_MS);
+    expect(RETRY_AFTER_FAILURE_MS).toBe(60_000);
+    expect(nextAskWait('now', view({ changesInMs: 20 * 60_000 }))).toBe(
+      20 * 60_000 + AFTER_THE_HOUR_MS,
+    );
+    // Out of Expected now nothing is asked again, failed or not.
+    expect(nextAskWait('history', undefined)).toBeUndefined();
+    expect(nextAskWait('evenings', undefined)).toBeUndefined();
+    expect(nextAskWait('weekend', view({ mode: 'weekend', weekday: null }))).toBeUndefined();
   });
 
   it('opens History on this month where the server has it, else on its last (review P8)', () => {

@@ -6,9 +6,9 @@ import {
   CANVAS_TOLERANCE,
   circleLook,
   historyStep,
-  hourWait,
   leftOutWords,
   MonthPlayer,
+  nextAskWait,
   placeWords,
   sliderSteps,
   stepWords,
@@ -28,7 +28,8 @@ import { onThemeChange, theme } from './theme.js';
  * showing its parties as text; and while the layer is on, a panel over the map (`.activity-panel`,
  * a Leaflet control at the top right, as the filters' line): the mode, History's slider (by month
  * or by year) and Play, and the parties left out. Asked again when the mode, the slider or the
- * server's hour changes (`changesInMs`, `hourWait`); nothing is polled. For members only: `main.ts` makes it
+ * server's hour changes (`changesInMs`, `nextAskWait`; a minute after a failed answer in Expected
+ * now); nothing is polled. For members only: `main.ts` makes it
  * once `/api/me` says the visitor is one. Its pure part is `activity.ts`; this is tried at staging.
  */
 
@@ -184,11 +185,14 @@ export function showActivity(map: L.Map, guild: string, registry: LayerRegistry)
     hourTimer = undefined;
   };
 
-  /** Expected now asked again by the server's count to its next hour (`hourWait`, review P5). */
-  const scheduleHour = (): void => {
+  /**
+   * Expected now asked again by itself (`nextAskWait`): by the server's count to its next hour
+   * after a good answer (review P5), a minute after a failed one (8H4-2).
+   */
+  const scheduleHour = (answer: ActivityView | undefined): void => {
     clearHour();
-    const wait = view === undefined ? undefined : hourWait(view);
-    if (wait === undefined || !registry.isOn('activity') || mode !== 'now') return;
+    const wait = nextAskWait(mode, answer);
+    if (wait === undefined || !registry.isOn('activity')) return;
     hourTimer = window.setTimeout(() => {
       hourTimer = undefined;
       void load();
@@ -222,11 +226,12 @@ export function showActivity(map: L.Map, guild: string, registry: LayerRegistry)
       draw();
       drawHistory();
       say(mode === 'history' && answer.months === null ? NO_HISTORY : leftOutWords(answer.leftOut));
-      scheduleHour();
+      scheduleHour(answer);
       return true;
     } catch {
       if (mine !== asked) return false;
       say(LOAD_FAILED);
+      scheduleHour(undefined);
       return false;
     }
   }
