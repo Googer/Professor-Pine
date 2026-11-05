@@ -3095,3 +3095,9 @@ Plan `docs/superpowers/plans/2026-11-05-phase-8h5-region-board.md` (the plan say
 - **Open, Minor (review F3):** the fake gateway's `canSee` answers visible for a forum without overwrites on a gated server (`serverRoles`' everyone without View), where `shareKeeps` and Discord answer not visible; only tests on a gated server with such a forum are affected. Judge such a forum by `channelPermissions(basePermissions(roles), …, [])` when the everyone role is set.
 - **Cost to watch:** the private answer's note runs the Share check (up to ten fresh member fetches, kept a minute) once per `/stats regions` in a channel that names members.
 - **Next:** 8H-4H, the heat layer (above).
+
+## Hidden regions follow the map's rule (2026-11-05)
+
+Matt asked that the history and the live map be consistent; the party layer shows a forum's live parties to a member whose roles only hide it (spec 2.5: the map crosses region roles), so Matt chose the map's rule over R-B's `hidden`. Commit e64eb2dc: `keptOut` is `barred` only, for the region tally, the history page and the heatmap; Share keeps its own stricter rule for a public post. Matt noted that "Open in Discord" for such a party works only once the member signed up (Join opens the forum to them), which is fine.
+
+- **Idea for a small map plan (Matt, 2026-11-05):** the Region outlines layer shows which regions the member has on Discord (solid for a forum they see, faded or dashed for one only the map shows them, with a line saying so in the outline's popup), the member's standing per region from the server (the party view already asks it); and then a way to edit their regions on the map (join or leave a region's role, through the service the Discord self-assigned roles use, `members-and-roles.md`). After 8H-4H.
