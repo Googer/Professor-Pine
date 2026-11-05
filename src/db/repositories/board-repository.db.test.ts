@@ -1,4 +1,4 @@
-import { sql, type Kysely } from 'kysely';
+import { CompiledQuery, sql, type Kysely } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   ASH,
@@ -13,7 +13,9 @@ import {
   type KeptReport,
 } from '../../../test/support/board-cases.js';
 import { startMigratedDatabase } from '../../../test/support/migrated-db.js';
+import type { TestDatabase } from '../../../test/support/mysql.js';
 import type { HistoryRecord } from '../../domain/history/party-history.js';
+import { createDb } from '../kysely.js';
 import type { DB } from '../types.js';
 import { BoardRepository } from './board-repository.js';
 import { HistoryRepository } from './history-repository.js';
@@ -21,9 +23,10 @@ import { HistoryRepository } from './history-repository.js';
 describe('BoardRepository: what the boards read', () => {
   let stop: () => Promise<void>;
   let db: Kysely<DB>;
+  let database: TestDatabase;
 
   beforeAll(async () => {
-    ({ db, stop } = await startMigratedDatabase());
+    ({ db, stop, database } = await startMigratedDatabase());
   });
   afterAll(async () => {
     await stop();
@@ -163,5 +166,34 @@ describe('BoardRepository: what the boards read', () => {
     expect(await reader.reportScores(BOARD_SERVER)).toHaveLength(40);
     const one = members[0] ?? ASH;
     expect((await reader.memberParties(BOARD_SERVER, one)).length).toBeGreaterThan(100);
+
+    // As many legacy records beside them, as the import leaves: the reads of live records of a
+    // kind from a moment on go along the index of 040, past the legacy ones (W2).
+    await sql`insert into PartyHistory (source, legacyKey, kind, serverId, createdAt, ending,
+                                        bossKey, reached)
+              select 'legacy', concat('x:', id), kind, serverId, createdAt - 1, ending, bossKey, 0
+              from PartyHistory`.execute(db);
+    await sql`analyze table PartyHistory, PartyHistoryAttendee`.execute(db);
+    const asked: CompiledQuery[] = [];
+    const logged = createDb<DB>(database.config, (event) => {
+      if (event.level === 'query') asked.push(event.query);
+    });
+    try {
+      const since = BOARD_NOW - 30 * DAY;
+      const seen = new BoardRepository(logged);
+      await seen.raidCredits(BOARD_SERVER, { since });
+      await seen.bossSends(BOARD_SERVER, since);
+      expect(asked).toHaveLength(2);
+      for (const query of asked) {
+        const plan = await db.executeQuery<{ table: string; key: string | null }>(
+          CompiledQuery.raw(`explain ${query.sql}`, [...query.parameters]),
+        );
+        expect(plan.rows.find((row) => row.table === 'h')?.key, query.sql.slice(0, 60)).toBe(
+          'partyhistory_server_source_kind_createdat_index',
+        );
+      }
+    } finally {
+      await logged.destroy();
+    }
   });
 });

@@ -14,8 +14,12 @@ import type { Migration } from 'kysely/migration';
  * records `completed` however it was closed. Null for every other end and for every record of
  * before 040.
  *
- * Safe to run again after a failure half-way: the table is made and the column added only when
- * they are missing.
+ * And the index `PartyHistory (serverId, source, kind, createdAt)` (W2): the boards read a
+ * server's live records of a kind from a moment on, which on a server of the legacy import
+ * would otherwise walk its legacy records of that kind too.
+ *
+ * Safe to run again after a failure half-way: the table is made, the column and the index added
+ * only when they are missing.
  */
 export const leaderboardOptIn: Migration = {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any -- migrations are schema-agnostic
@@ -34,6 +38,14 @@ export const leaderboardOptIn: Migration = {
     if (Number(closedBy.rows[0]?.n ?? 0) === 0) {
       await sql`alter table PartyHistory add column closedBy varchar(12) default null
         after ending`.execute(db);
+    }
+    const indexed = await sql<{ n: number }>`
+      select count(*) as n from information_schema.statistics
+      where table_schema = database() and table_name = 'PartyHistory'
+        and index_name = 'partyhistory_server_source_kind_createdat_index'`.execute(db);
+    if (Number(indexed.rows[0]?.n ?? 0) === 0) {
+      await sql`create index partyhistory_server_source_kind_createdat_index
+        on PartyHistory (serverId, source, kind, createdAt)`.execute(db);
     }
   },
   async down() {

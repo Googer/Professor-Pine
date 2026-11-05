@@ -46,6 +46,20 @@ describe('migration 040: who is on the boards of a server', () => {
     expect(columns.rows).toEqual([{ type: 'varchar(12)', nullable: 'YES', dflt: null }]);
   });
 
+  it('adds the index the boards read the live records of a server by (W2)', async () => {
+    const columns = await sql<{ name: string }>`
+      select column_name as name from information_schema.statistics
+      where table_schema = database() and table_name = 'PartyHistory'
+        and index_name = 'partyhistory_server_source_kind_createdat_index'
+      order by seq_in_index`.execute(db);
+    expect(columns.rows.map((row) => row.name)).toEqual([
+      'serverId',
+      'source',
+      'kind',
+      'createdAt',
+    ]);
+  });
+
   it('keeps its rows when it runs again after a failure half-way', async () => {
     await sql`alter table PartyHistory drop column closedBy`.execute(db);
     await leaderboardOptIn.up(db);
