@@ -109,6 +109,15 @@ export function activityWhen(ms: number, zone: string): ActivityWhen {
  * (`activityWeights`' `kept`), so that a gym added back is drawn again without a rebuild.
  * `now` is when it is added: a time after this month in `zone` is a bad one.
  */
+/** The month after a `yyyy-mm` month, as `yyyy-mm`. */
+function nextMonth(month: string): string {
+  const year = Number(month.slice(0, 4));
+  const number = Number(month.slice(5, 7));
+  return number === 12
+    ? `${String(year + 1).padStart(4, '0')}-01`
+    : `${month.slice(0, 4)}-${String(number + 1).padStart(2, '0')}`;
+}
+
 export function bucketOf(
   record: ActivityRecord,
   zone: string,
@@ -120,14 +129,16 @@ export function bucketOf(
   const when = isMoment(ms) ? activityWhen(ms, zone) : undefined;
   // A time no `yyyy-mm` holds (beyond year 9999, before year 0, no moment at all) would be
   // refused by the table and stall the server's adding for good, and one before the game's
-  // launch or after this month would stretch History's slider (8H4-3): it is kept at no place
+  // launch or after next month would stretch History's slider (8H4-3): it is kept at no place
   // and no time, which no window reads (weekday 0), so it is neither drawn nor counted as left
-  // out.
+  // out. Next month is allowed (review F1): a record added before the month turns may already
+  // be of it, and a bucket never moves once it is written; the slider ends at this month
+  // (`activityMonths`).
   const known =
     when !== undefined &&
     MONTH_TEXT.test(when.month) &&
     when.month >= ACTIVITY_FIRST_MONTH &&
-    when.month <= activityWhen(now, zone).month;
+    when.month <= nextMonth(activityWhen(now, zone).month);
   const place: Pick<ActivityBucket, 'placeKind' | 'placeId'> =
     known && raid && record.gymId !== null
       ? { placeKind: 'gym', placeId: String(record.gymId) }

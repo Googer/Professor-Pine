@@ -168,12 +168,12 @@ describe('the bucket of a record', () => {
     }
   });
 
-  it('puts a record before the game’s launch or after this month at no place and no time (8H4-3)', () => {
+  it('puts a record before the game’s launch or after next month at no place and no time (8H4-3)', () => {
     const unknown = { placeKind: 'none', placeId: NO_PLACE_ID, month: UNKNOWN_MONTH, weekday: 0 };
     for (const hatchTime of [
       at('2016-06-30T23:59'),
       at('1970-01-01T00:00'),
-      at('2026-12-01T00:00'),
+      at('2027-01-01T00:00'),
       at('2099-05-05T18:00'),
     ]) {
       expect(bucketOf(record({ hatchTime }), ZONE, NOW), String(hatchTime)).toMatchObject({
@@ -189,6 +189,13 @@ describe('the bucket of a record', () => {
     expect(bucketOf(record({ hatchTime: at('2026-11-30T23:30') }), ZONE, NOW)).toMatchObject({
       placeKind: 'gym',
       month: '2026-11',
+    });
+    // A record added before the month turns may already be of the next month (an egg of the
+    // legacy import's active/ that hatches on the 1st): it keeps its place (review F1); the
+    // slider still ends at this month (activityMonths).
+    expect(bucketOf(record({ hatchTime: at('2026-12-01T00:30') }), ZONE, NOW)).toMatchObject({
+      placeKind: 'gym',
+      month: '2026-12',
     });
   });
 
