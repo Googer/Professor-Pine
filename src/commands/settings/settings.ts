@@ -47,9 +47,9 @@ const FLAGS: readonly FlagSetting[] = [
       'You will no longer be pinged in the posts of raids, max battles, trains and meetups, whatever your ' +
       'other mention settings say.',
     details:
-      'The switch for every ping of you as a member in a post: shouts, new groups and meeting ' +
-      'times, the moves of a train, the question whether you have completed a raid, the word ' +
-      'of a raid that has moved to another region, the warning before a post is archived.\n\n' +
+      'Turns every ping of you in a post on or off: shouts, new groups and meeting times, the ' +
+      'moves of a train, the question whether you have completed a raid, the news of a raid ' +
+      'that moved to another region, the warning before a post is archived.\n\n' +
       'While it is off none of them pings you; the messages are still written in the post.',
     underMentions: false,
     dm: false,
@@ -289,8 +289,8 @@ const show: SubcommandPart = {
     .setDescription('Show everything you have set, and the command that changes each'),
   help: {
     details:
-      'Lists your settings for pings and direct messages, the status you get when you report ' +
-      'a raid, whether your reports name you, and your friend code and in-game name when ' +
+      'Lists your settings for pings and direct messages, how you are signed up for what you ' +
+      'report or make, whether your posts name you, and your friend code and in-game name when ' +
       'you registered them.\n\nIn a server it also says whether you are told of new trains ' +
       'there, and how many Pokémon, raid tiers, rewards and gyms you are notified about there.',
     examples: ['/settings show'],
@@ -361,8 +361,9 @@ const newTrain: SubcommandPart = {
     ),
   help: {
     details:
-      'A direct message when somebody announces a raid train in this server, in a region you ' +
-      'can see. It is set per server: use it in the server you mean, not in a DM with me.',
+      'A direct message when somebody makes a train in this server (of raids or of max ' +
+      'battles), in a region you can see. It is set per server: use it in the server you ' +
+      'mean, not in a DM with me.',
     examples: [
       `/settings ${NEW_TRAIN.name} enabled:True`,
       `/settings ${NEW_TRAIN.name} enabled:False`,
@@ -398,13 +399,14 @@ const history: SubcommandPart = {
       'always count in it, without your name.\n\nIt keeps every field research and Team GO ' +
       'Rocket report that ends as well: what was reported, the area and the region of its stop ' +
       '(never the stop itself), when, how it ended and how many others reported the same.\n\n' +
-      'With this on, your Discord id is kept as well with what you do from now on (what you sign ' +
+      'With this on, your Discord id is kept too with what you do from now on (what you sign ' +
       'up for, when, and how far you get, and the reports you make), for statistics of your own ' +
-      'later. Off takes your id out of everything kept so far: it all still counts, without ' +
-      'it.\n\nWhile a raid, max battle, train or meetup is still going on, or a report stands, I ' +
-      'keep who signed up or reported it and when, as I must to run it; when it ends, only the ' +
-      'ids of members who opted in are kept, and the rest is deleted.\n\nIt is set per server: use it in the server you mean, not in a DM ' +
-      'with me. The history of the old bot, from before this one, is never tied to you.',
+      'later. Off takes your id out of everything kept so far; it all still counts, without ' +
+      'it.\n\nWhile a raid, max battle, train or meetup is going on, or a report stands, I keep ' +
+      'who signed up or reported it and when, as I need to run it. When it ends, only the ids ' +
+      'of members who opted in are kept, and the rest is deleted.\n\nIt is set per server: use ' +
+      'it in the server you mean, not in a DM with me. The history of the old bot, from before ' +
+      'this one, is never tied to you.',
     examples: [`/settings ${HISTORY.name} enabled:True`, `/settings ${HISTORY.name} enabled:False`],
   },
   defer: 'late',
@@ -442,8 +444,9 @@ const autoStatus: SubcommandPart = {
     ),
   help: {
     details:
-      'Whoever reports a raid with `/raid` or makes a train with `/train` is signed up for it ' +
-      'at once. This sets as what: interested, coming, here, or (None) not at all. Whoever ' +
+      'When you report a raid with `/raid` or a max battle with `/max`, or make a train with ' +
+      '`/train`, you are signed up for it at once. This sets how: interested, coming, here, or ' +
+      '(None) not at all. A train is at no stop yet, so here counts as coming there. Whoever ' +
       'makes a meetup is always signed up as interested.',
     examples: ['/settings auto-status status:Coming', '/settings auto-status status:None'],
   },
@@ -471,9 +474,9 @@ const privacy: SubcommandPart = {
     ),
   help: {
     details:
-      'The post of a raid says who reported it and the post of a train who made it, unless ' +
-      'you choose Anonymous. It is about raids you report and trains you make from then on; ' +
-      'a meetup always names who made it, and so does a report of a wild Pokémon.',
+      'The post of a raid or a max battle says who reported it, and the post of a train who ' +
+      'made it, unless you choose Anonymous. It counts for what you report or make from then ' +
+      'on; a meetup always names who made it, and so does a report of a wild Pokémon.',
     examples: ['/settings privacy visibility:Anonymous', '/settings privacy visibility:Visible'],
   },
   defer: 'late',

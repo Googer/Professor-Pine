@@ -79,8 +79,8 @@ describe('/settings', () => {
     expect(settings.help.category).toBe('notifications');
     // The switch for all pings names every ping it switches.
     const all = settings.subcommands.get('mentions')?.help?.details ?? '';
-    expect(all).toMatch(/^The switch for every ping of you as a member in a post: /);
-    expect(all).toContain('a raid that has moved to another region');
+    expect(all).toMatch(/^Turns every ping of you in a post on or off: /);
+    expect(all).toContain('a raid that moved to another region');
     expect(all).toContain('the warning before a post is archived');
     for (const handler of settings.subcommands.values()) {
       expect(handler.help?.details).toBeTruthy();
