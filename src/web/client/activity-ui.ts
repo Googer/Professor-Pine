@@ -35,7 +35,7 @@ import { onThemeChange, theme } from './theme.js';
  * side: the places of `/api/activity` as a heat glow (`HeatLayer` over simpleheat, in a pane of
  * its own under every dot and marker, `HEAT_PANE`, its gradient the theme's `--heat-*`), and as
  * invisible circles on a canvas of their own pane over it (`ACTIVITY_PANE`; no fill and no
- * stroke, sized by weight, `tapRadius`) at street zoom where the place's own layer is off
+ * stroke, sized by weight, `tapRadius`) at street zoom where the place's own dot is not drawn
  * (`tappablePlaces`), a tap on one showing its parties as text; the counts in the gyms' and Power
  * Spots' popups and on the gyms' clusters (`ActivityShown`); and while the layer is on, a panel
  * over the map (`.activity-panel`, a Leaflet control at the top right, as the filters' line): the
@@ -81,7 +81,7 @@ export interface ActivityShown {
   active(): boolean;
   /** Tells `listener` after each answer drawn, and when the layer is turned off (review R3). */
   onCounts(listener: () => void): void;
-  /** Whether a place is being picked changed: the circles drawn as it now says. */
+  /** Whether a place is being picked, or which dots are drawn, changed: the circles follow. */
   refresh(): void;
 }
 
@@ -101,6 +101,12 @@ export function showActivity(
    * called when it changes. Left out: never.
    */
   picking: () => boolean = () => false,
+  /**
+   * Whether a place's own dot is drawn now (review 8H4H-3: a gym's dot, a Power Spot's of the
+   * last answer), whose popup carries its count: no circle there; `refresh` is called when the
+   * dots change. Left out: none.
+   */
+  drawn: (kind: ActivityPlaceView['kind'], id: string) => boolean = () => false,
 ): ActivityShown {
   const pane = map.createPane(ACTIVITY_PANE);
   // Leaflet sets a pane's place by its style from the script (as the regions' names' pane).
@@ -256,9 +262,9 @@ export function showActivity(
   let drawnStep: string | undefined;
 
   /**
-   * The invisible circles as the zoom, the view and the layers stand (`tappablePlaces`, plan
+   * The invisible circles as the zoom, the view and the dots stand (`tappablePlaces`, plan
    * 8H-4H): at street zoom, those of the places in the view and half a view round it whose own
-   * layer (Gyms, Power Spots) is off, none while a place is picked; kept by place through a pan, a
+   * dot is not drawn (review 8H4H-3), none while a place is picked; kept by place through a pan, a
    * zoom and a new answer (`ActivityCircles`, review P3).
    */
   const drawCircles = (): void => {
@@ -271,7 +277,7 @@ export function showActivity(
     const tappable = tappablePlaces(
       shown.places,
       map.getZoom(),
-      { gyms: registry.isOn('gyms'), spots: registry.isOn('spots'), picking: picking() },
+      { drawn: (place) => drawn(place.kind, place.id), picking: picking() },
       {
         south: near.getSouth(),
         west: near.getWest(),
@@ -444,9 +450,8 @@ export function showActivity(
     }
   };
   registry.onChange((id, on) => {
+    // The Gyms or Power Spots layer turned: their dots, drawn anew, call `refresh` (8H4H-3).
     if (id === 'activity') turned(on);
-    // The Gyms or Power Spots layer turned: their places' circles follow (plan 8H-4H).
-    if (id === 'gyms' || id === 'spots') drawCircles();
   });
   map.on('moveend', inView);
   // The circles follow the view and the zoom: kept where still wanted, from street zoom only.

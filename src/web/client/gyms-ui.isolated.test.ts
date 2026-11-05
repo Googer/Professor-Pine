@@ -187,6 +187,8 @@ function shown(
     area?: (gyms: readonly MapGym[]) => AreaWords | undefined;
     /** Whether the Activity layer has counts now (review R4); always without it. */
     counting?: () => boolean;
+    /** Told when the dots were drawn anew (review 8H4H-3). */
+    drawn?: () => void;
   } = {},
 ) {
   vi.stubGlobal('document', {
@@ -272,6 +274,7 @@ function shown(
     ...(more.thins === undefined ? {} : { thins: more.thins }),
     ...(more.area === undefined ? {} : { area: more.area }),
     ...(more.counting === undefined ? {} : { counting: more.counting }),
+    ...(more.drawn === undefined ? {} : { drawn: more.drawn }),
   } as unknown as GymDotsDeps);
   dots.refresh();
   const group = counted.groups[0];
@@ -478,6 +481,35 @@ describe("a gym cluster's activity on hover (plan 8H-4H)", () => {
     made.dots.names();
     expect(asked.length).toBeGreaterThan(0);
     expect(made.hiddenAsked.count).toBe(once);
+  });
+});
+
+// Review 8H4H-3: the Activity layer's circles are judged by the dots drawn, not by the switch.
+describe("the gyms' dots drawn", () => {
+  it('says which gyms have their own dot drawn, and tells each time the dots are drawn anew', () => {
+    const told = { count: 0 };
+    const { dots, hidden, type } = shown(17, {
+      drawn: () => {
+        told.count += 1;
+      },
+    });
+    expect(told.count).toBe(1);
+    expect(dots.drawn(6)).toBe(true);
+    // A raid's marker in the gym's place: no dot of its own.
+    hidden.add(6);
+    dots.refresh();
+    expect(told.count).toBe(2);
+    expect(dots.drawn(6)).toBe(false);
+    // "Find a gym" thins the dots to the gyms it finds.
+    type('Gym 7');
+    expect(dots.drawn(1)).toBe(false);
+    expect(dots.drawn(7)).toBe(true);
+    expect(told.count).toBe(3);
+  });
+
+  it('draws no dot of a gym with the layer off, nor clusters below street zoom', () => {
+    expect(shown(17, { on: false }).dots.drawn(1)).toBe(false);
+    expect(shown(12).dots.drawn(1)).toBe(false);
   });
 });
 

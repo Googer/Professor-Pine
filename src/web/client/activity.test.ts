@@ -273,25 +273,40 @@ describe("the activity's counts in the map's popups and clusters (plan 8H-4H)", 
     expect(history.line('gym', '7')).toBe('Activity: 4 parties in June 2019');
   });
 
-  it('leaves the places tappable only at street zoom, and only where their own layer is off', () => {
-    const places = [at('gym', '7', 12), at('spot', 'abc.16', 4)];
+  /** No dot of any place drawn. */
+  const none = () => false;
+
+  it('leaves the places tappable only at street zoom, and only where their own dot is not drawn', () => {
+    const places = [at('gym', '7', 12), at('spot', 'abc.16', 4), at('gym', '8', 5)];
     const ids = (shown: ActivityPlaceView[]) => shown.map((place) => place.id);
     // At the zoom the gyms are drawn one by one (`CLUSTER_BELOW`) and closer.
-    expect(ids(tappablePlaces(places, CLUSTER_BELOW, { gyms: false, spots: false }))).toEqual([
+    expect(ids(tappablePlaces(places, CLUSTER_BELOW, { drawn: none }))).toEqual([
       '7',
       'abc.16',
+      '8',
     ]);
-    expect(ids(tappablePlaces(places, 18, { gyms: true, spots: false }))).toEqual(['abc.16']);
-    expect(ids(tappablePlaces(places, 18, { gyms: false, spots: true }))).toEqual(['7']);
-    expect(tappablePlaces(places, 18, { gyms: true, spots: true })).toEqual([]);
-    // Zoomed out nothing is tappable, whatever the layers.
-    expect(tappablePlaces(places, CLUSTER_BELOW - 1, { gyms: false, spots: false })).toEqual([]);
+    expect(ids(tappablePlaces(places, 18, { drawn: (place) => place.kind === 'spot' }))).toEqual([
+      '7',
+      '8',
+    ]);
+    expect(tappablePlaces(places, 18, { drawn: () => true })).toEqual([]);
+    // Zoomed out nothing is tappable, whatever is drawn.
+    expect(tappablePlaces(places, CLUSTER_BELOW - 1, { drawn: none })).toEqual([]);
+  });
+
+  // Review 8H4H-3: by what is drawn, not by the layer's switch: with the Gyms layer on, a gym
+  // under a raid's marker or thinned out by "Find a gym" has no dot, and a Power Spot its layer
+  // has not drawn (past the most drawn, its answer pending or failed) none either.
+  it('leaves a place tappable whose layer is on but whose own dot is not drawn', () => {
+    const places = [at('gym', '7', 12), at('gym', '8', 5), at('spot', 'abc.16', 4)];
+    const drawn = (place: ActivityPlaceView) => place.kind === 'gym' && place.id === '7';
+    expect(tappablePlaces(places, 18, { drawn }).map((place) => place.id)).toEqual(['8', 'abc.16']);
   });
 
   // Review P4: a place or a point picked (the Report button's step 2, route mode) takes the taps.
   it('leaves nothing tappable while a place or a point is being picked', () => {
     const places = [at('gym', '7', 12), at('spot', 'abc.16', 4)];
-    expect(tappablePlaces(places, 18, { gyms: false, spots: false, picking: true })).toEqual([]);
+    expect(tappablePlaces(places, 18, { drawn: none, picking: true })).toEqual([]);
   });
 
   // Review P3: hundreds of circles at street zoom are kept to the view and its margin.
@@ -299,9 +314,9 @@ describe("the activity's counts in the map's popups and clusters (plan 8H-4H)", 
     const near = { ...at('gym', '7', 12), lat: 40.44, lon: -79.95 };
     const far = { ...at('gym', '8', 12), lat: 40.6, lon: -79.95 };
     const box = { south: 40.4, west: -80, north: 40.5, east: -79.9 };
-    expect(
-      tappablePlaces([near, far], 18, { gyms: false, spots: false }, box).map(({ id }) => id),
-    ).toEqual(['7']);
+    expect(tappablePlaces([near, far], 18, { drawn: none }, box).map(({ id }) => id)).toEqual([
+      '7',
+    ]);
   });
 
   it('gives no line for a place the glow does not draw, nor for one of the other kind', () => {

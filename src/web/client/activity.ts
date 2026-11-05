@@ -174,22 +174,24 @@ export function tapRadius(weight: number): number {
 /**
  * The places drawn as invisible circles, which a tap on the glow finds (plan 8H-4H): from street
  * zoom only (`CLUSTER_BELOW`, where the gyms are drawn one by one; the Power Spots' `PLACES_FROM`
- * is the same zoom), and only where the place's own layer is off: with the Gyms layer (or the
- * Power Spots layer) on, its dots' popups carry the count. Zoomed out nothing is tappable, nor
- * while a place or a point is being picked (review P4: the Report button's step 2, a meetup's
- * place, research's stops, route mode take the taps). Only those in `box` where one is given
- * (review P3: the view and its margin).
+ * is the same zoom), and only where the place's own dot is not drawn (review 8H4H-3: judged by
+ * what is drawn, not by its layer's switch): a dot drawn carries the count in its popup, while a
+ * gym under a raid's marker or thinned out by "Find a gym", and a Power Spot its layer has not
+ * drawn (past the most drawn, its answer pending or failed), would have none. Zoomed out nothing
+ * is tappable, nor while a place or a point is being picked (review P4: the Report button's step
+ * 2, a meetup's place, research's stops, route mode take the taps). Only those in `box` where one
+ * is given (review P3: the view and its margin).
  */
 export function tappablePlaces(
   places: readonly ActivityPlaceView[],
   zoom: number,
-  shown: { gyms: boolean; spots: boolean; picking?: boolean },
+  shown: { drawn: (place: ActivityPlaceView) => boolean; picking?: boolean },
   box?: { south: number; west: number; north: number; east: number },
 ): ActivityPlaceView[] {
   if (zoom < CLUSTER_BELOW || shown.picking === true) return [];
   return places.filter(
     (place) =>
-      !(place.kind === 'gym' ? shown.gyms : shown.spots) &&
+      !shown.drawn(place) &&
       (box === undefined ||
         (place.lat >= box.south &&
           place.lat <= box.north &&

@@ -30,6 +30,11 @@ export interface GymDots {
   open(gym: MapGym): HTMLElement | undefined;
   /** The clusters named anew: what the Activity layer says of them changed (review R3). */
   names(): void;
+  /**
+   * Whether a gym's own dot is drawn now, not a cluster nor a raid's marker in its place (review
+   * 8H4H-3: the Activity layer's circles go where the dots are not).
+   */
+  drawn(id: number): boolean;
 }
 
 export interface GymDotsDeps {
@@ -65,6 +70,8 @@ export interface GymDotsDeps {
   area?: (gyms: readonly MapGym[]) => AreaWords | undefined;
   /** Whether the Activity layer has counts now: nothing is worked out without (review R4). */
   counting?: () => boolean;
+  /** Told each time the dots were drawn anew (review 8H4H-3: the Activity layer's circles). */
+  drawn?: () => void;
 }
 
 /** A cluster's title (the first of its words on hover and in its `aria-label`). */
@@ -168,6 +175,7 @@ export function showGymDots(deps: GymDotsDeps): GymDots {
     };
     clusters.draw(shown, view, map.getZoom(), open);
     registry.setCount('gyms', shown.filter((gym) => bounds.contains([gym.lat, gym.lon])).length);
+    deps.drawn?.();
   };
 
   map.on('moveend', refresh);
@@ -220,6 +228,7 @@ export function showGymDots(deps: GymDotsDeps): GymDots {
   const openGym = (gym: MapGym): HTMLElement | undefined => {
     const marker = dot(gym);
     clusters.keep(gym);
+    deps.drawn?.();
     marker.openPopup();
     return marker.getPopup()?.getElement();
   };
@@ -229,6 +238,10 @@ export function showGymDots(deps: GymDotsDeps): GymDots {
     open: openGym,
     names: () => {
       clusters.names();
+    },
+    drawn: (id) => {
+      const marker = dots.get(id);
+      return marker !== undefined && group.hasLayer(marker);
     },
   };
 }

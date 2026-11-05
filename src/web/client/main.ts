@@ -182,6 +182,10 @@ async function showGeo(
     thins: () => gymExtras.thins(),
     area: (shown) => activityShown.now?.area(shown.map((gym) => String(gym.id))),
     counting: () => activityShown.now?.active() ?? false,
+    // The Activity layer's circles follow the gyms' dots drawn (review 8H4H-3).
+    drawn: () => {
+      activityShown.now?.refresh();
+    },
   });
 
   // Where the map starts, and how far it may go (plan 8M-7).
@@ -619,6 +623,10 @@ function start(): void {
             if (placesHooks.placeTapped) placesHooks.placeTapped(layer, place, own);
             else own();
           },
+          // The Activity layer's circles follow the Power Spots drawn (review 8H4H-3).
+          drawn: (layer) => {
+            if (layer === 'spots') activityShown.now?.refresh();
+          },
         },
         activity,
       );
@@ -647,7 +655,14 @@ function start(): void {
       // the gyms' and Power Spots' popups and on the gyms' clusters (plan 8H-4H).
       // No circle takes a tap while a place is picked (review P4), once the parties are drawn.
       const picks = { now: (): boolean => false };
-      activityShown.now = showActivity(map, guild, registry, () => picks.now());
+      // A circle only where the place's own dot is not drawn (review 8H4H-3): by what is drawn.
+      activityShown.now = showActivity(
+        map,
+        guild,
+        registry,
+        () => picks.now(),
+        (kind, id) => (kind === 'gym' ? dots.drawn(Number(id)) : places.spotDrawn(id)),
+      );
       // The gyms' clusters are named anew as the counts change (review R3).
       activityShown.now.onCounts(() => {
         dots.names();

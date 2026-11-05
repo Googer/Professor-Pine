@@ -138,6 +138,11 @@ export interface PlacesHooks {
    * at its place; none: `own`.
    */
   placeTapped?(layer: 'stops' | 'spots', place: PlaceSpot, own: () => void): void;
+  /**
+   * A layer's dots were drawn anew, or taken off (review 8H4H-3: the Activity layer's circles go
+   * where the dots are not, `ShownPlaces.spotDrawn`).
+   */
+  drawn?(layer: 'stops' | 'spots'): void;
 }
 
 /** A PokéStop or Power Spot as the page has it from `/api/stops` and `/api/powerspots`. */
@@ -168,6 +173,12 @@ export interface ShownPlaces {
    * Spots, so that the spot's next popup has it at once.
    */
   addressFound(spotId: string, address: string): void;
+  /**
+   * Whether a Power Spot's own dot is drawn now (review 8H4H-3): not where its layer is off, the
+   * map is zoomed out, the spot is not in the last answer (past the most drawn, none yet, failed)
+   * or a battle stands in its place.
+   */
+  spotDrawn(spotId: string): boolean;
 }
 
 export function showPlaces(
@@ -229,6 +240,11 @@ export function showPlaces(
   const lasts: Record<'stops' | 'spots', StopsView | undefined> = {
     stops: undefined,
     spots: undefined,
+  };
+  /** The places whose own dot is drawn now, by layer (review 8H4H-3). */
+  const drawnIds: Record<'stops' | 'spots', ReadonlySet<string>> = {
+    stops: new Set(),
+    spots: new Set(),
   };
   for (const layer of LAYERS) {
     const group = L.layerGroup().addTo(map);
@@ -300,6 +316,8 @@ export function showPlaces(
         }
       }
       registry.setCount(layer.id, shown.length);
+      drawnIds[layer.id] = new Set(shown.map(([id]) => id));
+      hooks?.drawn?.(layer.id);
     };
     redraws.push(() => {
       const last = lasts[layer.id];
@@ -351,6 +369,8 @@ export function showPlaces(
         group.clearLayers();
         quiet.set(layer.id, undefined);
         registry.setCount(layer.id, 0);
+        drawnIds[layer.id] = new Set();
+        hooks?.drawn?.(layer.id);
         told(layer.id, 'zoom');
       },
     });
@@ -394,5 +414,6 @@ export function showPlaces(
       const place = lasts.spots?.stops.find(([id]) => id === spotId);
       if (place) place[4] = address;
     },
+    spotDrawn: (spotId) => drawnIds.spots.has(spotId),
   };
 }

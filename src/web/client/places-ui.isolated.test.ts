@@ -458,4 +458,27 @@ describe('the Power Spots and PokéStops of the view (showPlaces)', () => {
     dotOf('stop-dot')?.fire('click');
     expect(drawn.popups).toBe(1);
   });
+
+  // Review 8H4H-3: the Activity layer's circles are judged by the dots drawn, not by the switch.
+  it('says which Power Spots have their own dot drawn, and tells each time the dots are drawn', async () => {
+    const told: string[] = [];
+    const { places } = await shownWith(
+      hooks({
+        drawn: (layer) => {
+          told.push(layer);
+        },
+      }),
+    );
+    expect(told).toContain('spots');
+    expect(places.spotDrawn('spot-1')).toBe(true);
+    // Not in the answer (past the most drawn, no title, outside the regions): no dot.
+    expect(places.spotDrawn('spot-2')).toBe(false);
+  });
+
+  it('draws no dot of a Power Spot where a battle stands in its place', async () => {
+    const { places } = await shownWith(
+      hooks({ occupied: (layer) => new Set(layer === 'spots' ? ['spot-1'] : []) }),
+    );
+    expect(places.spotDrawn('spot-1')).toBe(false);
+  });
 });
