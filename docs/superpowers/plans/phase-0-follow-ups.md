@@ -3129,3 +3129,11 @@ Every command's `/help` read against Matt's rule (clear, concise prose for membe
 - **8H-5, not run:** a Share in a channel whose readers do not all see a private region (the test regions are all visible to #oakland's readers); Tester with a hidden region (now shown, by the map's rule; barred is what keeps out).
 - **8H-4H, pass:** the glow at the region view (Weekday evenings) like the demo; a cluster's hover "92 gyms · ≈ 4,039 parties in this area", `aria-label` "92 gyms, about 4,039 parties in this area", no native tooltip; Find's flight to Cathedral of Learning lands the glow on the gyms; the gym's popup has "Activity: 95 parties on weekday evenings, over the years"; with Gyms off at zoom 16 a tap on the glow opens "95 parties on weekday evenings, over the years"; a double-click there zooms to 17 and leaves no count open; the dark theme reads well.
 - **8H-4H, not run:** pinch on a phone, Play's smoothness by eye, the Report button's step 2 and a meetup's place picking over the circles (tested in code), a Power Spot's line.
+
+## From Phase 8H-6A (every conductor recorded, 2026-11-05)
+
+Plan `docs/superpowers/plans/2026-11-05-phase-8h6a-every-conductor.md`; migration 039 adds `PartyHistoryAttendee.conducted`. Built before the cutover (Matt): a train's record credits every member who led it, for plan 8H-6's "trains conducted" board. Nothing shows yet.
+
+- **Calls for Matt to object to (made while he was away):** the credit is a count of arrivals led, not a flag (review 8H6A-1: a flag let a member take the role a moment and earn credit); Finish and a cleared route are not arrivals (R1); back moves and route edits that change the current stop are; a move counts for whoever conducted the train when it was made, staff's moves included; a train running across the deploy credits its first known conductor from its first step.
+- **Whole-branch review:** not run again: the branch is byte-identical to the prototype's tip, which had a review and a re-review (Opus).
+- **Staging** (Air's dev stack after the next update, Matt's go-ahead): the plan's "Staging" steps 1–3.
