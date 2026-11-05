@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-04T23:39",
+  "updated": "2026-11-05T02:04",
   "items": [
     {
       "id": "0",
@@ -10446,6 +10446,66 @@ window.GANTT = {
       "status": "done",
       "start": "2026-11-04T22:28",
       "end": "2026-11-04T22:29"
+    },
+    {
+      "id": "8H-4",
+      "kind": "plan",
+      "parent": "16",
+      "name": "8H-4 The activity heatmap",
+      "size": 1,
+      "dependsOn": [],
+      "scope": "A members-only layer of the web map: where raids and max battles happen, expected now by weekday and hour with a one-year half-life, and history back to 2018 (history design Part B)",
+      "doneWhen": "Merged into main-dev",
+      "planning": {
+        "start": "2026-11-04T23:39",
+        "end": "2026-11-05T02:04",
+        "review": {
+          "start": "2026-11-05T01:17",
+          "end": "2026-11-05T02:03"
+        }
+      }
+    },
+    {
+      "id": "8H-4.1",
+      "kind": "task",
+      "parent": "8H-4",
+      "name": "Migration 038: ActivityBucket and ActivityProgress",
+      "status": "todo"
+    },
+    {
+      "id": "8H-4.2",
+      "kind": "task",
+      "parent": "8H-4",
+      "name": "What counts and the weights, in the domain",
+      "status": "todo"
+    },
+    {
+      "id": "8H-4.3",
+      "kind": "task",
+      "parent": "8H-4",
+      "name": "The buckets kept up hourly, and their rebuild",
+      "status": "todo"
+    },
+    {
+      "id": "8H-4.4",
+      "kind": "task",
+      "parent": "8H-4",
+      "name": "The route: weights per place for a mode",
+      "status": "todo"
+    },
+    {
+      "id": "8H-4.5",
+      "kind": "task",
+      "parent": "8H-4",
+      "name": "The map layer and its panel",
+      "status": "todo"
+    },
+    {
+      "id": "8H-4.6",
+      "kind": "task",
+      "parent": "8H-4",
+      "name": "Docs: history.md, web.md, operations.md",
+      "status": "todo"
     },
     {
       "id": "16-staging",
