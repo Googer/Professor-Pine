@@ -263,18 +263,43 @@ export function historyCounts(attendees: readonly HistoryAttendee[]): HistoryCou
  * party; the record of this party takes that party's steps and its row with it), and how many
  * members a run of the notifier's news reached (`reach`, plan 8H-3: `subject` the event,
  * `reported`, `boss`, `gym`; `value` the count; written by `HistoryStorage.addReach`, never by
- * `partySteps`).
+ * `partySteps`), and a member who became a train's conductor (`conduct`, plan 8H-6A: `subject`
+ * their snowflake, `value` null; however it came about: `/conductor set`, a takeover, a split's
+ * new train led by who went with it) or stopped being it (`unlead`: cleared, taken over, left,
+ * Done, gone with a group split off), so that the record credits every conductor it had with
+ * what the train did under them, not only the last.
  */
 export interface HistoryStep {
   partyId: string;
   at: number;
-  kind: 'status' | 'left' | 'split' | 'stop' | 'spot' | 'meet' | 'from' | 'reach';
+  kind:
+    | 'status'
+    | 'left'
+    | 'split'
+    | 'conduct'
+    | 'unlead'
+    | 'stop'
+    | 'spot'
+    | 'meet'
+    | 'from'
+    | 'reach';
   subject: string;
   value: number | null;
 }
 
 /** The kinds of step that are about one member, by their snowflake (`subject`). */
-const MEMBER_STEPS: ReadonlySet<HistoryStep['kind']> = new Set(['status', 'left', 'split']);
+const MEMBER_STEPS: ReadonlySet<HistoryStep['kind']> = new Set([
+  'status',
+  'left',
+  'split',
+  'conduct',
+  'unlead',
+]);
+
+/** The conductor of a train; null for one without, and for every other party. */
+function conductorOf(party: Party | undefined): string | null {
+  return party !== undefined && isTrain(party) ? party.train.conductorId : null;
+}
 
 /**
  * Whether this write split a group off a train: the train remembers a split it did not before.
@@ -341,6 +366,14 @@ export function partySteps(before: Party | undefined, after: Party, at: number):
       if (at?.kind === 'powerspot') step('spot', at.id, null);
       else step('stop', place, gymIdOf(at) ?? null);
     }
+  }
+  // Who conducts it, after where it is: the place a write reaches is the doing of whoever
+  // conducted the train before that write.
+  const led = conductorOf(before);
+  const conductor = conductorOf(after);
+  if (led !== conductor) {
+    if (led !== null) step('unlead', led, null);
+    if (conductor !== null) step('conduct', conductor, null);
   }
   return steps;
 }

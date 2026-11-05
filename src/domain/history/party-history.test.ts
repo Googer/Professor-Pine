@@ -17,7 +17,14 @@ import {
 } from '../../../test/support/parties.js';
 import { endParty, type Party, type RaidBossRef, type TrainParty } from '../party/party.js';
 import { PartyStatus } from '../party/status.js';
-import { splitOffGroup, splitSettled, splitTrain } from '../party/train.js';
+import { finishParty } from '../party/attendance.js';
+import {
+  clearConductor,
+  setConductor,
+  splitOffGroup,
+  splitSettled,
+  splitTrain,
+} from '../party/train.js';
 import {
   historyCounts,
   historyMembers,
@@ -162,6 +169,86 @@ describe('partySteps', () => {
     expect(partySteps(train(2), train(3), T)[0]).toMatchObject({ subject: 'end', value: null });
     // A route edited around the train leaves it where it is.
     expect(partySteps(train(1), train(0, [12, 13]), T)).toEqual([]);
+  });
+});
+
+describe('partySteps: who conducts a train (plan 8H-6A)', () => {
+  /** The maker and Alice and Bob on a train, nobody conducting. */
+  const riders = (): TrainParty => withAttendees(testTrain(), { [ALICE]: {}, [BOB]: {} });
+  const conducted = (memberId: string): TrainParty => {
+    const set = setConductor(riders(), memberId);
+    if (!set.ok) throw new Error(set.reason);
+    return set.party;
+  };
+  const kinds = (steps: HistoryStep[]) =>
+    steps.map(({ kind, subject, value }) => [kind, subject, value]);
+
+  it('notes a member who becomes the conductor', () => {
+    expect(kinds(partySteps(riders(), conducted(ALICE), T))).toEqual([['conduct', ALICE, null]]);
+  });
+
+  it('notes the maker who becomes the conductor like anybody else', () => {
+    expect(kinds(partySteps(riders(), conducted(REPORTER), T))).toEqual([
+      ['conduct', REPORTER, null],
+    ]);
+  });
+
+  it('notes a member who takes it over, and the end of the conductorship it took over', () => {
+    const taken = setConductor(conducted(ALICE), BOB);
+    if (!taken.ok) throw new Error(taken.reason);
+    expect(kinds(partySteps(conducted(ALICE), taken.party, T))).toEqual([
+      ['unlead', ALICE, null],
+      ['conduct', BOB, null],
+    ]);
+  });
+
+  it('notes each conductor of a handover, and the end of each, also by Done', () => {
+    // Alice conducts, presses Done (on a train, she leaves), and Bob takes it on.
+    const led = conducted(ALICE);
+    const left = finishParty(led, ALICE, T, 5);
+    if (!left.ok) throw new Error(left.reason);
+    const taken = setConductor(left.party, BOB);
+    if (!taken.ok) throw new Error(taken.reason);
+    const steps = stepsOf([riders(), led, left.party, taken.party]);
+    expect(
+      kinds(steps.filter((step) => step.kind === 'conduct' || step.kind === 'unlead')),
+    ).toEqual([
+      ['conduct', ALICE, null],
+      ['unlead', ALICE, null],
+      ['conduct', BOB, null],
+    ]);
+    // A member step: the opt-in lookup sees Alice although she is neither on it nor conducts it.
+    expect(historyMembers(taken.party, steps)).toContain(ALICE);
+  });
+
+  it('notes the end of a conductorship that was cleared, and nothing while it stays', () => {
+    expect(partySteps(conducted(ALICE), { ...conducted(ALICE) }, T)).toEqual([]);
+    const cleared = clearConductor(conducted(ALICE), ALICE, false);
+    if (!cleared.ok) throw new Error(cleared.reason);
+    expect(kinds(partySteps(conducted(ALICE), cleared.party, T))).toEqual([
+      ['unlead', ALICE, null],
+    ]);
+    // Nor of a raid, which has none.
+    expect(partySteps(testRaid(), { ...testRaid() }, T)).toEqual([]);
+  });
+
+  it('notes a train made with a conductor', () => {
+    expect(kinds(partySteps(undefined, conducted(ALICE), T))).toContainEqual([
+      'conduct',
+      ALICE,
+      null,
+    ]);
+  });
+
+  it('notes where the train is before who conducts it, in a write that changes both', () => {
+    // The place a write reaches is the doing of whoever conducted the train before it.
+    const led = conducted(ALICE);
+    const moved = { ...led, train: { ...led.train, route: [gymStop(11)], conductorId: BOB } };
+    expect(kinds(partySteps(led, moved, T))).toEqual([
+      ['stop', '11', 11],
+      ['unlead', ALICE, null],
+      ['conduct', BOB, null],
+    ]);
   });
 });
 
@@ -688,6 +775,8 @@ describe('a train a group was split off (plan 8T)', () => {
       ['status', ALICE],
       ['status', BOB],
       ['stop', '12'],
+      // Alice split it off and went with it: she leads it from the split (plan 8H-6A).
+      ['conduct', ALICE],
     ]);
   });
 
