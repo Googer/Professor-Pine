@@ -28,12 +28,20 @@ export const RING_TAP_PANE = 'ring-taps';
 export const RING_TAP_PANE_Z = 395;
 
 /**
- * The pane of the activity heatmap (plan 8H-4): under the regions' names (350), so that a busy
- * place never hides one, and under every dot, line and marker, whose taps win; with a canvas
- * renderer of its own (hundreds of circles).
+ * The pane of the activity heatmap's invisible circles (plan 8H-4, 8H-4H), which take a tap on the
+ * glow: under the regions' names (350) and under every dot, line and marker, whose taps win; with
+ * a canvas renderer of its own (hundreds of circles).
  */
 export const ACTIVITY_PANE = 'activity';
 export const ACTIVITY_PANE_Z = 340;
+
+/**
+ * The pane of the activity heatmap's glow (plan 8H-4H): under the invisible circles' pane, so that
+ * it never covers their canvas, and under the regions' names, which stay readable on it. It takes
+ * no taps.
+ */
+export const HEAT_PANE = 'activity-heat';
+export const HEAT_PANE_Z = 335;
 
 /**
  * A region's outline on the live map. It takes no tap: over a train's line on its lower pane, its

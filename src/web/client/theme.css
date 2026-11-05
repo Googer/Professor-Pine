@@ -124,8 +124,17 @@
   /* The reports at stops (plan 8M-9B): a marker's ring and the layers' dots, the research icon. */
   --research: #d68910;
   --rocket: #a93226;
-  /* The activity heatmap (plan 8H-4): its circles, by weight. */
+  /* The activity heatmap (plan 8H-4): its panel's edge and slider. */
   --activity: #e8590c;
+  /*
+   * The activity heatmap's glow (plan 8H-4H), faintest to busiest: blue, green, yellow, orange,
+   * red, deep enough to read on the light tiles.
+   */
+  --heat-1: #1c7ed6;
+  --heat-2: #2f9e44;
+  --heat-3: #f2b705;
+  --heat-4: #f76707;
+  --heat-5: #e03131;
   /* The ring of a raid's marker, by tier group (plan 8M-7), and its count of those going. */
   --tier-1: #e0609c;
   --tier-3: #d79b00;
@@ -266,6 +275,11 @@
     --research: #f5b041;
     --rocket: #f1948a;
     --activity: #ff922b;
+    --heat-1: #4dabf7;
+    --heat-2: #69db7c;
+    --heat-3: #ffd43b;
+    --heat-4: #ff922b;
+    --heat-5: #ff6b6b;
     --tier-1: #f07ab3;
     --tier-3: #f1c40f;
     --tier-5: #b06ad0;

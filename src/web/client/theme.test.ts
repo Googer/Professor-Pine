@@ -6,6 +6,7 @@ import {
   REGION_PALETTE,
   DRAWN_OPACITIES,
   DRAWN_SIZES,
+  HEAT_GRADIENT,
   ThemeWatch,
   type SchemeQuery,
 } from './theme.js';
@@ -122,6 +123,7 @@ describe('readTheme', () => {
         ...REGION_PALETTE,
         ...Object.values(DRAWN_SIZES),
         ...Object.values(DRAWN_OPACITIES),
+        ...HEAT_GRADIENT.map(({ property }) => property),
       ].sort(),
     );
   });
@@ -151,5 +153,22 @@ describe("the opacities of a train's line (plan 8M-11B, S27)", () => {
     expect(theme.opacities).toEqual({ trainAhead: 0.8, trainDone: 0.3 });
     const wrong = readTheme((property) => (property === '--train-ahead' ? '2' : ''));
     expect(wrong.opacities).toEqual({ trainAhead: 0.8, trainDone: 0.35 });
+  });
+});
+
+describe("the activity glow's gradient (plan 8H-4H)", () => {
+  it('is read from theme.css, stop by stop from the faintest to the strongest, grey where it lacks one', () => {
+    const theme = readTheme((property) => (property === '--heat-2' ? '' : `value of ${property}`));
+    expect(theme.heat.map(({ colour }) => colour)).toEqual([
+      'value of --heat-1',
+      MISSING_COLOUR,
+      'value of --heat-3',
+      'value of --heat-4',
+      'value of --heat-5',
+    ]);
+    const stops = theme.heat.map(({ stop }) => stop);
+    expect(stops).toEqual([...stops].sort((a, b) => a - b));
+    expect(stops.at(-1)).toBe(1);
+    expect(stops.every((stop) => stop > 0 && stop <= 1)).toBe(true);
   });
 });

@@ -7,8 +7,9 @@ import type {
 /*
  * The activity layer of the live map (plan 8H-4, design Part B), its pure part: the panel's
  * modes and what it asks the server, History's slider and Play, the words of a place's popup and
- * of the parties left out, and how a place is drawn by its weight. The weights themselves are the
- * server's (`activityWeights`); the page only draws them. Leaflet's side is `activity-ui.ts`.
+ * of the parties left out, and the target a place offers a tap by its weight. The weights themselves
+ * are the server's (`activityWeights`); the page only draws them (the glow: `heat.ts`). Leaflet's
+ * side is `activity-ui.ts`.
  */
 
 /** The panel's modes, in the order its menu offers them. */
@@ -108,19 +109,17 @@ export function leftOutWords(leftOut: number): string | undefined {
   return leftOut === 0 ? undefined : `${parties(leftOut)} left out (gyms no longer listed, pins)`;
 }
 
-/** The smallest and the largest circle, in pixels: the quietest still a tap target. */
+/** The smallest and the largest target to tap, in pixels: the quietest still 32 with the tolerance. */
 const RADIUS = { least: 8, most: 28 };
-/** How much a circle covers what is under it, quietest to busiest. */
-const FILL = { least: 0.15, most: 0.6 };
 
-/** How a place is drawn by its weight (0–1): larger and less see-through the busier it is. */
-export function circleLook(weight: number): { radius: number; fillOpacity: number } {
+/**
+ * The radius of a place's invisible circle by its weight (0–1), the target a tap on the glow
+ * finds (plan 8H-4H; 8H-4's circles, drawn no longer): larger the busier it is, by the square
+ * root, as its glow is.
+ */
+export function tapRadius(weight: number): number {
   const w = Math.min(1, Math.max(0, weight));
-  return {
-    // By the square root: a circle's area, not its radius, follows the weight.
-    radius: RADIUS.least + (RADIUS.most - RADIUS.least) * Math.sqrt(w),
-    fillOpacity: FILL.least + (FILL.most - FILL.least) * w,
-  };
+  return RADIUS.least + (RADIUS.most - RADIUS.least) * Math.sqrt(w);
 }
 
 /** The timers of Play (`window.setTimeout` on the page; a test's own by hand). */

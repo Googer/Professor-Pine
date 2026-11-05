@@ -5,7 +5,6 @@ import {
   activityAddress,
   AFTER_THE_HOUR_MS,
   CANVAS_TOLERANCE,
-  circleLook,
   historyStep,
   hourWait,
   leftOutWords,
@@ -16,6 +15,7 @@ import {
   RETRY_AFTER_FAILURE_MS,
   sliderSteps,
   stepWords,
+  tapRadius,
   todayStep,
   type PlayerTimer,
 } from './activity.js';
@@ -121,17 +121,12 @@ describe('the activity layer’s panel (plan 8H-4)', () => {
     expect(leftOutWords(1204)).toBe('1,204 parties left out (gyms no longer listed, pins)');
   });
 
-  it('draws a busier place larger and less see-through', () => {
-    const quiet = circleLook(0);
-    const busy = circleLook(1);
-    const middle = circleLook(0.5);
-    expect(quiet.radius).toBeLessThan(middle.radius);
-    expect(middle.radius).toBeLessThan(busy.radius);
-    expect(quiet.fillOpacity).toBeLessThan(middle.fillOpacity);
-    expect(middle.fillOpacity).toBeLessThan(busy.fillOpacity);
-    expect(busy.fillOpacity).toBeLessThanOrEqual(0.7);
-    // Still a tap target of 32 pixels at its quietest, with the canvas's tolerance (review P6).
-    expect(2 * (quiet.radius + CANVAS_TOLERANCE)).toBeGreaterThanOrEqual(32);
+  it('gives a busier place a larger target to tap, the quietest still 32 pixels (plan 8H-4H)', () => {
+    expect(tapRadius(0)).toBeLessThan(tapRadius(0.5));
+    expect(tapRadius(0.5)).toBeLessThan(tapRadius(1));
+    expect(tapRadius(2)).toBe(tapRadius(1));
+    // With the canvas's tolerance (review P6).
+    expect(2 * (tapRadius(0) + CANVAS_TOLERANCE)).toBeGreaterThanOrEqual(32);
   });
 
   it('asks Expected now again a moment after the server’s next hour, by the server’s count', () => {

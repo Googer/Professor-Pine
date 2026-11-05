@@ -4,7 +4,6 @@ import {
   ACTIVITY_MODE_CHOICES,
   activityAddress,
   CANVAS_TOLERANCE,
-  circleLook,
   historyStep,
   leftOutWords,
   MonthPlayer,
@@ -12,20 +11,25 @@ import {
   placeWords,
   sliderSteps,
   stepWords,
+  tapRadius,
   todayStep,
   type ActivityChoice,
   type ActivitySpan,
 } from './activity.js';
 import { getJson } from './common.js';
+import { heatValue } from './heat.js';
+import { HeatLayer } from './heat-layer.js';
 import type { LayerRegistry } from './layer-registry.js';
-import { ACTIVITY_PANE, ACTIVITY_PANE_Z } from './panes.js';
+import { ACTIVITY_PANE, ACTIVITY_PANE_Z, HEAT_PANE, HEAT_PANE_Z } from './panes.js';
 import { onThemeChange, theme } from './theme.js';
 
 /*
- * The activity layer of the live map (plan 8H-4, design Part B), Leaflet's side: the places of
- * `/api/activity` as circles on a canvas of their own pane (`ACTIVITY_PANE`, under every dot and
- * marker), sized and filled by weight (`circleLook`) in the theme's `--activity`, a tap on one
- * showing its parties as text; and while the layer is on, a panel over the map (`.activity-panel`,
+ * The activity layer of the live map (plan 8H-4, design Part B; its glow plan 8H-4H), Leaflet's
+ * side: the places of `/api/activity` as a heat glow (`HeatLayer` over simpleheat, in a pane of
+ * its own under every dot and marker, `HEAT_PANE`, its gradient the theme's `--heat-*`), and as
+ * invisible circles on a canvas of their own pane over it (`ACTIVITY_PANE`; no fill and no
+ * stroke, sized by weight, `tapRadius`), a tap on one showing its parties as text; and while the
+ * layer is on, a panel over the map (`.activity-panel`,
  * a Leaflet control at the top right, as the filters' line): the mode, History's slider (by month
  * or by year) and Play, and the parties left out. Asked again when the mode, the slider or the
  * server's hour changes (`changesInMs`, `nextAskWait`; a minute after a failed answer in Expected
@@ -55,7 +59,13 @@ export function showActivity(map: L.Map, guild: string, registry: LayerRegistry)
   pane.style.zIndex = String(ACTIVITY_PANE_Z);
   // The tolerance makes the quietest circle a tap target of 32 pixels (review P6).
   const renderer = L.canvas({ pane: ACTIVITY_PANE, tolerance: CANVAS_TOLERANCE });
-  const group = L.layerGroup();
+  // The glow's pane under the circles' (plan 8H-4H), taking no taps: the circles' canvas over it
+  // takes them.
+  const heatPane = map.createPane(HEAT_PANE);
+  heatPane.style.zIndex = String(HEAT_PANE_Z);
+  heatPane.style.pointerEvents = 'none';
+  const heat = new HeatLayer(HEAT_PANE, theme().heat);
+  const group = L.layerGroup([heat]);
   const circles: L.CircleMarker[] = [];
   let view: ActivityView | undefined;
   let mode: ActivityModeName = 'now';
@@ -150,29 +160,39 @@ export function showActivity(map: L.Map, guild: string, registry: LayerRegistry)
     play.textContent = player.playing() ? 'Stop' : 'Play';
   };
 
+  /** The layer's count in view: the places drawn on the glow within the map's bounds. */
   const inView = (): void => {
     if (!registry.isOn('activity')) return;
     const shown = map.getBounds();
     registry.setCount(
       'activity',
-      circles.filter((circle) => shown.contains(circle.getLatLng())).length,
+      (view?.places ?? []).filter((place) => shown.contains([place.lat, place.lon])).length,
     );
   };
 
+  /**
+   * The answer drawn: the glow's places set at once (Play's step drawn in one go, no blink), the
+   * invisible circles made anew.
+   */
   const draw = (): void => {
-    group.clearLayers();
+    for (const circle of circles) group.removeLayer(circle);
     circles.length = 0;
     const shown = view;
+    heat.setPlaces(
+      (shown?.places ?? []).map((place) => ({
+        lat: place.lat,
+        lon: place.lon,
+        value: heatValue(place.weight),
+      })),
+    );
     if (shown === undefined) return;
     const shownStep = step;
-    const { colours } = theme();
     for (const place of shown.places) {
-      const look = circleLook(place.weight);
       const circle = L.circleMarker([place.lat, place.lon], {
         renderer,
-        ...look,
+        radius: tapRadius(place.weight),
         stroke: false,
-        fillColor: colours.activity,
+        fill: false,
       }).bindPopup(() => element('p', 'activity-popup', placeWords(shown, place, shownStep)));
       circle.addTo(group);
       circles.push(circle);
@@ -312,15 +332,20 @@ export function showActivity(map: L.Map, guild: string, registry: LayerRegistry)
       player.stop();
       group.remove();
       clearHour();
+      // Nothing of the last answer stays drawn, nor comes late (review P5): turned on again, the
+      // layer shows only what its new question brings, and nothing where that fails.
+      asked += 1;
+      view = undefined;
+      draw();
     }
   };
   registry.onChange((id, on) => {
     if (id === 'activity') turned(on);
   });
   map.on('moveend', inView);
-  // The device changed between light and dark: the circles take the new set.
-  onThemeChange(({ colours }) => {
-    for (const circle of circles) circle.setStyle({ fillColor: colours.activity });
+  // The page turned light or dark: the glow takes the new gradient.
+  onThemeChange((changed) => {
+    heat.setStops(changed.heat);
   });
   if (registry.isOn('activity')) turned(true);
 }

@@ -8,6 +8,7 @@
  * (`page-theme.test.ts`).
  */
 
+import type { HeatStop } from './simpleheat.js';
 import { browserStorage } from './staged-storage.js';
 import {
   applyThemeChoice,
@@ -30,8 +31,6 @@ export const DRAWN_COLOURS = {
   meetup: '--meetup',
   /** The PokéStops shown while a meetup's place is picked. */
   stop: '--stop',
-  /** The activity heatmap's circles (plan 8H-4). */
-  activity: '--activity',
   /** Your location (plan 8M-7): the blue dot and its accuracy, and the dot's edge. */
   you: '--you',
   youEdge: '--you-edge',
@@ -65,6 +64,19 @@ export const REGION_PALETTE = [
   '--region-6',
   '--region-7',
   '--region-8',
+] as const;
+
+/**
+ * The activity layer's glow (plan 8H-4H), its gradient from the faintest place to the busiest:
+ * each stop's place by a pixel's strength (simpleheat's own places) and the property of
+ * `theme.css` that holds its colour. Below the first stop the glow takes its colour, fainter.
+ */
+export const HEAT_GRADIENT = [
+  { stop: 0.4, property: '--heat-1' },
+  { stop: 0.6, property: '--heat-2' },
+  { stop: 0.7, property: '--heat-3' },
+  { stop: 0.8, property: '--heat-4' },
+  { stop: 1, property: '--heat-5' },
 ] as const;
 
 export type DrawnColour = keyof typeof DRAWN_COLOURS;
@@ -111,6 +123,8 @@ export interface Theme {
   palette: readonly string[];
   sizes: Readonly<Record<keyof typeof DRAWN_SIZES, number>>;
   opacities: Readonly<Record<keyof typeof DRAWN_OPACITIES, number>>;
+  /** The activity glow's gradient (plan 8H-4H): `HEAT_GRADIENT`'s stops with their colours. */
+  heat: readonly HeatStop[];
 }
 
 /** What a property the stylesheet lacks gives: grey, so that what is drawn still shows. */
@@ -136,7 +150,8 @@ export function readTheme(read: (property: string) => string): Theme {
       return [name, opacity >= 0 && opacity <= 1 ? opacity : usual];
     }),
   ) as Record<keyof typeof DRAWN_OPACITIES, number>;
-  return { colours, palette: REGION_PALETTE.map(value), sizes, opacities };
+  const heat = HEAT_GRADIENT.map(({ stop, property }) => ({ stop, colour: value(property) }));
+  return { colours, palette: REGION_PALETTE.map(value), sizes, opacities, heat };
 }
 
 /**
