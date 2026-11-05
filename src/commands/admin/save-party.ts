@@ -22,8 +22,8 @@ export const saveParty: SubcommandPart = {
     ),
   help: {
     details:
-      'In the post of a raid, max battle, train or meetup: keeps the post open after it has ' +
-      'ended. Nothing warns that it will be archived and nothing archives it, until you run ' +
+      'In the post of a raid, max battle, train or meetup: keeps the post open after the ' +
+      'raid, max battle, train or meetup has ended. Nothing warns that it will be archived and nothing archives it, until you run ' +
       'this with `keep:False` or close it with `/delete`. The post says who kept it.\n\nUsed ' +
       'anywhere else without an option, it lists the kept posts. For admins and moderators.',
     examples: ['/admin save-party', '/admin save-party keep:False'],

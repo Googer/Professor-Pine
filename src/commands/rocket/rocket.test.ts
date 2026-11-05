@@ -1043,9 +1043,9 @@ describe('/rocket report’s help (plan 8R-9)', () => {
         distanceUnits,
       });
       expect(textDisplays(message)[0]).toContain(
-        'those near the stop where you last reported today (research or Team GO Rocket, also a ' +
-          'report that has ended or changed since, but not one you took back) before those ' +
-          `farther away. With nothing typed, it lists the PokéStops within ` +
+        'Those near the stop where you last reported today (research or Team GO Rocket, also a ' +
+          'report that has ended or changed since, but not one you took back) come first among ' +
+          `stops that fit what you type equally well. With nothing typed, it lists the PokéStops within ` +
           `${distanceWords(2_000, distanceUnits)} of that stop, nearest first.`,
       );
     }

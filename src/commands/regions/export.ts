@@ -40,7 +40,7 @@ export const exportRegions: SubcommandPart = {
     details:
       `With a region, or in the channel of one: the outline of that region as a file. Anywhere ` +
       `else: all regions of this server in one file, \`${EXPORT_FILE}\` (split into ` +
-      '`regions-2.kml` and so on when there are more than one import takes).\n\nEach area is named ' +
+      '`regions-2.kml` and so on when they are more than one import can take).\n\nEach area is named ' +
       'after its channel, with the category of the channel as its description, so that ' +
       '`/region import` puts every outline back where it was. Open the file in a map editor ' +
       '(Google My Maps: Import) to change an outline. A region without an outline is left out.',

@@ -64,9 +64,11 @@ function signUpCommand(
       category: 'basic-raid',
       details:
         `${details} ${IN_A_POST}\n\nIt does what the button on the post does, and you can add ` +
-        'how many you are (`count`) and which group to be in (`group`). Where there are several ' +
-        'groups the button asks which one; without `group`, the command puts you in the newest ' +
-        'group, or in another with room when that one is full.',
+        'how many you are (`count`) and which group to be in (`group`).\n\nWhere there are ' +
+        'several groups, the button asks a newcomer which one; without `group`, the command ' +
+        'puts a newcomer in the newest group, or in another with room when that one is full. ' +
+        'Once you are signed up, you stay in your group (`/group join` moves you), unless you ' +
+        'were interested and it has no room when you come.',
       examples: [`/${name}`, `/${name} count:3`],
     },
     guards: [requireParty],

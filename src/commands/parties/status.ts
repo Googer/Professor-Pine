@@ -91,8 +91,9 @@ export const where: SimpleCommand = {
   help: {
     category: 'basic-raid',
     details:
-      'Shows you where it is, with a link to Google Maps: the gym of a raid, with a map of the ' +
-      'area; the Power Spot of a max battle; or the stop a train is at. Only you see the answer. ' +
+      'Shows you where it is, with a link to Google Maps: the gym of a raid or the gym a train ' +
+      'is at, with a map of the area; or the Power Spot of a max battle or train. Only you see ' +
+      'the answer. ' +
       'Use it in the post of the raid, max battle or train.',
     examples: ['/where'],
   },

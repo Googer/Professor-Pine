@@ -93,7 +93,7 @@ function moveCommand(
   description: string,
   details: string,
   here = 'Everybody who was here is coming again (unless this finishes the route: then they ' +
-    'stay here), and the others are told where the train is going',
+    'stay here), and the others are told where the train is going, or that the route is finished',
 ): SimpleCommand {
   const button =
     move === 'finish'
@@ -123,7 +123,7 @@ export const next = moveCommand(
   'next',
   'Move this train to its next stop',
   'Takes the train to the next stop of its route. From the last stop it finishes the route, ' +
-    'or, as the train is set (`/train at-end`, or Manage… on the post), goes round to the ' +
+    'or, as the train is set (`/train at-end`, or Manage… on the post), goes around to the ' +
     'first stop or turns back and runs the route backwards.',
 );
 

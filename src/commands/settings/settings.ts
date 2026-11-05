@@ -167,25 +167,25 @@ const AUTO_STATUS = [
     value: 'interested',
     name: 'Interested',
     status: PartyStatus.Interested,
-    says: 'When you report a raid or make a train, you are signed up for it as interested.',
+    says: 'When you report a raid or max battle, or make a train, you are signed up for it as interested.',
   },
   {
     value: 'coming',
     name: 'Coming',
     status: PartyStatus.Coming,
-    says: 'When you report a raid or make a train, you are signed up for it as coming.',
+    says: 'When you report a raid or max battle, or make a train, you are signed up for it as coming.',
   },
   {
     value: 'here',
     name: 'Here',
     status: PartyStatus.Present,
-    says: 'When you report a raid or make a train, you are signed up for it as here.',
+    says: 'When you report a raid or max battle, or make a train, you are signed up for it as here.',
   },
   {
     value: 'none',
     name: 'None',
     status: PartyStatus.NotInterested,
-    says: 'When you report a raid or make a train, you are not signed up for it.',
+    says: 'When you report a raid or max battle, or make a train, you are not signed up for it.',
   },
 ] as const;
 
@@ -238,8 +238,8 @@ export function settingsLines(
     options.history === undefined
       ? `Named in the history: set per server${via(`/settings ${HISTORY.name}`)}${commands ? ' in a server' : ''}`
       : `${HISTORY.label}: **${onOff(options.history)}**${via(`/settings ${HISTORY.name}`)}`,
-    `Status when ${commands ? 'you report' : 'they report'} a raid or make a train: **${autoStatusName(settings.autoStatus)}**${via('/settings auto-status')}`,
-    `Raid reports and trains: **${settings.raidPrivacy === RaidPrivacy.Anonymous ? 'Anonymous' : 'Visible'}**${via('/settings privacy')}`,
+    `Status when ${commands ? 'you report' : 'they report'} a raid or max battle, or make a train: **${autoStatusName(settings.autoStatus)}**${via('/settings auto-status')}`,
+    `${commands ? 'Your' : 'Their'} reports and trains: **${settings.raidPrivacy === RaidPrivacy.Anonymous ? 'Anonymous' : 'Visible'}**${via('/settings privacy')}`,
   );
   // What a member registered is their own text: shown plain, and only when there is any.
   const friendCode = settings.friendCode?.trim() ?? '';
@@ -446,7 +446,7 @@ const autoStatus: SubcommandPart = {
     details:
       'When you report a raid with `/raid` or a max battle with `/max`, or make a train with ' +
       '`/train`, you are signed up for it at once. This sets how: interested, coming, here, or ' +
-      '(None) not at all. A train is at no stop yet, so here counts as coming there. Whoever ' +
+      '(None) not at all. A train is at no stop yet, so Here signs you up as coming. Whoever ' +
       'makes a meetup is always signed up as interested.',
     examples: ['/settings auto-status status:Coming', '/settings auto-status status:None'],
   },
@@ -540,8 +540,8 @@ export const settings = commandGroup({
   help: {
     category: 'notifications',
     details:
-      'What Professor Pine does for you in particular: whether it pings you in posts, which ' +
-      'direct messages it sends you, and how you appear in a raid you report. ' +
+      'What I do for you in particular: whether I ping you in posts, which direct messages I ' +
+      'send you, and how you appear in what you report or make. ' +
       '`/settings show` lists it all. Nobody else sees your answers.',
     examples: ['/settings show', '/settings mentions enabled:False'],
   },

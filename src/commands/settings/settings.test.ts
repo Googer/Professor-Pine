@@ -278,7 +278,7 @@ describe('/settings', () => {
   it('sets the status of whoever reports a raid or makes a train', async () => {
     const made = setup();
     expect(await made.answer('auto-status', { status: 'coming' })).toBe(
-      'When you report a raid or make a train, you are signed up for it as coming.',
+      'When you report a raid or max battle, or make a train, you are signed up for it as coming.',
     );
     expect((await made.users.get(ALICE)).autoStatus).toBe(PartyStatus.Coming);
     await made.run('auto-status', { status: 'here' });
@@ -286,7 +286,7 @@ describe('/settings', () => {
     await made.run('auto-status', { status: 'interested' });
     expect((await made.users.get(ALICE)).autoStatus).toBe(PartyStatus.Interested);
     expect(await made.answer('auto-status', { status: 'none' })).toBe(
-      'When you report a raid or make a train, you are not signed up for it.',
+      'When you report a raid or max battle, or make a train, you are not signed up for it.',
     );
     expect((await made.users.get(ALICE)).autoStatus).toBe(PartyStatus.NotInterested);
   });
@@ -335,8 +335,8 @@ describe('/settings show', () => {
         '- DM when an egg gets its boss: **off** · `/settings boss-set`',
         '- DM for a new train in this server: **off** · `/settings new-train`',
         "- Named in this server's history: **off** · `/settings history`",
-        '- Status when you report a raid or make a train: **Interested** · `/settings auto-status`',
-        '- Raid reports and trains: **Visible** · `/settings privacy`',
+        '- Status when you report a raid or max battle, or make a train: **Interested** · `/settings auto-status`',
+        '- Your reports and trains: **Visible** · `/settings privacy`',
         '- Pokémon, raid tiers and rewards on your list in this server: **0** · `/wants`',
         '- Your gyms in this server: **0** · `/targets`',
       ].join('\n'),
@@ -402,8 +402,10 @@ describe('/settings show', () => {
       '- Pings for groups and times: **on** (quiet while all pings are off) · `/settings mentions-groups`',
     );
     expect(shown).toContain('- Pings for shouts: **off** · `/settings mentions-shouts`');
-    expect(shown).toContain('- Status when you report a raid or make a train: **None**');
-    expect(shown).toContain('- Raid reports and trains: **Anonymous**');
+    expect(shown).toContain(
+      '- Status when you report a raid or max battle, or make a train: **None**',
+    );
+    expect(shown).toContain('- Your reports and trains: **Anonymous**');
   });
 
   it('shows the friend code and the in-game name when they are set, as plain text', () => {
@@ -441,7 +443,7 @@ describe('/settings show', () => {
       autoStatus: PartyStatus.Complete,
     });
     expect(lines).toContain(
-      'Status when you report a raid or make a train: **None** · `/settings auto-status`',
+      'Status when you report a raid or max battle, or make a train: **None** · `/settings auto-status`',
     );
   });
 });

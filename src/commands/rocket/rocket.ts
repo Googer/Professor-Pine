@@ -246,10 +246,10 @@ const reportRocket: SubcommandPart = {
     details: (settings) =>
       'Reports who of Team GO Rocket is at a PokéStop. Pick them from the list that appears ' +
       'while you type (it finds them by what can be caught too: `dratini`), and the stop from ' +
-      'its list, or paste a maps link to a stop.\n\nThe stops list puts your region’s stops ' +
-      'first, and those near the stop where you last reported today (research or Team GO ' +
+      'its list, or paste a maps link to a stop. The stops list puts your region’s stops ' +
+      'first.\n\nThose near the stop where you last reported today (research or Team GO ' +
       'Rocket, also a report that has ended or changed since, but not one you took back) ' +
-      'before those farther away. With nothing typed, it lists the PokéStops within ' +
+      'come first among stops that fit what you type equally well. With nothing typed, it lists the PokéStops within ' +
       `${distanceWords(MORE_STOPS_METRES, settings.distanceUnits)} of that stop, nearest ` +
       `first.\n\nA grunt is posted in the region’s channel for ` +
       `${String(settings.rocket.gruntMinutes)} minutes. A leader, Giovanni or a decoy grunt ` +

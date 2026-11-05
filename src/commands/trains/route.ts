@@ -404,8 +404,9 @@ const add: SubcommandPart = {
       'in another region of this server. You must be signed up (moderators need not be).\n\n' +
       `The list that appears while you type puts Power Spots first for a ` +
       `${TRAIN_KIND_WORDS.dynamax} or ${TRAIN_KIND_WORDS.gigantamax}, gyms first for a ` +
-      `${TRAIN_KIND_WORDS.raid}, and says what each is and where. Once the route has a stop, ` +
-      'places near the last stop come first; with nothing typed, it lists those nearest it, ' +
+      `${TRAIN_KIND_WORDS.raid}, and says what each is and where.\n\nOnce the route has a stop, ` +
+      'places near the last stop come first among places that fit what you type equally ' +
+      'well; with nothing typed, it lists those nearest it, ' +
       'with their distances.\n\nA stop is on a route once, and a route has at most ' +
       `${MAX_ROUTE_STOPS} stops. A stop added to a finished route makes the train go on ` +
       'there, which moves the train: with a conductor only they and the moderators can do ' +
@@ -819,7 +820,8 @@ export const route = commandGroup({
     category: 'train',
     details:
       'Use it in the post of the train. A stop is a gym or a Power Spot. When stops are ' +
-      'added, removed or moved, the train stays at the stop it is at.\n\nA saved route keeps ' +
+      'added, removed or moved, the train stays at the stop it is at, unless its stop is ' +
+      'removed or the route was finished.\n\nA saved route keeps ' +
       'the order of its stops and what the train does at its end (finish, loop or turn back); ' +
       'loading it sets both. The button "Manage…" on the post reverses or finishes the route.',
   },

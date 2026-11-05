@@ -272,8 +272,8 @@ export const cleanupLegacy: SubcommandPart = {
   help: {
     details:
       'For the move from the legacy bot. Lists the channels of its raids, trains and ' +
-      'meetups in this server: those named in its saved files of what was going on (where its ' +
-      'folder of them is set up for me), and ' +
+      'meetups in this server: those named in its saved files of what was going on (when its ' +
+      'folder is set up), and ' +
       'those it left behind, found by their category, their name and the bot’s own first ' +
       'message.\n\nWhat only looks like ' +
       'such a channel is listed apart and never deleted, and so are the channels of its trains, ' +
