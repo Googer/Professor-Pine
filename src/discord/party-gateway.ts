@@ -2156,7 +2156,7 @@ export class DiscordPartyGateway implements PartyGateway {
             at: now,
           });
         } catch (err) {
-          this.log?.debug({ err, member: id }, 'could not fetch a member a shared board asks of');
+          this.log?.debug({ err, member: id }, 'could not fetch a member a shared tally asks of');
         }
       }),
     );

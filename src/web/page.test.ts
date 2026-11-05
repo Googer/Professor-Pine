@@ -240,8 +240,8 @@ describe('the history page (plan 8H-5)', () => {
     expect(page.body).toContain(`<a href="/s/${FAKE_GUILD_ID}/map">Open the map</a>`);
     // The heatmap's months are the server's, which may not reach back to 2018 (P6).
     expect(page.body).not.toMatch(/since 20\d\d/u);
-    // The region board's places, which the script fills.
-    for (const id of ['board-title', 'board-periods', 'board-status', 'board-table']) {
+    // The region tally's places, which the script fills.
+    for (const id of ['tally-title', 'tally-periods', 'tally-status', 'tally-table']) {
       expect(page.body, id).toContain(`id="${id}"`);
     }
   });

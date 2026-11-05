@@ -7,7 +7,7 @@ import {
   type ActivityPlaceKind,
   type ActivityWindow,
 } from '../../domain/history/activity.js';
-import type { MonthRange, RegionCount } from '../../domain/history/region-board.js';
+import type { MonthRange, RegionCount } from '../../domain/history/region-tally.js';
 import { inTransaction, retryOnDeadlock } from '../transaction.js';
 import type { DB } from '../types.js';
 
@@ -18,7 +18,7 @@ export interface ActivityReader {
   /** The first and the last month a server has buckets of, for History's slider; null for none. */
   months(serverId: string): Promise<{ first: string; last: string } | null>;
   /**
-   * A server's raids and max battles per region over a span of local months (the region board,
+   * A server's raids and max battles per region over a span of local months (the region tally,
    * plan 8H-5), along the `(serverId, month)` index; a region without any has no entry.
    */
   regionSums(serverId: string, months: MonthRange): Promise<RegionCount[]>;

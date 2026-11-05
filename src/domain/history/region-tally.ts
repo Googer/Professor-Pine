@@ -1,12 +1,12 @@
 import { ACTIVITY_FIRST_MONTH, activityWhen } from './activity.js';
-import type { BoardPeriod } from './board-periods.js';
+import type { TallyPeriod } from './tally-periods.js';
 
 /*
- * The region board (plan 8H-5; design `2026-11-04-history-on-show-design.md`, Part C): raids and
+ * The region tally (plan 8H-5; design `2026-11-04-history-on-show-design.md`, Part C): raids and
  * max battles that took place, per region, over a period, legacy included. One domain path:
  * `/stats regions`, its Share and the web's history page all read the sums of the activity
  * heatmap's buckets (`ActivityReader.regionSums`, which count by `countsAsActivity`) and turn
- * them into the board here. Nobody is named, so it needs no opt-in.
+ * them into the tally here. Nobody is named, so it needs no opt-in.
  */
 
 /** A span of local months, `yyyy-mm`, both ends included. */
@@ -21,7 +21,7 @@ export interface MonthRange {
  * (`UNKNOWN_MONTH`, before every month), nor a bucket after this month (a bad time written before
  * the heatmap bounded its months; a record of next month counts once that month has come).
  */
-export function boardMonths(period: BoardPeriod, now: number, zone: string): MonthRange {
+export function tallyMonths(period: TallyPeriod, now: number, zone: string): MonthRange {
   const { month } = activityWhen(now, zone);
   switch (period) {
     case 'month':
@@ -37,7 +37,7 @@ export function boardMonths(period: BoardPeriod, now: number, zone: string): Mon
 export type ForumStanding = 'visible' | 'hidden' | 'barred';
 
 /**
- * Whether how a member stands to a region's forum keeps the region off their board and their
+ * Whether how a member stands to a region's forum keeps the region off their tally and their
  * heatmap (Matt, 2026-11-05, R-B; the one rule `/stats regions`, the history page and the map's
  * activity layer all ask): kept out (`barred`) or not shown it by their roles (`hidden`) alike;
  * undefined (the forum is gone, or the member left) keeps nobody out.
@@ -63,12 +63,12 @@ export interface RegionCount {
 }
 
 /** Raids and max battles together, a line without a region. */
-export interface BoardCounts {
+export interface TallyCounts {
   raids: number;
   maxes: number;
 }
 
-export interface RegionBoard {
+export interface RegionTally {
   /** Every current region not left out, the busiest first (raids and max battles together). */
   rows: RegionCount[];
   /**
@@ -76,31 +76,31 @@ export interface RegionBoard {
    * a legacy channel that is no region now) and of none (0), so that the totals stay true; null
    * when there are none.
    */
-  gone: BoardCounts | null;
-  /** Every party on the board: the rows and the line of gone ones. */
-  total: BoardCounts;
+  gone: TallyCounts | null;
+  /** Every party on the tally: the rows and the line of gone ones. */
+  total: TallyCounts;
 }
 
 /**
- * The board of a server's sums of a period (`sums`, by region, a region possibly more than
+ * The tally of a server's sums of a period (`sums`, by region, a region possibly more than
  * once): a row for each region of `current` (the server's regions now, zero ones too) that is not
  * `leftOut` (a region whose forum keeps the member out, or one the public may not see), ranked by
  * raids and max battles together and then by region id; the parties of every other region on one
  * line, `gone`, last. A region left out is left out of every line and of the totals; it is never
  * moved to `gone`, which everybody sees.
  */
-export function regionBoard(
+export function regionTally(
   sums: readonly RegionCount[],
   current: readonly number[],
   leftOut: ReadonlySet<number>,
-): RegionBoard {
+): RegionTally {
   const known = new Set(current);
   const byRegion = new Map<number, RegionCount>(
     current
       .filter((regionId) => !leftOut.has(regionId))
       .map((regionId) => [regionId, { regionId, raids: 0, maxes: 0 }]),
   );
-  const gone: BoardCounts = { raids: 0, maxes: 0 };
+  const gone: TallyCounts = { raids: 0, maxes: 0 };
   for (const sum of sums) {
     if (leftOut.has(sum.regionId)) continue;
     const row = known.has(sum.regionId) ? byRegion.get(sum.regionId) : gone;

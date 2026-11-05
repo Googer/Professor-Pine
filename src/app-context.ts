@@ -65,7 +65,7 @@ import type { MeetupSafety } from './services/meetup-safety.js';
 import type { ModerationReports } from './services/moderation-reports.js';
 import type { ScriptAccessService } from './services/script-access-service.js';
 import type { EventSpawnProvider } from './services/event-spawn-service.js';
-import type { RegionBoards } from './services/region-boards.js';
+import type { RegionTallies } from './services/region-tallies.js';
 
 /** Everything a handler may use. Later phases add services here. */
 export interface AppContext {
@@ -194,10 +194,10 @@ export interface AppContext {
   /** Who is named in the party history of a server (`/settings history`). */
   readonly historyOptIns: HistoryOptIns;
   /**
-   * The region board (plan 8H-5, `/stats regions`): the activity heatmap's sums per region of a
+   * The region tally (plan 8H-5, `/stats regions`): the activity heatmap's sums per region of a
    * period, as a member or the public may see them.
    */
-  readonly regionBoards: RegionBoards;
+  readonly regionTallies: RegionTallies;
   /** Members of a server other than the one who is acting: one by id, or who of many can see a channel. */
   readonly members: MemberDirectory;
   /** The roles members give themselves: what a server offers, and giving and taking them. */

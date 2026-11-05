@@ -21,7 +21,7 @@ import {
   WEST_CHANNEL,
 } from '../../../test/support/gyms.js';
 import { buttonsOf, textDisplays, v2 } from '../../../test/support/messages.js';
-import { regionBoardsWith } from '../../../test/support/region-boards.js';
+import { regionTalliesWith } from '../../../test/support/region-tallies.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { Tally } from '../../../test/support/tally.js';
 import { zonedAt } from '../../../test/support/time.js';
@@ -37,12 +37,12 @@ const ZONE = 'America/New_York';
 const NOW = zonedAt('2026-11-05T12:00', ZONE);
 
 /**
- * The board of the fakes' server: this month West has 4 raids and a max battle, East 6 raids,
+ * The tally of the fakes' server: this month West has 4 raids and a max battle, East 6 raids,
  * region 3 nothing, a deleted region 99 two raids and a record without a region a max battle;
  * West had 10 more raids in March, East 20 in 2019.
  */
 async function setup() {
-  const made = regionBoardsWith(ZONE);
+  const made = regionTalliesWith(ZONE);
   await made.activity.add(FAKE_GUILD_ID, [
     activityBucket(1, '2026-11', 2, 18, { regionId: 1, raids: 4, maxes: 1 }),
     activityBucket(7, '2026-11', 3, 18, { regionId: 2, raids: 6 }),
@@ -57,7 +57,7 @@ async function setup() {
     activityBucket(1, '2026-03', 6, 13, { regionId: 1, raids: 10 }),
     activityBucket(7, '2019-06', 6, 13, { regionId: 2, raids: 20 }),
   ]);
-  const { ctx } = createTestContext({ regionBoards: made.boards });
+  const { ctx } = createTestContext({ regionTallies: made.tallies });
   const router = new InteractionRouter(ctx, [stats], [statsControls]);
   const ask = async (options: Record<string, string> = {}, userId = ASH) => {
     const interaction = fakeChatInput({
@@ -120,7 +120,7 @@ const periodStyles = (message: V2Message) =>
     .slice(0, 3)
     .map((button) => button.style);
 
-const MONTH_BOARD = [
+const MONTH_TALLY = [
   '### Raids and max battles by region, this month\n' +
     `1. <#${EAST_CHANNEL}>: 6 raids\n` +
     `2. <#${WEST_CHANNEL}>: 4 raids, 1 max battle\n` +
@@ -142,7 +142,7 @@ describe('/stats regions', () => {
     const payload = answered(await made.ask());
     expect((payload.flags ?? 0) & MessageFlags.Ephemeral).toBe(MessageFlags.Ephemeral);
     const message = asV2(payload);
-    expect(textDisplays(message).slice(0, 2)).toEqual(MONTH_BOARD);
+    expect(textDisplays(message).slice(0, 2)).toEqual(MONTH_TALLY);
     expect(buttonsOf(message).map((button) => [button.label, button.customId])).toEqual([
       ['This month', 'stats:regions:show:month:none'],
       ['This year', 'stats:regions:show:year:none'],
@@ -194,7 +194,7 @@ describe('/stats regions', () => {
       'No longer a region: 2 raids, 1 max battle\n**Total:** 6 raids, 2 max battles',
     ]);
     // Ash is not barred: he sees East.
-    expect(textDisplays(asV2(answered(await made.ask()))).slice(0, 2)).toEqual(MONTH_BOARD);
+    expect(textDisplays(asV2(answered(await made.ask()))).slice(0, 2)).toEqual(MONTH_TALLY);
   });
 
   it('leaves out a region whose forum the member cannot see by their roles, as one kept out (R-B)', async () => {
@@ -212,7 +212,7 @@ describe('/stats regions', () => {
     made.gateway.shutOut(UNBOUNDED_CHANNEL, MISTY);
     const misty = asV2(answered(await made.ask({}, MISTY)));
     expect(textDisplays(misty)[0]).not.toContain('Region 3');
-    expect(textDisplays(asV2(answered(await made.ask()))).slice(0, 2)).toEqual(MONTH_BOARD);
+    expect(textDisplays(asV2(answered(await made.ask()))).slice(0, 2)).toEqual(MONTH_TALLY);
   });
 
   it('switches the period at once, or deferred when the read takes longer than a second (P5)', async () => {
@@ -282,7 +282,7 @@ describe('/stats regions', () => {
   });
 });
 
-describe('Share of the region board', () => {
+describe('Share of the region tally', () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'] });
     vi.setSystemTime(NOW);
@@ -291,7 +291,7 @@ describe('Share of the region board', () => {
     vi.useRealTimers();
   });
 
-  it('posts the board as it is at the press in the channel, the member named, and says so privately', async () => {
+  it('posts the tally as it is at the press in the channel, the member named, and says so privately', async () => {
     const made = await setup();
     // A raid recorded since the answer was drawn: the share counts it, and West ties East (by id).
     await made.activity.add(FAKE_GUILD_ID, [
@@ -318,7 +318,7 @@ describe('Share of the region board', () => {
     );
   });
 
-  it('shares this year’s or all time’s board, as the answer showed', async () => {
+  it('shares this year’s or all time’s tally, as the answer showed', async () => {
     const made = await setup();
     await made.press('stats:regions:share:all');
     const [posted] = made.gateway.messagesIn(WEST_CHANNEL);
@@ -331,10 +331,10 @@ describe('Share of the region board', () => {
     const made = await setup();
     moderatorsEast(made.gateway);
     const answer = asV2(answered(await made.ask()));
-    // Ash sees East: it is on his own board.
-    expect(textDisplays(answer).slice(0, 2)).toEqual(MONTH_BOARD);
+    // Ash sees East: it is on his own tally.
+    expect(textDisplays(answer).slice(0, 2)).toEqual(MONTH_TALLY);
     expect(textDisplays(answer)[2]).toBe(
-      '-# Shared here, the board leaves out the regions not everyone who sees this channel can see.',
+      '-# Shared here, the list leaves out the regions not everyone who sees this channel can see.',
     );
     await made.press('stats:regions:share:month');
     const [posted] = made.gateway.messagesIn(WEST_CHANNEL);
@@ -360,7 +360,7 @@ describe('Share of the region board', () => {
     expect(keeps).toHaveBeenCalledTimes(1);
     const year = asV2(sent((await made.press('stats:regions:show:year:note')).update));
     expect(textDisplays(year)[2]).toBe(
-      '-# Shared here, the board leaves out the regions not everyone who sees this channel can see.',
+      '-# Shared here, the list leaves out the regions not everyone who sees this channel can see.',
     );
     expect(buttonsOf(year)[0]?.customId).toBe('stats:regions:show:month:note');
     const plain = asV2(sent((await made.press('stats:regions:show:year:none')).update));
@@ -426,7 +426,7 @@ describe('Share of the region board', () => {
       v2Message: true,
     });
     await made.router.handle(pressed as never);
-    // Only the moderators see East's forum: its board keeps East.
+    // Only the moderators see East's forum: its tally keeps East.
     const shared = made.gateway.messagesIn(post).at(-1);
     expect(textDisplays(v2(shared?.message))[0]).toContain(`<#${EAST_CHANNEL}>: 6 raids`);
   });

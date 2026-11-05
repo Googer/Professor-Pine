@@ -10,11 +10,11 @@ import {
   nextActivityHour,
   type ActivityMode,
 } from '../domain/history/activity.js';
-import { BOARD_PERIODS, boardTitle } from '../domain/history/board-periods.js';
-import { keptOut, regionGate } from '../domain/history/region-board.js';
+import { TALLY_PERIODS, tallyTitle } from '../domain/history/tally-periods.js';
+import { keptOut, regionGate } from '../domain/history/region-tally.js';
 import { ACTIVITY_MODES, type ActivityView } from '../domain/web/activity-data.js';
-import type { RegionBoardView } from '../domain/web/region-board-data.js';
-import type { RegionBoards } from '../services/region-boards.js';
+import type { RegionTallyView } from '../domain/web/region-tally-data.js';
+import type { RegionTallies } from '../services/region-tallies.js';
 import { sendFailure } from './answers.js';
 import { etagMatches, etagOf } from './geo-cache.js';
 import type { GuildRequest } from './guild-routes.js';
@@ -35,20 +35,20 @@ export interface ActivityWebDeps {
   wayspots: { byId(id: string): { lat: number; lon: number } | undefined };
   /** `settings.timezone`: the buckets' months, weekdays and hours. */
   zone: string;
-  /** The region board (plan 8H-5): `/stats regions`' own path (`RegionBoards.board`). */
-  boards: Pick<RegionBoards, 'board'>;
+  /** The region tally (plan 8H-5): `/stats regions`' own path (`RegionTallies.tally`). */
+  tallies: Pick<RegionTallies, 'tally'>;
   /** A region's channel by name, as the bot sees it; undefined for one it does not. */
   channelName: (channelId: string) => string | undefined;
 }
 
 /**
- * The requests for a server's region board one address may make in a minute: the page asks once
+ * The requests for a server's region tally one address may make in a minute: the page asks once
  * per period a member picks (review of the brief: 60, as a page of tabs needs no more).
  */
-export const BOARD_PER_MINUTE = 60;
+export const TALLY_PER_MINUTE = 60;
 
 /**
- * Whether a member's forum keeps a region's activity and board lines from them: the domain's
+ * Whether a member's forum keeps a region's activity and tally lines from them: the domain's
  * `keptOut` (Matt, 2026-11-05, R-B), of how `PartyViewers` found them to stand to it.
  */
 function keptOutOf(viewer: { barred: Set<string>; hidden: Set<string> }, forum: string): boolean {
@@ -58,7 +58,7 @@ function keptOutOf(viewer: { barred: Set<string>; hidden: Set<string> }, forum: 
 }
 
 /** `?period=month|year|all`, this month by default. */
-const boardQuery = z.object({ period: z.enum(BOARD_PERIODS).default('month') }).strict();
+const tallyQuery = z.object({ period: z.enum(TALLY_PERIODS).default('month') }).strict();
 
 /**
  * The requests for a server's activity one address may make in a minute: the page asks once a
@@ -149,7 +149,7 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
       // without one) and a region no longer in the directory (deleted since, its forum with it)
       // are seen by every member and counted normally (the controller's ruling, 8H4-1). A
       // region's forum, or its text channel where it has none, that the member is kept out of or
-      // not shown by their roles keeps them out alike (Matt, 2026-11-05, R-B: the region board's
+      // not shown by their roles keeps them out alike (Matt, 2026-11-05, R-B: the region tally's
       // rule, `keptOutOf`).
       const seen = buckets.filter((bucket) => {
         const gate = gateOf.get(bucket.regionId);
@@ -186,21 +186,21 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
     },
   );
 
-  // The region board (plan 8H-5, design Part C): `/stats regions`' board as the member may see
+  // The region tally (plan 8H-5, design Part C): `/stats regions`' tally as the member may see
   // it, for the history page. Shaped as /api/activity: membership first, then the forums of the
   // server's regions, or their text channels where they have none (`PartyViewers`,
   // `regionGate`: one that keeps the member out, or that their roles do not show them, leaves
   // its region out of every line and the total; R-B); regions gone and records without one are
   // "No longer a region", seen by everyone.
-  const boardLimiter = new RateLimiter({ uses: BOARD_PER_MINUTE, perMs: 60_000 });
+  const tallyLimiter = new RateLimiter({ uses: TALLY_PER_MINUTE, perMs: 60_000 });
   scope.get(
     '/api/stats/regions',
-    { onRequest: limitedPerAddress(boardLimiter, { now: deps.now }) },
+    { onRequest: limitedPerAddress(tallyLimiter, { now: deps.now }) },
     async (request: GuildRequest, reply) => {
       void reply.header('cache-control', 'private, no-cache');
       const session = await sessions.of(request, reply);
       if (!session) return sendFailure(request, reply, 401);
-      const query = boardQuery.safeParse(request.query ?? {});
+      const query = tallyQuery.safeParse(request.query ?? {});
       if (!query.success) return sendFailure(request, reply, 400);
       const { guild } = request.params;
       const member = await viewers.askedMembership(guild, session.userId);
@@ -208,7 +208,7 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
       if (member.kind === 'unconfirmed') return reply.code(503).send({ error: UNCONFIRMED });
       // What the forums say of the member, asked once the server's regions are known.
       let refused: 'not-member' | 'unconfirmed' | undefined;
-      const shown = await activity.boards.board(
+      const shown = await activity.tallies.tally(
         guild,
         query.data.period,
         deps.now(),
@@ -233,16 +233,16 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
         const name = region === undefined ? undefined : activity.channelName(region.channelId);
         return name === undefined ? `Region ${regionId}` : `#${name}`;
       };
-      const view: RegionBoardView = {
+      const view: RegionTallyView = {
         period: shown.period,
-        title: boardTitle(shown.period),
-        rows: shown.board.rows.map((row) => ({
+        title: tallyTitle(shown.period),
+        rows: shown.tally.rows.map((row) => ({
           name: nameOf(row.regionId),
           raids: row.raids,
           maxes: row.maxes,
         })),
-        gone: shown.board.gone,
-        total: shown.board.total,
+        gone: shown.tally.gone,
+        total: shown.tally.total,
       };
       const body = JSON.stringify(view);
       const etag = etagOf(body);

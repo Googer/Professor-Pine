@@ -20,8 +20,8 @@ import {
   webServerWith,
   type TestWeb,
 } from '../../test/support/web.js';
-import type { RegionBoardView } from '../domain/web/region-board-data.js';
-import { BOARD_PER_MINUTE } from './history-routes.js';
+import type { RegionTallyView } from '../domain/web/region-tally-data.js';
+import { TALLY_PER_MINUTE } from './history-routes.js';
 
 const URL = `/s/${FAKE_GUILD_ID}/api/stats/regions`;
 const ZONE = 'America/New_York';
@@ -71,20 +71,20 @@ async function setup() {
   return { made, web, members, activity, ask };
 }
 
-describe('the region board on the web', () => {
+describe('the region tally on the web', () => {
   let web: TestWeb | undefined;
   afterEach(async () => {
     await web?.app.close();
     web = undefined;
   });
 
-  it('gives a member this month’s board by default, regions named by their channels', async () => {
+  it('gives a member this month’s tally by default, regions named by their channels', async () => {
     const made = await setup();
     web = made.web;
     const answer = await made.ask();
     expect(answer.statusCode).toBe(200);
     expect(answer.headers['cache-control']).toBe('private, no-cache');
-    expect(answer.json<RegionBoardView>()).toEqual({
+    expect(answer.json<RegionTallyView>()).toEqual({
       period: 'month',
       title: 'Raids and max battles by region, this month',
       rows: [
@@ -100,10 +100,10 @@ describe('the region board on the web', () => {
   it('gives this year and all time', async () => {
     const made = await setup();
     web = made.web;
-    const year = (await made.ask('?period=year')).json<RegionBoardView>();
+    const year = (await made.ask('?period=year')).json<RegionTallyView>();
     expect(year.title).toBe('Raids and max battles by region, this year');
     expect(year.total).toEqual({ raids: 12, maxes: 1 });
-    const all = (await made.ask('?period=all')).json<RegionBoardView>();
+    const all = (await made.ask('?period=all')).json<RegionTallyView>();
     expect(all.rows[0]).toEqual({ name: '#east', raids: 26, maxes: 0 });
     expect(all.total).toEqual({ raids: 32, maxes: 1 });
   });
@@ -112,10 +112,10 @@ describe('the region board on the web', () => {
     const made = await setup();
     web = made.web;
     made.made.gateway.barred.set(EAST_FORUM, new Set([ALICE]));
-    const alice = (await made.ask()).json<RegionBoardView>();
+    const alice = (await made.ask()).json<RegionTallyView>();
     expect(alice.rows.map((row) => row.name)).toEqual(['#west', 'Region 3']);
     expect(alice.total).toEqual({ raids: 6, maxes: 1 });
-    const bob = (await made.ask('', BOB)).json<RegionBoardView>();
+    const bob = (await made.ask('', BOB)).json<RegionTallyView>();
     expect(bob.rows.map((row) => row.name)).toEqual(['#east', '#west', 'Region 3']);
   });
 
@@ -123,7 +123,7 @@ describe('the region board on the web', () => {
     const made = await setup();
     web = made.web;
     made.made.gateway.shutOut(EAST_FORUM, ALICE);
-    const alice = (await made.ask()).json<RegionBoardView>();
+    const alice = (await made.ask()).json<RegionTallyView>();
     expect(alice.rows.map((row) => row.name)).toEqual(['#west', 'Region 3']);
     expect(alice.total).toEqual({ raids: 6, maxes: 1 });
   });
@@ -133,13 +133,13 @@ describe('the region board on the web', () => {
     web = made.web;
     made.made.gateway.addChannel(UNBOUNDED_CHANNEL, 'unbounded');
     made.made.gateway.shutOut(UNBOUNDED_CHANNEL, ALICE);
-    const alice = (await made.ask()).json<RegionBoardView>();
+    const alice = (await made.ask()).json<RegionTallyView>();
     expect(alice.rows.map((row) => row.name)).toEqual(['#east', '#west']);
-    const bob = (await made.ask('', BOB)).json<RegionBoardView>();
+    const bob = (await made.ask('', BOB)).json<RegionTallyView>();
     expect(bob.rows.map((row) => row.name)).toEqual(['#east', '#west', 'Region 3']);
   });
 
-  it('answers 304 for the board the page has, and anew once it changed', async () => {
+  it('answers 304 for the tally the page has, and anew once it changed', async () => {
     const made = await setup();
     web = made.web;
     const etag = String((await made.ask()).headers.etag);
@@ -149,7 +149,7 @@ describe('the region board on the web', () => {
     ]);
     const later = await made.ask('', ALICE, { 'if-none-match': etag });
     expect(later.statusCode).toBe(200);
-    expect(later.json<RegionBoardView>().total).toEqual({ raids: 13, maxes: 1 });
+    expect(later.json<RegionTallyView>().total).toEqual({ raids: 13, maxes: 1 });
   });
 
   it('is for members: 401 without a session, 403 for others, 503 while Discord cannot say', async () => {
@@ -178,7 +178,7 @@ describe('the region board on the web', () => {
     web = made.web;
     const cookie = await made.web.loggedIn(ALICE, 'Alice');
     let status = 0;
-    for (let n = 0; n <= BOARD_PER_MINUTE; n++) {
+    for (let n = 0; n <= TALLY_PER_MINUTE; n++) {
       status = (await made.web.app.inject({ method: 'GET', url: URL, headers: { cookie } }))
         .statusCode;
     }

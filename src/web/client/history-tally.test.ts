@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import type { RegionBoardView } from '../../domain/web/region-board-data.js';
+import type { RegionTallyView } from '../../domain/web/region-tally-data.js';
 import {
-  boardAddress,
-  boardFailure,
-  boardLoginHref,
-  boardTable,
+  tallyAddress,
+  tallyFailure,
+  tallyLoginHref,
+  tallyTable,
   PERIOD_CHOICES,
   periodOfAddress,
-} from './history-board.js';
+} from './history-tally.js';
 
-const VIEW: RegionBoardView = {
+const VIEW: RegionTallyView = {
   period: 'all',
   title: 'Raids and max battles by region, all time',
   rows: [
@@ -21,7 +21,7 @@ const VIEW: RegionBoardView = {
   total: { raids: 25_120, maxes: 1 },
 };
 
-describe('the region board on the history page', () => {
+describe('the region tally on the history page', () => {
   it('offers the three periods, this month first', () => {
     expect(PERIOD_CHOICES).toEqual([
       { period: 'month', label: 'This month' },
@@ -31,7 +31,7 @@ describe('the region board on the history page', () => {
   });
 
   it('asks the server’s route for a period, and reads the period of the page’s address', () => {
-    expect(boardAddress('412345678901234567', 'year')).toBe(
+    expect(tallyAddress('412345678901234567', 'year')).toBe(
       '/s/412345678901234567/api/stats/regions?period=year',
     );
     expect(periodOfAddress('?period=all')).toBe('all');
@@ -40,13 +40,13 @@ describe('the region board on the history page', () => {
   });
 
   it('sends a login back to the page itself, without its query (P3)', () => {
-    expect(boardLoginHref('/s/412345678901234567/history')).toBe(
+    expect(tallyLoginHref('/s/412345678901234567/history')).toBe(
       '/auth/login?next=%2Fs%2F412345678901234567%2Fhistory',
     );
   });
 
-  it('lays the board out as rows of the table, numbered, counts with commas, then the foot', () => {
-    expect(boardTable(VIEW)).toEqual({
+  it('lays the tally out as rows of the table, numbered, counts with commas, then the foot', () => {
+    expect(tallyTable(VIEW)).toEqual({
       rows: [
         ['1', '#east', '25,114', '0'],
         ['2', '#west', '4', '1'],
@@ -57,29 +57,29 @@ describe('the region board on the history page', () => {
         ['', 'Total', '25,120', '1'],
       ],
     });
-    expect(boardTable({ ...VIEW, gone: null }).foot).toEqual([['', 'Total', '25,120', '1']]);
+    expect(tallyTable({ ...VIEW, gone: null }).foot).toEqual([['', 'Total', '25,120', '1']]);
   });
 
-  it('says what keeps the board from showing, with the login where it helps', () => {
-    expect(boardFailure(401, 'discord')).toEqual({
+  it('says what keeps the tally from showing, with the login where it helps', () => {
+    expect(tallyFailure(401, 'discord')).toEqual({
       text: "Log in with Discord to see this server's history.",
       login: true,
     });
-    expect(boardFailure(401, 'links')).toEqual({
+    expect(tallyFailure(401, 'links')).toEqual({
       text: "Use /maps in Discord to log in and see this server's history.",
       login: false,
     });
-    expect(boardFailure(403, 'discord')).toEqual({
+    expect(tallyFailure(403, 'discord')).toEqual({
       text: 'Members only: this page is for the members of this server.',
       login: false,
     });
-    expect(boardFailure(503, 'discord').text).toBe(
+    expect(tallyFailure(503, 'discord').text).toBe(
       'Discord cannot be reached just now. Try again in a moment.',
     );
-    expect(boardFailure(429, 'discord').text).toBe(
+    expect(tallyFailure(429, 'discord').text).toBe(
       'That was a lot of asking. Try again in a minute.',
     );
-    expect(boardFailure(undefined, 'discord').text).toBe(
+    expect(tallyFailure(undefined, 'discord').text).toBe(
       'The board could not be loaded. Try again in a moment.',
     );
   });

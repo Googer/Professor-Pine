@@ -6,12 +6,12 @@ import {
   type ActivityBucket,
   type ActivityWindow,
 } from '../../src/domain/history/activity.js';
-import type { MonthRange, RegionCount } from '../../src/domain/history/region-board.js';
+import type { MonthRange, RegionCount } from '../../src/domain/history/region-tally.js';
 
 /**
  * The activity buckets in memory (`ActivityReader`), the repository's twin for the map's route:
  * `add(serverId, buckets)` puts them in place, summed into those there as the hourly adding sums
- * them; `reads` counts every read, of buckets, of months (8H4-4) and of the region board's sums
+ * them; `reads` counts every read, of buckets, of months (8H4-4) and of the region tally's sums
  * (plan 8H-5), `failing` makes every read reject.
  */
 export class MemoryActivity implements ActivityReader {

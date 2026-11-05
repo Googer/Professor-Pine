@@ -1,28 +1,28 @@
-import type { BoardPeriod } from '../history/board-periods.js';
+import type { TallyPeriod } from '../history/tally-periods.js';
 
 /*
- * The region board on the web (plan 8H-5): what `GET /s/<guild>/api/stats/regions` answers and
+ * The region tally on the web (plan 8H-5): what `GET /s/<guild>/api/stats/regions` answers and
  * the history page reads. Types only, shared by the server and the page.
  */
 
 /** Raids and max battles together. */
-export interface BoardCountsView {
+export interface TallyCountsView {
   raids: number;
   maxes: number;
 }
 
 /** A region's line: its name as the page shows it (`#west`, or `Region 5`), and its counts. */
-export interface BoardRowView extends BoardCountsView {
+export interface TallyRowView extends TallyCountsView {
   name: string;
 }
 
-export interface RegionBoardView {
-  period: BoardPeriod;
-  /** "Raids and max battles by region, this month" (`boardTitle`). */
+export interface RegionTallyView {
+  period: TallyPeriod;
+  /** "Raids and max battles by region, this month" (`tallyTitle`). */
   title: string;
   /** The busiest first; every region the member may see, those without a party too. */
-  rows: BoardRowView[];
+  rows: TallyRowView[];
   /** "No longer a region": regions deleted since and records without one; null for none. */
-  gone: BoardCountsView | null;
-  total: BoardCountsView;
+  gone: TallyCountsView | null;
+  total: TallyCountsView;
 }

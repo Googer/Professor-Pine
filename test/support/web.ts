@@ -9,7 +9,7 @@ import { onTestFinished } from 'vitest';
 import type { MemberStanding } from '../../src/discord/member-directory.js';
 import type { ServerChannel } from '../../src/domain/regions/region-import.js';
 import type { WayspotRow } from '../../src/domain/wayspots/kept.js';
-import { RegionBoards } from '../../src/services/region-boards.js';
+import { RegionTallies } from '../../src/services/region-tallies.js';
 import { RegionDirectory } from '../../src/services/region-directory.js';
 import type { OAuthGateway, OAuthUser } from '../../src/web/discord-oauth.js';
 import { EditorCache, type EditorSources } from '../../src/web/editor-cache.js';
@@ -503,15 +503,15 @@ export function stopWebWith(
 /**
  * The activity heatmap on the map over a test's buckets (`MemoryActivity`), as the bot wires it
  * (plan 8H-4): the gyms, regions and kept Wayspots that place it, and the posts' zone. Pass as
- * `activity`. The region board (plan 8H-5) is a `RegionBoards` over the same reader and regions,
- * the invented regions those of the fakes' server (row 1), unless a test gives its own `boards`;
+ * `activity`. The region tally (plan 8H-5) is a `RegionTallies` over the same reader and regions,
+ * the invented regions those of the fakes' server (row 1), unless a test gives its own `tallies`;
  * no channel has a name unless `channelName` says it.
  */
 export function activityWebWith(
-  deps: Omit<ActivityWebDeps, 'boards' | 'channelName'> & Partial<ActivityWebDeps>,
+  deps: Omit<ActivityWebDeps, 'tallies' | 'channelName'> & Partial<ActivityWebDeps>,
 ): ActivityWebDeps {
   return {
-    boards: new RegionBoards({
+    tallies: new RegionTallies({
       reader: deps.reader,
       regions: deps.regions,
       guilds: {

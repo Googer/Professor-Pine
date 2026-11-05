@@ -103,7 +103,7 @@ function permissionsIn(
 }
 
 /**
- * What a Share of the region board (plan 8H-5) reads of a server, from the gateway's cache: every
+ * What a Share of the region tally (plan 8H-5) reads of a server, from the gateway's cache: every
  * role with its permissions (the everyone role, whose id is the server's, among them), the
  * overwrites of the region's forum (or its text channel where it has none) and of the channel
  * shared into (its parent's for a thread), and a member's roles where the cache has the member.
@@ -131,7 +131,7 @@ export interface ShareView {
  *   beside one that views the share channel is a gap, as allowances beat denials among roles;
  * - each member the share channel's overwrites let in by name: dropped unless their roles are
  *   known and they view the region (one not in the server lets nobody in).
- * A member's own denial on the forum is accepted: the board names nobody.
+ * A member's own denial on the forum is accepted: the tally names nobody.
  *
  * These sets are complete (R1): take any set of roles S that views the share channel and not the
  * region. It views the share channel through one role W of S alone (a role allowing View there,
@@ -218,7 +218,7 @@ export function namedViewers(share: readonly ApiOverwrite[]): string[] {
 }
 
 /**
- * The regions a board shared into a channel keeps (plan 8H-5, R-A, R2), by their forum's (or
+ * The regions a tally shared into a channel keeps (plan 8H-5, R-A, R2), by their forum's (or
  * text channel's) id: a region whose channel is the share channel or the channel a shared-in
  * post is in has the same audience and is kept before anything is checked; every other region by
  * `shareKeeps`, what depends on the share channel alone done once for them all (8H5-4).

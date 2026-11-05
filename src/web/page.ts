@@ -192,7 +192,7 @@ export interface HistoryPageData {
  * The history page `/s/<guild>/history` (plan 8H-5; design Part G's "history page", which Parts
  * D, E and G add sections to): a static template as the map's, public as the map is (its data
  * is for members only), its own script and style and the map's head script of the theme,
- * nothing inline. The header leads back to the map; the region board's places (its title, the
+ * nothing inline. The header leads back to the map; the region tally's places (its title, the
  * periods, the line of what it says, the table) are filled by the script from
  * `/api/stats/regions`; the heatmap's History is on the map, linked.
  */
@@ -207,14 +207,14 @@ export function historyPage(data: HistoryPageData, assets: AssetManifest): strin
     '<p id="notice" role="status" hidden></p>',
     '<main id="history">',
     "<h1>This server's history</h1>",
-    '<section id="board" aria-labelledby="board-title">',
-    '<h2 id="board-title">Raids and max battles by region</h2>',
-    '<div id="board-periods" class="periods" role="group" aria-label="Period"></div>',
-    '<p id="board-status" role="status"></p>',
-    '<table id="board-table" hidden>' +
+    '<section id="tally" aria-labelledby="tally-title">',
+    '<h2 id="tally-title">Raids and max battles by region</h2>',
+    '<div id="tally-periods" class="periods" role="group" aria-label="Period"></div>',
+    '<p id="tally-status" role="status"></p>',
+    '<table id="tally-table" hidden>' +
       '<thead><tr><th scope="col">#</th><th scope="col">Region</th>' +
       '<th scope="col" class="count">Raids</th><th scope="col" class="count">Max battles</th>' +
-      '</tr></thead><tbody id="board-rows"></tbody><tfoot id="board-foot"></tfoot></table>',
+      '</tr></thead><tbody id="tally-rows"></tbody><tfoot id="tally-foot"></tfoot></table>',
     '</section>',
     '<section id="activity" aria-labelledby="activity-title">',
     '<h2 id="activity-title">Activity on the map</h2>',

@@ -141,7 +141,7 @@ import { RaidEventService } from './services/raid-event-service.js';
 import { RegionAdminService } from './services/region-admin-service.js';
 import { WayfarerImportService } from './services/wayfarer-import-service.js';
 import { WayfarerReviewService } from './services/wayfarer-review-service.js';
-import { RegionBoards } from './services/region-boards.js';
+import { RegionTallies } from './services/region-tallies.js';
 import { RegionDirectory } from './services/region-directory.js';
 import { SelfRoleService } from './services/self-role-service.js';
 import { SpawnService } from './services/spawn-service.js';
@@ -410,7 +410,7 @@ export async function startApp(
   });
   const history = new HistoryRepository(db);
   // The activity heatmap's buckets (plan 8H-4): derived from the history, added hourly by the
-  // upkeep after its sweep, read by the map's /api/activity and the region board (plan 8H-5).
+  // upkeep after its sweep, read by the map's /api/activity and the region tally (plan 8H-5).
   const activity = new ActivityRepository(db, { zone: config.settings.timezone });
   // Every party that ends is kept in the party history (plan 8H), with what the store writes;
   // in rehearsal mode too (only Discord is narrowed then, not the store).
@@ -1023,8 +1023,8 @@ export async function startApp(
     gymTargets,
     newTrains,
     historyOptIns: history,
-    // The region board (plan 8H-5): the heatmap's buckets summed per region, for /stats.
-    regionBoards: new RegionBoards({
+    // The region tally (plan 8H-5): the heatmap's buckets summed per region, for /stats.
+    regionTallies: new RegionTallies({
       reader: activity,
       regions,
       guilds,
@@ -1499,14 +1499,14 @@ export async function startApp(
         grunts: gruntMessages,
       },
       // The activity heatmap (plan 8H-4): the buckets, placed at the gyms and Power Spots kept now.
-      // The region board of the history page (plan 8H-5): /stats regions' own RegionBoards.
+      // The region tally of the history page (plan 8H-5): /stats regions' own RegionTallies.
       activity: {
         reader: activity,
         regions,
         gyms,
         wayspots,
         zone: config.settings.timezone,
-        boards: ctx.regionBoards,
+        tallies: ctx.regionTallies,
         channelName: (channelId) => partyGateway.channelName(channelId),
       },
       // The Wayfarer export tool (plan 8W-P): served from wayspot-tool/ to the admins the owner

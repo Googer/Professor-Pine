@@ -2,7 +2,7 @@
 
 /*
  * The history page (plan 8H-5): the map's header and look, light or dark as the device or the
- * choice made on the map is, and its sections (for now the region board) one under another, the
+ * choice made on the map is, and its sections (for now the region tally) one under another, the
  * width of a phone too.
  */
 
@@ -177,7 +177,7 @@ h2 {
   margin-top: 1.4em;
 }
 
-/* The periods of the board: the one shown pressed. */
+/* The periods of the tally: the one shown pressed. */
 .periods {
   display: flex;
   flex-wrap: wrap;
@@ -204,22 +204,22 @@ h2 {
   color: var(--on-color);
 }
 
-#board-status {
+#tally-status {
   color: var(--muted);
 }
 
-#board-status:empty {
+#tally-status:empty {
   display: none;
 }
 
-#board-table {
+#tally-table {
   border-collapse: collapse;
   width: 100%;
   margin-top: 8px;
 }
 
-#board-table th,
-#board-table td {
+#tally-table th,
+#tally-table td {
   padding: 4px 6px;
   border-bottom: 1px solid var(--line);
   text-align: left;
@@ -227,12 +227,12 @@ h2 {
   overflow-wrap: anywhere;
 }
 
-#board-table .count {
+#tally-table .count {
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
 
-#board-table tfoot td {
+#tally-table tfoot td {
   font-weight: 600;
 }
 
@@ -265,8 +265,8 @@ h2 {
     padding: 8px 10px 20px;
   }
 
-  #board-table th,
-  #board-table td {
+  #tally-table th,
+  #tally-table td {
     padding: 4px 3px;
   }
 }

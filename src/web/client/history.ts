@@ -1,20 +1,20 @@
-import type { BoardPeriod } from '../../domain/history/board-periods.js';
-import type { RegionBoardView } from '../../domain/web/region-board-data.js';
+import type { TallyPeriod } from '../../domain/history/tally-periods.js';
+import type { RegionTallyView } from '../../domain/web/region-tally-data.js';
 import {
-  boardAddress,
-  boardFailure,
-  boardLoginHref,
-  boardTable,
+  tallyAddress,
+  tallyFailure,
+  tallyLoginHref,
+  tallyTable,
   PERIOD_CHOICES,
   periodOfAddress,
-} from './history-board.js';
+} from './history-tally.js';
 import { byId, getJson, showAccount } from './page-frame.js';
 import { RequestError } from './request-error.js';
 
 /*
  * The history page (plan 8H-5): the header (the login, or the member's menu with the theme), and
- * the region board of `/api/stats/regions` with its periods, the one shown kept in the address
- * (`?period=`). Only the latest question is drawn. Its pure part is `history-board.ts`; this is
+ * the region tally of `/api/stats/regions` with its periods, the one shown kept in the address
+ * (`?period=`). Only the latest question is drawn. Its pure part is `history-tally.ts`; this is
  * tried at staging.
  */
 
@@ -23,14 +23,14 @@ const guild = data.guild ?? '';
 const login = data.login === 'discord' ? 'discord' : 'links';
 void showAccount(guild, login, 'history', () => [], true);
 
-const title = byId('board-title');
-const status = byId('board-status');
-const table = byId('board-table');
-const rows = byId('board-rows');
-const foot = byId('board-foot');
-const periods = byId('board-periods');
+const title = byId('tally-title');
+const status = byId('tally-status');
+const table = byId('tally-table');
+const rows = byId('tally-rows');
+const foot = byId('tally-foot');
+const periods = byId('tally-periods');
 
-let period: BoardPeriod = periodOfAddress(location.search);
+let period: TallyPeriod = periodOfAddress(location.search);
 let asked = 0;
 
 /** A row of the table: its cells as text, the counts aligned as numbers. */
@@ -67,16 +67,16 @@ async function show(): Promise<void> {
     button.setAttribute('aria-pressed', String(one === period));
   }
   status.textContent = 'Loading…';
-  let view: RegionBoardView;
+  let view: RegionTallyView;
   try {
-    view = await getJson<RegionBoardView>(boardAddress(guild, period));
+    view = await getJson<RegionTallyView>(tallyAddress(guild, period));
   } catch (err) {
     if (mine !== asked) return;
-    const failure = boardFailure(err instanceof RequestError ? err.status : undefined, login);
+    const failure = tallyFailure(err instanceof RequestError ? err.status : undefined, login);
     table.hidden = true;
     if (failure.login) {
       const link = document.createElement('a');
-      link.href = boardLoginHref(location.pathname);
+      link.href = tallyLoginHref(location.pathname);
       link.textContent = failure.text;
       status.replaceChildren(link);
     } else {
@@ -85,7 +85,7 @@ async function show(): Promise<void> {
     return;
   }
   if (mine !== asked) return;
-  const laid = boardTable(view);
+  const laid = tallyTable(view);
   title.textContent = view.title;
   rows.replaceChildren(...laid.rows.map(tableRow));
   foot.replaceChildren(...laid.foot.map(tableRow));
