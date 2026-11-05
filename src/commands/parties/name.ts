@@ -28,9 +28,10 @@ export const name: SimpleCommand = {
   help: {
     category: 'meetup',
     details:
-      'Use it in the post of the train or meetup; a meetup only its maker or a moderator can ' +
-      'rename. The post says who renamed it. The title of the post follows; Discord lets a post ' +
-      'be renamed twice in ten minutes, so a third name within that time shows a little later.',
+      'Renames the train or meetup and the title of its post; the post says who renamed it. Use ' +
+      'it in the post of the train or meetup. Only its maker or a moderator can rename a ' +
+      'meetup.\n\nDiscord lets a post be renamed twice in ten minutes, so a third name within ' +
+      'that time shows a little later.',
     examples: ['/name name:Community Day picnic, by the lake'],
   },
   guards: [requireTimed, requireMeetupChanger],

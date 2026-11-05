@@ -37,12 +37,12 @@ export const shout: SimpleCommand = {
   help: {
     category: 'basic-raid',
     details:
-      'For members who are signed up for the raid, max battle, train or meetup. ' +
-      'Says your message in the post and pings everybody else who is signed up and not done, ' +
-      'in every group, unless they switched such pings off; with `group:True` only the others ' +
-      'of your own group (in a party of several groups).\n\nHowever many they are, everybody is ' +
-      'pinged, in several messages if it takes them. For what cannot wait: the lobby is ' +
-      'starting, the gym was wrong.\n\nUse it in the post of the raid, max battle, train or meetup.',
+      'Posts your message and pings everybody else who is signed up and not done yet, in every ' +
+      'group, unless they switched such pings off. With `group:True` it pings only the others ' +
+      'of your own group.\n\nEverybody is pinged, however many they are (in several messages ' +
+      'if needed), so keep it for what cannot wait: the lobby is starting, the gym was ' +
+      'wrong.\n\nYou must be signed up. Use it in the post of the raid, max battle, train or ' +
+      'meetup.',
     examples: [
       '/shout message:Starting the lobby in two minutes',
       '/shout message:Our lobby is up, join now group:True',

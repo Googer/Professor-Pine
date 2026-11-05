@@ -36,10 +36,10 @@ export const status: SimpleCommand = {
   help: {
     category: 'basic-raid',
     details:
-      'In the post of a raid, a max battle, a train or a meetup: puts it, with who is coming and the buttons, at the ' +
-      'bottom of the post again, so nobody has to scroll up. In the channel of a region: shows ' +
-      'you the raids of that region that are going on, its trains and its meetups, as the pinned list of ' +
-      'its forum does.',
+      'In the post of a raid, max battle, train or meetup: shows it again at the bottom of the ' +
+      'post, with who is coming and the buttons, so nobody has to scroll up.\n\nIn the channel ' +
+      'of a region: shows you the raids, max battles, trains and meetups going on there, as the ' +
+      'pinned list of its forum does. Only you see that list.',
     examples: ['/status'],
   },
   guards: [requireGuild],
@@ -91,9 +91,9 @@ export const where: SimpleCommand = {
   help: {
     category: 'basic-raid',
     details:
-      'Shows you a link to the gym in Google Maps and a map of its surroundings: the gym of a ' +
-      'raid, or the stop a train is at; in the post of a max battle, its Power Spot with a link ' +
-      'to it. Use it in the post of the raid, max battle or train.',
+      'Shows you where it is, with a link to Google Maps: the gym of a raid, with a map of the ' +
+      'area; the Power Spot of a max battle; or the stop a train is at. Only you see the answer. ' +
+      'Use it in the post of the raid, max battle or train.',
     examples: ['/where'],
   },
   guards: [requireGym],

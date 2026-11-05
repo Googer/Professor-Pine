@@ -136,7 +136,7 @@ describe('/help: an example with a date (plan 8X-G, M2)', () => {
       ['end', '9pm'],
     ] as const) {
       const page = textDisplays(await ask({ options: { command } }, dated)).join('\n');
-      expect(page).toContain(`a date comes first, month-day (\`11-23 ${time}\`)`);
+      expect(page).toContain(`A date comes first, month-day (\`11-23 ${time}\`)`);
       expect(page).not.toContain('10-14');
     }
   });

@@ -186,8 +186,8 @@ export const report: SimpleCommand = {
       'Use it in the post of the raid, max battle, train or meetup. A form asks what is wrong (a meetup at ' +
       "somebody's home, a duplicate raid, something hurtful); only the moderators read it, and " +
       'they decide what to do.\n\nTo report one message, use **Report to moderators** in the Apps ' +
-      'menu of the message.\n\nIt takes the place of `/delete`, which is for moderators now. What ' +
-      'nobody comes to needs no report: it goes away by itself after it ends.',
+      'menu of the message.\n\nOnly moderators can close a post (`/delete`). A raid or meetup that ' +
+      'nobody comes to needs no report: its post goes away by itself after it ends.',
     examples: ['/report'],
   },
   guards: [requireParty],

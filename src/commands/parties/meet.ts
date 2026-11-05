@@ -100,19 +100,18 @@ export const meet: SimpleCommand = {
   help: {
     category: 'basic-raid',
     details:
-      'In the post of a raid: sets the meeting time of the group you are in and tells the ' +
-      'others of the group.\n\nThe time must lie between now (or the hatch) and the end of the ' +
-      'raid; `hatch` means the hatch time, `cancel` removes the meeting time (on the post, the ' +
-      "button with the game's Select Time icon offers the in-game RSVP times). A while after it, " +
-      'those who are here are asked whether they are done.\n\nIn the post of a max battle: the same, ' +
-      'but the time lies between now and the end of the battle, which has no hatch (no `hatch`; ' +
-      'the button offers the five-minute times of the next hour).\n\nIn the post of a train or ' +
-      'meetup: sets when ' +
-      'it starts, for everybody, and tells the others who are signed up. Give a clock ' +
-      'time, a date and a time, or `in 30` for minutes from now (a bare number is an hour ' +
-      'there); `cancel` removes the start.\n\nA time without a date is read on the day the party ' +
-      'starts, or else the day it ends, while that day is still to come, and otherwise on ' +
-      `today's date; a date comes first, month-day (\`${DATE_EXAMPLE} 6pm\`).\n\n` +
+      'In the post of a raid: sets when the group you are in meets, and tells the others of ' +
+      'the group. The time lies between now (or the hatch) and the end of the raid: minutes ' +
+      'from now (`20`), a clock time, or `hatch`; `cancel` removes it. A while after it, those ' +
+      'who are here are asked whether they are done.\n\nIn the post of a max battle: the same, ' +
+      'up to the end of the battle (there is no `hatch`).\n\nOn the post, the button with the ' +
+      "game's Select Time icon offers the times to pick from: the game's own RSVP times for a " +
+      'raid, every five minutes of the next hour for a max battle.\n\nIn the post of a train ' +
+      'or meetup: sets when it starts, for everybody, and tells the others who are signed up. ' +
+      'Give a clock time, a date and a time, or `in 30` for minutes from now (a number alone, ' +
+      'such as `7`, is a clock hour); `cancel` removes the start.\n\nA time without a date is ' +
+      'on the day it starts, or else the day it ends, while that day is still to come, and ' +
+      `otherwise today. A date comes first, month-day (\`${DATE_EXAMPLE} 6pm\`).\n\n` +
       'You must be signed up.',
     examples: ['/meet time:6:15pm', '/meet time:hatch', `/meet time:${DATE_EXAMPLE} 6:15pm`],
   },

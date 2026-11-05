@@ -354,7 +354,7 @@ describe('renderCommandHelp', () => {
     expect(explained('info')).toContain('A form opens with the text as it is now');
     for (const name of ['meet', 'end']) {
       expect(explained(name)).toContain('month-day');
-      expect(explained(name)).toContain("today's date");
+      expect(explained(name)).toContain('and otherwise today');
     }
     expect(explained('end')).toContain('after its last time was removed');
   });

@@ -63,9 +63,10 @@ function signUpCommand(
     help: {
       category: 'basic-raid',
       details:
-        `${details} ${IN_A_POST} The same as the button on the post, with a head count and a ` +
-        'group if you like; without one a newcomer lands in the newest group (one with room ' +
-        'where groups have a size), where the button asks a newcomer which group.',
+        `${details} ${IN_A_POST}\n\nIt does what the button on the post does, and you can add ` +
+        'how many you are (`count`) and which group to be in (`group`). Where there are several ' +
+        'groups the button asks which one; without `group`, the command puts you in the newest ' +
+        'group, or in another with room when that one is full.',
       examples: [`/${name}`, `/${name} count:3`],
     },
     guards: [requireParty],
@@ -90,7 +91,8 @@ function remoteCommand(name: string, description: string, remote: boolean): Simp
     help: {
       category: 'basic-raid',
       details:
-        'Your status stays as it is; if you were not signed up, you are marked ' +
+        `Marks you as taking part ${remote ? 'remotely' : 'in person'}. Whether you are ` +
+        'interested, coming or here stays as it is; if you were not signed up, you are marked ' +
         `as interested. ${IN_A_POST}`,
       examples: [`/${name}`],
     },

@@ -45,12 +45,13 @@ const newGroup: SubcommandPart = {
     .setDescription('Open another group for this raid, max battle or train and move to it'),
   help: {
     details:
-      'For more trainers than one lobby holds, or for trainers who want to raid apart from ' +
-      "the others. The post's Interested, Join and Here then ask a newcomer which group; who " +
-      'signs up without choosing (+1, Remote, the commands) lands in the newest group.\n\nA group ' +
-      'nobody is in goes, unless it has a label or a meeting time, so a new group is refused ' +
-      'while you are alone in such a group: it would change nothing. A raid, max battle or train has at ' +
-      'most five groups.\n\nThe same as Group… on the post, which also takes a label.',
+      'Opens a new group and moves you to it: for more trainers than one lobby holds, or for ' +
+      "those who want to raid apart. The post's Interested, Join and Here buttons then ask " +
+      'newcomers which group; who signs up without choosing (+1, Remote, the commands) goes ' +
+      'into the newest group.\n\nAn empty group goes away unless it has a name or a meeting ' +
+      'time, so while you are alone in such a group a new one would change nothing, and it is ' +
+      'refused. There are at most five groups.\n\nThe same as Group… on the post, which can ' +
+      'also name the group.',
   },
   throttle: ACTION_THROTTLE,
   async execute(interaction, ctx) {
@@ -78,7 +79,12 @@ const labelGroup: SubcommandPart = {
         .setDescription('The name; leave it out to remove the name')
         .setMaxLength(MAX_GROUP_LABEL),
     ),
-  help: { examples: ['/group label text:by the fountain'] },
+  help: {
+    details:
+      'Names the group you are in, such as where it meets; the post shows the name. Leave ' +
+      '`text` out to remove it. You must be signed up.',
+    examples: ['/group label text:by the fountain'],
+  },
   throttle: ACTION_THROTTLE,
   async execute(interaction, ctx) {
     const party = commandParty(interaction, ctx);

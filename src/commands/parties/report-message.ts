@@ -87,7 +87,7 @@ export const reportMessageCommand: MessageCommand = {
       'Tell the moderators privately about a message, or about a raid, max battle, train or meetup',
     details:
       'On the post of a raid, max battle, train or meetup (or its copy, or its line in the region channel) ' +
-      'it reports that party, as `/report` does.\n\nOn any other message it reports that message ' +
+      'it reports that raid, max battle, train or meetup, as `/report` does.\n\nOn any other message it reports that message ' +
       'alone: the moderators see who wrote it, where and when, and a copy of what it said. A ' +
       'form asks what is wrong; only the moderators read it.',
   },

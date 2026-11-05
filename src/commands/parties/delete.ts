@@ -219,9 +219,9 @@ export const deleteParty: SimpleCommand = {
   help: {
     category: 'admin',
     details:
-      'For admins and moderators: closes the raid, max battle, train or meetup of the post you use it in. ' +
-      'It asks first, in a dialog, whether to archive its post (it stays readable and locked) ' +
-      'or to delete the post with everything written in it.\n\nMembers tell the moderators with ' +
+      'For admins and moderators: closes the raid, max battle, train or meetup of the post you ' +
+      'use it in. A dialog asks first whether to archive the post (it stays readable and ' +
+      'locked) or to delete it with everything written in it.\n\nMembers tell the moderators with ' +
       '`/report`. Server Settings › Integrations decide who sees it (Manage Messages by default).',
     examples: ['/delete'],
   },
