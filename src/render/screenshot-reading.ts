@@ -41,6 +41,8 @@ const DOUBT_WORDS: Readonly<Record<ReportDoubt, string>> = {
   'countdown-long': 'The countdown is longer than a raid or an egg lasts.',
   'stage-unknown': 'I could not tell whether it is an egg or a hatched raid.',
   'tier-unknown': 'I could not tell the tier.',
+  'tier-from-name':
+    'I could not read the tier heads: the tier comes from the mega’s name, and its CP fits it.',
   'heads-unverified': 'I have not seen that many tier heads on a screenshot before.',
   'heads-only': 'The tier comes from the heads alone: the boss may hide one.',
   'heads-uncertain': 'There may be a tier head I missed.',

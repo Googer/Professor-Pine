@@ -69,6 +69,7 @@ const GYM_DOUBTS: readonly ReportDoubt[] = ['no-gym', 'gym-unclear'];
 const BOSS_DOUBTS: readonly ReportDoubt[] = [
   'stage-unknown',
   'tier-unknown',
+  'tier-from-name',
   'heads-unverified',
   'heads-only',
   'heads-uncertain',

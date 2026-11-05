@@ -80,6 +80,8 @@ export interface ReportContext {
  * - `countdown-long`: longer than an egg incubates or a raid lasts;
  * - `stage-unknown`: neither egg nor hatched could be told;
  * - `tier-unknown`; `heads-unverified`: 6 or 7 heads, a count no sample has shown yet;
+ * - `tier-from-name`: no heads were read, and the tier is a mega's or primal's off the list by
+ *   its name, its CP at that tier confirming it (`megaTierOfName`);
  * - `heads-only`: a hatched raid's tier from its heads alone (the boss may hide a head);
  * - `heads-uncertain`: a place just outside the row of heads looks like a head too (a head at
  *   the end of the row may have been missed);
@@ -105,6 +107,7 @@ export type ReportDoubt =
   | 'countdown-long'
   | 'stage-unknown'
   | 'tier-unknown'
+  | 'tier-from-name'
   | 'heads-unverified'
   | 'heads-only'
   | 'heads-uncertain'
@@ -150,8 +153,11 @@ export interface ScreenshotReport {
   stage: 'egg' | 'hatched' | null;
   heads: number | null;
   tier: RaidTier | null;
-  /** The tier came from the boss that the CP named, or from the heads. */
-  tierFrom: 'boss' | 'heads' | null;
+  /**
+   * The tier came from the boss that the CP named, from the heads, or from a mega's or primal's
+   * name off the list when no heads were read (`megaTierOfName`, plan 7P-H; absent before).
+   */
+  tierFrom: 'boss' | 'heads' | 'name' | null;
   cp: number | null;
   bossName: string | null;
   boss: ReportBoss | null;
@@ -425,6 +431,37 @@ function bossOf(
   return { boss: null, from: null };
 }
 
+/** A name read that says a mega or primal form: the game writes "Mega" or "Primal" before it. */
+const MEGA_NAME = /^\s*(?:mega|primal)\s+\S/i;
+
+/**
+ * The tier of a raid by its boss's name when no heads were read (plan 7P-H, Matt 2026-11-05: a
+ * split's pane read "Mega Sableye" under its CP and no heads): a name that says a mega or primal
+ * form, nearly exactly (`NAME_ALONE`) the game data's name of such forms none of which is on the
+ * list (a listed boss is decided by its CP alone), all of one class: Mega Legendary when the
+ * species is legendary or mythical (Mega Latios and Latias, Primal Kyogre and Groudon), else Mega.
+ * Never Super Mega, which the name does not tell. The caller takes it only when the CP at that
+ * tier confirms the boss (`unlistedBossOf`).
+ */
+export function megaTierOfName(
+  name: string | null,
+  context: Pick<ReportContext, 'bosses' | 'pokemon'>,
+): RaidTier | undefined {
+  if (!name || !MEGA_NAME.test(name)) return undefined;
+  const forms = context.pokemon.filter(
+    (entry) => entry.kind === 'mega' && nameSimilarity(name, entry.name) >= NAME_ALONE,
+  );
+  if (forms.length === 0) return undefined;
+  if (forms.some((entry) => context.bosses.some((boss) => boss.key === entry.key))) {
+    return undefined;
+  }
+  const legendary = (entry: PokemonEntry) =>
+    entry.class === 'legendary' || entry.class === 'mythical';
+  const first = forms[0];
+  if (!first || forms.some((entry) => legendary(entry) !== legendary(first))) return undefined;
+  return raidTier(legendary(first) ? 'MegaLegendary' : 'Mega');
+}
+
 /**
  * The boss of a hatched raid that no listed boss fits (Matt, 2026-10-25: the reader decides as
  * `/raid` does, which takes `t5 azelf` while the feed has not listed Azelf yet): the Pokémon whose
@@ -625,6 +662,19 @@ export function screenshotReport(reading: ReadScreen, context: ReportContext): S
       bossFrom = 'cp-and-name';
       if (isUnlisted(unlisted)) doubts.add('boss-unlisted');
     } else if (stage === 'hatched') doubts.add('heads-only');
+  } else if (stage === 'hatched') {
+    // No heads: a mega's or primal's name off the list gives the tier, when its CP at that tier
+    // confirms the boss (plan 7P-H).
+    const named = megaTierOfName(text.bossName, context);
+    const unlisted = named ? unlistedBossOf(text.cp, text.bossName, named, context) : undefined;
+    if (named && unlisted) {
+      tier = named;
+      tierFrom = 'name';
+      boss = unlisted;
+      bossFrom = 'cp-and-name';
+      doubts.add('tier-from-name');
+      if (isUnlisted(unlisted)) doubts.add('boss-unlisted');
+    }
   }
   if (!tier) doubts.add('tier-unknown');
   if (tier?.level === 'Elite') doubts.add('elite');

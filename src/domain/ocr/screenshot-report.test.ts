@@ -172,6 +172,68 @@ describe('screenshotReport', () => {
     expect(report(45833, 'Yvelta1').boss).toBeNull();
   });
 
+  // Plan 7P-H (Matt, 2026-11-05): a mega raid in a split whose heads were not read, its boss on
+  // no list, was refused as no raid screen though "Mega Sableye" stood under its CP.
+  describe('a mega or primal boss off the list, its tier from its name when the heads fail', () => {
+    const offList = BOSSES.filter(
+      (one) => one.tier.level !== 'Mega' && one.tier.level !== 'MegaLegendary',
+    );
+    const MEGA = { level: 'Mega', shadow: false } as const;
+    const LEGENDARY = { level: 'MegaLegendary', shadow: false } as const;
+    const cpOf = (key: string, tier: typeof MEGA | typeof LEGENDARY) => {
+      const entry = CATALOGUE.byKey(key);
+      if (!entry) throw new Error(key);
+      return raidBossCp(entry.stats, bossStamina(tier));
+    };
+    const report = (cp: number, bossName: string, heads: number | null = null, bosses = offList) =>
+      screenshotReport(read(hatched({ cp, bossName }), heads), context({ bosses }));
+
+    it('takes a mega’s tier by its name, a legendary’s or a primal’s as Mega Legendary', () => {
+      const sableye = report(cpOf('sableye_mega', MEGA), 'Mega Sableye');
+      expect(sableye).toMatchObject({
+        tier: MEGA,
+        tierFrom: 'name',
+        boss: { key: 'sableye_mega', tier: MEGA },
+        bossFrom: 'cp-and-name',
+      });
+      expect(sableye.doubts).toEqual(['tier-from-name', 'boss-unlisted']);
+      // Mega Latios and Latias are no ordinary megas: legendary, so Mega Legendary.
+      expect(report(cpOf('latios_mega', LEGENDARY), 'Mega Latios')).toMatchObject({
+        tier: LEGENDARY,
+        tierFrom: 'name',
+        boss: { key: 'latios_mega' },
+      });
+      expect(report(cpOf('kyogre_primal', LEGENDARY), 'Primal Kyogre')).toMatchObject({
+        tier: LEGENDARY,
+        tierFrom: 'name',
+        boss: { key: 'kyogre_primal' },
+      });
+    });
+
+    it('takes no tier the CP does not confirm, nor a plain name, and the heads first', () => {
+      // The CP of a Mega Legendary raid is no Mega Sableye's: no tier, no raid screen.
+      const wrong = report(cpOf('sableye_mega', LEGENDARY), 'Mega Sableye');
+      expect(wrong).toMatchObject({ tier: null, boss: null });
+      expect(wrong.doubts).toContain('not-a-raid-screen');
+      expect(report(cpOf('sableye_mega', MEGA), 'Sableye').tier).toBeNull();
+      // Heads read: their tier, as before.
+      const heads = report(cpOf('sableye_mega', MEGA), 'Mega Sableye', 4);
+      expect(heads).toMatchObject({ tier: MEGA, tierFrom: 'heads' });
+      expect(heads.doubts).not.toContain('tier-from-name');
+    });
+
+    it('leaves a listed mega to its CP: a misread one gets no tier by its name', () => {
+      const cp = cpOf('sableye_mega', MEGA);
+      const listed = { ...boss('yveltal'), key: 'sableye_mega', name: 'Mega Sableye', tier: MEGA };
+      const entry = CATALOGUE.byKey('sableye_mega');
+      if (!entry) throw new Error('sableye_mega');
+      const bosses = [...offList, { ...listed, entry }];
+      expect(report(cp, 'Mega Sableye', null, bosses)).toMatchObject({ tierFrom: 'boss' });
+      const misread = report(Number(`9${String(cp).slice(1)}`), 'Mega Sableye', null, bosses);
+      expect(misread.tier).toBeNull();
+    });
+  });
+
   // Matt, 2026-10-25: the reader decides a boss as `/raid` does. `/raid t5 azelf` takes Azelf
   // although the feed does not list it yet; a screenshot of it was a "T5 raid" without a boss.
   describe('a Pokémon the boss list does not have, as `/raid` takes it with a tier', () => {
