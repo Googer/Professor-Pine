@@ -7,6 +7,7 @@ import {
   tallyTable,
   PERIOD_CHOICES,
   periodOfAddress,
+  quietLine,
 } from './history-tally.js';
 import { byId, getJson, showAccount } from './page-frame.js';
 import { RequestError } from './request-error.js';
@@ -28,6 +29,7 @@ const status = byId('tally-status');
 const table = byId('tally-table');
 const rows = byId('tally-rows');
 const foot = byId('tally-foot');
+const quiet = byId('tally-quiet');
 const periods = byId('tally-periods');
 
 let period: TallyPeriod = periodOfAddress(location.search);
@@ -74,6 +76,7 @@ async function show(): Promise<void> {
     if (mine !== asked) return;
     const failure = tallyFailure(err instanceof RequestError ? err.status : undefined, login);
     table.hidden = true;
+    quiet.hidden = true;
     if (failure.login) {
       const link = document.createElement('a');
       link.href = tallyLoginHref(location.pathname);
@@ -89,6 +92,9 @@ async function show(): Promise<void> {
   title.textContent = view.title;
   rows.replaceChildren(...laid.rows.map(tableRow));
   foot.replaceChildren(...laid.foot.map(tableRow));
+  const line = quietLine(view);
+  quiet.textContent = line ?? '';
+  quiet.hidden = line === null;
   status.textContent = '';
   table.hidden = false;
 }

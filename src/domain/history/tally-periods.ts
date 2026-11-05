@@ -30,3 +30,16 @@ export const PERIOD_LABELS: Readonly<Record<TallyPeriod, string>> = {
 export function tallyTitle(period: TallyPeriod): string {
   return `Raids and max battles by region, ${PERIOD_WORDS[period]}`;
 }
+
+/**
+ * The words before the quiet regions (Matt, 2026-11-05): "No raids or max battles: #a, #b", one
+ * line on Discord and on the history page alike.
+ */
+export const QUIET_LEAD = 'No raids or max battles';
+
+/** What the tally says where every region it shows was quiet in the period. */
+export function allQuietText(period: TallyPeriod): string {
+  return period === 'all'
+    ? `${QUIET_LEAD} in any region yet.`
+    : `${QUIET_LEAD} ${PERIOD_WORDS[period]} in any region.`;
+}

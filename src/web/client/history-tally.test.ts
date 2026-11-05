@@ -7,6 +7,7 @@ import {
   tallyTable,
   PERIOD_CHOICES,
   periodOfAddress,
+  quietLine,
 } from './history-tally.js';
 
 const VIEW: RegionTallyView = {
@@ -15,8 +16,8 @@ const VIEW: RegionTallyView = {
   rows: [
     { name: '#east', raids: 25_114, maxes: 0 },
     { name: '#west', raids: 4, maxes: 1 },
-    { name: 'Region 3', raids: 0, maxes: 0 },
   ],
+  quiet: ['#north', 'Region 3'],
   gone: { raids: 2, maxes: 0 },
   total: { raids: 25_120, maxes: 1 },
 };
@@ -50,7 +51,6 @@ describe('the region tally on the history page', () => {
       rows: [
         ['1', '#east', '25,114', '0'],
         ['2', '#west', '4', '1'],
-        ['3', 'Region 3', '0', '0'],
       ],
       foot: [
         ['', 'No longer a region', '2', '0'],
@@ -58,6 +58,20 @@ describe('the region tally on the history page', () => {
       ],
     });
     expect(tallyTable({ ...VIEW, gone: null }).foot).toEqual([['', 'Total', '25,120', '1']]);
+  });
+
+  it('names the quiet regions on one line under the table, or says that every region was quiet', () => {
+    expect(quietLine(VIEW)).toBe('No raids or max battles: #north, Region 3');
+    expect(quietLine({ ...VIEW, quiet: [] })).toBeNull();
+    const none = { ...VIEW, rows: [], gone: null, total: { raids: 0, maxes: 0 } };
+    expect(quietLine({ ...none, period: 'month' })).toBe(
+      'No raids or max battles this month in any region.',
+    );
+    expect(quietLine({ ...none, period: 'all' })).toBe(
+      'No raids or max battles in any region yet.',
+    );
+    // A server the member sees no region of says nothing of quiet ones.
+    expect(quietLine({ ...none, quiet: [] })).toBeNull();
   });
 
   it('says what keeps the tally from showing, with the login where it helps', () => {

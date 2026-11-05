@@ -20,8 +20,10 @@ export interface RegionTallyView {
   period: TallyPeriod;
   /** "Raids and max battles by region, this month" (`tallyTitle`). */
   title: string;
-  /** The busiest first; every region the member may see, those without a party too. */
+  /** The regions the member may see that had a party, the busiest first. */
   rows: TallyRowView[];
+  /** The regions the member may see without a raid or max battle, named as the rows are. */
+  quiet: string[];
   /** "No longer a region": regions deleted since and records without one; null for none. */
   gone: TallyCountsView | null;
   total: TallyCountsView;

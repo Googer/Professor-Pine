@@ -72,8 +72,16 @@ export interface TallyCounts {
 }
 
 export interface RegionTally {
-  /** Every current region not left out, the busiest first (raids and max battles together). */
+  /**
+   * Every current region not left out that had a raid or max battle in the period, the busiest
+   * first (raids and max battles together).
+   */
   rows: RegionCount[];
+  /**
+   * The current regions not left out that had none (Matt, 2026-11-05: a month listed 22 of 28
+   * regions as "none"), by region id: shown on one line after the rows, never ranked.
+   */
+  quiet: number[];
   /**
    * "No longer a region" (Matt, 2026-11-05): the parties of regions not current (deleted since,
    * a legacy channel that is no region now) and of none (0), so that the totals stay true; null
@@ -86,10 +94,10 @@ export interface RegionTally {
 
 /**
  * The tally of a server's sums of a period (`sums`, by region, a region possibly more than
- * once): a row for each region of `current` (the server's regions now, zero ones too) that is not
- * `leftOut` (a region whose forum keeps the member out, or one the public may not see), ranked by
- * raids and max battles together and then by region id; the parties of every other region on one
- * line, `gone`, last. A region left out is left out of every line and of the totals; it is never
+ * once): a row for each region of `current` (the server's regions now) that is not `leftOut` (a
+ * region whose forum keeps the member out, or one the public may not see) and had a party, ranked
+ * by raids and max battles together and then by region id; those without one in `quiet`, by
+ * region id; the parties of every other region on one line, `gone`, last. A region left out is left out of every line and of the totals; it is never
  * moved to `gone`, which everybody sees.
  */
 export function regionTally(
@@ -111,12 +119,17 @@ export function regionTally(
     row.raids += sum.raids;
     row.maxes += sum.maxes;
   }
-  const rows = [...byRegion.values()].sort(
-    (a, b) => b.raids + b.maxes - (a.raids + a.maxes) || a.regionId - b.regionId,
-  );
+  const counted = [...byRegion.values()];
+  const rows = counted
+    .filter((row) => row.raids + row.maxes > 0)
+    .sort((a, b) => b.raids + b.maxes - (a.raids + a.maxes) || a.regionId - b.regionId);
+  const quiet = counted
+    .filter((row) => row.raids + row.maxes === 0)
+    .map((row) => row.regionId)
+    .sort((a, b) => a - b);
   const total = rows.reduce(
     (all, row) => ({ raids: all.raids + row.raids, maxes: all.maxes + row.maxes }),
     { ...gone },
   );
-  return { rows, gone: gone.raids + gone.maxes === 0 ? null : gone, total };
+  return { rows, quiet, gone: gone.raids + gone.maxes === 0 ? null : gone, total };
 }

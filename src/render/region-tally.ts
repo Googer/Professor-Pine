@@ -1,5 +1,10 @@
 import type { APIComponentInContainer } from 'discord.js';
-import { tallyTitle, type TallyPeriod } from '../domain/history/tally-periods.js';
+import {
+  allQuietText,
+  QUIET_LEAD,
+  tallyTitle,
+  type TallyPeriod,
+} from '../domain/history/tally-periods.js';
 import type { TallyCounts } from '../domain/history/region-tally.js';
 import type { V2Message } from '../discord/party-gateway.js';
 import { container, LIST_COLOUR, textDisplay } from './v2.js';
@@ -8,13 +13,15 @@ import { container, LIST_COLOUR, textDisplay } from './v2.js';
 export interface TallyView {
   period: TallyPeriod;
   rows: ReadonlyArray<TallyCounts & { name: string }>;
+  /** The regions without a raid or max battle in the period, named as the rows are. */
+  quiet: readonly string[];
   gone: TallyCounts | null;
   total: TallyCounts;
 }
 
 /**
- * At most this many characters of rows: a server of very many regions lists its busiest, and
- * says how many more there are, within Discord's 4,000 of a message.
+ * At most this many characters of rows and the quiet line: a server of very many regions lists
+ * its busiest, and says how many more there are, within Discord's 4,000 of a message.
  */
 export const TALLY_ROWS_BUDGET = 3_000;
 
@@ -29,8 +36,27 @@ export function countWords(counts: TallyCounts): string {
 }
 
 /**
- * The tally as text: the title and a line per region, numbered, the busiest first (as many as
- * `TALLY_ROWS_BUDGET` holds, then how many more), then "No longer a region" and the total.
+ * The line of quiet regions in at most `room` characters: "No raids or max battles: <#a>, <#b>",
+ * as many names as fit and "…and 3 more", or only how many where not one fits.
+ */
+function quietLine(names: readonly string[], room: number): string {
+  let line = `${QUIET_LEAD}: ${number(names.length)} ${names.length === 1 ? 'region' : 'regions'}`;
+  let named = `${QUIET_LEAD}: `;
+  for (const [index, name] of names.entries()) {
+    named += `${index === 0 ? '' : ', '}${name}`;
+    if (named.length > room) break;
+    const more = names.length - index - 1;
+    const candidate = more === 0 ? named : `${named}, …and ${number(more)} more`;
+    if (candidate.length <= room) line = candidate;
+  }
+  return line;
+}
+
+/**
+ * The tally as text: the title and a line per region that had a party, numbered, the busiest
+ * first (as many as `TALLY_ROWS_BUDGET` holds, then how many more), the quiet regions on one line
+ * within what is left of it (or, where every region was quiet, a sentence that says so), then
+ * "No longer a region" and the total.
  */
 export function tallyTexts(view: TallyView): string[] {
   const lines: string[] = [];
@@ -44,6 +70,13 @@ export function tallyTexts(view: TallyView): string[] {
     }
     lines.push(line);
     used += line.length + 1;
+  }
+  if (view.quiet.length > 0) {
+    lines.push(
+      view.rows.length === 0
+        ? allQuietText(view.period)
+        : quietLine(view.quiet, TALLY_ROWS_BUDGET - used),
+    );
   }
   const head = [`### ${tallyTitle(view.period)}`, ...lines].join('\n');
   const foot = [

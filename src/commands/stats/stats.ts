@@ -52,16 +52,14 @@ const SHARE = 'share';
 
 /** A tally as Discord names its regions: by their channels (`RegionTallies.regionText`). */
 export function tallyView(ctx: AppContext, shown: ShownTally): TallyView {
+  const nameOf = (regionId: number): string => {
+    const region = shown.regions.get(regionId);
+    return region === undefined ? `Region ${regionId}` : ctx.regionTallies.regionText(region);
+  };
   return {
     period: shown.period,
-    rows: shown.tally.rows.map((row) => {
-      const region = shown.regions.get(row.regionId);
-      return {
-        ...row,
-        name:
-          region === undefined ? `Region ${row.regionId}` : ctx.regionTallies.regionText(region),
-      };
-    }),
+    rows: shown.tally.rows.map((row) => ({ ...row, name: nameOf(row.regionId) })),
+    quiet: shown.tally.quiet.map(nameOf),
     gone: shown.tally.gone,
     total: shown.tally.total,
   };
@@ -109,7 +107,7 @@ async function privateTally(
   const shown = await ctx.regionTallies.forMember(serverId, period, memberId, Date.now());
   // A tally shared here leaves out a region somebody who sees this channel may not see: said
   // where it would drop one of the member's own (R-A). The member's regions are the same in
-  // every period (zero rows too), so the command's finding holds for the others.
+  // every period (quiet ones too), so the command's finding holds for the others.
   const leavesOut = carried ?? (await sharesLeaveOut(ctx, shown, channelId));
   const note = leavesOut ? NOTE : NO_NOTE;
   const periods = TALLY_PERIODS.map((one) =>
@@ -125,14 +123,18 @@ async function privateTally(
   return tallyMessage(tallyView(ctx, shown), more);
 }
 
-/** Whether a tally shared into a channel would leave out a row of the member's own tally. */
+/**
+ * Whether a tally shared into a channel would leave out a region of the member's own tally, a
+ * row or a quiet one.
+ */
 async function sharesLeaveOut(
   ctx: AppContext,
   shown: ShownTally,
   channelId: string,
 ): Promise<boolean> {
   const dropped = await ctx.regionTallies.notShared([...shown.regions.values()], channelId);
-  return shown.tally.rows.some((row) => dropped?.has(row.regionId) === true);
+  const own = [...shown.tally.rows.map((row) => row.regionId), ...shown.tally.quiet];
+  return own.some((regionId) => dropped?.has(regionId) === true);
 }
 
 /** What the private answer says under Share where a shared tally would leave regions out. */

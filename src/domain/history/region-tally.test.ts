@@ -44,9 +44,35 @@ describe('the region tally', () => {
     expect(tally.total).toEqual({ raids: 13, maxes: 9 });
   });
 
-  it('lists a current region without a party at the bottom, with nothing', () => {
-    const tally = regionTally([count(2, 1)], [3, 1, 2], new Set());
-    expect(tally.rows).toEqual([count(2, 1), count(1, 0), count(3, 0)]);
+  it('sets the current regions without a raid or max battle apart as quiet, by id, not as rows', () => {
+    const tally = regionTally(
+      [count(2, 1), count(4, 0, 0), count(5, 0, 2)],
+      [3, 1, 2, 4, 5],
+      new Set(),
+    );
+    expect(tally.rows).toEqual([count(5, 0, 2), count(2, 1)]);
+    expect(tally.quiet).toEqual([1, 3, 4]);
+    // The totals are those of the rows: the quiet add nothing.
+    expect(tally.total).toEqual({ raids: 1, maxes: 2 });
+  });
+
+  it('has no quiet regions where every region had a party', () => {
+    const tally = regionTally([count(1, 1), count(2, 0, 1)], [1, 2], new Set());
+    expect(tally.quiet).toEqual([]);
+    expect(tally.rows).toHaveLength(2);
+  });
+
+  it('makes every region quiet where none had a party, the gone ones still counted', () => {
+    const tally = regionTally([count(99, 3)], [2, 1], new Set());
+    expect(tally.rows).toEqual([]);
+    expect(tally.quiet).toEqual([1, 2]);
+    expect(tally.gone).toEqual({ raids: 3, maxes: 0 });
+    expect(tally.total).toEqual({ raids: 3, maxes: 0 });
+  });
+
+  it('never names a region left out among the quiet', () => {
+    const tally = regionTally([count(1, 2)], [1, 2, 3], new Set([2]));
+    expect(tally.quiet).toEqual([3]);
   });
 
   it('sums the parties of every region no longer there, and of none, on one line last', () => {
@@ -71,6 +97,7 @@ describe('the region tally', () => {
       new Set(),
     );
     expect(tally.rows).toEqual([count(1, 3, 1)]);
+    expect(tally.quiet).toEqual([]);
     // Gone ones with nothing are no line.
     expect(tally.gone).toBeNull();
   });

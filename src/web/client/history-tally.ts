@@ -1,7 +1,9 @@
 import {
   TALLY_PERIODS,
+  allQuietText,
   isTallyPeriod,
   PERIOD_LABELS,
+  QUIET_LEAD,
   type TallyPeriod,
 } from '../../domain/history/tally-periods.js';
 import type { RegionTallyView } from '../../domain/web/region-tally-data.js';
@@ -59,6 +61,18 @@ export function tallyTable(view: RegionTallyView): { rows: string[][]; foot: str
       ['', 'Total', number(view.total.raids), number(view.total.maxes)],
     ],
   };
+}
+
+/**
+ * The line under the table of the regions without a raid or max battle ("No raids or max
+ * battles: #a, #b"), or the sentence that none had one where every region shown was quiet; null
+ * where no region was quiet.
+ */
+export function quietLine(view: RegionTallyView): string | null {
+  if (view.quiet.length === 0) return null;
+  return view.rows.length === 0
+    ? allQuietText(view.period)
+    : `${QUIET_LEAD}: ${view.quiet.join(', ')}`;
 }
 
 /**

@@ -245,6 +245,13 @@ h2 {
   font-weight: 600;
 }
 
+/* The regions without a raid or max battle, one line under the table that wraps on a phone. */
+#tally-quiet {
+  margin: 8px 0 0;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+
 /* A phone (as the map's header): "Pine" alone, "Log in", the table's own width. */
 @media (max-width: 767px) {
   #header {

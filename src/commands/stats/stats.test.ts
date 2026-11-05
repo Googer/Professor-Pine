@@ -124,7 +124,7 @@ const MONTH_TALLY = [
   '### Raids and max battles by region, this month\n' +
     `1. <#${EAST_CHANNEL}>: 6 raids\n` +
     `2. <#${WEST_CHANNEL}>: 4 raids, 1 max battle\n` +
-    '3. Region 3: none',
+    'No raids or max battles: Region 3',
   'No longer a region: 2 raids, 1 max battle\n**Total:** 12 raids, 2 max battles',
 ];
 
@@ -166,7 +166,7 @@ describe('/stats regions', () => {
       '### Raids and max battles by region, this year\n' +
         `1. <#${WEST_CHANNEL}>: 14 raids, 1 max battle\n` +
         `2. <#${EAST_CHANNEL}>: 6 raids\n` +
-        '3. Region 3: none',
+        'No raids or max battles: Region 3',
       'No longer a region: 2 raids, 1 max battle\n**Total:** 22 raids, 2 max battles',
     ]);
     const all = asV2(answered(await made.ask({ period: 'all' })));
@@ -174,7 +174,7 @@ describe('/stats regions', () => {
       '### Raids and max battles by region, all time\n' +
         `1. <#${EAST_CHANNEL}>: 26 raids\n` +
         `2. <#${WEST_CHANNEL}>: 14 raids, 1 max battle\n` +
-        '3. Region 3: none',
+        'No raids or max battles: Region 3',
     );
     expect(periodStyles(all)).toEqual([
       ButtonStyle.Secondary,
@@ -190,7 +190,7 @@ describe('/stats regions', () => {
     expect(textDisplays(misty).slice(0, 2)).toEqual([
       '### Raids and max battles by region, this month\n' +
         `1. <#${WEST_CHANNEL}>: 4 raids, 1 max battle\n` +
-        '2. Region 3: none',
+        'No raids or max battles: Region 3',
       'No longer a region: 2 raids, 1 max battle\n**Total:** 6 raids, 2 max battles',
     ]);
     // Ash is not barred: he sees East.
@@ -302,7 +302,7 @@ describe('Share of the region tally', () => {
       '### Raids and max battles by region, this month\n' +
         `1. <#${WEST_CHANNEL}>: 5 raids, 1 max battle\n` +
         `2. <#${EAST_CHANNEL}>: 6 raids\n` +
-        '3. Region 3: none',
+        'No raids or max battles: Region 3',
       'No longer a region: 2 raids, 1 max battle\n**Total:** 13 raids, 2 max battles',
       '-# Shared by **Ash**',
     ]);
@@ -338,9 +338,23 @@ describe('Share of the region tally', () => {
     expect(textDisplays(v2(posted?.message)).slice(0, 2)).toEqual([
       '### Raids and max battles by region, this month\n' +
         `1. <#${WEST_CHANNEL}>: 4 raids, 1 max battle\n` +
-        '2. Region 3: none',
+        'No raids or max battles: Region 3',
       'No longer a region: 2 raids, 1 max battle\n**Total:** 6 raids, 2 max battles',
     ]);
+  });
+
+  it('says under Share that a share drops a region also where that region is only on the quiet line', async () => {
+    const made = await setup();
+    moderatorsEast(made.gateway);
+    // Region 3 (quiet this month) is a moderators' channel; East is everybody's again.
+    made.gateway.forumOverwrites.delete(EAST_FORUM);
+    made.gateway.forumOverwrites.set(UNBOUNDED_CHANNEL, [
+      roleOverwrite(made.gateway.guildId, '0', view),
+      roleOverwrite(MOD_ROLE, view, '0'),
+    ]);
+    const answer = asV2(answered(await made.ask()));
+    expect(textDisplays(answer)[0]).toContain('No raids or max battles: Region 3');
+    expect(textDisplays(answer)[2]).toContain('leaves out');
   });
 
   it('carries the note under Share in the period buttons, asking nothing of the channel at a press (8H5-4)', async () => {

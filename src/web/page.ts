@@ -193,7 +193,7 @@ export interface HistoryPageData {
  * D, E and G add sections to): a static template as the map's, public as the map is (its data
  * is for members only), its own script and style and the map's head script of the theme,
  * nothing inline. The header leads back to the map; the region tally's places (its title, the
- * periods, the line of what it says, the table) are filled by the script from
+ * periods, the line of what it says, the table, the line of quiet regions) are filled by the script from
  * `/api/stats/regions`; the heatmap's History is on the map, linked.
  */
 export function historyPage(data: HistoryPageData, assets: AssetManifest): string {
@@ -215,6 +215,7 @@ export function historyPage(data: HistoryPageData, assets: AssetManifest): strin
       '<thead><tr><th scope="col">#</th><th scope="col">Region</th>' +
       '<th scope="col" class="count">Raids</th><th scope="col" class="count">Max battles</th>' +
       '</tr></thead><tbody id="tally-rows"></tbody><tfoot id="tally-foot"></tfoot></table>',
+    '<p id="tally-quiet" hidden></p>',
     '</section>',
     '<section id="activity" aria-labelledby="activity-title">',
     '<h2 id="activity-title">Activity on the map</h2>',

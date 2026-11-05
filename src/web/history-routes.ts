@@ -241,6 +241,7 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
           raids: row.raids,
           maxes: row.maxes,
         })),
+        quiet: shown.tally.quiet.map(nameOf),
         gone: shown.tally.gone,
         total: shown.tally.total,
       };

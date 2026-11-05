@@ -8,6 +8,12 @@ describe("the history page's look", () => {
     expect(region).toMatch(/overflow-wrap:\s*anywhere;/u);
   });
 
+  it('wraps the line of quiet regions on a phone, a long name breaking anywhere', () => {
+    const quiet = blockAt(clientSheet('history.css'), /#tally-quiet\s*\{/u);
+    expect(quiet).toMatch(/overflow-wrap:\s*anywhere;/u);
+    expect(quiet).not.toMatch(/white-space:\s*nowrap;/u);
+  });
+
   // Staging of 8H-5 (2026-11-05): at phone width "10" broke into "1" over "0".
   it('never breaks a rank or a count, only the region name', () => {
     const cells = blockAt(clientSheet('history.css'), /#tally-table th,\s*#tally-table td\s*\{/u);

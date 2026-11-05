@@ -90,8 +90,8 @@ describe('the region tally on the web', () => {
       rows: [
         { name: '#east', raids: 6, maxes: 0 },
         { name: '#west', raids: 4, maxes: 1 },
-        { name: 'Region 3', raids: 0, maxes: 0 },
       ],
+      quiet: ['Region 3'],
       gone: { raids: 2, maxes: 0 },
       total: { raids: 12, maxes: 1 },
     });
@@ -113,10 +113,11 @@ describe('the region tally on the web', () => {
     web = made.web;
     made.made.gateway.barred.set(EAST_FORUM, new Set([ALICE]));
     const alice = (await made.ask()).json<RegionTallyView>();
-    expect(alice.rows.map((row) => row.name)).toEqual(['#west', 'Region 3']);
+    expect(alice.rows.map((row) => row.name)).toEqual(['#west']);
+    expect(alice.quiet).toEqual(['Region 3']);
     expect(alice.total).toEqual({ raids: 6, maxes: 1 });
     const bob = (await made.ask('', BOB)).json<RegionTallyView>();
-    expect(bob.rows.map((row) => row.name)).toEqual(['#east', '#west', 'Region 3']);
+    expect(bob.rows.map((row) => row.name)).toEqual(['#east', '#west']);
   });
 
   it('keeps a region whose forum only the member’s roles hide, as the map does (spec 2.5)', async () => {
@@ -124,7 +125,7 @@ describe('the region tally on the web', () => {
     web = made.web;
     made.made.gateway.shutOut(EAST_FORUM, ALICE);
     const alice = (await made.ask()).json<RegionTallyView>();
-    expect(alice.rows.map((row) => row.name)).toEqual(['#east', '#west', 'Region 3']);
+    expect(alice.rows.map((row) => row.name)).toEqual(['#east', '#west']);
   });
 
   it('judges a region without a forum by its text channel (8H5-2)', async () => {
@@ -134,8 +135,11 @@ describe('the region tally on the web', () => {
     made.made.gateway.barred.set(UNBOUNDED_CHANNEL, new Set([ALICE]));
     const alice = (await made.ask()).json<RegionTallyView>();
     expect(alice.rows.map((row) => row.name)).toEqual(['#east', '#west']);
+    expect(alice.quiet).toEqual([]);
     const bob = (await made.ask('', BOB)).json<RegionTallyView>();
-    expect(bob.rows.map((row) => row.name)).toEqual(['#east', '#west', 'Region 3']);
+    expect(bob.rows.map((row) => row.name)).toEqual(['#east', '#west']);
+    // Quiet this month, named as the rows are (the page's names know no channel of it).
+    expect(bob.quiet).toEqual(['Region 3']);
   });
 
   it('answers 304 for the tally the page has, and anew once it changed', async () => {

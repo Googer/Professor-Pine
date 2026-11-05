@@ -241,7 +241,13 @@ describe('the history page (plan 8H-5)', () => {
     // The heatmap's months are the server's, which may not reach back to 2018 (P6).
     expect(page.body).not.toMatch(/since 20\d\d/u);
     // The region tally's places, which the script fills.
-    for (const id of ['tally-title', 'tally-periods', 'tally-status', 'tally-table']) {
+    for (const id of [
+      'tally-title',
+      'tally-periods',
+      'tally-status',
+      'tally-table',
+      'tally-quiet',
+    ]) {
       expect(page.body, id).toContain(`id="${id}"`);
     }
   });
