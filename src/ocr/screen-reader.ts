@@ -114,6 +114,7 @@ export const READ_WIDTH = 720;
  * A picture whose height is under this many times its width (wider than tall, or near square:
  * two panes side by side) is read whole at twice `READ_WIDTH`, so that each pane's text has its
  * usual size; so is one cut side by side by a divider into panes narrower than `NARROW_PANE` of it.
+ * A pane of that shape is read with its contrast stretched (`paneReadSize`).
  */
 const WIDE = 1.4;
 const NARROW_PANE = 0.6;
@@ -288,7 +289,7 @@ export async function readPicture(
       // A pane that does not touch the picture's top has no status bar of its own. Each pane is
       // read as a phone's screenshot is (`READ_WIDTH`): its text has the size it has on a phone
       // (read at twice the width, Matt's splits lost three heads and gained nothing); a small GO
-      // boxed in its pane is read enlarged (`paneReadSize`).
+      // boxed in its pane is read enlarged, a pane near square stretched (`paneReadSize`).
       const reading = await readRegion(region, box, size, paneGrey.y0 === contentGrey.y0);
       const body = screenBody(
         reading.lines,
@@ -322,11 +323,12 @@ export async function readPicture(
 
 /**
  * How a screen is read: at most `width` wide, or, `enlarged`, exactly that wide, its contrast
- * stretched (`paneReadSize`).
+ * stretched; `stretched`, at most that wide, its contrast stretched (`paneReadSize`).
  */
 export interface ReadSize {
   width: number;
   enlarged?: true;
+  stretched?: true;
 }
 
 /** The width `box` is read at by `size`. */
@@ -340,12 +342,19 @@ function readWidthOf(box: Box, size: ReadSize): number {
  * pane (`boxedIn`) narrower than that. Such a GO draws its text smaller than a phone's (Matt's
  * splits: the gym's name 17 pixels tall in a box 664 wide, light on GO's light sky, read
  * "Histori htowi" or not at all), so it is read enlarged to its pane's width (at most twice
- * `READ_WIDTH`), as GO would fill it, with its contrast stretched (plan 7P-G).
+ * `READ_WIDTH`), as GO would fill it, with its contrast stretched (plan 7P-G). Any other pane
+ * near square or wider (its content under `WIDE` times as tall as wide), which GO fills but
+ * draws by its height as it draws a boxed-in one, is read at its usual size with its contrast
+ * stretched (plan 7P-H: Matt's pane 1080 × 1212, the gym's name 26 pixels tall on GO's light sky,
+ * read "Hollov unBr" or not at all; stretched, whole. Read larger, its text boxes moved the max
+ * battles' heads' bands of Matt's other splits, which then lost heads).
  */
 export function paneReadSize(pane: Box, box: Box): ReadSize {
-  return box.x1 - box.x0 < READ_WIDTH && boxedIn(pane, box)
-    ? { width: Math.min(pane.x1 - pane.x0, 2 * READ_WIDTH), enlarged: true }
-    : { width: READ_WIDTH };
+  const width = box.x1 - box.x0;
+  if (width < READ_WIDTH && boxedIn(pane, box))
+    return { width: Math.min(pane.x1 - pane.x0, 2 * READ_WIDTH), enlarged: true };
+  if (box.y1 - box.y0 < width * WIDE) return { width: READ_WIDTH, stretched: true };
+  return { width: READ_WIDTH };
 }
 
 /**
@@ -434,9 +443,10 @@ async function readRegion(
   const small = await cropped().resize(smallWidth, smallHeight, { fit: 'fill' }).raw().toBuffer();
   const smallImage = { width: smallWidth, height: smallHeight, data: small };
   const raw = { width: smallWidth, height: smallHeight, channels: 3 as const };
-  const readImage = size.enlarged
-    ? { ...smallImage, data: await sharp(small, { raw }).normalise().raw().toBuffer() }
-    : smallImage;
+  const readImage =
+    size.enlarged || size.stretched
+      ? { ...smallImage, data: await sharp(small, { raw }).normalise().raw().toBuffer() }
+      : smallImage;
   const lines = (await readText(readImage)).map((line) =>
     movedLine(line, (one) => scaledBox(one, width / smallWidth, height / smallHeight)),
   );

@@ -98,12 +98,34 @@ describe('countHeads', () => {
 });
 
 describe('headBand', () => {
+  const template = headTemplate(icon());
+
   it('looks above the CP of a hatched raid, else under the countdown', () => {
     const cpBox = { x0: 300, y0: 1100, x1: 780, y1: 1200 };
     const countdownBox = { x0: 420, y0: 1500, x1: 660, y1: 1560 };
-    expect(headBand({ cpBox, countdownBox })).toEqual({ top: 1052, bottom: 1112, unit: 30 });
+    expect(headBand({ cpBox, countdownBox })).toEqual({ top: 1028, bottom: 1112, unit: 30 });
     expect(headBand({ cpBox: null, countdownBox })).toEqual({ top: 1560, bottom: 1794, unit: 90 });
     expect(headBand({ cpBox: null, countdownBox: null })).toBeNull();
+  });
+
+  it('finds the heads GO draws higher over the CP in a short pane (plan 7P-H)', () => {
+    // Matt's split of 2026-11-05: in a pane 1080 × 1212 the CP was 80 pixels tall (unit 24),
+    // its heads 29 tall and 17 above it, so their tops stood 1.9 units over the CP's top.
+    const cpBox = { x0: 200, y0: 120, x1: 400, y1: 200 };
+    const screen = band(4, 29);
+    // The heads of `band` stand from row 25 to 54: the CP's top 17 rows under them.
+    const shift = 54 + 17 - cpBox.y0;
+    const found = headBand({ cpBox, countdownBox: null });
+    expect(found).not.toBeNull();
+    const { top, bottom, unit } = found ?? { top: 0, bottom: 0, unit: 0 };
+    const from = Math.max(0, Math.round(top + shift));
+    const to = Math.min(screen.height, Math.round(bottom + shift));
+    const rows: GreyImage = {
+      width: screen.width,
+      height: to - from,
+      data: screen.data.slice(from * screen.width, to * screen.width),
+    };
+    expect(countHeads(rows, unit, template).count).toBe(4);
   });
 
   it('looks just above the species of a max battle, before anything else', () => {

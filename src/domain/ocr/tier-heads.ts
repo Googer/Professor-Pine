@@ -47,6 +47,13 @@ const SPACING_FROM = 1.2;
 const SPACING_TO = 1.5;
 const SPACING_STEP = 0.03;
 export const MAX_HEADS = 7;
+/**
+ * How far above a hatched raid's CP its heads' band reaches, in units (`headBand`): 1.6 on the
+ * research's screens, but GO draws the heads higher over the CP in a short pane of a split screen
+ * (plan 7P-H: their tops 1.9 units over it, 1.25 units tall), and a band cut through them counted
+ * none (or 3 of 5).
+ */
+const CP_BAND_REACH = 2.4;
 
 /**
  * The template of an RGBA picture of the head: its alpha as the values (the head is opaque white,
@@ -83,7 +90,7 @@ export function headTemplate(icon: {
 /**
  * Where the heads are looked for: just above a max battle's boss line (a head about 0.42 of its
  * height, between 1.5 and 0.6 of its heights above it), else above the CP of a hatched raid (a
- * head about 0.3 of the CP's height), else under the countdown of an egg (a head about 1.5 of
+ * unit 0.3 of the CP's height, from `CP_BAND_REACH` units above its top to 0.4 below), else under the countdown of an egg (a head about 1.5 of
  * the countdown's height); null without any.
  */
 export function headBand(
@@ -99,7 +106,7 @@ export function headBand(
   }
   if (text.cpBox) {
     const unit = boxHeight(text.cpBox) * 0.3;
-    return { top: text.cpBox.y0 - unit * 1.6, bottom: text.cpBox.y0 + unit * 0.4, unit };
+    return { top: text.cpBox.y0 - unit * CP_BAND_REACH, bottom: text.cpBox.y0 + unit * 0.4, unit };
   }
   if (text.countdownBox) {
     const unit = boxHeight(text.countdownBox) * 1.5;

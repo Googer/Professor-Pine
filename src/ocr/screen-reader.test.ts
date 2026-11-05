@@ -364,9 +364,8 @@ describe('readPicture', () => {
       `400x${tall(picture.panes?.[0]?.box)}`,
       `400x${tall(bottom?.box) * 2}`,
     ]);
-    // Only the boxed-in pane is stretched, its greys 100 to 150 spread over nearly all levels;
-    // the top one keeps its own (up to 199).
-    expect(ranges[2]?.high).toBe(199);
+    // The boxed-in pane is stretched, its greys 100 to 150 spread over nearly all levels (the
+    // top one, near square, is stretched too, at its own size: plan 7P-H).
     expect(ranges[3]?.high).toBe(255);
     expect(ranges[3]?.low).toBeLessThan(20);
     // Its lines come back in the pane's own pixels.
@@ -376,6 +375,47 @@ describe('readPicture', () => {
       x1: 165,
       y1: 25,
     });
+  });
+
+  it('stretches the contrast of a pane near square, which GO draws by its height (plan 7P-H)', async () => {
+    // 400 × 1150 split at rows 440 to 451, both panes dim (greys 100 to 150). The top pane,
+    // 400 × 440, is near square: GO fills its width but draws its header by its height, small
+    // and light on its light sky (Matt's split of 2026-11-05: the gym's name 26 pixels tall in a
+    // pane 1080 × 1212, read "Hollov unBr"). Read at its size as before, its contrast stretched;
+    // the bottom pane, 400 × 699, is a phone’s shape and read as it is.
+    const [width, height] = [400, 1150];
+    const data = Buffer.alloc(width * height * 3);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const value = y >= 440 && y < 451 ? 20 : 100 + ((x * 3 + y * 5) % 51);
+        data.fill(value, (y * width + x) * 3, (y * width + x) * 3 + 3);
+      }
+    }
+    const split = await sharp(data, { raw: { width, height, channels: 3 } })
+      .png()
+      .toBuffer();
+    const ranges: { low: number; high: number }[] = [];
+    const reader = inOrder(WHOLE_SPLIT, [], TOP_PANE, BOTTOM_PANE);
+    const read: ReadText = (image) => {
+      let [low, high] = [255, 0];
+      for (const value of image.data) [low, high] = [Math.min(low, value), Math.max(high, value)];
+      ranges.push({ low, high });
+      return reader(image);
+    };
+    const picture = await readPicture(split, read, TEMPLATE);
+    expect(picture.panes).toHaveLength(2);
+    const tall = (box?: Box) => (box?.y1 ?? 0) - (box?.y0 ?? 0);
+    expect(reader.sizes.slice(2)).toEqual([
+      `400x${tall(picture.panes?.[0]?.box)}`,
+      `400x${tall(picture.panes?.[1]?.box)}`,
+    ]);
+    // The top pane's greys 100 to 150 spread over nearly all levels; the bottom keeps its own.
+    expect(ranges[2]?.high).toBeGreaterThan(230);
+    expect(ranges[2]?.low).toBeLessThan(20);
+    expect(ranges[3]?.high).toBe(150);
+    // Its heads are counted on the picture's own pixels, as before.
+    const top = picture.panes?.[0]?.box ?? { x0: 0, y0: 0, x1: 0, y1: 0 };
+    expect(headsScale(top, paneReadSize(top, top))).toBe(1);
   });
 
   it('counts a boxed-in pane’s heads enlarged as its text was read, smoothly', () => {
