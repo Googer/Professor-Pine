@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-05T14:43",
+  "updated": "2026-11-05T17:33",
   "items": [
     {
       "id": "0",
@@ -10733,8 +10733,75 @@ window.GANTT = {
       "status": "planned",
       "planning": {
         "start": "2026-11-05T14:21",
-        "end": "2026-11-05T14:31"
+        "end": "2026-11-05T17:33",
+        "review": {
+          "start": "2026-11-05T15:42",
+          "end": "2026-11-05T15:42"
+        }
       }
+    },
+    {
+      "id": "8H-6.1",
+      "kind": "task",
+      "parent": "8H-6",
+      "name": "Migration 040: the switch, who closed a party",
+      "status": "planned"
+    },
+    {
+      "id": "8H-6.2",
+      "kind": "task",
+      "parent": "8H-6",
+      "name": "The boards in the domain and their reads",
+      "status": "planned"
+    },
+    {
+      "id": "8H-6.3",
+      "kind": "task",
+      "parent": "8H-6",
+      "name": "Names of the members shown",
+      "status": "planned"
+    },
+    {
+      "id": "8H-6.4",
+      "kind": "task",
+      "parent": "8H-6",
+      "name": "A member's own stats",
+      "status": "planned"
+    },
+    {
+      "id": "8H-6.5",
+      "kind": "task",
+      "parent": "8H-6",
+      "name": "C:/Program Files/Git/stats boards",
+      "status": "planned"
+    },
+    {
+      "id": "8H-6.6",
+      "kind": "task",
+      "parent": "8H-6",
+      "name": "C:/Program Files/Git/stats me",
+      "status": "planned"
+    },
+    {
+      "id": "8H-6.7",
+      "kind": "task",
+      "parent": "8H-6",
+      "name": "The routes",
+      "status": "planned"
+    },
+    {
+      "id": "8H-6.8",
+      "kind": "task",
+      "parent": "8H-6",
+      "name": "The history page's boards and Your Pine",
+      "status": "planned"
+    },
+    {
+      "id": "8H-6.9",
+      "kind": "task",
+      "parent": "8H-6",
+      "name": "Docs",
+      "status": "planned"
     },
     {
       "id": "16-staging",
