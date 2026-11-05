@@ -104,6 +104,40 @@ export function placeWords(view: ActivityView, place: ActivityPlaceView, step?: 
   }
 }
 
+/**
+ * The activity's counts where the map shows its places (plan 8H-4H), from the answer the layer
+ * drew (no question of their own): a gym's or a Power Spot's line in its popup, in the words of
+ * the layer's own popup (`placeWords`), and a gym cluster's sum on hover. Nothing for a place the
+ * glow does not draw (quiet, or none).
+ */
+export class ActivityCounts {
+  private readonly places: ReadonlyMap<string, ActivityPlaceView>;
+
+  constructor(
+    private readonly view: ActivityView,
+    /** History's step the answer is of. */
+    private readonly step?: string,
+  ) {
+    this.places = new Map(view.places.map((place) => [`${place.kind}:${place.id}`, place]));
+  }
+
+  /** A place's line: "Activity: 12 parties at this time of day on Thursdays, over the years". */
+  line(kind: ActivityPlaceView['kind'], id: string): string | undefined {
+    const place = this.places.get(`${kind}:${id}`);
+    return place === undefined ? undefined : `Activity: ${placeWords(this.view, place, this.step)}`;
+  }
+
+  /**
+   * A gym cluster's parties, its gyms' summed (by their ids in decimal): "≈ 140 parties in this
+   * area", about as many since its quiet gyms are not counted; none where none is drawn.
+   */
+  area(gymIds: readonly string[]): string | undefined {
+    let sum = 0;
+    for (const id of gymIds) sum += this.places.get(`gym:${id}`)?.parties ?? 0;
+    return sum === 0 ? undefined : `≈ ${parties(sum)} in this area`;
+  }
+}
+
 /** The panel's line of the parties the map cannot draw; none when it drew them all. */
 export function leftOutWords(leftOut: number): string | undefined {
   return leftOut === 0 ? undefined : `${parties(leftOut)} left out (gyms no longer listed, pins)`;

@@ -24,7 +24,7 @@ import { historyItemNode, historyOffered, loginNotice, loginNoticeFor, type Me }
 import { MapActivity } from './parties.js';
 import { showParties } from './party-layer.js';
 import { quietLine, showPlaces, type PlacesHooks } from './places-ui.js';
-import { showActivity } from './activity-ui.js';
+import { showActivity, type ActivityShown } from './activity-ui.js';
 import { REGION_OUTLINE } from './panes.js';
 import { popupPanPadding, regionLabel, renderNode, type MapGym } from './popup.js';
 import { RouteFocus } from './route-focus.js';
@@ -97,6 +97,16 @@ const gymExtras: {
 };
 
 /**
+ * What the Activity layer adds to the gyms' and Power Spots' popups and to the gyms' clusters
+ * (plan 8H-4H): a place's line and a cluster's sum on hover, once the layer is made for a member;
+ * nothing until then.
+ */
+const activityShown: { now: ActivityShown | undefined } = { now: undefined };
+/** A place's activity line for its popup: none before the layer is made. */
+const activityLine = (kind: 'gym' | 'spot', id: string): HTMLElement[] =>
+  activityShown.now === undefined ? [] : [activityShown.now.line(kind, id)];
+
+/**
  * Shows the regions (the layer Region outlines) and the gyms (the layer Gyms); gives the gyms by
  * id, where the parties are put, the regions' names by id, the regions with their outlines
  * (where a point of the map lies), and the gyms' layer.
@@ -160,7 +170,7 @@ async function showGeo(
     }),
     registry,
     filter: byId('filter') as HTMLInputElement,
-    extras: (gym) => gymExtras.of(gym),
+    extras: (gym) => [...activityLine('gym', String(gym.id)), ...gymExtras.of(gym)],
     editing: () => gymExtras.editing(),
     clicked: (gym) => gymExtras.clicked(gym),
     forced: () => gymExtras.forced(),
@@ -170,6 +180,8 @@ async function showGeo(
       gymExtras.tapped(gym, own);
     },
     thins: () => gymExtras.thins(),
+    area: (shown) => activityShown.now?.area(shown.map((gym) => String(gym.id))),
+    counting: () => activityShown.now?.active() ?? false,
   });
 
   // Where the map starts, and how far it may go (plan 8M-7).
@@ -590,7 +602,10 @@ function start(): void {
         (spot) => spotTaps.clicked(spot),
         routeFocus,
         {
-          spotControls: (spot) => placesHooks.spotControls(spot),
+          spotControls: (spot) => [
+            ...activityLine('spot', spot.id),
+            ...placesHooks.spotControls(spot),
+          ],
           occupied: (layer) => placesHooks.occupied(layer),
           forced: (layer) => placesHooks.forced(layer),
           openBattle: (spotId) => placesHooks.openBattle(spotId),
@@ -628,8 +643,13 @@ function start(): void {
         tourByItself(me, false);
         return;
       }
-      // The party history as a heatmap (plan 8H-4): a member's layer, under More.
-      showActivity(map, guild, registry);
+      // The party history as a heatmap (plan 8H-4): a member's layer, under More; its counts in
+      // the gyms' and Power Spots' popups and on the gyms' clusters (plan 8H-4H).
+      activityShown.now = showActivity(map, guild, registry);
+      // The gyms' clusters are named anew as the counts change (review R3).
+      activityShown.now.onCounts(() => {
+        dots.names();
+      });
       /** Only the first list opens the map's tour (plan 8M-17). */
       let listSeen = false;
       const mayReport = me.member && !me.readOnly;

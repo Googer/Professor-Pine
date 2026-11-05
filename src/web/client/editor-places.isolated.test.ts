@@ -116,13 +116,18 @@ const PLACES: EditorPlace[] = [
 
 /** A layer of the editor's places on a map at `zoom` that shows them all. */
 function placed(zoom = 12) {
-  vi.stubGlobal('document', { createElement: () => ({ textContent: null }) });
+  // The clusters' hover words watch the pointer used and the map's popups (`hover-name.ts`).
+  vi.stubGlobal('document', {
+    createElement: () => ({ textContent: null }),
+    addEventListener: () => undefined,
+  });
   const group = new fake.Group();
   group.onMap = true;
   let viewAsked = 0;
   const map = {
     zoom,
     hasLayer: (layer: unknown) => layer === group && group.onMap,
+    on: () => map,
     getZoom: () => map.zoom,
     getBounds: () => {
       viewAsked += 1;

@@ -1,6 +1,7 @@
 import * as L from 'leaflet';
 import { CLUSTER_BELOW } from './cluster.js';
 import { dotKey, planDots, wantedDots, type DrawnDot, type WantedDot } from './gym-dots.js';
+import { hoverName } from './hover-name.js';
 import type { Box } from './view.js';
 
 /**
@@ -11,8 +12,13 @@ import type { Box } from './view.js';
  * class) whose marker is changed in place or given to a new cluster rather than made anew, a tap
  * on it zooming in on its places. The `open` place is drawn on its own and never taken off. A
  * cluster may warn by its ring (`look.ring`, the class `outside`), set again whenever Leaflet makes
- * its element anew (its group put back on the map) and whenever `rings` is asked.
+ * its element anew (its group put back on the map) and whenever `rings` is asked. A cluster's
+ * words (its title, "12 gyms", and what `look.hover` adds) show over it on a desktop's hover and
+ * are its `aria-label` (plan 8H-4H, review P6: no `title`, whose tooltip the browser would show).
  */
+
+/** Where a cluster's words stand on hover: over its badge of 34 pixels (review P6 of 8H-4H). */
+const HOVER_OFFSET: [number, number] = [0, -17];
 
 /** How far a tap on a cluster zooms in at least. */
 const CLUSTER_STEP = 2;
@@ -28,12 +34,18 @@ export interface ClusterPlace {
 export interface ClusterLook<P extends ClusterPlace> {
   /** The class its clusters carry beside `.cluster`; empty for none. */
   className: string;
-  /** A cluster's title (its tooltip, what a screen reader says): "12 gyms". */
+  /** A cluster's title (the first of its words on hover and in its `aria-label`): "12 gyms". */
   title(count: number): string;
   /** A place's own dot, kept by the caller (the very same layer at each call). */
   dot(place: P): L.Layer;
   /** Whether a cluster of these places warns by its ring; never, without it. */
   ring?: (points: readonly P[]) => boolean;
+  /**
+   * What a cluster's words add after its title, read at each hover (`hoverName`) and as it is
+   * drawn (plan 8H-4H: the gyms' parties while the Activity layer is on); its title alone while
+   * it gives none, and without it.
+   */
+  hover?: (points: readonly P[]) => string | undefined;
 }
 
 /** A cluster as drawn: its marker, its count's text, and its places. */
@@ -41,6 +53,8 @@ interface Bubble<P> {
   marker: L.Marker;
   label: HTMLElement;
   points: readonly P[];
+  /** Its words as its element's `aria-label` has them; none before it is on the map. */
+  named: string | undefined;
 }
 
 export class ClusterLayer<P extends ClusterPlace> {
@@ -116,11 +130,35 @@ export class ClusterLayer<P extends ClusterPlace> {
     for (const bubble of this.bubbles.values()) this.ring(bubble);
   }
 
+  /** Every cluster's words set again (what `look.hover` adds changed: review R3 of 8H-4H). */
+  names(): void {
+    for (const bubble of this.bubbles.values()) this.name(bubble);
+  }
+
   /** Everything taken off the map and forgotten (new places). */
   clear(): void {
     this.group.clearLayers();
     this.drawn.clear();
     this.bubbles.clear();
+  }
+
+  /**
+   * A cluster's words (review P6 of 8H-4H): its title and what `look.hover` adds, "6 gyms · ≈ 140
+   * parties in this area", shown on hover and set as its element's `aria-label` (no `title`, whose
+   * tooltip the browser would show beside the page's own), touched only when they changed.
+   */
+  private name(bubble: Bubble<P>): string {
+    const more = this.look.hover?.(bubble.points);
+    const title = this.look.title(bubble.points.length);
+    const words = more === undefined ? title : `${title} · ${more}`;
+    if (bubble.named !== words) {
+      const element = bubble.marker.getElement();
+      if (element) {
+        element.setAttribute('aria-label', words);
+        bubble.named = words;
+      }
+    }
+    return words;
   }
 
   private ring(bubble: Bubble<P>): void {
@@ -140,10 +178,9 @@ export class ClusterLayer<P extends ClusterPlace> {
         iconSize: [34, 34],
       }),
       keyboard: true,
-      title: this.look.title(points.length),
       pmIgnore: true,
     });
-    const made: Bubble<P> = { marker, label, points };
+    const made: Bubble<P> = { marker, label, points, named: undefined };
     marker.on('click', () => {
       const box = L.latLngBounds(made.points.map((point) => [point.lat, point.lon]));
       const zoom = Math.min(
@@ -157,8 +194,13 @@ export class ClusterLayer<P extends ClusterPlace> {
     });
     // Leaflet makes the element anew each time its group is put back on the map: its ring too.
     marker.on('add', () => {
+      made.named = undefined;
       this.ring(made);
+      this.name(made);
     });
+    // A desktop's mouse over it, over its badge; a tap still zooms in (`hoverName` shows nothing
+    // for a finger).
+    hoverName(this.map, marker, () => this.name(made), undefined, HOVER_OFFSET);
     return made;
   }
 
@@ -170,9 +212,9 @@ export class ClusterLayer<P extends ClusterPlace> {
     const count = String(item.points.length);
     if (shown.label.textContent !== count) {
       shown.label.textContent = count;
-      shown.marker.getElement()?.setAttribute('title', this.look.title(item.points.length));
     }
     shown.points = item.points;
+    this.name(shown);
     this.ring(shown);
     shown.marker.setLatLng([item.lat, item.lon]);
   }

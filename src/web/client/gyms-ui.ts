@@ -1,4 +1,5 @@
 import * as L from 'leaflet';
+import { inCellsOf } from './cluster.js';
 import { ClusterLayer } from './cluster-layer.js';
 import { shownGyms } from './gym-dots.js';
 import { hoverName } from './hover-name.js';
@@ -26,6 +27,8 @@ export interface GymDots {
   dot(gym: MapGym): L.CircleMarker;
   /** A gym's own popup opened, its dot drawn for it; the popup's element. */
   open(gym: MapGym): HTMLElement | undefined;
+  /** The clusters named anew: what the Activity layer says of them changed (review R3). */
+  names(): void;
 }
 
 export interface GymDotsDeps {
@@ -54,9 +57,16 @@ export interface GymDotsDeps {
    * member's Find (plan 8M-12: the map stays as it is while typing). Left out: always.
    */
   thins?: () => boolean;
+  /**
+   * What a mouse over a cluster shows of its gyms (plan 8H-4H: their parties while the Activity
+   * layer is on, `ActivityCounts.area`); none: nothing. Its badge counts gyms whatever it says.
+   */
+  area?: (gyms: readonly MapGym[]) => string | undefined;
+  /** Whether the Activity layer has counts now: nothing is worked out without (review R4). */
+  counting?: () => boolean;
 }
 
-/** A cluster's title (its tooltip, what a screen reader says). */
+/** A cluster's title (the first of its words on hover and in its `aria-label`). */
 const gymsTitle = (count: number): string => `${String(count)} gyms`;
 
 export function showGymDots(deps: GymDotsDeps): GymDots {
@@ -109,6 +119,10 @@ export function showGymDots(deps: GymDotsDeps): GymDots {
     return marker;
   };
 
+  /** The gyms a raid's marker hides, as last drawn: they count in their cluster's sum (review P7). */
+  let hiddenSeen: ReadonlySet<number> = new Set();
+  let underRaids: MapGym[] = [];
+
   /**
    * The gyms' dots and clusters (`ClusterLayer`, shared with the region editor's places, plan
    * 8M-11C review C1).
@@ -117,6 +131,11 @@ export function showGymDots(deps: GymDotsDeps): GymDots {
     className: '',
     title: gymsTitle,
     dot,
+    // Its area's parties: its gyms and those of its cells a raid's marker hides (review P7).
+    hover: (points) => {
+      if (deps.area === undefined || deps.counting?.() === false) return undefined;
+      return deps.area([...points, ...inCellsOf(points, underRaids, map.getZoom())]);
+    },
   });
 
   /**
@@ -129,6 +148,11 @@ export function showGymDots(deps: GymDotsDeps): GymDots {
   const thinning = (): string => ((deps.thins?.() ?? true) ? deps.filter.value : '');
   const refresh = (): void => {
     const hidden = deps.hidden();
+    // The gyms under raids, for the clusters' sums, worked out again only when they changed (R4).
+    if (hidden.size !== hiddenSeen.size || [...hidden].some((id) => !hiddenSeen.has(id))) {
+      hiddenSeen = new Set(hidden);
+      underRaids = deps.gyms.filter((gym) => hidden.has(gym.id));
+    }
     const shown = shownGyms(deps.gyms, {
       on: registry.isOn('gyms'),
       filter: thinning(),
@@ -198,5 +222,12 @@ export function showGymDots(deps: GymDotsDeps): GymDots {
     marker.openPopup();
     return marker.getPopup()?.getElement();
   };
-  return { refresh, dot, open: openGym };
+  return {
+    refresh,
+    dot,
+    open: openGym,
+    names: () => {
+      clusters.names();
+    },
+  };
 }

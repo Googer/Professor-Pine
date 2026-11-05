@@ -3,8 +3,8 @@ import * as L from 'leaflet';
 /** Whether this device's pointer hovers: a mouse or a trackpad, not a finger alone. */
 const deviceHovers = (): boolean => window.matchMedia('(hover: hover)').matches;
 
-/** What a hover name needs of a dot. */
-export type Named = Pick<L.CircleMarker, 'on' | 'getLatLng'>;
+/** What a hover name needs of a dot (or of a cluster's marker, plan 8H-4H). */
+export type Named = Pick<L.Layer, 'on'> & Pick<L.CircleMarker, 'getLatLng'>;
 
 /** What a hover name needs of the map: its popups opening and closing. */
 export type NamesMap = Pick<L.Map, 'on'>;
@@ -64,8 +64,14 @@ function namesOf(map: NamesMap): MapNames {
 export function hoverName(
   map: NamesMap,
   dot: Named,
-  name: string,
+  /**
+   * The name, or words read at each hover (plan 8H-4H: a gym cluster's parties in the activity
+   * layer's mode), none shown while they are undefined.
+   */
+  name: string | (() => string | undefined),
   hovers: () => boolean = deviceHovers,
+  /** Where the words stand from the dot's place, in pixels: over a cluster's badge, `[0, -17]`. */
+  offset: L.PointExpression = [0, -6],
 ): void {
   const state = namesOf(map);
   watchPointer();
@@ -78,10 +84,12 @@ export function hoverName(
     if (state.shown?.dot === dot || lastPointer !== 'mouse' || !hovers()) return;
     const at = dot.getLatLng();
     if (state.popupAt?.equals(at) === true) return;
+    const text = typeof name === 'string' ? name : name();
+    if (text === undefined) return;
     state.shown?.tip.remove();
     const words = document.createElement('span');
-    words.textContent = name;
-    const tip = L.tooltip({ direction: 'top', offset: [0, -6], className: 'hover-name' })
+    words.textContent = text;
+    const tip = L.tooltip({ direction: 'top', offset, className: 'hover-name' })
       .setLatLng(at)
       .setContent(words)
       .openOn(map as L.Map);

@@ -3076,6 +3076,20 @@ path.highlighted {
   margin: 0;
 }
 
+/*
+ * A gym's or Power Spot's line of its activity in its popup while the layer is on (plan 8H-4H),
+ * under the place, over its controls.
+ */
+.activity-line {
+  margin: 4px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.activity-line[hidden] {
+  display: none;
+}
+
 /* On a phone the panel keeps to the width left beside the map's controls. */
 @media (max-width: 1023px) {
   .activity-panel {

@@ -19,7 +19,7 @@ import { renderNode } from './popup.js';
 export interface PlaceLook {
   /** The class its clusters carry beside `.cluster` (`editor.css`). */
   className: string;
-  /** A cluster's title (its tooltip, what a screen reader says): "12 gyms". */
+  /** A cluster's title, shown on hover and as its `aria-label`: "12 gyms". */
   title(count: number): string;
   /** A place's dot: filled in its kind's color, edged in it or in the warning one. */
   dot(place: EditorPlace, outside: boolean): L.CircleMarker;

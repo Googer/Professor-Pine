@@ -3,6 +3,7 @@ import type { ActivityPlaceView, ActivityView } from '../../domain/web/activity-
 import {
   ACTIVITY_MODE_CHOICES,
   activityAddress,
+  ActivityCounts,
   AFTER_THE_HOUR_MS,
   CANVAS_TOLERANCE,
   historyStep,
@@ -240,5 +241,49 @@ describe('History’s Play', () => {
     expect(timer.waiting.size).toBe(0);
     expect(made.asked).toHaveLength(1);
     expect(ended).toBe(1);
+  });
+});
+
+describe("the activity's counts in the map's popups and clusters (plan 8H-4H)", () => {
+  const at = (kind: 'gym' | 'spot', id: string, parties: number): ActivityPlaceView => ({
+    kind,
+    id,
+    lat: 40,
+    lon: -80,
+    weight: 0.5,
+    parties,
+  });
+  const counts = new ActivityCounts(
+    view({ places: [at('gym', '7', 12), at('spot', 'abc.16', 4), at('gym', '9', 130)] }),
+  );
+
+  it("gives a gym's or a Power Spot's line in the words of the layer's own popup", () => {
+    expect(counts.line('gym', '7')).toBe(
+      'Activity: 12 parties at this time of day on Thursdays, over the years',
+    );
+    expect(counts.line('spot', 'abc.16')).toBe(
+      'Activity: 4 parties at this time of day on Thursdays, over the years',
+    );
+    const history = new ActivityCounts(
+      view({ mode: 'history', weekday: null, places: [at('gym', '7', 4)] }),
+      '2019-06',
+    );
+    expect(history.line('gym', '7')).toBe('Activity: 4 parties in June 2019');
+  });
+
+  it('gives no line for a place the glow does not draw, nor for one of the other kind', () => {
+    expect(counts.line('gym', '8')).toBeUndefined();
+    expect(counts.line('spot', '7')).toBeUndefined();
+    expect(counts.line('gym', 'abc.16')).toBeUndefined();
+  });
+
+  it("sums a cluster's gyms that the glow draws, and says nothing for a quiet cluster", () => {
+    expect(counts.area(['7', '9', '8'])).toBe('≈ 142 parties in this area');
+    expect(counts.area(['7'])).toBe('≈ 12 parties in this area');
+    expect(counts.area(['8', '10'])).toBeUndefined();
+    expect(counts.area([])).toBeUndefined();
+    expect(new ActivityCounts(view({ places: [at('gym', '1', 1_204)] })).area(['1'])).toBe(
+      '≈ 1,204 parties in this area',
+    );
   });
 });

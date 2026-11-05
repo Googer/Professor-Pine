@@ -37,6 +37,11 @@ const counted = vi.hoisted(() => {
     getPopup() {
       return undefined;
     }
+    /** Where it is, as Leaflet's points, which compare by `equals`. */
+    getLatLng() {
+      const [lat, lng] = this.at;
+      return { lat, lng, equals: (other: { lat: number; lng: number }) => other.lat === lat };
+    }
     setStyle() {
       return this;
     }
@@ -45,11 +50,14 @@ const counted = vi.hoisted(() => {
       this.at = at;
       return this;
     }
-    /** The attributes set on its element since Leaflet made it with `options.title`. */
+    /** The attributes set on its element. */
     readonly attributes: Record<string, string> = {};
-    /** Its title as its element has it now. */
+    /**
+     * What a screen reader says of it now: its element's `aria-label` (review P6 of 8H-4H: no
+     * `title`, whose tooltip the browser would show beside the page's own).
+     */
     title(): unknown {
-      return this.attributes.title ?? this.options.title;
+      return this.options.title ?? this.attributes['aria-label'];
     }
     getElement() {
       return {
@@ -72,6 +80,8 @@ const counted = vi.hoisted(() => {
       changes.added += 1;
       layer.group = this;
       this.layers.add(layer);
+      // Leaflet makes its element as it goes on the map, and says so.
+      for (const handler of layer.handlers.get('add') ?? []) handler({});
       return this;
     }
     removeLayer(layer: Layer) {
@@ -86,7 +96,11 @@ const counted = vi.hoisted(() => {
   }
   /** The groups made (the gyms' is the only one). */
   const groups: Group[] = [];
-  return { changes, Layer, Group, groups };
+  /** The hover names' tooltips (`hover-name.ts`): their words, and whether still open. */
+  const tips: Array<{ words: string | null | undefined; open: boolean }> = [];
+  /** What each tooltip was made with. */
+  const tipOptions: unknown[] = [];
+  return { changes, Layer, Group, groups, tips, tipOptions };
 });
 
 vi.mock('leaflet', () => ({
@@ -102,6 +116,27 @@ vi.mock('leaflet', () => ({
   divIcon: (options: Record<string, unknown>) => ({ options }),
   latLngBounds: () => ({ getCenter: () => ({ lat: 0, lng: 0 }) }),
   point: (x: number, y: number) => ({ x, y }),
+  tooltip: (options: unknown) => {
+    counted.tipOptions.push(options);
+    const tip = { words: undefined as string | null | undefined, open: false };
+    counted.tips.push(tip);
+    const made = {
+      setLatLng: () => made,
+      setContent: (content: { textContent: string | null }) => {
+        tip.words = content.textContent;
+        return made;
+      },
+      openOn: () => {
+        tip.open = true;
+        return made;
+      },
+      remove: () => {
+        tip.open = false;
+        return made;
+      },
+    };
+    return made;
+  },
 }));
 // What the gyms' layer takes of the party layer: the dot's size and its clicks, none here.
 vi.mock('./party-layer.js', () => ({
@@ -142,7 +177,17 @@ afterEach(() => {
 });
 
 /** The gyms' layer over a map at `zoom` that shows Oakland, the raids hiding `hidden`. */
-function shown(zoom: number, more: { on?: boolean; thins?: () => boolean; typed?: string } = {}) {
+function shown(
+  zoom: number,
+  more: {
+    on?: boolean;
+    thins?: () => boolean;
+    typed?: string;
+    area?: (gyms: readonly MapGym[]) => string | undefined;
+    /** Whether the Activity layer has counts now (review R4); always without it. */
+    counting?: () => boolean;
+  } = {},
+) {
   vi.stubGlobal('document', {
     // The hover names watch the pointer used (`hover-name.ts`).
     addEventListener: () => undefined,
@@ -156,10 +201,15 @@ function shown(zoom: number, more: { on?: boolean; thins?: () => boolean; typed?
       });
     },
   });
-  vi.stubGlobal('window', { setTimeout: () => 0 });
+  // A mouse's device: its pointer hovers (`hover-name.ts`).
+  vi.stubGlobal('window', { setTimeout: () => 0, matchMedia: () => ({ matches: true }) });
+  counted.tips.splice(0);
+  counted.tipOptions.splice(0);
   counted.groups.splice(0);
   Object.assign(counted.changes, { added: 0, removed: 0, moved: 0, relabeled: 0 });
   const hidden = new Set<number>();
+  /** How many times the gyms under raids were asked for. */
+  const hiddenAsked = { count: 0 };
   const map = {
     zoom,
     on: () => map,
@@ -213,9 +263,14 @@ function shown(zoom: number, more: { on?: boolean; thins?: () => boolean; typed?
     editing: () => false,
     clicked: () => false,
     forced: () => false,
-    hidden: () => hidden,
+    hidden: () => {
+      hiddenAsked.count += 1;
+      return hidden;
+    },
     tapped: () => undefined,
     ...(more.thins === undefined ? {} : { thins: more.thins }),
+    ...(more.area === undefined ? {} : { area: more.area }),
+    ...(more.counting === undefined ? {} : { counting: more.counting }),
   } as unknown as GymDotsDeps);
   dots.refresh();
   const group = counted.groups[0];
@@ -232,7 +287,7 @@ function shown(zoom: number, more: { on?: boolean; thins?: () => boolean; typed?
     layer.on = on;
     for (const listener of layer.listeners) listener('gyms', on);
   };
-  return { dots, map, hidden, group, changes, type, refreshed, toggle, layer };
+  return { dots, map, hidden, hiddenAsked, group, changes, type, refreshed, toggle, layer };
 }
 
 // The Report button's dimming reaches the dots on Leaflet's overlay pane (`map.css`).
@@ -290,6 +345,114 @@ describe("the gyms' clusters (plan 8M-11B, S13)", () => {
     expect(now.added).toBe(0);
     expect(now.removed).toBe(0);
     expect(cluster && group.hasLayer(cluster)).toBe(true);
+  });
+});
+
+describe("a gym cluster's activity on hover (plan 8H-4H)", () => {
+  /** What a mouse over a cluster shows, and the cluster of the six gyms. */
+  const hovered = (area: (gyms: readonly MapGym[]) => string | undefined) => {
+    const made = shown(12, { area });
+    const cluster = [...made.group.layers].find((layer) => labelOf(layer) === '6');
+    if (!cluster) throw new Error('no cluster of the six gyms');
+    const fire = (type: string) => {
+      for (const handler of cluster.handlers.get(type) ?? []) handler({});
+    };
+    return { ...made, cluster, fire };
+  };
+  const open = () => counted.tips.filter((tip) => tip.open).map((tip) => tip.words);
+
+  it('shows its gyms and their parties while a mouse is on it; its badge counts gyms', () => {
+    const asked: number[][] = [];
+    const { cluster, fire } = hovered((gyms) => {
+      asked.push(gyms.map((gym) => gym.id));
+      return `≈ ${String(gyms.length * 10)} parties in this area`;
+    });
+    fire('mouseover');
+    expect(open()).toEqual(['6 gyms · ≈ 60 parties in this area']);
+    expect(asked.at(-1)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(labelOf(cluster)).toBe('6');
+    // Over the badge, not into it (review P6).
+    expect(counted.tipOptions.at(-1)).toMatchObject({ offset: [0, -17] });
+    fire('mouseout');
+    expect(open()).toEqual([]);
+  });
+
+  // Review P7: a gym under a raid's marker still stands for its area's parties.
+  it("counts the gyms of its area hidden under a raid's marker, while its badge counts those drawn", () => {
+    const asked: number[][] = [];
+    const { cluster, fire, dots, hidden } = hovered((gyms) => {
+      asked.push(gyms.map((gym) => gym.id));
+      return `≈ ${String(gyms.length * 10)} parties in this area`;
+    });
+    hidden.add(6);
+    hidden.add(7);
+    dots.refresh();
+    fire('mouseover');
+    expect(labelOf(cluster)).toBe('5');
+    // Gym 7, across the river, is of another area.
+    expect(asked.at(-1)?.toSorted((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(open()).toEqual(['5 gyms · ≈ 60 parties in this area']);
+  });
+
+  it('shows its gyms alone while the layer has nothing to say of them, and without the layer', () => {
+    hovered(() => undefined).fire('mouseover');
+    expect(open()).toEqual(['6 gyms']);
+    const without = shown(12);
+    const cluster = [...without.group.layers].find((layer) => labelOf(layer) === '6');
+    for (const handler of cluster?.handlers.get('mouseover') ?? []) handler({});
+    expect(open()).toEqual(['6 gyms']);
+  });
+
+  // Review P6: a screen reader hears the same, and the browser shows no tooltip of its own.
+  it('names it by an aria-label, no title, its parties in it while the layer has them', () => {
+    const { cluster, dots, hidden } = hovered(
+      (gyms) => `≈ ${String(gyms.length * 10)} parties in this area`,
+    );
+    expect(cluster.options.title).toBeUndefined();
+    expect(cluster.attributes['aria-label']).toBe('6 gyms · ≈ 60 parties in this area');
+    hidden.add(6);
+    dots.refresh();
+    expect(cluster.attributes['aria-label']).toBe('5 gyms · ≈ 60 parties in this area');
+  });
+
+  // Review R3: a new answer of the Activity layer, or the layer turned off, reaches the labels.
+  it('names its clusters anew when told, as the Activity sums change', () => {
+    const sums = { now: 60 as number | undefined };
+    const { cluster, dots } = hovered((_gyms) =>
+      sums.now === undefined ? undefined : `≈ ${String(sums.now)} parties in this area`,
+    );
+    sums.now = 90;
+    dots.names();
+    expect(cluster.attributes['aria-label']).toBe('6 gyms · ≈ 90 parties in this area');
+    sums.now = undefined;
+    dots.names();
+    expect(cluster.attributes['aria-label']).toBe('6 gyms');
+  });
+
+  // Review R4: nothing worked out per cluster while the layer has nothing to say.
+  it('asks nothing of the gyms while the layer has no counts, and asks the hidden ones once a draw', () => {
+    const asked: number[][] = [];
+    const counting = { now: false };
+    const made = shown(12, {
+      area: (gyms) => {
+        asked.push(gyms.map((gym) => gym.id));
+        return undefined;
+      },
+      counting: () => counting.now,
+    });
+    const cluster = [...made.group.layers].find((layer) => labelOf(layer) === '6');
+    const hover = () => {
+      for (const handler of cluster?.handlers.get('mouseover') ?? []) handler({});
+    };
+    hover();
+    expect(asked).toEqual([]);
+    counting.now = true;
+    made.dots.refresh();
+    const once = made.hiddenAsked.count;
+    hover();
+    made.dots.names();
+    expect(asked.length).toBeGreaterThan(0);
+    expect(made.hiddenAsked.count).toBe(once);
   });
 });
 

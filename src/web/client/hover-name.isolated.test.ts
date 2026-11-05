@@ -166,6 +166,45 @@ describe('a place named on hover (Matt, 2026-11-02)', () => {
     expect(open()).toEqual(['Library']);
   });
 
+  // Plan 8H-4H: a gym cluster's parties in the activity layer's mode, while it has any.
+  it('reads words given as a function at each hover, and shows nothing while it gives none', () => {
+    const { map: page } = map();
+    const { named, fire } = dot();
+    const words = { now: undefined as string | undefined };
+    hoverName(
+      page,
+      named,
+      () => words.now,
+      () => true,
+    );
+    fire('mouseover');
+    expect(tips.made).toEqual([]);
+    fire('mouseout');
+    words.now = '≈ 140 parties in this area';
+    fire('mouseover');
+    expect(open()).toEqual(['≈ 140 parties in this area']);
+    fire('mouseout');
+    words.now = '≈ 12 parties in this area';
+    fire('mouseover');
+    expect(open()).toEqual(['≈ 12 parties in this area']);
+  });
+
+  // Review P6: over a cluster's badge (34 pixels), not into it.
+  it('stands over the dot by the offset given, six pixels up without one', () => {
+    const { map: page } = map();
+    const small = dot();
+    const cluster = dot(40.45, -79.94);
+    hoverName(page, small.named, 'Library', () => true);
+    hoverName(page, cluster.named, '6 gyms', () => true, [0, -17]);
+    small.fire('mouseover');
+    small.fire('mouseout');
+    cluster.fire('mouseover');
+    expect(tips.made.map((tip) => tip.options.offset)).toEqual([
+      [0, -6],
+      [0, -17],
+    ]);
+  });
+
   it('closes when the dot is taken off the map, and shows one name at a time', () => {
     const { map: page } = map();
     const library = dot();

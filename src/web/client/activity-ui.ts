@@ -1,8 +1,13 @@
 import * as L from 'leaflet';
-import type { ActivityModeName, ActivityView } from '../../domain/web/activity-data.js';
+import type {
+  ActivityModeName,
+  ActivityPlaceView,
+  ActivityView,
+} from '../../domain/web/activity-data.js';
 import {
   ACTIVITY_MODE_CHOICES,
   activityAddress,
+  ActivityCounts,
   CANVAS_TOLERANCE,
   historyStep,
   leftOutWords,
@@ -53,7 +58,29 @@ const element = <K extends keyof HTMLElementTagNameMap>(
   return made;
 };
 
-export function showActivity(map: L.Map, guild: string, registry: LayerRegistry): void {
+/**
+ * What the layer gives the map's other popups (plan 8H-4H), from the answer it drew: a place's
+ * line, and a gym cluster's sum on hover; nothing while the layer is off.
+ */
+export interface ActivityShown {
+  /**
+   * A gym's or a Power Spot's line for its popup ("Activity: 12 parties …"): always an element,
+   * hidden while the layer is off or the glow does not draw the place, and kept to each answer
+   * drawn while its popup is open.
+   */
+  line(kind: ActivityPlaceView['kind'], id: string): HTMLElement;
+  /** A gym cluster's parties ("≈ 140 parties in this area"), by its gyms' ids; none: nothing. */
+  area(gymIds: readonly string[]): string | undefined;
+  /** Whether the layer has counts now: an answer drawn, the layer on (review R4). */
+  active(): boolean;
+  /** Tells `listener` after each answer drawn, and when the layer is turned off (review R3). */
+  onCounts(listener: () => void): void;
+}
+
+/** The class of a popup's activity line, by which the lines open are found to be kept current. */
+const LINE_CLASS = 'activity-line';
+
+export function showActivity(map: L.Map, guild: string, registry: LayerRegistry): ActivityShown {
   const pane = map.createPane(ACTIVITY_PANE);
   // Leaflet sets a pane's place by its style from the script (as the regions' names' pane).
   pane.style.zIndex = String(ACTIVITY_PANE_Z);
@@ -68,6 +95,10 @@ export function showActivity(map: L.Map, guild: string, registry: LayerRegistry)
   const group = L.layerGroup([heat]);
   const circles: L.CircleMarker[] = [];
   let view: ActivityView | undefined;
+  /** The counts of the answer drawn, while the layer is on (plan 8H-4H). */
+  let counts: ActivityCounts | undefined;
+  /** Who hears that the counts changed (review R3: the clusters' labels). */
+  const countListeners: Array<() => void> = [];
   let mode: ActivityModeName = 'now';
   let span: ActivitySpan = 'month';
   /** History's step shown (`yyyy-mm`, or `yyyy` by year). */
@@ -170,6 +201,20 @@ export function showActivity(map: L.Map, guild: string, registry: LayerRegistry)
     );
   };
 
+  /** A popup's line as the counts stand: its words, hidden without any. */
+  const fillLine = (line: HTMLElement): void => {
+    const kind = line.dataset.activityKind === 'spot' ? 'spot' : 'gym';
+    const words = counts?.line(kind, line.dataset.activityId ?? '');
+    line.textContent = words ?? '';
+    line.hidden = words === undefined;
+  };
+  /** The lines of the popups open, kept to the answer drawn (or hidden, the layer off). */
+  const fillLines = (): void => {
+    for (const line of map.getContainer().querySelectorAll<HTMLElement>(`.${LINE_CLASS}`)) {
+      fillLine(line);
+    }
+  };
+
   /**
    * The answer drawn: the glow's places set at once (Play's step drawn in one go, no blink), the
    * invisible circles made anew.
@@ -185,8 +230,11 @@ export function showActivity(map: L.Map, guild: string, registry: LayerRegistry)
         value: heatValue(place.weight),
       })),
     );
-    if (shown === undefined) return;
     const shownStep = step;
+    counts = shown === undefined ? undefined : new ActivityCounts(shown, shownStep);
+    fillLines();
+    for (const listener of countListeners) listener();
+    if (shown === undefined) return;
     for (const place of shown.places) {
       const circle = L.circleMarker([place.lat, place.lon], {
         renderer,
@@ -348,4 +396,18 @@ export function showActivity(map: L.Map, guild: string, registry: LayerRegistry)
     heat.setStops(changed.heat);
   });
   if (registry.isOn('activity')) turned(true);
+  return {
+    line: (kind, id) => {
+      const line = element('p', LINE_CLASS);
+      line.dataset.activityKind = kind;
+      line.dataset.activityId = id;
+      fillLine(line);
+      return line;
+    },
+    area: (gymIds) => counts?.area(gymIds),
+    active: () => counts !== undefined,
+    onCounts: (listener) => {
+      countListeners.push(listener);
+    },
+  };
 }

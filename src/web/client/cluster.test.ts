@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   CLUSTER_BELOW,
   clustersAt,
+  inCellsOf,
   PlacesInView,
   placesWanted,
   PLACES_FROM,
@@ -25,6 +26,14 @@ describe("Pine's grid clustering (plan 8M-7)", () => {
     // Drawn at the middle of its places.
     expect(both?.lat).toBeCloseTo((NEAR_A.lat + NEAR_B.lat) / 2, 9);
     expect(both?.lon).toBeCloseTo((NEAR_A.lon + NEAR_B.lon) / 2, 9);
+  });
+
+  // Review P7 of 8H-4H: the gyms a raid's marker hides still belong to their cluster's area.
+  it('finds the places of other lists that fall in the cells of a cluster at a zoom', () => {
+    expect(inCellsOf([NEAR_A], [NEAR_B, FAR], 12).map((place) => place.id)).toEqual([2]);
+    expect(inCellsOf([FAR], [NEAR_A, NEAR_B], 12)).toEqual([]);
+    // From zoom 16 a place is its own area: the places beside it are not of it.
+    expect(inCellsOf([NEAR_A], [NEAR_B], CLUSTER_BELOW)).toEqual([]);
   });
 
   it('parts places as the map zooms in, and never clusters from zoom 16', () => {

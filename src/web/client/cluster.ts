@@ -63,6 +63,28 @@ export function clustersAt<P extends { lat: number; lon: number }>(
   return [...cells].map(([cell, group]) => ({ cell, points: group, ...middle(group) }));
 }
 
+/** A place's cell of the grid at a zoom (`x:y`), as `clustersAt` lays it. */
+function cellOf(place: { lat: number; lon: number }, zoom: number): string {
+  const cell = cellPixels(zoom);
+  const { x, y } = pixelOf(place, zoom);
+  return `${String(Math.floor(x / cell))}:${String(Math.floor(y / cell))}`;
+}
+
+/**
+ * The places of `others` that fall in a cell of the grid of `points` at a zoom (review P7 of
+ * 8H-4H: the gyms a raid's marker hides still belong to their cluster's area); none from
+ * `CLUSTER_BELOW`, where a place is its own.
+ */
+export function inCellsOf<P extends { lat: number; lon: number }>(
+  points: readonly { lat: number; lon: number }[],
+  others: readonly P[],
+  zoom: number,
+): P[] {
+  if (zoom >= CLUSTER_BELOW) return [];
+  const cells = new Set(points.map((point) => cellOf(point, zoom)));
+  return others.filter((other) => cells.has(cellOf(other, zoom)));
+}
+
 function middle(points: readonly { lat: number; lon: number }[]): { lat: number; lon: number } {
   const sum = points.reduce(
     (total, point) => ({ lat: total.lat + point.lat, lon: total.lon + point.lon }),
