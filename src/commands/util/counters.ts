@@ -950,12 +950,12 @@ export const counters: SimpleCommand = {
   help: {
     category: 'util',
     details:
-      'The twelve best counters against a raid boss, as Pokebattler simulates the raid: the ' +
+      'Shows the twelve best counters against a raid boss, as Pokebattler simulates the raid: the ' +
       'time to win, how often a counter faints, and how many trainers it takes, with a link ' +
       'to the full results.\n\nIn the post of a raid the boss and tier are that raid’s and ' +
       'everybody there sees the answer; elsewhere name the boss, and only you see it. A boss ' +
       'you name in the post of a raid is simulated in that raid’s tier unless you name ' +
-      'another with `tier`.\n\nWithout more it assumes counters at level 40, no weather and best ' +
+      'another with `tier`.\n\nUnless you say otherwise, it assumes counters at level 40, no weather and best ' +
       'friends, and leaves out shadow Pokémon and megas.\n\n`level` can also be your own Pokébox ' +
       'on Pokebattler (save your user id with `/settings pokebattler-id`); that answer is ' +
       'always for you alone. A Pokébox lists its shadow Pokémon and megas too, unless ' +

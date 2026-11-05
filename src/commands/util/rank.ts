@@ -407,15 +407,14 @@ async function pokemonAutocomplete(
 /** What `/help` says of `/rank`, and below the line that names a short form of it. */
 function rankDetails(settings: Settings): string {
   return (
-    'Where a Pokémon with these IVs stands among all 4,096 combinations in a league: its ' +
-    'rank by stat product, its share of the best, the CP and level it can reach, and the ' +
-    'best combination. Up to level 50, and up to 51 (a best buddy) where that differs; a ' +
-    'Super Mega also up to the levels it adds.\n\nIts family and a link to each ranking on ' +
-    'pvpivs.com come with it. ' +
-    '`filter` ranks only the combinations a trade, a raid or a lucky trade can give; without ' +
-    'it, a legendary or mythical that cannot be traded starts at IVs 10, and a shadow ' +
-    'legendary (`shadow`) at 6.\n\n' +
-    `Use it under ${settings.categories.pvp} or in a DM with me.`
+    'Shows where a Pokémon with these IVs stands among all 4,096 combinations in a league: ' +
+    'its rank by stat product, how close it comes to the best, the CP and level it can ' +
+    'reach, and the best combination. Up to level 50, and up to 51 (a best buddy) where that ' +
+    'differs; a Super Mega also up to the levels it adds.\n\nIts family and a link to each ' +
+    'ranking on pvpivs.com come with it. `filter` ranks only the combinations a trade, a ' +
+    'raid or a lucky trade can give; without it, a legendary or mythical Pokémon that cannot ' +
+    'be traded starts at IVs of 10, and a shadow legendary (`shadow`) at 6.\n\n' +
+    `Use it in a channel of the category ${settings.categories.pvp}, or in a DM with me.`
   );
 }
 

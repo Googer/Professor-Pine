@@ -154,7 +154,7 @@ export const request: SimpleCommand = {
       'Sends what you write to the people who keep the gym list, as a request about one gym. ' +
       'In the post of a raid or train it is about the gym of that raid or the stop the train ' +
       'is at; elsewhere pick the gym with `gym`.\n\nYour name and the server go with it, nothing ' +
-      'else of you. Three requests in half an hour at most.',
+      'else of you. You can send three requests in half an hour.',
     examples: [
       '/request text:This gym was renamed to Town Hall Fountain',
       '/request text:The gym is gone gym:Old Stone Fountain',

@@ -259,8 +259,8 @@ export const stats = commandGroup({
   help: {
     category: 'util',
     details:
-      'What Pine’s history of this server says: how many raids and max battles each region had. ' +
-      'Nobody is named.',
+      'Numbers from my history of this server: how many raids and max battles each region ' +
+      'had. Nobody is named.',
     examples: ['/stats regions'],
   },
   parts: [regionsPart],

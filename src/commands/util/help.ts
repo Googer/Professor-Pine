@@ -140,7 +140,8 @@ export const help: SimpleCommand = {
     category: 'util',
     details:
       'Without a command, lists the groups of commands you can use: pick one to see what its ' +
-      'commands do, and a command to see how it is used. With a command, explains it.',
+      'commands do, and a command to see how it is used. With a command, explains it. Only ' +
+      'you see the answer.',
     examples: [
       '/help',
       '/help command:raid',
