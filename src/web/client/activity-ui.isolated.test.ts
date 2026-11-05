@@ -75,6 +75,9 @@ const fake = vi.hoisted(() => {
       this.open = false;
       return this;
     }
+    isPopupOpen() {
+      return this.open;
+    }
     getPopup() {
       return {
         update: () => {

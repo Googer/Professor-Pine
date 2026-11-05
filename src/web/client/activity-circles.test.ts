@@ -48,6 +48,7 @@ function drawn() {
       close: () => {
         circle.open = false;
       },
+      isOpen: () => circle.open,
       remove: () => {
         circle.removed = true;
       },
@@ -90,6 +91,20 @@ describe("the activity's invisible circles", () => {
     circles.show([at('2', 9), at('3', 5)], words);
     expect(standing()).toEqual(['2', '3']);
     expect(made.map((circle) => circle.id)).toEqual(['1', '2', '3']);
+  });
+
+  // Review F1: a spot's dot drawn, or a raid ended, under an open count does not take it away.
+  it('keeps a circle whose popup is open until it closes, then takes it off', () => {
+    const { circles, made, standing } = drawn();
+    circles.show([at('1', 4)], words);
+    const [circle] = made;
+    if (!circle) throw new Error('no circle');
+    circle.open = true;
+    circles.show([], words);
+    expect(standing()).toEqual(['1']);
+    circle.open = false;
+    circles.show([], words);
+    expect(standing()).toEqual([]);
   });
 
   it('takes every circle off when cleared, and makes them anew after', () => {
@@ -189,6 +204,7 @@ describe("the activity's invisible circles", () => {
       },
       getPopup: () => undefined,
       closePopup: () => circle,
+      isPopupOpen: () => false,
     };
     const tapped = tapCircle(
       circle,
@@ -200,6 +216,39 @@ describe("the activity's invisible circles", () => {
     tapped.show({ ...at('1', 9, 1), lat: 40.45, lon: -79.94 });
     expect(circle.at).toEqual([40.45, -79.94]);
     expect(circle.radius).toBe(tapRadius(1));
+  });
+
+  // Review F2: the circles are shown again at every draw of the dots; a place unchanged is left.
+  it('sets a circle’s place and size only when they changed', () => {
+    const calls: string[] = [];
+    const circle = {
+      bindPopup: () => circle,
+      setRadius: () => {
+        calls.push('radius');
+        return circle;
+      },
+      setLatLng: () => {
+        calls.push('place');
+        return circle;
+      },
+      getPopup: () => undefined,
+      closePopup: () => circle,
+      isPopupOpen: () => false,
+    };
+    const tapped = tapCircle(
+      circle,
+      at('1', 4),
+      () => '4 parties',
+      () => ({}) as HTMLElement,
+      () => undefined,
+    );
+    calls.length = 0;
+    tapped.show(at('1', 9));
+    expect(calls).toEqual([]);
+    tapped.show(at('1', 9, 0.9));
+    expect(calls).toEqual(['radius']);
+    tapped.show({ ...at('1', 9, 0.9), lat: 40.5 });
+    expect(calls).toEqual(['radius', 'place']);
   });
 
   // Review 8H4H-6: a double-click on the glow zooms the map; the count its first click opened goes.
@@ -216,6 +265,7 @@ describe("the activity's invisible circles", () => {
       setRadius: () => leaflet,
       setLatLng: () => leaflet,
       getPopup: () => undefined,
+      isPopupOpen: () => false,
       closePopup() {
         leaflet.closed += 1;
         return leaflet;

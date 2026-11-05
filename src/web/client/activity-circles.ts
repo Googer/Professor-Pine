@@ -17,6 +17,8 @@ export interface TapCircle {
   refresh(): void;
   /** Its popup closed, where open (review 8H4H-6: a double-click zooms the map). */
   close(): void;
+  /** Whether its popup is open (review F1: an open count is not taken away under the finger). */
+  isOpen(): boolean;
   remove(): void;
 }
 
@@ -27,6 +29,7 @@ export interface PopupCircle {
   setLatLng(at: [number, number]): unknown;
   getPopup(): { update(): unknown } | undefined;
   closePopup(): unknown;
+  isPopupOpen(): boolean;
 }
 
 /**
@@ -40,13 +43,25 @@ export function tapCircle(
   content: (words: string) => HTMLElement,
   remove: () => void,
 ): TapCircle {
-  circle.setRadius(tapRadius(place.weight));
+  let radius = tapRadius(place.weight);
+  let lat = place.lat;
+  let lon = place.lon;
+  circle.setRadius(radius);
   circle.bindPopup(() => content(words()));
   return {
-    show: (place) => {
-      // Where the answer has the place now (review 8H4H-5), as its size.
-      circle.setLatLng([place.lat, place.lon]);
-      circle.setRadius(tapRadius(place.weight));
+    show: (now) => {
+      // Where the answer has the place now (review 8H4H-5), as its size; set only when they
+      // changed (review F2: shown again at every draw of the gym dots, each set a redraw).
+      if (now.lat !== lat || now.lon !== lon) {
+        lat = now.lat;
+        lon = now.lon;
+        circle.setLatLng([lat, lon]);
+      }
+      const size = tapRadius(now.weight);
+      if (size !== radius) {
+        radius = size;
+        circle.setRadius(radius);
+      }
     },
     refresh: () => {
       // Its bound content read again (review R2): a content set here would stay as it was.
@@ -55,6 +70,7 @@ export function tapCircle(
     close: () => {
       circle.closePopup();
     },
+    isOpen: () => circle.isPopupOpen(),
     remove,
   };
 }
@@ -71,7 +87,9 @@ export class ActivityCircles {
   show(places: readonly ActivityPlaceView[], words: (place: ActivityPlaceView) => string): void {
     const wanted = new Map(places.map((place) => [`${place.kind}:${place.id}`, place]));
     for (const [key, { circle }] of this.drawn) {
-      if (wanted.has(key)) continue;
+      // A circle whose count is open stays until it closes (review F1: the spot's dot drawn, or
+      // a raid ended, under the finger); the next `show` after that takes it off.
+      if (wanted.has(key) || circle.isOpen()) continue;
       circle.remove();
       this.drawn.delete(key);
     }
