@@ -142,6 +142,7 @@ import { RegionAdminService } from './services/region-admin-service.js';
 import { WayfarerImportService } from './services/wayfarer-import-service.js';
 import { WayfarerReviewService } from './services/wayfarer-review-service.js';
 import { RegionTallies } from './services/region-tallies.js';
+import { MemberNames } from './services/member-names.js';
 import { RegionDirectory } from './services/region-directory.js';
 import { SelfRoleService } from './services/self-role-service.js';
 import { SpawnService } from './services/spawn-service.js';
@@ -464,6 +465,7 @@ export async function startApp(
   });
   bossAnnouncer.attach(raidBosses);
   const members = new DiscordMemberDirectory({ log });
+  const memberNames = new MemberNames({ members });
   const roleGateway = new DiscordRoleGateway();
   const selfRoles = new SelfRoleService({
     storage: new SelfRoleRepository(db),
@@ -1032,6 +1034,8 @@ export async function startApp(
       zone: config.settings.timezone,
     }),
     members,
+    // The names the boards show (plan 8H-6), for Discord and the web alike.
+    memberNames,
     selfRoles,
     spawns,
     dms: memberDms,

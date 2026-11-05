@@ -75,6 +75,27 @@ export class FakeMemberDirectory implements MemberDirectory {
     return Promise.resolve(member && { ...member });
   }
 
+  /** The ids of every `named` ask, in order (plan 8H-6). */
+  readonly namedAsks: string[][] = [];
+
+  named(guildId: string, userIds: readonly string[]): Promise<ServerMember[]> {
+    this.namedAsks.push([...userIds]);
+    return new Promise((resolve, reject) => {
+      setImmediate(() => {
+        if (this.failing) {
+          reject(this.failing);
+          return;
+        }
+        resolve(
+          userIds.flatMap((id) => {
+            const member = this.members.get(`${guildId}:${id}`);
+            return member ? [{ ...member }] : [];
+          }),
+        );
+      });
+    });
+  }
+
   viewers(guildId: string, channelId: string, userIds: readonly string[]): Promise<Set<string>> {
     this.batches.push({ guildId, channelId, userIds: [...userIds] });
     this.asks.add();

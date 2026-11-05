@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CachedMemberDirectory, type ServerMember } from './member-directory.js';
+import { BudgetLine, CachedMemberDirectory, type ServerMember } from './member-directory.js';
 
 const GUILD = '100000000000000001';
 const OTHER_GUILD = '100000000000000002';
@@ -152,5 +152,27 @@ describe('CachedMemberDirectory', () => {
     await made.directory.find(GUILD, idOf(0));
     expect(made.asked).toHaveLength(5_002);
     expect(made.asked.at(-1)).toBe(`${GUILD}:${idOf(0)}`);
+  });
+});
+
+describe('BudgetLine: one request for members at a time (R-A4)', () => {
+  it('starts a request only once the one before it has settled, failed or not', async () => {
+    let takes = 0;
+    const line = new BudgetLine({ take: () => Promise.resolve(void takes++) });
+    const settled: string[] = [];
+    const seen: string[][] = [];
+    const request = (name: string, fails = false) =>
+      line.run(async () => {
+        // What had settled when this one started.
+        seen.push([name, ...settled]);
+        await Promise.resolve();
+        settled.push(name);
+        if (fails) throw new Error('refused');
+        return name;
+      });
+    const all = Promise.allSettled([request('first'), request('second', true), request('third')]);
+    expect((await all).map((one) => one.status)).toEqual(['fulfilled', 'rejected', 'fulfilled']);
+    expect(seen).toEqual([['first'], ['second', 'first'], ['third', 'first', 'second']]);
+    expect(takes).toBe(3);
   });
 });

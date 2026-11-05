@@ -15,6 +15,7 @@ import {
   CachedViewers,
   GatewayWithFallback,
   MEMBER_REQUEST_BUDGET,
+  MEMBERS_PER_LOOKUP,
   RequestBudget,
   withSelf,
 } from './member-viewers.js';
@@ -84,6 +85,13 @@ export interface MemberDirectory {
    * that "nobody" is never remembered for what was not asked.
    */
   viewers(guildId: string, channelId: string, userIds: readonly string[]): Promise<Set<string>>;
+  /**
+   * Those of these user ids who are members of the server, with their display names (plan 8H-6:
+   * the names a board shows): from discord.js's cache where it has them, the rest asked in one
+   * request for many. Somebody who is not in the server is not among them. Rejects when it could
+   * not be found out.
+   */
+  named(guildId: string, userIds: readonly string[]): Promise<ServerMember[]>;
 }
 
 /**
@@ -183,6 +191,30 @@ export class CachedMemberDirectory implements Pick<MemberDirectory, 'find'> {
 }
 
 /**
+ * The one line of the gateway's requests for members (reviews A7, R-A4): `run` waits for the
+ * request before it to settle and for the budget's turn (`RequestBudget.take`), then makes its
+ * own and holds the line until it settles, so that `viewers` and `named` never have two requests
+ * for members on their way at once and keep to one budget between them.
+ */
+export class BudgetLine {
+  private last: Promise<void> = Promise.resolve();
+
+  constructor(private readonly budget: Pick<RequestBudget, 'take'>) {}
+
+  run<T>(request: () => Promise<T>): Promise<T> {
+    const turn = this.last.then(async () => {
+      await this.budget.take();
+      return request();
+    });
+    this.last = turn.then(
+      () => undefined,
+      () => undefined,
+    );
+    return turn;
+  }
+}
+
+/**
  * How long one gateway request for members may take before the members are asked for one by
  * one instead. discord.js waits two minutes by default; an answer normally comes at once.
  */
@@ -218,6 +250,9 @@ export class DiscordMemberDirectory implements MemberDirectory {
   private readonly cached: CachedMemberDirectory;
   private readonly seeing: CachedViewers;
   private readonly members: GatewayWithFallback;
+  /** The one budget of the gateway's requests for members, `viewers`' and `named`'s (A7). */
+  private readonly line: BudgetLine;
+  private readonly now: () => number;
 
   constructor(options: { now?: () => number; log?: Logger } = {}) {
     const now = options.now ?? (() => Date.now());
@@ -226,6 +261,8 @@ export class DiscordMemberDirectory implements MemberDirectory {
       ...(options.log ? { log: options.log } : {}),
       retryAfterMs: gatewayRetryAfterMs,
     });
+    this.now = now;
+    this.line = new BudgetLine(new RequestBudget({ ...MEMBER_REQUEST_BUDGET, now }));
     this.cached = new CachedMemberDirectory(async (guildId, userId) => {
       const guild = this.current?.guilds.cache.get(guildId);
       const found = guild && (await fetchGuildMember(guild, userId, true));
@@ -242,7 +279,7 @@ export class DiscordMemberDirectory implements MemberDirectory {
           throw new Error(`The channel ${channelId} is not known, or is a thread`);
         }
         if (userIds.length === 0) return new Set<string>();
-        const members = await this.freshMembers(guild, userIds);
+        const members = await this.line.run(() => this.freshMembers(guild, userIds));
         const seeing = new Set<string>();
         for (const member of members) {
           if (channel.permissionsFor(member).has(PermissionFlagsBits.ViewChannel)) {
@@ -251,7 +288,8 @@ export class DiscordMemberDirectory implements MemberDirectory {
         }
         return seeing;
       },
-      { now, budget: new RequestBudget({ ...MEMBER_REQUEST_BUDGET, now }) },
+      // The budget is the line's, which every request for members goes through.
+      { now },
     );
   }
 
@@ -300,5 +338,36 @@ export class DiscordMemberDirectory implements MemberDirectory {
   viewers(guildId: string, channelId: string, userIds: readonly string[]): Promise<Set<string>> {
     if (!this.current) return Promise.reject(new Error('Discord is not connected yet'));
     return this.seeing.viewers(guildId, channelId, userIds);
+  }
+
+  /**
+   * The names a board shows (plan 8H-6, B4): every id asked of Discord in requests of
+   * `MEMBERS_PER_LOOKUP` by user id over the gateway, which Discord allows without the
+   * GuildMembers intent (its docs name the intent only for the whole list), so that somebody who
+   * left is found gone (review A2: without that intent the cache never hears of a member
+   * leaving). Only while the gateway rests after a failure (`GatewayWithFallback.restsUntil`) are
+   * the cache's members taken as it has them, the rest asked over REST one by one
+   * (`freshMembers`). Its requests take turns with those of `viewers`, one at a time on one
+   * budget (`line`, reviews A7, R-A4). A server the cache lacks rejects (A8): nothing can be said of its members.
+   */
+  async named(guildId: string, userIds: readonly string[]): Promise<ServerMember[]> {
+    if (!this.current) throw new Error('Discord is not connected yet');
+    const guild = this.current.guilds.cache.get(guildId);
+    if (!guild) throw new Error(`The server ${guildId} is not known`);
+    const resting = this.members.restsUntil > this.now();
+    const found: ServerMember[] = [];
+    const ask: string[] = [];
+    for (const id of userIds) {
+      if (!isSnowflake(id)) continue;
+      const cached = resting ? guild.members.cache.get(id) : undefined;
+      if (cached) found.push({ id, name: cached.displayName });
+      else ask.push(id);
+    }
+    for (let start = 0; start < ask.length; start += MEMBERS_PER_LOOKUP) {
+      const batch = ask.slice(start, start + MEMBERS_PER_LOOKUP);
+      const members = await this.line.run(() => this.freshMembers(guild, batch));
+      found.push(...members.map((member) => ({ id: member.id, name: member.displayName })));
+    }
+    return found;
   }
 }

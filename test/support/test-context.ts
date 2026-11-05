@@ -67,6 +67,7 @@ import { ModerationReports } from '../../src/services/moderation-reports.js';
 import { MemoryReports } from './reports.js';
 import { MemoryScriptAccess } from './script-access.js';
 import { ScriptAccessService } from '../../src/services/script-access-service.js';
+import { MemberNames } from '../../src/services/member-names.js';
 
 export { TEST_SETTINGS_PATH };
 
@@ -179,6 +180,8 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
     ),
     // Nobody is a member of any server; a test passes its own directory with members.
     members: new FakeMemberDirectory(),
+    // Over the context's members (below), unless a test passes its own.
+    memberNames: undefined as unknown as MemberNames,
     // No server offers any role; a test passes { selfRoles } from selfRolesWith().
     selfRoles: selfRolesWith().selfRoles,
     // What is put in line is only recorded; a test passes its own to read it.
@@ -334,6 +337,9 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
       guilds: ctx.guilds,
       log,
     });
+  }
+  if (overrides.memberNames === undefined) {
+    (ctx as { memberNames: MemberNames }).memberNames = new MemberNames({ members: ctx.members });
   }
   if (overrides.placeFinder === undefined) {
     (ctx as { placeFinder: PlaceFinder }).placeFinder = new PlaceFinder({

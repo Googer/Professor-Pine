@@ -12,6 +12,7 @@ import type { ClickAnswers } from './discord/click-answers.js';
 import type { CommandModule, MessageCommand } from './discord/command.js';
 import type { IntentFlags } from './discord/intents.js';
 import type { MemberDirectory } from './discord/member-directory.js';
+import type { MemberNames } from './services/member-names.js';
 import type { Throttles } from './discord/throttle.js';
 import type { Logger } from './log.js';
 import type { EmojiFinder } from './services/application-emoji.js';
@@ -200,6 +201,8 @@ export interface AppContext {
   readonly regionTallies: RegionTallies;
   /** Members of a server other than the one who is acting: one by id, or who of many can see a channel. */
   readonly members: MemberDirectory;
+  /** The names of the members a board shows (plan 8H-6): over `members`, kept a minute. */
+  readonly memberNames: MemberNames;
   /** The roles members give themselves: what a server offers, and giving and taking them. */
   readonly selfRoles: SelfRoleService;
   /** Reports of wild Pokémon: the message in the region's channel and its removal. */
