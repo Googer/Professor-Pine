@@ -167,12 +167,15 @@ describe('BoardRepository: what the boards read', () => {
     const one = members[0] ?? ASH;
     expect((await reader.memberParties(BOARD_SERVER, one)).length).toBeGreaterThan(100);
 
-    // As many legacy records beside them, as the import leaves: the reads of live records of a
-    // kind from a moment on go along the index of 040, past the legacy ones (W2).
-    await sql`insert into PartyHistory (source, legacyKey, kind, serverId, createdAt, ending,
-                                        bossKey, reached)
-              select 'legacy', concat('x:', id), kind, serverId, createdAt - 1, ending, bossKey, 0
-              from PartyHistory`.execute(db);
+    // Five legacy records beside each live one, as the import leaves far more: the reads of
+    // live records of a kind go along the index of 040, past the legacy ones (W2, F3).
+    for (let copy = 0; copy < 5; copy++) {
+      await sql`insert into PartyHistory (source, legacyKey, kind, serverId, createdAt, ending,
+                                          bossKey, reached)
+                select 'legacy', concat('x:', ${copy}, ':', id), kind, serverId, createdAt - 1,
+                       ending, bossKey, 0
+                from PartyHistory where source = 'live'`.execute(db);
+    }
     await sql`analyze table PartyHistory, PartyHistoryAttendee`.execute(db);
     const asked: CompiledQuery[] = [];
     const logged = createDb<DB>(database.config, (event) => {
@@ -181,16 +184,26 @@ describe('BoardRepository: what the boards read', () => {
     try {
       const since = BOARD_NOW - 30 * DAY;
       const seen = new BoardRepository(logged);
-      await seen.raidCredits(BOARD_SERVER, { since });
-      await seen.bossSends(BOARD_SERVER, since);
-      expect(asked).toHaveLength(2);
-      for (const query of asked) {
+      const index = 'partyhistory_server_source_kind_createdat_index';
+      const reads: [string, () => Promise<unknown>, readonly string[]][] = [
+        ['raids of a month', () => seen.raidCredits(BOARD_SERVER, { since }), [index]],
+        ['sent of a month', () => seen.bossSends(BOARD_SERVER, since), [index]],
+        // All time (F3): without the index named, MySQL walked the server's records by
+        // `(serverId, id)`, the legacy ones too.
+        ['raids of all time', () => seen.raidCredits(BOARD_SERVER, { since: null }), [index]],
+        ['trains of all time', () => seen.trainCredits(BOARD_SERVER, { since: null }), [index]],
+        ['meetups of all time', () => seen.meetupCredits(BOARD_SERVER, { since: null }), [index]],
+        ['sent of all time', () => seen.bossSends(BOARD_SERVER, null), [index]],
+      ];
+      for (const [name, read, keys] of reads) {
+        asked.length = 0;
+        await read();
+        const [query] = asked;
+        if (query === undefined) throw new Error(`${name} asked nothing`);
         const plan = await db.executeQuery<{ table: string; key: string | null }>(
           CompiledQuery.raw(`explain ${query.sql}`, [...query.parameters]),
         );
-        expect(plan.rows.find((row) => row.table === 'h')?.key, query.sql.slice(0, 60)).toBe(
-          'partyhistory_server_source_kind_createdat_index',
-        );
+        expect(keys, name).toContain(plan.rows.find((row) => row.table === 'h')?.key);
       }
     } finally {
       await logged.destroy();

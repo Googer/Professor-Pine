@@ -104,6 +104,13 @@ const another = (member: RawBuilder<unknown>, furthest: readonly string[]) => sq
  */
 const notByModerators = sql`(h.closedBy is null or h.closedBy <> 'moderators')`;
 
+/**
+ * The index of 040 the boards read a server's live records of a kind along (W2), named to the
+ * optimizer (F3): beside many legacy records it would otherwise walk all of a server's records
+ * by `(serverId, id)` for a read of all time.
+ */
+const LIVE_INDEX = sql.raw('force index (partyhistory_server_source_kind_createdat_index)');
+
 interface CreditRow {
   memberId: string;
   at: string;
@@ -123,7 +130,7 @@ export class BoardRepository implements BoardReader {
   async raidCredits(serverId: string, range: BoardRange): Promise<BoardCredit[]> {
     const rows = await sql<CreditRow>`
       select h.createdById as memberId, h.createdAt as at, h.anonymous
-      from PartyHistory h
+      from PartyHistory h ${LIVE_INDEX}
       where h.serverId = ${serverId} and h.kind in ('raid', 'max') and h.source = 'live'
         ${from(sql.ref('h.createdAt'), range.since)}
         and h.createdById is not null ${ofMember(sql.ref('h.createdById'), range.memberId)}
@@ -135,7 +142,7 @@ export class BoardRepository implements BoardReader {
   async trainCredits(serverId: string, range: BoardRange): Promise<RideCredit[]> {
     const rows = await sql<CreditRow & { partyId: string }>`
       select a.memberId, h.createdAt as at, h.anonymous, h.partyId
-      from PartyHistory h
+      from PartyHistory h ${LIVE_INDEX}
       join PartyHistoryAttendee a on a.historyId = h.id
       where h.serverId = ${serverId} and h.kind = 'train' and h.source = 'live'
         ${from(sql.ref('h.createdAt'), range.since)}
@@ -163,7 +170,7 @@ export class BoardRepository implements BoardReader {
   async meetupCredits(serverId: string, range: BoardRange): Promise<BoardCredit[]> {
     const rows = await sql<CreditRow>`
       select h.createdById as memberId, h.createdAt as at, h.anonymous
-      from PartyHistory h
+      from PartyHistory h ${LIVE_INDEX}
       where h.serverId = ${serverId} and h.kind = 'meetup' and h.source = 'live'
         ${from(sql.ref('h.createdAt'), range.since)}
         and h.createdById is not null ${ofMember(sql.ref('h.createdById'), range.memberId)}
@@ -253,7 +260,7 @@ export class BoardRepository implements BoardReader {
   ): Promise<{ bossKey: string; sent: number }[]> {
     const rows = await sql<{ bossKey: string; sent: string }>`
       select h.bossKey, sum(h.reached) as sent
-      from PartyHistory h
+      from PartyHistory h ${LIVE_INDEX}
       where h.serverId = ${serverId} and h.kind in ('raid', 'max') and h.source = 'live'
         ${from(sql.ref('h.createdAt'), since)}
         and h.bossKey is not null
