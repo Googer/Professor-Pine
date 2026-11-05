@@ -398,6 +398,7 @@ export interface PartyHistory {
   mega: Generated<number>;
   name: string | null;
   partyId: string | null;
+  reached: Generated<number>;
   regionId: number | null;
   remote: Generated<number>;
   routeStops: number | null;
@@ -638,6 +639,7 @@ export interface StopReport {
   lon: number;
   madeAt: string;
   periodKey: string;
+  reach: Generated<number>;
   regionIds: Json | null;
   reporterId: string;
   reporterName: string;
@@ -660,6 +662,7 @@ export interface StopReportHistory {
   kind: string;
   madeAt: string;
   periodKey: string;
+  reach: Generated<number>;
   regionIds: Json | null;
   reporterId: string | null;
   reportId: number;
@@ -698,6 +701,13 @@ export interface User {
   status: Generated<number>;
   trainMovement: Generated<number>;
   userSnowflake: string | null;
+}
+
+export interface WantCountDay {
+  count: number;
+  day: string;
+  serverId: string;
+  target: string;
 }
 
 export interface Wayspot {
@@ -815,6 +825,7 @@ export interface DB {
   TargetWant: TargetWant;
   UnownWantGift: UnownWantGift;
   User: User;
+  WantCountDay: WantCountDay;
   Wayspot: Wayspot;
   WayspotAddress: WayspotAddress;
   WayspotImport: WayspotImport;

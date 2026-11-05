@@ -15,13 +15,15 @@ describe('migration 036: the history of reports at stops', () => {
     await stop();
   });
 
+  /** The columns of a table as this migration made them: those of later migrations left out. */
+  const LATER = new Set(['StopReportHistory.reach']);
   const columnsOf = async (table: string) => {
     const rows = await sql<{ name: string; type: string; nullable: string }>`
       select column_name as name, column_type as type, is_nullable as nullable
       from information_schema.columns
       where table_schema = database() and table_name = ${table}
       order by ordinal_position`.execute(db);
-    return rows.rows;
+    return rows.rows.filter((column) => !LATER.has(`${table}.${column.name}`));
   };
 
   const indexesOf = async (table: string) => {
