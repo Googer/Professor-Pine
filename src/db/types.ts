@@ -30,6 +30,25 @@ export type Point = {
 
 export type Polygon = LineString[];
 
+export interface ActivityBucket {
+  completed: Generated<number>;
+  heads: Generated<number>;
+  hour: number;
+  maxes: Generated<number>;
+  month: string;
+  placeId: string;
+  placeKind: string;
+  raids: Generated<number>;
+  regionId: number;
+  serverId: string;
+  weekday: number;
+}
+
+export interface ActivityProgress {
+  lastHistoryId: Generated<number>;
+  serverId: string;
+}
+
 export interface Alias {
   aliasName: string | null;
   id: Generated<number>;
@@ -767,6 +786,8 @@ export interface WebSession {
 }
 
 export interface DB {
+  ActivityBucket: ActivityBucket;
+  ActivityProgress: ActivityProgress;
   Alias: Alias;
   AutoAssignRole: AutoAssignRole;
   AutosetPokemon: AutosetPokemon;

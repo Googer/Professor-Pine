@@ -76,6 +76,8 @@ const ADDED_TABLES = [
   'WayspotAddress',
   'StopReportHistory',
   'WantCountDay',
+  'ActivityBucket',
+  'ActivityProgress',
 ];
 /** The columns it adds to tables of the legacy bot, as `Table.column`. */
 const ADDED_COLUMNS = [
@@ -209,6 +211,7 @@ describe('runMigrations', () => {
       '2026_11_04_035_wayspot_address',
       '2026_11_04_036_stop_report_history',
       '2026_11_04_037_reach_and_want_counts',
+      '2026_11_05_038_activity_buckets',
     ]);
     expect(
       await describeSchema(

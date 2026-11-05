@@ -36,6 +36,7 @@ import { researchTaskEnds } from './2026_10_31_034_research_task_ends.js';
 import { wayspotAddress } from './2026_11_04_035_wayspot_address.js';
 import { stopReportHistory } from './2026_11_04_036_stop_report_history.js';
 import { reachAndWantCounts } from './2026_11_04_037_reach_and_want_counts.js';
+import { activityBuckets } from './2026_11_05_038_activity_buckets.js';
 
 /**
  * Every migration, keyed by name. Kysely applies them in name order, so names are
@@ -79,4 +80,5 @@ export const migrations: Record<string, Migration> = {
   '2026_11_04_035_wayspot_address': wayspotAddress,
   '2026_11_04_036_stop_report_history': stopReportHistory,
   '2026_11_04_037_reach_and_want_counts': reachAndWantCounts,
+  '2026_11_05_038_activity_buckets': activityBuckets,
 };

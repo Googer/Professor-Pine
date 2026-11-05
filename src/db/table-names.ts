@@ -14,6 +14,8 @@ export const PINE_TABLES: readonly string[] = [
   ...LEGACY_TABLES,
   'knex_migrations',
   'knex_migrations_lock',
+  'ActivityBucket',
+  'ActivityProgress',
   'GruntMessage',
   'GymLookup',
   'GymLookupDay',
