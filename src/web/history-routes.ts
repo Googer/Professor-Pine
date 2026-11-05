@@ -53,7 +53,7 @@ export interface ActivityWebDeps {
   /** A region's channel by name, as the bot sees it; undefined for one it does not. */
   channelName: (channelId: string) => string | undefined;
   /** The boards (plan 8H-6): `/stats boards`' own path (`Boards.board`). */
-  boards: Pick<Boards, 'board'>;
+  boards: Pick<Boards, 'boards'>;
   /** A member's own stats (plan 8H-6): `/stats me`'s own path (`MemberStatsService.stats`). */
   memberStats: Pick<MemberStatsService, 'stats'>;
   /** The catalogue's name of a boss by its key, for "Your Pine"'s bosses. */
@@ -343,11 +343,8 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
       const now = deps.now();
       let shown: ShownBoard[];
       try {
-        shown = await Promise.all(
-          BOARDS.map((board) =>
-            activity.boards.board(guild, board, period, now, { id: session.userId }),
-          ),
-        );
+        // Every board in one call: who is on them read once, their names asked once (W1, W2).
+        shown = await activity.boards.boards(guild, BOARDS, period, now, { id: session.userId });
       } catch (err) {
         // The names are Discord's (`MemberNames`): while it cannot say, as for membership (B5).
         request.log.warn({ err }, 'could not name the members of the boards');

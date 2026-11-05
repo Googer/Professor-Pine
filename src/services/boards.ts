@@ -1,3 +1,4 @@
+import { BoundedMap } from '../bounded-map.js';
 import type { BoardReader } from '../db/repositories/board-repository.js';
 import type { PartyGateway, V2Message } from '../discord/party-gateway.js';
 import {
@@ -15,6 +16,7 @@ import {
   periodStart,
   reportsThatCount,
   rides,
+  type Standing,
   type ThingRow,
 } from '../domain/history/boards.js';
 import type { TallyPeriod } from '../domain/history/tally-periods.js';
@@ -22,8 +24,10 @@ import type { MemberNames } from './member-names.js';
 
 /** As many members a board asks names of at most, its viewer aside (B4: about fifty). */
 export const BOARD_NAME_ASKS = 50;
-/** As many names as one ask takes: the ten shown and a few who may have left. */
-const NAME_BATCH = BOARD_SIZE + 5;
+/** How long a board's read of a server and period is used for (W2). */
+export const BOARD_READ_FRESH_MS = 60_000;
+/** As many reads as are kept at once; the oldest goes first. */
+const BOARD_READS_KEPT = 500;
 
 export interface BoardsOptions {
   reader: BoardReader;
@@ -81,12 +85,64 @@ export type ShownBoard =
     };
 
 /**
+ * A board of people as shown (W1: from the one answer of names of the call): its first ten
+ * members on the boards with a name, ranked as they stand, and where the viewer stands where the
+ * board does not show them (B2: one more than the named members above them among the first
+ * `BOARD_NAME_ASKS`, and those beyond, counted as they are).
+ */
+function peopleBoard(
+  placed: { board: PeopleBoard; standings: Standing[]; ranked: Standing[] },
+  period: TallyPeriod,
+  names: ReadonlyMap<string, string>,
+  onBoards: ReadonlySet<string>,
+  viewer: { id: string } | undefined,
+): ShownBoard {
+  const { board, standings, ranked } = placed;
+  const rows: PersonRow[] = [];
+  for (const one of ranked.slice(0, BOARD_NAME_ASKS)) {
+    if (rows.length >= BOARD_SIZE) break;
+    const name = names.get(one.memberId);
+    if (name === undefined) continue;
+    rows.push({
+      rank: rows.length + 1,
+      memberId: one.memberId,
+      name,
+      count: one.count,
+      confirmations: one.confirmations,
+    });
+  }
+  const shown: ShownBoard = { kind: 'people', board, period, rows };
+  if (viewer === undefined || rows.some((row) => row.memberId === viewer.id)) return shown;
+  const own = standings.find((one) => one.memberId === viewer.id);
+  if (own === undefined) return shown;
+  const ownIndex = standings.indexOf(own);
+  const above = ranked.filter((one) => standings.indexOf(one) < ownIndex);
+  const askedAbove = above.slice(0, BOARD_NAME_ASKS);
+  const aboveNamed =
+    askedAbove.filter((one) => names.has(one.memberId)).length + (above.length - askedAbove.length);
+  return {
+    ...shown,
+    viewer: {
+      rank: aboveNamed + 1,
+      on: onBoards.has(viewer.id),
+      count: own.count,
+      confirmations: own.confirmations,
+    },
+  };
+}
+
+/**
  * The boards (plan 8H-6, design Part D), for `/stats boards` and the web's history page alike:
  * the reader's rows ranked by the domain (`src/domain/history/boards.ts`), the members named by
  * `MemberNames` (one without a name is left out and the ranks close up), only members on the
  * boards ranked (both switches on when the board is read), only what was not anonymous.
  */
 export class Boards {
+  /** What each (server, board, period) read, kept `BOARD_READ_FRESH_MS` (W2). */
+  private readonly kept = new BoundedMap<string, { until: number; read: Promise<unknown> }>(
+    BOARD_READS_KEPT,
+  );
+
   constructor(private readonly options: BoardsOptions) {}
 
   /**
@@ -101,64 +157,75 @@ export class Boards {
     now: number,
     viewer?: { id: string; name?: string },
   ): Promise<ShownBoard> {
-    if (!isPeopleBoard(board)) return this.things(serverId, board, period, now);
+    const [shown] = await this.boards(serverId, [board], period, now, viewer);
+    if (shown === undefined) throw new Error(`No board ${board}`);
+    return shown;
+  }
+
+  /**
+   * Boards of a server for a period at `now`, in the order asked (the history page asks for all
+   * of them). Who is on the boards is read once for them all (W2); each board's records are read
+   * at most once a `BOARD_READ_FRESH_MS` per server and period; the names of the members they
+   * may show are asked of Discord once for them all (W1): the first `BOARD_NAME_ASKS` on each
+   * board, of which each board shows its first ten with a name and the viewer's place counts
+   * those above them.
+   */
+  async boards(
+    serverId: string,
+    asked: readonly BoardName[],
+    period: TallyPeriod,
+    now: number,
+    viewer?: { id: string; name?: string },
+  ): Promise<ShownBoard[]> {
     const since = periodStart(period, now, this.options.zone);
-    const [credits, onBoards] = await Promise.all([
-      this.credits(serverId, board, since),
-      this.options.reader.onBoards(serverId),
-    ]);
-    // Everybody's place, and of them the members on the boards, ranked (A6).
-    const { standings, ranked: boarded } = peopleStandings(credits, onBoards);
-    const given = new Map(viewer?.name === undefined ? [] : [[viewer.id, viewer.name] as const]);
-    const rows: PersonRow[] = [];
-    // Named a batch at a time until ten have a name, fifty asked at most (B4).
-    const asked = boarded.slice(0, BOARD_NAME_ASKS);
-    for (let start = 0; start < asked.length && rows.length < BOARD_SIZE; start += NAME_BATCH) {
-      const batch = asked.slice(start, start + NAME_BATCH);
-      const names = await this.options.names.names(
-        serverId,
-        batch.map((one) => one.memberId),
-        given,
-      );
-      for (const one of batch) {
-        const name = names.get(one.memberId);
-        if (name === undefined || rows.length >= BOARD_SIZE) continue;
-        rows.push({
-          rank: rows.length + 1,
-          memberId: one.memberId,
-          name,
-          count: one.count,
-          confirmations: one.confirmations,
-        });
-      }
-    }
-    const shown: ShownBoard = { kind: 'people', board, period, rows };
-    if (viewer === undefined || rows.some((row) => row.memberId === viewer.id)) return shown;
-    const own = standings.find((one) => one.memberId === viewer.id);
-    if (own === undefined) return shown;
-    // Their rank among the members on the board as the board ranks them (B2): those above them
-    // who have a name, then they themself (where their switch is off, the rank they would have).
-    // Above the fiftieth asked (B4) nobody is asked a name: they count as they are.
-    const ownIndex = standings.indexOf(own);
-    const above = boarded.filter((one) => standings.indexOf(one) < ownIndex);
-    const askedAbove = above.slice(0, BOARD_NAME_ASKS);
-    const named = await this.options.names.names(
-      serverId,
-      askedAbove.map((one) => one.memberId),
-      given,
+    const people = asked.filter(isPeopleBoard);
+    const onBoards =
+      people.length === 0 ? new Set<string>() : await this.options.reader.onBoards(serverId);
+    const placed = await Promise.all(
+      people.map(async (board) => {
+        const credits = await this.read(`${serverId}:${board}:${period}`, now, () =>
+          this.credits(serverId, board, since),
+        );
+        return { board, ...peopleStandings(credits, onBoards) };
+      }),
     );
-    const aboveNamed =
-      askedAbove.filter((one) => named.has(one.memberId)).length +
-      (above.length - askedAbove.length);
-    return {
-      ...shown,
-      viewer: {
-        rank: aboveNamed + 1,
-        on: onBoards.has(viewer.id),
-        count: own.count,
-        confirmations: own.confirmations,
-      },
-    };
+    const ids = [
+      ...new Set(
+        placed.flatMap((one) => one.ranked.slice(0, BOARD_NAME_ASKS).map((s) => s.memberId)),
+      ),
+    ];
+    const given = new Map(viewer?.name === undefined ? [] : [[viewer.id, viewer.name] as const]);
+    const names =
+      ids.length === 0
+        ? new Map<string, string>()
+        : await this.options.names.names(serverId, ids, given);
+    const shownPeople = new Map(
+      placed.map((one) => [one.board, peopleBoard(one, period, names, onBoards, viewer)]),
+    );
+    return Promise.all(
+      asked.map((board) =>
+        isPeopleBoard(board)
+          ? Promise.resolve(shownPeople.get(board) as ShownBoard)
+          : this.read(`${serverId}:${board}:${period}`, now, () =>
+              this.things(serverId, board, period, now),
+            ),
+      ),
+    );
+  }
+
+  /**
+   * A read kept `BOARD_READ_FRESH_MS` from `now` under its key, one on its way shared; a read
+   * that failed is not kept.
+   */
+  private read<T>(key: string, now: number, work: () => Promise<T>): Promise<T> {
+    const kept = this.kept.get(key);
+    if (kept !== undefined && kept.until > now) return kept.read as Promise<T>;
+    const read = work();
+    this.kept.set(key, { until: now + BOARD_READ_FRESH_MS, read });
+    read.catch(() => {
+      if (this.kept.get(key)?.read === read) this.kept.delete(key);
+    });
+    return read;
   }
 
   /**
