@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-05T02:04",
+  "updated": "2026-11-05T02:56",
   "items": [
     {
       "id": "0",
@@ -10463,6 +10463,11 @@ window.GANTT = {
           "start": "2026-11-05T01:17",
           "end": "2026-11-05T02:03"
         }
+      },
+      "status": "done",
+      "review": {
+        "start": "2026-11-05T02:12",
+        "end": "2026-11-05T02:56"
       }
     },
     {
@@ -10470,42 +10475,54 @@ window.GANTT = {
       "kind": "task",
       "parent": "8H-4",
       "name": "Migration 038: ActivityBucket and ActivityProgress",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-05T02:04",
+      "end": "2026-11-05T02:06"
     },
     {
       "id": "8H-4.2",
       "kind": "task",
       "parent": "8H-4",
       "name": "What counts and the weights, in the domain",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-05T02:06",
+      "end": "2026-11-05T02:07"
     },
     {
       "id": "8H-4.3",
       "kind": "task",
       "parent": "8H-4",
       "name": "The buckets kept up hourly, and their rebuild",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-05T02:07",
+      "end": "2026-11-05T02:08"
     },
     {
       "id": "8H-4.4",
       "kind": "task",
       "parent": "8H-4",
       "name": "The route: weights per place for a mode",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-05T02:08",
+      "end": "2026-11-05T02:09"
     },
     {
       "id": "8H-4.5",
       "kind": "task",
       "parent": "8H-4",
       "name": "The map layer and its panel",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-05T02:09",
+      "end": "2026-11-05T02:11"
     },
     {
       "id": "8H-4.6",
       "kind": "task",
       "parent": "8H-4",
       "name": "Docs: history.md, web.md, operations.md",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-05T02:11",
+      "end": "2026-11-05T02:12"
     },
     {
       "id": "16-staging",
