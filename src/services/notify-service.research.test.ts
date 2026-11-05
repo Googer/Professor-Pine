@@ -27,6 +27,9 @@ import { DM_PRIORITY } from './dm-sender.js';
 import { StopReportService, type ResearchSubject } from './stop-reports.js';
 import { zonedAt } from '../../test/support/time.js';
 import { RecordingReach } from '../../test/support/reach.js';
+import { MemoryHistory } from '../../test/support/history.js';
+import { createTestLogger } from '../../test/support/test-logger.js';
+import { ReachRecords } from './reach.js';
 
 const background = watchEachTest();
 const at = (local: string): number => zonedAt(local, 'America/New_York');
@@ -58,6 +61,7 @@ function taskGiving(fits: (reward: ResearchTask['rewards'][number]) => boolean):
 async function researchWith(
   notifying: Partial<NotifyServiceOptions> = {},
   events: ResearchEvent[] = [],
+  store = new MemoryStopReports(),
 ) {
   // The reports the notifier reads again (R6): made after it, over the party tests' clock.
   const held: { reports?: StopReportService } = {};
@@ -70,7 +74,7 @@ async function researchWith(
     },
   });
   const reports = new StopReportService({
-    store: new MemoryStopReports(),
+    store,
     events: { researchEvents: () => events },
     zone: made.settings.timezone,
     log: made.log,
@@ -239,6 +243,26 @@ describe('NotifyService: field research is reported (plan 8R-1, design 7)', () =
     expect(reach.runs).toEqual([
       { of, members: 1, at: made.clock.now },
       { of, members: 1, at: made.clock.now },
+    ]);
+  });
+
+  it('keeps both regions’ members in the record of the first report (plan 8H-3)', async () => {
+    const store = new MemoryStopReports();
+    const { log } = createTestLogger();
+    const reach = new ReachRecords({ history: new MemoryHistory(), stopReports: store, log });
+    const made = await researchWith({ reach }, [], store);
+    await made.want(ALICE, RESEARCH_DRATINI);
+    await made.want(BOB, RESEARCH_DRATINI);
+    made.gateway.shutOut(EAST_CHANNEL, ALICE);
+    made.gateway.shutOut(WEST_CHANNEL, BOB);
+    const outcome = await made.report(DRAGON, [west(1), east]);
+    await made.notify.flush();
+    const [first, second] = outcome.saved.map((saved) => saved.report);
+    await store.removeEnded(Number.MAX_SAFE_INTEGER);
+    const records = await store.historyOf(made.gateway.guildId);
+    expect(records.map(({ reportId, reach: count }) => ({ reportId, count }))).toEqual([
+      { reportId: first?.id, count: 2 },
+      { reportId: second?.id, count: 0 },
     ]);
   });
 

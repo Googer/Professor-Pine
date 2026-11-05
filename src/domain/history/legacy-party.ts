@@ -294,8 +294,9 @@ export function legacyRecord(raw: unknown, context: LegacyContext): LegacyRead {
       routeStops: kind === 'train' ? (Array.isArray(raw.route) ? raw.route.length : 0) : null,
       // The legacy bot's trains were all raid trains.
       trainKind: kind === 'train' ? 'raid' : null,
-      // The legacy bot split no trains.
+      // The legacy bot split no trains, and counted no reach: 0, not recorded.
       splitFromId: null,
+      reached: 0,
       attendees,
       groups: groupsOf(raw, attendees),
       stops: kind === 'train' ? stopsOf(raw, context) : [],

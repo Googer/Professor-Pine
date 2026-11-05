@@ -45,6 +45,13 @@ export interface HistoryStorage {
   write(note: HistoryNote, options?: { retry?: boolean }): Promise<void>;
   /** The ended parties still waiting for their record (`PartyHistory.sweep`), oldest first. */
   unrecorded(): Promise<UnrecordedParty[]>;
+  /**
+   * Notes how many members a run of the notifier's news of a party reached (plan 8H-3): a step
+   * `reach` (`subject` the event), which its record sums into `reached`. One plain insert, while
+   * the party's row is there (also once it ended, until its record took its steps); false where
+   * it is gone (recorded meanwhile), and nothing is written.
+   */
+  addReach(partyId: string, subject: string, members: number, at: number): Promise<boolean>;
 }
 
 /** What `insertRecords` did: rows it wrote, and records it found there already. */
@@ -103,6 +110,7 @@ function historyRow(record: HistoryRecord): Insertable<DB['PartyHistory']> {
     trainKind: record.trainKind,
     splitFromId: record.splitFromId,
     wayspotId: record.wayspotId,
+    reached: record.reached,
     ...historyCounts(record.attendees),
   };
 }
@@ -209,6 +217,15 @@ export class HistoryRepository implements HistoryOptIns, HistoryStorage {
         and not exists (select 1 from PartyHistory h where h.partyId = p.id)
       order by p.updatedAt, p.id`.execute(this.db);
     return rows.rows.map((row) => ({ partyId: row.partyId, movedTo: row.movedTo }));
+  }
+
+  async addReach(partyId: string, subject: string, members: number, at: number): Promise<boolean> {
+    // From the party's row: no row (recorded, deleted) writes nothing, and fails no foreign key.
+    const written = await sql`
+      insert into PartyHistoryStep (partyId, at, kind, subject, value)
+      select id, ${String(at)}, 'reach', ${subject}, ${String(members)} from Party
+      where id = ${partyId}`.execute(this.db);
+    return Number(written.numAffectedRows ?? 0n) > 0;
   }
 
   async write(note: HistoryNote, options: { retry?: boolean } = {}): Promise<void> {

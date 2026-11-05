@@ -178,6 +178,13 @@ export interface StopReportStorage {
    * surface reads the history yet.
    */
   historyOf(serverId: string): Promise<StopReportRecord[]>;
+  /**
+   * Adds to how many members the news of a version reached (plan 8H-3), in place: only while
+   * the report by that id was made then (another version, one replaced or swept meanwhile, takes
+   * nothing, and false). Its `madeAt` stays, so the version is the same; its record takes the
+   * count when it ends.
+   */
+  addReach(id: number, madeAt: number, members: number): Promise<boolean>;
 }
 
 /**
@@ -367,8 +374,10 @@ export class StopReportRepository implements StopReportStorage {
     return {
       cell: place?.cell ?? null,
       regionIds: place?.regionIds ? JSON.stringify(place.regionIds) : null,
-      // A version of its own: who confirmed the one before do not confirm it (review H15).
+      // A version of its own: who confirmed the one before do not confirm it (review H15), and
+      // what its news reached is its own (plan 8H-3).
       confirmedBy: null,
+      reach: 0,
       serverId: report.serverId,
       stopKey: report.stop.key,
       kind: report.kind,
@@ -862,6 +871,16 @@ export class StopReportRepository implements StopReportStorage {
     return changed.numUpdatedRows > 0n;
   }
 
+  async addReach(id: number, madeAt: number, members: number): Promise<boolean> {
+    const changed = await this.db
+      .updateTable('StopReport')
+      .set((eb) => ({ reach: eb('reach', '+', members) }))
+      .where('id', '=', id)
+      .where('madeAt', '=', String(madeAt))
+      .executeTakeFirst();
+    return changed.numUpdatedRows > 0n;
+  }
+
   async historyOf(serverId: string): Promise<StopReportRecord[]> {
     const rows = await this.db
       .selectFrom('StopReportHistory')
@@ -884,6 +903,7 @@ export class StopReportRepository implements StopReportStorage {
       endedAt: Number(row.endedAt),
       reporterId: row.reporterId,
       confirmations: row.confirmations,
+      reach: row.reach,
       // Written only from `ReportEnding`; read back for tests alone.
       ending: row.ending as ReportEnding,
     }));
@@ -956,6 +976,7 @@ function historyRow(
     endedAt: String(endedAt),
     reporterId: optedIn.has(`${row.serverId}:${row.reporterId}`) ? row.reporterId : null,
     confirmations: confirmations.length,
+    reach: row.reach,
     ending,
   };
 }

@@ -199,6 +199,12 @@ export interface HistoryRecord {
    * its own). Null for every other party.
    */
   splitFromId: string | null;
+  /**
+   * How many members the notifier's news of it was sent to (plan 8H-3, migration 037: put in
+   * line, not delivered), the sum of its `reach` steps and those of the parties it went on from.
+   * 0 where not recorded: a legacy party, one recorded before 8H-3.
+   */
+  reached: number;
   attendees: readonly HistoryAttendee[];
   groups: readonly HistoryGroup[];
   stops: readonly HistoryStop[];
@@ -253,13 +259,16 @@ export function historyCounts(attendees: readonly HistoryAttendee[]): HistoryCou
  * train of its own (`split`, plan 8T), where a train is (`stop`: `subject` its place, `value`
  * the gym, null at the end of the route or without one; `spot`, plan 8X-4: at a power spot,
  * `subject` its bare Wayfarer id, `value` null), a group's meeting time (`subject` the group),
- * and the party it goes on from (`from`: `subject` the id of a raid that moved and became this
- * party; the record of this party takes that party's steps and its row with it).
+ * the party it goes on from (`from`: `subject` the id of a raid that moved and became this
+ * party; the record of this party takes that party's steps and its row with it), and how many
+ * members a run of the notifier's news reached (`reach`, plan 8H-3: `subject` the event,
+ * `reported`, `boss`, `gym`; `value` the count; written by `HistoryStorage.addReach`, never by
+ * `partySteps`).
  */
 export interface HistoryStep {
   partyId: string;
   at: number;
-  kind: 'status' | 'left' | 'split' | 'stop' | 'spot' | 'meet' | 'from';
+  kind: 'status' | 'left' | 'split' | 'stop' | 'spot' | 'meet' | 'from' | 'reach';
   subject: string;
   value: number | null;
 }
@@ -560,10 +569,20 @@ export function historyOfParty(party: Party, input: HistoryInput): LiveRecord {
     routeStops: isTrain(party) ? party.train.route.length : null,
     trainKind: isTrain(party) ? party.train.kind : null,
     splitFromId: isTrain(party) ? (party.train.splitFrom?.partyId ?? null) : null,
+    reached: reachedOf(steps),
     attendees,
     groups,
     stops: trainStops(party, steps),
   };
+}
+
+/**
+ * How many members a party's news reached (plan 8H-3): the sum of the `reach` steps, its own and
+ * those of the parties it went on from (each run counted the members not counted before, while
+ * the notifier remembered the party).
+ */
+function reachedOf(steps: readonly HistoryStep[]): number {
+  return steps.reduce((sum, step) => sum + (step.kind === 'reach' ? (step.value ?? 0) : 0), 0);
 }
 
 /**
@@ -574,7 +593,10 @@ export function historyOfParty(party: Party, input: HistoryInput): LiveRecord {
  */
 function startOf(party: Party, steps: readonly HistoryStep[]): number {
   if (!isTrain(party) || party.train.splitFrom === null) return party.createdAt;
-  const own = steps.filter((step) => step.partyId === party.id).map((step) => step.at);
+  // A count of what its news reached is no step of its life.
+  const own = steps
+    .filter((step) => step.partyId === party.id && step.kind !== 'reach')
+    .map((step) => step.at);
   return own.length === 0 ? party.createdAt : Math.min(...own);
 }
 

@@ -92,6 +92,8 @@ describe('legacyRecord', () => {
         routeStops: null,
         trainKind: null,
         splitFromId: null,
+        // No reach was counted then: not recorded.
+        reached: 0,
         attendees: [
           {
             memberId: null,

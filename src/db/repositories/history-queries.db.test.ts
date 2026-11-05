@@ -86,6 +86,7 @@ function record(more: Partial<HistoryRecord>): HistoryRecord {
     routeStops: null,
     trainKind: null,
     splitFromId: null,
+    reached: 0,
     attendees: [],
     groups: [],
     stops: [],

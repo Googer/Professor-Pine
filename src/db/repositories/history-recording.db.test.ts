@@ -527,6 +527,25 @@ describe('the party history, written with the parties', () => {
     expect(await history.unrecorded()).toEqual([]);
   });
 
+  it('sums what the news of a raid reached, before and after a move, into its record (plan 8H-3)', async () => {
+    const old = { ...testRaid(), forumChannelId: FORUM, forumPostId: POST };
+    const before = await live([old]);
+    expect(await history.addReach(old.id, 'reported', 4, T + MINUTE)).toBe(true);
+    const moved = await live([{ ...testRaid(), id: MOVED }], { from: old.id });
+    const left = ending(before, T + 2 * MINUTE);
+    await parties.save(left, noteOf(before, left, { kind: 'move', to: MOVED }));
+    expect(await history.addReach(MOVED, 'gym', 3, T + 3 * MINUTE)).toBe(true);
+    expect((await stepsOf(MOVED)).filter((step) => step.kind === 'reach')).toEqual([
+      { kind: 'reach', subject: 'gym', value: '3', at: String(T + 3 * MINUTE) },
+    ]);
+    const last = ending(moved, T + 9 * MINUTE);
+    await parties.save(last, noteOf(moved, last));
+    expect(await kept()).toEqual([expect.objectContaining({ partyId: MOVED, reached: 7 })]);
+    // Once recorded, the party's row is gone: a late count is dropped, not an error.
+    expect(await history.addReach(MOVED, 'gym', 1, T + 10 * MINUTE)).toBe(false);
+    expect(await kept()).toEqual([expect.objectContaining({ reached: 7 })]);
+  });
+
   it('knows where a raid moved also when only the end of the old one said so', async () => {
     const old = testRaid();
     const before = await live([old]);

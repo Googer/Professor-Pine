@@ -74,6 +74,11 @@ export interface StopReportRecord {
   endedAt: number;
   reporterId: string | null;
   confirmations: number;
+  /**
+   * How many members the notifier's news of this version was sent to (plan 8H-3; research: the
+   * news' first report, review H16). 0 where none, or not recorded (before 8H-3).
+   */
+  reach: number;
   ending: ReportEnding;
 }
 

@@ -389,6 +389,37 @@ describe('historyOfParty', () => {
     expect(ended(rode, 'cancelled')).toBe('completed');
   });
 
+  it('sums how many members its news reached, over the parties it went on from (plan 8H-3)', () => {
+    const raid = withAttendees(testRaid(), { [ALICE]: { status: PartyStatus.Coming } });
+    const reach = (partyId: string, at: number, value: number): HistoryStep => ({
+      partyId,
+      at,
+      kind: 'reach',
+      subject: 'reported',
+      value,
+    });
+    const steps = [
+      ...stepsOf([raid]),
+      // The raid it went on from after a move, and its own news.
+      reach('00000000-0000-4000-8000-0000000000ff', T, 4),
+      reach(raid.id, T + MINUTE, 3),
+      reach(raid.id, T + 2 * MINUTE, 1),
+    ];
+    const record = (stepsGiven: readonly HistoryStep[]) =>
+      historyOfParty(endParty(raid), {
+        end: { how: 'clock' },
+        steps: stepsGiven,
+        optedIn: new Set(),
+        describeBoss,
+        shiny: null,
+      });
+    expect(record(steps).reached).toBe(8);
+    expect(record(stepsOf([raid])).reached).toBe(0);
+    // A count is no member, and no stop: who came stays as it was.
+    expect(record(steps).attendees).toEqual(record(stepsOf([raid])).attendees);
+    expect(historyMembers(raid, steps).sort()).toEqual([ALICE, REPORTER].sort());
+  });
+
   it('writes @member for every member a name, a description or a group label names', () => {
     const meetup = testMeetup({ name: `Picnic with <@${BOB}>` });
     const labelled = {

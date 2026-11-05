@@ -52,13 +52,15 @@ interface Ended {
  * are what the live rows keep beside the report (by id), `records` the history of the reports
  * that ended, `optIn` a member's history opt-in, and `historyFailing` makes the records of a
  * save or a take-back fail (logged and lost there, review H11) and the sweep's (its rows kept,
- * H10, and nothing forgotten).
+ * H10, and nothing forgotten). Plan 8H-3: `reach`, what the news of each kept version reached.
  */
 export class MemoryStopReports implements StopReportStorage {
   readonly rows = new Map<number, StopReport>();
   readonly failing = new Map<Method, Error>();
   readonly places = new Map<number, ReportPlace>();
   readonly confirmedBy = new Map<number, readonly string[]>();
+  /** What the news of each kept version reached (plan 8H-3), by id. */
+  readonly reach = new Map<number, number>();
   readonly records: StopReportRecord[] = [];
   historyFailing: Error | undefined;
   private readonly optedIn = new Set<string>();
@@ -141,6 +143,7 @@ export class MemoryStopReports implements StopReportStorage {
     this.rows.delete(id);
     this.places.delete(id);
     this.confirmedBy.delete(id);
+    this.reach.delete(id);
   }
 
   private confirm(row: StopReport, member: string): void {
@@ -191,6 +194,7 @@ export class MemoryStopReports implements StopReportStorage {
             ? confirmed
             : confirmedWith(confirmed, confirmedBy, row.reporter.id)
           ).length,
+          reach: this.reach.get(row.id) ?? 0,
           ending,
         }),
       );
@@ -281,6 +285,14 @@ export class MemoryStopReports implements StopReportStorage {
     );
     for (const one of found) one.ending = ending;
     return Promise.resolve(found.length > 0);
+  }
+
+  addReach(id: number, madeAt: number, members: number): Promise<boolean> {
+    this.fail('addReach');
+    const row = this.rows.get(id);
+    if (row?.madeAt !== madeAt) return Promise.resolve(false);
+    this.reach.set(id, (this.reach.get(id) ?? 0) + members);
+    return Promise.resolve(true);
   }
 
   historyOf(serverId: string): Promise<StopReportRecord[]> {

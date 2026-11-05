@@ -111,6 +111,7 @@ import { WayspotPlaces } from './services/wayspot-places.js';
 import { ImageCache } from './services/image-cache.js';
 import { EmojiPictures, PlacePictures } from './services/post-pictures.js';
 import { NotifyService } from './services/notify-service.js';
+import { ReachRecords } from './services/reach.js';
 import { OcrAssets } from './services/ocr-assets.js';
 import { OcrService } from './services/ocr-service.js';
 import { ScreenshotService } from './services/screenshot-service.js';
@@ -349,8 +350,9 @@ export async function startApp(
   const regionRepository = new RegionRepository(db);
   const regions = new RegionDirectory({ regions: regionRepository, log });
   // Reports at stops (plan 8R-1), each in the research period of the stored events.
+  const stopReportStore = new StopReportRepository(db, log);
   const stopReports = new StopReportService({
-    store: new StopReportRepository(db, log),
+    store: stopReportStore,
     events: raidEvents,
     zone: config.settings.timezone,
     // A grunt's report (plan 8R-2) stands as long as its message.
@@ -548,6 +550,9 @@ export async function startApp(
     },
     // A "one of" leaves out the stops narrowed before its turn (plan 8R-5, R6).
     stopReports,
+    // How many members the news reached (plan 8H-3): kept in the party history and with the
+    // reports at stops; in rehearsal mode too, as everything rehearsal writes.
+    reach: new ReachRecords({ history, stopReports: stopReportStore, log }),
   });
   partyService.announceTo(notify);
   // Who wants a reward of reported field research hears of it (plan 8R-1, design 7).

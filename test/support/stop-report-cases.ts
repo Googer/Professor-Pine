@@ -479,6 +479,7 @@ export function stopReportCases<S extends StopReportStorage>(
       endsAt: report.endsAt,
       reporterId: null,
       confirmations: 0,
+      reach: 0,
       ...overrides,
     });
     const catching = (overrides: Partial<Omit<ResearchReport, 'id'>> = {}) =>
@@ -796,6 +797,38 @@ export function stopReportCases<S extends StopReportStorage>(
         alike.report.id,
         later.report.id,
       ]);
+    });
+
+    it('counts what a version reached, its version kept, and copies it into its record (plan 8H-3)', async () => {
+      const store = await made();
+      const { report } = await store.save(researchReport(), { place: PLACE });
+      expect(await store.addReach(report.id, report.madeAt, 3)).toBe(true);
+      expect(await store.addReach(report.id, report.madeAt, 2)).toBe(true);
+      // Another version, or a report not kept, takes nothing.
+      expect(await store.addReach(report.id, report.madeAt + 1, 9)).toBe(false);
+      expect(await store.addReach(report.id + 1_000, report.madeAt, 9)).toBe(false);
+      expect(await store.byId(report.id)).toEqual(report);
+      await store.saveUnless(catching(), () => ({ verdict: 'replace', ending: 'contradicted' }));
+      expect(await store.historyOf(REPORT_SERVER)).toEqual([
+        recordOf(report, { ending: 'contradicted', endedAt: REPORT_NOW + 60_000, reach: 5 }),
+      ]);
+      expect(await store.addReach(report.id, report.madeAt, 1)).toBe(false);
+    });
+
+    it('starts a version refined in place at none, the one before keeping its own (plan 8H-3)', async () => {
+      const store = await made();
+      const { report } = await store.save(rocketReport(), { place: PLACE });
+      await store.addReach(report.id, report.madeAt, 2);
+      const refined = await store.saveUnless(
+        magikarpLineup(),
+        () => ({ verdict: 'update', ending: 'refined' }),
+        { place: PLACE },
+      );
+      if (!refined.saved) throw new Error('the refine was kept out');
+      expect(await store.addReach(report.id, report.madeAt, 4)).toBe(false);
+      expect(await store.addReach(refined.report.id, refined.report.madeAt, 1)).toBe(true);
+      expect(await store.removeEnded(REPORT_NOW + 31 * 60_000)).toBe(1);
+      expect((await store.historyOf(REPORT_SERVER)).map((record) => record.reach)).toEqual([2, 1]);
     });
   });
 }

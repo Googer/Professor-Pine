@@ -160,6 +160,24 @@ export class MemoryHistory implements HistoryStorage {
     });
   }
 
+  addReach(partyId: string, subject: string, members: number, at: number): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      setImmediate(() => {
+        if (this.failing) {
+          reject(this.failing);
+          return;
+        }
+        // While the party's row is there, as the repository's insert from it.
+        if (!this.parties.has(partyId)) {
+          resolve(false);
+          return;
+        }
+        this.kept = [...this.kept, { partyId, at, kind: 'reach', subject, value: members }];
+        resolve(true);
+      });
+    });
+  }
+
   write(note: HistoryNote, options: { retry?: boolean } = {}): Promise<void> {
     return new Promise((resolve, reject) => {
       // Like a real query, the answer never comes in the same turn of the event loop.
