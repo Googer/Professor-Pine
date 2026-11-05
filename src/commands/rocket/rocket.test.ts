@@ -1032,7 +1032,7 @@ describe('/rocket report’s help (plan 8R-9)', () => {
     expect(details).toContain('goes in "Today’s Stops" on the region’s board until midnight');
     expect(details).toContain('a line in the region’s channel');
     // The board is open to commands since plan 8R-9F.
-    expect(details).toContain('you can report from the board too');
+    expect(details).toContain('You can report from the board too');
   });
 
   it('says the stops are offered near the member’s last report, in the settings’ units', () => {
@@ -1043,9 +1043,10 @@ describe('/rocket report’s help (plan 8R-9)', () => {
         distanceUnits,
       });
       expect(textDisplays(message)[0]).toContain(
-        `With nothing typed, those are the PokéStops within ${distanceWords(2_000, distanceUnits)} of ` +
-          'the stop where you last reported today, research or Team GO Rocket (also where that ' +
-          'report has ended or someone has changed it since; one you took back does not count)',
+        'those near the stop where you last reported today (research or Team GO Rocket, also a ' +
+          'report that has ended or changed since, but not one you took back) before those ' +
+          `farther away. With nothing typed, it lists the PokéStops within ` +
+          `${distanceWords(2_000, distanceUnits)} of that stop, nearest first.`,
       );
     }
   });

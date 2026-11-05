@@ -459,22 +459,22 @@ const reportResearch: SubcommandPart = {
   help: {
     details: (settings) =>
       'Reports the field research task of up to five PokéStops at once. Pick the task from the ' +
-      'list that appears while you type: a task has a choice for each of its rewards, and one ' +
-      'of several Pokémon also "one of" its Pokémon, for a task not done yet (the game shows ' +
-      'which only then).\n\nThe list finds tasks by their rewards too (`dratini`). Pick the stops ' +
-      'from theirs (your region’s first, then those nearest the stops you picked already; ' +
-      'with nothing typed, the stops within ' +
-      `${distanceWords(MORE_STOPS_METRES, settings.distanceUnits)} of them, nearest first), ` +
-      'or paste a maps link to a stop.\n\nA report replaces ' +
-      'your own at a stop today, and a "one of" by one of its Pokémon. Another member’s report ' +
-      'is asked about first: tick the stops whose report you replace. The same report again, ' +
-      'or one that says less, is "Already reported".\n\n"Today’s Stops" on the region’s board ' +
-      '(its forum’s pinned post, where you can report too) shows every task of the day, a ' +
-      'task new today gets a line in ' +
-      'the region’s channel, and members who want a reward get a direct message.\n\nA task ' +
-      'missing from the list can be typed in full, with its ' +
-      '`reward`. Your answer offers the same task at more stops nearby and takes the report ' +
-      `back. You can make ${String(settings.research.throttle.uses)} reports in ` +
+      'list that appears while you type; it finds tasks by their rewards too (`dratini`).\n\n' +
+      'A task has a choice for each of its rewards, and one that rewards one of several ' +
+      'Pokémon also "one of", for when you have not done it yet (the game shows which only ' +
+      'then).\n\nPick the stops from their lists, or paste a maps link to a stop. Your ' +
+      'region’s stops come first, then those nearest the stops you picked already; with ' +
+      'nothing typed, the stops within ' +
+      `${distanceWords(MORE_STOPS_METRES, settings.distanceUnits)} of them, nearest first.\n\n` +
+      'A report replaces your own at a stop today, and one that names the Pokémon replaces a ' +
+      '"one of". Another member’s report is asked about first: tick the stops whose report ' +
+      'you replace. The same report again, or one that says less, is answered "Already ' +
+      'reported".\n\n"Today’s Stops" on the region’s board (the pinned post of its forum, ' +
+      'where you can report too) shows every task of the day. A task new today also gets a ' +
+      'line in the region’s channel, and members who want its reward get a direct ' +
+      'message.\n\nA task missing from the list can be typed in full, with its `reward`. The ' +
+      'answer you get offers the same task at more stops nearby, and takes the report back ' +
+      `if you ask.\n\nYou can make ${String(settings.research.throttle.uses)} reports in ` +
       `${String(settings.research.throttle.minutes)} minutes; up to ` +
       `${String(settings.research.throttle.uses)} answers of "Already reported" in that time do not count.`,
     examples: [

@@ -1036,9 +1036,9 @@ describe('/research report and the versions of a task (plan 8R-5)', () => {
     expectV2Sendable(message);
     const [details = ''] = textDisplays(message);
     expect(details).toContain('a choice for each of its rewards');
-    expect(details).toContain('"one of" its Pokémon');
+    expect(details).toContain('also "one of", for when you have not done it yet');
     expect(details).toContain('Another member’s report is asked about first');
-    expect(details).toContain('or one that says less, is "Already reported"');
+    expect(details).toContain('or one that says less, is answered "Already reported"');
     // Where the reports show since plan 8R-9: the region's board, and a line for a new task.
     expect(details).toContain('"Today’s Stops" on the region’s board');
     expect(details).toContain('a line in the region’s channel');

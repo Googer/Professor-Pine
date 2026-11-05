@@ -246,20 +246,19 @@ const reportRocket: SubcommandPart = {
     details: (settings) =>
       'Reports who of Team GO Rocket is at a PokéStop. Pick them from the list that appears ' +
       'while you type (it finds them by what can be caught too: `dratini`), and the stop from ' +
-      'theirs (your region’s first), or paste a maps link to a stop. The stops list puts the ' +
-      'stops near where you last reported first.\n\nWith nothing typed, those are the PokéStops within ' +
-      `${distanceWords(MORE_STOPS_METRES, settings.distanceUnits)} of the stop where you last ` +
-      'reported today, research or Team GO Rocket (also where that report has ended or ' +
-      'someone has changed it since; one you took back does not count), nearest first; of stops that fit what you type alike, ' +
-      'the nearer to it.\n\nA grunt is posted in the ' +
-      `region’s channel for ${String(settings.rocket.gruntMinutes)} minutes; a leader, Giovanni ` +
-      'or a decoy grunt goes in "Today’s Stops" on the region’s board until midnight (a ' +
-      'leader or Giovanni new today with a line in the region’s channel; you can report from ' +
-      'the board too), and keeps grunts ' +
-      `away from the stop all day.\n\n${GIOVANNI_ONLY_WHEN_SURE}\n\nA ` +
+      'its list, or paste a maps link to a stop.\n\nThe stops list puts your region’s stops ' +
+      'first, and those near the stop where you last reported today (research or Team GO ' +
+      'Rocket, also a report that has ended or changed since, but not one you took back) ' +
+      'before those farther away. With nothing typed, it lists the PokéStops within ' +
+      `${distanceWords(MORE_STOPS_METRES, settings.distanceUnits)} of that stop, nearest ` +
+      `first.\n\nA grunt is posted in the region’s channel for ` +
+      `${String(settings.rocket.gruntMinutes)} minutes. A leader, Giovanni or a decoy grunt ` +
+      'goes in "Today’s Stops" on the region’s board until midnight and keeps grunts away from ' +
+      'the stop all day; a leader or Giovanni new today also gets a line in the region’s ' +
+      `channel. You can report from the board too.\n\n${GIOVANNI_ONLY_WHEN_SURE}\n\nA ` +
       'stop has one report: a newer one replaces it (a grunt where a hideout was reported asks ' +
       'first), and the same grunt twice is answered with the report that stands. Members who ' +
-      'want it get a direct message. Your answer takes the report back.\n\nYou can make ' +
+      'want it get a direct message. The answer you get can take the report back.\n\nYou can make ' +
       `${String(settings.rocket.throttle.uses)} reports in ` +
       `${String(settings.rocket.throttle.minutes)} minutes; up to ` +
       `${String(settings.rocket.throttle.uses)} answers of "Already reported" in that time do not count.`,
