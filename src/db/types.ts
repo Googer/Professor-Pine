@@ -433,6 +433,7 @@ export interface PartyHistory {
 }
 
 export interface PartyHistoryAttendee {
+  conducted: Generated<number>;
   doneAt: string | null;
   extras: Generated<number>;
   furthest: string;

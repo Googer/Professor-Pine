@@ -64,6 +64,8 @@ export interface RecordsWritten {
 const ROWS_PER_INSERT = 2_000;
 /** What the varchar(100) columns of names and labels hold. */
 const NAME_ROOM = 100;
+/** What the smallint unsigned column of the stops a conductor led holds. */
+const MAX_LED_STOPS = 65_535;
 
 const flag = (value: boolean): number => (value ? 1 : 0);
 const epoch = (value: number | null): string | null => (value === null ? null : String(value));
@@ -374,6 +376,7 @@ export class HistoryRepository implements HistoryOptIns, HistoryStorage {
             doneAt: epoch(attendee.doneAt),
             leftAt: epoch(attendee.leftAt),
             splitOff: flag(attendee.splitOff === true),
+            conducted: Math.min(MAX_LED_STOPS, attendee.conducted ?? 0),
           });
         }
         for (const group of record.groups) {

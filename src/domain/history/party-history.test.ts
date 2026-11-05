@@ -20,6 +20,8 @@ import { PartyStatus } from '../party/status.js';
 import { finishParty } from '../party/attendance.js';
 import {
   clearConductor,
+  clearRoute,
+  moveTrain,
   setConductor,
   splitOffGroup,
   splitSettled,
@@ -249,6 +251,107 @@ describe('partySteps: who conducts a train (plan 8H-6A)', () => {
       ['unlead', ALICE, null],
       ['conduct', BOB, null],
     ]);
+  });
+});
+
+describe('historyOfParty: what each conductor of a train led (plan 8H-6A)', () => {
+  /** The maker and Alice and Bob on a train at stop 0 of 11, 12, 13, nobody conducting. */
+  const riders = (): TrainParty => withAttendees(train(0), { [ALICE]: {}, [BOB]: {} });
+  const ok = <P>(change: { ok: true; party: P } | { ok: false; reason: string }): P => {
+    if (!change.ok) throw new Error(change.reason);
+    return change.party;
+  };
+  const next = (party: TrainParty, memberId: string) =>
+    ok(moveTrain(party, memberId, 'next', false));
+  const recordOf = (party: TrainParty, steps: HistoryStep[], optedIn: string[] = []) =>
+    historyOfParty(endParty(party), {
+      end: { how: 'clock' },
+      steps,
+      optedIn: new Set(optedIn),
+      describeBoss,
+      shiny: null,
+    });
+  /** The stops each attendee led the train to, in the record's order. */
+  const led = (record: ReturnType<typeof recordOf>) =>
+    record.attendees.map((attendee) => attendee.conducted ?? 0);
+
+  it('credits nothing to a conductor under whom the train never moved', () => {
+    // Bob takes it over and clears it at once: he held the role, he led nothing.
+    const taken = ok(setConductor(riders(), BOB));
+    const cleared = ok(clearConductor(taken, BOB, false));
+    const moved = next(cleared, ALICE);
+    expect(led(recordOf(moved, stepsOf([riders(), taken, cleared, moved])))).toEqual([0, 0, 0]);
+  });
+
+  it('credits nothing for a cleared route or a Finish: neither is an arrival', () => {
+    // Bob takes it over and clears the route: the train is nowhere now, it went nowhere.
+    const taken = ok(setConductor(riders(), BOB));
+    const cleared = ok(clearRoute(taken, BOB, false));
+    expect(led(recordOf(cleared, stepsOf([riders(), taken, cleared])))).toEqual([0, 0, 0]);
+    // Bob takes it over at the last stop and finishes the route.
+    const last = withAttendees(train(2), { [ALICE]: {}, [BOB]: {} });
+    const atLast = ok(setConductor(last, BOB));
+    const finished = ok(moveTrain(atLast, BOB, 'finish', false));
+    expect(led(recordOf(finished, stepsOf([last, atLast, finished])))).toEqual([0, 0, 0]);
+  });
+
+  it('credits each conductor of a handover with the stops they led, also the one who pressed Done', () => {
+    // Alice leads it to 12 and 13, presses Done; Bob leads it back to 12 and finishes there.
+    const alice = ok(setConductor(riders(), ALICE));
+    const one = next(alice, ALICE);
+    const two = next(one, ALICE);
+    const done = ok(finishParty(two, ALICE, T, 5));
+    const bob = ok(setConductor(done, BOB));
+    const back = ok(moveTrain(bob, BOB, 'previous', false));
+    const end = ok(moveTrain(back, BOB, 'finish', false));
+    const record = recordOf(end, stepsOf([riders(), alice, one, two, done, bob, back, end]), [
+      ALICE,
+      BOB,
+    ]);
+    // The maker, Alice (gone), Bob: in the order they signed up.
+    expect(record.attendees.map((attendee) => attendee.memberId)).toEqual([null, ALICE, BOB]);
+    // A move back is an arrival too; the Finish is none.
+    expect(led(record)).toEqual([0, 2, 1]);
+    expect(record.attendees[1]).toMatchObject({ status: null, leftAt: T + 4 * MINUTE });
+    // The record's conductor is still the last one.
+    expect(record.conductorId).toBe(BOB);
+  });
+
+  it('credits a conductor without their opt-in on a row that names nobody', () => {
+    const alice = ok(setConductor(riders(), ALICE));
+    const moved = next(alice, ALICE);
+    const record = recordOf(moved, stepsOf([riders(), alice, moved]));
+    expect(record.attendees[1]).toMatchObject({ memberId: null, conducted: 1 });
+    expect(record.conductorId).toBeNull();
+  });
+
+  it('credits a conductor its steps never saw become one with what it led from their start', () => {
+    // A train running when the steps of conductors came: Bob conducts it from before its steps.
+    const bob = ok(setConductor(riders(), BOB));
+    const one = next(bob, BOB);
+    const two = next(one, BOB);
+    const steps = [...partySteps(bob, one, T), ...partySteps(one, two, T + MINUTE)];
+    expect(led(recordOf(two, steps))).toEqual([0, 0, 2]);
+    // The same, when he handed it over: up to his end, then Alice's own (a move back).
+    const alice = ok(setConductor(two, ALICE));
+    const end = ok(moveTrain(alice, ALICE, 'previous', false));
+    const handed = [...steps, ...partySteps(two, alice, T + 2 * MINUTE)];
+    handed.push(...partySteps(alice, end, T + 3 * MINUTE));
+    expect(led(recordOf(end, handed))).toEqual([0, 1, 2]);
+  });
+
+  it('credits nobody on a train nobody conducted, and no raid', () => {
+    const moved = next(riders(), ALICE);
+    expect(led(recordOf(moved, stepsOf([riders(), moved])))).toEqual([0, 0, 0]);
+    const raid = withAttendees(testRaid(), { [ALICE]: {} });
+    const record = historyOfParty(endParty(raid), {
+      end: { how: 'clock' },
+      steps: stepsOf([raid]),
+      optedIn: new Set(),
+      describeBoss,
+      shiny: null,
+    });
+    expect(record.attendees.some((attendee) => attendee.conducted !== undefined)).toBe(false);
   });
 });
 
@@ -849,6 +952,58 @@ describe('a train a group was split off (plan 8T)', () => {
       shiny: null,
     });
     expect(empty.createdAt).toBe(T + 9 * MINUTE);
+  });
+
+  it('credits the conductor of each train with what that train did alone (plan 8H-6A)', () => {
+    const ok = <P>(change: { ok: true; party: P } | { ok: false; reason: string }): P => {
+      if (!change.ok) throw new Error(change.reason);
+      return change.party;
+    };
+    // Alice conducts the old train one stop on, then splits her group B off and leads the new
+    // one a stop back; the old train goes on to its own end without a conductor.
+    const led = ok(setConductor(before(), ALICE));
+    const on = ok(moveTrain(led, ALICE, 'next', false));
+    const split = ok(splitOffGroup(on, ALICE, false, 'B', { partyId: NEW_ID, postId: NEW_POST }));
+    const oldEnd = ok(moveTrain(split, REPORTER, 'next', false));
+    const writes: Party[] = [before(), led, on, split, oldEnd];
+    const steps = stepsOf(writes);
+    // She stopped conducting the old train when she went with the group.
+    expect(steps.filter((step) => step.kind === 'unlead').map((step) => step.subject)).toEqual([
+      ALICE,
+    ]);
+    const credits = (record: ReturnType<typeof historyOfParty>) =>
+      record.attendees.map((attendee) => [attendee.memberId, attendee.conducted ?? 0]);
+    const oldRecord = historyOfParty(endParty(oldEnd), {
+      end: { how: 'clock' },
+      steps,
+      optedIn: new Set([REPORTER, ALICE, BOB]),
+      describeBoss,
+      shiny: null,
+    });
+    expect(credits(oldRecord)).toEqual([
+      [REPORTER, 0],
+      [ALICE, 1],
+      [BOB, 0],
+    ]);
+    const made = splitTrain(on, { id: NEW_ID, by: ALICE, anonymous: false, group: 'B', now: T });
+    const settled = splitSettled(made);
+    const newEnd = ok(moveTrain(settled, ALICE, 'previous', false));
+    const newRecord = historyOfParty(endParty(newEnd), {
+      end: { how: 'clock' },
+      steps: [
+        ...partySteps(undefined, made, T),
+        ...partySteps(made, settled, T + MINUTE),
+        ...partySteps(settled, newEnd, T + 2 * MINUTE),
+      ],
+      optedIn: new Set([REPORTER, ALICE, BOB]),
+      describeBoss,
+      shiny: null,
+    });
+    // The new train reaching the stop it was split at is no stop she led it to.
+    expect(credits(newRecord)).toEqual([
+      [ALICE, 1],
+      [BOB, 0],
+    ]);
   });
 
   it('reaches the first stop of a train split before its start at the start', () => {

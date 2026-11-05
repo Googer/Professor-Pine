@@ -142,6 +142,10 @@ describe('the import of the legacy parties into the history', () => {
     for (const member of MEMBERS) expect(everything).not.toContain(member);
     expect(everything).toContain('Ask @member or @member.');
     expect(everything).toContain('Ride with @member');
+    // Nor who conducted a train (plan 8H-6A): the legacy history credits nobody.
+    expect(
+      await db.selectFrom('PartyHistoryAttendee').select('conducted').distinct().execute(),
+    ).toEqual([{ conducted: 0 }]);
   });
 
   it('keeps the groups and the stops the files tell of', async () => {

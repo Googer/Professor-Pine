@@ -27,7 +27,14 @@ import {
 } from '../../domain/history/party-history.js';
 import { endParty, type Party, type TrainParty } from '../../domain/party/party.js';
 import { PartyStatus } from '../../domain/party/status.js';
-import { splitOffGroup, splitSettled, splitTrain } from '../../domain/party/train.js';
+import {
+  moveTrain,
+  setConductor,
+  splitOffGroup,
+  splitSettled,
+  splitTrain,
+} from '../../domain/party/train.js';
+import { finishParty } from '../../domain/party/attendance.js';
 import { createDb } from '../kysely.js';
 import { DEADLOCK_TRIES } from '../transaction.js';
 import type { DB } from '../types.js';
@@ -487,6 +494,143 @@ describe('the party history, written with the parties', () => {
     // Both rows are gone, and nothing is left behind of either.
     expect(await rowOf(before.id)).toBeUndefined();
     expect(await rowOf(SPLIT)).toBeUndefined();
+  });
+
+  it('credits every conductor of a train with the stops they led, also after they opt out (plan 8H-6A)', async () => {
+    await optIn(ALICE);
+    await optIn(BOB);
+    const ok = <P>(change: { ok: true; party: P } | { ok: false; reason: string }): P => {
+      if (!change.ok) throw new Error(change.reason);
+      return change.party;
+    };
+    const made = withAttendees(testTrain(), { [ALICE]: {}, [BOB]: {} });
+    const riders: TrainParty = { ...made, train: { ...made.train, route: stops(11, 12, 1) } };
+    // Alice conducts it a stop on and presses Done (on a train, she leaves); Bob takes it to
+    // its last stop.
+    const led = ok(setConductor(riders, ALICE));
+    const on = ok(moveTrain(led, ALICE, 'next', false));
+    const done = ok(finishParty(on, ALICE, T + 3 * MINUTE, 5));
+    const taken = ok(setConductor(done, BOB));
+    const end = ok(moveTrain(taken, BOB, 'next', false));
+    const ended = await live([riders, led, on, done, taken, end]);
+    await parties.save(ending(ended, T + 9 * MINUTE), noteOf(ended, ending(ended, T + 9 * MINUTE)));
+    const credits = (partyId: string) =>
+      db
+        .selectFrom('PartyHistoryAttendee as a')
+        .innerJoin('PartyHistory as h', 'h.id', 'a.historyId')
+        .select(['a.seq', 'a.memberId', 'a.status', 'a.conducted'])
+        .where('h.partyId', '=', partyId)
+        .orderBy('a.seq')
+        .execute();
+    expect(await credits(riders.id)).toEqual([
+      { seq: 0, memberId: null, status: 'interested', conducted: 0 },
+      { seq: 1, memberId: ALICE, status: null, conducted: 1 },
+      { seq: 2, memberId: BOB, status: 'joined', conducted: 1 },
+    ]);
+    expect((await kept()).map((row) => row.conductorId)).toEqual([BOB]);
+    // A second train Alice conducts a stop on, still going on when she opts out.
+    const other: TrainParty = { ...led, id: PAIRED };
+    const otherOn = ok(moveTrain(other, ALICE, 'next', false));
+    const going = await live([other, otherOn]);
+    expect((await stepsOf(PAIRED)).map((step) => [step.kind, step.subject])).toContainEqual([
+      'conduct',
+      ALICE,
+    ]);
+    // Her id goes from the record of the first; her row and its credit stay without it.
+    expect(await history.optOut(ALICE, HISTORY_SERVER)).toEqual({ changed: true, forgotten: 1 });
+    expect(await credits(riders.id)).toEqual([
+      { seq: 0, memberId: null, status: 'interested', conducted: 0 },
+      { seq: 1, memberId: null, status: null, conducted: 1 },
+      { seq: 2, memberId: BOB, status: 'joined', conducted: 1 },
+    ]);
+    // The second ends after: it names her nowhere, and credits what she led all the same.
+    await parties.save(ending(going, T + 9 * MINUTE), noteOf(going, ending(going, T + 9 * MINUTE)));
+    expect(await credits(PAIRED)).toEqual([
+      { seq: 0, memberId: null, status: 'interested', conducted: 0 },
+      { seq: 1, memberId: null, status: 'joined', conducted: 1 },
+      { seq: 2, memberId: BOB, status: 'joined', conducted: 0 },
+    ]);
+    expect(await stepsOf(PAIRED)).toEqual([]);
+  });
+
+  it('credits the new train of a split with the stops its conductor led it to, not its place (plan 8H-6A)', async () => {
+    const ok = <P>(change: { ok: true; party: P } | { ok: false; reason: string }): P => {
+      if (!change.ok) throw new Error(change.reason);
+      return change.party;
+    };
+    const made = withAttendees(testTrain(), { [ALICE]: { group: 'B' }, [BOB]: { group: 'C' } });
+    const start: TrainParty = {
+      ...made,
+      forumChannelId: FORUM,
+      forumPostId: POST,
+      groups: [{ id: 'A' }, { id: 'B' }, { id: 'C' }],
+      train: { ...made.train, route: stops(11, 12, 1), stop: 0 },
+    };
+    let old = await live([start]);
+    /** Splits a group off the old train into a train of its own, led by who splits it off. */
+    const split = async (id: string, by: string, group: 'B' | 'C', at: number) => {
+      if (old.type !== 'train') throw new Error('no train');
+      const link = { partyId: id, postId: `90000000000000000${group === 'B' ? 3 : 4}` };
+      const fresh = {
+        ...splitTrain(old, { id, by, anonymous: false, group, now: at }),
+        forumChannelId: FORUM,
+        forumPostId: link.postId,
+      };
+      await parties.insert(fresh, noteOf(undefined, fresh));
+      const after = { ...ok(splitOffGroup(old, by, false, group, link)), updatedAt: at };
+      const settled = { ...splitSettled(fresh), updatedAt: at };
+      await parties.saveBoth([
+        { party: after, note: noteOf(old, after) },
+        { party: settled, note: noteOf(fresh, settled) },
+      ]);
+      old = after;
+      return settled;
+    };
+    const credit = async (partyId: string) =>
+      (
+        await db
+          .selectFrom('PartyHistoryAttendee as a')
+          .innerJoin('PartyHistory as h', 'h.id', 'a.historyId')
+          .select('a.conducted')
+          .where('h.partyId', '=', partyId)
+          .execute()
+      ).map((row) => row.conducted);
+    // Alice's train ends where it was split: she leads it, she led it nowhere.
+    const alice = await split(SPLIT, ALICE, 'B', T + MINUTE);
+    expect(alice.train.conductorId).toBe(ALICE);
+    await parties.save(ending(alice, T + 2 * MINUTE), noteOf(alice, ending(alice, T + 2 * MINUTE)));
+    expect(await credit(SPLIT)).toEqual([0]);
+    // Bob's goes one stop on first: one.
+    const bob = await split(PAIRED, BOB, 'C', T + 3 * MINUTE);
+    const onward = { ...ok(moveTrain(bob, BOB, 'next', false)), updatedAt: T + 4 * MINUTE };
+    expect(await parties.save(onward, noteOf(bob, onward))).toBe(true);
+    await parties.save(
+      ending(onward, T + 5 * MINUTE),
+      noteOf(onward, ending(onward, T + 5 * MINUTE)),
+    );
+    expect(await credit(PAIRED)).toEqual([1]);
+  });
+
+  it('caps the stops a conductor led at what the column holds (plan 8H-6A)', async () => {
+    const train = withAttendees(testTrain(), { [ALICE]: {} });
+    const built = historyOfParty(endParty(train), {
+      end: { how: 'clock' },
+      steps: [],
+      optedIn: new Set(),
+      describeBoss: () => ({ name: 'Somebody' }),
+      shiny: null,
+    });
+    const record = {
+      ...built,
+      serverId: HISTORY_SERVER,
+      attendees: built.attendees.map((attendee) => ({ ...attendee, conducted: 70_000 })),
+    };
+    await history.insertRecords([record]);
+    expect(
+      (await db.selectFrom('PartyHistoryAttendee').select('conducted').execute()).map(
+        (row) => row.conducted,
+      ),
+    ).toEqual([65_535, 65_535]);
   });
 
   it('records a party once, whatever is written again, and drops a late step', async () => {

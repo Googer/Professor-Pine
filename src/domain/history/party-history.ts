@@ -125,6 +125,15 @@ export interface HistoryAttendee {
    * column `PartyHistoryAttendee.splitOff` (migration 020).
    */
   splitOff?: true;
+  /**
+   * How many stops they led the train to as its conductor (plan 8H-6A, migration 039): its
+   * arrivals at a gym or Power Spot while they conducted it, back moves and route edits included
+   * (`ledStops`); absent for none, so a member who held the role while the train went nowhere
+   * (Finish and a cleared route are no arrivals) has none. The column
+   * `PartyHistoryAttendee.conducted` (0 for none); never for a party of another kind, nor in the
+   * legacy history.
+   */
+  conducted?: number;
 }
 
 export interface HistoryGroup {
@@ -416,6 +425,7 @@ function attendeeRecord(
   steps: readonly HistoryStep[],
   final: Attendee | undefined,
   optedIn: ReadonlySet<string>,
+  conducted: ReadonlyMap<string, number>,
 ): HistoryAttendee {
   const own = steps.filter((step) => step.subject === memberId && MEMBER_STEPS.has(step.kind));
   // How they last left the party, when they are not on it at the end.
@@ -441,7 +451,46 @@ function attendeeRecord(
     doneAt: firstAt(3),
     leftAt: departure?.at ?? null,
     ...(departure?.kind === 'split' ? { splitOff: true as const } : {}),
+    ...(conducted.has(memberId) ? { conducted: conducted.get(memberId) } : {}),
   };
+}
+
+/**
+ * Whether a step is the train arriving somewhere: at a Power Spot (`spot`), or at a gym (`stop`
+ * with its gym). A `stop` without one is the end of the route (Finish) or no route (cleared): the
+ * train went nowhere.
+ */
+function arrival(step: HistoryStep): boolean {
+  return step.kind === 'spot' || (step.kind === 'stop' && step.value !== null);
+}
+
+/**
+ * How many stops each conductor of a train led it to (plan 8H-6A): over its steps (those of its
+ * lineage, oldest first), its arrivals between a member's `conduct` and their `unlead`
+ * (`arrival`: at a gym or Power Spot, back moves and route edits that change the current stop
+ * included; Finish and a cleared route are none). A write's place step comes before its steps of who conducts (`partySteps`), so a
+ * move counts for who conducted the train when it was made. Who conducted it before its first
+ * step of either kind (a train running when these steps came) is the member of a first `unlead`,
+ * or, with none of either, its conductor at the end. Only members with one stop or more; none
+ * for a party of another kind. A split's new train has steps of its own only: its group keeps
+ * no credit for the train it was split off, and the step that places it where it was split
+ * comes before its conductor's.
+ */
+function ledStops(party: Party, steps: readonly HistoryStep[]): Map<string, number> {
+  const counts = new Map<string, number>();
+  if (!isTrain(party)) return counts;
+  const first = steps.find((step) => step.kind === 'conduct' || step.kind === 'unlead');
+  let current =
+    first === undefined ? party.train.conductorId : first.kind === 'unlead' ? first.subject : null;
+  for (const step of steps) {
+    if (step.kind === 'conduct') current = step.subject;
+    else if (step.kind === 'unlead') {
+      if (current === step.subject) current = null;
+    } else if (arrival(step) && current !== null) {
+      counts.set(current, (counts.get(current) ?? 0) + 1);
+    }
+  }
+  return counts;
 }
 
 /**
@@ -548,8 +597,9 @@ export function historyOfParty(party: Party, input: HistoryInput): LiveRecord {
   for (const memberId of Object.keys(party.attendees)) {
     if (!order.includes(memberId)) order.push(memberId);
   }
+  const conducted = ledStops(party, steps);
   const attendees = order.map((memberId) =>
-    attendeeRecord(memberId, steps, attendeeOf(party, memberId), optedIn),
+    attendeeRecord(memberId, steps, attendeeOf(party, memberId), optedIn, conducted),
   );
   const groups = party.groups.map((group): HistoryGroup => {
     const members = attendees.filter((a) => a.status !== null && a.groupId === group.id);

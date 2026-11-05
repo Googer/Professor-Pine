@@ -219,6 +219,41 @@ describe('the party history of live parties', () => {
     ]);
   });
 
+  it('credits every conductor of a train with the stops they led, also one who pressed Done (plan 8H-6A)', async () => {
+    const made = await createdTrain({ route: [1, 2, 3] });
+    made.history.optIn(1, ALICE);
+    made.history.optIn(1, BOB);
+    await made.attendance.signUp(made.party.id, alice, PartyStatus.Coming);
+    await made.attendance.signUp(made.party.id, bob, PartyStatus.Coming);
+    expect((await made.trains.setConductor(made.party.id, alice)).kind).toBe('ok');
+    made.clock.now += 10 * MINUTE;
+    expect((await made.trains.move(made.party.id, alice, 'next', false)).kind).toBe('ok');
+    // On a train Done means leave: Alice is no longer its conductor.
+    await made.attendance.done(made.party.id, alice);
+    expect((await made.trains.setConductor(made.party.id, bob)).kind).toBe('ok');
+    made.clock.now += 10 * MINUTE;
+    expect((await made.trains.move(made.party.id, bob, 'next', false)).kind).toBe('ok');
+    made.clock.now += 10 * MINUTE;
+    expect((await made.trains.move(made.party.id, bob, 'finish', false)).kind).toBe('ok');
+    // A member who holds the role and lets go at once led nothing.
+    await made.attendance.signUp(made.party.id, alice, PartyStatus.Coming);
+    expect((await made.trains.setConductor(made.party.id, alice)).kind).toBe('ok');
+    expect((await made.trains.clearConductor(made.party.id, alice, false)).kind).toBe('ok');
+    expect(await made.service.end(made.party.id, undefined, { ended: { how: 'clock' } })).toBe(
+      true,
+    );
+    const [record] = made.history.records;
+    expect(record?.conductorId).toBeNull();
+    expect(
+      record?.attendees.map((attendee) => [attendee.memberId, attendee.conducted ?? 0]),
+    ).toEqual([
+      [null, 0],
+      // Bob's Finish is no arrival.
+      [ALICE, 1],
+      [BOB, 1],
+    ]);
+  });
+
   it('records a meetup the clock ended', async () => {
     const made = await createdMeetup();
     await made.attendance.signUp(made.party.id, alice, PartyStatus.Present);

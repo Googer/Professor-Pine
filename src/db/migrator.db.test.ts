@@ -212,6 +212,7 @@ describe('runMigrations', () => {
       '2026_11_04_036_stop_report_history',
       '2026_11_04_037_reach_and_want_counts',
       '2026_11_05_038_activity_buckets',
+      '2026_11_05_039_conductors',
     ]);
     expect(
       await describeSchema(
