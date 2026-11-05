@@ -43,6 +43,10 @@ const ALLOWED: Record<string, { texts: string[]; why: string }> = {
     texts: ['cancelled'],
     why: "the history's ending the activity heatmap does not count (plan 8H-4), as stored",
   },
+  'domain/history/boards.ts': {
+    texts: ['cancelled'],
+    why: "the history's ending of a raid that credits nobody on the boards (plan 8H-6), as stored",
+  },
   'services/party-service.ts': {
     texts: ['cancelled'],
     why: "the history's ending of a party somebody closed (`PartyEnd`), stored as above",
