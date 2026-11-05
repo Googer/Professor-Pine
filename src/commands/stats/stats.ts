@@ -41,9 +41,9 @@ import { actionRow, textDisplay } from '../../render/v2.js';
 import type { ShownBoard } from '../../services/region-boards.js';
 
 /**
- * The controls of `/stats`' answers: `stats:regions:show:<period>` switches the region board's
- * period in the private answer, `stats:regions:share:<period>` posts that period's board in the
- * channel.
+ * The controls of `/stats`' answers: `stats:regions:show:<period>:<note|none>` switches the
+ * region board's period in the private answer (with the note under Share or without it, as the
+ * command decided), `stats:regions:share:<period>` posts that period's board in the channel.
  */
 export const STATS_KIND = 'stats';
 const BOARD_ID = 'regions';
@@ -66,10 +66,18 @@ export function boardView(ctx: AppContext, shown: ShownBoard): BoardView {
   };
 }
 
+/**
+ * The last argument of a period button (8H5-4): whether the answer says under Share that a
+ * share here leaves regions out (`note`) or not (`none`), decided once at the command and
+ * carried, so that a period's press asks nothing of who sees the channel.
+ */
+const NOTE = 'note';
+const NO_NOTE = 'none';
+
 /** A button of the board's controls. */
 function boardButton(
   action: string,
-  period: BoardPeriod,
+  args: readonly string[],
   label: string,
   style: ButtonStyle.Primary | ButtonStyle.Secondary | ButtonStyle.Success,
   disabled = false,
@@ -78,14 +86,16 @@ function boardButton(
     type: ComponentType.Button,
     style,
     label,
-    custom_id: encodeCustomId({ kind: STATS_KIND, id: BOARD_ID, action, args: [period] }),
+    custom_id: encodeCustomId({ kind: STATS_KIND, id: BOARD_ID, action, args: [...args] }),
     ...(disabled ? { disabled: true } : {}),
   };
 }
 
 /**
  * The private answer: the board as the member may see it, the periods to switch to and Share;
- * `channelId` where it was asked, which a Share posts into.
+ * `channelId` where it was asked, which a Share posts into. `carried`: whether a share there
+ * would leave out a region of the member's own board, as the command found (a period's press
+ * carries it); found here where not given.
  */
 async function privateBoard(
   ctx: AppContext,
@@ -93,23 +103,35 @@ async function privateBoard(
   period: BoardPeriod,
   memberId: string,
   channelId: string,
+  carried?: boolean,
 ): Promise<V2Message> {
   const shown = await ctx.regionBoards.forMember(serverId, period, memberId, Date.now());
+  // A board shared here leaves out a region somebody who sees this channel may not see: said
+  // where it would drop one of the member's own (R-A). The member's regions are the same in
+  // every period (zero rows too), so the command's finding holds for the others.
+  const leavesOut = carried ?? (await sharesLeaveOut(ctx, shown, channelId));
+  const note = leavesOut ? NOTE : NO_NOTE;
   const periods = BOARD_PERIODS.map((one) =>
     one === period
-      ? boardButton(SHOW, one, PERIOD_LABELS[one], ButtonStyle.Primary, true)
-      : boardButton(SHOW, one, PERIOD_LABELS[one], ButtonStyle.Secondary),
+      ? boardButton(SHOW, [one, note], PERIOD_LABELS[one], ButtonStyle.Primary, true)
+      : boardButton(SHOW, [one, note], PERIOD_LABELS[one], ButtonStyle.Secondary),
   );
-  const share = boardButton(SHARE, period, 'Share in this channel', ButtonStyle.Success);
-  // A board shared here leaves out a region somebody who sees this channel may not see: said
-  // where it would drop one of the member's own (R-A).
-  const dropped = await ctx.regionBoards.notShared([...shown.regions.values()], channelId);
-  const leavesOut = shown.board.rows.some((row) => dropped?.has(row.regionId) === true);
+  const share = boardButton(SHARE, [period], 'Share in this channel', ButtonStyle.Success);
   const more: APIComponentInContainer[] = [
     actionRow([...periods, share]),
     ...(leavesOut ? [textDisplay(SHARE_LEAVES_OUT)] : []),
   ];
   return boardMessage(boardView(ctx, shown), more);
+}
+
+/** Whether a board shared into a channel would leave out a row of the member's own board. */
+async function sharesLeaveOut(
+  ctx: AppContext,
+  shown: ShownBoard,
+  channelId: string,
+): Promise<boolean> {
+  const dropped = await ctx.regionBoards.notShared([...shown.regions.values()], channelId);
+  return shown.board.rows.some((row) => dropped?.has(row.regionId) === true);
 }
 
 /** What the private answer says under Share where a shared board would leave regions out. */
@@ -255,8 +277,11 @@ export const statsControls: ComponentHandler = {
   throttle: (_interaction, id) => (id.action === SHARE ? SHARE_THROTTLE : MEMBER_READ_THROTTLE),
   async button(interaction, id, ctx) {
     const [period, ...more] = id.args;
-    const known = id.action === SHOW || id.action === SHARE;
-    if (id.id !== BOARD_ID || !known || !isBoardPeriod(period) || more.length > 0) {
+    const [note, ...rest] = more;
+    const known =
+      (id.action === SHARE && more.length === 0) ||
+      (id.action === SHOW && (note === NOTE || note === NO_NOTE) && rest.length === 0);
+    if (id.id !== BOARD_ID || !known || !isBoardPeriod(period)) {
       throw new UserError(STALE_COMPONENT);
     }
     if (id.action === SHARE) {
@@ -270,6 +295,7 @@ export const statsControls: ComponentHandler = {
       period,
       interaction.user.id,
       interaction.channelId,
+      note === NOTE,
     );
     await answerPress(interaction, how, await readOrDeferPress(interaction, how, reading));
   },

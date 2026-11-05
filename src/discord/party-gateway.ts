@@ -495,7 +495,8 @@ export interface PartyGateway {
    * channel is the share channel, or the channel a shared-in post is in, at once; any other only
    * if everybody who can view the share channel (its parent's overwrites for a post) can view the
    * region's channel (`regionsKept` of `src/ops/permissions.ts`, from the cache; members the share
-   * channel names and the cache lacks fetched first, at most `SHARE_MEMBER_FETCHES`). A region
+   * channel names asked of Discord afresh first, those the cache lacks before the others, at
+   * most `SHARE_MEMBER_FETCHES`, each answer used for `SHARE_MEMBER_FRESH_MS`). A region
    * channel the cache lacks is not kept; undefined where the cache lacks the share channel (or a
    * post's parent), of which nothing can be said.
    */
@@ -748,10 +749,15 @@ export type CreatedChannel =
     };
 
 /**
- * How many members a share channel names (and the cache lacks) a Share fetches before it decides
- * (plan 8H-5, R2); one past them stays unknown, and drops the regions it might not see.
+ * How many members a share channel names a Share asks Discord of before it decides (plan 8H-5,
+ * R2), those the cache lacks first; one past them is taken from the cache, or stays unknown and
+ * drops the regions it might not see.
  */
 export const SHARE_MEMBER_FETCHES = 10;
+/** How long what Discord said of a member a share channel names is used (8H5-4): a minute. */
+export const SHARE_MEMBER_FRESH_MS = 60_000;
+/** How many of those answers are kept (oldest out). */
+const SHARE_MEMBERS_KEPT = 1_000;
 
 /** A member's roles but the server's everyone role, as `shareKeeps` takes them. */
 function rolesBesideEveryone(member: GuildMember, guildId: string): string[] {
@@ -1135,6 +1141,14 @@ export class DiscordPartyGateway implements PartyGateway {
    * classic message to convert. The oldest are forgotten; that costs a conversion tried for nothing.
    */
   private readonly v2Messages = new BoundedMap<string, true>(V2_MESSAGES_KEPT);
+  /**
+   * `<guild>:<member>`: the roles Discord said a member a share channel names has (null: not in
+   * the server), and when (`SHARE_MEMBER_FRESH_MS`, 8H5-4), set in the order of those times.
+   */
+  private readonly shareMembers = new BoundedMap<
+    string,
+    { roles: readonly string[] | null; at: number }
+  >(SHARE_MEMBERS_KEPT);
   /**
    * The channels (boards) where removing the reactions after an edit failed, said once until one
    * works there again (plan 8R-9G). As many as there are boards.
@@ -2122,15 +2136,25 @@ export class DiscordPartyGateway implements PartyGateway {
         deny: String(one.deny.bitfield),
       }));
     const share = overwrites(into);
-    // Members the share channel lets in by name whom the cache lacks are asked for, at most
-    // `SHARE_MEMBER_FETCHES` (R2): one who cannot be fetched stays unknown, and drops the region.
-    const roles = new Map<string, readonly string[] | null>();
-    const missing = namedViewers(share).filter((id) => !guild.members.cache.has(id));
+    // Members the share channel lets in by name are asked of Discord afresh (8H5-4: the cache
+    // keeps a member's roles as their last interaction left them), each answer used for a
+    // minute, somebody no longer in the server too; at most `SHARE_MEMBER_FETCHES` a Share,
+    // those the cache lacks first (R2). One past them is taken from the cache; one who cannot be
+    // fetched (nor is in the cache) stays unknown, and drops the region.
+    const now = Date.now();
+    this.shareMembers.dropWhile((answer) => now - answer.at >= SHARE_MEMBER_FRESH_MS);
+    const keyOf = (id: string) => `${guild.id}:${id}`;
+    const toAsk = namedViewers(share)
+      .filter((id) => !this.shareMembers.has(keyOf(id)))
+      .sort((a, b) => Number(guild.members.cache.has(a)) - Number(guild.members.cache.has(b)));
     await Promise.all(
-      missing.slice(0, SHARE_MEMBER_FETCHES).map(async (id) => {
+      toAsk.slice(0, SHARE_MEMBER_FETCHES).map(async (id) => {
         try {
-          const member = await fetchGuildMember(guild, id);
-          roles.set(id, member === undefined ? null : rolesBesideEveryone(member, guild.id));
+          const member = await fetchGuildMember(guild, id, true);
+          this.shareMembers.set(keyOf(id), {
+            roles: member === undefined ? null : rolesBesideEveryone(member, guild.id),
+            at: now,
+          });
         } catch (err) {
           this.log?.debug({ err, member: id }, 'could not fetch a member a shared board asks of');
         }
@@ -2152,8 +2176,10 @@ export class DiscordPartyGateway implements PartyGateway {
       shareIds: [shared.id, into.id],
       regions,
       rolesOf: (memberId) => {
+        const asked = this.shareMembers.get(keyOf(memberId));
+        if (asked !== undefined) return asked.roles;
         const member = guild.members.cache.get(memberId);
-        return member === undefined ? roles.get(memberId) : rolesBesideEveryone(member, guild.id);
+        return member === undefined ? undefined : rolesBesideEveryone(member, guild.id);
       },
     });
   }

@@ -14,7 +14,7 @@ import {
 import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { beforeAll, describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { FakePartyGateway, type DiscordErrorFields } from '../../test/support/fake-gateway.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { channelPermissions } from '../ops/permissions.js';
@@ -2165,6 +2165,96 @@ describe('the events forum’s posts (plan 8V-1)', () => {
       expect(fetched.sort()).toEqual(['brock', 'misty']);
       known.set('misty', ['m']);
       expect(await kept('brocks-room', 'open-forum', 'mods-forum')).toEqual(['open-forum']);
+    });
+
+    it('asks Discord afresh of the members a share channel names, each answer kept a minute (8H5-4)', async () => {
+      vi.useFakeTimers({ toFake: ['Date'] });
+      vi.setSystemTime(Date.UTC(2026, 10, 5, 17));
+      try {
+        const guildId = 'g';
+        const view = PermissionFlagsBits.ViewChannel;
+        const overwrite = (id: string, allow: bigint, deny: bigint, type = OverwriteType.Role) => ({
+          id,
+          type,
+          allow: new PermissionsBitField(allow),
+          deny: new PermissionsBitField(deny),
+        });
+        const asked: Array<{ user: string; force: boolean | undefined }> = [];
+        const member = (id: string, roles: string[]) => ({
+          id,
+          roles: { cache: new Map(roles.map((role) => [role, {}])) },
+        });
+        const unknownMember = () => {
+          const code = RESTJSONErrorCodes.UnknownMember;
+          return new DiscordAPIError(
+            { code, message: 'Unknown Member' },
+            code,
+            404,
+            'GET',
+            '/',
+            {},
+          );
+        };
+        const guild = {
+          id: guildId,
+          roles: {
+            cache: new Map([
+              [guildId, { id: guildId, permissions: new PermissionsBitField(view) }],
+            ]),
+          },
+          members: {
+            // The cache has Brock as his last interaction left him, before he was muted.
+            cache: new Map([['brock', member('brock', [])]]),
+            fetch: ({ user, force }: { user: string; force?: boolean }) => {
+              asked.push({ user, force });
+              return user === 'brock'
+                ? Promise.resolve(member('brock', ['muted']))
+                : Promise.reject(unknownMember());
+            },
+          },
+        };
+        const channel = (id: string, overwrites: ReturnType<typeof overwrite>[]) => ({
+          id,
+          guild,
+          isDMBased: () => false,
+          isThread: () => false,
+          permissionOverwrites: { cache: new Map(overwrites.map((one) => [one.id, one])) },
+        });
+        const gateway = new DiscordPartyGateway();
+        gateway.use({
+          channels: {
+            cache: new Map<string, unknown>([
+              [
+                'room',
+                channel('room', [
+                  overwrite(guildId, 0n, view),
+                  overwrite('brock', view, 0n, OverwriteType.Member),
+                  overwrite('gone', view, 0n, OverwriteType.Member),
+                ]),
+              ],
+              ['forum', channel('forum', [overwrite('muted', 0n, view)])],
+            ]),
+          },
+          user: { id: 'bot' },
+        } as unknown as Client);
+        const kept = async () => [...((await gateway.shareKeeps('room', ['forum'])) ?? [])];
+        // Brock is muted now: Discord says so, whatever the cache says.
+        expect(await kept()).toEqual([]);
+        // Those the cache lacks first.
+        expect(asked).toEqual([
+          { user: 'gone', force: true },
+          { user: 'brock', force: true },
+        ]);
+        // Within the minute nobody is asked again, the one no longer in the server neither.
+        vi.setSystemTime(Date.now() + 59_000);
+        expect(await kept()).toEqual([]);
+        expect(asked).toHaveLength(2);
+        vi.setSystemTime(Date.now() + 2_000);
+        await kept();
+        expect(asked.map((one) => one.user)).toEqual(['gone', 'brock', 'gone', 'brock']);
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('fetches at most ten members named on the share channel, and keeps nothing past them (R2)', async () => {

@@ -144,9 +144,9 @@ describe('/stats regions', () => {
     const message = asV2(payload);
     expect(textDisplays(message).slice(0, 2)).toEqual(MONTH_BOARD);
     expect(buttonsOf(message).map((button) => [button.label, button.customId])).toEqual([
-      ['This month', 'stats:regions:show:month'],
-      ['This year', 'stats:regions:show:year'],
-      ['All time', 'stats:regions:show:all'],
+      ['This month', 'stats:regions:show:month:none'],
+      ['This year', 'stats:regions:show:year:none'],
+      ['All time', 'stats:regions:show:all:none'],
       ['Share in this channel', 'stats:regions:share:month'],
     ]);
     // Every region is public: nothing is said of what a share leaves out.
@@ -230,7 +230,7 @@ describe('/stats regions', () => {
     });
     vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
     vi.setSystemTime(NOW);
-    const pressing = made.press('stats:regions:show:all');
+    const pressing = made.press('stats:regions:show:all:none');
     await asked.reached(1);
     await vi.advanceTimersByTimeAsync(LATE_DEFER_MS);
     release();
@@ -242,7 +242,7 @@ describe('/stats regions', () => {
 
   it('switches the period in the private answer itself', async () => {
     const made = await setup();
-    const pressed = await made.press('stats:regions:show:year');
+    const pressed = await made.press('stats:regions:show:year:none');
     const shown = asV2(sent(pressed.update));
     expect(textDisplays(shown)[0]).toMatch(/^### Raids and max battles by region, this year\n/u);
     expect(periodStyles(shown)).toEqual([
@@ -255,8 +255,14 @@ describe('/stats regions', () => {
 
   it('refuses a control of a period it does not know as no longer active', async () => {
     const made = await setup();
-    const pressed = await made.press('stats:regions:show:decade');
-    expect(sent(pressed.reply).content).toBe(STALE_COMPONENT);
+    for (const customId of [
+      'stats:regions:show:decade:none',
+      'stats:regions:show:year',
+      'stats:regions:show:year:maybe',
+    ]) {
+      const pressed = await made.press(customId);
+      expect(sent(pressed.reply).content, customId).toBe(STALE_COMPONENT);
+    }
   });
 
   it('is filed under Utility in /help and says what it counts (P9)', () => {
@@ -338,6 +344,28 @@ describe('Share of the region board', () => {
         '2. Region 3: none',
       'No longer a region: 2 raids, 1 max battle\n**Total:** 6 raids, 2 max battles',
     ]);
+  });
+
+  it('carries the note under Share in the period buttons, asking nothing of the channel at a press (8H5-4)', async () => {
+    const made = await setup();
+    moderatorsEast(made.gateway);
+    const keeps = vi.spyOn(made.gateway, 'shareKeeps');
+    const answer = asV2(answered(await made.ask()));
+    expect(buttonsOf(answer).map((button) => button.customId)).toEqual([
+      'stats:regions:show:month:note',
+      'stats:regions:show:year:note',
+      'stats:regions:show:all:note',
+      'stats:regions:share:month',
+    ]);
+    expect(keeps).toHaveBeenCalledTimes(1);
+    const year = asV2(sent((await made.press('stats:regions:show:year:note')).update));
+    expect(textDisplays(year)[2]).toBe(
+      '-# Shared here, the board leaves out the regions not everyone who sees this channel can see.',
+    );
+    expect(buttonsOf(year)[0]?.customId).toBe('stats:regions:show:month:note');
+    const plain = asV2(sent((await made.press('stats:regions:show:year:none')).update));
+    expect(textDisplays(plain)).toHaveLength(2);
+    expect(keeps).toHaveBeenCalledTimes(1);
   });
 
   it('says nothing under Share where it would drop only a region the member does not see (R-B)', async () => {
@@ -502,7 +530,7 @@ describe('Share of the region board', () => {
     const fourth = await made.press('stats:regions:share:month');
     expect(sent(fourth.reply).content).toBe('That was a lot of clicks. Try again in 10 minutes.');
     expect(made.gateway.messagesIn(WEST_CHANNEL)).toHaveLength(3);
-    const switched = await made.press('stats:regions:show:year');
+    const switched = await made.press('stats:regions:show:year:none');
     expect(textDisplays(asV2(sent(switched.update)))[0]).toMatch(/this year/u);
   });
 });

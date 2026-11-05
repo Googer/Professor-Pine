@@ -186,6 +186,47 @@ describe('shareKeeps (plan 8H-5, R-A)', () => {
     expect([...kept]).toEqual(['forum', 'open']);
   });
 
+  it('reads each share overwrite and asks of each named member once a share, however many regions (8H5-4)', () => {
+    let reads = 0;
+    const counted = (one: { id: string; type: OverwriteType; allow: string; deny: string }) => ({
+      id: one.id,
+      type: one.type,
+      get allow() {
+        reads += 1;
+        return one.allow;
+      },
+      get deny() {
+        reads += 1;
+        return one.deny;
+      },
+    });
+    const share = [
+      counted(role(GUILD, '0', view)),
+      counted(role(MEMBER, view, '0')),
+      counted({ id: BROCK, type: OverwriteType.Member, allow: view, deny: '0' }),
+    ];
+    let asked = 0;
+    const kept = regionsKept({
+      guildId: GUILD,
+      roles: open,
+      share,
+      shareIds: ['room'],
+      regions: Array.from({ length: 6 }, (_, n) => ({
+        id: `forum${String(n)}`,
+        overwrites: n % 2 === 0 ? [] : [role(MUTED, '0', view)],
+      })),
+      rolesOf: () => {
+        asked += 1;
+        return [MEMBER];
+      },
+    });
+    expect([...kept]).toEqual(['forum0', 'forum2', 'forum4']);
+    expect(asked).toBe(1);
+    // Each of the three overwrites' two fields read once (twice for Brock's allow, which also
+    // says he is let in by name).
+    expect(reads).toBeLessThanOrEqual(share.length * 2 + 1);
+  });
+
   /** A small seeded generator (mulberry32): the same cases on every run. */
   const seeded = (seed: number) => {
     let state = seed >>> 0;
@@ -248,6 +289,41 @@ describe('shareKeeps (plan 8H-5, R-A)', () => {
     // The cases are not all of one kind.
     expect(dropped).toBeGreaterThan(200);
     expect(dropped).toBeLessThan(1_800);
+  });
+
+  it('keeps of many regions at once what it keeps of each alone (8H5-4)', () => {
+    const random = seeded(8_054);
+    const ids = ['300000000000000011', '300000000000000012', '300000000000000013'];
+    const pick = <T>(choices: readonly T[]): T =>
+      choices[Math.floor(random() * choices.length)] as T;
+    const overwrites = () =>
+      [GUILD, ...ids].flatMap((id) => {
+        const how = pick(['allow', 'deny', 'none', 'none'] as const);
+        return how === 'none'
+          ? []
+          : [role(id, how === 'allow' ? view : '0', how === 'deny' ? view : '0')];
+      });
+    for (let n = 0; n < 300; n++) {
+      const roles = [GUILD, ...ids].map((id) => ({
+        id,
+        permissions: pick([0n, P.ViewChannel, P.SendMessages]),
+      }));
+      const share = [
+        ...overwrites(),
+        ...(random() < 0.3
+          ? [{ id: BROCK, type: OverwriteType.Member, allow: view, deny: '0' }]
+          : []),
+      ];
+      const brock = pick([undefined, null, [], [ids[0] ?? '']] as const);
+      const regions = Array.from({ length: 5 }, (_, k) => ({
+        id: `forum${String(k)}`,
+        overwrites: overwrites(),
+      }));
+      const server = { guildId: GUILD, roles, share, rolesOf: () => brock };
+      const together = regionsKept({ ...server, shareIds: ['room'], regions });
+      const alone = regions.filter((one) => shareKeeps({ ...server, region: one.overwrites }));
+      expect([...together]).toEqual(alone.map((one) => one.id));
+    }
   });
 });
 

@@ -57,21 +57,48 @@ export function channelPermissions(
   member: ApiMember,
   overwrites: readonly ApiOverwrite[],
 ): bigint {
+  return permissionsIn(base, guildId, member, readOverwrites(overwrites));
+}
+
+/** An overwrite with its bits read once (`readOverwrites`). */
+interface ReadOverwrite {
+  id: string;
+  type: OverwriteType;
+  allow: bigint;
+  deny: bigint;
+}
+
+function readOverwrites(overwrites: readonly ApiOverwrite[]): ReadOverwrite[] {
+  return overwrites.map((one) => ({
+    id: one.id,
+    type: one.type,
+    allow: BigInt(one.allow),
+    deny: BigInt(one.deny),
+  }));
+}
+
+/** `channelPermissions` of overwrites already read. */
+function permissionsIn(
+  base: bigint,
+  guildId: string,
+  member: ApiMember,
+  overwrites: readonly ReadOverwrite[],
+): bigint {
   if ((base & P.Administrator) === P.Administrator) return ALL;
   let permissions = base;
   const everyone = overwrites.find((one) => one.id === guildId);
-  if (everyone) permissions = (permissions & ~BigInt(everyone.deny)) | BigInt(everyone.allow);
+  if (everyone) permissions = (permissions & ~everyone.deny) | everyone.allow;
   let allow = 0n;
   let deny = 0n;
   for (const one of overwrites) {
     if (one.type !== OverwriteType.Role || one.id === guildId) continue;
     if (!member.roleIds.includes(one.id)) continue;
-    allow |= BigInt(one.allow);
-    deny |= BigInt(one.deny);
+    allow |= one.allow;
+    deny |= one.deny;
   }
   permissions = (permissions & ~deny) | allow;
   const own = overwrites.find((one) => one.type === OverwriteType.Member && one.id === member.id);
-  if (own) permissions = (permissions & ~BigInt(own.deny)) | BigInt(own.allow);
+  if (own) permissions = (permissions & ~own.deny) | own.allow;
   return permissions;
 }
 
@@ -118,37 +145,64 @@ export interface ShareView {
  * of four roles on random servers.
  */
 export function shareKeeps(view: ShareView): boolean {
-  const { guildId, region, share } = view;
+  return shareJudge(view)(view.region);
+}
+
+/**
+ * `shareKeeps` of one share channel, for any number of regions (8H5-4): what depends only on the
+ * share channel is done once, by the first region that needs it (its overwrites read, whether
+ * each set of roles views it, the roles of the members it names asked of `rolesOf`).
+ */
+function shareJudge(view: Omit<ShareView, 'region'>): (region: readonly ApiOverwrite[]) => boolean {
+  const { guildId } = view;
   const permissionsOf = new Map(view.roles.map((role) => [role.id, role.permissions]));
   const base = (roleIds: readonly string[]): bigint => {
     let permissions = permissionsOf.get(guildId) ?? 0n;
     for (const id of roleIds) permissions |= permissionsOf.get(id) ?? 0n;
     return (permissions & P.Administrator) === P.Administrator ? ALL : permissions;
   };
-  const views = (overwrites: readonly ApiOverwrite[], member: ApiMember): boolean =>
-    (channelPermissions(base(member.roleIds), guildId, member, overwrites) & P.ViewChannel) !== 0n;
+  const views = (overwrites: readonly ReadOverwrite[], member: ApiMember): boolean =>
+    (permissionsIn(base(member.roleIds), guildId, member, overwrites) & P.ViewChannel) !== 0n;
   const others = view.roles.map((role) => role.id).filter((id) => id !== guildId);
-  const named = region
-    .filter((one) => one.type === OverwriteType.Role && one.id !== guildId)
-    .map((one) => one.id);
-  const sets: string[][] = [
-    [],
-    ...others.map((id) => [id]),
-    ...named.flatMap((denied) =>
-      [...others, ...named].filter((id) => id !== denied).map((id) => [id, denied]),
-    ),
-  ];
-  for (const roleIds of sets) {
-    const member = { id: '', roleIds };
-    if (views(share, member) && !views(region, member)) return false;
-  }
-  for (const one of share) {
-    if (one.type !== OverwriteType.Member || (BigInt(one.allow) & P.ViewChannel) === 0n) continue;
-    const roleIds = view.rolesOf(one.id);
-    if (roleIds === null) continue;
-    if (roleIds === undefined || !views(region, { id: one.id, roleIds })) return false;
-  }
-  return true;
+  const share = readOverwrites(view.share);
+  // Whether a set of roles views the share channel, by the set (`a,b`): asked again by region.
+  const sharedTo = new Map<string, boolean>();
+  const viewsShare = (roleIds: readonly string[]): boolean => {
+    const key = roleIds.join(',');
+    let seen = sharedTo.get(key);
+    if (seen === undefined) {
+      seen = views(share, { id: '', roleIds });
+      sharedTo.set(key, seen);
+    }
+    return seen;
+  };
+  // The members the share channel lets in by name, with their roles, asked once.
+  let byName: Array<{ id: string; roleIds: readonly string[] | null | undefined }> | undefined;
+  const namedMembers = () =>
+    (byName ??= share
+      .filter((one) => one.type === OverwriteType.Member && (one.allow & P.ViewChannel) !== 0n)
+      .map((one) => ({ id: one.id, roleIds: view.rolesOf(one.id) })));
+  return (regionOverwrites) => {
+    const region = readOverwrites(regionOverwrites);
+    const named = region
+      .filter((one) => one.type === OverwriteType.Role && one.id !== guildId)
+      .map((one) => one.id);
+    const sets: string[][] = [
+      [],
+      ...others.map((id) => [id]),
+      ...named.flatMap((denied) =>
+        [...others, ...named].filter((id) => id !== denied).map((id) => [id, denied]),
+      ),
+    ];
+    for (const roleIds of sets) {
+      if (viewsShare(roleIds) && !views(region, { id: '', roleIds })) return false;
+    }
+    for (const { id, roleIds } of namedMembers()) {
+      if (roleIds === null) continue;
+      if (roleIds === undefined || !views(region, { id, roleIds })) return false;
+    }
+    return true;
+  };
 }
 
 /**
@@ -167,7 +221,7 @@ export function namedViewers(share: readonly ApiOverwrite[]): string[] {
  * The regions a board shared into a channel keeps (plan 8H-5, R-A, R2), by their forum's (or
  * text channel's) id: a region whose channel is the share channel or the channel a shared-in
  * post is in has the same audience and is kept before anything is checked; every other region by
- * `shareKeeps`.
+ * `shareKeeps`, what depends on the share channel alone done once for them all (8H5-4).
  */
 export function regionsKept(
   view: Omit<ShareView, 'region'> & {
@@ -176,12 +230,10 @@ export function regionsKept(
     regions: ReadonlyArray<{ id: string; overwrites: readonly ApiOverwrite[] }>;
   },
 ): Set<string> {
+  const keeps = shareJudge(view);
   return new Set(
     view.regions
-      .filter(
-        (region) =>
-          view.shareIds.includes(region.id) || shareKeeps({ ...view, region: region.overwrites }),
-      )
+      .filter((region) => view.shareIds.includes(region.id) || keeps(region.overwrites))
       .map((region) => region.id),
   );
 }
