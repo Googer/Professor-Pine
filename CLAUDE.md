@@ -82,7 +82,7 @@ npm run settings:convert -- <legacy data folder> [--out <dir>] [--force]   # the
 npm run cutover:check  # whether the installation is ready for the cutover (reads Discord's REST API): only when Matt asks
 npm run migrate        # run Kysely migrations against the configured database
 npm run history:import -- <legacy parties folder> [--server <id>]   # import the legacy parties/ folder into the party history (no member ids; safe to run again)
-npm run activity:rebuild [-- --server <id>]   # rebuild the web map's activity heatmap from the party history (derived; safe to run again, also while the bot runs)
+npm run activity:rebuild [-- --server <id>]   # rebuild the web map's activity heatmap and the raids per day (big days, the history page) from the party history (derived; safe to run again, also while the bot runs)
 npm run gyms:seed -- <csv> --server <id> [--apply]    # mark sponsored gyms "not in Wayfarer", adding those not there; a dry run without --apply; safe to run again
 npm run stops:seed -- <csv> --server <id> [--apply]   # add stops of Pine's own from a file; a dry run without --apply; safe to run again
 npm run ocr:check -- <folder> [--labels <file>] [--baseline <file>] [--write-baseline <file>] [--bosses <file>] [--write-bosses <file>] [--device cpu|cuda|directml] [--threads n] [--priority low|normal]   # read screenshots with the real models

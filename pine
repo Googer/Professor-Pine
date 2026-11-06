@@ -196,8 +196,9 @@ Usage: ./pine <command>
                      folder only; once per instance, and safe to run again); --server names the
                      server of parties whose region is gone
   rebuild-activity [--server <server id>]
-                     rebuild the activity heatmap from the party history (writes only the
-                     heatmap's counts; safe to run again, also while the bot runs)
+                     rebuild the activity heatmap and the raids per day from the party
+                     history (writes only their counts; safe to run again, also while the
+                     bot runs)
   seed-stops <file> --server <server id> [--apply]
                      add the stops of Pine's own (sponsored stops) of a CSV file
                      (id,name,lat,lon,region,basis) to a server: a dry run without --apply;
@@ -528,7 +529,7 @@ cmd_rebuild_activity() {
   start_database
   say "Bringing the database up to date first (the bot does not start, Discord is not contacted)."
   run run --rm --no-deps pine node --enable-source-maps dist/db/migrate-cli.js
-  say "Rebuilding the activity heatmap from the party history (a large history takes a minute or two)."
+  say "Rebuilding the activity heatmap and the raids per day from the party history (a large history takes a minute or two)."
   run run --rm --no-deps pine node --enable-source-maps dist/ops/activity-rebuild-cli.js "$@"
 }
 

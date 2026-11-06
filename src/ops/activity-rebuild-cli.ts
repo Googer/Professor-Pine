@@ -5,12 +5,13 @@ import { ActivityRepository } from '../db/repositories/activity-repository.js';
 import type { DB } from '../db/types.js';
 import { rebuildStep } from './activity-rebuild.js';
 
-// The rebuild of the activity heatmap from the party history (plan 8H-4):
+// The rebuild of the activity heatmap (plan 8H-4) and the raids per day (plan 8H-8) from the party
+// history:
 //   npm run activity:rebuild [-- --server <server id>]
 //   ./pine rebuild-activity [--server <server id>]
-// It reads the party history and writes only the heatmap's buckets; it never logs in to Discord.
-// The zone of the buckets is the settings' `timezone`. The logic, and its exit codes, are
-// `rebuildStep`.
+// It reads the party history and writes only the heatmap's buckets, the raids per day and their
+// marks; it never logs in to Discord. The zone of the buckets and the days is the settings'
+// `timezone`. The logic, and its exit codes, are `rebuildStep`.
 
 let config: Config;
 try {

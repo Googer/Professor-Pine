@@ -298,13 +298,13 @@ They can take a little while to show up in Discord.
 
 It imports the ended legacy parties into the new party history (without member ids), runs the migrations first, reads the folder without changing it, and prints counts. It does not contact Discord and can run while the bot runs. Run before the bot's first start (or before your first `/gym import`, then `./pine restart`), it also lets the bot ask Google about the busiest regions' gyms first (section 6); later, the bot ranks by it from the next day. It is safe to run again: nothing is imported twice. Add `--server <server id>` (your server's id) and run it again only if its `Skipped:` line counts parties "of no known server" (their region is gone and it could not tell the server). Keep the folder afterwards.
 
-The map's Activity layer counts the imported parties within the hour by itself; to count them at once, run:
+The map's Activity layer and the history page's raids by day count the imported parties within the hour by themselves; to count them at once, run:
 
 ```bash
 ./pine rebuild-activity
 ```
 
-It reads the party history, writes only the layer's counts, does not contact Discord, can run while the bot runs, and is safe to run again.
+It reads the party history, writes only the layer's and the days' counts, does not contact Discord, can run while the bot runs, and is safe to run again.
 
 ### 4.12 Sponsored gyms and stops from files, once
 
