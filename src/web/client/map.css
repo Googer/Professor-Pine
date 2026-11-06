@@ -3073,6 +3073,107 @@ path.highlighted {
 }
 
 /*
+ * History's trains (plan 8H-7B): the month's list folded under its summary, each train a button
+ * (pressed while chosen), the card of the train chosen under it, folding too. The panel scrolls
+ * within a bounded height (review B3), so that a long list or the card of a train the address
+ * opened never covers the map.
+ */
+.activity-panel {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+.activity-trains {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.activity-trains[hidden] {
+  display: none;
+}
+
+.activity-trains summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.activity-trains-items {
+  margin: 4px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.activity-train {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 32px;
+  padding: 4px 6px;
+  border: 1px solid transparent;
+  border-radius: var(--radius);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.activity-train:hover {
+  background: var(--secondary-hover);
+}
+
+/* Marked without changing its size (review R4): the edge's color, a second line inside it. */
+.activity-train[aria-pressed='true'] {
+  border-color: var(--activity);
+  box-shadow: inset 0 0 0 1px var(--activity);
+  background: var(--secondary-hover);
+}
+
+.activity-train:disabled {
+  cursor: progress;
+  opacity: 0.6;
+}
+
+.activity-trains-list[aria-busy='true'] summary {
+  color: var(--muted);
+}
+
+.activity-train-name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.activity-train-when,
+.activity-train-about,
+.activity-trains-more,
+.activity-trains-note {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.activity-trains-more,
+.activity-trains-note {
+  margin: 0;
+}
+
+.train-card {
+  margin: 2px 0 6px 6px;
+  padding-left: 6px;
+  border-left: 2px solid var(--activity);
+}
+
+.train-card-line {
+  margin: 2px 0;
+  overflow-wrap: anywhere;
+}
+
+.train-card-line.small {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/*
  * Scoped under the popup's content (review 8H4H-1): leaflet.css's `.leaflet-popup-content p`, a
  * class and a tag, would beat a class alone.
  */
@@ -3094,10 +3195,14 @@ path.highlighted {
   display: none;
 }
 
-/* On a phone the panel keeps to the width left beside the map's controls. */
+/*
+ * On a phone the panel keeps to the width left beside the map's controls, and to less of the
+ * map's height (plan 8H-7B, review B3).
+ */
 @media (max-width: 1023px) {
   .activity-panel {
     max-width: calc(100vw - 72px);
+    max-height: 45vh;
     font-size: 12px;
   }
 }

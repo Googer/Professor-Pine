@@ -4,6 +4,7 @@ import type {
   ActivityPlaceView,
   ActivityView,
 } from '../../domain/web/activity-data.js';
+import type { TrainRouteView } from '../../domain/web/train-history-data.js';
 import {
   ACTIVITY_MODE_CHOICES,
   activityAddress,
@@ -24,6 +25,12 @@ import {
 } from './activity.js';
 import { ActivityCircles, tapCircle } from './activity-circles.js';
 import { getJson } from './common.js';
+import {
+  HistoryTrains,
+  stillLegs,
+  type TrainsContext,
+  type TrainsPanel,
+} from './history-trains.js';
 import { heatValue } from './heat.js';
 import { HeatLayer } from './heat-layer.js';
 import type { LayerRegistry } from './layer-registry.js';
@@ -83,6 +90,8 @@ export interface ActivityShown {
   onCounts(listener: () => void): void;
   /** Whether a place is being picked, or which dots are drawn, changed: the circles follow. */
   refresh(): void;
+  /** Resolves once the answers of History's trains asked so far were handled. For tests. */
+  trainsIdle(): Promise<void>;
 }
 
 /** The class of a popup's activity line, by which the lines open are found to be kept current. */
@@ -90,6 +99,15 @@ const LINE_CLASS = 'activity-line';
 
 /** How far round the view the invisible circles are drawn, in views (review P3). */
 const CIRCLES_MARGIN = 0.5;
+
+/** Said under a train chosen none of whose stops the map has now. */
+const NONE_PLACED = 'None of its stops are on the map now.';
+
+/** A stop's mark at either end of an ended train's line, in pixels. */
+const END_RADIUS = 7;
+
+/** The room round an ended train's line when the map is fitted to it, in pixels. */
+const FIT_MARGIN = 24;
 
 export function showActivity(
   map: L.Map,
@@ -119,7 +137,9 @@ export function showActivity(
   heatPane.style.zIndex = String(HEAT_PANE_Z);
   heatPane.style.pointerEvents = 'none';
   const heat = new HeatLayer(HEAT_PANE, theme().heat);
-  const group = L.layerGroup([heat]);
+  // An ended train's still line (plan 8H-7B), with the layer: turned off, it goes.
+  const trainLine = L.layerGroup();
+  const group = L.layerGroup([heat, trainLine]);
   /** A place's circle on the circles' canvas, its popup the words it is given as it opens. */
   const circles = new ActivityCircles((place, words) => {
     const circle = L.circleMarker([place.lat, place.lon], {
@@ -196,10 +216,176 @@ export function showActivity(
   history.append(spanMenu, slider, stepLabel, play);
   const note = element('p', 'activity-note');
   note.hidden = true;
-  panel.append(modeLabel, history, note);
+  // History's trains (plan 8H-7B): drawn from `HistoryTrains.panel()` whenever it changes.
+  const trainsPart = element('div', 'activity-trains');
+  trainsPart.hidden = true;
+  const trainsNote = element('p', 'activity-trains-note');
+  trainsNote.setAttribute('role', 'status');
+  trainsNote.hidden = true;
+  panel.append(modeLabel, history, trainsPart, trainsNote, note);
   const control = new L.Control({ position: 'topright' });
   control.onAdd = () => panel;
   control.addTo(map);
+
+  /** The ended train drawn now (plan 8H-7B), drawn again when the theme turns. */
+  let lineShown: TrainRouteView | undefined;
+  /**
+   * An ended train's still line (review G9): its legs (`stillLegs`) in the train's colour at a live
+   * line's opacity (review B8: the done legs' faint look was hard to see over the glow), no arrows
+   * nor flow, nothing to tap; its first stop marked filled, its last as a ring; the map moved to
+   * show it whole beside the panel (B3: padded by the panel's width on the right, which it covers).
+   */
+  const drawLine = (shown: TrainRouteView | undefined, fit = true): void => {
+    lineShown = shown;
+    trainLine.clearLayers();
+    if (shown === undefined) return;
+    const { colours, opacities } = theme();
+    const legs = stillLegs(shown);
+    const [first] = legs;
+    if (first) {
+      L.polyline(
+        [first.from, ...legs.map((leg) => leg.to)].map((place) => L.latLng(place.lat, place.lon)),
+        { color: colours.train, weight: 4, opacity: opacities.trainAhead, interactive: false },
+      ).addTo(trainLine);
+    }
+    const start = shown.points[shown.route[0] ?? -1];
+    const end = shown.points[shown.route.at(-1) ?? -1];
+    const mark = (at: { lat: number; lon: number }, filled: boolean) =>
+      L.circleMarker([at.lat, at.lon], {
+        radius: END_RADIUS,
+        color: colours.train,
+        weight: 3,
+        fillColor: colours.train,
+        fillOpacity: filled ? 1 : 0,
+        interactive: false,
+      }).addTo(trainLine);
+    if (end) mark(end, false);
+    if (start) mark(start, true);
+    if (fit && shown.points.length > 0) {
+      // At most half the map's width: on a phone the panel is nearly as wide as the map.
+      const covered = Math.min(Number(panel.offsetWidth) || 0, map.getSize().x / 2);
+      map.fitBounds(L.latLngBounds(shown.points.map((point) => L.latLng(point.lat, point.lon))), {
+        paddingTopLeft: [FIT_MARGIN, FIT_MARGIN],
+        paddingBottomRight: [FIT_MARGIN + covered, FIT_MARGIN],
+        maxZoom: 16,
+      });
+    }
+  };
+  /** Whether the list of the month's trains is open, kept through each drawing. */
+  let listOpen = false;
+  /** Whether the card of the train chosen is open (it opens so), kept through each drawing. */
+  let cardOpen = true;
+  const trains = new HistoryTrains(guild, {
+    get: (url) => getJson(url),
+    changed: () => {
+      drawTrains(trains.panel());
+    },
+    line: drawLine,
+  });
+  /** A train's card as a part that folds (review G8): its first line the summary. */
+  const cardNode = (card: NonNullable<TrainsPanel['card']>): HTMLElement => {
+    const node = element('details', 'train-card');
+    node.open = cardOpen;
+    node.addEventListener('toggle', () => {
+      cardOpen = node.open;
+    });
+    const [head, ...rest] = card.lines;
+    node.append(element('summary', undefined, head?.text ?? ''));
+    for (const line of rest) {
+      node.append(
+        element('p', line.small ? 'train-card-line small' : 'train-card-line', line.text),
+      );
+    }
+    if (card.unplaced) node.append(element('p', 'train-card-line small', NONE_PLACED));
+    return node;
+  };
+  /**
+   * The Trains part as `HistoryTrains` gives it, every word set as text; drawn anew at each
+   * change, the train focused and the panel's scroll kept (review B2).
+   */
+  function drawTrains(shown: TrainsPanel): void {
+    // Only the trains' buttons carry `data-train`.
+    const focused = document.activeElement?.getAttribute('data-train') ?? undefined;
+    const scrolled = panel.scrollTop;
+    drawTrainsAnew(shown);
+    sayTrains(shown);
+    panel.scrollTop = scrolled;
+    if (focused === undefined) return;
+    for (const press of trainsPart.querySelectorAll<HTMLElement>('.activity-train')) {
+      if (press.dataset.train === focused) press.focus();
+    }
+  }
+  function drawTrainsAnew(shown: TrainsPanel): void {
+    trainsPart.hidden = shown.hidden;
+    trainsPart.replaceChildren();
+    if (shown.hidden) return;
+    const { card } = shown;
+    const listed = card !== undefined && shown.items.some((one) => one.id === card.id);
+    // A train opened by the address that the list does not hold (past its fifty, or the list
+    // not come yet) has its card over the list.
+    if (card !== undefined && !listed) trainsPart.append(cardNode(card));
+    if (shown.heading !== undefined) {
+      const list = element('details', 'activity-trains-list');
+      // As the member left it (review B7): opened by a press of a train or the address.
+      list.open = listOpen;
+      // Of a month History has left, until the next month's answer (review R5).
+      if (shown.stale) list.setAttribute('aria-busy', 'true');
+      list.addEventListener('toggle', () => {
+        listOpen = list.open;
+      });
+      list.append(element('summary', undefined, shown.heading));
+      const items = element('ol', 'activity-trains-items');
+      for (const train of shown.items) {
+        const row = element('li');
+        const press = element('button', 'activity-train');
+        press.type = 'button';
+        press.dataset.train = String(train.id);
+        press.disabled = shown.stale;
+        press.setAttribute('aria-pressed', String(train.chosen));
+        press.append(
+          element('span', 'activity-train-name', train.name),
+          element('span', 'activity-train-when', train.when),
+          element('span', 'activity-train-about', train.about),
+        );
+        press.addEventListener('click', () => {
+          void trains.choose(train.id);
+        });
+        row.append(press);
+        if (train.chosen && card !== undefined) row.append(cardNode(card));
+        items.append(row);
+      }
+      list.append(items);
+      if (shown.more !== undefined) list.append(element('p', 'activity-trains-more', shown.more));
+      trainsPart.append(list);
+    }
+  }
+  /**
+   * The Trains part's line (a refusal, a failure, "Pick a month…"): one live element outside the
+   * part drawn anew (review R3), so that a screen reader hears each new line once (B7).
+   */
+  const sayTrains = (shown: TrainsPanel): void => {
+    const words = shown.hidden ? undefined : shown.note;
+    trainsNote.textContent = words ?? '';
+    trainsNote.hidden = words === undefined;
+  };
+  /**
+   * The Trains part follows History (review G8): a month's once its answer was drawn
+   * (`answered`), "pick a month" by year, nothing outside History, during Play or while the layer
+   * is off. Before a month's answer the part keeps what it shows.
+   */
+  const followTrains = (answered: boolean): void => {
+    let context: TrainsContext;
+    if (!registry.isOn('activity') || mode !== 'history' || player.playing()) {
+      context = { kind: 'hidden' };
+    } else if (span === 'year') {
+      context = { kind: 'pick' };
+    } else if (step !== undefined && answered) {
+      context = { kind: 'month', month: step };
+    } else {
+      return;
+    }
+    trains.show(context);
+  };
 
   const steps = (): string[] => sliderSteps(view?.months ?? null, span);
 
@@ -220,10 +406,13 @@ export function showActivity(
     slider.setAttribute('aria-valuetext', words);
   };
 
-  /** History's slider and label as the step and the months stand. */
+  /** History's slider and label as the step and the months stand, and its trains' part. */
   const drawHistory = (): void => {
     history.hidden = mode !== 'history';
-    if (mode !== 'history') return;
+    if (mode !== 'history') {
+      followTrains(false);
+      return;
+    }
     const all = steps();
     slider.max = String(Math.max(0, all.length - 1));
     slider.disabled = all.length < 2;
@@ -232,6 +421,7 @@ export function showActivity(
     if (at >= 0) slider.value = String(at);
     sayStep();
     play.textContent = player.playing() ? 'Stop' : 'Play';
+    followTrains(false);
   };
 
   /** The layer's count in view: the places drawn on the glow within the map's bounds. */
@@ -357,6 +547,7 @@ export function showActivity(
       draw(asking.mode === 'history' ? asking.step : undefined);
       drawHistory();
       say(mode === 'history' && answer.months === null ? NO_HISTORY : leftOutWords(answer.leftOut));
+      followTrains(asking.mode === 'history' && asking.step === step);
       scheduleHour(answer);
       return true;
     } catch {
@@ -367,8 +558,21 @@ export function showActivity(
     }
   }
 
-  modeMenu.addEventListener('change', () => {
+  /**
+   * Play stopped by a change of History (the menus, the slider, the layer off; reviews B5, R2):
+   * that change shows the trains it calls for, so Play's end asks nothing of them. Its own end, its
+   * Stop and a press elsewhere on the page show the month's trains.
+   */
+  let stoppedAside = false;
+  const stopAside = (): void => {
+    stoppedAside = true;
     player.stop();
+    stoppedAside = false;
+  };
+  modeMenu.addEventListener('change', () => {
+    stopAside();
+    // A change of History drops the train chosen at once (review B10).
+    trains.drop();
     mode = modeMenu.value as ActivityModeName;
     // Out of Expected now, its hourly question goes (review P5).
     if (mode !== 'now') clearHour();
@@ -379,7 +583,8 @@ export function showActivity(
     void load();
   });
   spanMenu.addEventListener('change', () => {
-    player.stop();
+    stopAside();
+    trains.drop();
     const before = step;
     span = spanMenu.value === 'year' ? 'year' : 'month';
     const all = steps();
@@ -395,11 +600,13 @@ export function showActivity(
   });
   // The label follows the slider as it is dragged; the map once it is let go.
   slider.addEventListener('input', () => {
-    player.stop();
+    stopAside();
     step = steps()[Number(slider.value)] ?? step;
     sayStep();
   });
   slider.addEventListener('change', () => {
+    // Another month: the train chosen goes at once, not with the month's answer (review B10).
+    trains.drop();
     void load();
   });
   play.addEventListener('click', () => {
@@ -418,6 +625,9 @@ export function showActivity(
       },
       ended: () => {
         play.textContent = 'Play';
+        // Play over by its end or its Stop, the month shown has its trains again (review G8,
+        // B5: kept, the last month's ask nothing); stopped by another change, that change does.
+        if (!stoppedAside) followTrains(true);
         // Each step is said again once Play stops, not a month a second while it runs (P9).
         stepLabel.setAttribute('aria-live', 'polite');
       },
@@ -429,6 +639,8 @@ export function showActivity(
   const otherPress = (event: Event): void => {
     if (!player.playing()) return;
     if (event.target instanceof Node && play.contains(event.target)) return;
+    // A press on the map or a key: Play's end shows the month's trains (review R2); what changes
+    // History (the menus, the slider, the layer off) stops it aside.
     player.stop();
   };
   document.addEventListener('pointerdown', otherPress, true);
@@ -440,7 +652,7 @@ export function showActivity(
       group.addTo(map);
       void load();
     } else {
-      player.stop();
+      stopAside();
       group.remove();
       clearHour();
       // Nothing of the last answer stays drawn, nor comes late (review P5): turned on again, the
@@ -448,6 +660,9 @@ export function showActivity(
       asked += 1;
       view = undefined;
       draw(undefined);
+      // The train chosen goes, the address's on its way too (review R1).
+      trains.drop();
+      followTrains(false);
     }
   };
   registry.onChange((id, on) => {
@@ -465,6 +680,8 @@ export function showActivity(
   // The page turned light or dark: the glow takes the new gradient.
   onThemeChange((changed) => {
     heat.setStops(changed.heat);
+    // The ended train drawn takes the new colour, where it is: the map stays.
+    if (lineShown !== undefined) drawLine(lineShown, false);
   });
   if (registry.isOn('activity')) turned(true);
   return {
@@ -481,5 +698,6 @@ export function showActivity(
       countListeners.push(listener);
     },
     refresh: drawCircles,
+    trainsIdle: () => trains.idle(),
   };
 }

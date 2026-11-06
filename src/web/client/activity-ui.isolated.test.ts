@@ -1,8 +1,10 @@
 import type * as L from 'leaflet';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ActivityPlaceView, ActivityView } from '../../domain/web/activity-data.js';
+import type { TrainMonthView, TrainRouteView } from '../../domain/web/train-history-data.js';
 import { showActivity } from './activity-ui.js';
 import { LayerRegistry, MAP_LAYERS } from './layer-registry.js';
+import { RequestError } from './request-error.js';
 
 /**
  * The activity layer's wiring (`showActivity`, plan 8H-4H, review 8H4H-8) over a Leaflet of fakes:
@@ -18,6 +20,9 @@ const fake = vi.hoisted(() => {
     textContent: string | null = '';
     hidden = false;
     value = '';
+    open = false;
+    type = '';
+    disabled = false;
     readonly dataset: Record<string, string> = {};
     readonly attributes: Record<string, string> = {};
     readonly children: PageElement[] = [];
@@ -25,6 +30,19 @@ const fake = vi.hoisted(() => {
     constructor(readonly tag: string) {}
     append(...children: PageElement[]) {
       this.children.push(...children);
+    }
+    replaceChildren(...children: PageElement[]) {
+      this.children.splice(0, this.children.length, ...children);
+    }
+    /** Every element under it, itself first. */
+    all(): PageElement[] {
+      return [this, ...this.children.flatMap((child) => child.all())];
+    }
+    /** Its text and its children's, as a page would show it. */
+    text(): string {
+      return [this.textContent ?? '', ...this.children.map((child) => child.text())]
+        .join(' ')
+        .trim();
     }
     setAttribute(name: string, value: string) {
       this.attributes[name] = value;
@@ -86,11 +104,31 @@ const fake = vi.hoisted(() => {
       };
     }
   }
+  /** A line drawn: its points and how. */
+  class Line {
+    group: Group | undefined;
+    constructor(
+      readonly points: Array<{ lat: number; lng: number }>,
+      readonly options: Record<string, unknown>,
+    ) {}
+    addTo(group: Group) {
+      group.layers.add(this);
+      this.group = group;
+      return this;
+    }
+  }
   class Group {
     readonly layers = new Set<unknown>();
     onMap = false;
     constructor(layers: unknown[] = []) {
       for (const layer of layers) this.layers.add(layer);
+    }
+    clearLayers() {
+      for (const layer of this.layers) {
+        if (layer instanceof Circle || layer instanceof Line) layer.group = undefined;
+      }
+      this.layers.clear();
+      return this;
     }
     addTo() {
       this.onMap = true;
@@ -111,19 +149,30 @@ const fake = vi.hoisted(() => {
   /** The questions asked of the server, each answered (or failed) when the test says. */
   const asked: Array<{
     url: string;
-    answer: (view: ActivityView) => void;
-    fail: () => void;
+    answer: (view: unknown) => void;
+    fail: (err?: Error) => void;
   }> = [];
   /** Every element the layer made, in order. */
   const elements: PageElement[] = [];
   /** Every circle made. */
   const circles: Circle[] = [];
-  return { PageElement, Circle, Group, heat, asked, elements, circles };
+  /** Every line drawn. */
+  const lines: Line[] = [];
+  /** The listeners of the page itself (`document`). */
+  const pageListeners: Array<{ type: string; listener: (event: unknown) => void }> = [];
+  return { PageElement, Circle, Line, Group, heat, asked, elements, circles, lines, pageListeners };
 });
 
 vi.mock('leaflet', () => ({
   canvas: () => ({}),
   layerGroup: (layers?: unknown[]) => new fake.Group(layers),
+  latLng: (lat: number, lng: number) => ({ lat, lng }),
+  latLngBounds: (points: unknown[]) => ({ points }),
+  polyline: (points: Array<{ lat: number; lng: number }>, options: Record<string, unknown>) => {
+    const line = new fake.Line(points, options);
+    fake.lines.push(line);
+    return line;
+  },
   circleMarker: (at: [number, number]) => {
     const circle = new fake.Circle(at);
     fake.circles.push(circle);
@@ -151,15 +200,22 @@ vi.mock('./heat-layer.js', () => ({
     }
   },
 }));
-vi.mock('./theme.js', () => ({ theme: () => ({ heat: [] }), onThemeChange: () => undefined }));
+vi.mock('./theme.js', () => ({
+  theme: () => ({
+    heat: [],
+    colours: { train: 'teal' },
+    opacities: { trainDone: 0.35, trainAhead: 0.8 },
+  }),
+  onThemeChange: () => undefined,
+}));
 vi.mock('./common.js', () => ({
   getJson: (url: string) =>
     new Promise((resolve, reject) => {
       fake.asked.push({
         url,
         answer: resolve,
-        fail: () => {
-          reject(new Error('the activity failed'));
+        fail: (err?: Error) => {
+          reject(err ?? new Error('the activity failed'));
         },
       });
     }),
@@ -190,6 +246,8 @@ const answer = (more: Partial<ActivityView> = {}): ActivityView => ({
 
 beforeEach(() => {
   fake.heat.places = [];
+  fake.lines.splice(0);
+  fake.pageListeners.splice(0);
   fake.asked.splice(0);
   fake.elements.splice(0);
   fake.circles.splice(0);
@@ -201,7 +259,9 @@ beforeEach(() => {
       fake.elements.push(made);
       return made;
     },
-    addEventListener: () => undefined,
+    addEventListener: (type: string, listener: (event: unknown) => void) => {
+      fake.pageListeners.push({ type, listener });
+    },
   });
   vi.stubGlobal('window', { setTimeout: () => 1, clearTimeout: () => undefined });
 });
@@ -237,7 +297,14 @@ function shown(
     getZoom: () => 17,
     getBounds: () => ({ ...box, contains: () => true, pad: () => box }),
     getContainer: () => ({ querySelectorAll: () => lines }),
+    getSize: () => ({ x: 1000, y: 800 }),
+    fitBounds: (bounds: unknown, options: unknown) => {
+      fitted.push({ bounds, options });
+      return map;
+    },
   };
+  /** Where the map was moved to show a train whole. */
+  const fitted: { bounds: unknown; options: unknown }[] = [];
   const layer = showActivity(
     map as unknown as L.Map,
     '100000000000000001',
@@ -292,8 +359,193 @@ function shown(
     fire,
     element,
     modeMenu,
+    fitted,
   };
 }
+
+/** A month's trains as the server lists them. */
+const monthOfTrains = (ids: number[]): TrainMonthView => ({
+  month: '2019-12',
+  trains: ids.map((id) => ({
+    id,
+    name: `Train ${String(id)}`,
+    when: 'Sat, Dec 14, 6:00 PM',
+    about: 'About 2 stops · 3 riders',
+  })),
+  more: 0,
+});
+
+/** A train's line and card as the server gives them. */
+const trainRoute = (id: number): TrainRouteView => ({
+  ...(monthOfTrains([id]).trains[0] as TrainRouteView),
+  month: '2019-12',
+  points: [
+    { lat: 40.45, lon: -79.95 },
+    { lat: 40.46, lon: -79.94 },
+  ],
+  route: [0, 1],
+  card: [
+    { text: 'How the train went', small: false },
+    { text: 'About 2 stops in 40 min', small: false },
+  ],
+});
+
+describe('History’s trains on the map (plan 8H-7B)', () => {
+  /** The layer on in History by month, its answer of December 2019 drawn. */
+  async function inHistory() {
+    const made = shown();
+    made.turn(true);
+    const now = made.counted();
+    fake.asked[0]?.answer(answer());
+    await now;
+    const menu = made.modeMenu();
+    menu.value = 'history';
+    menu.fire('change');
+    // The month's trains are asked once its answer was drawn, not before.
+    expect(fake.asked).toHaveLength(2);
+    const december = made.counted();
+    fake.asked[1]?.answer(answer({ mode: 'history', weekday: null, changesInMs: null }));
+    await december;
+    return made;
+  }
+  /** The buttons of the trains listed. */
+  const pressesOf = (part: PageElement) =>
+    part.all().filter((one) => one.className === 'activity-train');
+
+  it('lists the month’s trains, and draws one chosen as a still line with its card', async () => {
+    const { element, layer, fitted } = await inHistory();
+    expect(fake.asked[2]?.url).toBe('/s/100000000000000001/api/history/trains?month=2019-12');
+    fake.asked[2]?.answer(monthOfTrains([3, 2]));
+    await layer.trainsIdle();
+    const part = element('activity-trains');
+    expect(part.hidden).toBe(false);
+    expect(part.text()).toContain('Trains in December 2019 (2)');
+    expect(pressesOf(part).map((press) => press.attributes['aria-pressed'])).toEqual([
+      'false',
+      'false',
+    ]);
+    // The panel 300 pixels wide, over the map's right side.
+    (element('activity-panel') as unknown as { offsetWidth: number }).offsetWidth = 300;
+    pressesOf(part)[1]?.fire('click');
+    expect(fake.asked[3]?.url).toBe('/s/100000000000000001/api/history/trains/2');
+    fake.asked[3]?.answer(trainRoute(2));
+    await layer.trainsIdle();
+    // Its colour, nothing to tap.
+    expect(fake.lines).toHaveLength(1);
+    expect(fake.lines[0]?.options).toMatchObject({
+      color: 'teal',
+      // A live line's opacity, not the faint done legs' (review B8).
+      opacity: 0.8,
+      interactive: false,
+    });
+    expect(fake.lines[0]?.points).toEqual([
+      { lat: 40.45, lng: -79.95 },
+      { lat: 40.46, lng: -79.94 },
+    ]);
+    // Fitted beside the panel, which covers the right side (review B3).
+    expect(fitted).toHaveLength(1);
+    expect(fitted[0]?.options).toMatchObject({
+      paddingTopLeft: [24, 24],
+      paddingBottomRight: [324, 24],
+    });
+    expect(pressesOf(element('activity-trains'))[1]?.attributes['aria-pressed']).toBe('true');
+    expect(element('activity-trains').text()).toContain('About 2 stops in 40 min');
+    // Chosen again: cleared.
+    pressesOf(element('activity-trains'))[1]?.fire('click');
+    expect(fake.lines[0]?.group).toBeUndefined();
+    expect(element('activity-trains').text()).not.toContain('About 2 stops in 40 min');
+  });
+
+  it('hides the trains during Play and clears the one chosen, and when turned off (G8)', async () => {
+    const { element, layer, turn } = await inHistory();
+    fake.asked[2]?.answer(monthOfTrains([2]));
+    await layer.trainsIdle();
+    pressesOf(element('activity-trains'))[0]?.fire('click');
+    fake.asked[3]?.answer(trainRoute(2));
+    await layer.trainsIdle();
+    expect(fake.lines[0]?.group).toBeDefined();
+    element('press activity-play').fire('click');
+    expect(element('activity-trains').hidden).toBe(true);
+    expect(fake.lines[0]?.group).toBeUndefined();
+    // Stop: the trains of the month Play got to, January (review B5: on its Stop).
+    element('press activity-play').fire('click');
+    expect(element('activity-trains').hidden).toBe(false);
+    expect(fake.asked.at(-1)?.url).toBe('/s/100000000000000001/api/history/trains?month=2019-01');
+    fake.asked.at(-1)?.answer(monthOfTrains([2]));
+    await layer.trainsIdle();
+    expect(pressesOf(element('activity-trains'))).toHaveLength(1);
+    // A train chosen again, then the layer turned off: nothing of it stays.
+    pressesOf(element('activity-trains'))[0]?.fire('click');
+    fake.asked.at(-1)?.answer(trainRoute(2));
+    await layer.trainsIdle();
+    expect(fake.lines.at(-1)?.group).toBeDefined();
+    turn(false);
+    expect(element('activity-trains').hidden).toBe(true);
+    expect(fake.lines.at(-1)?.group).toBeUndefined();
+  });
+
+  it('shows the trains again when Play is stopped by a press elsewhere on the page (R2)', async () => {
+    const { element, layer } = await inHistory();
+    fake.asked[2]?.answer(monthOfTrains([2]));
+    await layer.trainsIdle();
+    element('press activity-play').fire('click');
+    expect(element('activity-trains').hidden).toBe(true);
+    // A press on the map: Play stops, and its month's trains are asked.
+    vi.stubGlobal('Node', class {});
+    for (const { type, listener } of fake.pageListeners) {
+      if (type === 'pointerdown') listener({ target: {} });
+    }
+    expect(element('activity-trains').hidden).toBe(false);
+    expect(fake.asked.at(-1)?.url).toBe('/s/100000000000000001/api/history/trains?month=2019-01');
+  });
+
+  it('says a refusal in one live line that stays through each drawing (R3)', async () => {
+    const { element, layer } = await inHistory();
+    fake.asked[2]?.answer(monthOfTrains([3, 2]));
+    await layer.trainsIdle();
+    pressesOf(element('activity-trains'))[1]?.fire('click');
+    fake.asked[3]?.fail(new RequestError(404, 'Not found.'));
+    await layer.trainsIdle();
+    const note = element('activity-trains-note');
+    expect(note.attributes.role).toBe('status');
+    expect(note.textContent).toBe('This train cannot be shown.');
+    // Drawn anew (another train pressed): the same line, its words gone.
+    pressesOf(element('activity-trains'))[0]?.fire('click');
+    expect(fake.elements.filter((one) => one.className === 'activity-trains-note')).toEqual([note]);
+    expect(note.hidden).toBe(true);
+  });
+
+  it('marks the list of the month left busy, its trains not to be pressed, until the next (R5)', async () => {
+    const { element, layer } = await inHistory();
+    fake.asked[2]?.answer(monthOfTrains([2]));
+    await layer.trainsIdle();
+    const slider = element('activity-slider');
+    slider.value = '5';
+    slider.fire('input');
+    slider.fire('change');
+    const list = element('activity-trains')
+      .all()
+      .find((one) => one.className === 'activity-trains-list');
+    expect(list?.attributes['aria-busy']).toBe('true');
+    expect(pressesOf(element('activity-trains')).map((press) => press.disabled)).toEqual([true]);
+  });
+
+  it('drops the train chosen at the slider’s change, before the month’s answer (B10)', async () => {
+    const { element, layer } = await inHistory();
+    fake.asked[2]?.answer(monthOfTrains([2]));
+    await layer.trainsIdle();
+    pressesOf(element('activity-trains'))[0]?.fire('click');
+    fake.asked[3]?.answer(trainRoute(2));
+    await layer.trainsIdle();
+    expect(fake.lines[0]?.group).toBeDefined();
+    const slider = element('activity-slider');
+    slider.value = '5';
+    slider.fire('input');
+    slider.fire('change');
+    expect(fake.asked.at(-1)?.url).toContain('month=2019-06');
+    expect(fake.lines[0]?.group).toBeUndefined();
+  });
+});
 
 describe('the activity layer on the map (showActivity, review 8H4H-8)', () => {
   it('fills the popups’ lines with each answer drawn, and hides them when it is turned off', async () => {
