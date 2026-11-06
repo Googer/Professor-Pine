@@ -467,9 +467,12 @@ export class EventForumService {
    * counts every region too). While the days are still being filled (`complete` false: after
    * migration 042 or a rebuild, A1) nothing is posted nor settled: a later draw that day posts;
    * still so two hours after 10:00 (the upkeeps should have caught up), it is warned of once a day
-   * (R5). A failure is warned of once a day per server (A4). Never rejects.
+   * (R5). A failure is warned of once a day per server (A4). Nothing after `stop`: a draw under
+   * way makes no post once it came (W7). Never rejects.
    */
   private async drawOnThisDay(forum: EventForumRecord): Promise<void> {
+    // Nothing after a stop, nor a post once one came while the days were read (review W7).
+    if (this.stopped) return;
     const { days, settings, store, gateway, log } = this.options;
     const count = settings.eventsForum.onThisDay;
     const now = this.now();
@@ -509,6 +512,7 @@ export class EventForumService {
         settings.web === undefined ? undefined : `${settings.web.publicUrl}/s/${serverId}/history`,
       );
       const left = await this.openPostTitled(forumId, title);
+      if (this.stopped) return;
       const postId =
         left ??
         (await gateway.createPost(forumId, {

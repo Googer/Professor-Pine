@@ -1263,6 +1263,36 @@ describe('EventForumService: "On this day" (plan 8H-8)', () => {
     expect(warned('could not post "On this day"')).toBe(1);
   });
 
+  it('posts nothing once stopped while it read the days (W7)', async () => {
+    const { recalled, record, clock, service, activity } = await recalling({
+      now: at('2026-11-10T09:00'),
+    });
+    // The days' read waits until the test lets it go, the service stopped meanwhile.
+    const read = activity.daySeries.bind(activity);
+    let reading: () => void = () => undefined;
+    const asked = new Promise<void>((resolve) => {
+      reading = resolve;
+    });
+    let release: () => void = () => undefined;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const spy = vi.spyOn(activity, 'daySeries').mockImplementation(async (...args) => {
+      reading();
+      await released;
+      return read(...args);
+    });
+    clock.now = at('2026-11-10T10:00:01');
+    const drawn = service.upkeep();
+    await asked;
+    service.stop();
+    release();
+    await drawn;
+    spy.mockRestore();
+    expect(recalled()).toEqual([]);
+    expect(await record()).toEqual([]);
+  });
+
   it('posts though the events feed is not known yet: it is not the feed’s (G6)', async () => {
     const { recalled } = await recalling({ known: false });
     expect(recalled()).toHaveLength(1);
