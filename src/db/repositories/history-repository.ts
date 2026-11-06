@@ -105,12 +105,43 @@ export interface RaidsAlongReader {
   raidsAlong(serverId: string, query: RaidsAlongQuery): Promise<RaidAlongRow[]>;
 }
 
+/**
+ * What the web lists of an ended train (plan 8H-7B): whose record it is (`live` or `legacy`), its
+ * name as kept (member-typed, `withoutMembers`), when it was made, its own region (null: none),
+ * and the members who came (`PartyHistory.here` and `done`, which `trainShownOnWeb` judges).
+ */
+export interface TrainListing {
+  source: 'live' | 'legacy';
+  name: string | null;
+  createdAt: number;
+  regionId: number | null;
+  here: number;
+  done: number;
+}
+
 /** A train's record read back for its card (`trainCardRows`), with its server. */
 export interface TrainCardRows {
   serverId: string;
+  /** What the web lists of it (plan 8H-7B). */
+  listing: TrainListing;
   record: CardRecord;
   stops: CardStop[];
   attendees: CardAttendee[];
+}
+
+/**
+ * A server's ended trains as the web reads them (plan 8H-7B, the map's History): those made in a
+ * time range, and their rows. Which of them the web shows is the domain's (`trainShownOnWeb`) and
+ * the route's (the regions barred to the member).
+ */
+export interface TrainHistoryReader {
+  /**
+   * The ids (`PartyHistory.id`) of the server's trains made from `from` to before `to`, live and
+   * legacy, newest first: along the index `(serverId, kind, createdAt)`.
+   */
+  trainsMade(serverId: string, range: { from: number; to: number }): Promise<number[]>;
+  /** Each train's rows, by its id; a record that is no train, or not there, is left out. */
+  trainCardRows(historyIds: readonly number[]): Promise<Map<number, TrainCardRows>>;
 }
 
 /**
@@ -304,7 +335,9 @@ async function insertChunked<T>(rows: T[], insert: (chunk: T[]) => Promise<unkno
  * of one member at once end as whichever committed last, and an opt-out takes the id out of
  * what is kept under the lock its statements take.
  */
-export class HistoryRepository implements HistoryOptIns, HistoryStorage, RaidsAlongReader {
+export class HistoryRepository
+  implements HistoryOptIns, HistoryStorage, RaidsAlongReader, TrainHistoryReader
+{
   constructor(private readonly db: Kysely<DB>) {}
 
   async unrecorded(): Promise<UnrecordedParty[]> {
@@ -527,14 +560,27 @@ export class HistoryRepository implements HistoryOptIns, HistoryStorage, RaidsAl
    * The rows of the trains' records asked (by `PartyHistory.id`), as `trainCard` takes them
    * (plan 8H-7A; the web's list of a month's trains, 8H-7B, reads its cards here): the record's
    * end, end time and most at once, its stops in their order with their regions, its attendees
-   * in theirs. A record that is no train, or is not there, is left out. Names nobody.
+   * in theirs; and what the web lists of it (`listing`). A record that is no train, or is not
+   * there, is left out. Names nobody.
    */
   async trainCardRows(historyIds: readonly number[]): Promise<Map<number, TrainCardRows>> {
     const read = new Map<number, TrainCardRows>();
     if (historyIds.length === 0) return read;
     const records = await this.db
       .selectFrom('PartyHistory')
-      .select(['id', 'serverId', 'endedAt', 'endTime', 'peakRiders'])
+      .select([
+        'id',
+        'serverId',
+        'source',
+        'name',
+        'createdAt',
+        'regionId',
+        'here',
+        'done',
+        'endedAt',
+        'endTime',
+        'peakRiders',
+      ])
       .where('id', 'in', [...historyIds])
       .where('kind', '=', 'train')
       .execute();
@@ -566,6 +612,14 @@ export class HistoryRepository implements HistoryOptIns, HistoryStorage, RaidsAl
     for (const row of records) {
       read.set(row.id, {
         serverId: row.serverId,
+        listing: {
+          source: row.source === 'legacy' ? 'legacy' : 'live',
+          name: row.name,
+          createdAt: Number(row.createdAt),
+          regionId: row.regionId,
+          here: row.here,
+          done: row.done,
+        },
         record: {
           endedAt: time(row.endedAt),
           endTime: time(row.endTime),
@@ -596,6 +650,25 @@ export class HistoryRepository implements HistoryOptIns, HistoryStorage, RaidsAl
       });
     }
     return read;
+  }
+
+  /**
+   * Along the index `partyhistory_server_kind_createdat_index (serverId, kind, createdAt)` of
+   * migration 018: a month holds a server's trains of both sources, so 040's index by source
+   * would read twice what this one reads once (plan 8H-7B).
+   */
+  async trainsMade(serverId: string, range: { from: number; to: number }): Promise<number[]> {
+    const rows = await this.db
+      .selectFrom('PartyHistory')
+      .select('id')
+      .where('serverId', '=', serverId)
+      .where('kind', '=', 'train')
+      .where('createdAt', '>=', String(range.from))
+      .where('createdAt', '<', String(range.to))
+      .orderBy('createdAt', 'desc')
+      .orderBy('id', 'desc')
+      .execute();
+    return rows.map((row) => row.id);
   }
 
   /**

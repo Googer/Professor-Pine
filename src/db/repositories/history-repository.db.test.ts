@@ -1,10 +1,20 @@
-import { sql, type Kysely } from 'kysely';
+import { CompiledQuery, sql, type Kysely } from 'kysely';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { leaderboardCases } from '../../../test/support/leaderboard-cases.js';
 import { raidsAlongCases } from '../../../test/support/raids-along-cases.js';
 import { boardAttendee, boardRecord } from '../../../test/support/board-cases.js';
+import {
+  trainHistoryCases,
+  trainRecord,
+  TRAINS_SERVER,
+  TRAINS_ZONE,
+} from '../../../test/support/train-history-cases.js';
+import type { HistoryRecord } from '../../domain/history/party-history.js';
 import { trainCard } from '../../domain/history/train-card.js';
+import { trainMonthRange } from '../../domain/history/trains-on-web.js';
 import { startMigratedDatabase } from '../../../test/support/migrated-db.js';
+import type { TestDatabase } from '../../../test/support/mysql.js';
+import { createDb } from '../kysely.js';
 import type { DB } from '../types.js';
 import { HistoryRepository } from './history-repository.js';
 
@@ -18,10 +28,11 @@ const NOW = 1_800_000_000_000;
 describe('HistoryRepository: who is named in the history', () => {
   let stop: () => Promise<void>;
   let db: Kysely<DB>;
+  let database: TestDatabase;
   let history: HistoryRepository;
 
   beforeAll(async () => {
-    ({ db, stop } = await startMigratedDatabase());
+    ({ db, stop, database } = await startMigratedDatabase());
     history = new HistoryRepository(db);
   });
   afterAll(async () => {
@@ -241,6 +252,59 @@ describe('HistoryRepository: who is named in the history', () => {
     });
   });
 
+  describe('the ended trains for the web (plan 8H-7B)', () => {
+    const idOf = async (record: HistoryRecord) =>
+      (
+        await db
+          .selectFrom('PartyHistory')
+          .select('id')
+          .where(
+            record.partyId === null ? 'legacyKey' : 'partyId',
+            '=',
+            record.partyId ?? record.legacyKey ?? '',
+          )
+          .executeTakeFirstOrThrow()
+      ).id;
+    trainHistoryCases(async () => {
+      await db.deleteFrom('PartyHistory').execute();
+      return {
+        reader: history,
+        add: async (records) => {
+          await history.insertRecords(records);
+        },
+        idOf,
+      };
+    });
+
+    it('reads a month’s trains along (serverId, kind, createdAt), past its other records', async () => {
+      await db.deleteFrom('PartyHistory').execute();
+      const june = trainMonthRange('2026-06', TRAINS_ZONE);
+      const trains = Array.from({ length: 5 }, (_, n) => trainRecord(june.from + n * 86_400_000));
+      // Many raids of the server beside them, of that month and others.
+      const raids = Array.from({ length: 200 }, (_, n) =>
+        boardRecord({ serverId: TRAINS_SERVER, createdAt: june.from + (n - 100) * 3_600_000 }),
+      );
+      await history.insertRecords([...trains, ...raids]);
+      await sql`analyze table PartyHistory`.execute(db);
+      const asked: CompiledQuery[] = [];
+      const logged = createDb<DB>(database.config, (event) => {
+        if (event.level === 'query') asked.push(event.query);
+      });
+      try {
+        const read = await new HistoryRepository(logged).trainsMade(TRAINS_SERVER, june);
+        expect(read).toHaveLength(5);
+        const [query] = asked;
+        if (query === undefined) throw new Error('the month’s read asked nothing');
+        const plan = await db.executeQuery<{ key: string | null }>(
+          CompiledQuery.raw(`explain ${query.sql}`, [...query.parameters]),
+        );
+        expect(plan.rows[0]?.key).toBe('partyhistory_server_kind_createdat_index');
+      } finally {
+        await logged.destroy();
+      }
+    });
+  });
+
   describe('the rows of a train’s card, read back (plan 8H-7A)', () => {
     const MINUTE = 60_000;
     const SPOT = 'c0ffee00c0ffee00c0ffee00c0ffee00.16';
@@ -307,6 +371,8 @@ describe('HistoryRepository: who is named in the history', () => {
       const rows = read.get(id);
       expect(rows).toEqual({
         serverId: HOME,
+        // What the web lists of it (plan 8H-7B).
+        listing: { source: 'live', name: null, createdAt: NOW, regionId: 1, here: 2, done: 1 },
         record: { endedAt: NOW + 180 * MINUTE, endTime: NOW + 120 * MINUTE, peakRiders: 2 },
         stops: [
           {

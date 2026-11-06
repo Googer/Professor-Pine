@@ -5,6 +5,8 @@ import {
   type JoinedBoards,
   type OptedOut,
   type RaidsAlongReader,
+  type TrainCardRows,
+  type TrainHistoryReader,
   type UnrecordedParty,
 } from '../../src/db/repositories/history-repository.js';
 import {
@@ -12,10 +14,11 @@ import {
   type RaidAlongRow,
   type RaidsAlongQuery,
 } from '../../src/domain/history/train-card.js';
-import type {
-  HistoryNote,
-  HistoryRecord,
-  HistoryStep,
+import {
+  historyCounts,
+  type HistoryNote,
+  type HistoryRecord,
+  type HistoryStep,
 } from '../../src/domain/history/party-history.js';
 import type { Party } from '../../src/domain/party/party.js';
 
@@ -47,7 +50,7 @@ export interface KeptPost {
  * note all or nothing, as the storage does in its transaction. Set `failing` to make every write
  * throw (reject, through `write`).
  */
-export class MemoryHistory implements HistoryStorage, RaidsAlongReader {
+export class MemoryHistory implements HistoryStorage, RaidsAlongReader, TrainHistoryReader {
   failing: Error | undefined;
   readonly records: HistoryRecord[] = [];
   readonly posts = new Map<string, KeptPost>();
@@ -211,6 +214,78 @@ export class MemoryHistory implements HistoryStorage, RaidsAlongReader {
               : [],
           ),
         );
+      });
+    });
+  }
+
+  /** As the repository reads them (plan 8H-7B); a record's id is its place in `records`, from 1. */
+  trainsMade(serverId: string, range: { from: number; to: number }): Promise<number[]> {
+    return this.answer(() =>
+      this.records
+        .map((record, index) => ({ record, id: index + 1 }))
+        .filter(
+          ({ record }) =>
+            record.serverId === serverId &&
+            record.kind === 'train' &&
+            record.createdAt >= range.from &&
+            record.createdAt < range.to,
+        )
+        .sort((a, b) => b.record.createdAt - a.record.createdAt || b.id - a.id)
+        .map(({ id }) => id),
+    );
+  }
+
+  /** As the repository reads them back (plans 8H-7A, 8H-7B), by a record's place from 1. */
+  trainCardRows(historyIds: readonly number[]): Promise<Map<number, TrainCardRows>> {
+    return this.answer(() => {
+      const read = new Map<number, TrainCardRows>();
+      for (const id of historyIds) {
+        const record = this.records[id - 1];
+        if (record?.kind !== 'train') continue;
+        const counts = historyCounts(record.attendees);
+        read.set(id, {
+          serverId: record.serverId,
+          listing: {
+            source: record.source,
+            name: record.name,
+            createdAt: record.createdAt,
+            regionId: record.regionId,
+            here: counts.here,
+            done: counts.done,
+          },
+          record: {
+            endedAt: record.endedAt,
+            endTime: record.endTime,
+            peakRiders: record.peakRiders ?? null,
+          },
+          stops: record.stops.map((stop) => ({
+            gymId: stop.gymId,
+            wayspotId: stop.wayspotId,
+            arrivedAt: stop.arrivedAt,
+            leftAt: stop.leftAt,
+            regionIds: stop.regionIds ?? null,
+          })),
+          attendees: record.attendees.map((attendee) => ({
+            furthest: attendee.furthest,
+            status: attendee.status,
+            extras: attendee.extras,
+            remote: attendee.remote,
+            leftAt: attendee.leftAt,
+            doneAt: attendee.doneAt,
+            ...(attendee.splitOff === true ? { splitOff: true as const } : {}),
+          })),
+        });
+      }
+      return read;
+    });
+  }
+
+  /** An answer that never comes in the same turn of the event loop; rejects while `failing`. */
+  private answer<T>(work: () => T): Promise<T> {
+    return new Promise((resolve, reject) => {
+      setImmediate(() => {
+        if (this.failing) reject(this.failing);
+        else resolve(work());
       });
     });
   }
