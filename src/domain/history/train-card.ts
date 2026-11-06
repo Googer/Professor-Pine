@@ -217,6 +217,46 @@ export function raidTime(
 }
 
 /**
+ * Whether the card may count a raid record at all: a live one the heatmap counts
+ * (`countsAsActivity`), recorded by the train's end (`endedAt`; null, a legacy train: no bound).
+ */
+function onTheCard(raid: RaidAlongRow, endedAt: number | null): boolean {
+  const recordedLate = endedAt !== null && (raid.endedAt === null || raid.endedAt > endedAt);
+  return hasOwnCount(raid) && !recordedLate;
+}
+
+/** A live raid or max battle record the heatmap counts (`countsAsActivity`). */
+function hasOwnCount(raid: RaidAlongRow): boolean {
+  return raid.source === 'live' && countsAsActivity(raid);
+}
+
+/** Whether a raid stood at a stop's gym or Power Spot while the train was there. */
+function passedAt(w: StopWindow, raid: RaidAlongRow): boolean {
+  const { start, end } = raidTime(raid);
+  return (
+    ((raid.gymId !== null && w.gymId === raid.gymId) ||
+      (raid.wayspotId !== null && w.wayspotId === raid.wayspotId)) &&
+    start <= w.to &&
+    end >= w.from
+  );
+}
+
+/**
+ * For each stop the card counts (`windows`), whether the train joined a raid there that has a
+ * record of its own (plan 8H-9): `raidsAlong`'s matcher (`passedAt`, a live record that counts),
+ * without the card's bound of being recorded by the train's end, so that a raid still running
+ * when the train ended (at its last stop, most often) is the stop too. Such a stop is that raid,
+ * which its own record counts already.
+ */
+export function joinedStops(
+  windows: readonly StopWindow[],
+  raids: readonly RaidAlongRow[],
+): boolean[] {
+  const along = raids.filter(hasOwnCount);
+  return windows.map((w) => along.some((raid) => passedAt(w, raid)));
+}
+
+/**
  * The raids along the way (review F-B6): the raid and max battle records the heatmap counts
  * (`countsAsActivity`), live ones only, at a counted stop's gym (`gymId`) or Power Spot
  * (`wayspotId`), whose time (`coalesce(hatchTime, createdAt)` to `coalesce(endTime, endedAt)`)
@@ -233,20 +273,9 @@ export function raidsAlong(
 ): RaidTally[] {
   const counted = new Set<number>();
   const tallies = new Map<string, RaidTally>();
-  const recordedLate = (raid: RaidAlongRow): boolean =>
-    endedAt !== null && (raid.endedAt === null || raid.endedAt > endedAt);
   for (const raid of raids) {
-    if (raid.source !== 'live' || !countsAsActivity(raid) || counted.has(raid.id)) continue;
-    if (recordedLate(raid)) continue;
-    const { start, end } = raidTime(raid);
-    const passed = windows.some(
-      (w) =>
-        ((raid.gymId !== null && w.gymId === raid.gymId) ||
-          (raid.wayspotId !== null && w.wayspotId === raid.wayspotId)) &&
-        start <= w.to &&
-        end >= w.from,
-    );
-    if (!passed) continue;
+    if (counted.has(raid.id) || !onTheCard(raid, endedAt)) continue;
+    if (!windows.some((w) => passedAt(w, raid))) continue;
     counted.add(raid.id);
     const key = `${raid.tier ?? ''}:${String(raid.shadow)}`;
     const tally = tallies.get(key) ?? { tier: raid.tier, shadow: raid.shadow, count: 0 };

@@ -27,10 +27,10 @@ export interface ActivityRecord {
 }
 
 /**
- * Whether a record of the party history counts toward the heatmap (review H17): a raid or a max
- * battle, however it ended but `cancelled` (somebody closed it; `failed` is never recorded). A
- * legacy raid nobody marked complete is `unknown` and counts, or the legacy years would be empty;
- * `cutover` counts too.
+ * Whether a record's own party counts toward the heatmap (review H17): a raid or a max battle,
+ * however it ended but `cancelled` (somebody closed it; `failed` is never recorded). A legacy raid
+ * nobody marked complete is `unknown` and counts, or the legacy years would be empty; `cutover`
+ * counts too. A train counts no party of its own, but its stops do (`countedParties`, plan 8H-9).
  */
 export function countsAsActivity(record: { kind: string; ending: string }): boolean {
   return (record.kind === 'raid' || record.kind === 'max') && record.ending !== 'cancelled';
