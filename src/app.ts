@@ -416,7 +416,7 @@ export async function startApp(
   const history = new HistoryRepository(db);
   // The activity heatmap's buckets (plan 8H-4): derived from the history, added hourly by the
   // upkeep after its sweep, read by the map's /api/activity and the region tally (plan 8H-5).
-  const activity = new ActivityRepository(db, { zone: config.settings.timezone });
+  const activity = new ActivityRepository(db, { zone: config.settings.timezone, log });
   // Every party that ends is kept in the party history (plan 8H), with what the store writes;
   // in rehearsal mode too (only Discord is narrowed then, not the store).
   // A party left without its record (its tries failed, the bot stopped first, or it ended
@@ -870,12 +870,17 @@ export async function startApp(
   const scheduler = new PartyScheduler({
     store: parties,
     history: partyHistory,
-    // The history's new records into the activity heatmap, with a line when there were any.
+    // The history's new records into the activity heatmap and the raids per day, with a line
+    // when there were any, each table's apart (A5: they differ while the days catch up).
     activity: {
       addNew: async (options) => {
-        const records = await activity.addNew(options);
-        if (records > 0)
-          log.info({ records }, 'added records of the history to the activity heatmap');
+        const added = await activity.addNew(options);
+        if (added.buckets > 0 || added.days > 0) {
+          log.info(
+            { buckets: added.buckets, days: added.days },
+            'added records of the history to the activity heatmap and the raids per day',
+          );
+        }
       },
     },
     // The expiry of meetup safety and, with it, the sweep of the reports (plan 8S-2).

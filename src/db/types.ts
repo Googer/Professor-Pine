@@ -44,7 +44,17 @@ export interface ActivityBucket {
   weekday: number;
 }
 
+export interface ActivityDay {
+  boss: string;
+  day: string;
+  maxes: Generated<number>;
+  raids: Generated<number>;
+  regionId: number;
+  serverId: string;
+}
+
 export interface ActivityProgress {
+  lastDayHistoryId: Generated<number>;
   lastHistoryId: Generated<number>;
   serverId: string;
 }
@@ -797,6 +807,7 @@ export interface WebSession {
 
 export interface DB {
   ActivityBucket: ActivityBucket;
+  ActivityDay: ActivityDay;
   ActivityProgress: ActivityProgress;
   Alias: Alias;
   AutoAssignRole: AutoAssignRole;

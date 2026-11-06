@@ -1,11 +1,13 @@
+import { localDay } from '../time/local-day.js';
 import { isMoment, monthStart, startOfHour, zoned } from '../time/zoned.js';
 
 /*
  * The activity heatmap (plan 8H-4; design `2026-11-04-history-on-show-design.md`, Part B): what
  * of the party history counts as activity, which bucket of the summary a record adds to, and the
  * weights a mode gives each place. One domain path: the hourly adding, the rebuild and the web
- * map's route all go through here, and the region board and big days (Parts C and G) will take
- * `countsAsActivity` as it is.
+ * map's route all go through here; the region tally (Part C) reads the buckets, and the raids per
+ * day (Part G, plan 8H-8: `dayOf`) take `countsAsActivity` and the buckets' "when"
+ * (`knownActivityTime`) as they are.
  */
 
 /** What a record of the party history says that the heatmap reads (`PartyHistory`'s columns). */
@@ -101,14 +103,6 @@ export function activityWhen(ms: number, zone: string): ActivityWhen {
   };
 }
 
-/**
- * The bucket one record adds to, with its counts (one party), or none where it does not count.
- * When: its hatch, else when it was made (`coalesce(hatchTime, createdAt)`, as the tested query
- * `raids-by-hour` of `history.md` counts); where: a raid's gym, a max battle's Power Spot, else
- * no place. Whether that gym or Power Spot is still kept is asked when the map reads the buckets
- * (`activityWeights`' `kept`), so that a gym added back is drawn again without a rebuild.
- * `now` is when it is added: a time after this month in `zone` is a bad one.
- */
 /** The month after a `yyyy-mm` month, as `yyyy-mm`. */
 function nextMonth(month: string): string {
   const year = Number(month.slice(0, 4));
@@ -118,6 +112,40 @@ function nextMonth(month: string): string {
     : `${month.slice(0, 4)}-${String(number + 1).padStart(2, '0')}`;
 }
 
+/**
+ * When a record took place as the heatmap and the days count it (one rule for both, plan 8H-8,
+ * G9): its hatch, else when it was made (`coalesce(hatchTime, createdAt)`, as the tested query
+ * `raids-by-hour` of `history.md` counts), epoch ms; none where that time is not known. A time no
+ * `yyyy-mm` holds (beyond year 9999, before year 0, no moment at all) would be refused by the
+ * tables and stall the server's adding for good, and one before the game's launch or after next
+ * month (in `zone`, from `now`, when it is added) would stretch History's slider (8H4-3). Next
+ * month is allowed (review F1): a record added before the month turns may already be of it, and
+ * a bucket or a day never moves once it is written; the slider ends at this month
+ * (`activityMonths`).
+ */
+export function knownActivityTime(
+  record: Pick<ActivityRecord, 'createdAt' | 'hatchTime'>,
+  zone: string,
+  now: number,
+): number | undefined {
+  const ms = record.hatchTime ?? record.createdAt;
+  if (!isMoment(ms)) return undefined;
+  const { month } = activityWhen(ms, zone);
+  return MONTH_TEXT.test(month) &&
+    month >= ACTIVITY_FIRST_MONTH &&
+    month <= nextMonth(activityWhen(now, zone).month)
+    ? ms
+    : undefined;
+}
+
+/**
+ * The bucket one record adds to, with its counts (one party), or none where it does not count.
+ * When: `knownActivityTime`; where: a raid's gym, a max battle's Power Spot, else no place.
+ * Whether that gym or Power Spot is still kept is asked when the map reads the buckets
+ * (`activityWeights`' `kept`), so that a gym added back is drawn again without a rebuild. A record
+ * of a time not known is kept at no place and no time (`UNKNOWN_MONTH`, weekday 0), which no
+ * window reads, so that it is neither drawn nor counted as left out, and the adding goes on.
+ */
 export function bucketOf(
   record: ActivityRecord,
   zone: string,
@@ -125,20 +153,9 @@ export function bucketOf(
 ): ActivityBucket | undefined {
   if (!countsAsActivity(record)) return undefined;
   const raid = record.kind === 'raid';
-  const ms = record.hatchTime ?? record.createdAt;
-  const when = isMoment(ms) ? activityWhen(ms, zone) : undefined;
-  // A time no `yyyy-mm` holds (beyond year 9999, before year 0, no moment at all) would be
-  // refused by the table and stall the server's adding for good, and one before the game's
-  // launch or after next month would stretch History's slider (8H4-3): it is kept at no place
-  // and no time, which no window reads (weekday 0), so it is neither drawn nor counted as left
-  // out. Next month is allowed (review F1): a record added before the month turns may already
-  // be of it, and a bucket never moves once it is written; the slider ends at this month
-  // (`activityMonths`).
-  const known =
-    when !== undefined &&
-    MONTH_TEXT.test(when.month) &&
-    when.month >= ACTIVITY_FIRST_MONTH &&
-    when.month <= nextMonth(activityWhen(now, zone).month);
+  const ms = knownActivityTime(record, zone, now);
+  const when = ms === undefined ? undefined : activityWhen(ms, zone);
+  const known = when !== undefined;
   const place: Pick<ActivityBucket, 'placeKind' | 'placeId'> =
     known && raid && record.gymId !== null
       ? { placeKind: 'gym', placeId: String(record.gymId) }
@@ -154,6 +171,70 @@ export function bucketOf(
     completed: record.ending === 'completed' ? 1 : 0,
     heads: record.hereHeads + record.doneHeads,
   };
+}
+
+/** What the days (`ActivityDay`, plan 8H-8) read of a record of the party history. */
+export interface ActivityDayRecord extends Pick<
+  ActivityRecord,
+  'kind' | 'ending' | 'createdAt' | 'hatchTime' | 'regionId'
+> {
+  /** The boss as the catalogue knew it (`PartyHistory.bossKey`); null for an egg or a name. */
+  bossKey: string | null;
+}
+
+/** The boss of a day's row where none is known: an egg, a boss by name only, none (G1). */
+export const NO_BOSS = '';
+
+/** A row of the raids per day (`ActivityDay`): a server's region, local day and boss. */
+export interface ActivityDay {
+  /** The record's region (`Region.id`), 0 for none. */
+  regionId: number;
+  /** The local day in the zone, `yyyy-mm-dd`. */
+  day: string;
+  /** The record's `bossKey` (a shadow raid shares its boss's key), `NO_BOSS` where none. */
+  boss: string;
+  raids: number;
+  maxes: number;
+}
+
+/**
+ * The day one record adds to (one party), or none: where it does not count (`countsAsActivity`,
+ * the heatmap's rule) or its time is not known (`knownActivityTime`, the heatmap's "when"; unlike
+ * a bucket, such a record goes nowhere: no day is read at no time). The day is `localDay` of that
+ * time in `zone`.
+ */
+export function dayOf(
+  record: ActivityDayRecord,
+  zone: string,
+  now: number,
+): ActivityDay | undefined {
+  if (!countsAsActivity(record)) return undefined;
+  const ms = knownActivityTime(record, zone, now);
+  if (ms === undefined) return undefined;
+  const raid = record.kind === 'raid';
+  return {
+    regionId: record.regionId ?? 0,
+    day: localDay(ms, zone),
+    boss: record.bossKey ?? NO_BOSS,
+    raids: raid ? 1 : 0,
+    maxes: raid ? 0 : 1,
+  };
+}
+
+/** Days of the same region, day and boss summed into one, in the order they first came. */
+export function sumDays(days: readonly ActivityDay[]): ActivityDay[] {
+  const summed = new Map<string, ActivityDay>();
+  for (const day of days) {
+    const key = `${String(day.regionId)}|${day.day}|${day.boss}`;
+    const had = summed.get(key);
+    summed.set(
+      key,
+      had === undefined
+        ? { ...day }
+        : { ...had, raids: had.raids + day.raids, maxes: had.maxes + day.maxes },
+    );
+  }
+  return [...summed.values()];
 }
 
 /** A bucket's key, as one string. */

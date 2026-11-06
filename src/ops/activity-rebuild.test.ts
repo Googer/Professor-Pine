@@ -22,8 +22,8 @@ const EAST = '412345678901234568';
 describe('npm run activity:rebuild', () => {
   it('rebuilds every server’s buckets and says each one’s final mark and its records (8H4-7)', async () => {
     const made = rebuilding([
-      { serverId: WEST, lastHistoryId: 301_544, records: 253_118 },
-      { serverId: EAST, lastHistoryId: 301_540, records: 1 },
+      { serverId: WEST, lastHistoryId: 301_544, lastDayHistoryId: 301_544, records: 253_118 },
+      { serverId: EAST, lastHistoryId: 301_540, lastDayHistoryId: 301_540, records: 1 },
     ]);
     const said: string[] = [];
     expect(await rebuildStep([], { activity: made.activity, say: (line) => said.push(line) })).toBe(
@@ -31,7 +31,7 @@ describe('npm run activity:rebuild', () => {
     );
     expect(made.asked).toEqual([undefined]);
     expect(said).toEqual([
-      'Rebuilding the activity heatmap from the party history (the bot may keep running).',
+      'Rebuilding the activity heatmap and the raids per day from the party history (the bot may keep running).',
       `Server ${WEST}: 253,118 records of the party history read, up to record 301544.`,
       `Server ${EAST}: 1 record of the party history read, up to record 301540.`,
       'Rebuilt the activity of 2 servers.',
@@ -39,7 +39,9 @@ describe('npm run activity:rebuild', () => {
   });
 
   it('rebuilds one server with --server', async () => {
-    const made = rebuilding([{ serverId: WEST, lastHistoryId: 7, records: 1 }]);
+    const made = rebuilding([
+      { serverId: WEST, lastHistoryId: 7, lastDayHistoryId: 7, records: 1 },
+    ]);
     const said: string[] = [];
     expect(
       await rebuildStep(['--server', WEST], {
@@ -54,8 +56,25 @@ describe('npm run activity:rebuild', () => {
     ]);
   });
 
+  it('says where the days’ mark ended where it is not the buckets’ (plan 8H-8)', async () => {
+    // Beside another rebuild of the same server, the two marks may end apart.
+    const made = rebuilding([
+      { serverId: WEST, lastHistoryId: 9, lastDayHistoryId: 4, records: 3 },
+    ]);
+    const said: string[] = [];
+    expect(await rebuildStep([], { activity: made.activity, say: (line) => said.push(line) })).toBe(
+      0,
+    );
+    expect(said.slice(1)).toEqual([
+      `Server ${WEST}: 3 records of the party history read, up to record 4 (the heatmap up to record 9).`,
+      'Rebuilt the activity of 1 server.',
+    ]);
+  });
+
   it('says a server whose history is gone counted none', async () => {
-    const made = rebuilding([{ serverId: WEST, lastHistoryId: 0, records: 0 }]);
+    const made = rebuilding([
+      { serverId: WEST, lastHistoryId: 0, lastDayHistoryId: 0, records: 0 },
+    ]);
     const said: string[] = [];
     expect(await rebuildStep([], { activity: made.activity, say: (line) => said.push(line) })).toBe(
       0,

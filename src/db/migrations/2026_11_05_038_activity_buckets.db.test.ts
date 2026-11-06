@@ -63,7 +63,8 @@ describe('migration 038: the activity heatmap’s buckets', () => {
   });
 
   it('keeps how far each server’s buckets have counted the history', async () => {
-    expect(await columnsOf('ActivityProgress')).toEqual([
+    // Migration 042 adds the days' mark after these.
+    expect((await columnsOf('ActivityProgress')).slice(0, 2)).toEqual([
       { name: 'serverId', type: 'varchar(30)', nullable: 'NO', dflt: null },
       { name: 'lastHistoryId', type: 'int unsigned', nullable: 'NO', dflt: '0' },
     ]);

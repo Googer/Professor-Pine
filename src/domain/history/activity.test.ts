@@ -9,11 +9,15 @@ import {
   activityWindow,
   bucketOf,
   countsAsActivity,
+  dayOf,
   nextActivityHour,
+  NO_BOSS,
   NO_PLACE_ID,
   sumBuckets,
+  sumDays,
   UNKNOWN_MONTH,
   type ActivityBucket,
+  type ActivityDayRecord,
   type ActivityRecord,
 } from './activity.js';
 import { PARTY_ENDINGS } from './party-history.js';
@@ -233,6 +237,88 @@ describe('the bucket of a record', () => {
       { ...one, raids: 2, completed: 2, heads: 10 },
       other,
     ]);
+  });
+});
+
+describe('the day of a record (plan 8H-8)', () => {
+  const dayRecord = (overrides: Partial<ActivityDayRecord> = {}): ActivityDayRecord => ({
+    ...record(),
+    bossKey: 'MEWTWO',
+    ...overrides,
+  });
+
+  it('is its region, its boss and the local day it hatched, from the bucket’s very “when”', () => {
+    expect(dayOf(dayRecord(), ZONE, NOW)).toEqual({
+      regionId: 2,
+      day: '2026-10-22',
+      boss: 'MEWTWO',
+      raids: 1,
+      maxes: 0,
+    });
+    // The time it was made where it has no hatch; the local day, not UTC's.
+    expect(
+      dayOf(dayRecord({ hatchTime: null, createdAt: Date.UTC(2026, 9, 23, 3, 30) }), ZONE, NOW),
+    ).toMatchObject({ day: '2026-10-22' });
+    const late = record({ hatchTime: Date.UTC(2026, 9, 23, 3, 30) });
+    expect(bucketOf(late, ZONE, NOW)).toMatchObject({ month: '2026-10', weekday: 4, hour: 23 });
+    expect(dayOf({ ...late, bossKey: null }, ZONE, NOW)).toMatchObject({ day: '2026-10-22' });
+  });
+
+  it('counts a max battle apart, and keeps its boss', () => {
+    expect(
+      dayOf(dayRecord({ kind: 'max', hatchTime: null, bossKey: 'ZAPDOS_GALARIAN' }), ZONE, NOW),
+    ).toEqual({
+      regionId: 2,
+      day: '2026-10-22',
+      boss: 'ZAPDOS_GALARIAN',
+      raids: 0,
+      maxes: 1,
+    });
+  });
+
+  it('keeps an egg or a boss the catalogue did not know as no boss, and region 0 for none', () => {
+    expect(dayOf(dayRecord({ bossKey: null, regionId: null }), ZONE, NOW)).toMatchObject({
+      regionId: 0,
+      boss: NO_BOSS,
+    });
+    expect(NO_BOSS).toBe('');
+  });
+
+  it('is none for what does not count, nor for a time the heatmap does not know', () => {
+    expect(dayOf(dayRecord({ ending: 'cancelled' }), ZONE, NOW)).toBeUndefined();
+    expect(dayOf(dayRecord({ kind: 'meetup' }), ZONE, NOW)).toBeUndefined();
+    for (const hatchTime of [8.64e15, Number.NaN, at('2016-06-30T23:59'), at('2027-01-01T00:00')]) {
+      expect(dayOf(dayRecord({ hatchTime }), ZONE, NOW), String(hatchTime)).toBeUndefined();
+      // The bucket of the same record is at no time: the same rule of what is known.
+      expect(bucketOf(record({ hatchTime }), ZONE, NOW)).toMatchObject({ month: UNKNOWN_MONTH });
+    }
+    expect(dayOf(dayRecord({ hatchTime: at('2016-07-01T00:00') }), ZONE, NOW)).toMatchObject({
+      day: '2016-07-01',
+    });
+  });
+
+  it('gives each day of a change of the clocks its own local date', () => {
+    // 2026-11-01 has 25 hours in New York: both 1 AMs and 23:30 are of that day.
+    expect(dayOf(dayRecord({ hatchTime: Date.UTC(2026, 10, 1, 5, 30) }), ZONE, NOW)).toMatchObject({
+      day: '2026-11-01',
+    });
+    expect(dayOf(dayRecord({ hatchTime: Date.UTC(2026, 10, 1, 6, 30) }), ZONE, NOW)).toMatchObject({
+      day: '2026-11-01',
+    });
+    expect(dayOf(dayRecord({ hatchTime: at('2026-11-01T23:30') }), ZONE, NOW)).toMatchObject({
+      day: '2026-11-01',
+    });
+    expect(dayOf(dayRecord({ hatchTime: at('2026-11-02T00:00') }), ZONE, NOW)).toMatchObject({
+      day: '2026-11-02',
+    });
+  });
+
+  it('sums days of one key, keeping each key once', () => {
+    const one = dayOf(dayRecord(), ZONE, NOW);
+    const max = dayOf(dayRecord({ kind: 'max' }), ZONE, NOW);
+    const other = dayOf(dayRecord({ bossKey: 'LUGIA' }), ZONE, NOW);
+    if (!one || !max || !other) throw new Error('no day');
+    expect(sumDays([one, other, one, max])).toEqual([{ ...one, raids: 2, maxes: 1 }, other]);
   });
 });
 
