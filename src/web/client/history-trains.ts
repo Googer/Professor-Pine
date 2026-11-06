@@ -106,6 +106,11 @@ export class HistoryTrains {
     const month = context.kind === 'month' ? context.month : undefined;
     if (month !== undefined && this.list?.month === month && this.list.failed !== true) {
       this.context = context;
+      // Back to the list's month before another was shown (review W1): pressable again.
+      if (this.stale) {
+        this.stale = false;
+        this.hooks.changed();
+      }
       return;
     }
     this.context = context;

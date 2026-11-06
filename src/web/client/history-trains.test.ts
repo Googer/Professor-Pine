@@ -248,6 +248,23 @@ describe('the trains of History’s month on the map (plan 8H-7B)', () => {
     expect(part.panel().stale).toBe(false);
   });
 
+  it('makes the list pressable again when History comes back to its month (W1)', async () => {
+    const { part, asked, changes } = trains();
+    part.show({ kind: 'month', month: '2019-06' });
+    asked[0]?.answer(month([2]));
+    await part.idle();
+    // The slider moved on and back before the other month was shown.
+    part.drop();
+    const before = changes();
+    part.show({ kind: 'month', month: '2019-06' });
+    expect(part.panel()).toMatchObject({ stale: false, items: [{ id: 2 }] });
+    expect(changes()).toBe(before + 1);
+    expect(asked).toHaveLength(1);
+    // Shown again while not stale, nothing to draw.
+    part.show({ kind: 'month', month: '2019-06' });
+    expect(changes()).toBe(before + 1);
+  });
+
   it('draws no train whose answer comes after the month changed, Play or the layer off (B1)', async () => {
     for (const leaving of [
       { kind: 'month', month: '2019-07' },
