@@ -1,15 +1,16 @@
 import type { TallyPeriod } from '../../domain/history/tally-periods.js';
 import type { BoardsView } from '../../domain/web/board-data.js';
 import { boardLines, boardsAddress } from './history-boards.js';
-import { PERIOD_CHOICES, tallyFailure, tallyLoginHref } from './history-tally.js';
+import { showFailure } from './history-failure-ui.js';
+import { PERIOD_CHOICES } from './history-tally.js';
 import { byId, getJson } from './page-frame.js';
-import { RequestError } from './request-error.js';
 
 /*
  * The boards' section of the history page (plan 8H-6): the periods as buttons (this month first,
  * not kept in the address, which the tally's period holds), every board of the period as a card
  * of its title, its numbered lines and its small print, and under a board of people where the
- * member stands. Only the latest question is drawn; everything is set as text. Its pure part is
+ * member stands. Only the latest question is drawn; logged out or no member the section hides, raids
+ * by day saying so (B9); everything is set as text. Its pure part is
  * `history-boards.ts`; this is tried at staging.
  */
 
@@ -51,16 +52,8 @@ export function showBoards(guild: string, login: 'discord' | 'links'): void {
       view = await getJson<BoardsView>(boardsAddress(guild, period));
     } catch (err) {
       if (mine !== asked) return;
-      const failure = tallyFailure(err instanceof RequestError ? err.status : undefined, login);
       list.replaceChildren();
-      if (failure.login) {
-        const link = document.createElement('a');
-        link.href = tallyLoginHref(location.pathname);
-        link.textContent = failure.text;
-        status.replaceChildren(link);
-      } else {
-        status.textContent = failure.text;
-      }
+      showFailure(status, err, login, byId('boards'));
       return;
     }
     if (mine !== asked) return;

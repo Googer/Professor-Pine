@@ -14,14 +14,12 @@ import {
   dayBars,
   daysAddress,
   daysTable,
-  sectionFailure,
   trendBars,
   trendTable,
 } from './history-days.js';
 import { yearOfAddress } from './history-boards.js';
-import { tallyLoginHref } from './history-tally.js';
+import { showFailure } from './history-failure-ui.js';
 import { byId, getJson } from './page-frame.js';
-import { RequestError } from './request-error.js';
 
 /*
  * Raids by day, the big days of every year and a boss's trend on the history page (plan 8H-8):
@@ -74,36 +72,6 @@ function fillTable(table: HTMLElement, laid: { head: string[]; rows: string[][] 
     return line;
   };
   table.replaceChildren(row(laid.head, true), ...laid.rows.map((cells) => row(cells, false)));
-}
-
-/**
- * Says why a section cannot be shown, with "Log in with Discord" where it goes with it; where the
- * days (the `first` section) say it for the page (logged out, no member: B9), another section is
- * hidden instead (`section`).
- */
-function failed(
-  status: HTMLElement,
-  err: unknown,
-  login: 'discord' | 'links',
-  section?: HTMLElement,
-): void {
-  const failure = sectionFailure(
-    err instanceof RequestError ? err.status : undefined,
-    login,
-    section === undefined,
-  );
-  if (failure === null) {
-    if (section !== undefined) section.hidden = true;
-    return;
-  }
-  if (failure.login) {
-    const link = document.createElement('a');
-    link.href = tallyLoginHref(location.pathname);
-    link.textContent = failure.text;
-    status.replaceChildren(link);
-  } else {
-    status.textContent = failure.text;
-  }
 }
 
 /** The three sections, each asked for once (the year's again as it is chosen). */
@@ -219,7 +187,7 @@ function showYear(guild: string, login: 'discord' | 'links'): void {
       big.hidden = true;
       bigTitle.hidden = true;
       bigNote.hidden = true;
-      failed(status, err, login);
+      showFailure(status, err, login);
       return;
     }
     if (mine !== asked) return;
@@ -295,7 +263,7 @@ function showEvery(guild: string, login: 'discord' | 'links'): void {
     try {
       view = await getJson<BigDaysView>(bigDaysAddress(guild));
     } catch (err) {
-      failed(status, err, login, byId('every'));
+      showFailure(status, err, login, byId('every'));
       return;
     }
     if (view.years.length === 0) {
@@ -348,7 +316,7 @@ function showBoss(guild: string, login: 'discord' | 'links'): void {
       if (mine !== asked) return;
       box.hidden = true;
       drawn = undefined;
-      failed(status, err, login, section);
+      showFailure(status, err, login, section);
       return;
     }
     if (mine !== asked) return;
@@ -408,7 +376,7 @@ function showBoss(guild: string, login: 'discord' | 'links'): void {
     try {
       list = await getJson<BossListView>(bossesAddress(guild));
     } catch (err) {
-      failed(status, err, login, section);
+      showFailure(status, err, login, section);
       return;
     }
     names.replaceChildren(
