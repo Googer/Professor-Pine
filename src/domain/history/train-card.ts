@@ -221,7 +221,10 @@ const rank = (tier: string | null): number => {
  * timeless Elite raid is a boss), its hatched time (W5: never when it ended, which a sweep after
  * a restart may put hours late). The kind is the tier's (`raidDurationKind`), standard for a tier
  * Pine no longer has (the legacy `T2`, `T4`, `EX`) or none. The read bounds by no more than that
- * (review A4), and relies on the longest stand being shorter than `RAIDS_ALONG_REACH_MS`.
+ * (review A4). Invariant (V6): the longest stand (`longestRaidStand`, incubation and hatched
+ * time, an Elite egg's 24.5 hours with the usual settings) is shorter than the read's reach
+ * (`RAIDS_ALONG_REACH_MS`, two days), since the read takes a raid without an end time by its report
+ * alone; `train-card.test.ts` holds it for the fixture's settings.
  */
 export function raidTime(
   raid: Pick<RaidAlongRow, 'createdAt' | 'hatchTime' | 'endTime' | 'tier'>,

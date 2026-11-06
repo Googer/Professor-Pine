@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { TEST_SETTINGS_PATH } from '../../../test/support/test-settings.js';
 import { zonedAt } from '../../../test/support/time.js';
 import { loadSettings } from '../../config/settings.js';
+import { RAIDS_ALONG_REACH_MS } from '../../db/repositories/history-repository.js';
+import { longestRaidStand } from '../time/raid-durations.js';
 import type { HistoryAttendee, HistoryStop } from './party-history.js';
 import {
   raidsAlong,
@@ -179,6 +181,14 @@ describe('raidTime: when a raid of the history stood', () => {
 
   it('takes an Elite raid without times as its boss: its eggs need a hatch time (V1)', () => {
     expect(timeless('Elite')).toEqual({ start: T, end: T + 30 * MINUTE });
+  });
+
+  it('stands no longer than the read of the raids along a train reaches (V6)', () => {
+    // The read takes a raid without an end time by its report alone, within the reach.
+    for (const kind of ['standard', 'elite'] as const) {
+      const { incubation, hatched } = longestRaidStand(kind, DURATIONS);
+      expect((incubation + hatched) * MINUTE, kind).toBeLessThan(RAIDS_ALONG_REACH_MS);
+    }
   });
 
   it('takes a raid with a hatch and no end the hatched time from its hatch', () => {

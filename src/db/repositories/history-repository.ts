@@ -161,7 +161,8 @@ export interface TrainHistoryReader {
 /**
  * How long before the train's first stop a raid it passed may have been reported (an elite egg
  * is reported up to a day ahead and stands its incubation; nothing stands two days), and after
- * its last (a raid reported long after it hatched).
+ * its last (a raid reported long after it hatched). Longer than any raid stands without an end
+ * time (`longestRaidStand`; V6: `raidTime` relies on it, `train-card.test.ts` holds it).
  */
 export const RAIDS_ALONG_REACH_MS = 2 * 24 * 60 * 60 * 1000;
 
