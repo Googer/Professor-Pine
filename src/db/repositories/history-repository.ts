@@ -141,8 +141,14 @@ export interface TrainHistoryReader {
    * legacy, newest first: along the index `(serverId, kind, createdAt)`.
    */
   trainsMade(serverId: string, range: { from: number; to: number }): Promise<number[]>;
-  /** Each train's rows, by its id; a record that is no train, or not there, is left out. */
-  trainCardRows(historyIds: readonly number[]): Promise<Map<number, TrainCardRows>>;
+  /**
+   * Each of the server's trains' rows, by its id; a record that is no train, another server's, or
+   * not there, is left out (review W4: another server's read as one that is not there).
+   */
+  trainCardRows(
+    serverId: string,
+    historyIds: readonly number[],
+  ): Promise<Map<number, TrainCardRows>>;
 }
 
 /**
@@ -572,10 +578,14 @@ export class HistoryRepository
    * The rows of the trains' records asked (by `PartyHistory.id`), as `trainCard` takes them
    * (plan 8H-7A; the web's list of a month's trains, 8H-7B, reads its cards here): the record's
    * end, end time and most at once, its stops in their order with their regions, its attendees
-   * in theirs; and what the web lists of it (`listing`). A record that is no train, or is not
-   * there, is left out. Names nobody.
+   * in theirs; and what the web lists of it (`listing`). A record that is no train, is another
+   * server's, or is not there, is left out, before its stops and attendees are read (review W4).
+   * Names nobody.
    */
-  async trainCardRows(historyIds: readonly number[]): Promise<Map<number, TrainCardRows>> {
+  async trainCardRows(
+    serverId: string,
+    historyIds: readonly number[],
+  ): Promise<Map<number, TrainCardRows>> {
     const read = new Map<number, TrainCardRows>();
     if (historyIds.length === 0) return read;
     const records = await this.db
@@ -594,6 +604,7 @@ export class HistoryRepository
         'peakRiders',
       ])
       .where('id', 'in', [...historyIds])
+      .where('serverId', '=', serverId)
       .where('kind', '=', 'train')
       .execute();
     if (records.length === 0) return read;

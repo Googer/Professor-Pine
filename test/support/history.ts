@@ -238,12 +238,15 @@ export class MemoryHistory implements HistoryStorage, RaidsAlongReader, TrainHis
   }
 
   /** As the repository reads them back (plans 8H-7A, 8H-7B), by a record's place from 1. */
-  trainCardRows(historyIds: readonly number[]): Promise<Map<number, TrainCardRows>> {
+  trainCardRows(
+    serverId: string,
+    historyIds: readonly number[],
+  ): Promise<Map<number, TrainCardRows>> {
     return this.answer(() => {
       const read = new Map<number, TrainCardRows>();
       for (const id of historyIds) {
         const record = this.records[id - 1];
-        if (record?.kind !== 'train') continue;
+        if (record?.kind !== 'train' || record.serverId !== serverId) continue;
         const counts = historyCounts(record.attendees);
         read.set(id, {
           serverId: record.serverId,

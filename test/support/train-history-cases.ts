@@ -124,7 +124,7 @@ export function trainHistoryCases(
       ],
     });
     await add([live, legacy]);
-    const read = await reader.trainCardRows([await idOf(live), await idOf(legacy)]);
+    const read = await reader.trainCardRows(TRAINS_SERVER, [await idOf(live), await idOf(legacy)]);
     expect(read.get(await idOf(live))?.listing).toEqual({
       source: 'live',
       name: 'Oakland loop',
@@ -155,8 +155,19 @@ export function trainHistoryCases(
     const { reader, add, idOf } = await made();
     const raid = boardRecord({ serverId: TRAINS_SERVER });
     await add([raid]);
-    const read = await reader.trainCardRows([await idOf(raid), 999_999]);
+    const read = await reader.trainCardRows(TRAINS_SERVER, [await idOf(raid), 999_999]);
     expect(read.size).toBe(0);
-    expect((await reader.trainCardRows([])).size).toBe(0);
+    expect((await reader.trainCardRows(TRAINS_SERVER, [])).size).toBe(0);
+  });
+
+  it('reads no train of another server, as one that is not there (W4)', async () => {
+    const { reader, add, idOf } = await made();
+    const home = trainRecord(june.from);
+    const away = trainRecord(june.from + MINUTE, { serverId: OTHER_SERVER });
+    await add([home, away]);
+    const read = await reader.trainCardRows(TRAINS_SERVER, [await idOf(home), await idOf(away)]);
+    expect([...read.keys()]).toEqual([await idOf(home)]);
+    expect(read.get(await idOf(home))?.serverId).toBe(TRAINS_SERVER);
+    expect((await reader.trainCardRows(OTHER_SERVER, [await idOf(away)])).size).toBe(1);
   });
 }

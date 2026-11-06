@@ -556,14 +556,11 @@ function trainRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewer
         : reply.code(503).send({ error: UNCONFIRMED });
     }
     const ids = await activity.trains.trainsMade(guild, trainMonthRange(month, activity.zone));
-    const read = await activity.trains.trainCardRows(ids);
+    const read = await activity.trains.trainCardRows(guild, ids);
     // Filtered before the cap, so that "more" counts only what the member may see (G5).
     const shown = ids.flatMap((id) => {
       const rows = read.get(id);
-      return rows !== undefined &&
-        rows.serverId === guild &&
-        trainListed(rows, seen.places) &&
-        seen.sees(rows)
+      return rows !== undefined && trainListed(rows, seen.places) && seen.sees(rows)
         ? [{ id, rows }]
         : [];
     });
@@ -597,15 +594,9 @@ function trainRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewer
     const refused = () => sendFailure(request, reply, 404);
     if (!HISTORY_ID.test(train)) return refused();
     const id = Number(train);
-    const rows = (await activity.trains.trainCardRows([id])).get(id);
-    if (
-      rows === undefined ||
-      rows.serverId !== guild ||
-      !trainListed(rows, places) ||
-      !seen.sees(rows)
-    ) {
-      return refused();
-    }
+    // Read of this server only (review W4): another server's record is read as one not there.
+    const rows = (await activity.trains.trainCardRows(guild, [id])).get(id);
+    if (rows === undefined || !trainListed(rows, places) || !seen.sees(rows)) return refused();
     const now = deps.now();
     const raids = rows.listing.source === 'live' ? await raidsOf(rows, guild) : undefined;
     // A region by its channel's name (`#west`), by its number where the bot sees no channel; a

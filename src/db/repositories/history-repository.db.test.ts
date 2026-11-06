@@ -365,7 +365,7 @@ describe('HistoryRepository: who is named in the history', () => {
       const raid = boardRecord({ serverId: HOME });
       await history.insertRecords([train, raid]);
       const id = await idOf(train.partyId);
-      const read = await history.trainCardRows([id, await idOf(raid.partyId), 999_999]);
+      const read = await history.trainCardRows(HOME, [id, await idOf(raid.partyId), 999_999]);
       // Trains only.
       expect([...read.keys()]).toEqual([id]);
       const rows = read.get(id);
@@ -452,7 +452,7 @@ describe('HistoryRepository: who is named in the history', () => {
     it('reads no most at once of a record that kept none', async () => {
       const old = { ...train, partyId: '00000000-0000-4000-8000-00000000beef', peakRiders: null };
       await history.insertRecords([old]);
-      const read = await history.trainCardRows([await idOf(old.partyId)]);
+      const read = await history.trainCardRows(HOME, [await idOf(old.partyId)]);
       expect([...read.values()][0]?.record.peakRiders).toBeNull();
     });
   });
