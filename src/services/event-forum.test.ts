@@ -9,7 +9,14 @@ import type { ListedEvent } from '../domain/time/event-listing.js';
 import type { OutgoingMessage } from '../discord/party-gateway.js';
 import { listedEvent } from '../../test/support/event-forum-store-cases.js';
 import { eventPostMessage } from '../render/events-forum.js';
-import { EventForumService } from './event-forum.js';
+import { activityDay } from '../../test/support/activity-cases.js';
+import { MemoryActivity } from '../../test/support/activity.js';
+import { catalogueFixture } from '../../test/support/game-data.js';
+import { textOf } from '../../test/support/messages.js';
+import type { ActivityDay } from '../domain/history/activity.js';
+import { dayNumber, dayText } from '../domain/history/big-days.js';
+import { eventForumWanted, EventForumService, type EventForumOptions } from './event-forum.js';
+import { HistoryDays } from './history-days.js';
 
 const SERVER = '412345678901234567';
 const BOT_UPDATES = '500000000000000010';
@@ -22,7 +29,12 @@ const DAY = 24 * 60 * 60_000;
 
 /** The events forum's service over the fake gateway, the server having its bot-updates channel. */
 function eventForumWith(
-  options: { events?: ListedEvent[]; settings?: Partial<Settings>; now?: number } = {},
+  options: {
+    events?: ListedEvent[];
+    settings?: Partial<Settings>;
+    now?: number;
+    days?: EventForumOptions['days'];
+  } = {},
 ) {
   const gateway = new FakePartyGateway();
   gateway.addChannel(CATEGORY, 'INFO', { kind: 'category' });
@@ -55,6 +67,7 @@ function eventForumWith(
     },
     settings,
     log,
+    ...(options.days === undefined ? {} : { days: options.days }),
     now: () => clock.now,
     setTimer: (run, ms) => {
       // A timer that fired is done, as one cancelled.
@@ -92,6 +105,9 @@ function eventForumWith(
     current.start();
     return current;
   };
+  /** Another service over the same store and gateway (a second bot, plan 8H-8), as `overrides` change it. */
+  const another = (overrides: Partial<EventForumOptions> = {}): EventForumService =>
+    new EventForumService({ ...deps, ...overrides });
   return {
     service,
     gateway,
@@ -104,6 +120,7 @@ function eventForumWith(
     read,
     listeners,
     restarted,
+    another,
   };
 }
 
@@ -978,5 +995,267 @@ describe('EventForumService: a post brought to its message though its event is u
     // The restarted process knows nothing it sent: one edit, no more.
     expect(day.edits).toBe(before + 1);
     expect(words(day.message)).toContain('Official meetups, if any');
+  });
+});
+
+describe('EventForumService: "On this day" (plan 8H-8)', () => {
+  /** `count` days from `first`: 40 raids of no known boss a day in region 1, and the spikes given. */
+  const stretch = (first: string, count: number, spikes: Record<string, ActivityDay[]>) => {
+    const start = dayNumber(first);
+    return Array.from({ length: count }, (_, index) => {
+      const day = dayText(start + index);
+      return spikes[day] ?? [activityDay(day, '', 40 + ((index * 7) % 5) - 2)];
+    }).flat();
+  };
+  /** Big days on November 10th: Lugia's in 2018, Mewtwo's in 2019 (a third of it in East, 2). */
+  const DAYS = [
+    ...stretch('2018-10-25', 40, { '2018-11-10': [activityDay('2018-11-10', 'lugia', 300)] }),
+    ...stretch('2019-10-25', 40, {
+      '2019-11-10': [
+        activityDay('2019-11-10', 'mewtwo', 120),
+        activityDay('2019-11-10', 'mewtwo', 60, { regionId: 2 }),
+        activityDay('2019-11-10', '', 232),
+      ],
+    }),
+  ];
+  const TITLE = 'On this day, November 10, 2026';
+  const WEB = {
+    port: 8080,
+    host: '127.0.0.1',
+    publicUrl: 'https://pine.example',
+    trustProxy: false,
+    tiles: 'stadia',
+  } as Settings['web'];
+
+  /** The service with its forum, the raids per day of `DAYS`, at `now` (12:00 by default). */
+  const recalling = async (
+    options: {
+      now?: number;
+      onThisDay?: number;
+      days?: boolean;
+      known?: boolean;
+      complete?: boolean;
+      failing?: Error;
+    } = {},
+  ) => {
+    const activity = new MemoryActivity();
+    await activity.addDays(SERVER, DAYS);
+    activity.complete = options.complete ?? true;
+    activity.failing = options.failing;
+    const days = new HistoryDays({
+      reader: activity,
+      zone: ZONE,
+      bossName: (key) => catalogueFixture().byKey(key)?.name,
+    });
+    const made = eventForumWith({
+      ...(options.now === undefined ? {} : { now: options.now }),
+      ...(options.days === false ? {} : { days }),
+      settings: {
+        eventsForum: { horizonDays: 35, postDaysAhead: 14, onThisDay: options.onThisDay ?? 3 },
+        web: WEB,
+      },
+    });
+    made.listed.known = options.known ?? true;
+    const setup = await made.service.setup(SERVER);
+    const forumId = setup.forum === 'created' ? setup.forumId : '';
+    const recalled = () =>
+      made.gateway.postsIn(forumId).filter((post) => post.title.startsWith('On this day'));
+    const record = async () =>
+      (await made.store.posts(SERVER)).filter((row) => row.eventId.startsWith('on-this-day:'));
+    return { ...made, forumId, recalled, record, activity };
+  };
+
+  it('posts at 10:00 the earlier years’ big days of today’s date, newest first, a post of its own', async () => {
+    const { recalled, record, gateway, store } = await recalling();
+    const [post] = recalled();
+    expect(recalled()).toHaveLength(1);
+    expect(post).toMatchObject({ title: TITLE, pinned: false, locked: false, tagIds: [] });
+    // Every region counts (G16: none is barred to a member of no roles), East's 60 and 100 too.
+    expect(textOf(post?.message)).toBe(
+      [
+        `## ${TITLE}`,
+        'Seven years ago today: Mewtwo day, 180 of 412 raids.',
+        'Eight years ago today: Lugia day, 300 of 300 raids.',
+        `-# [This server’s history](<https://pine.example/s/${SERVER}/history>)`,
+      ].join('\n'),
+    );
+    // It archives itself after a day without messages (G6), set as it is made.
+    expect(post?.autoArchiveMinutes).toBe(1_440);
+    expect(gateway.calls.filter((call) => call.startsWith('setAutoArchive'))).toEqual([]);
+    expect(await record()).toEqual([
+      expect.objectContaining({ eventId: 'on-this-day:2026-11-10', postId: post?.id, name: TITLE }),
+    ]);
+    // The listing links only events.
+    const listing = gateway.posts.get((await store.forum(SERVER))?.listingPostId ?? '');
+    expect(words(listing?.message)).not.toContain(post?.id ?? 'none');
+  });
+
+  it('waits for 10:00, then posts at the next draw, the timer set for it', async () => {
+    const { recalled, clock, timers, service } = await recalling({ now: at('2026-11-10T09:00') });
+    service.start();
+    await service.flush();
+    expect(recalled()).toEqual([]);
+    // The one timer of the next change: 10:00, a second after.
+    const timer = timers.filter((one) => !one.cancelled).at(-1);
+    expect(timer?.ms).toBe(60 * 60_000 + 1_000);
+    clock.now = at('2026-11-10T10:00:01');
+    timer?.run();
+    await service.flush();
+    expect(recalled().map((post) => post.title)).toEqual([TITLE]);
+  });
+
+  it('posts at the first draw of the day after 10:00 passed while it was down, never a day missed', async () => {
+    const late = await recalling({ now: at('2026-11-10T22:00') });
+    expect(late.recalled()).toHaveLength(1);
+    // The day after, the 10th is not posted for: nothing fell on the 11th.
+    const missed = await recalling({ now: at('2026-11-11T12:00') });
+    expect(missed.recalled()).toEqual([]);
+  });
+
+  it('posts nothing on a day no big day fell on, with onThisDay 0, or without the days', async () => {
+    expect((await recalling({ now: at('2026-11-12T12:00') })).recalled()).toEqual([]);
+    expect((await recalling({ onThisDay: 0 })).recalled()).toEqual([]);
+    expect((await recalling({ days: false })).recalled()).toEqual([]);
+  });
+
+  it('posts once whatever draws come that day: a timer and the upkeep at once, a catch-up, a restart', async () => {
+    const { recalled, service, clock, restarted } = await recalling();
+    clock.now += 60_000;
+    service.request();
+    await Promise.all([service.upkeep(), service.catchUp()]);
+    clock.now += 3_600_000;
+    await restarted().upkeep();
+    expect(recalled()).toHaveLength(1);
+  });
+
+  it('takes over a post made before a restart that was not recorded, never making a second', async () => {
+    const made = eventForumWith({ settings: { web: WEB } });
+    const setup = await made.service.setup(SERVER);
+    const forumId = setup.forum === 'created' ? setup.forumId : '';
+    // The run before made the post and stopped before its record was written.
+    const left = await made.gateway.createPost(forumId, {
+      title: TITLE,
+      message: { content: 'x' },
+      tagIds: [],
+      autoArchiveMinutes: 1_440,
+    });
+    const { recalled, record } = await (async () => {
+      const activity = new MemoryActivity();
+      await activity.addDays(SERVER, DAYS);
+      const service = made.another({
+        days: new HistoryDays({
+          reader: activity,
+          zone: ZONE,
+          bossName: (key) => catalogueFixture().byKey(key)?.name,
+        }),
+      });
+      await service.upkeep();
+      return {
+        recalled: () =>
+          made.gateway.postsIn(forumId).filter((post) => post.title.startsWith('On this day')),
+        record: async () =>
+          (await made.store.posts(SERVER)).filter((row) => row.eventId.startsWith('on-this-day:')),
+      };
+    })();
+    expect(recalled().map((post) => post.id)).toEqual([left]);
+    expect((await record()).map((row) => row.postId)).toEqual([left]);
+  });
+
+  it('makes one post for two services over one store at once, the other’s deleted', async () => {
+    const { recalled, record, another, gateway, forumId } = await recalling({
+      now: at('2026-11-10T09:00'),
+    });
+    expect(recalled()).toEqual([]);
+    const activity = new MemoryActivity();
+    await activity.addDays(SERVER, DAYS);
+    const days = () =>
+      new HistoryDays({
+        reader: activity,
+        zone: ZONE,
+        bossName: (key) => catalogueFixture().byKey(key)?.name,
+      });
+    const first = another({ days: days(), now: () => at('2026-11-10T10:30') });
+    const second = another({ days: days(), now: () => at('2026-11-10T10:30') });
+    await Promise.all([first.upkeep(), second.upkeep()]);
+    const kept = recalled();
+    expect(kept).toHaveLength(1);
+    expect((await record()).map((row) => row.postId)).toEqual([kept[0]?.id]);
+    expect(
+      gateway.postsIn(forumId).every((post) => post.title !== TITLE || post.id === kept[0]?.id),
+    ).toBe(true);
+  });
+
+  it('is archived with the event posts three days on, and never edited', async () => {
+    const { recalled, clock, service } = await recalling();
+    clock.now = at('2026-11-12T12:00');
+    await service.upkeep();
+    expect(recalled()[0]).toMatchObject({ archived: false, edits: 0 });
+    clock.now = at('2026-11-13T12:01');
+    await service.upkeep();
+    expect(recalled()[0]).toMatchObject({ archived: true, edits: 0, pinned: false });
+  });
+
+  it('waits while the days are still being filled, then posts at a later draw that day (A1)', async () => {
+    const { recalled, record, activity, clock, service } = await recalling({ complete: false });
+    expect(recalled()).toEqual([]);
+    expect(await record()).toEqual([]);
+    // Caught up by the next hourly upkeep: its draw posts.
+    activity.complete = true;
+    clock.now += 3_600_000;
+    await service.upkeep();
+    expect(recalled().map((post) => post.title)).toEqual([TITLE]);
+  });
+
+  it('warns once a day where the days have not caught up two hours after 10:00 (R5)', async () => {
+    const warned = (entries: Array<Record<string, unknown>>) =>
+      entries.filter((entry) => entry.msg === 'raids per day not caught up').length;
+    // At 11:00 still within the upkeeps' reach: nothing said.
+    const early = await recalling({ complete: false, now: at('2026-11-10T11:00') });
+    expect(warned(early.entries)).toBe(0);
+    // From 12:00, once that day whatever the draws.
+    const late = await recalling({ complete: false });
+    late.clock.now += 3_600_000;
+    await late.service.upkeep();
+    expect(late.recalled()).toEqual([]);
+    expect(warned(late.entries)).toBe(1);
+    late.clock.now = at('2026-11-11T12:00');
+    await late.service.upkeep();
+    expect(warned(late.entries)).toBe(2);
+  });
+
+  it('warns once a day of a post it could not make, whatever the draws that try again (A4)', async () => {
+    const { recalled, clock, service, entries } = await recalling({
+      failing: new Error('the database is away'),
+    });
+    const warned = () =>
+      entries.filter((entry) => entry.msg === 'could not post "On this day"').length;
+    clock.now += 3_600_000;
+    await service.upkeep();
+    clock.now += 3_600_000;
+    await service.upkeep();
+    expect(recalled()).toEqual([]);
+    expect(warned()).toBe(1);
+    // The next day, once more.
+    clock.now = at('2026-11-11T12:00');
+    await service.upkeep();
+    expect(warned()).toBe(2);
+  });
+
+  it('posts though the events feed is not known yet: it is not the feed’s (G6)', async () => {
+    const { recalled } = await recalling({ known: false });
+    expect(recalled()).toHaveLength(1);
+  });
+
+  it('is never made in rehearsal mode, nor without a forum named (G18)', () => {
+    const loaded = loadSettings(TEST_SETTINGS_PATH);
+    const named = { ...loaded, channels: { ...loaded.channels, events: 'events' } };
+    expect(eventForumWanted(named)).toBe(true);
+    expect(eventForumWanted(loaded)).toBe(false);
+    expect(
+      eventForumWanted({
+        ...named,
+        rehearsal: { allowlist: ['200000000000000001'], regions: ['west'], staffRoles: [] },
+      }),
+    ).toBe(false);
   });
 });

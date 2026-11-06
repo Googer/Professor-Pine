@@ -23,6 +23,9 @@ import type {
   BossTrendView,
   HistoryDaysView,
 } from '../domain/web/history-days-data.js';
+import { HistoryDays } from '../services/history-days.js';
+import { catalogueFixture } from '../../test/support/game-data.js';
+import { bigDaysView } from './history-days.js';
 import { DAYS_PER_MINUTE } from './history-routes.js';
 
 const BASE = `/s/${FAKE_GUILD_ID}/api/history`;
@@ -169,6 +172,23 @@ describe('the history page’s raids by day', () => {
     expect(bosses.bosses).toEqual([{ key: 'mewtwo', name: 'Mewtwo', raids: 120 }]);
     const trend = (await made.ask('/bosses/mewtwo')).json<BossTrendView>();
     expect(trend.total).toBe(120);
+  });
+
+  it('agrees with the events forum’s post for a member of no roles (G16)', async () => {
+    const made = await setup(stretch('2019-09-20', 40, { '2019-10-08': MEWTWO_DAY }));
+    web = made.web;
+    // East hidden from Bob as from everybody without a role: his page still counts it.
+    made.made.gateway.shutOut(EAST_FORUM, BOB);
+    const page = (await made.ask('/big-days', BOB)).json<BigDaysView>();
+    // What the post counts: every region (none is barred to a member of no roles).
+    const post = new HistoryDays({
+      reader: made.activity,
+      zone: ZONE,
+      bossName: (key) => catalogueFixture().byKey(key)?.name,
+    });
+    const posted = await post.everyYear(FAKE_GUILD_ID, new Set(), NOW);
+    expect(page).toEqual(bigDaysView(posted));
+    expect(page.years[0]?.days[0]?.label).toBe('Mewtwo day, 180 of 412 raids');
   });
 
   it('gives the top three of every year, newest first', async () => {

@@ -191,6 +191,11 @@ export interface NewPost {
   title: string;
   message: OutgoingMessage;
   tagIds: readonly string[];
+  /**
+   * After how long without a message Discord archives the post (plan 8H-8: "On this day", a day);
+   * a week unless set.
+   */
+  autoArchiveMinutes?: AutoArchiveMinutes;
 }
 
 /** The auto-archive durations of a post Pine sets (Discord's: an hour, a day, three days, a week). */
@@ -1439,7 +1444,7 @@ export class DiscordPartyGateway implements PartyGateway {
       thread = await this.unlessGone(() =>
         forum.threads.create({
           name: post.title,
-          autoArchiveDuration: ThreadAutoArchiveDuration.OneWeek,
+          autoArchiveDuration: post.autoArchiveMinutes ?? ThreadAutoArchiveDuration.OneWeek,
           message: discordPayload(post.message),
           appliedTags: [...post.tagIds],
         }),

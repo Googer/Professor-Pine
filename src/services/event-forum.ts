@@ -30,6 +30,11 @@ import type { CatchUpOutcome } from './catch-up.js';
 import { everyLocalMidnight } from './local-midnight.js';
 import { isNetworkError } from './network-error.js';
 import type { ListedEventProvider } from './raid-event-service.js';
+import type { HistoryDays } from './history-days.js';
+import { nextOnThisDayAt, ON_THIS_DAY_HOUR, onThisDayDue } from '../domain/history/on-this-day.js';
+import { zoned } from '../domain/time/zoned.js';
+import { localDay } from '../domain/time/local-day.js';
+import { onThisDayMessage, onThisDayTitle } from '../render/big-days.js';
 
 const DAY_MS = 24 * 60 * 60_000;
 /** A post still open this long after its event's end is archived by the upkeep, once (R1). */
@@ -40,6 +45,18 @@ const AFTER_END_ARCHIVE_MINUTES = 1_440;
 const POSTS_SENT_KEPT = 1_000;
 /** The longest delay `setTimeout` accepts; anything longer fires at once. */
 const MAX_TIMER_MS = 2 ** 31 - 1;
+/**
+ * The key of a day's "On this day" among the event posts (`EventPost.eventId`, plan 8H-8), the
+ * local day after it: no event of the feed has such an id, so no draw moves, edits or links it.
+ */
+export const ON_THIS_DAY_KEY = 'on-this-day:';
+/**
+ * The hours after 10:00 the hourly upkeeps have to bring the raids per day up to date before
+ * "On this day" warns that they have not (R5).
+ */
+const DAYS_CATCH_UP_HOURS = 2;
+/** "On this day" archives itself after a day without messages (G6). */
+const ON_THIS_DAY_ARCHIVE_MINUTES = 1_440;
 
 /** The step of a post's part of a draw that failed (`perPost`, BR-5). */
 type PostKind = 'make' | 'edit' | 'rename' | 'reopen' | 'archive' | 'auto-archive';
@@ -102,10 +119,24 @@ export interface EventForumOptions {
   events: ListedEventProvider;
   settings: Pick<Settings, 'channels' | 'eventsForum' | 'timezone' | 'web'>;
   log: Logger;
+  /**
+   * The big days (plan 8H-8, `HistoryDays`): "On this day" is posted only with them, and
+   * `settings.eventsForum.onThisDay` above 0.
+   */
+  days?: Pick<HistoryDays, 'onThisDay'>;
   /** The clock, in epoch milliseconds. Default `Date.now`. */
   now?: () => number;
   /** Sets a timer and gives what cancels it. Default an unref'd `setTimeout`. */
   setTimer?: (run: () => void, ms: number) => () => void;
+}
+
+/**
+ * Whether the bot has an events forum (`app.ts` makes `EventForumService` only then): where the
+ * settings name one, and never in rehearsal mode (R8: the rehearsal's gateway would drop and log
+ * its posts at every draw; plan 8H-8, G18: nor "On this day").
+ */
+export function eventForumWanted(settings: Pick<Settings, 'channels' | 'rehearsal'>): boolean {
+  return settings.rehearsal === undefined && settings.channels.events !== undefined;
 }
 
 /**
@@ -151,6 +182,13 @@ export class EventForumService {
    * of the same run finds it standing).
    */
   private readonly outcomes = new Map<string, ListingOutcome>();
+  /**
+   * The local day each server's "On this day" was settled for (posted, found posted, or nothing to
+   * post): not asked again that day.
+   */
+  private readonly onThisDaySettled = new Map<string, string>();
+  /** The local day each server's failed "On this day" was warned of (A4): once a day. */
+  private readonly onThisDayWarned = new Map<string, string>();
   /** Whether the next draw opens the posts that archived themselves before their end (V6). */
   private reopenDue = false;
   private cancelNext: (() => void) | undefined;
@@ -392,6 +430,8 @@ export class EventForumService {
       return 'failed';
     }
     this.forumGoneTold.delete(serverId);
+    // "On this day" is the history's, not the feed's (G6): drawn whatever the listing.
+    await this.drawOnThisDay(forum);
     // Until the listing is known (a kept one loaded, or a read), an empty or stale one says
     // nothing: no post is made, dropped or drawn, and the listing stands (review V1).
     if (!this.options.events.listingKnown()) return 'waiting';
@@ -407,6 +447,112 @@ export class EventForumService {
       else log.error(where, 'could not draw the events forum');
       return 'failed';
     }
+  }
+
+  /**
+   * A day's "On this day" (plan 8H-8, design Part G): from 10:00 local time (`onThisDayDue`), at
+   * the first draw of the day after it (its own timer, a start, the hourly upkeep, a catch-up),
+   * once a day per server, where today's date was one of an earlier year's top
+   * `settings.eventsForum.onThisDay` big days (`HistoryDays.onThisDay`): a post of its own, never
+   * pinned, nobody pinged, archiving itself after a day without messages, recorded among the event
+   * posts under `on-this-day:<day>` (start and end its making, ended at once), which the upkeep
+   * archives three days on as an event's post. A day missed (the bot down) is never posted later.
+   * A post made before a restart that was not recorded is found by its title (it has the year)
+   * among the open posts and taken over; one another bot recorded first is deleted. Counts every
+   * region (G16, round 2 R4: a member of no roles is never barred, `MemberAccess`, so their page
+   * counts every region too). While the days are still being filled (`complete` false: after
+   * migration 042 or a rebuild, A1) nothing is posted nor settled: a later draw that day posts;
+   * still so two hours after 10:00 (the upkeeps should have caught up), it is warned of once a day
+   * (R5). A failure is warned of once a day per server (A4). Never rejects.
+   */
+  private async drawOnThisDay(forum: EventForumRecord): Promise<void> {
+    const { days, settings, store, gateway, log } = this.options;
+    const count = settings.eventsForum.onThisDay;
+    const now = this.now();
+    const zone = settings.timezone;
+    if (days === undefined || count <= 0 || !onThisDayDue(now, zone)) return;
+    const { serverId, forumId } = forum;
+    const today = localDay(now, zone);
+    if (this.onThisDaySettled.get(serverId) === today) return;
+    const key = `${ON_THIS_DAY_KEY}${today}`;
+    try {
+      const recorded = async () => (await store.posts(serverId)).find((row) => row.eventId === key);
+      if ((await recorded()) !== undefined) {
+        this.onThisDaySettled.set(serverId, today);
+        return;
+      }
+      // Every region (G16): a member of no roles is barred from none.
+      const found = await days.onThisDay(serverId, new Set(), now, count);
+      // The days not caught up yet: not settled, a later draw asks again (A1).
+      if (!found.complete) {
+        if (
+          zoned(now, zone).hour >= ON_THIS_DAY_HOUR + DAYS_CATCH_UP_HOURS &&
+          this.onThisDayWarned.get(serverId) !== today
+        ) {
+          this.onThisDayWarned.set(serverId, today);
+          log.warn({ guild: serverId }, 'raids per day not caught up');
+        }
+        return;
+      }
+      if (found.years.length === 0) {
+        this.onThisDaySettled.set(serverId, today);
+        return;
+      }
+      const title = onThisDayTitle(today);
+      const message = onThisDayMessage(
+        today,
+        found.years.map((one) => ({ years: one.years, boss: one.day.boss, raids: one.day.raids })),
+        settings.web === undefined ? undefined : `${settings.web.publicUrl}/s/${serverId}/history`,
+      );
+      const left = await this.openPostTitled(forumId, title);
+      const postId =
+        left ??
+        (await gateway.createPost(forumId, {
+          title,
+          message,
+          tagIds: [],
+          autoArchiveMinutes: ON_THIS_DAY_ARCHIVE_MINUTES,
+        }));
+      if (postId === undefined) return;
+      const row: EventPostRecord = {
+        serverId,
+        eventId: key,
+        postId,
+        name: title,
+        start: now,
+        end: now,
+        // Set to archive itself as it is made: the draws need not set it again.
+        endedAt: now,
+        archivedAt: null,
+        dropped: false,
+        gone: false,
+      };
+      if (!(await store.addPost(row))) {
+        // Another bot recorded its own first: this one goes (one it took over is that one).
+        if ((await recorded())?.postId !== postId) await gateway.deletePost(postId);
+      } else {
+        log.info(
+          { guild: serverId, post: postId },
+          left === undefined ? 'posted "On this day"' : 'took over "On this day"',
+        );
+      }
+      this.onThisDaySettled.set(serverId, today);
+      this.onThisDayWarned.delete(serverId);
+    } catch (err) {
+      // Once a day per server: every draw of the day tries again (A4).
+      if (this.onThisDayWarned.get(serverId) === today) return;
+      this.onThisDayWarned.set(serverId, today);
+      log.warn({ err, guild: serverId, forum: forumId }, 'could not post "On this day"');
+    }
+  }
+
+  /** The bot's open post of a forum with this title, if any. */
+  private async openPostTitled(forumId: string, title: string): Promise<string | undefined> {
+    const { gateway } = this.options;
+    for (const postId of (await gateway.openPosts(forumId)) ?? []) {
+      if ((await gateway.postInfo(postId))?.title === title) return postId;
+    }
+    return undefined;
   }
 
   /**
@@ -860,6 +1006,10 @@ export class EventForumService {
           : []),
       ])
       .filter((time) => time > now);
+    // The next 10:00 of "On this day" (plan 8H-8).
+    if (this.options.days !== undefined && settings.eventsForum.onThisDay > 0) {
+      times.push(nextOnThisDayAt(now, settings.timezone));
+    }
     if (times.length === 0) return;
     const next = Math.min(...times);
     this.cancelNext = this.setTimer(

@@ -257,18 +257,21 @@ export const settingsObject = z.strictObject({
    * The events forum's reach (plan 8V-1): the listing names the events that start within
    * `horizonDays` (35 unless set), and an event of a posted kind gets its post `postDaysAhead`
    * days before its start (14 unless set, Matt 2026-10-29; at most `horizonDays`). Named apart
-   * from `raidEvents` (R13). Whether there is a forum at all is `channels.events`.
+   * from `raidEvents` (R13). Whether there is a forum at all is `channels.events`. `onThisDay`
+   * (plan 8H-8): on a local day that was one of an earlier year's top `onThisDay` big days, a post
+   * "On this day" recalls it (3 unless set, at most 10; 0 off).
    */
   eventsForum: z
     .strictObject({
       horizonDays: z.number().int().min(1).max(365).default(35),
       postDaysAhead: z.number().int().min(0).max(365).default(14),
+      onThisDay: z.number().int().min(0).max(10).default(3),
     })
     .refine((forum) => forum.postDaysAhead <= forum.horizonDays, {
       error: 'must be at most horizonDays: a post opens for an event the listing names',
       path: ['postDaysAhead'],
     })
-    .default(() => ({ horizonDays: 35, postDaysAhead: 14 })),
+    .default(() => ({ horizonDays: 35, postDaysAhead: 14, onThisDay: 3 })),
   /**
    * Meetup safety (plan 8S-1): `flaggedWords` are words and phrases that, in the title of a gym,
    * PokéStop or power spot, send a meetup there to the moderators first, besides the list in

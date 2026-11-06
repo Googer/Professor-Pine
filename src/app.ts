@@ -94,7 +94,7 @@ import { ResearchEventRepository } from './db/repositories/research-event-reposi
 import { MaxEventRepository } from './db/repositories/max-event-repository.js';
 import { ListedEventRepository } from './db/repositories/listed-event-repository.js';
 import { EventForumRepository } from './db/repositories/event-forum-repository.js';
-import { EventForumService } from './services/event-forum.js';
+import { eventForumWanted, EventForumService } from './services/event-forum.js';
 import { StopReportRepository } from './db/repositories/stop-report-repository.js';
 import { StopReportService } from './services/stop-reports.js';
 import { rewardHash } from './domain/research/versions.js';
@@ -635,16 +635,17 @@ export async function startApp(
       });
   // The events forum (plan 8V-1): only where the settings name one, never in rehearsal mode (R8:
   // the rehearsal's gateway would drop and log its posts at every draw).
-  const eventForum =
-    rehearsal || config.settings.channels.events === undefined
-      ? undefined
-      : new EventForumService({
-          gateway: partyGateway,
-          store: new EventForumRepository(db),
-          events: raidEvents,
-          settings: config.settings,
-          log,
-        });
+  // "On this day" (plan 8H-8) through the history page's own big days.
+  const eventForum = !eventForumWanted(config.settings)
+    ? undefined
+    : new EventForumService({
+        gateway: partyGateway,
+        store: new EventForumRepository(db),
+        events: raidEvents,
+        settings: config.settings,
+        log,
+        days: historyDays,
+      });
   // Who wants a Rocket report hears of it once its messages are posted (plan 8R-2, design 7).
   const rocket = new RocketService({
     reports: stopReports,

@@ -7,6 +7,7 @@ import {
   yearBigDays,
   type BigDay,
 } from '../domain/history/big-days.js';
+import { onThisDayDays } from '../domain/history/on-this-day.js';
 import { localDay } from '../domain/time/local-day.js';
 
 /** How long a server's days and big days are kept once read (G3: never read per member's view). */
@@ -105,6 +106,35 @@ export class HistoryDays {
       const days = topBigDays(series.big, year, count);
       return days.length === 0 ? [] : [{ year, days }];
     });
+  }
+
+  /**
+   * What the events forum's "On this day" recalls at `now` (plan 8H-8): of each earlier year, its
+   * top `count` big days that fall on today's local date (`onThisDayDays`), newest first, with how
+   * many years ago; and whether the days held the whole history (A1: the post waits while not).
+   */
+  async onThisDay(
+    serverId: string,
+    leftOut: ReadonlySet<number>,
+    now: number,
+    count: number,
+  ): Promise<{
+    today: string;
+    complete: boolean;
+    years: Array<{ years: number; day: NamedBigDay }>;
+  }> {
+    const today = localDay(now, this.options.zone);
+    if (count <= 0) return { today, complete: true, years: [] };
+    const series = await this.series(serverId, leftOut, now);
+    const year = Number(today.slice(0, 4));
+    return {
+      today,
+      complete: series.complete,
+      years: onThisDayDays(series.big, today, count).map((day) => ({
+        years: year - Number(day.day.slice(0, 4)),
+        day,
+      })),
+    };
   }
 
   /** The bosses of a server's raids, by the catalogue's names (one it no longer knows left out). */

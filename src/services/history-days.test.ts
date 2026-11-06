@@ -178,6 +178,50 @@ describe('the raids per day of a server', () => {
     ]);
   });
 
+  it('gives what "On this day" recalls: earlier years’ top big days on today’s date, newest first', async () => {
+    const { service } = await setup([
+      ...stretch('2018-09-20', 40, {
+        '2018-10-08': [activityDay('2018-10-08', 'lugia', 300)],
+      }),
+      ...stretch('2019-09-20', 40, { '2019-10-08': MEWTWO_DAY }),
+    ]);
+    const today = zonedAt('2026-10-08T10:00', ZONE);
+    expect(await service.onThisDay(ACTIVITY_SERVER, new Set(), today, 3)).toEqual({
+      today: '2026-10-08',
+      complete: true,
+      years: [
+        expect.objectContaining({
+          years: 7,
+          day: expect.objectContaining({
+            day: '2019-10-08',
+            raids: 412,
+            boss: { key: 'mewtwo', name: 'Mewtwo', raids: 180 },
+          }) as unknown,
+        }),
+        expect.objectContaining({
+          years: 8,
+          day: expect.objectContaining({ raids: 300 }) as unknown,
+        }),
+      ],
+    });
+    expect(
+      (await service.onThisDay(ACTIVITY_SERVER, new Set(), today + 86_400_000, 3)).years,
+    ).toEqual([]);
+    expect((await service.onThisDay(ACTIVITY_SERVER, new Set(), today, 0)).years).toEqual([]);
+  });
+
+  it('says whether the days held the whole history, so that the post can wait (A1)', async () => {
+    const { reader, service } = await setup(
+      stretch('2019-09-20', 40, { '2019-10-08': MEWTWO_DAY }),
+    );
+    reader.complete = false;
+    const today = zonedAt('2026-10-08T10:00', ZONE);
+    expect((await service.onThisDay(ACTIVITY_SERVER, new Set(), today, 3)).complete).toBe(false);
+    reader.complete = true;
+    const later = today + DAYS_UNCOUNTED_MS;
+    expect((await service.onThisDay(ACTIVITY_SERVER, new Set(), later, 3)).complete).toBe(true);
+  });
+
   it('lists the bosses by the catalogue’s names, leaving out keys it no longer knows', async () => {
     const { service } = await setup([
       activityDay('2019-10-08', 'mewtwo', 20),

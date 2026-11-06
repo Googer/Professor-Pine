@@ -1197,7 +1197,7 @@ export class FakePartyGateway implements PartyGateway {
         archived: false,
         locked: false,
         slowmode: 0,
-        autoArchiveMinutes: 10_080,
+        autoArchiveMinutes: post.autoArchiveMinutes ?? 10_080,
         reopened: 0,
         edits: 0,
         renames: 0,

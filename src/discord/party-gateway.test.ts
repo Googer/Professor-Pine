@@ -1637,7 +1637,7 @@ describe('DiscordPartyGateway: a post where the bot may not make one', () => {
    */
   function forumWith(
     has: bigint,
-    create: () => Promise<unknown> = () => Promise.resolve({ id: '9' }),
+    create: (options: unknown) => Promise<unknown> = () => Promise.resolve({ id: '9' }),
     availableTags: readonly { id: string; moderated: boolean }[] = [{ id: '1', moderated: true }],
   ) {
     const me = { id: 'bot' };
@@ -1648,9 +1648,9 @@ describe('DiscordPartyGateway: a post where the bot may not make one', () => {
       guild: { members: { me } },
       permissionsFor: (member: unknown) => (member === me ? new PermissionsBitField(has) : null),
       threads: {
-        create: () => {
+        create: (options: unknown) => {
           created++;
-          return create();
+          return create(options);
         },
       },
     };
@@ -1676,6 +1676,20 @@ describe('DiscordPartyGateway: a post where the bot may not make one', () => {
     expect(none).toMatchObject({
       missing: ['View Channel', 'Create Posts', 'Manage Posts'],
     });
+  });
+
+  it('makes a post that archives itself after a week without messages, or as long as asked (plan 8H-8)', async () => {
+    const asked: unknown[] = [];
+    const { gateway } = forumWith(ALL, (options) => {
+      asked.push(options);
+      return Promise.resolve({ id: '9' });
+    });
+    await gateway.createPost('f', post);
+    await gateway.createPost('f', { ...post, autoArchiveMinutes: 1_440 });
+    expect(asked).toEqual([
+      expect.objectContaining({ autoArchiveDuration: 10_080 }),
+      expect.objectContaining({ autoArchiveDuration: 1_440 }),
+    ]);
   });
 
   it('makes a post without Send Messages in Posts: Discord asks only Send Messages to start one', async () => {
@@ -1877,6 +1891,18 @@ describe('the events forum’s posts (plan 8V-1)', () => {
       expect(post()).toMatchObject({ autoArchiveMinutes: 1_440, archived: true, reopened: 0 });
       gateway.gone.add(postId);
       await expect(gateway.setAutoArchive(postId, 1_440)).resolves.toBe(false);
+    });
+
+    it('makes a post that archives itself after as long as asked (plan 8H-8)', async () => {
+      const { gateway } = await made();
+      const postId =
+        (await gateway.createPost('f', {
+          title: 'On this day',
+          message: { content: 'x' },
+          tagIds: [],
+          autoArchiveMinutes: 1_440,
+        })) ?? '';
+      expect(gateway.posts.get(postId)?.autoArchiveMinutes).toBe(1_440);
     });
 
     it('archives a post without locking it, and locks one without archiving it', async () => {

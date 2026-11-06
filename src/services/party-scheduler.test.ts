@@ -1038,6 +1038,12 @@ describe('PartyScheduler: running', () => {
           return Promise.resolve(0);
         },
       },
+      eventForum: {
+        upkeep: () => {
+          order.push('events');
+          return Promise.resolve();
+        },
+      },
       lines: made.lines,
       gateway: made.gateway,
       raidBosses: { autoset: () => undefined },
@@ -1048,8 +1054,9 @@ describe('PartyScheduler: running', () => {
     });
     await scheduler.tick();
     await scheduler.whenIdle();
-    // The sweep's records first, so that the heatmap has them within the same upkeep.
-    expect(order).toEqual(['history', 'activity']);
+    // The sweep's records first, so that the heatmap has them within the same upkeep; the events
+    // forum after both, so that "On this day" finds the days caught up (plan 8H-8, A1).
+    expect(order).toEqual(['history', 'activity', 'events']);
     // Told of the clock's stop, as the sweep is: a first start over a large history ends there.
     expect(stopped?.()).toBe(false);
     await scheduler.stop();

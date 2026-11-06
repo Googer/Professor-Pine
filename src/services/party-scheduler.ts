@@ -340,12 +340,14 @@ export class PartyScheduler {
       if (screenshots) await step(() => screenshots.sweep());
       if (emoji) await step(() => emoji.refresh());
       if (webSessions) await step(() => webSessions.sweep());
-      if (eventForum) await step(() => eventForum.upkeep());
       if (splits) await step(() => splits.settlePendingSplits(PENDING_SPLIT_MS));
       // Party by party, over what may be many old rows: it ends with the clock's stop.
       if (history) await step(() => history.sweep({ isStopped: () => this.stopped }));
       // After the sweep, whose records it adds too; batch by batch, it ends with the clock's stop.
       if (activity) await step(() => activity.addNew({ isStopped: () => this.stopped }));
+      // Last, after the days have the history's new records: "On this day" waits for them
+      // (plan 8H-8, A1).
+      if (eventForum) await step(() => eventForum.upkeep());
     })()
       .catch((err: unknown) => {
         log.error({ err }, 'the upkeep of the forums failed');

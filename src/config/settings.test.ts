@@ -348,13 +348,17 @@ describe('loadSettings', () => {
   });
 
   it('opens event posts 14 days ahead and lists 35, unless set, never posts beyond the listing', () => {
-    expect(loadSettings(REPO_SETTINGS).eventsForum).toEqual({ horizonDays: 35, postDaysAhead: 14 });
+    expect(loadSettings(REPO_SETTINGS).eventsForum).toEqual({
+      horizonDays: 35,
+      postDaysAhead: 14,
+      onThisDay: 3,
+    });
     const set = loadSettings(
       writeSettings((s) => {
         s.eventsForum = { horizonDays: 21, postDaysAhead: 7 };
       }),
     );
-    expect(set.eventsForum).toEqual({ horizonDays: 21, postDaysAhead: 7 });
+    expect(set.eventsForum).toEqual({ horizonDays: 21, postDaysAhead: 7, onThisDay: 3 });
     expect(() =>
       loadSettings(
         writeSettings((s) => {
@@ -362,6 +366,26 @@ describe('loadSettings', () => {
         }),
       ),
     ).toThrow(/postDaysAhead/);
+  });
+
+  it('recalls each year’s top three big days on their day, unless set: 0 to 10, 0 off (plan 8H-8)', () => {
+    for (const onThisDay of [0, 1, 10]) {
+      const set = loadSettings(
+        writeSettings((s) => {
+          s.eventsForum = { onThisDay };
+        }),
+      );
+      expect(set.eventsForum.onThisDay).toBe(onThisDay);
+    }
+    for (const onThisDay of [-1, 11, 2.5, '3']) {
+      expect(() =>
+        loadSettings(
+          writeSettings((s) => {
+            s.eventsForum = { onThisDay };
+          }),
+        ),
+      ).toThrow(/onThisDay/);
+    }
   });
 
   it('names the channels the settings name, an unset moderators’ channel not among them', () => {
