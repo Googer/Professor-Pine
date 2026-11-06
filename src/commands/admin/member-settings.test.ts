@@ -67,7 +67,7 @@ describe('/admin member-settings', () => {
       '- DM for a new train in this server: **on**',
       '- History in this server: **on**',
       '- On this server’s boards: **off**',
-      '- Status when you report a raid or max battle, or make a train: **Coming**',
+      '- Status on reports and trains: **Coming**',
       '- Name on reports and trains: **Anonymous**',
       '- Friend code: **1234 5678 9012**',
       '- In-game name: **Ash\\_K**',

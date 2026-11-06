@@ -204,7 +204,7 @@ export function settingsLines(settings: UserSettings, server?: ServerSettings): 
   lines.push(
     {
       setting: 'auto-status',
-      text: `Status when you report a raid or max battle, or make a train: **${autoStatusName(settings.autoStatus)}**`,
+      text: `Status on reports and trains: **${autoStatusName(settings.autoStatus)}**`,
     },
     {
       setting: 'privacy',

@@ -215,7 +215,7 @@ describe('/settings', () => {
       'DM for a new train in this server: **off**',
       'History in this server: **off**',
       'On this server’s boards: **off**',
-      'Status when you report a raid or max battle, or make a train: **Interested**',
+      'Status on reports and trains: **Interested**',
       'Name on reports and trains: **Visible**',
       'Pokebattler user id: none',
       'Wants in this server: **0**',
@@ -878,7 +878,7 @@ describe('settingsLines', () => {
       'History in this server: **on**',
       'On this server’s boards: **off**',
       // A stored status that signs nobody up is None.
-      'Status when you report a raid or max battle, or make a train: **None**',
+      'Status on reports and trains: **None**',
       'Name on reports and trains: **Visible**',
       'Friend code: **1234 5678 9012**',
       'Pokebattler user id: none',
