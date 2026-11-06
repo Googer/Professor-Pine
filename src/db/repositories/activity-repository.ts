@@ -15,6 +15,8 @@ import {
   countedParties,
   pairedTrain,
   trainsAroundQuery,
+  trainsAt,
+  trainsByPlace,
   trainStopsCount,
   type CountedRecord,
   type CountingSettings,
@@ -361,11 +363,13 @@ export class ActivityRepository implements ActivityReader, ActivityDayReader {
         const now = this.now();
         const { zone } = this.options;
         const { trains, around } = await this.trainsOf(trx, serverId, records);
+        // The trains around by the places of their stops, once a batch (V5).
+        const byPlace = trainsByPlace(around);
         const counted = records.map((record) => ({
           id: record.id,
           parties: countedParties(
             record,
-            { train: trains.get(record.id), trains: around },
+            { train: trains.get(record.id), trains: trainsAt(byPlace, record) },
             this.options.settings,
           ),
         }));
@@ -469,8 +473,8 @@ export class ActivityRepository implements ActivityReader, ActivityDayReader {
   /**
    * The server's trains `trainsAroundQuery` asks for (W1), along the index
    * `partyhistory_server_kind_createdat_index (serverId, kind, createdAt)` of migration 018 (a
-   * server's trains of both sources: the legacy ones pair with nothing, `pairedTrain`, and are
-   * few), the end and the id checked on the rows the range finds.
+   * server's trains of both sources, few), the source, the ending (V5: those `pairedTrain` gives
+   * stops, the list `trainStopsCount` reads), the end and the id checked on the rows the range finds.
    */
   private async trainsAround(
     trx: Kysely<DB>,
@@ -480,8 +484,9 @@ export class ActivityRepository implements ActivityReader, ActivityDayReader {
     const rows = await sql<{ id: number; source: string; ending: string }>`
       select id, source, ending
       from PartyHistory force index (partyhistory_server_kind_createdat_index)
-      where serverId = ${serverId} and kind = 'train'
+      where serverId = ${serverId} and kind = 'train' and source = ${asked.source}
         and createdAt >= ${asked.from} and createdAt <= ${asked.to}
+        and ending in (${sql.join([...asked.endings])})
         and endedAt >= ${asked.endedFrom} and id < ${asked.below}`.execute(trx);
     return rows.rows.map((row) => ({
       id: Number(row.id),

@@ -14,6 +14,7 @@ import {
   type PairedRaid,
   type PairedTrain,
   type RaidAlongRow,
+  type StopWindow,
 } from './train-card.js';
 
 /*
@@ -149,6 +150,12 @@ export interface TrainsAroundQuery {
   endedFrom: number;
   /** Recorded before the last raid (`PartyHistory.id` below this): only an earlier train pairs. */
   below: number;
+  /**
+   * Of the trains `pairedTrain` gives stops (V5): live, and of an ending whose stops count, the
+   * very list `trainStopsCount` reads.
+   */
+  source: 'live';
+  endings: readonly string[];
 }
 
 /**
@@ -170,7 +177,44 @@ export function trainsAroundQuery(
     to: Math.max(...times.map((time) => time.end)),
     endedFrom: first,
     below: Math.max(...own.map((raid) => raid.id)),
+    source: 'live',
+    endings: STOPS_COUNT_ENDINGS,
   };
+}
+
+/** The key of a gym or Power Spot in `trainsByPlace`. */
+const placeKey = (place: { gymId: number | null; wayspotId: string | null }): string[] => [
+  ...(place.gymId === null ? [] : [`gym:${String(place.gymId)}`]),
+  ...(place.wayspotId === null ? [] : [`spot:${place.wayspotId}`]),
+];
+
+/**
+ * The trains around a batch's raids by the gyms and Power Spots of their stops (V5), made once a
+ * batch: each place with the trains that stopped there and their stops at it, for `trainsAt`.
+ */
+export function trainsByPlace(trains: readonly PairedTrain[]): Map<string, PairedTrain[]> {
+  const places = new Map<string, PairedTrain[]>();
+  for (const train of trains) {
+    const at = new Map<string, StopWindow[]>();
+    for (const w of train.windows) {
+      for (const key of placeKey(w)) at.set(key, [...(at.get(key) ?? []), w]);
+    }
+    for (const [key, windows] of at) {
+      places.set(key, [...(places.get(key) ?? []), { id: train.id, windows }]);
+    }
+  }
+  return places;
+}
+
+/**
+ * The trains of `trainsByPlace` that stopped at a raid's gym or Power Spot, with their stops
+ * there: all the pairing rule could pair it with (`joinedRaid` reads only stops at its place).
+ */
+export function trainsAt(
+  places: ReadonlyMap<string, readonly PairedTrain[]>,
+  raid: Pick<PairedRaid, 'gymId' | 'wayspotId'>,
+): PairedTrain[] {
+  return placeKey(raid).flatMap((key) => places.get(key) ?? []);
 }
 
 /**

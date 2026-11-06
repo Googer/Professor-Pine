@@ -7,6 +7,8 @@ import {
   countedParties,
   pairedTrain,
   trainsAroundQuery,
+  trainsAt,
+  trainsByPlace,
   type CountedRecord,
   type CountedRows,
 } from './counted-parties.js';
@@ -272,6 +274,9 @@ describe('the parties a record counts as', () => {
       to: T + 45 * MINUTE,
       endedFrom: T - 60 * MINUTE,
       below: 300,
+      // Of trains whose stops count, live: the very list `trainStopsCount` reads.
+      source: 'live',
+      endings: ['completed', 'unknown', 'cutover'],
     });
     // Only the raids that count, live: none, nothing to read.
     expect(
@@ -279,6 +284,25 @@ describe('the parties a record counts as', () => {
     ).toBeUndefined();
     expect(trainsAroundQuery([raid(200, 1, 0, 45, { source: 'legacy' })], settings)).toBe(
       undefined,
+    );
+  });
+
+  it('finds the trains around a raid by its place, with their stops there (V5)', () => {
+    const one = pairedTrain(train({ id: 100 }), [gym(1, 0, 20), gym(2, 20, 40)], []);
+    const two = pairedTrain(train({ id: 101 }), [gym(2, 0, 20), spot('abc.16', 20, 40)], []);
+    const places = trainsByPlace([one, two]);
+    expect(trainsAt(places, raid(200, 2, 0, 45))).toEqual([
+      { id: 100, windows: [one.windows[1]] },
+      { id: 101, windows: [two.windows[0]] },
+    ]);
+    expect(
+      trainsAt(places, raid(201, 1, 0, 45, { kind: 'max', gymId: null, wayspotId: 'abc.16' })),
+    ).toEqual([{ id: 101, windows: [two.windows[1]] }]);
+    expect(trainsAt(places, raid(202, 9, 0, 45))).toEqual([]);
+    // What it finds pairs as all of them would.
+    const later = raid(200, 2, 0, 45);
+    expect(countsOf(raidRecord(later), { trains: trainsAt(places, later) })).toEqual(
+      countsOf(raidRecord(later), { trains: [one, two] }),
     );
   });
 
