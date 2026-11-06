@@ -4,7 +4,13 @@ import type {
   TrainMonthView,
   TrainRouteView,
 } from '../../domain/web/train-history-data.js';
-import { HistoryTrains, stillLegs, trainRouteAddress, trainsAddress } from './history-trains.js';
+import {
+  HistoryTrains,
+  stillFitPadding,
+  stillLegs,
+  trainRouteAddress,
+  trainsAddress,
+} from './history-trains.js';
 import { RequestError } from './request-error.js';
 
 const GUILD = '412345678901234567';
@@ -341,5 +347,39 @@ describe('stillLegs: an ended train’s line as a live train’s done legs (G9)'
       },
     ]);
     expect(stillLegs(route(1, { route: [0] }))).toEqual([]);
+  });
+});
+
+describe('stillFitPadding: the line fitted to the part of the map the panel leaves free', () => {
+  it('pads the right by the panel when it sits beside the map, as on a computer', () => {
+    expect(stillFitPadding({ width: 300, height: 400 }, { x: 1000, y: 800 })).toEqual({
+      topLeft: [24, 24],
+      bottomRight: [324, 24],
+    });
+  });
+
+  it('pads the top by the panel when it spans most of the map, as on a phone', () => {
+    expect(stillFitPadding({ width: 300, height: 250 }, { x: 375, y: 700 })).toEqual({
+      topLeft: [24, 274],
+      bottomRight: [24, 24],
+    });
+  });
+
+  it('never gives the panel more than half the map either way', () => {
+    expect(stillFitPadding({ width: 700, height: 300 }, { x: 1000, y: 800 })).toEqual({
+      topLeft: [24, 24],
+      bottomRight: [524, 24],
+    });
+    expect(stillFitPadding({ width: 340, height: 600 }, { x: 375, y: 700 })).toEqual({
+      topLeft: [24, 374],
+      bottomRight: [24, 24],
+    });
+  });
+
+  it('pads by the margin alone while the panel takes no room', () => {
+    expect(stillFitPadding({ width: 0, height: 0 }, { x: 375, y: 700 })).toEqual({
+      topLeft: [24, 24],
+      bottomRight: [24, 24],
+    });
   });
 });

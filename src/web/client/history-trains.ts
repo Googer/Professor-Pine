@@ -284,6 +284,30 @@ export class HistoryTrains {
   }
 }
 
+/** Room kept around a fitted line, in pixels. */
+const FIT_MARGIN = 24;
+
+/**
+ * The padding that fits an ended train's line to the part of the map the panel leaves free: beside
+ * the panel where it sits at the map's right, as on a computer; under it where it spans most of the
+ * map's width, as on a phone (staging of 8H-7B). The panel never takes more than half the map.
+ */
+export function stillFitPadding(
+  panel: { width: number; height: number },
+  map: { x: number; y: number },
+): { topLeft: [number, number]; bottomRight: [number, number] } {
+  if (panel.width > (map.x * 3) / 4) {
+    return {
+      topLeft: [FIT_MARGIN, FIT_MARGIN + Math.min(panel.height, map.y / 2)],
+      bottomRight: [FIT_MARGIN, FIT_MARGIN],
+    };
+  }
+  return {
+    topLeft: [FIT_MARGIN, FIT_MARGIN],
+    bottomRight: [FIT_MARGIN + Math.min(panel.width, map.x / 2), FIT_MARGIN],
+  };
+}
+
 /**
  * An ended train's still line (review G9): its stops as a live train's line takes them
  * (`trainLegs`, through an adapter: the route the indexes into its places, as gym keys of a map of

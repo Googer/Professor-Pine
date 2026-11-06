@@ -27,6 +27,7 @@ import { ActivityCircles, tapCircle } from './activity-circles.js';
 import { getJson } from './common.js';
 import {
   HistoryTrains,
+  stillFitPadding,
   stillLegs,
   type TrainsContext,
   type TrainsPanel,
@@ -105,9 +106,6 @@ const NONE_PLACED = 'None of its stops are on the map now.';
 
 /** A stop's mark at either end of an ended train's line, in pixels. */
 const END_RADIUS = 7;
-
-/** The room round an ended train's line when the map is fitted to it, in pixels. */
-const FIT_MARGIN = 24;
 
 /**
  * An ended train the map's address names (`?train=<id>`, plan 8H-7B, review G4): the layer
@@ -274,11 +272,14 @@ export function showActivity(
     if (end) mark(end, false);
     if (start) mark(start, true);
     if (fit && shown.points.length > 0) {
-      // At most half the map's width: on a phone the panel is nearly as wide as the map.
-      const covered = Math.min(Number(panel.offsetWidth) || 0, map.getSize().x / 2);
+      const size = map.getSize();
+      const padding = stillFitPadding(
+        { width: Number(panel.offsetWidth) || 0, height: Number(panel.offsetHeight) || 0 },
+        { x: size.x, y: size.y },
+      );
       map.fitBounds(L.latLngBounds(shown.points.map((point) => L.latLng(point.lat, point.lon))), {
-        paddingTopLeft: [FIT_MARGIN, FIT_MARGIN],
-        paddingBottomRight: [FIT_MARGIN + covered, FIT_MARGIN],
+        paddingTopLeft: padding.topLeft,
+        paddingBottomRight: padding.bottomRight,
         maxZoom: 16,
       });
     }
