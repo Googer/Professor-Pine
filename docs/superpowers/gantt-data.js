@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-06T16:23",
+  "updated": "2026-11-06T18:39",
   "items": [
     {
       "id": "0",
@@ -11266,6 +11266,80 @@ window.GANTT = {
       "status": "done",
       "start": "2026-11-06T14:48",
       "end": "2026-11-06T14:50"
+    },
+    {
+      "id": "8H-10",
+      "kind": "plan",
+      "parent": "16",
+      "name": "8H-10 Filling in a member’s legacy history",
+      "size": 1,
+      "dependsOn": [
+        "8H-9"
+      ],
+      "scope": "Part H: the import writes a per-member index beside the legacy parties folder; a member with the history on asks in settings and their legacy parties are filled in with their id in the background; an opt-out takes it out again",
+      "doneWhen": "Merged into main-dev",
+      "planning": {
+        "start": "2026-11-06T16:23",
+        "end": "2026-11-06T18:39"
+      }
+    },
+    {
+      "id": "8H-10.1",
+      "kind": "task",
+      "parent": "8H-10",
+      "name": "The member index, written by the import",
+      "dependsOn": [],
+      "scope": "The member index, written by the import",
+      "doneWhen": "Committed, equal to the prototype",
+      "status": "todo"
+    },
+    {
+      "id": "8H-10.2",
+      "kind": "task",
+      "parent": "8H-10",
+      "name": "The queue of fill-ins",
+      "dependsOn": [
+        "8H-10.1"
+      ],
+      "scope": "The queue of fill-ins",
+      "doneWhen": "Committed, equal to the prototype",
+      "status": "todo"
+    },
+    {
+      "id": "8H-10.3",
+      "kind": "task",
+      "parent": "8H-10",
+      "name": "The fill-in worker",
+      "dependsOn": [
+        "8H-10.2"
+      ],
+      "scope": "The fill-in worker",
+      "doneWhen": "Committed, equal to the prototype",
+      "status": "todo"
+    },
+    {
+      "id": "8H-10.4",
+      "kind": "task",
+      "parent": "8H-10",
+      "name": "Asking in settings, and your history counting it",
+      "dependsOn": [
+        "8H-10.3"
+      ],
+      "scope": "Asking in settings, and your history counting it",
+      "doneWhen": "Committed, equal to the prototype",
+      "status": "todo"
+    },
+    {
+      "id": "8H-10.5",
+      "kind": "task",
+      "parent": "8H-10",
+      "name": "Operations and docs",
+      "dependsOn": [
+        "8H-10.4"
+      ],
+      "scope": "Operations and docs",
+      "doneWhen": "Committed, equal to the prototype",
+      "status": "todo"
     },
     {
       "id": "16-staging",
