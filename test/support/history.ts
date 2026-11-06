@@ -1,5 +1,5 @@
 import {
-  RAIDS_ALONG_REACH_MS,
+  alongTheWay,
   type HistoryOptIns,
   type HistoryStorage,
   type JoinedBoards,
@@ -181,18 +181,12 @@ export class MemoryHistory implements HistoryStorage, RaidsAlongReader, TrainHis
           reject(this.failing);
           return;
         }
-        const { gymIds, wayspotIds, from, to } = query;
         resolve(
           this.records.flatMap((record, index): RaidAlongRow[] =>
             record.serverId === serverId &&
             record.source === 'live' &&
             (record.kind === 'raid' || record.kind === 'max') &&
-            record.createdAt >= from - RAIDS_ALONG_REACH_MS &&
-            record.createdAt <= to + RAIDS_ALONG_REACH_MS &&
-            (record.hatchTime ?? record.createdAt) <= to &&
-            (record.endTime === null || record.endTime >= from) &&
-            ((record.gymId !== null && gymIds.includes(record.gymId)) ||
-              (record.wayspotId !== null && wayspotIds.includes(record.wayspotId)))
+            alongTheWay(record, query)
               ? [
                   {
                     id: index + 1,

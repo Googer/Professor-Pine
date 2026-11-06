@@ -165,6 +165,28 @@ export interface TrainHistoryReader {
  */
 export const RAIDS_ALONG_REACH_MS = 2 * 24 * 60 * 60 * 1000;
 
+/**
+ * Whether a raid or max battle record of the server is one `raidsAlong` reads for `query`: at
+ * one of its gyms or Power Spots, reported within `RAIDS_ALONG_REACH_MS` of its time, hatched (or
+ * reported) by its end and, where it has an end time, ended at its start or later (W5: how long
+ * one without stood is the domain's, `raidTime`). The read's SQL says the same; `raidsAlongEach`
+ * splits a read of several trains by it, and the twin reads by it.
+ */
+export function alongTheWay(
+  row: Pick<RaidAlongRow, 'gymId' | 'wayspotId' | 'createdAt' | 'hatchTime' | 'endTime'>,
+  query: RaidsAlongQuery,
+): boolean {
+  const { gymIds, wayspotIds, from, to } = query;
+  return (
+    row.createdAt >= from - RAIDS_ALONG_REACH_MS &&
+    row.createdAt <= to + RAIDS_ALONG_REACH_MS &&
+    (row.hatchTime ?? row.createdAt) <= to &&
+    (row.endTime === null || row.endTime >= from) &&
+    ((row.gymId !== null && gymIds.includes(row.gymId)) ||
+      (row.wayspotId !== null && wayspotIds.includes(row.wayspotId)))
+  );
+}
+
 /** What `insertRecords` did: rows it wrote, and records it found there already. */
 export interface RecordsWritten {
   inserted: number;
@@ -702,8 +724,32 @@ export class HistoryRepository
   }
 
   /**
+   * The raids along several trains' ways (plan 8H-9, W6: a batch of the activity adding), as
+   * `raidsAlong` reads them for each alone, in one read: the union of their gyms and Power Spots
+   * over the span of them all, split in memory by each query's own bounds (`alongTheWay`). An
+   * undefined query (a train that counts no stop) reads nothing.
+   */
+  async raidsAlongEach(
+    serverId: string,
+    queries: readonly (RaidsAlongQuery | undefined)[],
+  ): Promise<RaidAlongRow[][]> {
+    const asked = queries.filter((query) => query !== undefined);
+    if (asked.length === 0) return queries.map(() => []);
+    const rows = await this.raidsAlong(serverId, {
+      gymIds: [...new Set(asked.flatMap((query) => query.gymIds))],
+      wayspotIds: [...new Set(asked.flatMap((query) => query.wayspotIds))],
+      from: Math.min(...asked.map((query) => query.from)),
+      to: Math.max(...asked.map((query) => query.to)),
+    });
+    return queries.map((query) =>
+      query === undefined ? [] : rows.filter((row) => alongTheWay(row, query)),
+    );
+  }
+
+  /**
    * Along the index `(serverId, source, kind, createdAt)` of migration 040: a server's live raids
-   * and max battles reported within the reach of the train's time, then by place.
+   * and max battles reported within the reach of the train's time, then by place (the bounds of
+   * `alongTheWay`, in SQL).
    */
   async raidsAlong(serverId: string, query: RaidsAlongQuery): Promise<RaidAlongRow[]> {
     const { gymIds, wayspotIds, from, to } = query;

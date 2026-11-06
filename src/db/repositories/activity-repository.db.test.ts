@@ -442,6 +442,57 @@ describe('ActivityRepository', () => {
     ]);
   });
 
+  it('reads the raids along a batch’s trains once, and pairs each with its own train’s stops (W6)', async () => {
+    // Three trains at gyms 1 and 2, 3 and 4, and 5 the next day; a raid at gym 1 during the first's
+    // stop, one at gym 3 an hour after the second left it, both recorded before them.
+    const joined = (gymId: number, from: string, to: string) => ({
+      gymId,
+      hatchTime: String(at(from)),
+      endTime: String(at(to)),
+      endedAt: String(at(to)),
+    });
+    await record(joined(1, '2026-10-22T17:50', '2026-10-22T18:35'));
+    await record(joined(3, '2026-10-22T19:00', '2026-10-22T19:45'));
+    await recordTrain([
+      { at: 1, from: 0, to: 20 },
+      { at: 2, from: 20, to: 50 },
+    ]);
+    await recordTrain([
+      { at: 3, from: 0, to: 20 },
+      { at: 4, from: 20, to: 50 },
+    ]);
+    await recordTrain([{ at: 5, from: 24 * 60, to: 24 * 60 + 20 }], {
+      endTime: String(at('2026-10-23T20:00')),
+      endedAt: String(at('2026-10-23T21:00')),
+    });
+    const statements: string[] = [];
+    const logged = createDb<DB>(database.config, (event) => {
+      statements.push(event.query.sql);
+    });
+    try {
+      const adding = new ActivityRepository(logged, { zone: ZONE, settings: SETTINGS });
+      expect(await adding.addNew()).toEqual({ buckets: 5, days: 5 });
+    } finally {
+      await logged.destroy();
+    }
+    // One read of the raids along the way for the batch's three trains.
+    expect(
+      statements.filter((one) => one.includes('coalesce(hatchTime, createdAt) <=')),
+    ).toHaveLength(1);
+    // Gym 1's stop is its raid (at 17:00, with its heads); gym 3's raid came after the second
+    // train had left it, so both count.
+    expect(
+      (await bucketsOf()).map((bucket) => [bucket.placeId, bucket.hour, bucket.heads]),
+    ).toEqual([
+      ['1', 17, 5],
+      ['2', 18, 0],
+      ['3', 18, 0],
+      ['3', 19, 5],
+      ['4', 18, 0],
+      ['5', 18, 0],
+    ]);
+  });
+
   /** The adding at a moment after the train of `recordTrain` ended (21:00 on 2026-10-22). */
   const addingAt = (minutesAfterTheTrain: number) =>
     new ActivityRepository(db, {

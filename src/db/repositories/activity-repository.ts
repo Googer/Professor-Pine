@@ -425,7 +425,8 @@ export class ActivityRepository implements ActivityReader, ActivityDayReader {
    * transaction (read committed: a record is never changed once written), whatever the ids of
    * what they find: of the batch's trains whose stops count (`trains`), their stops and attendees
    * as the card reads them back (`trainCardRows`) and the raids and max battles of the history
-   * along them as the card reads them (`raidsAlong`, one read per train whose stops have times);
+   * along them as the card reads them (`raidsAlongEach`, W6: one read for the batch's trains, the
+   * union of their places over their span, split in memory by each train's own bounds);
    * for the batch's raids and max battles (`around`, the pairing rule, W1), the server's trains
    * that may have stopped at them (`trainsAroundQuery`, one read along `(serverId, kind,
    * createdAt)`), as `pairedTrain` gives them. Both kinds of train read their rows in one
@@ -442,16 +443,19 @@ export class ActivityRepository implements ActivityReader, ActivityDayReader {
     const own = records.filter(trainStopsCount);
     const ids = [...new Set([...own.map(({ id }) => id), ...near.map(({ id }) => id)])];
     const read = await history.trainCardRows(serverId, ids);
-    const trains = new Map<number, TrainRows>();
-    for (const { id } of own) {
+    const ownRows = own.flatMap(({ id }) => {
       const rows = read.get(id);
-      if (rows === undefined) continue;
-      const query = raidsAlongQuery(stopWindows(rows.record, rows.stops, rows.attendees));
-      trains.set(id, {
-        stops: rows.stops,
-        attendees: rows.attendees,
-        raids: query === undefined ? [] : await history.raidsAlong(serverId, query),
-      });
+      return rows === undefined ? [] : [{ id, rows }];
+    });
+    const along = await history.raidsAlongEach(
+      serverId,
+      ownRows.map(({ rows }) =>
+        raidsAlongQuery(stopWindows(rows.record, rows.stops, rows.attendees)),
+      ),
+    );
+    const trains = new Map<number, TrainRows>();
+    for (const [index, { id, rows }] of ownRows.entries()) {
+      trains.set(id, { stops: rows.stops, attendees: rows.attendees, raids: along[index] ?? [] });
     }
     const around = near.flatMap((train) => {
       const rows = read.get(train.id);
