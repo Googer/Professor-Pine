@@ -464,6 +464,13 @@ p.board-lines {
   color: var(--muted);
 }
 
+/* What counts as a raid, under "Raids by day" and the tally (plan 8H-9). */
+.counts-note {
+  margin: 0 0 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
 /* What a big day is, under "Big days of <year>" (B5). */
 #days-big-note {
   margin: 0 0 4px;

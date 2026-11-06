@@ -34,6 +34,7 @@ import {
   TALLY_PERIODS,
   isTallyPeriod,
   PERIOD_LABELS,
+  TRAIN_STOPS_COUNT,
   type TallyPeriod,
 } from '../../domain/history/tally-periods.js';
 import {
@@ -290,7 +291,9 @@ const regionsPart: SubcommandPart = {
       'How many raids and max battles each region had, the busiest first: this month, this ' +
       'year or all time. Only you see the answer.\n\n' +
       'A raid or max battle counts whether or not anybody marked it done, unless it was ' +
-      'deleted. Regions that are gone are counted together, on one line: "No longer a region".' +
+      'deleted. ' +
+      TRAIN_STOPS_COUNT +
+      ' Regions that are gone are counted together, on one line: "No longer a region".' +
       '\n\n"Share in this channel" posts the list here for everybody, with your name. It ' +
       'leaves out regions that not everyone in the channel can see.',
     examples: ['/stats regions', '/stats regions period:This year'],

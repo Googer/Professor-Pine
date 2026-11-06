@@ -172,6 +172,8 @@ describe('the layers of the map (plan 8M-7)', () => {
     expect(MAP_LAYERS.find((layer) => layer.id === 'activity')).toMatchObject({
       name: 'Activity',
       kind: 'background',
+      // A train's stops count as raids (plan 8H-9).
+      hint: 'Where raids and max battles happen, by the hour (train stops count too)',
     });
   });
 

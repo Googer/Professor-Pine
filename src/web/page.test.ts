@@ -300,6 +300,19 @@ describe('the history page (plan 8H-5)', () => {
     expect(page.body).not.toContain('’');
   });
 
+  it('says once by the days and once by the tally that a train’s stops count as raids (plan 8H-9)', async () => {
+    web = webServerWith({ assets: builtAssets() });
+    const page = await web.app.inject({ url: HISTORY });
+    const said = 'Each stop a train made counts as a raid, or as a max battle at a Power Spot.';
+    const sectionOf = (id: string) => {
+      const from = page.body.indexOf(`<section id="${id}"`);
+      return page.body.slice(from, page.body.indexOf('</section>', from));
+    };
+    expect(sectionOf('days')).toContain(said);
+    expect(sectionOf('tally')).toContain(said);
+    expect(page.body.split(said)).toHaveLength(3);
+  });
+
   it('offers no login with Discord without the client secret', async () => {
     web = webServerWith({ assets: builtAssets(), oauth: undefined });
     const page = await web.app.inject({ url: HISTORY });

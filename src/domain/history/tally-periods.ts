@@ -32,6 +32,13 @@ export function tallyTitle(period: TallyPeriod): string {
 }
 
 /**
+ * What the region tally, the raids per day and the heatmap count beside raids and max battles
+ * (plan 8H-9, `countedParties`): said in `/stats regions`' help and on the history page.
+ */
+export const TRAIN_STOPS_COUNT =
+  'Each stop a train made counts as a raid, or as a max battle at a Power Spot.';
+
+/**
  * The words before the quiet regions (Matt, 2026-11-05): "No raids or max battles: #a, #b", one
  * line on Discord and on the history page alike.
  */

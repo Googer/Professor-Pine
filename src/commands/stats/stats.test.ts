@@ -274,6 +274,10 @@ describe('/stats regions', () => {
     expect(details).toContain(
       'A raid or max battle counts whether or not anybody marked it done, unless it was deleted.',
     );
+    // A train's stops are raids too (plan 8H-9).
+    expect(details).toContain(
+      'Each stop a train made counts as a raid, or as a max battle at a Power Spot.',
+    );
     // Nothing promised of the legacy bot's years, which only an imported history has (P6).
     expect(details).not.toMatch(/old bot/u);
     expect(json.description).toBe('Raids by region, the boards, and your own numbers');

@@ -3255,3 +3255,19 @@ Prototype `proto-8h8` of plan 8H-8 (brief `.superpowers/sdd/8h-8-big-days/brief.
   - 2024, 2: Wednesday, February 14, 2024 · Enamorus (Incarnate Forme) day, 35 of 36 raids; Saturday, June 29, 2024 · Mega Rayquaza day, 18 of 25 raids.
   - None in 2025 and 2026 (a handful of raids a year). Small years are judged with small numbers (20 raids is a big day where the median is 2): Mega Rayquaza's 2024-06-29 is big with 18 of its day's 25 raids.
 - **Open:** the page's charts are tried at staging only (`history-days-ui.ts`); "On this day" needs a server whose legacy import holds a big day of the date (or a dev history raised for it), and the global deploy is not needed.
+
+## From Phase 8H-9 (a train's stops count as raids; prototype, 2026-11-06)
+
+Prototype `proto-8h9` (brief `.superpowers/sdd/8h-9-train-stops/brief.md`, not reviewed separately). No migration, no setting, no command. Docs: `history.md` ("A train's stops count as raids"), `web.md`, `operations.md`.
+
+- **Defaults for Matt to object to:**
+  - **One region per stop**, not one in each region it lay in (the brief's default, after reports at stops): the buckets and the days sum a server's regions, so a stop in two regions would count as two raids in a day's total and the big days, and twice in its gym's weight on the map. The train's own region where the stop lay in it (or its regions are not known, or it lay in none), else the stop's first region.
+  - **A stop at a raid the train joined counts nothing** (`joinedStops`: the card's matcher, a live raid at the stop's place during the train's time there, without the card's bound of being recorded by the train's end, so that a raid still running at the train's last stop is the stop too).
+  - **The settle hold (the controller's call of round 1):** the adding takes a train an hour after it ended at the earliest (`TRAIN_SETTLE_MS`), so that the raids it joined are recorded by then; every record after it in the history waits too, an hour at most, before it reaches the heatmap and the days. A joined raid recorded more than an hour after the train still counts twice until a rebuild (`history.md`, "The settle hold").
+  - **Expired trains count nothing (the controller's call of round 1):** a train's stops count only when it took place (`completed`), or nobody could say (`unknown`, `cutover`); one nobody came to (`expired`) and a canceled one count nothing. The card is unchanged.
+  - **`/stats me` and the boards are unchanged (the controller's call of round 1):** they count people, and a ride counts there as a train, not as its stops.
+  - **Legacy trains' stops count**, every stop, at the train's start (else its making); a stop at a gym the list no longer has is a raid at no place. A live train whose stops have no times counts nothing.
+  - **Which stops:** the card's (reached by the end, a minute at least; a loop's stop each time).
+  - **In a bucket:** `completed` 1 where the train's ending is `completed`, `heads` 0 (the riders are the train's; nothing reads either column yet).
+  - **Words:** one sentence, "Each stop a train made counts as a raid, or as a max battle at a Power Spot.", in `/stats regions`' help and on the history page, once under "Raids by day" and once under the tally's title; the Activity layer's hint "Where raids and max battles happen, by the hour (train stops count too)". `/help stats` (the group's text) and the tally's answer itself are unchanged; "On this day" and the big days' labels say raids, which now include stops.
+- **Deploy:** the buckets and days hold no stop until `./pine rebuild-activity` runs once (Air's dev stack and production alike); no automatic machinery (a rule version in `ActivityProgress` would be a migration; proposed only).

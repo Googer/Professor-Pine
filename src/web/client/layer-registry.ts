@@ -98,7 +98,8 @@ export const MAP_LAYERS: readonly LayerSpec[] = [
     name: 'Activity',
     on: false,
     kind: 'background',
-    hint: 'Where raids and max battles happen, by the hour',
+    // A train's stops count as raids (plan 8H-9, `countedParties`).
+    hint: 'Where raids and max battles happen, by the hour (train stops count too)',
     membersOnly: true,
   },
   { id: 'outlines', name: 'Region outlines', on: true, kind: 'background' },

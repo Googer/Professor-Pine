@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { COLOR_SCHEME_META, escapeHtml } from './answers.js';
+import { TRAIN_STOPS_COUNT } from '../domain/history/tally-periods.js';
 import type { DistanceUnits } from '../render/distance-words.js';
 import type { TileSetting } from './headers.js';
 
@@ -212,6 +213,7 @@ export function historyPage(data: HistoryPageData, assets: AssetManifest): strin
     // numbers in a table under it (G14).
     '<section id="days" aria-labelledby="days-title">',
     '<h2 id="days-title">Raids by day</h2>',
+    `<p class="counts-note">${TRAIN_STOPS_COUNT}</p>`,
     '<p class="year-line"><label for="days-year">Year</label> <select id="days-year"></select></p>',
     '<p id="days-status" role="status"></p>',
     '<p id="days-legend" class="legend" hidden><span class="key raids">Raids</span> ' +
@@ -239,6 +241,7 @@ export function historyPage(data: HistoryPageData, assets: AssetManifest): strin
     '</section>',
     '<section id="tally" aria-labelledby="tally-title">',
     '<h2 id="tally-title">Raids and max battles by region</h2>',
+    `<p class="counts-note">${TRAIN_STOPS_COUNT}</p>`,
     '<div id="tally-periods" class="periods" role="group" aria-label="Period"></div>',
     '<p id="tally-status" role="status"></p>',
     '<table id="tally-table" hidden>' +
