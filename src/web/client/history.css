@@ -380,6 +380,102 @@ p.board-lines {
   border-radius: 2px;
 }
 
+/*
+ * Raids by day, the big days and a boss's trend (plan 8H-8): the year's chart as wide as its box
+ * (the bars thin to fit), a boss's months scrolling inside theirs where they must, never the page.
+ */
+.year-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.year-line select,
+.year-line input {
+  font: inherit;
+  color: var(--text);
+  background: var(--field-bg);
+  border: 1px solid var(--field-border);
+  border-radius: var(--radius);
+  padding: 4px 6px;
+  max-width: 100%;
+}
+
+#days-status,
+#every-status,
+#boss-status {
+  color: var(--muted);
+}
+
+#days-status:empty,
+#every-status:empty,
+#boss-status:empty {
+  display: none;
+}
+
+.days-chart svg {
+  display: block;
+}
+
+#days-chart .raids,
+#boss-chart .raids,
+.key.raids::before {
+  fill: var(--primary);
+  background: var(--primary);
+}
+
+#days-chart .raids.big {
+  fill: var(--danger);
+}
+
+#days-chart .maxes,
+.key.maxes::before {
+  fill: var(--success);
+  background: var(--success);
+}
+
+#days-chart .axis {
+  stroke: var(--line);
+}
+
+#days-chart .month,
+#boss-chart .month {
+  fill: var(--muted);
+  font-size: 10px;
+}
+
+#days-chart .big-label {
+  fill: var(--text);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.big-days,
+.every ol {
+  margin: 4px 0 0;
+  padding-left: 1.6em;
+  overflow-wrap: anywhere;
+}
+
+.big-days .none {
+  list-style: none;
+  margin-left: -1.6em;
+  color: var(--muted);
+}
+
+/* What a big day is, under "Big days of <year>" (B5). */
+#days-big-note {
+  margin: 0 0 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.every-year h3 {
+  font-size: 1em;
+  margin: 10px 0 2px;
+}
+
 /* A phone (as the map's header): "Pine" alone, "Log in", the table's own width. */
 @media (max-width: 767px) {
   #header {

@@ -94,7 +94,7 @@ describe('the region tally on the history page', () => {
       'That was a lot of asking. Try again in a minute.',
     );
     expect(tallyFailure(undefined, 'discord').text).toBe(
-      'The board could not be loaded. Try again in a moment.',
+      'This could not be loaded. Try again in a moment.',
     );
   });
 });

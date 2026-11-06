@@ -1,6 +1,7 @@
 import type { TallyPeriod } from '../../domain/history/tally-periods.js';
 import type { RegionTallyView } from '../../domain/web/region-tally-data.js';
 import { showBoards } from './history-boards-ui.js';
+import { showDays } from './history-days-ui.js';
 import {
   tallyAddress,
   tallyFailure,
@@ -18,7 +19,8 @@ import { RequestError } from './request-error.js';
  * The history page (plan 8H-5) and "Your history" (plan 8H-6, `data-page="me"`), one bundle: the
  * header (the login, or the member's menu with the theme); on the history page the region tally
  * of `/api/stats/regions` with its periods, the one shown kept in the address (`?period=`), and
- * the boards (`history-boards-ui.ts`); on "Your history" the member's own numbers (`me-ui.ts`).
+ * the boards (`history-boards-ui.ts`), above them raids by day, the big days and a boss's trend
+ * (plan 8H-8, `history-days-ui.ts`); on "Your history" the member's own numbers (`me-ui.ts`).
  * Only the latest question is drawn. Its pure parts are `history-tally.ts` and
  * `history-boards.ts`; this is tried at staging.
  */
@@ -31,6 +33,7 @@ void showAccount(guild, login, 'history', () => [], true);
 if (data.page === 'me') {
   showMe(guild, login);
 } else {
+  showDays(guild, login);
   showTally();
   showBoards(guild, login);
 }

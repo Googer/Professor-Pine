@@ -207,6 +207,36 @@ export function historyPage(data: HistoryPageData, assets: AssetManifest): strin
     '<p id="notice" role="status" hidden></p>',
     '<main id="history">',
     "<h1>This server's history</h1>",
+    // Raids by day, the big days and a boss's trend (plan 8H-8, design Part G): filled by the
+    // script from `/api/history/days`, `…/big-days`, `…/bosses`; each chart for the eye, its
+    // numbers in a table under it (G14).
+    '<section id="days" aria-labelledby="days-title">',
+    '<h2 id="days-title">Raids by day</h2>',
+    '<p class="year-line"><label for="days-year">Year</label> <select id="days-year"></select></p>',
+    '<p id="days-status" role="status"></p>',
+    '<p id="days-legend" class="legend" hidden><span class="key raids">Raids</span> ' +
+      '<span class="key maxes">Max battles</span></p>',
+    '<div class="chart days-chart"><svg id="days-chart" aria-hidden="true" focusable="false"></svg></div>',
+    '<table id="days-table" class="visually-hidden" aria-labelledby="days-title"></table>',
+    '<h3 id="days-big-title">Big days</h3>',
+    '<p id="days-big-note" class="note"></p>',
+    '<ol id="days-big" class="big-days"></ol>',
+    '</section>',
+    '<section id="every" aria-labelledby="every-title">',
+    '<h2 id="every-title">Big days of every year</h2>',
+    '<p>The days of each year that stood out most from the weeks around them, up to three a year.</p>',
+    '<p id="every-status" role="status"></p>',
+    '<div id="every-list" class="every"></div>',
+    '</section>',
+    '<section id="boss" aria-labelledby="boss-title">',
+    '<h2 id="boss-title">A boss over the years</h2>',
+    '<p class="year-line"><label for="boss-input">Boss</label> ' +
+      '<input id="boss-input" list="boss-names" autocomplete="off" spellcheck="false">' +
+      '<datalist id="boss-names"></datalist></p>',
+    '<p id="boss-status" role="status"></p>',
+    '<div class="chart"><svg id="boss-chart" aria-hidden="true" focusable="false"></svg></div>',
+    '<table id="boss-table" class="visually-hidden" aria-labelledby="boss-title"></table>',
+    '</section>',
     '<section id="tally" aria-labelledby="tally-title">',
     '<h2 id="tally-title">Raids and max battles by region</h2>',
     '<div id="tally-periods" class="periods" role="group" aria-label="Period"></div>',
@@ -228,7 +258,7 @@ export function historyPage(data: HistoryPageData, assets: AssetManifest): strin
     '</section>',
     '<section id="activity" aria-labelledby="activity-title">',
     '<h2 id="activity-title">Activity on the map</h2>',
-    '<p>Where raids and max battles took place, month by month: the map’s Activity layer in ' +
+    "<p>Where raids and max battles took place, month by month: the map's Activity layer in " +
       `History. <a href="${map}">Open the map</a>, turn on Activity and choose History.</p>`,
     '</section>',
     '</main>',

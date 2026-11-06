@@ -76,9 +76,10 @@ export function quietLine(view: RegionTallyView): string | null {
 }
 
 /**
- * What the page says when the tally cannot be shown, by the route's status (undefined: no
- * answer at all), and whether a "Log in with Discord" link goes with it (somebody logged out,
- * where Discord's login is offered).
+ * What the page says when the tally (or the boards, or raids by day) cannot be shown, by the
+ * route's status (undefined: no answer at all; the words fit every section, plan 8H-8 B12), and
+ * whether a "Log in with Discord" link goes with it (somebody logged out, where Discord's login
+ * is offered).
  */
 export function tallyFailure(
   status: number | undefined,
@@ -96,6 +97,6 @@ export function tallyFailure(
     case 429:
       return { text: 'That was a lot of asking. Try again in a minute.', login: false };
     default:
-      return { text: 'The board could not be loaded. Try again in a moment.', login: false };
+      return { text: 'This could not be loaded. Try again in a moment.', login: false };
   }
 }

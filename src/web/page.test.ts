@@ -261,6 +261,45 @@ describe('the history page (plan 8H-5)', () => {
     expect(page.body).toContain(`<a href="/s/${FAKE_GUILD_ID}/me">Your history</a>`);
   });
 
+  it('holds raids by day, the big days of every year and a boss’s trend above the tally (plan 8H-8)', async () => {
+    web = webServerWith({ assets: builtAssets() });
+    const page = await web.app.inject({ url: HISTORY });
+    for (const id of [
+      'days-title',
+      'days-year',
+      'days-status',
+      'days-chart',
+      'days-table',
+      'days-big-title',
+      'days-big',
+      'days-big-note',
+      'every-status',
+      'every-list',
+      'boss-input',
+      'boss-names',
+      'boss-status',
+      'boss-chart',
+      'boss-table',
+    ]) {
+      expect(page.body, id).toContain(`id="${id}"`);
+    }
+    // The charts are for the eye; their numbers are in the tables under them (G14).
+    expect(page.body).toContain('<svg id="days-chart" aria-hidden="true" focusable="false">');
+    expect(page.body).toContain('<svg id="boss-chart" aria-hidden="true" focusable="false">');
+    // Days, then the big days of every year, then a boss, then the tally and the boards.
+    const at = (id: string) => page.body.indexOf(`<section id="${id}"`);
+    expect(at('days')).toBeGreaterThan(0);
+    expect(at('days')).toBeLessThan(at('every'));
+    expect(at('every')).toBeLessThan(at('boss'));
+    expect(at('boss')).toBeLessThan(at('tally'));
+    expect(at('tally')).toBeLessThan(at('boards'));
+    // What "Big days of every year" holds (B4), with the page's one apostrophe (B16).
+    expect(page.body).toContain(
+      '<p>The days of each year that stood out most from the weeks around them, up to three a year.</p>',
+    );
+    expect(page.body).not.toContain('’');
+  });
+
   it('offers no login with Discord without the client secret', async () => {
     web = webServerWith({ assets: builtAssets(), oauth: undefined });
     const page = await web.app.inject({ url: HISTORY });
