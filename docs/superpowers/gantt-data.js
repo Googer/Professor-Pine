@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-06T06:06",
+  "updated": "2026-11-06T09:27",
   "items": [
     {
       "id": "0",
@@ -6946,6 +6946,61 @@ window.GANTT = {
       "status": "done",
       "start": "2026-10-19T01:28",
       "end": "2026-10-19T01:29"
+    },
+    {
+      "id": "8S-5",
+      "kind": "plan",
+      "parent": "13",
+      "name": "8S-5 One /settings panel, and the words of settings and stats",
+      "size": 1,
+      "dependsOn": [
+        "8H-7B"
+      ],
+      "scope": "settings with no options answers with one private panel that changes in place (toggles, menus, the Pokebattler dialog, Show for wants and targets); history off asks first in a dialog; the old subcommands go; the readability pass over settings and stats",
+      "doneWhen": "Merged into main-dev",
+      "planning": {
+        "start": "2026-11-06T03:56",
+        "end": "2026-11-06T09:27",
+        "review": {
+          "start": "2026-11-06T04:50",
+          "end": "2026-11-06T09:23"
+        }
+      }
+    },
+    {
+      "id": "8S-5.1",
+      "kind": "task",
+      "parent": "8S-5",
+      "name": "The panel: lines, controls, Show, the Pokebattler dialog",
+      "status": "todo"
+    },
+    {
+      "id": "8S-5.2",
+      "kind": "task",
+      "parent": "8S-5",
+      "name": "History off asks first, in a dialog",
+      "status": "todo"
+    },
+    {
+      "id": "8S-5.3",
+      "kind": "task",
+      "parent": "8S-5",
+      "name": "Nothing names a subcommand settings had",
+      "status": "todo"
+    },
+    {
+      "id": "8S-5.4",
+      "kind": "task",
+      "parent": "8S-5",
+      "name": "The words of stats, and Your history on the web",
+      "status": "todo"
+    },
+    {
+      "id": "8S-5.5",
+      "kind": "task",
+      "parent": "8S-5",
+      "name": "Docs",
+      "status": "todo"
     },
     {
       "id": "14",
