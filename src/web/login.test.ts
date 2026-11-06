@@ -94,6 +94,31 @@ describe('logging in with Discord', () => {
     expect(JSON.stringify(web.entries)).not.toContain('good-code');
   });
 
+  it('returns to the map at an ended train, and says a failure there too (plan 8H-7B)', async () => {
+    const oauth = new FakeOAuth().knows('good-code', { id: ASH, name: 'Ash' });
+    web = webServerWith({ oauth, members: new FakeMemberDirectory().add(ASH, 'Ash') });
+    const atTrain = `${MAP}?train=42`;
+    const good = await started(web, atTrain);
+    const back = await web.app.inject({
+      url: `/auth/callback?code=good-code&state=${good.state}`,
+      headers: { cookie: good.cookie },
+    });
+    expect(back.headers.location).toBe(atTrain);
+    const declined = await started(web, atTrain);
+    const failed = await web.app.inject({
+      url: `/auth/callback?error=access_denied&state=${declined.state}`,
+      headers: { cookie: declined.cookie },
+    });
+    expect(failed.headers.location).toBe(`${atTrain}&login=failed`);
+    // Another query is no page to return to: the login lands on the top page.
+    const other = await started(web, `${MAP}?train=42&x=1`);
+    const lost = await web.app.inject({
+      url: `/auth/callback?code=good-code&state=${other.state}`,
+      headers: { cookie: other.cookie },
+    });
+    expect(lost.headers.location).toBe('/');
+  });
+
   it('refuses a callback whose state is not the one it sent, and asks Discord nothing', async () => {
     const oauth = new FakeOAuth().knows('good-code', { id: ASH, name: 'Ash' });
     web = webServerWith({ oauth });

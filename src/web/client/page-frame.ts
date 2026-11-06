@@ -1,3 +1,4 @@
+import { loginNext } from './train-address.js';
 import { LOGOUT_FAILED, logOut } from './logout.js';
 import { headerLines, inviteNode, NoticeBand, type Me, type WebPage } from './notice.js';
 import { renderNode } from './popup.js';
@@ -113,7 +114,7 @@ export async function showAccount(
   if (header.login) {
     const link = document.createElement('a');
     link.className = 'login';
-    link.href = `/auth/login?next=${encodeURIComponent(location.pathname)}`;
+    link.href = `/auth/login?next=${encodeURIComponent(loginNext(location.pathname, location.search))}`;
     // The whole words, and the short ones a phone shows (`map.css`; review fix 4). The one not
     // shown is `display: none`, so a screen reader reads only the other.
     const full = document.createElement('span');

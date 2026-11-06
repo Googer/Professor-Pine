@@ -32,6 +32,7 @@ import { MapActivity } from './parties.js';
 import { showParties } from './party-layer.js';
 import { quietLine, showPlaces, type PlacesHooks } from './places-ui.js';
 import { showActivity, type ActivityShown } from './activity-ui.js';
+import { addressWithoutTrain, trainOfAddress } from './train-address.js';
 import { REGION_OUTLINE } from './panes.js';
 import { popupPanPadding, regionLabel, renderNode, type MapGym } from './popup.js';
 import { RouteFocus } from './route-focus.js';
@@ -666,12 +667,27 @@ function start(): void {
       // No circle takes a tap while a place is picked (review P4), once the parties are drawn.
       const picks = { now: (): boolean => false };
       // A circle only where the place's own dot is not drawn (review 8H4H-3): by what is drawn.
+      // An ended train the address names (plan 8H-7B, the post's "Route on the map"): History
+      // opens at it, and the address forgets it once asked (a reload opens the map as usual).
+      const train = trainOfAddress(location.search);
       activityShown.now = showActivity(
         map,
         guild,
         registry,
         () => picks.now(),
         (kind, id) => (kind === 'gym' ? dots.drawn(Number(id)) : places.spotDrawn(id)),
+        train === undefined
+          ? undefined
+          : {
+              train,
+              taken: () => {
+                history.replaceState(
+                  null,
+                  '',
+                  addressWithoutTrain(location.pathname, location.search, location.hash),
+                );
+              },
+            },
       );
       // The gyms' clusters are named anew as the counts change (review R3).
       activityShown.now.onCounts(() => {

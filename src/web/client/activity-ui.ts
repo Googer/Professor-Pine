@@ -109,6 +109,16 @@ const END_RADIUS = 7;
 /** The room round an ended train's line when the map is fitted to it, in pixels. */
 const FIT_MARGIN = 24;
 
+/**
+ * An ended train the map's address names (`?train=<id>`, plan 8H-7B, review G4): the layer
+ * turns on in History at its month with it chosen. `taken` is told once it was asked, so that the
+ * page takes it out of the address.
+ */
+export interface TrainEntry {
+  train: number;
+  taken: () => void;
+}
+
 export function showActivity(
   map: L.Map,
   guild: string,
@@ -125,6 +135,8 @@ export function showActivity(
    * dots change. Left out: none.
    */
   drawn: (kind: ActivityPlaceView['kind'], id: string) => boolean = () => false,
+  /** An ended train the map's address names (plan 8H-7B); none: the layer opens as usual. */
+  entry?: TrainEntry,
 ): ActivityShown {
   const pane = map.createPane(ACTIVITY_PANE);
   // Leaflet sets a pane's place by its style from the script (as the regions' names' pane).
@@ -419,6 +431,11 @@ export function showActivity(
     play.disabled = all.length < 2;
     const at = step === undefined ? -1 : all.indexOf(step);
     if (at >= 0) slider.value = String(at);
+    // A month the slider does not hold (an ended train's of the address, review B6): the slider
+    // at its nearest end, the label saying the month shown.
+    else if (step !== undefined && all.length > 0) {
+      slider.value = String(step < (all[0] ?? '') ? 0 : all.length - 1);
+    }
     sayStep();
     play.textContent = player.playing() ? 'Stop' : 'Play';
     followTrains(false);
@@ -684,6 +701,31 @@ export function showActivity(
     if (lineShown !== undefined) drawLine(lineShown, false);
   });
   if (registry.isOn('activity')) turned(true);
+  // A train of the address (review G4): asked first, its answer giving its month; then the layer
+  // on in History by month at that month (this month where the train cannot be shown, which the
+  // Trains part says), the list open with the train chosen.
+  let entered: Promise<void> = Promise.resolve();
+  if (entry !== undefined) {
+    entered = trains.open(entry.train).then((opened) => {
+      entry.taken();
+      // The member chose another train, or changed History, meanwhile (review B6): theirs stands.
+      if (opened === 'superseded') return;
+      stopAside();
+      clearHour();
+      mode = 'history';
+      modeMenu.value = 'history';
+      span = 'month';
+      spanMenu.value = 'month';
+      step = opened === 'refused' ? undefined : opened.month;
+      listOpen = true;
+      if (registry.isOn('activity')) {
+        drawHistory();
+        void load();
+      } else {
+        registry.set('activity', true);
+      }
+    });
+  }
   return {
     line: (kind, id) => {
       const line = element('p', LINE_CLASS);
@@ -698,6 +740,9 @@ export function showActivity(
       countListeners.push(listener);
     },
     refresh: drawCircles,
-    trainsIdle: () => trains.idle(),
+    trainsIdle: async () => {
+      await entered;
+      await trains.idle();
+    },
   };
 }

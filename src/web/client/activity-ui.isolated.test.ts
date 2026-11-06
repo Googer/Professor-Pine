@@ -275,7 +275,11 @@ afterEach(() => {
  * until `turn(true)`; `counted()` resolves at the next time the layer says its counts changed.
  */
 function shown(
-  more: { picking?: () => boolean; drawn?: (kind: string, id: string) => boolean } = {},
+  more: {
+    picking?: () => boolean;
+    drawn?: (kind: string, id: string) => boolean;
+    entry?: { train: number; taken: () => void };
+  } = {},
 ) {
   const registry = new LayerRegistry(undefined);
   for (const layer of MAP_LAYERS) registry.register(layer);
@@ -311,6 +315,7 @@ function shown(
     registry,
     more.picking,
     more.drawn,
+    more.entry,
   );
   let told: () => void = () => undefined;
   let tells = 0;
@@ -454,6 +459,119 @@ describe('History’s trains on the map (plan 8H-7B)', () => {
     pressesOf(element('activity-trains'))[1]?.fire('click');
     expect(fake.lines[0]?.group).toBeUndefined();
     expect(element('activity-trains').text()).not.toContain('About 2 stops in 40 min');
+  });
+
+  it('opens History at the month of the train the address names, with it chosen (G4)', async () => {
+    let taken = 0;
+    const { element, layer, counted, modeMenu } = shown({
+      entry: {
+        train: 2,
+        taken: () => {
+          taken += 1;
+        },
+      },
+    });
+    // The train first: the page does not know its month.
+    expect(fake.asked.map((one) => one.url)).toEqual([
+      '/s/100000000000000001/api/history/trains/2',
+    ]);
+    fake.asked[0]?.answer(trainRoute(2));
+    await layer.trainsIdle();
+    expect(taken).toBe(1);
+    // The layer turned on in History at that month.
+    expect(modeMenu().value).toBe('history');
+    expect(fake.asked[1]?.url).toBe(
+      '/s/100000000000000001/api/activity?mode=history&month=2019-12',
+    );
+    const december = counted();
+    fake.asked[1]?.answer(answer({ mode: 'history', weekday: null, changesInMs: null }));
+    await december;
+    fake.asked[2]?.answer(monthOfTrains([3, 2]));
+    await layer.trainsIdle();
+    expect(fake.lines).toHaveLength(1);
+    expect(fake.lines[0]?.group).toBeDefined();
+    const part = element('activity-trains');
+    expect(pressesOf(part).map((press) => press.attributes['aria-pressed'])).toEqual([
+      'false',
+      'true',
+    ]);
+    expect(part.text()).toContain('About 2 stops in 40 min');
+  });
+
+  it('leaves History as the member made it while the address’s train was on its way (B6)', async () => {
+    let taken = 0;
+    const { layer, turn, modeMenu, counted } = shown({
+      entry: {
+        train: 2,
+        taken: () => {
+          taken += 1;
+        },
+      },
+    });
+    turn(true);
+    // The member changes the mode before any answer came (review R1: the change, not the heat's
+    // answer, takes the address's train's place).
+    const menu = modeMenu();
+    menu.value = 'evenings';
+    menu.fire('change');
+    const evenings = counted();
+    fake.asked[2]?.answer(answer({ mode: 'evenings', weekday: null, changesInMs: null }));
+    await evenings;
+    fake.asked[0]?.answer({ ...trainRoute(2), month: '2019-06' });
+    await layer.trainsIdle();
+    expect(taken).toBe(1);
+    expect(menu.value).toBe('evenings');
+    expect(fake.asked.some((one) => one.url.includes('month=2019-06'))).toBe(false);
+    expect(fake.lines).toEqual([]);
+  });
+
+  it('draws the address’s train whose answer came after the heat’s, at its month (R1)', async () => {
+    const { layer, turn, modeMenu, counted } = shown({
+      entry: { train: 2, taken: () => undefined },
+    });
+    turn(true);
+    const now = counted();
+    fake.asked[1]?.answer(answer());
+    await now;
+    fake.asked[0]?.answer({ ...trainRoute(2), month: '2019-06' });
+    await layer.trainsIdle();
+    expect(modeMenu().value).toBe('history');
+    expect(fake.asked.at(-1)?.url).toBe(
+      '/s/100000000000000001/api/activity?mode=history&month=2019-06',
+    );
+    expect(fake.lines).toHaveLength(1);
+    expect(fake.lines[0]?.group).toBeDefined();
+  });
+
+  it('opens at a train’s month outside the slider’s, the slider at its nearest end (B6)', async () => {
+    const { layer, counted, element } = shown({ entry: { train: 2, taken: () => undefined } });
+    fake.asked[0]?.answer({ ...trainRoute(2), month: '2020-03' });
+    await layer.trainsIdle();
+    expect(fake.asked[1]?.url).toContain('month=2020-03');
+    const march = counted();
+    fake.asked[1]?.answer(answer({ mode: 'history', weekday: null, changesInMs: null }));
+    await march;
+    expect(element('activity-slider').value).toBe('11');
+    expect(element('activity-step').textContent).toBe('March 2020');
+  });
+
+  it('says once that the train of the address cannot be shown', async () => {
+    const { element, layer, counted } = shown({ entry: { train: 2, taken: () => undefined } });
+    fake.asked[0]?.fail(new RequestError(404, 'Not found.'));
+    await layer.trainsIdle();
+    // History opens all the same, on this month.
+    const shownMonth = counted();
+    expect(fake.asked[1]?.url).toContain('month=2026-10');
+    fake.asked[1]?.answer(
+      answer({
+        mode: 'history',
+        weekday: null,
+        changesInMs: null,
+        months: { first: '2026-01', last: '2026-10' },
+      }),
+    );
+    await shownMonth;
+    expect(element('activity-trains-note').textContent).toBe('This train cannot be shown.');
   });
 
   it('hides the trains during Play and clears the one chosen, and when turned off (G8)', async () => {

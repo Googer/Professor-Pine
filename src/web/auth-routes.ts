@@ -100,7 +100,8 @@ export function authRoutes(app: FastifyInstance, deps: WebDeps): void {
     const back = kept?.next ?? '/';
     const failed = (reason: string): FastifyReply => {
       log.info({ reason }, 'a login with Discord failed');
-      return reply.redirect(`${back}?login=failed`, 302);
+      // A page at an ended train has its query already (`localPath`, plan 8H-7B).
+      return reply.redirect(`${back}${back.includes('?') ? '&' : '?'}login=failed`, 302);
     };
     const { code, state } = request.query;
     if (!kept || typeof state !== 'string' || !sameText(state, kept.state)) {

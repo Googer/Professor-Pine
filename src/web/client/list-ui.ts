@@ -1,3 +1,4 @@
+import { loginNext } from './train-address.js';
 import { CAMPFIRE_DISCOVER_URL } from '../../domain/campfire.js';
 import { nothingFound, type FindGroup } from './find.js';
 import { renderNode, type PageNode } from './popup.js';
@@ -446,7 +447,7 @@ export function loggedOutPane(
   if (login === 'discord') {
     const link = document.createElement('a');
     link.className = 'press primary login';
-    link.href = `/auth/login?next=${encodeURIComponent(location.pathname)}`;
+    link.href = `/auth/login?next=${encodeURIComponent(loginNext(location.pathname, location.search))}`;
     link.textContent = 'Log in with Discord';
     parts.push(link);
   } else if (login === 'links') {
