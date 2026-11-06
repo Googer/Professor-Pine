@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-05T22:13",
+  "updated": "2026-11-05T22:40",
   "items": [
     {
       "id": "0",
@@ -10836,14 +10836,18 @@ window.GANTT = {
       ],
       "scope": "Part F: an ended train's post gets a card (stops and time, regions crossed, riders and most at once, raids along the way)",
       "doneWhen": "Merged into main-dev",
-      "status": "planned",
+      "status": "done",
       "planning": {
         "start": "2026-11-05T20:24",
-        "end": "2026-11-05T22:13",
+        "end": "2026-11-05T22:14",
         "review": {
           "start": "2026-11-05T21:00",
           "end": "2026-11-05T22:13"
         }
+      },
+      "review": {
+        "start": "2026-11-05T22:20",
+        "end": "2026-11-05T22:32"
       }
     },
     {
@@ -10851,63 +10855,68 @@ window.GANTT = {
       "kind": "task",
       "parent": "8H-7A",
       "name": "Most riders at once and the stops' regions (migration 041)",
-      "size": 1,
       "dependsOn": [],
       "scope": "Most riders at once and the stops' regions (migration 041)",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "planned"
+      "status": "done",
+      "start": "2026-11-05T22:14",
+      "end": "2026-11-05T22:16"
     },
     {
       "id": "8H-7A.2",
       "kind": "task",
       "parent": "8H-7A",
       "name": "The card and the raids along the way",
-      "size": 1,
       "dependsOn": [
         "8H-7A.1"
       ],
       "scope": "The card and the raids along the way",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "planned"
+      "status": "done",
+      "start": "2026-11-05T22:16",
+      "end": "2026-11-05T22:17"
     },
     {
       "id": "8H-7A.3",
       "kind": "task",
       "parent": "8H-7A",
       "name": "The ending write gives back its record",
-      "size": 1,
       "dependsOn": [
         "8H-7A.2"
       ],
       "scope": "The ending write gives back its record",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "planned"
+      "status": "done",
+      "start": "2026-11-05T22:17",
+      "end": "2026-11-05T22:19"
     },
     {
       "id": "8H-7A.4",
       "kind": "task",
       "parent": "8H-7A",
       "name": "The card on the ended post",
-      "size": 1,
       "dependsOn": [
         "8H-7A.3"
       ],
       "scope": "The card on the ended post",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "planned"
+      "status": "done",
+      "start": "2026-11-05T22:19",
+      "end": "2026-11-05T22:19"
     },
     {
       "id": "8H-7A.5",
       "kind": "task",
       "parent": "8H-7A",
       "name": "Docs",
-      "size": 1,
       "dependsOn": [
         "8H-7A.4"
       ],
       "scope": "Docs",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "planned"
+      "status": "done",
+      "start": "2026-11-05T22:19",
+      "end": "2026-11-05T22:20"
     },
     {
       "id": "8H-7B",

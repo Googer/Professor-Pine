@@ -3168,3 +3168,23 @@ Plan `docs/superpowers/plans/2026-11-05-phase-8h6-boards-and-own-stats.md`; migr
   - Step 2: Googer's raid that Tester completed and Tester's that Googer completed, both closed by `/delete` (`closedBy` `staff`), rank "1. Googer: 1 raid, 2. Tester: 1 raid" (the tie to who reached it first). With the boards off, Tester sees "You would be #2 with 1 raid." Tester's Share posts only Googer, "Shared by Tester"; the fourth Share in ten minutes is refused ("Try again in 10 minutes.").
   - 8H-6A: train "Conductor test" (4 stops). Googer conducts one move; Tester takes over, makes two moves and leaves; Googer takes over and finishes. The record has Googer `conducted` 1 and Tester 2: the take-over followed only by Finish earned nothing. `conductorId` is Googer, who held the role at the end.
 - **Not run:** step 3 (a member who left the server), step 4 (a Share hiding a region nobody of #oakland's readers lacks), step 6 (a meetup closed by staff: `closedBy` is written by `/delete`, the board's rule is unit-tested).
+
+## From Phase 8H-7A (the train card on the ended post, 2026-11-05)
+
+Plan `docs/superpowers/plans/2026-11-05-phase-8h7a-train-card.md`; migration 041 adds `PartyHistory.peakRiders` and `PartyHistoryStop.regionIds`. An ended train's post gets "How the train went": about how many stops in how long, the regions crossed, riders (and the most aboard at once when it differs), the raids and max battles recorded along the way, an approximate note. Part F's web half is plan 8H-7B.
+
+- **Matt's rulings (2026-11-05):** Part F split into 7A (post) and 7B (web); raids along the way from records only; every stop capped at 30 minutes; regions stored per stop.
+- **Controller's calls, for Matt to object to:**
+  - the time is the sum of the counted stops' capped times;
+  - stops under a minute are not counted;
+  - a member is aboard from their first Here until they leave, go Done, go back to Interested or split off;
+  - a split train's members on Coming when it settles count as having come to it (riders, the most at once, and so its boards and stats, which already count a split lineage once);
+  - "at most N riders at once" is left out when it equals the riders;
+  - tiers worded as the posts word them ("Level 5 raids", "Dynamax 5★ max battles");
+  - the raids read waits at most 3 s, then the card shows without them;
+  - a redo reads them once more;
+  - a post deleted by hand still costs one raids read.
+- **Reviews (Opus):** brief (F-B1..F-B15), prototype in two halves (A1–A6, B1–B8), re-review (R1–R5), whole branch (W1 Important: a split train said "Nobody rode it." beside its stops; W2 Minor), all fixed.
+- **Staging** (Air's dev stack after `./pine update`, migration 041; no deploy): the plan's "Staging" steps 1–4.
+- **Not tried:** Discord's rendering of the card (channel mentions, ★), a real split train's card.
+- **Then:** 8H-7B (the web: a month's trains, a still route line with the card from `trainCardRows`, legacy trains' routes; count legacy trains first; F-B13's privacy question for Matt: leave out trains with few riders?).
