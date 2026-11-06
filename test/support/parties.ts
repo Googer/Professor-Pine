@@ -6,8 +6,9 @@ import type {
   PartyList,
   PartySave,
   PartyStorage,
+  Saved,
 } from '../../src/db/repositories/party-repository.js';
-import type { HistoryNote } from '../../src/domain/history/party-history.js';
+import type { HistoryNote, HistoryRecord } from '../../src/domain/history/party-history.js';
 import { partyFromStored, partyMirrors, partyState } from '../../src/domain/party/party-state.js';
 import type { DroppedPin } from '../../src/domain/geo/place.js';
 import { createMax, type NewMax } from '../../src/domain/party/max.js';
@@ -345,15 +346,14 @@ export class MemoryPartyStorage implements PartyStorage {
     });
   }
 
-  save(party: Party, note?: HistoryNote): Promise<boolean> {
-    return this.attempt(() => {
+  save(party: Party, note?: HistoryNote): Promise<Saved> {
+    return this.attempt((): Saved => {
       if (!this.rows.has(party.id)) return false;
       survivesStorage(party);
       if (this.postTaken(party)) throw new Error('Duplicate entry');
       this.rows.set(party.id, party);
       this.writes.push(party);
-      this.noted(note);
-      return true;
+      return { recorded: this.noted(note) };
     });
   }
 
@@ -389,14 +389,18 @@ export class MemoryPartyStorage implements PartyStorage {
     });
   }
 
-  /** Writes a note after its party, as the repository does behind a savepoint. */
-  private noted(note: HistoryNote | undefined): void {
-    if (note === undefined || this.history === undefined) return;
+  /**
+   * Writes a note after its party, as the repository does behind a savepoint; answers the record
+   * it wrote, none where it failed (handed to `historyFailed`).
+   */
+  private noted(note: HistoryNote | undefined): HistoryRecord | undefined {
+    if (note === undefined || this.history === undefined) return undefined;
     try {
-      this.history.apply(note);
+      return this.history.apply(note);
     } catch (err) {
       if (!this.historyFailed) throw err;
       this.historyFailed(note, err);
+      return undefined;
     }
   }
 

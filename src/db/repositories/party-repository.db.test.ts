@@ -167,9 +167,9 @@ describe('PartyRepository', () => {
       timed: { name: 'Picnic', startTime: null },
       meetup: { description: null, place: null },
     };
-    expect(await parties.save(changed)).toBe(true);
+    expect(await parties.save(changed)).toEqual({ recorded: undefined });
     expect(await parties.findById(meetup.id)).toEqual({ ok: true, party: changed });
-    expect(await parties.save(endParty(changed))).toBe(true);
+    expect(await parties.save(endParty(changed))).toEqual({ recorded: undefined });
     expect(await parties.listActive()).toEqual({ parties: [], unreadable: [] });
   });
 
@@ -250,9 +250,9 @@ describe('PartyRepository', () => {
       },
       updatedAt: PARTY_NOW + 5,
     };
-    expect(await parties.save(changed)).toBe(true);
+    expect(await parties.save(changed)).toEqual({ recorded: undefined });
     expect(await parties.findById(train.id)).toEqual({ ok: true, party: changed });
-    expect(await parties.save(endParty(changed))).toBe(true);
+    expect(await parties.save(endParty(changed))).toEqual({ recorded: undefined });
     expect(await parties.listActive()).toEqual({ parties: [], unreadable: [] });
   });
 
@@ -300,16 +300,16 @@ describe('PartyRepository', () => {
       saved: true,
       updatedAt: PARTY_NOW + MINUTE,
     };
-    await expect(parties.save(changed)).resolves.toBe(true);
+    await expect(parties.save(changed)).resolves.toEqual({ recorded: undefined });
     await expect(parties.findById(egg.id)).resolves.toEqual({ ok: true, party: changed });
 
     // Ended, and its region gone.
     const closed: RaidParty = { ...endParty(changed), regionId: null };
-    await expect(parties.save(closed)).resolves.toBe(true);
+    await expect(parties.save(closed)).resolves.toEqual({ recorded: undefined });
     await expect(parties.findById(egg.id)).resolves.toEqual({ ok: true, party: closed });
 
     // Back to nothing: every nullable column can be cleared again.
-    await expect(parties.save(egg)).resolves.toBe(true);
+    await expect(parties.save(egg)).resolves.toEqual({ recorded: undefined });
     await expect(parties.findById(egg.id)).resolves.toEqual({ ok: true, party: egg });
   });
 
@@ -351,7 +351,7 @@ describe('PartyRepository', () => {
     const egg = testRaid();
     await expect(parties.save(egg)).resolves.toBe(false);
     await parties.insert(egg);
-    await expect(parties.save(egg)).resolves.toBe(true);
+    await expect(parties.save(egg)).resolves.toEqual({ recorded: undefined });
   });
 
   it('saves two parties in one transaction: a failure of the second leaves the first as it was', async () => {
@@ -511,7 +511,7 @@ describe('PartyRepository', () => {
         [ALICE]: { ...raid.attendees[ALICE]!, name: '🎉 Alice 🎉' },
       },
     };
-    await expect(parties.save(renamed)).resolves.toBe(true);
+    await expect(parties.save(renamed)).resolves.toEqual({ recorded: undefined });
     expect((await parties.listActive()).parties).toEqual([renamed]);
   });
 

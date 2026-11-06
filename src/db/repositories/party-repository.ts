@@ -1,5 +1,5 @@
 import { sql, type Kysely, type Selectable } from 'kysely';
-import type { HistoryNote } from '../../domain/history/party-history.js';
+import type { HistoryNote, HistoryRecord } from '../../domain/history/party-history.js';
 import {
   partyFromStored,
   partyMirrors,
@@ -28,6 +28,14 @@ export interface PartyList {
   unreadable: UnreadableParty[];
 }
 
+/**
+ * What `save` did: false where there is no such row; otherwise the record its note wrote in the
+ * party's transaction, with its server (plan 8H-7A, review F-B1: the card of an ended train is
+ * drawn from it), undefined where it wrote none (no end, a move, a drop) or where the record
+ * failed and went to `historyFailed` (also when the party's write ran again alone).
+ */
+export type Saved = false | { recorded: HistoryRecord | undefined };
+
 /** One party of `saveBoth`, with what it adds to the party history. */
 export interface PartySave {
   party: Party;
@@ -43,9 +51,9 @@ export interface PartyStorage {
   insert(party: Party, note?: HistoryNote): Promise<void>;
   /**
    * Writes everything that can change, and `note` as `insert` does. Returns false when there is
-   * no such row (and writes no note).
+   * no such row (and writes no note), else the record the note wrote (`Saved`).
    */
-  save(party: Party, note?: HistoryNote): Promise<boolean>;
+  save(party: Party, note?: HistoryNote): Promise<Saved>;
   /**
    * Writes two parties in one transaction, each as `save` does with its note: both or neither
    * (`PartyStore.updateBoth`). Says, per party, whether its row is there; when one is not,
@@ -165,7 +173,9 @@ function listOf(rows: Selectable<PartyTable>[]): PartyList {
 }
 
 /** What writes a note of the party history: `HistoryRepository`, over the connection given. */
-export type HistoryWriter = (db: Kysely<DB>) => { write(note: HistoryNote): Promise<void> };
+export type HistoryWriter = (db: Kysely<DB>) => {
+  write(note: HistoryNote): Promise<HistoryRecord | undefined>;
+};
 
 export interface PartyRepositoryOptions {
   /**
@@ -214,7 +224,7 @@ export class PartyRepository implements PartyStorage {
     });
   }
 
-  save(party: Party, note?: HistoryNote): Promise<boolean> {
+  save(party: Party, note?: HistoryNote): Promise<Saved> {
     return this.withNote(note, (db) => updateRow(db, { id: party.id, values: changeable(party) }));
   }
 
@@ -320,13 +330,16 @@ export class PartyRepository implements PartyStorage {
    * ends all the same. A note of steps alone (what a click adds) follows the party's write in
    * one statement of its own, without a transaction: a click costs one round trip more, not
    * five, and a step that fails is tried again the same way. The party's write by itself (no
-   * note, or steps only) runs again on a deadlock too.
+   * note, or steps only) runs again on a deadlock too. Answers the record the note wrote with the
+   * party (`Saved`): that of the try that committed, never one a deadlock rolled back.
    */
   private async withNote(
     note: HistoryNote | undefined,
     write: (db: Kysely<DB>) => Promise<boolean>,
-  ): Promise<boolean> {
-    const alone = () => retryOnDeadlock(this.db, () => write(this.db));
+  ): Promise<Saved> {
+    const none: Saved = { recorded: undefined };
+    const alone = async (): Promise<Saved> =>
+      (await retryOnDeadlock(this.db, () => write(this.db))) && none;
     if (note === undefined || (note.steps.length === 0 && note.end === undefined)) {
       return alone();
     }
@@ -338,21 +351,22 @@ export class PartyRepository implements PartyStorage {
       } catch (err) {
         historyFailed(note, err);
       }
-      return true;
+      return none;
     }
     let failure: { err: unknown } | undefined;
     let lost = false;
-    let written: boolean;
+    let written: Saved;
     try {
-      // A deadlock rolled the whole try back: what it found goes with it.
+      // A deadlock rolled the whole try back: what it found and wrote goes with it.
       written = await retryOnDeadlock(this.db, () => {
         failure = undefined;
         lost = false;
-        return inTransaction(this.db, async (trx) => {
+        return inTransaction(this.db, async (trx): Promise<Saved> => {
           if (!(await write(trx))) return false;
+          let recorded: HistoryRecord | undefined;
           await sql`savepoint party_history`.execute(trx);
           try {
-            await this.history(trx).write(note);
+            recorded = await this.history(trx).write(note);
             await sql`release savepoint party_history`.execute(trx);
           } catch (err) {
             failure = { err };
@@ -362,12 +376,15 @@ export class PartyRepository implements PartyStorage {
               lost = true;
               throw err;
             }
+            // Rolled back to the savepoint: nothing of it was written.
+            recorded = undefined;
           }
-          return true;
+          return { recorded };
         });
       });
     } catch (err) {
       if (!lost) throw err;
+      // The party alone: its record goes to its later tries, and none is given back.
       written = await alone();
     }
     if (failure && written) historyFailed(note, failure.err);

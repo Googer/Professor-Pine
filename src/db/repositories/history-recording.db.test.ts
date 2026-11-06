@@ -48,6 +48,8 @@ const MOVED = '00000000-0000-4000-8000-000000000009';
 const SPLIT = '00000000-0000-4000-8000-00000000000a';
 const PAIRED = '00000000-0000-4000-8000-00000000000b';
 const POST = '900000000000000001';
+/** What a save gives back that wrote no record (steps alone, or a record that failed). */
+const NO_RECORD = { recorded: undefined };
 const FORUM = '900000000000000002';
 
 /** A record end, as the party history service makes it; `broken` throws while building it. */
@@ -165,7 +167,7 @@ describe('the party history, written with the parties', () => {
                 },
               ];
         await parties.insert(after, { ...note, steps });
-      } else expect(await parties.save(after, noteOf(before, after))).toBe(true);
+      } else expect(await parties.save(after, noteOf(before, after))).toEqual(NO_RECORD);
       before = after;
     }
     return before as Party;
@@ -179,7 +181,9 @@ describe('the party history, written with the parties', () => {
       withAttendees(battle, { [ALICE]: { status: PartyStatus.Complete } }),
     ]);
     const last = ending(ended, T + 2 * MINUTE);
-    expect(await parties.save(last, noteOf(ended, last))).toBe(true);
+    expect(await parties.save(last, noteOf(ended, last))).toMatchObject({
+      recorded: { partyId: last.id, serverId: HISTORY_SERVER, kind: 'max' },
+    });
     const pinned = {
       ...testMax({ id: SPLIT, spot: TEST_PIN, tier: 'G' }),
       forumChannelId: FORUM,
@@ -187,7 +191,9 @@ describe('the party history, written with the parties', () => {
     };
     const over = await live([pinned]);
     const gone = ending(over, T + MINUTE);
-    expect(await parties.save(gone, noteOf(over, gone))).toBe(true);
+    expect(await parties.save(gone, noteOf(over, gone))).toMatchObject({
+      recorded: { partyId: gone.id },
+    });
     const rows = await db
       .selectFrom('PartyHistory')
       .select(['partyId', 'kind', 'tier', 'gymId', 'wayspotId', 'bossName', 'ending', 'endTime'])
@@ -233,7 +239,9 @@ describe('the party history, written with the parties', () => {
     expect(await kept()).toEqual([]);
 
     const last = ending(ended, T + 3 * MINUTE);
-    expect(await parties.save(last, noteOf(ended, last))).toBe(true);
+    expect(await parties.save(last, noteOf(ended, last))).toMatchObject({
+      recorded: { partyId: last.id, source: 'live' },
+    });
     expect(await stepsOf(raid.id)).toEqual([]);
     expect(await kept()).toEqual([
       expect.objectContaining({
@@ -407,7 +415,7 @@ describe('the party history, written with the parties', () => {
     const ended = await live([made, on(0), on(1)]);
     const last = ending(ended, T + 4 * MINUTE);
     const steps = partySteps(ended, last, last.updatedAt);
-    await parties.save(last, {
+    const saved = await parties.save(last, {
       partyId: last.id,
       guildId: last.guildId,
       steps,
@@ -442,6 +450,18 @@ describe('the party history, written with the parties', () => {
     const records = await sql<{ peakRiders: number | null }>`
       select peakRiders from PartyHistory`.execute(db);
     expect(records.rows).toEqual([{ peakRiders: 1 }]);
+    // The save gives back the record it wrote (plan 8H-7A, review F-B1): what the post's card reads.
+    expect(saved).toMatchObject({
+      recorded: {
+        partyId: last.id,
+        serverId: HISTORY_SERVER,
+        peakRiders: 1,
+        stops: [
+          expect.objectContaining({ gymId: 11, regionIds: [1, 3] }),
+          expect.objectContaining({ gymId: 12, regionIds: undefined }),
+        ],
+      },
+    });
   });
 
   it('keeps no most riders at once for a party that is no train (plan 8H-7A)', async () => {
@@ -662,7 +682,7 @@ describe('the party history, written with the parties', () => {
     // Bob's goes one stop on first: one.
     const bob = await split(PAIRED, BOB, 'C', T + 3 * MINUTE);
     const onward = { ...ok(moveTrain(bob, BOB, 'next', false)), updatedAt: T + 4 * MINUTE };
-    expect(await parties.save(onward, noteOf(bob, onward))).toBe(true);
+    expect(await parties.save(onward, noteOf(bob, onward))).toEqual(NO_RECORD);
     await parties.save(
       ending(onward, T + 5 * MINUTE),
       noteOf(onward, ending(onward, T + 5 * MINUTE)),
@@ -773,7 +793,8 @@ describe('the party history, written with the parties', () => {
     const ended = await live([testRaid()]);
     const last = ending(ended, T + MINUTE);
     const note = noteOf(ended, last, recordOf(last, 'build'));
-    expect(await parties.save(last, note)).toBe(true);
+    // The party's write stands, with no record to give back.
+    expect(await parties.save(last, note)).toEqual(NO_RECORD);
     expect(await parties.findById(last.id)).toEqual({ ok: true, party: last });
     expect(await kept()).toEqual([]);
     // Its steps and its row stay for a later try, or the sweep at start.
@@ -804,7 +825,8 @@ describe('the party history, written with the parties', () => {
     });
     const ended = await live([testRaid()]);
     const last = ending(ended, T + MINUTE);
-    expect(await killing.save(last, noteOf(ended, last))).toBe(true);
+    // Written again alone: no record to give back.
+    expect(await killing.save(last, noteOf(ended, last))).toEqual(NO_RECORD);
     expect(await rowOf(last.id)).toEqual({ status: 'ended' });
     expect(failures.map((failure) => String(failure.err))).toEqual([
       'Error: Deadlock found when trying to get lock',
@@ -829,7 +851,9 @@ describe('the party history, written with the parties', () => {
     });
     const ended = await live([testRaid()]);
     const last = ending(ended, T + MINUTE);
-    expect(await once.save(last, noteOf(ended, last))).toBe(true);
+    // The record of the try that committed is given back.
+    const saved = await once.save(last, noteOf(ended, last));
+    expect(saved).toMatchObject({ recorded: { partyId: last.id, serverId: HISTORY_SERVER } });
     // The record is written with the end after all, and nothing is handed over.
     expect((await kept()).map((row) => row.partyId)).toEqual([last.id]);
     expect(await rowOf(last.id)).toBeUndefined();
@@ -851,7 +875,7 @@ describe('the party history, written with the parties', () => {
     const ended = await live([testRaid()]);
     const last = ending(ended, T + MINUTE);
     const note = noteOf(ended, last);
-    expect(await always.save(last, note)).toBe(true);
+    expect(await always.save(last, note)).toEqual(NO_RECORD);
     expect(tries).toBe(DEADLOCK_TRIES);
     expect(await rowOf(last.id)).toEqual({ status: 'ended' });
     expect(failures.map((failure) => [failure.note, String(failure.err)])).toEqual([

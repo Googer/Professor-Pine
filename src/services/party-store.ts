@@ -1,5 +1,10 @@
 import type { PartyForum, PartySave, PartyStorage } from '../db/repositories/party-repository.js';
-import type { HistoryNote, PartyEnd, PartyWrite } from '../domain/history/party-history.js';
+import type {
+  HistoryNote,
+  HistoryRecord,
+  PartyEnd,
+  PartyWrite,
+} from '../domain/history/party-history.js';
 import { pruneGroups } from '../domain/party/attendance.js';
 import { blocksNewMax, sameSpot, spotKey } from '../domain/party/max.js';
 import {
@@ -294,12 +299,15 @@ export class PartyStore implements PartyProvider {
    * throws: a party is of one kind for good, which `asKindOf` relies on.
    *
    * A change that ends the party says why with `ended` (the party history keeps it: the clock,
-   * a person, a move); without it the history says it does not know.
+   * a person, a move); without it the history says it does not know. Such a change's result
+   * has `recorded`, the record of the party history its write committed with it (plan 8H-7A,
+   * review F-B1: the card of an ended train is drawn from it); undefined where none was written
+   * (the record failed and waits for its later tries, the party moved or never had a post).
    */
   async update<R extends { party?: Party; ended?: PartyEnd }>(
     id: string,
     change: (party: Party) => R,
-  ): Promise<(R & { written: boolean }) | undefined> {
+  ): Promise<(R & { written: boolean; recorded?: HistoryRecord }) | undefined> {
     const parties = this.all;
     return this.locks.run(id, async () => {
       const current = parties.get(id);
@@ -321,14 +329,16 @@ export class PartyStore implements PartyProvider {
         after: stamped,
         ...(result.ended ? { ended: result.ended } : {}),
       });
-      if (!(await this.options.storage.save(stamped, note))) {
+      const saved = await this.options.storage.save(stamped, note);
+      if (!saved) {
         parties.delete(id);
         throw new Error(`Party ${id} is no longer in the database`);
       }
       if (stamped.status === 'active') parties.set(id, stamped);
       else parties.delete(id);
       this.announce(current, stamped);
-      return { ...result, party: stamped, written: true };
+      const { recorded } = saved;
+      return { ...result, party: stamped, written: true, ...(recorded ? { recorded } : {}) };
     });
   }
 
@@ -398,7 +408,7 @@ export class PartyStore implements PartyProvider {
         });
         const found: readonly boolean[] = second
           ? await storage.saveBoth([saved(first), saved(second)])
-          : [await storage.save(first.after, first.note)];
+          : [(await storage.save(first.after, first.note)) !== false];
         const gone = writes.filter((_write, n) => found[n] !== true).map((write) => write.after.id);
         if (gone.length > 0) {
           for (const id of gone) parties.delete(id);

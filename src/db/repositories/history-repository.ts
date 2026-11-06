@@ -78,8 +78,11 @@ export interface HistoryStorage {
    * Writes a note (see `HistoryNote`): its steps, and what becomes of the party when it ended.
    * `retry`: a write after the party's own, which writes no step for a party that has ended (a
    * late step would otherwise stay behind for good) and nothing for one whose row is gone.
+   * Answers the record it wrote (plan 8H-7A, review F-B1: the card of an ended train is drawn
+   * from it), with its server; undefined where it wrote none (steps alone, a move, a drop, a
+   * party recorded already or gone).
    */
-  write(note: HistoryNote, options?: { retry?: boolean }): Promise<void>;
+  write(note: HistoryNote, options?: { retry?: boolean }): Promise<HistoryRecord | undefined>;
   /** The ended parties still waiting for their record (`PartyHistory.sweep`), oldest first. */
   unrecorded(): Promise<UnrecordedParty[]>;
   /**
@@ -325,13 +328,16 @@ export class HistoryRepository implements HistoryOptIns, HistoryStorage, RaidsAl
     return Number(written.numAffectedRows ?? 0n) > 0;
   }
 
-  async write(note: HistoryNote, options: { retry?: boolean } = {}): Promise<void> {
+  async write(
+    note: HistoryNote,
+    options: { retry?: boolean } = {},
+  ): Promise<HistoryRecord | undefined> {
     // Steps alone, the first time: one statement, no transaction (what every click writes).
     if (note.end === undefined && !options.retry) {
       await insertSteps(this.db, note.steps);
-      return;
+      return undefined;
     }
-    await inTransaction(this.db, async (trx) => {
+    return inTransaction(this.db, async (trx): Promise<HistoryRecord | undefined> => {
       const { partyId, end } = note;
       // Locked: a retry and the party's own end, or the sweep, take turns.
       const row = await trx
@@ -343,10 +349,10 @@ export class HistoryRepository implements HistoryOptIns, HistoryStorage, RaidsAl
       if (end === undefined) {
         // A late step of a party that has ended (or is gone) is no step any more.
         if (row?.status === 'active') await insertSteps(trx, note.steps);
-        return;
+        return undefined;
       }
       // Recorded, dropped or taken along already: its row went with it.
-      if (!row) return;
+      if (!row) return undefined;
       await insertSteps(trx, note.steps);
       if (end.kind === 'move') {
         // Lazy: the new party's record takes this one's steps and row. Said again here, in
@@ -367,11 +373,11 @@ export class HistoryRepository implements HistoryOptIns, HistoryStorage, RaidsAl
             },
           ]);
         }
-        return;
+        return undefined;
       }
       if (end.kind === 'drop') {
         await forget(trx, [partyId]);
-        return;
+        return undefined;
       }
       const lineage = await partiesOf(trx, partyId);
       const rows = await trx
@@ -408,8 +414,11 @@ export class HistoryRepository implements HistoryOptIns, HistoryStorage, RaidsAl
               .forShare()
               .execute();
       const record = end.build(steps, new Set(optedIn.map((opted) => opted.memberId)));
-      await new HistoryRepository(trx).insertRecords([{ ...record, serverId: server.snowflake }]);
+      const recorded: HistoryRecord = { ...record, serverId: server.snowflake };
+      const written = await new HistoryRepository(trx).insertRecords([recorded]);
       await forget(trx, lineage);
+      // What was written, for the card of an ended train; none where it was recorded before.
+      return written.inserted > 0 ? recorded : undefined;
     });
   }
 

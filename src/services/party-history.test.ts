@@ -240,6 +240,31 @@ describe('the party history of live parties', () => {
     ]);
   });
 
+  it('gives back the record the ending write committed, and none when it failed (plan 8H-7A)', async () => {
+    const made = await createdTrain({ route: [1, 7] });
+    const ended = await made.store.update(made.party.id, (party) => ({
+      party: endParty(party),
+      ended: { how: 'clock' as const },
+    }));
+    expect(ended?.recorded).toEqual(made.history.records[0]);
+    expect(ended?.recorded).toMatchObject({ partyId: made.party.id, serverId: HISTORY_SERVER });
+    // A change that ends nothing records nothing.
+    const other = await createdTrain({ route: [1] });
+    const renamed = await other.store.update(other.party.id, (party) => ({
+      party: { ...party, anonymous: !party.anonymous },
+    }));
+    expect(renamed?.recorded).toBeUndefined();
+    // A record that failed goes to its later tries: the end stands, with nothing to give back.
+    other.history.failing = new Error('the history is down');
+    const failed = await other.store.update(other.party.id, (party) => ({
+      party: endParty(party),
+      ended: { how: 'clock' as const },
+    }));
+    expect(failed?.written).toBe(true);
+    expect(failed?.recorded).toBeUndefined();
+    other.history.failing = undefined;
+  });
+
   it('credits every conductor of a train with the stops they led, also one who pressed Done (plan 8H-6A)', async () => {
     const made = await createdTrain({ route: [1, 2, 3] });
     made.history.optIn(1, ALICE);

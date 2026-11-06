@@ -101,15 +101,16 @@ export class MemoryHistory implements HistoryStorage, RaidsAlongReader {
     this.kept = this.kept.filter((step) => !partyIds.includes(step.partyId));
   }
 
-  apply(note: HistoryNote, options: { retry?: boolean } = {}): void {
+  /** Answers the record it wrote, as the repository's `write`; none where it wrote none. */
+  apply(note: HistoryNote, options: { retry?: boolean } = {}): HistoryRecord | undefined {
     if (this.failing) throw this.failing;
     const { partyId, end } = note;
     const row = this.parties.get(partyId);
     if (end === undefined) {
       if (!options.retry || row?.status === 'active') this.kept = [...this.kept, ...note.steps];
-      return;
+      return undefined;
     }
-    if (!row) return;
+    if (!row) return undefined;
     const before = this.kept;
     this.kept = [...this.kept, ...note.steps];
     try {
@@ -123,11 +124,11 @@ export class MemoryHistory implements HistoryStorage, RaidsAlongReader {
             value: null,
           });
         }
-        return;
+        return undefined;
       }
       if (end.kind === 'drop') {
         this.forget([partyId]);
-        return;
+        return undefined;
       }
       const lineage = this.lineage(partyId);
       const own = this.kept
@@ -136,9 +137,11 @@ export class MemoryHistory implements HistoryStorage, RaidsAlongReader {
       const serverId = this.servers.get(note.guildId);
       if (serverId === undefined) throw new Error(`Party ${partyId} has no server`);
       const optedIn = new Set(end.members(own).filter((id) => this.opted.has(`${serverId}:${id}`)));
-      const record = { ...end.build(own, optedIn), serverId };
-      if (!this.records.some((kept) => kept.partyId === record.partyId)) this.records.push(record);
+      const record: HistoryRecord = { ...end.build(own, optedIn), serverId };
+      const fresh = !this.records.some((kept) => kept.partyId === record.partyId);
+      if (fresh) this.records.push(record);
       this.forget(lineage);
+      return fresh ? record : undefined;
     } catch (err) {
       // All or nothing, as behind the savepoint.
       this.kept = before;
@@ -230,13 +233,12 @@ export class MemoryHistory implements HistoryStorage, RaidsAlongReader {
     });
   }
 
-  write(note: HistoryNote, options: { retry?: boolean } = {}): Promise<void> {
+  write(note: HistoryNote, options: { retry?: boolean } = {}): Promise<HistoryRecord | undefined> {
     return new Promise((resolve, reject) => {
       // Like a real query, the answer never comes in the same turn of the event loop.
       setImmediate(() => {
         try {
-          this.apply(note, options);
-          resolve();
+          resolve(this.apply(note, options));
         } catch (err) {
           reject(err instanceof Error ? err : new Error(String(err)));
         }
