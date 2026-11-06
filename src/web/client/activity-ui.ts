@@ -56,7 +56,7 @@ import { onThemeChange, theme } from './theme.js';
 /** Said in the panel when the activity could not be loaded. */
 const LOAD_FAILED = 'The activity could not be loaded. Try again in a moment.';
 /** Said in History while the server has no activity at all. */
-const NO_HISTORY = 'No parties are recorded yet.';
+const NO_HISTORY = 'No raids or max battles are recorded yet.';
 
 const element = <K extends keyof HTMLElementTagNameMap>(
   tag: K,
