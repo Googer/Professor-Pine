@@ -494,6 +494,21 @@ describe('the controls of /settings', () => {
     expect(await made.history.isOptedIn(ALICE, FAKE_GUILD_ID)).toBe(false);
   });
 
+  it('only redraws where the history was on already, or the boards off already', async () => {
+    const made = setup();
+    await made.history.optIn(ALICE, FAKE_GUILD_ID, 0);
+    const optIn = vi.spyOn(made.history, 'optIn');
+    expect(textDisplays(shownAfter(await made.press('settings:history:set:on')))[0]).toBe(
+      '### Your settings\nThat was on already.',
+    );
+    expect(await made.history.isOptedIn(ALICE, FAKE_GUILD_ID)).toBe(true);
+    expect(optIn).toHaveBeenCalledTimes(1);
+    const off = shownAfter(await made.press('settings:leaderboard:set:off'));
+    expect(textDisplays(off)[0]).toBe('### Your settings\nThat was off already.');
+    expect(textDisplays(off)).toContain('On this server’s boards: **off**');
+    expect(await made.history.isOptedIn(ALICE, FAKE_GUILD_ID)).toBe(true);
+  });
+
   it('puts the member on this server’s boards, turning the history on with it', async () => {
     const made = setup();
     const on = await made.press('settings:leaderboard:set:on');
@@ -833,6 +848,23 @@ describe('the Pokebattler id of /settings', () => {
       const dialog = shownDialog(await made.press('settings:pokebattler:ask'));
       await made.submit(dialog.custom_id, dialog, { id: 'abc' });
     }
+    expect(textDisplays(shownAfter(await made.press('settings:shouts:set:off')))[0]).toBe(
+      '### Your settings\nPings for shouts are off.',
+    );
+  });
+
+  it('counts the opening of its dialog as a look at /settings, never as a change', async () => {
+    const made = setup();
+    for (let use = 0; use < 30; use++) {
+      expect(shownDialog(await made.press('settings:pokebattler:ask')).title).toBe(
+        'Your Pokebattler user id',
+      );
+    }
+    const refused = await made.press('settings:pokebattler:ask');
+    expect(refused.showModal).not.toHaveBeenCalled();
+    expect(sent(refused.reply).content).toMatch(/^You can use \/settings again in /u);
+    expect(sent((await made.open()).reply).content).toMatch(/^You can use \/settings again in /u);
+    // The changes go on in their own window.
     expect(textDisplays(shownAfter(await made.press('settings:shouts:set:off')))[0]).toBe(
       '### Your settings\nPings for shouts are off.',
     );

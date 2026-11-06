@@ -404,17 +404,20 @@ const asksHistoryOff = (id: CustomId): boolean =>
 /**
  * The controls of the panel (plan 8S-5): only its member sees it (a private answer), so only
  * they press it. Every press counts in one window, a setting's write (`MEMBER_WRITE_THROTTLE`,
- * S13), the Submit that turns the history off in a tighter one of its own
+ * S13), but for "Change…", which counts as a use of `/settings` (`MEMBER_READ_THROTTLE`, the
+ * command's window), and the Submit that turns the history off, in a tighter one of its own
  * (`HISTORY_OFF_THROTTLE`), whose button is refused while that is full (`checks`, before the
  * question opens); every press reads what it changes afresh and draws the panel again after it.
  */
 export const settingsControls: ComponentHandler = {
   kind: SETTINGS_KIND,
   guards: [requirePanelServer],
-  // Opening the Pokebattler id's dialog writes nothing: only its Submit counts (A1).
+  // Opening the Pokebattler id's dialog reads the member's row and writes nothing: it counts as a
+  // look at the panel, in `/settings`' own window, never in the writes' (A1); only its Submit
+  // counts as a change.
   throttle: (_interaction, id) =>
     id.action === ASK
-      ? undefined
+      ? { ...MEMBER_READ_THROTTLE, as: 'settings' }
       : id.action === FORGET
         ? HISTORY_OFF_THROTTLE
         : MEMBER_WRITE_THROTTLE,
