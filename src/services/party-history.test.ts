@@ -246,7 +246,8 @@ describe('the party history of live parties', () => {
       party: endParty(party),
       ended: { how: 'clock' as const },
     }));
-    expect(ended?.recorded).toEqual(made.history.records[0]);
+    // With its id (plan 8H-7B): its place in the records, from 1.
+    expect(ended?.recorded).toEqual({ ...made.history.records[0], historyId: 1 });
     expect(ended?.recorded).toMatchObject({ partyId: made.party.id, serverId: HISTORY_SERVER });
     // A change that ends nothing records nothing.
     const other = await createdTrain({ route: [1] });

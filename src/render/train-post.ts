@@ -45,6 +45,7 @@ import { stopLabel, stopLink, stopWhere, type StopLookup } from './train-stops.j
 import { TRAIN_KIND_WORDS } from './train-words.js';
 import type { TrainCard } from '../domain/history/train-card.js';
 import { trainCardText } from './train-card.js';
+import { linkButton } from './v2.js';
 
 /** A train and the stops of its route, for everything that shows where it is. */
 export interface TrainPlaces {
@@ -65,7 +66,15 @@ export interface TrainPostView extends TimedPostView<TrainParty>, TrainPlaces {
   card?: TrainCard;
   /** A region's channel by `Region.id`, for the card's regions; undefined for one gone. */
   regionChannel?: (regionId: number) => string | undefined;
+  /**
+   * The map's address of the ended train (plan 8H-7B, review G4), for "Route on the map" in its
+   * last showing: where the web has Discord's login and the train meets the map's minimum.
+   */
+  mapLink?: string;
 }
+
+/** The label of an ended train's link to its route on the map (plan 8H-7B). */
+export const ROUTE_ON_THE_MAP = 'Route on the map';
 
 /** A region of the card as the post names it: its channel's mention; none for one gone. */
 function regionMention(view: TrainPostView, regionId: number): string | undefined {
@@ -352,19 +361,33 @@ function trainLayout(view: TrainPostView): PostLayout {
       { type: 'separator' },
       {
         type: 'controls',
-        rows: bottomControls(party, {
-          emoji: view.emoji,
-          // After Group…, in the third row (plans 8X-1B, 8X-G): Move… (while there is a route to
-          // move along), Manage… and Split… for the train's own post (`moves`), Route for its
-          // copies too.
-          opens: [
-            ...(party.train.route.length > 0 ? [moveTrainButton(party)] : []),
-            manageTrainButton(party),
-            // Plan 8T: only while there is a group to split off from another with somebody in it.
-            ...(splitsPossible(party) ? [splitGroupButton(party)] : []),
-            ...(party.train.route.length > WHOLE_ROUTE_STOPS ? [wholeRouteButton(party)] : []),
-          ],
-        }),
+        rows: [
+          ...bottomControls(party, {
+            emoji: view.emoji,
+            // After Group…, in the third row (plans 8X-1B, 8X-G): Move… (while there is a route
+            // to move along), Manage… and Split… for the train's own post (`moves`), Route for its
+            // copies too.
+            opens: [
+              ...(party.train.route.length > 0 ? [moveTrainButton(party)] : []),
+              manageTrainButton(party),
+              // Plan 8T: only while there is a group to split off from another with somebody in it.
+              ...(splitsPossible(party) ? [splitGroupButton(party)] : []),
+              ...(party.train.route.length > WHOLE_ROUTE_STOPS ? [wholeRouteButton(party)] : []),
+            ],
+          }),
+          // An ended train's route on the map (plan 8H-7B, review G4): a row of its own that the
+          // last showing keeps (`stays`), all other controls gone.
+          ...(view.mapLink === undefined
+            ? []
+            : [
+                [
+                  {
+                    button: linkButton(ROUTE_ON_THE_MAP, undefined, view.mapLink),
+                    stays: true as const,
+                  },
+                ],
+              ]),
+        ],
       },
       // Unless they chose not to be named (`/settings privacy`), as for a raid they report.
       ...(party.anonymous

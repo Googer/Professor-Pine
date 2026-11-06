@@ -1,3 +1,4 @@
+import { ButtonStyle } from 'discord.js';
 import { describe, expect, it } from 'vitest';
 import { expectSendable } from '../../test/support/post-limits.js';
 import { catalogueFixture } from '../../test/support/game-data.js';
@@ -626,6 +627,37 @@ describe('renderTrainPost', () => {
     expect(textOf(renderTrainPost(view(onRoute([4, 1]))).message)).not.toContain(
       TRAIN_CARD_HEADING,
     );
+  });
+
+  it('keeps "Route on the map" in the last showing, which has no other control (plan 8H-7B)', () => {
+    const card: TrainCard = {
+      stops: { count: 2, durationMs: 40 * MINUTE },
+      regionIds: null,
+      riders: { members: 3, heads: 3 },
+      peakRiders: null,
+      raids: [],
+    };
+    const url = 'https://map.example.test/s/412345678901234567/map?train=42';
+    const ended = renderTrainPost(view(endParty(onRoute([4, 1], 2)), { card, mapLink: url }));
+    const last = postMessage(ended.layout, { controls: false });
+    expect(buttonsOf(last)).toEqual([
+      {
+        label: 'Route on the map',
+        emoji: undefined,
+        style: ButtonStyle.Link,
+        customId: undefined,
+        url,
+      },
+    ]);
+    expectSendable(ended);
+    // Without the link, nothing to press.
+    expect(
+      buttonsOf(
+        postMessage(renderTrainPost(view(endParty(onRoute([4, 1], 2)), { card })).layout, {
+          controls: false,
+        }),
+      ),
+    ).toEqual([]);
   });
 
   it('makes a name plain in the post and keeps it raw in the title of the post', () => {

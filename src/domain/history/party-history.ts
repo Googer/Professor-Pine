@@ -257,6 +257,14 @@ export interface HistoryRecord {
   stops: readonly HistoryStop[];
 }
 
+/**
+ * A record as the history wrote it, with its `PartyHistory.id` (plan 8H-7B: the ended train's
+ * post links to it on the map by that id, review G1).
+ */
+export interface WrittenRecord extends HistoryRecord {
+  historyId: number;
+}
+
 /** The counts kept with a party, so that the common questions need no join. */
 export interface HistoryCounts {
   attendees: number;

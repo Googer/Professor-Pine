@@ -191,9 +191,15 @@ describe('the party history, written with the parties', () => {
     };
     const over = await live([pinned]);
     const gone = ending(over, T + MINUTE);
-    expect(await parties.save(gone, noteOf(over, gone))).toMatchObject({
-      recorded: { partyId: gone.id },
-    });
+    const saved = await parties.save(gone, noteOf(over, gone));
+    expect(saved).toMatchObject({ recorded: { partyId: gone.id } });
+    // With its record's id (plan 8H-7B: the post's link to the train on the map).
+    const idOfGone = await db
+      .selectFrom('PartyHistory')
+      .select('id')
+      .where('partyId', '=', gone.id)
+      .executeTakeFirstOrThrow();
+    expect(saved && saved.recorded?.historyId).toBe(idOfGone.id);
     const rows = await db
       .selectFrom('PartyHistory')
       .select(['partyId', 'kind', 'tier', 'gymId', 'wayspotId', 'bossName', 'ending', 'endTime'])

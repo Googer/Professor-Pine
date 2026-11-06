@@ -1,10 +1,11 @@
+import { ButtonStyle } from 'discord.js';
 import { describe, expect, it, vi } from 'vitest';
 import { boardRecord } from '../../test/support/board-cases.js';
 import { networkAway } from '../../test/support/fake-gateway.js';
 import { EAST_CHANNEL, WEST_CHANNEL } from '../../test/support/gyms.js';
 import { HISTORY_SERVER } from '../../test/support/history.js';
 import { buttonsOf, textDisplays } from '../../test/support/messages.js';
-import { MINUTE, REPORTER } from '../../test/support/parties.js';
+import { ALICE, BOB, MINUTE, REPORTER } from '../../test/support/parties.js';
 import { createdTrain, type ServiceOverrides } from '../../test/support/party-service.js';
 import { Tally } from '../../test/support/tally.js';
 import { watchEachTest } from '../../test/support/timers.js';
@@ -73,6 +74,68 @@ describe('the card of an ended train in its post (plan 8H-7A)', () => {
     // The card is in the last showing: nothing is edited after the archiving.
     const calls = made.gateway.calls.filter((call) => call.endsWith(` ${made.postId}`));
     expect(calls.at(-1)).toBe(`archivePost ${made.postId}`);
+  });
+
+  describe('the link to the train on the map (plan 8H-7B, G4)', () => {
+    /** Where the web is configured with Discord's login: the map's address of a record. */
+    const trainMapLink = (guild: string, historyId: number) =>
+      `https://map.example.test/s/${guild}/map?train=${String(historyId)}`;
+    /** The ride, with two more members aboard: three came. */
+    const rideOfThree = async (overrides: ServiceOverrides = {}) => {
+      const made = await rideAndRaid(overrides);
+      for (const id of [ALICE, BOB]) {
+        await made.attendance.signUp(made.party.id, { id, name: id }, PartyStatus.Present);
+      }
+      await made.attendance.flush();
+      return made;
+    };
+    const links = (made: Awaited<ReturnType<typeof rideAndRaid>>) =>
+      buttonsOf(made.gateway.posts.get(made.postId)?.message).filter(
+        (button) => button.url !== undefined,
+      );
+
+    it('gives the last showing "Route on the map" to the record it wrote', async () => {
+      const made = await rideOfThree({ trainMapLink });
+      await made.service.end(made.party.id, undefined, { ended: { how: 'clock' } });
+      // The raid of the ride is the history's first record: the train's is the second.
+      expect(made.history.records.at(-1)?.kind).toBe('train');
+      const historyId = made.history.records.length;
+      expect(links(made)).toEqual([
+        {
+          label: 'Route on the map',
+          emoji: undefined,
+          style: ButtonStyle.Link,
+          customId: undefined,
+          url: trainMapLink(HISTORY_SERVER, historyId),
+        },
+      ]);
+      // Nothing else to press on an archived post.
+      expect(buttonsOf(made.gateway.posts.get(made.postId)?.message)).toHaveLength(1);
+      expect(made.gateway.posts.get(made.postId)).toMatchObject({ archived: true, locked: true });
+    });
+
+    it('gives none to a train fewer than three came to, nor without the map’s login', async () => {
+      const few = await rideAndRaid({ trainMapLink });
+      await few.service.end(few.party.id, undefined, { ended: { how: 'clock' } });
+      expect(links(few)).toEqual([]);
+      const none = await rideOfThree();
+      await none.service.end(none.party.id, undefined, { ended: { how: 'clock' } });
+      expect(links(none)).toEqual([]);
+      expect(cardOf(none)).toBeDefined();
+    });
+
+    it('keeps the link for a closing redone after the network failed it', async () => {
+      const made = await rideOfThree({ trainMapLink });
+      made.gateway.failing.set('editPost', networkAway());
+      made.gateway.failing.set('archivePost', networkAway());
+      await made.service.end(made.party.id, undefined, { ended: { how: 'clock' } });
+      expect(links(made)).toEqual([]);
+      made.gateway.failing.clear();
+      expect(await made.service.redoClosings()).toEqual({ redone: 1, failed: 0 });
+      expect(links(made).map((link) => link.url)).toEqual([
+        trainMapLink(HISTORY_SERVER, made.history.records.length),
+      ]);
+    });
   });
 
   it('shows the card under the closing words of staff, too', async () => {

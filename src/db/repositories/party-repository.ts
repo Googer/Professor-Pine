@@ -1,5 +1,5 @@
 import { sql, type Kysely, type Selectable } from 'kysely';
-import type { HistoryNote, HistoryRecord } from '../../domain/history/party-history.js';
+import type { HistoryNote, WrittenRecord } from '../../domain/history/party-history.js';
 import {
   partyFromStored,
   partyMirrors,
@@ -34,7 +34,7 @@ export interface PartyList {
  * drawn from it), undefined where it wrote none (no end, a move, a drop) or where the record
  * failed and went to `historyFailed` (also when the party's write ran again alone).
  */
-export type Saved = false | { recorded: HistoryRecord | undefined };
+export type Saved = false | { recorded: WrittenRecord | undefined };
 
 /** One party of `saveBoth`, with what it adds to the party history. */
 export interface PartySave {
@@ -174,7 +174,7 @@ function listOf(rows: Selectable<PartyTable>[]): PartyList {
 
 /** What writes a note of the party history: `HistoryRepository`, over the connection given. */
 export type HistoryWriter = (db: Kysely<DB>) => {
-  write(note: HistoryNote): Promise<HistoryRecord | undefined>;
+  write(note: HistoryNote): Promise<WrittenRecord | undefined>;
 };
 
 export interface PartyRepositoryOptions {
@@ -363,7 +363,7 @@ export class PartyRepository implements PartyStorage {
         lost = false;
         return inTransaction(this.db, async (trx): Promise<Saved> => {
           if (!(await write(trx))) return false;
-          let recorded: HistoryRecord | undefined;
+          let recorded: WrittenRecord | undefined;
           await sql`savepoint party_history`.execute(trx);
           try {
             recorded = await this.history(trx).write(note);

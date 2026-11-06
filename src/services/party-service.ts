@@ -23,7 +23,13 @@ import {
   type V2Message,
 } from '../discord/party-gateway.js';
 import { MAX_CATEGORY_CHANNELS, MAX_SERVER_CHANNELS } from '../domain/regions/region-import.js';
-import { closedEnd, type HistoryRecord, type PartyEnd } from '../domain/history/party-history.js';
+import {
+  closedEnd,
+  historyCounts,
+  type PartyEnd,
+  type WrittenRecord,
+} from '../domain/history/party-history.js';
+import { trainShownOnWeb } from '../domain/history/trains-on-web.js';
 import {
   raidsAlongQuery,
   type RaidsAlongQuery,
@@ -252,7 +258,7 @@ interface UndoneClosing {
  * (none where it failed, and for every other party), and the card once made from it.
  */
 interface TrainCardFacts {
-  recorded?: HistoryRecord | undefined;
+  recorded?: WrittenRecord | undefined;
   card?: TrainCard | undefined;
   /** A redo read the raids once more already (review R5): no later redo reads them again. */
   readAgain?: boolean | undefined;
@@ -753,6 +759,12 @@ export interface PartyServiceOptions {
    * raids along its way on its card. Without it the card says nothing of raids.
    */
   raidsAlong?: RaidsAlongReader;
+  /**
+   * The map's address of an ended train by its record (plan 8H-7B, review G4), for "Route on the
+   * map" in its post's last showing: only where the web is configured and Discord's login offered
+   * (an instance with only the links of `/maps` gets none). Without it the post has no link.
+   */
+  trainMapLink?: (guildId: string, historyId: number) => string;
 }
 
 /**
@@ -1280,7 +1292,12 @@ export class PartyService {
    * What the post of a party shows now, by the renderer of its kind. `closed` is the sentence
    * of its last showing when somebody closed it (see `RaidPostView.closed`).
    */
-  private rendered(party: Party, closed?: string, card?: TrainCard): RenderedPost {
+  private rendered(
+    party: Party,
+    closed?: string,
+    card?: TrainCard,
+    mapLink?: string,
+  ): RenderedPost {
     const last = closed === undefined ? {} : { closed };
     switch (party.type) {
       case 'raid':
@@ -1297,6 +1314,7 @@ export class PartyService {
                 card,
                 regionChannel: (regionId: number) => this.options.regions.byId(regionId)?.channelId,
               }),
+          ...(mapLink === undefined ? {} : { mapLink }),
         });
       case 'max':
         return renderMaxPost({ ...this.maxView(party), ...last });
@@ -2776,6 +2794,19 @@ export class PartyService {
   }
 
   /**
+   * The map's address of a train that ended (plan 8H-7B, review G4), from the record its ending
+   * wrote (`recorded`, its id), only where the map shows it (`trainShownOnWeb`: three members or
+   * more came) and the web has Discord's login (`trainMapLink`); none for another party, or where
+   * no record was written. A redo takes it from the same record (`undoneClosings`).
+   */
+  private trainMapLinkOf(party: Party, recorded: WrittenRecord | undefined): string | undefined {
+    const link = this.options.trainMapLink;
+    if (link === undefined || !isTrain(party) || recorded?.kind !== 'train') return undefined;
+    if (!trainShownOnWeb(historyCounts(recorded.attendees))) return undefined;
+    return link(recorded.serverId, recorded.historyId);
+  }
+
+  /**
    * The card of a train that ended (plan 8H-7A; design Part F), from the record its ending wrote
    * (`recorded`, review F-B1: the very rows written), with the raids along its way read once
    * (`raidsAlong`, records only). None for another party, or where no record was written (it
@@ -3066,7 +3097,12 @@ export class PartyService {
         card = await this.trainCardOf(party, { recorded: facts.recorded, card, readAgain });
         // A redo that made the card again read the raids once more: no later one will.
         if (made !== undefined && card !== made) readAgain = true;
-        rendered = this.rendered(party, lastWords, card);
+        rendered = this.rendered(
+          party,
+          lastWords,
+          card,
+          this.trainMapLinkOf(party, facts.recorded),
+        );
       }
       return rendered;
     };

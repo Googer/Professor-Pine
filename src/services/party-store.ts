@@ -1,7 +1,7 @@
 import type { PartyForum, PartySave, PartyStorage } from '../db/repositories/party-repository.js';
 import type {
   HistoryNote,
-  HistoryRecord,
+  WrittenRecord,
   PartyEnd,
   PartyWrite,
 } from '../domain/history/party-history.js';
@@ -307,7 +307,7 @@ export class PartyStore implements PartyProvider {
   async update<R extends { party?: Party; ended?: PartyEnd }>(
     id: string,
     change: (party: Party) => R,
-  ): Promise<(R & { written: boolean; recorded?: HistoryRecord }) | undefined> {
+  ): Promise<(R & { written: boolean; recorded?: WrittenRecord }) | undefined> {
     const parties = this.all;
     return this.locks.run(id, async () => {
       const current = parties.get(id);

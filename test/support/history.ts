@@ -18,6 +18,7 @@ import {
   historyCounts,
   type HistoryNote,
   type HistoryRecord,
+  type WrittenRecord,
   type HistoryStep,
 } from '../../src/domain/history/party-history.js';
 import type { Party } from '../../src/domain/party/party.js';
@@ -105,7 +106,7 @@ export class MemoryHistory implements HistoryStorage, RaidsAlongReader, TrainHis
   }
 
   /** Answers the record it wrote, as the repository's `write`; none where it wrote none. */
-  apply(note: HistoryNote, options: { retry?: boolean } = {}): HistoryRecord | undefined {
+  apply(note: HistoryNote, options: { retry?: boolean } = {}): WrittenRecord | undefined {
     if (this.failing) throw this.failing;
     const { partyId, end } = note;
     const row = this.parties.get(partyId);
@@ -144,7 +145,8 @@ export class MemoryHistory implements HistoryStorage, RaidsAlongReader, TrainHis
       const fresh = !this.records.some((kept) => kept.partyId === record.partyId);
       if (fresh) this.records.push(record);
       this.forget(lineage);
-      return fresh ? record : undefined;
+      // Its id its place in `records`, from 1, as `trainCardRows` reads it.
+      return fresh ? { ...record, historyId: this.records.length } : undefined;
     } catch (err) {
       // All or nothing, as behind the savepoint.
       this.kept = before;
@@ -308,7 +310,7 @@ export class MemoryHistory implements HistoryStorage, RaidsAlongReader, TrainHis
     });
   }
 
-  write(note: HistoryNote, options: { retry?: boolean } = {}): Promise<HistoryRecord | undefined> {
+  write(note: HistoryNote, options: { retry?: boolean } = {}): Promise<WrittenRecord | undefined> {
     return new Promise((resolve, reject) => {
       // Like a real query, the answer never comes in the same turn of the event loop.
       setImmediate(() => {

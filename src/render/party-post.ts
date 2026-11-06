@@ -227,12 +227,14 @@ export const LEAD_ROOM = 200;
  * A button of a post. `moves` marks those of a train that are for its own post ("Move…",
  * "Manage…", "Split…"), which a copy for the members of another region leaves out. `plain` is the
  * emoji a button with a custom one shows instead where Discord refuses that (`customEmoji:
- * false`, plan 8D-G).
+ * false`, plan 8D-G). `stays` marks a link of the last showing of an ended party, which the
+ * showing without controls keeps (plan 8H-7B: an ended train's "Route on the map").
  */
 export interface PostButton {
   button: APIButtonComponent;
   moves?: true;
   plain?: string;
+  stays?: true;
 }
 
 /**
@@ -387,7 +389,8 @@ function laidOut(
   let detailed = 0;
   let pictured = false;
   const shows = (control: PostButton): boolean =>
-    variant.controls !== false && !(control.moves && variant.move === false);
+    (variant.controls !== false || control.stays === true) &&
+    !(control.moves && variant.move === false);
   /** The button as this variant shows it: with its plain emoji in place of a custom one. */
   const buttonOf = ({ button, plain }: PostButton): APIButtonComponent =>
     variant.customEmoji === false && plain !== undefined && 'emoji' in button

@@ -64,6 +64,7 @@ import { InteractionRouter } from './discord/router.js';
 import { lobbySize } from './domain/party/lobby.js';
 import { screenshotIdOf } from './domain/party/party.js';
 import { formReader } from './domain/pogo/wants.js';
+import { trainMapLinkOf } from './domain/web/train-history-data.js';
 import { createLogger, type Logger } from './log.js';
 import { AccessService } from './services/access-service.js';
 import { AdminLock } from './services/admin-lock.js';
@@ -507,6 +508,11 @@ export async function startApp(
     wayspots,
     // The raids along an ended train's way, for its card (plan 8H-7A).
     raidsAlong: history,
+    // "Route on the map" on an ended train's post (plan 8H-7B, review G4): only where the web is
+    // on and logs in with Discord (with the links of /maps alone the map could not be opened).
+    ...(config.settings.web && config.env.DISCORD_CLIENT_SECRET
+      ? { trainMapLink: trainMapLinkOf(config.settings.web.publicUrl) }
+      : {}),
     store: parties,
     gateway: partyGateway,
     regions,

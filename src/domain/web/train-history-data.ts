@@ -51,3 +51,11 @@ export const TRAIN_QUERY = 'train';
 export function trainMapPath(guild: string, historyId: number): string {
   return `/s/${guild}/map?${TRAIN_QUERY}=${String(historyId)}`;
 }
+
+/**
+ * The whole address of an ended train's map on the instance at `publicUrl` (`settings.web`, kept
+ * without its last slash), as the post's link takes it (`PartyServiceOptions.trainMapLink`).
+ */
+export function trainMapLinkOf(publicUrl: string): (guild: string, historyId: number) => string {
+  return (guild, historyId) => `${publicUrl}${trainMapPath(guild, historyId)}`;
+}

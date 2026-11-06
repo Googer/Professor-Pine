@@ -8,7 +8,7 @@ import type {
   PartyStorage,
   Saved,
 } from '../../src/db/repositories/party-repository.js';
-import type { HistoryNote, HistoryRecord } from '../../src/domain/history/party-history.js';
+import type { HistoryNote, WrittenRecord } from '../../src/domain/history/party-history.js';
 import { partyFromStored, partyMirrors, partyState } from '../../src/domain/party/party-state.js';
 import type { DroppedPin } from '../../src/domain/geo/place.js';
 import { createMax, type NewMax } from '../../src/domain/party/max.js';
@@ -393,7 +393,7 @@ export class MemoryPartyStorage implements PartyStorage {
    * Writes a note after its party, as the repository does behind a savepoint; answers the record
    * it wrote, none where it failed (handed to `historyFailed`).
    */
-  private noted(note: HistoryNote | undefined): HistoryRecord | undefined {
+  private noted(note: HistoryNote | undefined): WrittenRecord | undefined {
     if (note === undefined || this.history === undefined) return undefined;
     try {
       return this.history.apply(note);

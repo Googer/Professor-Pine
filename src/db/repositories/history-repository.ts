@@ -6,6 +6,7 @@ import {
   type HistoryNote,
   type HistoryRecord,
   type HistoryStep,
+  type WrittenRecord,
 } from '../../domain/history/party-history.js';
 import type {
   CardAttendee,
@@ -79,10 +80,10 @@ export interface HistoryStorage {
    * `retry`: a write after the party's own, which writes no step for a party that has ended (a
    * late step would otherwise stay behind for good) and nothing for one whose row is gone.
    * Answers the record it wrote (plan 8H-7A, review F-B1: the card of an ended train is drawn
-   * from it), with its server; undefined where it wrote none (steps alone, a move, a drop, a
+   * from it), with its server and its id (plan 8H-7B); undefined where it wrote none (steps alone, a move, a drop, a
    * party recorded already or gone).
    */
-  write(note: HistoryNote, options?: { retry?: boolean }): Promise<HistoryRecord | undefined>;
+  write(note: HistoryNote, options?: { retry?: boolean }): Promise<WrittenRecord | undefined>;
   /** The ended parties still waiting for their record (`PartyHistory.sweep`), oldest first. */
   unrecorded(): Promise<UnrecordedParty[]>;
   /**
@@ -364,13 +365,13 @@ export class HistoryRepository
   async write(
     note: HistoryNote,
     options: { retry?: boolean } = {},
-  ): Promise<HistoryRecord | undefined> {
+  ): Promise<WrittenRecord | undefined> {
     // Steps alone, the first time: one statement, no transaction (what every click writes).
     if (note.end === undefined && !options.retry) {
       await insertSteps(this.db, note.steps);
       return undefined;
     }
-    return inTransaction(this.db, async (trx): Promise<HistoryRecord | undefined> => {
+    return inTransaction(this.db, async (trx): Promise<WrittenRecord | undefined> => {
       const { partyId, end } = note;
       // Locked: a retry and the party's own end, or the sweep, take turns.
       const row = await trx
@@ -448,10 +449,13 @@ export class HistoryRepository
               .execute();
       const record = end.build(steps, new Set(optedIn.map((opted) => opted.memberId)));
       const recorded: HistoryRecord = { ...record, serverId: server.snowflake };
-      const written = await new HistoryRepository(trx).insertRecords([recorded]);
+      const written = await new HistoryRepository(trx).insertWithIds([recorded]);
       await forget(trx, lineage);
       // What was written, for the card of an ended train; none where it was recorded before.
-      return written.inserted > 0 ? recorded : undefined;
+      const historyId = written.ids.get(keyOf(recorded));
+      return written.inserted > 0 && historyId !== undefined
+        ? { ...recorded, historyId }
+        : undefined;
     });
   }
 
@@ -459,7 +463,15 @@ export class HistoryRepository
    * Writes records with their attendees, groups and stops, in one transaction (or the
    * caller's); a record whose party (or legacy key) is there already is left as it is.
    */
-  insertRecords(records: readonly HistoryRecord[]): Promise<RecordsWritten> {
+  async insertRecords(records: readonly HistoryRecord[]): Promise<RecordsWritten> {
+    const { inserted, existing } = await this.insertWithIds(records);
+    return { inserted, existing };
+  }
+
+  /** `insertRecords`, with the `PartyHistory.id` of each record it wrote, by its key (`keyOf`). */
+  private insertWithIds(
+    records: readonly HistoryRecord[],
+  ): Promise<RecordsWritten & { ids: ReadonlyMap<string, number> }> {
     return inTransaction(this.db, async (trx) => {
       const keys = (column: 'partyId' | 'legacyKey') =>
         records.map((record) => record[column]).filter((key): key is string => key !== null);
@@ -485,7 +497,7 @@ export class HistoryRepository
         seen.add(key);
         return true;
       });
-      if (fresh.length === 0) return { inserted: 0, existing: records.length };
+      if (fresh.length === 0) return { inserted: 0, existing: records.length, ids: new Map() };
       await insertChunked(fresh.map(historyRow), (rows) =>
         trx.insertInto('PartyHistory').values(rows).execute(),
       );
@@ -552,7 +564,7 @@ export class HistoryRepository
       await insertChunked(stops, (rows) =>
         trx.insertInto('PartyHistoryStop').values(rows).execute(),
       );
-      return { inserted: fresh.length, existing: records.length - fresh.length };
+      return { inserted: fresh.length, existing: records.length - fresh.length, ids: made };
     });
   }
 
