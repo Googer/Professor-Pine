@@ -5,6 +5,7 @@ import type {
   HistoryDaysView,
 } from '../../domain/web/history-days-data.js';
 import {
+  addressWithoutYear,
   bigDayLine,
   bigDaysAddress,
   bigLabels,
@@ -15,6 +16,7 @@ import {
   dayIndex,
   daysAddress,
   daysTable,
+  daysYearOfAddress,
   sectionFailure,
   trendBars,
   trendTable,
@@ -72,6 +74,17 @@ const bigOn = (day: string, marks: Partial<BigDayView> = {}): BigDayView => ({
 });
 
 describe('raids by day on the history page', () => {
+  it('takes the address’s year from the game’s first on, and drops it from the address (W5)', () => {
+    expect(daysYearOfAddress('?year=2016')).toBe(2016);
+    expect(daysYearOfAddress('?year=2015')).toBeNull();
+    expect(daysYearOfAddress('?year=0999')).toBeNull();
+    expect(daysYearOfAddress('')).toBeNull();
+    expect(addressWithoutYear('/s/1/history', '?year=2015&period=all')).toBe(
+      '/s/1/history?period=all',
+    );
+    expect(addressWithoutYear('/s/1/history', '?year=2015')).toBe('/s/1/history');
+  });
+
   it('asks for a year’s days, every year’s big days, the bosses and one boss', () => {
     expect(daysAddress(GUILD, null)).toBe(`/s/${GUILD}/api/history/days`);
     expect(daysAddress(GUILD, 2019)).toBe(`/s/${GUILD}/api/history/days?year=2019`);

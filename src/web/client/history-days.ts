@@ -4,6 +4,8 @@ import type {
   BossTrendView,
   HistoryDaysView,
 } from '../../domain/web/history-days-data.js';
+import { HISTORY_FIRST_YEAR } from '../../domain/web/history-days-data.js';
+import { yearOfAddress } from './history-boards.js';
 import { tallyFailure } from './history-tally.js';
 
 /*
@@ -17,6 +19,23 @@ import { tallyFailure } from './history-tally.js';
 /** The route of a year's days; the newest year the server has without one. */
 export function daysAddress(guild: string, year: number | null): string {
   return `/s/${guild}/api/history/days${year === null ? '' : `?year=${String(year)}`}`;
+}
+
+/**
+ * The year of raids by day the page's address names (`?year=`); none (the newest the server has)
+ * for one before the game's first year, which the route refuses (review W5).
+ */
+export function daysYearOfAddress(search: string): number | null {
+  const year = yearOfAddress(search);
+  return year !== null && year >= HISTORY_FIRST_YEAR ? year : null;
+}
+
+/** The page's address without its year (`?year=`), what else it says kept. */
+export function addressWithoutYear(pathname: string, search: string): string {
+  const query = new URLSearchParams(search);
+  query.delete('year');
+  const rest = query.toString();
+  return rest === '' ? pathname : `${pathname}?${rest}`;
 }
 
 /** The route of every year's big days. */

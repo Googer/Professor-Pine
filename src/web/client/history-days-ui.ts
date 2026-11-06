@@ -5,6 +5,7 @@ import type {
   HistoryDaysView,
 } from '../../domain/web/history-days-data.js';
 import {
+  addressWithoutYear,
   bigDayLine,
   bigDaysAddress,
   bigLabels,
@@ -14,12 +15,13 @@ import {
   dayBars,
   daysAddress,
   daysTable,
+  daysYearOfAddress,
   trendBars,
   trendTable,
 } from './history-days.js';
-import { yearOfAddress } from './history-boards.js';
 import { showFailure } from './history-failure-ui.js';
 import { byId, getJson } from './page-frame.js';
+import { RequestError } from './request-error.js';
 
 /*
  * Raids by day, the big days of every year and a boss's trend on the history page (plan 8H-8):
@@ -92,7 +94,7 @@ function showYear(guild: string, login: 'discord' | 'links'): void {
   const bigTitle = byId('days-big-title');
   const bigNote = byId('days-big-note');
   const big = byId('days-big');
-  let year = yearOfAddress(location.search);
+  let year: number | null = daysYearOfAddress(location.search);
   let asked = 0;
   let shown: HistoryDaysView | undefined;
   // The box's width the chart was last drawn at.
@@ -182,6 +184,14 @@ function showYear(guild: string, login: 'discord' | 'links'): void {
       view = await getJson<HistoryDaysView>(daysAddress(guild, year));
     } catch (err) {
       if (mine !== asked) return;
+      // A year the server refused (an address made by hand): the newest it has, the address
+      // without it (review W5).
+      if (err instanceof RequestError && err.status === 400 && year !== null) {
+        year = null;
+        history.replaceState(null, '', addressWithoutYear(location.pathname, location.search));
+        void show();
+        return;
+      }
       box.hidden = true;
       legend.hidden = true;
       big.hidden = true;

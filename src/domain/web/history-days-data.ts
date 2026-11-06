@@ -1,9 +1,16 @@
 /*
  * Raids per day, big days and a boss's trend on the web (plan 8H-8): what `GET
  * /s/<guild>/api/history/days`, `…/big-days`, `…/bosses` and `…/bosses/<key>` answer and the
- * history page reads. Types only, shared by the server and the page. Every word is the server's;
- * the page draws the numbers it is given.
+ * history page reads. Types and one constant, shared by the server and the page (no Temporal
+ * here: the page's tsconfig has none). Every word is the server's; the page draws the numbers it
+ * is given.
  */
+
+/**
+ * The game's first year: no server has a day before it, `?year=` before it is refused (B13), and
+ * the page asks for none (review W5).
+ */
+export const HISTORY_FIRST_YEAR = 2016;
 
 /** A day of the year's chart: its raids, and its max battles (0 in a year without any). */
 export interface DayBarView {

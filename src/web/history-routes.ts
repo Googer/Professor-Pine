@@ -44,6 +44,7 @@ import { IN_SETTINGS_ON_DISCORD } from '../render/settings-words.js';
 import type { Boards, ShownBoard } from '../services/boards.js';
 import type { MemberStatsService } from '../services/member-stats.js';
 import type { HistoryDays } from '../services/history-days.js';
+import { HISTORY_FIRST_YEAR } from '../domain/web/history-days-data.js';
 import { bigDaysView, bossListView, bossTrendView, historyDaysView } from './history-days.js';
 import { pageWords } from './page-words.js';
 import type { RegionTallies } from '../services/region-tallies.js';
@@ -650,17 +651,14 @@ function trainRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewer
  */
 export const DAYS_PER_MINUTE = 60;
 
-/** The game's first year: no server has a day before it (B13). */
-const FIRST_YEAR = 2016;
-
-/** `?year=yyyy`, 2016 or later; the newest year the server has without. */
+/** `?year=yyyy`, `HISTORY_FIRST_YEAR` (2016, B13) or later; the newest year the server has without. */
 const daysQuery = z
   .object({
     year: z
       .string()
       .regex(/^\d{4}$/u)
       .transform(Number)
-      .refine((year) => year >= FIRST_YEAR)
+      .refine((year) => year >= HISTORY_FIRST_YEAR)
       .optional(),
   })
   .strict();
