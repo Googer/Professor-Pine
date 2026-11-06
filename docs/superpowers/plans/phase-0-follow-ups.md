@@ -3155,3 +3155,12 @@ Plan `docs/superpowers/plans/2026-11-05-phase-8h6-boards-and-own-stats.md`; migr
 - **Staging** (Air's dev stack after `./pine update`, migrations 039–040; Matt runs the global deploy with the stage settings first: three new commands): the plan's "Staging" steps 1–6, plus 8H-6A's.
 - **Not tried:** the pages by eye (both themes, phone width), Discord's rendering and the year autocomplete, the gateway's member request by ids against Discord (its new rate limit has no published numbers), the reads' times on production's 253k records (the db test only checks the index chosen).
 - **Then:** revisit `/admin tutorial` (and optionally the web tours) for `/stats`, Share and the leaderboard switch; the cutover announcement's opt-in line could mention `/settings leaderboard`.
+
+## From the staging run of 8H-6A and 8H-6 (2026-11-05, Air's dev stack at 0038cd0c, then 2ba92023)
+
+`./pine update` (migrations 039 and 040 applied), then `./pine deploy-commands --global` (73 commands; Matt's "Go (can stage on Air…)"). Googer in the built-in browser; Tester not logged in, so the two-account steps wait.
+
+- **Pass:** `/settings leaderboard enabled:True` answers privately with what the boards rank; `/stats boards` answers privately ("Nobody is ranked here this month.", All time switches in place to "1. Googer: 3 raids"); `/stats me`'s year autocomplete offers only 2026, the card lists the four boards' counts, completions, rides, busiest region (#north-side), bosses, "sent to 1 member"; its Share posts "Pine of Googer in 2026" with the busiest region (every test region is visible to #oakland's readers) and says "Shared in this channel." The history page's Boards section (every board, period tabs; most wanted "as of 2026-11-04"); "Your Pine" with its year select, an empty year ("Nothing of yours is in my history of this server for 2025."), the hidden table labelled by the chart's title; 375 px dark theme, no sideways scroll.
+- **Fixed at once (2ba92023):** "Your Pine"'s chart drew only the months with something, as 16 px bars under a lone "2026": a year now spans January to December, and a chart of a year or less names every month.
+- **Wording for the plan:** step 2 says `/stats boards` "switches boards … in place": the board is the command's `board:` option; only the periods are buttons.
+- **Not run yet (need Tester):** 8H-6 steps 1 (the switch with history off), 2 (ranking between two members, "you would be #N"), 3 (a member who left), 4 (Share hiding a region), 6 (`closedBy`); 8H-6A steps 1–3 (conductors).
