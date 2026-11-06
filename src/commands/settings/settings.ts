@@ -486,11 +486,15 @@ export const settings: SimpleCommand = {
     .setContexts(InteractionContextType.Guild, InteractionContextType.BotDM),
   help: {
     category: 'notifications',
-    details:
+    // The counts of wants and gyms are shown only where this installation notifies.
+    details: (config) =>
       'Shows your settings, only to you, with buttons and menus to change them: which pings ' +
       'and DMs you get, how you are signed up for what you report, and whether posts name you.' +
-      '\n\nIn a server it also has what is set per server: DMs for new trains, your history, ' +
-      'the boards, and how many wants and gyms you have there.' +
+      (config.features.notifications
+        ? '\n\nIn a server it also has what is set per server: DMs for new trains, your ' +
+          'history, the boards, and how many wants and gyms you have there.'
+        : '\n\nIn a server it also has what is set per server: DMs for new trains, your ' +
+          'history and the boards.') +
       '\n\n**Your history.** I keep a history of every raid, max battle, train and meetup that ' +
       'ends: what it was, where and when, and how many signed up, came and completed it. You ' +
       'always count in it, without your Discord id.' +
@@ -507,8 +511,8 @@ export const settings: SimpleCommand = {
       'bot’s history is never tied to you.' +
       '\n\n**The boards.** `/stats boards` ranks members by what others confirmed, and only ' +
       'those who turned the boards on; they are off until you do. Turning them on turns your ' +
-      'history on too, and turning your history off takes you off the boards. A raid or train ' +
-      'you report anonymously counts on no board.',
+      'history on too, and turning your history off takes you off the boards. A raid, max ' +
+      'battle or train you report anonymously counts on no board.',
     examples: ['/settings'],
   },
   formerSubcommands: FORMER_SUBCOMMANDS,

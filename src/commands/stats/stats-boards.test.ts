@@ -302,8 +302,8 @@ describe('/stats boards', () => {
       'The top ten of this month, this year or all time, on one board: raids reported that ' +
         'others completed, trains conducted and meetups hosted that others came to, or reports ' +
         'at stops that counted. Only you see the answer.',
-      'Only members who turned the boards on in `/settings` are ranked, and an anonymous raid ' +
-        'or train counts for nobody. If you are not in the top ten, the answer says where you ' +
+      'Only members who turned the boards on in `/settings` are ranked, and an anonymous raid, ' +
+        'max battle or train counts for nobody. If you are not in the top ten, the answer says where you ' +
         'are, or would be.',
       'A report at a stop counts unless another member said it was wrong. If more of your ' +
         'reports were said to be wrong than were confirmed, only the confirmed ones count.',

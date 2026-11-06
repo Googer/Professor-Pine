@@ -437,8 +437,8 @@ const boardsPart: SubcommandPart = {
       'The top ten of this month, this year or all time, on one board: raids reported that ' +
       'others completed, trains conducted and meetups hosted that others came to, or reports ' +
       'at stops that counted. Only you see the answer.\n\n' +
-      'Only members who turned the boards on in `/settings` are ranked, and an anonymous raid ' +
-      'or train counts for nobody. If you are not in the top ten, the answer says where you ' +
+      'Only members who turned the boards on in `/settings` are ranked, and an anonymous raid, ' +
+      'max battle or train counts for nobody. If you are not in the top ten, the answer says where you ' +
       'are, or would be.\n\n' +
       'A report at a stop counts unless another member said it was wrong. If more of your ' +
       'reports were said to be wrong than were confirmed, only the confirmed ones count.\n\n' +
@@ -607,8 +607,8 @@ const mePart: SubcommandPart = {
       'at stops that counted.\n\nBeside them: what you completed and came to, your busiest ' +
       'region, the bosses you beat most, and how many members were told of what you reported. ' +
       'Only you see the answer.\n\nChoose a year to see that year alone; without one you see ' +
-      'all time.\n\nI count only what you did while your history was on (`/settings`). Raids ' +
-      'and trains you reported anonymously count here, but on no board.\n\n"Share in this ' +
+      'all time.\n\nI count only what you did while your history was on (`/settings`). Raids, ' +
+      'max battles and trains you reported anonymously count here, but on no board.\n\n"Share in this ' +
       'channel" posts your numbers here, under your name. It leaves out what you reported ' +
       'anonymously, and your busiest region unless everyone in the channel can see it.',
     examples: ['/stats me', '/stats me year:2026'],

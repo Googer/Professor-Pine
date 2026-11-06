@@ -174,9 +174,27 @@ describe('/settings', () => {
     expect(settings.help.examples).toEqual(['/settings']);
   });
 
-  it('says in its help what the history keeps and what the boards count (S4)', () => {
+  /** The paragraphs of `/help settings` on an installation with these features. */
+  const helpOf = (features: { notifications?: boolean } = {}): string[] => {
     const { details } = settings.help;
-    const paragraphs = (typeof details === 'string' ? details : '').split('\n\n');
+    const said =
+      typeof details === 'function' ? details(setup(features).ctx.config.settings) : details;
+    return (said ?? '').split('\n\n');
+  };
+
+  it('promises in its help the counts of wants and gyms only where the bot notifies', () => {
+    expect(helpOf({ notifications: true })[1]).toBe(
+      'In a server it also has what is set per server: DMs for new trains, your history, the ' +
+        'boards, and how many wants and gyms you have there.',
+    );
+    expect(helpOf({ notifications: false })[1]).toBe(
+      'In a server it also has what is set per server: DMs for new trains, your history and ' +
+        'the boards.',
+    );
+  });
+
+  it('says in its help what the history keeps and what the boards count (S4)', () => {
+    const paragraphs = helpOf();
     expect(paragraphs.slice(2)).toEqual([
       '**Your history.** I keep a history of every raid, max battle, train and meetup that ' +
         'ends: what it was, where and when, and how many signed up, came and completed it. You ' +
@@ -193,8 +211,8 @@ describe('/settings', () => {
         'history is never tied to you.',
       '**The boards.** `/stats boards` ranks members by what others confirmed, and only those ' +
         'who turned the boards on; they are off until you do. Turning them on turns your ' +
-        'history on too, and turning your history off takes you off the boards. A raid or ' +
-        'train you report anonymously counts on no board.',
+        'history on too, and turning your history off takes you off the boards. A raid, max ' +
+        'battle or train you report anonymously counts on no board.',
     ]);
   });
 

@@ -163,8 +163,8 @@ describe('/stats me', () => {
       'Beside them: what you completed and came to, your busiest region, the bosses you beat ' +
         'most, and how many members were told of what you reported. Only you see the answer.',
       'Choose a year to see that year alone; without one you see all time.',
-      'I count only what you did while your history was on (`/settings`). Raids and trains you ' +
-        'reported anonymously count here, but on no board.',
+      'I count only what you did while your history was on (`/settings`). Raids, max battles ' +
+        'and trains you reported anonymously count here, but on no board.',
       '"Share in this channel" posts your numbers here, under your name. It leaves out what you ' +
         'reported anonymously, and your busiest region unless everyone in the channel can see it.',
     ]);
