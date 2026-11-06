@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-05T17:33",
+  "updated": "2026-11-05T19:12",
   "items": [
     {
       "id": "0",
@@ -10730,7 +10730,7 @@ window.GANTT = {
       ],
       "scope": "Contribution boards with /settings leaderboard, boards of things, /stats me and /stats boards with Share, the history page Boards section and Your Pine (history design Parts D and E)",
       "doneWhen": "Merged into main-dev",
-      "status": "planned",
+      "status": "done",
       "planning": {
         "start": "2026-11-05T14:21",
         "end": "2026-11-05T17:33",
@@ -10738,6 +10738,10 @@ window.GANTT = {
           "start": "2026-11-05T15:42",
           "end": "2026-11-05T15:42"
         }
+      },
+      "review": {
+        "start": "2026-11-05T19:07",
+        "end": "2026-11-05T19:07"
       }
     },
     {
@@ -10745,63 +10749,81 @@ window.GANTT = {
       "kind": "task",
       "parent": "8H-6",
       "name": "Migration 040: the switch, who closed a party",
-      "status": "planned"
+      "status": "done",
+      "start": "2026-11-05T17:33",
+      "end": "2026-11-05T17:38"
     },
     {
       "id": "8H-6.2",
       "kind": "task",
       "parent": "8H-6",
       "name": "The boards in the domain and their reads",
-      "status": "planned"
+      "status": "done",
+      "start": "2026-11-05T17:38",
+      "end": "2026-11-05T17:40"
     },
     {
       "id": "8H-6.3",
       "kind": "task",
       "parent": "8H-6",
       "name": "Names of the members shown",
-      "status": "planned"
+      "status": "done",
+      "start": "2026-11-05T17:40",
+      "end": "2026-11-05T17:42"
     },
     {
       "id": "8H-6.4",
       "kind": "task",
       "parent": "8H-6",
       "name": "A member's own stats",
-      "status": "planned"
+      "status": "done",
+      "start": "2026-11-05T17:42",
+      "end": "2026-11-05T17:44"
     },
     {
       "id": "8H-6.5",
       "kind": "task",
       "parent": "8H-6",
-      "name": "C:/Program Files/Git/stats boards",
-      "status": "planned"
+      "name": "/stats boards",
+      "status": "done",
+      "start": "2026-11-05T17:44",
+      "end": "2026-11-05T17:45"
     },
     {
       "id": "8H-6.6",
       "kind": "task",
       "parent": "8H-6",
-      "name": "C:/Program Files/Git/stats me",
-      "status": "planned"
+      "name": "/stats me",
+      "status": "done",
+      "start": "2026-11-05T17:45",
+      "end": "2026-11-05T17:46"
     },
     {
       "id": "8H-6.7",
       "kind": "task",
       "parent": "8H-6",
       "name": "The routes",
-      "status": "planned"
+      "status": "done",
+      "start": "2026-11-05T17:46",
+      "end": "2026-11-05T17:48"
     },
     {
       "id": "8H-6.8",
       "kind": "task",
       "parent": "8H-6",
       "name": "The history page's boards and Your Pine",
-      "status": "planned"
+      "status": "done",
+      "start": "2026-11-05T17:48",
+      "end": "2026-11-05T17:49"
     },
     {
       "id": "8H-6.9",
       "kind": "task",
       "parent": "8H-6",
       "name": "Docs",
-      "status": "planned"
+      "status": "done",
+      "start": "2026-11-05T17:49",
+      "end": "2026-11-05T17:50"
     },
     {
       "id": "16-staging",
