@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-06T14:43",
+  "updated": "2026-11-06T16:23",
   "items": [
     {
       "id": "0",
@@ -11220,6 +11220,11 @@ window.GANTT = {
           "start": "2026-11-06T14:20",
           "end": "2026-11-06T14:35"
         }
+      },
+      "status": "done",
+      "review": {
+        "start": "2026-11-06T14:50",
+        "end": "2026-11-06T16:12"
       }
     },
     {
@@ -11230,7 +11235,9 @@ window.GANTT = {
       "dependsOn": [],
       "scope": "A train’s stops in the one count of what a record adds",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-06T14:43",
+      "end": "2026-11-06T14:46"
     },
     {
       "id": "8H-9.2",
@@ -11242,7 +11249,9 @@ window.GANTT = {
       ],
       "scope": "The adding reads the stops",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-06T14:46",
+      "end": "2026-11-06T14:48"
     },
     {
       "id": "8H-9.3",
@@ -11254,7 +11263,9 @@ window.GANTT = {
       ],
       "scope": "Words and docs",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-06T14:48",
+      "end": "2026-11-06T14:50"
     },
     {
       "id": "16-staging",
