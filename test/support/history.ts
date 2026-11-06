@@ -1,10 +1,17 @@
-import type {
-  HistoryOptIns,
-  HistoryStorage,
-  JoinedBoards,
-  OptedOut,
-  UnrecordedParty,
+import {
+  RAIDS_ALONG_REACH_MS,
+  type HistoryOptIns,
+  type HistoryStorage,
+  type JoinedBoards,
+  type OptedOut,
+  type RaidsAlongReader,
+  type UnrecordedParty,
 } from '../../src/db/repositories/history-repository.js';
+import {
+  raidTime,
+  type RaidAlongRow,
+  type RaidsAlongQuery,
+} from '../../src/domain/history/train-card.js';
 import type {
   HistoryNote,
   HistoryRecord,
@@ -40,7 +47,7 @@ export interface KeptPost {
  * note all or nothing, as the storage does in its transaction. Set `failing` to make every write
  * throw (reject, through `write`).
  */
-export class MemoryHistory implements HistoryStorage {
+export class MemoryHistory implements HistoryStorage, RaidsAlongReader {
   failing: Error | undefined;
   readonly records: HistoryRecord[] = [];
   readonly posts = new Map<string, KeptPost>();
@@ -157,6 +164,49 @@ export class MemoryHistory implements HistoryStorage {
                 this.kept.find((step) => step.kind === 'from' && step.subject === party.id)
                   ?.partyId ?? null,
             })),
+        );
+      });
+    });
+  }
+
+  /** As the repository reads them (plan 8H-7A); a record's id is its place in `records`, from 1. */
+  raidsAlong(serverId: string, query: RaidsAlongQuery): Promise<RaidAlongRow[]> {
+    return new Promise((resolve, reject) => {
+      setImmediate(() => {
+        if (this.failing) {
+          reject(this.failing);
+          return;
+        }
+        const { gymIds, wayspotIds, from, to } = query;
+        resolve(
+          this.records.flatMap((record, index): RaidAlongRow[] =>
+            record.serverId === serverId &&
+            record.source === 'live' &&
+            (record.kind === 'raid' || record.kind === 'max') &&
+            record.createdAt >= from - RAIDS_ALONG_REACH_MS &&
+            record.createdAt <= to + RAIDS_ALONG_REACH_MS &&
+            raidTime(record).start <= to &&
+            raidTime(record).end >= from &&
+            ((record.gymId !== null && gymIds.includes(record.gymId)) ||
+              (record.wayspotId !== null && wayspotIds.includes(record.wayspotId)))
+              ? [
+                  {
+                    id: index + 1,
+                    source: record.source,
+                    kind: record.kind,
+                    ending: record.ending,
+                    tier: record.tier,
+                    shadow: record.shadow,
+                    gymId: record.gymId,
+                    wayspotId: record.wayspotId,
+                    createdAt: record.createdAt,
+                    hatchTime: record.hatchTime,
+                    endTime: record.endTime,
+                    endedAt: record.endedAt,
+                  },
+                ]
+              : [],
+          ),
         );
       });
     });

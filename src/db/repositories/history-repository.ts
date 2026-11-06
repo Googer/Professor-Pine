@@ -1,10 +1,19 @@
 import { sql, type Insertable, type Kysely } from 'kysely';
 import {
+  HISTORY_STATUSES,
   historyCounts,
+  type HistoryStatus,
   type HistoryNote,
   type HistoryRecord,
   type HistoryStep,
 } from '../../domain/history/party-history.js';
+import type {
+  CardAttendee,
+  CardRecord,
+  CardStop,
+  RaidAlongRow,
+  RaidsAlongQuery,
+} from '../../domain/history/train-card.js';
 import { inTransaction, retryOnDeadlock } from '../transaction.js';
 import type { DB } from '../types.js';
 
@@ -82,6 +91,32 @@ export interface HistoryStorage {
   addReach(partyId: string, subject: string, members: number, at: number): Promise<boolean>;
 }
 
+/**
+ * The raids and max battles of the history a train may have passed (plan 8H-7A, the card of an
+ * ended train): `raidsAlong` reads a server's live records of kind `raid` or `max` at the gyms
+ * and Power Spots asked whose time (`raidTime`: hatch or report to end) overlaps the train's
+ * first stop to its last, reported within `RAIDS_ALONG_REACH_MS` of them (the index's range);
+ * which of them the train passed, at which stop, is the domain's (`raidsAlong`).
+ */
+export interface RaidsAlongReader {
+  raidsAlong(serverId: string, query: RaidsAlongQuery): Promise<RaidAlongRow[]>;
+}
+
+/** A train's record read back for its card (`trainCardRows`), with its server. */
+export interface TrainCardRows {
+  serverId: string;
+  record: CardRecord;
+  stops: CardStop[];
+  attendees: CardAttendee[];
+}
+
+/**
+ * How long before the train's first stop a raid it passed may have been reported (an elite egg
+ * is reported up to a day ahead and stands its incubation; nothing stands two days), and after
+ * its last (a raid reported long after it hatched).
+ */
+export const RAIDS_ALONG_REACH_MS = 2 * 24 * 60 * 60 * 1000;
+
 /** What `insertRecords` did: rows it wrote, and records it found there already. */
 export interface RecordsWritten {
   inserted: number;
@@ -99,6 +134,30 @@ const MAX_PEAK_RIDERS = 65_535;
 
 const flag = (value: boolean): number => (value ? 1 : 0);
 const epoch = (value: number | null): string | null => (value === null ? null : String(value));
+const time = (value: string | null): number | null => (value === null ? null : Number(value));
+
+/** A status column of the history; null for null and for a word it does not know. */
+function historyStatus(value: string | null): HistoryStatus | null {
+  return HISTORY_STATUSES.find((status) => status === value) ?? null;
+}
+
+/**
+ * A stop's regions (`PartyHistoryStop.regionIds`, JSON, as the driver gives it: parsed or as
+ * text); null for null and for a value that is no list of ids.
+ */
+function regionIdsOf(value: unknown): number[] | null {
+  let parsed: unknown = value;
+  if (typeof value === 'string') {
+    try {
+      parsed = JSON.parse(value);
+    } catch {
+      return null;
+    }
+  }
+  return Array.isArray(parsed) && parsed.every((id) => Number.isInteger(id))
+    ? (parsed as number[])
+    : null;
+}
 const clip = (value: string | null): string | null =>
   value === null ? null : [...value].slice(0, NAME_ROOM).join('');
 
@@ -242,7 +301,7 @@ async function insertChunked<T>(rows: T[], insert: (chunk: T[]) => Promise<unkno
  * of one member at once end as whichever committed last, and an opt-out takes the id out of
  * what is kept under the lock its statements take.
  */
-export class HistoryRepository implements HistoryOptIns, HistoryStorage {
+export class HistoryRepository implements HistoryOptIns, HistoryStorage, RaidsAlongReader {
   constructor(private readonly db: Kysely<DB>) {}
 
   async unrecorded(): Promise<UnrecordedParty[]> {
@@ -453,6 +512,136 @@ export class HistoryRepository implements HistoryOptIns, HistoryStorage {
       );
       return { inserted: fresh.length, existing: records.length - fresh.length };
     });
+  }
+
+  /**
+   * The rows of the trains' records asked (by `PartyHistory.id`), as `trainCard` takes them
+   * (plan 8H-7A; the web's list of a month's trains, 8H-7B, reads its cards here): the record's
+   * end, end time and most at once, its stops in their order with their regions, its attendees
+   * in theirs. A record that is no train, or is not there, is left out. Names nobody.
+   */
+  async trainCardRows(historyIds: readonly number[]): Promise<Map<number, TrainCardRows>> {
+    const read = new Map<number, TrainCardRows>();
+    if (historyIds.length === 0) return read;
+    const records = await this.db
+      .selectFrom('PartyHistory')
+      .select(['id', 'serverId', 'endedAt', 'endTime', 'peakRiders'])
+      .where('id', 'in', [...historyIds])
+      .where('kind', '=', 'train')
+      .execute();
+    if (records.length === 0) return read;
+    const ids = records.map((row) => row.id);
+    const stops = await this.db
+      .selectFrom('PartyHistoryStop')
+      .select(['historyId', 'gymId', 'wayspotId', 'arrivedAt', 'leftAt', 'regionIds'])
+      .where('historyId', 'in', ids)
+      .orderBy('historyId')
+      .orderBy('seq')
+      .execute();
+    const attendees = await this.db
+      .selectFrom('PartyHistoryAttendee')
+      .select([
+        'historyId',
+        'furthest',
+        'status',
+        'extras',
+        'remote',
+        'splitOff',
+        'leftAt',
+        'doneAt',
+      ])
+      .where('historyId', 'in', ids)
+      .orderBy('historyId')
+      .orderBy('seq')
+      .execute();
+    for (const row of records) {
+      read.set(row.id, {
+        serverId: row.serverId,
+        record: {
+          endedAt: time(row.endedAt),
+          endTime: time(row.endTime),
+          peakRiders: row.peakRiders,
+        },
+        stops: [],
+        attendees: [],
+      });
+    }
+    for (const stop of stops) {
+      read.get(stop.historyId)?.stops.push({
+        gymId: stop.gymId,
+        wayspotId: stop.wayspotId,
+        arrivedAt: time(stop.arrivedAt),
+        leftAt: time(stop.leftAt),
+        regionIds: regionIdsOf(stop.regionIds),
+      });
+    }
+    for (const attendee of attendees) {
+      read.get(attendee.historyId)?.attendees.push({
+        furthest: historyStatus(attendee.furthest) ?? 'interested',
+        status: historyStatus(attendee.status),
+        extras: attendee.extras,
+        remote: attendee.remote === 1,
+        leftAt: time(attendee.leftAt),
+        doneAt: time(attendee.doneAt),
+        ...(attendee.splitOff === 1 ? { splitOff: true as const } : {}),
+      });
+    }
+    return read;
+  }
+
+  /**
+   * Along the index `(serverId, source, kind, createdAt)` of migration 040: a server's live raids
+   * and max battles reported within the reach of the train's time, then by place.
+   */
+  async raidsAlong(serverId: string, query: RaidsAlongQuery): Promise<RaidAlongRow[]> {
+    const { gymIds, wayspotIds, from, to } = query;
+    if (gymIds.length === 0 && wayspotIds.length === 0) return [];
+    const rows = await this.db
+      .selectFrom('PartyHistory')
+      .select([
+        'id',
+        'source',
+        'kind',
+        'ending',
+        'tier',
+        'shadow',
+        'gymId',
+        'wayspotId',
+        'createdAt',
+        'hatchTime',
+        'endTime',
+        'endedAt',
+      ])
+      .where('serverId', '=', serverId)
+      .where('source', '=', 'live')
+      .where('kind', 'in', ['raid', 'max'])
+      // The index's range, then the raid's own time as the domain takes it (`raidTime`).
+      .where('createdAt', '>=', String(from - RAIDS_ALONG_REACH_MS))
+      .where('createdAt', '<=', String(to + RAIDS_ALONG_REACH_MS))
+      .where(sql<boolean>`coalesce(hatchTime, createdAt) <= ${to}`)
+      .where(sql<boolean>`coalesce(endTime, endedAt, hatchTime, createdAt) >= ${from}`)
+      .where((eb) =>
+        eb.or([
+          ...(gymIds.length === 0 ? [] : [eb('gymId', 'in', gymIds)]),
+          ...(wayspotIds.length === 0 ? [] : [eb('wayspotId', 'in', wayspotIds)]),
+        ]),
+      )
+      .orderBy('id')
+      .execute();
+    return rows.map((row) => ({
+      id: row.id,
+      source: row.source,
+      kind: row.kind,
+      ending: row.ending,
+      tier: row.tier,
+      shadow: row.shadow === 1,
+      gymId: row.gymId,
+      wayspotId: row.wayspotId,
+      createdAt: Number(row.createdAt),
+      hatchTime: row.hatchTime === null ? null : Number(row.hatchTime),
+      endTime: row.endTime === null ? null : Number(row.endTime),
+      endedAt: row.endedAt === null ? null : Number(row.endedAt),
+    }));
   }
 
   /**

@@ -275,7 +275,12 @@ export interface HistoryCounts {
   departed: number;
 }
 
-export function historyCounts(attendees: readonly HistoryAttendee[]): HistoryCounts {
+export function historyCounts(
+  attendees: readonly Pick<
+    HistoryAttendee,
+    'furthest' | 'extras' | 'remote' | 'status' | 'splitOff'
+  >[],
+): HistoryCounts {
   const counts: HistoryCounts = {
     attendees: attendees.length,
     interested: 0,

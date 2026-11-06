@@ -1,6 +1,9 @@
 import { sql, type Kysely } from 'kysely';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { leaderboardCases } from '../../../test/support/leaderboard-cases.js';
+import { raidsAlongCases } from '../../../test/support/raids-along-cases.js';
+import { boardAttendee, boardRecord } from '../../../test/support/board-cases.js';
+import { trainCard } from '../../domain/history/train-card.js';
 import { startMigratedDatabase } from '../../../test/support/migrated-db.js';
 import type { DB } from '../types.js';
 import { HistoryRepository } from './history-repository.js';
@@ -223,6 +226,168 @@ describe('HistoryRepository: who is named in the history', () => {
       expect(await history.joinBoards(ALICE, HOME, NOW)).toEqual({ joined: true, historyOn: true });
       const rows = await db.selectFrom('LeaderboardOptIn').selectAll().execute();
       expect(rows).toEqual([{ serverId: HOME, memberId: ALICE, createdAt: String(NOW) }]);
+    });
+  });
+
+  describe('the raids along a train’s way (plan 8H-7A)', () => {
+    raidsAlongCases(async () => {
+      await db.deleteFrom('PartyHistory').execute();
+      return {
+        reader: history,
+        add: async (records) => {
+          await history.insertRecords(records);
+        },
+      };
+    });
+  });
+
+  describe('the rows of a train’s card, read back (plan 8H-7A)', () => {
+    const MINUTE = 60_000;
+    const SPOT = 'c0ffee00c0ffee00c0ffee00c0ffee00.16';
+    const train = boardRecord({
+      kind: 'train',
+      serverId: HOME,
+      gymId: null,
+      tier: null,
+      boss: null,
+      createdAt: NOW,
+      startTime: NOW,
+      endTime: NOW + 120 * MINUTE,
+      endedAt: NOW + 180 * MINUTE,
+      peakRiders: 2,
+      attendees: [
+        boardAttendee(ALICE, 'here', { extras: 1 }),
+        boardAttendee(null, 'done', { doneAt: NOW + 60 * MINUTE }),
+        boardAttendee(null, 'here', { status: null, leftAt: NOW + 30 * MINUTE, splitOff: true }),
+        boardAttendee(BOB, 'joined'),
+      ],
+      stops: [
+        {
+          gymId: 1,
+          legacyGymId: null,
+          wayspotId: null,
+          arrivedAt: NOW,
+          leftAt: NOW + 20 * MINUTE,
+          regionIds: [2, 1],
+        },
+        {
+          gymId: null,
+          legacyGymId: null,
+          wayspotId: SPOT,
+          arrivedAt: NOW + 20 * MINUTE,
+          leftAt: null,
+          regionIds: [],
+        },
+        // A stop of a record of before 041: its regions not known.
+        {
+          gymId: 3,
+          legacyGymId: null,
+          wayspotId: null,
+          arrivedAt: NOW + 50 * MINUTE,
+          leftAt: null,
+        },
+      ],
+    });
+    const idOf = async (partyId: string | null) =>
+      (
+        await db
+          .selectFrom('PartyHistory')
+          .select('id')
+          .where('partyId', '=', partyId ?? '')
+          .executeTakeFirstOrThrow()
+      ).id;
+
+    it('reads a train’s record, stops and attendees as the card takes them', async () => {
+      const raid = boardRecord({ serverId: HOME });
+      await history.insertRecords([train, raid]);
+      const id = await idOf(train.partyId);
+      const read = await history.trainCardRows([id, await idOf(raid.partyId), 999_999]);
+      // Trains only.
+      expect([...read.keys()]).toEqual([id]);
+      const rows = read.get(id);
+      expect(rows).toEqual({
+        serverId: HOME,
+        record: { endedAt: NOW + 180 * MINUTE, endTime: NOW + 120 * MINUTE, peakRiders: 2 },
+        stops: [
+          {
+            gymId: 1,
+            wayspotId: null,
+            arrivedAt: NOW,
+            leftAt: NOW + 20 * MINUTE,
+            regionIds: [2, 1],
+          },
+          {
+            gymId: null,
+            wayspotId: SPOT,
+            arrivedAt: NOW + 20 * MINUTE,
+            leftAt: null,
+            regionIds: [],
+          },
+          {
+            gymId: 3,
+            wayspotId: null,
+            arrivedAt: NOW + 50 * MINUTE,
+            leftAt: null,
+            regionIds: null,
+          },
+        ],
+        attendees: [
+          {
+            furthest: 'here',
+            status: 'here',
+            extras: 1,
+            remote: false,
+            leftAt: null,
+            doneAt: null,
+          },
+          {
+            furthest: 'done',
+            status: 'done',
+            extras: 0,
+            remote: false,
+            leftAt: null,
+            doneAt: NOW + 60 * MINUTE,
+          },
+          {
+            furthest: 'here',
+            status: null,
+            extras: 0,
+            remote: false,
+            leftAt: NOW + 30 * MINUTE,
+            doneAt: null,
+            splitOff: true,
+          },
+          {
+            furthest: 'joined',
+            status: 'joined',
+            extras: 0,
+            remote: false,
+            leftAt: null,
+            doneAt: null,
+          },
+        ],
+      });
+      // The card of the rows read back is the card of the record as it was written.
+      if (!rows) throw new Error('no rows');
+      const raids = [
+        { id: 1, ...raid, gymId: 1, hatchTime: NOW + 5 * MINUTE, endTime: NOW + 50 * MINUTE },
+      ];
+      expect(trainCard(rows.record, rows.stops, rows.attendees, raids)).toEqual(
+        trainCard(train, train.stops, train.attendees, raids),
+      );
+      expect(trainCard(rows.record, rows.stops, rows.attendees, raids)).toMatchObject({
+        stops: { count: 3 },
+        regionIds: [2, 1],
+        riders: { members: 3, heads: 4 },
+        peakRiders: 2,
+      });
+    });
+
+    it('reads no most at once of a record that kept none', async () => {
+      const old = { ...train, partyId: '00000000-0000-4000-8000-00000000beef', peakRiders: null };
+      await history.insertRecords([old]);
+      const read = await history.trainCardRows([await idOf(old.partyId)]);
+      expect([...read.values()][0]?.record.peakRiders).toBeNull();
     });
   });
 });
