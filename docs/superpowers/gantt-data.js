@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-06T05:26",
+  "updated": "2026-11-06T06:06",
   "items": [
     {
       "id": "0",
@@ -10929,7 +10929,7 @@ window.GANTT = {
       ],
       "scope": "Part F on the web: a month's trains, a still route line with the card, legacy trains' routes",
       "doneWhen": "Merged into main-dev",
-      "status": "planned",
+      "status": "done",
       "planning": {
         "start": "2026-11-06T03:56",
         "end": "2026-11-06T05:26",
@@ -10937,6 +10937,10 @@ window.GANTT = {
           "start": "2026-11-06T04:16",
           "end": "2026-11-06T05:25"
         }
+      },
+      "review": {
+        "start": "2026-11-06T05:36",
+        "end": "2026-11-06T05:55"
       }
     },
     {
@@ -10944,89 +10948,96 @@ window.GANTT = {
       "kind": "task",
       "parent": "8H-7B",
       "name": "Who may be shown, raids and region words",
-      "size": 1,
       "dependsOn": [],
       "scope": "Who may be shown, raids and region words",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "planned"
+      "status": "done",
+      "start": "2026-11-06T05:26",
+      "end": "2026-11-06T05:28"
     },
     {
       "id": "8H-7B.2",
       "kind": "task",
       "parent": "8H-7B",
       "name": "A month's trains, read back",
-      "size": 1,
       "dependsOn": [
         "8H-7B.1"
       ],
       "scope": "A month's trains, read back",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "planned"
+      "status": "done",
+      "start": "2026-11-06T05:28",
+      "end": "2026-11-06T05:30"
     },
     {
       "id": "8H-7B.3",
       "kind": "task",
       "parent": "8H-7B",
       "name": "The routes of the list and a train",
-      "size": 1,
       "dependsOn": [
         "8H-7B.2"
       ],
       "scope": "The routes of the list and a train",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "planned"
+      "status": "done",
+      "start": "2026-11-06T05:30",
+      "end": "2026-11-06T05:31"
     },
     {
       "id": "8H-7B.4",
       "kind": "task",
       "parent": "8H-7B",
       "name": "History's Trains part and the still line",
-      "size": 1,
       "dependsOn": [
         "8H-7B.3"
       ],
       "scope": "History's Trains part and the still line",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "planned"
+      "status": "done",
+      "start": "2026-11-06T05:31",
+      "end": "2026-11-06T05:32"
     },
     {
       "id": "8H-7B.5",
       "kind": "task",
       "parent": "8H-7B",
       "name": "The map's address of a train",
-      "size": 1,
       "dependsOn": [
         "8H-7B.4"
       ],
       "scope": "The map's address of a train",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "planned"
+      "status": "done",
+      "start": "2026-11-06T05:32",
+      "end": "2026-11-06T05:34"
     },
     {
       "id": "8H-7B.6",
       "kind": "task",
       "parent": "8H-7B",
       "name": "\"Route on the map\" on the ended post",
-      "size": 1,
       "dependsOn": [
         "8H-7B.5"
       ],
       "scope": "\"Route on the map\" on the ended post",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "planned"
+      "status": "done",
+      "start": "2026-11-06T05:34",
+      "end": "2026-11-06T05:35"
     },
     {
       "id": "8H-7B.7",
       "kind": "task",
       "parent": "8H-7B",
       "name": "Docs",
-      "size": 1,
       "dependsOn": [
         "8H-7B.6"
       ],
       "scope": "Docs",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "planned"
+      "status": "done",
+      "start": "2026-11-06T05:35",
+      "end": "2026-11-06T05:36"
     },
     {
       "id": "16-staging",
