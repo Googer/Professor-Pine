@@ -11,10 +11,20 @@ import {
   type ActivityWindow,
 } from '../../domain/history/activity.js';
 import type { DayBoss } from '../../domain/history/big-days.js';
+import {
+  countedParties,
+  trainStopsCount,
+  type TrainRows,
+} from '../../domain/history/counted-parties.js';
 import type { MonthRange, RegionCount } from '../../domain/history/region-tally.js';
+import { raidsAlongQuery, stopWindows } from '../../domain/history/train-card.js';
 import type { Logger } from '../../log.js';
 import { inTransaction, retryOnDeadlock } from '../transaction.js';
 import type { DB } from '../types.js';
+import { HistoryRepository } from './history-repository.js';
+
+/** Epoch ms from a `BIGINT` column, which the pool gives as text. */
+const time = (value: string | null): number | null => (value === null ? null : Number(value));
 
 /** What the web map's heatmap reads of the buckets (`/api/activity`). */
 export interface ActivityReader {
@@ -75,6 +85,14 @@ export interface ActivityDayReader {
  * they count as behind (`daysComplete`): an hour between upkeeps, and one for the upkeep's run.
  */
 export const DAYS_BEHIND_MS = 2 * 3_600_000;
+
+/**
+ * How long after a train's end the adding waits before it takes the train (plan 8H-9, review
+ * T1): the raids it joined end and are recorded meanwhile (a raid at its last stop runs on past
+ * its end, a record that failed is tried again after 1 and 10 minutes), so that a stop at a joined
+ * raid finds the raid's record. Within `DAYS_BEHIND_MS`: a train held is never behind for the days.
+ */
+export const TRAIN_SETTLE_MS = 3_600_000;
 
 /** As many records of the history as one transaction of the adding reads (and buckets it writes). */
 export const ACTIVITY_BATCH = 2_000;
@@ -276,8 +294,11 @@ export class ActivityRepository implements ActivityReader, ActivityDayReader {
   /**
    * One batch in one transaction (read committed: no gap is locked, so the parties ending
    * meanwhile write their records unhindered): the marks' row locked once, the next records above
-   * the lower mark read with a shared lock, those above the buckets' mark summed into the buckets
-   * and those above the days' mark into the days, both marks moved to the batch's last record in
+   * the lower mark read with a shared lock, each turned into the parties it counts as
+   * (`countedParties`: a train's stops, plan 8H-9, with its rows read by `trainsOf`), those of the
+   * records above the buckets' mark summed into the buckets and those above the days' mark into
+   * the days (the batch ending before a train that ended less than `TRAIN_SETTLE_MS` ago, whose
+   * stops wait for the raids they joined), both marks moved to the batch's last record in
    * the same transaction (a mark ahead of the batch stays where it is: the two differ only until
    * the days catch up, plan 8H-8, G8). The locking read waits for a record whose transaction has
    * not committed yet (a party's end writing it, a retry of one that failed): its id may be below
@@ -290,66 +311,82 @@ export class ActivityRepository implements ActivityReader, ActivityDayReader {
         const marks = await this.markOf(trx, serverId);
         const rows = await sql<{
           id: number;
+          source: string;
           kind: string;
           ending: string;
           createdAt: string;
           hatchTime: string | null;
+          startTime: string | null;
+          endTime: string | null;
+          endedAt: string | null;
           regionId: number | null;
           gymId: number | null;
           wayspotId: string | null;
           hereHeads: number;
           doneHeads: number;
           bossKey: string | null;
+          trainKind: string | null;
         }>`
-          select id, kind, ending, createdAt, hatchTime, regionId, gymId, wayspotId, hereHeads,
-                 doneHeads, bossKey
+          select id, source, kind, ending, createdAt, hatchTime, startTime, endTime, endedAt,
+                 regionId, gymId, wayspotId, hereHeads, doneHeads, bossKey, trainKind
           from PartyHistory force index (partyhistory_serverid_id_index)
           where serverId = ${serverId} and id > ${Math.min(marks.buckets, marks.days)}
           order by id
           limit ${this.batch}
           for share`.execute(trx);
-        const last = rows.rows.at(-1);
-        if (last === undefined) return { read: 0, buckets: 0, days: 0 };
         const now = this.now();
         const { zone } = this.options;
+        const read = rows.rows.map((row) => ({
+          id: Number(row.id),
+          record: {
+            source: row.source,
+            kind: row.kind,
+            ending: row.ending,
+            createdAt: Number(row.createdAt),
+            hatchTime: time(row.hatchTime),
+            startTime: time(row.startTime),
+            endTime: time(row.endTime),
+            endedAt: time(row.endedAt),
+            regionId: row.regionId,
+            gymId: row.gymId,
+            wayspotId: row.wayspotId,
+            hereHeads: Number(row.hereHeads),
+            doneHeads: Number(row.doneHeads),
+            bossKey: row.bossKey,
+            trainKind: row.trainKind,
+          },
+        }));
+        // The batch ends before a live train whose stops count and that ended less than
+        // `TRAIN_SETTLE_MS` ago (review T1): the mark stays below it, and the next upkeep takes it
+        // with the raids it joined recorded.
+        const held = read.findIndex(
+          ({ record }) =>
+            record.source === 'live' &&
+            trainStopsCount(record) &&
+            record.endedAt !== null &&
+            record.endedAt > now - TRAIN_SETTLE_MS,
+        );
+        const records = held < 0 ? read : read.slice(0, held);
+        const last = records.at(-1);
+        if (last === undefined) return { read: 0, buckets: 0, days: 0 };
+        const trains = await this.trainsOf(
+          trx,
+          serverId,
+          records.flatMap(({ id, record }) => (trainStopsCount(record) ? [id] : [])),
+        );
+        const counted = records.map(({ id, record }) => ({
+          id,
+          parties: countedParties(record, trains.get(id)),
+        }));
         const buckets = sumBuckets(
-          rows.rows.flatMap((row) => {
-            if (Number(row.id) <= marks.buckets) return [];
-            const bucket = bucketOf(
-              {
-                kind: row.kind,
-                ending: row.ending,
-                createdAt: Number(row.createdAt),
-                hatchTime: row.hatchTime === null ? null : Number(row.hatchTime),
-                regionId: row.regionId,
-                gymId: row.gymId,
-                wayspotId: row.wayspotId,
-                hereHeads: Number(row.hereHeads),
-                doneHeads: Number(row.doneHeads),
-              },
-              zone,
-              now,
-            );
-            return bucket === undefined ? [] : [bucket];
-          }),
+          counted.flatMap(({ id, parties }) =>
+            id <= marks.buckets ? [] : parties.flatMap((party) => bucketOf(party, zone, now) ?? []),
+          ),
         );
         const days = sumDays(
-          rows.rows.flatMap((row) => {
-            if (Number(row.id) <= marks.days) return [];
-            const day = dayOf(
-              {
-                kind: row.kind,
-                ending: row.ending,
-                createdAt: Number(row.createdAt),
-                hatchTime: row.hatchTime === null ? null : Number(row.hatchTime),
-                regionId: row.regionId,
-                bossKey: row.bossKey,
-              },
-              zone,
-              now,
-            );
-            return day === undefined ? [] : [day];
-          }),
+          counted.flatMap(({ id, parties }) =>
+            id <= marks.days ? [] : parties.flatMap((party) => dayOf(party, zone, now) ?? []),
+          ),
         );
         if (buckets.length > 0) {
           await trx
@@ -374,23 +411,50 @@ export class ActivityRepository implements ActivityReader, ActivityDayReader {
             )
             .execute();
         }
-        const lastId = Number(last.id);
         await trx
           .updateTable('ActivityProgress')
           .set({
-            lastHistoryId: Math.max(marks.buckets, lastId),
-            lastDayHistoryId: Math.max(marks.days, lastId),
+            lastHistoryId: Math.max(marks.buckets, last.id),
+            lastDayHistoryId: Math.max(marks.days, last.id),
           })
           .where('serverId', '=', serverId)
           .execute();
+        // Fewer than a batch where it was held, so that the server's adding ends there.
         return {
-          read: rows.rows.length,
-          buckets: rows.rows.filter((row) => Number(row.id) > marks.buckets).length,
-          days: rows.rows.filter((row) => Number(row.id) > marks.days).length,
+          read: records.length,
+          buckets: records.filter(({ id }) => id > marks.buckets).length,
+          days: records.filter(({ id }) => id > marks.days).length,
         };
       },
       { isolation: 'read committed' },
     );
+  }
+
+  /**
+   * The rows of a batch's trains that `countedParties` reads (plan 8H-9): their stops and
+   * attendees as the card reads them back (`trainCardRows`, three reads for the batch), and, for
+   * a train whose stops have times, the raids and max battles of the history along them as the
+   * card reads them (`raidsAlong`, one read per such train), whatever their ids: a joined raid's
+   * record may be in an earlier batch or a later one. Plain reads in the batch's transaction
+   * (read committed): a record is never changed once written.
+   */
+  private async trainsOf(
+    trx: Kysely<DB>,
+    serverId: string,
+    ids: readonly number[],
+  ): Promise<Map<number, TrainRows>> {
+    const history = new HistoryRepository(trx);
+    const read = await history.trainCardRows(serverId, ids);
+    const trains = new Map<number, TrainRows>();
+    for (const [id, rows] of read) {
+      const query = raidsAlongQuery(stopWindows(rows.record, rows.stops, rows.attendees));
+      trains.set(id, {
+        stops: rows.stops,
+        attendees: rows.attendees,
+        raids: query === undefined ? [] : await history.raidsAlong(serverId, query),
+      });
+    }
+    return trains;
   }
 
   async buckets(serverId: string, window: ActivityWindow): Promise<ActivityBucket[]> {
