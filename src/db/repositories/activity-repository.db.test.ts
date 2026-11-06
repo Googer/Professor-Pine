@@ -442,6 +442,65 @@ describe('ActivityRepository', () => {
     ]);
   });
 
+  /** A max battle at Power Spot abc.16 from 17:40 to the spot's 21:00, recorded at 21:20. */
+  const battle = {
+    kind: 'max',
+    gymId: null,
+    wayspotId: 'abc.16',
+    bossKey: 'AZELF',
+    createdAt: String(at('2026-10-22T17:40')),
+    hatchTime: null,
+    endTime: String(at('2026-10-22T21:00')),
+    endedAt: String(at('2026-10-22T21:20')),
+  };
+  const atTheSpot = [{ at: 'abc.16', from: 0, to: 30 }];
+  const dynamax = { trainKind: 'dynamax', bossKey: 'AZELF' };
+
+  it('pairs a battle recorded after a train made days before its start (V4)', async () => {
+    // Planned five days ahead: within a train's reach before the battle, which the read goes by.
+    await recordTrain(atTheSpot, {
+      ...dynamax,
+      createdAt: String(at('2026-10-22T18:00') - 5 * 24 * 3_600_000),
+    });
+    await record(battle);
+    expect(await repository().addNew()).toEqual({ buckets: 2, days: 2 });
+    // The stop counts the battle, and the battle's record nothing.
+    expect(await bucketsOf()).toEqual([
+      expect.objectContaining({ placeId: 'abc.16', hour: 18, maxes: 1, heads: 0 }),
+    ]);
+  });
+
+  it('pairs no battle with a train of another server at the same Power Spot (V4)', async () => {
+    await recordTrain(atTheSpot, { ...dynamax, serverId: OTHER_ACTIVITY_SERVER });
+    await record(battle);
+    expect(await repository().addNew()).toEqual({ buckets: 2, days: 2 });
+    expect(await bucketsOf()).toEqual([
+      expect.objectContaining({ placeId: 'abc.16', hour: 17, maxes: 1, heads: 5 }),
+    ]);
+    expect(await bucketsOf(OTHER_ACTIVITY_SERVER)).toEqual([
+      expect.objectContaining({ placeId: 'abc.16', hour: 18, maxes: 1, heads: 0 }),
+    ]);
+  });
+
+  it('pairs no raid with a train that ended before it stood (V4)', async () => {
+    // The train at gym 1 from 18:00 on, ended at 18:45; the raid there hatched at 19:00.
+    await recordTrain([{ at: 1, from: 0, to: null }], {
+      endTime: null,
+      endedAt: String(at('2026-10-22T18:45')),
+    });
+    await record({
+      gymId: 1,
+      hatchTime: String(at('2026-10-22T19:00')),
+      endTime: String(at('2026-10-22T19:45')),
+      endedAt: String(at('2026-10-22T19:45')),
+    });
+    expect(await repository().addNew()).toEqual({ buckets: 2, days: 2 });
+    expect(await bucketsOf()).toEqual([
+      expect.objectContaining({ placeId: '1', hour: 18, raids: 1, heads: 0 }),
+      expect.objectContaining({ placeId: '1', hour: 19, raids: 1, heads: 5 }),
+    ]);
+  });
+
   it('reads the raids along a batch’s trains once, and pairs each with its own train’s stops (W6)', async () => {
     // Three trains at gyms 1 and 2, 3 and 4, and 5 the next day; a raid at gym 1 during the first's
     // stop, one at gym 3 an hour after the second left it, both recorded before them.
