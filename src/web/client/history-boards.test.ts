@@ -6,6 +6,7 @@ import {
   meAddress,
   meHref,
   meLines,
+  barCaption,
   monthBars,
   monthTable,
   yearOfAddress,
@@ -121,6 +122,71 @@ describe('"Your Pine"', () => {
       },
     ]);
     expect(monthBars([], 80)).toEqual([]);
+  });
+
+  it("draws a year's twelve months, January to December, whatever months had something", () => {
+    const bars = monthBars(
+      [
+        { month: '2026-10', came: 7, reports: 0 },
+        { month: '2026-11', came: 0, reports: 1 },
+      ],
+      70,
+      2026,
+    );
+    expect(bars.map((bar) => bar.month)).toEqual([
+      '2026-01',
+      '2026-02',
+      '2026-03',
+      '2026-04',
+      '2026-05',
+      '2026-06',
+      '2026-07',
+      '2026-08',
+      '2026-09',
+      '2026-10',
+      '2026-11',
+      '2026-12',
+    ]);
+    expect(bars[9]).toMatchObject({ label: 'Oct 2026', came: 7, cameHeight: 70 });
+    expect(bars[0]).toMatchObject({ label: 'Jan 2026', came: 0, cameHeight: 0 });
+    expect(monthBars([], 70, 2026)).toEqual([]);
+  });
+
+  it('names every month under a year or less of bars, and only the years under more', () => {
+    const year = monthBars([{ month: '2026-10', came: 1, reports: 0 }], 70, 2026);
+    expect(year.map((_, index) => barCaption(year, index))).toEqual([
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ]);
+    const two = monthBars(
+      [
+        { month: '2026-10', came: 1, reports: 0 },
+        { month: '2026-11', came: 1, reports: 0 },
+      ],
+      70,
+    );
+    expect([barCaption(two, 0), barCaption(two, 1)]).toEqual(['Oct', 'Nov']);
+    const long = monthBars(
+      [
+        { month: '2025-06', came: 1, reports: 0 },
+        { month: '2026-11', came: 1, reports: 0 },
+      ],
+      70,
+    );
+    const captions = long.map((_, index) => barCaption(long, index));
+    expect(captions.filter((one) => one !== null)).toEqual(['2025', '2026']);
+    expect(captions[7]).toBe('2026');
+    expect(barCaption(long, 99)).toBeNull();
   });
 
   it('gives the bars as rows of a table, for whoever cannot see the chart (B1)', () => {

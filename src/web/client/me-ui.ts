@@ -1,5 +1,12 @@
 import type { MemberCardView, MemberStatsView } from '../../domain/web/board-data.js';
-import { meAddress, meLines, monthBars, monthTable, yearOfAddress } from './history-boards.js';
+import {
+  barCaption,
+  meAddress,
+  meLines,
+  monthBars,
+  monthTable,
+  yearOfAddress,
+} from './history-boards.js';
 import { tallyFailure, tallyLoginHref } from './history-tally.js';
 import { byId, getJson } from './page-frame.js';
 import { RequestError } from './request-error.js';
@@ -17,6 +24,8 @@ const SVG = 'http://www.w3.org/2000/svg';
 const CHART_HEIGHT = 120;
 const BAR = 6;
 const MONTH_WIDTH = 16;
+/** A month's width when every month is named under its bars (a year or less). */
+const NAMED_MONTH_WIDTH = 28;
 const LABEL_ROOM = 16;
 
 export function showMe(guild: string, login: 'discord' | 'links'): void {
@@ -68,7 +77,8 @@ export function showMe(guild: string, login: 'discord' | 'links'): void {
   };
 
   function drawChart(view: MemberCardView): void {
-    const bars = monthBars(view.months, CHART_HEIGHT);
+    const bars = monthBars(view.months, CHART_HEIGHT, view.year);
+    const step = bars.length <= 12 ? NAMED_MONTH_WIDTH : MONTH_WIDTH;
     months.hidden = bars.length === 0;
     // The chart is for the eye (aria-hidden); its numbers are read from the table (B1).
     const laid = monthTable(bars);
@@ -76,13 +86,13 @@ export function showMe(guild: string, login: 'discord' | 'links'): void {
       tableRow(laid.head, true),
       ...laid.rows.map((cells) => tableRow(cells, false)),
     );
-    const width = Math.max(1, bars.length) * MONTH_WIDTH;
+    const width = Math.max(1, bars.length) * step;
     chart.setAttribute('viewBox', `0 0 ${String(width)} ${String(CHART_HEIGHT + LABEL_ROOM)}`);
     chart.setAttribute('width', String(width));
     chart.setAttribute('height', String(CHART_HEIGHT + LABEL_ROOM));
     chart.replaceChildren(
       ...bars.flatMap((bar, index) => {
-        const x = index * MONTH_WIDTH + 1;
+        const x = index * step + 1;
         const group = svg('g', {});
         const words = `${bar.label}: came to ${String(bar.came)}, ${String(bar.reports)} reports`;
         const tip = svg('title', {});
@@ -104,14 +114,15 @@ export function showMe(guild: string, login: 'discord' | 'links'): void {
             height: String(bar.reportsHeight),
           }),
         );
-        // A January names its year under the bars.
-        if (bar.month.endsWith('-01') || index === 0) {
+        // A year or less names every month; more names each January's year (barCaption).
+        const caption = barCaption(bars, index);
+        if (caption !== null) {
           const label = svg('text', {
             class: 'month',
             x: String(x),
             y: String(CHART_HEIGHT + LABEL_ROOM - 3),
           });
-          label.textContent = bar.month.slice(0, 4);
+          label.textContent = caption;
           group.append(label);
         }
         return [group];

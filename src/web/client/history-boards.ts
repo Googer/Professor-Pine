@@ -95,28 +95,47 @@ const MONTH_NAMES = [
   'Dec',
 ] as const;
 
+/** "Jan" for 1. */
+function monthName(month: number): string {
+  return MONTH_NAMES[month - 1] ?? '';
+}
+
+/**
+ * What the chart writes under a bar: with a year's worth of bars or fewer, every month's short
+ * name ("Oct"); with more, the year under each January and under the first bar ("2026").
+ */
+export function barCaption(bars: readonly MonthBar[], index: number): string | null {
+  const bar = bars[index];
+  if (bar === undefined) return null;
+  if (bars.length <= 12) return monthName(Number(bar.month.slice(5, 7)));
+  return bar.month.endsWith('-01') || index === 0 ? bar.month.slice(0, 4) : null;
+}
+
 /**
  * The bars of the chart, one per month from the first to the last the server gave (the months
  * between with none), what the member came to and their reports that counted, scaled so that
- * the busiest month's taller bar is `height`.
+ * the busiest month's taller bar is `height`. With `year`, the bars are that year's twelve
+ * months, January to December, whatever the server gave (staging of 8H-6: a year of two
+ * months drew two unnamed bars).
  */
 export function monthBars(
   months: readonly { month: string; came: number; reports: number }[],
   height: number,
+  year: number | null = null,
 ): MonthBar[] {
-  const first = months[0];
-  const last = months.at(-1);
-  if (first === undefined || last === undefined) return [];
+  const first = year === null ? months[0]?.month : `${String(year).padStart(4, '0')}-01`;
+  const last = year === null ? months.at(-1)?.month : `${String(year).padStart(4, '0')}-12`;
+  if (first === undefined || last === undefined || months.length === 0) return [];
   const byMonth = new Map(months.map((one) => [one.month, one]));
   const most = Math.max(1, ...months.map((one) => Math.max(one.came, one.reports)));
   const scale = (count: number) => Math.round((count / most) * height);
   const bars: MonthBar[] = [];
-  let [year, month] = first.month.split('-').map(Number) as [number, number];
-  for (let key = first.month; key <= last.month;) {
+  let [shownYear, month] = first.split('-').map(Number) as [number, number];
+  for (let key = first; key <= last;) {
     const one = byMonth.get(key) ?? { came: 0, reports: 0 };
     bars.push({
       month: key,
-      label: `${MONTH_NAMES[month - 1] ?? ''} ${String(year)}`,
+      label: `${monthName(month)} ${String(shownYear)}`,
       came: one.came,
       reports: one.reports,
       cameHeight: scale(one.came),
@@ -125,9 +144,9 @@ export function monthBars(
     month += 1;
     if (month > 12) {
       month = 1;
-      year += 1;
+      shownYear += 1;
     }
-    key = `${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}`;
+    key = `${String(shownYear).padStart(4, '0')}-${String(month).padStart(2, '0')}`;
   }
   return bars;
 }
