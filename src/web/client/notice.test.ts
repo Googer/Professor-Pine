@@ -64,11 +64,11 @@ describe("the map's way to the history page (plan 8H-5)", () => {
     });
   });
 
-  it('has "Your Pine" beside it, the member’s own numbers (plan 8H-6)', () => {
+  it('has "Your history" beside it, the member’s own numbers (plan 8H-6)', () => {
     expect(meItemNode('412345678901234567')).toEqual({
       tag: 'a',
       className: 'history-link',
-      text: 'Your Pine',
+      text: 'Your history',
       attributes: { href: '/s/412345678901234567/me' },
     });
   });

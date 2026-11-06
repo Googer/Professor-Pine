@@ -11,7 +11,7 @@ import { IN_SETTINGS } from './settings-words.js';
 /** What a member's card shows beside their numbers, as the caller names it. */
 export interface MemberStatsView {
   stats: MemberStats;
-  /** The card's title: "Your Pine, all time", "Pine of **Ash** in 2026". */
+  /** The card's title: "Your history, all time", "History of **Ash** in 2026". */
   title: string;
   /** Whether it says how many of a count were anonymous (the private card; a shared one has none). */
   own: boolean;
@@ -23,8 +23,11 @@ export interface MemberStatsView {
 
 const n = (count: number): string => `**${count.toLocaleString('en-US')}**`;
 
-/** A member's card's title: "Your Pine, all time", "Your Pine in 2026"; `whose` for another's. */
-export function memberStatsTitle(year: number | null, whose = 'Your Pine'): string {
+/**
+ * A member's card's title: "Your history, all time", "Your history in 2026"; `whose` for a shared
+ * one ("History of **Ash**").
+ */
+export function memberStatsTitle(year: number | null, whose = 'Your history'): string {
   return year === null ? `${whose}, all time` : `${whose} in ${String(year)}`;
 }
 
@@ -74,5 +77,5 @@ export function notOptedIn(settings: string = IN_SETTINGS): string {
 
 /** What `/stats me` says of a year without anything of the member's. */
 export function nothingInYear(year: number): string {
-  return `Nothing of yours is in my history of this server for ${String(year)}.`;
+  return `Nothing of yours is in my history for ${String(year)}.`;
 }

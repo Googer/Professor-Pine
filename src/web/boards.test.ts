@@ -173,7 +173,7 @@ describe('the boards on the web', () => {
   });
 });
 
-describe('"Your Pine" on the web', () => {
+describe('"Your history" on the web', () => {
   let web: TestWeb | undefined;
   afterEach(async () => {
     await web?.app.close();
@@ -190,7 +190,7 @@ describe('"Your Pine" on the web', () => {
       optedIn: true,
       year: null,
       years: [2026],
-      title: 'Your Pine, all time',
+      title: 'Your history, all time',
       raids: { count: 2, anonymous: 0 },
       trains: { count: 0, anonymous: 0 },
       meetups: { count: 0, anonymous: 0 },
@@ -212,7 +212,7 @@ describe('"Your Pine" on the web', () => {
     const made = await setup();
     web = made.web;
     const year = (await made.ask(`${ME}?year=2026`)).json<MemberStatsView>();
-    expect(year.optedIn && year.empty === undefined && year.title).toBe('Your Pine in 2026');
+    expect(year.optedIn && year.empty === undefined && year.title).toBe('Your history in 2026');
     for (const query of ['?year=26', '?year=2026&x=1']) {
       expect((await made.ask(`${ME}${query}`)).statusCode, query).toBe(400);
     }
@@ -224,8 +224,8 @@ describe('"Your Pine" on the web', () => {
     const view = (await made.ask(`${ME}?year=2019`)).json<MemberStatsView>();
     expect(view).toEqual({
       optedIn: true,
-      empty: 'Nothing of yours is in my history of this server for 2019.',
-      title: 'Your Pine in 2019',
+      empty: 'Nothing of yours is in my history for 2019.',
+      title: 'Your history in 2019',
       year: 2019,
       years: [2026],
     });

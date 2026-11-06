@@ -299,7 +299,7 @@ p.board-lines {
   color: var(--muted);
 }
 
-/* "Your Pine" (plan 8H-6): the member's numbers as a list of terms, and the months as bars. */
+/* "Your history" (plan 8H-6): the member's numbers as a list of terms, and the months as bars. */
 #me-status {
   color: var(--muted);
 }

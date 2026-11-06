@@ -159,7 +159,7 @@ async function sharesLeaveOut(
 
 /** What the private answer says under Share where a shared tally would leave regions out. */
 const SHARE_LEAVES_OUT =
-  '-# Shared here, the list leaves out the regions not everyone who sees this channel can see.';
+  '-# Shared here, the list would leave out regions that not everyone in this channel can see.';
 
 /**
  * The refusal of a Share into a channel of which nothing can be said (not in the cache, or a
@@ -171,8 +171,8 @@ export const SHARE_UNKNOWN =
 
 /** The refusal of a Share where the bot may not post. */
 export const SHARE_REFUSED =
-  'I may not post in this channel, so I cannot share the list here. Try it in a channel ' +
-  'where I can post.';
+  'I may not post in this channel, so I cannot share the list here. Try a channel where I ' +
+  'can post.';
 
 /**
  * The refusal of a Share whose channel is gone (or, in rehearsal mode, outside the posts of
@@ -192,8 +192,8 @@ const TALLY_SHARE: ShareWords = { refused: SHARE_REFUSED, gone: SHARE_GONE };
 
 /** The refusal of a board's Share where the bot may not post (B8). */
 export const BOARD_SHARE_REFUSED =
-  'I may not post in this channel, so I cannot share the board here. Try it in a channel ' +
-  'where I can post.';
+  'I may not post in this channel, so I cannot share the board here. Try a channel where I ' +
+  'can post.';
 
 const BOARD_SHARE: ShareWords = {
   refused: BOARD_SHARE_REFUSED,
@@ -287,12 +287,12 @@ const regionsPart: SubcommandPart = {
     ),
   help: {
     details:
-      'How many raids and max battles took place in each region of this server, the busiest ' +
-      'first: this month, this year or all time. Only you see the answer.\n\n' +
+      'How many raids and max battles each region had, the busiest first: this month, this ' +
+      'year or all time. Only you see the answer.\n\n' +
       'A raid or max battle counts whether or not anybody marked it done, unless it was ' +
-      'deleted. Those of regions that are gone are counted on one line, "No longer a region".' +
-      '\n\n"Share in this channel" posts the list where you asked, for everybody, with your ' +
-      'name. It leaves out the regions not everyone who sees that channel can see.',
+      'deleted. Regions that are gone are counted together, on one line: "No longer a region".' +
+      '\n\n"Share in this channel" posts the list here for everybody, with your name. It ' +
+      'leaves out regions that not everyone in the channel can see.',
     examples: ['/stats regions', '/stats regions period:This year'],
   },
   defer: 'late',
@@ -434,18 +434,18 @@ const boardsPart: SubcommandPart = {
     ),
   help: {
     details:
-      'The top ten of this server for this month, this year or all time, on one of these ' +
-      'boards: raids reported that others completed, trains conducted and meetups hosted that ' +
-      'others came to, and reports at stops that counted. Only you see the answer.\n\n' +
+      'The top ten of this month, this year or all time, on one board: raids reported that ' +
+      'others completed, trains conducted and meetups hosted that others came to, or reports ' +
+      'at stops that counted. Only you see the answer.\n\n' +
       'Only members who turned the boards on in `/settings` are ranked, and an anonymous raid ' +
       'or train counts for nobody. If you are not in the top ten, the answer says where you ' +
-      'are, or where you would be.\n\n' +
+      'are, or would be.\n\n' +
       'A report at a stop counts unless another member said it was wrong. If more of your ' +
       'reports were said to be wrong than were confirmed, only the confirmed ones count.\n\n' +
       'Three boards name nobody: the most wanted Pokémon, the bosses whose raids were sent to ' +
       'the most members, and the field research tasks reported most.\n\n' +
-      '"Share in this channel" posts the board where you asked, for everybody, with your name. ' +
-      'It is a snapshot: it shows the board as it was when you shared it.',
+      '"Share in this channel" posts the board here for everybody, with your name. It is a ' +
+      'snapshot: the board as it was when you shared it.',
     examples: ['/stats boards', '/stats boards board:Trains conducted period:This year'],
   },
   defer: 'late',
@@ -462,8 +462,8 @@ const boardsPart: SubcommandPart = {
 /** How a card's Share is refused (B8). */
 const CARD_SHARE: ShareWords = {
   refused:
-    'I may not post in this channel, so I cannot share your numbers here. Try it in a ' +
-    'channel where I can post.',
+    'I may not post in this channel, so I cannot share your numbers here. Try a channel ' +
+    'where I can post.',
   gone: 'I could not post your numbers in this channel.',
 };
 
@@ -569,7 +569,7 @@ function shareCard(
       });
       const texts = memberStatsTexts({
         stats: counted,
-        title: memberStatsTitle(counted.year, `Pine of ${sharer}`),
+        title: memberStatsTitle(counted.year, `History of ${sharer}`),
         own: false,
         ...(kept ? { region: ctx.regionTallies.regionText(region) } : {}),
         bossName: bossNameOf(ctx),
@@ -591,7 +591,7 @@ function shareCard(
 const mePart: SubcommandPart = {
   data: new SlashCommandSubcommandBuilder()
     .setName('me')
-    .setDescription('Your own numbers in this server, all time or of a year')
+    .setDescription('Your own numbers, all time or in one year')
     .addIntegerOption((option) =>
       option
         .setName('year')
@@ -602,17 +602,15 @@ const mePart: SubcommandPart = {
     ),
   help: {
     details:
-      'Your own numbers in this server: the raids and max battles you reported that others ' +
-      'completed, the trains you conducted and the meetups you hosted that others came to, ' +
-      'and your reports at stops that counted.\n\nBeside them: the raids and max battles you ' +
-      'completed, the trains and meetups you came to, the region you were busiest in, the ' +
-      'bosses you beat most, and how many members were told of what you reported. Only you ' +
-      'see the answer.\n\nChoose a year to see that year alone; without one you see all ' +
-      'time.\n\nI count only what you did while your history was on (`/settings`). Raids and trains ' +
-      'you reported anonymously count here, but on no board.\n\n"Share in this channel" ' +
-      'posts your numbers where you asked, under your name. It leaves out what you reported ' +
-      'anonymously, and your busiest region unless everyone who sees the channel can see that ' +
-      'region.',
+      'Your own numbers: the raids and max battles you reported that others completed, the ' +
+      'trains you conducted and the meetups you hosted that others came to, and your reports ' +
+      'at stops that counted.\n\nBeside them: what you completed and came to, your busiest ' +
+      'region, the bosses you beat most, and how many members were told of what you reported. ' +
+      'Only you see the answer.\n\nChoose a year to see that year alone; without one you see ' +
+      'all time.\n\nI count only what you did while your history was on (`/settings`). Raids ' +
+      'and trains you reported anonymously count here, but on no board.\n\n"Share in this ' +
+      'channel" posts your numbers here, under your name. It leaves out what you reported ' +
+      'anonymously, and your busiest region unless everyone in the channel can see it.',
     examples: ['/stats me', '/stats me year:2026'],
   },
   defer: 'late',
@@ -639,13 +637,14 @@ const mePart: SubcommandPart = {
  * the periods to switch to and Share; `me` the member's own card, with Share.
  */
 export const stats = commandGroup({
-  data: new SlashCommandBuilder().setName('stats').setDescription('Pine’s history of this server'),
+  data: new SlashCommandBuilder()
+    .setName('stats')
+    .setDescription('Raids by region, the boards, and your own numbers'),
   help: {
     category: 'util',
     details:
-      'Numbers from my history of this server: how many raids and max battles each region ' +
-      'had, boards of who did the most that others confirmed, among the members who asked to ' +
-      'be ranked, and your own numbers.',
+      'Numbers from my history of this server: raids and max battles by region, the boards of ' +
+      'who did the most, and your own numbers. Only you see the answers, unless you share them.',
     examples: ['/stats regions', '/stats boards', '/stats me'],
   },
   parts: [regionsPart, boardsPart, mePart],

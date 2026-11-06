@@ -16,7 +16,7 @@ import type { HistoryKind, HistoryStatus } from './party-history.js';
  * A member's own stats (plan 8H-6, design Part E): their numbers of the four boards (anonymous
  * records included, and said), what they completed and came to, their busiest region, the
  * bosses they did most and what their news was sent to, all time or for a calendar year. One
- * path for `/stats me`, its Share and the web's "Your Pine".
+ * path for `/stats me`, its Share and the web's "Your history".
  */
 
 /**

@@ -268,14 +268,26 @@ describe('/stats regions', () => {
     expect(json.options?.map((option) => option.name)).toEqual(['regions', 'boards', 'me']);
     const details = String(stats.subcommands.get('regions')?.help?.details);
     expect(details.split('\n\n')[0]).toBe(
-      'How many raids and max battles took place in each region of this server, the busiest ' +
-        'first: this month, this year or all time. Only you see the answer.',
+      'How many raids and max battles each region had, the busiest first: this month, this ' +
+        'year or all time. Only you see the answer.',
     );
     expect(details).toContain(
       'A raid or max battle counts whether or not anybody marked it done, unless it was deleted.',
     );
     // Nothing promised of the legacy bot's years, which only an imported history has (P6).
     expect(details).not.toMatch(/old bot/u);
+    expect(json.description).toBe('Raids by region, the boards, and your own numbers');
+    expect(stats.help.details).toBe(
+      'Numbers from my history of this server: raids and max battles by region, the boards of ' +
+        'who did the most, and your own numbers. Only you see the answers, unless you share them.',
+    );
+  });
+
+  it('says in words of the list why it cannot share it here', () => {
+    expect(SHARE_REFUSED).toBe(
+      'I may not post in this channel, so I cannot share the list here. Try a channel where I ' +
+        'can post.',
+    );
   });
 });
 
@@ -331,7 +343,7 @@ describe('Share of the region tally', () => {
     // Ash sees East: it is on his own tally.
     expect(textDisplays(answer).slice(0, 2)).toEqual(MONTH_TALLY);
     expect(textDisplays(answer)[2]).toBe(
-      '-# Shared here, the list leaves out the regions not everyone who sees this channel can see.',
+      '-# Shared here, the list would leave out regions that not everyone in this channel can see.',
     );
     await made.press('stats:regions:share:month');
     const [posted] = made.gateway.messagesIn(WEST_CHANNEL);
@@ -354,7 +366,7 @@ describe('Share of the region tally', () => {
     ]);
     const answer = asV2(answered(await made.ask()));
     expect(textDisplays(answer)[0]).toContain('No raids or max battles: Region 3');
-    expect(textDisplays(answer)[2]).toContain('leaves out');
+    expect(textDisplays(answer)[2]).toContain('would leave out');
   });
 
   it('carries the note under Share in the period buttons, asking nothing of the channel at a press (8H5-4)', async () => {
@@ -371,7 +383,7 @@ describe('Share of the region tally', () => {
     expect(keeps).toHaveBeenCalledTimes(1);
     const year = asV2(sent((await made.press('stats:regions:show:year:note')).update));
     expect(textDisplays(year)[2]).toBe(
-      '-# Shared here, the list leaves out the regions not everyone who sees this channel can see.',
+      '-# Shared here, the list would leave out regions that not everyone in this channel can see.',
     );
     expect(buttonsOf(year)[0]?.customId).toBe('stats:regions:show:month:note');
     const plain = asV2(sent((await made.press('stats:regions:show:year:none')).update));
@@ -386,7 +398,7 @@ describe('Share of the region tally', () => {
     // The map's rule (spec 2.5): East's roles hide it from Misty, but nothing bars her.
     expect(textDisplays(misty)[0]).toContain(EAST_CHANNEL);
     expect(textDisplays(misty)).toHaveLength(3);
-    expect(textDisplays(misty)[2]).toContain('leaves out');
+    expect(textDisplays(misty)[2]).toContain('would leave out');
   });
 
   it('keeps a region shared among those who all see it: a moderators’ channel on a gated server', async () => {

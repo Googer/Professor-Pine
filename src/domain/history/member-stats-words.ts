@@ -1,6 +1,6 @@
 /*
  * The words of a member's own stats (plan 8H-6, design Part E), for `/stats me` on Discord and
- * "Your Pine" on the web alike; apart from the stats themselves so that the web page, whose type
+ * "Your history" on the web alike; apart from the stats themselves so that the web page, whose type
  * check has no Temporal, can import them.
  */
 
@@ -14,7 +14,7 @@ export const MEMBER_STAT_LABELS = {
   trainsCame: 'Trains ridden',
   meetupsCame: 'Meetups attended',
   region: 'Busiest region',
-  bosses: 'Bosses done most',
+  bosses: 'Bosses beaten most',
   sent: 'Raids, max battles, trains and reports sent to',
 } as const;
 

@@ -81,7 +81,7 @@ export interface ActivityWebDeps {
   boards: Pick<Boards, 'boards'>;
   /** A member's own stats (plan 8H-6): `/stats me`'s own path (`MemberStatsService.stats`). */
   memberStats: Pick<MemberStatsService, 'stats'>;
-  /** The catalogue's name of a boss by its key, for "Your Pine"'s bosses. */
+  /** The catalogue's name of a boss by its key, for "Your history"'s bosses. */
   bossName: (bossKey: string) => string | undefined;
   /**
    * The ended trains of the map's History (plan 8H-7B): a month's trains, their rows and the
@@ -402,7 +402,7 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
     },
   );
 
-  // A member's own stats, "Your Pine" (plan 8H-6, design Part E): `/stats me`'s own path, all
+  // A member's own stats, "Your history" (plan 8H-6, design Part E): `/stats me`'s own path, all
   // time or of a year, the busiest region by its channel (rule 2: a region, never a place).
   const meLimiter = new RateLimiter({ uses: BOARDS_PER_MINUTE, perMs: 60_000 });
   scope.get(

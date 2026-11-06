@@ -31,7 +31,7 @@ export type ShownStats =
 
 /**
  * A member's own stats (plan 8H-6, design Part E), for `/stats me`, its Share and the web's
- * "Your Pine" alike: the member's rows read (`BoardReader`'s member reads, all time) and counted
+ * "Your history" alike: the member's rows read (`BoardReader`'s member reads, all time) and counted
  * by the domain (`memberStats`), for a calendar year where asked. Nothing is read for a member
  * without the history opt-in, whose records keep no id to count.
  */

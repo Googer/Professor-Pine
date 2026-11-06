@@ -12,7 +12,7 @@ import { byId, getJson } from './page-frame.js';
 import { RequestError } from './request-error.js';
 
 /*
- * "Your Pine" (plan 8H-6, design Part E): the member's own numbers of `/api/stats/me`, a year to
+ * "Your history" (plan 8H-6, design Part E): the member's own numbers of `/api/stats/me`, a year to
  * choose among theirs (kept in the address, `?year=`), and a bar chart of their months drawn as
  * SVG from the server's numbers (sizes as attributes: nothing inline). Only the latest question
  * is drawn; everything is set as text. Its pure part is `history-boards.ts`; this is tried at

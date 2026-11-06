@@ -3,7 +3,7 @@ import type { TallyPeriod } from '../history/tally-periods.js';
 
 /*
  * The boards and a member's own stats on the web (plan 8H-6): what `GET /s/<guild>/api/stats/
- * boards` and `…/api/stats/me` answer and the history page and "Your Pine" read. Types only,
+ * boards` and `…/api/stats/me` answer and the history page and "Your history" read. Types only,
  * shared by the server and the page; every word and number is the server's.
  */
 
@@ -40,7 +40,7 @@ export interface CountedView {
   anonymous: number;
 }
 
-/** A member's own numbers ("Your Pine"), as `/stats me` counts them. */
+/** A member's own numbers ("Your history"), as `/stats me` counts them. */
 export type MemberStatsView =
   | {
       optedIn: false;
@@ -51,7 +51,7 @@ export type MemberStatsView =
       optedIn: true;
       /** A year the member has nothing in, as `/stats me` says it (`nothingInYear`, B3). */
       empty: string;
-      /** "Your Pine in 2019", the page's heading (R-B1). */
+      /** "Your history in 2019", the page's heading (R-B1). */
       title: string;
       year: number;
       /** The years the member has anything in, latest first: the page's year select. */
@@ -64,7 +64,7 @@ export type MemberStatsView =
       year: number | null;
       /** The years the member has anything in, latest first: the page's year select. */
       years: number[];
-      /** "Your Pine, all time", "Your Pine in 2026". */
+      /** "Your history, all time", "Your history in 2026". */
       title: string;
       raids: CountedView;
       trains: CountedView;

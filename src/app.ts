@@ -1546,7 +1546,7 @@ export async function startApp(
         zone: config.settings.timezone,
         tallies: ctx.regionTallies,
         channelName: (channelId) => partyGateway.channelName(channelId),
-        // The boards and "Your Pine" (plan 8H-6): /stats boards' and /stats me's own paths.
+        // The boards and "Your history" (plan 8H-6): /stats boards' and /stats me's own paths.
         boards: ctx.boards,
         memberStats: ctx.memberStats,
         bossName: (key) => gameData.catalogue.byKey(key)?.name,

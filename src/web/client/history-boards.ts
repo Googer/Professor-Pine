@@ -9,7 +9,7 @@ import type { TallyPeriod } from '../../domain/history/tally-periods.js';
 import type { BoardView, MemberCardView } from '../../domain/web/board-data.js';
 
 /*
- * The boards on the history page and the "Your Pine" page (plan 8H-6), their pure part: where
+ * The boards on the history page and the "Your history" page (plan 8H-6), their pure part: where
  * they are asked for, a board's lines, the member's numbers as `/stats me` words them, and the
  * bars of the months. The numbers and the boards' words are the server's.
  */
@@ -24,7 +24,7 @@ export function meAddress(guild: string, year: number | null): string {
   return `/s/${guild}/api/stats/me${year === null ? '' : `?year=${String(year)}`}`;
 }
 
-/** The "Your Pine" page of a server. */
+/** The "Your history" page of a server. */
 export function meHref(guild: string): string {
   return `/s/${guild}/me`;
 }
@@ -41,7 +41,7 @@ export function boardLines(view: BoardView): string[] {
   return view.rows.map((row) => `${String(row.rank)}. ${row.name}: ${row.count}`);
 }
 
-/** A number of "Your Pine", named. */
+/** A number of "Your history", named. */
 export interface StatLine {
   label: string;
   value: string;

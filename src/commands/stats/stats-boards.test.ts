@@ -278,7 +278,7 @@ describe('/stats boards', () => {
     const pressed = await made.press('stats:boards:share:raids:month');
     expect(sent(pressed.reply).content).toBe(BOARD_SHARE_REFUSED);
     expect(BOARD_SHARE_REFUSED).toBe(
-      'I may not post in this channel, so I cannot share the board here. Try it in a channel ' +
+      'I may not post in this channel, so I cannot share the board here. Try a channel ' +
         'where I can post.',
     );
     expect(made.gateway.messagesIn(WEST_CHANNEL)).toEqual([]);
@@ -298,10 +298,19 @@ describe('/stats boards', () => {
     const details = stats.subcommands.get('boards')?.help?.details;
     const text = typeof details === 'string' ? details : '';
     expect(text).toContain('turned the boards on in `/settings`');
-    expect(text).toContain('snapshot');
-    expect(text.split('\n\n')).toContain(
+    expect(text.split('\n\n')).toEqual([
+      'The top ten of this month, this year or all time, on one board: raids reported that ' +
+        'others completed, trains conducted and meetups hosted that others came to, or reports ' +
+        'at stops that counted. Only you see the answer.',
+      'Only members who turned the boards on in `/settings` are ranked, and an anonymous raid ' +
+        'or train counts for nobody. If you are not in the top ten, the answer says where you ' +
+        'are, or would be.',
       'A report at a stop counts unless another member said it was wrong. If more of your ' +
         'reports were said to be wrong than were confirmed, only the confirmed ones count.',
-    );
+      'Three boards name nobody: the most wanted Pokémon, the bosses whose raids were sent to ' +
+        'the most members, and the field research tasks reported most.',
+      '"Share in this channel" posts the board here for everybody, with your name. It is a ' +
+        'snapshot: the board as it was when you shared it.',
+    ]);
   });
 });

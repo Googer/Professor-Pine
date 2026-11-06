@@ -105,7 +105,7 @@ async function setup() {
 }
 
 const ALL_TIME = [
-  '### Your Pine, all time\n' +
+  '### Your history, all time\n' +
     'Raids and max battles reported that others completed: **2** (1 anonymous, on no board)\n' +
     'Trains conducted that others came to: **0**\n' +
     'Meetups hosted that others came to: **0**\n' +
@@ -113,7 +113,7 @@ const ALL_TIME = [
   'Raids and max battles completed: **3**\n' +
     'Trains ridden: **1** · Meetups attended: **0**\n' +
     `Busiest region: <#${'%EAST%'}>\n` +
-    'Bosses done most: Mewtwo (2), Dialga (1)\n' +
+    'Bosses beaten most: Mewtwo (2), Dialga (1)\n' +
     'Raids, max battles, trains and reports sent to **35** members',
 ];
 
@@ -141,16 +141,35 @@ describe('/stats me', () => {
   it('keeps to a year where asked, and says where the year has nothing', async () => {
     const made = await setup();
     const year = textDisplays(asV2(answered(await made.ask({ year: 2026 }))));
-    expect(year[0]).toMatch(/^### Your Pine in 2026\n/u);
+    expect(year[0]).toMatch(/^### Your history in 2026\n/u);
     expect(year[1]).toMatch(/^Raids and max battles completed: \*\*3\*\*/u);
     // 2024 holds only a raid she was interested in: nothing a card counts (A9).
     for (const empty of [2019, 2024]) {
       const none = answered(await made.ask({ year: empty }));
       expect(textDisplays(asV2(none))).toEqual([
-        `Nothing of yours is in my history of this server for ${String(empty)}.`,
+        `Nothing of yours is in my history for ${String(empty)}.`,
       ]);
       expect(buttonsOf(asV2(none))).toEqual([]);
     }
+  });
+
+  it('says in its help what it counts, in short paragraphs', () => {
+    const me = stats.subcommands.get('me');
+    const details = me?.help?.details;
+    expect((typeof details === 'string' ? details : '').split('\n\n')).toEqual([
+      'Your own numbers: the raids and max battles you reported that others completed, the ' +
+        'trains you conducted and the meetups you hosted that others came to, and your reports ' +
+        'at stops that counted.',
+      'Beside them: what you completed and came to, your busiest region, the bosses you beat ' +
+        'most, and how many members were told of what you reported. Only you see the answer.',
+      'Choose a year to see that year alone; without one you see all time.',
+      'I count only what you did while your history was on (`/settings`). Raids and trains you ' +
+        'reported anonymously count here, but on no board.',
+      '"Share in this channel" posts your numbers here, under your name. It leaves out what you ' +
+        'reported anonymously, and your busiest region unless everyone in the channel can see it.',
+    ]);
+    const json = stats.data.toJSON().options?.find((option) => option.name === 'me');
+    expect(json?.description).toBe('Your own numbers, all time or in one year');
   });
 
   it('offers the member’s own years as they type', async () => {
@@ -184,7 +203,7 @@ describe('/stats me', () => {
     const message = v2(posted?.message);
     const texts = textDisplays(message);
     expect(texts[0]).toBe(
-      '### Pine of **Ash**, all time\n' +
+      '### History of **Ash**, all time\n' +
         'Raids and max battles reported that others completed: **1**\n' +
         'Trains conducted that others came to: **0**\n' +
         'Meetups hosted that others came to: **0**\n' +
@@ -218,7 +237,7 @@ describe('/stats me', () => {
     made.gateway.noSharing.add(WEST_CHANNEL);
     const pressed = await made.press('stats:me:share:2026');
     expect(sent(pressed.reply).content).toBe(
-      'I may not post in this channel, so I cannot share your numbers here. Try it in a ' +
+      'I may not post in this channel, so I cannot share your numbers here. Try a ' +
         'channel where I can post.',
     );
     expect(made.gateway.messagesIn(WEST_CHANNEL)).toEqual([]);

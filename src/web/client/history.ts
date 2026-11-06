@@ -15,10 +15,10 @@ import { byId, getJson, showAccount } from './page-frame.js';
 import { RequestError } from './request-error.js';
 
 /*
- * The history page (plan 8H-5) and "Your Pine" (plan 8H-6, `data-page="me"`), one bundle: the
+ * The history page (plan 8H-5) and "Your history" (plan 8H-6, `data-page="me"`), one bundle: the
  * header (the login, or the member's menu with the theme); on the history page the region tally
  * of `/api/stats/regions` with its periods, the one shown kept in the address (`?period=`), and
- * the boards (`history-boards-ui.ts`); on "Your Pine" the member's own numbers (`me-ui.ts`).
+ * the boards (`history-boards-ui.ts`); on "Your history" the member's own numbers (`me-ui.ts`).
  * Only the latest question is drawn. Its pure parts are `history-tally.ts` and
  * `history-boards.ts`; this is tried at staging.
  */

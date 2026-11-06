@@ -203,7 +203,7 @@ export interface AppContext {
   readonly regionTallies: RegionTallies;
   /** The boards (plan 8H-6, `/stats boards` and the history page), over the history's reads. */
   readonly boards: Boards;
-  /** A member's own stats (plan 8H-6, `/stats me` and the web's "Your Pine"). */
+  /** A member's own stats (plan 8H-6, `/stats me` and the web's "Your history"). */
   readonly memberStats: MemberStatsService;
   /** Members of a server other than the one who is acting: one by id, or who of many can see a channel. */
   readonly members: MemberDirectory;

@@ -32,7 +32,7 @@ const stats = (overrides: Partial<Shown> = {}): Shown => ({
   optedIn: true,
   year: null,
   years: [2026, 2025],
-  title: 'Your Pine, all time',
+  title: 'Your history, all time',
   raids: { count: 12, anonymous: 3 },
   trains: { count: 2, anonymous: 0 },
   meetups: { count: 0, anonymous: 0 },
@@ -72,7 +72,7 @@ describe('the boards on the history page', () => {
   });
 });
 
-describe('"Your Pine"', () => {
+describe('"Your history"', () => {
   it('words the member’s numbers as /stats me does', () => {
     expect(meLines(stats())).toEqual([
       {
@@ -86,12 +86,12 @@ describe('"Your Pine"', () => {
       { label: 'Trains ridden', value: '3' },
       { label: 'Meetups attended', value: '1' },
       { label: 'Busiest region', value: '#west' },
-      { label: 'Bosses done most', value: 'Mewtwo (5), Dialga (3)' },
+      { label: 'Bosses beaten most', value: 'Mewtwo (5), Dialga (3)' },
       { label: 'Raids, max battles, trains and reports sent to', value: '1,234 members' },
     ]);
     const quiet = meLines(stats({ busiestRegion: null, bosses: [] })).map((line) => line.label);
     expect(quiet).not.toContain('Busiest region');
-    expect(quiet).not.toContain('Bosses done most');
+    expect(quiet).not.toContain('Bosses beaten most');
   });
 
   it('scales the bars of the months to the busiest, with every month between', () => {

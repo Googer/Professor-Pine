@@ -99,7 +99,7 @@ export function guildRoutes(
     );
   });
 
-  // "Your Pine" (plan 8H-6): the history page's bundle drawing the member's own numbers; its
+  // "Your history" (plan 8H-6): the history page's bundle drawing the member's own numbers; its
   // data (`/api/stats/me`) is the member's alone.
   scope.get('/me', async (request: GuildRequest, reply) => {
     void reply.type('text/html; charset=utf-8').header('cache-control', 'no-cache');

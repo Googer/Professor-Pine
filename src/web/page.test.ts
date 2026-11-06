@@ -252,13 +252,13 @@ describe('the history page (plan 8H-5)', () => {
     }
   });
 
-  it('holds the boards’ places and leads to "Your Pine" (plan 8H-6)', async () => {
+  it('holds the boards’ places and leads to "Your history" (plan 8H-6)', async () => {
     web = webServerWith({ assets: builtAssets() });
     const page = await web.app.inject({ url: HISTORY });
     for (const id of ['boards-title', 'boards-periods', 'boards-status', 'boards-list']) {
       expect(page.body, id).toContain(`id="${id}"`);
     }
-    expect(page.body).toContain(`<a href="/s/${FAKE_GUILD_ID}/me">Your Pine</a>`);
+    expect(page.body).toContain(`<a href="/s/${FAKE_GUILD_ID}/me">Your history</a>`);
   });
 
   it('offers no login with Discord without the client secret', async () => {
@@ -278,7 +278,7 @@ describe('the history page (plan 8H-5)', () => {
   });
 });
 
-describe('the "Your Pine" page (plan 8H-6)', () => {
+describe('the "Your history" page (plan 8H-6)', () => {
   const ME = `/s/${FAKE_GUILD_ID}/me`;
   let web: TestWeb | undefined;
   afterEach(async () => {
@@ -291,7 +291,8 @@ describe('the "Your Pine" page (plan 8H-6)', () => {
     const page = await web.app.inject({ url: ME });
     expect(page.statusCode).toBe(200);
     expect(page.headers['cache-control']).toBe('no-cache');
-    expect(page.body).toContain('<title>Professor Pine: your Pine</title>');
+    expect(page.body).toContain('<title>Professor Pine: your history</title>');
+    expect(page.body).toContain('<h1 id="me-title">Your history</h1>');
     expect(page.body).toContain('<script src="/assets/history-EFGHIJKL.js" defer></script>');
     expect(page.body).not.toMatch(/<script(?![^>]*\ssrc=)[^>]*>/);
     expect(page.body).not.toMatch(/<style|\sstyle=|\son\w+=/i);

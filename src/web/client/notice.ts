@@ -198,14 +198,14 @@ export function historyItemNode(guild: string): PageNode {
 }
 
 /**
- * "Your Pine" in the map's account menu (plan 8H-6): the member's own numbers, offered beside
+ * "Your history" in the map's account menu (plan 8H-6): the member's own numbers, offered beside
  * "History" (`historyOffered`), its look the same.
  */
 export function meItemNode(guild: string): PageNode {
   return {
     tag: 'a',
     className: 'history-link',
-    text: 'Your Pine',
+    text: 'Your history',
     attributes: { href: `/s/${guild}/me` },
   };
 }

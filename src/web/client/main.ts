@@ -507,7 +507,7 @@ function start(): void {
     guild,
     data.login === 'discord' ? 'discord' : 'links',
     'map',
-    // The server's history page (plan 8H-5) and "Your Pine" (plan 8H-6) for a member, then the
+    // The server's history page (plan 8H-5) and "Your history" (plan 8H-6) for a member, then the
     // region editor's items.
     (me) => [
       ...(historyOffered(me)
