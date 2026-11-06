@@ -23,7 +23,16 @@ import {
   type V2Message,
 } from '../discord/party-gateway.js';
 import { MAX_CATEGORY_CHANNELS, MAX_SERVER_CHANNELS } from '../domain/regions/region-import.js';
-import { closedEnd, type PartyEnd } from '../domain/history/party-history.js';
+import { closedEnd, type HistoryRecord, type PartyEnd } from '../domain/history/party-history.js';
+import {
+  raidsAlongQuery,
+  type RaidsAlongQuery,
+  stopWindows,
+  trainCard,
+  type RaidAlongRow,
+  type TrainCard,
+} from '../domain/history/train-card.js';
+import type { RaidsAlongReader } from '../db/repositories/history-repository.js';
 import type { PostRemoval } from '../domain/moderation/reports.js';
 import { applyAutoStatus, noteMember, type MemberInfo } from '../domain/party/attendance.js';
 import { lobbySize, splitLobby } from '../domain/party/lobby.js';
@@ -189,6 +198,12 @@ const MIN_RETRY_MS = 1_000;
 const MAX_ROLE_PINGS = 5;
 /** `end` waits at most this long for the answer given before a close. */
 const ANSWER_WAIT_MS = 3_000;
+/**
+ * The close of a train waits as long at most for the raids along its way (plan 8H-7A, review
+ * B2), as for the answer before a close: a database that answers slowly must not keep the post
+ * open. The card is shown without them then.
+ */
+export const RAIDS_ALONG_WAIT_MS = ANSWER_WAIT_MS;
 /** An unchanged post is checked for existence at most this often. */
 const CHECK_EVERY_MS = 10 * MINUTE;
 /**
@@ -224,6 +239,23 @@ interface UndoneClosing {
   removal: PostRemoval;
   /** When the party ended (its first closing). */
   since: number;
+  /**
+   * What a train's card is drawn from (plan 8H-7A): the record its ending wrote, and the card as
+   * its first closing made it, if it got that far. A redo shows that card (F-B2), made again with
+   * the raids read once more where they could not be read then (review B5).
+   */
+  card: TrainCardFacts;
+}
+
+/**
+ * What the card of a train that ended is drawn from (`closePost`): the record its ending wrote
+ * (none where it failed, and for every other party), and the card once made from it.
+ */
+interface TrainCardFacts {
+  recorded?: HistoryRecord | undefined;
+  card?: TrainCard | undefined;
+  /** A redo read the raids once more already (review R5): no later redo reads them again. */
+  readAgain?: boolean | undefined;
 }
 
 /** How a party is ended by `end`: why, what is said last, and the post archived or deleted. */
@@ -716,6 +748,11 @@ export interface PartyServiceOptions {
    * shows the place as it was named.
    */
   wayspots?: Pick<WayspotProvider, 'byId' | 'addressOf' | 'whenChanged' | 'regionsOf' | 'size'>;
+  /**
+   * The raids and max battles of the history (plan 8H-7A): read once when a train ends, for the
+   * raids along its way on its card. Without it the card says nothing of raids.
+   */
+  raidsAlong?: RaidsAlongReader;
 }
 
 /**
@@ -1243,7 +1280,7 @@ export class PartyService {
    * What the post of a party shows now, by the renderer of its kind. `closed` is the sentence
    * of its last showing when somebody closed it (see `RaidPostView.closed`).
    */
-  private rendered(party: Party, closed?: string): RenderedPost {
+  private rendered(party: Party, closed?: string, card?: TrainCard): RenderedPost {
     const last = closed === undefined ? {} : { closed };
     switch (party.type) {
       case 'raid':
@@ -1251,7 +1288,16 @@ export class PartyService {
       case 'meetup':
         return renderMeetupPost({ ...this.meetupView(party), ...last });
       case 'train':
-        return renderTrainPost({ ...this.trainView(party), ...last });
+        return renderTrainPost({
+          ...this.trainView(party),
+          ...last,
+          ...(card === undefined
+            ? {}
+            : {
+                card,
+                regionChannel: (regionId: number) => this.options.regions.byId(regionId)?.channelId,
+              }),
+        });
       case 'max':
         return renderMaxPost({ ...this.maxView(party), ...last });
     }
@@ -2724,7 +2770,78 @@ export class PartyService {
     const party = result.party;
     this.ended(party);
     if (closing.left) await this.answerBeforeClosing(partyId, closing.left);
-    return this.closePost(party, closing.lastWords, false, closing.removal);
+    return this.closePost(party, closing.lastWords, false, closing.removal, this.now(), false, {
+      recorded: result.recorded,
+    });
+  }
+
+  /**
+   * The card of a train that ended (plan 8H-7A; design Part F), from the record its ending wrote
+   * (`recorded`, review F-B1: the very rows written), with the raids along its way read once
+   * (`raidsAlong`, records only). None for another party, or where no record was written (it
+   * failed and waits for its later tries: the post ends without a card). A read that fails, or
+   * does not answer within `RAIDS_ALONG_WAIT_MS` (review B2), is logged and the card says nothing
+   * of raids (review F-B11). A card made already (`facts.card`, a redo) is kept, unless it could
+   * not read the raids of a train that made stops: they are read once more (review B5), by one
+   * redo only (`facts.readAgain`, review R5: a redo does not wait again for a database away).
+   * Never rejects.
+   */
+  private async trainCardOf(party: Party, facts: TrainCardFacts): Promise<TrainCard | undefined> {
+    const { recorded, card: made } = facts;
+    const settled = made !== undefined && (made.raids !== null || made.stops === null);
+    if (made !== undefined && (settled || facts.readAgain === true)) return made;
+    if (!isTrain(party) || recorded === undefined || recorded.kind !== 'train') return made;
+    const windows = stopWindows(recorded, recorded.stops, recorded.attendees);
+    const query = raidsAlongQuery(windows);
+    const raids =
+      query === undefined ? [] : await this.raidsAlongOf(party, recorded.serverId, query);
+    return trainCard(recorded, recorded.stops, recorded.attendees, raids);
+  }
+
+  /**
+   * The raids along a train's way (`raidsAlong`), waited for `RAIDS_ALONG_WAIT_MS` at most;
+   * undefined where there is no reader, or the read failed or took too long (a warning, once; a
+   * read that fails after the wait only at debug). Never rejects.
+   */
+  private async raidsAlongOf(
+    party: Party,
+    serverId: string,
+    query: RaidsAlongQuery,
+  ): Promise<RaidAlongRow[] | undefined> {
+    const { raidsAlong: reader, log } = this.options;
+    if (reader === undefined) return undefined;
+    // Said once (review R4): a read that fails after the wait was said already, as too late.
+    let late = false;
+    const failed = (err: unknown): undefined => {
+      if (late) {
+        log.debug(
+          { err, party: party.id },
+          'the raids along the way of a train that ended failed after the wait',
+        );
+      } else {
+        log.warn(
+          { err, party: party.id },
+          'could not read the raids along the way of a train that ended',
+        );
+      }
+      return undefined;
+    };
+    const read = (async () => reader.raidsAlong(serverId, query))().then(
+      (rows): RaidAlongRow[] | undefined => rows,
+      failed,
+    );
+    let cancel = (): void => undefined;
+    const timeout = new Promise<'late'>((resolve) => {
+      cancel = this.setTimer(() => {
+        resolve('late');
+      }, RAIDS_ALONG_WAIT_MS);
+    });
+    const raids = await Promise.race([read, timeout]);
+    cancel();
+    if (raids !== 'late') return raids;
+    failed(new Error(`no answer within ${String(RAIDS_ALONG_WAIT_MS)} ms`));
+    late = true;
+    return undefined;
   }
 
   /**
@@ -2879,7 +2996,9 @@ export class PartyService {
    * What `end` does on Discord for a party that has left the store. `lastWords` are said in the
    * post, unless they were `said` there already, and stand in the post's own message in the
    * place of the times. `redo`: a closing done again by `redoClosings`, whose post may be
-   * archived already and whose tags may never have shown `Ended`. Never rejects.
+   * archived already and whose tags may never have shown `Ended`. `facts`: what a train's card
+   * is drawn from (plan 8H-7A), the record its ending wrote, read with the raids along its way
+   * before the last showing, or on a redo the card its first closing made. Never rejects.
    */
   private async closePost(
     party: Party,
@@ -2888,6 +3007,7 @@ export class PartyService {
     removal: PostRemoval = 'archive',
     since = this.now(),
     redo = false,
+    facts: TrainCardFacts = {},
   ): Promise<PostRemoved> {
     const { gateway, log } = this.options;
     const postId = party.forumPostId;
@@ -2896,6 +3016,8 @@ export class PartyService {
     let undone = false;
     let owedRemoval: PostRemoval = 'archive';
     let wordsSaid = said;
+    let card = facts.card;
+    let readAgain = facts.readAgain === true;
     const owe = (err: unknown): void => {
       if (worthRedoing(err)) undone = true;
     };
@@ -2917,6 +3039,7 @@ export class PartyService {
           said: wordsSaid,
           removal: owedRemoval,
           since,
+          card: { recorded: facts.recorded, card, readAgain },
         });
         if (owedRemoval === 'delete') return 'deleting';
       } else {
@@ -2932,12 +3055,29 @@ export class PartyService {
     await this.mirrors.idle(party.id);
     let there = true;
     // A party that was closed says so in the post itself, in the place of its times; a meetup
-    // that ended is shown as over, whatever times it had (see `renderMeetupPost`).
-    const rendered = this.rendered(party, lastWords);
-    const show = (id: string): Promise<void> =>
-      attempt('show an ended party one last time', async () => {
-        there = await this.editPostOf(party.id, id, rendered, { controls: false });
+    // that ended is shown as over, whatever times it had (see `renderMeetupPost`). A train's card
+    // stands between where it was and who came (plan 8H-7A): made, with the raids along its
+    // way, only once the post is to be shown (review B3), and before that showing: nothing is
+    // sent or edited after the archiving.
+    let rendered: RenderedPost | undefined;
+    const lastShowing = async (): Promise<RenderedPost> => {
+      if (rendered === undefined) {
+        const made = card;
+        card = await this.trainCardOf(party, { recorded: facts.recorded, card, readAgain });
+        // A redo that made the card again read the raids once more: no later one will.
+        if (made !== undefined && card !== made) readAgain = true;
+        rendered = this.rendered(party, lastWords, card);
+      }
+      return rendered;
+    };
+    // Rendered outside the attempt, as before the card: a post that cannot be rendered is no
+    // failure of Discord's.
+    const show = async (id: string): Promise<void> => {
+      const shown = await lastShowing();
+      await attempt('show an ended party one last time', async () => {
+        there = await this.editPostOf(party.id, id, shown, { controls: false });
       });
+    };
     const gone = (id: string): PostRemoved => {
       log.info({ party: party.id, post: id }, 'the post of an ended party is gone');
       return closed('archived', true);
@@ -2990,7 +3130,10 @@ export class PartyService {
       // redo every party gets them: the clock's showing with `Ended` may have failed as well,
       // in the same outage (review F2).
       await attempt('tag an ended party as ended', async () =>
-        gateway.setPostTags(postId, PartyService.applied(rendered, await this.tagIds(forumId))),
+        gateway.setPostTags(
+          postId,
+          PartyService.applied(await lastShowing(), await this.tagIds(forumId)),
+        ),
       );
     }
     await attempt('archive the post of an ended party', () => gateway.archivePost(postId));
@@ -3034,6 +3177,7 @@ export class PartyService {
           undone.removal,
           undone.since,
           true,
+          undone.card,
         );
       } catch (err) {
         log.warn({ err, party: partyId }, 'could not close a party again');

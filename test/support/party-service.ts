@@ -404,6 +404,8 @@ export async function partyServiceWith(
     // Long enough that nothing runs by itself during a test.
     renderDelayMs: 3_600_000,
     sharedDelayMs: 3_600_000,
+    // The raids along an ended train's way (plan 8H-7A), from the records in memory.
+    raidsAlong: history,
     ...forService,
   });
   const wants = kept?.wants ?? new MemoryWants();

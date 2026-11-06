@@ -43,6 +43,8 @@ import { LIMITS, memberByName, memberName, plain, plainNoLinks, truncate } from 
 import { describeTimes, shownAsOver, TIMED_COLOUR, type TimedPostView } from './timed-post.js';
 import { stopLabel, stopLink, stopWhere, type StopLookup } from './train-stops.js';
 import { TRAIN_KIND_WORDS } from './train-words.js';
+import type { TrainCard } from '../domain/history/train-card.js';
+import { trainCardText } from './train-card.js';
 
 /** A train and the stops of its route, for everything that shows where it is. */
 export interface TrainPlaces {
@@ -56,6 +58,13 @@ export interface TrainPostView extends TimedPostView<TrainParty>, TrainPlaces {
   /** The Pokémon the train is after, resolved (`shownBoss`); undefined while nobody said. */
   boss: ShownBoss | undefined;
   catalogue: PokemonCatalogue;
+  /**
+   * The card of an ended train (plan 8H-7A, `trainCard`), for its last showing: drawn from the
+   * record its ending wrote. Undefined while it runs, and where no record was written.
+   */
+  card?: TrainCard;
+  /** A region's channel by `Region.id`, for the card's regions; undefined for one gone. */
+  regionChannel?: (regionId: number) => string | undefined;
 }
 
 /**
@@ -323,6 +332,16 @@ function trainLayout(view: TrainPostView): PostLayout {
       { type: 'separator' },
       ...trainWhere(view, fit),
       { type: 'separator' },
+      // The card of an ended train (plan 8H-7A), between where it was and who came.
+      ...(view.card === undefined
+        ? []
+        : [
+            {
+              type: 'text' as const,
+              content: trainCardText(view.card, view.regionChannel ?? (() => undefined), fit),
+            },
+            { type: 'separator' as const },
+          ]),
       ...trainerBlocks(view, { complete: false, lobby: true, meetHint: false }, fit),
       { type: 'separator' },
       {

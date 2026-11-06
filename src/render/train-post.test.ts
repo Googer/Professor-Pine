@@ -60,6 +60,8 @@ import { LIMITS } from './text.js';
 import { stopLink, stopsFrom } from './train-stops.js';
 import { gymStop } from '../domain/party/stops.js';
 import { movementText, whereText } from './train-words.js';
+import type { TrainCard } from '../domain/history/train-card.js';
+import { TRAIN_CARD_HEADING, TRAIN_CARD_NOTE } from './train-card.js';
 import {
   renderTrainPost,
   routeLines,
@@ -592,6 +594,40 @@ describe('renderTrainPost', () => {
     expect(lines(kept, { closed: 'Closed.' })).not.toContain(KEPT_OPEN);
   });
 
+  it('shows the card of an ended train under where it is, in its last showing (plan 8H-7A)', () => {
+    const card: TrainCard = {
+      stops: { count: 2, durationMs: 40 * MINUTE },
+      regionIds: [1],
+      riders: { members: 3, heads: 3 },
+      peakRiders: 2,
+      raids: [{ tier: 'T5', shadow: false, count: 1 }],
+    };
+    const ended = renderTrainPost(
+      view(endParty(onRoute([4, 1], 2)), {
+        closed: 'Closed by a moderator.',
+        card,
+        regionChannel: (id) => (id === 1 ? '100000000000000001' : undefined),
+      }),
+    );
+    const parts = textDisplays(postMessage(ended.layout, { controls: false }));
+    const at = parts.findIndex((text) => text.startsWith(TRAIN_CARD_HEADING));
+    expect(parts[at]?.split('\n')).toEqual([
+      TRAIN_CARD_HEADING,
+      'About 2 stops in 40 min',
+      'Through <#100000000000000001>',
+      '3 riders; at most 2 riders at once',
+      'Recorded along the way: 1 Level 5 raid',
+      TRAIN_CARD_NOTE,
+    ]);
+    // After where it is, before who came; the closing words stay in the heading.
+    expect(parts.findIndex((text) => text.startsWith(LOCATION))).toBeLessThan(at);
+    expect(parts[0]?.split('\n')[1]).toBe('Closed by a moderator.');
+    // Without a card (a live train, a record that failed), none.
+    expect(textOf(renderTrainPost(view(onRoute([4, 1]))).message)).not.toContain(
+      TRAIN_CARD_HEADING,
+    );
+  });
+
   it('makes a name plain in the post and keeps it raw in the title of the post', () => {
     const post = renderTrainPost(view(testTrain({ name: '**Bold** train' })));
     expect(post.title).toBe('Train · **Bold** train');
@@ -750,6 +786,55 @@ describe('the longest train that can be', () => {
       };
       expectSendable(renderTrainPost(view(last, { stop: lookup(heavy) })));
     }
+    // Ended, with the card at its longest (plan 8H-7A, review F-B11): every region of a server,
+    // every tier, within the budget all the same.
+    const regions = Array.from({ length: 60 }, (_, n) => n + 1);
+    const card: TrainCard = {
+      stops: { count: MAX_ROUTE_STOPS, durationMs: 15 * 60 * MINUTE },
+      regionIds: regions,
+      riders: { members: 400, heads: 1_200 },
+      peakRiders: 400,
+      // Every tally there can be: each tier of the history, shadow and not, and none.
+      raids: [
+        ...[
+          'Elite',
+          'SuperMega',
+          'MegaLegendary',
+          'EX',
+          'T5',
+          'Mega',
+          'T4',
+          'T3',
+          'T2',
+          'T1',
+          'G',
+          'D5',
+          'D4',
+          'D3',
+          'D2',
+          'D1',
+          null,
+        ].flatMap((tier) => [
+          { tier, shadow: false, count: 999 },
+          { tier, shadow: true, count: 999 },
+        ]),
+      ],
+    };
+    const ended = renderTrainPost(
+      view(endParty(train), {
+        stop: lookup(heavy),
+        closed: `Closed by a moderator: ${'*'.repeat(200)}`,
+        card,
+        regionChannel: (id) => `1000000000000000${String(id).padStart(2, '0')}`,
+      }),
+    );
+    expectSendable(ended);
+    // The card is cut, never its note: the whole of it ends the card.
+    const shown = textDisplays(postMessage(ended.layout, { controls: false })).find((text) =>
+      text.startsWith(TRAIN_CARD_HEADING),
+    );
+    expect(shown?.split('\n').at(-1)).toBe(TRAIN_CARD_NOTE);
+    expect(shown).toMatch(/…and \d+ more/u);
   });
 });
 

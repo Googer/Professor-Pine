@@ -505,6 +505,8 @@ export async function startApp(
   const partyService = new PartyService({
     eggPictures,
     wayspots,
+    // The raids along an ended train's way, for its card (plan 8H-7A).
+    raidsAlong: history,
     store: parties,
     gateway: partyGateway,
     regions,
