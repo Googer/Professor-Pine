@@ -1,4 +1,4 @@
-import { ComponentType, InteractionContextType, MessageFlags } from 'discord.js';
+import { ButtonStyle, ComponentType, InteractionContextType, MessageFlags } from 'discord.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   FAKE_GUILD_ID,
@@ -219,7 +219,7 @@ describe('/settings', () => {
       'Name on reports and trains: **Visible**',
       'Pokebattler user id: none',
       'Wants in this server: **0**',
-      'Gyms in this server: **0**',
+      'Your gyms in this server: **0**',
     ]);
     expect(buttonsOf(shown).map((button) => [button.label, button.customId])).toEqual([
       ['Pings: on', 'settings:mentions:set:off'],
@@ -237,6 +237,26 @@ describe('/settings', () => {
     expect(menusOf(shown).map((menu) => menu.customId)).toEqual([
       'settings:auto-status:set',
       'settings:privacy:set',
+    ]);
+  });
+
+  it('colors green only what is on now, and blue what turns a setting on', async () => {
+    const made = setup();
+    await made.users.update(ALICE, { mentionsShouts: false });
+    await made.history.optIn(ALICE, FAKE_GUILD_ID, 0);
+    const styles = buttonsOf(await made.panel()).map((button) => [button.customId, button.style]);
+    expect(styles).toEqual([
+      ['settings:mentions:set:off', ButtonStyle.Success],
+      ['settings:groups:set:off', ButtonStyle.Success],
+      ['settings:shouts:set:on', ButtonStyle.Secondary],
+      ['settings:train-moves:set:off', ButtonStyle.Success],
+      ['settings:boss-set:set:on', ButtonStyle.Primary],
+      ['settings:new-train:set:on', ButtonStyle.Primary],
+      ['settings:history:set:off', ButtonStyle.Secondary],
+      ['settings:leaderboard:set:on', ButtonStyle.Primary],
+      ['settings:pokebattler:ask', ButtonStyle.Secondary],
+      ['settings:wants:show', ButtonStyle.Secondary],
+      ['settings:targets:show', ButtonStyle.Secondary],
     ]);
   });
 
@@ -284,7 +304,7 @@ describe('/settings', () => {
       'New trains, your history, the boards, wants and gyms are set per server: use ' +
         '`/settings` in that server.',
     );
-    expect(texts.join('\n')).not.toMatch(/this server|Wants in|Gyms in/u);
+    expect(texts.join('\n')).not.toMatch(/this server|Wants in|gyms in/u);
     expect(texts).toContain('Friend code: **1234 5678 9012** · `/friend-code register`');
     expect(customIdsOf(shown)).toEqual([
       'settings:mentions:set:off',
@@ -299,7 +319,7 @@ describe('/settings', () => {
   it('leaves the counts of wants and gyms out where notifications are switched off', async () => {
     const made = setup({ notifications: false });
     const shown = await made.panel();
-    expect(textDisplays(shown).join('\n')).not.toMatch(/Wants in|Gyms in/u);
+    expect(textDisplays(shown).join('\n')).not.toMatch(/Wants in|gyms in/u);
     expect(customIdsOf(shown)).not.toContain('settings:wants:show');
   });
 
@@ -322,7 +342,7 @@ describe('/settings', () => {
     const texts = textDisplays(await made.panel());
     // Giratina (its species row and its forms: one line), Machamp, Rare Candy.
     expect(texts).toContain('Wants in this server: **3**');
-    expect(texts).toContain('Gyms in this server: **1**');
+    expect(texts).toContain('Your gyms in this server: **1**');
   });
 
   it('opens the panel for a subcommand of the old /settings, and changes nothing', async () => {

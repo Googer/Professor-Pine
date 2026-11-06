@@ -120,7 +120,10 @@ function button(
   };
 }
 
-/** The button beside an on/off line: what pressing it sets, `Turn on` or `Turn off`. */
+/**
+ * The button beside an on/off line: what pressing it sets, `Turn on` (blue) or `Turn off` (gray).
+ * Green on the panel means only "on now", as in the row of the pings.
+ */
 function switchButton(
   setting: string,
   on: boolean,
@@ -128,7 +131,7 @@ function switchButton(
 ): APIButtonComponentWithCustomId {
   return on
     ? button(setting, SET, label ?? 'Turn off', ButtonStyle.Secondary, [OFF])
-    : button(setting, SET, 'Turn on', ButtonStyle.Success, [ON]);
+    : button(setting, SET, 'Turn on', ButtonStyle.Primary, [ON]);
 }
 
 /** A menu of the panel, the stored value marked as Discord's `default`. */
@@ -230,7 +233,7 @@ export function settingsPanel(state: PanelState, said?: string): V2Message {
         button('wants', SHOW, 'Show', ButtonStyle.Secondary),
       ),
       section(
-        `Gyms in this server: **${String(lists.gyms)}**`,
+        `Your gyms in this server: **${String(lists.gyms)}**`,
         button('targets', SHOW, 'Show', ButtonStyle.Secondary),
       ),
     );
