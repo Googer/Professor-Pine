@@ -2,6 +2,7 @@ import { sql, type Kysely } from 'kysely';
 import {
   bucketOf,
   dayOf,
+  NO_BOSS,
   sumBuckets,
   sumDays,
   UNKNOWN_MONTH,
@@ -9,6 +10,7 @@ import {
   type ActivityPlaceKind,
   type ActivityWindow,
 } from '../../domain/history/activity.js';
+import type { DayBoss } from '../../domain/history/big-days.js';
 import type { MonthRange, RegionCount } from '../../domain/history/region-tally.js';
 import type { Logger } from '../../log.js';
 import { inTransaction, retryOnDeadlock } from '../transaction.js';
@@ -26,6 +28,69 @@ export interface ActivityReader {
    */
   regionSums(serverId: string, months: MonthRange): Promise<RegionCount[]>;
 }
+
+/** A server's raids and max battles of one local day, over the regions read. */
+export interface DayTotal {
+  day: string;
+  raids: number;
+  maxes: number;
+}
+
+/** A server's days as one snapshot has them (`ActivityDayReader.daySeries`). */
+export interface DaySeries {
+  complete: boolean;
+  totals: DayTotal[];
+  bosses: DayBoss[];
+}
+
+/** A boss's raids over a server's whole history. */
+export interface BossTotal {
+  boss: string;
+  raids: number;
+}
+
+/** A boss's raids of one local month (`yyyy-mm`). */
+export interface MonthRaids {
+  month: string;
+  raids: number;
+}
+
+/**
+ * What the big days and the history page read of the raids per day (plan 8H-8, `ActivityDay`):
+ * always without the regions `leftOut` names (the member's barred ones, G4); region 0 and a region
+ * gone are read like any other.
+ */
+export interface ActivityDayReader {
+  /** A server's days with raids or max battles, summed over the regions, in the days' order. */
+  dayTotals(serverId: string, leftOut: readonly number[]): Promise<DayTotal[]>;
+  /**
+   * The raids of each known boss (never `NO_BOSS`) on every day of a server (round 1: the boss
+   * rule judges each day against the boss's weeks around it), read once per series kept (G3).
+   */
+  dayBosses(serverId: string, leftOut: readonly number[]): Promise<DayBoss[]>;
+  /**
+   * Whether the days hold the server's whole history (A1): their mark has reached the buckets',
+   * and every record above it ended less than `DAYS_BEHIND_MS` ago (what the next hourly upkeep
+   * adds; a record with no end, or one that ended before, means the days are still being filled,
+   * as after migration 042 or a rebuild).
+   */
+  daysComplete(serverId: string): Promise<boolean>;
+  /**
+   * `daysComplete`, `dayTotals` and `dayBosses` of one consistent snapshot (R3): what the big days
+   * are judged on, never a batch in one read and not in another.
+   */
+  daySeries(serverId: string, leftOut: readonly number[]): Promise<DaySeries>;
+  /** Every known boss of a server's raids, with its raids (a max battle's boss alone is none). */
+  bossTotals(serverId: string, leftOut: readonly number[]): Promise<BossTotal[]>;
+  /** A boss's raids per local month, the months with any, in their order. */
+  bossMonths(serverId: string, boss: string, leftOut: readonly number[]): Promise<MonthRaids[]>;
+}
+
+/**
+ * How long after its end a record may wait for the hourly upkeep to add it to the days before
+ * they count as behind (`daysComplete`): an hour between upkeeps, and one for the upkeep's run.
+ */
+export const DAYS_BEHIND_MS = 2 * 3_600_000;
 
 /** As many records of the history as one transaction of the adding reads (and buckets it writes). */
 export const ACTIVITY_BATCH = 2_000;
@@ -73,7 +138,7 @@ export interface ActivityRepositoryOptions {
  * nothing and adds its whole history the same way. A record is never changed once written (an
  * opt-out only takes member ids out, which neither holds), so adding is enough.
  */
-export class ActivityRepository implements ActivityReader {
+export class ActivityRepository implements ActivityReader, ActivityDayReader {
   private readonly batch: number;
   private readonly now: () => number;
 
@@ -414,5 +479,116 @@ export class ActivityRepository implements ActivityReader {
       raids: Number(row.raids),
       maxes: Number(row.maxes),
     }));
+  }
+
+  async dayTotals(
+    serverId: string,
+    leftOut: readonly number[],
+    db: Kysely<DB> = this.db,
+  ): Promise<DayTotal[]> {
+    // From the day index alone, in its order (A7): MySQL 8.4 took the boss index for this and
+    // read every row (measured, round 1: 48,000 rows, 128 against 20 ms), so it is named.
+    const rows = await sql<{ day: string; raids: number | string; maxes: number | string }>`
+      select day, sum(raids) as raids, sum(maxes) as maxes
+      from ActivityDay force index (activityday_server_day_index)
+      where serverId = ${serverId}
+        ${leftOut.length > 0 ? sql`and regionId not in (${sql.join([...leftOut])})` : sql``}
+      group by day
+      order by day`.execute(db);
+    // MySQL sums integers as decimals, which the driver gives as text.
+    return rows.rows.map((row) => ({
+      day: row.day,
+      raids: Number(row.raids),
+      maxes: Number(row.maxes),
+    }));
+  }
+
+  async daySeries(serverId: string, leftOut: readonly number[]): Promise<DaySeries> {
+    // One read-only transaction at repeatable read: the three reads see one snapshot, so a batch
+    // the adding commits meanwhile is in all or none of them (R3).
+    return inTransaction(
+      this.db,
+      async (trx) => ({
+        complete: await this.daysComplete(serverId, trx),
+        totals: await this.dayTotals(serverId, leftOut, trx),
+        bosses: await this.dayBosses(serverId, leftOut, trx),
+      }),
+      { isolation: 'repeatable read', readOnly: true },
+    );
+  }
+
+  async daysComplete(serverId: string, db: Kysely<DB> = this.db): Promise<boolean> {
+    const marks = await db
+      .selectFrom('ActivityProgress')
+      .select(['lastHistoryId', 'lastDayHistoryId'])
+      .where('serverId', '=', serverId)
+      .executeTakeFirst();
+    const dayMark = marks?.lastDayHistoryId ?? 0;
+    if (marks !== undefined && dayMark < marks.lastHistoryId) return false;
+    // Along `(serverId, id)`: the records above the mark, a handful once the days are caught up.
+    const behind = await db
+      .selectFrom('PartyHistory')
+      .select('id')
+      .where('serverId', '=', serverId)
+      .where('id', '>', dayMark)
+      .where((eb) =>
+        eb.or([
+          eb('endedAt', 'is', null),
+          eb('endedAt', '<=', String(this.now() - DAYS_BEHIND_MS)),
+        ]),
+      )
+      .limit(1)
+      .executeTakeFirst();
+    return behind === undefined;
+  }
+
+  async dayBosses(
+    serverId: string,
+    leftOut: readonly number[],
+    db: Kysely<DB> = this.db,
+  ): Promise<DayBoss[]> {
+    // Along the primary key's server: every row of the server's days is read once per series.
+    const rows = await db
+      .selectFrom('ActivityDay')
+      .select((eb) => ['day', 'boss', eb.fn.sum<number | string>('raids').as('raids')])
+      .where('serverId', '=', serverId)
+      .where('boss', '<>', NO_BOSS)
+      .$if(leftOut.length > 0, (query) => query.where('regionId', 'not in', [...leftOut]))
+      .groupBy(['day', 'boss'])
+      .having((eb) => eb.fn.sum('raids'), '>', 0)
+      .execute();
+    return rows.map((row) => ({ day: row.day, boss: row.boss, raids: Number(row.raids) }));
+  }
+
+  async bossTotals(serverId: string, leftOut: readonly number[]): Promise<BossTotal[]> {
+    const rows = await this.db
+      .selectFrom('ActivityDay')
+      .select((eb) => ['boss', eb.fn.sum<number | string>('raids').as('raids')])
+      .where('serverId', '=', serverId)
+      .where('boss', '<>', NO_BOSS)
+      .$if(leftOut.length > 0, (query) => query.where('regionId', 'not in', [...leftOut]))
+      .groupBy('boss')
+      .having((eb) => eb.fn.sum('raids'), '>', 0)
+      .execute();
+    return rows.map((row) => ({ boss: row.boss, raids: Number(row.raids) }));
+  }
+
+  async bossMonths(
+    serverId: string,
+    boss: string,
+    leftOut: readonly number[],
+  ): Promise<MonthRaids[]> {
+    const month = sql<string>`left(day, 7)`;
+    const rows = await this.db
+      .selectFrom('ActivityDay')
+      .select((eb) => [month.as('month'), eb.fn.sum<number | string>('raids').as('raids')])
+      .where('serverId', '=', serverId)
+      .where('boss', '=', boss)
+      .$if(leftOut.length > 0, (query) => query.where('regionId', 'not in', [...leftOut]))
+      .groupBy(month)
+      .having((eb) => eb.fn.sum('raids'), '>', 0)
+      .orderBy(month)
+      .execute();
+    return rows.map((row) => ({ month: row.month, raids: Number(row.raids) }));
   }
 }

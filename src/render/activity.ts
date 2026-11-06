@@ -13,6 +13,7 @@ import {
 import { POST_PERMISSIONS, type PostsRefused } from '../domain/party/post-permissions.js';
 import { PartyStatus } from '../domain/party/status.js';
 import { GROUP_LABEL, groupWords } from './party-controls.js';
+import { numberWord } from './number-words.js';
 import { ALREADY_ON_ROUTE } from './route-words.js';
 import { memberText, timestamp, type NamedMember } from './text.js';
 
@@ -351,10 +352,4 @@ function andList(items: readonly string[]): string {
   return items.length <= 1
     ? (items[0] ?? '')
     : `${items.slice(0, -1).join(', ')} and ${items.at(-1) ?? ''}`;
-}
-
-const NUMBER_WORDS = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight'];
-
-function numberWord(n: number): string {
-  return NUMBER_WORDS[n] ?? String(n);
 }

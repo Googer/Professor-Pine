@@ -21,6 +21,7 @@ import { GymRemovalRepository } from './db/repositories/gym-removal-repository.j
 import { NewTrainRepository } from './db/repositories/new-train-repository.js';
 import { GymRepository } from './db/repositories/gym-repository.js';
 import { ActivityRepository } from './db/repositories/activity-repository.js';
+import { HistoryDays } from './services/history-days.js';
 import { HistoryRepository } from './db/repositories/history-repository.js';
 import { PartyRepository } from './db/repositories/party-repository.js';
 import { PokemonNotificationRepository } from './db/repositories/pokemon-notification-repository.js';
@@ -417,6 +418,13 @@ export async function startApp(
   // The activity heatmap's buckets (plan 8H-4): derived from the history, added hourly by the
   // upkeep after its sweep, read by the map's /api/activity and the region tally (plan 8H-5).
   const activity = new ActivityRepository(db, { zone: config.settings.timezone, log });
+  // Raids per day and big days (plan 8H-8): the history page and the events forum's "On this
+  // day" read them through one service, a server's days kept a few minutes.
+  const historyDays = new HistoryDays({
+    reader: activity,
+    zone: config.settings.timezone,
+    bossName: (key) => gameData.catalogue.byKey(key)?.name,
+  });
   // Every party that ends is kept in the party history (plan 8H), with what the store writes;
   // in rehearsal mode too (only Discord is narrowed then, not the store).
   // A party left without its record (its tries failed, the bot stopped first, or it ended
@@ -1559,6 +1567,8 @@ export async function startApp(
         // gated by every region of the server (review A2).
         trains: history,
         guilds,
+        // Raids by day, big days and a boss's trend (plan 8H-8).
+        days: historyDays,
       },
       // The Wayfarer export tool (plan 8W-P): served from wayspot-tool/ to the admins the owner
       // approved, on an instance that has the file (the owner's).

@@ -43,6 +43,8 @@ import { memberStatsTitle, notOptedIn, nothingInYear } from '../render/member-st
 import { IN_SETTINGS_ON_DISCORD } from '../render/settings-words.js';
 import type { Boards, ShownBoard } from '../services/boards.js';
 import type { MemberStatsService } from '../services/member-stats.js';
+import type { HistoryDays } from '../services/history-days.js';
+import { bigDaysView, bossListView, bossTrendView, historyDaysView } from './history-days.js';
 import { pageWords } from './page-words.js';
 import type { RegionTallies } from '../services/region-tallies.js';
 import { sendFailure } from './answers.js';
@@ -88,6 +90,11 @@ export interface ActivityWebDeps {
    * raids along their way, as the post's card reads them (`HistoryRepository`).
    */
   trains: TrainHistoryReader & RaidsAlongReader;
+  /**
+   * Raids per day, big days and a boss's trend (plan 8H-8): the events forum's own path
+   * (`HistoryDays`).
+   */
+  days: Pick<HistoryDays, 'year' | 'everyYear' | 'bosses' | 'boss'>;
 }
 
 /**
@@ -476,6 +483,7 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
   );
 
   trainRoutes(scope, deps, viewers);
+  dayRoutes(scope, deps, viewers);
 }
 
 type TrainRequest = FastifyRequest<{ Params: { guild: string; train: string } }>;
@@ -633,5 +641,126 @@ function trainRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewer
         return undefined;
       }
     }
+  });
+}
+
+/**
+ * The requests for a server's raids by day, big days and bosses one address may make in a minute,
+ * the four routes together: a page asks three at once, then a year or a boss at a time.
+ */
+export const DAYS_PER_MINUTE = 60;
+
+/** The game's first year: no server has a day before it (B13). */
+const FIRST_YEAR = 2016;
+
+/** `?year=yyyy`, 2016 or later; the newest year the server has without. */
+const daysQuery = z
+  .object({
+    year: z
+      .string()
+      .regex(/^\d{4}$/u)
+      .transform(Number)
+      .refine((year) => year >= FIRST_YEAR)
+      .optional(),
+  })
+  .strict();
+
+/** No query at all. */
+const noQuery = z.object({}).strict();
+
+/** A key as the catalogue makes them (`mewtwo`, `giratina_altered`; G15). */
+const BOSS_KEY = /^[a-z0-9_]{1,64}$/u;
+
+type BossRequest = FastifyRequest<{ Params: { guild: string; boss: string } }>;
+
+/**
+ * Raids per day, big days and a boss's trend on the history page (plan 8H-8, design Part G):
+ * `GET /s/<guild>/api/history/days?year=yyyy` (the year's days, its big days, the years),
+ * `…/big-days` (every year's top three), `…/bosses` and `…/bosses/<key>` (the list; one boss's
+ * months). Shaped as the other history routes: their own limiter (`DAYS_PER_MINUTE`), a session
+ * (401), what is asked checked (400), membership asked before anything of the server is read
+ * (403, 503), an ETag, `private, no-cache`. Every route leaves out the regions whose forum, or
+ * text channel where they have none, keeps the member out (G4: `regionGate`, `keptOutOf`, barred
+ * only; region 0 and a region gone keep nobody out), the same function then judging what is left
+ * (`HistoryDays`, which keeps a server's series per set of regions left out, never per member).
+ */
+function dayRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewers): void {
+  const { sessions, activity } = deps;
+  const limiter = new RateLimiter({ uses: DAYS_PER_MINUTE, perMs: 60_000 });
+  const onRequest = limitedPerAddress(limiter, { now: deps.now });
+
+  /**
+   * The regions a member's view leaves out, after the session, what was asked (`valid`) and
+   * membership; or the answer already sent where there is none to say.
+   */
+  const leftOutOf = async (
+    request: GuildRequest,
+    reply: FastifyReply,
+    valid: boolean,
+  ): Promise<{ leftOut: ReadonlySet<number> } | { sent: FastifyReply }> => {
+    void reply.header('cache-control', 'private, no-cache');
+    const session = await sessions.of(request, reply);
+    if (!session) return { sent: sendFailure(request, reply, 401) };
+    if (!valid) return { sent: sendFailure(request, reply, 400) };
+    const { guild } = request.params;
+    const member = await viewers.askedMembership(guild, session.userId);
+    if (member.kind === 'not-member') return { sent: sendFailure(request, reply, 403) };
+    if (member.kind === 'unconfirmed') {
+      return { sent: reply.code(503).send({ error: UNCONFIRMED }) };
+    }
+    // Every region of the server asked at once, whatever is read after.
+    const row = await activity.guilds.idFor(guild);
+    const ofServer = activity.regions.all().filter((region) => region.guildId === row);
+    const viewer = await viewers.viewer(guild, session.userId, ofServer.map(regionGate), member);
+    if (viewer.kind === 'not-member') return { sent: sendFailure(request, reply, 403) };
+    if (viewer.kind === 'unconfirmed') {
+      return { sent: reply.code(503).send({ error: UNCONFIRMED }) };
+    }
+    return {
+      leftOut: new Set(
+        ofServer
+          .filter((region) => keptOutOf(viewer, regionGate(region)))
+          .map((region) => region.id),
+      ),
+    };
+  };
+
+  scope.get('/api/history/days', { onRequest }, async (request: GuildRequest, reply) => {
+    const query = daysQuery.safeParse(request.query ?? {});
+    const seen = await leftOutOf(request, reply, query.success);
+    if ('sent' in seen || !query.success) return 'sent' in seen ? seen.sent : undefined;
+    // Without a year, the newest the server has (this local one where it has none, A6).
+    const read = await activity.days.year(
+      request.params.guild,
+      seen.leftOut,
+      query.data.year,
+      deps.now(),
+    );
+    return sendJson(request, reply, historyDaysView(read.year, read));
+  });
+
+  scope.get('/api/history/big-days', { onRequest }, async (request: GuildRequest, reply) => {
+    const seen = await leftOutOf(request, reply, noQuery.safeParse(request.query ?? {}).success);
+    if ('sent' in seen) return seen.sent;
+    const every = await activity.days.everyYear(request.params.guild, seen.leftOut, deps.now());
+    return sendJson(request, reply, bigDaysView(every));
+  });
+
+  scope.get('/api/history/bosses', { onRequest }, async (request: GuildRequest, reply) => {
+    const seen = await leftOutOf(request, reply, noQuery.safeParse(request.query ?? {}).success);
+    if ('sent' in seen) return seen.sent;
+    const view = bossListView(await activity.days.bosses(request.params.guild, seen.leftOut));
+    return sendJson(request, reply, view);
+  });
+
+  scope.get('/api/history/bosses/:boss', { onRequest }, async (request: BossRequest, reply) => {
+    const { boss } = request.params;
+    const valid = BOSS_KEY.test(boss) && noQuery.safeParse(request.query ?? {}).success;
+    const seen = await leftOutOf(request, reply, valid);
+    if ('sent' in seen) return seen.sent;
+    const trend = await activity.days.boss(request.params.guild, boss, seen.leftOut);
+    // A key the catalogue does not know (G15).
+    if (trend === undefined) return sendFailure(request, reply, 404);
+    return sendJson(request, reply, bossTrendView(trend));
   });
 }

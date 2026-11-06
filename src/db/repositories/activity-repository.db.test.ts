@@ -2,6 +2,7 @@ import { sql, type Insertable, type Kysely } from 'kysely';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import {
   ACTIVITY_SERVER,
+  activityDayReaderCases,
   activityReaderCases,
   OTHER_ACTIVITY_SERVER,
 } from '../../../test/support/activity-cases.js';
@@ -228,6 +229,33 @@ describe('ActivityRepository', () => {
     expect(await daysOf()).toEqual([{ ...days[0], raids: 8 }]);
     expect(await progressOf()).toBe(await lastId());
     expect(await dayMarkOf()).toBe(await lastId());
+  });
+
+  it('says whether the days hold every record that ended before the last upkeep (A1)', async () => {
+    const now = at('2026-10-22T20:00');
+    const days = new ActivityRepository(db, { zone: ZONE, now: () => now });
+    // Nothing recorded: nothing to count.
+    expect(await days.daysComplete(ACTIVITY_SERVER)).toBe(true);
+    // A record that ended hours ago, which the days have not taken: they are behind.
+    await record({ endedAt: String(now - 3 * 3_600_000) });
+    expect(await days.daysComplete(ACTIVITY_SERVER)).toBe(false);
+    await days.addNew();
+    expect(await days.daysComplete(ACTIVITY_SERVER)).toBe(true);
+    // One that ended a moment ago is the next upkeep's to add: the days are not behind for it.
+    await record({ endedAt: String(now - 60_000) });
+    expect(await days.daysComplete(ACTIVITY_SERVER)).toBe(true);
+    // A record with no end (a legacy one) is behind however new its id.
+    await record({ endedAt: null });
+    expect(await days.daysComplete(ACTIVITY_SERVER)).toBe(false);
+    await days.addNew();
+    expect(await days.daysComplete(ACTIVITY_SERVER)).toBe(true);
+    // The days' mark short of the buckets' (migration 042 just ran, G8): behind, whatever ended.
+    await record({ endedAt: String(now - 60_000) });
+    await days.addNew();
+    await sql`update ActivityProgress set lastDayHistoryId = lastHistoryId - 1`.execute(db);
+    expect(await days.daysComplete(ACTIVITY_SERVER)).toBe(false);
+    // Another server's records are its own.
+    expect(await days.daysComplete(OTHER_ACTIVITY_SERVER)).toBe(true);
   });
 
   it('adds only the records above its mark, each once', async () => {
@@ -479,6 +507,21 @@ describe('ActivityRepository', () => {
           await db
             .insertInto('ActivityBucket')
             .values(buckets.map((bucket) => ({ serverId, ...bucket })))
+            .execute();
+        },
+      };
+    });
+  });
+
+  describe('as a reader of the raids per day', () => {
+    activityDayReaderCases(async () => {
+      await sql`delete from ActivityDay`.execute(db);
+      return {
+        reader: repository(),
+        add: async (serverId, days) => {
+          await db
+            .insertInto('ActivityDay')
+            .values(days.map((day) => ({ serverId, ...day })))
             .execute();
         },
       };

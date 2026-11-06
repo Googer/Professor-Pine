@@ -1,6 +1,13 @@
 import { expect, it } from 'vitest';
-import type { ActivityReader } from '../../src/db/repositories/activity-repository.js';
-import { UNKNOWN_MONTH, type ActivityBucket } from '../../src/domain/history/activity.js';
+import type {
+  ActivityDayReader,
+  ActivityReader,
+} from '../../src/db/repositories/activity-repository.js';
+import {
+  UNKNOWN_MONTH,
+  type ActivityBucket,
+  type ActivityDay,
+} from '../../src/domain/history/activity.js';
 
 /** The server of the activity tests, and another one. */
 export const ACTIVITY_SERVER = '412345678901234567';
@@ -141,5 +148,129 @@ export function activityReaderCases(
       activityBucket(0, UNKNOWN_MONTH, 0, 0, { placeKind: 'none', placeId: '0' }),
     ]);
     expect(await reader.months(ACTIVITY_SERVER)).toEqual({ first: '2018-03', last: '2026-10' });
+  });
+}
+
+/** A row of the raids per day: `raids` raids of `boss` on `day` in region 1. */
+export function activityDay(
+  day: string,
+  boss: string,
+  raids: number,
+  overrides: Partial<ActivityDay> = {},
+): ActivityDay {
+  return { regionId: 1, day, boss, raids, maxes: 0, ...overrides };
+}
+
+/**
+ * What reading the raids per day does (plan 8H-8), run against the repository and its twin alike.
+ * `made` gives a fresh reader and a way to put days of a server in place.
+ */
+export function activityDayReaderCases(
+  made: () => Promise<{
+    reader: ActivityDayReader;
+    add: (serverId: string, days: readonly ActivityDay[]) => Promise<void>;
+  }>,
+): void {
+  const byKey = <T extends { boss: string }>(rows: readonly T[]) =>
+    [...rows].sort((a, b) => (a.boss < b.boss ? -1 : a.boss > b.boss ? 1 : 0));
+
+  it('sums a server’s days over its regions, in the days’ order, without those left out', async () => {
+    const { reader, add } = await made();
+    expect(await reader.dayTotals(ACTIVITY_SERVER, [])).toEqual([]);
+    await add(ACTIVITY_SERVER, [
+      activityDay('2019-10-08', 'mewtwo', 100),
+      activityDay('2019-10-08', '', 20, { regionId: 2, maxes: 0 }),
+      activityDay('2019-10-08', 'mewtwo', 30, { regionId: 0 }),
+      activityDay('2019-10-07', 'giratina_altered', 5, { maxes: 2 }),
+      activityDay('2024-06-01', 'zapdos', 0, { regionId: 3, maxes: 4 }),
+    ]);
+    await add(OTHER_ACTIVITY_SERVER, [activityDay('2019-10-08', 'mewtwo', 7)]);
+    expect(await reader.dayTotals(ACTIVITY_SERVER, [])).toEqual([
+      { day: '2019-10-07', raids: 5, maxes: 2 },
+      { day: '2019-10-08', raids: 150, maxes: 0 },
+      { day: '2024-06-01', raids: 0, maxes: 4 },
+    ]);
+    // A region left out is left out of every day; region 0 only where named.
+    expect(await reader.dayTotals(ACTIVITY_SERVER, [2, 3])).toEqual([
+      { day: '2019-10-07', raids: 5, maxes: 2 },
+      { day: '2019-10-08', raids: 130, maxes: 0 },
+    ]);
+  });
+
+  it('reads the known bosses of every day, summed over the regions kept', async () => {
+    const { reader, add } = await made();
+    await add(ACTIVITY_SERVER, [
+      activityDay('2019-10-08', 'mewtwo', 100),
+      activityDay('2019-10-08', 'mewtwo', 30, { regionId: 2 }),
+      activityDay('2019-10-08', '', 200),
+      activityDay('2019-10-08', 'giratina_altered', 80),
+      activityDay('2019-10-09', 'mewtwo', 10),
+      activityDay('2019-10-10', 'lugia', 10),
+      // A max battle's boss on a day: no raids, no label.
+      activityDay('2019-10-08', 'zapdos', 0, { maxes: 9 }),
+    ]);
+    await add(OTHER_ACTIVITY_SERVER, [activityDay('2019-10-08', 'deoxys', 7)]);
+    const inOrder = (rows: ReadonlyArray<{ day: string; boss: string }>) =>
+      [...rows].sort((a, b) => `${a.day}${a.boss}`.localeCompare(`${b.day}${b.boss}`));
+    // Every day's at once (round 1: the boss rule judges each day against its weeks).
+    expect(inOrder(await reader.dayBosses(ACTIVITY_SERVER, []))).toEqual([
+      { day: '2019-10-08', boss: 'giratina_altered', raids: 80 },
+      { day: '2019-10-08', boss: 'mewtwo', raids: 130 },
+      { day: '2019-10-09', boss: 'mewtwo', raids: 10 },
+      { day: '2019-10-10', boss: 'lugia', raids: 10 },
+    ]);
+    expect(await reader.dayBosses(ACTIVITY_SERVER, [1])).toEqual([
+      { day: '2019-10-08', boss: 'mewtwo', raids: 30 },
+    ]);
+    expect(await reader.dayBosses('999999999999999999', [])).toEqual([]);
+  });
+
+  it('reads a server’s series at once: whether complete, its days and every day’s bosses (R3)', async () => {
+    const { reader, add } = await made();
+    await add(ACTIVITY_SERVER, [
+      activityDay('2019-10-08', 'mewtwo', 100),
+      activityDay('2019-10-08', '', 20, { regionId: 2 }),
+      activityDay('2019-10-09', 'lugia', 10, { maxes: 3 }),
+    ]);
+    const read = await reader.daySeries(ACTIVITY_SERVER, [2]);
+    expect(read).toEqual({
+      complete: await reader.daysComplete(ACTIVITY_SERVER),
+      totals: await reader.dayTotals(ACTIVITY_SERVER, [2]),
+      bosses: await reader.dayBosses(ACTIVITY_SERVER, [2]),
+    });
+    expect(read.totals).toEqual([
+      { day: '2019-10-08', raids: 100, maxes: 0 },
+      { day: '2019-10-09', raids: 10, maxes: 3 },
+    ]);
+  });
+
+  it('lists the known bosses of a server’s raids, and one boss’s raids by month', async () => {
+    const { reader, add } = await made();
+    await add(ACTIVITY_SERVER, [
+      activityDay('2018-09-21', 'mewtwo', 300),
+      activityDay('2018-09-22', 'mewtwo', 200, { regionId: 2 }),
+      activityDay('2019-10-08', 'mewtwo', 20),
+      activityDay('2019-10-08', '', 99),
+      activityDay('2019-10-08', 'lugia', 4),
+      activityDay('2024-06-01', 'zapdos', 0, { maxes: 4 }),
+    ]);
+    await add(OTHER_ACTIVITY_SERVER, [activityDay('2019-10-08', 'deoxys', 7)]);
+    expect(byKey(await reader.bossTotals(ACTIVITY_SERVER, []))).toEqual([
+      { boss: 'lugia', raids: 4 },
+      { boss: 'mewtwo', raids: 520 },
+    ]);
+    expect(byKey(await reader.bossTotals(ACTIVITY_SERVER, [1]))).toEqual([
+      { boss: 'mewtwo', raids: 200 },
+    ]);
+    expect(await reader.bossMonths(ACTIVITY_SERVER, 'mewtwo', [])).toEqual([
+      { month: '2018-09', raids: 500 },
+      { month: '2019-10', raids: 20 },
+    ]);
+    expect(await reader.bossMonths(ACTIVITY_SERVER, 'mewtwo', [2])).toEqual([
+      { month: '2018-09', raids: 300 },
+      { month: '2019-10', raids: 20 },
+    ]);
+    expect(await reader.bossMonths(ACTIVITY_SERVER, 'zapdos', [])).toEqual([]);
+    expect(await reader.bossMonths(ACTIVITY_SERVER, 'deoxys', [])).toEqual([]);
   });
 }

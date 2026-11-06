@@ -11,7 +11,7 @@ import { isDeadlock } from './errors.js';
 export async function inTransaction<DB, T>(
   db: Kysely<DB>,
   fn: (trx: Kysely<DB>) => Promise<T>,
-  options: { isolation?: IsolationLevel } = {},
+  options: { isolation?: IsolationLevel; readOnly?: boolean } = {},
 ): Promise<T> {
   if (db.isTransaction) {
     if (options.isolation !== undefined) {
@@ -22,9 +22,10 @@ export async function inTransaction<DB, T>(
     return fn(db);
   }
   const builder = db.transaction();
-  return (
-    options.isolation === undefined ? builder : builder.setIsolationLevel(options.isolation)
-  ).execute(fn);
+  const leveled =
+    options.isolation === undefined ? builder : builder.setIsolationLevel(options.isolation);
+  // A transaction that only reads (plan 8H-8, R3: several reads of one snapshot) says so.
+  return (options.readOnly === true ? leveled.setAccessMode('read only') : leveled).execute(fn);
 }
 
 /** How often `retryOnDeadlock` runs its work before it lets a deadlock through. */

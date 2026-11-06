@@ -1,11 +1,18 @@
 import { describe, expect, it } from 'vitest';
-import { activityReaderCases } from './activity-cases.js';
+import { activityDayReaderCases, activityReaderCases } from './activity-cases.js';
 import { MemoryActivity } from './activity.js';
 
 describe('the activity buckets in memory', () => {
   activityReaderCases(() => {
     const reader = new MemoryActivity();
     return Promise.resolve({ reader, add: (serverId, buckets) => reader.add(serverId, buckets) });
+  });
+
+  describe('its raids per day', () => {
+    activityDayReaderCases(() => {
+      const reader = new MemoryActivity();
+      return Promise.resolve({ reader, add: (serverId, days) => reader.addDays(serverId, days) });
+    });
   });
 
   it('counts every read, of buckets and of months alike (8H4-4)', async () => {

@@ -30,6 +30,9 @@ import type { PostWebContext, PostWebDeps } from '../../src/web/post-control-rou
 import type { StopWebContext, StopWebDeps } from '../../src/web/stop-routes.js';
 import type { ActivityWebDeps } from '../../src/web/history-routes.js';
 import { MemoryHistory } from './history.js';
+import { MemoryActivity } from './activity.js';
+import type { ActivityDayReader } from '../../src/db/repositories/activity-repository.js';
+import { HistoryDays } from '../../src/services/history-days.js';
 import { Throttles } from '../../src/discord/throttle.js';
 import type { Party, Team } from '../../src/domain/party/party.js';
 import type { Member } from '../../src/services/attendance-service.js';
@@ -512,7 +515,7 @@ export function stopWebWith(
 export function activityWebWith(
   deps: Omit<
     ActivityWebDeps,
-    'tallies' | 'channelName' | 'boards' | 'memberStats' | 'bossName' | 'trains' | 'guilds'
+    'tallies' | 'channelName' | 'boards' | 'memberStats' | 'bossName' | 'trains' | 'guilds' | 'days'
   > &
     Partial<ActivityWebDeps>,
 ): ActivityWebDeps {
@@ -542,8 +545,19 @@ export function activityWebWith(
     channelName: () => undefined,
     // No ended trains (plan 8H-7B): a test that has them passes its `MemoryHistory`.
     trains: new MemoryHistory(),
+    // Raids per day (plan 8H-8) over the same reader where it has them (`MemoryActivity`).
+    days: new HistoryDays({
+      reader: isDayReader(deps.reader) ? deps.reader : new MemoryActivity(),
+      zone: deps.zone,
+      bossName: (key) => catalogueFixture().byKey(key)?.name,
+    }),
     ...deps,
   };
+}
+
+/** Whether a reader of the buckets reads the raids per day too (`MemoryActivity` does). */
+function isDayReader(reader: object): reader is ActivityDayReader {
+  return 'dayTotals' in reader;
 }
 
 /** No activity: a test that has it passes `activityWebWith`. */
