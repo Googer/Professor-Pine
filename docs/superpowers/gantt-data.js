@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-06T13:13",
+  "updated": "2026-11-06T14:02",
   "items": [
     {
       "id": "0",
@@ -11127,6 +11127,11 @@ window.GANTT = {
           "start": "2026-11-06T11:28",
           "end": "2026-11-06T13:01"
         }
+      },
+      "status": "done",
+      "review": {
+        "start": "2026-11-06T13:22",
+        "end": "2026-11-06T13:51"
       }
     },
     {
@@ -11137,7 +11142,9 @@ window.GANTT = {
       "dependsOn": [],
       "scope": "Raids per day: migration 042 and its adding",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-06T13:13",
+      "end": "2026-11-06T13:17"
     },
     {
       "id": "8H-8.2",
@@ -11149,7 +11156,9 @@ window.GANTT = {
       ],
       "scope": "Big days: the rule, the reads and the routes",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-06T13:17",
+      "end": "2026-11-06T13:18"
     },
     {
       "id": "8H-8.3",
@@ -11161,7 +11170,9 @@ window.GANTT = {
       ],
       "scope": "The history page: raids by day, big days, a boss over time",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-06T13:18",
+      "end": "2026-11-06T13:20"
     },
     {
       "id": "8H-8.4",
@@ -11173,7 +11184,9 @@ window.GANTT = {
       ],
       "scope": "On this day in the events forum",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-06T13:20",
+      "end": "2026-11-06T13:21"
     },
     {
       "id": "8H-8.5",
@@ -11185,7 +11198,9 @@ window.GANTT = {
       ],
       "scope": "Docs",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-06T13:21",
+      "end": "2026-11-06T13:22"
     },
     {
       "id": "16-staging",
