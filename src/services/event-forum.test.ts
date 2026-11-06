@@ -1241,6 +1241,28 @@ describe('EventForumService: "On this day" (plan 8H-8)', () => {
     expect(warned()).toBe(2);
   });
 
+  it('warns of a failure and of days not caught up apart, each once on one day (W4)', async () => {
+    const { recalled, clock, service, entries, activity } = await recalling({
+      failing: new Error('the database is away'),
+    });
+    const warned = (msg: string) => entries.filter((entry) => entry.msg === msg).length;
+    expect(warned('could not post "On this day"')).toBe(1);
+    // The database back, the days still being filled: that is said too, the same day.
+    activity.failing = undefined;
+    activity.complete = false;
+    clock.now += 3_600_000;
+    await service.upkeep();
+    clock.now += 3_600_000;
+    await service.upkeep();
+    expect(recalled()).toEqual([]);
+    expect(warned('raids per day not caught up')).toBe(1);
+    // And a failure again that day is not said twice.
+    activity.failing = new Error('the database is away');
+    clock.now += 3_600_000;
+    await service.upkeep();
+    expect(warned('could not post "On this day"')).toBe(1);
+  });
+
   it('posts though the events feed is not known yet: it is not the feed’s (G6)', async () => {
     const { recalled } = await recalling({ known: false });
     expect(recalled()).toHaveLength(1);

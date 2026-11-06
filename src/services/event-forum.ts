@@ -187,7 +187,11 @@ export class EventForumService {
    * post): not asked again that day.
    */
   private readonly onThisDaySettled = new Map<string, string>();
-  /** The local day each server's failed "On this day" was warned of (A4): once a day. */
+  /**
+   * The local day each server's "On this day" was warned of, per warning (`<server>|behind`: the
+   * days not caught up, R5; `<server>|failed`: a failure, A4): each once a day, neither keeping
+   * the other unsaid (review W4).
+   */
   private readonly onThisDayWarned = new Map<string, string>();
   /** Whether the next draw opens the posts that archived themselves before their end (V6). */
   private reopenDue = false;
@@ -487,9 +491,9 @@ export class EventForumService {
       if (!found.complete) {
         if (
           zoned(now, zone).hour >= ON_THIS_DAY_HOUR + DAYS_CATCH_UP_HOURS &&
-          this.onThisDayWarned.get(serverId) !== today
+          this.onThisDayWarned.get(`${serverId}|behind`) !== today
         ) {
-          this.onThisDayWarned.set(serverId, today);
+          this.onThisDayWarned.set(`${serverId}|behind`, today);
           log.warn({ guild: serverId }, 'raids per day not caught up');
         }
         return;
@@ -537,11 +541,12 @@ export class EventForumService {
         );
       }
       this.onThisDaySettled.set(serverId, today);
-      this.onThisDayWarned.delete(serverId);
+      this.onThisDayWarned.delete(`${serverId}|behind`);
+      this.onThisDayWarned.delete(`${serverId}|failed`);
     } catch (err) {
       // Once a day per server: every draw of the day tries again (A4).
-      if (this.onThisDayWarned.get(serverId) === today) return;
-      this.onThisDayWarned.set(serverId, today);
+      if (this.onThisDayWarned.get(`${serverId}|failed`) === today) return;
+      this.onThisDayWarned.set(`${serverId}|failed`, today);
       log.warn({ err, guild: serverId, forum: forumId }, 'could not post "On this day"');
     }
   }
