@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-06T09:28",
+  "updated": "2026-11-06T10:11",
   "items": [
     {
       "id": "0",
@@ -6965,6 +6965,11 @@ window.GANTT = {
           "start": "2026-11-06T04:50",
           "end": "2026-11-06T09:23"
         }
+      },
+      "status": "done",
+      "review": {
+        "start": "2026-11-06T09:41",
+        "end": "2026-11-06T10:01"
       }
     },
     {
@@ -6972,35 +6977,45 @@ window.GANTT = {
       "kind": "task",
       "parent": "8S-5",
       "name": "The panel: lines, controls, Show, the Pokebattler dialog",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-06T09:28",
+      "end": "2026-11-06T09:31"
     },
     {
       "id": "8S-5.2",
       "kind": "task",
       "parent": "8S-5",
       "name": "History off asks first, in a dialog",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-06T09:31",
+      "end": "2026-11-06T09:32"
     },
     {
       "id": "8S-5.3",
       "kind": "task",
       "parent": "8S-5",
       "name": "Nothing names a subcommand settings had",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-06T09:32",
+      "end": "2026-11-06T09:35"
     },
     {
       "id": "8S-5.4",
       "kind": "task",
       "parent": "8S-5",
       "name": "The words of stats, and Your history on the web",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-06T09:35",
+      "end": "2026-11-06T09:40"
     },
     {
       "id": "8S-5.5",
       "kind": "task",
       "parent": "8S-5",
       "name": "Docs",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-06T09:40",
+      "end": "2026-11-06T09:41"
     },
     {
       "id": "14",

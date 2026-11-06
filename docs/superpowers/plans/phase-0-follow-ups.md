@@ -3220,3 +3220,13 @@ Googer in the built-in browser. No train in the dev history has three members wh
 - **Found (Minor), for a small fix:** on a phone the panel lies across the top of the map, but the fit still pads by the panel's width on the right, so the route is squeezed into the left half under the panel: pad on the top (by the panel's height) when the panel spans the map's width.
 - **Found (for Matt), legacy trains:** none of production's 11 legacy trains is ever listed: their members are mostly "joined" (the old bot's on-the-train status had no Here per stop), so `here + done >= 3` holds for none, and the two big ones (21 and 51 attendees) recorded no stops at all. Counting `joined` for legacy trains would list nothing more with a line; so the legacy part shows nothing with today's data. Accept, or drop the legacy branch later.
 - **Not run:** "Route on the map" on a post (needs an ended train of three members), Play and the slider's busy list by hand, the dark/light theme switch, a real phone.
+
+## From Phase 8S-5 (one /settings panel, and the words of settings and stats, 2026-11-06)
+
+Plan `2026-11-06-phase-8s5-settings-panel.md`, merged at 42785780. Prototype reviewed on Opus (brief S1–S22, mechanics A1–A7, words B1–B14, re-review R1–R2), transcribed (each task equal to its prototype commit), whole-branch review W1–W9 (all Minor) fixed in fef0a25b..42785780. Check (12,502), build and db (741) green. No migration.
+
+- **Needs the global deploy at staging** (`sh ~/pine-dev.sh deploy-commands --global`): `/settings` loses its subcommands. The plan's staging checklist is not run yet.
+- **Calls made while Matt was away, for him to object to:** history off asks in a dialog ("Turn your history off"), only when it takes something away; what the opt-out removes is worded "Discord id" everywhere ("name" is the privacy line's word); green buttons mean "on now", "Turn on" buttons are blue; "Status on reports and trains" and "Your gyms in this server"; "Change…" counts in `/settings`' own window, so 30 openings in a minute hold back `/settings` for that minute.
+- **Open, Minor:** Show of wants and gyms counts in the write window although it only reads (since the prototype; no finding asked for it).
+- The phone fit of 8H-7B's History line (top padding where the panel spans the map, `stillFitPadding`) landed right after it (b0c5fc01), to be staged with 8S-5.
+
