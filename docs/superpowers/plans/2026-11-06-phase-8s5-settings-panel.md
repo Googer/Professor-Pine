@@ -46,7 +46,7 @@ On the Air's dev stack after `./pine update` and **the global deploy** (`sh ~/pi
 3. Show of Wants and of Gyms answers apart, exactly as `/wants` and `/targets` do.
 4. History off for a member with records: the dialog with the count; Cancel changes nothing; Submit turns it off and says how many records it took the id off; boards off with it. History off for a member with none: off at once. Boards on while history is off: both on.
 5. `/settings` in a DM with the bot: the panel without the server's lines, and the one line saying they are set per server.
-6. A client that still has an old subcommand cached (before reload): it opens the panel.
+6. If Discord still delivers an old subcommand from a client that has not reloaded, it opens the panel (Discord may refuse it first: then nothing to check).
 7. `/stats me` with the history off (the short words), with nothing in a year ("Nothing of yours is in my history for 2026."), and the card's title "Your history, …"; Share's title "History of …".
 8. `/help settings` and `/help stats`: short paragraphs, the history's disclosure; the web's account menu and page say "Your history".
 9. `/admin member-settings` on Tester: the same lines, neutral words.
