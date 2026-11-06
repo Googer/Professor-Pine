@@ -1544,6 +1544,10 @@ export async function startApp(
         boards: ctx.boards,
         memberStats: ctx.memberStats,
         bossName: (key) => gameData.catalogue.byKey(key)?.name,
+        // The ended trains of the map's History (plan 8H-7B): read as the post's card reads them,
+        // gated by every region of the server (review A2).
+        trains: history,
+        guilds,
       },
       // The Wayfarer export tool (plan 8W-P): served from wayspot-tool/ to the admins the owner
       // approved, on an instance that has the file (the owner's).

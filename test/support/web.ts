@@ -29,6 +29,7 @@ import type { MaxWebContext, MaxWebDeps } from '../../src/web/max-routes.js';
 import type { PostWebContext, PostWebDeps } from '../../src/web/post-control-routes.js';
 import type { StopWebContext, StopWebDeps } from '../../src/web/stop-routes.js';
 import type { ActivityWebDeps } from '../../src/web/history-routes.js';
+import { MemoryHistory } from './history.js';
 import { Throttles } from '../../src/discord/throttle.js';
 import type { Party, Team } from '../../src/domain/party/party.js';
 import type { Member } from '../../src/services/attendance-service.js';
@@ -509,9 +510,16 @@ export function stopWebWith(
  * no channel has a name unless `channelName` says it.
  */
 export function activityWebWith(
-  deps: Omit<ActivityWebDeps, 'tallies' | 'channelName' | 'boards' | 'memberStats' | 'bossName'> &
+  deps: Omit<
+    ActivityWebDeps,
+    'tallies' | 'channelName' | 'boards' | 'memberStats' | 'bossName' | 'trains' | 'guilds'
+  > &
     Partial<ActivityWebDeps>,
 ): ActivityWebDeps {
+  // The fakes' server is row 1, as the regions of the fixtures say.
+  const guilds = {
+    idFor: (snowflake: string) => Promise.resolve(snowflake === FAKE_GUILD_ID ? 1 : undefined),
+  };
   const none = (what: string) =>
     new Proxy({} as never, {
       get(_target, property) {
@@ -526,13 +534,14 @@ export function activityWebWith(
     tallies: new RegionTallies({
       reader: deps.reader,
       regions: deps.regions,
-      guilds: {
-        idFor: (snowflake) => Promise.resolve(snowflake === FAKE_GUILD_ID ? 1 : undefined),
-      },
+      guilds,
       gateway: new FakePartyGateway(),
       zone: deps.zone,
     }),
+    guilds,
     channelName: () => undefined,
+    // No ended trains (plan 8H-7B): a test that has them passes its `MemoryHistory`.
+    trains: new MemoryHistory(),
     ...deps,
   };
 }

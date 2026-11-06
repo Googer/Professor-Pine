@@ -1,6 +1,22 @@
-import type { FastifyInstance, FastifyReply } from 'fastify';
+import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { ActivityReader } from '../db/repositories/activity-repository.js';
+import type {
+  RaidsAlongReader,
+  TrainCardRows,
+  TrainHistoryReader,
+} from '../db/repositories/history-repository.js';
+import { raidsAlongQuery, stopWindows, type RaidAlongRow } from '../domain/history/train-card.js';
+import { trainMonth, trainMonthRange } from '../domain/history/trains-on-web.js';
+import type { TrainMonthView, TrainRouteView } from '../domain/web/train-history-data.js';
+import {
+  trainCardLines,
+  trainItem,
+  trainLine,
+  trainListed,
+  trainRegionIds,
+  type TrainPlaces,
+} from './history-trains.js';
 import type { Region } from '../db/repositories/region-repository.js';
 import {
   activityMonths,
@@ -42,8 +58,16 @@ export interface ActivityWebDeps {
   reader: ActivityReader;
   /** The regions, whose forums say who may see their parties (`RegionDirectory`). */
   regions: { all(): readonly Region[] };
-  /** The gyms as the map has them (`GymDirectory`): a gym no longer listed is left out. */
-  gyms: { get(id: number): { lat: number; lon: number } | undefined };
+  /**
+   * The gyms as the map has them (`GymDirectory`): a gym no longer listed is left out; the
+   * channels of the regions a gym lies in now (plan 8H-7B: a legacy train's stops, review A1).
+   */
+  gyms: {
+    get(id: number): { lat: number; lon: number } | undefined;
+    regionsOf(gymId: number): string[];
+  };
+  /** The row of a server (`Guild.id`), whose regions are its own (plan 8H-7B, review A2). */
+  guilds: { idFor(snowflake: string): Promise<number | undefined> };
   /** The kept Wayspots (`WayspotDirectory`): a Power Spot no longer kept is left out. */
   wayspots: { byId(id: string): { lat: number; lon: number } | undefined };
   /** `settings.timezone`: the buckets' months, weekdays and hours. */
@@ -58,7 +82,28 @@ export interface ActivityWebDeps {
   memberStats: Pick<MemberStatsService, 'stats'>;
   /** The catalogue's name of a boss by its key, for "Your Pine"'s bosses. */
   bossName: (bossKey: string) => string | undefined;
+  /**
+   * The ended trains of the map's History (plan 8H-7B): a month's trains, their rows and the
+   * raids along their way, as the post's card reads them (`HistoryRepository`).
+   */
+  trains: TrainHistoryReader & RaidsAlongReader;
 }
+
+/**
+ * The requests for a server's ended trains one address may make in a minute, a month's list and a
+ * train's route together (review G8: their own limiter): a member picks a month, then a train or
+ * two of it.
+ */
+export const TRAINS_PER_MINUTE = 60;
+
+/** The most trains a month's list gives; the rest are counted (`more`). */
+export const TRAINS_LISTED = 50;
+
+/** `?month=yyyy-mm`, required. */
+const trainsQuery = z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/u) }).strict();
+
+/** A record's id as the map's address gives it: digits, no leading zero, at most 15. */
+const HISTORY_ID = /^[1-9]\d{0,14}$/u;
 
 /**
  * The requests for a server's boards, or a member's own stats, one address may make in a
@@ -428,4 +473,173 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
       return sendJson(request, reply, view);
     },
   );
+
+  trainRoutes(scope, deps, viewers);
+}
+
+type TrainRequest = FastifyRequest<{ Params: { guild: string; train: string } }>;
+
+/**
+ * The ended trains of the map's History (plan 8H-7B, design Part F's web half): `GET
+ * /s/<guild>/api/history/trains?month=yyyy-mm`, the month's trains (by `createdAt` in the posts'
+ * zone) the member may see, newest first, at most `TRAINS_LISTED`; and `GET
+ * /s/<guild>/api/history/trains/<id>`, one train's line and card, by its record's id (review G1:
+ * legacy records have no party id). Shaped as the other history routes: their own limiter
+ * (`TRAINS_PER_MINUTE`, review G8), a session (401), membership asked before anything of the
+ * server is read (403, 503), an ETag, `private, no-cache`. Shown only where three members or more
+ * came (`trainShownOnWeb`, G2), a legacy train only with a stop the map can place (G3), and never
+ * where a region of it, its own or any stop's, keeps the member out (`regionGate`, `keptOut`:
+ * barred only; a region gone and none are seen, G5). Every train refused, whatever why (another
+ * server's, no train, too few riders, barred, none at all), is the one 404 (G1).
+ */
+function trainRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewers): void {
+  const { sessions, activity } = deps;
+  const limiter = new RateLimiter({ uses: TRAINS_PER_MINUTE, perMs: 60_000 });
+  const onRequest = limitedPerAddress(limiter, { now: deps.now });
+  const regionOf = (id: number) => activity.regions.all().find((region) => region.id === id);
+
+  /**
+   * The member's view of the server's trains (review A2): the gates (`regionGate`) of every region
+   * of the server asked at once, before any record is read, so that what is asked of Discord never
+   * depends on the train asked for; the places with the server's regions of each gym (A1); and
+   * whether the member sees a train, by its regions (`trainRegionIds`): a region no longer of the
+   * server, or none, keeps nobody out.
+   */
+  const viewOf = async (
+    guild: string,
+    userId: string,
+    member: Awaited<ReturnType<PartyViewers['askedMembership']>>,
+  ): Promise<
+    | { refused: 'not-member' | 'unconfirmed' }
+    | { places: TrainPlaces; sees: (rows: TrainCardRows) => boolean }
+  > => {
+    const row = await activity.guilds.idFor(guild);
+    const ofServer = activity.regions.all().filter((region) => region.guildId === row);
+    const byId = new Map(ofServer.map((region) => [region.id, region]));
+    const byChannel = new Map(ofServer.map((region) => [region.channelId, region.id]));
+    const viewer = await viewers.viewer(guild, userId, ofServer.map(regionGate), member);
+    if (viewer.kind !== 'member') return { refused: viewer.kind };
+    const places: TrainPlaces = {
+      gym: (id) => activity.gyms.get(id),
+      spot: (id) => activity.wayspots.byId(id),
+      gymRegions: (id) =>
+        activity.gyms.regionsOf(id).flatMap((channel) => {
+          const regionId = byChannel.get(channel);
+          return regionId === undefined ? [] : [regionId];
+        }),
+    };
+    return {
+      places,
+      sees: (rows) =>
+        trainRegionIds(rows, places).every((id) => {
+          const region = byId.get(id);
+          return region === undefined || !keptOutOf(viewer, regionGate(region));
+        }),
+    };
+  };
+
+  scope.get('/api/history/trains', { onRequest }, async (request: GuildRequest, reply) => {
+    void reply.header('cache-control', 'private, no-cache');
+    const session = await sessions.of(request, reply);
+    if (!session) return sendFailure(request, reply, 401);
+    const query = trainsQuery.safeParse(request.query ?? {});
+    if (!query.success) return sendFailure(request, reply, 400);
+    const { guild } = request.params;
+    const member = await viewers.askedMembership(guild, session.userId);
+    if (member.kind === 'not-member') return sendFailure(request, reply, 403);
+    if (member.kind === 'unconfirmed') return reply.code(503).send({ error: UNCONFIRMED });
+    const { month } = query.data;
+    const seen = await viewOf(guild, session.userId, member);
+    if ('refused' in seen) {
+      return seen.refused === 'not-member'
+        ? sendFailure(request, reply, 403)
+        : reply.code(503).send({ error: UNCONFIRMED });
+    }
+    const ids = await activity.trains.trainsMade(guild, trainMonthRange(month, activity.zone));
+    const read = await activity.trains.trainCardRows(ids);
+    // Filtered before the cap, so that "more" counts only what the member may see (G5).
+    const shown = ids.flatMap((id) => {
+      const rows = read.get(id);
+      return rows !== undefined &&
+        rows.serverId === guild &&
+        trainListed(rows, seen.places) &&
+        seen.sees(rows)
+        ? [{ id, rows }]
+        : [];
+    });
+    const view: TrainMonthView = {
+      month,
+      trains: shown
+        .slice(0, TRAINS_LISTED)
+        .map((one) => trainItem(one.id, one.rows, activity.zone)),
+      more: Math.max(0, shown.length - TRAINS_LISTED),
+    };
+    return sendJson(request, reply, view);
+  });
+
+  scope.get('/api/history/trains/:train', { onRequest }, async (request: TrainRequest, reply) => {
+    void reply.header('cache-control', 'private, no-cache');
+    const session = await sessions.of(request, reply);
+    if (!session) return sendFailure(request, reply, 401);
+    const { guild, train } = request.params;
+    const member = await viewers.askedMembership(guild, session.userId);
+    if (member.kind === 'not-member') return sendFailure(request, reply, 403);
+    if (member.kind === 'unconfirmed') return reply.code(503).send({ error: UNCONFIRMED });
+    // Asked before the id is looked at (review A2): the same of Discord, whatever train is asked.
+    const seen = await viewOf(guild, session.userId, member);
+    if ('refused' in seen) {
+      return seen.refused === 'not-member'
+        ? sendFailure(request, reply, 403)
+        : reply.code(503).send({ error: UNCONFIRMED });
+    }
+    const { places } = seen;
+    // Every train it will not show, whatever why, answers the same (G1).
+    const refused = () => sendFailure(request, reply, 404);
+    if (!HISTORY_ID.test(train)) return refused();
+    const id = Number(train);
+    const rows = (await activity.trains.trainCardRows([id])).get(id);
+    if (
+      rows === undefined ||
+      rows.serverId !== guild ||
+      !trainListed(rows, places) ||
+      !seen.sees(rows)
+    ) {
+      return refused();
+    }
+    const now = deps.now();
+    const raids = rows.listing.source === 'live' ? await raidsOf(rows, guild) : undefined;
+    // A region by its channel's name (`#west`), by its number where the bot sees no channel; a
+    // region gone since is left out, as on the post (G7).
+    const regionWords = (regionId: number): string | undefined => {
+      const region = regionOf(regionId);
+      if (region === undefined) return undefined;
+      const name = activity.channelName(region.channelId);
+      return name === undefined ? `Region ${String(regionId)}` : `#${name}`;
+    };
+    const view: TrainRouteView = {
+      ...trainItem(id, rows, activity.zone),
+      month: trainMonth(rows.listing.createdAt, activity.zone),
+      ...trainLine(rows, places),
+      card: trainCardLines(rows, raids, regionWords, activity.zone, now),
+    };
+    return sendJson(request, reply, view);
+
+    /** The raids along its way, as the post read them; undefined where the read failed. */
+    async function raidsOf(
+      card: TrainCardRows,
+      serverId: string,
+    ): Promise<RaidAlongRow[] | undefined> {
+      const asked = raidsAlongQuery(stopWindows(card.record, card.stops, card.attendees));
+      if (asked === undefined) return [];
+      try {
+        return await activity.trains.raidsAlong(serverId, asked);
+      } catch (err) {
+        deps.log.warn(
+          { err, guild: serverId },
+          'could not read the raids along the way of an ended train',
+        );
+        return undefined;
+      }
+    }
+  });
 }
