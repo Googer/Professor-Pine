@@ -3188,3 +3188,11 @@ Plan `docs/superpowers/plans/2026-11-05-phase-8h7a-train-card.md`; migration 041
 - **Staging** (Air's dev stack after `./pine update`, migration 041; no deploy): the plan's "Staging" steps 1–4.
 - **Not tried:** Discord's rendering of the card (channel mentions, ★), a real split train's card.
 - **Then:** 8H-7B (the web: a month's trains, a still route line with the card from `trainCardRows`, legacy trains' routes; count legacy trains first; F-B13's privacy question for Matt: leave out trains with few riders?).
+
+## From the staging run of 8H-7A (2026-11-05, Air's dev stack at 89df4018, migration 041 applied)
+
+Googer in the built-in browser, Tester in Claude in Chrome (Matt's "Stage it").
+
+- **Pass:** "Card test" (4 stops, #oakland then #squirrelbreeze, Tester Here at the first, `/delete` 8 min after) ends with "How the train went / About 4 stops in 7 min / Through #oakland · #squirrelbreeze / 1 rider / No raids or max battles recorded along the way. / Approximate: …", under "This train was closed by Googer" and above the riders; the record has `regionIds` [60], [60], [62], [62], `peakRiders` 1 ("at most" left out, as it equals the riders). "Raid card two" (1 stop at Phipps, a Giratina raid there that Tester completed and Googer closed): "About 1 stop in 3 min / Through #oakland / 1 rider / Recorded along the way: 1 Level 5 raid". Nothing was edited after the archive.
+- **Setup lesson:** a raid closed with nobody Done is `cancelled` and rightly not counted along the way (twice, before the third train): a staging step with a raid needs somebody to press Done.
+- **Not run:** a train that never left (`/train` allows two in 15 minutes; unit-tested), Discord's phone app, a split train's card, a clock end (the 30-minute cap of an open last stop).
