@@ -2988,6 +2988,7 @@ On the Air's dev stack, Googer in the built-in browser, Tester through Claude in
 
 - **Claude's calls, for Matt to object to:** an added gym gets the list's id as its `pogoId`, no picture and no address (Google's line gives the address at the next start); a marked legacy gym keeps its `pogoId`.
 - **Spot checks on the game's map (2026-11-02):** legacy 3066, 3071, 3072 are Verizon stops with no gym of their own, as the list says. The list's Starbucks in Washington is legacy 1483: one gym there, so the row was dropped and the gym is moved in the runbook. Honus Wagner Statue has both a gym and a stop; Penn Center Clock Tower (legacy 1286, Rey Azteca Clock) is a gym with a Starbucks stop beside it: no change. Every Best Buy, GameStop and Target gym on the list is gone from PGAN too (checked live by id), so their rows are dropped; the rest of the list, gyms and stops, is there.
+- **Dry run on the rehearsal copy (2026-11-06, the Air, current file):** 11 to mark, 14 to add, 0 skipped; nothing written.
 
 ## From inactive stops as Power Spots (2026-11-02)
 
