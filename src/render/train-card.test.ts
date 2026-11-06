@@ -126,7 +126,8 @@ describe('trainCardText: the card of an ended train in its post', () => {
     const text = trainCardText(card({ regionIds: [...many.keys()] }), (id) => many.get(id), cut);
     const line = text.split('\n').find((part) => part.startsWith('Through'));
     expect(line?.length).toBeLessThanOrEqual(200);
-    expect(line).toMatch(/ and \d+ more$/u);
+    // The same words as the line of raids (review W2).
+    expect(line).toMatch(/^Through <#\d+>( · <#\d+>)* · …and \d+ more$/u);
   });
 });
 

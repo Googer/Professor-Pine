@@ -51,21 +51,17 @@ function raidsLine(raids: readonly RaidTally[], room: number): string {
   return `${lead}${fitItems(raids.map(raidTallyWords), room - lead.length)}`;
 }
 
-/** `Through <#a> · <#b>`, as many regions as `room` holds and how many more. */
+/**
+ * `Through <#a> · <#b>`, as many regions as `room` holds and how many more, in the words of the
+ * line of raids (`fitItems`: `· …and N more`, review W2).
+ */
 function regionsLine(channels: readonly string[], room: number): string {
-  const line = (shown: number): string => {
-    const left = channels.length - shown;
-    const named = channels
-      .slice(0, shown)
-      .map((id) => `<#${id}>`)
-      .join(' · ');
-    return `Through ${named}${left > 0 ? ` and ${String(left)} more` : ''}`;
-  };
-  for (let shown = channels.length; shown > 1; shown--) {
-    const text = line(shown);
-    if (text.length <= room) return text;
-  }
-  return line(1);
+  const lead = 'Through ';
+  return `${lead}${fitItems(
+    channels.map((id) => `<#${id}>`),
+    room - lead.length,
+    ' · ',
+  )}`;
 }
 
 /**
