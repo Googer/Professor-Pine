@@ -749,7 +749,9 @@ function dayRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewers)
   scope.get('/api/history/bosses', { onRequest }, async (request: GuildRequest, reply) => {
     const seen = await leftOutOf(request, reply, noQuery.safeParse(request.query ?? {}).success);
     if ('sent' in seen) return seen.sent;
-    const view = bossListView(await activity.days.bosses(request.params.guild, seen.leftOut));
+    const view = bossListView(
+      await activity.days.bosses(request.params.guild, seen.leftOut, deps.now()),
+    );
     return sendJson(request, reply, view);
   });
 
@@ -758,7 +760,7 @@ function dayRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewers)
     const valid = BOSS_KEY.test(boss) && noQuery.safeParse(request.query ?? {}).success;
     const seen = await leftOutOf(request, reply, valid);
     if ('sent' in seen) return seen.sent;
-    const trend = await activity.days.boss(request.params.guild, boss, seen.leftOut);
+    const trend = await activity.days.boss(request.params.guild, boss, seen.leftOut, deps.now());
     // A key the catalogue does not know (G15).
     if (trend === undefined) return sendFailure(request, reply, 404);
     return sendJson(request, reply, bossTrendView(trend));

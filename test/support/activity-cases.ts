@@ -171,9 +171,6 @@ export function activityDayReaderCases(
     add: (serverId: string, days: readonly ActivityDay[]) => Promise<void>;
   }>,
 ): void {
-  const byKey = <T extends { boss: string }>(rows: readonly T[]) =>
-    [...rows].sort((a, b) => (a.boss < b.boss ? -1 : a.boss > b.boss ? 1 : 0));
-
   it('sums a server’s days over its regions, in the days’ order, without those left out', async () => {
     const { reader, add } = await made();
     expect(await reader.dayTotals(ACTIVITY_SERVER, [])).toEqual([]);
@@ -242,35 +239,5 @@ export function activityDayReaderCases(
       { day: '2019-10-08', raids: 100, maxes: 0 },
       { day: '2019-10-09', raids: 10, maxes: 3 },
     ]);
-  });
-
-  it('lists the known bosses of a server’s raids, and one boss’s raids by month', async () => {
-    const { reader, add } = await made();
-    await add(ACTIVITY_SERVER, [
-      activityDay('2018-09-21', 'mewtwo', 300),
-      activityDay('2018-09-22', 'mewtwo', 200, { regionId: 2 }),
-      activityDay('2019-10-08', 'mewtwo', 20),
-      activityDay('2019-10-08', '', 99),
-      activityDay('2019-10-08', 'lugia', 4),
-      activityDay('2024-06-01', 'zapdos', 0, { maxes: 4 }),
-    ]);
-    await add(OTHER_ACTIVITY_SERVER, [activityDay('2019-10-08', 'deoxys', 7)]);
-    expect(byKey(await reader.bossTotals(ACTIVITY_SERVER, []))).toEqual([
-      { boss: 'lugia', raids: 4 },
-      { boss: 'mewtwo', raids: 520 },
-    ]);
-    expect(byKey(await reader.bossTotals(ACTIVITY_SERVER, [1]))).toEqual([
-      { boss: 'mewtwo', raids: 200 },
-    ]);
-    expect(await reader.bossMonths(ACTIVITY_SERVER, 'mewtwo', [])).toEqual([
-      { month: '2018-09', raids: 500 },
-      { month: '2019-10', raids: 20 },
-    ]);
-    expect(await reader.bossMonths(ACTIVITY_SERVER, 'mewtwo', [2])).toEqual([
-      { month: '2018-09', raids: 300 },
-      { month: '2019-10', raids: 20 },
-    ]);
-    expect(await reader.bossMonths(ACTIVITY_SERVER, 'zapdos', [])).toEqual([]);
-    expect(await reader.bossMonths(ACTIVITY_SERVER, 'deoxys', [])).toEqual([]);
   });
 }

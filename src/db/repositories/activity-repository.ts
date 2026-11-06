@@ -43,18 +43,6 @@ export interface DaySeries {
   bosses: DayBoss[];
 }
 
-/** A boss's raids over a server's whole history. */
-export interface BossTotal {
-  boss: string;
-  raids: number;
-}
-
-/** A boss's raids of one local month (`yyyy-mm`). */
-export interface MonthRaids {
-  month: string;
-  raids: number;
-}
-
 /**
  * What the big days and the history page read of the raids per day (plan 8H-8, `ActivityDay`):
  * always without the regions `leftOut` names (the member's barred ones, G4); region 0 and a region
@@ -80,10 +68,6 @@ export interface ActivityDayReader {
    * are judged on, never a batch in one read and not in another.
    */
   daySeries(serverId: string, leftOut: readonly number[]): Promise<DaySeries>;
-  /** Every known boss of a server's raids, with its raids (a max battle's boss alone is none). */
-  bossTotals(serverId: string, leftOut: readonly number[]): Promise<BossTotal[]>;
-  /** A boss's raids per local month, the months with any, in their order. */
-  bossMonths(serverId: string, boss: string, leftOut: readonly number[]): Promise<MonthRaids[]>;
 }
 
 /**
@@ -558,37 +542,5 @@ export class ActivityRepository implements ActivityReader, ActivityDayReader {
       .having((eb) => eb.fn.sum('raids'), '>', 0)
       .execute();
     return rows.map((row) => ({ day: row.day, boss: row.boss, raids: Number(row.raids) }));
-  }
-
-  async bossTotals(serverId: string, leftOut: readonly number[]): Promise<BossTotal[]> {
-    const rows = await this.db
-      .selectFrom('ActivityDay')
-      .select((eb) => ['boss', eb.fn.sum<number | string>('raids').as('raids')])
-      .where('serverId', '=', serverId)
-      .where('boss', '<>', NO_BOSS)
-      .$if(leftOut.length > 0, (query) => query.where('regionId', 'not in', [...leftOut]))
-      .groupBy('boss')
-      .having((eb) => eb.fn.sum('raids'), '>', 0)
-      .execute();
-    return rows.map((row) => ({ boss: row.boss, raids: Number(row.raids) }));
-  }
-
-  async bossMonths(
-    serverId: string,
-    boss: string,
-    leftOut: readonly number[],
-  ): Promise<MonthRaids[]> {
-    const month = sql<string>`left(day, 7)`;
-    const rows = await this.db
-      .selectFrom('ActivityDay')
-      .select((eb) => [month.as('month'), eb.fn.sum<number | string>('raids').as('raids')])
-      .where('serverId', '=', serverId)
-      .where('boss', '=', boss)
-      .$if(leftOut.length > 0, (query) => query.where('regionId', 'not in', [...leftOut]))
-      .groupBy(month)
-      .having((eb) => eb.fn.sum('raids'), '>', 0)
-      .orderBy(month)
-      .execute();
-    return rows.map((row) => ({ month: row.month, raids: Number(row.raids) }));
   }
 }

@@ -39,6 +39,10 @@ export interface NamedBigDay extends BigDay {
 interface Series {
   totals: DayTotal[];
   big: NamedBigDay[];
+  /** Every known boss's raids over the whole history (never `NO_BOSS`; none without raids). */
+  bossTotals: Map<string, number>;
+  /** Every known boss's raids per local month (`yyyy-mm`), the months with any, in their order. */
+  bossMonths: Map<string, Array<{ month: string; raids: number }>>;
   /** Whether the days held the server's whole history when read (A1). */
   complete: boolean;
 }
@@ -47,8 +51,9 @@ interface Series {
  * Raids per day, big days and a boss's trend (plan 8H-8, design Part G), for the history page and
  * the events forum's "On this day" alike: a server's days (`ActivityDayReader.dayTotals`, summed
  * over the regions not left out) and every day's bosses (`dayBosses`, the boss rule's, round 1),
- * judged by the domain's one rule (`bigDays`), the big days named by the catalogue. Each server's
- * series is kept `DAYS_FRESH_MS` per set of regions left out (the page's members barred nowhere
+ * judged by the domain's one rule (`bigDays`), the big days named by the catalogue, and from
+ * those bosses the list of bosses and each boss's months (review W3: no read of their own). Each
+ * server's series is kept `DAYS_FRESH_MS` per set of regions left out (the page's members barred nowhere
  * share one), only `DAYS_UNCOUNTED_MS` while the days are still being filled, a read on its way
  * shared, a failed one not kept.
  */
@@ -141,12 +146,13 @@ export class HistoryDays {
   async bosses(
     serverId: string,
     leftOut: ReadonlySet<number>,
+    now: number,
   ): Promise<Array<{ key: string; name: string; raids: number }>> {
-    const totals = await this.options.reader.bossTotals(serverId, [...leftOut]);
-    return totals
-      .flatMap((one) => {
-        const name = this.options.bossName(one.boss);
-        return name === undefined ? [] : [{ key: one.boss, name, raids: one.raids }];
+    const series = await this.series(serverId, leftOut, now);
+    return [...series.bossTotals]
+      .flatMap(([key, raids]) => {
+        const name = this.options.bossName(key);
+        return name === undefined ? [] : [{ key, name, raids }];
       })
       .sort((a, b) => a.name.localeCompare(b.name, 'en') || (a.key < b.key ? -1 : 1));
   }
@@ -160,12 +166,13 @@ export class HistoryDays {
     serverId: string,
     key: string,
     leftOut: ReadonlySet<number>,
+    now: number,
   ): Promise<
     { key: string; name: string; months: Array<{ month: string; raids: number }> } | undefined
   > {
     const name = this.options.bossName(key);
     if (name === undefined) return undefined;
-    const read = await this.options.reader.bossMonths(serverId, key, [...leftOut]);
+    const read = (await this.series(serverId, leftOut, now)).bossMonths.get(key) ?? [];
     const first = read[0];
     const last = read.at(-1);
     if (first === undefined || last === undefined) return { key, name, months: [] };
@@ -207,9 +214,27 @@ export class HistoryDays {
     // Whether complete, the days and every day's bosses (the boss rule judges each day), of one
     // snapshot (R3).
     const { complete, totals, bosses } = await reader.daySeries(serverId, leftOut);
+    const bossTotals = new Map<string, number>();
+    const months = new Map<string, Map<string, number>>();
+    for (const one of bosses) {
+      bossTotals.set(one.boss, (bossTotals.get(one.boss) ?? 0) + one.raids);
+      const own = months.get(one.boss) ?? new Map<string, number>();
+      months.set(one.boss, own);
+      const month = one.day.slice(0, 7);
+      own.set(month, (own.get(month) ?? 0) + one.raids);
+    }
     return {
       totals,
       complete,
+      bossTotals,
+      bossMonths: new Map(
+        [...months].map(([boss, own]) => [
+          boss,
+          [...own]
+            .sort((a, b) => (a[0] < b[0] ? -1 : 1))
+            .map(([month, raids]) => ({ month, raids })),
+        ]),
+      ),
       big: bigDays(totals, bosses, today).map((one) => {
         const name = one.label === undefined ? undefined : bossName(one.label.boss);
         return {

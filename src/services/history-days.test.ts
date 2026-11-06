@@ -228,8 +228,10 @@ describe('the raids per day of a server', () => {
       activityDay('2018-09-21', 'lugia', 30),
       activityDay('2018-09-21', 'missingno', 30),
       activityDay('2018-09-21', '', 30),
+      // A max battle's boss alone is no boss of the raids.
+      activityDay('2024-06-01', 'zapdos', 0, { maxes: 4 }),
     ]);
-    expect(await service.bosses(ACTIVITY_SERVER, new Set())).toEqual([
+    expect(await service.bosses(ACTIVITY_SERVER, new Set(), NOW)).toEqual([
       { key: 'lugia', name: 'Lugia', raids: 30 },
       { key: 'mewtwo', name: 'Mewtwo', raids: 20 },
     ]);
@@ -241,7 +243,7 @@ describe('the raids per day of a server', () => {
       activityDay('2019-02-08', 'mewtwo', 20, { regionId: 2 }),
       activityDay('2019-02-09', 'mewtwo', 5),
     ]);
-    expect(await service.boss(ACTIVITY_SERVER, 'mewtwo', new Set())).toEqual({
+    expect(await service.boss(ACTIVITY_SERVER, 'mewtwo', new Set(), NOW)).toEqual({
       key: 'mewtwo',
       name: 'Mewtwo',
       months: [
@@ -251,16 +253,39 @@ describe('the raids per day of a server', () => {
         { month: '2019-02', raids: 25 },
       ],
     });
-    expect((await service.boss(ACTIVITY_SERVER, 'mewtwo', new Set([2])))?.months.at(-1)).toEqual({
+    expect(
+      (await service.boss(ACTIVITY_SERVER, 'mewtwo', new Set([2]), NOW))?.months.at(-1),
+    ).toEqual({
       month: '2019-02',
       raids: 5,
     });
     // A key the catalogue does not know is no boss; one without raids has no months.
-    expect(await service.boss(ACTIVITY_SERVER, 'missingno', new Set())).toBeUndefined();
-    expect(await service.boss(ACTIVITY_SERVER, 'lugia', new Set())).toEqual({
+    expect(await service.boss(ACTIVITY_SERVER, 'missingno', new Set(), NOW)).toBeUndefined();
+    expect(await service.boss(ACTIVITY_SERVER, 'lugia', new Set(), NOW)).toEqual({
       key: 'lugia',
       name: 'Lugia',
       months: [],
     });
+  });
+
+  it('serves the boss list and a boss’s months from the series kept, no read of their own (W3)', async () => {
+    const { reader, service } = await setup([
+      activityDay('2018-11-21', 'mewtwo', 300),
+      activityDay('2019-02-08', 'mewtwo', 20, { regionId: 2 }),
+      activityDay('2019-02-09', 'lugia', 5),
+    ]);
+    await service.year(ACTIVITY_SERVER, new Set([2]), 2019, NOW);
+    expect(reader.reads).toBe(1);
+    expect(await service.bosses(ACTIVITY_SERVER, new Set([2]), NOW + 1_000)).toEqual([
+      { key: 'lugia', name: 'Lugia', raids: 5 },
+      { key: 'mewtwo', name: 'Mewtwo', raids: 300 },
+    ]);
+    expect(
+      (await service.boss(ACTIVITY_SERVER, 'mewtwo', new Set([2]), NOW + 2_000))?.months,
+    ).toEqual([{ month: '2018-11', raids: 300 }]);
+    expect(reader.reads).toBe(1);
+    // A key the catalogue does not know reads nothing.
+    await service.boss(ACTIVITY_SERVER, 'missingno', new Set([3]), NOW);
+    expect(reader.reads).toBe(1);
   });
 });

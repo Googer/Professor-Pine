@@ -1,10 +1,8 @@
 import type {
   ActivityDayReader,
   ActivityReader,
-  BossTotal,
   DaySeries,
   DayTotal,
-  MonthRaids,
 } from '../../src/db/repositories/activity-repository.js';
 import {
   inWindow,
@@ -131,31 +129,5 @@ export class MemoryActivity implements ActivityReader, ActivityDayReader {
       sums.set(key, { ...had, raids: had.raids + one.raids });
     }
     return [...sums.values()].filter((one) => one.raids > 0);
-  }
-
-  async bossTotals(serverId: string, leftOut: readonly number[]): Promise<BossTotal[]> {
-    const sums = new Map<string, number>();
-    for (const one of await this.daysOf(serverId, leftOut)) {
-      if (one.boss === NO_BOSS) continue;
-      sums.set(one.boss, (sums.get(one.boss) ?? 0) + one.raids);
-    }
-    return [...sums].filter(([, raids]) => raids > 0).map(([boss, raids]) => ({ boss, raids }));
-  }
-
-  async bossMonths(
-    serverId: string,
-    boss: string,
-    leftOut: readonly number[],
-  ): Promise<MonthRaids[]> {
-    const sums = new Map<string, number>();
-    for (const one of await this.daysOf(serverId, leftOut)) {
-      if (one.boss !== boss) continue;
-      const month = one.day.slice(0, 7);
-      sums.set(month, (sums.get(month) ?? 0) + one.raids);
-    }
-    return [...sums]
-      .filter(([, raids]) => raids > 0)
-      .sort((a, b) => (a[0] < b[0] ? -1 : 1))
-      .map(([month, raids]) => ({ month, raids }));
   }
 }
