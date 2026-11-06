@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-06T10:11",
+  "updated": "2026-11-06T10:32",
   "items": [
     {
       "id": "0",
@@ -11108,6 +11108,80 @@ window.GANTT = {
       "status": "done",
       "start": "2026-11-06T05:35",
       "end": "2026-11-06T05:36"
+    },
+    {
+      "id": "8H-8",
+      "kind": "plan",
+      "parent": "16",
+      "name": "8H-8 Big days and the history page",
+      "size": 1,
+      "dependsOn": [
+        "8H-7B"
+      ],
+      "scope": "Part G: raids per local day (derived, rebuildable), big days by one fixed rule, the history page charts (raids by day, big days of every year, a boss over time), On this day posts in the events forum",
+      "doneWhen": "Merged into main-dev",
+      "planning": {
+        "start": "2026-11-06T10:15",
+        "end": "2026-11-06T10:32"
+      }
+    },
+    {
+      "id": "8H-8.1",
+      "kind": "task",
+      "parent": "8H-8",
+      "name": "Raids per day: migration 042 and its adding",
+      "dependsOn": [],
+      "scope": "Raids per day: migration 042 and its adding",
+      "doneWhen": "Committed, equal to the prototype",
+      "status": "todo"
+    },
+    {
+      "id": "8H-8.2",
+      "kind": "task",
+      "parent": "8H-8",
+      "name": "Big days: the rule, the reads and the routes",
+      "dependsOn": [
+        "8H-8.1"
+      ],
+      "scope": "Big days: the rule, the reads and the routes",
+      "doneWhen": "Committed, equal to the prototype",
+      "status": "todo"
+    },
+    {
+      "id": "8H-8.3",
+      "kind": "task",
+      "parent": "8H-8",
+      "name": "The history page: raids by day, big days, a boss over time",
+      "dependsOn": [
+        "8H-8.2"
+      ],
+      "scope": "The history page: raids by day, big days, a boss over time",
+      "doneWhen": "Committed, equal to the prototype",
+      "status": "todo"
+    },
+    {
+      "id": "8H-8.4",
+      "kind": "task",
+      "parent": "8H-8",
+      "name": "On this day in the events forum",
+      "dependsOn": [
+        "8H-8.3"
+      ],
+      "scope": "On this day in the events forum",
+      "doneWhen": "Committed, equal to the prototype",
+      "status": "todo"
+    },
+    {
+      "id": "8H-8.5",
+      "kind": "task",
+      "parent": "8H-8",
+      "name": "Docs",
+      "dependsOn": [
+        "8H-8.4"
+      ],
+      "scope": "Docs",
+      "doneWhen": "Committed, equal to the prototype",
+      "status": "todo"
     },
     {
       "id": "16-staging",
