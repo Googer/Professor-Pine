@@ -5,6 +5,7 @@ import { loadSettings } from '../../config/settings.js';
 import type { HistoryAttendee, HistoryStop } from './party-history.js';
 import {
   raidsAlong,
+  raidTime,
   raidsAlongQuery,
   stopWindows,
   trainCard,
@@ -162,6 +163,31 @@ describe('stopWindows: when a train was at each stop it counts', () => {
 
   it('counts no stop without a time (a train seen only by its route, a legacy train)', () => {
     expect(stopWindows(record(), [stop(1, null, null), stop(2, null, null)], [])).toEqual([]);
+  });
+});
+
+describe('raidTime: when a raid of the history stood', () => {
+  const timeless = (tier: string | null) =>
+    raidTime({ createdAt: T, hatchTime: null, endTime: null, tier }, DURATIONS);
+
+  it('takes a raid without times as an egg, reported at the start of its incubation', () => {
+    expect(timeless('T5')).toEqual({ start: T, end: T + 105 * MINUTE });
+    // A tier of the legacy bot, or none: a standard raid's.
+    expect(timeless('T4')).toEqual({ start: T, end: T + 105 * MINUTE });
+    expect(timeless(null)).toEqual({ start: T, end: T + 105 * MINUTE });
+  });
+
+  it('takes an Elite raid without times as its boss: its eggs need a hatch time (V1)', () => {
+    expect(timeless('Elite')).toEqual({ start: T, end: T + 30 * MINUTE });
+  });
+
+  it('takes a raid with a hatch and no end the hatched time from its hatch', () => {
+    expect(
+      raidTime(
+        { createdAt: T, hatchTime: T + 60 * MINUTE, endTime: null, tier: 'Elite' },
+        DURATIONS,
+      ),
+    ).toEqual({ start: T + 60 * MINUTE, end: T + 90 * MINUTE });
   });
 });
 

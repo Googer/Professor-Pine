@@ -7,6 +7,7 @@ import {
   hatchTimeForEnd,
   longestRaidDurations,
   longestRaidStand,
+  standsWithoutTimes,
   raidDurationsAt,
   raidEventAt,
   type RaidDurationRules,
@@ -266,6 +267,22 @@ describe('longestRaidStand', () => {
       incubation: 1440,
       hatched: 30,
     });
+  });
+});
+
+describe('standsWithoutTimes', () => {
+  const durations = { incubation: 60, hatched: 45 };
+
+  it('gives an egg its incubation and hatched time, a boss its hatched time', () => {
+    expect(standsWithoutTimes('standard', false, durations)).toBe(105);
+    expect(standsWithoutTimes('standard', true, durations)).toBe(45);
+  });
+
+  it('takes a raid not known to be hatched as an egg, unless its eggs need a hatch time', () => {
+    expect(standsWithoutTimes('standard', undefined, durations)).toBe(105);
+    expect(standsWithoutTimes('elite', undefined, { incubation: 1440, hatched: 30 })).toBe(30);
+    // An Elite egg the post knows of (made before plan 8E) keeps its day.
+    expect(standsWithoutTimes('elite', false, { incubation: 1440, hatched: 30 })).toBe(1470);
   });
 });
 

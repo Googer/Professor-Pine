@@ -1,4 +1,9 @@
-import { longestRaidStand, type RaidStandSettings } from '../time/raid-durations.js';
+import { isRaidLevel, raidDurationKind } from '../pogo/raid-tier.js';
+import {
+  longestRaidStand,
+  standsWithoutTimes,
+  type RaidStandSettings,
+} from '../time/raid-durations.js';
 import { countsAsActivity } from './activity.js';
 import { historyCounts, type HistoryAttendee, type HistoryStop } from './party-history.js';
 
@@ -208,12 +213,15 @@ const rank = (tier: string | null): number => {
 /**
  * When a raid or max battle stood, as `raidsAlong` counts it: from its hatch (its report where
  * it has none) to its end time; where it has none (a raid reported without times; a max battle
- * always has one), as long as a raid of its tier can stand (`longestRaidStand`, from the
- * settings: an elite raid's own times, a standard one's the longest of its own and the events'):
- * from its report, an egg's incubation and its hatched time (whether it was reported as an egg is
- * not kept, so the longer of the two), from its hatch, the hatched time (W5: never when it ended,
- * which a sweep after a restart may put hours late). The read bounds by no more than that
- * (review A4).
+ * always has one), as long as a raid of its kind can stand by the post's own rule
+ * (`standsWithoutTimes`, V1), with the longest durations of the settings (`longestRaidStand`: an
+ * elite raid's own, a standard one's the longest of its own and the events'; the record keeps no
+ * event): from its hatch the hatched time; from its report, not knowing whether it was reported
+ * as an egg, an egg's incubation and hatched time, but for a kind whose eggs need a hatch time (a
+ * timeless Elite raid is a boss), its hatched time (W5: never when it ended, which a sweep after
+ * a restart may put hours late). The kind is the tier's (`raidDurationKind`), standard for a tier
+ * Pine no longer has (the legacy `T2`, `T4`, `EX`) or none. The read bounds by no more than that
+ * (review A4), and relies on the longest stand being shorter than `RAIDS_ALONG_REACH_MS`.
  */
 export function raidTime(
   raid: Pick<RaidAlongRow, 'createdAt' | 'hatchTime' | 'endTime' | 'tier'>,
@@ -221,8 +229,12 @@ export function raidTime(
 ): { start: number; end: number } {
   const start = raid.hatchTime ?? raid.createdAt;
   if (raid.endTime !== null) return { start, end: raid.endTime };
-  const longest = longestRaidStand(raid.tier === 'Elite' ? 'elite' : 'standard', durations);
-  const minutes = (raid.hatchTime === null ? longest.incubation : 0) + longest.hatched;
+  const kind =
+    raid.tier !== null && isRaidLevel(raid.tier)
+      ? raidDurationKind({ level: raid.tier, shadow: false })
+      : 'standard';
+  const hatched = raid.hatchTime === null ? undefined : true;
+  const minutes = standsWithoutTimes(kind, hatched, longestRaidStand(kind, durations));
   return { start, end: start + minutes * MINUTE };
 }
 

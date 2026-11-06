@@ -5,6 +5,7 @@ import type { RaidKind } from '../time/party-time.js';
 import {
   hatchTimeForEnd,
   longestRaidDurations,
+  standsWithoutTimes,
   raidDurationsAt,
   type RaidDurationRules,
 } from '../time/raid-durations.js';
@@ -175,7 +176,8 @@ export function raidStandingAt(
 }
 
 /**
- * The latest moment a raid without an end time can be going on. An egg reported at `createdAt`
+ * The latest moment a raid without an end time can be going on (`standsWithoutTimes`, the rule
+ * the history's `raidTime` shares). An egg reported at `createdAt`
  * hatches within the incubation time and then lasts the hatched time; a raid reported hatched
  * hatched before `createdAt` and lasts no longer than the hatched time from then.
  */
@@ -189,7 +191,10 @@ function latestWithoutTimes(party: RaidParty, rules: RaidDurationRules): number 
   const to = reportedHatched ? createdAt : createdAt + usual.incubation * MINUTE;
   const longest = longestRaidDurations(kind, from, to, rules);
   const hatched = party.raid.hatchedDuration ?? longest.hatched;
-  return createdAt + ((reportedHatched ? 0 : longest.incubation) + hatched) * MINUTE;
+  return (
+    createdAt +
+    standsWithoutTimes(kind, reportedHatched, { incubation: longest.incubation, hatched }) * MINUTE
+  );
 }
 
 /**

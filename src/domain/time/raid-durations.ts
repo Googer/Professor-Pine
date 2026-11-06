@@ -137,6 +137,33 @@ export function hatchTimeForEnd(kind: RaidKind, endTime: number, rules: RaidDura
 }
 
 /**
+ * Whether an egg of this kind is made only with its hatch time (review 8E-1 of plan 8E, plan
+ * 8F-1): an Elite egg, which without it would stand its whole incubation, about a day, and keep
+ * every other report off its gym. `eggNeedsHatchTime` asks it of a tier.
+ */
+export function eggOfKindNeedsHatchTime(kind: RaidKind): boolean {
+  return kind === 'elite';
+}
+
+/**
+ * How many minutes after its report a raid without an end time can still stand (plan 8H-9, V1:
+ * the one rule of the post's last possible time, `latestWithoutTimes`, and the history's
+ * `raidTime`), with the `durations` the caller allows for: an egg its incubation and its hatched
+ * time, a boss reported hatched its hatched time. `reportedHatched` undefined (a record of the
+ * history, which does not keep it): a boss where its kind's eggs need a hatch time
+ * (`eggOfKindNeedsHatchTime`: a timeless Elite raid is one since plan 8E), else an egg, the
+ * longer of the two. The post knows it, and keeps the day of an Elite egg made before plan 8E.
+ */
+export function standsWithoutTimes(
+  kind: RaidKind,
+  reportedHatched: boolean | undefined,
+  durations: { incubation: number; hatched: number },
+): number {
+  const hatched = reportedHatched ?? eggOfKindNeedsHatchTime(kind);
+  return (hatched ? 0 : durations.incubation) + durations.hatched;
+}
+
+/**
  * The longest a raid of a kind can stand, in minutes, whatever events were on (plan 8H-9, W5: a
  * record of the party history without an end time keeps no event): its incubation, and its
  * hatched time, a standard raid's the longest of its own and a Raid Hour's or a Raid Day's (an

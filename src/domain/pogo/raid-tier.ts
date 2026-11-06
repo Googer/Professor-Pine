@@ -1,4 +1,5 @@
 import type { RaidKind } from '../time/party-time.js';
+import { eggOfKindNeedsHatchTime } from '../time/raid-durations.js';
 
 /**
  * The kinds of raid. Shadow raids are a flag on top of T1, T3 and T5. In the game a mega
@@ -140,7 +141,7 @@ export function raidDurationKind(tier: RaidTier): RaidKind {
  * other report off its gym. `/raid`, the map, the screenshot readers and a change of tier ask it.
  */
 export function eggNeedsHatchTime(tier: RaidTier): boolean {
-  return raidDurationKind(tier) === 'elite';
+  return eggOfKindNeedsHatchTime(raidDurationKind(tier));
 }
 
 export function sameRaidTier(a: RaidTier, b: RaidTier): boolean {
