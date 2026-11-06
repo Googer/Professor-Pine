@@ -146,7 +146,7 @@ import { MemberNames } from './services/member-names.js';
 import { Boards } from './services/boards.js';
 import { MemberStatsService } from './services/member-stats.js';
 import { BoardRepository } from './db/repositories/board-repository.js';
-import { RegionDirectory } from './services/region-directory.js';
+import { RegionDirectory, stopRegionsInGuild } from './services/region-directory.js';
 import { SelfRoleService } from './services/self-role-service.js';
 import { SpawnService } from './services/spawn-service.js';
 import { MeetupSafety } from './services/meetup-safety.js';
@@ -427,6 +427,9 @@ export async function startApp(
     raidBosses,
     maxBosses,
     log,
+    // Where a train's stops lie when it ends (plan 8H-7A), as its copies find their regions.
+    stopRegions: (guildId, stop) =>
+      stopRegionsInGuild({ gyms, wayspots }, regions, stop, guildId).map((region) => region.id),
     readParty: async (partyId) => {
       const stored = await partyRepository.findById(partyId);
       return stored === undefined ? undefined : stored.ok ? stored.party : 'unreadable';

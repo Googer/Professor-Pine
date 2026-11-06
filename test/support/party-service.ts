@@ -68,6 +68,7 @@ import { NO_MAX_BOSSES } from './test-context.js';
 import { MemoryUsers } from './users.js';
 import { TEST_SETTINGS_PATH } from './test-settings.js';
 import { PartyHistory } from '../../src/services/party-history.js';
+import { stopRegionsInGuild } from '../../src/services/region-directory.js';
 import { PartyStore } from '../../src/services/party-store.js';
 import { MaxChangeService } from '../../src/services/max-change-service.js';
 import { RaidChangeService } from '../../src/services/raid-change-service.js';
@@ -351,6 +352,14 @@ export async function partyServiceWith(
     ...(historySweepProgressEvery === undefined
       ? {}
       : { sweepProgressEvery: historySweepProgressEvery }),
+    // As the bot finds them (plan 8H-7A): the gyms, kept Wayspots and regions of the services.
+    stopRegions: (guildId, stop) =>
+      stopRegionsInGuild(
+        { gyms, ...(forService.wayspots === undefined ? {} : { wayspots: forService.wayspots }) },
+        regions,
+        stop,
+        guildId,
+      ).map((region) => region.id),
   });
   storage.history = history;
   storage.historyFailed = (note, err) => {

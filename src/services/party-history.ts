@@ -11,7 +11,13 @@ import {
   type PartyEnd,
   type PartyWrite,
 } from '../domain/history/party-history.js';
-import { isMax, isRaid, type Party, type RaidBossRef } from '../domain/party/party.js';
+import {
+  isMax,
+  isRaid,
+  type Party,
+  type RaidBossRef,
+  type StopRef,
+} from '../domain/party/party.js';
 import { listedMaxBoss } from '../domain/pogo/max-boss-list.js';
 import type { Logger } from '../log.js';
 import type { GameDataProvider } from './game-data-service.js';
@@ -38,6 +44,12 @@ export interface PartyHistoryOptions {
   readParty: (partyId: string) => Promise<Party | 'unreadable' | undefined>;
   /** How many parties the sweep records between two lines of progress; 1,000 by default. */
   sweepProgressEvery?: number;
+  /**
+   * The regions of a server (its row id) a stop of a train lies in now, by `Region.id`, in the
+   * directory's order (`stopRegionsInGuild`; plan 8H-7A): asked when a train's record is made, in
+   * the ending transaction, and kept with each of its stops. Without it no stop keeps its regions.
+   */
+  stopRegions?: (guildId: number, stop: StopRef) => readonly number[];
 }
 
 /** How often the sweep says how far it got, in parties recorded. */
@@ -100,6 +112,7 @@ export class PartyHistory {
     if (splitPending(party)) return { kind: 'drop' };
     // Decided now, from the boss list as it is when the party ends.
     const shiny = this.shinyOf(party);
+    const { stopRegions } = this.options;
     return {
       kind: 'record',
       members: (steps) => historyMembers(party, steps),
@@ -110,6 +123,10 @@ export class PartyHistory {
           optedIn,
           describeBoss: (ref) => this.describeBoss(ref),
           shiny,
+          // Where its stops lie when the record is made, in the ending transaction.
+          ...(stopRegions === undefined
+            ? {}
+            : { stopRegions: (stop: StopRef) => stopRegions(party.guildId, stop) }),
         }),
     };
   }

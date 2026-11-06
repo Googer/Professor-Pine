@@ -15,7 +15,13 @@ import {
   testTrain,
   withAttendees,
 } from '../../../test/support/parties.js';
-import { endParty, type Party, type RaidBossRef, type TrainParty } from '../party/party.js';
+import {
+  endParty,
+  type AttendeeStatus,
+  type Party,
+  type RaidBossRef,
+  type TrainParty,
+} from '../party/party.js';
 import { PartyStatus } from '../party/status.js';
 import { finishParty } from '../party/attendance.js';
 import {
@@ -353,6 +359,113 @@ describe('historyOfParty: what each conductor of a train led (plan 8H-6A)', () =
       shiny: null,
     });
     expect(record.attendees.some((attendee) => attendee.conducted !== undefined)).toBe(false);
+  });
+});
+
+describe('historyOfParty: what the card of an ended train is drawn from (plan 8H-7A)', () => {
+  const at = (party: TrainParty, statuses: Record<string, AttendeeStatus>): TrainParty =>
+    withAttendees(
+      party,
+      Object.fromEntries(Object.entries(statuses).map(([id, status]) => [id, { status }])),
+    );
+  const recordOf = (party: Party, steps: HistoryStep[], input: Partial<HistoryInput> = {}) =>
+    historyOfParty(endParty(party), {
+      end: { how: 'clock' },
+      steps,
+      optedIn: new Set(),
+      describeBoss,
+      shiny: null,
+      ...input,
+    });
+
+  it('keeps the most members Here at once, from the steps', () => {
+    // Alice and Bob are here, then Alice presses Done (on a train, she leaves) and Carol comes:
+    // two at once, never three. Done is no rider at the train any more.
+    const writes: Party[] = [
+      at(train(0), { [ALICE]: PartyStatus.Coming, [BOB]: PartyStatus.Coming }),
+      at(train(0), { [ALICE]: PartyStatus.Present, [BOB]: PartyStatus.Present }),
+      at(train(1), {
+        [ALICE]: PartyStatus.Complete,
+        [BOB]: PartyStatus.Present,
+        [CAROL]: PartyStatus.Present,
+      }),
+    ];
+    expect(recordOf(writes.at(-1) as Party, stepsOf(writes)).peakRiders).toBe(2);
+  });
+
+  it('counts a member who left as gone, and heads not at all', () => {
+    const here = at(train(0), { [ALICE]: PartyStatus.Present, [BOB]: PartyStatus.Present });
+    const plusOnes = { ...here, attendees: { ...here.attendees } };
+    const alice = plusOnes.attendees[ALICE];
+    if (alice) plusOnes.attendees[ALICE] = { ...alice, number: 4 };
+    const { [BOB]: _gone, ...rest } = plusOnes.attendees;
+    const left: TrainParty = { ...plusOnes, attendees: rest };
+    const back = at(left, { [CAROL]: PartyStatus.Present });
+    expect(recordOf(back, stepsOf([here, plusOnes, left, back])).peakRiders).toBe(2);
+  });
+
+  it('counts a member aboard from their first Here on, also while Coming after a move', () => {
+    const ok = <P>(change: { ok: true; party: P } | { ok: false; reason: string }): P => {
+      if (!change.ok) throw new Error(change.reason);
+      return change.party;
+    };
+    // Alice and Bob are here; the move puts them back to Coming (they ride on to the next
+    // stop), and Carol gets on there: three aboard at once. Then Bob goes Interested (he got
+    // off) and Alice presses Done: Carol alone.
+    const here = at(train(0), { [ALICE]: PartyStatus.Present, [BOB]: PartyStatus.Present });
+    const moved = ok(moveTrain(here, ALICE, 'next', false));
+    expect(moved.attendees[ALICE]?.status).toBe(PartyStatus.Coming);
+    const carol = at(moved, { [CAROL]: PartyStatus.Present });
+    const off = at(carol, { [BOB]: PartyStatus.Interested, [ALICE]: PartyStatus.Complete });
+    const again = ok(moveTrain(off, CAROL, 'next', false));
+    const writes: Party[] = [here, moved, carol, off, again];
+    expect(recordOf(again, stepsOf(writes)).peakRiders).toBe(3);
+    // Without Carol, the two who rode on are still two: nobody got on again.
+    expect(recordOf(moved, stepsOf([here, moved])).peakRiders).toBe(2);
+  });
+
+  it('counts the members who went with a group split off as gone from the old train', () => {
+    const ok = <P>(change: { ok: true; party: P } | { ok: false; reason: string }): P => {
+      if (!change.ok) throw new Error(change.reason);
+      return change.party;
+    };
+    const here = withAttendees(
+      { ...train(0), forumPostId: '910000000000000001', groups: [{ id: 'A' }, { id: 'B' }] },
+      {
+        [ALICE]: { group: 'B', status: PartyStatus.Present },
+        [BOB]: { group: 'B', status: PartyStatus.Present },
+      },
+    );
+    const link = { partyId: '00000000-0000-4000-8000-0000000000aa', postId: '910000000000000002' };
+    const split = ok(splitOffGroup(here, ALICE, false, 'B', link));
+    const carol = at(split, { [CAROL]: PartyStatus.Present });
+    expect(recordOf(carol, stepsOf([here, split, carol])).peakRiders).toBe(2);
+  });
+
+  it('keeps no most at once for a train it saw no steps of, nor for another party', () => {
+    expect(recordOf(at(train(1), { [ALICE]: PartyStatus.Present }), []).peakRiders).toBeNull();
+    const raid = withAttendees(testRaid(), { [ALICE]: { status: PartyStatus.Present } });
+    expect(recordOf(raid, stepsOf([raid])).peakRiders).toBeUndefined();
+  });
+
+  it('keeps 0 for a train whose steps never saw anybody Here', () => {
+    const coming = at(train(0), { [ALICE]: PartyStatus.Coming });
+    expect(recordOf(coming, stepsOf([coming])).peakRiders).toBe(0);
+  });
+
+  it('keeps the regions of each stop as the service hands them in, in its order', () => {
+    const writes: Party[] = [testTrain(), train(0), train(1), train(2)];
+    const regionsOf = (stop: { kind: string; id: number | string }) =>
+      stop.id === 11 ? [2] : stop.id === 12 ? [3, 1] : [];
+    const record = recordOf(writes.at(-1) as Party, stepsOf(writes), { stopRegions: regionsOf });
+    expect(record.stops.map((stop) => [stop.gymId, stop.regionIds])).toEqual([
+      [11, [2]],
+      [12, [3, 1]],
+      [13, []],
+    ]);
+    // Without them (a record of before, a test), none.
+    const without = recordOf(writes.at(-1) as Party, stepsOf(writes));
+    expect(without.stops.every((stop) => stop.regionIds === undefined)).toBe(true);
   });
 });
 
@@ -902,6 +1015,37 @@ describe('a train a group was split off (plan 8T)', () => {
       // Alice split it off and went with it: she leads it from the split (plan 8H-6A).
       ['conduct', ALICE],
     ]);
+  });
+
+  it('counts who went with the group as aboard the new train from the split (plan 8H-7A)', () => {
+    const ok = <P>(change: { ok: true; party: P } | { ok: false; reason: string }): P => {
+      if (!change.ok) throw new Error(change.reason);
+      return change.party;
+    };
+    // The old train moved on (Alice back to Coming), then group B split off with Alice and Bob:
+    // the new train starts with both on Coming, riding it, and moves once.
+    const on = ok(moveTrain(before(), ALICE, 'next', false));
+    const made = splitTrain(on, { id: NEW_ID, by: ALICE, anonymous: false, group: 'B', now: T });
+    const settled = splitSettled(made);
+    expect(settled.attendees[ALICE]?.status).toBe(PartyStatus.Coming);
+    const moved = ok(moveTrain(settled, ALICE, 'previous', false));
+    const steps = [
+      ...partySteps(undefined, made, T),
+      ...partySteps(made, settled, T + MINUTE),
+      ...partySteps(settled, moved, T + 2 * MINUTE),
+    ];
+    const record = (party: TrainParty, kept: HistoryStep[]) =>
+      historyOfParty(endParty(party), {
+        end: { how: 'clock' },
+        steps: kept,
+        optedIn: new Set(),
+        describeBoss,
+        shiny: null,
+      });
+    expect(record(moved, steps).peakRiders).toBe(2);
+    // A train of its own that starts with a member on Coming has nobody aboard yet.
+    const coming = withAttendees(train(0), { [ALICE]: {} });
+    expect(record(coming, stepsOf([coming])).peakRiders).toBe(0);
   });
 
   it('records nobody on the new train who was not on it once the split was settled', () => {

@@ -215,6 +215,7 @@ describe('runMigrations', () => {
       '2026_11_05_038_activity_buckets',
       '2026_11_05_039_conductors',
       '2026_11_05_040_leaderboard_opt_in',
+      '2026_11_05_041_train_card',
     ]);
     expect(
       await describeSchema(

@@ -39,6 +39,7 @@ import { reachAndWantCounts } from './2026_11_04_037_reach_and_want_counts.js';
 import { activityBuckets } from './2026_11_05_038_activity_buckets.js';
 import { conductors } from './2026_11_05_039_conductors.js';
 import { leaderboardOptIn } from './2026_11_05_040_leaderboard_opt_in.js';
+import { trainCardFacts } from './2026_11_05_041_train_card.js';
 
 /**
  * Every migration, keyed by name. Kysely applies them in name order, so names are
@@ -85,4 +86,5 @@ export const migrations: Record<string, Migration> = {
   '2026_11_05_038_activity_buckets': activityBuckets,
   '2026_11_05_039_conductors': conductors,
   '2026_11_05_040_leaderboard_opt_in': leaderboardOptIn,
+  '2026_11_05_041_train_card': trainCardFacts,
 };

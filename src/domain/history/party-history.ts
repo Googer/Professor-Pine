@@ -11,6 +11,7 @@ import {
   type Party,
   type PartyGroup,
   type RaidBossRef,
+  type StopRef,
   type Team,
   type TrainKind,
 } from '../party/party.js';
@@ -174,6 +175,13 @@ export interface HistoryStop {
   wayspotId: string | null;
   arrivedAt: number | null;
   leftAt: number | null;
+  /**
+   * The regions of the server the stop lay in when the train ended (plan 8H-7A, migration 041:
+   * `PartyHistoryStop.regionIds`), their `Region.id`s in the region directory's order
+   * (`stopRegionsInGuild`); `[]` for a stop in none (a gym deleted since). Absent where not known:
+   * a record of before 041, a legacy train, a record made without the directory.
+   */
+  regionIds?: readonly number[] | null;
 }
 
 /** A party as the history keeps it. Times are epoch milliseconds. */
@@ -236,6 +244,14 @@ export interface HistoryRecord {
    * 0 where not recorded: a legacy party, one recorded before 8H-3.
    */
   reached: number;
+  /**
+   * The most members aboard a train at one moment (plan 8H-7A, migration 041: members, not
+   * heads; aboard from their first Here until they leave, go Done, go Interested or split off),
+   * from its steps (`peakRidersOf`). Null for a train whose steps never said a status (it ended before the
+   * history, or its steps were lost); absent for every other party, a legacy train and a record of
+   * before 041 (the column is null).
+   */
+  peakRiders?: number | null;
   attendees: readonly HistoryAttendee[];
   groups: readonly HistoryGroup[];
   stops: readonly HistoryStop[];
@@ -531,8 +547,57 @@ export function stopsByRoute<Stop>(
   return started ? route.slice(0, stop + 1) : [];
 }
 
+/**
+ * The most members aboard a train at one moment (plan 8H-7A), over its steps, oldest first. A
+ * member is aboard from their first Here until they get off: they leave, go with a group split
+ * off, press Done (on a train, leaving) or go back to Interested. Coming after Here keeps them
+ * aboard, since every move of the train puts who is here back to Coming (`allAboard`): they
+ * ride on to the next stop. The steps of one write (one moment) are all taken before the count,
+ * so that a write that moves one member out and another in counts no moment with both. Null
+ * where no step says a status.
+ *
+ * The new train of a split (`split`) starts its steps at the write that settles it, with who
+ * went with the group as they were (review R1): a member on Coming then rode the old train on
+ * to its next stop and rides the new one, aboard from the start.
+ */
+function peakRidersOf(steps: readonly HistoryStep[], split: boolean): number | null {
+  const settledAt = steps.find((step) => step.kind === 'status')?.at;
+  if (settledAt === undefined) return null;
+  const aboard = new Set<string>();
+  let peak = 0;
+  for (const [index, step] of steps.entries()) {
+    if (step.kind === 'status') {
+      const level = reach(step.value ?? 0);
+      if (level === 2 || (level === 1 && split && step.at === settledAt)) aboard.add(step.subject);
+      else if (level !== 1) aboard.delete(step.subject);
+    } else if (step.kind === 'left' || step.kind === 'split') {
+      aboard.delete(step.subject);
+    }
+    if (steps[index + 1]?.at !== step.at) peak = Math.max(peak, aboard.size);
+  }
+  return peak;
+}
+
 /** The stops a train made, from the steps of its place; from its route where there are none. */
-function trainStops(party: Party, steps: readonly HistoryStep[]): HistoryStop[] {
+function trainStops(
+  party: Party,
+  steps: readonly HistoryStep[],
+  stopRegions?: (stop: StopRef) => readonly number[],
+): HistoryStop[] {
+  const stops = stopsMade(party, steps);
+  if (stopRegions === undefined) return stops;
+  return stops.map((stop) => {
+    const ref: StopRef | undefined =
+      stop.gymId !== null
+        ? { kind: 'gym', id: stop.gymId }
+        : stop.wayspotId !== null
+          ? { kind: 'powerspot', id: stop.wayspotId }
+          : undefined;
+    return { ...stop, regionIds: ref === undefined ? [] : [...stopRegions(ref)] };
+  });
+}
+
+function stopsMade(party: Party, steps: readonly HistoryStep[]): HistoryStop[] {
   if (!isTrain(party)) return [];
   const places = steps.filter((step) => step.kind === 'stop' || step.kind === 'spot');
   if (places.length === 0) {
@@ -601,6 +666,11 @@ export interface HistoryInput {
   describeBoss: (ref: RaidBossRef) => HistoryBoss;
   /** Whether its boss could be shiny, when that is known. */
   shiny: boolean | null;
+  /**
+   * The regions a stop of a train lies in now (plan 8H-7A), as the service finds them
+   * (`stopRegionsInGuild`, by `Region.id`); without it a record keeps no regions of its stops.
+   */
+  stopRegions?: (stop: StopRef) => readonly number[];
 }
 
 /** The record of a live party before the storage adds its server (`serverId`), which it reads. */
@@ -676,9 +746,12 @@ export function historyOfParty(party: Party, input: HistoryInput): LiveRecord {
     trainKind: isTrain(party) ? party.train.kind : null,
     splitFromId: isTrain(party) ? (party.train.splitFrom?.partyId ?? null) : null,
     reached: reachedOf(steps),
+    ...(isTrain(party)
+      ? { peakRiders: peakRidersOf(steps, (party.train.splitFrom ?? null) !== null) }
+      : {}),
     attendees,
     groups,
-    stops: trainStops(party, steps),
+    stops: trainStops(party, steps, input.stopRegions),
   };
 }
 

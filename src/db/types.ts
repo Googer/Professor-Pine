@@ -424,6 +424,7 @@ export interface PartyHistory {
   mega: Generated<number>;
   name: string | null;
   partyId: string | null;
+  peakRiders: number | null;
   reached: Generated<number>;
   regionId: number | null;
   remote: Generated<number>;
@@ -482,6 +483,7 @@ export interface PartyHistoryStop {
   historyId: number;
   leftAt: string | null;
   legacyGymId: number | null;
+  regionIds: Json | null;
   seq: number;
   wayspotId: string | null;
 }

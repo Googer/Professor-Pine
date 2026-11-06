@@ -94,6 +94,8 @@ const ROWS_PER_INSERT = 2_000;
 const NAME_ROOM = 100;
 /** What the smallint unsigned column of the stops a conductor led holds. */
 const MAX_LED_STOPS = 65_535;
+/** What the smallint unsigned column of the most riders at once holds (plan 8H-7A). */
+const MAX_PEAK_RIDERS = 65_535;
 
 const flag = (value: boolean): number => (value ? 1 : 0);
 const epoch = (value: number | null): string | null => (value === null ? null : String(value));
@@ -142,6 +144,10 @@ function historyRow(record: HistoryRecord): Insertable<DB['PartyHistory']> {
     splitFromId: record.splitFromId,
     wayspotId: record.wayspotId,
     reached: record.reached,
+    peakRiders:
+      record.peakRiders === undefined || record.peakRiders === null
+        ? null
+        : Math.min(MAX_PEAK_RIDERS, record.peakRiders),
     ...historyCounts(record.attendees),
   };
 }
@@ -428,6 +434,11 @@ export class HistoryRepository implements HistoryOptIns, HistoryStorage {
             wayspotId: stop.wayspotId,
             arrivedAt: epoch(stop.arrivedAt),
             leftAt: epoch(stop.leftAt),
+            // Plan 8H-7A: null where not known, [] for a stop in no region.
+            regionIds:
+              stop.regionIds === undefined || stop.regionIds === null
+                ? null
+                : JSON.stringify(stop.regionIds),
           });
         }
       }

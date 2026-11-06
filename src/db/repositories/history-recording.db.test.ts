@@ -398,6 +398,61 @@ describe('the party history, written with the parties', () => {
     ]);
   });
 
+  it('keeps the most riders at once and the regions of each stop, null where not known (plan 8H-7A)', async () => {
+    const made = withAttendees(testTrain(), { [ALICE]: { status: PartyStatus.Present } });
+    const on = (stop: number): Party => ({
+      ...made,
+      train: { ...made.train, route: stops(11, 12), stop },
+    });
+    const ended = await live([made, on(0), on(1)]);
+    const last = ending(ended, T + 4 * MINUTE);
+    const steps = partySteps(ended, last, last.updatedAt);
+    await parties.save(last, {
+      partyId: last.id,
+      guildId: last.guildId,
+      steps,
+      end: {
+        kind: 'record',
+        members: (stored) => historyMembers(last, stored),
+        build: (stored, optedIn) => {
+          const record = historyOfParty(last, {
+            end: { how: 'clock' },
+            steps: stored,
+            optedIn,
+            describeBoss: () => ({ name: 'Somebody' }),
+            shiny: null,
+            stopRegions: (stop) => (stop.id === 11 ? [1, 3] : []),
+          });
+          // A stop whose regions are not known (a record made without them) is kept as null.
+          return {
+            ...record,
+            stops: record.stops.map((stop, n) =>
+              n === 1 ? { ...stop, regionIds: undefined } : stop,
+            ),
+          };
+        },
+      },
+    });
+    const kept = await sql<{ seq: number; regionIds: unknown }>`
+      select seq, regionIds from PartyHistoryStop order by seq`.execute(db);
+    expect(kept.rows).toEqual([
+      { seq: 0, regionIds: [1, 3] },
+      { seq: 1, regionIds: null },
+    ]);
+    const records = await sql<{ peakRiders: number | null }>`
+      select peakRiders from PartyHistory`.execute(db);
+    expect(records.rows).toEqual([{ peakRiders: 1 }]);
+  });
+
+  it('keeps no most riders at once for a party that is no train (plan 8H-7A)', async () => {
+    const raid = withAttendees(testRaid(), { [ALICE]: { status: PartyStatus.Present } });
+    const ended = await live([raid]);
+    await parties.save(ending(ended, T + MINUTE), noteOf(ended, ending(ended, T + MINUTE)));
+    const records = await sql<{ peakRiders: number | null }>`
+      select peakRiders from PartyHistory`.execute(db);
+    expect(records.rows).toEqual([{ peakRiders: null }]);
+  });
+
   it('records each train of a split on its own, the new one naming the old (plan 8T)', async () => {
     await optIn(ALICE);
     const made = withAttendees(testTrain(), {

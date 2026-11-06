@@ -208,6 +208,8 @@ describe('the party history of live parties', () => {
         wayspotId: null,
         arrivedAt: start,
         leftAt: start + 10 * MINUTE,
+        // The regions it lies in at the end (plan 8H-7A): West.
+        regionIds: [1],
       },
       {
         gymId: 2,
@@ -215,7 +217,26 @@ describe('the party history of live parties', () => {
         wayspotId: null,
         arrivedAt: start + 10 * MINUTE,
         leftAt: start + 20 * MINUTE,
+        regionIds: [1],
       },
+    ]);
+    // The most at once: the maker alone, Here from the start.
+    expect(record?.peakRiders).toBe(1);
+  });
+
+  it('keeps the regions each stop of a train lies in at its end, in their order (plan 8H-7A)', async () => {
+    // Gym 1 lies in West, gym 7 in East.
+    const made = await createdTrain({ route: [1, 7] });
+    await made.attendance.signUp(
+      made.party.id,
+      { id: REPORTER, name: 'Reporter' },
+      PartyStatus.Present,
+    );
+    await made.trains.move(made.party.id, { id: REPORTER }, 'next', false);
+    await made.service.end(made.party.id, undefined, { ended: { how: 'clock' } });
+    expect(made.history.records[0]?.stops.map((stop) => [stop.gymId, stop.regionIds])).toEqual([
+      [1, [1]],
+      [7, [2]],
     ]);
   });
 
@@ -354,6 +375,29 @@ describe('the party history of live parties', () => {
       expect.objectContaining({ status: null, leftAt: made.clock.now, splitOff: true }),
     ]);
     expect(record?.attendees.filter((attendee) => attendee.splitOff)).toHaveLength(2);
+  });
+
+  it('records at start a train left without its record with its most at once and its stops’ regions (plan 8H-7A)', async () => {
+    // Gym 1 lies in West, gym 7 in East.
+    const made = await createdTrain({ route: [1, 7] });
+    await made.attendance.signUp(made.party.id, alice, PartyStatus.Present);
+    await made.attendance.signUp(made.party.id, bob, PartyStatus.Present);
+    made.clock.now += 5 * MINUTE;
+    await made.trains.move(made.party.id, { id: ALICE }, 'next', false);
+    made.history.failing = new Error('the history is down');
+    await made.service.end(made.party.id);
+    for (let n = 0; n < 5; n++) await made.recorder.flush();
+    made.history.failing = undefined;
+    expect(made.history.records).toEqual([]);
+
+    expect(await made.recorder.sweep()).toBe(1);
+    const [record] = made.history.records;
+    // Alice and Bob, still aboard after the move put them back to Coming.
+    expect(record?.peakRiders).toBe(2);
+    expect(record?.stops.map((stop) => [stop.gymId, stop.regionIds])).toEqual([
+      [1, [1]],
+      [7, [2]],
+    ]);
   });
 
   it('records nothing of the new train of a split that ends before the split is settled', async () => {
