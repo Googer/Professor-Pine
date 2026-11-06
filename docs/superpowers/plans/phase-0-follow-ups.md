@@ -3011,7 +3011,7 @@ Matt on the sources: with this rule Wayfarer's map is reliable for Power Spots. 
 
 - **Design:** `docs/superpowers/specs/2026-11-04-history-on-show-design.md`, approved by Matt (Parts A to H, answers Q1 to Q6, review H1 to H23 folded in).
 - **Before the cutover (Matt):** Part A, recording reports at stops (`StopReportHistory`, S2 level-14 cells, confirmations, reach counts, `WantCountDay`). Every day not recorded is lost. Its plan is next for this work.
-- **For the cutover runbook:** one line in the announcement and in `/admin tutorial` inviting members to `/settings history` (Q5); copy the legacy `parties/` folder beside the stack for Part H (Q6).
+- **For the cutover runbook:** one line in the announcement and in `/admin tutorial` inviting members to turn their history on in `/settings` (Q5; the subcommand `/settings history` is gone since plan 8S-5); copy the legacy `parties/` folder beside the stack for Part H (Q6).
 - **After the cutover, any order:** B heatmap, C region board, D contribution and thing boards with `/settings leaderboard`, E `/stats`, F train summary card, G big days and the history page, H the legacy fill-in.
 
 ## From a Power Spot's address (2026-11-04)
@@ -3040,7 +3040,7 @@ Plan `docs/superpowers/plans/2026-11-04-phase-8h2-stop-report-history.md`; migra
 
 - **Done:** plan 8H-3, the rest of Part A (below).
 - **Staging** (Air's dev stack after the next update, Matt's go-ahead): `./pine migrate` reaches 036; a research report taken back and a grunt left to end each leave one `StopReportHistory` row after the hourly sweep (`withdrawn`, `stood`); a tester with `/settings history` on has their id there, one without has null.
-- **Words still saying "party history"** in `/settings history`: the off answer, the DM text and the option's description (`settings.ts` ~133, ~136, ~390). The description needs a deploy; do it with the cutover's deploy.
+- ~~**Words still saying "party history"** in `/settings history`: the off answer, the DM text and the option's description (`settings.ts` ~133, ~136, ~390). The description needs a deploy; do it with the cutover's deploy.~~ Done by plan 8S-5: the subcommand is gone, and the panel's words say "your history".
 - **Sweep under a systemic failure (review R2, R3, Minor):** the week's drop logs one line per row with no cap, and its words say "failed for a week" for a row that is only old (an outage longer than a week); five rows that always fail, one after another, hold back the healthy rows behind them until they are a week old. Only when the history table is broken; log the drops once per sweep, and start the next sweep after the ids it gave up on, if it is ever seen.
 - **`src/domain/wayspots/match.test.ts`** ("plans a city of 3,200 gyms and 30,000 Wayspots") timed out at 15 seconds once in a full `npm run check` on the laptop; passed alone and on the rerun. A unit test near its limit is a fault to look into (CLAUDE.md).
 
@@ -3118,7 +3118,7 @@ Plan `docs/superpowers/plans/2026-11-05-phase-8h4h-heat-layer.md`; client only. 
 
 Every command's `/help` read against Matt's rule (clear, concise prose for members, short paragraphs): 73 of 144 texts rewritten (02bf3244 and the commits before it), six that described behavior wrongly fixed (/finish, /settings auto-status, privacy, new-train, /group label, /gym elite), reviewed against the code. `/settings show`'s lines now name max battles too.
 
-- **With the cutover's deploy** (descriptions need one): `/settings auto-status`'s `status` option and `/settings privacy`'s description leave out max battles; `/settings history`'s says "party history" (suggest "this server's history"); `/status`'s says "list a region's parties" (suggest "list what is going on in a region").
+- **With the cutover's deploy** (descriptions need one): ~~`/settings auto-status`'s `status` option and `/settings privacy`'s description leave out max battles; `/settings history`'s says "party history" (suggest "this server's history");~~ moot since plan 8S-5, which removed those subcommands; left: `/status`'s says "list a region's parties" (suggest "list what is going on in a region").
 
 ## From the staging run of 8H-5 and 8H-4H (2026-11-05, Air's dev stack at b6ce7f4d, production's history in the dev database)
 
@@ -3155,7 +3155,7 @@ Plan `docs/superpowers/plans/2026-11-05-phase-8h6-boards-and-own-stats.md`; migr
 - **Reviews:** brief (B1–B13), prototype in two halves (A1–A10, B1–B10) and re-reviews (R-A1–4, R-B1–4), whole branch (W1–W6) and its fix check (F1–F4), all Opus; everything fixed but the `?year=` return.
 - **Staging** (Air's dev stack after `./pine update`, migrations 039–040; Matt runs the global deploy with the stage settings first: three new commands): the plan's "Staging" steps 1–6, plus 8H-6A's.
 - **Not tried:** the pages by eye (both themes, phone width), Discord's rendering and the year autocomplete, the gateway's member request by ids against Discord (its new rate limit has no published numbers), the reads' times on production's 253k records (the db test only checks the index chosen).
-- **Then:** revisit `/admin tutorial` (and optionally the web tours) for `/stats`, Share and the leaderboard switch; the cutover announcement's opt-in line could mention `/settings leaderboard`.
+- **Then:** revisit `/admin tutorial` (and optionally the web tours) for `/stats`, Share and the leaderboard switch; the cutover announcement's opt-in line could mention the boards of `/settings` (`/settings leaderboard` is gone since plan 8S-5).
 
 ## From the staging run of 8H-6A and 8H-6 (2026-11-05, Air's dev stack at 0038cd0c, then 2ba92023)
 

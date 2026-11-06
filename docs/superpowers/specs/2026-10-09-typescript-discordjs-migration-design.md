@@ -186,13 +186,13 @@ Gym, Pokémon, moveset, saved-route and role options use **autocomplete**.
 | delete | `/delete` | Management: archive and lock after 15 s. Others: modal for the reason, pings `@admin`/`@moderator` in the post. |
 | raid | `/raid boss gym [time] [screenshot]` | See 4.3. Throttle 20 per 900 s per user. |
 | hatch, left, duration, boss, gym, moveset | `/hatch time`, `/end time`, `/duration minutes`, `/boss pokemon`, `/gym gym`, `/moveset quick charge` | Moveset options autocomplete from the current boss's moves. |
-| auto, privacy | `/settings auto-status`, `/settings privacy` | Ephemeral, any channel. |
+| auto, privacy | `/settings auto-status`, `/settings privacy` (8S-5: one panel, `/settings`) | Ephemeral, any channel. |
 | request | `/request reason` | GitHub issue via `GITHUB_TOKEN`; throttle 3 per 1800 s. |
 | train, name, route*, conductor, not-conductor, next, previous, skip, train-finished, save-route, use-route | `/train name`, `/name`, `/route show\|add gym\|remove stop\|move from to\|clear\|save name\|load route`, `/conductor set\|clear`, `/next`, `/previous`, `/skip`, `/finish` | `route remove`/`move` take stop numbers with autocomplete listing the route; `route load` autocompletes saved routes. `route clear` keeps bot-management guard. |
 | meetup, info | `/meetup name`, `/info` | `/info` opens a modal (paragraph input). |
 | iam, iamnot | `/iam [role]`, `/iamnot [role]` | No argument → ephemeral multi-select of self-assignable roles (paged with buttons if more than 25). |
 | want, unwant, wants, unwant-all, target, untarget, targets, untarget-all | same names | Ephemeral, any channel. `/want target type`, where `target` autocompletes **any** Pokémon in the game master (no whitelist; current raid bosses ranked first), raid tiers (including shadow tiers) and the perfect/zero IV spawn targets; `/target [gym]` defaults to the current raid's gym, confirmation via buttons. |
-| mentions, mentions-groups, mentions-shouts, mentions-train-stops, boss-set-notification, new-train-notification | `/settings mentions\|mentions-groups\|mentions-shouts\|mentions-train-stops\|boss-set\|new-train enabled` | Ephemeral. |
+| mentions, mentions-groups, mentions-shouts, mentions-train-stops, boss-set-notification, new-train-notification | `/settings mentions\|mentions-groups\|mentions-shouts\|mentions-train-stops\|boss-set\|new-train enabled` (8S-5: one panel, `/settings`) | Ephemeral. |
 | register-friend-code, friend-code, register-nickname, find-nickname | `/friend-code register code`, `/friend-code show member`, `/nickname register name`, `/nickname find name` | |
 | spawn, wild | `/spawn pokemon details` | `pokemon` autocompletes **any** Pokémon (no whitelist; the legacy "rare" tier-7 list is no longer needed). Region text channel; unown handling as today (the bot pins its own unown announcement). Throttle 15 per 900 s. Legacy auto-pinning of *user* messages that mention @unown is kept only if phase 4 confirms mention data arrives without Message Content; otherwise it is dropped. |
 | rank (great/ultra/master/little, -evo) | `/rank league pokemon atk def sta [evolutions]` | Local maths; pvpivs.com deep link (see 6.3). PvP category or DM. |
@@ -332,7 +332,7 @@ On startup the scheduler runs a catch-up tick immediately, applying every transi
 
 **As built (Phase 4A, 2026-10-12)**, what a member sets for themself; where it differs from the rows `auto, privacy`, `want …`, `mentions …` and `register-friend-code …` of 4.2 and from 6.6:
 
-- `/settings` has `show` beside the eight switches; `/friend-code` and `/nickname` each have `remove`. `/friend-code show` and `/nickname find` answer only about members of the server they are used in, and `find` names every such member with that name.
+- `/settings` has `show` beside the eight switches (8S-5: one panel, `/settings` without options, in their place); `/friend-code` and `/nickname` each have `remove`. `/friend-code show` and `/nickname find` answer only about members of the server they are used in, and `find` names every such member with that name.
 - A want is per member and server, and there is no limit on their number. Beside a species (every form), a tier and the two IV targets it can be for one form of a Pokémon (`PokemonNotification.form`, a catalogue key) or for its shadow raids only (`shadow`); megas and shadow wants are raids only. Both columns are new and additive; existing rows mean what they meant.
 - `/want target [type]`: `target` autocompletes tiers, IV targets, current bosses and any Pokémon, with "X (every form)" beside the forms of a species that has several; typed text acts only when it names something in full and is otherwise refused with suggestions.
 - `/target` asks no confirmation: a picked choice or a clear hit acts, an unclear text offers a menu. Without a gym, in a raid's or a train's post, it takes that gym.
