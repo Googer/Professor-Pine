@@ -3,10 +3,12 @@ import type { ActivityDayReader, DayTotal } from '../db/repositories/activity-re
 import {
   bigDays,
   PAGE_TOP_DAYS,
+  seriesYears,
   topBigDays,
   yearBigDays,
   type BigDay,
 } from '../domain/history/big-days.js';
+import { nextMonth } from '../domain/history/activity.js';
 import { onThisDayDays } from '../domain/history/on-this-day.js';
 import { localDay } from '../domain/time/local-day.js';
 
@@ -83,7 +85,7 @@ export class HistoryDays {
     top: NamedBigDay[];
   }> {
     const series = await this.series(serverId, leftOut, now);
-    const years = yearsOf(series.totals);
+    const years = seriesYears(series.totals);
     const shown = year ?? years[0] ?? Number(localDay(now, this.options.zone).slice(0, 4));
     const prefix = `${String(shown).padStart(4, '0')}-`;
     return {
@@ -107,7 +109,7 @@ export class HistoryDays {
     count = PAGE_TOP_DAYS,
   ): Promise<Array<{ year: number; days: NamedBigDay[] }>> {
     const series = await this.series(serverId, leftOut, now);
-    return yearsOf(series.totals).flatMap((year) => {
+    return seriesYears(series.totals).flatMap((year) => {
       const days = topBigDays(series.big, year, count);
       return days.length === 0 ? [] : [{ year, days }];
     });
@@ -247,18 +249,4 @@ export class HistoryDays {
       }),
     };
   }
-}
-
-/** The calendar years of a server's days, newest first. */
-function yearsOf(totals: readonly DayTotal[]): number[] {
-  return [...new Set(totals.map((one) => Number(one.day.slice(0, 4))))].sort((a, b) => b - a);
-}
-
-/** The month after a `yyyy-mm` month. */
-function nextMonth(month: string): string {
-  const year = Number(month.slice(0, 4));
-  const number = Number(month.slice(5, 7));
-  return number === 12
-    ? `${String(year + 1).padStart(4, '0')}-01`
-    : `${month.slice(0, 4)}-${String(number + 1).padStart(2, '0')}`;
 }

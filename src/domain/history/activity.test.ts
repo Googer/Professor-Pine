@@ -11,6 +11,7 @@ import {
   countsAsActivity,
   dayOf,
   nextActivityHour,
+  nextMonth,
   NO_BOSS,
   NO_PLACE_ID,
   sumBuckets,
@@ -64,6 +65,14 @@ const bucket = (
 });
 
 const everywhere = () => true;
+
+describe('the month after a month', () => {
+  it('counts on, into the next year after December', () => {
+    expect(nextMonth('2019-02')).toBe('2019-03');
+    expect(nextMonth('2019-09')).toBe('2019-10');
+    expect(nextMonth('2019-12')).toBe('2020-01');
+  });
+});
 
 describe('what counts toward the activity heatmap', () => {
   it('counts raids and max battles however they ended, but canceled', () => {

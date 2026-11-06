@@ -103,8 +103,8 @@ export function activityWhen(ms: number, zone: string): ActivityWhen {
   };
 }
 
-/** The month after a `yyyy-mm` month, as `yyyy-mm`. */
-function nextMonth(month: string): string {
+/** The month after a `yyyy-mm` month, as `yyyy-mm` (the heatmap's bounds, a boss's months). */
+export function nextMonth(month: string): string {
   const year = Number(month.slice(0, 4));
   const number = Number(month.slice(5, 7));
   return number === 12

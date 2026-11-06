@@ -5,6 +5,7 @@ import type {
   HistoryDaysView,
 } from '../../domain/web/history-days-data.js';
 import { HISTORY_FIRST_YEAR } from '../../domain/web/history-days-data.js';
+import { dayNumber } from '../../domain/history/big-days.js';
 import { yearOfAddress } from './history-boards.js';
 import { tallyFailure } from './history-tally.js';
 
@@ -13,7 +14,8 @@ import { tallyFailure } from './history-tally.js';
  * where each is asked for, the bars a chart is drawn with, and the tables a screen reader reads in
  * place of a chart. The numbers and every word are the server's (`/api/history/…`); the page only
  * places them. No Temporal here (the page's tsconfig has none): a day's place in its year is
- * counted on the calendar.
+ * counted on the calendar by the big days' own `dayNumber` (`src/domain/history/big-days.ts`,
+ * which imports nothing).
  */
 
 /** The route of a year's days; the newest year the server has without one. */
@@ -53,15 +55,11 @@ export function bossAddress(guild: string, key: string): string {
   return `/s/${guild}/api/history/bosses/${encodeURIComponent(key)}`;
 }
 
-const DAY_MS = 86_400_000;
 const n = (count: number): string => count.toLocaleString('en-US');
 
 /** A `yyyy-mm-dd` day's place in its year: 0 for January 1st, 365 for a leap year's last. */
 export function dayIndex(day: string): number {
-  const [year, month, date] = day.split('-').map(Number);
-  return (
-    (Date.UTC(year ?? 1970, (month ?? 1) - 1, date ?? 1) - Date.UTC(year ?? 1970, 0, 1)) / DAY_MS
-  );
+  return dayNumber(day) - dayNumber(`${day.slice(0, 4)}-01-01`);
 }
 
 /** A day's bar: its place in the year, its raids and max battles stacked, and whether it is big. */
