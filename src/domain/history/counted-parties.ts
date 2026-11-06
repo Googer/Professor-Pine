@@ -122,8 +122,10 @@ const DAY = 24 * HOUR;
  * may set it (`maximumMeetupLeadtime` days and one, as `resolvePartyTime` allows), or its start
  * at the furthest (`maxMeetupLeadupDuration`) where that is later, and `OPEN_PARTY_HOURS` after
  * either (a train without an end goes that long; the clocks' change). Not a bound the party
- * keeps: a member who takes its times away again and again keeps it going, and a stop of such a
- * train made later than this is not seen from a raid's side (`trainsAroundQuery`).
+ * keeps: a member who takes its times away again and again keeps it going, and so does staff's
+ * keeping it (`/admin save-party`, `PartyService.keep`: a saved party is never archived by the
+ * clock); a stop of such a train made later than this is not seen from a raid's side
+ * (`trainsAroundQuery`).
  */
 export function trainReachMs(settings: TrainReachSettings): number {
   return (
