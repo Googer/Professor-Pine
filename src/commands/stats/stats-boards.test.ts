@@ -119,7 +119,7 @@ describe('/stats boards', () => {
     const message = asV2(answered(await made.ask({}, MISTY)));
     expect(textDisplays(message)).toEqual([
       '### Raids reported that others completed, this month\n1. Ash: 3 raids\n2. Brock: 2 raids',
-      '-# You would be #2 with 2 raids. `/settings leaderboard` puts you on the board.',
+      '-# You would be #2 with 2 raids. Turn the boards on in `/settings` to be ranked.',
     ]);
   });
 
@@ -131,7 +131,7 @@ describe('/stats boards', () => {
     );
     const message = asV2(answered(await made.ask({}, MISTY)));
     expect(textDisplays(message)[1]).toBe(
-      '-# You would be #2 with 2 raids. `/settings leaderboard` puts you on the board.',
+      '-# You would be #2 with 2 raids. Turn the boards on in `/settings` to be ranked.',
     );
   });
 
@@ -297,7 +297,7 @@ describe('/stats boards', () => {
   it('says in its help what it ranks, and that a shared board is a snapshot', () => {
     const details = stats.subcommands.get('boards')?.help?.details;
     const text = typeof details === 'string' ? details : '';
-    expect(text).toContain('/settings leaderboard');
+    expect(text).toContain('turned the boards on in `/settings`');
     expect(text).toContain('snapshot');
     expect(text.split('\n\n')).toContain(
       'A report at a stop counts unless another member said it was wrong. If more of your ' +

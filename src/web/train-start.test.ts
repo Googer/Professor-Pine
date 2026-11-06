@@ -141,7 +141,7 @@ describe('starting a train on the map', () => {
     // Not signed up: said as /train says it.
     expect(answer.json.text).toBe(
       'Your train is made. Tap gyms or Power Spots on the map to add its stops. You are not signed up for ' +
-        'it, as your /settings auto-status is None: sign up in its popup or its post to move ' +
+        'it, as your status is None (in /settings on Discord): sign up in its popup or its post to move ' +
         'the train or to be its conductor.',
     );
     expect(answer.json.train).toMatchObject({ startTime: null, attendance: { mine: null } });

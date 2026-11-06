@@ -6,6 +6,7 @@ import {
   MEMBER_STAT_LABELS,
   membersWords,
 } from '../domain/history/member-stats-words.js';
+import { IN_SETTINGS } from './settings-words.js';
 
 /** What a member's card shows beside their numbers, as the caller names it. */
 export interface MemberStatsView {
@@ -59,13 +60,17 @@ export function memberStatsTexts(view: MemberStatsView): string[] {
   return [confirmed, own];
 }
 
-/** What `/stats me` says to a member without the history opt-in (design Part E). */
-export const NOT_OPTED_IN =
-  'Your history opt-in is off in this server, so nothing kept here carries your name to count. ' +
-  'With `/settings history enabled:True`, from then on I count the raids and max battles you ' +
-  'report that others complete, the trains you conduct and the meetups you host that others ' +
-  'come to, your reports at stops that count, what you complete and come to, and how many ' +
-  'members what you report is sent to.';
+/**
+ * What `/stats me` says to a member without the history opt-in (design Part E; S6: in short
+ * words, `/help settings` says the rest). `settings`: where they turn it on, as Discord says it
+ * unless a page says it (`IN_SETTINGS_ON_DISCORD`).
+ */
+export function notOptedIn(settings: string = IN_SETTINGS): string {
+  return (
+    'Your history is off in this server, so I have nothing of yours to count. Turn it on ' +
+    `${settings}, and I count what you do from then on.`
+  );
+}
 
 /** What `/stats me` says of a year without anything of the member's. */
 export function nothingInYear(year: number): string {

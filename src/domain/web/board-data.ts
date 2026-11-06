@@ -44,7 +44,7 @@ export interface CountedView {
 export type MemberStatsView =
   | {
       optedIn: false;
-      /** What would be counted, and the command that turns it on (`NOT_OPTED_IN`). */
+      /** That nothing is counted, and where it is turned on (`notOptedIn`). */
       text: string;
     }
   | {

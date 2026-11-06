@@ -8,7 +8,7 @@ const AWAY = '412345678901234568';
 const NOW = 1_800_000_000_000;
 
 /**
- * What the switch of the boards does (`/settings leaderboard`, plan 8H-6), run against
+ * What the switch of the boards does (in `/settings`, plan 8H-6), run against
  * `HistoryRepository` and its twin `MemoryHistoryOptIns` alike. `made` gives fresh opt-ins.
  */
 export function leaderboardCases(made: () => Promise<HistoryOptIns>): void {

@@ -74,7 +74,7 @@ async function stop(
       await ctx.users.update(memberId, { bossSetNotification: false });
       return (
         'Stopped: I will no longer tell you when an egg you are signed up for gets its boss. ' +
-        '`/settings boss-set` in a server turns it back on.'
+        '`/settings` turns it back on.'
       );
     }
     case 'new-train': {
@@ -82,7 +82,7 @@ async function stop(
       const stopped = await ctx.newTrains.set(memberId, guildId, false, Date.now());
       return stopped
         ? 'Stopped: I will no longer tell you about new trains in that server. ' +
-            '`/settings new-train` there turns it back on.'
+            '`/settings` there turns it back on.'
         : 'That was off already: I do not tell you about new trains in that server.';
     }
     case 'target': {

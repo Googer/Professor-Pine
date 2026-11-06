@@ -9,6 +9,7 @@ import {
 import type { V2Message } from '../discord/party-gateway.js';
 import type { ShownBoard, ViewerPlace } from '../services/boards.js';
 import { container, LIST_COLOUR, textDisplay } from './v2.js';
+import { IN_SETTINGS } from './settings-words.js';
 import { memberName, plain } from './text.js';
 
 /**
@@ -41,12 +42,19 @@ export function boardSmallPrint(view: ShownBoard): string[] {
   return view.kind === 'things' && view.day !== undefined ? [wantedDayText(view.day)] : [];
 }
 
-/** Where the viewer stands, under a board that does not show them (Q-H). */
-export function viewerText(board: BoardName, place: ViewerPlace): string {
+/**
+ * Where the viewer stands, under a board that does not show them (Q-H). `settings`: where they
+ * turn the boards on, as Discord says it unless a page says it (`IN_SETTINGS_ON_DISCORD`).
+ */
+export function viewerText(
+  board: BoardName,
+  place: ViewerPlace,
+  settings: string = IN_SETTINGS,
+): string {
   const counts = boardCountWords(board, place.count, place.confirmations);
   return place.on
     ? `You are #${String(place.rank)} with ${counts}.`
-    : `You would be #${String(place.rank)} with ${counts}. \`/settings leaderboard\` puts you on the board.`;
+    : `You would be #${String(place.rank)} with ${counts}. Turn the boards on ${settings} to be ranked.`;
 }
 
 /**

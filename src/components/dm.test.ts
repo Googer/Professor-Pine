@@ -323,8 +323,9 @@ describe('the "Stop" buttons under a direct message', () => {
     await made.users.update(ALICE, { bossSetNotification: true });
     await made.newTrains.set(ALICE, HOME, true, 1);
     await made.newTrains.set(ALICE, AWAY, true, 1);
-    expect(made.said(await made.press(ALICE, { kind: 'boss-set' }))).toMatch(
-      /^Stopped: I will no longer tell you when an egg you are signed up for gets its boss\./,
+    expect(made.said(await made.press(ALICE, { kind: 'boss-set' }))).toBe(
+      'Stopped: I will no longer tell you when an egg you are signed up for gets its boss. ' +
+        '`/settings` turns it back on.',
     );
     expect(await made.users.get(ALICE)).toMatchObject({ bossSetNotification: false });
     expect(await made.newTrains.isOn(ALICE, HOME)).toBe(true);
@@ -333,7 +334,7 @@ describe('the "Stop" buttons under a direct message', () => {
     );
     expect(made.said(await made.press(ALICE, { kind: 'new-train' }))).toBe(
       'Stopped: I will no longer tell you about new trains in that server. ' +
-        '`/settings new-train` there turns it back on.',
+        '`/settings` there turns it back on.',
     );
     // In the server the button names, and in no other.
     expect(await made.newTrains.isOn(ALICE, HOME)).toBe(false);

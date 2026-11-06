@@ -101,9 +101,9 @@ export const train: SimpleCommand = {
     details:
       'Makes a train: a group that goes from gym to gym, or Power Spot to Power Spot, with a ' +
       'post of its own in the forum of this region. Use it in the channel of a region.\n\nYou ' +
-      'are signed up as `/settings auto-status` says: interested unless you changed it, and ' +
-      'coming where it says here, since the train is at no stop yet. The post names you unless ' +
-      'your `/settings privacy` is Anonymous.\n\nIn the post, `/route add` adds the gyms and ' +
+      'are signed up as your status in `/settings` says: interested unless you changed it, ' +
+      'and coming where it says here, since the train is at no stop yet. The post names you ' +
+      'unless you chose Anonymous there.\n\nIn the post, `/route add` adds the gyms and ' +
       'Power Spots it visits (also in other regions), `/meet` sets when it starts and `/end` ' +
       'when it ends, `/boss` names the Pokémon it is after, and `/conductor set` makes you the ' +
       'one who moves it.\n\nMembers sign up with the buttons, as for a raid; the button ' +

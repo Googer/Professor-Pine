@@ -19,7 +19,7 @@ import { inTransaction, retryOnDeadlock } from '../transaction.js';
 import type { DB } from '../types.js';
 
 /**
- * Who is named in the party history of a server (`ctx.historyOptIns`, `/settings history`). A
+ * Who is named in the party history of a server (`ctx.historyOptIns`, the history of `/settings`). A
  * member and a server are named by their snowflakes. Nobody is, until they opt in: from then on
  * the history keeps their id with what they do in that server's parties; opting out takes it
  * out of everything kept already.
@@ -44,7 +44,7 @@ export interface HistoryOptIns {
    */
   namedIn(memberId: string, guildId: string): Promise<number>;
   /**
-   * Whether the member is on the boards of this server (`/settings leaderboard`, plan 8H-6):
+   * Whether the member is on the boards of this server (the boards of `/settings`, plan 8H-6):
    * both their history opt-in and their board row are there.
    */
   isOnBoards(memberId: string, guildId: string): Promise<boolean>;

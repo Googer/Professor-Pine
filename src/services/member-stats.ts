@@ -10,7 +10,7 @@ import {
 
 export interface MemberStatsOptions {
   reader: BoardReader;
-  /** Whether the member opted in to the server's history (`/settings history`). */
+  /** Whether the member opted in to the server's history (in `/settings`). */
   optIns: Pick<HistoryOptIns, 'isOptedIn'>;
   /** `settings.timezone`: a year is local. */
   zone: string;

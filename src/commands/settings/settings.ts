@@ -490,7 +490,25 @@ export const settings: SimpleCommand = {
       'Shows your settings, only to you, with buttons and menus to change them: which pings ' +
       'and DMs you get, how you are signed up for what you report, and whether posts name you.' +
       '\n\nIn a server it also has what is set per server: DMs for new trains, your history, ' +
-      'the boards, and how many wants and gyms you have there.',
+      'the boards, and how many wants and gyms you have there.' +
+      '\n\n**Your history.** I keep a history of every raid, max battle, train and meetup that ' +
+      'ends: what it was, where and when, and how many signed up, came and completed it. You ' +
+      'always count in it, without your Discord id.' +
+      '\n\nI keep every field research and Team GO Rocket report that ends too: what was ' +
+      'reported, when, how it ended and how many others reported the same.' +
+      '\n\nWith your history on, I also keep your Discord id with what you do from then on: ' +
+      'what you sign up for and when, how far you get, and what you report. `/stats me` shows ' +
+      'your numbers. Turning it off takes your id out of everything kept so far; it all still ' +
+      'counts.' +
+      '\n\nWhile a raid, max battle, train or meetup is going on, or a report stands, I keep ' +
+      'who signed up or reported, to run it. When it ends, I keep only the ids of members ' +
+      'whose history is on and delete the rest.' +
+      '\n\nA report at a stop is kept by its area and region, never the stop itself. The old ' +
+      'bot’s history is never tied to you.' +
+      '\n\n**The boards.** `/stats boards` ranks members by what others confirmed, and only ' +
+      'those who turned the boards on; they are off until you do. Turning them on turns your ' +
+      'history on too, and turning your history off takes you off the boards. A raid or train ' +
+      'you report anonymously counts on no board.',
     examples: ['/settings'],
   },
   formerSubcommands: FORMER_SUBCOMMANDS,

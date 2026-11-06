@@ -316,9 +316,7 @@ describe('/counters: Change options…', () => {
     const { token } = await made.ask();
     const form = await made.submit(token, BOB, { attackers: 'box' });
     expect(sent(form.reply)).toEqual({
-      content:
-        'You have no Pokebattler user id saved. Save it with `/settings pokebattler-id`, or ' +
-        'pick a level.',
+      content: 'You have no Pokebattler user id saved. Save it in `/settings`, or pick a level.',
       flags: MessageFlags.Ephemeral,
     });
     expect(made.pokebattler.asked).toHaveLength(1);

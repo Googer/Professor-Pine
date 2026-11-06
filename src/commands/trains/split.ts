@@ -70,7 +70,7 @@ async function requireRoomForSplit(
 
 /**
  * The dialog for this member, of these groups, as things stand now; who leads the new train as
- * their privacy says (`/settings privacy`, as the split itself reads it; the Submit reads it
+ * their privacy says (the privacy of `/settings`, as the split itself reads it; the Submit reads it
  * anew, so a privacy changed in between counts as it is then), read within `DIALOG_READ_MS` of
  * the interaction (`readInTime`: past it no dialog, and the member is told `SLOW_READ`).
  */

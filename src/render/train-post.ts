@@ -389,7 +389,7 @@ function trainLayout(view: TrainPostView): PostLayout {
               ]),
         ],
       },
-      // Unless they chose not to be named (`/settings privacy`), as for a raid they report.
+      // Unless they chose not to be named (in `/settings`), as for a raid they report.
       ...(party.anonymous
         ? []
         : [

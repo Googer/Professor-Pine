@@ -288,7 +288,7 @@ export class MemoryBoards implements BoardReader {
 
 /**
  * The boards (plan 8H-6) over memory, as the bot wires them: `reader` (`MemoryBoards`, empty)
- * over `optIns` (a `MemoryHistoryOptIns`, which `/settings leaderboard` writes), the names of
+ * over `optIns` (a `MemoryHistoryOptIns`, which the boards' button of `/settings` writes), the names of
  * `members` (a `FakeMemberDirectory`: nobody until `add`) through `names`, the fixtures'
  * catalogue and task list, and the region tally's fake gateway (`regionTalliesWith`), which a
  * Share posts through. Pass `context` to `createTestContext`.

@@ -1528,9 +1528,9 @@ export class NotifyService implements PartyNotifier {
           command: '/untarget',
         };
       case 'boss-set':
-        return { label: 'the boss of your eggs', stop, command: '/settings boss-set' };
+        return { label: 'the boss of your eggs', stop, command: '/settings' };
       case 'new-train':
-        return { label: 'new trains', stop, command: '/settings new-train' };
+        return { label: 'new trains', stop, command: '/settings' };
       case 'target':
         return {
           label: plain(targetReasonLabel(gameData.catalogue, reason.want)),

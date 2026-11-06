@@ -129,7 +129,7 @@ describe('the boards on the web', () => {
     const view = (await made.ask(`${BOARDS}?period=year`, CAROL)).json<BoardsView>();
     expect(view.boards[0]?.rows.map((row) => row.name)).toEqual(['Bob', 'Alice']);
     expect(view.boards[0]?.viewer).toBe(
-      'You would be #1 with 3 raids. /settings leaderboard puts you on the board.',
+      'You would be #1 with 3 raids. Turn the boards on in /settings on Discord to be ranked.',
     );
   });
 
@@ -237,7 +237,10 @@ describe('"Your Pine" on the web', () => {
     await made.boards.optIns.optOut(BOB, FAKE_GUILD_ID);
     const view = (await made.ask(ME, BOB)).json<MemberStatsView>();
     expect(view.optedIn).toBe(false);
-    expect(!view.optedIn && view.text).toMatch(/^Your history opt-in is off in this server/u);
+    expect(!view.optedIn && view.text).toBe(
+      'Your history is off in this server, so I have nothing of yours to count. Turn it on in ' +
+        '/settings on Discord, and I count what you do from then on.',
+    );
   });
 
   it('is for members only', async () => {

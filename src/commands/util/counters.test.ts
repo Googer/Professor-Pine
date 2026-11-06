@@ -281,8 +281,7 @@ describe('/counters: elsewhere than in a raid post', () => {
         'pick one from the list.',
     );
     expect(told(await made.run({ boss: 'mewtwo', tier: 'T5', level: 'box' }))).toBe(
-      'You have no Pokebattler user id saved. Save it with `/settings pokebattler-id`, or pick ' +
-        'a level.',
+      'You have no Pokebattler user id saved. Save it in `/settings`, or pick a level.',
     );
     // A value of the list that is no moveset of this boss (another Pokémon's list).
     expect(
@@ -382,8 +381,8 @@ describe('/counters: elsewhere than in a raid post', () => {
     await made.users.update(ALICE, { pokebattlerId: 4242 });
     made.pokebattler.known = new Set();
     expect(told(await made.run({ boss: 'yveltal', level: 'box' }))).toBe(
-      'Pokebattler will not show a Pokébox of user 4242 (check the id you saved with ' +
-        '`/settings pokebattler-id`), or does not know Yveltal as a boss of T5 raids.',
+      'Pokebattler will not show a Pokébox of user 4242 (check the id you saved in ' +
+        '`/settings`), or does not know Yveltal as a boss of T5 raids.',
     );
   });
 

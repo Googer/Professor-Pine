@@ -39,7 +39,8 @@ import {
   wantedDayText,
 } from '../domain/history/board-words.js';
 import { viewerText } from '../render/boards.js';
-import { memberStatsTitle, NOT_OPTED_IN, nothingInYear } from '../render/member-stats.js';
+import { memberStatsTitle, notOptedIn, nothingInYear } from '../render/member-stats.js';
+import { IN_SETTINGS_ON_DISCORD } from '../render/settings-words.js';
 import type { Boards, ShownBoard } from '../services/boards.js';
 import type { MemberStatsService } from '../services/member-stats.js';
 import { pageWords } from './page-words.js';
@@ -145,7 +146,7 @@ function boardView(shown: ShownBoard, words: (text: string) => string): BoardVie
     note: day === undefined ? null : wantedDayText(day),
     viewer:
       shown.kind === 'people' && shown.viewer !== undefined
-        ? words(viewerText(shown.board, shown.viewer))
+        ? words(viewerText(shown.board, shown.viewer, IN_SETTINGS_ON_DISCORD))
         : null,
   };
 }
@@ -424,7 +425,7 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
         year === undefined ? {} : { year },
       );
       if (!shown.optedIn) {
-        const text = pageWords(NOT_OPTED_IN, activity.zone, deps.now());
+        const text = pageWords(notOptedIn(IN_SETTINGS_ON_DISCORD), activity.zone, deps.now());
         return sendJson(request, reply, { optedIn: false, text });
       }
       // A year without anything of theirs: what /stats me says of it (B3).

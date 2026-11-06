@@ -63,6 +63,7 @@ import { CHOICE_NAME, MAX_CHOICES, type Choice } from '../choices.js';
 import { kindOfText } from '../max/max-input.js';
 import { namedPokemon, pokemonChoices } from '../pokemon-option.js';
 import { troubleError } from './counters-words.js';
+import { IN_SETTINGS } from '../../render/settings-words.js';
 import {
   maxTeamMessage,
   readMaxPlan,
@@ -366,8 +367,7 @@ export async function attackersOf(
     const boxId = (await ctx.users.get(userId)).pokebattlerId;
     if (boxId === null) {
       throw new UserError(
-        'You have no Pokebattler user id saved. Save it with `/settings pokebattler-id`, or ' +
-          'pick a level.',
+        `You have no Pokebattler user id saved. Save it ${IN_SETTINGS}, or pick a level.`,
       );
     }
     return { kind: 'box', userId: boxId };
@@ -498,7 +498,7 @@ function failureText(reason: 'unknown' | 'empty', plan: CounterPlan): string {
     case 'unknown':
       return plan.attackers.kind === 'box'
         ? `Pokebattler will not show a Pokébox of user ${String(plan.attackers.userId)} ` +
-            '(check the id you saved with `/settings pokebattler-id`), or does not know ' +
+            `(check the id you saved ${IN_SETTINGS}), or does not know ` +
             `${plain(plan.entry.name)} as a boss of ${raidTierLabel(plan.tier)} raids.`
         : `Pokebattler does not know ${plain(plan.entry.name)} as a boss of ` +
             `${raidTierLabel(plan.tier)} raids.`;
@@ -957,7 +957,7 @@ export const counters: SimpleCommand = {
       'you name in the post of a raid is simulated in that raid’s tier unless you name ' +
       'another with `tier`.\n\nUnless you say otherwise, it assumes counters at level 40, no weather and best ' +
       'friends, and leaves out shadow Pokémon and megas.\n\n`level` can also be your own Pokébox ' +
-      'on Pokebattler (save your user id with `/settings pokebattler-id`); that answer is ' +
+      'on Pokebattler (save your user id in `/settings`); that answer is ' +
       'always for you alone. A Pokébox lists its shadow Pokémon and megas too, unless ' +
       '`shadow` or `mega` is False.\n\n"Change options…" under an answer opens a dialog with ' +
       'its attackers, weather, friendship, boss moves and what else to list: the member who ' +

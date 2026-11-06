@@ -526,7 +526,7 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
     // Who made it may lay its route without being signed up, as after `/train`.
     const signUp =
       attendeeOf(made.party, userId) === undefined
-        ? ` ${notSignedUpWords('in its popup or its post')}`
+        ? ` ${notSignedUpWords('in its popup or its post', true)}`
         : '';
     const answer: TrainAnswer = {
       ok: true,

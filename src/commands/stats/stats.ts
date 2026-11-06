@@ -46,9 +46,10 @@ import { boardMessage, viewerText } from '../../render/boards.js';
 import {
   memberStatsTexts,
   memberStatsTitle,
-  NOT_OPTED_IN,
+  notOptedIn,
   nothingInYear,
 } from '../../render/member-stats.js';
+import { IN_SETTINGS } from '../../render/settings-words.js';
 import { tallyMessage, type TallyView } from '../../render/region-tally.js';
 import { memberByName } from '../../render/text.js';
 import { actionRow, container, LIST_COLOUR, textDisplay } from '../../render/v2.js';
@@ -436,7 +437,7 @@ const boardsPart: SubcommandPart = {
       'The top ten of this server for this month, this year or all time, on one of these ' +
       'boards: raids reported that others completed, trains conducted and meetups hosted that ' +
       'others came to, and reports at stops that counted. Only you see the answer.\n\n' +
-      'Only members who switched on `/settings leaderboard` are ranked, and an anonymous raid ' +
+      'Only members who turned the boards on in `/settings` are ranked, and an anonymous raid ' +
       'or train counts for nobody. If you are not in the top ten, the answer says where you ' +
       'are, or where you would be.\n\n' +
       'A report at a stop counts unless another member said it was wrong. If more of your ' +
@@ -468,8 +469,8 @@ const CARD_SHARE: ShareWords = {
 
 /** A card's Share refused because the member opted out of the history since (R-B3). */
 const CARD_OPTED_OUT =
-  'Your history is off in this server now, so I did not share your numbers. ' +
-  '`/settings history enabled:True` turns it back on.';
+  'Your history is off in this server now, so I did not share your numbers. Turn it on again ' +
+  `${IN_SETTINGS}.`;
 
 /** A year of `/stats me`'s Share, or all time: `stats:me:share:<year|all>`. */
 const ALL_TIME = 'all';
@@ -504,7 +505,7 @@ async function privateCard(
     interaction.user.id,
     year === undefined ? {} : { year },
   );
-  if (!shown.optedIn) return sentence(NOT_OPTED_IN);
+  if (!shown.optedIn) return sentence(notOptedIn());
   if (year !== undefined && !shown.years.includes(year)) return sentence(nothingInYear(year));
   const { stats: counted } = shown;
   const region = regionWords(ctx, counted.busiestRegion?.regionId);
@@ -607,7 +608,7 @@ const mePart: SubcommandPart = {
       'completed, the trains and meetups you came to, the region you were busiest in, the ' +
       'bosses you beat most, and how many members were told of what you reported. Only you ' +
       'see the answer.\n\nChoose a year to see that year alone; without one you see all ' +
-      'time.\n\nI count only what you did while `/settings history` was on. Raids and trains ' +
+      'time.\n\nI count only what you did while your history was on (`/settings`). Raids and trains ' +
       'you reported anonymously count here, but on no board.\n\n"Share in this channel" ' +
       'posts your numbers where you asked, under your name. It leaves out what you reported ' +
       'anonymously, and your busiest region unless everyone who sees the channel can see that ' +

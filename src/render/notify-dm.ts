@@ -270,7 +270,7 @@ export function maxHourNote(title: string): string {
 
 /**
  * The first line for a member who is signed up for an egg that got its boss and asked to hear
- * that (`/settings boss-set`): what it hatched into, or will, said for them rather than as news
+ * that (the boss DMs of `/settings`): what it hatched into, or will, said for them rather than as news
  * of a raid they may want; and for a boss that took the place of another, that it is now this
  * one.
  */

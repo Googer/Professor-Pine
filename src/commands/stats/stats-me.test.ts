@@ -170,11 +170,8 @@ describe('/stats me', () => {
     const made = await setup();
     const message = asV2(answered(await made.ask({}, MISTY)));
     expect(textDisplays(message)).toEqual([
-      'Your history opt-in is off in this server, so nothing kept here carries your name to ' +
-        'count. With `/settings history enabled:True`, from then on I count the raids and max ' +
-        'battles you report that others complete, the trains you conduct and the meetups you ' +
-        'host that others come to, your reports at stops that count, what you complete and come ' +
-        'to, and how many members what you report is sent to.',
+      'Your history is off in this server, so I have nothing of yours to count. Turn it on in ' +
+        '`/settings`, and I count what you do from then on.',
     ]);
     expect(buttonsOf(message)).toEqual([]);
   });
@@ -232,8 +229,8 @@ describe('/stats me', () => {
     await made.optIns.optOut(ASH, FAKE_GUILD_ID);
     const pressed = await made.press('stats:me:share:all');
     expect(sent(pressed.followUp).content).toBe(
-      'Your history is off in this server now, so I did not share your numbers. ' +
-        '`/settings history enabled:True` turns it back on.',
+      'Your history is off in this server now, so I did not share your numbers. Turn it on ' +
+        'again in `/settings`.',
     );
     expect(made.gateway.messagesIn(WEST_CHANNEL)).toEqual([]);
     await made.optIns.optIn(ASH, FAKE_GUILD_ID, 1);

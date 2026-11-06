@@ -895,7 +895,7 @@ async function entriesOf(
   };
 }
 
-/** How many lines `/wants` shows a member in a server (`/settings show`), both tables. */
+/** How many lines `/wants` shows a member in a server (the panel of `/settings`), both tables. */
 export async function wantLineCount(
   ctx: AppContext,
   memberId: string,

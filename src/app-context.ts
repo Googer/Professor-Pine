@@ -194,7 +194,7 @@ export interface AppContext {
   readonly gymTargets: GymTargetStorage;
   /** Who asked to be told of new trains, per server. */
   readonly newTrains: NewTrainStorage;
-  /** Who is named in the party history of a server (`/settings history`). */
+  /** Who is named in the party history of a server (the history of `/settings`). */
   readonly historyOptIns: HistoryOptIns;
   /**
    * The region tally (plan 8H-5, `/stats regions`): the activity heatmap's sums per region of a

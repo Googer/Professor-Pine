@@ -41,6 +41,7 @@ import { MAX_SAVED_ROUTES } from '../../db/repositories/saved-route-repository.j
 import { partyOver } from '../parties/reply.js';
 import { noForumWords } from '../parties/timed.js';
 import type { ReportNames } from '../raids/report.js';
+import { IN_SETTINGS, IN_SETTINGS_ON_DISCORD } from '../../render/settings-words.js';
 
 /**
  * What `/train`, `/route`, `/next`, `/previous`, `/skip`, `/finish` and `/conductor` do beyond
@@ -140,11 +141,15 @@ export type TrainStartAnswer =
 
 /**
  * What `/train` and the map add for a maker who is not signed up for the train they made (their
- * `/settings auto-status` is None); `where` says where to sign up.
+ * status in `/settings` is None); `where` says where to sign up, `settings` where that status
+ * is set, as Discord says it unless a page says it (`IN_SETTINGS_ON_DISCORD`).
  */
-export function notSignedUpWords(where: string): string {
+export function notSignedUpWords(where: string, onPage = false): string {
+  const status = onPage
+    ? `your status is None (${IN_SETTINGS_ON_DISCORD})`
+    : `your status ${IN_SETTINGS} is None`;
   return (
-    'You are not signed up for it, as your `/settings auto-status` is None: sign up ' +
+    `You are not signed up for it, as ${status}: sign up ` +
     `${where} to move the train or to be its conductor.`
   );
 }
@@ -680,7 +685,7 @@ export type SplitAnswer =
 
 /**
  * Splits a group off the train into a train of its own as the member (`TrainService.split`),
- * named as their privacy says (`/settings privacy`, as for `/train`), and says what came of it:
+ * named as their privacy says (in `/settings`, as for `/train`), and says what came of it:
  * `Split off: <post>` (`names.post`; the map names no post), the reason of a refusal (`splitRefusal`),
  * or that the train is over. A Submit drawn for the very group that was split off last (a second
  * Submit of one dialog, or somebody else's split of it) says where it went, as if it had
