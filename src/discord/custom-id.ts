@@ -166,6 +166,14 @@
  * "Change options…" under an answer of `/counters` is `counters:<token>:options`, and the dialog
  * it opens `counters:<token>:dialog`: the token is that of the answer's options, kept for a day
  * (`keptCounters`, `src/commands/util/counters.ts`).
+ *
+ * The controls of the panel of `/settings` (plan 8S-5, `src/commands/settings/panel.ts`) have the
+ * kind `settings` and the setting as the id: `settings:<setting>:set:on|off` sets it to what the
+ * button showed it would (`mentions`, `groups`, `shouts`, `train-moves`, `boss-set`,
+ * `new-train`, `history`, `leaderboard`), the menus `settings:auto-status:set` and
+ * `settings:privacy:set` to the value picked, `settings:pokebattler:ask` opens the dialog
+ * `settings:pokebattler:set:~<token>`, and `settings:wants:show` / `settings:targets:show`
+ * answer with the member's list. The member and the server are the interaction's.
  */
 export const MAX_CUSTOM_ID_LENGTH = 100;
 const SEPARATOR = ':';

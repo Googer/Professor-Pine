@@ -56,6 +56,8 @@ export interface DialogField {
   kind: 'checkbox' | 'group' | 'select' | 'radio' | 'text' | 'other';
   /** A Checkbox: whether it starts ticked. */
   ticked?: boolean;
+  /** A line of text: what it holds to start with, if anything (Discord's `value`). */
+  value?: string;
   options?: FieldOption[];
 }
 
@@ -75,6 +77,7 @@ export function dialogFields(dialog: APIModalInteractionResponseCallbackData): D
       type: ComponentType;
       custom_id: string;
       default?: boolean;
+      value?: string;
       options?: { value: string; label: string; description?: string; default?: boolean }[];
     };
     return [
@@ -84,6 +87,7 @@ export function dialogFields(dialog: APIModalInteractionResponseCallbackData): D
         id: inner.custom_id,
         kind: KINDS[inner.type] ?? 'other',
         ...(inner.type === ComponentType.Checkbox ? { ticked: inner.default === true } : {}),
+        ...(inner.value === undefined ? {} : { value: inner.value }),
         ...(inner.options === undefined
           ? {}
           : {

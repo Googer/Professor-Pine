@@ -122,6 +122,12 @@ interface CommandBase {
 export interface SimpleCommand extends CommandBase, CommandHandler {
   subcommands?: undefined;
   /**
+   * The subcommands this command had before it lost them (`/settings`, plan 8S-5): a use of one
+   * from a client that has not seen the new definition yet runs the command as it is now, its
+   * options unread, instead of being refused as unknown.
+   */
+  formerSubcommands?: readonly string[];
+  /**
    * For a command some of whose options need something optional (`/raid`'s screenshot): the
    * command as an installation with this configuration offers it.
    */

@@ -1,25 +1,77 @@
-import { InteractionContextType, MessageFlags } from 'discord.js';
-import { describe, expect, it } from 'vitest';
+import { ComponentType, InteractionContextType, MessageFlags } from 'discord.js';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   FAKE_GUILD_ID,
+  asV2,
+  fakeButton,
   fakeChatInput,
-  sent,
+  fakeModal,
+  fakeSelect,
   answered,
+  sent,
 } from '../../../test/support/fake-interactions.js';
+import { dialogField, shownDialog } from '../../../test/support/dialogs.js';
 import { MemoryHistoryOptIns } from '../../../test/support/history.js';
 import { MemoryNewTrains } from '../../../test/support/new-trains.js';
 import { ALICE } from '../../../test/support/parties.js';
 import { MemoryGymTargets } from '../../../test/support/gym-targets.js';
+import { expectV2Sendable } from '../../../test/support/post-limits.js';
+import {
+  buttonsOf,
+  componentCount,
+  customIdsOf,
+  textDisplays,
+} from '../../../test/support/messages.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { MemoryUsers } from '../../../test/support/users.js';
 import { MemoryWants } from '../../../test/support/wants.js';
 import { MemoryTargetWants } from '../../../test/support/target-wants.js';
 import { boxTarget } from '../../domain/notify/target-wants.js';
-import { declaredSubcommands } from '../../discord/command.js';
+import { LATE_DEFER_MS } from '../../discord/late-reply.js';
 import { InteractionRouter } from '../../discord/router.js';
+import type { V2Message } from '../../discord/party-gateway.js';
 import { PartyStatus, RaidPrivacy } from '../../domain/party/status.js';
 import { DEFAULT_USER_SETTINGS } from '../../db/repositories/user-repository.js';
-import { settings, settingsLines } from './settings.js';
+import { targets as targetsCommand } from '../notifications/targets.js';
+import { wants as wantsCommand } from '../notifications/wants.js';
+import { settings, settingsControls } from './settings.js';
+import { settingsLines } from './settings-lines.js';
+
+type Fake = ReturnType<typeof fakeButton>;
+
+/** What a press showed last in the panel's place: its `update`, or the edit after `deferUpdate`. */
+function shownAfter(fake: Fake): V2Message {
+  const calls = [fake.update, fake.editReply].flatMap(({ mock }) =>
+    mock.calls.map((args, index) => ({
+      at: mock.invocationCallOrder[index] ?? 0,
+      payload: args[0],
+    })),
+  );
+  const last = calls.sort((a, b) => a.at - b.at).at(-1)?.payload;
+  if (last === undefined) throw new Error('the press showed nothing');
+  return asV2(last);
+}
+
+/** The menus of a message with their options, the one marked to start with included. */
+function menusOf(message: V2Message) {
+  const found: { customId: string; options: { value: string; default?: boolean }[] }[] = [];
+  const visit = (component: unknown): void => {
+    const shown = component as {
+      type?: number;
+      custom_id?: string;
+      options?: { value: string; default?: boolean }[];
+      components?: unknown[];
+    };
+    if (shown.type === ComponentType.StringSelect) {
+      found.push({ customId: shown.custom_id ?? '', options: shown.options ?? [] });
+    }
+    for (const child of shown.components ?? []) visit(child);
+  };
+  for (const component of message.components) visit(component);
+  return found;
+}
+
+const AWAY = '412345678901234568';
 
 function setup(features: { notifications?: boolean } = {}) {
   const users = new MemoryUsers();
@@ -37,515 +89,677 @@ function setup(features: { notifications?: boolean } = {}) {
     targetWants,
   });
   ctx.config.settings.features = { ...ctx.config.settings.features, ...features };
-  const router = new InteractionRouter(ctx, [settings], []);
-  const run = async (
-    subcommand: string,
-    options: Record<string, string | boolean> = {},
-    extra: object = {},
-  ) => {
-    const interaction = fakeChatInput({
-      commandName: 'settings',
-      subcommand,
+  const router = new InteractionRouter(
+    ctx,
+    [settings, wantsCommand, targetsCommand],
+    [settingsControls],
+  );
+  /** `/settings`, as the member answers it: the panel. */
+  const open = async (extra: object = {}) => {
+    const interaction = fakeChatInput({ commandName: 'settings', userId: ALICE, ...extra });
+    await router.handle(interaction as never);
+    return interaction;
+  };
+  const panel = async (extra: object = {}) => asV2(answered(await open(extra)));
+  /** A press on the panel, a private v2 message. */
+  const press = async (customId: string, extra: object = {}) => {
+    const interaction = fakeButton({
+      customId,
       userId: ALICE,
-      options,
+      ephemeralMessage: true,
+      v2Message: true,
       ...extra,
     });
     await router.handle(interaction as never);
     return interaction;
   };
-  /** What the member was answered. */
-  const answer = async (subcommand: string, options: Record<string, string | boolean> = {}) =>
-    answered(await run(subcommand, options)).content;
-  return { users, wants, targets, targetWants, newTrains, history, run, answer };
+  const pick = async (customId: string, value: string, extra: object = {}) => {
+    const interaction = fakeSelect({
+      customId,
+      values: [value],
+      userId: ALICE,
+      ephemeralMessage: true,
+      v2Message: true,
+      ...extra,
+    });
+    await router.handle(interaction as never);
+    return interaction;
+  };
+  const submit = async (customId: string, form: unknown, fields: Record<string, string>) => {
+    const interaction = fakeModal({
+      customId,
+      form,
+      fields,
+      userId: ALICE,
+      ephemeralMessage: true,
+      v2Message: true,
+    });
+    await router.handle(interaction as never);
+    return interaction;
+  };
+  const run = async (commandName: string) => {
+    const interaction = fakeChatInput({ commandName, userId: ALICE });
+    await router.handle(interaction as never);
+    return interaction;
+  };
+  return {
+    ctx,
+    users,
+    wants,
+    targets,
+    targetWants,
+    newTrains,
+    history,
+    open,
+    panel,
+    press,
+    pick,
+    submit,
+    run,
+  };
 }
 
-describe('/settings', () => {
-  it('is offered in servers and in a DM with the bot, with every subcommand of the spec', () => {
-    const json = settings.data.toJSON();
-    expect(json.contexts).toEqual([InteractionContextType.Guild, InteractionContextType.BotDM]);
-    expect(declaredSubcommands(json.options)).toEqual([
-      'show',
-      'mentions',
-      'mentions-groups',
-      'mentions-shouts',
-      'mentions-train-stops',
-      'boss-set',
-      'new-train',
-      'history',
-      'leaderboard',
-      'auto-status',
-      'privacy',
-      'pokebattler-id',
-    ]);
-    expect(settings.help.category).toBe('notifications');
-    // The switch for all pings names every ping it switches.
-    const all = settings.subcommands.get('mentions')?.help?.details ?? '';
-    expect(all).toMatch(/^Turns every ping of you in a post on or off: /);
-    expect(all).toContain('a raid that moved to another region');
-    expect(all).toContain('the warning before a post is archived');
-    for (const handler of settings.subcommands.values()) {
-      expect(handler.help?.details).toBeTruthy();
-      expect(handler.help?.examples?.length).toBeGreaterThan(0);
-    }
-  });
-
-  it('answers the member alone', async () => {
-    const made = setup();
-    const used = await made.run('mentions', { enabled: false });
-    expect(sent(used.reply).flags).toBe(MessageFlags.Ephemeral);
-    expect(used.deferReply).not.toHaveBeenCalled();
-  });
-
-  it.each([
-    ['mentions', 'mentions'],
-    ['mentions-groups', 'mentionsGroups'],
-    ['mentions-shouts', 'mentionsShouts'],
-    ['mentions-train-stops', 'mentionsTrainStops'],
-    ['boss-set', 'bossSetNotification'],
-  ] as const)('%s writes the setting the party code reads', async (subcommand, field) => {
-    const made = setup();
-    const off = await made.answer(subcommand, { enabled: false });
-    expect((await made.users.get(ALICE))[field]).toBe(false);
-    expect(off).toMatch(/no longer/);
-    const on = await made.answer(subcommand, { enabled: true });
-    expect((await made.users.get(ALICE))[field]).toBe(true);
-    expect(on).toMatch(/^You will /);
-    expect(on).not.toMatch(/no longer/);
-    // Setting what is set already answers the same sentence.
-    expect(await made.answer(subcommand, { enabled: true })).toBe(on);
-  });
-
-  it('new-train is for the server it is used in, and for no other', async () => {
-    const made = setup();
-    const AWAY = '412345678901234568';
-    expect(await made.answer('new-train', { enabled: true })).toBe(
-      'You will get a DM when a train is announced in this server, in a region you can see.',
-    );
-    expect(await made.newTrains.isOn(ALICE, FAKE_GUILD_ID)).toBe(true);
-    expect(await made.newTrains.isOn(ALICE, AWAY)).toBe(false);
-    // Setting what is set already answers the same sentence.
-    expect(await made.answer('new-train', { enabled: true })).toMatch(/^You will get a DM/);
-    expect(await made.answer('show')).toContain(
-      '- DM for a new train in this server: **on** · `/settings new-train`',
-    );
-    const elsewhere = await made.run('show', {}, { guildId: AWAY });
-    expect(answered(elsewhere).content).toContain(
-      '- DM for a new train in this server: **off** · `/settings new-train`',
-    );
-    expect(await made.answer('new-train', { enabled: false })).toBe(
-      'You will no longer get a DM when a train is announced in this server.',
-    );
-    expect(await made.newTrains.isOn(ALICE, FAKE_GUILD_ID)).toBe(false);
-    // It is no setting of the member as a whole any more.
-    expect(DEFAULT_USER_SETTINGS).not.toHaveProperty('newTrainNotification');
-  });
-
-  it('new-train says in a DM with the bot to use it in a server, and sets nothing', async () => {
-    const made = setup();
-    const used = await made.run('new-train', { enabled: true }, { isDm: true });
-    expect(answered(used).content).toBe(
-      'Whether I tell you about new trains is set per server. Use `/settings new-train` in the ' +
-        'server you mean.',
-    );
-    expect(made.newTrains.rows).toEqual([]);
-    const shown = await made.run('show', {}, { isDm: true });
-    expect(answered(shown).content).toContain(
-      '- DM for a new train: set per server · `/settings new-train` in a server',
-    );
-  });
-
-  it('history keeps the member named in the history of this server only, from now on', async () => {
-    const made = setup();
-    const AWAY = '412345678901234568';
-    expect(await made.answer('history', { enabled: true })).toBe(
-      'The party history of this server keeps your Discord id with what you sign up for and how ' +
-        'far you get in every raid, max battle, train and meetup, and with every field research and ' +
-        'Team GO Rocket report of yours, that ends from now on, those under way included. ' +
-        '`/settings history enabled:False` takes it out again.',
-    );
-    expect(await made.history.isOptedIn(ALICE, FAKE_GUILD_ID)).toBe(true);
-    expect(await made.history.isOptedIn(ALICE, AWAY)).toBe(false);
-    expect(await made.answer('show')).toContain(
-      "- Named in this server's history: **on** · `/settings history`",
-    );
-    const elsewhere = await made.run('show', {}, { guildId: AWAY });
-    expect(answered(elsewhere).content).toContain(
-      "- Named in this server's history: **off** · `/settings history`",
-    );
-  });
-
-  it('history takes the member out of what the history of this server already keeps', async () => {
-    const made = setup();
-    await made.run('history', { enabled: true });
-    made.history.named(ALICE, FAKE_GUILD_ID, 3);
-    expect(await made.answer('history', { enabled: false })).toBe(
-      'The party history of this server no longer keeps your Discord id. It was taken out of ' +
-        'the 3 records of raids, max battles, trains, meetups and reports at stops kept with it so ' +
-        'far, which still count, without it.',
-    );
-    await made.run('history', { enabled: true });
-    made.history.named(ALICE, FAKE_GUILD_ID, 1);
-    expect(await made.answer('history', { enabled: false })).toBe(
-      'The party history of this server no longer keeps your Discord id. It was taken out of ' +
-        'the one record of a raid, max battle, train, meetup or report at a stop kept with it so ' +
-        'far, which still counts, without it.',
-    );
-    expect(await made.history.isOptedIn(ALICE, FAKE_GUILD_ID)).toBe(false);
-    expect(made.history.namedIn(ALICE, FAKE_GUILD_ID)).toBe(0);
-    expect(await made.answer('history', { enabled: false })).toBe(
-      'The party history of this server no longer keeps your Discord id.',
-    );
-  });
-
-  it('leaderboard puts the member on this server’s boards, turning the history on with it', async () => {
-    const made = setup();
-    const AWAY = '412345678901234568';
-    expect(await made.answer('leaderboard', { enabled: true })).toBe(
-      'You are on this server’s boards from now on: `/stats boards` ranks you by the raids you ' +
-        'reported that others completed, the trains you conducted and the meetups you hosted ' +
-        'that others came to, and your reports at stops that counted. ' +
-        '`/settings leaderboard enabled:False` takes you off again. Your history opt-in was ' +
-        'off, so I turned it on: the party history of this server keeps your Discord id with ' +
-        'what you do from now on, which the boards count. `/settings history enabled:False` ' +
-        'turns both off.',
-    );
-    expect(await made.history.isOnBoards(ALICE, FAKE_GUILD_ID)).toBe(true);
-    expect(await made.history.isOptedIn(ALICE, FAKE_GUILD_ID)).toBe(true);
-    expect(await made.history.isOnBoards(ALICE, AWAY)).toBe(false);
-    // On already, the history with it: nothing more to say about the history.
-    expect(await made.answer('leaderboard', { enabled: true })).toMatch(/takes you off again\.$/u);
-    const shown = await made.answer('show');
-    expect(shown).toContain("- On this server's boards: **on** · `/settings leaderboard`");
-    expect(await made.answer('leaderboard', { enabled: false })).toBe(
-      'You are no longer on this server’s boards. Your history opt-in stays as it was.',
-    );
-    expect(await made.history.isOnBoards(ALICE, FAKE_GUILD_ID)).toBe(false);
-    expect(await made.history.isOptedIn(ALICE, FAKE_GUILD_ID)).toBe(true);
-    expect(await made.answer('show')).toContain(
-      "- On this server's boards: **off** · `/settings leaderboard`",
-    );
-  });
-
-  it('leaderboard on says that anonymous raids and trains count for no board (W6)', async () => {
-    const made = setup();
-    await made.users.update(ALICE, { raidPrivacy: RaidPrivacy.Anonymous });
-    const said = await made.answer('leaderboard', { enabled: true });
-    expect(said).toMatch(
-      / Your raids and trains are anonymous \(`\/settings privacy`\): they count on no board, only in `\/stats me`\.$/u,
-    );
-    await made.users.update(ALICE, { raidPrivacy: RaidPrivacy.Visible });
-    expect(await made.answer('leaderboard', { enabled: true })).not.toMatch(/anonymous/u);
-    expect(settings.subcommands.get('leaderboard')?.help?.details).toContain(
-      'A raid or train you report anonymously counts on no board.',
-    );
-  });
-
-  it('history off takes the member off the boards too, and says so', async () => {
-    const made = setup();
-    await made.run('leaderboard', { enabled: true });
-    expect(await made.answer('history', { enabled: false })).toBe(
-      'The party history of this server no longer keeps your Discord id. You are off this ' +
-        'server’s boards too.',
-    );
-    expect(await made.history.isOnBoards(ALICE, FAKE_GUILD_ID)).toBe(false);
-  });
-
-  it('leaderboard says in a DM with the bot to use it in a server, and sets nothing', async () => {
-    const made = setup();
-    const used = await made.run('leaderboard', { enabled: true }, { isDm: true });
-    expect(answered(used).content).toBe(
-      'Whether you are on the boards is set per server. Use `/settings leaderboard` in the ' +
-        'server you mean.',
-    );
-    expect(made.history.rows).toEqual([]);
-    const shown = await made.run('show', {}, { isDm: true });
-    expect(answered(shown).content).toContain(
-      '- On the boards: set per server · `/settings leaderboard` in a server',
-    );
-  });
-
-  it('history says in a DM with the bot to use it in a server, and sets nothing', async () => {
-    const made = setup();
-    const used = await made.run('history', { enabled: true }, { isDm: true });
-    expect(answered(used).content).toBe(
-      'Whether the party history keeps your Discord id is set per server. Use ' +
-        '`/settings history` in the server you mean.',
-    );
-    expect(made.history.rows).toEqual([]);
-    const shown = await made.run('show', {}, { isDm: true });
-    expect(answered(shown).content).toContain(
-      '- Named in the history: set per server · `/settings history` in a server',
-    );
-  });
-
-  it('history says what is kept, and that the legacy history is never tied to anybody', () => {
-    const details = settings.subcommands.get('history')?.help?.details ?? '';
-    expect(details).toContain('You always count in it, without your name.');
-    expect(details).toContain('never tied to you');
-    // Reports at stops as well (plan 8H-2), never the stop itself.
-    expect(details).toContain(
-      'It keeps every field research and Team GO Rocket report that ends as well: what was ' +
-        'reported, the area and the region of its stop (never the stop itself), when, how it ended ' +
-        'and how many others reported the same.',
-    );
-    expect(details).toContain('and the reports you make');
-  });
-
-  it('says what each switch means now', async () => {
-    const made = setup();
-    expect(await made.answer('mentions-shouts', { enabled: true })).toBe(
-      'You will be pinged by `/shout` where you are signed up.',
-    );
-    expect(await made.answer('mentions-shouts', { enabled: false })).toBe(
-      'You will no longer be pinged by `/shout`.',
-    );
-    expect(await made.answer('boss-set', { enabled: true })).toBe(
-      'You will get a DM when an egg you are signed up for gets its boss.',
-    );
-  });
-
-  it('says that the master switch keeps a kind of ping quiet', async () => {
-    const made = setup();
-    await made.run('mentions', { enabled: false });
-    for (const subcommand of ['mentions-groups', 'mentions-shouts', 'mentions-train-stops']) {
-      const on = await made.answer(subcommand, { enabled: true });
-      expect(on).toContain('All pings are switched off for you, though');
-      expect(on).toContain('`/settings mentions enabled:True`');
-      // Switching it off needs no such warning.
-      expect(await made.answer(subcommand, { enabled: false })).not.toContain('though');
-    }
-    // A direct message is no ping in a post.
-    expect(await made.answer('boss-set', { enabled: true })).not.toContain('though');
-    expect(await made.answer('new-train', { enabled: true })).not.toContain('though');
-    await made.run('mentions', { enabled: true });
-    expect(await made.answer('mentions-shouts', { enabled: true })).not.toContain('though');
-  });
-
-  it('says that no DM is sent where notifications are switched off on this bot', async () => {
-    const made = setup({ notifications: false });
-    const off =
-      ' Notifications are switched off on this bot, though, so no such DM is sent for now.';
-    expect(await made.answer('boss-set', { enabled: true })).toBe(
-      `You will get a DM when an egg you are signed up for gets its boss.${off}`,
-    );
-    expect(await made.answer('new-train', { enabled: true })).toContain(off);
-    expect(await made.answer('boss-set', { enabled: false })).not.toContain('though');
-    // A ping in a post is no notification of that kind.
-    expect(await made.answer('mentions-shouts', { enabled: true })).not.toContain('though');
-  });
-
-  it('allows thirty changes a minute', async () => {
-    const made = setup();
-    for (let use = 0; use < 30; use++) await made.run('mentions', { enabled: use % 2 === 0 });
-    const next = await made.run('mentions', { enabled: true });
-    expect(sent(next.reply).content).toMatch(/^You can use \/settings mentions again in /);
-    // Looking is not limited.
-    expect(await made.answer('show')).toContain('**Your settings**');
-  });
-
-  it('sets the status of whoever reports a raid or makes a train', async () => {
-    const made = setup();
-    expect(await made.answer('auto-status', { status: 'coming' })).toBe(
-      'When you report a raid or max battle, or make a train, you are signed up for it as coming.',
-    );
-    expect((await made.users.get(ALICE)).autoStatus).toBe(PartyStatus.Coming);
-    await made.run('auto-status', { status: 'here' });
-    expect((await made.users.get(ALICE)).autoStatus).toBe(PartyStatus.Present);
-    await made.run('auto-status', { status: 'interested' });
-    expect((await made.users.get(ALICE)).autoStatus).toBe(PartyStatus.Interested);
-    expect(await made.answer('auto-status', { status: 'none' })).toBe(
-      'When you report a raid or max battle, or make a train, you are not signed up for it.',
-    );
-    expect((await made.users.get(ALICE)).autoStatus).toBe(PartyStatus.NotInterested);
-  });
-
-  it('sets whether a raid report or a train names who made it', async () => {
-    const made = setup();
-    expect(await made.answer('privacy', { visibility: 'anonymous' })).toBe(
-      'The post of a raid you report or a train you make does not say who did.',
-    );
-    expect((await made.users.get(ALICE)).raidPrivacy).toBe(RaidPrivacy.Anonymous);
-    expect(await made.answer('privacy', { visibility: 'visible' })).toBe(
-      'The post of a raid you report or a train you make names you.',
-    );
-    expect((await made.users.get(ALICE)).raidPrivacy).toBe(RaidPrivacy.Visible);
-  });
-
-  it('offers the statuses and visibilities as choices', () => {
-    const options = settings.data.toJSON().options ?? [];
-    const choicesOf = (name: string) => {
-      const sub = options.find((option) => option.name === name);
-      const [option] = sub && 'options' in sub ? (sub.options ?? []) : [];
-      return option && 'choices' in option ? option.choices?.map((choice) => choice.name) : [];
-    };
-    expect(choicesOf('auto-status')).toEqual(['Interested', 'Coming', 'Here', 'None']);
-    expect(choicesOf('privacy')).toEqual(['Visible', 'Anonymous']);
-  });
-
-  it('works in a DM with the bot', async () => {
-    const made = setup();
-    const used = await made.run('mentions', { enabled: false }, { isDm: true });
-    expect(answered(used).content).toMatch(/no longer/);
-    expect((await made.users.get(ALICE)).mentions).toBe(false);
-  });
+afterEach(() => {
+  vi.useRealTimers();
 });
 
-describe('/settings show', () => {
-  it('lists everything with the subcommand that changes it', async () => {
+describe('/settings', () => {
+  it('is one command without options, offered in servers and in a DM with the bot', () => {
+    const json = settings.data.toJSON();
+    expect(json.contexts).toEqual([InteractionContextType.Guild, InteractionContextType.BotDM]);
+    expect(json.options ?? []).toEqual([]);
+    expect(settings.help.category).toBe('notifications');
+    expect(settings.help.examples).toEqual(['/settings']);
+  });
+
+  it('answers privately with the panel of every setting, its controls beside them', async () => {
     const made = setup();
-    expect(await made.answer('show')).toBe(
+    const used = await made.open();
+    expect(answered(used).flags).toBe(MessageFlags.Ephemeral | MessageFlags.IsComponentsV2);
+    const shown = asV2(answered(used));
+    expect(textDisplays(shown)).toEqual([
+      '### Your settings',
       [
-        '**Your settings**',
-        '- Pings in posts: **on** · `/settings mentions`',
-        '- Pings for groups and times: **on** · `/settings mentions-groups`',
-        '- Pings for shouts: **on** · `/settings mentions-shouts`',
-        '- Pings when a train moves: **on** · `/settings mentions-train-stops`',
-        '- DM when an egg gets its boss: **off** · `/settings boss-set`',
-        '- DM for a new train in this server: **off** · `/settings new-train`',
-        "- Named in this server's history: **off** · `/settings history`",
-        "- On this server's boards: **off** · `/settings leaderboard`",
-        '- Status when you report a raid or max battle, or make a train: **Interested** · `/settings auto-status`',
-        '- Your reports and trains: **Visible** · `/settings privacy`',
-        '- Pokémon, raid tiers and rewards on your list in this server: **0** · `/wants`',
-        '- Your gyms in this server: **0** · `/targets`',
+        'Pings in posts: **on**',
+        'Pings for new groups and meeting times: **on**',
+        'Pings for shouts: **on**',
+        'Pings when a train moves: **on**',
+      ].join('\n'),
+      'DM when an egg gets its boss: **off**',
+      'DM for a new train in this server: **off**',
+      'History in this server: **off**',
+      'On this server’s boards: **off**',
+      'Status when you report a raid or max battle, or make a train: **Interested**',
+      'Name on reports and trains: **Visible**',
+      'Pokebattler user id: none',
+      'Wants in this server: **0**',
+      'Gyms in this server: **0**',
+    ]);
+    expect(buttonsOf(shown).map((button) => [button.label, button.customId])).toEqual([
+      ['Pings: on', 'settings:mentions:set:off'],
+      ['Groups and times: on', 'settings:groups:set:off'],
+      ['Shouts: on', 'settings:shouts:set:off'],
+      ['Train moves: on', 'settings:train-moves:set:off'],
+      ['Turn on', 'settings:boss-set:set:on'],
+      ['Turn on', 'settings:new-train:set:on'],
+      ['Turn on', 'settings:history:set:on'],
+      ['Turn on', 'settings:leaderboard:set:on'],
+      ['Change…', 'settings:pokebattler:ask'],
+      ['Show', 'settings:wants:show'],
+      ['Show', 'settings:targets:show'],
+    ]);
+    expect(menusOf(shown).map((menu) => menu.customId)).toEqual([
+      'settings:auto-status:set',
+      'settings:privacy:set',
+    ]);
+  });
+
+  it('fits the fullest panel in what Discord takes, every custom id once', async () => {
+    const made = setup();
+    await made.users.update(ALICE, {
+      mentions: false,
+      friendCode: '1234 5678 9012',
+      nickname: '**Bold_one**',
+      pokebattlerId: 2_147_483_647,
+      autoStatus: PartyStatus.Coming,
+      raidPrivacy: RaidPrivacy.Anonymous,
+    });
+    await made.newTrains.set(ALICE, FAKE_GUILD_ID, true, 0);
+    await made.history.joinBoards(ALICE, FAKE_GUILD_ID, 0);
+    made.wants.add(ALICE, FAKE_GUILD_ID, 150, 'both');
+    made.targets.addRow(ALICE, FAKE_GUILD_ID, '4');
+    const shown = await made.panel();
+    expectV2Sendable(shown);
+    // The line of what a press changed shares the title's text: 36 of Discord's 40.
+    expect(componentCount(shown)).toBe(36);
+    const ids = [...customIdsOf(shown), ...menusOf(shown).map((menu) => menu.customId)];
+    expect(new Set(ids).size).toBe(ids.length);
+    expect(textDisplays(shown)).toContain(
+      'Friend code: **1234 5678 9012** · `/friend-code register`\n' +
+        'In-game name: **\\*\\*Bold\\_one\\*\\*** · `/nickname register`',
+    );
+    expect(textDisplays(shown)).toContain(
+      [
+        'Pings in posts: **off**',
+        'Pings for new groups and meeting times: **on** (quiet while pings in posts are off)',
+        'Pings for shouts: **on** (quiet while pings in posts are off)',
+        'Pings when a train moves: **on** (quiet while pings in posts are off)',
       ].join('\n'),
     );
   });
 
-  it('counts what is on the lists of this server, and nothing in a DM', async () => {
+  it('shows in a DM what is set for the member as a whole, and says the rest is per server', async () => {
     const made = setup();
-    made.wants.add(ALICE, FAKE_GUILD_ID, 150, 'both');
-    made.wants.add(ALICE, FAKE_GUILD_ID, -5, 'raid');
-    made.wants.add(ALICE, '499999999999999999', 151, 'both');
-    made.targets.addRow(ALICE, FAKE_GUILD_ID, '4');
-    const shown = await made.answer('show');
-    expect(shown).toContain(
-      '- Pokémon, raid tiers and rewards on your list in this server: **2** · `/wants`',
+    await made.users.update(ALICE, { friendCode: '1234 5678 9012' });
+    const shown = await made.panel({ isDm: true });
+    expectV2Sendable(shown);
+    const texts = textDisplays(shown);
+    expect(texts).toContain(
+      'New trains, your history, the boards, wants and gyms are set per server: use ' +
+        '`/settings` in that server.',
     );
-    expect(shown).toContain('- Your gyms in this server: **1** · `/targets`');
-    const dm = await made.run('show', {}, { isDm: true });
-    expect(answered(dm).content).not.toMatch(/on your list|Your gyms/);
+    expect(texts.join('\n')).not.toMatch(/this server|Wants in|Gyms in/u);
+    expect(texts).toContain('Friend code: **1234 5678 9012** · `/friend-code register`');
+    expect(customIdsOf(shown)).toEqual([
+      'settings:mentions:set:off',
+      'settings:groups:set:off',
+      'settings:shouts:set:off',
+      'settings:train-moves:set:off',
+      'settings:boss-set:set:on',
+      'settings:pokebattler:ask',
+    ]);
+  });
+
+  it('leaves the counts of wants and gyms out where notifications are switched off', async () => {
+    const made = setup({ notifications: false });
+    const shown = await made.panel();
+    expect(textDisplays(shown).join('\n')).not.toMatch(/Wants in|Gyms in/u);
+    expect(customIdsOf(shown)).not.toContain('settings:wants:show');
   });
 
   it('counts the lines of /wants: a target once with its boxes, of both tables', async () => {
     const made = setup();
     made.wants.add(ALICE, FAKE_GUILD_ID, 487, 'both');
     made.wants.add(ALICE, FAKE_GUILD_ID, 487, 'raid', { form: 'giratina_origin' });
-    made.wants.add(ALICE, FAKE_GUILD_ID, 487, 'spawn', { form: 'giratina_origin' });
     made.wants.add(ALICE, FAKE_GUILD_ID, 487, 'raid', { shadow: true });
-    // The Research, Dynamax and Gigantamax boxes and the rewards are `TargetWant` rows.
+    made.wants.add(ALICE, AWAY, 151, 'both');
     await made.targetWants.change(
       ALICE,
       FAKE_GUILD_ID,
       {
-        add: [
-          boxTarget('research-pokemon', 487),
-          boxTarget('dynamax', 68),
-          { kind: 'research-item', item: 'rare-candy' },
-        ],
+        add: [boxTarget('dynamax', 68), { kind: 'research-item', item: 'rare-candy' }],
         remove: [],
       },
       0,
     );
-    // Giratina (its species row and its Origin Forme: one line since plan 8R-4), Machamp, Rare
-    // Candy.
-    expect(await made.answer('show')).toContain(
-      '- Pokémon, raid tiers and rewards on your list in this server: **3** · `/wants`',
-    );
+    made.targets.addRow(ALICE, FAKE_GUILD_ID, '4');
+    const texts = textDisplays(await made.panel());
+    // Giratina (its species row and its forms: one line), Machamp, Rare Candy.
+    expect(texts).toContain('Wants in this server: **3**');
+    expect(texts).toContain('Gyms in this server: **1**');
   });
 
-  it('leaves the lists out where notifications are switched off', async () => {
-    const made = setup({ notifications: false });
-    expect(await made.answer('show')).not.toMatch(/on your list|Your gyms/);
-  });
-
-  it('shows what was changed, and what the master switch keeps quiet', async () => {
+  it('opens the panel for a subcommand of the old /settings, and changes nothing', async () => {
     const made = setup();
-    await made.run('mentions', { enabled: false });
-    await made.run('mentions-shouts', { enabled: false });
-    await made.run('auto-status', { status: 'none' });
-    await made.run('privacy', { visibility: 'anonymous' });
-    const shown = await made.answer('show');
-    expect(shown).toContain('- Pings in posts: **off** · `/settings mentions`');
-    expect(shown).toContain(
-      '- Pings for groups and times: **on** (quiet while all pings are off) · `/settings mentions-groups`',
+    const used = await made.open({ subcommand: 'mentions', options: { enabled: false } });
+    expect(textDisplays(asV2(answered(used)))[0]).toBe('### Your settings');
+    expect((await made.users.get(ALICE)).mentions).toBe(true);
+  });
+});
+
+describe('the controls of /settings', () => {
+  it.each([
+    ['mentions', 'mentions', 'Pings'],
+    ['groups', 'mentionsGroups', 'Groups and times'],
+    ['shouts', 'mentionsShouts', 'Shouts'],
+    ['train-moves', 'mentionsTrainStops', 'Train moves'],
+  ] as const)(
+    '%s sets the ping the party code reads, and the panel shows it',
+    async (name, flag, label) => {
+      const made = setup();
+      const off = await made.press(`settings:${name}:set:off`);
+      expect((await made.users.get(ALICE))[flag]).toBe(false);
+      const shown = shownAfter(off);
+      expect(buttonsOf(shown)).toContainEqual(
+        expect.objectContaining({ label: `${label}: off`, customId: `settings:${name}:set:on` }),
+      );
+      const on = await made.press(`settings:${name}:set:on`);
+      expect((await made.users.get(ALICE))[flag]).toBe(true);
+      expect(buttonsOf(shownAfter(on))).toContainEqual(
+        expect.objectContaining({ label: `${label}: on`, customId: `settings:${name}:set:off` }),
+      );
+    },
+  );
+
+  it('says what changed at the top of the panel', async () => {
+    const made = setup();
+    const shown = shownAfter(await made.press('settings:shouts:set:off'));
+    expect(textDisplays(shown)[0]).toBe('### Your settings\nPings for shouts are off.');
+    expect(textDisplays(shownAfter(await made.press('settings:shouts:set:on')))[0]).toBe(
+      '### Your settings\nPings for shouts are on.',
     );
-    expect(shown).toContain('- Pings for shouts: **off** · `/settings mentions-shouts`');
-    expect(shown).toContain(
-      '- Status when you report a raid or max battle, or make a train: **None**',
+    expect(textDisplays(shownAfter(await made.press('settings:boss-set:set:on')))[0]).toBe(
+      '### Your settings\nYou will get a DM when an egg you signed up for gets its boss.',
     );
-    expect(shown).toContain('- Your reports and trains: **Anonymous**');
+    expect(textDisplays(shownAfter(await made.press('settings:mentions:set:off')))[0]).toBe(
+      '### Your settings\nPings in posts are off: no post pings you, not even for groups, ' +
+        'shouts or train moves.',
+    );
   });
 
-  it('shows the friend code and the in-game name when they are set, as plain text', () => {
-    const lines = settingsLines({
-      snowflake: ALICE,
-      ...DEFAULT_USER_SETTINGS,
-      friendCode: '1234 5678 9012',
-      nickname: '**Bold_one**',
-    });
-    expect(lines).toContain('Friend code: **1234 5678 9012** · `/friend-code register`');
-    expect(lines).toContain('In-game name: **\\*\\*Bold\\_one\\*\\*** · `/nickname register`');
-    const none = settingsLines({ snowflake: ALICE, ...DEFAULT_USER_SETTINGS, nickname: ' ' });
-    expect(none.join('\n')).not.toMatch(/Friend code|In-game name/);
+  it('sets the state the button showed, and only redraws where it is so already', async () => {
+    const made = setup();
+    // The panel was drawn while shouts were on; they were turned off elsewhere since.
+    await made.users.update(ALICE, { mentionsShouts: false });
+    const stale = await made.press('settings:shouts:set:off');
+    expect((await made.users.get(ALICE)).mentionsShouts).toBe(false);
+    const shown = shownAfter(stale);
+    expect(textDisplays(shown)[0]).toBe('### Your settings\nThat was off already.');
+    expect(buttonsOf(shown)).toContainEqual(
+      expect.objectContaining({ label: 'Shouts: off', customId: 'settings:shouts:set:on' }),
+    );
   });
 
-  it('cuts a long legacy value, so the overview fits a message whatever is stored', () => {
-    const long = '*_~`|>'.repeat(43).slice(0, 255);
-    const lines = settingsLines({
-      snowflake: ALICE,
-      ...DEFAULT_USER_SETTINGS,
-      mentions: false,
-      friendCode: long,
-      nickname: long,
-    });
-    const shown = ['**Your settings**', ...lines.map((line) => `- ${line}`)].join('\n');
-    // With the two lines of the lists, which are short, far below Discord's 2,000.
-    expect(shown.length).toBeLessThan(1_500);
-    expect(lines.filter((line) => line.includes('…'))).toHaveLength(2);
+  it('says that pings in posts keep a kind of ping quiet', async () => {
+    const made = setup();
+    await made.press('settings:mentions:set:off');
+    await made.press('settings:groups:set:off');
+    const on = shownAfter(await made.press('settings:groups:set:on'));
+    expect(textDisplays(on)[0]).toBe(
+      '### Your settings\nPings for new groups and meeting times are on. Pings in posts are ' +
+        'off, though, so these stay quiet until you turn pings in posts on.',
+    );
+    // A DM is no ping in a post.
+    expect(textDisplays(shownAfter(await made.press('settings:boss-set:set:on')))[0]).not.toMatch(
+      /though/u,
+    );
   });
 
-  it('calls a stored status that signs nobody up None', () => {
-    const lines = settingsLines({
-      snowflake: ALICE,
-      ...DEFAULT_USER_SETTINGS,
-      autoStatus: PartyStatus.Complete,
+  it('says that no DM is sent where notifications are switched off on this bot', async () => {
+    const made = setup({ notifications: false });
+    expect(textDisplays(shownAfter(await made.press('settings:boss-set:set:on')))[0]).toBe(
+      '### Your settings\nYou will get a DM when an egg you signed up for gets its boss. This ' +
+        'bot sends no such DMs for now, though.',
+    );
+    expect(textDisplays(shownAfter(await made.press('settings:new-train:set:on')))[0]).toMatch(
+      /This bot sends no such DMs for now, though\.$/u,
+    );
+    expect(textDisplays(shownAfter(await made.press('settings:shouts:set:off')))[0]).not.toMatch(
+      /though/u,
+    );
+  });
+
+  it('sets new trains for the server it is pressed in, and for no other', async () => {
+    const made = setup();
+    const on = shownAfter(await made.press('settings:new-train:set:on'));
+    expect(textDisplays(on)[0]).toBe(
+      '### Your settings\nYou will get a DM when a train is announced in a region of this ' +
+        'server you can see.',
+    );
+    expect(textDisplays(on)).toContain('DM for a new train in this server: **on**');
+    expect(await made.newTrains.isOn(ALICE, FAKE_GUILD_ID)).toBe(true);
+    expect(await made.newTrains.isOn(ALICE, AWAY)).toBe(false);
+    expect(textDisplays(await made.panel({ guildId: AWAY }))).toContain(
+      'DM for a new train in this server: **off**',
+    );
+    const again = shownAfter(await made.press('settings:new-train:set:on'));
+    expect(textDisplays(again)[0]).toBe('### Your settings\nThat was on already.');
+    const off = shownAfter(await made.press('settings:new-train:set:off'));
+    expect(textDisplays(off)[0]).toBe(
+      '### Your settings\nNo more DMs for new trains in this server.',
+    );
+    expect(await made.newTrains.isOn(ALICE, FAKE_GUILD_ID)).toBe(false);
+    expect(DEFAULT_USER_SETTINGS).not.toHaveProperty('newTrainNotification');
+  });
+
+  it('turns the history on in this server only, and off again', async () => {
+    const made = setup();
+    const on = shownAfter(await made.press('settings:history:set:on'));
+    expect(textDisplays(on)[0]).toBe(
+      '### Your settings\nYour history is on: from now on I keep your Discord id with the ' +
+        'raids, max battles, trains and meetups you join, including those going on now, and ' +
+        'with the reports you make at stops. `/stats me` shows your numbers.',
+    );
+    expect(textDisplays(on)).toContain('History in this server: **on**');
+    expect(await made.history.isOptedIn(ALICE, FAKE_GUILD_ID)).toBe(true);
+    expect(await made.history.isOptedIn(ALICE, AWAY)).toBe(false);
+    const off = shownAfter(await made.press('settings:history:set:off'));
+    expect(textDisplays(off)[0]).toBe('### Your settings\nYour history is off.');
+    expect(await made.history.isOptedIn(ALICE, FAKE_GUILD_ID)).toBe(false);
+  });
+
+  it('puts the member on this server’s boards, turning the history on with it', async () => {
+    const made = setup();
+    const on = await made.press('settings:leaderboard:set:on');
+    // A slow write: the press is acknowledged first.
+    expect(on.deferUpdate).toHaveBeenCalled();
+    expect(textDisplays(shownAfter(on))[0]).toBe(
+      '### Your settings\nYou are on this server’s boards: `/stats boards` ranks you by what ' +
+        'others confirmed. Your history was off, so I turned it on: the boards count what it ' +
+        'keeps.',
+    );
+    expect(await made.history.isOnBoards(ALICE, FAKE_GUILD_ID)).toBe(true);
+    expect(await made.history.isOptedIn(ALICE, FAKE_GUILD_ID)).toBe(true);
+    expect(await made.history.isOnBoards(ALICE, AWAY)).toBe(false);
+    expect(textDisplays(shownAfter(await made.press('settings:leaderboard:set:on')))[0]).toBe(
+      '### Your settings\nThat was on already.',
+    );
+    const off = shownAfter(await made.press('settings:leaderboard:set:off'));
+    expect(textDisplays(off)[0]).toBe(
+      '### Your settings\nYou are off this server’s boards. Your history stays on.',
+    );
+    expect(await made.history.isOnBoards(ALICE, FAKE_GUILD_ID)).toBe(false);
+    expect(await made.history.isOptedIn(ALICE, FAKE_GUILD_ID)).toBe(true);
+  });
+
+  it('acknowledges a quick write that turns late in the panel’s place, then edits it (A7)', async () => {
+    const made = setup();
+    let answer: (() => void) | undefined;
+    let asked: (() => void) | undefined;
+    const wasAsked = new Promise<void>((resolve) => {
+      asked = resolve;
     });
-    expect(lines).toContain(
-      'Status when you report a raid or max battle, or make a train: **None** · `/settings auto-status`',
+    const write = made.users.update.bind(made.users);
+    vi.spyOn(made.users, 'update').mockImplementation(async (...args) => {
+      asked?.();
+      await new Promise<void>((resolve) => {
+        answer = resolve;
+      });
+      return write(...args);
+    });
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const pressing = made.press('settings:shouts:set:off');
+    await wasAsked;
+    await vi.advanceTimersByTimeAsync(LATE_DEFER_MS);
+    answer?.();
+    const pressed = await pressing;
+    expect(pressed.deferUpdate).toHaveBeenCalledTimes(1);
+    expect(pressed.update).not.toHaveBeenCalled();
+    expect(textDisplays(asV2(sent(pressed.editReply)))[0]).toBe(
+      '### Your settings\nPings for shouts are off.',
+    );
+  });
+
+  it('acknowledges a slow write once, however long it takes', async () => {
+    const made = setup();
+    let answer: (() => void) | undefined;
+    let asked: (() => void) | undefined;
+    const wasAsked = new Promise<void>((resolve) => {
+      asked = resolve;
+    });
+    const join = made.history.joinBoards.bind(made.history);
+    vi.spyOn(made.history, 'joinBoards').mockImplementation(async (...args) => {
+      asked?.();
+      await new Promise<void>((resolve) => {
+        answer = resolve;
+      });
+      return join(...args);
+    });
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const pressing = made.press('settings:leaderboard:set:on');
+    await wasAsked;
+    await vi.advanceTimersByTimeAsync(LATE_DEFER_MS);
+    answer?.();
+    const pressed = await pressing;
+    expect(pressed.deferUpdate).toHaveBeenCalledTimes(1);
+    expect(pressed.reply).not.toHaveBeenCalled();
+    expect(textDisplays(shownAfter(pressed))[0]).toMatch(/^### Your settings\nYou are on /u);
+  });
+
+  it('says on the boards that anonymous raids and trains count on no board (W6)', async () => {
+    const made = setup();
+    await made.users.update(ALICE, { raidPrivacy: RaidPrivacy.Anonymous });
+    await made.history.optIn(ALICE, FAKE_GUILD_ID, 0);
+    expect(textDisplays(shownAfter(await made.press('settings:leaderboard:set:on')))[0]).toBe(
+      '### Your settings\nYou are on this server’s boards: `/stats boards` ranks you by what ' +
+        'others confirmed. Your raids, max battles and trains are anonymous, so they count on ' +
+        'no board, only in `/stats me`.',
+    );
+  });
+
+  it('refuses the settings of a server in a DM with the bot, and sets nothing', async () => {
+    const made = setup();
+    for (const id of [
+      'settings:new-train:set:on',
+      'settings:history:set:on',
+      'settings:wants:show',
+    ]) {
+      const used = await made.press(id, { isDm: true });
+      expect(sent(used.reply).content).toBe('This only works in a server.');
+    }
+    expect(made.newTrains.rows).toEqual([]);
+    expect(made.history.rows).toEqual([]);
+  });
+
+  it('works in a DM with the bot for what is set for the member as a whole', async () => {
+    const made = setup();
+    const used = await made.press('settings:mentions:set:off', { isDm: true });
+    expect((await made.users.get(ALICE)).mentions).toBe(false);
+    expect(textDisplays(shownAfter(used))).toContain(
+      'New trains, your history, the boards, wants and gyms are set per server: use ' +
+        '`/settings` in that server.',
+    );
+  });
+
+  it('sets the status of whoever reports a raid or makes a train, its menu marking it', async () => {
+    const made = setup();
+    const statusMenu = (shown: V2Message) =>
+      menusOf(shown).find((menu) => menu.customId === 'settings:auto-status:set');
+    expect(
+      statusMenu(await made.panel())?.options.map((option) => [option.value, option.default]),
+    ).toEqual([
+      ['interested', true],
+      ['coming', undefined],
+      ['here', undefined],
+      ['none', undefined],
+    ]);
+    const coming = shownAfter(await made.pick('settings:auto-status:set', 'coming'));
+    expect((await made.users.get(ALICE)).autoStatus).toBe(PartyStatus.Coming);
+    expect(textDisplays(coming)[0]).toBe(
+      '### Your settings\nA raid or max battle you report, or a train you make, signs you up ' +
+        'as coming.',
+    );
+    expect(statusMenu(coming)?.options.find((option) => option.default)?.value).toBe('coming');
+    await made.pick('settings:auto-status:set', 'here');
+    expect((await made.users.get(ALICE)).autoStatus).toBe(PartyStatus.Present);
+    const none = shownAfter(await made.pick('settings:auto-status:set', 'none'));
+    expect((await made.users.get(ALICE)).autoStatus).toBe(PartyStatus.NotInterested);
+    expect(textDisplays(none)[0]).toBe(
+      '### Your settings\nA raid or max battle you report, or a train you make, does not sign ' +
+        'you up.',
+    );
+    // A pick of what is stored already (the panel was stale) only redraws.
+    expect(textDisplays(shownAfter(await made.pick('settings:auto-status:set', 'none')))[0]).toBe(
+      '### Your settings\nYour status was None already.',
+    );
+  });
+
+  it('sets whether the post of a raid report or a train names who made it', async () => {
+    const made = setup();
+    const anonymous = shownAfter(await made.pick('settings:privacy:set', 'anonymous'));
+    expect((await made.users.get(ALICE)).raidPrivacy).toBe(RaidPrivacy.Anonymous);
+    expect(textDisplays(anonymous)[0]).toBe(
+      '### Your settings\nPosts of raids and max battles you report, and of trains you make, ' +
+        'do not name you.',
+    );
+    expect(textDisplays(shownAfter(await made.pick('settings:privacy:set', 'anonymous')))[0]).toBe(
+      '### Your settings\nYour posts were Anonymous already.',
+    );
+    expect(textDisplays(anonymous)).toContain('Name on reports and trains: **Anonymous**');
+    const visible = shownAfter(await made.pick('settings:privacy:set', 'visible'));
+    expect((await made.users.get(ALICE)).raidPrivacy).toBe(RaidPrivacy.Visible);
+    expect(textDisplays(visible)[0]).toBe(
+      '### Your settings\nPosts of raids and max battles you report, and of trains you make, ' +
+        'name you.',
+    );
+  });
+
+  it('answers a menu value it does not know as a stale control', async () => {
+    const made = setup();
+    const used = await made.pick('settings:privacy:set', 'loud');
+    expect(sent(used.reply).content).toBe('This control is no longer active.');
+    expect((await made.users.get(ALICE)).raidPrivacy).toBe(RaidPrivacy.Visible);
+  });
+
+  it('allows thirty changes a minute, and looking is not limited by them', async () => {
+    const made = setup();
+    for (let use = 0; use < 30; use++) {
+      await made.press(`settings:mentions:set:${use % 2 === 0 ? 'off' : 'on'}`);
+    }
+    const next = await made.press('settings:mentions:set:off');
+    expect(sent(next.reply).content).toMatch(/^That was a lot of clicks\. Try again in /u);
+    expect(textDisplays(await made.panel())[0]).toBe('### Your settings');
+  });
+});
+
+describe('the Pokebattler id of /settings', () => {
+  it('opens its dialog with the saved id, and saves what is submitted', async () => {
+    const made = setup();
+    await made.users.update(ALICE, { pokebattlerId: 26516 });
+    const asked = await made.press('settings:pokebattler:ask');
+    const dialog = shownDialog(asked);
+    expect(dialog.title).toBe('Your Pokebattler user id');
+    expect(dialog.custom_id).toMatch(/^settings:pokebattler:set:~[0-9a-z]+$/u);
+    expect(dialogField(dialog, 'Pokebattler user id')).toMatchObject({ value: '26516' });
+    const submitted = await made.submit(dialog.custom_id, dialog, { id: ' 123456 ' });
+    expect((await made.users.get(ALICE)).pokebattlerId).toBe(123456);
+    const shown = shownAfter(submitted);
+    expect(textDisplays(shown)[0]).toBe(
+      '### Your settings\nYour Pokebattler user id is 123456: `/counters level:My Pokébox on ' +
+        'Pokebattler` uses its Pokémon.',
+    );
+    expect(textDisplays(shown)).toContain('Pokebattler user id: **123456**');
+  });
+
+  it('clears the id when the line is left empty', async () => {
+    const made = setup();
+    await made.users.update(ALICE, { pokebattlerId: 26516 });
+    const dialog = shownDialog(await made.press('settings:pokebattler:ask'));
+    const shown = shownAfter(await made.submit(dialog.custom_id, dialog, { id: '' }));
+    expect((await made.users.get(ALICE)).pokebattlerId).toBeNull();
+    expect(textDisplays(shown)[0]).toBe('### Your settings\nYour Pokebattler user id is cleared.');
+  });
+
+  it.each(['0', '2147483648', '12.5', 'abc', '-3'])(
+    'refuses %s before acknowledging, and keeps the id',
+    async (typed) => {
+      const made = setup();
+      await made.users.update(ALICE, { pokebattlerId: 26516 });
+      const dialog = shownDialog(await made.press('settings:pokebattler:ask'));
+      const submitted = await made.submit(dialog.custom_id, dialog, { id: typed });
+      expect(submitted.deferUpdate).not.toHaveBeenCalled();
+      expect(sent(submitted.reply).content).toBe(
+        'A Pokebattler user id is a whole number from 1 to 2,147,483,647.',
+      );
+      expect((await made.users.get(ALICE)).pokebattlerId).toBe(26516);
+    },
+  );
+
+  it('counts neither the opening of its dialog nor a Submit it refuses (A1)', async () => {
+    const made = setup();
+    for (let use = 0; use < 30; use++) {
+      const dialog = shownDialog(await made.press('settings:pokebattler:ask'));
+      await made.submit(dialog.custom_id, dialog, { id: 'abc' });
+    }
+    expect(textDisplays(shownAfter(await made.press('settings:shouts:set:off')))[0]).toBe(
+      '### Your settings\nPings for shouts are off.',
+    );
+  });
+
+  it('answers a Submit without its line as a stale control (A2)', async () => {
+    const made = setup();
+    await made.users.update(ALICE, { pokebattlerId: 26516 });
+    const submitted = await made.submit('settings:pokebattler:set:~abc', undefined, {});
+    expect(sent(submitted.reply).content).toBe('This control is no longer active.');
+    expect((await made.users.get(ALICE)).pokebattlerId).toBe(26516);
+  });
+});
+
+describe('Show of /settings', () => {
+  it.each([
+    ['wants', 'wants'],
+    ['targets', 'targets'],
+  ] as const)('answers apart with exactly what /%s answers', async (list, command) => {
+    const made = setup();
+    made.wants.add(ALICE, FAKE_GUILD_ID, 150, 'both');
+    made.targets.addRow(ALICE, FAKE_GUILD_ID, '4');
+    const shown = await made.press(`settings:${list}:show`);
+    expect(shown.update).not.toHaveBeenCalled();
+    expect(shown.deferUpdate).not.toHaveBeenCalled();
+    const apart = sent(shown.reply);
+    expect(apart.flags).toBe(MessageFlags.Ephemeral | MessageFlags.IsComponentsV2);
+    expect(apart.components).toEqual(answered(await made.run(command)).components);
+  });
+
+  it('acknowledges privately first when the read is late, never in the panel’s place', async () => {
+    const made = setup();
+    made.wants.add(ALICE, FAKE_GUILD_ID, 150, 'both');
+    let answer: (() => void) | undefined;
+    let asked: (() => void) | undefined;
+    const wasAsked = new Promise<void>((resolve) => {
+      asked = resolve;
+    });
+    const list = made.wants.list.bind(made.wants);
+    const held = vi.spyOn(made.wants, 'list').mockImplementation(async (...args) => {
+      asked?.();
+      await new Promise<void>((resolve) => {
+        answer = resolve;
+      });
+      return list(...args);
+    });
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const pressing = made.press('settings:wants:show');
+    await wasAsked;
+    await vi.advanceTimersByTimeAsync(LATE_DEFER_MS);
+    answer?.();
+    const shown = await pressing;
+    vi.useRealTimers();
+    held.mockRestore();
+    expect(sent(shown.deferReply).flags).toBe(MessageFlags.Ephemeral);
+    expect(shown.deferUpdate).not.toHaveBeenCalled();
+    expect(asV2(sent(shown.editReply)).components).toEqual(
+      answered(await made.run('wants')).components,
     );
   });
 });
 
-describe('/settings pokebattler-id', () => {
-  it('saves the id of a Pokebattler account, shows it, and forgets it', async () => {
-    const made = setup();
-    expect(await made.answer('pokebattler-id', { id: 123456 } as never)).toBe(
-      'Your Pokebattler user id is 123456: `/counters level:My Pokébox on Pokebattler` uses ' +
-        'the Pokémon of that account.',
-    );
-    expect((await made.users.get(ALICE)).pokebattlerId).toBe(123456);
-    expect(await made.answer('show')).toContain(
-      '- Pokebattler user id: **123456** · `/settings pokebattler-id`',
-    );
-    expect(await made.answer('pokebattler-id')).toBe('Your Pokebattler user id is forgotten.');
-    expect((await made.users.get(ALICE)).pokebattlerId).toBeNull();
-    expect(await made.answer('show')).not.toContain('Pokebattler');
-  });
-
-  it('names the choice of /counters as the list shows it', () => {
-    const details = settings.subcommands.get('pokebattler-id')?.help?.details ?? '';
-    expect(details).toContain('`/counters level:My Pokébox on Pokebattler`');
-  });
-
-  it('takes a whole number from 1 to what the legacy column holds', () => {
-    const json = settings.data.toJSON();
-    const part = json.options?.find((option) => option.name === 'pokebattler-id') as
-      | { options?: { name: string; min_value?: number; max_value?: number; required?: boolean }[] }
-      | undefined;
-    expect(part?.options).toEqual([
-      expect.objectContaining({ name: 'id', min_value: 1, max_value: 2_147_483_647 }),
+describe('settingsLines', () => {
+  it('words every setting for the member and for staff alike, without commands', () => {
+    const lines = settingsLines(
+      {
+        snowflake: ALICE,
+        ...DEFAULT_USER_SETTINGS,
+        autoStatus: PartyStatus.Complete,
+        friendCode: '1234 5678 9012',
+      },
+      { newTrain: true, history: true, leaderboard: false },
+    ).map((line) => line.text);
+    expect(lines).toEqual([
+      'Pings in posts: **on**',
+      'Pings for new groups and meeting times: **on**',
+      'Pings for shouts: **on**',
+      'Pings when a train moves: **on**',
+      'DM when an egg gets its boss: **off**',
+      'DM for a new train in this server: **on**',
+      'History in this server: **on**',
+      'On this server’s boards: **off**',
+      // A stored status that signs nobody up is None.
+      'Status when you report a raid or max battle, or make a train: **None**',
+      'Name on reports and trains: **Visible**',
+      'Friend code: **1234 5678 9012**',
+      'Pokebattler user id: none',
     ]);
-    expect(part?.options?.[0]?.required).toBeFalsy();
+  });
+
+  it('cuts a long legacy value, so the panel fits whatever is stored', () => {
+    const long = '*_~`|>'.repeat(43).slice(0, 255);
+    const lines = settingsLines({
+      snowflake: ALICE,
+      ...DEFAULT_USER_SETTINGS,
+      friendCode: long,
+      nickname: long,
+    });
+    expect(lines.filter((line) => line.text.includes('…'))).toHaveLength(2);
+    expect(lines.every((line) => line.text.length < 400)).toBe(true);
   });
 });

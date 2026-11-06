@@ -5,7 +5,7 @@ import { UserError } from '../../discord/errors.js';
 import { guildIdOf } from '../../discord/guards.js';
 import { answer } from '../../discord/late-reply.js';
 import { count, fitItems, memberText, plain } from '../../render/text.js';
-import { settingsLines } from '../settings/settings.js';
+import { settingsLines } from '../settings/settings-lines.js';
 import { wantLabel } from '../notifications/want-input.js';
 
 /** How many wants and gym targets are named before the rest is counted. */
@@ -47,7 +47,7 @@ export async function memberSettingsLines(
     return gym ? plain(gym.name) : `gym #${String(id)} (gone)`;
   });
   return [
-    ...settingsLines(settings, newTrain, { commands: false, history, leaderboard }),
+    ...settingsLines(settings, { newTrain, history, leaderboard }).map((line) => line.text),
     listLine(
       'Wants in this server',
       wants.wants.map((want) => plain(wantLabel(ctx, want.target))),

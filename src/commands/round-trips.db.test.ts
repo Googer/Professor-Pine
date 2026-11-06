@@ -3,7 +3,9 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } 
 import { shownDialog } from '../../test/support/dialogs.js';
 import {
   FAKE_GUILD_ID,
+  asV2,
   fakeAutocomplete,
+  fakeButton,
   fakeChatInput,
   fakeModal,
   answered,
@@ -38,7 +40,7 @@ import { TargetWantRepository } from '../db/repositories/target-want-repository.
 import { WantBoxRepository } from '../db/repositories/want-box-repository.js';
 import { wildCommand } from './notifications/wild.js';
 import { raid, raidControls } from './raids/raid.js';
-import { settings } from './settings/settings.js';
+import { settings, settingsControls } from './settings/settings.js';
 
 /**
  * How often a command goes to the database, counted on the real tables (plan 4F, after the
@@ -131,7 +133,7 @@ describe('round trips to the database per command', () => {
     const router = new InteractionRouter(
       ctx,
       [settings, want, unwant, wantsCommand, target, untarget, wildCommand, raid, gym],
-      [targetControls, raidControls, wantBoxControls],
+      [targetControls, raidControls, wantBoxControls, settingsControls],
     );
     /** Everything that goes on beside the answer: the post, its copies, who is told. */
     const settle = async () => {
@@ -251,15 +253,24 @@ describe('round trips to the database per command', () => {
     // Alice first: with her the process sees the server's row. Bob is who is counted.
     for (const member of [ALICE, BOB]) {
       const { command, typing } = made;
-      await use('/settings mentions', command(member, 'settings', { enabled: false }, 'mentions'));
+      // A press on the panel of `/settings` (plan 8S-5): the setting, its write, the panel again.
+      const pressed = fakeButton({
+        customId: 'settings:mentions:set:off',
+        userId: member,
+        channelId: WEST_CHANNEL,
+        ephemeralMessage: true,
+        v2Message: true,
+      });
+      measured['/settings, a press'] = await made.counted(pressed);
+      expect(textOf(asV2(sent(pressed.update)))).toContain('Pings in posts: **off**');
       const row = await db
         .selectFrom('User')
         .select('mentions')
         .where('userSnowflake', '=', member)
         .executeTakeFirst();
       expect(row).toEqual({ mentions: 0 });
-      const shown = await use('/settings show', command(member, 'settings', {}, 'show'));
-      expect(shown).toContain('- Pings in posts: **off**');
+      const shown = await use('/settings', command(member, 'settings'));
+      expect(shown).toContain('Pings in posts: **off**');
       expect(await use('/want', command(member, 'want', { target: 'iv:perfect' }))).toContain(
         'with perfect IVs',
       );
@@ -330,12 +341,13 @@ describe('round trips to the database per command', () => {
 
     // Until the member is answered, and until everything that follows is done.
     const limits: Record<string, { answered: number; settled: number }> = {
-      // One statement: the row is written, or made, in one.
-      '/settings mentions': { answered: 1, settled: 1 },
       // The settings, the new-train row, the history opt-in, the member's wants of both tables
       // (the lines of `/wants`, plan 8R-1), their gyms and the switch of the boards (plan 8H-6):
       // one read each.
-      '/settings show': { answered: 7, settled: 7 },
+      '/settings': { answered: 7, settled: 7 },
+      // The setting as it is (whether it is so already), its write (the row written, or made, in
+      // one), then the panel read afresh (plan 8S-5): its seven reads.
+      '/settings, a press': { answered: 9, settled: 9 },
       // begin, the lock on the member's row, their rows, the insert, commit.
       '/want': { answered: 5, settled: 5 },
       // The dialog's read (plan 8R-1): the subject's rows of both tables, by their keys.

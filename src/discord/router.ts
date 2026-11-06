@@ -432,8 +432,9 @@ export class InteractionRouter {
     const counted = command.formOf ?? name;
     const path = subcommandOf(interaction) ?? '';
     if (!command.subcommands) {
-      // A subcommand of a command that has none: the deployed definition is newer than this code.
-      return path === ''
+      // A subcommand of a command that has none: the deployed definition is newer than this code,
+      // or the client's older (a subcommand the command had, run as the command is now).
+      return path === '' || command.formerSubcommands?.includes(path) === true
         ? { handler: command, guards: command.guards ?? [], name, counted }
         : undefined;
     }

@@ -484,6 +484,17 @@ async function memberTargets(
   return targetsList(ctx, list, { guildRow, nameOf }, page);
 }
 
+/**
+ * What `/targets` answers the member of an interaction: their gyms in its server, the first page.
+ * Show of `/settings` answers it too (plan 8S-5: one path).
+ */
+export function targetsAnswer(
+  interaction: ChatInputCommandInteraction | ButtonInteraction,
+  ctx: AppContext,
+): Promise<V2Message> {
+  return memberTargets(interaction, ctx, 0);
+}
+
 /** `/targets` (spec 4.2): the member's gyms in this server, for the member alone. */
 export const targets: SimpleCommand = {
   data: new SlashCommandBuilder()
@@ -501,7 +512,7 @@ export const targets: SimpleCommand = {
   defer: 'late',
 
   async execute(interaction, ctx) {
-    await answer(interaction, v2Answer(await memberTargets(interaction, ctx, 0)));
+    await answer(interaction, v2Answer(await targetsAnswer(interaction, ctx)));
   },
 };
 

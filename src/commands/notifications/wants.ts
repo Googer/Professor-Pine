@@ -1161,6 +1161,17 @@ async function memberWants(
 }
 
 /**
+ * What `/wants` answers the member of an interaction: their list in its server, its first page.
+ * Show of `/settings` answers it too (plan 8S-5: one path).
+ */
+export function wantsAnswer(
+  interaction: { user: { id: string }; guildId: string | null; guild: { name: string } | null },
+  ctx: AppContext,
+): Promise<V2Message> {
+  return memberWants(interaction, ctx, 0);
+}
+
+/**
  * Manage… of a line of `/wants` (plan 8R-4, S3): the dialog of its species, Unown letter or tier
  * with the member's rows as stored, read in time, before any answer; its id carries the list's
  * page. Nothing held any more is said (S2).
@@ -1220,7 +1231,7 @@ export const wants: SimpleCommand = {
   defer: 'late',
 
   async execute(interaction, ctx) {
-    await answer(interaction, v2Answer(await memberWants(interaction, ctx, 0)));
+    await answer(interaction, v2Answer(await wantsAnswer(interaction, ctx)));
   },
 };
 

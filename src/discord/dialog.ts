@@ -66,6 +66,8 @@ export interface DialogField {
   maxLength: number;
   /** What the empty line shows of what it takes. */
   placeholder?: string;
+  /** What the line holds to start with (Discord's `value`): the value stored, to change. */
+  value?: string;
 }
 
 /** What a dialog asks: its custom id, title, text, and a choice between ways when it has one. */
@@ -159,6 +161,7 @@ export function dialog(content: DialogContent): APIModalInteractionResponseCallb
                 required: false,
                 max_length: field.maxLength,
                 ...(field.placeholder === undefined ? {} : { placeholder: field.placeholder }),
+                ...(field.value === undefined ? {} : { value: field.value }),
               },
             },
           ]),
