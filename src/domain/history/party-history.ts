@@ -459,6 +459,26 @@ function reach(status: number): number {
   }
 }
 
+/**
+ * When the write that settles a split's new train was (its first status step), or undefined for
+ * every other party: its history starts there with who went with the group as they were.
+ */
+function splitSettledAt(party: Party, steps: readonly HistoryStep[]): number | undefined {
+  if (!isTrain(party) || party.train.splitFrom === null) return undefined;
+  return steps.find((step) => step.kind === 'status')?.at;
+}
+
+/**
+ * How far a status step takes its member (`reach`), the one rule of who rode a train for its
+ * riders and its most at once alike (reviews R1, W1): in the write that settles a split's new
+ * train (`settledAt`), Coming is Here, since a member on Coming then rode the old train on to its
+ * next stop and rides the new one from the start.
+ */
+function stepReach(step: HistoryStep, settledAt: number | undefined): number {
+  const level = reach(step.value ?? 0);
+  return level === 1 && settledAt !== undefined && step.at === settledAt ? 2 : level;
+}
+
 function word(level: number): HistoryStatus {
   return HISTORY_STATUSES[level] ?? 'interested';
 }
@@ -469,6 +489,7 @@ function attendeeRecord(
   final: Attendee | undefined,
   optedIn: ReadonlySet<string>,
   conducted: ReadonlyMap<string, number>,
+  settledAt: number | undefined,
 ): HistoryAttendee {
   const own = steps.filter((step) => step.subject === memberId && MEMBER_STEPS.has(step.kind));
   // How they last left the party, when they are not on it at the end.
@@ -476,8 +497,10 @@ function attendeeRecord(
     ? undefined
     : own.findLast((step) => step.kind === 'left' || step.kind === 'split');
   const firstAt = (level: number): number | null =>
-    own.find((step) => step.kind === 'status' && reach(step.value ?? 0) >= level)?.at ?? null;
-  const levels = own.filter((step) => step.kind === 'status').map((step) => reach(step.value ?? 0));
+    own.find((step) => step.kind === 'status' && stepReach(step, settledAt) >= level)?.at ?? null;
+  const levels = own
+    .filter((step) => step.kind === 'status')
+    .map((step) => stepReach(step, settledAt));
   if (final) levels.push(reach(final.status));
   const furthest = Math.max(0, ...levels);
   return {
@@ -561,19 +584,18 @@ export function stopsByRoute<Stop>(
  * so that a write that moves one member out and another in counts no moment with both. Null
  * where no step says a status.
  *
- * The new train of a split (`split`) starts its steps at the write that settles it, with who
- * went with the group as they were (review R1): a member on Coming then rode the old train on
- * to its next stop and rides the new one, aboard from the start.
+ * The new train of a split starts its steps at the write that settles it (`settledAt`), with who
+ * went with the group as they were (review R1): a member on Coming then is aboard from the start
+ * (`stepReach`, the rule the attendee rows' Here keeps too, W1).
  */
-function peakRidersOf(steps: readonly HistoryStep[], split: boolean): number | null {
-  const settledAt = steps.find((step) => step.kind === 'status')?.at;
-  if (settledAt === undefined) return null;
+function peakRidersOf(steps: readonly HistoryStep[], settledAt: number | undefined): number | null {
+  if (!steps.some((step) => step.kind === 'status')) return null;
   const aboard = new Set<string>();
   let peak = 0;
   for (const [index, step] of steps.entries()) {
     if (step.kind === 'status') {
       const level = reach(step.value ?? 0);
-      if (level === 2 || (level === 1 && split && step.at === settledAt)) aboard.add(step.subject);
+      if (stepReach(step, settledAt) === 2) aboard.add(step.subject);
       else if (level !== 1) aboard.delete(step.subject);
     } else if (step.kind === 'left' || step.kind === 'split') {
       aboard.delete(step.subject);
@@ -695,8 +717,9 @@ export function historyOfParty(party: Party, input: HistoryInput): LiveRecord {
     if (!order.includes(memberId)) order.push(memberId);
   }
   const conducted = ledStops(party, steps);
+  const settledAt = splitSettledAt(party, steps);
   const attendees = order.map((memberId) =>
-    attendeeRecord(memberId, steps, attendeeOf(party, memberId), optedIn, conducted),
+    attendeeRecord(memberId, steps, attendeeOf(party, memberId), optedIn, conducted, settledAt),
   );
   const groups = party.groups.map((group): HistoryGroup => {
     const members = attendees.filter((a) => a.status !== null && a.groupId === group.id);
@@ -751,9 +774,7 @@ export function historyOfParty(party: Party, input: HistoryInput): LiveRecord {
     trainKind: isTrain(party) ? party.train.kind : null,
     splitFromId: isTrain(party) ? (party.train.splitFrom?.partyId ?? null) : null,
     reached: reachedOf(steps),
-    ...(isTrain(party)
-      ? { peakRiders: peakRidersOf(steps, (party.train.splitFrom ?? null) !== null) }
-      : {}),
+    ...(isTrain(party) ? { peakRiders: peakRidersOf(steps, settledAt) } : {}),
     attendees,
     groups,
     stops: trainStops(party, steps, input.stopRegions),

@@ -43,8 +43,13 @@ import {
   type HistoryInput,
   type HistoryStep,
 } from './party-history.js';
+import { trainCard } from './train-card.js';
+import type { Fit } from '../../render/party-post.js';
+import { trainCardText } from '../../render/train-card.js';
 
 const T = PARTY_NOW;
+/** Room for every line of a train's card. */
+const WHOLE: Fit = { list: (items) => items.join(', '), part: (make) => make(Infinity) };
 const describeBoss = (ref: RaidBossRef): HistoryBoss =>
   'key' in ref ? { key: ref.key, dex: 717, species: 'YVELTAL', form: null } : { name: ref.name };
 
@@ -1043,6 +1048,17 @@ describe('a train a group was split off (plan 8T)', () => {
         shiny: null,
       });
     expect(record(moved, steps).peakRiders).toBe(2);
+    // They rode it, so its riders and its most at once agree (review W1): each came to it at
+    // the split, and its card names them as riders even though nobody pressed Here again.
+    const kept = record(moved, steps);
+    const counts = historyCounts(kept.attendees);
+    expect(counts.here + counts.done).toBe(kept.peakRiders);
+    expect(kept.attendees.map(({ furthest, hereAt }) => [furthest, hereAt])).toEqual([
+      ['here', T + MINUTE],
+      ['here', T + MINUTE],
+    ]);
+    const card = trainCard(kept, kept.stops, kept.attendees, []);
+    expect(trainCardText(card, () => undefined, WHOLE)).not.toContain('Nobody rode it.');
     // A train of its own that starts with a member on Coming has nobody aboard yet.
     const coming = withAttendees(train(0), { [ALICE]: {} });
     expect(record(coming, stepsOf([coming])).peakRiders).toBe(0);
@@ -1100,7 +1116,14 @@ describe('a train a group was split off (plan 8T)', () => {
         hereAt: at,
         status: 'here',
       }),
-      expect.objectContaining({ memberId: BOB, signedUpAt: at, joinedAt: at, hereAt: null }),
+      // On Coming at the split, he came to it then (review W1).
+      expect.objectContaining({
+        memberId: BOB,
+        signedUpAt: at,
+        joinedAt: at,
+        hereAt: at,
+        furthest: 'here',
+      }),
     ]);
     // Its first stop is where it was split off, reached then.
     expect(record.stops).toEqual([
