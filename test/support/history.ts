@@ -9,11 +9,7 @@ import {
   type TrainHistoryReader,
   type UnrecordedParty,
 } from '../../src/db/repositories/history-repository.js';
-import {
-  raidTime,
-  type RaidAlongRow,
-  type RaidsAlongQuery,
-} from '../../src/domain/history/train-card.js';
+import { type RaidAlongRow, type RaidsAlongQuery } from '../../src/domain/history/train-card.js';
 import {
   historyCounts,
   type HistoryNote,
@@ -193,8 +189,8 @@ export class MemoryHistory implements HistoryStorage, RaidsAlongReader, TrainHis
             (record.kind === 'raid' || record.kind === 'max') &&
             record.createdAt >= from - RAIDS_ALONG_REACH_MS &&
             record.createdAt <= to + RAIDS_ALONG_REACH_MS &&
-            raidTime(record).start <= to &&
-            raidTime(record).end >= from &&
+            (record.hatchTime ?? record.createdAt) <= to &&
+            (record.endTime === null || record.endTime >= from) &&
             ((record.gymId !== null && gymIds.includes(record.gymId)) ||
               (record.wayspotId !== null && wayspotIds.includes(record.wayspotId)))
               ? [

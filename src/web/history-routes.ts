@@ -55,6 +55,7 @@ import { UNCONFIRMED } from './party-routes.js';
 import type { PartyViewers } from './party-viewers.js';
 import { limitedPerAddress, RateLimiter } from './rate-limit.js';
 import type { WebDeps } from './server.js';
+import type { RaidStandSettings } from '../domain/time/raid-durations.js';
 
 /** What the activity heatmap of the live map reads (plan 8H-4). */
 export interface ActivityWebDeps {
@@ -76,6 +77,8 @@ export interface ActivityWebDeps {
   wayspots: { byId(id: string): { lat: number; lon: number } | undefined };
   /** `settings.timezone`: the buckets' months, weekdays and hours. */
   zone: string;
+  /** The settings' raid times: how long a raid without an end time stood, on a train's card (W5). */
+  durations: RaidStandSettings;
   /** The region tally (plan 8H-5): `/stats regions`' own path (`RegionTallies.tally`). */
   tallies: Pick<RegionTallies, 'tally'>;
   /** A region's channel by name, as the bot sees it; undefined for one it does not. */
@@ -621,7 +624,7 @@ function trainRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewer
       ...trainItem(id, rows, activity.zone),
       month: trainMonth(rows.listing.createdAt, activity.zone),
       ...trainLine(rows, places),
-      card: trainCardLines(rows, raids, regionWords, activity.zone, now),
+      card: trainCardLines(rows, raids, activity.durations, regionWords, activity.zone, now),
     };
     return sendJson(request, reply, view);
 

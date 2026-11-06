@@ -6,6 +6,7 @@ import { resolvePartyTime } from './party-time.js';
 import {
   hatchTimeForEnd,
   longestRaidDurations,
+  longestRaidStand,
   raidDurationsAt,
   raidEventAt,
   type RaidDurationRules,
@@ -244,6 +245,24 @@ describe('longestRaidDurations', () => {
     expect(
       longestRaidDurations('elite', at('2026-10-31T13:00'), at('2026-10-31T15:00'), rules),
     ).toEqual({
+      incubation: 1440,
+      hatched: 30,
+    });
+  });
+});
+
+describe('longestRaidStand', () => {
+  it('takes a standard raid’s hatched time from the longest of its own and the events’', () => {
+    // The fixture's 45 minutes beat a Raid Hour's 25 and a Raid Day's 30.
+    expect(longestRaidStand('standard', settings)).toEqual({ incubation: 60, hatched: 45 });
+    expect(longestRaidStand('standard', withRaidDay(90).settings)).toEqual({
+      incubation: 60,
+      hatched: 90,
+    });
+  });
+
+  it('gives an elite raid its own times, whatever the events', () => {
+    expect(longestRaidStand('elite', withRaidDay(90).settings)).toEqual({
       incubation: 1440,
       hatched: 30,
     });

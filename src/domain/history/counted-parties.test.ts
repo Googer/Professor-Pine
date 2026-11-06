@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { TEST_SETTINGS_PATH } from '../../../test/support/test-settings.js';
 import { zonedAt } from '../../../test/support/time.js';
+import { loadSettings } from '../../config/settings.js';
 import { bucketOf, dayOf, NO_BOSS } from './activity.js';
 import {
   countedParties,
@@ -17,6 +19,12 @@ const ZONE = 'America/New_York';
 const T = zonedAt('2026-11-07T18:00', ZONE);
 /** When the records are counted. */
 const NOW = zonedAt('2026-11-10T12:00', ZONE);
+/** The fixture's raid times (an egg 60 minutes, a boss 45) and a train's reach. */
+const SETTINGS = loadSettings(TEST_SETTINGS_PATH);
+
+/** The parties a record counts as, with the fixture's raid times. */
+const countsOf = (record: CountedRecord, rows: CountedRows = {}) =>
+  countedParties(record, rows, SETTINGS);
 
 /** A raid train of region 2 after Mewtwo, made at 17:00, ended by the clock at 21:00. */
 const train = (overrides: Partial<CountedRecord> = {}): CountedRecord => ({
@@ -35,6 +43,7 @@ const train = (overrides: Partial<CountedRecord> = {}): CountedRecord => ({
   hereHeads: 4,
   doneHeads: 2,
   bossKey: 'MEWTWO',
+  tier: null,
   trainKind: 'raid',
   ...overrides,
 });
@@ -122,15 +131,15 @@ const party = (overrides: Partial<ReturnType<typeof countedParties>[number]>) =>
 describe('the parties a record counts as', () => {
   it('counts a raid or a max battle as itself, and a canceled one or a meetup as nothing', () => {
     const raidRecord = train({ kind: 'raid', gymId: 7, hatchTime: T, startTime: null });
-    expect(countedParties(raidRecord)).toEqual([raidRecord]);
+    expect(countsOf(raidRecord)).toEqual([raidRecord]);
     const max = train({ kind: 'max', wayspotId: 'abc.16', startTime: null });
-    expect(countedParties(max)).toEqual([max]);
-    expect(countedParties({ ...raidRecord, ending: 'cancelled' })).toEqual([]);
-    expect(countedParties(train({ kind: 'meetup' }))).toEqual([]);
+    expect(countsOf(max)).toEqual([max]);
+    expect(countsOf({ ...raidRecord, ending: 'cancelled' })).toEqual([]);
+    expect(countsOf(train({ kind: 'meetup' }))).toEqual([]);
   });
 
   it('counts each stop a raid train made as a raid at its gym, at its arrival, of its boss', () => {
-    const counted = countedParties(train(), rows([gym(1, 0, 20), gym(2, 20, 50)]));
+    const counted = countsOf(train(), rows([gym(1, 0, 20), gym(2, 20, 50)]));
     expect(counted).toEqual([
       party({ gymId: 1, createdAt: T, hatchTime: T }),
       party({ gymId: 2, createdAt: T + 20 * MINUTE, hatchTime: T + 20 * MINUTE }),
@@ -138,7 +147,7 @@ describe('the parties a record counts as', () => {
   });
 
   it('counts a loop’s stop at a gym each time, and no stop the card does not count', () => {
-    const counted = countedParties(
+    const counted = countsOf(
       train(),
       // Under a minute at gym 2 (a move by mistake), and gym 3 reached after the end.
       rows([gym(1, 0, 20), gym(2, 20, 20.5), gym(4, 20.5, 40), gym(1, 40, 60), gym(3, 200, null)]),
@@ -147,7 +156,7 @@ describe('the parties a record counts as', () => {
   });
 
   it('gives a Dynamax train’s boss to its Power Spot stops only', () => {
-    const counted = countedParties(
+    const counted = countsOf(
       train({ trainKind: 'dynamax', bossKey: 'AZELF' }),
       rows([gym(1, 0, 20), spot('abc.16', 20, 40)]),
     );
@@ -162,42 +171,42 @@ describe('the parties a record counts as', () => {
       }),
     ]);
     // A raid train's Power Spot stop is a max battle without a boss.
-    expect(countedParties(train(), rows([spot('abc.16', 0, 20)]))).toMatchObject([
+    expect(countsOf(train(), rows([spot('abc.16', 0, 20)]))).toMatchObject([
       { kind: 'max', bossKey: null },
     ]);
   });
 
   it('counts the stops of a train only where it took place, or where nobody could say', () => {
     for (const ending of ['completed', 'unknown', 'cutover']) {
-      expect(countedParties(train({ ending }), rows([gym(1, 0, 20)])), ending).toMatchObject([
+      expect(countsOf(train({ ending }), rows([gym(1, 0, 20)])), ending).toMatchObject([
         { ending },
       ]);
     }
     // Canceled, or nobody came (the controller's ruling of round 1): nothing.
     for (const ending of ['cancelled', 'expired']) {
-      expect(countedParties(train({ ending }), rows([gym(1, 0, 20)])), ending).toEqual([]);
+      expect(countsOf(train({ ending }), rows([gym(1, 0, 20)])), ending).toEqual([]);
     }
     // Its rows not read: nothing either.
-    expect(countedParties(train())).toEqual([]);
+    expect(countsOf(train())).toEqual([]);
   });
 
   it('counts every stop of a train without times (legacy) at its start, else when it was made', () => {
     const legacy = train({ source: 'legacy', endedAt: null, endTime: null });
     // A gym the list no longer has is a raid at no place.
-    expect(countedParties(legacy, rows([gym(1, null, null), gym(null, null, null)]))).toEqual([
+    expect(countsOf(legacy, rows([gym(1, null, null), gym(null, null, null)]))).toEqual([
       party({ gymId: 1, createdAt: T, hatchTime: T }),
       party({ createdAt: T, hatchTime: T }),
     ]);
-    expect(
-      countedParties({ ...legacy, startTime: null }, rows([gym(1, null, null)])),
-    ).toMatchObject([{ createdAt: T - 60 * MINUTE }]);
+    expect(countsOf({ ...legacy, startTime: null }, rows([gym(1, null, null)]))).toMatchObject([
+      { createdAt: T - 60 * MINUTE },
+    ]);
     // A live train whose stops have no times (it ended before its steps were kept) made none the
     // card counts: nothing (review T4).
-    expect(countedParties(train(), rows([gym(1, null, null)]))).toEqual([]);
+    expect(countsOf(train(), rows([gym(1, null, null)]))).toEqual([]);
   });
 
   it('counts nothing for a stop where the train joined a raid recorded before it', () => {
-    const counted = countedParties(
+    const counted = countsOf(
       train(),
       rows(
         [gym(1, 0, 20), gym(2, 20, 50), gym(3, 50, 70)],
@@ -221,12 +230,12 @@ describe('the parties a record counts as', () => {
     const after = raid(200, 1, -10, 35);
     const trains = [pairedTrain(train(), stops, [])];
     // The raid's record first: the raid counts, the stop nothing.
-    expect(countedParties(raidRecord(before), { trains })).toEqual([raidRecord(before)]);
-    expect(countedParties(train(), rows(stops, [before])).map((one) => one.gymId)).toEqual([2]);
+    expect(countsOf(raidRecord(before), { trains })).toEqual([raidRecord(before)]);
+    expect(countsOf(train(), rows(stops, [before])).map((one) => one.gymId)).toEqual([2]);
     // The train's first (a raid at its last stop that ran on, a max battle until 21:00): the
     // stop counts, the raid nothing.
-    expect(countedParties(train(), rows(stops, [after])).map((one) => one.gymId)).toEqual([1, 2]);
-    expect(countedParties(raidRecord(after), { trains })).toEqual([]);
+    expect(countsOf(train(), rows(stops, [after])).map((one) => one.gymId)).toEqual([1, 2]);
+    expect(countsOf(raidRecord(after), { trains })).toEqual([]);
   });
 
   it('pairs a raid only with a train whose stops count, that was there while it stood', () => {
@@ -242,19 +251,19 @@ describe('the parties a record counts as', () => {
       [pairedTrain(train(), [gym(2, 0, 20)], [])],
       [pairedTrain(train(), [gym(3, 0, 20), gym(1, 40, 60)], [])],
     ]) {
-      expect(countedParties(raidRecord(later), { trains })).toEqual([raidRecord(later)]);
+      expect(countsOf(raidRecord(later), { trains })).toEqual([raidRecord(later)]);
     }
     // A max battle at the Power Spot the train stopped at, recorded after it: the stop is it.
     const max = raid(201, 1, -10, 180, { kind: 'max', gymId: null, wayspotId: 'abc.16' });
     expect(
-      countedParties(raidRecord(max), {
+      countsOf(raidRecord(max), {
         trains: [pairedTrain(train(), [spot('abc.16', 0, 20)], [])],
       }),
     ).toEqual([]);
   });
 
   it('reads the trains around a batch’s raids: made within a train’s reach before, ended after', () => {
-    const settings = { maximumMeetupLeadtime: 2, maxMeetupLeadupDuration: 60 };
+    const settings = { ...SETTINGS, maximumMeetupLeadtime: 2, maxMeetupLeadupDuration: 60 };
     const raids = [raid(200, 1, 0, 45), raid(150, 2, -60, -15), raidRecord(raid(300, 3, 0, 45))];
     // A train is made at most the lead time and a day ahead of its end, which a day without
     // times may pass (`OPEN_PARTY_HOURS`).
@@ -274,7 +283,7 @@ describe('the parties a record counts as', () => {
   });
 
   it('counts a stop once, in the train’s region where it lies in several', () => {
-    const counted = countedParties(
+    const counted = countsOf(
       train(),
       rows([
         gym(1, 0, 10, [1, 2]),
@@ -287,7 +296,7 @@ describe('the parties a record counts as', () => {
   });
 
   it('gives each stop its own bucket and day, as a raid of the train’s boss', () => {
-    const [first] = countedParties(train(), rows([gym(1, 0, 20)]));
+    const [first] = countsOf(train(), rows([gym(1, 0, 20)]));
     if (first === undefined) throw new Error('no stop counted');
     expect(bucketOf(first, ZONE, NOW)).toEqual({
       regionId: 2,
@@ -308,7 +317,7 @@ describe('the parties a record counts as', () => {
       raids: 1,
       maxes: 0,
     });
-    const [gymStop] = countedParties(train({ trainKind: 'gigantamax' }), rows([gym(1, 0, 20)]));
+    const [gymStop] = countsOf(train({ trainKind: 'gigantamax' }), rows([gym(1, 0, 20)]));
     expect(gymStop === undefined ? undefined : dayOf(gymStop, ZONE, NOW)).toMatchObject({
       boss: NO_BOSS,
     });

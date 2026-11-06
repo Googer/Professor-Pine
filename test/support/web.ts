@@ -33,6 +33,8 @@ import { MemoryHistory } from './history.js';
 import { MemoryActivity } from './activity.js';
 import type { ActivityDayReader } from '../../src/db/repositories/activity-repository.js';
 import { HistoryDays } from '../../src/services/history-days.js';
+import { loadSettings } from '../../src/config/settings.js';
+import { TEST_SETTINGS_PATH } from './test-settings.js';
 import { Throttles } from '../../src/discord/throttle.js';
 import type { Party, Team } from '../../src/domain/party/party.js';
 import type { Member } from '../../src/services/attendance-service.js';
@@ -515,7 +517,15 @@ export function stopWebWith(
 export function activityWebWith(
   deps: Omit<
     ActivityWebDeps,
-    'tallies' | 'channelName' | 'boards' | 'memberStats' | 'bossName' | 'trains' | 'guilds' | 'days'
+    | 'tallies'
+    | 'channelName'
+    | 'boards'
+    | 'memberStats'
+    | 'bossName'
+    | 'trains'
+    | 'guilds'
+    | 'days'
+    | 'durations'
   > &
     Partial<ActivityWebDeps>,
 ): ActivityWebDeps {
@@ -543,6 +553,8 @@ export function activityWebWith(
     }),
     guilds,
     channelName: () => undefined,
+    // The fixture's raid times, for a train's card (W5).
+    durations: loadSettings(TEST_SETTINGS_PATH),
     // No ended trains (plan 8H-7B): a test that has them passes its `MemoryHistory`.
     trains: new MemoryHistory(),
     // Raids per day (plan 8H-8) over the same reader where it has them (`MemoryActivity`).

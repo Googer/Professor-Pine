@@ -1,5 +1,7 @@
 import { describe, expect, it } from 'vitest';
+import { TEST_SETTINGS_PATH } from '../../../test/support/test-settings.js';
 import { zonedAt } from '../../../test/support/time.js';
+import { loadSettings } from '../../config/settings.js';
 import type { HistoryAttendee, HistoryStop } from './party-history.js';
 import {
   raidsAlong,
@@ -13,6 +15,8 @@ import {
 
 const MINUTE = 60_000;
 const ZONE = 'America/New_York';
+/** The fixture's raid times: an egg 60 minutes, a boss 45 (an elite one 1,440 and 30). */
+const DURATIONS = loadSettings(TEST_SETTINGS_PATH);
 /** The train's start: 18:00 on a Saturday. */
 const T = zonedAt('2026-11-07T18:00', ZONE);
 
@@ -170,17 +174,22 @@ describe('raidsAlong: the raids recorded at the stops while the train was there'
   );
 
   it('counts each raid at a stop whose time overlaps it, once, by tier', () => {
-    const tally = raidsAlong(windows, END, [
-      raid(1, 1, 10, 55),
-      // At gym 1 again on the second lap: still one raid.
-      raid(2, 1, 50, 95),
-      raid(3, 2, -30, 15),
-      raid(4, 2, 30, 75, { tier: 'Mega' }),
-      raid(5, 2, 45, 90),
-      // A max battle at the Power Spot; another at a spot the train never reached.
-      raid(6, null, 40, 70, { kind: 'max', tier: 'D5', wayspotId: 'w1.16' }),
-      raid(7, null, 40, 70, { kind: 'max', tier: 'D5', wayspotId: 'w2.16' }),
-    ]);
+    const tally = raidsAlong(
+      windows,
+      END,
+      [
+        raid(1, 1, 10, 55),
+        // At gym 1 again on the second lap: still one raid.
+        raid(2, 1, 50, 95),
+        raid(3, 2, -30, 15),
+        raid(4, 2, 30, 75, { tier: 'Mega' }),
+        raid(5, 2, 45, 90),
+        // A max battle at the Power Spot; another at a spot the train never reached.
+        raid(6, null, 40, 70, { kind: 'max', tier: 'D5', wayspotId: 'w1.16' }),
+        raid(7, null, 40, 70, { kind: 'max', tier: 'D5', wayspotId: 'w2.16' }),
+      ],
+      DURATIONS,
+    );
     // The most first; of as many, raids before max battles, the higher tier first.
     expect(tally).toEqual([
       { tier: 'T5', shadow: false, count: 2 },
@@ -191,25 +200,44 @@ describe('raidsAlong: the raids recorded at the stops while the train was there'
 
   it('counts only what the heatmap counts, live: no cancelled raid, no legacy one, no train', () => {
     expect(
-      raidsAlong(windows, END, [
-        raid(1, 1, 10, 55, { ending: 'cancelled' }),
-        raid(2, 1, 10, 55, { source: 'legacy' }),
-        raid(3, 1, 10, 55, { kind: 'train' }),
-        raid(4, 1, 10, 55, { ending: 'expired', shadow: true }),
-      ]),
+      raidsAlong(
+        windows,
+        END,
+        [
+          raid(1, 1, 10, 55, { ending: 'cancelled' }),
+          raid(2, 1, 10, 55, { source: 'legacy' }),
+          raid(3, 1, 10, 55, { kind: 'train' }),
+          raid(4, 1, 10, 55, { ending: 'expired', shadow: true }),
+        ],
+        DURATIONS,
+      ),
     ).toEqual([{ tier: 'T5', shadow: true, count: 1 }]);
   });
 
-  it('takes a raid without a hatch from its report and one without an end time to its end', () => {
-    const tally = raidsAlong(windows, END, [
-      raid(1, 1, 30, null, {
-        hatchTime: null,
-        createdAt: T + 15 * MINUTE,
-        endedAt: T + 25 * MINUTE,
-      }),
-      raid(2, 2, 0, null, { endedAt: T + 10 * MINUTE }),
-    ]);
-    expect(tally).toEqual([{ tier: 'T5', shadow: false, count: 1 }]);
+  it('takes a raid without a hatch from its report, one without an end time as long as it can stand (W5)', () => {
+    const tally = raidsAlong(
+      windows,
+      END,
+      [
+        // An egg reported at 18:15 without times: it can stand until 20:00 (60 + 45 minutes).
+        raid(1, 1, 30, null, {
+          hatchTime: null,
+          createdAt: T + 15 * MINUTE,
+          endedAt: T + 25 * MINUTE,
+        }),
+        // Hatched at 18:00 without an end, closed at 18:10: it stood until 18:45, when the train
+        // was at gym 2 (18:20 to 18:40).
+        raid(2, 2, 0, null, { endedAt: T + 10 * MINUTE }),
+        // An elite raid hatched at 17:40 stands half an hour: over before the train came.
+        raid(3, 2, -20, null, { tier: 'Elite', endedAt: T + 10 * MINUTE }),
+      ],
+      DURATIONS,
+    );
+    expect(tally).toEqual([{ tier: 'T5', shadow: false, count: 2 }]);
+    // Ended by the clock long after (a sweep after a restart): the same.
+    expect(
+      raidsAlong(windows, null, [raid(2, 2, -60, null, { endedAt: T + 600 * MINUTE })], DURATIONS),
+    ).toEqual([]);
   });
 
   it('counts only the raids recorded by the train’s end, as its post saw them (G6)', () => {
@@ -220,7 +248,7 @@ describe('raidsAlong: the raids recorded at the stops while the train was there'
       raid(2, 2, 25, 35, { tier: 'Mega', endedAt: T + 180 * MINUTE }),
       raid(3, 2, 30, 40, { tier: 'T3', endedAt: T + 181 * MINUTE }),
     ];
-    expect(raidsAlong(windows, end, raids)).toEqual([
+    expect(raidsAlong(windows, end, raids, DURATIONS)).toEqual([
       { tier: 'T5', shadow: false, count: 1 },
       { tier: 'Mega', shadow: false, count: 1 },
     ]);
@@ -230,8 +258,9 @@ describe('raidsAlong: the raids recorded at the stops while the train was there'
       [stop(1, 0, 20), stop(2, 20, 40), spot('w1.16', 40, 60), stop(1, 60, 80)],
       [],
       raids,
+      DURATIONS,
     );
-    expect(card.raids).toEqual(raidsAlong(windows, end, raids));
+    expect(card.raids).toEqual(raidsAlong(windows, end, raids, DURATIONS));
   });
 
   it('names what to read: the gyms and Power Spots of the stops it counts, and when', () => {
@@ -259,6 +288,7 @@ describe('trainCard: what the card of an ended train says', () => {
       route,
       [rider('here', { extras: 2 }), rider('done'), rider('joined'), rider('interested')],
       [raid(1, 2, 25, 70)],
+      DURATIONS,
     );
     expect(card).toEqual({
       // The time of the stops it counts: 20 + 20 + 29.5 minutes.
@@ -272,18 +302,30 @@ describe('trainCard: what the card of an ended train says', () => {
   });
 
   it('sums the stops’ times, each at most half an hour, not the span from first to last', () => {
-    const card = trainCard(record(), [stop(1, 0, 10), stop(2, 10, 100), stop(3, 100, 110)], [], []);
+    const card = trainCard(
+      record(),
+      [stop(1, 0, 10), stop(2, 10, 100), stop(3, 100, 110)],
+      [],
+      [],
+      DURATIONS,
+    );
     expect(card.stops).toEqual({ count: 3, durationMs: 50 * MINUTE });
   });
 
   it('names no region where every stop it counts lay in none', () => {
-    const card = trainCard(record(), [stop(1, 0, 10, []), stop(2, 10, 20, [])], [], []);
+    const card = trainCard(record(), [stop(1, 0, 10, []), stop(2, 10, 20, [])], [], [], DURATIONS);
     expect(card.regionIds).toBeNull();
   });
 
   it('says only the riders of a train that never started', () => {
     expect(
-      trainCard(record({ endedAt: T - MINUTE }), [stop(1, 0, null, [1])], [rider('joined')], []),
+      trainCard(
+        record({ endedAt: T - MINUTE }),
+        [stop(1, 0, null, [1])],
+        [rider('joined')],
+        [],
+        DURATIONS,
+      ),
     ).toEqual({
       stops: null,
       regionIds: null,
@@ -301,6 +343,8 @@ describe('trainCard: what the card of an ended train says', () => {
       undefined,
     );
     expect(card).toMatchObject({ regionIds: null, peakRiders: null, raids: null });
-    expect(trainCard(record({ peakRiders: undefined }), route, [], []).peakRiders).toBeNull();
+    expect(
+      trainCard(record({ peakRiders: undefined }), route, [], [], DURATIONS).peakRiders,
+    ).toBeNull();
   });
 });

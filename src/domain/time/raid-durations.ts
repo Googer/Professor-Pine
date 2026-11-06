@@ -39,7 +39,16 @@ export interface RaidDurations {
   event?: RaidEvent;
 }
 
-function configured(kind: RaidKind, settings: RaidDurationSettings): RaidDurations {
+/** What `longestRaidStand` reads of the settings: the durations and the events' hatched times. */
+export type RaidStandSettings = Pick<
+  Settings,
+  | 'standardRaidIncubateDuration'
+  | 'standardRaidHatchedDuration'
+  | 'eliteRaidIncubateDuration'
+  | 'eliteRaidHatchedDuration'
+> & { raidEvents: Pick<Settings['raidEvents'], 'hatchedDuration'> };
+
+function configured(kind: RaidKind, settings: RaidStandSettings): RaidDurations {
   switch (kind) {
     case 'standard':
       return {
@@ -125,6 +134,26 @@ export function hatchTimeForEnd(kind: RaidKind, endTime: number, rules: RaidDura
     }
   }
   return endTime - usual * MINUTE;
+}
+
+/**
+ * The longest a raid of a kind can stand, in minutes, whatever events were on (plan 8H-9, W5: a
+ * record of the party history without an end time keeps no event): its incubation, and its
+ * hatched time, a standard raid's the longest of its own and a Raid Hour's or a Raid Day's (an
+ * elite raid keeps its own, as `raidDurationsAt` gives it). A duration set by hand for one raid
+ * (up to `maxRaidHatchedDuration`) is not kept in its record, and not counted.
+ */
+export function longestRaidStand(
+  kind: RaidKind,
+  settings: RaidStandSettings,
+): { incubation: number; hatched: number } {
+  const usual = configured(kind, settings);
+  if (kind !== 'standard') return usual;
+  const { hatchedDuration } = settings.raidEvents;
+  return {
+    incubation: usual.incubation,
+    hatched: Math.max(usual.hatched, hatchedDuration['raid-hour'], hatchedDuration['raid-day']),
+  };
 }
 
 /**

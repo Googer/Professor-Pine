@@ -1,5 +1,6 @@
 import type { Settings } from '../../config/settings.js';
 import { OPEN_PARTY_HOURS } from '../party/timed.js';
+import type { RaidStandSettings } from '../time/raid-durations.js';
 import { countsAsActivity, type ActivityRecord } from './activity.js';
 import {
   hasOwnCount,
@@ -36,6 +37,8 @@ export interface CountedRecord extends ActivityRecord {
   endTime: number | null;
   /** Null only for a legacy record. */
   endedAt: number | null;
+  /** The tier (`Elite` stands its own times, `raidTime`); null where not known. */
+  tier: string | null;
   /** What a train went to (`raid`, `dynamax`, `gigantamax`); null for every other party. */
   trainKind: string | null;
 }
@@ -132,6 +135,9 @@ export function trainReachMs(settings: TrainReachSettings): number {
   );
 }
 
+/** The settings the adding's counting reads: a train's reach, and how long a raid stands. */
+export type CountingSettings = TrainReachSettings & RaidStandSettings;
+
 /** The trains to read for a batch's raids (`trainsAroundQuery`). */
 export interface TrainsAroundQuery {
   /** Made from `from` to `to` (`createdAt`, the index's range). */
@@ -151,11 +157,11 @@ export interface TrainsAroundQuery {
  */
 export function trainsAroundQuery(
   raids: readonly PairedRaid[],
-  settings: TrainReachSettings,
+  settings: CountingSettings,
 ): TrainsAroundQuery | undefined {
   const own = raids.filter(hasOwnCount);
   if (own.length === 0) return undefined;
-  const times = own.map((raid) => raidTime(raid));
+  const times = own.map((raid) => raidTime(raid, settings));
   const first = Math.min(...times.map((time) => time.start));
   return {
     from: first - trainReachMs(settings),
@@ -179,11 +185,18 @@ export function trainsAroundQuery(
  * of the two that came first (the pairing rule, `laterOfPair`, W1): a stop where the train joined
  * a raid recorded before it (`joinedStops`) counts nothing, and so does a raid or max battle a
  * train recorded before it stopped at (`joinedRaid`, of `rows.trains`). `rows.train` absent (its
- * rows not read) counts nothing of a train.
+ * rows not read) counts nothing of a train. `durations`: how long a raid without an end time
+ * stood (`raidTime`).
  */
-export function countedParties(record: CountedRecord, rows: CountedRows = {}): CountedParty[] {
+export function countedParties(
+  record: CountedRecord,
+  rows: CountedRows,
+  durations: RaidStandSettings,
+): CountedParty[] {
   const { train } = rows;
-  if (countsAsActivity(record)) return joinedRaid(record, rows.trains ?? []) ? [] : [record];
+  if (countsAsActivity(record)) {
+    return joinedRaid(record, rows.trains ?? [], durations) ? [] : [record];
+  }
   if (!trainStopsCount(record) || train === undefined) return [];
   const boss = (kind: 'raid' | 'max'): string | null =>
     (kind === 'raid') === ((record.trainKind ?? 'raid') === 'raid') ? record.bossKey : null;
@@ -211,7 +224,7 @@ export function countedParties(record: CountedRecord, rows: CountedRows = {}): C
     return train.stops.map((one) => stop(one, one.regionIds ?? null, at));
   }
   const { windows } = pairedTrain(record, train.stops, train.attendees);
-  const joined = joinedStops(record.id, windows, train.raids);
+  const joined = joinedStops(record.id, windows, train.raids, durations);
   return windows.flatMap((w, index) =>
     joined[index] === true ? [] : [stop(w, w.regionIds, w.from)],
   );

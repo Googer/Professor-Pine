@@ -128,13 +128,22 @@ export function raidsAlongCases(
         endTime: ALONG_FROM,
         endedAt: ALONG_FROM,
       }),
-      // No end time: until it ended.
+      // No end time, ended before the train came: read, whenever it ended, since how long it
+      // stood is the domain's (`raidTime`, W5: an egg reported an hour before stands 105 minutes).
       alongRecord({
         tier: 'T5',
         createdAt: ALONG_FROM - HOUR,
         hatchTime: null,
         endTime: null,
         endedAt: ALONG_FROM - 1,
+      }),
+      // No end time, hatched after the train's last stop: not read.
+      alongRecord({
+        tier: 'Mega',
+        createdAt: ALONG_TO - HOUR,
+        hatchTime: ALONG_TO + 1,
+        endTime: null,
+        endedAt: ALONG_TO + HOUR,
       }),
     ]);
     const rows = await reader.raidsAlong(ALONG_SERVER, {
@@ -143,7 +152,7 @@ export function raidsAlongCases(
       from: ALONG_FROM,
       to: ALONG_TO,
     });
-    expect(rows.map((row) => row.tier).sort()).toEqual(['T1', 'T2', 'T3']);
+    expect(rows.map((row) => row.tier).sort()).toEqual(['T1', 'T2', 'T3', 'T5']);
   });
 
   it('reads nothing for a train at no gym and no Power Spot', async () => {

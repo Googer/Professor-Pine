@@ -104,9 +104,10 @@ export interface HistoryStorage {
 /**
  * The raids and max battles of the history a train may have passed (plan 8H-7A, the card of an
  * ended train): `raidsAlong` reads a server's live records of kind `raid` or `max` at the gyms
- * and Power Spots asked whose time (`raidTime`: hatch or report to end) overlaps the train's
- * first stop to its last, reported within `RAIDS_ALONG_REACH_MS` of them (the index's range);
- * which of them the train passed, at which stop, is the domain's (`raidsAlong`).
+ * and Power Spots asked whose time (`raidTime`: hatch or report to end, a raid without an end
+ * time however long it may have stood) overlaps the train's first stop to its last, reported
+ * within `RAIDS_ALONG_REACH_MS` of them (the index's range); which of them the train passed, at
+ * which stop, is the domain's (`raidsAlong`).
  */
 export interface RaidsAlongReader {
   raidsAlong(serverId: string, query: RaidsAlongQuery): Promise<RaidAlongRow[]>;
@@ -726,11 +727,13 @@ export class HistoryRepository
       .where('serverId', '=', serverId)
       .where('source', '=', 'live')
       .where('kind', 'in', ['raid', 'max'])
-      // The index's range, then the raid's own time as the domain takes it (`raidTime`).
+      // The index's range, then the raid's own time as the domain takes it (`raidTime`): one
+      // without an end time stood as long as its tier can (the settings', W5), which the domain
+      // judges; the reach of its report bounds it here.
       .where('createdAt', '>=', String(from - RAIDS_ALONG_REACH_MS))
       .where('createdAt', '<=', String(to + RAIDS_ALONG_REACH_MS))
       .where(sql<boolean>`coalesce(hatchTime, createdAt) <= ${to}`)
-      .where(sql<boolean>`coalesce(endTime, endedAt, hatchTime, createdAt) >= ${from}`)
+      .where((eb) => eb.or([eb('endTime', 'is', null), eb('endTime', '>=', String(from))]))
       .where((eb) =>
         eb.or([
           ...(gymIds.length === 0 ? [] : [eb('gymId', 'in', gymIds)]),

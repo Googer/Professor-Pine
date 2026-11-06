@@ -17,7 +17,7 @@ import {
   trainsAroundQuery,
   trainStopsCount,
   type CountedRecord,
-  type TrainReachSettings,
+  type CountingSettings,
   type TrainRows,
   type TrainsAroundQuery,
 } from '../../domain/history/counted-parties.js';
@@ -119,8 +119,11 @@ export interface RebuiltServer {
 export interface ActivityRepositoryOptions {
   /** `settings.timezone`: the local month, weekday and hour of a bucket. */
   zone: string;
-  /** The settings the pairing rule reads (W1): how long a train may run (`trainReachMs`). */
-  settings: TrainReachSettings;
+  /**
+   * The settings the counting reads: how long a train may run (`trainReachMs`, the pairing rule,
+   * W1) and a raid without an end time stand (`raidTime`, W5).
+   */
+  settings: CountingSettings;
   /** Records read per transaction; `ACTIVITY_BATCH` by default. */
   batch?: number;
   /** The clock (`Date.now` by default): a record after this month is bucketed at no time. */
@@ -324,10 +327,11 @@ export class ActivityRepository implements ActivityReader, ActivityDayReader {
           hereHeads: number;
           doneHeads: number;
           bossKey: string | null;
+          tier: string | null;
           trainKind: string | null;
         }>`
           select id, source, kind, ending, createdAt, hatchTime, startTime, endTime, endedAt,
-                 regionId, gymId, wayspotId, hereHeads, doneHeads, bossKey, trainKind
+                 regionId, gymId, wayspotId, hereHeads, doneHeads, bossKey, tier, trainKind
           from PartyHistory force index (partyhistory_serverid_id_index)
           where serverId = ${serverId} and id > ${Math.min(marks.buckets, marks.days)}
           order by id
@@ -349,6 +353,7 @@ export class ActivityRepository implements ActivityReader, ActivityDayReader {
           hereHeads: Number(row.hereHeads),
           doneHeads: Number(row.doneHeads),
           bossKey: row.bossKey,
+          tier: row.tier,
           trainKind: row.trainKind,
         }));
         const last = records.at(-1);
@@ -358,7 +363,11 @@ export class ActivityRepository implements ActivityReader, ActivityDayReader {
         const { trains, around } = await this.trainsOf(trx, serverId, records);
         const counted = records.map((record) => ({
           id: record.id,
-          parties: countedParties(record, { train: trains.get(record.id), trains: around }),
+          parties: countedParties(
+            record,
+            { train: trains.get(record.id), trains: around },
+            this.options.settings,
+          ),
         }));
         const buckets = sumBuckets(
           counted.flatMap(({ id, parties }) =>

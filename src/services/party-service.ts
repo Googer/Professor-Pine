@@ -2826,7 +2826,7 @@ export class PartyService {
     const query = raidsAlongQuery(windows);
     const raids =
       query === undefined ? [] : await this.raidsAlongOf(party, recorded.serverId, query);
-    return trainCard(recorded, recorded.stops, recorded.attendees, raids);
+    return trainCard(recorded, recorded.stops, recorded.attendees, raids, this.options.settings);
   }
 
   /**

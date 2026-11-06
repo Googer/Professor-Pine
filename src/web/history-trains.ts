@@ -6,6 +6,7 @@ import {
   type TrainCard,
 } from '../domain/history/train-card.js';
 import { trainShownOnWeb } from '../domain/history/trains-on-web.js';
+import type { RaidStandSettings } from '../domain/time/raid-durations.js';
 import { clockWords, shortDateWords, shortDayWords, zoned } from '../domain/time/zoned.js';
 import type {
   TrainCardLineView,
@@ -115,9 +116,16 @@ export function trainRegionIds(rows: TrainCardRows, places: TrainPlaces): number
   return [...ids];
 }
 
-/** The card of a live train, as its post made it (raids undefined: none read). */
-function cardOf(rows: TrainCardRows, raids: readonly RaidAlongRow[] | undefined): TrainCard {
-  return trainCard(rows.record, rows.stops, rows.attendees, raids);
+/**
+ * The card of a live train, as its post made it (raids undefined: none read), with the settings'
+ * raid times (`raidTime`).
+ */
+function cardOf(
+  rows: TrainCardRows,
+  raids: readonly RaidAlongRow[] | undefined,
+  durations: RaidStandSettings,
+): TrainCard {
+  return trainCard(rows.record, rows.stops, rows.attendees, raids, durations);
 }
 
 /** A train of a month's list (`id` its record's), in the server's words. */
@@ -132,7 +140,7 @@ export function trainItem(id: number, rows: TrainCardRows, zone: string): TrainI
     stops = legacyTrainWords(rows.stops.length);
     riders = count(listing.here + listing.done, 'rider');
   } else {
-    const card = cardOf(rows, undefined);
+    const card = trainCard(rows.record, rows.stops, rows.attendees, undefined);
     stops = card.stops === null ? 'It never left' : `About ${count(card.stops.count, 'stop')}`;
     riders = count(card.riders.members, 'rider');
   }
@@ -148,11 +156,13 @@ export function trainItem(id: number, rows: TrainCardRows, zone: string): TrainI
  * A train's card as the page shows it (review G7): `trainCardText`, the post's own words, with
  * the regions in the web's words and room for all of it, made page text line by line
  * (`pageWords`), its small print marked. A legacy train has no card (review G3): one line of its
- * stops. `raids` as the post reads them (undefined: not read, and the card says nothing of them).
+ * stops. `raids` as the post reads them (undefined: not read, and the card says nothing of them),
+ * `durations` the settings' raid times (`raidTime`).
  */
 export function trainCardLines(
   rows: TrainCardRows,
   raids: readonly RaidAlongRow[] | undefined,
+  durations: RaidStandSettings,
   regionWords: (regionId: number) => string | undefined,
   zone: string,
   now: number,
@@ -160,7 +170,7 @@ export function trainCardLines(
   if (rows.listing.source === 'legacy') {
     return [{ text: legacyTrainWords(rows.stops.length), small: false }];
   }
-  const text = trainCardText(cardOf(rows, raids), regionWords, WHOLE);
+  const text = trainCardText(cardOf(rows, raids, durations), regionWords, WHOLE);
   return text.split('\n').map((line) => ({
     text: pageWords(line.replace(SMALL, ''), zone, now),
     small: SMALL.test(line),

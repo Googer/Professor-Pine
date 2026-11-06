@@ -1,3 +1,4 @@
+import { longestRaidStand, type RaidStandSettings } from '../time/raid-durations.js';
 import { countsAsActivity } from './activity.js';
 import { historyCounts, type HistoryAttendee, type HistoryStop } from './party-history.js';
 
@@ -206,14 +207,23 @@ const rank = (tier: string | null): number => {
 
 /**
  * When a raid or max battle stood, as `raidsAlong` counts it: from its hatch (its report where
- * it has none) to its end time (where it has none, when it ended). The read bounds by the same
+ * it has none) to its end time; where it has none (a raid reported without times; a max battle
+ * always has one), as long as a raid of its tier can stand (`longestRaidStand`, from the
+ * settings: an elite raid's own times, a standard one's the longest of its own and the events'):
+ * from its report, an egg's incubation and its hatched time (whether it was reported as an egg is
+ * not kept, so the longer of the two), from its hatch, the hatched time (W5: never when it ended,
+ * which a sweep after a restart may put hours late). The read bounds by no more than that
  * (review A4).
  */
 export function raidTime(
-  raid: Pick<RaidAlongRow, 'createdAt' | 'hatchTime' | 'endTime' | 'endedAt'>,
+  raid: Pick<RaidAlongRow, 'createdAt' | 'hatchTime' | 'endTime' | 'tier'>,
+  durations: RaidStandSettings,
 ): { start: number; end: number } {
   const start = raid.hatchTime ?? raid.createdAt;
-  return { start, end: raid.endTime ?? raid.endedAt ?? start };
+  if (raid.endTime !== null) return { start, end: raid.endTime };
+  const longest = longestRaidStand(raid.tier === 'Elite' ? 'elite' : 'standard', durations);
+  const minutes = (raid.hatchTime === null ? longest.incubation : 0) + longest.hatched;
+  return { start, end: start + minutes * MINUTE };
 }
 
 /**
@@ -237,6 +247,7 @@ export type PairedRaid = Pick<
   | 'source'
   | 'kind'
   | 'ending'
+  | 'tier'
   | 'gymId'
   | 'wayspotId'
   | 'createdAt'
@@ -252,8 +263,8 @@ export interface PairedTrain {
 }
 
 /** Whether a raid stood at a stop's gym or Power Spot while the train was there. */
-function passedAt(w: StopWindow, raid: PairedRaid): boolean {
-  const { start, end } = raidTime(raid);
+function passedAt(w: StopWindow, raid: PairedRaid, durations: RaidStandSettings): boolean {
+  const { start, end } = raidTime(raid, durations);
   return (
     ((raid.gymId !== null && w.gymId === raid.gymId) ||
       (raid.wayspotId !== null && w.wayspotId === raid.wayspotId)) &&
@@ -275,8 +286,9 @@ export function laterOfPair(
   train: number,
   w: StopWindow,
   raid: PairedRaid,
+  durations: RaidStandSettings,
 ): 'stop' | 'raid' | undefined {
-  if (!hasOwnCount(raid) || !passedAt(w, raid)) return undefined;
+  if (!hasOwnCount(raid) || !passedAt(w, raid, durations)) return undefined;
   return raid.id < train ? 'stop' : 'raid';
 }
 
@@ -288,40 +300,47 @@ export function joinedStops(
   train: number,
   windows: readonly StopWindow[],
   raids: readonly PairedRaid[],
+  durations: RaidStandSettings,
 ): boolean[] {
-  return windows.map((w) => raids.some((raid) => laterOfPair(train, w, raid) === 'stop'));
+  return windows.map((w) =>
+    raids.some((raid) => laterOfPair(train, w, raid, durations) === 'stop'),
+  );
 }
 
 /**
  * Whether a raid or max battle record is a stop of a train recorded before it (`laterOfPair`,
  * `trains` as `pairedTrain` gives them): that train counts it, and the record nothing.
  */
-export function joinedRaid(raid: PairedRaid, trains: readonly PairedTrain[]): boolean {
+export function joinedRaid(
+  raid: PairedRaid,
+  trains: readonly PairedTrain[],
+  durations: RaidStandSettings,
+): boolean {
   return trains.some((train) =>
-    train.windows.some((w) => laterOfPair(train.id, w, raid) === 'raid'),
+    train.windows.some((w) => laterOfPair(train.id, w, raid, durations) === 'raid'),
   );
 }
 
 /**
  * The raids along the way (review F-B6): the raid and max battle records the heatmap counts
  * (`countsAsActivity`), live ones only, at a counted stop's gym (`gymId`) or Power Spot
- * (`wayspotId`), whose time (`coalesce(hatchTime, createdAt)` to `coalesce(endTime, endedAt)`)
- * overlaps the train's time at that stop; each raid once, however often the train passed. By
- * tier and shadow, the most first. Records only (Matt): a raid still running when the train ended
- * has none yet, and one recorded after the train's end (`endedAt`, review G6) is left out, so
- * that the card read back later for the web is the one its post showed. `endedAt` null (a legacy
- * record): no such bound.
+ * (`wayspotId`), whose time (`raidTime`) overlaps the train's time at that stop; each raid once,
+ * however often the train passed. By tier and shadow, the most first. Records only (Matt): a raid
+ * still running when the train ended has none yet, and one recorded after the train's end
+ * (`endedAt`, review G6) is left out, so that the card read back later for the web is the one its
+ * post showed. `endedAt` null (a legacy record): no such bound.
  */
 export function raidsAlong(
   windows: readonly StopWindow[],
   endedAt: number | null,
   raids: readonly RaidAlongRow[],
+  durations: RaidStandSettings,
 ): RaidTally[] {
   const counted = new Set<number>();
   const tallies = new Map<string, RaidTally>();
   for (const raid of raids) {
     if (counted.has(raid.id) || !onTheCard(raid, endedAt)) continue;
-    if (!windows.some((w) => passedAt(w, raid))) continue;
+    if (!windows.some((w) => passedAt(w, raid, durations))) continue;
     counted.add(raid.id);
     const key = `${raid.tier ?? ''}:${String(raid.shadow)}`;
     const tally = tallies.get(key) ?? { tier: raid.tier, shadow: raid.shadow, count: 0 };
@@ -345,17 +364,32 @@ function regionsCrossed(windows: readonly StopWindow[]): number[] | null {
 
 /**
  * The card of an ended train, from its record's rows (`record`, `stops` in their order,
- * `attendees`) and the raids read for it (`raids`, as `raidsAlongQuery` asks; undefined where
- * they could not be read, and the card says nothing of raids then). A train that counts no stop
- * (it never started: no arrival at or before its end, or only moves made by mistake) says only
- * its riders. Riders are the record's own counts (`historyCounts`): members who reached Here or
- * Done, and with the +1s they had at the end.
+ * `attendees`) and the raids read for it (`raids`, as `raidsAlongQuery` asks, with the settings'
+ * raid times `raidTime` reads; undefined where they could not be read or are not asked for, and
+ * the card says nothing of raids then). A train that counts no stop (it never started: no arrival
+ * at or before its end, or only moves made by mistake) says only its riders. Riders are the
+ * record's own counts (`historyCounts`): members who reached Here or Done, and with the +1s they
+ * had at the end.
  */
 export function trainCard(
   record: CardRecord,
   stops: readonly CardStop[],
   attendees: readonly CardAttendee[],
+  raids: undefined,
+): TrainCard;
+export function trainCard(
+  record: CardRecord,
+  stops: readonly CardStop[],
+  attendees: readonly CardAttendee[],
   raids: readonly RaidAlongRow[] | undefined,
+  durations: RaidStandSettings,
+): TrainCard;
+export function trainCard(
+  record: CardRecord,
+  stops: readonly CardStop[],
+  attendees: readonly CardAttendee[],
+  raids: readonly RaidAlongRow[] | undefined,
+  durations?: RaidStandSettings,
 ): TrainCard {
   const counts = historyCounts(attendees);
   const riders = { members: counts.here + counts.done, heads: counts.hereHeads + counts.doneHeads };
@@ -372,6 +406,9 @@ export function trainCard(
     regionIds: regionsCrossed(windows),
     riders,
     peakRiders,
-    raids: raids === undefined ? null : raidsAlong(windows, record.endedAt, raids),
+    raids:
+      raids === undefined || durations === undefined
+        ? null
+        : raidsAlong(windows, record.endedAt, raids, durations),
   };
 }

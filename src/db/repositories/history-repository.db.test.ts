@@ -11,6 +11,8 @@ import {
 } from '../../../test/support/train-history-cases.js';
 import type { HistoryRecord } from '../../domain/history/party-history.js';
 import { trainCard } from '../../domain/history/train-card.js';
+import { loadSettings } from '../../config/settings.js';
+import { TEST_SETTINGS_PATH } from '../../../test/support/test-settings.js';
 import { trainMonthRange } from '../../domain/history/trains-on-web.js';
 import { startMigratedDatabase } from '../../../test/support/migrated-db.js';
 import type { TestDatabase } from '../../../test/support/mysql.js';
@@ -18,6 +20,8 @@ import { createDb } from '../kysely.js';
 import type { DB } from '../types.js';
 import { HistoryRepository } from './history-repository.js';
 
+/** The fixture's raid times, for the card. */
+const SETTINGS = loadSettings(TEST_SETTINGS_PATH);
 const ALICE = '312345678901234567';
 const BOB = '312345678901234568';
 const HOME = '412345678901234567';
@@ -444,10 +448,10 @@ describe('HistoryRepository: who is named in the history', () => {
       const raids = [
         { id: 1, ...raid, gymId: 1, hatchTime: NOW + 5 * MINUTE, endTime: NOW + 50 * MINUTE },
       ];
-      expect(trainCard(rows.record, rows.stops, rows.attendees, raids)).toEqual(
-        trainCard(train, train.stops, train.attendees, raids),
+      expect(trainCard(rows.record, rows.stops, rows.attendees, raids, SETTINGS)).toEqual(
+        trainCard(train, train.stops, train.attendees, raids, SETTINGS),
       );
-      expect(trainCard(rows.record, rows.stops, rows.attendees, raids)).toMatchObject({
+      expect(trainCard(rows.record, rows.stops, rows.attendees, raids, SETTINGS)).toMatchObject({
         stops: { count: 3 },
         regionIds: [2, 1],
         riders: { members: 3, heads: 4 },

@@ -1057,7 +1057,7 @@ describe('a train a group was split off (plan 8T)', () => {
       ['here', T + MINUTE],
       ['here', T + MINUTE],
     ]);
-    const card = trainCard(kept, kept.stops, kept.attendees, []);
+    const card = trainCard(kept, kept.stops, kept.attendees, undefined);
     expect(trainCardText(card, () => undefined, WHOLE)).not.toContain('Nobody rode it.');
     // A train of its own that starts with a member on Coming has nobody aboard yet.
     const coming = withAttendees(train(0), { [ALICE]: {} });

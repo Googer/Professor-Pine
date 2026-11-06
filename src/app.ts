@@ -1562,6 +1562,7 @@ export async function startApp(
         gyms,
         wayspots,
         zone: config.settings.timezone,
+        durations: config.settings,
         tallies: ctx.regionTallies,
         channelName: (channelId) => partyGateway.channelName(channelId),
         // The boards and "Your history" (plan 8H-6): /stats boards' and /stats me's own paths.
