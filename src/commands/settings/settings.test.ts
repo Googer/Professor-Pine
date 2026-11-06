@@ -10,7 +10,8 @@ import {
   answered,
   sent,
 } from '../../../test/support/fake-interactions.js';
-import { dialogField, shownDialog } from '../../../test/support/dialogs.js';
+import { dialogField, dialogTexts, shownDialog } from '../../../test/support/dialogs.js';
+import { DIALOG_READ_MS, SLOW_READ } from '../../discord/dialog.js';
 import { MemoryHistoryOptIns } from '../../../test/support/history.js';
 import { MemoryNewTrains } from '../../../test/support/new-trains.js';
 import { ALICE } from '../../../test/support/parties.js';
@@ -32,6 +33,7 @@ import { InteractionRouter } from '../../discord/router.js';
 import type { V2Message } from '../../discord/party-gateway.js';
 import { PartyStatus, RaidPrivacy } from '../../domain/party/status.js';
 import { DEFAULT_USER_SETTINGS } from '../../db/repositories/user-repository.js';
+import type { OptedOut } from '../../db/repositories/history-repository.js';
 import { targets as targetsCommand } from '../notifications/targets.js';
 import { wants as wantsCommand } from '../notifications/wants.js';
 import { settings, settingsControls } from './settings.js';
@@ -423,8 +425,10 @@ describe('the controls of /settings', () => {
     expect(textDisplays(on)).toContain('History in this server: **on**');
     expect(await made.history.isOptedIn(ALICE, FAKE_GUILD_ID)).toBe(true);
     expect(await made.history.isOptedIn(ALICE, AWAY)).toBe(false);
-    const off = shownAfter(await made.press('settings:history:set:off'));
-    expect(textDisplays(off)[0]).toBe('### Your settings\nYour history is off.');
+    // Named nowhere yet and on no board: nothing to ask about, it is off at once.
+    const pressed = await made.press('settings:history:set:off');
+    expect(pressed.showModal).not.toHaveBeenCalled();
+    expect(textDisplays(shownAfter(pressed))[0]).toBe('### Your settings\nYour history is off.');
     expect(await made.history.isOptedIn(ALICE, FAKE_GUILD_ID)).toBe(false);
   });
 
@@ -609,6 +613,112 @@ describe('the controls of /settings', () => {
     const next = await made.press('settings:mentions:set:off');
     expect(sent(next.reply).content).toMatch(/^That was a lot of clicks\. Try again in /u);
     expect(textDisplays(await made.panel())[0]).toBe('### Your settings');
+  });
+});
+
+describe('turning the history off in /settings (S1, S2)', () => {
+  it('asks in a dialog how many records lose the name, and Submit turns it off', async () => {
+    const made = setup();
+    await made.history.joinBoards(ALICE, FAKE_GUILD_ID, 0);
+    made.history.named(ALICE, FAKE_GUILD_ID, 3);
+    const asked = await made.press('settings:history:set:off');
+    const dialog = shownDialog(asked);
+    expect(dialog.custom_id).toBe('settings:history:forget');
+    expect(dialog.title).toBe('Turn your history off');
+    expect(dialogTexts(dialog)).toEqual([
+      'This takes your Discord id off 3 records (they still count) and takes you off the ' +
+        'boards. Submit turns it off.',
+    ]);
+    // Nothing changed before the Submit.
+    expect(await made.history.isOptedIn(ALICE, FAKE_GUILD_ID)).toBe(true);
+    const counted = await made.history.namedIn(ALICE, FAKE_GUILD_ID);
+    const optOut = vi.spyOn(made.history, 'optOut');
+    const submitted = await made.submit(dialog.custom_id, dialog, {});
+    expect(submitted.deferUpdate).toHaveBeenCalledTimes(1);
+    // The memory twin answers both from one number, so this holds by its make: it pins that the
+    // line says the opt-out's own count. One path in SQL is `history-repository.db.test.ts`'s.
+    const opted = (await optOut.mock.results[0]?.value) as OptedOut | undefined;
+    expect(opted?.forgotten).toBe(counted);
+    expect(textDisplays(shownAfter(submitted))[0]).toBe(
+      '### Your settings\nYour history is off. I took your Discord id off 3 records; they ' +
+        'still count. You are off the boards too.',
+    );
+    expect(await made.history.isOptedIn(ALICE, FAKE_GUILD_ID)).toBe(false);
+    expect(await made.history.isOnBoards(ALICE, FAKE_GUILD_ID)).toBe(false);
+  });
+
+  it.each([
+    [
+      1,
+      false,
+      'This takes your Discord id off the one record (it still counts). Submit turns it off.',
+    ],
+    [2, false, 'This takes your Discord id off 2 records (they still count). Submit turns it off.'],
+    [0, true, 'This takes you off the boards. Submit turns it off.'],
+  ] as const)(
+    'words the question for %s records, on the boards: %s',
+    async (records, boards, text) => {
+      const made = setup();
+      await made.history.optIn(ALICE, FAKE_GUILD_ID, 0);
+      if (boards) await made.history.joinBoards(ALICE, FAKE_GUILD_ID, 0);
+      made.history.named(ALICE, FAKE_GUILD_ID, records);
+      expect(dialogTexts(shownDialog(await made.press('settings:history:set:off')))).toEqual([
+        text,
+      ]);
+    },
+  );
+
+  it('says so where the history was turned off meanwhile', async () => {
+    const made = setup();
+    await made.history.optIn(ALICE, FAKE_GUILD_ID, 0);
+    made.history.named(ALICE, FAKE_GUILD_ID, 2);
+    const dialog = shownDialog(await made.press('settings:history:set:off'));
+    await made.history.optOut(ALICE, FAKE_GUILD_ID);
+    const submitted = await made.submit(dialog.custom_id, dialog, {});
+    expect(textDisplays(shownAfter(submitted))[0]).toBe('### Your settings\nThat was off already.');
+  });
+
+  it('opens no dialog when the count is slow, and says so', async () => {
+    const made = setup();
+    await made.history.optIn(ALICE, FAKE_GUILD_ID, 0);
+    let asked: (() => void) | undefined;
+    const wasAsked = new Promise<void>((resolve) => {
+      asked = resolve;
+    });
+    vi.spyOn(made.history, 'namedIn').mockImplementation(() => {
+      asked?.();
+      return new Promise<number>(() => undefined);
+    });
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+    const pressing = made.press('settings:history:set:off');
+    await wasAsked;
+    await vi.advanceTimersByTimeAsync(DIALOG_READ_MS);
+    const pressed = await pressing;
+    expect(pressed.showModal).not.toHaveBeenCalled();
+    expect(sent(pressed.reply).content).toBe(SLOW_READ);
+    expect(await made.history.isOptedIn(ALICE, FAKE_GUILD_ID)).toBe(true);
+  });
+
+  it('takes five Submits in ten minutes, in a window of their own', async () => {
+    const made = setup();
+    for (let use = 0; use < 5; use++) {
+      await made.history.optIn(ALICE, FAKE_GUILD_ID, 0);
+      made.history.named(ALICE, FAKE_GUILD_ID, 1);
+      const dialog = shownDialog(await made.press('settings:history:set:off'));
+      expect(textDisplays(shownAfter(await made.submit(dialog.custom_id, dialog, {})))[0]).toMatch(
+        /Your history is off\./u,
+      );
+    }
+    await made.history.optIn(ALICE, FAKE_GUILD_ID, 0);
+    made.history.named(ALICE, FAKE_GUILD_ID, 1);
+    // The button that would open the dialog is refused while its window is full.
+    const refused = await made.press('settings:history:set:off');
+    expect(refused.showModal).not.toHaveBeenCalled();
+    expect(sent(refused.reply).content).toMatch(/^That was a lot of clicks\. Try again in /u);
+    // Other controls go on in theirs.
+    expect(textDisplays(shownAfter(await made.press('settings:shouts:set:off')))[0]).toBe(
+      '### Your settings\nPings for shouts are off.',
+    );
   });
 });
 

@@ -38,6 +38,12 @@ export interface HistoryOptIns {
    */
   optOut(memberId: string, guildId: string): Promise<OptedOut>;
   /**
+   * In how many records of this server's history (parties and reports at stops together) the
+   * member is named: what `optOut` would take their id out of, counted as it counts them (the
+   * question before turning the history off, plan 8S-5).
+   */
+  namedIn(memberId: string, guildId: string): Promise<number>;
+  /**
    * Whether the member is on the boards of this server (`/settings leaderboard`, plan 8H-6):
    * both their history opt-in and their board row are there.
    */
@@ -859,15 +865,8 @@ export class HistoryRepository
         .where('serverId', '=', guildId)
         .where('memberId', '=', memberId)
         .executeTakeFirst();
-      const named = await sql<{ n: number }>`
-        select count(distinct n.id) as n from (
-          select id from PartyHistory where createdById = ${memberId} and serverId = ${guildId}
-          union all
-          select id from PartyHistory where conductorId = ${memberId} and serverId = ${guildId}
-          union all
-          select a.historyId as id from PartyHistoryAttendee a
-          join PartyHistory h on h.id = a.historyId
-          where a.memberId = ${memberId} and h.serverId = ${guildId}) n`.execute(trx);
+      // Counted before the ids go, as `namedIn` counts them (one path).
+      const forgotten = await namedCount(trx, memberId, guildId);
       await sql`
         update PartyHistoryAttendee a inner join PartyHistory h on h.id = a.historyId
         set a.memberId = null
@@ -885,17 +884,44 @@ export class HistoryRepository
         .where('serverId', '=', guildId)
         .execute();
       // The reports at stops (plan 8H-2): one record per version, each counted.
-      const reports = await trx
+      await trx
         .updateTable('StopReportHistory')
         .set({ reporterId: null })
         .where('serverId', '=', guildId)
         .where('reporterId', '=', memberId)
-        .executeTakeFirst();
+        .execute();
       return {
         changed: gone.numDeletedRows > 0n,
-        forgotten: Number(named.rows[0]?.n ?? 0) + Number(reports.numUpdatedRows),
+        forgotten,
         leftBoards: boards.numDeletedRows > 0n,
       };
     });
   }
+
+  namedIn(memberId: string, guildId: string): Promise<number> {
+    return namedCount(this.db, memberId, guildId);
+  }
+}
+
+/**
+ * In how many records of a server's history a member is named, in one statement: the parties
+ * (from three lookups by index, maker, conductor and attendee, a party counted once however it
+ * names them) and the reports at stops (by the index of server and reporter, one record per
+ * version). Both `namedIn` and the opt-out count with it.
+ */
+async function namedCount(db: Kysely<DB>, memberId: string, guildId: string): Promise<number> {
+  const counted = await sql<{ parties: number | string; reports: number | string }>`
+    select
+      (select count(distinct n.id) from (
+        select id from PartyHistory where createdById = ${memberId} and serverId = ${guildId}
+        union all
+        select id from PartyHistory where conductorId = ${memberId} and serverId = ${guildId}
+        union all
+        select a.historyId as id from PartyHistoryAttendee a
+        join PartyHistory h on h.id = a.historyId
+        where a.memberId = ${memberId} and h.serverId = ${guildId}) n) as parties,
+      (select count(*) from StopReportHistory
+        where serverId = ${guildId} and reporterId = ${memberId}) as reports`.execute(db);
+  const row = counted.rows[0];
+  return Number(row?.parties ?? 0) + Number(row?.reports ?? 0);
 }

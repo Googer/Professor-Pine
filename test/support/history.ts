@@ -354,14 +354,18 @@ export class MemoryHistoryOptIns implements HistoryOptIns {
     return this.rows.findIndex((row) => row.memberId === memberId && row.guildId === guildId);
   }
 
-  /** The history of this server names the member in this many parties. */
-  named(memberId: string, guildId: string, parties: number): void {
-    this.naming.set(`${guildId}:${memberId}`, parties);
+  /** The history of this server names the member in this many records (parties and reports). */
+  named(memberId: string, guildId: string, records: number): void {
+    this.naming.set(`${guildId}:${memberId}`, records);
   }
 
-  /** In how many parties of this server the history names the member. */
-  namedIn(memberId: string, guildId: string): number {
+  private namingOf(memberId: string, guildId: string): number {
     return this.naming.get(`${guildId}:${memberId}`) ?? 0;
+  }
+
+  /** In how many records of this server the history names the member (`named`). */
+  namedIn(memberId: string, guildId: string): Promise<number> {
+    return this.attempt(() => this.namingOf(memberId, guildId));
   }
 
   isOptedIn(memberId: string, guildId: string): Promise<boolean> {
@@ -380,7 +384,7 @@ export class MemoryHistoryOptIns implements HistoryOptIns {
     return this.attempt(() => {
       const at = this.index(memberId, guildId);
       if (at >= 0) this.rows.splice(at, 1);
-      const forgotten = this.namedIn(memberId, guildId);
+      const forgotten = this.namingOf(memberId, guildId);
       this.naming.delete(`${guildId}:${memberId}`);
       const leftBoards = this.boards.delete(`${guildId}:${memberId}`);
       return { changed: at >= 0, forgotten, leftBoards };

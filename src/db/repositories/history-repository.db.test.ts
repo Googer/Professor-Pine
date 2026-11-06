@@ -152,7 +152,10 @@ describe('HistoryRepository: who is named in the history', () => {
     const second = await kept(HOME, BOB, [BOB, ALICE]);
     const elsewhere = await kept(AWAY, ALICE, [ALICE]);
 
-    // Named as maker, conductor and attendee of the first party: it counts once.
+    // Named as maker, conductor and attendee of the first party: it counts once, as the count
+    // before (the question of `/settings`, plan 8S-5) says.
+    expect(await history.namedIn(ALICE, HOME)).toBe(2);
+    expect(await history.namedIn(ALICE, AWAY)).toBe(1);
     expect(await history.optOut(ALICE, HOME)).toEqual({
       changed: true,
       forgotten: 2,
@@ -186,11 +189,13 @@ describe('HistoryRepository: who is named in the history', () => {
     const his = await reported(HOME, BOB);
     const away = await reported(AWAY, ALICE);
     // One party and two reports.
+    expect(await history.namedIn(ALICE, HOME)).toBe(3);
     expect(await history.optOut(ALICE, HOME)).toEqual({
       changed: true,
       forgotten: 3,
       leftBoards: false,
     });
+    expect(await history.namedIn(ALICE, HOME)).toBe(0);
     expect(await reporters()).toEqual([
       { id: mine, serverId: HOME, reporterId: null },
       { id: again, serverId: HOME, reporterId: null },
@@ -206,6 +211,7 @@ describe('HistoryRepository: who is named in the history', () => {
 
   it('forgets a member who opts out even when they were not opted in, or the server left', async () => {
     const id = await kept(NOWHERE, null, [ALICE]);
+    expect(await history.namedIn(ALICE, NOWHERE)).toBe(1);
     expect(await history.optOut(ALICE, NOWHERE)).toEqual({
       changed: false,
       forgotten: 1,

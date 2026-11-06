@@ -171,7 +171,8 @@
  * kind `settings` and the setting as the id: `settings:<setting>:set:on|off` sets it to what the
  * button showed it would (`mentions`, `groups`, `shouts`, `train-moves`, `boss-set`,
  * `new-train`, `history`, `leaderboard`), the menus `settings:auto-status:set` and
- * `settings:privacy:set` to the value picked, `settings:pokebattler:ask` opens the dialog
+ * `settings:privacy:set` to the value picked, `settings:history:set:off` may ask first in the
+ * dialog `settings:history:forget`, `settings:pokebattler:ask` opens the dialog
  * `settings:pokebattler:set:~<token>`, and `settings:wants:show` / `settings:targets:show`
  * answer with the member's list. The member and the server are the interaction's.
  */

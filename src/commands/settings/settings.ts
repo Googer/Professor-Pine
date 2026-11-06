@@ -22,7 +22,11 @@ import {
   type Press,
 } from '../../discord/late-reply.js';
 import { STALE_COMPONENT } from '../../discord/router.js';
-import { MEMBER_READ_THROTTLE, MEMBER_WRITE_THROTTLE } from '../../discord/throttle.js';
+import {
+  MEMBER_READ_THROTTLE,
+  MEMBER_WRITE_THROTTLE,
+  type Throttle,
+} from '../../discord/throttle.js';
 import { RaidPrivacy } from '../../domain/party/status.js';
 import { targetsAnswer } from '../notifications/targets.js';
 import { wantsAnswer } from '../notifications/wants.js';
@@ -39,6 +43,15 @@ import {
   type ListName,
 } from './panel.js';
 import { AUTO_STATUS, FLAGS, PRIVACY, autoStatusName, type FlagSetting } from './settings-lines.js';
+
+/** The Submit of the question before the history goes off: `settings:history:forget`. */
+const FORGET = 'forget';
+
+/**
+ * How often a member may turn their history off through its question: five times in ten
+ * minutes (S13), each Submit a transaction over the server's history.
+ */
+export const HISTORY_OFF_THROTTLE: Throttle = { uses: 5, perSeconds: 600 };
 
 /** What a press says where the setting was so already (the panel was drawn before a change). */
 const already = (on: boolean): string => `That was ${on ? ON : OFF} already.`;
@@ -147,33 +160,80 @@ function setNewTrain(interaction: ButtonInteraction, ctx: AppContext, on: boolea
   });
 }
 
-/** The history opt-in of this server set to `on`. */
-function setHistory(interaction: ButtonInteraction, ctx: AppContext, on: boolean): Promise<void> {
+/**
+ * The history opt-in of this server set to `on`. Off asks first in a dialog where it takes
+ * something away (S1, S2): the member's name off records, or the member off the boards; what it
+ * needs is read in time (`readInTime`), and with nothing to take away it is off at once.
+ */
+async function setHistory(
+  interaction: ButtonInteraction,
+  ctx: AppContext,
+  on: boolean,
+): Promise<void> {
   const memberId = interaction.user.id;
   const guildId = guildIdOf(interaction);
   if (on) {
-    return changed(interaction, ctx, async () =>
+    await changed(interaction, ctx, async () =>
       (await ctx.historyOptIns.optIn(memberId, guildId, Date.now())) ? HISTORY_ON : already(on),
     );
+    return;
   }
-  return changed(
+  const [records, boards, optedIn] = await readInTime(ctx.log, interaction, () =>
+    Promise.all([
+      ctx.historyOptIns.namedIn(memberId, guildId),
+      ctx.historyOptIns.isOnBoards(memberId, guildId),
+      ctx.historyOptIns.isOptedIn(memberId, guildId),
+    ]),
+  );
+  if (records > 0 || boards) {
+    await interaction.showModal(historyDialog(records, boards));
+    return;
+  }
+  await changed(
     interaction,
     ctx,
-    async () => {
-      const {
-        changed: was,
-        forgotten,
-        leftBoards,
-      } = await ctx.historyOptIns.optOut(memberId, guildId);
-      if (!was && forgotten === 0) return already(on);
-      return (
-        HISTORY_OFF +
-        (forgotten > 0 ? forgottenIn(forgotten) : '') +
-        (leftBoards ? LEFT_BOARDS : '')
-      );
-    },
+    async () => (optedIn ? historyOff(ctx, memberId, guildId) : already(on)),
     true,
   );
+}
+
+/** The records a question names: `3 records (they still count)`, `the one record (…)`. */
+function recordsWords(records: number): string {
+  return records === 1
+    ? 'the one record (it still counts)'
+    : `${String(records)} records (they still count)`;
+}
+
+/** The question before the history goes off: what it takes away, and what Submit does. */
+function historyDialog(records: number, boards: boolean) {
+  const takes = [
+    ...(records > 0 ? [`takes your Discord id off ${recordsWords(records)}`] : []),
+    ...(boards ? ['takes you off the boards'] : []),
+  ].join(' and ');
+  return dialog({
+    customId: encodeCustomId({ kind: SETTINGS_KIND, id: 'history', action: FORGET }),
+    title: 'Turn your history off',
+    text: `This ${takes}. Submit turns it off.`,
+  });
+}
+
+/** Turns the history off and says what that took away, `already` where it was off. */
+async function historyOff(ctx: AppContext, memberId: string, guildId: string): Promise<string> {
+  const { changed: was, forgotten, leftBoards } = await ctx.historyOptIns.optOut(memberId, guildId);
+  if (!was && forgotten === 0) return already(false);
+  return (
+    HISTORY_OFF + (forgotten > 0 ? forgottenIn(forgotten) : '') + (leftBoards ? LEFT_BOARDS : '')
+  );
+}
+
+/**
+ * The Submit of the question (S1): acknowledged in the panel's place at once (a slow write,
+ * `deferUpdate`), the history turned off, the panel drawn again saying what the opt-out took
+ * away, by its own count.
+ */
+function forgetSubmitted(interaction: ModalSubmitInteraction, ctx: AppContext): Promise<void> {
+  const guildId = guildIdOf(interaction);
+  return changed(interaction, ctx, () => historyOff(ctx, interaction.user.id, guildId), true);
 }
 
 /** The boards of this server set to `on`: on turns the history on with them where it was off. */
@@ -337,16 +397,28 @@ function stateOf(id: CustomId): boolean | undefined {
   return state === ON ? true : state === OFF ? false : undefined;
 }
 
+/** Whether a control is the button that may ask before the history goes off. */
+const asksHistoryOff = (id: CustomId): boolean =>
+  id.id === 'history' && id.action === SET && stateOf(id) === false;
+
 /**
  * The controls of the panel (plan 8S-5): only its member sees it (a private answer), so only
  * they press it. Every press counts in one window, a setting's write (`MEMBER_WRITE_THROTTLE`,
- * S13); every press reads what it changes afresh and draws the panel again after it.
+ * S13), the Submit that turns the history off in a tighter one of its own
+ * (`HISTORY_OFF_THROTTLE`), whose button is refused while that is full (`checks`, before the
+ * question opens); every press reads what it changes afresh and draws the panel again after it.
  */
 export const settingsControls: ComponentHandler = {
   kind: SETTINGS_KIND,
   guards: [requirePanelServer],
   // Opening the Pokebattler id's dialog writes nothing: only its Submit counts (A1).
-  throttle: (_interaction, id) => (id.action === ASK ? undefined : MEMBER_WRITE_THROTTLE),
+  throttle: (_interaction, id) =>
+    id.action === ASK
+      ? undefined
+      : id.action === FORGET
+        ? HISTORY_OFF_THROTTLE
+        : MEMBER_WRITE_THROTTLE,
+  checks: (_interaction, id) => (asksHistoryOff(id) ? HISTORY_OFF_THROTTLE : undefined),
   async button(interaction, id, ctx) {
     if (
       id.action === SHOW &&
@@ -374,6 +446,10 @@ export const settingsControls: ComponentHandler = {
     await pickSetting(interaction, ctx, id.id);
   },
   async modal(interaction, id, ctx) {
+    if (id.id === 'history' && id.action === FORGET && id.args.length === 0) {
+      await forgetSubmitted(interaction, ctx);
+      return;
+    }
     if (id.id !== POKEBATTLER || id.action !== SET || withoutOpenToken(id.args).length > 0) {
       throw new UserError(STALE_COMPONENT);
     }
