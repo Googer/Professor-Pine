@@ -226,12 +226,33 @@ function onTheCard(raid: RaidAlongRow, endedAt: number | null): boolean {
 }
 
 /** A live raid or max battle record the heatmap counts (`countsAsActivity`). */
-function hasOwnCount(raid: RaidAlongRow): boolean {
+export function hasOwnCount(raid: Pick<RaidAlongRow, 'source' | 'kind' | 'ending'>): boolean {
   return raid.source === 'live' && countsAsActivity(raid);
 }
 
+/** What the pairing rule reads of a raid or max battle record (W1): a `RaidAlongRow`'s part. */
+export type PairedRaid = Pick<
+  RaidAlongRow,
+  | 'id'
+  | 'source'
+  | 'kind'
+  | 'ending'
+  | 'gymId'
+  | 'wayspotId'
+  | 'createdAt'
+  | 'hatchTime'
+  | 'endTime'
+  | 'endedAt'
+>;
+
+/** A train as the pairing rule reads it (`pairedTrain`): its record's id, the stops it counts. */
+export interface PairedTrain {
+  id: number;
+  windows: readonly StopWindow[];
+}
+
 /** Whether a raid stood at a stop's gym or Power Spot while the train was there. */
-function passedAt(w: StopWindow, raid: RaidAlongRow): boolean {
+function passedAt(w: StopWindow, raid: PairedRaid): boolean {
   const { start, end } = raidTime(raid);
   return (
     ((raid.gymId !== null && w.gymId === raid.gymId) ||
@@ -242,18 +263,43 @@ function passedAt(w: StopWindow, raid: RaidAlongRow): boolean {
 }
 
 /**
- * For each stop the card counts (`windows`), whether the train joined a raid there that has a
- * record of its own (plan 8H-9): `raidsAlong`'s matcher (`passedAt`, a live record that counts),
- * without the card's bound of being recorded by the train's end, so that a raid still running
- * when the train ended (at its last stop, most often) is the stop too. Such a stop is that raid,
- * which its own record counts already.
+ * The pairing rule (plan 8H-9, W1): a stop a train counts (`stopWindows`, of the train whose
+ * record is `train`) and a live raid or max battle record that counts (`hasOwnCount`) where the
+ * train passed it (`raidsAlong`'s matcher, `passedAt`, without the card's bound of being recorded
+ * by the train's end) are one raid of the game, which counts once: of the two records, the one
+ * with the higher id (`PartyHistory.id`, the order the adding goes in) counts nothing for it.
+ * `stop` where the raid's record came first, `raid` where the train's did; undefined where they
+ * are no pair. Deterministic, so a rebuild, which goes in the same order, counts the same.
+ */
+export function laterOfPair(
+  train: number,
+  w: StopWindow,
+  raid: PairedRaid,
+): 'stop' | 'raid' | undefined {
+  if (!hasOwnCount(raid) || !passedAt(w, raid)) return undefined;
+  return raid.id < train ? 'stop' : 'raid';
+}
+
+/**
+ * For each stop a train counts (`windows`, of the train whose record is `train`), whether it is a
+ * raid recorded before the train (`laterOfPair`): that record counts it, and the stop nothing.
  */
 export function joinedStops(
+  train: number,
   windows: readonly StopWindow[],
-  raids: readonly RaidAlongRow[],
+  raids: readonly PairedRaid[],
 ): boolean[] {
-  const along = raids.filter(hasOwnCount);
-  return windows.map((w) => along.some((raid) => passedAt(w, raid)));
+  return windows.map((w) => raids.some((raid) => laterOfPair(train, w, raid) === 'stop'));
+}
+
+/**
+ * Whether a raid or max battle record is a stop of a train recorded before it (`laterOfPair`,
+ * `trains` as `pairedTrain` gives them): that train counts it, and the record nothing.
+ */
+export function joinedRaid(raid: PairedRaid, trains: readonly PairedTrain[]): boolean {
+  return trains.some((train) =>
+    train.windows.some((w) => laterOfPair(train.id, w, raid) === 'raid'),
+  );
 }
 
 /**

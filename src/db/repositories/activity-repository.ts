@@ -13,11 +13,16 @@ import {
 import type { DayBoss } from '../../domain/history/big-days.js';
 import {
   countedParties,
+  pairedTrain,
+  trainsAroundQuery,
   trainStopsCount,
+  type CountedRecord,
+  type TrainReachSettings,
   type TrainRows,
+  type TrainsAroundQuery,
 } from '../../domain/history/counted-parties.js';
 import type { MonthRange, RegionCount } from '../../domain/history/region-tally.js';
-import { raidsAlongQuery, stopWindows } from '../../domain/history/train-card.js';
+import { raidsAlongQuery, stopWindows, type PairedTrain } from '../../domain/history/train-card.js';
 import type { Logger } from '../../log.js';
 import { inTransaction, retryOnDeadlock } from '../transaction.js';
 import type { DB } from '../types.js';
@@ -86,14 +91,6 @@ export interface ActivityDayReader {
  */
 export const DAYS_BEHIND_MS = 2 * 3_600_000;
 
-/**
- * How long after a train's end the adding waits before it takes the train (plan 8H-9, review
- * T1): the raids it joined end and are recorded meanwhile (a raid at its last stop runs on past
- * its end, a record that failed is tried again after 1 and 10 minutes), so that a stop at a joined
- * raid finds the raid's record. Within `DAYS_BEHIND_MS`: a train held is never behind for the days.
- */
-export const TRAIN_SETTLE_MS = 3_600_000;
-
 /** As many records of the history as one transaction of the adding reads (and buckets it writes). */
 export const ACTIVITY_BATCH = 2_000;
 
@@ -122,6 +119,8 @@ export interface RebuiltServer {
 export interface ActivityRepositoryOptions {
   /** `settings.timezone`: the local month, weekday and hour of a bucket. */
   zone: string;
+  /** The settings the pairing rule reads (W1): how long a train may run (`trainReachMs`). */
+  settings: TrainReachSettings;
   /** Records read per transaction; `ACTIVITY_BATCH` by default. */
   batch?: number;
   /** The clock (`Date.now` by default): a record after this month is bucketed at no time. */
@@ -295,14 +294,14 @@ export class ActivityRepository implements ActivityReader, ActivityDayReader {
    * One batch in one transaction (read committed: no gap is locked, so the parties ending
    * meanwhile write their records unhindered): the marks' row locked once, the next records above
    * the lower mark read with a shared lock, each turned into the parties it counts as
-   * (`countedParties`: a train's stops, plan 8H-9, with its rows read by `trainsOf`), those of the
-   * records above the buckets' mark summed into the buckets and those above the days' mark into
-   * the days (the batch ending before a train that ended less than `TRAIN_SETTLE_MS` ago, whose
-   * stops wait for the raids they joined), both marks moved to the batch's last record in
-   * the same transaction (a mark ahead of the batch stays where it is: the two differ only until
-   * the days catch up, plan 8H-8, G8). The locking read waits for a record whose transaction has
-   * not committed yet (a party's end writing it, a retry of one that failed): its id may be below
-   * one committed already, and a plain read would move a mark past it for good.
+   * (`countedParties`: a train's stops, plan 8H-9, and the pairing rule of a stop and the raid the
+   * train joined there, with the rows `trainsOf` reads), those of the records above the buckets'
+   * mark summed into the buckets and those above the days' mark into the days, both marks moved
+   * to the batch's last record in the same transaction (a mark ahead of the batch stays where it
+   * is: the two differ only until the days catch up, plan 8H-8, G8). The locking read waits for a
+   * record whose transaction has not committed yet (a party's end writing it, a retry of one that
+   * failed): its id may be below one committed already, and a plain read would move a mark past
+   * it for good.
    */
   private addBatch(serverId: string): Promise<AddedRecords & { read: number }> {
     return inTransaction(
@@ -334,49 +333,32 @@ export class ActivityRepository implements ActivityReader, ActivityDayReader {
           order by id
           limit ${this.batch}
           for share`.execute(trx);
-        const now = this.now();
-        const { zone } = this.options;
-        const read = rows.rows.map((row) => ({
+        const records: CountedRecord[] = rows.rows.map((row) => ({
           id: Number(row.id),
-          record: {
-            source: row.source,
-            kind: row.kind,
-            ending: row.ending,
-            createdAt: Number(row.createdAt),
-            hatchTime: time(row.hatchTime),
-            startTime: time(row.startTime),
-            endTime: time(row.endTime),
-            endedAt: time(row.endedAt),
-            regionId: row.regionId,
-            gymId: row.gymId,
-            wayspotId: row.wayspotId,
-            hereHeads: Number(row.hereHeads),
-            doneHeads: Number(row.doneHeads),
-            bossKey: row.bossKey,
-            trainKind: row.trainKind,
-          },
+          source: row.source,
+          kind: row.kind,
+          ending: row.ending,
+          createdAt: Number(row.createdAt),
+          hatchTime: time(row.hatchTime),
+          startTime: time(row.startTime),
+          endTime: time(row.endTime),
+          endedAt: time(row.endedAt),
+          regionId: row.regionId,
+          gymId: row.gymId,
+          wayspotId: row.wayspotId,
+          hereHeads: Number(row.hereHeads),
+          doneHeads: Number(row.doneHeads),
+          bossKey: row.bossKey,
+          trainKind: row.trainKind,
         }));
-        // The batch ends before a live train whose stops count and that ended less than
-        // `TRAIN_SETTLE_MS` ago (review T1): the mark stays below it, and the next upkeep takes it
-        // with the raids it joined recorded.
-        const held = read.findIndex(
-          ({ record }) =>
-            record.source === 'live' &&
-            trainStopsCount(record) &&
-            record.endedAt !== null &&
-            record.endedAt > now - TRAIN_SETTLE_MS,
-        );
-        const records = held < 0 ? read : read.slice(0, held);
         const last = records.at(-1);
         if (last === undefined) return { read: 0, buckets: 0, days: 0 };
-        const trains = await this.trainsOf(
-          trx,
-          serverId,
-          records.flatMap(({ id, record }) => (trainStopsCount(record) ? [id] : [])),
-        );
-        const counted = records.map(({ id, record }) => ({
-          id,
-          parties: countedParties(record, trains.get(id)),
+        const now = this.now();
+        const { zone } = this.options;
+        const { trains, around } = await this.trainsOf(trx, serverId, records);
+        const counted = records.map((record) => ({
+          id: record.id,
+          parties: countedParties(record, { train: trains.get(record.id), trains: around }),
         }));
         const buckets = sumBuckets(
           counted.flatMap(({ id, parties }) =>
@@ -419,7 +401,6 @@ export class ActivityRepository implements ActivityReader, ActivityDayReader {
           })
           .where('serverId', '=', serverId)
           .execute();
-        // Fewer than a batch where it was held, so that the server's adding ends there.
         return {
           read: records.length,
           buckets: records.filter(({ id }) => id > marks.buckets).length,
@@ -431,22 +412,31 @@ export class ActivityRepository implements ActivityReader, ActivityDayReader {
   }
 
   /**
-   * The rows of a batch's trains that `countedParties` reads (plan 8H-9): their stops and
-   * attendees as the card reads them back (`trainCardRows`, three reads for the batch), and, for
-   * a train whose stops have times, the raids and max battles of the history along them as the
-   * card reads them (`raidsAlong`, one read per such train), whatever their ids: a joined raid's
-   * record may be in an earlier batch or a later one. Plain reads in the batch's transaction
-   * (read committed): a record is never changed once written.
+   * What `countedParties` reads beside a batch's records (plan 8H-9), plain reads in the batch's
+   * transaction (read committed: a record is never changed once written), whatever the ids of
+   * what they find: of the batch's trains whose stops count (`trains`), their stops and attendees
+   * as the card reads them back (`trainCardRows`) and the raids and max battles of the history
+   * along them as the card reads them (`raidsAlong`, one read per train whose stops have times);
+   * for the batch's raids and max battles (`around`, the pairing rule, W1), the server's trains
+   * that may have stopped at them (`trainsAroundQuery`, one read along `(serverId, kind,
+   * createdAt)`), as `pairedTrain` gives them. Both kinds of train read their rows in one
+   * `trainCardRows` (three reads for the batch).
    */
   private async trainsOf(
     trx: Kysely<DB>,
     serverId: string,
-    ids: readonly number[],
-  ): Promise<Map<number, TrainRows>> {
+    records: readonly CountedRecord[],
+  ): Promise<{ trains: Map<number, TrainRows>; around: PairedTrain[] }> {
     const history = new HistoryRepository(trx);
+    const asked = trainsAroundQuery(records, this.options.settings);
+    const near = asked === undefined ? [] : await this.trainsAround(trx, serverId, asked);
+    const own = records.filter(trainStopsCount);
+    const ids = [...new Set([...own.map(({ id }) => id), ...near.map(({ id }) => id)])];
     const read = await history.trainCardRows(serverId, ids);
     const trains = new Map<number, TrainRows>();
-    for (const [id, rows] of read) {
+    for (const { id } of own) {
+      const rows = read.get(id);
+      if (rows === undefined) continue;
       const query = raidsAlongQuery(stopWindows(rows.record, rows.stops, rows.attendees));
       trains.set(id, {
         stops: rows.stops,
@@ -454,7 +444,38 @@ export class ActivityRepository implements ActivityReader, ActivityDayReader {
         raids: query === undefined ? [] : await history.raidsAlong(serverId, query),
       });
     }
-    return trains;
+    const around = near.flatMap((train) => {
+      const rows = read.get(train.id);
+      return rows === undefined
+        ? []
+        : [pairedTrain({ ...train, ...rows.record }, rows.stops, rows.attendees)];
+    });
+    return { trains, around };
+  }
+
+  /**
+   * The server's trains `trainsAroundQuery` asks for (W1), along the index
+   * `partyhistory_server_kind_createdat_index (serverId, kind, createdAt)` of migration 018 (a
+   * server's trains of both sources: the legacy ones pair with nothing, `pairedTrain`, and are
+   * few), the end and the id checked on the rows the range finds.
+   */
+  private async trainsAround(
+    trx: Kysely<DB>,
+    serverId: string,
+    asked: TrainsAroundQuery,
+  ): Promise<Array<Pick<CountedRecord, 'id' | 'kind' | 'source' | 'ending'>>> {
+    const rows = await sql<{ id: number; source: string; ending: string }>`
+      select id, source, ending
+      from PartyHistory force index (partyhistory_server_kind_createdat_index)
+      where serverId = ${serverId} and kind = 'train'
+        and createdAt >= ${asked.from} and createdAt <= ${asked.to}
+        and endedAt >= ${asked.endedFrom} and id < ${asked.below}`.execute(trx);
+    return rows.rows.map((row) => ({
+      id: Number(row.id),
+      kind: 'train',
+      source: row.source,
+      ending: row.ending,
+    }));
   }
 
   async buckets(serverId: string, window: ActivityWindow): Promise<ActivityBucket[]> {

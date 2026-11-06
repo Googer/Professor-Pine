@@ -1,9 +1,17 @@
+import type { Settings } from '../../config/settings.js';
+import { OPEN_PARTY_HOURS } from '../party/timed.js';
 import { countsAsActivity, type ActivityRecord } from './activity.js';
 import {
+  hasOwnCount,
+  joinedRaid,
   joinedStops,
+  raidTime,
   stopWindows,
   type CardAttendee,
+  type CardRecord,
   type CardStop,
+  type PairedRaid,
+  type PairedTrain,
   type RaidAlongRow,
 } from './train-card.js';
 
@@ -17,6 +25,8 @@ import {
 
 /** A record of the party history as `countedParties` reads it (`PartyHistory`'s columns). */
 export interface CountedRecord extends ActivityRecord {
+  /** `PartyHistory.id`: the order the adding goes in, which the pairing rule follows (W1). */
+  id: number;
   /** `live` or `legacy`. */
   source: string;
   /** The boss as the catalogue knew it; a train's, the Pokémon it was after. */
@@ -38,6 +48,14 @@ export interface TrainRows {
   stops: readonly CardStop[];
   attendees: readonly CardAttendee[];
   raids: readonly RaidAlongRow[];
+}
+
+/** What `countedParties` reads beside a record. */
+export interface CountedRows {
+  /** A train's own rows; a train without them counts nothing. */
+  train?: TrainRows;
+  /** The trains around a raid or max battle (`trainsAroundQuery`), as `pairedTrain` gives them. */
+  trains?: readonly PairedTrain[];
 }
 
 /** One raid or max battle a record counts as, as `bucketOf` and `dayOf` take it. */
@@ -74,6 +92,80 @@ export function trainStopsCount(record: Pick<CountedRecord, 'kind' | 'ending'>):
 }
 
 /**
+ * A train as the pairing rule reads it (`joinedRaid`): its record's id and the stops it counts
+ * as raids (`countedParties`' own: `stopWindows`), none where its stops count nothing
+ * (`trainStopsCount`) or have no times (a legacy train, which pairs with nothing).
+ */
+export function pairedTrain(
+  record: Pick<CountedRecord, 'id' | 'kind' | 'ending' | 'source'> & CardRecord,
+  stops: readonly CardStop[],
+  attendees: readonly CardAttendee[],
+): PairedTrain {
+  const counts = record.source === 'live' && trainStopsCount(record);
+  return { id: record.id, windows: counts ? stopWindows(record, stops, attendees) : [] };
+}
+
+/** What a train may run for after it was made, as `trainReachMs` reads it from the settings. */
+export type TrainReachSettings = Pick<
+  Settings,
+  'maximumMeetupLeadtime' | 'maxMeetupLeadupDuration'
+>;
+
+const HOUR = 3_600_000;
+const DAY = 24 * HOUR;
+
+/**
+ * How long after it was made a train may still stop somewhere: its end at the furthest a member
+ * may set it (`maximumMeetupLeadtime` days and one, as `resolvePartyTime` allows), or its start
+ * at the furthest (`maxMeetupLeadupDuration`) where that is later, and `OPEN_PARTY_HOURS` after
+ * either (a train without an end goes that long; the clocks' change). Not a bound the party
+ * keeps: a member who takes its times away again and again keeps it going, and a stop of such a
+ * train made later than this is not seen from a raid's side (`trainsAroundQuery`).
+ */
+export function trainReachMs(settings: TrainReachSettings): number {
+  return (
+    Math.max(
+      settings.maxMeetupLeadupDuration * 60_000,
+      (settings.maximumMeetupLeadtime + 1) * DAY,
+    ) +
+    OPEN_PARTY_HOURS * HOUR
+  );
+}
+
+/** The trains to read for a batch's raids (`trainsAroundQuery`). */
+export interface TrainsAroundQuery {
+  /** Made from `from` to `to` (`createdAt`, the index's range). */
+  from: number;
+  to: number;
+  /** Ended at `endedFrom` or later: a train that ended before a raid stood never passed it. */
+  endedFrom: number;
+  /** Recorded before the last raid (`PartyHistory.id` below this): only an earlier train pairs. */
+  below: number;
+}
+
+/**
+ * The read the pairing rule needs for the raids and max battles of a batch of the adding (W1):
+ * the server's trains made within a train's reach (`trainReachMs`) before the first of them
+ * stood (`raidTime`) up to the end of the last, that ended once the first stood, recorded before
+ * the last; undefined where none of them has a count of its own to give up (`joinedRaid`).
+ */
+export function trainsAroundQuery(
+  raids: readonly PairedRaid[],
+  settings: TrainReachSettings,
+): TrainsAroundQuery | undefined {
+  const own = raids.filter(hasOwnCount);
+  if (own.length === 0) return undefined;
+  const times = own.map((raid) => raidTime(raid));
+  const first = Math.min(...times.map((time) => time.start));
+  return {
+    from: first - trainReachMs(settings),
+    to: Math.max(...times.map((time) => time.end)),
+    endedFrom: first,
+    below: Math.max(...own.map((raid) => raid.id)),
+  };
+}
+
+/**
  * The parties a record counts as (plan 8H-9). A record `countsAsActivity` keeps is its own one
  * party. A train whose stops count (`trainStopsCount`) counts each stop its card counts as made
  * (`stopWindows`: reached by its end, a minute at least; a loop's stop each time) as a raid at a
@@ -83,12 +175,15 @@ export function trainStopsCount(record: Pick<CountedRecord, 'kind' | 'ending'>):
  * stop at a gym the list no longer has is a raid at no place. A stop has the train's boss where
  * its kind is the train's (a gym stop of a `raid` train, a Power Spot stop of a `dynamax` or
  * `gigantamax` one), none otherwise; the train's ending; nobody's heads (who rode is the train's,
- * not a stop's). A stop where the train joined a raid with a record of its own (`joinedStops`) is
- * that raid, which its own record counts: it counts nothing. `train` absent (its rows not read)
- * counts nothing of a train.
+ * not a stop's). A stop and a raid the train joined there are one raid, counted once by the record
+ * of the two that came first (the pairing rule, `laterOfPair`, W1): a stop where the train joined
+ * a raid recorded before it (`joinedStops`) counts nothing, and so does a raid or max battle a
+ * train recorded before it stopped at (`joinedRaid`, of `rows.trains`). `rows.train` absent (its
+ * rows not read) counts nothing of a train.
  */
-export function countedParties(record: CountedRecord, train?: TrainRows): CountedParty[] {
-  if (countsAsActivity(record)) return [record];
+export function countedParties(record: CountedRecord, rows: CountedRows = {}): CountedParty[] {
+  const { train } = rows;
+  if (countsAsActivity(record)) return joinedRaid(record, rows.trains ?? []) ? [] : [record];
   if (!trainStopsCount(record) || train === undefined) return [];
   const boss = (kind: 'raid' | 'max'): string | null =>
     (kind === 'raid') === ((record.trainKind ?? 'raid') === 'raid') ? record.bossKey : null;
@@ -115,8 +210,8 @@ export function countedParties(record: CountedRecord, train?: TrainRows): Counte
     const at = record.startTime ?? record.createdAt;
     return train.stops.map((one) => stop(one, one.regionIds ?? null, at));
   }
-  const windows = stopWindows(record, train.stops, train.attendees);
-  const joined = joinedStops(windows, train.raids);
+  const { windows } = pairedTrain(record, train.stops, train.attendees);
+  const joined = joinedStops(record.id, windows, train.raids);
   return windows.flatMap((w, index) =>
     joined[index] === true ? [] : [stop(w, w.regionIds, w.from)],
   );

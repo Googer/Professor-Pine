@@ -417,7 +417,11 @@ export async function startApp(
   const history = new HistoryRepository(db);
   // The activity heatmap's buckets (plan 8H-4): derived from the history, added hourly by the
   // upkeep after its sweep, read by the map's /api/activity and the region tally (plan 8H-5).
-  const activity = new ActivityRepository(db, { zone: config.settings.timezone, log });
+  const activity = new ActivityRepository(db, {
+    zone: config.settings.timezone,
+    settings: config.settings,
+    log,
+  });
   // Raids per day and big days (plan 8H-8): the history page and the events forum's "On this
   // day" read them through one service, a server's days kept a few minutes.
   const historyDays = new HistoryDays({

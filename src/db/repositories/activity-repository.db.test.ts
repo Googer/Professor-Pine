@@ -10,12 +10,15 @@ import { connectionId, lockWaits } from '../../../test/support/lock-waits.js';
 import { startMigratedDatabase } from '../../../test/support/migrated-db.js';
 import { createTestLogger } from '../../../test/support/test-logger.js';
 import type { TestDatabase } from '../../../test/support/mysql.js';
+import { TEST_SETTINGS_PATH } from '../../../test/support/test-settings.js';
 import { zonedAt } from '../../../test/support/time.js';
+import { loadSettings } from '../../config/settings.js';
 import { createDb } from '../kysely.js';
 import type { DB } from '../types.js';
 import { UNKNOWN_MONTH } from '../../domain/history/activity.js';
-import { ActivityRepository, TRAIN_SETTLE_MS } from './activity-repository.js';
+import { ActivityRepository } from './activity-repository.js';
 
+const SETTINGS = loadSettings(TEST_SETTINGS_PATH);
 const ZONE = 'America/New_York';
 const at = (local: string): number => zonedAt(local, ZONE);
 
@@ -161,7 +164,11 @@ describe('ActivityRepository', () => {
     );
 
   const repository = (batch?: number) =>
-    new ActivityRepository(db, { zone: ZONE, ...(batch === undefined ? {} : { batch }) });
+    new ActivityRepository(db, {
+      zone: ZONE,
+      settings: SETTINGS,
+      ...(batch === undefined ? {} : { batch }),
+    });
 
   it('adds every raid and max battle that counts to its place’s bucket, summed', async () => {
     await record(
@@ -351,8 +358,8 @@ describe('ActivityRepository', () => {
     ]);
   });
 
-  it('counts a stop at a raid the train joined once, as the raid, in whichever batch each is (8H-9)', async () => {
-    // The raid at gym 1 the train stopped at from 18:00 to 18:20, recorded before the train ended.
+  it('counts a stop at a raid the train joined once, by whichever record came first, in any batch (W1)', async () => {
+    // The raid at gym 1 the train stopped at from 18:00 to 18:20.
     const joined = {
       gymId: 1,
       bossKey: 'GIRATINA',
@@ -381,96 +388,99 @@ describe('ActivityRepository', () => {
     // And the rebuild makes the same.
     await repository(1).rebuild(ACTIVITY_SERVER);
     expect(await bucketsOf()).toEqual(expected);
-    // The raid's record after the train's, in the batch after it (its first try failed, and the
-    // try after succeeded before the upkeep): the same.
+    expect(await daysOf()).toEqual(expectedDays);
+    // The raid's record after the train's (it ran on past the train, or its first try failed):
+    // the stop counts it, as a raid of the train's, and the raid's record nothing; added in an
+    // adding of its own, or rebuilt in one batch, the same.
     await sql`delete from PartyHistory`.execute(db);
     await repository().rebuild(ACTIVITY_SERVER);
     await recordTrain(train);
+    expect(await repository().addNew()).toEqual({ buckets: 1, days: 1 });
     await record(joined);
-    expect(await repository(1).addNew()).toEqual({ buckets: 2, days: 2 });
-    expect(await bucketsOf()).toEqual(expected);
-    expect(await daysOf()).toEqual(expectedDays);
+    expect(await repository().addNew()).toEqual({ buckets: 1, days: 1 });
+    const stops = [
+      expect.objectContaining({ placeId: '1', hour: 18, raids: 1, heads: 0 }),
+      expect.objectContaining({ placeId: '2', hour: 18, raids: 1, heads: 0 }),
+    ];
+    const stopDays = [{ regionId: 2, day: '2026-10-22', boss: 'MEWTWO', raids: 2, maxes: 0 }];
+    expect(await bucketsOf()).toEqual(stops);
+    expect(await daysOf()).toEqual(stopDays);
+    await repository().rebuild(ACTIVITY_SERVER);
+    expect(await bucketsOf()).toEqual(stops);
+    expect(await daysOf()).toEqual(stopDays);
+  });
+
+  it('counts a max battle a Dynamax train joined once, though its timer ran on past the train (W1)', async () => {
+    // A Dynamax train at a Power Spot from 18:00 to 18:30, then at gym 3; it ended at 21:00.
+    await recordTrain(
+      [
+        { at: 'abc.16', from: 0, to: 30 },
+        { at: 3, from: 30, to: 50 },
+      ],
+      { trainKind: 'dynamax', bossKey: 'AZELF' },
+    );
+    expect(await repository().addNew()).toEqual({ buckets: 1, days: 1 });
+    // The max battle there stood until the spot's 21:00 and was recorded after its warning.
+    await record({
+      kind: 'max',
+      gymId: null,
+      wayspotId: 'abc.16',
+      bossKey: 'AZELF',
+      createdAt: String(at('2026-10-22T17:40')),
+      hatchTime: null,
+      endTime: String(at('2026-10-22T21:00')),
+      endedAt: String(at('2026-10-22T21:20')),
+    });
+    expect(await repository().addNew()).toEqual({ buckets: 1, days: 1 });
+    expect(await bucketsOf()).toEqual([
+      expect.objectContaining({ placeId: '3', raids: 1, maxes: 0 }),
+      expect.objectContaining({ placeId: 'abc.16', hour: 18, raids: 0, maxes: 1, heads: 0 }),
+    ]);
+    expect(await daysOf()).toEqual([
+      { regionId: 2, day: '2026-10-22', boss: '', raids: 1, maxes: 0 },
+      { regionId: 2, day: '2026-10-22', boss: 'AZELF', raids: 0, maxes: 1 },
+    ]);
   });
 
   /** The adding at a moment after the train of `recordTrain` ended (21:00 on 2026-10-22). */
-  const addingAt = (minutesAfterTheTrain: number, batch?: number) =>
+  const addingAt = (minutesAfterTheTrain: number) =>
     new ActivityRepository(db, {
       zone: ZONE,
+      settings: SETTINGS,
       now: () => at('2026-10-22T21:00') + minutesAfterTheTrain * 60_000,
-      ...(batch === undefined ? {} : { batch }),
     });
 
-  it('counts a raid still running when the train ended at its last stop once, as the raid (8H-9, T1)', async () => {
-    // The train ended at 18:45 at gym 2, its last stop from 18:20 on; the raid there ran on until
-    // 19:15, and was recorded then, after the train.
-    await recordTrain(
-      [
-        { at: 1, from: 0, to: 20 },
-        { at: 2, from: 20, to: null },
-      ],
-      { endedAt: String(at('2026-10-22T18:45')), endTime: null },
-    );
-    await record({
-      gymId: 2,
-      hatchTime: String(at('2026-10-22T18:30')),
-      endTime: String(at('2026-10-22T19:15')),
-      endedAt: String(at('2026-10-22T19:15')),
-    });
-    // Read once the settle time has passed.
-    expect(await addingAt(TRAIN_SETTLE_MS / 60_000).addNew()).toEqual({ buckets: 2, days: 2 });
-    expect(await bucketsOf()).toEqual([
-      expect.objectContaining({ placeId: '1', hour: 18, raids: 1, heads: 0 }),
-      expect.objectContaining({ placeId: '2', hour: 18, raids: 1, heads: 5 }),
-    ]);
-  });
-
-  it('holds the adding at a train that ended less than the settle time ago (8H-9, T1)', async () => {
+  it('adds a train at once, however lately it ended, and every record after it (W1)', async () => {
     await record({ gymId: 5 });
     await recordTrain([{ at: 1, from: 0, to: 20 }]);
-    // A raid that ended after the train, above the mark with it.
     await record({ gymId: 6, endedAt: String(at('2026-10-22T21:10')) });
-    const before = await lastId();
-    // Half an hour after the train ended: the raid before it is added, the mark stays below it.
-    const early = addingAt(30);
-    expect(await early.addNew()).toEqual({ buckets: 1, days: 1 });
-    expect(await progressOf()).toBe(before - 2);
-    expect(await dayMarkOf()).toBe(before - 2);
-    expect((await bucketsOf()).map((bucket) => bucket.placeId)).toEqual(['5']);
-    // The days are not behind meanwhile: what is held ended less than two hours ago.
-    expect(await early.daysComplete(ACTIVITY_SERVER)).toBe(true);
-    // Once the settle time passed, the rest.
-    expect(await addingAt(61).addNew()).toEqual({ buckets: 2, days: 2 });
-    expect((await bucketsOf()).map((bucket) => bucket.placeId)).toEqual(['1', '5', '6']);
-    expect(await progressOf()).toBe(before);
+    // A moment after the train ended, and with its end ahead of the clock (a clock set back): no
+    // wait, nothing held behind it.
+    for (const minutes of [1, -30]) {
+      await repository().rebuild(ACTIVITY_SERVER);
+      const adding = addingAt(minutes);
+      await sql`delete from ActivityBucket`.execute(db);
+      await sql`delete from ActivityDay`.execute(db);
+      await sql`update ActivityProgress set lastHistoryId = 0, lastDayHistoryId = 0`.execute(db);
+      expect(await adding.addNew(), String(minutes)).toEqual({ buckets: 3, days: 3 });
+      expect((await bucketsOf()).map((bucket) => bucket.placeId)).toEqual(['1', '5', '6']);
+      expect(await progressOf()).toBe(await lastId());
+    }
   });
 
-  it('holds no adding at a train whose stops count nothing', async () => {
+  it('pairs no raid with a train whose stops count nothing', async () => {
     await recordTrain([{ at: 1, from: 0, to: 20 }], { ending: 'expired' });
-    await recordTrain([{ at: 2, from: 0, to: 20 }], { ending: 'cancelled' });
-    await record({ gymId: 6 });
-    expect(await addingAt(10).addNew()).toEqual({ buckets: 3, days: 3 });
-    expect((await bucketsOf()).map((bucket) => bucket.placeId)).toEqual(['6']);
-  });
-
-  it('counts a joined raid recorded between two addings once, held by the settle time (8H-9, T3)', async () => {
-    await recordTrain([
-      { at: 1, from: 0, to: 20 },
-      { at: 2, from: 20, to: 50 },
-    ]);
-    // The adding a few minutes after the train ended holds it…
-    expect(await addingAt(10).addNew()).toEqual({ buckets: 0, days: 0 });
-    // …so that the raid it joined at gym 1, whose record came late (tried again), is there when
-    // the train is added.
+    await recordTrain([{ at: 1, from: 0, to: 20 }], { ending: 'cancelled' });
+    // The raid at gym 1 while they stood there, recorded after them.
     await record({
       gymId: 1,
       hatchTime: String(at('2026-10-22T17:50')),
       endTime: String(at('2026-10-22T18:35')),
       endedAt: String(at('2026-10-22T18:40')),
     });
-    expect(await addingAt(70).addNew()).toEqual({ buckets: 2, days: 2 });
+    expect(await repository().addNew()).toEqual({ buckets: 3, days: 3 });
     expect(await bucketsOf()).toEqual([
       expect.objectContaining({ placeId: '1', hour: 17, raids: 1, heads: 5 }),
-      expect.objectContaining({ placeId: '2', hour: 18, raids: 1, heads: 0 }),
     ]);
   });
 
@@ -498,7 +508,7 @@ describe('ActivityRepository', () => {
 
   it('says whether the days hold every record that ended before the last upkeep (A1)', async () => {
     const now = at('2026-10-22T20:00');
-    const days = new ActivityRepository(db, { zone: ZONE, now: () => now });
+    const days = new ActivityRepository(db, { zone: ZONE, settings: SETTINGS, now: () => now });
     // Nothing recorded: nothing to count.
     expect(await days.daysComplete(ACTIVITY_SERVER)).toBe(true);
     // A record that ended hours ago, which the days have not taken: they are behind.
@@ -548,7 +558,11 @@ describe('ActivityRepository', () => {
       .values({ serverId: failing, regionId: 2, day: '2026-10-22', boss: '', raids: 4_294_967_295 })
       .execute();
     const { log, entries } = createTestLogger();
-    const added = await new ActivityRepository(db, { zone: ZONE, log }).addNew();
+    const added = await new ActivityRepository(db, {
+      zone: ZONE,
+      settings: SETTINGS,
+      log,
+    }).addNew();
     expect(added).toEqual({ buckets: 2, days: 2 });
     expect(await bucketsOf()).toMatchObject([{ placeId: '7', raids: 1 }]);
     expect(await bucketsOf(OTHER_ACTIVITY_SERVER)).toMatchObject([{ placeId: '8', raids: 1 }]);

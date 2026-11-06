@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { zonedAt } from '../../../test/support/time.js';
 import { bucketOf, dayOf, NO_BOSS } from './activity.js';
-import { countedParties, type CountedRecord, type TrainRows } from './counted-parties.js';
+import {
+  countedParties,
+  pairedTrain,
+  trainsAroundQuery,
+  type CountedRecord,
+  type CountedRows,
+} from './counted-parties.js';
 import type { HistoryStop } from './party-history.js';
 import type { RaidAlongRow } from './train-card.js';
 
@@ -14,6 +20,7 @@ const NOW = zonedAt('2026-11-10T12:00', ZONE);
 
 /** A raid train of region 2 after Mewtwo, made at 17:00, ended by the clock at 21:00. */
 const train = (overrides: Partial<CountedRecord> = {}): CountedRecord => ({
+  id: 100,
   source: 'live',
   kind: 'train',
   ending: 'completed',
@@ -78,11 +85,26 @@ const raid = (
   ...overrides,
 });
 
-const rows = (stops: readonly HistoryStop[], raids: readonly RaidAlongRow[] = []): TrainRows => ({
-  stops,
-  attendees: [],
-  raids,
+const rows = (stops: readonly HistoryStop[], raids: readonly RaidAlongRow[] = []): CountedRows => ({
+  train: { stops, attendees: [], raids },
 });
+
+/** A raid's own record of the history, as the adding reads it. */
+const raidRecord = (row: RaidAlongRow): CountedRecord =>
+  train({
+    id: row.id,
+    kind: row.kind,
+    ending: row.ending,
+    gymId: row.gymId,
+    wayspotId: row.wayspotId,
+    createdAt: row.createdAt,
+    hatchTime: row.hatchTime,
+    startTime: null,
+    endTime: row.endTime,
+    endedAt: row.endedAt,
+    bossKey: 'GIRATINA',
+    trainKind: null,
+  });
 
 /** A stop counted as a raid (or max battle) of the train's. */
 const party = (overrides: Partial<ReturnType<typeof countedParties>[number]>) => ({
@@ -174,22 +196,81 @@ describe('the parties a record counts as', () => {
     expect(countedParties(train(), rows([gym(1, null, null)]))).toEqual([]);
   });
 
-  it('counts nothing for a stop where the train joined a raid with a record of its own', () => {
+  it('counts nothing for a stop where the train joined a raid recorded before it', () => {
     const counted = countedParties(
       train(),
       rows(
         [gym(1, 0, 20), gym(2, 20, 50), gym(3, 50, 70)],
         [
           raid(10, 1, -10, 35),
-          // Still running when the train ended (recorded after it): not on the card, but the stop
-          // is that raid all the same (review T1).
-          raid(11, 3, 60, 200, { endedAt: T + 200 * MINUTE }),
+          // Ending after the train's end, but its record came first (closed early): not on the
+          // card, and the stop is that raid all the same.
+          raid(11, 3, 60, 200, { endedAt: T + 100 * MINUTE }),
           // At gym 2, but over before the train came.
           raid(12, 2, -60, 10),
         ],
       ),
     );
     expect(counted.map((one) => one.gymId)).toEqual([2]);
+  });
+
+  it('counts a joined raid once, as whichever of its two records came first (W1)', () => {
+    // The train (record 100) at gym 1 from 18:00 to 18:20, the raid there from 17:50 to 18:35.
+    const stops = [gym(1, 0, 20), gym(2, 20, 50)];
+    const before = raid(10, 1, -10, 35);
+    const after = raid(200, 1, -10, 35);
+    const trains = [pairedTrain(train(), stops, [])];
+    // The raid's record first: the raid counts, the stop nothing.
+    expect(countedParties(raidRecord(before), { trains })).toEqual([raidRecord(before)]);
+    expect(countedParties(train(), rows(stops, [before])).map((one) => one.gymId)).toEqual([2]);
+    // The train's first (a raid at its last stop that ran on, a max battle until 21:00): the
+    // stop counts, the raid nothing.
+    expect(countedParties(train(), rows(stops, [after])).map((one) => one.gymId)).toEqual([1, 2]);
+    expect(countedParties(raidRecord(after), { trains })).toEqual([]);
+  });
+
+  it('pairs a raid only with a train whose stops count, that was there while it stood', () => {
+    const later = raid(200, 1, -10, 35);
+    const stops = [gym(1, 0, 20)];
+    for (const trains of [
+      // Canceled, or nobody came: its stops count nothing, so the raid counts.
+      [pairedTrain(train({ ending: 'cancelled' }), stops, [])],
+      [pairedTrain(train({ ending: 'expired' }), stops, [])],
+      // A legacy train's stops have no times: they pair with nothing.
+      [pairedTrain(train({ source: 'legacy' }), [gym(1, null, null)], [])],
+      // Elsewhere, or there after the raid was over.
+      [pairedTrain(train(), [gym(2, 0, 20)], [])],
+      [pairedTrain(train(), [gym(3, 0, 20), gym(1, 40, 60)], [])],
+    ]) {
+      expect(countedParties(raidRecord(later), { trains })).toEqual([raidRecord(later)]);
+    }
+    // A max battle at the Power Spot the train stopped at, recorded after it: the stop is it.
+    const max = raid(201, 1, -10, 180, { kind: 'max', gymId: null, wayspotId: 'abc.16' });
+    expect(
+      countedParties(raidRecord(max), {
+        trains: [pairedTrain(train(), [spot('abc.16', 0, 20)], [])],
+      }),
+    ).toEqual([]);
+  });
+
+  it('reads the trains around a batch’s raids: made within a train’s reach before, ended after', () => {
+    const settings = { maximumMeetupLeadtime: 2, maxMeetupLeadupDuration: 60 };
+    const raids = [raid(200, 1, 0, 45), raid(150, 2, -60, -15), raidRecord(raid(300, 3, 0, 45))];
+    // A train is made at most the lead time and a day ahead of its end, which a day without
+    // times may pass (`OPEN_PARTY_HOURS`).
+    expect(trainsAroundQuery(raids, settings)).toEqual({
+      from: T - 60 * MINUTE - (3 * 24 + 24) * 60 * MINUTE,
+      to: T + 45 * MINUTE,
+      endedFrom: T - 60 * MINUTE,
+      below: 300,
+    });
+    // Only the raids that count, live: none, nothing to read.
+    expect(
+      trainsAroundQuery([raid(200, 1, 0, 45, { ending: 'cancelled' })], settings),
+    ).toBeUndefined();
+    expect(trainsAroundQuery([raid(200, 1, 0, 45, { source: 'legacy' })], settings)).toBe(
+      undefined,
+    );
   });
 
   it('counts a stop once, in the train’s region where it lies in several', () => {

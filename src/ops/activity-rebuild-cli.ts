@@ -23,7 +23,10 @@ try {
 const db = createDb<DB>(dbConfigFrom(config.env));
 try {
   process.exitCode = await rebuildStep(process.argv.slice(2), {
-    activity: new ActivityRepository(db, { zone: config.settings.timezone }),
+    activity: new ActivityRepository(db, {
+      zone: config.settings.timezone,
+      settings: config.settings,
+    }),
     say: (line) => process.stdout.write(`${line}\n`),
   });
 } catch (err) {
