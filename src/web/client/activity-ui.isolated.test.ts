@@ -692,6 +692,32 @@ describe('History’s trains on the map (plan 8H-7B)', () => {
     expect(note.hidden).toBe(true);
   });
 
+  it('leaves the live line’s words alone when a drawing says the same (W3)', async () => {
+    const { element, layer } = await inHistory();
+    fake.asked[2]?.answer(monthOfTrains([3, 2]));
+    await layer.trainsIdle();
+    pressesOf(element('activity-trains'))[1]?.fire('click');
+    fake.asked[3]?.fail(new RequestError(404, 'Not found.'));
+    await layer.trainsIdle();
+    const note = element('activity-trains-note');
+    let words = note.textContent;
+    let said = 0;
+    Object.defineProperty(note, 'textContent', {
+      get: () => words,
+      set: (next: string | null) => {
+        said += 1;
+        words = next;
+      },
+    });
+    // The slider let go: the part drawn anew, the refusal still its line.
+    const slider = element('activity-slider');
+    slider.value = '5';
+    slider.fire('input');
+    slider.fire('change');
+    expect(note.textContent).toBe('This train cannot be shown.');
+    expect(said).toBe(0);
+  });
+
   it('marks the list of the month left busy, its trains not to be pressed, until the next (R5)', async () => {
     const { element, layer } = await inHistory();
     fake.asked[2]?.answer(monthOfTrains([2]));

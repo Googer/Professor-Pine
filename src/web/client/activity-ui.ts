@@ -377,7 +377,8 @@ export function showActivity(
    */
   const sayTrains = (shown: TrainsPanel): void => {
     const words = shown.hidden ? undefined : shown.note;
-    trainsNote.textContent = words ?? '';
+    // Set only when it changes (review W3): a line set again may be said again.
+    if (trainsNote.textContent !== (words ?? '')) trainsNote.textContent = words ?? '';
     trainsNote.hidden = words === undefined;
   };
   /**
