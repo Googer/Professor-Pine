@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-06T14:02",
+  "updated": "2026-11-06T14:04",
   "items": [
     {
       "id": "0",
@@ -11201,6 +11201,56 @@ window.GANTT = {
       "status": "done",
       "start": "2026-11-06T13:21",
       "end": "2026-11-06T13:22"
+    },
+    {
+      "id": "8H-9",
+      "kind": "plan",
+      "parent": "16",
+      "name": "8H-9 A train’s stops count as raids",
+      "size": 1,
+      "dependsOn": [
+        "8H-8"
+      ],
+      "scope": "A live train’s stops count as raids or max battles in the heatmap, the region tally and raids per day; the train’s boss where the stop’s kind matches (Matt, 2026-11-06)",
+      "doneWhen": "Merged into main-dev",
+      "planning": {
+        "start": "2026-11-06T14:02",
+        "end": "2026-11-06T14:04"
+      }
+    },
+    {
+      "id": "8H-9.1",
+      "kind": "task",
+      "parent": "8H-9",
+      "name": "A train’s stops in the one count of what a record adds",
+      "dependsOn": [],
+      "scope": "A train’s stops in the one count of what a record adds",
+      "doneWhen": "Committed, equal to the prototype",
+      "status": "todo"
+    },
+    {
+      "id": "8H-9.2",
+      "kind": "task",
+      "parent": "8H-9",
+      "name": "The adding reads the stops",
+      "dependsOn": [
+        "8H-9.1"
+      ],
+      "scope": "The adding reads the stops",
+      "doneWhen": "Committed, equal to the prototype",
+      "status": "todo"
+    },
+    {
+      "id": "8H-9.3",
+      "kind": "task",
+      "parent": "8H-9",
+      "name": "Words and docs",
+      "dependsOn": [
+        "8H-9.2"
+      ],
+      "scope": "Words and docs",
+      "doneWhen": "Committed, equal to the prototype",
+      "status": "todo"
     },
     {
       "id": "16-staging",
