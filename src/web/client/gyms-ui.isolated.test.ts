@@ -354,8 +354,8 @@ describe("the gyms' clusters (plan 8M-11B, S13)", () => {
 
 /** An area's parties as `ActivityCounts.area` words them: a symbol seen, words spoken. */
 const sum = (parties: number): AreaWords => ({
-  shown: `≈ ${String(parties)} parties in this area`,
-  spoken: `about ${String(parties)} parties in this area`,
+  shown: `≈ ${String(parties)} raids and max battles in this area`,
+  spoken: `about ${String(parties)} raids and max battles in this area`,
 });
 
 describe("a gym cluster's activity on hover (plan 8H-4H)", () => {
@@ -378,7 +378,7 @@ describe("a gym cluster's activity on hover (plan 8H-4H)", () => {
       return sum(gyms.length * 10);
     });
     fire('mouseover');
-    expect(open()).toEqual(['6 gyms · ≈ 60 parties in this area']);
+    expect(open()).toEqual(['6 gyms · ≈ 60 raids and max battles in this area']);
     expect(asked.at(-1)).toEqual([1, 2, 3, 4, 5, 6]);
     expect(labelOf(cluster)).toBe('6');
     // Over the badge, not into it (review P6).
@@ -401,7 +401,7 @@ describe("a gym cluster's activity on hover (plan 8H-4H)", () => {
     expect(labelOf(cluster)).toBe('5');
     // Gym 7, across the river, is of another area.
     expect(asked.at(-1)?.toSorted((a, b) => a - b)).toEqual([1, 2, 3, 4, 5, 6]);
-    expect(open()).toEqual(['5 gyms · ≈ 60 parties in this area']);
+    expect(open()).toEqual(['5 gyms · ≈ 60 raids and max battles in this area']);
   });
 
   it('shows its gyms alone while the layer has nothing to say of them, and without the layer', () => {
@@ -418,10 +418,14 @@ describe("a gym cluster's activity on hover (plan 8H-4H)", () => {
   it('names it by an aria-label, no title, its parties in it while the layer has them', () => {
     const { cluster, dots, hidden } = hovered((gyms) => sum(gyms.length * 10));
     expect(cluster.options.title).toBeUndefined();
-    expect(cluster.attributes['aria-label']).toBe('6 gyms, about 60 parties in this area');
+    expect(cluster.attributes['aria-label']).toBe(
+      '6 gyms, about 60 raids and max battles in this area',
+    );
     hidden.add(6);
     dots.refresh();
-    expect(cluster.attributes['aria-label']).toBe('5 gyms, about 60 parties in this area');
+    expect(cluster.attributes['aria-label']).toBe(
+      '5 gyms, about 60 raids and max battles in this area',
+    );
   });
 
   // Review R3: a new answer of the Activity layer, or the layer turned off, reaches the labels.
@@ -432,7 +436,9 @@ describe("a gym cluster's activity on hover (plan 8H-4H)", () => {
     );
     sums.now = 90;
     dots.names();
-    expect(cluster.attributes['aria-label']).toBe('6 gyms, about 90 parties in this area');
+    expect(cluster.attributes['aria-label']).toBe(
+      '6 gyms, about 90 raids and max battles in this area',
+    );
     sums.now = undefined;
     dots.names();
     expect(cluster.attributes['aria-label']).toBe('6 gyms');
@@ -447,7 +453,7 @@ describe("a gym cluster's activity on hover (plan 8H-4H)", () => {
     fire('mouseover');
     sums.now = 90;
     dots.names();
-    expect(open()).toEqual(['6 gyms · ≈ 90 parties in this area']);
+    expect(open()).toEqual(['6 gyms · ≈ 90 raids and max battles in this area']);
     sums.now = undefined;
     dots.names();
     expect(open()).toEqual(['6 gyms']);

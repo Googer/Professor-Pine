@@ -761,7 +761,7 @@ describe('the activity layer on the map (showActivity, review 8H4H-8)', () => {
     await drawn;
     expect(line.hidden).toBe(false);
     expect(line.textContent).toBe(
-      'Activity: 12 parties at this time of day on Thursdays, over the years',
+      'Activity: 12 raids and max battles at this time of day on Thursdays, over the years',
     );
     turn(false);
     expect(line.hidden).toBe(true);
@@ -789,7 +789,7 @@ describe('the activity layer on the map (showActivity, review 8H4H-8)', () => {
     await first;
     expect(fake.heat.places).toHaveLength(2);
     expect(standing()).toHaveLength(2);
-    expect(layer.area(['7'])?.shown).toBe('≈ 12 parties in this area');
+    expect(layer.area(['7'])?.shown).toBe('≈ 12 raids and max battles in this area');
     turn(false);
     expect(fake.heat.places).toEqual([]);
     expect(standing()).toEqual([]);
@@ -804,7 +804,7 @@ describe('the activity layer on the map (showActivity, review 8H4H-8)', () => {
     fake.asked[2]?.answer(answer({ places: [at('gym', '8', 5)] }));
     await later;
     expect(layer.area(['7'])).toBeUndefined();
-    expect(layer.area(['8'])?.shown).toBe('≈ 5 parties in this area');
+    expect(layer.area(['8'])?.shown).toBe('≈ 5 raids and max battles in this area');
     expect(standing()).toHaveLength(1);
   });
 
@@ -849,7 +849,7 @@ describe('the activity layer on the map (showActivity, review 8H4H-8)', () => {
       answer({ mode: 'history', weekday: null, changesInMs: null, places: [at('gym', '7', 4)] }),
     );
     await december;
-    expect(line.textContent).toBe('Activity: 4 parties in December 2019');
+    expect(line.textContent).toBe('Activity: 4 raids and max battles in December 2019');
   });
 
   // Review 8H4H-6: a double-click on the glow zooms the map, and the count its first click opened goes.
@@ -861,7 +861,9 @@ describe('the activity layer on the map (showActivity, review 8H4H-8)', () => {
     await drawn;
     const [circle] = standing();
     circle?.openPopup();
-    expect(circle?.shown).toBe('5 parties at this time of day on Thursdays, over the years');
+    expect(circle?.shown).toBe(
+      '5 raids and max battles at this time of day on Thursdays, over the years',
+    );
     fire('dblclick');
     expect(circle?.open).toBe(false);
   });

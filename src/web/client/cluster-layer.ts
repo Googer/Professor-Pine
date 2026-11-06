@@ -156,9 +156,9 @@ export class ClusterLayer<P extends ClusterPlace> {
 
   /**
    * A cluster's words (review P6 of 8H-4H): its title and what `look.hover` adds, "6 gyms · ≈ 140
-   * parties in this area" shown on hover (returned), and "6 gyms, about 140 parties in this area"
-   * set as its element's `aria-label` (review 8H4H-7; no `title`, whose tooltip the browser would
-   * show beside the page's own), touched only when they changed.
+   * raids and max battles in this area" shown on hover (returned), and "6 gyms, about 140 raids and
+   * max battles in this area" set as its element's `aria-label` (review 8H4H-7; no `title`, whose
+   * tooltip the browser would show beside the page's own), touched only when they changed.
    */
   private name(bubble: Bubble<P>): string {
     const more = this.look.hover?.(bubble.points);

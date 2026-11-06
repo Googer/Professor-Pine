@@ -180,13 +180,13 @@ describe('a place named on hover (Matt, 2026-11-02)', () => {
     fire('mouseover');
     expect(tips.made).toEqual([]);
     fire('mouseout');
-    words.now = '≈ 140 parties in this area';
+    words.now = '≈ 140 raids and max battles in this area';
     fire('mouseover');
-    expect(open()).toEqual(['≈ 140 parties in this area']);
+    expect(open()).toEqual(['≈ 140 raids and max battles in this area']);
     fire('mouseout');
-    words.now = '≈ 12 parties in this area';
+    words.now = '≈ 12 raids and max battles in this area';
     fire('mouseover');
-    expect(open()).toEqual(['≈ 12 parties in this area']);
+    expect(open()).toEqual(['≈ 12 raids and max battles in this area']);
   });
 
   // Review 8H4H-2: a gym cluster's words change while its name is open (a new answer, the layer
@@ -195,7 +195,7 @@ describe('a place named on hover (Matt, 2026-11-02)', () => {
     const { map: page } = map();
     const cluster = dot();
     const other = dot(40.45, -79.94);
-    const words = { now: '6 gyms · ≈ 60 parties in this area' as string | undefined };
+    const words = { now: '6 gyms · ≈ 60 raids and max battles in this area' as string | undefined };
     const named = hoverName(
       page,
       cluster.named,
@@ -207,13 +207,13 @@ describe('a place named on hover (Matt, 2026-11-02)', () => {
     named.refresh();
     expect(tips.made).toEqual([]);
     cluster.fire('mouseover');
-    words.now = '6 gyms · ≈ 90 parties in this area';
+    words.now = '6 gyms · ≈ 90 raids and max battles in this area';
     named.refresh();
-    expect(open()).toEqual(['6 gyms · ≈ 90 parties in this area']);
+    expect(open()).toEqual(['6 gyms · ≈ 90 raids and max battles in this area']);
     // Another dot's refresh and hide leave it as it is.
     elsewhere.refresh();
     elsewhere.hide();
-    expect(open()).toEqual(['6 gyms · ≈ 90 parties in this area']);
+    expect(open()).toEqual(['6 gyms · ≈ 90 raids and max battles in this area']);
     words.now = undefined;
     named.refresh();
     expect(open()).toEqual([]);

@@ -8,7 +8,7 @@ import { CLUSTER_BELOW } from './cluster.js';
 /*
  * The activity layer of the live map (plan 8H-4, design Part B), its pure part: the panel's
  * modes and what it asks the server, History's slider and Play, the words of a place's popup and
- * of the parties left out, and the target a place offers a tap by its weight. The weights themselves
+ * of the raids and max battles left out, and the target a place offers a tap by its weight. The weights themselves
  * are the server's (`activityWeights`); the page only draws them (the glow: `heat.ts`). Leaflet's
  * side is `activity-ui.ts`.
  */
@@ -79,29 +79,33 @@ export function stepWords(step: string): string {
 
 const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
-const parties = (n: number): string =>
-  `${n.toLocaleString('en-US')} ${n === 1 ? 'party' : 'parties'}`;
+/**
+ * A count of the heatmap's in words: what it counts, as the tally says it (plan 8H-9, W7: a
+ * train's stops count too, as raids and max battles, and meetups never did).
+ */
+const raidWords = (n: number): string =>
+  `${n.toLocaleString('en-US')} ${n === 1 ? 'raid or max battle' : 'raids and max battles'}`;
 
 /**
- * A place's popup, set as text: its parties in the mode's window, unweighted (the weight only
- * sizes the circle), and when that window is. `step` is History's step shown.
+ * A place's popup, set as text: its raids and max battles in the mode's window, unweighted (the
+ * weight only sizes the circle), and when that window is. `step` is History's step shown.
  */
 export function placeWords(view: ActivityView, place: ActivityPlaceView, step?: string): string {
   switch (view.mode) {
     case 'now': {
       const day = view.weekday === null ? undefined : WEEKDAYS[view.weekday - 1];
       return day === undefined
-        ? `${parties(place.parties)} at this time of day, over the years`
-        : `${parties(place.parties)} at this time of day on ${day}s, over the years`;
+        ? `${raidWords(place.parties)} at this time of day, over the years`
+        : `${raidWords(place.parties)} at this time of day on ${day}s, over the years`;
     }
     case 'evenings':
-      return `${parties(place.parties)} on weekday evenings, over the years`;
+      return `${raidWords(place.parties)} on weekday evenings, over the years`;
     case 'weekend':
-      return `${parties(place.parties)} on weekend afternoons, over the years`;
+      return `${raidWords(place.parties)} on weekend afternoons, over the years`;
     case 'history':
       return step === undefined
-        ? parties(place.parties)
-        : `${parties(place.parties)} in ${stepWords(step)}`;
+        ? raidWords(place.parties)
+        : `${raidWords(place.parties)} in ${stepWords(step)}`;
   }
 }
 
@@ -122,15 +126,16 @@ export class ActivityCounts {
     this.places = new Map(view.places.map((place) => [`${place.kind}:${place.id}`, place]));
   }
 
-  /** A place's line: "Activity: 12 parties at this time of day on Thursdays, over the years". */
+  /** A place's line: "Activity: 12 raids and max battles at this time of day on Thursdays, over the years". */
   line(kind: ActivityPlaceView['kind'], id: string): string | undefined {
     const place = this.places.get(`${kind}:${id}`);
     return place === undefined ? undefined : `Activity: ${placeWords(this.view, place, this.step)}`;
   }
 
   /**
-   * A gym cluster's parties, its gyms' summed (by their ids in decimal): "≈ 140 parties in this
-   * area" seen, "about 140 parties in this area" spoken (review 8H4H-7), about as many since its
+   * A gym cluster's raids and max battles, its gyms' summed (by their ids in decimal): "≈ 140 raids
+   * and max battles in this
+   * area" seen, "about 140 raids and max battles in this area" spoken (review 8H4H-7), about as many since its
    * quiet gyms are not counted; none where none is drawn.
    */
   area(gymIds: readonly string[]): AreaWords | undefined {
@@ -138,8 +143,8 @@ export class ActivityCounts {
     for (const id of gymIds) sum += this.places.get(`gym:${id}`)?.parties ?? 0;
     if (sum === 0) return undefined;
     return {
-      shown: `≈ ${parties(sum)} in this area`,
-      spoken: `about ${parties(sum)} in this area`,
+      shown: `≈ ${raidWords(sum)} in this area`,
+      spoken: `about ${raidWords(sum)} in this area`,
     };
   }
 }
@@ -155,7 +160,7 @@ export interface AreaWords {
 
 /** The panel's line of the parties the map cannot draw; none when it drew them all. */
 export function leftOutWords(leftOut: number): string | undefined {
-  return leftOut === 0 ? undefined : `${parties(leftOut)} left out (gyms no longer listed, pins)`;
+  return leftOut === 0 ? undefined : `${raidWords(leftOut)} left out (gyms no longer listed, pins)`;
 }
 
 /** The smallest and the largest target to tap, in pixels: the quietest still 32 with the tolerance. */

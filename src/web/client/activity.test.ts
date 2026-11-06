@@ -97,31 +97,33 @@ describe('the activity layer’s panel (plan 8H-4)', () => {
     expect(stepWords('2019')).toBe('2019');
   });
 
-  it('says a place’s parties for its mode in its popup', () => {
+  it('says a place’s raids and max battles for its mode in its popup', () => {
     expect(placeWords(view(), place(12))).toBe(
-      '12 parties at this time of day on Thursdays, over the years',
+      '12 raids and max battles at this time of day on Thursdays, over the years',
     );
     expect(placeWords(view({ weekday: 7 }), place(3))).toBe(
-      '3 parties at this time of day on Sundays, over the years',
+      '3 raids and max battles at this time of day on Sundays, over the years',
     );
     expect(placeWords(view({ mode: 'evenings', weekday: null }), place(5))).toBe(
-      '5 parties on weekday evenings, over the years',
+      '5 raids and max battles on weekday evenings, over the years',
     );
     expect(placeWords(view({ mode: 'weekend', weekday: null }), place(5))).toBe(
-      '5 parties on weekend afternoons, over the years',
+      '5 raids and max battles on weekend afternoons, over the years',
     );
     expect(placeWords(view({ mode: 'history', weekday: null }), place(4), '2019-06')).toBe(
-      '4 parties in June 2019',
+      '4 raids and max battles in June 2019',
     );
     expect(placeWords(view({ mode: 'history', weekday: null }), place(1), '2019')).toBe(
-      '1 party in 2019',
+      '1 raid or max battle in 2019',
     );
   });
 
   it('says how many it left out, and nothing when it left none out', () => {
     expect(leftOutWords(0)).toBeUndefined();
-    expect(leftOutWords(1)).toBe('1 party left out (gyms no longer listed, pins)');
-    expect(leftOutWords(1204)).toBe('1,204 parties left out (gyms no longer listed, pins)');
+    expect(leftOutWords(1)).toBe('1 raid or max battle left out (gyms no longer listed, pins)');
+    expect(leftOutWords(1204)).toBe(
+      '1,204 raids and max battles left out (gyms no longer listed, pins)',
+    );
   });
 
   it('gives a busier place a larger target to tap, the quietest still 32 pixels (plan 8H-4H)', () => {
@@ -261,16 +263,16 @@ describe("the activity's counts in the map's popups and clusters (plan 8H-4H)", 
 
   it("gives a gym's or a Power Spot's line in the words of the layer's own popup", () => {
     expect(counts.line('gym', '7')).toBe(
-      'Activity: 12 parties at this time of day on Thursdays, over the years',
+      'Activity: 12 raids and max battles at this time of day on Thursdays, over the years',
     );
     expect(counts.line('spot', 'abc.16')).toBe(
-      'Activity: 4 parties at this time of day on Thursdays, over the years',
+      'Activity: 4 raids and max battles at this time of day on Thursdays, over the years',
     );
     const history = new ActivityCounts(
       view({ mode: 'history', weekday: null, places: [at('gym', '7', 4)] }),
       '2019-06',
     );
-    expect(history.line('gym', '7')).toBe('Activity: 4 parties in June 2019');
+    expect(history.line('gym', '7')).toBe('Activity: 4 raids and max battles in June 2019');
   });
 
   /** No dot of any place drawn. */
@@ -326,20 +328,20 @@ describe("the activity's counts in the map's popups and clusters (plan 8H-4H)", 
   });
 
   it("sums a cluster's gyms that the glow draws, and says nothing for a quiet cluster", () => {
-    expect(counts.area(['7', '9', '8'])?.shown).toBe('≈ 142 parties in this area');
-    expect(counts.area(['7'])?.shown).toBe('≈ 12 parties in this area');
+    expect(counts.area(['7', '9', '8'])?.shown).toBe('≈ 142 raids and max battles in this area');
+    expect(counts.area(['7'])?.shown).toBe('≈ 12 raids and max battles in this area');
     expect(counts.area(['8', '10'])).toBeUndefined();
     expect(counts.area([])).toBeUndefined();
     expect(new ActivityCounts(view({ places: [at('gym', '1', 1_204)] })).area(['1'])?.shown).toBe(
-      '≈ 1,204 parties in this area',
+      '≈ 1,204 raids and max battles in this area',
     );
   });
 
   // Review 8H4H-7: a screen reader hears words, not the symbols.
   it("says a cluster's sum in words for a screen reader, its symbol only where it is seen", () => {
     expect(counts.area(['7', '9', '8'])).toEqual({
-      shown: '≈ 142 parties in this area',
-      spoken: 'about 142 parties in this area',
+      shown: '≈ 142 raids and max battles in this area',
+      spoken: 'about 142 raids and max battles in this area',
     });
   });
 });

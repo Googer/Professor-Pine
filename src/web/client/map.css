@@ -3007,7 +3007,7 @@ path.highlighted {
 
 /*
  * The activity layer's panel (plan 8H-4): over the map at the top right while the layer is on,
- * as the filters' line; its mode, History's slider and Play, the parties left out.
+ * as the filters' line; its mode, History's slider and Play, the raids and max battles left out.
  */
 .activity-panel {
   display: flex;

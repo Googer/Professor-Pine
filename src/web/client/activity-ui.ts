@@ -47,7 +47,7 @@ import { onThemeChange, theme } from './theme.js';
  * (`tappablePlaces`), a tap on one showing its parties as text; the counts in the gyms' and Power
  * Spots' popups and on the gyms' clusters (`ActivityShown`); and while the layer is on, a panel
  * over the map (`.activity-panel`, a Leaflet control at the top right, as the filters' line): the
- * mode, History's slider (by month or by year) and Play, and the parties left out. Asked again
+ * mode, History's slider (by month or by year) and Play, and the raids and max battles left out. Asked again
  * when the mode, the slider or the server's hour changes (`changesInMs`, `nextAskWait`; a minute
  * after a failed answer in Expected now); nothing is polled. For members only: `main.ts` makes it
  * once `/api/me` says the visitor is one. Its pure part is `activity.ts`; this is tried at staging.
@@ -75,13 +75,13 @@ const element = <K extends keyof HTMLElementTagNameMap>(
  */
 export interface ActivityShown {
   /**
-   * A gym's or a Power Spot's line for its popup ("Activity: 12 parties …"): always an element,
+   * A gym's or a Power Spot's line for its popup ("Activity: 12 raids and max battles …"): always an element,
    * hidden while the layer is off or the glow does not draw the place, and kept to each answer
    * drawn while its popup is open.
    */
   line(kind: ActivityPlaceView['kind'], id: string): HTMLElement;
   /**
-   * A gym cluster's parties ("≈ 140 parties in this area" seen, "about 140 …" spoken), by its
+   * A gym cluster's raids and max battles ("≈ 140 raids and max battles in this area" seen, "about 140 …" spoken), by its
    * gyms' ids; none: nothing.
    */
   area(gymIds: readonly string[]): AreaWords | undefined;
