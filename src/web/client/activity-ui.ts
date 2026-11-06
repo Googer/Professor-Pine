@@ -652,13 +652,42 @@ export function showActivity(
     play.textContent = 'Stop';
     stepLabel.setAttribute('aria-live', 'off');
   });
+  /**
+   * What changes History by a press: the menus, the slider and the Activity layer's toggle (in the
+   * layers' menu, `data-layer`). A press there comes before its change (review W2).
+   */
+  const changesHistory = (target: EventTarget | null): boolean =>
+    target instanceof Node &&
+    ([modeLabel, spanMenu, slider].some((control) => control.contains(target)) ||
+      (target instanceof Element && target.closest('[data-layer="activity"]') !== null));
+  /**
+   * Play stopped by a press on what changes History, whose change has not come yet (review W2):
+   * that change shows the trains it calls for; where none comes, focus leaving the controls does.
+   */
+  let awaitingChange = false;
+  const historyChanged = (): void => {
+    awaitingChange = false;
+  };
+  for (const control of [modeMenu, spanMenu, slider]) {
+    control.addEventListener('change', historyChanged);
+  }
+  panel.addEventListener('focusout', (event) => {
+    if (!awaitingChange || changesHistory(event.relatedTarget)) return;
+    awaitingChange = false;
+    followTrains(true);
+  });
   // Any other press stops Play (the design: it steps until the end or another press).
   const otherPress = (event: Event): void => {
     if (!player.playing()) return;
     if (event.target instanceof Node && play.contains(event.target)) return;
-    // A press on the map or a key: Play's end shows the month's trains (review R2); what changes
-    // History (the menus, the slider, the layer off) stops it aside.
-    player.stop();
+    // A press on the map or a key: Play's end shows the month's trains (review R2); one on what
+    // changes History stops it aside, its change showing what it calls for (W2).
+    if (changesHistory(event.target)) {
+      awaitingChange = true;
+      stopAside();
+    } else {
+      player.stop();
+    }
   };
   document.addEventListener('pointerdown', otherPress, true);
   document.addEventListener('keydown', otherPress, true);
@@ -670,6 +699,7 @@ export function showActivity(
       void load();
     } else {
       stopAside();
+      historyChanged();
       group.remove();
       clearHour();
       // Nothing of the last answer stays drawn, nor comes late (review P5): turned on again, the

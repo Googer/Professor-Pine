@@ -50,12 +50,18 @@ const fake = vi.hoisted(() => {
     addEventListener(type: string, listener: Listener) {
       this.listeners.set(type, [...(this.listeners.get(type) ?? []), listener]);
     }
-    contains() {
-      return false;
+    /** Whether `node` is it or under it. */
+    contains(node: unknown) {
+      return node instanceof PageElement && this.all().includes(node);
     }
-    /** The page's event on it. */
-    fire(type: string) {
-      for (const listener of this.listeners.get(type) ?? []) listener({ target: this });
+    /** Itself where it matches `[data-layer="…"]`, the one selector the layer asks (no parents). */
+    closest(selector: string) {
+      const layer = /^\[data-layer="(.+)"\]$/.exec(selector)?.[1];
+      return layer !== undefined && this.dataset.layer === layer ? this : null;
+    }
+    /** The page's event on it, with what else the event carries (`relatedTarget`). */
+    fire(type: string, more: Record<string, unknown> = {}) {
+      for (const listener of this.listeners.get(type) ?? []) listener({ target: this, ...more });
     }
   }
   /** A circle on the circles' canvas: where, how large, its popup's words while open. */
@@ -615,6 +621,59 @@ describe('History’s trains on the map (plan 8H-7B)', () => {
     }
     expect(element('activity-trains').hidden).toBe(false);
     expect(fake.asked.at(-1)?.url).toBe('/s/100000000000000001/api/history/trains?month=2019-01');
+  });
+
+  describe('Play stopped by a press on what changes History (W2)', () => {
+    /** The layer in History, its list answered, Play on; a press of the page's on `target`. */
+    async function playing() {
+      const made = await inHistory();
+      fake.asked[2]?.answer(monthOfTrains([2]));
+      await made.layer.trainsIdle();
+      made.element('press activity-play').fire('click');
+      vi.stubGlobal('Node', fake.PageElement);
+      vi.stubGlobal('Element', fake.PageElement);
+      const press = (target: PageElement) => {
+        for (const { type, listener } of fake.pageListeners) {
+          if (type === 'pointerdown') listener({ target });
+        }
+      };
+      return { ...made, press };
+    }
+    const monthsAsked = () => fake.asked.filter((one) => one.url.includes('/trains?month='));
+
+    it('asks no trains between a press on the mode menu and its change', async () => {
+      const { modeMenu, press } = await playing();
+      const menu = modeMenu();
+      press(menu);
+      menu.value = 'now';
+      menu.fire('change');
+      expect(monthsAsked()).toHaveLength(1);
+    });
+
+    it('asks no trains between a press on the layer’s toggle and the layer off', async () => {
+      const { press, turn, element } = await playing();
+      const toggle = new fake.PageElement('input');
+      toggle.dataset.layer = 'activity';
+      press(toggle);
+      turn(false);
+      expect(monthsAsked()).toHaveLength(1);
+      expect(element('activity-trains').hidden).toBe(true);
+    });
+
+    it('shows the month’s trains once focus leaves a control pressed without a change', async () => {
+      const { element, press } = await playing();
+      const slider = element('activity-slider');
+      press(slider);
+      expect(monthsAsked()).toHaveLength(1);
+      // Focus from the slider to the menu: still within what changes History.
+      element('activity-panel').fire('focusout', { relatedTarget: element('activity-span') });
+      expect(monthsAsked()).toHaveLength(1);
+      element('activity-panel').fire('focusout', { relatedTarget: null });
+      expect(element('activity-trains').hidden).toBe(false);
+      expect(monthsAsked().at(-1)?.url).toBe(
+        '/s/100000000000000001/api/history/trains?month=2019-01',
+      );
+    });
   });
 
   it('says a refusal in one live line that stays through each drawing (R3)', async () => {
