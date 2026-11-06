@@ -55,13 +55,17 @@ function raidsLine(raids: readonly RaidTally[], room: number): string {
  * `Through <#a> · <#b>`, as many regions as `room` holds and how many more, in the words of the
  * line of raids (`fitItems`: `· …and N more`, review W2).
  */
-function regionsLine(channels: readonly string[], room: number): string {
+function regionsLine(regions: readonly string[], room: number): string {
   const lead = 'Through ';
-  return `${lead}${fitItems(
-    channels.map((id) => `<#${id}>`),
-    room - lead.length,
-    ' · ',
-  )}`;
+  return `${lead}${fitItems(regions, room - lead.length, ' · ')}`;
+}
+
+/**
+ * What the web says of a train of the old bot in the place of its card (plan 8H-7B, review G3):
+ * its record keeps the stops up to where it got, without times, so there is no card to make.
+ */
+export function legacyTrainWords(stops: number): string {
+  return `${count(stops, 'stop')} on the old bot’s record (no times)`;
 }
 
 /**
@@ -85,11 +89,13 @@ function ridersLine(card: TrainCard): string {
  * The card's text: its heading, about how many stops in how long, the regions crossed in order
  * (each a channel; a region gone since is left out), the riders and the most at once, and the
  * raids recorded along the way, then the note of what makes it approximate. A train that never
- * left says so and its riders. `channelOf` gives a region's channel by `Region.id`.
+ * left says so and its riders. `regionWords` names a region by `Region.id` (plan 8H-7B, review
+ * G7): the post its channel's mention (`<#id>`), the web its channel's name (`#oakland`);
+ * undefined for a region gone since, which both leave out.
  */
 export function trainCardText(
   card: TrainCard,
-  channelOf: (regionId: number) => string | undefined,
+  regionWords: (regionId: number) => string | undefined,
   fit: Fit,
 ): string {
   if (card.stops === null) {
@@ -102,8 +108,8 @@ export function trainCardText(
   }
   const { count: stops, durationMs } = card.stops;
   const channels = (card.regionIds ?? []).flatMap((id) => {
-    const channel = channelOf(id);
-    return channel === undefined ? [] : [channel];
+    const words = regionWords(id);
+    return words === undefined ? [] : [words];
   });
   const tallies = card.raids;
   const raids =

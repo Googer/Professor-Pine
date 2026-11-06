@@ -222,16 +222,22 @@ export function raidTime(
  * (`wayspotId`), whose time (`coalesce(hatchTime, createdAt)` to `coalesce(endTime, endedAt)`)
  * overlaps the train's time at that stop; each raid once, however often the train passed. By
  * tier and shadow, the most first. Records only (Matt): a raid still running when the train ended
- * has none yet.
+ * has none yet, and one recorded after the train's end (`endedAt`, review G6) is left out, so
+ * that the card read back later for the web is the one its post showed. `endedAt` null (a legacy
+ * record): no such bound.
  */
 export function raidsAlong(
   windows: readonly StopWindow[],
+  endedAt: number | null,
   raids: readonly RaidAlongRow[],
 ): RaidTally[] {
   const counted = new Set<number>();
   const tallies = new Map<string, RaidTally>();
+  const recordedLate = (raid: RaidAlongRow): boolean =>
+    endedAt !== null && (raid.endedAt === null || raid.endedAt > endedAt);
   for (const raid of raids) {
     if (raid.source !== 'live' || !countsAsActivity(raid) || counted.has(raid.id)) continue;
+    if (recordedLate(raid)) continue;
     const { start, end } = raidTime(raid);
     const passed = windows.some(
       (w) =>
@@ -291,6 +297,6 @@ export function trainCard(
     regionIds: regionsCrossed(windows),
     riders,
     peakRiders,
-    raids: raids === undefined ? null : raidsAlong(windows, raids),
+    raids: raids === undefined ? null : raidsAlong(windows, record.endedAt, raids),
   };
 }

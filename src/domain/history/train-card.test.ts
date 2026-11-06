@@ -162,6 +162,7 @@ describe('stopWindows: when a train was at each stop it counts', () => {
 });
 
 describe('raidsAlong: the raids recorded at the stops while the train was there', () => {
+  const END = record().endedAt;
   const windows = stopWindows(
     record(),
     [stop(1, 0, 20), stop(2, 20, 40), spot('w1.16', 40, 60), stop(1, 60, 80)],
@@ -169,7 +170,7 @@ describe('raidsAlong: the raids recorded at the stops while the train was there'
   );
 
   it('counts each raid at a stop whose time overlaps it, once, by tier', () => {
-    const tally = raidsAlong(windows, [
+    const tally = raidsAlong(windows, END, [
       raid(1, 1, 10, 55),
       // At gym 1 again on the second lap: still one raid.
       raid(2, 1, 50, 95),
@@ -190,7 +191,7 @@ describe('raidsAlong: the raids recorded at the stops while the train was there'
 
   it('counts only what the heatmap counts, live: no cancelled raid, no legacy one, no train', () => {
     expect(
-      raidsAlong(windows, [
+      raidsAlong(windows, END, [
         raid(1, 1, 10, 55, { ending: 'cancelled' }),
         raid(2, 1, 10, 55, { source: 'legacy' }),
         raid(3, 1, 10, 55, { kind: 'train' }),
@@ -200,7 +201,7 @@ describe('raidsAlong: the raids recorded at the stops while the train was there'
   });
 
   it('takes a raid without a hatch from its report and one without an end time to its end', () => {
-    const tally = raidsAlong(windows, [
+    const tally = raidsAlong(windows, END, [
       raid(1, 1, 30, null, {
         hatchTime: null,
         createdAt: T + 15 * MINUTE,
@@ -209,6 +210,28 @@ describe('raidsAlong: the raids recorded at the stops while the train was there'
       raid(2, 2, 0, null, { endedAt: T + 10 * MINUTE }),
     ]);
     expect(tally).toEqual([{ tier: 'T5', shadow: false, count: 1 }]);
+  });
+
+  it('counts only the raids recorded by the train’s end, as its post saw them (G6)', () => {
+    const end = record().endedAt;
+    const raids = [
+      raid(1, 1, 10, 55),
+      // Recorded the moment the train ended, and a minute after: the post never saw the second.
+      raid(2, 2, 25, 35, { tier: 'Mega', endedAt: T + 180 * MINUTE }),
+      raid(3, 2, 30, 40, { tier: 'T3', endedAt: T + 181 * MINUTE }),
+    ];
+    expect(raidsAlong(windows, end, raids)).toEqual([
+      { tier: 'T5', shadow: false, count: 1 },
+      { tier: 'Mega', shadow: false, count: 1 },
+    ]);
+    // Read back later for the web, the card is the post's.
+    const card = trainCard(
+      record(),
+      [stop(1, 0, 20), stop(2, 20, 40), spot('w1.16', 40, 60), stop(1, 60, 80)],
+      [],
+      raids,
+    );
+    expect(card.raids).toEqual(raidsAlong(windows, end, raids));
   });
 
   it('names what to read: the gyms and Power Spots of the stops it counts, and when', () => {

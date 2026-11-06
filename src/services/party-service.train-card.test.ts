@@ -31,8 +31,9 @@ async function rideAndRaid(overrides: ServiceOverrides = {}) {
       tier: 'T5',
       createdAt: start - 30 * MINUTE,
       hatchTime: start - 5 * MINUTE,
-      endTime: start + 40 * MINUTE,
-      endedAt: start + 45 * MINUTE,
+      // Recorded before the train ends: one recorded after it is not on its card (review G6).
+      endTime: start + 5 * MINUTE,
+      endedAt: start + 15 * MINUTE,
     }),
   );
   made.clock.now = start + 10 * MINUTE;

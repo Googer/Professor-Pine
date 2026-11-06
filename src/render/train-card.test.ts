@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { TrainCard } from '../domain/history/train-card.js';
 import type { Fit } from './party-post.js';
-import { raidTallyWords, trainCardText } from './train-card.js';
+import { legacyTrainWords, raidTallyWords, trainCardText } from './train-card.js';
 
 const MINUTE = 60_000;
 const whole: Fit = { list: (items) => items.join(', '), part: (make) => make(Infinity) };
@@ -9,7 +9,11 @@ const channels = new Map([
   [1, '100000000000000001'],
   [2, '100000000000000002'],
 ]);
-const channelOf = (regionId: number) => channels.get(regionId);
+/** The post's words of a region: its channel's mention; none for a region gone since. */
+const channelOf = (regionId: number) => {
+  const channel = channels.get(regionId);
+  return channel === undefined ? undefined : `<#${channel}>`;
+};
 
 const card = (overrides: Partial<TrainCard> = {}): TrainCard => ({
   stops: { count: 14, durationMs: 100 * MINUTE },
@@ -123,11 +127,34 @@ describe('trainCardText: the card of an ended train in its post', () => {
       ]),
     );
     const cut: Fit = { list: whole.list, part: (make) => make(200) };
-    const text = trainCardText(card({ regionIds: [...many.keys()] }), (id) => many.get(id), cut);
+    const text = trainCardText(
+      card({ regionIds: [...many.keys()] }),
+      (id) => `<#${many.get(id) ?? ''}>`,
+      cut,
+    );
     const line = text.split('\n').find((part) => part.startsWith('Through'));
     expect(line?.length).toBeLessThanOrEqual(200);
     // The same words as the line of raids (review W2).
     expect(line).toMatch(/^Through <#\d+>( · <#\d+>)* · …and \d+ more$/u);
+  });
+});
+
+describe('trainCardText on the web (plan 8H-7B, G7)', () => {
+  it('names the regions in the words it is given: the web’s channel names', () => {
+    const names = new Map([
+      [1, '#oakland'],
+      [2, '#shadyside'],
+    ]);
+    const text = trainCardText(card(), (id) => names.get(id), whole);
+    expect(text).toContain('\nThrough #shadyside · #oakland\n');
+    expect(text).not.toContain('<#');
+  });
+});
+
+describe('legacyTrainWords: what the web says of a train of the old bot (G3)', () => {
+  it('says how many stops its record has, and that it kept no times', () => {
+    expect(legacyTrainWords(14)).toBe('14 stops on the old bot’s record (no times)');
+    expect(legacyTrainWords(1)).toBe('1 stop on the old bot’s record (no times)');
   });
 });
 

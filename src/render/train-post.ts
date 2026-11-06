@@ -67,6 +67,12 @@ export interface TrainPostView extends TimedPostView<TrainParty>, TrainPlaces {
   regionChannel?: (regionId: number) => string | undefined;
 }
 
+/** A region of the card as the post names it: its channel's mention; none for one gone. */
+function regionMention(view: TrainPostView, regionId: number): string | undefined {
+  const channel = view.regionChannel?.(regionId);
+  return channel === undefined ? undefined : `<#${channel}>`;
+}
+
 /**
  * The kind word a train's title starts with, whatever its kind (plan 8R-9F, M1: a list that
  * shows the title says "Train" no second time; a train of max battles still says its kind).
@@ -338,7 +344,7 @@ function trainLayout(view: TrainPostView): PostLayout {
         : [
             {
               type: 'text' as const,
-              content: trainCardText(view.card, view.regionChannel ?? (() => undefined), fit),
+              content: trainCardText(view.card, (id) => regionMention(view, id), fit),
             },
             { type: 'separator' as const },
           ]),
