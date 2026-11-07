@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-06T21:15",
+  "updated": "2026-11-06T23:10",
   "items": [
     {
       "id": "0",
@@ -10207,6 +10207,84 @@ window.GANTT = {
       "status": "done",
       "start": "2026-11-02T21:50",
       "end": "2026-11-02T22:20"
+    },
+    {
+      "id": "8M-20",
+      "kind": "plan",
+      "parent": "16",
+      "name": "8M-20 Your regions on the map",
+      "size": 1,
+      "dependsOn": [
+        "8M-19"
+      ],
+      "scope": "The region outlines show which regions the member sees on Discord; Your regions… joins or leaves a region through the self-assigned roles",
+      "doneWhen": "Merged into main-dev",
+      "planning": {
+        "start": "2026-11-06T22:25",
+        "end": "2026-11-06T22:33",
+        "review": {
+          "start": "2026-11-06T23:09",
+          "end": "2026-11-06T23:09"
+        }
+      }
+    },
+    {
+      "id": "8M-20.1",
+      "kind": "task",
+      "parent": "8M-20",
+      "name": "Which roles open a region, one rule",
+      "dependsOn": [],
+      "scope": "Which roles open a region, one rule",
+      "doneWhen": "Committed, equal to the prototype",
+      "status": "todo"
+    },
+    {
+      "id": "8M-20.2",
+      "kind": "task",
+      "parent": "8M-20",
+      "name": "The view of your regions",
+      "dependsOn": [
+        "8M-20.1"
+      ],
+      "scope": "The view of your regions",
+      "doneWhen": "Committed, equal to the prototype",
+      "status": "todo"
+    },
+    {
+      "id": "8M-20.3",
+      "kind": "task",
+      "parent": "8M-20",
+      "name": "Join and leave",
+      "dependsOn": [
+        "8M-20.2"
+      ],
+      "scope": "Join and leave",
+      "doneWhen": "Committed, equal to the prototype",
+      "status": "todo"
+    },
+    {
+      "id": "8M-20.4",
+      "kind": "task",
+      "parent": "8M-20",
+      "name": "The page: outlines and Your regions…",
+      "dependsOn": [
+        "8M-20.3"
+      ],
+      "scope": "The page: outlines and Your regions…",
+      "doneWhen": "Committed, equal to the prototype",
+      "status": "todo"
+    },
+    {
+      "id": "8M-20.5",
+      "kind": "task",
+      "parent": "8M-20",
+      "name": "Words and docs",
+      "dependsOn": [
+        "8M-20.4"
+      ],
+      "scope": "Words and docs",
+      "doneWhen": "Committed, equal to the prototype",
+      "status": "todo"
     },
     {
       "id": "8Z",
