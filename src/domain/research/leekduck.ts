@@ -395,8 +395,26 @@ const TIME_RANGE =
 const ANY_TIME = /\b\d{1,2}(?::\d{2})?\s*[ap]\.?\s?m\b|\bnoon\b|\bmidnight\b/i;
 /** `November 9`, `Nov. 9th`: a date a sentence names (a month's first letters, three or more). */
 const NAMED_DATE = /\b([a-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?\b/gi;
-/** The longest time a section's range may give its hours. */
-const MAX_PAGE_HOURS_MINUTES = 12 * 60;
+/**
+ * The longest time a section's range may give its hours (review of `event-pages-more`): a Raid
+ * Hour of over three hours is no Raid Hour; Max Battle hours are short events (`SHORT_EVENT_MS`).
+ */
+const MAX_PAGE_HOURS_MINUTES = { raids: 3 * 60, 'max-battles': 6 * 60 } as const;
+/**
+ * The paragraphs whose ranges are the hours' (review): a Raids section's that names Raid Hours,
+ * a Max Battles section's that says "featured" or names Max Battles. Another paragraph's range
+ * ("Shadow raids … from 10 a.m. to 1 p.m.") is of something else.
+ */
+const NAMES_THE_HOURS = {
+  raids: /\braid hours?\b/i,
+  'max-battles': /\bfeatured\b|\bmax battles?\b/i,
+};
+/**
+ * A time zone named after a range ("6 p.m. to 7 p.m. PT", "UTC", "(PDT)", "GMT+1"): such a time is
+ * not the local time Pine places the hours at ("local time" is). Read after the range's end.
+ */
+const NAMED_ZONE =
+  /^\.?\s*\(?\s*(?:UTC|GMT|[ECMP][SD]?T|AK[SD]?T|H[SD]?T|BST|CES?T|JST|KST|AE[SD]T|NZ[SD]T)\b/;
 
 /** The month of a word, by its first letters (three or more); 0 for none. */
 function monthOf(word: string): number {
@@ -412,13 +430,15 @@ function minutesOfDay(hour: number, minute: number, half: string): number | unde
 
 /**
  * The time a section of an event page (`raids`, `max-battles`) gives its dated hours, read from
- * its paragraphs (Into the Wild's Raids section: "… featured in Raid Hours from 6:00 p.m. to 7:00
- * p.m. local time on Monday, November 9, and Tuesday, November 10, respectively"): the one time
- * range they name (the same range said twice is one), when every heading's day (`days`) is among
- * the dates they name, or they name none ("… for one day each on the following schedule"). A
- * range without its first `a.m.`/`p.m.` takes the second's. `none` where the paragraphs name no
- * time; `unclear` for several ranges, a range that ends before it starts or lasts over 12 hours,
- * a time that is no range ("at 6 p.m.", "from noon"), or dates that leave a day out.
+ * its paragraphs that name the hours (`NAMES_THE_HOURS`; Into the Wild's Raids section: "…
+ * featured in Raid Hours from 6:00 p.m. to 7:00 p.m. local time on Monday, November 9, and
+ * Tuesday, November 10, respectively"): the one time range they name (the same range said twice
+ * is one), when every heading's day (`days`) is among the dates they name, or they name none ("…
+ * for one day each on the following schedule"). A range without its first `a.m.`/`p.m.` takes
+ * the second's. `none` where those paragraphs name no time; `unclear` for several ranges, a range
+ * that ends before it starts or lasts too long (`MAX_PAGE_HOURS_MINUTES`: over three hours for
+ * Raid Hours), one followed by a zone's name (`NAMED_ZONE`: "PT", "UTC"), a time that is no
+ * range ("at 6 p.m.", "from noon"), or dates that leave a day out.
  */
 export function eventPageTime(
   html: string,
@@ -427,6 +447,7 @@ export function eventPageTime(
 ): PageTimeRead {
   const paragraphs = [...sectionOf(html, section).matchAll(/<p(?:\s[^>]*)?>([\s\S]*?)<\/p>/g)]
     .map((match) => htmlText(match[1] ?? ''))
+    .filter((text) => NAMES_THE_HOURS[section].test(text))
     .join(' ');
   const ranges = new Map<string, PageHoursTime>();
   let unreadable = false;
@@ -440,7 +461,14 @@ export function eventPageTime(
       start -= 12 * 60;
     }
     const minutes = start === undefined || end === undefined ? 0 : end - start;
-    if (start === undefined || start < 0 || minutes <= 0 || minutes > MAX_PAGE_HOURS_MINUTES) {
+    const zoneAfter = NAMED_ZONE.test(paragraphs.slice(match.index + match[0].length));
+    if (
+      start === undefined ||
+      start < 0 ||
+      minutes <= 0 ||
+      minutes > MAX_PAGE_HOURS_MINUTES[section] ||
+      zoneAfter
+    ) {
       unreadable = true;
       continue;
     }

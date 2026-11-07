@@ -379,22 +379,42 @@ describe('eventPageTime', () => {
 
   it('reads minutes, a range without the first a.m. or p.m., and the morning', () => {
     expect(
-      eventPageTime(raids('from 5:30 p.m. to 7:00 p.m. local time'), 'raids', [MONDAY]),
+      eventPageTime(raids('Raid Hours from 5:30 p.m. to 7:00 p.m. local time'), 'raids', [MONDAY]),
     ).toEqual({ kind: 'time', time: { hour: 17, minute: 30, minutes: 90 } });
-    expect(eventPageTime(raids('from 6 to 7 p.m. on November 9'), 'raids', [MONDAY])).toEqual({
-      kind: 'time',
-      time: { hour: 18, minute: 0, minutes: 60 },
-    });
-    expect(eventPageTime(raids('from 11 a.m. to 12 p.m.'), 'raids', [MONDAY])).toEqual({
+    expect(
+      eventPageTime(raids('A Raid Hour from 6 to 7 p.m. on November 9'), 'raids', [MONDAY]),
+    ).toEqual({ kind: 'time', time: { hour: 18, minute: 0, minutes: 60 } });
+    expect(eventPageTime(raids('Raid Hour from 11 a.m. to 12 p.m.'), 'raids', [MONDAY])).toEqual({
       kind: 'time',
       time: { hour: 11, minute: 0, minutes: 60 },
     });
     // The same range said twice is one.
     expect(
-      eventPageTime(raids('from 6 p.m. to 7 p.m.', 'Again from 6:00 p.m. to 7:00 p.m.'), 'raids', [
+      eventPageTime(
+        raids('Raid Hour from 6 p.m. to 7 p.m.', 'Again, Raid Hour from 6:00 p.m. to 7:00 p.m.'),
+        'raids',
+        [MONDAY],
+      ),
+    ).toEqual({ kind: 'time', time: { hour: 18, minute: 0, minutes: 60 } });
+  });
+
+  it('reads only a paragraph that names the hours: a range of other raids is none of theirs (review)', () => {
+    const shadow = 'Shadow raids will appear from 10 a.m. to 1 p.m. local time.';
+    expect(
+      eventPageTime(raids(shadow, 'Zacian will be featured in a Raid Hour.'), 'raids', [MONDAY]),
+    ).toEqual({ kind: 'none' });
+    expect(
+      eventPageTime(raids(shadow, 'Raid Hour from 6 p.m. to 7 p.m. local time.'), 'raids', [
         MONDAY,
       ]),
     ).toEqual({ kind: 'time', time: { hour: 18, minute: 0, minutes: 60 } });
+    // Max Battles: a paragraph that says "featured" or names Max Battles.
+    const max = (paragraph: string) =>
+      `<h2 id="max-battles">Max Battles</h2><p>Gigantamax Pokémon from 9 a.m. to 9 p.m.</p><p>${paragraph}</p>`;
+    expect(
+      eventPageTime(max('Registeel will be featured from 6 p.m. to 7 p.m.'), 'max-battles', []),
+    ).toEqual({ kind: 'time', time: { hour: 18, minute: 0, minutes: 60 } });
+    expect(eventPageTime(max('Bring friends.'), 'max-battles', [])).toEqual({ kind: 'none' });
   });
 
   it('gives none for a section that names no time, and for a page without the section', () => {
@@ -410,21 +430,48 @@ describe('eventPageTime', () => {
     const unclear = { kind: 'unclear' };
     expect(
       eventPageTime(
-        raids('from 6 p.m. to 7 p.m. on Monday, November 9, and from 5 p.m. to 6 p.m. on Tuesday'),
+        raids(
+          'Raid Hours from 6 p.m. to 7 p.m. on Monday, November 9, and from 5 p.m. to 6 p.m. on Tuesday',
+        ),
         'raids',
         [MONDAY, TUESDAY],
       ),
     ).toEqual(unclear);
-    expect(eventPageTime(raids('from 7 p.m. to 6 p.m.'), 'raids', [MONDAY])).toEqual(unclear);
-    expect(eventPageTime(raids('at 6 p.m. sharp'), 'raids', [MONDAY])).toEqual(unclear);
-    expect(eventPageTime(raids('from noon to 1 p.m.'), 'raids', [MONDAY])).toEqual(unclear);
+    expect(eventPageTime(raids('Raid Hour from 7 p.m. to 6 p.m.'), 'raids', [MONDAY])).toEqual(
+      unclear,
+    );
+    expect(eventPageTime(raids('Raid Hour at 6 p.m. sharp'), 'raids', [MONDAY])).toEqual(unclear);
+    expect(eventPageTime(raids('Raid Hour from noon to 1 p.m.'), 'raids', [MONDAY])).toEqual(
+      unclear,
+    );
     // The sentence names Monday only; Tuesday's heading is left out.
     expect(
-      eventPageTime(raids('from 6 p.m. to 7 p.m. local time on Monday, November 9'), 'raids', [
-        MONDAY,
-        TUESDAY,
-      ]),
+      eventPageTime(
+        raids('Raid Hours from 6 p.m. to 7 p.m. local time on Monday, November 9'),
+        'raids',
+        [MONDAY, TUESDAY],
+      ),
     ).toEqual(unclear);
+  });
+
+  it('is unclear for Raid Hours of over three hours, and for a time of a named zone (review)', () => {
+    const unclear = { kind: 'unclear' };
+    expect(eventPageTime(raids('Raid Hours from 2 p.m. to 6 p.m.'), 'raids', [MONDAY])).toEqual(
+      unclear,
+    );
+    expect(eventPageTime(raids('Raid Hours from 2 p.m. to 5 p.m.'), 'raids', [MONDAY])).toEqual({
+      kind: 'time',
+      time: { hour: 14, minute: 0, minutes: 180 },
+    });
+    for (const zone of ['PT', 'ET', 'UTC', '(PDT)', 'GMT+1']) {
+      expect(
+        eventPageTime(raids(`Raid Hour from 6 p.m. to 7 p.m. ${zone}.`), 'raids', [MONDAY]),
+        zone,
+      ).toEqual(unclear);
+    }
+    expect(
+      eventPageTime(raids('Raid Hour from 6 p.m. to 7 p.m. local time.'), 'raids', [MONDAY]),
+    ).toEqual({ kind: 'time', time: { hour: 18, minute: 0, minutes: 60 } });
   });
 });
 
