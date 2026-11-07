@@ -22,8 +22,9 @@ import {
 
 /**
  * The spawn form of the live map in the page (plan 8M-4S, spec 3.8): a long press or a right
- * click on the map opens it in a popup at that point; "Report spawn here" in a gym's popup opens
- * it in place of its button, the gym's place being the point. The pick list comes from
+ * click on the map opens it in a popup at that point; "Report spawn here" in a gym's, a PokéStop's
+ * or a Power Spot's popup opens it in place of its button, the place being the point. The pick
+ * list comes from
  * `/api/wild-options` (the browser revalidates it by its ETag). It is held like the raid forms
  * (`FormHold`, one form at a time). A success is said and closes the form, and the spawns are
  * asked for at once (`reported`), which draws it on the map.
@@ -158,15 +159,15 @@ export function spawnUi(deps: SpawnUiDeps) {
   };
 
   /**
-   * A click on "Report spawn here" (`spawnBox`): the form in place of the button, the gym's place
-   * the point.
+   * A click on "Report spawn here" (`spawnBox`, `spawnAtBox`): the form in place of the button,
+   * the place (a gym's, a PokéStop's or a Power Spot's) the point.
    */
-  const spawnClicked = (button: HTMLButtonElement, gym: MapGym): void => {
+  const spawnClicked = (button: HTMLButtonElement, place: LatLon): void => {
     const box = button.parentElement;
     if (!box) return;
     const claim = hold.take(formPlace(box));
     if (!claim) return;
-    const point = spawnPoint(gym.lat, gym.lon);
+    const point = spawnPoint(place.lat, place.lon);
     void openForm(box, point, regionsAt(point, deps.regions), claim, () => {
       box.replaceChildren(button);
       hold.release(claim);
@@ -174,17 +175,23 @@ export function spawnUi(deps: SpawnUiDeps) {
   };
 
   return {
-    /** "Report spawn here" for a gym's own popup; a click opens the form in its place. */
-    spawnControl(gym: MapGym): HTMLElement {
-      const box = renderNode(spawnBox(gym.id), document);
+    /**
+     * "Report spawn here" for a gym's own popup or a Power Spot's; a click opens the form in its
+     * place.
+     */
+    spawnControl(place: Pick<MapGym, 'lat' | 'lon'> & { id: number | string }): HTMLElement {
+      const box = renderNode(spawnBox(place.id), document);
       const button = box.querySelector('button');
       button?.addEventListener('click', () => {
-        spawnClicked(button, gym);
+        spawnClicked(button, place);
       });
       return box;
     },
 
-    /** A click on "Report spawn here" in the popup of a gym that shows raids. */
+    /**
+     * A click on "Report spawn here" in a popup drawn as a tree (a gym that shows raids, a
+     * PokéStop), its place found by the popup's own clicks.
+     */
     spawnClicked,
 
     /**

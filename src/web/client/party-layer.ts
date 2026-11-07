@@ -55,7 +55,7 @@ import {
   type PressAnswer,
 } from './press-answer.js';
 import { showsParty } from './post-forms.js';
-import { spawnPoint } from './spawn-forms.js';
+import { spawnAtBox, spawnAtOf, spawnPoint } from './spawn-forms.js';
 import { spawnUi } from './spawn-ui.js';
 import { maxUi, type MapSpot } from './max-ui.js';
 import { reportUi } from './report-ui.js';
@@ -1012,6 +1012,8 @@ export function showParties(
    * What a stop's popup needs of the map now: the clock, your location, the units, and for a
    * member who may report (not read-only, as 8M-9A's `reportOffered`) its own actions and a
    * research report's "Same task at more stops…" (B15: offered once the poll shows the report).
+   * The stop's own reports first, then a spawn at its place and a meetup there, as a gym's popup
+   * has its raid's, then "Report spawn here" and "Hold meetup here".
    */
   const stopContext = (stop: PickedStop): StopPopupContext => {
     const offered = reportOffered(mayReport, view);
@@ -1020,7 +1022,14 @@ export function showParties(
       zone: readerZone(),
       located: frame.located(),
       units: frame.units,
-      actions: offered ? [researchButton(stop), rocketBox(stop), meetupAtStopBox(stop)] : [],
+      actions: offered
+        ? [
+            researchButton(stop),
+            rocketBox(stop),
+            ...(stop.at ? [spawnAtBox(stop.at)] : []),
+            meetupAtStopBox(stop),
+          ]
+        : [],
       more: (report, kind) => (offered && kind === 'research' ? [sameTaskButton(report)] : []),
     };
   };
@@ -1349,6 +1358,10 @@ export function showParties(
       } else if (target.dataset.spawn !== undefined) {
         const gym = gyms.get(Number(target.dataset.spawn));
         if (gym) spawnForms.spawnClicked(target, gym);
+      } else if (target.dataset.spawnAt !== undefined) {
+        // "Report spawn here" in a PokéStop's popup: the spawn form at the stop's place.
+        const point = spawnAtOf(target.dataset.spawnAt);
+        if (point) spawnForms.spawnClicked(target, point);
       } else if (target.dataset.meetupHere !== undefined) {
         const gym = gyms.get(Number(target.dataset.meetupHere));
         if (gym) meetupForms.meetupHereClicked(gym, target);
@@ -3178,7 +3191,11 @@ export function showParties(
     raidGyms: () => raidGyms,
     spotControls: (spot) =>
       reportOffered(mayReport, view)
-        ? [maxForms.maxControl(spot), trainHereControl(spot.id, firstStopAtSpot(spot), spot)]
+        ? [
+            maxForms.maxControl(spot),
+            spawnForms.spawnControl(spot),
+            trainHereControl(spot.id, firstStopAtSpot(spot), spot),
+          ]
         : [],
     battleSpots: () => battleSpots,
     openBattle,

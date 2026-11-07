@@ -48,9 +48,11 @@ describe("the place's controls under a form in its popup", () => {
     expect(selectors).toContain('.raid-choices:has(> .place-control > :not(button)) .choices');
   });
 
-  it("hides a stop's reports' controls above its form", () => {
+  it("hides a stop's reports' controls above its form, and only then", () => {
+    // A form in a box of the stop's actions (Rocket, a spawn, a meetup), or research's in place of
+    // them all; a box that holds its button hides nothing (a box alone is no form).
     expect(selectors).toContain(
-      '.stop-popup:has(.rocket-box > :not(button), .stop-actions > :not(button, .rocket-box)) :is([data-take-back], [data-same-task], .report-actions .sep:has(+ [data-take-back], + [data-same-task]))',
+      '.stop-popup:has(.stop-actions > .place-control > :not(button), .stop-actions > :not(button, .place-control)) :is([data-take-back], [data-same-task], .report-actions .sep:has(+ [data-take-back], + [data-same-task]))',
     );
   });
 });

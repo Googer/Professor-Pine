@@ -7,7 +7,7 @@ import type {
   MapTrain,
   PartiesView,
 } from '../../domain/web/party-data.js';
-import type { SpawnsView } from '../../domain/web/spawn-data.js';
+import type { SpawnsView, WildOptionsView } from '../../domain/web/spawn-data.js';
 import type { ResearchOptionsView, StopReportsView } from '../../domain/web/stop-report-data.js';
 import { LayerRegistry, LAYERS_KEY, MAP_LAYERS } from './layer-registry.js';
 import type { MapSpot, MaxUiDeps } from './max-ui.js';
@@ -278,7 +278,11 @@ const fake = vi.hoisted(() => {
     lines: Array<{ key: string; kind: string; marker: string | null }>;
   } = { redrawn: [], waiting: [], lines: [] };
 
+  /** Those who wait for the next form of the map to be drawn (`formKeys` given it). */
+  const formsDrawn: Array<(form: unknown) => void> = [];
+
   return {
+    formsDrawn,
     Layer,
     Marker,
     Path,
@@ -436,6 +440,18 @@ vi.mock('./spawn-ui.js', async (importOriginal) => {
     spawnUi: (deps: SpawnUiDeps) => {
       fake.forms.spawn = deps;
       return real.spawnUi(deps);
+    },
+  };
+});
+
+// Every form of the map is given its keys as it is drawn: the moment a test waits for.
+vi.mock('./form-keys.js', async (importOriginal) => {
+  const real = await importOriginal<typeof import('./form-keys.js')>();
+  return {
+    ...real,
+    formKeys: (form: HTMLElement) => {
+      real.formKeys(form);
+      for (const told of fake.formsDrawn.splice(0)) told(form);
     },
   };
 });
@@ -812,6 +828,8 @@ async function started(options: {
   found?: unknown[];
   /** The wild spawns `/api/spawns` gives (Matt, 2026-11-07): drawn once they came. */
   spawns?: SpawnsView;
+  /** The Pokémon a spawn form offers (`/api/wild-options`); a report sent is answered as made. */
+  wild?: WildOptionsView;
 }) {
   page.byId = new Map();
   page.active = null;
@@ -917,45 +935,60 @@ async function started(options: {
   });
   /** The next question of `/api/parties` is answered only once this is let go (`holdParties`). */
   let partiesHeld: Promise<void> | undefined;
-  vi.stubGlobal('fetch', (url: string, init?: { signal?: AbortSignal }) => {
-    asked.push(url);
-    if (init?.signal) timeLimited.push(url);
-    const post = /\/api\/parties\/([^/]+)\/post\?/u.exec(url);
-    const posted = post ? options.posts?.[post[1] ?? ''] : undefined;
-    if (posted !== undefined) {
-      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(posted) });
-    }
-    if (url.endsWith('/api/parties')) {
-      if (options.partiesDown === true) {
-        return Promise.resolve({ ok: false, status: 503, text: () => Promise.resolve('') });
+  /** Those who wait for the next spawn report sent, with its body. */
+  const spawnsSent: Array<(body: unknown) => void> = [];
+  vi.stubGlobal(
+    'fetch',
+    (url: string, init?: { signal?: AbortSignal; method?: string; body?: string }) => {
+      asked.push(url);
+      if (init?.signal) timeLimited.push(url);
+      if (url.endsWith('/api/wild-options') && options.wild !== undefined) {
+        const lists = options.wild;
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(lists) });
       }
-      const answer = { ok: true, status: 200, text: () => Promise.resolve(listed) };
-      const held = partiesHeld ?? (options.partiesLate === true ? partiesLet : undefined);
-      partiesHeld = undefined;
-      return held === undefined ? Promise.resolve(answer) : held.then(() => answer);
-    }
-    if (url.includes('/api/find-places?')) {
-      const places = { places: options.found ?? [] };
-      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(places) });
-    }
-    if (url.endsWith('/api/stop-reports') && stopsListed !== undefined) {
-      const reports = JSON.stringify(stopsListed);
-      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(reports) });
-    }
-    if (url.endsWith('/api/spawns') && spawnsListed !== undefined) {
-      const spawns = JSON.stringify(spawnsListed);
-      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(spawns) });
-    }
-    if (url.endsWith('/api/research-options') && options.research !== undefined) {
-      const lists = options.research;
-      return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(lists) });
-    }
-    // A report on its way, never answered.
-    if (url.endsWith('/api/research') && options.sendsForever === true) {
-      return new Promise(() => undefined);
-    }
-    return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
-  });
+      if (init?.method === 'POST' && url.endsWith('/api/spawns')) {
+        const body: unknown = JSON.parse(init.body ?? '{}');
+        for (const told of spawnsSent.splice(0)) told(body);
+        const made = { ok: true, text: 'Reported: a wild Dratini near the place.' };
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(made) });
+      }
+      const post = /\/api\/parties\/([^/]+)\/post\?/u.exec(url);
+      const posted = post ? options.posts?.[post[1] ?? ''] : undefined;
+      if (posted !== undefined) {
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(posted) });
+      }
+      if (url.endsWith('/api/parties')) {
+        if (options.partiesDown === true) {
+          return Promise.resolve({ ok: false, status: 503, text: () => Promise.resolve('') });
+        }
+        const answer = { ok: true, status: 200, text: () => Promise.resolve(listed) };
+        const held = partiesHeld ?? (options.partiesLate === true ? partiesLet : undefined);
+        partiesHeld = undefined;
+        return held === undefined ? Promise.resolve(answer) : held.then(() => answer);
+      }
+      if (url.includes('/api/find-places?')) {
+        const places = { places: options.found ?? [] };
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(places) });
+      }
+      if (url.endsWith('/api/stop-reports') && stopsListed !== undefined) {
+        const reports = JSON.stringify(stopsListed);
+        return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(reports) });
+      }
+      if (url.endsWith('/api/spawns') && spawnsListed !== undefined) {
+        const spawns = JSON.stringify(spawnsListed);
+        return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(spawns) });
+      }
+      if (url.endsWith('/api/research-options') && options.research !== undefined) {
+        const lists = options.research;
+        return Promise.resolve({ ok: true, status: 200, json: () => Promise.resolve(lists) });
+      }
+      // A report on its way, never answered.
+      if (url.endsWith('/api/research') && options.sendsForever === true) {
+        return new Promise(() => undefined);
+      }
+      return Promise.resolve({ ok: false, status: 404, json: () => Promise.resolve({}) });
+    },
+  );
   const handlers = new Map<string, Array<(event: unknown) => void>>();
   const container = new PageElement('div');
   /** Where the map was flown to. */
@@ -1196,6 +1229,11 @@ async function started(options: {
       if (next.spawns) spawnsListed = next.spawns;
     },
     card: () => fake.card.made,
+    /** The next spawn report sent, with its body. */
+    spawnSent: () =>
+      new Promise<unknown>((resolve) => {
+        spawnsSent.push(resolve);
+      }),
     reportHeader: () => page.byId.get('report-button'),
     /** The map's own element, its classes the look of what is picked. */
     container,
@@ -3054,6 +3092,116 @@ describe('the wild spawns on the map (Matt, 2026-11-07)', () => {
     const before = asked.filter((url) => url.endsWith('/api/spawns')).length;
     (fake.forms.spawn as SpawnUiDeps | undefined)?.reported?.();
     expect(asked.filter((url) => url.endsWith('/api/spawns')).length).toBe(before + 1);
+  });
+
+  // Matt, 2026-11-07: `/wild near:` takes a gym, a PokéStop or a Power Spot; so does the map.
+  describe('"Report spawn here" at a PokéStop and a Power Spot', () => {
+    const WILD: WildOptionsView = { pokemon: [['dratini', 'Dratini']] };
+    const OLD_MILL = { id: 'spot-abc', title: 'Old Mill', lat: 40.4401234, lon: -79.95 };
+    const STOP_REPORTS = caseView({ research: [caseResearch(5)] });
+    /** The words of the buttons under `place`, in order. */
+    const buttonsOf = (place: PageElement | null | undefined) =>
+      place?.querySelectorAll('button').map((one) => one.textContent) ?? [];
+    /** The next form of the map drawn. */
+    const nextForm = () =>
+      new Promise<PageElement>((resolve) => {
+        fake.formsDrawn.push((form) => {
+          resolve(form as PageElement);
+        });
+      });
+    /** The spawn form filled in and reported: the body it sent. */
+    const reported = (form: PageElement, sent: Promise<unknown>): Promise<unknown> => {
+      for (const [name, value] of [
+        ['pokemon', 'Dratini'],
+        ['details', 'by the bench'],
+      ] as const) {
+        const field = form.querySelector(`input[name="${name}"]`);
+        if (field) Object.assign(field, { name, value });
+      }
+      form.querySelector('button[data-submit="spawn"]')?.dispatch('click');
+      return sent;
+    };
+
+    it("offers it in a PokéStop's popup after Report Rocket here, the form in its place, reported at the stop", async () => {
+      const { markerOf, reportHeader, spawnSent } = await started({
+        raids: true,
+        regions: REGIONS,
+        stops: STOP_REPORTS,
+        wild: WILD,
+      });
+      markerOf('Yellow Mural 5')?.fire('click', {});
+      const actions = popupNow()?.querySelector('.stop-actions');
+      expect(buttonsOf(actions)).toEqual([
+        'Report research here',
+        'Report Rocket here',
+        'Report spawn here',
+        'Hold meetup here',
+      ]);
+      const drawn = nextForm();
+      actions?.querySelector('button[data-spawn-at]')?.dispatch('click');
+      // One form at a time: the controls that open the others are off while it holds.
+      expect(reportHeader()?.disabled).toBe(true);
+      const form = await drawn;
+      expect(form.getAttribute('data-form')).toBe('spawn');
+      expect(popupNow()?.querySelector('[data-form="spawn"]') === form).toBe(true);
+      expect(await reported(form, spawnSent())).toEqual({
+        pokemon: 'dratini',
+        details: 'by the bench',
+        lat: 40.445,
+        lon: -79.95,
+      });
+    });
+
+    it("offers it in a Power Spot's card between Report max battle here and Start train here, reported at the spot", async () => {
+      const { raids, reportHeader, spawnSent } = await started({
+        raids: true,
+        phone: true,
+        regions: REGIONS,
+        wild: WILD,
+      });
+      const atSpot = placeShowing('party-card', raids.spotControls(OLD_MILL));
+      expect(buttonsOf(atSpot)).toEqual([
+        'Report max battle here',
+        'Report spawn here',
+        'Start train here',
+      ]);
+      const drawn = nextForm();
+      atSpot.querySelector('button[data-spawn]')?.dispatch('click');
+      expect(reportHeader()?.disabled).toBe(true);
+      const form = await drawn;
+      expect(atSpot.querySelector('[data-form="spawn"]') === form).toBe(true);
+      expect(await reported(form, spawnSent())).toEqual({
+        pokemon: 'dratini',
+        details: 'by the bench',
+        lat: 40.440123,
+        lon: -79.95,
+      });
+    });
+
+    it('is off while another form is open, and not offered once the map is read-only, as at a gym', async () => {
+      const { raids, markerOf, poll } = await started({
+        raids: true,
+        regions: REGIONS,
+        stops: STOP_REPORTS,
+        wild: WILD,
+      });
+      const atSpot = placeShowing('leaflet-popup', raids.spotControls(OLD_MILL));
+      const drawn = nextForm();
+      atSpot.querySelector('button[data-spawn]')?.dispatch('click');
+      const form = await drawn;
+      markerOf('Yellow Mural 5')?.fire('click', {});
+      const atStop = popupNow()?.querySelector('button[data-spawn-at]');
+      expect(atStop?.disabled).toBe(true);
+      atStop?.dispatch('click');
+      expect(popupNow()?.querySelector('[data-form="spawn"]')).toBeNull();
+      form.querySelector('button[data-cancel]')?.dispatch('click');
+      expect(atSpot.querySelector('[data-form="spawn"]')).toBeNull();
+      expect(atSpot.querySelector('button[data-spawn]')?.disabled).toBe(false);
+      await poll(view({ readOnly: true }));
+      expect(raids.spotControls(OLD_MILL)).toEqual([]);
+      markerOf('Yellow Mural 5')?.fire('click', {});
+      expect(popupNow()?.querySelector('button[data-spawn-at]')).toBeNull();
+    });
   });
 });
 

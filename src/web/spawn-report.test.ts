@@ -9,6 +9,9 @@ import { partyServiceWith } from '../../test/support/party-service.js';
 import { createTestContext } from '../../test/support/test-context.js';
 import { MemoryUsers } from '../../test/support/users.js';
 import { viewOverwrite } from '../../test/support/region-roles.js';
+import { keptRow } from '../../test/support/wayspot-cases.js';
+import { wayspotsWith } from '../../test/support/wayspots.js';
+import type { WayspotDirectory } from '../services/wayspot-directory.js';
 import {
   FakeActingMembers,
   partyWebWith,
@@ -53,6 +56,8 @@ async function reporting(
     exceptions?: string[];
     channelNames?: Map<string, string>;
     meetupSafety?: MeetupSafety;
+    /** The kept Wayspots (`wayspotsWith`); none without it. */
+    wayspots?: WayspotDirectory;
   } = {},
 ) {
   const throttles = options.throttles ?? new Throttles();
@@ -60,6 +65,7 @@ async function reporting(
   const base = createTestContext({}).ctx.config;
   const { ctx } = createTestContext({
     ...(options.meetupSafety ? { meetupSafety: options.meetupSafety } : {}),
+    ...(options.wayspots ? { wayspots: options.wayspots } : {}),
     partyService: made.service,
     parties: made.store,
     regions: made.regions,
@@ -210,6 +216,35 @@ describe('reporting a wild Pokémon on the map', () => {
       '**Where**\nby the steps\n📍 Near **The Stacks** (gym) · ' +
         '[Map](<https://www.google.com/maps/search/?api=1&query=40.0501%2C-80.0501>)',
     );
+  });
+
+  // Matt, 2026-11-07: "Report spawn here" in a PokéStop's and a Power Spot's popup sends its place,
+  // as a gym's does; the report is near that place, as `/wild near:` with a link there says it.
+  it('names the point a PokéStop or a Power Spot stands at by it', async () => {
+    // In West, away from every gym.
+    const stop = keptRow(1, { lat: 40.035, lon: -80.045, title: 'Market Fountain' });
+    const spot = keptRow(2, { lat: 40.045, lon: -80.025, kind: 'powerspot', title: 'Old Mill' });
+    const { wayspots } = await wayspotsWith([stop, spot]);
+    const map = await reporting({ wayspots });
+    web = map.web;
+    for (const [place, words] of [
+      [stop, 'Near **Market Fountain** (PokéStop)'],
+      [spot, 'Near **Old Mill** (Power Spot)'],
+    ] as const) {
+      const answer = await map.report({
+        pokemon: 'dratini',
+        details: 'by the bench',
+        lat: place.lat,
+        lon: place.lon,
+      });
+      expect(answer.json.text).toBe(
+        `Reported: a wild Dratini near ${place.title}.\nThe report is removed in 30 minutes.`,
+      );
+      expect(textDisplays(map.reports().at(-1)?.message)[1]).toBe(
+        `**Where**\nby the bench\n📍 ${words} · ` +
+          `[Map](<https://www.google.com/maps/search/?api=1&query=${String(place.lat)}%2C${String(place.lon)}>)`,
+      );
+    }
   });
 
   it("refuses a point in no region of the server in /wild's words, counting nothing", async () => {

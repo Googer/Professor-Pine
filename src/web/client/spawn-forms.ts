@@ -9,10 +9,10 @@ import type { FormBody } from './raid-forms.js';
 
 /**
  * Reporting a wild Pokémon on the live map (plan 8M-4S, spec 3.8), the parts that need no
- * Leaflet: "Report spawn here" in a gym's popup, the regions a point lies in, the form as a tree
- * of nodes (`renderNode` sets every text as text), the body it sends, and sending it with the
- * page's CSRF token as a press is sent. What a member types is read by the server with `/wild`'s
- * readers; the page only says what is missing.
+ * Leaflet: "Report spawn here" in a gym's, a PokéStop's or a Power Spot's popup, the regions a
+ * point lies in, the form as a tree of nodes (`renderNode` sets every text as text), the body it
+ * sends, and sending it with the page's CSRF token as a press is sent. What a member types is
+ * read by the server with `/wild`'s readers; the page only says what is missing.
  */
 
 /** As much as `/wild` takes of the Pokémon and of the details (its options' lengths). */
@@ -67,8 +67,12 @@ export function pressedWhere(
   return lying.length === 0 ? { text: NOT_IN_A_REGION } : { regions: lying };
 }
 
-/** "Report spawn here" in the box a click opens the form in (`spawn-box`), in a gym's popup. */
-export function spawnBox(gymId: number): PageNode {
+/**
+ * "Report spawn here" in the box a click opens the form in (`spawn-box`), in a gym's or a Power
+ * Spot's popup, naming the place by its id: a gym that shows its raid, whose popup is drawn as a
+ * tree, finds its gym by it; a Power Spot's popup listens to its own button.
+ */
+export function spawnBox(placeId: number | string): PageNode {
   return {
     tag: 'div',
     className: 'spawn-box place-control',
@@ -77,10 +81,43 @@ export function spawnBox(gymId: number): PageNode {
         tag: 'button',
         className: 'report-spawn',
         text: 'Report spawn here',
-        attributes: { type: 'button', 'data-spawn': String(gymId) },
+        attributes: { type: 'button', 'data-spawn': String(placeId) },
       },
     ],
   };
+}
+
+/**
+ * "Report spawn here" in a PokéStop's popup (Matt, 2026-11-07), beside the stop's other actions
+ * and in their look: the place, to six decimals, is the point (`spawnAtOf` reads it back), as a
+ * gym's place is for a gym's.
+ */
+export function spawnAtBox(at: LatLon): PageNode {
+  const point = spawnPoint(at.lat, at.lon);
+  return {
+    tag: 'div',
+    className: 'spawn-box place-control',
+    children: [
+      {
+        tag: 'button',
+        className: 'press',
+        text: 'Report spawn here',
+        attributes: {
+          type: 'button',
+          'data-spawn-at': `${String(point.lat)},${String(point.lon)}`,
+        },
+      },
+    ],
+  };
+}
+
+/** The point a "Report spawn here" of a PokéStop names (`spawnAtBox`), or none. */
+export function spawnAtOf(value: string | undefined): LatLon | undefined {
+  const [lat, lon, ...more] = (value ?? '').split(',').map((part) => Number(part));
+  if (lat === undefined || lon === undefined || more.length > 0) return undefined;
+  if (!Number.isFinite(lat) || !Number.isFinite(lon)) return undefined;
+  if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return undefined;
+  return { lat, lon };
 }
 
 /** What a spawn form holds, kept when it is drawn anew (a region to pick, say). */

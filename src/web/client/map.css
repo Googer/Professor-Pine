@@ -1645,7 +1645,9 @@ path.highlighted {
  * that the form's own buttons stay above the fold (its box holds anything but its button). They are
  * back when the form's Cancel puts the button back. A raid's post above the form stays, without its
  * controls, as does the summary drawn while the post has not come (`.raids`: its counts, the
- * member's line and its links stay); a stop's research form has the box of all its actions.
+ * member's line and its links stay); a stop's research form has the box of all its actions, its
+ * Rocket, spawn and meetup forms a box of their own among them (a box that holds its button is no
+ * form: its reports' Take back stays).
  */
 .place-control:has(> :not(button)) ~ .place-control,
 .place-control:has(~ .place-control > :not(button)),
@@ -1659,7 +1661,10 @@ path.highlighted {
     .map-line .sep:has(+ .link-button)
   ),
 .raid-choices:has(> .place-control > :not(button)) .choices,
-.stop-popup:has(.rocket-box > :not(button), .stop-actions > :not(button, .rocket-box))
+.stop-popup:has(
+    .stop-actions > .place-control > :not(button),
+    .stop-actions > :not(button, .place-control)
+  )
   :is(
     [data-take-back],
     [data-same-task],

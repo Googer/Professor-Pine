@@ -61,14 +61,16 @@ export interface RaidUiDeps {
 }
 
 /**
- * The controls that open a form ("Report raid", "Manage…", "Report spawn here", and of trains
+ * The controls that open a form ("Report raid", "Manage…", "Report spawn here" (a PokéStop's
+ * too, `data-spawn-at`), and of trains
  * "New train", "Edit route", "Move…", "Manage…", "Split…", and of meetups "New meetup", "Meetup
  * here", "Manage…", and "Report max battle here") under `root`, on or off; with them the choices of a gym's raids, which draw the
  * popup or phone card anew (review W-3).
  */
 export function formControls(root: ParentNode, on: boolean): void {
   for (const button of root.querySelectorAll<HTMLButtonElement>(
-    'button[data-report], button[data-change-raid], button[data-spawn], button[data-show-raid], ' +
+    'button[data-report], button[data-change-raid], button[data-spawn], button[data-spawn-at], ' +
+      'button[data-show-raid], ' +
       'button[data-new-train], button[data-train-here], button[data-route-train], ' +
       'button[data-move-train], ' +
       'button[data-manage-train], button[data-split-train], ' +

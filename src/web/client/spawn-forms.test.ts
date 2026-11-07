@@ -10,6 +10,8 @@ import {
   regionsAt,
   sendSpawnForm,
   spawnAnswerOf,
+  spawnAtBox,
+  spawnAtOf,
   spawnBody,
   spawnBox,
   spawnForm,
@@ -74,6 +76,37 @@ describe('"Report spawn here" in a gym\'s popup (spawnBox)', () => {
         attributes: { type: 'button', 'data-spawn': '4' },
       },
     ]);
+  });
+
+  it("names a Power Spot by its id, as a gym's names the gym", () => {
+    expect(spawnBox('abc.16').children?.[0]?.attributes).toEqual({
+      type: 'button',
+      'data-spawn': 'abc.16',
+    });
+  });
+});
+
+describe('"Report spawn here" in a PokéStop\'s popup (spawnAtBox)', () => {
+  it("is a button in the look of the stop's other actions, carrying the stop's place as the point", () => {
+    const box = spawnAtBox({ lat: 40.4451234567, lon: -79.95 });
+    expect(box.className).toBe('spawn-box place-control');
+    expect(box.children).toEqual([
+      {
+        tag: 'button',
+        className: 'press',
+        text: 'Report spawn here',
+        attributes: { type: 'button', 'data-spawn-at': '40.445123,-79.95' },
+      },
+    ]);
+  });
+
+  it('gives the point back from the button, and none from what is not one', () => {
+    expect(spawnAtOf('40.445123,-79.95')).toEqual({ lat: 40.445123, lon: -79.95 });
+    expect(spawnAtOf(undefined)).toBeUndefined();
+    expect(spawnAtOf('')).toBeUndefined();
+    expect(spawnAtOf('40.4')).toBeUndefined();
+    expect(spawnAtOf('north,-79.95')).toBeUndefined();
+    expect(spawnAtOf('95,-79.95')).toBeUndefined();
   });
 });
 
