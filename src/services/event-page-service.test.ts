@@ -77,12 +77,14 @@ describe('EventPageService (plan 8R-4)', () => {
         redirect: 'error',
       },
     ]);
-    // Zubat with a hand-named picture, Piplup by its picture's costume; Duskull plain.
+    // Zubat with a hand-named picture, Piplup by its picture's costume; Duskull plain; Drifblim
+    // by its name in the sentence under the list (B-D2).
     expect(service.sightingsAt(clock.now)).toEqual(
       expect.arrayContaining([
         { key: 'zubat', dex: 41, costumed: true },
         { key: 'duskull', dex: 355, costumed: false },
         expect.objectContaining({ dex: 393, costumed: true }),
+        expect.objectContaining({ dex: 426, costumed: true }),
       ]),
     );
     // Not on before it starts, nor after it ends.

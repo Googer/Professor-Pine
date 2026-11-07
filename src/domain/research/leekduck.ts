@@ -1,6 +1,6 @@
 import type { PokemonCatalogue } from '../pogo/catalogue.js';
 import { feedLookupOf } from '../pogo/feed-lookup.js';
-import { identifyBoss } from '../pogo/raid-boss-feed.js';
+import { identifyBoss, wornBy } from '../pogo/raid-boss-feed.js';
 import { feedTime } from '../time/zoned.js';
 import { itemKey, MAX_TASK_TEXT, taskKeyOf, type ResearchTask, type TaskReward } from './task.js';
 import { rewardKey } from './versions.js';
@@ -185,25 +185,36 @@ function readReward(html: string, reading: Reading): TaskReward | undefined {
 /**
  * The Pokémon of the Spawns section of a Leek Duck event page (plan 8R-4, design 5): each list
  * item's name and picture (`<li class="pkmn-list-item">`, `<div class="pkmn-name">`), between the
- * section's heading (`<h2 id="spawns">`) and the next heading; the text around them ("you might
- * also encounter …") is not read. None for a page without the section.
+ * section's heading (`<h2 id="spawns">`) and the next heading; then the rarer costumed ones its
+ * sentences name in bold ("you might also encounter **Drifblim wearing a Halloween Mischief
+ * costume**!", B-D2), without a picture, only those whose name says what they wear (`wornBy`) and
+ * not listed already. None for a page without the section.
  */
 export function parseEventSpawns(html: string): { name: string; image?: string }[] {
   const start = html.indexOf('<h2 id="spawns"');
   if (start < 0) return [];
   const next = html.indexOf('<h2', start + 3);
   const section = html.slice(start, next < 0 ? undefined : next);
-  return partsFrom(section, '<li class="pkmn-list-item"')
-    .flatMap((item) => {
-      const name = htmlText(between(item, '<div class="pkmn-name">', '</div>') ?? '').slice(
-        0,
-        MAX_REWARD_NAME,
-      );
-      if (name === '') return [];
-      const image = leekDuckPicture(pictures(item)[0]);
-      return [{ name, ...(image === null ? {} : { image }) }];
-    })
-    .slice(0, MAX_EVENT_SPAWNS);
+  const listed = partsFrom(section, '<li class="pkmn-list-item"').flatMap((item) => {
+    const name = htmlText(between(item, '<div class="pkmn-name">', '</div>') ?? '').slice(
+      0,
+      MAX_REWARD_NAME,
+    );
+    if (name === '') return [];
+    const image = leekDuckPicture(pictures(item)[0]);
+    return [{ name, ...(image === null ? {} : { image }) }];
+  });
+  const names = new Set(listed.map((spawn) => spawn.name));
+  const named: { name: string }[] = [];
+  for (const paragraph of section.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/g)) {
+    for (const bold of (paragraph[1] ?? '').matchAll(/<(strong|b)\b[^>]*>([\s\S]*?)<\/\1>/g)) {
+      const name = htmlText(bold[2] ?? '').slice(0, MAX_REWARD_NAME);
+      if (wornBy(name) === undefined || names.has(name)) continue;
+      names.add(name);
+      named.push({ name });
+    }
+  }
+  return [...listed, ...named].slice(0, MAX_EVENT_SPAWNS);
 }
 
 /** The most Pokémon read of an event page's Spawns section (B4): no event lists more. */

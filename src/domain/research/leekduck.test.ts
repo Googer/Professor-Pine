@@ -274,6 +274,9 @@ describe('parseResearchPage', () => {
         name: 'Piplup wearing a Halloween Mischief costume',
         image: `${crop}pm393.cHALLOWEEN_2021_NOEVOLVE.icon.png`,
       },
+      // Named only in a sentence below the list (B-D2): "you might also encounter **Drifblim
+      // wearing a Halloween Mischief costume**!".
+      { name: 'Drifblim wearing a Halloween Mischief costume' },
     ]);
     expect(parseEventSpawns(readEventPage('leekduck-event-spotlight-2026-11-05.html'))).toEqual([
       {
@@ -282,6 +285,15 @@ describe('parseResearchPage', () => {
       },
     ]);
     expect(parseEventSpawns('<html><h2 id="raids">Raids</h2></html>')).toEqual([]);
+    // A sentence's bold names count only where they say what is worn; another section's never.
+    expect(
+      parseEventSpawns(
+        '<h2 id="spawns">Spawns</h2><p>Lucky trainers may encounter <b>Pikachu wearing a ' +
+          'party hat</b> or <strong>Shiny Eevee</strong>, and <strong>Bulbasaur wearing ' +
+          'a &amp; costume</strong>.</p><h2 id="raids">Raids</h2><p><strong>Mewtwo wearing ' +
+          'armor</strong></p>',
+      ),
+    ).toEqual([{ name: 'Pikachu wearing a party hat' }, { name: 'Bulbasaur wearing a & costume' }]);
     // At most 100 of a page's Pokémon (B4): no event lists more.
     const many = Array.from(
       { length: 150 },
