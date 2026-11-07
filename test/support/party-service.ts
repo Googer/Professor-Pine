@@ -42,6 +42,7 @@ import {
 } from '../../src/services/party-service.js';
 import { NotifyService, type NotifyServiceOptions } from '../../src/services/notify-service.js';
 import { SpawnService } from '../../src/services/spawn-service.js';
+import { MemorySpawnReports } from './spawn-reports.js';
 import { RecordingDms } from './dms.js';
 import { FakePartyGateway } from './fake-gateway.js';
 import { MemoryGymTargets } from './gym-targets.js';
@@ -313,7 +314,7 @@ export function restarted(made: Outliving, overrides: ServiceOverrides = {}) {
  * `notifyOptions` are its options: `new NotifyService(notifyOptions)` is the notifier of a
  * restarted process over the same stores and `dms`, which remembers nothing it told. `spawns` is
  * the service of `/wild` over the same gateway; its deletion timers never run by themselves
- * (`spawnTimers`).
+ * (`spawnTimers`), and what stands of it is kept in memory (`spawnReports`), as the bot keeps it in its table.
  *
  * `kept` is what outlives a restart (see `restarted`).
  */
@@ -453,6 +454,8 @@ export async function partyServiceWith(
   };
   const notify = new NotifyService(notifyOptions);
   service.announceTo(notify);
+  /** The spawn reports that stand, as the bot keeps them in `SpawnReport`. */
+  const spawnReports = new MemorySpawnReports();
   /** The timers of the spawn reports that wait for their deletion: a test fires them by hand. */
   const spawnTimers: { run: () => void; ms: number; cancelled: boolean }[] = [];
   const spawns = new SpawnService({
@@ -460,6 +463,7 @@ export async function partyServiceWith(
     raidBosses: overrides.raidBosses ?? raidBossesFixture(),
     gameData: overrides.gameData ?? { catalogue: catalogueFixture() },
     notify,
+    store: spawnReports,
     settings: overrides.settings ?? settings,
     ...(spawnDeleteAfterMs === undefined ? {} : { deleteAfterMs: spawnDeleteAfterMs }),
     ...(spawnCostumes === undefined ? {} : { costumes: spawnCostumes }),
@@ -580,6 +584,7 @@ export async function partyServiceWith(
     notifyOptions,
     spawns,
     spawnTimers,
+    spawnReports,
     wants,
     targetWants,
     gymTargets,

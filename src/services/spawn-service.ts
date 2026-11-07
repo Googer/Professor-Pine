@@ -1,5 +1,9 @@
 import type { Settings } from '../config/settings.js';
-import type { SpawnReportStorage } from '../db/repositories/spawn-report-repository.js';
+import type {
+  ShownSpawn,
+  SpawnReportStorage,
+  StandingSpawn,
+} from '../db/repositories/spawn-report-repository.js';
 import {
   isMissingPermission,
   isRefusedBody,
@@ -23,6 +27,7 @@ import { costumedSpawn } from '../domain/time/spawn-events.js';
 import type { EventSpawnProvider } from './event-page-service.js';
 import type { GameDataProvider } from './game-data-service.js';
 import type { RaidBossProvider } from './raid-boss-service.js';
+import { ReadsBetweenWrites } from './reads-between-writes.js';
 
 /** The Pokédex number of Unown, whose sightings a server may collect in a channel of their own. */
 export const UNOWN_DEX = 201;
@@ -76,6 +81,9 @@ export const DELETE_AGAIN_MS = 60_000;
 
 /** How long after its time a report that cannot be deleted is still tried at every sweep. */
 export const GIVE_UP_MS = 24 * 60 * 60_000;
+
+/** How many servers' lists `standing` keeps: more than one installation serves. */
+const KEPT_SERVERS = 100;
 
 export interface SpawnServiceOptions {
   /**
@@ -149,6 +157,10 @@ export class SpawnService {
   private readonly deleteAfterMs: number;
   /** Set at shutdown (`flush`): a report made later would stand for good. */
   private closed = false;
+  /** The servers' lists of reports that stand (`standing`), kept until the store is written. */
+  private readonly reads = new ReadsBetweenWrites<string, StandingSpawn[]>(KEPT_SERVERS);
+  /** Told of each report recorded (`onReported`): the map's live streams. */
+  private readonly listeners: Array<(guildId: string) => void> = [];
 
   constructor(private readonly options: SpawnServiceOptions) {
     this.now = options.now ?? (() => Date.now());
@@ -250,7 +262,17 @@ export class SpawnService {
       await this.remove(report.regionChannelId, messageId, true);
       return { kind: 'closed' };
     }
-    await this.record(report.regionChannelId, messageId);
+    await this.record(report.regionChannelId, messageId, goneAt, {
+      guildId: report.guildId,
+      pokemon: { key: report.pokemon.key, name: report.pokemon.name },
+      costumed,
+      iv: report.iv ?? null,
+      details: report.details,
+      reporterName: report.reporter.name ?? null,
+      image: view.image ?? null,
+      near: report.near ?? null,
+      madeAt: eventAt,
+    });
     this.deleteLater(report.regionChannelId, messageId, this.deleteAfterMs, true);
     if (report.pokemon.dex === UNOWN_DEX) {
       try {
@@ -304,24 +326,62 @@ export class SpawnService {
     }
   }
 
-  /** Records a report that stands; never rejects (a report that is not recorded still goes). */
-  private async record(channelId: string, messageId: string): Promise<void> {
+  /**
+   * Records a report that stands until `deleteAt`, with what the map shows of it; never rejects (a
+   * report that is not recorded still goes, and is not on the map). Who listens is told of it once
+   * it is recorded.
+   */
+  private async record(
+    channelId: string,
+    messageId: string,
+    deleteAt: number,
+    shown: ShownSpawn,
+  ): Promise<void> {
     const { store, log } = this.options;
+    if (!store) return;
     try {
-      await store?.add({ channelId, messageId, deleteAt: this.now() + this.deleteAfterMs });
+      await this.reads.writing(() => store.add({ channelId, messageId, deleteAt, shown }));
     } catch (err) {
       log.warn({ err, channel: channelId }, 'could not record a spawn report');
+      return;
+    }
+    for (const listener of this.listeners) {
+      try {
+        listener(shown.guildId);
+      } catch (err) {
+        log.warn({ err, guild: shown.guildId }, 'a listener of spawn reports failed');
+      }
     }
   }
 
   /** Forgets a recorded report; never rejects. */
   private async forget(channelId: string, messageId: string): Promise<void> {
     const { store, log } = this.options;
+    if (!store) return;
     try {
-      await store?.remove(messageId);
+      await this.reads.writing(() => store.remove(messageId));
     } catch (err) {
       log.warn({ err, channel: channelId }, 'could not forget a spawn report');
     }
+  }
+
+  /**
+   * The reports of a server that stand now, with what the map shows of them (`/api/spawns`), the
+   * one due first at the head: read once and kept until a report is recorded or forgotten
+   * (`ReadsBetweenWrites`), each ask leaving out by its clock what is due. A report goes off the
+   * map at its time, whether or not its message was deleted yet. None without a store.
+   */
+  async standing(guildId: string): Promise<StandingSpawn[]> {
+    const { store } = this.options;
+    if (!store) return [];
+    const listed = await this.reads.read(guildId, () => store.standing(guildId, this.now()));
+    const now = this.now();
+    return listed.filter((spawn) => spawn.deleteAt > now);
+  }
+
+  /** Tells `listener` the server of each report recorded from now on (the map's live streams). */
+  onReported(listener: (guildId: string) => void): void {
+    this.listeners.push(listener);
   }
 
   /**

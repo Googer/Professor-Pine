@@ -49,12 +49,18 @@ describe('the wiring of the live signals', () => {
       }
     };
     const reports: StopReportListener[] = [];
+    const spawned: Array<(guildId: string) => void> = [];
     liveSources(live, {
       parties: made.store,
       posts: made.service,
       reports: {
         listen: (listener) => {
           reports.push(listener);
+        },
+      },
+      spawns: {
+        onReported: (listener) => {
+          spawned.push(listener);
         },
       },
     });
@@ -79,7 +85,7 @@ describe('the wiring of the live signals', () => {
         destroy: () => undefined,
       },
     });
-    return { made, written, keysAtSignal, pass, reports };
+    return { made, written, keysAtSignal, pass, reports, spawned };
   }
 
   const ALICE = { id: '200000000000000071', name: 'Alice' };
@@ -120,6 +126,12 @@ describe('the wiring of the live signals', () => {
     const { written, reports } = await wired();
     for (const listener of reports) listener.listChanged?.(SERVER);
     expect(written).toEqual(['event: changed\ndata: stop-reports 1000\n\n']);
+  });
+
+  it('a spawn recorded is signaled to its server as the spawns’ list', async () => {
+    const { written, spawned } = await wired();
+    for (const listener of spawned) listener(SERVER);
+    expect(written).toEqual(['event: changed\ndata: spawns 1000\n\n']);
   });
 });
 

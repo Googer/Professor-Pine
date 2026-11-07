@@ -1,5 +1,7 @@
 import type {
+  ShownSpawn,
   SpawnReportStorage,
+  StandingSpawn,
   StoredSpawnReport,
 } from '../../src/db/repositories/spawn-report-repository.js';
 
@@ -11,6 +13,8 @@ import type {
 export class MemorySpawnReports implements SpawnReportStorage {
   failing: Error | undefined;
   readonly rows: StoredSpawnReport[] = [];
+  /** What the map shows of each report recorded with it, by message. */
+  private readonly shown = new Map<string, ShownSpawn>();
 
   private attempt<T>(work: () => T): Promise<T> {
     return new Promise((resolve, reject) => {
@@ -22,18 +26,34 @@ export class MemorySpawnReports implements SpawnReportStorage {
     });
   }
 
-  add(report: StoredSpawnReport): Promise<void> {
+  add(report: StoredSpawnReport & { shown?: ShownSpawn }): Promise<void> {
     return this.attempt(() => {
       if (!this.rows.some((row) => row.messageId === report.messageId)) {
-        this.rows.push({ ...report });
+        const { shown, ...stored } = report;
+        this.rows.push(stored);
+        if (shown) this.shown.set(report.messageId, structuredClone(shown));
       }
     });
+  }
+
+  standing(guildId: string, now: number): Promise<StandingSpawn[]> {
+    return this.attempt(() =>
+      this.rows
+        .flatMap((row): StandingSpawn[] => {
+          const shown = this.shown.get(row.messageId);
+          return shown?.guildId === guildId && row.deleteAt > now
+            ? [{ ...row, ...structuredClone(shown) }]
+            : [];
+        })
+        .sort((a, b) => a.deleteAt - b.deleteAt || a.messageId.localeCompare(b.messageId)),
+    );
   }
 
   remove(messageId: string): Promise<void> {
     return this.attempt(() => {
       const index = this.rows.findIndex((row) => row.messageId === messageId);
       if (index >= 0) this.rows.splice(index, 1);
+      this.shown.delete(messageId);
     });
   }
 

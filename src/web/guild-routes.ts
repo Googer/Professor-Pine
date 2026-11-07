@@ -209,8 +209,9 @@ export function guildRoutes(
   // Reporting and changing raids on the live map (plan 8M-4): for the same members.
   raidRoutes(scope, map);
 
-  // Reporting wild Pokémon on the live map (plan 8M-4S): for the same members.
-  spawnRoutes(scope, map);
+  // Wild Pokémon on the live map: reporting them (plan 8M-4S) and those that stand, for the same
+  // members, through the same viewers.
+  spawnRoutes(scope, map, viewers);
 
   // Starting, arranging and moving trains on the live map (plan 8M-5): for the same members.
   trainRoutes(scope, map);

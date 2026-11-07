@@ -42,6 +42,7 @@ import { leaderboardOptIn } from './2026_11_05_040_leaderboard_opt_in.js';
 import { trainCardFacts } from './2026_11_05_041_train_card.js';
 import { activityDays } from './2026_11_06_042_activity_days.js';
 import { legacyFillIn } from './2026_11_06_043_legacy_fill_in.js';
+import { spawnsOnMap } from './2026_11_07_044_spawns_on_map.js';
 
 /**
  * Every migration, keyed by name. Kysely applies them in name order, so names are
@@ -91,4 +92,5 @@ export const migrations: Record<string, Migration> = {
   '2026_11_05_041_train_card': trainCardFacts,
   '2026_11_06_042_activity_days': activityDays,
   '2026_11_06_043_legacy_fill_in': legacyFillIn,
+  '2026_11_07_044_spawns_on_map': spawnsOnMap,
 };

@@ -5,10 +5,10 @@
  * and never throws: `PartyStore.onChange` and the other sources call them synchronously.
  */
 
-/** The lists a stream tells of: `/api/parties` and `/api/stop-reports`. */
-export type LiveList = 'parties' | 'stop-reports';
+/** The lists a stream tells of: `/api/parties`, `/api/stop-reports` and `/api/spawns`. */
+export type LiveList = 'parties' | 'stop-reports' | 'spawns';
 
-const LISTS: readonly LiveList[] = ['parties', 'stop-reports'];
+const LISTS: readonly LiveList[] = ['parties', 'stop-reports', 'spawns'];
 
 /** A heartbeat, well inside Cloudflare's 100 seconds. */
 export const LIVE_PING_MS = 25_000;
@@ -221,6 +221,15 @@ export class LiveSignals {
     if (server) this.ask(server, 'stop-reports');
   }
 
+  /**
+   * A wild spawn of a server was reported (`SpawnService.onReported`). One that goes away needs no
+   * word: the page drops it at its time.
+   */
+  spawnsChanged(serverId: string): void {
+    const server = this.servers.get(serverId);
+    if (server) this.ask(server, 'spawns');
+  }
+
   /** Ends every stream at once (`preClose`); a stream asked for from now on is `closed`. */
   close(): void {
     this.isClosed = true;
@@ -244,6 +253,7 @@ export class LiveSignals {
         paces: {
           parties: { lastAt: undefined, cancel: undefined },
           'stop-reports': { lastAt: undefined, cancel: undefined },
+          spawns: { lastAt: undefined, cancel: undefined },
         },
         pending: new Map(),
       };

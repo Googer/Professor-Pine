@@ -1466,7 +1466,7 @@ export async function startApp(
   });
   // Who has the map open, told of what changed (`/api/live`); without a stream it does nothing.
   const live = new LiveSignals(LIVE_ON_THE_CLOCK);
-  liveSources(live, { parties, posts: partyService, reports: stopReports });
+  liveSources(live, { parties, posts: partyService, reports: stopReports, spawns });
   const web =
     webSettings &&
     webSessions &&

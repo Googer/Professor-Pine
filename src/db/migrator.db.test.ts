@@ -220,6 +220,7 @@ describe('runMigrations', () => {
       '2026_11_05_041_train_card',
       '2026_11_06_042_activity_days',
       '2026_11_06_043_legacy_fill_in',
+      '2026_11_07_044_spawns_on_map',
     ]);
     expect(
       await describeSchema(

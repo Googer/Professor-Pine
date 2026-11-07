@@ -21,7 +21,8 @@ import { InteractionRouter } from '../discord/router.js';
 import { Throttles } from '../discord/throttle.js';
 import { pokemonTarget } from '../domain/pogo/notification-target.js';
 import { RaidPrivacy } from '../domain/party/status.js';
-import type { SpawnAnswer, WildOptionsView } from '../domain/web/spawn-data.js';
+import type { KnownPlace } from '../domain/geo/place.js';
+import type { SpawnAnswer, SpawnsView, WildOptionsView } from '../domain/web/spawn-data.js';
 import { MOD, SAFETY_SERVER } from '../../test/support/meetup-safety-cases.js';
 import { meetupSafetyWith } from '../../test/support/meetup-safety-service.js';
 import type { MeetupSafety } from '../services/meetup-safety.js';
@@ -516,6 +517,178 @@ describe('reporting a wild Pokémon on the map', () => {
     ]);
     expect(logged[1]).toMatchObject({ user: ALICE, guild: FAKE_GUILD_ID, region: 1 });
     expect(JSON.stringify(map.web.entries)).not.toContain('40.02');
+  });
+});
+
+describe('the wild spawns on the map', () => {
+  let web: TestWeb | undefined;
+  afterEach(async () => {
+    vi.useRealTimers();
+    await web?.app.close();
+    web = undefined;
+  });
+
+  /** The Pinewood Public Library (gym 1 in West) as `/wild near:` names it. */
+  const THE_STACKS: KnownPlace = {
+    kind: 'gym',
+    id: '1',
+    title: 'The Stacks',
+    lat: 40.05,
+    lon: -80.05,
+    address: '1 Library Lane',
+    image: null,
+  };
+
+  /** The spawns as a member sees them, with the answer's status and headers. */
+  const listed = async (
+    map: Awaited<ReturnType<typeof reporting>>,
+    cookie?: string,
+    etag?: string,
+  ) => {
+    const answer = await map.web.app.inject({
+      method: 'GET',
+      url: SPAWNS,
+      headers: {
+        ...(cookie === undefined ? {} : { cookie }),
+        ...(etag === undefined ? {} : { 'if-none-match': etag }),
+      },
+    });
+    return {
+      status: answer.statusCode,
+      headers: answer.headers,
+      view: answer.statusCode === 200 ? answer.json<SpawnsView>() : undefined,
+      body: answer.body,
+    };
+  };
+
+  it('lists what stands as its region message says it: one reported on the map at its pin, one of /wild near a gym, one without a place', async () => {
+    const map = await reporting();
+    web = map.web;
+    const madeAt = PARTY_NOW;
+    expect(
+      (await map.report({ pokemon: 'dratini', details: 'by the bench', iv: 'perfect', ...IN_WEST }))
+        .status,
+    ).toBe(200);
+    const [pinned] = map.reports();
+    await map.made.spawns.report({
+      guildId: FAKE_GUILD_ID,
+      regionChannelId: WEST_CHANNEL,
+      pokemon: { dex: 19, key: 'rattata_alola', name: 'Alolan Rattata' },
+      details: 'under the stairs',
+      reporter: { id: BOB, name: 'Bob' },
+      near: THE_STACKS,
+    });
+    await map.made.spawns.report({
+      guildId: FAKE_GUILD_ID,
+      regionChannelId: EAST_CHANNEL,
+      pokemon: { dex: 129, key: 'magikarp', name: 'Magikarp' },
+      details: null,
+      reporter: { id: BOB },
+    });
+    const [, gym] = map.reports();
+    const [plain] = map.reports(EAST_CHANNEL);
+    if (!pinned || !gym || !plain) throw new Error('not posted');
+    const answer = await listed(map, await map.web.loggedIn(ALICE, 'Alice'));
+    expect(answer.status).toBe(200);
+    expect(answer.headers['cache-control']).toBe('private, no-cache');
+    const goneAt = madeAt + 30 * 60_000;
+    // No pictures: the test's game data has no icons (`spawn-view.test.ts` shows them).
+    expect(answer.view?.spawns).toEqual([
+      {
+        id: pinned.id,
+        pokemon: 'Dratini',
+        costumed: false,
+        ivs: '100% IVs',
+        details: 'by the bench',
+        near: 'Dropped pin',
+        point: IN_WEST,
+        reporter: 'Alice',
+        region: '#west',
+        madeAt,
+        goneAt,
+        link: `https://discord.com/channels/${FAKE_GUILD_ID}/${WEST_CHANNEL}/${pinned.id}`,
+        words: ['dratini'],
+      },
+      {
+        id: gym.id,
+        pokemon: 'Alolan Rattata',
+        costumed: false,
+        details: 'under the stairs',
+        near: 'Near The Stacks (gym)',
+        point: { lat: THE_STACKS.lat, lon: THE_STACKS.lon },
+        reporter: 'Bob',
+        region: '#west',
+        madeAt,
+        goneAt,
+        link: `https://discord.com/channels/${FAKE_GUILD_ID}/${WEST_CHANNEL}/${gym.id}`,
+        words: ['alolan', 'rattata', 'alola'],
+      },
+      {
+        id: plain.id,
+        pokemon: 'Magikarp',
+        costumed: false,
+        details: null,
+        point: null,
+        reporter: 'a member',
+        region: '#east',
+        madeAt,
+        goneAt,
+        link: `https://discord.com/channels/${FAKE_GUILD_ID}/${EAST_CHANNEL}/${plain.id}`,
+        words: ['magikarp'],
+      },
+    ]);
+    // Kept by its ETag; gone from the list at its time, whether or not its message was deleted.
+    const cookie = await map.web.loggedIn(ALICE, 'Alice');
+    const again = await listed(map, cookie, String(answer.headers.etag));
+    expect(again.status).toBe(304);
+    map.web.clock.now = goneAt;
+    map.made.clock.now = goneAt;
+    expect((await listed(map, cookie)).view).toEqual({ spawns: [] });
+  });
+
+  it('leaves out for a member the spawns of a region whose forum or channel keeps them out', async () => {
+    const map = await reporting();
+    web = map.web;
+    await map.made.spawns.report({
+      guildId: FAKE_GUILD_ID,
+      regionChannelId: WEST_CHANNEL,
+      pokemon: { dex: 147, key: 'dratini', name: 'Dratini' },
+      details: 'by the bench',
+      reporter: { id: ALICE, name: 'Alice' },
+    });
+    await map.made.spawns.report({
+      guildId: FAKE_GUILD_ID,
+      regionChannelId: EAST_CHANNEL,
+      pokemon: { dex: 129, key: 'magikarp', name: 'Magikarp' },
+      details: 'in the pond',
+      reporter: { id: ALICE, name: 'Alice' },
+    });
+    const names = async (userId: string, name: string) =>
+      (await listed(map, await map.web.loggedIn(userId, name))).view?.spawns.map(
+        (spawn) => spawn.pokemon,
+      );
+    expect(await names(BOB, 'Bob')).toEqual(['Dratini', 'Magikarp']);
+    map.made.gateway.barred.set(WEST_FORUM, new Set([BOB]));
+    // What Discord said of a forum or channel is used for a minute.
+    map.web.clock.now += 60_000;
+    expect(await names(BOB, 'Bob')).toEqual(['Magikarp']);
+    expect(await names(ALICE, 'Alice')).toEqual(['Dratini', 'Magikarp']);
+    // The region's channel, where its message stands, as the server has it.
+    map.made.gateway.addChannel(EAST_CHANNEL, 'east');
+    map.made.gateway.barred.set(EAST_CHANNEL, new Set([ALICE]));
+    map.web.clock.now += 60_000;
+    expect(await names(ALICE, 'Alice')).toEqual(['Dratini']);
+  });
+
+  it('is for members of the server alone, and not while Discord cannot say who is one', async () => {
+    const map = await reporting();
+    web = map.web;
+    expect((await listed(map)).status).toBe(401);
+    const eve = await map.web.loggedIn('300000000000000099', 'Eve');
+    expect((await listed(map, eve)).status).toBe(403);
+    const cookie = await map.web.loggedIn(ALICE, 'Alice');
+    map.members.failing = new Error('Discord is away');
+    expect((await listed(map, cookie)).status).toBe(503);
   });
 });
 

@@ -5,6 +5,7 @@ import { WEST_CHANNEL } from '../../test/support/gyms.js';
 import { ALICE } from '../../test/support/parties.js';
 import { partyServiceWith } from '../../test/support/party-service.js';
 import { MemorySpawnReports } from '../../test/support/spawn-reports.js';
+import { pokemonPicture } from '../domain/pogo/pokemon-icons.js';
 import { SPAWN_MINUTES } from '../render/spawn.js';
 import { GIVE_UP_MS, SpawnService, type SpawnReport } from './spawn-service.js';
 
@@ -154,5 +155,90 @@ describe('SpawnService with stored reports', () => {
       log: made.log,
     });
     expect(await bare.sweep()).toBe(0);
+  });
+});
+
+describe('the spawns that stand, for the map', () => {
+  const near: SpawnReport['near'] = {
+    kind: 'pin',
+    lat: 40.02,
+    lon: -80.02,
+    near: { kind: 'stop', title: 'Yellow Mural' },
+    linkName: null,
+  };
+
+  it("lists a server's reports with what their region message says, until they are due", async () => {
+    const { made, spawns } = await stored();
+    const guild = made.gateway.guildId;
+    const madeAt = made.clock.now;
+    const outcome = await spawns.report({ ...report(guild), iv: 'perfect', near });
+    if (outcome.kind !== 'posted') throw new Error('not posted');
+    const gameData = { catalogue: catalogueFixture() };
+    const image = pokemonPicture(undefined, gameData.catalogue.byKey('dratini'), gameData);
+    expect(await spawns.standing(guild)).toEqual([
+      {
+        channelId: WEST_CHANNEL,
+        messageId: outcome.messageId,
+        deleteAt: madeAt + HALF_HOUR,
+        guildId: guild,
+        pokemon: { key: 'dratini', name: 'Dratini' },
+        costumed: false,
+        iv: 'perfect',
+        details: 'by the fountain',
+        reporterName: 'Alice',
+        image: image ?? null,
+        near,
+        madeAt,
+      },
+    ]);
+    expect(await spawns.standing('99')).toEqual([]);
+    // Gone at its time on the map, whether or not its message was deleted yet.
+    made.clock.now = madeAt + HALF_HOUR;
+    expect(await spawns.standing(guild)).toEqual([]);
+  });
+
+  it('reads the store again only after a report was written or forgotten', async () => {
+    const { made, store, spawns, timers } = await stored();
+    const guild = made.gateway.guildId;
+    let reads = 0;
+    const read = store.standing.bind(store);
+    store.standing = (...args) => {
+      reads += 1;
+      return read(...args);
+    };
+    expect(await spawns.standing(guild)).toEqual([]);
+    expect(await spawns.standing(guild)).toEqual([]);
+    expect(reads).toBe(1);
+    await spawns.report(report(guild));
+    expect(await spawns.standing(guild)).toHaveLength(1);
+    expect(await spawns.standing(guild)).toHaveLength(1);
+    expect(reads).toBe(2);
+    timers[0]?.run();
+    await until(() => store.rows.length === 0);
+    expect(await spawns.standing(guild)).toEqual([]);
+    expect(reads).toBe(3);
+  });
+
+  it('tells who listens of each report recorded, by its server', async () => {
+    const { made, spawns } = await stored();
+    const told: string[] = [];
+    spawns.onReported((guildId) => {
+      told.push(guildId);
+    });
+    await spawns.report(report(made.gateway.guildId));
+    expect(told).toEqual([made.gateway.guildId]);
+  });
+
+  it('lists nothing without a store', async () => {
+    const { made } = await stored();
+    const bare = new SpawnService({
+      gateway: made.gateway,
+      raidBosses: { bosses: () => [] },
+      gameData: { catalogue: catalogueFixture() },
+      settings: made.settings,
+      log: made.log,
+    });
+    await bare.report(report(made.gateway.guildId));
+    expect(await bare.standing(made.gateway.guildId)).toEqual([]);
   });
 });

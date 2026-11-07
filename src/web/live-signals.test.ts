@@ -17,6 +17,7 @@ const ROW = 1;
 const OTHER_ROW = 2;
 const PARTIES = 'event: changed\ndata: parties 1000\n\n';
 const REPORTS = 'event: changed\ndata: stop-reports 1000\n\n';
+const SPAWNS = 'event: changed\ndata: spawns 1000\n\n';
 const PING = 'event: ping\ndata: 1000\n\n';
 
 /** Timers and a clock a test runs by hand. */
@@ -138,7 +139,20 @@ describe('LiveSignals: the window', () => {
     const sink = open();
     hub.reportsChanged(SERVER);
     hub.partyChanged(party('ended', 'ended'));
-    expect(sink.signals).toEqual([REPORTS, PARTIES]);
+    hub.spawnsChanged(SERVER);
+    expect(sink.signals).toEqual([REPORTS, PARTIES, SPAWNS]);
+  });
+
+  it('tells of the spawns of the server named alone, a window at a time', () => {
+    const { clock, hub, open } = hubWith();
+    const sink = open();
+    const other = open({ server: OTHER_SERVER, row: OTHER_ROW });
+    hub.spawnsChanged(SERVER);
+    hub.spawnsChanged(SERVER);
+    expect(sink.signals).toEqual([SPAWNS]);
+    clock.pass(5_000);
+    expect(sink.signals).toEqual([SPAWNS, SPAWNS]);
+    expect(other.signals).toEqual([]);
   });
 
   it('holds 5 seconds up to 50 maps, grows a second per 10 past them, and stops at 20 seconds', () => {

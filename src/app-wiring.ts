@@ -2,6 +2,7 @@ import { taskPictureSources } from './domain/stops/pictures.js';
 import type { PartyService } from './services/party-service.js';
 import type { PartyStore } from './services/party-store.js';
 import type { PictureMaking } from './services/research-task-service.js';
+import type { SpawnService } from './services/spawn-service.js';
 import type { StopReportListener } from './services/stop-reports.js';
 import type { ShutdownStep } from './shutdown.js';
 import type { LiveSignals } from './web/live-signals.js';
@@ -13,16 +14,21 @@ import type { LiveSignals } from './web/live-signals.js';
 
 /**
  * What tells the map's live streams that a list changed: every change of a party, every draw of a
- * post, every word of the reports at stops. Each listener decides and returns; the hub never throws.
+ * post, every word of the reports at stops, every wild spawn recorded. Each listener decides and
+ * returns; the hub never throws.
  */
 export function liveSources(
-  live: Pick<LiveSignals, 'partyChanged' | 'postShown' | 'reportsChanged'>,
+  live: Pick<LiveSignals, 'partyChanged' | 'postShown' | 'reportsChanged' | 'spawnsChanged'>,
   sources: {
     parties: Pick<PartyStore, 'onChange'>;
     posts: Pick<PartyService, 'onPostShown'>;
     reports: { listen(listener: StopReportListener): void };
+    spawns: Pick<SpawnService, 'onReported'>;
   },
 ): void {
+  sources.spawns.onReported((guildId) => {
+    live.spawnsChanged(guildId);
+  });
   sources.parties.onChange((_before, after) => {
     live.partyChanged(after);
   });

@@ -654,8 +654,18 @@ export interface ScriptAccess {
 
 export interface SpawnReport {
   channelId: string;
+  costumed: Generated<number>;
   deleteAt: string;
+  details: string | null;
+  guildId: string | null;
+  image: string | null;
+  iv: string | null;
+  madeAt: string | null;
   messageId: string;
+  near: Json | null;
+  pokemonKey: string | null;
+  pokemonName: string | null;
+  reporterName: string | null;
 }
 
 export interface StopLine {

@@ -17,6 +17,7 @@ import {
   type WildReading,
 } from '../commands/notifications/wild.js';
 import type { Region } from '../db/repositories/region-repository.js';
+import type { StandingSpawn } from '../db/repositories/spawn-report-repository.js';
 import type { PartyGateway } from '../discord/party-gateway.js';
 import { UserError } from '../discord/errors.js';
 import type { WildExceptions } from '../domain/pogo/wild.js';
@@ -36,12 +37,21 @@ import { postGuard } from './csrf.js';
 import { etagMatches, etagOf } from './geo-cache.js';
 import type { GuildRequest } from './guild-routes.js';
 import { pageWords } from './page-words.js';
+import { UNCONFIRMED } from './party-routes.js';
+import type { PartyViewers } from './party-viewers.js';
+import { spawnsView } from './spawn-view.js';
 import { limitedPerAddress, RateLimiter } from './rate-limit.js';
 import type { WebDeps } from './server.js';
 import { wildOptions } from './wild-options.js';
 
 /** The requests for the pick list one address may make in a minute (a form asks once). */
 const OPTIONS_PER_MINUTE = 30;
+
+/**
+ * The requests for a server's spawns one address may make in a minute: a page asks as often as it
+ * asks for the reports at stops (`STOP_REPORTS_PER_MINUTE`).
+ */
+export const SPAWNS_PER_MINUTE = 120;
 
 /** The spawn reports one address may send in a minute, whoever sends them. */
 export const SPAWN_WRITES_PER_ADDRESS_MINUTE = 30;
@@ -110,7 +120,7 @@ const optionsCache = new WeakMap<WildExceptions, { body: string; etag: string }>
  * (`POST /s/<guild>/api/spawns`), which is `/wild` as the member: the same readers, the same
  * report, the same throttle, the command's words.
  */
-export function spawnRoutes(scope: FastifyInstance, deps: WebDeps): void {
+export function spawnRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewers): void {
   const { sessions, spawns, parties } = deps;
   const { ctx } = spawns;
 
@@ -131,6 +141,46 @@ export function spawnRoutes(scope: FastifyInstance, deps: WebDeps): void {
       return region ? `Region ${region.id}` : '#unknown';
     },
   };
+
+  // The spawns that stand (Matt, 2026-11-07: wild spawns on the map): read once and kept until a
+  // report is recorded or forgotten (`SpawnService.standing`), each ask leaving out by its clock
+  // what is due; for members only, asked before anything of the server is read (`membership`);
+  // a report shown unless its region's forum or its channel, where its message stands, keeps the
+  // member out (the parties' `PartyViewers`, barred only); an ETag of the member's JSON,
+  // `private, no-cache`, 304 when the page has it.
+  const listLimiter = new RateLimiter({ uses: SPAWNS_PER_MINUTE, perMs: 60_000 });
+  scope.get(
+    '/api/spawns',
+    { onRequest: limitedPerAddress(listLimiter, { now: deps.now }) },
+    async (request: GuildRequest, reply) => {
+      void reply.header('cache-control', 'private, no-cache');
+      const session = await sessions.of(request, reply);
+      if (!session) return sendFailure(request, reply, 401);
+      const { guild } = request.params;
+      const member = await viewers.askedMembership(guild, session.userId);
+      if (member.kind === 'not-member') return sendFailure(request, reply, 403);
+      if (member.kind === 'unconfirmed') return reply.code(503).send({ error: UNCONFIRMED });
+      const standing = await ctx.spawns.standing(guild);
+      const gatesOf = (spawn: StandingSpawn): string[] => {
+        const forum = ctx.regions.byChannel(spawn.channelId)?.forumChannelId ?? null;
+        return forum === null ? [spawn.channelId] : [forum, spawn.channelId];
+      };
+      const viewer = await viewers.viewer(guild, session.userId, standing.flatMap(gatesOf), member);
+      if (viewer.kind !== 'member') return sendFailure(request, reply, 403);
+      const view = spawnsView({
+        spawns: standing,
+        shown: (spawn) => gatesOf(spawn).every((gate) => !viewer.barred.has(gate)),
+        region: (channelId) => names.channel(channelId),
+        guild,
+        pictureOrigins: deps.pictureOrigins,
+      });
+      const body = JSON.stringify(view);
+      const etag = etagOf(body);
+      void reply.header('etag', etag);
+      if (etagMatches(request.headers['if-none-match'], etag)) return reply.code(304).send();
+      return reply.type('application/json; charset=utf-8').send(body);
+    },
+  );
 
   const optionsLimiter = new RateLimiter({ uses: OPTIONS_PER_MINUTE, perMs: 60_000 });
   scope.get(
