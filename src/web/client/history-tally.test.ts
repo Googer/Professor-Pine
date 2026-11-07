@@ -84,15 +84,13 @@ describe('the region tally on the history page', () => {
       login: false,
     });
     expect(tallyFailure(403, 'discord')).toEqual({
-      text: 'Members only: this page is for the members of this server.',
+      text: 'This page is for members of this server only.',
       login: false,
     });
     expect(tallyFailure(503, 'discord').text).toBe(
       'Discord cannot be reached just now. Try again in a moment.',
     );
-    expect(tallyFailure(429, 'discord').text).toBe(
-      'That was a lot of asking. Try again in a minute.',
-    );
+    expect(tallyFailure(429, 'discord').text).toBe('Too many requests. Try again in a minute.');
     expect(tallyFailure(undefined, 'discord').text).toBe(
       'This could not be loaded. Try again in a moment.',
     );
