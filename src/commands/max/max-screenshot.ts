@@ -592,8 +592,16 @@ async function claimed(
     else await interaction.update({ content: EXPIRED, components: [] });
     return undefined;
   }
-  answered.set(token, true);
   return taken.value;
+}
+
+/**
+ * The press of a question taken by `claimed` is acknowledged now: a later press is only
+ * acknowledged. A refusal thrown before (the press answered privately) marks nothing, so that a
+ * later press says the question expired (review S4).
+ */
+function acknowledging(token: string): void {
+  answered.set(token, true);
 }
 
 /**
@@ -625,6 +633,7 @@ export async function chooseMaxShotSpot(
   if (!shot) return;
   const spot = shot.spots.find((one) => one.id === interaction.values[0]);
   if (!spot) throw new UserError(SPOT_GONE);
+  acknowledging(token);
   await interaction.deferUpdate();
   if (shot.screenshotId !== undefined) await ctx.screenshots.pickedSpot(shot.screenshotId, spot.id);
   const decision = decideMax(withSpot(shot.report, spot), { now: shot.uploadedAt });
@@ -651,6 +660,7 @@ export async function confirmMaxShot(
 ): Promise<void> {
   const shot = await claimed(interaction, token);
   if (!shot) return;
+  acknowledging(token);
   if (action !== 'yes' || !shot.request) {
     await interaction.update({ content: 'Nothing was reported.', components: [] });
     return;

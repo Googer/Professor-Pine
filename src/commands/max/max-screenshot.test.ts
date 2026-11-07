@@ -34,6 +34,7 @@ import { maxDecisionWords, screenshotControls } from '../screenshots/feedback.js
 import { max, maxControls } from './max.js';
 import { WHICH_TIER } from './max-input.js';
 import { MAX_COMMAND, MAX_PIN_BLOCKED, MAX_THROTTLE, reportMaxAs } from './max-report.js';
+import { SPOT_GONE } from './max-shot.js';
 
 /*
  * `/max screenshot:` (plan 8X-S, task 6). `MAX_THURSDAY` is 14:00; `maxReading()` is a Dynamax
@@ -457,6 +458,24 @@ describe('/max screenshot:', () => {
     expect(kept).toMatchObject({ record: { pickedSpotId: POND.id } });
   });
 
+  // Review S4: a refusal before the press was acknowledged leaves no answered question behind.
+  it('says the menu has expired at a pick after one it refused', async () => {
+    const made = await setup(undefined, [POND]);
+    const used = await made.run({}, maxReading('GAZEBO OF THE P'));
+    const [menu] = rowsOf(told(used))[0]?.components ?? [];
+    const refused = await made.handle(
+      fakeSelect({ customId: menu?.custom_id ?? '', values: ['nowhere'] }),
+    );
+    expect(told(refused).content).toBe(SPOT_GONE);
+    const later = await made.handle(
+      fakeSelect({ customId: menu?.custom_id ?? '', values: [POND.id] }),
+    );
+    expect(sent(later.update)).toEqual({
+      content: 'That choice has expired. Use `/max` again.',
+      components: [],
+    });
+  });
+
   it('gives the use back when the battle chosen from the menu gets no post', async () => {
     const made = await setup(undefined, [POND]);
     made.gateway.refusePosts.set(WEST_FORUM, ['Manage Posts']);
@@ -641,5 +660,15 @@ describe('/max screenshot:', () => {
       expect(text).toMatch(/kept/);
       expect(text).toMatch(/improve the reader/);
     }
+  });
+
+  // Review S5: a typed tier other than the screen's also keeps the boss there (`bossShown`).
+  it('says in its help what typed keeps a battle’s boss as it is', () => {
+    const { ctx } = createTestContext();
+    const details = enabledCommands([max], ctx.config)[0]?.help?.details;
+    const help = typeof details === 'function' ? details(ctx.config.settings) : (details ?? '');
+    expect(help.replace(/\s+/g, ' ')).toContain(
+      'unless you typed the Power Spot, or a boss or tier other than the one it shows.',
+    );
   });
 });

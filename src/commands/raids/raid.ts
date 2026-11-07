@@ -705,8 +705,16 @@ async function claimed(
     else await interaction.update({ content: EXPIRED, components: [] });
     return undefined;
   }
-  answered.set(token, true);
   return taken.value;
+}
+
+/**
+ * The press of a question taken by `claimed` is acknowledged now: a later press is only
+ * acknowledged. A refusal thrown before (the press answered privately) marks nothing, so that a
+ * later press says the question expired (review S4).
+ */
+function acknowledging(token: string): void {
+  answered.set(token, true);
 }
 
 /**
@@ -749,6 +757,7 @@ export const raidControls: ComponentHandler = {
     const gymId = Number(interaction.values[0]);
     const gym = request.gymIds.includes(gymId) ? ctx.gyms.get(gymId) : undefined;
     if (!gym) throw new UserError('That gym no longer exists. Use `/raid` again.');
+    acknowledging(id.id);
     await interaction.deferUpdate();
     // The screenshot's record keeps which gym its member chose.
     const shot = request.screenshot?.id;
@@ -762,11 +771,13 @@ export const raidControls: ComponentHandler = {
     const request = await claimed(interaction, id.id);
     if (!request) return;
     if (id.action !== 'yes') {
+      acknowledging(id.id);
       await interaction.update({ content: 'Nothing was reported.', components: [] });
       return;
     }
     const gym = ctx.gyms.get(request.gymIds[0] ?? -1);
     if (!gym) throw new UserError('That gym no longer exists. Use `/raid` again.');
+    acknowledging(id.id);
     await interaction.deferUpdate();
     await afterDeferral(interaction, async () => {
       // Who is kept out of which forum may have changed since the question was asked.

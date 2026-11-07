@@ -269,8 +269,8 @@ const SCREENSHOT_DETAILS =
   'Or attach a screenshot of the max battle instead: I read the Power Spot, the boss, its ' +
   'tier and the time left from it, and ask only when I am not sure which Power Spot it is. ' +
   'What you type beside it counts instead of what I read.\n\nA screenshot newer than the boss of ' +
-  'the battle already at the spot changes its boss, unless you typed the Power Spot or another ' +
-  'boss than it shows. The screenshot is kept for a while and may be used to improve the reader.';
+  'the battle already at the spot changes its boss, unless you typed the Power Spot, or a boss ' +
+  'or tier other than the one it shows. The screenshot is kept for a while and may be used to improve the reader.';
 
 function maxCommand(screenshots: boolean): SimpleCommand {
   return {

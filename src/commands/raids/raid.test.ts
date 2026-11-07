@@ -516,6 +516,7 @@ describe('/raid', () => {
     expect(error.flags).toBe(64);
     // Used up: a second pick leaves "Nothing was reported." as it is.
     const again = await handle(fakeSelect({ customId: customId(interaction), values: ['12'] }));
+    expect(again.deferUpdate).toHaveBeenCalled();
     expect(again.update).not.toHaveBeenCalled();
     expect(store.active()).toEqual([]);
   });
@@ -576,6 +577,20 @@ describe('/raid', () => {
     expect(yesAgain.deferUpdate).toHaveBeenCalled();
     expect(yesAgain.update).not.toHaveBeenCalled();
     expect(gateway.postsIn(EAST_FORUM)).toHaveLength(1);
+  });
+
+  // Review S4: a refusal before the press was acknowledged leaves no answered question behind.
+  it('says the menu has expired at a pick after one it refused', async () => {
+    const { run, handle } = await setup();
+    const interaction = await run({ boss: 'e:T5:0', gym: 'pinewood' });
+    // Gym 7 is none of the menu's.
+    const refused = await handle(fakeSelect({ customId: customId(interaction), values: ['7'] }));
+    expect(told(refused)).toBe('That gym no longer exists. Use `/raid` again.');
+    const later = await handle(fakeSelect({ customId: customId(interaction), values: ['12'] }));
+    expect(sent(later.update)).toEqual({
+      content: 'That choice has expired. Use `/raid` again.',
+      components: [],
+    });
   });
 
   it('says the confirmation has expired when the button is pressed too late', async () => {
