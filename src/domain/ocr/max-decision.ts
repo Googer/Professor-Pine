@@ -166,6 +166,14 @@ const BOSS_DOUBTS: readonly MaxDoubt[] = [
   'heads-form-conflict',
 ];
 
+/** The doubts a typed end settles: no countdown, and every doubt of the screenshot's moment. */
+const TIME_DOUBTS: readonly MaxDoubt[] = [
+  'no-time',
+  'time-guessed',
+  'time-stale',
+  'time-sources-differ',
+];
+
 /**
  * The report with what the member typed in the place of what was read (decide again with
  * `decideMax`): the spot as `withSpot` puts it in; the boss and its tier as a listed boss's; a
@@ -207,7 +215,8 @@ export function withMaxTyped(report: MaxScreenshotReport, typed: MaxTyped): MaxS
       endFrom: 'typed',
       countdownEnd: null,
       rotationEnd: false,
-      doubts: out.doubts.filter((doubt) => doubt !== 'no-time'),
+      // The end is the member's: neither the countdown nor the screenshot's moment is doubted.
+      doubts: out.doubts.filter((doubt) => !TIME_DOUBTS.includes(doubt)),
     };
   }
   return out;

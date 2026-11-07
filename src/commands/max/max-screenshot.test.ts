@@ -179,6 +179,32 @@ describe('/max screenshot:', () => {
     expect(typed.max.screenshot?.timeUncertain).toBe(false);
   });
 
+  // The end is the member's: no doubt about the screenshot's moment is said with the answer.
+  it('says no doubt of the time beside a typed end', async () => {
+    const guessed = { clock: null };
+    const made = await setup();
+    const read = await made.run({}, maxReading(undefined, {}, guessed));
+    expect(told(read).content).toContain('I found no clock');
+    const other = await setup();
+    const typed = await other.run({ end: '20' }, maxReading(undefined, {}, guessed));
+    expect(told(typed).content).toMatch(/^Reported: Dynamax Machop \(2★\)/);
+    expect(told(typed).content).not.toContain('not sure');
+  });
+
+  // As `/max`'s guard refuses a forum the member is kept out of, uncounted.
+  it('refuses a battle in a forum the member is kept out of, uncounted', async () => {
+    const made = await setup();
+    made.gateway.barred.set(WEST_FORUM, new Set([FAKE_USER_ID]));
+    // Refused read or typed alone, and none of the refusals counted.
+    await made.run({}, maxReading());
+    await made.run({ boss: 'Machop', spot: `powerspot:${TEST_SPOT.id}` }, { kind: 'unavailable' });
+    expect(made.store.active()).toEqual([]);
+    const now = Date.now();
+    for (let i = 0; i < MAX_THROTTLE.uses; i++) {
+      expect(made.throttles.use(MAX_COMMAND, FAKE_USER_ID, MAX_THROTTLE, now)).toBeUndefined();
+    }
+  });
+
   it('lets what the member typed count instead of what it read', async () => {
     const made = await setup(undefined, [POND]);
     await made.run(
@@ -488,7 +514,7 @@ describe('/max screenshot:', () => {
   });
 
   // Review S-2 (Matt, 2026-10-23): only a boss and spot the screen itself showed change a boss.
-  it('changes no boss of a battle there when the boss or the spot was typed', async () => {
+  it('changes no boss of a battle there when the spot was typed', async () => {
     const made = await setup();
     const there = await battleOf(made, MACHAMP);
     const refused = new RegExp(
@@ -497,12 +523,17 @@ describe('/max screenshot:', () => {
     );
     const bySpot = await made.run({ spot: `powerspot:${TEST_SPOT.id}` }, maxReading());
     expect(told(bySpot).content).toMatch(refused);
-    // Even when the boss typed is the one the screen shows.
-    const byBoss = await made.run({ boss: 'Machop' }, maxReading());
-    expect(told(byBoss).content).toMatch(refused);
     expect(asMax(made.store.get(there.id)).max.boss).toEqual({ key: 'machamp' });
     // Read alone, the same screenshot changes it.
     await made.run({}, maxReading());
+    expect(asMax(made.store.get(there.id)).max.boss).toEqual({ key: 'machop' });
+  });
+
+  it('changes the boss there when the boss typed is the very one the screen shows', async () => {
+    const made = await setup();
+    const there = await battleOf(made, MACHAMP);
+    const used = await made.run({ boss: 'Machop' }, maxReading());
+    expect(told(used).content).not.toMatch(/^There is already a max battle/);
     expect(asMax(made.store.get(there.id)).max.boss).toEqual({ key: 'machop' });
   });
 

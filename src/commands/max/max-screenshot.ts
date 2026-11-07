@@ -27,7 +27,7 @@ import {
 import type { MaxDoubt, MaxScreenshotReport } from '../../domain/ocr/max-report.js';
 import type { SpotTitle } from '../../domain/ocr/power-spot-match.js';
 import { maxSpotName } from '../../domain/party/max.js';
-import type { MaxSpot } from '../../domain/party/party.js';
+import { sameBoss, type MaxSpot } from '../../domain/party/party.js';
 import { isMaxTier, type MaxTier } from '../../domain/pogo/max-tier.js';
 import { MAX_KIND } from '../../render/max-dialog.js';
 import {
@@ -103,6 +103,8 @@ type Answerable = ChatInputCommandInteraction | ButtonInteraction | StringSelect
 /** What was typed beside the screenshot that stands in the place of what was read. */
 interface Typed {
   boss?: ReadMaxBoss;
+  /** The boss typed is the very one the screen shows: it changes a battle's boss as read. */
+  bossShown?: boolean;
   spot?: MaxSpot;
   end?: number;
 }
@@ -292,6 +294,15 @@ async function answerMaxScreenshot(
   if (bossRefused !== undefined) throw bossRefused;
   if (bossWithoutTier && !typed.boss) throw new UserError(WHICH_TIER);
   const { report, decision } = outcome;
+  const shown = outcome.read.boss;
+  if (
+    typed.boss &&
+    shown !== null &&
+    sameBoss(shown.ref, typed.boss.boss) &&
+    outcome.read.tier === typed.boss.tier
+  ) {
+    typed.bossShown = true;
+  }
   const shot: PendingShot = {
     report,
     spots: [],
@@ -467,8 +478,10 @@ async function goOn(
 /**
  * Reports the battle (`reportMaxShot`) and tells the member what came of it, with what the
  * screenshot left unsure and the button that shows the screenshot (R6: as `/raid` answers). No
- * post made, a battle there that ended twice while it waited, or one of another boss there that
- * refused it (`refusedAtBattle`, as `/max`'s guard refuses it uncounted) gives the use back.
+ * post made, a battle there that ended twice while it waited, one of another boss there that
+ * refused it (`refusedAtBattle`), a forum the member is kept out of (`barred`) or one Discord
+ * could not say of (`unknown-access`) gives the use back, as `/max`'s guard refuses those
+ * uncounted.
  */
 async function finish(
   interaction: Answerable,
@@ -495,8 +508,14 @@ async function finish(
   const said = truncate([maxShotWords(ctx, answer, request), ...unsure].join('\n'), MESSAGE);
   const id = request.screenshot.id;
   await interaction.editReply({ content: said, components: id === null ? [] : [showRow(id)] });
-  // Another boss there is refused uncounted, as `/max`'s guard refuses it (review F-1).
-  if (maxShotGivesBack(answer) || refusedAtBattle(answer)) {
+  // Another boss there and a forum the member is kept out of are refused uncounted, as `/max`'s
+  // guard refuses them (review F-1); so is a forum Discord could not say of, as its guard's error.
+  if (
+    maxShotGivesBack(answer) ||
+    refusedAtBattle(answer) ||
+    answer.kind === 'barred' ||
+    answer.kind === 'unknown-access'
+  ) {
     throw new UserError(said, { givesBack: true, said: true });
   }
 }
@@ -529,7 +548,8 @@ async function reportTyped(
       interaction.user.id,
     )
   ) {
-    throw new UserError(MAX_BARRED);
+    // Uncounted, as `/max`'s guard refuses it.
+    throw new UserError(MAX_BARRED, { givesBack: true });
   }
   const member = { id: interaction.user.id, ...memberInfo(interaction) };
   const { outcome, autoStatus } = await reportMaxAs(ctx, member, guildIdOf(interaction), ask, {

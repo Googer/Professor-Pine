@@ -159,7 +159,7 @@ export const MAX_ACCESS_UNKNOWN =
  * The report of the battle a screenshot was decided as (`ScreenshotMax`), with its Power Spot of
  * the server (`spotAt`; undefined once it is gone from the list) and the boss as `/max` names it
  * (`bossName` the report's), from the region channel it was posted in; `boss` typed beside it
- * (`/max screenshot:`) in the place of what was read.
+ * (`/max screenshot:`) in the place of what was read, `bossShown` when it is the boss read.
  */
 export function maxShotRequest(
   ctx: SpotReading,
@@ -168,7 +168,7 @@ export function maxShotRequest(
   bossName: string,
   regionChannelId: string,
   screenshotId: string | undefined,
-  typed: { boss?: ReadMaxBoss; spot?: MaxSpot; end?: number } = {},
+  typed: { boss?: ReadMaxBoss; bossShown?: boolean; spot?: MaxSpot; end?: number } = {},
 ): MaxShotRequest | undefined {
   let spot = typed.spot;
   if (spot === undefined) {
@@ -190,8 +190,12 @@ export function maxShotRequest(
     regionChannelId,
     takenAt: battle.takenAt,
     // Only a boss and a spot the screen itself showed change a battle's boss or move its end
-    // (review S-2, Matt 2026-10-23): with either typed, the moment counts as no sure one.
-    sureMoment: battle.sureMoment && typed.boss === undefined && typed.spot === undefined,
+    // (review S-2, Matt 2026-10-23): with either typed, the moment counts as no sure one; a boss
+    // typed that is the very one the screen shows (`bossShown`) is the screen's.
+    sureMoment:
+      battle.sureMoment &&
+      (typed.boss === undefined || typed.bossShown === true) &&
+      typed.spot === undefined,
     rotationEnd: battle.rotationEnd,
     capped: typed.end === undefined && battle.capped,
     screenshot: { id: screenshotId ?? null, timeUncertain: battle.timeUncertain },
