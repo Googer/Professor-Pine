@@ -1,4 +1,6 @@
 import { describe, expect, it } from 'vitest';
+import { countedCorners, countedList, type Reads } from '../../../test/support/counted-corners.js';
+import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import { encodePolyline } from './polyline.js';
 import {
   MAX_STATIC_MAP_QUERY,
@@ -127,9 +129,14 @@ describe('regionMap with a long outline', () => {
     expect(staticMapQuery({ paths: [{ points: outline, fill: true }] }).length).toBeGreaterThan(
       MAX_STATIC_MAP_QUERY,
     );
-    const started = performance.now();
     const map = regionMap(outline);
-    expect(performance.now() - started).toBeLessThan(1_000);
+    // Its work, counted rather than timed (a clock fails on a loaded machine): 2,698,070
+    // coordinates read, about 540 a corner, as each tolerance tried simplifies the outline whole;
+    // twice that is allowed. Tolerances a fifth apart rather than doubled made it fail.
+    const reads: Reads = { count: 0, budget: 5_400_000 };
+    const counted = regionMap(countedCorners(outline, reads));
+    expect(reads.count).toBeLessThanOrEqual(reads.budget);
+    expect(staticMapQuery(counted)).toBe(staticMapQuery(map));
     const points = map.paths?.[0]?.points ?? [];
     expect(staticMapQuery(map).length).toBeLessThanOrEqual(MAX_STATIC_MAP_QUERY);
     // Still the same shape: closed, made of corners of the outline in their order, and many.
@@ -199,7 +206,7 @@ describe('placeMap', () => {
     expect(map.paths?.[2]?.colour).toBe('blue');
   });
 
-  it('draws the largest place there can be, with sixty large regions, in little time', () => {
+  it('draws the largest place there can be, with sixty large regions, simplifying what is left', () => {
     // A place of as many corners as is read of one, and sixty regions of traced boundaries.
     const wobbly = (lat: number, corners: number, radius: number) => {
       const points = Array.from({ length: corners }, (_unused, i) => {
@@ -211,19 +218,26 @@ describe('placeMap', () => {
     };
     const area = { outer: wobbly(40, 50_000, 0.5), holes: [] };
     const regions = Array.from({ length: 60 }, (_unused, i) => wobbly(39.5 + i / 60, 5_000, 0.1));
-    // The fastest of three runs: one run beside the other test files measures the machine.
-    let took = Infinity;
-    let map = placeMap({ kind: 'area', areas: [area] }, regions);
-    for (let run = 0; run < 3; run += 1) {
-      const started = performance.now();
-      map = placeMap({ kind: 'area', areas: [area] }, regions);
-      took = Math.min(took, performance.now() - started);
-    }
+    const map = placeMap({ kind: 'area', areas: [area] }, regions);
     expect(staticMapQuery(map).length).toBeLessThanOrEqual(MAX_STATIC_MAP_QUERY);
     expect(map.paths).toHaveLength(61);
-    // A deliberate check on the wall clock, against a slowdown by an order of magnitude (it
-    // takes tens of milliseconds): loose enough for a machine busy with other suites.
-    expect(took).toBeLessThan(1_000);
+    // Its work, counted rather than timed (a clock fails on a loaded machine), on a tenth of it:
+    // a read counted costs, and the simplification is the same at a tenth. Each tolerance tried
+    // simplifies what the one before left (only the first reads the lists given: 561,015 corners
+    // read); twice that is allowed. Starting over from the place and the regions each time, or a
+    // simplification that reads the whole line for each stretch it splits, made it fail.
+    const reads: Reads = { count: 0, budget: 1_150_000 };
+    const tenth = placeMap(
+      {
+        kind: 'area',
+        areas: [{ outer: countedList(wobbly(40, 5_000, 0.5), reads) as LatLon[], holes: [] }],
+      },
+      Array.from({ length: 60 }, (_unused, i) =>
+        countedList(wobbly(39.5 + i / 60, 500, 0.1), reads),
+      ),
+    );
+    expect(reads.count).toBeLessThanOrEqual(reads.budget);
+    expect(tenth.paths).toHaveLength(61);
   });
 
   it('draws the largest parts of a place when it has more than the limit', () => {
