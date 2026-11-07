@@ -249,11 +249,11 @@ const RAID_HOUR_HEADING =
 
 /**
  * `Five-Star Max Battles: Wednesday, November 11` (any words before `Max Battles`, `Gigantamax`
- * among them for Gigantamax battles; also `Max Battle Hour:`, and the date's shapes of
+ * among them for Gigantamax battles; also `Max Battle Hour:`, `Max Battle Weekend:`, and the date's shapes of
  * `RAID_HOUR_HEADING`): the words before, the month and the day.
  */
 const MAX_HOUR_HEADING =
-  /^(?<lead>[^:]{0,60}?)\s*max battles?(?:\s+(?:hours?|days?))?\s*:\s*(?:[a-z]{3,9}\.?,?\s+)??(?<month>[a-z]{3,9})\.?\s+(?<day>\d{1,2})(?:st|nd|rd|th)?(?:,?\s+\d{4})?$/i;
+  /^(?<lead>[^:]{0,60}?)\s*max battles?(?:\s+(?:hours?|days?|weekends?))?\s*:\s*(?:[a-z]{3,9}\.?,?\s+)??(?<month>[a-z]{3,9})\.?\s+(?<day>\d{1,2})(?:st|nd|rd|th)?(?:,?\s+\d{4})?$/i;
 
 /** The month and the day a dated heading names by `pattern` (groups `month` and `day`). */
 function headingDate(
@@ -354,13 +354,17 @@ export function parseEventMaxHours(html: string): PageMaxHour[] {
 
 /**
  * How many headings of the Max Battles section are dated by their id
- * (`<h3 id="five-star-max-battles-wednesday-november-11">`): fewer read by `parseEventMaxHours`
- * means the page's shape changed.
+ * (`<h3 id="five-star-max-battles-wednesday-november-11">`; review: `-<month>-<day>` anywhere in
+ * the id, so that a heading with a time of its own, `…-november-11-6-pm`, which
+ * `parseEventMaxHours` does not read, is counted): fewer read means the page's shape changed.
  */
 export function maxHourHeadings(html: string): number {
   return partsFrom(sectionOf(html, 'max-battles'), '<h3').filter((part) => {
-    const id = /^<h3\s[^>]*\bid="[^"]*-([a-z]{3,9})-(\d{1,2})"/.exec(part);
-    return id?.[1] !== undefined && monthOf(id[1]) > 0;
+    const id = /^<h3\s[^>]*\bid="([^"]*)"/.exec(part)?.[1];
+    if (id === undefined) return false;
+    return [...id.matchAll(/-([a-z]{3,9})-(\d{1,2})(?=-|$)/g)].some(
+      (match) => monthOf(match[1] ?? '') > 0,
+    );
   }).length;
 }
 

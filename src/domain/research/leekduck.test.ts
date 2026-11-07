@@ -518,6 +518,18 @@ describe('parseEventMaxHours', () => {
     );
   });
 
+  it('reads a Max Battle Weekend heading, and counts a dated id that goes on past the day (review)', () => {
+    const html =
+      '<h2 id="max-battles">Max Battles</h2>' +
+      `<h3 id="max-battle-weekend-saturday-march-7">Max Battle Weekend: Saturday, March 7</h3><ul>${boss('Zapdos')}</ul>` +
+      `<h3 id="max-battles-sunday-march-8-6-pm">Max Battles: Sunday, March 8, 6 p.m.</h3><ul>${boss('Moltres')}</ul>`;
+    expect(parseEventMaxHours(html)).toEqual([
+      { month: 3, day: 7, bosses: ['Zapdos'], gigantamax: false },
+    ]);
+    // The heading with its own time is not read, but counted: the service warns of it.
+    expect(maxHourHeadings(html)).toBe(2);
+  });
+
   it('takes a heading whose every boss is Gigantamax for Gigantamax hours (review)', () => {
     const html =
       '<h2 id="max-battles">Max Battles</h2>' +
