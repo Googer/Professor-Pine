@@ -233,6 +233,25 @@ function partialBosses(
   );
 }
 
+/**
+ * The Mega form a name after a mega tier word names (`mega mewtwo`, `mega legendary rayquaza`):
+ * never the plain Pokémon. Throws a `UserError` that names the forms when there are several, or
+ * says there is no such Mega Pokémon. A raid's boss and a train's boss read it alike.
+ */
+function megaEntry(ctx: RaidReading, rest: string): PokemonEntry {
+  const entry =
+    ctx.pokemon.exact(`mega ${rest}`) ??
+    (/^mega\b/i.test(rest) ? ctx.pokemon.exact(rest) : undefined);
+  if (entry) return entry;
+  const megas = megaForms(ctx, rest);
+  if (megas.length > 1) {
+    throw couldBeEntries(/^mega\b/i.test(rest) ? rest : `mega ${rest}`, megas);
+  }
+  throw new UserError(
+    `I do not know a Mega Pokémon called "${plain(truncate(rest, 80))}". Pick one from the list.`,
+  );
+}
+
 /** A tier typed in front of a name: the boss of that tier, or any Pokémon in that tier. */
 function reportedWithTier(
   ctx: RaidReading,
@@ -248,21 +267,9 @@ function reportedWithTier(
   if (first && fits.length === 1) return chosenBoss(first);
   if (fits.length > 1) throw couldBe(rest, fits);
 
-  // A mega raid never takes the plain Pokémon: `mega mewtwo` is the Mega form or nothing.
   let entry;
   if (MEGA_LEVELS.includes(tier.level)) {
-    entry =
-      ctx.pokemon.exact(`mega ${rest}`) ??
-      (/^mega\b/i.test(rest) ? ctx.pokemon.exact(rest) : undefined);
-    if (!entry) {
-      const megas = megaForms(ctx, rest);
-      if (megas.length > 1) {
-        throw couldBeEntries(/^mega\b/i.test(rest) ? rest : `mega ${rest}`, megas);
-      }
-      throw new UserError(
-        `I do not know a Mega Pokémon called "${plain(truncate(rest, 80))}". Pick one from the list.`,
-      );
-    }
+    entry = megaEntry(ctx, rest);
   } else {
     entry = compact(rest).length > 1 ? ctx.pokemon.exact(rest) : undefined;
   }
@@ -442,7 +449,8 @@ export function trainBossChoices(ctx: AppContext, typed: string): Choice[] {
 /**
  * The Pokémon the `pokemon` option of `/boss` names in the post of a train: a choice of the
  * list, or typed text. A train has no tier, so none of what a tier means to a raid applies: a
- * tier typed before a name is ignored, and a tier alone is refused with `noTier`. A current
+ * tier typed before a name is ignored, and a tier alone is refused with `noTier`; only a mega
+ * tier word still names the Mega form, as in a raid (`megaEntry`). A current
  * boss is found by its name as in a raid; any other Pokémon is taken when the text names it
  * outright (`ctx.pokemon.exact`), also when it is no boss right now. Throws a `UserError` that
  * says what would work, and never speaks of a raid, a tier to put first or a report.
@@ -474,15 +482,13 @@ export function trainBoss(ctx: AppContext, value: string, noTier: string): Train
   };
   const whole = named(text);
   if (whole) return whole;
-  // `mega charizard` names two Pokémon, and is no tier with a name after it.
-  if (/^mega\b/i.test(text)) {
-    const megas = megaForms(ctx, text);
-    const [only] = megas;
-    if (only && megas.length === 1) return afterEntry(only);
-    if (megas.length > 1) throw couldBeEntries(text, megas);
-  }
   const typedTier = leadingTier(text);
   if (typedTier && typedTier.rest === '') throw new UserError(noTier);
+  // A mega tier word names the Mega form, as in a raid: `mega pikachu` is no Pikachu, and
+  // `mega charizard` asks which of two (follow-ups, From Phase 3B).
+  if (typedTier && MEGA_LEVELS.includes(typedTier.tier.level)) {
+    return afterEntry(megaEntry(ctx, typedTier.rest));
+  }
   // What is left once the words of a tier are gone, also a lone `shadow`.
   const rest = (typedTier ? typedTier.rest : text).replace(/^shadow\s+/i, '');
   const after = rest === text ? undefined : named(rest);

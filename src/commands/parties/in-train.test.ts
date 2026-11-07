@@ -505,6 +505,20 @@ describe('/boss in the post of a train', () => {
     expect(made.current().train.boss).toEqual({ key: 'charizard_mega_y' });
   });
 
+  it('reads "mega" before a name as the Mega form, as a raid does, and refuses one that has none', async () => {
+    const made = await setup();
+    for (const typed of ['mega pikachu', 'mega legendary pikachu', 'Mega Pikachu raid']) {
+      expect(await made.answer('boss', { pokemon: typed })).toBe(
+        'I do not know a Mega Pokémon called "pikachu". Pick one from the list.',
+      );
+    }
+    expect(made.current().train.boss).toBeNull();
+    expect(await made.answer('boss', { pokemon: 'mega blastoise' })).toBe(
+      'This train is now after Mega Blastoise.',
+    );
+    expect(made.current().train.boss).toEqual({ key: 'blastoise_mega' });
+  });
+
   it('offers the current bosses without eggs or tiers, then Pokémon by what was typed', async () => {
     const made = await setup();
     const offered = async (focused: string) => {
