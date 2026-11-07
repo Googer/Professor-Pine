@@ -13,6 +13,7 @@ import type { Logger } from '../log.js';
 import { archiveWarning } from '../render/activity.js';
 import { fitItems, plain, withMentions } from '../render/text.js';
 import type { AttendanceService } from './attendance-service.js';
+import { LockOverdueError } from './keyed-lock.js';
 import type { PartyNotifier } from './notify-service.js';
 import { settingsOf } from './party-change.js';
 import type { PartyLines } from './party-lines.js';
@@ -290,6 +291,12 @@ export class PartyScheduler {
       try {
         await this.tickParty(id, input);
       } catch (err) {
+        // A change of the party is stuck past its lock's limit, which the store logged once: the
+        // next tick tries again (2026-11-07).
+        if (err instanceof LockOverdueError) {
+          log.debug({ party: id }, 'the clock passed over a busy party');
+          continue;
+        }
         log.error({ err, party: id }, 'could not run the clock for a party');
       }
     }

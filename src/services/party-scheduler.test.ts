@@ -15,6 +15,7 @@ import { attendeeOf, endParty } from '../domain/party/party.js';
 import { setEndTime } from '../domain/party/raid.js';
 import { PartyStatus } from '../domain/party/status.js';
 import type { Member } from './attendance-service.js';
+import { LockOverdueError } from './keyed-lock.js';
 import { WARN_AGAIN_AFTER } from './party-scheduler.js';
 import { buttonsOf, header } from '../../test/support/messages.js';
 
@@ -797,6 +798,21 @@ describe('PartyScheduler: running', () => {
     const post = made.gateway.posts.get(made.postId);
     expect(post?.archived).toBe(true);
     expect(buttonsOf(post?.message)).toEqual([]);
+  });
+
+  it('passes over a party whose lock is held too long, quietly', async () => {
+    const made = await reportedRaid();
+    const update = made.store.update.bind(made.store);
+    vi.spyOn(made.store, 'update').mockImplementation((id, change) =>
+      id === made.party.id ? Promise.reject(new LockOverdueError(id)) : update(id, change),
+    );
+    await made.scheduler.tick();
+    expect(made.entries.filter((entry) => entry.level === 50 || entry.level === 60)).toEqual([]);
+    expect(
+      made.entries.filter(
+        (entry) => entry.level === 20 && entry.msg === 'the clock passed over a busy party',
+      ),
+    ).toMatchObject([{ party: made.party.id }]);
   });
 
   it('sweeps the copies ended parties left in the upkeep, after the closings are redone', async () => {

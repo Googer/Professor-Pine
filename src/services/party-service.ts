@@ -873,6 +873,11 @@ export class PartyService {
    * the copies and link lines it left (they are written with the end).
    */
   private readonly undoneClosings = new BoundedMap<string, UndoneClosing>(UNDONE_CLOSINGS_MAX);
+  /**
+   * The parties whose closing is under way: from the write of their end (`endAs`, `relocate`)
+   * until `closePost` is through. `sweepCopies` leaves their copies to it.
+   */
+  private readonly closing = new Set<string>();
 
   /** The regions whose summary post Discord refused to rename, said once in the log. */
   private readonly renameRefused = new Set<number>();
@@ -1999,6 +2004,8 @@ export class PartyService {
       await this.takeBack(raid.id);
       return { kind: 'gone' };
     }
+    // Its closing is under way from here: the sweep of leftover copies leaves it alone.
+    this.closing.add(from.id);
     let party = created.party;
     try {
       const carried = await store.update(raid.id, (current) => {
@@ -2821,6 +2828,8 @@ export class PartyService {
     );
     if (!result?.written || !result.party) return false;
     const party = result.party;
+    // Its closing is under way from here: the sweep of leftover copies leaves it alone.
+    this.closing.add(party.id);
     this.ended(party);
     if (closing.left) await this.answerBeforeClosing(partyId, closing.left);
     return this.closePost(party, closing.lastWords, false, closing.removal, this.now(), false, {
@@ -3082,7 +3091,12 @@ export class PartyService {
     redo = false,
     facts: TrainCardFacts = {},
   ): Promise<PostRemoved> {
-    const removed = await this.closePostOnce(party, lastWords, said, removal, since, redo, facts);
+    let removed: PostRemoved;
+    try {
+      removed = await this.closePostOnce(party, lastWords, said, removal, since, redo, facts);
+    } finally {
+      this.closing.delete(party.id);
+    }
     if (!this.undoneClosings.has(party.id)) {
       const left = leftoversOf(party).map((copy) => copy.messageId);
       try {
@@ -3303,7 +3317,9 @@ export class PartyService {
    * with each end; follow-ups of Phases 2E-1 and 3C): the copies of their message and the lines
    * that linked to them in their regions' channels, where a stop came between the end and its
    * closing, or a restart forgot a closing the network failed. With the upkeep, after
-   * `redoClosings`, whose parties it leaves to it. A message deleted, gone, or refused for good
+   * `redoClosings`, whose parties it leaves to it, as it leaves those whose closing is under way
+   * (`closing`). A copy in a post (`/status`'s) is deleted with the post opened where it was
+   * archived; the post sweep archives it again. A message deleted, gone, or refused for good
    * (logged) is forgotten; the run ends with the first the network fails, the rest kept for the
    * next (as `redoClosings`), and between messages once `isStopped` says so. Says how many it
    * forgot and how many failed, and logs it where there were any. Never rejects.
@@ -3318,13 +3334,18 @@ export class PartyService {
     try {
       for (const copy of await leftovers.leftoverCopies()) {
         if (options.isStopped?.()) break;
-        if (this.undoneClosings.has(copy.partyId)) continue;
+        // A closing under way, or one still owed, deletes its copies itself.
+        if (this.closing.has(copy.partyId) || this.undoneClosings.has(copy.partyId)) continue;
         const channelId =
           copy.channelId ??
           (copy.regionId === null ? undefined : regions.byId(copy.regionId)?.channelId);
         try {
           // A link line whose region is gone has nowhere left to be.
-          if (channelId !== undefined) await gateway.deleteMessage(channelId, copy.messageId);
+          // `/status`'s copy is in the post, which may be archived by now: opened for it (the post
+          // sweep after it archives the post of an ended party again).
+          if (channelId !== undefined) {
+            await gateway.deleteMessage(channelId, copy.messageId, { reopen: true });
+          }
         } catch (err) {
           log.warn(
             { err, party: copy.partyId, channel: channelId, message: copy.messageId },

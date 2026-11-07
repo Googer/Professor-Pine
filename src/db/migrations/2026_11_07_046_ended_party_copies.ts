@@ -12,7 +12,8 @@ import type { Migration } from 'kysely/migration';
  * delete). `partyId` is the ended party's (its row is deleted once it is recorded); `endedAt`
  * when it ended. A row goes once the message is deleted, gone, or refused for good.
  *
- * 046: after the two `044`s of other branches of 2026-11-07, whichever is merged first.
+ * 046 for now: other branches of 2026-11-07 add migrations too, and the number is set when the
+ * branch is merged.
  *
  * Safe to run again after a failure half-way: the table is made only when missing.
  */

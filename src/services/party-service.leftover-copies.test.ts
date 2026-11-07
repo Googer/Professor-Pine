@@ -107,6 +107,47 @@ describe('PartyService: the copies ended parties left', () => {
     expect(outside(made)).toBe(2);
   });
 
+  it('leaves the copies of a closing under way to it', async () => {
+    const made = await copied();
+    let answer: () => void = () => undefined;
+    const answered = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
+    let reached: () => void = () => undefined;
+    const answering = new Promise<void>((resolve) => {
+      reached = resolve;
+    });
+    // The end is written; the closing waits for the answer given before it.
+    const ending = made.service.end(made.party.id, undefined, {
+      left: () => {
+        reached();
+        return answered;
+      },
+    });
+    await answering;
+    const asked = made.gateway.deleted.length;
+    expect(await made.service.sweepCopies()).toEqual({ swept: 0, failed: 0 });
+    expect(made.gateway.deleted).toHaveLength(asked);
+    answer();
+    expect(await ending).toBe(true);
+    expect(outside(made)).toBe(0);
+    expect(await made.service.sweepCopies()).toEqual({ swept: 0, failed: 0 });
+  });
+
+  it('deletes a copy left in a post that was archived meanwhile, opening it', async () => {
+    const made = await copied();
+    expect(await made.service.showStatus(made.party.id)).toBe(true);
+    await made.service.flush();
+    const inPost = () => made.gateway.messagesIn(made.postId).length;
+    const before = inPost();
+    await made.store.update(made.party.id, (party) => ({ party: endParty(party) }));
+    await made.gateway.archivePost(made.postId);
+    const again = await restarted(made);
+    expect(await again.service.sweepCopies()).toEqual({ swept: 3, failed: 0 });
+    expect(outside(made)).toBe(0);
+    expect(inPost()).toBe(before - 1);
+  });
+
   it('ends its run with the clock’s stop', async () => {
     const made = await copied();
     await made.store.update(made.party.id, (party) => ({ party: endParty(party) }));
