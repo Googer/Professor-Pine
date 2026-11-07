@@ -332,7 +332,8 @@ export interface PageMaxHour {
  * features a five-star boss in Max Battles from 6 to 7 p.m. on each of three days, on its page
  * only): in the Max Battles section (`<h2 id="max-battles">` up to the next `<h2`), each `<h3>`
  * whose text is `<words> Max Battles: <weekday>, <month> <day>` (`MAX_HOUR_HEADING`; the words
- * say `Gigantamax` for Gigantamax battles), with the names of the Pokémon listed after it up to
+ * say `Gigantamax` for Gigantamax battles, as does every boss listed under it being named
+ * `Gigantamax …`), with the names of the Pokémon listed after it up to
  * the next heading or rule; a heading without a date (`One-Star Max Battles`) is none. Their
  * time is the section's paragraphs' (`eventPageTime`). At most 20; none for a page without the
  * section.
@@ -343,7 +344,10 @@ export function parseEventMaxHours(html: string): PageMaxHour[] {
       month,
       day,
       bosses,
-      gigantamax: /\bgigantamax\b/i.test(lead),
+      // Said by the heading, or by every boss listed (review).
+      gigantamax:
+        /\bgigantamax\b/i.test(lead) ||
+        (bosses.length > 0 && bosses.every((name) => /^gigantamax\s/i.test(name))),
     }),
   );
 }

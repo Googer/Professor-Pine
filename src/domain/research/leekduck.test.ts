@@ -518,6 +518,15 @@ describe('parseEventMaxHours', () => {
     );
   });
 
+  it('takes a heading whose every boss is Gigantamax for Gigantamax hours (review)', () => {
+    const html =
+      '<h2 id="max-battles">Max Battles</h2>' +
+      `<h3>Max Battles: Saturday, March 7</h3><ul>${boss('Gigantamax Lapras')}${boss('Gigantamax Snorlax')}</ul>` +
+      `<h3>Max Battles: Sunday, March 8</h3><ul>${boss('Gigantamax Lapras')}${boss('Snorlax')}</ul>` +
+      `<h3>Max Battles: Monday, March 9</h3><ul></ul>`;
+    expect(parseEventMaxHours(html).map((one) => one.gigantamax)).toEqual([true, false, false]);
+  });
+
   it('counts the dated headings of the Max Battles section by their ids', () => {
     expect(
       maxHourHeadings(
