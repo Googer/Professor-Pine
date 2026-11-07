@@ -80,6 +80,21 @@ describe('the role commands', () => {
     expect(iam.data.toJSON().contexts).toBeUndefined();
   });
 
+  it('say in /help that the web map’s "Your regions…" does the same, where the map is on (plan 8M-20)', () => {
+    const { ctx } = createTestContext();
+    const said = (settings: typeof ctx.config.settings, command: typeof iam) =>
+      typeof command.help.details === 'function'
+        ? command.help.details(settings)
+        : command.help.details;
+    const sentence =
+      'On the web map, "Your regions…" in the menu under your name gives you or takes away the roles that open regions.';
+    const web = { port: 8080, host: '127.0.0.1', publicUrl: 'https://map.example.test' };
+    for (const command of [iam, iamnot]) {
+      expect(said({ ...ctx.config.settings, web } as never, command)).toContain(sentence);
+      expect(said({ ...ctx.config.settings, web: undefined }, command)).not.toContain('web map');
+    }
+  });
+
   it('refuse a member who has not finished joining the server', async () => {
     const { answer, server, gateway, held } = await setup();
     server.member(ALICE, ROLE.south);

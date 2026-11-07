@@ -1,5 +1,6 @@
 import { SlashCommandBuilder, type AutocompleteInteraction } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
+import type { Settings } from '../../config/settings.js';
 import { isSnowflake } from '../../db/snowflake.js';
 import type { SimpleCommand } from '../../discord/command.js';
 import { UserError } from '../../discord/errors.js';
@@ -102,6 +103,17 @@ function carried(
 }
 
 /**
+ * The paragraph of `/iam`'s and `/iamnot`'s help on the web map's "Your regions…" (plan 8M-20),
+ * which gives and takes the same roles for regions; nothing where the web pages are off.
+ */
+function onTheMap(settings: Settings): string {
+  return settings.web === undefined
+    ? ''
+    : '\n\nOn the web map, "Your regions…" in the menu under your name gives you or takes away ' +
+        'the roles that open regions.';
+}
+
+/**
  * `/iam` (spec 4.2; the legacy `!iam`): a member gives themself one of the roles the server
  * offers, or without `role` gets the menus of all of them (`menus.ts`). Private, and tied to no
  * channel (spec 3.2).
@@ -119,13 +131,14 @@ export const iam: SimpleCommand = {
     ),
   help: {
     category: 'roles',
-    details:
+    details: (settings) =>
       'The roles this server lets its members take themselves: your region, your team and the ' +
       'like.\n\nWithout `role` you get menus, one per group of roles, with your own roles ticked: ' +
       'tick and untick, and a menu takes effect when you close it. With `role` you get that ' +
       'one role: pick it from the list that appears while you type.\n\nOf some groups of roles ' +
       '(teams) you can hold only one: taking another one gives the first back. `/iamnot` ' +
-      'takes a role away again.',
+      'takes a role away again.' +
+      onTheMap(settings),
     examples: ['/iam', '/iam role:Mystic'],
   },
   enabled: rolesEnabled,
@@ -197,10 +210,11 @@ export const iamnot: SimpleCommand = {
     ),
   help: {
     category: 'roles',
-    details:
+    details: (settings) =>
       'Takes away one of the roles this server lets its members take themselves. The list that ' +
       'appears while you type shows those you have. Roles that are not self-assignable are ' +
-      'not on it.',
+      'not on it.' +
+      onTheMap(settings),
     examples: ['/iamnot role:North'],
   },
   enabled: rolesEnabled,

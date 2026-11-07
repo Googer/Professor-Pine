@@ -47,6 +47,8 @@ import {
   editorTourOpens,
   keepTourSeen,
   readTourSeen,
+  settledWithin,
+  TOUR_WAITS_FOR_REGIONS_MS,
   tourAudience,
   tourOpensByItself,
   tourSteps,
@@ -470,6 +472,8 @@ function start(): void {
     finds: false,
     /** The last list said the map is read-only. */
     listReadOnly: false,
+    /** "Your regions…" is offered to this member (plan 8M-20, R15). */
+    regions: false,
   };
   const tour = tourUi();
   map.on('move zoomend', () => {
@@ -483,6 +487,7 @@ function start(): void {
       steps: tourSteps({
         audience,
         finds: tourHooks.finds,
+        regions: tourHooks.regions,
         more: me.loggedIn ? 'lacking' : data.login === 'discord' ? 'discord' : 'links',
       }),
     };
@@ -557,6 +562,8 @@ function start(): void {
       // Given below, once the parties are drawn.
     },
     offered: false,
+    /** The first view of the regions, which the tour that opens by itself waits for (B1). */
+    loaded: Promise.resolve() as Promise<unknown>,
   };
   const showRegionsItem = (): void => {
     regionsItem.hidden = !regionsHooks.offered || tourHooks.listReadOnly;
@@ -783,7 +790,12 @@ function start(): void {
           showRegionsItem();
           if (listSeen) return;
           listSeen = true;
-          tourByItself(me, list.readOnly || (me.loggedIn && me.readOnly));
+          // Once the view of the regions came, or within its wait (B1): its step needs it.
+          void settledWithin(regionsHooks.loaded, TOUR_WAITS_FOR_REGIONS_MS, (run, ms) => {
+            window.setTimeout(run, ms);
+          }).then(() => {
+            tourByItself(me, list.readOnly || (me.loggedIn && me.readOnly));
+          });
         },
         located: () => you.located(),
         onMove: (listener) => {
@@ -860,7 +872,9 @@ function start(): void {
         // "Your regions…" in the account's menu where the server offers a role that opens one.
         regionsShown: (view) => {
           outlines.restyle(view);
-          regionsItem.hidden = !regionsOffered(view);
+          regionsHooks.offered = regionsOffered(view);
+          showRegionsItem();
+          tourHooks.regions = regionsOffered(view);
         },
         highlightRegion: (regionId) => {
           outlines.highlight(regionId);
@@ -869,6 +883,7 @@ function start(): void {
       regionsHooks.open = () => {
         raids.openRegions();
       };
+      regionsHooks.loaded = raids.regionsLoaded;
       picks.now = () => raids.picksPlace();
       activityShown.now.refresh();
       // "Edit regions" is refused while a form of the map holds (plan 8M-10, C8).

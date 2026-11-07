@@ -56,6 +56,11 @@ export interface TourFacts {
   finds: boolean;
   /** How the visitor gets more: the login button, `/maps`, or what the header says they lack. */
   more: 'discord' | 'links' | 'lacking';
+  /**
+   * The server offers this member a role that opens or closes a region of the map: "Your
+   * regions…" is in the account's menu (plan 8M-20, R15).
+   */
+  regions: boolean;
 }
 
 /** A marker as the map draws a raid's, with words of its own, kept apart from the page's clock. */
@@ -173,9 +178,53 @@ function memberSteps(facts: TourFacts): TourStep[] {
       ],
       required: true,
     },
+    ...(facts.regions ? [REGIONS_STEP] : []),
     AGAIN_STEP,
   ];
 }
+
+/**
+ * How long the tour that opens by itself waits for the member's view of the regions after the
+ * first list (plan 8M-20, B1): its step is shown only where that view offers "Your regions…".
+ */
+export const TOUR_WAITS_FOR_REGIONS_MS = 3_000;
+
+/**
+ * Settles once `work` has (resolved or not), or after `ms`, whichever comes first (B1): the tour
+ * waits for the view of the regions, but a view that does not come holds it back no longer.
+ */
+export function settledWithin(
+  work: Promise<unknown>,
+  ms: number,
+  setTimer: (run: () => void, ms: number) => void,
+): Promise<void> {
+  return new Promise((resolve) => {
+    setTimer(resolve, ms);
+    work.then(
+      () => {
+        resolve();
+      },
+      () => {
+        resolve();
+      },
+    );
+  });
+}
+
+/** "Your regions…" in the account's menu (plan 8M-20), where the server offers it. */
+const REGIONS_STEP: TourStep = {
+  id: 'regions',
+  heading: 'Choosing Your Regions',
+  targets: [
+    {
+      selectors: ['#account .account-menu'],
+      words: [
+        '🗺️ Your regions… in this menu shows which regions you see on Discord. Join or leave a region right here!',
+      ],
+    },
+  ],
+  required: true,
+};
 
 /** Under the sample of a marker: how to read what is drawn, and the two things to say. */
 const READ_WORDS = [

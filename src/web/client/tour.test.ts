@@ -16,6 +16,8 @@ import {
   tourDue,
   tourOpensByItself,
   TourRun,
+  settledWithin,
+  TOUR_WAITS_FOR_REGIONS_MS,
   tourSteps,
   type Rect,
   type TourFacts,
@@ -23,8 +25,8 @@ import {
 } from './tour.js';
 
 const SCREEN = { width: 1000, height: 800 };
-const MEMBER: TourFacts = { audience: 'member', finds: true, more: 'lacking' };
-const VISITOR: TourFacts = { audience: 'visitor', finds: false, more: 'discord' };
+const MEMBER: TourFacts = { audience: 'member', finds: true, more: 'lacking', regions: false };
+const VISITOR: TourFacts = { audience: 'visitor', finds: false, more: 'discord', regions: false };
 
 /** A storage of the test's: what it holds, one that throws, or one that drops what it is given. */
 function storage(held: Record<string, string> = {}, how?: 'throws' | 'drops'): KeyValueStorage {
@@ -79,6 +81,53 @@ describe('the steps', () => {
     expect(words('lacking')?.[0]?.selectors).toEqual(['#account .line']);
   });
 
+  it('shows a member "Your regions…" where the server offers a role that opens a region (plan 8M-20)', () => {
+    const steps = tourSteps({ ...MEMBER, regions: true });
+    expect(ids(steps)).toEqual([
+      'welcome',
+      'layers',
+      'read',
+      'browse',
+      'find',
+      'report',
+      'regions',
+      'again',
+    ]);
+    const step = steps.find((one) => one.id === 'regions');
+    expect(step?.heading).toBe('Choosing Your Regions');
+    expect(step?.targets[0]?.selectors).toEqual(['#account .account-menu']);
+    expect(step?.targets[0]?.words.join(' ')).toContain('Your regions…');
+    expect(step?.targets[0]?.words.join(' ')).toContain('Join or leave a region right here!');
+    // Not to a visitor, whatever the server offers.
+    expect(ids(tourSteps({ ...VISITOR, regions: true }))).not.toContain('regions');
+  });
+
+  it('has the step where the view of the regions comes after the list, within its wait (B1)', async () => {
+    const timers: Array<{ ms: number; run: () => void }> = [];
+    const setTimer = (run: () => void, ms: number) => {
+      timers.push({ ms, run });
+    };
+    let regions = false;
+    let came = (): void => undefined;
+    const view = new Promise<void>((resolve) => {
+      came = () => {
+        regions = true;
+        resolve();
+      };
+    });
+    const waited = settledWithin(view, TOUR_WAITS_FOR_REGIONS_MS, setTimer);
+    came();
+    await waited;
+    expect(ids(tourSteps({ ...MEMBER, regions }))).toContain('regions');
+    // A view that never comes holds the tour back no longer than the wait.
+    const never = settledWithin(new Promise(() => undefined), TOUR_WAITS_FOR_REGIONS_MS, setTimer);
+    expect(timers.map((one) => one.ms)).toEqual([3000, 3000]);
+    timers[1]?.run();
+    await never;
+    // A view that failed holds it back no longer either.
+    await settledWithin(Promise.reject(new Error('offline')), 3000, setTimer);
+  });
+
   it('lets presses through on the layers step alone', () => {
     for (const facts of [MEMBER, VISITOR]) {
       expect(ids(tourSteps(facts).filter((step) => step.pressable === true))).toEqual(['layers']);
@@ -105,7 +154,7 @@ describe('the steps', () => {
   });
 
   it('keeps every step short', () => {
-    for (const facts of [MEMBER, VISITOR]) {
+    for (const facts of [{ ...MEMBER, regions: true }, VISITOR]) {
       for (const step of tourSteps(facts)) {
         for (const words of [step.words ?? [], ...step.targets.map((one) => one.words)]) {
           // Reading the map says the most: it is the one thing the page cannot show by itself.

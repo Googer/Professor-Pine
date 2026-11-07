@@ -3,8 +3,8 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { EDITOR_TOUR_STEPS, tourSteps, type TourFacts } from './client/tour.js';
 
-const MEMBER: TourFacts = { audience: 'member', finds: true, more: 'lacking' };
-const VISITOR: TourFacts = { audience: 'visitor', finds: false, more: 'discord' };
+const MEMBER: TourFacts = { audience: 'member', finds: true, more: 'lacking', regions: false };
+const VISITOR: TourFacts = { audience: 'visitor', finds: false, more: 'discord', regions: false };
 
 /** The tour's steps are data naming the page's parts: a part renamed must not leave one behind. */
 describe("the map's tour (plan 8M-17)", () => {
