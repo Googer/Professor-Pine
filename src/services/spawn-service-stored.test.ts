@@ -70,6 +70,29 @@ describe('SpawnService with stored reports', () => {
     ]);
   });
 
+  it('records a report without what the map shows of it when only that cannot be kept, so that it is still deleted', async () => {
+    const { made, store, spawns, timers } = await stored();
+    store.failingShown = new Error('Data too long for column');
+    const outcome = await spawns.report(report(made.gateway.guildId));
+    if (outcome.kind !== 'posted') throw new Error('not posted');
+    expect(store.rows).toEqual([
+      {
+        channelId: WEST_CHANNEL,
+        messageId: outcome.messageId,
+        deleteAt: made.clock.now + HALF_HOUR,
+      },
+    ]);
+    // Not on the map, but deleted at its time, and the reason said.
+    expect(await spawns.standing(made.gateway.guildId)).toEqual([]);
+    expect(
+      made.entries.filter(
+        (entry) => entry.msg === 'could not record what the map shows of a spawn report',
+      ),
+    ).toMatchObject([{ err: { message: 'Data too long for column' } }]);
+    timers[0]?.run();
+    await until(() => store.rows.length === 0);
+  });
+
   it('posts a report all the same when it cannot be recorded', async () => {
     const { made, store, spawns } = await stored();
     store.failing = new Error('the database is away');

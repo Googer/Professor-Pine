@@ -342,7 +342,18 @@ export class SpawnService {
     try {
       await this.reads.writing(() => store.add({ channelId, messageId, deleteAt, shown }));
     } catch (err) {
-      log.warn({ err, channel: channelId }, 'could not record a spawn report');
+      // What the map shows may be what was refused (a value the table does not take): the
+      // report is recorded without it (review S3), so that it is still deleted after a restart;
+      // it is not on the map.
+      log.warn(
+        { err, channel: channelId },
+        'could not record what the map shows of a spawn report',
+      );
+      try {
+        await this.reads.writing(() => store.add({ channelId, messageId, deleteAt }));
+      } catch (bare) {
+        log.warn({ err: bare, channel: channelId }, 'could not record a spawn report');
+      }
       return;
     }
     for (const listener of this.listeners) {

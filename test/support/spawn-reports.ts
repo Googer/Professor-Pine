@@ -8,10 +8,15 @@ import type {
 /**
  * The standing spawn reports kept in memory as `SpawnReportRepository` keeps them, whose
  * behaviour spawn-report-repository.db.test.ts pins down. Set `failing` to make every call
- * reject.
+ * reject, `failingShown` a record with what the map shows of it.
  */
 export class MemorySpawnReports implements SpawnReportStorage {
   failing: Error | undefined;
+  /**
+   * Set to make a record with what the map shows of it reject (the database refused one of its
+   * values), a bare one still taken.
+   */
+  failingShown: Error | undefined;
   readonly rows: StoredSpawnReport[] = [];
   /** What the map shows of each report recorded with it, by message. */
   private readonly shown = new Map<string, ShownSpawn>();
@@ -20,14 +25,22 @@ export class MemorySpawnReports implements SpawnReportStorage {
     return new Promise((resolve, reject) => {
       // Like a real query, the answer never comes in the same turn of the event loop.
       setImmediate(() => {
-        if (this.failing) reject(this.failing);
-        else resolve(work());
+        if (this.failing) {
+          reject(this.failing);
+          return;
+        }
+        try {
+          resolve(work());
+        } catch (err) {
+          reject(err instanceof Error ? err : new Error(String(err)));
+        }
       });
     });
   }
 
   add(report: StoredSpawnReport & { shown?: ShownSpawn }): Promise<void> {
     return this.attempt(() => {
+      if (report.shown && this.failingShown) throw this.failingShown;
       if (!this.rows.some((row) => row.messageId === report.messageId)) {
         const { shown, ...stored } = report;
         this.rows.push(stored);
