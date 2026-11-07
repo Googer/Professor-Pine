@@ -919,6 +919,12 @@ export function showParties(
   });
   // The first view's answer, which the tour that opens by itself waits for (B1).
   const regionsLoaded: Promise<unknown> = mayReport ? regionsBox.load() : Promise.resolve();
+  // Back on the map's tab (Matt, 2026-11-07): a role changed on Discord meanwhile is drawn
+  // without a reload; not while the list is read-only, which asks it as it comes back (B10).
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState !== 'visible' || !mayReport || view?.readOnly === true) return;
+    void regionsBox.again();
+  });
   /**
    * Field research's form in the side pane (plan 8M-9B, goals 7 and 8, B8): after a report, the
    * reports at once, then the first stop's popup (B15).

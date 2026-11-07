@@ -70,6 +70,8 @@ export function regionsUi(deps: RegionsUiDeps) {
   let box: HTMLElement | undefined;
   /** The region whose row was tapped: its outline marked until a tap elsewhere (B8). */
   let tapped: number | undefined;
+  /** A Join or Leave is being answered: the page shown again leaves the view to its answer. */
+  let pressing = false;
 
   /** The view asked for, without telling anybody (after a press, W5); undefined: none had. */
   const reread = async (): Promise<RegionsMineView | undefined> => {
@@ -144,6 +146,31 @@ export function regionsUi(deps: RegionsUiDeps) {
 
   /** A Join or Leave pressed: every button off until the answer, said in its row and the box. */
   const press = async (button: HTMLButtonElement): Promise<void> => {
+    pressing = true;
+    try {
+      await pressed(button);
+    } finally {
+      pressing = false;
+    }
+  };
+
+  /**
+   * The view asked again as the page is shown again (Matt, 2026-11-07: a role taken or given back
+   * on Discord, the member back on the map's tab): drawn where it changed, the parties asked again;
+   * a read-only view or none keeps what is drawn (W5). Not during a press, whose answer says it.
+   */
+  const again = async (): Promise<void> => {
+    if (pressing) return;
+    const fresh = await reread();
+    if (pressing || fresh === undefined || fresh.readOnly) return;
+    if (JSON.stringify(fresh) === JSON.stringify(view)) return;
+    view = fresh;
+    deps.shown(view);
+    update();
+    deps.partiesChanged();
+  };
+
+  const pressed = async (button: HTMLButtonElement): Promise<void> => {
     const { regionAction: action = '', region: regionId = '', role = '' } = button.dataset;
     const before = buttons().map((each) => [each, each.disabled] as const);
     for (const [each] of before) each.disabled = true;
@@ -242,6 +269,7 @@ export function regionsUi(deps: RegionsUiDeps) {
 
   return {
     load,
+    again,
     /** "Your regions…" pressed: the box in the side pane, or why not. */
     open: (): void => {
       if (claim) return;

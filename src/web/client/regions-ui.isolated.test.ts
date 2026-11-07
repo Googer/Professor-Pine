@@ -102,7 +102,7 @@ function fixture(options: { asks?: Array<RegionsMineView | Error>; outlinesShown
   const said: string[] = [];
   const asks = [...(options.asks ?? [hiddenWest])];
   let escapeTaken = false;
-  const counts = { redrawn: 0, popupsClosed: 0, focusedBack: 0 };
+  const counts = { redrawn: 0, popupsClosed: 0, focusedBack: 0, partiesChanged: 0 };
   // The end of a press: the parties asked again (the client's type check has no Node's timers).
   let pressed = (): void => undefined;
   const nextPress = () =>
@@ -127,6 +127,7 @@ function fixture(options: { asks?: Array<RegionsMineView | Error>; outlinesShown
     shown: (view) => shown.push(view),
     highlight: (id) => highlighted.push(id),
     partiesChanged: () => {
+      counts.partiesChanged += 1;
       pressed();
     },
     redrawn: () => {
@@ -343,6 +344,51 @@ describe('the box of "Your regions"', () => {
     expect(made.button('Leave plaza')?.disabled).toBe(false);
     expect(made.shown).toEqual([hiddenWest]);
     expect(made.ui.offered()).toBe(true);
+  });
+
+  it('asks the view again as the page is shown again: a role changed on Discord is drawn (Matt, 2026-11-07)', async () => {
+    const made = fixture({ asks: [hiddenWest, seenWest] });
+    await made.ui.load();
+    made.ui.open();
+    const box = made.tools.childNodes[0];
+    await made.ui.again();
+    expect(made.shown).toEqual([hiddenWest, seenWest]);
+    expect(made.tools.childNodes[0]).toBe(box);
+    expect(made.button('Leave west')).toBeDefined();
+    expect(made.button('Join west')).toBeUndefined();
+    expect(made.counts.partiesChanged).toBe(1);
+  });
+
+  it('changes nothing as the page is shown again where the view is the same', async () => {
+    const made = fixture({ asks: [hiddenWest, structuredClone(hiddenWest)] });
+    await made.ui.load();
+    await made.ui.again();
+    expect(made.shown).toEqual([hiddenWest]);
+    expect(made.counts.partiesChanged).toBe(0);
+  });
+
+  it('keeps the view as the page is shown again where the view asked is read-only or fails (W5)', async () => {
+    const readOnly: RegionsMineView = { readOnly: true, roles: true, regions: [] };
+    const made = fixture({ asks: [hiddenWest, readOnly, new Error('offline')] });
+    await made.ui.load();
+    await made.ui.again();
+    await made.ui.again();
+    expect(made.shown).toEqual([hiddenWest]);
+    expect(made.ui.offered()).toBe(true);
+    expect(made.counts.partiesChanged).toBe(0);
+  });
+
+  it('leaves a press to say the view: the page shown again during a press asks nothing', async () => {
+    const made = fixture({ asks: [hiddenWest, seenWest] });
+    await made.ui.load();
+    made.ui.open();
+    made.button('Join west')?.dispatch('click');
+    await made.ui.again();
+    expect(made.shown).toEqual([hiddenWest]);
+    const done = made.nextPress();
+    made.reply({ ok: true, outcome: 'done', text: 'You have West now.', view: seenWest });
+    await done;
+    expect(made.shown).toEqual([hiddenWest, seenWest]);
   });
 
   it('outlines a row’s region while hovered or focused, and a tapped one until a tap elsewhere (B8)', async () => {
