@@ -394,6 +394,23 @@ describe('parseRaidBossFeed: costumes and new forms', () => {
     ).toEqual(['~pikachu_cosplay (unknown)']);
   });
 
+  it('keeps two unresolved bosses apart that share a picture of an unknown form', () => {
+    const cosplay = 'pm25.fCOSPLAY.icon.png';
+    const entries = [
+      raid('Pikachu (Cosplay Forme)', '3-Star Raids', cosplay),
+      raid('Pikachu Libre', '3-Star Raids', cosplay),
+      raid('Pikachu Libre', '3-Star Raids', cosplay, { canBeShiny: true }),
+    ];
+    expect(
+      parse(entries).bosses.map((b) => [b.pokemonId, b.form, b.name, b.shiny, b.image]),
+    ).toEqual([
+      ['PIKACHU_COSPLAY_FORME', null, 'Pikachu (Cosplay Forme)', false, `${ICONS}${cosplay}`],
+      ['PIKACHU_LIBRE', null, 'Pikachu Libre', true, `${ICONS}${cosplay}`],
+    ]);
+    // One name under that picture keeps the picture's ids, listed once however often.
+    expect(summary([entries[1], entries[2]])).toEqual(['T3 PIKACHU/PIKACHU_COSPLAY']);
+  });
+
   it('resolves a form the game master knows to its own entry', () => {
     const therian = raid('Landorus (Therian)', '5-Star Raids', 'pm645.fTHERIAN.icon.png');
     expect(summary([therian])).toEqual(['T5 LANDORUS/LANDORUS_THERIAN']);

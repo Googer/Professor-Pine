@@ -473,8 +473,7 @@ export function matchBoss(
     const { resolved } = found;
     if (!options.mega || lookup.kindOf(resolved.pokemonId, resolved.form) === 'mega') return found;
   }
-  const id = idFromName(name);
-  if (id === undefined) return undefined;
+  if (idFromName(name) === undefined) return undefined;
   // The picture names a species the catalogue has and a form it lacks, and the boss is not
   // placed: the picture's ids are kept, so that the same feed entry has the same ids when the
   // game master learns the form later (and a moderator's override that names them still finds
@@ -495,6 +494,16 @@ export function matchBoss(
       };
     }
   }
+  return nameIdentity(name, lookup);
+}
+
+/**
+ * The ids of a boss that is not placed, made of its name (with `_UNMATCHED` behind them if a
+ * catalogue entry has that id); undefined when the name has no letter to make an id of.
+ */
+function nameIdentity(name: string, lookup: FeedLookup): BossIdentity | undefined {
+  const id = idFromName(name);
+  if (id === undefined) return undefined;
   const unique =
     lookup.kindOf(id, null) === undefined
       ? id
@@ -556,7 +565,9 @@ export function howIdentified(
  * boss is placed as (the picture's when the catalogue has the form or the boss is a costume of the
  * plain species, the name's when it decided); for a boss that is not placed, the picture's ids when
  * the catalogue has its species and lacks its form (so the same feed entry has the same ids once
- * the game master knows the form), otherwise an id made of the name.
+ * the game master knows the form), otherwise an id made of the name. Two such bosses of one tier
+ * whose names differ but whose pictures give the same ids are kept apart, each under an id made
+ * of its name.
  *
  * `Shadow ` in front of a name makes the boss a shadow boss, unless the Shadow belongs to the
  * name (`Shadow Rider Calyrex`: the whole name is one the lookup finds, or the picture's form part
@@ -571,6 +582,7 @@ export function parseRaidBossFeed(raw: unknown, lookup: FeedLookup): ParsedFeed 
   const bosses: FeedBoss[] = [];
   const unknownLevels: string[] = [];
   const seen = new Map<string, FeedBoss>();
+  const found: { entry: ReadEntry; name: string; tier: RaidTier; ids: BossIdentity }[] = [];
   let skipped = (raw as unknown[]).length - entries.length;
   const unknown = (label: string): void => {
     const cut = cleanText(label).slice(0, MAX_LEVEL_LENGTH);
@@ -609,7 +621,22 @@ export function parseRaidBossFeed(raw: unknown, lookup: FeedLookup): ParsedFeed 
       skipped += 1;
       continue;
     }
-    const identity = `${ids.pokemonId}|${ids.form ?? ''}|${tier.level}|${String(tier.shadow)}`;
+    found.push({ entry, name, tier, ids });
+  }
+  // An unresolved boss keeps its picture's ids only while no other name of its tier shares them:
+  // two bosses that share a picture of an unknown form are two, each under an id made of its name.
+  const keyOf = (ids: Ids, tier: RaidTier) =>
+    `${ids.pokemonId}|${ids.form ?? ''}|${tier.level}|${String(tier.shadow)}`;
+  const namesOf = new Map<string, Set<string>>();
+  for (const { name, tier, ids } of found) {
+    if (ids.resolved !== undefined || ids.form === null) continue;
+    const key = keyOf(ids, tier);
+    namesOf.set(key, (namesOf.get(key) ?? new Set()).add(name));
+  }
+  for (const { entry, name, tier, ids: given } of found) {
+    const shared = given.resolved === undefined && (namesOf.get(keyOf(given, tier))?.size ?? 0) > 1;
+    const ids = shared ? (nameIdentity(name, lookup) ?? given) : given;
+    const identity = keyOf(ids, tier);
     const image = imageAddress.safeParse(entry.image);
     const earlier = seen.get(identity);
     if (earlier) {
