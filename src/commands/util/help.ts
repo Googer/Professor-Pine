@@ -98,13 +98,13 @@ function commandPage(path: string, staff: boolean, ctx: AppContext): V2Message {
   if (onMessage) return renderMessageCommandHelp(onMessage, ctx.config.settings);
   const [name = '', ...rest] = path.split(' ');
   const command = visibleCommands(staff, ctx).find((c) => c.data.name === name);
+  // What the help may depend on besides the settings (`HelpFacts`).
+  const facts = { oldHistory: ctx.legacyIndex !== undefined };
   const page =
     command &&
     (rest.length === 0
-      ? renderCommandHelp(command, ctx.config.settings, {
-          oldHistory: ctx.legacyIndex !== undefined,
-        })
-      : renderSubcommandHelp(command, rest.join(' '), ctx.config.settings));
+      ? renderCommandHelp(command, ctx.config.settings, facts)
+      : renderSubcommandHelp(command, rest.join(' '), ctx.config.settings, facts));
   if (!page) throw noCommand(path);
   return page;
 }

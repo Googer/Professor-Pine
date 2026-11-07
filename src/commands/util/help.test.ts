@@ -18,6 +18,7 @@ import {
   type FakeOptions,
 } from '../../../test/support/fake-interactions.js';
 import { buttonsOf, selectsOf, textDisplays } from '../../../test/support/messages.js';
+import { MemoryLegacyIndex } from '../../../test/support/legacy-fill-ins.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { commandGroup } from '../../discord/command-group.js';
 import {
@@ -107,6 +108,36 @@ describe('/help: a command with another name', () => {
   it('offers both names while one is typed', async () => {
     expect(await choices('in', {}, named)).toContain('interested');
     expect(await choices('hm', {}, named)).toContain('hmm');
+  });
+});
+
+describe('/help: what the installation has besides its settings (HelpFacts)', () => {
+  const said = (_settings: unknown, facts?: { oldHistory?: boolean }) =>
+    facts?.oldHistory === true ? 'The old history is here.' : 'No old history here.';
+  const recall: SimpleCommand = {
+    data: new SlashCommandBuilder().setName('recall').setDescription('Recall the past'),
+    help: { category: 'util', details: said },
+    execute: noop,
+  };
+  const past = commandGroup({
+    data: new SlashCommandBuilder().setName('past').setDescription('The past'),
+    help: { category: 'util' },
+    parts: [{ data: sub('show'), help: { details: said }, execute: noop }],
+  });
+  const commands = [help, recall, alsoAs(recall, 'remember'), past];
+  const page = async (command: string, legacyIndex?: MemoryLegacyIndex) =>
+    textDisplays(
+      await ask({ options: { command } }, createTestContext({ commands, legacyIndex }).ctx),
+    ).join('\n');
+
+  it('gives them to another name of a command', async () => {
+    expect(await page('remember', new MemoryLegacyIndex())).toContain('The old history is here.');
+    expect(await page('remember')).toContain('No old history here.');
+  });
+
+  it('gives them to a subcommand', async () => {
+    expect(await page('past show', new MemoryLegacyIndex())).toContain('The old history is here.');
+    expect(await page('past show')).toContain('No old history here.');
   });
 });
 

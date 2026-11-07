@@ -484,6 +484,7 @@ export function renderSubcommandHelp(
   command: CommandModule,
   path: string,
   settings: Settings,
+  facts: HelpFacts = {},
 ): V2Message | undefined {
   const json = command.data.toJSON();
   const name = `${json.name} ${path}`;
@@ -500,6 +501,7 @@ export function renderSubcommandHelp(
       usageLines(name, childrenOf(group)),
       settings,
       controls,
+      facts,
     );
   }
   for (const option of (json.options ?? []).filter(isNested)) {
@@ -517,6 +519,7 @@ export function renderSubcommandHelp(
         settings,
         // A subcommand of a group leads back to its group: `/admin boss add` to `/admin boss`.
         parent === null ? controls : { path: name, back: `/${json.name} ${parent}` },
+        facts,
       );
     }
   }

@@ -4,7 +4,7 @@ import { TEST_SETTINGS_PATH } from '../../test/support/test-settings.js';
 import { loadEnv } from '../config/env.js';
 import type { Config } from '../config/index.js';
 import { loadSettings, type Settings } from '../config/settings.js';
-import type { CommandHelp, CommandModule } from '../discord/command.js';
+import type { CommandHelp, CommandModule, HelpFacts } from '../discord/command.js';
 import { commands, messageCommands } from './index.js';
 import { REPORT_MESSAGE_NAME } from './parties/report-message.js';
 
@@ -24,11 +24,14 @@ function formsOf(command: CommandModule): CommandModule[] {
   return [command, ...configs.map((config) => command.forConfig?.(config) ?? command)];
 }
 
+/** What an installation may have besides its settings: none of it, and all of it. */
+const FACTS: HelpFacts[] = [{}, { oldHistory: true }];
+
 /** Every details text of a command and of each of its subcommands, by where it stands. */
-function detailsOf(command: CommandModule, given: Settings): [string, string][] {
+function detailsOf(command: CommandModule, given: Settings, facts: HelpFacts): [string, string][] {
   const name = `/${command.data.name}`;
   const said = (details: CommandHelp['details']): string | undefined =>
-    typeof details === 'function' ? details(given) : details;
+    typeof details === 'function' ? details(given, facts) : details;
   const own = said(command.help.details);
   const subs = command.subcommands
     ? [...command.subcommands].map(([path, sub]) => [`${name} ${path}`, said(sub.help?.details)])
@@ -44,7 +47,9 @@ function everyDetails(): [string, string][] {
   const all: [string, string][] = [];
   for (const command of commands) {
     for (const form of formsOf(command)) {
-      for (const config of configs) all.push(...detailsOf(form, config.settings));
+      for (const config of configs) {
+        for (const facts of FACTS) all.push(...detailsOf(form, config.settings, facts));
+      }
     }
   }
   for (const command of messageCommands) {

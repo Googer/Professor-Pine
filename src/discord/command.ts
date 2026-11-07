@@ -240,8 +240,8 @@ export function alsoAs(command: SimpleCommand, name: string, description?: strin
     },
     help: {
       ...command.help,
-      details: (settings) => {
-        const own = typeof details === 'function' ? details(settings) : details;
+      details: (settings, facts) => {
+        const own = typeof details === 'function' ? details(settings, facts) : details;
         return own === undefined ? note : `${note}\n\n${own}`;
       },
       // The examples show it used by its own name.
