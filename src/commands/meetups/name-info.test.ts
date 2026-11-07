@@ -277,12 +277,14 @@ describe('/info', () => {
       flags: MessageFlags.Ephemeral,
     });
     expect(used.followUp).toHaveBeenCalledOnce();
-    expect(sent(used.followUp).content).toMatch(/^Something went wrong \(ref `[0-9a-f]{6}`\)\.$/);
+    expect(sent(used.followUp).content).toMatch(
+      /^Something went wrong\. Try again in a moment; if it happens again, tell staff the code `[0-9a-f]{6}`\.$/,
+    );
     expect(made.current().meetup.description).toBeNull();
     // An empty form has nothing to give back: only the report.
     const empty = await made.submit('  ');
     expect(empty.followUp).not.toHaveBeenCalled();
-    expect(sent(empty.reply).content).toMatch(/^Something went wrong \(ref /);
+    expect(sent(empty.reply).content).toMatch(/^Something went wrong\. Try again in a moment/);
   });
 
   it('keeps a refusal within one message, and a code block typed into it from ending the block', () => {

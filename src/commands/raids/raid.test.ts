@@ -510,7 +510,9 @@ describe('/raid', () => {
     vi.spyOn(service, 'reportRaid').mockRejectedValue(new Error('boom'));
     const select = await handle(fakeSelect({ customId: customId(interaction), values: ['12'] }));
     const error = sent(select.followUp);
-    expect(error.content).toMatch(/^Something went wrong \(ref `[0-9a-f]{6}`\)\.$/);
+    expect(error.content).toMatch(
+      /^Something went wrong\. Try again in a moment; if it happens again, tell staff the code `[0-9a-f]{6}`\.$/,
+    );
     expect(error.flags).toBe(64);
     const again = await handle(fakeSelect({ customId: customId(interaction), values: ['12'] }));
     expect(sent(again.update).content).toBe('That choice has expired. Use `/raid` again.');
@@ -618,7 +620,9 @@ describe('/raid after an error behind a control', () => {
     vi.spyOn(service, 'reportRaid').mockRejectedValue(new Error('boom'));
     const select = await handle(fakeSelect({ customId: customId(interaction), values: ['12'] }));
     expect(sent(select.editReply)).toEqual({ content: 'Nothing was reported.', components: [] });
-    expect(sent(select.followUp).content).toMatch(/^Something went wrong \(ref `[0-9a-f]{6}`\)\.$/);
+    expect(sent(select.followUp).content).toMatch(
+      /^Something went wrong\. Try again in a moment; if it happens again, tell staff the code `[0-9a-f]{6}`\.$/,
+    );
   });
 
   it('clears the confirmation when reporting fails after the yes', async () => {
