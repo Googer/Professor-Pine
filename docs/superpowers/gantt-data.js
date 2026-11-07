@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-06T20:27",
+  "updated": "2026-11-06T21:15",
   "items": [
     {
       "id": "0",
@@ -11285,6 +11285,11 @@ window.GANTT = {
           "start": "2026-11-06T19:47",
           "end": "2026-11-06T20:26"
         }
+      },
+      "status": "done",
+      "review": {
+        "start": "2026-11-06T20:34",
+        "end": "2026-11-06T21:07"
       }
     },
     {
@@ -11295,7 +11300,9 @@ window.GANTT = {
       "dependsOn": [],
       "scope": "The member index, written by the import",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-06T20:27",
+      "end": "2026-11-06T20:29"
     },
     {
       "id": "8H-10.2",
@@ -11307,7 +11314,9 @@ window.GANTT = {
       ],
       "scope": "The queue of fill-ins",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-06T20:29",
+      "end": "2026-11-06T20:31"
     },
     {
       "id": "8H-10.3",
@@ -11319,7 +11328,9 @@ window.GANTT = {
       ],
       "scope": "The fill-in worker",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-06T20:31",
+      "end": "2026-11-06T20:32"
     },
     {
       "id": "8H-10.4",
@@ -11331,7 +11342,9 @@ window.GANTT = {
       ],
       "scope": "Asking in settings, and your history counting it",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-06T20:32",
+      "end": "2026-11-06T20:33"
     },
     {
       "id": "8H-10.5",
@@ -11343,7 +11356,9 @@ window.GANTT = {
       ],
       "scope": "Operations and docs",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-06T20:33",
+      "end": "2026-11-06T20:34"
     },
     {
       "id": "16-staging",
