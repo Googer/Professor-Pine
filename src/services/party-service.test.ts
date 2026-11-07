@@ -488,6 +488,20 @@ describe('PartyService: keeping posts up to date', () => {
     expect(gateway.calls).toHaveLength(calls);
   });
 
+  it('ends a party whose post is gone once, when Discord says so while a render finds it gone', async () => {
+    const made = await withRaid();
+    const { party, postId, gateway, store, entries } = made;
+    gateway.gone.add(postId);
+    await store.update(party.id, (p) => setAttendance(p, ALICE, PartyStatus.Coming, {}, limits));
+    made.service.changed(party.id);
+    await Promise.all([made.service.postDeleted(postId), made.service.flush()]);
+    expect(store.get(party.id)).toBeUndefined();
+    expect(
+      entries.filter((entry) => entry.msg === 'a party post is gone; ending the party'),
+    ).toHaveLength(1);
+    expect(gateway.calls.filter((call) => call === `deletePost ${postId}`)).toHaveLength(1);
+  });
+
   it('warns of an edit that failed for the network, and errors for any other failure (plan 8X-H)', async () => {
     const { service, store, gateway, party, entries } = await withRaid();
     const failed = () => entries.filter((entry) => entry.msg === 'could not update a party post');

@@ -228,6 +228,8 @@ export const EMOJI_RENDER_GAP_MS = 250;
 
 /** At most so many closings that failed are kept to be done again (`redoClosings`). */
 export const UNDONE_CLOSINGS_MAX = 500;
+/** How many posts found gone are remembered, so that each is ended once (`postGone`). */
+const POSTS_GONE_KEPT = 1_000;
 /**
  * A closing still undone a day after the party ended is forgotten: no post is opened and archived
  * again days later (review r0 B4); the sweep archives what stayed open.
@@ -810,6 +812,11 @@ export class PartyService {
   private readonly creating = new Map<string, Promise<void>>();
   /** A raid moves to another region once at a time. */
   private readonly moves = new KeyedLock<string>();
+  /**
+   * The posts found gone whose party `postGone` has ended or is ending: a second finding (Discord's
+   * `ThreadDelete` beside a render that found the post gone) does nothing (review GR-7).
+   */
+  private readonly postsGone = new BoundedMap<string, true>(POSTS_GONE_KEPT);
   /** The new parties of moves under way, until the move landed or failed (`moveUnderWay`). */
   private readonly deciding = new Map<string, Promise<void>>();
   /**
@@ -3700,9 +3707,14 @@ export class PartyService {
     }
   }
 
-  /** Somebody deleted the post: the party is over (spec 7), and the thread goes if it is left. */
+  /**
+   * Somebody deleted the post: the party is over (spec 7), and the thread goes if it is left.
+   * Once per post: a second finding of the same post gone does nothing.
+   */
   private async postGone(party: Party, postId: string): Promise<void> {
     const { gateway, log } = this.options;
+    if (this.postsGone.has(postId)) return;
+    this.postsGone.set(postId, true);
     log.warn({ party: party.id, post: postId }, 'a party post is gone; ending the party');
     // Only staff may delete the bot's posts: the history keeps that staff closed it (R-A1).
     const ended = await this.abandon(
@@ -3711,6 +3723,8 @@ export class PartyService {
       closedEnd('staff'),
     );
     this.ended(party);
+    // A party that could not be ended stays active: the next finding tries again.
+    if (!ended) this.postsGone.delete(postId);
     // Only of a party that has really ended: one that stays active keeps its copies.
     if (ended) {
       await this.deleteLinkLine(ended);
