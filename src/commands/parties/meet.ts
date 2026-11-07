@@ -108,10 +108,11 @@ export const meet: SimpleCommand = {
       "game's Select Time icon offers the times to pick from: the game's own RSVP times for a " +
       'raid, every five minutes of the next hour for a max battle.\n\nIn the post of a train ' +
       'or meetup: sets when it starts, for everybody, and tells the others who are signed up. ' +
-      'Give a clock time, a date and a time, or `in 30` for minutes from now (a number alone, ' +
-      'such as `7`, is a clock hour); `cancel` removes the start.\n\nA time without a date is ' +
-      'on the day it starts, or else the day it ends, while that day is still to come, and ' +
-      `otherwise today. A date comes first, month-day (\`${DATE_EXAMPLE} 6pm\`).\n\n` +
+      'Give a clock time (`noon` and `midnight` too), a date and a time, or `in 30` for ' +
+      'minutes from now (a number alone, such as `7`, is a clock hour); `cancel` removes the ' +
+      'start.\n\nA time without a date is on the day it starts, or else the day it ends, ' +
+      'while that day is still to come, and otherwise today; `tomorrow 6pm` is tomorrow. A ' +
+      `date comes first, month-day (\`${DATE_EXAMPLE} 6pm\`).\n\n` +
       'You must be signed up.',
     examples: ['/meet time:6:15pm', '/meet time:hatch', `/meet time:${DATE_EXAMPLE} 6:15pm`],
   },

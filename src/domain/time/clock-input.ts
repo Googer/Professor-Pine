@@ -19,7 +19,15 @@ export interface ClockInput {
   hasMeridiem: boolean;
   month?: number;
   day?: number;
+  /** Typed after "tomorrow": the day after today, never with a month and day. */
+  tomorrow?: true;
 }
+
+/** "tomorrow", "tomorrow at", "tomorrow," before a time. */
+const TOMORROW = /^tomorrow(?:\s*,\s*|\s+)(?:at\s+)?/i;
+
+/** The times said in words: noon and midnight, as "12pm" and "12am" are read. */
+const NAMED_TIMES: Readonly<Record<string, number>> = { noon: 12, midday: 12, midnight: 0 };
 
 const CLOCK = new RegExp(
   '^' +
@@ -33,9 +41,28 @@ const CLOCK = new RegExp(
   'i',
 );
 
-/** Reads text such as "3:30pm", "1530", "3 pm" or "10-14 6pm". Undefined when it is not a time. */
+/**
+ * Reads text such as "3:30pm", "1530", "3 pm", "10-14 6pm", "noon", "midnight" or "tomorrow
+ * 6pm". Undefined when it is not a time. A dot between hours and minutes is a colon: "10.17"
+ * is "10:17", morning or evening by the same rule.
+ */
 export function parseClockInput(text: string): ClockInput | undefined {
-  const groups = CLOCK.exec(text.trim())?.groups;
+  const trimmed = text.trim();
+  const tomorrow = TOMORROW.exec(trimmed);
+  if (!tomorrow) return clockOf(trimmed);
+  const clock = clockOf(trimmed.slice(tomorrow[0].length));
+  // "Tomorrow" and a date say the day twice.
+  if (!clock || clock.month !== undefined) return undefined;
+  return { ...clock, tomorrow: true };
+}
+
+/** `parseClockInput` without "tomorrow". */
+function clockOf(text: string): ClockInput | undefined {
+  const word = text.toLowerCase();
+  if (Object.hasOwn(NAMED_TIMES, word)) {
+    return { hour: NAMED_TIMES[word] ?? 0, minute: 0, hasMeridiem: true };
+  }
+  const groups = CLOCK.exec(text)?.groups;
   if (!groups) return undefined;
 
   let hour: number;

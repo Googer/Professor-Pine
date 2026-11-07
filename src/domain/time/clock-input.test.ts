@@ -114,6 +114,27 @@ describe('parseClockInput', () => {
     expect(parseClockInput('5 a.m.')).toEqual({ hour: 5, minute: 0, hasMeridiem: true });
   });
 
+  it('reads noon, midnight and tomorrow before a time (the audit of 2026-11-07)', () => {
+    expect(parseClockInput('noon')).toEqual({ hour: 12, minute: 0, hasMeridiem: true });
+    expect(parseClockInput(' Midnight ')).toEqual({ hour: 0, minute: 0, hasMeridiem: true });
+    expect(parseClockInput('tomorrow 6pm')).toEqual({
+      hour: 18,
+      minute: 0,
+      hasMeridiem: true,
+      tomorrow: true,
+    });
+    expect(parseClockInput('tomorrow at 10.17')).toEqual({
+      hour: 10,
+      minute: 17,
+      hasMeridiem: false,
+      tomorrow: true,
+    });
+    expect(parseClockInput('tomorrow')).toBeUndefined();
+    expect(parseClockInput('tomorrow 10-14 6pm')).toBeUndefined();
+    expect(parseClockInput('noonish')).toBeUndefined();
+    expect(parseClockInput('constructor')).toBeUndefined();
+  });
+
   it('rejects text that is not a time', () => {
     expect(parseClockInput('abc')).toBeUndefined();
     expect(parseClockInput('')).toBeUndefined();

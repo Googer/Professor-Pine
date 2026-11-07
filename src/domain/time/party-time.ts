@@ -171,9 +171,11 @@ function candidates(clock: ClockInput, request: PartyTimeRequest, reference?: nu
   const timed = partyType !== 'raid';
 
   // A date-less meeting time, or end time of a train or meetup, falls on the reference day; for
-  // a train or meetup only while that day has not passed.
+  // a train or meetup only while that day has not passed. "Tomorrow" is the day after today.
+  const tomorrow = clock.tomorrow === true;
   const useReference =
     !hasDate &&
+    !tomorrow &&
     reference !== undefined &&
     (parameter === 'meet' || (parameter === 'end' && timed)) &&
     (!timed ||
@@ -204,6 +206,20 @@ function candidates(clock: ClockInput, request: PartyTimeRequest, reference?: nu
 
   const afternoon = !clock.hasMeridiem && clock.hour < 12 ? clock.hour + 12 : undefined;
   const midnight = standardRaid && !clock.hasMeridiem && clock.hour === 12 ? 0 : undefined;
+
+  // "Tomorrow 6pm": that day alone, for every kind; whether the party can have it is the
+  // window's to say (a raid's meeting only when the raid lasts past midnight).
+  if (tomorrow) {
+    const afternoonFirst = timed && parameter === 'meet' && clock.hour >= 1 && clock.hour <= 6;
+    const hours =
+      afternoon === undefined
+        ? [clock.hour]
+        : afternoonFirst
+          ? [afternoon, clock.hour]
+          : [clock.hour, afternoon];
+    if (midnight !== undefined) hours.push(midnight);
+    return hours.map((hour) => build(hour, 0, 1)).filter((time) => time !== undefined);
+  }
 
   if (timed) {
     const afternoonFirst = parameter === 'meet' && clock.hour >= 1 && clock.hour <= 6;
@@ -313,7 +329,10 @@ export function resolvePartyTime(request: PartyTimeRequest): PartyTimeResult {
     if (clock) {
       const reference = timed ? timedReference(request) : (party?.hatchTime ?? undefined);
       const readings = candidates(clock, request, reference);
-      if (timed && clock.month === undefined && clock.day === undefined) read = readings[0];
+      // Not for "tomorrow": the refusal's "give the date first" would not fit it.
+      if (timed && clock.month === undefined && clock.day === undefined && !clock.tomorrow) {
+        read = readings[0];
+      }
       possible.push(...readings);
     }
   }

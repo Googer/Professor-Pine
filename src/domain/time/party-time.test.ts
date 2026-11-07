@@ -369,6 +369,120 @@ describe('resolvePartyTime: trains and meetups', () => {
   });
 });
 
+describe('resolvePartyTime: noon, midnight, tomorrow and a dot (the audit of 2026-11-07)', () => {
+  const time = (iso: string) => ({ kind: 'time', at: at(iso) });
+  const meetup = (text: string, now = NOW) =>
+    resolvePartyTime(
+      request({ text, now, parameter: 'meet', partyType: 'meetup', party: { creationTime: now } }),
+    );
+  /** A raid's meeting time, the raid hatched at `hatch` and ending at `end`. */
+  const raid = (text: string, now: number, hatch: string, end: string) =>
+    resolvePartyTime(
+      request({
+        text,
+        now,
+        parameter: 'meet',
+        party: { creationTime: at(hatch) - 30 * 60_000, hatchTime: at(hatch), endTime: at(end) },
+      }),
+    );
+
+  it('reads 10.17 as it reads 10:17, in the morning or the evening alike', () => {
+    for (const now of [at('2026-10-10T09:30'), NOW, at('2026-10-10T21:30')]) {
+      expect(meetup('10.17', now)).toEqual(meetup('10:17', now));
+    }
+    expect(meetup('10.17', at('2026-10-10T09:30'))).toEqual(time('2026-10-10T10:17'));
+    expect(meetup('10.17')).toEqual(time('2026-10-10T22:17'));
+    const morning = at('2026-10-10T09:50');
+    expect(raid('10.17', morning, '2026-10-10T09:45', '2026-10-10T10:30')).toEqual(
+      time('2026-10-10T10:17'),
+    );
+    expect(raid('10.17', morning, '2026-10-10T09:45', '2026-10-10T10:30')).toEqual(
+      raid('10:17', morning, '2026-10-10T09:45', '2026-10-10T10:30'),
+    );
+  });
+
+  it('reads noon and midnight', () => {
+    // At two in the afternoon today's noon has passed: a meetup's start is tomorrow's.
+    expect(meetup('noon')).toEqual(time('2026-10-11T12:00'));
+    expect(meetup('Noon', at('2026-10-10T09:00'))).toEqual(time('2026-10-10T12:00'));
+    expect(meetup('at noon', at('2026-10-10T09:00'))).toEqual(time('2026-10-10T12:00'));
+    // Midnight is the one at the end of today.
+    expect(meetup('midnight')).toEqual(time('2026-10-11T00:00'));
+    // A raid's meeting at noon, and at midnight for a raid that ends after it.
+    const late = at('2026-10-10T23:40');
+    expect(raid('midnight', late, '2026-10-10T23:30', '2026-10-11T00:15')).toEqual(
+      time('2026-10-11T00:00'),
+    );
+    const morning = at('2026-10-10T11:40');
+    expect(raid('noon', morning, '2026-10-10T11:30', '2026-10-10T12:15')).toEqual(
+      time('2026-10-10T12:00'),
+    );
+  });
+
+  it('reads tomorrow and a time where the party may meet tomorrow', () => {
+    expect(meetup('tomorrow 6pm')).toEqual(time('2026-10-11T18:00'));
+    expect(meetup('Tomorrow at 9am')).toEqual(time('2026-10-11T09:00'));
+    expect(meetup('tomorrow, 9:30am')).toEqual(time('2026-10-11T09:30'));
+    expect(meetup('tomorrow noon')).toEqual(time('2026-10-11T12:00'));
+    // A start of 1 to 6 without "am" or "pm" is the afternoon, as on any day.
+    expect(meetup('tomorrow 6')).toEqual(time('2026-10-11T18:00'));
+    // Tomorrow is the day after today, also for a meetup whose start is days away.
+    const tuesday = at('2026-10-06T15:00');
+    const saturday = { creationTime: tuesday, startTime: at('2026-10-10T18:00') };
+    expect(
+      resolvePartyTime(
+        request({
+          text: 'tomorrow 7pm',
+          now: tuesday,
+          parameter: 'meet',
+          partyType: 'train',
+          party: saturday,
+        }),
+      ),
+    ).toEqual(time('2026-10-07T19:00'));
+    // A train's end tomorrow.
+    expect(
+      resolvePartyTime(
+        request({
+          text: 'tomorrow 1am',
+          parameter: 'end',
+          partyType: 'train',
+          party: { creationTime: NOW, startTime: at('2026-10-10T22:00') },
+        }),
+      ),
+    ).toEqual(time('2026-10-11T01:00'));
+  });
+
+  it('reads tomorrow for a raid only where the raid lasts into it', () => {
+    // A raid ends today: its group cannot meet tomorrow.
+    const refused = raid('tomorrow 6pm', NOW, '2026-10-10T13:50', '2026-10-10T14:35');
+    expect(refused.kind).toBe('out-of-range');
+    // A raid that lasts past midnight can meet just after it.
+    const late = at('2026-10-10T23:40');
+    expect(raid('tomorrow 12:10am', late, '2026-10-10T23:30', '2026-10-11T00:15')).toEqual(
+      time('2026-10-11T00:10'),
+    );
+  });
+
+  it('reads no tomorrow without a time, nor with a date, and names no day it was read on', () => {
+    expect(meetup('tomorrow')).toEqual({ kind: 'unparseable' });
+    expect(meetup('tomorrow 10-12 6pm')).toEqual({ kind: 'unparseable' });
+    expect(meetup('tomorrowish 6pm')).toEqual({ kind: 'unparseable' });
+    // Out of range, a time typed with "tomorrow" says when it may be, not which day it was
+    // read on: the refusal's "give the date first" would not fit it.
+    const refused = resolvePartyTime(
+      request({
+        text: 'tomorrow 1pm',
+        parameter: 'end',
+        partyType: 'meetup',
+        party: { creationTime: NOW, startTime: at('2026-10-11T15:00') },
+      }),
+    );
+    expect(refused).toMatchObject({ kind: 'out-of-range' });
+    expect(refused).not.toHaveProperty('read');
+  });
+});
+
 describe('resolvePartyTime: "at" before a clock time for trains and meetups', () => {
   const party = { creationTime: NOW };
 

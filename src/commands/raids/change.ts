@@ -139,10 +139,11 @@ export const end: SimpleCommand = {
       'In the post of a raid: sets when it ends, and the hatch time with it. Give the minutes ' +
       'that are left or a clock time.\n\nIn the post of a max battle: sets when it ends, ' +
       'within its day and never after the last battle time.\n\nIn the post of a train or ' +
-      'meetup: sets when it ends. Give a clock time, a date and a time, or `in 90` for minutes ' +
-      'from now (a number alone, such as `9`, is a clock hour); `none` removes the end.\n\nA ' +
-      'time without a date is on the day it starts, or else the day it ends, while that day is ' +
-      'still to come, and otherwise today. A date comes first, month-day ' +
+      'meetup: sets when it ends. Give a clock time (`noon` and `midnight` too), a date and a ' +
+      'time, or `in 90` for minutes from now (a number alone, such as `9`, is a clock hour); ' +
+      '`none` removes the end.\n\nA time without a date is on the day it starts, or else the ' +
+      'day it ends, while that day is still to come, and otherwise today; `tomorrow 1am` is ' +
+      'tomorrow. A date comes first, month-day ' +
       `(\`${DATE_EXAMPLE} 9pm\`).\n\nA train or meetup without an end is over a day after it ` +
       'started. One without any time is archived a day after it was made, or after its last ' +
       'time was removed.',
