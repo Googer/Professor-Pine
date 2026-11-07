@@ -101,6 +101,7 @@ export const boss: SimpleCommand = {
     ),
   help: {
     category: 'raid-crud',
+    alsoIn: ['train'],
     details:
       'In the post of a raid: for an egg whose boss is known now, or a raid that was reported ' +
       'wrongly. The times stay as they are: naming the boss does not hatch the egg. Where the ' +

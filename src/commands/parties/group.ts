@@ -109,6 +109,7 @@ export const group = commandGroup({
     .setDescription('The groups of this raid, max battle or train'),
   help: {
     category: 'basic-raid',
+    alsoIn: ['train'],
     details: 'Use it in the post of the raid, max battle or train. A meetup has no groups.',
   },
   guards: [requireParty],

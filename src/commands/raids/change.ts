@@ -135,6 +135,7 @@ export const end: SimpleCommand = {
     ),
   help: {
     category: 'raid-crud',
+    alsoIn: ['train', 'meetup'],
     details:
       'In the post of a raid: sets when it ends, and the hatch time with it. Give the minutes ' +
       'that are left or a clock time.\n\nIn the post of a max battle: sets when it ends, ' +

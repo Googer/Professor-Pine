@@ -155,6 +155,57 @@ describe('renderHelpOverview', () => {
     }
   });
 
+  it('lists a command also under the other groups it serves, sorted in each', () => {
+    const join = cmd('join', 'basic-raid');
+    join.help = { category: 'basic-raid', alsoIn: ['train', 'meetup'] };
+    const hmm = { ...cmd('hmm', 'basic-raid'), formOf: 'join' };
+    const listed = [
+      join,
+      hmm,
+      cmd('train', 'train'),
+      cmd('conductor', 'train'),
+      cmd('meetup', 'meetup'),
+    ];
+    const order = ['basic-raid', 'train', 'meetup'];
+    const shown = helpGroupsOf(listed, order, false).map((group) => [
+      group.label,
+      group.entries.map((entry) => entry.names.join(' ')),
+    ]);
+    expect(shown).toEqual([
+      ['Raid Basics', ['join hmm']],
+      ['Trains', ['conductor', 'join hmm', 'train']],
+      ['Meetups', ['join hmm', 'meetup']],
+    ]);
+  });
+
+  it('shows a staff group a member command is also in only to staff', () => {
+    const join = cmd('join', 'basic-raid');
+    join.help = { category: 'basic-raid', alsoIn: ['admin'] };
+    const labels = (staff: boolean) =>
+      helpGroupsOf([join, cmd('gym', 'admin')], ['basic-raid'], staff).map((g) => [
+        g.label,
+        g.entries.map((entry) => entry.name),
+      ]);
+    expect(labels(false)).toEqual([['Raid Basics', ['join']]]);
+    expect(labels(true)).toEqual([
+      ['Raid Basics', ['join']],
+      ['Administration', ['gym', 'join']],
+    ]);
+  });
+
+  it('lists the attendance commands of this bot under Trains and Meetups too', () => {
+    const names = (label: string) => realGroup(label).entries.map((entry) => entry.name);
+    for (const name of ['interested', 'join', 'here', 'not-here', 'done', 'leave', 'meet']) {
+      expect(names('Trains'), name).toContain(name);
+      expect(names('Meetups'), name).toContain(name);
+    }
+    for (const name of ['name', 'end', 'group', 'boss', 'where']) {
+      expect(names('Trains'), name).toContain(name);
+    }
+    expect(names('Meetups')).toContain('end');
+    expect(names('Meetups')).not.toContain('group');
+  });
+
   it('writes a command’s other forms beside its name', () => {
     const basics = textDisplays(renderHelpOverview(helpGroupsOf(commands, groups, false)))[1];
     expect(basics).toContain('`/interested` `/hmm` · ');
@@ -194,22 +245,25 @@ describe('roomsByNeed', () => {
 
 describe('renderGroupHelp', () => {
   it('lists a group’s commands with what they do, a menu of them and the way back', () => {
-    const message = renderGroupHelp(realGroup('Meetups'));
+    const join = cmd('join', 'basic-raid', undefined, 'Say that you are coming');
+    join.help = { category: 'basic-raid', alsoIn: ['meetup'] };
+    const [, meetups] = helpGroupsOf(
+      [cmd('meetup', 'meetup', undefined, 'Create a meetup'), join, cmd('raid', 'raid-crud')],
+      ['basic-raid', 'meetup'],
+      false,
+    );
+    if (!meetups) throw new Error('no group');
+    const message = renderGroupHelp(meetups);
     expect(textDisplays(message)).toEqual([
-      '### Meetups\n3 commands',
-      [
-        '`/info` Write what there is to know about this meetup, in a form',
-        '`/meetup` Create a meetup in this region, with a post of its own',
-        '`/name` Rename this train or meetup',
-      ].join('\n'),
+      '### Meetups\n2 commands',
+      ['`/join` Say that you are coming', '`/meetup` Create a meetup'].join('\n'),
     ]);
     const [menu] = selectsOf(message);
     expect(menu?.customId).toBe('help:group:meetup:command');
     expect(menu?.placeholder).toBe('Details of a command…');
     expect(menu?.options.map((option) => [option.label, option.value])).toEqual([
-      ['/info', 'info'],
+      ['/join', 'join'],
       ['/meetup', 'meetup'],
-      ['/name', 'name'],
     ]);
     expect(buttonsOf(message).map((button) => [button.label, button.customId])).toEqual([
       ['◀ All groups', 'help:group:meetup:overview'],

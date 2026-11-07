@@ -35,6 +35,7 @@ export const status: SimpleCommand = {
     ),
   help: {
     category: 'basic-raid',
+    alsoIn: ['train', 'meetup'],
     details:
       'In the post of a raid, max battle, train or meetup: shows it again at the bottom of the ' +
       'post, with who is coming and the buttons, so nobody has to scroll up.\n\nIn the channel ' +
@@ -90,6 +91,7 @@ export const where: SimpleCommand = {
     ),
   help: {
     category: 'basic-raid',
+    alsoIn: ['train'],
     details:
       'Shows you where it is, with a link to Google Maps: the gym of a raid or the gym a train ' +
       'is at, with a map of the area; or the Power Spot of a max battle or train. Only you see ' +

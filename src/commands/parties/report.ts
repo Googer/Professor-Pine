@@ -182,6 +182,7 @@ export const report: SimpleCommand = {
     ),
   help: {
     category: 'raid-crud',
+    alsoIn: ['train', 'meetup'],
     details:
       'Use it in the post of the raid, max battle, train or meetup. A form asks what is wrong (a meetup at ' +
       "somebody's home, a duplicate raid, something hurtful); only the moderators read it, and " +

@@ -27,6 +27,7 @@ export const name: SimpleCommand = {
     ),
   help: {
     category: 'meetup',
+    alsoIn: ['train'],
     details:
       'Renames the train or meetup and the title of its post; the post says who renamed it. Use ' +
       'it in the post of the train or meetup. Only its maker or a moderator can rename a ' +

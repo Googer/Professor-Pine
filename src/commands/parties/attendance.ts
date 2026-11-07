@@ -52,6 +52,9 @@ function countAndGroup(
 
 const IN_A_POST = 'Use it in the post of the raid, max battle, train or meetup.';
 
+/** They work in a train's and a meetup's post as in a raid's (`/help` lists them there too). */
+const ALSO_IN = ['train', 'meetup'] as const;
+
 function signUpCommand(
   name: string,
   description: string,
@@ -62,6 +65,7 @@ function signUpCommand(
     data: withCountAndGroup(name, description),
     help: {
       category: 'basic-raid',
+      alsoIn: ALSO_IN,
       details:
         `${details} ${IN_A_POST}\n\nIt does what the button on the post does, and you can add ` +
         'how many you are (`count`) and which group to be in (`group`).\n\nWhere there are ' +
@@ -92,6 +96,7 @@ function remoteCommand(name: string, description: string, remote: boolean): Simp
     data: withCountAndGroup(name, description),
     help: {
       category: 'basic-raid',
+      alsoIn: ALSO_IN,
       details:
         `Marks you as taking part ${remote ? 'remotely' : 'in person'}. Whether you are ` +
         'interested, coming or here stays as it is; if you were not signed up, you are marked ' +
@@ -155,6 +160,7 @@ export const notHere: SimpleCommand = {
     .setDescription('Say that you are not there after all'),
   help: {
     category: 'basic-raid',
+    alsoIn: ALSO_IN,
     details: `Marks you as interested again after you said you were here. ${IN_A_POST}`,
   },
   guards: [requireParty],
@@ -170,7 +176,11 @@ export const leave: SimpleCommand = {
   data: new SlashCommandBuilder()
     .setName('leave')
     .setDescription('Take yourself off this raid, max battle, train or meetup'),
-  help: { category: 'basic-raid', details: `Removes you from the list. ${IN_A_POST}` },
+  help: {
+    category: 'basic-raid',
+    alsoIn: ALSO_IN,
+    details: `Removes you from the list. ${IN_A_POST}`,
+  },
   guards: [requireParty],
   throttle: ACTION_THROTTLE,
   async execute(interaction, ctx) {
@@ -188,6 +198,7 @@ export const done: SimpleCommand = {
     ),
   help: {
     category: 'basic-raid',
+    alsoIn: ALSO_IN,
     details:
       'Marks you as done. The others of your group who are here are asked whether they are done ' +
       'too; without an answer they count as done after a few minutes.\n\nA train or meetup has nothing to ' +

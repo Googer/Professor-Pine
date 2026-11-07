@@ -83,6 +83,7 @@ export const reportMessageCommand: MessageCommand = {
     .setType(ApplicationCommandType.Message),
   help: {
     category: 'raid-crud',
+    alsoIn: ['train', 'meetup'],
     description:
       'Tell the moderators privately about a message, or about a raid, max battle, train or meetup',
     details:

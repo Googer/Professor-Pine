@@ -32,6 +32,12 @@ export interface CommandHelp {
   /** Where `/help` files the command. Categories outside settings.helpGroups are staff-only. */
   category: HelpCategory;
   /**
+   * The other categories whose lists in `/help` show it too, where a member would look for it
+   * there as well (`/join` under Trains and Meetups). Whether it is a staff command, and where
+   * its page's "◀" leads, stay with `category`.
+   */
+  alsoIn?: readonly HelpCategory[];
+  /**
    * What `/help` says below the description; a function of the settings where that depends on
    * what this installation has switched on, and of `HelpFacts` (what it has besides the settings).
    * `DATE_EXAMPLE` in it is shown as in `examples`.

@@ -36,6 +36,7 @@ export const shout: SimpleCommand = {
     ),
   help: {
     category: 'basic-raid',
+    alsoIn: ['train', 'meetup'],
     details:
       'Posts your message and pings everybody else who is signed up and not done yet, in every ' +
       'group, unless they switched such pings off. With `group:True` it pings only the others ' +

@@ -99,6 +99,7 @@ export const meet: SimpleCommand = {
     ),
   help: {
     category: 'basic-raid',
+    alsoIn: ['train', 'meetup'],
     details:
       'In the post of a raid: sets when the group you are in meets, and tells the others of ' +
       'the group. The time lies between now (or the hatch) and the end of the raid: minutes ' +
@@ -174,6 +175,7 @@ export const cancelMeet: SimpleCommand = {
     ),
   help: {
     category: 'basic-raid',
+    alsoIn: ['train', 'meetup'],
     details:
       'In the post of a raid or a max battle: removes the meeting time of the group you are in ' +
       'and tells the others. In the post of a train or meetup: removes its start time. You must be signed up.',

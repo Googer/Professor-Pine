@@ -116,13 +116,19 @@ export interface HelpGroup {
   entries: HelpEntry[];
 }
 
+/** Every category whose list shows a command: its own first, then those it is also in. */
+export function helpCategoriesOf(help: CommandHelp): HelpCategory[] {
+  return [...new Set([help.category, ...(help.alsoIn ?? [])])];
+}
+
 /** The slash commands by name, then the message commands by name. */
 const byName = (a: HelpEntry, b: HelpEntry) =>
   Number(a.onMessage) - Number(b.onMessage) || a.name.localeCompare(b.name);
 
 /**
  * The groups of commands a member sees, in the order of `helpGroups` and then, for staff, the
- * staff's groups by name. A command's other forms stand on its line, not on their own.
+ * staff's groups by name. A command's other forms stand on its line, not on their own; a
+ * command stands in its own group and in each it is `alsoIn` (`helpCategoriesOf`).
  */
 export function helpGroupsOf(
   commands: readonly CommandModule[],
@@ -133,29 +139,30 @@ export function helpGroupsOf(
   const byCategory = new Map<HelpCategory, HelpEntry[]>();
   const forms = new Map<string, string[]>();
   const listedNames = new Set(commands.map((command) => command.data.name));
+  const file = (help: CommandHelp, entry: HelpEntry) => {
+    for (const category of helpCategoriesOf(help)) {
+      byCategory.set(category, [...(byCategory.get(category) ?? []), entry]);
+    }
+  };
   for (const command of commands) {
     if (command.formOf !== undefined && listedNames.has(command.formOf)) {
       forms.set(command.formOf, [...(forms.get(command.formOf) ?? []), command.data.name]);
       continue;
     }
-    const list = byCategory.get(command.help.category) ?? [];
-    list.push({
+    file(command.help, {
       name: command.data.name,
       names: [command.data.name],
       description: command.data.toJSON().description,
       onMessage: false,
     });
-    byCategory.set(command.help.category, list);
   }
   for (const command of messageCommands) {
-    const list = byCategory.get(command.help.category) ?? [];
-    list.push({
+    file(command.help, {
       name: command.data.name,
       names: [command.data.name],
       description: command.help.description,
       onMessage: true,
     });
-    byCategory.set(command.help.category, list);
   }
   const categories = [...byCategory.keys()];
   const order = [
