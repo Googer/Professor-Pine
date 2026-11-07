@@ -30,7 +30,14 @@ import {
 } from './command.js';
 import { UserError } from './errors.js';
 import { answer } from './late-reply.js';
-import { controlThrottleKey, InteractionRouter, STALE_COMPONENT, whenCounted } from './router.js';
+import {
+  controlThrottleKey,
+  InteractionRouter,
+  STALE_COMPONENT,
+  STILL_BUSY,
+  whenCounted,
+} from './router.js';
+import { LockOverdueError } from '../services/keyed-lock.js';
 import { Throttles } from './throttle.js';
 import { WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
 import type { ChatInputCommandInteraction } from 'discord.js';
@@ -474,6 +481,23 @@ describe('InteractionRouter', () => {
       expect(sent(i.reply).content).toBe('I may not make posts there.');
     }
     expect(execute).toHaveBeenCalledTimes(2);
+  });
+
+  it('answers a change refused for a lock held too long as busy, gives the use back and logs no error', async () => {
+    const { ctx, entries } = createTestContext();
+    const execute = vi.fn(() => Promise.reject(new LockOverdueError('a party')));
+    const router = new InteractionRouter(
+      ctx,
+      [command({ throttle: { uses: 1, perSeconds: 60 }, execute })],
+      [],
+    );
+    for (let n = 0; n < 2; n++) {
+      const i = fakeChatInput();
+      await router.handle(asInteraction(i));
+      expect(sent(i.reply).content).toBe(STILL_BUSY);
+    }
+    expect(execute).toHaveBeenCalledTimes(2);
+    expect(entries.filter((e) => e.level === 50)).toHaveLength(0);
   });
 
   it('tells the command when it counted its use, by its own clock', async () => {

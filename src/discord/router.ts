@@ -27,9 +27,15 @@ import { decodeCustomId, type CustomId } from './custom-id.js';
 import { UserError } from './errors.js';
 import { answerApart, deferLate, LATE_DEFER_MS } from './late-reply.js';
 import { Throttles, waitText, type Throttle } from './throttle.js';
+import { LockOverdueError } from '../services/keyed-lock.js';
 import { REHEARSAL_REFUSAL } from '../services/rehearsal.js';
 
 export const STALE_COMPONENT = 'This no longer works.';
+/**
+ * What a member is told whose change waited for an earlier one that has not settled in time
+ * (`LockOverdueError`: a save that does not answer). None of their doing: the use goes back.
+ */
+export const STILL_BUSY = 'I am still busy with an earlier change to this. Try again in a moment.';
 
 /** What the router answers: a command (slash or message) or a control. */
 type Answered = GuardableInteraction | MessageContextMenuCommandInteraction;
@@ -577,6 +583,9 @@ export class InteractionRouter {
           );
           return;
         }
+      } else if (err instanceof LockOverdueError) {
+        // Logged where the lock is held too long, once, not by every member who waited.
+        content = STILL_BUSY;
       } else {
         ref = randomBytes(3).toString('hex');
         this.ctx.log.error({ err, ref, interaction: describe(interaction) }, 'interaction failed');

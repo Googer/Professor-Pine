@@ -23,6 +23,14 @@ import { KeyedLock } from './keyed-lock.js';
 const NOT_LOADED = 'Parties have not been loaded yet';
 
 /**
+ * How long one change of a party (or the work under a gym's or a spot's lock) may hold its lock:
+ * past it, the changes waiting for it are refused (`LockOverdueError`, which the router and the
+ * web answer "try again"), and the holder is logged. A save that never settles then holds the
+ * party's clicks a minute, not for good; the lock is free once it settles.
+ */
+export const PARTY_LOCK_LIMIT_MS = 60_000;
+
+/**
  * When a change is written: now, never before the party's last write, and never before a stamp
  * of one of its groups (plan 8X-1B: a group opened later is stamped after the party's last
  * write, `openedGroup`, so stamps strictly increase, also across a prune and a reopening of a
@@ -131,10 +139,10 @@ export type PartyListener = (before: Party | undefined, after: Party, note?: Cha
  */
 export class PartyStore implements PartyProvider {
   private readonly parties = new Map<string, Party>();
-  private readonly locks = new KeyedLock<string>();
-  private readonly gymLocks = new KeyedLock<number>();
+  private readonly locks: KeyedLock<string>;
+  private readonly gymLocks: KeyedLock<number>;
   /** By spot (`spotKey`): a power spot's Wayfarer id, one key for every pin. */
-  private readonly spotLocks = new KeyedLock<string>();
+  private readonly spotLocks: KeyedLock<string>;
   private readonly listeners: PartyListener[] = [];
   /** The regions that take no new party (`closeRegion`). */
   private readonly closed = new Set<number>();
@@ -145,6 +153,15 @@ export class PartyStore implements PartyProvider {
 
   constructor(private readonly options: PartyStoreOptions) {
     this.now = options.now ?? (() => Date.now());
+    const limited = <K>(what: string, field: string): KeyedLock<K> =>
+      new KeyedLock<K>({
+        limitMs: PARTY_LOCK_LIMIT_MS,
+        overdue: (key, heldMs) =>
+          options.log.warn({ [field]: key, heldMs }, `${what} has not settled in time`),
+      });
+    this.locks = limited('a change of a party', 'party');
+    this.gymLocks = limited('the work under a gym’s lock', 'gym');
+    this.spotLocks = limited('the work under a spot’s lock', 'spot');
   }
 
   /**

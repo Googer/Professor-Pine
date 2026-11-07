@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { watchEachTest } from '../../test/support/timers.js';
 import {
   ALICE,
@@ -26,7 +26,8 @@ import { endParty } from '../domain/party/party.js';
 import type { Party, RaidParty } from '../domain/party/party.js';
 import { setEndTime } from '../domain/party/raid.js';
 import { PartyStatus } from '../domain/party/status.js';
-import { PartyStore } from './party-store.js';
+import { LockOverdueError } from './keyed-lock.js';
+import { PARTY_LOCK_LIMIT_MS, PartyStore } from './party-store.js';
 
 const ID = (n: number): string => `00000000-0000-4000-8000-00000000000${String(n)}`;
 const limits = attendanceLimits({ maximumAdditionalAttendees: 20 });
@@ -474,6 +475,40 @@ describe('PartyStore', () => {
         msg: 'a listener of the parties failed',
         party: ID(1),
       });
+    });
+  });
+
+  describe('a save that never settles', () => {
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    it('holds the party’s other changes only up to the limit, then refuses them, and goes on once it settles', async () => {
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      const { store, storage, entries } = await partyStoreWith([testRaid({ id: ID(1) })]);
+      const save = storage.save.bind(storage);
+      let release: () => void = () => undefined;
+      const answered = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      storage.save = (party, note) =>
+        party.id === ID(1) ? answered.then(() => save(party, note)) : save(party, note);
+      const stuck = store.update(ID(1), join(ALICE));
+      const waiting = store.update(ID(1), join(BOB)).catch((err: unknown) => err);
+      await vi.advanceTimersByTimeAsync(PARTY_LOCK_LIMIT_MS);
+      await expect(waiting).resolves.toBeInstanceOf(LockOverdueError);
+      expect(entries.filter((entry) => entry.level === 40)).toMatchObject([
+        { msg: 'a change of a party has not settled in time', party: ID(1) },
+      ]);
+      // Another party is not held up.
+      await store.add(testRaid({ id: ID(2), gymId: 2 }));
+      await expect(store.update(ID(2), join(CAROL))).resolves.toMatchObject({ written: true });
+      // Once the save answers, the party takes changes again; the refused one was never made.
+      release();
+      await expect(stuck).resolves.toMatchObject({ written: true });
+      storage.save = save;
+      await expect(store.update(ID(1), join(CAROL))).resolves.toMatchObject({ written: true });
+      expect(Object.keys(store.get(ID(1))?.attendees ?? {})).toEqual([REPORTER, ALICE, CAROL]);
     });
   });
 

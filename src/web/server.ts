@@ -8,6 +8,7 @@ import type { Settings } from '../config/settings.js';
 import { EGG_PICTURE_NAMES } from '../domain/pogo/raid-eggs.js';
 import type { Logger } from '../log.js';
 import { EGG_FOLDER, EGG_PATH } from '../services/egg-pictures.js';
+import { LockOverdueError } from '../services/keyed-lock.js';
 import { EMOJI_PATH, type EmojiPictures } from '../services/post-pictures.js';
 import { PICTURE_PATH, type StopPictures } from '../services/stop-pictures.js';
 import { sendFailure } from './answers.js';
@@ -165,6 +166,9 @@ export function buildWebServer(deps: WebDeps): FastifyInstance {
     done();
   });
   app.setErrorHandler((err: Error & { statusCode?: number }, request, reply) => {
+    // A change that waited too long for an earlier one (a save that does not answer): logged
+    // where the lock is held, once; the page is told to try again, as the router tells a member.
+    if (err instanceof LockOverdueError) return sendFailure(request, reply, 503);
     const status =
       err.statusCode !== undefined && err.statusCode >= 400 && err.statusCode < 500
         ? err.statusCode

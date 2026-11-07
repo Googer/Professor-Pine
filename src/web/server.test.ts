@@ -5,6 +5,7 @@ import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
 import { webServerWith, type TestWeb } from '../../test/support/web.js';
 import { ICON_FOLDER } from './server.js';
 import { EGG_FOLDER } from '../services/egg-pictures.js';
+import { LockOverdueError } from '../services/keyed-lock.js';
 
 describe('the web server', () => {
   let web: TestWeb | undefined;
@@ -60,6 +61,20 @@ describe('the web server', () => {
     expect(logged).toHaveLength(1);
     expect(logged[0]).toMatchObject({ level: 50, route: '/s/:guild/api/me' });
     expect((logged[0]?.err as { message: string }).message).toBe('the cache is gone');
+  });
+
+  it('answers a change that waited too long for an earlier one as not available just now, unlogged', async () => {
+    web = webServerWith({
+      servers: {
+        has() {
+          throw new LockOverdueError('a party');
+        },
+      },
+    });
+    const answer = await web.app.inject({ url: `/s/${FAKE_GUILD_ID}/api/me` });
+    expect(answer.statusCode).toBe(503);
+    expect(answer.json()).toEqual({ error: 'Not available just now. Try again in a moment.' });
+    expect(web.entries.filter((entry) => entry.msg === 'the web server failed')).toEqual([]);
   });
 
   it('logs a request by its route, never by what its address carries', async () => {
