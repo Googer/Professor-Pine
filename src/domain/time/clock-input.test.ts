@@ -148,6 +148,16 @@ describe('parseClockInput', () => {
     expect(parseClockInput('tomorrow 10-14 6pm')).toBeUndefined();
     expect(parseClockInput('noonish')).toBeUndefined();
     expect(parseClockInput('constructor')).toBeUndefined();
+    // Review of 2026-11-07: "tomorrow" after the time, "12 noon" and "12 midnight"; no "midday".
+    expect(parseClockInput('6pm tomorrow')).toEqual(parseClockInput('tomorrow 6pm'));
+    expect(parseClockInput('noon Tomorrow')).toEqual(parseClockInput('tomorrow noon'));
+    expect(parseClockInput('tomorrow 6pm tomorrow')).toBeUndefined();
+    expect(parseClockInput('10-14 6pm tomorrow')).toBeUndefined();
+    expect(parseClockInput('12 noon')).toEqual(parseClockInput('noon'));
+    expect(parseClockInput('11-9 12 noon')).toEqual(parseClockInput('11-9 noon'));
+    expect(parseClockInput('12 midnight')).toEqual(parseClockInput('midnight'));
+    expect(parseClockInput('3 noon')).toBeUndefined();
+    expect(parseClockInput('midday')).toBeUndefined();
   });
 
   it('rejects text that is not a time', () => {

@@ -32,7 +32,7 @@ describe('typedTimedTime: the refusal of a time without a date (review of 2026-1
       endTime: null,
       timed: { startTime: null },
     };
-    const typed = ['3pm', '6:15', '10.17', '7', 'at 6pm', 'noon', 'midnight'];
+    const typed = ['3pm', '6:15', '10.17', '7', 'at 6pm', 'noon', 'midnight', '12 noon'];
     for (const text of typed) {
       const hint = hintFor(text, party, now);
       expect(hint, text).toBeDefined();

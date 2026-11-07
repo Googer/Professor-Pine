@@ -1,4 +1,5 @@
 import type { LatLon } from '@pine/wayspot-core/lat-lon';
+import { MEETUP_START_EXAMPLES, NEW_MEETUP_START_EXAMPLES } from './meetup-start-examples.js';
 import { clockTime } from '../../domain/web/clock.js';
 import { zoneNote } from './post-time.js';
 import type { GeoView } from '../../domain/web/geo-data.js';
@@ -263,10 +264,7 @@ export function newMeetupForm(
         ],
       },
       ...pinNote,
-      labelled(
-        'Starts',
-        textInput('start', START_LENGTH, '6:30pm or 10-18 11am (month-day)', filled.start),
-      ),
+      labelled('Starts', textInput('start', START_LENGTH, NEW_MEETUP_START_EXAMPLES, filled.start)),
       ...(zones === undefined ? [] : zoneHintNodes(zones.zone, zones.reader)),
       labelled('Information', infoArea(filled.info)),
       {
@@ -475,10 +473,7 @@ export function meetupEditor(
   const start: PageNode[] = meetup.panel?.start
     ? [
         nowLine('Starts now', meetup.startTime, zone, now, reader),
-        labelled(
-          'Starts',
-          textInput('start', TIME_LENGTH, '6:15pm, 10-17 6:15pm or in 30', shown('start')),
-        ),
+        labelled('Starts', textInput('start', TIME_LENGTH, MEETUP_START_EXAMPLES, shown('start'))),
       ]
     : [
         nowLine('Starts', meetup.startTime, zone, now, reader),

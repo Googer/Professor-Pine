@@ -278,7 +278,9 @@ export const meetup: SimpleCommand = {
       'forum of that region, and you are marked as interested.\n\n`near` is the gym or ' +
       'PokéStop it is near (pick one from the list that appears while you type), or a place ' +
       'you paste as a link from a maps app or as coordinates. The post shows the place with a ' +
-      'map link, and it cannot be changed afterwards.\n\n`start` is when it starts. A form then ' +
+      'map link, and it cannot be changed afterwards.\n\n`start` is when it starts: a clock ' +
+      'time (`6:30pm`, `noon`, `midnight`), `tomorrow 11am`, or a date first, month-day, and ' +
+      'a time. A form then ' +
       'asks what there is to know: where exactly to meet, what to bring.\n\nA meetup at a pin, or at a place ' +
       "that might be somebody's home, needs a moderator's approval before it is posted: you " +
       'are told by direct message once they have decided (so give a start at least two hours ' +

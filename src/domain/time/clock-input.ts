@@ -30,9 +30,15 @@ export interface ClockInput {
 
 /** "tomorrow", "tomorrow at", "tomorrow," before a time. */
 const TOMORROW = /^tomorrow(?:\s*,\s*|\s+)(?:at\s+)?/i;
+/** "tomorrow" after a time: "6pm tomorrow", "noon, tomorrow". */
+const TOMORROW_AFTER = /(?:\s*,\s*|\s+)tomorrow$/i;
 
-/** The times said in words: noon and midnight, as "12pm" and "12am" are read. */
-const NAMED_TIMES: Readonly<Record<string, number>> = { noon: 12, midday: 12, midnight: 0 };
+/**
+ * The times said in words, as "12pm" and "12am" are read, also after a 12 ("12 noon"). Only
+ * these two: "midday" is not read (the review of 2026-11-07 left it to the builder; a word the
+ * help names is enough).
+ */
+const NAMED_TIMES: Readonly<Record<string, number>> = { noon: 12, midnight: 0 };
 
 const CLOCK = new RegExp(
   '^' +
@@ -47,15 +53,18 @@ const CLOCK = new RegExp(
 );
 
 /**
- * Reads text such as "3:30pm", "1530", "3 pm", "10-14 6pm", "noon", "midnight" or "tomorrow
- * 6pm". Undefined when it is not a time. A dot between hours and minutes is a colon: "10.17"
- * is "10:17", morning or evening by the same rule.
+ * Reads text such as "3:30pm", "1530", "3 pm", "10-14 6pm", "noon", "12 noon", "midnight",
+ * "tomorrow 6pm" or "6pm tomorrow". Undefined when it is not a time. A dot between hours and
+ * minutes is a colon: "10.17" is "10:17", morning or evening by the same rule.
  */
 export function parseClockInput(text: string): ClockInput | undefined {
   const trimmed = text.trim();
-  const tomorrow = TOMORROW.exec(trimmed);
-  if (!tomorrow) return clockOf(trimmed);
-  const clock = clockOf(trimmed.slice(tomorrow[0].length));
+  const before = TOMORROW.exec(trimmed);
+  const after = before ? null : TOMORROW_AFTER.exec(trimmed);
+  if (!before && !after) return clockOf(trimmed);
+  const clock = clockOf(
+    before ? trimmed.slice(before[0].length) : trimmed.slice(0, after?.index ?? 0),
+  );
   // "Tomorrow" and a date say the day twice.
   if (!clock || clock.month !== undefined) return undefined;
   return { ...clock, tomorrow: true };
@@ -66,7 +75,7 @@ const DATED = /^(?<month>\d{1,2})\s*[-/.]\s*(?<day>\d{1,2})(?:\s*,\s*|\s+)(?:at\
 
 /** A time said in words (`NAMED_TIMES`), or undefined. */
 function namedTime(text: string): ClockInput | undefined {
-  const word = text.toLowerCase();
+  const word = text.toLowerCase().replace(/^12\s*/, '');
   if (!Object.hasOwn(NAMED_TIMES, word)) return undefined;
   const clock: ClockInput = { hour: NAMED_TIMES[word] ?? 0, minute: 0, hasMeridiem: true };
   return word === 'midnight' ? { ...clock, endOfDay: true } : clock;

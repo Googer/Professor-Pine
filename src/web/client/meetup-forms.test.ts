@@ -26,6 +26,7 @@ import {
   stopsBox,
   type PickedPlace,
 } from './meetup-forms.js';
+import { MEETUP_START_EXAMPLES, NEW_MEETUP_START_EXAMPLES } from './meetup-start-examples.js';
 import type { MapGym, PageNode } from './popup.js';
 
 const ZONE = 'America/New_York';
@@ -434,6 +435,18 @@ describe('the editor of a meetup', () => {
     expect(
       editorAfter({ meetup: MEETUP, filled: {} }, typedName, 'name', { ok: false }).filled,
     ).toEqual({ name: { text: 'Park picnic', drawn: 'Picnic' } });
+  });
+});
+
+describe('the examples of a meetup’s start (review of 2026-11-07)', () => {
+  /** The placeholder of the `start` field. */
+  const placeholder = (node: PageNode): string | undefined =>
+    withAttribute(node, 'name').find((each) => each.attributes?.name === 'start')?.attributes
+      ?.placeholder;
+
+  it('shows the examples the server side checks it reads (meetup-start-examples.test.ts)', () => {
+    expect(placeholder(newMeetupForm(REGIONS, gymPick(GYM)))).toBe(NEW_MEETUP_START_EXAMPLES);
+    expect(placeholder(meetupEditor(MEETUP, ZONE, NOW))).toBe(MEETUP_START_EXAMPLES);
   });
 });
 
