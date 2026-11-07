@@ -7,7 +7,7 @@ import { answer } from '../../discord/late-reply.js';
 import { count, fitItems, memberText, plain } from '../../render/text.js';
 import { legacyLine } from '../settings/panel.js';
 import { settingsLines } from '../settings/settings-lines.js';
-import { wantLabel } from '../notifications/want-input.js';
+import { wantLineNames } from '../notifications/wants.js';
 
 /** How many wants and gym targets are named before the rest is counted. */
 const NAMED = 5;
@@ -44,7 +44,8 @@ export async function memberSettingsLines(
       // The old bot's history (plan 8H-10), as the member's panel reads it.
       ctx.legacyFillIns.stateOf(memberId, guildId),
       ctx.legacyIndex?.hasFile(memberId, guildId) ?? false,
-      ctx.wants.list(memberId, guildId),
+      // Named as the member's own `/wants` names its lines: costumes, both tables (8R-4).
+      wantLineNames(ctx, memberId, guildId),
       ctx.gymTargets.list(memberId, guildId),
     ]);
   const legacy = legacyLine(fillIn, { indexed: ctx.legacyIndex !== undefined, hasFile, history });
@@ -61,7 +62,7 @@ export async function memberSettingsLines(
     }).map((line) => line.text),
     listLine(
       'Wants in this server',
-      wants.wants.map((want) => plain(wantLabel(ctx, want.target))),
+      wants.names.map((name) => plain(name)),
       wants.unreadable,
     ),
     listLine('Gym targets in this server', gymNames, targets.unreadable),

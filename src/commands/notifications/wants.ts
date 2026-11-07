@@ -904,6 +904,20 @@ export async function wantLineCount(
   return (await entriesOf(ctx, memberId, guildId)).entries.length;
 }
 
+/**
+ * The names of a member's lines of `/wants` in a server, in its order and as its lines name them
+ * ("Costumed Pikachu", "Tier 5 raids", "Team GO Rocket"), with the rows of both tables that cannot
+ * be read: what staff's `/admin member-settings` shows of them (one path with the member's list).
+ */
+export async function wantLineNames(
+  ctx: AppContext,
+  memberId: string,
+  guildId: string,
+): Promise<{ names: string[]; unreadable: number }> {
+  const { entries, unreadable } = await entriesOf(ctx, memberId, guildId);
+  return { names: entries.map((entry) => entry.listLabel ?? entry.label), unreadable };
+}
+
 /** A line as `/unwant` lists and reads it: `Dratini: Raids, Research`. */
 function entryText(entry: WantEntry): string {
   if (entry.detail !== undefined) return `${entry.label}: ${entry.detail}`;

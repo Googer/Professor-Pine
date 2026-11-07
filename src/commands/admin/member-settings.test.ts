@@ -5,6 +5,7 @@ import { MemoryGymTargets } from '../../../test/support/gym-targets.js';
 import { MemoryHistoryOptIns } from '../../../test/support/history.js';
 import { MemoryLegacyFillIns, MemoryLegacyIndex } from '../../../test/support/legacy-fill-ins.js';
 import { MemoryNewTrains } from '../../../test/support/new-trains.js';
+import { MemoryTargetWants } from '../../../test/support/target-wants.js';
 import { MemoryUsers } from '../../../test/support/users.js';
 import { MemoryWants } from '../../../test/support/wants.js';
 import { PartyStatus, RaidPrivacy } from '../../domain/party/status.js';
@@ -78,7 +79,7 @@ describe('/admin member-settings', () => {
       '- In-game name: **Ash\\_K**',
       '- Pokebattler user id: **26516**',
       expect.stringMatching(
-        /^- Wants in this server: \*\*7\*\* \(Bulbasaur, Charmander, Squirtle, Pikachu, Eevee, …and 2 more\)/,
+        /^- Wants in this server: \*\*7\*\* \(Bulbasaur, Charmander, Eevee, Mew, Mewtwo, …and 2 more\)/,
       ),
       '- Gym targets in this server: **2** (Old Stone Fountain, gym #999 (gone))',
     ]);
@@ -120,6 +121,27 @@ describe('/admin member-settings', () => {
     legacyFillIns.ended(ASH, FAKE_GUILD_ID, { state: 'queued' });
     expect(textOf(await unindexed.use(null, 'member-settings', {}, ash()))).not.toMatch(
       /Old-bot history/u,
+    );
+  });
+
+  it('names the wants as the member’s own `/wants` lists them, costumes and both tables', async () => {
+    const wants = new MemoryWants();
+    wants.add(ASH, FAKE_GUILD_ID, 25, 'spawn', { costumed: true });
+    wants.add(ASH, FAKE_GUILD_ID, 147, 'raid');
+    const targetWants = new MemoryTargetWants();
+    await targetWants.change(ASH, FAKE_GUILD_ID, {
+      add: [
+        { kind: 'research-item', item: 'rare-candy' },
+        { kind: 'rocket', who: 'giovanni' },
+        { kind: 'dynamax', dex: 68 },
+      ],
+      remove: [],
+    });
+    const made = await bossCommandsWith({ context: { wants, targetWants } });
+    const text = textOf(await made.use(null, 'member-settings', {}, ash()));
+    // By species name as `/wants` (Machamp's Dynamax a box of its line), then Rocket, rewards.
+    expect(text).toContain(
+      '- Wants in this server: **5** (Dratini, Machamp, Costumed Pikachu, Team GO Rocket, Rare Candy)',
     );
   });
 
