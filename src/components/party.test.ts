@@ -215,6 +215,20 @@ describe('the buttons of a party post', () => {
     }
   });
 
+  it('refuses the status buttons of a raid over by the clock, before the scheduler ends it', async () => {
+    const made = await setup({ boss: { key: 'yveltal' } });
+    await made.attendance.signUp(made.party.id, { id: BOB }, PartyStatus.Coming);
+    await made.attendance.newGroup(made.party.id, { id: BOB });
+    made.clock.now = (made.current().lastPossibleTime ?? 0) + 60_000;
+    for (const action of ['maybe', 'join', 'here', 'done', 'leave', 'more', 'remote', 'regroup']) {
+      const click = await made.click(action);
+      expect(click.reply, action).toHaveBeenCalledWith(privately('This raid is over.'));
+      // Nobody is asked which group of a raid that is over.
+      expect(click.showModal, action).not.toHaveBeenCalled();
+    }
+    expect(made.alice()).toBeUndefined();
+  });
+
   it('answers what it does not know as no longer active', async () => {
     const made = await setup();
     for (const action of ['explode', 'group', 'group:Z', 'answer', 'answer:perhaps']) {

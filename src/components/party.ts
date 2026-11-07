@@ -74,7 +74,8 @@ export const partyButtons: ComponentHandler = {
       case 'here': {
         // A newcomer to a post of several groups is asked which group (plan 8X-1B).
         const party = ctx.parties.get(partyId);
-        if (asksWhichGroup(party, member.id)) {
+        // Of a party over by the clock nobody is asked: the press is refused as it is over.
+        if (asksWhichGroup(party, member.id) && !attendance.isOver(party)) {
           return openWhichGroup(interaction, ctx, party, id.action);
         }
         return pressStatus(attendance, partyId, member, { action: id.action }, click);
@@ -153,9 +154,13 @@ export const partyButtons: ComponentHandler = {
       case 'joinform':
         // Only those dialogs have these actions.
         throw new UserError(STALE_COMPONENT);
-      case 'regroup':
-        // "Group…" (plan 8X-1B): move to another group or open one, in a dialog.
+      case 'regroup': {
+        // "Group…" (plan 8X-1B): move to another group or open one, in a dialog; none for a
+        // party over by the clock.
+        const party = ctx.parties.get(partyId);
+        if (party && attendance.isOver(party)) throw new UserError(partyOver(party));
         return openGroupMenu(interaction, ctx, partyId);
+      }
       case 'regroupform':
         // Only Group…'s dialog has this action.
         throw new UserError(STALE_COMPONENT);

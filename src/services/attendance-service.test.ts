@@ -9,7 +9,7 @@ import {
   REPORTER,
   withAttendees,
 } from '../../test/support/parties.js';
-import { reportedRaid } from '../../test/support/party-service.js';
+import { createdMeetup, reportedMax, reportedRaid } from '../../test/support/party-service.js';
 import { decodeCustomId } from '../discord/custom-id.js';
 import { completeRaid } from '../domain/party/attendance.js';
 import { WITHDRAWN_LINE } from './attendance-service.js';
@@ -160,6 +160,61 @@ describe('AttendanceService: signing up', () => {
     await made.store.update(id, (party) => ({ party: endParty(party) }));
     await made.attendance.flush();
     expect(made.said()).toEqual([`**Alice** (<@${ALICE}>) is coming.`]);
+  });
+});
+
+describe('AttendanceService: a party over by the clock, before the scheduler ends it', () => {
+  it('answers gone to every change of a raid whose end has passed, and changes nothing', async () => {
+    const made = await reportedRaid(yveltal);
+    const id = made.party.id;
+    await made.attendance.signUp(id, bob, PartyStatus.Present);
+    await made.attendance.flush();
+    made.clock.now = (made.current().lastPossibleTime ?? 0) + MINUTE;
+    const before = made.current();
+    const gone = { kind: 'gone' };
+    expect(await made.attendance.signUp(id, alice, PartyStatus.Coming)).toEqual(gone);
+    expect(await made.attendance.setRemote(id, bob, 'toggle')).toEqual(gone);
+    expect(await made.attendance.changeNumber(id, bob, 1)).toEqual(gone);
+    expect(await made.attendance.notHere(id, bob)).toEqual(gone);
+    expect(await made.attendance.done(id, bob)).toEqual(gone);
+    expect(await made.attendance.leave(id, bob)).toEqual(gone);
+    expect(await made.attendance.newGroup(id, bob)).toEqual(gone);
+    expect(made.current()).toBe(before);
+    await made.attendance.flush();
+    expect(made.said()).toEqual([`**Bob** (<@${BOB}>) is here.`]);
+  });
+
+  it('still takes an answer to the completion question asked before the end', async () => {
+    const made = await reportedRaid(yveltal);
+    const id = made.party.id;
+    for (const member of [alice, bob]) {
+      await made.attendance.signUp(id, member, PartyStatus.Present);
+    }
+    await made.attendance.done(id, alice);
+    await made.attendance.flush();
+    made.clock.now = (made.current().lastPossibleTime ?? 0) + MINUTE;
+    expect(await made.attendance.answer(id, bob, true)).toMatchObject({ kind: 'ok', acted: true });
+  });
+
+  it('answers gone for a max battle whose end has come', async () => {
+    const made = await reportedMax();
+    made.clock.now = made.current().endTime ?? 0;
+    expect(await made.attendance.signUp(made.party.id, alice, PartyStatus.Coming)).toEqual({
+      kind: 'gone',
+    });
+  });
+
+  it('answers gone for a meetup whose end time has passed, never for one without an end', async () => {
+    const made = await createdMeetup();
+    const id = made.party.id;
+    made.clock.now += 3 * 24 * 60 * MINUTE;
+    expect(await made.attendance.signUp(id, alice, PartyStatus.Coming)).toMatchObject({
+      kind: 'ok',
+    });
+    const end = made.clock.now + MINUTE;
+    await made.store.update(id, (party) => ({ party: { ...party, endTime: end } }));
+    made.clock.now = end;
+    expect(await made.attendance.signUp(id, bob, PartyStatus.Coming)).toEqual({ kind: 'gone' });
   });
 });
 
