@@ -1738,6 +1738,67 @@ describe('/want: the list of choices', () => {
     expect((await names('shadow l'))[0]).toBe('Shadow Landorus');
   });
 
+  it('orders as a member expects (the audit of 2026-11-07): names before form words and guesses', async () => {
+    const made = setup();
+    const names = async (typed: string) =>
+      (await made.choices('want', typed)).map((choice) => choice.name);
+    /** The choices before the first shadow raids that are no boss's by its name. */
+    const beforeShadows = (found: string[]) =>
+      found.slice(
+        0,
+        found.findIndex((name) => name.startsWith('Shadow ') && name !== 'Shadow Shieldon'),
+      );
+    // `s`, `sh` and `sha` begin names before they begin `shadow`: the Pokémon first (the
+    // bosses among them before the rest), the shadow raids after them.
+    const sh = await names('sh');
+    expect(sh.slice(0, 2)).toEqual(['Shadow Shieldon', 'Shieldon']);
+    expect(beforeShadows(sh)).toContain('Shinx');
+    expect(beforeShadows(sh)).toContain('Mega Sharpedo');
+    expect(beforeShadows(sh)).not.toContain('Shadow Gastly');
+    expect((await names('s')).filter((name) => name.startsWith('Shadow '))).toEqual([
+      'Shadow Shieldon',
+    ]);
+    const sha = await names('sha');
+    expect(sha[0]).toBe('Shaymin (every form)');
+    expect(beforeShadows(sha)).toContain('Sharpedo (every form)');
+    expect(sha).toContain('Shadow Gastly');
+    expect(sha.indexOf('Shadow T5 raids')).toBeGreaterThan(sha.indexOf('Mega Sharpedo'));
+    // Once nothing begins with it but the word, the shadow raids of the bosses lead.
+    expect((await names('shad'))[0]).toMatch(/^Shadow (?!T\d)/);
+    // `sa`: the Pokémon whose names begin with it before Ho-Oh, which has the nickname `santa`.
+    const sa = await names('sa');
+    expect(sa.indexOf('Sawk')).toBeLessThan(sa.indexOf('Ho-Oh'));
+    expect(sa.indexOf('Sandile')).toBeLessThan(sa.indexOf('Ho-Oh'));
+    // `mega` and `alo`: Meganium and Alomomola before the megas and Alolan forms that are no boss.
+    const mega = await names('mega');
+    expect(mega.indexOf('Meganium')).toBeGreaterThan(0);
+    expect(mega.indexOf('Meganium')).toBeLessThan(mega.indexOf('Mega Diancie'));
+    const alo = await names('alo');
+    expect(alo.indexOf('Alomomola')).toBeGreaterThanOrEqual(0);
+    expect(alo.indexOf('Alomomola')).toBeLessThan(alo.indexOf('Alolan Marowak'));
+    // The nearer guess first: `latois` is Latios, two letters swapped.
+    expect((await names('latois'))[0]).toBe('Latios (every form)');
+    // One letter: the names it begins before the Unown of that letter.
+    const b = await names('b');
+    expect(b).toContain('Buzzwole');
+    expect(b.slice(0, b.indexOf('Buzzwole'))).not.toContain('Unown (B)');
+  });
+
+  it('reads raid and spawn alone as the words of the tiers and IV targets, not as a misspelt Pokémon', async () => {
+    const made = setup();
+    const names = async (typed: string) =>
+      (await made.choices('want', typed)).map((choice) => choice.name);
+    // `raid` was Urshifu (Rapid Strike Style), `rapid` with a letter left out.
+    const raid = await names('raid');
+    expect(raid).not.toContain('Urshifu (Rapid Strike Style)');
+    expect(raid.slice(0, 3)).toEqual(['T1 raids', 'T3 raids', 'T5 raids']);
+    expect(raid.every((name) => name.endsWith(' raids'))).toBe(true);
+    expect(await names('raids')).toEqual(raid);
+    expect(await names('spawns')).toEqual(['Perfect IV spawns', 'Zero IV spawns']);
+    // The word with a name is still that name: `rapid` is the style.
+    expect(await names('rapid')).toContain('Urshifu (Rapid Strike Style)');
+  });
+
   it('lets the class fill no list: Arcanine beside Arceus, Silcoon beside Silvally', async () => {
     const made = setup();
     const names = async (typed: string) =>
@@ -1773,8 +1834,10 @@ describe('/want: the list of choices', () => {
     const f = await names('f');
     expect(f).not.toContain('Starmie (base form)');
     expect(f).not.toContain('Landorus (every form)');
-    // One letter is how the search knows a form of Unown; then what begins with it.
-    expect(f.slice(0, 3)).toEqual(['Unown (every form)', 'Unown (F)', 'Fezandipiti']);
+    // One letter is how the search knows a form of Unown, but what begins with it comes first
+    // (the audit of 2026-11-07).
+    expect(f[0]).toBe('Fezandipiti');
+    expect(f.slice(0, f.indexOf('Fezandipiti') + 1)).not.toContain('Unown (F)');
     // `ra` is Raikou and its like, not ten tiers of "raids".
     const ra = await names('ra');
     expect(ra.filter((name) => name.endsWith(' raids'))).toEqual([]);

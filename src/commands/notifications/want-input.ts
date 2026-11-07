@@ -82,18 +82,37 @@ const LABEL_WORDS = ['every', 'base', 'form'];
 const FIXED_LABEL_WORDS: ReadonlySet<string> = new Set(['raids', 'spawns', 'iv']);
 
 /**
+ * The words a member may type alone for the tiers or the IV targets as a whole: `raid` is the
+ * raid tiers, not Urshifu (Rapid Strike Style) with a letter left out (the audit of 2026-11-07).
+ */
+const KIND_WORDS: ReadonlySet<string> = new Set(['raid', 'raids', 'spawn', 'spawns']);
+
+/** Whether the typed words are the word of a kind of target alone (`KIND_WORDS`). */
+function kindWordsOnly(typed: readonly string[]): boolean {
+  return typed.length > 0 && typed.every((word) => KIND_WORDS.has(word));
+}
+
+/**
  * Whether a text begins the label of a tier or an IV target by what names it: every typed word
  * begins a word of the label, and one of them a word that is the target's own (`perf`, `t5`,
  * `shadow`, `el`). What the label only adds finds nothing by itself: `ra` is Raikou, not ten
- * tiers of raids, and `sp` is Spinda.
+ * tiers of raids, and `sp` is Spinda. The whole word alone does (`raid`, `spawns`:
+ * `KIND_WORDS`).
  */
 function beginsFixedLabel(label: string, typed: readonly string[]): boolean {
   const words = searchTokens(label);
   const own = words.filter((word) => !FIXED_LABEL_WORDS.has(word));
   return (
     typed.every((begun) => words.some((word) => word.startsWith(begun))) &&
-    typed.some((begun) => own.some((word) => word.startsWith(begun)))
+    (kindWordsOnly(typed) || typed.some((begun) => own.some((word) => word.startsWith(begun))))
   );
+}
+
+/** Whether a target is shadow raids: of a Pokémon, or of a tier. */
+function isShadowLabel(target: NotificationTarget): boolean {
+  return target.kind === 'pokemon'
+    ? target.shadow === true
+    : target.kind === 'tier' && target.tier.shadow;
 }
 
 /**
@@ -135,7 +154,11 @@ function namesBeforeLabelWords(typed: readonly string[]): string[] {
  *    `giratina every form`);
  * 4. guesses (a word read as a misspelling), each only when its label shows the word that was
  *    guessed (`lugai` finds Lugia), and none for a text that is a fixed word in full: `shadow`
- *    is no misspelt Meadow Pattern.
+ *    is no misspelt Meadow Pattern, `raid` no Urshifu (Rapid Strike Style).
+ *
+ * A text that only begins `shadow` (`s` to `shado`) begins names too: the shadow raids and
+ * shadow tiers its label finds then stand after the Pokémon of 3 that it leads to by name
+ * (the audit of 2026-11-07); the bosses it finds by name stay first.
  *
  * Nothing twice, 25 at most. A choice's value is the target's token.
  */
@@ -155,6 +178,21 @@ export function wantChoices(ctx: AppContext, typed: string): Choice[] {
     const hits = ctx.pokemon.find(typed, { limit: MAX_CHOICES * 4 });
     const rest = SHADOW_OF.exec(typed.trim())?.[1];
     const shadowHits = rest === undefined ? [] : shadowFinds(ctx, rest);
+    // `s`, `sh` … `shado` begin `shadow` in the label of every shadow boss and shadow tier, but
+    // they begin names as well: those shadow raids stand after the Pokémon the text leads to by
+    // name (the audit of 2026-11-07), and lead only when nothing else begins with the text.
+    const [only] = words;
+    const shadowBegun =
+      rest === undefined &&
+      words.length === 1 &&
+      only !== undefined &&
+      only !== 'shadow' &&
+      'shadow'.startsWith(only);
+    const afterNames: NotificationTarget[] = [];
+    const addShadow = (target: NotificationTarget): void => {
+      if (shadowBegun && isShadowLabel(target)) afterNames.push(target);
+      else add(target);
+    };
     // A boss goes first for its name: one found by its key, by its number or by the beginning
     // of its number (`3` is Venusaur's number, `5` begins number 576) stands with the other
     // Pokémon, after the tiers. Nor does one found by a word of its form: `for` is
@@ -203,7 +241,8 @@ export function wantChoices(ctx: AppContext, typed: string): Choice[] {
       const all = named.has(boss.entry.key);
       const byShadow = rest === undefined ? begins(shadow) : namedShadow.has(boss.entry.dex);
       for (const target of offered) {
-        if (all || (target === shadow && byShadow)) add(target);
+        if (all) add(target);
+        else if (target === shadow && byShadow) addShadow(target);
       }
     }
 
@@ -224,9 +263,9 @@ export function wantChoices(ctx: AppContext, typed: string): Choice[] {
     }
 
     // 2. The tiers and the IV targets.
-    wantWordGuesses(typed).forEach(add);
+    wantWordGuesses(typed).forEach(addShadow);
     for (const target of fixedTargets()) {
-      if (beginsFixedLabel(wantLabel(ctx, target), words)) add(target);
+      if (beginsFixedLabel(wantLabel(ctx, target), words)) addShadow(target);
     }
 
     // 3. Every other proper match.
@@ -236,9 +275,12 @@ export function wantChoices(ctx: AppContext, typed: string): Choice[] {
     }
     for (const hit of hits) {
       if (hit.match === 'guess') continue;
+      // The shadow raids put after the names stand before what a word of a form finds.
+      if (!hit.named) afterNames.splice(0).forEach(add);
       add(pokemonTarget(hit.entry.dex));
       add(entryWant(catalogue, hit.entry));
     }
+    afterNames.splice(0).forEach(add);
     for (const name of namesBeforeLabelWords(words)) {
       for (const hit of ctx.pokemon.find(name, { limit: MAX_CHOICES })) {
         if (hit.match === 'guess') continue;
@@ -255,7 +297,8 @@ export function wantChoices(ctx: AppContext, typed: string): Choice[] {
     for (const hit of shadowHits) {
       if (hit.match === 'guess') guess(pokemonTarget(hit.entry.dex, undefined, true), hit.guessed);
     }
-    const fixedWord = wantWord(typed) !== undefined || /^shadow$/i.test(typed.trim());
+    const fixedWord =
+      wantWord(typed) !== undefined || /^shadow$/i.test(typed.trim()) || kindWordsOnly(words);
     for (const hit of hits) {
       if (hit.match !== 'guess' || fixedWord) continue;
       guess(pokemonTarget(hit.entry.dex), hit.guessed);

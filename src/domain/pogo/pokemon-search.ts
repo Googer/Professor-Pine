@@ -140,6 +140,19 @@ function isNumber(term: string): boolean {
 
 const FIRST_TYPOS = (term: string): number => (isNumber(term) ? 0 : allowedTypos(term));
 
+/**
+ * How many letters a guess got wrong, two neighbouring letters in the wrong order counting as
+ * one: `latois` is one from Latios and two from Latias, so Latios is the nearer guess.
+ */
+function wrongLetters(typed: string, word: string): number {
+  return swapped(typed, word) ? 1 : distance(typed, word);
+}
+
+/** 1 for a mega or primal, 0 for anything else: a sort key. */
+function isMega(entry: PokemonEntry): number {
+  return entry.kind === 'mega' ? 1 : 0;
+}
+
 function sameBattler(a: PokemonEntry, b: PokemonEntry): boolean {
   const facts = (entry: PokemonEntry) =>
     JSON.stringify([
@@ -184,15 +197,20 @@ export function mergeNicknames(
  * one ("alo", "galar", "hisu") or slightly misspelt. When that finds nothing, a second try also
  * reads two neighbouring letters in the wrong order ("lugai").
  *
- * The best fit comes first (`find`): what the text names outright; then the hits it leads to
- * by their name (its first word begins the name, a nickname or the species' name, or is a word
- * of the species' name: `gira`, `hoo`, `rattata`), whole words before beginnings and among
- * equals a legendary, a mythical Pokémon or an ultra beast before an ordinary one, though the
- * class lifts three entries of a species at most (`CLASS_LIFTS`: Arceus has eighteen); then
- * the hits found only by a word of a form, a type or a style (`ty` finds Tyranitar before the
- * seventeen types of Arceus), whatever their class; then what only a key or a number finds;
- * guesses last. Among equal fits the species comes before its regional forms, other forms and
- * megas, so "giratina" gives the Altered Forme and "charizard" the plain one. A form that
+ * The best fit comes first (`find`): what the text names outright (one letter excepted: the
+ * Unown of that letter stands where its nickname puts it); then the hits it leads to by their
+ * species' name (its first word begins that name or a nickname that spells it otherwise, or is
+ * a word of it: `gira`, `hoo`, `rattata`, `char` for Mega Charizard), the megas among them
+ * last; then those it leads to only by a form word in front of the name or a nickname (`mega`,
+ * `alo`, `sa` for Ho-Oh's `santa`): Meganium before the megas (the audit of 2026-11-07). In
+ * each, whole words before beginnings and among equals a legendary, a mythical Pokémon or an
+ * ultra beast before an ordinary one, though the class lifts three entries of a species at
+ * most (`CLASS_LIFTS`: Arceus has eighteen); then the hits found only by a word of a form, a
+ * type or a style (`ty` finds Tyranitar before the seventeen types of Arceus), whatever their
+ * class; then what only a key or a number finds; guesses last, the nearest first (two letters
+ * swapped count as one wrong: `latois` is Latios before Latias). Among equal fits the species
+ * comes before its regional forms, other forms and megas, so "giratina" gives the Altered
+ * Forme and "charizard" the plain one. A form that
  * differs from its species in looks only (Vivillon's patterns, Unown's letters) is left out
  * unless the text names it: "vivillon" gives one result, "vivillon marine" the pattern.
  *
@@ -208,12 +226,18 @@ export class PokemonSearch {
   /** By entry: the words of its own key, as against those of the ids that stand for it. */
   private readonly ownWords = new Map<string, ReadonlySet<string>>();
   /**
-   * By entry: the first word of its name, the first word of each of its nicknames, and the
+   * By entry: the first word of its name, the first word of each of its nicknames, the
+   * nicknames that spell its name otherwise (`hooh` for Ho-Oh) without their spaces, and the
    * words of its species' name.
    */
   private readonly leads = new Map<
     string,
-    { first: string; nicknames: readonly string[]; species: ReadonlySet<string> }
+    {
+      first: string;
+      nicknames: readonly string[];
+      spelled: readonly string[];
+      species: ReadonlySet<string>;
+    }
   >();
 
   constructor(
@@ -237,9 +261,11 @@ export class PokemonSearch {
       });
       this.ownWords.set(entry.key, new Set(searchTokens(entry.key)));
       for (const text of [entry.name, ...ids, ...nicks]) this.remember(text, entry);
+      const letters = (text: string): string => searchTokens(text).join('');
       this.leads.set(entry.key, {
         first: searchTokens(entry.name)[0] ?? '',
         nicknames: nicks.flatMap((nick) => searchTokens(nick).slice(0, 1)),
+        spelled: nicks.map(letters).filter((nick) => nick === letters(entry.name)),
         // The species as it is called without its form: Giratina, not its Altered Forme.
         species: new Set(
           searchTokens(feedLookupOf(catalogue).speciesName(entry.pokemonId) ?? entry.name),
@@ -282,13 +308,14 @@ export class PokemonSearch {
     typed: readonly string[],
     found: Readonly<Record<string, readonly string[]>>,
     misspelt: Misspelt,
-  ): Pick<PokemonHit, 'match' | 'guessed'> | undefined {
+  ): (Pick<PokemonHit, 'match' | 'guessed'> & { wrong: number }) | undefined {
     const ownWords = this.ownWords.get(key);
     let worst = 0;
     let onlyAliases = true;
+    let wrong = 0;
     const guessed: string[] = [];
     for (const word of typed) {
-      let best: { fit: number; own: boolean; term: string } | undefined;
+      let best: { fit: number; own: boolean; term: string; wrong: number } | undefined;
       for (const [term, fields] of Object.entries(found) as [string, Field[]][]) {
         const named = fields.includes('name') || fields.includes('nicknames');
         // Found in the key field alone, by a word that is not the key's own: by an id that
@@ -304,39 +331,59 @@ export class PokemonSearch {
           fit = 'guess';
         } else continue;
         const rank = WORD_FITS.indexOf(fit);
-        // Of two equal fits the one by a word of the entry itself counts.
-        if (!best || rank < best.fit || (rank === best.fit && own && !best.own)) {
-          best = { fit: rank, own, term };
+        const letters = fit === 'guess' ? wrongLetters(word, term) : 0;
+        // Of two equal fits the one by a word of the entry itself counts, and of two guesses
+        // the nearer.
+        if (
+          !best ||
+          rank < best.fit ||
+          (rank === best.fit && own && !best.own) ||
+          (rank === best.fit && own === best.own && letters < best.wrong)
+        ) {
+          best = { fit: rank, own, term, wrong: letters };
         }
       }
       if (!best) return undefined;
       if (best.own) onlyAliases = false;
       if (WORD_FITS[best.fit] === 'guess') guessed.push(best.term);
       worst = Math.max(worst, best.fit);
+      wrong += best.wrong;
     }
     const match = WORD_FITS[worst];
-    return onlyAliases || match === undefined ? undefined : { match, guessed };
+    return onlyAliases || match === undefined ? undefined : { match, guessed, wrong };
   }
 
   /**
-   * Whether a text leads to an entry by its name: its first word begins the first word of the
-   * entry's name (`gira`, `mega`, `alo`), of one of its nicknames (`hoo` for Ho-Oh, `tta` for
-   * Tyranitar) or of its species' name (`ratt` for the Alolan Rattata, `char` for Mega
-   * Charizard), or is a word of the species' name (`bulu` for Tapu Bulu). Anything else found
-   * the entry by a word of a form, a type or a style (`ty` for Arceus of any type, `for` for
-   * every Forme), or by the middle of its name (`bul` for Tapu Bulu).
+   * How a text leads to an entry by its name, if it does:
+   *
+   * - `species`: its first word begins the first word of the species' name (`ratt` for the
+   *   Alolan Rattata, `char` for Mega Charizard, `gira`), or of a nickname that spells the
+   *   name otherwise (`hoo` for Ho-Oh's `hooh`), or is a word of the species' name (`bulu`
+   *   for Tapu Bulu);
+   * - `other`: it begins only a word of a form in front of the name (`mega`, `alo` for the
+   *   Alolan forms) or another nickname (`tta` for Tyranitar, `sa` for Ho-Oh's `santa`, `b`
+   *   for the Unown of that letter).
+   *
+   * Undefined for anything else, which found the entry by a word of a form, a type or a style
+   * (`ty` for Arceus of any type, `for` for every Forme), or by the middle of its name (`bul`
+   * for Tapu Bulu).
    */
-  private ledByName(entry: PokemonEntry, typed: readonly string[]): boolean {
+  private leadOf(entry: PokemonEntry, typed: readonly string[]): 'species' | 'other' | undefined {
     const [first] = typed;
     const lead = this.leads.get(entry.key);
-    if (first === undefined || !lead) return false;
+    if (first === undefined || !lead) return undefined;
     const [speciesFirst = ''] = lead.species;
-    return (
-      lead.first.startsWith(first) ||
-      lead.nicknames.some((nickname) => nickname.startsWith(first)) ||
+    if (
       speciesFirst.startsWith(first) ||
-      lead.species.has(first)
-    );
+      lead.species.has(first) ||
+      lead.spelled.some((spelled) => spelled.startsWith(first))
+    ) {
+      return 'species';
+    }
+    return lead.first.startsWith(first) ||
+      lead.nicknames.some((nickname) => nickname.startsWith(first))
+      ? 'other'
+      : undefined;
   }
 
   private rank(
@@ -346,7 +393,13 @@ export class PokemonSearch {
     plain: boolean,
   ): PokemonHit[] {
     const typed = [...new Set(searchTokens(text))];
-    const hits: { hit: PokemonHit; score: number; group: number; classed: boolean }[] = [];
+    const hits: {
+      hit: PokemonHit;
+      score: number;
+      group: number;
+      wrong: number;
+      classed: boolean;
+    }[] = [];
     const results = this.index.search(text, {
       combineWith: 'AND',
       boost: { name: 3, nicknames: 3 },
@@ -361,12 +414,17 @@ export class PokemonSearch {
       const fit = this.fit(entry?.key ?? '', typed, result.match, misspelt);
       if (!entry || !fit) continue;
       const named = fit.match === 'word' || fit.match === 'beginning';
-      const led = named && this.ledByName(entry, typed);
+      const lead = named ? this.leadOf(entry, typed) : undefined;
+      const led = lead !== undefined;
       hits.push({
-        hit: { entry, ...fit, named: led },
+        hit: { entry, match: fit.match, guessed: fit.guessed, named: led },
         score: result.score,
-        // By its name; by a word of a form or the like; by a key or a number; by a guess.
-        group: led ? 0 : named ? 1 : MATCH_ORDER[fit.match],
+        // By the species' name; by a form word in front of it or a nickname; by a word of a
+        // form or the like; by a key or a number; by a guess. The text begun by a name comes
+        // before a whole word of a form: `mega` is Meganium before the megas.
+        group:
+          lead === 'species' ? 0 : lead === 'other' ? 1 : named ? 2 : 1 + MATCH_ORDER[fit.match],
+        wrong: fit.wrong,
         // The class orders only among the hits a text leads to by their name.
         classed: led && !plain && entry.class !== null,
       });
@@ -377,6 +435,11 @@ export class PokemonSearch {
       (a: Ranked, b: Ranked): number =>
         a.group - b.group ||
         MATCH_ORDER[a.hit.match] - MATCH_ORDER[b.hit.match] ||
+        // The nearer guess first: `latois` is Latios before Latias.
+        a.wrong - b.wrong ||
+        // A mega found by its species' name after every Pokémon found so: `me` is Mew and
+        // Mewtwo before Mega Mewtwo X, whose class would lift it over them.
+        (a.group === 0 ? isMega(a.hit.entry) - isMega(b.hit.entry) : 0) ||
         (withClass ? Number(b.classed) - Number(a.classed) : 0) ||
         b.score - a.score ||
         KIND_ORDER[a.hit.entry.kind] - KIND_ORDER[b.hit.entry.kind] ||
@@ -420,7 +483,9 @@ export class PokemonSearch {
    * every proper match. A text that names an entry outright is not guessed at: `mawile` is no
    * misspelling of Marill, and what begins with it (`kabuto` and Kabutops) is all it brings
    * besides. The species whose Pokédex number the text is stands first as well, but as a
-   * `loose` hit: a number is not a name. A long text goes by its first words (`firstWords`).
+   * `loose` hit: a number is not a name. One letter, which names an Unown, is no reason to put
+   * that Unown first: it stays in its place, an `exact` hit. A long text goes by its first
+   * words (`firstWords`).
    */
   find(typed: string, options: PokemonSearchOptions = {}): PokemonHit[] {
     const text = firstWords(typed);
@@ -432,9 +497,18 @@ export class PokemonSearch {
       named === undefined && /^\d+$/.test(folded)
         ? this.catalogue.species(Number(folded))
         : undefined;
-    const first = named ?? numbered;
+    // One letter names the Unown of that letter, but a member who typed it is likelier to be
+    // typing a name: that Unown stays where the order puts it (after the names that begin with
+    // the letter), as the hit it is, `exact`.
+    const letter = named !== undefined && [...folded].length === 1;
+    const first = letter ? undefined : (named ?? numbered);
     let ranked = this.rank(text, FIRST_TYPOS, MISSPELT, plain);
     if (ranked.length === 0) ranked = this.rank(text, SWAP_TYPOS, MISSPELT_OR_SWAPPED, plain);
+    if (letter) {
+      ranked = ranked.map((hit) =>
+        hit.entry === named ? { ...hit, match: 'exact', named: true } : hit,
+      );
+    }
     const found: PokemonHit[] = first
       ? [
           {

@@ -428,14 +428,14 @@ describe('trainBossChoices', () => {
 
   it('finds a boss by its name however many Pokémon the text finds before it', () => {
     // The bosses of the fixture, Starmie and Mega Blastoise among them: a single letter finds
-    // hundreds of Pokémon, and the Unown of that letter is what it names in full.
+    // hundreds of Pokémon. The Unown of that letter, which it names in full, no longer leads
+    // (the audit of 2026-11-07): the names it begins come first.
     const fixture = (typed: string) => trainBossChoices(ctx, typed).map((choice) => choice.name);
     const s = fixture('s');
-    expect(s[0]).toBe('Unown (S)');
-    expect(s.indexOf('Starmie')).toBeGreaterThan(0);
-    expect(s.indexOf('Starmie')).toBeLessThan(5);
+    expect(s.slice(0, 2)).toEqual(['Shieldon', 'Starmie']);
+    expect(s.slice(0, 25)).not.toContain('Unown (S)');
     const m = fixture('m');
-    expect(m.indexOf('Mega Blastoise')).toBe(1);
+    expect(m.indexOf('Mega Blastoise')).toBe(0);
     // Arcanine stands near the top, though Arceus has eighteen entries.
     expect(fixture('arc').indexOf('Arcanine')).toBeLessThan(12);
     expect(fixture('ar')).toContain('Arcanine');

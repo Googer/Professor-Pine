@@ -17,6 +17,7 @@ const searchWords = (entry: { name: string; key: string }): string[] =>
 const keys = (text: string, limit?: number) =>
   search.search(text, { limit }).map((entry) => entry.key);
 const first = (text: string) => search.search(text)[0]?.key;
+const hits = (text: string) => search.find(text).map((hit) => `${hit.entry.key}:${hit.match}`);
 
 describe('PokemonSearch: names', () => {
   it('finds every Pokémon first by its own name and by its key', () => {
@@ -113,8 +114,11 @@ describe('PokemonSearch: names', () => {
   });
 
   it('finds an Unown letter and the megas that carry it by one letter', () => {
-    expect(search.search('x')[0]?.key).toBe('unown_x');
-    expect(keys('x')).toContain('charizard_mega_x');
+    // After the names the letter begins (the audit of 2026-11-07).
+    const x = keys('x');
+    expect(x.indexOf('xerneas')).toBeLessThan(x.indexOf('unown_x'));
+    expect(search.find('x').find((hit) => hit.entry.key === 'unown_x')?.match).toBe('exact');
+    expect(x).toContain('charizard_mega_x');
     expect(first('unown x')).toBe('unown_x');
   });
 
@@ -149,13 +153,14 @@ describe('PokemonSearch: nicknames and other ids', () => {
     const found = keys('mega');
     const megas = catalogue.all.filter((entry) => entry.tempEvolution?.startsWith('MEGA'));
     for (const mega of megas) expect(found, mega.key).toContain(mega.key);
-    // The megas of legendary and mythical species first, then the others by name.
-    expect(found.slice(0, 3)).toEqual(['diancie_mega', 'latias_mega', 'latios_mega']);
-    const ordinary = found.filter((key) => catalogue.byKey(key)?.class === null);
+    // Meganium, whose name begins with it, first (the audit of 2026-11-07); then the megas of
+    // legendary and mythical species, then the others by name.
+    expect(found[0]).toBe('meganium');
+    const megaKeys = found.slice(1);
+    expect(megaKeys.slice(0, 3)).toEqual(['diancie_mega', 'latias_mega', 'latios_mega']);
+    const ordinary = megaKeys.filter((key) => catalogue.byKey(key)?.class === null);
     expect(ordinary.slice(0, 3)).toEqual(['abomasnow_mega', 'absol_mega', 'aerodactyl_mega']);
-    expect(found.slice(0, 40).every((key) => catalogue.byKey(key)?.kind === 'mega')).toBe(true);
-    // A word that merely begins the same comes along, after them.
-    expect(found).toContain('meganium');
+    expect(megaKeys.slice(0, 40).every((key) => catalogue.byKey(key)?.kind === 'mega')).toBe(true);
   });
 
   it('finds an entry by a game-master id that stands for it', () => {
@@ -176,8 +181,6 @@ describe('PokemonSearch: nicknames and other ids', () => {
 });
 
 describe('PokemonSearch: the order of hits', () => {
-  const hits = (text: string) => search.find(text).map((hit) => `${hit.entry.key}:${hit.match}`);
-
   it('puts a legendary, a mythical Pokémon and an ultra beast before an ordinary one', () => {
     expect(keys('gira')[0]).toBe('giratina_altered');
     const la = keys('la');
@@ -342,9 +345,10 @@ describe('PokemonSearch: the order of hits', () => {
     // for a text that names Kabuto): no Diglett, Geodude or Meowth for their `kanto`.
     expect(keys('kabuto')).toEqual(['kabuto', 'kabutops']);
     expect(keys('regirock')).toEqual(['regirock']);
-    // Guesses by names (Gengar, Gligar), and no Galarian form for its `galar`.
+    // Guesses by names (Gengar, Gligar), and no Galarian form for its `galar`. Gengar and its
+    // mega are one letter away, Gligar two: the nearer first.
     const gangar = search.find('gangar');
-    expect(gangar.map((hit) => hit.entry.key)).toEqual(['gengar', 'gligar', 'gengar_mega']);
+    expect(gangar.map((hit) => hit.entry.key)).toEqual(['gengar', 'gengar_mega', 'gligar']);
     expect(gangar.every((hit) => hit.match === 'guess')).toBe(true);
     expect(keys('poodle')).toEqual([]);
     for (const text of ['swanna', 'poodle', 'kabuto', 'regirock', 'gangar']) {
@@ -381,6 +385,59 @@ describe('PokemonSearch: the order of hits', () => {
     // With a word of the entry itself they do find it.
     expect(hits('pikachu copy')).toEqual(['pikachu:loose']);
     expect(hits('pikachu star')).toEqual(['pikachu:loose']);
+  });
+});
+
+describe('PokemonSearch: the order a member expects (the audit of 2026-11-07)', () => {
+  /** The entries whose own name begins with these letters. */
+  const namedFrom = (letters: string) =>
+    catalogue.all
+      .filter((entry) => entry.name.toLowerCase().startsWith(letters))
+      .map((entry) => entry.key);
+
+  it('puts a species whose name begins with the text before the forms a form word finds', () => {
+    // `mega` and `alo` are words of the forms' names (and their nicknames): Meganium and
+    // Alomomola begin with them and come first, the forms after them, all still found.
+    const mega = keys('mega');
+    expect(mega[0]).toBe('meganium');
+    expect(mega.slice(1, 4)).toEqual(['diancie_mega', 'latias_mega', 'latios_mega']);
+    const alo = keys('alo');
+    expect(alo[0]).toBe('alomomola');
+    expect(alo).toContain('rattata_alola');
+    // Mew and Mewtwo by their names before the megas of Mewtwo, which `me` finds by `mega`.
+    const me = keys('me');
+    expect(me.indexOf('mew')).toBeLessThan(me.indexOf('mewtwo_mega_x'));
+    expect(me.indexOf('meowth')).toBeLessThan(me.indexOf('mewtwo_mega_x'));
+  });
+
+  it('puts the species a text begins before a legendary that only a nickname begins', () => {
+    // `santa` is a nickname of Ho-Oh: every species whose name begins with `sa` comes first.
+    const sa = keys('sa');
+    const ownNames = namedFrom('sa').filter((key) => catalogue.byKey(key)?.kind === 'species');
+    expect(ownNames.length).toBeGreaterThan(5);
+    for (const key of ownNames) expect(sa.indexOf(key), key).toBeLessThan(sa.indexOf('ho_oh'));
+    expect(sa).toContain('ho_oh');
+    // A nickname that spells the name otherwise is the name: Ho-Oh before Hoothoot.
+    const hoo = keys('hoo');
+    expect(hoo.indexOf('ho_oh')).toBeLessThan(hoo.indexOf('hoothoot'));
+  });
+
+  it('puts the names one letter begins before the Unown of that letter', () => {
+    const b = keys('b');
+    expect(b.indexOf('buzzwole')).toBeLessThan(b.indexOf('unown_b'));
+    expect(b.indexOf('bulbasaur')).toBeLessThan(b.indexOf('unown_b'));
+    expect(b).toContain('unown_b');
+    // The letter still names that Unown outright: picked or sent, it is that one.
+    expect(search.exact('b')?.key).toBe('unown_b');
+  });
+
+  it('puts the nearer guess first: two letters swapped before two letters wrong', () => {
+    const latois = keys('latois');
+    expect(latois[0]).toBe('latios');
+    expect(latois.indexOf('latios_mega')).toBeLessThan(latois.indexOf('latias'));
+    expect(search.find('latois')[0]).toMatchObject({ match: 'guess', guessed: ['latios'] });
+    // A species named exactly stands before the one a letter away, and is no guess.
+    expect(hits('latios')).toEqual(['latios:exact', 'latios_mega:word']);
   });
 });
 
