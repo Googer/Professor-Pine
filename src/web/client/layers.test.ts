@@ -226,6 +226,9 @@ describe('StadiaFallback tries Stadia again (Matt, 2026-11-07)', () => {
     expect(tryAgain).toHaveBeenCalledTimes(1);
     vi.advanceTimersByTime(1);
     expect(tryAgain).toHaveBeenCalledTimes(2);
+    failThrice(fallback);
+    fallback.stop();
+    expect(vi.getTimerCount()).toBe(0);
   });
 });
 

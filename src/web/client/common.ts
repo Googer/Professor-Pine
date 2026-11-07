@@ -25,6 +25,13 @@ export { byId, getJson, hideNotice, say, showAccount, whoIsAsking } from './page
  * line under the header, and the header with the login).
  */
 
+/**
+ * Said once per switch to OpenStreetMap's tiles (Matt, 2026-11-07), so that a member knows why the
+ * map looks different; Stadia's coming back says nothing.
+ */
+export const OSM_NOTICE =
+  "The usual map tiles could not be loaded, so the map shows OpenStreetMap's for now.";
+
 /** How long the map rests before Google is asked for the attribution of what is in view. */
 const ATTRIBUTION_DELAY_MS = 500;
 
@@ -95,7 +102,43 @@ function googleLayer(
   return group;
 }
 
-/** A plain layer of tiles. */
+/**
+ * The page's one `StadiaFallback` (review F1): the map and the region editor's map, one hidden
+ * while the other is shown, switch together, on one wait and with one notice, each map by its
+ * own `swap`. The last map to unload stops the tries, and a map added after starts anew.
+ */
+interface PageTiles {
+  fallback: StadiaFallback;
+  swaps: Set<() => void>;
+}
+
+let shared: PageTiles | undefined;
+
+const swapAll = (page: PageTiles): void => {
+  for (const swap of page.swaps) swap();
+};
+
+function pageTiles(setting: TileSetting): PageTiles {
+  if (shared !== undefined) return shared;
+  const swaps = new Set<() => void>();
+  const page: PageTiles = {
+    swaps,
+    // Stadia tried again: every map's base drawn anew, quietly.
+    fallback: new StadiaFallback(setting, () => {
+      for (const swap of swaps) swap();
+    }),
+  };
+  shared = page;
+  return page;
+}
+
+function leaveTiles(page: PageTiles, swap: () => void): void {
+  page.swaps.delete(swap);
+  if (page.swaps.size > 0) return;
+  page.fallback.stop();
+  if (shared === page) shared = undefined;
+}
+
 /** A plain layer of tiles; its credit is the page's own (`BaseAttribution`). */
 const xyzLayer = (spec: XyzSpec): L.TileLayer =>
   L.tileLayer(spec.url, {
@@ -112,19 +155,15 @@ export function tileSetting(value: string | undefined): TileSetting {
  * The tiles of the setting (`tileLayers`), the base shown first, with a switch where Google's are
  * offered too (plan 8M-7): the base follows the device's light or dark (`onThemeChange`), and
  * once Stadia refuses its tiles it is OpenStreetMap's until Stadia's are tried again, after five
- * minutes and then longer (`StadiaFallback`), the credit following the base shown
- * (`BaseAttribution`). The tries stop with the map (`unload`).
+ * minutes and then longer (`StadiaFallback`, one for the page: `pageTiles`), the credit following
+ * the base shown (`BaseAttribution`); the switch is said once in the notice band (`OSM_NOTICE`).
+ * The tries stop with the page's last map (`unload`).
  * While OpenStreetMap's base is shown in dark, the map's container has `tiles-darkened`, whose
  * filter in `map.css` darkens the tile pane (never Google's).
  */
 export function addTiles(map: L.Map, setting: TileSetting, key: string | undefined): void {
-  // Stadia tried again: the base drawn anew, Stadia's now (`swap` is set before any wait ends).
-  const fallback = new StadiaFallback(setting, () => {
-    swap();
-  });
-  map.on('unload', () => {
-    fallback.stop();
-  });
+  const page = pageTiles(setting);
+  const { fallback } = page;
   const credit = new BaseAttribution(map.attributionControl);
   const scheme = (): Scheme => (darkScheme() ? 'dark' : 'light');
   const baseSpec = (): XyzSpec => {
@@ -185,8 +224,14 @@ export function addTiles(map: L.Map, setting: TileSetting, key: string | undefin
         fallback.tileLoaded();
       })
       .on('tileerror', () => {
-        if (fallback.tileFailed()) swap();
+        if (!fallback.tileFailed()) return;
+        swapAll(page);
+        say(OSM_NOTICE);
       });
+  page.swaps.add(swap);
+  map.on('unload', () => {
+    leaveTiles(page, swap);
+  });
   base = watched(base);
   control?.addBaseLayer(base, spec.name);
   base.addTo(map);
