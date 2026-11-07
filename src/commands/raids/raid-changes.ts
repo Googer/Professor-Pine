@@ -1,5 +1,6 @@
 import type { AppContext } from '../../app-context.js';
 import { UserError } from '../../discord/errors.js';
+import type { MemberAccess } from '../../discord/party-gateway.js';
 import type { RaidParty } from '../../domain/party/party.js';
 import type { PokemonEntry } from '../../domain/pogo/game-master.js';
 import { manageWords, type RaidChangeAsked } from '../../domain/web/raid-manage.js';
@@ -211,6 +212,20 @@ export async function changeRaidMoves(
     'The raid already had those moves.',
     post,
   );
+}
+
+/**
+ * Whether a member is kept out of the forum of the raid they would change (`barred`): refused on
+ * the map (403, `NOT_ALLOWED`) and by the post's Manage… alike (review M10), as the map shows no
+ * raid of such a forum. A raid without a forum bars nobody.
+ */
+export async function raidChangeBarred(
+  memberAccess: (forumId: string, memberId: string) => Promise<MemberAccess | undefined>,
+  party: Pick<RaidParty, 'forumChannelId'>,
+  memberId: string,
+): Promise<boolean> {
+  const forumId = party.forumChannelId;
+  return forumId !== null && (await memberAccess(forumId, memberId)) === 'barred';
 }
 
 /**

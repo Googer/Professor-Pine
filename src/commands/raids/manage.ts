@@ -1,8 +1,8 @@
 import type { ButtonInteraction, ModalSubmitInteraction } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
-import { deferSubmit, withoutOpenToken } from '../../discord/dialog.js';
+import { deferSubmit, readInTime, withoutOpenToken } from '../../discord/dialog.js';
 import type { ComponentHandler } from '../../discord/command.js';
-import { UserError } from '../../discord/errors.js';
+import { NOT_ALLOWED, UserError } from '../../discord/errors.js';
 import { requireGuild } from '../../discord/guards.js';
 import { countUse, raidChangeWindow } from '../parties/windows.js';
 import { STALE_COMPONENT } from '../../discord/router.js';
@@ -25,10 +25,16 @@ import {
 } from '../../render/manage-dialogs.js';
 import { partyOver } from '../parties/reply.js';
 import { changingMember } from './change.js';
-import { bossMoves, manageRaidAs } from './raid-changes.js';
+import { bossMoves, manageRaidAs, raidChangeBarred } from './raid-changes.js';
 import { raidOptions } from './raid-options.js';
 
 const A_RAID = { type: 'raid' } as const;
+
+/** How a member stands to a forum, as Discord says it now (`PartyService.memberAccess`). */
+const memberAccessOf =
+  (ctx: AppContext) =>
+  (forumId: string, memberId: string): ReturnType<AppContext['partyService']['memberAccess']> =>
+    ctx.partyService.memberAccess(forumId, memberId);
 
 /** The active raid a control names, refused privately as the map's route refuses it. */
 function activeRaid(ctx: AppContext, partyId: string): RaidParty {
@@ -50,6 +56,11 @@ export async function openRaidManage(
   partyId: string,
 ): Promise<void> {
   const party = activeRaid(ctx, partyId);
+  // The map's access rule (review M10), read within a dialog's time (the slow-read rule).
+  const barred = await readInTime(ctx.log, interaction, () =>
+    raidChangeBarred(memberAccessOf(ctx), party, interaction.user.id),
+  );
+  if (barred) throw new UserError(NOT_ALLOWED);
   await interaction.showModal(
     raidManageDialog({
       party,
@@ -64,8 +75,12 @@ export async function openRaidManage(
 function submittedFields(interaction: ModalSubmitInteraction): RaidManageFields {
   const { fields } = interaction;
   const text = (id: string) => (fields.fields.has(id) ? fields.getTextInputValue(id) : '');
-  const chosen = (id: string) =>
-    fields.fields.has(id) ? (fields.getStringSelectValues(id)[0] ?? '') : '';
+  // An optional menu left untouched may come with no values at all (review M8).
+  const chosen = (id: string): string => {
+    if (!fields.fields.has(id)) return '';
+    const values: readonly string[] | undefined = fields.getStringSelectValues(id);
+    return values?.[0] ?? '';
+  };
   return {
     hatch: text(RAID_HATCH_INPUT),
     end: text(RAID_END_INPUT),
@@ -95,6 +110,9 @@ export async function submitRaidManage(
   if (!party) return void (await say(partyOver(A_RAID)));
   if (!isRaid(party)) return void (await say(STALE_COMPONENT));
   const userId = interaction.user.id;
+  if (await raidChangeBarred(memberAccessOf(ctx), party, userId)) {
+    return void (await say(NOT_ALLOWED));
+  }
   const answer = await manageRaidAs(
     ctx,
     party,

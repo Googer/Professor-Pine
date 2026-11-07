@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  dialogOf,
   dialogField,
   dialogFields,
   shownDialog,
@@ -14,6 +15,8 @@ import {
 import { ALICE, at, BOB, PARTY_NOW } from '../../../test/support/parties.js';
 import { reportedRaid } from '../../../test/support/party-service.js';
 import { createTestContext } from '../../../test/support/test-context.js';
+import { WEST_FORUM } from '../../../test/support/gyms.js';
+import { NOT_ALLOWED } from '../../discord/errors.js';
 import { partyButtons } from '../../components/party.js';
 import { raidManageControls } from './manage.js';
 import { InteractionRouter } from '../../discord/router.js';
@@ -224,5 +227,40 @@ describe('the windows a raid’s Manage… counts in (review M1: as the map’s 
     for (let use = 0; use < CHANGE_THROTTLE.uses; use++) {
       expect(made.ctx.throttles.use('hatch', ALICE, CHANGE_THROTTLE, PARTY_NOW)).toBeUndefined();
     }
+  });
+});
+
+describe('who may use a raid’s Manage… (review M10: the map’s access rule)', () => {
+  it('refuses a member kept out of the raid’s forum, in the map’s words, before and after it opens', async () => {
+    const made = await setup();
+    const dialog = shownDialog(await made.open());
+    made.gateway.barred.set(WEST_FORUM, new Set([ALICE]));
+    const pressed = await made.open();
+    expect(dialogOf(pressed)).toBeUndefined();
+    expect(sent(pressed.reply).content).toBe(NOT_ALLOWED);
+    const late = await made.submit(dialog, { hatch: '30' });
+    expect(made.answerOf(late)).toBe(NOT_ALLOWED);
+    expect(made.current().hatchTime).toBeNull();
+  });
+});
+
+describe('an optional menu left untouched (review M8)', () => {
+  it('is no change, also where discord.js gives no values for it', async () => {
+    const made = await setup();
+    const dialog = shownDialog(await made.open());
+    const submitted = fakeModal({
+      customId: dialog.custom_id,
+      form: dialog,
+      fields: { [RAID_HATCH_INPUT]: '30', [RAID_END_INPUT]: '' },
+      userId: ALICE,
+      displayName: 'Alice',
+      channelId: made.postId,
+    });
+    (
+      submitted.fields as unknown as { getStringSelectValues: () => undefined }
+    ).getStringSelectValues = () => undefined;
+    const router = new InteractionRouter(made.ctx, [], [raidManageControls]);
+    await router.handle(submitted as never);
+    expect(made.answerOf(submitted)).toMatch(/^Done\. It hatches at /u);
   });
 });

@@ -1,11 +1,12 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
+import { NOT_ALLOWED } from '../discord/errors.js';
 import { CONTINUE_SCRIPT } from './continue-script.js';
 
 /** What an answer that failed says, by status: a few words, never what went wrong. */
 const FAILURE_WORDS: Readonly<Record<number, string>> = {
   400: 'Bad request.',
   401: 'Log in first.',
-  403: 'Not allowed.',
+  403: NOT_ALLOWED,
   404: 'Not found.',
   413: 'Too large.',
   415: 'Unsupported content.',

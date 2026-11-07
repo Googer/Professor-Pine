@@ -6,6 +6,7 @@ import { CHANGE_THROTTLE } from '../commands/raids/change.js';
 import {
   bossMoves,
   raidChangeAs,
+  raidChangeBarred,
   type RaidChangeAnswer,
   type RaidChanging,
 } from '../commands/raids/raid-changes.js';
@@ -476,7 +477,8 @@ export function raidRoutes(scope: FastifyInstance, deps: WebDeps): void {
       }
       const { row, party } = found;
       try {
-        if ((await accessTo(party.forumChannelId, userId)) === 'barred') {
+        // The rule of the post's Manage… too (review M10).
+        if (await raidChangeBarred(accessTo, party, userId)) {
           return sendFailure(request, reply, 403);
         }
       } catch (err) {

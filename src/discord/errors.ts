@@ -1,6 +1,12 @@
 import type { V2Message } from './party-gateway.js';
 
 /**
+ * What the map answers a write it does not allow (403) and Discord's Manage… of a raid answers a
+ * member kept out of its forum (review M10): the same words.
+ */
+export const NOT_ALLOWED = 'Not allowed.';
+
+/**
  * A problem caused by the user's input or situation (wrong channel, bad value).
  * The router shows the message ephemerally and does not log it as an error. With `answer`, the
  * router shows that message instead of the text (a refusal with a control of its own: the
