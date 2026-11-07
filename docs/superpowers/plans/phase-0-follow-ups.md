@@ -2634,7 +2634,8 @@ Finding B1 fixed: the raid boss list is read from Leek Duck's raid manifest (`ra
 
 - **Fixed** (95a856e1, 30984668; RED first): a pane whose GO is boxed in with black margins on both sides (`boxedIn`, each margin at least 3% of the pane) is read enlarged to its pane's width (at most twice `READ_WIDTH`) with its contrast stretched, and its heads counted at the same enlargement (`headsScale`); every other screen reads as before. Cause: GO draws itself small there (gym line about 17 px, light on light sky) and the box was read at its own 664 px. The panes' budget counts the enlarged pixels (about +0.5 s per small pane).
 - **Measured** (real-model `ocr:check`, logs `var/ocr/7p-g2-*.log`): Matt's 13 splits gym 6/8 → 8/8, heads 20/23 → 22/23, species 14/15 → 15/15 (also without the divider); one more fake reads its heads right; every other folder unchanged, nothing worse; check 10,569, build, db 611 green.
-- **Still open:** 193's raid pane reads 3 heads of 5 (its heads stand on a light sky; the tier is still found by the CP, with the doubt `heads-boss-conflict`). Small max panes now read "SMIAWARE" without its space (still matched as the spot).
+- **Done by 7P-H (d57dcd59, the heads' band reaching 2.4 units; checked again 2026-11-07):** 193's raid pane reads 5 heads of 5 (was 3 of 5: its heads stand on a light sky; the tier was still found by the CP, with the doubt `heads-boss-conflict`).
+- **Still open:** small max panes now read "SMIAWARE" without its space (still matched as the spot).
 
 ## Nearby stops first on Discord (Matt, 2026-10-27/28; no plan of its own, commits 1f76a6db..9ed149c7 on web-polish)
 
