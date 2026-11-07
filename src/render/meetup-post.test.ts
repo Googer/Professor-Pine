@@ -375,8 +375,9 @@ describe('the information of a meetup post', () => {
     const rendered = renderMeetupPost(view(withAttendees({ ...base, saved: true }, crowd)));
     expect(layoutTextLength(rendered.layout)).toBeLessThanOrEqual(TEXT_BUDGET - LEAD_ROOM);
     expect(componentCount(rendered.message)).toBeLessThanOrEqual(MAX_COMPONENTS);
-    // Its third row of Manage… alone (plan 8M-21) is two of them: well within Discord's 40.
-    expect(componentCount(rendered.message)).toBeLessThanOrEqual(30);
+    // Its third row of Manage… alone (plan 8M-21) is two of them: 19, well within Discord's 40
+    // (review M9: the count exact, so that a change of the layout is seen).
+    expect(componentCount(rendered.message)).toBe(19);
     expectSendable(rendered);
     // The text is whole; it is the lists of trainers that give way.
     expect(information(withAttendees({ ...base, saved: true }, crowd))).toBe(
