@@ -3000,6 +3000,45 @@ describe('the wild spawns on the map (Matt, 2026-11-07)', () => {
     expect(offset('Dratini')).toBeLessThanOrEqual(-1000);
   });
 
+  it("lets a spawn's taps through while the Report button picks, stops are added, a meetup's place is picked or a train is routed", async () => {
+    const { markerOf, chooseReport, panel, raids, registry } = await started({
+      raids: true,
+      regions: REGIONS,
+      stops: caseView({ research: [caseResearch(5)] }),
+      spawns: SPAWNS,
+    });
+    const taken = () => markerOf('Dratini')?.options.interactive;
+    expect(taken()).toBe(true);
+    // The Report button's step 2.
+    chooseReport('raid');
+    expect(taken()).toBe(false);
+    panel.querySelector('button[data-cancel]')?.dispatch('click');
+    expect(taken()).toBe(true);
+    // Research's "Add stops…".
+    chooseReport('research');
+    markerOf('Yellow Mural 5')?.fire('click', {});
+    addStopsInPopup();
+    expect(taken()).toBe(false);
+    panel.querySelector('button[data-add-stops="done"]')?.dispatch('click');
+    expect(taken()).toBe(true);
+    panel.querySelector('button[data-cancel]')?.dispatch('click');
+    // A meetup's place picked on the map.
+    const popup = placeShowing('leaflet-popup', raids.gymControls(GYMS.get(1)!));
+    popup.querySelector('button[data-meetup-here]')?.dispatch('click');
+    popup.querySelector('button[data-pick="start"]')?.dispatch('click');
+    expect(taken()).toBe(false);
+    panel.querySelector('button[data-pick="stop"]')?.dispatch('click');
+    expect(taken()).toBe(true);
+    panel.querySelector('button[data-cancel]')?.dispatch('click');
+    // A train routed: drawn anew (a layer toggled) while it is.
+    fake.route.routed = 't1';
+    registry.set('research', false);
+    expect(taken()).toBe(false);
+    fake.route.routed = undefined;
+    registry.set('research', true);
+    expect(taken()).toBe(true);
+  });
+
   it('drops a spawn when it goes away, without waiting for the list', async () => {
     const { markerOf, runTimers, nextDraw } = await started({ raids: true, spawns: SPAWNS });
     expect(markerOf('Dratini')?.group?.onMap).toBe(true);
