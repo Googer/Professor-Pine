@@ -1287,8 +1287,9 @@ export async function startApp(
           .remove(guild.id)
           .catch((err: unknown) => log.error({ err, guild: guild.id }, 'could not remove guild'));
       });
-      // A party's post deleted by hand ends its party at once (the `Guilds` intent delivers it),
-      // not at its next render; the bot's own deletions find no active party there.
+      // A party's post deleted by hand ends its party at once (the `Guilds` intent delivers it;
+      // discord.js emits it only for a thread in its cache, otherwise the next render notices);
+      // the bot's own deletions find no active party there.
       client.on(Events.ThreadDelete, (thread) => {
         void partyService.postDeleted(thread.id);
       });
