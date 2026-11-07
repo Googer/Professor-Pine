@@ -8,7 +8,7 @@ import {
 import type { Logger } from '../../log.js';
 import type { DB } from '../types.js';
 
-/** An entry of the staff audit log as it is written (`PartyAudit`, migration 045). */
+/** An entry of the staff audit log as it is written (`PartyAudit`, the migration `party_audit`). */
 export interface AuditRow {
   /** The server's snowflake. */
   serverId: string;

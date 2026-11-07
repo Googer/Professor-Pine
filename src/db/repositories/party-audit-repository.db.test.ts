@@ -11,7 +11,7 @@ import { createTestLogger } from '../../../test/support/test-logger.js';
 import type { DB } from '../types.js';
 import { PartyAuditRepository } from './party-audit-repository.js';
 
-/** The staff audit log (migration 045). */
+/** The staff audit log (the migration `party_audit`). */
 describe('PartyAuditRepository', () => {
   let stop: () => Promise<void>;
   let db: Kysely<DB>;

@@ -2109,32 +2109,36 @@ export class PartyService {
     } = {};
     let paired;
     try {
-      paired = await store.updateBoth([old.id, id], (oldNow, newNow): PairChange => {
-        // The new train ended meanwhile (its post was deleted): the group stays where it is.
-        if (!newNow) {
-          seen.newGone = true;
-          return {};
-        }
-        if (!oldNow) return {};
-        // The presser is noted before the split, so that their record moves with the name and
-        // team they have now: the carry-over takes the moved records over the new train's.
-        const train = noteMember(asKindOf(old, oldNow), by.id, by);
-        const split = splitOffGroup(train, by.id, staff, group, link, drawn, request.anonymous);
-        if (!split.ok) {
-          seen.refusal = split.reason;
-          return {};
-        }
-        seen.split = split;
-        const carried = carriedSplit(
-          asKindOf(fresh, newNow),
-          fresh,
-          split.moved,
-          split.conductor,
-          split.was,
-          this.now(),
-        );
-        return { parties: [split.party, splitSettled(carried)] };
-      });
+      paired = await store.updateBoth(
+        [old.id, id],
+        (oldNow, newNow): PairChange => {
+          // The new train ended meanwhile (its post was deleted): the group stays where it is.
+          if (!newNow) {
+            seen.newGone = true;
+            return {};
+          }
+          if (!oldNow) return {};
+          // The presser is noted before the split, so that their record moves with the name and
+          // team they have now: the carry-over takes the moved records over the new train's.
+          const train = noteMember(asKindOf(old, oldNow), by.id, by);
+          const split = splitOffGroup(train, by.id, staff, group, link, drawn, request.anonymous);
+          if (!split.ok) {
+            seen.refusal = split.reason;
+            return {};
+          }
+          seen.split = split;
+          const carried = carriedSplit(
+            asKindOf(fresh, newNow),
+            fresh,
+            split.moved,
+            split.conductor,
+            split.was,
+            this.now(),
+          );
+          return { parties: [split.party, splitSettled(carried)] };
+        },
+        byMember(by),
+      );
     } catch (err) {
       await this.takeBack(id);
       throw err;

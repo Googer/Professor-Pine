@@ -9,6 +9,12 @@ import type { ChangeNote, PartyListener } from './party-store.js';
 /** How long the log keeps an entry (Matt, 2026-11-07): 30 days. */
 export const AUDIT_KEEP_MS = 30 * 24 * 3_600_000;
 
+/**
+ * At most this many writes wait (the database away): what comes beyond is dropped, as a hard
+ * stop would lose it, rather than held in memory without end.
+ */
+export const AUDIT_QUEUE_CAP = 1_000;
+
 /** The longest name of an actor the log keeps (`PartyAudit.actorName`). */
 const MAX_ACTOR_NAME = 100;
 
@@ -59,6 +65,10 @@ export function auditNamesOf(deps: {
 export class PartyAudit {
   private readonly now: () => number;
   private tail: Promise<void> = Promise.resolve();
+  /** How many writes wait or run. */
+  private waiting = 0;
+  /** Whether the burst under way was warned of already (`queue`). */
+  private dropping = false;
 
   constructor(private readonly options: PartyAuditOptions) {
     this.now = options.now ?? (() => Date.now());
@@ -87,15 +97,18 @@ export class PartyAudit {
         : by.name === undefined
           ? { id: by.id }
           : { id: by.id, name: by.name.slice(0, MAX_ACTOR_NAME) };
-    this.queue(after.id, async () => {
+    // Only what the rows need is kept while the write waits, never the parties themselves.
+    const partyId = after.id;
+    const guildId = after.guildId;
+    this.queue(partyId, async () => {
       const { storage, guilds } = this.options;
-      if (posted !== null) await storage.attachPost(after.id, posted);
+      if (posted !== null) await storage.attachPost(partyId, posted);
       if (entries.length === 0) return;
-      const serverId = await guilds.snowflakeOf(after.guildId);
-      if (serverId === undefined) throw new Error(`no server has the row ${String(after.guildId)}`);
+      const serverId = await guilds.snowflakeOf(guildId);
+      if (serverId === undefined) throw new Error(`no server has the row ${String(guildId)}`);
       const rows: AuditRow[] = entries.map((entry) => ({
         serverId,
-        partyId: after.id,
+        partyId,
         postId,
         at,
         actor,
@@ -105,10 +118,29 @@ export class PartyAudit {
     });
   }
 
+  /**
+   * Puts a write in line, unless `AUDIT_QUEUE_CAP` wait already (the database away for long):
+   * then it is dropped, with one warning per burst (until the line has drained).
+   */
   private queue(partyId: string, work: () => Promise<void>): void {
-    this.tail = this.tail.then(work).catch((err: unknown) => {
-      this.options.log.warn({ err, party: partyId }, 'could not write to the audit log');
-    });
+    const { log } = this.options;
+    if (this.waiting >= AUDIT_QUEUE_CAP) {
+      if (!this.dropping) {
+        this.dropping = true;
+        log.warn({ party: partyId, waiting: this.waiting }, 'the audit log drops entries');
+      }
+      return;
+    }
+    this.waiting += 1;
+    this.tail = this.tail
+      .then(work)
+      .catch((err: unknown) => {
+        log.warn({ err, party: partyId }, 'could not write to the audit log');
+      })
+      .finally(() => {
+        this.waiting -= 1;
+        if (this.waiting === 0) this.dropping = false;
+      });
   }
 
   /** Deletes the entries older than `AUDIT_KEEP_MS` (the hourly upkeep); gives how many. */

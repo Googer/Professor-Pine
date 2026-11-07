@@ -50,7 +50,7 @@ import { doer, standingLine } from '../render/activity.js';
 import { completionQuestion, GROUP_LABEL, groupWords } from '../render/party-controls.js';
 import { LIMITS, memberText, plain, timestamp } from '../render/text.js';
 import type { PartyNotifier } from './notify-service.js';
-import { pingInMessages, settingsOf, storedChange } from './party-change.js';
+import { byMember, pingInMessages, settingsOf, storedChange } from './party-change.js';
 import type { PartyLines } from './party-lines.js';
 import type { PartyStore } from './party-store.js';
 
@@ -537,17 +537,25 @@ export class AttendanceService {
     // A raid or max battle over by the clock is gone for a newcomer, as once the scheduler has
     // ended it; who is signed up goes on until its post is archived (Matt, 2026-11-07).
     const fits = (party: Party): party is Party => !this.refusesNewcomer(party, member.id);
-    const stored = await storedChange<Party, Told>(store, partyId, fits, (party) => {
-      const changed = change(party);
-      if (!changed.ok) return changed;
-      const withdrawn = withdrawQuestions(changed.party);
-      return {
-        ...changed,
-        party: noteMember(withdrawn.party, member.id, member),
-        acted: changed.party !== party,
-        withdrawn: withdrawn.released,
-      };
-    });
+    const stored = await storedChange<Party, Told>(
+      store,
+      partyId,
+      fits,
+      (party) => {
+        const changed = change(party);
+        if (!changed.ok) return changed;
+        const withdrawn = withdrawQuestions(changed.party);
+        return {
+          ...changed,
+          party: noteMember(withdrawn.party, member.id, member),
+          acted: changed.party !== party,
+          withdrawn: withdrawn.released,
+        };
+      },
+      // For the audit log: attendance itself logs nothing, but a conductor who leaves takes the
+      // train's conductor with them.
+      byMember(member),
+    );
     if (stored.kind === 'gone') return { kind: 'gone' };
     if (stored.kind === 'refused') return { kind: 'refused', reason: stored.refusal.reason };
     const { party, extra } = stored;

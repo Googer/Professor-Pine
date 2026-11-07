@@ -4,7 +4,7 @@ import { startMigratedDatabase } from '../../../test/support/migrated-db.js';
 import type { DB } from '../types.js';
 import { partyAudit } from './2026_11_07_045_party_audit.js';
 
-describe('migration 045: the staff audit log of parties', () => {
+describe('migration party_audit: the staff audit log of parties', () => {
   let stop: () => Promise<void>;
   let db: Kysely<DB>;
 
