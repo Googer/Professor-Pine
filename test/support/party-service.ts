@@ -491,7 +491,7 @@ export async function partyServiceWith(
   });
   const lines = new PartyLines({
     gateway,
-    active: (postId) => store.byPost(postId) !== undefined,
+    whileOpen: (postId, work) => service.whileOpenPost(postId, work),
     log,
     delayMs: 3_600_000,
   });

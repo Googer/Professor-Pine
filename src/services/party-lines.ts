@@ -5,8 +5,12 @@ import { Coalescer } from './coalescer.js';
 
 export interface PartyLinesOptions {
   gateway: PartyGateway;
-  /** Whether a post still belongs to an active party; lines for one that does not are dropped. */
-  active: (postId: string) => boolean;
+  /**
+   * Runs the sending of a post's lines only while the post belongs to an active party, and has
+   * the closing of that party wait for it (`PartyService.whileOpenPost`): a message after the
+   * archiving would open the post again. Lines for a post of no active party are dropped.
+   */
+  whileOpen: (postId: string, work: () => Promise<void>) => Promise<unknown>;
   log: Logger;
   /** How long the lines of one post are gathered into one message. Default two seconds. */
   delayMs?: number;
@@ -51,16 +55,17 @@ export class PartyLines {
     const lines = this.waiting.get(postId) ?? [];
     this.waiting.delete(postId);
     // A message into the post of a party that has ended would open an archived post again.
-    if (!this.options.active(postId)) return;
-    let content = '';
-    for (const { text } of lines) {
-      if (content !== '' && content.length + 1 + text.length > LIMITS.content) {
-        await this.options.gateway.sendMessage(postId, { content });
-        content = '';
+    await this.options.whileOpen(postId, async () => {
+      let content = '';
+      for (const { text } of lines) {
+        if (content !== '' && content.length + 1 + text.length > LIMITS.content) {
+          await this.options.gateway.sendMessage(postId, { content });
+          content = '';
+        }
+        content = content === '' ? text : `${content}\n${text}`;
       }
-      content = content === '' ? text : `${content}\n${text}`;
-    }
-    if (content !== '') await this.options.gateway.sendMessage(postId, { content });
+      if (content !== '') await this.options.gateway.sendMessage(postId, { content });
+    });
   }
 
   /** Sends what is waiting. For shutdown and for tests. */

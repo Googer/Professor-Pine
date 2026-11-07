@@ -715,7 +715,7 @@ export async function startApp(
   });
   const lines = new PartyLines({
     gateway: partyGateway,
-    active: (postId) => parties.byPost(postId) !== undefined,
+    whileOpen: (postId, work) => partyService.whileOpenPost(postId, work),
     log,
   });
   const attendance = new AttendanceService({

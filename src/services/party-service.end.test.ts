@@ -1,4 +1,5 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { heldCall } from '../../test/support/held-call.js';
 import { watchEachTest } from '../../test/support/timers.js';
 import { missingPermissions } from '../../test/support/fake-gateway.js';
 import { WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
@@ -14,6 +15,7 @@ import { buttonsOf, header, textOf } from '../../test/support/messages.js';
 const alice: Member = { id: ALICE, name: 'Alice' };
 const bob: Member = { id: BOB, name: 'Bob' };
 const yveltal = { boss: { key: 'yveltal' } } as const;
+type Made = Awaited<ReturnType<typeof reportedRaid>>;
 const background = watchEachTest();
 
 describe('PartyService.end', () => {
@@ -145,6 +147,55 @@ describe('PartyService.end', () => {
     expect(gateway.posts.get(postId)).toMatchObject({ archived: true, reopened: 0 });
     expect(gateway.calls.filter((call) => call.endsWith(` ${postId}`)).at(-1)).toBe(
       `archivePost ${postId}`,
+    );
+  });
+});
+
+describe('PartyService.end while a message of the bot is on its way into the post', () => {
+  /**
+   * Holds the first message into the post whose text has `words` until released; the ending of
+   * the party meanwhile must not archive the post before that message (and what follows it) is
+   * done, or the message would open the archived post again.
+   */
+  async function endsMeanwhile(words: string, send: (made: Made) => Promise<unknown>) {
+    const made = await reportedRaid(yveltal);
+    const held = heldCall(`the message "${words}"`);
+    const original = made.gateway.sendMessage.bind(made.gateway);
+    vi.spyOn(made.gateway, 'sendMessage').mockImplementation(async (channel, message, options) => {
+      if (channel === made.postId && !message.v2 && message.content?.includes(words)) {
+        held.arrive();
+        await held.released;
+      }
+      return original(channel, message, options);
+    });
+    const sending = send(made);
+    await held.reached;
+    const ending = made.service.end(made.party.id);
+    await background.settle();
+    expect(made.store.get(made.party.id)).toBeUndefined();
+    expect(made.gateway.posts.get(made.postId)?.archived).toBe(false);
+    held.release();
+    await sending;
+    expect(await ending).toBe(true);
+    expect(made.gateway.posts.get(made.postId)).toMatchObject({ archived: true, reopened: 0 });
+  }
+
+  it('waits for a line of what happened', async () => {
+    await endsMeanwhile('is coming', async (made) => {
+      await made.attendance.signUp(made.party.id, alice, PartyStatus.Coming);
+      await made.attendance.flush();
+    });
+  });
+
+  it('waits for the word that a moderator keeps the post open', async () => {
+    await endsMeanwhile('keeps this post open', (made) =>
+      made.service.keep(made.party.id, true, alice),
+    );
+  });
+
+  it('waits for a member’s request to delete it', async () => {
+    await endsMeanwhile('asks for this raid to be deleted', (made) =>
+      made.service.requestDeletion(made.party.id, alice, 'Twice', []),
     );
   });
 });

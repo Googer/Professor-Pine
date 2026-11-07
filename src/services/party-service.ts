@@ -2323,10 +2323,12 @@ export class PartyService {
   /** Corrects the word that a raid moved, in the post of the party that stays after all. */
   private async sayItStays(partyId: string, postId: string): Promise<void> {
     try {
-      if (!this.options.store.get(partyId)) return;
-      await this.options.gateway.sendMessage(postId, {
-        content: 'The move did not work: this raid stays here.',
-      });
+      // None into the post of a party that ended meanwhile; an ending waits for it.
+      await this.whileOpen(partyId, () =>
+        this.options.gateway.sendMessage(postId, {
+          content: 'The move did not work: this raid stays here.',
+        }),
+      );
     } catch (err) {
       this.options.log.warn({ err, party: partyId }, 'could not say that a raid stays');
     }
@@ -2877,6 +2879,12 @@ export class PartyService {
     return run;
   }
 
+  /** `whileOpen` for the party whose post this is; undefined, with nothing run, for none. */
+  whileOpenPost<T>(postId: string, work: () => Promise<T>): Promise<T | undefined> {
+    const party = this.options.store.byPost(postId);
+    return party ? this.whileOpen(party.id, work) : Promise.resolve(undefined);
+  }
+
   /** Waits for every message of `whileOpen` on its way into a party's post. Never rejects. */
   private async messagesSent(partyId: string): Promise<void> {
     for (let runs = this.sending.get(partyId); runs; runs = this.sending.get(partyId)) {
@@ -3052,14 +3060,17 @@ export class PartyService {
     if (!result.written) return 'unchanged';
     this.changed(partyId);
     const postId = result.party?.forumPostId ?? null;
-    // A message into the post of a party that has ended would open an archived post again.
-    if (postId !== null && store.get(partyId)) {
+    // A message into the post of a party that has ended would open an archived post again: none
+    // then, and an ending meanwhile waits for it (`whileOpen`).
+    if (postId !== null) {
       try {
-        await gateway.sendMessage(postId, {
-          content: saved
-            ? `${memberText(member)} keeps this post open: it will not be archived by itself.`
-            : `${memberText(member)} no longer keeps this post open: it will be archived as usual.`,
-        });
+        await this.whileOpen(partyId, () =>
+          gateway.sendMessage(postId, {
+            content: saved
+              ? `${memberText(member)} keeps this post open: it will not be archived by itself.`
+              : `${memberText(member)} no longer keeps this post open: it will be archived as usual.`,
+          }),
+        );
       } catch (err) {
         log.warn({ err, party: partyId }, 'could not say that a party is kept');
       }
@@ -3115,12 +3126,15 @@ export class PartyService {
     if (state.asked.has(memberId)) return 'already';
     const roles = state.pinged ? [] : roleIds.slice(0, MAX_ROLE_PINGS);
     const whom = roles.length === 0 ? '' : `${roles.map((id) => `<@&${id}>`).join(' ')}: `;
-    const sent = await this.options.gateway.sendMessage(postId, {
-      content:
-        `${whom}${memberText(member)} asks for this ${partyWord(party)} to be deleted.\n` +
-        `> ${plain(reason)}`,
-      mention: { roles },
-    });
+    // None into the post of a party that ended meanwhile; an ending waits for it (`whileOpen`).
+    const sent = await this.whileOpen(partyId, () =>
+      this.options.gateway.sendMessage(postId, {
+        content:
+          `${whom}${memberText(member)} asks for this ${partyWord(party)} to be deleted.\n` +
+          `> ${plain(reason)}`,
+        mention: { roles },
+      }),
+    );
     if (sent === undefined) return 'gone';
     state.asked.add(memberId);
     if (roles.length > 0) state.pinged = true;

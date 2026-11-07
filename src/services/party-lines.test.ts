@@ -10,7 +10,12 @@ function setup(active: (postId: string) => boolean = () => true) {
   const gateway = new FakePartyGateway();
   const { log, entries } = createTestLogger();
   // Long enough that nothing after the first line goes out before `flush`.
-  const lines = new PartyLines({ gateway, active, log, delayMs: 3_600_000 });
+  const lines = new PartyLines({
+    gateway,
+    whileOpen: (postId, work) => (active(postId) ? work() : Promise.resolve()),
+    log,
+    delayMs: 3_600_000,
+  });
   const said = (postId = POST) =>
     gateway.messagesIn(postId).map((message) => message.message.content);
   return { gateway, lines, entries, said };
