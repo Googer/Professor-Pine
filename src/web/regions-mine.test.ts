@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
 import { EAST_FORUM, WEST_FORUM } from '../../test/support/gyms.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
@@ -128,6 +128,29 @@ describe('GET /api/regions/mine', () => {
         stillOpenBy: ['Metro', 'a role staff gave you'],
       },
     ]);
+  });
+
+  it('lays the bot’s own changes over the cached member, whose age is unknown (W4)', async () => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      const made = await setup([REGION_ROLE.west]);
+      web = made.web;
+      // The cache holds her with West (the directory's look, an interaction of hers).
+      made.gateway.memberFetched(ALICE);
+      // `/iamnot` takes West through the service; nothing brings the cache up to date.
+      const taken = await made.selfRoles.change(FAKE_GUILD_ID, made.server.seen(ALICE), {
+        give: [],
+        take: [REGION_ROLE.west],
+      });
+      expect(taken.kind).toBe('done');
+      // The map asks a minute later, from the cache.
+      vi.setSystemTime(made.clock.now + 60_000);
+      const [west] = (await made.view()).regions;
+      expect(west?.leave).toEqual([]);
+      expect(made.gateway.gateLooks).toEqual([{ memberId: ALICE, fresh: false }]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('keeps a member out only by an overwrite of their own or a role nobody gives themselves (A6)', async () => {

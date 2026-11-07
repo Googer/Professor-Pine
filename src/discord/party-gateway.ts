@@ -193,10 +193,10 @@ export interface MemberGates {
   /** The ids of the roles they hold, without the role every member has. */
   held: string[];
   /**
-   * When the member was looked at (`Date.now()`): with `fresh`, when Discord answered, which is
-   * what `held` is of; without, when the cache was read, which holds the member as the last
-   * forced fetch or interaction left them (as `RoleMember.seenAt` takes it, that look is as good
-   * as an interaction made then: the bot keeps its own changes since in `heldNow`).
+   * When the member was looked at: with `fresh`, when Discord answered (`Date.now()`), which is
+   * what `held` is of; without, 0: the cache holds the member as the last forced fetch or
+   * interaction left them, at a time nobody knows, so that `heldNow` (as `RoleMember.seenAt`
+   * takes it) lays over it every change of the bot's own it still remembers (W4).
    */
   fetchedAt: number;
   /** By gate; a gate that is gone (or neither a forum nor a text channel) is left out. */
@@ -2117,7 +2117,9 @@ export class DiscordPartyGateway implements PartyGateway {
     if (!guild) return undefined;
     const member = await fetchGuildMember(guild, memberId, fresh);
     if (!member) return undefined;
-    const fetchedAt = Date.now();
+    // From the cache the look's age is unknown (W4): 0, so that `heldNow` lays every change the
+    // bot still remembers over it.
+    const fetchedAt = fresh ? Date.now() : 0;
     const gates = new Map<string, GateChannel>();
     for (const gateId of new Set(gateIds)) {
       const gate = await this.gate(gateId, true);

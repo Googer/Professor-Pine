@@ -1806,7 +1806,8 @@ export class FakePartyGateway implements PartyGateway {
         const gates = [...new Set(gateIds)].filter((id) => this.isGate(id));
         return {
           held,
-          fetchedAt: Date.now(),
+          // As the real gateway: a look at the cache is of unknown age (W4).
+          fetchedAt: fresh ? Date.now() : 0,
           access: new Map(gates.map((id) => [id, this.accessNow(id, memberId, held)])),
           seesWith: (gateId: string, roleIds: ReadonlySet<string>) =>
             gates.includes(gateId) && this.seesHolding(gateId, memberId, [...roleIds]),
