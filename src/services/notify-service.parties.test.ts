@@ -352,6 +352,25 @@ describe('NotifyService: a raid moves to another gym', () => {
     ]);
   });
 
+  it('sends one message to an attendee who also targets the new gym or wants the raid there', async () => {
+    const made = await raid();
+    await made.gymTargets.add(CAROL, made.gateway.guildId, 2);
+    await made.gymTargets.add(BOB, made.gateway.guildId, 8);
+    await made.raids.setGym(made.party.id, member(ALICE, 'Alice'), 2);
+    await made.notify.flush();
+    expect(made.dms.to(CAROL)).toHaveLength(1);
+    expect(told(made, CAROL)[0]?.[0]).toMatch(/^The raid you signed up for has moved/);
+    // Nor later, for the reason the move told them already.
+    const outcome = await made.raids.setGym(made.party.id, member(ALICE, 'Alice'), 8);
+    if (outcome.kind !== 'ok') throw new Error(outcome.kind);
+    await made.notify.flush();
+    expect(made.dms.to(BOB)).toHaveLength(2);
+    expect(told(made, BOB).map((lines) => lines[0])).toEqual([
+      expect.stringMatching(/^The raid you signed up for has moved/),
+      expect.stringMatching(/^The raid you signed up for has moved/),
+    ]);
+  });
+
   it('tells nobody of a change that keeps the gym', async () => {
     const made = await raid();
     await made.raids.setGym(made.party.id, member(ALICE, 'Alice'), 1);

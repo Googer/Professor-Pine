@@ -373,6 +373,11 @@ interface Announcement {
   /** The member who caused it, who is not told. */
   actorId: string | null;
   /**
+   * Members told of it by a message of their own (a raid's move, `tellMoved`): as the actor, not
+   * told, and their reasons count as told.
+   */
+  toldApart?: ReadonlySet<string>;
+  /**
    * Set for news that has no reason of the member's own and no opt-out (a meeting time): every
    * candidate is told, whatever was told before, and nothing is remembered. Nobody is asked
    * about either: the candidates are signed up for the party, so they could see it a moment
@@ -670,9 +675,10 @@ export class NotifyService implements PartyNotifier {
 
   raidChanged(before: RaidParty, after: RaidParty, actorId: string | null): void {
     this.safely('a changed raid', () => {
-      // Who is in it hears that it moved within its region (`/location`, the map's move): part of
-      // the raid they are in, so also where the server's notifications are off.
-      if (before.gymId !== after.gymId) this.tellMoved(before, after, actorId);
+      // Who is in it hears that it moved within its region (`/location`): part of the raid they
+      // are in, so also where the server's notifications are off. That is their one message of
+      // the move: the news below leaves them out (one DM per member and event).
+      const reached = before.gymId === after.gymId ? [] : this.tellMoved(before, after, actorId);
       if (!this.enabled) return;
       const was = before.raid.boss;
       const is = after.raid.boss;
@@ -690,7 +696,13 @@ export class NotifyService implements PartyNotifier {
       const corrected = bossSet && was !== null;
       // A change of both at once is told as the other gym it also is.
       if (gym) {
-        this.announceRaid(after, 'gym', actorId, { wants: boss, gym: true, bossSet, corrected });
+        this.announceRaid(
+          after,
+          'gym',
+          actorId,
+          { wants: boss, gym: true, bossSet, corrected },
+          reached,
+        );
       } else if (boss) {
         this.announceRaid(after, 'boss', actorId, { wants: true, gym: false, bossSet, corrected });
       }
@@ -715,17 +727,19 @@ export class NotifyService implements PartyNotifier {
 
   raidMoved(from: RaidParty, to: RaidParty, actorId: string | null): void {
     this.safely('a moved raid', () => {
-      // Who is in it hears that it moved to another region, as within one (`tellMoved`).
-      this.tellMoved(from, to, actorId);
+      // Who is in it hears that it moved to another region, as within one (`tellMoved`), and
+      // that is their one message of the move.
+      const reached = this.tellMoved(from, to, actorId);
       if (!this.enabled) return;
       // In another region other members can see it: the wants are asked again, and whoever was
       // told already is not told a second time.
-      this.announceRaid(to, 'gym', actorId, {
-        wants: true,
-        gym: true,
-        bossSet: false,
-        corrected: false,
-      });
+      this.announceRaid(
+        to,
+        'gym',
+        actorId,
+        { wants: true, gym: true, bossSet: false, corrected: false },
+        reached,
+      );
     });
   }
 
@@ -1587,14 +1601,14 @@ export class NotifyService implements PartyNotifier {
    * their Map links and the region it went to where that changed, with the button to its post
    * (the new one after a move to another region). Nothing for a change that keeps the gym.
    */
-  private tellMoved(from: RaidParty, to: RaidParty, actorId: string | null): void {
+  private tellMoved(from: RaidParty, to: RaidParty, actorId: string | null): string[] {
     const { forumChannelId, forumPostId } = to;
-    if (forumChannelId === null || forumPostId === null || from.gymId === to.gymId) return;
+    if (forumChannelId === null || forumPostId === null || from.gymId === to.gymId) return [];
     const others = membersWhere(
       to,
       (attendee, id) => id !== actorId && attendee.status !== PartyStatus.Complete,
     );
-    if (others.length === 0) return;
+    if (others.length === 0) return [];
     const { gyms, regions, posts } = this.options;
     const gymOf = (id: number | null): MovedGym => {
       const gym = id === null ? undefined : gyms.get(id);
@@ -1633,6 +1647,7 @@ export class NotifyService implements PartyNotifier {
       },
       priority: () => DM_PRIORITY.urgent,
     });
+    return others;
   }
 
   /** A max battle's spot by name as its post shows it now (`spotOf`), for every DM. */
@@ -1682,6 +1697,11 @@ export class NotifyService implements PartyNotifier {
       /** That boss took the place of another one. */
       corrected: boolean;
     },
+    /**
+     * Members told of this event by a message of their own (a move's, `tellMoved`): not told
+     * again, and its reasons count as told for them, as for the actor.
+     */
+    toldApart: readonly string[] = [],
   ): void {
     const { forumChannelId, forumPostId, gymId } = party;
     // A raid is announced only once it has its post: the message links to it.
@@ -1698,6 +1718,7 @@ export class NotifyService implements PartyNotifier {
       guild: party.guildId,
       channelId: forumChannelId,
       actorId,
+      ...(toldApart.length === 0 ? {} : { toldApart: new Set(toldApart) }),
       eventAt,
       expiresAt: party.endTime ?? party.lastPossibleTime ?? eventAt + RAID_NEWS_MS,
       gather: async (guildId) => {
@@ -1958,9 +1979,11 @@ export class NotifyService implements PartyNotifier {
           }
           const reasons = this.unsaid(event.partyId, id, reasonsOf(id));
           if (reasons.length === 0) continue;
-          // Whoever caused it knows: not told, now or for these reasons later.
-          if (id === event.actorId) this.remember(event.partyId, id, reasons);
-          else firing.set(id, reasons);
+          // Whoever caused it knows, and so does who was told apart: not told, now or for these
+          // reasons later.
+          if (id === event.actorId || event.toldApart?.has(id) === true) {
+            this.remember(event.partyId, id, reasons);
+          } else firing.set(id, reasons);
         }
         if (firing.size > 0) {
           let seeing: ReadonlySet<string> | undefined;
