@@ -498,6 +498,18 @@ export function matchBoss(
 }
 
 /**
+ * Whether a name has every word of the form part of these ids (`PIKACHU_COSPLAY`: `cosplay`,
+ * the species' prefix left out), as `Pikachu (Cosplay Forme)` has.
+ */
+function namesFormPart(name: string, ids: Ids): boolean {
+  const prefix = `${ids.pokemonId}_`;
+  if (ids.form === null || !ids.form.startsWith(prefix)) return false;
+  const words = searchTokens(ids.form.slice(prefix.length).replaceAll('_', ' '));
+  const own = new Set(searchTokens(name));
+  return words.length > 0 && words.every((word) => own.has(word));
+}
+
+/**
  * The ids of a boss that is not placed, made of its name (with `_UNMATCHED` behind them if a
  * catalogue entry has that id); undefined when the name has no letter to make an id of.
  */
@@ -566,8 +578,8 @@ export function howIdentified(
  * plain species, the name's when it decided); for a boss that is not placed, the picture's ids when
  * the catalogue has its species and lacks its form (so the same feed entry has the same ids once
  * the game master knows the form), otherwise an id made of the name. Two such bosses of one tier
- * whose names differ but whose pictures give the same ids are kept apart, each under an id made
- * of its name.
+ * whose names differ but whose pictures give the same ids are kept apart: the one the picture's
+ * form part names keeps its ids, the others get ids made of their names.
  *
  * `Shadow ` in front of a name makes the boss a shadow boss, unless the Shadow belongs to the
  * name (`Shadow Rider Calyrex`: the whole name is one the lookup finds, or the picture's form part
@@ -623,8 +635,10 @@ export function parseRaidBossFeed(raw: unknown, lookup: FeedLookup): ParsedFeed 
     }
     found.push({ entry, name, tier, ids });
   }
-  // An unresolved boss keeps its picture's ids only while no other name of its tier shares them:
-  // two bosses that share a picture of an unknown form are two, each under an id made of its name.
+  // Two bosses that share a picture of an unknown form are two (an unresolved boss has its
+  // picture's ids). Of the names of a tier under one such picture, the one the picture's form part
+  // names keeps the picture's ids, so that its id stays when another joins or leaves the feed; the
+  // others, or all of them when the form part names none or several, get ids made of their names.
   const keyOf = (ids: Ids, tier: RaidTier) =>
     `${ids.pokemonId}|${ids.form ?? ''}|${tier.level}|${String(tier.shadow)}`;
   const namesOf = new Map<string, Set<string>>();
@@ -633,8 +647,17 @@ export function parseRaidBossFeed(raw: unknown, lookup: FeedLookup): ParsedFeed 
     const key = keyOf(ids, tier);
     namesOf.set(key, (namesOf.get(key) ?? new Set()).add(name));
   }
+  const keeps = (ids: BossIdentity, name: string, names: ReadonlySet<string>): boolean => {
+    const named = [...names].filter((each) => namesFormPart(each, ids));
+    return named.length === 1 && named[0] === name;
+  };
   for (const { entry, name, tier, ids: given } of found) {
-    const shared = given.resolved === undefined && (namesOf.get(keyOf(given, tier))?.size ?? 0) > 1;
+    const names = namesOf.get(keyOf(given, tier));
+    const shared =
+      given.resolved === undefined &&
+      names !== undefined &&
+      names.size > 1 &&
+      !keeps(given, name, names);
     const ids = shared ? (nameIdentity(name, lookup) ?? given) : given;
     const identity = keyOf(ids, tier);
     const image = imageAddress.safeParse(entry.image);

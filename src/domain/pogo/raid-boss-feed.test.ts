@@ -401,14 +401,40 @@ describe('parseRaidBossFeed: costumes and new forms', () => {
       raid('Pikachu Libre', '3-Star Raids', cosplay),
       raid('Pikachu Libre', '3-Star Raids', cosplay, { canBeShiny: true }),
     ];
+    // The name the picture's form part matches keeps the picture's ids; the other is named.
     expect(
       parse(entries).bosses.map((b) => [b.pokemonId, b.form, b.name, b.shiny, b.image]),
     ).toEqual([
-      ['PIKACHU_COSPLAY_FORME', null, 'Pikachu (Cosplay Forme)', false, `${ICONS}${cosplay}`],
+      ['PIKACHU', 'PIKACHU_COSPLAY', 'Pikachu (Cosplay Forme)', false, `${ICONS}${cosplay}`],
       ['PIKACHU_LIBRE', null, 'Pikachu Libre', true, `${ICONS}${cosplay}`],
     ]);
     // One name under that picture keeps the picture's ids, listed once however often.
     expect(summary([entries[1], entries[2]])).toEqual(['T3 PIKACHU/PIKACHU_COSPLAY']);
+  });
+
+  it('keeps the ids of the boss the picture names when another joins or leaves the feed', () => {
+    const cosplay = 'pm25.fCOSPLAY.icon.png';
+    const named = raid('Pikachu (Cosplay Forme)', '3-Star Raids', cosplay);
+    const other = raid('Pikachu Libre', '3-Star Raids', cosplay);
+    expect(summary([named])).toEqual(['T3 PIKACHU/PIKACHU_COSPLAY']);
+    expect(summary([other, named])).toEqual(['T3 PIKACHU_LIBRE/-', 'T3 PIKACHU/PIKACHU_COSPLAY']);
+    expect(summary([named])).toEqual(['T3 PIKACHU/PIKACHU_COSPLAY']);
+  });
+
+  it('names every one of them when the picture names none of them, or several', () => {
+    const cosplay = 'pm25.fCOSPLAY.icon.png';
+    expect(
+      summary([
+        raid('Pikachu Libre', '3-Star Raids', cosplay),
+        raid('Pikachu Rock Star', '3-Star Raids', cosplay),
+      ]),
+    ).toEqual(['T3 PIKACHU_LIBRE/-', 'T3 PIKACHU_ROCK_STAR/-']);
+    expect(
+      summary([
+        raid('Pikachu (Cosplay)', '3-Star Raids', cosplay),
+        raid('Cosplay Pikachu Libre', '3-Star Raids', cosplay),
+      ]),
+    ).toEqual(['T3 PIKACHU_COSPLAY/-', 'T3 COSPLAY_PIKACHU_LIBRE/-']);
   });
 
   it('resolves a form the game master knows to its own entry', () => {
