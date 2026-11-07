@@ -57,6 +57,13 @@ export interface PartySchedulerOptions {
    */
   activity?: { addNew(options: { isStopped: () => boolean }): Promise<unknown> };
   /**
+   * The legacy fill-ins members asked for (plan 8H-10, `LegacyFillInService`): the upkeep starts
+   * a run for what is left waiting (at start: what a restart found queued; hourly: a server index
+   * that was being swapped, a claim of a run cut short) and does not wait for it: the fill-ins
+   * have their own stop, which the shutdown waits for briefly.
+   */
+  legacyFillIns?: { kick(): void };
+  /**
    * The routes of the trains, swept with the forums: stops whose gym the gym list no longer
    * knows are taken off (`TrainService.removeUnknownStops`).
    */
@@ -313,7 +320,7 @@ export class PartyScheduler {
   private upkeep(): void {
     const { posts, access, routes, spawns, pictures, screenshots, emoji, webSessions, log } =
       this.options;
-    const { history, activity, splits, stops, grunts, eventForum } = this.options;
+    const { history, activity, splits, stops, grunts, eventForum, legacyFillIns } = this.options;
     this.lastUpkeep = this.now();
     // Each by itself: one that fails does not keep the others from running. Once the clock has
     // stopped none starts: the shutdown waits for the upkeep (review r1 C3).
@@ -345,6 +352,13 @@ export class PartyScheduler {
       if (history) await step(() => history.sweep({ isStopped: () => this.stopped }));
       // After the sweep, whose records it adds too; batch by batch, it ends with the clock's stop.
       if (activity) await step(() => activity.addNew({ isStopped: () => this.stopped }));
+      // Started, not waited for (plan 8H-10): a queue of fill-ins may take minutes.
+      if (legacyFillIns) {
+        await step(() => {
+          legacyFillIns.kick();
+          return Promise.resolve();
+        });
+      }
       // Last, after the days have the history's new records: "On this day" waits for them
       // (plan 8H-8, A1).
       if (eventForum) await step(() => eventForum.upkeep());

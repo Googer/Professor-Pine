@@ -1062,6 +1062,39 @@ describe('PartyScheduler: running', () => {
     await scheduler.stop();
     expect(stopped?.()).toBe(true);
   });
+
+  it('starts the legacy fill-ins left waiting with the upkeep, without waiting for them (plan 8H-10)', async () => {
+    const made = await reportedRaid();
+    const order: string[] = [];
+    const { PartyScheduler } = await import('./party-scheduler.js');
+    const scheduler = new PartyScheduler({
+      store: made.store,
+      posts: made.service,
+      attendance: made.attendance,
+      activity: {
+        addNew: () => {
+          order.push('activity');
+          return Promise.resolve(0);
+        },
+      },
+      legacyFillIns: {
+        kick: () => {
+          order.push('fill-ins');
+        },
+      },
+      lines: made.lines,
+      gateway: made.gateway,
+      raidBosses: { autoset: () => undefined },
+      settings: made.settings,
+      log: made.log,
+      now: () => made.clock.now,
+      upkeepMs: 0,
+    });
+    await scheduler.tick();
+    await scheduler.whenIdle();
+    expect(order).toEqual(['activity', 'fill-ins']);
+    await scheduler.stop();
+  });
 });
 
 /** A second raid that has ended and whose post a late message opened again; gives the post. */

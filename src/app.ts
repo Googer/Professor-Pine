@@ -117,6 +117,8 @@ import { NotifyService } from './services/notify-service.js';
 import { ReachRecords } from './services/reach.js';
 import { WantCountService } from './services/want-counts.js';
 import { WantCountRepository } from './db/repositories/want-count-repository.js';
+import { LegacyFillInRepository } from './db/repositories/legacy-fill-in-repository.js';
+import { LegacyFillInService } from './services/legacy-fill-in.js';
 import { OcrAssets } from './services/ocr-assets.js';
 import { OcrService } from './services/ocr-service.js';
 import { ScreenshotService } from './services/screenshot-service.js';
@@ -569,6 +571,17 @@ export async function startApp(
     zone: config.settings.timezone,
     log,
   });
+  // The legacy fill-ins members ask for in /settings (plan 8H-10): only where the installation
+  // has the member index (LEGACY_INDEX_DIR, written by the history import); run one at a time in
+  // the background, started by the clock's upkeep and by a press.
+  const legacyFillInStore = new LegacyFillInRepository(db);
+  const legacyIndexDir = config.env.LEGACY_INDEX_DIR;
+  const legacyFillIns =
+    legacyIndexDir === undefined
+      ? undefined
+      : new LegacyFillInService({ storage: legacyFillInStore, indexDir: legacyIndexDir, log });
+  // Said once at start where the bot's user may not read the index (B2): nobody is offered it.
+  void legacyFillIns?.checkReadable();
   // The posts of the stops, for the links of research DMs: set once they are made below.
   const researchPostLinks: { posts?: StopPostService | undefined } = {};
   // Made after the party service, whose briefs of parties it sends, and told by it from here on.
@@ -917,6 +930,7 @@ export async function startApp(
     webSessions,
     // The events forum, drawn hourly (plan 8V-1).
     ...(eventForum ? { eventForum } : {}),
+    ...(legacyFillIns ? { legacyFillIns } : {}),
     splits: partyService,
     lines,
     gateway: partyGateway,
@@ -1629,6 +1643,7 @@ export async function startApp(
           // The events forum first (BR-2): the clock's upkeep then draws nothing of it.
           eventForum?.stop();
           wantCounts.stop();
+          legacyFillIns?.stop();
           await scheduler.stop();
         },
       },
@@ -1749,7 +1764,15 @@ export async function startApp(
       { name: 'unown wants', timeoutMs: 4_000, run: () => unownWants.flush() },
       // A day's count under way writes its server's day, or none of it, before the pool closes
       // (review P3); one cut short is counted again at the next start.
-      { name: 'want counts', timeoutMs: 1_000, run: () => wantCounts.idle() },
+      // A legacy fill-in's batch under way (plan 8H-10) shares that second: one cut short is
+      // rolled back whole and done again by the next start.
+      {
+        name: 'want counts and fill-ins',
+        timeoutMs: 1_000,
+        run: async () => {
+          await Promise.all([wantCounts.idle(), legacyFillIns?.idle()]);
+        },
+      },
       // A write in flight must finish before the pool closes.
       { name: 'parties', timeoutMs: 5_000, run: () => parties.whenIdle() },
       // A record of the party history that waits for another try gets it now, while the
