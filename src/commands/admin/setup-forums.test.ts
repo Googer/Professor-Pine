@@ -531,6 +531,17 @@ describe('/admin setup-forums', () => {
     expect(sent(again.editReply).content).not.toContain('removed');
   });
 
+  // Its help says what a run changes in a forum that is there (follow-ups, 8R-9).
+  it('has a help that names what it changes in a forum that is there', () => {
+    const details = admin.subcommands.get('setup-forums')?.help?.details;
+    expect(typeof details).toBe('string');
+    const text = typeof details === 'string' ? details : '';
+    expect(text).toMatch(/removes the EX tag/);
+    expect(text).toMatch(/closes the forum to posts by members/);
+    expect(text).toMatch(/pinned again/);
+    expect(text).not.toMatch(/Nothing else/);
+  });
+
   // Final review, G2: Discord allows a forum 20 tags; the server's own count too.
   it('says which tags a forum has no room for, after taking off the retired ones', async () => {
     const { run, gateway } = await setup();

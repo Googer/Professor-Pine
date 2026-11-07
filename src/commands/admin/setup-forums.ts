@@ -234,15 +234,17 @@ export const setupForums: SubcommandPart = {
     details:
       'For each region of this server: creates the forum for its raids, max battles, trains ' +
       "and meetups next to the region's channel if it has none, named after the channel with " +
-      '`-board` at the end (its forum with another one-word ending is renamed).\n\nIt adds the tags that are ' +
-      'missing, and posts and pins the board ("Today and coming up", with "Today’s Stops" below ' +
-      'it). Members can use commands in the board; what they write there is deleted (I need Manage ' +
-      'Messages in the forum).\n\nA board that stands is pinned again, and one locked before ' +
-      'members could use it is opened once; a lock a moderator sets later stays. Nothing else ' +
-      'that is already there changes, so it is safe to run again. A forum whose region is gone ' +
-      'is named and left alone.\n\nWhere my settings name an events forum, it is made too, in ' +
-      'the category of bot-updates, where only I can make posts, and its listing "Events" is ' +
-      'posted, pinned and locked.',
+      '`-board` at the end.\n\nIn a forum that is there, it renames one whose name has another ' +
+      'one-word ending, adds the tags that are missing and removes the EX tag, which I no longer ' +
+      'use. It closes the forum to posts by members: only I make posts there, and members write ' +
+      'in them.\n\nIt posts and pins the board ("Today and coming up", with "Today’s Stops" ' +
+      'below it). Members can use commands in the board; what they write there is deleted (I ' +
+      'need Manage Messages in the forum).\n\nRun it again whenever you like: it changes only ' +
+      'what is missing or out of date. A board that stands is pinned again, and one locked ' +
+      'before members could use it is opened once; a lock a moderator sets later stays. A forum whose ' +
+      'region is gone is named and left alone.\n\nWhere my settings name an events forum, it is ' +
+      'made too, in the category of bot-updates, where only I can make posts, and its listing ' +
+      '"Events" is posted, pinned and locked.',
     examples: ['/admin setup-forums'],
   },
   defer: 'ephemeral',
