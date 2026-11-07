@@ -1002,7 +1002,9 @@ describe('matchGyms as a whole', () => {
         imageUrl: null,
       };
     });
-    const covered = cellsOf([...city, ...wayspots]);
+    // The cells around every gym, which are all the plan asks about (the cells of the 30,000
+    // Wayspots as well plan the same, and took most of the time of this test).
+    const covered = cellsOf(city);
     const result = matchGyms({
       gyms: city,
       wayspots,
