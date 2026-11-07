@@ -95,8 +95,8 @@ function legacyAsked(state: Exclude<FillInState, { state: 'failed' }>): string {
 /** What turning the history off took the member's name off, where it did. */
 export function forgottenIn(records: number): string {
   return records === 1
-    ? ' I took your Discord id off the one record; it still counts.'
-    : ` I took your Discord id off ${String(records)} records; they still count.`;
+    ? ' I took your Discord id off the one entry of your history; it still counts in the server’s numbers.'
+    : ` I took your Discord id off ${String(records)} entries of your history; they still count in the server’s numbers.`;
 }
 
 /** Added where turning the history off took the member off the boards too. */
@@ -218,11 +218,11 @@ async function setHistory(
   );
 }
 
-/** The records a question names: `3 records (they still count)`, `the one record (…)`. */
+/** The records a question names: `3 entries of your history (they still count …)`. */
 function recordsWords(records: number): string {
   return records === 1
-    ? 'the one record (it still counts)'
-    : `${String(records)} records (they still count)`;
+    ? 'the one entry of your history (it still counts in the server’s numbers)'
+    : `${String(records)} entries of your history (they still count in the server’s numbers)`;
 }
 
 /** The question before the history goes off: what it takes away, and what Submit does. */

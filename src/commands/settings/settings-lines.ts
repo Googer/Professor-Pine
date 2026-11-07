@@ -197,6 +197,10 @@ const LEGACY_LABEL = 'Old-bot history';
 
 const counted = (value: number): string => value.toLocaleString('en-US');
 
+/** How many of the old bot's raids, trains and meetups: `1 raid, train or meetup`. */
+const oldBotParties = (filled: number): string =>
+  `${counted(filled)} ${filled === 1 ? 'raid, train or meetup' : 'raids, trains and meetups'}`;
+
 /** Staff's words of the old bot's history: neutral, with why it failed. */
 function legacyText(legacy: LegacyLine): string {
   switch (legacy.state) {
@@ -205,7 +209,7 @@ function legacyText(legacy: LegacyLine): string {
     case 'queued':
       return `${LEGACY_LABEL}: **being added**`;
     case 'done':
-      return `${LEGACY_LABEL}: **added** (on ${counted(legacy.filled)} ${legacy.filled === 1 ? 'party' : 'parties'})`;
+      return `${LEGACY_LABEL}: **added** (${oldBotParties(legacy.filled)})`;
     case 'failed':
       return `${LEGACY_LABEL}: **could not be added** (${plain(legacy.failure)})`;
   }
@@ -220,8 +224,8 @@ export function legacyWords(legacy: LegacyLine): string {
       return 'Your old-bot history is being added.';
     case 'done':
       return legacy.filled === 0
-        ? 'None of your old-bot parties could be added: this bot holds them otherwise.'
-        : `Your Discord id is now on ${counted(legacy.filled)} ${legacy.filled === 1 ? 'party' : 'parties'} of the old bot.`;
+        ? 'None of your old-bot raids, trains or meetups could be added to your history.'
+        : `Your old-bot history is added: ${oldBotParties(legacy.filled)}.`;
     case 'failed':
       // With "Try again" beside it (A1: the member retries), where it can be asked again.
       return legacy.retry
