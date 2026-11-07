@@ -8,9 +8,38 @@ import type { PageNode } from './popup.js';
  * along (R12, R13). What the server computed is shown; nothing is decided here.
  */
 
-/** The line of the box that says what the outlines mean, where some region is not seen (R10). */
-export const REGIONS_LEGEND =
-  'Solid: a region you see on Discord. Dashed and grayed: one only the map shows you. Grayed more: one whose raids the map does not show you either.';
+/**
+ * The legend of the box, where some region is not seen (R10): the words beside a swatch drawn as
+ * each kind of outline looks (Matt, 2026-11-07: a picture reads better than a sentence).
+ */
+export const REGIONS_LEGEND = [
+  'On Discord',
+  'Map only',
+  'Not on Discord or kept out: its raids are not shown',
+] as const;
+
+/** The swatches of the legend, in its order (`map.css`, `.swatch-*`). */
+const LEGEND_SWATCHES = ['swatch-visible', 'swatch-map-only', 'swatch-hidden'] as const;
+
+/** The legend: a list of swatches with their words, shown or hidden in place. */
+function legendNode(shown: boolean): PageNode {
+  return {
+    tag: 'ul',
+    className: 'regions-legend',
+    attributes: { 'data-regions-legend': '', ...(shown ? {} : { hidden: '' }) },
+    children: REGIONS_LEGEND.map((words, i) => ({
+      tag: 'li',
+      children: [
+        {
+          tag: 'span',
+          className: `swatch ${LEGEND_SWATCHES[i] ?? 'swatch-hidden'}`,
+          attributes: { 'aria-hidden': 'true' },
+        },
+        { tag: 'span', text: words },
+      ],
+    })),
+  };
+}
 
 /** Said in the box while the Region outlines layer is off (B8): a row's mark cannot show. */
 export const OUTLINES_OFF = 'The Region outlines layer is off, so the map shows no outlines.';
@@ -288,7 +317,7 @@ export function regionsBox(
           },
         ],
       },
-      line('data-regions-legend', REGIONS_LEGEND, legendWanted(rows)),
+      legendNode(legendWanted(rows)),
       line('data-regions-outlines-off', OUTLINES_OFF, !options.outlinesShown),
       // Where a press draws the rows anew (B2).
       { tag: 'div', attributes: { 'data-regions-rows': '' }, children: [regionsList(rows)] },

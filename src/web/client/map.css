@@ -1090,6 +1090,72 @@ body.editing-regions #map {
   margin: 0;
 }
 
+/*
+ * The legend of "Your regions" (Matt, 2026-11-07): a swatch drawn as each kind of outline looks
+ * (`outlineStyle`, `regions.ts`): the region color at 0.18 with a solid line; the gray at 0.3 with
+ * dashes; the gray at 0.45 with fainter dashes.
+ */
+.regions-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 13px;
+}
+
+.regions-legend li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.regions-legend .swatch {
+  position: relative;
+  flex: none;
+  width: 22px;
+  height: 14px;
+}
+
+/* The fill and the line drawn apart, each with the outline's opacity. */
+.regions-legend .swatch::before,
+.regions-legend .swatch::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 3px;
+}
+
+.regions-legend .swatch::after {
+  border: 2px solid var(--region);
+}
+
+.regions-legend .swatch-visible::before {
+  background: var(--region);
+  opacity: 0.18;
+}
+
+.regions-legend .swatch-map-only::before {
+  background: var(--region-veil);
+  opacity: 0.3;
+}
+
+.regions-legend .swatch-map-only::after {
+  border-style: dashed;
+  opacity: 0.7;
+}
+
+.regions-legend .swatch-hidden::before {
+  background: var(--region-veil);
+  opacity: 0.45;
+}
+
+.regions-legend .swatch-hidden::after {
+  border-style: dashed;
+  opacity: 0.4;
+}
+
 .regions-list {
   display: flex;
   flex-direction: column;

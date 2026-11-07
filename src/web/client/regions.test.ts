@@ -285,10 +285,36 @@ describe('the box of "Your regions"', () => {
       outlinesShown: true,
     });
     expect(shows(hidden, 'data-regions-legend')).toBe(true);
-    expect(textOf(hidden)).toContain(REGIONS_LEGEND);
-    expect(REGIONS_LEGEND).toBe(
-      'Solid: a region you see on Discord. Dashed and grayed: one only the map shows you. Grayed more: one whose raids the map does not show you either.',
-    );
+  });
+
+  it('draws the legend as the outlines look, a swatch beside the words of each (Matt, 2026-11-07)', () => {
+    const box = regionsBox(regionRows(viewOf([row(1, { access: 'hidden' })]), NAMES), {
+      outlinesShown: true,
+    });
+    const legend: Array<{ tag?: string; className?: string; children?: unknown[] }> = [];
+    const walk = (node: {
+      attributes?: Record<string, string>;
+      children?: unknown[];
+      tag?: string;
+    }): void => {
+      if (node.attributes?.['data-regions-legend'] !== undefined) legend.push(node);
+      for (const child of node.children ?? []) walk(child as never);
+    };
+    walk(box);
+    const list = legend[0];
+    expect(list?.tag).toBe('ul');
+    const items = (list?.children ?? []) as Array<{ children?: Array<{ className?: string }> }>;
+    expect(items.map((item) => item.children?.[0]?.className)).toEqual([
+      'swatch swatch-visible',
+      'swatch swatch-map-only',
+      'swatch swatch-hidden',
+    ]);
+    expect(REGIONS_LEGEND).toEqual([
+      'On Discord',
+      'Map only',
+      'Not on Discord or kept out: its raids are not shown',
+    ]);
+    for (const words of REGIONS_LEGEND) expect(textOf(box)).toContain(words);
   });
 
   it('says when the outlines layer is off, and holds a line for the answers that stays (B2, B8)', () => {
