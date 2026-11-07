@@ -107,21 +107,48 @@ make_index_dir() {
 }
 
 # Before a command that starts the bot or writes the index: a folder. Its files take the modes of
-# the legacy parties folder (no more readable than that), so others' rights are not required; the
-# root or a server's folder that the bot's user (uid 1000, the image's node) may not read is
-# warned of, not refused (B2): on Docker Desktop and OrbStack a bind mount's owner is not what the
-# bot sees.
+# the legacy parties folder (no more readable than that), so others' rights are not required.
+# Whether the bot's user (the image's node) may read it is warned of, not refused (B2). The host's
+# modes only hint at it: on Docker Desktop and OrbStack a bind mount's owner is not what the bot
+# sees. So where they hint at a folder it may not read, the bot's own image, user and mount decide.
 check_index_dir() {
   index_dir_of
   [ -n "$index_dir" ] || return 0
   [ -d "$index_dir" ] ||
     fail "LEGACY_INDEX_DIR in $PINE_ENV_FILE names $index_dir, which is no folder: name a folder, or leave LEGACY_INDEX_DIR blank."
   # The root as well as each server's folder; a find that fails (a folder this user may not
-  # read either) is warned of, not a silent exit.
-  unreadable=$(find "$index_dir" -mindepth 0 -maxdepth 1 -type d ! -name '.*' ! -uid 1000 ! -perm -o=rx 2>/dev/null) ||
-    unreadable=$index_dir
-  [ -z "$unreadable" ] ||
-    printf 'pine: the bot (user 1000 in its container) may not read the member index in %s: let others read its folders (chmod -R o+rX), or members are offered no old-bot history.\n' "$index_dir" >&2
+  # read either) counts as a hint, not a silent exit under set -e.
+  hinted=$(find "$index_dir" -mindepth 0 -maxdepth 1 -type d ! -name '.*' ! -uid 1000 ! -perm -o=rx 2>/dev/null) ||
+    hinted=$index_dir
+  [ -n "$hinted" ] || return 0
+  index_readable_in_container && return 0
+  case $? in
+    1) printf 'pine: the bot (user node in its container) may not read the member index in %s: let others read it (chmod -R o+rX), or members are offered no old-bot history.\n' "$index_dir" >&2 ;;
+    *) printf 'pine: the bot (user node in its container) may not be able to read the member index in %s; it says so in its log at start if it cannot (./pine logs pine).\n' "$index_dir" >&2 ;;
+  esac
+}
+
+# Reads every folder and file of the member index (dot-named ones aside: a swap's leftovers) as
+# the bot does: its image, its user and its read-only mount. 0 readable, 1 not, 2 not checked
+# (no image built yet, or Docker refused the run).
+index_readable_in_container() {
+  # Never a build or a pull for a warning: every image the run would need (Compose lists the bot's
+  # dependencies' too) must be here already.
+  images=$(compose config --images pine 2>/dev/null) || return 2
+  [ -n "$images" ] || return 2
+  for image in $images; do
+    docker image inspect "$image" >/dev/null 2>&1 || return 2
+  done
+  # shellcheck disable=SC2016
+  verdict=$(compose run --rm --no-deps -T --entrypoint sh pine -c '
+    found=$(find /legacy-index -mindepth 1 -maxdepth 2 -path "*/.*" -prune -o \( -type d \( ! -readable -o ! -executable \) -o -type f ! -readable \) -print -quit 2>/dev/null) || found=x
+    [ -r /legacy-index ] && [ -x /legacy-index ] || found=x
+    if [ -z "$found" ]; then echo readable; else echo unreadable; fi' 2>/dev/null) || return 2
+  case $verdict in
+    *unreadable*) return 1 ;;
+    *readable*) return 0 ;;
+    *) return 2 ;;
+  esac
 }
 
 # PINE_TOOL_DIR (blank: ./wayspot-tool) holds the Wayfarer export tool on the owner's instance:
