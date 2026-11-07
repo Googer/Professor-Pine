@@ -43,6 +43,7 @@ export const PINE_TABLES: readonly string[] = [
   'NewTrainNotification',
   'Party',
   'PartyAccessGrant',
+  'PartyAudit',
   'PartyHistory',
   'PartyHistoryAttendee',
   'PartyHistoryGroup',
