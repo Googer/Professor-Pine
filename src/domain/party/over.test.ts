@@ -8,7 +8,7 @@ import {
   testRaid,
   testTrain,
 } from '../../../test/support/parties.js';
-import { overByClock } from './over.js';
+import { closedToNewcomers, overByClock } from './over.js';
 import { raidStage } from './raid.js';
 
 describe('overByClock', () => {
@@ -36,5 +36,26 @@ describe('overByClock', () => {
     expect(overByClock(ending, at('2026-10-13T18:00'))).toBe(true);
     const train = { ...testTrain(), endTime: at('2026-10-13T18:00') };
     expect(overByClock(train, at('2026-10-13T18:00'))).toBe(true);
+  });
+});
+
+describe('closedToNewcomers', () => {
+  it('is a raid or max battle over by the clock', () => {
+    const raid = testRaid();
+    const last = raid.lastPossibleTime ?? 0;
+    expect(closedToNewcomers(raid, last - MINUTE)).toBe(false);
+    expect(closedToNewcomers(raid, last + MINUTE)).toBe(true);
+    expect(closedToNewcomers(testMax(), at('2026-10-13T21:00'))).toBe(true);
+  });
+
+  it('is never a train or meetup, whose members set the end and often run late', () => {
+    const end = at('2026-10-13T18:00');
+    for (const party of [
+      { ...testMeetup(), endTime: end },
+      { ...testTrain(), endTime: end },
+    ]) {
+      expect(overByClock(party, end + MINUTE)).toBe(true);
+      expect(closedToNewcomers(party, end + MINUTE)).toBe(false);
+    }
   });
 });

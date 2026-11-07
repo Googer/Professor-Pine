@@ -216,18 +216,33 @@ describe('the buttons of a party post', () => {
     }
   });
 
-  it('refuses the status buttons of a raid over by the clock, before the scheduler ends it', async () => {
+  it('refuses a newcomer to a raid over by the clock, before the scheduler ends it', async () => {
     const made = await setup({ boss: { key: 'yveltal' } });
     await made.attendance.signUp(made.party.id, { id: BOB }, PartyStatus.Coming);
     await made.attendance.newGroup(made.party.id, { id: BOB });
     made.clock.now = (made.current().lastPossibleTime ?? 0) + 60_000;
-    for (const action of ['maybe', 'join', 'here', 'done', 'leave', 'more', 'remote', 'regroup']) {
+    for (const action of ['maybe', 'join', 'here', 'more', 'remote', 'regroup']) {
       const click = await made.click(action);
       expect(click.reply, action).toHaveBeenCalledWith(privately('This raid is over.'));
       // Nobody is asked which group of a raid that is over.
       expect(click.showModal, action).not.toHaveBeenCalled();
     }
     expect(made.alice()).toBeUndefined();
+    // Who is signed up goes on until the post is archived.
+    const bob = { userId: BOB, displayName: 'Bob' };
+    expect(sent((await made.click('here', bob)).reply).content).toBe('You are here, in group B.');
+    expect(sent((await made.click('more', bob)).reply).content).toBe(
+      'You are here with 1 more, in group B.',
+    );
+    expect(sent((await made.click('leave', bob)).reply).content).toBe('You have left this raid.');
+  });
+
+  it('still takes Done from somebody here once the raid is over by the clock', async () => {
+    const made = await setup({ boss: { key: 'yveltal' } });
+    await made.click('here');
+    made.clock.now = (made.current().lastPossibleTime ?? 0) + 60_000;
+    await made.click('done');
+    expect(made.alice()?.status).toBe(PartyStatus.Complete);
   });
 
   it('answers what it does not know as no longer active', async () => {

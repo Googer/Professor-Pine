@@ -43,7 +43,7 @@ import {
   type PartyProblem,
   type Refusal,
 } from '../domain/party/party.js';
-import { overByClock } from '../domain/party/over.js';
+import { closedToNewcomers } from '../domain/party/over.js';
 import { PartyStatus } from '../domain/party/status.js';
 import type { Logger } from '../log.js';
 import { doer, standingLine } from '../render/activity.js';
@@ -67,7 +67,8 @@ export const WITHDRAWN_LINE = 'So I took back my question, and the others I aske
 
 /**
  * What came of a member's action. `gone`: there is no such active party (it ended meanwhile), or
- * it is over by the clock (`overByClock`) and the scheduler has not ended it yet.
+ * the member is a newcomer to a raid or max battle over by the clock (`refusesNewcomer`) that
+ * the scheduler has not ended yet.
  * `refused`: the party stays as it was. `ok`: the party as it is stored now, with the member's
  * attendee record (undefined after leaving) and `acted`, false when the action changed nothing
  * (Join from somebody who was coming already). `withdrawn` are the members who are no longer
@@ -167,11 +168,12 @@ export class AttendanceService {
   }
 
   /**
-   * Whether the party is over by the clock now (`overByClock`), so that whatever members do there
-   * is answered as for a party that has ended: also before a dialog that would ask first.
+   * Whether this member is a newcomer to a party that takes none any more (`closedToNewcomers`,
+   * by the service's clock: a raid or max battle over by the clock), whom every change is answered
+   * `gone`, as for a party that has ended; also asked before a dialog that would ask a newcomer.
    */
-  isOver(party: Party): boolean {
-    return overByClock(party, this.now());
+  refusesNewcomer(party: Party, memberId: string): boolean {
+    return closedToNewcomers(party, this.now()) && attendeeOf(party, memberId) === undefined;
   }
 
   /** The largest head count a member may bring, from the settings. */
@@ -276,8 +278,6 @@ export class AttendanceService {
       (party) => answerCompletion(party, member.id, completed),
       // "Is here" would read like an arrival; they were listed under Here all along.
       completed ? undefined : () => `${memberText(member)} is not done yet.`,
-      // The question is about the battle before its end, and its time runs on after it.
-      { evenOver: true },
     );
   }
 
@@ -531,13 +531,12 @@ export class AttendanceService {
           party: Party,
           result: Extra,
         ) => typeof STANDING | string | { text: string; key: string } | undefined),
-    { evenOver = false }: { evenOver?: boolean } = {},
   ): Promise<AttendanceOutcome<Extra>> {
     const { store, posts, lines } = this.options;
     type Told = Extra & { acted: boolean; withdrawn: string[] };
-    // A party over by the clock is gone for what members do, as once the scheduler has ended
-    // it: its post stands until then, with its buttons (unless `evenOver`).
-    const fits = (party: Party): party is Party => evenOver || !this.isOver(party);
+    // A raid or max battle over by the clock is gone for a newcomer, as once the scheduler has
+    // ended it; who is signed up goes on until its post is archived (Matt, 2026-11-07).
+    const fits = (party: Party): party is Party => !this.refusesNewcomer(party, member.id);
     const stored = await storedChange<Party, Told>(store, partyId, fits, (party) => {
       const changed = change(party);
       if (!changed.ok) return changed;

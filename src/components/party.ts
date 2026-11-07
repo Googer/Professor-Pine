@@ -51,12 +51,12 @@ const JOINS: ReadonlySet<string> = new Set(['maybe', 'join', 'here']);
 
 /**
  * Whether a press of Interested, Join or Here asks the member which group first (a newcomer to a
- * post of several groups, plan 8X-1B); of a party over by the clock nobody is asked: the press is
- * refused as it is over.
+ * post of several groups, plan 8X-1B); not of a raid or max battle over by the clock, which takes
+ * no newcomers: the press is refused as it is over.
  */
 function asksFirst(ctx: AppContext, partyId: string, memberId: string): boolean {
   const party = ctx.parties.get(partyId);
-  return asksWhichGroup(party, memberId) && !ctx.attendance.isOver(party);
+  return asksWhichGroup(party, memberId) && !ctx.attendance.refusesNewcomer(party, memberId);
 }
 
 /**
@@ -187,10 +187,12 @@ export const partyButtons: ComponentHandler = {
         // Only those dialogs have these actions.
         throw new UserError(STALE_COMPONENT);
       case 'regroup': {
-        // "Group…" (plan 8X-1B): move to another group or open one, in a dialog; none for a
-        // party over by the clock.
+        // "Group…" (plan 8X-1B): move to another group or open one, in a dialog; not for a
+        // newcomer to a raid or max battle over by the clock, whom its moves would sign up.
         const party = ctx.parties.get(partyId);
-        if (party && attendance.isOver(party)) throw new UserError(partyOver(party));
+        if (party && attendance.refusesNewcomer(party, member.id)) {
+          throw new UserError(partyOver(party));
+        }
         return openGroupMenu(interaction, ctx, partyId);
       }
       case 'regroupform':
