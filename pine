@@ -102,20 +102,24 @@ index_dir_of() {
 make_index_dir() {
   index_dir_of
   if [ -z "$index_dir" ] || [ -e "$index_dir" ]; then return 0; fi
-  mkdir -p "$index_dir" ||
+  { mkdir -p "$index_dir" && chmod 755 "$index_dir"; } ||
     printf 'pine: LEGACY_INDEX_DIR in %s names %s, which could not be made: make the folder, or leave LEGACY_INDEX_DIR blank.\n' "$PINE_ENV_FILE" "$index_dir" >&2
 }
 
 # Before a command that starts the bot or writes the index: a folder. Its files take the modes of
-# the legacy parties folder (no more readable than that), so others' rights are not required; a
-# server's folder that the bot's user (uid 1000, the image's node) may not read is warned of, not
-# refused (B2): on Docker Desktop and OrbStack a bind mount's owner is not what the bot sees.
+# the legacy parties folder (no more readable than that), so others' rights are not required; the
+# root or a server's folder that the bot's user (uid 1000, the image's node) may not read is
+# warned of, not refused (B2): on Docker Desktop and OrbStack a bind mount's owner is not what the
+# bot sees.
 check_index_dir() {
   index_dir_of
   [ -n "$index_dir" ] || return 0
   [ -d "$index_dir" ] ||
     fail "LEGACY_INDEX_DIR in $PINE_ENV_FILE names $index_dir, which is no folder: name a folder, or leave LEGACY_INDEX_DIR blank."
-  unreadable=$(find "$index_dir" -mindepth 1 -maxdepth 1 -type d ! -name '.*' ! -uid 1000 ! -perm -o=rx 2>/dev/null)
+  # The root as well as each server's folder; a find that fails (a folder this user may not
+  # read either) is warned of, not a silent exit.
+  unreadable=$(find "$index_dir" -mindepth 0 -maxdepth 1 -type d ! -name '.*' ! -uid 1000 ! -perm -o=rx 2>/dev/null) ||
+    unreadable=$index_dir
   [ -z "$unreadable" ] ||
     printf 'pine: the bot (user 1000 in its container) may not read the member index in %s: let others read its folders (chmod -R o+rX), or members are offered no old-bot history.\n' "$index_dir" >&2
 }
