@@ -2,13 +2,13 @@ import { sql, type Kysely } from 'kysely';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { startMigratedDatabase } from '../../../test/support/migrated-db.js';
 import type { DB } from '../types.js';
-import { checkedForeignKeys } from './2026_11_07_044_checked_foreign_keys.js';
+import { checkedForeignKeys } from './2026_11_07_048_checked_foreign_keys.js';
 
 const HOME = '412345678901234567';
 /** The row id of a server that has no row (left, or never there). */
 const GONE = 99;
 
-describe('migration 044: foreign keys that MySQL 9 checks', () => {
+describe('migration 048: foreign keys that MySQL 9 checks', () => {
   let stop: () => Promise<void>;
   let db: Kysely<DB>;
 

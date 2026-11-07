@@ -222,11 +222,11 @@ describe('runMigrations', () => {
       '2026_11_05_041_train_card',
       '2026_11_06_042_activity_days',
       '2026_11_06_043_legacy_fill_in',
-      '2026_11_07_044_checked_foreign_keys',
       '2026_11_07_044_spawns_on_map',
       '2026_11_07_045_party_audit',
       '2026_11_07_046_ended_party_copies',
       '2026_11_07_047_meetup_request_end',
+      '2026_11_07_048_checked_foreign_keys',
     ]);
     expect(
       await describeSchema(
