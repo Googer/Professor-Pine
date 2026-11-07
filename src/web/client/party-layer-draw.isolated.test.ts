@@ -3192,6 +3192,8 @@ describe('the wild spawns on the map (Matt, 2026-11-07)', () => {
       markerOf('Yellow Mural 5')?.fire('click', {});
       const atStop = popupNow()?.querySelector('button[data-spawn-at]');
       expect(atStop?.disabled).toBe(true);
+      // The stop's "Hold meetup here" is off with it, as a gym's is.
+      expect(popupNow()?.querySelector('button[data-meetup-at-stop]')?.disabled).toBe(true);
       atStop?.dispatch('click');
       expect(popupNow()?.querySelector('[data-form="spawn"]')).toBeNull();
       form.querySelector('button[data-cancel]')?.dispatch('click');
