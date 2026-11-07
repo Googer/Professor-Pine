@@ -1,3 +1,4 @@
+import { BoundedMap } from '../bounded-map.js';
 import type { Settings } from '../config/settings.js';
 import { isMissingPermission, type PartyGateway } from '../discord/party-gateway.js';
 import {
@@ -27,6 +28,8 @@ const REFUSED_FOR_MS = 10 * MINUTE;
  * would leave the channel alone once more and wait all over again.
  */
 export const RETRY_AFTER_MS = REFUSED_FOR_MS + 1_000;
+/** How many channels found gone are remembered (a server has a few dozen regions). */
+const GONE_CHANNELS_KEPT = 1_000;
 
 export interface PartyMirrorsOptions {
   store: PartyStore;
@@ -139,6 +142,11 @@ export class PartyMirrors {
    * when they are left alone.
    */
   private readonly refused = new Map<string, number>();
+  /**
+   * Channels that Discord said are not there (a region's text channel deleted while its region
+   * stays): no copy is sent there any more, until a restart.
+   */
+  private readonly gone = new BoundedMap<string, true>(GONE_CHANNELS_KEPT);
   /** Parties whose copies are gone through once more, and the timer that will ask for it. */
   private readonly retries = new Map<string, NodeJS.Timeout>();
 
@@ -259,7 +267,7 @@ export class PartyMirrors {
     kinds: readonly MirrorKind[],
     wanted: readonly WantedCopy[],
   ): Promise<boolean> {
-    const { log, now } = this.options;
+    const { log } = this.options;
     const postId = party.forumPostId;
     if (postId === null) return true;
     let complete = true;
@@ -315,6 +323,8 @@ export class PartyMirrors {
     for (const copy of wanted) {
       const { kind, channelId } = copy;
       if (have.has(slotOf(copy))) continue;
+      // Gone for good: nothing is left to do there, now or later.
+      if (this.gone.has(channelId)) continue;
       if (this.isRefused(channelId)) {
         complete = false;
         continue;
@@ -330,16 +340,17 @@ export class PartyMirrors {
         },
       );
       complete &&= sent;
-      // A channel that is not there is left alone like one that refuses the bot, and said once:
-      // every run would otherwise send into it again.
+      // A channel Discord does not know (10003: deleted, as a region's text channel can be
+      // while its region stays) or that takes no message is gone for good: said once, for every
+      // party, and never tried again, also not by a retry (follow-ups 748). Its region stays
+      // until staff remove it, as any region whose channel is gone (`/region list`).
       if (sent && noChannel) {
-        this.refused.set(channelId, now() + REFUSED_FOR_MS);
+        this.gone.set(channelId, true);
         log.warn(
           { party: party.id, channel: channelId },
-          'could not send a copy of a party message: there is no such channel, or nothing can ' +
-            'be sent to it, and I leave it alone for a while',
+          'could not send a copy of a party message: its channel is gone, or nothing can be ' +
+            'sent to it, and I send no copy there any more',
         );
-        complete = false;
       }
     }
     return complete;

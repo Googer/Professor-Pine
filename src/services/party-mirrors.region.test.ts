@@ -367,7 +367,7 @@ describe('the copies of a train: what fails in one region leaves the others alon
   const everywhere = () => gymsWithLibraryIn(WEST_CHANNEL, EAST_CHANNEL, UNBOUNDED_CHANNEL);
   const warnings = (made: Made) => made.entries.filter((entry) => entry.level === 40);
 
-  it('leaves a region channel alone for ten minutes that is gone, with one line in the log', async () => {
+  it('takes a region channel that is gone for gone: one send, one line in the log, for every train', async () => {
     const gateway = new FakePartyGateway();
     gateway.gone.add(UNBOUNDED_CHANNEL);
     const made = await createdTrain({ route: stops(1) }, { gyms: everywhere() }, { gateway });
@@ -379,18 +379,29 @@ describe('the copies of a train: what fails in one region leaves the others alon
     const sends = () => gateway.calls.filter((call) => call === `sendMessage ${UNBOUNDED_CHANNEL}`);
     expect(sends()).toHaveLength(1);
     expect(warnings(made)).toHaveLength(1);
-    expect(warnings(made)[0]?.msg).toMatch(/there is no such channel/);
+    expect(warnings(made)[0]?.msg).toMatch(/its channel is gone/);
     expect(copiesIn(made, EAST_CHANNEL)).toHaveLength(1);
     expect(made.current().mirrorMessages).toMatchObject([
       { kind: 'region', channelId: EAST_CHANNEL },
     ]);
-    // Ten minutes later it is tried again.
-    gateway.gone.delete(UNBOUNDED_CHANNEL);
-    made.clock.now += 10 * MINUTE;
+    // Neither ten minutes later nor for another train through it: a channel Discord does not
+    // know does not come back (the region stays until staff remove it, `/region list`).
+    made.clock.now += 20 * MINUTE;
     await made.attendance.changeNumber(made.party.id, maker, 1);
     await made.service.flush();
-    expect(sends()).toHaveLength(2);
-    expect(copiesIn(made, UNBOUNDED_CHANNEL)).toHaveLength(1);
+    const other = await made.service.createTrain({
+      name: 'Sunday megas',
+      creatorId: BOB,
+      regionChannelId: WEST_CHANNEL,
+    });
+    if (other.kind !== 'created') throw new Error(other.kind);
+    await made.trains.addStop(other.party.id, { id: BOB }, gym(1));
+    await made.service.flush();
+    expect(made.store.get(other.party.id)?.mirrorMessages).toMatchObject([
+      { kind: 'region', channelId: EAST_CHANNEL },
+    ]);
+    expect(sends()).toHaveLength(1);
+    expect(warnings(made)).toHaveLength(1);
   });
 
   it('keeps on record a copy it could not delete, deletes the other, and uses it again when the route returns', async () => {
