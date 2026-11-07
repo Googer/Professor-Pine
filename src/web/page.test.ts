@@ -261,12 +261,12 @@ describe('the history page (plan 8H-5)', () => {
     expect(page.body).toContain(`<a href="/s/${FAKE_GUILD_ID}/me">Your history</a>`);
     // What the boards are, in short paragraphs (the wording sweep of 2026-11-07).
     expect(page.body).toContain(
-      '<p>Who did the most, counting only what others confirmed. Only members who turned the ' +
-        'boards on in /settings on Discord are listed.</p>',
+      '<p>The boards show who did the most, counting only what others confirmed, among members ' +
+        'who turned the boards on in /settings on Discord.</p>',
     );
     expect(page.body).toContain(
-      '<p>Also the most wanted Pokémon, the bosses whose raids were sent to the most members, ' +
-        'and the tasks reported most. Your own numbers are on ',
+      '<p>They also show the most wanted Pokémon, the bosses whose raids were sent to the most ' +
+        'members, and the tasks reported most. Your own numbers are on ',
     );
   });
 

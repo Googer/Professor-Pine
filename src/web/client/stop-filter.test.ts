@@ -112,7 +112,7 @@ describe('the filters of the reports at stops (plan 8M-9B, goal 5)', () => {
     expect(FILTER_LEGENDS.research).toBe('Show only research that gives');
     // Rocket's choices are who it is, then the Pokémon it gives (`filterChoices`).
     expect(FILTER_LEGENDS.rocket).toBe(
-      'Show only Team GO Rocket of these kinds, or with these Pokémon to catch',
+      'Show only these Team GO Rocket members, or those with these Pokémon to catch',
     );
   });
 

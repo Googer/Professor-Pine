@@ -254,8 +254,8 @@ export function historyPage(data: HistoryPageData, assets: AssetManifest): strin
     // `/api/stats/boards`; the member's own numbers on "Your history".
     '<section id="boards" aria-labelledby="boards-title">',
     '<h2 id="boards-title">Boards</h2>',
-    '<p>Who did the most, counting only what others confirmed. Only members who turned the boards on in /settings on Discord are listed.</p>',
-    `<p>Also the most wanted Pokémon, the bosses whose raids were sent to the most members, and the tasks reported most. Your own numbers are on <a href="/s/${escapeHtml(data.guildId)}/me">Your history</a>.</p>`,
+    '<p>The boards show who did the most, counting only what others confirmed, among members who turned the boards on in /settings on Discord.</p>',
+    `<p>They also show the most wanted Pokémon, the bosses whose raids were sent to the most members, and the tasks reported most. Your own numbers are on <a href="/s/${escapeHtml(data.guildId)}/me">Your history</a>.</p>`,
     '<div id="boards-periods" class="periods" role="group" aria-label="Period"></div>',
     '<p id="boards-status" role="status"></p>',
     '<div id="boards-list" class="boards"></div>',

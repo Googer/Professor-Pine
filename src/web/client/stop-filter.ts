@@ -114,7 +114,7 @@ export function filterChoices(
 /** What heads each filter's choices (Rocket's: who it is, then the Pokémon it gives). */
 export const FILTER_LEGENDS = {
   research: 'Show only research that gives',
-  rocket: 'Show only Team GO Rocket of these kinds, or with these Pokémon to catch',
+  rocket: 'Show only these Team GO Rocket members, or those with these Pokémon to catch',
 } as const;
 
 /** A filter in words, as the map, the toggle and the list say it: its one choice, else how many. */

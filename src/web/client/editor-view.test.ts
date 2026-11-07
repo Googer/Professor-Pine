@@ -611,7 +611,9 @@ describe('the region editor page', () => {
   });
 
   it('says what a file it cannot read is, and what to do', () => {
-    expect(KML_TOO_LARGE).toBe('That file is larger than 1 MB, too large for a file of regions.');
+    expect(KML_TOO_LARGE).toBe(
+      'That file is larger than 1 MB. Export only the layer with the regions.',
+    );
     expect(KML_PROBLEMS.doctype).toBe(
       'That file declares a document type (DOCTYPE), which I never read.',
     );

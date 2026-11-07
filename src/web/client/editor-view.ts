@@ -741,7 +741,8 @@ export const KML_PROBLEMS: Readonly<Record<KmlProblem, string>> = {
 };
 
 /** Said of a file over the editor's limit (`MAX_KML_BYTES`). */
-export const KML_TOO_LARGE = 'That file is larger than 1 MB, too large for a file of regions.';
+export const KML_TOO_LARGE =
+  'That file is larger than 1 MB. Export only the layer with the regions.';
 
 /** Said where the browser keeps nothing for the page. */
 export const NO_STORAGE =
