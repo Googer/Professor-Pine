@@ -11,6 +11,7 @@ import { isRocketReport, type RocketReport, type StopReport } from '../domain/st
 import type { Logger } from '../log.js';
 import { gruntMessage, gruntTextMessage, type GruntView } from '../render/rocket.js';
 import { KeyedLock } from './keyed-lock.js';
+import { ReadsBetweenWrites } from './reads-between-writes.js';
 import type { PictureMaker } from './stop-pictures.js';
 import { isHideoutReport, type StopReportListener } from './stop-reports.js';
 
@@ -49,6 +50,9 @@ export const GIVE_UP_MS = 24 * 60 * 60_000;
  * reports' versions shown and messages' kinds.
  */
 const ENDED_KEPT = 1_000;
+
+/** How many sets of reports' messages `messagesOfReports` keeps: a map's member sees one. */
+const LISTED_READS = 1_000;
 
 /** How a grunt's message was sent: components v2, or plain text where the bot may not embed. */
 type MessageKind = 'v2' | 'text';
@@ -147,6 +151,13 @@ export class GruntMessageService {
    * channel by then. A message of an earlier process is guessed by the rule `send` used (F4).
    */
   private readonly sentAs = new BoundedMap<string, MessageKind>(ENDED_KEPT);
+  /**
+   * The reads `messagesOfReports` keeps (the map's list asks the same reports over and over), by
+   * the reports asked for, until a message is recorded or forgotten (`listed.writing`).
+   */
+  private readonly listed = new ReadsBetweenWrites<string, Map<number, PostedGrunt[]>>(
+    LISTED_READS,
+  );
   private closed = false;
 
   constructor(private readonly options: GruntMessageServiceOptions) {
@@ -320,19 +331,23 @@ export class GruntMessageService {
 
   /**
    * The messages of several reports that stand, in one read (plan 8R-3: the map's grunts, polled,
-   * each with a link), by report; a report with none is not in it.
+   * each with a link), by report; a report with none is not in it. Kept for the same reports until
+   * a message is recorded or forgotten (`ReadsBetweenWrites`: every write of the store is this
+   * service's): the same map comes back, which callers must not change.
    */
   async messagesOfReports(reportIds: readonly number[]): Promise<Map<number, PostedGrunt[]>> {
-    const byReport = new Map<number, PostedGrunt[]>();
-    if (reportIds.length === 0) return byReport;
-    for (const { reportId, channelId, messageId } of await this.options.store.ofReports(
-      reportIds,
-    )) {
-      const kept = byReport.get(reportId);
-      if (kept) kept.push({ channelId, messageId });
-      else byReport.set(reportId, [{ channelId, messageId }]);
-    }
-    return byReport;
+    if (reportIds.length === 0) return new Map();
+    return this.listed.read(reportIds.join(','), async () => {
+      const byReport = new Map<number, PostedGrunt[]>();
+      for (const { reportId, channelId, messageId } of await this.options.store.ofReports(
+        reportIds,
+      )) {
+        const kept = byReport.get(reportId);
+        if (kept) kept.push({ channelId, messageId });
+        else byReport.set(reportId, [{ channelId, messageId }]);
+      }
+      return byReport;
+    });
   }
 
   /**
@@ -400,13 +415,14 @@ export class GruntMessageService {
     messageId: string,
   ): Promise<boolean> {
     try {
-      await this.options.store.add({
+      const row = {
         messageId,
         channelId,
         serverId: report.serverId,
         reportId: report.id,
         deleteAt: report.endsAt,
-      });
+      };
+      await this.listed.writing(() => this.options.store.add(row));
       return true;
     } catch (err) {
       this.options.log.warn(
@@ -512,7 +528,7 @@ export class GruntMessageService {
   /** Forgets a recorded message; never rejects. */
   private async forget(channelId: string, messageId: string): Promise<void> {
     try {
-      await this.options.store.remove(messageId);
+      await this.listed.writing(() => this.options.store.remove(messageId));
     } catch (err) {
       this.options.log.warn({ err, channel: channelId }, 'could not forget a grunt report');
     }

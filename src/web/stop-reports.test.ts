@@ -189,6 +189,22 @@ describe('the reports at stops on the map', () => {
     expect((await made.ask()).json<StopReportsView>().grunts).toEqual([]);
   });
 
+  it('reads the server’s reports once for every ask until a report is made or taken back', async () => {
+    const made = await setup();
+    web = made.web;
+    await made.research([wayspotId(1)]);
+    const standing = vi.spyOn(made.store, 'standing');
+    await made.ask();
+    await made.ask(BOB);
+    await made.ask();
+    expect(standing).toHaveBeenCalledTimes(1);
+    await made.rocket('grunt:water', wayspotId(2));
+    const before = standing.mock.calls.length;
+    expect((await made.ask()).json<StopReportsView>().grunts).toHaveLength(1);
+    expect((await made.ask(BOB)).json<StopReportsView>().grunts).toHaveLength(1);
+    expect(standing.mock.calls.length - before).toBe(1);
+  });
+
   it('is for members: 401 without a session, 403 for others, 503 while Discord cannot say', async () => {
     const made = await setup();
     web = made.web;
@@ -202,7 +218,7 @@ describe('the reports at stops on the map', () => {
     const made = await setup();
     web = made.web;
     await made.research([wayspotId(1)]);
-    const standing = vi.spyOn(made.ctx.stopReports, 'standing');
+    const standing = vi.spyOn(made.ctx.stopReports, 'standingListed');
     const idFor = vi.spyOn(made.ctx.guilds, 'idFor');
     expect((await made.ask('200000000000000099')).statusCode).toBe(403);
     expect(standing).not.toHaveBeenCalled();

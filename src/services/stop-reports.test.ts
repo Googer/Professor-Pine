@@ -15,6 +15,7 @@ import { catalogueFixture } from '../../test/support/game-data.js';
 import { pageTask } from '../../test/support/research.js';
 import { taskKeyOf } from '../domain/research/task.js';
 import { taskVersions } from '../domain/research/versions.js';
+import type { StopReport } from '../domain/stops/report.js';
 import type { ResearchEvent } from '../domain/time/research-events.js';
 import {
   StopReportService,
@@ -835,5 +836,143 @@ describe('StopReportService.latestToday (Matt, 2026-10-27: "Last today")', () =>
       where(2, at('2026-11-22T09:05')),
     );
     expect(await restarted.latestToday(REPORT_SERVER, OTHER_REPORTER.id)).toBeUndefined();
+  });
+});
+
+/**
+ * The reports in memory, its reads of a server's standing reports counted; `hold` keeps the next
+ * read's answer (as read at its call) until `release`.
+ */
+class CountedStopReports extends MemoryStopReports {
+  reads = 0;
+  private held: { answer: Promise<StopReport[]>; release: () => void } | undefined;
+  private holding = false;
+
+  hold(): void {
+    this.holding = true;
+  }
+
+  release(): void {
+    this.held?.release();
+  }
+
+  override standing(serverId: string, now: number): Promise<StopReport[]> {
+    this.reads += 1;
+    const answer = super.standing(serverId, now);
+    if (!this.holding) return answer;
+    this.holding = false;
+    const { promise, resolve } = Promise.withResolvers<void>();
+    this.held = { answer, release: resolve };
+    return promise.then(() => answer);
+  }
+}
+
+describe('StopReportService.standingListed (the map’s list, read once until a report changes)', () => {
+  const WATER: RocketSubject = {
+    subjectKey: 'grunt:water',
+    rocket: { name: 'Water-type grunt', catches: [MUDKIP] },
+  };
+  const counted = (start = at('2026-11-22T09:00')) => {
+    const store = new CountedStopReports();
+    return { ...serviceWith([], start, store), store };
+  };
+  const research = (service: StopReportService, stop: number) =>
+    service.reportResearch({
+      serverId: REPORT_SERVER,
+      stops: [reportedStop(stop)],
+      subject: THROWS,
+      reporter: REPORTER,
+    });
+  const ids = (reports: readonly StopReport[]) => reports.map((report) => report.id);
+
+  it('answers as standing does, reading the server’s reports once until one is made or taken back', async () => {
+    const { service, store } = counted();
+    const first = (await research(service, 1)).saved[0]!.report;
+    store.reads = 0;
+    expect(await service.standingListed(REPORT_SERVER)).toEqual(
+      await service.standing(REPORT_SERVER),
+    );
+    expect(await service.standingListed(REPORT_SERVER)).toEqual([first]);
+    // Two reads: `standing`'s own and the list's first.
+    expect(store.reads).toBe(2);
+    // A report made: read anew.
+    const grunt = await service.reportRocket({
+      serverId: REPORT_SERVER,
+      stop: reportedStop(2),
+      subject: WATER,
+      reporter: REPORTER,
+    });
+    if (grunt.kind !== 'reported') throw new Error(grunt.kind);
+    expect(ids(await service.standingListed(REPORT_SERVER))).toEqual([first.id, grunt.report.id]);
+    expect(store.reads).toBe(3);
+    // Taken back: read anew.
+    await service.takeBack(REPORT_SERVER, [first.id], REPORTER.id, 'member');
+    expect(ids(await service.standingListed(REPORT_SERVER))).toEqual([grunt.report.id]);
+    expect(await service.standingListed(REPORT_SERVER)).toEqual(
+      await service.standing(REPORT_SERVER),
+    );
+    expect(store.reads).toBe(5);
+    // Another server is read on its own.
+    expect(await service.standingListed('300000000000000999')).toEqual([]);
+    expect(store.reads).toBe(6);
+  });
+
+  it('leaves out a report once its time is over, without reading again', async () => {
+    const { service, store, clock } = counted();
+    await research(service, 1);
+    await service.reportRocket({
+      serverId: REPORT_SERVER,
+      stop: reportedStop(2),
+      subject: WATER,
+      reporter: REPORTER,
+    });
+    expect(await service.standingListed(REPORT_SERVER)).toHaveLength(2);
+    store.reads = 0;
+    // The grunt's half hour is over.
+    clock.now = at('2026-11-22T09:30');
+    expect(await service.standingListed(REPORT_SERVER)).toEqual(
+      await service.standing(REPORT_SERVER),
+    );
+    expect(await service.standingListed(REPORT_SERVER)).toHaveLength(1);
+    expect(store.reads).toBe(1);
+    // Read anew at 9:30 (a report made): a clock set back reads again, as that read lacks the
+    // grunt that had ended by then.
+    await research(service, 3);
+    expect(await service.standingListed(REPORT_SERVER)).toHaveLength(2);
+    clock.now = at('2026-11-22T09:10');
+    expect(await service.standingListed(REPORT_SERVER)).toHaveLength(3);
+  });
+
+  it('keeps no read that a report made while it ran could have missed', async () => {
+    const { service, store } = counted();
+    await research(service, 1);
+    store.hold();
+    const before = service.standingListed(REPORT_SERVER);
+    // A report made while the list's read is on its way, which answers what it read before.
+    const made = (await research(service, 2)).saved[0]!.report;
+    store.release();
+    expect(await before).toHaveLength(1);
+    expect(ids(await service.standingListed(REPORT_SERVER))).toContain(made.id);
+  });
+
+  it('keeps no failed read', async () => {
+    const { service, store } = counted();
+    await research(service, 1);
+    store.failing.set('standing', new Error('the database is away'));
+    await expect(service.standingListed(REPORT_SERVER)).rejects.toThrow('the database is away');
+    store.failing.delete('standing');
+    expect(await service.standingListed(REPORT_SERVER)).toHaveLength(1);
+  });
+
+  it('reads once for asks that come together', async () => {
+    const { service, store } = counted();
+    await research(service, 1);
+    store.reads = 0;
+    const [one, two] = await Promise.all([
+      service.standingListed(REPORT_SERVER),
+      service.standingListed(REPORT_SERVER),
+    ]);
+    expect(one).toEqual(two);
+    expect(store.reads).toBe(1);
   });
 });

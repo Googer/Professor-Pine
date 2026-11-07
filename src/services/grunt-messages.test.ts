@@ -149,6 +149,30 @@ describe('GruntMessageService', () => {
     expect((await made.messages.messagesOfReports([])).size).toBe(0);
   });
 
+  it('reads the messages of the same reports once until one is posted or deleted (the map’s list)', async () => {
+    const made = messagesWith();
+    const first = await made.messages.post(grunt(1), [WEST_CHANNEL]);
+    const read = vi.spyOn(made.store, 'ofReports');
+    expect([...(await made.messages.messagesOfReports([1, 2])).entries()]).toEqual([[1, first]]);
+    expect([...(await made.messages.messagesOfReports([1, 2])).entries()]).toEqual([[1, first]]);
+    expect(read).toHaveBeenCalledTimes(1);
+    // Posted: read anew.
+    const second = await made.messages.post(grunt(2), [EAST_CHANNEL]);
+    expect([...(await made.messages.messagesOfReports([1, 2])).entries()]).toEqual([
+      [1, first],
+      [2, second],
+    ]);
+    expect(read).toHaveBeenCalledTimes(2);
+    // Other reports are read on their own.
+    expect([...(await made.messages.messagesOfReports([2])).entries()]).toEqual([[2, second]]);
+    expect(read).toHaveBeenCalledTimes(3);
+    // Deleted at its end: read anew.
+    made.clock.now += HALF_HOUR;
+    await made.fire();
+    expect((await made.messages.messagesOfReports([1, 2])).size).toBe(0);
+    expect(read).toHaveBeenCalledTimes(4);
+  });
+
   it('posts plain text where the bot may not embed', async () => {
     const made = messagesWith();
     made.gateway.noEmbeds.add(WEST_CHANNEL);

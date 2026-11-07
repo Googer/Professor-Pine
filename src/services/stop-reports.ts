@@ -1,4 +1,5 @@
 import { BoundedMap } from '../bounded-map.js';
+import { ReadsBetweenWrites } from './reads-between-writes.js';
 import type { ReportPlace, StopReportStorage } from '../db/repositories/stop-report-repository.js';
 import { isHideout, parseRocketKey } from '../domain/rocket/lineups.js';
 import {
@@ -161,6 +162,9 @@ const GRUNT_MS = 30 * 60_000;
  */
 const LAST_REPORTS = 5_000;
 
+/** How many servers' lists `standingListed` keeps: more than one installation serves. */
+const LISTED_SERVERS = 1_000;
+
 export interface StopReportServiceOptions {
   store: StopReportStorage;
   /** The events with field research (`researchEvents`), whose periods a report belongs to. */
@@ -215,13 +219,31 @@ export class StopReportService {
    * own, which another member replacing or refining that report does not touch).
    */
   private readonly lastReports = new BoundedMap<string, LastReport>(LAST_REPORTS);
+  /**
+   * The reads `standingListed` keeps, by server, with the clock they were read at, until this
+   * service writes a report again.
+   */
+  private readonly listed = new ReadsBetweenWrites<string, { at: number; reports: StopReport[] }>(
+    LISTED_SERVERS,
+  );
 
   private readonly rewardHash: (reward: TaskReward) => string;
+  /**
+   * The store's writes of reports, each counted (`listed.writing`): the only way this service
+   * writes a report.
+   */
+  private readonly written: Pick<StopReportStorage, 'saveUnless' | 'remove' | 'removeEnded'>;
 
   constructor(private readonly options: StopReportServiceOptions) {
     this.now = options.now ?? (() => Date.now());
     this.gruntMs = options.gruntMs ?? GRUNT_MS;
     this.rewardHash = options.rewardHash;
+    const { store } = options;
+    this.written = {
+      saveUnless: (...args) => this.listed.writing(() => store.saveUnless(...args)),
+      remove: (...args) => this.listed.writing(() => store.remove(...args)),
+      removeEnded: (...args) => this.listed.writing(() => store.removeEnded(...args)),
+    };
   }
 
   /** What `decideResearch` reads of a research subject: its key and its rewards' hashes. */
@@ -319,6 +341,25 @@ export class StopReportService {
   /** The reports of a server that have not ended, oldest first. */
   standing(serverId: string): Promise<StopReport[]> {
     return this.options.store.standing(serverId, this.now());
+  }
+
+  /**
+   * `standing` for the lists that poll it (the map's `/api/stop-reports`): the same reports,
+   * read from the store once and kept until this service writes a report again (made, refined,
+   * replaced, taken back, put back, swept), each ask leaving out what has ended by its clock. Every
+   * change of a report goes through this service, so a read kept is what a read now would give.
+   * A read that a write began or ended during is not kept, nor one that failed, nor one read at a
+   * later clock than the ask's; asks that come together share one read (`ReadsBetweenWrites`).
+   * The same report objects come back until the next read: callers must not change them.
+   */
+  async standingListed(serverId: string): Promise<StopReport[]> {
+    const now = this.now();
+    const { reports } = await this.listed.read(
+      serverId,
+      async () => ({ at: now, reports: await this.options.store.standing(serverId, now) }),
+      (kept) => kept.at <= now,
+    );
+    return reports.filter((report) => report.endsAt > now);
   }
 
   /**
@@ -423,7 +464,7 @@ export class StopReportService {
       for (const [n, stop] of input.stops.entries()) {
         // Set by the decision inside the transaction (an object: a closure's write is not narrowed).
         const decided: { decision: ResearchDecision } = { decision: 'new' };
-        const outcome = await this.options.store.saveUnless(
+        const outcome = await this.written.saveUnless(
           {
             serverId: input.serverId,
             kind: 'research',
@@ -544,7 +585,7 @@ export class StopReportService {
     const place = await this.placeOf(input.serverId, input.stop);
     // Set by the decision inside the transaction (an object: a closure's write is not narrowed).
     const asked: { decision: RocketDecision } = { decision: 'report' };
-    const outcome = await this.options.store.saveUnless(
+    const outcome = await this.written.saveUnless(
       {
         serverId: input.serverId,
         kind: 'rocket',
@@ -660,12 +701,7 @@ export class StopReportService {
         continue;
       }
       // With its row locked the version is asked again: one refined meanwhile is kept.
-      const gone = await this.options.store.remove(
-        id,
-        serverId,
-        { by, as, at: this.now() },
-        madeAt,
-      );
+      const gone = await this.written.remove(id, serverId, { by, as, at: this.now() }, madeAt);
       if (gone) {
         removed.push(gone);
         if (gone.reporter.id === by) this.forgetReport(serverId, by, gone.madeAt);
@@ -708,7 +744,7 @@ export class StopReportService {
     const { id: _id, ...again } = hideout;
     // In one step under the stop's lock (fix S4): the grunt's row becomes the hideout's, so there
     // is no moment without a report; another report standing there is kept.
-    const outcome = await this.options.store.saveUnless(
+    const outcome = await this.written.saveUnless(
       again,
       // The grunt as it was (review L1): one refined in place since keeps its id, not its time.
       (standing) =>
@@ -770,7 +806,7 @@ export class StopReportService {
 
   /** Forgets the reports that have ended; gives how many (the hourly upkeep, and at start). */
   sweep(): Promise<number> {
-    return this.options.store.removeEnded(this.now());
+    return this.written.removeEnded(this.now());
   }
 
   private tell(call: (listener: StopReportListener) => void): void {

@@ -253,7 +253,7 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
       if (member.kind === 'not-member') return sendFailure(request, reply, 403);
       if (member.kind === 'unconfirmed') return reply.code(503).send({ error: UNCONFIRMED });
       const row = await ctx.guilds.idFor(guild);
-      const reports = row === undefined ? [] : await ctx.stopReports.standing(guild);
+      const reports = row === undefined ? [] : await ctx.stopReports.standingListed(guild);
       const places: Places = row === undefined ? new Map() : placesOf(row, reports);
       const viewer = await viewers.viewer(guild, session.userId, forumsOf(places), member);
       if (viewer.kind !== 'member') return sendFailure(request, reply, 403);
