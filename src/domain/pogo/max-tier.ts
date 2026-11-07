@@ -37,16 +37,42 @@ export function maxTierLabel(tier: MaxTier): string {
   return stars === undefined ? 'Gigantamax' : `Dynamax ${String(stars)}★`;
 }
 
-/** A boss as a post heads it: `Dynamax Machamp (2★)`, `Gigantamax Machamp`. */
+/**
+ * Eternatus by the names the catalogue gives it (`Eternatus`, `Eternatus (Eternamax)`): the one
+ * Eternamax boss, a Gigantamax battle in all but the name (its screen says "Eternamax").
+ */
+const ETERNATUS = /^Eternatus(?: \(Eternamax\))?$/;
+
+/**
+ * The word of a boss's battle, as the game's screen says it: `Dynamax` for the stars,
+ * `Gigantamax` for `G`, and `Eternamax` for Eternatus at `G` (Matt, 2026-10-22). The one place
+ * that decides it for every label of a max boss.
+ */
+export function maxBattleWord(name: string, tier: MaxTier): 'Dynamax' | 'Gigantamax' | 'Eternamax' {
+  if (tier !== 'G') return 'Dynamax';
+  return ETERNATUS.test(name) ? 'Eternamax' : 'Gigantamax';
+}
+
+/** A battle at `G` named by its word: `Gigantamax Machamp`, `Eternamax Eternatus` (no form). */
+function gigantamaxName(name: string): string {
+  const word = maxBattleWord(name, 'G');
+  return word === 'Eternamax' ? 'Eternamax Eternatus' : `${word} ${name}`;
+}
+
+/**
+ * A boss as a post heads it: `Dynamax Machamp (2★)`, `Gigantamax Machamp`, `Eternamax
+ * Eternatus`.
+ */
 export function maxBossTitle(name: string, tier: MaxTier): string {
   const stars = maxStars(tier);
-  return stars === undefined ? `Gigantamax ${name}` : `Dynamax ${name} (${String(stars)}★)`;
+  return stars === undefined ? gigantamaxName(name) : `Dynamax ${name} (${String(stars)}★)`;
 }
 
 /**
  * A boss as a list of choices offers it: `Machamp · Dynamax 2★`, `Gigantamax Machamp`, so that
- * the Dynamax and the Gigantamax battle of one Pokémon are two choices.
+ * the Dynamax and the Gigantamax battle of one Pokémon are two choices; Eternatus's is
+ * `Eternamax Eternatus`.
  */
 export function maxBossChoiceName(name: string, tier: MaxTier): string {
-  return tier === 'G' ? `Gigantamax ${name}` : `${name} · ${maxTierLabel(tier)}`;
+  return tier === 'G' ? gigantamaxName(name) : `${name} · ${maxTierLabel(tier)}`;
 }

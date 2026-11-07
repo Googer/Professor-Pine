@@ -3,6 +3,7 @@ import {
   BATTLE_KINDS,
   battleKindOf,
   isMaxTier,
+  maxBattleWord,
   MAX_TIERS,
   maxBossChoiceName,
   maxBossTitle,
@@ -65,5 +66,22 @@ describe('the words of a max tier', () => {
       'Machamp · Dynamax 2★',
       'Gigantamax Machamp',
     ]);
+  });
+});
+
+describe('Eternatus, the one Eternamax boss', () => {
+  it('is named Eternamax where a Gigantamax battle would be, in every label of a boss', () => {
+    for (const name of ['Eternatus', 'Eternatus (Eternamax)']) {
+      expect(maxBattleWord(name, 'G')).toBe('Eternamax');
+      expect(maxBossTitle(name, 'G')).toBe('Eternamax Eternatus');
+      expect(maxBossChoiceName(name, 'G')).toBe('Eternamax Eternatus');
+    }
+  });
+
+  it('leaves every other boss, and a Dynamax tier, as they were', () => {
+    expect(maxBattleWord('Machamp', 'G')).toBe('Gigantamax');
+    expect(maxBattleWord('Eternatus', 'D5')).toBe('Dynamax');
+    expect(maxBossTitle('Eternatus', 'D5')).toBe('Dynamax Eternatus (5★)');
+    expect(maxBossTitle('Eternatusish', 'G')).toBe('Gigantamax Eternatusish');
   });
 });
