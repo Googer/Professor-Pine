@@ -3301,3 +3301,11 @@ Prototype `proto-8h10` (brief `.superpowers/sdd/8h-10-legacy-fill-in/brief.md`, 
 - **Not checked:** `pine` with `shellcheck` (not on the laptop; `sh -n` and `dash -n` pass), and `import-history` with `--user` on the Air's OrbStack (the files' owner and modes as the bot's `node` sees them through the bind mount): the plan's staging makes `./pine import-history` then a press of "Add my old-bot history" on the Air a required step (B2).
 - **Records imported before 8H-10 stay `anonymous` false** (A7): only a new import marks a legacy raid made anonymously (`createdById` -1); they name no maker, so nothing credits one.
 - **The panel is at 39 of Discord's 40 components:** the next control of `/settings` needs a rework of its layout.
+
+## From the staging run of 8H-10 (2026-11-06 night, the Air)
+
+`LEGACY_INDEX_DIR=/Users/googer/pine-rehearsal/legacy-index` added to `var/dev/.env`, `./pine update` (043), `./pine import-history /Users/googer/pine-rehearsal/parties --server 348106758385958915`: 253,533 parties read, 253,188 already there, "Member index: 6,751 members of server … (775,719 entries)", 10.0 s.
+
+- **Pass:** Googer's `/settings` offers "Add my old-bot history" with its line; the press answers "Asked: it takes a few minutes." and "Your old-bot history is being added."; within 15 seconds "Your Discord id is now on 5,825 parties of the old bot."; `/stats me` then counts 2,055 raids completed, bosses Rayquaza (122), Mewtwo (106), Tyranitar (105). Tester (also in the legacy files) is offered it too.
+- **Finding (Minor, for a later fix):** `pine`'s readability warning fired after the import ("the bot (user 1000 in its container) may not read the member index … chmod -R o+rX") because the legacy copy is mode 700, but on OrbStack the bot reads every file (checked from inside the container: uid 1000, 6,751 files, readable). The Air is the production host, so the warning is a false alarm there. Better: test from inside the container (`docker compose run --rm --no-deps --entrypoint sh pine -c 'test -r …'`) instead of judging host modes, or say "may" and how to check.
+- **Left:** history off for Googer now counts the legacy records in the dialog (not tried: it would take the id off 5,825+ records); `/admin member-settings` on Googer; `/help settings` with the index set.
