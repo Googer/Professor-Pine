@@ -3027,6 +3027,22 @@ describe("Find's pick on the map (plan 8M-12)", () => {
     expect(fake.shown.popupOf).toBe(markerOf('Yellow Mural 5'));
   });
 
+  it("turns the spawns' layer on for a spawn picked, flies there and opens its popup", async () => {
+    const { raids, registry, flights, fire, markerOf } = await started({
+      raids: true,
+      spawns: caseSpawns([caseSpawn(5)]),
+      layers: { spawns: false },
+    });
+    expect(markerOf('Dratini')).toBeUndefined();
+    raids.find('dratini');
+    raids.findFirst();
+    expect(registry.isOn('spawns')).toBe(true);
+    const point = caseSpawn(5).point;
+    expect(flights).toEqual([[point?.lat, point?.lon]]);
+    fire('moveend', {});
+    expect(fake.shown.popupOf).toBe(markerOf('Dratini'));
+  });
+
   it('draws nothing anew while typing: the map moves only at a pick', async () => {
     const { raids, flights, drawCount } = await started({
       raids: true,

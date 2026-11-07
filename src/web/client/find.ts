@@ -1,6 +1,7 @@
 import { searchTokens } from '../../domain/search/text.js';
 import { FIND_MAX_TEXT, FIND_MIN_LETTERS, type FoundPlace } from '../../domain/web/find-data.js';
 import type { MapTrain, PartiesView } from '../../domain/web/party-data.js';
+import type { SpawnsView } from '../../domain/web/spawn-data.js';
 import {
   unconfirmedWords,
   type MapGrunt,
@@ -11,9 +12,16 @@ import {
 import { metersBetween } from './distance.js';
 import { gymOfStop } from './parties.js';
 import type { MapGym } from './popup.js';
+import { spawnsShown } from './spawns.js';
 import { reportsAtStops } from './stop-reports.js';
 import type { LatLon } from './view.js';
-import { listLines, stopReportLines, type ListKind, type ListLine } from './what-is-on.js';
+import {
+  listLines,
+  spawnLines,
+  stopReportLines,
+  type ListKind,
+  type ListLine,
+} from './what-is-on.js';
 
 /*
  * Find on the live map (plan 8M-12; design `docs/superpowers/specs/2026-10-28-find-design.md`):
@@ -21,7 +29,7 @@ import { listLines, stopReportLines, type ListKind, type ListLine } from './what
  * pause, every word typed matching as typed or as the start of a word (case and accents ignored,
  * by Pine's search text rules, `searchTokens`): the reports at stops of today (by the words the
  * server gives each, `reportSearch`), the parties going on (matched here over what the page
- * holds), and places by name (the server's answer, `/api/find-places`). The results fill the list
+ * holds) and the wild spawns (by the words the server gives each), and places by name (the server's answer, `/api/find-places`). The results fill the list
  * pane in three groups, each sorted by distance; the map stays as it is. The pure part; the
  * party layer draws it in the list (`WhatIsOn`) and `FindSearch` times it.
  */
@@ -69,6 +77,8 @@ export interface FindData {
   parties: PartiesView | undefined;
   gyms: ReadonlyMap<number, MapGym>;
   reports: StopReportsView | undefined;
+  /** The wild spawns (`/api/spawns`). */
+  spawns: SpawnsView | undefined;
   now: number;
   /** Your location, else the map's middle; none: by name. */
   origin: LatLon | undefined;
@@ -178,8 +188,8 @@ export const PLACES_FAILED = 'Places could not be searched just now.';
  * Find's groups for a search (the design's "The results"): the reports at stops of today that the
  * words find (confirmed first, then not confirmed, each by distance; research waiting under an
  * event's window is not in the view, so never found; the layers and filters ignored), the parties
- * going on that they find (by distance, each line the place's name over what matched), and the
- * places the server found (in its order, at most ten of each kind). A group with nothing is left
+ * going on that they find (by distance, each line the place's name over what matched) with the
+ * wild spawns that have not gone away (the Pokémon over where it is), and the places the server found (in its order, at most ten of each kind). A group with nothing is left
  * out; the places' group is kept while it is asked for or failed, with its note.
  */
 export function foundGroups(state: FindState, data: FindData): FindGroup[] {
@@ -228,8 +238,15 @@ export function foundGroups(state: FindState, data: FindData): FindGroup[] {
           : { ...line, name: line.place, place: line.name },
       );
     }
-    going.sort(byDistance);
   }
+  // The wild spawns that have not gone away (Matt, 2026-11-07), by the words the server gave each
+  // (the Pokémon's name, its form, `costumed`), whatever their layer says: the list's own line,
+  // the Pokémon first and where it is under it.
+  const spawnsFound = spawnsShown(data.spawns, { now: data.now }).filter((spawn) =>
+    findsAll(words, spawn.words),
+  );
+  going.push(...spawnLines(spawnsFound));
+  going.sort(byDistance);
 
   const groups: FindGroup[] = [];
   const reportsFound = [...confirmed, ...unconfirmed];

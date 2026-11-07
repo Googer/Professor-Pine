@@ -1709,6 +1709,7 @@ export function showParties(
       parties: view === noParties ? undefined : view,
       gyms,
       reports: stopReports.view,
+      spawns: spawns.view,
       now: Date.now(),
       origin: listOrigin(),
     });

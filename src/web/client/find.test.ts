@@ -28,6 +28,8 @@ import {
   caseGrunt,
   caseHideout,
   caseResearch,
+  caseSpawn,
+  caseSpawns,
   caseView,
 } from './stop-report-cases.js';
 
@@ -150,6 +152,7 @@ const data = (more: Partial<FindData> = {}): FindData => ({
   parties: parties(),
   gyms: GYMS,
   reports: caseView(),
+  spawns: undefined,
   now: CASE_NOW,
   origin: ORIGIN,
   ...more,
@@ -269,6 +272,43 @@ describe("Find's groups (plan 8M-12)", () => {
       ['Schenley Fountain', 'Level 5 raid against Mewtwo'],
       ['Lake Gazebo', 'Dynamax Mewtwo (2★)'],
     ]);
+  });
+
+  it('finds the wild spawns going on by their Pokémon, form and costume, by distance with the parties', () => {
+    const pikachu = caseSpawn(3, {
+      pokemon: 'Pikachu',
+      costumed: true,
+      words: ['pikachu', 'costumed', 'costume'],
+    });
+    const rattata = caseSpawn(2, {
+      pokemon: 'Alolan Rattata',
+      point: null,
+      near: undefined,
+      words: ['alolan', 'rattata', 'alola'],
+    });
+    const gone = caseSpawn(4, { goneAt: CASE_NOW });
+    const spawns = caseSpawns([pikachu, caseSpawn(1), rattata, gone]);
+    const lines = (text: string, more: Partial<FindData> = {}) =>
+      foundGroups(state(text), data({ spawns, ...more }))
+        .filter((group) => group.kind === 'going')
+        .flatMap((group) => group.lines.map((line) => [line.key, line.name, line.place]));
+    // The Pokémon first, where it is under it, as the list says them; nearest first.
+    expect(lines('drat')).toEqual([
+      [`spawn:${caseSpawn(1).id}`, 'Dratini', 'Near Yellow Mural 1 (PokéStop)'],
+    ]);
+    expect(lines('costume')).toEqual([
+      [`spawn:${pikachu.id}`, 'Costumed Pikachu', 'Near Yellow Mural 3 (PokéStop)'],
+    ]);
+    // By its form; one without a point last.
+    expect(lines('alola')).toEqual([[`spawn:${rattata.id}`, 'Alolan Rattata', 'by the bench']]);
+    // With the parties, by distance: the raid at Schenley Fountain is north of stop 1's Dratini.
+    expect(
+      lines('dratini', { parties: parties({ raids: [raid('r1', 1, 'Dratini')] }) }).map(
+        ([key]) => key,
+      ),
+    ).toEqual([`spawn:${caseSpawn(1).id}`, 'raid:r1']);
+    // One gone is not found, whatever its layer says.
+    expect(lines('dratini', { spawns: caseSpawns([gone]) })).toEqual([]);
   });
 
   it("shows the server's places in its order, and says while they are asked for", () => {
