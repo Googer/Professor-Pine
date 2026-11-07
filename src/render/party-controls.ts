@@ -33,8 +33,8 @@ export const PARTY_KIND = 'party';
  * form a member's `/delete` opened before it was for staff only (plan 8S-2), taken as a report
  * (`/report`'s form is `report:<party id>:party`); no button has it. `move` is "Move…" of a
  * train's post ("Manage train…" before plan 8X-G), which opens the dialog `moveform`; `manage` is
- * "Manage…", which opens `manageform` (`train-dialogs.ts`) on a train, `raidform` on a raid and a
- * dialog of the kind `mmanage` on a meetup (`manage-dialogs.ts`, plan 8M-21); `next`, `previous`, `skip`, `finish`,
+ * "Manage…", which opens `manageform` (`train-dialogs.ts`) on a train, and on a raid and a meetup
+ * dialogs of the kinds `rmanage` and `mmanage` (`manage-dialogs.ts`, plan 8M-21); `next`, `previous`, `skip`, `finish`,
  * `reverse`, `atend` and `kind` were the Manage train panel's and answer as stale. `route` is
  * "Route" of a train's post, which shows the route privately. `shot` is "Screenshot feedback" of a raid reported from a
  * screenshot, which shows that screenshot privately. `split` is "Split…" of a train with
@@ -77,7 +77,6 @@ export const PARTY_ACTIONS = [
   'moveform',
   'manage',
   'manageform',
-  'raidform',
 ] as const;
 export type PartyAction = (typeof PARTY_ACTIONS)[number];
 

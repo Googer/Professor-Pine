@@ -12,7 +12,10 @@ import { createTestContext } from '../../../test/support/test-context.js';
 import { TEST_OWNER_ID } from '../../../test/support/web.js';
 import { components } from '../../components/index.js';
 import { partyButtons } from '../../components/party.js';
-import { InteractionRouter } from '../../discord/router.js';
+import { InteractionRouter, variedThrottleKey } from '../../discord/router.js';
+import type { Throttle } from '../../discord/throttle.js';
+import { START_THROTTLE } from '../parties/timed.js';
+import { CHANGE_THROTTLE } from '../raids/change.js';
 import { PartyStatus } from '../../domain/party/status.js';
 import { NOTHING_CHANGED } from '../../domain/web/raid-manage.js';
 import {
@@ -201,5 +204,81 @@ describe('Manage… of a meetup’s post (plan 8M-21: the map’s editor as a di
     const refused = await made.submit(dialog, { start: '7pm' });
     expect(sent(refused.reply).content).toMatch(/signed up/u);
     expect(made.current().timed.startTime).toBe(START);
+  });
+});
+
+describe('a line drawn from what is gone (review M6: at its own turn, as the map)', () => {
+  it('refuses that line at its turn, keeping what went through before it', async () => {
+    const made = await setup();
+    const dialog = shownDialog(await made.open());
+    await made.timed.setDescription(made.party.id, { id: CAROL }, 'Bring games.');
+    const answer = made.answerOf(
+      await made.submit(dialog, { name: 'Park picnic', info: 'Bring tea.' }),
+    );
+    expect(answer).toBe(
+      'This meetup is now called **Park picnic**. This meetup changed meanwhile: press Manage… again.\nWhat you wrote:\n```\nBring tea.\n```',
+    );
+    expect(made.current().timed.name).toBe('Park picnic');
+    expect(made.current().meetup.description).toBe('Bring games.');
+  });
+});
+
+describe('the windows a meetup’s Manage… counts in (review M1: as the map’s routes count)', () => {
+  const MEET = variedThrottleKey('meet', START_THROTTLE);
+  /** Whether `uses` more fit the window `key` of Alice, and no more. */
+  const left = (
+    made: Awaited<ReturnType<typeof setup>>,
+    key: string,
+    throttle: Throttle,
+    uses: number,
+  ) => {
+    for (let use = 0; use < uses; use++) {
+      expect(made.ctx.throttles.use(key, ALICE, throttle, PARTY_NOW)).toBeUndefined();
+    }
+    expect(made.ctx.throttles.use(key, ALICE, throttle, PARTY_NOW)).toBeDefined();
+  };
+
+  it('counts the name, the information and the end each in its command’s window', async () => {
+    const made = await setup();
+    await made.submit(shownDialog(await made.open()), {
+      name: 'Park picnic',
+      info: 'Bring tea.',
+      end: '8pm',
+    });
+    left(made, 'name', CHANGE_THROTTLE, CHANGE_THROTTLE.uses - 1);
+    left(made, 'info', CHANGE_THROTTLE, CHANGE_THROTTLE.uses - 1);
+    left(made, 'end', CHANGE_THROTTLE, CHANGE_THROTTLE.uses - 1);
+  });
+
+  it('counts both times in /meet’s and /end’s windows, and refuses a full one in its words', async () => {
+    const made = await setup();
+    await made.submit(shownDialog(await made.open()), { start: '9pm', end: '10pm' });
+    left(made, MEET, START_THROTTLE, START_THROTTLE.uses - 1);
+    const full = await made.submit(shownDialog(await made.open()), {
+      name: 'Park picnic',
+      start: '7pm',
+    });
+    expect(made.answerOf(full)).toMatch(
+      /^This meetup is now called \*\*Park picnic\*\*\. You can use \/meet again in /u,
+    );
+  });
+
+  it('checks both times before anything counts (review M2): two out of order are refused at once', async () => {
+    const made = await setup();
+    const refused = await made.submit(shownDialog(await made.open()), { start: '9pm', end: '8pm' });
+    expect(sent(refused.reply).content).toMatch(/end/u);
+    left(made, MEET, START_THROTTLE, START_THROTTLE.uses);
+    left(made, 'end', CHANGE_THROTTLE, CHANGE_THROTTLE.uses);
+  });
+
+  it('gives back the uses of times that failed for no fault of the member', async () => {
+    const made = await setup();
+    const failing = vi
+      .spyOn(made.timed, 'setEndTime')
+      .mockRejectedValue(new Error('the database is gone'));
+    await made.submit(shownDialog(await made.open()), { start: '9pm', end: '10pm' });
+    failing.mockRestore();
+    left(made, MEET, START_THROTTLE, START_THROTTLE.uses);
+    left(made, 'end', CHANGE_THROTTLE, CHANGE_THROTTLE.uses);
   });
 });

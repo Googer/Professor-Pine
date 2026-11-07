@@ -1,14 +1,9 @@
 import type { FastifyReply } from 'fastify';
-import { START_THROTTLE, type TimeAsked, type TimesRead } from '../commands/parties/timed.js';
-import { CHANGE_THROTTLE } from '../commands/raids/change.js';
-import { countedOnTheMap, givenBackOnTheMap, throttledOnTheMap } from './acting.js';
+import { countTimes } from '../commands/parties/windows.js';
+import type { TimeAsked, TimesRead } from '../commands/parties/timed.js';
+import { UserError } from '../discord/errors.js';
+import { waitText } from '../discord/throttle.js';
 import type { WebDeps } from './server.js';
-
-/** The window a start set with an end counts in: `/meet`'s in a timed party. */
-const START_WINDOW = { command: 'meet', varies: true } as const;
-
-/** The window an end set with a start counts in: `/end`'s. */
-const END_WINDOW = { command: 'end' } as const;
 
 /** The times asked, counted: the work to run in their windows, and what gives their uses back. */
 export interface TimesCounted {
@@ -20,8 +15,9 @@ export interface TimesCounted {
 
 /**
  * Counts times read by `readTimes` for a train's Manage… and a meetup's editor on the map, each in
- * its own command's window: the answer sent where a window is full (nothing spent then), else what
- * runs them. A time that came to nothing costs nothing (`givenBack`).
+ * its own command's window (`countTimes`, which the post's Manage… counts with too): the answer
+ * sent where a window is full (nothing spent then), else what runs them. A time that came to
+ * nothing costs nothing (`givenBack`).
  */
 export function timesCountedOnTheMap(
   deps: WebDeps,
@@ -29,38 +25,23 @@ export function timesCountedOnTheMap(
   userId: string,
   read: TimesRead,
 ): { full: FastifyReply } | TimesCounted {
-  const countedAt = deps.now();
-  const asksStart = read.start !== undefined;
-  const asksEnd = read.end !== undefined;
-  const giveBackStart = (): void => {
-    givenBackOnTheMap(deps, START_WINDOW, userId, START_THROTTLE, countedAt);
-  };
-  if (asksStart) {
-    const full = throttledOnTheMap(deps, reply, START_WINDOW, userId, START_THROTTLE);
-    if (full) return { full };
-  }
-  if (asksEnd) {
-    const full = throttledOnTheMap(deps, reply, END_WINDOW, userId, CHANGE_THROTTLE);
-    if (full) {
-      if (asksStart) giveBackStart();
-      return { full };
-    }
+  const counted = countTimes(deps.parties.throttles, userId, read, deps.now());
+  if ('wait' in counted) {
+    // No command named, as the member typed none (Matt, 2026-10-30).
+    const error = `You can do that again in ${waitText(counted.wait)}.`;
+    return { full: reply.code(429).header('retry-after', String(counted.wait)).send({ error }) };
   }
   return {
-    run: (work) => {
-      const ended = asksEnd
-        ? <T>(inner: () => Promise<T>) =>
-            countedOnTheMap(deps, END_WINDOW, userId, CHANGE_THROTTLE, inner)
-        : <T>(inner: () => Promise<T>) => inner();
-      return asksStart
-        ? countedOnTheMap(deps, START_WINDOW, userId, START_THROTTLE, () => ended(work))
-        : ended(work);
-    },
-    givenBack: (went = []) => {
-      if (asksStart && !went.includes('start')) giveBackStart();
-      if (asksEnd && !went.includes('end')) {
-        givenBackOnTheMap(deps, END_WINDOW, userId, CHANGE_THROTTLE, countedAt);
+    run: async (work) => {
+      try {
+        return await work();
+      } catch (err) {
+        if (!(err instanceof UserError) || err.givesBack) counted.givenBack(deps.now());
+        throw err;
       }
+    },
+    givenBack: (went) => {
+      counted.givenBack(deps.now(), went);
     },
   };
 }

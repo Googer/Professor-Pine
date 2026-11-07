@@ -15,7 +15,9 @@ import { ALICE, at, BOB, PARTY_NOW } from '../../../test/support/parties.js';
 import { reportedRaid } from '../../../test/support/party-service.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { partyButtons } from '../../components/party.js';
+import { raidManageControls } from './manage.js';
 import { InteractionRouter } from '../../discord/router.js';
+import { CHANGE_THROTTLE } from './change.js';
 import { PartyStatus } from '../../domain/party/status.js';
 import { MOVES_LATER, NOTHING_CHANGED } from '../../domain/web/raid-manage.js';
 import type { RaidReport } from '../../services/party-service.js';
@@ -49,7 +51,7 @@ async function setup(report: Partial<RaidReport> = {}) {
     parties: made.store,
     regions: made.regions,
   });
-  const router = new InteractionRouter(ctx, [], [partyButtons]);
+  const router = new InteractionRouter(ctx, [], [partyButtons, raidManageControls]);
   const handle = async (interaction: FakeInteraction) => {
     await router.handle(interaction as never);
     return interaction;
@@ -94,7 +96,7 @@ describe('Manage… of a raid’s post (plan 8M-21: the map’s Manage the raid 
     const made = await setup();
     const dialog = shownDialog(await made.open());
     expect(dialog.title).toBe('Manage the raid');
-    expect(withoutToken(dialog.custom_id)).toBe(`party:${made.party.id}:raidform`);
+    expect(withoutToken(dialog.custom_id)).toBe(`rmanage:${made.party.id}:form`);
     // An egg has no boss whose moves are known: no moves to ask.
     expect(dialogFields(dialog).map((field) => field.label)).toEqual([
       'Hatches in',
@@ -186,5 +188,41 @@ describe('Manage… of a raid’s post (plan 8M-21: the map’s Manage the raid 
     // The post's button no longer knows its kind: the words of any control.
     const pressed = await made.open();
     expect(sent(pressed.reply).content).toBe('This has ended.');
+  });
+});
+
+describe('the windows a raid’s Manage… counts in (review M1: as the map’s routes count)', () => {
+  it('counts each change in its command’s window, and refuses one whose window is full in its words', async () => {
+    const made = await setup();
+    const { throttles } = made.ctx;
+    for (let use = 0; use < CHANGE_THROTTLE.uses; use++) {
+      expect(throttles.use('hatch', ALICE, CHANGE_THROTTLE, PARTY_NOW)).toBeUndefined();
+    }
+    const done = await made.submit(shownDialog(await made.open()), {
+      boss: 'b:yveltal:T5:0',
+      hatch: '30',
+    });
+    expect(made.answerOf(done)).toMatch(
+      /^The boss is now Yveltal \(T5\)\. You can use \/hatch again in 1 minute\.$/u,
+    );
+    expect(made.current().hatchTime).toBeNull();
+    // The boss counted once in /boss's window (the press that opened the dialog counted as a
+    // press of the post's controls, as on the map's post).
+    for (let use = 1; use < CHANGE_THROTTLE.uses; use++) {
+      expect(throttles.use('boss', ALICE, CHANGE_THROTTLE, PARTY_NOW)).toBeUndefined();
+    }
+    expect(throttles.use('boss', ALICE, CHANGE_THROTTLE, PARTY_NOW)).toBeDefined();
+  });
+
+  it('gives back the use of a change that failed for no fault of the member', async () => {
+    const made = await setup();
+    const failing = vi
+      .spyOn(made.raids, 'setHatchTime')
+      .mockRejectedValue(new Error('the database is gone'));
+    await made.submit(shownDialog(await made.open()), { hatch: '30' });
+    failing.mockRestore();
+    for (let use = 0; use < CHANGE_THROTTLE.uses; use++) {
+      expect(made.ctx.throttles.use('hatch', ALICE, CHANGE_THROTTLE, PARTY_NOW)).toBeUndefined();
+    }
   });
 });

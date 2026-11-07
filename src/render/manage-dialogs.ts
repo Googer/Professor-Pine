@@ -10,7 +10,6 @@ import {
 } from '../domain/party/party.js';
 import { raidWords } from '../domain/pogo/raid-tier.js';
 import type { RaidMovesView, RaidOptionsView } from '../domain/web/raid-options-data.js';
-import { PARTY_KIND } from './party-controls.js';
 import { isFarOff, timestamp, truncate } from './text.js';
 
 /*
@@ -21,8 +20,12 @@ import { isFarOff, timestamp, truncate } from './text.js';
  * page does (a field that changes another as it is picked), the nearest: noted at each.
  */
 
-/** The action of a raid's Manage… dialog, under the post's kind (`party:<id>:raidform:~…`). */
-export const RAID_MANAGE_FORM = 'raidform';
+/**
+ * The kind and action of a raid's Manage… dialog (`rmanage:<id>:form:~…`): a kind of its own, which
+ * no window counts (review M1: each change counts in its command's window).
+ */
+export const RAID_MANAGE_KIND = 'rmanage';
+export const RAID_MANAGE_FORM = 'form';
 
 /** The custom ids of the raid dialog's fields: the names of the map's form's fields. */
 export const RAID_HATCH_INPUT = 'hatch';
@@ -128,7 +131,7 @@ export function raidManageDialog(view: RaidManageView): APIModalInteractionRespo
   const boss = bossChoice(view);
   return dialog({
     customId: encodeCustomId({
-      kind: PARTY_KIND,
+      kind: RAID_MANAGE_KIND,
       id: view.party.id,
       action: RAID_MANAGE_FORM,
       args: [openToken(view.now)],

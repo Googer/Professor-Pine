@@ -35,6 +35,7 @@ import {
   type RaidMovesView,
 } from '../domain/web/raid-options-data.js';
 import type { RaidChangeAsked } from '../domain/web/raid-manage.js';
+import { raidChangeWindow } from '../commands/parties/windows.js';
 import { gymRegionsInGuild } from '../services/region-directory.js';
 import {
   actingOnTheMap,
@@ -141,14 +142,6 @@ function changeInput(change: RaidChange, body: unknown): ChangeInput | undefined
 function isRaidChange(value: string): value is RaidChange {
   return (RAID_CHANGES as readonly string[]).includes(value);
 }
-
-/** The command each change is, whose throttle it counts against (`CHANGE_THROTTLE`). */
-const CHANGE_COMMANDS: Readonly<Record<RaidChange, string>> = {
-  hatch: 'hatch',
-  end: 'end',
-  boss: 'boss',
-  moves: 'moveset',
-};
 
 /** The status of each outcome of a change. */
 const CHANGE_STATUS: Readonly<Record<RaidChangeAnswer['kind'], number>> = {
@@ -495,7 +488,7 @@ export function raidRoutes(scope: FastifyInstance, deps: WebDeps): void {
       const throttled = throttledOnTheMap(
         deps,
         reply,
-        { command: CHANGE_COMMANDS[input.change] },
+        { command: raidChangeWindow(input.change).command },
         userId,
         CHANGE_THROTTLE,
       );
@@ -513,7 +506,7 @@ export function raidRoutes(scope: FastifyInstance, deps: WebDeps): void {
         if (!(err instanceof UserError) || err.givesBack) {
           givenBackOnTheMap(
             deps,
-            CHANGE_COMMANDS[input.change],
+            raidChangeWindow(input.change).command,
             userId,
             CHANGE_THROTTLE,
             countedAt,

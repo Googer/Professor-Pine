@@ -238,10 +238,20 @@ export function raidChangeAs(
 }
 
 /**
+ * How a Submit of Manage… counts each change (review M1: in its command's window, as the map's
+ * route counts it): what gives the use back, or the refusal of a full window in its words.
+ */
+export type RaidChangeCount = (
+  change: RaidChangeAsked,
+) => { giveBack(now: number): void } | { refusal: string };
+
+/**
  * The changes a Submit of Manage… asks for (`raidChangesAsked`), made in turn as the map's form
- * sends them (`raidChangeAs`), each on the raid as the change before left it: the words of each
- * joined (`manageWords`); a refusal, a raid that ended or what a reader refused stops there, its
- * words after what went through. `NOTHING_CHANGED` when nothing was asked.
+ * sends them (`raidChangeAs`), each on the raid as the change before left it, and each counted as
+ * the map's route counts it (`count`: a full window stops there; an unexpected error or a refusal
+ * that is none of the member's doing gives the use back, a refusal stays counted): the words of
+ * each joined (`manageWords`); a refusal, a raid that ended or what a reader refused stops there,
+ * its words after what went through. `NOTHING_CHANGED` when nothing was asked.
  */
 export async function manageRaidAs(
   ctx: RaidChanging,
@@ -249,21 +259,29 @@ export async function manageRaidAs(
   member: Member,
   asked: readonly RaidChangeAsked[],
   now: number,
+  count: RaidChangeCount,
+  clock: () => number = Date.now,
   post?: PostNamer,
 ): Promise<{ kind: 'ok' | 'refused' | 'gone'; text: string; went: number }> {
   const said: string[] = [];
   let current = party;
+  const stop = (kind: 'refused' | 'gone', text: string) => ({
+    kind,
+    text: manageWords([...said, text]),
+    went: said.length,
+  });
   for (const change of asked) {
+    const counted = count(change);
+    if ('refusal' in counted) return stop('refused', counted.refusal);
     let answer: RaidChangeAnswer;
     try {
       answer = await raidChangeAs(ctx, current, member, change, now, post);
     } catch (err) {
+      if (!(err instanceof UserError) || err.givesBack) counted.giveBack(clock());
       if (!(err instanceof UserError)) throw err;
-      return { kind: 'refused', text: manageWords([...said, err.message]), went: said.length };
+      return stop('refused', err.message);
     }
-    if (answer.kind !== 'ok') {
-      return { kind: answer.kind, text: manageWords([...said, answer.text]), went: said.length };
-    }
+    if (answer.kind !== 'ok') return stop(answer.kind, answer.text);
     said.push(answer.text);
     current = answer.party;
   }

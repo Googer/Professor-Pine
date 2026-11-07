@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppContext } from '../app-context.js';
 import { BLOCKED_FROM_CHANGING } from '../commands/meetups/meetup-changes.js';
+import { meetupChangeWindow } from '../commands/parties/windows.js';
 import {
   meetupChangeAs,
   meetupChangeCheck,
@@ -23,13 +24,11 @@ import {
   newPartyTimes,
   noForumWords,
   setTimesAs,
-  START_THROTTLE,
   timedTimeHint,
   typedNewEnd,
   typedTimedTime,
   type TimedAnswer,
 } from '../commands/parties/timed.js';
-import { CHANGE_THROTTLE } from '../commands/raids/change.js';
 import { PIN_NOT_HERE, PLACE_GONE, pickedPlace } from '../commands/place-option.js';
 import type { ReportNames } from '../commands/raids/report.js';
 import type { Region } from '../db/repositories/region-repository.js';
@@ -557,10 +556,10 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
       const checked = await meetupChangeCheck(ctx, guild, party, userId, staff, input, now);
       if ('refused' in checked) return refusedChange(reply, checked.refused, meetupNow());
       const { start } = checked;
-      const [counted, throttle] =
-        input.change === 'start'
-          ? [{ command: 'meet', varies: true }, START_THROTTLE]
-          : [{ command: input.change }, CHANGE_THROTTLE];
+      // The command's window (`meetupChangeWindow`), as the post's Manage… counts it.
+      const window = meetupChangeWindow(input.change);
+      const counted = { command: window.command, ...(window.varies ? { varies: true } : {}) };
+      const { throttle } = window;
       const throttled = throttledOnTheMap(deps, reply, counted, userId, throttle);
       if (throttled) return throttled;
       let answer: TimedAnswer;

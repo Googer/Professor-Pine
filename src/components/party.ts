@@ -25,8 +25,7 @@ import { isGroupId, isMeetup, isRaid } from '../domain/party/party.js';
 import { raidStage } from '../domain/party/raid.js';
 import { isPartyAction, PARTY_KIND, TIME_INPUT, timeForm } from '../render/party-controls.js';
 import { MANAGE_FORM, MOVE_FORM } from '../render/train-dialogs.js';
-import { RAID_MANAGE_FORM } from '../render/manage-dialogs.js';
-import { openRaidManage, submitRaidManage } from '../commands/raids/manage.js';
+import { openRaidManage } from '../commands/raids/manage.js';
 import { openMeetupManage } from '../commands/meetups/manage.js';
 import { SPLIT_FORM } from '../render/train-split.js';
 import { GROUP_MENU_FORM, WHICH_GROUP_FORM } from '../render/group-dialogs.js';
@@ -175,8 +174,7 @@ export const partyButtons: ComponentHandler = {
         return openManage(interaction, ctx, partyId);
       }
       case 'manageform':
-      case 'raidform':
-        // Only the Manage… dialogs have these actions.
+        // Only Manage…'s dialog has this action.
         throw new UserError(STALE_COMPONENT);
       case 'next':
       case 'previous':
@@ -240,7 +238,6 @@ export const partyButtons: ComponentHandler = {
     if (id.action === SPLIT_FORM) return submitSplit(interaction, ctx, id.id, id.args);
     if (id.action === MOVE_FORM) return submitMove(interaction, ctx, id.id, id.args);
     if (id.action === MANAGE_FORM) return submitManage(interaction, ctx, id.id, id.args);
-    if (id.action === RAID_MANAGE_FORM) return submitRaidManage(interaction, ctx, id.id, id.args);
     if (id.action === GROUP_MENU_FORM) return submitGroupMenu(interaction, ctx, id.id, id.args);
     if (id.action === WHICH_GROUP_FORM) {
       return submitWhichGroup(interaction, ctx, id.id, id.args);
