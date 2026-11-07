@@ -135,7 +135,7 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
    */
   const placed = new WeakMap<
     StopReport,
-    { regions: readonly Region[]; row: number; at: Region[] }
+    { regions: readonly Region[]; row: number; at: readonly Region[] }
   >();
 
   /**
@@ -145,7 +145,7 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
    */
   const placesOf = (row: number, reports: readonly StopReport[]): Places => {
     const regions = ctx.regions.all();
-    let at: ((point: StopReport['stop']) => Region[]) | undefined;
+    let at: ((point: StopReport['stop']) => readonly Region[]) | undefined;
     return new Map(
       reports.map((report) => {
         const kept = placed.get(report);
@@ -256,10 +256,11 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
     }
   };
 
-  // Today's reports at the stops of the server (design 9.16): read anew on every request (one
-  // indexed query; the page polls it), for members only, as the parties, asked before anything of
-  // the server is read (`membership`; the forums after the read); an ETag of the member's
-  // JSON, `private, no-cache`, 304 when the page has it.
+  // Today's reports at the stops of the server (design 9.16): read once and kept until a report
+  // changes (`standingListed`; the page polls it), each request filtering by its clock and
+  // placing each report once per load of the regions; for members only, as the parties, asked
+  // before anything of the server is read (`membership`; the forums after the read); an ETag of
+  // the member's JSON, `private, no-cache`, 304 when the page has it.
   const limiter = new RateLimiter({ uses: STOP_REPORTS_PER_MINUTE, perMs: 60_000 });
   scope.get(
     '/api/stop-reports',

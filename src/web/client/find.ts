@@ -196,7 +196,7 @@ export function foundGroups(state: FindState, data: FindData): FindGroup[] {
       (line): [string, ListLine] => [line.key, line],
     ),
   );
-  const found = <T extends { words: string[] }>(list: readonly T[]): T[] =>
+  const found = <T extends { words: readonly string[] }>(list: readonly T[]): T[] =>
     list.filter((report) => findsAll(words, report.words));
   const lineOf = (line: ListLine | undefined): ListLine[] => (line ? [line] : []);
   const reportLines = reports

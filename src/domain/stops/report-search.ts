@@ -24,7 +24,7 @@ export type { Unconfirmed };
 
 /** A report's search words (folded, as `searchTokens` reads them, each once) and its mark. */
 export interface ReportSearch {
-  words: string[];
+  words: readonly string[];
   unconfirmed?: Unconfirmed;
 }
 
@@ -95,10 +95,10 @@ function rocketMark(report: RocketReport, facts: SearchFacts): Unconfirmed | und
  * the same report objects to every ask until a report changes (`standingListed`), and a changed
  * report is a new object. The words depend on the report alone; the callers only read them.
  */
-const reportWords = new WeakMap<StopReport, string[]>();
+const reportWords = new WeakMap<StopReport, readonly string[]>();
 
 /** A report's search words, folded, each once (`reportWords`). */
-function wordsOf(report: StopReport): string[] {
+function wordsOf(report: StopReport): readonly string[] {
   const kept = reportWords.get(report);
   if (kept) return kept;
   const texts = isResearchReport(report) ? researchWords(report) : rocketWords(report);

@@ -64,7 +64,7 @@ interface MapStopReportBase {
    * words folded as `searchTokens` reads them, each once (research: the task's and every
    * reward's, a Pokémon's form and costume; Rocket: who, the lineup's Pokémon, `rocket`).
    */
-  words: string[];
+  words: readonly string[];
 }
 
 /**

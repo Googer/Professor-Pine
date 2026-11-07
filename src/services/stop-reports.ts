@@ -165,6 +165,17 @@ const LAST_REPORTS = 5_000;
 /** How many servers' lists `standingListed` keeps: more than one installation serves. */
 const LISTED_SERVERS = 1_000;
 
+/**
+ * The store's methods that change what a report holds (`read`'s fields): run only through
+ * `ReadsBetweenWrites.writing`, so that `standingListed` knows of them. `endedAs` and `addReach`
+ * change only the history and `reach`, which no `StopReport` holds; a field added to the report
+ * as read makes the method that writes it one of these.
+ */
+type StopReportWrite = 'save' | 'saveUnless' | 'remove' | 'removeEnded';
+
+/** What the service may call of the store directly: everything but `StopReportWrite`. */
+type StopReportReads = Omit<StopReportStorage, StopReportWrite>;
+
 export interface StopReportServiceOptions {
   store: StopReportStorage;
   /** The events with field research (`researchEvents`), whose periods a report belongs to. */
@@ -229,17 +240,28 @@ export class StopReportService {
 
   private readonly rewardHash: (reward: TaskReward) => string;
   /**
+   * The options without the store, which is reached only as `store` (its reads) and `written`
+   * (its counted writes), so that a write past the count does not typecheck (review of
+   * map-speed).
+   */
+  private readonly options: Omit<StopReportServiceOptions, 'store'>;
+  /** The store's reads, and the writes of the history alone (`endedAs`, `addReach`). */
+  private readonly store: StopReportReads;
+  /**
    * The store's writes of reports, each counted (`listed.writing`): the only way this service
    * writes a report.
    */
-  private readonly written: Pick<StopReportStorage, 'saveUnless' | 'remove' | 'removeEnded'>;
+  private readonly written: Pick<StopReportStorage, StopReportWrite>;
 
-  constructor(private readonly options: StopReportServiceOptions) {
+  constructor(options: StopReportServiceOptions) {
+    this.options = options;
     this.now = options.now ?? (() => Date.now());
     this.gruntMs = options.gruntMs ?? GRUNT_MS;
     this.rewardHash = options.rewardHash;
     const { store } = options;
+    this.store = store;
     this.written = {
+      save: (...args) => this.listed.writing(() => store.save(...args)),
       saveUnless: (...args) => this.listed.writing(() => store.saveUnless(...args)),
       remove: (...args) => this.listed.writing(() => store.remove(...args)),
       removeEnded: (...args) => this.listed.writing(() => store.removeEnded(...args)),
@@ -340,7 +362,7 @@ export class StopReportService {
 
   /** The reports of a server that have not ended, oldest first. */
   standing(serverId: string): Promise<StopReport[]> {
-    return this.options.store.standing(serverId, this.now());
+    return this.store.standing(serverId, this.now());
   }
 
   /**
@@ -356,7 +378,7 @@ export class StopReportService {
     const now = this.now();
     const { reports } = await this.listed.read(
       serverId,
-      async () => ({ at: now, reports: await this.options.store.standing(serverId, now) }),
+      async () => ({ at: now, reports: await this.store.standing(serverId, now) }),
       (kept) => kept.at <= now,
     );
     return reports.filter((report) => report.endsAt > now);
@@ -375,7 +397,7 @@ export class StopReportService {
     const since = localDayStart(this.now(), this.options.zone);
     const recorded = this.lastReports.get(lastReportKey(serverId, memberId));
     if (recorded && recorded.madeAt >= since) return recorded;
-    const kept = await this.options.store.latestBy(serverId, memberId, since);
+    const kept = await this.store.latestBy(serverId, memberId, since);
     return kept && { lat: kept.stop.lat, lon: kept.stop.lon, madeAt: kept.madeAt };
   }
 
@@ -399,7 +421,7 @@ export class StopReportService {
 
   /** A report by its id, of a server, if it has not ended. */
   async get(serverId: string, id: number): Promise<StopReport | undefined> {
-    const report = await this.options.store.byId(id);
+    const report = await this.store.byId(id);
     return report?.serverId === serverId && report.endsAt > this.now() ? report : undefined;
   }
 
@@ -409,7 +431,7 @@ export class StopReportService {
    * is kept under its id with another `madeAt` (review L1): the caller compares.
    */
   async kept(serverId: string, id: number): Promise<StopReport | undefined> {
-    const report = await this.options.store.byId(id);
+    const report = await this.store.byId(id);
     return report?.serverId === serverId ? report : undefined;
   }
 
@@ -789,7 +811,7 @@ export class StopReportService {
   /** A version's record as `unposted`, where it ended as one of `from`; a failure is logged. */
   private async unseen(report: RocketReport, from: readonly ReportEnding[]): Promise<void> {
     try {
-      await this.options.store.endedAs(report.id, report.madeAt, 'unposted', from);
+      await this.store.endedAs(report.id, report.madeAt, 'unposted', from);
     } catch (err) {
       this.options.log.warn({ err, report: report.id }, 'could not record a grunt as unposted');
     }

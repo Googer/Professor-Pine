@@ -955,6 +955,39 @@ describe('StopReportService.standingListed (the map’s list, read once until a 
     expect(ids(await service.standingListed(REPORT_SERVER))).toContain(made.id);
   });
 
+  it('reads anew after the upkeep’s sweep and after a hideout is put back', async () => {
+    const ARLO: RocketSubject = {
+      subjectKey: 'leader:arlo',
+      rocket: { name: 'Arlo', catches: [] },
+    };
+    const { service, store } = counted();
+    const arlo = await service.reportRocket({
+      serverId: REPORT_SERVER,
+      stop: reportedStop(1),
+      subject: ARLO,
+      reporter: REPORTER,
+    });
+    if (arlo.kind !== 'reported') throw new Error(arlo.kind);
+    const grunt = await service.reportRocket({
+      serverId: REPORT_SERVER,
+      stop: reportedStop(1),
+      subject: WATER,
+      reporter: REPORTER,
+      replacing: arlo.report.id,
+    });
+    if (grunt.kind !== 'reported') throw new Error(grunt.kind);
+    expect(await service.standingListed(REPORT_SERVER)).toEqual([grunt.report]);
+    store.reads = 0;
+    await service.sweep();
+    await service.standingListed(REPORT_SERVER);
+    expect(store.reads).toBe(1);
+    // The grunt could be posted nowhere: Arlo comes back under a new id.
+    const back = await service.restore(arlo.report, grunt.report);
+    if (!back) throw new Error('Arlo was not put back');
+    expect(await service.standingListed(REPORT_SERVER)).toEqual([back]);
+    expect(store.reads).toBe(2);
+  });
+
   it('keeps no failed read', async () => {
     const { service, store } = counted();
     await research(service, 1);

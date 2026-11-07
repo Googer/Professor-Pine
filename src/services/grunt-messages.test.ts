@@ -149,6 +149,27 @@ describe('GruntMessageService', () => {
     expect((await made.messages.messagesOfReports([])).size).toBe(0);
   });
 
+  it('keeps no read of messages that a message posted while it ran could have missed', async () => {
+    const made = messagesWith();
+    const first = await made.messages.post(grunt(1), [WEST_CHANNEL]);
+    const ofReports = made.store.ofReports.bind(made.store);
+    const gate = Promise.withResolvers<void>();
+    vi.spyOn(made.store, 'ofReports').mockImplementationOnce(async (ids) => {
+      const rows = await ofReports(ids);
+      await gate.promise;
+      return rows;
+    });
+    const before = made.messages.messagesOfReports([1, 2]);
+    // Posted while the read waits, which answers what it read before.
+    const second = await made.messages.post(grunt(2), [EAST_CHANNEL]);
+    gate.resolve();
+    expect([...(await before).entries()]).toEqual([[1, first]]);
+    expect([...(await made.messages.messagesOfReports([1, 2])).entries()]).toEqual([
+      [1, first],
+      [2, second],
+    ]);
+  });
+
   it('reads the messages of the same reports once until one is posted or deleted (the map’s list)', async () => {
     const made = messagesWith();
     const first = await made.messages.post(grunt(1), [WEST_CHANNEL]);

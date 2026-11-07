@@ -155,12 +155,32 @@ export class GruntMessageService {
    * The reads `messagesOfReports` keeps (the map's list asks the same reports over and over), by
    * the reports asked for, until a message is recorded or forgotten (`listed.writing`).
    */
-  private readonly listed = new ReadsBetweenWrites<string, Map<number, PostedGrunt[]>>(
-    LISTED_READS,
-  );
+  private readonly listed = new ReadsBetweenWrites<
+    string,
+    ReadonlyMap<number, readonly PostedGrunt[]>
+  >(LISTED_READS);
   private closed = false;
+  /**
+   * The options without the store, which is reached only as `store` and `written`, so that a
+   * write past the count does not typecheck (review of map-speed).
+   */
+  private readonly options: Omit<GruntMessageServiceOptions, 'store'>;
+  /**
+   * The store's reads, and `retime`: a message's time of deletion, which `messagesOfReports`
+   * does not give, so the map's kept reads need not hear of it.
+   */
+  private readonly store: Omit<GruntMessageStorage, 'add' | 'remove'>;
+  /** The store's writes of messages, each counted (`listed.writing`). */
+  private readonly written: Pick<GruntMessageStorage, 'add' | 'remove'>;
 
-  constructor(private readonly options: GruntMessageServiceOptions) {
+  constructor(options: GruntMessageServiceOptions) {
+    this.options = options;
+    const { store } = options;
+    this.store = store;
+    this.written = {
+      add: (row) => this.listed.writing(() => store.add(row)),
+      remove: (messageId) => this.listed.writing(() => store.remove(messageId)),
+    };
     this.now = options.now ?? (() => Date.now());
     this.setTimer =
       options.setTimer ??
@@ -290,7 +310,7 @@ export class GruntMessageService {
         continue;
       }
       try {
-        await this.options.store.retime(messageId, report.endsAt);
+        await this.store.retime(messageId, report.endsAt);
       } catch (err) {
         // The timer below deletes it in this process; a restart's sweep, at its first end.
         log.warn({ err, channel: channelId }, 'could not record a grunt report’s new end');
@@ -323,7 +343,7 @@ export class GruntMessageService {
 
   /** The messages of a report that stand (for "Already reported" and a DM's link). */
   async messagesOf(reportId: number): Promise<PostedGrunt[]> {
-    return (await this.options.store.ofReport(reportId)).map(({ channelId, messageId }) => ({
+    return (await this.store.ofReport(reportId)).map(({ channelId, messageId }) => ({
       channelId,
       messageId,
     }));
@@ -335,13 +355,13 @@ export class GruntMessageService {
    * a message is recorded or forgotten (`ReadsBetweenWrites`: every write of the store is this
    * service's): the same map comes back, which callers must not change.
    */
-  async messagesOfReports(reportIds: readonly number[]): Promise<Map<number, PostedGrunt[]>> {
+  async messagesOfReports(
+    reportIds: readonly number[],
+  ): Promise<ReadonlyMap<number, readonly PostedGrunt[]>> {
     if (reportIds.length === 0) return new Map();
     return this.listed.read(reportIds.join(','), async () => {
       const byReport = new Map<number, PostedGrunt[]>();
-      for (const { reportId, channelId, messageId } of await this.options.store.ofReports(
-        reportIds,
-      )) {
+      for (const { reportId, channelId, messageId } of await this.store.ofReports(reportIds)) {
         const kept = byReport.get(reportId);
         if (kept) kept.push({ channelId, messageId });
         else byReport.set(reportId, [{ channelId, messageId }]);
@@ -422,7 +442,7 @@ export class GruntMessageService {
         reportId: report.id,
         deleteAt: report.endsAt,
       };
-      await this.listed.writing(() => this.options.store.add(row));
+      await this.written.add(row);
       return true;
     } catch (err) {
       this.options.log.warn(
@@ -470,7 +490,7 @@ export class GruntMessageService {
    */
   async sweep(): Promise<number> {
     if (this.closed) return 0;
-    const rows = await this.options.store.all();
+    const rows = await this.store.all();
     const now = this.now();
     let taken = 0;
     for (const { channelId, messageId, deleteAt } of rows) {
@@ -528,7 +548,7 @@ export class GruntMessageService {
   /** Forgets a recorded message; never rejects. */
   private async forget(channelId: string, messageId: string): Promise<void> {
     try {
-      await this.listed.writing(() => this.options.store.remove(messageId));
+      await this.written.remove(messageId);
     } catch (err) {
       this.options.log.warn({ err, channel: channelId }, 'could not forget a grunt report');
     }

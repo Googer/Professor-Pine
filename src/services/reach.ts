@@ -32,6 +32,8 @@ export class ReachRecords implements ReachRecorder {
       }
       return;
     }
+    // Past `StopReportService` and its count of writes (`standingListed`): `reach` is no field of a
+    // report as read, so the map's kept list cannot miss it.
     if (!(await stopReports.addReach(of.report, of.madeAt, members))) {
       log.debug(
         { report: of.report, members },
