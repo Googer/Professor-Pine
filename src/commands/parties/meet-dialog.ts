@@ -41,7 +41,7 @@ import { actingMember, outcomeWords, partyOver } from './reply.js';
  */
 
 /** Said at a press for a raid without times (Set time shows in Meet…'s place then). */
-export const NO_TIMES = 'This raid has no times yet: "Set time…" gives them.';
+export const NO_TIMES = 'This raid has no times yet: press "Set time…" to give them.';
 
 /** Said when no time to meet is left before the raid (or max battle) ends. */
 export const NO_TIME_LEFT = 'There is no time left to meet before this raid ends.';

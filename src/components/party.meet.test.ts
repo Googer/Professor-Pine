@@ -121,7 +121,9 @@ describe('Meet… (plan 8X-1B, decision 5)', () => {
     const untimed = await setup({});
     const pressed = await untimed.press();
     expect(dialogOf(pressed)).toBeUndefined();
-    expect(sent(pressed.reply).content).toBe('This raid has no times yet: "Set time…" gives them.');
+    expect(sent(pressed.reply).content).toBe(
+      'This raid has no times yet: press "Set time…" to give them.',
+    );
     vi.setSystemTime(HATCH + 44 * MINUTE + 30_000);
     const late = await made.press();
     expect(dialogOf(late)).toBeUndefined();

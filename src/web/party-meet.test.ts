@@ -106,7 +106,7 @@ describe('Meet… on the map (plan 8M-8B)', () => {
     web = noTimes.web;
     await map.web.app.close();
     expect((await noTimes.open()).json).toEqual({
-      error: 'This raid has no times yet: "Set time…" gives them.',
+      error: 'This raid has no times yet: press "Set time…" to give them.',
     });
   });
 

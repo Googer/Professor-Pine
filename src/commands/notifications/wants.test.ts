@@ -1119,7 +1119,7 @@ describe('/want in the post of a raid or a max battle (plan 8R-4, Matt’s R-M1)
     const used = await made.run('want', {}, inPost(raid.postId));
     expect(used.showModal).not.toHaveBeenCalled();
     expect(answered(used).content).toBe(
-      "Pine doesn't know this raid's boss yet: name a Pokémon, or `/want t3` for the tier.",
+      'The boss of this raid is not known yet: name a Pokémon, or `/want t3` for the tier.',
     );
     // The command it names is the tier's.
     const tier = shownDialog(await made.run('want', { target: 't3' }, inPost(raid.postId)));
@@ -1133,7 +1133,7 @@ describe('/want in the post of a raid or a max battle (plan 8R-4, Matt’s R-M1)
     const used = await made.run('want', {}, inPost(max.postId));
     expect(used.showModal).not.toHaveBeenCalled();
     expect(answered(used).content).toBe(
-      "Pine doesn't know this battle's boss yet: name a Pokémon.",
+      'The boss of this battle is not known yet: name a Pokémon.',
     );
   });
 
@@ -2276,7 +2276,7 @@ describe('/wants', () => {
     const message = asV2(answered(await made.run('wants')));
     expect(textDisplays(message)).toEqual([
       '### Your wants in Test Server\n0 wants\n' +
-        '…and 1 entry this version cannot read; `/unwant-all` removes those too.',
+        '…and 1 entry I can no longer show; `/unwant-all` removes those too.',
       '-# Add one with `/want`.',
     ]);
     expect(customIdsOf(message)).toEqual(['wantlist:0:all']);
