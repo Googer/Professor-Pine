@@ -7,6 +7,7 @@ import type {
   MapTrain,
   PartiesView,
 } from '../../domain/web/party-data.js';
+import type { SpawnsView } from '../../domain/web/spawn-data.js';
 import type { ResearchOptionsView, StopReportsView } from '../../domain/web/stop-report-data.js';
 import { LayerRegistry, LAYERS_KEY, MAP_LAYERS } from './layer-registry.js';
 import type { MapSpot, MaxUiDeps } from './max-ui.js';
@@ -17,12 +18,15 @@ import { MapActivity } from './parties.js';
 import type { MapGym } from './popup.js';
 import type { RaidUiDeps } from './raid-ui.js';
 import type { RocketUiDeps } from './rocket-ui.js';
+import type { SpawnUiDeps } from './spawn-ui.js';
 import type { LatLon } from './view.js';
 import {
   CASE_NOW,
   caseGrunt,
   caseResearch,
   caseResearchOptions,
+  caseSpawn,
+  caseSpawns,
   caseStop,
   caseView,
 } from './stop-report-cases.js';
@@ -246,7 +250,7 @@ const fake = vi.hoisted(() => {
   const card: { made: Card | undefined; wanted: boolean } = { made: undefined, wanted: false };
 
   /** The hooks the party layer hands the forms, as they are made. */
-  const forms: { raid?: unknown; max?: unknown; rocket?: unknown } = {};
+  const forms: { raid?: unknown; max?: unknown; rocket?: unknown; spawn?: unknown } = {};
 
   /**
    * Route mode as the trains give it to the map (`spotClicked`): on or off, and the Power Spots
@@ -270,7 +274,9 @@ const fake = vi.hoisted(() => {
     /** The lines of the list drawn anew (a post that came), and who waits for the next. */
     redrawn: string[];
     waiting: Array<() => void>;
-  } = { redrawn: [], waiting: [] };
+    /** The lines the list was given last (`show`). */
+    lines: Array<{ key: string; kind: string; marker: string | null }>;
+  } = { redrawn: [], waiting: [], lines: [] };
 
   return {
     Layer,
@@ -363,7 +369,9 @@ vi.mock('./list-ui.js', async (importOriginal) => {
         fake.list.detail = deps.detail;
         fake.list.open = deps.open;
       }
-      show() {}
+      show(lines: Array<{ key: string; kind: string; marker: string | null }>) {
+        fake.list.lines = lines;
+      }
       render() {
         for (const done of fake.renders.splice(0)) done();
       }
@@ -417,6 +425,17 @@ vi.mock('./max-ui.js', async (importOriginal) => {
     maxUi: (deps: MaxUiDeps) => {
       fake.forms.max = deps;
       return real.maxUi(deps);
+    },
+  };
+});
+
+vi.mock('./spawn-ui.js', async (importOriginal) => {
+  const real = await importOriginal<typeof import('./spawn-ui.js')>();
+  return {
+    ...real,
+    spawnUi: (deps: SpawnUiDeps) => {
+      fake.forms.spawn = deps;
+      return real.spawnUi(deps);
     },
   };
 });
@@ -791,6 +810,8 @@ async function started(options: {
   storage?: Record<string, string>;
   /** The places `/api/find-places` finds (plan 8M-12); none without it. */
   found?: unknown[];
+  /** The wild spawns `/api/spawns` gives (Matt, 2026-11-07): drawn once they came. */
+  spawns?: SpawnsView;
 }) {
   page.byId = new Map();
   page.active = null;
@@ -807,6 +828,7 @@ async function started(options: {
   fake.route.routed = undefined;
   fake.placeList.splice(0);
   fake.list.redrawn = [];
+  fake.list.lines = [];
   const body = new PageElement('body');
   page.body = body;
   /** A popup's content as Leaflet asks it: a function's answer, or the element itself. */
@@ -885,6 +907,7 @@ async function started(options: {
   vi.stubGlobal('location', { origin: 'https://pine.example' });
   let listed = JSON.stringify(options.parties ?? view());
   let stopsListed = options.stops;
+  let spawnsListed = options.spawns;
   const asked: string[] = [];
   /** The questions asked with a time limit of their own. */
   const timeLimited: string[] = [];
@@ -918,6 +941,10 @@ async function started(options: {
     if (url.endsWith('/api/stop-reports') && stopsListed !== undefined) {
       const reports = JSON.stringify(stopsListed);
       return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(reports) });
+    }
+    if (url.endsWith('/api/spawns') && spawnsListed !== undefined) {
+      const spawns = JSON.stringify(spawnsListed);
+      return Promise.resolve({ ok: true, status: 200, text: () => Promise.resolve(spawns) });
     }
     if (url.endsWith('/api/research-options') && options.research !== undefined) {
       const lists = options.research;
@@ -1029,7 +1056,8 @@ async function started(options: {
   // The parties first; the reports at stops, asked for after them, drawn again with them.
   const firstDraw = drawNumber(
     (options.partiesDown === true || options.partiesLate === true ? 0 : 1) +
-      (options.stops === undefined ? 0 : 1),
+      (options.stops === undefined ? 0 : 1) +
+      (options.spawns === undefined ? 0 : 1),
   );
   const raids = showParties(
     map as unknown as Parameters<typeof showParties>[0],
@@ -1162,9 +1190,10 @@ async function started(options: {
     maxForms: fake.forms.max as MaxUiDeps,
     rocketForms: fake.forms.rocket as RocketUiDeps,
     /** The server's lists from now on, asked for at the next poll (a form's `done`). */
-    lists: (next: { parties?: PartiesView; stops?: StopReportsView }) => {
+    lists: (next: { parties?: PartiesView; stops?: StopReportsView; spawns?: SpawnsView }) => {
       if (next.parties) listed = JSON.stringify(next.parties);
       if (next.stops) stopsListed = next.stops;
+      if (next.spawns) spawnsListed = next.spawns;
     },
     card: () => fake.card.made,
     reportHeader: () => page.byId.get('report-button'),
@@ -2899,6 +2928,80 @@ describe('the reports at stops on the map (plan 8M-9B)', () => {
   });
 });
 
+describe('the wild spawns on the map (Matt, 2026-11-07)', () => {
+  /** Dratini 5 at a pin near stop 5; a Magikarp told of without a place. */
+  const SPAWNS = caseSpawns([
+    caseSpawn(5),
+    caseSpawn(6, { pokemon: 'Magikarp', point: null, near: undefined, words: ['magikarp'] }),
+  ]);
+  // The cases' clock: the draw drops a spawn when it goes away.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'] });
+    vi.setSystemTime(CASE_NOW);
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('draws a spawn with a point as a marker named by its Pokémon, lists both, and neither with the layer off', async () => {
+    const { markerOf, registry, nextDraw } = await started({ raids: true, spawns: SPAWNS });
+    expect(markerOf('Dratini')?.group?.onMap).toBe(true);
+    expect(markerOf('Magikarp')).toBeUndefined();
+    const spawnLinesNow = () =>
+      fake.list.lines
+        .filter((line) => line.kind === 'spawns')
+        .map((line) => [line.key, line.marker]);
+    expect(spawnLinesNow()).toEqual([
+      [`spawn:${caseSpawn(5).id}`, `spawn:${caseSpawn(5).id}`],
+      [`spawn:${caseSpawn(6).id}`, null],
+    ]);
+    const drawn = nextDraw();
+    registry.set('spawns', false);
+    await drawn;
+    expect(markerOf('Dratini')?.group).toBeUndefined();
+    expect(spawnLinesNow()).toEqual([]);
+  });
+
+  it('opens the popup of a drawn spawn on its marker, and shows one without a point under its line', async () => {
+    await started({ raids: true, spawns: SPAWNS });
+    const marker = fake.shown.markers.findLast((one) => one.options.title === 'Dratini');
+    marker?.fire('click', {});
+    const opened = marker?.popupElement as PageElement | undefined;
+    expect(opened?.querySelector('.spawn-popup')?.getAttribute('data-spawn')).toBe(caseSpawn(5).id);
+    const under = fake.list.detail?.({
+      key: `spawn:${caseSpawn(6).id}`,
+      kind: 'spawns',
+      id: caseSpawn(6).id,
+      marker: null,
+      name: 'Magikarp',
+      place: 'by the bench',
+      point: null,
+      picture: null,
+      going: 0,
+      soonest: null,
+      times: {},
+    }) as PageElement | undefined;
+    expect(under?.getAttribute('data-spawn')).toBe(caseSpawn(6).id);
+  });
+
+  it('drops a spawn when it goes away, without waiting for the list', async () => {
+    const { markerOf, runTimers, nextDraw } = await started({ raids: true, spawns: SPAWNS });
+    expect(markerOf('Dratini')?.group?.onMap).toBe(true);
+    vi.setSystemTime(caseSpawn(5).goneAt);
+    const drawn = nextDraw();
+    expect(runTimers(20 * 60_000 + 1_000)).toBe(1);
+    await drawn;
+    expect(markerOf('Dratini')?.group).toBeUndefined();
+  });
+
+  it('asks for the spawns at once after one was reported from this page', async () => {
+    const { asked } = await started({ raids: true, spawns: SPAWNS });
+    const before = asked.filter((url) => url.endsWith('/api/spawns')).length;
+    (fake.forms.spawn as SpawnUiDeps | undefined)?.reported?.();
+    expect(asked.filter((url) => url.endsWith('/api/spawns')).length).toBe(before + 1);
+  });
+});
+
 describe("Find's pick on the map (plan 8M-12)", () => {
   beforeEach(() => {
     vi.useFakeTimers({ toFake: ['Date'] });
@@ -3425,7 +3528,10 @@ describe('the live stream in the page', () => {
     if (!stream) throw new Error('no stream was opened');
     const lists = () =>
       shown.asked.filter(
-        (url) => url.endsWith('/api/parties') || url.endsWith('/api/stop-reports'),
+        (url) =>
+          url.endsWith('/api/parties') ||
+          url.endsWith('/api/stop-reports') ||
+          url.endsWith('/api/spawns'),
       );
     return { ...shown, stream, lists };
   };
@@ -3456,12 +3562,24 @@ describe('the live stream in the page', () => {
     expect(lists().slice(before)).toEqual([`/s/${GUILD}/api/stop-reports`]);
   });
 
-  it('gives both lists’ questions a time limit past the queue’s tail', async () => {
+  it('asks for the wild spawns on their signal', async () => {
+    const { stream, runTimers, lists } = await liveMap();
+    const before = lists().length;
+    stream.say('changed', 'spawns 1000');
+    expect(runTimers(500)).toBe(1);
+    expect(lists().slice(before)).toEqual([`/s/${GUILD}/api/spawns`]);
+  });
+
+  it('gives every list’s questions a time limit past the queue’s tail', async () => {
     const timeout = vi.spyOn(AbortSignal, 'timeout');
     const { timeLimited } = await started({ raids: true, stops: caseView() });
     expect(timeout).toHaveBeenCalledWith(LIST_ASK_LIMIT_MS);
     expect(LIST_ASK_LIMIT_MS).toBeGreaterThanOrEqual(130_000);
-    expect(timeLimited).toEqual([`/s/${GUILD}/api/parties`, `/s/${GUILD}/api/stop-reports`]);
+    expect(timeLimited).toEqual([
+      `/s/${GUILD}/api/parties`,
+      `/s/${GUILD}/api/stop-reports`,
+      `/s/${GUILD}/api/spawns`,
+    ]);
   });
 
   it('asks the posts a signal’s list changed inside its spread', async () => {

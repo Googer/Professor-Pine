@@ -1943,6 +1943,16 @@ path.highlighted {
   border-color: var(--rocket);
 }
 
+/* A wild spawn (Matt, 2026-11-07): the stops' marker in the Poké Ball's color. */
+.stop-marker.spawn .ring {
+  border-color: var(--ball);
+}
+
+/* A spawn's popup: the place it is near under where it is in the reporter's words. */
+.spawn-popup .near {
+  color: var(--muted);
+}
+
 /* Both layers at one stop: the ring half research, half Rocket. */
 .stop-marker.both .ring {
   border-color: var(--research) var(--rocket) var(--rocket) var(--research);
@@ -2990,6 +3000,15 @@ path.highlighted {
 
 .party-card:has(.stop-report.research) {
   border-top-color: var(--research);
+}
+
+/* A wild spawn's popup and card (Matt, 2026-11-07): the side bar in the Poké Ball's color. */
+.leaflet-popup-content-wrapper:has(.stop-report.spawn) {
+  border-left-color: var(--ball);
+}
+
+.party-card:has(.stop-report.spawn) {
+  border-top-color: var(--ball);
 }
 
 .stop-popup {

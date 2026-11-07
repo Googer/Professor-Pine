@@ -25,8 +25,8 @@ import {
  * click on the map opens it in a popup at that point; "Report spawn here" in a gym's popup opens
  * it in place of its button, the gym's place being the point. The pick list comes from
  * `/api/wild-options` (the browser revalidates it by its ETag). It is held like the raid forms
- * (`FormHold`, one form at a time). A success is said and closes the form; nothing else on the
- * map changes (spawns are not drawn).
+ * (`FormHold`, one form at a time). A success is said and closes the form, and the spawns are
+ * asked for at once (`reported`), which draws it on the map.
  */
 export interface SpawnUiDeps {
   guild: string;
@@ -38,6 +38,8 @@ export interface SpawnUiDeps {
   hold: Pick<FormHold<unknown>, 'editing' | 'take' | 'holds' | 'ready' | 'fit' | 'release'>;
   /** Opens a popup of its own at the point with this content; `close` closes it. */
   popupAt(point: LatLon, content: HTMLElement): { close(): void };
+  /** A spawn was reported from this page: the spawns asked for at once. */
+  reported?(): void;
 }
 
 /** What the page says when the pick list cannot be loaded. */
@@ -129,6 +131,7 @@ export function spawnUi(deps: SpawnUiDeps) {
         return;
       }
       void send(form, body.body).then((sent) => {
+        if (sent.ok) deps.reported?.();
         // A form gone with its popup meanwhile: nothing more to do.
         if (!hold.holds(claim)) {
           say(sent.text);

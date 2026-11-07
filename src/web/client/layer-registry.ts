@@ -64,12 +64,14 @@ export const MAP_LAYERS: readonly LayerSpec[] = [
     hint: 'Grunts, leaders and Giovanni at PokéStops',
     membersOnly: true,
   },
+  // Wild spawns (Matt, 2026-11-07): `/api/spawns`, a member's; on, under More (the desktop's row
+  // holds five live toggles at 1024 pixels).
   {
     id: 'spawns',
     name: 'Wild spawns',
-    on: false,
+    on: true,
     kind: 'background',
-    waits: true,
+    hint: 'Pokémon reported in the wild, for half an hour',
     membersOnly: true,
   },
   // Off since the Report button (plan 8M-9A): its step 2 draws the gyms to pick from whatever

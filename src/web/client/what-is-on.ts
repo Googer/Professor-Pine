@@ -2,7 +2,9 @@ import { stageAt } from '../../domain/party/raid-stage.js';
 import { clockTime } from '../../domain/web/clock.js';
 import type { PartiesView } from '../../domain/web/party-data.js';
 import { backAtWords } from '../../domain/stops/back-at.js';
+import type { MapSpawn } from '../../domain/web/spawn-data.js';
 import type { StopReportsView } from '../../domain/web/stop-report-data.js';
+import { spawnName, spawnPopupKey } from './spawns.js';
 import { stopPopupKey, type StopLayer, type StopReport, type StopReports } from './stop-reports.js';
 import { distanceWords, metersBetween, type DistanceUnits } from './distance.js';
 import { stopLine, trainPlaces } from './parties.js';
@@ -13,8 +15,8 @@ import type { LatLon, ViewStorage } from './view.js';
 
 /**
  * The list of what is on (plan 8M-7): every live thing the enabled layers show, across the whole
- * server (not only what is in view), grouped by kind in this order (raids, trains, meetups, wild
- * spawns once a route lists them), each group headed with its count. A line: picture, name,
+ * server (not only what is in view), grouped by kind in this order (raids, trains, meetups, the
+ * reports at stops, wild spawns), each group headed with its count. A line: picture, name,
  * place, distance, time, how many are going; dimmed in a raid's last minutes. Sorted, by the
  * member's choice kept per browser: Nearest (from your location, else the map's middle),
  * Soonest (ending soonest for raids, starting soonest for trains and meetups), Most going; ties
@@ -190,6 +192,29 @@ export function stopReportLines(stops: readonly StopReports[]): ListLine[] {
 }
 
 /**
+ * The lines of the wild spawns (Matt, 2026-11-07), each opening its marker (`spawn:<id>`) where it
+ * has a point, else its popup under its line: the Pokémon, the place it is near (else where it is
+ * in the reporter's words), its picture; Soonest by when it goes away; its minutes left read as a
+ * hatched raid's (its last minutes dimmed); no count of those going (Most going keeps them nearest
+ * first, as the reports at stops).
+ */
+export function spawnLines(spawns: readonly MapSpawn[]): ListLine[] {
+  return spawns.map((spawn) => ({
+    key: `spawn:${spawn.id}`,
+    kind: 'spawns',
+    id: spawn.id,
+    marker: spawn.point === null ? null : spawnPopupKey(spawn.id),
+    name: spawnName(spawn),
+    place: spawn.near ?? spawn.details,
+    point: spawn.point,
+    picture: spawn.picture ?? null,
+    going: 0,
+    soonest: spawn.goneAt,
+    times: { stage: 'hatched', hatch: null, end: spawn.goneAt },
+  }));
+}
+
+/**
  * The note of the research group while the day's research waits under an intra-day event's window
  * (plan 8M-9B, B5): when it comes back and after which event, in the post of the stops' words
  * (`backAtWords`, the reader's clock), and at how many stops (`waiting.stops`, as the server counts
@@ -236,7 +261,7 @@ export interface ListGroup {
 }
 
 /** The kinds that have no count of those going: Most going keeps them nearest first (B13). */
-const UNCOUNTED: ReadonlySet<ListKind> = new Set<ListKind>(['research', 'rocket']);
+const UNCOUNTED: ReadonlySet<ListKind> = new Set<ListKind>(['research', 'rocket', 'spawns']);
 
 /**
  * The groups of the list for the layers on, each sorted; a group with a note (`notes`) is shown

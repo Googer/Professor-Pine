@@ -109,7 +109,14 @@ import {
 import type { DistanceUnits } from './distance.js';
 import { WhatIsOn } from './list-ui.js';
 import { STREET_ZOOM, withinReach, type LatLon, type ViewStorage } from './view.js';
-import { ListRefresh, listLines, paneShows, stopReportLines, waitingNote } from './what-is-on.js';
+import {
+  ListRefresh,
+  listLines,
+  paneShows,
+  spawnLines,
+  stopReportLines,
+  waitingNote,
+} from './what-is-on.js';
 import {
   trainPlace,
   placeListNode,
@@ -133,6 +140,8 @@ import { stopName } from './train-forms.js';
 import { stopPlace } from './parties.js';
 import type { Place } from './distance.js';
 import { stopReportLayer } from './stop-report-layer.js';
+import { spawnLayer } from './spawn-layer.js';
+import { SPAWN_LAYER, spawnPopup } from './spawns.js';
 import { plainStopPopup, stopPopup, type StopPopupContext } from './stop-popup.js';
 import { stopUi } from './stop-report-ui.js';
 import { stopFilterUi } from './stop-filter-ui.js';
@@ -250,7 +259,7 @@ type Draw = (node: PageNode) => HTMLElement;
  * max battles are the raids' (plan 8M-9A); a stop's reports are research's or Rocket's (plan 8M-9B,
  * B3: a report and a party at one stop, one tap lists both).
  */
-export type PlacedLayer = 'raids' | 'trains' | 'meetups' | StopLayer;
+export type PlacedLayer = 'raids' | 'trains' | 'meetups' | StopLayer | typeof SPAWN_LAYER;
 
 /**
  * A raid chosen in the list of a gym's raids (`data-show-raid`; empty: "← All raids here"), in
@@ -662,6 +671,23 @@ export function showParties(
     },
   });
   /**
+   * The wild spawns (Matt, 2026-11-07): their own poll, drawn with the parties as the reports at
+   * stops are (one hold, one redraw, one list of the things at a place).
+   */
+  const spawns = spawnLayer({
+    map,
+    guild,
+    registry,
+    activity,
+    spread: () => live.latestSpread,
+    stopped: () => {
+      live.stop();
+    },
+    redraw: () => {
+      redrawParties();
+    },
+  });
+  /**
    * The parties drawn anew with the list the page has (none until the first comes, review F11):
    * for the reports at stops, a layer, a filter, the zoom, the theme. Under a form a newer list
    * that waits keeps its place (branch review W1, `FormHold.redraw`); only the parties' poll gives
@@ -706,8 +732,9 @@ export function showParties(
     }, 0);
   };
   registry.onChange((id) => {
-    // The reports at stops are drawn with the parties (plan 8M-9B): a stop's marker holds both.
-    if (id === 'research' || id === 'rocket') redrawParties();
+    // The reports at stops are drawn with the parties (plan 8M-9B): a stop's marker holds both;
+    // so are the wild spawns.
+    if (id === 'research' || id === 'rocket' || id === SPAWN_LAYER) redrawParties();
     const group = (groups as Record<string, L.LayerGroup | undefined>)[id];
     if (!group) return;
     if (layerShown(id)) group.addTo(map);
@@ -1847,6 +1874,12 @@ export function showParties(
         const meetup = view?.meetups.find((one) => one.id === line.id);
         if (meetup)
           node = partyPopup(meetup, () => meetupPopup(meetup, ctx, meetupActions(meetup)));
+      } else if (line.kind === SPAWN_LAYER) {
+        // A wild spawn without a point (Matt, 2026-11-07): its popup under its line.
+        const spawn = spawns.view?.spawns.find((one) => one.id === line.id);
+        if (spawn) {
+          node = spawnPopup(spawn, { now: ctx.now, located: frame.located(), units: frame.units });
+        }
       }
       // A line Find found that the map could not open (review F6): its stop's popup with its
       // reports, or the place's own.
@@ -2264,6 +2297,26 @@ export function showParties(
           ),
       }),
     );
+    // The wild spawns with a point (Matt, 2026-11-07): a marker each, its popup bound as a
+    // party's, the one whose popup or card is open kept past its end ("Ended"). Their taps let
+    // through while a place is picked, a train routed or stops added, as the rings'.
+    const openSpawn = (key: string | undefined): string[] =>
+      key?.startsWith('spawn:') === true ? [key.slice('spawn:'.length)] : [];
+    placed.push(
+      ...spawns.draw({
+        now,
+        size,
+        circles: { full: sizes.raidMiddle, small: sizes.raidSmall },
+        keep: new Set([...openSpawn(showing.key), ...openSpawn(card.key)]),
+        interactive,
+        bind: (marker, key, popup) => withPopup(marker, key, popup),
+        open: (key, marker) => {
+          openAt(key, marker);
+        },
+        popup: (spawn) =>
+          spawnPopup(spawn, { now: Date.now(), located: frame.located(), units: frame.units }),
+      }),
+    );
     // "New train" (or the form or route editor open in its place) for a member who may; a form
     // open there stays whatever the list says, and is shown over the list (plan 8M-7), which
     // comes back when it closes.
@@ -2304,6 +2357,7 @@ export function showParties(
         ...stopReportLines(
           stopReports.all(now, (report, layer) => stopFilters.shows(report, layer)),
         ),
+        ...spawnLines(spawns.all(now)),
       ],
       {
         ...(research === undefined ? {} : { research }),
@@ -2452,6 +2506,10 @@ export function showParties(
           map.closePopup(popup);
         },
       };
+    },
+    // A spawn reported: the spawns asked for at once, its marker drawn without waiting.
+    reported: () => {
+      void spawns.now();
     },
   });
   // Reporting max battles (plan 8M-9A): "Report max battle here" in a Power Spot's popup opens
@@ -3003,11 +3061,17 @@ export function showParties(
     random: () => Math.random(),
     setTimer: pageTimer,
     changed: (list, spread) => {
-      (list === 'parties' ? partiesPace : stopReports.pace).signal(spread);
+      (list === 'parties'
+        ? partiesPace
+        : list === 'spawns'
+          ? spawns.pace
+          : stopReports.pace
+      ).signal(spread);
     },
     liveChanged: (on, spread) => {
       partiesPace.setLive(on, spread);
       stopReports.pace.setLive(on, spread);
+      spawns.pace.setLive(on, spread);
     },
   });
   activity.onChange(() => {
@@ -3053,6 +3117,7 @@ export function showParties(
   }, COUNTDOWN_MS);
   void poller.start();
   stopReports.start();
+  spawns.start();
   live.start();
   return {
     closeOpen: () => {

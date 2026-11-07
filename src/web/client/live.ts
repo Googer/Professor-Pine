@@ -6,7 +6,7 @@
  */
 
 /** The lists a stream tells of. */
-export type LiveName = 'parties' | 'stop-reports';
+export type LiveName = 'parties' | 'stop-reports' | 'spawns';
 
 /** The interval of a list that is not live, or whose last answer was no good. */
 export const POLL_MS = 20_000;
@@ -70,7 +70,7 @@ export interface LiveConnectionDeps {
 /** A `changed` event's data: `parties 4000`; the spread may be missing or unreadable. */
 function readChanged(data: unknown): { list: LiveName; spread: number | undefined } | undefined {
   const [list, spread] = String(data).split(' ');
-  if (list !== 'parties' && list !== 'stop-reports') return undefined;
+  if (list !== 'parties' && list !== 'stop-reports' && list !== 'spawns') return undefined;
   return { list, spread: readSpread(spread) };
 }
 

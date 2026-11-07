@@ -53,7 +53,7 @@ describe('whether a layer is offered, by its id (plan 8V-1)', () => {
 });
 
 describe('the layers of the map (plan 8M-7)', () => {
-  it('are on by default for what happens now, off for the places and spawns (plan 8M-9A)', () => {
+  it('are on by default for what happens now and the reports, off for the places (plan 8M-9A)', () => {
     const registry = mapRegistry(storage());
     expect(registry.layers().map((layer) => [layer.id, registry.isOn(layer.id)])).toEqual([
       ['raids', true],
@@ -62,7 +62,8 @@ describe('the layers of the map (plan 8M-7)', () => {
       // Reports at stops (plan 8M-9B): live, on.
       ['research', true],
       ['rocket', true],
-      ['spawns', false],
+      // Wild spawns (Matt, 2026-11-07): on, under More.
+      ['spawns', true],
       // Off since the Report button (plan 8M-9A): its step 2 draws the gyms to pick from.
       ['gyms', false],
       ['stops', false],
@@ -152,14 +153,13 @@ describe('the layers of the map (plan 8M-7)', () => {
     expect(offered(false)).not.toContain('rocket');
     expect(offered(true)).toEqual(expect.arrayContaining(['research', 'rocket']));
     expect(offered(true)).toEqual(expect.arrayContaining(['stops', 'spots']));
-    // Wild spawns wait for their data (no route lists spawns yet).
-    expect(offered(true)).not.toContain('spawns');
-    registry.setOffered('spawns', true);
+    // Wild spawns are a member's too (`/api/spawns`), offered from the start.
+    expect(offered(false)).not.toContain('spawns');
     expect(offered(true)).toContain('spawns');
     registry.set('stops', true);
-    // Raids, trains, meetups, research, Rocket, outlines and the stops: the Gyms layer is off
-    // (plan 8M-9A).
-    expect(registry.countOn(true)).toBe(7);
+    // Raids, trains, meetups, research, Rocket, wild spawns, outlines and the stops: the Gyms
+    // layer is off (plan 8M-9A).
+    expect(registry.countOn(true)).toBe(8);
     // A visitor is offered the outlines alone of these: the rest is not counted, though on.
     expect(registry.countOn(false)).toBe(1);
   });
@@ -181,8 +181,6 @@ describe('the layers of the map (plan 8M-7)', () => {
   // outlines (`/api/geo`) and nothing else.
   it('offers a visitor only the layers that hold something for them: Gyms and Region outlines', () => {
     const registry = mapRegistry(storage());
-    // Even once wild spawns had data, they would be a member's.
-    registry.setOffered('spawns', true);
     const offered = (member: boolean) =>
       registry
         .layers()

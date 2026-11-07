@@ -170,6 +170,13 @@ describe('LiveConnection: what counts as live', () => {
     ]);
   });
 
+  it('passes on a word of the wild spawns', () => {
+    const { source, told } = connectionWith();
+    source().ping(4_000);
+    source().changed('spawns 1000');
+    expect(told.changed).toEqual([['spawns', 1_000]]);
+  });
+
   it('ignores a list it does not know', () => {
     const { source, told } = connectionWith();
     source().ping();

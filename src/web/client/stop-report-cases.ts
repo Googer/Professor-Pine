@@ -7,6 +7,7 @@ import type {
   RocketOptionsView,
   StopReportsView,
 } from '../../domain/web/stop-report-data.js';
+import type { MapSpawn, SpawnsView } from '../../domain/web/spawn-data.js';
 
 /*
  * Reports at stops as `/api/stop-reports` and the pick lists give them (plan 8M-9B), for the tests
@@ -225,3 +226,28 @@ export const caseRocketOptions = (more: Partial<RocketOptionsView> = {}): Rocket
   ],
   ...more,
 });
+
+/**
+ * Alice's Dratini `n` (Matt, 2026-11-07: wild spawns on the map), at a pin near stop `n`,
+ * reported 10 minutes ago and going away in 20.
+ */
+export const caseSpawn = (n: number, more: Partial<MapSpawn> = {}): MapSpawn => ({
+  id: `60000000000000000${String(n)}`,
+  pokemon: 'Dratini',
+  costumed: false,
+  ivs: '100% IVs',
+  picture: `${CASE_ICONS}pm147.icon.png`,
+  details: 'by the bench',
+  near: `Near Yellow Mural ${String(n)} (PokéStop)`,
+  point: { lat: caseStop(n).lat + 0.0002, lon: caseStop(n).lon },
+  reporter: 'Alice',
+  region: '#west',
+  madeAt: CASE_NOW - 10 * MINUTE,
+  goneAt: CASE_NOW + 20 * MINUTE,
+  link: `https://discord.com/channels/1/2/60000000000000000${String(n)}`,
+  words: ['dratini'],
+  ...more,
+});
+
+/** `/api/spawns` with these spawns. */
+export const caseSpawns = (spawns: MapSpawn[]): SpawnsView => ({ spawns });
