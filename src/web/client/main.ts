@@ -539,6 +539,19 @@ function start(): void {
   /** The region editor was asked by address: read now, the address changes as it opens. */
   const editorAsked = editingAsked(location.search);
   /**
+   * What a history page's menu asked the map to open (`?open=`, Matt 2026-11-07): read now, the
+   * address forgets it once handled. The tour by itself waits for another visit (review R1).
+   */
+  const openAsked = openingAsked(location.search);
+  /**
+   * The first list of parties drawn, or none to come (a visitor, a map that could not load): what
+   * the address asks to open waits for it, as the tour by itself does (review R3, R4).
+   */
+  let firstListDrawn: () => void = () => undefined;
+  const firstList = new Promise<void>((resolve) => {
+    firstListDrawn = resolve;
+  });
+  /**
    * The tour opens by itself once, on a quiet page; else it stays due for the next visit. Marked
    * seen as it opens: a browser that cannot keep that does not get it at every load.
    */
@@ -549,6 +562,7 @@ function start(): void {
       readOnly,
       editorAlone: !toggle.used && !editorAsked,
       quiet: !asker.held() && quietPage(byId('filter') as HTMLInputElement),
+      nothingAsked: openAsked === undefined,
     });
     if (open && !tour.running() && keepTourSeen(storage, audience)) tour.open(steps);
   };
@@ -597,7 +611,13 @@ function start(): void {
         }
       }),
     true,
-    () => EVERYONE_ITEMS.map(() => tourItem()),
+    () =>
+      EVERYONE_ITEMS.map((item) => {
+        switch (item) {
+          case 'tour':
+            return tourItem();
+        }
+      }),
   ).then((me) => {
     asker.me = me;
     return me;
@@ -738,6 +758,7 @@ function start(): void {
         pane.replaceChildren(section);
         pane.hidden = false;
         map.invalidateSize();
+        firstListDrawn();
         tourByItself(me, false);
         return;
       }
@@ -791,6 +812,7 @@ function start(): void {
           showRegionsItem();
           if (listSeen) return;
           listSeen = true;
+          firstListDrawn();
           // Once the view of the regions came, or within its wait (B1): its step needs it.
           void settledWithin(regionsHooks.loaded, TOUR_WAITS_FOR_REGIONS_MS, (run, ms) => {
             window.setTimeout(run, ms);
@@ -949,6 +971,8 @@ function start(): void {
     if (!map.getZoom()) map.setView([40.44, -79.99], 11);
     load.failed = true;
     say(MAP_FAILED, { lasting: true });
+    // No list comes: what the address asked is told so, or ignored.
+    firstListDrawn();
   });
   tourHooks.settled = loaded;
   // `/s/<guild>/regions/edit` led here (plan 8M-10, C5): once the map is drawn or could not be
@@ -970,29 +994,37 @@ function start(): void {
     },
   });
   // A history page's "Your regions…" or "Map tour" led here (`?open=`, Matt 2026-11-07): once the
-  // map is drawn or could not be, the member is known and their view of the regions came, the
-  // thing opens as its menu item opens it, where the map offers it now; else it is ignored.
-  void openByAddress(
-    openingAsked(location.search),
-    [loaded.then(() => regionsHooks.loaded), account],
-    {
-      offered: (what) =>
-        what === 'regions'
-          ? regionsHooks.offered && !tourHooks.listReadOnly
-          : !document.body.classList.contains('editing-regions'),
-      open: (what) => {
-        if (what === 'regions') regionsHooks.open();
-        else tourByHand();
-      },
-      leave: () => {
-        history.replaceState(
-          null,
-          '',
-          addressWithoutOpening(location.pathname, location.search, location.hash),
-        );
-      },
+  // map is drawn or could not be, the member is known and the first list said whether the map is
+  // read-only (review R3, R4), the thing opens as its menu item opens it, where the map offers it
+  // now; else it is ignored. The regions box waits for the member's view of the regions, which
+  // decides whether it is offered; the tour waits for it as the tour by itself does, no longer
+  // than `TOUR_WAITS_FOR_REGIONS_MS` (review R2).
+  const opening =
+    openAsked === 'tour'
+      ? firstList.then(() =>
+          settledWithin(regionsHooks.loaded, TOUR_WAITS_FOR_REGIONS_MS, (run, ms) => {
+            window.setTimeout(run, ms);
+          }),
+        )
+      : firstList.then(() => regionsHooks.loaded);
+  void openByAddress(openAsked, [loaded, account, opening], {
+    offered: (what) =>
+      what === 'regions'
+        ? regionsHooks.offered && !tourHooks.listReadOnly
+        : // Not beside the region editor, on or asked by the address (review R5).
+          !editorAsked && !toggle.used && !document.body.classList.contains('editing-regions'),
+    open: (what) => {
+      if (what === 'regions') regionsHooks.open();
+      else tourByHand();
     },
-  );
+    leave: () => {
+      history.replaceState(
+        null,
+        '',
+        addressWithoutOpening(location.pathname, location.search, location.hash),
+      );
+    },
+  });
 }
 
 start();

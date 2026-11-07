@@ -594,6 +594,11 @@ export interface TourMoment {
   editorAlone: boolean;
   /** Nothing is open, typed or being said: `quietPage` of `tour-ui.ts`. */
   quiet: boolean;
+  /**
+   * The address asks the map to open nothing (`?open=` of a history page's menu, `openingAsked`):
+   * what was asked opens alone.
+   */
+  nothingAsked: boolean;
 }
 
 /** Whether the tour opens by itself now; otherwise it stays due for the next visit. */
@@ -602,5 +607,11 @@ export function tourOpensByItself(
   audience: TourAudience,
   moment: TourMoment,
 ): boolean {
-  return tourDue(seen, audience) && !moment.readOnly && moment.editorAlone && moment.quiet;
+  return (
+    tourDue(seen, audience) &&
+    !moment.readOnly &&
+    moment.editorAlone &&
+    moment.quiet &&
+    moment.nothingAsked
+  );
 }

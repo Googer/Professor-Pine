@@ -17,8 +17,11 @@ export type MenuPage = 'map' | 'history' | 'me';
 /** An item of the member's menu. */
 export type MemberItem = 'history' | 'me' | 'regions' | 'edit' | 'editor-tour';
 
+/** An item of the menu whoever asks, the visitor's ⋮ menu included. */
+export type EveryoneItem = 'tour';
+
 /** An item of either menu. */
-export type MenuItem = MemberItem | 'tour';
+export type MenuItem = MemberItem | EveryoneItem;
 
 /** What the map opens by its address (`?open=regions`, `?open=tour`). */
 export type MapOpening = 'regions' | 'tour';
@@ -27,7 +30,7 @@ const OPEN_QUERY_NAME = 'open';
 const OPENINGS: readonly MapOpening[] = ['regions', 'tour'];
 
 /** What either menu holds whoever asks, the visitor's ⋮ menu included: "Map tour". */
-export const EVERYONE_ITEMS: readonly MenuItem[] = ['tour'];
+export const EVERYONE_ITEMS: readonly EveryoneItem[] = ['tour'];
 
 /**
  * The member's items on a page, in the map's order: the history pages and "Your regions…" for a

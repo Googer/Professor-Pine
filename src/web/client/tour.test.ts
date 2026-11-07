@@ -259,7 +259,7 @@ describe("the region editor's tour", () => {
 });
 
 describe('when it opens by itself', () => {
-  const calm = { readOnly: false, editorAlone: true, quiet: true };
+  const calm = { readOnly: false, editorAlone: true, quiet: true, nothingAsked: true };
 
   it("is due once for a visitor, and once more for a member's tour", () => {
     expect(tourDue(undefined, 'visitor')).toBe(true);
@@ -276,6 +276,14 @@ describe('when it opens by itself', () => {
     expect(tourOpensByItself(undefined, 'member', { ...calm, editorAlone: false })).toBe(false);
     expect(tourOpensByItself(undefined, 'member', { ...calm, quiet: false })).toBe(false);
     expect(tourOpensByItself('member', 'member', calm)).toBe(false);
+  });
+
+  // Review R1, R7 of the history pages' menu (2026-11-07): `?open=regions` or `?open=tour` came
+  // from a history page; the tour by itself does not open beside what was asked.
+  it('waits while the address asks the map to open something, and stays due', () => {
+    expect(tourOpensByItself(undefined, 'member', { ...calm, nothingAsked: false })).toBe(false);
+    expect(tourOpensByItself(undefined, 'visitor', { ...calm, nothingAsked: false })).toBe(false);
+    expect(tourDue(undefined, 'member')).toBe(true);
   });
 });
 
