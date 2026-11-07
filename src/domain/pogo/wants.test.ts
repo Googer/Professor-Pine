@@ -397,6 +397,22 @@ describe('readWantText', () => {
     return answer.kind === 'target' ? answer.target : answer.kind;
   };
 
+  it('offers the tiers or the IV targets for raid or spawn alone, and no Pokémon (review of 2026-11-07)', () => {
+    // `raid` was a guess for Urshifu (Rapid Strike Style), `rapid` with a letter left out.
+    for (const text of ['raid', 'Raids']) {
+      const answer = readWantText(text, finder);
+      expect(answer, text).toMatchObject({ kind: 'unknown', suggestions: [] });
+      const words = answer.kind === 'unknown' ? answer.words : [];
+      expect(words, text).toContainEqual(tier('T5'));
+      expect(words.every((target) => target.kind === 'tier')).toBe(true);
+    }
+    expect(readWantText('spawns', finder)).toEqual({
+      kind: 'unknown',
+      words: [PERFECT, ZERO],
+      suggestions: [],
+    });
+  });
+
   it('takes the name of a species as the want for every form of it', () => {
     expect(read('Mewtwo')).toStrictEqual(species(150));
     expect(read('charizard')).toStrictEqual(species(6));

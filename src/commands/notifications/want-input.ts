@@ -14,6 +14,7 @@ import {
   entryWant,
   formReader,
   hasForms,
+  kindWordTargets,
   parseWantToken,
   pokemonWantName,
   raidsOnly,
@@ -82,29 +83,17 @@ const LABEL_WORDS = ['every', 'base', 'form'];
 const FIXED_LABEL_WORDS: ReadonlySet<string> = new Set(['raids', 'spawns', 'iv']);
 
 /**
- * The words a member may type alone for the tiers or the IV targets as a whole: `raid` is the
- * raid tiers, not Urshifu (Rapid Strike Style) with a letter left out (the audit of 2026-11-07).
- */
-const KIND_WORDS: ReadonlySet<string> = new Set(['raid', 'raids', 'spawn', 'spawns']);
-
-/** Whether the typed words are the word of a kind of target alone (`KIND_WORDS`). */
-function kindWordsOnly(typed: readonly string[]): boolean {
-  return typed.length > 0 && typed.every((word) => KIND_WORDS.has(word));
-}
-
-/**
  * Whether a text begins the label of a tier or an IV target by what names it: every typed word
  * begins a word of the label, and one of them a word that is the target's own (`perf`, `t5`,
  * `shadow`, `el`). What the label only adds finds nothing by itself: `ra` is Raikou, not ten
- * tiers of raids, and `sp` is Spinda. The whole word alone does (`raid`, `spawns`:
- * `KIND_WORDS`).
+ * tiers of raids, and `sp` is Spinda (the whole word alone does: `kindWordTargets`).
  */
 function beginsFixedLabel(label: string, typed: readonly string[]): boolean {
   const words = searchTokens(label);
   const own = words.filter((word) => !FIXED_LABEL_WORDS.has(word));
   return (
     typed.every((begun) => words.some((word) => word.startsWith(begun))) &&
-    (kindWordsOnly(typed) || typed.some((begun) => own.some((word) => word.startsWith(begun))))
+    typed.some((begun) => own.some((word) => word.startsWith(begun)))
   );
 }
 
@@ -264,6 +253,7 @@ export function wantChoices(ctx: AppContext, typed: string): Choice[] {
 
     // 2. The tiers and the IV targets.
     wantWordGuesses(typed).forEach(addShadow);
+    kindWordTargets(typed).forEach(add);
     for (const target of fixedTargets()) {
       if (beginsFixedLabel(wantLabel(ctx, target), words)) addShadow(target);
     }
@@ -298,7 +288,9 @@ export function wantChoices(ctx: AppContext, typed: string): Choice[] {
       if (hit.match === 'guess') guess(pokemonTarget(hit.entry.dex, undefined, true), hit.guessed);
     }
     const fixedWord =
-      wantWord(typed) !== undefined || /^shadow$/i.test(typed.trim()) || kindWordsOnly(words);
+      wantWord(typed) !== undefined ||
+      /^shadow$/i.test(typed.trim()) ||
+      kindWordTargets(typed).length > 0;
     for (const hit of hits) {
       if (hit.match !== 'guess' || fixedWord) continue;
       guess(pokemonTarget(hit.entry.dex), hit.guessed);

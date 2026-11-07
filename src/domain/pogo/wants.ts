@@ -196,6 +196,38 @@ export function wantWord(text: string): NotificationTarget | undefined {
   return wordCandidates().byName.get(words.join('')) ?? undefined;
 }
 
+/**
+ * The words a member may type alone for the tiers or the IV targets as a whole: `raid` is the
+ * raid tiers, not Urshifu (Rapid Strike Style) with a letter left out (the audit of 2026-11-07).
+ * `/want`'s list and its reading of sent text both go by `kindWordTargets`.
+ */
+export const KIND_WORDS: Readonly<Record<string, 'raid' | 'spawn'>> = {
+  raid: 'raid',
+  raids: 'raid',
+  spawn: 'spawn',
+  spawns: 'spawn',
+};
+
+/**
+ * The targets the words of a kind name, when the text is nothing but such words (`raid`, `raid
+ * raids`): every tier for `raid`, the IV targets for `spawn`; empty for any other text.
+ */
+export function kindWordTargets(text: string): NotificationTarget[] {
+  const words = searchTokens(text);
+  const kinds = words.map((word) =>
+    Object.hasOwn(KIND_WORDS, word) ? KIND_WORDS[word] : undefined,
+  );
+  if (words.length === 0 || kinds.some((kind) => kind === undefined)) return [];
+  return [
+    ...(kinds.includes('raid')
+      ? notificationTiers().map((tier): NotificationTarget => ({ kind: 'tier', tier }))
+      : []),
+    ...(kinds.includes('spawn')
+      ? (['perfect', 'zero'] as const).map((iv): NotificationTarget => ({ kind: 'iv', iv }))
+      : []),
+  ];
+}
+
 /** As many tier and IV targets as a refusal or a list offers for a text that names none. */
 const WORD_GUESSES = 3;
 
@@ -616,6 +648,9 @@ export function readWantText(
     const named = namedPokemon(candidate, finder);
     if (named) return { kind: 'target', target: named };
   }
+  // `raid` or `spawns` alone: the tiers or the IV targets, and no Pokémon a guess would find.
+  const kinds = kindWordTargets(text);
+  if (kinds.length > 0) return { kind: 'unknown', words: kinds, suggestions: [] };
   const name = names.at(-1) ?? text;
   const suggested = (looked: string): number[] => {
     const dexes: number[] = [];

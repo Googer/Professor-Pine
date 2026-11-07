@@ -548,6 +548,17 @@ describe('/want', () => {
     }
   });
 
+  it('suggests the tiers for raid sent alone, and no Pokémon (review of 2026-11-07)', async () => {
+    const made = setup();
+    const said = sent((await made.run('want', { target: 'raid' })).reply).content ?? '';
+    expect(said).toMatch(
+      /^I do not know "raid" as a Pokémon, a raid tier, or perfect or zero IVs\./,
+    );
+    expect(said).toContain('T5 raids');
+    expect(said).not.toContain('Urshifu');
+    expect(made.store.rows).toEqual([]);
+  });
+
   it('allows thirty changes a minute, Submits in a window of their own', async () => {
     const made = setup();
     for (let use = 0; use < 30; use++) await made.run('want', { target: 'iv:perfect' });
