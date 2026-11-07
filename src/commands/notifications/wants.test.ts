@@ -1743,11 +1743,12 @@ describe('/want: the list of choices', () => {
     const names = async (typed: string) =>
       (await made.choices('want', typed)).map((choice) => choice.name);
     /** The choices before the first shadow raids that are no boss's by its name. */
+    /** Where the first such shadow raids stand, -1 for none. */
+    const firstShadow = (found: string[]) =>
+      found.findIndex((name) => name.startsWith('Shadow ') && name !== 'Shadow Shieldon');
+    /** The whole list when it has none. */
     const beforeShadows = (found: string[]) =>
-      found.slice(
-        0,
-        found.findIndex((name) => name.startsWith('Shadow ') && name !== 'Shadow Shieldon'),
-      );
+      firstShadow(found) < 0 ? found : found.slice(0, firstShadow(found));
     // `s`, `sh` and `sha` begin names before they begin `shadow`: the Pokémon first (the
     // bosses among them before the rest), the shadow raids after them.
     const sh = await names('sh');
@@ -1755,13 +1756,16 @@ describe('/want: the list of choices', () => {
     expect(beforeShadows(sh)).toContain('Shinx');
     expect(beforeShadows(sh)).toContain('Mega Sharpedo');
     expect(beforeShadows(sh)).not.toContain('Shadow Gastly');
+    expect(firstShadow(sh)).toBeGreaterThanOrEqual(0);
     expect((await names('s')).filter((name) => name.startsWith('Shadow '))).toEqual([
       'Shadow Shieldon',
     ]);
     const sha = await names('sha');
     expect(sha[0]).toBe('Shaymin (every form)');
     expect(beforeShadows(sha)).toContain('Sharpedo (every form)');
+    expect(firstShadow(sha)).toBeGreaterThanOrEqual(0);
     expect(sha).toContain('Shadow Gastly');
+    expect(sha.indexOf('Mega Sharpedo')).toBeGreaterThanOrEqual(0);
     expect(sha.indexOf('Shadow T5 raids')).toBeGreaterThan(sha.indexOf('Mega Sharpedo'));
     // Once nothing begins with it but the word, the shadow raids of the bosses lead.
     expect((await names('shad'))[0]).toMatch(/^Shadow (?!T\d)/);
