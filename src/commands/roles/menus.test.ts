@@ -478,7 +478,7 @@ describe('changing a menu', () => {
     const failure = entries.find((entry) => entry.msg === 'interaction failed');
     expect(failure).toBeDefined();
     expect(sent(interaction.followUp)).toMatchObject({
-      content: `Something went wrong (ref \`${String(failure?.ref)}\`).`,
+      content: `Something went wrong. Try again in a moment; if it happens again, tell staff the code \`${String(failure?.ref)}\`.`,
       flags: MessageFlags.Ephemeral,
     });
   });

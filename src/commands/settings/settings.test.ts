@@ -712,7 +712,7 @@ describe('the controls of /settings', () => {
   it('answers a menu value it does not know as a stale control', async () => {
     const made = setup();
     const used = await made.pick('settings:privacy:set', 'loud');
-    expect(sent(used.reply).content).toBe('This control is no longer active.');
+    expect(sent(used.reply).content).toBe('This is out of date and no longer works.');
     expect((await made.users.get(ALICE)).raidPrivacy).toBe(RaidPrivacy.Visible);
   });
 
@@ -1089,7 +1089,7 @@ describe('the Pokebattler id of /settings', () => {
     const made = setup();
     await made.users.update(ALICE, { pokebattlerId: 26516 });
     const submitted = await made.submit('settings:pokebattler:set:~abc', undefined, {});
-    expect(sent(submitted.reply).content).toBe('This control is no longer active.');
+    expect(sent(submitted.reply).content).toBe('This is out of date and no longer works.');
     expect((await made.users.get(ALICE)).pokebattlerId).toBe(26516);
   });
 });

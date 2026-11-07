@@ -421,7 +421,7 @@ describe('the "Set time" button and its form', () => {
     const made = await setup();
     for (const customId of [`party:${made.party.id}:time`, `party:${made.party.id}:time:meet`]) {
       const form = await made.handle(fakeModal({ customId, fields: { time: '30' } }));
-      expect(sent(form.reply).content).toBe('This control is no longer active.');
+      expect(sent(form.reply).content).toBe('This is out of date and no longer works.');
     }
   });
 });

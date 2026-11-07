@@ -185,7 +185,7 @@ describe('InteractionRouter', () => {
     const logged = entries.find((e) => e.msg === 'interaction failed');
     expect(logged?.ref).toMatch(/^[0-9a-f]{6}$/);
     expect(i.reply).toHaveBeenCalledWith({
-      content: `Something went wrong (ref \`${String(logged?.ref)}\`).`,
+      content: `Something went wrong. Try again in a moment; if it happens again, tell staff the code \`${String(logged?.ref)}\`.`,
       flags: MessageFlags.Ephemeral,
     });
   });
