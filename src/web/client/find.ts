@@ -29,9 +29,10 @@ import {
  * pause, every word typed matching as typed or as the start of a word (case and accents ignored,
  * by Pine's search text rules, `searchTokens`): the reports at stops of today (by the words the
  * server gives each, `reportSearch`), the parties going on (matched here over what the page
- * holds) and the wild spawns (by the words the server gives each), and places by name (the server's answer, `/api/find-places`). The results fill the list
- * pane in three groups, each sorted by distance; the map stays as it is. The pure part; the
- * party layer draws it in the list (`WhatIsOn`) and `FindSearch` times it.
+ * holds) and the wild spawns (by the words the server gives each), and places by name (the
+ * server's answer, `/api/find-places`). The results fill the list pane in three groups, each
+ * sorted by distance; the map stays as it is. The pure part; the party layer draws it in the
+ * list (`WhatIsOn`) and `FindSearch` times it.
  */
 
 /** The pause after a keystroke before Find searches (the design: about 250 ms). */
@@ -189,8 +190,9 @@ export const PLACES_FAILED = 'Places could not be searched just now.';
  * words find (confirmed first, then not confirmed, each by distance; research waiting under an
  * event's window is not in the view, so never found; the layers and filters ignored), the parties
  * going on that they find (by distance, each line the place's name over what matched) with the
- * wild spawns that have not gone away (the Pokémon over where it is), and the places the server found (in its order, at most ten of each kind). A group with nothing is left
- * out; the places' group is kept while it is asked for or failed, with its note.
+ * wild spawns that have not gone away (the Pokémon over where it is), and the places the server
+ * found (in its order, at most ten of each kind). A group with nothing is left out; the places'
+ * group is kept while it is asked for or failed, with its note.
  */
 export function foundGroups(state: FindState, data: FindData): FindGroup[] {
   const { words } = state;
