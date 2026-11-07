@@ -461,6 +461,8 @@ export async function makeMeetupAs(
       return refused(problemText('bad-name', ctx.attendance.limits(), 'meetup'));
     case 'bad-description':
       return refused(problemText('description-too-long', ctx.attendance.limits(), 'meetup'));
+    case 'cannot-make':
+      return refused(problemText(outcome.reason, ctx.attendance.limits(), 'meetup'));
     case 'no-region':
       return refused(FROM_A_REGION);
     case 'no-forum':

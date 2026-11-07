@@ -158,6 +158,13 @@ describe('making a meetup on the map', () => {
     const early = await map.make(asked({ kind: 'gym', id: '1' }, { end: '5pm' }));
     expect(early.status).toBe(422);
     expect(early.json.text).toMatch(/^"5pm" cannot be the time the meetup ends/);
+    const same = await map.make(asked({ kind: 'gym', id: '1' }, { end: '6pm' }));
+    expect(same).toMatchObject({
+      status: 422,
+      json: {
+        text: 'A meetup cannot end before it starts. Give a later end, or change the start first with /meet.',
+      },
+    });
     const unread = await map.make(asked({ kind: 'gym', id: '1' }, { end: 'later' }));
     expect(unread.status).toBe(422);
     expect(unread.json.text).toMatch(/^I could not read "later" as the time the meetup ends\./);

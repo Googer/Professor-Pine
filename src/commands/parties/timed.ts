@@ -168,11 +168,11 @@ export function typedTimedTime(
 /**
  * The end typed for a timed party about to be made that starts at `startTime` (`/meetup end:`),
  * read as `/end` reads the end of one that exists (`typedTimedTime`, from the start): undefined
- * for no text or `none`. Throws a `UserError` for a text that is no time or lies before the start
- * or too far ahead.
+ * for no text or `none`. Throws a `UserError` for a text that is no time or lies too far ahead,
+ * and for an end not after the start (`timesInOrder`) in `/end`'s words (`end-before-start`).
  */
 export function typedNewEnd(
-  ctx: Pick<AppContext, 'config'>,
+  ctx: Pick<AppContext, 'config' | 'attendance'>,
   type: TimedParty['type'],
   startTime: number,
   text: string | null,
@@ -181,7 +181,11 @@ export function typedNewEnd(
   if (text === null || text.trim() === '') return undefined;
   const party = { ...newPartyTimes(type, now), timed: { startTime } };
   const typed = typedTimedTime(ctx, party, 'end', text, now);
-  return typed === 'unset' ? undefined : typed.at;
+  if (typed === 'unset') return undefined;
+  if (!timesInOrder(startTime, typed.at)) {
+    throw new UserError(problemText('end-before-start', ctx.attendance.limits(), type));
+  }
+  return typed.at;
 }
 
 /** A time as an answer names it: with its date when it is not today, and how long until then. */

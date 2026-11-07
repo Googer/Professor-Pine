@@ -183,6 +183,11 @@ export async function startTrainAs(
   switch (outcome.kind) {
     case 'bad-name':
       return { kind: 'refused', text: problemText('bad-name', ctx.attendance.limits(), 'train') };
+    case 'cannot-make':
+      return {
+        kind: 'refused',
+        text: problemText(outcome.reason, ctx.attendance.limits(), 'train'),
+      };
     case 'no-region':
       return { kind: 'refused', text: TRAIN_FROM_A_REGION };
     case 'no-forum':

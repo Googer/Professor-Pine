@@ -486,6 +486,8 @@ export type TimedOutcome<P extends TimedParty> =
   | { kind: 'created'; party: P }
   /** The text is no name (`tidyName`). */
   | { kind: 'bad-name' }
+  /** What the party cannot be made with otherwise, such as an end not after its start. */
+  | { kind: 'cannot-make'; reason: PartyProblem }
   /** The channel is not the channel of a region of a server. */
   | { kind: 'no-region' }
   /** The region has no forum yet (`/admin setup-forums`). */
@@ -1793,7 +1795,11 @@ export class PartyService {
       name: request.name,
       now: this.now(),
     });
-    if (!made.ok) return { kind: 'bad-name' };
+    if (!made.ok) {
+      return made.reason === 'bad-name'
+        ? { kind: 'bad-name' }
+        : { kind: 'cannot-make', reason: made.reason };
+    }
     const party = noteMember(made.party, request.creatorId, request.creator ?? {});
     // The view does not depend on the stored row, so a renderer that fails stores nothing.
     const rendered = this.rendered({ ...party, forumChannelId: forumId });

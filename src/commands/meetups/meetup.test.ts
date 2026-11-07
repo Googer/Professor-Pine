@@ -300,13 +300,14 @@ describe('/meetup', () => {
   it('makes the meetup with its end, read as /end reads a meetup end', async () => {
     const made = await setup();
     await made.run('Picnic', { options: { end: '8pm' } });
-    expect(made.meetups()[0]).toMatchObject({
+    const named = (name: string) => made.meetups().find((one) => one.timed.name === name);
+    expect(named('Picnic')).toMatchObject({
       endTime: SIX_PM + 2 * HOUR,
       timed: { startTime: SIX_PM },
     });
     // `none` is no end, as for /end.
     await made.run('Picnic two', { options: { end: 'none' } });
-    expect(made.meetups()[1]?.endTime).toBeNull();
+    expect(named('Picnic two')?.endTime).toBeNull();
   });
 
   it('refuses an end before the start, or one it cannot read, before the form', async () => {
@@ -314,6 +315,12 @@ describe('/meetup', () => {
     const early = await made.run('Picnic', { options: { end: '5pm' } });
     expect(early.used.showModal).not.toHaveBeenCalled();
     expect(early.told).toMatch(/^"5pm" cannot be the time the meetup ends/);
+    // An end at the very start is no end after it: refused in /end's words, before the form.
+    const same = await made.run('Picnic', { options: { end: '6pm' } });
+    expect(same.used.showModal).not.toHaveBeenCalled();
+    expect(same.told).toBe(
+      'A meetup cannot end before it starts. Give a later end, or change the start first with `/meet`.',
+    );
     expect((await made.run('Picnic', { options: { end: 'later' } })).told).toMatch(
       /^I could not read "later" as the time the meetup ends\./,
     );

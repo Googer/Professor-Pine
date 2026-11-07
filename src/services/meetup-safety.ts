@@ -1527,7 +1527,8 @@ export class MeetupSafety {
                 forumId: outcome.refused.forumId,
                 missing: [...outcome.refused.missing],
               }
-            : { kind: outcome.kind },
+            : // A reason no failure kind names (what was asked was read before it was kept).
+              { kind: outcome.kind === 'cannot-make' ? 'error' : outcome.kind },
       };
     } catch (err) {
       log.error({ err, request: request.id }, 'could not make an approved meetup');

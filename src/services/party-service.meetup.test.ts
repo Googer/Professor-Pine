@@ -222,6 +222,20 @@ describe('PartyService.createMeetup', () => {
     expect(made.gateway.calls).toEqual([]);
   });
 
+  it('says why it made nothing: an end not after the start is no bad name', async () => {
+    const made = await partyServiceWith();
+    const startTime = Date.now() + 3_600_000;
+    const outcome = await made.service.createMeetup({
+      name: 'Picnic',
+      creatorId: REPORTER,
+      regionChannelId: WEST_CHANNEL,
+      startTime,
+      endTime: startTime,
+    });
+    expect(outcome).toEqual({ kind: 'cannot-make', reason: 'end-before-start' });
+    expect(made.storage.writes).toEqual([]);
+  });
+
   it('says so for a channel that is no region, and for a region without a forum', async () => {
     const made = await partyServiceWith();
     const request = { name: 'Picnic', creatorId: REPORTER };
