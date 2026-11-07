@@ -132,6 +132,20 @@ a {
   gap: 6px;
 }
 
+/* The menu's links look as its buttons do; the page you are on as the chosen theme (as the map's). */
+.account-menu .menu a {
+  text-align: center;
+}
+
+#account .menu a:hover {
+  background: var(--secondary-hover);
+}
+
+#account .menu a[aria-current='page'] {
+  background: var(--primary);
+  color: var(--on-color);
+}
+
 .theme-choice {
   display: flex;
   align-items: center;

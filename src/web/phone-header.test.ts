@@ -174,22 +174,47 @@ describe("the server's invite in the header on a phone", () => {
   });
 });
 
+// Matt, 2026-11-07: "History" and "Your history" are links among the menu's buttons; they look
+// the same, on the map and on the history pages alike.
+describe("the account menu's links", () => {
+  for (const sheet of ['map.css', 'history.css']) {
+    const rules = rulesOf(readFileSync(path.resolve(import.meta.dirname, 'client', sheet), 'utf8'));
+
+    it(`center their words and darken under the pointer as its buttons do (${sheet})`, () => {
+      expect(shown(rules, '.account-menu .menu a', 'text-align', false)).toBe('center');
+      expect(shown(rules, '#account .menu a:hover', 'background', false)).toBe(
+        shown(rules, '#account button:hover', 'background', false),
+      );
+    });
+
+    it(`draws the page you are on as the chosen theme is drawn (${sheet})`, () => {
+      const current = "#account .menu a[aria-current='page']";
+      const chosen = '#account .theme-choice .theme-option.chosen';
+      for (const property of ['background', 'color']) {
+        expect(shown(rules, current, property, false), property).toBe(
+          shown(rules, chosen, property, false),
+        );
+      }
+    });
+  }
+});
+
 // Plan 8M-11C, S29: "Edit regions" by one rule, a mouse and 1024 pixels, the stylesheet's query
 // the very one the page asks (`EDITOR_MEDIA`).
 describe('"Edit regions" in the account menu', () => {
-  const rules = rulesOf(
-    readFileSync(path.resolve(import.meta.dirname, 'client', 'map.css'), 'utf8'),
-  );
-  const item = rules.filter((rule) => rule.selectors.includes('.account-menu .edit-regions'));
+  for (const sheet of ['map.css']) {
+    const rules = rulesOf(readFileSync(path.resolve(import.meta.dirname, 'client', sheet), 'utf8'));
+    const item = rules.filter((rule) => rule.selectors.includes('.account-menu .edit-regions'));
 
-  it('is hidden but where the page offers the editor, by its own query', () => {
-    expect(
-      item
-        .filter((rule) => rule.media === undefined)
-        .map((rule) => rule.declarations.get('display')),
-    ).toEqual(['none']);
-    const shownBy = item.filter((rule) => rule.media !== undefined);
-    expect(shownBy.map((rule) => rule.media)).toEqual([EDITOR_MEDIA]);
-    expect(shownBy[0]?.declarations.get('display')).toBe('block');
-  });
+    it(`is hidden but where the page offers the editor, by its own query (${sheet})`, () => {
+      expect(
+        item
+          .filter((rule) => rule.media === undefined)
+          .map((rule) => rule.declarations.get('display')),
+      ).toEqual(['none']);
+      const shownBy = item.filter((rule) => rule.media !== undefined);
+      expect(shownBy.map((rule) => rule.media)).toEqual([EDITOR_MEDIA]);
+      expect(shownBy[0]?.declarations.get('display')).toBe('block');
+    });
+  }
 });

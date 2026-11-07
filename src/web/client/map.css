@@ -169,6 +169,23 @@ a {
 }
 
 /*
+ * The menu's links ("History", "Your history") look as its buttons do (Matt, 2026-11-07): their
+ * words centered, darker under the pointer; the page you are on drawn as the chosen theme is.
+ */
+.account-menu .menu a {
+  text-align: center;
+}
+
+#account .menu a:hover {
+  background: var(--secondary-hover);
+}
+
+#account .menu a[aria-current='page'] {
+  background: var(--primary);
+  color: var(--on-color);
+}
+
+/*
  * "Edit regions" only where the editor is offered (plan 8M-11C, S29): a screen of 1024 pixels or
  * more, where the header's row shows, with a mouse or a trackpad. The query is `EDITOR_MEDIA` of
  * `editor-media.ts` word for word (`phone-header.test.ts` holds them to each other).
