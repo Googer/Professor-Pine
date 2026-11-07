@@ -144,8 +144,9 @@ export async function closePartyAs(
   const closed = await ctx.partyService.endAs(party.id, undefined, {
     lastWords: `This ${partyWord(party)} was closed by ${memberText(moderator)}.`,
     removal,
-    // Staff closed it: the history keeps that (plan 8H-6, A1).
+    // Staff closed it: the history keeps that (plan 8H-6, A1); the audit log who.
     ended: closedEnd('staff'),
+    by: moderator,
     ...(left === undefined ? {} : { left }),
   });
   if (closed === false) {

@@ -18,6 +18,7 @@ import type { UserSettings } from '../../src/db/repositories/user-repository.js'
 import { AccessService } from '../../src/services/access-service.js';
 import { BossTierMoves } from '../../src/services/boss-tier-moves.js';
 import { PartyLines } from '../../src/services/party-lines.js';
+import { auditNamesOf, PartyAudit } from '../../src/services/party-audit.js';
 import { PartyScheduler } from '../../src/services/party-scheduler.js';
 import { AttendanceService, type Member } from '../../src/services/attendance-service.js';
 import {
@@ -41,6 +42,7 @@ import {
   type TrainRequest,
 } from '../../src/services/party-service.js';
 import { NotifyService, type NotifyServiceOptions } from '../../src/services/notify-service.js';
+import { MemoryPartyAudit } from './party-audit.js';
 import { SpawnService } from '../../src/services/spawn-service.js';
 import { MemorySpawnReports } from './spawn-reports.js';
 import { RecordingDms } from './dms.js';
@@ -267,6 +269,8 @@ export interface Outliving {
   database: PartyStorage | undefined;
   /** With `database`: the history the retries of what failed go to (`HistoryRepository`). */
   historyStorage: HistoryStorage | undefined;
+  /** The staff audit log. */
+  auditStore?: MemoryPartyAudit;
 }
 
 /**
@@ -369,6 +373,8 @@ export async function partyServiceWith(
   const store = new PartyStore({ storage: database ?? storage, log, now, history: recorder });
   await store.load();
   const gateway = kept?.gateway ?? new FakePartyGateway();
+  // The staff audit log over memory, listening to the store as in the bot: `audit.flush()` waits.
+  const auditStore = kept?.auditStore ?? new MemoryPartyAudit();
   const grants = kept?.grants ?? new MemoryAccessGrants();
   const access = new AccessService({
     store,
@@ -550,6 +556,19 @@ export async function partyServiceWith(
     // As for a start time: `trains.flush()` sends what is waiting.
     announceDelayMs: 3_600_000,
   });
+  const audit = new PartyAudit({
+    store,
+    storage: auditStore,
+    guilds: { snowflakeOf: (id) => Promise.resolve(id === 1 ? gateway.guildId : undefined) },
+    names: auditNamesOf({
+      gyms,
+      ...(forService.wayspots === undefined ? {} : { wayspots: forService.wayspots }),
+      regions,
+      gameData: overrides.gameData ?? { catalogue: catalogueFixture() },
+    }),
+    log,
+    now,
+  });
   const raidBosses = overrides.raidBosses ?? raidBossesFixture();
   const scheduler = new PartyScheduler({
     store,
@@ -558,6 +577,7 @@ export async function partyServiceWith(
     attendance,
     routes: trains,
     access,
+    audit,
     splits: service,
     lines,
     gateway,
@@ -572,6 +592,8 @@ export async function partyServiceWith(
     service,
     attendance,
     access,
+    audit,
+    auditStore,
     grants,
     raids,
     maxes,

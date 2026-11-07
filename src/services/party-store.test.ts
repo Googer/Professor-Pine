@@ -430,6 +430,34 @@ describe('PartyStore', () => {
       expect(seen).toEqual([]);
     });
 
+    it('tells a listener who made a change and why a party ended, as the caller said (staff audit log)', async () => {
+      const { store } = await partyStoreWith([
+        testRaid({ id: ID(1) }),
+        testRaid({ id: ID(3), gymId: 3 }),
+      ]);
+      const told: unknown[] = [];
+      store.onChange((_before, after, cause) => told.push([after.id.at(-1), cause]));
+      const alice = { id: ALICE, name: 'Alice' };
+      await store.update(ID(1), join(ALICE), { by: alice });
+      // An add is made by the party's maker, unless the caller says who (a move).
+      await store.add({ ...testRaid({ id: ID(2), gymId: 2 }), makerName: 'Rep' });
+      await store.add(testRaid({ id: ID(4), gymId: 4 }), { movedFrom: ID(3), by: alice });
+      await store.update(ID(1), (party) => ({ party: endParty(party), ended: { how: 'clock' } }));
+      await store.updateBoth(
+        [ID(2), ID(3)],
+        (a, b) => ({ parties: [a && join(BOB)(a).party, b && endParty(b)] as const }),
+        { by: { id: BOB }, removal: 'delete' },
+      );
+      expect(told).toEqual([
+        ['1', { by: alice }],
+        ['2', { by: { id: REPORTER, name: 'Rep' } }],
+        ['4', { by: alice, movedFrom: ID(3) }],
+        ['1', { ended: { how: 'clock' } }],
+        ['2', { by: { id: BOB }, removal: 'delete' }],
+        ['3', { by: { id: BOB }, removal: 'delete' }],
+      ]);
+    });
+
     it('logs what a listener throws and goes on: the change is stored and the others are told', async () => {
       const { store, entries } = await partyStoreWith([testRaid({ id: ID(1) })]);
       const told: string[] = [];

@@ -3,7 +3,7 @@ import type { PartyGateway } from '../discord/party-gateway.js';
 import type { Party, Refusal } from '../domain/party/party.js';
 import type { Logger } from '../log.js';
 import { inMessages } from '../render/text.js';
-import type { PartyStore } from './party-store.js';
+import type { ChangeCause, PartyStore } from './party-store.js';
 
 /**
  * The settings of these members, read at once, for a service that wants to know whom it may
@@ -84,23 +84,44 @@ export function anyParty(_party: Party): _party is Party {
 }
 
 /**
+ * A change made by this member, for the audit log (`ChangeCause`): their id and the name the
+ * interaction gave; none for no member (Pine itself).
+ */
+export function byMember(
+  member: { id: string; name?: string | undefined } | undefined,
+): ChangeCause | undefined {
+  return member === undefined ? undefined : { by: loggedBy(member) };
+}
+
+/** A member as the audit log names who made a change: the id, and the name where there is one. */
+export function loggedBy(member: { id: string; name?: string | undefined }): {
+  id: string;
+  name?: string;
+} {
+  return member.name === undefined ? { id: member.id } : { id: member.id, name: member.name };
+}
+
+/**
  * Runs one change of a party inside the store: the skeleton that the services for what members
  * do share (`AttendanceService`, `RaidChangeService`, `TimedPartyService`, `TrainService`).
  * `change` gets the party as it is at that moment, when it `fits` (a party of another kind is
  * `gone`: there is no such party), and decides there; it answers what a function of
  * `src/domain/party` answers. What the caller does about the outcome (the post, the line in it,
- * the private answer) is its own.
+ * the private answer) is its own. `cause` says who made it, for the audit log.
  */
 export async function storedChange<P extends Party, Extra, Refused extends Refusal = Refusal>(
   store: Pick<PartyStore, 'update'>,
   partyId: string,
   fits: (party: Party) => party is P,
   change: (party: P) => ({ ok: true; party: P } & Extra) | Refused,
+  cause?: ChangeCause,
 ): Promise<StoredChange<P, Extra, Refused>> {
   type Decision =
     ({ ok: true; party: P } & Extra) | Refused | { ok?: undefined; party?: undefined };
-  const result = await store.update(partyId, (party): Decision =>
-    fits(party) ? change(party) : {},
+  const result = await store.update(
+    partyId,
+    (party): Decision => (fits(party) ? change(party) : {}),
+    cause,
   );
   if (result?.ok === undefined) return { kind: 'gone' };
   if (!result.ok) return { kind: 'refused', refusal: result };

@@ -16,6 +16,7 @@ import {
   type RaidParty,
 } from '../domain/party/party.js';
 import { raidStandingAt } from '../domain/party/raid.js';
+import type { PostRemoval } from '../domain/moderation/reports.js';
 import type { Logger } from '../log.js';
 import { KeyedLock } from './keyed-lock.js';
 
@@ -77,6 +78,15 @@ export interface PairChange {
   ended?: readonly [PartyEnd | undefined, PartyEnd | undefined];
 }
 
+/** What the listeners are told of a change: its cause and why the party ended, if it did. */
+function noteOf(
+  cause: ChangeCause | undefined,
+  ended: PartyEnd | undefined,
+): ChangeNote | undefined {
+  if (cause === undefined && ended === undefined) return undefined;
+  return { ...cause, ...(ended === undefined ? {} : { ended }) };
+}
+
 /** Why `add` refused a party: its region is being removed, or is gone (`closeRegion`). */
 export class RegionClosedError extends Error {
   constructor(readonly regionId: number) {
@@ -86,10 +96,32 @@ export class RegionClosedError extends Error {
 }
 
 /**
- * Told about every stored change: the party as it was (undefined for one that was just added)
- * and as it is stored now, which for a party that ended has the status `ended`.
+ * Who made a change, as its caller says (the staff audit log, `PartyAudit`): `by` the member
+ * (left out: Pine itself, the clock or a feed), `removal` what staff or the moderators chose for
+ * the post of a party they closed. Optional everywhere: a caller that says nothing changes
+ * nothing but the log's actor.
  */
-export type PartyListener = (before: Party | undefined, after: Party) => void;
+export interface ChangeCause {
+  by?: { id: string; name?: string | undefined };
+  removal?: PostRemoval;
+}
+
+/**
+ * What a listener is told of a change beyond the parties: its cause (`by` for an add is the
+ * party's maker unless the caller said who), why a party ended (`ended`, as the change said), and
+ * the party an add goes on as after a move (`movedFrom`).
+ */
+export interface ChangeNote extends ChangeCause {
+  ended?: PartyEnd;
+  movedFrom?: string;
+}
+
+/**
+ * Told about every stored change: the party as it was (undefined for one that was just added)
+ * and as it is stored now, which for a party that ended has the status `ended`; and what else is
+ * known of the change (`ChangeNote`), which only the audit log reads.
+ */
+export type PartyListener = (before: Party | undefined, after: Party, note?: ChangeNote) => void;
 
 /**
  * The active parties in memory, with the database behind them. Every change goes through
@@ -165,10 +197,10 @@ export class PartyStore implements PartyProvider {
     this.listeners.push(listener);
   }
 
-  private announce(before: Party | undefined, after: Party): void {
+  private announce(before: Party | undefined, after: Party, note?: ChangeNote): void {
     for (const listener of this.listeners) {
       try {
-        listener(before, after);
+        listener(before, after, note);
       } catch (err) {
         this.options.log.error({ err, party: after.id }, 'a listener of the parties failed');
       }
@@ -211,9 +243,12 @@ export class PartyStore implements PartyProvider {
    * Stores a new party. Rejects when the row cannot be written (its id or post already exists),
    * and with a `RegionClosedError`, before anything is written, for a party of a region that
    * is closed (`closeRegion`). `movedFrom`: the raid it goes on as after a move to another
-   * region, for the party history.
+   * region, for the party history. `by`: who added it, for the audit log; left out, its maker.
    */
-  async add(party: Party, options: { movedFrom?: string } = {}): Promise<Party> {
+  async add(
+    party: Party,
+    options: { movedFrom?: string; by?: ChangeCause['by'] } = {},
+  ): Promise<Party> {
     const parties = this.all;
     const { regionId } = party;
     // Decided now, in the same turn in which it is remembered as under way (below): a region
@@ -228,7 +263,11 @@ export class PartyStore implements PartyProvider {
       });
       await this.options.storage.insert(party, note);
       if (party.status === 'active') parties.set(party.id, party);
-      this.announce(undefined, party);
+      const by = options.by ?? {
+        id: party.createdById,
+        ...(party.makerName === undefined ? {} : { name: party.makerName }),
+      };
+      this.announce(undefined, party, { by, ...(movedFrom === undefined ? {} : { movedFrom }) });
       return party;
     });
     if (regionId !== null) {
@@ -303,10 +342,13 @@ export class PartyStore implements PartyProvider {
    * has `recorded`, the record of the party history its write committed with it (plan 8H-7A,
    * review F-B1: the card of an ended train is drawn from it); undefined where none was written
    * (the record failed and waits for its later tries, the party moved or never had a post).
+   *
+   * `cause` says who made the change, for the audit log (`ChangeCause`); it changes nothing else.
    */
   async update<R extends { party?: Party; ended?: PartyEnd }>(
     id: string,
     change: (party: Party) => R,
+    cause?: ChangeCause,
   ): Promise<(R & { written: boolean; recorded?: WrittenRecord }) | undefined> {
     const parties = this.all;
     return this.locks.run(id, async () => {
@@ -336,7 +378,7 @@ export class PartyStore implements PartyProvider {
       }
       if (stamped.status === 'active') parties.set(id, stamped);
       else parties.delete(id);
-      this.announce(current, stamped);
+      this.announce(current, stamped, noteOf(cause, result.ended));
       const { recorded } = saved;
       return { ...result, party: stamped, written: true, ...(recorded ? { recorded } : {}) };
     });
@@ -366,6 +408,7 @@ export class PartyStore implements PartyProvider {
   async updateBoth<R extends PairChange>(
     ids: readonly [string, string],
     change: (first: Party | undefined, second: Party | undefined) => R,
+    cause?: ChangeCause,
   ): Promise<
     Omit<R, 'parties'> & { parties: [Party | undefined, Party | undefined]; written: boolean }
   > {
@@ -419,7 +462,9 @@ export class PartyStore implements PartyProvider {
           else parties.delete(after.id);
           current[index] = after;
         }
-        for (const { before, after } of writes) this.announce(before, after);
+        for (const { index, before, after } of writes) {
+          this.announce(before, after, noteOf(cause, result.ended?.[index]));
+        }
         return { ...result, parties: current, written: true };
       }),
     );
@@ -459,7 +504,7 @@ export class PartyStore implements PartyProvider {
     party: RaidParty,
     now: number,
     gymExists: () => boolean = () => true,
-    options: { movedFrom?: string; mayAdd?: boolean } = {},
+    options: { movedFrom?: string; mayAdd?: boolean; by?: ChangeCause['by'] } = {},
   ): Promise<
     | { added: true; party: RaidParty }
     | { added: false; existing: RaidParty }

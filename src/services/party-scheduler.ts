@@ -44,6 +44,8 @@ export interface PartySchedulerOptions {
   attendance: Pick<AttendanceService, 'ask' | 'removeQuestions'>;
   /** The access of members of other regions, whose leftovers are swept with the forums. */
   access?: { sweep(): Promise<unknown> };
+  /** The staff audit log, whose entries older than 30 days go with the upkeep (`PartyAudit`). */
+  audit?: { sweep(): Promise<unknown> };
   /**
    * The party history, whose parties left without a record (a record that gave up its tries,
    * a stop before them) are recorded with the forums' upkeep: at start and hourly. The sweep is
@@ -320,7 +322,8 @@ export class PartyScheduler {
   private upkeep(): void {
     const { posts, access, routes, spawns, pictures, screenshots, emoji, webSessions, log } =
       this.options;
-    const { history, activity, splits, stops, grunts, eventForum, legacyFillIns } = this.options;
+    const { history, activity, splits, stops, grunts, eventForum, legacyFillIns, audit } =
+      this.options;
     this.lastUpkeep = this.now();
     // Each by itself: one that fails does not keep the others from running. Once the clock has
     // stopped none starts: the shutdown waits for the upkeep (review r1 C3).
@@ -339,6 +342,7 @@ export class PartyScheduler {
       await step(() => posts.sweepPosts());
       await step(() => posts.checkSummaries());
       if (access) await step(() => access.sweep());
+      if (audit) await step(() => audit.sweep());
       if (routes) await step(() => routes.removeUnknownStops());
       if (spawns) await step(() => spawns.sweep());
       if (stops) await step(() => stops.sweep());

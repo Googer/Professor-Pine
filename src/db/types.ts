@@ -406,6 +406,18 @@ export interface PartyAccessGrant {
   memberId: string;
 }
 
+export interface PartyAudit {
+  action: string;
+  actorId: string | null;
+  actorName: string | null;
+  at: string;
+  detail: Json | null;
+  id: Generated<string>;
+  partyId: string;
+  postId: string | null;
+  serverId: string;
+}
+
 export interface PartyHistory {
   anonymous: Generated<number>;
   attendees: Generated<number>;
@@ -864,6 +876,7 @@ export interface DB {
   NewTrainNotification: NewTrainNotification;
   Party: Party;
   PartyAccessGrant: PartyAccessGrant;
+  PartyAudit: PartyAudit;
   PartyHistory: PartyHistory;
   PartyHistoryAttendee: PartyHistoryAttendee;
   PartyHistoryGroup: PartyHistoryGroup;

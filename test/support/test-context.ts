@@ -68,6 +68,7 @@ import type { PartyGateway } from '../../src/discord/party-gateway.js';
 import { MemoryMeetupSafety } from './meetup-safety.js';
 import { ModerationReports } from '../../src/services/moderation-reports.js';
 import { MemoryReports } from './reports.js';
+import { MemoryPartyAudit } from './party-audit.js';
 import { MemoryScriptAccess } from './script-access.js';
 import { ScriptAccessService } from '../../src/services/script-access-service.js';
 import { MemberNames } from '../../src/services/member-names.js';
@@ -177,6 +178,8 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
     newTrains: new MemoryNewTrains(),
     // Nobody is named in the party history; a test passes its own to opt members in.
     historyOptIns: new MemoryHistoryOptIns(),
+    // Nothing is logged; a test passes the log of partyServiceWith() (`auditStore`) or its own.
+    partyAudit: new MemoryPartyAudit(),
     // Nobody asked for their legacy history, and there is no member index (plan 8H-10); a test
     // passes its own (`MemoryLegacyFillIns` over its opt-ins, `MemoryLegacyIndex`).
     legacyFillIns: new MemoryLegacyFillIns(),

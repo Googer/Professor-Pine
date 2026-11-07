@@ -164,7 +164,7 @@ import type { GameDataProvider } from './game-data-service.js';
 import { KeyedLock } from './keyed-lock.js';
 import type { PartyNotifier } from './notify-service.js';
 import { PartyMirrors } from './party-mirrors.js';
-import { pingInMessages, settingsOf } from './party-change.js';
+import { byMember, loggedBy, pingInMessages, settingsOf } from './party-change.js';
 import { RegionClosedError, type PairChange, type PartyStore } from './party-store.js';
 import type { Rehearsal } from './rehearsal.js';
 import type { MaxBossProvider } from './max-boss-service.js';
@@ -270,12 +270,16 @@ interface TrainCardFacts {
   readAgain?: boolean | undefined;
 }
 
-/** How a party is ended by `end`: why, what is said last, and the post archived or deleted. */
+/**
+ * How a party is ended by `end`: why, what is said last, the post archived or deleted, and who
+ * closed it (`by`, for the audit log).
+ */
 export interface PartyClosing {
   lastWords?: string;
   left?: () => Promise<unknown>;
   ended?: PartyEnd;
   removal?: PostRemoval;
+  by?: NamedMember;
 }
 
 /**
@@ -1899,6 +1903,8 @@ export class PartyService {
     try {
       stored = await store.addRaidUnlessTaken(raid, this.now(), () => this.gymExists(gym.id), {
         movedFrom: partyId,
+        // The audit log names who moved it (none: Pine).
+        ...(by === undefined ? {} : { by: loggedBy(by) }),
       });
     } catch (err) {
       // The region it should move to was removed meanwhile: it has no forum to move into.
@@ -1962,11 +1968,15 @@ export class PartyService {
     const movedTo: PartyEnd = { how: 'moved', to: raid.id };
     let ended;
     try {
-      ended = await store.update(partyId, (party) => {
-        const raid = asKindOf(old, party);
-        seen.last = raid;
-        return { party: endParty(raid), ended: movedTo };
-      });
+      ended = await store.update(
+        partyId,
+        (party) => {
+          const raid = asKindOf(old, party);
+          seen.last = raid;
+          return { party: endParty(raid), ended: movedTo };
+        },
+        byMember(by),
+      );
     } catch (err) {
       // Both would stay active, one raid in two places: the new one goes again.
       await this.takeBack(raid.id);
@@ -2787,8 +2797,14 @@ export class PartyService {
     closing: PartyClosing = {},
   ): Promise<PostRemoved | false> {
     const ended: PartyEnd = closing.ended ?? { how: 'cancelled' };
-    const result = await this.options.store.update(partyId, (party) =>
-      onlyIf && !onlyIf(party) ? {} : { party: endParty(party), ended },
+    const { by, removal } = closing;
+    const result = await this.options.store.update(
+      partyId,
+      (party) => (onlyIf && !onlyIf(party) ? {} : { party: endParty(party), ended }),
+      {
+        ...byMember(by),
+        ...(removal === undefined ? {} : { removal }),
+      },
     );
     if (!result?.written || !result.party) return false;
     const party = result.party;
@@ -2926,8 +2942,10 @@ export class PartyService {
     member: NamedMember,
   ): Promise<'gone' | 'kept' | 'let-go' | 'unchanged'> {
     const { store, gateway, log } = this.options;
-    const result = await store.update(partyId, (party) =>
-      party.saved === saved ? {} : { party: setSaved(party, saved) },
+    const result = await store.update(
+      partyId,
+      (party) => (party.saved === saved ? {} : { party: setSaved(party, saved) }),
+      byMember(member),
     );
     if (!result) return 'gone';
     if (!result.written) return 'unchanged';

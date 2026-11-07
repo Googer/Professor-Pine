@@ -755,6 +755,8 @@ export class ModerationReports {
         lastWords: `This ${partyWord(party)} was closed by the moderators.`,
         removal,
         ended: closedEnd('moderators'),
+        // The audit log names the moderator who decided.
+        by: moderator,
       });
     } catch (err) {
       log.error({ err, report: report.id }, 'could not carry out a decision of a report');

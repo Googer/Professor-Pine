@@ -15,6 +15,7 @@ import { dbConfigFrom } from './db/db-config.js';
 import { createDb } from './db/kysely.js';
 import { runMigrations } from './db/migrator.js';
 import { AccessGrantRepository } from './db/repositories/access-grant-repository.js';
+import { PartyAuditRepository } from './db/repositories/party-audit-repository.js';
 import { GuildRepository } from './db/repositories/guild-repository.js';
 import { GymNotificationRepository } from './db/repositories/gym-notification-repository.js';
 import { GymRemovalRepository } from './db/repositories/gym-removal-repository.js';
@@ -68,6 +69,7 @@ import { formReader } from './domain/pogo/wants.js';
 import { trainMapLinkOf } from './domain/web/train-history-data.js';
 import { createLogger, type Logger } from './log.js';
 import { AccessService } from './services/access-service.js';
+import { auditNamesOf, PartyAudit } from './services/party-audit.js';
 import { AdminLock } from './services/admin-lock.js';
 import { FetchAttachments } from './services/attachment-gateway.js';
 import { AttendanceService } from './services/attendance-service.js';
@@ -521,6 +523,16 @@ export async function startApp(
     storage: new AccessGrantRepository(db),
     log,
   });
+  // The staff audit log (`/audit`): listens to the store, so every change is logged whoever made
+  // it; entries older than 30 days go with the scheduler's upkeep.
+  const partyAuditStore = new PartyAuditRepository(db, log);
+  const partyAudit = new PartyAudit({
+    store: parties,
+    storage: partyAuditStore,
+    guilds,
+    names: auditNamesOf({ gyms, wayspots, regions, gameData }),
+    log,
+  });
   // A self-assigned role taken away (`/iamnot`, the role menus, the web map) may have been what
   // showed the member the forum of a party they are in: the access to those forums is settled
   // again from a fresh look at them (plan 8M-20, W2).
@@ -947,6 +959,7 @@ export async function startApp(
     posts: partyService,
     attendance,
     access,
+    audit: partyAudit,
     routes: trains,
     spawns,
     stops: stopReports,
@@ -1100,6 +1113,7 @@ export async function startApp(
     gymTargets,
     newTrains,
     historyOptIns: history,
+    partyAudit: partyAuditStore,
     legacyFillIns: legacyFillInStore,
     legacyIndex: legacyFillIns,
     // The region tally (plan 8H-5): the heatmap's buckets summed per region, for /stats.
@@ -1760,6 +1774,7 @@ export async function startApp(
       { name: 'reports', timeoutMs: 5_000, run: () => reports.flush() },
       { name: 'party posts', timeoutMs: 5_000, run: () => partyService.close() },
       { name: 'forum access', timeoutMs: 5_000, run: () => access.flush() },
+      { name: 'audit log', timeoutMs: 3_000, run: () => partyAudit.flush() },
       // A member's roles are changed one request after the other: a change that has begun is
       // finished while Discord is connected and the database is open.
       { name: 'self-assigned roles', timeoutMs: 5_000, run: () => selfRoles.idle() },

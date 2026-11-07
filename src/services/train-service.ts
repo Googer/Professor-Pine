@@ -56,7 +56,7 @@ import {
 } from '../render/train-words.js';
 import type { Member } from './attendance-service.js';
 import { Gathered } from './gathered.js';
-import { pingInMessages, settingsOf, storedChange } from './party-change.js';
+import { byMember, pingInMessages, settingsOf, storedChange } from './party-change.js';
 import type { PartyLines } from './party-lines.js';
 import type { PartyService, SplitOutcome } from './party-service.js';
 import type { PartyStore } from './party-store.js';
@@ -983,11 +983,17 @@ export class TrainService {
     line?: (party: TrainParty, result: Extra) => string | undefined,
   ): Promise<TrainChangeOutcome<Extra>> {
     const { store, posts, lines } = this.options;
-    const stored = await storedChange<TrainParty, Extra>(store, partyId, isTrain, (party) => {
-      const changed = change(party, this.now());
-      if (!changed.ok || changed.party === party) return changed;
-      return { ...changed, party: noteMember(changed.party, member.id, member) };
-    });
+    const stored = await storedChange<TrainParty, Extra>(
+      store,
+      partyId,
+      isTrain,
+      (party) => {
+        const changed = change(party, this.now());
+        if (!changed.ok || changed.party === party) return changed;
+        return { ...changed, party: noteMember(changed.party, member.id, member) };
+      },
+      byMember(member),
+    );
     if (stored.kind === 'gone') return { kind: 'gone' };
     if (stored.kind === 'refused') return { kind: 'refused', reason: stored.refusal.reason };
     const { party } = stored;

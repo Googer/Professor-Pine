@@ -22,7 +22,7 @@ import type { Logger } from '../log.js';
 import { doer } from '../render/activity.js';
 import { timestamp } from '../render/text.js';
 import type { Member } from './attendance-service.js';
-import { storedChange } from './party-change.js';
+import { byMember, storedChange } from './party-change.js';
 import type { PartyNotifier } from './notify-service.js';
 import type { PartyLines } from './party-lines.js';
 import type { PartyStore } from './party-store.js';
@@ -256,6 +256,7 @@ export class MaxChangeService {
         if (!changed.ok || changed.party === party) return changed;
         return { ...changed, party: noteMember(changed.party, member.id, member) };
       },
+      byMember(member),
     );
     if (result.kind === 'gone') return { kind: 'gone' };
     if (result.kind === 'refused') {

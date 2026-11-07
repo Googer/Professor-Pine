@@ -21,6 +21,7 @@ import {
   remote,
 } from './parties/attendance.js';
 import { group } from './parties/group.js';
+import { audit } from './parties/audit.js';
 import { deleteParty } from './parties/delete.js';
 import { report } from './parties/report.js';
 import { reportMessageCommand } from './parties/report-message.js';
@@ -89,6 +90,7 @@ export const commands: readonly CommandModule[] = [
   shout,
   report,
   deleteParty,
+  audit,
   hatch,
   end,
   duration,

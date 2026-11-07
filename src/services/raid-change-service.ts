@@ -38,7 +38,7 @@ import { clockOrDate, endSentence, plain, timestamp } from '../render/text.js';
 import type { Member } from './attendance-service.js';
 import type { GameDataProvider } from './game-data-service.js';
 import type { PartyNotifier } from './notify-service.js';
-import { storedChange } from './party-change.js';
+import { byMember, storedChange } from './party-change.js';
 import type { PartyLines } from './party-lines.js';
 import type { PostsRefused } from '../domain/party/post-permissions.js';
 import type { RelocateOutcome } from './party-service.js';
@@ -475,7 +475,13 @@ export class RaidChangeService {
         return { ...changed, party: result };
       };
       const update = () =>
-        storedChange<RaidParty, unknown, RaidRefusal>(store, partyId, isRaid, decide);
+        storedChange<RaidParty, unknown, RaidRefusal>(
+          store,
+          partyId,
+          isRaid,
+          decide,
+          byMember(member),
+        );
       const result = await locked.reduceRight<() => ReturnType<typeof update>>(
         (inner, gymId) => () => store.withGymLock(gymId, inner),
         update,
