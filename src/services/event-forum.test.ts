@@ -1,4 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
+import { OverwriteType, PermissionFlagsBits } from 'discord.js';
+import { partyStoreWith, testMeetup, testRaid, testTrain } from '../../test/support/parties.js';
+import { isTimed, type Party, type TimedParty } from '../domain/party/party.js';
 import { FakePartyGateway, missingPermissions } from '../../test/support/fake-gateway.js';
 import { heldCall } from '../../test/support/held-call.js';
 import { MemoryEventForums } from '../../test/support/event-forum-store.js';
@@ -15,7 +18,12 @@ import { catalogueFixture } from '../../test/support/game-data.js';
 import { textOf } from '../../test/support/messages.js';
 import type { ActivityDay } from '../domain/history/activity.js';
 import { dayNumber, dayText } from '../domain/history/big-days.js';
-import { eventForumWanted, EventForumService, type EventForumOptions } from './event-forum.js';
+import {
+  EVENT_PARTY_REDRAW_MS,
+  eventForumWanted,
+  EventForumService,
+  type EventForumOptions,
+} from './event-forum.js';
 import { HistoryDays } from './history-days.js';
 
 const SERVER = '412345678901234567';
@@ -34,6 +42,7 @@ function eventForumWith(
     settings?: Partial<Settings>;
     now?: number;
     days?: EventForumOptions['days'];
+    planned?: EventForumOptions['planned'];
   } = {},
 ) {
   const gateway = new FakePartyGateway();
@@ -68,6 +77,7 @@ function eventForumWith(
     settings,
     log,
     ...(options.days === undefined ? {} : { days: options.days }),
+    ...(options.planned === undefined ? {} : { planned: options.planned }),
     now: () => clock.now,
     setTimer: (run, ms) => {
       // A timer that fired is done, as one cancelled.
@@ -1309,5 +1319,162 @@ describe('EventForumService: "On this day" (plan 8H-8)', () => {
         rehearsal: { allowlist: ['200000000000000001'], regions: ['west'], staffRoles: [] },
       }),
     ).toBe(false);
+  });
+});
+
+// Trains and meetups in an event's post and line (follow-ups, 8V-1; Matt, 2026-11-07).
+describe('EventForumService: the trains and meetups planned during an event', () => {
+  const PUBLIC_FORUM = '600000000000000001';
+  const GATED_FORUM = '600000000000000002';
+  const NORTH = '300000000000000021';
+
+  /** A train or meetup of the server's row 1, posted in a forum, starting then. */
+  const planned = <P extends TimedParty>(
+    party: P,
+    n: number,
+    forumId: string,
+    start: number,
+  ): P => ({
+    ...party,
+    id: `00000000-0000-4000-8000-0000000001${String(n).padStart(2, '0')}`,
+    forumChannelId: forumId,
+    forumPostId: `7100000000000000${String(n).padStart(2, '0')}`,
+    timed: { ...party.timed, startTime: start },
+  });
+
+  /** The forum drawn over a party store with these parties; North's forum hidden from @everyone. */
+  const drawnWith = async (parties: Party[]) => {
+    const { store: partyStore } = await partyStoreWith(parties);
+    const made = eventForumWith({
+      events: [COMMUNITY_DAY, RAID_HOUR, INTO_THE_WILD],
+      planned: {
+        parties: partyStore,
+        guilds: { idFor: (id) => Promise.resolve(id === SERVER ? 1 : undefined) },
+      },
+    });
+    const { gateway } = made;
+    gateway.addForum(PUBLIC_FORUM, [], 'downtown');
+    gateway.addForum(GATED_FORUM, [], 'north');
+    gateway.serverRoles.set(NORTH, { name: 'North', permissions: 0n });
+    gateway.forumOverwrites.set(GATED_FORUM, [
+      {
+        id: gateway.guildId,
+        type: OverwriteType.Role,
+        allow: '0',
+        deny: String(PermissionFlagsBits.ViewChannel),
+      },
+      {
+        id: NORTH,
+        type: OverwriteType.Role,
+        allow: String(PermissionFlagsBits.ViewChannel),
+        deny: '0',
+      },
+    ]);
+    await made.service.setup(SERVER);
+    made.service.start();
+    await made.service.flush();
+    const postOf = async (eventId: string) => {
+      const row = (await made.store.posts(SERVER)).find((one) => one.eventId === eventId);
+      const post = row && gateway.posts.get(row.postId);
+      if (!post) throw new Error(`no post of ${eventId}`);
+      return post;
+    };
+    const listing = async () =>
+      gateway.posts.get((await made.store.forum(SERVER))?.listingPostId ?? '');
+    /** The redraw a party's change asked for, run and waited for. */
+    const redrawn = async () => {
+      const due = made.timers.filter(
+        (timer) => !timer.cancelled && timer.ms === EVENT_PARTY_REDRAW_MS,
+      );
+      for (const timer of due) timer.run();
+      await made.service.flush();
+      return due.length;
+    };
+    return { ...made, partyStore, postOf, listing, redrawn };
+  };
+
+  it('links those of regions everyone sees with their start, and counts the others', async () => {
+    const { postOf, listing } = await drawnWith([
+      planned(testTrain(), 1, PUBLIC_FORUM, at('2026-11-10T18:00')),
+      planned(testMeetup(), 2, GATED_FORUM, at('2026-11-11T18:00')),
+      planned(testTrain(), 3, PUBLIC_FORUM, at('2026-11-21T15:00')),
+      // Between the events, and before Into the Wild: in neither.
+      planned(testTrain(), 4, PUBLIC_FORUM, at('2026-11-16T18:00')),
+      planned(testMeetup(), 5, PUBLIC_FORUM, at('2026-11-09T09:00')),
+    ]);
+    const wild = textOf((await postOf(INTO_THE_WILD.id)).message);
+    expect(wild).toContain(
+      '**Trains and meetups planned**\n1 train, 1 meetup\n' +
+        '<#710000000000000001> · Tue, Nov 10, 6 PM\n' +
+        '-# 1 more is in a region not everyone here can see.',
+    );
+    // The gated meetup is never named.
+    expect(wild).not.toContain('710000000000000002');
+    expect(textOf((await postOf(COMMUNITY_DAY.id)).message)).toContain(
+      '**Trains and meetups planned**\n1 train\n<#710000000000000003> · Sat, Nov 21, 3 PM',
+    );
+    const lines = textOf((await listing())?.message);
+    expect(lines).toContain('Nov 9 – Nov 13 · <#');
+    expect(lines).toMatch(/Into the Wild.*· 1 train, 1 meetup planned/u);
+    expect(lines).toMatch(/Pawniard Community Day.*· 1 train planned/u);
+    expect(lines).not.toMatch(/Raid Hour.*planned/u);
+  });
+
+  it('draws as before without the parties', async () => {
+    const { postOf, listing } = await drawnWith([]);
+    expect(textOf((await postOf(INTO_THE_WILD.id)).message)).not.toContain('planned');
+    expect(textOf((await listing())?.message)).not.toContain('planned');
+  });
+
+  it('draws again a few seconds after a party is made, once for several changes', async () => {
+    const { partyStore, postOf, listing, redrawn, timers } = await drawnWith([]);
+    const wild = await postOf(INTO_THE_WILD.id);
+    const edits = wild.edits;
+    await partyStore.add(planned(testTrain(), 1, PUBLIC_FORUM, at('2026-11-10T18:00')));
+    await partyStore.add(planned(testMeetup(), 2, PUBLIC_FORUM, at('2026-11-11T18:00')));
+    // Not drawn yet: one redraw waits.
+    expect(textOf(wild.message)).not.toContain('planned');
+    expect(timers.filter((one) => !one.cancelled && one.ms === EVENT_PARTY_REDRAW_MS)).toHaveLength(
+      1,
+    );
+    expect(await redrawn()).toBe(1);
+    expect(textOf(wild.message)).toContain('1 train, 1 meetup');
+    expect(wild.edits).toBe(edits + 1);
+    expect(textOf((await listing())?.message)).toContain('· 1 train, 1 meetup planned');
+    // Nothing changed since: no redraw is due, and another draw edits nothing.
+    expect(await redrawn()).toBe(0);
+  });
+
+  it('draws again when a party’s start moves out of the event, or it ends', async () => {
+    const train = planned(testTrain(), 1, PUBLIC_FORUM, at('2026-11-10T18:00'));
+    const meetup = planned(testMeetup(), 2, PUBLIC_FORUM, at('2026-11-11T18:00'));
+    const { partyStore, postOf, redrawn } = await drawnWith([train, meetup]);
+    const wild = await postOf(INTO_THE_WILD.id);
+    expect(textOf(wild.message)).toContain('1 train, 1 meetup');
+    await partyStore.update(train.id, (party) => ({
+      party: isTimed(party)
+        ? { ...party, timed: { ...party.timed, startTime: at('2026-11-15T18:00') } }
+        : party,
+    }));
+    expect(await redrawn()).toBe(1);
+    expect(textOf(wild.message)).toContain('\n1 meetup\n');
+    await partyStore.update(meetup.id, (party) => ({ party: { ...party, status: 'ended' } }));
+    expect(await redrawn()).toBe(1);
+    expect(textOf(wild.message)).not.toContain('planned');
+  });
+
+  it('leaves a change of a raid, or of attendance alone, without a redraw', async () => {
+    const train = planned(testTrain(), 1, PUBLIC_FORUM, at('2026-11-10T18:00'));
+    const { partyStore, redrawn } = await drawnWith([train]);
+    await partyStore.add(testRaid());
+    await partyStore.update(train.id, (party) => ({ party: { ...party, anonymous: true } }));
+    expect(await redrawn()).toBe(0);
+  });
+
+  it('sets no redraw once stopped', async () => {
+    const { partyStore, service, redrawn } = await drawnWith([]);
+    service.stop();
+    await partyStore.add(planned(testTrain(), 1, PUBLIC_FORUM, at('2026-11-10T18:00')));
+    expect(await redrawn()).toBe(0);
   });
 });

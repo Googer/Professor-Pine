@@ -7,7 +7,9 @@ import {
   type ListedEvent,
   type ListingSections,
 } from '../domain/time/event-listing.js';
+import type { PlannedCounts } from '../domain/party/event-parties.js';
 import type { V2Message } from '../discord/party-gateway.js';
+import { plannedCountWords, plannedSection, type EventPlannedView } from './event-parties.js';
 import { TEXT_BUDGET } from './party-post.js';
 import { linkTextOf } from './raid-post.js';
 import { fitLines } from './summary.js';
@@ -71,13 +73,21 @@ function nameOf(event: Pick<ListedEvent, 'name' | 'link'>): string {
 
 /**
  * An event's line: its name (linked to Leek Duck), its times as plain local text, and its post
- * where it has one. No line names Campfire (plan 8M-15, V1): the foot does, once.
+ * where it has one, then the trains and meetups planned during it where it has any ("3 trains,
+ * 1 meetup planned"). No line names Campfire (plan 8M-15, V1): the foot does, once.
  */
-export function eventLine(event: ListedEvent, postId: string | undefined, zone: string): string {
+export function eventLine(
+  event: ListedEvent,
+  postId: string | undefined,
+  zone: string,
+  planned?: PlannedCounts,
+): string {
+  const counted = planned === undefined ? undefined : plannedCountWords(planned);
   return [
     nameOf(event),
     eventTimeWords(event.start, event.end, zone),
     ...(postId === undefined ? [] : [`<#${postId}>`]),
+    ...(counted === undefined ? [] : [`${counted} planned`]),
   ].join(' · ');
 }
 
@@ -85,12 +95,14 @@ export function eventLine(event: ListedEvent, postId: string | undefined, zone: 
  * The listing (`EVENTS_TITLE`): a head counting the sections, each section with its count and its
  * lines by start (`listingSections`), the hint's foot once where a listed event has it, all within
  * `TEXT_BUDGET` (a section that does not fit ends with "…and N more" and keeps its count, as the
- * region's summary does). `postOf` gives an event's post where it has one.
+ * region's summary does). `postOf` gives an event's post where it has one, `plannedOf` the trains and
+ * meetups planned during it.
  */
 export function listingMessage(
   sections: ListingSections,
   postOf: (eventId: string) => string | undefined,
   zone: string,
+  plannedOf: (eventId: string) => PlannedCounts | undefined = () => undefined,
 ): V2Message {
   const order = ['now', 'week', 'coming'] as const;
   const shown = order.filter((key) => sections[key].length > 0);
@@ -105,7 +117,9 @@ export function listingMessage(
     // Each section after it is sure of its heading and a line that counts what does not fit.
     const later = shown.slice(index + 1).length * 60;
     const room = TEXT_BUDGET - used - later - heading.length - 1;
-    const lines = sections[key].map((event) => eventLine(event, postOf(event.id), zone));
+    const lines = sections[key].map((event) =>
+      eventLine(event, postOf(event.id), zone, plannedOf(event.id)),
+    );
     const text = [heading, ...fitLines(lines, room)].join('\n');
     used += text.length;
     parts.push(separator(), textDisplay(text));
@@ -118,12 +132,14 @@ export function listingMessage(
  * An event's post: its name as a heading, its times, "More on Leek Duck" where the feed links its
  * page, the Campfire hint for an event shorter than a day whose kind gets it (`hasCampfirePostHint`,
  * plan 8M-15), and the feed's picture (Discord loads it or shows nothing; Pine fetches nothing,
- * R6). With `dropped`, the line that Leek Duck no longer lists it. No buttons, and it pings nobody.
+ * R6). With `dropped`, the line that Leek Duck no longer lists it; with `planned`, the trains and
+ * meetups planned during it under the times (`plannedSection`, within the text budget). No buttons,
+ * and it pings nobody.
  */
 export function eventPostMessage(
   event: ListedEvent,
   zone: string,
-  options: { dropped?: boolean } = {},
+  options: { dropped?: boolean; planned?: EventPlannedView } = {},
 ): V2Message {
   const text = [
     `## ${plain(event.name)}`,
@@ -131,8 +147,13 @@ export function eventPostMessage(
     ...(event.link === null ? [] : [`[More on Leek Duck](<${event.link}>)`]),
     ...(hasCampfirePostHint(event) ? [`Official meetups, if any: ${CAMPFIRE_LINK}`] : []),
   ].join('\n');
+  const planned =
+    options.planned === undefined
+      ? undefined
+      : plannedSection(options.planned, zone, TEXT_BUDGET - text.length - DROPPED_WORDS.length);
   const parts: APIComponentInContainer[] = [
     textDisplay(text),
+    ...(planned === undefined ? [] : [textDisplay(planned)]),
     ...(options.dropped === true ? [textDisplay(DROPPED_WORDS)] : []),
     ...(event.image === null ? [] : [mediaGallery([{ url: event.image }])]),
   ];

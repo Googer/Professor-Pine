@@ -35,6 +35,11 @@ import { nextOnThisDayAt, ON_THIS_DAY_HOUR, onThisDayDue } from '../domain/histo
 import { zoned } from '../domain/time/zoned.js';
 import { localDay } from '../domain/time/local-day.js';
 import { onThisDayMessage, onThisDayTitle } from '../render/big-days.js';
+import { changesPlanned, plannedCounts, plannedDuring } from '../domain/party/event-parties.js';
+import type { Party } from '../domain/party/party.js';
+import { startTimeOf } from '../domain/party/timed.js';
+import type { EventPlannedView } from '../render/event-parties.js';
+import type { PartyListener } from './party-store.js';
 
 const DAY_MS = 24 * 60 * 60_000;
 /** A post still open this long after its event's end is archived by the upkeep, once (R1). */
@@ -57,6 +62,11 @@ export const ON_THIS_DAY_KEY = 'on-this-day:';
 const DAYS_CATCH_UP_HOURS = 2;
 /** "On this day" archives itself after a day without messages (G6). */
 const ON_THIS_DAY_ARCHIVE_MINUTES = 1_440;
+/**
+ * How long after a change of a train or meetup the forum draws again (Matt, 2026-11-07): the
+ * changes meanwhile come with it, one draw for them all.
+ */
+export const EVENT_PARTY_REDRAW_MS = 5_000;
 
 /** The step of a post's part of a draw that failed (`perPost`, BR-5). */
 type PostKind = 'make' | 'edit' | 'rename' | 'reopen' | 'archive' | 'auto-archive';
@@ -124,6 +134,15 @@ export interface EventForumOptions {
    * `settings.eventsForum.onThisDay` above 0.
    */
   days?: Pick<HistoryDays, 'onThisDay'>;
+  /**
+   * The trains and meetups planned during the events (follow-ups, 8V-1; Matt, 2026-11-07): the
+   * parties, whose changes draw again, and the row of a server, by which parties name it. Without
+   * them the forum shows none.
+   */
+  planned?: {
+    parties: { active(): Party[]; onChange(listener: PartyListener): void };
+    guilds: { idFor(serverId: string): Promise<number | undefined> };
+  };
   /** The clock, in epoch milliseconds. Default `Date.now`. */
   now?: () => number;
   /** Sets a timer and gives what cancels it. Default an unref'd `setTimeout`. */
@@ -196,6 +215,10 @@ export class EventForumService {
   /** Whether the next draw opens the posts that archived themselves before their end (V6). */
   private reopenDue = false;
   private cancelNext: (() => void) | undefined;
+  /** The draw a change of a train or meetup asked for, waiting (`EVENT_PARTY_REDRAW_MS`). */
+  private cancelPartyRedraw: (() => void) | undefined;
+  /** Whether the changes of the parties are listened to (once: a store's listeners stay). */
+  private partiesWatched = false;
   private midnight: { cancel(): void } | undefined;
   /** The timers of draws after a wait Discord named (`drawLater`). */
   private readonly waits = new Set<() => void>();
@@ -243,7 +266,26 @@ export class EventForumService {
         this.request();
       },
     });
+    const { planned } = this.options;
+    if (planned !== undefined && !this.partiesWatched) {
+      this.partiesWatched = true;
+      planned.parties.onChange((before, after) => {
+        if (changesPlanned(before, after)) this.redrawSoon();
+      });
+    }
     this.request();
+  }
+
+  /**
+   * A draw `EVENT_PARTY_REDRAW_MS` from now, for a change of a train or meetup: one waiting takes
+   * the changes after it too. Nothing after `stop`.
+   */
+  private redrawSoon(): void {
+    if (this.stopped || this.cancelPartyRedraw !== undefined) return;
+    this.cancelPartyRedraw = this.setTimer(() => {
+      this.cancelPartyRedraw = undefined;
+      this.request();
+    }, EVENT_PARTY_REDRAW_MS);
   }
 
   /** Stops the timers; a draw under way ends, and none starts after it. */
@@ -252,6 +294,8 @@ export class EventForumService {
     this.midnight?.cancel();
     this.cancelNext?.();
     this.cancelNext = undefined;
+    this.cancelPartyRedraw?.();
+    this.cancelPartyRedraw = undefined;
     for (const cancel of this.waits) cancel();
     this.waits.clear();
   }
@@ -441,10 +485,11 @@ export class EventForumService {
     if (!this.options.events.listingKnown()) return 'waiting';
     try {
       const events = this.options.events.listedEvents();
-      const posts = await this.drawPosts(forum, events, reopen);
+      const planned = await this.plannedOf(forum, events);
+      const posts = await this.drawPosts(forum, events, reopen, planned);
       // Nor the listing after a stop (RR-3).
       if (this.stopped) return 'failed';
-      return await this.drawListing(forum, events, posts);
+      return await this.drawListing(forum, events, posts, planned);
     } catch (err) {
       const where = { err, guild: serverId, forum: forumId };
       if (isNetworkError(err)) log.warn(where, 'could not draw the events forum');
@@ -555,6 +600,59 @@ export class EventForumService {
     }
   }
 
+  /**
+   * The trains and meetups planned during each listed event of a server (`plannedDuring`, every
+   * region; Matt, 2026-11-07), by event id; an event with none is left out. All are counted; a
+   * party is named (its post linked) only where everybody who sees the events forum sees its
+   * region's forum, the rule by which a region's counts are shared into a channel
+   * (`PartyGateway.shareKeeps`, plan 8H-5, R-A). Where that cannot be told, none is named.
+   */
+  private async plannedOf(
+    forum: EventForumRecord,
+    events: readonly ListedEvent[],
+  ): Promise<ReadonlyMap<string, EventPlannedView>> {
+    const found = new Map<string, EventPlannedView>();
+    const { planned, gateway, log } = this.options;
+    if (planned === undefined) return found;
+    const guildRow = await planned.guilds.idFor(forum.serverId);
+    if (guildRow === undefined) return found;
+    const now = this.now();
+    const parties = planned.parties.active();
+    const byEvent = events
+      .map((event) => ({ event, during: plannedDuring(parties, guildRow, event, now) }))
+      .filter(({ during }) => during.length > 0);
+    if (byEvent.length === 0) return found;
+    const gates = [
+      ...new Set(
+        byEvent.flatMap(({ during }) =>
+          during.flatMap((party) => (party.forumChannelId === null ? [] : [party.forumChannelId])),
+        ),
+      ),
+    ];
+    let open: ReadonlySet<string> = new Set();
+    try {
+      open = (await gateway.shareKeeps(forum.forumId, gates)) ?? open;
+    } catch (err) {
+      log.warn(
+        { err, guild: forum.serverId },
+        'could not tell who sees the regions of the trains and meetups of the events',
+      );
+    }
+    for (const { event, during } of byEvent) {
+      found.set(event.id, {
+        counts: plannedCounts(during),
+        named: during.flatMap((party) =>
+          party.forumChannelId !== null &&
+          party.forumPostId !== null &&
+          open.has(party.forumChannelId)
+            ? [{ postId: party.forumPostId, start: startTimeOf(party) ?? event.start }]
+            : [],
+        ),
+      });
+    }
+    return found;
+  }
+
   /** The bot's open post of a forum with this title, if any. */
   private async openPostTitled(forumId: string, title: string): Promise<string | undefined> {
     const { gateway } = this.options;
@@ -577,6 +675,7 @@ export class EventForumService {
     forum: EventForumRecord,
     events: readonly ListedEvent[],
     reopen: boolean,
+    planned: ReadonlyMap<string, EventPlannedView> = new Map(),
   ): Promise<Map<string, string>> {
     const { store, settings } = this.options;
     const { serverId } = forum;
@@ -601,7 +700,7 @@ export class EventForumService {
       if (postOpensAt(event, settings.eventsForum.postDaysAhead, zone) > now) continue;
       const stage = new PostStage('make');
       const made = await this.perPost(serverId, event.id, undefined, stage, () =>
-        this.makePost(forum, event),
+        this.makePost(forum, event, planned.get(event.id)),
       );
       if (made) rows.push(made);
     }
@@ -612,7 +711,7 @@ export class EventForumService {
       // One post Discord refuses keeps neither the others nor the listing from the draw (BR-5).
       const stage = new PostStage('edit');
       await this.perPost(serverId, row.eventId, row.postId, stage, () =>
-        this.drawPost(row, event, now, reopen, stage),
+        this.drawPost(row, event, now, reopen, stage, event && planned.get(event.id)),
       );
     }
     // A dropped post is never linked (BR-1, revised ruling R2).
@@ -656,9 +755,10 @@ export class EventForumService {
   private async makePost(
     forum: EventForumRecord,
     event: ListedEvent,
+    planned?: EventPlannedView,
   ): Promise<EventPostRecord | undefined> {
-    const { gateway, store, settings, log } = this.options;
-    const message = eventPostMessage(event, settings.timezone);
+    const { gateway, store, log } = this.options;
+    const message = this.postMessage(event, planned);
     const postId = await gateway.createPost(forum.forumId, {
       title: eventPostTitle(event.name),
       message,
@@ -698,6 +798,7 @@ export class EventForumService {
     now: number,
     reopen: boolean,
     stage: PostStage,
+    planned?: EventPlannedView,
   ): Promise<void> {
     const { gateway, store, settings } = this.options;
     const zone = settings.timezone;
@@ -706,7 +807,7 @@ export class EventForumService {
       // Listed again under its id before its end (BR-1, revised ruling R2): restored, its body
       // drawn anew (the edit opens it); otherwise it stays dropped.
       if (!(row.endedAt === null && event && event.end > now)) return;
-      if (!(await this.editEventPost(row, eventPostMessage(event, zone)))) {
+      if (!(await this.editEventPost(row, this.postMessage(event, planned)))) {
         return this.postGone(row);
       }
       const restored = { dropped: false, archivedAt: null, start: event.start, end: event.end };
@@ -720,7 +821,7 @@ export class EventForumService {
     if (row.endedAt === null && event && event.end > now) {
       const named = event.name === row.name;
       if (named && event.start === row.start && event.end === row.end) {
-        const message = eventPostMessage(event, zone);
+        const message = this.postMessage(event, planned);
         // Its message may differ though its event did not (plan 8M-15, V1: a multi-day event's
         // post loses the Campfire line): brought to it, once; after a restart, which knows
         // nothing it sent, once per open post. Otherwise only the hourly draw asks Discord.
@@ -752,7 +853,7 @@ export class EventForumService {
       }
       // Only where the message would show something else than was sent (re-review W1): a
       // rename Discord keeps refusing has the rename tried again alone.
-      if (!(await this.editEventPost(row, eventPostMessage(event, zone)))) {
+      if (!(await this.editEventPost(row, this.postMessage(event, planned)))) {
         return this.postGone(row);
       }
       const drawn = { start: event.start, end: event.end };
@@ -801,6 +902,15 @@ export class EventForumService {
       row.archivedAt = now;
       await store.updatePost(serverId, eventId, { archivedAt: now });
     }
+  }
+
+  /** An event's post's message, with the trains and meetups planned during it. */
+  private postMessage(event: ListedEvent, planned: EventPlannedView | undefined) {
+    return eventPostMessage(
+      event,
+      this.options.settings.timezone,
+      planned === undefined ? {} : { planned },
+    );
   }
 
   /**
@@ -889,6 +999,7 @@ export class EventForumService {
     forum: EventForumRecord,
     events: readonly ListedEvent[],
     posts: ReadonlyMap<string, string>,
+    planned: ReadonlyMap<string, EventPlannedView> = new Map(),
   ): Promise<ListingOutcome> {
     const { gateway, store, settings, log } = this.options;
     const { serverId, forumId } = forum;
@@ -898,7 +1009,12 @@ export class EventForumService {
       settings.timezone,
       settings.eventsForum.horizonDays,
     );
-    const message = listingMessage(sections, (id) => posts.get(id), settings.timezone);
+    const message = listingMessage(
+      sections,
+      (id) => posts.get(id),
+      settings.timezone,
+      (id) => planned.get(id)?.counts,
+    );
     const text = JSON.stringify(message);
     const postId = forum.listingPostId;
     if (postId !== null) {

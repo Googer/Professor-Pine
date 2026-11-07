@@ -68,6 +68,15 @@ describe('an event’s line of the listing (plan 8V-1)', () => {
     );
   });
 
+  it('ends with the trains and meetups planned during it, where it has any', () => {
+    expect(eventLine(wild, '800000000000000001', ZONE, { trains: 3, meetups: 1 })).toBe(
+      '**Into the Wild** · Nov 9 – Nov 13 · <#800000000000000001> · 3 trains, 1 meetup planned',
+    );
+    expect(eventLine(wild, undefined, ZONE, { trains: 0, meetups: 0 })).toBe(
+      '**Into the Wild** · Nov 9 – Nov 13',
+    );
+  });
+
   it('names one without a link or post plainly, its name made safe', () => {
     const odd = listedEvent({ ...wild, name: 'Into the *Wild* [2026](x)' });
     expect(eventLine(odd, undefined, ZONE)).toBe(`**${plain(odd.name)}** · Nov 9 – Nov 13`);
@@ -95,6 +104,22 @@ describe('the listing "Events" (plan 8V-1)', () => {
     );
     expect(shown.slice(0, 4).join('\n')).not.toContain('Campfire');
     expect(JSON.stringify(message)).not.toMatch(/<t:/u);
+  });
+
+  it('counts the trains and meetups planned in an event’s line', () => {
+    const shown = texts(
+      listingMessage(
+        sections({ now: [wild], week: [hour] }),
+        () => undefined,
+        ZONE,
+        (id) => (id === wild.id ? { trains: 2, meetups: 0 } : undefined),
+      ).components,
+    );
+    expect(shown[1]).toBe(
+      `**Now · 1**\n${eventLine(wild, undefined, ZONE, { trains: 2, meetups: 0 })}`,
+    );
+    expect(shown[1]).toContain('· 2 trains planned');
+    expect(shown[2]).toBe(`**This week · 1**\n${eventLine(hour, undefined, ZONE)}`);
   });
 
   it('has no foot where no listed event has the hint', () => {
@@ -147,6 +172,24 @@ describe('an event’s post (plan 8V-1)', () => {
     // No buttons, and nobody pinged.
     expect(JSON.stringify(message.components)).not.toMatch(/"type":1[,}]/u);
     expect(message.mention).toBeUndefined();
+  });
+
+  it('lists the trains and meetups planned under the times, above the picture', () => {
+    const planned = {
+      counts: { trains: 1, meetups: 0 },
+      named: [{ postId: '700000000000000001', start: at('2026-11-21T15:00') }],
+    };
+    const message = eventPostMessage(day, ZONE, { planned });
+    const shown = texts(message.components);
+    expect(shown).toHaveLength(2);
+    expect(shown[1]).toBe(
+      '**Trains and meetups planned**\n1 train\n<#700000000000000001> · Sat, Nov 21, 3 PM',
+    );
+    const json = JSON.stringify(message.components);
+    expect(json.indexOf('Trains and meetups')).toBeLessThan(json.indexOf('"media"'));
+    // None planned: the post as it was.
+    const none = { counts: { trains: 0, meetups: 0 }, named: [] };
+    expect(eventPostMessage(day, ZONE, { planned: none })).toEqual(eventPostMessage(day, ZONE));
   });
 
   // Plan 8M-15 (V1): an event of a day or more names no Campfire in its post.

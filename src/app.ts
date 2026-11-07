@@ -687,6 +687,8 @@ export async function startApp(
         settings: config.settings,
         log,
         days: historyDays,
+        // The trains and meetups planned during the events (Matt, 2026-11-07).
+        planned: { parties, guilds },
       });
   // Who wants a Rocket report hears of it once its messages are posted (plan 8R-2, design 7).
   const rocket = new RocketService({
