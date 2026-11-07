@@ -1,6 +1,49 @@
 import { describe, expect, it } from 'vitest';
 import { childrenNamed, MAX_XML_DEPTH, readXml, type XmlElement } from './xml.js';
 
+/**
+ * The same text, counting the characters read of it: one for each character looked at, those an
+ * `indexOf` passes over, those `startsWith` compares, and the length of every piece cut out (a
+ * piece is then read as a whole). The work, by count rather than by the clock (a clock fails on
+ * a loaded machine). Past `budget` a read throws, so that a slow way fails at once.
+ */
+function countingText(text: string, budget: number): { text: string; count: () => number } {
+  let read = 0;
+  const add = (characters: number): void => {
+    read += characters;
+    if (read > budget) throw new Error('too many characters read');
+  };
+  const cost = (method: string, args: unknown[], result: unknown): number => {
+    if (method === 'indexOf') {
+      const [needle, from] = args as [string, number | undefined];
+      const start = Math.max(0, from ?? 0);
+      return (
+        (typeof result === 'number' && result >= 0 ? result + needle.length : text.length) - start
+      );
+    }
+    if (method === 'startsWith') return String(args[0]).length;
+    if (typeof result === 'string') return result.length;
+    return text.length;
+  };
+  const counted = new Proxy(new String(text), {
+    get(_target, key) {
+      if (key === 'length') return text.length;
+      if (typeof key === 'string' && /^\d+$/u.test(key)) {
+        add(1);
+        return text[Number(key)];
+      }
+      const value: unknown = Reflect.get(String.prototype, key);
+      if (typeof value !== 'function' || typeof key !== 'string') return value;
+      return (...args: unknown[]): unknown => {
+        const result: unknown = Reflect.apply(value, text, args);
+        add(cost(key, args, result));
+        return result;
+      };
+    },
+  });
+  return { text: counted as unknown as string, count: () => read };
+}
+
 function root(text: string): XmlElement {
   const read = readXml(text);
   if (!read.ok) throw new Error(`not read: ${read.reason}`);
@@ -97,17 +140,22 @@ describe('readXml', () => {
     expect(readXml('<a>'.repeat(200_000))).toEqual({ ok: false, reason: 'too-deep' });
   });
 
-  it('stays quick on text made to make a careless reader slow', () => {
-    const started = performance.now();
+  it.each([
     // A megabyte each of: opening angle brackets, ampersands, unfinished comments, white
-    // space inside a tag, and one long attribute.
-    expect(readXml('<'.repeat(1_000_000)).ok).toBe(false);
-    expect(readXml(`<a>${'&'.repeat(1_000_000)}</a>`).ok).toBe(false);
-    expect(readXml(`<a>${'<!--'.repeat(250_000)}</a>`).ok).toBe(false);
-    expect(readXml(`<a${' '.repeat(1_000_000)}`).ok).toBe(false);
-    expect(readXml(`<a x="${'y'.repeat(1_000_000)}"/>`).ok).toBe(true);
-    expect(readXml(`<a>${'<b/>'.repeat(250_000)}</a>`).ok).toBe(true);
-    expect(readXml(`<a>${'x &amp; '.repeat(125_000)}</a>`).ok).toBe(true);
-    expect(performance.now() - started).toBeLessThan(5_000);
+    // space inside a tag, one long attribute, many small elements, many entities.
+    ['opening angle brackets', '<'.repeat(1_000_000), false],
+    ['ampersands', `<a>${'&'.repeat(1_000_000)}</a>`, false],
+    ['unfinished comments', `<a>${'<!--'.repeat(250_000)}</a>`, false],
+    ['white space inside a tag', `<a${' '.repeat(1_000_000)}`, false],
+    ['one long attribute', `<a x="${'y'.repeat(1_000_000)}"/>`, true],
+    ['many small elements', `<a>${'<b/>'.repeat(250_000)}</a>`, true],
+    ['many entities', `<a>${'x &amp; '.repeat(125_000)}</a>`, true],
+  ])('reads a megabyte of %s looking at each character a few times', (_what, text, ok) => {
+    // Counted, not timed (a clock fails on a loaded machine): a careless reader that looks
+    // again from the start, or cuts the rest of the text out, at each step reads billions; this
+    // reader reads each character one to six times. (A piece cut out is counted by its length:
+    // what is read in it, an entity among them, is not counted again.)
+    const counting = countingText(text, 10 * text.length);
+    expect(readXml(counting.text).ok).toBe(ok);
   });
 });
