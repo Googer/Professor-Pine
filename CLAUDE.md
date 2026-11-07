@@ -135,7 +135,7 @@ These are the rules that hold in every area. Each subsystem's own conventions ar
 - Compare a snowflake with the `BIGINT` column `Region.channelId` through `snowflakeParam()` (`src/db/snowflake.ts`, an explicit cast), and never compare that column with a `VARCHAR` snowflake column in SQL: MySQL compares mixed number and string columns as doubles.
 - Gym text (`name`, `nickname`, `description`, `notice`) is stored HTML-entity-encoded for the legacy bot; `GymRepository` encodes and decodes it.
 - Times are epoch milliseconds in data and Temporal `ZonedDateTime` in `settings.timezone` while computing, made and read through `src/domain/time/zoned.ts` (`zoned`, `localTime`, `feedTime`, the words; never `Temporal.Now`: the clock is `Date.now()` or an injected `now`). What runs in browsers uses no Temporal: the web page (`src/web/client`, whose tsconfig lacks it) and `packages/wayspot-core` (ESLint refuses it). Member-typed times go through `resolvePartyTime` (`src/domain/time/`).
-- What is kept in memory with a bound is a `BoundedMap` (`src/bounded-map.ts`, oldest out); a snowflake is recognized by `isSnowflake` (`src/db/snowflake.ts`). A command's help may depend on the settings (`CommandHelp.details` as a function).
+- What is kept in memory with a bound is a `BoundedMap` (`src/bounded-map.ts`, oldest out); a snowflake is recognized by `isSnowflake` (`src/db/snowflake.ts`). A command's help may depend on the settings and on `HelpFacts` (`CommandHelp.details` as a function).
 
 ### Domain and parties
 
