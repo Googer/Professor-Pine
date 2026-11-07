@@ -712,7 +712,7 @@ describe('the controls of /settings', () => {
   it('answers a menu value it does not know as a stale control', async () => {
     const made = setup();
     const used = await made.pick('settings:privacy:set', 'loud');
-    expect(sent(used.reply).content).toBe('This control is no longer active.');
+    expect(sent(used.reply).content).toBe('This no longer works.');
     expect((await made.users.get(ALICE)).raidPrivacy).toBe(RaidPrivacy.Visible);
   });
 
@@ -781,14 +781,20 @@ describe('the old bot’s history in /settings (plan 8H-10)', () => {
     await made.history.optIn(ALICE, FAKE_GUILD_ID, 0);
     made.fillIns.ended(ALICE, FAKE_GUILD_ID, { state: 'done', filled: 1234 });
     const done = await made.panel();
-    expect(textDisplays(done)).toContain('Your Discord id is now on 1,234 parties of the old bot.');
+    expect(textDisplays(done)).toContain(
+      'Your old-bot history is added: 1,234 raids, trains and meetups.',
+    );
     expect(offered(done)).toEqual([]);
     expect(textDisplays(shownAfter(await made.press(ADD)))[0]).toBe(
       '### Your settings\nYour old-bot history was added already.',
     );
     made.fillIns.ended(ALICE, FAKE_GUILD_ID, { state: 'done', filled: 0 });
     expect(textDisplays(await made.panel())).toContain(
-      'None of your old-bot parties could be added: this bot holds them otherwise.',
+      'There was none of your old-bot raids, trains or meetups left to add to your history.',
+    );
+    made.fillIns.ended(ALICE, FAKE_GUILD_ID, { state: 'done', filled: 1 });
+    expect(textDisplays(await made.panel())).toContain(
+      'Your old-bot history is added: 1 raid, train or meetup.',
     );
   });
 
@@ -918,8 +924,8 @@ describe('turning the history off in /settings (S1, S2)', () => {
     expect(dialog.custom_id).toBe('settings:history:forget');
     expect(dialog.title).toBe('Turn your history off');
     expect(dialogTexts(dialog)).toEqual([
-      'This takes your Discord id off 3 records (they still count) and takes you off the ' +
-        'boards. Submit turns it off.',
+      'I will take your Discord id off 3 entries of your history (the server still counts ' +
+        'them) and take you off the boards. Submit turns your history off.',
     ]);
     // Nothing changed before the Submit.
     expect(await made.history.isOptedIn(ALICE, FAKE_GUILD_ID)).toBe(true);
@@ -932,8 +938,8 @@ describe('turning the history off in /settings (S1, S2)', () => {
     const opted = (await optOut.mock.results[0]?.value) as OptedOut | undefined;
     expect(opted?.forgotten).toBe(counted);
     expect(textDisplays(shownAfter(submitted))[0]).toBe(
-      '### Your settings\nYour history is off. I took your Discord id off 3 records; they ' +
-        'still count. You are off the boards too.',
+      '### Your settings\nYour history is off. I took your Discord id off 3 entries of your ' +
+        'history; the server still counts them. You are off the boards too.',
     );
     expect(await made.history.isOptedIn(ALICE, FAKE_GUILD_ID)).toBe(false);
     expect(await made.history.isOnBoards(ALICE, FAKE_GUILD_ID)).toBe(false);
@@ -943,10 +949,16 @@ describe('turning the history off in /settings (S1, S2)', () => {
     [
       1,
       false,
-      'This takes your Discord id off the one record (it still counts). Submit turns it off.',
+      'I will take your Discord id off the one entry of your history (the server still ' +
+        'counts it). Submit turns your history off.',
     ],
-    [2, false, 'This takes your Discord id off 2 records (they still count). Submit turns it off.'],
-    [0, true, 'This takes you off the boards. Submit turns it off.'],
+    [
+      2,
+      false,
+      'I will take your Discord id off 2 entries of your history (the server still counts ' +
+        'them). Submit turns your history off.',
+    ],
+    [0, true, 'I will take you off the boards. Submit turns your history off.'],
   ] as const)(
     'words the question for %s records, on the boards: %s',
     async (records, boards, text) => {
@@ -959,6 +971,18 @@ describe('turning the history off in /settings (S1, S2)', () => {
       ]);
     },
   );
+
+  it('says what turning it off took, with one entry and not on the boards', async () => {
+    const made = setup();
+    await made.history.optIn(ALICE, FAKE_GUILD_ID, 0);
+    made.history.named(ALICE, FAKE_GUILD_ID, 1);
+    const dialog = shownDialog(await made.press('settings:history:set:off'));
+    const submitted = await made.submit(dialog.custom_id, dialog, {});
+    expect(textDisplays(shownAfter(submitted))[0]).toBe(
+      '### Your settings\nYour history is off. I took your Discord id off the one entry of ' +
+        'your history; the server still counts it.',
+    );
+  });
 
   it('says so where the history was turned off meanwhile', async () => {
     const made = setup();
@@ -1089,7 +1113,7 @@ describe('the Pokebattler id of /settings', () => {
     const made = setup();
     await made.users.update(ALICE, { pokebattlerId: 26516 });
     const submitted = await made.submit('settings:pokebattler:set:~abc', undefined, {});
-    expect(sent(submitted.reply).content).toBe('This control is no longer active.');
+    expect(sent(submitted.reply).content).toBe('This no longer works.');
     expect((await made.users.get(ALICE)).pokebattlerId).toBe(26516);
   });
 });
@@ -1187,7 +1211,7 @@ describe('settingsLines', () => {
     expect(line({ state: 'offer' })).toEqual(['Old-bot history: **not added**']);
     expect(line({ state: 'queued' })).toEqual(['Old-bot history: **being added**']);
     expect(line({ state: 'done', filled: 1234 })).toEqual([
-      'Old-bot history: **added** (on 1,234 parties)',
+      'Old-bot history: **added** (1,234 raids, trains and meetups)',
     ]);
     expect(
       line({

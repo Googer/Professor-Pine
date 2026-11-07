@@ -29,14 +29,15 @@ import { answerApart, deferLate, LATE_DEFER_MS } from './late-reply.js';
 import { Throttles, waitText, type Throttle } from './throttle.js';
 import { REHEARSAL_REFUSAL } from '../services/rehearsal.js';
 
-export const STALE_COMPONENT = 'This control is no longer active.';
+export const STALE_COMPONENT = 'This no longer works.';
 
 /** What the router answers: a command (slash or message) or a control. */
 type Answered = GuardableInteraction | MessageContextMenuCommandInteraction;
 const UNKNOWN_COMMAND = 'That command is not available.';
 /** Discord refuses a message longer than this. */
 const MESSAGE_LIMIT = 2000;
-const genericError = (ref: string) => `Something went wrong (ref \`${ref}\`).`;
+const genericError = (ref: string) =>
+  `Something went wrong. Try again in a moment; if it happens again, tell staff the code \`${ref}\`.`;
 
 /**
  * Tells the member something only they can see, whatever was sent before. After a public

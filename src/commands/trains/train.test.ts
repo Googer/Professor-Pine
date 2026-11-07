@@ -259,9 +259,9 @@ describe('/train', () => {
     expect(textOf(post?.message)).not.toContain(ALICE);
     expect(sent(used.editReply).content).toBe(
       `Your train is made. Its post is <#${party?.forumPostId ?? ''}>. There, \`/route add\` ` +
-        'adds its stops and `/meet` sets when it starts. You are not signed up for it, as ' +
-        'your status in `/settings` is None: sign up in the post to move the train or to ' +
-        'be its conductor.',
+        'adds its stops and `/meet` sets when it starts. You are not signed up for it, since ' +
+        'your status in `/settings` is None: sign up in the post to move the train or to be its ' +
+        'conductor.',
     );
     // And so it is: the maker lays the route and sets the start, and cannot move the train.
     const id = party?.id ?? '';

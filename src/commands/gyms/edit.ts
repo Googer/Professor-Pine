@@ -56,10 +56,10 @@ function tooLongNote(fields: readonly GymTextField[]): string | undefined {
   if (fields.length === 0) return undefined;
   // "The keywords are", "The name and the notice are", "The notice is".
   const several = fields.length > 1 || fields[0] === 'keywords';
-  const [is, it] = several ? ['are', 'them'] : ['is', 'it'];
+  const [is, was, it] = several ? ['are', 'were', 'them'] : ['is', 'was', 'it'];
   return (
-    `${fieldList(fields).replace(/^t/, 'T')} of this gym ${is} too long for the form and ${is} ` +
-    `unchanged. An admin has to shorten ${it} in the database first.`
+    `${fieldList(fields).replace(/^t/, 'T')} of this gym ${is} too long for this form and ${was} ` +
+    `left unchanged; whoever runs Pine has to shorten ${it}.`
   );
 }
 

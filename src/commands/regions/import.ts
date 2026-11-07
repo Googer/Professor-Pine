@@ -67,6 +67,9 @@ const IMPORT_HEADING = '### Import regions';
 /** How much of a message the names of new channels or categories may take. */
 const NAMES_SHOWN = 500;
 
+/** A file larger than `MAX_KML_BYTES`, by what it says or by what came. */
+const TOO_LARGE = 'That file is larger than 1 MB. Export only the layer with the regions.';
+
 const HOW_TO_KML =
   'In Google My Maps choose "Export to KML/KMZ" and tick "Export as KML instead of KMZ".';
 
@@ -623,8 +626,8 @@ function failureText(failed: NotImported): string {
       'again',
     'bad-name': `Discord does not take ${channel} as a channel name`,
     'no-server': `${channel} could not be created: its category is gone`,
-    failed: `${channel} could not be created (the log says why)`,
-    'not-written': 'the outlines could not be written (the log says why)',
+    failed: `${channel} could not be created: try again in a moment`,
+    'not-written': 'the outlines could not be written: try again in a moment',
     'not-allowed': `you may not create ${channel} (that takes Manage Channels)`,
   };
   const created =
@@ -795,10 +798,7 @@ export const importRegions: SubcommandPart = {
       );
     }
     if (file.size > MAX_KML_BYTES) {
-      throw new UserError(
-        'That file is larger than 1 MB, and a file of regions is far smaller. Export only the ' +
-          'layer with the regions.',
-      );
+      throw new UserError(TOO_LARGE);
     }
     const download = await ctx.attachments.download(file.url, {
       maxBytes: MAX_KML_BYTES,
@@ -807,8 +807,7 @@ export const importRegions: SubcommandPart = {
     if (!download.ok) {
       throw new UserError(
         download.reason === 'too-large'
-          ? 'That file is larger than 1 MB, and a file of regions is far smaller. Export only ' +
-              'the layer with the regions.'
+          ? TOO_LARGE
           : 'I could not download that file from Discord. Try again in a moment.',
       );
     }

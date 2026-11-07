@@ -53,7 +53,7 @@ describe('/admin save-party', () => {
     expect(used.editReply).toHaveBeenCalledWith({
       content:
         'This post is kept: I will not archive it by myself. `/delete` closes it, and ' +
-        '`/admin save-party keep:False` gives it back to the clock.',
+        '`/admin save-party keep:False` lets it be archived as usual again.',
     });
     expect(made.current().saved).toBe(true);
     // The post itself says so, also once the line has scrolled away.

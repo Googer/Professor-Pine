@@ -360,12 +360,12 @@ function postSubject(ctx: AppContext, party: Party | undefined): BoxSubject {
   const entry = boss !== null && 'key' in boss ? ctx.gameData.catalogue.byKey(boss.key) : undefined;
   if (!entry) {
     if (!isRaid(party)) {
-      throw new UserError("Pine doesn't know this battle's boss yet: name a Pokémon.");
+      throw new UserError('The boss of this battle is not known yet: name a Pokémon.');
     }
     // The tier's dialog asks about its raids and its shadow raids alike: the level names it.
     const tier = raidTierLabel({ level: party.raid.tier.level, shadow: false }).toLowerCase();
     throw new UserError(
-      `Pine doesn't know this raid's boss yet: name a Pokémon, or \`/want ${tier}\` for the tier.`,
+      `The boss of this raid is not known yet: name a Pokémon, or \`/want ${tier}\` for the tier.`,
     );
   }
   // A species of one entry is the species; a form of several, picked in its species' dialog.
@@ -1138,7 +1138,7 @@ export function wantsList(
     notes:
       unreadable > 0
         ? [
-            `…and ${count(unreadable, 'entry', 'entries')} this version cannot read; ` +
+            `…and ${count(unreadable, 'entry', 'entries')} I can no longer show; ` +
               '`/unwant-all` removes those too.',
           ]
         : [],

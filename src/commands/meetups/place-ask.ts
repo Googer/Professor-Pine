@@ -142,7 +142,7 @@ function decisionWords(outcome: AskDecision): string {
       return STALE_COMPONENT;
     case 'decided-before': {
       const { ask } = outcome;
-      if (ask.status === 'expired') return 'This ask has expired: nobody decided in time.';
+      if (ask.status === 'expired') return 'This request has expired: nobody decided in time.';
       const who =
         ask.decidedBy === null
           ? 'A moderator'
@@ -157,8 +157,8 @@ function decisionWords(outcome: AskDecision): string {
             'member is told.';
     case 'not-refused':
       return (
-        'No refusal of this place stands any more (it was undone or allowed meanwhile): there is ' +
-        'nothing to keep. The ask stays open.'
+        'No refusal of this place stands anymore (it was undone or allowed meanwhile): there is ' +
+        'nothing to keep. The request stays open.'
       );
   }
 }

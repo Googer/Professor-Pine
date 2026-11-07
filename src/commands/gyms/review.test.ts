@@ -1,5 +1,5 @@
 import { MessageFlags } from 'discord.js';
-import { describe, expect, it, onTestFinished } from 'vitest';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import { watchImmediates } from '../../../test/support/timers.js';
 import { STAFF_PLACE, UPDATES_CHANNEL } from '../../../test/support/gym-admin.js';
 import {
@@ -590,6 +590,21 @@ describe('/gym review: the answers to an item to match', () => {
     expect((await made.wayfarerStore.records([added?.id ?? 0])).get(added?.id ?? 0)).toMatchObject({
       lastSeen: made.clock.now,
     });
+  });
+
+  it('New gym that could not be saved keeps the question open and says to try again', async () => {
+    const made = await gymCommandsWith();
+    await usualQueue(made);
+    const review = reviewOf(made, 6);
+    vi.spyOn(made.wayspots, 'byId').mockImplementation(() => {
+      throw new Error('the kept Wayspots cannot be read');
+    });
+    const pressed = await made.press(`gymreview:${review}:new:${idOf(4)}`);
+    await made.settle();
+    expect(lines(made, pressed)[0]).toBe(
+      'I could not save all of that, and the question stays open. Try again in a moment.',
+    );
+    expect(made.directory.all().find((gym) => gym.pogoId === idOf(4))).toBeUndefined();
   });
 
   it('New gym of a PokéStop promoted to a gym says so in the summary, and drops its kept row', async () => {

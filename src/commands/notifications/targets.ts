@@ -459,7 +459,7 @@ export function targetsList(
     notes:
       unreadable > 0
         ? [
-            `…and ${count(unreadable, 'entry', 'entries')} this version cannot read (a gym ` +
+            `…and ${count(unreadable, 'entry', 'entries')} I can no longer show (a gym ` +
               'that no longer exists, say); `/untarget-all` removes those too.',
           ]
         : [],

@@ -149,8 +149,8 @@ export function notSignedUpWords(where: string, onPage = false): string {
     ? `your status is None (${IN_SETTINGS_ON_DISCORD})`
     : `your status ${IN_SETTINGS} is None`;
   return (
-    `You are not signed up for it, as ${status}: sign up ` +
-    `${where} to move the train or to be its conductor.`
+    `You are not signed up for it, since ${status}: sign up ${where} to move the train or ` +
+    'to be its conductor.'
   );
 }
 

@@ -550,7 +550,7 @@ describe('/targets', () => {
     );
     expect(textDisplays(message)).toEqual([
       '### Gyms you want raids of\n3 gyms\n' +
-        '…and 3 entries this version cannot read (a gym that no longer exists, say); ' +
+        '…and 3 entries I can no longer show (a gym that no longer exists, say); ' +
         '`/untarget-all` removes those too.',
       `${link(made.ctx, 3, "St. Mary's Church")} · <#${WEST_CHANNEL}>`,
       `${link(made.ctx, 1, 'The Stacks')} · <#${WEST_CHANNEL}>`,

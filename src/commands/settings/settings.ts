@@ -95,8 +95,8 @@ function legacyAsked(state: Exclude<FillInState, { state: 'failed' }>): string {
 /** What turning the history off took the member's name off, where it did. */
 export function forgottenIn(records: number): string {
   return records === 1
-    ? ' I took your Discord id off the one record; it still counts.'
-    : ` I took your Discord id off ${String(records)} records; they still count.`;
+    ? ' I took your Discord id off the one entry of your history; the server still counts it.'
+    : ` I took your Discord id off ${String(records)} entries of your history; the server still counts them.`;
 }
 
 /** Added where turning the history off took the member off the boards too. */
@@ -218,23 +218,23 @@ async function setHistory(
   );
 }
 
-/** The records a question names: `3 records (they still count)`, `the one record (…)`. */
+/** The records a question names: `3 entries of your history (the server still counts them)`. */
 function recordsWords(records: number): string {
   return records === 1
-    ? 'the one record (it still counts)'
-    : `${String(records)} records (they still count)`;
+    ? 'the one entry of your history (the server still counts it)'
+    : `${String(records)} entries of your history (the server still counts them)`;
 }
 
 /** The question before the history goes off: what it takes away, and what Submit does. */
 function historyDialog(records: number, boards: boolean) {
   const takes = [
-    ...(records > 0 ? [`takes your Discord id off ${recordsWords(records)}`] : []),
-    ...(boards ? ['takes you off the boards'] : []),
+    ...(records > 0 ? [`take your Discord id off ${recordsWords(records)}`] : []),
+    ...(boards ? ['take you off the boards'] : []),
   ].join(' and ');
   return dialog({
     customId: encodeCustomId({ kind: SETTINGS_KIND, id: 'history', action: FORGET }),
     title: 'Turn your history off',
-    text: `This ${takes}. Submit turns it off.`,
+    text: `I will ${takes}. Submit turns your history off.`,
   });
 }
 

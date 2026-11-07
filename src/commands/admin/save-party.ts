@@ -63,7 +63,7 @@ export const saveParty: SubcommandPart = {
     const answers = {
       kept:
         'This post is kept: I will not archive it by myself. `/delete` closes it, and ' +
-        '`/admin save-party keep:False` gives it back to the clock.',
+        '`/admin save-party keep:False` lets it be archived as usual again.',
       'let-go': `This post is no longer kept: it is archived as usual once the ${partyWord(party)} is over.`,
       unchanged: keep ? 'This post was kept already.' : 'This post was not kept.',
     };

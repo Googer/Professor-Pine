@@ -267,7 +267,7 @@ export const cleanupLegacy: SubcommandPart = {
   data: new SlashCommandSubcommandBuilder()
     .setName('cleanup-legacy')
     .setDescription(
-      'List the channels of the legacy bot’s parties, and delete them once confirmed',
+      'List the channels of the legacy bot’s raids, trains and meetups, and delete them once confirmed',
     ),
   help: {
     details:

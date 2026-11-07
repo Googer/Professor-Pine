@@ -277,13 +277,17 @@ describe('/region import: what is no file of regions', () => {
   it('refuses a file that says it is larger than a megabyte, before any download', async () => {
     const made = await regionCommandsWith();
     const { answer } = await importing(made, '<kml/>', { size: MAX_KML_BYTES + 1 });
-    expect(regionSaid(answer)).toContain('larger than 1 MB');
+    expect(regionSaid(answer)).toContain(
+      'That file is larger than 1 MB. Export only the layer with the regions.',
+    );
     expect(made.attachments.asked).toEqual([]);
   });
 
   it('refuses a file that turns out larger than it said', async () => {
     const text = await refusal(`<kml>${' '.repeat(MAX_KML_BYTES)}</kml>`, { size: 10 });
-    expect(text).toContain('larger than 1 MB');
+    expect(text).toContain(
+      'That file is larger than 1 MB. Export only the layer with the regions.',
+    );
   });
 
   it('says so when the file cannot be downloaded', async () => {
@@ -415,7 +419,7 @@ describe('/region import: Import and Cancel', () => {
     expect(regionSaid(done)).toContain('Nothing was imported.');
     expect(listed(done, 'Not imported')).toEqual([
       '- South: its channel is gone, or is no text channel any more.',
-      `- River Side: the outlines could not be written (the log says why). I had created ` +
+      `- River Side: the outlines could not be written: try again in a moment. I had created ` +
         `<#${createdId ?? ''}> for it: it exists, but is no region. Import again, or delete it.`,
     ]);
   });
