@@ -4,6 +4,7 @@ import { at, PARTY_NOW } from '../../../test/support/parties.js';
 import { catalogueFixture } from '../../../test/support/game-data.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { UserError } from '../../discord/errors.js';
+import { raid } from './raid.js';
 import { bossIdsOf, type RaidBoss } from '../../domain/pogo/raid-bosses.js';
 import { CURATED_NICKNAMES } from '../../domain/pogo/nicknames.js';
 import { mergeNicknames, PokemonSearch } from '../../domain/pogo/pokemon-search.js';
@@ -299,6 +300,18 @@ describe('reportedTime', () => {
     expect(reportedTime(ctx, eliteEgg, '6:15pm', PARTY_NOW)).toEqual({
       hatch: at('2026-10-13T18:15'),
     });
+  });
+
+  it('reads an Elite egg’s hatch past midnight as tomorrow 12am, as the help says (review of 2026-11-07)', () => {
+    const elite = { level: 'Elite', shadow: false } as const;
+    const eliteEgg: ReportedBoss = { tier: elite, boss: null, label: 'Elite egg' };
+    const evening = at('2026-10-13T22:00');
+    expect(() => reportedTime(ctx, eliteEgg, '12am', evening)).toThrow(UserError);
+    expect(reportedTime(ctx, eliteEgg, 'tomorrow 12am', evening)).toEqual({
+      hatch: at('2026-10-14T00:00'),
+    });
+    const help = raid.help?.details;
+    expect(typeof help === 'string' ? help : '').toContain('`tomorrow 12am`');
   });
 
   it('reads the hatch time of an egg and the end time of a boss', () => {

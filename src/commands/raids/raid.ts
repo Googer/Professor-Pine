@@ -601,7 +601,8 @@ const DETAILS =
   "Creates a post for the raid in the raid forum of the gym's region. Pick the boss (or the " +
   'tier, for an egg) and the gym from the lists that appear while you type.\n\nThe time is ' +
   'optional, except for an Elite egg, which needs its hatch time: minutes from now (`20`) or a ' +
-  'clock time (`6:15pm`); for an egg it is when the egg hatches, for a boss when the raid ends.\n\n' +
+  'clock time (`6:15pm`); for an egg it is when the egg hatches, for a boss when the raid ends. ' +
+  'An Elite egg that hatches after midnight: `tomorrow 12am`.\n\n' +
   'If the gym already has a raid, you are shown its post instead.';
 
 const SCREENSHOT_DETAILS =
