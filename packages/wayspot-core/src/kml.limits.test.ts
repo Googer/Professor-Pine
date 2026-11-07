@@ -20,6 +20,49 @@ function traced(corners: number, lat = 40, lon = -80): LatLon[] {
   return [...ring, ring[0] ?? { lat: 0, lon: 0 }];
 }
 
+/**
+ * The same text, counting the characters read of it: one for each character looked at, those an
+ * `indexOf` passes over, those `startsWith` compares, and the length of every piece cut out (a
+ * piece is then read as a whole). The work, by count rather than by the clock (a clock fails on
+ * a loaded machine). Past `budget` a read throws, so that a slow way fails at once.
+ */
+function countingText(text: string, budget: number): { text: string; count: () => number } {
+  let read = 0;
+  const add = (characters: number): void => {
+    read += characters;
+    if (read > budget) throw new Error('too many characters read');
+  };
+  const cost = (method: string, args: unknown[], result: unknown): number => {
+    if (method === 'indexOf') {
+      const [needle, from] = args as [string, number | undefined];
+      const start = Math.max(0, from ?? 0);
+      return (
+        (typeof result === 'number' && result >= 0 ? result + needle.length : text.length) - start
+      );
+    }
+    if (method === 'startsWith') return String(args[0]).length;
+    if (typeof result === 'string') return result.length;
+    return text.length;
+  };
+  const counted = new Proxy(new String(text), {
+    get(_target, key) {
+      if (key === 'length') return text.length;
+      if (typeof key === 'string' && /^\d+$/u.test(key)) {
+        add(1);
+        return text[Number(key)];
+      }
+      const value: unknown = Reflect.get(String.prototype, key);
+      if (typeof value !== 'function' || typeof key !== 'string') return value;
+      return (...args: unknown[]): unknown => {
+        const result: unknown = Reflect.apply(value, text, args);
+        add(cost(key, args, result));
+        return result;
+      };
+    },
+  });
+  return { text: counted as unknown as string, count: () => read };
+}
+
 describe('readKml: what a file may cost', () => {
   it('never throws, also for a file of a quarter of a million siblings', () => {
     const placemarks = `<kml>${'<Placemark/>'.repeat(250_000)}</kml>`;
@@ -41,11 +84,11 @@ describe('readKml: what a file may cost', () => {
     // Four outlines of the most corners one may have are as much as a file may hold.
     expect(MAX_KML_CORNERS).toBe(4 * MAX_OUTLINE_CORNERS);
     const most = writeKml(areas(4, MAX_OUTLINE_CORNERS));
-    const started = performance.now();
-    const reading = readKml(most);
-    // About a megabyte, read in well under a second.
+    // About a megabyte, its text read twice a character, at most ten allowed (counted, not timed: a clock
+    // fails on a loaded machine). Checking the outlines is held to its work in outline.test.ts.
     expect(most.length).toBeGreaterThan(700_000);
-    expect(performance.now() - started).toBeLessThan(1_000);
+    const counting = countingText(most, 10 * most.length);
+    const reading = readKml(counting.text);
     expect(reading.ok && reading.areas.length).toBe(4);
     expect(readKml(writeKml(areas(5, MAX_OUTLINE_CORNERS)))).toEqual({
       ok: false,
