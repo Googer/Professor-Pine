@@ -5,6 +5,7 @@ import { badgeWords, isDimmed, timeLeft, type MarkerSize } from './raid-marker.j
 import { iconNode } from './report-menu.js';
 import { REPORT_ICONS } from './report-icons.js';
 import type { PlacedThing } from './shared-place.js';
+import { spawnName, spawnPopupKey } from './spawn-names.js';
 import { ENDED } from './stop-popup.js';
 import type { LatLon } from './view.js';
 
@@ -20,9 +21,6 @@ import type { LatLon } from './view.js';
 
 /** The layer of the spawns (its id in `MAP_LAYERS`). */
 export const SPAWN_LAYER = 'spawns';
-
-/** A spawn's popup key on the map (`spawn:<id>`), as a stop's is `stop:<key>`. */
-export const spawnPopupKey = (id: string): string => `spawn:${id}`;
 
 /** What a spawn's popup needs of the map. */
 export interface SpawnPopupContext {
@@ -50,11 +48,6 @@ export function spawnsShown(
 export function nextSpawnEnd(view: SpawnsView | undefined, now: number): number | undefined {
   const ends = (view?.spawns ?? []).map((spawn) => spawn.goneAt).filter((end) => end > now);
   return ends.length === 0 ? undefined : Math.min(...ends);
-}
-
-/** A spawn's name in the list and the things at one place: `Dratini`, `Costumed Pikachu`. */
-export function spawnName(spawn: MapSpawn): string {
-  return spawn.costumed ? `Costumed ${spawn.pokemon}` : spawn.pokemon;
 }
 
 /** Whether a spawn is in its last minutes, by the raids' rule (`isDimmed`). */

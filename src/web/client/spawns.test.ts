@@ -1,13 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import type { PageNode } from './popup.js';
 import { badgeWords, timeLeft } from './raid-marker.js';
+import { spawnName, spawnPopupKey } from './spawn-names.js';
 import {
   nextSpawnEnd,
   spawnMarkerNode,
-  spawnName,
   spawnPlaced,
   spawnPopup,
-  spawnPopupKey,
   spawnsInView,
   spawnsShown,
 } from './spawns.js';

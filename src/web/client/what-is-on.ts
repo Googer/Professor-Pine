@@ -4,7 +4,7 @@ import type { PartiesView } from '../../domain/web/party-data.js';
 import { backAtWords } from '../../domain/stops/back-at.js';
 import type { MapSpawn } from '../../domain/web/spawn-data.js';
 import type { StopReportsView } from '../../domain/web/stop-report-data.js';
-import { spawnName, spawnPopupKey } from './spawns.js';
+import { spawnName, spawnPopupKey } from './spawn-names.js';
 import { stopPopupKey, type StopLayer, type StopReport, type StopReports } from './stop-reports.js';
 import { distanceWords, metersBetween, type DistanceUnits } from './distance.js';
 import { stopLine, trainPlaces } from './parties.js';

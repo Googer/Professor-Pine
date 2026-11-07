@@ -67,3 +67,25 @@ describe("the shared modules the map's page imports (plan 8M-7)", () => {
     }
   });
 });
+
+describe("the wild spawns' modules of the map's page (review S7)", () => {
+  it('are in no import cycle with the list of what is on', () => {
+    /** Every client module `from` reaches at run time. */
+    const reached = (from: string): Set<string> => {
+      const seen = new Set<string>();
+      const queue = runtimeImports(from);
+      while (queue.length > 0) {
+        const file = queue.pop() ?? '';
+        if (seen.has(file) || !file.startsWith(CLIENT + path.sep)) continue;
+        seen.add(file);
+        queue.push(...runtimeImports(file));
+      }
+      return seen;
+    };
+    for (const name of ['what-is-on.ts', 'spawns.ts', 'spawn-names.ts']) {
+      const file = path.join(CLIENT, name);
+      if (!existsSync(file)) continue;
+      expect(reached(file).has(file), name).toBe(false);
+    }
+  });
+});

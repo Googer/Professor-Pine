@@ -7,13 +7,12 @@ import { renderNode, type PageNode } from './popup.js';
 import { tapBox, type MarkerSize } from './raid-marker.js';
 import { drawShapes } from './report-ui.js';
 import type { PlacedThing } from './shared-place.js';
+import { spawnName, spawnPopupKey } from './spawn-names.js';
 import {
   nextSpawnEnd,
   SPAWN_LAYER,
   spawnMarkerNode,
-  spawnName,
   spawnPlaced,
-  spawnPopupKey,
   spawnsInView,
   spawnsShown,
 } from './spawns.js';
