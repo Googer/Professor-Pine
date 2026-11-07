@@ -32,6 +32,33 @@ function circle(lat: number, lon: number, radius: number, corners: number): LatL
   return [...ring, { ...(ring[0] as LatLon) }];
 }
 
+/** How many coordinates were read, of every corner counted; past `budget` a read throws. */
+interface Reads {
+  count: number;
+  budget: number;
+}
+
+/**
+ * The same corners, each reading of a latitude or longitude counted in `reads`: the work, by
+ * count rather than by the clock (a clock fails on a loaded machine). Past the budget a read
+ * throws, so that a slow way fails at once instead of running for minutes.
+ */
+function counted(corners: readonly LatLon[], reads: Reads): LatLon[] {
+  const read = (value: number): number => {
+    reads.count += 1;
+    if (reads.count > reads.budget) throw new Error('too many coordinates read');
+    return value;
+  };
+  return corners.map(({ lat, lon }) => ({
+    get lat() {
+      return read(lat);
+    },
+    get lon() {
+      return read(lon);
+    },
+  }));
+}
+
 const area = (outer: LatLon[], ...holes: LatLon[][]): Shape => ({
   kind: 'area',
   areas: [{ outer, holes } satisfies Area],
@@ -118,31 +145,19 @@ describe('regionsTouching', () => {
     expect(regionsTouching(line, regions).map((region) => region.id)).toEqual([1, 2]);
   });
 
-  it('compares outlines of thousands of corners in well under a second', () => {
-    const region = circle(40.5, -79.5, 0.5, 5_000);
-    const town = circle(40.5, -78.9, 0.2, 5_000);
-    const started = performance.now();
+  it('compares outlines of thousands of corners reading each corner a few times', () => {
+    // About 20 coordinates read a corner at most (140,044 for these 15,003 corners).
+    const reads: Reads = { count: 0, budget: 300_000 };
+    const region = counted(circle(40.5, -79.5, 0.5, 5_000), reads);
+    const town = counted(circle(40.5, -78.9, 0.2, 5_000), reads);
     expect(shapeTouches(area(town), region)).toBe(true);
-    expect(shapeTouches(area(circle(40.5, -78.7, 0.15, 5_000)), region)).toBe(false);
-    expect(performance.now() - started).toBeLessThan(500);
+    const away = counted(circle(40.5, -78.7, 0.15, 5_000), reads);
+    expect(shapeTouches(area(away), region)).toBe(false);
+    expect(reads.count).toBeLessThanOrEqual(reads.budget);
   });
 });
 
 describe('shapeTouches at the limits', () => {
-  /**
-   * The fastest of three runs, in milliseconds: the first call also compiles the code for lists
-   * this long, and other test files run beside this one; neither is what is measured.
-   */
-  const fastest = (run: () => unknown): number => {
-    let best = Infinity;
-    for (let i = 0; i < 3; i++) {
-      const started = performance.now();
-      run();
-      best = Math.min(best, performance.now() - started);
-    }
-    return best;
-  };
-
   /** An arc of `corners` points from `from` to `to` (radians) around a middle. */
   const arc = (
     lat: number,
@@ -157,22 +172,28 @@ describe('shapeTouches at the limits', () => {
       return { lat: lat + radius * Math.sin(angle), lon: lon + radius * Math.cos(angle) };
     });
 
-  it('finds a region of 5,000 corners in the hole of an area of 50,000 points quickly', () => {
-    const region = circle(40.5, -79.5, 0.1, MAX_OUTLINE_CORNERS);
-    const outer = circle(40.5, -79.5, 1, 25_000);
-    const hole = circle(40.5, -79.5, 0.3, 25_000);
+  it('finds a region of 5,000 corners in the hole of an area of 50,000 points, reading each corner a few times', () => {
+    // About 20 coordinates read a corner at most (860,056 for these 55,003 corners): every
+    // corner of the region tried against the area would be billions.
+    const reads: Reads = { count: 0, budget: 1_100_000 };
+    const region = counted(circle(40.5, -79.5, 0.1, MAX_OUTLINE_CORNERS), reads);
+    const outer = counted(circle(40.5, -79.5, 1, 25_000), reads);
+    const hole = counted(circle(40.5, -79.5, 0.3, 25_000), reads);
     expect(shapeTouches(area(outer, hole), region)).toBe(false);
-    expect(fastest(() => shapeTouches(area(outer, hole), region))).toBeLessThan(50);
+    expect(reads.count).toBeLessThanOrEqual(reads.budget);
   });
 
-  it('finds a region of 5,000 corners in the mouth of a crescent of 50,000 points quickly', () => {
-    const region = circle(40.5, -79.5, 0.1, MAX_OUTLINE_CORNERS);
+  it('finds a region of 5,000 corners in the mouth of a crescent of 50,000 points, reading each corner a few times', () => {
+    // About 20 coordinates read a corner at most (860,046 for these 55,001 corners, the region's
+    // 5,001 among them): every corner of the region tried against the crescent would be billions.
+    const reads: Reads = { count: 0, budget: 1_100_000 };
+    const region = counted(circle(40.5, -79.5, 0.1, MAX_OUTLINE_CORNERS), reads);
     // A ring around the region, open on the east: out along a wide arc, back along a narrow one.
     const wide = arc(40.5, -79.5, 1, 0.3, 2 * Math.PI - 0.3, 25_000);
     const narrow = arc(40.5, -79.5, 0.3, 2 * Math.PI - 0.3, 0.3, 25_000);
-    const crescent = [...wide, ...narrow, { ...(wide[0] as LatLon) }];
+    const crescent = counted([...wide, ...narrow, { ...(wide[0] as LatLon) }], reads);
     expect(shapeTouches(area(crescent), region)).toBe(false);
-    expect(fastest(() => shapeTouches(area(crescent), region))).toBeLessThan(50);
+    expect(reads.count).toBeLessThanOrEqual(reads.budget);
   });
 
   it('decides by one corner each way when no sides meet', () => {
