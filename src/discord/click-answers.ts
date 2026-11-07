@@ -49,7 +49,10 @@ export class ClickAnswers {
     await lateSettled(interaction);
     const burst = this.windowMs > 0 ? this.bursts.get(key) : undefined;
     if (burst && interaction.deferred) {
-      // Its "thinking…" must not stay: answered by itself, the burst goes on as it was.
+      // Its "thinking…" must not stay: answered by itself, it says how things stand now, so the
+      // burst ends here and no older answer gathered in it is shown after it.
+      clearTimeout(burst.timer);
+      this.bursts.delete(key);
       await interaction.editReply({ content });
       return;
     }

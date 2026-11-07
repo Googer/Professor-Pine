@@ -155,6 +155,26 @@ describe('ClickAnswers', () => {
     expect(first.editReply).not.toHaveBeenCalled();
   });
 
+  it('ends the burst at a click acknowledged late, so that no older answer is shown after it', async () => {
+    const { answers } = setup();
+    const first = fakeButton();
+    await answers.answer('p:a', real(first), 'You are coming.');
+    const second = fakeButton();
+    await answers.answer('p:a', real(second), 'You are coming with 1 more.');
+    const late = fakeButton({ deferred: true });
+    await answers.answer('p:a', real(late), 'You are coming with 2 more.');
+    expect(late.editReply).toHaveBeenCalledExactlyOnceWith({
+      content: 'You are coming with 2 more.',
+    });
+    await answers.flush();
+    expect(first.editReply).not.toHaveBeenCalled();
+    expect(second.followUp).not.toHaveBeenCalled();
+    // The next click starts a burst of its own.
+    const next = fakeButton();
+    await answers.answer('p:a', real(next), 'You are coming with 3 more.');
+    expect(next.reply).toHaveBeenCalledOnce();
+  });
+
   it('answers every click by itself with a window of zero', async () => {
     const { answers } = setup(0);
     const [first, second] = [fakeButton(), fakeButton()];
