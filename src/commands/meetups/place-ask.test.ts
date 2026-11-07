@@ -143,6 +143,15 @@ describe('Ask the moderators (a place refused for good)', () => {
     expect(made.dms.to(ALICE)).toHaveLength(1);
   });
 
+  it('says a question nobody decided in time has expired', async () => {
+    const made = await setup(20);
+    await made.submit(await made.ask(await made.run()), 'A park.');
+    const [asked] = [...made.storage.asks.values()];
+    await made.storage.expireAsk(asked?.id ?? '');
+    const late = await made.decide('allow');
+    expect(sent(late.editReply).content).toBe('This question has expired: nobody decided in time.');
+  });
+
   it('has a button that works after a restart: it names the place, not something kept', async () => {
     const made = await setup(20);
     const refused = await made.run();

@@ -2205,7 +2205,7 @@ export class DiscordPartyGateway implements PartyGateway {
       // The type is given, so discord.js does not look for the member in its cache.
       forum.permissionOverwrites.create(memberId, muted ? readOnly : ADMITTED, {
         type: OverwriteType.Member,
-        reason: 'Signed up for a party in this forum',
+        reason: 'Signed up for a raid, max battle, train or meetup in this forum',
       }),
     );
   }
@@ -2228,7 +2228,7 @@ export class DiscordPartyGateway implements PartyGateway {
     try {
       await forum.permissionOverwrites.delete(
         memberId,
-        'No longer signed up for a party in this forum',
+        'No longer signed up for a raid, max battle, train or meetup in this forum',
       );
     } catch (err) {
       const gone = hasCode(

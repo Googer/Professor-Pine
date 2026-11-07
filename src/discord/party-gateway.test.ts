@@ -1036,6 +1036,46 @@ describe('DiscordPartyGateway: an overwrite of a member that keeps them out of a
   });
 });
 
+describe('DiscordPartyGateway: what the audit log says of letting a member into a forum', () => {
+  const ALICE = '300000000000000001';
+
+  it('names what the member signed up for in words staff know', async () => {
+    const reasons: string[] = [];
+    const overwrites = new Collection<string, unknown>();
+    const forum = {
+      type: ChannelType.GuildForum,
+      guild: {
+        id: 'guild',
+        members: { fetch: () => Promise.resolve({ roles: { cache: new Collection() } }) },
+      },
+      permissionOverwrites: {
+        cache: overwrites,
+        create: (id: string, allow: unknown, options: { reason: string }) => {
+          reasons.push(options.reason);
+          overwrites.set(id, {
+            type: OverwriteType.Member,
+            deny: new PermissionsBitField(),
+            allow: new PermissionsBitField(PermissionFlagsBits.ViewChannel),
+          });
+          return Promise.resolve();
+        },
+        delete: (_id: string, reason: string) => {
+          reasons.push(reason);
+          return Promise.resolve();
+        },
+      },
+    };
+    const gateway = new DiscordPartyGateway();
+    gateway.use({ channels: { fetch: () => Promise.resolve(forum) } } as unknown as Client);
+    await expect(gateway.admitMember('forum', ALICE)).resolves.toBe(true);
+    await expect(gateway.dismissMember('forum', ALICE)).resolves.toBe(true);
+    expect(reasons).toEqual([
+      'Signed up for a raid, max battle, train or meetup in this forum',
+      'No longer signed up for a raid, max battle, train or meetup in this forum',
+    ]);
+  });
+});
+
 describe('DiscordPartyGateway: a reported message deleted', () => {
   function gatewayOver(fetch: () => Promise<unknown>, log?: ReturnType<typeof createTestLogger>) {
     const gateway = new DiscordPartyGateway(log?.log);
