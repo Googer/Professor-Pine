@@ -299,7 +299,7 @@ export function parseEventRaidHours(html: string): PageRaidHour[] {
  * one whose Raid Hours `parseEventRaidHours` cannot read has changed its shape.
  */
 export function namesRaidHours(html: string): boolean {
-  return html.includes('id="raid-hour');
+  return html.includes('id="raid-hour-');
 }
 
 /**

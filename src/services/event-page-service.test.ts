@@ -300,6 +300,16 @@ describe('EventPageService: the Raid Hours of the events’ pages', () => {
     expect(said('the Raid Hours of an event page read')).toBe(0);
   });
 
+  it('says nothing of a page whose only Raid Hour id is no dated heading (a Raid Hour’s own page)', async () => {
+    const own = '<h2 id="raid-hour" class="event-section-header">Raid Hour</h2>';
+    const paged = { now: PAGED.filter((event) => event.id === 'into-the-wild-2026') };
+    const { service, clock, said } = serviceWith(() => page(own), [], paged);
+    clock.now = at('2026-11-07T12:00');
+    await service.refresh();
+    expect(said('could not read an event page')).toBe(0);
+    expect(said('an event page names Raid Hours that could not be read')).toBe(0);
+  });
+
   it('places the Raid Hours at 18:00 for an hour without a weekly one', async () => {
     const paged = { now: PAGED.filter((event) => event.id === 'into-the-wild-2026') };
     const { service, clock } = serviceWith(byAddress, [], paged, null);
