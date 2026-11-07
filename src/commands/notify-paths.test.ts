@@ -140,7 +140,9 @@ describe('who is told, and who is left out, by every way a member causes it', ()
     const postId = made.raid().forumPostId ?? '';
     await made.inPost(ALICE, postId, WEST_FORUM, 'location', { gym: 'g:2' });
     expect(made.raid().gymId).toBe(2);
-    expect(await made.told()).toEqual([BOB]);
+    // Carol, signed up as its reporter, hears by a DM of its own that it moved; Bob targets the
+    // gym; Alice, who moved it, hears nothing.
+    expect(await made.told()).toEqual([CAROL, BOB]);
   });
 
   it('`/location` into another region: not whoever moved it', async () => {
@@ -163,7 +165,9 @@ describe('who is told, and who is left out, by every way a member causes it', ()
       }),
     );
     expect(made.raid()).toMatchObject({ gymId: 7, forumChannelId: EAST_FORUM });
-    expect(await made.told()).toEqual([BOB]);
+    // Carol, signed up as its reporter, hears by a DM of its own that it moved; Bob targets the
+    // gym; Alice, who moved it, hears nothing.
+    expect(await made.told()).toEqual([CAROL, BOB]);
   });
 });
 
