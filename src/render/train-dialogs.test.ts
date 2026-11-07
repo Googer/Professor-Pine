@@ -3,7 +3,8 @@ import { describe, expect, it } from 'vitest';
 import { dialogChoices, dialogTexts } from '../../test/support/dialogs.js';
 import { checkModal } from '../../test/support/fake-interactions.js';
 import { testGym, testGyms } from '../../test/support/gyms.js';
-import { PARTY_NOW, stops, testTrain } from '../../test/support/parties.js';
+import { PARTY_NOW, PARTY_ZONE, stops, testTrain } from '../../test/support/parties.js';
+import { clockTime } from '../domain/web/clock.js';
 import { decodeCustomId } from '../discord/custom-id.js';
 import { openToken } from '../discord/dialog.js';
 import type { TrainAtEnd, TrainParty } from '../domain/party/party.js';
@@ -13,6 +14,7 @@ import type { PostGym } from './raid-post.js';
 import {
   MANAGE_FORM,
   MANAGE_KIND,
+  MANAGE_END_INPUT,
   MANAGE_START_INPUT,
   manageDialog,
   MOVE_FORM,
@@ -254,29 +256,80 @@ function managedChoices(party: TrainParty) {
 }
 
 describe('manageDialog (plan 8X-G: Manage…)', () => {
-  // Matt, 2026-10-30: only a typed /meet set a start after a train was made.
-  it('asks the start of who may arrange the train, within the five components of a dialog', () => {
+  // Matt, 2026-10-30: only a typed /meet set a start after a train was made. 2026-11-07: and the
+  // end, as the map's Manage… asks it, so that /end is not needed.
+  it('asks the start and the end of who may arrange the train, as the map’s form, within five components', () => {
     const train = onRoute([4, 1, 7, 2], 0);
     const view = { party: train, stop: stopsFrom({ get: (id) => gyms.get(id) }), now: PARTY_NOW };
-    const asked = manageDialog(view, true);
+    const asked = manageDialog(view, { zone: PARTY_ZONE });
     checkModal(asked);
+    // The route, the mode, the kind, the start and the end: Discord's five. Where the train is
+    // goes with "Finish it here", the text left out; the times now under their labels.
     expect(asked.components).toHaveLength(5);
-    expect(dialogTexts(asked)[0]).toMatch(/It has no start time yet\.$/u);
-    const field = asked.components.at(-1);
-    expect(field).toMatchObject({
-      label: 'Starts (blank keeps it as it is)',
-      component: { custom_id: MANAGE_START_INPUT, required: false, max_length: 40 },
-    });
+    expect(dialogTexts(asked)).toEqual([]);
+    expect(dialogChoices(asked).find((choice) => choice.value === 'finish')?.description).toBe(
+      'At stop 1 of 4: Veterans Memorial Bridge',
+    );
+    expect(asked.components.slice(-2)).toEqual([
+      expect.objectContaining({
+        label: 'Starts',
+        description: 'Starts now: none',
+        component: expect.objectContaining({
+          custom_id: MANAGE_START_INPUT,
+          required: false,
+          max_length: 40,
+          placeholder: '6:15pm, in 30, or cancel',
+        }) as unknown,
+      }),
+      expect.objectContaining({
+        label: 'Ends',
+        description: 'Ends now: none',
+        component: expect.objectContaining({
+          custom_id: MANAGE_END_INPUT,
+          required: false,
+          max_length: 40,
+          placeholder: '8pm, in 90, or none',
+        }) as unknown,
+      }),
+    ]);
     const without = manageDialog(view);
     expect(JSON.stringify(without)).not.toContain(MANAGE_START_INPUT);
-    expect(dialogTexts(without)[0]).not.toContain('start time');
+    expect(JSON.stringify(without)).not.toContain(`"custom_id":"${MANAGE_END_INPUT}"`);
+    expect(dialogTexts(without)).toEqual([
+      'At stop 1 of 4: **Veterans Memorial Bridge**\nNext is **The Stacks**',
+    ]);
     const set = manageDialog(
-      { ...view, party: { ...train, timed: { ...train.timed, startTime: PARTY_NOW } } },
-      true,
+      {
+        ...view,
+        party: {
+          ...train,
+          timed: { ...train.timed, startTime: PARTY_NOW },
+          endTime: PARTY_NOW + 3_600_000,
+        },
+      },
+      { zone: PARTY_ZONE },
     );
-    // With its date: a train planned for next week is not read as today.
-    expect(dialogTexts(set)[0]).toMatch(/It starts at <t:\d+:f>\.$/u);
-    expect(JSON.stringify(asked)).not.toMatch(/\d+-\d+ \d/u);
+    // In the posts' zone as the map says them (`clockTime`), with the day when it is not today.
+    expect(
+      set.components.slice(-2).map((one) => ('description' in one ? one.description : '')),
+    ).toEqual([
+      `Starts now: ${clockTime(PARTY_NOW, PARTY_ZONE, PARTY_NOW)}`,
+      `Ends now: ${clockTime(PARTY_NOW + 3_600_000, PARTY_ZONE, PARTY_NOW)}`,
+    ]);
+  });
+
+  it('keeps its text where there is room: a train without a route asks its kind and times', () => {
+    const view = {
+      party: onRoute([]),
+      stop: stopsFrom({ get: (id) => gyms.get(id) }),
+      now: PARTY_NOW,
+    };
+    const asked = manageDialog(view, { zone: PARTY_ZONE });
+    checkModal(asked);
+    expect(asked.components).toHaveLength(4);
+    expect(dialogTexts(asked)).toEqual([
+      'This train has no route yet. Add its stops with `/route add`.',
+    ]);
   });
 
   it('asks the route, the mode and the kind, each with what the train has picked', () => {

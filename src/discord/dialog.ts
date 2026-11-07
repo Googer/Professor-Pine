@@ -85,6 +85,8 @@ export interface DialogField {
   paragraph?: true;
   /** It may not be left empty: Discord refuses Submit (a meetup's name). */
   required?: true;
+  /** A line under the label (Discord's 100 characters): what it holds now, say. */
+  description?: string;
 }
 
 /** A question of a dialog in `DialogContent.asks`: a choice, or a line of text. */
@@ -118,6 +120,8 @@ export interface DialogContent {
    * the Manage… dialogs of a raid and a meetup, which ask lines of text first).
    */
   asks?: readonly DialogAsk[];
+  /** Lines of text after everything else (Manage… of a train: its start and end). */
+  fields?: readonly DialogField[];
 }
 
 /** An option as Discord takes it, the one picked to start with marked as its `default`. */
@@ -174,6 +178,7 @@ function fieldComponent(field: DialogField) {
   return {
     type: ComponentType.Label as const,
     label: field.label,
+    ...(field.description === undefined ? {} : { description: field.description }),
     component: {
       type: ComponentType.TextInput as const,
       custom_id: field.id,
@@ -189,7 +194,7 @@ function fieldComponent(field: DialogField) {
 
 /** The dialog, as `showModal` takes it. */
 export function dialog(content: DialogContent): APIModalInteractionResponseCallbackData {
-  const { choice, choices = [], field, text, asks = [] } = content;
+  const { choice, choices = [], field, text, asks = [], fields = [] } = content;
   return {
     custom_id: content.customId,
     title: truncate(content.title, TITLE_ROOM),
@@ -200,6 +205,7 @@ export function dialog(content: DialogContent): APIModalInteractionResponseCallb
       ),
       ...[...(choice === undefined ? [] : [choice]), ...choices].map(choiceComponent),
       ...(field === undefined ? [] : [fieldComponent(field)]),
+      ...fields.map(fieldComponent),
     ],
   };
 }

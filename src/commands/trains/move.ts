@@ -7,7 +7,12 @@ import {
   type ModalSubmitInteraction,
 } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
-import type { ComponentHandler, Guard, SimpleCommand } from '../../discord/command.js';
+import type {
+  ComponentHandler,
+  ControlThrottle,
+  Guard,
+  SimpleCommand,
+} from '../../discord/command.js';
 import { decodeCustomId } from '../../discord/custom-id.js';
 import { deferSubmit, pickedOf, selectedOf, withoutOpenToken } from '../../discord/dialog.js';
 import { UserError } from '../../discord/errors.js';
@@ -17,7 +22,6 @@ import { STALE_COMPONENT } from '../../discord/router.js';
 import {
   isTrain,
   mayArrange,
-  type Party,
   TRAIN_AT_END,
   TRAIN_KINDS,
   type TrainAtEnd,
@@ -34,6 +38,7 @@ import {
   MANAGE_FORM,
   MANAGE_KIND,
   MANAGE_ROUTE_INPUT,
+  MANAGE_END_INPUT,
   MANAGE_START_INPUT,
   manageDialog,
   MOVE_INPUT,
@@ -46,11 +51,11 @@ import type { ControlIcons } from '../../render/party-controls.js';
 import { START_WINDOW } from '../parties/meet.js';
 import { ACTION_THROTTLE, actingMember, commandTrain, partyOver } from '../parties/reply.js';
 import { CHANGE_THROTTLE } from '../raids/change.js';
+import { readTimes, type TimesRead } from '../parties/timed.js';
 import {
   manageRefusal,
   manageTrainAs,
   trainRefusal,
-  typedStartOf,
   movedOn,
   movedOnWords,
   MOVED_BEFORE,
@@ -231,9 +236,21 @@ export async function openMove(
   await showTrainDialog(interaction, ctx, (icons) => {
     const view = { ...trainPlaces(ctx, party), now, icons };
     return party.train.route.length === 0
-      ? manageDialog(view, mayArrange(party, interaction.user.id))
+      ? manageDialog(view, timesAsked(ctx, party, interaction.user.id))
       : moveDialog(view);
   });
+}
+
+/**
+ * Whether Manage… asks the member the train's start and end (`/meet`'s and `/end`'s, as the map's
+ * form asks them of who may arrange the train), in the posts' zone.
+ */
+function timesAsked(
+  ctx: AppContext,
+  party: TrainParty,
+  memberId: string,
+): { zone: string } | undefined {
+  return mayArrange(party, memberId) ? { zone: ctx.config.settings.timezone } : undefined;
 }
 
 /**
@@ -250,7 +267,7 @@ export async function openManage(
   await showTrainDialog(interaction, ctx, (icons) =>
     manageDialog(
       { ...trainPlaces(ctx, party), now, icons },
-      mayArrange(party, interaction.user.id),
+      timesAsked(ctx, party, interaction.user.id),
     ),
   );
 }
@@ -348,38 +365,41 @@ function askedManage(
   };
 }
 
-/** What was typed in the line for the start of a Manage… dialog; '' for none. */
-function typedStart(interaction: ModalSubmitInteraction): string {
-  return interaction.fields.fields.has(MANAGE_START_INPUT)
-    ? interaction.fields.getTextInputValue(MANAGE_START_INPUT).trim()
-    : '';
+/** What was typed in a line of a Manage… dialog (its start, its end); '' for none. */
+function typedLine(interaction: ModalSubmitInteraction, id: string): string {
+  return interaction.fields.fields.has(id) ? interaction.fields.getTextInputValue(id).trim() : '';
 }
 
 /**
- * A Submit's start, refused before the router counts it, as `/meet`'s guard refuses (so that a use
- * that changed nothing does not count towards the three a member has in three minutes): a member
- * who may not arrange the train, a text that is no time.
+ * A Submit's start and end, refused before the router counts it, as the map refuses them (so that a
+ * use that changed nothing does not count towards `/meet`'s or `/end`'s): a member who may not
+ * arrange the train, a text that is no time, two that would not lie in order (`readTimes`).
  */
-const requireStartChange: Guard = (interaction, ctx) => {
+const requireTimesChange: Guard = (interaction, ctx) => {
   if (!interaction.isModalSubmit()) return;
-  const typed = typedStart(interaction);
   const party = ctx.parties.get(decodeCustomId(interaction.customId)?.id ?? '');
-  if (typed === '' || !party || !isTrain(party)) return;
+  if (!party || !isTrain(party)) return;
+  askedTimes(interaction, ctx, party);
+};
+
+/** The start and end typed in a Submit, read as the map reads them; none for blank lines. */
+function askedTimes(
+  interaction: ModalSubmitInteraction,
+  ctx: AppContext,
+  party: TrainParty,
+): TimesRead {
+  const start = typedLine(interaction, MANAGE_START_INPUT);
+  const end = typedLine(interaction, MANAGE_END_INPUT);
+  if (start === '' && end === '') return {};
   if (!mayArrange(party, interaction.user.id)) {
     throw new UserError(trainRefusal(ctx, 'not-attending'));
   }
-  typedStartOf(ctx, party, typed, Date.now());
-};
-
-/** The start typed in a Submit, read as the guard read it. */
-function askedStart(
-  interaction: ModalSubmitInteraction,
-  ctx: AppContext,
-  party: Party | undefined,
-): { start?: number | null } {
-  const typed = typedStart(interaction);
-  if (typed === '' || !party || !isTrain(party)) return {};
-  return { start: typedStartOf(ctx, party, typed, Date.now()) };
+  return readTimes(
+    ctx,
+    party,
+    { ...(start === '' ? {} : { start }), ...(end === '' ? {} : { end }) },
+    Date.now(),
+  );
 }
 
 /**
@@ -396,7 +416,8 @@ export async function submitManage(
 ): Promise<void> {
   const asked = askedManage(interaction, args);
   if (!asked) throw new UserError(STALE_COMPONENT);
-  const start = askedStart(interaction, ctx, ctx.parties.get(partyId));
+  const before = ctx.parties.get(partyId);
+  const times = before && isTrain(before) ? askedTimes(interaction, ctx, before) : {};
   await deferSubmit(interaction);
   const say = (content: string) => interaction.editReply({ content });
   const party = ctx.parties.get(partyId);
@@ -408,26 +429,33 @@ export async function submitManage(
     actingMember(interaction),
     isStaff(interaction, ctx),
     asked.shown,
-    { ...asked.picked, ...start },
+    { ...asked.picked, ...times },
     'post',
   );
   await say(answer.text);
-  // A start that came to nothing does not count towards `/meet`'s three (told above).
-  if (start.start !== undefined && answer.kind === 'refused') {
+  // Times that came to nothing do not count towards their command's window (told above).
+  if ((times.start !== undefined || times.end !== undefined) && answer.kind === 'refused') {
     throw new UserError(answer.text, { givesBack: true, said: true });
   }
 }
 
+/** The window of `/end`, which a Submit of Manage… with an end alone counts in, as the map's. */
+const END_WINDOW: ControlThrottle = { ...CHANGE_THROTTLE, as: 'end' };
+
 /**
  * The dialog of Manage…: a Submit with a start counts in `/meet`'s window (`START_WINDOW`), as
- * telling of a start pings everybody; any other in a window of its own, as often as the post's
- * controls (a function's limits are counted apart: `varies`).
+ * telling of a start pings everybody; one with an end alone in `/end`'s (`END_WINDOW`); any other
+ * in a window of its own, as often as the post's controls (a function's limits are counted apart:
+ * `varies`).
  */
 export const manageControls: ComponentHandler = {
   kind: MANAGE_KIND,
-  guards: [requireGuild, requireStartChange],
-  throttle: (interaction) =>
-    interaction.isModalSubmit() && typedStart(interaction) !== '' ? START_WINDOW : ACTION_THROTTLE,
+  guards: [requireGuild, requireTimesChange],
+  throttle: (interaction) => {
+    if (!interaction.isModalSubmit()) return ACTION_THROTTLE;
+    if (typedLine(interaction, MANAGE_START_INPUT) !== '') return START_WINDOW;
+    return typedLine(interaction, MANAGE_END_INPUT) !== '' ? END_WINDOW : ACTION_THROTTLE;
+  },
   async modal(interaction, id, ctx) {
     if (id.action !== MANAGE_FORM) throw new UserError(STALE_COMPONENT);
     await submitManage(interaction, ctx, id.id, id.args);

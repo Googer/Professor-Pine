@@ -1,6 +1,6 @@
 import { MessageFlags, type APIModalInteractionResponseCallbackData } from 'discord.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { dialogOf, dialogTexts, shownDialog } from '../../../test/support/dialogs.js';
+import { dialogField, dialogOf, dialogTexts, shownDialog } from '../../../test/support/dialogs.js';
 import {
   fakeButton,
   fakeModal,
@@ -17,10 +17,12 @@ import { components } from '../../components/index.js';
 import { partyButtons } from '../../components/party.js';
 import { InteractionRouter, STALE_COMPONENT } from '../../discord/router.js';
 import { PartyStatus } from '../../domain/party/status.js';
+import { CHANGE_THROTTLE } from '../raids/change.js';
 import {
   MANAGE_AT_END_INPUT,
   MANAGE_KIND_INPUT,
   MANAGE_ROUTE_INPUT,
+  MANAGE_END_INPUT,
   MANAGE_START_INPUT,
 } from '../../render/train-dialogs.js';
 
@@ -62,7 +64,7 @@ async function setup(route: readonly number[] = [4, 1, 7, 2], emoji?: EmojiFinde
   /** The Submit of a Manage… dialog with these picked; what is not given is as it was shown. */
   const submit = (
     dialog: APIModalInteractionResponseCallbackData,
-    asked: { route?: string; atEnd?: string; kind?: string; start?: string },
+    asked: { route?: string; atEnd?: string; kind?: string; start?: string; end?: string },
     userId = ALICE,
   ) => {
     const party = made.current();
@@ -76,7 +78,12 @@ async function setup(route: readonly number[] = [4, 1, 7, 2], emoji?: EmojiFinde
         customId: dialog.custom_id,
         form: dialog,
         ...(inputs.has(MANAGE_START_INPUT)
-          ? { fields: { [MANAGE_START_INPUT]: asked.start ?? '' } }
+          ? {
+              fields: {
+                [MANAGE_START_INPUT]: asked.start ?? '',
+                [MANAGE_END_INPUT]: asked.end ?? '',
+              },
+            }
           : {}),
         ...(inputs.has(MANAGE_ROUTE_INPUT)
           ? { picked: { [MANAGE_ROUTE_INPUT]: asked.route ?? 'keep' } }
@@ -165,10 +172,40 @@ describe('the start in Manage… of a train’s post (Matt, 2026-10-30)', () => 
     expect(made.current().timed.startTime).toBeNull();
   });
 
+  // Matt, 2026-11-07: the end too, as the map's Manage… asks it, through /end's path.
+  it('sets the end as /end does, in its words, alone or with the start', async () => {
+    const made = await setup();
+    const ended = await made.submit(shownDialog(await made.open()), { end: 'in 90' });
+    expect(made.answerOf(ended)).toMatch(/^This train ends at <t:\d+:t> \(<t:\d+:R>\)\.$/u);
+    const end = PARTY_NOW - (PARTY_NOW % 60_000) + 90 * 60_000;
+    expect(made.current().endTime).toBe(end);
+    const both = await made.submit(shownDialog(await made.open()), { start: 'in 30', end: 'none' });
+    expect(made.answerOf(both)).toMatch(
+      /^This train starts at .* This train has no end time any more\.$/u,
+    );
+    expect(made.current().endTime).toBeNull();
+  });
+
+  it('refuses an end it cannot read in /end’s words before it counts, and counts one in /end’s window', async () => {
+    const made = await setup();
+    for (let tries = 0; tries < 12; tries++) {
+      const bad = await made.submit(shownDialog(await made.open()), { end: 'whenever' });
+      expect(sent(bad.reply).content).toContain(
+        'I could not read "whenever" as the time the train ends.',
+      );
+    }
+    for (let use = 0; use < CHANGE_THROTTLE.uses; use++) {
+      await made.submit(shownDialog(await made.open()), { end: `in ${String(60 + use)}` });
+    }
+    const over = await made.submit(shownDialog(await made.open()), { end: 'in 200' });
+    expect(sent(over.reply).content).toMatch(/^You can use \/end again in /u);
+  });
+
   it('does not ask the start of staff who are not signed up, as /meet does not let them', async () => {
     const made = await setup();
     const dialog = shownDialog(await made.open(CAROL, { roleNames: ['Moderator'] }));
     expect(JSON.stringify(dialog)).not.toContain(MANAGE_START_INPUT);
+    expect(JSON.stringify(dialog)).not.toContain(`"custom_id":"${MANAGE_END_INPUT}"`);
   });
 });
 
@@ -236,8 +273,10 @@ describe('Manage… of a train’s post (plan 8X-G)', () => {
     const made = await setup([]);
     const dialog = shownDialog(await made.open());
     expect(dialogTexts(dialog)).toEqual([
-      'This train has no route yet. Add its stops with `/route add`.\nIt has no start time yet.',
+      'This train has no route yet. Add its stops with `/route add`.',
     ]);
+    // Its start and end as they are now under their labels, as the map says them (2026-11-07).
+    expect(dialogField(dialog, 'Starts').description).toBe('Starts now: none');
     await made.submit(dialog, { kind: 'gigantamax' });
     expect(made.current().train.kind).toBe('gigantamax');
     const stranger = await made.open(CAROL);

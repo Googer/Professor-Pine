@@ -8,12 +8,13 @@ import {
   type DialogOption,
 } from '../discord/dialog.js';
 import { startTimeOf } from '../domain/party/timed.js';
-import { timestamp } from './text.js';
+import { clockTime } from '../domain/web/clock.js';
 import {
   TRAIN_AT_END,
   TRAIN_KINDS,
   type TrainAtEnd,
   type TrainKind,
+  type TrainParty,
 } from '../domain/party/party.js';
 import { sameStop, stopHandle, type StopRef } from '../domain/party/stops.js';
 import {
@@ -385,19 +386,41 @@ export const MANAGE_FORM = 'manageform';
  */
 export const MANAGE_KIND = 'tmanage';
 
-/** The custom id of Manage…'s line for the start. */
+/** The custom ids of Manage…'s lines for the start and the end. */
 export const MANAGE_START_INPUT = 'start';
+export const MANAGE_END_INPUT = 'end';
 
 /**
- * Manage…'s line for the start (Matt, 2026-10-30), as `/meet` reads it. Blank keeps what is set,
- * so that a form opened before somebody else set the start does not set it back (review R5).
+ * Manage…'s lines for the start (Matt, 2026-10-30), as `/meet` reads it, and the end (Matt,
+ * 2026-11-07), as `/end` reads it: the map's form's labels and placeholders (`manageForm` of
+ * `train-post-forms.ts`), what they are now under the label, as the map says it above its line.
+ * Blank keeps what is set, so that a form opened before somebody else set it does not set it back
+ * (review R5).
  */
-const MANAGE_START: DialogField = {
-  id: MANAGE_START_INPUT,
-  label: 'Starts (blank keeps it as it is)',
-  maxLength: 40,
-  placeholder: 'Such as 6:15pm or in 30; cancel removes it',
-};
+function timeFields(
+  party: TrainParty,
+  zone: string,
+  now: number,
+): { start: DialogField; end: DialogField } {
+  const nowWords = (words: string, at: number | null): string =>
+    `${words}: ${at === null ? 'none' : clockTime(at, zone, now)}`;
+  return {
+    start: {
+      id: MANAGE_START_INPUT,
+      label: 'Starts',
+      maxLength: 40,
+      placeholder: '6:15pm, in 30, or cancel',
+      description: nowWords('Starts now', startTimeOf(party)),
+    },
+    end: {
+      id: MANAGE_END_INPUT,
+      label: 'Ends',
+      maxLength: 40,
+      placeholder: '8pm, in 90, or none',
+      description: nowWords('Ends now', party.endTime),
+    },
+  };
+}
 
 /** The custom ids of Manage…'s three choices. */
 export const MANAGE_ROUTE_INPUT = 'route';
@@ -451,6 +474,9 @@ export function routeChoice(view: TrainPlaces): DialogChoice | undefined {
   return { id: MANAGE_ROUTE_INPUT, label: 'The route', options, picked: 'keep' };
 }
 
+/** Discord's most components in a dialog, its text included. */
+const DIALOG_ROOM = 5;
+
 /**
  * Manage… (plan 8X-G, design talk item 5): for who may move the train and staff, where it is
  * (`trainStateText`), then "The route", a radio choice (Keep it as it is, picked and first;
@@ -458,14 +484,16 @@ export function routeChoice(view: TrainPlaces): DialogChoice | undefined {
  * out when only Keep is left), "At the end of the route" and "What the train is mainly for" as
  * menus (a radio group would have Android pick its first option whatever the train has; review
  * R7), each with the train's own picked. A train without a route is asked its kind alone.
- * `asksStart`: the member may set its start (`mayArrange`), which fits as the fifth component.
+ * `times`: the member may set its start and end (`mayArrange`), asked as the map's form asks
+ * them (`timeFields`, in the posts' zone). With all of them Discord's five components are one
+ * short (Matt, 2026-11-07): the text is left out, and "Finish it here" says where "here" is.
  */
 export function manageDialog(
   view: TrainDialogView,
-  asksStart = false,
+  times?: { zone: string },
 ): APIModalInteractionResponseCallbackData {
   const { party } = view;
-  const form = manageForm(view, asksStart);
+  const form = manageForm(view);
   const customId = encodeCustomId({
     kind: MANAGE_KIND,
     id: party.id,
@@ -478,26 +506,43 @@ export function manageDialog(
       openToken(view.now),
     ],
   });
+  const fields = times === undefined ? undefined : timeFields(party, times.zone, view.now);
+  const kind: DialogChoice = {
+    ...form.kind,
+    // On Discord the kinds show the application's emoji where it has them; the map its icons.
+    options: form.kind.options.map((option) => {
+      const one = TRAIN_KINDS.find((each) => each === option.value);
+      return one === undefined ? option : { ...option, emoji: trainKindEmoji(one, view.icons) };
+    }),
+  };
+  const choices = [form.route, form.atEnd, kind].filter(
+    (choice): choice is DialogChoice => choice !== undefined,
+  );
+  const withText = choices.length + (fields === undefined ? 0 : 2) < DIALOG_ROOM;
   return dialog({
     customId,
     title: form.title,
-    text: form.text,
-    choices: [
-      ...(form.route === undefined ? [] : [form.route]),
-      ...(form.atEnd === undefined ? [] : [form.atEnd]),
-      // On Discord the kinds show the application's emoji where it has them; the map its icons.
-      {
-        ...form.kind,
-        options: form.kind.options.map((option) => {
-          const kind = TRAIN_KINDS.find((one) => one === option.value);
-          return kind === undefined
-            ? option
-            : { ...option, emoji: trainKindEmoji(kind, view.icons) };
-        }),
-      },
-    ],
-    ...(form.start === undefined ? {} : { field: form.start }),
+    ...(withText ? { text: form.text } : {}),
+    choices: withText ? choices : choices.map((choice) => finishSaysWhere(view, choice)),
+    ...(fields === undefined ? {} : { fields: [fields.start, fields.end] }),
   });
+}
+
+/**
+ * "The route" with "Finish it here" saying where the train is, plain (a choice shows no
+ * markdown), for a Manage… without room for its text: `At stop 2 of 4: The Stacks`.
+ */
+function finishSaysWhere(view: TrainPlaces, route: DialogChoice): DialogChoice {
+  const { party } = view;
+  const prefix = `At stop ${String(party.train.stop + 1)} of ${String(party.train.route.length)}: `;
+  const where = `${prefix}${truncate(labelOf(view, currentStop(party)), CHOICE_ROOM - prefix.length)}`;
+  if (route.id !== MANAGE_ROUTE_INPUT) return route;
+  return {
+    ...route,
+    options: route.options.map((option) =>
+      option.value === 'finish' ? { ...option, description: where } : option,
+    ),
+  };
 }
 
 /**
@@ -506,8 +551,8 @@ export function manageDialog(
  * train is, `trainStateText`; without a route `NO_ROUTE_YET`); "The route" where more than Keep is
  * left; "At the end of the route" (not for a train without a route) and "What the train is
  * mainly for", each with the train's own picked; and what it showed (`shown`): where the train
- * was, the stop the route began with (`NO_FIRST` without a route), the mode and the kind. With
- * `start` it also says the train's start and asks it (`manageDialog`'s `asksStart`).
+ * was, the stop the route began with (`NO_FIRST` without a route), the mode and the kind. The
+ * start and the end are asked apart, on Discord (`timeFields`) and on the map (its `times`).
  */
 export interface ManageForm {
   title: string;
@@ -516,18 +561,12 @@ export interface ManageForm {
   route?: DialogChoice;
   atEnd?: DialogChoice;
   kind: DialogChoice;
-  start?: DialogField;
   shown: { from: string; first: string; atEnd: TrainAtEnd; kind: TrainKind };
 }
 
 /** Manage… as `manageDialog` draws it (`ManageForm`), without Discord's parts. */
-export function manageForm(view: TrainPlaces, asksStart = false): ManageForm {
+export function manageForm(view: TrainPlaces): ManageForm {
   const { party } = view;
-  const startTime = startTimeOf(party);
-  const startLine =
-    startTime === null ? 'It has no start time yet.' : `It starts at ${timestamp(startTime, 'f')}.`;
-  const asked = asksStart ? { start: MANAGE_START } : {};
-  const withStart = (text: string): string => (asksStart ? `${text}\n${startLine}` : text);
   const [first] = party.train.route;
   const shown = {
     from: placeOf(party),
@@ -549,7 +588,7 @@ export function manageForm(view: TrainPlaces, asksStart = false): ManageForm {
   };
   const title = 'Manage the train';
   if (party.train.route.length === 0) {
-    return { title, text: withStart(NO_ROUTE_YET), kind, ...asked, shown };
+    return { title, text: NO_ROUTE_YET, kind, shown };
   }
   const atEnd: DialogChoice = {
     id: MANAGE_AT_END_INPUT,
@@ -567,11 +606,10 @@ export function manageForm(view: TrainPlaces, asksStart = false): ManageForm {
   return {
     title,
     // Of a finished route only that it is: where Previous leads is Move…'s (review r0 B3).
-    text: withStart(trainStateText(view)),
+    text: trainStateText(view),
     ...(route === undefined ? {} : { route }),
     atEnd,
     kind,
-    ...asked,
     shown,
   };
 }
