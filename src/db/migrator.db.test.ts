@@ -99,7 +99,7 @@ const ADDED_COLUMNS = [
 const ADDED_INDEXES = [
   'Region.region_forumchannelid_unique',
   'Region.region_channelid_unique',
-  'Role.role_guildid_rolesnowflake_unique',
+  'Role.role_rolesnowflake_guildid_unique',
   'Role.role_groupid_foreign',
 ];
 /** The foreign keys it adds to tables of the legacy bot, as `Table.constraint`. */
@@ -222,6 +222,7 @@ describe('runMigrations', () => {
       '2026_11_05_041_train_card',
       '2026_11_06_042_activity_days',
       '2026_11_06_043_legacy_fill_in',
+      '2026_11_07_044_checked_foreign_keys',
       '2026_11_07_044_spawns_on_map',
       '2026_11_07_045_party_audit',
       '2026_11_07_046_ended_party_copies',
@@ -301,7 +302,7 @@ describe('runMigrations', () => {
     // role's id, but no group of a role, no unique key and no link to the groups.
     await database.query('alter table Role drop foreign key role_groupid_foreign');
     await database.query('alter table Role drop column groupId');
-    await database.query('alter table Role drop index role_guildid_rolesnowflake_unique');
+    await database.query('alter table Role drop index role_rolesnowflake_guildid_unique');
     await database.query(
       "delete from kysely_migration where name >= '2026_10_13_008_self_role_groups'",
     );
