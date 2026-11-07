@@ -187,8 +187,8 @@ describe('/region remove: the answers', () => {
     const post = second.forumPostId ?? '';
     made.storage.rows.delete(second.id);
     expect(outcome(await made.submit(dialog, KEEP))).toBe(
-      `I could not end <#${post}>, so the region was not removed. Try again in a moment; the ` +
-        'log says what failed.\n1 of its raids, max battles, trains and meetups was ended already.',
+      `I could not end <#${post}>, so the region was not removed. Try again in a moment.\n` +
+        '1 of its raids, max battles, trains and meetups was ended already.',
     );
   });
 
@@ -286,8 +286,7 @@ describe('/region remove: the answers', () => {
     const submitted = await made.submit(dialog, KEEP);
     made.storage.failing = undefined;
     expect(outcome(submitted)).toBe(
-      `I could not end <#${post}>, so the region was not removed. Try again in a moment; the ` +
-        'log says what failed.',
+      `I could not end <#${post}>, so the region was not removed. Try again in a moment.`,
     );
     expect(made.regions.byId(1)).toBeDefined();
   });
@@ -300,8 +299,7 @@ describe('/region remove: the answers', () => {
     const submitted = await made.submit(dialog, KEEP);
     made.regions.failing = undefined;
     expect(outcome(submitted).split('\n')).toEqual([
-      'I could not remove the region, and it is still there (the log says what failed). Try ' +
-        'again in a moment.',
+      'I could not remove the region, and it is still there. Try again in a moment.',
       '1 of its raids, max battles, trains and meetups was ended before that.',
     ]);
   });

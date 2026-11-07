@@ -506,9 +506,7 @@ export function outcomeLines(outcome: ReviewOutcome, units: DistanceUnits): stri
     case 'not-added':
       return notAddedLines(outcome, units);
     case 'failed':
-      return [
-        'I could not write all of that, and the question stays open; the log says what failed.',
-      ];
+      return ['I could not save all of that, and the question stays open. Try again in a moment.'];
     case 'raid-there':
       return [raidThere(gymWithId(outcome.gym), outcome.raid, 'is')];
     case 'deleted':

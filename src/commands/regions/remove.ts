@@ -217,15 +217,13 @@ export function outcomeLines(
     const which =
       post === null ? `a ${partyWord(outcome.party)} that has no post yet` : `<#${post}>`;
     return [
-      `I could not end ${which}, so the region was not removed. Try again in a moment; the ` +
-        'log says what failed.',
+      `I could not end ${which}, so the region was not removed. Try again in a moment.`,
       ...(outcome.ended > 0 ? [`${ofIts(outcome.ended)} ended already.`] : []),
     ];
   }
   if (outcome.kind === 'failed') {
     return [
-      'I could not remove the region, and it is still there (the log says what failed). Try ' +
-        'again in a moment.',
+      'I could not remove the region, and it is still there. Try again in a moment.',
       ...(outcome.ended > 0 ? [`${ofIts(outcome.ended)} ended before that.`] : []),
     ];
   }

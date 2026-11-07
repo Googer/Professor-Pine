@@ -214,8 +214,7 @@ describe('/gym delete', () => {
     const other = await asked(made, 'id:3');
     made.routes.failing = new Error('database is down');
     expect(said(answerOf(await made.submit(other.dialog.custom_id, {})))).toBe(
-      'I could not delete the gym, and nothing was changed. Try again in a moment; the log ' +
-        'says what failed.',
+      'I could not delete the gym, and nothing was changed. Try again in a moment.',
     );
     expect(made.gymStore.row(3)).toBeDefined();
   });

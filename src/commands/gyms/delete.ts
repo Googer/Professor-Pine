@@ -150,10 +150,7 @@ export async function deleteGymNow(
       lines = [raidThere(before ? gymWithId(before) : 'that gym', outcome.raid, 'was reported')];
       break;
     case 'failed':
-      lines = [
-        'I could not delete the gym, and nothing was changed. Try again in a moment; the ' +
-          'log says what failed.',
-      ];
+      lines = ['I could not delete the gym, and nothing was changed. Try again in a moment.'];
       break;
     case 'deleted':
       lines = deletedLines(outcome);
