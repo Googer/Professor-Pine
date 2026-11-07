@@ -313,6 +313,16 @@ describe('MeetupSafety.decide', () => {
     ]);
   });
 
+  it('approves a meetup with its end: it is made with it', async () => {
+    const made = await meetupSafetyWith();
+    const endTime = PARTY_NOW + 26 * HOUR;
+    const request = await made.held({ endTime });
+    expect(request.endTime).toBe(endTime);
+    await made.safety.decide(request.id, 'approve', MODERATOR_MEMBER, SERVER);
+    const [party] = made.store.active().filter((one) => one.type === 'meetup');
+    expect(party).toMatchObject({ endTime, timed: { startTime: request.startTime } });
+  });
+
   it('approves once: the meetup is made, and the place has no ruling', async () => {
     const made = await meetupSafetyWith();
     const request = await made.held({ place: SAFETY_PIN });

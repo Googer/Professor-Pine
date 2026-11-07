@@ -29,6 +29,7 @@ import {
   noForumWords,
   requirePlaceForNew,
   timedTimeHint,
+  typedNewEnd,
   typedTimedTime,
 } from '../parties/timed.js';
 import { MAX_PLACE_TEXT, namedPlace, nearChoices, type PlaceKindsOnly } from '../place-option.js';
@@ -102,6 +103,8 @@ interface PendingMeetup {
   name: string;
   place: Place;
   startTime: number;
+  /** When it ends (`end`); undefined: no end. */
+  endTime: number | undefined;
   /**
    * When `/meetup` counted the use that opened the form (`whenCounted`): a failure gives it back
    * to that window.
@@ -117,10 +120,11 @@ const pending = new PendingRequests<PendingMeetup>({ ttlMs: FORM_MS });
  */
 const requireMeetupPlace = requirePlaceForNew('meetup', FROM_A_REGION);
 
-/** What `/meetup` was asked: the place, the start, and what the check of the place says. */
+/** What `/meetup` was asked: the place, the start and end, and what the check of the place says. */
 interface Asked {
   place: Place;
   startTime: number;
+  endTime: number | undefined;
   verdict: MeetupVerdict;
 }
 
@@ -186,6 +190,7 @@ async function readAsked(
       `Give the time the meetup starts. ${timedTimeHint(now, ctx.config.settings.timezone)}`,
     );
   }
+  const endTime = typedNewEnd(ctx, 'meetup', typed.at, interaction.options.getString('end'), now);
   // The block is read above: not again.
   const verdict = await ctx.meetupSafety.verdict({
     serverId,
@@ -200,7 +205,7 @@ async function readAsked(
     throw await placeRefusal(ctx, serverId, place, makerId, NO_MEETUP_HERE);
   }
   if (refusal !== undefined) throw new UserError(refusal);
-  return { place, startTime: typed.at, verdict };
+  return { place, startTime: typed.at, endTime, verdict };
 }
 
 /**
@@ -269,6 +274,12 @@ export const meetup: SimpleCommand = {
         .setDescription('When it starts, such as 6:30pm, or a month-day and time')
         .setRequired(true)
         .setMaxLength(100),
+    )
+    .addStringOption((option) =>
+      option
+        .setName('end')
+        .setDescription('When it ends, if you know: such as 8pm, a month-day and time, or in 90')
+        .setMaxLength(100),
     ),
   help: {
     category: 'meetup',
@@ -280,7 +291,7 @@ export const meetup: SimpleCommand = {
       'you paste as a link from a maps app or as coordinates. The post shows the place with a ' +
       'map link, and it cannot be changed afterwards.\n\n`start` is when it starts: a clock ' +
       'time (`6:30pm`, `noon`, `midnight`), `tomorrow 11am`, or a date first, month-day, and ' +
-      'a time. A form then ' +
+      'a time; `end`, if you give it, is when it ends, read as `/end` reads it. A form then ' +
       'asks what there is to know: where exactly to meet, what to bring.\n\nA meetup at a pin, or at a place ' +
       "that might be somebody's home, needs a moderator's approval before it is posted: you " +
       'are told by direct message once they have decided (so give a start at least two hours ' +
@@ -310,6 +321,7 @@ export const meetup: SimpleCommand = {
       name: interaction.options.getString('name', true),
       place: asked.place,
       startTime: asked.startTime,
+      endTime: asked.endTime,
       // When the router counted the use (its clock), not a reading of another.
       openedAt: whenCounted(interaction) ?? Date.now(),
     });
@@ -381,6 +393,7 @@ async function submitted(
       place: asked.place,
       name: asked.name,
       startTime: asked.startTime,
+      ...(asked.endTime === undefined ? {} : { endTime: asked.endTime }),
       description: text,
       staff,
     },

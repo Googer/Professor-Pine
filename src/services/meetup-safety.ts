@@ -79,6 +79,8 @@ export interface RequestAsk {
   /** As typed: it is tidied as a meetup's name is. */
   name: string;
   startTime: number;
+  /** When it ends, read as `/end` reads a meetup's end (`typedNewEnd`); left out: no end. */
+  endTime?: number;
   /** As typed: it is tidied as a meetup's information is. */
   description: string;
   /** Asked for on the live map (plan 8M-5M): its post says so. Left out: `/meetup`. */
@@ -366,6 +368,7 @@ export class MeetupSafety {
       regionChannelId: ask.regionChannelId,
       place: ask.place,
       startTime: ask.startTime,
+      ...(ask.endTime === undefined ? {} : { endTime: ask.endTime }),
       description: ask.description,
     });
     if (outcome.kind !== 'created') return outcome;
@@ -422,6 +425,7 @@ export class MeetupSafety {
       place: ask.place,
       name: meetupName,
       startTime: ask.startTime,
+      endTime: ask.endTime ?? null,
       description,
       createdAt: now,
       expiresAt: requestExpiry(now, ask.startTime),
@@ -1508,6 +1512,7 @@ export class MeetupSafety {
         regionChannelId: request.regionChannelId,
         place: request.place,
         startTime: request.startTime,
+        ...(request.endTime === null ? {} : { endTime: request.endTime }),
         description: request.description,
       });
       if (outcome.kind === 'created') {

@@ -5,7 +5,7 @@ import {
   type MeetupParty,
   type MeetupPlace,
 } from './party.js';
-import { newTimedParty, settled, tidyName, type NewTimedParty } from './timed.js';
+import { newTimedParty, setTimedEnd, settled, tidyName, type NewTimedParty } from './timed.js';
 
 /**
  * A new meetup: its name, and where it is when the member who made it said (`/meetup near:`).
@@ -17,6 +17,8 @@ export interface NewMeetup extends Omit<NewTimedParty, 'startTime'> {
   place?: MeetupPlace | null;
   /** When it starts; the caller has checked it (`resolvePartyTime`). */
   startTime?: number | null;
+  /** When it ends; the caller has checked it (`resolvePartyTime`). Refused before the start. */
+  endTime?: number | null;
   /** What its post says about it under "Meeting Information", as typed (`tidyDescription`). */
   description?: string | null;
 }
@@ -35,7 +37,7 @@ export function createMeetup(input: NewMeetup): Change<MeetupParty> {
   if (name === undefined) return refused('bad-name');
   const description = tidyDescription(input.description ?? '');
   if (description === undefined) return refused('description-too-long');
-  const { startTime, ...rest } = input;
+  const { startTime, endTime, ...rest } = input;
   const core = newTimedParty(
     startTime === undefined || startTime === null ? rest : { ...rest, startTime },
     name,
@@ -45,7 +47,11 @@ export function createMeetup(input: NewMeetup): Change<MeetupParty> {
     type: 'meetup',
     meetup: { description, place: input.place ?? null },
   };
-  return { ok: true, party: settled(meetup, input.now) };
+  if (endTime === undefined || endTime === null) {
+    return { ok: true, party: settled(meetup, input.now) };
+  }
+  // The end as `/end` sets it: to the minute, after the start (`setTimedEnd` settles it).
+  return setTimedEnd(meetup, endTime, input.now);
 }
 
 /**

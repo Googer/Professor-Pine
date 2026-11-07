@@ -51,6 +51,7 @@ export function newRequest(n: number, overrides: Partial<NewMeetupRequest> = {})
     place: LIBRARY,
     name: 'Book swap',
     startTime: SAFETY_NOW + 24 * HOUR,
+    endTime: null,
     description: 'Bring a book.\n\nTake a book.',
     createdAt: SAFETY_NOW,
     expiresAt: SAFETY_NOW + 23 * HOUR,
@@ -325,6 +326,11 @@ export function meetupSafetyCases(made: () => Promise<MeetupSafetyStore>): void 
       place: LIBRARY,
       source: 'map',
     });
+    // An end is kept to the millisecond; none is null (migration 045).
+    const endTime = SAFETY_NOW + 26 * HOUR + 1;
+    await store.addRequest(newRequest(4, { endTime }));
+    expect(await store.request(requestId(4))).toMatchObject({ endTime });
+    expect(await store.request(requestId(1))).toMatchObject({ endTime: null });
     expect(await store.request(requestId(3))).toBeUndefined();
     expect(await store.request(requestId(1))).toMatchObject({
       channelId: '600000000000000001',

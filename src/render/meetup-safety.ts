@@ -438,6 +438,7 @@ export function requestMessage(
     waiting ? '### Meetup waiting for approval' : '### Meetup request',
     `**${plain(request.name)}**`,
     `Starts ${timestamp(request.startTime, 'F')} (${timestamp(request.startTime, 'R')})`,
+    ...(request.endTime === null ? [] : [`Ends ${timestamp(request.endTime, 'F')}`]),
     `Asked by ${maker}${request.source === 'map' ? ' on the map' : ''} in <#${request.regionChannelId}>`,
   ].join('\n');
   const picture = request.place.kind === 'pin' ? undefined : wayspotPicture(request.place.image);

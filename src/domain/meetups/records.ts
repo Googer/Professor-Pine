@@ -42,6 +42,8 @@ export interface MeetupRequestRecord {
   place: Place;
   name: string;
   startTime: number;
+  /** When it ends (`/meetup end:`, migration 045); null without an end. */
+  endTime: number | null;
   description: string;
   createdAt: number;
   expiresAt: number;

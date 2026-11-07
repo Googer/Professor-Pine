@@ -459,6 +459,8 @@ export interface TimedRequest {
 export interface MeetupRequest extends TimedRequest {
   place?: MeetupPlace | null;
   startTime?: number | null;
+  /** When it ends; the caller has read it (`typedNewEnd`). */
+  endTime?: number | null;
   description?: string | null;
 }
 
@@ -1733,7 +1735,7 @@ export class PartyService {
    * never left active without a post, nor a post without its meetup.
    */
   async createMeetup(request: MeetupRequest): Promise<MeetupOutcome> {
-    const { place, startTime, description } = request;
+    const { place, startTime, endTime, description } = request;
     if (description !== undefined && description !== null) {
       if (tidyDescription(description) === undefined) return { kind: 'bad-description' };
     }
@@ -1742,6 +1744,7 @@ export class PartyService {
         ...input,
         ...(place === undefined ? {} : { place }),
         ...(startTime === undefined ? {} : { startTime }),
+        ...(endTime === undefined ? {} : { endTime }),
         ...(description === undefined ? {} : { description }),
       }),
     );

@@ -287,13 +287,37 @@ describe('/meetup', () => {
     );
   });
 
-  it('asks for the name, the place and the start every time', () => {
+  it('asks for the name, the place and the start every time, and the end if you like', () => {
     const options = meetup.data.toJSON().options ?? [];
     expect(options.map((option) => [option.name, option.required])).toEqual([
       ['name', true],
       ['near', true],
       ['start', true],
+      ['end', false],
     ]);
+  });
+
+  it('makes the meetup with its end, read as /end reads a meetup end', async () => {
+    const made = await setup();
+    await made.run('Picnic', { options: { end: '8pm' } });
+    expect(made.meetups()[0]).toMatchObject({
+      endTime: SIX_PM + 2 * HOUR,
+      timed: { startTime: SIX_PM },
+    });
+    // `none` is no end, as for /end.
+    await made.run('Picnic two', { options: { end: 'none' } });
+    expect(made.meetups()[1]?.endTime).toBeNull();
+  });
+
+  it('refuses an end before the start, or one it cannot read, before the form', async () => {
+    const made = await setup();
+    const early = await made.run('Picnic', { options: { end: '5pm' } });
+    expect(early.used.showModal).not.toHaveBeenCalled();
+    expect(early.told).toMatch(/^"5pm" cannot be the time the meetup ends/);
+    expect((await made.run('Picnic', { options: { end: 'later' } })).told).toMatch(
+      /^I could not read "later" as the time the meetup ends\./,
+    );
+    expect(made.meetups()).toEqual([]);
   });
 
   it('works in a post of the forum that is no party, and the meetup belongs to that region', async () => {
@@ -596,6 +620,7 @@ describe('/meetup', () => {
     const details = typeof meetup.help.details === 'string' ? meetup.help.details : '';
     expect(details).toContain('`near`');
     expect(details).toContain('`start`');
+    expect(details).toContain('`end`');
     expect(details).toContain('cannot be changed afterwards');
     expect(details).toContain("moderator's approval");
     expect(meetup.help.examples).toContain(
@@ -641,11 +666,22 @@ describe('/meetup with meetup safety on', () => {
       makerTeam: 'mystic',
       name: 'Lake picnic',
       startTime: SIX_PM,
+      endTime: null,
       description: 'By the tent.',
       status: 'pending',
       place: { kind: 'pin' },
     });
     expect(textOf(made.gateway.messagesIn(MOD_CHANNEL)[0]?.message)).toContain('Lake picnic');
+  });
+
+  it('keeps the end of a meetup held for the moderators, and its post says it', async () => {
+    const made = await setup({}, {});
+    await made.run('Lake picnic', { options: { near: PIN, end: '8pm' } }, 'By the tent.');
+    const [request] = made.storage.requests.values();
+    expect(request).toMatchObject({ startTime: SIX_PM, endTime: SIX_PM + 2 * HOUR });
+    expect(textOf(made.gateway.messagesIn(MOD_CHANNEL)[0]?.message)).toContain(
+      `Ends <t:${String((SIX_PM + 2 * HOUR) / 1000)}:F>`,
+    );
   });
 
   it('posts a staff member’s meetup at once, wherever it is', async () => {

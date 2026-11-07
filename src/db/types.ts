@@ -335,6 +335,7 @@ export interface MeetupRequest {
   decidedByName: string | null;
   decision: string | null;
   description: string;
+  endTime: string | null;
   expiresAt: string;
   failure: Json | null;
   id: string;
