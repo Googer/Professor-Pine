@@ -1,8 +1,13 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AppContext } from '../app-context.js';
-import { describeAs } from '../commands/meetups/info.js';
-import { BLOCKED_FROM_CHANGING, meetupChangeRefusal } from '../commands/meetups/meetup-changes.js';
+import { BLOCKED_FROM_CHANGING } from '../commands/meetups/meetup-changes.js';
+import {
+  meetupChangeAs,
+  meetupChangeCheck,
+  meetupTimesCheck,
+  type MeetupChangeRefused,
+} from '../commands/meetups/meetup-manage.js';
 import {
   ASK_ON_DISCORD,
   makeMeetupAs,
@@ -15,19 +20,14 @@ import {
 import { OPEN_PARTIES_FULL, openPartiesFull } from '../commands/parties/open-parties.js';
 import { partyOver } from '../commands/parties/reply.js';
 import {
-  endAs,
   newPartyTimes,
   noForumWords,
-  readTimes,
-  renameAs,
   setTimesAs,
   START_THROTTLE,
-  startAs,
   timedTimeHint,
   typedNewEnd,
   typedTimedTime,
   type TimedAnswer,
-  type TimesRead,
 } from '../commands/parties/timed.js';
 import { CHANGE_THROTTLE } from '../commands/raids/change.js';
 import { PIN_NOT_HERE, PLACE_GONE, pickedPlace } from '../commands/place-option.js';
@@ -38,18 +38,18 @@ import type { MemberStanding } from '../discord/member-directory.js';
 import type { MemberAccess } from '../discord/party-gateway.js';
 import type { Place } from '../domain/geo/place.js';
 import { rulingKeyOf } from '../domain/meetups/safety.js';
-import { mayEditMeetup, tidyDescription } from '../domain/party/meetup.js';
+import { tidyDescription } from '../domain/party/meetup.js';
 import {
   isMeetup,
   MAX_MEETUP_DESCRIPTION,
   MAX_PARTY_NAME,
-  mayArrange,
   type MeetupParty,
 } from '../domain/party/party.js';
-import { asDrawn, tidyName } from '../domain/party/timed.js';
+import { tidyName } from '../domain/party/timed.js';
 import {
   MAX_MAP_STOPS,
   MEETUP_CHANGES,
+  MEETUP_NOT_YOURS,
   type MeetupAnswer,
   type MeetupChange,
   type StopsView,
@@ -482,9 +482,9 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
   // the command's throttle in its window (`/name`, `/info`, `/end`: `CHANGE_THROTTLE`; a start in
   // `/meet`'s, `START_THROTTLE`); then its code path as the member, with the value drawn.
   /**
-   * What every change of a meetup asks after its body: who changes it, the meetup, its forum, and
-   * for its times (`mayEdit`) whether the member may change it here; the text's caller asks
-   * `meetupChangeRefusal`, the rule of `/name` and `/info`.
+   * What every change of a meetup asks after its body: who changes it, the meetup and its forum;
+   * whether the member may change it is `meetupChangeCheck`'s and `meetupTimesCheck`'s (plan
+   * 8M-21: the checks of the post's Manage… too).
    */
   const meetupWrite = async (
     request: FastifyRequest,
@@ -492,7 +492,6 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
     guild: string,
     partyId: string,
     userId: string,
-    mayEdit = true,
   ) => {
     const doing = 'changed a meetup';
     const acting = await actingOnTheMap(deps, request, reply, guild, userId, doing);
@@ -509,10 +508,28 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
     }
     const { member, standing } = acting;
     const meetupNow = () => viewOf(guild, row, party, userId, standing);
-    if (mayEdit && !mayEditMeetup(party, userId, isMapStaff(standing, userId, parties.ownerId))) {
-      return { sent: refuse(reply, 403, NOT_YOURS, meetupNow()) };
-    }
     return { row, party, member, standing, meetupNow };
+  };
+
+  /** A change refused by its checks, before anything counted: its status and the map's words. */
+  const refusedChange = (
+    reply: FastifyReply,
+    refused: MeetupChangeRefused,
+    meetup: MapMeetup | undefined,
+  ) => {
+    const limits = ctx.attendance.limits();
+    switch (refused.reason) {
+      case 'not-yours':
+        return refuse(reply, 403, NOT_YOURS, meetup);
+      case 'blocked':
+        return refuse(reply, 403, MAP_BLOCKED_FROM_CHANGING, meetup);
+      case 'changed-meanwhile':
+        return refuse(reply, 409, problemText('changed-meanwhile', limits, 'meetup'), meetup);
+      case 'not-attending':
+        return refuse(reply, 403, problemText('not-attending', limits, 'meetup'), meetup);
+      case 'unread':
+        return refuse(reply, 422, refused.text, meetup);
+    }
   };
 
   const knownChange = async (request: MeetupRequest, reply: FastifyReply) => {
@@ -530,40 +547,16 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
       const input = changeInput(change, request.body ?? {});
       if (!input) return sendFailure(request, reply, 400);
       const { userId } = session;
-      const isText = input.change === 'name' || input.change === 'info';
-      const writing = await meetupWrite(request, reply, guild, partyId, userId, !isText);
+      const writing = await meetupWrite(request, reply, guild, partyId, userId);
       if ('sent' in writing) return writing.sent;
       const { row, party, member, standing, meetupNow } = writing;
-      // The text by the one rule of `/name` and `/info`: start and end stay `mayEditMeetup`'s.
-      if (isText) {
-        const staff = isMapStaff(standing, userId, parties.ownerId);
-        const refusal = await meetupChangeRefusal(ctx, guild, party, userId, staff);
-        if (refusal !== undefined) {
-          const text = refusal === 'blocked' ? MAP_BLOCKED_FROM_CHANGING : NOT_YOURS;
-          return refuse(reply, 403, text, meetupNow());
-        }
-      }
-      // Checked here, uncounted, and again inside the store, for a change on its way meanwhile.
-      if (asDrawn(drawnOf(party, input.change), input.drawn) !== undefined) {
-        const stale = problemText('changed-meanwhile', ctx.attendance.limits(), 'meetup');
-        return refuse(reply, 409, stale, meetupNow());
-      }
       const now = deps.now();
-      let start: number | null = null;
-      if (input.change === 'start') {
-        // As `/meet`'s guard: refused before its limit.
-        if (!mayArrange(party, userId)) {
-          const text = problemText('not-attending', ctx.attendance.limits(), 'meetup');
-          return refuse(reply, 403, text, meetupNow());
-        }
-        try {
-          const typed = typedTimedTime(ctx, party, 'meet', input.time, now);
-          start = typed === 'unset' ? null : typed.at;
-        } catch (err) {
-          if (!(err instanceof UserError)) throw err;
-          return refuse(reply, 422, err.message, meetupNow());
-        }
-      }
+      // The checks of the post's Manage… too (plan 8M-21), uncounted; the drawn value is checked
+      // again inside the store, for a change on its way meanwhile.
+      const staff = isMapStaff(standing, userId, parties.ownerId);
+      const checked = await meetupChangeCheck(ctx, guild, party, userId, staff, input, now);
+      if ('refused' in checked) return refusedChange(reply, checked.refused, meetupNow());
+      const { start } = checked;
       const [counted, throttle] =
         input.change === 'start'
           ? [{ command: 'meet', varies: true }, START_THROTTLE]
@@ -572,18 +565,9 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
       if (throttled) return throttled;
       let answer: TimedAnswer;
       try {
-        answer = await countedOnTheMap(deps, counted, userId, throttle, () => {
-          switch (input.change) {
-            case 'name':
-              return renameAs(ctx, guild, party, member, input.name, input.drawn);
-            case 'info':
-              return describeAs(ctx, guild, party, member, input.info, input.drawn);
-            case 'start':
-              return startAs(ctx, party, member, start, now, input.drawn);
-            case 'end':
-              return endAs(ctx, party, member, input.time, now, input.drawn);
-          }
-        });
+        answer = await countedOnTheMap(deps, counted, userId, throttle, () =>
+          meetupChangeAs(ctx, guild, party, member, input, start, now),
+        );
       } catch (err) {
         // `/end`'s reader, after its limit as in the command.
         if (!(err instanceof UserError)) throw err;
@@ -617,25 +601,11 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
       const writing = await meetupWrite(request, reply, guild, partyId, userId);
       if ('sent' in writing) return writing.sent;
       const { row, party, member, standing, meetupNow } = writing;
-      if (
-        asDrawn(party.timed.startTime, start.drawn) !== undefined ||
-        asDrawn(party.endTime, end.drawn) !== undefined
-      ) {
-        const stale = problemText('changed-meanwhile', ctx.attendance.limits(), 'meetup');
-        return refuse(reply, 409, stale, meetupNow());
-      }
-      if (!mayArrange(party, userId)) {
-        const text = problemText('not-attending', ctx.attendance.limits(), 'meetup');
-        return refuse(reply, 403, text, meetupNow());
-      }
       const now = deps.now();
-      let read: TimesRead;
-      try {
-        read = readTimes(ctx, party, { start: start.time, end: end.time }, now);
-      } catch (err) {
-        if (!(err instanceof UserError)) throw err;
-        return refuse(reply, 422, err.message, meetupNow());
-      }
+      const staff = isMapStaff(standing, userId, parties.ownerId);
+      const checked = meetupTimesCheck(ctx, party, userId, staff, { start, end }, now);
+      if ('refused' in checked) return refusedChange(reply, checked.refused, meetupNow());
+      const { read } = checked;
       const counting = timesCountedOnTheMap(deps, reply, userId, read);
       if ('full' in counting) return counting.full;
       let answer: TimedAnswer;
@@ -688,21 +658,7 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
 }
 
 /** What the map answers a member who may not change a meetup there (spec 3.7). */
-export const NOT_YOURS = 'Only its maker and moderators can change this meetup here.';
-
-/** The value of a meetup a change is drawn from: its name, information, start or end. */
-function drawnOf(party: MeetupParty, change: MeetupChange): string | number | null {
-  switch (change) {
-    case 'name':
-      return party.timed.name;
-    case 'info':
-      return party.meetup.description;
-    case 'start':
-      return party.timed.startTime;
-    case 'end':
-      return party.endTime;
-  }
-}
+export const NOT_YOURS = MEETUP_NOT_YOURS;
 
 /** A time as `/meet` and `/end` take it. */
 const time = z.string().max(40);

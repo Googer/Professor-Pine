@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import type {
   MapAttendance,
+  MapMeetup,
   MapMoveRefusal,
   MapRaid,
   MapTrain,
   PostButtonView,
   PostView,
 } from '../../domain/web/party-data.js';
+import { MEETUP_NOT_YOURS } from '../../domain/web/meetup-data.js';
 import type { PageNode } from './popup.js';
 import {
   gymWithRaidBoxes,
@@ -539,9 +541,9 @@ describe('postPopup: the post, the member’s own part and the map’s line', ()
       units: 'imperial',
     });
     expect(byClass(popup, 'mine').map(seen)).toEqual(['You: Coming, group B · remote']);
-    expect(buttonsOf(popup).find((one) => one.text === 'Manage…')?.attributes).toMatchObject({
-      'data-change-raid': 'r1',
-    });
+    // Manage… is the post's own button since plan 8M-21, as Discord's: none in the member's part.
+    const mine = byClass(popup, 'mine-part')[0];
+    expect(mine && buttonsOf(mine).map((one) => one.text)).not.toContain('Manage…');
     const line = byClass(popup, 'map-line')[0];
     expect(line && seen(line)).toBe('0.7 mi · Directions · Open on Discord · Report…');
   });
@@ -897,5 +899,60 @@ describe('raidChoices', () => {
         .filter((one) => one.tag === 'img')
         .map((one) => one.attributes?.src),
     ).toEqual(['/eggs/egg-5.png']);
+  });
+});
+
+// Plan 8M-21: the post's Manage… of a raid and of a meetup opens the map's form, as Discord's
+// opens its dialog; the member's part has none of its own any more.
+describe('the post’s Manage… of a raid and a meetup on the map', () => {
+  const manageView: PostView = {
+    key: 'k',
+    accent: 'egg',
+    blocks: [
+      {
+        type: 'controls',
+        rows: [
+          [button({ name: 'Manage…', label: 'Manage…', does: { kind: 'panel', panel: 'manage' } })],
+        ],
+      },
+    ],
+  };
+  const meetup = (more: Partial<MapMeetup> = {}): MapMeetup => ({
+    kind: 'meetup',
+    id: 'm1',
+    name: 'Picnic',
+    startTime: null,
+    endTime: null,
+    link: LINK,
+    attendance: attendance(),
+    postKey: 'k',
+    place: null,
+    info: null,
+    panel: null,
+    ...more,
+  });
+  const placed = { ...context, place: undefined, located: undefined, units: 'imperial' as const };
+  const manage = (party: MapRaid | MapMeetup) =>
+    buttonsOf(postPopup(manageView, party, placed)).filter((one) => one.text === 'Manage…');
+
+  it('opens a raid’s form for whoever may change it, as Set time… does', () => {
+    expect(manage(raid({ mayChange: true })).map((one) => one.attributes)).toEqual([
+      expect.objectContaining({ 'data-change-raid': 'r1' }),
+    ]);
+    expect(manage(raid())[0]?.attributes).toHaveProperty('data-on-discord');
+  });
+
+  it('opens a meetup’s editor for its maker and staff, and says why not to anybody else', () => {
+    expect(manage(meetup({ panel: { start: true } })).map((one) => one.attributes)).toEqual([
+      expect.objectContaining({ 'data-edit-meetup': 'm1' }),
+    ]);
+    expect(manage(meetup())[0]?.attributes).toMatchObject({
+      'data-on-discord': 'manage',
+      'data-why': MEETUP_NOT_YOURS,
+    });
+    // Nothing while read-only, as everything that may be pressed.
+    expect(
+      manage(meetup({ attendance: attendance({ count: false }) }))[0]?.attributes,
+    ).toHaveProperty('disabled');
   });
 });

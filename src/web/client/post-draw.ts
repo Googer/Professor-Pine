@@ -9,7 +9,8 @@ import type {
 } from '../../domain/web/party-data.js';
 import { completionAsk, NOT_YET, TAKEN_AS_DONE, YES_DONE } from '../../render/completion-words.js';
 import type { DistanceUnits, Place } from './distance.js';
-import { meetupActions, meetupHereBox } from './meetup-forms.js';
+import { meetupHereBox } from './meetup-forms.js';
+import { MEETUP_NOT_YOURS } from '../../domain/web/meetup-data.js';
 import { groupPick, STATUS_WORDS } from './parties.js';
 import { mapLine, type PageNode } from './popup.js';
 
@@ -207,6 +208,15 @@ function panelAttributes(
         ? { 'data-move-train': party.id }
         : undefined;
     case 'manage':
+      // A raid's Manage… (plan 8M-21): its change form, as Set time… opens it.
+      if (party.kind === 'raid')
+        return party.mayChange ? { 'data-change-raid': party.id } : undefined;
+      // A meetup's: its editor for its maker and staff (`panel`); nothing while read-only; else
+      // why not (`whyNot`).
+      if (party.kind === 'meetup') {
+        if (party.panel !== null) return { 'data-edit-meetup': party.id };
+        return party.attendance.count ? undefined : 'off';
+      }
       // Manage…'s form (plan 8M-8C) where the server says it opens (`mayManage`, branch review
       // B2: as the dialog opens, a train without a route too); else why not, as it decided it.
       return party.kind === 'train' && party.mayManage
@@ -254,6 +264,8 @@ export function whyNot(party: MapParty, button: string): string {
     const { regroup } = party.attendance;
     return regroup !== undefined && 'refused' in regroup ? regroup.refused : '';
   }
+  // A meetup's Manage… is its maker's and staff's (plan 8M-21), as Discord refuses it.
+  if (party.kind === 'meetup' && button === 'manage') return MEETUP_NOT_YOURS;
   if (party.kind !== 'train' || (button !== 'moves' && button !== 'manage')) return '';
   return party.moveRefusal?.text ?? '';
 }
@@ -468,8 +480,8 @@ function trainPart(
  * The member's own part under the post (the map's, as before plan 8M-8A, in the post's look):
  * who they are in it (`You: Coming, group B · remote`), the group a newcomer picks (Interested,
  * Join and Here send it), and what the map lets them do beyond the post's buttons: a raid's
- * Manage… (its boss and moves are slash commands on Discord), a train's conductor role, Edit
- * route and what Route shows, a meetup's Manage….
+ * a train's conductor role, Edit route and what Route shows (a raid's and a meetup's Manage… are
+ * the post's own buttons since plan 8M-21, as on Discord).
  */
 function minePart(party: MapParty, context: PostDrawContext): PageNode[] {
   const { mine, groups, remote } = party.attendance;
@@ -484,21 +496,8 @@ function minePart(party: MapParty, context: PostDrawContext): PageNode[] {
             text: `You: ${STATUS_WORDS[mine.status]}${several && mine.status !== 'complete' ? `, group ${mine.group}` : ''}${remote.on ? ' · remote' : ''}`,
           },
         ];
-  const own: PageNode[] =
-    party.kind === 'raid'
-      ? party.mayChange
-        ? [
-            button('Manage…', {
-              'data-change-raid': party.id,
-              title: 'Change its boss, moves or times',
-            }),
-          ]
-        : []
-      : party.kind === 'train'
-        ? trainPart(party, context)
-        : party.kind === 'meetup'
-          ? meetupActions(party)
-          : [];
+  // A raid's and a meetup's Manage… are the post's own buttons (plan 8M-21), as on Discord.
+  const own: PageNode[] = party.kind === 'train' ? trainPart(party, context) : [];
   const pick = groupPick(party.id, party.attendance);
   const parts = [...you, ...pick, ...own];
   return parts.length === 0 ? [] : [{ tag: 'div', className: 'mine-part', children: parts }];

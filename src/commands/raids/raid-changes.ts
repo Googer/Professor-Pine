@@ -2,6 +2,7 @@ import type { AppContext } from '../../app-context.js';
 import { UserError } from '../../discord/errors.js';
 import type { RaidParty } from '../../domain/party/party.js';
 import type { PokemonEntry } from '../../domain/pogo/game-master.js';
+import { manageWords, type RaidChangeAsked } from '../../domain/web/raid-manage.js';
 import { matchNamed } from '../../domain/search/word-match.js';
 import { postsRefusedMoveWords, problemText } from '../../render/activity.js';
 import { isFarOff, plain, timestamp, truncate } from '../../render/text.js';
@@ -210,6 +211,63 @@ export async function changeRaidMoves(
     'The raid already had those moves.',
     post,
   );
+}
+
+/**
+ * One change of a raid as its command makes it (`changeRaidBoss`, `changeRaidTime`,
+ * `changeRaidMoves`): the one path of the map's `POST /api/raids/<id>/<change>` and of Manage… of
+ * the post (plan 8M-21). Throws a `UserError` for what the command's reader refuses.
+ */
+export function raidChangeAs(
+  ctx: RaidChanging,
+  party: RaidParty,
+  member: Member,
+  asked: RaidChangeAsked,
+  now: number,
+  post?: PostNamer,
+): Promise<RaidChangeAnswer> {
+  switch (asked.change) {
+    case 'hatch':
+    case 'end':
+      return changeRaidTime(ctx, party, member, asked.change, asked.time, now, post);
+    case 'boss':
+      return changeRaidBoss(ctx, party, member, asked.boss, post);
+    case 'moves':
+      return changeRaidMoves(ctx, party, member, asked.quick, asked.charge, post);
+  }
+}
+
+/**
+ * The changes a Submit of Manage… asks for (`raidChangesAsked`), made in turn as the map's form
+ * sends them (`raidChangeAs`), each on the raid as the change before left it: the words of each
+ * joined (`manageWords`); a refusal, a raid that ended or what a reader refused stops there, its
+ * words after what went through. `NOTHING_CHANGED` when nothing was asked.
+ */
+export async function manageRaidAs(
+  ctx: RaidChanging,
+  party: RaidParty,
+  member: Member,
+  asked: readonly RaidChangeAsked[],
+  now: number,
+  post?: PostNamer,
+): Promise<{ kind: 'ok' | 'refused' | 'gone'; text: string; went: number }> {
+  const said: string[] = [];
+  let current = party;
+  for (const change of asked) {
+    let answer: RaidChangeAnswer;
+    try {
+      answer = await raidChangeAs(ctx, current, member, change, now, post);
+    } catch (err) {
+      if (!(err instanceof UserError)) throw err;
+      return { kind: 'refused', text: manageWords([...said, err.message]), went: said.length };
+    }
+    if (answer.kind !== 'ok') {
+      return { kind: answer.kind, text: manageWords([...said, answer.text]), went: said.length };
+    }
+    said.push(answer.text);
+    current = answer.party;
+  }
+  return { kind: 'ok', text: manageWords(said), went: said.length };
 }
 
 /** A move as a pick list offers it: its id (what `/moveset` takes) and its name. */

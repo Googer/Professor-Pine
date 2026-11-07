@@ -119,7 +119,7 @@ describe('PartyScheduler: a meetup while it goes on', () => {
     expect(made.gateway.posts.get(made.postId)?.renames).toBe(0);
     expect(
       buttonsOf(made.gateway.posts.get(made.postId)?.message).map((b) => b.label ?? b.emoji),
-    ).toEqual(['🤔', '🏃', '✅', '👋', '⬇️', '⬆️', '📡']);
+    ).toEqual(['🤔', '🏃', '✅', '👋', '⬇️', '⬆️', '📡', 'Manage…']);
   });
 
   it('shows the date of its times once the day has changed', async () => {

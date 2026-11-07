@@ -1,7 +1,7 @@
-import { allTiers, bossChoiceValue, eggChoiceValue } from '../commands/raids/raid-input.js';
-import type { RaidBoss } from '../domain/pogo/raid-bosses.js';
-import { raidWords } from '../domain/pogo/raid-tier.js';
-import type { RaidOptionsView } from '../domain/web/raid-options-data.js';
+import { allTiers, bossChoiceValue, eggChoiceValue } from './raid-input.js';
+import type { RaidBoss } from '../../domain/pogo/raid-bosses.js';
+import { raidWords } from '../../domain/pogo/raid-tier.js';
+import type { RaidOptionsView } from '../../domain/web/raid-options-data.js';
 
 /** The longest value a pick of `/raid`'s list may have (Discord's limit, kept for the map too). */
 const MAX_VALUE = 100;

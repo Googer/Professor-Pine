@@ -40,6 +40,7 @@ import { scriptAccessControls } from './script-access.js';
 import { partyButtons } from './party.js';
 import { meetControls } from '../commands/parties/meet-dialog.js';
 import { manageControls } from '../commands/trains/move.js';
+import { meetupManageControls } from '../commands/meetups/manage.js';
 import { maxControls } from '../commands/max/max.js';
 import { maxPinControls } from './max-pin.js';
 
@@ -66,6 +67,7 @@ export const components: readonly ComponentHandler[] = [
   partyButtons,
   meetControls,
   manageControls,
+  meetupManageControls,
   reportControls,
   closeControls,
   dmControls,

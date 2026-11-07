@@ -375,6 +375,8 @@ describe('the information of a meetup post', () => {
     const rendered = renderMeetupPost(view(withAttendees({ ...base, saved: true }, crowd)));
     expect(layoutTextLength(rendered.layout)).toBeLessThanOrEqual(TEXT_BUDGET - LEAD_ROOM);
     expect(componentCount(rendered.message)).toBeLessThanOrEqual(MAX_COMPONENTS);
+    // Its third row of Manage… alone (plan 8M-21) is two of them: well within Discord's 40.
+    expect(componentCount(rendered.message)).toBeLessThanOrEqual(30);
     expectSendable(rendered);
     // The text is whole; it is the lists of trainers that give way.
     expect(information(withAttendees({ ...base, saved: true }, crowd))).toBe(
@@ -594,9 +596,12 @@ describe('the controls of a meetup post', () => {
   const labels = (party: MeetupParty) =>
     buttonsOf(renderMeetupPost(view(party)).message).map((button) => button.label ?? button.emoji);
 
-  it('has no Done, Meet…, "Set time", Group… or map: the statuses and Leave, then the head count', () => {
-    // A meetup has its one group for good: the rows of a raid without the third (plan 8X-1B).
-    expect(labels(testMeetup())).toEqual(['🤔', '🏃', '✅', '👋', '⬇️', '⬆️', '📡']);
+  it('has no Done, Meet…, "Set time", Group… or map: the statuses and Leave, the head count, then Manage…', () => {
+    // A meetup has its one group for good: the rows of a raid, and in the third Manage… alone
+    // (plan 8M-21: the map's editor as a dialog).
+    expect(labels(testMeetup())).toEqual(['🤔', '🏃', '✅', '👋', '⬇️', '⬆️', '📡', 'Manage…']);
+    const { message } = renderMeetupPost(view(testMeetup()));
+    expect(buttonsOf(message).at(-1)?.customId).toBe(`party:${testMeetup().id}:manage`);
   });
 
   it('names the meetup in every custom id, like the controls of a raid', () => {

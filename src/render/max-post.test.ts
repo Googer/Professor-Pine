@@ -227,6 +227,8 @@ describe('renderMaxPost: groups, controls and the rest', () => {
     expect(names).toContain('🎉');
     expect(names).not.toContain('Set time…');
     expect(names).not.toContain('Screenshot feedback');
+    // The map has no Manage… of a max battle, so neither has its post (plan 8M-21).
+    expect(names).not.toContain('Manage…');
     expect(names).toContain('📡');
   });
 

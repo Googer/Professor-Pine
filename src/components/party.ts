@@ -21,10 +21,13 @@ import type { ComponentHandler } from '../discord/command.js';
 import { UserError } from '../discord/errors.js';
 import { notARaid, requireGuild } from '../discord/guards.js';
 import { STALE_COMPONENT } from '../discord/router.js';
-import { isGroupId, isRaid } from '../domain/party/party.js';
+import { isGroupId, isMeetup, isRaid } from '../domain/party/party.js';
 import { raidStage } from '../domain/party/raid.js';
 import { isPartyAction, PARTY_KIND, TIME_INPUT, timeForm } from '../render/party-controls.js';
 import { MANAGE_FORM, MOVE_FORM } from '../render/train-dialogs.js';
+import { RAID_MANAGE_FORM } from '../render/manage-dialogs.js';
+import { openRaidManage, submitRaidManage } from '../commands/raids/manage.js';
+import { openMeetupManage } from '../commands/meetups/manage.js';
 import { SPLIT_FORM } from '../render/train-split.js';
 import { GROUP_MENU_FORM, WHICH_GROUP_FORM } from '../render/group-dialogs.js';
 import {
@@ -63,7 +66,8 @@ function asksFirst(ctx: AppContext, partyId: string, memberId: string): boolean 
  * The controls of a party's post (spec 4.1): its buttons, the two answers under a completion
  * question, the "Set time…" button of a raid without times with the form it opens, and the
  * buttons "Move…" and "Manage…" of a train with the dialogs they open (plan 8X-G,
- * `commands/trains/move.ts`), "Route" of a train, which shows the route privately as
+ * `commands/trains/move.ts`), "Manage…" of a raid and of a meetup with theirs (plan 8M-21,
+ * `commands/raids/manage.ts`, `commands/meetups/manage.ts`), "Route" of a train, which shows the route privately as
  * `/route show` does (`commands/trains/route.ts`), and "Split…" of a train with the dialog it
  * opens (`commands/trains/split.ts`).
  * The party is named by the custom id, not by the channel, so the same controls work on a copy of the
@@ -160,11 +164,19 @@ export const partyButtons: ComponentHandler = {
       case 'moveform':
         // Only Move…'s dialog has this action.
         throw new UserError(STALE_COMPONENT);
-      case 'manage':
-        // Manage… of a train's post (plan 8X-G): its route, mode and kind, in a dialog.
+      case 'manage': {
+        // Manage… of a train's post (plan 8X-G): its route, mode and kind, in a dialog; of a
+        // raid's and a meetup's (plan 8M-21): the map's forms as dialogs.
+        const party = ctx.parties.get(partyId);
+        // Which kind it was is not known any more: the words of a control of any kind.
+        if (!party) throw new UserError(partyOver());
+        if (isRaid(party)) return openRaidManage(interaction, ctx, partyId);
+        if (isMeetup(party)) return openMeetupManage(interaction, ctx, partyId);
         return openManage(interaction, ctx, partyId);
+      }
       case 'manageform':
-        // Only Manage…'s dialog has this action.
+      case 'raidform':
+        // Only the Manage… dialogs have these actions.
         throw new UserError(STALE_COMPONENT);
       case 'next':
       case 'previous':
@@ -228,6 +240,7 @@ export const partyButtons: ComponentHandler = {
     if (id.action === SPLIT_FORM) return submitSplit(interaction, ctx, id.id, id.args);
     if (id.action === MOVE_FORM) return submitMove(interaction, ctx, id.id, id.args);
     if (id.action === MANAGE_FORM) return submitManage(interaction, ctx, id.id, id.args);
+    if (id.action === RAID_MANAGE_FORM) return submitRaidManage(interaction, ctx, id.id, id.args);
     if (id.action === GROUP_MENU_FORM) return submitGroupMenu(interaction, ctx, id.id, id.args);
     if (id.action === WHICH_GROUP_FORM) {
       return submitWhichGroup(interaction, ctx, id.id, id.args);

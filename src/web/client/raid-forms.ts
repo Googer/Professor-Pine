@@ -3,6 +3,7 @@ import type {
   RaidMovesView,
   RaidOptionsView,
 } from '../../domain/web/raid-options-data.js';
+import { MOVES_LATER, raidChangesAsked } from '../../domain/web/raid-manage.js';
 import { sendButton } from './form-buttons.js';
 import { pressParty, type PressSteps, type Pressed } from './parties.js';
 import type { MapGym, PageNode } from './popup.js';
@@ -227,7 +228,7 @@ const moveSelect = (name: string, unchanged: string, moves: RaidMovesView['fast'
 });
 
 /** Said while a boss is picked in the form of a change, whose moves are the raid's boss's. */
-export const MOVES_LATER = "The new boss's moves are set in Manage… afterwards.";
+export { MOVES_LATER, NOTHING_CHANGED } from '../../domain/web/raid-manage.js';
 
 /**
  * The form of a change of a raid, as `/hatch`, `/end`, `/boss` and `/moveset` take it, one Submit
@@ -310,25 +311,33 @@ export function changeBody(change: RaidChange, values: Record<string, string>): 
   }
 }
 
-/** What a Submit answers when nothing in its form was changed, as Manage… of a train does. */
-export const NOTHING_CHANGED = 'Nothing changed.';
-
-/** The order a Submit sends a raid's changes in. */
-const CHANGES_IN_TURN: readonly RaidChange[] = ['boss', 'hatch', 'end', 'moves'];
-
 /**
- * The changes of a raid a Submit asks for, from the form's fields: those filled in, and never the
- * moves with a boss, for the moves on the form are the old boss's.
+ * The changes of a raid a Submit asks for, from the form's fields, as the post's dialog asks them
+ * (`raidChangesAsked`, plan 8M-21): those filled in, in turn, and never the moves with a boss, for
+ * the moves on the form are the old boss's.
  */
 export function changesAsked(
   values: Record<string, string>,
 ): { change: RaidChange; body: Record<string, string | number> }[] {
-  const newBoss = (values.boss ?? '').trim() !== '';
-  return CHANGES_IN_TURN.flatMap((change) => {
-    if (change === 'moves' && newBoss) return [];
-    const made = changeBody(change, values);
-    return 'text' in made ? [] : [{ change, body: made.body }];
-  });
+  return raidChangesAsked(values).map(
+    (asked): { change: RaidChange; body: Record<string, string> } => {
+      switch (asked.change) {
+        case 'boss':
+          return { change: asked.change, body: { boss: asked.boss } };
+        case 'hatch':
+        case 'end':
+          return { change: asked.change, body: { time: asked.time } };
+        case 'moves':
+          return {
+            change: asked.change,
+            body: {
+              ...(asked.quick === null ? {} : { quick: asked.quick }),
+              ...(asked.charge === null ? {} : { charge: asked.charge }),
+            },
+          };
+      }
+    },
+  );
 }
 
 /**

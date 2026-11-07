@@ -5,9 +5,7 @@ import { partyOver } from '../commands/parties/reply.js';
 import { CHANGE_THROTTLE } from '../commands/raids/change.js';
 import {
   bossMoves,
-  changeRaidBoss,
-  changeRaidMoves,
-  changeRaidTime,
+  raidChangeAs,
   type RaidChangeAnswer,
   type RaidChanging,
 } from '../commands/raids/raid-changes.js';
@@ -36,6 +34,7 @@ import {
   type RaidChange,
   type RaidMovesView,
 } from '../domain/web/raid-options-data.js';
+import type { RaidChangeAsked } from '../domain/web/raid-manage.js';
 import { gymRegionsInGuild } from '../services/region-directory.js';
 import {
   actingOnTheMap,
@@ -51,7 +50,7 @@ import { postGuard } from './csrf.js';
 import { etagMatches, etagOf } from './geo-cache.js';
 import type { GuildRequest } from './guild-routes.js';
 import { pageWords } from './page-words.js';
-import { raidOptions } from './raid-options.js';
+import { raidOptions } from '../commands/raids/raid-options.js';
 import { limitedPerAddress, RateLimiter } from './rate-limit.js';
 import type { WebDeps } from './server.js';
 
@@ -116,10 +115,7 @@ const movesBodySchema = z
   .strict();
 
 /** A change of a raid with what it sets, as its command's options give it. */
-type ChangeInput =
-  | { change: 'hatch' | 'end'; time: string }
-  | { change: 'boss'; boss: string }
-  | { change: 'moves'; quick: string | null; charge: string | null };
+type ChangeInput = RaidChangeAsked;
 
 /** The change a body asks for; undefined for a malformed body. */
 function changeInput(change: RaidChange, body: unknown): ChangeInput | undefined {
@@ -510,26 +506,7 @@ export function raidRoutes(scope: FastifyInstance, deps: WebDeps): void {
       const noPost = () => undefined;
       let answer: RaidChangeAnswer;
       try {
-        switch (input.change) {
-          case 'hatch':
-          case 'end':
-            answer = await changeRaidTime(
-              ctx,
-              party,
-              member,
-              input.change,
-              input.time,
-              deps.now(),
-              noPost,
-            );
-            break;
-          case 'boss':
-            answer = await changeRaidBoss(ctx, party, member, input.boss, noPost);
-            break;
-          case 'moves':
-            answer = await changeRaidMoves(ctx, party, member, input.quick, input.charge, noPost);
-            break;
-        }
+        answer = await raidChangeAs(ctx, party, member, input, deps.now(), noPost);
       } catch (err) {
         // None of the member's doing (the store failed): the use goes back, as the router gives
         // back the command's (plan 8S-4). A refusal is the member's and stays counted.

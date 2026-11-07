@@ -360,6 +360,7 @@ describe('renderRaidPost', () => {
           "⬆️  party:00000000-0000-4000-8000-000000000001:more",
           "📡  party:00000000-0000-4000-8000-000000000001:remote",
           "👥 Group… party:00000000-0000-4000-8000-000000000001:regroup",
+          " Manage… party:00000000-0000-4000-8000-000000000001:manage",
         ],
         "picture": undefined,
         "tags": [
@@ -410,6 +411,7 @@ describe('renderRaidPost', () => {
           "⬆️  party:00000000-0000-4000-8000-000000000001:more",
           "📡  party:00000000-0000-4000-8000-000000000001:remote",
           "👥 Group… party:00000000-0000-4000-8000-000000000001:regroup",
+          " Manage… party:00000000-0000-4000-8000-000000000001:manage",
         ],
         "picture": "https://cdn.leekduck.com/assets/img/pokemon_icons/pm717.icon.png",
         "tags": [
@@ -975,6 +977,7 @@ describe('renderRaidPost', () => {
       '⬆️',
       '📡',
       'Group…',
+      'Manage…',
       'Set time…',
       'Screenshot feedback',
     ]);
@@ -985,8 +988,9 @@ describe('renderRaidPost', () => {
     expect(thumbnailBeside(post.message, WHERE)).toBe(SHOWN_PICTURE);
     expect(textDisplays(post.message).some((text) => text.startsWith(WHERE))).toBe(true);
     // Each group one text and three rows of buttons: well within Discord's 40 with both
-    // pictures (before plan 8X-1B the groups' Join and their details needed 43, folded to 40).
-    expect(componentCount(post.message)).toBe(31);
+    // pictures (before plan 8X-1B the groups' Join and their details needed 43, folded to 40;
+    // plan 8M-21's Manage… one more in the third row).
+    expect(componentCount(post.message)).toBe(32);
     // And the fake gateway, as strict as Discord, takes it, and every copy of it.
     expectSendable(post);
     // With times (Meet… in the place of Set time) and no meeting times, the hint after the
@@ -1007,7 +1011,7 @@ describe('renderRaidPost', () => {
     );
     expect(buttonNames(untimed.message).slice(5, 9)).toEqual(['⏰', '⬇️', '⬆️', '📡']);
     expect(thumbnailBeside(untimed.message, WHERE)).toBe(SHOWN_PICTURE);
-    expect(componentCount(untimed.message)).toBe(32);
+    expect(componentCount(untimed.message)).toBe(33);
     expectSendable(untimed);
     // A gym without an address: beside its picture that is said, and without the picture
     // (where Discord refuses one) the words go with it.

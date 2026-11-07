@@ -13,6 +13,7 @@ import type { ControlIconName } from '../domain/pogo/game-icons.js';
 import {
   hasGroups,
   isBattle,
+  isMeetup,
   isRaid,
   isTrain,
   remoteAllowed,
@@ -32,7 +33,8 @@ export const PARTY_KIND = 'party';
  * form a member's `/delete` opened before it was for staff only (plan 8S-2), taken as a report
  * (`/report`'s form is `report:<party id>:party`); no button has it. `move` is "Move…" of a
  * train's post ("Manage train…" before plan 8X-G), which opens the dialog `moveform`; `manage` is
- * "Manage…", which opens `manageform` (`train-dialogs.ts`); `next`, `previous`, `skip`, `finish`,
+ * "Manage…", which opens `manageform` (`train-dialogs.ts`) on a train, `raidform` on a raid and a
+ * dialog of the kind `mmanage` on a meetup (`manage-dialogs.ts`, plan 8M-21); `next`, `previous`, `skip`, `finish`,
  * `reverse`, `atend` and `kind` were the Manage train panel's and answer as stale. `route` is
  * "Route" of a train's post, which shows the route privately. `shot` is "Screenshot feedback" of a raid reported from a
  * screenshot, which shows that screenshot privately. `split` is "Split…" of a train with
@@ -75,6 +77,7 @@ export const PARTY_ACTIONS = [
   'moveform',
   'manage',
   'manageform',
+  'raidform',
 ] as const;
 export type PartyAction = (typeof PARTY_ACTIONS)[number];
 
@@ -292,6 +295,15 @@ export function manageTrainButton(party: Pick<Party, 'id'>): PostButton {
 }
 
 /**
+ * The button "Manage…" of a raid's and a meetup's post (plan 8M-21): the map's "Manage the raid"
+ * and a meetup's editor as dialogs (`commands/raids/manage.ts`, `commands/meetups/manage.ts`), on
+ * the action of a train's Manage… (`party:<id>:manage`), which opens the dialog of the party's kind.
+ */
+export function manageButton(party: Pick<Party, 'id'>): PostButton {
+  return { button: partyButton(party.id, 'manage', MANAGE_TRAIN_LABEL, ButtonStyle.Secondary) };
+}
+
+/**
  * The button "Route" of a train's post whose route is longer than the post lists: the route
  * privately, as `/route show` answers it. It only shows: no `…`. A copy for another region keeps
  * it.
@@ -363,11 +375,13 @@ export interface BottomOptions {
  * Interested, Join, Here, Done (a battle's, `isBattle`: elsewhere Done means leave) and Leave; row 2 Meet… (a
  * raid with times), −1, +1 and Remote (not for an elite raid); both rows icons only (the lines of
  * the post start with the statuses' icons). Row 3 the buttons with a label, which open
- * something: Group… (where the party has groups), then for a raid "Set time" (in Meet…'s place
+ * something: Group… (where the party has groups), Manage… of a raid or a meetup (plan 8M-21),
+ * then for a raid "Set time" (in Meet…'s place
  * while it has no times, spec 4.3: the two never show together) and "Screenshot feedback" (one
  * reported from a kept screenshot, spec 7B), then `opens`. A row with nothing in it is none.
  * Nothing depends on the time, so the controls never need an edit of their own: Done on an egg
- * is refused when it is pressed. A meetup has no Done, Meet…, Set time or Group….
+ * is refused when it is pressed. A meetup has no Done, Meet…, Set time or Group…: its third row
+ * is Manage… alone.
  */
 export function bottomControls(party: Party, options: BottomOptions): PostButton[][] {
   const { id } = party;
@@ -400,6 +414,9 @@ export function bottomControls(party: Party, options: BottomOptions): PostButton
   const opens: PostButton[] = [
     // A train's third row is words only (plan 8X-G, Matt): its Group… has no emoji.
     ...(hasGroups(party) ? [groupButton(party, !isTrain(party))] : []),
+    // The map's Manage… of a raid and of a meetup as a dialog (plan 8M-21), words only as a
+    // train's: before the buttons that come and go, so that it never moves.
+    ...(raid || isMeetup(party) ? [manageButton(party)] : []),
     // Only while the raid has no times: afterwards `/hatch` and `/end` correct them.
     ...(raid && raid.hatchTime === null
       ? [{ button: partyButton(id, 'time', 'Set time…', ButtonStyle.Primary, undefined, '⏰') }]

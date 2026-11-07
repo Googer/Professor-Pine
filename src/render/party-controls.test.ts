@@ -84,7 +84,7 @@ describe('the controls of a post (plan 8X-1B: one layout for one group and sever
     expect(rows(withAttendees(timed, { [ALICE]: {} }))).toEqual([
       ['🤔 maybe', '🏃 join', '✅ here', '🎉 done', '👋 leave'],
       ['⏰ meet', '⬇️ less', '⬆️ more', '📡 remote'],
-      ['👥 Group… regroup'],
+      ['👥 Group… regroup', 'Manage… manage'],
     ]);
   });
 
@@ -92,7 +92,7 @@ describe('the controls of a post (plan 8X-1B: one layout for one group and sever
     expect(rows(timed, PINE_ICONS)).toEqual([
       ['🤔 maybe', 'pinejoin join', 'pinehere here', 'pinedone done', 'pineleave leave'],
       ['pinemeet meet', '⬇️ less', '⬆️ more', 'pineremote remote'],
-      ['👥 Group… regroup'],
+      ['👥 Group… regroup', 'Manage… manage'],
     ]);
     expect(emojiOf(statusButton(timed, 'present', PINE_ICONS))).toEqual({
       id: EMOJI_ID,
@@ -175,25 +175,26 @@ describe('the controls of a post (plan 8X-1B: one layout for one group and sever
     ).toBe(false);
   });
 
-  it('puts Set time in the place of Meet… while the raid has no times, after Group…', () => {
+  it('puts Set time in the place of Meet… while the raid has no times, after Group… and Manage…', () => {
     // A meeting time needs the raid's times: the two never show together.
     expect(actions(testRaid())).toEqual([
       ['maybe', 'join', 'here', 'done', 'leave'],
       ['less', 'more', 'remote'],
-      ['regroup', 'time'],
+      ['regroup', 'manage', 'time'],
     ]);
     expect(actions(withShot(testRaid()))).toEqual([
       ['maybe', 'join', 'here', 'done', 'leave'],
       ['less', 'more', 'remote'],
-      ['regroup', 'time', 'shot'],
+      ['regroup', 'manage', 'time', 'shot'],
     ]);
     expect(actions(withShot(timed))).toEqual([
       ['maybe', 'join', 'here', 'done', 'leave'],
       ['meet', 'less', 'more', 'remote'],
-      ['regroup', 'shot'],
+      ['regroup', 'manage', 'shot'],
     ]);
     expect(rows(withShot(testRaid())).at(-1)).toEqual([
       '👥 Group… regroup',
+      'Manage… manage',
       '⏰ Set time… time',
       '📷 Screenshot feedback shot',
     ]);
@@ -227,10 +228,11 @@ describe('the controls of a post (plan 8X-1B: one layout for one group and sever
     expect(rows(testRaid())[2]?.[0]).toBe('👥 Group… regroup');
   });
 
-  it('gives a meetup, which has no groups, no Done, Meet… or Group…', () => {
+  it('gives a meetup, which has no groups, no Done, Meet… or Group…, and Manage… alone in the third row', () => {
     expect(rows(testMeetup())).toEqual([
       ['🤔 maybe', '🏃 join', '✅ here', '👋 leave'],
       ['⬇️ less', '⬆️ more', '📡 remote'],
+      ['Manage… manage'],
     ]);
   });
 

@@ -49,6 +49,12 @@ export interface MeetupTimesBody {
  * does), `end` (`/end`, `{ drawn, time }`). Each carries the value it was drawn from (`drawn`, as the meetup's view gave it).
  */
 export const MEETUP_CHANGES = ['name', 'info', 'start', 'end'] as const;
+
+/**
+ * What a member is told who may not use a meetup's Manage… (neither its maker nor staff), on the
+ * map and on Discord alike (plan 8M-21).
+ */
+export const MEETUP_NOT_YOURS = 'Only its maker and moderators can change this meetup here.';
 export type MeetupChange = (typeof MEETUP_CHANGES)[number];
 
 /**

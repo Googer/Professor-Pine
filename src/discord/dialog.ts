@@ -62,6 +62,14 @@ export interface DialogChoice {
    * `fields.getStringSelectValues(id)`.
    */
   menu?: true;
+  /**
+   * A menu that may be left empty (plan 8M-21: Manage… of a raid, where an empty menu changes
+   * nothing): `required: false` and `min_values: 0`, with `placeholder` shown while nothing is
+   * chosen; a radio group is always required.
+   */
+  optional?: { placeholder: string };
+  /** A line under the label (Discord's 100 characters). */
+  description?: string;
 }
 
 /** A line of text a dialog asks for besides its choice, which may be left empty. */
@@ -73,7 +81,14 @@ export interface DialogField {
   placeholder?: string;
   /** What the line holds to start with (Discord's `value`): the value stored, to change. */
   value?: string;
+  /** Several lines (`TextInputStyle.Paragraph`), as a meetup's information. */
+  paragraph?: true;
+  /** It may not be left empty: Discord refuses Submit (a meetup's name). */
+  required?: true;
 }
+
+/** A question of a dialog in `DialogContent.asks`: a choice, or a line of text. */
+export type DialogAsk = { choice: DialogChoice } | { field: DialogField };
 
 /** What a dialog asks: its custom id, title, text, and a choice between ways when it has one. */
 export interface DialogContent {
@@ -98,6 +113,11 @@ export interface DialogContent {
   choices?: readonly DialogChoice[];
   /** A line of text under the choice, optional (`fields.getTextInputValue(id)`, '' when empty). */
   field?: DialogField;
+  /**
+   * Choices and lines of text in the order given, after the text and before `choice` (plan 8M-21:
+   * the Manage… dialogs of a raid and a meetup, which ask lines of text first).
+   */
+  asks?: readonly DialogAsk[];
 }
 
 /** An option as Discord takes it, the one picked to start with marked as its `default`. */
@@ -125,15 +145,18 @@ function choiceOptions(choice: DialogChoice): ShownOption[] {
 
 /** A choice as a label holding its radio group or menu. */
 function choiceComponent(choice: DialogChoice) {
+  const { optional } = choice;
   return {
     type: ComponentType.Label as const,
     label: choice.label,
+    ...(choice.description === undefined ? {} : { description: choice.description }),
     component: choice.menu
       ? {
           type: ComponentType.StringSelect as const,
           custom_id: choice.id,
-          required: true,
-          min_values: 1,
+          ...(optional === undefined
+            ? { required: true, min_values: 1 }
+            : { required: false, min_values: 0, placeholder: optional.placeholder }),
           max_values: 1,
           options: choiceOptions(choice),
         }
@@ -146,32 +169,37 @@ function choiceComponent(choice: DialogChoice) {
   };
 }
 
+/** A line of text as a label holding its text input. */
+function fieldComponent(field: DialogField) {
+  return {
+    type: ComponentType.Label as const,
+    label: field.label,
+    component: {
+      type: ComponentType.TextInput as const,
+      custom_id: field.id,
+      style: field.paragraph ? TextInputStyle.Paragraph : TextInputStyle.Short,
+      required: field.required === true,
+      ...(field.required ? { min_length: 1 } : {}),
+      max_length: field.maxLength,
+      ...(field.placeholder === undefined ? {} : { placeholder: field.placeholder }),
+      ...(field.value === undefined ? {} : { value: field.value }),
+    },
+  };
+}
+
 /** The dialog, as `showModal` takes it. */
 export function dialog(content: DialogContent): APIModalInteractionResponseCallbackData {
-  const { choice, choices = [], field, text } = content;
+  const { choice, choices = [], field, text, asks = [] } = content;
   return {
     custom_id: content.customId,
     title: truncate(content.title, TITLE_ROOM),
     components: [
       ...(text === undefined ? [] : [textDisplay(truncate(text, TEXT_ROOM))]),
+      ...asks.map((ask) =>
+        'choice' in ask ? choiceComponent(ask.choice) : fieldComponent(ask.field),
+      ),
       ...[...(choice === undefined ? [] : [choice]), ...choices].map(choiceComponent),
-      ...(field === undefined
-        ? []
-        : [
-            {
-              type: ComponentType.Label as const,
-              label: field.label,
-              component: {
-                type: ComponentType.TextInput as const,
-                custom_id: field.id,
-                style: TextInputStyle.Short,
-                required: false,
-                max_length: field.maxLength,
-                ...(field.placeholder === undefined ? {} : { placeholder: field.placeholder }),
-                ...(field.value === undefined ? {} : { value: field.value }),
-              },
-            },
-          ]),
+      ...(field === undefined ? [] : [fieldComponent(field)]),
     ],
   };
 }

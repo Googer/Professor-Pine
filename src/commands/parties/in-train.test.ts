@@ -907,9 +907,10 @@ describe('what a member of a train is told', () => {
       await made.click(action);
     }
     expect(made.told.slice(-8)).toEqual(Array.from({ length: 8 }, () => 'This has ended.'));
-    // What only a train has knows that it was one. (By Bob: Alice has used up her clicks.)
+    // What only a train has knows that it was one (Move…); Manage…, a raid's and a meetup's too
+    // since plan 8M-21, does not. (By Bob: Alice has used up her clicks.)
     for (const action of panel) await made.click(action, { userId: BOB });
-    expect(made.told.slice(-2)).toEqual(Array.from({ length: 2 }, () => 'This train is over.'));
+    expect(made.told.slice(-2)).toEqual(['This train is over.', 'This has ended.']);
     expect(made.told.length).toBeGreaterThanOrEqual(tries.length + 27);
     // A raid is named only where every kind is ("raid, max battle, train or meetup", "raid or train"), and
     // a meetup only beside the train ("train or meetup"). Nothing speaks of a tier or a report.

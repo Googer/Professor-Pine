@@ -7,6 +7,8 @@ import { mayEditMeetup } from '../../domain/party/meetup.js';
 import { isMeetup, type MeetupParty } from '../../domain/party/party.js';
 import { blockedAnswer } from '../../render/meetup-safety.js';
 
+export { MEETUP_NOT_YOURS } from '../../domain/web/meetup-data.js';
+
 /** What a member is told who is neither a meetup's maker nor staff. */
 export const NOT_YOUR_MEETUP =
   "Only its maker and moderators can change this meetup's name and information.";

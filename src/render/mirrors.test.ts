@@ -92,12 +92,12 @@ describe('renderMirror', () => {
       expect(rowsOf(renderMirror(kind, egg, place))).toEqual([
         statuses,
         ['⬇️', '⬆️', 'pineremote'],
-        ['Group…', 'Set time…'],
+        ['Group…', 'Manage…', 'Set time…'],
       ]);
       expect(rowsOf(renderMirror(kind, elite, place))).toEqual([
         statuses,
         ['⬇️', '⬆️'],
-        ['Group…', 'Set time…'],
+        ['Group…', 'Manage…', 'Set time…'],
       ]);
       for (const post of [egg, elite]) {
         const copy = renderMirror(kind, post, place);

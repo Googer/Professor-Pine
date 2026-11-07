@@ -6,7 +6,7 @@ import { raidBossesFixture } from '../../test/support/raid-bosses.js';
 import { createTestContext } from '../../test/support/test-context.js';
 import { raidWebWith, webServerWith, type TestWeb } from '../../test/support/web.js';
 import type { RaidOptionsView } from '../domain/web/raid-options-data.js';
-import { raidOptions } from './raid-options.js';
+import { raidOptions } from '../commands/raids/raid-options.js';
 
 const OPTIONS = `/s/${FAKE_GUILD_ID}/api/raid-options`;
 

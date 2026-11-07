@@ -138,6 +138,13 @@ describe('postView: the controls', () => {
           does: { kind: 'panel', panel: 'group' },
         },
         {
+          name: 'Manage…',
+          label: 'Manage…',
+          style: 'secondary',
+          disabled: false,
+          does: { kind: 'panel', panel: 'manage' },
+        },
+        {
           name: 'Set time…',
           label: 'Set time…',
           emoji: { name: '⏰' },

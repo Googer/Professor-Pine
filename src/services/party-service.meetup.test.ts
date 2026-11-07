@@ -95,7 +95,16 @@ describe('PartyService.createMeetup', () => {
     expect(post).toMatchObject({ forumId: WEST_FORUM, title: 'Meetup · Community Day picnic' });
     expect(tagsOf(made)).toEqual(['Meetup']);
     expect(post?.message).toEqual(renderMeetupPost(made.service.timedView(made.current())).message);
-    expect(buttonNames(post?.message)).toEqual(['🤔', '🏃', '✅', '👋', '⬇️', '⬆️', '📡']);
+    expect(buttonNames(post?.message)).toEqual([
+      '🤔',
+      '🏃',
+      '✅',
+      '👋',
+      '⬇️',
+      '⬆️',
+      '📡',
+      'Manage…',
+    ]);
   });
 
   it('makes a meetup at a place, and shows the place as it is now, also after an import', async () => {
