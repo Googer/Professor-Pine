@@ -14,7 +14,7 @@ x-logging: &logging
 
 services:
   mysql:
-    image: mysql:8.4
+    image: mysql:9.7
     # utf8mb4 with the collation the bot's tables are created with. Table names stay case
     # sensitive (lower_case_table_names=0, the Linux default, and only settable when the data
     # directory is created): the bot's tables are named `Guild`, `GymMeta` and so on, and a dump
@@ -179,11 +179,11 @@ services:
     pids_limit: 64
 
   # A verified dump of the database every night (docker/backup.sh, `./pine backup` for one now),
-  # into BACKUP_DIR on the host. On the mysql:8.4 image for its own mysqldump and mysqld: a
+  # into BACKUP_DIR on the host. On the mysql:9.7 image for its own mysqldump and mysqld: a
   # MariaDB client against MySQL 8 is a trap, and the check loads each dump into a scratch
   # server of its own. Its result goes to the ops volume, where the watchdog reads it.
   backup:
-    image: mysql:8.4
+    image: mysql:9.7
     entrypoint: ['sh', '/pine/backup.sh']
     command: ['schedule']
     environment:

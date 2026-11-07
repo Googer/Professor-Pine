@@ -100,7 +100,7 @@ These are the rules that hold in every area. Each subsystem's own conventions ar
 ### Language and tests
 
 - Node 26, TypeScript 6.0.x (not 7: typescript-eslint requires `<6.1.0`), ESM only. Relative imports use the `.js` extension.
-- Dependencies stay current (Matt, 2026-10-16): a package added or updated is its latest stable release; Node and MySQL follow their current LTS (MySQL 8.4 in the stack and the tests; Node 26), images included. A version held back is held only for a stated reason, written where the pin is. `npm outdated` showing anything else is a follow-up to do, not to leave.
+- Dependencies stay current (Matt, 2026-10-16): a package added or updated is its latest stable release; Node and MySQL follow their current LTS (MySQL 9.7 in the stack and the tests since 2026-11-07; Node 26), images included. A version held back is held only for a stated reason, written where the pin is. `npm outdated` showing anything else is a follow-up to do, not to leave.
 - `strict` and `noUncheckedIndexedAccess` are on. No `any` without a line comment justifying it.
 - Tests are colocated: `*.test.ts` (unit, no Docker) and `*.db.test.ts` (needs Docker). Test against real MySQL and real pino loggers (`test/support/`) rather than mocks. Tests never use the network. Every helper and fake: `testing.md`.
 - Tests load `test/fixtures/settings.json` (`TEST_SETTINGS_PATH`), not `data/settings.json`.

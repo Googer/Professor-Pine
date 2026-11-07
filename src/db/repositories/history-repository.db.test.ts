@@ -306,7 +306,7 @@ describe('HistoryRepository: who is named in the history', () => {
         const [query] = asked;
         if (query === undefined) throw new Error('the month’s read asked nothing');
         const plan = await db.executeQuery<{ key: string | null }>(
-          CompiledQuery.raw(`explain ${query.sql}`, [...query.parameters]),
+          CompiledQuery.raw(`explain format=traditional ${query.sql}`, [...query.parameters]),
         );
         expect(plan.rows[0]?.key).toBe('partyhistory_server_kind_createdat_index');
       } finally {

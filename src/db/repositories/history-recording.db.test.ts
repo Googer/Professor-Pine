@@ -1,6 +1,7 @@
 import { sql, type Kysely } from 'kysely';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { HISTORY_SERVER } from '../../../test/support/history.js';
+import { lockWaitsNow } from '../../../test/support/lock-waits.js';
 import { startMigratedDatabase } from '../../../test/support/migrated-db.js';
 import {
   ALICE,
@@ -1103,14 +1104,7 @@ describe('the party history, written with the parties', () => {
       await new Promise((resolve) => setTimeout(resolve, 300));
       // The record waits for the opt-out's lock; if not, the timing did not hold and the test
       // would prove nothing. Of this database's sessions alone: the server is shared.
-      const waits = await sql<{ waits: number | string }>`
-        select count(*) as waits
-        from information_schema.innodb_trx t
-        join information_schema.processlist p on p.id = t.trx_mysql_thread_id
-        where t.trx_state = 'LOCK WAIT' and p.user = substring_index(current_user(), '@', 1)`.execute(
-        db,
-      );
-      expect(Number(waits.rows[0]?.waits)).toBe(1);
+      expect(await lockWaitsNow(db)).toBe(1);
       release();
       await optingOut;
       await saving;

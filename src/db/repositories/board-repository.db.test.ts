@@ -201,7 +201,7 @@ describe('BoardRepository: what the boards read', () => {
         const [query] = asked;
         if (query === undefined) throw new Error(`${name} asked nothing`);
         const plan = await db.executeQuery<{ table: string; key: string | null }>(
-          CompiledQuery.raw(`explain ${query.sql}`, [...query.parameters]),
+          CompiledQuery.raw(`explain format=traditional ${query.sql}`, [...query.parameters]),
         );
         expect(keys, name).toContain(plan.rows.find((row) => row.table === 'h')?.key);
       }

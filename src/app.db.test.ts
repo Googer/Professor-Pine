@@ -49,7 +49,7 @@ describe('startApp asked to stop during the start', () => {
     expect(vi.getTimerCount()).toBe(0);
     // No connection of the bot's pool is left: only this test's own.
     const [others] = await database.query<{ count: number | string }>(
-      `select count(*) as count from information_schema.processlist
+      `select count(*) as count from performance_schema.processlist
        where user = ? and id <> connection_id()`,
       [database.config.user],
     );

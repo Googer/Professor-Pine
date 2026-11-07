@@ -1,5 +1,5 @@
 #!/bin/sh
-# The stack's backups (the `backup` service of compose.yaml, on the mysql:8.4 image, whose
+# The stack's backups (the `backup` service of compose.yaml, on the mysql:9.7 image, whose
 # mysqldump and mysqld this uses; see docs/architecture/operations.md).
 #
 #   backup.sh schedule   every day at BACKUP_TIME, in BACKUP_TZ (or the settings' timezone)

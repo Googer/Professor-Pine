@@ -78,12 +78,12 @@ describe('TargetWantRepository', () => {
       .select(['guildId', 'userId'])
       .executeTakeFirstOrThrow();
     const ofMember = await sql<{ key: string | null }>`
-      explain select target from TargetWant
+      explain format=traditional select target from TargetWant
       where guildId = ${row.guildId} and userId = ${row.userId}
         and target in ('research:pokemon:147', 'dynamax:147')`.execute(db);
     expect(ofMember.rows[0]?.key).toBe('targetwant_member_unique');
     const byTarget = await sql<{ key: string | null }>`
-      explain select userId from TargetWant
+      explain format=traditional select userId from TargetWant
       where guildId = ${row.guildId} and target in ('research:pokemon:147')`.execute(db);
     expect(byTarget.rows[0]?.key).toBe('targetwant_target_index');
   });

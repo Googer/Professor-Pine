@@ -7,7 +7,7 @@ import { inject } from 'vitest';
 import type { DbConfig } from '../../src/db/db-config.js';
 
 /** Keep in step with the production MySQL major version. */
-export const MYSQL_IMAGE = 'mysql:8.4';
+export const MYSQL_IMAGE = 'mysql:9.7';
 
 export const LEGACY_SCHEMA_FIXTURE = path.resolve(
   import.meta.dirname,
@@ -110,9 +110,12 @@ async function startSharedDatabase(shared: SharedMysql, legacySchema: boolean) {
     // A user per database: grants to one shared `pine` user would add up across databases.
     await admin.query(`create user '${name}'@'%' identified by 'pine'`);
     await admin.query(`grant all privileges on \`${name}\`.* to '${name}'@'%'`);
-    // To see the server's transactions (`information_schema.innodb_trx`): a test asserts that
-    // its statement waits for a lock. Nothing of other databases can be read or changed by it.
-    await admin.query(`grant process on *.* to '${name}'@'%'`);
+    // To see which transactions wait for a lock, and whose they are (`lockWaitsNow`): a test
+    // asserts that its statement waits. Nothing of other databases can be changed by it.
+    await admin.query(
+      `grant select on performance_schema.data_lock_waits to '${name}'@'%';
+       grant select on performance_schema.threads to '${name}'@'%'`,
+    );
   } finally {
     await admin.end();
   }
