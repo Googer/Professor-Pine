@@ -294,6 +294,20 @@ describe('parseResearchPage', () => {
           'armor</strong></p>',
       ),
     ).toEqual([{ name: 'Pikachu wearing a party hat' }, { name: 'Bulbasaur wearing a & costume' }]);
+    // Only a sentence of a wild encounter (review C2): not eggs, raids or research, nor what no
+    // longer appears.
+    const spawnsOf = (paragraphs: string) =>
+      parseEventSpawns(`<h2 id="spawns">Spawns</h2>${paragraphs}<h2 id="eggs">Eggs</h2>`);
+    expect(
+      spawnsOf(
+        '<p>Hatch <b>Pikachu wearing a hat</b> from 2 km Eggs.</p>' +
+          '<p>Field Research task encounters include <b>Eevee wearing a bow</b>.</p>' +
+          '<p>Defeat <b>Gengar wearing a crown</b> in raids.</p>' +
+          '<p><b>Zubat wearing a top hat</b> will no longer appear in the wild.</p>' +
+          '<p>Some Pokémon appear more often in the wild, among them <b>Duskull wearing a ' +
+          'scarf</b>.</p>',
+      ),
+    ).toEqual([{ name: 'Duskull wearing a scarf' }]);
     // At most 100 of a page's Pokémon (B4): no event lists more.
     const many = Array.from(
       { length: 150 },
@@ -302,6 +316,29 @@ describe('parseResearchPage', () => {
     const read = parseEventSpawns(`<h2 id="spawns">Spawns</h2><ul>${many}</ul>`);
     expect(read).toHaveLength(100);
     expect(read[99]).toEqual({ name: 'Pokémon 99' });
+  });
+
+  it('reads the sentences of the Spawns section with bounded work (review C3)', () => {
+    const spawnsOf = (paragraphs: string) =>
+      parseEventSpawns(`<h2 id="spawns">Spawns</h2>${paragraphs}`);
+    // An unclosed paragraph ends where the next begins, as a browser reads it.
+    expect(
+      spawnsOf(
+        '<p>You might encounter <b>Pikachu wearing a hat</b>' +
+          '<p><b>Eevee wearing a bow</b> will no longer appear.</p>',
+      ),
+    ).toEqual([{ name: 'Pikachu wearing a hat' }]);
+    // At most 4,000 characters of a paragraph and 50 paragraphs are read.
+    expect(
+      spawnsOf(`<p>You might encounter ${'x'.repeat(4_000)} <b>Pikachu wearing a hat</b>.</p>`),
+    ).toEqual([]);
+    const paragraphs = Array.from(
+      { length: 60 },
+      (_, i) => `<p>You might encounter <b>Pokémon ${String(i)} wearing a hat</b>.</p>`,
+    ).join('');
+    const read = spawnsOf(paragraphs);
+    expect(read).toHaveLength(50);
+    expect(read[49]).toEqual({ name: 'Pokémon 49 wearing a hat' });
   });
 
   it('reads text as it shows: tags out, entities read, controls and gaps one space', () => {

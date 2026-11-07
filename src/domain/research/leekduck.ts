@@ -187,8 +187,9 @@ function readReward(html: string, reading: Reading): TaskReward | undefined {
  * item's name and picture (`<li class="pkmn-list-item">`, `<div class="pkmn-name">`), between the
  * section's heading (`<h2 id="spawns">`) and the next heading; then the rarer costumed ones its
  * sentences name in bold ("you might also encounter **Drifblim wearing a Halloween Mischief
- * costume**!", B-D2), without a picture, only those whose name says what they wear (`wornBy`) and
- * not listed already. None for a page without the section.
+ * costume**!", B-D2), without a picture, only those whose name says what they wear (`wornBy`), in
+ * a sentence of a wild encounter (`isWildEncounterSentence`), not listed already. None for a page
+ * without the section.
  */
 export function parseEventSpawns(html: string): { name: string; image?: string }[] {
   const start = html.indexOf('<h2 id="spawns"');
@@ -206,8 +207,9 @@ export function parseEventSpawns(html: string): { name: string; image?: string }
   });
   const names = new Set(listed.map((spawn) => spawn.name));
   const named: { name: string }[] = [];
-  for (const paragraph of section.matchAll(/<p\b[^>]*>([\s\S]*?)<\/p>/g)) {
-    for (const bold of (paragraph[1] ?? '').matchAll(/<(strong|b)\b[^>]*>([\s\S]*?)<\/\1>/g)) {
+  for (const paragraph of paragraphsOf(section)) {
+    if (!isWildEncounterSentence(htmlText(paragraph))) continue;
+    for (const bold of paragraph.matchAll(/<(strong|b)\b[^>]*>([\s\S]*?)<\/\1>/g)) {
       const name = htmlText(bold[2] ?? '').slice(0, MAX_REWARD_NAME);
       if (wornBy(name) === undefined || names.has(name)) continue;
       names.add(name);
@@ -215,6 +217,49 @@ export function parseEventSpawns(html: string): { name: string; image?: string }
     }
   }
   return [...listed, ...named].slice(0, MAX_EVENT_SPAWNS);
+}
+
+/** The most paragraphs of a Spawns section read for the names in its sentences (review C3). */
+const MAX_SPAWN_PARAGRAPHS = 50;
+/** The most characters of one paragraph read (review C3): a sentence is far shorter. */
+const MAX_PARAGRAPH_LENGTH = 4_000;
+
+/**
+ * The inner HTML of a section's paragraphs, with bounded work (review C3): each from its `<p` to
+ * its `</p>`, or to the next `<p` where it is not closed (as a browser reads it), at most
+ * `MAX_PARAGRAPH_LENGTH` characters of it and `MAX_SPAWN_PARAGRAPHS` of them.
+ */
+function paragraphsOf(section: string): string[] {
+  const paragraphs: string[] = [];
+  let at = nextParagraph(section, 0);
+  while (at >= 0 && paragraphs.length < MAX_SPAWN_PARAGRAPHS) {
+    const open = section.indexOf('>', at);
+    if (open < 0) break;
+    const following = nextParagraph(section, open + 1);
+    const close = section.indexOf('</p>', open + 1);
+    const ends = Math.min(...[close, following].filter((cut) => cut >= 0), section.length);
+    paragraphs.push(section.slice(open + 1, Math.min(ends, open + 1 + MAX_PARAGRAPH_LENGTH)));
+    at = following;
+  }
+  return paragraphs;
+}
+
+/** Where the next `<p>` or `<p …>` opens from `from`, or -1 (never `<pre`, `<picture`). */
+function nextParagraph(html: string, from: number): number {
+  let at = html.indexOf('<p', from);
+  while (at >= 0 && !/[\s>]/.test(html.charAt(at + 2))) at = html.indexOf('<p', at + 2);
+  return at;
+}
+
+/**
+ * Whether a sentence of the Spawns section tells of a wild encounter (review C2): it says
+ * encounter, appear or in the wild, and not eggs, raids, research or what no longer appears.
+ */
+function isWildEncounterSentence(text: string): boolean {
+  return (
+    /encounter|appear|in the wild/i.test(text) &&
+    !/\b(?:eggs?|hatch\w*|raids?|research|no longer|not appear)\b/i.test(text)
+  );
 }
 
 /** The most Pokémon read of an event page's Spawns section (B4): no event lists more. */
