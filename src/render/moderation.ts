@@ -463,8 +463,8 @@ export type MaxPinOutcome = { kind: 'ended' } | { kind: 'closed'; by: NamedMembe
 export function maxPinNotice(notice: MaxPinNotice, outcome?: MaxPinOutcome): V2Message {
   const last =
     outcome === undefined
-      ? '-# It is posted already, at a Power Spot Pine does not know and nobody has checked. ' +
-        'Delete… closes it as `/delete` does.'
+      ? '-# The battle is posted already, though I do not know this power spot and nobody has ' +
+        'checked it. Delete… closes it as `/delete` does.'
       : outcome.kind === 'ended'
         ? 'This max battle has ended.'
         : `Closed by ${memberText(outcome.by)}.`;

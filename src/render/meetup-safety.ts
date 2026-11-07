@@ -96,6 +96,16 @@ function decider(request: MeetupRequestRecord): string {
   return memberText({ id: request.decidedBy, name: request.decidedByName ?? undefined });
 }
 
+/**
+ * What the maker of an approved meetup that could not be made can do (their DM): a name or
+ * information that does not fit is theirs to shorten; anything else, try again later.
+ */
+function tryAgainWords(failure: ApprovalFailure | null): string {
+  if (failure?.kind === 'bad-name') return 'Use `/meetup` again with a shorter name.';
+  if (failure?.kind === 'bad-description') return 'Use `/meetup` again with shorter information.';
+  return 'Use `/meetup` again later.';
+}
+
 /** When it was decided, for the outcome's line. */
 function decidedWhen(request: MeetupRequestRecord): string {
   return request.decidedAt === null ? '' : ` ${timestamp(request.decidedAt, 'R')}`;
@@ -383,8 +393,8 @@ export function requestOutcomeDm(
     case 'failed':
       return textMessage(REFUSED_ACCENT, [
         `A moderator approved your meetup ${name}, but I could not make it: ` +
-          `${approvalFailureWords(request.failure ?? { kind: 'error' })}. Use \`/meetup\` again ` +
-          'later.',
+          `${approvalFailureWords(request.failure ?? { kind: 'error' })}. ` +
+          tryAgainWords(request.failure),
       ]);
     case 'expired':
       return textMessage(EXPIRED_ACCENT, [

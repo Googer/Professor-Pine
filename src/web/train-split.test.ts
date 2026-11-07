@@ -222,8 +222,8 @@ describe('Split… of a train on the map (plan 8M-8C)', () => {
       'Group B (Fast) leaves Saturday legendaries and becomes a train of its own, Saturday ' +
         'legendaries (Fast):',
       // Discord's list marks as bullets (plan 8M-13, A1, fix round 1), each item on its own line.
-      '• the same route, at the same stop (stop 2 of 3: The Stacks), the same boss ' +
-        'and start, and it does the same at the end of the route',
+      '• the same route, at the same stop (stop 2 of 3: The Stacks), with the same boss, ' +
+        'start and choice for the end of the route',
       '• Alice and Bob move to it as they are signed up now',
       '• you are its conductor',
       '',

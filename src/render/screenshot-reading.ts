@@ -54,8 +54,9 @@ const DOUBT_WORDS: Readonly<Record<ReportDoubt, string>> = {
   'boss-name-differs': 'The name under the CP is not the boss its CP belongs to.',
   elite: 'It looks like an elite raid.',
   'shadow-unlisted':
-    'No current boss of that tier matches the color of the screen (shadow or not).',
-  'shadow-differs': 'Whether the boss is a shadow does not match the color of the screen.',
+    'No current boss of that tier fits the screen’s color (purple for a shadow raid).',
+  'shadow-differs':
+    'The boss I found and the screen’s color disagree on whether this is a shadow raid.',
 };
 
 /**
