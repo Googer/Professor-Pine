@@ -60,9 +60,9 @@ export type SpawnWebContext = WildReading &
  * here is at a pin; `/wild` still takes one at a known place.
  */
 export const MAP_SPAWN_BLOCKED =
-  'You are blocked from making meetups in this server, so you cannot report a wild Pokémon at a ' +
-  'pin, and every report on the map is at one. Use /wild on Discord, with a place from its list. ' +
-  'To appeal the block, use /meetup there and press "Appeal…".';
+  'You are blocked from making meetups in this server, so you cannot report a wild Pokémon ' +
+  'from the map. Use /wild on Discord and pick a place from its list. To appeal the block, ' +
+  'use /meetup there and press "Appeal…".';
 
 /** What the spawn reports of the live map need beyond the parties' own (`PartyWebDeps`). */
 export interface SpawnWebDeps {

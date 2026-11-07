@@ -127,7 +127,8 @@ export const MAP_BLOCKED = `${NO_MEETUPS_FOR_YOU} To appeal, use /meetup on Disc
 export const MAP_BLOCKED_FROM_CHANGING = `${BLOCKED_FROM_CHANGING} To appeal, use /meetup on Discord and press "Appeal…".`;
 
 /** What the map's answer adds after a meetup is made: how to change it there. */
-export const MANAGE_IN_POPUP = 'Manage… in its popup changes its name, information and times.';
+export const MANAGE_IN_POPUP =
+  'To change its name, information or times, use Manage… in its popup.';
 
 /** A place picked on the map: a gym or stop by kind and id, or a pin dropped by a click. */
 const placeSchema = z.union([

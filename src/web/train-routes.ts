@@ -238,7 +238,7 @@ function isRouteEdit(value: string): value is RouteEdit {
 const TRAIN_OVER = partyOver({ type: 'train' });
 
 /** What the map's answer adds after a train is made: its route is laid on the map. */
-export const ADD_STOPS = 'Tap gyms or Power Spots on the map to add its stops.';
+export const ADD_STOPS = 'Tap gyms or Power Spots on the map to add stops to its route.';
 
 /**
  * The refusals of a press made on a train that is no longer as the page drew it: answered 409

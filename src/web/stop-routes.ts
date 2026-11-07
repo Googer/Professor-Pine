@@ -749,8 +749,8 @@ type RemoveRequest = FastifyRequest<{ Params: { guild: string; id: string } }>;
  * the list, and is no text to report.
  */
 export const TYPED_TASK_KEY =
-  'Pick the task from the list, or type it in full: a task reported already is reported again ' +
-  'with "Same task at more stops…".';
+  'Pick the task from the list, or type it in full. To add stops to a task reported ' +
+  'already, use "Same task at more stops…".';
 
 /** The reports at stops one address may send in a minute (reports and taking back together). */
 export const STOP_WRITES_PER_ADDRESS_MINUTE = 30;
