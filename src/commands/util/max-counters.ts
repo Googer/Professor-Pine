@@ -41,7 +41,7 @@ import {
 } from '../../domain/counters/options.js';
 import type { PokemonCatalogue } from '../../domain/pogo/catalogue.js';
 import type { PokemonEntry } from '../../domain/pogo/game-master.js';
-import { maxBossTitle, maxTierLabel, type MaxTier } from '../../domain/pogo/max-tier.js';
+import { maxBossTitle, type MaxTier, maxBossTierLabel } from '../../domain/pogo/max-tier.js';
 import { iconAddress, maxBossPicture } from '../../domain/pogo/pokemon-icons.js';
 import { MAX_TEAM_LINK_WORDS, renderMaxTeam, type ShownTeamMember } from '../../render/max-team.js';
 import { cutText } from '../../render/party-post.js';
@@ -164,7 +164,7 @@ export function maxTarget(
     throw new UserError(
       `${plain(entry.name)} never battles in a max battle.` +
         (fromPost
-          ? ` I took the tier of this post (${maxTierLabel(tier)}): name another with \`tier\`.`
+          ? ` I took the tier of this post (${maxBossTierLabel(entry, tier)}): name another with \`tier\`.`
           : ''),
     );
   }
@@ -218,7 +218,7 @@ export function readMaxPlan(
 }
 
 /** The boss as the answer and its refusals name it: `Dynamax Uxie (5★)`, `Gigantamax Machamp`. */
-const titleOf = (plan: MaxCounterPlan): string => plain(maxBossTitle(plan.entry.name, plan.tier));
+const titleOf = (plan: MaxCounterPlan): string => plain(maxBossTitle(plan.entry, plan.tier));
 
 /** What Pokebattler answered for a plan: the team, and the boss's Lobby on its site. */
 export interface SimulatedTeam {
@@ -251,7 +251,7 @@ export async function simulateMax(ctx: AppContext, plan: MaxCounterPlan): Promis
   }
   throw troubleError(
     outcome,
-    maxBossTitle(plan.entry.name, plan.tier),
+    maxBossTitle(plan.entry, plan.tier),
     {
       words: MAX_TEAM_LINK_WORDS,
       link: maxTeamLink(plan.bosses[0] ?? plan.entry.key.toUpperCase()),
@@ -299,6 +299,7 @@ export function maxTeamMessage(
   const [first] = team.slots;
   return renderMaxTeam({
     bossName: plan.entry.name,
+    bossKey: plan.entry.key,
     tier: plan.tier,
     bossTypes: plan.entry.types,
     picture: maxBossPicture(plan.entry, plan.tier, ctx.gameData),
@@ -353,7 +354,7 @@ export function maxCountersDialog(
 ): APIModalInteractionResponseCallbackData {
   return {
     custom_id: customId,
-    title: cutText(`Team against ${maxBossTitle(entry.name, kept.tier)}`, TITLE_ROOM),
+    title: cutText(`Team against ${maxBossTitle(entry, kept.tier)}`, TITLE_ROOM),
     components: [
       {
         type: ComponentType.Label,

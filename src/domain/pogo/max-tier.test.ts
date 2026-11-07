@@ -2,8 +2,11 @@ import { describe, expect, it } from 'vitest';
 import {
   BATTLE_KINDS,
   battleKindOf,
+  isEternamax,
+  isEternamaxForm,
   isMaxTier,
   maxBattleWord,
+  maxBossTierLabel,
   MAX_TIERS,
   maxBossChoiceName,
   maxBossTitle,
@@ -55,33 +58,52 @@ describe('the words of a max tier', () => {
   });
 
   it('name a boss as a post heads it', () => {
-    expect(tiers.map((tier) => maxBossTitle('Machamp', tier))).toEqual([
+    expect(tiers.map((tier) => maxBossTitle({ name: 'Machamp', key: 'machamp' }, tier))).toEqual([
       'Dynamax Machamp (2★)',
       'Gigantamax Machamp',
     ]);
   });
 
   it('name a boss as a list of choices offers it: two entries for one Pokémon', () => {
-    expect(tiers.map((tier) => maxBossChoiceName('Machamp', tier))).toEqual([
-      'Machamp · Dynamax 2★',
-      'Gigantamax Machamp',
-    ]);
+    expect(
+      tiers.map((tier) => maxBossChoiceName({ name: 'Machamp', key: 'machamp' }, tier)),
+    ).toEqual(['Machamp · Dynamax 2★', 'Gigantamax Machamp']);
   });
 });
 
 describe('Eternatus, the one Eternamax boss', () => {
+  const species = { name: 'Eternatus', key: 'eternatus' };
+  const form = { name: 'Eternatus (Eternamax)', key: 'eternatus_eternamax' };
+
   it('is named Eternamax where a Gigantamax battle would be, in every label of a boss', () => {
-    for (const name of ['Eternatus', 'Eternatus (Eternamax)']) {
-      expect(maxBattleWord(name, 'G')).toBe('Eternamax');
-      expect(maxBossTitle(name, 'G')).toBe('Eternamax Eternatus');
-      expect(maxBossChoiceName(name, 'G')).toBe('Eternamax Eternatus');
+    for (const boss of [species, form]) {
+      expect(isEternamax(boss, 'G')).toBe(true);
+      expect(maxBattleWord(boss, 'G')).toBe('Eternamax');
+      expect(maxBossTitle(boss, 'G')).toBe('Eternamax Eternatus');
+      expect(maxBossChoiceName(boss, 'G')).toBe('Eternamax Eternatus');
+      expect(maxBossTierLabel(boss, 'G')).toBe('Eternamax');
     }
   });
 
+  it('is decided by the catalogue key, not by the name', () => {
+    expect(isEternamax({ key: 'eternatusish' }, 'G')).toBe(false);
+    expect(maxBossTitle({ name: 'Eternatus' }, 'G')).toBe('Gigantamax Eternatus');
+    expect(maxBossTitle({ name: 'Eternatus', key: 'eternatus' }, 'D5')).toBe(
+      'Dynamax Eternatus (5★)',
+    );
+  });
+
   it('leaves every other boss, and a Dynamax tier, as they were', () => {
-    expect(maxBattleWord('Machamp', 'G')).toBe('Gigantamax');
-    expect(maxBattleWord('Eternatus', 'D5')).toBe('Dynamax');
-    expect(maxBossTitle('Eternatus', 'D5')).toBe('Dynamax Eternatus (5★)');
-    expect(maxBossTitle('Eternatusish', 'G')).toBe('Gigantamax Eternatusish');
+    const machamp = { name: 'Machamp', key: 'machamp' };
+    expect(maxBattleWord(machamp, 'G')).toBe('Gigantamax');
+    expect(maxBattleWord(species, 'D5')).toBe('Dynamax');
+    expect(maxBossTierLabel(machamp, 'G')).toBe('Gigantamax');
+    expect(maxBossTierLabel(species, 'D5')).toBe('Dynamax 5★');
+  });
+
+  it('knows the Eternamax form among the entries', () => {
+    expect(isEternamaxForm({ form: 'ETERNATUS_ETERNAMAX' })).toBe(true);
+    expect(isEternamaxForm({ form: null })).toBe(false);
+    expect(isEternamaxForm(undefined)).toBe(false);
   });
 });

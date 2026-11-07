@@ -41,7 +41,7 @@ export function listedMaxBoss(
 
 const choice = (boss: MaxBoss, featured: boolean): MaxBossChoice => ({
   boss,
-  name: maxBossChoiceName(boss.name, boss.tier),
+  name: maxBossChoiceName({ name: boss.name, key: boss.entry?.key }, boss.tier),
   featured,
 });
 

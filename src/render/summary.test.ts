@@ -650,6 +650,20 @@ describe('renderSummary: max battles (plan 8X-3)', () => {
     expect(order.indexOf('**Level 5**')).toBeLessThan(order.indexOf('**Max battles**'));
   });
 
+  it('says Eternamax for the tier of Eternatus’s battle', () => {
+    const eternatus: ListedMax = {
+      party: {
+        ...testMax({ id: ID(709), tier: 'G', boss: { key: 'eternatus_eternamax' } }),
+        forumPostId: '300000000000000709',
+      },
+      title: 'Eternamax Eternatus',
+    };
+    const message = renderSummary([], PARTY_NOW, [], [], [eternatus]);
+    expect(linesUnder(message, '**Max battles**')[0]).toMatch(
+      /^<#300000000000000709> · Eternamax · ends /,
+    );
+  });
+
   it('leaves out one whose end has passed, and counts what does not fit', () => {
     const over = renderSummary(
       [],

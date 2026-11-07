@@ -3,7 +3,7 @@ import type { PokemonCatalogue } from '../pogo/catalogue.js';
 import type { PokemonEntry } from '../pogo/game-master.js';
 import { typedMaxBoss } from '../pogo/max-boss-list.js';
 import type { MaxBoss } from '../pogo/max-bosses.js';
-import type { MaxTier } from '../pogo/max-tier.js';
+import { isEternamaxForm, type MaxTier } from '../pogo/max-tier.js';
 import type { BigEvent, MaxEvent } from '../time/max-events.js';
 import {
   dayBattleEnd,
@@ -144,9 +144,6 @@ const LISTED_NAME_ALIKE = 0.9;
 /** Gigantamax and Eternamax battles are tier `G`; Dynamax battles have stars. */
 const isGiant = (form: MaxForm): boolean => form !== 'dynamax';
 
-/** A boss of the list in its Eternamax form (`ETERNATUS_ETERNAMAX`). */
-const isEternamax = (boss: MaxBoss): boolean => boss.entry?.form?.endsWith('_ETERNAMAX') === true;
-
 /**
  * The listed boss of a screen among those of its kind and species (`ofKind`, review A1): the read
  * name says the species only, so the list's form of it is taken. Each step keeps those that pass
@@ -164,7 +161,7 @@ function listedBoss(
     const kept = left.filter(keep);
     if (kept.length > 0) left = kept;
   };
-  narrow((boss) => isEternamax(boss) === (form === 'eternamax'));
+  narrow((boss) => isEternamaxForm(boss.entry) === (form === 'eternamax'));
   if (headsTier) narrow((boss) => boss.tier === headsTier);
   if (entry) narrow((boss) => boss.entry?.key === entry.key);
   return left[0];

@@ -236,9 +236,12 @@ describe('renderMaxPost: groups, controls and the rest', () => {
       'Gigantamax Machamp · Unlisted power spot',
     );
     // Eternatus's battle is Eternamax in its title, as on the game's screen.
-    const eternatus = view(testMax({ spot: TEST_PIN, tier: 'G' }), {
-      boss: { name: 'Eternatus (Eternamax)', shiny: false },
-    });
+    const eternatus = view(
+      testMax({ spot: TEST_PIN, tier: 'G', boss: { key: 'eternatus_eternamax' } }),
+      {
+        boss: { name: 'Eternatus (Eternamax)', shiny: false },
+      },
+    );
     expect(maxTitle(eternatus)).toBe('Eternamax Eternatus · Unlisted power spot');
     expect(textDisplays(renderMaxPost(eternatus).message)[0]?.split('\n')[0]).toBe(
       '### Eternamax Eternatus',

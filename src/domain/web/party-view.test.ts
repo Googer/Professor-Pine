@@ -267,6 +267,13 @@ describe('partyView', () => {
     expect(partyView(input([egg], { readOnly: true })).raids[0]?.mayChange).toBe(false);
   });
 
+  it('names Eternatus’s battle Eternamax, its tier as well as its title', () => {
+    const max = posted(testMax({ tier: 'G', boss: { key: 'eternatus_eternamax' } }));
+    const look = () => ({ ...MAX_LOOK(), boss: 'Eternatus (Eternamax)' });
+    const [shown] = partyView(input([max], { maxLook: look })).maxes;
+    expect(shown).toMatchObject({ tier: 'Eternamax', title: 'Eternamax Eternatus' });
+  });
+
   // Plan 8X-5 (design 7): a max battle is drawn at its spot, as a raid at its gym.
   it('shows a max battle at its spot, with its boss, tier, end, post and buttons, Done among them', () => {
     const max = posted(testMax(), WEST_FORUM, '700000000000000009');

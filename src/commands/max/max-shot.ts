@@ -183,7 +183,12 @@ export function maxShotRequest(
     boss: typed.boss ?? {
       boss: battle.boss,
       tier: battle.tier,
-      label: plain(maxBossTitle(bossName, battle.tier)),
+      label: plain(
+        maxBossTitle(
+          { name: bossName, key: 'key' in battle.boss ? battle.boss.key : undefined },
+          battle.tier,
+        ),
+      ),
     },
     spot,
     end: typed.end ?? battle.end,

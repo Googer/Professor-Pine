@@ -1,5 +1,5 @@
 import { maxEnded } from '../domain/party/max.js';
-import { maxTierLabel } from '../domain/pogo/max-tier.js';
+import { maxBossTierLabel } from '../domain/pogo/max-tier.js';
 import {
   partyWord,
   type MaxParty,
@@ -92,7 +92,9 @@ function maxLine({ party, title }: ListedMax): string {
   const post = party.forumPostId === null ? `**${plain(title)}**` : `<#${party.forumPostId}>`;
   const end = party.endTime ?? party.lastPossibleTime;
   const when = end === null ? 'no time set' : `ends ${timestamp(end, 'R')}`;
-  return `${post} · ${maxTierLabel(party.max.tier)} · ${when} · ${trainerCount(party)}`;
+  const { boss, tier } = party.max;
+  const shown = maxBossTierLabel({ key: 'key' in boss ? boss.key : undefined }, tier);
+  return `${post} · ${shown} · ${when} · ${trainerCount(party)}`;
 }
 
 /** A meetup for a list: the party and the title its post has. */

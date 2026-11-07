@@ -9,7 +9,12 @@ import type { SubcommandPart } from '../../discord/command-group.js';
 import { bossReport, familyReport, type ReportedOverride } from '../../domain/pogo/boss-report.js';
 import { feedLookupOf } from '../../domain/pogo/feed-lookup.js';
 import { MAX_OPS, maxBossesAt } from '../../domain/pogo/max-bosses.js';
-import { MAX_TIERS, maxTierLabel, type MaxTier } from '../../domain/pogo/max-tier.js';
+import {
+  MAX_TIERS,
+  maxTierLabel,
+  type MaxTier,
+  maxBossTierLabel,
+} from '../../domain/pogo/max-tier.js';
 import {
   howIdentified,
   isMegaLevel,
@@ -243,7 +248,7 @@ function maxListLines(ctx: AppContext, now: number, tier?: MaxTier): string[] {
       '**Coming**',
       ...coming.map(
         ({ boss, row }) =>
-          `- **${plain(boss.name)}** (${maxTierLabel(boss.tier)}) · from ${timestamp(row.firstSeen, 'f')}`,
+          `- **${plain(boss.name)}** (${maxBossTierLabel({ key: boss.entry?.key }, boss.tier)}) · from ${timestamp(row.firstSeen, 'f')}`,
       ),
     );
   }

@@ -53,6 +53,8 @@ export interface ShownSlot {
 /** What `/counters` shows for a max battle (plan 8X-6). */
 export interface MaxTeamView {
   bossName: string;
+  /** The boss's catalogue key, for its label (`maxBossTitle`). */
+  bossKey?: string;
   tier: MaxTier;
   bossTypes: readonly PokemonType[];
   picture: string | undefined;
@@ -175,7 +177,7 @@ const TEAM_SOURCE = '-# Pokebattler’s suggested team, as its Lobby builds it';
 export function renderMaxTeam(view: MaxTeamView): V2Message {
   const role = MAX_ROLES[view.role];
   const head = [
-    `### Max battle team against ${plain(maxBossTitle(view.bossName, view.tier))}`,
+    `### Max battle team against ${plain(maxBossTitle({ name: view.bossName, key: view.bossKey }, view.tier))}`,
     [
       ...(view.bossTypes.length === 0
         ? []

@@ -239,7 +239,11 @@ function alreadyThere(
   where: string,
   names: MaxNames,
 ): string {
-  const title = maxBossTitle(ctx.partyService.maxView(party).boss.name, party.max.tier);
+  const { boss } = party.max;
+  const title = maxBossTitle(
+    { name: ctx.partyService.maxView(party).boss.name, key: 'key' in boss ? boss.key : undefined },
+    party.max.tier,
+  );
   const named = party.forumPostId === null ? undefined : names.post(party.forumPostId);
   const post =
     party.forumPostId === null ? names.postPending : named === undefined ? '' : `: ${named}`;

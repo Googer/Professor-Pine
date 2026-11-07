@@ -8,6 +8,7 @@ import { typedMaxBoss } from '../../domain/pogo/max-boss-list.js';
 import type { MaxBoss } from '../../domain/pogo/max-bosses.js';
 import {
   battleKindOf,
+  isEternamaxForm,
   isMaxTier,
   MAX_TIERS,
   maxBossTitle,
@@ -115,14 +116,31 @@ function refOf(boss: MaxBoss): RaidBossRef {
 }
 
 function read(boss: RaidBossRef, name: string, tier: MaxTier): ReadMaxBoss {
-  return { boss, tier, label: plain(maxBossTitle(name, tier)) };
+  return {
+    boss,
+    tier,
+    label: plain(maxBossTitle({ name, key: 'key' in boss ? boss.key : undefined }, tier)),
+  };
 }
 
-/** A typed `Gigantamax Machamp` or `G-Max Machamp`, `Dynamax Machamp`: the kind and the rest. */
-export function kindOfText(text: string): { gigantamax?: boolean; rest: string } {
-  const match = /^(gigantamax|g-?max|dynamax|d-?max)\s+(.+)$/i.exec(text.trim());
+/**
+ * A typed `Gigantamax Machamp` or `G-Max Machamp`, `Dynamax Machamp`: the kind and the rest.
+ * `Eternamax Eternatus`, as Eternatus's choice is offered (`maxBossChoiceName`), is of the
+ * Gigantamax kind (tier `G`).
+ */
+export function kindOfText(text: string): {
+  gigantamax?: boolean;
+  eternamax?: true;
+  rest: string;
+} {
+  const match = /^(gigantamax|g-?max|eternamax|dynamax|d-?max)\s+(.+)$/i.exec(text.trim());
   if (!match?.[1] || !match[2]) return { rest: text.trim() };
-  return { gigantamax: /^g/i.test(match[1]), rest: match[2] };
+  const eternamax = /^e/i.test(match[1]);
+  return {
+    gigantamax: eternamax || /^g/i.test(match[1]),
+    ...(eternamax ? { eternamax: true as const } : {}),
+    rest: match[2],
+  };
 }
 
 /**
@@ -162,10 +180,17 @@ export function readMaxBoss(
     if (!boss) throw new UserError('That boss is no longer on the list: pick it again.');
     return read(refOf(boss), boss.name, boss.tier);
   }
-  const { gigantamax, rest } = kindOfText(text);
-  const entry = ctx.pokemon.exact(rest);
+  const { gigantamax, eternamax, rest } = kindOfText(text);
+  const named = ctx.pokemon.exact(rest);
   const shown = plain(truncate(text.trim(), 80));
-  if (!entry) throw new UnknownMaxBoss(shown);
+  if (!named) throw new UnknownMaxBoss(shown);
+  // `Eternamax Eternatus` names the species; the list has its Eternamax form.
+  const form = eternamax
+    ? bosses.find(
+        (boss) => boss.tier === 'G' && isEternamaxForm(boss.entry) && boss.entry?.dex === named.dex,
+      )?.entry
+    : undefined;
+  const entry = form ?? named;
   const typed = typedMaxBoss(entry, bosses, ctx.gameData.catalogue);
   // `/boss` in a battle (`fallback`) with a name that says no kind (review B, B7): a boss of the
   // battle's own kind first, listed; in a Gigantamax battle one the game lets battle so (it has no

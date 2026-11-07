@@ -30,7 +30,7 @@ import {
   mayNotMove,
   stopsAhead,
 } from '../party/train.js';
-import { maxBossTitle, maxTierLabel } from '../pogo/max-tier.js';
+import { maxBossTierLabel, maxBossTitle } from '../pogo/max-tier.js';
 import { raidTierGroup, raidWords } from '../pogo/raid-tier.js';
 import type {
   GroupCounts,
@@ -344,16 +344,17 @@ function raidOf(party: RaidParty, link: string, input: PartyViewInput): MapRaid 
 function maxOf(party: MaxParty, link: string, input: PartyViewInput): MapMax | null {
   if (maxEnded(party, input.now) || input.maxLook === undefined) return null;
   const look = input.maxLook(party);
-  const { tier } = party.max;
+  const { tier, boss } = party.max;
+  const naming = { name: look.boss, key: 'key' in boss ? boss.key : undefined };
   return {
     kind: 'max',
     id: party.id,
     spotId: look.spotId,
     picture: allowedPicture(look.picture, input.pictureOrigins) ?? null,
     level: tier,
-    tier: maxTierLabel(tier),
+    tier: maxBossTierLabel(naming, tier),
     boss: look.boss,
-    title: maxBossTitle(look.boss, tier),
+    title: maxBossTitle(naming, tier),
     endTime: party.endTime ?? party.lastPossibleTime ?? input.now,
     link,
     place: { ...look.place, lat: round(look.place.lat), lon: round(look.place.lon) },

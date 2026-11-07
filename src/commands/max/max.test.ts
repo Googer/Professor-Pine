@@ -16,7 +16,8 @@ import {
   type FakeInteraction,
 } from '../../../test/support/fake-interactions.js';
 import { WEST_CHANNEL, WEST_FORUM } from '../../../test/support/gyms.js';
-import { MAX_ZONE } from '../../../test/support/max-bosses.js';
+import { MAX_ZONE, pokebattlerFeed } from '../../../test/support/max-bosses.js';
+import { feedReply } from '../../../test/support/raid-bosses.js';
 import { maxBossServiceWith } from '../../../test/support/max-boss-service.js';
 import { readMaxEventFeed } from '../../../test/support/max-events.js';
 import { ALICE, asMax, at, BOB, TEST_SPOT } from '../../../test/support/parties.js';
@@ -39,6 +40,7 @@ import { maxPinControls } from '../../components/max-pin.js';
 import { closeControls } from '../parties/delete.js';
 import { end } from '../raids/change.js';
 import { max, maxControls } from './max.js';
+import { maxBossOptions } from './max-input.js';
 import { MAX_BARRED, MAX_ENDED, MAX_PIN_BLOCKED, maxReportWords } from './max-report.js';
 
 /** Thursday 2026-10-22, 14:00: an ordinary day, after the max feed was read (10-20). */
@@ -115,7 +117,7 @@ async function setup(
     return interaction;
   };
   // `entries` is the context's log; `logged` the services' (the reports' among them).
-  return { ...made, ctx, entries, logged: made.entries, router, run, handle, throttles };
+  return { ...made, ctx, bosses, entries, logged: made.entries, router, run, handle, throttles };
 }
 
 /** What the member was told last: a follow-up, else the edit of the deferred answer, else the reply. */
@@ -153,6 +155,26 @@ describe('/max', () => {
     const made = await setup();
     await made.run({ boss: 'Machamp', tier: 'G', spot: `powerspot:${TEST_SPOT.id}` });
     expect(made.store.active()[0]?.endTime).toBe(at('2026-10-22T15:00'));
+  });
+
+  it('takes Eternatus typed as its choice is offered, "Eternamax Eternatus"', async () => {
+    const made = await setup();
+    // A feed with Eternatus's Eternamax battle listed.
+    made.bosses.state.respond = () =>
+      Promise.resolve(
+        feedReply(
+          200,
+          JSON.stringify(
+            pokebattlerFeed({ RAID_LEVEL_6_MAX: [{ pokemonId: 'ETERNATUS_ETERNAMAX_FORM' }] }),
+          ),
+        ),
+      );
+    await made.bosses.service.sync();
+    const offered = maxBossOptions(made.ctx, 'eternatus', Date.now()).map((one) => one.name);
+    expect(offered).toEqual(['Eternamax Eternatus']);
+    const used = await made.run({ boss: 'Eternamax Eternatus', spot: `powerspot:${TEST_SPOT.id}` });
+    expect(told(used)).toMatch(/^Reported: Eternamax Eternatus at /);
+    expect(made.store.active()[0]).toMatchObject({ max: { tier: 'G' } });
   });
 
   it('asks the tier of a boss on no list, and refuses a Pokémon that is no max boss', async () => {

@@ -1,7 +1,7 @@
 import { maxChoiceValue, TIER_CHOICES } from '../commands/max/max-input.js';
 import type { MaxBossChoice } from '../domain/pogo/max-boss-list.js';
 import type { MaxBoss } from '../domain/pogo/max-bosses.js';
-import { maxTierLabel } from '../domain/pogo/max-tier.js';
+import { maxBossTierLabel } from '../domain/pogo/max-tier.js';
 import type { MaxOptionsView } from '../domain/web/max-data.js';
 import { allowedPicture } from '../domain/web/picture.js';
 
@@ -31,7 +31,7 @@ export function maxOptions(
           value: maxChoiceValue(choice.boss),
           name: choice.boss.name,
           level: choice.boss.tier,
-          tier: maxTierLabel(choice.boss.tier),
+          tier: maxBossTierLabel({ key: choice.boss.entry?.key }, choice.boss.tier),
           featured: choice.featured,
           ...(image === undefined ? {} : { image }),
         };

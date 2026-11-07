@@ -5,7 +5,7 @@ import { memberOf, type MaxParty, type PowerSpot } from '../domain/party/party.j
 import type { PokemonCatalogue } from '../domain/pogo/catalogue.js';
 import { listedMaxBoss } from '../domain/pogo/max-boss-list.js';
 import type { MaxBoss } from '../domain/pogo/max-bosses.js';
-import { maxBossTitle } from '../domain/pogo/max-tier.js';
+import { maxBossTitle, type MaxBossNaming } from '../domain/pogo/max-tier.js';
 import { titleCase } from '../domain/pogo/names.js';
 import type { MaxLook } from '../domain/web/party-view.js';
 import { maxBossPicture, type PokemonIcons } from '../domain/pogo/pokemon-icons.js';
@@ -139,9 +139,15 @@ export function maxLook(view: MaxPostView): MaxLook {
   };
 }
 
+/** The boss as its labels name it: its name as shown, and the key of the battle's boss. */
+function namingOf(view: Pick<MaxPostView, 'party' | 'boss'>): MaxBossNaming {
+  const { boss } = view.party.max;
+  return { name: view.boss.name, key: 'key' in boss ? boss.key : undefined };
+}
+
 /** `Dynamax Machamp (2★)`, `Gigantamax Machamp`: what the battle is (`maxBossTitle`). */
 function what(view: MaxPostView): string {
-  return maxBossTitle(view.boss.name, view.party.max.tier);
+  return maxBossTitle(namingOf(view), view.party.max.tier);
 }
 
 /** `Until 21:00 (in 3 hours).`, `Ended at …`, or why staff closed it. */
@@ -226,7 +232,7 @@ export function maxTitle(view: Pick<MaxPostView, 'party' | 'boss' | 'wayspot'>):
   const { spot } = view.party.max;
   const name = spot.kind === 'pin' ? UNLISTED_SPOT : spotNow(spot, view.wayspot).title;
   const where = truncate(tidyTitle(name), 60);
-  const battle = tidyTitle(maxBossTitle(view.boss.name, view.party.max.tier));
+  const battle = tidyTitle(maxBossTitle(namingOf(view), view.party.max.tier));
   return tidyTitle(`${truncate(battle, LIMITS.title - where.length - 3)} · ${where}`);
 }
 

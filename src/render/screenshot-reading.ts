@@ -7,7 +7,7 @@ import {
   type StoredReport,
 } from '../domain/ocr/screenshot-record.js';
 import { TYPED_BOSS_REFUSED } from '../domain/ocr/max-decision.js';
-import { maxBossTitle, maxTierLabel } from '../domain/pogo/max-tier.js';
+import { maxBossTitle, maxBossTierLabel } from '../domain/pogo/max-tier.js';
 import type { ReportDoubt } from '../domain/ocr/screenshot-report.js';
 import { raidTierLabel } from '../domain/pogo/raid-tier.js';
 import { cutMarkdown, plain, timestamp, truncate } from './text.js';
@@ -335,7 +335,15 @@ export function shortMaxReading(report: StoredMaxReport, label?: string): string
   const what =
     label ??
     (report.boss && report.tier
-      ? plain(maxBossTitle(report.boss.name, report.tier))
+      ? plain(
+          maxBossTitle(
+            {
+              name: report.boss.name,
+              key: 'key' in report.boss.ref ? report.boss.ref.key : undefined,
+            },
+            report.tier,
+          ),
+        )
       : 'A max battle');
   return report.end === null ? what : `${what}, ending at ${timestamp(report.end)}`;
 }
@@ -395,7 +403,10 @@ export function maxReadingLines(
   const heads =
     report.heads === null ? 'no heads' : `${report.heads} head${report.heads === 1 ? '' : 's'}`;
   const form = report.form === null ? 'no max battle' : FORM_WORDS[report.form];
-  const tier = report.tier === null ? 'no tier' : `**${maxTierLabel(report.tier)}**`;
+  const tier =
+    report.tier === null
+      ? 'no tier'
+      : `**${maxBossTierLabel({ key: report.boss && 'key' in report.boss.ref ? report.boss.ref.key : undefined }, report.tier)}**`;
   const boss = report.boss ? `**${plain(report.boss.name)}**` : 'no boss';
   const lines = [
     `**Power Spot:** read ${quoted(report.spot.read)} → ${spot}`,

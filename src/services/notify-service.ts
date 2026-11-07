@@ -574,7 +574,7 @@ export class NotifyService implements PartyNotifier {
     const kind = battleKindOf(party.max.tier) === 'gigantamax' ? 'gigantamax' : 'dynamax';
     const heard = (id: string): string => `${String(party.guildId)} ${id} ${kind} ${bossId(ref)}`;
     const eventAt = this.now();
-    const title = maxBossTitle(entry.name, party.max.tier);
+    const title = maxBossTitle(entry, party.max.tier);
     let brief: { made?: PartyBrief | undefined } | undefined;
     this.announce({
       key: party.id,
