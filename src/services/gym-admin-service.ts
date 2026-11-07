@@ -331,11 +331,10 @@ export class GymAdminService {
    * moved.
    */
   near(point: LatLon, guildId: number | undefined, exceptId?: number): NearbyGym[] {
-    const theirs = this.options.directory.all().filter((gym) => this.mayTouch(gym.id, guildId));
-    return placesWithin(point, theirs, DUPLICATE_METRES, exceptId).map(({ place, metres }) => ({
-      gym: place,
-      metres,
-    }));
+    // The few within ten meters first, then whose they are: not every gym's regions each time.
+    return placesWithin(point, this.options.directory.all(), DUPLICATE_METRES, exceptId)
+      .filter(({ place }) => this.mayTouch(place.id, guildId))
+      .map(({ place, metres }) => ({ gym: place, metres }));
   }
 
   /**
