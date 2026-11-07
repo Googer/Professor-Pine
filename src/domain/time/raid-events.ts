@@ -87,13 +87,16 @@ export interface PageRaidHourDay {
 }
 
 /** The time of a Raid Hour where the settings have no weekly one: 18:00, for an hour. */
-const STANDARD_RAID_HOUR = { hour: 18, minutes: 60 } as const;
+const STANDARD_RAID_HOUR: { hour: number; minute?: number; minutes: number } = {
+  hour: 18,
+  minutes: 60,
+};
 
 /**
  * The Raid Hours an event's page names (Matt, 2026-11-07: "Into the Wild" has two that only its
  * Leek Duck page lists; real Raid Hours, under the standard rules), as raid events: on each day,
- * at the hour and for the length of the weekly Raid Hour of the settings (`weekly`, 18:00 for 60
- * minutes where it is null; the page's sentence of times is not read), named by the bosses
+ * at `time`, the page's own (`eventPageTime`, read from the Raids section's sentence) or else the
+ * weekly Raid Hour's of the settings (18:00 for 60 minutes where it is null), named by the bosses
  * listed under it ("Zacian (Crowned Sword) Raid Hour", "Raid Hour" without any). The page gives
  * no year: it is the one in which the day falls within the event (`span`, from its start's day to
  * its end's day in `zone`, an end at midnight the day before's); a day outside it, or a day the
@@ -102,11 +105,11 @@ const STANDARD_RAID_HOUR = { hour: 18, minutes: 60 } as const;
 export function eventPageRaidHours(
   hours: readonly PageRaidHourDay[],
   span: { start: number; end: number },
-  weekly: { hour: number; minutes: number } | null,
+  time: { hour: number; minute?: number; minutes: number } | null,
   zone: string,
 ): RaidEvent[] {
   if (span.end <= span.start) return [];
-  const { hour, minutes } = weekly ?? STANDARD_RAID_HOUR;
+  const { hour, minute = 0, minutes } = time ?? STANDARD_RAID_HOUR;
   const first = zoned(span.start, zone).toPlainDate();
   const last = zoned(span.end - 1, zone).toPlainDate();
   const within = (date: Temporal.PlainDate): boolean =>
@@ -116,7 +119,7 @@ export function eventPageRaidHours(
     // An event spans at most the turn of one year.
     const start = [first.year, first.year + 1]
       .filter((year) => year <= last.year)
-      .map((year) => localTime({ year, month, day, hour }, zone))
+      .map((year) => localTime({ year, month, day, hour, minute }, zone))
       .find((time) => time !== undefined && within(time.toPlainDate()));
     if (start === undefined || events.some((one) => one.start === start.epochMilliseconds)) {
       continue;

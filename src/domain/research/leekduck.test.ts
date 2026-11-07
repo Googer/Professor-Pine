@@ -3,6 +3,7 @@ import { catalogueFixture } from '../../../test/support/game-data.js';
 import { readResearchPage } from '../../../test/support/research.js';
 import { readEventPage } from '../../../test/support/spawn-events.js';
 import {
+  eventPageTime,
   htmlText,
   parseEventRaidHours,
   parseEventSpawns,
@@ -355,5 +356,72 @@ describe('parseEventRaidHours', () => {
       ),
     ).toBe(1);
     expect(raidHourHeadings('<h3 id="raid-hour-monday">Raid Hour</h3>')).toBe(0);
+  });
+});
+
+describe('eventPageTime', () => {
+  const MONDAY = { month: 11, day: 9 };
+  const TUESDAY = { month: 11, day: 10 };
+  const raids = (...paragraphs: string[]) =>
+    `<h2 id="raids">Raids</h2>${paragraphs.map((one) => `<p>${one}</p>`).join('')}` +
+    '<h3 id="raid-hour-monday-november-9">Raid Hour: Monday, November 9</h3><ul></ul>' +
+    '<h2 id="max-battles">Max Battles</h2><p>From 2:00 p.m. to 5:00 p.m.</p>';
+
+  it('reads the one time range of the Raids section’s sentence (Into the Wild)', () => {
+    const intoTheWild = readEventPage('leekduck-event-into-the-wild-2026.html');
+    expect(eventPageTime(intoTheWild, 'raids', [MONDAY, TUESDAY])).toEqual({
+      kind: 'time',
+      time: { hour: 18, minute: 0, minutes: 60 },
+    });
+  });
+
+  it('reads minutes, a range without the first a.m. or p.m., and the morning', () => {
+    expect(
+      eventPageTime(raids('from 5:30 p.m. to 7:00 p.m. local time'), 'raids', [MONDAY]),
+    ).toEqual({ kind: 'time', time: { hour: 17, minute: 30, minutes: 90 } });
+    expect(eventPageTime(raids('from 6 to 7 p.m. on November 9'), 'raids', [MONDAY])).toEqual({
+      kind: 'time',
+      time: { hour: 18, minute: 0, minutes: 60 },
+    });
+    expect(eventPageTime(raids('from 11 a.m. to 12 p.m.'), 'raids', [MONDAY])).toEqual({
+      kind: 'time',
+      time: { hour: 11, minute: 0, minutes: 60 },
+    });
+    // The same range said twice is one.
+    expect(
+      eventPageTime(raids('from 6 p.m. to 7 p.m.', 'Again from 6:00 p.m. to 7:00 p.m.'), 'raids', [
+        MONDAY,
+      ]),
+    ).toEqual({ kind: 'time', time: { hour: 18, minute: 0, minutes: 60 } });
+  });
+
+  it('gives none for a section that names no time, and for a page without the section', () => {
+    expect(
+      eventPageTime(raids('The following Pokémon will appear in raids.'), 'raids', [MONDAY]),
+    ).toEqual({ kind: 'none' });
+    expect(eventPageTime('<h2 id="spawns">Spawns</h2>', 'raids', [MONDAY])).toEqual({
+      kind: 'none',
+    });
+  });
+
+  it('is unclear with several ranges, a range it cannot read, or dates that leave a heading out', () => {
+    const unclear = { kind: 'unclear' };
+    expect(
+      eventPageTime(
+        raids('from 6 p.m. to 7 p.m. on Monday, November 9, and from 5 p.m. to 6 p.m. on Tuesday'),
+        'raids',
+        [MONDAY, TUESDAY],
+      ),
+    ).toEqual(unclear);
+    expect(eventPageTime(raids('from 7 p.m. to 6 p.m.'), 'raids', [MONDAY])).toEqual(unclear);
+    expect(eventPageTime(raids('at 6 p.m. sharp'), 'raids', [MONDAY])).toEqual(unclear);
+    expect(eventPageTime(raids('from noon to 1 p.m.'), 'raids', [MONDAY])).toEqual(unclear);
+    // The sentence names Monday only; Tuesday's heading is left out.
+    expect(
+      eventPageTime(raids('from 6 p.m. to 7 p.m. local time on Monday, November 9'), 'raids', [
+        MONDAY,
+        TUESDAY,
+      ]),
+    ).toEqual(unclear);
   });
 });

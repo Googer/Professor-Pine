@@ -159,6 +159,13 @@ describe('eventPageRaidHours', () => {
     ]);
   });
 
+  it('places each day at the page’s own time where it gives one, minutes included', () => {
+    const page = [{ month: 11, day: 9, bosses: ['Zacian (Crowned Sword)'] }];
+    expect(
+      eventPageRaidHours(page, INTO_THE_WILD, { hour: 17, minute: 30, minutes: 90 }, ZONE),
+    ).toEqual([hour('2026-11-09T17:30', 'Zacian (Crowned Sword) Raid Hour', 90)]);
+  });
+
   it('names a Raid Hour without bosses "Raid Hour", and several bosses with "and"', () => {
     const page = [
       { month: 11, day: 11, bosses: [] },

@@ -1,6 +1,7 @@
 import { BoundedMap } from '../bounded-map.js';
 import { costumedSighting } from '../domain/pogo/costumes.js';
 import {
+  eventPageTime,
   parseEventRaidHours,
   parseEventSpawns,
   raidHourHeadings,
@@ -100,7 +101,8 @@ export interface EventPageOptions {
   zone: string;
   /**
    * The weekly Raid Hour of the settings (`raidEvents.weeklyRaidHour`): a page's Raid Hour is at
-   * its hour and lasts as long; 18:00 for an hour when it is null.
+   * its hour and lasts as long where the page's Raids section gives no one time of its own
+   * (`eventPageTime`); 18:00 for an hour when it is null.
    */
   weeklyRaidHour: { hour: number; minutes: number } | null;
   /** How long one page may take before it is abandoned. Default 30 seconds. */
@@ -287,7 +289,18 @@ export class EventPageService implements EventSpawnProvider {
         this.failures.delete(id);
         const spawns = parseEventSpawns(html);
         const read = parseEventRaidHours(html);
-        const placed = eventPageRaidHours(read, span, weeklyRaidHour, zone);
+        // The page's own time where its sentence gives one for every day; else the weekly one's.
+        const raidTime = eventPageTime(html, 'raids', read);
+        if (raidTime.kind === 'unclear' && read.length > 0) {
+          this.tellOnce(`${id}:raid-time`, () =>
+            log.warn(
+              { event: id, url },
+              'the time of an event page’s Raid Hours could not be read; the weekly one’s taken',
+            ),
+          );
+        }
+        const time = raidTime.kind === 'time' ? raidTime.time : weeklyRaidHour;
+        const placed = eventPageRaidHours(read, span, time, zone);
         const headings = raidHourHeadings(html);
         if (read.length < headings) {
           // The page's shape changed (review ER-3).

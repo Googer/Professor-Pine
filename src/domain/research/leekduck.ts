@@ -261,8 +261,8 @@ function raidHourDate(heading: string): { month: number; day: number } | undefin
  * The Raid Hours of a Leek Duck event page (Matt, 2026-11-07: "Into the Wild" has its Raid Hours
  * only on its page): in the Raids section (`<h2 id="raids">` up to the next `<h2`), each `<h3>`
  * whose text is `Raid Hour: <weekday>, <month> <day>` (`raidHourDate`), with the names of the
- * Pokémon listed after it up to the next heading or rule. The paragraph's times are not read:
- * a Raid Hour lasts as the weekly one (`eventPageRaidHours`). At most 20; none for a page
+ * Pokémon listed after it up to the next heading or rule. Their time is the paragraphs'
+ * (`eventPageTime`), else the weekly one's (`eventPageRaidHours`). At most 20; none for a page
  * without the section.
  */
 export function parseEventRaidHours(html: string): PageRaidHour[] {
@@ -293,10 +293,107 @@ export function parseEventRaidHours(html: string): PageRaidHour[] {
 
 /** An event page's Raids section, `<h2 id="raids"` up to the next `<h2`; empty without one. */
 function raidsSection(html: string): string {
-  const start = html.indexOf('<h2 id="raids"');
+  return sectionOf(html, 'raids');
+}
+
+/** An event page's section of that id, `<h2 id="<id>"` up to the next `<h2`; empty without one. */
+function sectionOf(html: string, id: string): string {
+  const start = html.indexOf(`<h2 id="${id}"`);
   if (start < 0) return '';
   const next = html.indexOf('<h2', start + 3);
   return html.slice(start, next < 0 ? undefined : next);
+}
+
+/** A time of day an event page gives for its hours: from `hour`:`minute`, lasting `minutes`. */
+export interface PageHoursTime {
+  hour: number;
+  minute: number;
+  minutes: number;
+}
+
+/**
+ * What a section of an event page says of the time of its dated hours (`eventPageTime`): one
+ * time for all of them; none at all; or `unclear` (several ranges, one that cannot be read, a
+ * time that is no range, or dates that leave a heading out).
+ */
+export type PageTimeRead =
+  { kind: 'time'; time: PageHoursTime } | { kind: 'none' } | { kind: 'unclear' };
+
+/** `from 6:00 p.m. to 7:00 p.m.` (also `from 6 to 7 p.m.`, `until`, a dash): one time range. */
+const TIME_RANGE =
+  /\bfrom\s+(\d{1,2})(?::(\d{2}))?\s*(?:([ap])\.?\s?m\b\.?)?\s*(?:to|until|–|-)\s*(\d{1,2})(?::(\d{2}))?\s*([ap])\.?\s?m\b/gi;
+/** Any time of day a sentence may say, a range or not. */
+const ANY_TIME = /\b\d{1,2}(?::\d{2})?\s*[ap]\.?\s?m\b|\bnoon\b|\bmidnight\b/i;
+/** `November 9`, `Nov. 9th`: a date a sentence names (a month's first letters, three or more). */
+const NAMED_DATE = /\b([a-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?\b/gi;
+/** The longest time a section's range may give its hours. */
+const MAX_PAGE_HOURS_MINUTES = 12 * 60;
+
+/** The month of a word, by its first letters (three or more); 0 for none. */
+function monthOf(word: string): number {
+  const name = word.toLowerCase();
+  return name.length < 3 ? 0 : MONTH_NAMES.findIndex((full) => full.startsWith(name)) + 1;
+}
+
+/** Minutes after midnight of a clock time with its `a`/`p`: 12 a.m. is midnight, 12 p.m. noon. */
+function minutesOfDay(hour: number, minute: number, half: string): number | undefined {
+  if (hour < 1 || hour > 12 || minute > 59) return undefined;
+  return ((hour % 12) + (half.toLowerCase() === 'p' ? 12 : 0)) * 60 + minute;
+}
+
+/**
+ * The time a section of an event page (`raids`, `max-battles`) gives its dated hours, read from
+ * its paragraphs (Into the Wild's Raids section: "… featured in Raid Hours from 6:00 p.m. to 7:00
+ * p.m. local time on Monday, November 9, and Tuesday, November 10, respectively"): the one time
+ * range they name (the same range said twice is one), when every heading's day (`days`) is among
+ * the dates they name, or they name none ("… for one day each on the following schedule"). A
+ * range without its first `a.m.`/`p.m.` takes the second's. `none` where the paragraphs name no
+ * time; `unclear` for several ranges, a range that ends before it starts or lasts over 12 hours,
+ * a time that is no range ("at 6 p.m.", "from noon"), or dates that leave a day out.
+ */
+export function eventPageTime(
+  html: string,
+  section: 'raids' | 'max-battles',
+  days: readonly { month: number; day: number }[],
+): PageTimeRead {
+  const paragraphs = [...sectionOf(html, section).matchAll(/<p(?:\s[^>]*)?>([\s\S]*?)<\/p>/g)]
+    .map((match) => htmlText(match[1] ?? ''))
+    .join(' ');
+  const ranges = new Map<string, PageHoursTime>();
+  let unreadable = false;
+  for (const match of paragraphs.matchAll(TIME_RANGE)) {
+    const [, fromHour, fromMinute, fromHalf, toHour, toMinute, toHalf] = match;
+    if (fromHour === undefined || toHour === undefined || toHalf === undefined) continue;
+    const end = minutesOfDay(Number(toHour), Number(toMinute ?? 0), toHalf);
+    let start = minutesOfDay(Number(fromHour), Number(fromMinute ?? 0), fromHalf ?? toHalf);
+    // "from 11 to 1 p.m.": the first half of the day.
+    if (fromHalf === undefined && start !== undefined && end !== undefined && start >= end) {
+      start -= 12 * 60;
+    }
+    const minutes = start === undefined || end === undefined ? 0 : end - start;
+    if (start === undefined || start < 0 || minutes <= 0 || minutes > MAX_PAGE_HOURS_MINUTES) {
+      unreadable = true;
+      continue;
+    }
+    ranges.set(`${String(start)}+${String(minutes)}`, {
+      hour: Math.floor(start / 60),
+      minute: start % 60,
+      minutes,
+    });
+  }
+  const [only, ...more] = [...ranges.values()];
+  if (only === undefined && !unreadable) {
+    return ANY_TIME.test(paragraphs) ? { kind: 'unclear' } : { kind: 'none' };
+  }
+  if (only === undefined || unreadable || more.length > 0) return { kind: 'unclear' };
+  const named = [...paragraphs.matchAll(NAMED_DATE)].flatMap((match) => {
+    const month = monthOf(match[1] ?? '');
+    return month === 0 ? [] : [`${String(month)}-${String(Number(match[2]))}`];
+  });
+  const covered =
+    named.length === 0 ||
+    days.every(({ month, day }) => named.includes(`${String(month)}-${String(day)}`));
+  return covered ? { kind: 'time', time: only } : { kind: 'unclear' };
 }
 
 /**

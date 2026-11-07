@@ -322,6 +322,50 @@ describe('EventPageService: the Raid Hours of the events’ pages', () => {
     expect(sorted(service)).toEqual(BOTH);
   });
 
+  it('places the Raid Hours at the time the Raids section’s sentence gives, not the weekly one’s', async () => {
+    const paged = { now: PAGED.filter((event) => event.id === 'into-the-wild-2026') };
+    const weekly = { hour: 17, minutes: 90 };
+    const { service, clock, said } = serviceWith(byAddress, [], paged, weekly);
+    clock.now = at('2026-11-07T12:00');
+    await service.refresh();
+    expect(sorted(service)).toEqual(BOTH);
+    // Another time on the page: the Raid Hours follow it.
+    const later = intoTheWild.replace('from 6:00 p.m. to 7:00 p.m.', 'from 5:00 p.m. to 6:30 p.m.');
+    const moved = serviceWith(() => page(later), [], paged, weekly);
+    moved.clock.now = at('2026-11-07T12:00');
+    await moved.service.refresh();
+    expect(sorted(moved.service).map((one) => [one.start, one.end])).toEqual([
+      [at('2026-11-09T17:00'), at('2026-11-09T18:30')],
+      [at('2026-11-10T17:00'), at('2026-11-10T18:30')],
+    ]);
+    expect(
+      said('the time of an event page’s Raid Hours could not be read; the weekly one’s taken'),
+    ).toBe(0);
+  });
+
+  it('places the Raid Hours at the weekly one’s time where the sentence is unclear, and warns once', async () => {
+    const paged = { now: PAGED.filter((event) => event.id === 'into-the-wild-2026') };
+    const unclear = intoTheWild.replace(
+      'from 6:00 p.m. to 7:00 p.m.',
+      'from 6:00 p.m. to 7:00 p.m. and from 4:00 p.m. to 5:00 p.m.',
+    );
+    const { service, clock, said } = serviceWith(() => page(unclear), [], paged, {
+      hour: 17,
+      minutes: 90,
+    });
+    clock.now = at('2026-11-07T12:00');
+    await service.refresh();
+    expect(sorted(service).map((one) => [one.start, one.end])).toEqual([
+      [at('2026-11-09T17:00'), at('2026-11-09T18:30')],
+      [at('2026-11-10T17:00'), at('2026-11-10T18:30')],
+    ]);
+    clock.now += REREAD_MS;
+    await service.refresh();
+    expect(
+      said('the time of an event page’s Raid Hours could not be read; the weekly one’s taken'),
+    ).toBe(1);
+  });
+
   it('keeps the Raid Hours of the last read when a page gives none, and warns (ER-2)', async () => {
     let answer = byAddress;
     const paged = { now: PAGED.filter((event) => event.id === 'into-the-wild-2026') };
