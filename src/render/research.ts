@@ -221,11 +221,11 @@ export function researchWords(
   ].join('\n');
   const where =
     view.posts === false
-      ? `It stands ${view.until}.`
+      ? `It lasts ${view.until}.`
       : view.channels.length === 0
-        ? `It lies in no region now, so no post shows it; it stands ${view.until}.`
+        ? `It lies in no region now, so no post shows it; it lasts ${view.until}.`
         : view.boards.length === 0
-          ? `It stands ${view.until}.`
+          ? `It lasts ${view.until}.`
           : `${boardWords(view.boards.map(channel))}, ${view.until}.`;
   return { head, where };
 }

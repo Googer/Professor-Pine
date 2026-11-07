@@ -86,7 +86,7 @@ describe('reportRocketAs', () => {
     const { report, ctx } = await setup();
     const unboarded = await report('leader:arlo');
     if (unboarded.kind !== 'reported') throw new Error(unboarded.kind);
-    expect(rocketWords(unboarded.view, WEST).where).toBe('It stands until midnight.');
+    expect(rocketWords(unboarded.view, WEST).where).toBe('It lasts until midnight.');
     Object.assign(ctx, { regions: regionsFixture(boardedRegions()) });
     const boarded = await report('giovanni', MISTY);
     if (boarded.kind !== 'reported') throw new Error(boarded.kind);

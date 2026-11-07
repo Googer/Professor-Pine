@@ -227,17 +227,17 @@ export function rocketWords(
   let where: string;
   if (view.hideout) {
     where = view.rehearsal
-      ? `It stands ${view.until}.`
+      ? `It lasts ${view.until}.`
       : view.channels.length === 0
-        ? `It lies in no region now, so no post shows it; it stands ${view.until}.`
+        ? `It lies in no region now, so no post shows it; it lasts ${view.until}.`
         : view.boards.length === 0
-          ? `It stands ${view.until}.`
+          ? `It lasts ${view.until}.`
           : `${boardWords(view.boards.map(channel))}, ${view.until}.`;
   } else if (view.rehearsal) {
-    where = `It stands until ${timestamp(report.endsAt, 't')} (rehearsal mode posts nothing).`;
+    where = `It lasts until ${timestamp(report.endsAt, 't')} (rehearsal mode posts nothing).`;
   } else if (view.posted.length === 0) {
     where =
-      'It could not be posted in a region channel; it stands until ' +
+      'It could not be posted in a region channel; it lasts until ' +
       `${timestamp(report.endsAt, 't')}.`;
   } else {
     where =

@@ -468,7 +468,7 @@ describe('/research in rehearsal mode', () => {
     });
     const answer = answerOf(await made.report({ task: DRAGON.key, stop: stop(1) }));
     expect(said(answer)).not.toContain('Today’s Stops');
-    expect(said(answer)).toContain('-# It stands until midnight.');
+    expect(said(answer)).toContain('-# It lasts until midnight.');
   });
 });
 

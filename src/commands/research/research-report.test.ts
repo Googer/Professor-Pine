@@ -136,7 +136,7 @@ describe('reportResearchAs', () => {
       reporter: ASH,
     });
     expect(reported.view).toMatchObject({ channels: [WEST_CHANNEL], boards: [] });
-    expect(researchWords(reported.view, () => '#west').where).toBe('It stands until midnight.');
+    expect(researchWords(reported.view, () => '#west').where).toBe('It lasts until midnight.');
   });
 
   it('names no post of the stops in rehearsal mode, which makes none', async () => {
@@ -149,7 +149,7 @@ describe('reportResearchAs', () => {
       subject: readTask(ctx, DRAGON.key, null),
       reporter: ASH,
     });
-    expect(researchWords(reported.view, () => '#west').where).toBe('It stands until midnight.');
+    expect(researchWords(reported.view, () => '#west').where).toBe('It lasts until midnight.');
   });
 });
 
