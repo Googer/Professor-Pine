@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { countedCorners, type Reads } from '../../../test/support/counted-corners.js';
 import type { KmlArea } from '@pine/wayspot-core/kml';
 import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import {
@@ -135,7 +136,12 @@ describe('planImport: what staff should look at twice', () => {
     expect(plan({ areas: areas.slice(1), channels }).overflow).toEqual([]);
   });
 
-  it('plans an import of large outlines over many gyms in well under a second', () => {
+  it('plans an import of large outlines over many gyms, testing each outline through its box', () => {
+    // Counted, not timed (a clock fails on a loaded machine): every outline is tested through its
+    // box, made once (1,061,084 coordinates read of these 34 outlines of 5,000 corners; twice
+    // that is allowed). A box made anew for each gym made it fail; every gym against every outline
+    // would read hundreds of millions.
+    const reads: Reads = { count: 0, budget: 2_200_000 };
     const gyms = Array.from({ length: 3_000 }, (_unused, i) => ({
       id: i + 1,
       lat: 40 + (i % 60) * 0.1,
@@ -146,15 +152,17 @@ describe('planImport: what staff should look at twice', () => {
       guildId: 1,
       channelId: `c${i}`,
       forumChannelId: null,
-      bounds: traced(5_000, 40 + (i % 6), -80 + Math.floor(i / 6)),
+      bounds: countedCorners(traced(5_000, 40 + (i % 6), -80 + Math.floor(i / 6)), reads),
     }));
     const channels = regions.map((region, i) => text(region.channelId, `r-${i}`));
     const areas = Array.from({ length: 4 }, (_unused, i) =>
-      area(`r-${i}`, traced(5_000, 40.02 + (i % 6), -80 + Math.floor(i / 6))),
+      area(
+        `r-${i}`,
+        countedCorners(traced(5_000, 40.02 + (i % 6), -80 + Math.floor(i / 6)), reads),
+      ),
     );
-    const started = performance.now();
     const made = plan({ areas, channels, regions, gyms });
-    expect(performance.now() - started).toBeLessThan(1_000);
+    expect(reads.count).toBeLessThanOrEqual(reads.budget);
     expect(made.imports).toHaveLength(4);
   });
 });
