@@ -102,7 +102,7 @@ function decidedWhen(request: MeetupRequestRecord): string {
 }
 
 const FAILURES: Readonly<Record<Exclude<ApprovalFailure['kind'], 'posts-refused'>, string>> = {
-  'bad-name': 'its name is no name',
+  'bad-name': 'its name is empty or too long',
   'bad-description': 'its information is too long',
   'no-region': 'its region is gone',
   'no-forum': 'its region has no forum',

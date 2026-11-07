@@ -153,6 +153,9 @@ describe('requestMessage', () => {
     expect(failed({ kind: 'no-forum' })).toContain(
       ', but the meetup could not be made: its region has no forum. Its maker was told.',
     );
+    expect(failed({ kind: 'bad-name' })).toContain(
+      ', but the meetup could not be made: its name is empty or too long. Its maker was told.',
+    );
     expect(failed({ kind: 'error' })).toContain(
       ', but the meetup could not be made: something went wrong. Its maker was told.',
     );

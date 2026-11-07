@@ -670,8 +670,8 @@ describe('/max at an unlisted power spot', () => {
         `Dynamax Machop (2★), reported by **Alice** (<@${ALICE}>) in <#${WEST_CHANNEL}>.\n` +
         '📍 **Unlisted power spot** · ' +
         '[Map](<https://www.google.com/maps/search/?api=1&query=40.05%2C-80.05>)\n' +
-        '-# Posted already: a Power Spot Pine does not know, which nobody checked. ' +
-        'Delete closes it as `/delete` does.',
+        '-# It is posted already, at a Power Spot Pine does not know and nobody has checked. ' +
+        'Delete… closes it as `/delete` does.',
     ]);
     expect(buttonNames(notice?.message)).toEqual(['Delete…', 'Go to post']);
     expect(linksOf(notice?.message)).toEqual([
