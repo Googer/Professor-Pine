@@ -69,9 +69,7 @@ describe('trainerBlocks with a lobby size', () => {
       '300000000000000002': { name: 'Bea', status: CompletePending, pendingUntil: 1, number: 2 },
       '300000000000000003': { name: 'Cid', status: Interested },
     });
-    expect(LOBBY_OVER).toBe(
-      'Over the lobby size: somebody should consider moving to another group.',
-    );
+    expect(LOBBY_OVER).toBe('Over the lobby size: someone should move to another group.');
     expect(contents(trainerBlocks({ party, emoji, lobbySize: 4 }, ALL, all))[0]).toMatch(
       new RegExp(`^5/4 coming · 1 interested\\n${LOBBY_OVER}\\n🤔 Interested`),
     );

@@ -734,7 +734,7 @@ function groupName(group: PartyGroup, fit: Fit): string {
 }
 
 /** Under the heading of a group that holds more than its lobby size (a member's +1s, a choice). */
-export const LOBBY_OVER = 'Over the lobby size: somebody should consider moving to another group.';
+export const LOBBY_OVER = 'Over the lobby size: someone should move to another group.';
 
 function lobbyNote(view: TrainersView, group: PartyGroup, options: TrainerOptions): string[] {
   // A party with a lobby size has its own note, in the place of the raid's.

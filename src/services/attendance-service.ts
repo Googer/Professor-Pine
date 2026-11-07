@@ -62,7 +62,7 @@ export interface Member extends MemberInfo {
 const STANDING = Symbol('standing');
 
 /** Said in the post when a question is taken back; the question itself is deleted. */
-export const WITHDRAWN_LINE = 'So the others who were asked whether they are done are here again.';
+export const WITHDRAWN_LINE = 'So I took back my question, and the others I asked are here again.';
 
 /**
  * What came of a member's action. `gone`: there is no such active party (it ended meanwhile).
