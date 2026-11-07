@@ -27,7 +27,8 @@ import {
   targetOf,
   turnAhead,
 } from '../domain/party/train.js';
-import { PARTY_KIND } from './party-controls.js';
+import type { ControlIconName } from '../domain/pogo/game-icons.js';
+import { customIconText, PARTY_KIND, type ControlIcons } from './party-controls.js';
 import { count, endSentence, plain, truncate } from './text.js';
 import type { TrainPlaces } from './train-post.js';
 import { stopLabel } from './train-stops.js';
@@ -51,6 +52,23 @@ import {
 /** What a dialog of a train is drawn from: its places, and when it opens (the per-open token). */
 export interface TrainDialogView extends TrainPlaces {
   now: number;
+  /** The application's emoji, for the kinds of Manage…'s menu (`trainKindEmoji`). */
+  icons?: ControlIcons;
+}
+
+/** The application's emoji of the kinds of a train that have one: the game's max icons. */
+const TRAIN_KIND_ICON: Readonly<Partial<Record<TrainKind, ControlIconName>>> = {
+  dynamax: 'pinedmax',
+  gigantamax: 'pinegmax',
+};
+
+/**
+ * The emoji of a kind of train in Manage…'s menu: the application's emoji of the game's Dynamax
+ * or Gigantamax icon as message text where it has one, else the plain one (`TRAIN_KIND_EMOJI`).
+ */
+export function trainKindEmoji(kind: TrainKind, icons: ControlIcons = {}): string {
+  const icon = TRAIN_KIND_ICON[kind];
+  return (icon === undefined ? undefined : customIconText(icons, icon)) ?? TRAIN_KIND_EMOJI[kind];
 }
 
 /**
@@ -467,7 +485,16 @@ export function manageDialog(
     choices: [
       ...(form.route === undefined ? [] : [form.route]),
       ...(form.atEnd === undefined ? [] : [form.atEnd]),
-      form.kind,
+      // On Discord the kinds show the application's emoji where it has them; the map its icons.
+      {
+        ...form.kind,
+        options: form.kind.options.map((option) => {
+          const kind = TRAIN_KINDS.find((one) => one === option.value);
+          return kind === undefined
+            ? option
+            : { ...option, emoji: trainKindEmoji(kind, view.icons) };
+        }),
+      },
     ],
     ...(form.start === undefined ? {} : { field: form.start }),
   });

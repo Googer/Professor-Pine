@@ -366,4 +366,35 @@ describe('manageDialog (plan 8X-G: Manage…)', () => {
       },
     ]);
   });
+
+  it('shows the kinds of max battles with the application’s Dynamax and Gigantamax emoji', () => {
+    const train = onRoute([4, 1], 0);
+    const view = { party: train, stop: stopsFrom({ get: (id) => gyms.get(id) }), now: PARTY_NOW };
+    const kindEmoji = (dialog: ReturnType<typeof manageDialog>) =>
+      dialog.components.flatMap((component) =>
+        component.type === ComponentType.Label &&
+        component.component.type === ComponentType.StringSelect &&
+        component.label === 'What the train is mainly for'
+          ? component.component.options.map((option) => [option.value, option.emoji])
+          : [],
+      );
+    const own: Record<string, string> = {
+      pinedmax: '<:pinedmax:123456789012345678>',
+      pinegmax: '<:pinegmax:123456789012345679>',
+    };
+    const icons = { controlIcon: (name: string) => own[name] };
+    const withIcons = manageDialog({ ...view, icons });
+    checkModal(withIcons);
+    expect(kindEmoji(withIcons)).toEqual([
+      ['raid', { name: '⚔️' }],
+      ['dynamax', { id: '123456789012345678', name: 'pinedmax' }],
+      ['gigantamax', { id: '123456789012345679', name: 'pinegmax' }],
+    ]);
+    // Until the application has them, the plain emoji.
+    expect(kindEmoji(manageDialog(view))).toEqual([
+      ['raid', { name: '⚔️' }],
+      ['dynamax', { name: '🔴' }],
+      ['gigantamax', { name: '🌋' }],
+    ]);
+  });
 });

@@ -150,6 +150,9 @@ describe('iconSources', () => {
       'pinemeet',
       // Pine's own train C3b (plan 8M-11A), for "Going on now" and the new-train DMs.
       'pinetrain',
+      // The game's Dynamax and Gigantamax icons, for the kinds in Manage…'s menu of a train.
+      'pinedmax',
+      'pinegmax',
     ]);
   });
 

@@ -59,7 +59,10 @@ export const LEAGUE_ICON_NAMES = Object.values(LEAGUE_ICON);
  * (2026-10-25: PokeMiners' assets have none), the blue made transparent and an outline added as
  * the others have; ⏰ until the application has it. `pinetrain` is Pine's own train C3b (plan
  * 8M-11A, Matt 2026-10-28), in front of a train's name in the summary's lists and the new-train DMs,
- * never on a button; those lines read as before until the application has it.
+ * never on a button; those lines read as before until the application has it. `pinedmax` and
+ * `pinegmax` are the game's Dynamax and Gigantamax icons (the web's `pictures/icons/`, filled
+ * with their color and outlined), before the max kinds in Manage…'s menu of a train; 🔴 and 🌋
+ * until the application has them.
  */
 export const CONTROL_ICON_NAMES = [
   'pinejoin',
@@ -69,6 +72,8 @@ export const CONTROL_ICON_NAMES = [
   'pineleave',
   'pinemeet',
   'pinetrain',
+  'pinedmax',
+  'pinegmax',
 ] as const;
 export type ControlIconName = (typeof CONTROL_ICON_NAMES)[number];
 

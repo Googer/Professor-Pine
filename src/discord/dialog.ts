@@ -2,10 +2,12 @@ import {
   ComponentType,
   TextInputStyle,
   MessageFlags,
+  type APIMessageComponentEmoji,
   type APIModalInteractionResponseCallbackData,
   type ModalSubmitInteraction,
 } from 'discord.js';
 import type { Logger } from '../log.js';
+import { buttonEmojiOf } from '../render/party-controls.js';
 import { plain, truncate } from '../render/text.js';
 import { textDisplay } from '../render/v2.js';
 import { UserError } from './errors.js';
@@ -35,7 +37,10 @@ export interface DialogOption {
   value: string;
   label: string;
   description?: string;
-  /** A character shown before the label of a menu's option (a radio group shows none). */
+  /**
+   * A character shown before the label of a menu's option (a radio group shows none), or a
+   * custom emoji as message text (`<:pinedmax:…>`, the application's).
+   */
   emoji?: string;
 }
 
@@ -100,7 +105,7 @@ interface ShownOption {
   value: string;
   label: string;
   description?: string;
-  emoji?: { name: string };
+  emoji?: APIMessageComponentEmoji;
   default?: true;
 }
 
@@ -111,7 +116,9 @@ interface ShownOption {
 function choiceOptions(choice: DialogChoice): ShownOption[] {
   return choice.options.map(({ emoji, ...option }) => ({
     ...option,
-    ...(choice.menu && emoji !== undefined ? { emoji: { name: emoji } } : {}),
+    ...(choice.menu && emoji !== undefined
+      ? { emoji: buttonEmojiOf(emoji) ?? { name: emoji } }
+      : {}),
     ...(option.value === choice.picked ? { default: true as const } : {}),
   }));
 }

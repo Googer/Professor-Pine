@@ -40,6 +40,7 @@ import {
   ROUTE_CHOICES,
   type DialogMove,
 } from '../../render/train-dialogs.js';
+import type { ControlIcons } from '../../render/party-controls.js';
 import { START_WINDOW } from '../parties/meet.js';
 import { ACTION_THROTTLE, actingMember, commandTrain, partyOver } from '../parties/reply.js';
 import { CHANGE_THROTTLE } from '../raids/change.js';
@@ -171,6 +172,11 @@ function movableTrain(
   return party;
 }
 
+/** The application's own emoji (`ctx.emoji` with no server), for the kinds of Manage…'s menu. */
+function appIcons(ctx: AppContext): ControlIcons {
+  return { controlIcon: (name) => ctx.emoji.find(name, null) };
+}
+
 /**
  * Move… of a train's post (plan 8X-G; `party:<id>:move`, also the button "Manage train…" of a
  * post not drawn anew since): for who may move the train (`mayNotMove`, refused privately before
@@ -183,7 +189,7 @@ export async function openMove(
   partyId: string,
 ): Promise<void> {
   const party = movableTrain(interaction, ctx, partyId);
-  const view = { ...trainPlaces(ctx, party), now: Date.now() };
+  const view = { ...trainPlaces(ctx, party), now: Date.now(), icons: appIcons(ctx) };
   await interaction.showModal(
     party.train.route.length === 0
       ? manageDialog(view, mayArrange(party, interaction.user.id))
@@ -203,7 +209,7 @@ export async function openManage(
   const party = movableTrain(interaction, ctx, partyId);
   await interaction.showModal(
     manageDialog(
-      { ...trainPlaces(ctx, party), now: Date.now() },
+      { ...trainPlaces(ctx, party), now: Date.now(), icons: appIcons(ctx) },
       mayArrange(party, interaction.user.id),
     ),
   );
