@@ -95,10 +95,22 @@ describe('memberLabelOfUnit', () => {
     expect(memberLabelOfUnit({ label, pane: { index: 2 } }, { pane: null })).toBeUndefined();
   });
 
-  it('scores a record of one screen against the whole picture only', () => {
+  it('scores a record of one screen against the whole picture', () => {
     expect(memberLabelOfUnit({ label }, { pane: null })).toBe(label);
-    expect(memberLabelOfUnit({ label }, { pane: 1 })).toBeUndefined();
     expect(memberLabelOfUnit({}, { pane: null })).toBeUndefined();
     expect(memberLabelOfUnit(undefined, { pane: null })).toBeUndefined();
+  });
+
+  // Review F1 of plan 7P: a record kept whole (before 7P, or read late) whose picture is cut now.
+  it('scores a record of one screen against the first pane that shows a screen when cut', () => {
+    expect(memberLabelOfUnit({ label }, { pane: 2, firstScreen: true })).toBe(label);
+    expect(memberLabelOfUnit({ label }, { pane: 1, firstScreen: false })).toBeUndefined();
+    expect(memberLabelOfUnit({ label }, { pane: 1 })).toBeUndefined();
+  });
+
+  it('never scores a pane record’s label against another pane that shows the first screen', () => {
+    expect(
+      memberLabelOfUnit({ label, pane: { index: 2 } }, { pane: 1, firstScreen: true }),
+    ).toBeUndefined();
   });
 });

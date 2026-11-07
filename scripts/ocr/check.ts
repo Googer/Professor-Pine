@@ -15,7 +15,8 @@
  * its `label`, which a member's "All right" made (`source: 'member'`: only the gym, by the name
  * of the gym decided, egg or hatched, the heads, shadow and the boss are scored, and of those only
  * what the member did not type; a pane's record, plan 7P, scores its own pane only, and nothing
- * when the picture is not cut into it); a screenshot somebody said was wrong has none and is
+ * when the picture is not cut into it; a whole picture's record whose picture is cut scores its
+ * first pane that shows a screen); a screenshot somebody said was wrong has none and is
  * listed, not scored. It is how a change of the reader is judged (every sample, before and after), and
  * how a machine is measured before Pine runs on it: the device and threads of the command line
  * win over the settings.
@@ -216,6 +217,8 @@ interface Scored {
   shows: PaneShows;
   /** The index of the pane read, null for the whole reading. */
   pane: number | null;
+  /** The pane is the first of the picture's that shows a screen. */
+  firstScreen: boolean;
   /** What the bot would do with the whole picture: refuse it as two screens. */
   refused: boolean;
 }
@@ -262,27 +265,45 @@ for (const file of files) {
   if (wrongVerdict) disputed.push(file);
   const paneKeys = Object.keys(labels).filter((key) => key.startsWith(`${file}#`));
   const refused = !panes && outcome.twoScreens === true;
-  // What is scored: each pane (its own label `#n`, or the picture's label on the first pane that
-  // shows a screen); without panes the whole reading, against the picture's label or each pane's.
+  // A member's label of the whole picture (a record kept before 7P, or read late; review F1).
+  const wholeMember = Boolean(record?.label && !record.pane && !wrongVerdict);
+  // What is scored: each pane (its own label `#n`, or the picture's label, from labels.json or
+  // a member's, on the first pane that shows a screen, under the picture's key); without panes
+  // the whole reading, against the picture's label or each pane's.
   const scoredUnits: Scored[] = [];
   if (panes) {
     const firstScreen = panes.find((pane) => pane.shows === 'raid' || pane.shows === 'max');
     for (const pane of panes) {
       const own = `${file}#${pane.index}`;
-      const key = labels[own] || pane !== firstScreen || !labels[file] ? own : file;
+      const whole = !labels[own] && pane === firstScreen && (Boolean(labels[file]) || wholeMember);
       scoredUnits.push({
-        key,
+        key: whole ? file : own,
         reading: pane.reading,
         shows: pane.shows,
         pane: pane.index,
+        firstScreen: pane === firstScreen,
         refused: false,
       });
     }
   } else if (labels[file] || paneKeys.length === 0) {
-    scoredUnits.push({ key: file, reading, shows: showsOf(reading), pane: null, refused });
+    scoredUnits.push({
+      key: file,
+      reading,
+      shows: showsOf(reading),
+      pane: null,
+      firstScreen: false,
+      refused,
+    });
   } else {
     for (const key of paneKeys) {
-      scoredUnits.push({ key, reading, shows: showsOf(reading), pane: null, refused });
+      scoredUnits.push({
+        key,
+        reading,
+        shows: showsOf(reading),
+        pane: null,
+        firstScreen: false,
+        refused,
+      });
     }
   }
   const how = panes
@@ -346,7 +367,8 @@ for (const file of files) {
     const clockRight = (clock: string | null) =>
       shown.clock === clock || (labelClocks.length > 1 && labelClocks.includes(shown.clock));
     const label = labels[unit.key];
-    // A member's "All right": a pane record's against its own pane only (review S2).
+    // A member's "All right": a pane record's against its own pane only (review S2), a whole
+    // picture's against the whole reading or its first pane that shows a screen (review F1).
     const member = !label && !wrongVerdict ? memberLabelOfUnit(record, unit) : undefined;
     if (label && 'none' in label) {
       check('none', unit.shows === 'none');

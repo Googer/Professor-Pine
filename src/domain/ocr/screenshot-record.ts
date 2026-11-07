@@ -180,13 +180,15 @@ export function memberLabel(
  * The member's answer key of a record (`label`) that `ocr:check` scores against one unit of a
  * picture (`pane`: the index of the pane read, null for the whole reading). A record of a pane
  * (plan 7P) is the answer of that pane only, and of nothing when the picture was not cut into it
- * (review S2); any other record's is the whole picture's.
+ * (review S2); any other record's is the whole picture's: of the whole reading, or, when the
+ * picture is cut now (a record kept before 7P, or one read late), of its first pane that shows a
+ * screen (`firstScreen`; review F1), as a `labels.json` label without `#n`.
  */
 export function memberLabelOfUnit(
   record: { label?: MemberLabel; pane?: { index: number } } | undefined,
-  unit: { pane: number | null },
+  unit: { pane: number | null; firstScreen?: boolean },
 ): MemberLabel | undefined {
   if (!record?.label) return undefined;
-  const of = record.pane ? record.pane.index : null;
-  return unit.pane === of ? record.label : undefined;
+  if (record.pane) return unit.pane === record.pane.index ? record.label : undefined;
+  return unit.pane === null || unit.firstScreen === true ? record.label : undefined;
 }
