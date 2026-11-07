@@ -115,7 +115,7 @@ function layersStep(audience: TourAudience): TourStep {
 }
 
 function findStep(finds: boolean): TourStep {
-  const what = finds ? 'reports, trains, meetups and places' : 'a gym on the map';
+  const what = finds ? 'reports, wild spawns, trains, meetups and places' : 'a gym on the map';
   const by = finds ? 'a name' : "a gym's name";
   return {
     id: 'find',

@@ -151,7 +151,9 @@ describe('the steps', () => {
       tourSteps({ ...MEMBER, finds })
         .find((step) => step.id === 'find')
         ?.targets[0]?.words.join(' ');
-    expect(said(true)).toContain('reports');
+    expect(said(true)).toBe(
+      '🔍 Press Find, then type a name to find reports, wild spawns, trains, meetups and places!',
+    );
     expect(said(false)).toContain('a gym on the map');
   });
 
