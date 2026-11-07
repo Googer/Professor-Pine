@@ -180,6 +180,12 @@ import {
 } from './region-directory.js';
 
 const MINUTE = 60_000;
+
+/**
+ * How many of a forum's latest archived posts a lost board is looked for among: one page, one
+ * request (review S7), where a raid forum may have thousands.
+ */
+const ARCHIVED_BOARD_READ = 100;
 /** Logged when a party that cannot be shown cannot be ended either. */
 const NO_POST = 'could not end a party without a post';
 
@@ -4013,7 +4019,8 @@ export class PartyService {
    * one made under an old title, `LEGACY_SUMMARY_TITLES`: "Active raids" before plan 8X-G, "Going
    * on now" before plan 8R-9), where the
    * record lost it (the record points at a post that is gone, or at none: a forum put back by
-   * hand): the pinned one, else the oldest left over (it is pinned with its next edit). A second
+   * hand): the pinned one, else the oldest left over (it is pinned with its next edit); where no
+   * open one is, among the latest archived (`ARCHIVED_BOARD_READ`, opened by its next edit). A second
    * post would not get the forum's one pin (Discord's 30047). `changed` when the region's forum
    * changed meanwhile (nothing is made then); a failed look counts as `none`, as a post that may
    * not be pinned is better than none. The post's text is brought up to date by the next render.
@@ -4025,24 +4032,29 @@ export class PartyService {
     const { gateway, regionStore, regions, log } = this.options;
     let found: string | undefined;
     try {
-      let oldest: string | undefined;
-      // Open posts come oldest first.
-      for (const postId of (await gateway.openPosts(forumId)) ?? []) {
-        const info = await gateway.postInfo(postId);
-        // Also one made under an old title (B12), renamed with its next edit.
-        if (
-          info === undefined ||
-          (info.title !== SUMMARY_TITLE && !LEGACY_SUMMARY_TITLES.includes(info.title))
-        ) {
-          continue;
+      /** Of these posts, the summary pinned, else the first one: open posts come oldest first. */
+      const summaryAmong = async (postIds: readonly string[]): Promise<string | undefined> => {
+        let first: string | undefined;
+        for (const postId of postIds) {
+          const info = await gateway.postInfo(postId);
+          // Also one made under an old title (B12), renamed with its next edit.
+          if (
+            info === undefined ||
+            (info.title !== SUMMARY_TITLE && !LEGACY_SUMMARY_TITLES.includes(info.title))
+          ) {
+            continue;
+          }
+          if (info.pinned) return postId;
+          first ??= postId;
         }
-        if (info.pinned) {
-          found = postId;
-          break;
-        }
-        oldest ??= postId;
-      }
-      found ??= oldest;
+        return first;
+      };
+      found = await summaryAmong((await gateway.openPosts(forumId)) ?? []);
+      // An archived one (review S7): among the latest archived, one page of them (a request);
+      // an edit opens it again.
+      found ??= await summaryAmong(
+        (await gateway.archivedPosts(forumId, ARCHIVED_BOARD_READ)) ?? [],
+      );
     } catch (err) {
       log.warn({ err, region: region.id }, 'could not look for a summary post to take over');
       return 'none';

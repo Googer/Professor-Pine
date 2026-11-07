@@ -38,6 +38,7 @@ import {
   categoryOnlyPermissions,
   hiddenForumOverwrites,
   isHiddenForum,
+  ARCHIVED_POSTS_READ,
   MAX_FORUM_TAGS,
   BOARD_SLOWMODE_SECONDS,
   PostsRefusedError,
@@ -1549,13 +1550,14 @@ export class FakePartyGateway implements PartyGateway {
   }
 
   /** The bot's archived posts of a forum, the latest made first (plan 8V-1). */
-  archivedPosts(forumId: string) {
+  archivedPosts(forumId: string, most = ARCHIVED_POSTS_READ) {
     return this.attempt('archivedPosts', forumId, () => {
       if (!this.forums.has(forumId) || this.gone.has(forumId)) return undefined;
-      return this.postsIn(forumId)
-        .filter((post) => post.archived && !this.gone.has(post.id) && !this.foreign.has(post.id))
-        .map((post) => post.id)
-        .reverse();
+      const archived = this.postsIn(forumId)
+        .filter((post) => post.archived && !this.gone.has(post.id))
+        .reverse()
+        .slice(0, most);
+      return archived.filter((post) => !this.foreign.has(post.id)).map((post) => post.id);
     });
   }
 

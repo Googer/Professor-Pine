@@ -931,6 +931,25 @@ describe('PartyService: the summary and tidying up', () => {
     expect(gateway.postsIn(WEST_FORUM)).toHaveLength(2);
   });
 
+  // Review S7: an archived board whose record is lost is found among the newest archived posts.
+  it('takes over its own archived summary post when the record of it is lost', async () => {
+    const made = await partyServiceWith();
+    const { service, gateway, regions } = made;
+    const west = regions.rows[0]!;
+    await service.ensureSummary(west);
+    const board = west.summaryMessageId ?? '';
+    const post = gateway.posts.get(board);
+    if (post) post.archived = true;
+    west.summaryMessageId = null;
+    const reads = () => gateway.calls.filter((call) => call.startsWith('archivedPosts ')).length;
+    const before = reads();
+    await expect(service.ensureSummary(west)).resolves.toBe(false);
+    expect(gateway.postsIn(WEST_FORUM)).toHaveLength(1);
+    expect(west.summaryMessageId).toBe(board);
+    // The forum's archived posts are read once.
+    expect(reads() - before).toBe(1);
+  });
+
   it('takes over its own pinned summary post when the recorded one is gone', async () => {
     // Seen at staging: the record pointed at a post that was gone (the forum was put back by SQL)
     // while the forum still had the bot's pinned "Active raids" post; a second one was made and

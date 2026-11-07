@@ -354,11 +354,12 @@ export interface PartyGateway {
    */
   openPosts(forumId: string): Promise<string[] | undefined>;
   /**
-   * The archived posts of a forum that this bot made, the latest archived first, at most
-   * `ARCHIVED_POSTS_READ` (plan 8V-1: a listing whose record was lost is looked for among them
-   * too, R2). Undefined when the forum is gone.
+   * The archived posts of a forum that this bot made, the latest archived first, among the
+   * `most` latest archived (`ARCHIVED_POSTS_READ` by default, pages of 100: plan 8V-1, a listing
+   * whose record was lost is looked for among them too, R2; one page for a region's board whose
+   * record was lost). Undefined when the forum is gone.
    */
-  archivedPosts(forumId: string): Promise<string[] | undefined>;
+  archivedPosts(forumId: string, most?: number): Promise<string[] | undefined>;
   /**
    * Lets the bot manage the posts of a forum (plan 8V-1: Manage Posts, a forum's Manage Threads,
    * in the bot's own overwrite of the events forum), to pin, lock and archive them. `was-allowed`
@@ -1727,14 +1728,14 @@ export class DiscordPartyGateway implements PartyGateway {
     });
   }
 
-  async archivedPosts(forumId: string): Promise<string[] | undefined> {
+  async archivedPosts(forumId: string, most = ARCHIVED_POSTS_READ): Promise<string[] | undefined> {
     const forum = await this.forum(forumId);
     if (!forum) return undefined;
     const me = this.client.user?.id;
     const found: string[] = [];
     let before: number | undefined;
     // Newest archived first, a page of 100 at a time, as Discord gives them.
-    for (let read = 0; read < ARCHIVED_POSTS_READ; read += 100) {
+    for (let read = 0; read < most; read += 100) {
       const page = await this.unlessGone(() =>
         forum.threads.fetchArchived({
           type: 'public',
