@@ -221,6 +221,17 @@ export interface LeaderboardOptIn {
   serverId: string;
 }
 
+export interface LegacyFillIn {
+  doneAt: string | null;
+  failedAt: string | null;
+  failure: string | null;
+  filled: Generated<number>;
+  memberId: string;
+  requestedAt: string;
+  serverId: string;
+  startedAt: string | null;
+}
+
 export interface ListedEvent {
   endsAt: string;
   eventId: string;
@@ -830,6 +841,7 @@ export interface DB {
   GymWayfarer: GymWayfarer;
   HistoryOptIn: HistoryOptIn;
   LeaderboardOptIn: LeaderboardOptIn;
+  LegacyFillIn: LegacyFillIn;
   ListedEvent: ListedEvent;
   MaxEvent: MaxEvent;
   MeetupAppeal: MeetupAppeal;

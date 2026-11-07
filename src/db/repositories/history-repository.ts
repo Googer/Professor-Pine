@@ -958,6 +958,14 @@ export class HistoryRepository
         .where('serverId', '=', guildId)
         .where('memberId', '=', memberId)
         .executeTakeFirst();
+      // Their request of a legacy fill-in goes too (plan 8H-10, H5), after the opt-in row (the
+      // fill-in's batches lock the two in this order): one under way stops at its next batch,
+      // and turning the history on again lets them ask again.
+      await trx
+        .deleteFrom('LegacyFillIn')
+        .where('serverId', '=', guildId)
+        .where('memberId', '=', memberId)
+        .execute();
       // Counted before the ids go, as `namedIn` counts them (one path).
       const forgotten = await namedCount(trx, memberId, guildId);
       await sql`

@@ -29,6 +29,7 @@ export const PINE_TABLES: readonly string[] = [
   'EventPost',
   'HistoryOptIn',
   'LeaderboardOptIn',
+  'LegacyFillIn',
   'ListedEvent',
   'MaxEvent',
   'MeetupAppeal',

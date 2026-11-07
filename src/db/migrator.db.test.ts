@@ -80,6 +80,7 @@ const ADDED_TABLES = [
   'ActivityProgress',
   'LeaderboardOptIn',
   'ActivityDay',
+  'LegacyFillIn',
 ];
 /** The columns it adds to tables of the legacy bot, as `Table.column`. */
 const ADDED_COLUMNS = [
@@ -218,6 +219,7 @@ describe('runMigrations', () => {
       '2026_11_05_040_leaderboard_opt_in',
       '2026_11_05_041_train_card',
       '2026_11_06_042_activity_days',
+      '2026_11_06_043_legacy_fill_in',
     ]);
     expect(
       await describeSchema(
