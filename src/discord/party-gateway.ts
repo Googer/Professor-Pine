@@ -532,6 +532,13 @@ export interface PartyGateway {
    */
   mayPost(channelId: string): boolean;
   /**
+   * Whether Discord says it knows no such channel (Unknown Channel, 10003): a channel deleted
+   * for good. False for a channel it knows (also one that takes no message); any other failure
+   * (Unknown Guild, Missing Access, the network) is thrown. From the cache where it has the
+   * channel.
+   */
+  channelUnknown(channelId: string): Promise<boolean>;
+  /**
    * Whether the bot may post a shared answer in a channel (plan 8H-5, P2), from the cache: View
    * Channel and Send Messages, or Send Messages in Threads in a thread (a post); no Embed Links,
    * which a components-v2 message does not need; never in an ended post (archived and locked),
@@ -2255,6 +2262,16 @@ export class DiscordPartyGateway implements PartyGateway {
       .sort((a, b) => (a.createdTimestamp ?? 0) - (b.createdTimestamp ?? 0))
       .first();
     return found?.id;
+  }
+
+  async channelUnknown(channelId: string): Promise<boolean> {
+    try {
+      await this.client.channels.fetch(channelId);
+      return false;
+    } catch (err) {
+      if (hasCode(err, RESTJSONErrorCodes.UnknownChannel)) return true;
+      throw err;
+    }
   }
 
   mayPost(channelId: string): boolean {

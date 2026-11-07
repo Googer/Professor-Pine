@@ -35,7 +35,7 @@ export interface PartyMirrorsOptions {
   store: PartyStore;
   gateway: Pick<
     PartyGateway,
-    'sendMessage' | 'editMessage' | 'deleteMessage' | 'findChannel' | 'mayPost'
+    'sendMessage' | 'editMessage' | 'deleteMessage' | 'findChannel' | 'mayPost' | 'channelUnknown'
   >;
   regions: {
     byId(id: number): { channelId: string } | undefined;
@@ -267,7 +267,7 @@ export class PartyMirrors {
     kinds: readonly MirrorKind[],
     wanted: readonly WantedCopy[],
   ): Promise<boolean> {
-    const { log } = this.options;
+    const { log, now } = this.options;
     const postId = party.forumPostId;
     if (postId === null) return true;
     let complete = true;
@@ -340,20 +340,45 @@ export class PartyMirrors {
         },
       );
       complete &&= sent;
-      // A channel Discord does not know (10003: deleted, as a region's text channel can be
-      // while its region stays) or that takes no message is gone for good: said once, for every
-      // party, and never tried again, also not by a retry (follow-ups 748). Its region stays
-      // until staff remove it, as any region whose channel is gone (`/region list`).
       if (sent && noChannel) {
-        this.gone.set(channelId, true);
-        log.warn(
-          { party: party.id, channel: channelId },
-          'could not send a copy of a party message: its channel is gone, or nothing can be ' +
-            'sent to it, and I send no copy there any more',
-        );
+        // A channel Discord does not know (Unknown Channel, 10003: deleted, as a region's text
+        // channel can be while its region stays) is gone for good: said once, for every party,
+        // and never tried again, also not by a retry (follow-ups 748). Its region stays until
+        // staff remove it, as any region whose channel is gone (`/region list`). Anything else
+        // that took nothing (a server Discord does not answer for, a channel that takes no
+        // message, the question failing) is left alone for a while, as before.
+        if (await this.unknownChannel(channelId)) {
+          this.gone.set(channelId, true);
+          log.warn(
+            { party: party.id, channel: channelId },
+            'could not send a copy of a party message: its channel is gone, and I send no ' +
+              'copy there any more',
+          );
+        } else {
+          this.refused.set(channelId, now() + REFUSED_FOR_MS);
+          log.warn(
+            { party: party.id, channel: channelId },
+            'could not send a copy of a party message: nothing can be sent to that channel ' +
+              'now, and I leave it alone for a while',
+          );
+          complete = false;
+        }
       }
     }
     return complete;
+  }
+
+  /** Whether Discord says the channel is unknown; false where it cannot be found out. */
+  private async unknownChannel(channelId: string): Promise<boolean> {
+    try {
+      return await this.options.gateway.channelUnknown(channelId);
+    } catch (err) {
+      this.options.log.debug(
+        { err, channel: channelId },
+        'could not ask whether a channel is gone',
+      );
+      return false;
+    }
   }
 
   /**

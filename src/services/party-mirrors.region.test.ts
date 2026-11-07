@@ -404,6 +404,29 @@ describe('the copies of a train: what fails in one region leaves the others alon
     expect(warnings(made)).toHaveLength(1);
   });
 
+  it('leaves a channel alone for ten minutes that took nothing while Discord still knows it', async () => {
+    // A send that came to nothing for another reason than Unknown Channel (a server Discord does
+    // not answer for, Unknown Guild; a channel that takes no message): tried again later.
+    const gateway = new FakePartyGateway();
+    const send = gateway.sendMessage.bind(gateway);
+    let nothing = true;
+    gateway.sendMessage = (channelId, message, options) =>
+      channelId === UNBOUNDED_CHANNEL && nothing
+        ? Promise.resolve(undefined)
+        : send(channelId, message, options);
+    const made = await createdTrain({ route: stops(1) }, { gyms: everywhere() }, { gateway });
+    const maker: Member = { id: made.party.createdById };
+    const sends = () => gateway.calls.filter((call) => call === `sendMessage ${UNBOUNDED_CHANNEL}`);
+    expect(copiesIn(made, UNBOUNDED_CHANNEL)).toEqual([]);
+    expect(warnings(made)[0]?.msg).toMatch(/leave it alone for a while/);
+    nothing = false;
+    made.clock.now += 10 * MINUTE;
+    await made.attendance.changeNumber(made.party.id, maker, 1);
+    await made.service.flush();
+    expect(copiesIn(made, UNBOUNDED_CHANNEL)).toHaveLength(1);
+    expect(sends().length).toBeGreaterThan(0);
+  });
+
   it('keeps on record a copy it could not delete, deletes the other, and uses it again when the route returns', async () => {
     const made = await createdTrain({ route: stops(4, 1) }, { gyms: everywhere() });
     const { gateway } = made;

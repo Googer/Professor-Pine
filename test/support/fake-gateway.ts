@@ -1954,6 +1954,11 @@ export class FakePartyGateway implements PartyGateway {
   }
 
   /** The bot may post embeds everywhere but in the channels of `noEmbeds`. */
+  /** Unknown Channel for a channel in `gone`, as Discord answers for one deleted. */
+  channelUnknown(channelId: string): Promise<boolean> {
+    return this.attempt('channelUnknown', channelId, () => this.gone.has(channelId));
+  }
+
   mayPost(channelId: string): boolean {
     return !this.noEmbeds.has(channelId);
   }
