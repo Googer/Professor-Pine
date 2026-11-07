@@ -158,25 +158,12 @@ export class LegacyFillInRepository implements LegacyFillInStorage {
       .execute();
   }
 
-  async request(memberId: string, serverId: string, now: number): Promise<FillInAsked> {
-    // From the opt-in row, locked shared by the select: an opt-out that deleted it meanwhile has
-    // committed or waits for this statement, and then deletes the request with it.
-    const made = await sql`
-      insert ignore into LegacyFillIn (serverId, memberId, requestedAt)
-      select serverId, memberId, ${String(now)} from HistoryOptIn
-      where serverId = ${serverId} and memberId = ${memberId}`.execute(this.db);
-    if (Number(made.numAffectedRows ?? 0) > 0) return 'queued';
-    // A request that failed is asked again (A1, the member retries): its row starts afresh, from
-    // the opt-in row as the insert is; one waiting or done stays as it is.
-    const again = await sql`
-      update LegacyFillIn f
-      join HistoryOptIn h on h.serverId = f.serverId and h.memberId = f.memberId
-      set f.requestedAt = ${String(now)}, f.startedAt = null, f.failedAt = null, f.failure = null
-      where f.serverId = ${serverId} and f.memberId = ${memberId} and f.failedAt is not null`.execute(
-      this.db,
+  request(memberId: string, serverId: string, now: number): Promise<FillInAsked> {
+    // Beside a transaction that locks in another order, a deadlock is possible: the loser runs
+    // again and finds what is left to do.
+    return retryOnDeadlock(this.db, () =>
+      inTransaction(this.db, (trx) => requestIn(trx, memberId, serverId, now)),
     );
-    if (Number(again.numAffectedRows ?? 0) > 0) return 'queued';
-    return (await this.stateOf(memberId, serverId)) === undefined ? 'off' : 'asked';
   }
 
   async stateOf(memberId: string, serverId: string): Promise<FillInState | undefined> {
@@ -191,6 +178,40 @@ export class LegacyFillInRepository implements LegacyFillInStorage {
     if (row.doneAt !== null) return { state: 'done', filled: row.filled };
     return { state: 'queued' };
   }
+}
+
+/** `request`, in one transaction. */
+async function requestIn(
+  trx: Kysely<DB>,
+  memberId: string,
+  serverId: string,
+  now: number,
+): Promise<FillInAsked> {
+  // The opt-in first, locked shared, then the request: the order of the opt-out and the worker
+  // (H6). An opt-out that deleted the opt-in meanwhile has committed or waits for this
+  // transaction, and then deletes the request with it.
+  const optedIn = await trx
+    .selectFrom('HistoryOptIn')
+    .select('memberId')
+    .where('serverId', '=', serverId)
+    .where('memberId', '=', memberId)
+    .forShare()
+    .executeTakeFirst();
+  if (optedIn === undefined) return 'off';
+  const made = await sql`
+    insert ignore into LegacyFillIn (serverId, memberId, requestedAt)
+    values (${serverId}, ${memberId}, ${String(now)})`.execute(trx);
+  if (Number(made.numAffectedRows ?? 0) > 0) return 'queued';
+  // A request that failed is asked again (A1, the member retries): its row starts afresh; one
+  // waiting or done stays as it is.
+  const again = await trx
+    .updateTable('LegacyFillIn')
+    .set({ requestedAt: String(now), startedAt: null, failedAt: null, failure: null })
+    .where('serverId', '=', serverId)
+    .where('memberId', '=', memberId)
+    .where('failedAt', 'is not', null)
+    .executeTakeFirst();
+  return again.numUpdatedRows > 0n ? 'queued' : 'asked';
 }
 
 /** The legacy records (of the batch's) that name the member, and the places that do. */

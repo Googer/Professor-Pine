@@ -1,6 +1,9 @@
 import { sql, type Kysely } from 'kysely';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
+import { connectionId, lockWaits } from '../../../test/support/lock-waits.js';
 import { startMigratedDatabase } from '../../../test/support/migrated-db.js';
+import type { TestDatabase } from '../../../test/support/mysql.js';
+import { createDb } from '../kysely.js';
 import type { DB } from '../types.js';
 import { HistoryRepository } from './history-repository.js';
 import { LegacyFillInRepository } from './legacy-fill-in-repository.js';
@@ -14,11 +17,12 @@ const NOW = 1_800_000_000_000;
 describe('LegacyFillInRepository: the queue of legacy fill-ins', () => {
   let stop: () => Promise<void>;
   let db: Kysely<DB>;
+  let database: TestDatabase;
   let history: HistoryRepository;
   let fillIns: LegacyFillInRepository;
 
   beforeAll(async () => {
-    ({ db, stop } = await startMigratedDatabase());
+    ({ db, stop, database } = await startMigratedDatabase());
     history = new HistoryRepository(db);
     fillIns = new LegacyFillInRepository(db);
   });
@@ -145,6 +149,69 @@ describe('LegacyFillInRepository: the queue of legacy fill-ins', () => {
         where not exists (select 1 from HistoryOptIn h
                           where h.serverId = f.serverId and h.memberId = f.memberId)`.execute(db);
       expect(Number(orphans.rows[0]?.n), `round ${String(n)}`).toBe(0);
+    }
+  });
+
+  it('reads the opt-in first, and asks again where a deadlock chose it (H6)', async () => {
+    await history.optIn(ALICE, HOME, NOW);
+    await fillIns.request(ALICE, HOME, NOW);
+    await sql`update LegacyFillIn set failedAt = ${NOW + 1}, failure = 'damaged'
+              where memberId = ${ALICE}`.execute(db);
+    // Others' requests, which the holder below writes: it is the heavier transaction, so that
+    // MySQL chooses the request as the deadlock's victim.
+    const others = Array.from({ length: 20 }, (_, n) => String(BigInt(BOB) + BigInt(n)));
+    for (const other of others) {
+      await history.optIn(other, HOME, NOW);
+      await fillIns.request(other, HOME, NOW);
+    }
+    const other = createDb<DB>(database.config);
+    try {
+      let release = (): void => undefined;
+      const held = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let locked = (): void => undefined;
+      const isLocked = new Promise<void>((resolve) => {
+        locked = resolve;
+      });
+      // A transaction that holds the request's row, then wants the opt-in's: against the order of
+      // the opt-out and the worker, so that a request holding the opt-in's row deadlocks with it.
+      let otherId = 0;
+      const holding = other.transaction().execute(async (trx) => {
+        otherId = await connectionId(trx);
+        await trx
+          .updateTable('LegacyFillIn')
+          .set({ filled: 1 })
+          .where('memberId', 'in', others)
+          .execute();
+        await trx
+          .selectFrom('LegacyFillIn')
+          .select('memberId')
+          .where('serverId', '=', HOME)
+          .where('memberId', '=', ALICE)
+          .forUpdate()
+          .execute();
+        locked();
+        await held;
+        await trx
+          .selectFrom('HistoryOptIn')
+          .select('memberId')
+          .where('serverId', '=', HOME)
+          .where('memberId', '=', ALICE)
+          .forUpdate()
+          .execute();
+      });
+      await isLocked;
+      const asking = fillIns.request(ALICE, HOME, NOW + 10);
+      // The request holds the opt-in's row shared and waits for its own.
+      expect(await lockWaits(db, otherId)).toBe(1);
+      release();
+      await holding;
+      // Rolled back as the deadlock's victim, it ran again once the holder committed.
+      expect(await asking).toBe('queued');
+      expect(await fillIns.stateOf(ALICE, HOME)).toEqual({ state: 'queued' });
+    } finally {
+      await other.destroy();
     }
   });
 });
