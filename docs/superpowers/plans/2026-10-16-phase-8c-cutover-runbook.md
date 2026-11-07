@@ -186,3 +186,5 @@ The takeover ran on a copy, so the old host's database and folders are as the le
 ## After the move: the tutorial (plan 8M-18)
 
 Once the commands are deployed, `emoji:upload` has run and the bot has restarted since (it reads the emoji at its start), and not before (the legacy tutorial stays right until then): a moderator deletes the old posts of `#raid-bot-tutorial` and runs `/admin tutorial` there. Not in rehearsal mode, which refuses it.
+
+Where the history import (N7) runs after that, with `LEGACY_INDEX_DIR` set: once `./pine import-history` has written the member index, run `/admin tutorial` there again (plan 8H-10). It edits its messages in place, and its line about `/settings` then mentions "Add my old-bot history", which it leaves out while the server has no index.
