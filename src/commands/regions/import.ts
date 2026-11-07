@@ -68,9 +68,7 @@ const IMPORT_HEADING = '### Import regions';
 const NAMES_SHOWN = 500;
 
 /** A file larger than `MAX_KML_BYTES`, by what it says or by what came. */
-const TOO_LARGE =
-  'That file is larger than 1 MB, too large for a file of regions. Export only the layer with ' +
-  'the regions.';
+const TOO_LARGE = 'That file is larger than 1 MB. Export only the layer with the regions.';
 
 const HOW_TO_KML =
   'In Google My Maps choose "Export to KML/KMZ" and tick "Export as KML instead of KMZ".';

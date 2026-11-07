@@ -278,7 +278,7 @@ describe('/region import: what is no file of regions', () => {
     const made = await regionCommandsWith();
     const { answer } = await importing(made, '<kml/>', { size: MAX_KML_BYTES + 1 });
     expect(regionSaid(answer)).toContain(
-      'That file is larger than 1 MB, too large for a file of regions. Export only the layer with the regions.',
+      'That file is larger than 1 MB. Export only the layer with the regions.',
     );
     expect(made.attachments.asked).toEqual([]);
   });
@@ -286,7 +286,7 @@ describe('/region import: what is no file of regions', () => {
   it('refuses a file that turns out larger than it said', async () => {
     const text = await refusal(`<kml>${' '.repeat(MAX_KML_BYTES)}</kml>`, { size: 10 });
     expect(text).toContain(
-      'That file is larger than 1 MB, too large for a file of regions. Export only the layer with the regions.',
+      'That file is larger than 1 MB. Export only the layer with the regions.',
     );
   });
 
