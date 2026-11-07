@@ -562,10 +562,15 @@ cmd_import_history() {
   if [ -n "$index_dir" ]; then
     say "The member index is rebuilt in $index_dir (LEGACY_INDEX_DIR), a server's folder at a time."
     say "(Running as you, so the bot's saved game data is not updated by this import.)"
+    imported=0
     run run --rm --no-deps --user "$(id -u):$(id -g)" -v "$folder:/legacy-history:ro" \
       -v "$index:/legacy-index-rw" -e LEGACY_INDEX_DIR=/legacy-index-rw pine \
       node --enable-source-maps dist/ops/history-import-cli.js /legacy-history \
-      ${server:+--server "$server"}
+      ${server:+--server "$server"} || imported=$?
+    # Checked again on what the import wrote, so that a warning comes after the report, where
+    # the operator looks (also after a failed run: it may have written some servers).
+    check_index_dir
+    [ "$imported" -eq 0 ] || exit "$imported"
   else
     run run --rm --no-deps -v "$folder:/legacy-history:ro" pine \
       node --enable-source-maps dist/ops/history-import-cli.js /legacy-history \
