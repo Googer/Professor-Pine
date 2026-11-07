@@ -40,7 +40,7 @@ Every phase up to the security pass 8Z is built and merged. What is left before 
 - **The cutover rehearsal**: R4 passed on the Air 2026-11-02 (Manage Threads fixed). Next R5, which needs a window with the legacy bot stopped and an admin with Manage Server on hand for the Integrations restriction, then R6.
 - **The deadline:** about 2026-11-11 the production application loses its privileged intents, which the unpatched legacy bot depends on (follow-ups, "Needs Matt").
 
-Steps of earlier stagings still unrun (third account, Matt's phone) and rulings for Matt are in the follow-ups file, under "From the staging run of …" and "From Phase …". Manage… on Discord for raids and meetups is a plan for after the cutover unless Matt says otherwise.
+Steps of earlier stagings still unrun (third account, Matt's phone) and rulings for Matt are in the follow-ups file, under "From the staging run of …" and "From Phase …". Manage… on Discord for raids and meetups was built on 2026-11-07 (the map's forms as dialogs; staging not run yet).
 
 ## How the work is done
 
@@ -166,7 +166,7 @@ Each file under `docs/architecture/` holds the conventions of one subsystem. Rea
 - `wayfarer.md`: the export file, S2 cells and the area of an export (`packages/wayspot-core`), matching, `/gym import` and `/gym review`.
 - `history.md`: the party history (its tables, how ended parties are recorded, the opt-in, the legacy import, the legacy fill-in (member index, `LegacyFillIn`, its worker)) and the statistics questions as tested SQL.
 - `meetup-safety.md`: the check of a meetup's place, `/meetup`'s form and refusals, `MeetupSafety.make` (the one way to make a meetup), the requests and the moderators' post, decisions, expiry and sweeps, rulings, blocks and appeals.
-- `moderation.md`: reports to the moderators (`/report`, "Report to moderators" in the Apps menu), their post and decisions, staff's `/delete`, `/places`.
+- `moderation.md`: reports to the moderators (`/report`, "Report to moderators" in the Apps menu), their post and decisions, staff's `/delete`, `/places`, `/audit`.
 - `members-and-roles.md`: member settings and rows, member lookups and viewers, self-assigned roles.
 - `utilities.md`: game data, the catalogue, Pokémon search, raid tiers and bosses, nicknames, pictures, emoji, `/rank`, `/counters`, `/find-gym`, `/request`, `/maps`, `/help`, the events forum and the Campfire links.
 - `web.md`: the web server in the bot, its settings and secrets, sessions, CSRF, logging in, rate limits, the map's data and page, the region editor and `/region edit`, the CSP, how to add a route.
