@@ -8,7 +8,7 @@ import {
   type DialogOption,
 } from '../discord/dialog.js';
 import { startTimeOf } from '../domain/party/timed.js';
-import { clockTime } from '../domain/web/clock.js';
+import { clockTime, zoneLabel } from '../domain/web/clock.js';
 import {
   TRAIN_AT_END,
   TRAIN_KINDS,
@@ -403,7 +403,7 @@ function timeFields(
   now: number,
 ): { start: DialogField; end: DialogField } {
   const nowWords = (words: string, at: number | null): string =>
-    `${words}: ${at === null ? 'none' : clockTime(at, zone, now)}`;
+    `${words}: ${at === null ? 'none' : `${clockTime(at, zone, now)}${zoneLabel(zone)}`}`;
   return {
     start: {
       id: MANAGE_START_INPUT,

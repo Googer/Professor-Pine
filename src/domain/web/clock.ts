@@ -22,6 +22,18 @@ export function clockTime(at: number, zone: string, now: number): string {
 }
 
 /**
+ * The zone a time is said in, after it: ` (Eastern)`, the zone's generic name without "Time" (its
+ * id where it has none in English). The map adds it where the reader is in another zone
+ * (`zoneNote`); a Discord dialog, which cannot know the reader's zone, always (review M3).
+ */
+export function zoneLabel(zone: string): string {
+  const name = new Intl.DateTimeFormat('en-US', { timeZone: zone, timeZoneName: 'longGeneric' })
+    .formatToParts(0)
+    .find((part) => part.type === 'timeZoneName')?.value;
+  return name === undefined ? ` (${zone})` : ` (${name.replace(/ Time$/u, '')})`;
+}
+
+/**
  * A day and time in the posts' zone as Discord shows a member a timestamp of style `f`
  * (`<t:…:f>`, what the DMs write), with the zone's short name, since a page is read from
  * anywhere and does not show it in the reader's zone as Discord does: `November 19, 2026 at

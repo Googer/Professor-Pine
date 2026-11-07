@@ -1,5 +1,6 @@
 import { relativeStamp } from '../../render/duration-words.js';
 import type { PostTimeStyle } from '../../domain/web/party-data.js';
+import { zoneLabel } from '../../domain/web/clock.js';
 
 /**
  * Where a time is shown: the reader's own language and zone unless a test fixes them (the page
@@ -33,11 +34,7 @@ export function readerZone(): string {
  * "Time"; nothing where they are the same.
  */
 export function zoneNote(zone: string, reader: string = readerZone()): string {
-  if (zone === reader) return '';
-  const name = new Intl.DateTimeFormat('en-US', { timeZone: zone, timeZoneName: 'longGeneric' })
-    .formatToParts(0)
-    .find((part) => part.type === 'timeZoneName')?.value;
-  return name === undefined ? ` (${zone})` : ` (${name.replace(/ Time$/u, '')})`;
+  return zone === reader ? '' : zoneLabel(zone);
 }
 
 /**

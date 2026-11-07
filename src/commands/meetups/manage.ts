@@ -60,7 +60,12 @@ export async function openMeetupManage(
     throw new UserError(MEETUP_NOT_YOURS);
   }
   await interaction.showModal(
-    meetupManageDialog({ party, asksStart: mayArrange(party, userId), now: Date.now() }),
+    meetupManageDialog({
+      party,
+      asksStart: mayArrange(party, userId),
+      now: Date.now(),
+      zone: ctx.config.settings.timezone,
+    }),
   );
 }
 

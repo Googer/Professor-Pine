@@ -4,7 +4,7 @@ import { dialogChoices, dialogTexts } from '../../test/support/dialogs.js';
 import { checkModal } from '../../test/support/fake-interactions.js';
 import { testGym, testGyms } from '../../test/support/gyms.js';
 import { PARTY_NOW, PARTY_ZONE, stops, testTrain } from '../../test/support/parties.js';
-import { clockTime } from '../domain/web/clock.js';
+import { clockTime, zoneLabel } from '../domain/web/clock.js';
 import { decodeCustomId } from '../discord/custom-id.js';
 import { openToken } from '../discord/dialog.js';
 import type { TrainAtEnd, TrainParty } from '../domain/party/party.js';
@@ -313,8 +313,8 @@ describe('manageDialog (plan 8X-G: Manage…)', () => {
     expect(
       set.components.slice(-2).map((one) => ('description' in one ? one.description : '')),
     ).toEqual([
-      `Starts now: ${clockTime(PARTY_NOW, PARTY_ZONE, PARTY_NOW)}`,
-      `Ends now: ${clockTime(PARTY_NOW + 3_600_000, PARTY_ZONE, PARTY_NOW)}`,
+      `Starts now: ${clockTime(PARTY_NOW, PARTY_ZONE, PARTY_NOW)}${zoneLabel(PARTY_ZONE)}`,
+      `Ends now: ${clockTime(PARTY_NOW + 3_600_000, PARTY_ZONE, PARTY_NOW)}${zoneLabel(PARTY_ZONE)}`,
     ]);
   });
 

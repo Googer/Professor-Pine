@@ -109,7 +109,8 @@ describe('Manage… of a meetup’s post (plan 8M-21: the map’s editor as a di
       ['Starts', undefined],
       ['Ends', undefined],
     ]);
-    expect(dialogText(dialog)).toBe(`Starts now: <t:${String(START / 1000)}:t>\nEnds now: none`);
+    // In the posts' zone, named, as the map says it (review M3).
+    expect(dialogText(dialog)).toBe('Starts now: 6:00 PM (Eastern)\nEnds now: none');
   });
 
   it('refuses privately a member who is neither its maker nor staff, as the map does', async () => {

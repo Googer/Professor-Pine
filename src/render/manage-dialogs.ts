@@ -10,7 +10,10 @@ import {
 } from '../domain/party/party.js';
 import { raidWords } from '../domain/pogo/raid-tier.js';
 import type { RaidMovesView, RaidOptionsView } from '../domain/web/raid-options-data.js';
-import { isFarOff, timestamp, truncate } from './text.js';
+import { truncate } from './text.js';
+import { clockTime, zoneLabel } from '../domain/web/clock.js';
+import { MOVES_LATER } from '../domain/web/raid-manage.js';
+import { meetupPlaceOf } from '../domain/web/party-view.js';
 
 /*
  * Manage… of a raid's and a meetup's post (plan 8M-21; Matt, 2026-11-07: "I'd prefer the UI is 100%
@@ -155,10 +158,7 @@ export function raidManageDialog(view: RaidManageView): APIModalInteractionRespo
         },
       },
       {
-        choice:
-          fast || charged
-            ? { ...boss, description: 'With a new boss, its moves are set in Manage… afterwards.' }
-            : boss,
+        choice: fast || charged ? { ...boss, description: MOVES_LATER } : boss,
       },
       ...(fast ? [{ choice: fast }] : []),
       ...(charged ? [{ choice: charged }] : []),
@@ -199,15 +199,18 @@ export interface MeetupManageView {
   /** The member may change the start (`mayArrange`, as `/meet`): the map's `panel.start`. */
   asksStart: boolean;
   now: number;
+  /** The posts' zone (`settings.timezone`), in which the times are said and read. */
+  zone: string;
 }
 
-/** The map's "Starts now: 6:00 PM", "Ends now: none" (`nowLine`), in Discord's time. */
-function nowLine(words: string, at: number | null, now: number): string {
-  return at === null
-    ? `${words}: none`
-    : `${words}: ${timestamp(at, isFarOff(at, now) ? 'f' : 't')}`;
+/**
+ * The map's "Starts now: 6:00 PM", "Ends now: none" (`nowLine`): in the posts' zone, in which typed
+ * times are read, by the map's own words (`clockTime`), the zone named (review M3: Discord's reader
+ * may be in another, which a dialog cannot know).
+ */
+function nowLine(words: string, at: number | null, zone: string, now: number): string {
+  return at === null ? `${words}: none` : `${words}: ${clockTime(at, zone, now)}${zoneLabel(zone)}`;
 }
-
 /**
  * Manage… of a meetup (the map's `meetupEditor`), for its maker and staff: when it starts and
  * ends now; its name and its information, each with what it has to change; when it starts (only
@@ -221,10 +224,14 @@ export function meetupManageDialog(
 ): APIModalInteractionResponseCallbackData {
   const { party, now } = view;
   const startTime = party.timed.startTime;
+  const { zone } = view;
+  // Its place first, as the map's editor says it (review M7: `meetupPlaceOf`).
+  const place = meetupPlaceOf(party.meetup.place);
   const text = [
-    view.asksStart ? nowLine('Starts now', startTime, now) : nowLine('Starts', startTime, now),
+    ...(place === null ? [] : [place.words]),
+    nowLine(view.asksStart ? 'Starts now' : 'Starts', startTime, zone, now),
     ...(view.asksStart ? [] : ['Sign up for it to change when it starts.']),
-    nowLine('Ends now', party.endTime, now),
+    nowLine('Ends now', party.endTime, zone, now),
   ];
   return dialog({
     customId: encodeCustomId({
