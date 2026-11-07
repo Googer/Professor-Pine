@@ -203,4 +203,21 @@ describe("a report's search words and whether it is confirmed (plan 8M-12)", () 
     expect(finds(words, 'brock')).toBe(false);
     expect(finds(words, 'fountain')).toBe(false);
   });
+
+  it('works out a report’s words once per report, its mark by the lineups of each ask (plan map-speed)', () => {
+    const report: RocketReport = { ...rocketReport({ subjectKey: 'grunt:water' }), id: 5 };
+    const first = reportSearch(report, FACTS);
+    expect(first.unconfirmed).toEqual({ kind: 'not-sure-which', count: 2 });
+    // The same report object: the very same words; the lineups of the day changed, its mark too.
+    const later = reportSearch(report, { lineupsOf: () => 1 });
+    expect(later.words).toBe(first.words);
+    expect(later).not.toHaveProperty('unconfirmed');
+    // A changed report is another object, with words of its own.
+    const changed: RocketReport = {
+      ...report,
+      rocket: { ...report.rocket, name: 'Fire-type grunt' },
+    };
+    expect(finds(reportSearch(changed, FACTS).words, 'fire')).toBe(true);
+    expect(finds(reportSearch(report, FACTS).words, 'fire')).toBe(false);
+  });
 });

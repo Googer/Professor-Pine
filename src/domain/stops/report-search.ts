@@ -91,6 +91,23 @@ function rocketMark(report: RocketReport, facts: SearchFacts): Unconfirmed | und
 }
 
 /**
+ * The search words of each report object, worked out once (plan map-speed): the map's list hands
+ * the same report objects to every ask until a report changes (`standingListed`), and a changed
+ * report is a new object. The words depend on the report alone; the callers only read them.
+ */
+const reportWords = new WeakMap<StopReport, string[]>();
+
+/** A report's search words, folded, each once (`reportWords`). */
+function wordsOf(report: StopReport): string[] {
+  const kept = reportWords.get(report);
+  if (kept) return kept;
+  const texts = isResearchReport(report) ? researchWords(report) : rocketWords(report);
+  const words = [...new Set(texts.flatMap(searchTokens))];
+  reportWords.set(report, words);
+  return words;
+}
+
+/**
  * A report's search words and whether it is not confirmed (plan 8M-12): research by its task's
  * words and every reward's name (a Pokémon with its form and costume, an item, Mega Energy), Team
  * GO Rocket by who, the lineup's Pokémon, `rocket` and a leader's `leader`; never its reporter or
@@ -98,8 +115,7 @@ function rocketMark(report: RocketReport, facts: SearchFacts): Unconfirmed | und
  * are not confirmed.
  */
 export function reportSearch(report: StopReport, facts: SearchFacts): ReportSearch {
-  const texts = isResearchReport(report) ? researchWords(report) : rocketWords(report);
-  const words = [...new Set(texts.flatMap(searchTokens))];
+  const words = wordsOf(report);
   const unconfirmed = isResearchReport(report) ? researchMark(report) : rocketMark(report, facts);
   return unconfirmed === undefined ? { words } : { words, unconfirmed };
 }

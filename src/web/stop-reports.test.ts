@@ -1,6 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
-import { EAST_CHANNEL, EAST_FORUM, OTHER_GUILD_ID, WEST_CHANNEL } from '../../test/support/gyms.js';
+import {
+  boardedRegions,
+  EAST_CHANNEL,
+  EAST_FORUM,
+  OTHER_GUILD_ID,
+  WEST_CHANNEL,
+} from '../../test/support/gyms.js';
+import { regionsFixture } from '../../test/support/providers.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
 import { ALICE, BOB } from '../../test/support/parties.js';
 import { pageTask } from '../../test/support/research.js';
@@ -203,6 +210,58 @@ describe('the reports at stops on the map', () => {
     expect((await made.ask()).json<StopReportsView>().grunts).toHaveLength(1);
     expect((await made.ask(BOB)).json<StopReportsView>().grunts).toHaveLength(1);
     expect(standing.mock.calls.length - before).toBe(1);
+  });
+
+  it('places each report it keeps once while the regions stay as they are', async () => {
+    const made = await setup();
+    web = made.web;
+    await made.research([wayspotId(1), wayspotId(3)]);
+    // The regions' outlines, each read counted.
+    let reads = 0;
+    const counted = boardedRegions().map((region) => {
+      const { bounds, ...rest } = region;
+      return Object.defineProperty({ ...rest }, 'bounds', {
+        enumerable: true,
+        get: () => {
+          reads += 1;
+          return bounds;
+        },
+      }) as typeof region;
+    });
+    Object.assign(made.ctx, { regions: regionsFixture(counted) });
+    expect((await made.ask()).json<StopReportsView>().research).toHaveLength(2);
+    const first = reads;
+    expect(first).toBeGreaterThan(0);
+    expect((await made.ask()).json<StopReportsView>().research).toHaveLength(2);
+    expect((await made.ask(BOB)).json<StopReportsView>().research).toHaveLength(2);
+    expect(reads).toBe(first);
+  });
+
+  it('places the reports it keeps by the regions as they are now: an outline moved, they follow', async () => {
+    const made = await setup();
+    web = made.web;
+    await made.research([wayspotId(1), wayspotId(3)]);
+    const names = async () =>
+      (await made.ask()).json<StopReportsView>().research.map((one) => one.stop.name);
+    expect(await names()).toEqual(['Yellow Mural', 'East Fountain']);
+    // East's outline moved away from East Fountain (a region edit loads the regions anew).
+    const away = boardedRegions().map((region) =>
+      region.channelId === EAST_CHANNEL
+        ? {
+            ...region,
+            bounds: [
+              { lat: 41, lon: -79 },
+              { lat: 41, lon: -78.9 },
+              { lat: 41.1, lon: -78.9 },
+              { lat: 41.1, lon: -79 },
+            ],
+          }
+        : region,
+    );
+    Object.assign(made.ctx, { regions: regionsFixture(away) });
+    expect(await names()).toEqual(['Yellow Mural']);
+    Object.assign(made.ctx, { regions: regionsFixture(boardedRegions()) });
+    expect(await names()).toEqual(['Yellow Mural', 'East Fountain']);
   });
 
   it('is for members: 401 without a session, 403 for others, 503 while Discord cannot say', async () => {

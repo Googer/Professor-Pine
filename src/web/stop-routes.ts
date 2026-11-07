@@ -128,13 +128,34 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
   const { ctx } = stops;
 
   /**
+   * Where each report object was placed, against the regions it was placed among (plan
+   * map-speed): the list hands the same report objects to every ask until a report changes
+   * (`standingListed`), and the directory gives a new array at every load of the regions (a
+   * region edited, added or removed), so a place kept is never stale.
+   */
+  const placed = new WeakMap<
+    StopReport,
+    { regions: readonly Region[]; row: number; at: Region[] }
+  >();
+
+  /**
    * The regions of the server (`row`) whose outlines hold each report's stop as it was reported,
-   * by report: placed once a request (`regionsAtPoints`: each outline's box first), for who may
-   * see them and for the view alike.
+   * by report: placed once per report and load of the regions (`placed`; `regionsAtPoints`: each
+   * outline's box first), for who may see them and for the view alike.
    */
   const placesOf = (row: number, reports: readonly StopReport[]): Places => {
-    const at = regionsAtPoints(ctx.regions.all(), row);
-    return new Map(reports.map((report) => [report.id, at(report.stop)]));
+    const regions = ctx.regions.all();
+    let at: ((point: StopReport['stop']) => Region[]) | undefined;
+    return new Map(
+      reports.map((report) => {
+        const kept = placed.get(report);
+        if (kept?.regions === regions && kept.row === row) return [report.id, kept.at];
+        at ??= regionsAtPoints(regions, row);
+        const found = at(report.stop);
+        placed.set(report, { regions, row, at: found });
+        return [report.id, found];
+      }),
+    );
   };
 
   /**
