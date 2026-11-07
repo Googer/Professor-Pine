@@ -23,6 +23,8 @@ export const DRAWN_COLOURS = {
   gym: '--gym',
   /** The map's region outlines. */
   region: '--region',
+  /** The fill of a region the member does not see on Discord (plan 8M-20, staging F1). */
+  regionVeil: '--region-veil',
   /** A raid's dot, and the ring round its picture. */
   raid: '--raid',
   /** A train's line and stop, and route mode's numbers. */

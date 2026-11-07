@@ -241,13 +241,21 @@ const MARKED_WEIGHT = 4;
 function regionOutlines(drawn: ReadonlyMap<number, L.Polygon>): RegionOutlines {
   let standing = new Map<number, RegionMineView>();
   let marked: number | undefined;
-  const styleOf = (id: number): L.PathOptions => ({
-    ...outlineStyle(standing.get(id)),
-    weight: id === marked ? MARKED_WEIGHT : REGION_OUTLINE.weight,
-  });
+  const styleOf = (id: number): L.PathOptions => {
+    const { veiled, ...style } = outlineStyle(standing.get(id));
+    const { colours } = theme();
+    return {
+      ...style,
+      // Grayed where the member does not see the region on Discord (staging F1).
+      fillColor: veiled ? colours.regionVeil : colours.region,
+      weight: id === marked ? MARKED_WEIGHT : REGION_OUTLINE.weight,
+    };
+  };
   const restyleAll = (): void => {
     for (const [id, outline] of drawn) outline.setStyle(styleOf(id));
   };
+  // The veil's gray follows the theme as the outlines' color does.
+  onThemeChange(restyleAll);
   return {
     restyle: (view) => {
       standing = new Map(

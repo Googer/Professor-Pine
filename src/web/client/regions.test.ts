@@ -73,6 +73,13 @@ describe('the outlines of "Your regions"', () => {
     expect(barred.dashArray).toBe(hidden.dashArray);
     expect(barred.opacity).toBeLessThan(hidden.opacity);
     expect(hidden.opacity).toBeLessThan(visible.opacity);
+    // A region the member does not see is grayed as well (staging F1): a solid neighbor draws the
+    // border they share solid, so the dashes alone may not show; the gray does.
+    expect(visible.veiled).toBe(false);
+    expect(hidden.veiled).toBe(true);
+    expect(barred.veiled).toBe(true);
+    expect(barred.fillOpacity).toBeGreaterThan(hidden.fillOpacity);
+    expect(hidden.fillOpacity).toBeGreaterThan(visible.fillOpacity);
     // Hidden, and its raids not on the map either: as fainter as kept out.
     expect(unlisted).toEqual(barred);
     // A region nothing is said of (logged out, read-only, its channel gone) as before.
@@ -222,7 +229,7 @@ describe('the rows of "Your regions"', () => {
       ]),
       NAMES,
     )[0];
-    expect(given?.buttons[0]?.notes).toEqual(['Also gives back Mod.']);
+    expect(given?.buttons[0]?.notes).toEqual(['Also takes away Mod.']);
   });
 
   it('shows a stuck join as a button that cannot be pressed, with why', () => {
@@ -266,7 +273,7 @@ describe('the box of "Your regions"', () => {
     expect(shows(hidden, 'data-regions-legend')).toBe(true);
     expect(textOf(hidden)).toContain(REGIONS_LEGEND);
     expect(REGIONS_LEGEND).toBe(
-      'Solid: a region you see on Discord. Dashed: one only the map shows you. Fainter dashes: one whose raids the map does not show you either.',
+      'Solid: a region you see on Discord. Dashed and grayed: one only the map shows you. Grayed more: one whose raids the map does not show you either.',
     );
   });
 

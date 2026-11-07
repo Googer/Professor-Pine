@@ -117,6 +117,7 @@
   /* What the map draws (`theme.ts`); the raid's ring and route mode's numbers share them. */
   --gym: #2d7a3a;
   --region: #3060c0;
+  --region-veil: #6b6f76;
   --raid: #c0392b;
   --train: #d35400;
   --meetup: #8e44ad;
@@ -268,6 +269,7 @@
 
     --gym: #3ba55c;
     --region: #8891f2;
+    --region-veil: #1e1f22;
     --raid: #ed4245;
     --train: #e67e22;
     --meetup: #b065d0;

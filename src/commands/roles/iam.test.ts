@@ -95,6 +95,14 @@ describe('the role commands', () => {
     }
   });
 
+  it('say in /help that taking a role of a pick-one group takes the first away (staging F2)', () => {
+    const { ctx } = createTestContext();
+    const details = iam.help.details;
+    const text = typeof details === 'function' ? details(ctx.config.settings) : details;
+    expect(text).toContain('taking another one takes the first away');
+    expect(text).not.toContain('gives the first back');
+  });
+
   it('refuse a member who has not finished joining the server', async () => {
     const { answer, server, gateway, held } = await setup();
     server.member(ALICE, ROLE.south);

@@ -136,7 +136,7 @@ export const iam: SimpleCommand = {
       'like.\n\nWithout `role` you get menus, one per group of roles, with your own roles ticked: ' +
       'tick and untick, and a menu takes effect when you close it. With `role` you get that ' +
       'one role: pick it from the list that appears while you type.\n\nOf some groups of roles ' +
-      '(teams) you can hold only one: taking another one gives the first back. `/iamnot` ' +
+      '(teams) you can hold only one: taking another one takes the first away. `/iamnot` ' +
       'takes a role away again.' +
       onTheMap(settings),
     examples: ['/iam', '/iam role:Mystic'],

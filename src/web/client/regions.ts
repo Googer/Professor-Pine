@@ -10,7 +10,7 @@ import type { PageNode } from './popup.js';
 
 /** The line of the box that says what the outlines mean, where some region is not seen (R10). */
 export const REGIONS_LEGEND =
-  'Solid: a region you see on Discord. Dashed: one only the map shows you. Fainter dashes: one whose raids the map does not show you either.';
+  'Solid: a region you see on Discord. Dashed and grayed: one only the map shows you. Grayed more: one whose raids the map does not show you either.';
 
 /** Said in the box while the Region outlines layer is off (B8): a row's mark cannot show. */
 export const OUTLINES_OFF = 'The Region outlines layer is off, so the map shows no outlines.';
@@ -49,23 +49,27 @@ export interface OutlineStyle {
   dashArray: string | undefined;
   opacity: number;
   fillOpacity: number;
+  /** Filled with the theme's gray (`--region-veil`) rather than the outline's color. */
+  veiled: boolean;
 }
 
 /**
  * A region's outline by how the member stands to it (R14, W3): solid where they see it on Discord
  * (as the map always drew it), dashed and fainter where the map alone shows it, dashed and fainter
  * still where the map does not list its raids either (kept out, or hidden by a self-assignable
- * role that denies it); as before where nothing is said (logged out, read-only).
+ * role that denies it); as before where nothing is said (logged out, read-only). A region the
+ * member does not see is grayed too (staging F1): a solid neighbor draws the border they share
+ * solid, so the dashes alone may not show.
  */
 export function outlineStyle(region: RegionStanding | undefined): OutlineStyle {
   switch (region === undefined ? 'visible' : stateOf(region)) {
     case 'mapOnly':
-      return { dashArray: DASHES, opacity: 0.7, fillOpacity: 0.03 };
+      return { dashArray: DASHES, opacity: 0.7, fillOpacity: 0.15, veiled: true };
     case 'unlisted':
     case 'barred':
-      return { dashArray: DASHES, opacity: 0.4, fillOpacity: 0.02 };
+      return { dashArray: DASHES, opacity: 0.4, fillOpacity: 0.25, veiled: true };
     default:
-      return { dashArray: undefined, opacity: 1, fillOpacity: 0.05 };
+      return { dashArray: undefined, opacity: 1, fillOpacity: 0.05, veiled: false };
   }
 }
 
@@ -142,7 +146,7 @@ export function regionRows(view: RegionsMineView, names: ReadonlyMap<number, str
         ...(join.alsoLeaves.regions.some((id) => names.has(id))
           ? [`Also leaves ${named(join.alsoLeaves.regions)}.`]
           : join.alsoLeaves.roles.length > 0
-            ? [`Also gives back ${listed(join.alsoLeaves.roles)}.`]
+            ? [`Also takes away ${listed(join.alsoLeaves.roles)}.`]
             : []),
       ],
     }));
