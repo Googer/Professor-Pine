@@ -357,6 +357,18 @@ export interface ComponentHandler {
     interaction: MessageComponentInteraction | ModalSubmitInteraction,
     id: CustomId,
   ) => (ControlThrottle & { countedAt: number }) | undefined;
+  /**
+   * For a control whose answer waits for a write (a post's buttons: the party's store): `late`
+   * acknowledges the press for the member alone when it has not answered `LATE_DEFER_MS` after
+   * it was made, as a command's late deferral does; its answer then takes that place
+   * (`ClickAnswers`, `answer`). Undefined for a press that answers otherwise (one that opens a
+   * dialog, whose first answer must be the dialog).
+   */
+  defer?: (
+    interaction: MessageComponentInteraction | ModalSubmitInteraction,
+    id: CustomId,
+    ctx: AppContext,
+  ) => 'late' | undefined;
   button?: (interaction: ButtonInteraction, id: CustomId, ctx: AppContext) => Promise<void>;
   select?: (interaction: AnySelectMenuInteraction, id: CustomId, ctx: AppContext) => Promise<void>;
   modal?: (interaction: ModalSubmitInteraction, id: CustomId, ctx: AppContext) => Promise<void>;

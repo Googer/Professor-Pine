@@ -74,10 +74,12 @@ export interface LateDeferral {
 
 /**
  * Starts the wait: `afterMs` from now the interaction is acknowledged for the member alone,
- * unless `answer` came first. `setTimer` is for tests.
+ * unless `answer` came first. `setTimer` is for tests. A command with `defer: 'late'`, and a
+ * press of a control whose handler says so (`ComponentHandler.defer`: a post's buttons, whose
+ * answer waits for the party's write).
  */
 export function deferLate(
-  interaction: ChatInputCommandInteraction,
+  interaction: ChatInputCommandInteraction | MessageComponentInteraction,
   afterMs: number,
   setTimer: (run: () => void, ms: number) => () => void = unrefTimer,
 ): LateDeferral {
@@ -118,15 +120,24 @@ function unrefTimer(run: () => void, ms: number): () => void {
 }
 
 /**
+ * Stops a late acknowledgement of this interaction that has not begun and waits for one that has
+ * (`deferLate`): afterwards `interaction.deferred` says whether it was acknowledged. Nothing for an
+ * interaction that has none. For whatever answers such an interaction (`answer`, `ClickAnswers`).
+ */
+export async function lateSettled(interaction: object): Promise<void> {
+  const state = waiting.get(interaction);
+  state?.cancel();
+  await state?.deferral;
+}
+
+/**
  * Answers the member alone: as the first answer when the interaction was not acknowledged (a
  * command with `defer: 'late'` whose work was quick), otherwise by editing what stands (the
  * acknowledgement, or an earlier answer). An acknowledgement that is on its way is waited for.
  * Use it in the place of `editReply` in everything a late command runs.
  */
 export async function answer(interaction: Answerable, payload: AnswerPayload): Promise<void> {
-  const state = waiting.get(interaction);
-  state?.cancel();
-  await state?.deferral;
+  await lateSettled(interaction);
   if (interaction.deferred || interaction.replied) await interaction.editReply(payload);
   else
     await interaction.reply({ ...payload, flags: MessageFlags.Ephemeral | (payload.flags ?? 0) });

@@ -306,27 +306,14 @@ export class InteractionRouter {
       const defer =
         typeof handler.defer === 'function' ? handler.defer(interaction, this.ctx) : handler.defer;
       if (defer === 'late') {
-        // As old as the interaction is already, so much sooner: Discord allows three seconds
-        // from when it was made, not from when it arrived.
-        const age = Date.now() - interaction.createdTimestamp;
-        const late = deferLate(
+        await this.runLate(
           interaction,
-          Math.max(0, this.lateDeferMs - (age > 0 ? age : 0)),
-          this.setTimer,
+          () => handler.execute(interaction, this.ctx),
+          'could not acknowledge a command late',
+          (ms) => {
+            deferMs = ms;
+          },
         );
-        try {
-          await handler.execute(interaction, this.ctx);
-        } finally {
-          // Before anything else is sent, an error among it: no acknowledgement is on its way.
-          const settled = await late.settle();
-          deferMs = settled.deferMs;
-          if (settled.failure !== undefined) {
-            this.ctx.log.warn(
-              { err: settled.failure, interaction: describe(interaction) },
-              'could not acknowledge a command late',
-            );
-          }
-        }
         return;
       }
       if (defer) {
@@ -496,8 +483,43 @@ export class InteractionRouter {
       if (carried) {
         spend({ key: windowOf(carried), throttle: carried, countedAt: carried.countedAt });
       }
+      const defer = handler.defer?.(interaction, id, this.ctx);
+      if (defer === 'late' && interaction.isMessageComponent()) {
+        await this.runLate(interaction, run, 'could not acknowledge a press late');
+        return;
+      }
       await run();
     });
+  }
+
+  /**
+   * Runs work whose answer may come late (`defer: 'late'`): the interaction is acknowledged for
+   * the member alone once it is `lateDeferMs` old without an answer, counted from when it was
+   * made (Discord allows three seconds from then, not from when it arrived). Before anything
+   * else is sent, an error among it, no acknowledgement is on its way; `took` is told how long
+   * the acknowledgement took, if there was one, also when the work failed.
+   */
+  private async runLate(
+    interaction: ChatInputCommandInteraction | MessageComponentInteraction,
+    work: () => Promise<void>,
+    failed: string,
+    took?: (deferMs: number | undefined) => void,
+  ): Promise<void> {
+    const age = Date.now() - interaction.createdTimestamp;
+    const late = deferLate(
+      interaction,
+      Math.max(0, this.lateDeferMs - (age > 0 ? age : 0)),
+      this.setTimer,
+    );
+    try {
+      await work();
+    } finally {
+      const settled = await late.settle();
+      took?.(settled.deferMs);
+      if (settled.failure !== undefined) {
+        this.ctx.log.warn({ err: settled.failure, interaction: describe(interaction) }, failed);
+      }
+    }
   }
 
   /**

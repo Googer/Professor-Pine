@@ -1,5 +1,5 @@
 import { MessageFlags } from 'discord.js';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
 import {
   fakeButton,
   fakeModal,
@@ -13,6 +13,7 @@ import { createTestContext } from '../../test/support/test-context.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { WITHDRAWN_REPLY } from '../commands/parties/reply.js';
 import { ClickAnswers } from '../discord/click-answers.js';
+import { LATE_DEFER_MS } from '../discord/late-reply.js';
 import { InteractionRouter, STALE_COMPONENT } from '../discord/router.js';
 import { attendeeOf, endParty } from '../domain/party/party.js';
 import { PartyStatus } from '../domain/party/status.js';
@@ -303,6 +304,68 @@ describe('a burst of clicks by one member', () => {
     expect(alice.reply).toHaveBeenCalledOnce();
     expect(bob.reply).toHaveBeenCalledOnce();
     await answers.flush();
+  });
+});
+
+describe('a press whose write is slow', () => {
+  /** The party's next write waits until `release` is called. */
+  function holdNextWrite(made: Awaited<ReturnType<typeof setup>>) {
+    const held = Promise.withResolvers<undefined>();
+    const update = made.store.update.bind(made.store);
+    vi.spyOn(made.store, 'update').mockImplementationOnce((id, change) =>
+      held.promise.then(() => update(id, change)),
+    );
+    return () => held.resolve(undefined);
+  }
+
+  it('is acknowledged privately in time, and answered in that place once the write is done', async () => {
+    const made = await setup();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    const release = holdNextWrite(made);
+    const press = fakeButton({
+      customId: `party:${made.party.id}:join`,
+      channelId: made.postId,
+      userId: ALICE,
+      displayName: 'Alice',
+    });
+    const handled = made.handle(press);
+    await vi.advanceTimersByTimeAsync(LATE_DEFER_MS - 1);
+    expect(press.deferReply).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    expect(press.deferReply).toHaveBeenCalledExactlyOnceWith({ flags: MessageFlags.Ephemeral });
+    release();
+    await handled;
+    expect(press.reply).not.toHaveBeenCalled();
+    expect(press.editReply).toHaveBeenCalledExactlyOnceWith({ content: 'You are coming.' });
+    expect(made.alice()?.status).toBe(PartyStatus.Coming);
+  });
+
+  it('says a refusal privately after a late acknowledgement', async () => {
+    const made = await setup();
+    vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout', 'Date'] });
+    onTestFinished(() => {
+      vi.useRealTimers();
+    });
+    const release = holdNextWrite(made);
+    const press = fakeButton({ customId: `party:${made.party.id}:leave`, userId: ALICE });
+    const handled = made.handle(press);
+    await vi.advanceTimersByTimeAsync(LATE_DEFER_MS);
+    release();
+    await handled;
+    expect(press.deferReply).toHaveBeenCalledExactlyOnceWith({ flags: MessageFlags.Ephemeral });
+    expect(press.followUp).toHaveBeenCalledExactlyOnceWith(
+      privately('You are not signed up for this raid.'),
+    );
+  });
+
+  it('is answered at once, unacknowledged, when the write is quick', async () => {
+    const made = await setup();
+    const click = await made.click('done');
+    expect(click.deferReply).not.toHaveBeenCalled();
+    expect(sent(click.reply).flags).toBe(MessageFlags.Ephemeral);
   });
 });
 

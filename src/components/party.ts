@@ -16,6 +16,7 @@ import { showWholeRoute } from '../commands/trains/route.js';
 import { openSplit, SPLIT_WINDOW, submitSplit } from '../commands/trains/split.js';
 import { MEET_WINDOW } from '../commands/parties/meet.js';
 import { openMeet } from '../commands/parties/meet-dialog.js';
+import type { AppContext } from '../app-context.js';
 import type { ComponentHandler } from '../discord/command.js';
 import { UserError } from '../discord/errors.js';
 import { notARaid, requireGuild } from '../discord/guards.js';
@@ -33,6 +34,30 @@ import {
   submitGroupMenu,
   submitWhichGroup,
 } from '../commands/parties/group-dialogs.js';
+
+/** The presses that write the party and answer after it, whatever it is like. */
+const WRITES: ReadonlySet<string> = new Set([
+  'done',
+  'leave',
+  'less',
+  'more',
+  'remote',
+  'group',
+  'answer',
+]);
+
+/** Interested, Join and Here: they write too, unless they ask which group first. */
+const JOINS: ReadonlySet<string> = new Set(['maybe', 'join', 'here']);
+
+/**
+ * Whether a press of Interested, Join or Here asks the member which group first (a newcomer to a
+ * post of several groups, plan 8X-1B); of a party over by the clock nobody is asked: the press is
+ * refused as it is over.
+ */
+function asksFirst(ctx: AppContext, partyId: string, memberId: string): boolean {
+  const party = ctx.parties.get(partyId);
+  return asksWhichGroup(party, memberId) && !ctx.attendance.isOver(party);
+}
 
 /**
  * The controls of a party's post (spec 4.1): its buttons, the two answers under a completion
@@ -59,6 +84,14 @@ export const partyButtons: ComponentHandler = {
   // rename the window of every press (`variedThrottleKey`), which the map shares.
   checks: (_interaction, id) =>
     id.action === 'meet' ? MEET_WINDOW : id.action === 'split' ? SPLIT_WINDOW : undefined,
+  // A press that writes the party answers after the write: acknowledged privately should that
+  // be slow, so that Discord does not give up on it. Not one that asks which group first: the
+  // dialog must be its first answer.
+  defer: (interaction, id, ctx) => {
+    if (WRITES.has(id.action)) return 'late';
+    if (!JOINS.has(id.action)) return undefined;
+    return asksFirst(ctx, id.id, interaction.user.id) ? undefined : 'late';
+  },
 
   async button(interaction, id, ctx) {
     const { attendance } = ctx;
@@ -74,8 +107,7 @@ export const partyButtons: ComponentHandler = {
       case 'here': {
         // A newcomer to a post of several groups is asked which group (plan 8X-1B).
         const party = ctx.parties.get(partyId);
-        // Of a party over by the clock nobody is asked: the press is refused as it is over.
-        if (asksWhichGroup(party, member.id) && !attendance.isOver(party)) {
+        if (party && asksFirst(ctx, partyId, member.id)) {
           return openWhichGroup(interaction, ctx, party, id.action);
         }
         return pressStatus(attendance, partyId, member, { action: id.action }, click);

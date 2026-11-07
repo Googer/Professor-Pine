@@ -1,5 +1,6 @@
 import { MessageFlags, type MessageComponentInteraction } from 'discord.js';
 import type { Logger } from '../log.js';
+import { lateSettled } from './late-reply.js';
 
 export interface ClickAnswersOptions {
   log: Logger;
@@ -43,7 +44,15 @@ export class ClickAnswers {
     interaction: MessageComponentInteraction,
     content: string,
   ): Promise<void> {
+    // A click acknowledged late (its write was slow, `ComponentHandler.defer`) shows "thinking…"
+    // for the member alone: its answer takes that place.
+    await lateSettled(interaction);
     const burst = this.windowMs > 0 ? this.bursts.get(key) : undefined;
+    if (burst && interaction.deferred) {
+      // Its "thinking…" must not stay: answered by itself, the burst goes on as it was.
+      await interaction.editReply({ content });
+      return;
+    }
     if (burst) {
       clearTimeout(burst.timer);
       burst.pending = { content, latest: interaction };
@@ -55,7 +64,8 @@ export class ClickAnswers {
       this.bursts.set(key, { first: interaction, timer: this.timer(key) });
     }
     try {
-      await interaction.reply({ content, flags: MessageFlags.Ephemeral });
+      if (interaction.deferred) await interaction.editReply({ content });
+      else await interaction.reply({ content, flags: MessageFlags.Ephemeral });
     } catch (err) {
       // Nothing to replace later: the next click starts anew. A click that joined the burst
       // meanwhile was only acknowledged, so its answer is said under it now.
