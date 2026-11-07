@@ -30,7 +30,12 @@ import { meetupManageControls } from '../commands/meetups/manage.js';
 import { raidManageControls } from '../commands/raids/manage.js';
 import { manageControls } from '../commands/trains/move.js';
 import { partyButtons } from '../components/party.js';
-import { InteractionRouter } from '../discord/router.js';
+import { controlThrottleKey, InteractionRouter, variedThrottleKey } from '../discord/router.js';
+import type { Throttle } from '../discord/throttle.js';
+import { ACTION_THROTTLE } from '../commands/parties/reply.js';
+import { START_THROTTLE } from '../commands/parties/timed.js';
+import { CHANGE_THROTTLE } from '../commands/raids/change.js';
+import { PARTY_KIND } from '../render/party-controls.js';
 import { isTrain, type Party } from '../domain/party/party.js';
 import { PartyStatus } from '../domain/party/status.js';
 import type { MapManage } from '../domain/web/train-data.js';
@@ -152,7 +157,13 @@ async function both<M extends Made>(made: M) {
     });
     return answer.json<T>();
   };
-  return { made, web, open, submit, post, get };
+  /** How many more uses Alice has in the window `key` (using them up). */
+  const left = (key: string, throttle: Throttle): number => {
+    let uses = 0;
+    while (ctx.throttles.use(key, ALICE, throttle, PARTY_NOW) === undefined) uses += 1;
+    return uses;
+  };
+  return { made, web, open, submit, post, get, left };
 }
 
 describe('Manage… on Discord answers as the map’s form of its kind (review M9)', () => {
@@ -201,7 +212,7 @@ describe('Manage… on Discord answers as the map’s form of its kind (review M
     });
   });
 
-  it('of a train: its kind, its start and its end', async () => {
+  it('of a train: its kind, its start and its end, counted alike', async () => {
     const discord = await both(await createdTrain({ route: [4, 1, 7] }));
     const map = await both(await createdTrain({ route: [4, 1, 7] }));
     webs.push(discord.web, map.web);
@@ -225,5 +236,19 @@ describe('Manage… on Discord answers as the map’s form of its kind (review M
       return [train.timed.startTime, train.endTime, train.train.kind];
     };
     expect(shown(discord.made)).toEqual(shown(map.made));
+    // Counted alike: each time in its command's window, the Submit in the post's controls' (on
+    // Discord the press that opened the dialog is one more there, as any press of the post).
+    const windows = (side: typeof discord) => [
+      side.left(variedThrottleKey('meet', START_THROTTLE), START_THROTTLE),
+      side.left('end', CHANGE_THROTTLE),
+      side.left(controlThrottleKey(PARTY_KIND), ACTION_THROTTLE),
+    ];
+    const [meet, end, controls] = windows(map);
+    expect([meet, end, controls]).toEqual([
+      START_THROTTLE.uses - 1,
+      CHANGE_THROTTLE.uses - 1,
+      ACTION_THROTTLE.uses - 1,
+    ]);
+    expect(windows(discord)).toEqual([meet, end, (controls ?? 0) - 1]);
   });
 });

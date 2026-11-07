@@ -617,7 +617,7 @@ export function commandRefusal(name: string, wait: string): string {
 }
 
 /** What a member is told who used a control too often: as a command's use where it counts as one. */
-function controlRefusal(throttle: ControlThrottle, wait: string): string {
+export function controlRefusal(throttle: ControlThrottle, wait: string): string {
   // A command whose limit varies counts in a window of its name and limit
   // (`variedThrottleKey`): the member is told the name (Meet… in `/meet`'s, plan 8X-1B).
   return throttle.as === undefined

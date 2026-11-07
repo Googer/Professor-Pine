@@ -1,4 +1,9 @@
-import { commandRefusal, variedThrottleKey } from '../../discord/router.js';
+import {
+  commandRefusal,
+  controlRefusal,
+  controlThrottleKey,
+  variedThrottleKey,
+} from '../../discord/router.js';
 import { waitText, type Throttle, type Throttles } from '../../discord/throttle.js';
 import { CHANGE_THROTTLE } from '../raids/change.js';
 import type { RaidChange } from '../../domain/web/raid-options-data.js';
@@ -67,6 +72,28 @@ export function countUse(
   return {
     giveBack: (at) => {
       throttles.giveBack(key, userId, window.throttle, at, now);
+    },
+  };
+}
+
+/**
+ * Counts a use of the member in the window of the controls of `kind` (a post's: `party`), as a
+ * press there counts and the map counts a write of a post's form: what gives it back, or how long
+ * they wait and what they are told then (`That was a lot of clicks. …`).
+ */
+export function countControl(
+  throttles: Throttles,
+  kind: string,
+  throttle: Throttle,
+  userId: string,
+  now: number,
+): CountedUse | { wait: number; refusal: string } {
+  const key = controlThrottleKey(kind);
+  const wait = throttles.use(key, userId, throttle, now);
+  if (wait !== undefined) return { wait, refusal: controlRefusal(throttle, waitText(wait)) };
+  return {
+    giveBack: (at) => {
+      throttles.giveBack(key, userId, throttle, at, now);
     },
   };
 }

@@ -7,12 +7,7 @@ import {
   type ModalSubmitInteraction,
 } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
-import type {
-  ComponentHandler,
-  ControlThrottle,
-  Guard,
-  SimpleCommand,
-} from '../../discord/command.js';
+import type { ComponentHandler, Guard, SimpleCommand } from '../../discord/command.js';
 import { decodeCustomId } from '../../discord/custom-id.js';
 import { deferSubmit, pickedOf, selectedOf, withoutOpenToken } from '../../discord/dialog.js';
 import { UserError } from '../../discord/errors.js';
@@ -47,11 +42,11 @@ import {
   ROUTE_CHOICES,
   type DialogMove,
 } from '../../render/train-dialogs.js';
-import type { ControlIcons } from '../../render/party-controls.js';
-import { START_WINDOW } from '../parties/meet.js';
 import { ACTION_THROTTLE, actingMember, commandTrain, partyOver } from '../parties/reply.js';
 import { CHANGE_THROTTLE } from '../raids/change.js';
 import { readTimes, type TimesRead } from '../parties/timed.js';
+import { countControl, countTimes } from '../parties/windows.js';
+import { PARTY_KIND, type ControlIcons } from '../../render/party-controls.js';
 import {
   manageRefusal,
   manageTrainAs,
@@ -63,6 +58,7 @@ import {
   trainPlaces,
   type ManagePicked,
   type ManageShown,
+  type TrainAnswer,
 } from './train-changes.js';
 
 const A_TRAIN = { type: 'train' } as const;
@@ -418,44 +414,56 @@ export async function submitManage(
   if (!asked) throw new UserError(STALE_COMPONENT);
   const before = ctx.parties.get(partyId);
   const times = before && isTrain(before) ? askedTimes(interaction, ctx, before) : {};
-  await deferSubmit(interaction);
-  const say = (content: string) => interaction.editReply({ content });
   const party = ctx.parties.get(partyId);
-  if (!party) return void (await say(partyOver(A_TRAIN)));
-  if (!isTrain(party)) return void (await say(STALE_COMPONENT));
-  const answer = await manageTrainAs(
-    ctx,
-    party,
-    actingMember(interaction),
-    isStaff(interaction, ctx),
-    asked.shown,
-    { ...asked.picked, ...times },
-    'post',
-  );
-  await say(answer.text);
-  // Times that came to nothing do not count towards their command's window (told above).
-  if ((times.start !== undefined || times.end !== undefined) && answer.kind === 'refused') {
-    throw new UserError(answer.text, { givesBack: true, said: true });
+  const say = (content: string) => interaction.editReply({ content });
+  if (!party || !isTrain(party)) {
+    await deferSubmit(interaction);
+    return void (await say(party ? STALE_COMPONENT : partyOver(A_TRAIN)));
   }
+  // Counted as the map's route counts it, before it is acknowledged (a full window is refused as
+  // the router refuses one): each time in its command's window (`countTimes`), the Submit in the
+  // post's controls' (`countControl`); a full one refuses it with nothing spent.
+  const userId = interaction.user.id;
+  const counted = countTimes(ctx.throttles, userId, times, Date.now());
+  if ('refusal' in counted) throw new UserError(counted.refusal);
+  const control = countControl(ctx.throttles, PARTY_KIND, ACTION_THROTTLE, userId, Date.now());
+  if ('refusal' in control) {
+    counted.givenBack(Date.now());
+    throw new UserError(control.refusal);
+  }
+  await deferSubmit(interaction);
+  let answer: TrainAnswer;
+  try {
+    answer = await manageTrainAs(
+      ctx,
+      party,
+      actingMember(interaction),
+      isStaff(interaction, ctx),
+      asked.shown,
+      { ...asked.picked, ...times },
+      'post',
+    );
+  } catch (err) {
+    if (!(err instanceof UserError) || err.givesBack) {
+      counted.givenBack(Date.now());
+      control.giveBack(Date.now());
+    }
+    throw err;
+  }
+  // Times that came to nothing do not count towards their commands' windows.
+  if (answer.kind === 'refused') counted.givenBack(Date.now(), answer.went);
+  await say(answer.text);
 }
 
-/** The window of `/end`, which a Submit of Manage… with an end alone counts in, as the map's. */
-const END_WINDOW: ControlThrottle = { ...CHANGE_THROTTLE, as: 'end' };
-
 /**
- * The dialog of Manage…: a Submit with a start counts in `/meet`'s window (`START_WINDOW`), as
- * telling of a start pings everybody; one with an end alone in `/end`'s (`END_WINDOW`); any other
- * in a window of its own, as often as the post's controls (a function's limits are counted apart:
- * `varies`).
+ * The dialog of Manage…: counted by no window of its own; its Submit counts as the map's route
+ * counts it (`submitManage`): in the post's controls' window, and each time in its command's
+ * (`/meet`'s, `/end`'s). Its times are checked before anything counts (`requireTimesChange`).
  */
 export const manageControls: ComponentHandler = {
   kind: MANAGE_KIND,
   guards: [requireGuild, requireTimesChange],
-  throttle: (interaction) => {
-    if (!interaction.isModalSubmit()) return ACTION_THROTTLE;
-    if (typedLine(interaction, MANAGE_START_INPUT) !== '') return START_WINDOW;
-    return typedLine(interaction, MANAGE_END_INPUT) !== '' ? END_WINDOW : ACTION_THROTTLE;
-  },
+  throttle: () => undefined,
   async modal(interaction, id, ctx) {
     if (id.action !== MANAGE_FORM) throw new UserError(STALE_COMPONENT);
     await submitManage(interaction, ctx, id.id, id.args);

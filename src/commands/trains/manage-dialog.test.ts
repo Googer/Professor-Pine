@@ -15,7 +15,16 @@ import type { EmojiFinder } from '../../services/application-emoji.js';
 import { manageControls } from './move.js';
 import { components } from '../../components/index.js';
 import { partyButtons } from '../../components/party.js';
-import { InteractionRouter, STALE_COMPONENT } from '../../discord/router.js';
+import {
+  controlThrottleKey,
+  InteractionRouter,
+  STALE_COMPONENT,
+  variedThrottleKey,
+} from '../../discord/router.js';
+import type { Throttle } from '../../discord/throttle.js';
+import { ACTION_THROTTLE } from '../parties/reply.js';
+import { START_THROTTLE } from '../parties/timed.js';
+import { PARTY_KIND } from '../../render/party-controls.js';
 import { PartyStatus } from '../../domain/party/status.js';
 import { CHANGE_THROTTLE } from '../raids/change.js';
 import {
@@ -108,6 +117,42 @@ async function setup(route: readonly number[] = [4, 1, 7, 2], emoji?: EmojiFinde
   return { ...made, ctx, handle, who, open, submit, answerOf, lines };
 }
 
+describe('the windows a train’s Manage… counts in (as the map’s route counts it)', () => {
+  const CONTROLS = controlThrottleKey(PARTY_KIND);
+  const MEET = variedThrottleKey('meet', START_THROTTLE);
+  /** How many more uses the window `key` of Alice takes (using them up). */
+  const left = (made: Awaited<ReturnType<typeof setup>>, key: string, throttle: Throttle) => {
+    let uses = 0;
+    while (made.ctx.throttles.use(key, ALICE, throttle, PARTY_NOW) === undefined) uses += 1;
+    return uses;
+  };
+
+  it('counts a Submit in the post’s controls’ window, and each time in its command’s', async () => {
+    const made = await setup();
+    await made.submit(shownDialog(await made.open()), {
+      kind: 'dynamax',
+      start: 'in 30',
+      end: 'in 90',
+    });
+    // The press that opened it and its Submit, each a use of the post's controls.
+    expect(left(made, CONTROLS, ACTION_THROTTLE)).toBe(ACTION_THROTTLE.uses - 2);
+    expect(left(made, MEET, START_THROTTLE)).toBe(START_THROTTLE.uses - 1);
+    expect(left(made, 'end', CHANGE_THROTTLE)).toBe(CHANGE_THROTTLE.uses - 1);
+  });
+
+  it('refuses a Submit while the controls’ window is full, in its words, its times given back', async () => {
+    const made = await setup();
+    const dialog = shownDialog(await made.open());
+    for (let use = 1; use < ACTION_THROTTLE.uses; use++) {
+      made.ctx.throttles.use(CONTROLS, ALICE, ACTION_THROTTLE, PARTY_NOW);
+    }
+    const full = await made.submit(dialog, { start: 'in 30' });
+    expect(sent(full.reply).content).toMatch(/^That was a lot of clicks\. Try again in /u);
+    expect(made.current().timed.startTime).toBeNull();
+    expect(left(made, MEET, START_THROTTLE)).toBe(START_THROTTLE.uses);
+  });
+});
+
 describe('the start in Manage… of a train’s post (Matt, 2026-10-30)', () => {
   it('sets it as /meet reads it, blank keeps it, and cancel removes it', async () => {
     const made = await setup();
@@ -188,7 +233,8 @@ describe('the start in Manage… of a train’s post (Matt, 2026-10-30)', () => 
 
   it('refuses an end it cannot read in /end’s words before it counts, and counts one in /end’s window', async () => {
     const made = await setup();
-    for (let tries = 0; tries < 12; tries++) {
+    // Uncounted in /end's window; each press and Submit a use of the post's controls, as on the map.
+    for (let tries = 0; tries < 4; tries++) {
       const bad = await made.submit(shownDialog(await made.open()), { end: 'whenever' });
       expect(sent(bad.reply).content).toContain(
         'I could not read "whenever" as the time the train ends.',
