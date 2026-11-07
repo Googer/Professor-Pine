@@ -29,6 +29,59 @@ export function rowFits({ room, chips, more, gap }: RowWidths): number {
   return count;
 }
 
+/** Where the focus is among the row's controls: a toggle, a checkbox under More, More's button. */
+export type RowFocus =
+  { where: 'toggle'; at: number } | { where: 'entry'; at: number } | { where: 'more' };
+
+/** What a measure shows and hides, and where the focus goes (review T5). */
+export interface FitOutcome {
+  /** Each toggle of the row, hidden or not, in their order. */
+  toggleHidden: boolean[];
+  /** Each checkbox under More, hidden or not, in the same order. */
+  entryHidden: boolean[];
+  /** The row's toggles all hidden: none fits. */
+  rowHidden: boolean;
+  /** More hidden (and closed): every toggle fits. */
+  moreHidden: boolean;
+  /** Where the focus goes, when what had it is hidden; none to leave it. */
+  focus: RowFocus | undefined;
+}
+
+/**
+ * The outcome of a measure: `shown` of `count` toggles in the row, the others under More. A focused
+ * toggle that moved under More hands the focus to its checkbox while More is open, else to More's
+ * button; a focused checkbox that moved into the row, to its toggle; More's focused button, when
+ * More goes, to the row's last toggle.
+ */
+export function fitOutcome({
+  count,
+  shown,
+  focused,
+  moreOpen,
+}: {
+  count: number;
+  shown: number;
+  focused: RowFocus | undefined;
+  moreOpen: boolean;
+}): FitOutcome {
+  const moreHidden = shown >= count;
+  let focus: RowFocus | undefined;
+  if (focused?.where === 'toggle' && focused.at >= shown) {
+    focus = moreOpen && !moreHidden ? { where: 'entry', at: focused.at } : { where: 'more' };
+  } else if (focused?.where === 'entry' && focused.at < shown) {
+    focus = { where: 'toggle', at: focused.at };
+  } else if (focused?.where === 'more' && moreHidden && count > 0) {
+    focus = { where: 'toggle', at: count - 1 };
+  }
+  return {
+    toggleHidden: Array.from({ length: count }, (_, at) => at >= shown),
+    entryHidden: Array.from({ length: count }, (_, at) => at < shown),
+    rowHidden: shown === 0,
+    moreHidden,
+    focus,
+  };
+}
+
 /**
  * The room left for the row in the header: its inner width less the other controls shown (the
  * title, Report, "Find a gym" at the least width it gives way to, the account) and a gap beside

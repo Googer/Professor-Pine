@@ -272,11 +272,11 @@ body.editing-regions #map {
 }
 
 /*
- * Up to 1280 pixels "Find a gym" starts narrower (plan 8M-9A to 1024; plan 8M-9B, B7, to 1280,
- * for the five toggles). The title is whole from 768: with "Layers · n" in place of the toggles
- * up to 1023 the row has room for it, and from 1024 the five toggles, Report, "Find a gym" and
- * the account (its name cut at 140 pixels) fit beside it (measured in the preview at 768, 1023,
- * 1024, 1150 and 1280 pixels).
+ * Up to 1280 pixels "Find a gym" starts narrower (plan 8M-9A to 1024; plan 8M-9B, B7, to 1280).
+ * The title is whole from 768: with "Layers · n" in place of the toggles up to 1023 the row has
+ * room for it; from 1024 the row of toggles takes what room is left beside the title, Report,
+ * "Find a gym" and the account (its name cut at 140 pixels), the rest under More (2026-11-07,
+ * below).
  */
 @media (min-width: 768px) and (max-width: 1279px) {
   /* Its own width (some 180 pixels) is no floor: the row wraps only below 120. */
@@ -287,8 +287,8 @@ body.editing-regions #map {
 }
 
 /*
- * The layers (plan 8M-7): on the desktop a row of toggles in the header, the background layers
- * under "More"; narrower than 1024 pixels (since plan 8M-9B's two toggles, B7, below) a
+ * The layers (plan 8M-7): on the desktop a row of toggles in the header, as many as fit, the rest
+ * under "More" (2026-11-07); narrower than 1024 pixels (since plan 8M-9B, B7, below) a
  * "Layers · n" button and a bottom sheet.
  */
 #layers {
@@ -341,6 +341,34 @@ body.editing-regions #map {
 
 .chip[data-layer='meetups'] .dot {
   background: var(--meetup);
+}
+
+/*
+ * The background layers' toggles in the row (2026-11-07, review T3): each dot the color the map
+ * draws the layer with.
+ */
+.chip[data-layer='spawns'] .dot {
+  background: var(--ball);
+}
+
+.chip[data-layer='gyms'] .dot {
+  background: var(--gym);
+}
+
+.chip[data-layer='stops'] .dot {
+  background: var(--stop);
+}
+
+.chip[data-layer='spots'] .dot {
+  background: var(--power-spot);
+}
+
+.chip[data-layer='activity'] .dot {
+  background: var(--activity);
+}
+
+.chip[data-layer='outlines'] .dot {
+  background: var(--region);
 }
 
 #layers .more {
@@ -488,8 +516,8 @@ body.editing-regions #map {
 }
 
 /*
- * With the reports at stops' two toggles (plan 8M-9B, B7, provisional) the desktop's row of five
- * toggles needs 1024 pixels: narrower, "Layers · n" and its sheet, as on a phone.
+ * Narrower than 1024 pixels (plan 8M-9B, B7), "Layers · n" and its sheet, as on a phone. The row
+ * fits what it can since 2026-11-07, so it might start lower: 768 is to be tried at staging.
  */
 @media (max-width: 1023px) {
   #layers .chips,
@@ -514,12 +542,17 @@ body.editing-regions #map {
     flex-wrap: nowrap;
   }
 
-  #header > :not(#filter) {
+  body:not(.editing-regions) #header > :not(#filter) {
     flex-shrink: 0;
   }
 
-  #header .title {
+  body:not(.editing-regions) #header .title {
     white-space: nowrap;
+  }
+
+  /* Its basis is the least the measure keeps for it (review T2): never a wider floor. */
+  #filter {
+    min-width: 0;
   }
 
   #layers,

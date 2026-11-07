@@ -2,12 +2,12 @@ import type { ViewStorage } from './view.js';
 
 /**
  * The layers of the live map (plan 8M-7): everything drawn is a layer the member toggles, with a
- * name, whether it is on by default, whether it is live (what happens now) or background (the
- * desktop's row shows the layers in their order as many as fit, the rest under "More"), and how
- * many of its things are in view (the
- * phone's sheet says it). The page's parts register with the registry (one call adds a layer:
- * field research and Team GO Rocket came so with plan 8M-9B) and follow it; the member's choice is
- * kept per browser (`localStorage`, read and written in try/catch).
+ * name, whether it is on by default, whether it is live (what happens now) or background, and how
+ * many of its things are in view (the phone's sheet says it). The desktop's row shows every layer's
+ * toggle in this list's order, as many as fit, and the rest under "More" (2026-11-07). The page's
+ * parts register with the registry (one call adds a layer: field research and Team GO Rocket came
+ * so with plan 8M-9B) and follow it; the member's choice is kept per browser (`localStorage`, read
+ * and written in try/catch).
  */
 
 export interface LayerSpec {

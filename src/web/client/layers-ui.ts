@@ -1,5 +1,5 @@
 import type { LayerRegistry, LayerSpec } from './layer-registry.js';
-import { rowFits, rowRoom } from './row-fit.js';
+import { fitOutcome, type RowFocus, rowFits, rowRoom } from './row-fit.js';
 
 /**
  * The layer controls of the live map (plan 8M-7), over the registry: on the desktop a row in the
@@ -193,7 +193,8 @@ export function showLayerControls(registry: LayerRegistry, nav: HTMLElement): La
   /**
    * The row's toggles that fit, the rest under More (Matt, 2026-11-07): every offered layer has a
    * toggle in the row and a checkbox under More, and the measure shows one of the two. A toggle
-   * moved while it has the focus hands it to its other self, or to More while that is closed.
+   * moved while it has the focus hands it to its other self, or to More while that is closed;
+   * More's button, when More goes, to the row's last toggle (`fitOutcome`).
    */
   const fit = (): void => {
     const chips = nav.querySelector<HTMLElement>('.chips');
@@ -206,7 +207,16 @@ export function showLayerControls(registry: LayerRegistry, nav: HTMLElement): La
     if (getComputedStyle(phone).display !== 'none' || nav.getClientRects().length === 0) return;
     const toggles = [...chips.querySelectorAll<HTMLElement>('.chip')];
     const boxes = [...more.querySelectorAll<HTMLElement>('label[data-entry]')];
-    const focused = document.activeElement;
+    const summary = more.querySelector<HTMLElement>('summary');
+    const active = document.activeElement;
+    const focused: RowFocus | undefined =
+      active === summary
+        ? { where: 'more' }
+        : toggles.includes(active as HTMLElement)
+          ? { where: 'toggle', at: toggles.indexOf(active as HTMLElement) }
+          : boxes.some((box) => box.contains(active))
+            ? { where: 'entry', at: boxes.findIndex((box) => box.contains(active)) }
+            : undefined;
     // Everything shown to be measured; nothing is painted before the outcome is set.
     chips.hidden = false;
     more.hidden = false;
@@ -229,28 +239,21 @@ export function showLayerControls(registry: LayerRegistry, nav: HTMLElement): La
       more: more.getBoundingClientRect().width,
       gap: parseFloat(getComputedStyle(nav).columnGap) || 0,
     });
+    const outcome = fitOutcome({ count: toggles.length, shown, focused, moreOpen: more.open });
     toggles.forEach((toggle, at) => {
-      toggle.hidden = at >= shown;
+      toggle.hidden = outcome.toggleHidden[at] ?? true;
     });
     boxes.forEach((box, at) => {
-      box.hidden = at < shown;
+      box.hidden = outcome.entryHidden[at] ?? true;
     });
-    chips.hidden = shown === 0;
-    more.hidden = shown === toggles.length;
+    chips.hidden = outcome.rowHidden;
+    more.hidden = outcome.moreHidden;
     if (more.hidden) more.open = false;
-    // The focus follows a toggle that moved.
-    if (
-      focused instanceof HTMLElement &&
-      nav.contains(focused) &&
-      focused.dataset.layer !== undefined
-    ) {
-      if (focused.closest('[hidden]') === null) return;
-      const other = [...nav.querySelectorAll<HTMLElement>('[data-layer]')].find(
-        (one) => one.dataset.layer === focused.dataset.layer && one.closest('[hidden]') === null,
-      );
-      if (other && (other.closest('details') === null || more.open)) other.focus();
-      else more.querySelector('summary')?.focus();
-    }
+    // The focus follows what moved.
+    const to = outcome.focus;
+    if (to?.where === 'more') summary?.focus();
+    else if (to?.where === 'toggle') toggles[to.at]?.focus();
+    else if (to?.where === 'entry') boxes[to.at]?.querySelector('input')?.focus();
   };
   let fitting: number | undefined;
   /** One measure a frame, however many sizes changed in it. */

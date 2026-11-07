@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { EDITOR_MEDIA } from './client/editor-media.js';
+import { MAP_LAYERS } from './client/layer-registry.js';
 
 /** A rule of a stylesheet: its selectors, its declarations, and the `@media` it is under. */
 interface Rule {
@@ -126,9 +127,39 @@ describe("the layers' controls by the window's width", () => {
       expect(shownAt(rules, header, 'flex-wrap', width), String(width)).toBe('nowrap');
       expect(shownAt(rules, '#layers', 'flex-wrap', width), String(width)).toBe('nowrap');
       expect(shownAt(rules, '#layers .chips', 'flex-wrap', width), String(width)).toBe('nowrap');
-      expect(shownAt(rules, '#header > :not(#filter)', 'flex-shrink', width)).toBe('0');
+      // Review T1: the region editor's tools keep their row's rules, shrinking included.
+      expect(shownAt(rules, `${header} > :not(#filter)`, 'flex-shrink', width)).toBe('0');
+      expect(shownAt(rules, `${header} .title`, 'white-space', width)).toBe('nowrap');
+      // Review T2: "Find a gym" shrinks to its basis, which the measure keeps free, at any width.
+      expect(shownAt(rules, '#filter', 'min-width', width), String(width)).toBe('0');
     }
+    expect(shownAt(rules, '#header > :not(#filter)', 'flex-shrink', 1280)).toBeUndefined();
     expect(shownAt(rules, header, 'flex-wrap', 1023)).toBeUndefined();
+  });
+
+  // Review T3: a layer's toggle has the color the map draws the layer with, in both themes.
+  it("give every layer's toggle a dot of its own color, the one the map draws it with", () => {
+    const theme = readFileSync(path.resolve(import.meta.dirname, 'client', 'theme.css'), 'utf8');
+    const colors = {
+      raids: 'var(--raid)',
+      trains: 'var(--train)',
+      meetups: 'var(--meetup)',
+      research: 'var(--research)',
+      rocket: 'var(--rocket)',
+      spawns: 'var(--ball)',
+      gyms: 'var(--gym)',
+      stops: 'var(--stop)',
+      spots: 'var(--power-spot)',
+      activity: 'var(--activity)',
+      outlines: 'var(--region)',
+    };
+    expect(Object.keys(colors).sort()).toEqual(MAP_LAYERS.map((spec) => spec.id).sort());
+    for (const [id, color] of Object.entries(colors)) {
+      expect(shown(rules, `.chip[data-layer='${id}'] .dot`, 'background', false), id).toBe(color);
+      const token = color.slice('var('.length, -1);
+      // Light and dark.
+      expect(theme.split(`${token}:`).length - 1, token).toBeGreaterThanOrEqual(2);
+    }
   });
 });
 
