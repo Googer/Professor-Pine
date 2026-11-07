@@ -83,7 +83,7 @@ import { WayspotDirectory } from './services/wayspot-directory.js';
 import { PlaceFinder } from './services/place-finder.js';
 import { PineStopService } from './services/pine-stops.js';
 import { ResearchTaskService } from './services/research-task-service.js';
-import { EventPageService } from './services/event-page-service.js';
+import { EventPageService, startAfterFeed } from './services/event-page-service.js';
 import { ResearchTaskRepository } from './db/repositories/research-task-repository.js';
 import { RocketLineupService } from './services/rocket-lineup-service.js';
 import { RocketLineupRepository } from './db/repositories/rocket-lineup-repository.js';
@@ -1308,10 +1308,9 @@ export async function startApp(
   raidBosses.startAutoSync();
   maxBosses.startAutoSync();
   raidEvents.start();
-  // The events' pages once the feed has said which events are on (a read that fails too).
-  void raidEvents.refresh().then(() => {
-    eventPages.start();
-  });
+  // The events' pages once the feed has said which events are on (a read that fails too), and
+  // again after each good read of the feed (review ER-1).
+  void startAfterFeed(raidEvents, eventPages);
   researchTasks.start();
   rocketLineups.start();
   // The clock waits for Discord, however long that takes: a post that cannot be asked for yet

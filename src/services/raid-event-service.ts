@@ -222,6 +222,8 @@ export class RaidEventService
   private current: readonly RaidEvent[] = [];
   private research: readonly ResearchEvent[] = [];
   private readonly researchListeners: (() => void)[] = [];
+  /** Told after each good read (`onRead`). */
+  private readonly readListeners: (() => void)[] = [];
   /** Whether the log has said that the feed lacks the research flags (once until they return). */
   private researchFlagsMissingTold = false;
   /** The event types with research the log has said are not read (`tellOfUnreadTypes`). */
@@ -575,7 +577,22 @@ export class RaidEventService
     this.safely(() => log.info(counts, 'raid events read'));
     // After the read, so that a listener reads the listing of this very read.
     this.tellListed();
+    for (const listener of this.readListeners) {
+      try {
+        listener();
+      } catch (err) {
+        this.safely(() => log.error({ err }, 'a listener of the reads failed'));
+      }
+    }
     return { status: 'updated', events };
+  }
+
+  /**
+   * Calls `listener` after each good read of the feed (the catch-up's too), never after a failed
+   * one: the events' pages are read then (`startAfterFeed`, review ER-1). Must not throw.
+   */
+  onRead(listener: () => void): void {
+    this.readListeners.push(listener);
   }
 
   /** The events just read, plus the recent ones known before that the feed no longer lists. */

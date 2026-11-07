@@ -1,9 +1,9 @@
 import { BoundedMap } from '../bounded-map.js';
 import { costumedSighting } from '../domain/pogo/costumes.js';
 import {
-  namesRaidHours,
   parseEventRaidHours,
   parseEventSpawns,
+  raidHourHeadings,
 } from '../domain/research/leekduck.js';
 import { pagedEventsNear } from '../domain/time/event-pages.js';
 import { eventPageRaidHours, type RaidEvent } from '../domain/time/raid-events.js';
@@ -39,6 +39,34 @@ const TOLD_KEPT = 100;
  * rule of the weekly Raid Hour needs the whole current week (as `RaidEventService.merged`).
  */
 const REMEMBER_MS = 8 * 24 * HOUR_MS;
+/**
+ * How long after a failed read a page is tried again (review ER-4): 15 minutes, doubled after
+ * each failure in a row, at most `REREAD_MS` (15, 30, 60, 120, 240, then 360 minutes).
+ */
+export const RETRY_FIRST_MS = 15 * 60_000;
+
+/** The wait before the next try of a page after `failures` failed reads in a row. */
+function retryWait(failures: number): number {
+  return Math.min(RETRY_FIRST_MS * 2 ** Math.min(failures - 1, 20), REREAD_MS);
+}
+
+/** What `startAfterFeed` needs of the events feed (`RaidEventService`). */
+export interface FeedReads {
+  refresh(): Promise<unknown>;
+  /** Calls `listener` after each good read of the feed. */
+  onRead(listener: () => void): void;
+}
+
+/**
+ * Starts the pages once the feed has said which events there are (`app.ts`): after the feed's
+ * first read, good or failed, and from then on reads what is due after each good read of the
+ * feed (review ER-1: after a failed first read, the pages are read as soon as the feed is back,
+ * not within the hour). A stopped service reads nothing.
+ */
+export function startAfterFeed(feed: FeedReads, pages: EventPageService): Promise<void> {
+  feed.onRead(() => void pages.refresh());
+  return feed.refresh().then(() => pages.start());
+}
 
 /** What `/wild` and `/want`'s dialog ask of the spawns of the events on (plan 8R-4). */
 export interface EventSpawnProvider {
@@ -129,8 +157,10 @@ class ReadStopped extends Error {}
 export class EventPageService implements EventSpawnProvider {
   private readonly pages = new BoundedMap<string, PageRead>(PAGES_KEPT);
   private readonly told = new BoundedMap<string, true>(TOLD_KEPT);
-  /** The events whose page names Raid Hours that could not be read, said once each. */
-  private readonly unreadHoursTold = new BoundedMap<string, true>(TOLD_KEPT);
+  /** What was said once per event of its Raid Hours (`<event>:unread`, `<event>:outside`). */
+  private readonly hoursTold = new BoundedMap<string, true>(TOLD_KEPT);
+  /** The pages whose last reads failed, by event: when, and how many in a row (ER-4). */
+  private readonly failures = new BoundedMap<string, { at: number; count: number }>(PAGES_KEPT);
   private readonly now: () => number;
   private readonly timeoutMs: number;
   private controller: AbortController | undefined;
@@ -174,8 +204,9 @@ export class EventPageService implements EventSpawnProvider {
     });
   }
 
-  /** Reads the pages that are due. Never rejects; calls share one run. */
+  /** Reads the pages that are due; nothing once stopped. Never rejects; calls share one run. */
   refresh(): Promise<void> {
+    if (this.closed) return Promise.resolve();
     this.inFlight ??= this.readDue().finally(() => {
       this.inFlight = undefined;
     });
@@ -247,39 +278,86 @@ export class EventPageService implements EventSpawnProvider {
   private async readDue(): Promise<void> {
     const { log, zone, weeklyRaidHour } = this.options;
     const now = this.now();
-    for (const [id, { url, span, spawnsFrom }] of this.pagesNow(now)) {
+    for (const [id, target] of this.pagesNow(now)) {
       const kept = this.pages.get(id);
-      if (
-        kept !== undefined &&
-        kept.url === url &&
-        now - kept.readAt < REREAD_MS &&
-        (spawnsFrom === undefined || kept.readAt >= spawnsFrom)
-      ) {
-        continue;
-      }
+      if (!this.isDue(id, target, kept, now)) continue;
+      const { url, span, spawnsFrom } = target;
       try {
         const html = await this.download(url);
+        this.failures.delete(id);
         const spawns = parseEventSpawns(html);
-        const raidHours = eventPageRaidHours(parseEventRaidHours(html), span, weeklyRaidHour, zone);
+        const read = parseEventRaidHours(html);
+        const placed = eventPageRaidHours(read, span, weeklyRaidHour, zone);
+        const headings = raidHourHeadings(html);
+        if (read.length < headings) {
+          // The page's shape changed (review ER-3).
+          this.tellOnce(`${id}:unread`, () =>
+            log.warn(
+              { event: id, url, headings, read: read.length },
+              'an event page names Raid Hours that could not be read',
+            ),
+          );
+        }
+        if (placed.length < read.length) {
+          this.tellOnce(`${id}:outside`, () =>
+            log.warn(
+              { event: id, url, read: read.length, placed: placed.length },
+              'Raid Hours of an event page fall outside the event or come twice',
+            ),
+          );
+        }
+        // A page that gives none keeps those of its last read (review ER-2): a page cut short
+        // or changed must not take away Raid Hours already known.
+        const keepOld = placed.length === 0 && (kept?.raidHours.length ?? 0) > 0;
+        const raidHours = keepOld ? (kept?.raidHours ?? []) : placed;
         this.pages.set(id, { url, readAt: now, spawns, raidHours });
         if (spawnsFrom !== undefined) {
           log.info({ event: id, spawns: spawns.length }, 'the spawns of an event read');
         }
-        if (raidHours.length > 0) {
+        if (keepOld) {
+          log.warn(
+            { event: id, url, raidHours: raidHours.length },
+            'an event page gave no Raid Hours; those of its last read kept',
+          );
+        } else if (raidHours.length > 0) {
           log.info(
             { event: id, raidHours: raidHours.length },
             'the Raid Hours of an event page read',
           );
-        } else if (namesRaidHours(html) && !this.unreadHoursTold.has(id)) {
-          // The page's shape changed, or its days fall outside the event.
-          this.unreadHoursTold.set(id, true);
-          log.warn({ event: id, url }, 'an event page names Raid Hours that could not be read');
         }
       } catch (err) {
         if (err instanceof ReadStopped) return;
-        log.warn({ err, event: id }, 'could not read an event page');
+        const count = (this.failures.get(id)?.count ?? 0) + 1;
+        this.failures.set(id, { at: now, count });
+        log.warn(
+          { err, event: id, retryInMinutes: retryWait(count) / 60_000 },
+          'could not read an event page',
+        );
       }
     }
+  }
+
+  /**
+   * Whether a page is to be read now (review ER-4): never again once its event has ended and it
+   * was read; after a failed read, once the retry's wait is up (`retryWait`); else when never
+   * read, read at another address, read before the start of an event with spawns now on, or read
+   * six hours ago (`REREAD_MS`).
+   */
+  private isDue(id: string, target: PageToRead, kept: PageRead | undefined, now: number): boolean {
+    const same = kept !== undefined && kept.url === target.url;
+    if (same && target.span.end <= now && target.spawnsFrom === undefined) return false;
+    const failed = this.failures.get(id);
+    if (failed !== undefined) return now - failed.at >= retryWait(failed.count);
+    if (!same) return true;
+    if (target.spawnsFrom !== undefined && kept.readAt < target.spawnsFrom) return true;
+    return now - kept.readAt >= REREAD_MS;
+  }
+
+  /** Logs `say` once per `key` while the bot runs. */
+  private tellOnce(key: string, say: () => void): void {
+    if (this.hoursTold.has(key)) return;
+    this.hoursTold.set(key, true);
+    say();
   }
 
   private async download(url: string): Promise<string> {

@@ -266,10 +266,7 @@ function raidHourDate(heading: string): { month: number; day: number } | undefin
  * without the section.
  */
 export function parseEventRaidHours(html: string): PageRaidHour[] {
-  const start = html.indexOf('<h2 id="raids"');
-  if (start < 0) return [];
-  const next = html.indexOf('<h2', start + 3);
-  const section = html.slice(start, next < 0 ? undefined : next);
+  const section = raidsSection(html);
   const hours: PageRaidHour[] = [];
   for (const part of partsFrom(section, '<h3')) {
     const close = part.indexOf('</h3>');
@@ -294,12 +291,24 @@ export function parseEventRaidHours(html: string): PageRaidHour[] {
   return hours;
 }
 
+/** An event page's Raids section, `<h2 id="raids"` up to the next `<h2`; empty without one. */
+function raidsSection(html: string): string {
+  const start = html.indexOf('<h2 id="raids"');
+  if (start < 0) return '';
+  const next = html.indexOf('<h2', start + 3);
+  return html.slice(start, next < 0 ? undefined : next);
+}
+
 /**
- * Whether a page has a heading of a Raid Hour by its id (`<h3 id="raid-hour-monday-november-9">`):
- * one whose Raid Hours `parseEventRaidHours` cannot read has changed its shape.
+ * How many headings of the Raids section are a Raid Hour's by their id
+ * (`<h3 id="raid-hour-monday-november-9">`; review ER-3): fewer read by `parseEventRaidHours`
+ * means the page's shape changed. An id `raid-hour` without the dash (a Raid Hour's own page)
+ * is none.
  */
-export function namesRaidHours(html: string): boolean {
-  return html.includes('id="raid-hour-');
+export function raidHourHeadings(html: string): number {
+  return partsFrom(raidsSection(html), '<h3').filter((part) =>
+    /^<h3\s[^>]*\bid="raid-hour-/.test(part),
+  ).length;
 }
 
 /**

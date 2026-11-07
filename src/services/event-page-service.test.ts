@@ -11,7 +11,11 @@ import {
   MAX_EVENT_PAGE_BYTES,
   nextReadIn,
   REREAD_MS,
+  startAfterFeed,
 } from './event-page-service.js';
+import { RaidEventService } from './raid-event-service.js';
+import type { RaidEvent } from '../domain/time/raid-events.js';
+import { textAnswer } from '../../test/support/responses.js';
 import { PINE_USER_AGENT, type FetchPage } from './research-task-service.js';
 import { zonedAt } from '../../test/support/time.js';
 
@@ -316,6 +320,185 @@ describe('EventPageService: the Raid Hours of the events’ pages', () => {
     clock.now = at('2026-11-07T12:00');
     await service.refresh();
     expect(sorted(service)).toEqual(BOTH);
+  });
+
+  it('keeps the Raid Hours of the last read when a page gives none, and warns (ER-2)', async () => {
+    let answer = byAddress;
+    const paged = { now: PAGED.filter((event) => event.id === 'into-the-wild-2026') };
+    const { service, clock, said } = serviceWith((url) => answer(url), [], paged);
+    clock.now = at('2026-11-07T12:00');
+    await service.refresh();
+    answer = () => page('<html><h2 id="spawns">Spawns</h2></html>');
+    clock.now += REREAD_MS;
+    await service.refresh();
+    expect(sorted(service)).toEqual(BOTH);
+    expect(said('an event page gave no Raid Hours; those of its last read kept')).toBe(1);
+  });
+
+  it('warns when fewer Raid Hours are read than the Raids section has headings for (ER-3)', async () => {
+    const raids =
+      '<h2 id="raids">Raids</h2>' +
+      '<h3 id="raid-hour-monday-november-9">Raid Hour: Monday, November 9</h3><ul></ul>' +
+      '<h3 id="raid-hour-tuesday-november-10">Raid Hour at last on Tuesday</h3><ul></ul>' +
+      '<h2 id="max-battles">Max Battles</h2><h3 id="raid-hour-elsewhere">Raid Hour</h3>';
+    const paged = { now: PAGED.filter((event) => event.id === 'into-the-wild-2026') };
+    const { service, clock, said } = serviceWith(() => page(raids), [], paged);
+    clock.now = at('2026-11-07T12:00');
+    await service.refresh();
+    expect(service.raidHours().map((hour) => hour.start)).toEqual([at('2026-11-09T18:00')]);
+    expect(said('an event page names Raid Hours that could not be read')).toBe(1);
+    // A dated heading id outside the Raids section is not counted.
+    const elsewhere = serviceWith(
+      () =>
+        page(
+          intoTheWild.replace(
+            '<h2 id="max-battles">',
+            '<h2 id="max-battles"><h3 id="raid-hour-x">Raid Hour</h3>',
+          ),
+        ),
+      [],
+      paged,
+    );
+    elsewhere.clock.now = at('2026-11-07T12:00');
+    await elsewhere.service.refresh();
+    expect(elsewhere.said('an event page names Raid Hours that could not be read')).toBe(0);
+  });
+
+  it('retries a page that failed after 15 minutes, doubling the wait up to six hours (ER-4)', async () => {
+    const paged = { now: PAGED.filter((event) => event.id === 'into-the-wild-2026') };
+    const { service, clock, asked } = serviceWith(() => page('', 503), [], paged);
+    clock.now = at('2026-11-07T00:00');
+    await service.refresh();
+    expect(asked).toHaveLength(1);
+    for (const minutes of [15, 30, 60, 120, 240, 360, 360]) {
+      const before = asked.length;
+      clock.now += minutes * 60_000 - 1;
+      await service.refresh();
+      expect(asked, `before ${String(minutes)} minutes`).toHaveLength(before);
+      clock.now += 1;
+      await service.refresh();
+      expect(asked, `after ${String(minutes)} minutes`).toHaveLength(before + 1);
+    }
+  });
+
+  it('retries a failed page after 15 minutes also when it was read before (ER-4)', async () => {
+    let answer = byAddress;
+    const paged = { now: PAGED.filter((event) => event.id === 'into-the-wild-2026') };
+    const { service, clock, asked } = serviceWith((url) => answer(url), [], paged);
+    clock.now = at('2026-11-07T12:00');
+    await service.refresh();
+    answer = () => page('', 503);
+    clock.now += REREAD_MS;
+    await service.refresh();
+    clock.now += 14 * 60_000;
+    await service.refresh();
+    expect(asked).toHaveLength(2);
+    answer = byAddress;
+    clock.now += 60_000;
+    await service.refresh();
+    expect(asked).toHaveLength(3);
+    // Read again: the next is six hours on.
+    clock.now += REREAD_MS - 1;
+    await service.refresh();
+    expect(asked).toHaveLength(3);
+  });
+
+  it('reads the page of an event that has ended once, never again (ER-4)', async () => {
+    const paged = { now: PAGED.filter((event) => event.id === 'into-the-wild-2026') };
+    const { service, clock, asked } = serviceWith(byAddress, [], paged);
+    clock.now = at('2026-11-14T12:00');
+    await service.refresh();
+    expect(asked).toHaveLength(1);
+    clock.now += 2 * REREAD_MS;
+    await service.refresh();
+    expect(asked).toHaveLength(1);
+    expect(sorted(service)).toEqual(BOTH);
+  });
+
+  it('reads a page read before its event again as the event begins, for its spawns (ER-5)', async () => {
+    const spawning = parseSpawnEventFeed(readSpawnEventFeed(), ZONE).filter(
+      (event) => event.id === 'into-the-wild-2026',
+    );
+    const paged = { now: PAGED.filter((event) => event.id === 'into-the-wild-2026') };
+    const { service, clock, asked } = serviceWith(byAddress, spawning, paged);
+    // Read for its Raid Hours five hours before it begins: within six hours of a read.
+    clock.now = at('2026-11-09T05:00');
+    await service.refresh();
+    expect(asked).toHaveLength(1);
+    clock.now = at('2026-11-09T09:59');
+    await service.refresh();
+    expect(asked).toHaveLength(1);
+    clock.now = at('2026-11-09T10:00');
+    await service.refresh();
+    expect(asked).toHaveLength(2);
+  });
+
+  it('reads nothing once stopped, also when asked to refresh (ER-1)', async () => {
+    const paged = { now: PAGED.filter((event) => event.id === 'into-the-wild-2026') };
+    const { service, clock, asked } = serviceWith(byAddress, [], paged);
+    clock.now = at('2026-11-07T12:00');
+    service.stop();
+    await service.refresh();
+    expect(asked).toEqual([]);
+  });
+});
+
+describe('startAfterFeed (ER-1, ER-5)', () => {
+  it('starts the pages after the first read of the feed, and reads them after each good read', async () => {
+    const INTO_THE_WILD = 'https://leekduck.com/events/into-the-wild-2026/';
+    const intoTheWild = readEventPage('leekduck-event-into-the-wild-2026.html');
+    const { log } = createTestLogger();
+    const clock = { now: at('2026-11-07T12:00') };
+    let feedUp = false;
+    const feed = new RaidEventService({
+      url: 'https://example.test/events.json',
+      refreshMs: 6 * HOUR,
+      zone: ZONE,
+      fetch: () =>
+        Promise.resolve(
+          feedUp ? textAnswer(200, JSON.stringify(readEveryoneFeed())) : textAnswer(503, ''),
+        ),
+      log,
+      now: () => clock.now,
+      pageRaidHours: (): readonly RaidEvent[] => pages.raidHours(),
+    });
+    const asked: string[] = [];
+    const pages = new EventPageService({
+      events: feed,
+      gameData: { catalogue: catalogueFixture() },
+      fetch: (url) => {
+        asked.push(url);
+        return page(url === INTO_THE_WILD ? intoTheWild : '<html></html>');
+      },
+      log,
+      zone: ZONE,
+      weeklyRaidHour: { hour: 18, minutes: 60 },
+      now: () => clock.now,
+    });
+    try {
+      // The first read fails: the pages start, with nothing to read.
+      await startAfterFeed(feed, pages);
+      await pages.whenIdle();
+      expect(asked).toEqual([]);
+      // The feed is back: its good read has the pages read at once, not within the hour.
+      feedUp = true;
+      await feed.refresh();
+      await pages.whenIdle();
+      expect(asked).toContain(INTO_THE_WILD);
+      expect(feed.events().map((event) => event.name)).toContain(
+        'Zacian (Crowned Sword) Raid Hour',
+      );
+      // Stopped: a later good read reads no page.
+      pages.stop();
+      const before = asked.length;
+      clock.now += 2 * REREAD_MS;
+      await feed.refresh();
+      await pages.whenIdle();
+      expect(asked).toHaveLength(before);
+    } finally {
+      pages.stop();
+      feed.stop();
+    }
   });
 });
 

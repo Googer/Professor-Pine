@@ -2,7 +2,13 @@ import { describe, expect, it } from 'vitest';
 import { catalogueFixture } from '../../../test/support/game-data.js';
 import { readResearchPage } from '../../../test/support/research.js';
 import { readEventPage } from '../../../test/support/spawn-events.js';
-import { htmlText, parseEventRaidHours, parseEventSpawns, parseResearchPage } from './leekduck.js';
+import {
+  htmlText,
+  parseEventRaidHours,
+  parseEventSpawns,
+  parseResearchPage,
+  raidHourHeadings,
+} from './leekduck.js';
 import { taskKeyOf } from './task.js';
 
 const ZONE = 'America/New_York';
@@ -283,6 +289,13 @@ describe('parseResearchPage', () => {
     expect(read[99]).toEqual({ name: 'Pokémon 99' });
   });
 
+  it('reads text as it shows: tags out, entities read, controls and gaps one space', () => {
+    expect(htmlText('<span>Buddy &amp; Friendship</span>  Tasks')).toBe('Buddy & Friendship Tasks');
+    expect(htmlText('Farfetch&#39;d &#x2014;\u200B ok')).toBe("Farfetch'd — ok");
+  });
+});
+
+describe('parseEventRaidHours', () => {
   it('reads the Raid Hours of an event page’s Raids section with their bosses', () => {
     expect(parseEventRaidHours(readEventPage('leekduck-event-into-the-wild-2026.html'))).toEqual([
       { month: 11, day: 9, bosses: ['Zacian (Crowned Sword)'] },
@@ -333,8 +346,14 @@ describe('parseResearchPage', () => {
     expect(read[19]).toEqual({ month: 1, day: 20, bosses: [] });
   });
 
-  it('reads text as it shows: tags out, entities read, controls and gaps one space', () => {
-    expect(htmlText('<span>Buddy &amp; Friendship</span>  Tasks')).toBe('Buddy & Friendship Tasks');
-    expect(htmlText('Farfetch&#39;d &#x2014;\u200B ok')).toBe("Farfetch'd — ok");
+  it('counts the Raid Hour headings of the Raids section by their dated ids (review ER-3)', () => {
+    expect(raidHourHeadings(readEventPage('leekduck-event-into-the-wild-2026.html'))).toBe(2);
+    expect(
+      raidHourHeadings(
+        '<h2 id="raids">Raids</h2><h3 class="x" id="raid-hour-monday">?</h3><h3 id="raid-hours">?</h3>' +
+          '<h2 id="raid-hour">Raid Hour</h2><h3 id="raid-hour-tuesday">?</h3>',
+      ),
+    ).toBe(1);
+    expect(raidHourHeadings('<h3 id="raid-hour-monday">Raid Hour</h3>')).toBe(0);
   });
 });

@@ -129,6 +129,28 @@ describe('RaidEventService', () => {
     expect(names).toHaveLength(6);
   });
 
+  it('tells its listeners after each good read, never after a failed one (ER-1)', async () => {
+    let next = () => Promise.resolve(reply(503));
+    const { events, entries } = service(() => next());
+    const reads: number[] = [];
+    events.onRead(() => reads.push(events.events().length));
+    events.onRead(() => {
+      throw new Error('a broken listener');
+    });
+    await events.refresh();
+    expect(reads).toEqual([]);
+    next = () => Promise.resolve(reply(200, downloaded));
+    // The catch-up after a failed read is a good read too.
+    events.start();
+    expect(await events.catchUp()).toBe('done');
+    await events.refresh();
+    expect(reads).toEqual([5, 5]);
+    expect(entries.filter((entry) => entry.msg === 'a listener of the reads failed')).toHaveLength(
+      2,
+    );
+    events.stop();
+  });
+
   it('catches up at once after a failed read, and only then (plan 8X-H)', async () => {
     let next: () => Promise<Response> = () => Promise.reject(new TypeError('fetch failed'));
     const fetch = vi.fn<FetchEvents>(() => next());
