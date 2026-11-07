@@ -28,18 +28,14 @@ export function plannedDuring(
 ): TimedParty[] {
   return parties
     .filter(isTimed)
-    .filter((party) => {
-      const start = startTimeOf(party);
-      return (
+    .filter(
+      (party) =>
         party.guildId === guildId &&
         party.status === 'active' &&
         party.forumPostId !== null &&
         !timedOver(party, now) &&
-        start !== null &&
-        start >= hours.start &&
-        start < hours.end
-      );
-    })
+        startsDuringAny(party, [hours]),
+    )
     .sort(
       (a, b) =>
         (startTimeOf(a) ?? 0) - (startTimeOf(b) ?? 0) ||
@@ -67,6 +63,17 @@ export function changesPlanned(before: Party | undefined, after: Party): boolean
     before.endTime !== after.endTime ||
     startTimeOf(before) !== startTimeOf(after)
   );
+}
+
+/**
+ * Whether a party is a train or meetup whose start falls within the hours of one of `events`, as
+ * `plannedDuring` counts it (review EP-4): a change of a party that neither did before nor does
+ * after changes no event's trains and meetups, and draws nothing.
+ */
+export function startsDuringAny(party: Party | undefined, events: readonly EventHours[]): boolean {
+  if (party === undefined || !isTimed(party)) return false;
+  const start = startTimeOf(party);
+  return start !== null && events.some((event) => start >= event.start && start < event.end);
 }
 
 /** How many trains and meetups an event has planned. */

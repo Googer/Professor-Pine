@@ -7,7 +7,13 @@ import {
   testRaid,
   testTrain,
 } from '../../../test/support/parties.js';
-import { changesPlanned, partyStartWords, plannedCounts, plannedDuring } from './event-parties.js';
+import {
+  changesPlanned,
+  partyStartWords,
+  plannedCounts,
+  plannedDuring,
+  startsDuringAny,
+} from './event-parties.js';
 import type { Party, TimedParty } from './party.js';
 
 const HOUR = 60 * 60_000;
@@ -97,6 +103,25 @@ describe('changesPlanned (when the events forum draws again)', () => {
     );
     expect(changesPlanned(undefined, testRaid())).toBe(false);
     expect(changesPlanned(undefined, testMax())).toBe(false);
+  });
+});
+
+// Review EP-4: a change draws again only where the party starts, or started, within an event.
+describe('startsDuringAny', () => {
+  const train = posted(testTrain(), at('2026-11-10T18:00'), 'p-01');
+
+  it('is a train or meetup whose start falls within one of the events', () => {
+    expect(startsDuringAny(train, [EVENT])).toBe(true);
+    expect(startsDuringAny(train, [{ start: EVENT.end, end: EVENT.end + HOUR }, EVENT])).toBe(true);
+  });
+
+  it('is not one starting outside them all, without a start, nor anything else', () => {
+    const outside = posted(testTrain(), EVENT.end, 'p-02');
+    expect(startsDuringAny(outside, [EVENT])).toBe(false);
+    expect(startsDuringAny(posted(testMeetup(), null, 'p-03'), [EVENT])).toBe(false);
+    expect(startsDuringAny(train, [])).toBe(false);
+    expect(startsDuringAny(undefined, [EVENT])).toBe(false);
+    expect(startsDuringAny(testRaid(), [{ start: 0, end: Number.MAX_SAFE_INTEGER }])).toBe(false);
   });
 });
 

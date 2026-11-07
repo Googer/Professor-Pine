@@ -16,8 +16,11 @@ export const PLANNED_HEADING = 'Trains and meetups planned';
 export interface EventPlannedView {
   /** Every one planned, in every region of the server. */
   counts: PlannedCounts;
-  /** Those it may name (their post and start), by start. */
-  named: ReadonlyArray<{ postId: string; start: number }>;
+  /**
+   * Those it may name (their post and start), by start; undefined where who sees the regions could
+   * not be told (review EP-1): then nobody is named and nothing is said of the others.
+   */
+  named: ReadonlyArray<{ postId: string; start: number }> | undefined;
 }
 
 /** "3 trains, 1 meetup" (a kind of none left out); undefined for none at all. */
@@ -36,7 +39,8 @@ export function plannedCountWords(counts: PlannedCounts): string | undefined {
 /**
  * The section of an event's post: the heading, the counts, a line per party it may name (its
  * post, which shows the post's title, and its start), cut to `room` with "…and N more", and in
- * small print how many are in regions not everyone may see; undefined without a party.
+ * small print how many are in regions not everyone may see (with `named` undefined, the counts
+ * alone); undefined without a party.
  */
 export function plannedSection(
   view: EventPlannedView,
@@ -46,6 +50,7 @@ export function plannedSection(
   const counted = plannedCountWords(view.counts);
   if (counted === undefined) return undefined;
   const head = `**${PLANNED_HEADING}**\n${counted}`;
+  if (view.named === undefined) return head;
   const hidden = view.counts.trains + view.counts.meetups - view.named.length;
   const foot =
     hidden <= 0

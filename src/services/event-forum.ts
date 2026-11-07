@@ -35,7 +35,12 @@ import { nextOnThisDayAt, ON_THIS_DAY_HOUR, onThisDayDue } from '../domain/histo
 import { zoned } from '../domain/time/zoned.js';
 import { localDay } from '../domain/time/local-day.js';
 import { onThisDayMessage, onThisDayTitle } from '../render/big-days.js';
-import { changesPlanned, plannedCounts, plannedDuring } from '../domain/party/event-parties.js';
+import {
+  changesPlanned,
+  plannedCounts,
+  plannedDuring,
+  startsDuringAny,
+} from '../domain/party/event-parties.js';
 import type { Party } from '../domain/party/party.js';
 import { startTimeOf } from '../domain/party/timed.js';
 import type { EventPlannedView } from '../render/event-parties.js';
@@ -219,6 +224,13 @@ export class EventForumService {
   private cancelPartyRedraw: (() => void) | undefined;
   /** Whether the changes of the parties are listened to (once: a store's listeners stay). */
   private partiesWatched = false;
+  /**
+   * The servers warned that who sees the regions of their trains and meetups could not be told:
+   * once each until it works again (review EP-2).
+   */
+  private readonly plannedWarned = new Set<string>();
+  /** The ends of the trains and meetups the draw under way counted, for the next timer (EP-5). */
+  private plannedEnds: number[] = [];
   private midnight: { cancel(): void } | undefined;
   /** The timers of draws after a wait Discord named (`drawLater`). */
   private readonly waits = new Set<() => void>();
@@ -270,7 +282,10 @@ export class EventForumService {
     if (planned !== undefined && !this.partiesWatched) {
       this.partiesWatched = true;
       planned.parties.onChange((before, after) => {
-        if (changesPlanned(before, after)) this.redrawSoon();
+        if (!changesPlanned(before, after)) return;
+        // Only where it started, or starts, within a listed event (review EP-4).
+        const events = this.options.events.listedEvents();
+        if (startsDuringAny(before, events) || startsDuringAny(after, events)) this.redrawSoon();
       });
     }
     this.request();
@@ -453,6 +468,7 @@ export class EventForumService {
       log.warn({ err }, 'could not read the events forums');
       return;
     }
+    this.plannedEnds = [];
     for (const forum of forums) {
       if (this.stopped) return;
       const outcome = await this.drawServer(forum, reopen);
@@ -605,7 +621,10 @@ export class EventForumService {
    * region; Matt, 2026-11-07), by event id; an event with none is left out. All are counted; a
    * party is named (its post linked) only where everybody who sees the events forum sees its
    * region's forum, the rule by which a region's counts are shared into a channel
-   * (`PartyGateway.shareKeeps`, plan 8H-5, R-A). Where that cannot be told, none is named.
+   * (`PartyGateway.shareKeeps`, plan 8H-5, R-A). Where that cannot be told (the forum unknown to
+   * the cache, or a throw, warned once per server until it works again), none is named and
+   * nothing is said of who sees them (`named` undefined, review EP-1 and EP-2). The ends of the
+   * counted parties join `plannedEnds` for the next timer (EP-5).
    */
   private async plannedOf(
     forum: EventForumRecord,
@@ -622,6 +641,10 @@ export class EventForumService {
       .map((event) => ({ event, during: plannedDuring(parties, guildRow, event, now) }))
       .filter(({ during }) => during.length > 0);
     if (byEvent.length === 0) return found;
+    // The next moment a counted party is over by the clock (review EP-5): the timer draws then.
+    for (const { during } of byEvent) {
+      for (const party of during) if (party.endTime !== null) this.plannedEnds.push(party.endTime);
+    }
     const gates = [
       ...new Set(
         byEvent.flatMap(({ during }) =>
@@ -629,25 +652,34 @@ export class EventForumService {
         ),
       ),
     ];
-    let open: ReadonlySet<string> = new Set();
+    // Undefined where it cannot be told (review EP-1): nobody named, nothing said of the others.
+    let open: ReadonlySet<string> | undefined;
     try {
-      open = (await gateway.shareKeeps(forum.forumId, gates)) ?? open;
+      open = await gateway.shareKeeps(forum.forumId, gates);
+      this.plannedWarned.delete(forum.serverId);
     } catch (err) {
-      log.warn(
-        { err, guild: forum.serverId },
-        'could not tell who sees the regions of the trains and meetups of the events',
-      );
+      // Once per server until it works again (review EP-2).
+      if (!this.plannedWarned.has(forum.serverId)) {
+        this.plannedWarned.add(forum.serverId);
+        log.warn(
+          { err, guild: forum.serverId },
+          'could not tell who sees the regions of the trains and meetups of the events',
+        );
+      }
     }
     for (const { event, during } of byEvent) {
       found.set(event.id, {
         counts: plannedCounts(during),
-        named: during.flatMap((party) =>
-          party.forumChannelId !== null &&
-          party.forumPostId !== null &&
-          open.has(party.forumChannelId)
-            ? [{ postId: party.forumPostId, start: startTimeOf(party) ?? event.start }]
-            : [],
-        ),
+        named:
+          open === undefined
+            ? undefined
+            : during.flatMap((party) =>
+                party.forumChannelId !== null &&
+                party.forumPostId !== null &&
+                open.has(party.forumChannelId)
+                  ? [{ postId: party.forumPostId, start: startTimeOf(party) ?? event.start }]
+                  : [],
+              ),
       });
     }
     return found;
@@ -1112,8 +1144,9 @@ export class EventForumService {
   }
 
   /**
-   * The one timer of the next change among the listed events (a start, an end, a post's opening),
-   * set anew at each draw, a second after it, so that Now never goes stale (R10).
+   * The one timer of the next change among the listed events (a start, an end, a post's opening,
+   * the end of a counted train or meetup), set anew at each draw, a second after it, so that Now
+   * never goes stale (R10).
    */
   private setNextTimer(): void {
     this.cancelNext?.();
@@ -1131,6 +1164,8 @@ export class EventForumService {
           : []),
       ])
       .filter((time) => time > now);
+    // A counted train or meetup over by the clock leaves its event's count (review EP-5).
+    times.push(...this.plannedEnds.filter((time) => time > now));
     // The next 10:00 of "On this day" (plan 8H-8).
     if (this.options.days !== undefined && settings.eventsForum.onThisDay > 0) {
       times.push(nextOnThisDayAt(now, settings.timezone));

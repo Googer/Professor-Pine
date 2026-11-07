@@ -1471,6 +1471,130 @@ describe('EventForumService: the trains and meetups planned during an event', ()
     expect(await redrawn()).toBe(0);
   });
 
+  // Review EP-6.
+  it('edits neither the post nor the listing at a draw that finds the same', async () => {
+    const { postOf, listing, read } = await drawnWith([
+      planned(testTrain(), 1, PUBLIC_FORUM, at('2026-11-10T18:00')),
+    ]);
+    const wild = await postOf(INTO_THE_WILD.id);
+    const list = await listing();
+    const edits = [wild.edits, list?.edits];
+    await read([COMMUNITY_DAY, RAID_HOUR, INTO_THE_WILD]);
+    await read([COMMUNITY_DAY, RAID_HOUR, INTO_THE_WILD]);
+    expect([wild.edits, list?.edits]).toEqual(edits);
+  });
+
+  // Review EP-1 and EP-2: "cannot tell" is not "hidden".
+  it('names nobody and says nothing of who sees them where that cannot be told, warning once', async () => {
+    const { gateway, postOf, read, entries } = await drawnWith([
+      planned(testTrain(), 1, PUBLIC_FORUM, at('2026-11-10T18:00')),
+      planned(testMeetup(), 2, GATED_FORUM, at('2026-11-11T18:00')),
+    ]);
+    const wild = await postOf(INTO_THE_WILD.id);
+    const events = [COMMUNITY_DAY, RAID_HOUR, INTO_THE_WILD];
+    const keeps = gateway.shareKeeps.bind(gateway);
+    const failing = () => Promise.reject(new Error('the cache is gone'));
+    const warned = () =>
+      entries.filter(
+        (entry) =>
+          entry.msg ===
+          'could not tell who sees the regions of the trains and meetups of the events',
+      ).length;
+    gateway.shareKeeps = failing;
+    await read(events);
+    await read(events);
+    const unknown = '**Trains and meetups planned**\n1 train, 1 meetup';
+    expect(textOf(wild.message)).toContain(unknown);
+    expect(textOf(wild.message)).not.toContain('<#7100');
+    expect(textOf(wild.message)).not.toContain('not everyone');
+    expect(warned()).toBe(1);
+    // A forum the cache does not know: the same, without a warning.
+    gateway.shareKeeps = () => Promise.resolve(undefined);
+    await read(events);
+    expect(textOf(wild.message)).toContain(unknown);
+    expect(textOf(wild.message)).not.toContain('not everyone');
+    // Working again: named; a later failure is warned of again.
+    gateway.shareKeeps = keeps;
+    await read(events);
+    expect(textOf(wild.message)).toContain('<#710000000000000001>');
+    expect(textOf(wild.message)).toContain('not everyone here can see');
+    gateway.shareKeeps = failing;
+    await read(events);
+    expect(warned()).toBe(2);
+  });
+
+  // Review EP-4.
+  it('sets no redraw for a party that starts within no listed event, before or after', async () => {
+    const { partyStore, redrawn } = await drawnWith([]);
+    const outside = planned(testTrain(), 1, PUBLIC_FORUM, at('2026-11-16T18:00'));
+    await partyStore.add(outside);
+    await partyStore.update(outside.id, (party) => ({
+      party: isTimed(party)
+        ? { ...party, timed: { ...party.timed, startTime: at('2026-11-17T18:00') } }
+        : party,
+    }));
+    expect(await redrawn()).toBe(0);
+  });
+
+  // Review EP-5.
+  it('draws again a second after a counted party is over by the clock', async () => {
+    const end = at('2026-11-10T15:00');
+    const train = {
+      ...planned(testTrain(), 1, PUBLIC_FORUM, at('2026-11-10T13:00')),
+      endTime: end,
+    };
+    const { clock, timers, service, postOf } = await drawnWith([train]);
+    const wild = await postOf(INTO_THE_WILD.id);
+    expect(textOf(wild.message)).toContain('1 train');
+    const due = timers.filter((one) => !one.cancelled && one.ms === end - clock.now + 1_000);
+    expect(due).toHaveLength(1);
+    clock.now = end + 1_000;
+    due[0]?.run();
+    await service.flush();
+    expect(textOf(wild.message)).not.toContain('planned');
+  });
+
+  // Review EP-6.
+  it('draws a change whose redraw comes during a draw once that draw ends', async () => {
+    const { store, partyStore, postOf, read, timers, service } = await drawnWith([]);
+    const wild = await postOf(INTO_THE_WILD.id);
+    const hold = heldCall('the posts of a draw');
+    const posts = store.posts.bind(store);
+    let holding = true;
+    store.posts = async (serverId: string) => {
+      if (holding) {
+        holding = false;
+        hold.arrive();
+        await hold.released;
+      }
+      return posts(serverId);
+    };
+    const reading = read([COMMUNITY_DAY, RAID_HOUR, INTO_THE_WILD]);
+    await hold.reached;
+    await partyStore.add(planned(testTrain(), 1, PUBLIC_FORUM, at('2026-11-10T18:00')));
+    const due = timers.filter((one) => !one.cancelled && one.ms === EVENT_PARTY_REDRAW_MS);
+    expect(due).toHaveLength(1);
+    for (const timer of due) timer.run();
+    hold.release();
+    await reading;
+    await service.flush();
+    expect(textOf(wild.message)).toContain('\n1 train\n');
+  });
+
+  // Review EP-6.
+  it('leaves an archived post to the hourly draw', async () => {
+    const { partyStore, postOf, redrawn, service } = await drawnWith([]);
+    const wild = await postOf(INTO_THE_WILD.id);
+    wild.archived = true;
+    const edits = wild.edits;
+    await partyStore.add(planned(testTrain(), 1, PUBLIC_FORUM, at('2026-11-10T18:00')));
+    expect(await redrawn()).toBe(1);
+    expect(wild.edits).toBe(edits);
+    expect(wild.archived).toBe(true);
+    await service.upkeep();
+    expect(textOf(wild.message)).toContain('\n1 train\n');
+  });
+
   it('sets no redraw once stopped', async () => {
     const { partyStore, service, redrawn } = await drawnWith([]);
     service.stop();

@@ -62,6 +62,13 @@ describe('plannedSection (an event’s post)', () => {
     );
   });
 
+  // Review EP-1: where nobody can tell who sees the regions, the counts alone.
+  it('shows the counts alone where who sees the regions is not known', () => {
+    expect(
+      plannedSection({ counts: { trains: 2, meetups: 1 }, named: undefined }, ZONE, 4_000),
+    ).toBe('**Trains and meetups planned**\n2 trains, 1 meetup');
+  });
+
   it('is nothing without a party', () => {
     expect(plannedSection({ counts: { trains: 0, meetups: 0 }, named: [] }, ZONE, 4_000)).toBe(
       undefined,
