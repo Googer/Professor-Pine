@@ -129,6 +129,16 @@ describe('parseClockInput', () => {
       hasMeridiem: false,
       tomorrow: true,
     });
+    // With a date in front, as a clock time has it (review of 2026-11-07).
+    expect(parseClockInput('11-9 noon')).toEqual({
+      hour: 12,
+      minute: 0,
+      hasMeridiem: true,
+      month: 11,
+      day: 9,
+    });
+    expect(parseClockInput('11-9, at midnight')).toMatchObject({ hour: 0, month: 11, day: 9 });
+    expect(parseClockInput('13-9 noon')).toBeUndefined();
     expect(parseClockInput('tomorrow')).toBeUndefined();
     expect(parseClockInput('tomorrow 10-14 6pm')).toBeUndefined();
     expect(parseClockInput('noonish')).toBeUndefined();

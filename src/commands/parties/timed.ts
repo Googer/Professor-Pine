@@ -151,11 +151,13 @@ export function typedTimedTime(
     if (result.read === undefined) {
       throw new UserError(`"${typed}" cannot be ${what}: ${range}.`);
     }
-    // The example shows the day after the one that was just refused, not that day again.
+    // The example shows the day after the one that was just refused, not that day again. In
+    // its code span the text stands as typed: an escape (`10\.17`) would show there. A text
+    // that was read as a clock time holds no backtick.
     const day = addDays(zoned(result.read, settings.timezone), 1);
     throw new UserError(
       `"${typed}" cannot be ${what}: I read it as ${timestamp(result.read, 'F')}, and ${range}. ` +
-        `For another day, give the date first, month-day: \`${day.month}-${day.day} ${typed}\`.`,
+        `For another day, give the date first, month-day: \`${day.month}-${day.day} ${text.trim()}\`.`,
     );
   }
   throw new UserError(

@@ -56,12 +56,30 @@ export function parseClockInput(text: string): ClockInput | undefined {
   return { ...clock, tomorrow: true };
 }
 
+/** A month and day in front of what follows, as `CLOCK` has them. */
+const DATED = /^(?<month>\d{1,2})\s*[-/.]\s*(?<day>\d{1,2})(?:\s*,\s*|\s+)(?:at\s+)?(?<rest>.+)$/i;
+
+/** A time said in words (`NAMED_TIMES`), or undefined. */
+function namedTime(text: string): ClockInput | undefined {
+  const word = text.toLowerCase();
+  if (!Object.hasOwn(NAMED_TIMES, word)) return undefined;
+  return { hour: NAMED_TIMES[word] ?? 0, minute: 0, hasMeridiem: true };
+}
+
+/** A clock with its month and day, or undefined for a date that is none. */
+function dated(clock: ClockInput, month: number, day: number): ClockInput | undefined {
+  if (month < 1 || month > 12 || day < 1 || day > 31) return undefined;
+  return { ...clock, month, day };
+}
+
 /** `parseClockInput` without "tomorrow". */
 function clockOf(text: string): ClockInput | undefined {
-  const word = text.toLowerCase();
-  if (Object.hasOwn(NAMED_TIMES, word)) {
-    return { hour: NAMED_TIMES[word] ?? 0, minute: 0, hasMeridiem: true };
-  }
+  const named = namedTime(text);
+  if (named) return named;
+  // A date in front of a time in words: `11-9 midnight`, `11-9 at noon`.
+  const date = DATED.exec(text)?.groups;
+  const datedWord = date ? namedTime(date['rest'] ?? '') : undefined;
+  if (date && datedWord) return dated(datedWord, Number(date['month']), Number(date['day']));
   const groups = CLOCK.exec(text)?.groups;
   if (!groups) return undefined;
 
@@ -82,11 +100,7 @@ function clockOf(text: string): ClockInput | undefined {
 
   const clock: ClockInput = { hour, minute, hasMeridiem: meridiem !== undefined };
   if (groups['month'] !== undefined && groups['day'] !== undefined) {
-    const month = Number(groups['month']);
-    const day = Number(groups['day']);
-    if (month < 1 || month > 12 || day < 1 || day > 31) return undefined;
-    clock.month = month;
-    clock.day = day;
+    return dated(clock, Number(groups['month']), Number(groups['day']));
   }
   return clock;
 }
