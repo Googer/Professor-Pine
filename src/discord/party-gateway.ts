@@ -184,6 +184,36 @@ export interface BoardMessage {
  */
 export type MemberAccess = 'visible' | 'hidden' | 'barred';
 
+/**
+ * How a member stands to the gates of a server's regions (plan 8M-20, `memberGates`): what they
+ * hold, how they stand to each gate as `memberAccess` says it, and what holding other roles would
+ * make of a gate (`viewsWith`), all from one look at the member.
+ */
+export interface MemberGates {
+  /** The ids of the roles they hold, without the role every member has. */
+  held: string[];
+  /**
+   * When the member was looked at (`Date.now()`): with `fresh`, when Discord answered, which is
+   * what `held` is of; without, when the cache was read, which holds the member as the last
+   * forced fetch or interaction left them (as `RoleMember.seenAt` takes it, that look is as good
+   * as an interaction made then: the bot keeps its own changes since in `heldNow`).
+   */
+  fetchedAt: number;
+  /** By gate; a gate that is gone (or neither a forum nor a text channel) is left out. */
+  access: ReadonlyMap<string, MemberAccess>;
+  /**
+   * Whether they would see a gate holding exactly these roles (not the everyone role); false for
+   * a gate that is gone.
+   */
+  seesWith(gateId: string, roleIds: ReadonlySet<string>): boolean;
+  /**
+   * What denies them the view of a gate (plan 8M-20, A6): an overwrite of their own that denies
+   * View Channel (`own`), and the roles they hold whose overwrites deny it (`roles`); nothing for
+   * a gate that is gone.
+   */
+  denials(gateId: string): { own: boolean; roles: string[] };
+}
+
 /** Tag ids of a forum by tag name. */
 export type TagIds = Readonly<Record<string, string>>;
 
@@ -450,6 +480,19 @@ export interface PartyGateway {
    * (or neither a forum nor a text channel) or the member is not in its server.
    */
   memberAccess(forumId: string, memberId: string): Promise<MemberAccess | undefined>;
+  /**
+   * How a member stands to these gates of a server's regions (their forums, or their text
+   * channels where they have none; plan 8M-20): the member looked at once, fetched afresh with
+   * `fresh` (else as `memberAccess` takes them: the cache's, which a forced fetch just before has
+   * brought up to date), the gates from the cache as `memberAccess` reads them. Undefined for a
+   * server the bot is not in and for somebody who is not in it; rejects when Discord cannot say.
+   */
+  memberGates(
+    guildId: string,
+    memberId: string,
+    gateIds: readonly string[],
+    fresh: boolean,
+  ): Promise<MemberGates | undefined>;
   /**
    * Whether a channel (a region's text channel) has a permission overwrite of the member's own
    * that denies them View Channel: somebody keeps them out of it on purpose. Overwrites of
@@ -768,6 +811,49 @@ const SHARE_MEMBERS_KEPT = 1_000;
 /** A member's roles but the server's everyone role, as `shareKeeps` takes them. */
 function rolesBesideEveryone(member: GuildMember, guildId: string): string[] {
   return [...member.roles.cache.keys()].filter((id) => id !== guildId);
+}
+
+/** A region's gate: its forum, or its text (or announcement) channel where it has none. */
+type GateChannel = ForumChannel | TextChannel | NewsChannel;
+
+/**
+ * Whether a member would see a channel holding exactly the roles `roleIds` (not the everyone
+ * role, which every member has), by discord.js's own rule (`GuildChannel.memberPermissions`) over
+ * that set of roles (plan 8M-20, R1): the server's owner sees everything; the roles' permissions
+ * with everybody's, everything for an administrator; then the channel's overwrite of everybody,
+ * those of the roles together (an allowance of one role beats a denial of another), and the
+ * member's own. A role the server no longer has counts for nothing. With the roles the member
+ * holds it is `permissionsFor(member)`; with one more or one less it is what giving or taking that
+ * role would make of the channel.
+ */
+export function viewsWith(
+  channel: GateChannel,
+  member: GuildMember,
+  roleIds: ReadonlySet<string>,
+): boolean {
+  const { guild } = channel;
+  if (member.id === guild.ownerId) return true;
+  const roles = guild.roles.cache.filter((role) => role.id === guild.id || roleIds.has(role.id));
+  let bits = roles.reduce((all, role) => all | role.permissions.bitfield, 0n);
+  if ((bits & PermissionFlagsBits.Administrator) !== 0n) return true;
+  // The overwrites sorted as `GuildChannel.overwritesFor` sorts them (everybody's, the roles',
+  // the member's own), over the roles given rather than those the member holds.
+  let everyone: { allow: bigint; deny: bigint } | undefined;
+  let own: { allow: bigint; deny: bigint } | undefined;
+  let allow = 0n;
+  let deny = 0n;
+  for (const overwrite of channel.permissionOverwrites.cache.values()) {
+    const bits = { allow: overwrite.allow.bitfield, deny: overwrite.deny.bitfield };
+    if (overwrite.id === guild.id) everyone = bits;
+    else if (roles.has(overwrite.id)) {
+      allow |= bits.allow;
+      deny |= bits.deny;
+    } else if (overwrite.id === member.id) own = bits;
+  }
+  for (const step of [everyone, { allow, deny }, own]) {
+    if (step) bits = (bits & ~step.deny) | step.allow;
+  }
+  return (bits & PermissionFlagsBits.ViewChannel) !== 0n;
 }
 
 /** What the bot needs in a channel to put a copy of a party's message there. */
@@ -1961,16 +2047,26 @@ export class DiscordPartyGateway implements PartyGateway {
     }
   }
 
-  async memberAccess(forumId: string, memberId: string): Promise<MemberAccess | undefined> {
-    // A forum, or the text (or announcement) channel of a region that has none (plan 8H-5,
-    // `regionGate`; review F4: the same overwrites, so the same rule as Share's).
-    const channel = await this.unlessGone(() => this.client.channels.fetch(forumId));
-    const forum =
-      channel?.type === ChannelType.GuildForum ||
+  /**
+   * A region's gate as the cache has it: a forum, or the text (or announcement) channel of a
+   * region that has none (plan 8H-5, `regionGate`; review F4: the same overwrites, so the same
+   * rule as Share's). Undefined for a channel that is gone or of another kind. `cached`: from the
+   * cache alone (with the Guilds intent it holds every channel of the bot's servers), so that a
+   * look at many gates asks Discord nothing.
+   */
+  private async gate(gateId: string, cached = false): Promise<GateChannel | undefined> {
+    const channel = cached
+      ? this.client.channels.cache.get(gateId)
+      : await this.unlessGone(() => this.client.channels.fetch(gateId));
+    return channel?.type === ChannelType.GuildForum ||
       channel?.type === ChannelType.GuildText ||
       channel?.type === ChannelType.GuildAnnouncement
-        ? channel
-        : undefined;
+      ? channel
+      : undefined;
+  }
+
+  async memberAccess(forumId: string, memberId: string): Promise<MemberAccess | undefined> {
+    const forum = await this.gate(forumId);
     if (!forum) return undefined;
     // The interaction that brought the member here has put them into the cache with the roles
     // they have now; anybody else is asked for (that needs no privileged intent). Without the
@@ -1980,16 +2076,73 @@ export class DiscordPartyGateway implements PartyGateway {
     // either ends with the party.
     const member = await fetchGuildMember(forum.guild, memberId);
     if (!member) return undefined;
-    if (forum.permissionsFor(member).has(PermissionFlagsBits.ViewChannel)) return 'visible';
+    return DiscordPartyGateway.accessOf(forum, member);
+  }
+
+  /**
+   * How a member stands to a gate (`MemberAccess`): `visible` by `viewsWith` over the roles they
+   * hold (plan 8M-20, R1: one rule for what they see and what a role would make of it).
+   */
+  private static accessOf(forum: GateChannel, member: GuildMember): MemberAccess {
+    const held = new Set(rolesBesideEveryone(member, forum.guild.id));
+    if (viewsWith(forum, member, held)) return 'visible';
     // An entry of their own that sets nothing (what Discord's "reset to default" leaves behind)
     // keeps nobody out: it is as if it were not there, and `admitMember` replaces it.
-    const own = forum.permissionOverwrites.cache.get(memberId);
+    const own = forum.permissionOverwrites.cache.get(member.id);
     // The same holds for one that only allows: a member added to a private channel keeps
     // "Connect", which a forum's settings do not even show. Only a denial keeps them out.
     if (own && own.deny.bitfield !== 0n) return 'barred';
     return DiscordPartyGateway.roleDenies(forum, member, PermissionFlagsBits.ViewChannel, false)
       ? 'barred'
       : 'hidden';
+  }
+
+  async memberGates(
+    guildId: string,
+    memberId: string,
+    gateIds: readonly string[],
+    fresh: boolean,
+  ): Promise<MemberGates | undefined> {
+    const guild = this.client.guilds.cache.get(guildId);
+    if (!guild) return undefined;
+    const member = await fetchGuildMember(guild, memberId, fresh);
+    if (!member) return undefined;
+    const fetchedAt = Date.now();
+    const gates = new Map<string, GateChannel>();
+    for (const gateId of new Set(gateIds)) {
+      const gate = await this.gate(gateId, true);
+      // Only a gate of this server: another's says nothing of this member.
+      if (gate?.guild.id === guildId) gates.set(gateId, gate);
+    }
+    return {
+      held: rolesBesideEveryone(member, guildId),
+      fetchedAt,
+      access: new Map(
+        [...gates].map(([id, gate]) => [id, DiscordPartyGateway.accessOf(gate, member)]),
+      ),
+      seesWith: (gateId, roleIds) => {
+        const gate = gates.get(gateId);
+        return gate !== undefined && viewsWith(gate, member, roleIds);
+      },
+      denials: (gateId) => {
+        const gate = gates.get(gateId);
+        if (!gate) return { own: false, roles: [] };
+        const view = PermissionFlagsBits.ViewChannel;
+        const own = gate.permissionOverwrites.cache.get(member.id);
+        return {
+          own: own?.type === OverwriteType.Member && own.deny.has(view),
+          roles: gate.permissionOverwrites.cache
+            .filter(
+              (overwrite) =>
+                overwrite.type === OverwriteType.Role &&
+                overwrite.id !== guildId &&
+                member.roles.cache.has(overwrite.id) &&
+                overwrite.deny.has(view),
+            )
+            .map((overwrite) => overwrite.id),
+        };
+      },
+    };
   }
 
   async ownViewDenied(channelId: string, memberId: string): Promise<boolean> {

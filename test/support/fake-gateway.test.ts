@@ -1,4 +1,4 @@
-import { ButtonStyle, ComponentType } from 'discord.js';
+import { ButtonStyle, ComponentType, OverwriteType, PermissionFlagsBits } from 'discord.js';
 import { describe, expect, it } from 'vitest';
 import {
   channelLimitOf,
@@ -65,6 +65,65 @@ describe('FakePartyGateway: who can see a forum', () => {
     fake.barred.set(EAST_FORUM, new Set([ALICE]));
     expect(await fake.dismissMember(EAST_FORUM, ALICE)).toBe(false);
     expect(await fake.memberAccess(EAST_FORUM, ALICE)).toBe('barred');
+  });
+
+  it('says how a member stands to gates and what other roles would make of them (plan 8M-20)', async () => {
+    const fake = gateway();
+    const view = String(PermissionFlagsBits.ViewChannel);
+    fake.forumOverwrites.set(EAST_FORUM, [
+      { id: fake.guildId, type: OverwriteType.Role, allow: '0', deny: view },
+      { id: 'east-role', type: OverwriteType.Role, allow: view, deny: '0' },
+    ]);
+    fake.rolesOf = (memberId) => (memberId === BOB ? ['east-role'] : []);
+    const alice = await fake.memberGates(
+      fake.guildId,
+      ALICE,
+      [WEST_FORUM, EAST_FORUM, 'gone'],
+      true,
+    );
+    expect(Object.fromEntries(alice?.access ?? [])).toEqual({
+      [WEST_FORUM]: 'visible',
+      [EAST_FORUM]: 'hidden',
+    });
+    expect(alice?.held).toEqual([]);
+    expect(alice?.seesWith(EAST_FORUM, new Set(['east-role']))).toBe(true);
+    expect(alice?.seesWith('gone', new Set(['east-role']))).toBe(false);
+    const bob = await fake.memberGates(fake.guildId, BOB, [EAST_FORUM], false);
+    expect(bob?.held).toEqual(['east-role']);
+    expect(bob?.access.get(EAST_FORUM)).toBe('visible');
+    expect(bob?.seesWith(EAST_FORUM, new Set())).toBe(false);
+    expect(fake.gateLooks.slice(0, 2)).toEqual([
+      { memberId: ALICE, fresh: true },
+      { memberId: BOB, fresh: false },
+    ]);
+    // What keeps a member out (plan 8M-20, A6): an overwrite of their own that denies the view,
+    // and the roles they hold whose overwrites deny it.
+    expect(bob?.denials(EAST_FORUM)).toEqual({ own: false, roles: [] });
+    fake.forumOverwrites.set(WEST_FORUM, [
+      { id: 'east-role', type: OverwriteType.Role, allow: '0', deny: view },
+      { id: ALICE, type: OverwriteType.Member, allow: '0', deny: view },
+    ]);
+    const denied = await fake.memberGates(fake.guildId, BOB, [WEST_FORUM], true);
+    expect(denied?.denials(WEST_FORUM)).toEqual({ own: false, roles: ['east-role'] });
+    const own = await fake.memberGates(fake.guildId, ALICE, [WEST_FORUM], true);
+    expect(own?.denials(WEST_FORUM)).toEqual({ own: true, roles: [] });
+    // What a look without `fresh` sees is the cache: a role lost since is still held there, until
+    // a forced fetch (`fresh`, or `memberFetched` for one made elsewhere) brings it up to date.
+    fake.rolesOf = () => [];
+    expect((await fake.memberGates(fake.guildId, BOB, [EAST_FORUM], false))?.held).toEqual([
+      'east-role',
+    ]);
+    expect((await fake.memberGates(fake.guildId, BOB, [EAST_FORUM], true))?.held).toEqual([]);
+    fake.rolesOf = (memberId) => (memberId === BOB ? ['east-role'] : []);
+    fake.memberFetched(BOB);
+    expect((await fake.memberGates(fake.guildId, BOB, [EAST_FORUM], false))?.held).toEqual([
+      'east-role',
+    ]);
+    fake.leftServer.add(BOB);
+    expect(await fake.memberGates(fake.guildId, BOB, [EAST_FORUM], true)).toBeUndefined();
+    expect(await fake.memberGates('another', ALICE, [EAST_FORUM], true)).toBeUndefined();
+    fake.failing.set('memberGates', new Error('no access'));
+    await expect(fake.memberGates(fake.guildId, ALICE, [], true)).rejects.toThrow('no access');
   });
 
   it('fails as told, also when only looking', async () => {

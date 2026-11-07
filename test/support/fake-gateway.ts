@@ -3,6 +3,7 @@ import {
   ButtonStyle,
   ComponentType,
   DiscordAPIError,
+  OverwriteType,
   PermissionFlagsBits,
   PermissionsBitField,
   RESTJSONErrorCodes,
@@ -23,6 +24,7 @@ import type {
   ForumAccess,
   ForumHiding,
   MemberAccess,
+  MemberGates,
   NewPost,
   OutgoingMessage,
   PartyGateway,
@@ -531,13 +533,32 @@ export class FakePartyGateway implements PartyGateway {
       : permissions;
   }
 
+  /**
+   * The roles a member holds (not the everyone role) as `canSee` and `memberGates` read them:
+   * `memberRoles` unless a test points it elsewhere (the fake role server's members, plan 8M-20).
+   */
+  rolesOf: (memberId: string) => readonly string[] = (memberId) =>
+    this.memberRoles.get(memberId) ?? [];
+
+  /** The looks of `memberGates`, in order: whom, and whether fetched afresh. */
+  readonly gateLooks: Array<{ memberId: string; fresh: boolean }> = [];
+
   /** Whether the member can see the forum now: by their roles, or because they were let in. */
   canSee(forumId: string, memberId: string): boolean {
+    return this.seesHolding(forumId, memberId, this.rolesOf(memberId));
+  }
+
+  /**
+   * Whether the member would see the forum holding these roles: by the overwrites where a test
+   * gives them (`forumOverwrites`, the roles' permissions of `serverRoles`), else by `shutOut`,
+   * which no role changes; a member let in or barred stays so whatever they hold.
+   */
+  private seesHolding(forumId: string, memberId: string, roleIds: readonly string[]): boolean {
     if (this.barred.get(forumId)?.has(memberId)) return false;
     const overwrites = this.forumOverwrites.get(forumId);
     if (overwrites) {
       if (this.admitted.get(forumId)?.has(memberId)) return true;
-      const member = { id: memberId, roleIds: this.memberRoles.get(memberId) ?? [] };
+      const member = { id: memberId, roleIds };
       const seen = channelPermissions(
         this.basePermissions(member.roleIds),
         this.guildId,
@@ -1692,12 +1713,94 @@ export class FakePartyGateway implements PartyGateway {
       'memberAccess',
       forumId,
       () => {
-        // A forum, or a text channel (a region's without a forum, plan 8H-5), as the gateway.
-        const known = this.forums.has(forumId) || this.channels.get(forumId)?.kind === 'text';
-        if (!known || this.gone.has(forumId)) return undefined;
+        if (!this.isGate(forumId)) return undefined;
         if (this.leftServer.has(memberId)) return undefined;
-        if (this.canSee(forumId, memberId)) return 'visible';
-        return this.barred.get(forumId)?.has(memberId) ? 'barred' : 'hidden';
+        return this.accessNow(forumId, memberId);
+      },
+      false,
+    );
+  }
+
+  /** A forum, or a text channel (a region's without a forum, plan 8H-5), as the gateway. */
+  private isGate(channelId: string): boolean {
+    const known = this.forums.has(channelId) || this.channels.get(channelId)?.kind === 'text';
+    return known && !this.gone.has(channelId);
+  }
+
+  private accessNow(
+    forumId: string,
+    memberId: string,
+    roleIds: readonly string[] = this.rolesOf(memberId),
+  ): MemberAccess {
+    if (this.seesHolding(forumId, memberId, roleIds)) return 'visible';
+    return this.barred.get(forumId)?.has(memberId) ? 'barred' : 'hidden';
+  }
+
+  /**
+   * The roles of each member as discord.js's cache holds them (plan 8M-20, A7): what `memberGates`
+   * without `fresh` reads. A forced fetch (`fresh`, or `memberFetched` for one made elsewhere: the
+   * member directory's, the acting member's) brings it up to `rolesOf`.
+   */
+  private readonly cachedRoles = new Map<string, readonly string[]>();
+
+  /** A forced fetch of the member somewhere else: the cache holds their roles as they are now. */
+  memberFetched(memberId: string): void {
+    this.cachedRoles.set(memberId, [...this.rolesOf(memberId)]);
+  }
+
+  /** What denies a member the view of a forum: their own overwrite (or a bar), their roles'. */
+  private denialsOf(
+    forumId: string,
+    memberId: string,
+    roleIds: readonly string[],
+  ): { own: boolean; roles: string[] } {
+    const view = PermissionFlagsBits.ViewChannel;
+    const overwrites = this.forumOverwrites.get(forumId) ?? [];
+    const denies = (one: { deny: string }) => (BigInt(one.deny) & view) !== 0n;
+    return {
+      own:
+        (this.barred.get(forumId)?.has(memberId) ?? false) ||
+        overwrites.some(
+          (one) => one.type === OverwriteType.Member && one.id === memberId && denies(one),
+        ),
+      roles: overwrites
+        .filter(
+          (one) =>
+            one.type === OverwriteType.Role &&
+            one.id !== this.guildId &&
+            roleIds.includes(one.id) &&
+            denies(one),
+        )
+        .map((one) => one.id),
+    };
+  }
+
+  memberGates(
+    guildId: string,
+    memberId: string,
+    gateIds: readonly string[],
+    fresh: boolean,
+  ): Promise<MemberGates | undefined> {
+    return this.attempt(
+      'memberGates',
+      memberId,
+      () => {
+        if (guildId !== this.guildId || this.leftServer.has(memberId)) return undefined;
+        this.gateLooks.push({ memberId, fresh });
+        if (fresh || !this.cachedRoles.has(memberId)) this.memberFetched(memberId);
+        const held = [...(this.cachedRoles.get(memberId) ?? [])];
+        const gates = [...new Set(gateIds)].filter((id) => this.isGate(id));
+        return {
+          held,
+          fetchedAt: Date.now(),
+          access: new Map(gates.map((id) => [id, this.accessNow(id, memberId, held)])),
+          seesWith: (gateId: string, roleIds: ReadonlySet<string>) =>
+            gates.includes(gateId) && this.seesHolding(gateId, memberId, [...roleIds]),
+          denials: (gateId: string) =>
+            gates.includes(gateId)
+              ? this.denialsOf(gateId, memberId, held)
+              : { own: false, roles: [] },
+        };
       },
       false,
     );

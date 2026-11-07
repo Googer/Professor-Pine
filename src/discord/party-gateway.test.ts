@@ -2061,8 +2061,18 @@ describe('the events forum’s posts (plan 8V-1)', () => {
         ['ash', { id: 'ash', roles: { cache: new Map([['m', {}]]) } }],
         ['misty', { id: 'misty', roles: { cache: new Map() } }],
       ]);
+      // The server's roles: everybody's sees nothing, `m` nothing by itself (plan 8M-20: what a
+      // member sees is `viewsWith` over the roles they hold).
+      const role = (id: string) => ({ id, permissions: new PermissionsBitField(0n) });
       const guild = {
         id: 'g',
+        ownerId: 'owner',
+        roles: {
+          cache: new Collection([
+            ['g', role('g')],
+            ['m', role('m')],
+          ]),
+        },
         members: {
           fetch: ({ user }: { user: string }) => Promise.resolve(members.get(user)),
         },
@@ -2084,8 +2094,6 @@ describe('the events forum’s posts (plan 8V-1)', () => {
             ],
           ]),
         },
-        permissionsFor: (member: { id: string }) =>
-          new PermissionsBitField(member.id === 'ash' ? view : 0n),
       };
       // A region's channel may be an announcement channel: the same overwrites, the same rule.
       const news = { ...text, id: 'news', type: ChannelType.GuildAnnouncement };
