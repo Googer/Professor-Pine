@@ -631,12 +631,12 @@ describe('the form of a change (changeForm)', () => {
       expect(byName(form, name)).toBeDefined();
     }
     expect(optionsOf(byName(form, 'quick'))).toEqual([
-      ['', 'Fast move as it is'],
+      ['', 'Fast move: no change'],
       ['SNARL_FAST', 'Snarl'],
       ['GUST_FAST', 'Gust'],
     ]);
     expect(optionsOf(byName(form, 'charge'))).toEqual([
-      ['', 'Charged move as it is'],
+      ['', 'Charged move: no change'],
       ['DARK_PULSE', 'Dark Pulse'],
     ]);
     const noMoves = changeForm(raid(), OPTIONS, undefined);

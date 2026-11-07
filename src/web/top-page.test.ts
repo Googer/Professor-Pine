@@ -242,7 +242,7 @@ describe('the top page', () => {
       headers: { cookie: await web.loggedIn(ASH, 'Ash') },
     });
     expect(answer.statusCode).toBe(200);
-    expect(answer.body).toContain('You are not in any Discord server that uses this instance.');
+    expect(answer.body).toContain('None of your Discord servers has a map here.');
     expect(answer.body).toContain('Join on Discord');
     // A server without an invite stays unnamed.
     expect(answer.body).not.toContain('Pinewood');

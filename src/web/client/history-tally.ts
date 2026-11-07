@@ -91,11 +91,11 @@ export function tallyFailure(
         ? { text: "Log in with Discord to see this server's history.", login: true }
         : { text: "Use /maps in Discord to log in and see this server's history.", login: false };
     case 403:
-      return { text: 'Members only: this page is for the members of this server.', login: false };
+      return { text: 'This page is for members of this server only.', login: false };
     case 503:
       return { text: 'Discord cannot be reached just now. Try again in a moment.', login: false };
     case 429:
-      return { text: 'That was a lot of asking. Try again in a minute.', login: false };
+      return { text: 'Too many requests. Try again in a minute.', login: false };
     default:
       return { text: 'This could not be loaded. Try again in a moment.', login: false };
   }

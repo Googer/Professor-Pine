@@ -181,7 +181,7 @@ describe("staff's Delete… on the map (plan 8M-8B)", () => {
     expect(refused).toEqual({
       status: 403,
       json: {
-        error: 'Only admins and moderators with the permission Manage Messages can do that.',
+        error: 'Only admins and moderators with the Manage Messages permission can do that.',
       },
     });
     expect(map.throttles.size).toBe(0);

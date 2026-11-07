@@ -493,6 +493,10 @@ describe('reports at stops from the map', () => {
         expect(answer.status).toBe(422);
         expect(answer.json).toEqual({ ok: false, text: TYPED_TASK_KEY });
       }
+      expect(TYPED_TASK_KEY).toBe(
+        'Pick the task from the list, or type it in full. To add stops to a task reported ' +
+          'already, use "Same task at more stops…".',
+      );
       expect(made.store.rows.size).toBe(1);
     });
 

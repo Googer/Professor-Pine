@@ -125,6 +125,11 @@ describe('reporting a wild Pokémon on the map', () => {
       status: 403,
       json: { ok: false, text: MAP_SPAWN_BLOCKED },
     });
+    expect(MAP_SPAWN_BLOCKED).toBe(
+      'You are blocked from making meetups in this server, so you cannot report a wild Pokémon ' +
+        'from the map. Use /wild on Discord and pick a place from its list. To appeal the block, ' +
+        'use /meetup there and press "Appeal…".',
+    );
     expect(map.reports()).toHaveLength(0);
     for (let use = 0; use < WILD_THROTTLE.uses; use += 1) {
       expect(map.throttles.use(WILD_COMMAND, ALICE, WILD_THROTTLE, PARTY_NOW)).toBeUndefined();

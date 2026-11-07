@@ -1,4 +1,5 @@
 import type { LatLon } from '@pine/wayspot-core/lat-lon';
+import type { KmlProblem } from '@pine/wayspot-core/kml';
 import { tidyOutline, type OutlineProblem } from '@pine/wayspot-core/outline';
 import { containment } from '@pine/wayspot-core/region-membership';
 import {
@@ -370,7 +371,7 @@ export function saveReadiness(input: ReadinessInput): { ready: boolean; reasons:
     reasons.push({ text });
   };
   if (input.readOnly) say('Discord cannot be reached just now, so the editor is read-only.');
-  if (!input.changes) say('Nothing is changed.');
+  if (!input.changes) say('There are no changes to save.');
   if (input.problems.size > 0) {
     reasons.push({
       text: `${count(input.problems.size, 'outline')} cannot be saved.`,
@@ -563,7 +564,7 @@ export function cannotFixWords(
       // The fix's reach in the settings' units (review fix 8).
       return `Its borders lie more than ${distanceWords(FIX_REACH_METRES, units)} apart: draw it by hand.`;
     case 'tangled':
-      return 'It is no sliver between two or three regions: draw it by hand.';
+      return 'This is not a sliver between two or three regions: draw it by hand.';
     case 'stale':
       return FIX_FAILED_WORDS;
     case 'corner-outside':
@@ -726,6 +727,56 @@ export const START_VIEW: MapView = { lat: 40.44, lon: -79.99, zoom: 11 };
 export function firstView(view: MapView | undefined): { view: MapView; fitRegions: boolean } {
   return view === undefined ? { view: START_VIEW, fitRegions: true } : { view, fitRegions: false };
 }
+
+/** Why a file cannot be read as KML, in a sentence (as `/region import` says it, shorter). */
+export const KML_PROBLEMS: Readonly<Record<KmlProblem, string>> = {
+  kmz: 'That is a KMZ file (a zipped KML): export as KML instead.',
+  'not-xml': 'That file is not well-formed XML.',
+  doctype: 'That file declares a document type (DOCTYPE), which I never read.',
+  'too-deep': 'That file is nested deeper than any KML.',
+  'not-kml': 'That file is XML, but not KML.',
+  'no-areas': 'That file has no areas: draw each region as a shape.',
+  'too-many-areas': 'That file has more than 200 areas.',
+  'too-many-corners': 'The outlines of that file have more than 20,000 corners in all.',
+};
+
+/** Said of a file over the editor's limit (`MAX_KML_BYTES`). */
+export const KML_TOO_LARGE =
+  'That file is larger than 1 MB. Export only the layer with the regions.';
+
+/** Said where the browser keeps nothing for the page. */
+export const NO_STORAGE =
+  'This browser does not keep unsaved changes: reloading the page loses them.';
+
+/** A region marked for removal, beside its Restore, with what becomes of its forum. */
+export const removalWords = (removed: 'keep' | 'delete'): string =>
+  removed === 'delete'
+    ? 'Removed when you save; its forum is deleted with it.'
+    : 'Removed when you save; its forum stays.';
+
+/** After a region's name in the list while it is marked for removal. */
+export const REMOVAL_MARK = ' (removed when you save)';
+
+/** What Fix all did, when it changed outlines: one edit, not saved yet. */
+export const fixedAsOneWords = (words: string): string =>
+  `${words} Not saved yet; one Undo takes it all back.`;
+
+/** What a KML file loaded as one edit, and what of it could not be read. */
+export function kmlLoadedWords(areas: number, skipped: number): string {
+  const loaded = `Loaded ${count(areas, 'area')} of the file; not saved yet.`;
+  return skipped > 0
+    ? `${loaded} ${count(skipped, 'area')} could not be read (an outline that crosses itself, or several shapes).`
+    : loaded;
+}
+
+/** Said when a save's answer was lost, after the regions were loaded again. */
+export const OUTCOME_UNKNOWN =
+  'I could not tell whether the save went through. Here are the regions as they are now.';
+
+/** Said when a save's answer was lost and the regions could not be loaded again either. */
+export const OUTCOME_UNKNOWN_RELOAD =
+  'I could not tell whether the save went through, and could not load the regions again: ' +
+  'reload the page in a moment.';
 
 /** Said when the editor is opened again for another account than it was opened for (W6). */
 export const ACCOUNT_CHANGED = 'You are logged in as someone else now: reload the page.';

@@ -126,7 +126,7 @@ describe('making a meetup on the map', () => {
     expect(answer.json).toMatchObject({
       ok: true,
       outcome: 'posted',
-      text: 'Your meetup is made. Manage… in its popup changes its name, information and times.',
+      text: 'Your meetup is made. To change its name, information or times, use Manage… in its popup.',
       meetup: { kind: 'meetup', name: 'Picnic', startTime: at('2026-10-13T18:00') },
     });
     const [made] = map.meetups();

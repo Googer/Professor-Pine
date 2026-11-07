@@ -21,7 +21,7 @@ export const MAP_WRITES_FULL = 'That was a lot of changes in a minute. Try again
 
 /** What staff's Delete… on the map answers a member who may not press it (plan 8Z). */
 export const DELETE_NEEDS_MANAGE_MESSAGES =
-  'Only admins and moderators with the permission Manage Messages can do that.';
+  'Only admins and moderators with the Manage Messages permission can do that.';
 
 /** What a write answers a member who may not act in the server now. */
 const HELD_BACK: Readonly<Record<'timed-out' | 'pending', string>> = {
