@@ -17,6 +17,18 @@ const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 const MODERATOR_MEMBER = { id: MODERATOR, name: 'Mod' };
 
+/** Who the staff audit log says ended a party (none: Pine), once its writes are done. */
+async function endedBy(
+  made: Awaited<ReturnType<typeof meetupSafetyWith>>,
+  partyId: string,
+): Promise<unknown> {
+  await made.audit.flush();
+  const ended = made.auditStore.rows.find(
+    (row) => row.partyId === partyId && row.entry.action === 'ended',
+  );
+  return ended?.actor ?? 'Pine';
+}
+
 /** Meetup safety with a meetup of Alice's and one of Bob's posted already. */
 async function withMeetups() {
   const made = await meetupSafetyWith();
@@ -69,6 +81,8 @@ describe('MeetupSafety: Block member', () => {
       'moderators',
     );
     expect(made.store.get(made.bobs.id)).toBeDefined();
+    // The audit log names the moderator who blocked her.
+    expect(await endedBy(made, made.alices.id)).toEqual(MODERATOR_MEMBER);
     // One direct message, about the block; none for each request.
     expect(made.dms.to(ALICE).map((dm) => textOf(dm))).toEqual([
       'A moderator blocked you from creating meetups on **Pine Town**. If you think that is ' +
@@ -304,6 +318,8 @@ describe('MeetupSafety: Block member', () => {
     expect(made.history.records.find((one) => one.partyId === made.alices.id)?.closedBy).toBe(
       'moderators',
     );
+    // The audit log names the moderator whose block closed it.
+    expect(await endedBy(made, made.alices.id)).toEqual({ id: MODERATOR, name: 'Mod' });
   });
 
   it('says a close that failed apart from one that was not needed', async () => {

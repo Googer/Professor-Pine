@@ -634,7 +634,7 @@ export class MeetupSafety {
    * closes one (`CLOSED_BY_MODERATORS`): `closed`, or `close-failed` when that failed (logged;
    * the meetup is still there). False when the maker is not blocked, is staff (whom no block
    * concerns), or the block cannot be read (logged). Never throws; nothing while the safety is
-   * off.
+   * off. The audit log names the moderator who blocked the maker as who closed it.
    */
   async closeIfBlocked(made: {
     serverId: string;
@@ -642,17 +642,22 @@ export class MeetupSafety {
     partyId: string;
     staff: boolean;
   }): Promise<CloseIfBlocked> {
-    const { parties, log } = this.options;
+    const { parties, storage, log } = this.options;
+    // As `blocked` asks, with the block itself: who blocked the maker closes the meetup.
+    if (!this.on || made.staff) return false;
+    let block: MeetupBlock | undefined;
     try {
-      if (!(await this.blocked(made.serverId, made.makerId, made.staff))) return false;
+      block = await storage.block(made.serverId, made.makerId);
     } catch (err) {
       log.error({ err, party: made.partyId }, 'could not look for a block after making a meetup');
       return false;
     }
+    if (block === undefined) return false;
     try {
       await parties.end(made.partyId, undefined, {
         lastWords: CLOSED_BY_MODERATORS,
         ended: CLOSED_BY_THEM,
+        by: closer({ id: block.blockedBy, name: block.blockedByName }),
       });
       return 'closed';
     } catch (err) {
@@ -773,6 +778,8 @@ export class MeetupSafety {
           const ended = await parties.end(party.id, undefined, {
             lastWords: CLOSED_BY_MODERATORS,
             ended: CLOSED_BY_THEM,
+            // The audit log names the moderator who blocked the maker.
+            by: closer(by),
           });
           if (ended) closed += 1;
         } catch (err) {
@@ -1587,6 +1594,11 @@ export const CLOSED_BY_MODERATORS = 'This meetup was closed by the moderators.';
 
 /** How such a meetup ends for the party history: closed by the moderators (plan 8H-6, A1). */
 const CLOSED_BY_THEM: PartyEnd = closedEnd('moderators');
+
+/** The moderator who blocked a maker, as the audit log names who closed their meetup. */
+function closer(by: { id: string; name: string | null }): { id: string; name?: string } {
+  return by.name === null ? { id: by.id } : { id: by.id, name: by.name };
+}
 
 /** What `/places` lists of meetup safety in a server (`MeetupSafety.overview`). */
 export interface SafetyOverview {
