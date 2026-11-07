@@ -302,7 +302,7 @@ export interface MovedGym {
 
 /**
  * The first line of the direct message to who is signed up for a raid that moved to another gym
- * (`/location`, the map's move; follow-ups of 2026-11-07): that it is another gym, the old and the
+ * (`/location`; follow-ups of 2026-11-07): that it is another gym, the old and the
  * new by name with their Map links as a post's Where links a gym (`mapMarkdown`), and the region
  * it went to where that changed.
  */

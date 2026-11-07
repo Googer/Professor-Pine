@@ -1594,8 +1594,8 @@ export class NotifyService implements PartyNotifier {
   }
 
   /**
-   * The direct message to who is signed up for a raid that moved to another gym (`/location`,
-   * the map's move; within its region or to another): every attendee who is not done, but for
+   * The direct message to who is signed up for a raid that moved to another gym (`/location`;
+   * within its region or to another): every attendee who is not done, but for
    * who moved it, as the times to meet at are told (`toAll`: no reasons, no opt-out, nobody asked
    * about; also where the server's notifications are off), naming the old gym and the new with
    * their Map links and the region it went to where that changed, with the button to its post
