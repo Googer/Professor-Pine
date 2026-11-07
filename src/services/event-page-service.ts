@@ -397,7 +397,8 @@ export class EventPageService implements EventSpawnProvider {
    * The Max Battle hours of a page just read (Matt's decision of 2026-10-25), at the time its Max
    * Battles section's sentence gives (`eventPageTime`); without one (none, or unclear) they are
    * left out, warned of once per event (a wrong hour would end the day's battles early). Those of
-   * the last read where it gives none, as the Raid Hours (ER-2). Logged as the Raid Hours are.
+   * the last read where it gives none, as the Raid Hours (ER-2), but not where it names hours at
+   * an unclear time (review): those of the last read go too. Logged as the Raid Hours are.
    */
   private readMaxHours(
     id: string,
@@ -438,7 +439,10 @@ export class EventPageService implements EventSpawnProvider {
         ),
       );
     }
-    const keepOld = placed.length === 0 && (kept?.maxHours.length ?? 0) > 0;
+    // A page that names its hours at a time now unclear has them no more (review): only a page
+    // that names none keeps those of its last read.
+    const unclear = maxTime.kind === 'unclear' && read.length > 0;
+    const keepOld = !unclear && placed.length === 0 && (kept?.maxHours.length ?? 0) > 0;
     const maxHours = keepOld ? (kept?.maxHours ?? []) : placed;
     if (keepOld) {
       log.warn(

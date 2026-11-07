@@ -558,6 +558,33 @@ describe('EventPageService: the Max Battle hours of the events’ pages', () => 
     ).toBe(1);
   });
 
+  it('drops the hours of the last read when the page now names hours at an unclear time (review)', async () => {
+    let answer = () => page(intoTheWild);
+    const { service, clock, said } = serviceWith(() => answer(), [], { now: PAGED });
+    clock.now = at('2026-11-07T12:00');
+    await service.refresh();
+    expect(service.maxHours()).toHaveLength(3);
+    answer = () =>
+      page(
+        intoTheWild.replace(
+          'from 6:00 p.m. to 7:00 p.m. local time for one day',
+          'from 6:00 p.m. to 7:00 p.m. or from 2 p.m. to 3 p.m. local time for one day',
+        ),
+      );
+    clock.now += REREAD_MS;
+    await service.refresh();
+    expect(service.maxHours()).toEqual([]);
+    expect(said('an event page gave no Max Battle hours; those of its last read kept')).toBe(0);
+    // A page that names no Max Battle hours at all keeps them (ER-2).
+    answer = () => page(intoTheWild);
+    clock.now += REREAD_MS;
+    await service.refresh();
+    answer = () => page('<html><h2 id="spawns">Spawns</h2></html>');
+    clock.now += REREAD_MS;
+    await service.refresh();
+    expect(service.maxHours()).toHaveLength(3);
+  });
+
   it('warns once when fewer Max Battle hours are read than the section has dated headings', async () => {
     const changed = intoTheWild.replace(
       'Five-Star Max Battles: Thursday, November 12',
