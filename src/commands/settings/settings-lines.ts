@@ -1,3 +1,4 @@
+import type { FillInState } from '../../db/repositories/legacy-fill-in-repository.js';
 import type { UserSettings } from '../../db/repositories/user-repository.js';
 import { PartyStatus, RaidPrivacy } from '../../domain/party/status.js';
 import { plain, truncate } from '../../render/text.js';
@@ -157,6 +158,7 @@ export type SettingName =
   | 'new-train'
   | 'history'
   | 'leaderboard'
+  | 'legacy'
   | 'auto-status'
   | 'privacy'
   | 'friend-code'
@@ -169,14 +171,58 @@ export interface SettingLine {
   text: string;
 }
 
+/**
+ * The member's history of the old bot in a server (plan 8H-10): `offer`, it can be added (their
+ * history is on and the member index has a file of theirs); else where their request stands.
+ */
+export type LegacyLine = { state: 'offer' } | FillInState;
+
 /** The settings of a member that are per server: those of the server asked in. */
 export interface ServerSettings {
   newTrain: boolean;
   history: boolean;
   leaderboard: boolean;
+  /** Their old bot's history; none where there is nothing to say of it. */
+  legacy?: LegacyLine;
 }
 
 const onOff = (value: boolean): string => (value ? 'on' : 'off');
+
+/** The label of the old bot's history: staff's line (`settingsLines`). */
+const LEGACY_LABEL = 'Old-bot history';
+
+const counted = (value: number): string => value.toLocaleString('en-US');
+
+/** Staff's words of the old bot's history: neutral, with why it failed. */
+function legacyText(legacy: LegacyLine): string {
+  switch (legacy.state) {
+    case 'offer':
+      return `${LEGACY_LABEL}: **not added**`;
+    case 'queued':
+      return `${LEGACY_LABEL}: **being added**`;
+    case 'done':
+      return `${LEGACY_LABEL}: **added** (on ${counted(legacy.filled)} ${legacy.filled === 1 ? 'party' : 'parties'})`;
+    case 'failed':
+      return `${LEGACY_LABEL}: **could not be added** (${plain(legacy.failure)})`;
+  }
+}
+
+/** The member's words of their old bot's history, on their own panel (plan 8H-10). */
+export function legacyWords(legacy: LegacyLine): string {
+  switch (legacy.state) {
+    case 'offer':
+      return 'Your raids, trains and meetups with the old bot in this server can be added to your history.';
+    case 'queued':
+      return 'Your old-bot history is being added.';
+    case 'done':
+      return legacy.filled === 0
+        ? 'None of your old-bot parties could be added: this bot holds them otherwise.'
+        : `Your Discord id is now on ${counted(legacy.filled)} ${legacy.filled === 1 ? 'party' : 'parties'} of the old bot.`;
+    case 'failed':
+      // With "Try again" beside it (A1: the member retries).
+      return 'Your old-bot history could not be added. Ask staff, then press **Try again**.';
+  }
+}
 
 /**
  * Everything a member has set, one line each, in words that suit the member's own panel and
@@ -200,6 +246,9 @@ export function settingsLines(settings: UserSettings, server?: ServerSettings): 
       { setting: 'history', text: `${HISTORY_LABEL}: **${onOff(server.history)}**` },
       { setting: 'leaderboard', text: `${BOARDS_LABEL}: **${onOff(server.leaderboard)}**` },
     );
+    if (server.legacy !== undefined) {
+      lines.push({ setting: 'legacy', text: legacyText(server.legacy) });
+    }
   }
   lines.push(
     {

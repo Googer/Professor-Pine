@@ -5,6 +5,7 @@ import { sql, type Kysely } from 'kysely';
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { startMigratedDatabase } from '../../test/support/migrated-db.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
+import { BoardRepository } from '../db/repositories/board-repository.js';
 import { HistoryRepository } from '../db/repositories/history-repository.js';
 import {
   LegacyFillInRepository,
@@ -13,6 +14,7 @@ import {
 import type { DB } from '../db/types.js';
 import { writeServerIndex } from '../ops/legacy-index.js';
 import { LegacyFillInService } from './legacy-fill-in.js';
+import { MemberStatsService } from './member-stats.js';
 
 const ALICE = '312345678901234567';
 const BOB = '312345678901234568';
@@ -54,6 +56,7 @@ describe('LegacyFillInService: filling in a member’s legacy history', () => {
       source?: 'live' | 'legacy';
       maker?: string | null;
       places?: [furthest: string, extras: number, groupId: string | null, memberId?: string][];
+      createdAt?: number;
     } = {},
   ) => {
     const source = options.source ?? 'legacy';
@@ -61,7 +64,7 @@ describe('LegacyFillInService: filling in a member’s legacy history', () => {
                                         ending, createdById)
               values (${source}, ${source === 'live' ? legacyKey : null},
                       ${source === 'legacy' ? legacyKey : null}, 'raid',
-                      ${options.server ?? HOME}, ${NOW}, 'unknown',
+                      ${options.server ?? HOME}, ${options.createdAt ?? NOW}, 'unknown',
                       ${options.maker ?? null})`.execute(db);
     const id = Number(
       (await sql<{ id: number }>`select max(id) as id from PartyHistory`.execute(db)).rows[0]?.id,
@@ -375,6 +378,37 @@ describe('LegacyFillInService: filling in a member’s legacy history', () => {
     next.fill.kick();
     await next.fill.idle();
     expect(await fillIns.stateOf(ALICE, HOME)).toEqual({ state: 'done', filled: 3 });
+  });
+
+  it('counts the parties filled in in the member’s own stats, back to the old bot’s years (H13)', async () => {
+    // 2018 and 2020: a raid she completed, and one she made and completed.
+    await record(key(1), { places: [['done', 0, 'A']], createdAt: Date.UTC(2018, 5, 15) });
+    await record(key(2), { places: [['done', 0, 'A']], createdAt: Date.UTC(2020, 5, 15) });
+    index(HOME, {
+      [ALICE]: [`${key(1)} a 0 done 0 A`, `${key(2)} r`, `${key(2)} a 0 done 0 A`],
+    });
+    await asked();
+    const stats = new MemberStatsService({
+      reader: new BoardRepository(db),
+      optIns: history,
+      zone: 'America/New_York',
+      now: () => now,
+    });
+    const before = await stats.stats(HOME, ALICE);
+    expect(before.optedIn && before.stats.completed).toBe(0);
+    expect(before.optedIn && before.years).toEqual([]);
+    const { fill } = service();
+    fill.kick();
+    await fill.idle();
+    const after = await stats.stats(HOME, ALICE);
+    expect(after.optedIn && after.stats.completed).toBe(2);
+    expect(after.optedIn && after.stats.months).toEqual([
+      { month: '2018-06', came: 1, reports: 0 },
+      { month: '2020-06', came: 1, reports: 0 },
+    ]);
+    expect(after.optedIn && after.years).toEqual([2020, 2018]);
+    // The raids she reported count what others confirmed, of live records only (QB): none here.
+    expect(after.optedIn && after.stats.raids.count).toBe(0);
   });
 
   it('fills in a member of thousands of parties in seconds', async () => {

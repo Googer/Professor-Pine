@@ -8,7 +8,7 @@ import path from 'node:path';
 import { isSnowflake } from '../db/snowflake.js';
 import type { LegacyIndexEntry } from '../domain/history/legacy-index.js';
 import type { Logger } from '../log.js';
-import { readMemberIndex, type MemberIndexRead } from '../ops/legacy-index.js';
+import { hasMemberIndex, readMemberIndex, type MemberIndexRead } from '../ops/legacy-index.js';
 
 /** As many index entries as one transaction fills in. */
 const BATCH = 500;
@@ -31,7 +31,22 @@ export interface LegacyFillInServiceOptions {
   access?: (target: string, mode: number) => Promise<void>;
 }
 
-/** Why a fill-in could not be done, in words for staff (no ids: the column and the panel show it). */
+/**
+ * The member index and its worker as `/settings` sees them (plan 8H-10): whether the member has a
+ * file in the server's index (the button is offered only then), and starting a run after a press.
+ * Undefined in the context of an installation without the index (`LEGACY_INDEX_DIR` blank).
+ */
+export interface LegacyIndex {
+  hasFile(memberId: string, serverId: string): Promise<boolean>;
+  /** Whether the server has an index the bot may read (the tutorial's line, B13). */
+  hasServer(serverId: string): Promise<boolean>;
+  kick(): void;
+}
+
+/**
+ * Why a fill-in could not be done, in words for staff (B8: no ids, no paths; the file system's
+ * code goes to the log alone): the column and `/admin member-settings` show it.
+ */
 const FAILURES = {
   none: 'The member index has no file of theirs (it was rebuilt without them).',
   unreadable: 'The bot may not read their file in the member index: ask whoever runs the bot.',
@@ -56,7 +71,7 @@ export const NO_SERVER_MS = 24 * 60 * 60_000;
  * the server's index, or one that cannot be read, fails the request, with why for staff
  * (`/admin member-settings`), logged at warn.
  */
-export class LegacyFillInService {
+export class LegacyFillInService implements LegacyIndex {
   private readonly now: () => number;
   private running: Promise<void> | undefined;
   private wanted = false;
@@ -64,6 +79,23 @@ export class LegacyFillInService {
 
   constructor(private readonly options: LegacyFillInServiceOptions) {
     this.now = options.now ?? (() => Date.now());
+  }
+
+  /** Whether the member has a file in the server's index (reads none; ids checked as snowflakes). */
+  hasFile(memberId: string, serverId: string): Promise<boolean> {
+    return hasMemberIndex(this.options.indexDir, serverId, memberId);
+  }
+
+  /** Whether the server has an index folder the bot may read and search (one `access`). */
+  async hasServer(serverId: string): Promise<boolean> {
+    if (!isSnowflake(serverId)) return false;
+    const access = this.options.access ?? ((target, mode) => fsAccess(target, mode));
+    try {
+      await access(path.join(this.options.indexDir, serverId), constants.R_OK | constants.X_OK);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   /**

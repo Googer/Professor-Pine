@@ -30,13 +30,17 @@ import {
 import { RaidPrivacy } from '../../domain/party/status.js';
 import { targetsAnswer } from '../notifications/targets.js';
 import { wantsAnswer } from '../notifications/wants.js';
+import type { FillInState } from '../../db/repositories/legacy-fill-in-repository.js';
 import {
+  ADD,
   ASK,
+  LEGACY,
   LISTS,
   OFF,
   ON,
   panelNow,
   POKEBATTLER,
+  readLegacyLine,
   SET,
   SETTINGS_KIND,
   SHOW,
@@ -73,6 +77,20 @@ const HISTORY_ON =
   'trains and meetups you join, including those going on now, and with the reports you make ' +
   'at stops. `/stats me` shows your numbers.';
 const HISTORY_OFF = 'Your history is off.';
+/** Added where the history was turned on and the old bot's history can be added (plan 8H-10). */
+const LEGACY_TOO = ' Your old-bot history can be added too: press **Add my old-bot history**.';
+
+/** What a press of "Add my old-bot history" or "Try again" says (plan 8H-10, B7). */
+const LEGACY_ASKED = 'Asked: it takes a few minutes.';
+const LEGACY_NONE = 'There is no old-bot history of yours to add.';
+const LEGACY_HISTORY_OFF = 'Your history is off: turn it on first.';
+
+/** What a press says where the member asked before and it is waiting or done: nothing is asked. */
+function legacyAsked(state: Exclude<FillInState, { state: 'failed' }>): string {
+  return state.state === 'queued'
+    ? 'Your old-bot history is being added.'
+    : 'Your old-bot history was added already.';
+}
 
 /** What turning the history off took the member's name off, where it did. */
 export function forgottenIn(records: number): string {
@@ -173,9 +191,12 @@ async function setHistory(
   const memberId = interaction.user.id;
   const guildId = guildIdOf(interaction);
   if (on) {
-    await changed(interaction, ctx, async () =>
-      (await ctx.historyOptIns.optIn(memberId, guildId, Date.now())) ? HISTORY_ON : already(on),
-    );
+    await changed(interaction, ctx, async () => {
+      if (!(await ctx.historyOptIns.optIn(memberId, guildId, Date.now()))) return already(on);
+      // One line where the old bot's history can be added now (plan 8H-10).
+      const legacy = await readLegacyLine(ctx, memberId, guildId, true);
+      return HISTORY_ON + (legacy?.state === 'offer' ? LEGACY_TOO : '');
+    });
     return;
   }
   const [records, boards, optedIn] = await readInTime(ctx.log, interaction, () =>
@@ -255,10 +276,46 @@ function setBoards(interaction: ButtonInteraction, ctx: AppContext, on: boolean)
       ]);
       if (!joined) return already(on);
       const anonymous = settings.raidPrivacy === RaidPrivacy.Anonymous;
-      return BOARDS_ON + (historyOn ? HISTORY_TOO : '') + (anonymous ? ANONYMOUS_BOARDS : '');
+      // Where the history came on with the boards, the old bot's line as turning it on says (B12).
+      const legacy = historyOn ? await readLegacyLine(ctx, memberId, guildId, true) : undefined;
+      return (
+        BOARDS_ON +
+        (historyOn ? HISTORY_TOO + (legacy?.state === 'offer' ? LEGACY_TOO : '') : '') +
+        (anonymous ? ANONYMOUS_BOARDS : '')
+      );
     },
     true,
   );
+}
+
+/**
+ * "Add my old-bot history" (plan 8H-10): queues the member's fill-in of this server, once, where
+ * the member index has a file of theirs, and starts the worker; the panel then says it will
+ * follow. "Try again" is the same control on a failed request, which it queues again (A1). A
+ * press where the request waits or is done says so and asks nothing again.
+ */
+function addLegacy(interaction: ButtonInteraction, ctx: AppContext): Promise<void> {
+  const index = ctx.legacyIndex;
+  if (index === undefined) throw new UserError(STALE_COMPONENT);
+  const memberId = interaction.user.id;
+  const guildId = guildIdOf(interaction);
+  return changed(interaction, ctx, async () => {
+    const [state, hasFile] = await Promise.all([
+      ctx.legacyFillIns.stateOf(memberId, guildId),
+      index.hasFile(memberId, guildId),
+    ]);
+    // A failed one is asked again (A1: "Try again"); one waiting or done is not.
+    if (state !== undefined && state.state !== 'failed') return legacyAsked(state);
+    if (!hasFile) return LEGACY_NONE;
+    const asked = await ctx.legacyFillIns.request(memberId, guildId, Date.now());
+    if (asked === 'off') return LEGACY_HISTORY_OFF;
+    if (asked === 'asked') {
+      const now = await ctx.legacyFillIns.stateOf(memberId, guildId);
+      return now === undefined || now.state === 'failed' ? LEGACY_HISTORY_OFF : legacyAsked(now);
+    }
+    index.kick();
+    return LEGACY_ASKED;
+  });
 }
 
 /** A pick of the status menu or the privacy menu. */
@@ -369,7 +426,13 @@ async function showList(
 }
 
 /** The settings of the panel that are per server: their controls work in a server only. */
-const PER_SERVER: ReadonlySet<string> = new Set(['new-train', 'history', 'leaderboard', ...LISTS]);
+const PER_SERVER: ReadonlySet<string> = new Set([
+  'new-train',
+  'history',
+  'leaderboard',
+  LEGACY,
+  ...LISTS,
+]);
 
 /**
  * The guards of the panel's controls: those of a server's settings and lists only in a server,
@@ -435,6 +498,11 @@ export const settingsControls: ComponentHandler = {
       await askPokebattler(interaction, ctx);
       return;
     }
+    // A write of the panel's, counted in its window (`MEMBER_WRITE_THROTTLE`).
+    if (id.action === ADD && id.id === LEGACY && id.args.length === 0) {
+      await addLegacy(interaction, ctx);
+      return;
+    }
     const on = id.action === SET ? stateOf(id) : undefined;
     if (on === undefined) throw new UserError(STALE_COMPONENT);
     const flag = FLAGS.find((setting) => setting.name === id.id);
@@ -490,7 +558,7 @@ export const settings: SimpleCommand = {
   help: {
     category: 'notifications',
     // The counts of wants and gyms are shown only where this installation notifies.
-    details: (config) =>
+    details: (config, facts) =>
       'Shows your settings, only to you, with buttons and menus to change them: which pings ' +
       'and DMs you get, how you are signed up for what you report, and whether posts name you.' +
       (config.features.notifications
@@ -510,8 +578,14 @@ export const settings: SimpleCommand = {
       '\n\nWhile a raid, max battle, train or meetup is going on, or a report stands, I keep ' +
       'who signed up or reported, to run it. When it ends, I keep only the ids of members ' +
       'whose history is on and delete the rest.' +
-      '\n\nA report at a stop is kept by its area and region, never the stop itself. The old ' +
-      'bot’s history is never tied to you.' +
+      '\n\nA report at a stop is kept by its area and region, never the stop itself.' +
+      '\n\nThe old bot’s raids, trains and meetups count in this server’s numbers without ' +
+      'saying who was there.' +
+      // Only where the installation has the member index (B6, `LEGACY_INDEX_DIR`).
+      (facts?.oldHistory === true
+        ? ' With your history on, **Add my old-bot history** adds the ones you made or joined ' +
+          'to your history; turning your history off takes them out again.'
+        : '') +
       '\n\n**The boards.** `/stats boards` ranks members by what others confirmed, and only ' +
       'those who turned the boards on; they are off until you do. Turning them on turns your ' +
       'history on too, and turning your history off takes you off the boards. A raid, max ' +

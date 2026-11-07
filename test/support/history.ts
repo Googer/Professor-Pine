@@ -370,10 +370,14 @@ export class MemoryHistoryOptIns implements HistoryOptIns {
     });
   }
 
+  /** What else an opt-out deletes, as the repository's transaction does (`MemoryLegacyFillIns`). */
+  readonly alsoForget: ((memberId: string, guildId: string) => void)[] = [];
+
   optOut(memberId: string, guildId: string): Promise<OptedOut> {
     return this.attempt(() => {
       const at = this.index(memberId, guildId);
       if (at >= 0) this.rows.splice(at, 1);
+      for (const forget of this.alsoForget) forget(memberId, guildId);
       const forgotten = this.namingOf(memberId, guildId);
       this.naming.delete(`${guildId}:${memberId}`);
       const leftBoards = this.boards.delete(`${guildId}:${memberId}`);

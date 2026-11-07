@@ -13,6 +13,7 @@ import {
 import { dialogField, dialogTexts, shownDialog } from '../../../test/support/dialogs.js';
 import { DIALOG_READ_MS, SLOW_READ } from '../../discord/dialog.js';
 import { MemoryHistoryOptIns } from '../../../test/support/history.js';
+import { MemoryLegacyFillIns, MemoryLegacyIndex } from '../../../test/support/legacy-fill-ins.js';
 import { MemoryNewTrains } from '../../../test/support/new-trains.js';
 import { ALICE } from '../../../test/support/parties.js';
 import { MemoryGymTargets } from '../../../test/support/gym-targets.js';
@@ -36,8 +37,9 @@ import { DEFAULT_USER_SETTINGS } from '../../db/repositories/user-repository.js'
 import type { OptedOut } from '../../db/repositories/history-repository.js';
 import { targets as targetsCommand } from '../notifications/targets.js';
 import { wants as wantsCommand } from '../notifications/wants.js';
+import { help as helpCommand } from '../util/help.js';
 import { settings, settingsControls } from './settings.js';
-import { settingsLines } from './settings-lines.js';
+import { settingsLines, type LegacyLine } from './settings-lines.js';
 
 type Fake = ReturnType<typeof fakeButton>;
 
@@ -75,13 +77,15 @@ function menusOf(message: V2Message) {
 
 const AWAY = '412345678901234568';
 
-function setup(features: { notifications?: boolean } = {}) {
+function setup(features: { notifications?: boolean } = {}, legacy: { index?: boolean } = {}) {
   const users = new MemoryUsers();
   const wants = new MemoryWants();
   const targets = new MemoryGymTargets();
   const newTrains = new MemoryNewTrains();
   const history = new MemoryHistoryOptIns();
   const targetWants = new MemoryTargetWants();
+  const fillIns = new MemoryLegacyFillIns(history);
+  const legacyIndex = new MemoryLegacyIndex();
   const { ctx } = createTestContext({
     users,
     wants,
@@ -89,6 +93,8 @@ function setup(features: { notifications?: boolean } = {}) {
     newTrains,
     historyOptIns: history,
     targetWants,
+    legacyFillIns: fillIns,
+    legacyIndex: legacy.index === true ? legacyIndex : undefined,
   });
   ctx.config.settings.features = { ...ctx.config.settings.features, ...features };
   const router = new InteractionRouter(
@@ -152,6 +158,8 @@ function setup(features: { notifications?: boolean } = {}) {
     targetWants,
     newTrains,
     history,
+    fillIns,
+    legacyIndex,
     open,
     panel,
     press,
@@ -175,12 +183,37 @@ describe('/settings', () => {
   });
 
   /** The paragraphs of `/help settings` on an installation with these features. */
-  const helpOf = (features: { notifications?: boolean } = {}): string[] => {
+  const helpOf = (
+    features: { notifications?: boolean } = {},
+    facts: { oldHistory?: boolean } = {},
+  ): string[] => {
     const { details } = settings.help;
     const said =
-      typeof details === 'function' ? details(setup(features).ctx.config.settings) : details;
+      typeof details === 'function'
+        ? details(setup(features).ctx.config.settings, { oldHistory: facts.oldHistory === true })
+        : details;
     return (said ?? '').split('\n\n');
   };
+
+  it('says in its help what the old bot’s history button does, only where it is offered (B6)', () => {
+    const paragraph = (help: string[]) => help.find((one) => one.startsWith('The old bot’s'));
+    expect(paragraph(helpOf({}, { oldHistory: true }))).toBe(
+      'The old bot’s raids, trains and meetups count in this server’s numbers without saying ' +
+        'who was there. With your history on, **Add my old-bot history** adds the ones you made ' +
+        'or joined to your history; turning your history off takes them out again.',
+    );
+  });
+
+  it('shows the button’s words on /help settings where the installation has the index (B6)', async () => {
+    const page = async (legacyIndex: MemoryLegacyIndex | undefined) => {
+      const { ctx } = createTestContext({ commands: [helpCommand, settings], legacyIndex });
+      const asked = fakeChatInput({ commandName: 'help', options: { command: 'settings' } });
+      await new InteractionRouter(ctx, [helpCommand, settings], []).handle(asked as never);
+      return textDisplays(asV2(sent(asked.reply))).join('\n');
+    };
+    expect(await page(new MemoryLegacyIndex())).toContain('**Add my old-bot history**');
+    expect(await page(undefined)).not.toContain('Add my old-bot history');
+  });
 
   it('promises in its help the counts of wants and gyms only where the bot notifies', () => {
     expect(helpOf({ notifications: true })[1]).toBe(
@@ -207,8 +240,9 @@ describe('/settings', () => {
       'While a raid, max battle, train or meetup is going on, or a report stands, I keep who ' +
         'signed up or reported, to run it. When it ends, I keep only the ids of members whose ' +
         'history is on and delete the rest.',
-      'A report at a stop is kept by its area and region, never the stop itself. The old bot’s ' +
-        'history is never tied to you.',
+      'A report at a stop is kept by its area and region, never the stop itself.',
+      'The old bot’s raids, trains and meetups count in this server’s numbers without saying ' +
+        'who was there.',
       '**The boards.** `/stats boards` ranks members by what others confirmed, and only those ' +
         'who turned the boards on; they are off until you do. Turning them on turns your ' +
         'history on too, and turning your history off takes you off the boards. A raid, max ' +
@@ -693,6 +727,161 @@ describe('the controls of /settings', () => {
   });
 });
 
+describe('the old bot’s history in /settings (plan 8H-10)', () => {
+  const ADD = 'settings:legacy:add';
+  const OFFER =
+    'Your raids, trains and meetups with the old bot in this server can be added to your history.';
+  const QUEUED = 'Your old-bot history is being added.';
+  const FAILED = 'Your old-bot history could not be added. Ask staff, then press **Try again**.';
+  const offered = (shown: V2Message) =>
+    buttonsOf(shown).filter((button) => button.customId === ADD);
+
+  it('offers it only with the history on, a member index here, and a file of the member in it', async () => {
+    // No member index on this installation: nothing about it, whatever else.
+    const none = setup();
+    await none.history.optIn(ALICE, FAKE_GUILD_ID, 0);
+    none.legacyIndex.add(ALICE, FAKE_GUILD_ID);
+    expect(offered(await none.panel())).toEqual([]);
+    expect(textDisplays(await none.panel()).join('\n')).not.toMatch(/old bot/u);
+
+    const made = setup({}, { index: true });
+    made.legacyIndex.add(ALICE, FAKE_GUILD_ID);
+    // History off.
+    expect(offered(await made.panel())).toEqual([]);
+    await made.history.optIn(ALICE, FAKE_GUILD_ID, 0);
+    const shown = await made.panel();
+    expect(offered(shown)).toEqual([
+      expect.objectContaining({ label: 'Add my old-bot history', style: ButtonStyle.Primary }),
+    ]);
+    expect(textDisplays(shown)).toContain(OFFER);
+    // No file of the member in another server's index.
+    await made.history.optIn(ALICE, AWAY, 0);
+    expect(offered(await made.panel({ guildId: AWAY }))).toEqual([]);
+  });
+
+  it('queues the fill-in once, starts the worker, and says it will follow', async () => {
+    const made = setup({}, { index: true });
+    made.legacyIndex.add(ALICE, FAKE_GUILD_ID);
+    await made.history.optIn(ALICE, FAKE_GUILD_ID, 0);
+    const shown = shownAfter(await made.press(ADD));
+    expect(textDisplays(shown)[0]).toBe('### Your settings\nAsked: it takes a few minutes.');
+    expect(textDisplays(shown)).toContain(QUEUED);
+    expect(offered(shown)).toEqual([]);
+    expect(await made.fillIns.stateOf(ALICE, FAKE_GUILD_ID)).toEqual({ state: 'queued' });
+    expect(made.legacyIndex.kicks).toBe(1);
+    // A press again (a panel drawn before): said so, nothing queued or started.
+    const again = shownAfter(await made.press(ADD));
+    expect(textDisplays(again)[0]).toBe('### Your settings\nYour old-bot history is being added.');
+    expect(made.legacyIndex.kicks).toBe(1);
+  });
+
+  it('says what the fill-in did, or that it could not be done', async () => {
+    const made = setup({}, { index: true });
+    await made.history.optIn(ALICE, FAKE_GUILD_ID, 0);
+    made.fillIns.ended(ALICE, FAKE_GUILD_ID, { state: 'done', filled: 1234 });
+    const done = await made.panel();
+    expect(textDisplays(done)).toContain('Your Discord id is now on 1,234 parties of the old bot.');
+    expect(offered(done)).toEqual([]);
+    expect(textDisplays(shownAfter(await made.press(ADD)))[0]).toBe(
+      '### Your settings\nYour old-bot history was added already.',
+    );
+    made.fillIns.ended(ALICE, FAKE_GUILD_ID, { state: 'done', filled: 0 });
+    expect(textDisplays(await made.panel())).toContain(
+      'None of your old-bot parties could be added: this bot holds them otherwise.',
+    );
+  });
+
+  it('offers Try again where the fill-in failed, and queues it again (A1)', async () => {
+    const made = setup({}, { index: true });
+    made.legacyIndex.add(ALICE, FAKE_GUILD_ID);
+    await made.history.optIn(ALICE, FAKE_GUILD_ID, 0);
+    made.fillIns.ended(ALICE, FAKE_GUILD_ID, {
+      state: 'failed',
+      failure: 'Their file in the member index is damaged: run the history import again.',
+    });
+    const failed = await made.panel();
+    expect(textDisplays(failed)).toContain(FAILED);
+    expect(offered(failed)).toEqual([
+      expect.objectContaining({ label: 'Try again', style: ButtonStyle.Primary }),
+    ]);
+    const shown = shownAfter(await made.press(ADD));
+    expect(textDisplays(shown)[0]).toBe('### Your settings\nAsked: it takes a few minutes.');
+    expect(textDisplays(shown)).toContain(QUEUED);
+    expect(made.legacyIndex.kicks).toBe(1);
+  });
+
+  it('says nothing of a waiting fill-in where the installation has no index any more (B5)', async () => {
+    const made = setup();
+    await made.history.optIn(ALICE, FAKE_GUILD_ID, 0);
+    made.fillIns.ended(ALICE, FAKE_GUILD_ID, { state: 'queued' });
+    expect(textDisplays(await made.panel()).join('\n')).not.toMatch(/old.bot/u);
+  });
+
+  it('takes the line away with the history, and offers it again once the history is back (B11)', async () => {
+    const made = setup({}, { index: true });
+    made.legacyIndex.add(ALICE, FAKE_GUILD_ID);
+    await made.history.optIn(ALICE, FAKE_GUILD_ID, 0);
+    await made.press(ADD);
+    const off = shownAfter(await made.press('settings:history:set:off'));
+    expect(textDisplays(off).join('\n')).not.toMatch(/old.bot/u);
+    expect(await made.fillIns.stateOf(ALICE, FAKE_GUILD_ID)).toBeUndefined();
+    // A panel drawn while the history was on, pressed now: nothing is asked.
+    expect(textDisplays(shownAfter(await made.press(ADD)))[0]).toBe(
+      '### Your settings\nYour history is off: turn it on first.',
+    );
+    const on = shownAfter(await made.press('settings:history:set:on'));
+    expect(offered(on)).toHaveLength(1);
+  });
+
+  it('mentions it where turning the boards on turns the history on (B12)', async () => {
+    const made = setup({}, { index: true });
+    made.legacyIndex.add(ALICE, FAKE_GUILD_ID);
+    const on = shownAfter(await made.press('settings:leaderboard:set:on'));
+    expect(textDisplays(on)[0]).toMatch(
+      /the boards count what it keeps\. Your old-bot history can be added too: press \*\*Add my old-bot history\*\*\.$/u,
+    );
+  });
+
+  it('refuses a press without a file of the member, and in a DM', async () => {
+    const made = setup({}, { index: true });
+    await made.history.optIn(ALICE, FAKE_GUILD_ID, 0);
+    const pressed = await made.press(ADD);
+    expect(textDisplays(shownAfter(pressed))[0]).toBe(
+      '### Your settings\nThere is no old-bot history of yours to add.',
+    );
+    expect(await made.fillIns.stateOf(ALICE, FAKE_GUILD_ID)).toBeUndefined();
+    const dm = await made.press(ADD, { isDm: true });
+    expect(sent(dm.reply).content).toBe('This only works in a server.');
+    expect(made.legacyIndex.kicks).toBe(0);
+  });
+
+  it('mentions it when the history is turned on and the member has a file', async () => {
+    const made = setup({}, { index: true });
+    made.legacyIndex.add(ALICE, FAKE_GUILD_ID);
+    const on = shownAfter(await made.press('settings:history:set:on'));
+    expect(textDisplays(on)[0]).toMatch(
+      /`\/stats me` shows your numbers\. Your old-bot history can be added too: press \*\*Add my old-bot history\*\*\.$/u,
+    );
+    expect(offered(on)).toHaveLength(1);
+  });
+
+  it('fits the fullest panel with the offer: 39 of Discord’s 40 components', async () => {
+    const made = setup({}, { index: true });
+    await made.users.update(ALICE, {
+      mentions: false,
+      friendCode: '1234 5678 9012',
+      nickname: '**Bold_one**',
+      pokebattlerId: 2_147_483_647,
+    });
+    await made.newTrains.set(ALICE, FAKE_GUILD_ID, true, 0);
+    await made.history.joinBoards(ALICE, FAKE_GUILD_ID, 0);
+    made.legacyIndex.add(ALICE, FAKE_GUILD_ID);
+    const shown = await made.panel();
+    expectV2Sendable(shown);
+    expect(componentCount(shown)).toBe(39);
+  });
+});
+
 describe('turning the history off in /settings (S1, S2)', () => {
   it('asks in a dialog how many records lose the name, and Submit turns it off', async () => {
     const made = setup();
@@ -952,6 +1141,35 @@ describe('settingsLines', () => {
       'Name on reports and trains: **Visible**',
       'Friend code: **1234 5678 9012**',
       'Pokebattler user id: none',
+    ]);
+  });
+
+  it('words the old bot’s history in neutral words, where there is anything to say (plan 8H-10)', () => {
+    const line = (legacy: LegacyLine | undefined) =>
+      settingsLines(
+        { snowflake: ALICE, ...DEFAULT_USER_SETTINGS },
+        {
+          newTrain: false,
+          history: true,
+          leaderboard: false,
+          ...(legacy === undefined ? {} : { legacy }),
+        },
+      )
+        .filter((one) => one.setting === 'legacy')
+        .map((one) => one.text);
+    expect(line(undefined)).toEqual([]);
+    expect(line({ state: 'offer' })).toEqual(['Old-bot history: **not added**']);
+    expect(line({ state: 'queued' })).toEqual(['Old-bot history: **being added**']);
+    expect(line({ state: 'done', filled: 1234 })).toEqual([
+      'Old-bot history: **added** (on 1,234 parties)',
+    ]);
+    expect(
+      line({
+        state: 'failed',
+        failure: 'Their file in the member index is damaged: run the history import again.',
+      }),
+    ).toEqual([
+      'Old-bot history: **could not be added** (Their file in the member index is damaged: run the history import again.)',
     ]);
   });
 

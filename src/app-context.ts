@@ -4,6 +4,8 @@ import type { Kysely } from 'kysely';
 import type { Config } from './config/index.js';
 import type { GymTargetStorage } from './db/repositories/gym-notification-repository.js';
 import type { HistoryOptIns } from './db/repositories/history-repository.js';
+import type { LegacyFillIns } from './db/repositories/legacy-fill-in-repository.js';
+import type { LegacyIndex } from './services/legacy-fill-in.js';
 import type { NewTrainStorage } from './db/repositories/new-train-repository.js';
 import type { WantStorage } from './db/repositories/pokemon-notification-repository.js';
 import type { UserSettingsStore } from './db/repositories/user-repository.js';
@@ -196,6 +198,13 @@ export interface AppContext {
   readonly newTrains: NewTrainStorage;
   /** Who is named in the party history of a server (the history of `/settings`). */
   readonly historyOptIns: HistoryOptIns;
+  /** The requests of members' legacy fill-ins (plan 8H-10, `/settings`), per server. */
+  readonly legacyFillIns: LegacyFillIns;
+  /**
+   * The member index of the legacy history and its worker (plan 8H-10): undefined where the
+   * installation has no index (`LEGACY_INDEX_DIR` blank), which then offers no fill-in.
+   */
+  readonly legacyIndex: LegacyIndex | undefined;
   /**
    * The region tally (plan 8H-5, `/stats regions`): the activity heatmap's sums per region of a
    * period, as a member or the public may see them.

@@ -14,6 +14,7 @@ import {
   DATE_EXAMPLE,
   subcommandPath,
   type CommandHelp,
+  type HelpFacts,
   type CommandModule,
   type MessageCommand,
 } from '../../discord/command.js';
@@ -361,10 +362,11 @@ function helpPage(
   usage: readonly string[],
   settings: Settings,
   controls: HelpPageControls,
+  facts: HelpFacts = {},
 ): V2Message {
   // `DATE_EXAMPLE` is the date three days from today, in the examples and in what it says.
   const date = dateExample(Date.now(), settings.timezone);
-  const said = typeof help?.details === 'function' ? help.details(settings) : help?.details;
+  const said = typeof help?.details === 'function' ? help.details(settings, facts) : help?.details;
   const details = said?.replaceAll(DATE_EXAMPLE, date);
   const usageText = `**Usage**\n${fitLines(usage, USAGE_ROOM)}`;
   const examples = help?.examples?.length
@@ -411,7 +413,11 @@ function helpPage(
  * subcommands (`/admin boss …` with what the group is for), with a menu of those groups; its
  * examples; "◀" to its group of commands and "All groups".
  */
-export function renderCommandHelp(command: CommandModule, settings: Settings): V2Message {
+export function renderCommandHelp(
+  command: CommandModule,
+  settings: Settings,
+  facts: HelpFacts = {},
+): V2Message {
   const json = command.data.toJSON();
   const options = json.options ?? [];
   const groups = options.filter(
@@ -438,6 +444,7 @@ export function renderCommandHelp(command: CommandModule, settings: Settings): V
       back: CATEGORY_LABELS[command.help.category],
       subgroups: groups.map((group) => ({ name: group.name, description: group.description })),
     },
+    facts,
   );
 }
 

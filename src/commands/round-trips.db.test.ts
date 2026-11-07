@@ -24,6 +24,7 @@ import { AccessGrantRepository } from '../db/repositories/access-grant-repositor
 import { GuildRepository } from '../db/repositories/guild-repository.js';
 import { GymNotificationRepository } from '../db/repositories/gym-notification-repository.js';
 import { HistoryRepository } from '../db/repositories/history-repository.js';
+import { LegacyFillInRepository } from '../db/repositories/legacy-fill-in-repository.js';
 import { NewTrainRepository } from '../db/repositories/new-train-repository.js';
 import { PartyRepository } from '../db/repositories/party-repository.js';
 import { PokemonNotificationRepository } from '../db/repositories/pokemon-notification-repository.js';
@@ -121,6 +122,8 @@ describe('round trips to the database per command', () => {
       gymTargets,
       newTrains,
       historyOptIns,
+      // The requests of the old bot's history are read by the panel (plan 8H-10).
+      legacyFillIns: new LegacyFillInRepository(db),
       partyService: made.service,
       attendance: made.attendance,
       raids: made.raids,
@@ -342,12 +345,13 @@ describe('round trips to the database per command', () => {
     // Until the member is answered, and until everything that follows is done.
     const limits: Record<string, { answered: number; settled: number }> = {
       // The settings, the new-train row, the history opt-in, the member's wants of both tables
-      // (the lines of `/wants`, plan 8R-1), their gyms and the switch of the boards (plan 8H-6):
+      // (the lines of `/wants`, plan 8R-1), their gyms, the switch of the boards (plan 8H-6) and
+      // the request of the old bot's history (plan 8H-10; the member index is a file, no read):
       // one read each.
-      '/settings': { answered: 7, settled: 7 },
+      '/settings': { answered: 8, settled: 8 },
       // The setting as it is (whether it is so already), its write (the row written, or made, in
-      // one), then the panel read afresh (plan 8S-5): its seven reads.
-      '/settings, a press': { answered: 9, settled: 9 },
+      // one), then the panel read afresh (plan 8S-5): its eight reads.
+      '/settings, a press': { answered: 10, settled: 10 },
       // begin, the lock on the member's row, their rows, the insert, commit.
       '/want': { answered: 5, settled: 5 },
       // The dialog's read (plan 8R-1): the subject's rows of both tables, by their keys.

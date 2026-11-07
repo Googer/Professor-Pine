@@ -3,6 +3,7 @@ import { bossCommandsWith, MEMBER, textsOf } from '../../../test/support/boss-co
 import { FAKE_GUILD_ID } from '../../../test/support/fake-interactions.js';
 import { MemoryGymTargets } from '../../../test/support/gym-targets.js';
 import { MemoryHistoryOptIns } from '../../../test/support/history.js';
+import { MemoryLegacyFillIns, MemoryLegacyIndex } from '../../../test/support/legacy-fill-ins.js';
 import { MemoryNewTrains } from '../../../test/support/new-trains.js';
 import { MemoryUsers } from '../../../test/support/users.js';
 import { MemoryWants } from '../../../test/support/wants.js';
@@ -13,7 +14,9 @@ const OTHER_GUILD = '412345678901234599';
 
 const textOf = (interaction: Parameters<typeof textsOf>[0]) => textsOf(interaction).join('\n');
 
-async function setup() {
+async function setup(
+  legacy: { legacyIndex?: MemoryLegacyIndex; legacyFillIns?: MemoryLegacyFillIns } = {},
+) {
   const users = new MemoryUsers(
     new Map([
       [
@@ -40,7 +43,9 @@ async function setup() {
   await newTrains.set(ASH, FAKE_GUILD_ID, true, Date.now());
   const historyOptIns = new MemoryHistoryOptIns();
   await historyOptIns.optIn(ASH, FAKE_GUILD_ID, Date.now());
-  return bossCommandsWith({ context: { users, wants, gymTargets, newTrains, historyOptIns } });
+  return bossCommandsWith({
+    context: { users, wants, gymTargets, newTrains, historyOptIns, ...legacy },
+  });
 }
 
 const ash = (more: object = {}) => ({
@@ -77,6 +82,26 @@ describe('/admin member-settings', () => {
       ),
       '- Gym targets in this server: **2** (Old Stone Fountain, gym #999 (gone))',
     ]);
+  });
+
+  it('says where the member’s old-bot history stands, in neutral words (plan 8H-10)', async () => {
+    const legacyIndex = new MemoryLegacyIndex();
+    const legacyFillIns = new MemoryLegacyFillIns();
+    const made = await setup({ legacyIndex, legacyFillIns });
+    // The member index has a file of theirs and the history is on: it can be added.
+    legacyIndex.add(ASH, FAKE_GUILD_ID);
+    const lines = textOf(await made.use(null, 'member-settings', {}, ash())).split('\n');
+    expect(lines).toContain('- Old-bot history: **not added**');
+    expect(lines.indexOf('- Old-bot history: **not added**')).toBe(
+      lines.indexOf('- On this server’s boards: **off**') + 1,
+    );
+    legacyFillIns.ended(ASH, FAKE_GUILD_ID, {
+      state: 'failed',
+      failure: 'The member index has no file of theirs (it was rebuilt without them).',
+    });
+    expect(textOf(await made.use(null, 'member-settings', {}, ash()))).toContain(
+      '- Old-bot history: **could not be added** (The member index has no file of theirs (it was rebuilt without them).)',
+    );
   });
 
   it('counts rows it cannot read', async () => {

@@ -33,11 +33,18 @@ export interface CommandHelp {
   category: HelpCategory;
   /**
    * What `/help` says below the description; a function of the settings where that depends on
-   * what this installation has switched on. `DATE_EXAMPLE` in it is shown as in `examples`.
+   * what this installation has switched on, and of `HelpFacts` (what it has besides the settings).
+   * `DATE_EXAMPLE` in it is shown as in `examples`.
    */
-  details?: string | ((settings: Settings) => string);
+  details?: string | ((settings: Settings, facts?: HelpFacts) => string);
   /** Ways to use it; `DATE_EXAMPLE` in one is shown as a date three days from today. */
   examples?: string[];
+}
+
+/** What a command's help may depend on beyond the settings (`/help` reads them from the context). */
+export interface HelpFacts {
+  /** The installation has the member index of the legacy history (plan 8H-10, B6). */
+  oldHistory?: boolean;
 }
 
 /**

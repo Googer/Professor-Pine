@@ -5,6 +5,7 @@ import { UserError } from '../../discord/errors.js';
 import { guildIdOf } from '../../discord/guards.js';
 import { answer } from '../../discord/late-reply.js';
 import { count, fitItems, memberText, plain } from '../../render/text.js';
+import { legacyLine } from '../settings/panel.js';
 import { settingsLines } from '../settings/settings-lines.js';
 import { wantLabel } from '../notifications/want-input.js';
 
@@ -34,20 +35,30 @@ export async function memberSettingsLines(
   memberId: string,
   guildId: string,
 ): Promise<string[]> {
-  const [settings, newTrain, history, leaderboard, wants, targets] = await Promise.all([
-    ctx.users.get(memberId),
-    ctx.newTrains.isOn(memberId, guildId),
-    ctx.historyOptIns.isOptedIn(memberId, guildId),
-    ctx.historyOptIns.isOnBoards(memberId, guildId),
-    ctx.wants.list(memberId, guildId),
-    ctx.gymTargets.list(memberId, guildId),
-  ]);
+  const [settings, newTrain, history, leaderboard, fillIn, hasFile, wants, targets] =
+    await Promise.all([
+      ctx.users.get(memberId),
+      ctx.newTrains.isOn(memberId, guildId),
+      ctx.historyOptIns.isOptedIn(memberId, guildId),
+      ctx.historyOptIns.isOnBoards(memberId, guildId),
+      // The old bot's history (plan 8H-10), as the member's panel reads it.
+      ctx.legacyFillIns.stateOf(memberId, guildId),
+      ctx.legacyIndex?.hasFile(memberId, guildId) ?? false,
+      ctx.wants.list(memberId, guildId),
+      ctx.gymTargets.list(memberId, guildId),
+    ]);
+  const legacy = legacyLine(fillIn, hasFile, history);
   const gymNames = targets.gymIds.map((id) => {
     const gym = ctx.gyms.get(id);
     return gym ? plain(gym.name) : `gym #${String(id)} (gone)`;
   });
   return [
-    ...settingsLines(settings, { newTrain, history, leaderboard }).map((line) => line.text),
+    ...settingsLines(settings, {
+      newTrain,
+      history,
+      leaderboard,
+      ...(legacy === undefined ? {} : { legacy }),
+    }).map((line) => line.text),
     listLine(
       'Wants in this server',
       wants.wants.map((want) => plain(wantLabel(ctx, want.target))),

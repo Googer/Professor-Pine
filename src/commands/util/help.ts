@@ -101,7 +101,9 @@ function commandPage(path: string, staff: boolean, ctx: AppContext): V2Message {
   const page =
     command &&
     (rest.length === 0
-      ? renderCommandHelp(command, ctx.config.settings)
+      ? renderCommandHelp(command, ctx.config.settings, {
+          oldHistory: ctx.legacyIndex !== undefined,
+        })
       : renderSubcommandHelp(command, rest.join(' '), ctx.config.settings));
   if (!page) throw noCommand(path);
   return page;

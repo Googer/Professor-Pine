@@ -1073,6 +1073,8 @@ export async function startApp(
     gymTargets,
     newTrains,
     historyOptIns: history,
+    legacyFillIns: legacyFillInStore,
+    legacyIndex: legacyFillIns,
     // The region tally (plan 8H-5): the heatmap's buckets summed per region, for /stats.
     regionTallies: new RegionTallies({
       reader: activity,

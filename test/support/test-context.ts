@@ -36,6 +36,7 @@ import { catalogueFixture } from './game-data.js';
 import { FakeMemberDirectory } from './members.js';
 import { RecordingDms } from './dms.js';
 import { MemoryHistoryOptIns } from './history.js';
+import { MemoryLegacyFillIns } from './legacy-fill-ins.js';
 import { MemoryNewTrains } from './new-trains.js';
 import { noParties } from './parties.js';
 import { FakeIssues } from './issues.js';
@@ -176,6 +177,10 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
     newTrains: new MemoryNewTrains(),
     // Nobody is named in the party history; a test passes its own to opt members in.
     historyOptIns: new MemoryHistoryOptIns(),
+    // Nobody asked for their legacy history, and there is no member index (plan 8H-10); a test
+    // passes its own (`MemoryLegacyFillIns` over its opt-ins, `MemoryLegacyIndex`).
+    legacyFillIns: new MemoryLegacyFillIns(),
+    legacyIndex: undefined,
     regionTallies: unavailable<RegionTallies>(
       'regionTallies',
       'pass { regionTallies: tallies } from regionTalliesWith()',
