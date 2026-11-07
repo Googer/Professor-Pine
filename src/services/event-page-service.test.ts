@@ -8,6 +8,7 @@ import { parsePagedEventFeed, type PagedEvent } from '../domain/time/event-pages
 import { readEveryoneFeed } from '../../test/support/event-reach.js';
 import {
   EventPageService,
+  type EventPageOptions,
   MAX_EVENT_PAGE_BYTES,
   nextReadIn,
   REREAD_MS,
@@ -34,11 +35,13 @@ function serviceWith(
   events: readonly SpawnEvent[] = FEED_EVENTS,
   paged: { now: readonly PagedEvent[] } = { now: [] },
   weeklyRaidHour: { hour: number; minutes: number } | null = { hour: 18, minutes: 60 },
+  more: Partial<EventPageOptions> = {},
 ) {
   const { log, entries } = createTestLogger();
   const clock = { now: at('2026-10-28T12:00') };
   const asked: { url: string; headers: Record<string, string>; redirect: string }[] = [];
   const service = new EventPageService({
+    ...more,
     events: { spawnEvents: () => events, pagedEvents: () => paged.now },
     zone: ZONE,
     weeklyRaidHour,
@@ -215,6 +218,8 @@ describe('EventPageService: the Raid Hours of the events’ pages', () => {
     name,
     start: at(iso),
     end: at(iso) + HOUR,
+    // The event whose page named it: the events forum links its line there.
+    page: { event: 'into-the-wild-2026', link: INTO_THE_WILD },
   });
   const BOTH = [
     raidHour('2026-11-09T18:00', 'Zacian (Crowned Sword) Raid Hour'),
@@ -585,6 +590,28 @@ describe('EventPageService: the Max Battle hours of the events’ pages', () => 
     paged.now = [];
     clock.now = at('2026-11-12T12:00');
     expect(hours(service)).toEqual(THREE.slice(0, 1));
+  });
+
+  it('says when a round of reads changed the pages’ hours, and only then (the events forum)', async () => {
+    let answer = () => page(intoTheWild);
+    let changes = 0;
+    const { service, clock } = serviceWith(() => answer(), [], { now: PAGED }, undefined, {
+      onHoursChange: () => {
+        changes += 1;
+      },
+    });
+    clock.now = at('2026-11-07T12:00');
+    await service.refresh();
+    expect(changes).toBe(1);
+    // Read again, the same hours: nothing to say.
+    clock.now += REREAD_MS;
+    await service.refresh();
+    expect(changes).toBe(1);
+    // Read again, Thursday's boss changed.
+    answer = () => page(intoTheWild.replace('Regidrago', 'Regieleki'));
+    clock.now += REREAD_MS;
+    await service.refresh();
+    expect(changes).toBe(2);
   });
 });
 

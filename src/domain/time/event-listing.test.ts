@@ -12,6 +12,7 @@ import {
   mergeRead,
   listingSections,
   mergeListed,
+  pageHoursListed,
   postOpensAt,
   readListedEvents,
   sectionChangesAt,
@@ -19,7 +20,13 @@ import {
   type FeedListing,
   type ListedEvent,
 } from './event-listing.js';
-import { maxEventAt, parseBigEventFeed, parseMaxEventFeed } from './max-events.js';
+import {
+  eventPageMaxHours,
+  maxEventAt,
+  parseBigEventFeed,
+  parseMaxEventFeed,
+} from './max-events.js';
+import { eventPageRaidHours, withPageRaidHours } from './raid-events.js';
 
 const ZONE = 'America/New_York';
 const at = (iso: string): number =>
@@ -464,5 +471,77 @@ describe('the listing’s sections and a post’s opening (plan 8V-1)', () => {
 
   it('opens a post the given days before its start, by the local calendar', () => {
     expect(postOpensAt(event(), 14, ZONE)).toBe(at('2026-11-07T14:00'));
+  });
+});
+
+describe('the hours of events’ pages as lines (2026-11-07)', () => {
+  const WILD = {
+    event: 'into-the-wild-2026',
+    link: 'https://leekduck.com/events/into-the-wild-2026/',
+  };
+  const span = { start: at('2026-11-09T10:00'), end: at('2026-11-13T20:00') };
+  const time = { hour: 18, minute: 0, minutes: 60 };
+  const raidHours = eventPageRaidHours(
+    [{ month: 11, day: 9, bosses: ['Zacian (Crowned Sword)'] }],
+    span,
+    time,
+    ZONE,
+    WILD,
+  );
+  const maxHours = eventPageMaxHours(
+    [{ month: 11, day: 11, bosses: ['Registeel'], gigantamax: false }],
+    span,
+    time,
+    ZONE,
+    WILD,
+  );
+  const feedHour = {
+    kind: 'raid-hour' as const,
+    name: 'Palkia Raid Hour',
+    start: at('2026-11-18T18:00'),
+    end: at('2026-11-18T19:00'),
+  };
+
+  it('lists each Raid Hour and Max Battle hour a page named as a line, linked to its page', () => {
+    const lines = pageHoursListed([feedHour, ...raidHours], maxHours, ZONE);
+    expect(lines).toEqual([
+      {
+        id: 'into-the-wild-2026:raid-hour:2026-11-09',
+        name: 'Zacian (Crowned Sword) Raid Hour',
+        eventType: 'raid-hour',
+        link: WILD.link,
+        image: null,
+        start: at('2026-11-09T18:00'),
+        end: at('2026-11-09T19:00'),
+        formerIds: [],
+      },
+      {
+        id: 'into-the-wild-2026:max-battle-hour:2026-11-11',
+        name: 'Dynamax Registeel Max Battle Hour',
+        eventType: 'max-battle-hour',
+        link: WILD.link,
+        image: null,
+        start: at('2026-11-11T18:00'),
+        end: at('2026-11-11T19:00'),
+        formerIds: [],
+      },
+    ]);
+    // Lines, as the weekly hours: listed, no post of their own, a kind the forum knows.
+    for (const line of lines) {
+      expect(isListed(line)).toBe(true);
+      expect(isPosted(line)).toBe(false);
+      expect(isKnownKind(line.eventType)).toBe(true);
+    }
+    expect(listingSections(lines, at('2026-11-07T12:00'), ZONE, 35).week).toEqual(lines);
+  });
+
+  it('lists only what a page named, and nothing that the feed won at the same start', () => {
+    expect(pageHoursListed([feedHour], [], ZONE)).toEqual([]);
+    // The feed's Raid Hour at the page's start wins: `events()` has the feed's alone.
+    const merged = withPageRaidHours([{ ...feedHour, start: at('2026-11-09T18:00') }], raidHours);
+    expect(pageHoursListed(merged, [], ZONE)).toEqual([]);
+    // A page's address that is no web address is left unlinked.
+    const odd = raidHours.map((hour) => ({ ...hour, page: { event: 'x', link: 'javascript:1' } }));
+    expect(pageHoursListed(odd, [], ZONE)[0]?.link).toBeNull();
   });
 });

@@ -1,8 +1,8 @@
 import { z } from 'zod';
 import { IN_PERSON_TYPES, everyonesTimes, isForEveryoneKind } from './event-reach.js';
 import { BIG_EVENT_TYPES, type BigEvent, type MaxEvent } from './max-events.js';
-import { eventName } from './raid-events.js';
-import { addDays, shortDateWords, shortDayWords, shortHourWords, zoned } from './zoned.js';
+import { eventName, type RaidEvent } from './raid-events.js';
+import { addDays, isoDate, shortDateWords, shortDayWords, shortHourWords, zoned } from './zoned.js';
 
 /*
  * The events forum's one rule (plan 8V-1; design `2026-10-28-events-forum-design.md`, "Which
@@ -72,12 +72,22 @@ export const POSTED_KINDS: ReadonlySet<string> = new Set([
   'event',
 ]);
 
-/** The kinds listed as lines only, known: the weekly hours, and a one-off raid event. */
+/**
+ * The kind of a Max Battle hour an event's page names (`pageHoursListed`): Pine's own, no type of
+ * Leek Duck's list. A page's Raid Hour is listed as the feed's are, `raid-hour`.
+ */
+export const PAGE_MAX_HOUR_KIND = 'max-battle-hour';
+
+/**
+ * The kinds listed as lines only, known: the weekly hours, a one-off raid event, and the Max
+ * Battle hours of events' pages.
+ */
 const LINE_KINDS: ReadonlySet<string> = new Set([
   'raid-hour',
   'pokemon-spotlight-hour',
   'max-mondays',
   'raid-battles',
+  PAGE_MAX_HOUR_KIND,
 ]);
 
 /** The kinds whose lines and posts leave out the Campfire hint: none so far (design). */
@@ -231,6 +241,42 @@ export function readListedEvents(
     untimed,
     unknownKinds: [...unknown].map(([eventType, id]) => ({ eventType, id })),
   };
+}
+
+/**
+ * The hours events' pages named, as lines of the listing (2026-11-07): each Raid Hour of `raid`
+ * and Max Battle hour of `max` that carries the event whose page named it (`page`), so from the
+ * very lists every reader gets (`RaidEventProvider.events()`, `maxEvents()`), where the feed's
+ * own already won at the same start (`withPageRaidHours`, `withPageMaxHours`). A Raid Hour is a
+ * `raid-hour` line, a Max Battle hour a `PAGE_MAX_HOUR_KIND` line: lines only, never a post
+ * (`isPosted`). Its id is the event's, the kind and the local day
+ * (`into-the-wild-2026:raid-hour:2026-11-09`; no feed id has a colon), linked to the event's page,
+ * without a picture. In order of their start, then their name.
+ */
+export function pageHoursListed(
+  raid: readonly RaidEvent[],
+  max: readonly MaxEvent[],
+  zone: string,
+): ListedEvent[] {
+  const line = (hour: RaidEvent | MaxEvent, eventType: string): ListedEvent[] => {
+    if (hour.page === undefined) return [];
+    return [
+      {
+        id: `${hour.page.event}:${eventType}:${isoDate(hour.start, zone)}`,
+        name: hour.name,
+        eventType,
+        link: webAddress.safeParse(hour.page.link).data ?? null,
+        image: null,
+        start: hour.start,
+        end: hour.end,
+        formerIds: [],
+      },
+    ];
+  };
+  return inOrder([
+    ...raid.flatMap((hour) => (hour.kind === 'raid-hour' ? line(hour, 'raid-hour') : [])),
+    ...max.flatMap((hour) => line(hour, PAGE_MAX_HOUR_KIND)),
+  ]);
 }
 
 /** A name as compared for a move: without "(Rescheduled)", its spaces and case aside. */

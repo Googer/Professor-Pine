@@ -330,6 +330,10 @@ export async function startApp(
     fetch: (url, init) => fetch(url, init),
     zone: config.settings.timezone,
     weeklyRaidHour: config.settings.raidEvents.weeklyRaidHour,
+    // The events forum lists the pages' hours: it draws again when a read changed them.
+    onHoursChange: () => {
+      raidEvents.pagesChanged();
+    },
     log,
   });
   // The square pictures of the reports at stops (plan 8R-6): kept in var/pictures/, named at the

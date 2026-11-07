@@ -12,7 +12,12 @@ import {
   type RaidEvent,
 } from '../domain/time/raid-events.js';
 import { parsePagedEventFeed, type PagedEvent } from '../domain/time/event-pages.js';
-import { mergeRead, readListedEvents, type ListedEvent } from '../domain/time/event-listing.js';
+import {
+  mergeRead,
+  pageHoursListed,
+  readListedEvents,
+  type ListedEvent,
+} from '../domain/time/event-listing.js';
 import {
   feedHasResearchFlags,
   isResearchEventKind,
@@ -300,8 +305,24 @@ export class RaidEventService
     this.researchListeners.push(listener);
   }
 
+  /**
+   * The listed events kept, with the hours the events' pages named as lines (`pageHoursListed`,
+   * from `events()` and `maxEvents()`: where the feed's won at the same start, the page's is not
+   * listed). The pages' lines are never kept (`listed`): the pages are read again after a
+   * restart.
+   */
   listedEvents(): readonly ListedEvent[] {
-    return this.currentListed;
+    const lines = pageHoursListed(this.events(), this.maxEvents(), this.options.zone);
+    return lines.length === 0 ? this.currentListed : inOrder([...this.currentListed, ...lines]);
+  }
+
+  /**
+   * The events' pages were read and their hours changed (`EventPageService`, option
+   * `onHoursChange` in `app.ts`): the listeners of the listed events are told, so that the events
+   * forum draws their lines.
+   */
+  pagesChanged(): void {
+    this.tellListed();
   }
 
   onListedChange(listener: () => void): void {

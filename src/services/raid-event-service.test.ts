@@ -678,6 +678,63 @@ describe('RaidEventService', () => {
       expect(told).toEqual([ids.length, ids.length]);
     });
 
+    it('lists the hours of the events’ pages as lines, and tells its listeners when the pages change', async () => {
+      const WILD = {
+        event: 'into-the-wild-2026',
+        link: 'https://leekduck.com/events/into-the-wild-2026/',
+      };
+      const page = <T extends { start: number }>(hour: T) => ({ ...hour, page: WILD });
+      const raidHours = [
+        page({
+          kind: 'raid-hour' as const,
+          name: 'Zacian (Crowned Sword) Raid Hour',
+          start: at('2026-11-09T18:00'),
+          end: at('2026-11-09T19:00'),
+        }),
+      ];
+      const maxHours: MaxEvent[] = [
+        page({
+          kind: 'max-battle',
+          name: 'Dynamax Registeel Max Battle Hour',
+          start: at('2026-11-11T18:00'),
+          end: at('2026-11-11T19:00'),
+          short: true,
+          hoursAssumed: false,
+          featured: { gigantamax: false, names: ['Registeel'] },
+          id: undefined,
+        }),
+      ];
+      const store = new MemoryListedEvents();
+      const { log } = createTestLogger();
+      const events = new RaidEventService({
+        url: URL,
+        refreshMs: 6 * HOUR,
+        zone: 'America/New_York',
+        fetch: () => Promise.resolve(reply(200, JSON.stringify(spawnFeed()))),
+        log,
+        now: () => at('2026-11-07T12:00'),
+        listed: store,
+        pageRaidHours: () => raidHours,
+        pageMaxHours: () => maxHours,
+      });
+      const told: number[] = [];
+      events.onListedChange(() => told.push(told.length));
+      await events.refresh();
+      const lines = events.listedEvents().filter((event) => event.id.includes(':'));
+      expect(lines.map((line) => [line.id, line.eventType, line.link])).toEqual([
+        ['into-the-wild-2026:raid-hour:2026-11-09', 'raid-hour', WILD.link],
+        ['into-the-wild-2026:max-battle-hour:2026-11-11', 'max-battle-hour', WILD.link],
+      ]);
+      const starts = events.listedEvents().map((event) => event.start);
+      expect(starts).toEqual([...starts].sort((a, b) => a - b));
+      // Never kept: the pages are read again after a restart.
+      expect((await store.all()).some((event) => event.id.includes(':'))).toBe(false);
+      // A read of the pages that changed their hours: the forum draws again.
+      expect(told).toHaveLength(1);
+      events.pagesChanged();
+      expect(told).toHaveLength(2);
+    });
+
     it('keeps them across a restart and a failed read, and merges the next read with them', async () => {
       const store = new MemoryListedEvents();
       let body = JSON.stringify(spawnFeed());

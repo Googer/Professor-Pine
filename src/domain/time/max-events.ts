@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { everyonesTimes } from './event-reach.js';
-import { eventName, placePageDays } from './raid-events.js';
+import { eventName, placePageDays, type PageSource } from './raid-events.js';
 import { addDays, feedTime, sameDay, zoned } from './zoned.js';
 
 /**
@@ -41,6 +41,11 @@ export interface MaxEvent {
   featured: FeaturedNames | undefined;
   /** The feed's `eventID` (`max-mondays-2026-10-26`), which stays when it renames or moves it. */
   id: string | undefined;
+  /**
+   * The event whose Leek Duck page named it (`eventPageMaxHours`); none for the feed's own. Such
+   * an event is never kept in the database (`MaxEventStorage`).
+   */
+  page?: PageSource;
 }
 
 /** An event shorter than this, within one day, is short (`MaxEvent.short`). */
@@ -271,13 +276,15 @@ export interface PageMaxHourDay {
  * where it is (`SHORT_EVENT_MS`, within one day), featuring the bosses listed under it (a
  * `Dynamax ` or `Gigantamax ` before a name dropped), nothing without any; named "Dynamax
  * Registeel Max Battle Hour" ("Gigantamax …" for a Gigantamax day, bosses joined with "and",
- * "Max Battle Hour" without any). No feed id. In order of their start.
+ * "Max Battle Hour" without any). No feed id; each carries `page`, where given. In order of
+ * their start.
  */
 export function eventPageMaxHours(
   hours: readonly PageMaxHourDay[],
   span: { start: number; end: number },
   time: { hour: number; minute?: number; minutes: number },
   zone: string,
+  page?: PageSource,
 ): MaxEvent[] {
   const events = placePageDays(hours, span, time, zone).map(
     ({ day: { bosses, gigantamax }, start, end }): MaxEvent => {
@@ -297,6 +304,7 @@ export function eventPageMaxHours(
         hoursAssumed: false,
         featured: names.length === 0 ? undefined : { gigantamax, names },
         id: undefined,
+        ...(page === undefined ? {} : { page }),
       };
     },
   );

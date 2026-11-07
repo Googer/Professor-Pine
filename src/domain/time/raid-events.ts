@@ -13,6 +13,17 @@ export interface RaidEvent {
   start: number;
   /** The first moment after the event. */
   end: number;
+  /** The event whose Leek Duck page named it (`eventPageRaidHours`); none for the feed's own. */
+  page?: PageSource;
+}
+
+/**
+ * The event of the feed whose Leek Duck page named an hour (a Raid Hour, a Max Battle hour): its
+ * id and its page's address. The events forum lists such an hour as a line linked there.
+ */
+export interface PageSource {
+  event: string;
+  link: string;
 }
 
 /** An event longer than this is not a Raid Hour or a Raid Day, whatever the feed calls it. */
@@ -100,20 +111,22 @@ const STANDARD_RAID_HOUR: { hour: number; minute?: number; minutes: number } = {
  * listed under it ("Zacian (Crowned Sword) Raid Hour", "Raid Hour" without any). The page gives
  * no year: it is the one in which the day falls within the event (`span`, from its start's day to
  * its end's day in `zone`, an end at midnight the day before's); a day outside it, or a day the
- * page names twice, is dropped. In order of their start.
+ * page names twice, is dropped. Each carries `page`, where given. In order of their start.
  */
 export function eventPageRaidHours(
   hours: readonly PageRaidHourDay[],
   span: { start: number; end: number },
   time: { hour: number; minute?: number; minutes: number } | null,
   zone: string,
+  page?: PageSource,
 ): RaidEvent[] {
   const events = placePageDays(hours, span, time ?? STANDARD_RAID_HOUR, zone).map(
     ({ day: { bosses }, start, end }): RaidEvent => {
       const named = eventName.safeParse(
         bosses.length === 0 ? 'Raid Hour' : `${bosses.join(' and ')} Raid Hour`,
       );
-      return { kind: 'raid-hour', name: named.success ? named.data : 'Raid Hour', start, end };
+      const name = named.success ? named.data : 'Raid Hour';
+      return { kind: 'raid-hour', name, start, end, ...(page === undefined ? {} : { page }) };
     },
   );
   return inOrder(events);

@@ -111,6 +111,11 @@ export interface EventPageOptions {
   /** How long one page may take before it is abandoned. Default 30 seconds. */
   timeoutMs?: number;
   now?: () => number;
+  /**
+   * Called after a round of reads that changed the pages' Raid Hours or Max Battle hours (the
+   * events forum lists them: `RaidEventService.pagesChanged` in `app.ts`). Must not throw.
+   */
+  onHoursChange?: () => void;
 }
 
 /** What one read of an event's page gave. */
@@ -234,10 +239,32 @@ export class EventPageService implements EventSpawnProvider {
   /** Reads the pages that are due; nothing once stopped. Never rejects; calls share one run. */
   refresh(): Promise<void> {
     if (this.closed) return Promise.resolve();
-    this.inFlight ??= this.readDue().finally(() => {
+    this.inFlight ??= this.readAndTell().finally(() => {
       this.inFlight = undefined;
     });
     return this.inFlight;
+  }
+
+  /** Reads the pages that are due, and tells `onHoursChange` when their hours changed. */
+  private async readAndTell(): Promise<void> {
+    const before = this.hoursKnown();
+    await this.readDue();
+    if (this.closed || this.hoursKnown() === before) return;
+    try {
+      this.options.onHoursChange?.();
+    } catch (err) {
+      this.options.log.error({ err }, 'a listener of the events’ pages failed');
+    }
+  }
+
+  /** The hours of every page read, as one text to compare (`readAndTell`). */
+  private hoursKnown(): string {
+    return JSON.stringify(
+      this.pages.keys().map((id) => {
+        const read = this.pages.get(id);
+        return [id, read?.raidHours, read?.maxHours];
+      }),
+    );
   }
 
   /** Resolves once no read is in flight. Never rejects. */
@@ -326,7 +353,7 @@ export class EventPageService implements EventSpawnProvider {
       );
     }
     const time = raidTime.kind === 'time' ? raidTime.time : weeklyRaidHour;
-    const placed = eventPageRaidHours(read, span, time, zone);
+    const placed = eventPageRaidHours(read, span, time, zone, { event: id, link: url });
     const headings = raidHourHeadings(html);
     if (read.length < headings) {
       // The page's shape changed (review ER-3).
@@ -382,7 +409,10 @@ export class EventPageService implements EventSpawnProvider {
         ),
       );
     }
-    const placed = maxTime.kind === 'time' ? eventPageMaxHours(read, span, maxTime.time, zone) : [];
+    const placed =
+      maxTime.kind === 'time'
+        ? eventPageMaxHours(read, span, maxTime.time, zone, { event: id, link: url })
+        : [];
     const headings = maxHourHeadings(html);
     if (read.length < headings) {
       this.tellOnce(`${id}:max-unread`, () =>
