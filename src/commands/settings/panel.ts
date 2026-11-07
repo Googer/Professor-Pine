@@ -103,9 +103,7 @@ export async function readPanel(interaction: Asking, ctx: AppContext): Promise<P
         ])
       : undefined,
   ]);
-  // Without the index (B5) nothing is waited for any more: a waiting request says nothing.
-  const shown = ctx.legacyIndex === undefined && fillIn?.state === 'queued' ? undefined : fillIn;
-  const legacy = legacyLine(shown, hasFile, history);
+  const legacy = legacyLine(fillIn, { indexed: ctx.legacyIndex !== undefined, hasFile, history });
   return {
     settings,
     server: {
@@ -118,16 +116,29 @@ export async function readPanel(interaction: Asking, ctx: AppContext): Promise<P
   };
 }
 
+/** What `legacyLine` goes by besides the request. */
+export interface LegacyFacts {
+  /** The installation has the member index (`ctx.legacyIndex`). */
+  indexed: boolean;
+  /** The member index has a file of the member in that server. */
+  hasFile: boolean;
+  /** The member's history is on in that server. */
+  history: boolean;
+}
+
 /**
  * What the panel and staff's lines say of the member's old bot's history (plan 8H-10): where they
- * asked, how that stands (whatever else); otherwise the offer, only with their history on and a
- * file of theirs in the member index; else nothing.
+ * asked, how that stands (whatever else), except that a waiting request says nothing without the
+ * index (B5: nothing is waited for any more), and a failed one can be asked again only with the
+ * index and a file of theirs; otherwise the offer, only with their history on and a file of
+ * theirs in the member index; else nothing.
  */
 export function legacyLine(
   fillIn: FillInState | undefined,
-  hasFile: boolean,
-  history: boolean,
+  { indexed, hasFile, history }: LegacyFacts,
 ): LegacyLine | undefined {
+  if (fillIn?.state === 'queued') return indexed ? fillIn : undefined;
+  if (fillIn?.state === 'failed') return { ...fillIn, retry: indexed && hasFile };
   if (fillIn !== undefined) return fillIn;
   return history && hasFile ? { state: 'offer' } : undefined;
 }
@@ -143,7 +154,7 @@ export async function readLegacyLine(
     ctx.legacyFillIns.stateOf(memberId, guildId),
     ctx.legacyIndex?.hasFile(memberId, guildId) ?? false,
   ]);
-  return legacyLine(fillIn, hasFile, history);
+  return legacyLine(fillIn, { indexed: ctx.legacyIndex !== undefined, hasFile, history });
 }
 
 /** A button of the panel. */
@@ -247,8 +258,9 @@ export function settingsPanel(state: PanelState, said?: string): V2Message {
     // The old bot's history in the member's own words (plan 8H-10): the offer with its button
     // in a section of its own, else how it stands; nothing where there is nothing to say.
     const { legacy } = server;
-    // A failed one with "Try again" (A1): the same control, three components as the offer's.
-    if (legacy?.state === 'offer' || legacy?.state === 'failed') {
+    // A failed one with "Try again" (A1) where it can be asked again: the same control, three
+    // components as the offer's; without an index or a file of theirs, its words alone.
+    if (legacy?.state === 'offer' || (legacy?.state === 'failed' && legacy.retry)) {
       const label = legacy.state === 'offer' ? 'Add my old-bot history' : 'Try again';
       parts.push(section(legacyWords(legacy), button(LEGACY, ADD, label, ButtonStyle.Primary)));
     } else if (legacy !== undefined) parts.push(textDisplay(legacyWords(legacy)));

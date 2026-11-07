@@ -104,6 +104,25 @@ describe('/admin member-settings', () => {
     );
   });
 
+  it('says a failed fill-in without a file of theirs, and no waiting one without an index (B5)', async () => {
+    const legacyFillIns = new MemoryLegacyFillIns();
+    // An index without a file of the member: why it failed still shows.
+    const indexed = await setup({ legacyIndex: new MemoryLegacyIndex(), legacyFillIns });
+    legacyFillIns.ended(ASH, FAKE_GUILD_ID, {
+      state: 'failed',
+      failure: 'The member index has no file of theirs (it was rebuilt without them).',
+    });
+    expect(textOf(await indexed.use(null, 'member-settings', {}, ash()))).toContain(
+      '- Old-bot history: **could not be added** (The member index has no file of theirs (it was rebuilt without them).)',
+    );
+    // No index on this installation any more: a waiting request is waited for by nobody.
+    const unindexed = await setup({ legacyFillIns });
+    legacyFillIns.ended(ASH, FAKE_GUILD_ID, { state: 'queued' });
+    expect(textOf(await unindexed.use(null, 'member-settings', {}, ash()))).not.toMatch(
+      /Old-bot history/u,
+    );
+  });
+
   it('counts rows it cannot read', async () => {
     const made = await setup();
     const text = textOf(await made.use(null, 'member-settings', {}, ash()));

@@ -47,7 +47,7 @@ export async function memberSettingsLines(
       ctx.wants.list(memberId, guildId),
       ctx.gymTargets.list(memberId, guildId),
     ]);
-  const legacy = legacyLine(fillIn, hasFile, history);
+  const legacy = legacyLine(fillIn, { indexed: ctx.legacyIndex !== undefined, hasFile, history });
   const gymNames = targets.gymIds.map((id) => {
     const gym = ctx.gyms.get(id);
     return gym ? plain(gym.name) : `gym #${String(id)} (gone)`;

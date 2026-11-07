@@ -173,9 +173,13 @@ export interface SettingLine {
 
 /**
  * The member's history of the old bot in a server (plan 8H-10): `offer`, it can be added (their
- * history is on and the member index has a file of theirs); else where their request stands.
+ * history is on and the member index has a file of theirs); else where their request stands, a
+ * failed one with `retry` where it can be asked again (an index here with a file of theirs).
  */
-export type LegacyLine = { state: 'offer' } | FillInState;
+export type LegacyLine =
+  | { state: 'offer' }
+  | Exclude<FillInState, { state: 'failed' }>
+  | { state: 'failed'; failure: string; retry: boolean };
 
 /** The settings of a member that are per server: those of the server asked in. */
 export interface ServerSettings {
@@ -219,8 +223,10 @@ export function legacyWords(legacy: LegacyLine): string {
         ? 'None of your old-bot parties could be added: this bot holds them otherwise.'
         : `Your Discord id is now on ${counted(legacy.filled)} ${legacy.filled === 1 ? 'party' : 'parties'} of the old bot.`;
     case 'failed':
-      // With "Try again" beside it (A1: the member retries).
-      return 'Your old-bot history could not be added. Ask staff, then press **Try again**.';
+      // With "Try again" beside it (A1: the member retries), where it can be asked again.
+      return legacy.retry
+        ? 'Your old-bot history could not be added. Ask staff, then press **Try again**.'
+        : 'Your old-bot history could not be added: ask staff.';
   }
 }
 

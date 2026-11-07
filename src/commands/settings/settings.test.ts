@@ -733,6 +733,7 @@ describe('the old bot’s history in /settings (plan 8H-10)', () => {
     'Your raids, trains and meetups with the old bot in this server can be added to your history.';
   const QUEUED = 'Your old-bot history is being added.';
   const FAILED = 'Your old-bot history could not be added. Ask staff, then press **Try again**.';
+  const FAILED_FOR_GOOD = 'Your old-bot history could not be added: ask staff.';
   const offered = (shown: V2Message) =>
     buttonsOf(shown).filter((button) => button.customId === ADD);
 
@@ -808,6 +809,31 @@ describe('the old bot’s history in /settings (plan 8H-10)', () => {
     expect(textDisplays(shown)[0]).toBe('### Your settings\nAsked: it takes a few minutes.');
     expect(textDisplays(shown)).toContain(QUEUED);
     expect(made.legacyIndex.kicks).toBe(1);
+  });
+
+  it('offers no Try again where the member index has no file of theirs any more', async () => {
+    const made = setup({}, { index: true });
+    await made.history.optIn(ALICE, FAKE_GUILD_ID, 0);
+    made.fillIns.ended(ALICE, FAKE_GUILD_ID, {
+      state: 'failed',
+      failure: 'The member index has no file of theirs (it was rebuilt without them).',
+    });
+    const failed = await made.panel();
+    expect(textDisplays(failed)).toContain(FAILED_FOR_GOOD);
+    expect(offered(failed)).toEqual([]);
+  });
+
+  it('offers no Try again where the installation has no index any more', async () => {
+    const made = setup();
+    await made.history.optIn(ALICE, FAKE_GUILD_ID, 0);
+    made.legacyIndex.add(ALICE, FAKE_GUILD_ID);
+    made.fillIns.ended(ALICE, FAKE_GUILD_ID, {
+      state: 'failed',
+      failure: 'Their file in the member index is damaged: run the history import again.',
+    });
+    const failed = await made.panel();
+    expect(textDisplays(failed)).toContain(FAILED_FOR_GOOD);
+    expect(offered(failed)).toEqual([]);
   });
 
   it('says nothing of a waiting fill-in where the installation has no index any more (B5)', async () => {
@@ -1167,6 +1193,7 @@ describe('settingsLines', () => {
       line({
         state: 'failed',
         failure: 'Their file in the member index is damaged: run the history import again.',
+        retry: true,
       }),
     ).toEqual([
       'Old-bot history: **could not be added** (Their file in the member index is damaged: run the history import again.)',
