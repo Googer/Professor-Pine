@@ -1743,7 +1743,10 @@ export class FakePartyGateway implements PartyGateway {
     roleIds: readonly string[] = this.rolesOf(memberId),
   ): MemberAccess {
     if (this.seesHolding(forumId, memberId, roleIds)) return 'visible';
-    return this.barred.get(forumId)?.has(memberId) ? 'barred' : 'hidden';
+    // As the real gateway: kept out by their own overwrite, or by a role of theirs that denies
+    // the view (W3: the party lists' `barred`, also where the page says only hidden).
+    const kept = this.denialsOf(forumId, memberId, roleIds);
+    return kept.own || kept.roles.length > 0 ? 'barred' : 'hidden';
   }
 
   /**

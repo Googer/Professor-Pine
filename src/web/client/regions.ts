@@ -1,8 +1,4 @@
-import type {
-  RegionAccess,
-  RegionMineView,
-  RegionsMineView,
-} from '../../domain/web/region-data.js';
+import type { RegionMineView, RegionsMineView } from '../../domain/web/region-data.js';
 import type { PageNode } from './popup.js';
 
 /*
@@ -14,15 +10,33 @@ import type { PageNode } from './popup.js';
 
 /** The line of the box that says what the outlines mean, where some region is not seen (R10). */
 export const REGIONS_LEGEND =
-  'Solid: a region you see on Discord. Dashed: one only the map shows you. Fainter dashes: one you are kept out of.';
+  'Solid: a region you see on Discord. Dashed: one only the map shows you. Fainter dashes: one whose raids the map does not show you either.';
 
 /** Said in the box while the Region outlines layer is off (B8): a row's mark cannot show. */
 export const OUTLINES_OFF = 'The Region outlines layer is off, so the map shows no outlines.';
 
+/** How the member stands to a region, as the view says it: on Discord and in the map's lists. */
+type RegionStanding = Pick<RegionMineView, 'access' | 'listed'>;
+
+/** The state of a row (W3). */
+type RegionState = 'visible' | 'mapOnly' | 'unlisted' | 'barred';
+
+/**
+ * A region's state: seen on Discord; hidden there and its raids listed on the map ("Map only");
+ * hidden there and not listed either (a self-assignable role keeps them out, which a join may
+ * give back); kept out by somebody (W3).
+ */
+function stateOf(region: RegionStanding): RegionState {
+  if (region.access === 'visible') return 'visible';
+  if (region.access === 'barred') return 'barred';
+  return region.listed ? 'mapOnly' : 'unlisted';
+}
+
 /** How each state is said in the box. */
-const STATE_WORDS: Readonly<Record<RegionAccess, string>> = {
+const STATE_WORDS: Readonly<Record<RegionState, string>> = {
   visible: 'On Discord',
-  hidden: 'Map only',
+  mapOnly: 'Map only',
+  unlisted: 'Not on Discord',
   barred: 'Kept out: ask staff',
 };
 
@@ -38,14 +52,16 @@ export interface OutlineStyle {
 }
 
 /**
- * A region's outline by how the member stands to it (R14): solid where they see it on Discord (as
- * the map always drew it), dashed and fainter where the map alone shows it, dashed and fainter
- * still where somebody keeps them out; as before where nothing is said (logged out, read-only).
+ * A region's outline by how the member stands to it (R14, W3): solid where they see it on Discord
+ * (as the map always drew it), dashed and fainter where the map alone shows it, dashed and fainter
+ * still where the map does not list its raids either (kept out, or hidden by a self-assignable
+ * role that denies it); as before where nothing is said (logged out, read-only).
  */
-export function outlineStyle(access: RegionAccess | undefined): OutlineStyle {
-  switch (access) {
-    case 'hidden':
+export function outlineStyle(region: RegionStanding | undefined): OutlineStyle {
+  switch (region === undefined ? 'visible' : stateOf(region)) {
+    case 'mapOnly':
       return { dashArray: DASHES, opacity: 0.7, fillOpacity: 0.03 };
+    case 'unlisted':
     case 'barred':
       return { dashArray: DASHES, opacity: 0.4, fillOpacity: 0.02 };
     default:
@@ -154,7 +170,7 @@ export function regionRows(view: RegionsMineView, names: ReadonlyMap<number, str
     return {
       id: region.id,
       name,
-      state: STATE_WORDS[region.access],
+      state: STATE_WORDS[stateOf(region)],
       buttons: [...joins, ...leaves],
     };
   };

@@ -121,13 +121,13 @@ const choicesOf = (
 describe('regionChoices', () => {
   it('offers the roles that open a hidden region, and nothing where everybody sees it', () => {
     const [west, east, plaza] = choicesOf([]);
-    expect(west).toMatchObject({ regionId: 1, access: 'hidden', leave: [] });
+    expect(west).toMatchObject({ regionId: 1, access: 'hidden', listed: true, leave: [] });
     // Patrol opens West but is no role to give oneself; Mod is one of moderation.
     expect(west?.join.map((join) => join.entry.name)).toEqual(['Metro', 'West']);
     expect(west?.join.find((join) => join.entry.name === 'Metro')?.alsoOpens).toEqual([2]);
     expect(west?.join.find((join) => join.entry.name === 'West')?.alsoOpens).toEqual([]);
     expect(east?.join.map((join) => join.entry.name)).toEqual(['East', 'Metro']);
-    expect(plaza).toEqual({ regionId: 3, access: 'visible', join: [], leave: [] });
+    expect(plaza).toEqual({ regionId: 3, access: 'visible', listed: true, join: [], leave: [] });
   });
 
   it('says what a pick-one group takes with a join: the other role and the regions it alone opened', () => {
@@ -174,7 +174,7 @@ describe('regionChoices', () => {
 
   it('offers no join past a denial, and a stuck join with what is in the way', () => {
     const [west] = choicesOf([], ['west-forum']);
-    expect(west).toMatchObject({ access: 'barred', join: [], leave: [] });
+    expect(west).toMatchObject({ access: 'barred', listed: false, join: [], leave: [] });
     // Kept out by a role nobody can give themselves (Patrol): kept out, no join.
     const [, , patrolled] = choicesOf([STAFF_ONLY], [], true, { 'plaza-forum': [STAFF_ONLY] });
     expect(patrolled).toMatchObject({ access: 'barred', join: [] });
@@ -189,6 +189,8 @@ describe('regionChoices', () => {
     // West (of the pick-one Home) denies the plaza: joining East gives West back and opens it.
     const [, , plaza] = choicesOf([WEST], [], true, { 'plaza-forum': [WEST] });
     expect(plaza?.access).toBe('hidden');
+    // The party lists keep `memberAccess`'s barred: not listed there (W3).
+    expect(plaza?.listed).toBe(false);
     const joinEast = plaza?.join.find((join) => join.entry.name === 'East');
     expect(joinEast?.alsoLeaves.entries.map((entry) => entry.name)).toEqual(['West']);
     // Metro takes nothing along: West's denial stays, so it is no join here.
@@ -206,9 +208,9 @@ describe('regionChoices', () => {
       regionChoices(REGIONS, gone, rosterWith(), new Set()).map((one) => one.regionId),
     ).toEqual([1, 3]);
     expect(regionChoices(REGIONS, look, undefined, new Set())).toEqual([
-      { regionId: 1, access: 'hidden', join: [], leave: [] },
-      { regionId: 2, access: 'hidden', join: [], leave: [] },
-      { regionId: 3, access: 'visible', join: [], leave: [] },
+      { regionId: 1, access: 'hidden', listed: true, join: [], leave: [] },
+      { regionId: 2, access: 'hidden', listed: true, join: [], leave: [] },
+      { regionId: 3, access: 'visible', listed: true, join: [], leave: [] },
     ]);
   });
 });

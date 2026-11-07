@@ -62,6 +62,11 @@ export interface RegionLeave {
 export interface RegionChoice {
   regionId: number;
   access: GateAccess;
+  /**
+   * Whether the map lists the region's raids for the member: not where `memberAccess` says
+   * `barred` (the party lists' rule, W3), which a region `access` takes as only hidden may be.
+   */
+  listed: boolean;
   /** Only where the region is hidden (R4: never past a denial). */
   join: RegionJoin[];
   /** Every role they hold that by itself opens it and can be taken away (`takeable`). */
@@ -110,7 +115,13 @@ export function regionChoices(
     const access = look.access.get(region.gateId);
     return access === undefined
       ? []
-      : [{ ...region, access: pageAccess(access, look.denials(region.gateId), roster) }];
+      : [
+          {
+            ...region,
+            access: pageAccess(access, look.denials(region.gateId), roster),
+            listed: access !== 'barred',
+          },
+        ];
   });
   const none = new Set<string>();
   /** The regions, other than `except`, seen with `before` and not with `after`. */
@@ -123,8 +134,8 @@ export function regionChoices(
           !look.seesWith(other.gateId, after),
       )
       .map((other) => other.regionId);
-  return known.map(({ regionId, gateId, access }): RegionChoice => {
-    if (!roster) return { regionId, access, join: [], leave: [] };
+  return known.map(({ regionId, gateId, access, listed }): RegionChoice => {
+    if (!roster) return { regionId, access, listed, join: [], leave: [] };
     /** Whether a role by itself opens the gate (with no role, the member does not see it). */
     const opensAlone = (roleId: string): boolean =>
       look.seesWith(gateId, new Set([roleId])) && !look.seesWith(gateId, none);
@@ -198,6 +209,6 @@ export function regionChoices(
               },
             ];
           });
-    return { regionId, access, join, leave };
+    return { regionId, access, listed, join, leave };
   });
 }

@@ -43,6 +43,7 @@ function viewOf(
 const row = (id: number, more: Partial<RegionsMineView['regions'][number]> = {}) => ({
   id,
   access: 'visible' as const,
+  listed: true,
   join: [],
   leave: [],
   ...more,
@@ -62,15 +63,18 @@ const leave = (
 });
 
 describe('the outlines of "Your regions"', () => {
-  it('draws a region seen on Discord solid, one the map alone shows dashed, one kept out fainter', () => {
-    const visible = outlineStyle('visible');
-    const hidden = outlineStyle('hidden');
-    const barred = outlineStyle('barred');
+  it('draws a region seen on Discord solid, one the map alone shows dashed, one whose raids it does not list fainter (W3)', () => {
+    const visible = outlineStyle({ access: 'visible', listed: true });
+    const hidden = outlineStyle({ access: 'hidden', listed: true });
+    const unlisted = outlineStyle({ access: 'hidden', listed: false });
+    const barred = outlineStyle({ access: 'barred', listed: false });
     expect(visible.dashArray).toBeUndefined();
     expect(hidden.dashArray).toBeDefined();
     expect(barred.dashArray).toBe(hidden.dashArray);
     expect(barred.opacity).toBeLessThan(hidden.opacity);
     expect(hidden.opacity).toBeLessThan(visible.opacity);
+    // Hidden, and its raids not on the map either: as fainter as kept out.
+    expect(unlisted).toEqual(barred);
     // A region nothing is said of (logged out, read-only, its channel gone) as before.
     expect(outlineStyle(undefined)).toEqual(visible);
   });
@@ -105,7 +109,7 @@ describe('the rows of "Your regions"', () => {
           access: 'hidden',
           join: [join('metro', 'Metro', { alsoOpens: [2] }), join('west', 'West')],
         }),
-        row(2, { access: 'barred' }),
+        row(2, { access: 'barred', listed: false }),
         row(4),
         row(9, { access: 'hidden', join: [join('nine', 'Nine')] }),
       ]),
@@ -117,6 +121,14 @@ describe('the rows of "Your regions"', () => {
       ['plaza', 'On Discord'],
       ['west', 'Map only'],
     ]);
+    // Hidden, and its raids not on the map either (a self-assignable role denies it, W3): Join
+    // still offered (A6).
+    const [unlisted] = regionRows(
+      viewOf([row(4, { access: 'hidden', listed: false, join: [join('east', 'East')] })]),
+      NAMES,
+    );
+    expect(unlisted?.state).toBe('Not on Discord');
+    expect(unlisted?.buttons.map((button) => button.label)).toEqual(['Join (East)']);
     expect(rows[2]?.buttons).toEqual([
       {
         action: 'join',
@@ -254,7 +266,7 @@ describe('the box of "Your regions"', () => {
     expect(shows(hidden, 'data-regions-legend')).toBe(true);
     expect(textOf(hidden)).toContain(REGIONS_LEGEND);
     expect(REGIONS_LEGEND).toBe(
-      'Solid: a region you see on Discord. Dashed: one only the map shows you. Fainter dashes: one you are kept out of.',
+      'Solid: a region you see on Discord. Dashed: one only the map shows you. Fainter dashes: one whose raids the map does not show you either.',
     );
   });
 

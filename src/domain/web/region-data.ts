@@ -39,6 +39,11 @@ export interface RegionLeaveView {
 export interface RegionMineView {
   id: number;
   access: RegionAccess;
+  /**
+   * Whether the map lists the region's raids for the member (the party lists' rule: not where
+   * somebody, even by a self-assignable role, keeps them out on Discord; W3).
+   */
+  listed: boolean;
   join: RegionJoinView[];
   leave: RegionLeaveView[];
 }

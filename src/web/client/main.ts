@@ -35,7 +35,7 @@ import { showActivity, type ActivityShown } from './activity-ui.js';
 import { addressWithoutTrain, trainOfAddress } from './train-address.js';
 import { REGION_OUTLINE } from './panes.js';
 import { outlineStyle, regionsOffered } from './regions.js';
-import type { RegionAccess, RegionsMineView } from '../../domain/web/region-data.js';
+import type { RegionMineView, RegionsMineView } from '../../domain/web/region-data.js';
 import { popupPanPadding, regionLabel, renderNode, type MapGym } from './popup.js';
 import { RouteFocus } from './route-focus.js';
 import { pageSpotAddresses } from './spot-address.js';
@@ -239,10 +239,10 @@ interface RegionOutlines {
 const MARKED_WEIGHT = 4;
 
 function regionOutlines(drawn: ReadonlyMap<number, L.Polygon>): RegionOutlines {
-  let access = new Map<number, RegionAccess>();
+  let standing = new Map<number, RegionMineView>();
   let marked: number | undefined;
   const styleOf = (id: number): L.PathOptions => ({
-    ...outlineStyle(access.get(id)),
+    ...outlineStyle(standing.get(id)),
     weight: id === marked ? MARKED_WEIGHT : REGION_OUTLINE.weight,
   });
   const restyleAll = (): void => {
@@ -250,10 +250,10 @@ function regionOutlines(drawn: ReadonlyMap<number, L.Polygon>): RegionOutlines {
   };
   return {
     restyle: (view) => {
-      access = new Map(
+      standing = new Map(
         view === undefined || view.readOnly
           ? []
-          : view.regions.map((region) => [region.id, region.access]),
+          : view.regions.map((region) => [region.id, region]),
       );
       restyleAll();
     },

@@ -19,6 +19,7 @@ const hiddenWest: RegionsMineView = {
     {
       id: 1,
       access: 'hidden',
+      listed: true,
       join: [
         {
           roleId: 'west',
@@ -33,6 +34,7 @@ const hiddenWest: RegionsMineView = {
     {
       id: 4,
       access: 'visible',
+      listed: true,
       join: [],
       leave: [{ roleId: 'plaza', name: 'Plaza', closes: true, alsoCloses: [], stillOpenBy: [] }],
     },
@@ -45,6 +47,7 @@ const seenWest: RegionsMineView = {
     {
       id: 1,
       access: 'visible',
+      listed: true,
       join: [],
       leave: [{ roleId: 'west', name: 'West', closes: true, alsoCloses: [], stillOpenBy: [] }],
     },

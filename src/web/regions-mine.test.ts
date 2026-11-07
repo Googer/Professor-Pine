@@ -55,10 +55,10 @@ describe('GET /api/regions/mine', () => {
     expect(view.readOnly).toBe(false);
     expect(view.roles).toBe(true);
     // The region without an outline (3) is not on the map, so not here either.
-    expect(view.regions.map((region) => [region.id, region.access])).toEqual([
-      [1, 'hidden'],
-      [2, 'hidden'],
-      [4, 'visible'],
+    expect(view.regions.map((region) => [region.id, region.access, region.listed])).toEqual([
+      [1, 'hidden', true],
+      [2, 'hidden', true],
+      [4, 'visible', true],
     ]);
     const [west, east, plaza] = view.regions;
     expect(west?.join).toEqual([
@@ -79,7 +79,7 @@ describe('GET /api/regions/mine', () => {
     ]);
     expect(east?.join.map((join) => join.name)).toEqual(['East', 'Metro']);
     // Everybody sees the Plaza: nothing to join or leave.
-    expect(plaza).toEqual({ id: 4, access: 'visible', join: [], leave: [] });
+    expect(plaza).toEqual({ id: 4, access: 'visible', listed: true, join: [], leave: [] });
     // The member as the directory's look left them in the cache (A1): no forced fetch of its own.
     expect(made.gateway.gateLooks).toEqual([{ memberId: ALICE, fresh: false }]);
   });
@@ -140,6 +140,9 @@ describe('GET /api/regions/mine', () => {
     const [, east, plaza] = (await made.view()).regions;
     expect(east).toMatchObject({ access: 'barred', join: [], leave: [] });
     expect(plaza?.access).toBe('hidden');
+    // Its raids are not listed on the map either (the party lists' barred, W3).
+    expect(plaza?.listed).toBe(false);
+    expect(east?.listed).toBe(false);
     expect(plaza?.join.map((join) => [join.name, join.alsoLeaves])).toEqual([
       ['East', { roles: ['West'], regions: [1] }],
     ]);

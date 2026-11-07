@@ -140,6 +140,7 @@ async function regionsNow(
     regions: choices.map((choice): RegionMineView => ({
       id: choice.regionId,
       access: choice.access,
+      listed: choice.listed,
       join: choice.join.map((join) => ({
         roleId: join.entry.role?.id ?? '',
         name: join.entry.name,
