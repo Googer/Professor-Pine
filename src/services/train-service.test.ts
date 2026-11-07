@@ -824,6 +824,31 @@ describe('TrainService: "back" is said only of going back', () => {
     );
   });
 
+  it('says "back" for Previous, Finish, Previous: the Finish taken back is no step forward', async () => {
+    const made = await boarded();
+    await made.trains.move(made.party.id, alice, 'next', false);
+    await settled(made);
+    await made.trains.move(made.party.id, alice, 'previous', false);
+    await made.trains.move(made.party.id, alice, 'finish', false);
+    await made.trains.move(made.party.id, alice, 'previous', false);
+    await settled(made);
+    expect(first(made)).toBe(
+      `The train is moving back to [Veterans Memorial Bridge](<${maps(4)}>). ` +
+        `Moved by **Alice** (<@${ALICE}>).`,
+    );
+    // Forward, a Next that finishes the route and Previous: still forward.
+    const last = await boarded([4, 1, 7]);
+    await last.trains.move(last.party.id, alice, 'next', false);
+    await settled(last);
+    await last.trains.move(last.party.id, alice, 'next', false);
+    await last.trains.move(last.party.id, alice, 'next', false);
+    await last.trains.move(last.party.id, alice, 'previous', false);
+    await settled(last);
+    expect(first(last)).toBe(
+      `The train is moving to [Harbor Lighthouse Mural](<${maps(7)}>). Moved by **Alice** (<@${ALICE}>).`,
+    );
+  });
+
   it('says "back" for Previous, once or several times, and nothing else', async () => {
     const made = await boarded();
     // The route is finished from its last stop, by Next.

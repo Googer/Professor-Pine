@@ -417,7 +417,8 @@ export async function forgetRouteAs(
  * Moves the train along its route (`/next`, `/previous`, `/skip`, `/finish`, the map) and says
  * where it is now. `surface` is where the member moved it (a command, Move… of the post, the
  * map), so that a finished route names what takes it back there; `from` and `target` are for a
- * control drawn at a place (Move…, on Discord and on the map).
+ * control drawn at a place (Move…, on Discord and on the map), and a command gives `from` as the
+ * train was when it came (`placeOf`), so that two quick `/previous` move it once.
  */
 export async function moveTrainAs(
   ctx: TrainChanging,
@@ -431,7 +432,11 @@ export async function moveTrainAs(
 ): Promise<TrainAnswer> {
   const outcome = await ctx.trains.move(party.id, member, move, staff, from, target);
   return answerOf(ctx, outcome, (ok) => {
-    const others = membersWhere(ok.party, (_attendee, id) => id !== member.id).length > 0;
+    // Told only when the movements gathered still say something: a Finish taken back at once
+    // tells nobody anything.
+    const others =
+      membersWhere(ok.party, (_attendee, id) => id !== member.id).length > 0 &&
+      ctx.trains.tells(party.id);
     const where = whereText(trainPlaces(ctx, ok.party), surface);
     return `${where}${others ? ' I am telling the others.' : ''}`;
   });
@@ -446,13 +451,20 @@ export type TrainManaging = TrainChanging & Pick<AppContext, 'parties' | 'timedP
 /** What a Submit is told when the train moved on, or its route changed, since its form opened. */
 export const MOVED_ON = 'The train has moved on since you opened this: ';
 
+/**
+ * What a command that moves the train is told when another move came first, while it was on its
+ * way (two quick `/previous`): it is not made a second time.
+ */
+export const MOVED_BEFORE = 'The train was moved just before your command. ';
+
 /** The refusals of a change that the train's moving on, or its route's change, explain. */
 const STALE_MOVES: ReadonlySet<string> = new Set(['train-moved-on', 'route-changed']);
 
 /**
  * The words of a refusal of Move…'s or Manage…'s Submit (on Discord and on the map): where the
  * train moved on, or its route changed, since the form opened, where it is now (`MOVED_ON`, with
- * `whereText` as the member has it there, `surface`); otherwise `text`, as the commands say it.
+ * `whereText` as the member has it there, `surface`; a command opens with `MOVED_BEFORE`);
+ * otherwise `text`, as the commands say it.
  */
 export function movedOnWords(
   ctx: TrainManaging,
@@ -460,13 +472,18 @@ export function movedOnWords(
   reason: string | undefined,
   text: string,
   surface: TrainSurface,
+  opening = MOVED_ON,
 ): string {
   const now = ctx.parties.get(partyId);
   if (reason !== undefined && STALE_MOVES.has(reason) && now && isTrain(now)) {
-    return `${MOVED_ON}${whereText(trainPlaces(ctx, now), surface)}`;
+    return `${opening}${whereText(trainPlaces(ctx, now), surface)}`;
   }
   return text;
 }
+
+/** Whether a refusal is one the train's moving on, or its route's change, explains. */
+export const movedOn = (reason: string | undefined): boolean =>
+  reason !== undefined && STALE_MOVES.has(reason);
 
 /**
  * Why Move… and Manage… do not open for this member (plan 8X-G: for who may move the train and

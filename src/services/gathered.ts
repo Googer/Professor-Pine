@@ -59,6 +59,17 @@ export class Gathered<T> {
   }
 
   /**
+   * What is gathered for a key and not sent yet, as one (`fold`): what is due behind a message
+   * on its way and what waits for its delay; undefined when nothing is.
+   */
+  pending(key: string): T | undefined {
+    const due = this.due.get(key)?.gathered;
+    const waiting = this.waiting.get(key)?.gathered;
+    if (due === undefined) return waiting;
+    return waiting === undefined ? due : this.options.fold(due, waiting);
+  }
+
+  /**
    * Forgets what waits for a key, unsent: for a change that makes what was gathered about it
    * meaningless. What is on its way already still goes out.
    */

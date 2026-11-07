@@ -24,7 +24,7 @@ import {
   type TrainKind,
   type TrainParty,
 } from '../../domain/party/party.js';
-import type { TrainMove } from '../../domain/party/train.js';
+import { placeOf, type TrainMove } from '../../domain/party/train.js';
 import {
   AT_END_CODES,
   isDialogMove,
@@ -51,7 +51,9 @@ import {
   manageTrainAs,
   trainRefusal,
   typedStartOf,
+  movedOn,
   movedOnWords,
+  MOVED_BEFORE,
   moveTrainAs,
   trainPlaces,
   type ManagePicked,
@@ -72,6 +74,8 @@ async function moveByCommand(
   move: TrainMove,
 ): Promise<void> {
   const party = commandTrain(interaction, ctx);
+  // From where the train was when the command came: a second `/previous` that came while the
+  // first was on its way does not move it again (follow-ups, From Phase 3C).
   const answer = await moveTrainAs(
     ctx,
     party,
@@ -79,7 +83,15 @@ async function moveByCommand(
     move,
     isStaff(interaction, ctx),
     'command',
+    placeOf(party),
   );
+  if (answer.kind === 'refused' && movedOn(answer.reason)) {
+    // Nothing was changed, and nothing the member did wrong: the use is given back.
+    throw new UserError(
+      movedOnWords(ctx, party.id, answer.reason, answer.text, 'command', MOVED_BEFORE),
+      { givesBack: true },
+    );
+  }
   if (answer.kind !== 'ok') throw new UserError(answer.text);
   await interaction.reply({ content: answer.text, flags: MessageFlags.Ephemeral });
 }

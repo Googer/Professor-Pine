@@ -148,6 +148,38 @@ describe('/next, /previous, /skip and /finish', () => {
     expect(made.current()).toMatchObject({ status: 'active', train: { stop: 4 } });
   });
 
+  it('do not say that the others are told of a Finish taken back at once: nothing is told', async () => {
+    const made = await setup();
+    await made.run('next');
+    await made.lines();
+    const before = (await made.lines()).length;
+    await made.run('finish');
+    expect(await made.answer('previous')).toBe(
+      `The train is at stop 2 of 4: ${STACKS}. Next is ${MURAL}.`,
+    );
+    expect((await made.lines()).slice(before)).toEqual([]);
+  });
+
+  it('move the train once when two members take a Finish back at the same moment', async () => {
+    const made = await setup();
+    await made.run('next');
+    await made.run('finish');
+    await made.lines();
+    const [alices, bobs] = await Promise.all([
+      made.run('previous'),
+      made.run('previous', { userId: BOB, displayName: 'Bob' }),
+    ]);
+    // Back at the stop the route was finished from, once.
+    expect(made.current().train.stop).toBe(1);
+    expect(sent(alices.reply).content).toBe(
+      `The train is at stop 2 of 4: ${STACKS}. Next is ${MURAL}. I am telling the others.`,
+    );
+    expect(sent(bobs.reply).content).toBe(
+      `The train was moved just before your command. The train is at stop 2 of 4: ${STACKS}. ` +
+        `Next is ${MURAL}.`,
+    );
+  });
+
   it('refuse a move that cannot be made, with the reason', async () => {
     const made = await setup();
     expect(await made.answer('previous')).toBe('This train is at its first stop.');

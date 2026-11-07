@@ -182,7 +182,10 @@ interface PendingMove {
   fromRoute: readonly StopRef[];
   /** How many steps are gathered: moves, and edits of the route that moved the train. */
   count: number;
-  /** Every one of the steps was Previous: no other move, and no edit that moved the train. */
+  /**
+   * Every one of the steps was Previous or finished the route: no other move, and no edit that
+   * moved the train.
+   */
   onlyBack: boolean;
   /** The last step when it was a move; undefined when it was an edit of the route. */
   last: TrainMoved | undefined;
@@ -703,7 +706,11 @@ export class TrainService {
       fromFinished: earlier ? earlier.fromFinished : start.finished,
       fromRoute: earlier ? earlier.fromRoute : start.route,
       count: (earlier?.count ?? 0) + 1,
-      onlyBack: (earlier?.onlyBack ?? true) && last?.move === 'previous',
+      // A step that finishes the route goes nowhere: only Previous leaves the end again, back to
+      // where the route was finished, so Previous, Finish, Previous is going back (follow-ups,
+      // From Phase 3C).
+      onlyBack:
+        (earlier?.onlyBack ?? true) && (last?.move === 'previous' || last?.finished === true),
       last,
       lastFrom: start.at,
       by,
@@ -1011,6 +1018,18 @@ export class TrainService {
    */
   async flush(): Promise<void> {
     await this.moves.flush();
+  }
+
+  /**
+   * Whether the movements of this train gathered so far will be told, as the train stands now:
+   * not when it is back where it was before them (a Finish taken back at once), so that the
+   * mover is not told that the others are (follow-ups, From Phase 3C).
+   */
+  tells(partyId: string): boolean {
+    const pending = this.moves.pending(partyId);
+    const party = this.options.store.get(partyId);
+    if (!pending || !party || !isTrain(party)) return false;
+    return this.movement(party, pending) !== undefined;
   }
 }
 
