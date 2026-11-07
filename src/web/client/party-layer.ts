@@ -59,6 +59,8 @@ import { spawnPoint } from './spawn-forms.js';
 import { spawnUi } from './spawn-ui.js';
 import { maxUi, type MapSpot } from './max-ui.js';
 import { reportUi } from './report-ui.js';
+import { regionsUi } from './regions-ui.js';
+import type { RegionsMineView } from '../../domain/web/region-data.js';
 import {
   drawnTrains,
   dropLegs,
@@ -388,11 +390,22 @@ export interface PartyFrame {
    * visibility alone.
    */
   activity?: MapActivity;
+  /**
+   * "Your regions" (plan 8M-20): the member's view of the regions came, or none could be had
+   * (undefined): the outlines restyled by it (R14), "Your regions…" offered or not (R11).
+   */
+  regionsShown?: (view: RegionsMineView | undefined) => void;
+  /** A region's outline marked while its row of "Your regions" is hovered; undefined: none. */
+  highlightRegion?: (regionId: number | undefined) => void;
 }
 
 export interface MapRaids {
   /** Closes the popup and the phone card (plan 8M-17: the map's tour clears the page). */
   closeOpen(): void;
+  /** "Your regions…" pressed (plan 8M-20): the box in the side pane, or why not. */
+  openRegions(): void;
+  /** The first view of "Your regions" asked, settled once it came or failed (B1). */
+  regionsLoaded: Promise<unknown>;
   /**
    * "Report raid" and "Report spawn here" for a gym's own popup, when they are offered now
    * (`reportOffered`); none otherwise.
@@ -843,6 +856,66 @@ export function showParties(
     const at = frame.located();
     return at && withinReach(regions, at) ? at : { lat: center.lat, lon: center.lng };
   };
+  /**
+   * "Your regions" (plan 8M-20): the member's view of the regions, asked as the party layer is
+   * made (and again when the list comes back from read-only, B10), and its box in the side pane,
+   * an aside claim of the hold; a change asks the parties again.
+   */
+  const regionsBox = regionsUi({
+    guild,
+    csrf: {
+      get: () => csrf,
+      set: (token) => {
+        csrf = token;
+      },
+    },
+    hold,
+    tools,
+    idle: () => {
+      tools.replaceChildren(renderNode(newTrainButton(), document));
+    },
+    names: regionNames,
+    shown: (regionsView) => {
+      frame.regionsShown?.(regionsView);
+    },
+    highlight: (regionId) => {
+      frame.highlightRegion?.(regionId);
+    },
+    partiesChanged: () => {
+      void poller.now();
+    },
+    // The side pane shows the box while it is open, the list again once it closes (B4).
+    redrawn: () => {
+      redrawParties();
+    },
+    closePopup: () => {
+      map.closePopup();
+      card.close();
+    },
+    // Escape is a popup's, the card's, the layers' sheet's or the tour's while one is open (B3).
+    escapeTaken: () =>
+      showing.popup !== undefined ||
+      card.key !== undefined ||
+      document.querySelector('.sheet-wrap:not([hidden]), .tour:not([hidden])') !== null,
+    outlinesShown: () => registry.isOn('outlines'),
+    focusBack: () => {
+      document.querySelector<HTMLElement>('#account summary')?.focus();
+    },
+    ask: (url) => getJson(url),
+    post: async (url, token, body) => {
+      const reply = await fetch(url, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'content-type': 'application/json', 'x-pine-csrf': token },
+        body: JSON.stringify(body),
+      });
+      return { status: reply.status, body: (await reply.json().catch(() => undefined)) as unknown };
+    },
+    me: () => getJson<Me>(`/s/${guild}/api/me`),
+    say,
+  });
+  // The first view's answer, which the tour that opens by itself waits for (B1).
+  const regionsLoaded: Promise<unknown> = mayReport ? regionsBox.load() : Promise.resolve();
   /**
    * Field research's form in the side pane (plan 8M-9B, goals 7 and 8, B8): after a report, the
    * reports at once, then the first stop's popup (B15).
@@ -1847,6 +1920,8 @@ export function showParties(
   };
 
   const redraw = (next: PartiesView): void => {
+    // Discord answers again (B10): how the member stands to the regions is asked anew.
+    if (view?.readOnly === true && !next.readOnly) void regionsBox.load();
     view = next;
     // Whether Report is still offered, asked first (R1-9): a step 2 that ends here ends before
     // anything is drawn, with nothing drawn anew inside this draw.
@@ -2184,7 +2259,11 @@ export function showParties(
     // open there stays whatever the list says, and is shown over the list (plan 8M-7), which
     // comes back when it closes.
     const formOpen =
-      trainForms.inTools() || meetupForms.inTools() || report.inTools() || researchForms.inTools();
+      trainForms.inTools() ||
+      meetupForms.inTools() ||
+      report.inTools() ||
+      researchForms.inTools() ||
+      regionsBox.inTools();
     const reporting = reportOffered(mayReport, next);
     // The phone list's own Report line (plan 8M-9A, A7), over the list, while Report is offered
     // (review B2: not for a form left open while the list went read-only). The list stays in the
@@ -2971,6 +3050,10 @@ export function showParties(
       map.closePopup();
       card.close();
     },
+    openRegions: () => {
+      regionsBox.open();
+    },
+    regionsLoaded,
     // Find takes no word while it stands aside (BR-1): the box thins the gyms then, and a search
     // shown before ends, so that nothing draws into the hidden list.
     find: (text) => {

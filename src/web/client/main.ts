@@ -34,6 +34,8 @@ import { quietLine, showPlaces, type PlacesHooks } from './places-ui.js';
 import { showActivity, type ActivityShown } from './activity-ui.js';
 import { addressWithoutTrain, trainOfAddress } from './train-address.js';
 import { REGION_OUTLINE } from './panes.js';
+import { outlineStyle, regionsOffered } from './regions.js';
+import type { RegionAccess, RegionsMineView } from '../../domain/web/region-data.js';
 import { popupPanPadding, regionLabel, renderNode, type MapGym } from './popup.js';
 import { RouteFocus } from './route-focus.js';
 import { pageSpotAddresses } from './spot-address.js';
@@ -130,9 +132,11 @@ async function showGeo(
   names: Map<number, string>;
   regions: GeoView['regions'];
   dots: GymDots;
+  outlines: RegionOutlines;
 }> {
   const view = await getJson<GeoView>(`/s/${guild}/api/geo`);
   const names = new Map(view.regions.map((region) => [region.id, region.name]));
+  const drawnOutlines = new Map<number, L.Polygon>();
   const regions = L.featureGroup();
   // The regions' names on a pane of their own under the markers, taking no clicks: a label never
   // covers a raid or a gym (fix round 1). Leaflet sets the pane's place by its style from the script.
@@ -151,6 +155,11 @@ async function showGeo(
   );
   // The layer Region outlines, their labels with them.
   if (registry.isOn('outlines')) regions.addTo(map);
+  // Each by its region, for "Your regions" (plan 8M-20): restyled by how the member stands to it.
+  view.regions.forEach((region, index) => {
+    const outline = outlines[index];
+    if (outline) drawnOutlines.set(region.id, outline);
+  });
   registry.onChange((id, on) => {
     if (id !== 'outlines') return;
     if (on) regions.addTo(map);
@@ -212,6 +221,44 @@ async function showGeo(
     names,
     regions: view.regions,
     dots,
+    outlines: regionOutlines(drawnOutlines),
+  };
+}
+
+/** The regions' outlines as "Your regions" restyles them (plan 8M-20). */
+interface RegionOutlines {
+  /** By how the member stands to each region (R14); undefined: as the map always drew them. */
+  restyle(view: RegionsMineView | undefined): void;
+  /** One region's outline marked (its row hovered); undefined: none. */
+  highlight(regionId: number | undefined): void;
+}
+
+/** The weight of an outline whose row of "Your regions" is hovered. */
+const MARKED_WEIGHT = 4;
+
+function regionOutlines(drawn: ReadonlyMap<number, L.Polygon>): RegionOutlines {
+  let access = new Map<number, RegionAccess>();
+  let marked: number | undefined;
+  const styleOf = (id: number): L.PathOptions => ({
+    ...outlineStyle(access.get(id)),
+    weight: id === marked ? MARKED_WEIGHT : REGION_OUTLINE.weight,
+  });
+  const restyleAll = (): void => {
+    for (const [id, outline] of drawn) outline.setStyle(styleOf(id));
+  };
+  return {
+    restyle: (view) => {
+      access = new Map(
+        view === undefined || view.readOnly
+          ? []
+          : view.regions.map((region) => [region.id, region.access]),
+      );
+      restyleAll();
+    },
+    highlight: (regionId) => {
+      marked = regionId;
+      restyleAll();
+    },
   };
 }
 
@@ -502,6 +549,26 @@ function start(): void {
   for (const layer of MAP_LAYERS) registry.register(layer);
   const controls = showLayerControls(registry, byId('layers'));
   const quiet = quietLine(map);
+  // "Your regions…" in the account's menu (plan 8M-20, R10): shown once the member's view of the
+  // regions says the server offers a role that opens or closes one of them (R11), and not while
+  // the last list is read-only (B4).
+  const regionsHooks = {
+    open: () => {
+      // Given below, once the parties are drawn.
+    },
+    offered: false,
+  };
+  const showRegionsItem = (): void => {
+    regionsItem.hidden = !regionsHooks.offered || tourHooks.listReadOnly;
+  };
+  const regionsItem = document.createElement('button');
+  regionsItem.type = 'button';
+  regionsItem.className = 'regions-item';
+  regionsItem.textContent = 'Your regions…';
+  regionsItem.hidden = true;
+  regionsItem.addEventListener('click', () => {
+    regionsHooks.open();
+  });
   // Light, Dark or Device for the map and its region editor (plan 8M-13, S10).
   const account = showAccount(
     guild,
@@ -511,7 +578,11 @@ function start(): void {
     // region editor's items.
     (me) => [
       ...(historyOffered(me)
-        ? [renderNode(historyItemNode(guild), document), renderNode(meItemNode(guild), document)]
+        ? [
+            renderNode(historyItemNode(guild), document),
+            renderNode(meItemNode(guild), document),
+            regionsItem,
+          ]
         : []),
       ...(editingOffered(me)
         ? [editItem(toggle, load, guild, me, editLabel), editorTourItem()]
@@ -583,7 +654,7 @@ function start(): void {
     }
   });
   const loading = showGeo(map, guild, you, registry, activity).then(
-    async ({ gyms, names, regions, dots }) => {
+    async ({ gyms, names, regions, dots, outlines }) => {
       // The parties of the server for a member who is logged in (plan 8M-3); while Discord
       // cannot be reached the server says whether it still knows them as a member. A member
       // may report raids at gyms (plan 8M-4) and spawns at any point (plan 8M-4S), not while
@@ -709,6 +780,7 @@ function start(): void {
         listDrawn: (list) => {
           tour.replace();
           tourHooks.listReadOnly = list.readOnly;
+          showRegionsItem();
           if (listSeen) return;
           listSeen = true;
           tourByItself(me, list.readOnly || (me.loggedIn && me.readOnly));
@@ -784,7 +856,19 @@ function start(): void {
         },
         // Nothing polled while the region editor is on (plan 8M-10).
         activity,
+        // "Your regions" (plan 8M-20): the outlines by how the member stands to each region, and
+        // "Your regions…" in the account's menu where the server offers a role that opens one.
+        regionsShown: (view) => {
+          outlines.restyle(view);
+          regionsItem.hidden = !regionsOffered(view);
+        },
+        highlightRegion: (regionId) => {
+          outlines.highlight(regionId);
+        },
       });
+      regionsHooks.open = () => {
+        raids.openRegions();
+      };
       picks.now = () => raids.picksPlace();
       activityShown.now.refresh();
       // "Edit regions" is refused while a form of the map holds (plan 8M-10, C8).

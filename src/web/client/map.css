@@ -1042,6 +1042,87 @@ body.editing-regions #map {
   outline: none;
 }
 
+/*
+ * "Your regions" (plan 8M-20): in the side pane's box as Report's step 2, each region a row with
+ * its state, its Join and Leave buttons and what they take along, the answer of a press under them.
+ */
+.account-menu .regions-item[hidden] {
+  display: none;
+}
+
+.regions-box {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.regions-box .regions-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-weight: 700;
+}
+
+.regions-box [data-regions-heading]:focus {
+  outline: none;
+}
+
+.regions-box .hint,
+.regions-box .region-answer {
+  margin: 0;
+}
+
+.regions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.region-row {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 6px 8px;
+  border-radius: var(--radius);
+  background: var(--card-bg);
+}
+
+.region-row .region-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.region-row .region-row-name {
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+.region-row .region-state {
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+
+.region-row .region-choice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.region-row .region-answer:empty {
+  display: none;
+}
+
+.regions-box .form-buttons {
+  display: flex;
+  gap: 6px;
+}
+
 .search-button {
   display: none;
   padding: 6px 12px;
