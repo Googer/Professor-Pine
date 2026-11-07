@@ -116,7 +116,12 @@ describe('parseClockInput', () => {
 
   it('reads noon, midnight and tomorrow before a time (the audit of 2026-11-07)', () => {
     expect(parseClockInput('noon')).toEqual({ hour: 12, minute: 0, hasMeridiem: true });
-    expect(parseClockInput(' Midnight ')).toEqual({ hour: 0, minute: 0, hasMeridiem: true });
+    expect(parseClockInput(' Midnight ')).toEqual({
+      hour: 0,
+      minute: 0,
+      hasMeridiem: true,
+      endOfDay: true,
+    });
     expect(parseClockInput('tomorrow 6pm')).toEqual({
       hour: 18,
       minute: 0,

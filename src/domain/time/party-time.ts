@@ -186,6 +186,8 @@ function candidates(clock: ClockInput, request: PartyTimeRequest, reference?: nu
   // today (the hour skipped by spring-forward) is not shifted first. Nothing for a date that does
   // not exist (February 30, or February 29 a year on). A time in the repeated hour of the fall
   // takes now's offset where it can: after the clocks fell back, "1:30am" is the second 01:30.
+  // The word "midnight" is the end of the day it names (the next day's 00:00); "12am" its start.
+  const endOfDay = clock.endOfDay === true ? 1 : 0;
   const build = (hour: number, years = 0, days = 0): number | undefined => {
     const midnight = localTime(
       {
@@ -196,7 +198,7 @@ function candidates(clock: ClockInput, request: PartyTimeRequest, reference?: nu
       zone,
     );
     if (!midnight) return undefined;
-    const date = addDays(midnight, days);
+    const date = addDays(midnight, days + endOfDay);
     return localTime(
       { year: date.year, month: date.month, day: date.day, hour, minute: clock.minute },
       zone,

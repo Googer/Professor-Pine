@@ -21,6 +21,11 @@ export interface ClockInput {
   day?: number;
   /** Typed after "tomorrow": the day after today, never with a month and day. */
   tomorrow?: true;
+  /**
+   * The word "midnight": the end of the day it names, so the next day's 00:00 ("12am" is the
+   * start of the day).
+   */
+  endOfDay?: true;
 }
 
 /** "tomorrow", "tomorrow at", "tomorrow," before a time. */
@@ -63,7 +68,8 @@ const DATED = /^(?<month>\d{1,2})\s*[-/.]\s*(?<day>\d{1,2})(?:\s*,\s*|\s+)(?:at\
 function namedTime(text: string): ClockInput | undefined {
   const word = text.toLowerCase();
   if (!Object.hasOwn(NAMED_TIMES, word)) return undefined;
-  return { hour: NAMED_TIMES[word] ?? 0, minute: 0, hasMeridiem: true };
+  const clock: ClockInput = { hour: NAMED_TIMES[word] ?? 0, minute: 0, hasMeridiem: true };
+  return word === 'midnight' ? { ...clock, endOfDay: true } : clock;
 }
 
 /** A clock with its month and day, or undefined for a date that is none. */

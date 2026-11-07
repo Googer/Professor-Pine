@@ -419,6 +419,23 @@ describe('resolvePartyTime: noon, midnight, tomorrow and a dot (the audit of 202
     );
   });
 
+  it('reads the word midnight as the end of the day it names, and 12am as its start', () => {
+    // Typed on Saturday the 7th for a meetup on Tuesday the 10th at 20:00 (review of 2026-11-07).
+    const saturday = at('2026-11-07T15:00');
+    const tuesday = { creationTime: saturday, startTime: at('2026-11-10T20:00') };
+    const read = (text: string, parameter: 'meet' | 'end') =>
+      resolvePartyTime(
+        request({ text, now: saturday, parameter, partyType: 'meetup', party: tuesday }),
+      );
+    expect(read('midnight', 'meet')).toEqual(time('2026-11-11T00:00'));
+    expect(read('midnight', 'end')).toEqual(time('2026-11-11T00:00'));
+    expect(read('11-9 midnight', 'meet')).toEqual(time('2026-11-10T00:00'));
+    expect(read('tomorrow midnight', 'meet')).toEqual(time('2026-11-09T00:00'));
+    // "12am" is the start of the day it names, as it was.
+    expect(read('11-10 12am', 'meet')).toEqual(time('2026-11-10T00:00'));
+    expect(read('12am', 'meet')).toEqual(time('2026-11-10T00:00'));
+  });
+
   it('reads tomorrow and a time where the party may meet tomorrow', () => {
     expect(meetup('tomorrow 6pm')).toEqual(time('2026-10-11T18:00'));
     expect(meetup('Tomorrow at 9am')).toEqual(time('2026-10-11T09:00'));
