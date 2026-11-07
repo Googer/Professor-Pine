@@ -156,6 +156,22 @@ class Line {
     return job;
   }
 
+  /**
+   * Takes the first job that `passOver` does not pass over, looking at `most` jobs at most; the
+   * jobs passed over keep their places.
+   */
+  takeFirst(passOver: (job: DmJob) => boolean, most: number): DmJob | undefined {
+    const end = Math.min(this.jobs.length, this.head + most);
+    for (let at = this.head; at < end; at++) {
+      const job = this.jobs[at];
+      if (job === undefined || passOver(job)) continue;
+      if (at === this.head) return this.take();
+      this.jobs.splice(at, 1);
+      return job;
+    }
+    return undefined;
+  }
+
   /** Puts a job where its event belongs: behind every job whose event is not newer. */
   put(job: DmJob): void {
     const last = this.jobs.at(-1);
@@ -208,6 +224,9 @@ interface Burst {
  * first, unless `concurrency` sends are still on their way: so no more than the rate goes out
  * however long the line is, and nothing here ever loops over a line of recipients. (The legacy
  * bot once lost its gateway connection sending a popular want in one go on the main thread.)
+ * A member's messages go one at a time: while a send to them is on its way, their next message
+ * waits and those of others go past it (within the first `EXPIRED_PER_PULL` of a line), so that
+ * a member reads them in their order.
  * A message whose time has passed (`expiresAt`) is dropped when its turn comes. A line longer
  * than `maxDepth` loses its least urgent, oldest message, which is said once per burst. A send
  * that fails is logged and dropped: discord.js has waited out a rate limit by then, and
@@ -237,6 +256,8 @@ export class QueuedDmSender implements DmSender {
   private stopTimer: (() => void) | undefined;
   private burst: Burst | undefined;
   private readonly onTheirWay = new Set<Promise<void>>();
+  /** How many sends are on their way to each member (`next` passes their other messages over). */
+  private readonly busy = new Map<string, number>();
   /** Resolved when the burst that is running ends; `drain` waits for it. */
   private ended: { promise: Promise<void>; resolve: () => void } | undefined;
   private closed = false;
@@ -429,9 +450,14 @@ export class QueuedDmSender implements DmSender {
    */
   private next(burst: Burst, now: number): DmJob | undefined {
     let dropped = 0;
+    // A member with a send on its way is passed over (a message still worth sending): their
+    // messages go one after the other, in their order (a second DM never overtakes the first).
+    const passOver = (job: DmJob): boolean =>
+      job.expiresAt > now && (this.busy.get(job.userId) ?? 0) > 0;
     for (const priority of PRIORITIES) {
       const line = this.lines.get(priority);
-      for (let job = line?.take(); job !== undefined; job = line?.take()) {
+      const take = () => line?.takeFirst(passOver, EXPIRED_PER_PULL);
+      for (let job = take(); job !== undefined; job = take()) {
         if (job.expiresAt <= now) burst.expired += 1;
         else if (this.knownClosed(job.userId, now)) burst.closed += 1;
         else return job;
@@ -511,10 +537,14 @@ export class QueuedDmSender implements DmSender {
       })
       .finally(() => {
         this.onTheirWay.delete(sending);
+        const left = (this.busy.get(job.userId) ?? 1) - 1;
+        if (left > 0) this.busy.set(job.userId, left);
+        else this.busy.delete(job.userId);
         // Nothing may be thrown here: nobody waits for this promise but `drain`.
         this.finishSafely();
       });
     this.onTheirWay.add(sending);
+    this.busy.set(job.userId, (this.busy.get(job.userId) ?? 0) + 1);
   }
 
   /**

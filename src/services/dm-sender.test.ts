@@ -107,6 +107,26 @@ describe('QueuedDmSender', () => {
     expect(made.gateway.sent).toHaveLength(20);
   });
 
+  it('starts no second send to a member while one is on its way, so that their messages keep their order', async () => {
+    const made = setup();
+    made.gateway.hold = true;
+    made.sender.send(made.job(1, { message: { content: 'first' } }));
+    made.sender.send(made.job(1, { message: { content: 'second' } }));
+    made.sender.send(made.job(2));
+    for (let pulls = 0; pulls < 4; pulls++) made.sender.pull();
+    await made.settle();
+    // The first to member 1 holds the second back; member 2's goes past it.
+    expect(made.gateway.asked).toEqual([idOf(1), idOf(2)]);
+    expect(made.sender.depth).toBe(1);
+    made.gateway.release();
+    await pullUntilIdle(made.sender);
+    expect(
+      made.gateway.sent
+        .filter((sent) => sent.userId === idOf(1))
+        .map((sent) => (sent.message.v2 ? '' : sent.message.content)),
+    ).toEqual(['first', 'second']);
+  });
+
   it('sends what is urgent first, and within one priority the oldest event first', async () => {
     const made = setup();
     made.sender.send(made.job(1, { eventAt: NOW + 30 }));
