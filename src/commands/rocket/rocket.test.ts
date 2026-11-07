@@ -907,7 +907,7 @@ describe('/rocket in rehearsal mode', () => {
       }),
     });
     const answer = answerOf(await made.report({ who: 'grunt:water', stop: stop(1) }));
-    expect(said(answer)).toMatch(/It stands until <t:\d+:t> \(rehearsal mode posts nothing\)\./);
+    expect(said(answer)).toMatch(/It lasts until <t:\d+:t> \(rehearsal mode posts nothing\)\./);
     expect(posted(made)).toEqual([]);
   });
 });

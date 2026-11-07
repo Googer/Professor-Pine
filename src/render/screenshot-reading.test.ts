@@ -90,7 +90,10 @@ describe('readingLines', () => {
 
   it('says a shadow that does not fit the screen in American spelling', () => {
     expect(doubtWords('shadow-differs')).toBe(
-      'The boss’s shadow does not agree with the color of the screen.',
+      'The boss I found and the screen’s color disagree on whether this is a shadow raid.',
+    );
+    expect(doubtWords('shadow-unlisted')).toBe(
+      'No current boss of that tier fits the screen’s color (purple for a shadow raid).',
     );
   });
 });

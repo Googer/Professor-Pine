@@ -217,7 +217,7 @@ export function problemText(
     case 'train-moved-on':
       return 'The train has moved on meanwhile.';
     case 'route-changed':
-      return 'That button no longer leads where it said.';
+      return 'The route changed meanwhile, so that button is out of date.';
     case 'route-edited':
       return 'The route changed meanwhile: here it is as it is now.';
     case 'conductor-changed':

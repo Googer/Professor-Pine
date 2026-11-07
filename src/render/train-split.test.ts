@@ -121,8 +121,8 @@ describe('the dialog of splitting one group off', () => {
       [
         'Group **B (Fast)** leaves **Saturday legendaries** and becomes a train of its own, ' +
           '**Saturday legendaries (Fast)**:',
-        '- the same route, at the same stop (stop 2 of 3: The Stacks), the same end mode, ' +
-          'boss and start',
+        '- the same route, at the same stop (stop 2 of 3: The Stacks), with the same boss, ' +
+          'start and choice for the end of the route',
         '- Dawn and Iris move to it as they are signed up now',
         '- you are its conductor; Carol stays the conductor of Saturday legendaries',
         '',
@@ -133,10 +133,10 @@ describe('the dialog of splitting one group off', () => {
 
   it('says where the train is as it is: no route, finished, not started yet', () => {
     expect(textOf(train({ route: [], stop: 0 }))).toContain(
-      '- no route yet, the same end mode, boss and start',
+      '- no route yet, with the same boss and start',
     );
     expect(textOf(train({ stop: 3 }))).toContain(
-      '- the same route, finished, the same end mode, boss and start',
+      '- the same route, finished, with the same boss, start and choice for the end of the route',
     );
     const waiting = {
       ...train(),
@@ -144,7 +144,7 @@ describe('the dialog of splitting one group off', () => {
     };
     expect(textOf(waiting)).toContain(
       '- the same route, at the same stop (stop 2 of 3: The Stacks), not started yet, ' +
-        'the same end mode, boss and start',
+        'with the same boss, start and choice for the end of the route',
     );
   });
 
@@ -245,8 +245,8 @@ describe('the dialog of picking the group to split off', () => {
     expect(textsOf(dialog)).toEqual([
       'The group you pick leaves **Saturday legendaries** and becomes a train of its own, named ' +
         'after the group (**Saturday legendaries (A)**): the same route, at the same stop (stop 2 ' +
-        'of 3: The Stacks), the same end mode, boss and start. Its members move to it as they ' +
-        'are signed up now. If group A leaves, you go with it as its conductor, and Saturday ' +
+        'of 3: The Stacks), with the same boss, start and choice for the end of the route. ' +
+        'Its members move to it as they are signed up now. If group A leaves, you go with it as its conductor, and Saturday ' +
         'legendaries has none then.\n\n' +
         '**Group A** (2 trainers): Ash, Carol\n' +
         '**Group B (Fast)** (2 trainers): Dawn, Iris\n' +

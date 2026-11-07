@@ -22,7 +22,12 @@ import {
   type MeetupRequestRecord,
 } from '../domain/meetups/records.js';
 import { MAX_MEETUP_DESCRIPTION, MAX_PARTY_NAME } from '../domain/party/party.js';
-import { appealMessage, PENDING_ACCENT, requestMessage } from './meetup-safety.js';
+import {
+  appealMessage,
+  PENDING_ACCENT,
+  requestMessage,
+  requestOutcomeDm,
+} from './meetup-safety.js';
 import { plainLines } from './text.js';
 
 function pending(overrides: Partial<MeetupRequestRecord> = {}): MeetupRequestRecord {
@@ -153,12 +158,30 @@ describe('requestMessage', () => {
     expect(failed({ kind: 'no-forum' })).toContain(
       ', but the meetup could not be made: its region has no forum. Its maker was told.',
     );
+    expect(failed({ kind: 'bad-name' })).toContain(
+      ', but the meetup could not be made: its name is empty or too long. Its maker was told.',
+    );
     expect(failed({ kind: 'error' })).toContain(
       ', but the meetup could not be made: something went wrong. Its maker was told.',
     );
     // A request failed before the reason was kept says what it always said.
     expect(failed(null)).toContain(
       `**Approved** ${by}, but the meetup could not be made. Its maker was told.`,
+    );
+  });
+
+  it('tells the maker of a failed approval what to change when the name or information is at fault', () => {
+    const dm = (failure: MeetupRequestRecord['failure']) =>
+      textOf(requestOutcomeDm(pending({ status: 'failed', decision: 'approve', failure })));
+    const head = 'A moderator approved your meetup **Book swap**, but I could not make it: ';
+    expect(dm({ kind: 'bad-name' })).toBe(
+      `${head}its name is empty or too long. Use \`/meetup\` again with a shorter name.`,
+    );
+    expect(dm({ kind: 'bad-description' })).toBe(
+      `${head}its information is too long. Use \`/meetup\` again with shorter information.`,
+    );
+    expect(dm({ kind: 'no-forum' })).toBe(
+      `${head}its region has no forum. Use \`/meetup\` again later.`,
     );
   });
 

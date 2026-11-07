@@ -264,22 +264,22 @@ describe('rocketAnswer', () => {
     expect(textOf(rocketAnswer(again))).toMatchInlineSnapshot(`
       "### Team GO Rocket reported
       **Water-type grunt** at **Yellow Mural 1** · Market Street · catch Mudkip (again)
-      -# It stands until <t:1792593000:t> (rehearsal mode posts nothing)."
+      -# It lasts until <t:1792593000:t> (rehearsal mode posts nothing)."
     `);
     expect(textOf(rocketAnswer({ ...grunt, posted: [] }))).toMatchInlineSnapshot(`
       "### Team GO Rocket reported
       **Water-type grunt** at **Yellow Mural 1** · Market Street · catch Mudkip (was: Arlo)
-      -# It could not be posted in a region channel; it stands until <t:1792593000:t>."
+      -# It could not be posted in a region channel; it lasts until <t:1792593000:t>."
     `);
     expect(textOf(rocketAnswer({ ...hideout, rehearsal: true }))).toMatchInlineSnapshot(`
       "### Team GO Rocket reported
       **Arlo** at **Yellow Mural 1** · Market Street
-      -# It stands until midnight."
+      -# It lasts until midnight."
     `);
     expect(textOf(rocketAnswer({ ...hideout, channels: [] }))).toMatchInlineSnapshot(`
       "### Team GO Rocket reported
       **Arlo** at **Yellow Mural 1** · Market Street
-      -# It lies in no region now, so no post shows it; it stands until midnight."
+      -# It lies in no region now, so no post shows it; it lasts until midnight."
     `);
   });
 });
@@ -394,7 +394,7 @@ describe('rocketWords', () => {
     expect(rocketWords({ ...hideout, boards: [WEST] }, named).where).toBe(
       'In "Today’s Stops" on the board of #west, until midnight.',
     );
-    expect(rocketWords({ ...hideout, boards: [] }, named).where).toBe('It stands until midnight.');
+    expect(rocketWords({ ...hideout, boards: [] }, named).where).toBe('It lasts until midnight.');
     // A grunt's messages are in the region channels, board or not.
     expect(rocketWords({ ...grunt, boards: [] }, named).where).toMatch(/^Posted in #west, #east;/);
   });

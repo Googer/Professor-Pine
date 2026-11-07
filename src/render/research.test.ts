@@ -122,14 +122,14 @@ describe('researchAnswer', () => {
       **Make 2 Excellent Throws** · Dratini
       - **Yellow Mural 1** · Market Street (again)
       - **Yellow Mural 2** · Market Street
-      -# It stands until midnight."
+      -# It lasts until midnight."
     `);
     expect(textOf(researchAnswer({ ...view, channels: [] }))).toMatchInlineSnapshot(`
       "### Field research reported
       **Make 2 Excellent Throws** · Dratini
       - **Yellow Mural 1** · Market Street (was: Catch 7 \\*Pokémon\\*)
       - **Yellow Mural 2** · Market Street
-      -# It lies in no region now, so no post shows it; it stands until midnight."
+      -# It lies in no region now, so no post shows it; it lasts until midnight."
     `);
   });
 });
@@ -156,7 +156,7 @@ describe('researchWords', () => {
       'In "Today’s Stops" on the board of #east, until midnight.',
     );
     expect(researchWords({ ...answerView(), boards: [] }, named).where).toBe(
-      'It stands until midnight.',
+      'It lasts until midnight.',
     );
   });
 });

@@ -160,7 +160,9 @@ describe('problemText', () => {
       'Only the conductor of this train and the moderators can do that.',
     );
     expect(said('train-moved-on')).toBe('The train has moved on meanwhile.');
-    expect(said('route-changed')).toBe('That button no longer leads where it said.');
+    expect(said('route-changed')).toBe(
+      'The route changed meanwhile, so that button is out of date.',
+    );
   });
 });
 

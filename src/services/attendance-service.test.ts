@@ -780,7 +780,7 @@ describe('AttendanceService: taking a question back', () => {
     expect(made.current().prompts.completion).toEqual([]);
     expect(made.said().join('\n').split('\n').slice(-2)).toEqual([
       `**Alice** (<@${ALICE}>) is here.`,
-      WITHDRAWN_LINE,
+      'So I took back my question, and the others I asked are here again.',
     ]);
   });
 
