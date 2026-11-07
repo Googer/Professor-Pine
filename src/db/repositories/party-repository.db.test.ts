@@ -647,4 +647,77 @@ describe('PartyRepository', () => {
     await expect(parties.partyForums(2)).resolves.toEqual([{ forumChannelId: FORUM, guildId: 2 }]);
     await expect(parties.partyForums(3)).resolves.toEqual([]);
   });
+
+  describe('what ended parties left on Discord', () => {
+    beforeEach(async () => {
+      await db.deleteFrom('EndedPartyCopy').execute();
+    });
+
+    it('keeps the copies and the link line of a party with its end, until they are gone', async () => {
+      const raid = { ...fullRaid(1), regionId: 1 };
+      await parties.insert(raid);
+      // A change of an active party leaves nothing.
+      await parties.save({ ...raid, saved: true });
+      await expect(parties.leftoverCopies()).resolves.toEqual([]);
+      const ended = { ...endParty(raid), updatedAt: PARTY_NOW + MINUTE };
+      await expect(parties.save(ended)).resolves.toEqual({ recorded: undefined });
+      const copy = {
+        partyId: ID(1),
+        messageId: '1234567890123456501',
+        channelId: '1234567890123456500',
+        regionId: null,
+        endedAt: PARTY_NOW + MINUTE,
+      };
+      const link = {
+        partyId: ID(1),
+        messageId: '1234567890123456600',
+        channelId: null,
+        regionId: 1,
+        endedAt: PARTY_NOW + MINUTE,
+      };
+      await expect(parties.leftoverCopies()).resolves.toEqual([copy, link]);
+      // Written again (a row that ended twice), it is kept once.
+      await parties.save(ended);
+      await expect(parties.leftoverCopies()).resolves.toHaveLength(2);
+      await parties.copiesGone([copy.messageId]);
+      await expect(parties.leftoverCopies()).resolves.toEqual([link]);
+      await parties.copiesGone([]);
+      await parties.copiesGone([link.messageId]);
+      await expect(parties.leftoverCopies()).resolves.toEqual([]);
+    });
+
+    it('lists them by when their party ended, and keeps them after its row is gone', async () => {
+      const later = { ...fullRaid(1), regionLinkMessageId: null };
+      const earlier: RaidParty = {
+        ...fullRaid(2),
+        regionLinkMessageId: null,
+        mirrorMessages: [
+          { channelId: '1234567890123456500', messageId: '1234567890123456502', kind: 'remote' },
+        ],
+      };
+      await parties.insert(later);
+      await parties.insert(earlier);
+      await parties.save({ ...endParty(later), updatedAt: PARTY_NOW + 2 * MINUTE });
+      await parties.save({ ...endParty(earlier), updatedAt: PARTY_NOW + MINUTE });
+      await db.deleteFrom('Party').execute();
+      const left = await parties.leftoverCopies();
+      expect(left.map((copy) => copy.partyId)).toEqual([ID(2), ID(1)]);
+    });
+
+    it('writes them with the end of a pair, and none where the pair is not written', async () => {
+      const one = { ...fullRaid(1), regionLinkMessageId: null };
+      const two = testRaid({ id: ID(2) });
+      await parties.insert(one);
+      await expect(
+        parties.saveBoth([{ party: endParty(one) }, { party: testRaid({ id: ID(5) }) }]),
+      ).resolves.toEqual([true, false]);
+      await expect(parties.leftoverCopies()).resolves.toEqual([]);
+      await parties.insert(two);
+      await expect(
+        parties.saveBoth([{ party: endParty(one) }, { party: { ...two, saved: true } }]),
+      ).resolves.toEqual([true, true]);
+      const left = await parties.leftoverCopies();
+      expect(left.map((copy) => copy.messageId)).toEqual(['1234567890123456501']);
+    });
+  });
 });

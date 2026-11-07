@@ -44,6 +44,7 @@ import { activityDays } from './2026_11_06_042_activity_days.js';
 import { legacyFillIn } from './2026_11_06_043_legacy_fill_in.js';
 import { spawnsOnMap } from './2026_11_07_044_spawns_on_map.js';
 import { partyAudit } from './2026_11_07_045_party_audit.js';
+import { endedPartyCopies } from './2026_11_07_046_ended_party_copies.js';
 
 /**
  * Every migration, keyed by name. Kysely applies them in name order, so names are
@@ -95,4 +96,5 @@ export const migrations: Record<string, Migration> = {
   '2026_11_06_043_legacy_fill_in': legacyFillIn,
   '2026_11_07_044_spawns_on_map': spawnsOnMap,
   '2026_11_07_045_party_audit': partyAudit,
+  '2026_11_07_046_ended_party_copies': endedPartyCopies,
 };

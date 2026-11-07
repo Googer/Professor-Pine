@@ -92,6 +92,14 @@ export interface CommandRoles {
   roleSnowflakeId: string | null;
 }
 
+export interface EndedPartyCopy {
+  channelId: string | null;
+  endedAt: string;
+  messageId: string;
+  partyId: string;
+  regionId: number | null;
+}
+
 export interface EndedPartyPost {
   endedAt: string;
   forumChannelId: string;
@@ -847,6 +855,7 @@ export interface DB {
   AutosetPokemon: AutosetPokemon;
   CommandRoleAuthorization: CommandRoleAuthorization;
   CommandRoles: CommandRoles;
+  EndedPartyCopy: EndedPartyCopy;
   EndedPartyPost: EndedPartyPost;
   EventForum: EventForum;
   EventPost: EventPost;

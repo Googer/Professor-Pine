@@ -422,6 +422,12 @@ export async function partyServiceWith(
     sharedDelayMs: 3_600_000,
     // The raids along an ended train's way (plan 8H-7A), from the records in memory.
     raidsAlong: history,
+    // What ended parties left, kept by the storage the store writes to.
+    ...(database === undefined
+      ? { leftovers: storage }
+      : database instanceof PartyRepository
+        ? { leftovers: database }
+        : {}),
     ...forService,
   });
   const wants = kept?.wants ?? new MemoryWants();

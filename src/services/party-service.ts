@@ -39,6 +39,8 @@ import {
   type TrainCard,
 } from '../domain/history/train-card.js';
 import type { RaidsAlongReader } from '../db/repositories/history-repository.js';
+import type { LeftoverCopies } from '../db/repositories/party-repository.js';
+import { leftoversOf } from '../domain/party/leftovers.js';
 import type { PostRemoval } from '../domain/moderation/reports.js';
 import { applyAutoStatus, noteMember, type MemberInfo } from '../domain/party/attendance.js';
 import { lobbySize, splitLobby } from '../domain/party/lobby.js';
@@ -770,6 +772,12 @@ export interface PartyServiceOptions {
    */
   raidsAlong?: RaidsAlongReader;
   /**
+   * What ended parties left on Discord (`EndedPartyCopy`, written with their end): forgotten once
+   * a closing has dealt with them, the rest deleted by `sweepCopies` with the upkeep. Without it
+   * nothing is swept.
+   */
+  leftovers?: LeftoverCopies;
+  /**
    * The map's address of an ended train by its record (plan 8H-7B, review G4), for "Route on the
    * map" in its post's last showing: only where the web is configured and Discord's login offered
    * (an instance with only the links of `/maps` gets none). Without it the post has no link.
@@ -861,7 +869,8 @@ export class PartyService {
    * Matt 2026-10-23: the network away while a party ended left its post with live controls, which
    * the sweep only archives): the party as it ended, its last words and whether they were said,
    * how its post goes, redone by `redoClosings` with the upkeep, for a day. In memory, bounded:
-   * after a restart the sweep archives what is left open, as before.
+   * after a restart the sweep archives what is left open, as before, and `sweepCopies` deletes
+   * the copies and link lines it left (they are written with the end).
    */
   private readonly undoneClosings = new BoundedMap<string, UndoneClosing>(UNDONE_CLOSINGS_MAX);
 
@@ -3058,6 +3067,11 @@ export class PartyService {
    * archived already and whose tags may never have shown `Ended`. `facts`: what a train's card
    * is drawn from (plan 8H-7A), the record its ending wrote, read with the raids along its way
    * before the last showing, or on a redo the card its first closing made. Never rejects.
+   *
+   * What the party left on Discord (`leftovers`, written with its end) is forgotten once the
+   * closing is through, also where Discord refused a deletion for good; a closing still owed
+   * for the network (`undoneClosings`) keeps it, so that a restart, which forgets that, still
+   * has its copies deleted by `sweepCopies`.
    */
   private async closePost(
     party: Party,
@@ -3067,6 +3081,32 @@ export class PartyService {
     since = this.now(),
     redo = false,
     facts: TrainCardFacts = {},
+  ): Promise<PostRemoved> {
+    const removed = await this.closePostOnce(party, lastWords, said, removal, since, redo, facts);
+    if (!this.undoneClosings.has(party.id)) {
+      const left = leftoversOf(party).map((copy) => copy.messageId);
+      try {
+        await this.options.leftovers?.copiesGone(left);
+      } catch (err) {
+        // The sweep asks for them again: a deletion of what is gone is no harm.
+        this.options.log.warn(
+          { err, party: party.id },
+          'could not forget the copies of an ended party',
+        );
+      }
+    }
+    return removed;
+  }
+
+  /** `closePost` without what it forgets afterwards. */
+  private async closePostOnce(
+    party: Party,
+    lastWords: string | undefined,
+    said: boolean,
+    removal: PostRemoval,
+    since: number,
+    redo: boolean,
+    facts: TrainCardFacts,
   ): Promise<PostRemoved> {
     const { gateway, log } = this.options;
     const postId = party.forumPostId;
@@ -3256,6 +3296,55 @@ export class PartyService {
     }
     if (redone + failed > 0) log.info({ redone, failed }, 'closed ended parties again');
     return { redone, failed };
+  }
+
+  /**
+   * Deletes what ended parties left on Discord and no closing dealt with (`leftovers`, written
+   * with each end; follow-ups of Phases 2E-1 and 3C): the copies of their message and the lines
+   * that linked to them in their regions' channels, where a stop came between the end and its
+   * closing, or a restart forgot a closing the network failed. With the upkeep, after
+   * `redoClosings`, whose parties it leaves to it. A message deleted, gone, or refused for good
+   * (logged) is forgotten; the run ends with the first the network fails, the rest kept for the
+   * next (as `redoClosings`), and between messages once `isStopped` says so. Says how many it
+   * forgot and how many failed, and logs it where there were any. Never rejects.
+   */
+  async sweepCopies(
+    options: { isStopped?: () => boolean } = {},
+  ): Promise<{ swept: number; failed: number }> {
+    const { leftovers, gateway, regions, log } = this.options;
+    if (!leftovers) return { swept: 0, failed: 0 };
+    const gone: string[] = [];
+    let failed = 0;
+    try {
+      for (const copy of await leftovers.leftoverCopies()) {
+        if (options.isStopped?.()) break;
+        if (this.undoneClosings.has(copy.partyId)) continue;
+        const channelId =
+          copy.channelId ??
+          (copy.regionId === null ? undefined : regions.byId(copy.regionId)?.channelId);
+        try {
+          // A link line whose region is gone has nowhere left to be.
+          if (channelId !== undefined) await gateway.deleteMessage(channelId, copy.messageId);
+        } catch (err) {
+          log.warn(
+            { err, party: copy.partyId, channel: channelId, message: copy.messageId },
+            'could not delete a copy an ended party left',
+          );
+          if (worthRedoing(err)) {
+            failed++;
+            break;
+          }
+        }
+        gone.push(copy.messageId);
+      }
+      await leftovers.copiesGone(gone);
+    } catch (err) {
+      log.warn({ err }, 'could not sweep the copies ended parties left');
+      return { swept: 0, failed };
+    }
+    const swept = gone.length;
+    if (swept + failed > 0) log.info({ swept, failed }, 'swept the copies ended parties left');
+    return { swept, failed };
   }
 
   /**

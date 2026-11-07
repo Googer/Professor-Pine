@@ -1,9 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
 import { watchEachTest, watchImmediates } from '../../test/support/timers.js';
 import { heldCall } from '../../test/support/held-call.js';
-import { WEST_FORUM } from '../../test/support/gyms.js';
+import { REMOTE_CHANNEL, WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
 import { ALICE, asRaid, at, BOB, CAROL, MINUTE, testRaid } from '../../test/support/parties.js';
-import { partyServiceWith, reportedRaid, restarted } from '../../test/support/party-service.js';
+import {
+  gatewayWithMirrorChannels,
+  partyServiceWith,
+  reportedRaid,
+  restarted,
+} from '../../test/support/party-service.js';
 import { gymsFixture } from '../../test/support/providers.js';
 import { setMeetingTime } from '../domain/party/attendance.js';
 import { attendeeOf, endParty } from '../domain/party/party.js';
@@ -792,6 +797,37 @@ describe('PartyScheduler: running', () => {
     const post = made.gateway.posts.get(made.postId);
     expect(post?.archived).toBe(true);
     expect(buttonsOf(post?.message)).toEqual([]);
+  });
+
+  it('sweeps the copies ended parties left in the upkeep, after the closings are redone', async () => {
+    const made = await reportedRaid({}, {}, { gateway: gatewayWithMirrorChannels() });
+    // The end was written, and the process stopped before anything was deleted.
+    await made.store.update(made.party.id, (party) => ({ party: endParty(party) }));
+    expect(made.gateway.messagesIn(REMOTE_CHANNEL)).toHaveLength(1);
+    const redo = vi.spyOn(made.service, 'redoClosings');
+    const sweep = vi.spyOn(made.service, 'sweepCopies');
+    const { PartyScheduler } = await import('./party-scheduler.js');
+    const scheduler = new PartyScheduler({
+      store: made.store,
+      posts: made.service,
+      attendance: made.attendance,
+      lines: made.lines,
+      gateway: made.gateway,
+      raidBosses: { autoset: () => undefined },
+      settings: made.settings,
+      log: made.log,
+      now: () => made.clock.now,
+      upkeepMs: 0,
+    });
+    await scheduler.tick();
+    await scheduler.whenIdle();
+    const [redoneAt] = redo.mock.invocationCallOrder;
+    const [sweptAt] = sweep.mock.invocationCallOrder;
+    expect(redoneAt).toBeLessThan(sweptAt ?? 0);
+    // Told of the clock's stop, as the redo is.
+    expect(sweep.mock.calls[0]?.[0]?.isStopped?.()).toBe(false);
+    expect(made.gateway.messagesIn(REMOTE_CHANNEL)).toEqual([]);
+    expect(made.gateway.messagesIn(WEST_CHANNEL)).toEqual([]);
   });
 
   it('runs no step of the upkeep more once the clock stopped (review r1 C3)', async () => {

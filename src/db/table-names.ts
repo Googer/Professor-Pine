@@ -24,6 +24,7 @@ export const PINE_TABLES: readonly string[] = [
   'GoogleUseDay',
   'GymReview',
   'GymWayfarer',
+  'EndedPartyCopy',
   'EndedPartyPost',
   'EventForum',
   'EventPost',

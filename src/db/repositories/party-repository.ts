@@ -7,6 +7,7 @@ import {
   type PartyColumns,
   type StoredParty,
 } from '../../domain/party/party-state.js';
+import { leftoversOf, type LeftoverCopy } from '../../domain/party/leftovers.js';
 import type { Party } from '../../domain/party/party.js';
 import { inTransaction, retryOnDeadlock } from '../transaction.js';
 import type { DB, Party as PartyTable } from '../types.js';
@@ -72,6 +73,17 @@ export interface PartyStorage {
   partyForums(guildId?: number): Promise<PartyForum[]>;
 }
 
+/**
+ * The messages ended parties left on Discord (`LeftoverCopy`), written with a party's end in
+ * `EndedPartyCopy` (`PartyService.sweepCopies`).
+ */
+export interface LeftoverCopies {
+  /** Every one not known to be deleted, those of the parties that ended first first. */
+  leftoverCopies(): Promise<LeftoverCopy[]>;
+  /** Forgets these messages: deleted, gone, or refused for good. */
+  copiesGone(messageIds: readonly string[]): Promise<void>;
+}
+
 /** A forum that parties name, with the server (its row id) of those parties. */
 export interface PartyForum {
   forumChannelId: string;
@@ -127,11 +139,38 @@ function changeable(party: Party) {
   };
 }
 
-/** Writes a party's changeable columns; false when there is no such row. */
-async function updateRow(
-  db: Kysely<DB>,
-  row: { id: string; values: ReturnType<typeof changeable> },
-): Promise<boolean> {
+/** A party's row as `updateRow` writes it. */
+interface RowWrite {
+  id: string;
+  values: ReturnType<typeof changeable>;
+  /** For a party that ends: what it leaves on Discord, written with the row. */
+  leftovers: LeftoverCopy[];
+}
+
+function rowOf(party: Party): RowWrite {
+  return { id: party.id, values: changeable(party), leftovers: leftoversOf(party) };
+}
+
+/**
+ * Writes a party's changeable columns; false when there is no such row. An ended party's
+ * leftovers (`leftoversOf`) are written with it, in one transaction (the caller's where there is
+ * one), so that no end is stored without them.
+ */
+async function updateRow(db: Kysely<DB>, row: RowWrite): Promise<boolean> {
+  const { leftovers } = row;
+  if (leftovers.length === 0) return updateColumns(db, row);
+  return inTransaction(db, async (trx) => {
+    if (!(await updateColumns(trx, row))) return false;
+    await trx
+      .insertInto('EndedPartyCopy')
+      .ignore()
+      .values(leftovers.map((copy) => ({ ...copy, endedAt: String(copy.endedAt) })))
+      .execute();
+    return true;
+  });
+}
+
+async function updateColumns(db: Kysely<DB>, row: RowWrite): Promise<boolean> {
   const result = await db
     .updateTable('Party')
     .set(row.values)
@@ -192,7 +231,7 @@ export interface PartyRepositoryOptions {
  * The `Party` table. What the scheduler and the duplicate check search by is in columns; the
  * rest of a party is the JSON document `state` (see `party-state.ts`).
  */
-export class PartyRepository implements PartyStorage {
+export class PartyRepository implements PartyStorage, LeftoverCopies {
   private readonly history: HistoryWriter;
 
   /**
@@ -225,7 +264,7 @@ export class PartyRepository implements PartyStorage {
   }
 
   save(party: Party, note?: HistoryNote): Promise<Saved> {
-    return this.withNote(note, (db) => updateRow(db, { id: party.id, values: changeable(party) }));
+    return this.withNote(note, (db) => updateRow(db, rowOf(party)));
   }
 
   /**
@@ -243,10 +282,7 @@ export class PartyRepository implements PartyStorage {
    */
   async saveBoth(writes: readonly [PartySave, PartySave]): Promise<[boolean, boolean]> {
     const [first, second] = writes;
-    const rows = [
-      { id: first.party.id, values: changeable(first.party) },
-      { id: second.party.id, values: changeable(second.party) },
-    ] as const;
+    const rows = [rowOf(first.party), rowOf(second.party)] as const;
     const notes = [first.note, second.note].filter(
       (note): note is HistoryNote =>
         note !== undefined && (note.steps.length > 0 || note.end !== undefined),
@@ -462,5 +498,24 @@ export class PartyRepository implements PartyStorage {
         a.guildId - b.guildId ||
         (a.forumChannelId < b.forumChannelId ? -1 : a.forumChannelId > b.forumChannelId ? 1 : 0),
     );
+  }
+
+  async leftoverCopies(): Promise<LeftoverCopy[]> {
+    const rows = await this.db
+      .selectFrom('EndedPartyCopy')
+      .selectAll()
+      .orderBy('endedAt')
+      .orderBy('partyId')
+      .orderBy('messageId')
+      .execute();
+    return rows.map((row) => ({ ...row, endedAt: Number(row.endedAt) }));
+  }
+
+  async copiesGone(messageIds: readonly string[]): Promise<void> {
+    if (messageIds.length === 0) return;
+    await this.db
+      .deleteFrom('EndedPartyCopy')
+      .where('messageId', 'in', [...messageIds])
+      .execute();
   }
 }

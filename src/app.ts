@@ -555,6 +555,8 @@ export async function startApp(
     wayspots,
     // The raids along an ended train's way, for its card (plan 8H-7A).
     raidsAlong: history,
+    // What ended parties left on Discord, written with their end, swept with the upkeep.
+    leftovers: partyRepository,
     // "Route on the map" on an ended train's post (plan 8H-7B, review G4): only where the web is
     // on and logs in with Discord (with the links of /maps alone the map could not be opened).
     ...(config.settings.web && config.env.DISCORD_CLIENT_SECRET

@@ -39,7 +39,14 @@ export interface PartySchedulerOptions {
   store: PartyStore;
   posts: Pick<
     PartyService,
-    'changed' | 'end' | 'rules' | 'view' | 'redoClosings' | 'sweepPosts' | 'checkSummaries'
+    | 'changed'
+    | 'end'
+    | 'rules'
+    | 'view'
+    | 'redoClosings'
+    | 'sweepCopies'
+    | 'sweepPosts'
+    | 'checkSummaries'
   >;
   attendance: Pick<AttendanceService, 'ask' | 'removeQuestions'>;
   /** The access of members of other regions, whose leftovers are swept with the forums. */
@@ -309,7 +316,9 @@ export class PartyScheduler {
 
   /**
    * Closes again the parties whose closing the network failed (plan 8X-H, review r0 B4: before
-   * the sweep, which would only archive them), archives open posts of ended parties, looks after
+   * the sweep, which would only archive them), deletes the copies and link lines ended parties
+   * left that no closing dealt with (a stop or a restart came between), archives open posts of
+   * ended parties, looks after
    * the summaries, takes back the access to
    * forums that nothing calls for any more, takes stops off the routes of trains whose gym is
    * gone, has the spawn reports and grunts' messages deleted that no process deleted at their
@@ -339,6 +348,8 @@ export class PartyScheduler {
       // Party by party: it ends with the clock's stop (what is left, the next start's sweep
       // archives).
       await step(() => posts.redoClosings({ isStopped: () => this.stopped }));
+      // What ended parties left that no closing in memory owns (a stop mid-closing, a restart).
+      await step(() => posts.sweepCopies({ isStopped: () => this.stopped }));
       await step(() => posts.sweepPosts());
       await step(() => posts.checkSummaries());
       if (access) await step(() => access.sweep());

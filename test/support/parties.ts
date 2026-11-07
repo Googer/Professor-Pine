@@ -2,12 +2,14 @@ import { gymStop, spotStop, type StopRef } from '../../src/domain/party/stops.js
 import { isDeepStrictEqual } from 'node:util';
 import { loadSettings } from '../../src/config/settings.js';
 import type {
+  LeftoverCopies,
   PartyForum,
   PartyList,
   PartySave,
   PartyStorage,
   Saved,
 } from '../../src/db/repositories/party-repository.js';
+import { leftoversOf, type LeftoverCopy } from '../../src/domain/party/leftovers.js';
 import type { HistoryNote, WrittenRecord } from '../../src/domain/history/party-history.js';
 import { partyFromStored, partyMirrors, partyState } from '../../src/domain/party/party-state.js';
 import type { DroppedPin } from '../../src/domain/geo/place.js';
@@ -296,9 +298,11 @@ function survivesStorage(party: Party): void {
  * party through the writers and the reader and rejects when what comes back is not the party
  * given. Set `failing` to make every call reject.
  */
-export class MemoryPartyStorage implements PartyStorage {
+export class MemoryPartyStorage implements PartyStorage, LeftoverCopies {
   failing: Error | undefined;
   readonly rows = new Map<string, Party>();
+  /** What ended parties left on Discord (`EndedPartyCopy`), by message id, written with their end. */
+  readonly leftovers = new Map<string, LeftoverCopy>();
   /** Every party written, in order: `insert`, `save` and `saveBoth` calls. */
   readonly writes: Party[] = [];
   /** Where the notes of the party history go, as `PartyRepository` writes them with the party. */
@@ -353,6 +357,7 @@ export class MemoryPartyStorage implements PartyStorage {
       if (this.postTaken(party)) throw new Error('Duplicate entry');
       this.rows.set(party.id, party);
       this.writes.push(party);
+      this.leftBehind(party);
       return { recorded: this.noted(note) };
     });
   }
@@ -383,9 +388,34 @@ export class MemoryPartyStorage implements PartyStorage {
       for (const { party } of writes) {
         this.rows.set(party.id, party);
         this.writes.push(party);
+        this.leftBehind(party);
       }
       for (const { note } of writes) this.noted(note);
       return found;
+    });
+  }
+
+  /** An ended party's leftovers, kept with its write as the repository keeps them. */
+  private leftBehind(party: Party): void {
+    for (const copy of leftoversOf(party)) {
+      if (!this.leftovers.has(copy.messageId)) this.leftovers.set(copy.messageId, copy);
+    }
+  }
+
+  leftoverCopies(): Promise<LeftoverCopy[]> {
+    return this.attempt(() =>
+      [...this.leftovers.values()].sort(
+        (a, b) =>
+          a.endedAt - b.endedAt ||
+          a.partyId.localeCompare(b.partyId) ||
+          a.messageId.localeCompare(b.messageId),
+      ),
+    );
+  }
+
+  copiesGone(messageIds: readonly string[]): Promise<void> {
+    return this.attempt(() => {
+      for (const id of messageIds) this.leftovers.delete(id);
     });
   }
 
