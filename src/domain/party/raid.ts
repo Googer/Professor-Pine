@@ -105,6 +105,16 @@ export function raidStage(party: RaidParty, now: number): RaidStage {
 }
 
 /**
+ * Whether the egg of a raid may hatch at `time`, by what was seen of it: a raid reported hatched
+ * (a boss named, or `hatched`: what `raidStage` takes a raid without times for) had hatched when
+ * it was reported, whatever times it was given since, so it hatches at no time after `now`
+ * (`hatched-already`). An egg's hatch time may move either way (a correction).
+ */
+export function mayHatchAt(party: RaidParty, time: number, now: number): boolean {
+  return !party.raid.reportedHatched || time <= now;
+}
+
+/**
  * Whether a gym is an elite raid gym, as the game now calls what was an EX gym: either of the
  * two stored flags says so (`taggedEx`: it has the tag; `confirmedEx`: it has hosted such a
  * raid). The columns keep their names, which the legacy bot shares; what anybody reads is

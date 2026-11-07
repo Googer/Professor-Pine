@@ -27,6 +27,8 @@ const all: CommandModule[] = [hatch, end, duration, meet, cancelMeet, join];
 const HATCH = at('2026-10-13T14:30');
 const END = at('2026-10-13T15:15');
 const stamp = (time: number, style = 't') => `<t:${time / 1000}:${style}>`;
+const HATCHED_ALREADY =
+  'This raid was reported hatched, so it cannot hatch later. To correct when it ends, use `/end`.';
 
 beforeEach(() => {
   // The handlers read the clock themselves; the fake gateway needs the real timers.
@@ -270,6 +272,20 @@ describe('what the commands guard against', () => {
     expect(await other.answer('meet', { time: '3pm' })).toMatch(
       /^"3pm" cannot be a meeting time: it must be between /,
     );
+  });
+
+  it('refuses a hatch time still to come for a raid that was seen hatched, also once it has times', async () => {
+    const made = await setup({ boss: { key: 'yveltal' } });
+    expect(await made.answer('hatch', { time: '10' })).toBe(HATCHED_ALREADY);
+    expect(made.current().hatchTime).toBeNull();
+    // A time it hatched at is taken, and with it the raid is still not to hatch again.
+    expect(await made.answer('hatch', { time: '1:50pm' })).toMatch(/^Done\./);
+    expect(await made.answer('hatch', { time: '2:05pm' })).toBe(HATCHED_ALREADY);
+    expect(made.current().hatchTime).toBe(at('2026-10-13T13:50'));
+    // An egg's hatch time still moves later.
+    const egg = await setup();
+    expect(await egg.answer('hatch', { time: '10' })).toMatch(/^Done\./);
+    expect(await egg.answer('hatch', { time: '20' })).toMatch(/^Done\./);
   });
 
   it('says a raid without times is over when its last possible moment has passed', async () => {

@@ -210,9 +210,12 @@ describe('RaidChangeService: times', () => {
 });
 
 describe('RaidChangeService: members who are asked', () => {
-  /** A raid seen hatched; Alice is done, Bob and Carol are asked and their question is in the post. */
+  /**
+   * A raid hatched by its time (a raid reported hatched cannot be made an egg again:
+   * `hatched-already`); Alice is done, Bob and Carol are asked and their question is in the post.
+   */
   async function asked() {
-    const made = await reportedRaid({ boss: { key: 'yveltal' } });
+    const made = await reportedRaid({ time: { hatch: at('2026-10-13T13:50') } });
     const id = made.party.id;
     for (const member of [alice, bob, carol]) {
       await made.attendance.signUp(id, member, PartyStatus.Present);

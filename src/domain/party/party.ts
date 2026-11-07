@@ -657,6 +657,8 @@ export type PartyProblem =
   | 'gym-taken'
   /** The change would make an Elite egg without its hatch time (plan 8F-1, 8E-1). */
   | 'elite-egg-time'
+  /** A raid that was reported hatched cannot hatch at a time still to come (`mayHatchAt`). */
+  | 'hatched-already'
   /** Another max battle already holds the spot (plan 8X-3: a later end of an ended one). */
   | 'spot-taken'
   /**
