@@ -257,13 +257,21 @@ export class EventPageService implements EventSpawnProvider {
     }
   }
 
-  /** The hours of every page read, as one text to compare (`readAndTell`). */
+  /**
+   * The hours of every page read, as one text to compare (`readAndTell`): by event id, whatever
+   * the order of the reads (a page read again becomes the newest), and without the pages that
+   * have none (review).
+   */
   private hoursKnown(): string {
     return JSON.stringify(
-      this.pages.keys().map((id) => {
-        const read = this.pages.get(id);
-        return [id, read?.raidHours, read?.maxHours];
-      }),
+      this.pages
+        .keys()
+        .sort()
+        .flatMap((id) => {
+          const read = this.pages.get(id);
+          if (read === undefined || read.raidHours.length + read.maxHours.length === 0) return [];
+          return [[id, read.raidHours, read.maxHours]];
+        }),
     );
   }
 

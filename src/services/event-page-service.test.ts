@@ -613,6 +613,63 @@ describe('EventPageService: the Max Battle hours of the events’ pages', () => 
     await service.refresh();
     expect(changes).toBe(2);
   });
+
+  describe('two pages read at different times (review)', () => {
+    const WILD_AREA = 'https://leekduck.com/events/pokemon-go-wild-area-2026-global/';
+    const BOTH_PAGED = parsePagedEventFeed(readEveryoneFeed(), ZONE).filter((event) =>
+      ['into-the-wild-2026', 'pokemon-go-wild-area-2026-global'].includes(event.id),
+    );
+    const wildAreaHours =
+      '<h2 id="raids">Raids</h2><p>A Raid Hour from 6 p.m. to 7 p.m. local time.</p>' +
+      '<h3 id="raid-hour-saturday-november-14">Raid Hour: Saturday, November 14</h3><ul></ul>';
+    const counting = (wildArea: string) => {
+      const paged = { now: BOTH_PAGED.slice(0, 1) };
+      let changes = 0;
+      const made = serviceWith(
+        (url) => page(url === WILD_AREA ? wildArea : intoTheWild),
+        [],
+        paged,
+        undefined,
+        {
+          onHoursChange: () => {
+            changes += 1;
+          },
+        },
+      );
+      return { ...made, paged, changes: () => changes };
+    };
+
+    it('says nothing when a page read again moves before another in the order of reads', async () => {
+      const { service, clock, paged, changes } = counting(wildAreaHours);
+      expect(BOTH_PAGED.map((event) => event.page)).toEqual([INTO_THE_WILD, WILD_AREA]);
+      clock.now = at('2026-11-07T12:00');
+      await service.refresh();
+      expect(changes()).toBe(1);
+      // An hour later the feed adds the Wild Area: its page, read, has a Raid Hour.
+      paged.now = BOTH_PAGED;
+      clock.now += HOUR;
+      await service.refresh();
+      expect(changes()).toBe(2);
+      // Into the Wild's page is read again alone, unchanged.
+      clock.now = at('2026-11-07T18:00');
+      await service.refresh();
+      expect(service.raidHours()).toHaveLength(3);
+      expect(changes()).toBe(2);
+    });
+
+    it('says nothing when a page read for the first time has no hours', async () => {
+      const { service, clock, paged, changes } = counting(
+        '<html><h2 id="spawns">Spawns</h2></html>',
+      );
+      clock.now = at('2026-11-07T12:00');
+      await service.refresh();
+      expect(changes()).toBe(1);
+      paged.now = BOTH_PAGED;
+      clock.now += HOUR;
+      await service.refresh();
+      expect(changes()).toBe(1);
+    });
+  });
 });
 
 describe('startAfterFeed (ER-1, ER-5)', () => {
