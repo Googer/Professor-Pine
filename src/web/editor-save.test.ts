@@ -1110,10 +1110,7 @@ describe('preview and save of the region editor', () => {
           { title: 'Imported' },
           {
             title: 'Removals',
-            items: [
-              'I could not remove the region #east (the log says what failed): look at the ' +
-                'regions and try again.',
-            ],
+            items: ['I could not remove the region #east: look at the regions and try again.'],
           },
         ],
       },

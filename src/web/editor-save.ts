@@ -600,9 +600,7 @@ export async function carryOutSave(
       removal.kind === 'gone'
         ? [REGION_GONE]
         : removal.kind === 'error'
-          ? [
-              `I could not remove ${label} (the log says what failed): look at the regions and try again.`,
-            ]
+          ? [`I could not remove ${label}: look at the regions and try again.`]
           : outcomeLines(removal, label, roleReminder(editing.selfRoles, 'removed'));
     removedLines.push(`- ${lines.join(' ')}`);
   }

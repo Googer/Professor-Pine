@@ -1,7 +1,7 @@
 import * as L from 'leaflet';
 // Leaflet first: Geoman's script adds itself to the global `L` that Leaflet's sets.
 import '@geoman-io/leaflet-geoman-free';
-import { readKml, writeKml, type KmlProblem } from '@pine/wayspot-core/kml';
+import { readKml, writeKml } from '@pine/wayspot-core/kml';
 import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import {
   applyEdits,
@@ -87,6 +87,15 @@ import {
   unsavedLine,
   notChangedWords,
   notDeletedWords,
+  KML_PROBLEMS,
+  KML_TOO_LARGE,
+  NO_STORAGE,
+  removalWords,
+  REMOVAL_MARK,
+  fixedAsOneWords,
+  kmlLoadedWords,
+  OUTCOME_UNKNOWN,
+  OUTCOME_UNKNOWN_RELOAD,
   type ReadAnswer,
 } from './editor-view.js';
 import {
@@ -145,18 +154,6 @@ const CHECK_DELAY_MS = 400;
 const LISTED_PIECES = 200;
 /** The largest KML file the editor reads, as `/region import` takes. */
 const MAX_KML_BYTES = 1_000_000;
-
-/** Why a file cannot be read as KML, in a sentence (as `/region import` says it, shorter). */
-const KML_PROBLEMS: Readonly<Record<KmlProblem, string>> = {
-  kmz: 'That is a KMZ file (a zipped KML): export as KML instead.',
-  'not-xml': 'That file is not well-formed XML.',
-  doctype: 'That file declares a document type, which is never read.',
-  'too-deep': 'That file is nested deeper than any KML.',
-  'not-kml': 'That file is XML, but not KML.',
-  'no-areas': 'That file has no areas: draw each region as a shape.',
-  'too-many-areas': 'That file has more than 200 areas.',
-  'too-many-corners': 'The outlines of that file have more than 20,000 corners in all.',
-};
 
 const SPLIT_PROBLEMS: Readonly<Record<Extract<Split, { ok: false }>['reason'], string>> = {
   'not-across': 'Draw the line across the region: from outside it, through it, to outside it.',
@@ -707,7 +704,7 @@ class Editor {
           lasting: true,
         });
       } else if (stored === 'none') {
-        say('This browser keeps nothing for the page: a reload loses what is staged.', {
+        say(NO_STORAGE, {
           lasting: true,
         });
       }
@@ -1226,12 +1223,7 @@ class Editor {
       const actions = element('div', undefined, 'actions');
       if (draft.removed !== null) {
         actions.append(
-          element(
-            'span',
-            draft.removed === 'delete'
-              ? 'Staged for removal; its forum is deleted.'
-              : 'Staged for removal; its forum stays.',
-          ),
+          element('span', removalWords(draft.removed)),
           button('Restore', () => {
             this.edit({ kind: 'restore', key, bases: this.bases([key]) });
             this.redraw();
@@ -1360,7 +1352,7 @@ class Editor {
     for (const draft of this.applied.drafts) {
       const item = element(
         'li',
-        `${this.labelText(draft)}${draft.removed !== null ? ' (staged for removal)' : ''}${problems.has(draft.key) ? ' (cannot be saved)' : ''}`,
+        `${this.labelText(draft)}${draft.removed !== null ? REMOVAL_MARK : ''}${problems.has(draft.key) ? ' (cannot be saved)' : ''}`,
       );
       if (draft.key === this.selected) item.className = 'chosen';
       item.addEventListener('click', () => {
@@ -1793,7 +1785,7 @@ class Editor {
     if (answer.outlines.length > 0) {
       this.edit(fixEdit(answer.outlines, (keys) => this.bases(keys)));
       this.redraw();
-      this.showDialog(`${words} Staged as one change: Undo takes it back.`);
+      this.showDialog(fixedAsOneWords(words));
     } else {
       this.showDialog(words);
     }
@@ -1803,7 +1795,7 @@ class Editor {
   /** A KML file into the staged edits (spec 4.2), as one edit. */
   private async loadKml(file: File): Promise<void> {
     if (file.size > MAX_KML_BYTES) {
-      say('That file is larger than 1 MB, and a file of regions is far smaller.');
+      say(KML_TOO_LARGE);
       return;
     }
     const reading = readKml(await file.text());
@@ -1820,13 +1812,7 @@ class Editor {
     );
     this.edit(made);
     this.redraw();
-    const skipped = reading.skipped.length;
-    say(
-      `Staged ${count(reading.areas.length, 'area')} of the file` +
-        (skipped > 0
-          ? `; ${count(skipped, 'area')} could not be read (an outline that crosses itself, or several shapes).`
-          : '.'),
-    );
+    say(kmlLoadedWords(reading.areas.length, reading.skipped.length));
   }
 
   /** What the editor shows as a KML file (spec 4.7). */
@@ -1928,11 +1914,9 @@ class Editor {
     }
     try {
       await this.reload(true);
-      this.showDialog('The outcome is not known: here is what the server has now.');
+      this.showDialog(OUTCOME_UNKNOWN);
     } catch {
-      this.showDialog(
-        'The outcome is not known, and the regions could not be loaded again: reload the page in a moment.',
-      );
+      this.showDialog(OUTCOME_UNKNOWN_RELOAD);
     }
   }
 

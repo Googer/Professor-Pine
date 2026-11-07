@@ -51,6 +51,15 @@ import {
   unsavedLine,
   notChangedWords,
   notDeletedWords,
+  KML_PROBLEMS,
+  KML_TOO_LARGE,
+  NO_STORAGE,
+  removalWords,
+  REMOVAL_MARK,
+  fixedAsOneWords,
+  kmlLoadedWords,
+  OUTCOME_UNKNOWN,
+  OUTCOME_UNKNOWN_RELOAD,
 } from './editor-view.js';
 import { wantedDots } from './gym-dots.js';
 import { storageKey } from './staged-storage.js';
@@ -215,7 +224,7 @@ describe('the region editor page', () => {
     // No color named (plan 8M-10, C10): the swatch beside a sentence shows what is drawn.
     expect(notReady.reasons).toEqual([
       { text: 'Discord cannot be reached just now, so the editor is read-only.' },
-      { text: 'Nothing is changed.' },
+      { text: 'There are no changes to save.' },
       { text: '1 outline cannot be saved.', swatch: 'broken' },
       { text: '1 new region has no channel yet.' },
       { text: '2 regions were changed by somebody else: take theirs or keep yours.' },
@@ -348,6 +357,9 @@ describe('the region editor page', () => {
     );
     expect(cannotFixWords('corner-outside', 'imperial')).toBe(
       'The corner must stay inside the sliver.',
+    );
+    expect(cannotFixWords('tangled', 'imperial')).toBe(
+      'This is not a sliver between two or three regions: draw it by hand.',
     );
     // The choices are worked out on the regions as they are: a border not found where the
     // stretch was found is the arithmetic's failure, not a change meanwhile.
@@ -579,6 +591,41 @@ describe('the region editor page', () => {
     expect(readSaveAnswer(502, '<html>Bad gateway</html>')).toEqual({ kind: 'unknown' });
     expect(readSaveAnswer(200, '{"kind":"saved","wor')).toEqual({ kind: 'unknown' });
     expect(readSaveAnswer(200, '{"kind":"exploded"}')).toEqual({ kind: 'unknown' });
+  });
+
+  it('says what is not saved yet, in words without the editor’s inner terms', () => {
+    expect(NO_STORAGE).toBe(
+      'This browser does not keep unsaved changes: reloading the page loses them.',
+    );
+    expect(removalWords('delete')).toBe('Removed when you save; its forum is deleted with it.');
+    expect(removalWords('keep')).toBe('Removed when you save; its forum stays.');
+    expect(`#west${REMOVAL_MARK}`).toBe('#west (removed when you save)');
+    expect(fixedAsOneWords('Fixed 3 stretches.')).toBe(
+      'Fixed 3 stretches. Not saved yet; one Undo takes it all back.',
+    );
+    expect(kmlLoadedWords(3, 0)).toBe('Loaded 3 areas of the file; not saved yet.');
+    expect(kmlLoadedWords(1, 2)).toBe(
+      'Loaded 1 area of the file; not saved yet. 2 areas could not be read (an outline that ' +
+        'crosses itself, or several shapes).',
+    );
+  });
+
+  it('says what a file it cannot read is, and what to do', () => {
+    expect(KML_TOO_LARGE).toBe('That file is larger than 1 MB, too large for a file of regions.');
+    expect(KML_PROBLEMS.doctype).toBe(
+      'That file declares a document type (DOCTYPE), which I never read.',
+    );
+    expect(KML_PROBLEMS.kmz).toBe('That is a KMZ file (a zipped KML): export as KML instead.');
+  });
+
+  it('says plainly when it cannot tell whether a save went through', () => {
+    expect(OUTCOME_UNKNOWN).toBe(
+      'I could not tell whether the save went through. Here are the regions as they are now.',
+    );
+    expect(OUTCOME_UNKNOWN_RELOAD).toBe(
+      'I could not tell whether the save went through, and could not load the regions again: ' +
+        'reload the page in a moment.',
+    );
   });
 
   it('says what to do when the regions cannot be loaded after an outcome it shows', () => {
