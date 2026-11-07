@@ -29,6 +29,7 @@ import { TEXT_BUDGET } from './party-post.js';
 import { mapMarkdown } from './raid-post.js';
 import {
   count,
+  cutMarkdown,
   fitItems,
   memberText,
   type NamedMember,
@@ -184,8 +185,9 @@ function reasonsText(reasons: readonly ReportReason[], room: number): string {
   if (shown.length <= room) return shown;
   // Even the first alone is too long: it is cut, and what was left out is still said after it.
   const [first = ''] = lines;
-  const cut = truncate(first, Math.max(1, first.length - (shown.length - room)));
-  return truncate([head, cut, ...text(kept).split('\n').slice(2)].join('\n'), room);
+  // Finished markdown (a name in bold, a mention, a time): cut never inside one (`cutMarkdown`).
+  const cut = cutMarkdown(first, Math.max(1, first.length - (shown.length - room)));
+  return cutMarkdown([head, cut, ...text(kept).split('\n').slice(2)].join('\n'), room);
 }
 
 /** The head of a party's report: what it is, its lines, who made it and in which region. */
