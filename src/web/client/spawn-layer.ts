@@ -34,6 +34,12 @@ const EVERY_MS = 20_000;
 /** The longest delay `setTimeout` takes. */
 const MAX_TIMER_MS = 2 ** 31 - 1;
 
+/**
+ * How far a spawn's marker is stacked under the others (review S1): a raid, a battle or a report
+ * at the same place stays on top, as a spawn passes while they stand.
+ */
+export const SPAWN_Z_OFFSET = -1000;
+
 export interface SpawnLayerDeps {
   map: L.Map;
   guild: string;
@@ -200,6 +206,9 @@ export function spawnLayer(deps: SpawnLayerDeps) {
           }),
           keyboard: how.interactive,
           interactive: how.interactive,
+          // Under every raid, battle and report at the same place (review S1): Leaflet stacks
+          // markers by their latitude in pixels plus this.
+          zIndexOffset: SPAWN_Z_OFFSET,
           // Named for a screen reader by its Pokémon, as Leaflet sets it: as text.
           title: spawnName(spawn),
         });

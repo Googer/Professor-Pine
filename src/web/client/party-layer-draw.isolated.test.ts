@@ -2984,6 +2984,22 @@ describe('the wild spawns on the map (Matt, 2026-11-07)', () => {
     expect(under?.getAttribute('data-spawn')).toBe(caseSpawn(6).id);
   });
 
+  it("draws a spawn under a raid at the same gym and under a stop's reports, never over them", async () => {
+    const atLibrary = caseSpawn(5, { point: { lat: 40.441, lon: -79.95 } });
+    const { markerOf } = await started({
+      raids: true,
+      parties: view({ raids: [raidAt(1)] }),
+      stops: caseView({ research: [caseResearch(5)] }),
+      spawns: caseSpawns([atLibrary]),
+    });
+    const offset = (title: string): number => Number(markerOf(title)?.options.zIndexOffset ?? 0);
+    expect(markerOf('Dratini')?.group?.onMap).toBe(true);
+    expect(offset('Dratini')).toBeLessThan(offset(raidAt(1).heading));
+    expect(offset('Dratini')).toBeLessThan(offset('Yellow Mural 5'));
+    // Leaflet stacks markers by their latitude in pixels plus the offset: one far below any.
+    expect(offset('Dratini')).toBeLessThanOrEqual(-1000);
+  });
+
   it('drops a spawn when it goes away, without waiting for the list', async () => {
     const { markerOf, runTimers, nextDraw } = await started({ raids: true, spawns: SPAWNS });
     expect(markerOf('Dratini')?.group?.onMap).toBe(true);
