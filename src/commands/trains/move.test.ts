@@ -18,6 +18,9 @@ import { PartyStatus } from '../../domain/party/status.js';
 import { conductor } from './conductor.js';
 import { finish, next, previous, skip } from './move.js';
 import { header, textOf } from '../../../test/support/messages.js';
+import { keptRow } from '../../../test/support/wayspot-cases.js';
+import { wayspotsWith } from '../../../test/support/wayspots.js';
+import { spotStop, stopHandle } from '../../domain/party/stops.js';
 
 /*
  * The commands that move a train and `/conductor`. Move… and Manage… of the post, which took the
@@ -178,6 +181,37 @@ describe('/next, /previous, /skip and /finish', () => {
       `The train was moved just before your command. The train is at stop 2 of 4: ${STACKS}. ` +
         `Next is ${MURAL}.`,
     );
+  });
+
+  it('move a train whose Power Spots share a handle: the command knows its stop by its key', async () => {
+    // Two Wayfarer ids whose eight-character hashes are the same (`stopHandle`).
+    const spot = (n: number, title: string, lon: number) =>
+      keptRow(n, { kind: 'powerspot', title, lat: 40.05, lon });
+    const first = spot(105978, 'Gazebo of the Lake', -80.05);
+    const second = spot(564416, 'Lake Pier', -80.04);
+    expect(stopHandle(spotStop(first.id))).toBe(stopHandle(spotStop(second.id)));
+    const kept = await wayspotsWith([first, second]);
+    const made = await createdTrain(
+      { route: [spotStop(first.id), spotStop(second.id), 4] },
+      { wayspots: kept.wayspots },
+    );
+    const { ctx } = createTestContext({
+      partyService: made.service,
+      attendance: made.attendance,
+      trains: made.trains,
+      parties: made.store,
+      regions: made.regions,
+      wayspots: kept.wayspots,
+    });
+    const used = fakeChatInput({
+      commandName: 'next',
+      channelId: made.postId,
+      thread: { parentId: WEST_FORUM },
+      userId: REPORTER,
+    });
+    await new InteractionRouter(ctx, all, []).handle(used as never);
+    expect(sent(used.reply).content).toMatch(/^The train is at stop 2 of 3: /);
+    expect(made.current().train.stop).toBe(1);
   });
 
   it('refuse a move that cannot be made, with the reason', async () => {

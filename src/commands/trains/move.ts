@@ -24,7 +24,7 @@ import {
   type TrainKind,
   type TrainParty,
 } from '../../domain/party/party.js';
-import { placeOf, type TrainMove } from '../../domain/party/train.js';
+import { whereOf, type TrainMove } from '../../domain/party/train.js';
 import {
   AT_END_CODES,
   isDialogMove,
@@ -83,7 +83,9 @@ async function moveByCommand(
     move,
     isStaff(interaction, ctx),
     'command',
-    placeOf(party),
+    undefined,
+    undefined,
+    whereOf(party),
   );
   if (answer.kind === 'refused' && movedOn(answer.reason)) {
     // Nothing was changed, and nothing the member did wrong: the use is given back.

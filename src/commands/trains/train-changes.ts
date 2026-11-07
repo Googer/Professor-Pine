@@ -422,8 +422,8 @@ export async function forgetRouteAs(
  * Moves the train along its route (`/next`, `/previous`, `/skip`, `/finish`, the map) and says
  * where it is now. `surface` is where the member moved it (a command, Move… of the post, the
  * map), so that a finished route names what takes it back there; `from` and `target` are for a
- * control drawn at a place (Move…, on Discord and on the map), and a command gives `from` as the
- * train was when it came (`placeOf`), so that two quick `/previous` move it once.
+ * control drawn at a place (Move…, on Discord and on the map); a command gives `where`, the train's
+ * stop by its key when it came (`whereOf`), so that two quick `/previous` move it once.
  */
 export async function moveTrainAs(
   ctx: TrainChanging,
@@ -434,8 +434,9 @@ export async function moveTrainAs(
   surface: TrainSurface,
   from?: string,
   target?: string,
+  where?: string,
 ): Promise<TrainAnswer> {
-  const outcome = await ctx.trains.move(party.id, member, move, staff, from, target);
+  const outcome = await ctx.trains.move(party.id, member, move, staff, from, target, where);
   return answerOf(ctx, outcome, (ok) => {
     // Told only when the movements gathered still say something: a Finish taken back at once
     // tells nobody anything.

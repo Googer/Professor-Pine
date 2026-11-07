@@ -821,8 +821,11 @@ export interface TrainMoved {
  * then: when the train is somewhere else by now, the move is refused (`train-moved-on`), so
  * that two members who press Next on the same stop move the train once. `target` is where that
  * control said the move would lead (`targetOf`): when the route was edited since and the move
- * would lead elsewhere, it is refused too (`route-changed`). Without them (a command) the move
- * is made from wherever the train is, to wherever it leads.
+ * would lead elsewhere, it is refused too (`route-changed`). A command gives neither, but `where`:
+ * where the train was when it came, by the stop's key (`whereOf`, which tells every two stops
+ * apart, also power spots whose handles are alike), and is refused (`train-moved-on`) once the
+ * train is somewhere else, so that two quick `/previous` move it once. Without any of them the
+ * move is made from wherever the train is, to wherever it leads.
  */
 export function moveTrain(
   party: TrainParty,
@@ -831,11 +834,13 @@ export function moveTrain(
   staff: boolean,
   from?: string,
   target?: string,
+  where?: string,
 ): Change<TrainParty, TrainMoved> {
   const forbidden = mayNotMove(party, memberId, staff);
   if (forbidden) return refused(forbidden);
   const stale = from === undefined ? undefined : placeRefusal(party, from);
   if (stale) return refused(stale);
+  if (where !== undefined && where !== whereOf(party)) return refused('train-moved-on');
   const problem = cannotMove(party, move);
   if (problem) return refused(problem);
   if (target !== undefined && (ambiguous(party, target) || target !== targetOf(party, move))) {

@@ -498,11 +498,12 @@ export class TrainService {
     staff: boolean,
     from?: string,
     target?: string,
+    where?: string,
   ): Promise<TrainChangeOutcome<TrainMoved>> {
     let start: Place | undefined;
     const outcome = await this.apply(partyId, member, (party) => {
       start = placeNow(party);
-      return moveTrain(party, member.id, move, staff, from, target);
+      return moveTrain(party, member.id, move, staff, from, target, where);
     });
     if (outcome.kind === 'ok' && outcome.changed && start) {
       const { party: _party, kind: _kind, changed: _changed, ...last } = outcome;
