@@ -7,6 +7,7 @@ import type {
 import { getJson } from './common.js';
 import { renderNode, type PageNode } from './popup.js';
 import {
+  FILTER_LEGENDS,
   filterChoices,
   filterWords,
   hiddenCount,
@@ -188,10 +189,7 @@ export function stopFilterUi(deps: StopFilterUiDeps) {
         children: [
           {
             tag: 'legend',
-            text:
-              kind === 'research'
-                ? 'Show only research that gives'
-                : 'Show only Team GO Rocket of, or giving',
+            text: FILTER_LEGENDS[kind],
           },
           ...(offered.length === 0
             ? [{ tag: 'p', className: 'hint', text: 'Nothing to filter by yet.' }]

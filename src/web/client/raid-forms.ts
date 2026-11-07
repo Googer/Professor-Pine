@@ -259,8 +259,8 @@ export function changeForm(
             labelled(
               `Moves of ${moves.boss}`,
               'form-row',
-              moveSelect('quick', 'Fast move as it is', moves.fast),
-              moveSelect('charge', 'Charged move as it is', moves.charged),
+              moveSelect('quick', 'Fast move: no change', moves.fast),
+              moveSelect('charge', 'Charged move: no change', moves.charged),
             ),
             {
               tag: 'p',

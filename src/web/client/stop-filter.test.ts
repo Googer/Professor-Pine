@@ -9,6 +9,7 @@ import {
 } from './stop-report-cases.js';
 import {
   FILTERS_KEY,
+  FILTER_LEGENDS,
   filterChoices,
   filterWords,
   hiddenCount,
@@ -105,6 +106,14 @@ describe('the filters of the reports at stops (plan 8M-9B, goal 5)', () => {
     expect(filterWords(['item:rare-candy', 'pokemon:bagon'], names)).toBe('2 filters');
     // One whose name the page has not (yet): one filter.
     expect(filterWords(['pokemon:bagon'], names)).toBe('1 filter');
+  });
+
+  it('heads each filter’s choices with what they keep', () => {
+    expect(FILTER_LEGENDS.research).toBe('Show only research that gives');
+    // Rocket's choices are who it is, then the Pokémon it gives (`filterChoices`).
+    expect(FILTER_LEGENDS.rocket).toBe(
+      'Show only Team GO Rocket of these kinds, or with these Pokémon to catch',
+    );
   });
 
   it('keeps the filters per browser, nothing odd taken, and works where nothing can be kept', () => {
