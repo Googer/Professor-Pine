@@ -466,6 +466,28 @@ describe('PartyService: keeping posts up to date', () => {
     ]);
   });
 
+  it('ends a party at once when Discord says its post was deleted, as when a render finds it gone', async () => {
+    const made = await withRaid();
+    const { party, postId, gateway, store } = made;
+    const link = party.regionLinkMessageId;
+    expect(link).not.toBeNull();
+    gateway.gone.add(postId);
+    await made.service.postDeleted(postId);
+    expect(store.get(party.id)).toBeUndefined();
+    expect(made.history.records).toEqual([
+      expect.objectContaining({ partyId: party.id, ending: 'cancelled', closedBy: 'staff' }),
+    ]);
+    // Its link line in the region's channel goes with it, and nothing is edited any more.
+    expect(gateway.deleted.map((gone) => gone.messageId)).toContain(link);
+    const calls = gateway.calls.length;
+    await made.service.postDeleted(postId);
+    // A thread that is no party's post (another forum's, a post that ended) changes nothing.
+    await made.service.postDeleted('600000000000000999');
+    made.service.changed(party.id);
+    await made.service.flush();
+    expect(gateway.calls).toHaveLength(calls);
+  });
+
   it('warns of an edit that failed for the network, and errors for any other failure (plan 8X-H)', async () => {
     const { service, store, gateway, party, entries } = await withRaid();
     const failed = () => entries.filter((entry) => entry.msg === 'could not update a party post');

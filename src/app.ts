@@ -1287,6 +1287,11 @@ export async function startApp(
           .remove(guild.id)
           .catch((err: unknown) => log.error({ err, guild: guild.id }, 'could not remove guild'));
       });
+      // A party's post deleted by hand ends its party at once (the `Guilds` intent delivers it),
+      // not at its next render; the bot's own deletions find no active party there.
+      client.on(Events.ThreadDelete, (thread) => {
+        void partyService.postDeleted(thread.id);
+      });
       client.on(Events.InteractionCreate, (interaction) => {
         // What the interaction shows of the member's roles; never in the way of the interaction.
         // (`noticed` catches what it does itself; this is for what reading the interaction

@@ -3670,6 +3670,22 @@ export class PartyService {
     );
   }
 
+  /**
+   * Discord says a thread was deleted (`ThreadDelete`, which the `Guilds` intent delivers): when it
+   * was the post of an active party, the party ends at once as when a render finds its post gone
+   * (`postGone`: closed by staff, its link line and copies deleted), rather than at its next
+   * render. Anything else is nothing. Never rejects.
+   */
+  async postDeleted(postId: string): Promise<void> {
+    const { store, log } = this.options;
+    try {
+      const party = store.byPost(postId);
+      if (party) await this.postGone(party, postId);
+    } catch (err) {
+      log.warn({ err, post: postId }, 'could not end the party of a deleted post');
+    }
+  }
+
   /** Somebody deleted the post: the party is over (spec 7), and the thread goes if it is left. */
   private async postGone(party: Party, postId: string): Promise<void> {
     const { gateway, log } = this.options;
