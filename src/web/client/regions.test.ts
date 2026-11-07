@@ -185,6 +185,21 @@ describe('the rows of "Your regions"', () => {
       NAMES,
     )[0];
     expect(plaza?.buttons[0]?.notes).toEqual(['Also closes west and east.']);
+    // A leave that keeps its region open and closes another says both (W1).
+    const kept = regionRows(
+      viewOf([
+        row(1, {
+          leave: [
+            leave('metro', 'Metro', { closes: false, alsoCloses: [2], stillOpenBy: ['West'] }),
+          ],
+        }),
+      ]),
+      NAMES,
+    )[0];
+    expect(kept?.buttons[0]?.notes).toEqual([
+      'You would still see it through West.',
+      'Also closes east.',
+    ]);
     // A role given back with no region closing.
     const given = regionRows(
       viewOf([

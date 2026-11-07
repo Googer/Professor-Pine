@@ -137,15 +137,19 @@ export function regionRows(view: RegionsMineView, names: ReadonlyMap<number, str
       label: label('Leave', leave.name),
       ariaLabel: ariaLabel('Leave', leave.name),
       disabled: false,
-      notes: !leave.closes
-        ? [
-            leave.stillOpenBy.length > 0
-              ? `You would still see it through ${listed(leave.stillOpenBy)}.`
-              : 'You would still see it.',
-          ]
-        : leave.alsoCloses.some((id) => names.has(id))
+      // Under a Leave that keeps its region open, what keeps it and what it closes elsewhere (W1).
+      notes: [
+        ...(leave.closes
+          ? []
+          : [
+              leave.stillOpenBy.length > 0
+                ? `You would still see it through ${listed(leave.stillOpenBy)}.`
+                : 'You would still see it.',
+            ]),
+        ...(leave.alsoCloses.some((id) => names.has(id))
           ? [`Also closes ${named(leave.alsoCloses)}.`]
-          : [],
+          : []),
+      ],
     }));
     return {
       id: region.id,

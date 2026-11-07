@@ -116,7 +116,8 @@ describe('GET /api/regions/mine', () => {
         roleId: REGION_ROLE.metro,
         name: 'Metro',
         closes: false,
-        alsoCloses: [],
+        // West stays open, East (which only Metro opens) closes (W1).
+        alsoCloses: [2],
         stillOpenBy: ['West', 'a role staff gave you'],
       },
       {

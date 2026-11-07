@@ -160,15 +160,16 @@ describe('regionChoices', () => {
       ]);
     expect(leaves(west)).toEqual([['Metro', true, [2], [], false]]);
     expect(leaves(east)).toEqual([['Metro', true, [1], [], false]]);
-    // Metro and West both open West: each is offered, and leaving it keeps West through the other.
+    // Metro and West both open West: each is offered, and leaving it keeps West through the other;
+    // leaving Metro still closes East, which only Metro opens (W1).
     const [both] = choicesOf([METRO, WEST]);
     expect(leaves(both)).toEqual([
-      ['Metro', false, [], ['West'], false],
+      ['Metro', false, [2], ['West'], false],
       ['West', false, [], ['Metro'], false],
     ]);
-    // Patrol is a role staff gave: Metro's leave keeps West open through it.
+    // Patrol is a role staff gave: Metro's leave keeps West open through it, and closes East.
     const [staff] = choicesOf([METRO, STAFF_ONLY]);
-    expect(leaves(staff)).toEqual([['Metro', false, [], [], true]]);
+    expect(leaves(staff)).toEqual([['Metro', false, [2], [], true]]);
   });
 
   it('offers no join past a denial, and a stuck join with what is in the way', () => {

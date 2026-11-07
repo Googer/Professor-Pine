@@ -49,7 +49,7 @@ export interface RegionLeave {
   entry: RosterEntry;
   /** Whether leaving it closes the region (nothing else they hold opens it). */
   closes: boolean;
-  /** The other regions leaving closes too, by id (none where it does not close this one). */
+  /** The other regions leaving closes too, by id (also where it keeps this one open, W1). */
   alsoCloses: number[];
   /**
    * Where it does not close the region, what keeps it open: the other roles of the roster they
@@ -140,7 +140,7 @@ export function regionChoices(
         {
           entry,
           closes,
-          alsoCloses: closes ? closed(held, after, regionId) : [],
+          alsoCloses: closed(held, after, regionId),
           stillOpenBy: closes
             ? { entries: [], staffRole: false }
             : {
