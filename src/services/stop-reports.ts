@@ -118,6 +118,12 @@ export interface StopReportListener {
    */
   ended?(reports: readonly StopReport[]): void;
   /**
+   * Reports a member took back (`by`: their reporter, or staff), as `ended` tells them too; not
+   * Pine's own undo of a grunt posted nowhere (`unposted`), which nobody was told of (Matt,
+   * 2026-11-07: who was told of a report hears that it was taken back).
+   */
+  takenBack?(serverId: string, reports: readonly StopReport[], by: string): void;
+  /**
    * What `/api/stop-reports` shows of a server may have changed: a report made, refined in place,
    * taken back or put back, grunts too, or a link it shows (`linksChanged`). Not `changed`, which
    * is not told of grunts and whose meaning the posts of the stops rely on.
@@ -739,6 +745,7 @@ export class StopReportService {
         .map((report) => report.stop);
       if (stops.length > 0) this.tell((listener) => listener.changed?.(serverId, stops));
       this.tell((listener) => listener.ended?.(removed));
+      if (as !== 'unposted') this.tell((listener) => listener.takenBack?.(serverId, removed, by));
       this.linksChanged(serverId);
       this.options.log.info(
         { guild: serverId, by, as, reports: removed.map((report) => report.id) },

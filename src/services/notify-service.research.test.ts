@@ -82,7 +82,11 @@ async function researchWith(
     rewardHash: (reward) => rewardHash(reward, catalogueFixture()),
   });
   held.reports = reports;
-  reports.listen({ reported: (news) => made.notify.researchReported(news) });
+  reports.listen({
+    reported: (news) => made.notify.researchReported(news),
+    // A report taken back is told to who was told of it (Matt, 2026-11-07), as `app.ts` wires it.
+    takenBack: (serverId, removed, by) => made.notify.stopReportsTakenBack(serverId, removed, by),
+  });
   const reportVersion = async (
     subject: ResearchSubject,
     stops: ReportedStop[],
@@ -185,11 +189,15 @@ describe('NotifyService: field research is reported (plan 8R-1, design 7)', () =
       [westDm(1)],
       [westDm(2)],
     ]);
-    // Taken back and reported again in the period: no news for who was told.
+    // Taken back (which is told, Matt 2026-11-07) and reported again in the period: no news for
+    // who was told.
     const id = first.saved[0]?.report.id ?? 0;
     await made.reports.takeBack(made.gateway.guildId, [id], REPORTER, 'member');
+    await made.notify.flush();
     await made.report(DRAGON, [west(1)]);
-    expect(made.dms.to(ALICE)).toHaveLength(2);
+    expect(made.dms.to(ALICE).map(dmSentence).slice(2)).toEqual([
+      expect.stringContaining('was taken back by its reporter'),
+    ]);
   });
 
   it('tells only who can view the region channel, one DM per region', async () => {
@@ -587,6 +595,8 @@ describe('NotifyService: field research is reported (plan 8R-1, design 7)', () =
       expect(made.dms.to(ALICE).map(dmSentence)).toEqual([
         expect.stringContaining(`reported in <#${EAST_CHANNEL}>`),
         expect.stringContaining(`reported in <#${WEST_CHANNEL}>`),
+        // Rita's Beldum replaced the Gible she was told of (Matt, 2026-11-07).
+        expect.stringContaining('· Beldum is reported there now.'),
         confirmed(eastLink),
       ]);
       expect(made.dms.to(CAROL).map(dmSentence)).toEqual([
@@ -635,6 +645,72 @@ describe('NotifyService: field research is reported (plan 8R-1, design 7)', () =
         expect.stringContaining(`reported in <#${EAST_CHANNEL}>`),
       ]);
       expect(dmBrief(inWest).slice(0, -1)).toEqual(['**Rewards** Gible', westDm(1)]);
+    });
+
+    describe('a report taken back or replaced early (Matt, 2026-11-07)', () => {
+      const THROWS_TEXT = '**Make 3 Excellent Throws in a row**';
+
+      it('tells who was told of it that its reporter took it back, its stops in one DM without buttons', async () => {
+        const made = await researchWith();
+        await made.want(ALICE, WANT_GIBLE);
+        await made.want(BOB, boxTarget('research-pokemon', 1));
+        const outcome = await made.reportVersion(GIBLE, [west(1), west(2)]);
+        await made.reports.takeBack(
+          made.gateway.guildId,
+          outcome.saved.map(({ report }) => report.id),
+          REPORTER,
+          'member',
+        );
+        await made.notify.flush();
+        expect(made.dms.recipients).toEqual([ALICE]);
+        const [, second] = made.dms.to(ALICE);
+        expect(second).toEqual({
+          content:
+            `The field research ${THROWS_TEXT} · Gible at ${westLink(1)} and ${westLink(2)} ` +
+            'was taken back by its reporter.',
+        });
+        expect(made.dms.jobs[1]).toEqual(
+          expect.objectContaining({
+            priority: DM_PRIORITY.normal,
+            expiresAt: outcome.saved[0]?.report.endsAt,
+          }),
+        );
+      });
+
+      it('says it was replaced by a report that contradicts it, naming what stands there now', async () => {
+        const made = await researchWith();
+        await made.want(ALICE, WANT_GIBLE);
+        const gible = await made.reportVersion(GIBLE, [west(1)]);
+        await made.reportVersion(BELDUM, [west(1)], BOB_, [gible.saved[0]?.report.id ?? 0]);
+        expect(made.dms.to(ALICE).map(dmSentence)).toEqual([
+          expect.stringContaining('Field research has been reported'),
+          `The field research ${THROWS_TEXT} · Gible at ${westLink(1)} was replaced: ` +
+            `${THROWS_TEXT} · Beldum is reported there now.`,
+        ]);
+      });
+
+      it('says nothing of a "one of" narrowed, and tells who was told of it when the narrowing is taken back', async () => {
+        const made = await researchWith();
+        await made.want(ALICE, WANT_GIBLE);
+        await made.want(CAROL, boxTarget('research-pokemon', 246));
+        await made.reportVersion(ONE_OF, [west(1)]);
+        const beldum = await made.reportVersion(BELDUM, [west(1)], BOB_);
+        expect(made.dms.to(ALICE)).toHaveLength(1);
+        expect(made.dms.to(CAROL)).toHaveLength(1);
+        await made.reports.takeBack(
+          made.gateway.guildId,
+          [beldum.saved[0]?.report.id ?? 0],
+          BOB,
+          'member',
+        );
+        await made.notify.flush();
+        for (const member of [ALICE, CAROL]) {
+          expect(made.dms.to(member).map(dmSentence).at(-1)).toBe(
+            `The field research ${THROWS_TEXT} · Beldum at ${westLink(1)} was taken back by its reporter.`,
+          );
+          expect(made.dms.to(member)).toHaveLength(2);
+        }
+      });
     });
   });
 

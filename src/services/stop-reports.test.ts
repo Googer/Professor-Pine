@@ -183,6 +183,29 @@ describe('StopReportService', () => {
     ]);
   });
 
+  it('tells who took reports back, as their reporter or staff, never Pine’s own undo (Matt, 2026-11-07)', async () => {
+    const { service } = serviceWith();
+    const taken: { server: string; ids: number[]; by: string }[] = [];
+    service.listen({
+      takenBack: (server, reports, by) => taken.push({ server, ids: reports.map((r) => r.id), by }),
+    });
+    const { saved } = await service.reportResearch({
+      serverId: REPORT_SERVER,
+      stops: [reportedStop(1), reportedStop(2), reportedStop(3)],
+      subject: THROWS,
+      reporter: REPORTER,
+    });
+    const [one, two, three] = saved.map(({ report }) => report.id);
+    await service.takeBack(REPORT_SERVER, [one!], OTHER_REPORTER.id, 'member');
+    await service.takeBack(REPORT_SERVER, [one!], REPORTER.id, 'member');
+    await service.takeBack(REPORT_SERVER, [two!], OTHER_REPORTER.id, 'staff');
+    await service.takeBack(REPORT_SERVER, [three!], REPORTER.id, 'unposted');
+    expect(taken).toEqual([
+      { server: REPORT_SERVER, ids: [one], by: REPORTER.id },
+      { server: REPORT_SERVER, ids: [two], by: OTHER_REPORTER.id },
+    ]);
+  });
+
   describe('Team GO Rocket (plan 8R-2)', () => {
     const WATER: RocketSubject = {
       subjectKey: 'grunt:water',

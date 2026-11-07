@@ -641,6 +641,10 @@ export async function startApp(
     reported: (news) => {
       notify.researchReported(news);
     },
+    // Who was told of a report taken back hears so in a second DM (Matt, 2026-11-07).
+    takenBack: (serverId, reports, by) => {
+      notify.stopReportsTakenBack(serverId, reports, by);
+    },
   });
   // Holders of the old Unown role get a want for Unown when the bot first meets them.
   const unownWants = new UnownWantService({

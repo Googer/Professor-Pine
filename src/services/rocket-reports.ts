@@ -25,6 +25,11 @@ export interface RocketNews {
    * refine changed in place, whose report it was.
    */
   alsoActors?: string[];
+  /**
+   * The report it replaced while that stood (Matt, 2026-11-07): who was told of that one hears it
+   * was replaced. Never what a refine changed in place, which keeps its id.
+   */
+  replaced?: RocketReport;
 }
 
 /** What came of a Rocket report, with what was posted. */
@@ -94,8 +99,15 @@ export interface RocketServiceOptions {
   regions: { all(): readonly Region[] };
   /** The row of a server in `Guild` (its regions name it so), by its snowflake. */
   guilds: { idFor(serverId: string): Promise<number | undefined> };
-  /** Told of every report that is news, once its messages are posted. */
-  notify?: { rocketReported(news: RocketNews): void };
+  /**
+   * Told of every report that is news, once its messages are posted; and of a report that took
+   * the place of another without being news (the same hideout again, a hideout put back), so that
+   * who was told of the one is remembered as told of the other (Matt, 2026-11-07).
+   */
+  notify?: {
+    rocketReported(news: RocketNews): void;
+    rocketRenewed?(from: RocketReport, to: RocketReport): void;
+  };
   log: Logger;
 }
 
@@ -182,7 +194,8 @@ export class RocketService {
     }
     // Outside rehearsal mode a grunt's DMs name the channels it was posted in (fix R3).
     const told = grunt && messages ? posted.map((one) => one.channelId) : channels;
-    if (outcome.news) this.tell(report, told, posted);
+    if (outcome.news) this.tell(report, told, posted, [], outcome.replaced);
+    else if (outcome.replaced) this.renewed(outcome.replaced, report);
     return { kind: 'reported', report, replaced: outcome.replaced, channels, posted };
   }
 
@@ -239,6 +252,7 @@ export class RocketService {
     channels: readonly string[],
     posted: PostedGrunt[],
     alsoActors: string[] = [],
+    replaced?: RocketReport,
   ): void {
     try {
       this.options.notify?.rocketReported({
@@ -249,9 +263,22 @@ export class RocketService {
           messageId: posted.find((one) => one.channelId === channelId)?.messageId,
         })),
         ...(alsoActors.length === 0 ? {} : { alsoActors }),
+        ...(replaced === undefined ? {} : { replaced }),
       });
     } catch (err) {
       this.options.log.error({ err, guild: report.serverId }, 'could not tell of a Rocket report');
+    }
+  }
+
+  /**
+   * Tells the notifier that a report took the place of another without news (the same hideout
+   * again, a hideout put back): who was told of the one counts as told of the other.
+   */
+  private renewed(from: RocketReport, to: RocketReport): void {
+    try {
+      this.options.notify?.rocketRenewed?.(from, to);
+    } catch (err) {
+      this.options.log.error({ err, guild: to.serverId }, 'could not tell of a Rocket report');
     }
   }
 
@@ -268,7 +295,10 @@ export class RocketService {
       // The hideout takes the grunt's place in one step (fix S4).
       try {
         const restored = await this.options.reports.restore(replaced, report);
-        if (restored) return { restored };
+        if (restored) {
+          this.renewed(replaced, restored);
+          return { restored };
+        }
       } catch (err) {
         this.options.log.warn({ err, report: replaced.id }, 'could not put a hideout back');
       }
@@ -294,7 +324,10 @@ export class RocketService {
     if (!isHideoutReport(replaced)) return { lost: replaced };
     try {
       const restored = await this.options.reports.restore(replaced, refined);
-      if (restored) return { restored };
+      if (restored) {
+        this.renewed(replaced, restored);
+        return { restored };
+      }
     } catch (err) {
       this.options.log.warn({ err, report: replaced.id }, 'could not put a hideout back');
     }

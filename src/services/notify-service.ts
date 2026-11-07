@@ -105,9 +105,11 @@ import { isHideoutReport, type ResearchNews } from './stop-reports.js';
 import type { RocketNews } from './rocket-reports.js';
 import { gruntHourNote, rocketDmBrief, rocketDmSentence } from '../render/rocket.js';
 import { researchPicture, rocketPicture, type PictureLookup } from '../domain/stops/pictures.js';
-import type { StopReport } from '../domain/stops/report.js';
+import { isResearchReport, type RocketReport, type StopReport } from '../domain/stops/report.js';
 import { isOneOf, researchSubjectOf, taskOfSubject } from '../domain/research/reports.js';
 import type { TaskReward } from '../domain/research/task.js';
+import { rewardHash } from '../domain/research/versions.js';
+import { withdrawnDm, type WithdrawnReport } from '../render/stop-withdrawn.js';
 import type { PostLink } from './stop-posts.js';
 
 /**
@@ -330,6 +332,11 @@ export const MAX_WANT_QUIET_MS = 60 * 60_000;
 const MAX_HEARD_KEPT = 20_000;
 /** How many members' research DMs of a task at a stop are remembered (in memory, as above). */
 const RESEARCH_TOLD_KEPT = 20_000;
+/**
+ * How many reports at stops the members told of each are remembered (`toldOfReport`; in memory,
+ * as above): more than stand at once on a big instance; a report forgotten sends no second DM.
+ */
+const REPORTS_TOLD_KEPT = 5_000;
 /** A message about a new train is not worth sending after this long. */
 const TRAIN_NEWS_MS = 60 * 60_000;
 /** A message that a time was taken away is not worth sending after this long. */
@@ -359,7 +366,7 @@ interface Announcement {
   partyId: string | undefined;
   /** The server: its row id (a party names it so), or its snowflake where that is known. */
   guild: number | string;
-  /** The channel a recipient must be able to view. */
+  /** The channel a recipient must be able to view; not read for `toAll`. */
   channelId: string;
   /** The member who caused it, who is not told. */
   actorId: string | null;
@@ -368,7 +375,9 @@ interface Announcement {
    * candidate is told, whatever was told before, and nothing is remembered. Nobody is asked
    * about either: the candidates are signed up for the party, so they could see it a moment
    * ago, and whoever left the server since cannot be written to, which the send finds out. So
-   * these messages never wait in the line of the look-ups.
+   * these messages never wait in the line of the look-ups. So is the second DM about a report at
+   * a stop taken back or replaced (`withdraw`): its candidates were told of it, and its `gather`
+   * keeps only who still want it.
    */
   toAll?: true;
   eventAt: number;
@@ -467,6 +476,17 @@ export class NotifyService implements PartyNotifier {
    * the same hideout at the same stop in a day (plan 8R-2). In memory, lost on a restart.
    */
   private readonly rocketTold = new BoundedMap<string, true>(RESEARCH_TOLD_KEPT);
+  /**
+   * Who a DM about a report at a stop was put in line for (`<server> <report id>`), each member
+   * with the version of the report they were told of (Matt, 2026-11-07): when the report is taken
+   * back or replaced before its time, they are told so in a second DM (`withdraw`). A refine in
+   * place keeps its id; a narrowing of a "one of" and a hideout reported again or put back carry
+   * the members over to the report that took its place. In memory: a restart forgets them, and
+   * then no second DM goes out.
+   */
+  private readonly toldOfReport = new BoundedMap<string, Map<string, StopReport>>(
+    REPORTS_TOLD_KEPT,
+  );
   private readonly lines = new KeyedLock<string>();
   /**
    * The address of a picture of a stop's DM (plan 8R-6): `StopPictures.url` (none where the
@@ -892,10 +912,20 @@ export class NotifyService implements PartyNotifier {
       if (!this.enabled || !this.options.targetWants || this.closed) return;
       const [first] = news.reports;
       if (!first) return;
+      // Who was told of a report this replaced hears so (Matt, 2026-11-07), in that report's
+      // line, before this news where the line is the same (the task's): a narrowing first.
+      this.withdraw(
+        news.serverId,
+        news.replaced.flatMap((replaced): WithdrawnReport[] => {
+          const by = news.reports.find((report) => report.stop.key === replaced.stop.key);
+          return by ? [{ report: replaced, how: { kind: 'replaced', by } }] : [];
+        }),
+        news.reporter.id,
+      );
       // The DMs' time is the report's, however late its turn comes (review F6).
       const reportedAt = this.now();
       const work = this.lines
-        .run(`research:${news.serverId}:${taskOfSubject(first.subjectKey)}`, async () => {
+        .run(lineOf(first), async () => {
           for (const event of await this.researchEvents(news, reportedAt)) {
             await this.deliver(event);
           }
@@ -1040,7 +1070,7 @@ export class NotifyService implements PartyNotifier {
       const untold = (memberId: string): StopReport[] =>
         reported.filter((report) => isNews(memberId, report));
       return {
-        key: `research:${news.serverId}:${task}`,
+        key: lineOf(first),
         partyId: undefined,
         guild: news.serverId,
         channelId,
@@ -1124,6 +1154,7 @@ export class NotifyService implements PartyNotifier {
         priority: () => DM_PRIORITY.normal,
         sent: (id) => {
           for (const report of untold(id)) {
+            this.noteTold(report, id);
             this.researchTold.set(toldKey(id, report), true);
           }
         },
@@ -1148,8 +1179,184 @@ export class NotifyService implements PartyNotifier {
   rocketReported(news: RocketNews): void {
     this.safely('Team GO Rocket', () => {
       if (!this.enabled || this.closed) return;
+      // Who was told of the report this replaced hears so (Matt, 2026-11-07), in its line.
+      if (news.replaced) {
+        this.withdraw(
+          news.serverId,
+          [{ report: news.replaced, how: { kind: 'replaced', by: news.report } }],
+          news.report.reporter.id,
+        );
+      }
       this.announceRocket(news);
     });
+  }
+
+  /**
+   * A Rocket report took the place of another without news (`RocketService`: the same hideout
+   * reported again, a hideout put back in the place of a grunt posted nowhere): who was told of
+   * the one counts as told of the other, so that its take-back is told to them (Matt, 2026-11-07).
+   */
+  rocketRenewed(from: RocketReport, to: RocketReport): void {
+    this.safely('Team GO Rocket', () => {
+      if (!this.enabled || this.closed) return;
+      // In the line the DMs of `from` went out in, once they are in line.
+      this.inLine(lineOf(from), () => {
+        this.carryTold(from, to);
+      });
+    });
+  }
+
+  /**
+   * Reports at stops taken back (`StopReportService.takeBack`, as their reporter or as staff):
+   * who was told of them hears so in a second DM (Matt, 2026-11-07), never `by`.
+   */
+  stopReportsTakenBack(serverId: string, reports: readonly StopReport[], by: string): void {
+    this.safely('a report at a stop taken back', () => {
+      this.withdraw(
+        serverId,
+        reports.map((report) => ({
+          report,
+          how: { kind: report.reporter.id === by ? 'reporter' : 'staff' },
+        })),
+        by,
+      );
+    });
+  }
+
+  /**
+   * Tells who was told of reports at stops that they ended before their time (Matt, 2026-11-07):
+   * one second DM per member and line (`lineOf`: a task's, a grunt type's, a hideout's stop), in
+   * the line their first DMs went out in, so that all of those are in line by then. Only those a
+   * DM was put in line for (`toldOfReport`), who still want what they were told of (a want
+   * stopped since is not told), never `actorId`; at the normal priority, plain text without
+   * buttons, dropped once every report of the DM would have ended. A narrowing of the "one of" a
+   * member was told of is no news to them (Matt, plan 8R-5): they are carried over to the
+   * narrowing instead. Nothing is sent where nobody was told, or after a restart.
+   */
+  private withdraw(serverId: string, ends: readonly WithdrawnReport[], actorId: string): void {
+    if (!this.enabled || this.closed || ends.length === 0) return;
+    const byLine = new Map<string, WithdrawnReport[]>();
+    for (const end of ends) {
+      const key = lineOf(end.report);
+      byLine.set(key, [...(byLine.get(key) ?? []), end]);
+    }
+    for (const [key, inLine] of byLine) {
+      /** What each member is told of, read when its turn comes. */
+      const told = new Map<string, WithdrawnReport[]>();
+      this.announce({
+        key,
+        partyId: undefined,
+        guild: serverId,
+        // Nobody is asked whether they view it (`toAll`): they were told of it.
+        channelId: '',
+        actorId,
+        toAll: true,
+        eventAt: this.now(),
+        expiresAt: Math.max(...inLine.map(({ report }) => report.endsAt)),
+        gather: async (guildId) => {
+          const versions = new Map<StopReport, string[]>();
+          for (const end of inLine) {
+            const members = this.toldOfReport.get(toldOfKey(end.report));
+            this.toldOfReport.delete(toldOfKey(end.report));
+            for (const [memberId, version] of members ?? []) {
+              if (end.how.kind === 'replaced' && this.narrows(version, end.how.by)) {
+                this.noteTold(end.how.by, memberId, version);
+                continue;
+              }
+              told.set(memberId, [...(told.get(memberId) ?? []), end]);
+              versions.set(version, [...(versions.get(version) ?? []), memberId]);
+            }
+          }
+          // Who still wants what they were told of (a want stopped since is not told).
+          const wanting = new Set<string>();
+          for (const [version, members] of versions) {
+            const still = await this.wantersOf(guildId, version);
+            for (const memberId of members) if (still.has(memberId)) wanting.add(memberId);
+          }
+          return { ids: [...told.keys()].filter((id) => wanting.has(id)), reasonsOf: () => [] };
+        },
+        variant: (id) => (told.get(id) ?? []).map(({ report }) => String(report.id)).join(' '),
+        message: (_guildId, _reasons, memberId) => ({
+          content: withdrawnDm(told.get(memberId) ?? []),
+        }),
+        priority: () => DM_PRIORITY.normal,
+      });
+    }
+  }
+
+  /**
+   * Whether a research report narrows the "one of" a member was told of (plan 8R-5): the same
+   * task, and a reward of that "one of".
+   */
+  private narrows(told: StopReport, by: StopReport): boolean {
+    if (!isResearchReport(told) || !isResearchReport(by) || !isOneOf(told)) return false;
+    if (taskOfSubject(told.subjectKey) !== taskOfSubject(by.subjectKey)) return false;
+    const [reward] = by.research.rewards;
+    if (!reward || by.research.rewards.length !== 1) return false;
+    const { catalogue } = this.options.gameData;
+    const hash = rewardHash(reward, catalogue);
+    return told.research.rewards.some((one) => rewardHash(one, catalogue) === hash);
+  }
+
+  /**
+   * The members who want what a report at a stop is of, as its DM's matching found them; none
+   * where the wants cannot be read (logged): a second DM is only for who still wants it.
+   */
+  private async wantersOf(guildId: string, report: StopReport): Promise<Set<string>> {
+    const { targetWants, wants, gameData, log } = this.options;
+    const found = new Set<string>();
+    try {
+      if (isResearchReport(report)) {
+        const { rewards } = report.research;
+        const targets = researchTargets(rewards);
+        if (!targetWants || targets.length === 0) return found;
+        for (const one of await targetWants.wanting(guildId, targets)) {
+          if (researchWantsFiring(gameData.catalogue, one.wants, rewards).length > 0) {
+            found.add(one.memberId);
+          }
+        }
+        return found;
+      }
+      if (targetWants) {
+        for (const one of await targetWants.wanting(guildId, rocketTargets(report.subjectKey))) {
+          if (rocketWantsFiring(one.wants, report.subjectKey).length > 0) found.add(one.memberId);
+        }
+      }
+      const { catches } = report.rocket;
+      const numbers = rocketShadowNumbers(catches);
+      if (numbers.length > 0) {
+        for (const one of await wants.wanting(guildId, numbers)) {
+          if (rocketShadowFiring(gameData.catalogue, one.wants, catches).length > 0) {
+            found.add(one.memberId);
+          }
+        }
+      }
+      return found;
+    } catch (err) {
+      log.warn({ err, guild: guildId, report: report.id }, 'could not read who wants a report');
+      return new Set();
+    }
+  }
+
+  /**
+   * Remembers that a DM about a report was put in line for a member (`toldOfReport`), with the
+   * version they were told of; the first version stays.
+   */
+  private noteTold(report: StopReport, memberId: string, version: StopReport = report): void {
+    const key = toldOfKey(report);
+    let members = this.toldOfReport.get(key);
+    if (!members) {
+      members = new Map();
+      this.toldOfReport.set(key, members);
+    }
+    if (!members.has(memberId)) members.set(memberId, version);
+  }
+
+  /** Who was told of one report counts as told of the report that took its place. */
+  private carryTold(from: StopReport, to: StopReport): void {
+    const members = this.toldOfReport.get(toldOfKey(from));
+    this.toldOfReport.delete(toldOfKey(from));
+    for (const [memberId, version] of members ?? []) this.noteTold(to, memberId, version);
   }
 
   private announceRocket(news: RocketNews): void {
@@ -1175,11 +1382,9 @@ export class NotifyService implements PartyNotifier {
         posted === undefined ? undefined : { channelId, messageId: posted };
       this.announce({
         // A grunt's line is its type's (fix B1): reports of one type are worked off in order, so
-        // the hour of a type holds for reports made at once; a hideout's line is its report's,
-        // so that the second channel's DM knows whom the first one told.
-        key: hideout
-          ? `rocket:${news.serverId}:${String(report.id)}`
-          : `rocket:${news.serverId}:${type}`,
+        // the hour of a type holds for reports made at once; a hideout's line is its stop's,
+        // so that the second channel's DM knows whom the first one told (`lineOf`).
+        key: lineOf(report),
         partyId: undefined,
         guild: news.serverId,
         channelId,
@@ -1277,6 +1482,7 @@ export class NotifyService implements PartyNotifier {
           ),
         priority: () => (hideout ? DM_PRIORITY.normal : DM_PRIORITY.spawn),
         sent: (id) => {
+          this.noteTold(report, id);
           if (hideout) this.rocketTold.set(toldKey(id), true);
           else this.rocketHeard.set(quietKey(id), this.now());
         },
@@ -1554,6 +1760,18 @@ export class NotifyService implements PartyNotifier {
     this.background.add(work);
   }
 
+  /** Runs some work on the side after the events of a key that came before it. */
+  private inLine(key: string, work: () => void): void {
+    if (this.closed) return;
+    const done = this.lines
+      .run(key, work)
+      .catch((err: unknown) => {
+        this.options.log.error({ err, key }, 'could not tell members of an event');
+      })
+      .finally(() => this.background.delete(done));
+    this.background.add(done);
+  }
+
   private async guildSnowflake(rowId: number): Promise<string | undefined> {
     const known = this.snowflakes.get(rowId);
     if (known !== undefined) return known;
@@ -1786,6 +2004,26 @@ export class NotifyService implements PartyNotifier {
     this.closed = true;
     while (this.background.size > 0) await Promise.all(this.background);
   }
+}
+
+/**
+ * The line a report at a stop is told in, and so its second DM (Matt, 2026-11-07): a research
+ * task's (R3: every version of the task), a grunt type's (fix B1), a hideout's stop's (the
+ * hideouts of a stop in a day, so that one reported again or put back is told after the one it
+ * replaced).
+ */
+function lineOf(report: StopReport): string {
+  if (isResearchReport(report)) {
+    return `research:${report.serverId}:${taskOfSubject(report.subjectKey)}`;
+  }
+  return isHideoutReport(report)
+    ? `rocket:${report.serverId}:at:${report.stop.key}`
+    : `rocket:${report.serverId}:${typeKeyOf(report.subjectKey)}`;
+}
+
+/** A report's key in `toldOfReport`. */
+function toldOfKey(report: StopReport): string {
+  return `${report.serverId} ${String(report.id)}`;
 }
 
 /**

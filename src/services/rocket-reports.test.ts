@@ -100,6 +100,8 @@ function rocketWith(options: { rehearsal?: boolean; overlap?: boolean } = {}) {
     },
   };
   const told: RocketNews[] = [];
+  /** What the notifier was told took the place of another without news (Matt, 2026-11-07). */
+  const renewed: { from: RocketReport; to: RocketReport }[] = [];
   const rocket = new RocketService({
     reports,
     messages,
@@ -124,7 +126,10 @@ function rocketWith(options: { rehearsal?: boolean; overlap?: boolean } = {}) {
         return id === FAKE_GUILD_ID ? 1 : undefined;
       },
     },
-    notify: { rocketReported: (news) => told.push(news) },
+    notify: {
+      rocketReported: (news) => told.push(news),
+      rocketRenewed: (from, to) => renewed.push({ from, to }),
+    },
     log,
   });
   const report = (key: string, stop = WEST, more: { by?: typeof ASH; replacing?: number } = {}) =>
@@ -156,6 +161,7 @@ function rocketWith(options: { rehearsal?: boolean; overlap?: boolean } = {}) {
     gruntStore,
     rocket,
     told,
+    renewed,
     report,
     refine,
     failSend,
@@ -180,6 +186,29 @@ describe('RocketService', () => {
       [{ channelId: WEST_CHANNEL, messageId: outcome.posted[0]?.messageId }],
     ]);
     expect(await made.messages?.messagesOf(outcome.report.id)).toEqual(outcome.posted);
+  });
+
+  it('tells the notifier what a report replaced while it stood, and what took a hideout’s place without news (Matt, 2026-11-07)', async () => {
+    const made = rocketWith();
+    const grunt = await made.report('grunt:water');
+    const arlo = await made.report('leader:arlo', WEST, { by: MISTY });
+    const again = await made.report('leader:arlo');
+    if (grunt.kind !== 'reported' || arlo.kind !== 'reported' || again.kind !== 'reported') {
+      throw new Error('not reported');
+    }
+    expect(made.told.map((news) => news.replaced)).toEqual([undefined, grunt.report]);
+    // The same hideout again is no news: who was told of Misty's counts as told of Ash's.
+    expect(made.renewed).toEqual([{ from: arlo.report, to: again.report }]);
+  });
+
+  it('tells the notifier that a hideout put back takes the place of the one it was (Matt, 2026-11-07)', async () => {
+    const made = rocketWith();
+    const arlo = await made.report('leader:arlo');
+    if (arlo.kind !== 'reported') throw new Error('not reported');
+    made.failSend.set(WEST_CHANNEL, new Error('503 Service Unavailable'));
+    const outcome = await made.report('grunt:water', WEST, { replacing: arlo.report.id });
+    if (outcome.kind !== 'unposted' || !outcome.restored) throw new Error('not put back');
+    expect(made.renewed).toEqual([{ from: arlo.report, to: outcome.restored }]);
   });
 
   it('puts back the hideout an unposted grunt replaced, under a new id (fix R2)', async () => {

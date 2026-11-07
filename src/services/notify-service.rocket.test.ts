@@ -37,9 +37,10 @@ const RITA = { id: REPORTER, name: 'Rita' };
 const west = (n: number): ReportedStop => reportedStop(n, { lat: 40.05 + n / 1_000, lon: -80.05 });
 const east = reportedStop(90, { lat: 40.05, lon: -79.95 });
 /** The line of `west(n)` in a DM: its name the link to its place (plan 8R-7). */
-const westDm = (n: number): string =>
-  `- **[Yellow Mural ${String(n)}](<https://www.google.com/maps/search/?api=1&query=` +
-  `${String((40_050 + n) / 1_000)}%2C-80.05>)** · Market Street`;
+const westLink = (n: number): string =>
+  `**[Yellow Mural ${String(n)}](<https://www.google.com/maps/search/?api=1&query=` +
+  `${String((40_050 + n) / 1_000)}%2C-80.05>)**`;
+const westDm = (n: number): string => `- ${westLink(n)} · Market Street`;
 
 const rocketWant = (who: string): TargetWant => ({ kind: 'rocket', who });
 
@@ -80,8 +81,17 @@ async function rocketWith(notifying: Partial<NotifyServiceOptions> = {}, rehears
       rocketReported: (news) => {
         notifier.current.rocketReported(news);
       },
+      rocketRenewed: (from, to) => {
+        notifier.current.rocketRenewed(from, to);
+      },
     },
     log: made.log,
+  });
+  // A report taken back is told to who was told of it (Matt, 2026-11-07), as `app.ts` wires it.
+  reports.listen({
+    takenBack: (serverId, removed, by) => {
+      notifier.current.stopReportsTakenBack(serverId, removed, by);
+    },
   });
   const want = (memberId: string, ...targets: TargetWant[]) =>
     made.targetWants.change(memberId, made.gateway.guildId, { add: targets, remove: [] }, 0);
@@ -384,15 +394,20 @@ describe('NotifyService: Team GO Rocket is reported (plan 8R-2, design 7)', () =
       `Go to post ${postLink(made.gateway.guildId, '300000000000000099', '300000000000000077')}`,
     ]);
     expect(made.dms.jobs[0]?.priority).toBe(DM_PRIORITY.normal);
-    // The same hideout again, or reported anew after being taken back: nobody told twice.
+    // The same hideout again, or reported anew after being taken back: nobody told twice. Bob's
+    // report taken back is told to who was told of the hideout there (Matt, 2026-11-07).
     await made.report('leader:arlo', west(1), { id: BOB, name: 'Bob' });
     const standing = await made.reports.rocketAt(made.gateway.guildId, west(1).key);
     await made.reports.takeBack(made.gateway.guildId, [standing?.id ?? 0], BOB, 'member');
+    await made.notify.flush();
     await made.report('leader:arlo');
-    expect(made.dms.to(ALICE)).toHaveLength(1);
+    expect(made.dms.to(ALICE).map((one) => one?.content)).toEqual([
+      undefined,
+      `The report of **Arlo** at ${westLink(1)} was taken back by its reporter.`,
+    ]);
     // Arlo at another stop is news.
     await made.report('leader:arlo', west(2));
-    expect(made.dms.to(ALICE)).toHaveLength(2);
+    expect(made.dms.to(ALICE)).toHaveLength(3);
   });
 
   it('tells only who can view the region channel, with no link in rehearsal mode', async () => {
@@ -413,5 +428,88 @@ describe('NotifyService: Team GO Rocket is reported (plan 8R-2, design 7)', () =
     expect(made.dms.recipients).toEqual([]);
     made.settings.features.notifications = true;
     await background.settle();
+  });
+});
+
+describe('NotifyService: a Rocket report taken back or replaced early (Matt, 2026-11-07)', () => {
+  const MISTY = { id: '200000000000000099', name: 'Misty' };
+
+  /** Takes a report back as `/rocket remove` would, and waits for what it tells. */
+  async function takeBack(
+    made: Awaited<ReturnType<typeof rocketWith>>,
+    id: number,
+    by: string,
+    as: 'member' | 'staff' = 'member',
+  ) {
+    const taken = await made.reports.takeBack(made.gateway.guildId, [id], by, as);
+    await made.notifier.current.flush();
+    return taken;
+  }
+
+  it('tells who was told of a grunt that its reporter took it back, in a second DM without buttons', async () => {
+    const made = await rocketWith();
+    await made.want(ALICE, rocketWant('grunt:water'));
+    await made.want(BOB, rocketWant('grunt:fire'));
+    const outcome = await made.report('grunt:water');
+    if (outcome.kind !== 'reported') throw new Error('not reported');
+    await takeBack(made, outcome.report.id, REPORTER);
+    expect(made.dms.recipients).toEqual([ALICE]);
+    const [, second] = made.dms.to(ALICE);
+    expect(second).toEqual({
+      content: `The report of a **Water-type grunt** at ${westLink(1)} was taken back by its reporter.`,
+    });
+    expect(buttonsOf(second)).toEqual([]);
+    // Only while the grunt would have stood.
+    expect(made.dms.jobs[1]).toEqual(
+      expect.objectContaining({ priority: DM_PRIORITY.normal, expiresAt: outcome.report.endsAt }),
+    );
+  });
+
+  it('says that staff took it back, and tells neither the staff member nor who stopped the want since', async () => {
+    const made = await rocketWith();
+    await made.want(ALICE, rocketWant('grunt:water'));
+    await made.want(BOB, rocketWant('grunt:water'));
+    await made.want(CAROL, rocketWant('grunt:water'));
+    const outcome = await made.report('grunt:water');
+    if (outcome.kind !== 'reported') throw new Error('not reported');
+    await made.targetWants.change(
+      CAROL,
+      made.gateway.guildId,
+      { add: [], remove: [rocketWant('grunt:water')] },
+      0,
+    );
+    await takeBack(made, outcome.report.id, BOB, 'staff');
+    expect(made.dms.to(ALICE).at(-1)).toEqual({
+      content: `The report of a **Water-type grunt** at ${westLink(1)} was taken back by staff.`,
+    });
+    expect(made.dms.to(BOB)).toHaveLength(1);
+    expect(made.dms.to(CAROL)).toHaveLength(1);
+  });
+
+  it('says that a grunt was replaced, naming what stands there now', async () => {
+    const made = await rocketWith();
+    await made.want(ALICE, rocketWant('grunt:water'));
+    await made.report('grunt:water');
+    await made.report('leader:arlo', west(1), MISTY);
+    expect(made.dms.to(ALICE).at(-1)).toEqual({
+      content:
+        `The report of a **Water-type grunt** at ${westLink(1)} was replaced: ` +
+        '**Arlo** is reported there now.',
+    });
+    expect(made.dms.to(ALICE)).toHaveLength(2);
+  });
+
+  it('sends nothing where nobody was told, and nothing after a restart', async () => {
+    const made = await rocketWith();
+    const nobody = await made.report('grunt:water');
+    if (nobody.kind !== 'reported') throw new Error('not reported');
+    await made.want(ALICE, rocketWant('grunt:water'));
+    await takeBack(made, nobody.report.id, REPORTER);
+    expect(made.dms.recipients).toEqual([]);
+    const told = await made.report('grunt:water', west(2));
+    if (told.kind !== 'reported') throw new Error('not reported');
+    made.restart();
+    await takeBack(made, told.report.id, REPORTER);
+    expect(made.dms.to(ALICE)).toHaveLength(1);
   });
 });
