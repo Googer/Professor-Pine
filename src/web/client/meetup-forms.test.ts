@@ -112,7 +112,7 @@ function withAttribute(node: PageNode, name: string): PageNode[] {
   ];
 }
 
-const VALUES = { name: 'Picnic', region: '1', start: '6pm', info: 'Bring snacks.' };
+const VALUES = { name: 'Picnic', region: '1', start: '6pm', end: '', info: 'Bring snacks.' };
 
 /** The editor's fields as `meetupEditor(MEETUP, …)` draws them, nothing typed. */
 const SHOWN = { name: 'Picnic', info: 'Bring snacks.', start: '', end: '' };
@@ -204,7 +204,7 @@ describe('the zone the new meetup form reads its start in (review N4)', () => {
 });
 
 describe('the form of a new meetup', () => {
-  it('asks the name, the region (the place’s by default), the place, the start and the information', () => {
+  it('asks the name, the region (the place’s by default), the place, the start, the end and the information', () => {
     const form = newMeetupForm(REGIONS, gymPick(GYM));
     expect(texts(form)).toEqual([
       'New meetup',
@@ -217,6 +217,7 @@ describe('the form of a new meetup', () => {
       'The Stacks (gym)',
       'Pick again',
       'Starts',
+      'Ends',
       'Information',
       'Make the meetup',
       'Cancel',
@@ -274,6 +275,25 @@ describe('the form of a new meetup', () => {
         info: 'Bring snacks.',
       },
     });
+    // An end as `/meetup end:` takes it, sent only when one is typed.
+    expect(newMeetupBody({ ...VALUES, end: ' 8pm ' }, gymPick(GYM))).toEqual({
+      body: {
+        region: 1,
+        name: 'Picnic',
+        place: { kind: 'gym', id: '1' },
+        start: '6pm',
+        end: '8pm',
+        info: 'Bring snacks.',
+      },
+    });
+    // What was typed stays when the form is drawn anew.
+    const ends = withAttribute(
+      newMeetupForm(REGIONS, gymPick(GYM), { ...VALUES, end: '9pm' }),
+      'value',
+    );
+    expect(ends.map((node) => node.attributes)).toContainEqual(
+      expect.objectContaining({ name: 'end', value: '9pm' }),
+    );
     expect(newMeetupBody({ ...VALUES, name: ' ' }, gymPick(GYM))).toEqual({
       text: 'Give the meetup a name first.',
     });

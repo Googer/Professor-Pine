@@ -152,6 +152,31 @@ describe('making a meetup on the map', () => {
     );
   });
 
+  it('takes an end as /meetup end: does, in its words, and a meetup held for the moderators keeps it', async () => {
+    const map = await making();
+    web = map.web;
+    const early = await map.make(asked({ kind: 'gym', id: '1' }, { end: '5pm' }));
+    expect(early.status).toBe(422);
+    expect(early.json.text).toMatch(/^"5pm" cannot be the time the meetup ends/);
+    const unread = await map.make(asked({ kind: 'gym', id: '1' }, { end: 'later' }));
+    expect(unread.status).toBe(422);
+    expect(unread.json.text).toMatch(/^I could not read "later" as the time the meetup ends\./);
+    expect(map.meetups()).toEqual([]);
+    // Neither counted.
+    const made = await map.make(asked({ kind: 'gym', id: '1' }, { end: '8pm' }));
+    expect(made.status).toBe(200);
+    expect(map.meetups()[0]?.endTime).toBe(at('2026-10-13T20:00'));
+    const held = await map.make(asked({ lat: 40.0805, lon: -80.0805 }, { end: '8pm' }));
+    expect(held.json.outcome).toBe('held');
+    const [request] = map.made.storage.requests.values();
+    expect(request?.endTime).toBe(at('2026-10-13T20:00'));
+    // `none`, or no end at all (a page from before), is no end.
+    map.web.clock.now += 16 * 60_000;
+    const none = await map.make(asked({ kind: 'gym', id: '3' }, { name: 'Open end', end: 'none' }));
+    expect(none.status).toBe(200);
+    expect(map.meetups().find((one) => one.timed.name === 'Open end')?.endTime).toBeNull();
+  });
+
   it('makes one at a PokéStop as a pick of /meetup near: makes it', async () => {
     const map = await making();
     web = map.web;

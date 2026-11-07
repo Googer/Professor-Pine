@@ -192,6 +192,8 @@ export interface NewMeetupValues {
   name: string;
   region: string;
   start: string;
+  /** When it ends, as `/meetup end:` takes it; blank for none. */
+  end: string;
   info: string;
 }
 
@@ -200,7 +202,8 @@ export interface NewMeetupValues {
  * (any region of the server; the first the place lies in, following each place picked, until the
  * member chooses one: `regionChosen`), its place (picked on the map: "Pick on the map", or what
  * was picked with "Pick again"; while picking, what to click and "Stop picking"), when it starts
- * (required, as `/meetup start:` reads it), and its information (required, as `/meetup`'s form).
+ * (required, as `/meetup start:` reads it), when it ends (optional, as `/meetup end:` reads it),
+ * and its information (required, as `/meetup`'s form).
  * `filled` is what the form drawn before held.
  */
 export function newMeetupForm(
@@ -265,6 +268,7 @@ export function newMeetupForm(
       },
       ...pinNote,
       labelled('Starts', textInput('start', START_LENGTH, NEW_MEETUP_START_EXAMPLES, filled.start)),
+      labelled('Ends', textInput('end', START_LENGTH, '8pm, in 90, or leave it blank', filled.end)),
       ...(zones === undefined ? [] : zoneHintNodes(zones.zone, zones.reader)),
       labelled('Information', infoArea(filled.info)),
       {
@@ -292,7 +296,18 @@ export function newMeetupBody(values: NewMeetupValues, place: PickedPlace | unde
   if (values.info.trim() === '') {
     return { text: 'Say what there is to know first: where to meet, what to bring.' };
   }
-  return { body: { region, name, place: place.body, start, info: values.info } };
+  // An end only where one is typed: the server reads it as `/meetup end:` does.
+  const end = values.end.trim();
+  return {
+    body: {
+      region,
+      name,
+      place: place.body,
+      start,
+      ...(end === '' ? {} : { end }),
+      info: values.info,
+    },
+  };
 }
 
 /** "Manage…" in a meetup's popup or item, for its maker and staff (`MapMeetup.panel`). */

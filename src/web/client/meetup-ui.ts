@@ -278,6 +278,7 @@ export function meetupUi(deps: MeetupUiDeps) {
         name: fields.name ?? '',
         region: fields.region ?? '',
         start: fields.start ?? '',
+        end: fields.end ?? '',
         info: fields.info ?? '',
       },
       making.place,

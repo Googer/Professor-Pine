@@ -24,6 +24,7 @@ import {
   START_THROTTLE,
   startAs,
   timedTimeHint,
+  typedNewEnd,
   typedTimedTime,
   type TimedAnswer,
   type TimesRead,
@@ -138,8 +139,9 @@ const placeSchema = z.union([
 
 /**
  * The body of a new meetup: the region (by id, as `/api/geo` lists it), the name as `/meetup`
- * takes it (blanks allowed so that they are refused in its words), the place, the start as its
- * option takes it (up to 100), the information as its form takes it. Anything else is malformed.
+ * takes it (blanks allowed so that they are refused in its words), the place, the start and the
+ * end as its options take them (up to 100; the end optional, left out by a page from before), the
+ * information as its form takes it. Anything else is malformed.
  */
 const makeBodySchema = z
   .object({
@@ -147,6 +149,7 @@ const makeBodySchema = z
     name: z.string().max(MAX_PARTY_NAME),
     place: placeSchema,
     start: z.string().max(100),
+    end: z.string().max(100).optional(),
     info: z.string().max(MAX_MEETUP_DESCRIPTION),
   })
   .strict();
@@ -315,6 +318,7 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
     if ('refusal' in where) return refused(422, where.refusal);
     const now = deps.now();
     let startTime: number;
+    let endTime: number | undefined;
     try {
       const typed = typedTimedTime(ctx, newPartyTimes('meetup', now), 'meet', body.data.start, now);
       if (typed === 'unset') {
@@ -324,6 +328,8 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
         );
       }
       startTime = typed.at;
+      // As `/meetup end:` reads it (`typedNewEnd`): one path, the same words.
+      endTime = typedNewEnd(ctx, 'meetup', startTime, body.data.end ?? null, now);
     } catch (err) {
       if (!(err instanceof UserError)) throw err;
       return refused(422, err.message);
@@ -378,6 +384,7 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
           place: where.place,
           name: body.data.name,
           startTime,
+          ...(endTime === undefined ? {} : { endTime }),
           description: body.data.info,
           staff,
           source: 'map',
