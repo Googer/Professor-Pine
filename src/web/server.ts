@@ -32,6 +32,7 @@ import type { Sessions } from './sessions.js';
 import type { SpawnWebDeps } from './spawn-routes.js';
 import type { StopWebDeps } from './stop-routes.js';
 import type { ActivityWebDeps } from './history-routes.js';
+import type { RegionWebDeps } from './region-routes.js';
 import type { PostWebDeps } from './post-control-routes.js';
 import type { TrainWebDeps } from './train-routes.js';
 import { toolFileRoutes, toolPageRoutes, type ToolWebDeps } from './tool-routes.js';
@@ -91,6 +92,8 @@ export interface WebDeps {
   stops: StopWebDeps;
   /** The activity heatmap of the live map: the history's buckets and what places them (plan 8H-4). */
   activity: ActivityWebDeps;
+  /** "Your regions" on the live map: how a member stands to the regions, joining them (plan 8M-20). */
+  regions: RegionWebDeps;
   /** Staff's Delete… and reports to the moderators on the live map (plan 8M-8B). */
   posts: PostWebDeps;
   /** The Wayfarer export tool and who may have it (plan 8W-P): `/userscript`. */

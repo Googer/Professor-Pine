@@ -1592,6 +1592,14 @@ export async function startApp(
         // Raids by day, big days and a boss's trend (plan 8H-8).
         days: historyDays,
       },
+      // "Your regions" on the map (plan 8M-20): the member and the regions' gates looked at once,
+      // joined and left through /iam's own service (none where self-assigned roles are off).
+      regions: {
+        guilds,
+        regions,
+        gates: partyGateway,
+        selfRoles: config.settings.features.roles ? ctx.selfRoles : undefined,
+      },
       // The Wayfarer export tool (plan 8W-P): served from wayspot-tool/ to the admins the owner
       // approved, on an instance that has the file (the owner's).
       tool: {

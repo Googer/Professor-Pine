@@ -29,6 +29,7 @@ import type { MaxWebContext, MaxWebDeps } from '../../src/web/max-routes.js';
 import type { PostWebContext, PostWebDeps } from '../../src/web/post-control-routes.js';
 import type { StopWebContext, StopWebDeps } from '../../src/web/stop-routes.js';
 import type { ActivityWebDeps } from '../../src/web/history-routes.js';
+import type { RegionWebDeps } from '../../src/web/region-routes.js';
 import { MemoryHistory } from './history.js';
 import { MemoryActivity } from './activity.js';
 import type { ActivityDayReader } from '../../src/db/repositories/activity-repository.js';
@@ -580,6 +581,17 @@ const NO_ACTIVITY: ActivityWebDeps = new Proxy({} as ActivityWebDeps, {
   },
 });
 
+/**
+ * No regions open by role (plan 8M-20): the server has no region, and roles are off. A test of
+ * "Your regions" passes `regionRolesWith`'s `deps`.
+ */
+const NO_REGIONS: RegionWebDeps = {
+  guilds: { idFor: () => Promise.resolve(undefined) },
+  regions: { all: () => [] },
+  gates: { memberGates: () => Promise.resolve(undefined) },
+  selfRoles: undefined,
+};
+
 /** No reports at stops: a test that has them passes `stopWebWith`. */
 const NO_STOPS: StopWebDeps = {
   ctx: new Proxy({} as StopWebContext, {
@@ -719,6 +731,8 @@ export interface WebTestOptions {
   stops?: StopWebDeps;
   /** The activity heatmap on the map (`activityWebWith`); none by default. */
   activity?: ActivityWebDeps;
+  /** "Your regions" on the map (`regionRolesWith`'s `deps`, plan 8M-20); none by default. */
+  regions?: RegionWebDeps;
   /** Staff's Delete… and reports to the moderators on the map (`postWebWith`); none by default. */
   posts?: PostWebDeps;
   /** The Wayfarer export tool and who may have it (`toolWebWith`); no tool file by default. */
@@ -992,6 +1006,7 @@ export function webServerWith(options: WebTestOptions = {}): TestWeb {
     maxes: options.maxes ?? NO_MAXES,
     stops: options.stops ?? NO_STOPS,
     activity: options.activity ?? NO_ACTIVITY,
+    regions: options.regions ?? NO_REGIONS,
     posts: options.posts ?? NO_POSTS,
     tool: options.tool ?? NO_TOOL,
     pictures: {

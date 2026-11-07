@@ -16,6 +16,7 @@ import { partyRoutes } from './party-routes.js';
 import { postControlRoutes } from './post-control-routes.js';
 import { PartyViewers } from './party-viewers.js';
 import { raidRoutes } from './raid-routes.js';
+import { regionRoutes } from './region-routes.js';
 import { limitedPerAddress, RateLimiter } from './rate-limit.js';
 import { mayEditRegions } from './region-staff.js';
 import { spawnRoutes } from './spawn-routes.js';
@@ -227,6 +228,10 @@ export function guildRoutes(
   // The activity heatmap of the party history (plan 8H-4): for the same members, the regions
   // they are barred from left out by the same viewers.
   historyRoutes(scope, map, viewers);
+
+  // "Your regions" on the live map (plan 8M-20): how the member stands to each region, and the
+  // roles that open them, for the same members, through the same viewers.
+  regionRoutes(scope, map, viewers);
 
   // Find's places by name on the live map (plan 8M-12): for the same members.
   findRoutes(scope, map);

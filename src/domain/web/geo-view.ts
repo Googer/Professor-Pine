@@ -50,10 +50,18 @@ const round = (value: number): number => Math.round(value * 1e6) / 1e6;
  * see is named by its number), and the gyms that lie in at least one of them. Gyms that lie in
  * no region of any server are left out: which server's they are is not cheap to say (8M-1).
  */
+/**
+ * Whether a region is on the map: it has an outline (`/api/geo` shows it; "Your regions" lists
+ * it, plan 8M-20).
+ */
+export function hasOutline<R extends Pick<GeoRegion, 'bounds'>>(
+  region: R,
+): region is R & { bounds: readonly LatLon[] } {
+  return region.bounds !== null;
+}
+
 export function geoView(input: GeoInput): GeoView {
-  const shown = input.regions.filter(
-    (region): region is GeoRegion & { bounds: readonly LatLon[] } => region.bounds !== null,
-  );
+  const shown = input.regions.filter(hasOutline);
   const byChannel = new Map(shown.map((region) => [region.channelId, region.id]));
   const regions = shown
     .map((region) => ({
