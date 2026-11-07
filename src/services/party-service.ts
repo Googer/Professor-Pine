@@ -810,6 +810,8 @@ export class PartyService {
   private readonly creating = new Map<string, Promise<void>>();
   /** A raid moves to another region once at a time. */
   private readonly moves = new KeyedLock<string>();
+  /** The new parties of moves under way, until the move landed or failed (`moveUnderWay`). */
+  private readonly deciding = new Map<string, Promise<void>>();
   /**
    * The messages on their way into the post of a party (a completion question, the archive
    * warning: `whileOpen`), by party: the closing of an ended party waits for them.
@@ -1673,9 +1675,12 @@ export class PartyService {
       }
       const existingId = stored.existing.id;
       const inFlight = this.creating.get(existingId);
-      if (inFlight) {
+      // The new party of a move: joined only once the move has landed (follow-ups 604).
+      const moving = this.deciding.get(existingId);
+      if (inFlight || moving) {
         await inFlight;
-        // Its creation failed and the raid is gone: report again from the start, once.
+        await moving;
+        // Its creation or its move failed and the raid is gone: report again from the start, once.
         if (!store.get(existingId) && mayRepeat) return this.report(report, false);
       }
       // The raid it would join may stand in a forum the caller did not check (one reported
@@ -1905,15 +1910,41 @@ export class PartyService {
     by?: { id: string } & MemberInfo,
     moved?: (party: RaidParty) => Promise<unknown>,
   ): Promise<RelocateOutcome> {
-    return this.moves.run(partyId, () => this.relocateNow(partyId, gym, region, by, moved));
+    return this.moves.run(partyId, async () => {
+      const move: { decided?: () => void } = {};
+      try {
+        return await this.relocateNow(partyId, gym, region, by, moved, move);
+      } finally {
+        move.decided?.();
+      }
+    });
+  }
+
+  /**
+   * Remembers that the new party of a move waits for the move’s outcome (2026-11-07,
+   * follow-ups 604): a report of its gym meanwhile waits for it (`deciding`), so that it never
+   * joins a raid whose post a failed move deletes a moment later. Gives the function that says
+   * it is decided (once is enough; more do nothing).
+   */
+  private moveUnderWay(partyId: string): () => void {
+    let resolve: () => void = () => undefined;
+    const decision = new Promise<void>((done) => {
+      resolve = done;
+    });
+    this.deciding.set(partyId, decision);
+    return () => {
+      resolve();
+      if (this.deciding.get(partyId) === decision) this.deciding.delete(partyId);
+    };
   }
 
   private async relocateNow(
     partyId: string,
     gym: Gym,
     region: Region,
-    by?: { id: string } & MemberInfo,
-    moved?: (party: RaidParty) => Promise<unknown>,
+    by: ({ id: string } & MemberInfo) | undefined,
+    moved: ((party: RaidParty) => Promise<unknown>) | undefined,
+    move: { decided?: () => void },
   ): Promise<RelocateOutcome> {
     const { store, gateway, log } = this.options;
     const old = store.get(partyId);
@@ -1942,6 +1973,9 @@ export class PartyService {
     if (!stored.added) {
       return stored.existing ? { kind: 'taken', other: stored.existing } : { kind: 'gym-gone' };
     }
+    // A report of the gym waits until the move has landed (the old party ended, what it was
+    // carried over) or failed (the new party taken back).
+    move.decided = this.moveUnderWay(raid.id);
     // Before the old party ends: who was told about it is not told again about the new one.
     this.notifier?.raidMoving(partyId, raid.id);
     // A failure in here ends the new party again and leaves the old one alone.
@@ -2030,6 +2064,7 @@ export class PartyService {
     } catch (err) {
       log.warn({ err, party: raid.id }, 'could not carry over what changed while a raid moved');
     }
+    move.decided();
     this.ended(from);
     if (moved) {
       const there = party;

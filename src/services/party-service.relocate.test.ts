@@ -591,6 +591,35 @@ describe('PartyService.relocate: what happens meanwhile', () => {
     expect(made.store.get(outcome.party.id)?.attendees[CAROL]).toBeDefined();
     expect(made.gateway.postsIn(EAST_FORUM)).toHaveLength(1);
   });
+
+  it('makes a report of the new gym during a move that then fails a raid of its own, with a post that stays', async () => {
+    const made = await reportedRaid(yveltal);
+    const { release, reached } = holdPost(made);
+    const moving = made.service.relocate(made.party.id, cafe(), east(made));
+    await reached;
+    const reporting = made.service.reportRaid({
+      gym: cafe(),
+      reporterId: CAROL,
+      anonymous: false,
+      autoStatus: PartyStatus.Coming,
+      tier: { level: 'T3', shadow: false },
+      boss: null,
+      regionChannelId: EAST_CHANNEL,
+    });
+    // The old raid is closed while its new post is being made: the move fails.
+    await made.service.end(made.party.id, undefined, { lastWords: 'Closed.' });
+    release();
+    const [outcome, report] = await Promise.all([moving, reporting]);
+    await settled(made);
+    expect(outcome).toEqual({ kind: 'gone' });
+    if (report.kind !== 'created') throw new Error(`not created: ${report.kind}`);
+    // The report made the raid it reported, with a post that is there.
+    expect(report.party).toMatchObject({ gymId: 8, raid: { tier: { level: 'T3' } } });
+    expect(made.store.get(report.party.id)?.attendees[CAROL]).toBeDefined();
+    expect(made.gateway.postsIn(EAST_FORUM).map((post) => post.id)).toEqual([
+      report.party.forumPostId,
+    ]);
+  });
 });
 
 describe('PartyService.relocate: the clock and a restart', () => {
