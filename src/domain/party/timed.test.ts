@@ -54,6 +54,27 @@ describe('tidyName', () => {
     expect(tidyName(`${'x'.repeat(MAX_PARTY_NAME)}\u200b\u200b`)).toHaveLength(MAX_PARTY_NAME);
   });
 
+  it('knows no name in characters nobody can see that are no control or format characters', () => {
+    // Hangul fillers, the blank braille pattern, a lone joiner, a combining mark or a variation
+    // selector on nothing: each looks like an empty title.
+    for (const blank of [
+      '\u3164',
+      '\u2800\u2800',
+      '\u200d',
+      ' \u115f\u1160 \uffa0 ',
+      '\u034f',
+      '\ufe0f',
+      '\u3164\u0301',
+      '\u3000',
+    ]) {
+      expect(tidyName(blank)).toBeUndefined();
+    }
+    // Among visible characters they stay as they were typed.
+    expect(tidyName('Picnic \u2800')).toBe('Picnic \u2800');
+    expect(tidyName('\u2764\ufe0f')).toBe('\u2764\ufe0f');
+    expect(tidyName('e\u0301')).toBe('e\u0301');
+  });
+
   it('drops a direction override, which would turn the title of the post around', () => {
     expect(tidyName('\u202ecinciP')).toBe('cinciP');
     expect(tidyName('a\u202db\u2066c\u2069d\u200ee\u200f')).toBe('abcde');

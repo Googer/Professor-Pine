@@ -443,6 +443,12 @@ describe('groups', () => {
       reason: 'label-too-long',
     });
     expect(labelGroup(party, REPORTER, 'x'.repeat(100)).ok).toBe(true);
+    // A label nobody can see is none, as an empty one; what cannot be seen is dropped.
+    party = done(labelGroup(party, REPORTER, 'park'));
+    party = done(labelGroup(party, REPORTER, '\u3164 \u2800'));
+    expect(party.groups).toEqual([{ id: 'A' }]);
+    party = done(labelGroup(party, REPORTER, 'park\u202e side'));
+    expect(party.groups).toEqual([{ id: 'A', label: 'park side' }]);
   });
 
   it('sets and removes the meeting time of the own group and names who to tell', () => {

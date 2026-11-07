@@ -12,6 +12,7 @@ import {
   type TimedParty,
 } from './party.js';
 import { PartyStatus } from './status.js';
+import { tidyShortText } from './visible-text.js';
 
 const MINUTE = 60_000;
 const HOUR = 3_600_000;
@@ -112,18 +113,12 @@ export function startTimeOf(party: TimedParty): number | null {
 }
 
 /**
- * A name as it is kept: on one line, runs of white space as one space, the ends trimmed, and
- * without characters that cannot be seen (control and format characters: a zero-width space is
- * no name, and a direction override would turn the title of the post around). The zero-width
- * joiner stays: emoji are built with it. Undefined for a text that is no name: nothing left, or
- * longer than a name may be.
+ * A name as it is kept (`tidyShortText`: on one line, single spaces, without characters that
+ * cannot be seen, the zero-width joiner kept for emoji). Undefined for a text that is no name:
+ * nothing in it shows (also Hangul fillers or blank braille), or longer than a name may be.
  */
 export function tidyName(text: string): string | undefined {
-  const name = text
-    .replace(/\s+/g, ' ')
-    .replace(/(?!\u200d)[\p{Cc}\p{Cf}]/gu, '')
-    .replace(/ +/g, ' ')
-    .trim();
+  const name = tidyShortText(text);
   return name === '' || name.length > MAX_PARTY_NAME ? undefined : name;
 }
 

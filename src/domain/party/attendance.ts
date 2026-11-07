@@ -27,6 +27,7 @@ import {
 } from './party.js';
 import { raidStage } from './raid.js';
 import { PartyStatus } from './status.js';
+import { tidyShortText } from './visible-text.js';
 
 const MINUTE = 60_000;
 /** A group label is shown in the post and on a button, which takes 100 characters. */
@@ -688,9 +689,12 @@ export function nextGroupId(party: Party): GroupId | undefined {
   );
 }
 
-/** A group's label as it is kept: white space tidied; undefined for none. */
+/**
+ * A group's label as it is kept, as a party's name is (`tidyShortText`); undefined for none, also
+ * for a label in which nothing shows.
+ */
 function tidyLabel(text: string): string | undefined {
-  const label = text.replace(/\s+/g, ' ').trim();
+  const label = tidyShortText(text);
   return label === '' ? undefined : label;
 }
 
@@ -768,7 +772,7 @@ export function labelGroup<P extends Party>(
   const existing = attendeeOf(party, memberId);
   const group = existing && groupOf(party, existing.group);
   if (!group) return refused('not-attending');
-  const label = text.replace(/\s+/g, ' ').trim();
+  const label = tidyShortText(text);
   if (label.length > MAX_GROUP_LABEL) return refused('label-too-long');
   const { label: _old, ...rest } = group;
   return {
