@@ -2374,7 +2374,7 @@ The main checkout at typescript-migration eabb6b2e, normal stage settings, no de
   - The map’s hideouts show the post’s square picture.
   - The summary names waiting tasks apart: "· 13 tasks back at <time>".
 - **Left for later:**
-  - The map’s catches and rewards still use the feeds’ addresses (only hideouts use the squares): for the map’s UX pass.
+  - ~~The map’s catches and rewards still use the feeds’ addresses (only hideouts use the squares): for the map’s UX pass.~~ **Done** by plan 8M-9B (in the squashed history, 7c1e32cd; found so 2026-11-07): every reward, catch and report picture of `/api/stop-reports`, `/api/research-options` and `/api/rocket-options` is named through `StopPictures.url`, the square picture Pine serves under `publicUrl/pictures/`, as the posts name it (`mapReward`, `mapCatch`, `reportPicture` of `stop-report-view.ts` with the routes' `picture` lookup; tested in `stop-report-view.test.ts` and `stop-options.test.ts`), still only from `pictureOrigins` (`allowedPicture`); the CSP unchanged.
   - The map’s `waiting` count is unchanged.
   - Whether `app.ts` calls `picturesServed` and `stopReportSteps` is seen only by reading it, since `startApp` is not unit-tested.
 
