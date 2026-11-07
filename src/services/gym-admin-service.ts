@@ -10,7 +10,7 @@ import {
   type OutgoingMessage,
   type PartyGateway,
 } from '../discord/party-gateway.js';
-import { metresBetween, placesWithin } from '@pine/wayspot-core/distance';
+import { metresBetween, nearestTo, placesWithin } from '@pine/wayspot-core/distance';
 import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import { readLocation } from '../domain/geo/location-input.js';
 import { ringContains } from '@pine/wayspot-core/region-membership';
@@ -325,13 +325,34 @@ export class GymAdminService {
   }
 
   /**
-   * The gyms within `DUPLICATE_METRES` of a point, nearest first: any gym, wherever it lies.
-   * `exceptId` leaves out the gym that is being moved.
+   * The gyms within `DUPLICATE_METRES` of a point, nearest first, of those the staff of a server
+   * may touch (`mayTouch`: in a region of theirs, or in no region): another server's gyms are
+   * not theirs to be asked about, nor named to them. `exceptId` leaves out the gym that is being
+   * moved.
    */
-  near(point: LatLon, exceptId?: number): NearbyGym[] {
-    return placesWithin(point, this.options.directory.all(), DUPLICATE_METRES, exceptId).map(
-      ({ place, metres }) => ({ gym: place, metres }),
-    );
+  near(point: LatLon, guildId: number | undefined, exceptId?: number): NearbyGym[] {
+    const theirs = this.options.directory.all().filter((gym) => this.mayTouch(gym.id, guildId));
+    return placesWithin(point, theirs, DUPLICATE_METRES, exceptId).map(({ place, metres }) => ({
+      gym: place,
+      metres,
+    }));
+  }
+
+  /**
+   * The gym nearest to a gym, of those the staff of a server may touch (`mayTouch`), with its
+   * distance: the stored nearest gym (`Gym.nearestGym`, of every gym) when it is theirs, else
+   * the nearest of theirs, so that a view never names another server's gym. Undefined when
+   * there is none.
+   */
+  nearestFor(gym: Gym, guildId: number | undefined): NearbyGym | undefined {
+    const { directory } = this.options;
+    const stored = gym.nearestGym === null ? undefined : directory.get(gym.nearestGym);
+    if (stored && this.mayTouch(stored.id, guildId)) {
+      return { gym: stored, metres: metresBetween(gym, stored) };
+    }
+    const theirs = directory.all().filter((other) => this.mayTouch(other.id, guildId));
+    const found = nearestTo(gym, theirs);
+    return found && { gym: found.place, metres: found.metres };
   }
 
   /** The regions of a server (by its row id) a gym lies in. */
@@ -445,7 +466,7 @@ export class GymAdminService {
   ): Promise<AddOutcome> {
     const { gyms, upkeep, directory, log } = this.options;
     if (!this.mayPlace(gym, place.guildId)) return { kind: 'foreign' };
-    const near = this.near(gym);
+    const near = this.near(gym, place.guildId);
     if (near.some((found) => !known.has(found.gym.id))) return { kind: 'near', near };
     const created = await gyms.create(gym);
     log.info(
@@ -834,7 +855,7 @@ export class GymAdminService {
       if (from.lat !== asked.from.lat || from.lon !== asked.from.lon) {
         return { kind: 'elsewhere', gym: before };
       }
-      const near = this.near(point, id);
+      const near = this.near(point, staff.guildId, id);
       if (near.some((found) => !asked.nearIds.includes(found.gym.id)))
         return { kind: 'near', near };
       const written = await gyms.update(id, { lat: point.lat, lon: point.lon });

@@ -23,7 +23,6 @@ import {
   v2Answer,
 } from '../../discord/late-reply.js';
 import type { V2Message } from '../../discord/party-gateway.js';
-import { metresBetween } from '@pine/wayspot-core/distance';
 import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import { LOCATION_FORMS } from '../../domain/geo/location-input.js';
 import {
@@ -442,11 +441,10 @@ export async function gymViewMessage(
     }),
     mapOrNothing(ctx.maps.gym(gym), ctx.log, 'a gym', { gym: gym.id }),
   ]);
-  const nearestGym = gym.nearestGym === null ? undefined : ctx.gyms.get(gym.nearestGym);
   return renderGymView({
     gym,
     regions: ctx.gymAdmin.regionsOf(gym.id, place.guildId),
-    nearest: nearestGym && { gym: nearestGym, metres: metresBetween(gym, nearestGym) },
+    nearest: ctx.gymAdmin.nearestFor(gym, place.guildId),
     units: ctx.config.settings.distanceUnits,
     targets,
     map: mapPicture(map, 'Map of the gym'),

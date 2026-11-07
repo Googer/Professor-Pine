@@ -68,7 +68,7 @@ function addQuestion(
   typed?: TypedTexts,
 ) {
   const { point, approximate } = place;
-  const near = ctx.gymAdmin.near(point);
+  const near = ctx.gymAdmin.near(point, guildId);
   const regions = ctx.gymAdmin.regionsAt(point, guildId);
   const token = pendingGyms.put(userId, {
     what: 'add',

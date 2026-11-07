@@ -8,6 +8,7 @@ import {
   buttonsOf,
   gymCommandsWith,
   gymOf,
+  gymViewOf,
   OTHER_SERVER,
   said,
 } from '../../../test/support/gym-commands.js';
@@ -217,6 +218,30 @@ describe('/gym add and /gym move: a place in another server’s regions', () => 
     );
     await made.press(buttonId(nowhere, 'Add'));
     expect(made.gymStore.row(15)?.name).toBe('Far Away');
+  });
+
+  it('counts only gyms of its own server, and of no region, as near a place or nearest to a gym', async () => {
+    const made = await twoServers();
+    // Northgate Clock (13) just inside North; the place below is 9 meters away, in no region.
+    await made.gymStore.update(13, { lat: 40.20004, lon: -80.05 });
+    await made.directory.refreshGym(13);
+    const place = { location: '40.19996, -80.05', name: 'Border Bench' };
+    const question = said(answerOf(await made.use('add', place)));
+    expect(question).not.toContain('Northgate');
+    expect(question).not.toContain('within');
+    // The other server, whose gym it is, is asked about it.
+    expect(said(answerOf(await made.use('add', place, OTHER_SERVER)))).toContain(
+      'Another gym lies within 10 m of that place:\n- **Northgate Clock** (#13), 9 m away',
+    );
+    const added = answerOf(await made.use('add', place));
+    await made.press(buttonId(added, 'Add'));
+    expect(made.gymStore.row(14)).toMatchObject({ name: 'Border Bench', nearestGym: 13 });
+    await made.directory.refreshGym(14);
+    // Its nearest gym is the other server's: this server is shown its own nearest instead.
+    const nearest = async (...where: [] | [typeof OTHER_SERVER]) =>
+      gymViewOf(answerOf(await made.use('show', { gym: '#14' }, ...where))).facts['Nearest gym'];
+    expect(await nearest()).toMatch(/^\*\*Riverside Park Gazebo\*\* \(#11\), /);
+    expect(await nearest(OTHER_SERVER)).toBe('**Northgate Clock** (#13), 9 m away');
   });
 
   it('adds nothing at the press when the place became another server’s since the question', async () => {

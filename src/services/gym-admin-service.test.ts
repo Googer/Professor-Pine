@@ -217,15 +217,17 @@ describe('GymAdminService: reading a location', () => {
 });
 
 describe('GymAdminService: where a gym is', () => {
-  it('finds the gyms within ten metres of a point, nearest first', async () => {
+  it('finds the gyms within ten meters of a point that a server may touch, nearest first', async () => {
     const made = await gymAdminWith();
     // The Library is at 40.05, -80.05; 0.00005 degrees of latitude are 5.6 metres.
-    const near = made.admin.near({ lat: 40.05005, lon: -80.05 });
+    const near = made.admin.near({ lat: 40.05005, lon: -80.05 }, 1);
     expect(near.map(({ gym }) => gym.id)).toEqual([1]);
     expect(near[0]?.metres).toBeCloseTo(5.56, 1);
-    expect(made.admin.near({ lat: 40.0502, lon: -80.05 })).toEqual([]);
+    expect(made.admin.near({ lat: 40.0502, lon: -80.05 }, 1)).toEqual([]);
     // The gym that is being moved does not stand in its own way.
-    expect(made.admin.near({ lat: 40.05005, lon: -80.05 }, 1)).toEqual([]);
+    expect(made.admin.near({ lat: 40.05005, lon: -80.05 }, 1, 1)).toEqual([]);
+    // Another server's staff are not asked about a gym of this server's regions.
+    expect(made.admin.near({ lat: 40.05005, lon: -80.05 }, 2)).toEqual([]);
   });
 
   it('names the regions of a server a gym or a point lies in', async () => {

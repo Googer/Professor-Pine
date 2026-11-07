@@ -58,9 +58,10 @@ function moveQuestion(
   gym: Gym,
   point: LatLon,
   approximate: boolean,
+  guildId: number | undefined,
   before?: string,
 ) {
-  const near = ctx.gymAdmin.near(point, gym.id);
+  const near = ctx.gymAdmin.near(point, guildId, gym.id);
   const metres = metresBetween(gym, point);
   const far = metres > FAR_MOVE_METRES;
   const token = pendingGyms.put(interaction.user.id, {
@@ -135,7 +136,15 @@ async function moveAnswered(
         : 'A gym was added at that place since I asked, so nothing was moved yet.';
     await answerGym(
       interaction,
-      moveQuestion(interaction, ctx, gym, point, place.approximate, questioned ? since : undefined),
+      moveQuestion(
+        interaction,
+        ctx,
+        gym,
+        point,
+        place.approximate,
+        staff.guildId,
+        questioned ? since : undefined,
+      ),
     );
     return;
   }
@@ -230,7 +239,7 @@ export async function moveGymTo(
   // Refused before anything is asked or moved; the service decides again at its turn.
   const { guildId } = await staffPlace(interaction, ctx);
   if (!ctx.gymAdmin.mayPlace(point, guildId)) throw new UserError(FOREIGN_PLACE);
-  const near = ctx.gymAdmin.near(point, gym.id);
+  const near = ctx.gymAdmin.near(point, guildId, gym.id);
   const far = metresBetween(gym, point) > FAR_MOVE_METRES;
   if (near.length === 0 && !far && !approximate) {
     // Nothing to ask about as things are now; should that change before the move has its
@@ -239,5 +248,5 @@ export async function moveGymTo(
     await moveAnswered(interaction, ctx, gym.id, { point, approximate }, asked, false);
     return;
   }
-  await answerGym(interaction, moveQuestion(interaction, ctx, gym, point, approximate));
+  await answerGym(interaction, moveQuestion(interaction, ctx, gym, point, approximate, guildId));
 }
