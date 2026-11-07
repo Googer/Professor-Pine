@@ -340,7 +340,7 @@ describe('/gym refresh', () => {
         .split('\n')
         .slice(1),
     ).toEqual([
-      'Its address could not be fetched (the log says why). It keeps what it had.',
+      'Its address could not be fetched: try again in a moment. It keeps what it had.',
       'Its nearby places could not be fetched: Google refuses the API key for the Places API ' +
         '(New), which has to be enabled for the key’s project. It keeps what it had.',
     ]);

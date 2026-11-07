@@ -374,7 +374,7 @@ describe('/gym import: the preview', () => {
     await made.settle();
     expect(linesOf(sentLast(pressed))).toContain(
       '1 Wayfarer gym was not added: a gym nearby may be one (a later import asks), or another ' +
-        'gym or a region of another server is in the way (the log names them).',
+        'gym or a region of another server is in the way.',
     );
     expect(made.directory.all().some((gym) => gym.pogoId === idOf(25))).toBe(false);
   });
@@ -512,8 +512,8 @@ describe('/gym import: the preview', () => {
       'Importing this export of 7 Wayspots would do this. Nothing changes until you press Import.',
     );
     expect(linesOf(answer)).toContain(
-      'I could not read the PokéStops and Power Spots kept for `/wild` and the map (the log ' +
-        'says why), so I cannot say what this export changes of them. Import tries again.',
+      'I could not read the PokéStops and Power Spots kept for `/wild` and the map, so I ' +
+        'cannot say what this export changes of them. Import tries again.',
     );
     expect(labelsOf(answer)).toEqual(['Import', 'Cancel']);
     made.wayspotStore.all = all;
@@ -1076,8 +1076,8 @@ describe('/gym import: the buttons', () => {
     made.wayfarerStore.records = () => Promise.reject(new Error('database is down'));
     const pressed = await pressing(made, buttonId(answer, 'Import'), answer);
     expect(linesOf(sentLast(pressed))).toEqual([
-      'The import failed, and the log says why. What was written before that stands: import ' +
-        'the same file again.',
+      'The import failed. What was written before that stands: import the same file again in ' +
+        'a moment.',
     ]);
     expect(made.logged.find((entry) => entry.msg === 'a Wayfarer import failed')).toMatchObject({
       staff: MODERATOR,

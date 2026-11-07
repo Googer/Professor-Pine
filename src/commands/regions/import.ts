@@ -626,8 +626,8 @@ function failureText(failed: NotImported): string {
       'again',
     'bad-name': `Discord does not take ${channel} as a channel name`,
     'no-server': `${channel} could not be created: its category is gone`,
-    failed: `${channel} could not be created (the log says why)`,
-    'not-written': 'the outlines could not be written (the log says why)',
+    failed: `${channel} could not be created: try again in a moment`,
+    'not-written': 'the outlines could not be written: try again in a moment',
     'not-allowed': `you may not create ${channel} (that takes Manage Channels)`,
   };
   const created =

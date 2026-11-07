@@ -33,7 +33,7 @@ function fetched(what: 'address' | 'nearby places', api: string, outcome: FetchO
         'has to be enabled for the key’s project. It keeps what it had.'
       );
     case 'failed':
-      return `Its ${what} could not be fetched (the log says why). It keeps what it had.`;
+      return `Its ${what} could not be fetched: try again in a moment. It keeps what it had.`;
     case 'capped':
       return `Its ${what} could not be fetched: this month's lookups by hand are used.`;
     case 'count-unread':

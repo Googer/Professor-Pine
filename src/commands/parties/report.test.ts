@@ -223,7 +223,7 @@ describe('/report', () => {
   it('takes no form for a party of another server, nor one that has ended', async () => {
     const made = await setup();
     const foreign = await made.submit('Elsewhere.', BOB, { guildId: OTHER_GUILD_ID });
-    expect(sent(foreign.reply).content).toBe('This is out of date and no longer works.');
+    expect(sent(foreign.reply).content).toBe('This no longer works.');
     await made.service.end(made.party.id);
     const late = await made.submit('Too late.');
     expect(sent(late.reply).content).toBe('This has ended.');

@@ -237,7 +237,7 @@ export function outcomeLines(
     deleted: 'Its forum was deleted, with every post in it.',
     'not-deleted':
       `I could not delete ${forumName}` +
-      (outcome.forumDenied === true ? ' (I need Manage Channels there)' : ' (the log says why)') +
+      (outcome.forumDenied === true ? ' (I need Manage Channels there)' : '') +
       ': delete it by hand. The region is gone all the same.',
   };
   return [

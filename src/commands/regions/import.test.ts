@@ -419,7 +419,7 @@ describe('/region import: Import and Cancel', () => {
     expect(regionSaid(done)).toContain('Nothing was imported.');
     expect(listed(done, 'Not imported')).toEqual([
       '- South: its channel is gone, or is no text channel any more.',
-      `- River Side: the outlines could not be written (the log says why). I had created ` +
+      `- River Side: the outlines could not be written: try again in a moment. I had created ` +
         `<#${createdId ?? ''}> for it: it exists, but is no region. Import again, or delete it.`,
     ]);
   });

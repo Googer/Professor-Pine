@@ -224,7 +224,7 @@ export function legacyWords(legacy: LegacyLine): string {
       return 'Your old-bot history is being added.';
     case 'done':
       return legacy.filled === 0
-        ? 'None of your old-bot raids, trains or meetups could be added to your history.'
+        ? 'There was none of your old-bot raids, trains or meetups left to add to your history.'
         : `Your old-bot history is added: ${oldBotParties(legacy.filled)}.`;
     case 'failed':
       // With "Try again" beside it (A1: the member retries), where it can be asked again.

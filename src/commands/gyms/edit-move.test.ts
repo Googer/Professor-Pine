@@ -263,8 +263,8 @@ describe('/gym edit', () => {
     const submitted = await made.submit(form.custom_id, { ...filled(form), nickname: 'Stacks' });
     expect(said(answerOf(submitted))).toBe(
       'Changed the nickname of **Pinewood Public Library** (Stacks, #1).\n' +
-        'The notice of this gym is too long for the form and is unchanged. An admin has to ' +
-        'shorten it in the database first.',
+        'The notice of this gym is too long for this form and was left unchanged; whoever runs ' +
+        'Pine has to shorten it.',
     );
     expect(made.gymStore.row(1)).toMatchObject({ nickname: 'Stacks', notice: long });
   });
@@ -347,16 +347,16 @@ describe('/gym edit', () => {
     const form = await editForm(made, 'id:1');
     const both = await made.submit(form.custom_id, filled(form));
     expect(said(answerOf(both))).toBe(
-      'Nothing was changed.\nThe notice and the keywords of this gym are too long for the form ' +
-        'and are unchanged. An admin has to shorten them in the database first.',
+      'Nothing was changed.\nThe notice and the keywords of this gym are too long for this form ' +
+        'and were left unchanged; whoever runs Pine has to shorten them.',
     );
     await made.gymStore.update(1, { notice: null });
     await made.directory.refreshGym(1);
     const next = await editForm(made, 'id:1');
     const one = await made.submit(next.custom_id, filled(next));
     expect(said(answerOf(one))).toContain(
-      'The keywords of this gym are too long for the form and are unchanged. An admin has to ' +
-        'shorten them in the database first.',
+      'The keywords of this gym are too long for this form and were left unchanged; whoever ' +
+        'runs Pine has to shorten them.',
     );
   });
 });
@@ -782,6 +782,6 @@ describe('/gym: questions and refusals from before plan 8B-4', () => {
     await made.directory.refreshGym(1);
     const used = await made.use('edit', { gym: 'id:1' });
     expect(used.showModal).not.toHaveBeenCalled();
-    expect(said(sent(used.reply))).toMatch(/too long for the form and are unchanged/);
+    expect(said(sent(used.reply))).toMatch(/too long for this form and were left unchanged/);
   });
 });

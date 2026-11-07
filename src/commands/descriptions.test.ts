@@ -29,4 +29,11 @@ describe('the descriptions Discord shows of the commands', () => {
     expect(said.length).toBeGreaterThan(100);
     expect(said.filter(([, text]) => /\bpart(y|ies)\b/i.test(text))).toEqual([]);
   });
+
+  it('says what /status does in the post and in a region channel', () => {
+    const payload = buildCommandPayload(commands, messageCommands) as Described[];
+    expect(payload.find((command) => command.name === 'status')?.description).toBe(
+      'Repost this raid, max battle, train or meetup at the bottom, or list what is going on in a region',
+    );
+  });
 });

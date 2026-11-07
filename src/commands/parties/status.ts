@@ -31,7 +31,7 @@ export const status: SimpleCommand = {
   data: new SlashCommandBuilder()
     .setName('status')
     .setDescription(
-      'Show this raid, max battle, train or meetup again at the bottom, or what is on in a region',
+      'Repost this raid, max battle, train or meetup at the bottom, or list what is going on in a region',
     ),
   help: {
     category: 'basic-raid',

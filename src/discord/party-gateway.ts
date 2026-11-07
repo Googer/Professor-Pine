@@ -2228,7 +2228,7 @@ export class DiscordPartyGateway implements PartyGateway {
     try {
       await forum.permissionOverwrites.delete(
         memberId,
-        'No longer signed up for a raid, max battle, train or meetup in this forum',
+        'Their raid, max battle, train or meetup in this forum is over, or they left it',
       );
     } catch (err) {
       const gone = hasCode(

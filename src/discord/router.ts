@@ -29,7 +29,7 @@ import { answerApart, deferLate, LATE_DEFER_MS } from './late-reply.js';
 import { Throttles, waitText, type Throttle } from './throttle.js';
 import { REHEARSAL_REFUSAL } from '../services/rehearsal.js';
 
-export const STALE_COMPONENT = 'This is out of date and no longer works.';
+export const STALE_COMPONENT = 'This no longer works.';
 
 /** What the router answers: a command (slash or message) or a control. */
 type Answered = GuardableInteraction | MessageContextMenuCommandInteraction;

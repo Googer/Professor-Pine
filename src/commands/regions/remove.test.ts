@@ -278,6 +278,16 @@ describe('/region remove: the answers', () => {
     expect(made.regions.byId(1)).toBeUndefined();
   });
 
+  it('says to delete the forum by hand when Discord would not, for whatever reason', async () => {
+    const made = await regionCommandsWith();
+    made.gateway.failing.set('deleteChannel', new Error('Discord is away'));
+    const { dialog } = await asked(made);
+    expect(outcome(await made.submit(dialog, DELETE))).toContain(
+      `I could not delete its forum <#${WEST_FORUM}>: delete it by hand. The region is gone all ` +
+        'the same.',
+    );
+  });
+
   it('says that nothing was removed when a party could not be ended', async () => {
     const made = await regionCommandsWith();
     const post = await reported(made, 1);

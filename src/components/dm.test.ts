@@ -381,9 +381,7 @@ describe('the "Stop" buttons under a direct message', () => {
     ]) {
       const pressed = fakeButton({ customId, isDm: true, userId: ALICE });
       await made.router.handle(pressed as never);
-      expect(sent(pressed.reply).content, customId).toBe(
-        'This is out of date and no longer works.',
-      );
+      expect(sent(pressed.reply).content, customId).toBe('This no longer works.');
       expect(pressed.deferUpdate).not.toHaveBeenCalled();
     }
     expect(await made.wants.count(ALICE, HOME)).toBe(1);
@@ -745,7 +743,7 @@ describe('Manage… under a direct message (plan 8R-4)', () => {
     await made.wants.set(ALICE, HOME, pokemonTarget(25), 'raid');
     const subject = stopButtonId(HOME, { kind: 'subject', subject: PIKACHU }) ?? '';
     const pressed = await made.press(subject);
-    expect(sent(pressed.reply).content).toBe('This is out of date and no longer works.');
+    expect(sent(pressed.reply).content).toBe('This no longer works.');
     expect(await made.wants.count(ALICE, HOME)).toBe(1);
   });
 });

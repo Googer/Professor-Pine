@@ -455,8 +455,8 @@ export function changesNothing(
 
 /** What the preview says when the kept PokéStops and power spots could not be read. */
 const KEPT_UNREAD =
-  'I could not read the PokéStops and Power Spots kept for `/wild` and the map (the log says ' +
-  'why), so I cannot say what this export changes of them. Import tries again.';
+  'I could not read the PokéStops and Power Spots kept for `/wild` and the map, so I cannot ' +
+  'say what this export changes of them. Import tries again.';
 
 /**
  * What an import does to the PokéStops and power spots Pine keeps (plan 8W-2), one line: "…: 2
@@ -718,7 +718,7 @@ export function renderImportPreview(
 
 /** Parts of an import's bookkeeping that were not written, as words. */
 const UNRECORDED: Readonly<Record<Unrecorded, string>> = {
-  import: 'the record of this import',
+  import: 'the date of this import',
   reviews: 'the review queue',
   seen: 'when the gyms were seen',
   marks: 'the marks "not in Wayfarer" taken off',
@@ -745,7 +745,7 @@ export function renderImportOutcome(outcome: WayfarerOutcome): string[] {
     lines.push(
       `${count(counts.held, 'Wayfarer gym')} ${counts.held === 1 ? 'was' : 'were'} not added: ` +
         'a gym nearby may be one (a later import asks), or another gym or a region of another ' +
-        'server is in the way (the log names them).',
+        'server is in the way.',
     );
   }
   if (counts.outside > 0) {
@@ -771,7 +771,7 @@ export function renderImportOutcome(outcome: WayfarerOutcome): string[] {
   lines.push(...wayspotLines(outcome.wayspots));
   if (counts.failed > 0) {
     lines.push(
-      `**${count(counts.failed, 'gym')} could not be written** (the log says why). Import the ` +
+      `**${count(counts.failed, 'gym')} could not be written.** Import the ` +
         'same file again: what was written is found by its id.',
     );
   }
@@ -779,7 +779,7 @@ export function renderImportOutcome(outcome: WayfarerOutcome): string[] {
     lines.push(
       `The gyms are as said, but I could not write ${outcome.unrecorded
         .map((what) => UNRECORDED[what])
-        .join(', ')} (the log says why).`,
+        .join(', ')}. Import the same file again in a moment.`,
     );
   }
   return [lines.length === 0 ? 'Imported. Nothing about the gyms changed.' : 'Imported.', ...lines];
@@ -928,8 +928,8 @@ export async function importButton(
     await interaction
       .editReply(
         replaced(
-          'The import failed, and the log says why. What was written before that stands: ' +
-            'import the same file again.',
+          'The import failed. What was written before that stands: import the same file again ' +
+            'in a moment.',
         ),
       )
       .catch((failed: unknown) => {
@@ -1094,7 +1094,7 @@ export function outsideOutcomeLines(outcome: OutsideDeletion): string[] {
     );
   }
   if (outcome.failed > 0) {
-    lines.push(`**${count(outcome.failed, 'gym')} could not be deleted** (the log says why).`);
+    lines.push(`**${count(outcome.failed, 'gym')} could not be deleted.** Try again in a moment.`);
   }
   return lines;
 }
@@ -1131,7 +1131,7 @@ async function answerOutside(
     );
     await interaction
       .editReply(
-        replaced('The deletion failed, and the log says why. What was deleted stays deleted.'),
+        replaced('The deletion failed. What was deleted stays deleted: try again in a moment.'),
       )
       .catch(() => undefined);
   }

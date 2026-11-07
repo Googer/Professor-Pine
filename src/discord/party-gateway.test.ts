@@ -1071,7 +1071,7 @@ describe('DiscordPartyGateway: what the audit log says of letting a member into 
     await expect(gateway.dismissMember('forum', ALICE)).resolves.toBe(true);
     expect(reasons).toEqual([
       'Signed up for a raid, max battle, train or meetup in this forum',
-      'No longer signed up for a raid, max battle, train or meetup in this forum',
+      'Their raid, max battle, train or meetup in this forum is over, or they left it',
     ]);
   });
 });

@@ -143,13 +143,24 @@ describe('Ask the moderators (a place refused for good)', () => {
     expect(made.dms.to(ALICE)).toHaveLength(1);
   });
 
-  it('says a question nobody decided in time has expired', async () => {
+  it('says a request nobody decided in time has expired', async () => {
     const made = await setup(20);
     await made.submit(await made.ask(await made.run()), 'A park.');
     const [asked] = [...made.storage.asks.values()];
     await made.storage.expireAsk(asked?.id ?? '');
     const late = await made.decide('allow');
-    expect(sent(late.editReply).content).toBe('This question has expired: nobody decided in time.');
+    expect(sent(late.editReply).content).toBe('This request has expired: nobody decided in time.');
+  });
+
+  it('keeps nothing refused where the place was allowed meanwhile, and says the request stays open', async () => {
+    const made = await setup(20);
+    await made.submit(await made.ask(await made.run()), 'A park.');
+    await made.storage.rule(made.gateway.guildId, KEY, 'allow', { ...MOD, at: PARTY_NOW });
+    const kept = await made.decide('keep');
+    expect(sent(kept.editReply).content).toBe(
+      'No refusal of this place stands anymore (it was undone or allowed meanwhile): there is ' +
+        'nothing to keep. The request stays open.',
+    );
   });
 
   it('has a button that works after a restart: it names the place, not something kept', async () => {
