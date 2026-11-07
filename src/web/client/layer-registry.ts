@@ -2,8 +2,9 @@ import type { ViewStorage } from './view.js';
 
 /**
  * The layers of the live map (plan 8M-7): everything drawn is a layer the member toggles, with a
- * name, whether it is on by default, whether it is live (what happens now: a toggle of its own in
- * the desktop row) or background (under "More"), and how many of its things are in view (the
+ * name, whether it is on by default, whether it is live (what happens now) or background (the
+ * desktop's row shows the layers in their order as many as fit, the rest under "More"), and how
+ * many of its things are in view (the
  * phone's sheet says it). The page's parts register with the registry (one call adds a layer:
  * field research and Team GO Rocket came so with plan 8M-9B) and follow it; the member's choice is
  * kept per browser (`localStorage`, read and written in try/catch).
@@ -19,7 +20,10 @@ export interface LayerSpec {
   short?: string;
   /** On by default. */
   on: boolean;
-  /** Live: a toggle of its own on the desktop; background: under "More". */
+  /**
+   * Live (what happens now) or background. Since 2026-11-07 it no longer places the desktop's
+   * toggle: the row shows the layers in `MAP_LAYERS`' order as many as fit, the rest under "More".
+   */
   kind: 'live' | 'background';
   /** A line under its name in the phone's sheet. */
   hint?: string;

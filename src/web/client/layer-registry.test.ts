@@ -72,7 +72,8 @@ describe('the layers of the map (plan 8M-7)', () => {
       ['activity', false],
       ['outlines', true],
     ]);
-    // The desktop row: the live ones as toggles, the background ones under "More".
+    // The live ones first, then the background ones: the desktop's row shows them in this order,
+    // as many as fit, the rest under "More" (2026-11-07).
     expect(
       registry
         .layers()

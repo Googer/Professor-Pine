@@ -117,6 +117,19 @@ describe("the layers' controls by the window's width", () => {
       expect(shownAt(rules, '.layers-button', 'display', width), String(width)).toBe('none');
     }
   });
+
+  // Matt, 2026-11-07: the row shows the toggles that fit and puts the rest under More, so it never
+  // wraps; the controls beside it keep their width while the page measures (`row-fit.ts`).
+  it('keep the header one row from 1024 pixels, only "Find a gym" giving way', () => {
+    const header = 'body:not(.editing-regions) #header';
+    for (const width of [1024, 1280, 1920]) {
+      expect(shownAt(rules, header, 'flex-wrap', width), String(width)).toBe('nowrap');
+      expect(shownAt(rules, '#layers', 'flex-wrap', width), String(width)).toBe('nowrap');
+      expect(shownAt(rules, '#layers .chips', 'flex-wrap', width), String(width)).toBe('nowrap');
+      expect(shownAt(rules, '#header > :not(#filter)', 'flex-shrink', width)).toBe('0');
+    }
+    expect(shownAt(rules, header, 'flex-wrap', 1023)).toBeUndefined();
+  });
 });
 
 // Plan 8M-9A (A7): the header's row stays one row on a phone; the Report button floats there.

@@ -1,8 +1,10 @@
 import type { LayerRegistry, LayerSpec } from './layer-registry.js';
+import { rowFits, rowRoom } from './row-fit.js';
 
 /**
  * The layer controls of the live map (plan 8M-7), over the registry: on the desktop a row in the
- * header with the live layers as labelled toggles and the background ones under "More"; narrower
+ * header with the layers as labelled toggles, as many as fit in `MAP_LAYERS`' order, and the rest
+ * under "More" (Matt, 2026-11-07, `row-fit.ts`); narrower
  * than 1024 pixels (`map.css`; 768 until plan 8M-9B's two toggles, B7) a "Layers · n" button (n
  * the layers on) that opens a bottom sheet listing every layer with a switch, a line about it and
  * how many of its things are in view. Both follow the registry, so a toggle anywhere shows everywhere. A layer of members
@@ -188,22 +190,99 @@ export function showLayerControls(registry: LayerRegistry, nav: HTMLElement): La
     }
   };
 
+  /**
+   * The row's toggles that fit, the rest under More (Matt, 2026-11-07): every offered layer has a
+   * toggle in the row and a checkbox under More, and the measure shows one of the two. A toggle
+   * moved while it has the focus hands it to its other self, or to More while that is closed.
+   */
+  const fit = (): void => {
+    const chips = nav.querySelector<HTMLElement>('.chips');
+    const more = nav.querySelector<HTMLDetailsElement>('.more');
+    const phone = nav.querySelector<HTMLElement>('.layers-button');
+    const header = nav.parentElement;
+    if (!chips || !more || !phone || !header) return;
+    // Below 1024 pixels "Layers · n" stands for the row, and while the region editor is on the
+    // row is not shown (the row's own parts may be `hidden` by the last measure).
+    if (getComputedStyle(phone).display !== 'none' || nav.getClientRects().length === 0) return;
+    const toggles = [...chips.querySelectorAll<HTMLElement>('.chip')];
+    const boxes = [...more.querySelectorAll<HTMLElement>('label[data-entry]')];
+    const focused = document.activeElement;
+    // Everything shown to be measured; nothing is painted before the outcome is set.
+    chips.hidden = false;
+    more.hidden = false;
+    for (const toggle of toggles) toggle.hidden = false;
+    const style = getComputedStyle(header);
+    const others = [...header.children]
+      .filter((child) => child !== nav && child.getClientRects().length > 0)
+      .map((child) => {
+        // "Find a gym" gives way down to its own width (`map.css`).
+        const basis = child.id === 'filter' ? parseFloat(getComputedStyle(child).flexBasis) : NaN;
+        return Number.isFinite(basis) ? basis : child.getBoundingClientRect().width;
+      });
+    const shown = rowFits({
+      room: rowRoom(
+        header.clientWidth - parseFloat(style.paddingLeft) - parseFloat(style.paddingRight),
+        others,
+        parseFloat(style.columnGap) || 0,
+      ),
+      chips: toggles.map((toggle) => toggle.getBoundingClientRect().width),
+      more: more.getBoundingClientRect().width,
+      gap: parseFloat(getComputedStyle(nav).columnGap) || 0,
+    });
+    toggles.forEach((toggle, at) => {
+      toggle.hidden = at >= shown;
+    });
+    boxes.forEach((box, at) => {
+      box.hidden = at < shown;
+    });
+    chips.hidden = shown === 0;
+    more.hidden = shown === toggles.length;
+    if (more.hidden) more.open = false;
+    // The focus follows a toggle that moved.
+    if (
+      focused instanceof HTMLElement &&
+      nav.contains(focused) &&
+      focused.dataset.layer !== undefined
+    ) {
+      if (focused.closest('[hidden]') === null) return;
+      const other = [...nav.querySelectorAll<HTMLElement>('[data-layer]')].find(
+        (one) => one.dataset.layer === focused.dataset.layer && one.closest('[hidden]') === null,
+      );
+      if (other && (other.closest('details') === null || more.open)) other.focus();
+      else more.querySelector('summary')?.focus();
+    }
+  };
+  let fitting: number | undefined;
+  /** One measure a frame, however many sizes changed in it. */
+  const fitSoon = (): void => {
+    if (fitting !== undefined) return;
+    fitting = requestAnimationFrame(() => {
+      fitting = undefined;
+      fit();
+    });
+  };
+
   const draw = (): void => {
     const offered = registry.layers().filter((spec) => registry.offered(spec, member));
     const chips = document.createElement('span');
     chips.className = 'chips';
-    chips.append(...offered.filter((spec) => spec.kind === 'live').map(chip));
+    chips.append(...offered.map(chip));
     const more = document.createElement('details');
     more.className = 'more';
     const summary = document.createElement('summary');
     summary.textContent = 'More';
     const menu = document.createElement('div');
     menu.className = 'menu';
-    for (const spec of offered.filter((one) => one.kind === 'background')) {
+    for (const spec of offered) {
       const label = document.createElement('label');
+      label.dataset.entry = spec.id;
       const name = document.createElement('span');
-      name.textContent = spec.name;
-      label.append(checkbox(spec), name);
+      name.className = 'entry-name';
+      name.textContent = toggleName(spec, filters.get(spec.id));
+      const box = checkbox(spec);
+      // Its words, the filter's too, as the row's toggle is named.
+      box.removeAttribute('aria-label');
+      label.append(box, name);
       menu.append(label);
     }
     more.append(summary, menu);
@@ -264,6 +343,7 @@ export function showLayerControls(registry: LayerRegistry, nav: HTMLElement): La
     sheet.replaceChildren(scrim, panel);
     sync();
     counted();
+    fit();
   };
 
   const focus = new SheetFocus(sheet, () => [
@@ -284,6 +364,14 @@ export function showLayerControls(registry: LayerRegistry, nav: HTMLElement): La
   });
   registry.onChange(sync);
   registry.onCount(counted);
+  // Measured anew when the header or a control beside the row changes its size: the window, the
+  // account once `/api/me` answered, Report shown, the title's font loaded, the editor closed.
+  const header = nav.parentElement;
+  if (header && typeof ResizeObserver === 'function') {
+    const sizes = new ResizeObserver(fitSoon);
+    sizes.observe(header);
+    for (const child of header.children) if (child !== nav) sizes.observe(child);
+  }
   draw();
   return {
     refresh(next) {
@@ -297,6 +385,11 @@ export function showLayerControls(registry: LayerRegistry, nav: HTMLElement): La
       const spec = registry.layers().find((one) => one.id === id);
       for (const button of nav.querySelectorAll<HTMLElement>(`.chip[data-layer="${id}"]`)) {
         if (spec) named(button, spec);
+      }
+      for (const name of nav.querySelectorAll<HTMLElement>(
+        `label[data-entry="${id}"] .entry-name`,
+      )) {
+        if (spec) name.textContent = toggleName(spec, words);
       }
       for (const note of sheet.querySelectorAll<HTMLElement>(`[data-filter-note="${id}"]`)) {
         note.textContent = words === undefined ? '' : `Filter: ${words}`;

@@ -502,6 +502,32 @@ body.editing-regions #map {
   }
 }
 
+/*
+ * From 1024 pixels the row shows the toggles that fit and puts the rest under More (Matt,
+ * 2026-11-07; `row-fit.ts`, measured by `showLayerControls`), so the header stays one row. The
+ * controls beside the row keep their width while the page measures; only "Find a gym" gives way,
+ * down to its own width (`flex-basis`), which the page keeps free for it. The region editor's
+ * tools keep their own row's rules.
+ */
+@media (min-width: 1024px) {
+  body:not(.editing-regions) #header {
+    flex-wrap: nowrap;
+  }
+
+  #header > :not(#filter) {
+    flex-shrink: 0;
+  }
+
+  #header .title {
+    white-space: nowrap;
+  }
+
+  #layers,
+  #layers .chips {
+    flex-wrap: nowrap;
+  }
+}
+
 /* A cluster of gyms (plan 8M-7): a circle with its count; a tap zooms in on it. */
 .cluster {
   display: flex;

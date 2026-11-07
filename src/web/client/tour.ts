@@ -94,9 +94,9 @@ function layersStep(audience: TourAudience): TourStep {
     audience === 'member'
       ? [
           '🗺️ Simply press a layer to turn it on or off. Try it!',
-          'More has gyms, PokéStops, Activity and others.',
+          'Gyms, PokéStops, Activity and others are here too, under More when the row is full.',
         ]
-      : ['🗺️ Simply open More and turn on Gyms. Try it!'];
+      : ['🗺️ Simply turn on Gyms, under More when the row is full. Try it!'];
   const phone =
     audience === 'member'
       ? ['🗺️ Simply press Layers to turn things on or off. Try it!']
