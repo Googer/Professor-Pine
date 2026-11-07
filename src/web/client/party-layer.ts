@@ -898,6 +898,9 @@ export function showParties(
       card.key !== undefined ||
       document.querySelector('.sheet-wrap:not([hidden]), .tour:not([hidden])') !== null,
     outlinesShown: () => registry.isOn('outlines'),
+    nextFrame: (run) => {
+      requestAnimationFrame(run);
+    },
     focusBack: () => {
       document.querySelector<HTMLElement>('#account summary')?.focus();
     },

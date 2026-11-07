@@ -10,10 +10,11 @@ import { legendWanted, regionRows, regionsBox, regionsList, regionsOffered } fro
  * wiring: the member's view of the regions (the outlines restyled by it, "Your regions…" offered
  * by it), and the box in the side pane's box (docked under the map on a phone), an aside claim of
  * the hold as Report's step 2, the popup or card closed as it opens. A press disables every Join
- * and Leave, then says the answer in its row and in the box's live line, draws the rows anew in
- * place from the view that came with the answer (or asks it again; or keeps the rows it had),
- * restyles the outlines and asks the parties again; the focus stays on the same control, or on
- * the row's answer line where that is gone. Escape (unless a popup, the card, the layers or the
+ * and Leave, then draws the rows anew in place from the view that came with the answer (or asks
+ * it again; a read-only view or none keeps the rows, the outlines and the entry as they were,
+ * W5), restyles the outlines and asks the parties again, and says the answer in its row; the
+ * focus stays on the same control, with the answer in the box's live line on the next frame (W7),
+ * or goes to the row's answer line where that is gone, which is read as it is focused. Escape (unless a popup, the card, the layers or the
  * tour has it), × and ← Back close it. Its pure part is `regions.ts`.
  */
 
@@ -57,6 +58,8 @@ export interface RegionsUiDeps {
   /** `/api/me` again, for a token gone stale. */
   me(): Promise<Me>;
   say(text: string): void;
+  /** Runs `run` on the next frame (`requestAnimationFrame`): the live line written after clearing. */
+  nextFrame(run: () => void): void;
 }
 
 export function regionsUi(deps: RegionsUiDeps) {
@@ -68,13 +71,18 @@ export function regionsUi(deps: RegionsUiDeps) {
   /** The region whose row was tapped: its outline marked until a tap elsewhere (B8). */
   let tapped: number | undefined;
 
+  /** The view asked for, without telling anybody (after a press, W5); undefined: none had. */
+  const reread = async (): Promise<RegionsMineView | undefined> => {
+    try {
+      return await deps.ask<RegionsMineView>(`/s/${guild}/api/regions/mine`);
+    } catch {
+      return undefined;
+    }
+  };
+
   /** The view asked for; undefined where it could not be had (`shown` told either way). */
   const load = async (): Promise<RegionsMineView | undefined> => {
-    try {
-      view = await deps.ask<RegionsMineView>(`/s/${guild}/api/regions/mine`);
-    } catch {
-      view = undefined;
-    }
+    view = await reread();
     deps.shown(view);
     return view;
   };
@@ -101,9 +109,10 @@ export function regionsUi(deps: RegionsUiDeps) {
           deps.highlight(id);
         });
       }
+      // Left: the tapped row's mark back, if any (W6).
       for (const type of ['mouseleave', 'focusout']) {
         row.addEventListener(type, () => {
-          if (tapped !== id) deps.highlight(undefined);
+          deps.highlight(tapped);
         });
       }
       row.addEventListener('click', () => {
@@ -151,16 +160,15 @@ export function regionsUi(deps: RegionsUiDeps) {
     });
     deps.csrf.set(pressed.csrf);
     const answered = body as Partial<RegionChangeAnswer> | undefined;
-    // The view that came with the answer, from the member fetched afresh; else asked again; else
-    // the rows as they were, their buttons back (B10).
-    let fresh: RegionsMineView | undefined = answered?.view;
+    // The view that came with the answer, from the member fetched afresh; else asked again; a
+    // view read-only or none at all leaves the rows, the outlines and the entry as they were,
+    // their buttons back (B10, W5).
+    const live = (one: RegionsMineView | undefined) =>
+      one !== undefined && !one.readOnly ? one : undefined;
+    const fresh = live(answered?.view) ?? live(await reread());
     if (fresh) {
       view = fresh;
       deps.shown(view);
-    } else {
-      const kept = view;
-      fresh = await load();
-      if (!fresh) view = kept;
     }
     if (!box) {
       deps.partiesChanged();
@@ -168,8 +176,6 @@ export function regionsUi(deps: RegionsUiDeps) {
     }
     if (fresh) update();
     else for (const [each, was] of before) each.disabled = was;
-    const live = box.querySelector('[data-regions-live]');
-    if (live) live.textContent = pressed.text;
     const line = box.querySelector<HTMLElement>(`[data-region-answer="${regionId}"]`);
     if (line) line.textContent = pressed.text;
     // The focus on the same control where it is still there and may be pressed, else the row's
@@ -181,7 +187,19 @@ export function regionsUi(deps: RegionsUiDeps) {
         each.dataset.role === role &&
         !each.disabled,
     );
-    (same ?? line ?? box.querySelector<HTMLElement>('[data-regions-heading]'))?.focus();
+    const focus = same ?? line ?? box.querySelector<HTMLElement>('[data-regions-heading]');
+    focus?.focus();
+    // The live line cleared and written on the next frame, so that the same words are read
+    // again; not where the focus is on the answer line, which is read as it is focused (W7).
+    const liveLine = box.querySelector('[data-regions-live]');
+    if (liveLine) {
+      liveLine.textContent = '';
+      if (focus !== line) {
+        deps.nextFrame(() => {
+          liveLine.textContent = pressed.text;
+        });
+      }
+    }
     deps.partiesChanged();
   };
 

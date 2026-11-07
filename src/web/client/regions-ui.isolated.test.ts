@@ -110,6 +110,8 @@ function fixture(options: { asks?: Array<RegionsMineView | Error>; outlinesShown
       pressed = resolve;
     });
   let answer: (sent: { status: number; body: unknown }) => void = () => undefined;
+  /** What waits for the next frame (W7). */
+  const frames: Array<() => void> = [];
   const ui = regionsUi({
     guild: GUILD,
     csrf: { get: () => 'token', set: vi.fn() },
@@ -150,6 +152,7 @@ function fixture(options: { asks?: Array<RegionsMineView | Error>; outlinesShown
     },
     me: () => Promise.resolve({ loggedIn: false }),
     say: (text) => said.push(text),
+    nextFrame: (run) => frames.push(run),
   });
   const reply = (sent: RegionChangeAnswer | { error: string }, status = 200) => {
     answer({ status, body: sent });
@@ -184,6 +187,10 @@ function fixture(options: { asks?: Array<RegionsMineView | Error>; outlinesShown
     key,
     clickOn,
     nextPress,
+    /** The next frame comes: what waited for it runs. */
+    frame: () => {
+      for (const run of frames.splice(0)) run();
+    },
     takeEscape: () => {
       escapeTaken = true;
     },
@@ -270,12 +277,14 @@ describe('the box of "Your regions"', () => {
     await done;
     expect(made.tools.childNodes[0]).toBe(box);
     expect(made.shown.at(-1)).toEqual(seenWest);
-    expect(live(made.tools)).toBe('You have West now.');
     expect(rowAnswer(made.tools, 1)?.textContent).toBe('You have West now.');
     expect(made.button('Leave west')?.disabled).toBe(false);
     expect(made.button('Leave plaza')?.disabled).toBe(false);
-    // The Join is gone: the focus on the row's answer line.
+    // The Join is gone: the focus on the row's answer line, which is read as it is focused; the
+    // live line is not written, so the answer is not said twice (W7).
     expect(focused().at(-1)).toBe(rowAnswer(made.tools, 1));
+    made.frame();
+    expect(live(made.tools)).toBe('');
   });
 
   it('says a refusal in the row with the buttons back, and keeps the focus on the same control (B13)', async () => {
@@ -289,6 +298,18 @@ describe('the box of "Your regions"', () => {
     expect(rowAnswer(made.tools, 1)?.textContent).toBe('That role no longer opens this region.');
     expect(made.button('Join west')?.disabled).toBe(false);
     expect(focused().at(-1)).toBe(made.button('Join west'));
+    // The live line cleared, then written on the next frame, so that the same words twice are
+    // read again (W7).
+    expect(live(made.tools)).toBe('');
+    made.frame();
+    expect(live(made.tools)).toBe('That role no longer opens this region.');
+    made.button('Join west')?.dispatch('click');
+    const again = made.nextPress();
+    made.reply({ error: 'That role no longer opens this region.' }, 409);
+    await again;
+    expect(live(made.tools)).toBe('');
+    made.frame();
+    expect(live(made.tools)).toBe('That role no longer opens this region.');
   });
 
   it('writes the answer and gives the buttons back where the view cannot be read again (B10)', async () => {
@@ -299,8 +320,29 @@ describe('the box of "Your regions"', () => {
     const done = made.nextPress();
     made.reply({ error: 'Not available just now.' }, 503);
     await done;
+    made.frame();
     expect(live(made.tools)).toBe('Not available just now.');
     expect(made.button('Join west')?.disabled).toBe(false);
+    // The rows, the outlines and the entry as they were (W5).
+    expect(made.shown).toEqual([hiddenWest]);
+    expect(made.button('Leave plaza')?.disabled).toBe(false);
+    expect(made.ui.offered()).toBe(true);
+  });
+
+  it('keeps the rows, the outlines and the entry where the view asked again is read-only (W5)', async () => {
+    const readOnly: RegionsMineView = { readOnly: true, roles: true, regions: [] };
+    const made = fixture({ asks: [hiddenWest, readOnly] });
+    await made.ui.load();
+    made.ui.open();
+    made.button('Join west')?.dispatch('click');
+    const done = made.nextPress();
+    made.reply({ error: 'Not available just now.' }, 503);
+    await done;
+    expect(rowAnswer(made.tools, 1)?.textContent).toBe('Not available just now.');
+    expect(made.button('Join west')?.disabled).toBe(false);
+    expect(made.button('Leave plaza')?.disabled).toBe(false);
+    expect(made.shown).toEqual([hiddenWest]);
+    expect(made.ui.offered()).toBe(true);
   });
 
   it('outlines a row’s region while hovered or focused, and a tapped one until a tap elsewhere (B8)', async () => {
@@ -314,6 +356,15 @@ describe('the box of "Your regions"', () => {
     row?.dispatch('focusout');
     expect(made.highlighted).toEqual([1, undefined, 1, undefined]);
     if (row) made.clickOn(row);
+    expect(made.highlighted.at(-1)).toBe(1);
+    // Another row hovered or focused and left: the tapped one marked again (W6).
+    const plaza = made.tools.querySelector('[data-region-row="4"]');
+    plaza?.dispatch('mouseenter');
+    expect(made.highlighted.at(-1)).toBe(4);
+    plaza?.dispatch('mouseleave');
+    expect(made.highlighted.at(-1)).toBe(1);
+    plaza?.dispatch('focusin');
+    plaza?.dispatch('focusout');
     expect(made.highlighted.at(-1)).toBe(1);
     made.clickOn(made.elsewhere);
     expect(made.highlighted.at(-1)).toBeUndefined();
