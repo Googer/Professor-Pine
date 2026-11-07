@@ -6,7 +6,7 @@ import { featuredAt } from '../domain/time/max-events.js';
 import { readRaidEventFeed } from '../../test/support/raid-events.js';
 import { textAnswer } from '../../test/support/responses.js';
 import { readSpawnEventFeed } from '../../test/support/spawn-events.js';
-import { MAX_FINALE } from '../../test/support/event-reach.js';
+import { MAX_FINALE, readEveryoneFeed } from '../../test/support/event-reach.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { RaidEventService, type FetchEvents } from './raid-event-service.js';
 import type { ResearchEventStorage } from '../db/repositories/research-event-repository.js';
@@ -20,6 +20,7 @@ import { INTO_THE_WILD, PAWNIARD_DAY } from '../../test/support/research-store-c
 const URL = 'https://example.test/events.json';
 const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
+const DAY_MS = 24 * HOUR;
 const downloaded = JSON.stringify(readRaidEventFeed());
 
 type Response = Awaited<ReturnType<FetchEvents>>;
@@ -83,6 +84,49 @@ describe('RaidEventService', () => {
     expect(entries.some((entry) => entry.msg === 'raid events read' && entry.events === 5)).toBe(
       true,
     );
+  });
+
+  it('knows the events with a Leek Duck page of the last good read', async () => {
+    let next = () => Promise.resolve(reply(200, JSON.stringify(readEveryoneFeed())));
+    const { events } = service(() => next());
+    expect(events.pagedEvents()).toEqual([]);
+    await events.refresh();
+    expect(events.pagedEvents().map((event) => event.id)).toContain('into-the-wild-2026');
+    next = () => Promise.resolve(reply(503));
+    await events.refresh();
+    expect(events.pagedEvents().map((event) => event.id)).toContain('into-the-wild-2026');
+  });
+
+  it('gives the Raid Hours of the events’ pages with the feed’s, the feed’s winning', async () => {
+    const fetch = vi.fn<FetchEvents>(() => Promise.resolve(reply(200, downloaded)));
+    const hour = (name: string, start: number) => ({
+      kind: 'raid-hour' as const,
+      name,
+      start,
+      end: start + HOUR,
+    });
+    // The feed has Dialga's on 2026-10-14 18:00 (local).
+    const dialga = Date.parse('2026-10-14T22:00:00Z');
+    const pages = [hour('Zacian Raid Hour', dialga + DAY_MS), hour('Other Raid Hour', dialga)];
+    const { log } = createTestLogger();
+    const events = new RaidEventService({
+      url: URL,
+      refreshMs: 6 * HOUR,
+      zone: 'America/New_York',
+      fetch,
+      log,
+      pageRaidHours: () => pages,
+    });
+    // Before the feed: the pages' alone, in order.
+    expect(events.events().map((event) => event.name)).toEqual([
+      'Other Raid Hour',
+      'Zacian Raid Hour',
+    ]);
+    await events.refresh();
+    const names = events.events().map((event) => event.name);
+    expect(names.slice(0, 2)).toEqual(['Dialga Raid Hour', 'Zacian Raid Hour']);
+    expect(names).not.toContain('Other Raid Hour');
+    expect(names).toHaveLength(6);
   });
 
   it('catches up at once after a failed read, and only then (plan 8X-H)', async () => {

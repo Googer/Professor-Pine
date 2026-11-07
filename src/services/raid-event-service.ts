@@ -5,7 +5,12 @@ import {
   type MaxEvent,
   type ParsedMaxEvents,
 } from '../domain/time/max-events.js';
-import { parseRaidEventFeed, type RaidEvent } from '../domain/time/raid-events.js';
+import {
+  parseRaidEventFeed,
+  withPageRaidHours,
+  type RaidEvent,
+} from '../domain/time/raid-events.js';
+import { parsePagedEventFeed, type PagedEvent } from '../domain/time/event-pages.js';
 import { mergeRead, readListedEvents, type ListedEvent } from '../domain/time/event-listing.js';
 import {
   feedHasResearchFlags,
@@ -96,12 +101,30 @@ export interface RaidEventOptions {
    * listing survives a restart and a feed that fails. Without it they are kept in memory only.
    */
   listed?: ListedEventStorage;
+  /**
+   * The Raid Hours the events' Leek Duck pages name (`EventPageService.raidHours`), given with
+   * the feed's by `events()` (`withPageRaidHours`). Without it only the feed's.
+   */
+  pageRaidHours?: () => readonly RaidEvent[];
 }
 
 /** What handlers need: the Raid Hours and Raid Days known from the feed. */
 export interface RaidEventProvider {
-  /** In order of time; empty until the feed was read once, and when it has none. */
+  /**
+   * In order of time: the feed's, with the Raid Hours of the events' pages
+   * (`withPageRaidHours`: a page's at the start of one of the feed's left out). Empty until
+   * either was read.
+   */
   events(): readonly RaidEvent[];
+}
+
+/**
+ * The events with a Leek Duck page (`parsePagedEventFeed`) of the last good read, whose pages
+ * `EventPageService` reads for their Raid Hours.
+ */
+export interface PagedEventProvider {
+  /** In order of their start; empty until the feed was read once. */
+  pagedEvents(): readonly PagedEvent[];
 }
 
 /**
@@ -193,7 +216,8 @@ export class RaidEventService
     MaxEventProvider,
     ResearchEventProvider,
     SpawnEventProvider,
-    ListedEventProvider
+    ListedEventProvider,
+    PagedEventProvider
 {
   private current: readonly RaidEvent[] = [];
   private research: readonly ResearchEvent[] = [];
@@ -207,6 +231,7 @@ export class RaidEventService
   private currentMax: readonly MaxEvent[] = [];
   private currentBig: readonly BigEvent[] = [];
   private currentSpawns: readonly SpawnEvent[] = [];
+  private currentPaged: readonly PagedEvent[] = [];
   private currentListed: readonly ListedEvent[] = [];
   private readonly listedListeners: (() => void)[] = [];
   /** Whether the listing is known (`listingKnown`). */
@@ -230,7 +255,11 @@ export class RaidEventService
   }
 
   events(): readonly RaidEvent[] {
-    return this.current;
+    return withPageRaidHours(this.current, this.options.pageRaidHours?.() ?? []);
+  }
+
+  pagedEvents(): readonly PagedEvent[] {
+    return this.currentPaged;
   }
 
   /**
@@ -526,6 +555,7 @@ export class RaidEventService
     try {
       const read = await this.readFeed();
       this.current = this.merged(read.raid);
+      this.currentPaged = read.paged;
       this.currentMax = this.mergedMax(read.max.events);
       this.currentBig = this.mergedBig(read.big);
       this.tellOfEditionsWithoutGlobal(read.json, read.big);
@@ -720,6 +750,7 @@ export class RaidEventService
     raid: RaidEvent[];
     max: ParsedMaxEvents;
     big: BigEvent[];
+    paged: PagedEvent[];
     json: unknown;
   }> {
     const json = await this.download(this.options.url);
@@ -727,6 +758,7 @@ export class RaidEventService
       raid: parseRaidEventFeed(json, this.options.zone),
       max: parseMaxEventFeed(json, this.options.zone),
       big: parseBigEventFeed(json, this.options.zone),
+      paged: parsePagedEventFeed(json, this.options.zone),
       json,
     };
   }
