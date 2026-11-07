@@ -668,7 +668,7 @@ describe('/max screenshot:', () => {
     const details = enabledCommands([max], ctx.config)[0]?.help?.details;
     const help = typeof details === 'function' ? details(ctx.config.settings) : (details ?? '');
     expect(help.replace(/\s+/g, ' ')).toContain(
-      'unless you typed the Power Spot, or a boss or tier other than the one it shows.',
+      'unless you typed the Power Spot or a different boss.',
     );
   });
 });
