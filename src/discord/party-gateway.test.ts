@@ -999,43 +999,6 @@ describe('DiscordPartyGateway: edits of v2 messages', () => {
   });
 });
 
-describe('DiscordPartyGateway: an overwrite of a member that keeps them out of a channel', () => {
-  const ALICE = '300000000000000001';
-  const BOB = '300000000000000002';
-  const CAROL = '300000000000000003';
-
-  /** A region's text channel with Alice denied View Channel, Bob only Send Messages. */
-  function gatewayOver(fetch: () => Promise<unknown>) {
-    const gateway = new DiscordPartyGateway();
-    gateway.use({ channels: { fetch } } as unknown as Client);
-    return gateway;
-  }
-  const channel = {
-    isDMBased: () => false,
-    isThread: () => false,
-    permissionOverwrites: {
-      cache: new Map([
-        [ALICE, { type: OverwriteType.Member, deny: new PermissionsBitField(['ViewChannel']) }],
-        [BOB, { type: OverwriteType.Member, deny: new PermissionsBitField(['SendMessages']) }],
-      ]),
-    },
-  };
-
-  it('is true only for an overwrite of their own that denies View Channel', async () => {
-    const gateway = gatewayOver(() => Promise.resolve(channel));
-    await expect(gateway.ownViewDenied('c', ALICE)).resolves.toBe(true);
-    await expect(gateway.ownViewDenied('c', BOB)).resolves.toBe(false);
-    await expect(gateway.ownViewDenied('c', CAROL)).resolves.toBe(false);
-  });
-
-  it('is false for a channel that is gone, and passes on any other failure', async () => {
-    const gone = gatewayOver(() => Promise.reject(apiError(RESTJSONErrorCodes.UnknownChannel)));
-    await expect(gone.ownViewDenied('c', ALICE)).resolves.toBe(false);
-    const away = gatewayOver(() => Promise.reject(new Error('Discord is away')));
-    await expect(away.ownViewDenied('c', ALICE)).rejects.toThrow('Discord is away');
-  });
-});
-
 describe('DiscordPartyGateway: what the audit log says of letting a member into a forum', () => {
   const ALICE = '300000000000000001';
 

@@ -8,6 +8,7 @@ import { ALICE, BOB, PARTY_NOW } from '../../test/support/parties.js';
 import { partyServiceWith } from '../../test/support/party-service.js';
 import { createTestContext } from '../../test/support/test-context.js';
 import { MemoryUsers } from '../../test/support/users.js';
+import { viewOverwrite } from '../../test/support/region-roles.js';
 import {
   FakeActingMembers,
   partyWebWith,
@@ -85,7 +86,7 @@ async function reporting(
   const web = webServerWith({
     members,
     parties: partyWebWith(made, { acting, throttles }),
-    spawns: spawnWebWith(ctx, { channelName: (id) => names.get(id), channels: made.gateway }),
+    spawns: spawnWebWith(ctx, { channelName: (id) => names.get(id) }),
   });
   web.clock.now = PARTY_NOW;
   const headers = await web.posting(ALICE, 'Alice');
@@ -321,7 +322,8 @@ describe('reporting a wild Pokémon on the map', () => {
     const throttles = new Throttles();
     const map = await reporting({ throttles });
     web = map.web;
-    map.made.gateway.ownViewDenials.set(WEST_CHANNEL, new Set([ALICE]));
+    map.made.gateway.addChannel(WEST_CHANNEL, 'west');
+    map.made.gateway.barred.set(WEST_CHANNEL, new Set([ALICE]));
     const kept = await map.report({ pokemon: 'dratini', details: 'here', ...IN_WEST });
     expect(kept.status).toBe(403);
     // West without a forum: its channel still keeps Alice out.
@@ -330,11 +332,11 @@ describe('reporting a wild Pokémon on the map', () => {
     expect((await map.report({ pokemon: 'dratini', details: 'here', ...IN_WEST })).status).toBe(
       403,
     );
-    map.made.gateway.failing.set('ownViewDenied', new Error('Discord is away'));
+    map.made.gateway.failing.set('memberAccess', new Error('Discord is away'));
     const away = await map.report({ pokemon: 'dratini', details: 'here', ...IN_WEST });
     expect(away.status).toBe(503);
     expect(away.json).toEqual({ error: UNREACHABLE });
-    map.made.gateway.failing.delete('ownViewDenied');
+    map.made.gateway.failing.delete('memberAccess');
     expect(throttles.size).toBe(0);
     expect(map.reports()).toEqual([]);
     // Bob has no such overwrite; nor has Alice in East.
@@ -353,8 +355,9 @@ describe('reporting a wild Pokémon on the map', () => {
     // Discord shows an administrator (and the server's owner) every channel, whatever its
     // overwrites say.
     map.acting.standing(ALICE, { roleNames: [], administrator: true });
-    map.made.gateway.ownViewDenials.set(WEST_CHANNEL, new Set([ALICE]));
-    map.made.gateway.failing.set('ownViewDenied', new Error('not asked of an administrator'));
+    map.made.gateway.addChannel(WEST_CHANNEL, 'west');
+    map.made.gateway.barred.set(WEST_CHANNEL, new Set([ALICE]));
+    map.made.gateway.failing.set('memberAccess', new Error('not asked of an administrator'));
     const answer = await map.report({ pokemon: 'dratini', details: 'here', ...IN_WEST });
     expect(answer.status).toBe(200);
     expect(map.reports()).toHaveLength(1);
@@ -678,6 +681,33 @@ describe('the wild spawns on the map', () => {
     map.made.gateway.barred.set(EAST_CHANNEL, new Set([ALICE]));
     map.web.clock.now += 60_000;
     expect(await names(ALICE, 'Alice')).toEqual(['Dratini']);
+  });
+
+  it("takes a report on the map from exactly those who see the region's spawns there: a role of theirs that denies its channel keeps them from both", async () => {
+    const map = await reporting();
+    web = map.web;
+    const muted = '700000000000000001';
+    map.made.gateway.addChannel(WEST_CHANNEL, 'west');
+    map.made.gateway.memberRoles.set(ALICE, [muted]);
+    map.made.gateway.forumOverwrites.set(WEST_CHANNEL, [viewOverwrite(muted, false)]);
+    const refused = await map.report({ pokemon: 'dratini', details: 'here', ...IN_WEST });
+    expect(refused.status).toBe(403);
+    expect(map.reports()).toEqual([]);
+    // Bob's report there is not on Alice's map either.
+    const bob = await map.web.posting(BOB, 'Bob');
+    const body = { pokemon: 'dratini', details: 'here', ...IN_WEST };
+    expect((await map.report(body, bob)).status).toBe(200);
+    const seen = async (userId: string, name: string) =>
+      (await listed(map, await map.web.loggedIn(userId, name))).view?.spawns.length;
+    expect(await seen(ALICE, 'Alice')).toBe(0);
+    expect(await seen(BOB, 'Bob')).toBe(1);
+    // An administrator sees it and reports there, whatever the overwrites say.
+    map.acting.standing(ALICE, { roleNames: [], administrator: true });
+    map.members.standing(ALICE, { roleNames: [], administrator: true });
+    // What the directory said of a member is used for a minute.
+    map.web.clock.now += 60_000;
+    expect(await seen(ALICE, 'Alice')).toBe(1);
+    expect((await map.report(body)).status).toBe(200);
   });
 
   it('is for members of the server alone, and not while Discord cannot say who is one', async () => {

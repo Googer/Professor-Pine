@@ -501,12 +501,6 @@ export interface PartyGateway {
     fresh: boolean,
   ): Promise<MemberGates | undefined>;
   /**
-   * Whether a channel (a region's text channel) has a permission overwrite of the member's own
-   * that denies them View Channel: somebody keeps them out of it on purpose. Overwrites of
-   * their roles are not looked at. False when the channel is gone.
-   */
-  ownViewDenied(channelId: string, memberId: string): Promise<boolean>;
-  /**
    * Lets a member into a forum with a permission overwrite of their own: see the forum, read
    * what was written, write in its posts (not that, when a role of theirs may not write there).
    * It takes the place of an overwrite the member had. False when the forum is gone. Needs
@@ -2156,13 +2150,6 @@ export class DiscordPartyGateway implements PartyGateway {
         };
       },
     };
-  }
-
-  async ownViewDenied(channelId: string, memberId: string): Promise<boolean> {
-    const channel = await this.unlessGone(() => this.client.channels.fetch(channelId));
-    if (!channel || channel.isDMBased() || channel.isThread()) return false;
-    const own = channel.permissionOverwrites.cache.get(memberId);
-    return own?.type === OverwriteType.Member && own.deny.has(PermissionFlagsBits.ViewChannel);
   }
 
   /**

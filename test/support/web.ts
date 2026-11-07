@@ -427,15 +427,15 @@ const NO_RAIDS: RaidWebDeps = {
 /**
  * Reporting wild Pokémon on the map over a test's context (`createTestContext`, with the spawn
  * service, wants and regions of `partyServiceWith`), as the bot wires it. Pass as `spawns`.
- * `channelName` names the channels the bot sees (none by default); `channels` says who an
- * overwrite of their own keeps out of a region's channel (give the fake gateway; nobody by
- * default).
+ * `channelName` names the channels the bot sees (none by default). Who a region's forum or
+ * channel keeps out is the parties' fake gateway's (`memberAccess`; a channel is asked only once
+ * the gateway has it, `addChannel`).
  */
 export function spawnWebWith(
   ctx: SpawnWebContext,
   options: Partial<Omit<SpawnWebDeps, 'ctx'>> = {},
 ): SpawnWebDeps {
-  return { ctx, channelName: () => undefined, channels: NOBODY_KEPT_OUT, ...options };
+  return { ctx, channelName: () => undefined, ...options };
 }
 
 /**
@@ -620,9 +620,6 @@ const NO_STOPS: StopWebDeps = {
   grunts: undefined,
 };
 
-/** No overwrite of a member's own keeps anybody out of a channel. */
-const NOBODY_KEPT_OUT: SpawnWebDeps['channels'] = { ownViewDenied: () => Promise.resolve(false) };
-
 /** No spawns can be reported: a test that does passes `spawnWebWith`. */
 const NO_SPAWNS: SpawnWebDeps = {
   ctx: new Proxy({} as SpawnWebContext, {
@@ -632,7 +629,6 @@ const NO_SPAWNS: SpawnWebDeps = {
     },
   }),
   channelName: () => undefined,
-  channels: NOBODY_KEPT_OUT,
 };
 
 /** The web settings of the tests: a public address of its own, OpenStreetMap's tiles. */

@@ -18,11 +18,12 @@ import {
 } from '../commands/notifications/wild.js';
 import type { Region } from '../db/repositories/region-repository.js';
 import type { StandingSpawn } from '../db/repositories/spawn-report-repository.js';
-import type { PartyGateway } from '../discord/party-gateway.js';
+import type { MemberAccess } from '../discord/party-gateway.js';
 import { UserError } from '../discord/errors.js';
 import type { WildExceptions } from '../domain/pogo/wild.js';
 import type { SpawnAnswer } from '../domain/web/spawn-data.js';
 import { regionsAtPoint } from '../services/region-directory.js';
+import { spawnGates, spawnKeptOut } from '../domain/regions/spawn-access.js';
 import { blockedAtPin } from '../commands/max/max-report.js';
 import {
   actingOnTheMap,
@@ -79,8 +80,6 @@ export interface SpawnWebDeps {
   ctx: SpawnWebContext;
   /** A channel's name as the bot sees it now: a region's, which an answer names. */
   channelName(channelId: string): string | undefined;
-  /** Whether an overwrite of the member's own keeps them out of a region's channel. */
-  channels: Pick<PartyGateway, 'ownViewDenied'>;
 }
 
 /**
@@ -161,15 +160,24 @@ export function spawnRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
       if (member.kind === 'not-member') return sendFailure(request, reply, 403);
       if (member.kind === 'unconfirmed') return reply.code(503).send({ error: UNCONFIRMED });
       const standing = await ctx.spawns.standing(guild);
-      const gatesOf = (spawn: StandingSpawn): string[] => {
-        const forum = ctx.regions.byChannel(spawn.channelId)?.forumChannelId ?? null;
-        return forum === null ? [spawn.channelId] : [forum, spawn.channelId];
-      };
+      // The gates of its region (`spawnGates`), its channel alone where the region is gone.
+      const gatesOf = (spawn: StandingSpawn): string[] =>
+        spawnGates({
+          forumChannelId: ctx.regions.byChannel(spawn.channelId)?.forumChannelId ?? null,
+          channelId: spawn.channelId,
+        });
       const viewer = await viewers.viewer(guild, session.userId, standing.flatMap(gatesOf), member);
       if (viewer.kind !== 'member') return sendFailure(request, reply, 403);
       const view = spawnsView({
         spawns: standing,
-        shown: (spawn) => gatesOf(spawn).every((gate) => !viewer.barred.has(gate)),
+        // The rule a report on the map follows too (review S2, `spawnKeptOut`).
+        shown: (spawn) =>
+          !spawnKeptOut(
+            gatesOf(spawn).map((gate) =>
+              viewer.barred.has(gate) ? 'barred' : viewer.hidden.has(gate) ? 'hidden' : 'visible',
+            ),
+            viewer.standing?.administrator ?? false,
+          ),
         region: (channelId) => names.channel(channelId),
         guild,
         pictureOrigins: deps.pictureOrigins,
@@ -215,10 +223,11 @@ export function spawnRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
   // `SPAWN_WRITES_PER_ADDRESS_MINUTE` from one address and the guard of every POST (Origin,
   // session, CSRF token). Then who reports (`actingOnTheMap`), where: the regions of this server
   // the point lies in (none: refused as `/wild` refuses a pin outside them; several: asked which,
-  // with the regions), how the member stands to the forum of the region picked (barred 403, as
-  // for a raid there) and to its channel (an overwrite of their own that denies View Channel
-  // 403, unless they are an administrator); then `/wild`'s readers (the Pokémon, the details) and the pin, as its guard reads them,
-  // and only then `/wild`'s throttle in its own window, so that a report refused for who
+  // with the regions), how the member stands to the forum of the region picked and to its
+  // channel (barred from either 403, unless they are an administrator: `spawnKeptOut`, the rule
+  // the map's view of the spawns follows); then `/wild`'s readers (the Pokémon, the details) and
+  // the pin, as its guard reads them, and only then `/wild`'s throttle in its own window, so
+  // that a report refused for who
   // reports, where or what is not counted; then `/wild`'s report as the member
   // (`reportSpawnAs`), the point as a pin, and the command's words (the bot shutting down 503
   // with `Retry-After`, the other reports not made 422).
@@ -271,18 +280,18 @@ export function spawnRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
       return noted('several-regions', reply.code(422).send(ask));
     }
     try {
-      const forum = picked.forumChannelId;
-      if (forum !== null && (await parties.forums.memberAccess(forum, userId)) === 'barred') {
-        return noted('barred', sendFailure(request, reply, 403), picked.id);
+      // Who may report a region's spawn is who sees it on the map (review S2, `spawnKeptOut`):
+      // not somebody barred from the region's forum or from its channel, where the report goes.
+      // Discord shows an administrator (the server's owner too) every channel whatever its
+      // overwrites say, so theirs are not asked about.
+      const { administrator } = acting.standing;
+      const standings: Array<MemberAccess | undefined> = [];
+      if (!administrator) {
+        for (const gate of spawnGates(picked)) {
+          standings.push(await parties.forums.memberAccess(gate, userId));
+        }
       }
-      // The report goes into the region's channel: somebody kept out of it by an overwrite of
-      // their own is not to post there from the map (a role's denial is not looked at). Discord
-      // shows an administrator (the server's owner too) every channel whatever its overwrites
-      // say, so theirs are not asked about.
-      if (
-        !acting.standing.administrator &&
-        (await spawns.channels.ownViewDenied(picked.channelId, userId))
-      ) {
+      if (spawnKeptOut(standings, administrator)) {
         return noted('barred', sendFailure(request, reply, 403), picked.id);
       }
     } catch (err) {

@@ -1577,7 +1577,6 @@ export async function startApp(
       spawns: {
         ctx,
         channelName: (channelId) => partyGateway.channelName(channelId),
-        channels: partyGateway,
       },
       // Starting, arranging and moving trains on the map: what the train commands read and call.
       trains: { ctx, channelName: (channelId) => partyGateway.channelName(channelId) },

@@ -278,7 +278,7 @@ interface V2Component {
  * overwrites `admitMember` made, `barred` those with which somebody keeps a member out (by an
  * overwrite of the member's own, or of a role of theirs): `dismissMember` leaves such a member
  * alone and answers false. `memberAccess` only looks (in discord.js it reads the cache), so it
- * is not listed in `calls`; nor is `ownViewDenied`, which answers by `ownViewDenials`.
+ * is not listed in `calls`.
  *
  * A server has the channels a test gives it (`addChannel`) and those created through the
  * gateway, which refuses as Discord does: without Manage Channels (`noCreating`), a name that
@@ -462,11 +462,6 @@ export class FakePartyGateway implements PartyGateway {
    * overwrite into a bar is: remove from `admitted`, add here.
    */
   readonly barred = new Map<string, Set<string>>();
-  /**
-   * By channel (a region's text channel): the members an overwrite of their own denies View
-   * Channel (`ownViewDenied`).
-   */
-  readonly ownViewDenials = new Map<string, Set<string>>();
   /** Members who are no longer in the server. */
   readonly leftServer = new Set<string>();
   /** The server of every channel (the fakes' `FAKE_GUILD_ID`). */
@@ -1819,16 +1814,6 @@ export class FakePartyGateway implements PartyGateway {
               : { own: false, roles: [] },
         };
       },
-      false,
-    );
-  }
-
-  ownViewDenied(channelId: string, memberId: string): Promise<boolean> {
-    return this.attempt(
-      'ownViewDenied',
-      channelId,
-      () =>
-        !this.gone.has(channelId) && (this.ownViewDenials.get(channelId)?.has(memberId) ?? false),
       false,
     );
   }
