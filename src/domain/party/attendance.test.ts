@@ -449,6 +449,21 @@ describe('groups', () => {
     expect(party.groups).toEqual([{ id: 'A' }]);
     party = done(labelGroup(party, REPORTER, 'park\u202e side'));
     expect(party.groups).toEqual([{ id: 'A', label: 'park side' }]);
+    // A Persian label keeps its non-joiner, a flag its tags.
+    const persian = `می${String.fromCodePoint(0x200c)}روم`;
+    party = done(labelGroup(party, REPORTER, persian));
+    expect(party.groups).toEqual([{ id: 'A', label: persian }]);
+    const scotland = String.fromCodePoint(
+      0x1f3f4,
+      0xe0067,
+      0xe0062,
+      0xe0073,
+      0xe0063,
+      0xe0074,
+      0xe007f,
+    );
+    party = done(labelGroup(party, REPORTER, `${scotland} fans`));
+    expect(party.groups).toEqual([{ id: 'A', label: `${scotland} fans` }]);
   });
 
   it('sets and removes the meeting time of the own group and names who to tell', () => {

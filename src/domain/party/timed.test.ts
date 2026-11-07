@@ -75,6 +75,23 @@ describe('tidyName', () => {
     expect(tidyName('e\u0301')).toBe('e\u0301');
   });
 
+  it('keeps the non-joiner of Persian words and the tags of a flag such as Scotland’s', () => {
+    const zwnj = String.fromCodePoint(0x200c);
+    const persian = `می${zwnj}روم`;
+    expect(tidyName(`${persian} picnic`)).toBe(`${persian} picnic`);
+    const scotland = String.fromCodePoint(
+      0x1f3f4,
+      0xe0067,
+      0xe0062,
+      0xe0073,
+      0xe0063,
+      0xe0074,
+      0xe007f,
+    );
+    expect(tidyName(`${scotland} picnic`)).toBe(`${scotland} picnic`);
+    expect(tidyName(scotland)).toBe(scotland);
+  });
+
   it('drops a direction override, which would turn the title of the post around', () => {
     expect(tidyName('\u202ecinciP')).toBe('cinciP');
     expect(tidyName('a\u202db\u2066c\u2069d\u200ee\u200f')).toBe('abcde');
