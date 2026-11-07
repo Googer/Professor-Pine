@@ -2,9 +2,9 @@ import { sql, type Kysely } from 'kysely';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import { startMigratedDatabase } from '../../../test/support/migrated-db.js';
 import type { DB } from '../types.js';
-import { meetupRequestEnd } from './2026_11_07_045_meetup_request_end.js';
+import { meetupRequestEnd } from './2026_11_07_047_meetup_request_end.js';
 
-describe('migration 045: when a meetup held for the moderators ends', () => {
+describe('migration 047: when a meetup held for the moderators ends', () => {
   let stop: () => Promise<void>;
   let db: Kysely<DB>;
 

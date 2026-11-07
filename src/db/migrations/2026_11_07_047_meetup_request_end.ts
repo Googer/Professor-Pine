@@ -6,8 +6,8 @@ import type { Migration } from 'kysely/migration';
  * `MeetupRequest.endTime`, epoch milliseconds, null for a meetup asked for without an end (and
  * every row from before). An approval makes the meetup with it, and the moderators' post says it.
  *
- * 045: after 044, which two branches of 2026-11-07 (`deps-11-07`, `spawns-on-map`) each add;
- * renumber at the merge as the order of merging says.
+ * 047: written as 045 on its branch and renumbered at the merge, after 044 (spawns on the map),
+ * 045 (the party audit log) and 046 (the copies of ended parties).
  *
  * Safe to run again after a failure half-way: the column is added only when it is missing.
  */

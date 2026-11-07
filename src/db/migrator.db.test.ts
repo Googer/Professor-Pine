@@ -225,7 +225,7 @@ describe('runMigrations', () => {
       '2026_11_07_044_spawns_on_map',
       '2026_11_07_045_party_audit',
       '2026_11_07_046_ended_party_copies',
-      '2026_11_07_045_meetup_request_end',
+      '2026_11_07_047_meetup_request_end',
     ]);
     expect(
       await describeSchema(
