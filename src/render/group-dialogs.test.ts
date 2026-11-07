@@ -218,7 +218,7 @@ describe('groupMenuDialog (Group…)', () => {
       (one) => one.type === ComponentType.Label && one.component.type === ComponentType.TextInput,
     );
     expect(field).toMatchObject({
-      label: 'Label for a new group (optional)',
+      label: 'Name for the new group (optional)',
       component: { custom_id: LABEL_INPUT, required: false, max_length: 100 },
     });
   });

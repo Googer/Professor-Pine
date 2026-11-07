@@ -363,7 +363,7 @@ export function regroupOnTheMap(
  * group` for a member who is not signed up, whom it signs up as coming), saying which group the
  * member is in; the required radio choice `Move to` of `ways` in their order (the first picked to
  * start with), a new group last as `A new group (C)`; where only one way is left no choice, and
- * the text says what Submit does. "Label for a new group (optional)" where a new group is among
+ * the text says what Submit does. "Name for the new group (optional)" where a new group is among
  * the ways (ignored for a move). Its custom id `party:<id>:regroupform`, `SIGNED_UP_MARK` first
  * for `Change group`, then the one way as its arguments where it asks nothing (`new`, or the
  * group's letter and stamp), and last a per-open token (`openToken`, plan 8X-F).
@@ -415,7 +415,7 @@ export function groupMenuDialog(
       ? {
           field: {
             id: LABEL_INPUT,
-            label: 'Label for a new group (optional)',
+            label: 'Name for the new group (optional)',
             maxLength: MAX_GROUP_LABEL,
           },
         }
