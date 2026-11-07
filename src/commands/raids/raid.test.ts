@@ -185,12 +185,12 @@ describe('/raid', () => {
     expect(sent(select.editReply).content).toContain(
       'Reported: T5 egg at Pinewood Post Office Gym.',
     );
-    // The menu works once.
+    // The menu works once; a second pick after the answer is only acknowledged ("Reported: …"
+    // stays).
     const second = await handle(fakeSelect({ customId: customId(interaction), values: ['1'] }));
-    expect(sent(second.update)).toEqual({
-      content: 'That choice has expired. Use `/raid` again.',
-      components: [],
-    });
+    expect(second.deferUpdate).toHaveBeenCalled();
+    expect(second.update).not.toHaveBeenCalled();
+    expect(second.editReply).not.toHaveBeenCalled();
     expect(store.active()).toHaveLength(1);
   });
 
@@ -514,8 +514,9 @@ describe('/raid', () => {
       /^Something went wrong\. Try again in a moment; if it happens again, tell staff the code `[0-9a-f]{6}`\.$/,
     );
     expect(error.flags).toBe(64);
+    // Used up: a second pick leaves "Nothing was reported." as it is.
     const again = await handle(fakeSelect({ customId: customId(interaction), values: ['12'] }));
-    expect(sent(again.update).content).toBe('That choice has expired. Use `/raid` again.');
+    expect(again.update).not.toHaveBeenCalled();
     expect(store.active()).toEqual([]);
   });
 
@@ -564,11 +565,17 @@ describe('/raid', () => {
     expect(customId(select, 0)).not.toBe(menuToken);
     // The menu is used up; the confirmation has its own token.
     const menuAgain = await handle(fakeSelect({ customId: menuToken, values: ['7'] }));
-    expect(sent(menuAgain.update).content).toBe('That choice has expired. Use `/raid` again.');
+    expect(menuAgain.deferUpdate).toHaveBeenCalled();
+    expect(menuAgain.update).not.toHaveBeenCalled();
     const yes = await handle(fakeButton({ customId: customId(select, 0) }));
     expect(store.active()[0]).toMatchObject({ gymId: 7, regionId: 2 });
     expect(gateway.postsIn(EAST_FORUM)).toHaveLength(1);
     expect(sent(yes.editReply).content).toContain('Reported: T5 egg at Harbor Lighthouse Mural.');
+    // A second press after the answer leaves "Reported: …" as it is.
+    const yesAgain = await handle(fakeButton({ customId: customId(select, 0) }));
+    expect(yesAgain.deferUpdate).toHaveBeenCalled();
+    expect(yesAgain.update).not.toHaveBeenCalled();
+    expect(gateway.postsIn(EAST_FORUM)).toHaveLength(1);
   });
 
   it('says the confirmation has expired when the button is pressed too late', async () => {

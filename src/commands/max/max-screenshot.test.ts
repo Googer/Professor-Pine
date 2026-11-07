@@ -420,6 +420,13 @@ describe('/max screenshot:', () => {
     const battle = asMax(made.store.active()[0]);
     expect(battle.max.spot).toMatchObject({ id: POND.id });
     expect(told(pick).content).toMatch(/^Reported: Dynamax Machop \(2★\) at Gazebo of the Pond/);
+    // A second pick after the answer is only acknowledged.
+    const again = await made.handle(
+      fakeSelect({ customId: menu?.custom_id ?? '', values: [TEST_SPOT.id] }),
+    );
+    expect(again.deferUpdate).toHaveBeenCalled();
+    expect(again.update).not.toHaveBeenCalled();
+    expect(made.store.active()).toHaveLength(1);
     const kept = await made.screenshots.get(battle.max.screenshot?.id ?? '');
     expect(kept).toMatchObject({ record: { pickedSpotId: POND.id } });
   });
@@ -453,6 +460,14 @@ describe('/max screenshot:', () => {
     const press = await made.handle(fakeButton({ customId: yes?.custom_id ?? '' }));
     expect(asMax(made.store.active()[0]).max.spot).toMatchObject({ id: TEST_SPOT.id });
     expect(told(press).content).toMatch(/^Reported: Dynamax Machop \(2★\)/);
+    // A second press after the answer is only acknowledged: "Reported: …" stays.
+    const again = await made.handle(fakeButton({ customId: yes?.custom_id ?? '' }));
+    expect(again.deferUpdate).toHaveBeenCalled();
+    expect(again.update).not.toHaveBeenCalled();
+    expect(again.editReply).not.toHaveBeenCalled();
+    const cancel = await made.handle(fakeButton({ customId: no?.custom_id ?? '' }));
+    expect(cancel.update).not.toHaveBeenCalled();
+    expect(made.store.active()).toHaveLength(1);
   });
 
   it('refuses a Power Spot it does not know, and tells the staff of a name read surely', async () => {

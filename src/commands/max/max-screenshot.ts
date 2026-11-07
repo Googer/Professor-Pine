@@ -9,6 +9,7 @@ import {
   type StringSelectMenuInteraction,
 } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
+import { BoundedMap } from '../../bounded-map.js';
 import type { ControlThrottle } from '../../discord/command.js';
 import { encodeCustomId } from '../../discord/custom-id.js';
 import { UserError } from '../../discord/errors.js';
@@ -125,6 +126,13 @@ interface PendingShot {
 }
 
 const pending = new PendingRequests<PendingShot>();
+
+/**
+ * The tokens of questions answered a while ago (as the mention's controls keep them): a second
+ * press (a double click, or one made while the first was being reported) is only acknowledged,
+ * never written over the answer.
+ */
+const answered = new BoundedMap<string, true>(1_000);
 
 /** The screenshot given to `/max`, where screenshots are read. */
 export function screenshotOf(
@@ -560,9 +568,11 @@ async function claimed(
   const taken = pending.take(token, interaction.user.id);
   if (taken === 'not-yours') throw new UserError(NOT_YOURS);
   if (taken === 'expired') {
-    await interaction.update({ content: EXPIRED, components: [] });
+    if (answered.has(token)) await interaction.deferUpdate().catch(() => undefined);
+    else await interaction.update({ content: EXPIRED, components: [] });
     return undefined;
   }
+  answered.set(token, true);
   return taken.value;
 }
 
