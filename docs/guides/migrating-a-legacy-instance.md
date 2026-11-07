@@ -118,7 +118,7 @@ A full **rehearsal**, in which the new bot really runs for an hour against a cop
 
 It builds the bot's image (the first time takes a few minutes), then reads the legacy `settings.json` and `private-settings.json` and writes two files beside `compose.yaml`:
 
-- `pine-settings.json`: the new bot's settings. Every value the new bot still reads keeps your legacy value (channel names, durations, the feature switches such as `features.remoteRaidChannel`), renamed keys are mapped (`ex-gym-raids` becomes `elite-gym-raids`), and keys nothing reads any more are dropped. The result is checked by the bot's own loader before it is written.
+- `pine-settings.json`: the new bot's settings. Every value the new bot still reads keeps your legacy value (channel names, durations, the feature switches such as `features.remoteRaidChannel`), renamed keys are mapped (`ex-gym-raids` becomes `elite-gym-raids`), and keys nothing reads any more are dropped and named in what it prints (among them the EX raid durations, `commandPrefix`, the reactions, `messageCleanupDelaySuccess` and `messageCleanupDelayStatus`, `databaseRaids`, `updater`, and the emoji `thumbsUp` and `thumbsDown`; a settings file that still has them starts all the same). The result is checked by the bot's own loader before it is written.
 - `env-from-legacy.txt`: the lines of `.env` made from your private settings (the token, the owner, the database, the Google key and so on).
 
 It never overwrites either file unless you add `--force`. It reads your private settings, so run it yourself; it prints only names and "set" or "empty", never a secret.

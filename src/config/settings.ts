@@ -39,21 +39,48 @@ function isTimeZone(zone: string): boolean {
 /**
  * Keys an older settings file may still have, and that mean nothing any more: the durations of
  * EX raids, a tier that plan 4F removed; the folder the eggs' pictures were shown from, since
- * the bot carries square ones of its own (plan 8D-F). The schema is strict, so that a misspelt
- * key is refused; these are taken out first, so that a file from before the removal still
- * starts. Top-level keys only.
+ * the bot carries square ones of its own (plan 8D-F); what only the legacy bot read (2026-11-07:
+ * the delays before it deleted its success and status messages, its switch for raids in the
+ * database, its updater's intervals, the thumbs emoji of its reactions) and the archive's
+ * retention, never built. The schema is strict, so that a misspelt key is refused; these are
+ * taken out first, so that a file from before the removal still starts. A key with a dot is one
+ * inside an object (`emoji.thumbsUp`); the others are at the top of the file. The settings
+ * converter drops them from a legacy file and names them.
  */
 export const RETIRED_SETTINGS = [
   'exclusiveRaidIncubateDuration',
   'exclusiveRaidHatchedDuration',
   'raidEggPicturesUrl',
+  'messageCleanupDelaySuccess',
+  'messageCleanupDelayStatus',
+  'databaseRaids',
+  'updater',
+  'archiveRetentionDays',
+  'emoji.thumbsUp',
+  'emoji.thumbsDown',
 ] as const;
+
+/** An object without these keys; anything else as it is. */
+function without(raw: unknown, keys: readonly string[]): unknown {
+  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return raw;
+  const inside = new Map<string, string[]>();
+  for (const key of keys) {
+    const [first = '', ...rest] = key.split('.');
+    if (rest.length > 0) inside.set(first, [...(inside.get(first) ?? []), rest.join('.')]);
+  }
+  return Object.fromEntries(
+    Object.entries(raw)
+      .filter(([key]) => !keys.includes(key))
+      .map(([key, value]) => {
+        const deeper = inside.get(key);
+        return [key, deeper ? without(value, deeper) : value];
+      }),
+  );
+}
 
 /** A settings file as it was read, without the keys of `RETIRED_SETTINGS`. */
 export function withoutRetiredSettings(raw: unknown): unknown {
-  if (typeof raw !== 'object' || raw === null || Array.isArray(raw)) return raw;
-  const retired: readonly string[] = RETIRED_SETTINGS;
-  return Object.fromEntries(Object.entries(raw).filter(([key]) => !retired.includes(key)));
+  return without(raw, RETIRED_SETTINGS);
 }
 
 /** The hosts a public address may name with plain http: this machine (`publicUrl`). */
@@ -146,11 +173,8 @@ export const settingsObject = z.strictObject({
    */
   screenshotMessageOffsetTime: seconds,
   cleanupInterval: milliseconds,
-  messageCleanupDelaySuccess: milliseconds,
   messageCleanupDelayError: milliseconds,
-  messageCleanupDelayStatus: milliseconds,
   showUnknownMoves: z.boolean(),
-  databaseRaids: z.boolean(),
   postNewGyms: z.boolean(),
   /**
    * The monthly budget of the line that waits for Google (plan 8W-6; `GymUpkeep`): how many
@@ -189,13 +213,7 @@ export const settingsObject = z.strictObject({
    * help and `docs/guides/new-instance.md` name it.
    */
   wayspotTool: z.url({ protocol: /^https?$/ }).default('https://profpine.com/userscript'),
-  updater: z.strictObject({
-    channelIndexUpdateIntervalSeconds: z.number().int().positive(),
-    gymPlacesIndexUpdateIntervalSeconds: z.number().int().positive(),
-  }),
   emoji: z.strictObject({
-    thumbsUp: z.string(),
-    thumbsDown: z.string(),
     shiny: z.string(),
     remote: z.string(),
   }),
@@ -422,7 +440,6 @@ export const settingsObject = z.strictObject({
    * `distanceWords` of `src/render/distance-words.ts`.
    */
   distanceUnits: z.enum(['imperial', 'metric']).default('imperial'),
-  archiveRetentionDays: z.number().int().positive().nullable(),
   /**
    * Reading raid screenshots (Phase 7). The models run in a child process of their own, one
    * screenshot at a time; everything but `passive` and `debug` has a default.

@@ -498,9 +498,16 @@ describe('loadSettings', () => {
       'exclusiveRaidIncubateDuration',
       'exclusiveRaidHatchedDuration',
       'raidEggPicturesUrl',
+      'messageCleanupDelaySuccess',
+      'messageCleanupDelayStatus',
+      'databaseRaids',
+      'updater',
+      'archiveRetentionDays',
+      'emoji.thumbsUp',
+      'emoji.thumbsDown',
     ]);
     const current = JSON.parse(readFileSync(REPO_SETTINGS, 'utf8')) as Record<string, unknown>;
-    for (const key of RETIRED_SETTINGS) expect(current, key).not.toHaveProperty(key);
+    for (const key of RETIRED_SETTINGS) expect(current, key).not.toHaveProperty(key.split('.'));
     const old = writeSettings((s) => {
       s.exclusiveRaidIncubateDuration = 20160;
       s.exclusiveRaidHatchedDuration = 45;
@@ -515,6 +522,28 @@ describe('loadSettings', () => {
       s.raidEggPicturesUrl = 'not even an address';
     });
     expect(loadSettings(odd)).toEqual(loadSettings(REPO_SETTINGS));
+  });
+
+  it('starts with a legacy file that still has the keys nothing reads, and keeps none of them', () => {
+    const legacy = writeSettings((s) => {
+      s.messageCleanupDelaySuccess = 5000;
+      s.messageCleanupDelayStatus = 60000;
+      s.databaseRaids = true;
+      s.updater = {
+        channelIndexUpdateIntervalSeconds: 60,
+        gymPlacesIndexUpdateIntervalSeconds: 60,
+      };
+      s.archiveRetentionDays = null;
+      const emoji = s.emoji as Record<string, unknown>;
+      emoji.thumbsUp = 'pinethumbsup';
+      emoji.thumbsDown = 'pinethumbsdown';
+    });
+    const settings = loadSettings(legacy);
+    expect(settings).toEqual(loadSettings(REPO_SETTINGS));
+    expect(settings).not.toHaveProperty('updater');
+    expect(settings.emoji).not.toHaveProperty('thumbsUp');
+    // The one of the cleanup delays that is read stays: a screenshot's reply goes after it.
+    expect(settings.messageCleanupDelayError).toBe(30000);
   });
 
   it('takes only those keys out, and only at the top of the file', () => {

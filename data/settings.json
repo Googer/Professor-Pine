@@ -15,20 +15,11 @@
   "maximumMeetupLeadtime": 93,
   "screenshotMessageOffsetTime": 45,
   "cleanupInterval": 60000,
-  "messageCleanupDelaySuccess": 5000,
   "messageCleanupDelayError": 30000,
-  "messageCleanupDelayStatus": 60000,
   "showUnknownMoves": true,
-  "databaseRaids": true,
   "postNewGyms": true,
   "wayspotTool": "https://profpine.com/userscript",
-  "updater": {
-    "channelIndexUpdateIntervalSeconds": 60,
-    "gymPlacesIndexUpdateIntervalSeconds": 60
-  },
   "emoji": {
-    "thumbsUp": "pinethumbsup",
-    "thumbsDown": "pinethumbsdown",
     "shiny": "pineshiny",
     "remote": "pineremote"
   },
@@ -82,7 +73,6 @@
   ],
   "timezone": "America/New_York",
   "distanceUnits": "imperial",
-  "archiveRetentionDays": null,
   "ocr": {
     "passive": false,
     "debug": false
