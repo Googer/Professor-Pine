@@ -6,6 +6,7 @@ import {
   utimesSync,
   writeFileSync,
 } from 'node:fs';
+import { rename } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -280,6 +281,33 @@ describe('ScreenshotStore', () => {
       label: { gym: 'Old Plant Church' },
     });
   });
+
+  it.each(['EPERM', 'EBUSY', 'EACCES'])(
+    'keeps the gym picked when Windows refuses the rename of its record once with %s',
+    async (code) => {
+      // A virus scanner or the search index holds a file just written, for a moment.
+      let refuse = false;
+      const { store, json, entries } = storeWith(new Set(), {
+        renamePauseMs: 0,
+        rename: async (from, to) => {
+          if (refuse) {
+            refuse = false;
+            throw Object.assign(new Error(`${code}: rename`), { code });
+          }
+          await rename(from, to);
+        },
+      });
+      const id = await kept(store, screenshot({ kind: 'ask', doubts: ['gym-unclear'] }));
+      refuse = true;
+      await store.picked(id, 9);
+      expect(refuse).toBe(false);
+      expect(json('held', id)).toMatchObject({ pickedGymId: 9 });
+      expect(json('review', id)).toMatchObject({ pickedGymId: 9 });
+      expect(entries.filter((entry) => entry.msg === 'could not change a kept screenshot')).toEqual(
+        [],
+      );
+    },
+  );
 
   it('leaves out of the key what the member typed', async () => {
     const { store, json } = storeWith();

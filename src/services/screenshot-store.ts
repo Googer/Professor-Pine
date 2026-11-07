@@ -1,15 +1,5 @@
 import { randomBytes } from 'node:crypto';
-import {
-  copyFile,
-  link,
-  mkdir,
-  readdir,
-  readFile,
-  rename,
-  rm,
-  stat,
-  writeFile,
-} from 'node:fs/promises';
+import { copyFile, link, mkdir, readdir, readFile, rm, stat, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { BoundedMap } from '../bounded-map.js';
 import { imageFormat, type Box } from '../domain/ocr/image.js';
@@ -31,6 +21,7 @@ import type { RaidTier } from '../domain/pogo/raid-tier.js';
 import type { ScreenReading } from '../ocr/screen-reader.js';
 import type { Logger } from '../log.js';
 import { failureReason } from './failure-reason.js';
+import { moveIntoPlace } from './image-cache.js';
 
 const DAY_MS = 24 * 3_600_000;
 const MB = 1024 * 1024;
@@ -159,6 +150,10 @@ export interface ScreenshotStoreOptions {
   now?: () => number;
   /** How a review copy is linked to its held file (`fs.link`; tests make it fail). */
   link?: (from: string, to: string) => Promise<void>;
+  /** Puts a written record in its place. Default `rename` of `node:fs/promises`; for tests. */
+  rename?: (from: string, to: string) => Promise<void>;
+  /** The pause before a refused rename is tried again. Default 50 ms. */
+  renamePauseMs?: number;
 }
 
 const ID = /^[A-Za-z0-9_-]{12}$/;
@@ -596,7 +591,8 @@ export class ScreenshotStore implements ScreenshotKeeping {
     const before = (await stat(target).catch(() => undefined))?.size ?? 0;
     try {
       await writeFile(temporary, text);
-      await rename(temporary, target);
+      // Tried again when Windows refuses it while another program holds the record a moment.
+      await moveIntoPlace(temporary, target, this.options.rename, this.options.renamePauseMs);
       this.grow(Buffer.byteLength(text) - before);
     } finally {
       await rm(temporary, { force: true });
