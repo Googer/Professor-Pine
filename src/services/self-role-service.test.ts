@@ -392,6 +392,37 @@ describe('SelfRoleService.change', () => {
     ).toBe(true);
   });
 
+  it('tells its listeners of every change that took a role away, done or partial (plan 8M-20, W2)', async () => {
+    const made = selfRolesWith();
+    await made.offerSample();
+    const told: string[] = [];
+    made.selfRoles.onRolesTaken((guild, member) => told.push(`${guild} ${member}`));
+    made.selfRoles.onRolesTaken(() => {
+      throw new Error('a listener that fails');
+    });
+    made.server.member(ALICE, ROLE.north, ROLE.south);
+    // Only given: nobody is told.
+    await made.selfRoles.change(HOME, alice(made), { give: [ROLE.mystic], take: [] });
+    expect(told).toEqual([]);
+    // Done, with something taken.
+    await made.selfRoles.change(HOME, alice(made), { give: [], take: [ROLE.mystic] });
+    expect(told).toEqual([`${HOME} ${ALICE}`]);
+    // Partial: North taken, South moved above the bot meanwhile.
+    made.gateway.meanwhile = () => made.server.edit(ROLE.south, { position: 55 });
+    const partial = await made.selfRoles.change(HOME, alice(made), {
+      give: [],
+      take: [ROLE.north, ROLE.south],
+    });
+    expect(partial).toMatchObject({ kind: 'partial', taken: [{ name: 'North' }] });
+    expect(told).toEqual([`${HOME} ${ALICE}`, `${HOME} ${ALICE}`]);
+    // A listener that fails is logged and keeps nothing from the others.
+    expect(
+      made.entries.filter(
+        (entry) => entry.msg === 'could not pass on that a self-assigned role was taken away',
+      ),
+    ).toHaveLength(2);
+  });
+
   it('takes nothing away when the role that was to replace it could not be given', async () => {
     const made = selfRolesWith();
     await made.offerSample();

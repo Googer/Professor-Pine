@@ -46,12 +46,6 @@ export interface RegionWebDeps {
    * where `settings.features.roles` is off (R6: the view says access alone, the writes are 404).
    */
   selfRoles: Pick<SelfRoleService, 'roster' | 'heldNow' | 'change'> | undefined;
-  /**
-   * Access for members of other regions (`AccessService`, B5): after a role was taken away, the
-   * member's parties' forums are settled again, so that a party they are in keeps its forum in
-   * their sight.
-   */
-  access: { memberChanged(memberId: string, guildRow: number): void };
 }
 
 /** The asks of "Your regions" one address may make in a minute: as many as the parties'. */
@@ -85,8 +79,6 @@ export async function mapRegionsOf(
 
 /** How a member stands to the regions now, as `regionsNow` found it. */
 interface RegionsNow {
-  /** The server's row. */
-  row: number | undefined;
   /** The regions' gates, every one of the map's. */
   gates: string[];
   /** Per region whose gate the bot sees (`regionChoices`). */
@@ -116,7 +108,7 @@ async function regionsNow(
   member?: { held: readonly string[]; seenAt: number },
 ): Promise<RegionsNow | undefined> {
   const { regions: regionDeps } = deps;
-  const { row, regions } = await mapRegionsOf(regionDeps, guild);
+  const { regions } = await mapRegionsOf(regionDeps, guild);
   const gates = regions.map((region) => region.gateId);
   const look = await regionDeps.gates.memberGates(guild, userId, gates, fresh);
   if (!look) return undefined;
@@ -173,7 +165,7 @@ async function regionsNow(
       })),
     })),
   };
-  return { row, gates, choices, roster, view };
+  return { gates, choices, roster, view };
 }
 
 /** The body of a join or leave: the role, by its id. */
@@ -348,12 +340,9 @@ export function regionRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Par
         // next look reads. The member directory's minute is left alone: a staff role is never
         // self-assignable (`roleProblem`), and a member who gives up the map's member role is
         // refused at their next write, which judges the member fetched afresh.
+        // A party they are in keeps its forum in their sight (B5, W2): the service's own path
+        // (`onRolesTaken`) has the access service settle it, as for `/iamnot` and the menus.
         viewers.forget(userId, before.gates);
-        // A party they are in keeps its forum in their sight (B5): a role taken away may have
-        // been what let them see it.
-        if (outcome.taken.length > 0 && before.row !== undefined) {
-          deps.regions.access.memberChanged(userId, before.row);
-        }
       }
       const answer: RegionChangeAnswer = {
         ok: outcome.kind === 'done',

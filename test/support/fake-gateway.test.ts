@@ -119,6 +119,12 @@ describe('FakePartyGateway: who can see a forum', () => {
     expect((await fake.memberGates(fake.guildId, BOB, [EAST_FORUM], false))?.held).toEqual([
       'east-role',
     ]);
+    // `memberAccess` reads the same cache, and a forced fetch of its own brings it up to date
+    // (W2: the access service settles a member whose roles changed from a fresh look).
+    fake.rolesOf = () => [];
+    expect(await fake.memberAccess(EAST_FORUM, BOB)).toBe('visible');
+    expect(await fake.memberAccess(EAST_FORUM, BOB, true)).toBe('hidden');
+    expect(await fake.memberAccess(EAST_FORUM, BOB)).toBe('hidden');
     fake.leftServer.add(BOB);
     expect(await fake.memberGates(fake.guildId, BOB, [EAST_FORUM], true)).toBeUndefined();
     expect(await fake.memberGates('another', ALICE, [EAST_FORUM], true)).toBeUndefined();

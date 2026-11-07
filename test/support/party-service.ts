@@ -369,7 +369,16 @@ export async function partyServiceWith(
   await store.load();
   const gateway = kept?.gateway ?? new FakePartyGateway();
   const grants = kept?.grants ?? new MemoryAccessGrants();
-  const access = new AccessService({ store, gateway, storage: grants, log, now });
+  const access = new AccessService({
+    store,
+    gateway,
+    guilds: {
+      idFor: (snowflake) => Promise.resolve(snowflake === gateway.guildId ? 1 : undefined),
+    },
+    storage: grants,
+    log,
+    now,
+  });
   await access.load();
   const tags = kept?.tags ?? {
     [WEST_FORUM]: gateway.addForum(WEST_FORUM, FORUM_TAGS, 'west-raids'),

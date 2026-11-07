@@ -503,8 +503,15 @@ export async function startApp(
   const access = new AccessService({
     store: parties,
     gateway: partyGateway,
+    guilds,
     storage: new AccessGrantRepository(db),
     log,
+  });
+  // A self-assigned role taken away (`/iamnot`, the role menus, the web map) may have been what
+  // showed the member the forum of a party they are in: the access to those forums is settled
+  // again from a fresh look at them (plan 8M-20, W2).
+  selfRoles.onRolesTaken((guild, member) => {
+    access.memberChanged(guild, member);
   });
   // The PokéStops of Pine's own (plan 8R-1), held by the directory beside the kept Wayspots.
   const pineStops = new PineStopService({
@@ -1593,14 +1600,12 @@ export async function startApp(
         days: historyDays,
       },
       // "Your regions" on the map (plan 8M-20): the member and the regions' gates looked at once,
-      // joined and left through /iam's own service (none where self-assigned roles are off); a role
-      // taken away settles the access to the forums of the member's parties again.
+      // joined and left through /iam's own service (none where self-assigned roles are off).
       regions: {
         guilds,
         regions,
         gates: partyGateway,
         selfRoles: config.settings.features.roles ? ctx.selfRoles : undefined,
-        access,
       },
       // The Wayfarer export tool (plan 8W-P): served from wayspot-tool/ to the admins the owner
       // approved, on an instance that has the file (the owner's).

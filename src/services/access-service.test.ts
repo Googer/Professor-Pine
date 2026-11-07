@@ -10,6 +10,8 @@ import {
   restarted,
 } from '../../test/support/party-service.js';
 import { gymsFixture } from '../../test/support/providers.js';
+import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
+import { REGION_ROLE, viewOverwrite } from '../../test/support/region-roles.js';
 import { PartyStatus } from '../domain/party/status.js';
 import type { Member } from './attendance-service.js';
 
@@ -614,5 +616,33 @@ describe('AccessService: a train', () => {
     await done(made);
     expect(made.gateway.canSee(WEST_FORUM, CAROL)).toBe(false);
     expect(await made.grants.list()).toEqual([]);
+  });
+});
+
+describe('AccessService: a member whose roles changed (plan 8M-20, W2)', () => {
+  it('lets them into the forums of their parties by a fresh look at them, not the cache', async () => {
+    const made = await reportedRaid(yveltal);
+    // West's forum opens to the role West alone, which Alice holds as the cache last saw her.
+    made.gateway.forumOverwrites.set(WEST_FORUM, [
+      viewOverwrite(FAKE_GUILD_ID, false),
+      viewOverwrite(REGION_ROLE.west, true),
+    ]);
+    let roles: string[] = [REGION_ROLE.west];
+    made.gateway.rolesOf = () => roles;
+    made.gateway.memberFetched(ALICE);
+    await made.attendance.signUp(made.party.id, alice, PartyStatus.Coming);
+    await settled(made);
+    expect(made.access.has(WEST_FORUM, ALICE)).toBe(false);
+    // West is taken away; the cache still holds her with it.
+    roles = [];
+    made.access.memberChanged(FAKE_GUILD_ID, ALICE);
+    await settled(made);
+    expect(made.access.has(WEST_FORUM, ALICE)).toBe(true);
+    expect(made.gateway.canSee(WEST_FORUM, ALICE)).toBe(true);
+    // Somebody of no party, or of another server, is left alone.
+    made.access.memberChanged(FAKE_GUILD_ID, BOB);
+    made.access.memberChanged('499999999999999999', ALICE);
+    await settled(made);
+    expect(accessCalls(made)).toEqual([`admitMember ${WEST_FORUM} ${ALICE}`]);
   });
 });

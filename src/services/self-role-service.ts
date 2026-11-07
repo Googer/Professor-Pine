@@ -225,6 +225,8 @@ export class SelfRoleService {
   private readonly remembering = new Map<string, Promise<void>>();
   /** Until when nothing is written for a server (`REMEMBER_PAUSE_MS`). */
   private readonly rememberPaused = new Map<string, number>();
+  /** Who is told of a change that took a role away (`onRolesTaken`). */
+  private readonly takenListeners: Array<(guildId: string, memberId: string) => void> = [];
 
   constructor(options: {
     storage: SelfRoleStorage;
@@ -312,6 +314,16 @@ export class SelfRoleService {
     return problem === undefined
       ? undefined
       : { why: problem, entry: { ...entry, role, name: role.name, problem } };
+  }
+
+  /**
+   * Tells `listener` of every change that took a role away from a member (a `done` or `partial`
+   * outcome with something taken), whoever asked for it: `/iamnot`, the role menus or the web
+   * map (plan 8M-20, W2: `app.ts` has the access service settle the forums of the member's
+   * parties). Run once the change is finished, before it is answered; what it throws is logged.
+   */
+  onRolesTaken(listener: (guildId: string, memberId: string) => void): void {
+    this.takenListeners.push(listener);
   }
 
   /** The rows and groups as stored, whatever the server's roles are: for staff's lists. */
@@ -480,6 +492,18 @@ export class SelfRoleService {
         { guild: guildId, member: member.id, added: names(given), removed: names(taken) },
         'self-assigned roles changed',
       );
+    }
+    if (taken.length > 0) {
+      for (const listener of this.takenListeners) {
+        try {
+          listener(guildId, member.id);
+        } catch (err) {
+          this.log.warn(
+            { err, guild: guildId, member: member.id },
+            'could not pass on that a self-assigned role was taken away',
+          );
+        }
+      }
     }
     if (aged || failed?.reason === 'withdrawn') {
       // What is shown after the change is the server as it is after it.

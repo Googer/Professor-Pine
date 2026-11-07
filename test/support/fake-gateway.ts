@@ -1708,14 +1708,24 @@ export class FakePartyGateway implements PartyGateway {
     });
   }
 
-  memberAccess(forumId: string, memberId: string): Promise<MemberAccess | undefined> {
+  memberAccess(
+    forumId: string,
+    memberId: string,
+    fresh = false,
+  ): Promise<MemberAccess | undefined> {
     return this.attempt(
       'memberAccess',
       forumId,
       () => {
         if (!this.isGate(forumId)) return undefined;
         if (this.leftServer.has(memberId)) return undefined;
-        return this.accessNow(forumId, memberId);
+        if (fresh) this.memberFetched(memberId);
+        // The cache's roles where a look put the member there (plan 8M-20), else as they are.
+        return this.accessNow(
+          forumId,
+          memberId,
+          this.cachedRoles.get(memberId) ?? this.rolesOf(memberId),
+        );
       },
       false,
     );
@@ -1738,7 +1748,8 @@ export class FakePartyGateway implements PartyGateway {
 
   /**
    * The roles of each member as discord.js's cache holds them (plan 8M-20, A7): what `memberGates`
-   * without `fresh` reads. A forced fetch (`fresh`, or `memberFetched` for one made elsewhere: the
+   * and `memberAccess` without `fresh` read (a member never put there is fetched, so as
+   * `rolesOf` has them). A forced fetch (`fresh`, or `memberFetched` for one made elsewhere: the
    * member directory's, the acting member's) brings it up to `rolesOf`.
    */
   private readonly cachedRoles = new Map<string, readonly string[]>();

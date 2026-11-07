@@ -477,9 +477,15 @@ export interface PartyGateway {
    * Whether a member of the server can see a forum (and with it the posts in it), by their
    * roles and the forum's permission overwrites; the same of a text channel, which decides who
    * sees a region without a forum (`regionGate`, plan 8H-5). Undefined when the channel is gone
-   * (or neither a forum nor a text channel) or the member is not in its server.
+   * (or neither a forum nor a text channel) or the member is not in its server. `fresh`: the
+   * member fetched afresh from Discord (plan 8M-20, W2: their roles just changed), else as the
+   * cache has them.
    */
-  memberAccess(forumId: string, memberId: string): Promise<MemberAccess | undefined>;
+  memberAccess(
+    forumId: string,
+    memberId: string,
+    fresh?: boolean,
+  ): Promise<MemberAccess | undefined>;
   /**
    * How a member stands to these gates of a server's regions (their forums, or their text
    * channels where they have none; plan 8M-20): the member looked at once, fetched afresh with
@@ -2065,7 +2071,11 @@ export class DiscordPartyGateway implements PartyGateway {
       : undefined;
   }
 
-  async memberAccess(forumId: string, memberId: string): Promise<MemberAccess | undefined> {
+  async memberAccess(
+    forumId: string,
+    memberId: string,
+    fresh = false,
+  ): Promise<MemberAccess | undefined> {
     const forum = await this.gate(forumId);
     if (!forum) return undefined;
     // The interaction that brought the member here has put them into the cache with the roles
@@ -2073,8 +2083,8 @@ export class DiscordPartyGateway implements PartyGateway {
     // GuildMembers intent the roles of somebody who did not just act (the others of a raid that
     // moves) are those of their last interaction: a role they got or lost since is not seen,
     // so a grant may be made that was not needed, or one for somebody a new role keeps out;
-    // either ends with the party.
-    const member = await fetchGuildMember(forum.guild, memberId);
+    // either ends with the party. Whose roles just changed is fetched afresh (`fresh`).
+    const member = await fetchGuildMember(forum.guild, memberId, fresh);
     if (!member) return undefined;
     return DiscordPartyGateway.accessOf(forum, member);
   }

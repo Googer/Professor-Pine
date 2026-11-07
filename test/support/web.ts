@@ -605,7 +605,6 @@ const NO_REGIONS: RegionWebDeps = {
   regions: { all: () => [] },
   gates: { memberGates: () => Promise.resolve(undefined) },
   selfRoles: undefined,
-  access: { memberChanged: () => undefined },
 };
 
 /** No reports at stops: a test that has them passes `stopWebWith`. */

@@ -111,7 +111,10 @@ export async function regionRolesWith(
     regions: { all: () => regions },
     gates: gateway,
     selfRoles,
-    access: made.access,
   };
+  // As `app.ts` wires them: a role taken away settles the access to her parties' forums (W2).
+  selfRoles.onRolesTaken((guild, member) => {
+    made.access.memberChanged(guild, member);
+  });
   return { ...roles, roleGateway: roles.gateway, made, gateway, regions, deps };
 }

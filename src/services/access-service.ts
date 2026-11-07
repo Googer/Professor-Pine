@@ -19,6 +19,8 @@ export interface AccessServiceOptions {
   /** The active parties, and the word about every change of one. */
   store: { active(): Party[]; onChange(listener: PartyListener): void };
   gateway: Pick<PartyGateway, 'memberAccess' | 'admitMember' | 'dismissMember'>;
+  /** The row of a server (`Guild.id`) by its snowflake: for `memberChanged`. */
+  guilds: { idFor(snowflake: string): Promise<number | undefined> };
   storage: AccessGrantStorage;
   log: Logger;
   now?: () => number;
@@ -62,6 +64,8 @@ export class AccessService {
   private readonly waiting = new Map<string, number>();
   /** By forum: until when it is left alone after it refused the bot. */
   private readonly refused = new Map<string, number>();
+  /** What `memberChanged` started and has not ended: the look up of the server's row. */
+  private readonly resolving = new Set<Promise<void>>();
 
   constructor(private readonly options: AccessServiceOptions) {
     this.now = options.now ?? (() => Date.now());
@@ -127,31 +131,53 @@ export class AccessService {
   }
 
   /**
-   * A member's roles changed (plan 8M-20, B5: a region's role taken away on the web map): every
-   * forum of an active party of the server (`guildRow`) they take part in is settled again, so
-   * that one they no longer see by their roles lets them in, as a sign-up would. On the side, as
-   * every settlement.
+   * A member's roles changed (plan 8M-20, B5, W2: a self-assigned role taken away, by `/iamnot`,
+   * the role menus or the web map; `SelfRoleService.onRolesTaken`): every forum of an active
+   * party of the server (by its snowflake) they take part in is settled again, from a forced
+   * fetch of the member (the cache may still hold the role), so that one they no longer see by
+   * their roles lets them in, as a sign-up would. On the side, as every settlement.
    */
-  memberChanged(memberId: string, guildRow: number): void {
-    for (const party of this.options.store.active()) {
-      if (party.guildId !== guildRow || party.forumChannelId === null) continue;
-      if (takesPart(party, memberId)) this.settle(party.forumChannelId, memberId, party.guildId);
-    }
+  memberChanged(guildId: string, memberId: string): void {
+    const settling = (async (): Promise<void> => {
+      const row = await this.options.guilds.idFor(guildId);
+      if (row === undefined) return;
+      for (const party of this.options.store.active()) {
+        if (party.guildId !== row || party.forumChannelId === null) continue;
+        if (takesPart(party, memberId)) {
+          this.settle(party.forumChannelId, memberId, party.guildId, false, true);
+        }
+      }
+    })()
+      .catch((err: unknown) => {
+        this.options.log.warn(
+          { err, guild: guildId, member: memberId },
+          'could not settle the access of a member whose roles changed',
+        );
+      })
+      .finally(() => this.resolving.delete(settling));
+    this.resolving.add(settling);
   }
 
   /**
    * Brings one member's access to one forum in line with the parties, on the side: let in when
    * they take part in a party there and cannot see it, the grant taken back when they no longer
    * take part in any. `verify` also looks whether a member who was let in really can see the
-   * forum, and lets them in again when not (for the sweep). Never throws; what fails is logged.
+   * forum, and lets them in again when not (for the sweep); `fresh` looks at the member fetched
+   * afresh (`memberChanged`). Never throws; what fails is logged.
    */
-  private settle(forumId: string, memberId: string, guildId: number, verify = false): void {
+  private settle(
+    forumId: string,
+    memberId: string,
+    guildId: number,
+    verify = false,
+    fresh = false,
+  ): void {
     const key = AccessService.key(forumId, memberId);
     // Most changes end here: somebody who was never let in is no longer in a party.
     if (!this.grants.has(key) && !this.waiting.has(key) && !this.wanted(forumId, memberId)) return;
     this.waiting.set(key, (this.waiting.get(key) ?? 0) + 1);
     void this.locks
-      .run(key, () => this.settleNow(forumId, memberId, guildId, verify))
+      .run(key, () => this.settleNow(forumId, memberId, guildId, verify, fresh))
       .catch((err: unknown) => {
         this.options.log.warn(
           { err, forum: forumId, member: memberId },
@@ -170,6 +196,7 @@ export class AccessService {
     memberId: string,
     guildId: number,
     verify: boolean,
+    fresh: boolean,
   ): Promise<void> {
     const { gateway, storage, log } = this.options;
     const key = AccessService.key(forumId, memberId);
@@ -192,7 +219,7 @@ export class AccessService {
     }
     if (recorded && !verify) return;
     if ((this.refused.get(forumId) ?? 0) > this.now()) return;
-    const access = await gateway.memberAccess(forumId, memberId);
+    const access = await gateway.memberAccess(forumId, memberId, fresh);
     if (access === 'barred' && !recorded) {
       log.info(
         { forum: forumId, member: memberId },
@@ -263,6 +290,7 @@ export class AccessService {
 
   /** Waits for everything that is under way. For shutdown and for tests. */
   async flush(): Promise<void> {
+    while (this.resolving.size > 0) await Promise.all([...this.resolving]);
     await this.locks.whenIdle();
   }
 }
