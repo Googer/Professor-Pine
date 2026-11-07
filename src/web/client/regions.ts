@@ -62,14 +62,20 @@ export interface OutlineStyle {
  * solid, so the dashes alone may not show.
  */
 export function outlineStyle(region: RegionStanding | undefined): OutlineStyle {
-  switch (region === undefined ? 'visible' : stateOf(region)) {
+  // Nothing said of it: as the map always drew it, barely filled.
+  if (region === undefined) {
+    return { dashArray: undefined, opacity: 1, fillOpacity: 0.05, veiled: false };
+  }
+  // Matt, 2026-11-07: the member's own tinted in the region color and the others plainly gray,
+  // so the two read apart at a glance (0.05 and 0.15 to 0.25 were too close).
+  switch (stateOf(region)) {
     case 'mapOnly':
-      return { dashArray: DASHES, opacity: 0.7, fillOpacity: 0.15, veiled: true };
+      return { dashArray: DASHES, opacity: 0.7, fillOpacity: 0.3, veiled: true };
     case 'unlisted':
     case 'barred':
-      return { dashArray: DASHES, opacity: 0.4, fillOpacity: 0.25, veiled: true };
+      return { dashArray: DASHES, opacity: 0.4, fillOpacity: 0.45, veiled: true };
     default:
-      return { dashArray: undefined, opacity: 1, fillOpacity: 0.05, veiled: false };
+      return { dashArray: undefined, opacity: 1, fillOpacity: 0.18, veiled: false };
   }
 }
 

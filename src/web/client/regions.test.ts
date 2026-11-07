@@ -82,8 +82,22 @@ describe('the outlines of "Your regions"', () => {
     expect(hidden.fillOpacity).toBeGreaterThan(visible.fillOpacity);
     // Hidden, and its raids not on the map either: as fainter as kept out.
     expect(unlisted).toEqual(barred);
-    // A region nothing is said of (logged out, read-only, its channel gone) as before.
-    expect(outlineStyle(undefined)).toEqual(visible);
+    // A region nothing is said of (logged out, read-only, its channel gone) as before: solid,
+    // barely filled.
+    const before = outlineStyle(undefined);
+    expect(before).toEqual({ dashArray: undefined, opacity: 1, fillOpacity: 0.05, veiled: false });
+  });
+
+  it('tells the member’s own regions from the others at a glance (Matt, 2026-11-07)', () => {
+    const visible = outlineStyle({ access: 'visible', listed: true });
+    const hidden = outlineStyle({ access: 'hidden', listed: true });
+    const barred = outlineStyle({ access: 'barred', listed: false });
+    // Their own tinted in the region color, more than a region nothing is said of.
+    expect(visible.fillOpacity).toBeGreaterThanOrEqual(0.15);
+    expect(visible.fillOpacity).toBeGreaterThan(outlineStyle(undefined).fillOpacity);
+    // The others grayed plainly, the more so where the map does not list their raids either.
+    expect(hidden.fillOpacity).toBeGreaterThanOrEqual(0.3);
+    expect(barred.fillOpacity).toBeGreaterThanOrEqual(0.45);
   });
 });
 
