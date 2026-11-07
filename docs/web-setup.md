@@ -64,7 +64,7 @@ The map shows Stadia Maps' Alidade Smooth (light) and Alidade Smooth Dark (dark)
 1. Make a free account at Stadia Maps (the free plan is for non-commercial use: about 200,000 credits a month, refused past it, never billed).
 2. In its dashboard add a property with your domain (the host of `publicUrl`, for example `map.example.org`). `localhost` works without anything, for trying it on your own machine.
 
-When Stadia refuses its tiles (three failed in a row, or the first two of a visit: a domain it does not know, such as a quick tunnel's address, or the month's credits spent), the page switches to OpenStreetMap's tiles for the rest of the visit, darkened in dark mode. With `"tiles": "osm"` Stadia is never asked.
+When Stadia refuses its tiles (three failed in a row, or the first two of a visit: a domain it does not know, such as a quick tunnel's address, or the month's credits spent), the page switches to OpenStreetMap's tiles, darkened in dark mode, and tries Stadia's again after five minutes; each time Stadia still refuses, the wait doubles, up to an hour. With `"tiles": "osm"` Stadia is never asked.
 
 ### Google's tiles (optional)
 

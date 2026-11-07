@@ -1,8 +1,8 @@
 /**
  * The tiles the map offers (spec 2.3, plan 8M-7): by `settings.web.tiles`, Stadia Maps' Alidade
  * Smooth in the device's light or dark (no key: Stadia checks the page's domain, and `localhost`
- * works without one), falling back to OpenStreetMap's standard tiles for the rest of the visit
- * once Stadia refuses a tile (`StadiaFallback`); OpenStreetMap's alone; or with `tiles: 'google'`
+ * works without one), falling back to OpenStreetMap's standard tiles a while once Stadia refuses
+ * its tiles (`StadiaFallback`); OpenStreetMap's alone; or with `tiles: 'google'`
  * and a browser key Google's roadmap, satellite and hybrid beside Stadia's, through the Map Tiles
  * API (a session per layer, then 2D tiles; never the raw `mt*.google.com` addresses).
  * OpenStreetMap's tiles have no dark style: in dark they are darkened by a filter of the page
@@ -102,34 +102,79 @@ export function tileLayers(
   ];
 }
 
+/** The first wait on OpenStreetMap's tiles before Stadia's are tried again: five minutes. */
+export const STADIA_RETRY_FIRST_MS = 5 * 60_000;
+/** The longest wait: each switch doubles it (10, 20, 40 minutes), up to an hour. */
+export const STADIA_RETRY_MAX_MS = 60 * 60_000;
+
+/** Runs `then` after `ms`; what it returns cancels it. */
+export type Wait = (ms: number, then: () => void) => () => void;
+
+/** The page's own timers. */
+const timerWait: Wait = (ms, then) => {
+  const timer = setTimeout(then, ms);
+  return () => {
+    clearTimeout(timer);
+  };
+};
+
 /**
  * Whether Stadia refused (plan 8M-7): a 401 on a domain Stadia does not know (a quick tunnel's),
- * a 429 past the month's credits; the page cannot see which, only that tiles fail. Three failed
- * tiles in a row with none loaded between, or the first two tiles of the visit both failed, switch
- * the base layer to OpenStreetMap's for the rest of the visit, once; a tile that loads starts the
+ * a 429 past the month's credits, or the network away a while; the page cannot see which, only
+ * that tiles fail. Three failed tiles in a row with none loaded between, or the first two tiles of
+ * the visit both failed, switch the base layer to OpenStreetMap's; a tile that loads starts the
  * run again, so a hiccup of the network is no refusal. Nothing switches where Stadia's tiles are
  * not shown.
+ * Stadia is tried again after a while (Matt, 2026-11-07: "I'd say retry"): five minutes after
+ * the switch `tryAgain` is called to bring Stadia's tiles back, quietly; three more failed in a row
+ * switch back to OpenStreetMap's with the wait doubled, up to an hour (5, 10, 20, 40, 60, 60 …
+ * minutes). The wait never shrinks in a visit: tiles the browser kept would load at a try and
+ * would reset it while Stadia still refuses new ones. While OpenStreetMap's are shown their tiles
+ * count for nothing.
  */
 export class StadiaFallback {
   refused = false;
   private failedInRow = 0;
-  private loadedAny = false;
+  /** The first two failed tiles switch, until a tile loaded or Stadia was tried again. */
+  private quickSwitch = true;
+  private waitMs = STADIA_RETRY_FIRST_MS;
+  private cancel: (() => void) | undefined;
 
-  constructor(private readonly tiles: TileSetting) {}
+  constructor(
+    private readonly tiles: TileSetting,
+    private readonly tryAgain: () => void = () => undefined,
+    private readonly wait: Wait = timerWait,
+  ) {}
 
   /** A tile of the base layer loaded. */
   tileLoaded(): void {
-    this.loadedAny = true;
+    if (this.refused) return;
+    this.quickSwitch = false;
     this.failedInRow = 0;
   }
 
-  /** A tile of the base layer failed: true when this is the switch. */
+  /** A tile of the base layer failed: true when this is the switch to OpenStreetMap's. */
   tileFailed(): boolean {
     if (this.tiles === 'osm' || this.refused) return false;
     this.failedInRow += 1;
-    if (this.failedInRow < 3 && (this.loadedAny || this.failedInRow < 2)) return false;
+    if (this.failedInRow < 3 && (!this.quickSwitch || this.failedInRow < 2)) return false;
     this.refused = true;
+    this.failedInRow = 0;
+    const waited = this.waitMs;
+    this.waitMs = Math.min(waited * 2, STADIA_RETRY_MAX_MS);
+    this.cancel = this.wait(waited, () => {
+      this.cancel = undefined;
+      this.refused = false;
+      this.quickSwitch = false;
+      this.tryAgain();
+    });
     return true;
+  }
+
+  /** No more tries: the map is gone. */
+  stop(): void {
+    this.cancel?.();
+    this.cancel = undefined;
   }
 }
 

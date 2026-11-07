@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   googleAttribution,
   googleTileUrl,
@@ -7,6 +7,7 @@ import {
   STADIA_ATTRIBUTION,
   BaseAttribution,
   StadiaFallback,
+  type Wait,
   tileLayers,
   viewportUrl,
 } from './layers.js';
@@ -76,7 +77,7 @@ describe('tileLayers (plan 8M-7)', () => {
 });
 
 describe('StadiaFallback (plan 8M-7)', () => {
-  it('switches after three failed tiles in a row, once for the visit', () => {
+  it('switches after three failed tiles in a row, once until Stadia is tried again', () => {
     const fallback = new StadiaFallback('stadia');
     fallback.tileLoaded();
     expect(fallback.tileFailed()).toBe(false);
@@ -88,6 +89,7 @@ describe('StadiaFallback (plan 8M-7)', () => {
     expect(fallback.tileFailed()).toBe(false);
     expect(fallback.tileFailed()).toBe(false);
     expect(fallback.tileFailed()).toBe(false);
+    fallback.stop();
   });
 
   it('starts the run again at a tile that loads: a hiccup is no refusal', () => {
@@ -106,12 +108,124 @@ describe('StadiaFallback (plan 8M-7)', () => {
     expect(fallback.tileFailed()).toBe(false);
     expect(fallback.tileFailed()).toBe(true);
     expect(fallback.refused).toBe(true);
+    fallback.stop();
   });
 
   it("never switches where Stadia's tiles are not shown", () => {
     const fallback = new StadiaFallback('osm');
     for (let i = 0; i < 5; i += 1) expect(fallback.tileFailed()).toBe(false);
     expect(fallback.refused).toBe(false);
+  });
+});
+
+describe('StadiaFallback tries Stadia again (Matt, 2026-11-07)', () => {
+  const MINUTE = 60_000;
+
+  /** A wait that only records: what was asked, and the step to run when the test says. */
+  function recordedWait() {
+    const asked: number[] = [];
+    let due: (() => void) | undefined;
+    let canceled = 0;
+    const wait: Wait = (ms, then) => {
+      asked.push(ms);
+      due = then;
+      return () => {
+        canceled += 1;
+        due = undefined;
+      };
+    };
+    const end = (): void => {
+      const step = due;
+      due = undefined;
+      step?.();
+    };
+    return { wait, asked, end, canceled: () => canceled };
+  }
+
+  /** Three failed tiles in a row: the switch to OpenStreetMap. */
+  const failThrice = (fallback: StadiaFallback): boolean[] => [
+    fallback.tileFailed(),
+    fallback.tileFailed(),
+    fallback.tileFailed(),
+  ];
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it('goes back to Stadia after five minutes on OpenStreetMap', () => {
+    const waits = recordedWait();
+    const tryAgain = vi.fn<() => void>();
+    const fallback = new StadiaFallback('stadia', tryAgain, waits.wait);
+    fallback.tileLoaded();
+    expect(failThrice(fallback)).toEqual([false, false, true]);
+    expect(waits.asked).toEqual([5 * MINUTE]);
+    expect(tryAgain).not.toHaveBeenCalled();
+    waits.end();
+    expect(tryAgain).toHaveBeenCalledTimes(1);
+    expect(fallback.refused).toBe(false);
+  });
+
+  it('switches again only after three more failed tiles, a loaded one starting the count again', () => {
+    const waits = recordedWait();
+    const fallback = new StadiaFallback('stadia', () => undefined, waits.wait);
+    // The first two tiles of the visit failed: the quick switch, once.
+    expect([fallback.tileFailed(), fallback.tileFailed()]).toEqual([false, true]);
+    waits.end();
+    expect([fallback.tileFailed(), fallback.tileFailed()]).toEqual([false, false]);
+    fallback.tileLoaded();
+    expect(failThrice(fallback)).toEqual([false, false, true]);
+    expect(fallback.refused).toBe(true);
+  });
+
+  it('doubles the wait at every switch, to an hour at most', () => {
+    const waits = recordedWait();
+    const fallback = new StadiaFallback('stadia', () => undefined, waits.wait);
+    fallback.tileLoaded();
+    for (let i = 0; i < 6; i += 1) {
+      expect(failThrice(fallback)).toEqual([false, false, true]);
+      waits.end();
+    }
+    expect(waits.asked).toEqual([5, 10, 20, 40, 60, 60].map((minutes) => minutes * MINUTE));
+  });
+
+  it("takes no OpenStreetMap tile's error or load for Stadia's while it waits", () => {
+    const waits = recordedWait();
+    const fallback = new StadiaFallback('stadia', () => undefined, waits.wait);
+    fallback.tileLoaded();
+    failThrice(fallback);
+    fallback.tileLoaded();
+    for (let i = 0; i < 5; i += 1) expect(fallback.tileFailed()).toBe(false);
+    expect(waits.asked).toHaveLength(1);
+  });
+
+  it('tries no more once stopped (the map is gone)', () => {
+    const waits = recordedWait();
+    const tryAgain = vi.fn<() => void>();
+    const fallback = new StadiaFallback('stadia', tryAgain, waits.wait);
+    fallback.tileLoaded();
+    failThrice(fallback);
+    fallback.stop();
+    expect(waits.canceled()).toBe(1);
+    waits.end();
+    expect(tryAgain).not.toHaveBeenCalled();
+  });
+
+  it("waits on the page's own timers by default", () => {
+    vi.useFakeTimers();
+    const tryAgain = vi.fn<() => void>();
+    const fallback = new StadiaFallback('stadia', tryAgain);
+    fallback.tileLoaded();
+    failThrice(fallback);
+    vi.advanceTimersByTime(5 * MINUTE - 1);
+    expect(tryAgain).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(tryAgain).toHaveBeenCalledTimes(1);
+    failThrice(fallback);
+    vi.advanceTimersByTime(10 * MINUTE - 1);
+    expect(tryAgain).toHaveBeenCalledTimes(1);
+    vi.advanceTimersByTime(1);
+    expect(tryAgain).toHaveBeenCalledTimes(2);
   });
 });
 

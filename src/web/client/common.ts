@@ -111,13 +111,20 @@ export function tileSetting(value: string | undefined): TileSetting {
 /**
  * The tiles of the setting (`tileLayers`), the base shown first, with a switch where Google's are
  * offered too (plan 8M-7): the base follows the device's light or dark (`onThemeChange`), and
- * once Stadia refuses its tiles it is OpenStreetMap's for the rest of the visit (`StadiaFallback`),
- * the credit following the base shown (`BaseAttribution`).
+ * once Stadia refuses its tiles it is OpenStreetMap's until Stadia's are tried again, after five
+ * minutes and then longer (`StadiaFallback`), the credit following the base shown
+ * (`BaseAttribution`). The tries stop with the map (`unload`).
  * While OpenStreetMap's base is shown in dark, the map's container has `tiles-darkened`, whose
  * filter in `map.css` darkens the tile pane (never Google's).
  */
 export function addTiles(map: L.Map, setting: TileSetting, key: string | undefined): void {
-  const fallback = new StadiaFallback(setting);
+  // Stadia tried again: the base drawn anew, Stadia's now (`swap` is set before any wait ends).
+  const fallback = new StadiaFallback(setting, () => {
+    swap();
+  });
+  map.on('unload', () => {
+    fallback.stop();
+  });
   const credit = new BaseAttribution(map.attributionControl);
   const scheme = (): Scheme => (darkScheme() ? 'dark' : 'light');
   const baseSpec = (): XyzSpec => {
@@ -150,7 +157,10 @@ export function addTiles(map: L.Map, setting: TileSetting, key: string | undefin
     map.getContainer().classList.toggle('tiles-darkened', spec.darkFilter && map.hasLayer(base));
     credit.show(map.hasLayer(base) ? spec : undefined);
   };
-  /** The base drawn anew in the scheme's style, or OpenStreetMap's once Stadia refused. */
+  /**
+   * The base drawn anew in the scheme's style, or OpenStreetMap's while Stadia is refused, or
+   * Stadia's again when it is tried again.
+   */
   const swap = (): void => {
     const next = baseSpec();
     if (next.url === spec.url) {
