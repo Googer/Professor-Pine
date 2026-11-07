@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { watchEachTest } from '../../test/support/timers.js';
 import { classic, customIdsOf, dmBrief, dmSummary, linksOf } from '../../test/support/messages.js';
-import { WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
+import { EAST_CHANNEL, WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
 import { MemoryNewTrains } from '../../test/support/new-trains.js';
 import { ALICE, at, BOB, CAROL, MINUTE, PARTY_NOW, REPORTER } from '../../test/support/parties.js';
 import { keptRow, wayspotId } from '../../test/support/wayspot-cases.js';
@@ -299,6 +299,72 @@ describe('NotifyService: an egg gets its boss', () => {
   });
 });
 
+describe('NotifyService: a raid moves to another gym', () => {
+  /** A raid at The Stacks with Alice coming, Bob interested, Carol here and Dora done. */
+  async function raid(overrides: Parameters<typeof reportedRaid>[1] = {}) {
+    const made = await reportedRaid({ boss: { key: 'yveltal' } }, overrides);
+    const id = made.party.id;
+    await made.attendance.signUp(id, member(ALICE, 'Alice'), PartyStatus.Coming);
+    await made.attendance.signUp(id, member(BOB, 'Bob'), PartyStatus.Interested);
+    await made.attendance.signUp(id, member(CAROL, 'Carol'), PartyStatus.Present);
+    await made.attendance.signUp(id, member(DORA, 'Dora'), PartyStatus.Present);
+    await made.attendance.done(id, member(DORA, 'Dora'));
+    await made.notify.flush();
+    // What the report told is not what these tests look at.
+    made.dms.jobs.length = 0;
+    return made;
+  }
+  const map = (lat: number, lon: number) =>
+    `[Map](<https://www.google.com/maps/search/?api=1&query=${String(lat)}%2C${String(lon)}>)`;
+  const STACKS = `**${GYM}** (${map(40.05, -80.05)})`;
+
+  it('tells who is signed up, not who moved it or is done, naming both gyms, with the post', async () => {
+    const made = await raid({ settings: off() });
+    await made.raids.setGym(made.party.id, member(ALICE, 'Alice'), 2);
+    await made.notify.flush();
+    // Whatever the server's notifications: it is part of the raid they are in.
+    expect(made.dms.recipients.sort()).toEqual([BOB, CAROL, REPORTER].sort());
+    expect(told(made, BOB)).toEqual([
+      [
+        `The raid you signed up for has moved to another gym: from ${STACKS} to ` +
+          `**Old Stone Fountain** (${map(40.06, -80.06)}).`,
+      ],
+    ]);
+    expect(linksOf(made.dms.to(BOB)[0])).toEqual([
+      `Go to post ${postLink(made.gateway.guildId, made.postId)}`,
+    ]);
+    expect(made.dms.jobs[0]?.priority).toBe(DM_PRIORITY.urgent);
+  });
+
+  it('names the region it moved to, and links its new post', async () => {
+    const made = await raid();
+    const outcome = await made.raids.setGym(made.party.id, member(ALICE, 'Alice'), 8);
+    if (outcome.kind !== 'ok') throw new Error(outcome.kind);
+    await made.notify.flush();
+    const moved = made.dms.jobs.filter((job) => dmSummary(job.message)[0]?.includes('moved'));
+    expect(moved.map((job) => job.userId).sort()).toEqual([BOB, CAROL, REPORTER].sort());
+    expect(told(made, CAROL).at(-1)).toEqual([
+      `The raid you signed up for has moved to another gym: from ${STACKS} to ` +
+        `**Café Élan Fresco** (${map(40.05, -79.92)}) in <#${EAST_CHANNEL}>.`,
+    ]);
+    expect(linksOf(made.dms.to(CAROL).at(-1))).toEqual([
+      `Go to post ${postLink(made.gateway.guildId, outcome.party.forumPostId ?? '')}`,
+    ]);
+  });
+
+  it('tells nobody of a change that keeps the gym', async () => {
+    const made = await raid();
+    await made.raids.setGym(made.party.id, member(ALICE, 'Alice'), 1);
+    await made.raids.setBoss(made.party.id, member(ALICE, 'Alice'), {
+      tier: { level: 'T5', shadow: false },
+      boss: { key: 'xerneas' },
+      label: 'Xerneas (T5)',
+    });
+    await made.notify.flush();
+    expect(made.dms.jobs.filter((job) => dmSummary(job.message)[0]?.includes('moved'))).toEqual([]);
+  });
+});
+
 describe('NotifyService: a meeting time', () => {
   const MEET = at('2026-10-13T14:40');
 
@@ -420,13 +486,17 @@ describe('NotifyService: a meeting time', () => {
       release();
     };
   }
-  /** A raid one of whose events is being worked off: who targets its new gym is asked about. */
+  /** A raid one of whose events is being worked off: who wants its new boss is asked about. */
   async function withEventInFlight() {
     const made = await raid();
-    await made.gymTargets.add(DORA, made.gateway.guildId, 2);
+    await made.wants.set(DORA, made.gateway.guildId, pokemonTarget(716), 'raid');
     const release = hold(made);
     const asked = made.members.batches.length;
-    await made.raids.setGym(made.party.id, member(CAROL, 'Carol'), 2);
+    await made.raids.setBoss(made.party.id, member(CAROL, 'Carol'), {
+      tier: { level: 'T5', shadow: false },
+      boss: { key: 'xerneas' },
+      label: 'Xerneas (T5)',
+    });
     await made.members.asks.reached(asked + 1);
     return { made, release };
   }
@@ -453,11 +523,7 @@ describe('NotifyService: a meeting time', () => {
     release();
     await closing;
     expect(told(made, BOB)).toEqual([
-      [
-        expect.stringContaining(
-          `Meet at ${stamp(MEET)} for the raid at Old Stone Fountain (set by Alice)`,
-        ),
-      ],
+      [expect.stringContaining(`Meet at ${stamp(MEET)} for the raid at ${GYM} (set by Alice)`)],
     ]);
     expect(made.dms.to(REPORTER)).toHaveLength(1);
   });

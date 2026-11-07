@@ -14,6 +14,7 @@ import type { BoxSubject } from '../domain/pogo/want-boxes.js';
 import type { TrainKind } from '../domain/party/party.js';
 import { raidTierLabel, type RaidTier } from '../domain/pogo/raid-tier.js';
 import { TRAIN_KIND_WORDS } from './train-words.js';
+import { mapMarkdown } from './raid-post.js';
 import { cutText, MAX_COMPONENTS, type PartyBrief } from './party-post.js';
 import { endSentence, memberName, plain, plainNoLinks, type NamedMember } from './text.js';
 import {
@@ -289,6 +290,35 @@ export function bossSetSentence(view: {
   return view.hatched
     ? `The egg at ${where} hatched into ${boss}.`
     : `The boss of the egg at ${where} is ${boss}.`;
+}
+
+/** A gym as the move's direct message names it: as a post's Where, its name and its Map. */
+export interface MovedGym {
+  /** Its name as the post's title has it (`gymName`). */
+  name: string;
+  /** Its place, for the Map link; undefined for a gym that is gone. */
+  place: { lat: number; lon: number } | undefined;
+}
+
+/**
+ * The first line of the direct message to who is signed up for a raid that moved to another gym
+ * (`/location`, the map's move; follow-ups of 2026-11-07): that it is another gym, the old and the
+ * new by name with their Map links as a post's Where links a gym (`mapMarkdown`), and the region
+ * it went to where that changed.
+ */
+export function raidMovedSentence(view: {
+  from: MovedGym;
+  to: MovedGym;
+  /** The text channel of the region it moved to; undefined when the region stayed. */
+  regionChannelId: string | undefined;
+}): string {
+  const named = (gym: MovedGym): string =>
+    `**${plain(gym.name)}**${gym.place === undefined ? '' : ` (${mapMarkdown(gym.place)})`}`;
+  const region = view.regionChannelId === undefined ? '' : ` in <#${view.regionChannelId}>`;
+  return endSentence(
+    `The raid you signed up for has moved to another gym: from ${named(view.from)} to ` +
+      `${named(view.to)}${region}`,
+  );
 }
 
 /** The first line of a direct message about a new train: the legacy bot's sentence. */

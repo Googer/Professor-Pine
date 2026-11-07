@@ -73,9 +73,11 @@ import {
   postButton,
   postLink,
   raidDmSentence,
+  raidMovedSentence,
   reportButton,
   stopButtonId,
   trainDmSentence,
+  type MovedGym,
   type RaidDmView,
   type ShownReason,
 } from '../render/notify-dm.js';
@@ -668,6 +670,9 @@ export class NotifyService implements PartyNotifier {
 
   raidChanged(before: RaidParty, after: RaidParty, actorId: string | null): void {
     this.safely('a changed raid', () => {
+      // Who is in it hears that it moved within its region (`/location`, the map's move): part of
+      // the raid they are in, so also where the server's notifications are off.
+      if (before.gymId !== after.gymId) this.tellMoved(before, after, actorId);
       if (!this.enabled) return;
       const was = before.raid.boss;
       const is = after.raid.boss;
@@ -708,8 +713,10 @@ export class NotifyService implements PartyNotifier {
     });
   }
 
-  raidMoved(_from: RaidParty, to: RaidParty, actorId: string | null): void {
+  raidMoved(from: RaidParty, to: RaidParty, actorId: string | null): void {
     this.safely('a moved raid', () => {
+      // Who is in it hears that it moved to another region, as within one (`tellMoved`).
+      this.tellMoved(from, to, actorId);
       if (!this.enabled) return;
       // In another region other members can see it: the wants are asked again, and whoever was
       // told already is not told a second time.
@@ -1568,6 +1575,62 @@ export class NotifyService implements PartyNotifier {
             : undefined,
         }),
       }),
+      priority: () => DM_PRIORITY.urgent,
+    });
+  }
+
+  /**
+   * The direct message to who is signed up for a raid that moved to another gym (`/location`,
+   * the map's move; within its region or to another): every attendee who is not done, but for
+   * who moved it, as the times to meet at are told (`toAll`: no reasons, no opt-out, nobody asked
+   * about; also where the server's notifications are off), naming the old gym and the new with
+   * their Map links and the region it went to where that changed, with the button to its post
+   * (the new one after a move to another region). Nothing for a change that keeps the gym.
+   */
+  private tellMoved(from: RaidParty, to: RaidParty, actorId: string | null): void {
+    const { forumChannelId, forumPostId } = to;
+    if (forumChannelId === null || forumPostId === null || from.gymId === to.gymId) return;
+    const others = membersWhere(
+      to,
+      (attendee, id) => id !== actorId && attendee.status !== PartyStatus.Complete,
+    );
+    if (others.length === 0) return;
+    const { gyms, regions, posts } = this.options;
+    const gymOf = (id: number | null): MovedGym => {
+      const gym = id === null ? undefined : gyms.get(id);
+      return { name: gymName(gym), place: gym && { lat: gym.lat, lon: gym.lon } };
+    };
+    const region =
+      from.regionId === to.regionId || to.regionId === null ? undefined : regions.byId(to.regionId);
+    const eventAt = this.now();
+    let brief: { made?: PartyBrief | undefined } | undefined;
+    this.announce({
+      // The line of the times to meet at: these read nothing of what was told and ask about
+      // nobody, so they never wait behind an event of the raid whose members are looked up.
+      key: `${to.id}:times`,
+      partyId: to.id,
+      guild: to.guildId,
+      channelId: forumChannelId,
+      actorId,
+      toAll: true,
+      eventAt,
+      expiresAt: to.endTime ?? to.lastPossibleTime ?? eventAt + RAID_NEWS_MS,
+      gather: () => Promise.resolve({ ids: others, reasonsOf: () => [] }),
+      message: (guildId) => {
+        brief ??= { made: this.briefOf(posts, to) };
+        return notifyDm(
+          {
+            sentence: raidMovedSentence({
+              from: gymOf(from.gymId),
+              to: gymOf(to.gymId),
+              regionChannelId: region?.channelId,
+            }),
+            brief: brief.made,
+            links: [postButton(postLink(guildId, forumPostId))],
+          },
+          [],
+        );
+      },
       priority: () => DM_PRIORITY.urgent,
     });
   }

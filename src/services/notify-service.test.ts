@@ -505,15 +505,23 @@ describe('NotifyService: a raid changes', () => {
     await made.raids.setGym(made.party.id, member(BOB, 'Bob'), 2);
     await made.notify.flush();
     expect(made.current().gymId).toBe(2);
-    expect(made.dms.jobs.slice(before).map((job) => job.userId)).toEqual([EVE]);
+    // The reporter is signed up: they hear that it moved (`notify-service.parties.test.ts`).
+    expect(
+      made.dms.jobs
+        .slice(before)
+        .map((job) => job.userId)
+        .sort(),
+    ).toEqual([EVE, REPORTER].sort());
+    expect(told(made, REPORTER).at(-1)).toMatch(/^The raid you signed up for has moved/);
     expect(told(made, EVE)).toEqual([
       `The T5 egg is at **Old Stone Fountain** (<#${WEST_CHANNEL}>), not where it was first reported.`,
     ]);
     expect(why(made, EVE)).toEqual(['raids at Old Stone Fountain']);
-    // Back to the first gym: Carol was told about that one.
+    // Back to the first gym: Carol was told about that one; the reporter hears of the move.
     await made.raids.setGym(made.party.id, member(BOB, 'Bob'), 1);
     await made.notify.flush();
-    expect(made.dms.jobs).toHaveLength(before + 1);
+    expect(made.dms.jobs).toHaveLength(before + 3);
+    expect(made.dms.jobs.at(-1)?.userId).toBe(REPORTER);
   });
 
   it('tells about the raid in its new region: the new gym, and the wants of who sees it only now', async () => {
@@ -539,8 +547,8 @@ describe('NotifyService: a raid changes', () => {
     expect(moved.id).not.toBe(made.party.id);
     const after = made.dms.jobs.slice(before);
     // Alice was told about the T5 egg and is not told again; Bob sees it only now; Dora targets
-    // the new gym; Carol moved it; Fred cannot see East.
-    expect(after.map((job) => job.userId).sort()).toEqual([BOB, DORA].sort());
+    // the new gym; Carol moved it; Fred cannot see East; the reporter, signed up, hears it moved.
+    expect(after.map((job) => job.userId).sort()).toEqual([BOB, DORA, REPORTER].sort());
     const link = postLink(made.gateway.guildId, moved.forumPostId ?? '');
     // The post in the new region, as the button leads there.
     expect(linksOf(made.dms.to(BOB).at(-1))[0]).toBe(`Go to post ${link}`);
@@ -559,7 +567,7 @@ describe('NotifyService: a raid changes', () => {
       label: 'Yveltal (T5)',
     });
     await made.notify.flush();
-    expect(made.dms.jobs).toHaveLength(before + 2);
+    expect(made.dms.jobs).toHaveLength(before + 3);
   });
 
   it('forgets what it told when the party ends', async () => {
@@ -642,7 +650,12 @@ describe('NotifyService: what must not go wrong', () => {
     expect(made.store.get(made.party.id)).toBeUndefined();
     expect(made.store.get(moved.party.id)).toBeDefined();
     await made.notify.flush();
-    expect(made.dms.jobs).toEqual([]);
+    // Only what needs no boss: the reporter, signed up, hears of both moves.
+    expect(made.dms.jobs.map((job) => job.userId)).toEqual([REPORTER, REPORTER]);
+    expect(told(made, REPORTER)).toEqual([
+      expect.stringMatching(/^The raid you signed up for has moved/),
+      expect.stringMatching(/^The raid you signed up for has moved/),
+    ]);
   });
 
   it('lets the clock do everything it does at hatch when the notifier throws', async () => {
