@@ -69,13 +69,14 @@ function oneLine(text: string): string {
 
 /**
  * Where the train is, which the new train is too: `the same route, at the same stop (stop 2 of
- * 3: The Stacks), the same end mode, boss and start`, `no route yet, …`, `the same route,
+ * 3: The Stacks), the same boss and start, and it does the same at the end of the route`,
+ * `no route yet, …`, `the same route,
  * finished, …`, and `, not started yet` before the start.
  */
 function whereWords(view: SplitView): string {
   const { party } = view;
   const { route, stop } = party.train;
-  const rest = 'the same end mode, boss and start';
+  const rest = 'the same boss and start, and it does the same at the end of the route';
   if (route.length === 0) return `no route yet, ${rest}`;
   if (routeFinished(party)) return `the same route, finished, ${rest}`;
   const at = currentStop(party);
