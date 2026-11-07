@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { EAST_CHANNEL, WEST_CHANNEL } from '../../test/support/gyms.js';
 import {
   buttonsOf,
@@ -24,7 +24,9 @@ import { LEADER_PORTRAITS } from '../domain/rocket/portraits.js';
 import { ENCOUNTER_PICTURE } from '../domain/stops/pictures.js';
 import type { ReportedStop } from '../domain/stops/report.js';
 import { postLink } from '../render/notify-dm.js';
-import { DM_PRIORITY } from './dm-sender.js';
+import { DM_PRIORITY, QueuedDmSender } from './dm-sender.js';
+import { FakeDmGateway, FakeLoopDelay, pullUntilIdle } from '../../test/support/dms.js';
+import { createTestLogger } from '../../test/support/test-logger.js';
 import { GruntMessageService } from './grunt-messages.js';
 import { MAX_WANT_QUIET_MS, NotifyService, type NotifyServiceOptions } from './notify-service.js';
 import { RocketService, rocketSubject } from './rocket-reports.js';
@@ -394,9 +396,10 @@ describe('NotifyService: Team GO Rocket is reported (plan 8R-2, design 7)', () =
       `Go to post ${postLink(made.gateway.guildId, '300000000000000099', '300000000000000077')}`,
     ]);
     expect(made.dms.jobs[0]?.priority).toBe(DM_PRIORITY.normal);
-    // The same hideout again, or reported anew after being taken back: nobody told twice. Bob's
-    // report taken back is told to who was told of the hideout there (Matt, 2026-11-07).
+    // The same hideout again: nobody told twice. Bob's report taken back is told to who was told
+    // of the hideout there (Matt, 2026-11-07), for whom it is news when reported anew (review F1).
     await made.report('leader:arlo', west(1), { id: BOB, name: 'Bob' });
+    expect(made.dms.to(ALICE)).toHaveLength(1);
     const standing = await made.reports.rocketAt(made.gateway.guildId, west(1).key);
     await made.reports.takeBack(made.gateway.guildId, [standing?.id ?? 0], BOB, 'member');
     await made.notify.flush();
@@ -404,10 +407,14 @@ describe('NotifyService: Team GO Rocket is reported (plan 8R-2, design 7)', () =
     expect(made.dms.to(ALICE).map((one) => one?.content)).toEqual([
       undefined,
       `The report of **Arlo** at ${westLink(1)} was taken back by its reporter.`,
+      undefined,
     ]);
+    expect(dmSentence(made.dms.to(ALICE)[2])).toBe(
+      `**Arlo** has been reported in <#${WEST_CHANNEL}> by **Rita**.`,
+    );
     // Arlo at another stop is news.
     await made.report('leader:arlo', west(2));
-    expect(made.dms.to(ALICE)).toHaveLength(3);
+    expect(made.dms.to(ALICE)).toHaveLength(4);
   });
 
   it('tells only who can view the region channel, with no link in rehearsal mode', async () => {
@@ -497,6 +504,63 @@ describe('NotifyService: a Rocket report taken back or replaced early (Matt, 202
         '**Arlo** is reported there now.',
     });
     expect(made.dms.to(ALICE)).toHaveLength(2);
+  });
+
+  it('tells who was told of a hideout put back that it was taken back (review F7)', async () => {
+    const made = await rocketWith();
+    await made.want(ALICE, rocketWant('leader:arlo'));
+    const arlo = await made.report('leader:arlo');
+    if (arlo.kind !== 'reported') throw new Error('not reported');
+    // Misty's grunt in Arlo's place can be posted nowhere: Arlo is put back under a new id.
+    made.gateway.failing.set('sendMessage', new Error('503 Service Unavailable'));
+    const grunt = await made.rocket.report({
+      serverId: made.gateway.guildId,
+      stop: west(1),
+      subject: rocketSubject(feedChoice('grunt:water')),
+      reporter: MISTY,
+      replacing: arlo.report.id,
+    });
+    made.gateway.failing.delete('sendMessage');
+    if (grunt.kind !== 'unposted' || !grunt.restored) throw new Error('not put back');
+    await made.notify.flush();
+    await takeBack(made, grunt.restored.id, REPORTER);
+    expect(made.dms.to(ALICE).map((one) => one?.content)).toEqual([
+      undefined,
+      `The report of **Arlo** at ${westLink(1)} was taken back by its reporter.`,
+    ]);
+  });
+
+  it('tells nobody where who wants it cannot be read (review F7)', async () => {
+    const made = await rocketWith();
+    await made.want(ALICE, rocketWant('grunt:water'));
+    const outcome = await made.report('grunt:water');
+    if (outcome.kind !== 'reported') throw new Error('not reported');
+    vi.spyOn(made.targetWants, 'wanting').mockRejectedValue(new Error('the pool is gone'));
+    await takeBack(made, outcome.report.id, REPORTER);
+    expect(made.dms.to(ALICE)).toHaveLength(1);
+  });
+
+  it('drops the second DM once the report would have ended (review F7)', async () => {
+    const gateway = new FakeDmGateway();
+    const held: { now: () => number } = { now: () => 0 };
+    const queued = new QueuedDmSender({
+      gateway,
+      log: createTestLogger().log,
+      now: () => held.now(),
+      loopDelay: new FakeLoopDelay(),
+      startTimer: () => () => undefined,
+    });
+    const made = await rocketWith({ dms: queued });
+    held.now = () => made.clock.now;
+    await made.want(ALICE, rocketWant('grunt:water'));
+    const outcome = await made.report('grunt:water');
+    if (outcome.kind !== 'reported') throw new Error('not reported');
+    await pullUntilIdle(queued);
+    await takeBack(made, outcome.report.id, REPORTER);
+    // Its turn comes after the grunt would have gone.
+    made.clock.now = outcome.report.endsAt;
+    await pullUntilIdle(queued);
+    expect(gateway.sent.map(({ userId }) => userId)).toEqual([ALICE]);
   });
 
   it('sends nothing where nobody was told, and nothing after a restart', async () => {

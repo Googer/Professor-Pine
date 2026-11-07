@@ -23,13 +23,14 @@ import { ENCOUNTER_PICTURE } from '../domain/stops/pictures.js';
 import type { ReportedStop } from '../domain/stops/report.js';
 import { postLink } from '../render/notify-dm.js';
 import type { NotifyServiceOptions } from './notify-service.js';
-import { DM_PRIORITY } from './dm-sender.js';
+import { DM_PRIORITY, QueuedDmSender } from './dm-sender.js';
 import { StopReportService, type ResearchSubject } from './stop-reports.js';
 import { zonedAt } from '../../test/support/time.js';
 import { RecordingReach } from '../../test/support/reach.js';
 import { MemoryHistory } from '../../test/support/history.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { ReachRecords } from './reach.js';
+import { FakeDmGateway, FakeLoopDelay, pullUntilIdle } from '../../test/support/dms.js';
 
 const background = watchEachTest();
 const at = (local: string): number => zonedAt(local, 'America/New_York');
@@ -189,15 +190,17 @@ describe('NotifyService: field research is reported (plan 8R-1, design 7)', () =
       [westDm(1)],
       [westDm(2)],
     ]);
-    // Taken back (which is told, Matt 2026-11-07) and reported again in the period: no news for
-    // who was told.
+    // Taken back, which is told (Matt, 2026-11-07), and reported again in the period: news again
+    // for who was told it was taken back (review F1).
     const id = first.saved[0]?.report.id ?? 0;
     await made.reports.takeBack(made.gateway.guildId, [id], REPORTER, 'member');
     await made.notify.flush();
     await made.report(DRAGON, [west(1)]);
     expect(made.dms.to(ALICE).map(dmSentence).slice(2)).toEqual([
       expect.stringContaining('was taken back by its reporter'),
+      expect.stringContaining('Field research has been reported'),
     ]);
+    expect(dmBrief(made.dms.to(ALICE)[3]).slice(1, -1)).toEqual([westDm(1)]);
   });
 
   it('tells only who can view the region channel, one DM per region', async () => {
@@ -584,10 +587,11 @@ describe('NotifyService: field research is reported (plan 8R-1, design 7)', () =
       const made = await researchWith();
       await made.want(ALICE, WANT_GIBLE);
       await made.reportVersion(ONE_OF, [east]);
-      // Alice is told of Gible at Yellow Mural 1; Rita replaces it by Beldum there.
+      // Alice is told of Gible at Yellow Mural 1, and replaces it by Beldum there herself: she is
+      // told of nothing (a member told that a report was replaced would hear of Gible again, F1).
       await made.reportVersion(GIBLE, [west(1)], BOB_);
       const gible = await made.reports.at(made.gateway.guildId, west(1).key);
-      await made.reportVersion(BELDUM, [west(1)], RITA, [gible?.id ?? 0]);
+      await made.reportVersion(BELDUM, [west(1)], { id: ALICE, name: 'Alice' }, [gible?.id ?? 0]);
       // Carol, new to both stops, is read first, for West: Alice has nothing new there.
       await made.want(CAROL, WANT_GIBLE);
       const beldum = await made.reports.at(made.gateway.guildId, west(1).key);
@@ -595,8 +599,6 @@ describe('NotifyService: field research is reported (plan 8R-1, design 7)', () =
       expect(made.dms.to(ALICE).map(dmSentence)).toEqual([
         expect.stringContaining(`reported in <#${EAST_CHANNEL}>`),
         expect.stringContaining(`reported in <#${WEST_CHANNEL}>`),
-        // Rita's Beldum replaced the Gible she was told of (Matt, 2026-11-07).
-        expect.stringContaining('· Beldum is reported there now.'),
         confirmed(eastLink),
       ]);
       expect(made.dms.to(CAROL).map(dmSentence)).toEqual([
@@ -704,12 +706,74 @@ describe('NotifyService: field research is reported (plan 8R-1, design 7)', () =
           'member',
         );
         await made.notify.flush();
+        // Named as they were told of it (review F3): the "one of", not the narrowing.
         for (const member of [ALICE, CAROL]) {
           expect(made.dms.to(member).map(dmSentence).at(-1)).toBe(
-            `The field research ${THROWS_TEXT} · Beldum at ${westLink(1)} was taken back by its reporter.`,
+            `The field research ${THROWS_TEXT} · one of Larvitar, Beldum, Gible at ${westLink(1)} ` +
+              'was taken back by its reporter.',
           );
           expect(made.dms.to(member)).toHaveLength(2);
         }
+        // The "one of" reported there again is news to them once more (review F1).
+        await made.reportVersion(ONE_OF, [west(1)]);
+        for (const member of [ALICE, CAROL]) {
+          expect(made.dms.to(member).map(dmSentence).at(-1)).toContain(
+            'Field research has been reported',
+          );
+        }
+      });
+
+      it('tells nobody where who wants it cannot be read (review F7)', async () => {
+        const made = await researchWith();
+        await made.want(ALICE, WANT_GIBLE);
+        const outcome = await made.reportVersion(GIBLE, [west(1)]);
+        vi.spyOn(made.targetWants, 'wanting').mockRejectedValue(new Error('the pool is gone'));
+        await made.reports.takeBack(
+          made.gateway.guildId,
+          outcome.saved.map(({ report }) => report.id),
+          REPORTER,
+          'member',
+        );
+        await made.notify.flush();
+        expect(made.dms.to(ALICE)).toHaveLength(1);
+      });
+
+      it('sends a replaced report’s second DM through the queue after the first (review F7)', async () => {
+        const gateway = new FakeDmGateway();
+        const held: { now: () => number } = { now: () => 0 };
+        const queued = new QueuedDmSender({
+          gateway,
+          log: createTestLogger().log,
+          now: () => held.now(),
+          loopDelay: new FakeLoopDelay(),
+          startTimer: () => () => undefined,
+        });
+        const made = await researchWith({ dms: queued });
+        held.now = () => made.clock.now;
+        await made.want(ALICE, WANT_GIBLE);
+        const gible = await made.reportVersion(GIBLE, [west(1)]);
+        await made.reportVersion(BELDUM, [west(1)], BOB_, [gible.saved[0]?.report.id ?? 0]);
+        await pullUntilIdle(queued);
+        expect(
+          gateway.sent
+            .filter(({ userId }) => userId === ALICE)
+            .map(({ message }) => dmSentence(message)),
+        ).toEqual([
+          expect.stringContaining('Field research has been reported'),
+          `The field research ${THROWS_TEXT} · Gible at ${westLink(1)} was replaced: ` +
+            `${THROWS_TEXT} · Beldum is reported there now.`,
+        ]);
+      });
+
+      it('forgets who was told of a report once it has ended (review F6)', async () => {
+        const made = await researchWith();
+        await made.want(ALICE, WANT_GIBLE);
+        await made.reportVersion(GIBLE, [west(1)]);
+        expect(made.notify.reportsRemembered).toBe(1);
+        // The next day: the report of yesterday has ended.
+        made.clock.now += 24 * 60 * 60_000;
+        await made.reportVersion(GIBLE, [west(2)]);
+        expect(made.notify.reportsRemembered).toBe(1);
       });
     });
   });

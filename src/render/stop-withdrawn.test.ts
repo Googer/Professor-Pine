@@ -14,6 +14,33 @@ const research = (n: number): StopReport => ({
 });
 
 describe('withdrawnDm (Matt, 2026-11-07)', () => {
+  it('keeps within Discord’s 2,000 characters, leaving whole sentences out at the end (review F2)', () => {
+    const long = (n: number, task: string): StopReport => ({
+      id: n,
+      ...researchReport({
+        stop: reportedStop(n, { name: `${'Very Long Mural Name '.repeat(4)}${String(n)}` }),
+        subjectKey: task,
+        research: {
+          text: `${task} ${'x'.repeat(100)}`,
+          category: 'Other',
+          rewards: [],
+          typed: false,
+        },
+      }),
+    });
+    const ends = ['a', 'b', 'c'].flatMap((task, t) =>
+      [1, 2, 3, 4, 5].map((n) => ({
+        report: long(t * 10 + n, task),
+        how: { kind: 'staff' as const },
+      })),
+    );
+    const sentences = ['a', 'b', 'c'].map((task) =>
+      withdrawnDm(ends.filter(({ report }) => report.subjectKey === task)),
+    );
+    expect(sentences.join('\n').length).toBeGreaterThan(2_000);
+    expect(withdrawnDm(ends)).toBe(sentences.slice(0, 2).join('\n'));
+  });
+
   it('names five stops and counts the rest', () => {
     const reports = [1, 2, 3, 4, 5, 6, 7].map(research);
     const names = [1, 2, 3, 4, 5].map((n) => stopMapLink(reportedStop(n))).join(', ');

@@ -8,7 +8,7 @@ import {
 } from '../domain/stops/report.js';
 import { stopMapLink } from './research.js';
 import { withArticle } from './rocket.js';
-import { count, plainNoLinks, truncate } from './text.js';
+import { count, fitMessages, plainNoLinks, truncate } from './text.js';
 
 /*
  * The second DM about a report at a stop (Matt, 2026-11-07): who was told of a field research or
@@ -102,15 +102,16 @@ export function withdrawnDm(reports: readonly WithdrawnReport[]): string {
     const key = sentenceKey(one);
     sentences.set(key, [...(sentences.get(key) ?? []), one]);
   }
-  return [...sentences.values()]
-    .map((alike) => {
-      const [first] = alike;
-      if (!first) return '';
-      const subject = subjectOf(first.report);
-      return (
-        `${subject.charAt(0).toUpperCase()}${subject.slice(1)} at ` +
-        `${stopsWords(alike.map(({ report }) => report))} ${endWords(first.how)}`
-      );
-    })
-    .join('\n');
+  const lines = [...sentences.values()].map((alike) => {
+    const [first] = alike;
+    if (!first) return '';
+    const subject = subjectOf(first.report);
+    return (
+      `${subject.charAt(0).toUpperCase()}${subject.slice(1)} at ` +
+      `${stopsWords(alike.map(({ report }) => report))} ${endWords(first.how)}`
+    );
+  });
+  // Within Discord's 2,000 characters (review F2): the sentences that do not fit are left out,
+  // whole, at the end.
+  return fitMessages(lines)[0] ?? '';
 }
