@@ -5,7 +5,7 @@ import type { LatLon } from './lat-lon.js';
  * traced along a boundary (a township line) has thousands (ruled 2026-10-13: those must be
  * accepted). The check for crossings compares only sides whose spans of longitude overlap (a
  * sweep, see `isSimple`): an outline this long is checked in milliseconds (outline.test.ts
- * holds the longest under a second).
+ * counts the sides the longest compares: at most one per side, where every pair would be millions).
  */
 export const MAX_OUTLINE_CORNERS = 5_000;
 
@@ -78,9 +78,13 @@ function foldsBack(before: LatLon, shared: LatLon, after: LatLon): boolean {
  * Only sides whose spans of longitude overlap can meet: the sides are taken in the order of
  * where they begin in longitude, and each is compared only with those still open there (a
  * sweep), and of those only with sides whose span of latitude overlaps its own. A traced
- * boundary of thousands of corners is so checked in milliseconds.
+ * boundary of thousands of corners is so checked in milliseconds. Exported for its test, which
+ * counts the sides compared (`meet`, `segmentsMeet` but in that test).
  */
-function isSimple(corners: readonly LatLon[]): boolean {
+export function isSimple(
+  corners: readonly LatLon[],
+  meet: typeof segmentsMeet = segmentsMeet,
+): boolean {
   const n = corners.length;
   const at = (i: number): LatLon => corners[i % n] as LatLon;
   for (let i = 0; i < n; i++) {
@@ -114,7 +118,7 @@ function isSimple(corners: readonly LatLon[]): boolean {
       const apart = Math.abs(i - j);
       if (apart === 1 || apart === n - 1) continue;
       if ((north[i] ?? 0) < (south[j] ?? 0) || (north[j] ?? 0) < (south[i] ?? 0)) continue;
-      if (segmentsMeet(at(i), at(i + 1), at(j), at(j + 1))) return false;
+      if (meet(at(i), at(i + 1), at(j), at(j + 1))) return false;
     }
     open.push(i);
   }

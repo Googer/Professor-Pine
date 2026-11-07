@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { isClosedRing, type LatLon } from './lat-lon.js';
-import { MAX_OUTLINE_CORNERS, tidyOutline } from './outline.js';
+import { isSimple, MAX_OUTLINE_CORNERS, segmentsMeet, tidyOutline } from './outline.js';
 
 const p = (lat: number, lon: number): LatLon => ({ lat, lon });
 const SQUARE = [p(0, 0), p(1, 0), p(1, 1), p(0, 1)];
@@ -109,17 +109,22 @@ describe('tidyOutline', () => {
     });
   });
 
-  it('checks the longest outline it accepts for crossings in well under a second', () => {
+  it('checks the longest outline it accepts for crossings by comparing only sides near each other', () => {
     // A traced boundary: a comb of 2,500 teeth, whose sides all lie in the same narrow band
-    // (the worst case for looking only at sides that are near each other).
+    // (the worst case for looking only at sides that are near each other). Counted, not timed
+    // (a clock fails on a loaded machine): every pair of its 2,501 sides would be over three million.
     const comb: LatLon[] = [];
     const teeth = (MAX_OUTLINE_CORNERS - 2) / 2;
     for (let i = 0; i < teeth; i++) comb.push(p(40 + (i % 2), -80 + i * 0.0001));
     comb.push(p(42, -80 + teeth * 0.0001), p(42, -80.0001));
-    const started = performance.now();
+    let compared = 0;
+    const counting: typeof segmentsMeet = (...sides) => {
+      compared += 1;
+      return segmentsMeet(...sides);
+    };
+    expect(isSimple(comb, counting)).toBe(true);
+    expect(compared).toBeLessThanOrEqual(comb.length);
     expect(tidyOutline(comb).ok).toBe(true);
-    const took = performance.now() - started;
-    expect(took).toBeLessThan(1_000);
     // One crossing at the very end is still found.
     const crossed = [...comb.slice(0, -1), p(39, -80.00005)];
     expect(tidyOutline(crossed)).toEqual({ ok: false, problem: { kind: 'crosses-itself' } });
