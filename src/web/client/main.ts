@@ -1,12 +1,19 @@
 import * as L from 'leaflet';
 import type { GeoView } from '../../domain/web/geo-data.js';
+import {
+  addressWithoutOpening,
+  EVERYONE_ITEMS,
+  memberItems,
+  menuItemNode,
+  openByAddress,
+  openingAsked,
+} from './account-items.js';
 import { addTiles, byId, getJson, hideNotice, say, showAccount, tileSetting } from './common.js';
 import {
   addressWith,
   editorByAddress,
   EditorToggle,
   editingAsked,
-  editingOffered,
   editItemLabel,
   editItemPressed,
   unsavedCount,
@@ -20,14 +27,7 @@ import { showGymDots, type GymDots } from './gyms-ui.js';
 import { LayerRegistry, MAP_LAYERS, regionLabelsShown } from './layer-registry.js';
 import { showLayerControls } from './layers-ui.js';
 import { loggedOutPane } from './list-ui.js';
-import {
-  historyItemNode,
-  historyOffered,
-  loginNotice,
-  loginNoticeFor,
-  meItemNode,
-  type Me,
-} from './notice.js';
+import { historyOffered, loginNotice, loginNoticeFor, type Me } from './notice.js';
 import { MapActivity } from './parties.js';
 import { showParties } from './party-layer.js';
 import { quietLine, showPlaces, type PlacesHooks } from './places-ui.js';
@@ -401,9 +401,7 @@ function editItem(
   me: Me,
   editLabel: { redraw(): void },
 ): HTMLElement {
-  const item = document.createElement('button');
-  item.type = 'button';
-  item.className = 'edit-regions';
+  const item = renderNode(menuItemNode('edit', guild, 'map'), document);
   editLabel.redraw = () => {
     // The editor's own count once it was opened (review C4), else what the browser keeps.
     const unsaved = unsavedCount(toggle.unsaved, () =>
@@ -507,39 +505,35 @@ function start(): void {
   };
   /** "Editor tour" in the account's menu, shown while the editor is on (`map.css`). */
   const editorTourItem = (): HTMLElement => {
-    const item = document.createElement('button');
-    item.type = 'button';
-    item.className = 'editor-tour-item';
-    item.textContent = 'Editor tour';
+    const item = renderNode(menuItemNode('editor-tour', guild, 'map'), document);
     item.addEventListener('click', () => {
       tour.open(EDITOR_TOUR_STEPS, editorBack());
     });
     return item;
   };
-  const tourItem = (): HTMLElement => {
-    const item = document.createElement('button');
-    item.type = 'button';
-    item.className = 'tour-item';
-    item.textContent = 'Map tour';
-    item.addEventListener('click', () => {
-      if (asker.held()) {
-        sayOverMap(FORM_OPEN, load);
+  /** The tour opened by hand: "Map tour" pressed, or asked by the address (`?open=tour`). */
+  const tourByHand = (): void => {
+    if (asker.held()) {
+      sayOverMap(FORM_OPEN, load);
+      return;
+    }
+    void tourHooks.settled.then(() => {
+      if (load.failed) {
+        say(MAP_FAILED, { lasting: true });
         return;
       }
-      void tourHooks.settled.then(() => {
-        if (load.failed) {
-          say(MAP_FAILED, { lasting: true });
-          return;
-        }
-        tourHooks.clear();
-        const { audience, steps } = tourFor(asker.me);
-        // A tour by hand while Discord is away is not the tour of a normal visit.
-        if (!tourHooks.listReadOnly && !(asker.me.loggedIn && asker.me.readOnly)) {
-          keepTourSeen(browserStorage(), audience);
-        }
-        tour.open(steps, document.querySelector<HTMLElement>('#account summary') ?? undefined);
-      });
+      tourHooks.clear();
+      const { audience, steps } = tourFor(asker.me);
+      // A tour by hand while Discord is away is not the tour of a normal visit.
+      if (!tourHooks.listReadOnly && !(asker.me.loggedIn && asker.me.readOnly)) {
+        keepTourSeen(browserStorage(), audience);
+      }
+      tour.open(steps, document.querySelector<HTMLElement>('#account summary') ?? undefined);
     });
+  };
+  const tourItem = (): HTMLElement => {
+    const item = renderNode(menuItemNode('tour', guild, 'map'), document);
+    item.addEventListener('click', tourByHand);
     return item;
   };
   /** The region editor was asked by address: read now, the address changes as it opens. */
@@ -577,11 +571,7 @@ function start(): void {
   const showRegionsItem = (): void => {
     regionsItem.hidden = !regionsHooks.offered || tourHooks.listReadOnly;
   };
-  const regionsItem = document.createElement('button');
-  regionsItem.type = 'button';
-  regionsItem.className = 'regions-item';
-  regionsItem.textContent = 'Your regions…';
-  regionsItem.hidden = true;
+  const regionsItem = renderNode(menuItemNode('regions', guild, 'map'), document);
   regionsItem.addEventListener('click', () => {
     regionsHooks.open();
   });
@@ -590,22 +580,24 @@ function start(): void {
     guild,
     data.login === 'discord' ? 'discord' : 'links',
     'map',
-    // The server's history page (plan 8H-5) and "Your history" (plan 8H-6) for a member, then the
-    // region editor's items.
-    (me) => [
-      ...(historyOffered(me)
-        ? [
-            renderNode(historyItemNode(guild), document),
-            renderNode(meItemNode(guild), document),
-            regionsItem,
-          ]
-        : []),
-      ...(editingOffered(me)
-        ? [editItem(toggle, load, guild, me, editLabel), editorTourItem()]
-        : []),
-    ],
+    // The server's history page (plan 8H-5), "Your history" (plan 8H-6) and "Your regions…" for
+    // a member, then the region editor's items: the list the history pages' menus share
+    // (`memberItems`), its items that act here given their presses.
+    (me) =>
+      memberItems(me, 'map').map((item) => {
+        switch (item) {
+          case 'regions':
+            return regionsItem;
+          case 'edit':
+            return editItem(toggle, load, guild, me, editLabel);
+          case 'editor-tour':
+            return editorTourItem();
+          default:
+            return renderNode(menuItemNode(item, guild, 'map'), document);
+        }
+      }),
     true,
-    () => [tourItem()],
+    () => EVERYONE_ITEMS.map(() => tourItem()),
   ).then((me) => {
     asker.me = me;
     return me;
@@ -977,6 +969,30 @@ function start(): void {
       sayOverMap(text, load);
     },
   });
+  // A history page's "Your regions…" or "Map tour" led here (`?open=`, Matt 2026-11-07): once the
+  // map is drawn or could not be, the member is known and their view of the regions came, the
+  // thing opens as its menu item opens it, where the map offers it now; else it is ignored.
+  void openByAddress(
+    openingAsked(location.search),
+    [loaded.then(() => regionsHooks.loaded), account],
+    {
+      offered: (what) =>
+        what === 'regions'
+          ? regionsHooks.offered && !tourHooks.listReadOnly
+          : !document.body.classList.contains('editing-regions'),
+      open: (what) => {
+        if (what === 'regions') regionsHooks.open();
+        else tourByHand();
+      },
+      leave: () => {
+        history.replaceState(
+          null,
+          '',
+          addressWithoutOpening(location.pathname, location.search, location.hash),
+        );
+      },
+    },
+  );
 }
 
 start();

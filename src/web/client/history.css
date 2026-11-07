@@ -146,6 +146,25 @@ a {
   color: var(--on-color);
 }
 
+/*
+ * "Edit regions" only where the editor is offered, as on the map (`map.css`): the query is
+ * `EDITOR_MEDIA` of `editor-media.ts` word for word (`phone-header.test.ts`). "Your regions…"
+ * stays hidden until the view of the regions offers it.
+ */
+.account-menu .edit-regions {
+  display: none;
+}
+
+@media (min-width: 1024px) and (pointer: fine) {
+  .account-menu .edit-regions {
+    display: block;
+  }
+}
+
+.account-menu .regions-item[hidden] {
+  display: none;
+}
+
 .theme-choice {
   display: flex;
   align-items: center;

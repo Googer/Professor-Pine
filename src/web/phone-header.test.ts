@@ -201,8 +201,9 @@ describe("the account menu's links", () => {
 
 // Plan 8M-11C, S29: "Edit regions" by one rule, a mouse and 1024 pixels, the stylesheet's query
 // the very one the page asks (`EDITOR_MEDIA`).
+// The history pages' menu has the item too (Matt, 2026-11-07), by the same rule.
 describe('"Edit regions" in the account menu', () => {
-  for (const sheet of ['map.css']) {
+  for (const sheet of ['map.css', 'history.css']) {
     const rules = rulesOf(readFileSync(path.resolve(import.meta.dirname, 'client', sheet), 'utf8'));
     const item = rules.filter((rule) => rule.selectors.includes('.account-menu .edit-regions'));
 
