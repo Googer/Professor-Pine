@@ -1,6 +1,6 @@
 import type { AppContext } from '../../app-context.js';
 import type { PokemonEntry } from '../../domain/pogo/game-master.js';
-import type { PokemonHit } from '../../domain/pogo/pokemon-search.js';
+import { namedFirst, type PokemonHit } from '../../domain/pogo/pokemon-search.js';
 import { UserError } from '../../discord/errors.js';
 import {
   notificationTiers,
@@ -195,7 +195,7 @@ export function wantChoices(ctx: AppContext, typed: string): Choice[] {
     const named = new Set(
       ctx.pokemon
         .find(typed, { filter: (entry) => bossKeys.has(entry.key) })
-        .filter((hit) => hit.named)
+        .filter(namedFirst(hits))
         .map((hit) => hit.entry.key),
     );
     const namedShadow = new Set(
@@ -203,6 +203,7 @@ export function wantChoices(ctx: AppContext, typed: string): Choice[] {
         ? []
         : shadowFinds(ctx, rest, (entry) => shadowBosses.has(entry.dex))
             .filter((hit) => hit.named)
+            .filter(namedFirst(shadowHits))
             .map((hit) => hit.entry.dex),
     );
 
@@ -244,8 +245,9 @@ export function wantChoices(ctx: AppContext, typed: string): Choice[] {
         .flatMap((choice) => choice.catches.flatMap((one) => (one.key === null ? [] : [one.key]))),
     );
     if (catchKeys.size > 0) {
+      const first = namedFirst(hits);
       for (const hit of ctx.pokemon.find(typed, { filter: (entry) => catchKeys.has(entry.key) })) {
-        if (!hit.named) continue;
+        if (!first(hit)) continue;
         if (hasForms(catalogue, hit.entry.dex)) add(entryWant(catalogue, hit.entry));
         add(pokemonTarget(hit.entry.dex));
       }

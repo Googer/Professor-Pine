@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { catalogueFixture } from '../../../test/support/game-data.js';
 import { MAX_SEARCH_WORDS } from '../search/text.js';
 import { CURATED_NICKNAMES } from './nicknames.js';
-import { PokemonSearch, mergeNicknames } from './pokemon-search.js';
+import { PokemonSearch, mergeNicknames, namedFirst } from './pokemon-search.js';
 
 const catalogue = catalogueFixture();
 const search = new PokemonSearch(catalogue, mergeNicknames(catalogue, CURATED_NICKNAMES));
@@ -420,6 +420,28 @@ describe('PokemonSearch: the order a member expects (the audit of 2026-11-07)', 
     // A nickname that spells the name otherwise is the name: Ho-Oh before Hoothoot.
     const hoo = keys('hoo');
     expect(hoo.indexOf('ho_oh')).toBeLessThan(hoo.indexOf('hoothoot'));
+  });
+
+  it('says how each hit was led to by name, and which a boss-first list may put first', () => {
+    const leadOf = (text: string, key: string) =>
+      search.find(text).find((hit) => hit.entry.key === key)?.lead;
+    expect(leadOf('char', 'charizard_mega_x')).toBe('species');
+    expect(leadOf('hoo', 'ho_oh')).toBe('species');
+    expect(leadOf('mega', 'blastoise_mega')).toBe('form');
+    expect(leadOf('sa', 'ho_oh')).toBe('nickname');
+    expect(leadOf('tta', 'tyranitar')).toBe('nickname');
+    expect(leadOf('for', 'giratina_origin')).toBeUndefined();
+    const first = (text: string, key: string) => {
+      const all = search.find(text);
+      const hit = all.find((one) => one.entry.key === key);
+      return hit !== undefined && namedFirst(all)(hit);
+    };
+    // `sa` begins species' names: Ho-Oh's nickname is no reason to put it first.
+    expect(first('sa', 'ho_oh')).toBe(false);
+    expect(first('sa', 'sawk')).toBe(true);
+    // `tta` begins none: Tyranitar's nickname is what it is.
+    expect(first('tta', 'tyranitar')).toBe(true);
+    expect(first('mega', 'blastoise_mega')).toBe(true);
   });
 
   it('puts the names one letter begins before the Unown of that letter', () => {

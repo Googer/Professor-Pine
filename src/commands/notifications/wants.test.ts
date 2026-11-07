@@ -1799,6 +1799,34 @@ describe('/want: the list of choices', () => {
     expect(b.slice(0, b.indexOf('Buzzwole'))).not.toContain('Unown (B)');
   });
 
+  it('puts no boss first that only a nickname begins: Ho-Oh as a boss and `sa` (review of 2026-11-07)', () => {
+    const fixture = raidBossesFixture();
+    const entry = catalogueFixture().byKey('ho_oh');
+    if (!entry) throw new Error('no ho_oh');
+    const hoOh: RaidBoss = {
+      ...bossIdsOf(entry),
+      key: 'ho_oh',
+      tier: { level: 'T5', shadow: false },
+      shiny: false,
+      name: entry.name,
+      entry,
+      source: 'feed',
+      autoset: false,
+    };
+    const list = [hoOh, ...fixture.bosses()];
+    const { ctx } = createTestContext({ raidBosses: { ...fixture, bosses: () => list } });
+    const names = (typed: string) => wantChoices(ctx, typed).map((choice) => choice.name);
+    // `santa` is a nickname of Ho-Oh: the boss is no reason to put it before Sawk.
+    const sa = names('sa');
+    expect(sa.indexOf('Sawk')).toBeGreaterThanOrEqual(0);
+    expect(sa.indexOf('Sawk')).toBeLessThan(sa.indexOf('Ho-Oh'));
+    // By its name it is a boss like any other, first.
+    expect(names('ho')[0]).toBe('Ho-Oh');
+    expect(names('hoo')[0]).toBe('Ho-Oh');
+    // A form word in front of a boss's name still leads to the boss: Mega Blastoise for `mega`.
+    expect(names('mega')[0]).toBe('Mega Blastoise');
+  });
+
   it('reads raid and spawn alone as the words of the tiers and IV targets, not as a misspelt Pokémon', async () => {
     const made = setup();
     const names = async (typed: string) =>

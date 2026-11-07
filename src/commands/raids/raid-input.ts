@@ -5,6 +5,7 @@ import type { RaidBossRef, RaidParty } from '../../domain/party/party.js';
 import { raidBossRef, raidKindOf } from '../../domain/party/raid.js';
 import { bossAtTier, MEGA_LEVELS } from '../../domain/pogo/boss-at-tier.js';
 import type { PokemonEntry } from '../../domain/pogo/game-master.js';
+import { namedFirst } from '../../domain/pogo/pokemon-search.js';
 import type { RaidBoss } from '../../domain/pogo/raid-bosses.js';
 import {
   eggNeedsHatchTime,
@@ -406,7 +407,7 @@ export function trainBossChoices(ctx: AppContext, typed: string): Choice[] {
     // By its name: not by a word of its form, a key or a number, and not as a guess.
     const named = ctx.pokemon
       .find(typed, { filter: (entry) => byKey.has(entry.key) })
-      .filter((hit) => hit.named);
+      .filter(namedFirst(hits));
     // What the text names in full, boss or not: `mew` is Mew, also while Mewtwo is a boss.
     const [first] = hits;
     const inFull = first?.match === 'exact' ? [first] : [];

@@ -46,10 +46,33 @@ export interface PokemonHit {
    */
   named: boolean;
   /**
+   * For a hit found by its name (`named`), how (`PokemonSearch.leadOf`): by the species' name,
+   * by a form word in front of it (`mega`), or by a nickname (`sa` for Ho-Oh's `santa`). A
+   * list that puts some Pokémon first asks `namedFirst`.
+   */
+  lead?: PokemonLead;
+  /**
    * For a guess: the words of the entry that typed words were read as misspellings of. Whoever
    * offers a guess can show these, so that the reader sees why it is there.
    */
   guessed: readonly string[];
+}
+
+/** How a text leads to a hit by its name (`PokemonHit.lead`). */
+export type PokemonLead = 'species' | 'form' | 'nickname';
+
+/**
+ * Which hits a list that puts some Pokémon first (the current bosses, today's Rocket catches)
+ * may put first, given everything the text finds (`all`, in the search's order): those it
+ * leads to by the species' name or by a form word in front of it (`mega` is Mega Blastoise,
+ * Matt's order of 2026-10-13), and those it leads to only by a nickname while it begins no
+ * species' name (`tta` is Tyranitar, but `sa` is not Ho-Oh for its `santa`: the review of
+ * 2026-11-07).
+ */
+export function namedFirst(all: readonly PokemonHit[]): (hit: PokemonHit) => boolean {
+  const beginsSpecies = all.some((hit) => hit.lead === 'species');
+  return (hit) =>
+    hit.lead === 'species' || hit.lead === 'form' || (hit.lead === 'nickname' && !beginsSpecies);
 }
 
 const MATCH_ORDER: Readonly<Record<PokemonMatch, number>> = {
@@ -360,15 +383,16 @@ export class PokemonSearch {
    *   Alolan Rattata, `char` for Mega Charizard, `gira`), or of a nickname that spells the
    *   name otherwise (`hoo` for Ho-Oh's `hooh`), or is a word of the species' name (`bulu`
    *   for Tapu Bulu);
-   * - `other`: it begins only a word of a form in front of the name (`mega`, `alo` for the
-   *   Alolan forms) or another nickname (`tta` for Tyranitar, `sa` for Ho-Oh's `santa`, `b`
-   *   for the Unown of that letter).
+   * - `form`: it begins only a word of a form in front of the name (`mega`, `alo` for the
+   *   Alolan forms);
+   * - `nickname`: it begins only another nickname (`tta` for Tyranitar, `sa` for Ho-Oh's
+   *   `santa`, `b` for the Unown of that letter).
    *
    * Undefined for anything else, which found the entry by a word of a form, a type or a style
    * (`ty` for Arceus of any type, `for` for every Forme), or by the middle of its name (`bul`
    * for Tapu Bulu).
    */
-  private leadOf(entry: PokemonEntry, typed: readonly string[]): 'species' | 'other' | undefined {
+  private leadOf(entry: PokemonEntry, typed: readonly string[]): PokemonLead | undefined {
     const [first] = typed;
     const lead = this.leads.get(entry.key);
     if (first === undefined || !lead) return undefined;
@@ -380,10 +404,8 @@ export class PokemonSearch {
     ) {
       return 'species';
     }
-    return lead.first.startsWith(first) ||
-      lead.nicknames.some((nickname) => nickname.startsWith(first))
-      ? 'other'
-      : undefined;
+    if (lead.first.startsWith(first)) return 'form';
+    return lead.nicknames.some((nickname) => nickname.startsWith(first)) ? 'nickname' : undefined;
   }
 
   private rank(
@@ -417,13 +439,18 @@ export class PokemonSearch {
       const lead = named ? this.leadOf(entry, typed) : undefined;
       const led = lead !== undefined;
       hits.push({
-        hit: { entry, match: fit.match, guessed: fit.guessed, named: led },
+        hit: {
+          entry,
+          match: fit.match,
+          guessed: fit.guessed,
+          named: led,
+          ...(lead === undefined ? {} : { lead }),
+        },
         score: result.score,
         // By the species' name; by a form word in front of it or a nickname; by a word of a
         // form or the like; by a key or a number; by a guess. The text begun by a name comes
         // before a whole word of a form: `mega` is Meganium before the megas.
-        group:
-          lead === 'species' ? 0 : lead === 'other' ? 1 : named ? 2 : 1 + MATCH_ORDER[fit.match],
+        group: lead === 'species' ? 0 : led ? 1 : named ? 2 : 1 + MATCH_ORDER[fit.match],
         wrong: fit.wrong,
         // The class orders only among the hits a text leads to by their name.
         classed: led && !plain && entry.class !== null,

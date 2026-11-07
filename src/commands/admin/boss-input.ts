@@ -6,6 +6,7 @@ import type {
 import type { AppContext } from '../../app-context.js';
 import { UserError } from '../../discord/errors.js';
 import type { PokemonEntry } from '../../domain/pogo/game-master.js';
+import { namedFirst } from '../../domain/pogo/pokemon-search.js';
 import { bossIdsOf, type BossIds } from '../../domain/pogo/raid-bosses.js';
 import {
   isRaidLevel,
@@ -179,7 +180,7 @@ export function bossPokemonChoices(ctx: AppContext, typed: string): Choice[] {
     const hits = ctx.pokemon.find(typed, { limit: MAX_CHOICES * 4 });
     const named = ctx.pokemon
       .find(typed, { filter: (entry) => known.has(entry.key) })
-      .filter((hit) => hit.named);
+      .filter(namedFirst(hits));
     const [first] = hits;
     const begun = (name: string): boolean => {
       const own = searchTokens(name);
