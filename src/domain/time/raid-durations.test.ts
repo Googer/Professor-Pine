@@ -9,9 +9,11 @@ import {
   longestRaidStand,
   standsWithoutTimes,
   raidDurationsAt,
+  raidDurationRules,
   raidEventAt,
   type RaidDurationRules,
 } from './raid-durations.js';
+import { eventPageRaidHours, parseRaidEventFeed, withPageRaidHours } from './raid-events.js';
 import { zonedAt } from '../../../test/support/time.js';
 
 const ZONE = 'America/New_York';
@@ -72,6 +74,49 @@ describe('raidEventAt', () => {
     expect(raidEventAt(at('2026-11-04T18:30'), feed)).toBeUndefined();
     // The next week lists none, so the weekly Raid Hour is back.
     expect(raidEventAt(at('2026-11-11T18:30'), feed)?.name).toBe('Raid Hour');
+  });
+
+  it('assumes no weekly Raid Hour in a week whose event page has Raid Hours (Into the Wild)', () => {
+    // The feed lists Raid Hours on Nov 4 and Nov 18, none in the week of Into the Wild.
+    const feed = parseRaidEventFeed(
+      [
+        {
+          eventType: 'raid-hour',
+          name: 'A Raid Hour',
+          start: '2026-11-04T18:00',
+          end: '2026-11-04T19:00',
+        },
+        {
+          eventType: 'raid-hour',
+          name: 'B Raid Hour',
+          start: '2026-11-18T18:00',
+          end: '2026-11-18T19:00',
+        },
+      ],
+      ZONE,
+    );
+    const page = eventPageRaidHours(
+      [
+        { month: 11, day: 9, bosses: ['Zacian (Crowned Sword)'] },
+        { month: 11, day: 10, bosses: ['Zamazenta (Crowned Shield)'] },
+      ],
+      { start: at('2026-11-09T10:00'), end: at('2026-11-13T20:00') },
+      settings.raidEvents.weeklyRaidHour,
+      ZONE,
+    );
+    const feedOnly = raidDurationRules(settings, feed);
+    const both = raidDurationRules(settings, withPageRaidHours(feed, page));
+    expect(raidEventAt(at('2026-11-11T18:30'), feedOnly)?.name).toBe('Raid Hour');
+    expect(raidEventAt(at('2026-11-11T18:30'), both)).toBeUndefined();
+    expect(raidEventAt(at('2026-11-09T18:30'), both)?.name).toBe(
+      'Zacian (Crowned Sword) Raid Hour',
+    );
+    expect(raidDurationsAt('standard', at('2026-11-10T18:59'), both).hatched).toBe(
+      settings.raidEvents.hatchedDuration['raid-hour'],
+    );
+    expect(raidDurationsAt('standard', at('2026-11-11T18:30'), both).hatched).toBe(
+      settings.standardRaidHatchedDuration,
+    );
   });
 
   it('keeps the weekly Raid Hour in a week in which the feed lists only a Raid Day', () => {

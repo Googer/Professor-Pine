@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import { feedTime } from './zoned.js';
+import { feedTime, localTime, zoned } from './zoned.js';
 
 /** The kinds of event during which a raid boss stays for another time than usual. */
 export const RAID_EVENT_KINDS = ['raid-hour', 'raid-day'] as const;
@@ -70,5 +70,86 @@ export function parseRaidEventFeed(json: unknown, zone: string): RaidEvent[] {
       end,
     });
   }
+  return inOrder(events);
+}
+
+/** Events in order of their start, then their name. */
+function inOrder(events: RaidEvent[]): RaidEvent[] {
   return events.sort((a, b) => a.start - b.start || a.name.localeCompare(b.name));
+}
+
+/** A Raid Hour an event page names by its day (`parseEventRaidHours`, `leekduck.ts`). */
+export interface PageRaidHourDay {
+  /** 1 to 12. */
+  month: number;
+  day: number;
+  bosses: readonly string[];
+}
+
+/** The time of a Raid Hour where the settings have no weekly one: 18:00, for an hour. */
+const STANDARD_RAID_HOUR = { hour: 18, minutes: 60 } as const;
+
+/**
+ * The Raid Hours an event's page names (Matt, 2026-11-07: "Into the Wild" has two that only its
+ * Leek Duck page lists; real Raid Hours, under the standard rules), as raid events: on each day,
+ * at the hour and for the length of the weekly Raid Hour of the settings (`weekly`, 18:00 for 60
+ * minutes where it is null; the page's sentence of times is not read), named by the bosses
+ * listed under it ("Zacian (Crowned Sword) Raid Hour", "Raid Hour" without any). The page gives
+ * no year: it is the one in which the day falls within the event (`span`, from its start's day to
+ * its end's day in `zone`, an end at midnight the day before's); a day outside it, or a day the
+ * page names twice, is dropped. In order of their start.
+ */
+export function eventPageRaidHours(
+  hours: readonly PageRaidHourDay[],
+  span: { start: number; end: number },
+  weekly: { hour: number; minutes: number } | null,
+  zone: string,
+): RaidEvent[] {
+  if (span.end <= span.start) return [];
+  const { hour, minutes } = weekly ?? STANDARD_RAID_HOUR;
+  const first = zoned(span.start, zone).toPlainDate();
+  const last = zoned(span.end - 1, zone).toPlainDate();
+  const within = (date: Temporal.PlainDate): boolean =>
+    Temporal.PlainDate.compare(date, first) >= 0 && Temporal.PlainDate.compare(date, last) <= 0;
+  const events: RaidEvent[] = [];
+  for (const { month, day, bosses } of hours) {
+    // An event spans at most the turn of one year.
+    const start = [first.year, first.year + 1]
+      .filter((year) => year <= last.year)
+      .map((year) => localTime({ year, month, day, hour }, zone))
+      .find((time) => time !== undefined && within(time.toPlainDate()));
+    if (start === undefined || events.some((one) => one.start === start.epochMilliseconds)) {
+      continue;
+    }
+    const named = eventName.safeParse(
+      bosses.length === 0 ? 'Raid Hour' : `${bosses.join(' and ')} Raid Hour`,
+    );
+    events.push({
+      kind: 'raid-hour',
+      name: named.success ? named.data : 'Raid Hour',
+      start: start.epochMilliseconds,
+      end: start.add({ minutes }).epochMilliseconds,
+    });
+  }
+  return inOrder(events);
+}
+
+/**
+ * The raid events of the feed with the Raid Hours of the events' pages (`eventPageRaidHours`), in
+ * order: one path for every reader of the raid events (`RaidEventProvider.events()`). A page's
+ * Raid Hour that starts when one of the feed does is dropped (the feed's wins), as is a second
+ * one of the pages at the same start. `feed` itself when the pages add nothing.
+ */
+export function withPageRaidHours(
+  feed: readonly RaidEvent[],
+  pages: readonly RaidEvent[],
+): readonly RaidEvent[] {
+  const taken = new Set(feed.filter((event) => event.kind === 'raid-hour').map((e) => e.start));
+  const added: RaidEvent[] = [];
+  for (const hour of pages) {
+    if (hour.kind !== 'raid-hour' || taken.has(hour.start)) continue;
+    taken.add(hour.start);
+    added.push(hour);
+  }
+  return added.length === 0 ? feed : inOrder([...feed, ...added]);
 }
