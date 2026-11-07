@@ -1,6 +1,7 @@
 import {
   MessageFlags,
   SlashCommandBuilder,
+  type APIModalInteractionResponseCallbackData,
   type ButtonInteraction,
   type ChatInputCommandInteraction,
   type ModalSubmitInteraction,
@@ -11,6 +12,7 @@ import { decodeCustomId } from '../../discord/custom-id.js';
 import { deferSubmit, pickedOf, selectedOf, withoutOpenToken } from '../../discord/dialog.js';
 import { UserError } from '../../discord/errors.js';
 import { isStaff, requireGuild, requireTrain } from '../../discord/guards.js';
+import { isRefusedBody } from '../../discord/party-gateway.js';
 import { STALE_COMPONENT } from '../../discord/router.js';
 import {
   isTrain,
@@ -178,6 +180,28 @@ function appIcons(ctx: AppContext): ControlIcons {
 }
 
 /**
+ * Opens a train's dialog made by `dialogWith` with the application's emoji; where Discord refuses
+ * it (Invalid Form Body: an emoji deleted since they were read), once more without them, the
+ * emoji read anew (`EmojiFinder.refused`), as `/rank` does. The press is still unanswered then.
+ */
+async function showTrainDialog(
+  interaction: ButtonInteraction,
+  ctx: AppContext,
+  dialogWith: (icons: ControlIcons) => APIModalInteractionResponseCallbackData,
+): Promise<void> {
+  const withIcons = dialogWith(appIcons(ctx));
+  const plain = dialogWith({});
+  try {
+    await interaction.showModal(withIcons);
+  } catch (err) {
+    if (!isRefusedBody(err) || JSON.stringify(withIcons) === JSON.stringify(plain)) throw err;
+    ctx.emoji.refused?.();
+    ctx.log.warn({ err }, 'Discord refused an emoji of a train’s dialog; it opens without');
+    await interaction.showModal(plain);
+  }
+}
+
+/**
  * Move… of a train's post (plan 8X-G; `party:<id>:move`, also the button "Manage train…" of a
  * post not drawn anew since): for who may move the train (`mayNotMove`, refused privately before
  * it opens), the dialog of the moves that can be made from where it is (`moveDialog`). A train
@@ -189,12 +213,13 @@ export async function openMove(
   partyId: string,
 ): Promise<void> {
   const party = movableTrain(interaction, ctx, partyId);
-  const view = { ...trainPlaces(ctx, party), now: Date.now(), icons: appIcons(ctx) };
-  await interaction.showModal(
-    party.train.route.length === 0
+  const now = Date.now();
+  await showTrainDialog(interaction, ctx, (icons) => {
+    const view = { ...trainPlaces(ctx, party), now, icons };
+    return party.train.route.length === 0
       ? manageDialog(view, mayArrange(party, interaction.user.id))
-      : moveDialog(view),
-  );
+      : moveDialog(view);
+  });
 }
 
 /**
@@ -207,9 +232,10 @@ export async function openManage(
   partyId: string,
 ): Promise<void> {
   const party = movableTrain(interaction, ctx, partyId);
-  await interaction.showModal(
+  const now = Date.now();
+  await showTrainDialog(interaction, ctx, (icons) =>
     manageDialog(
-      { ...trainPlaces(ctx, party), now: Date.now(), icons: appIcons(ctx) },
+      { ...trainPlaces(ctx, party), now, icons },
       mayArrange(party, interaction.user.id),
     ),
   );

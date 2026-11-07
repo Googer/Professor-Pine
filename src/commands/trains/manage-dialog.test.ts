@@ -9,7 +9,9 @@ import {
 } from '../../../test/support/fake-interactions.js';
 import { ALICE, BOB, CAROL, PARTY_NOW, stops } from '../../../test/support/parties.js';
 import { createdTrain } from '../../../test/support/party-service.js';
+import { refusedBody } from '../../../test/support/fake-gateway.js';
 import { createTestContext } from '../../../test/support/test-context.js';
+import type { EmojiFinder } from '../../services/application-emoji.js';
 import { manageControls } from './move.js';
 import { components } from '../../components/index.js';
 import { partyButtons } from '../../components/party.js';
@@ -30,7 +32,7 @@ afterEach(() => {
 });
 
 /** A train on a route of four gyms (4, 1, 7, 2), with Alice and Bob coming. */
-async function setup(route: readonly number[] = [4, 1, 7, 2]) {
+async function setup(route: readonly number[] = [4, 1, 7, 2], emoji?: EmojiFinder) {
   const made = await createdTrain({ route });
   await made.attendance.signUp(made.party.id, { id: ALICE, name: 'Alice' }, PartyStatus.Coming);
   await made.attendance.signUp(made.party.id, { id: BOB, name: 'Bob' }, PartyStatus.Coming);
@@ -41,6 +43,7 @@ async function setup(route: readonly number[] = [4, 1, 7, 2]) {
     trains: made.trains,
     parties: made.store,
     regions: made.regions,
+    ...(emoji === undefined ? {} : { emoji }),
   });
   const router = new InteractionRouter(ctx, [], [partyButtons, manageControls]);
   const handle = async (interaction: FakeInteraction) => {
@@ -95,7 +98,7 @@ async function setup(route: readonly number[] = [4, 1, 7, 2]) {
     await made.service.flush();
     return made.said().join('\n').split('\n').filter(Boolean);
   };
-  return { ...made, ctx, handle, open, submit, answerOf, lines };
+  return { ...made, ctx, handle, who, open, submit, answerOf, lines };
 }
 
 describe('the start in Manage… of a train’s post (Matt, 2026-10-30)', () => {
@@ -281,5 +284,45 @@ describe('Manage… of a train’s post (plan 8X-G)', () => {
       expect(sent(pressed.reply).content).toBe(STALE_COMPONENT);
     }
     expect(made.current().train.stop).toBe(0);
+  });
+});
+
+describe('the kinds of Manage… with the application’s emoji', () => {
+  /** The emoji of the kind menu's options of a dialog. */
+  const kindEmoji = (dialog: APIModalInteractionResponseCallbackData) =>
+    dialog.components.flatMap((component) =>
+      'component' in component &&
+      component.component.custom_id === MANAGE_KIND_INPUT &&
+      'options' in component.component
+        ? component.component.options.map((option) =>
+            'emoji' in option ? option.emoji : undefined,
+          )
+        : [],
+    );
+  const own: Record<string, string> = { pinedmax: '<:pinedmax:1400000000000000005>' };
+
+  it('opens again without them, the emoji read anew, when Discord refuses one', async () => {
+    const refused = vi.fn();
+    const made = await setup(undefined, { find: (name) => own[name], refused });
+    const press = fakeButton({ customId: `party:${made.party.id}:manage`, ...made.who(ALICE) });
+    press.showModal.mockRejectedValueOnce(refusedBody('an emoji of a menu was refused'));
+    await made.handle(press);
+    expect(refused).toHaveBeenCalledTimes(1);
+    expect(press.showModal).toHaveBeenCalledTimes(2);
+    const [first, second] = press.showModal.mock.calls.map(
+      (call) => call[0] as APIModalInteractionResponseCallbackData,
+    );
+    expect(kindEmoji(first!)[1]).toEqual({ id: '1400000000000000005', name: 'pinedmax' });
+    expect(kindEmoji(second!)).toEqual([{ name: '⚔️' }, { name: '🔴' }, { name: '🌋' }]);
+  });
+
+  it('opens once with the plain emoji, and gives up on another refusal', async () => {
+    const refused = vi.fn();
+    const made = await setup(undefined, { find: () => undefined, refused });
+    const press = fakeButton({ customId: `party:${made.party.id}:manage`, ...made.who(ALICE) });
+    press.showModal.mockRejectedValueOnce(refusedBody('something else'));
+    await made.handle(press);
+    expect(press.showModal).toHaveBeenCalledTimes(1);
+    expect(refused).not.toHaveBeenCalled();
   });
 });
