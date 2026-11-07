@@ -55,6 +55,12 @@ export const envSchema = z
      * read-only at `/legacy-parties` and this names that path.
      */
     LEGACY_PARTIES_DIR: optional(z.string()),
+    /**
+     * The member index of the legacy history (plan 8H-10): `history:import` writes it there, the
+     * bot reads it (in the stack mounted read-only at `/legacy-index`) when a member asks for
+     * their old-bot history. Blank: no index, and no fill-in is offered.
+     */
+    LEGACY_INDEX_DIR: optional(z.string()),
   })
   .superRefine((env, ctx) => {
     if (Boolean(env.GITHUB_TOKEN) !== Boolean(env.GITHUB_REPO)) {

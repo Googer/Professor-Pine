@@ -59,6 +59,9 @@ describe('legacyRecord', () => {
     expect(read).toEqual({
       ok: true,
       byFallback: false,
+      // Beside the record, never in it (plan 8H-10): the member index alone takes them.
+      attendeeIds: [MEMBER_A, MEMBER_B],
+      reporterId: MEMBER_A,
       record: {
         source: 'legacy',
         partyId: null,
@@ -125,8 +128,8 @@ describe('legacyRecord', () => {
         stops: [],
       },
     });
-    expect(JSON.stringify(read)).not.toContain(MEMBER_A);
-    expect(JSON.stringify(read)).not.toContain(MEMBER_B);
+    expect(JSON.stringify(read.ok && read.record)).not.toContain(MEMBER_A);
+    expect(JSON.stringify(read.ok && read.record)).not.toContain(MEMBER_B);
   });
 
   it('reads an early egg: tier alone, no groups, an end time that was never set', () => {
@@ -238,8 +241,8 @@ describe('legacyRecord', () => {
       description: 'Ask @member or @member <:pine:123456789012345678>',
       groups: [expect.objectContaining({ label: 'Ride with @member' })],
     });
-    expect(JSON.stringify(read)).not.toContain(MEMBER_A);
-    expect(JSON.stringify(read)).not.toContain(MEMBER_B);
+    expect(JSON.stringify(read.ok && read.record)).not.toContain(MEMBER_A);
+    expect(JSON.stringify(read.ok && read.record)).not.toContain(MEMBER_B);
   });
 
   it('counts the first stop of a train that started, also at its first stop', () => {
@@ -278,6 +281,44 @@ describe('legacyRecord', () => {
     expect(skip(raid({ attendees: {} }))).toBe('read');
     expect(skip(raid({ attendees: {} }), 'active')).toBe('no-attendees');
     expect(skip(raid({ createdById: undefined }), 'active')).toBe('no-creator');
+  });
+
+  it('names each kept attendee beside it, in its order, past an attendee it skipped', () => {
+    const read = legacyRecord(
+      raid({
+        attendees: {
+          // No status the history knows: skipped, so the next one is the first attendee.
+          [MEMBER_B]: { number: 1, status: 9, group: 'A' },
+          // A key that is no member id: kept as an attendee, named by nobody.
+          'not-a-member': { number: 1, status: 0, group: 'A' },
+          [MEMBER_A]: { number: 3, status: 2, group: 'B' },
+        },
+      }),
+      context(),
+    );
+    expect(read.ok && read.attendeeIds).toEqual([null, MEMBER_A]);
+    expect(read.ok && read.record.attendees.map((attendee) => attendee.extras)).toEqual([0, 2]);
+  });
+
+  it('takes the reporter only from a maker written as a member id', () => {
+    const reporter = (createdById: unknown) => {
+      const read = legacyRecord(raid({ createdById, originallyCreatedBy: MEMBER_B }), context());
+      return read.ok ? read.reporterId : 'skipped';
+    };
+    expect(reporter(MEMBER_A)).toBe(MEMBER_A);
+    // A number lost its last digits in the legacy bot's JSON; the anonymous raid's real reporter
+    // (`originallyCreatedBy`) asked not to be named, and is not.
+    expect(reporter(320000000000000000)).toBeNull();
+    expect(reporter(undefined)).toBeNull();
+    expect(reporter('somebody')).toBeNull();
+  });
+
+  it('keeps a raid the legacy bot made anonymous as anonymous, naming nobody (A7)', () => {
+    // The legacy bot wrote an anonymous raid's maker as a negative number.
+    const read = legacyRecord(raid({ createdById: -1, originallyCreatedBy: MEMBER_A }), context());
+    expect(read.ok && read.record.anonymous).toBe(true);
+    expect(read.ok && read.reporterId).toBeNull();
+    expect(legacyRecord(raid(), context())).toMatchObject({ record: { anonymous: false } });
   });
 
   it('reads a train that was still going on as ended by the cutover, with the stops it made', () => {

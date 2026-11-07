@@ -8,6 +8,7 @@ import {
   type HistoryStep,
   type WrittenRecord,
 } from '../../domain/history/party-history.js';
+import type { StoredPlace } from '../../domain/history/legacy-index.js';
 import type {
   CardAttendee,
   CardRecord,
@@ -602,6 +603,48 @@ export class HistoryRepository
       );
       return { inserted: fresh.length, existing: records.length - fresh.length, ids: made };
     });
+  }
+
+  /**
+   * The legacy records of these keys as the history holds them (plan 8H-10, the member index):
+   * each one's server and its attendees' places in `seq` order. Keys of no legacy record are
+   * left out. One read of the records and one of their attendees (the import asks a batch at a
+   * time, a thousand keys).
+   */
+  async legacyPlaces(
+    keys: readonly string[],
+  ): Promise<Map<string, { serverId: string; places: StoredPlace[] }>> {
+    const held = new Map<string, { serverId: string; places: StoredPlace[] }>();
+    if (keys.length === 0) return held;
+    const records = await this.db
+      .selectFrom('PartyHistory')
+      .select(['id', 'legacyKey', 'serverId'])
+      .where('source', '=', 'legacy')
+      .where('legacyKey', 'in', [...keys])
+      .execute();
+    if (records.length === 0) return held;
+    const byId = new Map<number, { serverId: string; places: StoredPlace[] }>();
+    for (const row of records) {
+      const record = { serverId: row.serverId, places: [] };
+      byId.set(row.id, record);
+      held.set(row.legacyKey ?? '', record);
+    }
+    const attendees = await this.db
+      .selectFrom('PartyHistoryAttendee')
+      .select(['historyId', 'seq', 'furthest', 'extras', 'groupId'])
+      .where('historyId', 'in', [...byId.keys()])
+      .orderBy('historyId')
+      .orderBy('seq')
+      .execute();
+    for (const row of attendees) {
+      byId.get(row.historyId)?.places.push({
+        seq: row.seq,
+        furthest: row.furthest,
+        extras: row.extras,
+        groupId: row.groupId,
+      });
+    }
+    return held;
   }
 
   /**

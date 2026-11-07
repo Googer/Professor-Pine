@@ -21,8 +21,10 @@ import {
  * `{ key, value }`), read into records of the party history. `complete/` holds one file per gym
  * whose value is the list of every raid that ended there; `active/` a file per party that had
  * not ended (raids, trains, meetups). The fields came and went from 2018 to 2026; what this
- * reads is listed in docs/architecture/history.md. Nothing of a member is kept: the history of
- * the legacy bot serves counts only (everyone starts from zero; Matt, 2026-10-16).
+ * reads is listed in docs/architecture/history.md. Nothing of a member is kept in a record: the
+ * history of the legacy bot serves counts only (everyone starts from zero; Matt, 2026-10-16).
+ * Who the files name is read beside the record (`attendeeIds`, `reporterId`) for the member index
+ * alone, with which a member who asks has their own id filled in (plan 8H-10).
  */
 
 /** Why a party of the files is not imported. */
@@ -58,9 +60,22 @@ export interface LegacyContext {
   now: number;
 }
 
-/** A record of the files; `byFallback`: its server is the fallback, not its region's. */
+/**
+ * A record of the files; `byFallback`: its server is the fallback, not its region's. Beside the
+ * record, never in it (plan 8H-10): who the files name, for the member index alone.
+ * `attendeeIds` is parallel to `record.attendees` (the id of the attendee at each `seq`; null
+ * where the files' key is no member id), `reporterId` the maker where the files wrote one as a
+ * member id (never `originallyCreatedBy`, the real reporter of an anonymous raid, nor a number).
+ */
 export type LegacyRead =
-  { ok: true; record: HistoryRecord; byFallback: boolean } | { ok: false; reason: LegacySkip };
+  | {
+      ok: true;
+      record: HistoryRecord;
+      byFallback: boolean;
+      attendeeIds: (string | null)[];
+      reporterId: string | null;
+    }
+  | { ok: false; reason: LegacySkip };
 
 type Raw = Record<string, unknown>;
 
@@ -123,27 +138,36 @@ function tierOf(raid: Raw, pokemon: Raw): HistoryTier | null {
   return null;
 }
 
-function attendeesOf(raw: Raw): HistoryAttendee[] {
-  const attendees = isRaw(raw.attendees) ? Object.values(raw.attendees) : [];
-  return attendees.flatMap((value): HistoryAttendee[] => {
+/**
+ * The attendees of a party, in the files' order, each with the id the files keyed it by (null
+ * where that is no member id): the one reading that numbers them (`seq`) for both the history
+ * and the member index (plan 8H-10).
+ */
+function attendeesOf(raw: Raw): { attendee: HistoryAttendee; id: string | null }[] {
+  const attendees = isRaw(raw.attendees) ? Object.entries(raw.attendees) : [];
+  return attendees.flatMap(([key, value]): { attendee: HistoryAttendee; id: string | null }[] => {
     if (!isRaw(value)) return [];
     const status = STATUS_WORDS[numberOf(value.status) ?? -1];
     if (status === undefined) return [];
     const number = numberOf(value.number) ?? 1;
+    const id = isSnowflake(key) ? key : null;
     return [
       {
-        memberId: null,
-        status,
-        furthest: status,
-        groupId: typeof value.group === 'string' ? value.group.slice(0, 1) : null,
-        extras: Math.min(255, Math.max(0, number - 1)),
-        remote: value.remote === true,
-        team: null,
-        signedUpAt: null,
-        joinedAt: null,
-        hereAt: null,
-        doneAt: null,
-        leftAt: null,
+        id,
+        attendee: {
+          memberId: null,
+          status,
+          furthest: status,
+          groupId: typeof value.group === 'string' ? value.group.slice(0, 1) : null,
+          extras: Math.min(255, Math.max(0, number - 1)),
+          remote: value.remote === true,
+          team: null,
+          signedUpAt: null,
+          joinedAt: null,
+          hereAt: null,
+          doneAt: null,
+          leftAt: null,
+        },
       },
     ];
   });
@@ -226,9 +250,10 @@ export function legacyRecord(raw: unknown, context: LegacyContext): LegacyRead {
   if (createdAt === null) return { ok: false, reason: 'no-creation-time' };
   const channelId = typeof raw.channelId === 'string' ? raw.channelId : '';
   if (!isSnowflake(channelId)) return { ok: false, reason: 'no-channel' };
-  const attendees = attendeesOf(raw);
+  const named = attendeesOf(raw);
+  const attendees = named.map((one) => one.attendee);
+  const creator = raw.createdById;
   if (context.part === 'active') {
-    const creator = raw.createdById;
     if (!(typeof creator === 'string' && isSnowflake(creator)) && typeof creator !== 'number') {
       return { ok: false, reason: 'no-creator' };
     }
@@ -252,6 +277,8 @@ export function legacyRecord(raw: unknown, context: LegacyContext): LegacyRead {
   return {
     ok: true,
     byFallback: region === undefined,
+    attendeeIds: named.map((one) => one.id),
+    reporterId: typeof creator === 'string' && isSnowflake(creator) ? creator : null,
     record: {
       source: 'legacy',
       partyId: null,
@@ -291,7 +318,10 @@ export function legacyRecord(raw: unknown, context: LegacyContext): LegacyRead {
       closedBy: null,
       createdById: null,
       conductorId: null,
-      anonymous: false,
+      // The legacy bot wrote the maker of a raid reported anonymously as -1 (A7).
+      anonymous:
+        (typeof creator === 'number' && creator < 0) ||
+        (typeof creator === 'string' && /^-\d+$/u.test(creator)),
       routeStops: kind === 'train' ? (Array.isArray(raw.route) ? raw.route.length : 0) : null,
       // The legacy bot's trains were all raid trains.
       trainKind: kind === 'train' ? 'raid' : null,

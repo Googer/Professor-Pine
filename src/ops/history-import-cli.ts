@@ -9,9 +9,10 @@ import { importStep } from './history-import.js';
 // The import of the legacy bot's parties into the party history (plan 8H):
 //   npm run history:import -- <legacy parties folder> [--server <server id>]
 //   ./pine import-history <legacy parties folder> [--server <server id>]   (mounted read-only)
-// It reads the folder and writes the history tables; it never logs in to Discord. The game data
-// (for the bosses) is the bot's saved copy, downloaded as the bot does when there is none. The
-// logic, and its exit codes, are `importStep`.
+// It reads the folder and writes the history tables, and the member index into LEGACY_INDEX_DIR
+// where that is set (plan 8H-10; in the stack mounted read-write for this command alone); it
+// never logs in to Discord. The game data (for the bosses) is the bot's saved copy, downloaded as
+// the bot does when there is none. The logic, and its exit codes, are `importStep`.
 
 /** Where the bot keeps its parsed game data (`src/app.ts`). */
 const GAME_DATA_CACHE = 'var/game-data-cache.json';
@@ -44,6 +45,7 @@ try {
       return gameData.catalogue;
     },
     say: (line) => process.stdout.write(`${line}\n`),
+    ...(config.env.LEGACY_INDEX_DIR === undefined ? {} : { indexDir: config.env.LEGACY_INDEX_DIR }),
   });
 } catch (err) {
   process.stderr.write(`${err instanceof Error ? err.message : String(err)}\n`);
