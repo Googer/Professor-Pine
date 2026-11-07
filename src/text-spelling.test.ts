@@ -89,8 +89,7 @@ const sources = readdirSync(SRC, { recursive: true, withFileTypes: true })
  * Whether a literal names code rather than says something: a module's path (`catalogue.js`) or
  * a literal in a type (`Pick<…, 'catalogue'>`, a union of stored values). Those are identifiers.
  */
-function namesCode(node: ts.Node): boolean {
-  const { parent } = node;
+function namesCode(node: ts.Node, parent: ts.Node): boolean {
   if (
     (ts.isImportDeclaration(parent) || ts.isExportDeclaration(parent)) &&
     parent.moduleSpecifier === node
@@ -103,16 +102,25 @@ function namesCode(node: ts.Node): boolean {
   return ts.isLiteralTypeNode(parent);
 }
 
+/**
+ * Whether a file's text can hold a British form in a literal at all: BRITISH without its word
+ * boundaries (which only ever narrow it: a literal's `\n` is a boundary its raw text lacks), or
+ * an escape (`e`, `\x65`, a line continued) that writes letters its raw text does not show.
+ * Parsing is nearly all of this test's time; most files cannot match and are not parsed.
+ */
+const MAY_HOLD_BRITISH = new RegExp(
+  `${BRITISH.source.replaceAll(String.raw`\b`, '')}|\\\\[ux\\r\\n]`,
+  BRITISH.flags,
+);
+
 /** The texts of a file's string and template literals (a template's parts too), with lines. */
 function texts(file: string): { line: number; text: string }[] {
-  const source = ts.createSourceFile(
-    file,
-    readFileSync(path.join(SRC, file), 'utf8'),
-    ts.ScriptTarget.Latest,
-    true,
-  );
+  const content = readFileSync(path.join(SRC, file), 'utf8');
+  if (!MAY_HOLD_BRITISH.test(content)) return [];
+  // Without the parent links: building them doubles the parse, and `visit` passes the parent.
+  const source = ts.createSourceFile(file, content, ts.ScriptTarget.Latest, false);
   const found: { line: number; text: string }[] = [];
-  const visit = (node: ts.Node): void => {
+  const visit = (node: ts.Node, parent: ts.Node): void => {
     if (
       ts.isStringLiteral(node) ||
       ts.isNoSubstitutionTemplateLiteral(node) ||
@@ -120,13 +128,13 @@ function texts(file: string): { line: number; text: string }[] {
       ts.isTemplateMiddle(node) ||
       ts.isTemplateTail(node)
     ) {
-      if (namesCode(node)) return;
+      if (namesCode(node, parent)) return;
       const { line } = source.getLineAndCharacterOfPosition(node.getStart(source));
       found.push({ line: line + 1, text: node.text });
     }
-    ts.forEachChild(node, visit);
+    ts.forEachChild(node, (child) => visit(child, node));
   };
-  visit(source);
+  ts.forEachChild(source, (child) => visit(child, source));
   return found;
 }
 
@@ -179,6 +187,19 @@ describe('American spelling in what Pine says', () => {
     ]) {
       expect(BRITISH.test(text), text).toBe(false);
     }
+  });
+
+  it('parses every file whose literals could hold a British form, escapes and all', () => {
+    for (const raw of [
+      String.raw`say('Centre of the map')`,
+      String.raw`say('\ncentred on it')`,
+      String.raw`say('centre')`,
+      String.raw`say('cen\x74re')`,
+      `say('cen\\\ntre')`,
+    ]) {
+      expect(MAY_HOLD_BRITISH.test(raw), raw).toBe(true);
+    }
+    expect(MAY_HOLD_BRITISH.test(`say('Center of the map', "/u/x")`)).toBe(false);
   });
 
   it('writes no British spelling in the texts of the sources', () => {
