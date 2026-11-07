@@ -832,3 +832,13 @@ describe("the side pane's parts in their order (keepTools)", () => {
     expect(shown.takenOut).toEqual(['box', 'report line']);
   });
 });
+
+describe('the button that starts a train', () => {
+  it('is blue, as in every form; Cancel stays gray', () => {
+    const form = startForm([{ id: 1, name: 'west' }]);
+    const classOf = (attribute: string) =>
+      all(form).find((node) => node.attributes?.[attribute] !== undefined)?.className;
+    expect(classOf('data-submit')).toBe('press primary');
+    expect(classOf('data-cancel')).toBe('press');
+  });
+});

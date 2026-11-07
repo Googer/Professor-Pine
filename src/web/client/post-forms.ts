@@ -14,6 +14,7 @@ import {
   REMOVAL_CHOICES,
   REMOVAL_LABEL,
 } from '../../render/removal-words.js';
+import { sendButton } from './form-buttons.js';
 import { pressParty, type PressSteps, type Pressed } from './parties.js';
 import type { PageNode } from './popup.js';
 import { safeHref } from './post-draw.js';
@@ -49,12 +50,7 @@ function dialogButtons(submit: string): PageNode {
     tag: 'div',
     className: 'form-buttons',
     children: [
-      {
-        tag: 'button',
-        className: 'press primary',
-        text: 'Submit',
-        attributes: { type: 'button', 'data-submit': submit },
-      },
+      sendButton('Submit', { 'data-submit': submit }),
       {
         tag: 'button',
         className: 'press secondary',

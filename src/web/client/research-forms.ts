@@ -6,6 +6,7 @@ import type {
   ResearchTaskOption,
 } from '../../domain/web/stop-report-data.js';
 import { holdsSubject, taskOfSubject } from '../../domain/research/reports.js';
+import { sendButton } from './form-buttons.js';
 import type { PageNode } from './popup.js';
 import { nearestPart, type Nearest } from './report-flow.js';
 import { STOP_GONE } from './rocket-forms.js';
@@ -579,12 +580,7 @@ export function researchForm(
         tag: 'div',
         className: 'form-buttons',
         children: [
-          {
-            tag: 'button',
-            className: 'press primary',
-            text: 'Report',
-            attributes: { type: 'button', 'data-submit': 'research' },
-          },
+          sendButton('Report', { 'data-submit': 'research' }),
           {
             tag: 'button',
             className: 'press',

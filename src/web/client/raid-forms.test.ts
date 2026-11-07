@@ -743,3 +743,18 @@ describe('sending a raid form (sendRaidForm)', () => {
     expect(raidAnswerOf({ ok: false, regions: [{ id: 1, name: 'west' }] })).toEqual({ ok: false });
   });
 });
+
+describe('the button that sends a raid form', () => {
+  const classOf = (form: PageNode, attribute: string) =>
+    all(form).find((node) => node.attributes?.[attribute] !== undefined)?.className;
+
+  it('is blue in the report and the change forms, as in every form; Cancel stays gray', () => {
+    for (const form of [
+      reportForm(gym([1]), OPTIONS, REGIONS),
+      changeForm(raid(), OPTIONS, MOVES),
+    ]) {
+      expect(classOf(form, 'data-submit')).toBe('press primary');
+      expect(classOf(form, 'data-cancel')).toBe('press');
+    }
+  });
+});

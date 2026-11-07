@@ -3,6 +3,7 @@ import type {
   RaidMovesView,
   RaidOptionsView,
 } from '../../domain/web/raid-options-data.js';
+import { sendButton } from './form-buttons.js';
 import { pressParty, type PressSteps, type Pressed } from './parties.js';
 import type { MapGym, PageNode } from './popup.js';
 import { zoneHint } from './post-time.js';
@@ -183,12 +184,7 @@ export function reportForm(
         tag: 'div',
         className: 'form-buttons',
         children: [
-          {
-            tag: 'button',
-            className: 'press',
-            text: 'Report',
-            attributes: { type: 'button', 'data-submit': 'report' },
-          },
+          sendButton('Report', { 'data-submit': 'report' }),
           {
             tag: 'button',
             className: 'press',
@@ -274,12 +270,7 @@ export function changeForm(
         tag: 'div',
         className: 'form-buttons',
         children: [
-          {
-            tag: 'button',
-            className: 'press',
-            text: 'Submit',
-            attributes: { type: 'button', 'data-submit': 'change' },
-          },
+          sendButton('Submit', { 'data-submit': 'change' }),
           {
             tag: 'button',
             className: 'press',

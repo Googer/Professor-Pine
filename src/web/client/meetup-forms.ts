@@ -10,6 +10,7 @@ import {
   type StopsView,
 } from '../../domain/web/meetup-data.js';
 import type { MapMeetup } from '../../domain/web/party-data.js';
+import { sendButton } from './form-buttons.js';
 import { pressParty, type PressSteps, type Pressed } from './parties.js';
 import type { MapGym, PageNode } from './popup.js';
 import type { PickedStop } from './research-forms.js';
@@ -272,7 +273,7 @@ export function newMeetupForm(
         tag: 'div',
         className: 'form-buttons',
         children: [
-          button('Make the meetup', { 'data-submit': 'meetup' }),
+          sendButton('Make the meetup', { 'data-submit': 'meetup' }),
           button('Cancel', { 'data-cancel': '' }),
         ],
       },
@@ -499,7 +500,7 @@ export function meetupEditor(
         tag: 'div',
         className: 'form-buttons',
         children: [
-          button('Submit', { 'data-submit': 'meetup-edit' }),
+          sendButton('Submit', { 'data-submit': 'meetup-edit' }),
           button('Cancel', { 'data-cancel': '' }),
         ],
       },

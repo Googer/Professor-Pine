@@ -5,6 +5,7 @@ import type {
   MapMaxTier,
 } from '../../domain/web/max-data.js';
 import type { MapMax } from '../../domain/web/party-data.js';
+import { sendButton } from './form-buttons.js';
 import { pressParty, type PressSteps, type Pressed } from './parties.js';
 import type { PageNode } from './popup.js';
 import { radioChoice } from './post-forms.js';
@@ -244,16 +245,10 @@ export function maxForm(
         tag: 'div',
         className: 'form-buttons',
         children: [
-          {
-            tag: 'button',
-            className: 'press primary',
-            text: 'Report',
-            attributes: {
-              type: 'button',
-              'data-submit': 'max',
-              ...(state.pinRefused ? { disabled: '' } : {}),
-            },
-          },
+          sendButton('Report', {
+            'data-submit': 'max',
+            ...(state.pinRefused ? { disabled: '' } : {}),
+          }),
           {
             tag: 'button',
             className: 'press',

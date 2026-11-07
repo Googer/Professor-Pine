@@ -2,6 +2,7 @@ import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import { ringContains } from '@pine/wayspot-core/region-membership';
 import type { GeoView } from '../../domain/web/geo-data.js';
 import type { WildOptionsView } from '../../domain/web/spawn-data.js';
+import { sendButton } from './form-buttons.js';
 import { pressParty, type PressSteps, type Pressed } from './parties.js';
 import type { PageNode } from './popup.js';
 import type { FormBody } from './raid-forms.js';
@@ -179,12 +180,7 @@ export function spawnForm(
         tag: 'div',
         className: 'form-buttons',
         children: [
-          {
-            tag: 'button',
-            className: 'press',
-            text: 'Report',
-            attributes: { type: 'button', 'data-submit': 'spawn' },
-          },
+          sendButton('Report', { 'data-submit': 'spawn' }),
           {
             tag: 'button',
             className: 'press',

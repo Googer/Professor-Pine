@@ -273,3 +273,13 @@ describe('sending a spawn report (sendSpawnForm)', () => {
     });
   });
 });
+
+describe('the button that sends the spawn form', () => {
+  it('is blue, as in every form; Cancel stays gray', () => {
+    const form = spawnForm(OPTIONS, []);
+    const classOf = (attribute: string) =>
+      all(form).find((node) => node.attributes?.[attribute] !== undefined)?.className;
+    expect(classOf('data-submit')).toBe('press primary');
+    expect(classOf('data-cancel')).toBe('press');
+  });
+});

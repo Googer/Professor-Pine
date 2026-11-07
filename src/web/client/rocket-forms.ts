@@ -3,6 +3,7 @@ import type {
   RocketOptionsView,
   RocketWhoOption,
 } from '../../domain/web/stop-report-data.js';
+import { sendButton } from './form-buttons.js';
 import type { PageNode } from './popup.js';
 import type { StopAnswered } from './stop-forms.js';
 
@@ -159,12 +160,7 @@ export function rocketForm(options: RocketOptionsView, state: RocketFormState): 
           tag: 'div',
           className: 'form-buttons',
           children: [
-            {
-              tag: 'button',
-              className: 'press primary',
-              text: 'Report',
-              attributes: { type: 'button', 'data-submit': 'rocket' },
-            },
+            sendButton('Report', { 'data-submit': 'rocket' }),
             {
               tag: 'button',
               className: 'press',

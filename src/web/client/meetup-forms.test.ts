@@ -600,3 +600,16 @@ describe('the PokéStops of "pick a place" mode (StopLoads)', () => {
     expect(more).toEqual([true, false, true]);
   });
 });
+
+describe('the button that sends a meetup form', () => {
+  const all = (node: PageNode): PageNode[] => [node, ...(node.children ?? []).flatMap(all)];
+  const classOf = (form: PageNode, attribute: string) =>
+    all(form).find((node) => node.attributes?.[attribute] !== undefined)?.className;
+
+  it('is blue in the new meetup form and the editor, as in every form; Cancel stays gray', () => {
+    for (const form of [newMeetupForm(REGIONS, gymPick(GYM)), meetupEditor(MEETUP, ZONE, NOW)]) {
+      expect(classOf(form, 'data-submit')).toBe('press primary');
+      expect(classOf(form, 'data-cancel')).toBe('press');
+    }
+  });
+});

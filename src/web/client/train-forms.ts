@@ -6,6 +6,7 @@ import {
   type RouteEdit,
   type SavedRouteView,
 } from '../../domain/web/train-data.js';
+import { sendButton } from './form-buttons.js';
 import { newMeetupButton } from './meetup-forms.js';
 import {
   gymOfStop,
@@ -199,7 +200,7 @@ export function startForm(
         tag: 'div',
         className: 'form-buttons',
         children: [
-          button('Start', { 'data-submit': 'train' }),
+          sendButton('Start', { 'data-submit': 'train' }),
           button('Cancel', { 'data-cancel': '' }),
         ],
       },
