@@ -76,7 +76,7 @@ import { TimedPartyService } from '../../src/services/timed-party-service.js';
 import { TrainService, type TrainManage } from '../../src/services/train-service.js';
 import { placeOf } from '../../src/domain/party/train.js';
 import { NO_FIRST } from '../../src/render/train-dialogs.js';
-import type { EventSpawnProvider } from '../../src/services/event-spawn-service.js';
+import type { EventSpawnProvider } from '../../src/services/event-page-service.js';
 
 /** The invented regions as a directory whose rows a test can change; `load` does nothing. */
 export class TestRegions {

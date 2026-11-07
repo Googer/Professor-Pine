@@ -83,7 +83,7 @@ import { WayspotDirectory } from './services/wayspot-directory.js';
 import { PlaceFinder } from './services/place-finder.js';
 import { PineStopService } from './services/pine-stops.js';
 import { ResearchTaskService } from './services/research-task-service.js';
-import { EventSpawnService } from './services/event-spawn-service.js';
+import { EventPageService } from './services/event-page-service.js';
 import { ResearchTaskRepository } from './db/repositories/research-task-repository.js';
 import { RocketLineupService } from './services/rocket-lineup-service.js';
 import { RocketLineupRepository } from './db/repositories/rocket-lineup-repository.js';
@@ -142,6 +142,7 @@ import { TimedPartyService } from './services/timed-party-service.js';
 import { TrainService } from './services/train-service.js';
 import { UnownWantService } from './services/unown-want-service.js';
 import { RaidEventService } from './services/raid-event-service.js';
+import type { RaidEvent } from './domain/time/raid-events.js';
 import { RegionAdminService } from './services/region-admin-service.js';
 import { WayfarerImportService } from './services/wayfarer-import-service.js';
 import { WayfarerReviewService } from './services/wayfarer-review-service.js';
@@ -312,14 +313,20 @@ export async function startApp(
     maxEvents: new MaxEventRepository(db, log),
     // The events forum's listed events, kept as last merged (plan 8V-1).
     listed: new ListedEventRepository(db, log),
+    // The Raid Hours of the events' Leek Duck pages (2026-11-07), with the feed's for every
+    // reader of `events()`; `eventPages` is made just below, and asked only once running.
+    pageRaidHours: (): readonly RaidEvent[] => eventPages.raidHours(),
     log,
   });
-  // The spawns of the events on (plan 8R-4): a community day's from the feed, any other
-  // event's from its Leek Duck page, read while it is on; costumed spawn reports.
-  const eventSpawns = new EventSpawnService({
+  // The events' Leek Duck pages: the spawns of the events on (plan 8R-4: a community day's from
+  // the feed, any other event's from its page, read while it is on; costumed spawn reports), and
+  // the Raid Hours of the events from eight days ago to eight days ahead.
+  const eventPages = new EventPageService({
     events: raidEvents,
     gameData,
     fetch: (url, init) => fetch(url, init),
+    zone: config.settings.timezone,
+    weeklyRaidHour: config.settings.raidEvents.weeklyRaidHour,
     log,
   });
   // The square pictures of the reports at stops (plan 8R-6): kept in var/pictures/, named at the
@@ -640,7 +647,7 @@ export async function startApp(
     gateway: partyGateway,
     raidBosses,
     gameData,
-    costumes: eventSpawns,
+    costumes: eventPages,
     notify,
     store: new SpawnReportRepository(db),
     settings: config.settings,
@@ -1041,7 +1048,7 @@ export async function startApp(
     maxBossAdmin: maxBosses,
     raidEvents,
     researchTasks,
-    eventSpawns,
+    eventSpawns: eventPages,
     rocketLineups,
     stopReports,
     // The posts of the stops made below (none in rehearsal mode), as last drawn.
@@ -1303,17 +1310,18 @@ export async function startApp(
   raidEvents.start();
   // The events' pages once the feed has said which events are on (a read that fails too).
   void raidEvents.refresh().then(() => {
-    eventSpawns.start();
+    eventPages.start();
   });
   researchTasks.start();
   rocketLineups.start();
   // The clock waits for Discord, however long that takes: a post that cannot be asked for yet
   // would be taken for deleted. Then for the first read of the raid events (a raid that hatched
-  // during a Raid Hour is otherwise given the usual length), but for that not for ever.
+  // during a Raid Hour is otherwise given the usual length) and of the events' pages started
+  // after it (an event's own Raid Hours), but for those not for ever.
   void scheduler.start(
     connected.then(() =>
       Promise.race([
-        raidEvents.refresh(),
+        raidEvents.refresh().then(() => eventPages.whenIdle()),
         new Promise((resolve) => setTimeout(resolve, EVENTS_WAIT_MS).unref()),
       ]),
     ),
@@ -1697,11 +1705,11 @@ export async function startApp(
       // The events feed and the events forum in one second (branch review BR-2).
       eventsFeedStep({ events: raidEvents, forum: eventForum }),
       {
-        name: 'event spawns',
+        name: 'event pages',
         timeoutMs: 1_000,
         run: async () => {
-          eventSpawns.stop();
-          await eventSpawns.whenIdle();
+          eventPages.stop();
+          await eventPages.whenIdle();
         },
       },
       {

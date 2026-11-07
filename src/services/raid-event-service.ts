@@ -159,7 +159,7 @@ export interface ResearchEventProvider {
 
 /**
  * The global events with spawns (plan 8R-4, design 5): a spawn report is costumed where one on
- * now lists it costumed (`EventSpawnService`).
+ * now lists it costumed (`EventPageService`).
  */
 export interface SpawnEventProvider {
   /** Those of the last good read, with those on now that the feed has dropped since. */

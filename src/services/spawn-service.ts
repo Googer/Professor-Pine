@@ -20,7 +20,7 @@ import { placeImage } from '../render/place.js';
 import type { NamedMember } from '../render/text.js';
 import { pokemonPicture } from '../domain/pogo/pokemon-icons.js';
 import { costumedSpawn } from '../domain/time/spawn-events.js';
-import type { EventSpawnProvider } from './event-spawn-service.js';
+import type { EventSpawnProvider } from './event-page-service.js';
 import type { GameDataProvider } from './game-data-service.js';
 import type { RaidBossProvider } from './raid-boss-service.js';
 

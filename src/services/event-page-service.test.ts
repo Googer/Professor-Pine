@@ -4,12 +4,14 @@ import { jsonResponse } from '../../test/support/responses.js';
 import { readEventPage, readSpawnEventFeed } from '../../test/support/spawn-events.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { parseSpawnEventFeed, type SpawnEvent } from '../domain/time/spawn-events.js';
+import { parsePagedEventFeed, type PagedEvent } from '../domain/time/event-pages.js';
+import { readEveryoneFeed } from '../../test/support/event-reach.js';
 import {
-  EventSpawnService,
+  EventPageService,
   MAX_EVENT_PAGE_BYTES,
   nextReadIn,
   REREAD_MS,
-} from './event-spawn-service.js';
+} from './event-page-service.js';
 import { PINE_USER_AGENT, type FetchPage } from './research-task-service.js';
 import { zonedAt } from '../../test/support/time.js';
 
@@ -26,12 +28,16 @@ const page = (html: string, status = 200) =>
 function serviceWith(
   answer: (url: string) => ReturnType<FetchPage>,
   events: readonly SpawnEvent[] = FEED_EVENTS,
+  paged: { now: readonly PagedEvent[] } = { now: [] },
+  weeklyRaidHour: { hour: number; minutes: number } | null = { hour: 18, minutes: 60 },
 ) {
   const { log, entries } = createTestLogger();
   const clock = { now: at('2026-10-28T12:00') };
   const asked: { url: string; headers: Record<string, string>; redirect: string }[] = [];
-  const service = new EventSpawnService({
-    events: { spawnEvents: () => events },
+  const service = new EventPageService({
+    events: { spawnEvents: () => events, pagedEvents: () => paged.now },
+    zone: ZONE,
+    weeklyRaidHour,
     gameData: { catalogue: catalogueFixture() },
     fetch: (url, init) => {
       asked.push({ url, headers: init.headers, redirect: init.redirect });
@@ -41,16 +47,17 @@ function serviceWith(
     now: () => clock.now,
   });
   const said = (msg: string) => entries.filter((entry) => entry.msg === msg).length;
-  return { service, clock, asked, said };
+  const told = (msg: string) => entries.filter((entry) => entry.msg === msg);
+  return { service, clock, asked, said, told };
 }
 
-const costumedKeys = (service: EventSpawnService, moment: number) =>
+const costumedKeys = (service: EventPageService, moment: number) =>
   service
     .sightingsAt(moment)
     .filter((sighting) => sighting.costumed)
     .map((sighting) => sighting.key);
 
-describe('EventSpawnService (plan 8R-4)', () => {
+describe('EventPageService (plan 8R-4)', () => {
   it('reads the page of an event on now with Pine’s User-Agent, and places its spawns', async () => {
     const halloween = readEventPage('leekduck-event-halloween-2026-part-1.html');
     const { service, clock, asked } = serviceWith(() => page(halloween));
@@ -88,14 +95,14 @@ describe('EventSpawnService (plan 8R-4)', () => {
     await service.refresh();
     expect(asked).toHaveLength(2);
     expect(costumedKeys(service, clock.now)).toContain('zubat');
-    expect(said('could not read the spawns of an event')).toBe(1);
+    expect(said('could not read an event page')).toBe(1);
   });
 
   it('gives no spawns of an event whose page was never read', async () => {
     const { service, clock, said } = serviceWith(() => Promise.reject(new Error('down')));
     await service.refresh();
     expect(service.sightingsAt(clock.now)).toEqual([]);
-    expect(said('could not read the spawns of an event')).toBe(1);
+    expect(said('could not read an event page')).toBe(1);
   });
 
   it('refuses a page too large to be an event page', async () => {
@@ -103,7 +110,7 @@ describe('EventSpawnService (plan 8R-4)', () => {
     const { service, clock, said } = serviceWith(() => page(huge));
     await service.refresh();
     expect(service.sightingsAt(clock.now)).toEqual([]);
-    expect(said('could not read the spawns of an event')).toBe(1);
+    expect(said('could not read an event page')).toBe(1);
   });
 
   it('takes a community day’s and a spotlight hour’s spawns from the feed, reading nothing', async () => {
@@ -144,7 +151,7 @@ describe('EventSpawnService (plan 8R-4)', () => {
     );
     await service.refresh();
     expect(service.sightingsAt(clock.now)).toEqual([]);
-    expect(said('could not read the spawns of an event')).toBe(1);
+    expect(said('could not read an event page')).toBe(1);
   });
 
   it('reads as an event begins and again after six hours, by its timer (B6)', async () => {
@@ -190,6 +197,115 @@ describe('EventSpawnService (plan 8R-4)', () => {
     stopped.service.start();
     await stopped.service.whenIdle();
     expect(stopped.asked).toEqual([]);
+  });
+});
+
+describe('EventPageService: the Raid Hours of the events’ pages', () => {
+  const INTO_THE_WILD = 'https://leekduck.com/events/into-the-wild-2026/';
+  const WILD_AREA = 'https://leekduck.com/events/pokemon-go-wild-area-2026-global/';
+  const PAGED = parsePagedEventFeed(readEveryoneFeed(), ZONE);
+  const intoTheWild = readEventPage('leekduck-event-into-the-wild-2026.html');
+  const byAddress = (url: string) => page(url === INTO_THE_WILD ? intoTheWild : '<html></html>');
+  const raidHour = (iso: string, name: string) => ({
+    kind: 'raid-hour',
+    name,
+    start: at(iso),
+    end: at(iso) + HOUR,
+  });
+  const BOTH = [
+    raidHour('2026-11-09T18:00', 'Zacian (Crowned Sword) Raid Hour'),
+    raidHour('2026-11-10T18:00', 'Zamazenta (Crowned Shield) Raid Hour'),
+  ];
+  const sorted = (service: EventPageService) =>
+    [...service.raidHours()].sort((a, b) => a.start - b.start);
+
+  it('reads the pages of the events from eight days ago to eight days ahead, before they begin', async () => {
+    const { service, clock, asked, told } = serviceWith(byAddress, [], { now: PAGED });
+    clock.now = at('2026-11-07T12:00');
+    expect(service.raidHours()).toEqual([]);
+    await service.refresh();
+    // The Global Wild Area (Nov 14) too; not the community day of Nov 21, beyond eight days.
+    expect(asked.map((one) => one.url)).toEqual([INTO_THE_WILD, WILD_AREA]);
+    expect(asked[0]).toMatchObject({
+      headers: { Accept: 'text/html', 'User-Agent': PINE_USER_AGENT },
+      redirect: 'error',
+    });
+    expect(sorted(service)).toEqual(BOTH);
+    expect(told('the Raid Hours of an event page read')).toEqual([
+      expect.objectContaining({ event: 'into-the-wild-2026', raidHours: 2 }),
+    ]);
+  });
+
+  it('reads a page once for its spawns and its Raid Hours alike', async () => {
+    const spawning = parseSpawnEventFeed(readSpawnEventFeed(), ZONE).filter(
+      (event) => event.id === 'into-the-wild-2026',
+    );
+    expect(spawning[0]?.page).toBe(INTO_THE_WILD);
+    const { service, clock, asked } = serviceWith(byAddress, spawning, {
+      now: PAGED.filter((event) => event.id === 'into-the-wild-2026'),
+    });
+    clock.now = at('2026-11-09T12:00');
+    await service.refresh();
+    expect(asked.map((one) => one.url)).toEqual([INTO_THE_WILD]);
+    expect(service.sightingsAt(clock.now).length).toBeGreaterThan(0);
+    expect(sorted(service)).toEqual(BOTH);
+  });
+
+  it('reads again after six hours, and keeps the last good read when one fails', async () => {
+    let answer = byAddress;
+    const paged = { now: PAGED.filter((event) => event.id === 'into-the-wild-2026') };
+    const { service, clock, asked, said } = serviceWith((url) => answer(url), [], paged);
+    clock.now = at('2026-11-07T12:00');
+    await service.refresh();
+    clock.now += REREAD_MS - 1;
+    await service.refresh();
+    expect(asked).toHaveLength(1);
+    clock.now += 1;
+    answer = () => page('', 503);
+    await service.refresh();
+    expect(asked).toHaveLength(2);
+    expect(said('could not read an event page')).toBe(1);
+    expect(sorted(service)).toEqual(BOTH);
+  });
+
+  it('keeps the Raid Hours that began of an event the feed dropped, for eight days', async () => {
+    const paged = { now: PAGED.filter((event) => event.id === 'into-the-wild-2026') };
+    const { service, clock } = serviceWith(byAddress, [], paged);
+    clock.now = at('2026-11-07T12:00');
+    await service.refresh();
+    // Moved or canceled before it began: its Raid Hours go.
+    paged.now = [];
+    expect(service.raidHours()).toEqual([]);
+    // Dropped once it began: the Raid Hour that began stays, until eight days after its end.
+    clock.now = at('2026-11-10T12:00');
+    expect(service.raidHours()).toEqual(BOTH.slice(0, 1));
+    clock.now = at('2026-11-17T18:59');
+    expect(sorted(service)).toEqual(BOTH);
+    clock.now = at('2026-11-17T19:00');
+    expect(service.raidHours()).toEqual(BOTH.slice(1));
+    clock.now = at('2026-11-18T19:00');
+    expect(service.raidHours()).toEqual([]);
+  });
+
+  it('warns once of a page that names Raid Hours it cannot read', async () => {
+    const changed = '<h2 id="raids">Raids</h2><h3 id="raid-hour-monday">Raid Hour on Monday</h3>';
+    const paged = { now: PAGED.filter((event) => event.id === 'into-the-wild-2026') };
+    const { service, clock, said } = serviceWith(() => page(changed), [], paged);
+    clock.now = at('2026-11-07T12:00');
+    await service.refresh();
+    clock.now += REREAD_MS;
+    await service.refresh();
+    expect(service.raidHours()).toEqual([]);
+    expect(said('an event page names Raid Hours that could not be read')).toBe(1);
+    expect(said('the Raid Hours of an event page read')).toBe(0);
+  });
+
+  it('places the Raid Hours at 18:00 for an hour without a weekly one', async () => {
+    const paged = { now: PAGED.filter((event) => event.id === 'into-the-wild-2026') };
+    const { service, clock } = serviceWith(byAddress, [], paged, null);
+    clock.now = at('2026-11-07T12:00');
+    await service.refresh();
+    expect(sorted(service)).toEqual(BOTH);
   });
 });
 

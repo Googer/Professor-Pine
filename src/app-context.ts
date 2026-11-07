@@ -67,7 +67,7 @@ import type { LoginLinks } from './web/login-links.js';
 import type { MeetupSafety } from './services/meetup-safety.js';
 import type { ModerationReports } from './services/moderation-reports.js';
 import type { ScriptAccessService } from './services/script-access-service.js';
-import type { EventSpawnProvider } from './services/event-spawn-service.js';
+import type { EventSpawnProvider } from './services/event-page-service.js';
 import type { RegionTallies } from './services/region-tallies.js';
 import type { Boards } from './services/boards.js';
 import type { MemberStatsService } from './services/member-stats.js';

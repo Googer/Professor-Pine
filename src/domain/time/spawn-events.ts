@@ -6,7 +6,7 @@ import { feedTime } from './zoned.js';
 /*
  * The events whose spawns can be costumed (plan 8R-4; design `2026-10-22-costume-form-wants-
  * design.md`, section 5, "Spawns"; F11): a spawn report is costumed when an event on now lists
- * that Pokémon costumed. Pure: `EventSpawnService` reads the pages and keeps what they list.
+ * that Pokémon costumed. Pure: `EventPageService` reads the pages and keeps what they list.
  */
 
 /** A Pokémon an event lists among its spawns, by its English name and picture. */
