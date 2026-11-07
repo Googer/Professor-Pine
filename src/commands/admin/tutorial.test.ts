@@ -1,9 +1,11 @@
 import { ChannelType, Collection, MessageFlags, PermissionFlagsBits } from 'discord.js';
 import { describe, expect, it, vi } from 'vitest';
-import { fakeChatInput } from '../../../test/support/fake-interactions.js';
+import { FAKE_GUILD_ID, fakeChatInput } from '../../../test/support/fake-interactions.js';
+import { MemoryLegacyIndex } from '../../../test/support/legacy-fill-ins.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { InteractionRouter } from '../../discord/router.js';
 import { TUTORIAL_MARK } from '../../render/tutorial.js';
+import { settings } from '../settings/settings.js';
 import { admin } from './index.js';
 
 const BOT = '4242';
@@ -73,6 +75,21 @@ describe('/admin tutorial', () => {
       expect(payload.components[0]?.id).toBe(TUTORIAL_MARK);
     }
     expect(answerOf(interaction)).toMatch(/^Done: posted \d+ messages\.$/u);
+  });
+
+  it('tells of the old bot’s raids only where this server has a member index (B13)', async () => {
+    const sentText = async (legacyIndex: MemoryLegacyIndex) => {
+      const { run } = setup({ legacyIndex, commands: [settings, admin] });
+      return JSON.stringify((await run()).send.mock.calls);
+    };
+    const here = new MemoryLegacyIndex();
+    here.addServer(FAKE_GUILD_ID);
+    expect(await sentText(here)).toContain('and add your raids from the old bot');
+    const elsewhere = new MemoryLegacyIndex();
+    elsewhere.addServer('412345678901234599');
+    const text = await sentText(elsewhere);
+    expect(text).toContain('/settings');
+    expect(text).not.toContain('old bot');
   });
 
   it('edits its own messages in order when run again, and touches nothing else', async () => {

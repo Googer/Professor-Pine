@@ -84,6 +84,40 @@ need_stack() {
   [ -f "$PINE_SETTINGS" ] ||
     fail "There is no $PINE_SETTINGS here. Copy data/settings.json to pine-settings.json and edit it (timezone, channel names), or make it from a legacy installation with './pine convert-settings'."
   make_tool_dir
+  make_index_dir
+}
+
+# LEGACY_INDEX_DIR (blank: none) holds the member index of the legacy history (plan 8H-10): the
+# legacy files' member ids, a file per member, which import-history writes and the bot reads
+# (read-only) when a member adds their old-bot history in /settings.
+index_dir_of() {
+  index_dir=$(env_value LEGACY_INDEX_DIR)
+  case $index_dir in
+    '~'*) fail "LEGACY_INDEX_DIR in $PINE_ENV_FILE starts with ~, which Docker does not expand: write the path out in full (such as /home/you/pine-legacy/legacy-index)." ;;
+  esac
+}
+
+# Before every command that needs the stack: the folder made when it is set and missing, so that
+# Docker does not make it as root (import-history writes into it as the operator).
+make_index_dir() {
+  index_dir_of
+  if [ -z "$index_dir" ] || [ -e "$index_dir" ]; then return 0; fi
+  mkdir -p "$index_dir" ||
+    printf 'pine: LEGACY_INDEX_DIR in %s names %s, which could not be made: make the folder, or leave LEGACY_INDEX_DIR blank.\n' "$PINE_ENV_FILE" "$index_dir" >&2
+}
+
+# Before a command that starts the bot or writes the index: a folder. Its files take the modes of
+# the legacy parties folder (no more readable than that), so others' rights are not required; a
+# server's folder that the bot's user (uid 1000, the image's node) may not read is warned of, not
+# refused (B2): on Docker Desktop and OrbStack a bind mount's owner is not what the bot sees.
+check_index_dir() {
+  index_dir_of
+  [ -n "$index_dir" ] || return 0
+  [ -d "$index_dir" ] ||
+    fail "LEGACY_INDEX_DIR in $PINE_ENV_FILE names $index_dir, which is no folder: name a folder, or leave LEGACY_INDEX_DIR blank."
+  unreadable=$(find "$index_dir" -mindepth 1 -maxdepth 1 -type d ! -name '.*' ! -uid 1000 ! -perm -o=rx 2>/dev/null)
+  [ -z "$unreadable" ] ||
+    printf 'pine: the bot (user 1000 in its container) may not read the member index in %s: let others read its folders (chmod -R o+rX), or members are offered no old-bot history.\n' "$index_dir" >&2
 }
 
 # PINE_TOOL_DIR (blank: ./wayspot-tool) holds the Wayfarer export tool on the owner's instance:
@@ -194,7 +228,8 @@ Usage: ./pine <command>
   import-history <folder> [--server <server id>]
                      import the legacy bot's parties folder into the party history (reads the
                      folder only; once per instance, and safe to run again); --server names the
-                     server of parties whose region is gone
+                     server of parties whose region is gone; with LEGACY_INDEX_DIR set, it
+                     rebuilds the member index there, for members to add their old-bot history
   rebuild-activity [--server <server id>]
                      rebuild the activity heatmap and the raids per day from the party
                      history (writes only their counts; safe to run again, also while the
@@ -219,6 +254,7 @@ cmd_up() {
   need_stack
   check_legacy_parties
   check_tool_dir
+  check_index_dir
   build_image
   say "Starting Professor Pine and its database."
   run up -d
@@ -235,6 +271,7 @@ cmd_restart() {
   need_stack
   check_legacy_parties
   check_tool_dir
+  check_index_dir
   service=${1:-pine}
   say "Restarting $service."
   run restart "$service"
@@ -428,6 +465,7 @@ cmd_update() {
   need_stack
   check_legacy_parties
   check_tool_dir
+  check_index_dir
   command -v git >/dev/null 2>&1 || fail "git is not installed: update fetches the code with git."
   git rev-parse --git-dir >/dev/null 2>&1 || fail "This folder is not a git clone: update needs one."
   # The installation's own files (.env, pine-settings.json) are not the repository's; a change
@@ -508,14 +546,31 @@ cmd_import_history() {
   folder=$(mount_folder "$1")
   [ -d "$folder/complete" ] || [ -d "$folder/active" ] ||
     fail "$folder has neither active/ nor complete/: name the legacy bot's parties folder."
+  # The member index (plan 8H-10): its root mounted writable for this command alone, written as
+  # the operator (the files take the parties folder's modes); blank, the import says it writes none.
+  check_index_dir
+  if [ -n "$index_dir" ]; then
+    [ -w "$index_dir" ] ||
+      fail "You may not write in $index_dir (LEGACY_INDEX_DIR): the import writes the member index there as you."
+    index=$(cd "$index_dir" && { pwd -W 2>/dev/null || pwd; })
+  fi
   build_image
   start_database
   say "Bringing the database up to date first (the bot does not start, Discord is not contacted)."
   run run --rm --no-deps pine node --enable-source-maps dist/db/migrate-cli.js
   say "Importing the legacy parties of $folder into the party history (the folder is only read; a large one takes minutes)."
-  run run --rm --no-deps -v "$folder:/legacy-history:ro" pine \
-    node --enable-source-maps dist/ops/history-import-cli.js /legacy-history \
-    ${server:+--server "$server"}
+  if [ -n "$index_dir" ]; then
+    say "The member index is rebuilt in $index_dir (LEGACY_INDEX_DIR), a server's folder at a time."
+    say "(Running as you, so the bot's saved game data is not updated by this import.)"
+    run run --rm --no-deps --user "$(id -u):$(id -g)" -v "$folder:/legacy-history:ro" \
+      -v "$index:/legacy-index-rw" -e LEGACY_INDEX_DIR=/legacy-index-rw pine \
+      node --enable-source-maps dist/ops/history-import-cli.js /legacy-history \
+      ${server:+--server "$server"}
+  else
+    run run --rm --no-deps -v "$folder:/legacy-history:ro" pine \
+      node --enable-source-maps dist/ops/history-import-cli.js /legacy-history \
+      ${server:+--server "$server"}
+  fi
 }
 
 cmd_rebuild_activity() {
@@ -598,7 +653,7 @@ cmd_restore() {
   done
   [ -n "$dump" ] || fail "Name the dump to load: ./pine restore <dump.sql or dump.sql.gz> [--replace]"
   # Checked before anything is stopped, when the restore ends by starting the bot.
-  [ -z "$start" ] || check_tool_dir
+  [ -z "$start" ] || { check_tool_dir && check_index_dir; }
   dump=$(from_caller "$dump")
   [ -f "$dump" ] || fail "There is no readable file $dump."
   [ -r "$dump" ] || fail "You may not read $dump. A backup is for its owner alone (BACKUP_UID and BACKUP_GID, root unless set): run this with sudo, or set them to your own ids for the next backups."

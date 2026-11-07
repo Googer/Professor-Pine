@@ -34,6 +34,8 @@ export interface TutorialFacts {
   hasStops: boolean;
   /** Meetups may wait for a moderator (`settings.channels.moderation`). */
   meetupsChecked: boolean;
+  /** Members may add their old bot's history (the member index is there, plan 8H-10). */
+  oldHistory?: boolean;
   /** The post's buttons' icons, shown as the posts show them. */
   icons: ControlIcons;
 }
@@ -132,9 +134,17 @@ function moreHelp(facts: TutorialFacts): string {
     : facts.liveMap
       ? ['`/maps` opens the live map, where you can report and join too!']
       : ['`/maps` shows the map of all regions.'];
+  // The opt-in's one line (design Q5), with the old bot's history where it can be added here.
+  const settings = !facts.commands.has('settings')
+    ? []
+    : [
+        '`/settings` sets your pings and DMs. Turn your history on there to see your own numbers ' +
+          `in \`/stats me\`${facts.oldHistory === true ? ', and add your raids from the old bot' : ''}.`,
+      ];
   return [
     '__**For More Help**__',
     ...map,
+    ...settings,
     '`/help` shows every command, or ask a Mod for assistance.',
   ].join('\n');
 }

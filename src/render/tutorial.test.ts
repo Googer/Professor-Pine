@@ -71,6 +71,17 @@ describe('the course', () => {
     expect(allText({ ...FACTS, meetupsChecked: false })).not.toContain('moderators');
   });
 
+  it('asks members in one line to turn their history on, with the old bot’s where it can be added (design Q5)', () => {
+    const withSettings = { ...FACTS, commands: new Set([...ALL, 'settings', 'stats']) };
+    expect(allText(withSettings)).toContain(
+      '`/settings` sets your pings and DMs. Turn your history on there to see your own numbers in `/stats me`.',
+    );
+    expect(allText({ ...withSettings, oldHistory: true })).toContain(
+      '`/settings` sets your pings and DMs. Turn your history on there to see your own numbers in `/stats me`, and add your raids from the old bot.',
+    );
+    expect(allText(FACTS)).not.toContain('/settings');
+  });
+
   it('says what /maps gives here, and nothing where it is not there', () => {
     expect(allText(FACTS)).toContain('opens the live map');
     expect(allText({ ...FACTS, liveMap: false })).toContain('shows the map of all regions');

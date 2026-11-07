@@ -81,7 +81,7 @@ npm run emoji:upload         # upload the icons the bot's application lacks as i
 npm run settings:convert -- <legacy data folder> [--out <dir>] [--force]   # the settings converter on the checkout
 npm run cutover:check  # whether the installation is ready for the cutover (reads Discord's REST API): only when Matt asks
 npm run migrate        # run Kysely migrations against the configured database
-npm run history:import -- <legacy parties folder> [--server <id>]   # import the legacy parties/ folder into the party history (no member ids; safe to run again)
+npm run history:import -- <legacy parties folder> [--server <id>]   # import the legacy parties/ folder into the party history (records without member ids; with LEGACY_INDEX_DIR set it also rebuilds the member index there, which /settings' "Add my old-bot history" reads; safe to run again)
 npm run activity:rebuild [-- --server <id>]   # rebuild the web map's activity heatmap and the raids per day (big days, the history page) from the party history (derived; safe to run again, also while the bot runs)
 npm run gyms:seed -- <csv> --server <id> [--apply]    # mark sponsored gyms "not in Wayfarer", adding those not there; a dry run without --apply; safe to run again
 npm run stops:seed -- <csv> --server <id> [--apply]   # add stops of Pine's own from a file; a dry run without --apply; safe to run again
@@ -164,7 +164,7 @@ Each file under `docs/architecture/` holds the conventions of one subsystem. Rea
 - `gyms-and-regions.md`: gym search and ownership, gym administration and views, Google, maps, regions, KML, `/bounds`, `/find-region`.
 - `screenshots.md`: the OCR reader and its worker, the report and the decision, the store and review folder, the screenshot flows on Discord.
 - `wayfarer.md`: the export file, S2 cells and the area of an export (`packages/wayspot-core`), matching, `/gym import` and `/gym review`.
-- `history.md`: the party history (its tables, how ended parties are recorded, the opt-in, the legacy import) and the statistics questions as tested SQL.
+- `history.md`: the party history (its tables, how ended parties are recorded, the opt-in, the legacy import, the legacy fill-in (member index, `LegacyFillIn`, its worker)) and the statistics questions as tested SQL.
 - `meetup-safety.md`: the check of a meetup's place, `/meetup`'s form and refusals, `MeetupSafety.make` (the one way to make a meetup), the requests and the moderators' post, decisions, expiry and sweeps, rulings, blocks and appeals.
 - `moderation.md`: reports to the moderators (`/report`, "Report to moderators" in the Apps menu), their post and decisions, staff's `/delete`, `/places`.
 - `members-and-roles.md`: member settings and rows, member lookups and viewers, self-assigned roles.

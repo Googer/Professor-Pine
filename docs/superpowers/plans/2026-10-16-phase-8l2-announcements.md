@@ -29,7 +29,7 @@ Then, **slash commands**. Type `/` and Discord shows you the list, with every op
 - `/max` reports a Dynamax or Gigantamax battle at a power spot: `/max boss:Machamp spot:Gazebo` (or paste a maps link for a power spot Pine does not know)
 - `/join`, `/interested`, `/here`, `/done` and `/leave` work in a raid's post
 - `/train` and `/meetup` start a post of their own; a train goes to raids, Dynamax or Gigantamax battles (`/train kind:`), from gym to gym or power spot to power spot (`/route add stop:`), and can be planned days ahead (`/train start:`)
-- `/want` and `/target` get you DMs for bosses and gyms; `/settings show` shows the rest of your settings
+- `/want` and `/target` get you DMs for bosses and gyms; `/settings` shows and changes the rest of your settings
 - `/wild` reports a wild spawn
 ```
 
@@ -38,7 +38,7 @@ The second message, right after it:
 ```md
 **Screenshots**: attach one to `/raid`, or post it with a mention of @Professor Pine (the bot itself, not the role), and he reads it for you.
 
-**Raid history**: Pine now keeps statistics of every raid, max battle, train and meetup. Want your name in them? `/settings history enabled:True`. Otherwise you are counted, anonymously.
+**Raid history**: Pine now keeps statistics of every raid, max battle, train and meetup. Want your name in them? Turn your history on in `/settings`. Otherwise you are counted, anonymously. Once it is on, **Add my old-bot history** in `/settings` will add the raids, trains and meetups you made or joined with the old Pine, as soon as it shows there.
 
 [Map] **A map of our regions and gyms** on the web: `/maps` gives you the link.
 [Soon] A map of our regions and gyms on the web is on its way.

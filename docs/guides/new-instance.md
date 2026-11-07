@@ -102,6 +102,8 @@ Fill in:
 
   On an NFS share that squashes root, make the marker as the share's owner and set `BACKUP_UID` and `BACKUP_GID` to that owner's ids.
 
+- Leave `LEGACY_PARTIES_DIR` and `LEGACY_INDEX_DIR` blank: they are for an installation that moved from the old JavaScript Pine. Without them `/settings` offers no "Add my old-bot history".
+
 Each variable is explained in `.env.example` itself. On Linux keep the file to yourself:
 
 ```bash

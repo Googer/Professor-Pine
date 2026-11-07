@@ -61,6 +61,7 @@ export const tutorial: SubcommandPart = {
       liveMap: settings.web !== undefined,
       hasStops: row !== undefined && ctx.placeFinder.hasStops(row),
       meetupsChecked: settings.channels.moderation !== undefined,
+      oldHistory: (await ctx.legacyIndex?.hasServer(interaction.guildId ?? '')) === true,
       icons: { controlIcon: (name) => ctx.emoji.find(name, null) },
     });
     const botId = interaction.client.user.id;

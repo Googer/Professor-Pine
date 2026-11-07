@@ -58,10 +58,16 @@ services:
       # The legacy bot's parties folder, for /admin cleanup-legacy: mounted below where
       # LEGACY_PARTIES_DIR names one, blank (none) otherwise.
       LEGACY_PARTIES_DIR: ${LEGACY_PARTIES_DIR:+/legacy-parties}
+      # The member index of the legacy history, which `./pine import-history` writes (plan
+      # 8H-10): read when a member adds their old-bot history in /settings. Mounted below where
+      # LEGACY_INDEX_DIR names one, blank (no fill-in offered) otherwise.
+      LEGACY_INDEX_DIR: ${LEGACY_INDEX_DIR:+/legacy-index}
     volumes:
       - ${PINE_SETTINGS:-./pine-settings.json}:/app/data/settings.json:ro
       - pine-var:/app/var
       - ${LEGACY_PARTIES_DIR:-./legacy-parties}:/legacy-parties:ro
+      # The index root, not a server's folder: the import swaps a server's folder inside it.
+      - ${LEGACY_INDEX_DIR:-./legacy-index}:/legacy-index:ro
       # The Wayfarer export tool, on the owner's instance only (the private repository's
       # `npm run deploy` writes it there): read when asked, served at /userscript to the admins
       # the owner approved. `./pine` makes the folder when missing; empty, nothing is served.

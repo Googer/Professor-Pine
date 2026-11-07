@@ -38,5 +38,7 @@ var/
 /backups/
 # what Docker mounts for LEGACY_PARTIES_DIR when it is blank (an empty folder)
 /legacy-parties/
+# the member index of the legacy history (LEGACY_INDEX_DIR; member ids: never in the repository)
+/legacy-index/
 # the Wayfarer export tool of the owner's instance (PINE_TOOL_DIR; ./pine makes the folder)
 /wayspot-tool/
