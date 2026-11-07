@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { catalogueFixture } from '../../../test/support/game-data.js';
 import { readResearchPage } from '../../../test/support/research.js';
 import { readEventPage } from '../../../test/support/spawn-events.js';
-import { htmlText, parseEventSpawns, parseResearchPage } from './leekduck.js';
+import { htmlText, parseEventRaidHours, parseEventSpawns, parseResearchPage } from './leekduck.js';
 import { taskKeyOf } from './task.js';
 
 const ZONE = 'America/New_York';
@@ -281,6 +281,56 @@ describe('parseResearchPage', () => {
     const read = parseEventSpawns(`<h2 id="spawns">Spawns</h2><ul>${many}</ul>`);
     expect(read).toHaveLength(100);
     expect(read[99]).toEqual({ name: 'Pokémon 99' });
+  });
+
+  it('reads the Raid Hours of an event page’s Raids section with their bosses', () => {
+    expect(parseEventRaidHours(readEventPage('leekduck-event-into-the-wild-2026.html'))).toEqual([
+      { month: 11, day: 9, bosses: ['Zacian (Crowned Sword)'] },
+      { month: 11, day: 10, bosses: ['Zamazenta (Crowned Shield)'] },
+    ]);
+    // Pages without any: no Raids section, or one without Raid Hours.
+    expect(parseEventRaidHours(readEventPage('leekduck-event-halloween-2026-part-1.html'))).toEqual(
+      [],
+    );
+    expect(parseEventRaidHours(readEventPage('leekduck-event-spotlight-2026-11-05.html'))).toEqual(
+      [],
+    );
+  });
+
+  it('reads a Raid Hour heading without a weekday, and "Raid Hours:", in the Raids section only', () => {
+    const boss = (name: string) =>
+      `<li class="pkmn-list-item"><div class="pkmn-name">${name}</div></li>`;
+    const html =
+      '<h2 id="spawns">Spawns</h2><h3>Raid Hour: Monday, March 2</h3><ul>' +
+      boss('Pidgey') +
+      '</ul><h2 id="raids" class="event-section-header raids">Raids</h2>' +
+      `<h3 id="raid-hour-march-3">Raid Hour: March 3</h3><ul>${boss('Dialga')}</ul>` +
+      `<hr /><h3>Raid Hours: Wed, Mar. 4</h3><ul>${boss('Palkia')}${boss('Giratina')}</ul>` +
+      `<h3>Raid Hour: Thursday, March 5</h3><p>Nothing listed.</p>` +
+      `<h3 id="five-star-raids">Five-Star Raids</h3><ul>${boss('Kyogre')}</ul>` +
+      `<h2 id="max-battles">Max Battles</h2><h3>Raid Hour: Friday, March 6</h3><ul>${boss('Groudon')}</ul>`;
+    expect(parseEventRaidHours(html)).toEqual([
+      { month: 3, day: 3, bosses: ['Dialga'] },
+      { month: 3, day: 4, bosses: ['Palkia', 'Giratina'] },
+      { month: 3, day: 5, bosses: [] },
+    ]);
+    // A heading that names no date is none.
+    expect(
+      parseEventRaidHours('<h2 id="raids">Raids</h2><h3>Raid Hour: the whole week</h3>'),
+    ).toEqual([]);
+    expect(parseEventRaidHours('<h2 id="raids">Raids</h2><h3>Raid Hour: February 30</h3>')).toEqual(
+      [],
+    );
+  });
+
+  it('reads at most 20 Raid Hours of a page', () => {
+    const headings = Array.from(
+      { length: 30 },
+      (_, i) => `<h3>Raid Hour: January ${String(i + 1)}</h3>`,
+    ).join('');
+    const read = parseEventRaidHours(`<h2 id="raids">Raids</h2>${headings}`);
+    expect(read).toHaveLength(20);
+    expect(read[19]).toEqual({ month: 1, day: 20, bosses: [] });
   });
 
   it('reads text as it shows: tags out, entities read, controls and gaps one space', () => {

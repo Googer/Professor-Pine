@@ -17,9 +17,16 @@ export function readSpawnEventFeed(): unknown {
   );
 }
 
-/** A Leek Duck event page of `test/fixtures/`, cut to the sections read (plan 8R-4). */
+/**
+ * A Leek Duck event page of `test/fixtures/`, cut to the sections read (plan 8R-4). Into the
+ * Wild (2026-11-07) has its Spawns, Raids and Max Battles sections: two Raid Hours in the Raids
+ * section, and the Max Battle hours' headings ("Five-Star Max Battles: Wednesday, November 11").
+ */
 export function readEventPage(
-  file: 'leekduck-event-halloween-2026-part-1.html' | 'leekduck-event-spotlight-2026-11-05.html',
+  file:
+    | 'leekduck-event-halloween-2026-part-1.html'
+    | 'leekduck-event-spotlight-2026-11-05.html'
+    | 'leekduck-event-into-the-wild-2026.html',
 ): string {
   return readFileSync(path.join(fixtures, file), 'utf8');
 }

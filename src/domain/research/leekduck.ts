@@ -209,6 +209,99 @@ export function parseEventSpawns(html: string): { name: string; image?: string }
 /** The most Pokémon read of an event page's Spawns section (B4): no event lists more. */
 const MAX_EVENT_SPAWNS = 100;
 
+/** A Raid Hour an event page names: the day of the month, and the bosses listed under it. */
+export interface PageRaidHour {
+  /** 1 to 12. */
+  month: number;
+  day: number;
+  bosses: string[];
+}
+
+/** The most Raid Hours read of one page: an event of a month has at most a few. */
+const MAX_PAGE_RAID_HOURS = 20;
+/** The most bosses read of one Raid Hour. */
+const MAX_RAID_HOUR_BOSSES = 10;
+
+/** The months' names: a heading may give a month's first letters (`Nov.`, `Sept`), three or more. */
+const MONTH_NAMES = [
+  'january',
+  'february',
+  'march',
+  'april',
+  'may',
+  'june',
+  'july',
+  'august',
+  'september',
+  'october',
+  'november',
+  'december',
+];
+/** The most days of each month, February's in a leap year (the year is chosen later). */
+const MONTH_DAYS = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+
+/**
+ * `Raid Hour: Monday, November 9` (also `Raid Hours:`, without the weekday, with a month's short
+ * name, `Nov. 9`, or a year after the day): the month and the day.
+ */
+const RAID_HOUR_HEADING =
+  /^raid hours?\s*:\s*(?:[a-z]{3,9}\.?,?\s+)??([a-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+\d{4})?$/i;
+
+function raidHourDate(heading: string): { month: number; day: number } | undefined {
+  const match = RAID_HOUR_HEADING.exec(heading);
+  if (match?.[1] === undefined || match[2] === undefined) return undefined;
+  const name = match[1].toLowerCase();
+  const month = MONTH_NAMES.findIndex((full) => full.startsWith(name)) + 1;
+  if (month === 0) return undefined;
+  const day = Number(match[2]);
+  return day >= 1 && day <= (MONTH_DAYS[month - 1] ?? 0) ? { month, day } : undefined;
+}
+
+/**
+ * The Raid Hours of a Leek Duck event page (Matt, 2026-11-07: "Into the Wild" has its Raid Hours
+ * only on its page): in the Raids section (`<h2 id="raids">` up to the next `<h2`), each `<h3>`
+ * whose text is `Raid Hour: <weekday>, <month> <day>` (`raidHourDate`), with the names of the
+ * Pokémon listed after it up to the next heading or rule. The paragraph's times are not read:
+ * a Raid Hour lasts as the weekly one (`eventPageRaidHours`). At most 20; none for a page
+ * without the section.
+ */
+export function parseEventRaidHours(html: string): PageRaidHour[] {
+  const start = html.indexOf('<h2 id="raids"');
+  if (start < 0) return [];
+  const next = html.indexOf('<h2', start + 3);
+  const section = html.slice(start, next < 0 ? undefined : next);
+  const hours: PageRaidHour[] = [];
+  for (const part of partsFrom(section, '<h3')) {
+    const close = part.indexOf('</h3>');
+    if (close < 0) continue;
+    const date = raidHourDate(htmlText(part.slice(part.indexOf('>') + 1, close)));
+    if (date === undefined) continue;
+    const after = part.slice(close);
+    const rule = after.indexOf('<hr');
+    const list = rule < 0 ? after : after.slice(0, rule);
+    const bosses = partsFrom(list, '<li class="pkmn-list-item"')
+      .map((item) =>
+        htmlText(between(item, '<div class="pkmn-name">', '</div>') ?? '').slice(
+          0,
+          MAX_REWARD_NAME,
+        ),
+      )
+      .filter((name) => name !== '')
+      .slice(0, MAX_RAID_HOUR_BOSSES);
+    hours.push({ ...date, bosses });
+    if (hours.length === MAX_PAGE_RAID_HOURS) break;
+  }
+  return hours;
+}
+
+/**
+ * Whether a page has a heading of a Raid Hour by its id (`<h3 id="raid-hour-monday-november-9">`):
+ * one whose Raid Hours `parseEventRaidHours` cannot read has changed its shape.
+ */
+export function namesRaidHours(html: string): boolean {
+  return html.includes('id="raid-hour');
+}
+
 /**
  * The page's sections, each up to the next: the `<div>`s with the word `task-category` in their
  * class. An event's section has more words (`task-category event-field-research`, the page of
