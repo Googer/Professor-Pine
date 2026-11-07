@@ -17,7 +17,6 @@ import {
 import {
   certainMoves,
   fitMeetingTimes,
-  mayHatchAt,
   raidStage,
   raidStandingAt,
   setBoss,
@@ -171,7 +170,6 @@ export class RaidChangeService {
       partyId,
       member,
       (party, rules, now) => {
-        if (!mayHatchAt(party, time, now)) return refused('hatched-already');
         const set = setHatchTime(timeConfirmed(party), time, rules, now);
         confirmed = set.hatchTime === party.hatchTime;
         return { ok: true, party: unlessSame(party, set) };

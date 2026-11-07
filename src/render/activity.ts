@@ -141,8 +141,6 @@ export function problemText(
         'An Elite egg needs its hatch time: once staff delete this egg, report it again with ' +
         '`/raid` and its hatch time.'
       );
-    case 'hatched-already':
-      return 'This raid was reported hatched, so it cannot hatch later. To correct when it ends, use `/end`.';
     case 'spot-taken':
       return 'That spot has another max battle by now: this one stays as it is.';
     case 'max-kind-change':
