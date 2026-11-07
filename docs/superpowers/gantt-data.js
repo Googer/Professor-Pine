@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-06T23:50",
+  "updated": "2026-11-07T00:36",
   "items": [
     {
       "id": "0",
@@ -10226,6 +10226,11 @@ window.GANTT = {
           "start": "2026-11-06T23:09",
           "end": "2026-11-06T23:09"
         }
+      },
+      "status": "done",
+      "review": {
+        "start": "2026-11-06T23:57",
+        "end": "2026-11-07T00:26"
       }
     },
     {
@@ -10236,7 +10241,9 @@ window.GANTT = {
       "dependsOn": [],
       "scope": "Which roles open a region, one rule",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-06T23:49",
+      "end": "2026-11-06T23:51"
     },
     {
       "id": "8M-20.2",
@@ -10248,7 +10255,9 @@ window.GANTT = {
       ],
       "scope": "The view of your regions",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-06T23:51",
+      "end": "2026-11-06T23:52"
     },
     {
       "id": "8M-20.3",
@@ -10260,7 +10269,9 @@ window.GANTT = {
       ],
       "scope": "Join and leave",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-06T23:52",
+      "end": "2026-11-06T23:53"
     },
     {
       "id": "8M-20.4",
@@ -10272,7 +10283,9 @@ window.GANTT = {
       ],
       "scope": "The page: outlines and Your regions…",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-06T23:53",
+      "end": "2026-11-06T23:56"
     },
     {
       "id": "8M-20.5",
@@ -10284,7 +10297,9 @@ window.GANTT = {
       ],
       "scope": "Words and docs",
       "doneWhen": "Committed, equal to the prototype",
-      "status": "todo"
+      "status": "done",
+      "start": "2026-11-06T23:56",
+      "end": "2026-11-06T23:57"
     },
     {
       "id": "8Z",
