@@ -316,21 +316,32 @@ export function eventPageMaxHours(
  * (`eventPageMaxHours`), in order: one path for every reader of the max events
  * (`MaxEventProvider.maxEvents()`), as `withPageRaidHours` is for the raid events. A page's hour
  * that starts when a Max Battle Day or Weekend of the feed does is dropped (the feed's wins), as
- * is a second one of the pages at the same start. `feed` itself when the pages add nothing.
+ * is a second one of the pages at the same start; but a Max Battle event of the feed whose hours
+ * were assumed (`hoursAssumed`) on the local day (`zone`) of a page's hour gives way to it (review
+ * of `event-pages-more`: the page knows that day's hours, the assumption does not). `feed` itself
+ * when the pages change nothing.
  */
 export function withPageMaxHours(
   feed: readonly MaxEvent[],
   pages: readonly MaxEvent[],
+  zone: string,
 ): readonly MaxEvent[] {
-  const taken = new Set(feed.filter((event) => event.kind === 'max-battle').map((e) => e.start));
+  const day = (time: number): string => zoned(time, zone).toPlainDate().toString();
+  const pageDays = new Set(
+    pages.filter((hour) => hour.kind === 'max-battle').map((hour) => day(hour.start)),
+  );
+  const replaced = (event: MaxEvent): boolean =>
+    event.kind === 'max-battle' && event.hoursAssumed && pageDays.has(day(event.start));
+  const kept = feed.filter((event) => !replaced(event));
+  const taken = new Set(kept.filter((event) => event.kind === 'max-battle').map((e) => e.start));
   const added: MaxEvent[] = [];
   for (const hour of pages) {
     if (hour.kind !== 'max-battle' || taken.has(hour.start)) continue;
     taken.add(hour.start);
     added.push(hour);
   }
-  if (added.length === 0) return feed;
-  return [...feed, ...added].sort((a, b) => a.start - b.start || a.name.localeCompare(b.name));
+  if (added.length === 0 && kept.length === feed.length) return feed;
+  return [...kept, ...added].sort((a, b) => a.start - b.start || a.name.localeCompare(b.name));
 }
 
 /**

@@ -364,7 +364,7 @@ describe('eventPageMaxHours', () => {
 
   it('features the page’s bosses during their hour, and sets a battle’s end by it', () => {
     const page = eventPageMaxHours(PAGE, INTO_THE_WILD, SIX_TO_SEVEN, MAX_ZONE);
-    const events = withPageMaxHours([], page);
+    const events = withPageMaxHours([], page, MAX_ZONE);
     const featured = (local: string) =>
       featuredAt(events, at(local), MAX_ZONE).map(({ event }) => event.featured?.names);
     expect(featured('2026-11-11T17:59')).toEqual([]);
@@ -397,12 +397,41 @@ describe('withPageMaxHours', () => {
       event('Page Monday', '2026-11-09T18:00'),
       event('Page Friday again', '2026-11-13T18:00'),
     ];
-    expect(withPageMaxHours(feed, page).map((one) => one.name)).toEqual([
+    expect(withPageMaxHours(feed, page, MAX_ZONE).map((one) => one.name)).toEqual([
       'Max Monday',
       'Page Monday',
       'Feed Day',
       'Page Friday',
     ]);
-    expect(withPageMaxHours(feed, [])).toBe(feed);
+    expect(withPageMaxHours(feed, [], MAX_ZONE)).toBe(feed);
+  });
+
+  it('replaces a Max Battle event of the feed with assumed hours on the page hour’s day (review)', () => {
+    const assumed = (name: string, local: string): MaxEvent => ({
+      ...event(name, local),
+      short: false,
+      end: at(local) + 3 * 3_600_000,
+      hoursAssumed: true,
+    });
+    const feed = [
+      assumed('Feed Wednesday, hours assumed', '2026-11-11T14:00'),
+      assumed('Feed Thursday, hours assumed', '2026-11-12T14:00'),
+      event('Feed Friday', '2026-11-13T14:00'),
+    ];
+    const page = [
+      event('Page Wednesday', '2026-11-11T18:00'),
+      event('Page Friday', '2026-11-13T18:00'),
+    ];
+    expect(withPageMaxHours(feed, page, MAX_ZONE).map((one) => one.name)).toEqual([
+      'Page Wednesday',
+      'Feed Thursday, hours assumed',
+      'Feed Friday',
+      'Page Friday',
+    ]);
+    // At the same start too: the page's hour, not the assumed one.
+    const same = [assumed('Feed assumed at 18:00', '2026-11-11T18:00')];
+    expect(withPageMaxHours(same, page.slice(0, 1), MAX_ZONE).map((one) => one.name)).toEqual([
+      'Page Wednesday',
+    ]);
   });
 });

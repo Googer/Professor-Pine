@@ -286,7 +286,8 @@ export class RaidEventService
    * order of their start.
    */
   maxEvents(): readonly MaxEvent[] {
-    return withPageMaxHours(this.currentMax, this.options.pageMaxHours?.() ?? []);
+    const pages = this.options.pageMaxHours?.() ?? [];
+    return withPageMaxHours(this.currentMax, pages, this.options.zone);
   }
 
   bigEvents(): readonly BigEvent[] {
