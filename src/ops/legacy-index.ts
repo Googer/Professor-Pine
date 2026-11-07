@@ -44,6 +44,15 @@ export function indexModesOf(partiesDir: string): IndexModes {
 }
 
 /**
+ * Whether the root holds an index of the server: its folder, or the old one a run stopped
+ * between its two renames left aside (`writeServerIndex` puts it back).
+ */
+export function hasServerIndex(root: string, serverId: string): boolean {
+  if (!isSnowflake(serverId)) throw new Error(`${serverId} is not a server id`);
+  return existsSync(path.join(root, serverId)) || existsSync(path.join(root, `.${serverId}.old`));
+}
+
+/**
  * Replaces the index of one server whole: written into `.<server>.new` beside it, then swapped
  * in for the old one, so that a run that fails half-way leaves the old index as it was (and the
  * bot sees no folder only for the moment between the two renames, which the fill-in waits out).

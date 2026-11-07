@@ -369,6 +369,57 @@ describe('the import of the legacy parties into the history', () => {
     expect(readFileSync(path.join(root, HOME, `${M1}.json`), 'utf8')).toBe('kept');
   });
 
+  it('writes the index of a server that has none yet with what it read, and says what it left out', async () => {
+    const root = mkdtempSync(path.join(tmpdir(), 'index-'));
+    // Another server's older index stays whole, as A4 keeps it.
+    mkdirSync(path.join(root, AWAY));
+    writeFileSync(path.join(root, AWAY, `${M1}.json`), 'kept');
+    // The fixtures' broken file: HOME has no index yet, so it gets what the run could read.
+    const unreadable = await run({ indexDir: root });
+    expect(unreadable.index).toEqual({
+      servers: [{ serverId: HOME, members: 6, entries: 17, partiesLeftOut: 1 }],
+      leftOut: 0,
+      failed: [],
+    });
+    expect(importReport(unreadable, 1)).toContain(
+      `Member index: 6 members of server ${HOME} (17 entries; 1 party left out).`,
+    );
+    expect(readdirSync(path.join(root, HOME))).toHaveLength(6);
+    // Had another server of the run an older index, that one is kept, and the report says so.
+    const mixed = {
+      ...unreadable,
+      index: {
+        servers: [{ serverId: HOME, members: 6, entries: 17, partiesLeftOut: 1 }],
+        leftOut: 0,
+        kept: { notWritten: 0, unreadable: 1 },
+        failed: [],
+      },
+    };
+    expect(importReport(mixed, 1).slice(-3, -1)).toEqual([
+      `Member index: 6 members of server ${HOME} (17 entries; 1 party left out).`,
+      'Member index of the other servers kept as it was: 1 file could not be read.',
+    ]);
+    expect(readFileSync(path.join(root, AWAY, `${M1}.json`), 'utf8')).toBe('kept');
+
+    // A party the database refused, in a fresh root: the meetup's maker and attendee are out.
+    await db.deleteFrom('PartyHistory').execute();
+    const history = new HistoryRepository(db);
+    const failing = {
+      insertRecords: async (records: readonly HistoryRecord[]) => {
+        if (records.some((record) => record.kind === 'meetup')) throw new Error('busy');
+        return history.insertRecords(records);
+      },
+    };
+    const fresh = mkdtempSync(path.join(tmpdir(), 'index-'));
+    const notWritten = await run({ dir: readable(), indexDir: fresh, history: failing });
+    expect(notWritten.index).toEqual({
+      servers: [{ serverId: HOME, members: 6, entries: 15, partiesLeftOut: 1 }],
+      leftOut: 0,
+      failed: [],
+    });
+    expect(indexIn(fresh)[HOME]?.[M3]).toEqual([`${GIRATINA} a 2 interested 0 A`]);
+  });
+
   it('says which server’s index it could not write, without its path, and fails (A3)', async () => {
     const root = mkdtempSync(path.join(tmpdir(), 'index-'));
     // No folder: a file where the index's root should be.

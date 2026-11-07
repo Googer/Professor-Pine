@@ -13,7 +13,7 @@ import {
 import { legacyIndexEntries, writeIndexEntry } from '../domain/history/legacy-index.js';
 import type { HistoryRecord } from '../domain/history/party-history.js';
 import type { PokemonCatalogue } from '../domain/pogo/catalogue.js';
-import { indexModesOf, writeServerIndex } from './legacy-index.js';
+import { hasServerIndex, indexModesOf, writeServerIndex } from './legacy-index.js';
 import { legacyFolderProblem, legacyPartyFiles } from './legacy-parties.js';
 
 /** As many records as one transaction writes. */
@@ -54,11 +54,15 @@ export interface ImportCounts {
 }
 
 export interface IndexCounts {
-  servers: { serverId: string; members: number; entries: number }[];
+  /**
+   * `partiesLeftOut`: where parties were not written or files not read, how many; only a server
+   * that had no index before is written then (A4), with what was read.
+   */
+  servers: { serverId: string; members: number; entries: number; partiesLeftOut?: number }[];
   leftOut: number;
   /**
-   * Where no server's index was replaced (A4): parties the database refused, files that could not
-   * be read (what either held could be anybody's, so the old index stays whole).
+   * Where a server's older index was kept whole (A4), or nothing was written: parties the
+   * database refused, files that could not be read (what either held could be anybody's).
    */
   kept?: { notWritten: number; unreadable: number };
   /** The servers whose index could not be written, with the file system's code (A3). */
@@ -292,23 +296,25 @@ export async function importLegacyHistory(options: ImportOptions): Promise<Impor
   await flush();
   counts.bossNames = [...names].sort();
   if (index !== undefined && options.indexDir !== undefined) {
+    const indexDir = options.indexDir;
     const unreadable = Object.values(counts.files.unreadable).reduce((sum, one) => sum + one, 0);
-    if (counts.writeFailed > 0 || unreadable > 0) {
-      // A party not written, or a file not read, may be some member's: the new index would lose
-      // their entries, so the old one stays whole until a run reads and writes everything (A4).
-      counts.index = {
-        servers: [],
-        leftOut,
-        kept: { notWritten: counts.writeFailed, unreadable },
-        failed: [],
-      };
-      return counts;
-    }
+    const missed = counts.writeFailed + unreadable;
+    // A party not written, or a file not read, may be some member's: a new index would lose
+    // their entries, so a server's older index stays whole until a run reads and writes
+    // everything (A4). A server without one yet gets what was read, and the report says how many
+    // parties it left out.
+    const sorted = [...index].sort(([a], [b]) => a.localeCompare(b));
+    const writing =
+      missed === 0 ? sorted : sorted.filter(([serverId]) => !hasServerIndex(indexDir, serverId));
+    const kept =
+      missed > 0 && (writing.length < sorted.length || sorted.length === 0)
+        ? { kept: { notWritten: counts.writeFailed, unreadable } }
+        : {};
     // Only the servers this run found members of: another server's index stays as it is (H11).
     const modes = indexModesOf(dir);
     const servers: IndexCounts['servers'] = [];
     const failed: IndexCounts['failed'] = [];
-    for (const [serverId, members] of [...index].sort(([a], [b]) => a.localeCompare(b))) {
+    for (const [serverId, members] of writing) {
       try {
         writeServerIndex(options.indexDir, serverId, members, modes);
       } catch (err) {
@@ -318,9 +324,14 @@ export async function importLegacyHistory(options: ImportOptions): Promise<Impor
       }
       let entries = 0;
       for (const lines of members.values()) entries += lines.length;
-      servers.push({ serverId, members: members.size, entries });
+      servers.push({
+        serverId,
+        members: members.size,
+        entries,
+        ...(missed > 0 ? { partiesLeftOut: missed } : {}),
+      });
     }
-    counts.index = { servers, leftOut, failed };
+    counts.index = { servers, leftOut, ...kept, failed };
   }
   return counts;
 }
@@ -359,6 +370,15 @@ export function importReport(counts: ImportCounts, ms: number): string[] {
 /** The member index's lines: counts only (H16), a line per server it rebuilt. */
 function indexReport(index: IndexCounts | undefined): string[] {
   if (index === undefined) return [];
+  const failed = index.failed.map(
+    (one) => `Could not write the member index of server ${one.serverId} (${one.code}).`,
+  );
+  const servers = index.servers.map((server) => {
+    const entries = `${n(server.entries)} ${server.entries === 1 ? 'entry' : 'entries'}`;
+    const out = server.partiesLeftOut ?? 0;
+    const left = out > 0 ? `; ${n(out)} ${out === 1 ? 'party' : 'parties'} left out` : '';
+    return `Member index: ${n(server.members)} ${server.members === 1 ? 'member' : 'members'} of server ${server.serverId} (${entries}${left}).`;
+  });
   if (index.kept !== undefined) {
     const { notWritten, unreadable } = index.kept;
     const why = [
@@ -369,15 +389,10 @@ function indexReport(index: IndexCounts | undefined): string[] {
         ? [`${n(unreadable)} ${unreadable === 1 ? 'file' : 'files'} could not be read`]
         : []),
     ].join(', ');
-    return [`Member index kept as it was: ${why}.`];
+    // The servers that had no index yet, written with what was read, then the rest kept.
+    const whose = servers.length > 0 ? 'Member index of the other servers' : 'Member index';
+    return [...servers, `${whose} kept as it was: ${why}.`, ...failed];
   }
-  const failed = index.failed.map(
-    (one) => `Could not write the member index of server ${one.serverId} (${one.code}).`,
-  );
-  const servers = index.servers.map(
-    (server) =>
-      `Member index: ${n(server.members)} ${server.members === 1 ? 'member' : 'members'} of server ${server.serverId} (${n(server.entries)} ${server.entries === 1 ? 'entry' : 'entries'}).`,
-  );
   const lines =
     servers.length === 0 && failed.length === 0
       ? ['Member index: no member of any server.']
