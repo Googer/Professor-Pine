@@ -128,6 +128,20 @@ function trainsAndMeetups(facts: TutorialFacts): string {
   ].join('\n');
 }
 
+function numbers(facts: TutorialFacts): string | undefined {
+  if (!facts.commands.has('stats')) return undefined;
+  return [
+    "__**Pine's Numbers**__",
+    '📊 `/stats regions` Raids and max battles in each region',
+    '🏆 `/stats boards` Who did the most: raids, trains, meetups and reports',
+    '🙋 `/stats me` Your own numbers',
+    'Only you see the answer. Press Share to post it in the channel for everyone!',
+    ...(facts.commands.has('settings')
+      ? ['To be ranked on the boards, turn on “On this server’s boards” in `/settings`.']
+      : []),
+  ].join('\n');
+}
+
 function moreHelp(facts: TutorialFacts): string {
   const map = !facts.commands.has('maps')
     ? []
@@ -158,6 +172,7 @@ export function tutorialMessages(facts: TutorialFacts): V2Message[] {
     notifications(facts),
     otherReports(facts),
     trainsAndMeetups(facts),
+    numbers(facts),
     moreHelp(facts),
   ]
     .filter((text): text is string => text !== undefined)

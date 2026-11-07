@@ -82,6 +82,22 @@ describe('the course', () => {
     expect(allText(FACTS)).not.toContain('/settings');
   });
 
+  it('says what /stats answers and that Share posts it, with the boards switch of /settings', () => {
+    const withStats = { ...FACTS, commands: new Set([...ALL, 'settings', 'stats']) };
+    const text = allText(withStats);
+    expect(text).toContain("__**Pine's Numbers**__");
+    for (const part of ['/stats regions', '/stats boards', '/stats me'])
+      expect(text).toContain(part);
+    expect(text).toContain('Share');
+    expect(text).toContain('On this server’s boards');
+    expect(tutorialMessages(withStats)).toHaveLength(8);
+    // Without /settings the switch is not named; without /stats there is no block.
+    expect(allText({ ...withStats, commands: new Set([...ALL, 'stats']) })).not.toContain(
+      'On this server’s boards',
+    );
+    expect(allText(FACTS)).not.toContain("Pine's Numbers");
+  });
+
   it('says what /maps gives here, and nothing where it is not there', () => {
     expect(allText(FACTS)).toContain('opens the live map');
     expect(allText({ ...FACTS, liveMap: false })).toContain('shows the map of all regions');

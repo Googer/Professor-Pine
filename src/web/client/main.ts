@@ -496,6 +496,7 @@ function start(): void {
         audience,
         finds: tourHooks.finds,
         regions: tourHooks.regions,
+        history: historyOffered(me),
         more: me.loggedIn ? 'lacking' : data.login === 'discord' ? 'discord' : 'links',
       }),
     };

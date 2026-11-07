@@ -25,8 +25,20 @@ import {
 } from './tour.js';
 
 const SCREEN = { width: 1000, height: 800 };
-const MEMBER: TourFacts = { audience: 'member', finds: true, more: 'lacking', regions: false };
-const VISITOR: TourFacts = { audience: 'visitor', finds: false, more: 'discord', regions: false };
+const MEMBER: TourFacts = {
+  audience: 'member',
+  finds: true,
+  more: 'lacking',
+  regions: false,
+  history: false,
+};
+const VISITOR: TourFacts = {
+  audience: 'visitor',
+  finds: false,
+  more: 'discord',
+  regions: false,
+  history: false,
+};
 
 /** A storage of the test's: what it holds, one that throws, or one that drops what it is given. */
 function storage(held: Record<string, string> = {}, how?: 'throws' | 'drops'): KeyValueStorage {
@@ -143,6 +155,32 @@ describe('the steps', () => {
     expect(said(false)).toContain('a gym on the map');
   });
 
+  it('shows a member History and Your history in the menu, where the menu has them', () => {
+    const steps = tourSteps({ ...MEMBER, history: true });
+    expect(ids(steps)).toEqual([
+      'welcome',
+      'layers',
+      'read',
+      'browse',
+      'find',
+      'report',
+      'history',
+      'again',
+    ]);
+    const step = steps.find((one) => one.id === 'history');
+    expect(step?.heading).toBe('Looking Back');
+    expect(step?.targets[0]?.selectors).toEqual(['#account .account-menu']);
+    const words = step?.targets[0]?.words.join(' ');
+    expect(words).toContain('History');
+    expect(words).toContain('Your history');
+    expect(ids(tourSteps({ ...VISITOR, history: true }))).not.toContain('history');
+  });
+
+  it("names the Activity layer among More's to a member", () => {
+    const layers = tourSteps(MEMBER).find((step) => step.id === 'layers');
+    expect(layers?.targets.map((one) => one.words.join(' ')).join(' ')).toContain('Activity');
+  });
+
   it('says what a raid train and a meetup are for, and explains nothing else of the game', () => {
     const words = tourSteps(MEMBER)
       .find((step) => step.id === 'read')
@@ -154,7 +192,7 @@ describe('the steps', () => {
   });
 
   it('keeps every step short', () => {
-    for (const facts of [{ ...MEMBER, regions: true }, VISITOR]) {
+    for (const facts of [{ ...MEMBER, regions: true, history: true }, VISITOR]) {
       for (const step of tourSteps(facts)) {
         for (const words of [step.words ?? [], ...step.targets.map((one) => one.words)]) {
           // Reading the map says the most: it is the one thing the page cannot show by itself.

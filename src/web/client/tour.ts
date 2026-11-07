@@ -61,6 +61,8 @@ export interface TourFacts {
    * regions…" is in the account's menu (plan 8M-20, R15).
    */
   regions: boolean;
+  /** History and Your history are in the account's menu (plans 8H-5, 8H-6: a member's). */
+  history: boolean;
 }
 
 /** A marker as the map draws a raid's, with words of its own, kept apart from the page's clock. */
@@ -92,7 +94,7 @@ function layersStep(audience: TourAudience): TourStep {
     audience === 'member'
       ? [
           '🗺️ Simply press a layer to turn it on or off. Try it!',
-          'More has gyms, PokéStops and others.',
+          'More has gyms, PokéStops, Activity and others.',
         ]
       : ['🗺️ Simply open More and turn on Gyms. Try it!'];
   const phone =
@@ -179,6 +181,7 @@ function memberSteps(facts: TourFacts): TourStep[] {
       required: true,
     },
     ...(facts.regions ? [REGIONS_STEP] : []),
+    ...(facts.history ? [HISTORY_STEP] : []),
     AGAIN_STEP,
   ];
 }
@@ -220,6 +223,21 @@ const REGIONS_STEP: TourStep = {
       selectors: ['#account .account-menu'],
       words: [
         '🗺️ Your regions… in this menu shows which regions you see on Discord. Join or leave a region right here!',
+      ],
+    },
+  ],
+  required: true,
+};
+
+/** History and Your history in the account's menu (plans 8H-5, 8H-6). */
+const HISTORY_STEP: TourStep = {
+  id: 'history',
+  heading: 'Looking Back',
+  targets: [
+    {
+      selectors: ['#account .account-menu'],
+      words: [
+        '📊 History in this menu shows raids by region and by day, and who did the most. Your history shows your own numbers!',
       ],
     },
   ],
