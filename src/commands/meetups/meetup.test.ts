@@ -297,6 +297,13 @@ describe('/meetup', () => {
     ]);
   });
 
+  it('offers no "in 90" for the end, which counts from now and not from the start', () => {
+    const end = (meetup.data.toJSON().options ?? []).find((option) => option.name === 'end');
+    expect(end?.description).toBe(
+      'When it ends, if you know: such as 8pm, or a month-day and time',
+    );
+  });
+
   it('makes the meetup with its end, read as /end reads a meetup end', async () => {
     const made = await setup();
     await made.run('Picnic', { options: { end: '8pm' } });

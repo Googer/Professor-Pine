@@ -268,7 +268,15 @@ export function newMeetupForm(
       },
       ...pinNote,
       labelled('Starts', textInput('start', START_LENGTH, NEW_MEETUP_START_EXAMPLES, filled.start)),
-      labelled('Ends', textInput('end', START_LENGTH, '8pm, in 90, or leave it blank', filled.end)),
+      labelled(
+        'Ends',
+        textInput(
+          'end',
+          START_LENGTH,
+          '8pm, or a month-day and time; leave it blank if unknown',
+          filled.end,
+        ),
+      ),
       ...(zones === undefined ? [] : zoneHintNodes(zones.zone, zones.reader)),
       labelled('Information', infoArea(filled.info)),
       {

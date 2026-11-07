@@ -278,7 +278,7 @@ export const meetup: SimpleCommand = {
     .addStringOption((option) =>
       option
         .setName('end')
-        .setDescription('When it ends, if you know: such as 8pm, a month-day and time, or in 90')
+        .setDescription('When it ends, if you know: such as 8pm, or a month-day and time')
         .setMaxLength(100),
     ),
   help: {

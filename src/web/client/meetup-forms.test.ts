@@ -286,6 +286,14 @@ describe('the form of a new meetup', () => {
         info: 'Bring snacks.',
       },
     });
+    // The same examples as `/meetup end:`: no `in 90`, which counts from now.
+    const placeholders = withAttribute(newMeetupForm(REGIONS, gymPick(GYM)), 'placeholder');
+    expect(placeholders.map((node) => node.attributes)).toContainEqual(
+      expect.objectContaining({
+        name: 'end',
+        placeholder: '8pm, or a month-day and time; leave it blank if unknown',
+      }),
+    );
     // What was typed stays when the form is drawn anew.
     const ends = withAttribute(
       newMeetupForm(REGIONS, gymPick(GYM), { ...VALUES, end: '9pm' }),
