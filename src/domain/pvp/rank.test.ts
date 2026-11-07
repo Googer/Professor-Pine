@@ -13,6 +13,21 @@ function stats(key: string): PokemonEntry['stats'] {
   return found.stats;
 }
 
+/** The same multipliers, counting how many of them are read: the ranking's work, by count. */
+function countingReads(values: readonly number[]): {
+  values: readonly number[];
+  count: () => number;
+} {
+  let reads = 0;
+  const counted = new Proxy(values, {
+    get(target, key, receiver) {
+      if (typeof key === 'string' && /^\d+$/u.test(key)) reads += 1;
+      return Reflect.get(target, key, receiver) as unknown;
+    },
+  });
+  return { values: counted, count: () => reads };
+}
+
 const GREAT: RankOptions = { leagueCp: 1500, levelCap: 50, floor: 0 };
 
 describe('pvpMultipliers', () => {
@@ -101,13 +116,15 @@ describe('rankedSpreads', () => {
     expect(rankedSpreads(stats('mewtwo'), multipliers, { ...GREAT, leagueCp: 10 })).toEqual([]);
   });
 
-  it('ranks 4,096 combinations in well under 100 ms', () => {
-    rankedSpreads(stats('azumarill'), multipliers, { ...GREAT, levelCap: 51 });
-    const started = performance.now();
+  it('finds the level of each of the 4,096 combinations by halving, not level by level', () => {
+    // Counted, not timed (a clock fails on a loaded machine): a search level by level reads
+    // up to 101 multipliers a combination, halving reads the top, the bottom, 7 halves and the
+    // one it keeps.
     for (const key of ['mewtwo', 'azumarill', 'medicham', 'registeel']) {
-      rankedSpreads(stats(key), multipliers, { ...GREAT, levelCap: 51 });
+      const read = countingReads(multipliers);
+      expect(rankedSpreads(stats(key), read.values, { ...GREAT, levelCap: 51 })).toHaveLength(4096);
+      expect(read.count() / 4096, key).toBeLessThanOrEqual(10);
     }
-    expect((performance.now() - started) / 4).toBeLessThan(100);
   });
 });
 
@@ -320,15 +337,31 @@ describe('cappedRanks', () => {
     expect(asked).toEqual([50, 51]);
   });
 
-  it('ranks the nine of the line of Eevee in Master League in well under half a second', () => {
+  it('ranks each of the nine of the line of Eevee in Master League once a cap, cheaply', () => {
+    // Counted, not timed (a clock fails on a loaded machine): one ranking a cap, and without a
+    // league's CP no search for a level, so two multipliers read a combination.
     const eevee = catalogue.byKey('eevee');
     if (!eevee) throw new Error('no eevee');
     const line = catalogue.evolutionLine(eevee);
     expect(line).toHaveLength(9);
-    const started = performance.now();
     for (const member of line) {
-      cappedRanks(member.stats, catalogue.cpMultipliers, ivs, { leagueCp: undefined, floor: 0 });
+      const caps: number[] = [];
+      let reads = 0;
+      cappedRanks(
+        member.stats,
+        catalogue.cpMultipliers,
+        ivs,
+        { leagueCp: undefined, floor: 0 },
+        (options, given) => {
+          caps.push(options.levelCap);
+          const read = countingReads(given);
+          const ranked = rankedSpreads(member.stats, read.values, options);
+          reads += read.count();
+          return ranked;
+        },
+      );
+      expect(caps, member.key).toEqual([50, 51]);
+      expect(reads / (2 * 4096), member.key).toBeLessThanOrEqual(2);
     }
-    expect(performance.now() - started).toBeLessThan(500);
   });
 });
