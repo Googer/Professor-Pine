@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { fakeTimeoutSignals } from '../../test/support/timers.js';
 import { at } from '../../test/support/max-bosses.js';
 import { readMaxEventFeed } from '../../test/support/max-events.js';
-import { featuredAt } from '../domain/time/max-events.js';
+import { featuredAt, type MaxEvent } from '../domain/time/max-events.js';
 import { readRaidEventFeed } from '../../test/support/raid-events.js';
 import { textAnswer } from '../../test/support/responses.js';
 import { readSpawnEventFeed } from '../../test/support/spawn-events.js';
@@ -356,6 +356,55 @@ describe('RaidEventService', () => {
   // Plan 8X-2: the max events of the same feed, kept apart from the raid events.
   describe('the max events', () => {
     const maxFeed = JSON.stringify(readMaxEventFeed());
+
+    it('gives the Max Battle hours of the events’ pages with the feed’s, the feed’s winning, and keeps only the feed’s', async () => {
+      const fetch = vi.fn<FetchEvents>(() => Promise.resolve(reply(200, maxFeed)));
+      const hour = (name: string, start: number): MaxEvent => ({
+        kind: 'max-battle',
+        name,
+        start,
+        end: start + HOUR,
+        short: true,
+        hoursAssumed: false,
+        featured: { gigantamax: false, names: ['Registeel'] },
+        id: undefined,
+      });
+      // The feed's lake trio day starts on 2026-10-24 at 14:00 (local).
+      const pages = [
+        hour('Page Registeel', at('2026-11-11T18:00')),
+        hour('Page at the trio’s start', at('2026-10-24T14:00')),
+      ];
+      const kept = new MemoryMaxEvents();
+      const { log } = createTestLogger();
+      const events = new RaidEventService({
+        url: URL,
+        refreshMs: 6 * HOUR,
+        zone: 'America/New_York',
+        fetch,
+        log,
+        now: () => at('2026-10-20T22:00'),
+        maxEvents: kept,
+        pageMaxHours: () => pages,
+      });
+      expect(events.maxEvents().map((event) => event.name)).toEqual([
+        'Page at the trio’s start',
+        'Page Registeel',
+      ]);
+      await events.refresh();
+      const names = events.maxEvents().map((event) => event.name);
+      expect(names).toHaveLength(8);
+      expect(names).toContain('Page Registeel');
+      expect(names).not.toContain('Page at the trio’s start');
+      const starts = events.maxEvents().map((event) => event.start);
+      expect(starts).toEqual([...starts].sort((a, b) => a - b));
+      // Pine keeps the feed's alone: the pages are read again after a restart.
+      expect((await kept.all()).max.map((event) => event.name)).not.toContain('Page Registeel');
+      expect(
+        featuredAt(events.maxEvents(), at('2026-11-11T18:30'), 'America/New_York').map(
+          ({ event }) => event.name,
+        ),
+      ).toContain('Page Registeel');
+    });
 
     it('keeps the max events of a read apart, and says once a read which hours it assumed', async () => {
       const fetch = vi.fn<FetchEvents>(() => Promise.resolve(reply(200, maxFeed)));

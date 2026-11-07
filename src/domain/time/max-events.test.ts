@@ -2,10 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { at, MAX_ZONE } from '../../../test/support/max-bosses.js';
 import { readMaxEventFeed } from '../../../test/support/max-events.js';
 import {
+  eventPageMaxHours,
   featuredAt,
   featuredNames,
   maxEventAt,
   parseMaxEventFeed,
+  withPageMaxHours,
   type MaxEvent,
 } from './max-events.js';
 
@@ -311,5 +313,96 @@ describe('featuredAt', () => {
     const week = (time: number) => featuredAt(sableye, time, MAX_ZONE).length;
     expect(week(at('2026-11-02T05:59'))).toBe(1);
     expect(week(at('2026-11-02T06:00'))).toBe(0);
+  });
+});
+
+describe('eventPageMaxHours', () => {
+  const INTO_THE_WILD = { start: at('2026-11-09T10:00'), end: at('2026-11-13T20:00') };
+  const SIX_TO_SEVEN = { hour: 18, minute: 0, minutes: 60 };
+  const PAGE = [
+    { month: 11, day: 11, bosses: ['Registeel'], gigantamax: false },
+    { month: 11, day: 13, bosses: ['Latias', 'Latios'], gigantamax: false },
+  ];
+
+  it('makes each day of the page a short Max Battle event at the page’s time, featuring its bosses', () => {
+    expect(eventPageMaxHours(PAGE, INTO_THE_WILD, SIX_TO_SEVEN, MAX_ZONE)).toEqual([
+      {
+        kind: 'max-battle',
+        name: 'Dynamax Registeel Max Battle Hour',
+        start: at('2026-11-11T18:00'),
+        end: at('2026-11-11T19:00'),
+        short: true,
+        hoursAssumed: false,
+        featured: { gigantamax: false, names: ['Registeel'] },
+        id: undefined,
+      },
+      {
+        kind: 'max-battle',
+        name: 'Dynamax Latias and Latios Max Battle Hour',
+        start: at('2026-11-13T18:00'),
+        end: at('2026-11-13T19:00'),
+        short: true,
+        hoursAssumed: false,
+        featured: { gigantamax: false, names: ['Latias', 'Latios'] },
+        id: undefined,
+      },
+    ]);
+  });
+
+  it('names Gigantamax days so, features nothing without bosses, and drops a day outside the event', () => {
+    const days = [
+      { month: 11, day: 8, bosses: ['Mew'], gigantamax: false },
+      { month: 11, day: 12, bosses: ['Gigantamax Toxtricity'], gigantamax: true },
+      { month: 11, day: 13, bosses: [], gigantamax: false },
+    ];
+    const made = eventPageMaxHours(days, INTO_THE_WILD, SIX_TO_SEVEN, MAX_ZONE);
+    expect(made.map((one) => [one.name, one.featured])).toEqual([
+      ['Gigantamax Toxtricity Max Battle Hour', { gigantamax: true, names: ['Toxtricity'] }],
+      ['Max Battle Hour', undefined],
+    ]);
+  });
+
+  it('features the page’s bosses during their hour, and sets a battle’s end by it', () => {
+    const page = eventPageMaxHours(PAGE, INTO_THE_WILD, SIX_TO_SEVEN, MAX_ZONE);
+    const events = withPageMaxHours([], page);
+    const featured = (local: string) =>
+      featuredAt(events, at(local), MAX_ZONE).map(({ event }) => event.featured?.names);
+    expect(featured('2026-11-11T17:59')).toEqual([]);
+    expect(featured('2026-11-11T18:30')).toEqual([['Registeel']]);
+    expect(featured('2026-11-11T19:00')).toEqual([]);
+    expect(maxEventAt(events, at('2026-11-11T18:10'))?.short).toBe(true);
+  });
+});
+
+describe('withPageMaxHours', () => {
+  const event = (name: string, local: string, kind: MaxEvent['kind'] = 'max-battle'): MaxEvent => ({
+    kind,
+    name,
+    start: at(local),
+    end: at(local) + 3_600_000,
+    short: true,
+    hoursAssumed: false,
+    featured: undefined,
+    id: undefined,
+  });
+
+  it('adds the pages’ hours in order, the feed’s Max Battle event winning at the same start', () => {
+    const feed = [
+      event('Max Monday', '2026-11-09T18:00', 'max-monday'),
+      event('Feed Day', '2026-11-12T18:00'),
+    ];
+    const page = [
+      event('Page Friday', '2026-11-13T18:00'),
+      event('Page Thursday', '2026-11-12T18:00'),
+      event('Page Monday', '2026-11-09T18:00'),
+      event('Page Friday again', '2026-11-13T18:00'),
+    ];
+    expect(withPageMaxHours(feed, page).map((one) => one.name)).toEqual([
+      'Max Monday',
+      'Page Monday',
+      'Feed Day',
+      'Page Friday',
+    ]);
+    expect(withPageMaxHours(feed, [])).toBe(feed);
   });
 });

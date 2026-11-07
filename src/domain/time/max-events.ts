@@ -1,6 +1,6 @@
 import { z } from 'zod';
 import { everyonesTimes } from './event-reach.js';
-import { eventName } from './raid-events.js';
+import { eventName, placePageDays } from './raid-events.js';
 import { addDays, feedTime, sameDay, zoned } from './zoned.js';
 
 /**
@@ -252,6 +252,77 @@ export function featuredAt(
     return monday.start <= time && time < until ? [{ event: monday, until }] : [];
   });
   return [...battles, ...weeks].filter(({ event }) => event.featured !== undefined);
+}
+
+/** A Max Battle hour an event page names by its day (`parseEventMaxHours`, `leekduck.ts`). */
+export interface PageMaxHourDay {
+  /** 1 to 12. */
+  month: number;
+  day: number;
+  bosses: readonly string[];
+  gigantamax: boolean;
+}
+
+/**
+ * The Max Battle hours an event's page names (Matt's decision of 2026-10-25: "Into the Wild"
+ * features Registeel, Regidrago, then Latias and Latios in Max Battles from 6 to 7 p.m. on three
+ * days, on its page only), as max events of the kind a Max Battle Day is (`max-battle`): each day
+ * placed at the page's `time` (`eventPageTime`) as its Raid Hours are (`placePageDays`), short
+ * where it is (`SHORT_EVENT_MS`, within one day), featuring the bosses listed under it (a
+ * `Dynamax ` or `Gigantamax ` before a name dropped), nothing without any; named "Dynamax
+ * Registeel Max Battle Hour" ("Gigantamax …" for a Gigantamax day, bosses joined with "and",
+ * "Max Battle Hour" without any). No feed id. In order of their start.
+ */
+export function eventPageMaxHours(
+  hours: readonly PageMaxHourDay[],
+  span: { start: number; end: number },
+  time: { hour: number; minute?: number; minutes: number },
+  zone: string,
+): MaxEvent[] {
+  const events = placePageDays(hours, span, time, zone).map(
+    ({ day: { bosses, gigantamax }, start, end }): MaxEvent => {
+      const names = bosses
+        .map((boss) => boss.replace(/^(?:dynamax|gigantamax)\s+/i, '').trim())
+        .filter((boss) => boss !== '');
+      const kind = gigantamax ? 'Gigantamax' : 'Dynamax';
+      const named = eventName.safeParse(
+        names.length === 0 ? 'Max Battle Hour' : `${kind} ${names.join(' and ')} Max Battle Hour`,
+      );
+      return {
+        kind: 'max-battle',
+        name: named.success ? named.data : 'Max Battle Hour',
+        start,
+        end,
+        short: end - start < SHORT_EVENT_MS && sameDay(zoned(start, zone), zoned(end - 1, zone)),
+        hoursAssumed: false,
+        featured: names.length === 0 ? undefined : { gigantamax, names },
+        id: undefined,
+      };
+    },
+  );
+  return events.sort((a, b) => a.start - b.start || a.name.localeCompare(b.name));
+}
+
+/**
+ * The max events of the feed with the Max Battle hours of the events' pages
+ * (`eventPageMaxHours`), in order: one path for every reader of the max events
+ * (`MaxEventProvider.maxEvents()`), as `withPageRaidHours` is for the raid events. A page's hour
+ * that starts when a Max Battle Day or Weekend of the feed does is dropped (the feed's wins), as
+ * is a second one of the pages at the same start. `feed` itself when the pages add nothing.
+ */
+export function withPageMaxHours(
+  feed: readonly MaxEvent[],
+  pages: readonly MaxEvent[],
+): readonly MaxEvent[] {
+  const taken = new Set(feed.filter((event) => event.kind === 'max-battle').map((e) => e.start));
+  const added: MaxEvent[] = [];
+  for (const hour of pages) {
+    if (hour.kind !== 'max-battle' || taken.has(hour.start)) continue;
+    taken.add(hour.start);
+    added.push(hour);
+  }
+  if (added.length === 0) return feed;
+  return [...feed, ...added].sort((a, b) => a.start - b.start || a.name.localeCompare(b.name));
 }
 
 /**

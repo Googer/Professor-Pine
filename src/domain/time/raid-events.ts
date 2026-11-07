@@ -108,33 +108,53 @@ export function eventPageRaidHours(
   time: { hour: number; minute?: number; minutes: number } | null,
   zone: string,
 ): RaidEvent[] {
+  const events = placePageDays(hours, span, time ?? STANDARD_RAID_HOUR, zone).map(
+    ({ day: { bosses }, start, end }): RaidEvent => {
+      const named = eventName.safeParse(
+        bosses.length === 0 ? 'Raid Hour' : `${bosses.join(' and ')} Raid Hour`,
+      );
+      return { kind: 'raid-hour', name: named.success ? named.data : 'Raid Hour', start, end };
+    },
+  );
+  return inOrder(events);
+}
+
+/**
+ * The days an event's page names (its Raid Hours, its Max Battle hours), each placed at `time`
+ * of that day, lasting `time.minutes`, in the year in which the day falls within the event
+ * (`span`, from its start's day to its end's day in `zone`, an end at midnight the day before's;
+ * an event spans at most the turn of one year). A day outside it, or one at the start of a day
+ * placed before, is dropped. In the page's order.
+ */
+export function placePageDays<T extends { month: number; day: number }>(
+  days: readonly T[],
+  span: { start: number; end: number },
+  time: { hour: number; minute?: number; minutes: number },
+  zone: string,
+): { day: T; start: number; end: number }[] {
   if (span.end <= span.start) return [];
-  const { hour, minute = 0, minutes } = time ?? STANDARD_RAID_HOUR;
+  const { hour, minute = 0, minutes } = time;
   const first = zoned(span.start, zone).toPlainDate();
   const last = zoned(span.end - 1, zone).toPlainDate();
   const within = (date: Temporal.PlainDate): boolean =>
     Temporal.PlainDate.compare(date, first) >= 0 && Temporal.PlainDate.compare(date, last) <= 0;
-  const events: RaidEvent[] = [];
-  for (const { month, day, bosses } of hours) {
-    // An event spans at most the turn of one year.
+  const placed: { day: T; start: number; end: number }[] = [];
+  for (const one of days) {
+    const { month, day } = one;
     const start = [first.year, first.year + 1]
       .filter((year) => year <= last.year)
       .map((year) => localTime({ year, month, day, hour, minute }, zone))
-      .find((time) => time !== undefined && within(time.toPlainDate()));
-    if (start === undefined || events.some((one) => one.start === start.epochMilliseconds)) {
+      .find((at) => at !== undefined && within(at.toPlainDate()));
+    if (start === undefined || placed.some((other) => other.start === start.epochMilliseconds)) {
       continue;
     }
-    const named = eventName.safeParse(
-      bosses.length === 0 ? 'Raid Hour' : `${bosses.join(' and ')} Raid Hour`,
-    );
-    events.push({
-      kind: 'raid-hour',
-      name: named.success ? named.data : 'Raid Hour',
+    placed.push({
+      day: one,
       start: start.epochMilliseconds,
       end: start.add({ minutes }).epochMilliseconds,
     });
   }
-  return inOrder(events);
+  return placed;
 }
 
 /**

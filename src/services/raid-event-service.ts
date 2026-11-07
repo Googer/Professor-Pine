@@ -1,6 +1,7 @@
 import {
   parseBigEventFeed,
   parseMaxEventFeed,
+  withPageMaxHours,
   type BigEvent,
   type MaxEvent,
   type ParsedMaxEvents,
@@ -106,6 +107,12 @@ export interface RaidEventOptions {
    * the feed's by `events()` (`withPageRaidHours`). Without it only the feed's.
    */
   pageRaidHours?: () => readonly RaidEvent[];
+  /**
+   * The Max Battle hours the events' Leek Duck pages name (`EventPageService.maxHours`), given
+   * with the feed's by `maxEvents()` (`withPageMaxHours`), never kept in the database. Without
+   * it only the feed's.
+   */
+  pageMaxHours?: () => readonly MaxEvent[];
 }
 
 /** What handlers need: the Raid Hours and Raid Days known from the feed. */
@@ -133,7 +140,11 @@ export interface PagedEventProvider {
  * battle's default end (`maxEventAt`, plan 8X-3).
  */
 export interface MaxEventProvider {
-  /** In order of their start; empty until the feed was read once. */
+  /**
+   * In order of their start: the feed's, with the Max Battle hours of the events' pages
+   * (`withPageMaxHours`: a page's at the start of a Max Battle Day of the feed left out). Empty
+   * until either was read.
+   */
   maxEvents(): readonly MaxEvent[];
   /**
    * The big events with Gigantamax battles all day (plan 8X-3: Wild Area, GO Tour, GO Fest; the
@@ -266,10 +277,11 @@ export class RaidEventService
 
   /**
    * The max events of the last good read, with those of the last eight days the feed has dropped
-   * since (`mergedMax`), in order of their start.
+   * since (`mergedMax`), with the Max Battle hours of the events' pages (`pageMaxHours`), in
+   * order of their start.
    */
   maxEvents(): readonly MaxEvent[] {
-    return this.currentMax;
+    return withPageMaxHours(this.currentMax, this.options.pageMaxHours?.() ?? []);
   }
 
   bigEvents(): readonly BigEvent[] {

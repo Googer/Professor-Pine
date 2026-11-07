@@ -143,6 +143,7 @@ import { TrainService } from './services/train-service.js';
 import { UnownWantService } from './services/unown-want-service.js';
 import { RaidEventService } from './services/raid-event-service.js';
 import type { RaidEvent } from './domain/time/raid-events.js';
+import type { MaxEvent } from './domain/time/max-events.js';
 import { RegionAdminService } from './services/region-admin-service.js';
 import { WayfarerImportService } from './services/wayfarer-import-service.js';
 import { WayfarerReviewService } from './services/wayfarer-review-service.js';
@@ -316,6 +317,8 @@ export async function startApp(
     // The Raid Hours of the events' Leek Duck pages (2026-11-07), with the feed's for every
     // reader of `events()`; `eventPages` is made just below, and asked only once running.
     pageRaidHours: (): readonly RaidEvent[] => eventPages.raidHours(),
+    // Their Max Battle hours, with the feed's max events for every reader of `maxEvents()`.
+    pageMaxHours: (): readonly MaxEvent[] => eventPages.maxHours(),
     log,
   });
   // The events' Leek Duck pages: the spawns of the events on (plan 8R-4: a community day's from

@@ -5,6 +5,8 @@ import { readEventPage } from '../../../test/support/spawn-events.js';
 import {
   eventPageTime,
   htmlText,
+  maxHourHeadings,
+  parseEventMaxHours,
   parseEventRaidHours,
   parseEventSpawns,
   parseResearchPage,
@@ -423,5 +425,59 @@ describe('eventPageTime', () => {
         TUESDAY,
       ]),
     ).toEqual(unclear);
+  });
+});
+
+describe('parseEventMaxHours', () => {
+  const intoTheWild = readEventPage('leekduck-event-into-the-wild-2026.html');
+  const boss = (name: string) =>
+    `<li class="pkmn-list-item"><div class="pkmn-name">${name}</div></li>`;
+
+  it('reads the dated Max Battle headings of an event page with their bosses (Into the Wild)', () => {
+    expect(parseEventMaxHours(intoTheWild)).toEqual([
+      { month: 11, day: 11, bosses: ['Registeel'], gigantamax: false },
+      { month: 11, day: 12, bosses: ['Regidrago'], gigantamax: false },
+      { month: 11, day: 13, bosses: ['Latias', 'Latios'], gigantamax: false },
+    ]);
+    expect(maxHourHeadings(intoTheWild)).toBe(3);
+    // The section's sentence: 6 to 7 p.m. for one day each, no dates named.
+    expect(
+      eventPageTime(intoTheWild, 'max-battles', [
+        { month: 11, day: 11 },
+        { month: 11, day: 12 },
+      ]),
+    ).toEqual({ kind: 'time', time: { hour: 18, minute: 0, minutes: 60 } });
+  });
+
+  it('reads Gigantamax headings, other shapes of the date, and the Max Battles section only', () => {
+    const html =
+      `<h2 id="raids">Raids</h2><h3>Five-Star Max Battles: Monday, March 2</h3><ul>${boss('Mew')}</ul>` +
+      '<h2 id="max-battles">Max Battles</h2>' +
+      `<h3 id="one-star-max-battles">One-Star Max Battles</h3><ul>${boss('Ralts')}</ul><hr />` +
+      `<h3 id="gigantamax-max-battles-march-3">Gigantamax Max Battles: March 3</h3><ul>${boss('Gigantamax Toxtricity')}</ul>` +
+      `<h3>Max Battles: Wed, Mar. 4</h3><ul>${boss('Zapdos')}${boss('Moltres')}</ul>` +
+      `<h3>Max Battle Hour: Thursday, March 5th</h3><p>To be announced.</p>` +
+      `<h2 id="raid-hours">More</h2><h3>Max Battles: Friday, March 6</h3>`;
+    expect(parseEventMaxHours(html)).toEqual([
+      { month: 3, day: 3, bosses: ['Gigantamax Toxtricity'], gigantamax: true },
+      { month: 3, day: 4, bosses: ['Zapdos', 'Moltres'], gigantamax: false },
+      { month: 3, day: 5, bosses: [], gigantamax: false },
+    ]);
+    expect(
+      parseEventMaxHours('<h2 id="max-battles">Max</h2><h3>Max Battles: the week</h3>'),
+    ).toEqual([]);
+    expect(parseEventMaxHours(readEventPage('leekduck-event-halloween-2026-part-1.html'))).toEqual(
+      [],
+    );
+  });
+
+  it('counts the dated headings of the Max Battles section by their ids', () => {
+    expect(
+      maxHourHeadings(
+        '<h2 id="max-battles">Max</h2><h3 id="five-star-max-battles-wednesday-november-11">?</h3>' +
+          '<h3 id="five-star-max-battles">?</h3><h3 id="max-battles-sept-3">?</h3>' +
+          '<h2 id="raids">Raids</h2><h3 id="max-battles-monday-november-9">?</h3>',
+      ),
+    ).toBe(2);
   });
 });

@@ -2,11 +2,14 @@ import { BoundedMap } from '../bounded-map.js';
 import { costumedSighting } from '../domain/pogo/costumes.js';
 import {
   eventPageTime,
+  maxHourHeadings,
+  parseEventMaxHours,
   parseEventRaidHours,
   parseEventSpawns,
   raidHourHeadings,
 } from '../domain/research/leekduck.js';
 import { pagedEventsNear } from '../domain/time/event-pages.js';
+import { eventPageMaxHours, type MaxEvent } from '../domain/time/max-events.js';
 import { eventPageRaidHours, type RaidEvent } from '../domain/time/raid-events.js';
 import {
   isEventPage,
@@ -116,6 +119,7 @@ interface PageRead {
   readAt: number;
   spawns: ListedSpawn[];
   raidHours: RaidEvent[];
+  maxHours: MaxEvent[];
 }
 
 /** A page due to be read: whose, where, and the event's span and start for spawns. */
@@ -152,6 +156,9 @@ class ReadStopped extends Error {}
  *   only), of every event with a page from eight days ago to eight days ahead
  *   (`pagedEventsNear`), so that the week's rule of the weekly Raid Hour knows of them before the
  *   week starts; `raidHours()` gives them to `RaidEventService.events()`.
+ * - The Max Battle hours of the Max Battles section (Matt's decision of 2026-10-25), of the same
+ *   pages, at the time the section's sentence gives; `maxHours()` gives them to
+ *   `RaidEventService.maxEvents()`.
  *
  * Only Leek Duck's events pages are read (F11): another address is skipped and said once. A page
  * that cannot be read keeps what its last good read gave; one never read gives nothing.
@@ -193,13 +200,31 @@ export class EventPageService implements EventSpawnProvider {
    * days ago (one not begun was moved or canceled), as `RaidEventService` keeps the feed's.
    */
   raidHours(): RaidEvent[] {
+    return this.pagesHours((read) => read.raidHours);
+  }
+
+  /**
+   * The Max Battle hours the pages read name (`eventPageMaxHours`), in no order, by the rule of
+   * `raidHours()`; `RaidEventService.maxEvents()` gives them with the feed's.
+   */
+  maxHours(): MaxEvent[] {
+    return this.pagesHours((read) => read.maxHours);
+  }
+
+  /**
+   * What `of` gives of each page read: all of an event the feed still lists; of one it no longer
+   * lists, those that have begun and ended less than eight days ago (one not begun was moved or
+   * canceled), as `RaidEventService` keeps the feed's.
+   */
+  private pagesHours<T extends { start: number; end: number }>(of: (read: PageRead) => T[]): T[] {
     const { events } = this.options;
     const now = this.now();
     const listed = new Set(
       [...events.pagedEvents(), ...events.spawnEvents()].map((event) => event.id),
     );
     return this.pages.keys().flatMap((id) => {
-      const hours = this.pages.get(id)?.raidHours ?? [];
+      const read = this.pages.get(id);
+      const hours = read === undefined ? [] : of(read);
       return listed.has(id)
         ? hours
         : hours.filter((hour) => hour.start <= now && hour.end > now - REMEMBER_MS);
@@ -277,8 +302,122 @@ export class EventPageService implements EventSpawnProvider {
     return due;
   }
 
-  private async readDue(): Promise<void> {
+  /**
+   * The Raid Hours of a page just read, at the time its Raids section's sentence gives
+   * (`eventPageTime`), else the weekly one's; those of the last read where it gives none (review
+   * ER-2: a page cut short or changed must not take away Raid Hours already known). Logged.
+   */
+  private readRaidHours(
+    id: string,
+    url: string,
+    html: string,
+    span: PageToRead['span'],
+    kept: PageRead | undefined,
+  ): RaidEvent[] {
     const { log, zone, weeklyRaidHour } = this.options;
+    const read = parseEventRaidHours(html);
+    const raidTime = eventPageTime(html, 'raids', read);
+    if (raidTime.kind === 'unclear' && read.length > 0) {
+      this.tellOnce(`${id}:raid-time`, () =>
+        log.warn(
+          { event: id, url },
+          'the time of an event page’s Raid Hours could not be read; the weekly one’s taken',
+        ),
+      );
+    }
+    const time = raidTime.kind === 'time' ? raidTime.time : weeklyRaidHour;
+    const placed = eventPageRaidHours(read, span, time, zone);
+    const headings = raidHourHeadings(html);
+    if (read.length < headings) {
+      // The page's shape changed (review ER-3).
+      this.tellOnce(`${id}:unread`, () =>
+        log.warn(
+          { event: id, url, headings, read: read.length },
+          'an event page names Raid Hours that could not be read',
+        ),
+      );
+    }
+    if (placed.length < read.length) {
+      this.tellOnce(`${id}:outside`, () =>
+        log.warn(
+          { event: id, url, read: read.length, placed: placed.length },
+          'Raid Hours of an event page fall outside the event or come twice',
+        ),
+      );
+    }
+    const keepOld = placed.length === 0 && (kept?.raidHours.length ?? 0) > 0;
+    const raidHours = keepOld ? (kept?.raidHours ?? []) : placed;
+    if (keepOld) {
+      log.warn(
+        { event: id, url, raidHours: raidHours.length },
+        'an event page gave no Raid Hours; those of its last read kept',
+      );
+    } else if (raidHours.length > 0) {
+      log.info({ event: id, raidHours: raidHours.length }, 'the Raid Hours of an event page read');
+    }
+    return raidHours;
+  }
+
+  /**
+   * The Max Battle hours of a page just read (Matt's decision of 2026-10-25), at the time its Max
+   * Battles section's sentence gives (`eventPageTime`); without one (none, or unclear) they are
+   * left out, warned of once per event (a wrong hour would end the day's battles early). Those of
+   * the last read where it gives none, as the Raid Hours (ER-2). Logged as the Raid Hours are.
+   */
+  private readMaxHours(
+    id: string,
+    url: string,
+    html: string,
+    span: PageToRead['span'],
+    kept: PageRead | undefined,
+  ): MaxEvent[] {
+    const { log, zone } = this.options;
+    const read = parseEventMaxHours(html);
+    const maxTime = eventPageTime(html, 'max-battles', read);
+    if (maxTime.kind !== 'time' && read.length > 0) {
+      this.tellOnce(`${id}:max-time`, () =>
+        log.warn(
+          { event: id, url, read: read.length },
+          'the time of an event page’s Max Battle hours could not be read; they are left out',
+        ),
+      );
+    }
+    const placed = maxTime.kind === 'time' ? eventPageMaxHours(read, span, maxTime.time, zone) : [];
+    const headings = maxHourHeadings(html);
+    if (read.length < headings) {
+      this.tellOnce(`${id}:max-unread`, () =>
+        log.warn(
+          { event: id, url, headings, read: read.length },
+          'an event page names Max Battle hours that could not be read',
+        ),
+      );
+    }
+    if (maxTime.kind === 'time' && placed.length < read.length) {
+      this.tellOnce(`${id}:max-outside`, () =>
+        log.warn(
+          { event: id, url, read: read.length, placed: placed.length },
+          'Max Battle hours of an event page fall outside the event or come twice',
+        ),
+      );
+    }
+    const keepOld = placed.length === 0 && (kept?.maxHours.length ?? 0) > 0;
+    const maxHours = keepOld ? (kept?.maxHours ?? []) : placed;
+    if (keepOld) {
+      log.warn(
+        { event: id, url, maxHours: maxHours.length },
+        'an event page gave no Max Battle hours; those of its last read kept',
+      );
+    } else if (maxHours.length > 0) {
+      log.info(
+        { event: id, maxHours: maxHours.length },
+        'the Max Battle hours of an event page read',
+      );
+    }
+    return maxHours;
+  }
+
+  private async readDue(): Promise<void> {
+    const { log } = this.options;
     const now = this.now();
     for (const [id, target] of this.pagesNow(now)) {
       const kept = this.pages.get(id);
@@ -288,55 +427,11 @@ export class EventPageService implements EventSpawnProvider {
         const html = await this.download(url);
         this.failures.delete(id);
         const spawns = parseEventSpawns(html);
-        const read = parseEventRaidHours(html);
-        // The page's own time where its sentence gives one for every day; else the weekly one's.
-        const raidTime = eventPageTime(html, 'raids', read);
-        if (raidTime.kind === 'unclear' && read.length > 0) {
-          this.tellOnce(`${id}:raid-time`, () =>
-            log.warn(
-              { event: id, url },
-              'the time of an event page’s Raid Hours could not be read; the weekly one’s taken',
-            ),
-          );
-        }
-        const time = raidTime.kind === 'time' ? raidTime.time : weeklyRaidHour;
-        const placed = eventPageRaidHours(read, span, time, zone);
-        const headings = raidHourHeadings(html);
-        if (read.length < headings) {
-          // The page's shape changed (review ER-3).
-          this.tellOnce(`${id}:unread`, () =>
-            log.warn(
-              { event: id, url, headings, read: read.length },
-              'an event page names Raid Hours that could not be read',
-            ),
-          );
-        }
-        if (placed.length < read.length) {
-          this.tellOnce(`${id}:outside`, () =>
-            log.warn(
-              { event: id, url, read: read.length, placed: placed.length },
-              'Raid Hours of an event page fall outside the event or come twice',
-            ),
-          );
-        }
-        // A page that gives none keeps those of its last read (review ER-2): a page cut short
-        // or changed must not take away Raid Hours already known.
-        const keepOld = placed.length === 0 && (kept?.raidHours.length ?? 0) > 0;
-        const raidHours = keepOld ? (kept?.raidHours ?? []) : placed;
-        this.pages.set(id, { url, readAt: now, spawns, raidHours });
+        const raidHours = this.readRaidHours(id, url, html, span, kept);
+        const maxHours = this.readMaxHours(id, url, html, span, kept);
+        this.pages.set(id, { url, readAt: now, spawns, raidHours, maxHours });
         if (spawnsFrom !== undefined) {
           log.info({ event: id, spawns: spawns.length }, 'the spawns of an event read');
-        }
-        if (keepOld) {
-          log.warn(
-            { event: id, url, raidHours: raidHours.length },
-            'an event page gave no Raid Hours; those of its last read kept',
-          );
-        } else if (raidHours.length > 0) {
-          log.info(
-            { event: id, raidHours: raidHours.length },
-            'the Raid Hours of an event page read',
-          );
         }
       } catch (err) {
         if (err instanceof ReadStopped) return;

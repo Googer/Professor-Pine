@@ -245,33 +245,44 @@ const MONTH_DAYS = [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
  * name, `Nov. 9`, or a year after the day): the month and the day.
  */
 const RAID_HOUR_HEADING =
-  /^raid hours?\s*:\s*(?:[a-z]{3,9}\.?,?\s+)??([a-z]{3,9})\.?\s+(\d{1,2})(?:st|nd|rd|th)?(?:,?\s+\d{4})?$/i;
+  /^raid hours?\s*:\s*(?:[a-z]{3,9}\.?,?\s+)??(?<month>[a-z]{3,9})\.?\s+(?<day>\d{1,2})(?:st|nd|rd|th)?(?:,?\s+\d{4})?$/i;
 
-function raidHourDate(heading: string): { month: number; day: number } | undefined {
-  const match = RAID_HOUR_HEADING.exec(heading);
-  if (match?.[1] === undefined || match[2] === undefined) return undefined;
-  const name = match[1].toLowerCase();
-  const month = MONTH_NAMES.findIndex((full) => full.startsWith(name)) + 1;
+/**
+ * `Five-Star Max Battles: Wednesday, November 11` (any words before `Max Battles`, `Gigantamax`
+ * among them for Gigantamax battles; also `Max Battle Hour:`, and the date's shapes of
+ * `RAID_HOUR_HEADING`): the words before, the month and the day.
+ */
+const MAX_HOUR_HEADING =
+  /^(?<lead>[^:]{0,60}?)\s*max battles?(?:\s+(?:hours?|days?))?\s*:\s*(?:[a-z]{3,9}\.?,?\s+)??(?<month>[a-z]{3,9})\.?\s+(?<day>\d{1,2})(?:st|nd|rd|th)?(?:,?\s+\d{4})?$/i;
+
+/** The month and the day a dated heading names by `pattern` (groups `month` and `day`). */
+function headingDate(
+  pattern: RegExp,
+  heading: string,
+): { month: number; day: number; lead: string } | undefined {
+  const groups = pattern.exec(heading)?.groups;
+  if (groups?.month === undefined || groups.day === undefined) return undefined;
+  const month = monthOf(groups.month);
   if (month === 0) return undefined;
-  const day = Number(match[2]);
-  return day >= 1 && day <= (MONTH_DAYS[month - 1] ?? 0) ? { month, day } : undefined;
+  const day = Number(groups.day);
+  return day >= 1 && day <= (MONTH_DAYS[month - 1] ?? 0)
+    ? { month, day, lead: groups.lead ?? '' }
+    : undefined;
 }
 
 /**
- * The Raid Hours of a Leek Duck event page (Matt, 2026-11-07: "Into the Wild" has its Raid Hours
- * only on its page): in the Raids section (`<h2 id="raids">` up to the next `<h2`), each `<h3>`
- * whose text is `Raid Hour: <weekday>, <month> <day>` (`raidHourDate`), with the names of the
- * Pokémon listed after it up to the next heading or rule. Their time is the paragraphs'
- * (`eventPageTime`), else the weekly one's (`eventPageRaidHours`). At most 20; none for a page
- * without the section.
+ * Each `<h3>` of a section whose text `pattern` reads as dated (`headingDate`), with the names of
+ * the Pokémon listed after it up to the next heading or rule (at most 10), in order; at most 20.
  */
-export function parseEventRaidHours(html: string): PageRaidHour[] {
-  const section = raidsSection(html);
-  const hours: PageRaidHour[] = [];
+function datedLists(
+  section: string,
+  pattern: RegExp,
+): { month: number; day: number; lead: string; bosses: string[] }[] {
+  const found: { month: number; day: number; lead: string; bosses: string[] }[] = [];
   for (const part of partsFrom(section, '<h3')) {
     const close = part.indexOf('</h3>');
     if (close < 0) continue;
-    const date = raidHourDate(htmlText(part.slice(part.indexOf('>') + 1, close)));
+    const date = headingDate(pattern, htmlText(part.slice(part.indexOf('>') + 1, close)));
     if (date === undefined) continue;
     const after = part.slice(close);
     const rule = after.indexOf('<hr');
@@ -285,10 +296,68 @@ export function parseEventRaidHours(html: string): PageRaidHour[] {
       )
       .filter((name) => name !== '')
       .slice(0, MAX_RAID_HOUR_BOSSES);
-    hours.push({ ...date, bosses });
-    if (hours.length === MAX_PAGE_RAID_HOURS) break;
+    found.push({ ...date, bosses });
+    if (found.length === MAX_PAGE_RAID_HOURS) break;
   }
-  return hours;
+  return found;
+}
+
+/**
+ * The Raid Hours of a Leek Duck event page (Matt, 2026-11-07: "Into the Wild" has its Raid Hours
+ * only on its page): in the Raids section (`<h2 id="raids">` up to the next `<h2`), each `<h3>`
+ * whose text is `Raid Hour: <weekday>, <month> <day>` (`RAID_HOUR_HEADING`), with the names of
+ * the Pokémon listed after it up to the next heading or rule. Their time is the paragraphs'
+ * (`eventPageTime`), else the weekly one's (`eventPageRaidHours`). At most 20; none for a page
+ * without the section.
+ */
+export function parseEventRaidHours(html: string): PageRaidHour[] {
+  return datedLists(raidsSection(html), RAID_HOUR_HEADING).map(({ month, day, bosses }) => ({
+    month,
+    day,
+    bosses,
+  }));
+}
+
+/** A Max Battle hour an event page names: its day, its bosses, and whether it is Gigantamax. */
+export interface PageMaxHour {
+  /** 1 to 12. */
+  month: number;
+  day: number;
+  bosses: string[];
+  gigantamax: boolean;
+}
+
+/**
+ * The Max Battle hours of a Leek Duck event page (Matt's decision of 2026-10-25: "Into the Wild"
+ * features a five-star boss in Max Battles from 6 to 7 p.m. on each of three days, on its page
+ * only): in the Max Battles section (`<h2 id="max-battles">` up to the next `<h2`), each `<h3>`
+ * whose text is `<words> Max Battles: <weekday>, <month> <day>` (`MAX_HOUR_HEADING`; the words
+ * say `Gigantamax` for Gigantamax battles), with the names of the Pokémon listed after it up to
+ * the next heading or rule; a heading without a date (`One-Star Max Battles`) is none. Their
+ * time is the section's paragraphs' (`eventPageTime`). At most 20; none for a page without the
+ * section.
+ */
+export function parseEventMaxHours(html: string): PageMaxHour[] {
+  return datedLists(sectionOf(html, 'max-battles'), MAX_HOUR_HEADING).map(
+    ({ month, day, bosses, lead }) => ({
+      month,
+      day,
+      bosses,
+      gigantamax: /\bgigantamax\b/i.test(lead),
+    }),
+  );
+}
+
+/**
+ * How many headings of the Max Battles section are dated by their id
+ * (`<h3 id="five-star-max-battles-wednesday-november-11">`): fewer read by `parseEventMaxHours`
+ * means the page's shape changed.
+ */
+export function maxHourHeadings(html: string): number {
+  return partsFrom(sectionOf(html, 'max-battles'), '<h3').filter((part) => {
+    const id = /^<h3\s[^>]*\bid="[^"]*-([a-z]{3,9})-(\d{1,2})"/.exec(part);
+    return id?.[1] !== undefined && monthOf(id[1]) > 0;
+  }).length;
 }
 
 /** An event page's Raids section, `<h2 id="raids"` up to the next `<h2`; empty without one. */

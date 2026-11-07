@@ -487,6 +487,107 @@ describe('EventPageService: the Raid Hours of the events’ pages', () => {
   });
 });
 
+describe('EventPageService: the Max Battle hours of the events’ pages', () => {
+  const INTO_THE_WILD = 'https://leekduck.com/events/into-the-wild-2026/';
+  const PAGED = parsePagedEventFeed(readEveryoneFeed(), ZONE).filter(
+    (event) => event.id === 'into-the-wild-2026',
+  );
+  const intoTheWild = readEventPage('leekduck-event-into-the-wild-2026.html');
+  const hours = (service: EventPageService) =>
+    [...service.maxHours()]
+      .sort((a, b) => a.start - b.start)
+      .map((one) => ({ name: one.name, start: one.start, end: one.end, short: one.short }));
+  const THREE = [
+    ['Dynamax Registeel Max Battle Hour', '2026-11-11T18:00'],
+    ['Dynamax Regidrago Max Battle Hour', '2026-11-12T18:00'],
+    ['Dynamax Latias and Latios Max Battle Hour', '2026-11-13T18:00'],
+  ].map(([name, local]) => ({
+    name,
+    start: at(local ?? ''),
+    end: at(local ?? '') + HOUR,
+    short: true,
+  }));
+
+  it('reads the Max Battle hours of a page at the time its sentence gives, and says so', async () => {
+    const { service, clock, told } = serviceWith(
+      (url) => page(url === INTO_THE_WILD ? intoTheWild : '<html></html>'),
+      [],
+      { now: PAGED },
+    );
+    clock.now = at('2026-11-07T12:00');
+    expect(service.maxHours()).toEqual([]);
+    await service.refresh();
+    expect(hours(service)).toEqual(THREE);
+    expect(service.maxHours()[0]?.featured).toEqual({ gigantamax: false, names: ['Registeel'] });
+    expect(told('the Max Battle hours of an event page read')).toEqual([
+      expect.objectContaining({ event: 'into-the-wild-2026', maxHours: 3 }),
+    ]);
+  });
+
+  it('leaves the hours out where the sentence gives no clear time, and warns once', async () => {
+    const unclear = intoTheWild.replace(
+      'featured in Max Battles from 6:00 p.m. to 7:00 p.m.',
+      'featured in Max Battles in the evening',
+    );
+    const { service, clock, said } = serviceWith(() => page(unclear), [], { now: PAGED });
+    clock.now = at('2026-11-07T12:00');
+    await service.refresh();
+    expect(service.maxHours()).toEqual([]);
+    // The Raid Hours are read all the same.
+    expect(service.raidHours()).toHaveLength(2);
+    const several = intoTheWild.replace(
+      'from 6:00 p.m. to 7:00 p.m. local time for one day',
+      'from 6:00 p.m. to 7:00 p.m. or from 2 p.m. to 3 p.m. local time for one day',
+    );
+    const two = serviceWith(() => page(several), [], { now: PAGED });
+    two.clock.now = at('2026-11-07T12:00');
+    await two.service.refresh();
+    two.clock.now += REREAD_MS;
+    await two.service.refresh();
+    expect(two.service.maxHours()).toEqual([]);
+    expect(
+      two.said('the time of an event page’s Max Battle hours could not be read; they are left out'),
+    ).toBe(1);
+    expect(
+      said('the time of an event page’s Max Battle hours could not be read; they are left out'),
+    ).toBe(1);
+  });
+
+  it('warns once when fewer Max Battle hours are read than the section has dated headings', async () => {
+    const changed = intoTheWild.replace(
+      'Five-Star Max Battles: Thursday, November 12',
+      'Five-Star Max Battles on Thursday',
+    );
+    const { service, clock, said } = serviceWith(() => page(changed), [], { now: PAGED });
+    clock.now = at('2026-11-07T12:00');
+    await service.refresh();
+    expect(hours(service).map((one) => one.name)).toEqual([
+      'Dynamax Registeel Max Battle Hour',
+      'Dynamax Latias and Latios Max Battle Hour',
+    ]);
+    clock.now += REREAD_MS;
+    await service.refresh();
+    expect(said('an event page names Max Battle hours that could not be read')).toBe(1);
+  });
+
+  it('keeps the hours of the last read when a page gives none, and those begun of an event dropped', async () => {
+    let answer = () => page(intoTheWild);
+    const paged = { now: PAGED };
+    const { service, clock, said } = serviceWith(() => answer(), [], paged);
+    clock.now = at('2026-11-07T12:00');
+    await service.refresh();
+    answer = () => page('<html><h2 id="spawns">Spawns</h2></html>');
+    clock.now += REREAD_MS;
+    await service.refresh();
+    expect(hours(service)).toEqual(THREE);
+    expect(said('an event page gave no Max Battle hours; those of its last read kept')).toBe(1);
+    // Dropped by the feed: those begun stay for eight days, those to come go.
+    paged.now = [];
+    clock.now = at('2026-11-12T12:00');
+    expect(hours(service)).toEqual(THREE.slice(0, 1));
+  });
+});
+
 describe('startAfterFeed (ER-1, ER-5)', () => {
   it('starts the pages after the first read of the feed, and reads them after each good read', async () => {
     const INTO_THE_WILD = 'https://leekduck.com/events/into-the-wild-2026/';
