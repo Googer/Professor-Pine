@@ -1767,7 +1767,9 @@ export async function startApp(
       // A day's count under way writes its server's day, or none of it, before the pool closes
       // (review P3); one cut short is counted again at the next start.
       // A legacy fill-in's batch under way (plan 8H-10) shares that second: one cut short is
-      // rolled back whole and done again by the next start.
+      // rolled back whole and done again. Its claim is given back within the second, so that the
+      // next start takes it up at once; else the claim lapses after ten minutes
+      // (`FILL_IN_LEASE_MS`) and the request waits that long.
       {
         name: 'want counts and fill-ins',
         timeoutMs: 1_000,

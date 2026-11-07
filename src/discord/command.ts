@@ -43,7 +43,10 @@ export interface CommandHelp {
 
 /** What a command's help may depend on beyond the settings (`/help` reads them from the context). */
 export interface HelpFacts {
-  /** The installation has the member index of the legacy history (plan 8H-10, B6). */
+  /**
+   * The installation is set up for the member index of the legacy history (`LEGACY_INDEX_DIR`;
+   * plan 8H-10, B6), whether or not the import has written one yet.
+   */
   oldHistory?: boolean;
 }
 
