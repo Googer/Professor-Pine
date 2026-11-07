@@ -154,7 +154,7 @@ describe('renderRank', () => {
     const odd = { ...mewtwo, name: '*_Mr. ~Mime~_* [x](y)' };
     const message = renderRank({ ...view, entry: odd, picture: 'https://example.com/a.png' });
     expect(textDisplays(message)[0]?.split('\n')[0]).toBe(
-      String.raw`### \*\_Mr. ~Mime~\_\* \[x]\(y) 15/15/15`,
+      String.raw`### \*\_Mr. \~Mime\~\_\* \[x]\(y) 15/15/15`,
     );
     expectV2Sendable(message);
   });

@@ -28,6 +28,28 @@ describe('plain', () => {
     expect(plain('# big')).toBe('\\# big');
   });
 
+  it('escapes every marker of a long run, so that none is left to format', () => {
+    // discord.js left some of a long run bare (`*****bold*****` kept one `*` of each end).
+    for (const marker of ['*', '_', '~', '|', '`']) {
+      for (const length of [1, 2, 3, 4, 5, 9]) {
+        const run = marker.repeat(length);
+        const escaped = `\\${marker}`.repeat(length);
+        expect(plain(`${run}bold${run}`)).toBe(`${escaped}bold${escaped}`);
+        expect(plain(run)).toBe(escaped);
+      }
+    }
+    // What a member typed comes back whole.
+    for (const typed of ['*****bold*****', '_____u_____', 'a\\**b**', '`````c`````']) {
+      expect(unplain(plain(typed))).toBe(typed);
+    }
+    // An address keeps its `_` and `*`, part of the link; what formats in pairs is escaped.
+    expect(plain('a_b https://x.example/a_b*c')).toBe('a\\_b https://x.example/a_b*c');
+    expect(plain('<https://x.example/a_b>')).toBe('<\u200bhttps://x.example/a_b>');
+    expect(plain('https://x.example/a~~b~~')).toBe('https://x.example/a\\~\\~b\\~\\~');
+    // An address ends at a `<`, as Discord's does: what follows is text again.
+    expect(plain('https://x.example/a<b_c')).toBe('https://x.example/a<\u200bb\\_c');
+  });
+
   it('leaves no masked link alive: not a single one, not a second, not one behind a bracket', () => {
     expect(plain('[click](https://example.test)')).toBe('\\[click]\\(https://example.test)');
     // discord.js escapes the first bracket of a line only, and greedily: the real link stayed.
@@ -157,8 +179,8 @@ describe('naming a member', () => {
   it('shows a name as text: no Markdown, no mention, nothing that reaches past the bold', () => {
     expect(memberText({ id, name: '**Al**' })).toBe(`**\\*\\*Al\\*\\*** (<@${id}>)`);
     expect(memberName({ id, name: '_Al_' })).toBe('\\_Al\\_');
-    expect(memberName({ id, name: '@everyone' })).toBe('@​everyone');
-    expect(memberName({ id, name: '<@200000000000000003>' })).toBe('<​@200000000000000003>');
+    expect(memberName({ id, name: '@everyone' })).toBe('@\u200beveryone');
+    expect(memberName({ id, name: '<@200000000000000003>' })).toBe('<\u200b@200000000000000003>');
     // A backslash at the end would escape the closing asterisks of the bold.
     expect(memberText({ id, name: 'Al\\' })).toBe(`**Al** (<@${id}>)`);
   });

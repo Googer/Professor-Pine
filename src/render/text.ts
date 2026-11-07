@@ -67,13 +67,46 @@ export function inMessages(
 }
 
 /**
+ * An address, which Discord links with what it holds: `https://…` up to white space or a `<`
+ * (and not its last punctuation), or `<scheme:/…>`.
+ */
+const ADDRESSES = /<[^\s:]+:\/[^\s>]*|https?:\/\/[^\s<]*[^\s<.,:;"')\]]/g;
+
+/**
+ * A typed backslash doubled, and every character that formats escaped one by one (`*`, `_`,
+ * `~`, `|`, a backtick); in an address only those that format in pairs (`~`, `|`, a backtick),
+ * as discord.js did, so that the `_` and `*` of a link stay part of it. discord.js escapes them
+ * in pairs and runs, and left some of a long run bare (`*****bold*****`).
+ */
+function escapeMarkers(text: string): string {
+  const escaped = (part: string, markers: RegExp): string =>
+    part.replace(/\\/g, '\\\\').replace(markers, '\\$&');
+  let result = '';
+  let last = 0;
+  for (const address of text.matchAll(ADDRESSES)) {
+    result += escaped(text.slice(last, address.index), /[*_~|`]/g) + escaped(address[0], /[~|`]/g);
+    last = address.index + address[0].length;
+  }
+  return result + escaped(text.slice(last), /[*_~|`]/g);
+}
+
+/**
  * Text that members or a feed wrote, made safe to show: Markdown is escaped, and a mention or
  * channel link typed as text stays text (`@everyone` would not ping, since the client sends no
  * mentions by default, but it should not look like one either).
  */
 export function plain(text: string): string {
   return (
-    escapeMarkdown(text.replace(/\s+/g, ' ').trim(), {
+    escapeMarkdown(escapeMarkers(text.replace(/\s+/g, ' ').trim()), {
+      // The backslashes and the markers are escaped already (`escapeMarkers`).
+      escape: false,
+      codeBlock: false,
+      inlineCode: false,
+      bold: false,
+      italic: false,
+      underline: false,
+      strikethrough: false,
+      spoiler: false,
       maskedLink: true,
       heading: true,
       bulletedList: true,
