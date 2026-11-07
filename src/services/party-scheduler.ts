@@ -48,6 +48,7 @@ export interface PartySchedulerOptions {
     | 'sweepCopies'
     | 'sweepPosts'
     | 'checkSummaries'
+    | 'whileOpen'
   >;
   attendance: Pick<AttendanceService, 'ask' | 'removeQuestions'>;
   /** The access of members of other regions, whose leftovers are swept with the forums. */
@@ -484,11 +485,18 @@ export class PartyScheduler {
    * earlier warning that is still remembered is deleted: a post has one warning, the newest.
    */
   private async warn(partyId: string): Promise<void> {
-    const { store, gateway } = this.options;
+    const { store, posts } = this.options;
     const before = store.get(partyId);
     if (!before) return;
     const pinged = await this.warned(before);
-    // Read again: the party may have changed, or ended, while the settings were read.
+    // Read again: the party may have changed, or ended, while the settings were read. A party
+    // that ends while the warning is on its way has its closing wait for it (`whileOpen`): a
+    // message after the archiving would open the post again.
+    await posts.whileOpen(partyId, () => this.sayWarning(partyId, pinged));
+  }
+
+  private async sayWarning(partyId: string, pinged: string[]): Promise<void> {
+    const { store, gateway } = this.options;
     const party = store.get(partyId);
     const postId = party?.forumPostId ?? null;
     if (!party || postId === null || party.deletionTime === null) return;

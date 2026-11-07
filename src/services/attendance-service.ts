@@ -52,6 +52,7 @@ import { LIMITS, memberText, plain, timestamp } from '../render/text.js';
 import type { PartyNotifier } from './notify-service.js';
 import { byMember, pingInMessages, settingsOf, storedChange } from './party-change.js';
 import type { PartyLines } from './party-lines.js';
+import type { PartyService } from './party-service.js';
 import type { PartyStore } from './party-store.js';
 
 /** The member who acts: their snowflake and what the interaction said about them. */
@@ -90,7 +91,7 @@ export interface AttendanceServiceOptions {
   store: PartyStore;
   gateway: PartyGateway;
   /** Told after every stored change, to bring the post and the summary up to date. */
-  posts: { changed(partyId: string): void };
+  posts: Pick<PartyService, 'changed' | 'whileOpen'>;
   /** Where the public lines go. */
   lines: PartyLines;
   users: UserSettingsReader;
@@ -626,10 +627,14 @@ export class AttendanceService {
    * and remembers the message with the members it asked, so that it can be removed once none of
    * them is left to answer. For the Done button and command, and for the scheduler when a
    * group's meeting time has passed. When the question cannot be sent, the members are present
-   * again: nobody is left asked without a question.
+   * again: nobody is left asked without a question. A question is recorded once: one that asks
+   * the very members of a question recorded before takes its place (Done, Here and Done again
+   * faster than one send), the older deleted. Nothing is sent into the post of a party that has
+   * ended, and the closing of a party that ends while the question is on its way waits for it
+   * (`whileOpen`): a message after the archiving would open the post again.
    */
   async ask(party: Party, members: readonly string[]): Promise<void> {
-    const { gateway, store, settings } = this.options;
+    const { gateway, store, posts, settings } = this.options;
     const postId = party.forumPostId;
     if (postId === null || members.length === 0) return;
     const question = completionQuestion(
@@ -638,34 +643,48 @@ export class AttendanceService {
       settings.raidCompleteTimeout,
       partyWord(party),
     );
-    let messageId: string | undefined;
+    let users: string[];
     try {
-      const users = await this.pingable(members, () => true);
-      // A message into the post of a party that has ended would open an archived post again.
-      if (!store.get(party.id)) return;
-      messageId = await gateway.sendMessage(postId, { ...question, mention: { users } });
+      users = await this.pingable(members, () => true);
     } catch (err) {
       await this.release(party.id, members);
       throw err;
     }
-    if (messageId === undefined) return;
-    const sent = messageId;
-    let dropped: string[] = [];
-    let recorded = false;
-    try {
-      const result = await store.update(party.id, (current) => {
-        if (!stillAsked(current, members)) return {};
-        const all = [...current.prompts.completion, { id: sent, members: [...members] }];
-        dropped = all.slice(0, Math.max(0, all.length - MAX_COMPLETION_PROMPTS)).map((q) => q.id);
-        const completion = all.slice(-MAX_COMPLETION_PROMPTS);
-        return { party: { ...current, prompts: { ...current.prompts, completion } } };
-      });
-      recorded = result?.written ?? false;
-    } finally {
-      // Not recorded: everybody answered while the question was on its way, it was withdrawn,
-      // the party ended, or the write failed. A question nobody remembers would stay for good.
-      await this.deleteMessages(postId, recorded ? dropped : [sent]);
-    }
+    await posts.whileOpen(party.id, async () => {
+      let messageId: string | undefined;
+      try {
+        messageId = await gateway.sendMessage(postId, { ...question, mention: { users } });
+      } catch (err) {
+        await this.release(party.id, members);
+        throw err;
+      }
+      if (messageId === undefined) return;
+      const sent = messageId;
+      let dropped: string[] = [];
+      let recorded = false;
+      try {
+        const result = await store.update(party.id, (current) => {
+          if (!stillAsked(current, members)) return {};
+          const same = (asked: readonly string[]): boolean =>
+            asked.length === members.length && members.every((id) => asked.includes(id));
+          const earlier = current.prompts.completion;
+          const all = [
+            ...earlier.filter((q) => !same(q.members)),
+            { id: sent, members: [...members] },
+          ];
+          const replaced = earlier.filter((q) => same(q.members)).map((q) => q.id);
+          const overflow = all.slice(0, Math.max(0, all.length - MAX_COMPLETION_PROMPTS));
+          dropped = [...replaced, ...overflow.map((q) => q.id)];
+          const completion = all.slice(-MAX_COMPLETION_PROMPTS);
+          return { party: { ...current, prompts: { ...current.prompts, completion } } };
+        });
+        recorded = result?.written ?? false;
+      } finally {
+        // Not recorded: everybody answered while the question was on its way, it was withdrawn,
+        // the party ended, or the write failed. A question nobody remembers would stay for good.
+        await this.deleteMessages(postId, recorded ? dropped : [sent]);
+      }
+    });
   }
 
   /** Those of `members` who are still asked are present again; the post is shown anew. */

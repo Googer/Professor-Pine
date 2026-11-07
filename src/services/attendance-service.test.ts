@@ -1,5 +1,7 @@
 import { rowsOf } from '../../test/support/messages.js';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
+import { heldCall } from '../../test/support/held-call.js';
+import { watchForTest } from '../../test/support/timers.js';
 import {
   ALICE,
   asRaid,
@@ -396,7 +398,9 @@ describe('AttendanceService: completing a raid', () => {
     const ids = () => made.current().prompts.completion.map((question) => question.id);
     const sent = ids();
     for (let round = 0; round < 11; round++) {
-      await made.attendance.ask(made.current(), [BOB]);
+      // Each question asks others as well: one of the very same members would take the place
+      // of the one before.
+      await made.attendance.ask(made.current(), [BOB, `7000000000000${String(10000 + round)}`]);
       sent.push(ids().at(-1) ?? '');
     }
     expect(sent).toHaveLength(12);
@@ -430,7 +434,7 @@ describe('AttendanceService: completing a raid', () => {
     await made.attendance.signUp(id, bob, PartyStatus.Present);
     await made.attendance.done(id, alice);
     await made.attendance.flush();
-    await made.attendance.ask(made.current(), [BOB]);
+    await made.attendance.ask(made.current(), [BOB, CAROL]);
     const ids = () => made.current().prompts.completion.map((question) => question.id);
     const questions = ids();
     expect(questions).toHaveLength(2);
@@ -935,6 +939,62 @@ describe('AttendanceService: taking a question back', () => {
       made.gateway.messagesIn(made.postId).filter((m) => m.message.components?.length),
     ).toEqual([]);
     expect(attendeeOf(made.current(), BOB)?.status).toBe(PartyStatus.Present);
+  });
+
+  it('records a question once: Done, Here and Done again faster than one send', async () => {
+    const made = await reportedRaid(yveltal);
+    const id = made.party.id;
+    await made.attendance.signUp(id, alice, PartyStatus.Present);
+    await made.attendance.signUp(id, bob, PartyStatus.Present);
+    await made.attendance.flush();
+    await Promise.all([
+      made.attendance.done(id, alice),
+      made.attendance.signUp(id, alice, PartyStatus.Present),
+      made.attendance.done(id, alice),
+    ]);
+    await made.attendance.flush();
+    const questions = made.gateway
+      .messagesIn(made.postId)
+      .filter((message) => message.message.components?.length)
+      .filter((message) => !made.gateway.deleted.some((gone) => gone.messageId === message.id));
+    expect(questions).toHaveLength(1);
+    expect(made.current().prompts.completion).toEqual([{ id: questions[0]?.id, members: [BOB] }]);
+    expect(attendeeOf(made.current(), BOB)?.status).toBe(PartyStatus.CompletePending);
+  });
+
+  it('has the ending of the party wait for a question on its way, which goes before the archiving', async () => {
+    const made = await reportedRaid(yveltal);
+    const id = made.party.id;
+    await made.attendance.signUp(id, alice, PartyStatus.Present);
+    await made.attendance.signUp(id, bob, PartyStatus.Present);
+    await made.attendance.flush();
+    const held = heldCall('the question');
+    const send = made.gateway.sendMessage.bind(made.gateway);
+    const asked: (string | undefined)[] = [];
+    vi.spyOn(made.gateway, 'sendMessage').mockImplementation(async (channel, message, options) => {
+      if (message.v2 || !message.components?.length) return send(channel, message, options);
+      held.arrive();
+      await held.released;
+      const id = await send(channel, message, options);
+      asked.push(id);
+      return id;
+    });
+    const immediates = watchForTest();
+    await made.attendance.done(id, alice);
+    await held.reached;
+    const ending = made.service.end(id);
+    await immediates.settle();
+    // The party has ended, but its post stays open while the question is on its way.
+    expect(made.store.get(id)).toBeUndefined();
+    expect(made.gateway.posts.get(made.postId)?.archived).toBe(false);
+    held.release();
+    expect(await ending).toBe(true);
+    await made.attendance.flush();
+    // Sent while the post was open, and deleted again before the archiving: nothing failed.
+    expect(asked).toEqual([expect.any(String)]);
+    expect(made.gateway.deleted.map((gone) => gone.messageId)).toContain(asked[0]);
+    expect(made.gateway.posts.get(made.postId)).toMatchObject({ archived: true, reopened: 0 });
+    expect(made.entries.filter((entry) => entry.msg === 'could not ask who completed')).toEqual([]);
   });
 });
 

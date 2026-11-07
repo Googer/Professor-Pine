@@ -810,6 +810,11 @@ export class PartyService {
   private readonly creating = new Map<string, Promise<void>>();
   /** A raid moves to another region once at a time. */
   private readonly moves = new KeyedLock<string>();
+  /**
+   * The messages on their way into the post of a party (a completion question, the archive
+   * warning: `whileOpen`), by party: the closing of an ended party waits for them.
+   */
+  private readonly sending = new Map<string, Set<Promise<unknown>>>();
   /** The latest `ensureSummary` of each region: calls for one region run one after the other. */
   private readonly summaryChains = new Map<number, Promise<unknown>>();
   /** The latest `setupForums` of each server, and how many are running or waiting. */
@@ -2815,6 +2820,36 @@ export class PartyService {
   }
 
   /**
+   * Sends a message of the bot's own into the post of a party (a completion question, the archive
+   * warning) only while the party is active: `work` runs when it is (decided at once, with no
+   * wait in between), and the closing of the party, should it end meanwhile, waits for it before
+   * anything is archived, so that the message and what `work` does after it (its record, or its
+   * deletion where it can no longer be recorded) land in an open post. Undefined, with nothing
+   * run, for a party that is not active. What `work` throws is passed on.
+   */
+  whileOpen<T>(partyId: string, work: () => Promise<T>): Promise<T | undefined> {
+    if (!this.options.store.get(partyId)) return Promise.resolve(undefined);
+    const run = (async () => work())();
+    let runs = this.sending.get(partyId);
+    if (!runs) this.sending.set(partyId, (runs = new Set()));
+    const under = runs;
+    under.add(run);
+    const settled = (): void => {
+      under.delete(run);
+      if (under.size === 0 && this.sending.get(partyId) === under) this.sending.delete(partyId);
+    };
+    void run.then(settled, settled);
+    return run;
+  }
+
+  /** Waits for every message of `whileOpen` on its way into a party's post. Never rejects. */
+  private async messagesSent(partyId: string): Promise<void> {
+    for (let runs = this.sending.get(partyId); runs; runs = this.sending.get(partyId)) {
+      await Promise.allSettled([...runs]);
+    }
+  }
+
+  /**
    * `end`, saying how the post went (plan 8S-2): `deleted` (`closing.removal` `delete` and Discord
    * deleted it), `archived` (as usual, also where Discord refused the deletion), `deleting` (the
    * deletion failed for the network: archived for now, deleted by `redoClosings`; plan 8X-H,
@@ -3170,11 +3205,13 @@ export class PartyService {
       return removed;
     };
     for (const err of await this.deleteLinkLine(party)) owe(err);
-    // What was under way when the party ended (a render, a `/status`, an edit of a copy)
-    // would open the post again if it landed after the archiving. None of it can have recorded
-    // a copy that `party` does not know of: the party had ended.
+    // What was under way when the party ended (a render, a `/status`, an edit of a copy, a
+    // question or a warning with its own deletion, `whileOpen`) would open the post again if it
+    // landed after the archiving. None of it can have recorded a copy or a message that `party`
+    // does not know of: the party had ended.
     await this.posts.idle(party.id);
     await this.mirrors.idle(party.id);
+    await this.messagesSent(party.id);
     let there = true;
     // A party that was closed says so in the post itself, in the place of its times; a meetup
     // that ended is shown as over, whatever times it had (see `renderMeetupPost`). A train's card

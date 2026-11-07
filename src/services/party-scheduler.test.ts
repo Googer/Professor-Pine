@@ -251,6 +251,11 @@ describe('PartyScheduler: the warning in a busy post', () => {
     await made.scheduler.whenIdle();
   }
 
+  /** Messages of others in the post, without waiting for what they set off. */
+  function chatterOnly(made: Made, count: number): void {
+    for (let n = 0; n < count; n++) made.scheduler.activity(made.postId);
+  }
+
   it('says the warning again below every fifth message, and deletes the one before', async () => {
     const made = await reportedRaid({ time: { hatch: HATCH } });
     await tickAt(made, END + 6 * MINUTE);
@@ -334,6 +339,36 @@ describe('PartyScheduler: the warning in a busy post', () => {
     const warned = made.current().prompts.warning;
     await chatter(made, WARN_AGAIN_AFTER - 1);
     expect(made.current().prompts.warning).toBe(warned);
+  });
+
+  it('has the ending of the party wait for a warning on its way, which goes before the archiving', async () => {
+    const made = await reportedRaid({ time: { hatch: HATCH } });
+    await tickAt(made, END + 6 * MINUTE);
+    const held = heldCall('the warning said again');
+    const send = made.gateway.sendMessage.bind(made.gateway);
+    vi.spyOn(made.gateway, 'sendMessage').mockImplementation(async (channel, message, options) => {
+      if (!message.v2 && message.content?.includes('I will archive this post')) {
+        held.arrive();
+        await held.released;
+      }
+      return send(channel, message, options);
+    });
+    chatterOnly(made, WARN_AGAIN_AFTER);
+    await held.reached;
+    const ending = made.service.end(made.party.id);
+    await background.settle();
+    // The party has ended, but its post stays open while the warning is on its way.
+    expect(made.store.get(made.party.id)).toBeUndefined();
+    expect(made.gateway.posts.get(made.postId)?.archived).toBe(false);
+    held.release();
+    expect(await ending).toBe(true);
+    await made.scheduler.whenIdle();
+    // Sent while the post was open, and deleted again before the archiving: nothing failed.
+    expect(warnings(made)).toEqual([]);
+    expect(made.gateway.posts.get(made.postId)).toMatchObject({ archived: true, reopened: 0 });
+    expect(
+      made.entries.filter((entry) => entry.msg === 'could not say the archive warning again'),
+    ).toEqual([]);
   });
 
   it('says it once when many messages come at once, and logs a failure', async () => {
