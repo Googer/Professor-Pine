@@ -120,6 +120,59 @@ describe('PartyViewers', () => {
     expect(asked).toHaveLength(4);
   });
 
+  it('asks afresh of the forums it was told to forget for a member (plan 8M-20: a role changed)', async () => {
+    const { viewers, asked, gateway } = viewersWith();
+    gateway.shutOut(EAST_FORUM, ALICE, BOB);
+    await viewers.viewer(FAKE_GUILD_ID, ALICE, FORUMS);
+    await viewers.viewer(FAKE_GUILD_ID, BOB, FORUMS);
+    gateway.outsiders.get(EAST_FORUM)?.clear();
+    viewers.forget(ALICE, [EAST_FORUM]);
+    expect(await viewers.viewer(FAKE_GUILD_ID, ALICE, FORUMS)).toMatchObject({
+      hidden: new Set(),
+    });
+    // Only Alice's answer of East was asked again; Bob's stays for its minute.
+    expect(await viewers.viewer(FAKE_GUILD_ID, BOB, FORUMS)).toMatchObject({
+      hidden: new Set([EAST_FORUM]),
+    });
+    expect(asked.slice(4)).toEqual([`${EAST_FORUM}:${ALICE}`]);
+  });
+
+  it('does not keep an answer whose question began before a forget (plan 8M-20, A4)', async () => {
+    const { log } = createTestLogger();
+    /** Each question to Discord, answered when the test says. */
+    const questions: Array<(access: 'hidden' | 'visible') => void> = [];
+    let questioned = (): void => undefined;
+    const nextQuestion = () =>
+      new Promise<void>((resolve) => {
+        questioned = resolve;
+      });
+    const viewers = new PartyViewers({
+      members: new FakeMemberDirectory().add(ALICE, 'Alice'),
+      forums: {
+        memberAccess: () =>
+          new Promise((resolve) => {
+            questions.push(resolve);
+            questioned();
+          }),
+      },
+      log,
+      now: () => 1_000_000,
+    });
+    let asking = nextQuestion();
+    const first = viewers.viewer(FAKE_GUILD_ID, ALICE, [EAST_FORUM]);
+    await asking;
+    // The question is under way when the member's role changes.
+    viewers.forget(ALICE, [EAST_FORUM]);
+    questions.shift()?.('hidden');
+    expect(await first).toMatchObject({ hidden: new Set([EAST_FORUM]) });
+    asking = nextQuestion();
+    const second = viewers.viewer(FAKE_GUILD_ID, ALICE, [EAST_FORUM]);
+    // Asked again: the answer that came after the forget was not kept.
+    await asking;
+    questions.shift()?.('visible');
+    expect(await second).toMatchObject({ hidden: new Set() });
+  });
+
   it('is read-only while Discord cannot be reached, for a member seen lately, by what Discord said last', async () => {
     const { viewers, members, gateway, clock, entries } = viewersWith();
     gateway.barred.set(EAST_FORUM, new Set([ALICE]));

@@ -196,6 +196,13 @@ export class FakeActingMembers implements ActingMembers {
   private readonly members = new Map<string, Member>();
   private readonly held = new Map<string, 'timed-out' | 'pending'>();
   private readonly standings = new Map<string, MemberStanding>();
+  /**
+   * The roles a member holds by id (plan 8M-20): none unless a test points it at the fake role
+   * server's members (`server.held`).
+   */
+  rolesOf: (userId: string) => readonly string[] = () => [];
+  /** When Discord answers (`fetchedAt`); `Date.now()` unless a test gives its clock. */
+  now: () => number = () => Date.now();
 
   /** A member's roles by name and whether they are an administrator, from now on. */
   standing(userId: string, standing: MemberStanding, guildId = FAKE_GUILD_ID): this {
@@ -232,7 +239,15 @@ export class FakeActingMembers implements ActingMembers {
     const held = this.held.get(key);
     const standing = this.standings.get(key) ?? { roleNames: [], administrator: false };
     return Promise.resolve(
-      held ? { kind: held } : { kind: 'member', member: { ...member }, standing },
+      held
+        ? { kind: held }
+        : {
+            kind: 'member',
+            member: { ...member },
+            standing,
+            roleIds: [...this.rolesOf(userId)],
+            fetchedAt: this.now(),
+          },
     );
   }
 }
@@ -277,7 +292,7 @@ export class RecordingDraws implements PostDraws {
 }
 
 /** No parties: the live map of a server without any. */
-const NO_PARTIES: PartyWebDeps = {
+export const NO_PARTIES: PartyWebDeps = {
   guilds: { idFor: () => Promise.resolve(undefined) },
   store: { active: () => [], get: () => undefined, raidAt: () => undefined },
   look: () => ({}),
@@ -590,6 +605,7 @@ const NO_REGIONS: RegionWebDeps = {
   regions: { all: () => [] },
   gates: { memberGates: () => Promise.resolve(undefined) },
   selfRoles: undefined,
+  access: { memberChanged: () => undefined },
 };
 
 /** No reports at stops: a test that has them passes `stopWebWith`. */

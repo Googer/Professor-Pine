@@ -144,7 +144,7 @@ const NOTHING_CHANGED = 'Nothing was changed.';
  * to be done: a request that timed out may have arrived all the same, so it does not claim that
  * nothing was changed.
  */
-const COULD_NOT_CHANGE = 'I could not make the change.';
+export const COULD_NOT_CHANGE = 'I could not make the change.';
 
 /**
  * What a change of a menu did, as the message says it: "Added **Mystic**; removed **Valor**."

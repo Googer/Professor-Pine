@@ -127,6 +127,19 @@ export class AccessService {
   }
 
   /**
+   * A member's roles changed (plan 8M-20, B5: a region's role taken away on the web map): every
+   * forum of an active party of the server (`guildRow`) they take part in is settled again, so
+   * that one they no longer see by their roles lets them in, as a sign-up would. On the side, as
+   * every settlement.
+   */
+  memberChanged(memberId: string, guildRow: number): void {
+    for (const party of this.options.store.active()) {
+      if (party.guildId !== guildRow || party.forumChannelId === null) continue;
+      if (takesPart(party, memberId)) this.settle(party.forumChannelId, memberId, party.guildId);
+    }
+  }
+
+  /**
    * Brings one member's access to one forum in line with the parties, on the side: let in when
    * they take part in a party there and cannot see it, the grant taken back when they no longer
    * take part in any. `verify` also looks whether a member who was let in really can see the

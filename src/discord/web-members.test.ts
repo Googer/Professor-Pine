@@ -68,6 +68,9 @@ describe('the member who presses a button on the live map, asked of Discord', ()
         manageGuild: false,
         manageMessages: false,
       },
+      // The roles' ids beside everybody's, and when Discord said so (plan 8M-20, R2).
+      roleIds: ['0', '1'],
+      fetchedAt: 1_000,
     });
     expect(asked).toEqual([{ user: USER, force: true }]);
   });
@@ -108,6 +111,8 @@ describe('the member who presses a button on the live map, asked of Discord', ()
         manageGuild: true,
         manageMessages: true,
       },
+      roleIds: ['0'],
+      fetchedAt: 1_000,
     });
   });
 

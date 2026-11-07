@@ -65,6 +65,9 @@ export class DiscordWebMembers {
       kind: 'member',
       member: { id: member.id, ...guildMemberInfo(member) },
       standing: memberStanding(member),
+      // What a change of their roles is planned over (plan 8M-20, R2: `RoleMember`).
+      roleIds: [...member.roles.cache.keys()].filter((id) => id !== guildId),
+      fetchedAt: this.now(),
     };
   }
 }

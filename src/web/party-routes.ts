@@ -183,7 +183,15 @@ export function forumOnTheMap(deps: PartyWebDeps, forumId: string | null): strin
  * administrator.
  */
 export type ActingAnswer =
-  | { kind: 'member'; member: Member; standing: MemberStanding }
+  | {
+      kind: 'member';
+      member: Member;
+      standing: MemberStanding;
+      /** The ids of the roles they hold, without the role every member has (plan 8M-20, R2). */
+      roleIds: readonly string[];
+      /** When Discord's answer came: what `roleIds` is of (`RoleMember.seenAt`). */
+      fetchedAt: number;
+    }
   | { kind: 'not-member' }
   | { kind: 'timed-out' }
   | { kind: 'pending' };

@@ -111,6 +111,7 @@ export async function regionRolesWith(
     regions: { all: () => regions },
     gates: gateway,
     selfRoles,
+    access: made.access,
   };
   return { ...roles, roleGateway: roles.gateway, made, gateway, regions, deps };
 }

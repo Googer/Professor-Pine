@@ -74,6 +74,13 @@ export class PartyViewers {
     { barred: boolean; hidden: boolean; at: number }
   >(KEPT);
 
+  /**
+   * `<forum>:<user>`: the count of `forget`s when it was last forgotten (A4), so that an answer
+   * whose question began before is not kept. A count, not the clock: the test clocks stand still.
+   */
+  private readonly forgotten = new BoundedMap<string, number>(KEPT);
+  private forgets = 0;
+
   constructor(private readonly options: PartyViewersOptions) {}
 
   /**
@@ -148,6 +155,20 @@ export class PartyViewers {
   }
 
   /**
+   * Forgets what Discord said of a member and these forums (plan 8M-20, R3: a role of theirs
+   * given or taken on the map), so that the next list asks again rather than wait out its minute.
+   * What it said is not kept as "lately" either: it no longer stands.
+   */
+  forget(userId: string, forumIds: Iterable<string>): void {
+    this.forgets += 1;
+    for (const forumId of forumIds) {
+      const key = `${forumId}:${userId}`;
+      this.forums.delete(key);
+      this.forgotten.set(key, this.forgets);
+    }
+  }
+
+  /**
    * Whether the member is kept out of the forum: asked of Discord at most once a minute; when it
    * cannot be asked, what it said within `MEMBER_SEEN_MS`, or else barred (hidden, to be safe).
    * `unreachable`: Discord failed earlier in this request, so it is not asked again.
@@ -166,11 +187,14 @@ export class PartyViewers {
     // Not asked: what Discord said lately, or barred (hidden, to be safe).
     const guessed = { barred: lately ? kept.barred : true, hidden: lately && kept.hidden };
     if (unreachable) return { ...guessed, unreachable: true };
+    const since = this.forgets;
     try {
       const access = await forums.memberAccess(forumId, userId);
       const barred = access === 'barred';
       const hidden = access === 'hidden';
-      this.forums.set(key, { barred, hidden, at: now() });
+      // Forgotten while it was asked: it answers this request, and the next one asks again.
+      if ((this.forgotten.get(key) ?? 0) <= since)
+        this.forums.set(key, { barred, hidden, at: now() });
       return { barred, hidden, unreachable: false };
     } catch (err) {
       log.warn(

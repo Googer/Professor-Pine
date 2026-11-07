@@ -182,6 +182,53 @@ function withdrawnSentence(failed: Extract<RoleFailure, { reason: 'withdrawn' }>
   return memberProblem(name, { reason: failed.why, entry: failed.entry });
 }
 
+/** A change of one role that was begun (`done` or `partial`). */
+type Begun = Extract<RoleChangeOutcome, { kind: 'done' | 'partial' }>;
+
+/**
+ * What a change that was to give a member one role did, as `/iam` says it (and the web map's
+ * "Your regions…", plan 8M-20): `refused` with the sentence of the role where it was skipped,
+ * else what was really done first and what Discord stopped after it. `name` is the role's name
+ * as shown (in bold already), `group` the name of its group.
+ */
+export function gaveWords(
+  name: string,
+  group: string | undefined,
+  outcome: Begun,
+): { refused: boolean; text: string } {
+  const [skipped] = outcome.plan.skipped;
+  if (skipped) return { refused: true, text: memberProblem(name, skipped) };
+  const sentences: string[] = [];
+  if (outcome.given.length > 0) sentences.push(`You have ${name} now.`);
+  else if (outcome.kind === 'done') sentences.push(`You have ${name} already.`);
+  if (outcome.taken.length > 0) {
+    sentences.push(
+      `I took ${namesOf(outcome.taken)} away: only one role of the group ` +
+        `${plain(group ?? '')} can be held at a time.`,
+    );
+  }
+  if (outcome.kind === 'partial') sentences.push(...failureSentences(outcome));
+  return { refused: false, text: sentences.join(' ') };
+}
+
+/**
+ * What a change that was to take one role away did, as `/iamnot` says it (and "Your regions…"):
+ * `refused` with the sentence of the role where it was skipped.
+ */
+export function tookWords(name: string, outcome: Begun): { refused: boolean; text: string } {
+  const [skipped] = outcome.plan.skipped;
+  if (skipped) return { refused: true, text: memberProblem(name, skipped) };
+  return {
+    refused: false,
+    text:
+      outcome.kind === 'partial'
+        ? failureSentences(outcome).join(' ')
+        : outcome.taken.length === 0
+          ? `You do not have ${name}.`
+          : `You no longer have ${name}.`,
+  };
+}
+
 /**
  * What a change that stopped half-way did not do, as sentences: the step that failed with the
  * reason, what was not tried after it, and "Nothing was changed." when nothing was done before

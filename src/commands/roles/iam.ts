@@ -12,7 +12,7 @@ import {
   type Roster,
   type RosterEntry,
 } from '../../domain/roles/self-roles.js';
-import { plain, truncate } from '../../render/text.js';
+import { truncate } from '../../render/text.js';
 import type { RoleChangeOutcome } from '../../services/self-role-service.js';
 import { beginningFirst, CHOICE_NAME, MAX_CHOICES, type Choice } from '../choices.js';
 import {
@@ -26,7 +26,7 @@ import {
   typedText,
 } from './shared.js';
 import { showRoleMenus } from './menus.js';
-import { calledAlike, failureSentences, memberProblem, namesOf } from './words.js';
+import { calledAlike, gaveWords, memberProblem, namesOf, tookWords } from './words.js';
 import { answer } from '../../discord/late-reply.js';
 
 /**
@@ -163,21 +163,10 @@ export const iam: SimpleCommand = {
       await ctx.selfRoles.change(guildId, member, { give: [entry.role.id], take: [] }),
     );
     if (!outcome) return;
-    const { plan, given, taken } = outcome;
-    const [skipped] = plan.skipped;
-    if (skipped) throw new UserError(memberProblem(name, skipped));
     // What was really done is said first; what Discord stopped, after it.
-    const sentences: string[] = [];
-    if (given.length > 0) sentences.push(`You have ${name} now.`);
-    else if (outcome.kind === 'done') sentences.push(`You have ${name} already.`);
-    if (taken.length > 0) {
-      sentences.push(
-        `I took ${namesOf(taken)} away: only one role of the group ` +
-          `${plain(entry.group?.name ?? '')} can be held at a time.`,
-      );
-    }
-    if (outcome.kind === 'partial') sentences.push(...failureSentences(outcome));
-    await answer(interaction, { content: sentences.join(' ') });
+    const said = gaveWords(name, entry.group?.name, outcome);
+    if (said.refused) throw new UserError(said.text);
+    await answer(interaction, { content: said.text });
   },
 
   async autocomplete(interaction, ctx) {
@@ -242,16 +231,9 @@ export const iamnot: SimpleCommand = {
       await ctx.selfRoles.change(guildId, member, { give: [], take: [entry.role.id] }),
     );
     if (!outcome) return;
-    const [skipped] = outcome.plan.skipped;
-    if (skipped) throw new UserError(memberProblem(name, skipped));
-    await answer(interaction, {
-      content:
-        outcome.kind === 'partial'
-          ? failureSentences(outcome).join(' ')
-          : outcome.taken.length === 0
-            ? `You do not have ${name}.`
-            : `You no longer have ${name}.`,
-    });
+    const said = tookWords(name, outcome);
+    if (said.refused) throw new UserError(said.text);
+    await answer(interaction, { content: said.text });
   },
 
   async autocomplete(interaction, ctx) {

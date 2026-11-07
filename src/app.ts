@@ -1593,12 +1593,14 @@ export async function startApp(
         days: historyDays,
       },
       // "Your regions" on the map (plan 8M-20): the member and the regions' gates looked at once,
-      // joined and left through /iam's own service (none where self-assigned roles are off).
+      // joined and left through /iam's own service (none where self-assigned roles are off); a role
+      // taken away settles the access to the forums of the member's parties again.
       regions: {
         guilds,
         regions,
         gates: partyGateway,
         selfRoles: config.settings.features.roles ? ctx.selfRoles : undefined,
+        access,
       },
       // The Wayfarer export tool (plan 8W-P): served from wayspot-tool/ to the admins the owner
       // approved, on an instance that has the file (the owner's).

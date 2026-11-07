@@ -33,7 +33,16 @@ const HELD_BACK: Readonly<Record<'timed-out' | 'pending', string>> = {
  * Who writes on the map, as Discord has them now (plans 8M-3, 8M-4): a member who may act, with
  * their roles; or the answer already sent.
  */
-export type Acting = { member: Member; standing: MemberStanding } | { sent: FastifyReply };
+export type Acting =
+  | {
+      member: Member;
+      standing: MemberStanding;
+      /** The ids of the roles they hold, without everybody's (plan 8M-20, R2). */
+      roleIds: readonly string[];
+      /** When Discord's answer came: what `roleIds` is of. */
+      fetchedAt: number;
+    }
+  | { sent: FastifyReply };
 
 /**
  * The checks of every write of a member on the map, in this order (spec 2.5): whether they are
@@ -84,7 +93,12 @@ export async function actingOnTheMap(
   if (acting.kind !== 'member') {
     return { sent: reply.code(403).send({ error: HELD_BACK[acting.kind] }) };
   }
-  return { member: acting.member, standing: acting.standing };
+  return {
+    member: acting.member,
+    standing: acting.standing,
+    roleIds: acting.roleIds,
+    fetchedAt: acting.fetchedAt,
+  };
 }
 
 /**
