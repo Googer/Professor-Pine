@@ -60,6 +60,8 @@ describe('GameDataService', () => {
   let clock: () => number;
   let requests: string[];
   let respond: FetchText;
+  /** The services a test made: each is idle before the test is over. */
+  const made: GameDataService[] = [];
 
   function service(
     extra: {
@@ -84,6 +86,7 @@ describe('GameDataService', () => {
       now: () => clock(),
       ...extra,
     });
+    made.push(gameData);
     return { gameData, entries, log };
   }
 
@@ -107,6 +110,12 @@ describe('GameDataService', () => {
       );
   });
   afterEach(async () => {
+    // A refresh still running writes its copy into the folder: its write raced the removal of
+    // the folder (ENOTEMPTY, seen under load). Each is waited for first.
+    for (const gameData of made.splice(0)) {
+      gameData.stop();
+      await gameData.whenIdle();
+    }
     vi.useRealTimers();
     await rm(dir, { recursive: true, force: true });
   });
@@ -778,6 +787,7 @@ describe('GameDataService', () => {
       await vi.advanceTimersByTimeAsync(1);
       expect(requests).toHaveLength(2);
       gameData.stop();
+      await settle(gameData);
     });
 
     it('retries soon after a stale start, then returns to the normal period', async () => {
@@ -804,6 +814,7 @@ describe('GameDataService', () => {
       await vi.advanceTimersByTimeAsync(1);
       expect(requests).toHaveLength(8);
       gameData.stop();
+      await settle(gameData);
     });
 
     it('catches up at once after a failed refresh, and only then (plan 8X-H)', async () => {
