@@ -39,6 +39,14 @@ describe('auditEntries', () => {
     ]);
   });
 
+  it('records a raid reported hatched without its boss as hatched, not as an egg', () => {
+    const raid = testRaid();
+    const hatched = { ...raid, raid: { ...raid.raid, reportedHatched: true } };
+    expect(auditEntries(undefined, hatched, NAMES)).toEqual([
+      expect.objectContaining({ action: 'created', boss: null, hatched: true }),
+    ]);
+  });
+
   it('records a max battle, a meetup and a train as they were made', () => {
     const max = testMax();
     expect(auditEntries(undefined, max, NAMES)).toEqual([
@@ -145,14 +153,13 @@ describe('auditEntries', () => {
   it("records a train's stops added and removed, a cleared route and its conductor", () => {
     const train = testTrain();
     const routed = { ...train, train: { ...train.train, route: stops(1, TEST_SPOT.id) } };
+    // One entry per change of the route, however many stops it added or removed.
     expect(auditEntries(train, routed, NAMES)).toEqual([
-      { action: 'stop-added', stop: 'Big Fountain' },
-      { action: 'stop-added', stop: 'Gazebo of the Park' },
+      { action: 'route', added: ['Big Fountain', 'Gazebo of the Park'], removed: [] },
     ]);
     const swapped = { ...routed, train: { ...routed.train, route: stops(2, TEST_SPOT.id) } };
     expect(auditEntries(routed, swapped, NAMES)).toEqual([
-      { action: 'stop-added', stop: 'Old Gym' },
-      { action: 'stop-removed', stop: 'Big Fountain' },
+      { action: 'route', added: ['Old Gym'], removed: ['Big Fountain'] },
     ]);
     // The same stops in another order is no edit of the route.
     const reversed = { ...routed, train: { ...routed.train, route: stops(TEST_SPOT.id, 1) } };
@@ -166,6 +173,18 @@ describe('auditEntries', () => {
     };
     expect(auditEntries(train, conducted, NAMES)).toEqual([
       { action: 'conductor', from: null, to: { id: ALICE, name: 'Alice' } },
+    ]);
+  });
+
+  it("records a train's boss and its kind", () => {
+    const train = testTrain();
+    const after = { ...train, train: { ...train.train, boss: { key: 'yveltal' } } };
+    expect(auditEntries(train, after, NAMES)).toEqual([
+      { action: 'boss', from: 'none', to: 'Yveltal' },
+    ]);
+    const max = { ...train, train: { ...train.train, kind: 'dynamax' as const } };
+    expect(auditEntries(train, max, NAMES)).toEqual([
+      { action: 'kind', from: 'raid', to: 'dynamax' },
     ]);
   });
 
@@ -209,7 +228,9 @@ describe('auditEntries', () => {
   it('names a stop or gym it no longer knows as such, never by its id', () => {
     const train = testTrain({});
     const routed = { ...train, train: { ...train.train, route: stops(99) } };
-    expect(auditEntries(train, routed, NAMES)).toEqual([{ action: 'stop-added', stop: null }]);
+    expect(auditEntries(train, routed, NAMES)).toEqual([
+      { action: 'route', added: [null], removed: [] },
+    ]);
   });
 });
 

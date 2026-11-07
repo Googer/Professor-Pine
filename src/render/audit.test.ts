@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { AuditRecord } from '../db/repositories/party-audit-repository.js';
 import type { AuditEntry } from '../domain/party/audit.js';
-import { auditLine, auditWords, postAuditMessage } from './audit.js';
+import { auditLine, auditWords, memberAuditMessage, postAuditMessage } from './audit.js';
 import { textOf } from '../../test/support/messages.js';
 
 const NOW = 1_800_000_000_000;
@@ -64,7 +64,7 @@ describe('the audit log in words', () => {
     expect(
       auditWords({ action: 'ended', how: 'closed', by: 'moderators', removal: 'delete' }, NOW),
     ).toBe('closed it for a report to the moderators (deleted the post)');
-    expect(auditWords({ action: 'stop-removed', stop: null }, NOW)).toBe(
+    expect(auditWords({ action: 'route', added: [], removed: [null] }, NOW)).toBe(
       'removed a stop Pine no longer knows',
     );
     expect(auditWords({ action: 'conductor', from: null, to: { id: ASH.id } }, NOW)).toBe(
@@ -82,5 +82,80 @@ describe('the audit log in words', () => {
     expect(textOf(postAuditMessage([], NOW))).toBe(
       '### Log of this post\nNothing is logged for this post.',
     );
+  });
+
+  it('words one change of a route, many stops in a bounded length', () => {
+    expect(auditWords({ action: 'route', added: ['A'], removed: ['B', 'C'] }, NOW)).toBe(
+      'added the stop **A** and removed 2 stops: **B**, **C**',
+    );
+    const many = Array.from({ length: 30 }, (_, n) => `Gym number ${String(n)} by the long road`);
+    const words = auditWords({ action: 'route', added: many, removed: [] }, NOW);
+    expect(words.startsWith('added 30 stops: **Gym number 0 by the long road**')).toBe(true);
+    expect(words).toMatch(/…and \d+ more$/);
+    expect(words.length).toBeLessThan(400);
+  });
+
+  it("words a train's boss and its kind", () => {
+    expect(auditWords({ action: 'boss', from: 'none', to: 'Yveltal' }, NOW)).toBe(
+      'set the boss: Yveltal (was none)',
+    );
+    expect(auditWords({ action: 'kind', from: 'raid', to: 'dynamax' }, NOW)).toBe(
+      'made it a Max Battle Train (was a Raid Train)',
+    );
+  });
+
+  it('says a raid reported hatched without its boss is hatched', () => {
+    expect(
+      auditWords(
+        {
+          action: 'created',
+          kind: 'raid',
+          what: 'Level 5 raid',
+          boss: null,
+          hatched: true,
+          place: null,
+          anonymous: false,
+          hatch: null,
+          end: null,
+          start: null,
+        },
+        NOW,
+      ),
+    ).toBe('reported it: Level 5 raid (hatched, boss unknown)');
+  });
+
+  it("says staff's closing that nobody is named for as staff's", () => {
+    const at = `<t:${String(NOW / 1000)}:t>`;
+    expect(
+      auditLine(
+        record({ action: 'ended', how: 'closed', by: 'staff', removal: 'delete' }, null),
+        NOW,
+      ),
+    ).toBe(`${at} **Pine** closed it: staff deleted its post.`);
+  });
+
+  it('keeps the line of how the party was made at the top, outside the 25', () => {
+    const made = record({
+      action: 'created',
+      kind: 'raid',
+      what: 'Level 5 raid',
+      boss: null,
+      place: 'The Stacks',
+      anonymous: true,
+      hatch: null,
+      end: null,
+      start: null,
+    });
+    const later = Array.from({ length: 30 }, () => record({ action: 'info' }));
+    const lines = textOf(postAuditMessage([made, ...later], NOW)).split('\n');
+    expect(lines[1]).toContain('reported it (anonymous in the post)');
+    expect(lines[2]).toBe('-# …and 5 earlier changes');
+    expect(lines.filter((line) => line.includes('changed the information'))).toHaveLength(25);
+  });
+
+  it("sums up in one line what a member's list leaves out", () => {
+    const shown = Array.from({ length: 25 }, () => record({ action: 'info' }));
+    const lines = textOf(memberAuditMessage(ASH, shown, NOW, true)).split('\n');
+    expect(lines.filter((line) => line.startsWith('-#'))).toEqual(['-# …and earlier changes']);
   });
 });

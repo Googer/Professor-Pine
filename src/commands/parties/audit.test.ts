@@ -93,8 +93,9 @@ describe('/audit', () => {
       await made.service.keep(made.party.id, false, { id: ALICE });
     }
     const text = answerOf(await run());
-    // 31 entries: the creation and 30 changes.
-    expect(text).toContain('-# …and 6 earlier changes');
+    // 31 entries: the creation, which stays first, and 30 changes, of which 25 are shown.
+    expect(text.split('\n')[1]).toContain('reported it (anonymous in the post)');
+    expect(text).toContain('-# …and 5 earlier changes');
     expect(text.split('\n').filter((line) => line.includes('/admin save-party'))).toHaveLength(25);
   });
 
@@ -111,6 +112,9 @@ describe('/audit', () => {
       mock.mock.calls.map((call) => JSON.stringify(call[0])),
     );
     expect(answers.join(' ')).toContain(JSON.stringify(AUDIT_WHERE).slice(1, -1));
+    // Private: the deferral was, so the answer that follows is.
+    expect(used.ephemeral).toBe(true);
+    expect(used.reply).not.toHaveBeenCalled();
   });
 
   it("shows a member's changes in the server, each with its post", async () => {

@@ -2,7 +2,8 @@ import type { V2Message } from '../discord/party-gateway.js';
 import type { AuditRecord } from '../db/repositories/party-audit-repository.js';
 import type { AuditEntry } from '../domain/party/audit.js';
 import { partyWord, type PartyType } from '../domain/party/party.js';
-import { clockOrDate, memberText, plain, type NamedMember } from './text.js';
+import { TRAIN_KIND_WORDS } from '../domain/web/party-data.js';
+import { clockOrDate, fitItems, memberText, plain, type NamedMember } from './text.js';
 import { LIST_COLOUR, textMessage } from './v2.js';
 
 /** At most this many entries are shown (Matt, 2026-11-07); the older are counted. */
@@ -28,6 +29,25 @@ function was(text: string | undefined): string {
   return text === undefined ? '' : ` (was ${text})`;
 }
 
+/** How long the stops of one change of a route may run in its line. */
+const STOPS_ROOM = 300;
+
+/**
+ * `added the stop **A**`, `removed 2 stops: **B**, **C**`, `added 30 stops: …, …and 22 more`;
+ * undefined for none.
+ */
+function stopsWords(did: string, stops: readonly (string | null)[]): string | undefined {
+  const [only] = stops;
+  if (stops.length === 0) return undefined;
+  const name = (stop: string | null) => (stop === null ? undefined : `**${plain(stop)}**`);
+  if (stops.length === 1) {
+    const one = name(only ?? null);
+    return one === undefined ? `${did} a stop Pine no longer knows` : `${did} the stop ${one}`;
+  }
+  const names = stops.map((stop) => name(stop) ?? 'a stop Pine no longer knows');
+  return `${did} ${String(stops.length)} stops: ${fitItems(names, STOPS_ROOM)}`;
+}
+
 /** What an entry says was done, after who did it, at `now`. */
 export function auditWords(entry: AuditEntry, now: number): string {
   const time = (ms: number) => clockOrDate(ms, now);
@@ -48,9 +68,11 @@ export function auditWords(entry: AuditEntry, now: number): string {
       if (entry.kind === 'raid' || entry.kind === 'max') {
         const boss =
           entry.boss === null || entry.boss === undefined
-            ? entry.kind === 'raid'
-              ? ' (egg)'
-              : ''
+            ? entry.kind !== 'raid'
+              ? ''
+              : entry.hatched === true
+                ? ' (hatched, boss unknown)'
+                : ' (egg)'
             : ` against ${plain(entry.boss)}`;
         return `reported it${anonymous}: ${entry.what ?? partyWord({ type: entry.kind })}${boss}${after}`;
       }
@@ -76,13 +98,12 @@ export function auditWords(entry: AuditEntry, now: number): string {
       return `renamed it: **${plain(entry.to)}**${was(`**${plain(entry.from)}**`)}`;
     case 'info':
       return 'changed the information';
-    case 'stop-added':
-    case 'stop-removed': {
-      const did = entry.action === 'stop-added' ? 'added' : 'removed';
-      return entry.stop === null
-        ? `${did} a stop Pine no longer knows`
-        : `${did} the stop **${plain(entry.stop)}**`;
-    }
+    case 'route':
+      return [stopsWords('added', entry.added), stopsWords('removed', entry.removed)]
+        .filter((words) => words !== undefined)
+        .join(' and ');
+    case 'kind':
+      return `made it a ${TRAIN_KIND_WORDS[entry.to]}${was(`a ${TRAIN_KIND_WORDS[entry.from]}`)}`;
     case 'route-cleared':
       return 'cleared the route';
     case 'conductor':
@@ -127,24 +148,48 @@ export function auditLine(record: AuditRecord, now: number): string {
   if (entry.action === 'ended' && entry.how === 'clock' && record.actor === null) {
     return `${clockOrDate(record.at, now)} The clock ended it.`;
   }
+  // Staff's closing that names nobody (a deletion redone by the upkeep): staff's all the same.
+  if (
+    entry.action === 'ended' &&
+    entry.how === 'closed' &&
+    entry.by === 'staff' &&
+    record.actor === null
+  ) {
+    const post =
+      entry.removal === 'delete'
+        ? 'staff deleted its post'
+        : entry.removal === 'archive'
+          ? 'staff archived its post'
+          : 'staff closed it';
+    return `${clockOrDate(record.at, now)} **Pine** closed it: ${post}.`;
+  }
   return `${clockOrDate(record.at, now)} ${actorOf(record)} ${auditWords(entry, now)}.`;
 }
 
-/**
- * The newest of `lines` that fit `LINES_ROOM` and `AUDIT_LINES`, oldest first, then how many
- * older ones were left out (`-# …and 3 earlier changes`).
- */
-function fitted(lines: readonly string[]): string[] {
+/** The newest of `lines` that fit `room` and `AUDIT_LINES`, oldest first, and how many did not. */
+function fitted(lines: readonly string[], room: number): { kept: string[]; dropped: number } {
   const kept: string[] = [];
-  let room = LINES_ROOM;
+  let left = room;
   for (const line of [...lines].reverse()) {
-    if (kept.length === AUDIT_LINES || line.length + 1 > room) break;
+    if (kept.length === AUDIT_LINES || line.length + 1 > left) break;
     kept.unshift(line);
-    room -= line.length + 1;
+    left -= line.length + 1;
   }
-  const earlier = lines.length - kept.length;
-  if (earlier === 0) return kept;
-  return [`-# …and ${String(earlier)} earlier ${earlier === 1 ? 'change' : 'changes'}`, ...kept];
+  return { kept, dropped: lines.length - kept.length };
+}
+
+/**
+ * The one line that says what is not shown: `-# …and 3 earlier changes`; with `more` (there are
+ * older ones than were read) `-# …and more than 3 earlier changes`, or `-# …and earlier changes`.
+ */
+function earlierLine(dropped: number, more = false): string | undefined {
+  if (more) {
+    return dropped === 0
+      ? '-# …and earlier changes'
+      : `-# …and more than ${String(dropped)} earlier changes`;
+  }
+  if (dropped === 0) return undefined;
+  return `-# …and ${String(dropped)} earlier ${dropped === 1 ? 'change' : 'changes'}`;
 }
 
 /** The kind of party a post's log is of: that of its newest creation or move. */
@@ -155,13 +200,24 @@ function kindOf(records: readonly AuditRecord[]): PartyType | undefined {
   return undefined;
 }
 
-/** `/audit` in a post: `### Log of this raid`, a line per entry, oldest first. */
+/**
+ * `/audit` in a post: `### Log of this raid`, a line per entry, oldest first. How the party was
+ * made (its newest creation or move here) always stands first, outside the `AUDIT_LINES`.
+ */
 export function postAuditMessage(records: readonly AuditRecord[], now: number): V2Message {
   const kind = kindOf(records);
   const heading = `### Log of this ${kind === undefined ? 'post' : partyWord({ type: kind })}`;
   if (records.length === 0) return textMessage(LIST_COLOUR, [heading, NOTHING_LOGGED]);
-  const lines = records.map((record) => auditLine(record, now));
-  return textMessage(LIST_COLOUR, [heading, fitted(lines).join('\n')]);
+  const made = records.findLastIndex(
+    ({ entry }) => entry.action === 'created' || entry.action === 'moved',
+  );
+  const first = made === -1 ? undefined : records[made];
+  const rest = records.filter((_record, n) => n !== made);
+  const top = first === undefined ? undefined : auditLine(first, now);
+  const lines = rest.map((record) => auditLine(record, now));
+  const { kept, dropped } = fitted(lines, LINES_ROOM - (top === undefined ? 0 : top.length + 1));
+  const shown = [top, earlierLine(dropped), ...kept].filter((line) => line !== undefined);
+  return textMessage(LIST_COLOUR, [heading, shown.join('\n')]);
 }
 
 /** `/audit member:`: the member's newest entries in this server, each with its post. */
@@ -179,11 +235,7 @@ export function memberAuditMessage(
     const where = record.postId === null ? '' : ` in <#${record.postId}>`;
     return `${clockOrDate(record.at, now)}${where}: ${auditWords(record.entry, now)}.`;
   });
-  const shown = fitted(lines);
-  return textMessage(LIST_COLOUR, [
-    heading,
-    (more && shown.length === lines.length ? ['-# …and earlier changes', ...shown] : shown).join(
-      '\n',
-    ),
-  ]);
+  const { kept, dropped } = fitted(lines, LINES_ROOM);
+  const shown = [earlierLine(dropped, more), ...kept].filter((line) => line !== undefined);
+  return textMessage(LIST_COLOUR, [heading, shown.join('\n')]);
 }

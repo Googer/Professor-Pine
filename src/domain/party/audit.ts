@@ -11,6 +11,7 @@ import {
   isTimed,
   isTrain,
   PARTY_TYPES,
+  TRAIN_KINDS,
   type Party,
   type RaidBossRef,
 } from './party.js';
@@ -39,6 +40,8 @@ const DETAILS = {
     kind: z.enum(PARTY_TYPES),
     what: z.string().optional(),
     boss: z.string().nullable().optional(),
+    /** A raid reported hatched whose boss nobody could tell: no egg. */
+    hatched: z.boolean().optional(),
     name: z.string().optional(),
     place: z.string().nullable(),
     anonymous: z.boolean(),
@@ -53,7 +56,10 @@ const DETAILS = {
     fromPlace: z.string().nullable(),
     fromChannel: z.string().nullable(),
   }),
-  /** The boss and tier, as `Yveltal (T5)`, `T5 egg`, `Machamp (Dynamax 2★)`. */
+  /**
+   * The boss and tier, as `Yveltal (T5)`, `T5 egg`, `Machamp (Dynamax 2★)`; a train's boss by
+   * name, `none` for none.
+   */
   boss: fromTo(z.string()),
   /** A raid boss's moves, `Snarl / Hurricane` (`?` for one not known). */
   moves: fromTo(z.string()),
@@ -66,10 +72,18 @@ const DETAILS = {
   /** A meetup's information changed (what it says is not kept). */
   info: z.object({}),
   /** A stop of a train's route, by name; null for one Pine no longer knows. */
-  'stop-added': z.object({ stop: z.string().nullable() }),
-  'stop-removed': z.object({ stop: z.string().nullable() }),
+  /**
+   * One change of a train's route: the stops it added and removed, by name (null for one Pine no
+   * longer knows), counted (a stop twice in the route is two).
+   */
+  route: z.object({
+    added: z.array(z.string().nullable()),
+    removed: z.array(z.string().nullable()),
+  }),
   'route-cleared': z.object({}),
   conductor: fromTo(loggedMember.nullable()),
+  /** What a train is mainly for (Manage…'s kind). */
+  kind: fromTo(z.enum(TRAIN_KINDS)),
   /** `/admin save-party`: kept from the clock, or let go again. */
   saved: z.object({ saved: z.boolean() }),
   /**
@@ -140,6 +154,7 @@ function bossWords(party: Party, names: AuditNames): string | undefined {
     return boss === null ? `${tier} egg` : `${names.boss(boss)} (${tier})`;
   }
   if (isMax(party)) return `${names.boss(party.max.boss)} (${maxTierLabel(party.max.tier)})`;
+  if (isTrain(party)) return party.train.boss === null ? 'none' : names.boss(party.train.boss);
   return undefined;
 }
 
@@ -189,6 +204,7 @@ function creation(party: Party, names: AuditNames, movedFrom: Party | undefined)
     ? {
         what: raidWords(party.raid.tier),
         boss: party.raid.boss === null ? null : names.boss(party.raid.boss),
+        ...(party.raid.boss === null && party.raid.reportedHatched ? { hatched: true } : {}),
       }
     : isMax(party)
       ? {
@@ -291,16 +307,16 @@ export function auditEntries(
     const now = after.train.route;
     if (now.length === 0 && was.length > 0) entries.push({ action: 'route-cleared' });
     else {
-      for (const stop of stopsLacking(now, was)) {
-        entries.push({ action: 'stop-added', stop: stopName(stop, names) });
-      }
-      for (const stop of stopsLacking(was, now)) {
-        entries.push({ action: 'stop-removed', stop: stopName(stop, names) });
-      }
+      const added = stopsLacking(now, was).map((stop) => stopName(stop, names));
+      const removed = stopsLacking(was, now).map((stop) => stopName(stop, names));
+      if (added.length > 0 || removed.length > 0) entries.push({ action: 'route', added, removed });
     }
   }
   const conductor = changed(conductorOf, (a, b) => a?.id === b?.id);
   if (conductor) entries.push({ action: 'conductor', ...conductor });
+  if (isTrain(before) && isTrain(after) && before.train.kind !== after.train.kind) {
+    entries.push({ action: 'kind', from: before.train.kind, to: after.train.kind });
+  }
   if (before.saved !== after.saved) entries.push({ action: 'saved', saved: after.saved });
   if (before.status === 'active' && after.status === 'ended') entries.push(ending(how, names));
   return entries;
