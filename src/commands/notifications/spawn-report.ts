@@ -56,6 +56,18 @@ export const DISCORD_SPAWN_NAMES: SpawnNames = {
   channel: (channelId) => `<#${channelId}>`,
 };
 
+/**
+ * The names for a member who cannot see the region's channel the report went into (`/wild` in a
+ * post they are in only by an access grant, follow-ups 852): no link, which would lead nowhere
+ * for them, but that it is there for the region.
+ */
+export const UNSEEN_SPAWN_NAMES: SpawnNames = {
+  report: () =>
+    'It went into the channel of this region, which you cannot see, so there is no link to ' +
+    'it; the region’s members see it.',
+  channel: () => 'the channel of this region',
+};
+
 /** A report whose Pokémon, details and region are known. */
 export interface SpawnReportRequest {
   guildId: string;

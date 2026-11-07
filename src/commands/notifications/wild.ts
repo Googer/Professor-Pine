@@ -15,7 +15,7 @@ import { count, plain, truncate } from '../../render/text.js';
 import { CHOICE_NAME, MAX_CHOICES, type Choice } from '../choices.js';
 import { answer } from '../../discord/late-reply.js';
 import { blockedAtPin } from '../max/max-report.js';
-import { DISCORD_SPAWN_NAMES, reportSpawnAs } from './spawn-report.js';
+import { DISCORD_SPAWN_NAMES, reportSpawnAs, UNSEEN_SPAWN_NAMES } from './spawn-report.js';
 
 /** Where `/wild` works, said wherever it does not. */
 export const WILD_FROM_A_REGION =
@@ -241,6 +241,25 @@ const requireSpawnReport: Guard = async (interaction, ctx) => {
 };
 
 /**
+ * Whether a member can view a channel, by the rule the direct messages of a report ask
+ * (`MemberDirectory.viewers`). True where it could not be found out: the answer then links the
+ * report as before.
+ */
+async function seesChannel(
+  ctx: Pick<AppContext, 'members' | 'log'>,
+  guildId: string,
+  channelId: string,
+  memberId: string,
+): Promise<boolean> {
+  try {
+    return (await ctx.members.viewers(guildId, channelId, [memberId])).has(memberId);
+  } catch (err) {
+    ctx.log.debug({ err, channel: channelId }, 'could not find out who sees a region channel');
+    return true;
+  }
+}
+
+/**
  * `/wild` (spec 4.2, there still `/spawn`; the legacy `!spawn`, `!wild`): reports a wild
  * Pokémon in the region the command is used in. The report is a public message in the region's
  * text channel, also when the command is used in the region's forum or a post there, which is
@@ -328,6 +347,12 @@ export const wildCommand: SimpleCommand = {
     const picked = interaction.options.getString('iv');
     const iv = IV_CHOICES.find((choice) => choice.value === picked)?.value;
     const place = await namedPlace(interaction, ctx, interaction.options.getString('near'));
+    // Used in the region's forum or a post there: a guest of a post (an access grant) may not see
+    // the region's channel, where the report goes all the same (where the region's members and
+    // the direct messages lead); their answer then says so rather than giving a dead link.
+    const unseen =
+      interaction.channelId !== regionChannelId &&
+      !(await seesChannel(ctx, guildIdOf(interaction), regionChannelId, interaction.user.id));
     const content = await reportSpawnAs(
       ctx,
       {
@@ -338,7 +363,7 @@ export const wildCommand: SimpleCommand = {
         reporter: { id: interaction.user.id, name: memberInfo(interaction).name },
         near: place,
       },
-      DISCORD_SPAWN_NAMES,
+      unseen ? UNSEEN_SPAWN_NAMES : DISCORD_SPAWN_NAMES,
     );
     await answer(interaction, { content });
   },

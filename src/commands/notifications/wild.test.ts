@@ -59,6 +59,8 @@ async function setup(
     regions: made.regions,
     spawns: made.spawns,
     wants: made.wants,
+    // Who sees the region's channel, as the direct messages ask it.
+    members: made.members,
   });
   // The search of the stops and power spots is built in a turn of its own.
   await ctx.placeFinder.built();
@@ -159,6 +161,30 @@ describe('/wild', () => {
     // The link line of the raid is the third message there.
     expect(made.reports().filter((message) => message.message.v2)).toHaveLength(2);
     expect(made.gateway.messagesIn(raid.postId)).toEqual([]);
+  });
+
+  it('says so, without a dead link, where the member cannot see the region’s channel (a guest of a post)', async () => {
+    const made = await setup();
+    const raid = await reportedRaid({}, {}, made);
+    // Alice is in the post only through an access grant: she cannot see the region's channel.
+    made.members.hide(WEST_CHANNEL, ALICE);
+    const used = await made.run(
+      { pokemon: 'dratini' },
+      { channelId: raid.postId, thread: { parentId: WEST_FORUM } },
+    );
+    // The report goes where the region's members and those who want it look for it.
+    expect(made.reports().filter((message) => message.message.v2)).toHaveLength(1);
+    expect(sent(used.reply).content).toBe(
+      'Reported: a wild Dratini. It went into the channel of this region, which you cannot ' +
+        'see, so there is no link to it; the region’s members see it.\n' +
+        'The report is removed in 30 minutes.',
+    );
+    // Who sees the channel gets the link, in the post as in the channel.
+    const seen = await made.run(
+      { pokemon: 'dratini' },
+      { channelId: raid.postId, thread: { parentId: WEST_FORUM }, userId: BOB },
+    );
+    expect(sent(seen.reply).content).toContain(postLink(made.gateway.guildId, WEST_CHANNEL, ''));
   });
 
   it('is refused outside a region, with a sentence, and counts nothing against the limit', async () => {
