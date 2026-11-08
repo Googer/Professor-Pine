@@ -765,6 +765,8 @@ export async function startApp(
     gateway: partyGateway,
     posts: partyService,
     lines,
+    // Manage…'s changes say theirs as one message with the times' (review SF1-6).
+    timedLines: timedParties,
     users,
     gyms,
     wayspots,

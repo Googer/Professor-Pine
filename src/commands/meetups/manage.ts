@@ -226,64 +226,91 @@ export async function submitMeetupManage(
         return why.text;
     }
   };
+  /** A turn refused: said, and the turns end. */
+  const refusedTurn = async (text: string): Promise<boolean> => {
+    await refused(text);
+    return false;
+  };
   const now = Date.now();
-  for (const turn of turns) {
-    if (turn.stale) return void (await refused(MEETUP_CHANGED_MEANWHILE));
-    // Each on the meetup as the change before left it, as the map asks after each answer.
-    const current = ctx.parties.get(partyId);
-    if (!current || !isMeetup(current)) return void (await refused(partyOver(A_MEETUP)));
-    let answer: TimedAnswer;
-    if ('one' in turn) {
-      const checked = await meetupChangeCheck(ctx, serverId, current, userId, staff, turn.one, now);
-      if ('refused' in checked) {
-        if (checked.refused.reason === 'blocked' && said.length === 0) {
-          throw new UserError(BLOCKED_FROM_CHANGING, {
-            answer: blockedAnswer(BLOCKED_FROM_CHANGING, serverId),
-          });
+  // One Submit is one message in the post where it moves the start (review SF1-6): its lines
+  // are held until every turn was made, then follow the start in the message that tells the
+  // others of it (`together`); a refusal ends the turns as before (`finished` stays false).
+  const finished = await ctx.timedParties.together(partyId, async (): Promise<boolean> => {
+    for (const turn of turns) {
+      if (turn.stale) return refusedTurn(MEETUP_CHANGED_MEANWHILE);
+      // Each on the meetup as the change before left it, as the map asks after each answer.
+      const current = ctx.parties.get(partyId);
+      if (!current || !isMeetup(current)) return refusedTurn(partyOver(A_MEETUP));
+      let answer: TimedAnswer;
+      if ('one' in turn) {
+        const checked = await meetupChangeCheck(
+          ctx,
+          serverId,
+          current,
+          userId,
+          staff,
+          turn.one,
+          now,
+        );
+        if ('refused' in checked) {
+          if (checked.refused.reason === 'blocked' && said.length === 0) {
+            throw new UserError(BLOCKED_FROM_CHANGING, {
+              answer: blockedAnswer(BLOCKED_FROM_CHANGING, serverId),
+            });
+          }
+          return refusedTurn(refusalWords(checked.refused));
         }
-        return void (await refused(refusalWords(checked.refused)));
+        const window = meetupChangeWindow(turn.one.change);
+        const counted = countUse(ctx.throttles, window, userId, Date.now());
+        if ('refusal' in counted) return refusedTurn(counted.refusal);
+        try {
+          answer = await meetupChangeAs(
+            ctx,
+            serverId,
+            current,
+            member,
+            turn.one,
+            checked.start,
+            now,
+          );
+        } catch (err) {
+          if (!(err instanceof UserError) || err.givesBack) counted.giveBack(Date.now());
+          if (!(err instanceof UserError)) throw err;
+          // `/end`'s reader, after its use counted, as on the map.
+          return refusedTurn(err.message);
+        }
+      } else {
+        const checked = meetupTimesCheck(ctx, current, userId, staff, turn.times, now);
+        if ('refused' in checked) return refusedTurn(refusalWords(checked.refused));
+        const counted = countTimes(ctx.throttles, userId, checked.read, Date.now());
+        if ('refusal' in counted) return refusedTurn(counted.refusal);
+        try {
+          answer = await setTimesAs(ctx, current, member, checked.read, now, {
+            start: turn.times.start.drawn,
+            end: turn.times.end.drawn,
+          });
+        } catch (err) {
+          // As the map's: any failure of both times gives their uses back.
+          counted.givenBack(Date.now());
+          if (!(err instanceof UserError)) throw err;
+          return refusedTurn(err.message);
+        }
+        // Times that came to nothing do not count (the map's `givenBack`).
+        if (answer.kind === 'refused') counted.givenBack(Date.now(), answer.went);
       }
-      const window = meetupChangeWindow(turn.one.change);
-      const counted = countUse(ctx.throttles, window, userId, Date.now());
-      if ('refusal' in counted) return void (await refused(counted.refusal));
-      try {
-        answer = await meetupChangeAs(ctx, serverId, current, member, turn.one, checked.start, now);
-      } catch (err) {
-        if (!(err instanceof UserError) || err.givesBack) counted.giveBack(Date.now());
-        if (!(err instanceof UserError)) throw err;
-        // `/end`'s reader, after its use counted, as on the map.
-        return void (await refused(err.message));
+      if (answer.kind !== 'ok') {
+        const text =
+          answer.kind === 'refused' && answer.reason === 'changed-meanwhile'
+            ? MEETUP_CHANGED_MEANWHILE
+            : answer.text;
+        return refusedTurn(text);
       }
-    } else {
-      const checked = meetupTimesCheck(ctx, current, userId, staff, turn.times, now);
-      if ('refused' in checked) return void (await refused(refusalWords(checked.refused)));
-      const counted = countTimes(ctx.throttles, userId, checked.read, Date.now());
-      if ('refusal' in counted) return void (await refused(counted.refusal));
-      try {
-        answer = await setTimesAs(ctx, current, member, checked.read, now, {
-          start: turn.times.start.drawn,
-          end: turn.times.end.drawn,
-        });
-      } catch (err) {
-        // As the map's: any failure of both times gives their uses back.
-        counted.givenBack(Date.now());
-        if (!(err instanceof UserError)) throw err;
-        return void (await refused(err.message));
-      }
-      // Times that came to nothing do not count (the map's `givenBack`).
-      if (answer.kind === 'refused') counted.givenBack(Date.now(), answer.went);
+      said.push(answer.text);
+      if ('one' in turn && turn.one.change === 'info') infoWent = true;
     }
-    if (answer.kind !== 'ok') {
-      const text =
-        answer.kind === 'refused' && answer.reason === 'changed-meanwhile'
-          ? MEETUP_CHANGED_MEANWHILE
-          : answer.text;
-      return void (await refused(text));
-    }
-    said.push(answer.text);
-    if ('one' in turn && turn.one.change === 'info') infoWent = true;
-  }
-  await say(manageWords(said));
+    return true;
+  });
+  if (finished) await say(manageWords(said));
 }
 
 /**

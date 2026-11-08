@@ -170,6 +170,37 @@ describe('Manage…’s Submit as one code path for the dialog and the map (plan
     expect(lines[1]).toMatch(/set the end of this train/u);
   });
 
+  // Review SF1-6: the kind was said at once, the start and the end later.
+  it('says what one Submit changed in one message, the start first, when it moves the start', async () => {
+    const made = await setup();
+    const hour = 3_600_000;
+    const from = Math.ceil(made.current().createdAt / hour) * hour;
+    const alice = { id: ALICE, name: 'Alice' };
+    await made.attendance.flush();
+    const seen = made.gateway.messagesIn(made.postId).length;
+    const answer = await manageTrainAs(
+      made.ctx,
+      made.current(),
+      alice,
+      false,
+      made.shown(),
+      { kind: 'dynamax', route: 'keep', atEnd: 'finish', start: from + hour, end: 'in 500' },
+      'post',
+      made.current().createdAt,
+    );
+    expect(answer).toMatchObject({ kind: 'ok' });
+    await made.attendance.flush();
+    await made.timed.flush();
+    await made.trains.flush();
+    const sent = made.gateway.messagesIn(made.postId).slice(seen);
+    expect(sent).toHaveLength(1);
+    const lines = (sent[0]?.message.content ?? '').split('\n');
+    expect(lines[0]).toMatch(/set the start of this train/u);
+    const others = lines.slice(1).filter((line) => !line.startsWith('<@'));
+    expect(others.some((line) => /set the end of this train/u.test(line))).toBe(true);
+    expect(others.some((line) => !/set the (start|end)/u.test(line))).toBe(true);
+  });
+
   it('says which times went through when one is refused', async () => {
     const made = await setup();
     const alice = { id: ALICE, name: 'Alice' };

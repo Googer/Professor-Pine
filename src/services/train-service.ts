@@ -111,6 +111,12 @@ export interface TrainServiceOptions {
   posts: { changed(partyId: string): void };
   /** Where the lines go that ping nobody. */
   lines: Pick<PartyLines, 'say'>;
+  /**
+   * Where the line of a train's own change goes when given (`TimedPartyService.line`, review
+   * SF1-6): held while Manage… makes its changes `together`, and after a waiting start in its
+   * message; else `lines`.
+   */
+  timedLines?: { line(partyId: string, postId: string, text: string): void };
   /** The members' settings: who lets the bot ping them when the train moves. */
   users: UserSettingsReader;
   /**
@@ -990,7 +996,7 @@ export class TrainService {
     change: (party: TrainParty, now: number) => Change<TrainParty, Extra>,
     line?: (party: TrainParty, result: Extra) => string | undefined,
   ): Promise<TrainChangeOutcome<Extra>> {
-    const { store, posts, lines } = this.options;
+    const { store, posts, lines, timedLines } = this.options;
     const stored = await storedChange<TrainParty, Extra>(
       store,
       partyId,
@@ -1008,7 +1014,10 @@ export class TrainService {
     if (stored.written) {
       posts.changed(partyId);
       const text = line?.(party, stored.extra);
-      if (text !== undefined && party.forumPostId !== null) lines.say(party.forumPostId, text);
+      if (text !== undefined && party.forumPostId !== null) {
+        if (timedLines) timedLines.line(partyId, party.forumPostId, text);
+        else lines.say(party.forumPostId, text);
+      }
     }
     return { ...stored.extra, kind: 'ok', party, changed: stored.written };
   }

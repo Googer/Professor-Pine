@@ -165,6 +165,30 @@ describe('Manage… of a meetup’s post (plan 8M-21: the map’s editor as a di
     });
   });
 
+  // Review SF1-6: the name and the information were said at once, the start and the end later.
+  it('says what one Submit changed in one message, the start first, when it moves the start', async () => {
+    const made = await setup();
+    const before = made.gateway.messagesIn(made.postId).length;
+    await made.submit(shownDialog(await made.open()), {
+      name: 'Park picnic',
+      info: 'Bring tea.',
+      start: '9pm',
+      end: '10pm',
+    });
+    // The lines that ping nobody first, as they go out before the start's message.
+    await made.attendance.flush();
+    await made.timed.flush();
+    const sent = made.gateway.messagesIn(made.postId).slice(before);
+    expect(sent).toHaveLength(1);
+    const lines = (sent[0]?.message.content ?? '').split('\n');
+    expect(lines[0]).toMatch(/set the start of this meetup/u);
+    expect(lines.slice(1, 4)).toEqual([
+      expect.stringMatching(/renamed this meetup/u),
+      expect.stringMatching(/changed the information/u),
+      expect.stringMatching(/set the end of this meetup/u),
+    ]);
+  });
+
   it('refuses a line drawn from what the meetup no longer is, and leaves one left untouched', async () => {
     const made = await setup();
     const dialog = shownDialog(await made.open());

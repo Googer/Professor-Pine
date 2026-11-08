@@ -551,6 +551,7 @@ export async function partyServiceWith(
     gateway,
     posts: service,
     lines,
+    timedLines: timed,
     users,
     gyms,
     ...(forService.wayspots === undefined ? {} : { wayspots: forService.wayspots }),

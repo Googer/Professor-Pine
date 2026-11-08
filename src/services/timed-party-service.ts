@@ -267,16 +267,17 @@ export class TimedPartyService {
       return await work();
     } finally {
       this.held.delete(partyId);
-      for (const { postId, text } of lines) this.say(partyId, postId, text);
+      for (const { postId, text } of lines) this.line(partyId, postId, text);
     }
   }
 
   /**
    * Says a line of a party in its post, pinging nobody: held while its changes are made
    * `together`; after the start in the message of a start that waits for its announcement; else
-   * at once, with the post's other lines.
+   * at once, with the post's other lines. A train's changes of its own say theirs this way too
+   * (`TrainServiceOptions.timedLines`, review SF1-6), so that Manage… is one message.
    */
-  private say(partyId: string, postId: string, text: string): void {
+  line(partyId: string, postId: string, text: string): void {
     const held = this.held.get(partyId);
     if (held) {
       held.push({ postId, text });
@@ -376,7 +377,7 @@ export class TimedPartyService {
       posts.changed(partyId);
       const text = line?.(party);
       if (text !== undefined && party.forumPostId !== null) {
-        this.say(partyId, party.forumPostId, text);
+        this.line(partyId, party.forumPostId, text);
       }
     }
     return { ...stored.extra, kind: 'ok', party, changed: stored.written };

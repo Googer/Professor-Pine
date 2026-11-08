@@ -574,7 +574,7 @@ function managedWords(
  * and the end go `/meet`'s and `/end`'s way once the rest went through (`setTimesAs`, which a
  * meetup's editor shares, and who may arrange the train).
  */
-export async function manageTrainAs(
+export function manageTrainAs(
   ctx: TrainManaging,
   party: TrainParty,
   member: Member,
@@ -583,6 +583,24 @@ export async function manageTrainAs(
   picked: ManagePicked,
   surface: TrainSurface,
   now = Date.now(),
+): Promise<TrainAnswer> {
+  // One Submit is one message in the post where it moves the start (review SF1-6): the lines of
+  // the kind, the route and the mode follow the start with the end's (`together`).
+  return ctx.timedParties.together(party.id, () =>
+    manageInTurn(ctx, party, member, staff, shown, picked, surface, now),
+  );
+}
+
+/** The changes of `manageTrainAs`, in their order. */
+async function manageInTurn(
+  ctx: TrainManaging,
+  party: TrainParty,
+  member: Member,
+  staff: boolean,
+  shown: ManageShown,
+  picked: ManagePicked,
+  surface: TrainSurface,
+  now: number,
 ): Promise<TrainAnswer> {
   const asked: TrainManage = {
     ...(picked.kind === shown.kind ? {} : { kind: picked.kind }),
