@@ -157,6 +157,12 @@ describe('the steps', () => {
     expect(said(false)).toContain('a gym on the map');
   });
 
+  // Matt, 2026-11-07: the step names the list as its own title does ("What's going on").
+  it('names the list in its step as the list is titled, in title case', () => {
+    const step = tourSteps(MEMBER).find((one) => one.id === 'browse');
+    expect(step?.heading).toBe("Browsing What's Going On");
+  });
+
   it('shows a member History and Your history in the menu, where the menu has them', () => {
     const steps = tourSteps({ ...MEMBER, history: true });
     expect(ids(steps)).toEqual([

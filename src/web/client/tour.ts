@@ -163,7 +163,7 @@ function memberSteps(facts: TourFacts): TourStep[] {
     },
     {
       id: 'browse',
-      heading: 'Browsing What Is On',
+      heading: "Browsing What's Going On",
       targets: [
         { selectors: ['#list-button'], words: ['📋 Simply press List.', ...browse] },
         { selectors: ['#parties'], words: browse },
