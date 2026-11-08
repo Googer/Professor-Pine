@@ -68,9 +68,10 @@ describe('the layers of the map (plan 8M-7)', () => {
       ['gyms', false],
       ['stops', false],
       ['spots', false],
-      // The party history as a heatmap (plan 8H-4): off until a member turns it on.
-      ['activity', false],
       ['outlines', true],
+      // The party history as a heatmap (plan 8H-4): off until a member turns it on; the last
+      // layer, in the row and under More (Matt, 2026-11-07).
+      ['activity', false],
     ]);
     // The live ones first, then the background ones: the desktop's row shows them in this order,
     // as many as fit, the rest under "More" (2026-11-07).
@@ -96,7 +97,7 @@ describe('the layers of the map (plan 8M-7)', () => {
         .layers()
         .filter((layer) => layer.kind === 'background')
         .map((l) => l.name),
-    ).toEqual(['Wild spawns', 'Gyms', 'PokéStops', 'Power Spots', 'Activity', 'Region outlines']);
+    ).toEqual(['Wild spawns', 'Gyms', 'PokéStops', 'Power Spots', 'Region outlines', 'Activity']);
   });
 
   it('keeps the choice in the browser, and reads it back on the next visit', () => {

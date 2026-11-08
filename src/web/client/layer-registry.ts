@@ -98,7 +98,9 @@ export const MAP_LAYERS: readonly LayerSpec[] = [
     hint: 'Shown from street level',
     membersOnly: true,
   },
-  // The party history as a heatmap (plan 8H-4): `/api/activity`, a member's.
+  { id: 'outlines', name: 'Region outlines', on: true, kind: 'background' },
+  // The party history as a heatmap (plan 8H-4): `/api/activity`, a member's. The last layer, in the
+  // row and under More (Matt, 2026-11-07).
   {
     id: 'activity',
     name: 'Activity',
@@ -108,7 +110,6 @@ export const MAP_LAYERS: readonly LayerSpec[] = [
     hint: 'Where raids and max battles happen, by the hour (train stops count too)',
     membersOnly: true,
   },
-  { id: 'outlines', name: 'Region outlines', on: true, kind: 'background' },
 ];
 
 /** The regions' names are shown below this zoom (fix round 1). */
