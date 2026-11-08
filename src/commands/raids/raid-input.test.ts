@@ -59,6 +59,25 @@ describe('bossChoices', () => {
     expect(bossChoices(ctx, 'zzz')).toEqual([]);
   });
 
+  // Staging of 2026-11-07: "tier 1" found nothing, though `/raid` reads it as a T1 egg.
+  it('reads a tier spelled as a report reads it: tier 1, level 5, tier1, 5 star, as T1, T5', () => {
+    const names = (typed: string) => bossChoices(ctx, typed).map((choice) => choice.name);
+    const t5 = names('t5');
+    for (const typed of ['tier 5', 'level 5', 'tier5', 'Level5', '5 star', '5-star']) {
+      expect(names(typed)).toEqual(t5);
+    }
+    expect(names('tier 1')).toEqual(names('t1'));
+    expect(names('level 1')).toContain('T1 egg');
+    expect(names('tier 5 egg')).toEqual(['T5 egg', 'Shadow T5 egg']);
+    expect(names('shadow tier 3')).toEqual(names('shadow t3'));
+    expect(names('shadow tier 3')).toContain('Shadow T3 egg');
+    expect(names('mega')).toEqual(
+      expect.arrayContaining(['Mega egg', 'Mega Legendary egg', 'Super Mega egg']),
+    );
+    // A name keeps its own words: no tier is read inside it.
+    expect(names('yve')).toEqual(['Yveltal (T5)']);
+  });
+
   it('finds a boss by a nickname, after the bosses whose name fits', () => {
     const catalogue = catalogueFixture();
     const search = new PokemonSearch(

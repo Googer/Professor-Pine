@@ -17,7 +17,7 @@ import {
   sameRaidTier,
   type RaidTier,
 } from '../../domain/pogo/raid-tier.js';
-import { leadingTier } from '../../domain/pogo/tier-words.js';
+import { leadingTier, spellTiers } from '../../domain/pogo/tier-words.js';
 import { searchTokens } from '../../domain/search/text.js';
 import { matchNamed } from '../../domain/search/word-match.js';
 import { resolvePartyTime } from '../../domain/time/party-time.js';
@@ -86,11 +86,12 @@ export const eggChoiceValue = (tier: RaidTier): string => `e:${tierCode(tier)}`;
 
 /**
  * The choices for the `boss` option: the current bosses first, then an egg for every tier,
- * narrowed to what was typed. A choice's value says exactly what was picked, so that the
- * report does not depend on the name being typed back.
+ * narrowed to what was typed, a tier spelled as a report reads it (`tier 1`, `level 5` are `t1`,
+ * `t5`: `spellTiers`). A choice's value says exactly what was picked, so that the report does not
+ * depend on the name being typed back.
  */
 export function bossChoices(ctx: AppContext, typed: string): Choice[] {
-  const words = typed.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const words = spellTiers(typed).trim().split(/\s+/).filter(Boolean);
   const fits = (name: string): boolean => {
     const lower = name.toLowerCase();
     return words.every((word) => lower.includes(word));

@@ -16,17 +16,24 @@ const LEVEL_WORDS: Readonly<Record<string, RaidLevel>> = {
 };
 
 /**
+ * A text folded to lower case with a numbered tier spelled as the lists label it: `tier 5`,
+ * `tier5`, `level 5`, `5 star` and `5-star` are `t5`. How `leadingTier` reads a tier, and how the
+ * boss list of `/raid` narrows to what was typed (staging of 2026-11-07: `tier 1` found nothing).
+ */
+export function spellTiers(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/\b(?:tier|level)\s*(\d)\b/g, 't$1')
+    .replace(/\b(\d)[\s-]*stars?\b/g, 't$1');
+}
+
+/**
  * A tier typed as words at the start of a text (`shadow t5`, `tier 3`, `mega`), and the rest: how
  * a raid report and a train's boss read an egg. A nickname may not begin with one
  * (`nickname-rules.ts`).
  */
 export function leadingTier(text: string): { tier: RaidTier; rest: string } | undefined {
-  // `tier5` is `tier 5`, and `5 star` or `5-star` is `5`.
-  const spelled = text
-    .toLowerCase()
-    .replace(/\b(tier|level)(\d)/g, '$1 $2')
-    .replace(/\b(\d)[\s-]*stars?\b/g, '$1');
-  const words = spelled.split(/\s+/).filter(Boolean);
+  const words = spellTiers(text).split(/\s+/).filter(Boolean);
   let shadow = false;
   if (words[0] === 'shadow') {
     shadow = true;
