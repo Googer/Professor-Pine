@@ -399,6 +399,27 @@ export class SpawnService {
     return listed.filter((spawn) => spawn.deleteAt > now);
   }
 
+  /**
+   * Has the cropped icons of the spawns that stand in these servers made square for the map, in
+   * the background (review SF1-4 of the staging fixes: those of a report made before a restart were
+   * never asked for); at the start, once the bot knows its servers. Server by server; one whose
+   * reports cannot be read is logged and passed over. Never rejects.
+   */
+  async prepareStanding(guildIds: Iterable<string>): Promise<void> {
+    const { pictures, log } = this.options;
+    if (!pictures) return;
+    for (const guildId of guildIds) {
+      try {
+        const sources = (await this.standing(guildId)).flatMap((spawn) =>
+          spawn.image === null ? [] : [croppedPicture(spawn.image)],
+        );
+        if (sources.length > 0) await pictures.prepare(sources, { background: true });
+      } catch (err) {
+        log.warn({ err, guild: guildId }, 'could not make the pictures of the spawns square');
+      }
+    }
+  }
+
   /** Tells `listener` the server of each report recorded from now on (the map's live streams). */
   onReported(listener: (guildId: string) => void): void {
     this.listeners.push(listener);

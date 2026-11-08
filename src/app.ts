@@ -1277,6 +1277,9 @@ export async function startApp(
         // The reader's files (about 15 MB the first time) are had now, so that the first
         // screenshot does not wait for them; never awaited, and `ensure` logs what fails.
         if (config.settings.ocr.enabled) void ocrAssets.ensure();
+        // The square pictures of the spawns that stood through the restart (review SF1-4); never
+        // awaited, and it logs what fails.
+        void spawns.prepareStanding([...ready.guilds.cache.keys()]);
       });
       client.on(Events.GuildCreate, (guild) => {
         guilds

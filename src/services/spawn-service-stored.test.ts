@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { watchEachTest } from '../../test/support/timers.js';
-import { catalogueFixture } from '../../test/support/game-data.js';
+import { catalogueFixture, iconsFixture } from '../../test/support/game-data.js';
 import { WEST_CHANNEL } from '../../test/support/gyms.js';
 import { ALICE } from '../../test/support/parties.js';
 import { partyServiceWith } from '../../test/support/party-service.js';
@@ -50,6 +50,41 @@ async function stored() {
   };
   return { made, store, ...service(), again: service };
 }
+
+// Review SF1-4: a spawn that stands through a restart was never made square for the map.
+describe('SpawnService: the pictures of the spawns that stand at a start', () => {
+  it('has their cropped icons made square in the background, server by server', async () => {
+    const made = await partyServiceWith();
+    const store = new MemorySpawnReports();
+    const asked: Array<{ sources: string[]; background: boolean }> = [];
+    const make = (pictures?: ConstructorParameters<typeof SpawnService>[0]['pictures']) =>
+      new SpawnService({
+        gateway: made.gateway,
+        raidBosses: { bosses: () => [] },
+        gameData: { catalogue: catalogueFixture(), icons: iconsFixture() },
+        store,
+        settings: made.settings,
+        log: made.log,
+        now: () => made.clock.now,
+        setTimer: () => () => undefined,
+        ...(pictures ? { pictures } : {}),
+      });
+    await make().report(report(made.gateway.guildId));
+    const next = make({
+      prepare: (sources, how) => {
+        asked.push({ sources: [...sources], background: how?.background === true });
+        return Promise.resolve();
+      },
+    });
+    await next.prepareStanding([made.gateway.guildId, '499999999999999999']);
+    expect(asked).toEqual([
+      {
+        sources: ['https://cdn.leekduck.com/assets/img/pokemon_icons_crop/pm147.icon.png'],
+        background: true,
+      },
+    ]);
+  });
+});
 
 describe('SpawnService with stored reports', () => {
   it('records a report with the time it is due, and forgets it once it is deleted', async () => {
