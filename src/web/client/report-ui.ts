@@ -145,6 +145,8 @@ export class ReportFlow {
         pin: LatLon | undefined;
         /** The gym, PokéStop or Power Spot the pin was put at by a tap, if so (a spawn's place). */
         pinPlace: SpawnPlace | undefined;
+        /** How the pin's line names that place, with its kind ("Market Fountain (PokéStop)"). */
+        pinName: string | undefined;
         /** Why the pin cannot be reported where it is (review B6: in no region), if so. */
         refused: string | undefined;
         /** The map on its way to the Power Spots (R2-4): its zoom on the way says nothing. */
@@ -201,6 +203,7 @@ export class ReportFlow {
       places: new Map(),
       pin: undefined,
       pinPlace: undefined,
+      pinName: undefined,
       refused: undefined,
       flying: false,
       note: undefined,
@@ -250,7 +253,9 @@ export class ReportFlow {
   private draw(): void {
     const open = this.picking;
     if (open) {
-      this.deps.showLive(pickLive(open.kind, open.nearest, open.pin, open.refused, open.note));
+      this.deps.showLive(
+        pickLive(open.kind, open.nearest, open.pin, open.refused, open.note, open.pinName),
+      );
     }
   }
 
@@ -327,12 +332,13 @@ export class ReportFlow {
    * point in no region is said to be in none on its line, step 2 going on (review B6: by the
    * outlines, as a long press says it, `pressedWhere`).
    */
-  private pinAt(point: LatLon, place?: SpawnPlace): void {
+  private pinAt(point: LatLon, place?: SpawnPlace, name?: string): void {
     const open = this.picking;
     if (!open) return;
     const where = pressedWhere(point, this.deps.regions);
     open.pin = point;
     open.pinPlace = place;
+    open.pinName = place && name;
     open.refused = 'text' in where ? where.text : undefined;
     this.deps.showPin(point);
     this.draw();
@@ -350,7 +356,8 @@ export class ReportFlow {
       return true;
     }
     if (pick === 'point') {
-      this.pinAt({ lat: gym.lat, lon: gym.lon }, gymSpawnPlace(gym));
+      const name = gym.nickname !== null && gym.nickname !== '' ? gym.nickname : gym.name;
+      this.pinAt({ lat: gym.lat, lon: gym.lon }, gymSpawnPlace(gym), `${name} (gym)`);
       return true;
     }
     // Dimmed while another kind's places are picked (a max battle's Power Spots): the tap is
@@ -380,8 +387,12 @@ export class ReportFlow {
       return true;
     }
     if (pick === 'point') {
-      const { id, lat, lon } = spot;
-      this.pinAt({ lat, lon }, id === undefined ? undefined : { kind: 'powerspot', id, lat, lon });
+      const { id, title, lat, lon } = spot;
+      this.pinAt(
+        { lat, lon },
+        id === undefined ? undefined : { kind: 'powerspot', id, lat, lon },
+        title === undefined || title === '' ? undefined : `${title} (Power Spot)`,
+      );
       return true;
     }
     return battle && pick !== undefined;
@@ -425,7 +436,11 @@ export class ReportFlow {
     else if (pick === 'point' || pick === 'spots') {
       const { id, lat, lon } = stop;
       // A spawn's pin at the stop is the stop itself; a max battle's is a pin there.
-      this.pinAt({ lat, lon }, pick === 'point' ? { kind: 'stop', id, lat, lon } : undefined);
+      this.pinAt(
+        { lat, lon },
+        pick === 'point' ? { kind: 'stop', id, lat, lon } : undefined,
+        `${stop.title} (PokéStop)`,
+      );
     }
     return true;
   }

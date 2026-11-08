@@ -369,24 +369,34 @@ describe("the Report button's step 2 per kind and step 3 (plan 8M-9A, A4 to A6)"
     const spawn = started();
     spawn.flow.choose(kind('spawn'));
     expect(spawn.flow.gymClicked(GYMS.get(2) as MapGym)).toBe(true);
-    expect(spawn.shown()).toEqual(expect.arrayContaining(['Spawn here', 'Report here']));
+    expect(spawn.shown()).toEqual(
+      expect.arrayContaining(['Spawn at Fountain (gym)', 'Report here']),
+    );
     spawn.flow.pinPicked();
     expect(spawn.calls.at(-1)).toBe('spawn at gym:2 40.444 free');
-    const tapped = (tap: (flow: ReportFlow) => void) => {
+    /** What the pin's line says once tapped, and what Report here then opens. */
+    const pinned = (tap: (flow: ReportFlow) => void) => {
       const one = started();
       one.flow.choose(kind('spawn'));
       tap(one.flow);
+      const line = one.shown().find((text) => text.startsWith('Spawn '));
       one.flow.pinPicked();
-      return one.calls.at(-1);
+      return [line, one.calls.at(-1)];
     };
-    expect(tapped((flow) => flow.spotClicked({ id: 'abc', lat: 40.45, lon: -79.95 }))).toBe(
-      'spawn at powerspot:abc 40.45 free',
-    );
+    const tapped = (tap: (flow: ReportFlow) => void) => pinned(tap)[1];
     expect(
-      tapped((flow) =>
+      pinned((flow) => flow.spotClicked({ id: 'abc', title: 'Old Mill', lat: 40.45, lon: -79.95 })),
+    ).toEqual(['Spawn at Old Mill (Power Spot)', 'spawn at powerspot:abc 40.45 free']);
+    expect(
+      pinned((flow) =>
         flow.stopClicked({ id: 'stop-1', title: 'Yellow Mural', lat: 40.44, lon: -79.95 }),
       ),
-    ).toBe('spawn at stop:stop-1 40.44 free');
+    ).toEqual(['Spawn at Yellow Mural (PokéStop)', 'spawn at stop:stop-1 40.44 free']);
+    // A battle's marker names no spot: its place, unnamed.
+    expect(pinned((flow) => flow.spotClicked({ id: 'abc', lat: 40.45, lon: -79.95 }))).toEqual([
+      'Spawn here',
+      'spawn at powerspot:abc 40.45 free',
+    ]);
     // A place tapped, then a point: the pin is the point's.
     expect(
       tapped((flow) => {
@@ -394,6 +404,12 @@ describe("the Report button's step 2 per kind and step 3 (plan 8M-9A, A4 to A6)"
         flow.mapClicked({ lat: 40.45, lon: -79.95 });
       }),
     ).toBe('spawn at 40.45 free');
+    expect(
+      pinned((flow) => {
+        flow.gymClicked(GYMS.get(2) as MapGym);
+        flow.mapClicked({ lat: 40.45, lon: -79.95 });
+      })[0],
+    ).toBe('Spawn here');
     expect(tapped((flow) => flow.mapClicked({ lat: 40.45, lon: -79.95 }))).toBe(
       'spawn at 40.45 free',
     );

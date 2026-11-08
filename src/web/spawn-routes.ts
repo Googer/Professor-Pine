@@ -86,6 +86,12 @@ export interface SpawnWebDeps {
   channelName(channelId: string): string | undefined;
 }
 
+/** What the map says of a place named in no region of the server (`/wild`'s `NOT_HERE`). */
+export const MAP_PLACE_NOT_HERE = 'That place is not in a region of this server.';
+
+/** What the map says of a place named that is gone or of another kind now (`PLACE_GONE`). */
+export const MAP_PLACE_GONE = 'That place is gone from the map: close its popup and pick it again.';
+
 /** What every report's body holds, wherever the spawn is. */
 const spawnBodyBase = {
   pokemon: z.string().trim().min(1).max(100),
@@ -114,12 +120,14 @@ const spawnBodySchema = z.union([
   z
     .object({
       ...spawnBodyBase,
+      // Only an id a choice of `/wild near:` may have (`readPlaceValue`'s own rule).
       place: z
         .object({
           kind: z.enum(['gym', 'stop', 'powerspot']),
           id: z.string().min(1).max(60),
         })
-        .strict(),
+        .strict()
+        .refine((place) => readPlaceValue(`${place.kind}:${place.id}`) !== undefined),
     })
     .strict(),
 ]);
@@ -294,13 +302,14 @@ export function spawnRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
     // refusals in its words); its point decides the region as a pin's does.
     let place: KnownPlace | undefined;
     if ('place' in body.data) {
-      const read = readPlaceValue(`${body.data.place.kind}:${body.data.place.id}`);
-      if (!read) return noted('gone', refusal(PLACE_GONE));
       try {
-        place = chosenPlace(ctx, row, read);
+        place = chosenPlace(ctx, row, body.data.place);
       } catch (err) {
         if (!(err instanceof UserError)) throw err;
-        return noted(err.message === NOT_HERE ? 'not-here' : 'gone', refusal(err.message));
+        // `/wild`'s words point to its list; the map's to the place's popup.
+        if (err.message === NOT_HERE) return noted('not-here', refusal(MAP_PLACE_NOT_HERE));
+        if (err.message === PLACE_GONE) return noted('gone', refusal(MAP_PLACE_GONE));
+        return noted('refused', refusal(err.message));
       }
     }
     const point = place
@@ -311,7 +320,9 @@ export function spawnRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
     if (point === undefined) return sendFailure(request, reply, 400);
     const lying = regionsAtPoint(ctx.regions.all(), row, point);
     const [first] = lying;
-    if (first === undefined) return noted('not-here', refusal(place ? NOT_HERE : PIN_NOT_HERE));
+    if (first === undefined) {
+      return noted('not-here', refusal(place ? MAP_PLACE_NOT_HERE : PIN_NOT_HERE));
+    }
     const picked =
       lying.length === 1 ? first : lying.find((region) => region.id === body.data.region);
     if (picked === undefined) {

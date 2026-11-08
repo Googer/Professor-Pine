@@ -16,6 +16,7 @@ import {
   spawnBox,
   spawnForm,
   spawnPoint,
+  spotSpawnBox,
 } from './spawn-forms.js';
 
 const OPTIONS: WildOptionsView = {
@@ -78,11 +79,17 @@ describe('"Report spawn here" in a gym\'s popup (spawnBox)', () => {
     ]);
   });
 
-  it("names a Power Spot by its id, as a gym's names the gym", () => {
-    expect(spawnBox('abc.16').children?.[0]?.attributes).toEqual({
-      type: 'button',
-      'data-spawn': 'abc.16',
-    });
+  it("is a Power Spot's by an attribute of its own, the spot's id, in the same look", () => {
+    const box = spotSpawnBox('abc.16');
+    expect(box.className).toBe('spawn-box place-control');
+    expect(box.children).toEqual([
+      {
+        tag: 'button',
+        className: 'report-spawn',
+        text: 'Report spawn here',
+        attributes: { type: 'button', 'data-spawn-spot': 'abc.16' },
+      },
+    ]);
   });
 });
 

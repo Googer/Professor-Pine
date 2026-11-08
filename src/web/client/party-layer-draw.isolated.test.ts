@@ -3166,7 +3166,7 @@ describe('the wild spawns on the map (Matt, 2026-11-07)', () => {
         'Start train here',
       ]);
       const drawn = nextForm();
-      atSpot.querySelector('button[data-spawn]')?.dispatch('click');
+      atSpot.querySelector('button[data-spawn-spot]')?.dispatch('click');
       expect(reportHeader()?.disabled).toBe(true);
       const form = await drawn;
       expect(atSpot.querySelector('[data-form="spawn"]') === form).toBe(true);
@@ -3200,7 +3200,7 @@ describe('the wild spawns on the map (Matt, 2026-11-07)', () => {
       });
       const atSpot = placeShowing('leaflet-popup', raids.spotControls(OLD_MILL));
       const drawn = nextForm();
-      atSpot.querySelector('button[data-spawn]')?.dispatch('click');
+      atSpot.querySelector('button[data-spawn-spot]')?.dispatch('click');
       const form = await drawn;
       markerOf('Yellow Mural 5')?.fire('click', {});
       const atStop = popupNow()?.querySelector('button[data-spawn-at]');
@@ -3211,7 +3211,7 @@ describe('the wild spawns on the map (Matt, 2026-11-07)', () => {
       expect(popupNow()?.querySelector('[data-form="spawn"]')).toBeNull();
       form.querySelector('button[data-cancel]')?.dispatch('click');
       expect(atSpot.querySelector('[data-form="spawn"]')).toBeNull();
-      expect(atSpot.querySelector('button[data-spawn]')?.disabled).toBe(false);
+      expect(atSpot.querySelector('button[data-spawn-spot]')?.disabled).toBe(false);
       await poll(view({ readOnly: true }));
       expect(raids.spotControls(OLD_MILL)).toEqual([]);
       markerOf('Yellow Mural 5')?.fire('click', {});

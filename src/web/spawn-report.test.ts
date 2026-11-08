@@ -10,7 +10,6 @@ import { createTestContext } from '../../test/support/test-context.js';
 import { MemoryUsers } from '../../test/support/users.js';
 import { viewOverwrite } from '../../test/support/region-roles.js';
 import { keptRow, wayspotId } from '../../test/support/wayspot-cases.js';
-import { PLACE_GONE } from '../commands/place-option.js';
 import { wayspotsWith } from '../../test/support/wayspots.js';
 import type { WayspotDirectory } from '../services/wayspot-directory.js';
 import {
@@ -32,7 +31,7 @@ import { MOD, SAFETY_SERVER } from '../../test/support/meetup-safety-cases.js';
 import { meetupSafetyWith } from '../../test/support/meetup-safety-service.js';
 import type { MeetupSafety } from '../services/meetup-safety.js';
 import { UNREACHABLE } from './acting.js';
-import { MAP_SPAWN_BLOCKED } from './spawn-routes.js';
+import { MAP_PLACE_GONE, MAP_SPAWN_BLOCKED } from './spawn-routes.js';
 
 const SPAWNS = `/s/${FAKE_GUILD_ID}/api/spawns`;
 const OPTIONS = `/s/${FAKE_GUILD_ID}/api/wild-options`;
@@ -302,7 +301,7 @@ describe('reporting a wild Pokémon on the map', () => {
       expect(textDisplays(map.reports().at(-1)?.message)[1]).toContain('**Old Mill**');
     });
 
-    it("refuses a place that is gone or of another kind now in /wild's words, counting nothing", async () => {
+    it('refuses a place that is gone or of another kind now, or in no region, in words for the map, counting nothing', async () => {
       const throttles = new Throttles();
       const map = await placed({ throttles });
       web = map.web;
@@ -310,23 +309,87 @@ describe('reporting a wild Pokémon on the map', () => {
         { kind: 'gym', id: '999' },
         { kind: 'stop', id: SPOT.id },
         { kind: 'powerspot', id: wayspotId(9) },
-        { kind: 'stop', id: 'not an id' },
       ]) {
         const answer = await map.report({ pokemon: 'dratini', details: 'here', place });
         expect(answer.status).toBe(422);
-        expect(answer.json).toEqual({ ok: false, text: PLACE_GONE });
+        expect(answer.json).toEqual({ ok: false, text: MAP_PLACE_GONE });
       }
+      expect(MAP_PLACE_GONE).toBe(
+        'That place is gone from the map: close its popup and pick it again.',
+      );
+      // The Lakeview Trailhead lies in no region of the server.
+      const nowhere = await map.report({
+        pokemon: 'dratini',
+        details: 'here',
+        place: { kind: 'gym', id: '10' },
+      });
+      expect(nowhere).toMatchObject({
+        status: 422,
+        json: { ok: false, text: 'That place is not in a region of this server.' },
+      });
       expect(map.reports()).toEqual([]);
       expect(throttles.size).toBe(0);
     });
 
-    it('takes a place or a point, never both nor neither, and no other kind (400)', async () => {
+    it('asks which region of a place that lies in several, and reports at the place in the one picked', async () => {
+      const throttles = new Throttles();
+      const map = await placed({ throttles });
+      web = map.web;
+      // East reaches into West, over the stop.
+      const east = map.made.regions.rows.find((region) => region.id === 2);
+      if (east?.bounds) {
+        east.bounds = east.bounds.map((corner) => ({
+          ...corner,
+          lon: corner.lon === -80 ? -80.05 : corner.lon,
+        }));
+      }
+      const atStop = { pokemon: 'dratini', details: 'here', place: { kind: 'stop', id: STOP.id } };
+      const asked = await map.report(atStop);
+      expect(asked.status).toBe(422);
+      expect(asked.json).toEqual({
+        ok: false,
+        text: 'This point lies in several regions: pick the one to report the spawn in.',
+        regions: [
+          { id: 1, name: 'west' },
+          { id: 2, name: 'east' },
+        ],
+      });
+      expect(throttles.size).toBe(0);
+      expect(map.reports(WEST_CHANNEL)).toEqual([]);
+      const picked = await map.report({ ...atStop, region: 2 });
+      expect(picked.status).toBe(200);
+      expect(picked.json.text).toBe(
+        'Reported: a wild Dratini near Market Fountain.\nThe report is removed in 30 minutes.',
+      );
+      expect(map.reports(EAST_CHANNEL)).toHaveLength(1);
+      expect(map.reports(WEST_CHANNEL)).toEqual([]);
+    });
+
+    it("refuses a member barred from the place's region, counting nothing and posting nothing", async () => {
+      const throttles = new Throttles();
+      const map = await placed({ throttles });
+      web = map.web;
+      map.made.gateway.barred.set(WEST_FORUM, new Set([ALICE]));
+      const answer = await map.report({
+        pokemon: 'dratini',
+        details: 'here',
+        place: { kind: 'powerspot', id: SPOT.id },
+      });
+      expect(answer.status).toBe(403);
+      expect(throttles.size).toBe(0);
+      expect(map.reports()).toEqual([]);
+    });
+
+    it('takes a place or a point, never both nor neither, no other kind and no id of no place (400)', async () => {
       const map = await placed();
       web = map.web;
       for (const body of [
         { pokemon: 'dratini', details: 'here', place: { kind: 'stop', id: STOP.id }, ...IN_WEST },
         { pokemon: 'dratini', details: 'here' },
         { pokemon: 'dratini', details: 'here', place: { kind: 'pin', id: '1' } },
+        // An id no choice of `/wild near:` has (`readPlaceValue`).
+        { pokemon: 'dratini', details: 'here', place: { kind: 'stop', id: 'not an id' } },
+        { pokemon: 'dratini', details: 'here', place: { kind: 'gym', id: 'Library' } },
       ]) {
         expect((await map.report(body)).status).toBe(400);
       }

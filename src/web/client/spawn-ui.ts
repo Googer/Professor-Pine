@@ -14,6 +14,7 @@ import {
   sendSpawnForm,
   spawnBody,
   spawnBox,
+  spotSpawnBox,
   spawnForm,
   spawnPoint,
   type PointRegion,
@@ -183,7 +184,10 @@ export function spawnUi(deps: SpawnUiDeps) {
      * place.
      */
     spawnControl(place: SpawnPlace): HTMLElement {
-      const box = renderNode(spawnBox(place.id), document);
+      const box = renderNode(
+        place.kind === 'powerspot' ? spotSpawnBox(place.id) : spawnBox(place.id),
+        document,
+      );
       const button = box.querySelector('button');
       button?.addEventListener('click', () => {
         spawnClicked(button, place);

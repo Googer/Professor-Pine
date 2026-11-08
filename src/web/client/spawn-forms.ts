@@ -66,12 +66,8 @@ export function pressedWhere(
   return lying.length === 0 ? { text: NOT_IN_A_REGION } : { regions: lying };
 }
 
-/**
- * "Report spawn here" in the box a click opens the form in (`spawn-box`), in a gym's or a Power
- * Spot's popup, naming the place by its id: a gym that shows its raid, whose popup is drawn as a
- * tree, finds its gym by it; a Power Spot's popup listens to its own button.
- */
-export function spawnBox(placeId: number | string): PageNode {
+/** "Report spawn here" in its box (`spawn-box`), the place named by `attribute`. */
+function placeSpawnBox(attribute: string, id: string): PageNode {
   return {
     tag: 'div',
     className: 'spawn-box place-control',
@@ -80,10 +76,27 @@ export function spawnBox(placeId: number | string): PageNode {
         tag: 'button',
         className: 'report-spawn',
         text: 'Report spawn here',
-        attributes: { type: 'button', 'data-spawn': String(placeId) },
+        attributes: { type: 'button', [attribute]: id },
       },
     ],
   };
+}
+
+/**
+ * "Report spawn here" in the box a click opens the form in (`spawn-box`), in a gym's popup, naming
+ * the gym by its id (`data-spawn`): a gym that shows its raid, whose popup is drawn as a tree,
+ * finds its gym by it.
+ */
+export function spawnBox(gymId: number | string): PageNode {
+  return placeSpawnBox('data-spawn', String(gymId));
+}
+
+/**
+ * "Report spawn here" in a Power Spot's popup, the spot by its id in an attribute of its own
+ * (`data-spawn-spot`, so that no gym is looked for by it); the popup listens to its own button.
+ */
+export function spotSpawnBox(spotId: string): PageNode {
+  return placeSpawnBox('data-spawn-spot', spotId);
 }
 
 /**

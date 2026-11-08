@@ -115,6 +115,12 @@ describe("the Report button's step 2 (plan 8M-9A)", () => {
     expect(texts(pickBox(kind('spawn'), undefined, at))).toEqual(
       expect.arrayContaining(['Spawn here', 'Report here']),
     );
+    // Review SH-6: a spawn's pin put on a place names it, as the report will.
+    expect(
+      texts(
+        pickLive(kind('spawn'), undefined, at, undefined, undefined, 'Market Fountain (PokéStop)'),
+      ),
+    ).toEqual(expect.arrayContaining(['Spawn at Market Fountain (PokéStop)', 'Report here']));
   });
 
   // A5: a new train's region, prefilled where one region alone holds the place.

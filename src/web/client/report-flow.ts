@@ -144,9 +144,17 @@ const PIN_WORDS: Readonly<Partial<Record<ReportPick, string>>> = {
  * The line of the pin a tap put (R1-1): what it is, and "Report here", which opens the kind's
  * form there; a second tap moves the pin, so a double tap only zooms the map. A pin in no region
  * says so in place of "Report here" (`refused`, review B6: `pressedWhere`, as a long press says it).
+ * A spawn's pin put on a gym, PokéStop or Power Spot names it (`place`, review SH-6: "Spawn at
+ * Market Fountain (PokéStop)"), the report being at that place.
  */
-function pinPart(kind: ReportKind, pin: LatLon | undefined, refused?: string): PageNode[] {
-  const words = PIN_WORDS[kind.pick];
+function pinPart(
+  kind: ReportKind,
+  pin: LatLon | undefined,
+  refused?: string,
+  place?: string,
+): PageNode[] {
+  const words =
+    kind.pick === 'point' && place !== undefined ? `Spawn at ${place}` : PIN_WORDS[kind.pick];
   if (pin === undefined || words === undefined) return [];
   return [
     {
@@ -179,6 +187,8 @@ export function pickLive(
   refused?: string,
   /** What a tap said that took nothing (plan 8M-9B: "Tap a PokéStop."). */
   note?: string,
+  /** The place a spawn's pin was put on, named with its kind (review SH-6). */
+  place?: string,
 ): PageNode {
   return {
     tag: 'div',
@@ -186,7 +196,7 @@ export function pickLive(
     attributes: { 'aria-live': 'polite', 'data-pick-live': '' },
     children: [
       ...(note === undefined ? [] : [{ tag: 'p', className: 'pick-note', text: note }]),
-      ...pinPart(kind, pin, refused),
+      ...pinPart(kind, pin, refused, place),
       ...nearestPart(nearest, kind.pick),
     ],
   };

@@ -196,6 +196,24 @@ describe('a raid chosen in the list of a gym’s raids (chooseRaid, review W-3)'
     formControls(root as unknown as ParentNode, true);
     expect(buttons.map((one) => one.disabled)).toEqual([false, false, false]);
   });
+
+  it("turns off every place's Report spawn here: a gym's, a PokéStop's and a Power Spot's", () => {
+    const button = (name: string) => ({ dataset: { [name]: '' }, disabled: false });
+    const buttons = [button('spawn'), button('spawnAt'), button('spawnSpot')];
+    const root = {
+      querySelectorAll: (selector: string) => {
+        const names = selector
+          .split(',')
+          .map((one) => /data-([a-z-]+)/u.exec(one)?.[1] ?? '')
+          .map((name) =>
+            name.replace(/-([a-z])/gu, (_all, letter: string) => letter.toUpperCase()),
+          );
+        return buttons.filter((one) => names.some((name) => name in one.dataset));
+      },
+    };
+    formControls(root as unknown as ParentNode, false);
+    expect(buttons.map((one) => one.disabled)).toEqual([true, true, true]);
+  });
 });
 
 type Listener = (event: { target: PageElement; stopPropagation(): void }) => void;
