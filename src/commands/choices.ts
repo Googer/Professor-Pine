@@ -37,7 +37,10 @@ export function beginningFirst(text: string): (a: { name: string }, b: { name: s
  * the choices of `more` whose name holds every word typed as a whole word moved up before the
  * first of `first` that is only a near match (a guess: a typed word begins none of its name's
  * words), the rest of `more` after. `rocket` gives Team GO Rocket before Rowlet; nothing
- * changes for words only begun (`dra`), nor in the order of `first`.
+ * changes for words only begun (`dra`), nor in the order of `first`. They never go before a
+ * choice whose name begins with the text, though (staging of 2026-11-07: `mega` put nine "… Mega
+ * Energy (research)" between Mega Blastoise and its species, `Blastoise (every form)`, so before
+ * Meganium): they stand after the last of those at the earliest.
  */
 export function wholeWordsBeforeGuesses<T extends { name: string }>(
   first: readonly T[],
@@ -56,7 +59,10 @@ export function wholeWordsBeforeGuesses<T extends { name: string }>(
   };
   const whole = more.filter((one) => holds(one.name));
   const rest = more.filter((one) => !holds(one.name));
+  const typedText = words.join(' ');
+  const leads = (name: string): boolean => searchTokens(name).join(' ').startsWith(typedText);
   const at = first.findIndex((one) => !begun(one.name));
-  const cut = at < 0 ? first.length : at;
+  const lastLeading = first.findLastIndex((one) => leads(one.name));
+  const cut = Math.max(at < 0 ? first.length : at, lastLeading + 1);
   return [...first.slice(0, cut), ...whole, ...first.slice(cut), ...rest];
 }

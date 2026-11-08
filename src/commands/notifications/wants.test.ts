@@ -402,6 +402,22 @@ describe('/want', () => {
     expect(named).toContain(`research:energy:${String(energy.dex)}`);
   });
 
+  // Staging of 2026-11-07: `mega` offered nine "… Mega Energy (research)" right after the boss,
+  // and Meganium not in the first dozen; the ruling is Meganium first among the names.
+  it('offers a Pokémon whose name the text begins before the rewards that only hold its word', async () => {
+    const made = setup(researchTasksOfPage());
+    const names = (await made.choices('want', 'mega')).map((choice) => choice.name);
+    expect(names[0]).toBe('Mega Blastoise');
+    const firstReward = names.findIndex((name) => name.endsWith('(research)'));
+    expect(firstReward).toBeGreaterThan(0);
+    expect(names.indexOf('Meganium')).toBeGreaterThan(0);
+    expect(names.indexOf('Meganium')).toBeLessThan(firstReward);
+    // The bosses' species, the tiers and the other megas the text begins stay before them too.
+    expect(names.slice(0, firstReward)).toEqual(
+      expect.arrayContaining(['Blastoise (every form)', 'Mega raids', 'Mega Diancie']),
+    );
+  });
+
   it('gives the rewards at most five places where the Pokémon fill the list (B5)', async () => {
     const made = setup(researchTasksOfPage());
     let withRewards = 0;
