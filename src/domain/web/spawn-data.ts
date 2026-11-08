@@ -50,7 +50,7 @@ export interface MapSpawn {
   near?: string;
   /**
    * The address of the gym, PokéStop or Power Spot it is near as its message says it (`(no
-   * address available)` where the message shows the place's picture without one); none for a pin.
+   * address available)` where the map shows the place's picture without one); none for a pin.
    */
   address?: string;
   /**

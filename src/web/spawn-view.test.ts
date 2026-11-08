@@ -148,12 +148,13 @@ describe('the spawns as the map shows them', () => {
     ]);
     // The picture asked for is the one the message shows (`wayspotPicture`, sized).
     expect(asked).toEqual([`${cathy}=s400`, `${cathy}=s400`]);
-    // A picture Pine does not serve: none, and the address as the message says it then.
+    // A picture Pine does not serve: none, and nothing said of the address beside nothing (review
+    // SF1-5: "(no address available)" stands only beside a picture the map shows).
     const [unserved] = spawnsView(
       input([spawn({ near: { ...place, address: null } })], { placePicture: () => undefined }),
     ).spawns;
     expect(unserved).not.toHaveProperty('placePicture');
-    expect(unserved?.address).toBe('(no address available)');
+    expect(unserved).not.toHaveProperty('address');
   });
 
   it('leaves out what the member may not see, keeping the order', () => {

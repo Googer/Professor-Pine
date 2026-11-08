@@ -36,15 +36,16 @@ export interface SpawnViewInput {
 /**
  * The address and picture of the place a report was made near, as its region message shows them
  * beside Where (`nearAddress`, `nearPicture`): the address as typed, the picture by Pine's
- * address; neither for a pin.
+ * address; neither for a pin. "(no address available)" only beside a picture the map shows
+ * (review SF1-5), as the message says it only beside one it shows.
  */
 function nearFacts(
   place: Place,
   input: SpawnViewInput,
 ): Pick<MapSpawn, 'address' | 'placePicture'> {
   const picture = nearPicture(place);
-  const address = nearAddress(place, picture !== undefined, (raw) => raw);
   const served = picture === undefined ? undefined : input.placePicture?.(picture);
+  const address = nearAddress(place, served !== undefined, (raw) => raw);
   return {
     ...(address === undefined ? {} : { address }),
     ...(served === undefined ? {} : { placePicture: served }),
