@@ -235,6 +235,26 @@ export function pickedPlace(ctx: PlaceContext, row: number, value: string): Know
 }
 
 /**
+ * The place a choice names (`gym:7`, `stop:<Wayfarer id>`, read by `readPlaceValue`), as a `near`
+ * option takes it (`namedPlace`), the same snapshot; refused when the place is of a kind `only`
+ * does not take (its `refusal`), when it is gone or of another kind now (`PLACE_GONE`), or in no
+ * region of the server (`row`; `NOT_HERE`). Also for the map's "Report spawn here" of a gym, a
+ * PokéStop or a Power Spot (Matt, 2026-11-07), which reports at the place as `/wild near:` does.
+ */
+export function chosenPlace(
+  ctx: PlaceContext,
+  row: number | undefined,
+  read: { kind: PlaceKind; id: string },
+  only?: PlaceKindsOnly,
+): KnownPlace {
+  if (only && !only.kinds.includes(read.kind)) throw new UserError(only.refusal);
+  if (!stillKnown(ctx, read.kind, read.id)) throw new UserError(PLACE_GONE);
+  const chosen = row === undefined ? undefined : ctx.placeFinder.chosen(row, placeValue(read));
+  if (!chosen) throw new UserError(NOT_HERE);
+  return knownPlace(ctx, chosen);
+}
+
+/**
  * The place a `near` option names (`/wild near:`, `/meetup near:`): a choice
  * (refused when its place is gone or of another kind now, `PLACE_GONE`, or not in a region of the
  * server, `NOT_HERE`); a maps link or coordinates, which are a pin (`readPin`; refused outside
@@ -285,13 +305,7 @@ async function resolvePlace(
   if (text === '') return undefined;
   const row = await serverRow(interaction, ctx);
   const read = readPlaceValue(text);
-  if (read) {
-    if (only && !only.kinds.includes(read.kind)) throw new UserError(only.refusal);
-    if (!stillKnown(ctx, read.kind, read.id)) throw new UserError(PLACE_GONE);
-    const chosen = row === undefined ? undefined : ctx.placeFinder.chosen(row, text);
-    if (!chosen) throw new UserError(NOT_HERE);
-    return knownPlace(ctx, chosen);
-  }
+  if (read) return chosenPlace(ctx, row, read, only);
   const pin = readPin(text);
   switch (pin.kind) {
     case 'pin': {

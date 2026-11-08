@@ -5,6 +5,7 @@ import type { MapGym } from './popup.js';
 import { FormHold, keepClicksInPopup } from './raid-forms.js';
 import { formControls, raidUi } from './raid-ui.js';
 import { spawnUi } from './spawn-ui.js';
+import { gymSpawnPlace } from './spawn-forms.js';
 import type { FirstStop } from './train-forms.js';
 import { trainUi } from './train-ui.js';
 
@@ -1118,7 +1119,7 @@ describe('a form in a popup on the map, as Leaflet takes its clicks', () => {
     });
     const stacks = GYMS.get(1);
     if (!stacks) throw new Error('no Stacks');
-    const control = spawns.spawnControl(stacks) as unknown as FakeElement;
+    const control = spawns.spawnControl(gymSpawnPlace(stacks)) as unknown as FakeElement;
     const button = control.querySelector('button');
     const popup = leafletPopup(shown, () => {
       const drawn = make('div');

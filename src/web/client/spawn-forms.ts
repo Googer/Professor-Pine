@@ -5,7 +5,6 @@ import type { WildOptionsView } from '../../domain/web/spawn-data.js';
 import { sendButton } from './form-buttons.js';
 import { pressParty, type PressSteps, type Pressed } from './parties.js';
 import type { PageNode } from './popup.js';
-import type { FormBody } from './raid-forms.js';
 
 /**
  * Reporting a wild Pokémon on the live map (plan 8M-4S, spec 3.8), the parts that need no
@@ -88,12 +87,27 @@ export function spawnBox(placeId: number | string): PageNode {
 }
 
 /**
- * "Report spawn here" in a PokéStop's popup (Matt, 2026-11-07), beside the stop's other actions
- * and in their look: the place, to six decimals, is the point (`spawnAtOf` reads it back), as a
- * gym's place is for a gym's.
+ * The place a spawn is reported at from its "Report spawn here" (Matt, 2026-11-07): a gym, a
+ * PokéStop or a Power Spot, sent by its kind and id as a choice of `/wild near:` names it (the
+ * report is at the place itself), and its point, which the regions it lies in are read by.
  */
-export function spawnAtBox(at: LatLon): PageNode {
-  const point = spawnPoint(at.lat, at.lon);
+export interface SpawnPlace extends LatLon {
+  kind: 'gym' | 'stop' | 'powerspot';
+  id: string;
+}
+
+/** A gym as the place of a spawn. */
+export function gymSpawnPlace(gym: { id: number; lat: number; lon: number }): SpawnPlace {
+  return { kind: 'gym', id: String(gym.id), lat: gym.lat, lon: gym.lon };
+}
+
+/**
+ * "Report spawn here" in a PokéStop's popup (Matt, 2026-11-07), beside the stop's other actions
+ * and in their look: the stop by its id and its point, to six decimals (`spawnAtOf` reads them
+ * back).
+ */
+export function spawnAtBox(stop: { key: string; at: LatLon }): PageNode {
+  const point = spawnPoint(stop.at.lat, stop.at.lon);
   return {
     tag: 'div',
     className: 'spawn-box place-control',
@@ -105,20 +119,28 @@ export function spawnAtBox(at: LatLon): PageNode {
         attributes: {
           type: 'button',
           'data-spawn-at': `${String(point.lat)},${String(point.lon)}`,
+          'data-spawn-stop': stop.key,
         },
       },
     ],
   };
 }
 
-/** The point a "Report spawn here" of a PokéStop names (`spawnAtBox`), or none. */
-export function spawnAtOf(value: string | undefined): LatLon | undefined {
-  const [lat, lon, ...more] = (value ?? '').split(',').map((part) => Number(part));
+/** The stop a "Report spawn here" of a PokéStop names (`spawnAtBox`), or none. */
+export function spawnAtOf(
+  data: Readonly<Record<string, string | undefined>>,
+): SpawnPlace | undefined {
+  const { spawnAt, spawnStop } = data;
+  if (spawnStop === undefined || spawnStop === '') return undefined;
+  const [lat, lon, ...more] = (spawnAt ?? '').split(',').map((part) => Number(part));
   if (lat === undefined || lon === undefined || more.length > 0) return undefined;
   if (!Number.isFinite(lat) || !Number.isFinite(lon)) return undefined;
   if (Math.abs(lat) > 90 || Math.abs(lon) > 180) return undefined;
-  return { lat, lon };
+  return { kind: 'stop', id: spawnStop, lat, lon };
 }
+
+/** A spawn report's body, or what the member must fill in first. */
+export type SpawnBody = { body: Record<string, unknown> } | { text: string };
 
 /** What a spawn form holds, kept when it is drawn anew (a region to pick, say). */
 export interface SpawnValues {
@@ -235,8 +257,13 @@ export function spawnForm(
  * The body of a spawn report (`POST /s/<guild>/api/spawns`), or what the member must fill in
  * first. A Pokémon whose name is one of the list's (whatever its letter case) is sent as its
  * value, as a choice of `/wild` is; anything else as typed, for the server to read or refuse.
+ * At a place (`SpawnPlace`) the place itself is sent, as `/wild near:` names it; else the point.
  */
-export function spawnBody(point: LatLon, values: SpawnValues, options: WildOptionsView): FormBody {
+export function spawnBody(
+  where: LatLon | SpawnPlace,
+  values: SpawnValues,
+  options: WildOptionsView,
+): SpawnBody {
   const typed = values.pokemon.trim();
   if (typed === '') return { text: 'Pick the Pokémon first.' };
   const details = values.details.trim();
@@ -249,8 +276,9 @@ export function spawnBody(point: LatLon, values: SpawnValues, options: WildOptio
       pokemon: picked ? picked[0] : typed,
       details,
       ...(values.iv === 'perfect' || values.iv === 'zero' ? { iv: values.iv } : {}),
-      lat: point.lat,
-      lon: point.lon,
+      ...('kind' in where
+        ? { place: { kind: where.kind, id: where.id } }
+        : { lat: where.lat, lon: where.lon }),
       ...(values.region !== '' && Number.isInteger(region) ? { region } : {}),
     },
   };

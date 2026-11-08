@@ -116,7 +116,10 @@ function started(more: Partial<ReportFlowDeps> = {}) {
     },
     toMaxForm: (spot) => calls.push(`max form ${spot.title} ${free()}`),
     maxAt: (point) => calls.push(`max at ${String(point.lat)} ${free()}`),
-    spawnAt: (point) => calls.push(`spawn at ${String(point.lat)} ${free()}`),
+    spawnAt: (point, place) =>
+      calls.push(
+        `spawn at ${place ? `${place.kind}:${place.id} ` : ''}${String(point.lat)} ${free()}`,
+      ),
     startTrain: (region) => calls.push(`train ${String(region)}`),
     startMeetup: () => calls.push('meetup'),
     toStop: (id, stop) => calls.push(`${id} at ${stop.title} ${free()}`),
@@ -361,13 +364,39 @@ describe("the Report button's step 2 per kind and step 3 (plan 8M-9A, A4 to A6)"
     flow.pinPicked();
     expect(calls.at(-1)).toBe('max at 40.451 free');
     expect(calls).toContain('pin off');
-    // A spawn: its pin at a gym or Power Spot tapped as at a point.
+    // A spawn: its pin at a gym, a Power Spot or a PokéStop tapped, reported at that place
+    // itself (Matt, 2026-11-07, as `/wild near:` names it); at a point tapped, a pin.
     const spawn = started();
     spawn.flow.choose(kind('spawn'));
     expect(spawn.flow.gymClicked(GYMS.get(2) as MapGym)).toBe(true);
     expect(spawn.shown()).toEqual(expect.arrayContaining(['Spawn here', 'Report here']));
     spawn.flow.pinPicked();
-    expect(spawn.calls.at(-1)).toBe('spawn at 40.444 free');
+    expect(spawn.calls.at(-1)).toBe('spawn at gym:2 40.444 free');
+    const tapped = (tap: (flow: ReportFlow) => void) => {
+      const one = started();
+      one.flow.choose(kind('spawn'));
+      tap(one.flow);
+      one.flow.pinPicked();
+      return one.calls.at(-1);
+    };
+    expect(tapped((flow) => flow.spotClicked({ id: 'abc', lat: 40.45, lon: -79.95 }))).toBe(
+      'spawn at powerspot:abc 40.45 free',
+    );
+    expect(
+      tapped((flow) =>
+        flow.stopClicked({ id: 'stop-1', title: 'Yellow Mural', lat: 40.44, lon: -79.95 }),
+      ),
+    ).toBe('spawn at stop:stop-1 40.44 free');
+    // A place tapped, then a point: the pin is the point's.
+    expect(
+      tapped((flow) => {
+        flow.gymClicked(GYMS.get(2) as MapGym);
+        flow.mapClicked({ lat: 40.45, lon: -79.95 });
+      }),
+    ).toBe('spawn at 40.45 free');
+    expect(tapped((flow) => flow.mapClicked({ lat: 40.45, lon: -79.95 }))).toBe(
+      'spawn at 40.45 free',
+    );
   });
 
   // Review B6: a point in no region is refused at the pin, step 2 going on, as a long press is.

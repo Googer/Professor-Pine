@@ -3144,11 +3144,11 @@ describe('the wild spawns on the map (Matt, 2026-11-07)', () => {
       const form = await drawn;
       expect(form.getAttribute('data-form')).toBe('spawn');
       expect(popupNow()?.querySelector('[data-form="spawn"]') === form).toBe(true);
+      // The stop itself (Matt, 2026-11-07), as `/wild near:` names it.
       expect(await reported(form, spawnSent())).toEqual({
         pokemon: 'dratini',
         details: 'by the bench',
-        lat: 40.445,
-        lon: -79.95,
+        place: { kind: 'stop', id: 'stop-5' },
       });
     });
 
@@ -3173,8 +3173,21 @@ describe('the wild spawns on the map (Matt, 2026-11-07)', () => {
       expect(await reported(form, spawnSent())).toEqual({
         pokemon: 'dratini',
         details: 'by the bench',
-        lat: 40.440123,
-        lon: -79.95,
+        place: { kind: 'powerspot', id: 'spot-abc' },
+      });
+    });
+
+    it("sends a gym's place itself from its own popup", async () => {
+      const { raids, spawnSent } = await started({ raids: true, regions: REGIONS, wild: WILD });
+      const gym = GYMS.get(1);
+      if (!gym) throw new Error('no gym');
+      const atGym = placeShowing('leaflet-popup', raids.gymControls(gym));
+      const drawn = nextForm();
+      atGym.querySelector('button[data-spawn]')?.dispatch('click');
+      expect(await reported(await drawn, spawnSent())).toEqual({
+        pokemon: 'dratini',
+        details: 'by the bench',
+        place: { kind: 'gym', id: '1' },
       });
     });
 

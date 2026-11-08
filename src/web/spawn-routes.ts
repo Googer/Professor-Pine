@@ -1,7 +1,9 @@
 import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import type { AppContext } from '../app-context.js';
-import { PIN_NOT_HERE } from '../commands/place-option.js';
+import { chosenPlace, NOT_HERE, PIN_NOT_HERE, PLACE_GONE } from '../commands/place-option.js';
+import type { KnownPlace, Place } from '../domain/geo/place.js';
+import { readPlaceValue } from '../services/place-finder.js';
 import {
   reportSpawnAs,
   SpawnNotMade,
@@ -60,20 +62,22 @@ export const SPAWN_WRITES_PER_ADDRESS_MINUTE = 30;
 /**
  * What reporting a spawn on the map reads and calls (plan 8M-4S): exactly what `/wild` uses (the
  * game data, the settings' exceptions, the Pokémon search, the spawn service), the regions the
- * point may lie in, and the place finder that names the point as a pin.
+ * point may lie in, the gyms and kept Wayspots a place named is one of, and the place finder that
+ * names a point as a pin and a place as `/wild near:` names it.
  */
 export type SpawnWebContext = WildReading &
   SpawnReporting &
-  Pick<AppContext, 'placeFinder' | 'regions' | 'meetupSafety'>;
+  Pick<AppContext, 'placeFinder' | 'regions' | 'meetupSafety' | 'gyms' | 'wayspots'>;
 
 /**
- * What a member blocked from meetups is told on the map (plan 8Z, `blockedAtPin`): every report
- * here is at a pin; `/wild` still takes one at a known place.
+ * What a member blocked from meetups is told of a report at a point of the map (plan 8Z,
+ * `blockedAtPin`): a pin; a gym, PokéStop or Power Spot is still theirs to report at, on the map
+ * as with `/wild`.
  */
 export const MAP_SPAWN_BLOCKED =
-  'You are blocked from making meetups in this server, so you cannot report a wild Pokémon ' +
-  'from the map. Use /wild on Discord and pick a place from its list. To appeal the block, ' +
-  'use /meetup there and press "Appeal…".';
+  'You are blocked from making meetups in this server, so you cannot report a wild Pokémon at a ' +
+  "point of the map. Use \"Report spawn here\" in a gym's, PokéStop's or Power Spot's popup " +
+  'instead. To appeal the block, use /meetup on Discord and press "Appeal…".';
 
 /** What the spawn reports of the live map need beyond the parties' own (`PartyWebDeps`). */
 export interface SpawnWebDeps {
@@ -82,22 +86,43 @@ export interface SpawnWebDeps {
   channelName(channelId: string): string | undefined;
 }
 
+/** What every report's body holds, wherever the spawn is. */
+const spawnBodyBase = {
+  pokemon: z.string().trim().min(1).max(100),
+  details: z.string().max(MAX_DETAILS),
+  iv: z.enum(['perfect', 'zero']).optional(),
+  region: z.number().int().positive().optional(),
+};
+
 /**
  * The body of a report: the Pokémon as `/wild` takes it (a value of the pick list, or typed), the
  * details (required as in `/wild`: blanks are refused in its words, so they are no malformed
- * body), the IVs when checked, the point (latitude and longitude, kept to six decimals), and the
- * region when the point lies in several. Anything else is malformed.
+ * body), the IVs when checked, where: a point (latitude and longitude, kept to six decimals: a
+ * press on the map, a pin of the Report button) or a place (a gym, PokéStop or Power Spot by its
+ * kind and id, as a choice of `/wild near:` names it: "Report spawn here" in its popup, Matt
+ * 2026-11-07), one of the two; and the region when where it is lies in several. Anything else is
+ * malformed.
  */
-const spawnBodySchema = z
-  .object({
-    pokemon: z.string().trim().min(1).max(100),
-    details: z.string().max(MAX_DETAILS),
-    iv: z.enum(['perfect', 'zero']).optional(),
-    lat: z.number().min(-90).max(90),
-    lon: z.number().min(-180).max(180),
-    region: z.number().int().positive().optional(),
-  })
-  .strict();
+const spawnBodySchema = z.union([
+  z
+    .object({
+      ...spawnBodyBase,
+      lat: z.number().min(-90).max(90),
+      lon: z.number().min(-180).max(180),
+    })
+    .strict(),
+  z
+    .object({
+      ...spawnBodyBase,
+      place: z
+        .object({
+          kind: z.enum(['gym', 'stop', 'powerspot']),
+          id: z.string().min(1).max(60),
+        })
+        .strict(),
+    })
+    .strict(),
+]);
 
 /** How long a report that came while the bot shut down asks the page to wait (`Retry-After`). */
 const RESTART_RETRY_SECONDS = 60;
@@ -221,16 +246,17 @@ export function spawnRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
 
   // A report (spec 3.8): before the body is read (`onRequest`), at most
   // `SPAWN_WRITES_PER_ADDRESS_MINUTE` from one address and the guard of every POST (Origin,
-  // session, CSRF token). Then who reports (`actingOnTheMap`), where: the regions of this server
-  // the point lies in (none: refused as `/wild` refuses a pin outside them; several: asked which,
-  // with the regions), how the member stands to the forum of the region picked and to its
-  // channel (barred from either 403, unless they are an administrator: `spawnKeptOut`, the rule
-  // the map's view of the spawns follows); then `/wild`'s readers (the Pokémon, the details) and
-  // the pin, as its guard reads them, and only then `/wild`'s throttle in its own window, so
-  // that a report refused for who
-  // reports, where or what is not counted; then `/wild`'s report as the member
-  // (`reportSpawnAs`), the point as a pin, and the command's words (the bot shutting down 503
-  // with `Retry-After`, the other reports not made 422).
+  // session, CSRF token). Then who reports (`actingOnTheMap`), where: a place named, as
+  // `/wild near:` takes a choice (`chosenPlace`: gone or of another kind 422 in its words), or a
+  // point; the regions of this server its point lies in (none: refused as `/wild` refuses a pin
+  // outside them; several: asked which, with the regions), how the member stands to the forum of
+  // the region picked and to its channel (barred from either 403, unless they are an
+  // administrator: `spawnKeptOut`, the rule the map's view of the spawns follows); then `/wild`'s
+  // readers (the Pokémon, the details) and the pin of a point, as its guard reads them (a pin of a
+  // member blocked from meetups refused), and only then `/wild`'s throttle in its own window, so
+  // that a report refused for who reports, where or what is not counted; then `/wild`'s report as
+  // the member (`reportSpawnAs`), at the place or the pin, and the command's words (the bot
+  // shutting down 503 with `Retry-After`, the other reports not made 422).
   const writeLimiter = new RateLimiter({ uses: SPAWN_WRITES_PER_ADDRESS_MINUTE, perMs: 60_000 });
   const writeGuards = [
     limitedPerAddress(writeLimiter, { now: deps.now }),
@@ -263,12 +289,29 @@ export function spawnRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
       return sent;
     };
     const row = await parties.guilds.idFor(guild);
-    const point = { lat: sixDecimals(body.data.lat), lon: sixDecimals(body.data.lon) };
-    const lying = row === undefined ? [] : regionsAtPoint(ctx.regions.all(), row, point);
-    const [first] = lying;
-    if (row === undefined || first === undefined) {
-      return noted('not-here', refusal(PIN_NOT_HERE));
+    if (row === undefined) return noted('not-here', refusal(PIN_NOT_HERE));
+    // A place named is the place itself, as `/wild near:` takes a choice (`chosenPlace`, its
+    // refusals in its words); its point decides the region as a pin's does.
+    let place: KnownPlace | undefined;
+    if ('place' in body.data) {
+      const read = readPlaceValue(`${body.data.place.kind}:${body.data.place.id}`);
+      if (!read) return noted('gone', refusal(PLACE_GONE));
+      try {
+        place = chosenPlace(ctx, row, read);
+      } catch (err) {
+        if (!(err instanceof UserError)) throw err;
+        return noted(err.message === NOT_HERE ? 'not-here' : 'gone', refusal(err.message));
+      }
     }
+    const point = place
+      ? { lat: place.lat, lon: place.lon }
+      : 'lat' in body.data
+        ? { lat: sixDecimals(body.data.lat), lon: sixDecimals(body.data.lon) }
+        : undefined;
+    if (point === undefined) return sendFailure(request, reply, 400);
+    const lying = regionsAtPoint(ctx.regions.all(), row, point);
+    const [first] = lying;
+    if (first === undefined) return noted('not-here', refusal(place ? NOT_HERE : PIN_NOT_HERE));
     const picked =
       lying.length === 1 ? first : lying.find((region) => region.id === body.data.region);
     if (picked === undefined) {
@@ -308,11 +351,12 @@ export function spawnRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
       if (!(err instanceof UserError)) throw err;
       return noted('refused', refusal(err.message), picked.id);
     }
-    const pin = ctx.placeFinder.pin(row, point, null);
-    if (!pin) return noted('not-here', refusal(PIN_NOT_HERE), picked.id);
-    // Every spawn on the map is at a pin: as `/wild near:`, before its limit.
+    const near: Place | undefined = place ?? ctx.placeFinder.pin(row, point, null);
+    if (!near) return noted('not-here', refusal(PIN_NOT_HERE), picked.id);
+    // A pin of a member blocked from meetups is refused, a place is not: as `/wild near:`, before
+    // its limit.
     const staff = isMapStaff(acting.standing, userId, parties.ownerId);
-    if (await blockedAtPin(ctx, guild, userId, staff, pin)) {
+    if (await blockedAtPin(ctx, guild, userId, staff, near)) {
       const blocked: SpawnAnswer = { ok: false, text: words(MAP_SPAWN_BLOCKED) };
       return noted('blocked', reply.code(403).send(blocked), picked.id);
     }
@@ -331,7 +375,7 @@ export function spawnRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
             read,
             iv: body.data.iv,
             reporter: { id: userId, name: acting.member.name },
-            near: pin,
+            near,
           },
           names,
         ),

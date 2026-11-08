@@ -87,26 +87,35 @@ describe('"Report spawn here" in a gym\'s popup (spawnBox)', () => {
 });
 
 describe('"Report spawn here" in a PokéStop\'s popup (spawnAtBox)', () => {
-  it("is a button in the look of the stop's other actions, carrying the stop's place as the point", () => {
-    const box = spawnAtBox({ lat: 40.4451234567, lon: -79.95 });
+  it("is a button in the look of the stop's other actions, naming the stop and its place", () => {
+    const box = spawnAtBox({ key: 'abc.16', at: { lat: 40.4451234567, lon: -79.95 } });
     expect(box.className).toBe('spawn-box place-control');
     expect(box.children).toEqual([
       {
         tag: 'button',
         className: 'press',
         text: 'Report spawn here',
-        attributes: { type: 'button', 'data-spawn-at': '40.445123,-79.95' },
+        attributes: {
+          type: 'button',
+          'data-spawn-at': '40.445123,-79.95',
+          'data-spawn-stop': 'abc.16',
+        },
       },
     ]);
   });
 
-  it('gives the point back from the button, and none from what is not one', () => {
-    expect(spawnAtOf('40.445123,-79.95')).toEqual({ lat: 40.445123, lon: -79.95 });
-    expect(spawnAtOf(undefined)).toBeUndefined();
-    expect(spawnAtOf('')).toBeUndefined();
-    expect(spawnAtOf('40.4')).toBeUndefined();
-    expect(spawnAtOf('north,-79.95')).toBeUndefined();
-    expect(spawnAtOf('95,-79.95')).toBeUndefined();
+  it('gives the stop back from the button, and none from what is not one', () => {
+    expect(spawnAtOf({ spawnAt: '40.445123,-79.95', spawnStop: 'abc.16' })).toEqual({
+      kind: 'stop',
+      id: 'abc.16',
+      lat: 40.445123,
+      lon: -79.95,
+    });
+    expect(spawnAtOf({ spawnAt: '40.445123,-79.95' })).toBeUndefined();
+    expect(spawnAtOf({ spawnStop: 'abc.16' })).toBeUndefined();
+    for (const spawnAt of ['', '40.4', 'north,-79.95', '95,-79.95']) {
+      expect(spawnAtOf({ spawnAt, spawnStop: 'abc.16' })).toBeUndefined();
+    }
   });
 });
 
@@ -217,6 +226,20 @@ describe('the body of a spawn report (spawnBody)', () => {
         region: 2,
       },
     });
+  });
+
+  it('sends a gym, a PokéStop or a Power Spot as the place itself, not its point', () => {
+    for (const kind of ['gym', 'stop', 'powerspot'] as const) {
+      const place = { kind, id: 'abc.16', lat: 40.05, lon: -80.02 };
+      expect(spawnBody(place, { ...values, region: '2' }, OPTIONS)).toEqual({
+        body: {
+          pokemon: 'dratini',
+          details: 'by the bench',
+          place: { kind, id: 'abc.16' },
+          region: 2,
+        },
+      });
+    }
   });
 
   it('says what is missing first', () => {

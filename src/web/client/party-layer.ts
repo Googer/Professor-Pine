@@ -55,7 +55,7 @@ import {
   type PressAnswer,
 } from './press-answer.js';
 import { showsParty } from './post-forms.js';
-import { spawnAtBox, spawnAtOf, spawnPoint } from './spawn-forms.js';
+import { gymSpawnPlace, spawnAtBox, spawnAtOf, spawnPoint } from './spawn-forms.js';
 import { spawnUi } from './spawn-ui.js';
 import { maxUi, type MapSpot } from './max-ui.js';
 import { reportUi } from './report-ui.js';
@@ -1026,7 +1026,7 @@ export function showParties(
         ? [
             researchButton(stop),
             rocketBox(stop),
-            ...(stop.at ? [spawnAtBox(stop.at)] : []),
+            ...(stop.at ? [spawnAtBox({ key: stop.key, at: stop.at })] : []),
             meetupAtStopBox(stop),
           ]
         : [],
@@ -1357,11 +1357,11 @@ export function showParties(
         if (gym) raidForms.reportClicked(target, gym);
       } else if (target.dataset.spawn !== undefined) {
         const gym = gyms.get(Number(target.dataset.spawn));
-        if (gym) spawnForms.spawnClicked(target, gym);
+        if (gym) spawnForms.spawnClicked(target, gymSpawnPlace(gym));
       } else if (target.dataset.spawnAt !== undefined) {
-        // "Report spawn here" in a PokéStop's popup: the spawn form at the stop's place.
-        const point = spawnAtOf(target.dataset.spawnAt);
-        if (point) spawnForms.spawnClicked(target, point);
+        // "Report spawn here" in a PokéStop's popup: the spawn form at the stop itself.
+        const stop = spawnAtOf(target.dataset);
+        if (stop) spawnForms.spawnClicked(target, stop);
       } else if (target.dataset.meetupHere !== undefined) {
         const gym = gyms.get(Number(target.dataset.meetupHere));
         if (gym) meetupForms.meetupHereClicked(gym, target);
@@ -2957,8 +2957,8 @@ export function showParties(
       // Its place picked at once by the form's own picking (A5), not a second picker.
       meetupForms.newMeetupClicked(true);
     },
-    spawnAt: (point) => {
-      spawnForms.spawnAt(spawnPoint(point.lat, point.lon), true);
+    spawnAt: (point, place) => {
+      spawnForms.spawnAt(spawnPoint(point.lat, point.lon), true, place);
     },
     regions,
     gyms,
@@ -3174,7 +3174,7 @@ export function showParties(
       reportOffered(mayReport, view)
         ? [
             raidForms.reportControl(gym),
-            spawnForms.spawnControl(gym),
+            spawnForms.spawnControl(gymSpawnPlace(gym)),
             meetupHereControl(gym),
             trainHereControl(String(gym.id), firstStopAtGym(gym), gym),
           ]
@@ -3193,7 +3193,12 @@ export function showParties(
       reportOffered(mayReport, view)
         ? [
             maxForms.maxControl(spot),
-            spawnForms.spawnControl(spot),
+            spawnForms.spawnControl({
+              kind: 'powerspot',
+              id: spot.id,
+              lat: spot.lat,
+              lon: spot.lon,
+            }),
             trainHereControl(spot.id, firstStopAtSpot(spot), spot),
           ]
         : [],

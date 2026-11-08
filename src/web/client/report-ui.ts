@@ -25,7 +25,7 @@ import {
   type ShapeElement,
 } from './report-icons.js';
 import { REPORT_KINDS, reportMenuNode, type ReportKind, type ReportPick } from './report-menu.js';
-import { pressedWhere } from './spawn-forms.js';
+import { gymSpawnPlace, pressedWhere, type SpawnPlace } from './spawn-forms.js';
 import { newTrainButton } from './train-forms.js';
 import type { LatLon } from './view.js';
 
@@ -107,8 +107,11 @@ export interface ReportFlowDeps {
   toMaxForm(spot: MapSpot): void;
   /** A max battle's step 3 at a pin: the form of an unlisted power spot there. */
   maxAt(point: LatLon): void;
-  /** A spawn's step 3: its form at the pin. */
-  spawnAt(point: LatLon): void;
+  /**
+   * A spawn's step 3: its form at the pin, reporting at the gym, PokéStop or Power Spot tapped for
+   * it (`place`) itself, as `/wild near:` does (Matt, 2026-11-07); at a point, a pin.
+   */
+  spawnAt(point: LatLon, place?: SpawnPlace): void;
   /**
    * The kinds without a step 2 (A5): a new train's form, its region prefilled where one region
    * alone holds your location or the map's middle (`regionHolding`); a new meetup's form with its
@@ -140,6 +143,8 @@ export class ReportFlow {
         nearest: Nearest | undefined;
         places: Map<string, NearPlace>;
         pin: LatLon | undefined;
+        /** The gym, PokéStop or Power Spot the pin was put at by a tap, if so (a spawn's place). */
+        pinPlace: SpawnPlace | undefined;
         /** Why the pin cannot be reported where it is (review B6: in no region), if so. */
         refused: string | undefined;
         /** The map on its way to the Power Spots (R2-4): its zoom on the way says nothing. */
@@ -195,6 +200,7 @@ export class ReportFlow {
       nearest: undefined,
       places: new Map(),
       pin: undefined,
+      pinPlace: undefined,
       refused: undefined,
       flying: false,
       note: undefined,
@@ -321,11 +327,12 @@ export class ReportFlow {
    * point in no region is said to be in none on its line, step 2 going on (review B6: by the
    * outlines, as a long press says it, `pressedWhere`).
    */
-  private pinAt(point: LatLon): void {
+  private pinAt(point: LatLon, place?: SpawnPlace): void {
     const open = this.picking;
     if (!open) return;
     const where = pressedWhere(point, this.deps.regions);
     open.pin = point;
+    open.pinPlace = place;
     open.refused = 'text' in where ? where.text : undefined;
     this.deps.showPin(point);
     this.draw();
@@ -343,7 +350,7 @@ export class ReportFlow {
       return true;
     }
     if (pick === 'point') {
-      this.pinAt({ lat: gym.lat, lon: gym.lon });
+      this.pinAt({ lat: gym.lat, lon: gym.lon }, gymSpawnPlace(gym));
       return true;
     }
     // Dimmed while another kind's places are picked (a max battle's Power Spots): the tap is
@@ -373,7 +380,8 @@ export class ReportFlow {
       return true;
     }
     if (pick === 'point') {
-      this.pinAt({ lat: spot.lat, lon: spot.lon });
+      const { id, lat, lon } = spot;
+      this.pinAt({ lat, lon }, id === undefined ? undefined : { kind: 'powerspot', id, lat, lon });
       return true;
     }
     return battle && pick !== undefined;
@@ -414,7 +422,11 @@ export class ReportFlow {
     const pick = this.picking?.kind.pick;
     if (pick === undefined) return false;
     if (pick === 'stops') this.stopPicked(stop);
-    else if (pick === 'point' || pick === 'spots') this.pinAt({ lat: stop.lat, lon: stop.lon });
+    else if (pick === 'point' || pick === 'spots') {
+      const { id, lat, lon } = stop;
+      // A spawn's pin at the stop is the stop itself; a max battle's is a pin there.
+      this.pinAt({ lat, lon }, pick === 'point' ? { kind: 'stop', id, lat, lon } : undefined);
+    }
     return true;
   }
 
@@ -425,7 +437,7 @@ export class ReportFlow {
     if (!open || pin === undefined || open.refused !== undefined) return;
     this.toStep3();
     if (open.kind.pick === 'spots') this.deps.maxAt(pin);
-    else this.deps.spawnAt(pin);
+    else this.deps.spawnAt(pin, open.pinPlace);
   }
 
   /** A line of the nearest places picked, by its place's id. */

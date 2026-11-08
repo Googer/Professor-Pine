@@ -4,7 +4,7 @@ import type { GeoView } from '../../domain/web/geo-data.js';
 import type { WildOptionsView } from '../../domain/web/spawn-data.js';
 import { getJson, say } from './common.js';
 import type { Me } from './notice.js';
-import { renderNode, type MapGym } from './popup.js';
+import { renderNode } from './popup.js';
 import { formPlace, type FormClaim, type FormHold } from './raid-forms.js';
 import { fieldsOf, sayUnder } from './raid-ui.js';
 import {
@@ -17,6 +17,7 @@ import {
   spawnForm,
   spawnPoint,
   type PointRegion,
+  type SpawnPlace,
   type SpawnValues,
 } from './spawn-forms.js';
 
@@ -53,7 +54,7 @@ export function spawnUi(deps: SpawnUiDeps) {
   const { guild, hold } = deps;
 
   /** Sends a report with the page's token; disables the form's buttons meanwhile. */
-  const send = async (form: HTMLElement, body: Record<string, string | number>) => {
+  const send = async (form: HTMLElement, body: Record<string, unknown>) => {
     const buttons = form.querySelectorAll('button');
     for (const each of buttons) each.disabled = true;
     const sent = await sendSpawnForm(deps.csrf.get(), {
@@ -79,11 +80,12 @@ export function spawnUi(deps: SpawnUiDeps) {
   /**
    * Draws the form into `box` once the pick list came, when its claim still holds and the box is
    * still in the page, asking for a region where `lying` (the regions the page sees the point
-   * in) has several; `finish` closes it (and lets the hold go).
+   * in) has several; `finish` closes it (and lets the hold go). `where`: the point, or the place
+   * (a gym, PokéStop or Power Spot) the report is at.
    */
   const openForm = async (
     box: HTMLElement,
-    point: LatLon,
+    where: LatLon | SpawnPlace,
     lying: readonly PointRegion[],
     claim: FormClaim,
     finish: () => void,
@@ -126,7 +128,7 @@ export function spawnUi(deps: SpawnUiDeps) {
         iv: fields.iv ?? '',
         region: fields.region ?? '',
       };
-      const body = spawnBody(point, values, options);
+      const body = spawnBody(where, values, options);
       if ('text' in body) {
         sayUnder(form, body.text);
         return;
@@ -160,15 +162,16 @@ export function spawnUi(deps: SpawnUiDeps) {
 
   /**
    * A click on "Report spawn here" (`spawnBox`, `spawnAtBox`): the form in place of the button,
-   * the place (a gym's, a PokéStop's or a Power Spot's) the point.
+   * reporting at the place (a gym, a PokéStop or a Power Spot) itself, as `/wild near:` does
+   * (Matt, 2026-11-07); its point the regions are read by.
    */
-  const spawnClicked = (button: HTMLButtonElement, place: LatLon): void => {
+  const spawnClicked = (button: HTMLButtonElement, place: SpawnPlace): void => {
     const box = button.parentElement;
     if (!box) return;
     const claim = hold.take(formPlace(box));
     if (!claim) return;
     const point = spawnPoint(place.lat, place.lon);
-    void openForm(box, point, regionsAt(point, deps.regions), claim, () => {
+    void openForm(box, { ...place, ...point }, regionsAt(point, deps.regions), claim, () => {
       box.replaceChildren(button);
       hold.release(claim);
     });
@@ -179,7 +182,7 @@ export function spawnUi(deps: SpawnUiDeps) {
      * "Report spawn here" for a gym's own popup or a Power Spot's; a click opens the form in its
      * place.
      */
-    spawnControl(place: Pick<MapGym, 'lat' | 'lon'> & { id: number | string }): HTMLElement {
+    spawnControl(place: SpawnPlace): HTMLElement {
       const box = renderNode(spawnBox(place.id), document);
       const button = box.querySelector('button');
       button?.addEventListener('click', () => {
@@ -196,9 +199,10 @@ export function spawnUi(deps: SpawnUiDeps) {
 
     /**
      * A long press or a right click on the map: the form in a popup at that point; a point in no
-     * region of the map's outlines is said to be in none, and nothing opens.
+     * region of the map's outlines is said to be in none, and nothing opens. The Report button's
+     * pin at a gym, PokéStop or Power Spot tapped reports at that `place` itself.
      */
-    spawnAt(point: LatLon, focusFirst = false): void {
+    spawnAt(point: LatLon, focusFirst = false, place?: SpawnPlace): void {
       if (hold.editing) {
         say(FORM_OPEN);
         return;
@@ -221,7 +225,7 @@ export function spawnUi(deps: SpawnUiDeps) {
       }
       void openForm(
         box,
-        point,
+        place ?? point,
         where.regions,
         claim,
         () => {

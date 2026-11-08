@@ -9,7 +9,8 @@ import { partyServiceWith } from '../../test/support/party-service.js';
 import { createTestContext } from '../../test/support/test-context.js';
 import { MemoryUsers } from '../../test/support/users.js';
 import { viewOverwrite } from '../../test/support/region-roles.js';
-import { keptRow } from '../../test/support/wayspot-cases.js';
+import { keptRow, wayspotId } from '../../test/support/wayspot-cases.js';
+import { PLACE_GONE } from '../commands/place-option.js';
 import { wayspotsWith } from '../../test/support/wayspots.js';
 import type { WayspotDirectory } from '../services/wayspot-directory.js';
 import {
@@ -122,7 +123,7 @@ describe('reporting a wild Pokémon on the map', () => {
     web = undefined;
   });
 
-  it('refuses a member blocked from meetups, every spawn on the map being a pin; uncounted, nothing posted', async () => {
+  it('refuses a member blocked from meetups a spawn at a point of the map, a pin; uncounted, nothing posted', async () => {
     const safe = await meetupSafetyWith();
     await safe.storage.addBlock(SAFETY_SERVER, ALICE, MOD);
     const map = await reporting({ meetupSafety: safe.safety });
@@ -134,9 +135,9 @@ describe('reporting a wild Pokémon on the map', () => {
       json: { ok: false, text: MAP_SPAWN_BLOCKED },
     });
     expect(MAP_SPAWN_BLOCKED).toBe(
-      'You are blocked from making meetups in this server, so you cannot report a wild Pokémon ' +
-        'from the map. Use /wild on Discord and pick a place from its list. To appeal the block, ' +
-        'use /meetup there and press "Appeal…".',
+      'You are blocked from making meetups in this server, so you cannot report a wild Pokémon at ' +
+        "a point of the map. Use \"Report spawn here\" in a gym's, PokéStop's or Power Spot's " +
+        'popup instead. To appeal the block, use /meetup on Discord and press "Appeal…".',
     );
     expect(map.reports()).toHaveLength(0);
     for (let use = 0; use < WILD_THROTTLE.uses; use += 1) {
@@ -218,9 +219,9 @@ describe('reporting a wild Pokémon on the map', () => {
     );
   });
 
-  // Matt, 2026-11-07: "Report spawn here" in a PokéStop's and a Power Spot's popup sends its place,
-  // as a gym's does; the report is near that place, as `/wild near:` with a link there says it.
-  it('names the point a PokéStop or a Power Spot stands at by it', async () => {
+  // A long press at a place (no place named): a pin, named by the place, as `/wild near:` names a
+  // maps link there.
+  it('names a point a PokéStop or a Power Spot stands at by it, as a pin', async () => {
     // In West, away from every gym.
     const stop = keptRow(1, { lat: 40.035, lon: -80.045, title: 'Market Fountain' });
     const spot = keptRow(2, { lat: 40.045, lon: -80.025, kind: 'powerspot', title: 'Old Mill' });
@@ -245,6 +246,102 @@ describe('reporting a wild Pokémon on the map', () => {
           `[Map](<https://www.google.com/maps/search/?api=1&query=${String(place.lat)}%2C${String(place.lon)}>)`,
       );
     }
+  });
+
+  // Matt, 2026-11-07: "Report spawn here" of a gym, a PokéStop or a Power Spot reports at that
+  // place exactly as `/wild near:<that place>` does: the place itself, its address and picture.
+  describe('at a place the body names', () => {
+    const STOP = keptRow(1, { lat: 40.035, lon: -80.045, title: 'Market Fountain' });
+    const SPOT = keptRow(2, { lat: 40.045, lon: -80.025, kind: 'powerspot', title: 'Old Mill' });
+    /** The Wayfarer pictures a message shows. */
+    const picturesOf = (message: unknown): string[] =>
+      JSON.stringify(message ?? null).match(/https:\/\/lh3\.googleusercontent\.com[^"]*/gu) ?? [];
+    const placed = async (more: Parameters<typeof reporting>[0] = {}) => {
+      const { wayspots } = await wayspotsWith([STOP, SPOT]);
+      return reporting({ wayspots, ...more });
+    };
+
+    it('reports at a gym, a PokéStop or a Power Spot exactly as /wild near: that place does', async () => {
+      const map = await placed();
+      web = map.web;
+      // /wild with its own limit: six reports in all.
+      const router = new InteractionRouter(map.ctx, [wildCommand], [], {
+        throttles: new Throttles(),
+        now: () => PARTY_NOW,
+      });
+      vi.useFakeTimers({ toFake: ['Date'], now: PARTY_NOW });
+      for (const [kind, id, title] of [
+        ['gym', '1', 'The Stacks'],
+        ['stop', STOP.id, 'Market Fountain'],
+        ['powerspot', SPOT.id, 'Old Mill'],
+      ] as const) {
+        const answer = await map.report({
+          pokemon: 'dratini',
+          details: 'by the bench',
+          place: { kind, id },
+        });
+        expect(answer.status).toBe(200);
+        expect(answer.json.text).toBe(
+          `Reported: a wild Dratini near ${title}.\nThe report is removed in 30 minutes.`,
+        );
+        const onTheMap = map.reports().at(-1)?.message;
+        const used = fakeChatInput({
+          commandName: 'wild',
+          channelId: WEST_CHANNEL,
+          userId: ALICE,
+          options: { pokemon: 'dratini', details: 'by the bench', near: `${kind}:${id}` },
+        });
+        await router.handle(used as never);
+        const onDiscord = map.reports().at(-1)?.message;
+        expect(onDiscord).not.toBe(onTheMap);
+        // The place as /wild shows it: its name, kind, address and map link, and its picture.
+        expect(textDisplays(onTheMap).slice(1)).toEqual(textDisplays(onDiscord).slice(1));
+        expect(picturesOf(onTheMap)).toEqual(picturesOf(onDiscord));
+      }
+      expect(picturesOf(map.reports().at(-1)?.message)).not.toEqual([]);
+      expect(textDisplays(map.reports().at(-1)?.message)[1]).toContain('**Old Mill**');
+    });
+
+    it("refuses a place that is gone or of another kind now in /wild's words, counting nothing", async () => {
+      const throttles = new Throttles();
+      const map = await placed({ throttles });
+      web = map.web;
+      for (const place of [
+        { kind: 'gym', id: '999' },
+        { kind: 'stop', id: SPOT.id },
+        { kind: 'powerspot', id: wayspotId(9) },
+        { kind: 'stop', id: 'not an id' },
+      ]) {
+        const answer = await map.report({ pokemon: 'dratini', details: 'here', place });
+        expect(answer.status).toBe(422);
+        expect(answer.json).toEqual({ ok: false, text: PLACE_GONE });
+      }
+      expect(map.reports()).toEqual([]);
+      expect(throttles.size).toBe(0);
+    });
+
+    it('takes a place or a point, never both nor neither, and no other kind (400)', async () => {
+      const map = await placed();
+      web = map.web;
+      for (const body of [
+        { pokemon: 'dratini', details: 'here', place: { kind: 'stop', id: STOP.id }, ...IN_WEST },
+        { pokemon: 'dratini', details: 'here' },
+        { pokemon: 'dratini', details: 'here', place: { kind: 'pin', id: '1' } },
+      ]) {
+        expect((await map.report(body)).status).toBe(400);
+      }
+    });
+
+    it('lets a member blocked from meetups report at a place, as /wild does, but not at a point', async () => {
+      const safe = await meetupSafetyWith();
+      await safe.storage.addBlock(SAFETY_SERVER, ALICE, MOD);
+      const map = await placed({ meetupSafety: safe.safety });
+      web = map.web;
+      const atStop = { pokemon: 'dratini', details: 'here', place: { kind: 'stop', id: STOP.id } };
+      expect((await map.report(atStop)).status).toBe(200);
+      const atPoint = await map.report({ pokemon: 'dratini', details: 'here', ...IN_WEST });
+      expect(atPoint).toMatchObject({ status: 403, json: { text: MAP_SPAWN_BLOCKED } });
+    });
   });
 
   it("refuses a point in no region of the server in /wild's words, counting nothing", async () => {
