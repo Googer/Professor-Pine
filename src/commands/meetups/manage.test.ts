@@ -222,6 +222,20 @@ describe('Manage… of a meetup’s post (plan 8M-21: the map’s editor as a di
     expect(made.current().endTime).toBeNull();
   });
 
+  // Review SF1-R2-2: the lines held for the Submit waited for Discord's answer to the member.
+  it('lets the lines of what went through go before it answers a refusal', async () => {
+    const made = await setup();
+    const said = vi.spyOn(made.lines, 'say');
+    const refused = await made.submit(shownDialog(await made.open()), {
+      name: 'Park picnic',
+      end: 'later',
+    });
+    const renamed = said.mock.calls.findIndex(([, text]) => /renamed this meetup/u.test(text));
+    expect(renamed).toBeGreaterThanOrEqual(0);
+    const answered = refused.editReply.mock.invocationCallOrder.at(-1) ?? 0;
+    expect(said.mock.invocationCallOrder[renamed]).toBeLessThan(answered);
+  });
+
   it('refuses a start of a member who is not signed up before it counts', async () => {
     const made = await setup();
     const dialog = shownDialog(await made.open());

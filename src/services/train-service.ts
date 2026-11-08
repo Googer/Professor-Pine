@@ -112,9 +112,11 @@ export interface TrainServiceOptions {
   /** Where the lines go that ping nobody. */
   lines: Pick<PartyLines, 'say'>;
   /**
-   * Where the line of a train's own change goes when given (`TimedPartyService.line`, review
+   * Where every line of a train's own change goes when given (`apply`: the kind, route and mode,
+   * a stop moved, the route cleared, the conductor, the boss; `TimedPartyService.line`, review
    * SF1-6): held while Manage… makes its changes `together`, and after a waiting start in its
-   * message; else `lines`.
+   * message, as `/end`'s and `/name`'s are; else `lines`. The movement announcement and a split's
+   * message keep their own paths.
    */
   timedLines?: { line(partyId: string, postId: string, text: string): void };
   /** The members' settings: who lets the bot ping them when the train moves. */

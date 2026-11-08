@@ -196,9 +196,13 @@ describe('Manage…’s Submit as one code path for the dialog and the map (plan
     expect(sent).toHaveLength(1);
     const lines = (sent[0]?.message.content ?? '').split('\n');
     expect(lines[0]).toMatch(/set the start of this train/u);
-    const others = lines.slice(1).filter((line) => !line.startsWith('<@'));
-    expect(others.some((line) => /set the end of this train/u.test(line))).toBe(true);
-    expect(others.some((line) => !/set the (start|end)/u.test(line))).toBe(true);
+    // After the start, the kind and the end in the order they were made, each once; then the
+    // others pinged.
+    expect(lines.slice(1)).toEqual([
+      expect.stringMatching(/made this a Max Battle Train\.$/u),
+      expect.stringMatching(/set the end of this train: /u),
+      expect.stringMatching(/^<@\d+>( <@\d+>)*$/u),
+    ]);
   });
 
   it('says which times went through when one is refused', async () => {
