@@ -945,7 +945,10 @@ describe('the wild spawns on the map', () => {
     });
     const [shown] = (await listed(map, cookie)).view?.spawns ?? [];
     expect(shown).toMatchObject({ address: '1 Library Lane', placePicture: picture });
+    // Who is a member is asked once for it (review SF1-3), the spawns' check taking the route's.
+    const finds = map.members.asked.length;
     const answer = await map.web.app.inject({ url: picture, headers: { cookie } });
+    expect(map.members.asked.length - finds).toBe(1);
     expect(answer.statusCode).toBe(200);
     expect(answer.headers['content-type']).toBe('image/jpeg');
     expect(answer.rawPayload).toEqual(JPEG);

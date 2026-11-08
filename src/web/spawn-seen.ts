@@ -1,7 +1,7 @@
 import type { StandingSpawn } from '../db/repositories/spawn-report-repository.js';
 import { spawnGates, spawnKeptOut } from '../domain/regions/spawn-access.js';
 import { nearPicture } from '../render/spawn.js';
-import type { PartyViewer, PartyViewers } from './party-viewers.js';
+import type { Membership, PartyViewer, PartyViewers } from './party-viewers.js';
 import type { WebDeps } from './server.js';
 import type { SpawnWebContext } from './spawn-routes.js';
 
@@ -34,7 +34,8 @@ export function seenBy(
  * Whether a spawn that stands in this server and that the member sees on the map shows this
  * picture of a place beside its Where (`nearPicture`): the places' pictures' route serves it then,
  * as for a post that shows it (staging of 2026-11-07). The spawns that show it first, then how the
- * member stands to their regions alone.
+ * member stands to their regions alone, with the membership the route asked already (`member`,
+ * review SF1-3: the directory is not asked again).
  */
 export async function spawnShowsPlacePicture(
   deps: Pick<WebDeps, 'spawns'>,
@@ -42,6 +43,7 @@ export async function spawnShowsPlacePicture(
   guild: string,
   userId: string,
   url: string,
+  member: Membership,
 ): Promise<boolean> {
   const { ctx } = deps.spawns;
   const showing = (await ctx.spawns.standing(guild)).filter(
@@ -52,6 +54,7 @@ export async function spawnShowsPlacePicture(
     guild,
     userId,
     showing.flatMap((spawn) => gatesOf(ctx, spawn)),
+    member,
   );
   return viewer.kind === 'member' && showing.some(seenBy(ctx, viewer));
 }

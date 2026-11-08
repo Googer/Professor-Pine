@@ -560,7 +560,8 @@ export function partyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
       const forums = own.parties.flatMap((party) =>
         party.forumChannelId === null ? [] : [party.forumChannelId],
       );
-      const viewer = await viewers.viewer(guild, session.userId, forums);
+      const member = await viewers.membership(guild, session.userId);
+      const viewer = await viewers.viewer(guild, session.userId, forums, member);
       if (viewer.kind === 'not-member') return sendFailure(request, reply, 403);
       if (viewer.kind === 'unconfirmed') return reply.code(503).send({ error: UNCONFIRMED });
       if (kind !== 'gym' && kind !== 'wayspot') return sendFailure(request, reply, 404);
@@ -580,7 +581,7 @@ export function partyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
             mapParty(party, input) !== null
           );
         }) ||
-          (await spawnShowsPlacePicture(deps, viewers, guild, session.userId, url)));
+          (await spawnShowsPlacePicture(deps, viewers, guild, session.userId, url, member)));
       const picture = shown ? await parties.places.read(kind, id) : undefined;
       if (picture === undefined) return sendFailure(request, reply, 404);
       return reply
