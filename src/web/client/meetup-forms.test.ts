@@ -203,6 +203,21 @@ describe('the zone the new meetup form reads its start in (review N4)', () => {
   });
 });
 
+// Staging of 2026-11-07: the forms ask the end of their own, so the information's hint no longer
+// asks "how long it goes".
+describe("the information's hint in the map's meetup forms", () => {
+  it('asks where to meet and what to bring, in the new form and the editor alike', () => {
+    const hints = (node: PageNode) =>
+      withAttribute(node, 'placeholder')
+        .filter((each) => each.attributes?.name === 'info')
+        .map((each) => each.attributes?.placeholder);
+    expect(hints(newMeetupForm(REGIONS, gymPick(GYM)))).toEqual(['Where to meet, what to bring.']);
+    expect(hints(meetupEditor(MEETUP, ZONE, NOW, {}, ZONE))).toEqual([
+      'Where to meet, what to bring.',
+    ]);
+  });
+});
+
 describe('the form of a new meetup', () => {
   it('asks the name, the region (the place’s by default), the place, the start, the end and the information', () => {
     const form = newMeetupForm(REGIONS, gymPick(GYM));

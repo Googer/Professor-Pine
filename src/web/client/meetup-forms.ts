@@ -1,6 +1,7 @@
 import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import { MEETUP_START_EXAMPLES, NEW_MEETUP_START_EXAMPLES } from './meetup-start-examples.js';
 import { clockTime } from '../../domain/web/clock.js';
+import { MEETUP_INFO_HINT } from '../../domain/party/meetup-words.js';
 import { zoneNote } from './post-time.js';
 import type { GeoView } from '../../domain/web/geo-data.js';
 import {
@@ -81,7 +82,7 @@ const infoArea = (value: string | undefined): PageNode => ({
     name: 'info',
     rows: '4',
     maxlength: String(INFO_LENGTH),
-    placeholder: 'Where to meet, what to bring, how long it goes.',
+    placeholder: MEETUP_INFO_HINT,
   },
   ...(value === undefined ? {} : { text: value }),
 });

@@ -12,6 +12,7 @@ import { raidWords } from '../domain/pogo/raid-tier.js';
 import type { RaidMovesView, RaidOptionsView } from '../domain/web/raid-options-data.js';
 import { truncate } from './text.js';
 import { clockTime, zoneLabel } from '../domain/web/clock.js';
+import { MEETUP_INFO_HINT } from '../domain/party/meetup-words.js';
 import { MOVES_LATER } from '../domain/web/raid-manage.js';
 import { meetupPlaceOf } from '../domain/web/party-view.js';
 
@@ -264,7 +265,7 @@ export function meetupManageDialog(
           id: MEETUP_INFO_INPUT,
           label: 'Information',
           maxLength: MAX_MEETUP_DESCRIPTION,
-          placeholder: 'Where to meet, what to bring, how long it goes.',
+          placeholder: MEETUP_INFO_HINT,
           paragraph: true,
           ...(party.meetup.description === null ? {} : { value: party.meetup.description }),
         },

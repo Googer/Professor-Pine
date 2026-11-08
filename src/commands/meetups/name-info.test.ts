@@ -17,6 +17,7 @@ import { attendeeOf } from '../../domain/party/party.js';
 import { PartyStatus } from '../../domain/party/status.js';
 import { name } from '../parties/name.js';
 import { info, INFO_INPUT, INFO_KIND, infoControls, infoForm, refusedWithText } from './info.js';
+import { meetupForm } from './meetup.js';
 import { header, textDisplays, textOf } from '../../../test/support/messages.js';
 
 const RAID_POST = '300000000000000055';
@@ -160,6 +161,15 @@ describe('/name', () => {
     expect(made.store.get(made.raid.id)).toBe(made.raid);
     await made.service.end(made.party.id);
     expect(await made.answer('name', { name: 'Picnic' })).toBe(NO_NAMED_POST);
+  });
+});
+
+// Staging of 2026-11-07: /meetup asks the end of its own (`end`), so the form's hint no longer
+// asks how long the meetup goes.
+describe("the information's hint of /meetup's form", () => {
+  it('asks where to meet and what to bring', () => {
+    const [input] = inputsOf(meetupForm('token'));
+    expect(input?.placeholder).toBe('Where to meet, what to bring.');
   });
 });
 

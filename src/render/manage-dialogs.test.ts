@@ -95,4 +95,19 @@ describe('meetupManageDialog (review M3, M7)', () => {
     );
     expect(zoneLabel(PARTY_ZONE)).toBe(' (Eastern)');
   });
+
+  // Staging of 2026-11-07: the dialog asks the end of its own (Ends).
+  it("asks where to meet and what to bring in the information's hint, not how long it goes", () => {
+    const dialog = meetupManageDialog({
+      party: testMeetup({}),
+      asksStart: true,
+      now: PARTY_NOW,
+      zone: PARTY_ZONE,
+    });
+    const hints = [...JSON.stringify(dialog).matchAll(/"placeholder":"([^"]*)"/g)].map(
+      (match) => match[1],
+    );
+    expect(hints).toContain('Where to meet, what to bring.');
+    expect(hints.join(' ')).not.toContain('how long');
+  });
 });

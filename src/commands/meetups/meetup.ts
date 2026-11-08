@@ -37,6 +37,7 @@ import { MEETUP_PLACE_KINDS } from '../../services/place-finder.js';
 import { OPEN_PARTIES_FULL, openPartiesFull } from '../parties/open-parties.js';
 import { DISCORD_NAMES, type ReportNames } from '../raids/report.js';
 import { INFO_INPUT, infoInput, refusedWithText } from './info.js';
+import { MEETUP_INFO_HINT } from '../../domain/party/meetup-words.js';
 import { placeRefusal } from './place-ask.js';
 
 /** Where `/meetup` works, said wherever it does not. */
@@ -234,9 +235,7 @@ export function meetupForm(token: string): APIModalInteractionResponseCallbackDa
   return {
     custom_id: encodeCustomId({ kind: MEETUP_KIND, id: token, action: 'form' }),
     title: 'About this meetup',
-    components: [
-      infoInput({ required: true, placeholder: 'Where to meet, what to bring, how long it goes.' }),
-    ],
+    components: [infoInput({ required: true, placeholder: MEETUP_INFO_HINT })],
   };
 }
 
