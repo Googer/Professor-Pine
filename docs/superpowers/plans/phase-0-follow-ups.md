@@ -3378,6 +3378,12 @@ Matt: "Can the toolbar automatically show / hide entries on desktop according to
 - **Staging:** at 1024, 1280 and 1920 pixels, logged in and out: no wrap, the toggles that do not fit are under More in order, a toggle pressed in More shows in the row once the window widens, the focus on a toggle that moves goes to More; Research filtered in More reads "Field research · …". Drag the window's width across 1024–1920 pixels: nothing flickers past the right edge. Also try 768–1023 pixels with the row in place of "Layers · n" (Matt: "we'll see"), to decide whether the row starts there.
 - **Matt's answers (2026-11-07):** background layers join the row, yes; the row starts at 1024 pixels, 768 to be tried at staging. Review "ready after fixes": T1–T7 fixed ("Map: review fixes to the row of layers").
 
+## From the staging run of 2026-11-07 evening (Air's dev stack; fixes round 1)
+
+Built on branch `stage-fix-1` (brief `.superpowers/sdd/small-builds-11-07/staging-fixes-1.md`), one commit per item.
+
+- **Spawn pictures on the map are tiny** (the uncropped `pokemon_icons` file, a small figure in a big transparent square). **Done** ("Map: a spawn shows its cropped picture, made square as the stops' are"): `croppedPicture` (`src/domain/pogo/pokemon-icons.ts`) names the same file of Leek Duck's `pokemon_icons_crop`, which the research and Rocket feeds give; `SpawnService` has `StopPictures` make it square in the background once a report is posted, and `/api/spawns` names it as the stops' pictures are named (`StopPictures.url`), the uncropped icon where the cropped one is gone; a marker's picture keeps its shape while it is not square yet (`object-fit: contain`). The Discord spawn message keeps the uncropped icon (`pokemonPicture`, the same source): Discord shows a thumbnail square, so a cropped one would be cut. **Only staging can show:** Dratini's size on the map, the marker, list and popup.
+
 ## For the next staging run (from the Phase 2–5 audit, 2026-11-07)
 
 Checks from the left-open lists of Phases 2 to 5 that only Discord or a staging run can show. Each names the line of this file it comes from, which is marked "To stage".

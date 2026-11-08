@@ -3,6 +3,7 @@ import { catalogueFixture, iconsFixture } from '../../../test/support/game-data.
 import { feedLookupOf } from './feed-lookup.js';
 import type { PokemonEntry } from './game-master.js';
 import {
+  croppedPicture,
   iconAddress,
   iconCandidates,
   iconName,
@@ -358,6 +359,28 @@ describe('pokemonPicture', () => {
     expect(pokemonPicture(undefined, entry('dratini'), { catalogue })).toBeUndefined();
     expect(pokemonPicture(undefined, entry('dratini'), undefined)).toBeUndefined();
     expect(iconAddress(entry('dratini'), undefined)).toBeUndefined();
+  });
+});
+
+// Staging of 2026-11-07: a spawn's picture on the map was the uncropped icon, a small figure in a
+// big transparent square; the stops' rewards show Leek Duck's cropped one.
+describe('croppedPicture', () => {
+  const crop = 'https://cdn.leekduck.com/assets/img/pokemon_icons_crop/';
+
+  it('is the same file of Leek Duck’s cropped icons, a costume’s and a form’s too', () => {
+    for (const file of ['pm147.icon.png', 'pm201.fUNOWN_F.icon.png', 'pm25.cFALL_2019.icon.png']) {
+      expect(croppedPicture(`${POKEMON_ICON_BASE}${file}`)).toBe(`${crop}${file}`);
+    }
+  });
+
+  it('leaves any other picture as it is: a cropped one, a mega’s portrait, another host', () => {
+    for (const other of [
+      `${crop}pm147.icon.png`,
+      `${MEGA_PORTRAIT_BASE}pm687.fMEGA.portrait.png`,
+      'https://example.com/assets/img/pokemon_icons/pm147.icon.png',
+    ]) {
+      expect(croppedPicture(other)).toBe(other);
+    }
   });
 });
 

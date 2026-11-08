@@ -39,7 +39,7 @@ describe('the spawns as the map shows them', () => {
       pokemon: 'Pikachu',
       costumed: true,
       ivs: '0% IVs',
-      picture: LEEK_DUCK,
+      picture: 'https://cdn.leekduck.com/assets/img/pokemon_icons_crop/pm25.icon.png',
       words: ['pikachu', 'costumed', 'costume'],
     });
   });
@@ -49,6 +49,30 @@ describe('the spawns as the map shows them', () => {
     expect(shown).not.toHaveProperty('picture');
     const [none] = spawnsView(input([spawn({ image: null })])).spawns;
     expect(none).not.toHaveProperty('picture');
+  });
+
+  // Staging of 2026-11-07: the uncropped icon was a small figure in a big transparent square.
+  it('shows the cropped icon as the stops show theirs: the square one Pine serves, by the lookup', () => {
+    const crop = 'https://cdn.leekduck.com/assets/img/pokemon_icons_crop/pm25.icon.png';
+    const asked: string[] = [];
+    const square = 'https://map.example.test/pictures/abc.png?v=1';
+    const [shown] = spawnsView(
+      input([spawn()], {
+        pictureOrigins: ['https://cdn.leekduck.com', 'https://map.example.test'],
+        picture: (source) => {
+          asked.push(source);
+          return square;
+        },
+      }),
+    ).spawns;
+    expect(asked).toEqual([crop]);
+    expect(shown?.picture).toBe(square);
+    // Not made square yet: the cropped icon itself.
+    const [plain] = spawnsView(input([spawn()], { picture: (source) => source })).spawns;
+    expect(plain?.picture).toBe(crop);
+    // The cropped one gone: the uncropped icon rather than none.
+    const [gone] = spawnsView(input([spawn()], { picture: () => undefined })).spawns;
+    expect(gone?.picture).toBe(LEEK_DUCK);
   });
 
   it('names a pin by the name its link gave, else a dropped pin; and a reporter without a name a member', () => {

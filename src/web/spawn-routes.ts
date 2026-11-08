@@ -214,6 +214,7 @@ export function spawnRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
         region: (channelId) => names.channel(channelId),
         guild,
         pictureOrigins: deps.pictureOrigins,
+        picture: (source) => deps.pictures.url(source),
       });
       const body = JSON.stringify(view);
       const etag = etagOf(body);

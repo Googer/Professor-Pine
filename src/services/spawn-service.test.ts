@@ -333,6 +333,40 @@ describe('SpawnService', () => {
     );
   });
 
+  // Staging of 2026-11-07: the map shows a spawn's cropped icon made square, as the stops' rewards.
+  it('has the cropped icon of a spawn it posted made square for the map, in the background', async () => {
+    const made = await partyServiceWith();
+    const asked: Array<{ sources: string[]; background: boolean }> = [];
+    const service = new SpawnService({
+      gateway: made.gateway,
+      raidBosses: raidBossesFixture(),
+      gameData: { catalogue: catalogueFixture(), icons: iconsFixture() },
+      pictures: {
+        prepare: (sources, how) => {
+          asked.push({ sources: [...sources], background: how?.background === true });
+          return Promise.resolve();
+        },
+      },
+      settings: made.settings,
+      log: made.log,
+      setTimer: () => () => undefined,
+    });
+    await service.report(report(made.gateway.guildId));
+    await service.report(
+      report(made.gateway.guildId, { pokemon: { dex: 99_999, key: 'nomon', name: 'Nomon' } }),
+    );
+    expect(asked).toEqual([
+      {
+        sources: ['https://cdn.leekduck.com/assets/img/pokemon_icons_crop/pm147.icon.png'],
+        background: true,
+      },
+    ]);
+    // Discord's message keeps the uncropped icon, square as a thumbnail is shown.
+    expect(thumbnailOf(made.gateway.messagesIn(WEST_CHANNEL)[0]?.message)).toBe(
+      'https://cdn.leekduck.com/assets/img/pokemon_icons/pm147.icon.png',
+    );
+  });
+
   it('hands the notifier what it posted, with the time of the report', async () => {
     const made = await partyServiceWith();
     const told: unknown[] = [];

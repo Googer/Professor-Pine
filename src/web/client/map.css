@@ -1996,6 +1996,8 @@ path.highlighted {
 .stop-marker .ring .report-icon {
   width: 78%;
   height: 78%;
+  /* A picture not made square yet (a feed's cropped icon) keeps its shape. */
+  object-fit: contain;
   pointer-events: none;
 }
 

@@ -12,6 +12,25 @@ import { formTokens } from './raid-boss-feed.js';
 export const POKEMON_ICON_BASE = 'https://cdn.leekduck.com/assets/img/pokemon_icons/';
 
 /**
+ * Leek Duck's cropped icons: the same files as `POKEMON_ICON_BASE`'s, cut to the Pokémon, as the
+ * research and Rocket feeds give their rewards' and catches' pictures.
+ */
+export const POKEMON_CROP_BASE = 'https://cdn.leekduck.com/assets/img/pokemon_icons_crop/';
+
+/**
+ * The cropped icon of a picture Leek Duck serves uncropped (`pokemonPicture`'s, the raid boss
+ * feed's): the same file under `POKEMON_CROP_BASE`; any other address as it is. What the map shows
+ * of a spawn (staging of 2026-11-07: the uncropped icon is a small figure in a big transparent
+ * square), made square as the stops' pictures are (`StopPictures`). Discord's messages keep the
+ * uncropped icon: a thumbnail is shown square, and a cropped one would be cut.
+ */
+export function croppedPicture(address: string): string {
+  return address.startsWith(POKEMON_ICON_BASE)
+    ? `${POKEMON_CROP_BASE}${address.slice(POKEMON_ICON_BASE.length)}`
+    : address;
+}
+
+/**
  * Where the portraits of megas are served from: PokeMiners' `Images/Mega Portraits 512x512`
  * (the space encoded). A mega whose icon the icon list lacks shows its portrait (2026-10-23: 13
  * of 61 megas, the newest; Leek Duck's own icon of Mega Malamar is a poor render).

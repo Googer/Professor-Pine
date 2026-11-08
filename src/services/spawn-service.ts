@@ -22,11 +22,12 @@ import {
 } from '../render/spawn.js';
 import { placeImage } from '../render/place.js';
 import type { NamedMember } from '../render/text.js';
-import { pokemonPicture } from '../domain/pogo/pokemon-icons.js';
+import { croppedPicture, pokemonPicture } from '../domain/pogo/pokemon-icons.js';
 import { costumedSpawn } from '../domain/time/spawn-events.js';
 import type { EventSpawnProvider } from './event-page-service.js';
 import type { GameDataProvider } from './game-data-service.js';
 import type { RaidBossProvider } from './raid-boss-service.js';
+import type { PictureMaking } from './research-task-service.js';
 import { ReadsBetweenWrites } from './reads-between-writes.js';
 
 /** The Pokédex number of Unown, whose sightings a server may collect in a channel of their own. */
@@ -101,6 +102,11 @@ export interface SpawnServiceOptions {
    * Pokémon's entry costumed (`costumedSpawn`). Without it no report is.
    */
   costumes?: Pick<EventSpawnProvider, 'sightingsAt'>;
+  /**
+   * The square pictures of the stops (`StopPictures`): the map shows a spawn's cropped icon made
+   * square (`croppedPicture`), asked for in the background once the report is posted.
+   */
+  pictures?: PictureMaking;
   /** Told of every report that was posted, to tell who wants that Pokémon. */
   notify?: { spawnReported(news: SpawnNews): void };
   /**
@@ -274,6 +280,9 @@ export class SpawnService {
       madeAt: eventAt,
     });
     this.deleteLater(report.regionChannelId, messageId, this.deleteAfterMs, true);
+    if (view.image !== undefined) {
+      void this.options.pictures?.prepare([croppedPicture(view.image)], { background: true });
+    }
     if (report.pokemon.dex === UNOWN_DEX) {
       try {
         const sightings = gateway.findChannel(report.regionChannelId, settings.channels.unown);

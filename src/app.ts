@@ -673,6 +673,7 @@ export async function startApp(
     raidBosses,
     gameData,
     costumes: eventPages,
+    pictures: stopPictures,
     notify,
     store: new SpawnReportRepository(db),
     settings: config.settings,

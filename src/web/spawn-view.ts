@@ -1,5 +1,7 @@
 import type { StandingSpawn } from '../db/repositories/spawn-report-repository.js';
 import type { Place } from '../domain/geo/place.js';
+import { croppedPicture } from '../domain/pogo/pokemon-icons.js';
+import { AS_FED, type PictureLookup } from '../domain/stops/pictures.js';
 import { searchTokens } from '../domain/search/text.js';
 import { allowedPicture } from '../domain/web/picture.js';
 import type { MapSpawn, SpawnsView } from '../domain/web/spawn-data.js';
@@ -18,6 +20,23 @@ export interface SpawnViewInput {
   guild: string;
   /** The origins the page may load pictures from (`pictureOrigins`). */
   pictureOrigins: readonly string[];
+  /**
+   * The address of a picture as the stops' pictures are named (`StopPictures.url`: the square one
+   * Pine serves, the source while it is not ready, none where it is gone); the source itself
+   * without it.
+   */
+  picture?: PictureLookup;
+}
+
+/**
+ * A spawn's picture on the map: its cropped icon (`croppedPicture`) as the stops' pictures are
+ * named (`picture`), the uncropped one where the cropped one is gone; only from `pictureOrigins`.
+ */
+function spawnPicture(image: string | null, input: SpawnViewInput): string | undefined {
+  if (image === null) return undefined;
+  const cropped = croppedPicture(image);
+  const named = (input.picture ?? AS_FED)(cropped) ?? (cropped === image ? undefined : image);
+  return allowedPicture(named, input.pictureOrigins);
 }
 
 /**
@@ -46,7 +65,7 @@ function spawnWords(spawn: StandingSpawn): string[] {
 
 /** A report as the map shows it: what its region message says, its point, its link. */
 function mapSpawn(spawn: StandingSpawn, input: SpawnViewInput): MapSpawn {
-  const picture = allowedPicture(spawn.image ?? undefined, input.pictureOrigins);
+  const picture = spawnPicture(spawn.image, input);
   const reporter = spawn.reporterName ?? '';
   return {
     id: spawn.messageId,
