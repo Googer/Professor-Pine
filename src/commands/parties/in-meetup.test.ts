@@ -447,9 +447,12 @@ describe('/meet, /cancel-meet and /end in the post of a meetup', () => {
     expect(await made.answer('end', { time: '9pm' })).toBe(
       `This meetup ends at ${stamp(end, 'f')} (${stamp(end, 'R')}).`,
     );
-    expect((await made.lines()).at(-1)).toBe(
+    // Set while the start's message waited: it follows the start there (staging of 2026-11-07),
+    // before the others are pinged.
+    expect((await made.lines()).slice(-3, -1)).toEqual([
+      `**Alice** (<@${ALICE}>) set the start of this meetup: ${stamp(at('2026-10-16T18:30'), 'f')} (${stamp(at('2026-10-16T18:30'), 'R')}).`,
       `**Alice** (<@${ALICE}>) set the end of this meetup: ${stamp(end, 'f')} (${stamp(end, 'R')}).`,
-    );
+    ]);
   });
 
   it('/end reads a time without a date on the day of the end when there is no start', async () => {

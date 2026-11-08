@@ -396,8 +396,9 @@ export function readTimes(
  * editor: the end read from the start asked; times that would not lie in order refused before
  * anything changes; then `startAs` and `endAs`, the start first, or the end first where the new
  * start lies at or past the end as it is now, which would refuse it (both moved later). The answer
- * joins their words, the start's first whichever went first; a refusal says what went through in
- * the order it happened, then why (`went`). `drawn`: the values the change was drawn from (the live
+ * joins their words, the start's first whichever went first, and so does the post (`together`: a
+ * new start's message says the end after it); a refusal says what went through in the order it
+ * happened, then why (`went`). `drawn`: the values the change was drawn from (the live
  * map).
  */
 export async function setTimesAs(
@@ -443,15 +444,19 @@ export async function setTimesAs(
   if (endFirst) steps.reverse();
   const said: string[] = [];
   const went: TimeAsked[] = [];
-  for (const { time, run } of steps) {
-    const answer = await run();
-    said.push(answer.text);
-    const text = said.join(' ');
-    if (answer.kind === 'refused') return { ...answer, text, went };
-    if (answer.kind === 'gone') return { ...answer, text };
-    went.push(time);
-  }
-  return { kind: 'ok', text: (endFirst ? said.toReversed() : said).join(' ') };
+  // Together, so that the post says the start before the end whichever went first (staging of
+  // 2026-11-07): the end's line follows the start in the message that tells the others of it.
+  return ctx.timedParties.together(party.id, async (): Promise<TimedAnswer> => {
+    for (const { time, run } of steps) {
+      const answer = await run();
+      said.push(answer.text);
+      const text = said.join(' ');
+      if (answer.kind === 'refused') return { ...answer, text, went };
+      if (answer.kind === 'gone') return { ...answer, text };
+      went.push(time);
+    }
+    return { kind: 'ok', text: (endFirst ? said.toReversed() : said).join(' ') };
+  });
 }
 
 /**

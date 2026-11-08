@@ -64,10 +64,14 @@ export interface TimedPartyServiceOptions {
   announceDelayMs?: number;
 }
 
-/** A start whose announcement is waiting: what it was before, and who changed it last. */
+/**
+ * A start whose announcement is waiting: what it was before, who changed it last, and the lines
+ * said of the party meanwhile, which follow the start in its message (`after`).
+ */
 interface PendingStart {
   before: number | null;
   by: Member;
+  after: string[];
 }
 
 /**
@@ -80,20 +84,30 @@ interface PendingStart {
  * else who is signed up and allows it, as the meeting time of a group is in a raid. That message
  * is gathered: it goes out a few seconds after the last change, with the start as the store has
  * it then, so two quick changes are one ping, and the messages of one party never overtake each
- * other. Everything else is a line that pings nobody.
+ * other. Everything else is a line that pings nobody, said at once; but a line said of a party
+ * while its start's announcement waits goes into that message after the start (staging of
+ * 2026-11-07: Manage… set both times, and the end was said before the start), and so do the lines
+ * of changes made `together`.
  */
 export class TimedPartyService {
   private readonly now: () => number;
   /** The starts whose announcement is waiting for its delay, by party. */
   private readonly starts: Gathered<PendingStart>;
+  /** The lines of the parties whose changes are made `together`, held until they are made. */
+  private readonly held = new Map<string, Array<{ postId: string; text: string }>>();
 
   constructor(private readonly options: TimedPartyServiceOptions) {
     this.now = options.now ?? (() => Date.now());
     this.starts = new Gathered({
       delayMs: options.announceDelayMs ?? 5_000,
-      send: (partyId, pending) => this.announceStart(partyId, pending.before, pending.by),
+      send: (partyId, pending) =>
+        this.announceStart(partyId, pending.before, pending.by, pending.after),
       // Two announcements made one: the start as it was before the older of them.
-      fold: (older, newer) => ({ ...newer, before: older.before }),
+      fold: (older, newer) => ({
+        ...newer,
+        before: older.before,
+        after: [...older.after, ...newer.after],
+      }),
       onError: (err, party) => {
         options.log.warn({ err, party }, 'could not announce a start time');
       },
@@ -212,23 +226,71 @@ export class TimedPartyService {
    * the first of them, so that a start that was put back is not announced at all.
    */
   private announceLater(partyId: string, before: number | null, by: Member): void {
-    this.starts.later(partyId, (earlier) => ({ before: earlier ? earlier.before : before, by }));
+    this.starts.later(partyId, (earlier) => ({
+      before: earlier ? earlier.before : before,
+      by,
+      after: earlier?.after ?? [],
+    }));
+  }
+
+  /**
+   * Makes changes of one party together (a train's Manage… and a meetup's editor set the start and
+   * the end, in either order): the lines they say are held until `work` is done, then said as
+   * every line is (`say`), so that they follow a new start in its message, whichever was set first.
+   */
+  async together<T>(partyId: string, work: () => Promise<T>): Promise<T> {
+    if (this.held.has(partyId)) return work();
+    const lines: Array<{ postId: string; text: string }> = [];
+    this.held.set(partyId, lines);
+    try {
+      return await work();
+    } finally {
+      this.held.delete(partyId);
+      for (const { postId, text } of lines) this.say(partyId, postId, text);
+    }
+  }
+
+  /**
+   * Says a line of a party in its post, pinging nobody: held while its changes are made
+   * `together`; after the start in the message of a start that waits for its announcement; else
+   * at once, with the post's other lines.
+   */
+  private say(partyId: string, postId: string, text: string): void {
+    const held = this.held.get(partyId);
+    if (held) {
+      held.push({ postId, text });
+      return;
+    }
+    const after = this.starts.amend(partyId, (pending) => ({
+      ...pending,
+      after: [...pending.after, text],
+    }));
+    if (!after) this.options.lines.say(postId, text);
   }
 
   /**
    * Says the start a party has now, or that it has none any more, to everybody else who is
    * signed up; nothing when the start is what it was before the changes that led here.
    */
-  private async announceStart(partyId: string, before: number | null, by: Member): Promise<void> {
-    const { store, gateway, users } = this.options;
+  private async announceStart(
+    partyId: string,
+    before: number | null,
+    by: Member,
+    after: readonly string[],
+  ): Promise<void> {
+    const { store, gateway, users, lines } = this.options;
     const party = store.get(partyId);
     const postId = party?.forumPostId ?? null;
     if (!party || !isTimed(party) || postId === null) return;
     const start = startTimeOf(party);
-    if (start === before) return;
+    if (start === before) {
+      // No news of the start: what was said meanwhile is said as the lines it is.
+      for (const text of after) lines.say(postId, text);
+      return;
+    }
     const word = partyWord(party);
     const who = doer(party, by);
-    const said =
+    const startLine =
       start === null
         ? who
           ? `${who} removed the start time of this ${word}.`
@@ -236,6 +298,7 @@ export class TimedPartyService {
         : who
           ? `${who} set the start of this ${word}: ${this.when(start)}.`
           : `The start of this ${word} was set: ${this.when(start)}.`;
+    const said = [startLine, ...after].join('\n');
     const others = membersWhere(
       party,
       (attendee, id) => id !== by.id && attendee.status !== PartyStatus.Complete,
@@ -271,7 +334,7 @@ export class TimedPartyService {
     change: (party: P, now: number) => Change<P, Extra>,
     line?: (party: P) => string | undefined,
   ): Promise<TimedChangeOutcome<Extra, P>> {
-    const { store, posts, lines } = this.options;
+    const { store, posts } = this.options;
     const stored = await storedChange<P, Extra>(
       store,
       partyId,
@@ -289,7 +352,9 @@ export class TimedPartyService {
     if (stored.written) {
       posts.changed(partyId);
       const text = line?.(party);
-      if (text !== undefined && party.forumPostId !== null) lines.say(party.forumPostId, text);
+      if (text !== undefined && party.forumPostId !== null) {
+        this.say(partyId, party.forumPostId, text);
+      }
     }
     return { ...stored.extra, kind: 'ok', party, changed: stored.written };
   }

@@ -393,6 +393,61 @@ describe('TimedPartyService: a change drawn from what the party was (the live ma
   });
 });
 
+// Staging of 2026-11-07: Manage… changed both times, and the post said the end at once and the
+// start in a message of its own seconds later.
+describe('TimedPartyService: a start and an end set together', () => {
+  const startLine = `**Alice** (<@${ALICE}>) set the start of this meetup: ${stamp(START)} (${stamp(START, 'R')}).`;
+  const endLine = `**Alice** (<@${ALICE}>) set the end of this meetup: ${stamp(END)} (${stamp(END, 'R')}).`;
+  const contents = (made: Made) =>
+    made.gateway.messagesIn(made.postId).map((message) => message.message.content);
+
+  it('says the end after the start, in the message that tells the others of the start', async () => {
+    const made = await withMembers();
+    await made.timed.setStartTime(made.party.id, alice, START);
+    await made.timed.setEndTime(made.party.id, alice, END);
+    // The lines that ping nobody go out first: the end is not among them.
+    await made.attendance.flush();
+    expect(contents(made)).toEqual([]);
+    await settled(made);
+    expect(made.gateway.messagesIn(made.postId).map((message) => message.message)).toEqual([
+      {
+        content: `${startLine}\n${endLine}\n<@${REPORTER}> <@${BOB}>`,
+        mention: { users: [REPORTER, BOB] },
+      },
+    ]);
+  });
+
+  it('says the end after the start also where the end was set first (`together`)', async () => {
+    const made = await withMembers();
+    await made.timed.together(made.party.id, async () => {
+      await made.timed.setEndTime(made.party.id, alice, END);
+      await made.timed.setStartTime(made.party.id, alice, START);
+    });
+    await made.attendance.flush();
+    expect(contents(made)).toEqual([]);
+    await settled(made);
+    expect(contents(made)).toEqual([`${startLine}\n${endLine}\n<@${REPORTER}> <@${BOB}>`]);
+  });
+
+  it('still says the end where the start comes to nothing new, as a line of its own', async () => {
+    const made = await withMembers();
+    await made.timed.together(made.party.id, async () => {
+      await made.timed.setEndTime(made.party.id, alice, END);
+      // Signed up nowhere: the start is refused, the end stands.
+      await made.timed.setStartTime(made.party.id, carol, START);
+    });
+    await settled(made);
+    expect(contents(made)).toEqual([endLine]);
+    // A start put back to what it was before the message went out: the end alone, as a line.
+    const again = await withMembers();
+    await again.timed.setStartTime(again.party.id, alice, START);
+    await again.timed.setEndTime(again.party.id, alice, END);
+    await again.timed.setStartTime(again.party.id, alice, null);
+    await settled(again);
+    expect(contents(again)).toEqual([endLine]);
+  });
+});
+
 describe('TimedPartyService: starts set while an announcement is on its way', () => {
   it('says every start once, and the last one last', async () => {
     const made = await withMembers();

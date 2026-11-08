@@ -127,6 +127,49 @@ describe('Manage…’s Submit as one code path for the dialog and the map (plan
     expect(made.current().timed.startTime).toBe(from + hour);
   });
 
+  // Staging of 2026-11-07: the post said "set the end" at once and "set the start" seconds later.
+  it('says the start before the end in the post, whichever of them was set first', async () => {
+    const made = await setup();
+    const hour = 3_600_000;
+    const from = Math.ceil(made.current().createdAt / hour) * hour;
+    const alice = { id: ALICE, name: 'Alice' };
+    await made.timed.setStartTime(made.party.id, alice, from + hour);
+    await made.timed.setEndTime(made.party.id, alice, from + 2 * hour);
+    await made.timed.flush();
+    await made.attendance.flush();
+    const seen = made.gateway.messagesIn(made.postId).length;
+    const manage = (start: number, end: string) =>
+      manageTrainAs(
+        made.ctx,
+        made.current(),
+        alice,
+        false,
+        made.shown(),
+        { kind: 'raid', route: 'keep', atEnd: 'finish', start, end },
+        'post',
+        made.current().createdAt,
+      );
+    const said = async () => {
+      // The lines that ping nobody first, as they would go out before the start's message.
+      await made.attendance.flush();
+      await made.timed.flush();
+      const texts = made.gateway
+        .messagesIn(made.postId)
+        .slice(seen)
+        .map((message) => message.message.content ?? '');
+      return texts
+        .join('\n')
+        .split('\n')
+        .filter((line) => /set the (start|end)/u.test(line));
+    };
+    // Both later: the end is set first, as the start would be refused against it.
+    expect(await manage(from + 3 * hour, 'in 1000')).toMatchObject({ kind: 'ok' });
+    const lines = await said();
+    expect(lines).toHaveLength(2);
+    expect(lines[0]).toMatch(/set the start of this train/u);
+    expect(lines[1]).toMatch(/set the end of this train/u);
+  });
+
   it('says which times went through when one is refused', async () => {
     const made = await setup();
     const alice = { id: ALICE, name: 'Alice' };

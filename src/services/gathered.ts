@@ -70,6 +70,17 @@ export class Gathered<T> {
   }
 
   /**
+   * Changes what is gathered for a key and not sent yet, without starting its wait anew: what
+   * waits for its delay, else what is due behind a message on its way. False where nothing is.
+   */
+  amend(key: string, change: (gathered: T) => T): boolean {
+    const pending = this.waiting.get(key) ?? this.due.get(key);
+    if (pending === undefined) return false;
+    pending.gathered = change(pending.gathered);
+    return true;
+  }
+
+  /**
    * Forgets what waits for a key, unsent: for a change that makes what was gathered about it
    * meaningless. What is on its way already still goes out.
    */
