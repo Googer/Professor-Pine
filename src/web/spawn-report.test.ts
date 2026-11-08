@@ -12,6 +12,7 @@ import { viewOverwrite } from '../../test/support/region-roles.js';
 import { keptRow, wayspotId } from '../../test/support/wayspot-cases.js';
 import { wayspotsWith } from '../../test/support/wayspots.js';
 import type { WayspotDirectory } from '../services/wayspot-directory.js';
+import type { PartyWebDeps } from './party-routes.js';
 import {
   FakeActingMembers,
   partyWebWith,
@@ -58,6 +59,8 @@ async function reporting(
     meetupSafety?: MeetupSafety;
     /** The kept Wayspots (`wayspotsWith`); none without it. */
     wayspots?: WayspotDirectory;
+    /** The places' pictures the map serves; none without it. */
+    places?: PartyWebDeps['places'];
   } = {},
 ) {
   const throttles = options.throttles ?? new Throttles();
@@ -91,7 +94,11 @@ async function reporting(
     ]);
   const web = webServerWith({
     members,
-    parties: partyWebWith(made, { acting, throttles }),
+    parties: partyWebWith(made, {
+      acting,
+      throttles,
+      ...(options.places ? { places: options.places } : {}),
+    }),
     spawns: spawnWebWith(ctx, { channelName: (id) => names.get(id) }),
   });
   web.clock.now = PARTY_NOW;
@@ -813,6 +820,7 @@ describe('the wild spawns on the map', () => {
         costumed: false,
         details: 'under the stairs',
         near: 'Near The Stacks (gym)',
+        address: '1 Library Lane',
         point: { lat: THE_STACKS.lat, lon: THE_STACKS.lon },
         reporter: 'Bob',
         region: '#west',
@@ -903,6 +911,50 @@ describe('the wild spawns on the map', () => {
     map.web.clock.now += 60_000;
     expect(await seen(ALICE, 'Alice')).toBe(1);
     expect((await map.report(body)).status).toBe(200);
+  });
+
+  // Staging of 2026-11-07: the popup shows the place's picture, as its region message does.
+  it("serves the picture of the place a spawn is near to those who see the spawn, by Pine's address", async () => {
+    const LIBRARY = 'https://lh3.googleusercontent.com/library';
+    const JPEG = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 4, 5, 6]);
+    const asked: string[] = [];
+    const map = await reporting({
+      places: {
+        keyOf: (url) => (url === `${LIBRARY}=s400` ? 'gym/1' : undefined),
+        urlOf: (kind, id) => (kind === 'gym' && id === '1' ? `${LIBRARY}=s400` : undefined),
+        read: (kind, id) => {
+          asked.push(`${kind}/${id}`);
+          return Promise.resolve({ bytes: JPEG, type: 'image/jpeg' });
+        },
+      },
+    });
+    web = map.web;
+    const picture = `/s/${FAKE_GUILD_ID}/pictures/gym/1`;
+    const cookie = await map.web.loggedIn(ALICE, 'Alice');
+    const fetched = async (who = cookie) =>
+      (await map.web.app.inject({ url: picture, headers: { cookie: who } })).statusCode;
+    // No spawn shows it yet: nothing is fetched.
+    expect(await fetched()).toBe(404);
+    await map.made.spawns.report({
+      guildId: FAKE_GUILD_ID,
+      regionChannelId: WEST_CHANNEL,
+      pokemon: { dex: 147, key: 'dratini', name: 'Dratini' },
+      details: 'by the bench',
+      reporter: { id: BOB, name: 'Bob' },
+      near: { ...THE_STACKS, image: LIBRARY },
+    });
+    const [shown] = (await listed(map, cookie)).view?.spawns ?? [];
+    expect(shown).toMatchObject({ address: '1 Library Lane', placePicture: picture });
+    const answer = await map.web.app.inject({ url: picture, headers: { cookie } });
+    expect(answer.statusCode).toBe(200);
+    expect(answer.headers['content-type']).toBe('image/jpeg');
+    expect(answer.rawPayload).toEqual(JPEG);
+    expect((await map.web.app.inject({ url: picture })).statusCode).toBe(401);
+    // Not for a member the spawn's region keeps out.
+    map.made.gateway.barred.set(WEST_FORUM, new Set([ALICE]));
+    map.web.clock.now += 60_000;
+    expect(await fetched()).toBe(404);
+    expect(asked).toEqual(['gym/1']);
   });
 
   it('is for members of the server alone, and not while Discord cannot say who is one', async () => {

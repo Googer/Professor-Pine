@@ -101,6 +101,61 @@ describe('the spawns as the map shows them', () => {
     ]);
   });
 
+  // Staging of 2026-11-07: Discord's message says the place's address and shows its picture.
+  it('gives the address and picture of the place it is near, as its region message shows them', () => {
+    const cathy = 'https://lh3.googleusercontent.com/cathy';
+    const place = {
+      kind: 'gym' as const,
+      id: '7',
+      title: 'Cathy',
+      lat: 40.44,
+      lon: -79.95,
+      address: '1617 Cathedral of Learning, Pittsburgh, PA 15260, USA',
+      image: cathy,
+    };
+    const asked: string[] = [];
+    const placePicture = (url: string) => {
+      asked.push(url);
+      return '/s/x/pictures/gym/7';
+    };
+    const { spawns } = spawnsView(
+      input(
+        [
+          spawn({ near: place }),
+          spawn({ near: { ...place, kind: 'stop', address: null } }),
+          spawn({ near: { ...place, kind: 'powerspot', address: '', image: null } }),
+          spawn({ near: { kind: 'pin', lat: 40.02, lon: -80.02, near: null, linkName: null } }),
+        ],
+        { placePicture },
+      ),
+    );
+    expect(
+      spawns.map(({ near, address, placePicture }) => ({ near, address, placePicture })),
+    ).toEqual([
+      {
+        near: 'Near Cathy (gym)',
+        address: '1617 Cathedral of Learning, Pittsburgh, PA 15260, USA',
+        placePicture: '/s/x/pictures/gym/7',
+      },
+      // As Discord words it: beside a picture, a place without an address says so.
+      {
+        near: 'Near Cathy (PokéStop)',
+        address: '(no address available)',
+        placePicture: '/s/x/pictures/gym/7',
+      },
+      { near: 'Near Cathy (Power Spot)', address: undefined, placePicture: undefined },
+      { near: 'Dropped pin', address: undefined, placePicture: undefined },
+    ]);
+    // The picture asked for is the one the message shows (`wayspotPicture`, sized).
+    expect(asked).toEqual([`${cathy}=s400`, `${cathy}=s400`]);
+    // A picture Pine does not serve: none, and the address as the message says it then.
+    const [unserved] = spawnsView(
+      input([spawn({ near: { ...place, address: null } })], { placePicture: () => undefined }),
+    ).spawns;
+    expect(unserved).not.toHaveProperty('placePicture');
+    expect(unserved?.address).toBe('(no address available)');
+  });
+
   it('leaves out what the member may not see, keeping the order', () => {
     const { spawns } = spawnsView(
       input([spawn({ messageId: '1' }), spawn({ messageId: '2' }), spawn({ messageId: '3' })], {

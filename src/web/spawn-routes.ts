@@ -19,7 +19,6 @@ import {
   type WildReading,
 } from '../commands/notifications/wild.js';
 import type { Region } from '../db/repositories/region-repository.js';
-import type { StandingSpawn } from '../db/repositories/spawn-report-repository.js';
 import type { MemberAccess } from '../discord/party-gateway.js';
 import { UserError } from '../discord/errors.js';
 import type { WildExceptions } from '../domain/pogo/wild.js';
@@ -42,6 +41,7 @@ import type { GuildRequest } from './guild-routes.js';
 import { pageWords } from './page-words.js';
 import { UNCONFIRMED } from './party-routes.js';
 import type { PartyViewers } from './party-viewers.js';
+import { gatesOf, seenBy } from './spawn-seen.js';
 import { spawnsView } from './spawn-view.js';
 import { limitedPerAddress, RateLimiter } from './rate-limit.js';
 import type { WebDeps } from './server.js';
@@ -193,28 +193,25 @@ export function spawnRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
       if (member.kind === 'not-member') return sendFailure(request, reply, 403);
       if (member.kind === 'unconfirmed') return reply.code(503).send({ error: UNCONFIRMED });
       const standing = await ctx.spawns.standing(guild);
-      // The gates of its region (`spawnGates`), its channel alone where the region is gone.
-      const gatesOf = (spawn: StandingSpawn): string[] =>
-        spawnGates({
-          forumChannelId: ctx.regions.byChannel(spawn.channelId)?.forumChannelId ?? null,
-          channelId: spawn.channelId,
-        });
-      const viewer = await viewers.viewer(guild, session.userId, standing.flatMap(gatesOf), member);
+      const viewer = await viewers.viewer(
+        guild,
+        session.userId,
+        standing.flatMap((spawn) => gatesOf(ctx, spawn)),
+        member,
+      );
       if (viewer.kind !== 'member') return sendFailure(request, reply, 403);
       const view = spawnsView({
         spawns: standing,
-        // The rule a report on the map follows too (review S2, `spawnKeptOut`).
-        shown: (spawn) =>
-          !spawnKeptOut(
-            gatesOf(spawn).map((gate) =>
-              viewer.barred.has(gate) ? 'barred' : viewer.hidden.has(gate) ? 'hidden' : 'visible',
-            ),
-            viewer.standing?.administrator ?? false,
-          ),
+        shown: seenBy(ctx, viewer),
         region: (channelId) => names.channel(channelId),
         guild,
         pictureOrigins: deps.pictureOrigins,
         picture: (source) => deps.pictures.url(source),
+        // A place's picture by Pine's address, as a post's Where names it (`placePictures`).
+        placePicture: (url) => {
+          const key = parties.places.keyOf(url);
+          return key === undefined ? undefined : `/s/${guild}/pictures/${key}`;
+        },
       });
       const body = JSON.stringify(view);
       const etag = etagOf(body);

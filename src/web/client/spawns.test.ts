@@ -128,6 +128,28 @@ describe('the wild spawns on the map', () => {
     ]);
   });
 
+  // Staging of 2026-11-07: "Near Cathy (gym)" alone, where Discord says the address beside the
+  // place's picture.
+  it("says the place's address after its name, as its region message does, its picture beside them", () => {
+    const placed = spawnPopup(
+      spawn(1, {
+        address: '20 Market Street, Pinewood',
+        placePicture: '/s/1/pictures/wayspot/abc',
+      }),
+      where,
+    );
+    expect(texts(placed)).toContain('Near Yellow Mural 1 (PokéStop) · 20 Market Street, Pinewood');
+    const [near] = tagged(placed, 'div').filter((node) => node.className === 'near');
+    expect(tagged(near ?? { tag: 'div' }, 'img').map((img) => img.attributes)).toEqual([
+      { src: '/s/1/pictures/wayspot/abc', alt: '', draggable: 'false' },
+    ]);
+    expect(classes(placed)).toContain('place-picture');
+    // Without them, the place's name alone and no picture.
+    const bare = spawnPopup(spawn(1), where);
+    expect(texts(bare)).toContain('Near Yellow Mural 1 (PokéStop)');
+    expect(classes(bare)).not.toContain('place-picture');
+  });
+
   it('lists each spawn under Wild spawns, opening its marker where it has a point', () => {
     const [drawn, undrawn] = spawnLines([spawn(1), spawn(2, { point: null, near: undefined })]);
     expect(drawn).toEqual({

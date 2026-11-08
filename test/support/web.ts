@@ -620,11 +620,15 @@ const NO_STOPS: StopWebDeps = {
   grunts: undefined,
 };
 
-/** No spawns can be reported: a test that does passes `spawnWebWith`. */
+/**
+ * No spawns stand (the places' pictures' route asks) and none can be reported: a test that
+ * reports one passes `spawnWebWith`.
+ */
 const NO_SPAWNS: SpawnWebDeps = {
   ctx: new Proxy({} as SpawnWebContext, {
     get(_target, property) {
       if (typeof property === 'symbol' || property === 'then') return undefined;
+      if (property === 'spawns') return { standing: () => Promise.resolve([]) };
       throw new Error('no spawns in this test: give spawnWebWith');
     },
   }),

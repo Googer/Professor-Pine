@@ -6,7 +6,7 @@ import { searchTokens } from '../domain/search/text.js';
 import { allowedPicture } from '../domain/web/picture.js';
 import type { MapSpawn, SpawnsView } from '../domain/web/spawn-data.js';
 import { PLACE_KIND_WORDS } from '../render/place.js';
-import { IV_WORDS } from '../render/spawn.js';
+import { IV_WORDS, nearAddress, nearPicture } from '../render/spawn.js';
 
 /** What the view of the spawns needs beyond the reports that stand. */
 export interface SpawnViewInput {
@@ -26,6 +26,29 @@ export interface SpawnViewInput {
    * without it.
    */
   picture?: PictureLookup;
+  /**
+   * Pine's address of a place's picture as a post's Where shows it (`/s/<guild>/pictures/gym/1`,
+   * `PlacePictures.keyOf`); none where Pine serves none, and none without it.
+   */
+  placePicture?: (url: string) => string | undefined;
+}
+
+/**
+ * The address and picture of the place a report was made near, as its region message shows them
+ * beside Where (`nearAddress`, `nearPicture`): the address as typed, the picture by Pine's
+ * address; neither for a pin.
+ */
+function nearFacts(
+  place: Place,
+  input: SpawnViewInput,
+): Pick<MapSpawn, 'address' | 'placePicture'> {
+  const picture = nearPicture(place);
+  const address = nearAddress(place, picture !== undefined, (raw) => raw);
+  const served = picture === undefined ? undefined : input.placePicture?.(picture);
+  return {
+    ...(address === undefined ? {} : { address }),
+    ...(served === undefined ? {} : { placePicture: served }),
+  };
 }
 
 /**
@@ -74,7 +97,9 @@ function mapSpawn(spawn: StandingSpawn, input: SpawnViewInput): MapSpawn {
     ...(spawn.iv === null ? {} : { ivs: IV_WORDS[spawn.iv] }),
     ...(picture === undefined ? {} : { picture }),
     details: spawn.details,
-    ...(spawn.near === null ? {} : { near: nearWords(spawn.near) }),
+    ...(spawn.near === null
+      ? {}
+      : { near: nearWords(spawn.near), ...nearFacts(spawn.near, input) }),
     point: spawn.near === null ? null : { lat: spawn.near.lat, lon: spawn.near.lon },
     reporter: reporter.trim() === '' ? 'a member' : reporter,
     region: input.region(spawn.channelId),

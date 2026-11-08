@@ -111,6 +111,30 @@ export function spawnsInView(
 }
 
 /**
+ * The place a spawn is near as its region message says it (staging of 2026-11-07): `Near Cathy
+ * (gym) · 1617 Cathedral of Learning, …`, the address the server gave after the place's name, and
+ * the place's picture beside them where the server names one (Pine's address, as a post's Where).
+ */
+function nearNode(spawn: MapSpawn, near: string): PageNode {
+  return {
+    tag: 'div',
+    className: 'near',
+    children: [
+      ...(spawn.placePicture === undefined
+        ? []
+        : [
+            {
+              tag: 'img',
+              className: 'place-picture',
+              attributes: { src: spawn.placePicture, alt: '', draggable: 'false' },
+            },
+          ]),
+      { tag: 'span', text: spawn.address === undefined ? near : `${near} · ${spawn.address}` },
+    ],
+  };
+}
+
+/**
  * A spawn's popup and phone card, as its region message says it: its picture and "Wild spawn" with
  * the region's channel; the Pokémon (costumed where an event lists it so) and the IVs the reporter
  * checked; where it is in the reporter's words and the place it is near; how far it is and
@@ -152,9 +176,7 @@ export function spawnPopup(spawn: MapSpawn, ctx: SpawnPopupContext): PageNode {
           ...(spawn.details === null
             ? []
             : [{ tag: 'div', className: 'details', text: spawn.details }]),
-          ...(spawn.near === undefined
-            ? []
-            : [{ tag: 'div', className: 'near', text: spawn.near }]),
+          ...(spawn.near === undefined ? [] : [nearNode(spawn, spawn.near)]),
           mapLine(spawn.point ?? undefined, spawn.link, ctx.located, ctx.units),
           {
             tag: 'div',

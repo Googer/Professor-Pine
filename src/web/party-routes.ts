@@ -47,6 +47,7 @@ import type { PlacePictures } from '../services/post-pictures.js';
 import { linkedPosts, postKey, postView, type PostViewOptions } from '../render/post-view.js';
 import { regroupOnTheMap } from '../render/group-dialogs.js';
 import { unplain } from '../render/text.js';
+import { spawnShowsPlacePicture } from './spawn-seen.js';
 import type {
   AttendanceOutcome,
   AttendanceService,
@@ -543,8 +544,9 @@ export function partyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
 
   // A place's picture beside a post's Where (plan 8M-8A): for members (401, 403, 503 as the
   // list), by its gym or Wayspot (`PlacePictures`), only while a post of this server that the
-  // member sees on the map shows it (else 404, nothing fetched): no open proxy, and nothing of a
-  // party the member may not see. A day in the browser.
+  // member sees on the map shows it, or a wild spawn they see there (`spawnShowsPlacePicture`)
+  // (else 404, nothing fetched): no open proxy, and nothing of a party or spawn the member may
+  // not see. A day in the browser.
   const placeLimiter = new RateLimiter({ uses: PLACE_PICTURES_PER_MINUTE, perMs: 60_000 });
   scope.get(
     '/pictures/:kind/:id',
@@ -566,16 +568,19 @@ export function partyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
       const url = parties.places.urlOf(kind, id);
       // The posts that show the picture first, then whether the member sees one of them on the
       // map: `mapParty` makes a party's whole map line, and runs for those few only (review W-2).
+      // A wild spawn's popup shows the picture of the place it is near too (staging of
+      // 2026-11-07), asked only where no post shows it.
       const shown =
         url !== undefined &&
-        own.parties.some((party) => {
+        (own.parties.some((party) => {
           const layout = parties.layoutOf(party.id);
           return (
             layout !== undefined &&
             layoutThumbnails(layout).includes(url) &&
             mapParty(party, input) !== null
           );
-        });
+        }) ||
+          (await spawnShowsPlacePicture(deps, viewers, guild, session.userId, url)));
       const picture = shown ? await parties.places.read(kind, id) : undefined;
       if (picture === undefined) return sendFailure(request, reply, 404);
       return reply

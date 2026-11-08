@@ -47,6 +47,32 @@ export type SpawnPlace = Place;
 const NO_PLACE_ADDRESS = '(no address available)';
 
 /**
+ * The picture of the place a spawn is near as a report shows it beside Where (a gym's or
+ * Wayspot's, `wayspotPicture`); none for a pin or a place without one. The map's popup shows the
+ * same one (`spawnsView`).
+ */
+export function nearPicture(place: SpawnPlace | undefined): string | undefined {
+  return wayspotPicture(placeImage(place));
+}
+
+/**
+ * The address of a place a spawn is near as `nearLine` says it: none for a place without one, or
+ * `(no address available)` where its picture is shown beside the line (`pictured`); none for a
+ * pin, whose line names no address. `text` makes it safe where it is shown (`plainNoLinks` on
+ * Discord; the map's popup, which shows text as text, takes it as it is).
+ */
+export function nearAddress(
+  place: SpawnPlace,
+  pictured: boolean,
+  text: (raw: string) => string = plainNoLinks,
+): string | undefined {
+  if (place.kind === 'pin') return undefined;
+  const address = place.address === null || place.address === '' ? '' : text(place.address);
+  if (address !== '') return address;
+  return pictured ? NO_PLACE_ADDRESS : undefined;
+}
+
+/**
  * `Near **Fountain Square** (PokéStop) · 20 Market Street, Pinewood · [Map](<…>)`: the title and
  * the address made plain without links (they reach other members' direct messages), the kind,
  * and the place's maps link. A place without an address says so where its picture is shown
@@ -60,8 +86,7 @@ export function nearLine(
   { pictured = false, officially }: { pictured?: boolean; officially?: string | undefined } = {},
 ): string {
   if (place.kind === 'pin') return pinLine(place, plainNoLinks);
-  const address = place.address === null || place.address === '' ? '' : plainNoLinks(place.address);
-  const shown = address !== '' ? address : pictured ? NO_PLACE_ADDRESS : '';
+  const shown = nearAddress(place, pictured) ?? '';
   // The moderators' posts (plan 8S-2) name a gym's official name beside the nickname it shows.
   const kind =
     officially === undefined
@@ -108,7 +133,7 @@ export const SPAWN_CAUTION = 'Spawns can be gone before you get there.';
  * the small print.
  */
 function spawnBody(view: SpawnView, smallPrint: string): APIComponentInContainer[] {
-  const picture = wayspotPicture(placeImage(view.near));
+  const picture = nearPicture(view.near);
   const where = [
     whereText(view),
     ...(view.near ? [nearLine(view.near, { pictured: picture !== undefined })] : []),

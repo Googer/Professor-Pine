@@ -2019,6 +2019,22 @@ path.highlighted {
   color: var(--muted);
 }
 
+/* The place's picture beside its name and address, as a post's beside its Where. */
+.spawn-popup .near .place-picture {
+  float: right;
+  width: 64px;
+  height: 64px;
+  margin: 0 0 4px 8px;
+  border-radius: var(--radius);
+  object-fit: contain;
+}
+
+.spawn-popup .near::after {
+  content: '';
+  display: block;
+  clear: both;
+}
+
 /* Both layers at one stop: the ring half research, half Rocket. */
 .stop-marker.both .ring {
   border-color: var(--research) var(--rocket) var(--rocket) var(--research);

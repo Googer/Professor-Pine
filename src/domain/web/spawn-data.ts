@@ -48,6 +48,16 @@ export interface MapSpawn {
    * Mural (PokéStop)`, the name its maps link gave, `Dropped pin`; none without one.
    */
   near?: string;
+  /**
+   * The address of the gym, PokéStop or Power Spot it is near as its message says it (`(no
+   * address available)` where the message shows the place's picture without one); none for a pin.
+   */
+  address?: string;
+  /**
+   * The picture of that place, as its message shows it beside Where, by Pine's address
+   * (`/s/<guild>/pictures/gym/<id>`, as a post's); none where Pine serves none.
+   */
+  placePicture?: string;
   /** Where the map draws it: the pin or the place it is near; null for none (listed, not drawn). */
   point: { lat: number; lon: number } | null;
   /** Who reported it, by the name shown then, as text ("a member" where none was kept). */
