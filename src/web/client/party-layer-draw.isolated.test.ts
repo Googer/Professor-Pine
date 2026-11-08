@@ -3022,6 +3022,25 @@ describe('the wild spawns on the map (Matt, 2026-11-07)', () => {
     expect(under?.getAttribute('data-spawn')).toBe(caseSpawn(6).id);
   });
 
+  // Review SF1-2: a dead picture (a place's gone, a cropped icon missing) drew a broken image.
+  it('leaves out the pictures of a spawn’s popup that do not load, its own and its place’s', async () => {
+    vi.stubGlobal('HTMLImageElement', PageElement);
+    const pictured = caseSpawns([
+      caseSpawn(5, { address: '20 Market Street', placePicture: '/s/1/pictures/wayspot/abc' }),
+    ]);
+    await started({ raids: true, spawns: pictured });
+    const marker = fake.shown.markers.findLast((one) => one.options.title === 'Dratini');
+    marker?.fire('click', {});
+    const opened = marker?.popupElement as PageElement | undefined;
+    const pictures = opened?.querySelectorAll('img.report-picture, img.place-picture') ?? [];
+    expect(pictures).toHaveLength(2);
+    for (const picture of pictures) {
+      expect(picture.hidden).toBe(false);
+      picture.dispatch('error');
+      expect(picture.hidden).toBe(true);
+    }
+  });
+
   it("draws a spawn under a raid at the same gym and under a stop's reports, never over them", async () => {
     const atLibrary = caseSpawn(5, { point: { lat: 40.441, lon: -79.95 } });
     const { markerOf } = await started({

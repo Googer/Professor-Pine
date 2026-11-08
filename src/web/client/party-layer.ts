@@ -171,6 +171,12 @@ import type { ListLine } from './what-is-on.js';
 
 const EVERY_MS = 20_000;
 const COUNTDOWN_MS = 15_000;
+
+/**
+ * The pictures left out where they do not load: a post's beside a part of it, a report's or a
+ * spawn's own, and the picture of the place a spawn is near.
+ */
+const LEFT_OUT_UNLOADED = 'img.beside, img.report-picture, img.place-picture';
 /**
  * The posts a list asks for ahead (review 8A-3): those in view first, at most these, well within
  * the post route's 480 a minute (`POSTS_PER_MINUTE`), at a list every 5 seconds on a live map.
@@ -1333,11 +1339,13 @@ export function showParties(
       if (party !== undefined) groupPicks.chose(party, menu.value);
     });
     // A place's or post's picture that does not load is left out, not drawn broken (review
-    // 8A-15). (`error` does not bubble: caught on the way down.)
+    // 8A-15), and so is a report's or a spawn's own or its place's (review SF1-2 of the staging
+    // fixes: a place's picture gone, a cropped icon missing). (`error` does not bubble: caught on
+    // the way down.)
     element.addEventListener(
       'error',
       (event) => {
-        if (event.target instanceof HTMLImageElement && event.target.classList.contains('beside')) {
+        if (event.target instanceof HTMLImageElement && event.target.matches(LEFT_OUT_UNLOADED)) {
           event.target.hidden = true;
         }
       },
