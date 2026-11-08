@@ -24,7 +24,7 @@ import {
 } from '../domain/party/timed.js';
 import type { Logger } from '../log.js';
 import { doer } from '../render/activity.js';
-import { clockOrDay, memberText, plain, timestamp } from '../render/text.js';
+import { clockOrDay, LIMITS, memberText, plain, timestamp, withMentions } from '../render/text.js';
 import type { Member } from './attendance-service.js';
 import { Gathered } from './gathered.js';
 import type { PartyNotifier } from './notify-service.js';
@@ -72,6 +72,27 @@ interface PendingStart {
   before: number | null;
   by: Member;
   after: string[];
+}
+
+/**
+ * The start's line and as many of the lines gathered after it as fit into its message with room
+ * for the mentions of the first message (`withMentions`), in order (review SF1-1: what is
+ * gathered while the start keeps changing can pass what a message holds); the rest (`rest`), from
+ * the first that does not fit, is said after it as lines.
+ */
+function beside(
+  startLine: string,
+  after: readonly string[],
+  pinged: readonly string[],
+): { said: string; rest: string[] } {
+  const room = LIMITS.content - withMentions('', pinged).content.length;
+  let said = startLine;
+  const rest: string[] = [];
+  for (const text of after) {
+    if (rest.length === 0 && said.length + 1 + text.length <= room) said = `${said}\n${text}`;
+    else rest.push(text);
+  }
+  return { said, rest };
 }
 
 /**
@@ -298,7 +319,6 @@ export class TimedPartyService {
         : who
           ? `${who} set the start of this ${word}: ${this.when(start)}.`
           : `The start of this ${word} was set: ${this.when(start)}.`;
-    const said = [startLine, ...after].join('\n');
     const others = membersWhere(
       party,
       (attendee, id) => id !== by.id && attendee.status !== PartyStatus.Complete,
@@ -309,12 +329,15 @@ export class TimedPartyService {
       const found = settings.get(id);
       return found !== undefined && found.mentions && found.mentionsGroups;
     });
+    const { said, rest } = beside(startLine, after, pingable);
     // A message into the post of a party that has ended would open an archived post again.
     if (!store.get(partyId)) return;
     try {
       // Everybody, in as many messages as it takes (plan 8X-4: a Gigantamax train holds a hundred).
       await pingInMessages({ store, gateway }, partyId, postId, said, pingable);
     } finally {
+      // What did not fit beside the start follows it, as the lines it is (review SF1-1).
+      for (const text of rest) lines.say(postId, text);
       // Everybody else who is signed up also gets a direct message (always, as in a raid),
       // after the post was told: telling members must never be in the way of that.
       this.options.notify?.startTimeChanged(party, by);

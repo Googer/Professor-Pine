@@ -429,6 +429,28 @@ describe('TimedPartyService: a start and an end set together', () => {
     expect(contents(made)).toEqual([`${startLine}\n${endLine}\n<@${REPORTER}> <@${BOB}>`]);
   });
 
+  // Review SF1-1: the lines gathered beside the start are many and long.
+  it('keeps the start’s message within what Discord takes, the lines past it said after it', async () => {
+    const made = await withMembers();
+    await made.timed.setStartTime(made.party.id, alice, START);
+    const names = Array.from({ length: 30 }, (_, n) => `${'Picnic '.repeat(10)}${String(n)}`);
+    for (const name of names) await made.timed.setName(made.party.id, alice, name);
+    await made.attendance.flush();
+    expect(contents(made)).toEqual([]);
+    await settled(made);
+    const sent = made.gateway.messagesIn(made.postId).map((message) => message.message);
+    for (const message of sent) expect(message.content?.length).toBeLessThanOrEqual(2000);
+    // The start first, with the others pinged in it; then every rename, in order.
+    expect(sent[0]?.content?.startsWith(startLine)).toBe(true);
+    expect(sent[0]?.mention?.users).toEqual([REPORTER, BOB]);
+    const lines = sent.flatMap((message) => (message.content ?? '').split('\n'));
+    const renamed = lines.filter((line) => line.includes('renamed this meetup'));
+    expect(renamed).toHaveLength(names.length);
+    expect(renamed.map((line) => /(\d+)\*\*\.$/u.exec(line)?.[1])).toEqual(
+      names.map((_, n) => String(n)),
+    );
+  });
+
   it('still says the end where the start comes to nothing new, as a line of its own', async () => {
     const made = await withMembers();
     await made.timed.together(made.party.id, async () => {
