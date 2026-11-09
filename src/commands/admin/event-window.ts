@@ -6,6 +6,7 @@ import { UserError } from '../../discord/errors.js';
 import { v2Answer } from '../../discord/late-reply.js';
 import {
   EVENT_WINDOW_MAX_DAYS,
+  eventWindowLatestEnd,
   eventWindowProblem,
   type EventWindow,
 } from '../../domain/time/event-window.js';
@@ -24,10 +25,28 @@ import { between } from '../raids/raid-input.js';
 export const EVENT_WINDOW_GROUP = 'event-window';
 export const EVENT_WINDOW_DESCRIPTION = 'All-day Raid Hour raids and Max Battle Day rotations';
 
-const DAY_MS = 24 * 60 * 60_000;
+const MINUTE_MS = 60_000;
+/**
+ * How long after its end a window still lends its start to a `set` without `from:` (review
+ * LW-1): staff who let it run out and set it again soon after mean the same window.
+ */
+const KEEP_START_AFTER_END_MS = 2 * 60 * MINUTE_MS;
+/** How far back an end is read again to tell one in the past (`typedTime`). */
+const LOOK_BACK_MS = 30 * 24 * 60 * MINUTE_MS;
 /** What the window is called in every answer. */
 const WHAT = 'the event window';
 const END_BEFORE_START = 'The event window must end after it starts.';
+const END_PAST = 'The event window must end in the future.';
+
+/**
+ * The start a `set` without `from:` keeps (review LW-1): that of the window kept when it has
+ * begun and is on, or ended less than `KEEP_START_AFTER_END_MS` ago, so that the part that ran
+ * stays counted; undefined (it starts now) otherwise.
+ */
+function keptStart(kept: EventWindow | undefined, now: number): number | undefined {
+  if (kept === undefined || kept.start > now) return undefined;
+  return now - kept.end < KEEP_START_AFTER_END_MS ? kept.start : undefined;
+}
 
 /** A moment as the answers say it, in the settings' zone: "Friday, November 13 at 8:00 PM". */
 function momentWords(ctx: Pick<AppContext, 'config'>, time: number): string {
@@ -79,6 +98,13 @@ function typedTime(
     if (start !== null && fromNow?.kind === 'time' && fromNow.at <= start) {
       throw new UserError(END_BEFORE_START);
     }
+    // An end already gone (review LW-5): a time without a date read on a day it has passed
+    // (`read`), or one with a date that the same reader takes as of a month ago.
+    const earlier = readTime(ctx, parameter, text, null, now - LOOK_BACK_MS);
+    const gone =
+      (result.read !== undefined && result.read <= now) ||
+      (earlier.kind === 'time' && earlier.at <= now);
+    if (parameter === 'end' && gone) throw new UserError(END_PAST);
     throw new UserError(
       `"${typed}" cannot be ${what}: it must be ${between(result.first, result.last, now)}.`,
     );
@@ -115,14 +141,16 @@ export const setEventWindow: SubcommandPart = {
     .addStringOption((option) =>
       option
         .setName('until')
-        .setDescription('When it ends: a time, or a date and a time (month-day 8pm)')
+        .setDescription('When it ends: a time with am or pm, or a date and one (month-day 8pm)')
         .setRequired(true)
         .setMaxLength(100),
     )
     .addStringOption((option) =>
       option
         .setName('from')
-        .setDescription('When it starts, if not now: a time, or a date and a time')
+        .setDescription(
+          'When it starts, if not now: a time with am or pm, or a date and one (month-day 10am)',
+        )
         .setMaxLength(100),
     ),
   help: {
@@ -135,9 +163,11 @@ export const setEventWindow: SubcommandPart = {
         `While it is on, a raid that hatches lasts ${minutes} minutes, and a Dynamax or ` +
         'Gigantamax battle ends at the next half hour. Raids and battles reported before keep ' +
         'their times.\n\n' +
-        'Times are typed as for `/meetup`: a time, or a date (month-day) and a time. It starts ' +
-        `now unless \`from:\` says otherwise, and lasts at most ${String(EVENT_WINDOW_MAX_DAYS)} ` +
-        'days. Setting it again replaces it.\n\n' +
+        'Times are typed as for `/meetup`: a time with am or pm (1 to 6 alone is the ' +
+        'afternoon), or a date (month-day) and a time. It starts now unless `from:` says ' +
+        `otherwise, and lasts at most ${String(EVENT_WINDOW_MAX_DAYS)} days.\n\n` +
+        'Setting it again replaces it. Without `from:` it keeps the start of a window that is ' +
+        'on or ended less than 2 hours ago.\n\n' +
         'End it with `/admin event-window end` once raids and battles are back to normal. ' +
         'There is one window for all servers: anyone who may use `/admin` on any of them can ' +
         'set or end it.'
@@ -151,31 +181,37 @@ export const setEventWindow: SubcommandPart = {
   defer: 'ephemeral',
   async execute(interaction, ctx) {
     const now = Date.now();
+    const zone = ctx.config.settings.timezone;
     const from = interaction.options.getString('from');
-    const start = from === null ? now : typedTime(ctx, 'meet', from, null, now);
-    const end = typedTime(ctx, 'end', interaction.options.getString('until', true), start, now);
-    const problem = eventWindowProblem(start, end, now);
-    if (problem === 'end-not-after-start') {
-      throw new UserError(END_BEFORE_START);
-    }
-    if (problem === 'end-past') throw new UserError('The event window must end in the future.');
-    if (problem === 'too-long') {
-      const latest = start + EVENT_WINDOW_MAX_DAYS * DAY_MS;
-      throw new UserError(
-        `An event window lasts at most ${String(EVENT_WINDOW_MAX_DAYS)} days: end it by ` +
-          `${momentWords(ctx, latest)}.`,
-      );
-    }
-    const before = ctx.eventWindows.ongoing(now);
-    const window: EventWindow = { start, end, setBy: interaction.user.id, setAt: now };
-    await ctx.eventWindows.set(window);
-    ctx.log.info({ ...usedBy(interaction), start, end }, 'an event window was set');
+    const until = interaction.options.getString('until', true);
+    const typedStart = from === null ? undefined : typedTime(ctx, 'meet', from, null, now);
+    // Decided after any set or end asked before (review LW-2), from the window they left.
+    const { window, before } = await ctx.eventWindows.set((kept) => {
+      const start = typedStart ?? keptStart(kept, now) ?? now;
+      const end = typedTime(ctx, 'end', until, start, now);
+      const problem = eventWindowProblem(start, end, now, zone);
+      if (problem === 'end-not-after-start') throw new UserError(END_BEFORE_START);
+      if (problem === 'end-past') throw new UserError(END_PAST);
+      if (problem === 'too-long') {
+        throw new UserError(
+          `An event window lasts at most ${String(EVENT_WINDOW_MAX_DAYS)} days: end it by ` +
+            `${momentWords(ctx, eventWindowLatestEnd(start, now, zone))}.`,
+        );
+      }
+      return { start, end, setBy: interaction.user.id, setAt: now };
+    });
+    ctx.log.info(
+      { ...usedBy(interaction), start: window.start, end: window.end },
+      'an event window was set',
+    );
+    const stillFrom =
+      window.start < now ? `Still counted from ${momentWords(ctx, window.start)}.` : undefined;
     const replaced =
-      before === undefined
+      before === undefined || before.end <= now
         ? undefined
         : `This replaces the window that was to last until ${momentWords(ctx, before.end)}.`;
     await interaction.editReply(
-      v2Answer(textMessage(LIST_COLOUR, [windowWords(ctx, window, now), replaced])),
+      v2Answer(textMessage(LIST_COLOUR, [windowWords(ctx, window, now), stillFrom, replaced])),
     );
   },
 };

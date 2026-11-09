@@ -116,13 +116,71 @@ describe('/admin event-window', () => {
     expect(made.eventWindows.current()).toBeUndefined();
   });
 
-  it('refuses an end in the past', async () => {
+  it('refuses an end in the past in its own words (review LW-5)', async () => {
     const made = await commands();
-    const used = await made.use('event-window', 'set', { until: '11-08 8pm' });
-    expect(answerOf(used)).toMatch(
-      /^"11-08 8pm" cannot be the end of the event window: it must be between /,
+    const past = 'The event window must end in the future.';
+    expect(answerOf(await made.use('event-window', 'set', { until: '11-08 8pm' }))).toBe(past);
+    // A time of today already gone: read on today, it is past.
+    expect(answerOf(await made.use('event-window', 'set', { until: '8am' }))).toBe(past);
+    // Far ahead is another refusal.
+    expect(answerOf(await made.use('event-window', 'set', { until: '6-01 8pm' }))).toMatch(
+      /^"6-01 8pm" cannot be the end of the event window: it must be between /,
     );
     expect(made.eventWindows.current()).toBeUndefined();
+  });
+
+  describe('set again without from: (review LW-1)', () => {
+    const START = at('2026-11-09T10:00');
+    const kept = { start: START, end: at('2026-11-13T20:00'), setBy: '1', setAt: START };
+
+    it('keeps the start of the window on, and says so', async () => {
+      const made = await commands(new MemoryEventWindows(kept));
+      vi.setSystemTime(at('2026-11-12T12:00'));
+      const used = await made.use('event-window', 'set', { until: '11-15 8pm' });
+      expect(made.eventWindows.current()).toMatchObject({
+        start: START,
+        end: at('2026-11-15T20:00'),
+      });
+      expect(answerOf(used)).toBe(
+        'Until Sunday, November 15 at 8:00 PM, raids last 25 minutes as in a Raid Hour, and ' +
+          'Dynamax and Gigantamax battles change every 30 minutes, as on a Max Battle Day. ' +
+          'Raids and battles already reported keep their times.\n' +
+          'Still counted from Monday, November 9 at 10:00 AM.\n' +
+          'This replaces the window that was to last until Friday, November 13 at 8:00 PM.',
+      );
+    });
+
+    it('counts the 14 days from now, not from the kept start', async () => {
+      const made = await commands(new MemoryEventWindows(kept));
+      vi.setSystemTime(at('2026-11-12T12:00'));
+      await made.use('event-window', 'set', { until: '11-25 8pm' });
+      expect(made.eventWindows.current()).toMatchObject({ start: START });
+      expect(made.eventWindows.current()?.end).toBe(at('2026-11-25T20:00'));
+    });
+
+    it('keeps the start of one that ended less than 2 hours ago', async () => {
+      const made = await commands(new MemoryEventWindows(kept));
+      vi.setSystemTime(at('2026-11-13T21:00'));
+      const used = await made.use('event-window', 'set', { until: '11-15 8pm' });
+      expect(made.eventWindows.current()).toMatchObject({ start: START });
+      expect(answerOf(used)).toContain('Still counted from Monday, November 9 at 10:00 AM.');
+    });
+
+    it('starts now after one that ended 2 hours ago or more', async () => {
+      const made = await commands(new MemoryEventWindows(kept));
+      const now = at('2026-11-13T23:00');
+      vi.setSystemTime(now);
+      const used = await made.use('event-window', 'set', { until: '11-15 8pm' });
+      expect(made.eventWindows.current()).toMatchObject({ start: now });
+      expect(answerOf(used)).not.toContain('Still counted');
+    });
+
+    it('takes from: when it is given', async () => {
+      const made = await commands(new MemoryEventWindows(kept));
+      vi.setSystemTime(at('2026-11-12T12:00'));
+      await made.use('event-window', 'set', { from: '1pm', until: '11-15 8pm' });
+      expect(made.eventWindows.current()).toMatchObject({ start: at('2026-11-12T13:00') });
+    });
   });
 
   it('ends the window now, and says so when there is none', async () => {

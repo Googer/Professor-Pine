@@ -3,7 +3,7 @@ import { at, MAX_ZONE } from '../../../test/support/max-bosses.js';
 import { defaultMaxEnd, maxRotation } from './max-end.js';
 import { featuredAt, maxEventAt, type MaxEvent } from './max-events.js';
 import {
-  EVENT_WINDOW_MAX_DAYS,
+  eventWindowLatestEnd,
   eventWindowMaxEvent,
   eventWindowProblem,
   eventWindowRaidEvent,
@@ -143,12 +143,28 @@ describe('an event window (Matt, 2026-11-09: all-day Raid Hour raids, half-hour 
 
   it('refuses an end not after the start, an end in the past, and more than 14 days', () => {
     const now = at('2026-11-09T09:00');
-    expect(eventWindowProblem(wild.start, wild.end, now)).toBeUndefined();
-    expect(eventWindowProblem(wild.start, wild.start, now)).toBe('end-not-after-start');
-    expect(eventWindowProblem(wild.end, wild.start, now)).toBe('end-not-after-start');
-    expect(eventWindowProblem(now - 60 * MINUTE, now - MINUTE, now)).toBe('end-past');
-    const days = EVENT_WINDOW_MAX_DAYS * 24 * 60 * MINUTE;
-    expect(eventWindowProblem(now, now + days, now)).toBeUndefined();
-    expect(eventWindowProblem(now, now + days + MINUTE, now)).toBe('too-long');
+    const problem = (start: number, end: number, time = now) =>
+      eventWindowProblem(start, end, time, MAX_ZONE);
+    expect(problem(wild.start, wild.end)).toBeUndefined();
+    expect(problem(wild.start, wild.start)).toBe('end-not-after-start');
+    expect(problem(wild.end, wild.start)).toBe('end-not-after-start');
+    expect(problem(now - 60 * MINUTE, now - MINUTE)).toBe('end-past');
+    expect(eventWindowLatestEnd(now, now, MAX_ZONE)).toBe(at('2026-11-23T09:00'));
+    expect(problem(now, at('2026-11-23T09:00'))).toBeUndefined();
+    expect(problem(now, at('2026-11-23T09:01'))).toBe('too-long');
+  });
+
+  it('counts the 14 days by the calendar, across a change of the clocks', () => {
+    // New York's clocks go back on Sunday 2026-11-01: those 14 days are 14 days and an hour.
+    const now = at('2026-10-25T09:00');
+    expect(eventWindowLatestEnd(now, now, MAX_ZONE)).toBe(at('2026-11-08T09:00'));
+    expect(eventWindowProblem(now, at('2026-11-08T09:00'), now, MAX_ZONE)).toBeUndefined();
+  });
+
+  it('counts the 14 days from now for a window that began before (its start kept)', () => {
+    const now = at('2026-11-12T12:00');
+    const started = at('2026-11-09T10:00');
+    expect(eventWindowLatestEnd(started, now, MAX_ZONE)).toBe(at('2026-11-26T12:00'));
+    expect(eventWindowProblem(started, at('2026-11-25T20:00'), now, MAX_ZONE)).toBeUndefined();
   });
 });

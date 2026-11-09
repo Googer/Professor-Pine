@@ -1,5 +1,6 @@
 import type { MaxEvent } from './max-events.js';
 import type { RaidEvent } from './raid-events.js';
+import { addDays, zoned } from './zoned.js';
 
 /**
  * An event window (Matt, 2026-11-09): the days around a big event (Wild Area, GO Tour, GO Fest:
@@ -21,7 +22,6 @@ export interface EventWindow {
 
 /** The longest window staff may set: a lead-up and its big event run about a week. */
 export const EVENT_WINDOW_MAX_DAYS = 14;
-const MAX_MS = EVENT_WINDOW_MAX_DAYS * 24 * 60 * 60_000;
 
 /** The name the window carries as a raid or max event; never shown to members. */
 export const EVENT_WINDOW_NAME = 'Event window';
@@ -31,17 +31,27 @@ export type EventWindowProblem = 'end-not-after-start' | 'end-past' | 'too-long'
 
 /**
  * What is wrong with a window from `start` to `end` set at `now`: an end not after the start, an
- * end in the past (or now), more than `EVENT_WINDOW_MAX_DAYS`; undefined when nothing is.
+ * end in the past (or now), an end after `eventWindowLatestEnd`; undefined when nothing is.
  */
 export function eventWindowProblem(
   start: number,
   end: number,
   now: number,
+  zone: string,
 ): EventWindowProblem | undefined {
   if (end <= start) return 'end-not-after-start';
   if (end <= now) return 'end-past';
-  if (end - start > MAX_MS) return 'too-long';
+  if (end > eventWindowLatestEnd(start, now, zone)) return 'too-long';
   return undefined;
+}
+
+/**
+ * The latest end of a window from `start` set at `now`: `EVENT_WINDOW_MAX_DAYS` calendar days in
+ * `zone` (a change of the clocks inside does not shorten it) after its start, or after now for a
+ * window that began before (`set` keeps the start of one that is on: review LW-1).
+ */
+export function eventWindowLatestEnd(start: number, now: number, zone: string): number {
+  return addDays(zoned(Math.max(start, now), zone), EVENT_WINDOW_MAX_DAYS).epochMilliseconds;
 }
 
 /**

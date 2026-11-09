@@ -655,20 +655,17 @@ describe('RaidEventService', () => {
 
   // Plan 8V-1: the events forum's listed events, of the same read, kept across a restart.
   describe('an event window staff set (2026-11-09)', () => {
-    it('is a Raid Hour and a Max Battle Day to every reader, never kept nor listed', async () => {
+    it('is a Raid Hour and a Max Battle Day to every reader, never kept', async () => {
       const feed = JSON.stringify(readSpawnEventFeed());
       let window: EventWindow | undefined;
       const max = new MemoryMaxEvents();
-      const listed = new MemoryListedEvents();
       const { events } = service(() => Promise.resolve(reply(200, feed)), {
         now: () => at('2026-11-09T09:00'),
         maxEvents: max,
-        listed,
         eventWindow: () => window,
       });
       await events.refresh();
       const before = { raid: events.events(), max: events.maxEvents() };
-      const listing = events.listedEvents();
       window = {
         start: at('2026-11-09T10:00'),
         end: at('2026-11-13T20:00'),
@@ -686,12 +683,11 @@ describe('RaidEventService', () => {
       ]);
       expect(events.events()).toHaveLength(before.raid.length + 1);
       expect(events.maxEvents()).toHaveLength(before.max.length + 1);
-      // The events forum's listing and what is kept are as without it, after a read too.
-      expect(events.listedEvents()).toEqual(listing);
+      // Never kept with the max events, after a read too. (The events forum lists only hours an
+      // event's page named, `pageHoursListed`, and the window names none: review LW-3 found that
+      // no test could tell it listed or not, so none claims it.)
       await events.refresh();
-      expect(events.listedEvents()).toEqual(listing);
       expect((await max.all()).max.some((event) => event.name === EVENT_WINDOW_NAME)).toBe(false);
-      expect((await listed.all()).some((event) => event.name === EVENT_WINDOW_NAME)).toBe(false);
       window = undefined;
       expect(events.events()).toEqual(before.raid);
       expect(events.maxEvents()).toEqual(before.max);
