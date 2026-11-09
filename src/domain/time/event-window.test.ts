@@ -94,7 +94,7 @@ describe('an event window (Matt, 2026-11-09: all-day Raid Hour raids, half-hour 
     expect(end('2026-11-09T07:00')).toEqual({ kind: 'end', end: at('2026-11-09T10:00') });
   });
 
-  it('features nothing, and leaves an event of the feed on at the same time its own rotation', () => {
+  it('features nothing, and sets the rotation over every max event on at the same time', () => {
     const monday: MaxEvent = {
       kind: 'max-monday',
       name: 'Dynamax Sableye during Max Monday',
@@ -128,9 +128,17 @@ describe('an event window (Matt, 2026-11-09: all-day Raid Hour raids, half-hour 
     });
     // A Max Monday inside the window rotates as the window does: as on a Max Battle Day.
     expect(maxEventAt(events, at('2026-11-09T12:00'))?.eventWindow).toBe(true);
-    // A Max Battle event of the feed inside it keeps its own (hourly, all day).
-    expect(maxEventAt(events, at('2026-11-12T12:00'))).toBe(weekend);
-    expect(maxRotation({ tier: 'D5', at: at('2026-11-12T12:00'), events, big: [] })).toBe('hour');
+    // So does a Max Battle event of the feed (controller's ruling, 2026-11-09: staff set the
+    // window for what they see), whose boss stays featured.
+    expect(maxEventAt(events, at('2026-11-12T12:00'))?.eventWindow).toBe(true);
+    expect(maxRotation({ tier: 'D5', at: at('2026-11-12T12:00'), events, big: [] })).toBe(
+      'half-hour',
+    );
+    // The weekend's boss first, then the week's Max Monday's, as without a window.
+    expect(featuredAt(events, at('2026-11-12T12:00'), MAX_ZONE).map(({ event }) => event)).toEqual([
+      weekend,
+      monday,
+    ]);
   });
 
   it('refuses an end not after the start, an end in the past, and more than 14 days', () => {

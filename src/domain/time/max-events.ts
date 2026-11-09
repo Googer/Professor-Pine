@@ -48,7 +48,7 @@ export interface MaxEvent {
   page?: PageSource;
   /**
    * The event window staff set (`eventWindowMaxEvent`, `/admin event-window`): `short` over several days,
-   * featuring nothing; a Max Battle Day or Weekend on at the same time wins (`maxEventAt`). Never
+   * featuring nothing; it wins over every max event on at the same time (`maxEventAt`). Never
    * kept in the database.
    */
   eventWindow?: true;
@@ -230,15 +230,15 @@ export function parseMaxEventFeed(json: unknown, zone: string): ParsedMaxEvents 
  * The max event that is on at `time` (its own hours, `start` included, `end` not), with its kind
  * and hours (8X-3 sets a max battle's default end from it); a Max Battle Day before a Max Monday
  * that is on at the same time, then the earliest. An event window (`eventWindow`, staff's) comes
- * after a Max Battle Day or Weekend of the feed or a page (the game's own event knows its
- * rotation) and before a Max Monday (Matt saw half-hour rotations all through Into the Wild).
- * Undefined when none is on.
+ * before every other (controller's ruling, 2026-11-09: staff set it for what they see, and a Max
+ * Battle Weekend inside one has the same format): its rotation is the one in force, while the
+ * featured bosses stay those of the events (`featuredAt`). Undefined when none is on.
  */
 export function maxEventAt(events: readonly MaxEvent[], time: number): MaxEvent | undefined {
   const on = events.filter((event) => event.start <= time && time < event.end);
   return (
-    on.find((event) => event.kind === 'max-battle' && event.eventWindow !== true) ??
     on.find((event) => event.eventWindow === true) ??
+    on.find((event) => event.kind === 'max-battle') ??
     on.find((event) => event.kind === 'max-monday')
   );
 }

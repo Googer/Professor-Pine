@@ -61,9 +61,9 @@ export function eventWindowRaidEvent(window: EventWindow): RaidEvent {
 
 /**
  * The window as a max event of the kind a Max Battle Day is, `short` (battles rotate every half
- * hour, `maxRotation`) over all its days, featuring nothing, without a feed id; marked `eventWindow`,
- * so that a Max Battle Day or Weekend of the feed or a page on at the same time wins
- * (`maxEventAt`). Never kept in `MaxEvent`.
+ * hour, `maxRotation`) over all its days, featuring nothing, without a feed id; marked
+ * `eventWindow`, so that it wins over every max event on at the same time (`maxEventAt`), whose
+ * featured bosses stay featured. Never kept in `MaxEvent`.
  */
 export function eventWindowMaxEvent(window: EventWindow): MaxEvent {
   return {
