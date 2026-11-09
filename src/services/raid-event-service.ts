@@ -25,6 +25,11 @@ import {
   unreadResearchTypes,
   type ResearchEvent,
 } from '../domain/time/research-events.js';
+import {
+  withEventWindowMax,
+  withEventWindowRaid,
+  type EventWindow,
+} from '../domain/time/event-window.js';
 import { BoundedMap } from '../bounded-map.js';
 import { editionsWithoutGlobal } from '../domain/time/event-reach.js';
 import { parseSpawnEventFeed, type SpawnEvent } from '../domain/time/spawn-events.js';
@@ -118,6 +123,13 @@ export interface RaidEventOptions {
    * it only the feed's.
    */
   pageMaxHours?: () => readonly MaxEvent[];
+  /**
+   * The event window staff set (`EventWindowService.current`, `/admin event-window`; 2026-11-09), asked
+   * at each call: `events()` gives it as a Raid Hour and `maxEvents()` as a Max Battle Day
+   * (`withEventWindowRaid`, `withEventWindowMax`); never kept with the max events, never listed in the
+   * events forum. Without it none.
+   */
+  eventWindow?: () => EventWindow | undefined;
 }
 
 /** What handlers need: the Raid Hours and Raid Days known from the feed. */
@@ -273,6 +285,11 @@ export class RaidEventService
   }
 
   events(): readonly RaidEvent[] {
+    return withEventWindowRaid(this.feedAndPageEvents(), this.options.eventWindow?.());
+  }
+
+  /** The feed's raid events with the pages' Raid Hours (`withPageRaidHours`), without the window. */
+  private feedAndPageEvents(): readonly RaidEvent[] {
     return withPageRaidHours(this.current, this.options.pageRaidHours?.() ?? []);
   }
 
@@ -282,10 +299,15 @@ export class RaidEventService
 
   /**
    * The max events of the last good read, with those of the last eight days the feed has dropped
-   * since (`mergedMax`), with the Max Battle hours of the events' pages (`pageMaxHours`), in
-   * order of their start.
+   * since (`mergedMax`), with the Max Battle hours of the events' pages (`pageMaxHours`) and the
+   * event window (`eventWindow`), in order of their start.
    */
   maxEvents(): readonly MaxEvent[] {
+    return withEventWindowMax(this.feedAndPageMaxEvents(), this.options.eventWindow?.());
+  }
+
+  /** The feed's max events with the pages' Max Battle hours, without the window. */
+  private feedAndPageMaxEvents(): readonly MaxEvent[] {
     const pages = this.options.pageMaxHours?.() ?? [];
     return withPageMaxHours(this.currentMax, pages, this.options.zone);
   }
@@ -310,10 +332,11 @@ export class RaidEventService
    * The listed events kept, with the hours the events' pages named as lines (`pageHoursListed`,
    * from `events()` and `maxEvents()`: where the feed's won at the same start, the page's is not
    * listed). The pages' lines are never kept (`listed`): the pages are read again after a
-   * restart.
+   * restart. The event window is no event of the forum: it is left out.
    */
   listedEvents(): readonly ListedEvent[] {
-    const lines = pageHoursListed(this.events(), this.maxEvents(), this.options.zone);
+    const raid = this.feedAndPageEvents();
+    const lines = pageHoursListed(raid, this.feedAndPageMaxEvents(), this.options.zone);
     return lines.length === 0 ? this.currentListed : inOrder([...this.currentListed, ...lines]);
   }
 

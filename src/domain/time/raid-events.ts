@@ -15,6 +15,11 @@ export interface RaidEvent {
   end: number;
   /** The event whose Leek Duck page named it (`eventPageRaidHours`); none for the feed's own. */
   page?: PageSource;
+  /**
+   * The event window staff set (`eventWindowRaidEvent`, `/admin event-window`), no Raid Hour of the feed
+   * or a page: the week's rule for the weekly Raid Hour does not count it.
+   */
+  eventWindow?: true;
 }
 
 /**

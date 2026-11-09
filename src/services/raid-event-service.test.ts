@@ -3,6 +3,7 @@ import { fakeTimeoutSignals } from '../../test/support/timers.js';
 import { at } from '../../test/support/max-bosses.js';
 import { readMaxEventFeed } from '../../test/support/max-events.js';
 import { featuredAt, type MaxEvent } from '../domain/time/max-events.js';
+import { EVENT_WINDOW_NAME, type EventWindow } from '../domain/time/event-window.js';
 import { readRaidEventFeed } from '../../test/support/raid-events.js';
 import { textAnswer } from '../../test/support/responses.js';
 import { readSpawnEventFeed } from '../../test/support/spawn-events.js';
@@ -38,6 +39,7 @@ function service(
     research?: ResearchEventStorage;
     maxEvents?: MaxEventStorage;
     listed?: ListedEventStorage;
+    eventWindow?: () => EventWindow | undefined;
   } = {},
 ) {
   const { log, entries } = createTestLogger();
@@ -652,6 +654,50 @@ describe('RaidEventService', () => {
   });
 
   // Plan 8V-1: the events forum's listed events, of the same read, kept across a restart.
+  describe('an event window staff set (2026-11-09)', () => {
+    it('is a Raid Hour and a Max Battle Day to every reader, never kept nor listed', async () => {
+      const feed = JSON.stringify(readSpawnEventFeed());
+      let window: EventWindow | undefined;
+      const max = new MemoryMaxEvents();
+      const listed = new MemoryListedEvents();
+      const { events } = service(() => Promise.resolve(reply(200, feed)), {
+        now: () => at('2026-11-09T09:00'),
+        maxEvents: max,
+        listed,
+        eventWindow: () => window,
+      });
+      await events.refresh();
+      const before = { raid: events.events(), max: events.maxEvents() };
+      const listing = events.listedEvents();
+      window = {
+        start: at('2026-11-09T10:00'),
+        end: at('2026-11-13T20:00'),
+        setBy: '200000000000000001',
+        setAt: at('2026-11-09T09:00'),
+      };
+      // At once, without a read: the window is asked each time.
+      const raid = events.events().filter((event) => event.eventWindow === true);
+      expect(raid.map((event) => [event.kind, event.start, event.end])).toEqual([
+        ['raid-hour', window.start, window.end],
+      ]);
+      const battle = events.maxEvents().filter((event) => event.eventWindow === true);
+      expect(battle).toMatchObject([
+        { kind: 'max-battle', short: true, featured: undefined, id: undefined },
+      ]);
+      expect(events.events()).toHaveLength(before.raid.length + 1);
+      expect(events.maxEvents()).toHaveLength(before.max.length + 1);
+      // The events forum's listing and what is kept are as without it, after a read too.
+      expect(events.listedEvents()).toEqual(listing);
+      await events.refresh();
+      expect(events.listedEvents()).toEqual(listing);
+      expect((await max.all()).max.some((event) => event.name === EVENT_WINDOW_NAME)).toBe(false);
+      expect((await listed.all()).some((event) => event.name === EVENT_WINDOW_NAME)).toBe(false);
+      window = undefined;
+      expect(events.events()).toEqual(before.raid);
+      expect(events.maxEvents()).toEqual(before.max);
+    });
+  });
+
   describe('the listed events (plan 8V-1)', () => {
     const spawnFeed = () => readSpawnEventFeed() as { eventID: string; start: string | null }[];
 

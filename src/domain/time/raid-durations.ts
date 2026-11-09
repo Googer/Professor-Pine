@@ -74,8 +74,12 @@ function weeklyRaidHourOn(time: number, rules: RaidDurationRules): RaidEvent | u
   const day = zoned(time, rules.zone);
   // ISO weekdays, as the setting's: 1 is Monday, 7 Sunday.
   if (day.dayOfWeek !== weekly.weekday) return undefined;
+  // An event window (`eventWindow`) is no Raid Hour of the feed: the week's own still applies.
   const feedHasOne = rules.events.some(
-    (event) => event.kind === 'raid-hour' && sameWeek(zoned(event.start, rules.zone), day),
+    (event) =>
+      event.kind === 'raid-hour' &&
+      event.eventWindow !== true &&
+      sameWeek(zoned(event.start, rules.zone), day),
   );
   if (feedHasOne) return undefined;
   const start = day.with({ hour: weekly.hour, minute: 0, second: 0, millisecond: 0 });
