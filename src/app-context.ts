@@ -72,6 +72,7 @@ import type { EventSpawnProvider } from './services/event-page-service.js';
 import type { RegionTallies } from './services/region-tallies.js';
 import type { Boards } from './services/boards.js';
 import type { MemberStatsService } from './services/member-stats.js';
+import type { EventWindows } from './services/event-window-service.js';
 
 /** Everything a handler may use. Later phases add services here. */
 export interface AppContext {
@@ -96,6 +97,11 @@ export interface AppContext {
    * and big events (plan 8X-3: the featured bosses of `/max`, a max battle's default end).
    */
   readonly raidEvents: RaidEventProvider & MaxEventProvider & ResearchEventProvider;
+  /**
+   * The event window staff set (`/admin event-window`, 2026-11-09), which `raidEvents` gives as a
+   * Raid Hour and a Max Battle Day.
+   */
+  readonly eventWindows: EventWindows;
   /** The field research task list read from Leek Duck (plan 8R-1). */
   readonly researchTasks: ResearchTaskProvider;
   /**

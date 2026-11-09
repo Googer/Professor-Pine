@@ -83,6 +83,7 @@ const ADDED_TABLES = [
   'LegacyFillIn',
   'PartyAudit',
   'EndedPartyCopy',
+  'EventWindow',
 ];
 /** The columns it adds to tables of the legacy bot, as `Table.column`. */
 const ADDED_COLUMNS = [
@@ -227,6 +228,7 @@ describe('runMigrations', () => {
       '2026_11_07_046_ended_party_copies',
       '2026_11_07_047_meetup_request_end',
       '2026_11_07_048_checked_foreign_keys',
+      '2026_11_09_049_event_window',
     ]);
     expect(
       await describeSchema(

@@ -127,6 +127,14 @@ export interface EventPost {
   startsAt: string;
 }
 
+export interface EventWindow {
+  endsAt: string;
+  id: number;
+  setAt: string;
+  setBy: string;
+  startsAt: string;
+}
+
 export interface GoogleUseDay {
   day: string;
   kind: string;
@@ -860,6 +868,7 @@ export interface DB {
   EndedPartyPost: EndedPartyPost;
   EventForum: EventForum;
   EventPost: EventPost;
+  EventWindow: EventWindow;
   GoogleUseDay: GoogleUseDay;
   GruntMessage: GruntMessage;
   Guild: Guild;

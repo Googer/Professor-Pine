@@ -94,6 +94,8 @@ import { GruntMessageService } from './services/grunt-messages.js';
 import { RocketService } from './services/rocket-reports.js';
 import { ResearchEventRepository } from './db/repositories/research-event-repository.js';
 import { MaxEventRepository } from './db/repositories/max-event-repository.js';
+import { EventWindowRepository } from './db/repositories/event-window-repository.js';
+import { EventWindowService } from './services/event-window-service.js';
 import { ListedEventRepository } from './db/repositories/listed-event-repository.js';
 import { EventForumRepository } from './db/repositories/event-forum-repository.js';
 import { eventForumWanted, EventForumService } from './services/event-forum.js';
@@ -305,6 +307,8 @@ export async function startApp(
     fetch: (url, init) => fetch(url, init),
     log,
   });
+  // The event window staff set (`/admin event-window`, 2026-11-09), kept in the database.
+  const eventWindows = new EventWindowService({ store: new EventWindowRepository(db), log });
   const raidEvents = new RaidEventService({
     url: config.settings.raidEvents.url,
     refreshMs: config.settings.raidEvents.refreshHours * HOUR_MS,
@@ -321,6 +325,8 @@ export async function startApp(
     pageRaidHours: (): readonly RaidEvent[] => eventPages.raidHours(),
     // Their Max Battle hours, with the feed's max events for every reader of `maxEvents()`.
     pageMaxHours: (): readonly MaxEvent[] => eventPages.maxHours(),
+    // A Raid Hour and a Max Battle Day to every reader while staff's event window is on.
+    eventWindow: () => eventWindows.current(),
     log,
   });
   // The events' Leek Duck pages: the spawns of the events on (plan 8R-4: a community day's from
@@ -1029,6 +1035,7 @@ export async function startApp(
     await raidEvents.loadResearch();
     // Before the first read of the feed: the week's featured boss, a max battle's default end.
     await raidEvents.loadMax();
+    await eventWindows.load();
     // Before the first read too: the events forum's listing survives a restart (plan 8V-1).
     await raidEvents.loadListed();
     await gyms.load();
@@ -1078,6 +1085,7 @@ export async function startApp(
     maxBosses,
     maxBossAdmin: maxBosses,
     raidEvents,
+    eventWindows,
     researchTasks,
     eventSpawns: eventPages,
     rocketLineups,

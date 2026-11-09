@@ -47,6 +47,8 @@ import type { MaxBossAdmin, MaxBossProvider } from '../../src/services/max-boss-
 import type { MaxChangeService } from '../../src/services/max-change-service.js';
 import { raidBossesFixture } from './raid-bosses.js';
 import { raidEventsFixture } from './raid-events.js';
+import { MemoryEventWindows } from './event-window-store.js';
+import { EventWindowService } from '../../src/services/event-window-service.js';
 import { researchTasksFixture } from './research.js';
 import { rocketLineupsFixture } from './rocket.js';
 import { selfRolesWith } from './roles.js';
@@ -120,6 +122,8 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
       'pass { maxBosses: service, maxBossAdmin: service } from maxBossServiceWith()',
     ),
     raidEvents: raidEventsFixture(),
+    // No event window kept yet; a test passes its own `EventWindowService` to see one.
+    eventWindows: new EventWindowService({ store: new MemoryEventWindows(), log }),
     // The task list of Leek Duck's page of 2026-10-21; a test passes its own to change it.
     researchTasks: researchTasksFixture(),
     // No event's spawns (plan 8R-4); a test passes its own `sightingsAt`.
