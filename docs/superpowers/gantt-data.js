@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-07T00:36",
+  "updated": "2026-11-09T12:05",
   "items": [
     {
       "id": "0",
@@ -11452,6 +11452,72 @@ window.GANTT = {
       "status": "done",
       "start": "2026-11-06T20:33",
       "end": "2026-11-06T20:34"
+    },
+    {
+      "id": "8EW",
+      "kind": "plan",
+      "parent": "16",
+      "name": "8EW Event windows (/admin event-window)",
+      "dependsOn": [],
+      "size": 0.5,
+      "scope": "Staff set a window in which raids last as in a Raid Hour and max battles rotate every 30 minutes (lead-ups to big events and the events themselves; Matt, 2026-11-09)",
+      "doneWhen": "Merged into main-dev",
+      "planning": {
+        "start": "2026-11-09T10:35",
+        "end": "2026-11-09T10:50"
+      },
+      "review": {
+        "start": "2026-11-09T11:33",
+        "end": "2026-11-09T12:02"
+      }
+    },
+    {
+      "id": "8EW.1",
+      "kind": "task",
+      "parent": "8EW",
+      "name": "The window as a Raid Hour and a Max Battle Day to every reader",
+      "dependsOn": [],
+      "scope": "The window as a Raid Hour and a Max Battle Day to every reader",
+      "doneWhen": "Committed",
+      "status": "done",
+      "start": "2026-11-09T10:50",
+      "end": "2026-11-09T11:06"
+    },
+    {
+      "id": "8EW.2",
+      "kind": "task",
+      "parent": "8EW",
+      "name": "Kept in the database (migration 049)",
+      "dependsOn": [],
+      "scope": "Kept in the database (migration 049)",
+      "doneWhen": "Committed",
+      "status": "done",
+      "start": "2026-11-09T11:06",
+      "end": "2026-11-09T11:18"
+    },
+    {
+      "id": "8EW.3",
+      "kind": "task",
+      "parent": "8EW",
+      "name": "/admin event-window set and end",
+      "dependsOn": [],
+      "scope": "/admin event-window set and end",
+      "doneWhen": "Committed",
+      "status": "done",
+      "start": "2026-11-09T11:18",
+      "end": "2026-11-09T11:28"
+    },
+    {
+      "id": "8EW.4",
+      "kind": "task",
+      "parent": "8EW",
+      "name": "The window wins over every max event",
+      "dependsOn": [],
+      "scope": "The window wins over every max event",
+      "doneWhen": "Committed",
+      "status": "done",
+      "start": "2026-11-09T11:28",
+      "end": "2026-11-09T11:33"
     },
     {
       "id": "16-staging",
