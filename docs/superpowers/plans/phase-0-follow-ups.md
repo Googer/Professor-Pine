@@ -3454,3 +3454,7 @@ Checks from the left-open lists of Phases 2 to 5 that only Discord or a staging 
 **Raid bosses and game data**
 
 - Line 837: Matt looks at a /wild of Scatterbug (pattern form: species picture) and of Zygarde, Basculin, Vivillon (preferred form)
+
+## Event windows (2026-11-09)
+
+- **Built** on branch `lead-up-window` (Matt, 2026-11-09: during "Into the Wild 2026" raids last 25 minutes all day and max battles rotate every 30 minutes, which neither the feed nor Leek Duck's page says): `/admin event-window set until:<time> [from:<time>]` and `end`, one window per installation for the days around a big event (its lead-up and the event itself), kept in `EventWindow` (migration 049); every reader of the raid and max events gets it as a Raid Hour and a Max Battle Day (`utilities.md`, "The event window"). **Needs a deploy** of the commands (the new group of `/admin`). Staging not run: set a window on the dev instance, report a raid (25 minutes) and a max battle (next :00 or :30) inside it and outside, end it, restart in between. Open for Matt: whether a Max Battle Weekend of the feed inside a window keeps its hourly rotation (built: the feed's wins) and whether the Wild Area weekend under a window rotates every half hour (built: the window wins over a big event).

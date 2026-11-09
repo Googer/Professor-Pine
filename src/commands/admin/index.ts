@@ -6,6 +6,7 @@ import { listBosses, syncBosses } from './boss-list.js';
 import { overrideParts } from './boss-overrides.js';
 import { cleanupLegacy } from './cleanup-legacy.js';
 import { clearImageCache } from './clear-image-cache.js';
+import { EVENT_WINDOW_DESCRIPTION, EVENT_WINDOW_GROUP, eventWindowParts } from './event-window.js';
 import { memberSettings } from './member-settings.js';
 import { NICKNAME_DESCRIPTION, NICKNAME_GROUP, nicknameParts } from './nicknames.js';
 import { saveParty } from './save-party.js';
@@ -29,6 +30,7 @@ const parts: readonly SubcommandPart[] = [
   memberSettings,
   cleanupLegacy,
   tutorial,
+  ...eventWindowParts,
 ];
 
 /** `/admin`: for staff. Discord offers it only to members who may manage the server. */
@@ -43,6 +45,7 @@ export const admin = commandGroup({
     [SELF_ROLES_GROUP]: SELF_ROLES_DESCRIPTION,
     [BOSS_GROUP]: BOSS_DESCRIPTION,
     [NICKNAME_GROUP]: NICKNAME_DESCRIPTION,
+    [EVENT_WINDOW_GROUP]: EVENT_WINDOW_DESCRIPTION,
   },
   parts,
 });
