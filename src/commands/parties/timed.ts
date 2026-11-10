@@ -1,7 +1,8 @@
-import { MessageFlags, type ChatInputCommandInteraction } from 'discord.js';
+import type { ChatInputCommandInteraction } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
 import type { Guard } from '../../discord/command.js';
 import { UserError } from '../../discord/errors.js';
+import { answer as answerLate } from '../../discord/late-reply.js';
 import { guildIdOf, isStaff, partyOf, regionChannelOf } from '../../discord/guards.js';
 import type { Throttle } from '../../discord/throttle.js';
 import {
@@ -278,7 +279,8 @@ export async function replyTimed(
   answer: TimedAnswer,
 ): Promise<void> {
   if (answer.kind !== 'ok') throw new UserError(answer.text);
-  await interaction.reply({ content: answer.text, flags: MessageFlags.Ephemeral });
+  // In the place of a late acknowledgement where there is one (`/meet`, `/cancel-meet`, `/end`).
+  await answerLate(interaction, { content: answer.text });
 }
 
 /**

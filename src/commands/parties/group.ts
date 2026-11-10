@@ -30,6 +30,9 @@ const joinGroup: SubcommandPart = {
     examples: ['/group join letter:B'],
   },
   throttle: ACTION_THROTTLE,
+  // A newcomer is asked of Discord before the write (plan 8Z-2): acknowledged late should that be
+  // slow. Every answer goes through `answer` (`answerOutcome`) or is a `UserError`; no dialog.
+  defer: 'late',
   async execute(interaction, ctx) {
     const party = commandParty(interaction, ctx);
     const letter = typedGroup(ctx, party, interaction.options.getString('letter', true));
@@ -54,6 +57,8 @@ const newGroup: SubcommandPart = {
       'also name the group.',
   },
   throttle: ACTION_THROTTLE,
+  // As `/group join`: a newcomer opens a group too.
+  defer: 'late',
   async execute(interaction, ctx) {
     const party = commandParty(interaction, ctx);
     const outcome = await ctx.attendance.newGroup(party.id, actingMember(interaction));
@@ -86,6 +91,8 @@ const labelGroup: SubcommandPart = {
     examples: ['/group label text:by the fountain'],
   },
   throttle: ACTION_THROTTLE,
+  // As `/group join`: a newcomer is asked of Discord before they are refused.
+  defer: 'late',
   async execute(interaction, ctx) {
     const party = commandParty(interaction, ctx);
     const text = interaction.options.getString('text') ?? '';

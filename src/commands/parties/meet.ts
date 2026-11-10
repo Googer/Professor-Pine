@@ -124,6 +124,10 @@ export const meet: SimpleCommand = {
   },
   guards: [requireParty, requireMeetupChanger, requireStartChange],
   throttle: meetThrottle,
+  // In a meetup the guard reads the maker's block (plan 8Z-2) before a write: acknowledged
+  // should that be slow. Every answer goes through `answer` (`replyTimed`, `answerOutcome`);
+  // it opens no dialog (Meet…'s is the post's control).
+  defer: 'late',
   async execute(interaction, ctx) {
     const party = commandParty(interaction, ctx);
     const text = interaction.options.getString('time', true);
@@ -189,6 +193,8 @@ export const cancelMeet: SimpleCommand = {
   },
   guards: [requireParty, requireMeetupChanger, requireStartChange],
   throttle: meetThrottle,
+  // As `/meet`.
+  defer: 'late',
   async execute(interaction, ctx) {
     const party = commandParty(interaction, ctx);
     if (isTimed(party)) {

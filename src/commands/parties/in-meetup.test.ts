@@ -1,3 +1,4 @@
+import { MessageFlags } from 'discord.js';
 import { dialogTexts, shownDialog } from '../../../test/support/dialogs.js';
 import { REMOVAL_INPUT } from '../../render/moderation.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -24,6 +25,7 @@ import { createdMeetup } from '../../../test/support/party-service.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { partyButtons } from '../../components/party.js';
 import type { CommandModule } from '../../discord/command.js';
+import { LATE_DEFER_MS } from '../../discord/late-reply.js';
 import { InteractionRouter } from '../../discord/router.js';
 import { attendeeOf } from '../../domain/party/party.js';
 import { PartyStatus } from '../../domain/party/status.js';
@@ -371,6 +373,38 @@ describe('/meet, /cancel-meet and /end in the post of a meetup', () => {
     expect(await made.answer('cancel-meet')).toBe(NOT_YOUR_MEETUP);
     expect(await made.answer('end', { time: '6pm' })).toBe(NOT_YOUR_MEETUP);
     expect(made.current()).toMatchObject({ endTime: null, timed: { startTime: null } });
+  });
+
+  // Plan 8Z-2, fix round F-A5: the guard reads the maker's block before the write, which may eat
+  // Discord's three seconds: the commands are acknowledged late, and answer in its place.
+  it('/meet, /cancel-meet and /end acknowledge a write that runs late, and answer in its place', async () => {
+    const uses: Array<[string, Record<string, string>, string]> = [
+      ['meet', { time: '4pm' }, 'This meetup starts at'],
+      ['cancel-meet', {}, 'This meetup has no start time any more.'],
+      ['end', { time: '6pm' }, 'This meetup ends at'],
+    ];
+    const made = await own();
+    for (const [commandName, options, said] of uses) {
+      const asked = Promise.withResolvers<void>();
+      const written = Promise.withResolvers<void>();
+      const update = made.store.update.bind(made.store);
+      vi.spyOn(made.store, 'update').mockImplementationOnce(async (id, change, cause) => {
+        asked.resolve();
+        await written.promise;
+        return update(id, change, cause);
+      });
+      vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'], now: PARTY_NOW });
+      const using = made.run(commandName, options);
+      await asked.promise;
+      await vi.advanceTimersByTimeAsync(LATE_DEFER_MS);
+      written.resolve();
+      const used = await using;
+      vi.useFakeTimers({ toFake: ['Date'], now: PARTY_NOW });
+      expect(used.deferReply).toHaveBeenCalledExactlyOnceWith({ flags: MessageFlags.Ephemeral });
+      expect(used.reply).not.toHaveBeenCalled();
+      expect(sent(used.editReply).content).toContain(said);
+      await made.timed.flush();
+    }
   });
 
   it('explains a time it cannot read', async () => {

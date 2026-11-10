@@ -1,5 +1,4 @@
 import {
-  MessageFlags,
   SlashCommandBuilder,
   type ChatInputCommandInteraction,
   type MessageComponentInteraction,
@@ -8,6 +7,7 @@ import {
 import type { AppContext } from '../../app-context.js';
 import { DATE_EXAMPLE, type SimpleCommand } from '../../discord/command.js';
 import { UserError } from '../../discord/errors.js';
+import { answer as answerLate } from '../../discord/late-reply.js';
 import { notARaid, requireParty, requireRaid } from '../../discord/guards.js';
 import { memberInfo } from '../../discord/member-info.js';
 import type { Throttle } from '../../discord/throttle.js';
@@ -48,7 +48,8 @@ export async function replyRaidChange(
   answer: RaidChangeAnswer,
 ): Promise<void> {
   if (answer.kind !== 'ok') throw new UserError(answer.text);
-  await interaction.reply({ content: answer.text, flags: MessageFlags.Ephemeral });
+  // In the place of a late acknowledgement where there is one (`/end`, plan 8Z-2).
+  await answerLate(interaction, { content: answer.text });
 }
 
 /**
@@ -159,6 +160,10 @@ export const end: SimpleCommand = {
   },
   guards: [requireParty, requireMeetupChanger],
   throttle: CHANGE_THROTTLE,
+  // In a meetup the guard reads the maker's block (plan 8Z-2) before a write: acknowledged
+  // should that be slow, as `runLate` counts from when the interaction was made. Every answer
+  // goes through `answer` (`replyTimed`, `replyRaidChange`, `changeMaxEnd`); it opens no dialog.
+  defer: 'late',
   async execute(interaction, ctx) {
     const party = commandParty(interaction, ctx);
     const text = interaction.options.getString('time', true);

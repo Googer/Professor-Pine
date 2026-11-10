@@ -1,5 +1,4 @@
 import {
-  MessageFlags,
   type AutocompleteInteraction,
   type ChatInputCommandInteraction,
   type MessageComponentInteraction,
@@ -8,6 +7,7 @@ import {
 import type { AppContext } from '../../app-context.js';
 import { decodeCustomId } from '../../discord/custom-id.js';
 import { UserError } from '../../discord/errors.js';
+import { answer } from '../../discord/late-reply.js';
 import { notAMeetup, notARaid, notATrain, notTimed, partyOf } from '../../discord/guards.js';
 import { memberInfo } from '../../discord/member-info.js';
 import type { Throttle } from '../../discord/throttle.js';
@@ -189,7 +189,9 @@ export type Ok<Extra> = Extract<AttendanceOutcome<Extra>, { kind: 'ok' }>;
  * Tells the member, privately, what came of their action: how they stand now, or what `words`
  * makes of the outcome. A refusal and a party that has ended are thrown as `UserError`s, which
  * the router shows the same way. `party` is the party the action was for, as the command found
- * it: a refusal and "it is over" name its kind.
+ * it: a refusal and "it is over" name its kind. Through `answer`, so that a command acknowledged
+ * late (`defer: 'late'`, plan 8Z-2: a newcomer is asked of Discord first) is answered in its
+ * acknowledgement's place.
  */
 export async function answerOutcome<Extra>(
   interaction: ChatInputCommandInteraction | MessageComponentInteraction,
@@ -198,10 +200,7 @@ export async function answerOutcome<Extra>(
   outcome: AttendanceOutcome<Extra>,
   words?: (ok: Ok<Extra>) => string | undefined,
 ): Promise<void> {
-  await interaction.reply({
-    content: outcomeContent(ctx, party, outcome, words),
-    flags: MessageFlags.Ephemeral,
-  });
+  await answer(interaction, { content: outcomeContent(ctx, party, outcome, words) });
 }
 
 /**

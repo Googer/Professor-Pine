@@ -1,6 +1,7 @@
-import { MessageFlags, type ChatInputCommandInteraction } from 'discord.js';
+import type { ChatInputCommandInteraction } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
 import { UserError } from '../../discord/errors.js';
+import { answer } from '../../discord/late-reply.js';
 import { memberInfo } from '../../discord/member-info.js';
 import type { MaxParty } from '../../domain/party/party.js';
 import { problemText } from '../../render/activity.js';
@@ -32,10 +33,8 @@ async function reply(
 ): Promise<void> {
   const refused = refusal(ctx, outcome);
   if (refused !== undefined || outcome.kind !== 'ok') throw new UserError(refused ?? partyOver());
-  await interaction.reply({
-    content: outcome.changed ? said(outcome.party) : same,
-    flags: MessageFlags.Ephemeral,
-  });
+  // In the place of a late acknowledgement where there is one (`/end`, plan 8Z-2).
+  await answer(interaction, { content: outcome.changed ? said(outcome.party) : same });
 }
 
 /** `/end` in a max battle's post: a time within its day, never past the last battle time. */

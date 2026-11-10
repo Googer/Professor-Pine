@@ -1,11 +1,12 @@
 import { MessageFlags } from 'discord.js';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { fakeAutocomplete, fakeChatInput, sent } from '../../../test/support/fake-interactions.js';
 import { WEST_CHANNEL, WEST_FORUM } from '../../../test/support/gyms.js';
 import { ALICE, BOB, CAROL, REPORTER } from '../../../test/support/parties.js';
 import { reportedRaid } from '../../../test/support/party-service.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import type { CommandModule } from '../../discord/command.js';
+import { LATE_DEFER_MS } from '../../discord/late-reply.js';
 import { InteractionRouter } from '../../discord/router.js';
 import { attendeeOf, endParty } from '../../domain/party/party.js';
 import { PartyStatus } from '../../domain/party/status.js';
@@ -294,6 +295,41 @@ describe('the attendance commands', () => {
     for (let n = 0; n < 14; n++) await made.run('join');
     expect(await made.answer('join')).toMatch(/^You can use \/join again in /);
     expect(await made.answer('interested')).toBe('You are interested.');
+  });
+
+  // Plan 8Z-2, fix round F-A5: a newcomer is asked of Discord (`memberAccess`) before the write,
+  // which may eat Discord's three seconds: the commands are acknowledged late, as a press is.
+  it('acknowledge a newcomer late while Discord is slow to say how they stand to the forum, and answer in its place', async () => {
+    const uses: Array<[string, Record<string, string>, object, string]> = [
+      ['join', {}, {}, 'You are coming.'],
+      ['interested', {}, {}, 'You are interested.'],
+      ['here', {}, {}, 'You are here.'],
+      ['group', { letter: 'A' }, { subcommand: 'join' }, 'You are coming.'],
+    ];
+    for (const [commandName, options, extra, said] of uses) {
+      const made = await setup();
+      const asked = Promise.withResolvers<void>();
+      const answered = Promise.withResolvers<void>();
+      const look = made.gateway.memberAccess.bind(made.gateway);
+      vi.spyOn(made.gateway, 'memberAccess').mockImplementationOnce(async (forum, member) => {
+        asked.resolve();
+        await answered.promise;
+        return look(forum, member);
+      });
+      vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+      try {
+        const using = made.run(commandName, options, extra);
+        await asked.promise;
+        await vi.advanceTimersByTimeAsync(LATE_DEFER_MS);
+        answered.resolve();
+        const used = await using;
+        expect(used.deferReply).toHaveBeenCalledExactlyOnceWith({ flags: MessageFlags.Ephemeral });
+        expect(used.reply).not.toHaveBeenCalled();
+        expect(sent(used.editReply).content).toBe(said);
+      } finally {
+        vi.useRealTimers();
+      }
+    }
   });
 
   it('files every one of them under the raid basics, with a description of what it does', () => {

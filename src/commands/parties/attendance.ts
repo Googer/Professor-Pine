@@ -52,6 +52,14 @@ function countAndGroup(
 
 const IN_A_POST = 'Use it in the post of the raid, max battle, train or meetup.';
 
+/**
+ * How the commands of this file are acknowledged (plan 8Z-2): late, should their work be slow.
+ * The attendance service asks Discord how a newcomer stands to the party's forum before the
+ * write, and `runLate` counts from when the interaction was made. Every answer goes through
+ * `answer` (`answerOutcome`) or is a `UserError` the router says; none opens a dialog.
+ */
+const LATE = 'late' as const;
+
 /** They work in a train's and a meetup's post as in a raid's (`/help` lists them there too). */
 const ALSO_IN = ['train', 'meetup'] as const;
 
@@ -77,6 +85,7 @@ function signUpCommand(
     },
     guards: [requireParty],
     throttle: ACTION_THROTTLE,
+    defer: LATE,
     async execute(interaction: ChatInputCommandInteraction, ctx: AppContext) {
       const party = commandParty(interaction, ctx);
       const outcome = await ctx.attendance.signUp(
@@ -105,6 +114,7 @@ function remoteCommand(name: string, description: string, remote: boolean): Simp
     },
     guards: [requireParty],
     throttle: ACTION_THROTTLE,
+    defer: LATE,
     async execute(interaction: ChatInputCommandInteraction, ctx: AppContext) {
       const party = commandParty(interaction, ctx);
       const outcome = await ctx.attendance.setRemote(
@@ -165,6 +175,7 @@ export const notHere: SimpleCommand = {
   },
   guards: [requireParty],
   throttle: ACTION_THROTTLE,
+  defer: LATE,
   async execute(interaction, ctx) {
     const party = commandParty(interaction, ctx);
     const outcome = await ctx.attendance.notHere(party.id, actingMember(interaction));
@@ -183,6 +194,7 @@ export const leave: SimpleCommand = {
   },
   guards: [requireParty],
   throttle: ACTION_THROTTLE,
+  defer: LATE,
   async execute(interaction, ctx) {
     const party = commandParty(interaction, ctx);
     const outcome = await ctx.attendance.leave(party.id, actingMember(interaction));
@@ -206,6 +218,7 @@ export const done: SimpleCommand = {
   },
   guards: [requireParty],
   throttle: ACTION_THROTTLE,
+  defer: LATE,
   async execute(interaction, ctx) {
     const party = commandParty(interaction, ctx);
     const outcome = await ctx.attendance.done(party.id, actingMember(interaction));
