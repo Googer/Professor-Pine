@@ -368,6 +368,24 @@ describe('/meetup', () => {
     expect(other.meetups()).toEqual([]);
   });
 
+  // Plan 8Z-2: the question the map's route asks before it makes a meetup (`forumBarred`).
+  it('refuses a member somebody keeps out of the region’s forum before the form, uncounted; one it is only hidden from makes it', async () => {
+    const made = await setup();
+    made.gateway.barred.set(WEST_FORUM, new Set([ALICE]));
+    for (let n = 0; n < 3; n++) {
+      const refused = await made.run('Picnic');
+      expect(refused.used.showModal).not.toHaveBeenCalled();
+      expect(refused.told).toBe(
+        'You cannot make a meetup here: you are kept out of the forum its post would be in.',
+      );
+    }
+    expect(made.meetups()).toEqual([]);
+    made.gateway.barred.clear();
+    made.gateway.shutOut(WEST_FORUM, ALICE);
+    await made.run('Picnic');
+    expect(made.meetups()).toHaveLength(1);
+  });
+
   it('refuses a name of nothing but white space, one that is too long, and one of nothing seen', async () => {
     const made = await setup();
     expect((await made.run('   ')).told).toBe('Give a name of 1 to 80 characters.');

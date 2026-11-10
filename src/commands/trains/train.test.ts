@@ -184,6 +184,28 @@ describe('/train', () => {
     expect(other.trains()).toEqual([]);
   });
 
+  // Plan 8Z-2: the question the map's route asks before it starts a train (`forumBarred`).
+  it('refuses a member somebody keeps out of the region’s forum, uncounted; one it is only hidden from makes it', async () => {
+    const made = await setup();
+    made.gateway.barred.set(WEST_FORUM, new Set([ALICE]));
+    for (let n = 0; n < 3; n++) {
+      expect(await made.answer(`Loop ${String(n)}`)).toBe(
+        'You cannot make a train here: you are kept out of the forum its post would be in.',
+      );
+    }
+    expect(made.trains()).toEqual([]);
+    made.gateway.barred.clear();
+    made.gateway.failing.set('memberAccess', new Error('Discord is away'));
+    expect(await made.answer('Loop')).toBe(
+      'I could not check with Discord just now whether you may do that. Try again in a moment.',
+    );
+    expect(made.trains()).toEqual([]);
+    made.gateway.failing.delete('memberAccess');
+    made.gateway.shutOut(WEST_FORUM, ALICE);
+    await made.run('Loop');
+    expect(made.trains()).toHaveLength(1);
+  });
+
   it('says plainly that the bot may not make posts in the forum, and does not count it', async () => {
     const made = await setup();
     made.gateway.refusePosts.set(WEST_FORUM, ['Manage Posts']);

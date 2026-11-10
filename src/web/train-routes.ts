@@ -452,7 +452,7 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
       return refuse(reply, 422, noForumWords(regionInWords(region)));
     }
     try {
-      if ((await accessTo(region.forumChannelId, userId)) === 'barred') {
+      if (await forumBarred(accessTo, region.forumChannelId, userId)) {
         return sendFailure(request, reply, 403);
       }
     } catch (err) {

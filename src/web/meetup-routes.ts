@@ -296,7 +296,7 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
       return refused(422, noForumWords(regionInWords(region)), 'no-forum');
     }
     try {
-      if ((await accessTo(region.forumChannelId, userId)) === 'barred') {
+      if (await forumBarred(accessTo, region.forumChannelId, userId)) {
         return noted('barred', sendFailure(request, reply, 403), region.id);
       }
     } catch (err) {

@@ -22,11 +22,12 @@ import {
 import { dateExample } from '../../domain/time/clock-input.js';
 import { resolvePartyTime } from '../../domain/time/party-time.js';
 import { addDays, zoned } from '../../domain/time/zoned.js';
-import { problemText } from '../../render/activity.js';
+import { ACCESS_UNKNOWN, problemText } from '../../render/activity.js';
 import type { MeetupChangeTold } from '../../render/meetup-safety.js';
 import { clockOrDay, plain, timestamp, truncate } from '../../render/text.js';
 import type { TimedChangeOutcome } from '../../services/timed-party-service.js';
 import type { Member } from '../../services/attendance-service.js';
+import { forumBarred } from '../../services/forum-access.js';
 import { between } from '../raids/raid-input.js';
 import { actingMember, partyOver } from './reply.js';
 
@@ -64,9 +65,18 @@ export function noForumWords(region: string): string {
 }
 
 /**
+ * What a member is told who would make a train or meetup in a region whose forum somebody keeps
+ * them out of (plan 8Z-2), as a report says it (`REPORT_BARRED`): never by whom or why.
+ */
+export function newPartyBarred(word: string): string {
+  return `You cannot make a ${word} here: you are kept out of the forum its post would be in.`;
+}
+
+/**
  * The guard of a command that makes a timed party (`/meetup`, `/train`). Everything that can be
  * known before the party is made is refused here, so that a use that made nothing does not
- * count towards the two a member has in a quarter of an hour.
+ * count towards the two a member has in a quarter of an hour: also a maker somebody keeps out of
+ * the region's forum (`forumBarred`; one it is only hidden from makes it, and is let in).
  *
  * Such a command is used in the text channel of a region, or in a post of its forum that is no
  * party, and the party then belongs to that region. Not in the post of a party: a post is no
@@ -75,7 +85,7 @@ export function noForumWords(region: string): string {
  * the kind of party that is made.
  */
 export function requirePlaceForNew(word: string, fromARegion: string): Guard {
-  return (interaction, ctx) => {
+  return async (interaction, ctx) => {
     const regionChannelId = regionChannelOf(interaction, ctx);
     if (partyOf(interaction, ctx) || regionChannelId === undefined) {
       throw new UserError(fromARegion);
@@ -83,6 +93,23 @@ export function requirePlaceForNew(word: string, fromARegion: string): Guard {
     const region = ctx.regions.byChannel(regionChannelId);
     if (!region) throw new UserError(fromARegion);
     if (region.forumChannelId === null) throw new UserError(noForumYet(regionChannelId));
+    // Not into a forum somebody keeps the maker out of (plan 8Z-2), as the map's routes ask
+    // before they make one (`forumBarred`): the maker is signed up for it, and its post is theirs.
+    let kept: boolean;
+    try {
+      kept = await forumBarred(
+        (forumId, memberId) => ctx.partyService.memberAccess(forumId, memberId),
+        region.forumChannelId,
+        interaction.user.id,
+      );
+    } catch (err) {
+      ctx.log.warn(
+        { err, forum: region.forumChannelId, user: interaction.user.id },
+        'could not ask Discord whether a member is kept out of the forum of a new party; refused',
+      );
+      throw new UserError(ACCESS_UNKNOWN);
+    }
+    if (kept) throw new UserError(newPartyBarred(word));
     if (
       interaction.isChatInputCommand() &&
       tidyName(interaction.options.getString('name') ?? '') === undefined
