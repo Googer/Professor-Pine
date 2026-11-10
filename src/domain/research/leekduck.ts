@@ -211,14 +211,40 @@ export function parseEventSpawns(html: string): { name: string; image?: string }
   const named: { name: string }[] = [];
   for (const paragraph of paragraphsOf(section)) {
     if (!isWildEncounterSentence(htmlText(paragraph))) continue;
-    for (const bold of paragraph.matchAll(/<(strong|b)\b[^>]*>([\s\S]*?)<\/\1>/g)) {
-      const name = htmlText(bold[2] ?? '').slice(0, MAX_REWARD_NAME);
+    for (const bold of boldParts(paragraph)) {
+      const name = htmlText(bold).slice(0, MAX_REWARD_NAME);
       if (wornBy(name) === undefined || names.has(name)) continue;
       names.add(name);
       named.push({ name });
     }
   }
   return [...listed, ...named].slice(0, MAX_EVENT_SPAWNS);
+}
+
+/**
+ * The inner HTML of each bold part of a paragraph (`<b …>` or `<strong …>`, a tag of at most 200
+ * characters, up to the first close of that tag), in order, in one pass (fix round of 8Z-2: one
+ * pattern with a lazy body was quadratic on opening tags never closed): a part goes on after the
+ * close of the one before, and once a tag is never closed from some point on, none of its later
+ * openings is looked at again.
+ */
+function boldParts(paragraph: string): string[] {
+  const opening = /<(strong|b)\b[^>]{0,200}>/g;
+  const parts: string[] = [];
+  const unclosed = new Set<string>();
+  for (let found = opening.exec(paragraph); found !== null; found = opening.exec(paragraph)) {
+    const tag = found[1] ?? '';
+    if (unclosed.has(tag)) continue;
+    const from = found.index + found[0].length;
+    const close = paragraph.indexOf(`</${tag}>`, from);
+    if (close < 0) {
+      unclosed.add(tag);
+      continue;
+    }
+    parts.push(paragraph.slice(from, close));
+    opening.lastIndex = close + tag.length + 3;
+  }
+  return parts;
 }
 
 /**
@@ -229,6 +255,7 @@ export function parseEventSpawns(html: string): { name: string; image?: string }
 const MAX_SECTION_PARAGRAPHS = 50;
 /** The most characters of one paragraph read (review C3): a sentence is far shorter. */
 const MAX_PARAGRAPH_LENGTH = 4_000;
+const CLOSE_P = '</p>';
 
 /**
  * The inner HTML of a section's paragraphs, with bounded work (review C3): each from its `<p` to
@@ -244,7 +271,14 @@ function readParagraphs(section: string): { paragraphs: string[]; cut: boolean }
     const open = section.indexOf('>', at);
     if (open < 0) break;
     const following = nextParagraph(section, open + 1);
-    const close = section.indexOf('</p>', open + 1);
+    // Its close looked for only as far as it is read (fix round of 8Z-2): never to the section's
+    // end for each of fifty paragraphs that are not closed.
+    const room = Math.min(
+      following < 0 ? section.length : following,
+      open + 1 + MAX_PARAGRAPH_LENGTH + CLOSE_P.length,
+    );
+    const inRoom = section.slice(open + 1, room).indexOf(CLOSE_P);
+    const close = inRoom < 0 ? -1 : open + 1 + inRoom;
     const ends = Math.min(...[close, following].filter((end) => end >= 0), section.length);
     if (ends > open + 1 + MAX_PARAGRAPH_LENGTH) cut = true;
     paragraphs.push(section.slice(open + 1, Math.min(ends, open + 1 + MAX_PARAGRAPH_LENGTH)));

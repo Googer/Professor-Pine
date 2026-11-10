@@ -341,6 +341,36 @@ describe('parseResearchPage', () => {
     expect(read[49]).toEqual({ name: 'Pokémon 49 wearing a hat' });
   });
 
+  // Fix round of 8Z-2: a bold name is found from its opening tag to the first close of that tag,
+  // in one pass (the pattern before was quadratic on opening tags that are never closed).
+  it('reads the bold names of a sentence in one pass over it', () => {
+    const spawnsOf = (paragraph: string) =>
+      parseEventSpawns(`<h2 id="spawns">Spawns</h2><p>You might encounter ${paragraph}</p>`);
+    // A tag with attributes; an opening tag never closed before one that is; a line break,
+    // which is no bold; the other tag's close, which ends nothing.
+    expect(
+      spawnsOf(
+        '<b>Eevee wearing a bow <strong class="x">Pikachu wearing a hat</strong>, <br>' +
+          '<b data-a="1">Zubat wearing a cape</strong> and a crown</b>.',
+      ),
+    ).toEqual([
+      // Tags read as a space, as `htmlText` reads them.
+      { name: 'Eevee wearing a bow Pikachu wearing a hat , Zubat wearing a cape and a crown' },
+    ]);
+    expect(spawnsOf('<b>Eevee <b>Pikachu wearing a hat</b> wearing a bow</b>')).toEqual([
+      { name: 'Eevee Pikachu wearing a hat' },
+    ]);
+    // Opening tags by the hundreds that are never closed, then one that is: only that one.
+    expect(spawnsOf(`${'<b>'.repeat(900)}<strong>Pikachu wearing a hat</strong>`)).toEqual([
+      { name: 'Pikachu wearing a hat' },
+    ]);
+    // A tag of more than 200 characters is no tag of a name.
+    expect(spawnsOf(`<b ${'x'.repeat(200)}>Pikachu wearing a hat</b>`)).toEqual([]);
+    expect(spawnsOf(`<b ${'x'.repeat(198)}>Pikachu wearing a hat</b>`)).toEqual([
+      { name: 'Pikachu wearing a hat' },
+    ]);
+  });
+
   it('reads text as it shows: tags out, entities read, controls and gaps one space', () => {
     expect(htmlText('<span>Buddy &amp; Friendship</span>  Tasks')).toBe('Buddy & Friendship Tasks');
     expect(htmlText('Farfetch&#39;d &#x2014;\u200B ok')).toBe("Farfetch'd — ok");
@@ -560,6 +590,21 @@ describe('eventPageTime', () => {
     // Nor the end of a paragraph of over 4,000 characters: another range may follow there.
     const long = `Raid Hour from 6 p.m. to 7 p.m. ${'and so on '.repeat(400)}`;
     expect(eventPageTime(raids(long), 'raids', [MONDAY])).toEqual(unclear);
+  });
+
+  // Fix round of 8Z-2: each paragraph's close is looked for within its own room, never to the
+  // section's end (3 MB of `<p>` took 400 ms, fifty times over the rest of the section).
+  it('looks for a paragraph’s close only as far as it reads the paragraph', () => {
+    const time = { kind: 'time', time: { hour: 18, minute: 0, minutes: 60 } };
+    const sentence = 'Raid Hour from 6 p.m. to 7 p.m.';
+    // Closed at its 4,000th character: read whole. A character more: the end is not read.
+    expect(eventPageTime(raids(sentence.padEnd(4_000, ' ')), 'raids', [MONDAY])).toEqual(time);
+    expect(eventPageTime(raids(sentence.padEnd(4_001, ' ')), 'raids', [MONDAY])).toEqual({
+      kind: 'unclear',
+    });
+    // A million paragraphs that are never closed: the fifty read, the rest unclear.
+    const open = `<h2 id="raids">Raids</h2><p>${sentence}${'<p>'.repeat(1_000_000)}`;
+    expect(eventPageTime(open, 'raids', [MONDAY])).toEqual({ kind: 'unclear' });
   });
 });
 
