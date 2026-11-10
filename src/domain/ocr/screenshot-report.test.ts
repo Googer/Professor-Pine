@@ -674,10 +674,11 @@ describe('gymOfText', () => {
       gymId: 10,
       clear: true,
     });
+    // Only the whole text read: without leading words it may be the end of another gym's name.
     expect(gymOfText('WOES Maple Grove Chapel', search, undefined, 12)).toMatchObject({
       searched: 'Maple Grove Chapel',
       gymId: 12,
-      clear: true,
+      clear: false,
     });
     // No room for it, or the room unknown (a pane, an older record): the longer may be meant.
     expect(gymOfText('Temple Sinai', search, undefined, 6.9)).toMatchObject({
@@ -694,6 +695,31 @@ describe('gymOfText', () => {
     expect(gymOfText('Pine Campsite', search, undefined, 10)).toMatchObject({
       gymId: 14,
       clear: true,
+    });
+  });
+
+  // Review of the rule (2026-11-10): a shorter gym that is the end of others' names.
+  it('never takes as clear a gym named by a try without the leading words read', () => {
+    const methodist = (text: string): GymHitLike[] => {
+      const all = [
+        { id: 20, name: 'First United Methodist Church' },
+        { id: 21, name: 'First United Methodist Church Annex' },
+        { id: 22, name: 'United Methodist Church' },
+      ];
+      const words = text.toLowerCase().split(/\s+/);
+      return all
+        .filter((gym) => words.every((word) => gym.name.toLowerCase().split(' ').includes(word)))
+        .map((gym) => ({ gym, place: 'local' as const, allWords: true, corrected: false }));
+    };
+    // The whole text names gym 20, but " Annex" would not have fit: asked, and no later try
+    // takes gym 22, whose name is the end of the others'.
+    expect(gymOfText('First United Methodist Church', methodist, undefined, 3)).toMatchObject({
+      gymId: 20,
+      clear: false,
+    });
+    // A misread first word: the whole text names no gym, so none is taken as clear.
+    expect(gymOfText('Firsl United Methodist Church', methodist, undefined, 20)).toMatchObject({
+      clear: false,
     });
   });
 

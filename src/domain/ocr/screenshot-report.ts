@@ -241,13 +241,14 @@ function sameName(a: string, b: string): boolean {
  * screenshot report takes it without asking (Matt, 2026-10-11), and says it was not clear.
  * When none is clear, the words of `below` (`ScreenText.gymBelow`) that look like a name's are
  * added and tried the same way (Matt, 2026-10-24: "Pittsburgh Campsite -" and "Outgoing").
- * When still none is clear, the first try of the whole name or without leading words whose sure
- * hits include exactly one gym called exactly that is clear ("Temple Sinai" beside "Temple Sinai
- * Garden") when the screen cannot have cut a longer one to it: GO shrinks a long name to fit and
- * cuts it only when its next word does not fit (Matt, 2026-11-10), so every other sure hit whose
- * name begins with the one read must have its next word and a space fit in `room`, the
- * characters left on the name's last line (`ScreenText.gymRoom`; null, unknown: never). A try
- * without trailing words never is: the words left out may be the rest of the longer name.
+ * When still none is clear, the one gym called exactly the whole text read, of several sure hits
+ * ("Temple Sinai" beside "Temple Sinai Garden"), is clear when the screen cannot have cut a
+ * longer one to it: GO shrinks a long name to fit and cuts it only when its next word does not
+ * fit (Matt, 2026-11-10), so every other sure hit must begin with the name read and have its
+ * next word and a space fit in `room`, the characters left on the name's last line
+ * (`ScreenText.gymRoom`; null, unknown: never). Only the whole text: a try without leading words
+ * may name a gym that is the end of others' names, one without trailing words one whose rest
+ * they are.
  */
 export function gymOfText(
   text: string | null,
@@ -260,10 +261,9 @@ export function gymOfText(
   const words = text.split(/\s+/).filter(Boolean);
   const tries = gymTries(words, search);
   const more = (below ?? '').split(/\s+/).filter((word) => NAME_LIKE.test(word));
+  const whole = tries[0];
   const exact =
-    room === null
-      ? undefined
-      : tries.find((t) => !t.shortened && t.named && notCutFrom(t.named, t.sure, room));
+    room !== null && whole?.named && notCutFrom(whole.named, whole.sure, room) ? whole : undefined;
   const clear =
     tries.find((t) => t.clear) ??
     (more.length > 0 ? gymTries([...words, ...more], search).find((t) => t.clear) : undefined) ??
@@ -289,17 +289,17 @@ export function gymOfText(
 }
 
 /**
- * Whether no other of the `sure` hits can be a longer name GO cut to `named`'s: each that begins
- * with `named`'s name has a next word that, with a space, would have fit in `room` characters
- * (a dash before it counted with it: the reader may lose a dash GO showed). Another gym of the
- * very same name always may be meant.
+ * Whether no other of the `sure` hits can be a longer name GO cut to `named`'s: each begins
+ * with `named`'s name and has a next word that, with a space, would have fit in `room`
+ * characters (a dash before it counted with it: the reader may lose a dash GO showed). Another
+ * gym of the very same name, or one that does not begin with it, always may be meant.
  */
 function notCutFrom(named: GymHitLike, sure: readonly GymHitLike[], room: number): boolean {
   const length = named.gym.name.split(/\s+/).length;
   return sure.every((hit) => {
     if (hit === named) return true;
     const words = hit.gym.name.split(/\s+/);
-    if (!sameName(words.slice(0, length).join(' '), named.gym.name)) return true;
+    if (!sameName(words.slice(0, length).join(' '), named.gym.name)) return false;
     const rest = words.slice(length);
     const word = rest.findIndex((one) => /[\p{L}\p{N}]/u.test(one));
     if (word < 0) return false;
@@ -312,16 +312,15 @@ const NAME_LIKE = /^(?:[A-Z][a-z]+|\d{2,})$/;
 
 /**
  * The tries of `gymOfText` for these words: the whole text, then without one or two leading
- * words, then without trailing words (`shortened`); each with its top hit, its one clear hit, if
+ * words, then without trailing words; each with its top hit, its one clear hit, if
  * any, its hits with every word unmisspelt (`sure`) and the one of them called exactly what it
  * searched (`named`), if any.
  */
 function gymTries(words: readonly string[], search: ReportContext['searchGym']) {
   const variants = [words];
   for (let i = 1; i < Math.min(3, words.length); i++) variants.push(words.slice(i));
-  const whole = variants.length;
   for (let i = 1; i < Math.floor(words.length / 2); i++) variants.push(words.slice(0, -i));
-  return variants.map((part, index) => {
+  return variants.map((part) => {
     const hits = search(part.join(' '));
     const sure = hits.filter((hit) => hit.allWords && !hit.corrected);
     // Of several sure hits, the one gym whose whole name it is ("Temple Sinai" beside "Temple
@@ -335,7 +334,6 @@ function gymTries(words: readonly string[], search: ReportContext['searchGym']) 
       clear: longEnough && sure.length === 1 ? sure[0] : undefined,
       named: longEnough ? oneNamed : undefined,
       sure,
-      shortened: index >= whole,
     };
   });
 }
