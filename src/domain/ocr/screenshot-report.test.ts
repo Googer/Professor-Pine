@@ -68,7 +68,7 @@ function search(text: string): GymHitLike[] {
   if (text === "St. Paul's Church") return [hit(8)];
   if (text === 'Temple Sinai') return [hit(11), hit(10)];
   if (text === 'Maple Grove Chapel') return [hit(13), hit(12)];
-  if (text === 'Pine Campsite') return [hit(15), hit(14)];
+  if (text === 'Pine Campsite' || text === 'Pine Campsite -') return [hit(15), hit(14)];
   if (text.includes('Plant')) return [hit(9, false)];
   return [];
 }
@@ -722,6 +722,29 @@ describe('gymOfText', () => {
     expect(gymOfText('Firsl United Methodist Church', methodist, undefined, 20)).toMatchObject({
       clear: false,
     });
+  });
+
+  it('keeps asking when a longer name goes on glued to the last word, or the read ends in a dash', () => {
+    const pair = (longer: string) => (text: string) =>
+      text.startsWith('Pine Campsite') || text.startsWith('St Mary')
+        ? [
+            { ...hit(16), gym: { id: 16, name: longer } },
+            {
+              ...hit(14),
+              gym: { id: 14, name: text.startsWith('St') ? 'St Mary' : 'Pine Campsite' },
+            },
+          ]
+        : [];
+    expect(gymOfText('Pine Campsite', pair('Pine Campsite-Lookout'), undefined, 30)).toMatchObject({
+      gymId: 14,
+      clear: false,
+    });
+    expect(gymOfText('St Mary', pair("St Mary's"), undefined, 30)).toMatchObject({
+      gymId: 14,
+      clear: false,
+    });
+    // "Pine Campsite -": the name read goes on after the dash.
+    expect(gymOfText('Pine Campsite -', search, undefined, 30)).toMatchObject({ clear: false });
   });
 
   it('never takes an exact name as clear when the search gave as many hits as are looked at', () => {

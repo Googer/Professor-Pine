@@ -227,8 +227,7 @@ export function bossNameSimilarity(read: string, boss: Pick<RaidBoss, 'name'>): 
 
 /** Two names alike but for case, spaces and punctuation. */
 function sameName(a: string, b: string): boolean {
-  const plain = (text: string) => text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
-  return plain(a) === plain(b);
+  return plainName(a) === plainName(b);
 }
 
 /**
@@ -263,7 +262,11 @@ export function gymOfText(
   const more = (below ?? '').split(/\s+/).filter((word) => NAME_LIKE.test(word));
   const whole = tries[0];
   const exact =
-    room !== null && whole?.named && !whole.full && notCutFrom(whole.named, whole.sure, room)
+    room !== null &&
+    whole?.named &&
+    !whole.full &&
+    !ENDS_IN_PUNCTUATION.test(text.trim()) &&
+    notCutFrom(whole.named, whole.sure, room)
       ? whole
       : undefined;
   const clear =
@@ -292,22 +295,44 @@ export function gymOfText(
 
 /**
  * Whether no other of the `sure` hits can be a longer name GO cut to `named`'s: each begins
- * with `named`'s name and has a next word that, with a space, would have fit in `room`
- * characters (a dash before it counted with it: the reader may lose a dash GO showed). Another
- * gym of the very same name, or one that does not begin with it, always may be meant.
+ * with `named`'s name, compared by letters and digits as `sameName` compares, then a space, and
+ * has a next word that, with a space, would have fit in `room` characters (a dash before it
+ * counted with it: the reader may lose a dash GO showed). Another gym of the very same name, one
+ * that does not begin with it, and one that goes on glued to its last word ("Pine
+ * Campsite-Lookout", "St Mary's" after "St Mary") always may be meant.
  */
 function notCutFrom(named: GymHitLike, sure: readonly GymHitLike[], room: number): boolean {
-  const length = named.gym.name.split(/\s+/).length;
+  const letters = plainName(named.gym.name).length;
   return sure.every((hit) => {
     if (hit === named) return true;
-    const words = hit.gym.name.split(/\s+/);
-    if (!sameName(words.slice(0, length).join(' '), named.gym.name)) return false;
-    const rest = words.slice(length);
-    const word = rest.findIndex((one) => /[\p{L}\p{N}]/u.test(one));
+    const rest = restAfter(hit.gym.name, letters);
+    if (rest === undefined || !plainName(hit.gym.name).startsWith(plainName(named.gym.name)))
+      return false;
+    if (!/^\s/.test(rest)) return false;
+    const words = rest.trim().split(/\s+/);
+    const word = words.findIndex((one) => /[\p{L}\p{N}]/u.test(one));
     if (word < 0) return false;
-    return rest.slice(0, word + 1).join(' ').length + 1 <= room;
+    return words.slice(0, word + 1).join(' ').length + 1 <= room;
   });
 }
+
+/** A name's letters and digits, lower case: what `sameName` compares. */
+function plainName(text: string): string {
+  return text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '');
+}
+
+/** What follows the first `letters` letters and digits of `name`; undefined when it has fewer. */
+function restAfter(name: string, letters: number): string | undefined {
+  let seen = 0;
+  for (let i = 0; i < name.length; i++) {
+    if (seen === letters) return name.slice(i);
+    if (/[\p{L}\p{N}]/u.test(name[i] ?? '')) seen++;
+  }
+  return seen === letters ? '' : undefined;
+}
+
+/** A name read that ends in a dash or other punctuation goes on, or was read so: never exact. */
+const ENDS_IN_PUNCTUATION = /[^\p{L}\p{N}]$/u;
 
 /** A word of a line under a gym's name that may be the name's: a capitalized word, or a number. */
 const NAME_LIKE = /^(?:[A-Z][a-z]+|\d{2,})$/;
