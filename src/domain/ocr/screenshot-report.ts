@@ -263,7 +263,9 @@ export function gymOfText(
   const more = (below ?? '').split(/\s+/).filter((word) => NAME_LIKE.test(word));
   const whole = tries[0];
   const exact =
-    room !== null && whole?.named && notCutFrom(whole.named, whole.sure, room) ? whole : undefined;
+    room !== null && whole?.named && !whole.full && notCutFrom(whole.named, whole.sure, room)
+      ? whole
+      : undefined;
   const clear =
     tries.find((t) => t.clear) ??
     (more.length > 0 ? gymTries([...words, ...more], search).find((t) => t.clear) : undefined) ??
@@ -311,10 +313,18 @@ function notCutFrom(named: GymHitLike, sure: readonly GymHitLike[], room: number
 const NAME_LIKE = /^(?:[A-Z][a-z]+|\d{2,})$/;
 
 /**
+ * How many hits of each search the report looks at (`reportContext`'s `searchGym` gives at most
+ * this many): enough to see that one is not alone, and every longer name that begins with an
+ * exact one (`notCutFrom`). A search that gives this many may have more: an exact name is then
+ * never taken as clear by its room.
+ */
+export const GYM_HITS = 20;
+
+/**
  * The tries of `gymOfText` for these words: the whole text, then without one or two leading
  * words, then without trailing words; each with its top hit, its one clear hit, if
  * any, its hits with every word unmisspelt (`sure`) and the one of them called exactly what it
- * searched (`named`), if any.
+ * searched (`named`), if any, and whether the search gave as many as are looked at (`full`).
  */
 function gymTries(words: readonly string[], search: ReportContext['searchGym']) {
   const variants = [words];
@@ -334,6 +344,7 @@ function gymTries(words: readonly string[], search: ReportContext['searchGym']) 
       clear: longEnough && sure.length === 1 ? sure[0] : undefined,
       named: longEnough ? oneNamed : undefined,
       sure,
+      full: hits.length >= GYM_HITS,
     };
   });
 }

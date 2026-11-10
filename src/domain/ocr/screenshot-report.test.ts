@@ -7,6 +7,7 @@ import type { ScreenText } from './raid-screen.js';
 import {
   bossNameSimilarity,
   clockTime,
+  GYM_HITS,
   gymOfText,
   nameSimilarity,
   screenshotReport,
@@ -720,6 +721,28 @@ describe('gymOfText', () => {
     // A misread first word: the whole text names no gym, so none is taken as clear.
     expect(gymOfText('Firsl United Methodist Church', methodist, undefined, 20)).toMatchObject({
       clear: false,
+    });
+  });
+
+  it('never takes an exact name as clear when the search gave as many hits as are looked at', () => {
+    // Every longer name seen would fit, but the search may have more than it gave.
+    const longer = (count: number) => (text: string) =>
+      text === 'Temple Sinai'
+        ? [
+            ...Array.from({ length: count - 1 }, (_, i) => ({
+              ...hit(100 + i),
+              gym: { id: 100 + i, name: `Temple Sinai ${String.fromCharCode(65 + i)}` },
+            })),
+            hit(10),
+          ]
+        : [];
+    expect(gymOfText('Temple Sinai', longer(GYM_HITS), undefined, 30)).toMatchObject({
+      gymId: 10,
+      clear: false,
+    });
+    expect(gymOfText('Temple Sinai', longer(GYM_HITS - 1), undefined, 30)).toMatchObject({
+      gymId: 10,
+      clear: true,
     });
   });
 

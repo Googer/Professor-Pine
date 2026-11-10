@@ -1,12 +1,9 @@
 import type { AppContext } from '../app-context.js';
 import type { MaxReportContext } from '../domain/ocr/max-report.js';
 import type { SpotTitle } from '../domain/ocr/power-spot-match.js';
-import type { ReportContext } from '../domain/ocr/screenshot-report.js';
+import { GYM_HITS, type ReportContext } from '../domain/ocr/screenshot-report.js';
 import { takenAtFromFileName } from '../domain/ocr/file-time.js';
 import { gymInGuild } from './region-directory.js';
-
-/** How many hits of each search the report looks at: enough to see that one is not alone. */
-const GYM_HITS = 3;
 
 /**
  * What `screenshotReport` needs, from the bot: the bosses in effect, every Pokémon of the game
