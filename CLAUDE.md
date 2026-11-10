@@ -4,7 +4,7 @@ Discord bot for organizing Pokémon Go raids, in TypeScript on discord.js v14: o
 
 ## Hard rules
 
-- **Push what lands on `main-dev`** (Matt, 2026-11-01), never force. `legacy` is the old bot with its intents patch: leave it alone. No PRs unless Matt asks. Older docs call `main-dev` `typescript-migration`.
+- **Push what lands on `main-dev`** (Matt, 2026-11-01), never force. `legacy` is the old bot with its intents patch: leave it alone. No PRs unless Matt asks, but for Dependabot's own against `main-dev` (new versions of the pinned images and actions, `.github/dependabot.yml`; Matt, 2026-11-10). Older docs call `main-dev` `typescript-migration`.
 - **Nothing of the Wayfarer export tool reaches this repository.** Its code, its docs and how it works live only in the private `Googer/Professor-Pine-Wayfarer-Export` (local `../Professor-Pine-Wayfarer-Export`). Pine keeps the export format and geometry (`packages/wayspot-core`) and the page that hands the built file out. The history before 2026-11-01 holds the tool: it is only in the git-ignored `var/archive/local-branches-2026-11-01.bundle`; never push it, and start from the current `main-dev`.
 - **Never contact Discord unasked.** Do not start the bot (`npm start`, `npm run dev`, or in the Docker stack `./pine up`, `./pine restart`, `./pine update`, `./pine restore` without `--no-start`) or run `npm run deploy-commands` / `./pine deploy-commands` or `npm run emoji:upload` / `./pine emoji-upload` (its dry run reads the application's emoji; `--apply` uploads) or `npm run cutover:check` / `./pine cutover-check` (reads Discord's REST API with the token) unless Matt asks; there is a live production bot.
 - **Never open `.env`** (it holds the bot token): check a value only with a command that reports set or empty, and change one only with a script that prints no values.
@@ -34,7 +34,7 @@ Discord bot for organizing Pokémon Go raids, in TypeScript on discord.js v14: o
 
 ## Status
 
-Every phase up to the security pass 8Z is built and merged. **Pittsburgh cut over on the night of 2026-11-09**: the production bot runs on the Air's `~/professor-pine` stack (`ssh googer@192.168.1.174`, `cd ~/professor-pine && ./pine …`); legacy Pine at the office is stopped, its service on manual start. Every `./pine` command there that contacts Discord is the live production bot: Matt's go-ahead first.
+Every phase up to the security pass 8Z is built and merged. **Pittsburgh cut over on the night of 2026-11-09**: the production bot runs on the Air's `~/professor-pine` stack (`ssh <account>@<host>`, `cd ~/professor-pine && ./pine …`); legacy Pine at the office is stopped, its service on manual start. Every `./pine` command there that contacts Discord is the live production bot: Matt's go-ahead first.
 
 - **Not announced yet** (Matt decides when); then `/admin tutorial` in `#raid-bot-tutorial`. What is left of the night: follow-ups, "The cutover".
 - **8Z's staging** ran on 2026-11-01/02 on the Air's dev stack: nearly every step passes, one Minor finding and a few steps are left (follow-ups, "From the staging run of 8Z").
