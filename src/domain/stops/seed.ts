@@ -142,8 +142,9 @@ export type SeedOutcome =
 
 /**
  * What the seed does with each row, in order: a row outside every region of the server is
- * skipped, and so is one within `nearMetres` of a known stop or of a row added before it (a
- * stop listed twice). So a second run adds nothing: what the first added is a known stop.
+ * skipped, and so is one within `nearMetres` of a known stop, or one with the id of a row added
+ * before it (a stop listed twice; a row without an id: one within `nearMetres` of such a row).
+ * So a second run adds nothing: what the first added is a known stop.
  */
 export function planSeed(
   rows: readonly SeedRow[],
@@ -156,9 +157,12 @@ export function planSeed(
     if (regions.length === 0) return { kind: 'outside', row };
     const known = place.nearestStop(row);
     if (known) return { kind: 'near', row, stop: known.name, metres: Math.round(known.metres) };
+    // A row listed twice has the same id; rows with ids of their own are places of their own,
+    // however close (two sponsored stops at one store or mall). Only a row without an id is
+    // taken for one beside it.
     const twin = added
       .map((other) => ({ other, metres: metresBetween(other, row) }))
-      .filter(({ metres }) => metres <= nearMetres)
+      .filter(({ other, metres }) => (row.id === '' ? metres <= nearMetres : other.id === row.id))
       .sort((a, b) => a.metres - b.metres)[0];
     if (twin) {
       return {

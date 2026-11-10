@@ -457,14 +457,17 @@ function announceLine(
   permissionsIn: (channel: ApiChannel) => bigint,
 ): CheckLine {
   const gaps = announceChannels(settings).flatMap((name) => {
-    const channel = channels.find(
-      (one) =>
-        one.name === name &&
-        (one.type === ChannelType.GuildText || one.type === ChannelType.GuildAnnouncement),
-    );
-    if (!channel) return [];
-    const missing = missingNeeds(permissionsIn(channel), ANNOUNCE_NEEDS).required;
-    return missing.length === 0 ? [] : [`${needNames(missing)} in #${name}`];
+    // Of several channels by the name, the bot sends to one it may post in (`findChannel`): one
+    // such passes; where none does, the first says what it lacks.
+    const missing = channels
+      .filter(
+        (one) =>
+          one.name === name &&
+          (one.type === ChannelType.GuildText || one.type === ChannelType.GuildAnnouncement),
+      )
+      .map((channel) => missingNeeds(permissionsIn(channel), ANNOUNCE_NEEDS).required);
+    if (missing.length === 0 || missing.some((one) => one.length === 0)) return [];
+    return [`${needNames(missing[0] ?? [])} in #${name}`];
   });
   return gaps.length === 0
     ? {

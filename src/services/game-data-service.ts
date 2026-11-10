@@ -68,6 +68,11 @@ export interface GameDataOptions {
   megaPortraitsUrl?: string;
   /** Where the parsed data is kept between runs, e.g. `var/game-data-cache.json`. */
   cachePath: string;
+  /**
+   * False: the saved copy is only read, never written (a one-off run as a user who may not write
+   * the bot's folder, as `./pine import-history` runs: the bot saves its own copy). Default true.
+   */
+  keepCopy?: boolean;
   /** A cache older than this is refreshed when the bot starts, and the data is refreshed this often. */
   maxAgeMs: number;
   fetch: FetchText;
@@ -571,6 +576,7 @@ export class GameDataService implements GameDataProvider {
   }
 
   private async writeCacheNow(cache: CacheFile): Promise<void> {
+    if (this.options.keepCopy === false) return;
     const temporary = `${this.options.cachePath}.${process.pid}.${++temporaryCounter}.tmp`;
     try {
       await mkdir(path.dirname(this.options.cachePath), { recursive: true });

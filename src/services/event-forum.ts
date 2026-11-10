@@ -412,9 +412,12 @@ export class EventForumService {
     )?.id;
     const created = forumId === undefined;
     if (forumId === undefined) {
-      const botUpdates = channels.find(
+      // Of two channels by that name (a server may have one per category), the one the bot may
+      // post in, as live sends pick (`findChannel`); else the first.
+      const named = channels.filter(
         (one) => one.kind === 'text' && one.name === settings.channels['bot-updates'],
       );
+      const botUpdates = named.find((one) => gateway.mayPost(one.id)) ?? named[0];
       if (!botUpdates) return { forum: 'no-bot-updates', name };
       try {
         forumId = (await gateway.createForum(botUpdates.id, name, []))?.forumId;

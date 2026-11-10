@@ -718,6 +718,13 @@ describe('cutoverCheck', () => {
       });
     });
 
+    it('passes where, of two channels by the name, the bot may post in one (as sends pick it)', async () => {
+      const updates = shape.guild.channels.find((one) => one.name === 'bot-updates');
+      if (updates) updates.overwrites = [overwrite(shape.guild.id, [], [P.ViewChannel])];
+      api.addChannel(shape.guild, 'bot-updates');
+      expect(line(await check(), 'announcements')).toMatchObject({ status: 'pass' });
+    });
+
     it("warns of a self-assigned role above the bot's highest, which it cannot give", async () => {
       const high = api.addRole(shape.guild, 'Mystic');
       // Found by its name (a legacy row has no snowflake), and below the bot's role.

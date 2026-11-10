@@ -103,8 +103,26 @@ describe('planSeed', () => {
     ]);
   });
 
-  it('skips a row beside one the same file adds before it', () => {
+  it('skips a row the same file lists before it, by its id wherever it is', () => {
+    const again = { ...row(2, 40.08, -80.07), id: 'a1' };
+    const plan = planSeed([row(1, 40.07, -80.07), again], place, 30);
+    expect(plan.map((one) => one.kind)).toEqual(['add', 'near']);
+    expect(plan[1]).toMatchObject({ stop: 'Stop 1 (line 2 of this file)', metres: 1112 });
+  });
+
+  it('adds a row beside another of the file with an id of its own (two stops at one store)', () => {
+    // Pittsburgh's seed of 2026-11-09 skipped four second Walmart stops and the LEGO Store beside
+    // a Starbucks this way: sponsored stops of one store or mall stand a few meters apart.
     const plan = planSeed([row(1, 40.07, -80.07), row(2, 40.0701, -80.07)], place, 30);
+    expect(plan.map((one) => one.kind)).toEqual(['add', 'add']);
+  });
+
+  it('skips a row without an id beside one the same file adds before it', () => {
+    const plan = planSeed(
+      [row(1, 40.07, -80.07), { ...row(2, 40.0701, -80.07), id: '' }],
+      place,
+      30,
+    );
     expect(plan.map((one) => one.kind)).toEqual(['add', 'near']);
     expect(plan[1]).toMatchObject({ stop: 'Stop 1 (line 2 of this file)', metres: 11 });
   });

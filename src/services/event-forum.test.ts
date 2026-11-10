@@ -227,6 +227,17 @@ describe('EventForumService: the forum of /admin setup-forums (plan 8V-1)', () =
     expect(await service.setup(SERVER)).toMatchObject({ replies: ['@everyone'] });
   });
 
+  it('makes it beside the bot-updates channel the bot may post in, of two by that name', async () => {
+    // PGP Bot Development Lab has #bot-updates under two categories; the bot sees only one.
+    const { service, gateway } = eventForumWith();
+    gateway.addChannel('500000000000000020', 'DEV', { kind: 'category' });
+    gateway.addChannel('500000000000000021', 'bot-updates', { categoryId: '500000000000000020' });
+    gateway.noEmbeds.add(BOT_UPDATES);
+    const result = await service.setup(SERVER);
+    const forumId = result.forum === 'created' ? result.forumId : '';
+    expect(gateway.forums.get(forumId)).toMatchObject({ regionChannelId: '500000000000000021' });
+  });
+
   it('makes none without a bot-updates channel to make it beside', async () => {
     const { service, gateway } = eventForumWith();
     gateway.channels.delete(BOT_UPDATES);

@@ -1,3 +1,6 @@
+import { constants } from 'node:fs';
+import { access } from 'node:fs/promises';
+import path from 'node:path';
 import { ConfigError, loadConfig, type Config } from '../config/index.js';
 import { dbConfigFrom } from '../db/db-config.js';
 import { createDb } from '../db/kysely.js';
@@ -26,6 +29,13 @@ try {
   process.exit(1);
 }
 const log = createLogger({ level: config.env.LOG_LEVEL, pretty: false });
+// Run as the operator (`./pine import-history` with LEGACY_INDEX_DIR set), the import may not
+// write the bot's folder: it then only reads the saved copy, and a download is not kept. A
+// folder not there yet is made when the copy is saved.
+const mayWrite = await access(path.dirname(GAME_DATA_CACHE), constants.W_OK).then(
+  () => true,
+  (err: unknown) => (err as NodeJS.ErrnoException).code === 'ENOENT',
+);
 const db = createDb<DB>(dbConfigFrom(config.env));
 const gameData = new GameDataService({
   gameMasterUrl: config.settings.gameData.gameMasterUrl,
@@ -33,6 +43,7 @@ const gameData = new GameDataService({
   iconsUrl: config.settings.gameData.iconsUrl,
   megaPortraitsUrl: config.settings.gameData.megaPortraitsUrl,
   cachePath: GAME_DATA_CACHE,
+  keepCopy: mayWrite,
   maxAgeMs: config.settings.gameData.refreshHours * HOUR_MS,
   fetch: (url, init) => fetch(url, init),
   log,

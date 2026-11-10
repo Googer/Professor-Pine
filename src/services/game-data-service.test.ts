@@ -408,6 +408,26 @@ describe('GameDataService', () => {
     expect(saved.fetchedAt).toBe(now);
   });
 
+  it('saves nothing, and warns of nothing, where it may only read the saved copy', async () => {
+    const { log, entries } = createTestLogger();
+    const gameData = new GameDataService({
+      gameMasterUrl: GAME_MASTER_URL,
+      textUrl: TEXT_URL,
+      cachePath,
+      maxAgeMs: 24 * HOUR,
+      fetch: (url, init) => respond(url, init),
+      log,
+      now: () => clock(),
+      keepCopy: false,
+    });
+    made.push(gameData);
+    await gameData.load();
+    expect(gameData.catalogue.byKey('venusaur')?.name).toBe('Venusaur');
+    await gameData.whenIdle();
+    await expect(readFile(cachePath, 'utf8')).rejects.toThrow(/ENOENT/);
+    expect(entries.filter((entry) => Number(entry.level) >= 40)).toEqual([]);
+  });
+
   it('starts from a fresh saved copy without downloading', async () => {
     await service().gameData.load();
     requests = [];

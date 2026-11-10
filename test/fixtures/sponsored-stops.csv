@@ -1,6 +1,6 @@
 id,name,lat,lon,region,basis
 f00000000000000000000000000000001.16,Corner Café,40.05,-80.05,#west,made up: local business
-f00000000000000000000000000000002.16,Corner Café again,40.05005,-80.05,#west,made up: listed twice
+f00000000000000000000000000000001.16,Corner Café again,40.05005,-80.05,#west,made up: listed twice
 f00000000000000000000000000000003.16,Big Box,40.07,-80.07,#west,made up: Wayfarer lists it now
 f00000000000000000000000000000004.16,Far Away,41.0,-80.0,#nowhere,made up: outside every region
 f00000000000000000000000000000005.16,"Bakery, Main Street",40.03,-80.03,#west,made up: another server has one here
