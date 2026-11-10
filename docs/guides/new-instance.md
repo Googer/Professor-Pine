@@ -72,7 +72,7 @@ cp .env.example .env
 Fill in:
 
 - `DISCORD_TOKEN`, `DISCORD_APP_ID`, `OWNER_ID`: from section 1.
-- `DB_USER` (not `root`), `DB_PASSWORD`, `DB_SCHEMA`, `DB_ROOT_PASSWORD`: names and passwords of your choice. The stack creates the database and the user on its first start. A value with a `$` in it goes in single quotes (`'pa$$word'`).
+- `DB_USER` (not `root`), `DB_PASSWORD`, `DB_SCHEMA`, `DB_ROOT_PASSWORD`: names and passwords of your choice (`DB_SCHEMA`, the database's name, is letters, digits, `_` and `-` only, a hyphen neither first nor last). The stack creates the database and the user on its first start. A value with a `$` in it goes in single quotes (`'pa$$word'`).
 - `GOOGLE_API_KEY` (optional): map pictures (Google Static Maps) and the address and nearby places of each gym (the Geocoding API and Places API (New)). Without it posts have no map picture. Enable all three APIs in the key's Google Cloud project, and if the key has API restrictions, tick all three there too. The second step is easy to miss: Google then answers "requests to this API are blocked", and gyms get no nearby places.
 - `BACKUP_DIR`: the folder on this machine for the nightly backups (blank switches them off), such as `/srv/pine-backups` on Linux or `C:/pine-backups` on Windows. It needs a marker file with the stack's name, made once. On Linux:
 

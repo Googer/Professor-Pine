@@ -44,6 +44,30 @@ describe('loadEnv', () => {
     expect(() => loadEnv(rest)).toThrow(/DISCORD_TOKEN/);
   });
 
+  // The name goes into SQL text and onto mysqldump's command line in the stack's scripts.
+  it('takes a DB_SCHEMA of letters, digits, _ and inner hyphens', () => {
+    for (const name of ['pine', 'Pine_2', 'pine-dev', 'p', '_pine', 'my-pine--db_2']) {
+      expect(loadEnv({ ...TEST_ENV, DB_SCHEMA: name }).DB_SCHEMA).toBe(name);
+    }
+  });
+
+  it.each([
+    '-pine',
+    'pine-',
+    '--all-databases',
+    'pine db',
+    'pi`ne',
+    "pine'",
+    'pine;drop',
+    'pine.dev',
+    'piñe',
+    'pine\n',
+  ])('refuses the DB_SCHEMA %j, and says what a name may be', (name) => {
+    expect(() => loadEnv({ ...TEST_ENV, DB_SCHEMA: name })).toThrow(
+      /letters, digits, _ and -[^]*DB_SCHEMA/,
+    );
+  });
+
   it('rejects a non-snowflake OWNER_ID', () => {
     expect(() => loadEnv({ ...TEST_ENV, OWNER_ID: 'matt' })).toThrow(/OWNER_ID/);
   });

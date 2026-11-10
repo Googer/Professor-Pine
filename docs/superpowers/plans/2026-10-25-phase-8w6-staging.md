@@ -24,7 +24,7 @@ Every step needs Matt's go-ahead. Matt starts the bot; Claude drives Discord in 
    ```
 
    It fails, naming `googleLookupsPerDay` as an unknown key. A reserve of 60 beside a budget of 60 fails the same way, naming `googleLookupsReserve`.
-4. **A backup of the dev database** before anything else: `docker exec pine-dev-mysql mysqldump --single-transaction -uroot -p<root> <schema> > var/stage/8w6/before.sql` (the password from Matt). Every count this run clears or seeds, and the import steps (23 to 28), come back to this one.
+4. **A backup of the dev database** before anything else: `docker exec -it pine-dev-mysql sh -c 'mysqldump --single-transaction -uroot -p <schema> > /tmp/before.sql'`, then `docker cp pine-dev-mysql:/tmp/before.sql var/stage/8w6/before.sql` (`-p` asks for the password, from Matt: one written after it would show in the process list; the dump is written inside the container, since the terminal that `-it` gives for the prompt would put the prompt and CR LF line ends into a file redirected on the host). Every count this run clears or seeds, and the import steps (23 to 28), come back to this one.
 
 ## The month and the budget, with a seeded day table
 

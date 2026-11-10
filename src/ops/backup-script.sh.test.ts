@@ -30,6 +30,37 @@ function folders() {
   };
 }
 
+describe('the DB_SCHEMA of docker/backup.sh', () => {
+  // The name goes into SQL text and bare onto mysqldump's command line.
+  it('is letters, digits, _ and inner hyphens, or the service stops with a sentence', (context) => {
+    const good = ['pine', 'Pine_2', 'pine-dev', 'p', 'my-pine--db_2'];
+    const bad = ['-pine', 'pine-', '--all-databases', 'pine db', 'pi`ne', 'pine;drop', 'p.d'];
+    const run = runBackupScript(
+      [
+        'for name in "$@"; do',
+        '  if schema_name_ok "$name"; then echo "ok: $name"; else echo "bad: $name"; fi',
+        'done',
+        // The settings' check itself: it stops before anything else is read.
+        'for name in "$@"; do',
+        '  (DB_SCHEMA=$name; setup) 2>&1 || true',
+        'done',
+      ].join('\n'),
+      { MYSQL_ROOT_PASSWORD: 'root', DB_USER: 'pine', DB_PASSWORD: 'pine' },
+      [...good, ...bad],
+    );
+    if (!run) return context.skip('no sh here');
+
+    for (const name of good) expect(run.stdout).toContain(`ok: ${name}\n`);
+    for (const name of bad) {
+      expect(run.stdout).toContain(`bad: ${name}\n`);
+      expect(run.stdout).toContain(
+        `DB_SCHEMA must be letters, digits, _ and - (a hyphen neither first nor last), not '${name}'.`,
+      );
+    }
+    for (const name of good) expect(run.stdout).not.toContain(`not '${name}'`);
+  });
+});
+
 describe('the lock of docker/backup.sh', () => {
   it('takes over a lock whose run is gone, and not one whose run is alive', (context) => {
     const { lock, env } = folders();

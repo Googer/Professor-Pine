@@ -83,8 +83,31 @@ need_stack() {
   # Without it Docker would mount an empty folder in its place.
   [ -f "$PINE_SETTINGS" ] ||
     fail "There is no $PINE_SETTINGS here. Copy data/settings.json to pine-settings.json and edit it (timezone, channel names), or make it from a legacy installation with './pine convert-settings'."
+  check_schema_name
   make_tool_dir
   make_index_dir
+}
+
+# DB_SCHEMA goes bare onto the mysql client's command line when a dump is loaded (and, in
+# docker/backup.sh, into SQL text and onto mysqldump's): only letters, digits, _ and inner
+# hyphens, as the bot (src/config/env.ts) and docker/backup.sh hold it. The characters are written
+# out: a range would follow the locale. The value is the shell's before the env file's, as Compose
+# takes it; in the file, as Compose reads it (a comment after it and spaces at its end are not
+# the name). One that is not set is Compose's to refuse, in its own words.
+check_schema_name() {
+  schema=${DB_SCHEMA:-}
+  schema_from="the shell's environment"
+  if [ -z "$schema" ]; then
+    schema=$(env_value DB_SCHEMA |
+      sed "s/[[:space:]]#.*\$//; s/[[:space:]]*\$//; s/^'\(.*\)'\$/\1/; s/^\"\(.*\)\"\$/\1/")
+    schema_from=$PINE_ENV_FILE
+  fi
+  case $schema in
+    '') ;;
+    -* | *- | *[!abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-]*)
+      fail "DB_SCHEMA in $schema_from must be letters, digits, _ and - (a hyphen neither first nor last), not '$schema'."
+      ;;
+  esac
 }
 
 # LEGACY_INDEX_DIR (blank: none) holds the member index of the legacy history (plan 8H-10): the
@@ -773,4 +796,7 @@ main() {
   "$handler" "$@"
 }
 
-main "$@"
+# With PINE_SH_LIBRARY set, the functions are only defined (the tests source the script).
+if [ -z "${PINE_SH_LIBRARY:-}" ]; then
+  main "$@"
+fi

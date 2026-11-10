@@ -4,6 +4,13 @@ import { ConfigError } from './errors.js';
 
 const SNOWFLAKE = /^\d{17,20}$/;
 
+/**
+ * A database name the stack's scripts can use as it is: it goes into SQL text and bare onto the
+ * command lines of `mysqldump` and the `mysql` client (`docker/backup.sh`, `./pine restore`),
+ * where a leading hyphen would be an option. `docker/backup.sh` and `pine` hold the same rule.
+ */
+const SCHEMA_NAME = /^[A-Za-z0-9_](?:[A-Za-z0-9_-]*[A-Za-z0-9_])?$/;
+
 const blankToUndefined = (value: unknown) =>
   typeof value === 'string' && value.trim() === '' ? undefined : value;
 
@@ -23,7 +30,9 @@ export const envSchema = z
     ),
     DB_USER: z.string().min(1),
     DB_PASSWORD: z.string().default(''),
-    DB_SCHEMA: z.string().min(1),
+    DB_SCHEMA: z
+      .string()
+      .regex(SCHEMA_NAME, 'must be letters, digits, _ and - (a hyphen neither first nor last)'),
     /**
      * The legacy bot's address of Pokémon icons. Nothing reads it any more (pictures come from
      * the raid boss feed and the game data); kept optional so that an `.env` with it still loads.

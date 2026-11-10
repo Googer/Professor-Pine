@@ -40,10 +40,24 @@ SCHEDULED=
 # The tables that must have rows in a dump when they have rows in the live database.
 MAIN_TABLES="Guild Region Gym User"
 
+# Whether a database name can be used as it is: it goes into SQL text and bare onto mysqldump's
+# command line, where a leading hyphen would be an option. Letters, digits, _ and inner hyphens
+# (the characters written out: a range would follow the locale); the bot (src/config/env.ts) and
+# ./pine hold the same rule.
+schema_name_ok() {
+  case $1 in
+    '' | -* | *- | *[!abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-]*) return 1 ;;
+  esac
+}
+
 # The settings, checked once at the start of every command; a mistake stops the service with a
 # sentence in its log.
 setup() {
   SCHEMA=${DB_SCHEMA:?DB_SCHEMA is not set}
+  if ! schema_name_ok "$SCHEMA"; then
+    echo "DB_SCHEMA must be letters, digits, _ and - (a hyphen neither first nor last), not '$SCHEMA'." >&2
+    exit 1
+  fi
   : "${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is not set}"
   AT=${BACKUP_TIME:-03:30}
   KEEP=${BACKUP_KEEP_DAYS:-90}
