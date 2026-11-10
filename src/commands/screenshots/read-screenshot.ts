@@ -29,7 +29,7 @@ import { gymNamerOf } from './gym-question.js';
  * A screenshot whose turn in the reader comes later than this after its interaction is given up
  * as busy: the reading and the answer must fit into the fifteen minutes Discord allows.
  */
-const START_BY_MS = 13 * 60_000;
+export const START_BY_MS = 13 * 60_000;
 
 /** What `onQueued` says while a screenshot waits for the ones ahead of it. */
 export function waitingWords(ahead: number): string {

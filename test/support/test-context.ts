@@ -264,6 +264,11 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
       'screenshots',
       'pass { screenshots } from screenshotsWith() (test/support/screenshot-service.ts)',
     ),
+    // No message's screenshots are read for a member who asks; a test passes its trigger.
+    messageShots: unavailable<AppContext['messageShots']>(
+      'messageShots',
+      'pass { messageShots: trigger }, a ScreenshotTrigger over the same services',
+    ),
     // No emoji: the game's icons are named in words; a test passes its own finder.
     emoji: { find: () => undefined },
     features: { ocrPassive: false, autoAssignRole: false },

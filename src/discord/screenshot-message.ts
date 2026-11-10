@@ -1,6 +1,28 @@
-import type { Message } from 'discord.js';
+import type { Attachment, Message } from 'discord.js';
 import type { PostedMessage } from '../commands/screenshots/mention.js';
 import { teamOfRoles } from '../domain/party/party.js';
+import type { ScreenshotSource } from '../services/screenshot-service.js';
+
+/**
+ * Whether a message says nothing but mentions of the bot, if any: such a message may go once its
+ * screenshots are raids (`PostedMessage.bare`). A message that mentions the bot, and one a
+ * message command was used on, carry their text without the Message Content intent.
+ */
+export function saysNothing(content: string, botId: string): boolean {
+  return content.replaceAll(`<@${botId}>`, '').replaceAll(`<@!${botId}>`, '').trim() === '';
+}
+
+/** The attachments of a message as the screenshot reader takes them. */
+export function shotSources(
+  attachments: Iterable<Pick<Attachment, 'url' | 'name' | 'contentType' | 'size'>>,
+): ScreenshotSource[] {
+  return [...attachments].map((attachment) => ({
+    url: attachment.url,
+    name: attachment.name,
+    contentType: attachment.contentType,
+    size: attachment.size,
+  }));
+}
 
 /**
  * A posted message as the screenshot trigger sees it (`PostedMessage`), over discord.js. Like
@@ -28,15 +50,9 @@ export function postedMessage(message: Message): PostedMessage {
     createdAt: message.createdTimestamp,
     mentionsBot: message.mentions.parsedUsers.has(botId),
     // Nothing but the bot's own mention(s): the message may go once its screenshots are raids.
-    bare:
-      message.content.replaceAll(`<@${botId}>`, '').replaceAll(`<@!${botId}>`, '').trim() === '',
+    bare: saysNothing(message.content, botId),
     channelName: (channelId) => message.guild?.channels.cache.get(channelId)?.name,
-    attachments: [...message.attachments.values()].map((attachment) => ({
-      url: attachment.url,
-      name: attachment.name,
-      contentType: attachment.contentType,
-      size: attachment.size,
-    })),
+    attachments: shotSources(message.attachments.values()),
     react: async (emoji) => {
       await message.react(emoji);
     },

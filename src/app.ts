@@ -1084,6 +1084,9 @@ export async function startApp(
   const commands = enabledCommands(allCommands, config);
   const messageCommands = enabledMessageCommands(allMessageCommands, config);
   const throttles = new Throttles();
+  // The screenshot trigger, for "Read screenshot" in a message's Apps menu (plan 7M): set once
+  // it is made below, since it takes the context itself.
+  const shotTrigger: { is?: ScreenshotTrigger } = {};
   const ctx: AppContext = {
     throttles,
     config,
@@ -1224,6 +1227,12 @@ export async function startApp(
         reports,
       }),
     }),
+    // A message read because a member asked: by the one trigger that reads the mentions. (No
+    // interaction is handled before it is made; until then, as while it closes.)
+    messageShots: {
+      readFor: (message, asker) =>
+        shotTrigger.is?.readFor(message, asker) ?? Promise.resolve('closing'),
+    },
     emoji: emojiFinder(appEmoji, appEmojiSource),
     features: requested,
     ...(rehearsal ? { rehearsal } : {}),
@@ -1253,6 +1262,7 @@ export async function startApp(
   // Screenshots posted in a region channel with a mention of the bot (or, passive, without),
   // and in a region's board (plan 8R-9F), which the keeper deletes once they are downloaded.
   const screenshotTrigger = new ScreenshotTrigger({ ctx, board: boardKeeper });
+  shotTrigger.is = screenshotTrigger;
   // Resolved by the client that ends up connected (the login may try several).
   let markConnected: () => void = () => undefined;
   const connected = new Promise<void>((resolve) => {

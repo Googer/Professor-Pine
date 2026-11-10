@@ -240,6 +240,19 @@ export interface FakeTargetMessage {
   /** The names of its attachments. */
   attachments?: readonly string[];
   /**
+   * Its attachments in full, in the place of `attachments`, for a command that downloads them
+   * ("Read screenshot", plan 7M): as `screenshotsWith().screenshot()` gives them.
+   */
+  files?: readonly { url: string; name: string; contentType: string | null; size: number }[];
+  /** A webhook wrote it (`webhookId`). */
+  webhook?: boolean;
+  /**
+   * What the bot does to the message is noted here, in the words `posted()` notes it in
+   * (`react 🤔`, `unreact 🤔` for the bot's own reaction taken off, `deleted`): a test passes its
+   * own list to read them.
+   */
+  did?: string[];
+  /**
    * The message it forwards, when it is a forward (`messageSnapshots`, one): a forward has no
    * text or attachments of its own.
    */
@@ -253,6 +266,9 @@ function attachmentsOf(names: readonly string[] = []) {
 
 /** The message a fake message command carries, as discord.js gives `targetMessage`. */
 function targetOf(target: FakeTargetMessage, channelId: string, guildId: string | null) {
+  const did = target.did ?? [];
+  // As discord.js keeps them: by the emoji, each with the users who can be taken off it.
+  const reactions = new Collection<string, { users: { remove(userId: string): Promise<void> } }>();
   return {
     id: target.id,
     channelId: target.channelId ?? channelId,
@@ -265,8 +281,28 @@ function targetOf(target: FakeTargetMessage, channelId: string, guildId: string 
       username: target.authorUsername ?? 'someone',
       globalName: null,
     },
+    webhookId: target.webhook === true ? '860000000000000001' : null,
     member: target.authorName === undefined ? null : { displayName: target.authorName },
-    attachments: attachmentsOf(target.attachments),
+    attachments: target.files
+      ? new Collection(target.files.map((file, i) => [String(i), { id: String(i), ...file }]))
+      : attachmentsOf(target.attachments),
+    reactions: { cache: reactions },
+    react: (emoji: string) => {
+      did.push(`react ${emoji}`);
+      reactions.set(emoji, {
+        users: {
+          remove: (userId: string) => {
+            if (userId === FAKE_BOT_ID) did.push(`unreact ${emoji}`);
+            return Promise.resolve();
+          },
+        },
+      });
+      return Promise.resolve();
+    },
+    delete: () => {
+      did.push('deleted');
+      return Promise.resolve();
+    },
     messageSnapshots: new Collection(
       target.forwards === undefined
         ? []
@@ -309,6 +345,11 @@ export interface FakeMessage {
 }
 
 export const FAKE_MESSAGE_ID = '950000000000000001';
+
+/** The id of the n-th follow-up (from 0) a fake interaction sends: `followUp` answers it. */
+export function followUpId(n: number): string {
+  return `96000000000000${String(n + 1).padStart(4, '0')}`;
+}
 
 /**
  * A message with these rows of controls (and this text), for presses that are made on the same
@@ -850,6 +891,8 @@ function base(kind: Kind, o: FakeOptions) {
     new Error(`ModalSubmitInteractionFieldNotFound: the form submitted no ${what} ${id}`);
   /** Whether the interaction was acknowledged with `deferUpdate`. */
   let updating = false;
+  /** The follow-ups sent so far: each is a message of its own (`followUpId`). */
+  let followUps = 0;
   const memberRoles: [string, { id: string; name: string }][] = (o.roleNames ?? []).map(
     (name, i) => [String(i), { id: String(i), name }],
   );
@@ -1056,18 +1099,20 @@ function base(kind: Kind, o: FakeOptions) {
       if (refused) return refused;
       return Promise.resolve(shownMessage());
     }),
-    deleteReply: vi.fn(() => {
+    /** The reply, or the follow-up of this id (as discord.js: `deleteReply(message)`). */
+    deleteReply: vi.fn((_message?: string) => {
       const refused = refuseIfFresh();
       if (refused) return refused;
       return Promise.resolve();
     }),
-    followUp: vi.fn((payload: SentPayload) => {
+    /** A new message, which discord.js answers: here its id alone (`followUpId`). */
+    followUp: vi.fn((payload: SentPayload): Promise<unknown> => {
       const refused = refuseIfFresh() ?? refuseV2(payload, 'followUp');
       if (refused) return refused;
       const invalid = refuseInvalid(payload);
       if (invalid) return invalid;
       interaction.replied = true;
-      return Promise.resolve();
+      return Promise.resolve({ id: followUpId(followUps++) });
     }),
     /** Components and modals: acknowledge, or change the message the control is on. */
     deferUpdate: vi.fn(() => {
