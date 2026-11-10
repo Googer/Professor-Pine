@@ -9,12 +9,7 @@ import {
 } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
 import { BoundedMap } from '../../bounded-map.js';
-import {
-  MAX_CHOICE_TEXT,
-  type Guard,
-  type LocatedInteraction,
-  type SimpleCommand,
-} from '../../discord/command.js';
+import type { Guard, LocatedInteraction, SimpleCommand } from '../../discord/command.js';
 import { encodeCustomId } from '../../discord/custom-id.js';
 import { UserError } from '../../discord/errors.js';
 import { partyOf } from '../../discord/guards.js';
@@ -884,7 +879,6 @@ export const counters: SimpleCommand = {
         .setDescription(
           'The tier; when left out, that of the raid or max battle whose post this is, else the boss’s now',
         )
-        .setMaxLength(MAX_CHOICE_TEXT)
         .addChoices(
           ...TIER_CHOICES.map((tier) => ({ name: raidTierLabel(tier), value: tierValue(tier) })),
           ...MAX_TIERS.map((tier) => ({ name: maxTierLabel(tier), value: tier })),
@@ -896,7 +890,6 @@ export const counters: SimpleCommand = {
         .setDescription(
           'For a max battle: your role as Pokebattler defines it; Attacker when left out',
         )
-        .setMaxLength(MAX_CHOICE_TEXT)
         .addChoices(
           MAX_ROLE_KEYS.map((role) => ({
             name: `${MAX_ROLES[role].name} (${MAX_ROLES[role].team})`,
@@ -910,7 +903,6 @@ export const counters: SimpleCommand = {
         .setDescription(
           'The level of the counters (a max team: 20 to 50), or your Pokébox; 40 when left out',
         )
-        .setMaxLength(MAX_CHOICE_TEXT)
         .addChoices(
           ...ATTACKER_LEVELS.map((level) => ({ name: ATTACKER_LEVEL_NAMES[level], value: level })),
           { name: 'My Pokébox on Pokebattler', value: POKEBOX },
@@ -920,14 +912,12 @@ export const counters: SimpleCommand = {
       option
         .setName('weather')
         .setDescription('The weather; none when left out')
-        .setMaxLength(MAX_CHOICE_TEXT)
         .addChoices(WEATHERS.map((weather) => ({ name: WEATHER_NAMES[weather], value: weather }))),
     )
     .addStringOption((option) =>
       option
         .setName('friendship')
         .setDescription('Friendship with the others in the battle; best friends when left out')
-        .setMaxLength(MAX_CHOICE_TEXT)
         .addChoices(
           FRIENDSHIPS.map((friendship) => ({
             name: FRIENDSHIP_NAMES[friendship],

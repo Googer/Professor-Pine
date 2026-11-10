@@ -4,12 +4,7 @@ import {
   type ModalSubmitInteraction,
 } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
-import {
-  MAX_CHOICE_TEXT,
-  type ComponentHandler,
-  type Guard,
-  type SimpleCommand,
-} from '../../discord/command.js';
+import type { ComponentHandler, Guard, SimpleCommand } from '../../discord/command.js';
 import { encodeCustomId } from '../../discord/custom-id.js';
 import { deferSubmit, pickedOf, readInTime } from '../../discord/dialog.js';
 import { UserError } from '../../discord/errors.js';
@@ -238,7 +233,6 @@ function maxData(screenshots: boolean) {
       option
         .setName('tier')
         .setDescription('Only for a boss on no list: its tier')
-        .setMaxLength(MAX_CHOICE_TEXT)
         .addChoices(...TIER_CHOICES),
     )
     .addStringOption((option) =>

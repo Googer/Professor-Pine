@@ -70,14 +70,15 @@ export const DATE_EXAMPLE = '{date}';
  * client of somebody's own need not, autocomplete is counted by no throttle, and its searches
  * run on the thread that holds the gateway. A test holds every text option of a command that
  * offers choices to a declared `max_length` of at most this (`src/commands/option-lengths.test.ts`:
- * undeclared, Discord's own limit is 6,000).
+ * undeclared, Discord's own limit is 6,000), but one with fixed `choices`, which takes no free
+ * text and declares none (fix round F-A8: whether Discord takes both was not confirmed, and a
+ * command it refused would fail the whole deploy).
  */
 export const MAX_OPTION_TEXT = 1_500;
 
 /**
- * The `max_length` of a text option that takes a choice of a list or a short word (a group's
- * letter, a tier, a league, `/counters`' settings): the longest value Discord lets a choice have
- * (plan 8Z-2, fix round F-A7).
+ * The `max_length` of a text option that takes a short word offered by autocomplete (a group's
+ * letter): the longest value Discord lets a choice have (plan 8Z-2, fix round F-A7).
  */
 export const MAX_CHOICE_TEXT = 100;
 
