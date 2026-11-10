@@ -1,3 +1,4 @@
+import { PermissionFlagsBits } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
 import type { Settings } from '../../config/settings.js';
 import type { LocatedInteraction } from '../../discord/command.js';
@@ -26,12 +27,14 @@ import {
 } from '../../domain/research/versions.js';
 import { typedSubject, type ReportedStop } from '../../domain/stops/report.js';
 import { searchTokens } from '../../domain/search/text.js';
+import { ACCESS_UNKNOWN } from '../../render/activity.js';
 import { distanceWords, type DistanceUnits } from '../../render/distance-words.js';
 import { plain, truncate } from '../../render/text.js';
 import type { PlaceChoice } from '../../services/place-finder.js';
 import type { ResearchSubject } from '../../services/stop-reports.js';
 import { CHOICE_NAME, MAX_CHOICES, type Choice } from '../choices.js';
 import { namedPlace, orList, type PlaceKindsOnly } from '../place-option.js';
+import { stopReportBarred, stopReportBarredWords } from './research-report.js';
 
 /*
  * What `/research report` reads (plan 8R-1; design 4.3, 9.8): the task (a choice of the period's
@@ -104,6 +107,40 @@ export function reportedStop(place: KnownPlace | PlaceChoice): ReportedStop {
     lat: point.lat,
     lon: point.lon,
   };
+}
+
+/**
+ * Refuses a report at a stop of a region the member is kept out of (plan 8Z-2; `stopReportBarred`,
+ * the question the map's routes ask), naming the stop; and, while Discord cannot say, in words
+ * of its own (logged). For the guards of `/research report` and `/rocket report`, where a
+ * refusal does not count, and for "Same task at more stops…", whose use the refusal gives back
+ * (`givesBack`). A server's administrator is asked nothing.
+ */
+export async function requireStopsOpen(
+  interaction: LocatedInteraction,
+  ctx: AppContext,
+  stops: readonly ReportedStop[],
+  options: { givesBack?: boolean } = {},
+): Promise<void> {
+  const administrator =
+    interaction.memberPermissions?.has(PermissionFlagsBits.Administrator) ?? false;
+  let kept: Awaited<ReturnType<typeof stopReportBarred>>;
+  try {
+    kept = await stopReportBarred(
+      ctx,
+      (gate, memberId) => ctx.partyService.memberAccess(gate, memberId),
+      guildIdOf(interaction),
+      stops,
+      { id: interaction.user.id, administrator },
+    );
+  } catch (err) {
+    ctx.log.warn(
+      { err, user: interaction.user.id },
+      'could not ask Discord whether a member is kept out of the region of a stop; refused',
+    );
+    throw new UserError(ACCESS_UNKNOWN, { givesBack: true });
+  }
+  if (kept !== undefined) throw new UserError(stopReportBarredWords(kept), options);
 }
 
 /**

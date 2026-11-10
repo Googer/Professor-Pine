@@ -31,3 +31,19 @@ export function spawnKeptOut(
   for (const standing of standings) if (keptOut(standing)) return true;
   return false;
 }
+
+/**
+ * Whether a report at a place is kept from a member (plan 8Z-2, the audit's W7: field research
+ * and Team GO Rocket at a PokéStop, on Discord and on the map alike), by the spawns' rule region
+ * by region. `regions` holds, for each region the place lies in, how the member stands to that
+ * region's gates (`spawnGates`). The place counts when one of its regions lets them in: a stop
+ * on the border of two regions is theirs to report at while either is. It is kept from them when
+ * every region it lies in keeps them out (`spawnKeptOut`); a place in no region is kept from
+ * nobody (nothing shows it).
+ */
+export function placeKeptOut(
+  regions: readonly Iterable<ForumStanding | undefined>[],
+  administrator: boolean,
+): boolean {
+  return regions.length > 0 && regions.every((gates) => spawnKeptOut(gates, administrator));
+}

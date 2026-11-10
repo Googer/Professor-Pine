@@ -187,7 +187,9 @@ describe('reports at stops from the map', () => {
         expect([...made.store.rows.values()].map((one) => one.reporter.id)).toEqual([BOB]);
       });
 
-      it('names a contested report the member may not see by its id and stop (review R5)', async () => {
+      // Plan 8Z-2 (the audit's W7): before it the question named such a report by its id and stop
+      // (review R5), and a Submit with `replacing` overruled it.
+      it('asks nothing of a member kept out of a contested stop’s region: refused, nothing overruled', async () => {
         const made = await setup();
         web = made.web;
         const stops = [wayspotId(1), wayspotId(3)];
@@ -195,21 +197,19 @@ describe('reports at stops from the map', () => {
         const [west, east] = [...made.store.rows.values()];
         made.made.gateway.barred.set(EAST_FORUM, new Set([ALICE]));
         const asked = await made.post('/research', { task: version('Beldum'), stops });
-        expect(asked.status).toBe(422);
-        expect(asked.json.asks?.reports?.map((one) => one.id)).toEqual([west?.id]);
-        expect(asked.json.asks?.hidden).toEqual([{ id: east?.id, stop: east?.stop.name }]);
-        // Overruled by its id, as the page sends it.
-        const answer = await made.post('/research', {
+        expect(asked.status).toBe(403);
+        expect(asked.json.asks).toBeUndefined();
+        const overruling = await made.post('/research', {
           task: version('Beldum'),
           stops,
           replacing: [west?.id, east?.id],
         });
-        expect(answer.status).toBe(200);
+        expect(overruling.status).toBe(403);
         expect(
           [...made.store.rows.values()].map((one) => [one.stop.name, one.reporter.id]),
         ).toEqual([
-          [west?.stop.name, ALICE],
-          [east?.stop.name, ALICE],
+          [west?.stop.name, BOB],
+          [east?.stop.name, BOB],
         ]);
       });
 
@@ -590,17 +590,55 @@ describe('reports at stops from the map', () => {
       expect(made.store.rows.size).toBe(0);
     });
 
-    it('shows no report in a region the member is kept out of, though it is made', async () => {
+    // Plan 8Z-2 (the audit's W7): the report was made, and only left out of the answer.
+    it('refuses the whole report of a member kept out of the region of one of its stops, uncounted', async () => {
       const made = await setup();
       web = made.web;
       made.made.gateway.barred.set(EAST_FORUM, new Set([ALICE]));
+      made.fillResearch(9);
       const answer = await made.post('/research', {
         task: DRAGON.key,
         stops: [wayspotId(1), wayspotId(3)],
       });
+      expect(answer).toMatchObject({
+        status: 403,
+        json: {
+          ok: false,
+          text: 'You cannot report at East Fountain: you are kept out of its region.',
+        },
+      });
+      expect(made.store.rows.size).toBe(0);
+      expect(made.web.entries).toContainEqual(
+        expect.objectContaining({
+          msg: 'field research was reported on the map',
+          outcome: 'barred',
+        }),
+      );
+      // The stop of the region they are in is theirs to report at, with the use that was left.
+      const west = await made.post('/research', { task: DRAGON.key, stops: [wayspotId(1)] });
+      expect(west.status).toBe(200);
+      expect(made.store.rows.size).toBe(1);
+    });
+
+    it('lets a member report whom a region is only hidden from, and refuses while Discord cannot say', async () => {
+      const made = await setup();
+      web = made.web;
+      made.made.gateway.shutOut(EAST_FORUM, ALICE);
+      const hidden = await made.post('/research', { task: DRAGON.key, stops: [wayspotId(3)] });
+      expect(hidden.status).toBe(200);
+      made.made.gateway.failing.set('memberAccess', new Error('Discord is away'));
+      const away = await made.post('/research', { task: DRAGON.key, stops: [wayspotId(1)] });
+      expect(away.status).toBe(503);
+      expect(made.store.rows.size).toBe(1);
+    });
+
+    it('asks nothing of a server’s administrator, whom Discord shows every channel', async () => {
+      const made = await setup();
+      web = made.web;
+      made.made.gateway.barred.set(EAST_FORUM, new Set([ALICE]));
+      made.acting.standing(ALICE, { roleNames: [], administrator: true });
+      const answer = await made.post('/research', { task: DRAGON.key, stops: [wayspotId(3)] });
       expect(answer.status).toBe(200);
-      expect(answer.json.research?.map((one) => one.stop.name)).toEqual(['Yellow Mural']);
-      expect(made.store.rows.size).toBe(2);
     });
 
     it('refuses a body other than the command’s options, and a POST without its guard', async () => {
@@ -760,15 +798,35 @@ describe('reports at stops from the map', () => {
       );
     });
 
-    it('leaves out of its answer a grunt in a region the member is kept out of', async () => {
+    // Plan 8Z-2 (the audit's W7): the grunt was posted in the region's channel, and only left
+    // out of the answer.
+    it('refuses a grunt of a member kept out of the stop’s region, uncounted: nothing is posted', async () => {
       const made = await setup();
       web = made.web;
       made.made.gateway.barred.set(EAST_FORUM, new Set([ALICE]));
+      made.fillRocket(9);
       const answer = await made.post('/rocket', { who: 'grunt:water', stop: wayspotId(3) });
-      expect(answer.status).toBe(200);
-      expect(answer.json.ok).toBe(true);
-      expect(answer.json.grunt).toBeUndefined();
-      expect(made.made.gateway.messagesIn(EAST_CHANNEL)).toHaveLength(1);
+      expect(answer).toMatchObject({
+        status: 403,
+        json: {
+          ok: false,
+          text: 'You cannot report at East Fountain: you are kept out of its region.',
+        },
+      });
+      expect(made.store.rows.size).toBe(0);
+      expect(made.made.gateway.messagesIn(EAST_CHANNEL)).toEqual([]);
+      const west = await made.post('/rocket', { who: 'grunt:water', stop: wayspotId(1) });
+      expect(west.status).toBe(200);
+      // Kept out of the region's channel alone is kept out too, as for a spawn.
+      made.made.gateway.barred.clear();
+      made.made.gateway.addChannel(EAST_CHANNEL, 'east');
+      made.made.gateway.barred.set(EAST_CHANNEL, new Set([BOB]));
+      const channel = await made.post(
+        '/rocket',
+        { who: 'grunt:water', stop: wayspotId(3) },
+        made.bob,
+      );
+      expect(channel.status).toBe(403);
     });
 
     describe('one lineup of a grunt type (plan 8R-4L)', () => {

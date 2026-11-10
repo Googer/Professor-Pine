@@ -1,5 +1,5 @@
 import { metresBetween } from '@pine/wayspot-core/distance';
-import { ApplicationCommandOptionType } from 'discord.js';
+import { ApplicationCommandOptionType, PermissionFlagsBits } from 'discord.js';
 import { describe, expect, it, vi } from 'vitest';
 import { answerOf, buttonId, buttonsOf, said } from '../../../test/support/gym-commands.js';
 import {
@@ -14,7 +14,14 @@ import {
   type FakeInteraction,
   type FakeOptions,
 } from '../../../test/support/fake-interactions.js';
-import { boardedRegions, UNBOUNDED_CHANNEL, WEST_CHANNEL } from '../../../test/support/gyms.js';
+import { FakePartyGateway } from '../../../test/support/fake-gateway.js';
+import {
+  boardedRegions,
+  EAST_FORUM,
+  UNBOUNDED_CHANNEL,
+  WEST_CHANNEL,
+  WEST_FORUM,
+} from '../../../test/support/gyms.js';
 import { regionsFixture } from '../../../test/support/providers.js';
 import { selectsOf, textDisplays } from '../../../test/support/messages.js';
 import { expectV2Sendable } from '../../../test/support/post-limits.js';
@@ -72,6 +79,10 @@ async function setup(rows: readonly WayspotRow[] = STOPS) {
   const store = new MemoryStopReports();
   // West and East with their boards recorded, as after `/admin setup-forums` (plan 8R-9).
   const { ctx } = createTestContext({ wayspots, regions: regionsFixture(boardedRegions()) });
+  // How a member stands to a region's forum, which a report at its stops asks (plan 8Z-2).
+  const gateway = new FakePartyGateway();
+  gateway.addForum(WEST_FORUM);
+  gateway.addForum(EAST_FORUM);
   Object.assign(ctx, {
     stopReports: new StopReportService({
       rewardHash: fixtureRewardHash,
@@ -80,6 +91,9 @@ async function setup(rows: readonly WayspotRow[] = STOPS) {
       zone: ctx.config.settings.timezone,
       log: ctx.log,
     }),
+    partyService: {
+      memberAccess: (forumId: string, memberId: string) => gateway.memberAccess(forumId, memberId),
+    },
   });
   await ctx.placeFinder.built();
   const throttles = new Throttles();
@@ -96,6 +110,7 @@ async function setup(rows: readonly WayspotRow[] = STOPS) {
   };
   return {
     ctx,
+    gateway,
     store,
     throttles,
     report: (options: Record<string, string>, extra: FakeOptions = {}) =>
@@ -256,6 +271,42 @@ describe('/research report', () => {
     expect(said(answerOf(await empty.report({ task: DRAGON.key, stop: 'mural' })))).toBe(
       NO_STOPS_HERE,
     );
+  });
+
+  // Plan 8Z-2 (the audit's W7): the rule the map's routes ask (`stopReportBarred`).
+  it('refuses a member kept out of the region of one of its stops, before counting, and the menu’s more stops', async () => {
+    const made = await setup();
+    made.ctx.config.settings.research.throttle.uses = 2;
+    // Reported while they were let in: the answer offers the same task at more stops.
+    const answer = answerOf(await made.report({ task: DRAGON.key, stop: stop(1) }));
+    const [menu] = selectsOf(asV2(answer));
+    made.gateway.barred.set(WEST_FORUM, new Set([ASH]));
+    const keptOut = 'You cannot report at Paititi Inti: you are kept out of its region.';
+    for (let use = 0; use < 3; use++) {
+      const refused = await made.report({ task: pageTask('Catch 7 Pokémon').key, stop: stop(2) });
+      expect(said(answerOf(refused))).toBe(keptOut);
+    }
+    const picked = await made.pick(menu?.customId ?? '', [wayspotId(3)]);
+    expect(said(answerOf(picked))).toBe(
+      'You cannot report at Little Bench: you are kept out of its region.',
+    );
+    expect([...made.store.rows.values()].map((one) => one.stop.name)).toEqual(['Yellow Mural']);
+    // Somebody the forum is only hidden from reports as before; nor is an administrator asked.
+    made.gateway.shutOut(WEST_FORUM, MISTY);
+    const hidden = await made.report({ task: DRAGON.key, stop: stop(2) }, made.as(MISTY));
+    expect(said(answerOf(hidden))).toContain('### Field research reported');
+    made.gateway.failing.set('memberAccess', new Error('not asked of an administrator'));
+    const admin = await made.report(
+      { task: DRAGON.key, stop: stop(3) },
+      { memberPermissions: PermissionFlagsBits.Administrator },
+    );
+    expect(said(answerOf(admin))).toContain('### Field research reported');
+    // While Discord cannot say, nobody else reports.
+    const away = await made.report({ task: DRAGON.key, stop: stop(4) }, made.as(MISTY));
+    expect(said(answerOf(away))).toBe(
+      'I could not check with Discord just now whether you may do that. Try again in a moment.',
+    );
+    made.ctx.config.settings.research.throttle.uses = 10;
   });
 
   it('names the stop nearest to a pin, within 50 meters', async () => {

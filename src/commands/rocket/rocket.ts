@@ -36,7 +36,7 @@ import { PendingRequests } from '../../services/pending-requests.js';
 import { isHideoutReport, type ReportRef } from '../../services/stop-reports.js';
 import { MAX_PLACE_TEXT, nearChoices } from '../place-option.js';
 import { MORE_STOPS_METRES, reporterOf } from '../research/research.js';
-import { namedStop, NO_STOPS_HERE } from '../research/research-input.js';
+import { namedStop, NO_STOPS_HERE, requireStopsOpen } from '../research/research-input.js';
 import {
   NOT_YOUR_REPORT,
   NOTHING_LEFT,
@@ -110,6 +110,8 @@ const requireRocketReport: Guard = async (interaction, ctx) => {
     interaction.options.getString('stop', true),
     NOT_A_ROCKET_STOP,
   );
+  // Not at a stop of a region the member is kept out of (plan 8Z-2), before anything is asked.
+  await requireStopsOpen(interaction, ctx, [stop]);
   const who = parseRocketKey(choice.key);
   const standing = await ctx.stopReports.rocketAt(guildIdOf(interaction), stop.key);
   const hideout =

@@ -1,5 +1,7 @@
 import type { AppContext } from '../../app-context.js';
+import type { MemberAccess } from '../../discord/party-gateway.js';
 import { cutWhole } from '../../domain/geo/place.js';
+import { placeKeptOut, spawnGates } from '../../domain/regions/spawn-access.js';
 import type {
   Reporter,
   ReportedStop,
@@ -16,7 +18,8 @@ import {
 } from '../../render/research.js';
 import { channelsWithBoards } from '../../domain/regions/board.js';
 import { postLink } from '../../render/notify-dm.js';
-import { endSentence } from '../../render/text.js';
+import { endSentence, plain } from '../../render/text.js';
+import type { MemberAccessAsk } from '../../services/forum-access.js';
 import type { ReportRef, ResearchOutcome, ResearchSubject } from '../../services/stop-reports.js';
 
 /*
@@ -78,6 +81,50 @@ async function ownChannels(
       .filter((region) => row !== undefined && region.guildId === row)
       .map((region) => region.channelId),
   );
+}
+
+/** What a member is told who would report at a stop of a region they are kept out of. */
+export function stopReportBarredWords(stop: Pick<ReportedStop, 'name'>): string {
+  return `You cannot report at ${plain(stop.name)}: you are kept out of its region.`;
+}
+
+/**
+ * Whether a report at these stops (field research, Team GO Rocket) is kept from a member, as
+ * `/research report`, "Same task at more stops…", `/rocket report` and the map's routes ask it
+ * before anything counts (plan 8Z-2; the audit's W7: the map asked nothing, so a member kept out
+ * of a region reported at its stops, and had its channel and its members' DMs told). The rule is
+ * the spawns' (`spawnGates`, `spawnKeptOut`), stop by stop: a stop counts when one of the regions
+ * of this server it lies in lets the member in (`placeKeptOut`), and the first stop that counts
+ * in none is answered, for the whole report is refused then (undefined: they may report). Each
+ * gate is asked once; a server's administrator is asked of none. Rejects while Discord cannot
+ * say.
+ */
+export async function stopReportBarred(
+  ctx: Pick<AppContext, 'guilds' | 'regions' | 'wayspots'>,
+  memberAccess: MemberAccessAsk,
+  serverId: string,
+  stops: readonly Pick<ReportedStop, 'key' | 'name'>[],
+  member: { id: string; administrator: boolean },
+): Promise<Pick<ReportedStop, 'key' | 'name'> | undefined> {
+  if (member.administrator) return undefined;
+  const ours = await ownChannels(ctx, serverId);
+  const asked = new Map<string, Promise<MemberAccess | undefined>>();
+  const standing = (gate: string) =>
+    asked.getOrInsertComputed(gate, () => memberAccess(gate, member.id));
+  for (const stop of stops) {
+    const regions = ctx.wayspots
+      .regionsOf(stop.key)
+      .filter((channelId) => ours.has(channelId))
+      .flatMap((channelId) => ctx.regions.byChannel(channelId) ?? []);
+    const standings: (MemberAccess | undefined)[][] = [];
+    for (const region of regions) {
+      const gates: (MemberAccess | undefined)[] = [];
+      for (const gate of spawnGates(region)) gates.push(await standing(gate));
+      standings.push(gates);
+    }
+    if (placeKeptOut(standings, false)) return stop;
+  }
+  return undefined;
 }
 
 /**

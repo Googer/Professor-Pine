@@ -56,6 +56,7 @@ import {
   namedStops,
   NO_STOPS_HERE,
   readTask,
+  requireStopsOpen,
   RESEARCH_FROM_A_REGION,
   researchThrottle,
   researchWindow,
@@ -386,6 +387,8 @@ const requireResearchReport: Guard = async (interaction, ctx) => {
       interaction.options.getString('reward'),
     );
     const stops = await namedStops(interaction, ctx);
+    // Not at a stop of a region the member is kept out of (plan 8Z-2), before anything is asked.
+    await requireStopsOpen(interaction, ctx, stops);
     const contested = await ctx.stopReports.contested(
       guildIdOf(interaction),
       stops,
@@ -594,6 +597,8 @@ export const researchControls: ComponentHandler = {
       );
       const stops = await stopsByKey(ctx, serverId, interaction.values);
       if (stops.length === 0) throw new UserError(REPORT_ENDED, { givesBack: true });
+      // The menu offers the stops near the first: one may lie in a region they are kept out of.
+      await requireStopsOpen(interaction, ctx, stops, { givesBack: true });
       const contested = await ctx.stopReports.contested(
         serverId,
         stops,

@@ -104,6 +104,13 @@ export const NOT_YOUR_MEETUP =
   "Only its maker and moderators can change this meetup's name, information and times.";
 
 /**
+ * What a member is told while Discord cannot say whether somebody keeps them out of a forum or a
+ * region (`forum-unknown`; a report at a stop on Discord): nothing was done, to try again.
+ */
+export const ACCESS_UNKNOWN =
+  'I could not check with Discord just now whether you may do that. Try again in a moment.';
+
+/**
  * Why a change was refused, as a sentence for the member. `word` is what the party is called
  * (`partyWord`): the reasons that any kind of party can give name it.
  */
@@ -123,7 +130,7 @@ export function problemText(
     case 'kept-out-there':
       return `You cannot move this ${word} there: you are kept out of the forum of that region.`;
     case 'forum-unknown':
-      return 'I could not check with Discord just now whether you may do that. Try again in a moment.';
+      return ACCESS_UNKNOWN;
     case 'no-such-group':
       return `This ${word} has no such group.`;
     case 'bad-count':

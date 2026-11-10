@@ -15,7 +15,12 @@ import {
   type FakeInteraction,
   type FakeOptions,
 } from '../../../test/support/fake-interactions.js';
-import { boardedRegions, UNBOUNDED_CHANNEL, WEST_CHANNEL } from '../../../test/support/gyms.js';
+import {
+  boardedRegions,
+  UNBOUNDED_CHANNEL,
+  WEST_CHANNEL,
+  WEST_FORUM,
+} from '../../../test/support/gyms.js';
 import { regionsFixture } from '../../../test/support/providers.js';
 import { textDisplays, textOf } from '../../../test/support/messages.js';
 import { renderSubcommandHelp } from '../util/help-render.js';
@@ -70,6 +75,8 @@ async function setup(rows: readonly WayspotRow[] = STOPS) {
   const { wayspots } = await wayspotsWith(rows);
   const store = new MemoryStopReports();
   const gateway = new FakePartyGateway();
+  // How a member stands to a region's forum, which a report at its stop asks (plan 8Z-2).
+  gateway.addForum(WEST_FORUM);
   // West and East with their boards recorded, as after `/admin setup-forums` (plan 8R-9).
   const { ctx, entries } = createTestContext({
     wayspots,
@@ -98,6 +105,9 @@ async function setup(rows: readonly WayspotRow[] = STOPS) {
       guilds: ctx.guilds,
       log: ctx.log,
     }),
+    partyService: {
+      memberAccess: (forumId: string, memberId: string) => gateway.memberAccess(forumId, memberId),
+    },
   });
   await ctx.placeFinder.built();
   const throttles = new Throttles();
@@ -256,6 +266,26 @@ describe('/rocket report', () => {
     expect(said(answerOf(await made.submit(asking)))).toBe(HIDEOUT_CHANGED);
     expect(posted(made)).toEqual([]);
     expect([...made.store.rows.values()].map((one) => one.subjectKey)).toEqual(['giovanni']);
+  });
+
+  // Plan 8Z-2 (the audit's W7): the rule the map's routes ask (`stopReportBarred`).
+  it('refuses a member kept out of the stop’s region, before counting: nothing is posted', async () => {
+    const made = await setup();
+    made.ctx.config.settings.rocket.throttle.uses = 1;
+    made.gateway.barred.set(WEST_FORUM, new Set([ASH]));
+    for (let use = 0; use < 3; use++) {
+      const refused = await made.report({ who: 'grunt:water', stop: stop(1) });
+      expect(said(answerOf(refused))).toBe(
+        'You cannot report at Yellow Mural: you are kept out of its region.',
+      );
+    }
+    expect(made.store.rows.size).toBe(0);
+    expect(posted(made)).toEqual([]);
+    // Misty, whom the forum is only hidden from, reports there.
+    made.gateway.shutOut(WEST_FORUM, MISTY);
+    await made.report({ who: 'grunt:water', stop: stop(1) }, made.as(MISTY));
+    expect(posted(made)).toHaveLength(1);
+    made.ctx.config.settings.rocket.throttle.uses = 10;
   });
 
   it('refuses before counting: no region, no stops, a choice gone from the lineups, no stop', async () => {

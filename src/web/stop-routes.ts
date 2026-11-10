@@ -20,6 +20,8 @@ import {
   reporterNamed,
   replaceQuestion,
   reportResearchAs,
+  stopReportBarred,
+  stopReportBarredWords,
   stopsByKey,
   takeBackAs,
   type ResearchReporting,
@@ -70,6 +72,7 @@ import {
   isMapStaff,
   memberOrFailure,
   throttledOnTheMap,
+  unreachableOnTheMap,
 } from './acting.js';
 import { sendFailure } from './answers.js';
 import { postGuard } from './csrf.js';
@@ -396,10 +399,44 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
     return { stops: stopsFound };
   };
 
+  /**
+   * The refusal of a report at stops of a region the member is kept out of (plan 8Z-2, the
+   * audit's W7; `stopReportBarred`, the question `/research report` and `/rocket report` ask in
+   * their guards): 403 in their words, naming the stop; 503 while Discord cannot say. Undefined
+   * where they may report. Nothing of it counts.
+   */
+  const keptFrom = async (
+    reply: FastifyReply,
+    guild: string,
+    userId: string,
+    administrator: boolean,
+    stopsNamedSo: readonly ReportedStop[],
+    doing: string,
+  ): Promise<{ sent: FastifyReply; outcome: string } | undefined> => {
+    try {
+      const kept = await stopReportBarred(
+        ctx,
+        (gate, memberId) => deps.parties.forums.memberAccess(gate, memberId),
+        guild,
+        stopsNamedSo,
+        { id: userId, administrator },
+      );
+      return kept === undefined
+        ? undefined
+        : { sent: refuse(reply, 403, stopReportBarredWords(kept)), outcome: 'barred' };
+    } catch (err) {
+      return {
+        sent: unreachableOnTheMap(deps, reply, err, guild, userId, doing),
+        outcome: 'unreachable',
+      };
+    }
+  };
+
   // A research report (plan 8R-3), as `/research report` makes it: before the body is read, the
   // per-address limit and the guard of every POST. Then the session (403) and the body (400), who
   // reports (`actingOnTheMap`), the stops (`NO_STOPS_HERE` 422; a key of no stop of this server
-  // 404), the task and its reward (`readTask`: 422 in its words, `TASK_LIST_CHANGED` among them;
+  // 404; a stop of a region the member is kept out of 403, Discord away 503: `keptFrom`), the
+  // task and its reward (`readTask`: 422 in its words, `TASK_LIST_CHANGED` among them;
   // a typed task's key `typed:…` 422 `TYPED_TASK_KEY`) or instead `sameAs`, the report whose task
   // it is ("Same task at more stops…": research of this server and of the period on now, else 409
   // `REPORT_ENDED`; a `task` with `more` is "Same task at more stops…" too: asked in its words,
@@ -441,6 +478,9 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
     const named = await stopsNamed(request, reply, guild, keys);
     if ('sent' in named) return noted(named.outcome, named.sent);
     logged = named.stops.map((stop) => stop.key);
+    const { administrator } = acting.standing;
+    const kept = await keptFrom(reply, guild, userId, administrator, named.stops, doing);
+    if (kept) return noted(kept.outcome, kept.sent);
     let subject: ResearchSubject;
     // "Same task at more stops…": by `sameAs`, or by a listed report's `task` with `more`
     // (review F3), asked about and answered in its words (`picked`, "Also reported").
@@ -607,6 +647,10 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
     const [stop] = named.stops;
     if (stop === undefined) return noted('no-stop', sendFailure(request, reply, 404));
     logged = { stop: stop.key };
+    // A stop of a region the member is kept out of, as for research (plan 8Z-2).
+    const { administrator } = acting.standing;
+    const kept = await keptFrom(reply, guild, userId, administrator, [stop], doing);
+    if (kept) return noted(kept.outcome, kept.sent);
     let choice: RocketChoice;
     try {
       choice = readWho(ctx, body.data.who);
