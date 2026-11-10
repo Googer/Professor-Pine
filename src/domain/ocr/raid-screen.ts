@@ -82,6 +82,14 @@ const PICTURE_EDGE = 3;
  * samples), and the light of a hatching egg can stretch a name's box over the picture.
  */
 const NAME_WORD = /^(?:[A-Z][a-z]|\d)/;
+/**
+ * GO's round gym-info button stands at the top right, beside the name's second line on an iPhone
+ * (production, 2026-11-10: read as "og", "ogy", a piece of the name's line from 0.877 of the width
+ * on, half as tall as the name's letters). A line's last piece that starts right of this share of
+ * the width and is under `BUTTON_HEIGHT` of the tallest of its other pieces is the button.
+ */
+const BUTTON_PLACE = 0.85;
+const BUTTON_HEIGHT = 0.7;
 /** The CP is the tallest text on a hatched raid: taller than this share of the screen. */
 const CP_MIN_HEIGHT = 0.04;
 /**
@@ -158,6 +166,32 @@ function besidePicture(line: TextLine, column: number): TextLine | null {
       .map((word) => word[0])
       .join(' '),
     box: { ...line.box, x0: line.box.x0 + first.index * perCharacter },
+  };
+}
+
+/**
+ * A line near the top without GO's gym-info button read into it as its last piece
+ * (`BUTTON_PLACE`), on a screen `width` wide; the line itself when it has none.
+ */
+function withoutInfoButton(line: TextLine, width: number): TextLine {
+  const parts = line.parts;
+  const last = parts?.at(-1);
+  if (!parts || !last) return line;
+  const rest = parts.slice(0, -1);
+  const tallest = Math.max(...rest.map((part) => boxHeight(part.box)));
+  if (last.box.x0 < width * BUTTON_PLACE || boxHeight(last.box) >= tallest * BUTTON_HEIGHT) {
+    return line;
+  }
+  return {
+    confidence: line.confidence,
+    text: line.text.slice(0, Math.max(0, line.text.length - last.length - 1)),
+    box: {
+      x0: Math.min(...rest.map((part) => part.box.x0)),
+      y0: Math.min(...rest.map((part) => part.box.y0)),
+      x1: Math.max(...rest.map((part) => part.box.x1)),
+      y1: Math.max(...rest.map((part) => part.box.y1)),
+    },
+    ...(rest.length > 1 ? { parts: rest } : {}),
   };
 }
 
@@ -465,14 +499,17 @@ export function readScreenText(
   // largest text there; text on the gym's picture is small), then the lines under it that start
   // where it starts and are about as tall. Words on the picture are left out first: those left
   // of where the other lines of the name's size start, or of the picture's edge when no other
-  // line shows it.
-  const nearTop = body.filter(
-    (l) =>
-      l.box.y1 < height * TOP &&
-      l !== badge &&
-      LETTERS.test(l.text) &&
-      !COUNTDOWN.test(l.text.replace(/\s+/g, '')),
-  );
+  // line shows it; GO's gym-info button at the right edge is left out of the line it was read
+  // into.
+  const nearTop = body
+    .filter(
+      (l) =>
+        l.box.y1 < height * TOP &&
+        l !== badge &&
+        LETTERS.test(l.text) &&
+        !COUNTDOWN.test(l.text.replace(/\s+/g, '')),
+    )
+    .map((l) => withoutInfoButton(l, width));
   const tallestNearTop = Math.max(0, ...nearTop.map((l) => boxHeight(l.box)));
   const starts = nearTop
     .filter((l) => !onPicture(l) && boxHeight(l.box) > tallestNearTop * 0.6)
@@ -523,7 +560,7 @@ export function readScreenText(
             !kept.some((k) => k.box.y0 === l.box.y0),
         )
         .sort((a, b) => a.box.y0 - b.box.y0)[0];
-      const text = under?.text.trim().replace(/\s+/g, ' ');
+      const text = under && withoutInfoButton(under, width).text.trim().replace(/\s+/g, ' ');
       if (text) gymBelow = text;
     }
   }

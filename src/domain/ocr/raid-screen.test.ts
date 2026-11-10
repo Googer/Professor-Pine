@@ -18,6 +18,15 @@ const line = (text: string, x0: number, y0: number, x1: number, y1: number): Tex
   box: { x0, y0, x1, y1 },
 });
 
+/** The line as the reader joins the pieces of a row: each `[length, x0, y0, x1, y1]`. */
+const withParts = (
+  one: TextLine,
+  ...parts: [number, number, number, number, number][]
+): TextLine => ({
+  ...one,
+  parts: parts.map(([length, x0, y0, x1, y1]) => ({ length, box: { x0, y0, x1, y1 } })),
+});
+
 /**
  * The lines of an egg screen, made up in the layout of the samples: the name starts a quarter of
  * the width in, right of the gym's picture.
@@ -141,6 +150,55 @@ describe('readScreenText', () => {
     expect(gymOf([line('WOES Oak Street Garden', 123, 186, 816, 242)])).toBe('Oak Street Garden');
     // A name whose box the light of a hatching egg stretched over the picture keeps its words.
     expect(gymOf([line('NewHope Chapel', 62, 246, 803, 354)])).toBe('NewHope Chapel');
+  });
+
+  // Production, 2026-11-10 (iPhone, 1125x2436): GO's round gym-info button at the top right was
+  // read into the name's second line ("og", "ogy"), a piece of its own half as tall as the name's.
+  it('leaves out the gym-info button read into the name at the right edge', () => {
+    const iphone = { width: 1125, height: 2436 };
+    const gymOf = (lines: TextLine[]) => readScreenText(lines, [], iphone).gym;
+    const first = line("Christ's Lutheran", 287, 157, 754, 216);
+    expect(
+      gymOf([
+        first,
+        withParts(
+          line('Church og', 286, 216, 1024, 292),
+          [6, 286, 227, 491, 292],
+          [2, 987, 216, 1024, 249],
+        ),
+      ]),
+    ).toBe("Christ's Lutheran Church");
+    expect(
+      gymOf([
+        first,
+        withParts(
+          line('Church Firepit ogy', 287, 214, 1029, 292),
+          [14, 287, 228, 683, 292],
+          [3, 986, 214, 1029, 249],
+        ),
+      ]),
+    ).toBe("Christ's Lutheran Church Firepit");
+    // A word of the name's own size read apart at the right stays, as does a short word that is
+    // not at the right edge; a cut name ends in a small word ("Buhl Planetarium and").
+    expect(
+      gymOf([
+        withParts(
+          line('Saint Paul Cathedral Hall', 287, 157, 1060, 216),
+          [20, 287, 157, 900, 216],
+          [4, 960, 160, 1060, 216],
+        ),
+      ]),
+    ).toBe('Saint Paul Cathedral Hall');
+    expect(
+      gymOf([
+        withParts(
+          line('Market Square og', 287, 157, 760, 216),
+          [13, 287, 157, 640, 216],
+          [2, 700, 170, 760, 200],
+        ),
+      ]),
+    ).toBe('Market Square og');
+    expect(gymOf([line('Buhl Planetarium and', 287, 157, 860, 216)])).toBe('Buhl Planetarium and');
   });
 
   it('reads a max battle screen: Dynamax or Gigantamax, the species, the Power Spot under it', () => {
