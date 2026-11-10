@@ -12,6 +12,7 @@ import {
   readingOf,
   splitOutcome,
 } from '../../../test/support/screenshots.js';
+import { Tally } from '../../../test/support/tally.js';
 import { TWO_SCREENS } from '../../render/screenshot-reading.js';
 import { createTestContext } from '../../../test/support/test-context.js';
 import { keptRow } from '../../../test/support/wayspot-cases.js';
@@ -370,7 +371,7 @@ describe('what a board message’s pictures may cost (plan 8Z-2)', () => {
     const lines = (made.said()[0] ?? '').split('\n');
     expect(lines).toHaveLength(11);
     expect(lines[10]).toBe(
-      '- 10: The screenshots of one message may be 64 MB together, so I did not read this ' +
+      '- 10: The screenshots of one message may be 100 MB together, so I did not read this ' +
         'one. Post it again by itself.',
     );
     // Nine uses were taken: eleven more pictures are read, the twelfth is not.
@@ -386,18 +387,125 @@ describe('what a board message’s pictures may cost (plan 8Z-2)', () => {
     const made = await setup();
     const pictures = [
       { ...made.screenshot('huge.png', cat()), size: MAX_SCREENSHOT_BYTES + 1 },
-      { ...made.screenshot('a.png', cat()), size: MAX_SCREENSHOT_BYTES },
-      { ...made.screenshot('b.png', cat()), size: MAX_BOARD_MESSAGE_BYTES - MAX_SCREENSHOT_BYTES },
+      ...fullMessage(made, 'a', cat),
     ];
     await made.trigger.handle(inBoard(pictures));
-    expect(made.attachments.asked.map((one) => one.url)).toEqual([
-      pictures[1]?.url,
-      pictures[2]?.url,
-    ]);
+    expect(made.attachments.asked.map((one) => one.url)).toEqual(
+      pictures.slice(1).map((picture) => picture.url),
+    );
     expect(made.said()[0]).toContain('- 1: That file is too large to be a screenshot.');
     expect(made.said()[0]).not.toContain('together');
   });
+
+  /**
+   * The downloads of the messages started from now on held until `release()` (those of
+   * `free`, a message's pictures, go on); `begun` counts those held, so that a test knows the
+   * messages it started hold their bytes.
+   */
+  function holdDownloads(made: Awaited<ReturnType<typeof setup>>, free: string[] = []) {
+    const begun = new Tally('the downloads held');
+    let release = (): void => undefined;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const download = made.attachments.download.bind(made.attachments);
+    made.attachments.download = async (url, limits) => {
+      if (!free.includes(url)) {
+        begun.add();
+        await released;
+      }
+      return download(url, limits);
+    };
+    return { begun, release: () => release() };
+  }
+
+  /** Messages of three members, each as large as a message's pictures may be together. */
+  const MEMBERS = ['700000000000000011', '700000000000000012', '700000000000000013'];
+  const byMember = (
+    made: Awaited<ReturnType<typeof setup>>,
+    prefix: string,
+    authorId: string,
+    reading: () => ReturnType<typeof cat> = cat,
+  ) =>
+    posted(fullMessage(made, prefix, reading), { channelId: BOARD, inThread: true, authorId })
+      .message;
+  const dmsTo = (made: Awaited<ReturnType<typeof setup>>, member: string) =>
+    made.dms.to(member).map((message) => message.content);
+
+  it('holds the bytes of two full messages at once: a third gets the busy words and downloads nothing', async () => {
+    const made = await setup();
+    const [one, two, three] = MEMBERS as [string, string, string];
+    // The third's downloads are not held: were it downloaded, the test would see it.
+    const third = byMember(made, 'c', three);
+    const held = holdDownloads(
+      made,
+      third.attachments.map((picture) => picture.url),
+    );
+    const first = made.trigger.handle(byMember(made, 'a', one));
+    const second = made.trigger.handle(byMember(made, 'b', two));
+    await held.begun.reached(8);
+    await expect(made.trigger.handle(third)).resolves.toBe(true);
+    // Nothing of the third was downloaded (the first two's are still held).
+    expect(made.attachments.asked).toEqual([]);
+    expect(dmsTo(made, three)).toEqual([
+      `From your screenshots in <#${BOARD}> (the board keeps only my lists, so I took your ` +
+        `message out of it):\n- 1: ${BUSY}\n- 2: ${BUSY}\n- 3: ${BUSY}\n- 4: ${BUSY}`,
+    ]);
+    held.release();
+    await Promise.all([first, second]);
+    expect(made.attachments.asked).toHaveLength(8);
+    expect(made.reader.reads).toBe(8);
+    // Given back once read: the next message is downloaded again.
+    await made.trigger.handle(byMember(made, 'd', three));
+    expect(made.attachments.asked).toHaveLength(12);
+  });
+
+  it('gives the bytes back after downloads that failed and after a reader that threw', async () => {
+    const made = await setup();
+    const [one, two, three] = MEMBERS as [string, string, string];
+    /** Two full messages are downloaded at once: nothing else holds any bytes. */
+    const twoAtOnce = async (prefix: string) => {
+      const held = holdDownloads(made);
+      const both = Promise.all([
+        made.trigger.handle(byMember(made, `${prefix}a`, two)),
+        made.trigger.handle(byMember(made, `${prefix}b`, three)),
+      ]);
+      await held.begun.reached(8);
+      held.release();
+      await both;
+    };
+    made.attachments.failing = true;
+    await made.trigger.handle(byMember(made, 'a', one));
+    expect(dmsTo(made, one)[0]).toContain('I could not download that screenshot from Discord.');
+    made.attachments.failing = false;
+    await twoAtOnce('b');
+    const read = vi.spyOn(made.reader, 'read').mockRejectedValueOnce(new Error('the reader broke'));
+    await expect(made.trigger.handle(byMember(made, 'c', one))).resolves.toBe(false);
+    read.mockRestore();
+    await twoAtOnce('d');
+  });
 });
+
+/**
+ * The pictures of a message as large together as a message's may be (`MAX_BOARD_MESSAGE_BYTES`),
+ * by the sizes Discord gives: three of the most a screenshot may have, and the rest.
+ */
+function fullMessage(
+  made: Awaited<ReturnType<typeof setup>>,
+  prefix: string,
+  reading: () => ReturnType<typeof readingOf>,
+) {
+  const sizes = [
+    MAX_SCREENSHOT_BYTES,
+    MAX_SCREENSHOT_BYTES,
+    MAX_SCREENSHOT_BYTES,
+    MAX_BOARD_MESSAGE_BYTES - 3 * MAX_SCREENSHOT_BYTES,
+  ];
+  return sizes.map((size, n) => ({
+    ...made.screenshot(`${prefix}${String(n)}.png`, reading()),
+    size,
+  }));
+}
 
 describe('boardDmText (review F6)', () => {
   it('keeps whole lines within a DM and counts those that do not fit', () => {

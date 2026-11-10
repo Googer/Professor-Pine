@@ -397,10 +397,19 @@ const BOARD_DM_EXPIRES_MS = 60 * 60_000;
 /**
  * The most bytes of one board message's pictures that are downloaded (plan 8Z-2), by the sizes
  * Discord gives them, before any is: they are downloaded at once and all held until the last is
- * read, and ten of `MAX_SCREENSHOT_BYTES` each would be 320 MB. Twice what one screenshot may
- * have: ten pictures of 6.4 MB each fit, and a phone's screenshot is a few megabytes.
+ * read, and ten of `MAX_SCREENSHOT_BYTES` each would be 320 MB. 100 MB: Discord's free upload
+ * limit is ten files of 10 MB, so an honest message always fits.
  */
-export const MAX_BOARD_MESSAGE_BYTES = 2 * MAX_SCREENSHOT_BYTES;
+export const MAX_BOARD_MESSAGE_BYTES = 100 * 1024 * 1024;
+
+/**
+ * The most bytes the board's messages hold at once, from their downloads until their last picture
+ * is read or dropped (plan 8Z-2): the reader's `full()` trips only after about `ocr.queue + 1`
+ * messages, as each holds one place in its queue while its pictures are read one at a time, and
+ * messages that come while downloads are on their way all pass it. Two messages as large as one
+ * may be; one always fits while no other holds any.
+ */
+export const MAX_BOARD_BYTES_HELD = 2 * MAX_BOARD_MESSAGE_BYTES;
 
 /** What the board's DM says of a picture left out for the others' size. */
 const BOARD_TOO_MUCH =
@@ -424,6 +433,11 @@ export class ScreenshotTrigger {
   private readonly now: () => number;
   private readonly waiting = new Map<NodeJS.Timeout, SentReply>();
   private closed = false;
+  /**
+   * The bytes the board's messages hold now (`MAX_BOARD_BYTES_HELD`), by the sizes Discord gave
+   * their pictures: one trigger per bot, so the whole process's.
+   */
+  private boardBytesHeld = 0;
 
   constructor(private readonly options: ScreenshotTriggerOptions) {
     this.now = options.now ?? Date.now;
@@ -628,13 +642,22 @@ export class ScreenshotTrigger {
     const guildRow = await ctx.guilds.idFor(posted.guildId);
     if (guildRow === undefined) return false;
     const said: (string | undefined)[] = [];
-    /** What each pane of a picture made (plan 7P), its place and words. */
-    const paneSaid: { place?: string; words: string | undefined }[][] = [];
     const counted: { index: number; image: ScreenshotSource; countedAt: number }[] = [];
-    // What the downloads may cost is settled before any starts (plan 8Z-2). A reader with no
-    // room refuses the message's pictures as it refuses a mention's: the first takes its use,
-    // the rest take none, and nothing is downloaded.
-    const full = ctx.screenshots.full();
+    // What the downloads may cost is settled before any starts (plan 8Z-2). The pictures within
+    // the message's bytes, by the sizes Discord gives them, in order: one too large by itself is
+    // never downloaded (`fetch` says so) and counts for nothing.
+    const sizeOf = (image: ScreenshotSource): number =>
+      image.size <= MAX_SCREENSHOT_BYTES ? image.size : 0;
+    let wanted = 0;
+    const within = images.map((image) => {
+      if (wanted + sizeOf(image) > MAX_BOARD_MESSAGE_BYTES) return false;
+      wanted += sizeOf(image);
+      return true;
+    });
+    // A reader with no room, or the board's messages holding as much as they may together
+    // (`MAX_BOARD_BYTES_HELD`), refuses the message's pictures as a full reader refuses a
+    // mention's: the first takes its use, the rest take none, and nothing is downloaded.
+    const full = ctx.screenshots.full() || this.boardBytesHeld + wanted > MAX_BOARD_BYTES_HELD;
     let busy = false;
     /** The bytes of the pictures to download, as Discord gives their sizes. */
     let bytes = 0;
@@ -643,9 +666,7 @@ export class ScreenshotTrigger {
         said[index] = unreadWords({ kind: 'busy' });
         continue;
       }
-      // One too large by itself is never downloaded (`fetch` says so) and counts for nothing.
-      const downloaded = image.size <= MAX_SCREENSHOT_BYTES ? image.size : 0;
-      if (bytes + downloaded > MAX_BOARD_MESSAGE_BYTES) {
+      if (!within[index]) {
         // Left out before it costs anything: no use is taken for it.
         said[index] = BOARD_TOO_MUCH;
         continue;
@@ -662,9 +683,36 @@ export class ScreenshotTrigger {
         said[index] = unreadWords({ kind: 'busy' });
         continue;
       }
-      bytes += downloaded;
+      bytes += sizeOf(image);
       counted.push({ index, image, countedAt });
     }
+    // Taken before the first download (no wait since `full` was asked), given back once the
+    // last picture is read or dropped, whatever happens meanwhile.
+    this.boardBytesHeld += bytes;
+    try {
+      return await this.readBoardHeld(posted, region, passive, guildRow, images, said, counted);
+    } finally {
+      this.boardBytesHeld -= bytes;
+    }
+  }
+
+  /**
+   * The rest of `readBoard`, while the message holds the bytes of its pictures: the downloads,
+   * the delete, the reads and the DM. `said` holds the words of the pictures not downloaded,
+   * `counted` those to download, each with when its use was counted.
+   */
+  private async readBoardHeld(
+    posted: PostedMessage,
+    region: Region,
+    passive: boolean,
+    guildRow: number,
+    images: readonly ScreenshotSource[],
+    said: (string | undefined)[],
+    counted: readonly { index: number; image: ScreenshotSource; countedAt: number }[],
+  ): Promise<boolean> {
+    const { ctx } = this.options;
+    /** What each pane of a picture made (plan 7P), its place and words. */
+    const paneSaid: { place?: string; words: string | undefined }[][] = [];
     // All at once (review F3; ten at most, `screenshotsOf`): the message goes after the slowest.
     const had = await Promise.all(counted.map(({ image }) => ctx.screenshots.fetch(image)));
     const fetched: { index: number; image: FetchedScreenshot; countedAt: number }[] = [];
