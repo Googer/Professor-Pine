@@ -1180,7 +1180,7 @@ To fix (one small round):
 - **Passive reading deletes like a mention** (Matt, 2026-10-14; the legacy bot deleted a message once any image of it made a raid, `app/process-image.js`): a message read passively is deleted when every image made or joined a raid and it says nothing else, otherwise marked ✅ as now; pictures that are no raid screen stay untouched and unanswered.
 - **Cosmetic:** the private answer to a pick in the mention's gym question replies to the question it has just deleted, so Discord shows "Message could not be loaded" above it.
 
-Seen, deliberate: a gym name read off a screen that is exactly one gym's name is still asked about when a longer name begins with it ("Temple Sinai" beside "Temple Sinai Garden"), since the game cuts long names; a typed name is not. A screenshot with feedback "Something is wrong" by anybody gets no `label`, also when another member says "All right" later.
+Seen, deliberate: a gym name read off a screen that is exactly one gym's name is still asked about when a longer name begins with it ("Temple Sinai" beside "Temple Sinai Garden"), since the game cuts long names; a typed name is not. **Ruled otherwise by Matt on 2026-11-10** (the asking was Claude's guess, not his ruling; production's "Christ's Lutheran Church" beside "… Firepit" was asked): GO shrinks a long name to fit, so cutting is rare, mostly in a split's small window; ask only when there would not have been room for another word after the last one. Built on branch `ocr-cut` (`ScreenText.gymRoom`, `gymOfText`; `screenshots.md`). A screenshot with feedback "Something is wrong" by anybody gets no `label`, also when another member says "All right" later.
 
 ## From the fix round after the staging of 7B (2026-10-15)
 

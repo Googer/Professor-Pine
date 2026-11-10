@@ -300,7 +300,7 @@ export async function readPicture(
       // read as a phone's screenshot is (`READ_WIDTH`): its text has the size it has on a phone
       // (read at twice the width, Matt's splits lost three heads and gained nothing); a small GO
       // boxed in its pane is read enlarged, a pane near square stretched (`paneReadSize`).
-      const reading = await readRegion(region, box, size, paneGrey.y0 === contentGrey.y0);
+      const reading = await readRegion(region, box, size, paneGrey.y0 === contentGrey.y0, true);
       const body = screenBody(
         reading.lines,
         reading.status,
@@ -433,14 +433,16 @@ function shifted(box: Box, dx: number, dy: number): Box {
  * One screen of the picture, `box` in its pixels, read as a screenshot of its own as `size` says
  * (`ReadSize`): its lines, the text, the heads, the purple, with the picture's status lines
  * moved into its pixels (the clock is the picture's), and the status band only when it touches
- * the picture's top (`touchesTop`). The heads and the purple are measured on the picture's own
- * pixels, never on the stretched ones (the heads' band enlarged as the text was, `headsScale`).
+ * the picture's top (`touchesTop`); a pane of a split (`pane`) says its gym's name may be cut.
+ * The heads and the purple are measured on the picture's own pixels, never on the stretched ones
+ * (the heads' band enlarged as the text was, `headsScale`).
  */
 async function readRegion(
   region: Region,
   box: Box,
   size: ReadSize,
   touchesTop: boolean,
+  pane = false,
 ): Promise<ScreenReading> {
   const { image, readText, template } = region;
   const width = box.x1 - box.x0;
@@ -471,7 +473,7 @@ async function readRegion(
     lines,
     status,
     { width, height },
-    { statusBand: touchesTop ? bandIn(region.band, box) : 0 },
+    { statusBand: touchesTop ? bandIn(region.band, box) : 0, pane },
   );
   const band = headBand(text);
   let heads: HeadCount | null = null;

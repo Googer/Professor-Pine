@@ -107,6 +107,7 @@ describe('readScreenText', () => {
       clock: null,
       countdown: null,
       gym: null,
+      gymRoom: null,
       eliteBadge: false,
       cp: null,
       bossName: null,
@@ -199,6 +200,39 @@ describe('readScreenText', () => {
       ]),
     ).toBe('Market Square og');
     expect(gymOf([line('Buhl Planetarium and', 287, 157, 860, 216)])).toBe('Buhl Planetarium and');
+  });
+
+  // Matt, 2026-11-10: GO shrinks a long name to fit; it cuts one only when even so the next word
+  // does not fit, which happens mostly in a split's small window.
+  it('measures the room left after the gym name, in its characters, but not in a pane', () => {
+    const iphone = { width: 1125, height: 2436 };
+    const first = line("Christ's Lutheran", 287, 157, 754, 216);
+    const roomOf = (lines: TextLine[], size = iphone, pane = false) =>
+      readScreenText(lines, [], size, { pane }).gymRoom;
+    // Production's second lines: "Church" (34 pixels a character) leaves room for 12 more
+    // before 0.8 of the width, "Church Firepit" for 7.7.
+    expect(roomOf([first, line('Church', 286, 227, 491, 292)])).toBeCloseTo(12, 1);
+    expect(roomOf([first, line('Church Firepit', 287, 228, 683, 292)])).toBeCloseTo(7.7, 1);
+    // A name GO cut after two lines: "Shawnee" did not fit after "-War Chief of the" (1320 wide).
+    expect(
+      roomOf(
+        [
+          line('Catahecassa Blackhoof', 343, 296, 1085, 359),
+          line('-War Chief of the', 343, 375, 924, 455),
+        ],
+        { width: 1320, height: 2868 },
+      ),
+    ).toBeCloseTo(3.9, 1);
+    // Past where a name may run, none.
+    expect(
+      roomOf([line('Fifth Ward World War Memorial', 208, 135, 760, 181)], {
+        width: 828,
+        height: 1792,
+      }),
+    ).toBe(0);
+    // A pane of a split screen: its limits cannot be trusted. No name: nothing to measure.
+    expect(roomOf([first, line('Church', 286, 227, 491, 292)], iphone, true)).toBeNull();
+    expect(roomOf([])).toBeNull();
   });
 
   it('reads a max battle screen: Dynamax or Gigantamax, the species, the Power Spot under it', () => {

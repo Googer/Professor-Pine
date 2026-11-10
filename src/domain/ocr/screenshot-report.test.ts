@@ -44,6 +44,10 @@ const NAMES: Record<number, string> = {
   9: 'Old Plant Church',
   10: 'Temple Sinai',
   11: 'Temple Sinai Garden',
+  12: 'Maple Grove Chapel',
+  13: 'Maple Grove Chapel Garden',
+  14: 'Pine Campsite',
+  15: 'Pine Campsite - Lookout',
 };
 const hit = (id: number, allWords = true, corrected = false): GymHitLike => ({
   gym: { id, name: NAMES[id] ?? `Gym ${id}` },
@@ -62,6 +66,8 @@ function search(text: string): GymHitLike[] {
   if (text === 'Church') return [hit(8), hit(9)];
   if (text === "St. Paul's Church") return [hit(8)];
   if (text === 'Temple Sinai') return [hit(11), hit(10)];
+  if (text === 'Maple Grove Chapel') return [hit(13), hit(12)];
+  if (text === 'Pine Campsite') return [hit(15), hit(14)];
   if (text.includes('Plant')) return [hit(9, false)];
   return [];
 }
@@ -571,6 +577,12 @@ describe('screenshotReport', () => {
     expect(screenshotReport(read(egg({ gym: 'Old Plant' }), 1), context()).doubts).toEqual([
       'gym-unclear',
     ]);
+    // An exact name beside a longer one: clear only when the longer one's next word would fit.
+    const sinai = (gymRoom: number | null) =>
+      screenshotReport(read(egg({ gym: 'Temple Sinai', gymRoom }), 1), context());
+    expect(sinai(12)).toMatchObject({ gym: { gymId: 10, clear: true }, doubts: [] });
+    expect(sinai(3).doubts).toEqual(['gym-unclear']);
+    expect(sinai(null).doubts).toEqual(['gym-unclear']);
   });
 });
 
@@ -654,8 +666,42 @@ describe('gymOfText', () => {
     expect(gymOfText("St. Pau1's Church", search)).toMatchObject({ clear: false });
   });
 
-  it('takes the one gym called exactly what was read of several, but not as clear', () => {
+  // Matt, 2026-11-10: GO shrinks a long name to fit and cuts it only when its next word does
+  // not fit; a name read whole beside a longer one is the gym's when that word would have fit.
+  it('takes the one gym called exactly what was read of several as clear when the rest would fit', () => {
+    // " Garden" is 7 characters.
+    expect(gymOfText('Temple Sinai', search, undefined, 7)).toMatchObject({
+      gymId: 10,
+      clear: true,
+    });
+    expect(gymOfText('WOES Maple Grove Chapel', search, undefined, 12)).toMatchObject({
+      searched: 'Maple Grove Chapel',
+      gymId: 12,
+      clear: true,
+    });
+    // No room for it, or the room unknown (a pane, an older record): the longer may be meant.
+    expect(gymOfText('Temple Sinai', search, undefined, 6.9)).toMatchObject({
+      gymId: 10,
+      clear: false,
+    });
+    expect(gymOfText('Temple Sinai', search, undefined, null)).toMatchObject({ clear: false });
     expect(gymOfText('Temple Sinai', search)).toMatchObject({ gymId: 10, clear: false });
+  });
+
+  it('counts a dash before the next word with it, since the reader may lose it', () => {
+    // "- Lookout" and a space are 10 characters.
+    expect(gymOfText('Pine Campsite', search, undefined, 9)).toMatchObject({ clear: false });
+    expect(gymOfText('Pine Campsite', search, undefined, 10)).toMatchObject({
+      gymId: 14,
+      clear: true,
+    });
+  });
+
+  it('never takes an exact name as clear when words read after it were left out', () => {
+    // "Gxrden" misread: the name read was longer than "Maple Grove Chapel".
+    expect(gymOfText('Maple Grove Chapel Gxrden', search, undefined, 20)).toMatchObject({
+      clear: false,
+    });
   });
 
   it('never lets one common word be clear, even when one gym has it', () => {

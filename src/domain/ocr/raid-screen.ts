@@ -21,6 +21,14 @@ export interface ScreenText {
    * Outgoing"; Matt, 2026-10-24), which the gym search may narrow by (`gymOfText`).
    */
   gymBelow?: string;
+  /**
+   * How many characters, at its own average width, would still fit after the end of the name's
+   * last line before `NAME_END`, where a name may run: GO cuts a name only when its next
+   * word does not fit (Matt, 2026-11-10), so the gym search tells by it whether a longer name
+   * that begins with the one read may have been cut (`gymOfText`). Null without a name, and in a
+   * pane of a split, whose limits cannot be trusted; absent in records read before it was kept.
+   */
+  gymRoom?: number | null;
   /** The "Elite raid gym" badge stands near the top. */
   eliteBadge: boolean;
   /** The boss's CP, on a hatched raid. */
@@ -90,6 +98,13 @@ const NAME_WORD = /^(?:[A-Z][a-z]|\d)/;
  */
 const BUTTON_PLACE = 0.85;
 const BUTTON_HEIGHT = 0.7;
+/**
+ * How far a gym's name is taken to run at most (`ScreenText.gymRoom`), a share of the width: the
+ * cautious end of GO's layouts. Lines of names end as far as 0.82 on 2020s screens, but a 2019
+ * Android screen ended "Catahecassa Blackhoof War Chief" at 0.75 and wrapped " of" out of sight,
+ * which would have ended at 0.81 (`matt-2026-10-21`; its ">" button stands from 0.84).
+ */
+const NAME_END = 0.8;
 /** The CP is the tallest text on a hatched raid: taller than this share of the screen. */
 const CP_MIN_HEIGHT = 0.04;
 /**
@@ -449,6 +464,11 @@ export interface ScreenTextOptions {
    * top (plan 7P: a countdown at a pane's top is never the clock).
    */
   statusBand?: number;
+  /**
+   * The screen is a pane of a split (plan 7P): GO's window there is small, and the gym's name
+   * may be cut however much room its last line leaves (`ScreenText.gymRoom` null).
+   */
+  pane?: boolean;
 }
 
 /**
@@ -529,6 +549,7 @@ export function readScreenText(
   const tallest = [...top].sort((a, b) => boxHeight(b.box) - boxHeight(a.box))[0];
   let gym: string | null = null;
   let gymBelow: string | undefined;
+  let gymRoom: number | null = null;
   if (tallest) {
     const block = top
       .filter(
@@ -548,6 +569,11 @@ export function readScreenText(
         .join(' ')
         .replace(/\s+/g, ' ') || null;
     const last = kept.at(-1);
+    const lastText = last?.text.trim() ?? '';
+    if (last && gym !== null && options.pane !== true && lastText.length > 0) {
+      const perCharacter = boxWidth(last.box) / lastText.length;
+      gymRoom = Math.max(0, (width * NAME_END - last.box.x1) / perCharacter);
+    }
     if (last) {
       const gap = boxHeight(last.box) * 0.8;
       const under = body
@@ -583,6 +609,7 @@ export function readScreenText(
     countdown,
     gym,
     ...(gymBelow === undefined ? {} : { gymBelow }),
+    gymRoom,
     eliteBadge: badge !== undefined,
     cp,
     bossName,
