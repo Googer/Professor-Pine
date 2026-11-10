@@ -386,6 +386,22 @@ describe('/meetup', () => {
     expect(made.meetups()).toHaveLength(1);
   });
 
+  // Plan 8Z-2, fix round F-A4: the form stays open up to half an hour; `MeetupSafety.make` asks
+  // again at its Submit, the one way to make a meetup.
+  it('refuses at the Submit a maker somebody keeps out of the forum since the form opened, the typed text given back', async () => {
+    const made = await setup();
+    const used = await made.command('Picnic');
+    expect(used.showModal).toHaveBeenCalledOnce();
+    made.gateway.barred.set(WEST_FORUM, new Set([ALICE]));
+    const submitted = await made.submit(used, 'Bring snacks.');
+    if (!submitted) throw new Error('the form did not open');
+    expect(told(submitted)).toContain(
+      'You cannot make a meetup here: you are kept out of the forum its post would be in.',
+    );
+    expect(told(submitted)).toContain('Bring snacks.');
+    expect(made.meetups()).toEqual([]);
+  });
+
   it('refuses a name of nothing but white space, one that is too long, and one of nothing seen', async () => {
     const made = await setup();
     expect((await made.run('   ')).told).toBe('Give a name of 1 to 80 characters.');

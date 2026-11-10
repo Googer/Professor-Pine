@@ -411,6 +411,47 @@ describe('MeetupSafety.decide', () => {
     );
   });
 
+  // Plan 8Z-2, fix round F-A4: `/meetup` asks the forum before its form; the approval came
+  // later, so the meetup is not made into a forum somebody has kept its maker out of since.
+  it('marks an approval failed when somebody keeps its maker out of the forum by then, in words that blame nobody', async () => {
+    const made = await meetupSafetyWith();
+    const request = await made.held();
+    made.gateway.barred.set(WEST_FORUM, new Set([ALICE]));
+    const outcome = await made.safety.decide(request.id, 'approve', MODERATOR_MEMBER, SERVER);
+    expect(outcome).toMatchObject({
+      kind: 'done',
+      failure: 'its maker is kept out of the forum its post would be in',
+    });
+    expect(made.storage.requests.get(request.id)).toMatchObject({
+      status: 'failed',
+      partyId: null,
+      failure: { kind: 'kept-out' },
+    });
+    expect(made.gateway.postsIn(WEST_FORUM)).toEqual([]);
+    expect(await made.storage.ruling(SERVER, { kind: 'stop', id: LIBRARY.id })).toBeUndefined();
+    expect(textOf(made.postOf(request)?.message)).toContain(
+      'but the meetup could not be made: its maker is kept out of the forum its post would be ' +
+        'in. Its maker was told.',
+    );
+    expect(textOf(made.dms.to(ALICE)[0])).toBe(
+      'A moderator approved your meetup **Book swap**, but I could not make it: you are kept ' +
+        'out of the forum its post would be in.',
+    );
+  });
+
+  it('marks an approval failed while Discord cannot say whether its maker is kept out', async () => {
+    const made = await meetupSafetyWith();
+    const request = await made.held();
+    made.gateway.failing.set('memberAccess', new Error('Discord is away'));
+    const outcome = await made.safety.decide(request.id, 'approve-once', MODERATOR_MEMBER, SERVER);
+    expect(outcome).toMatchObject({ kind: 'done', failure: 'something went wrong' });
+    expect(made.storage.requests.get(request.id)).toMatchObject({
+      status: 'failed',
+      failure: { kind: 'error' },
+    });
+    expect(made.gateway.postsIn(WEST_FORUM)).toEqual([]);
+  });
+
   it('says so when the bot may not make posts in the forum of an approved meetup', async () => {
     const made = await meetupSafetyWith();
     const request = await made.held();

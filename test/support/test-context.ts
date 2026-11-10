@@ -284,6 +284,7 @@ export function createTestContext(overrides: Partial<AppContext> = {}) {
         'pass { meetupSafety: safety } from meetupSafetyWith()',
       ),
       parties: ctx.partyService,
+      regions: ctx.regions,
       dms: ctx.dms,
       store: ctx.parties,
       guilds: ctx.guilds,

@@ -75,11 +75,21 @@ export interface MeetupRequestRecord {
  * or information could not be a meetup's (`bad-name`, `bad-description`), its region or the
  * region's forum is gone (`no-region`, `no-forum`), its post could not be made (`no-post`), or
  * the bot may not make posts in the forum (`posts-refused`: which forum, and what it lacks
- * there by the names its settings show, none when Discord refused all the same); `error`:
- * anything else (a throw, the bot stopped before the meetup was made).
+ * there by the names its settings show, none when Discord refused all the same); somebody
+ * keeps its maker out of the forum its post would be in by the approval (`kept-out`, plan 8Z-2);
+ * `error`: anything else (a throw, the bot stopped before the meetup was made).
  */
 export type ApprovalFailure =
-  | { kind: 'bad-name' | 'bad-description' | 'no-region' | 'no-forum' | 'no-post' | 'error' }
+  | {
+      kind:
+        | 'bad-name'
+        | 'bad-description'
+        | 'no-region'
+        | 'no-forum'
+        | 'no-post'
+        | 'kept-out'
+        | 'error';
+    }
   | { kind: 'posts-refused'; forumId: string; missing: readonly string[] };
 
 const PLAIN_FAILURES: readonly Exclude<ApprovalFailure, { forumId: string }>['kind'][] = [
@@ -88,6 +98,7 @@ const PLAIN_FAILURES: readonly Exclude<ApprovalFailure, { forumId: string }>['ki
   'no-region',
   'no-forum',
   'no-post',
+  'kept-out',
   'error',
 ];
 

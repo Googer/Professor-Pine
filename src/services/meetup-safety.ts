@@ -53,6 +53,8 @@ import type { GymProvider } from './gym-directory.js';
 import type { WayspotProvider } from './wayspot-directory.js';
 import { addressLine } from '../domain/geo/google.js';
 import type { PartyProvider } from './party-store.js';
+import { forumBarred } from './forum-access.js';
+import type { RegionProvider } from './region-directory.js';
 
 /** Who asks for a check of a place: the maker, in a server, and whether they are staff. */
 export interface PlaceAsk {
@@ -119,6 +121,11 @@ export type MakeOutcome =
   | { kind: 'held'; request: MeetupRequestRecord }
   /** A moderator refused the place for good (`NO_MEETUP_HERE`). */
   | { kind: 'refused' }
+  /**
+   * Somebody keeps the maker out of the forum its post would be in (plan 8Z-2, `forumBarred`):
+   * `kept-out`; `forum-unknown` while Discord cannot say (logged), none of the maker's doing.
+   */
+  | { kind: 'kept-out' | 'forum-unknown' }
   /** The place is a power spot: no meetup is (Matt, 2026-10-17; `/meetup` says `NO_POWER_SPOT`). */
   | { kind: 'power-spot' }
   /**
@@ -162,8 +169,13 @@ export interface MeetupSafetyOptions {
     | 'serverChannels'
     | 'mayPost'
   >;
-  /** Where an approved meetup is made, and a blocked member's meetups are closed. */
-  parties: Pick<PartyService, 'createMeetup' | 'end'>;
+  /**
+   * Where an approved meetup is made, and a blocked member's meetups are closed; how its maker
+   * stands to the forum it would be posted in (`memberAccess`).
+   */
+  parties: Pick<PartyService, 'createMeetup' | 'end' | 'memberAccess'>;
+  /** The regions, by their channels: the forum a meetup would be posted in. */
+  regions: Pick<RegionProvider, 'byChannel'>;
   /** The active parties: a blocked member's meetups are found there. */
   store: Pick<PartyProvider, 'active'>;
   /** The row of a server, by which its parties say whose they are. */
@@ -347,7 +359,10 @@ export class MeetupSafety {
    * The caller says whether the maker is staff and counts the use against its own throttle; a
    * caller without Discord's answers (the map) has no Appeal button to give a blocked maker: it
    * points them to `/meetup`. A power spot is no place for a meetup, for staff too (`power-spot`):
-   * the map offers none, and `/meetup` refuses one before it gets here.
+   * the map offers none, and `/meetup` refuses one before it gets here. A maker somebody keeps
+   * out of the forum its post would be in is refused (`kept-out`; `forum-unknown` while Discord
+   * cannot say: plan 8Z-2, fix round F-A4), here at the making, whatever the caller asked before
+   * (`/meetup`'s guard asks before its form, which stays open up to half an hour).
    */
   async make(ask: MakeAsk): Promise<MakeOutcome> {
     const { parties } = this.options;
@@ -355,6 +370,8 @@ export class MeetupSafety {
     if (tidyName(ask.name) === undefined) return { kind: 'bad-name' };
     const description = tidyDescription(ask.description);
     if (description === undefined || description === null) return { kind: 'bad-description' };
+    const kept = await this.makerKeptOut(ask.regionChannelId, ask.maker.id);
+    if (kept !== undefined) return { kind: kept };
     const verdict = await this.verdict({
       serverId: ask.serverId,
       place: ask.place,
@@ -386,6 +403,35 @@ export class MeetupSafety {
       staff: ask.staff,
     });
     return closed === false ? { kind: 'posted', party: outcome.party } : { kind: 'blocked' };
+  }
+
+  /**
+   * Whether somebody keeps a meetup's maker out of the forum of the region it would be posted in
+   * (`forumBarred`, the one question of every path into a forum; plan 8Z-2): `kept-out`,
+   * `forum-unknown` while Discord cannot say (logged), undefined when not (a forum only hidden
+   * from them lets them in; a region gone or without a forum is `createMeetup`'s to refuse).
+   * Asked by `make` and before an approval's meetup is made.
+   */
+  private async makerKeptOut(
+    regionChannelId: string,
+    makerId: string,
+  ): Promise<'kept-out' | 'forum-unknown' | undefined> {
+    const { parties, regions, log } = this.options;
+    const forumId = regions.byChannel(regionChannelId)?.forumChannelId ?? null;
+    try {
+      const barred = await forumBarred(
+        (forum, member) => parties.memberAccess(forum, member),
+        forumId,
+        makerId,
+      );
+      return barred ? 'kept-out' : undefined;
+    } catch (err) {
+      log.warn(
+        { err, forum: forumId, member: makerId },
+        'could not ask Discord whether the maker of a meetup is kept out of its forum; refused',
+      );
+      return 'forum-unknown';
+    }
   }
 
   /** A gym's official name and nickname, which its title (the nickname first) may not show. */
@@ -1507,6 +1553,10 @@ export class MeetupSafety {
     request: MeetupRequestRecord,
   ): Promise<{ partyId?: string; postId?: string; failure?: ApprovalFailure }> {
     const { parties, log } = this.options;
+    // Somebody may have kept the maker out of the forum since they asked (plan 8Z-2): no meetup
+    // there; while Discord cannot say, none either (logged), as `make` refuses it.
+    const kept = await this.makerKeptOut(request.regionChannelId, request.makerId);
+    if (kept !== undefined) return { failure: { kind: kept === 'kept-out' ? kept : 'error' } };
     try {
       const outcome = await parties.createMeetup({
         name: request.name,

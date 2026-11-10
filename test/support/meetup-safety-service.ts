@@ -46,6 +46,7 @@ export async function meetupSafetyWith(
     storage,
     gateway: made.gateway,
     parties: made.service,
+    regions: made.regions,
     dms: made.dms,
     gyms: made.gyms,
     store: made.store,

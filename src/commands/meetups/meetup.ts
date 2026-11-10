@@ -20,11 +20,12 @@ import { mayRequestReview, type MeetupVerdict } from '../../domain/meetups/safet
 import { tidyDescription } from '../../domain/party/meetup.js';
 import { MAX_OPEN_PARTIES } from '../../domain/party/open-parties.js';
 import { MAX_PARTY_NAME, type MeetupParty } from '../../domain/party/party.js';
-import { noPostWords, problemText } from '../../render/activity.js';
+import { ACCESS_UNKNOWN, noPostWords, problemText } from '../../render/activity.js';
 import { blockedAnswer } from '../../render/meetup-safety.js';
 import type { MakeAsk } from '../../services/meetup-safety.js';
 import { EXPIRED, PendingRequests } from '../../services/pending-requests.js';
 import {
+  newPartyBarred,
   newPartyTimes,
   noForumWords,
   requirePlaceForNew,
@@ -450,6 +451,10 @@ export async function makeMeetupAs(
       return { kind: 'blocked', text: NO_MEETUPS_FOR_YOU };
     case 'refused':
       return refused(NO_MEETUP_HERE);
+    case 'kept-out':
+      return refused(newPartyBarred('meetup'));
+    case 'forum-unknown':
+      return { kind: 'refused', text: ACCESS_UNKNOWN, givesBack: true };
     case 'power-spot':
       return refused(NO_POWER_SPOT);
     case 'too-soon':

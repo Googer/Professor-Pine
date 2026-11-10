@@ -931,6 +931,7 @@ export async function startApp(
     gyms,
     wayspots,
     parties: partyService,
+    regions,
     dms: memberDms,
     store: parties,
     guilds,

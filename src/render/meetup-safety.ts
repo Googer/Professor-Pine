@@ -117,6 +117,8 @@ const FAILURES: Readonly<Record<Exclude<ApprovalFailure['kind'], 'posts-refused'
   'no-region': 'its region is gone',
   'no-forum': 'its region has no forum',
   'no-post': 'its post could not be made',
+  // As `/meetup` says it (`newPartyBarred`): that they are kept out, never by whom or why.
+  'kept-out': 'its maker is kept out of the forum its post would be in',
   error: 'something went wrong',
 };
 
@@ -409,6 +411,13 @@ export function requestOutcomeDm(
           : [actionRow([linkButton('Go to post', undefined, more.postUrl)])],
       );
     case 'failed':
+      // Its maker kept out of the forum (plan 8Z-2) is told so as the maker, with nothing to try.
+      if (request.failure?.kind === 'kept-out') {
+        return textMessage(REFUSED_ACCENT, [
+          `A moderator approved your meetup ${name}, but I could not make it: you are kept out ` +
+            'of the forum its post would be in.',
+        ]);
+      }
       return textMessage(REFUSED_ACCENT, [
         `A moderator approved your meetup ${name}, but I could not make it: ` +
           `${approvalFailureWords(request.failure ?? { kind: 'error' })}. ` +
