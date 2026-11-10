@@ -76,9 +76,24 @@ export function limitedPerMember(
  * one address (`limitedPerAddress`), then as many by one member (`limitedPerMember`). Routes
  * that share a limit share the hooks.
  */
-export function limitedRead(uses: number, options: { now: () => number; sessions: Sessions }) {
+export function limitedRead(uses: number, options: ReadLimitOptions & { sessions: Sessions }) {
   return [
-    limitedPerAddress(new RateLimiter({ uses, perMs: 60_000 }), options),
-    limitedPerMember(new RateLimiter({ uses, perMs: 60_000 }), options),
+    limitedPerAddress(readLimiter(uses, options), options),
+    limitedPerMember(readLimiter(uses, options), options),
   ];
+}
+
+/** What the limiters of the reads are made with (`WebDeps`). */
+export interface ReadLimitOptions {
+  now: () => number;
+  /** The number a read's limit allows instead of its own (`WebDeps.readUses`, for tests). */
+  readUses?: ((uses: number) => number) | undefined;
+}
+
+/**
+ * A limiter of reads, `uses` a minute (`readUses` of it where the deps give one: F-B9, a test
+ * of every read's hooks lowers them all at once).
+ */
+export function readLimiter(uses: number, options: ReadLimitOptions): RateLimiter {
+  return new RateLimiter({ uses: options.readUses?.(uses) ?? uses, perMs: 60_000 });
 }

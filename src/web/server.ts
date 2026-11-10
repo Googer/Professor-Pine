@@ -114,6 +114,11 @@ export interface WebDeps {
   /** Who has a live stream open, told of what changed (`/api/live`). */
   live: Pick<LiveSignals, 'open' | 'close' | 'endSession'>;
   now: () => number;
+  /**
+   * The number a read's limit allows instead of its own (`readLimiter`, F-B9): tests of every
+   * read's hooks lower them all; the bot gives none.
+   */
+  readUses?: ((uses: number) => number) | undefined;
   log: Logger;
 }
 

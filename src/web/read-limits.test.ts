@@ -18,6 +18,9 @@ const MISTY = '700000000000000002';
 const PARTIES = `/s/${FAKE_GUILD_ID}/api/parties`;
 const GEO = `/s/${FAKE_GUILD_ID}/api/geo`;
 
+/** What every read's limit is lowered to where a test lowers them (`readUses`). */
+const LOWERED = 2;
+
 /** The nth address of the test: each a client of its own to the limits per address. */
 const address = (n: number) => `198.51.${Math.floor(n / 250)}.${(n % 250) + 1}`;
 
@@ -95,7 +98,9 @@ describe('the reads of one member (plan 8Z-2)', () => {
   });
 
   it('are limited so on every read of a server’s data and pictures', async () => {
-    const made = webServerWith();
+    // Every read's limit lowered to two (F-B9: at their own numbers, up to 480 a route, the test
+    // sent thousands of requests); a route without the hooks is still never refused.
+    const made = webServerWith({ readUses: () => LOWERED });
     web = made;
     await made.app.ready();
     const reads = getRoutes(made.app).filter(
@@ -115,8 +120,7 @@ describe('the reads of one member (plan 8Z-2)', () => {
     for (const route of reads) {
       const url = filled(route);
       let refused = false;
-      // The largest limit of a read is 480 a minute (a party's posts).
-      for (let i = 0; i <= 480 && !refused; i += 1) {
+      for (let i = 0; i <= LOWERED && !refused; i += 1) {
         n += 1;
         const answer = await made.app.inject({
           url,

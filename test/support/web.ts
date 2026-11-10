@@ -726,6 +726,8 @@ export interface WebTestOptions {
   /** Changes of `TEST_WEB`. */
   web?: Partial<WebSettings>;
   servers?: WebDeps['servers'];
+  /** Lowers the limits of the reads (`WebDeps.readUses`); each its own number by default. */
+  readUses?: WebDeps['readUses'];
   /**
    * The servers with a map, which the top page names (plan 8M-14): a list of servers available,
    * or with those unavailable apart (`MapServers`); none by default.
@@ -1064,6 +1066,7 @@ export function webServerWith(options: WebTestOptions = {}): TestWeb {
     live,
     now: () => clock.now,
     log,
+    ...(options.readUses === undefined ? {} : { readUses: options.readUses }),
   });
   return {
     app,
