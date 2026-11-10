@@ -2080,6 +2080,16 @@ The Wayspot export tool's part of this section is kept with the tool.
   - `/admin cleanup-legacy` lists **#meetup-trivia-discussion** (Squirrelbreeze) "To delete": not in the legacy files, named like a meetup and its first message the bot's. Matt's ruling (2026-11-09): keep it; renamed to `#trivia` the same evening (a first rename to `#trivia-discussion` still counted: any hyphenated name whose first message is the legacy bot's is taken for a hatched raid's orphan); `cutover-check` then counted 0 channels to delete. The night's database steps were also timed on the Air with the dump of 2026-11-09: restore 11 s, migrate 5 s, history import 32 s (253,524 parties read, 253,184 imported, 0 not written).
 - ~~**Minor (after the cutover):**~~ **Done** (d525fc9f, "The cutover"): with two text channels of the same name in one server, `cutover-check`'s announcement line and the events forum's creation take the first by name (PGP Bot Development Lab has `#bot-updates` under "Production Testing" and under "Dev Testing", the production bot sees only the first), while live sends (`findChannel`, the raid boss announcer) already pick one the bot can post in: make both prefer the channel the bot can post in.
 
+## The release of v2.0.0 (Matt, 2026-11-09; planned for 2026-11-10)
+
+Right before the official release post (section 2 of `2026-10-16-phase-8l2-announcements.md`):
+
+1. On `main-dev`, the version `2.0.0` in `package.json` and `package-lock.json` (nothing else shows it), committed.
+2. `main-dev` merged into `master` with `--no-ff` and tagged `v2.0.0`; `master` and the tag pushed (Matt asks for it). The merge is clean: `master`'s own three commits of 2022 (a T4 change and its revert, a merge) change no file against 31401daa, which `main-dev` holds.
+3. On `main-dev`, the next version as `-SNAPSHOT` instead of `-dev` (Matt considering; Claude's advice `2.1.0-SNAPSHOT`, as features keep coming).
+4. **Production follows `master` from then on** (Matt): on the Air, `cd ~/professor-pine && git fetch && git switch master` (it tracks `origin/master`, which `./pine update` needs), then `./pine update` with Matt's go-ahead. The dev clone stays on `main-dev` for staging. A fix reaches production by a merge into `master`.
+5. Section 2's text: "`package.json` says `2.0.0-dev` today" and "the first push" are out of date; fix them with the release. CLAUDE.md's hard rule on pushing names `main-dev` only: add `master` (pushed for a release, when Matt asks) and that production runs it.
+
 ## The cutover (Pittsburgh, 2026-11-09 night, the Air, main-dev 407908be; Claude drove, Matt as Googer)
 
 Runbook Part 2, the same evening as R4–R6. **Pittsburgh runs on the new bot** on the Air's `~/professor-pine` stack; legacy Pine at the office is stopped, its FireDaemon service "Pine" on manual start (the way back). **Not announced** (Matt): N7's announcement waits for his word.
