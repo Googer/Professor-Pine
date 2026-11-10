@@ -117,7 +117,7 @@ import { KeptActivity } from './services/kept-activity.js';
 import { WayspotLookupRepository } from './db/repositories/wayspot-lookup-repository.js';
 import { WayspotPlaces } from './services/wayspot-places.js';
 import { ImageCache } from './services/image-cache.js';
-import { EmojiPictures, PlacePictures } from './services/post-pictures.js';
+import { EmojiPictures, PlacePictures, prunePlacePictures } from './services/post-pictures.js';
 import { NotifyService } from './services/notify-service.js';
 import { ReachRecords } from './services/reach.js';
 import { WantCountService } from './services/want-counts.js';
@@ -816,10 +816,12 @@ export async function startApp(
     places: wayspotPlaces,
   });
   // Map pictures from Google Static Maps, through the image cache (also for gym announcements).
-  const maps = new StaticMaps(
-    config.env.GOOGLE_API_KEY,
-    new ImageCache({ dir: IMAGE_CACHE, fetch: (url, init) => fetch(url, init), log }),
-  );
+  const mapCache = new ImageCache({
+    dir: IMAGE_CACHE,
+    fetch: (url, init) => fetch(url, init),
+    log,
+  });
+  const maps = new StaticMaps(config.env.GOOGLE_API_KEY, mapCache);
   // Gym administration and region administration exclude each other: one lock for both.
   const adminLock = new AdminLock();
   const gymAdmin = new GymAdminService({
@@ -982,6 +984,8 @@ export async function startApp(
     stops: stopReports,
     ...(gruntMessages ? { grunts: gruntMessages } : {}),
     pictures: maps,
+    // The places' pictures of the web map's posts, in the same folder of pictures (plan 8Z-2).
+    placePictures: { prune: () => prunePlacePictures(mapCache) },
     screenshots: screenshotStore,
     emoji: appEmoji,
     webSessions,

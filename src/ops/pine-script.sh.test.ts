@@ -86,6 +86,77 @@ describe('the DB_SCHEMA of ./pine', () => {
   });
 });
 
+// The env file holds the bot's token and the database's passwords: for its owner alone.
+describe('the env file of ./pine', () => {
+  const WARNING = /pine: .+stack\.env can be read by other accounts of this machine/;
+
+  // Which files others may read is the machine's to say (`find -perm`): here it is told what to
+  // answer, so that the warning's own rules are tested on every machine.
+  it('is warned of, with the command that mends it, when others may read it', (context) => {
+    const file = envFile(['DB_SCHEMA=pine']);
+    const run = runPineScript(
+      [
+        'uname() { echo Linux; }',
+        'find() { printf "%s\\n" "$1"; }',
+        'warn_env_mode 2>&1',
+        'echo "status: $?"',
+      ].join('\n'),
+      { PINE_ENV_FILE: file },
+    );
+    if (!run) return context.skip('no sh here');
+
+    expect(run.stdout).toMatch(WARNING);
+    expect(run.stdout).toContain(
+      "it holds the bot's token and the database's passwords. Make it yours alone: chmod 600 ",
+    );
+    // A warning: the command goes on.
+    expect(run.stdout).toContain('status: 0');
+  });
+
+  it('is not warned of when it is its owner’s alone, nor in Git Bash, whose modes say nothing', (context) => {
+    const file = envFile(['DB_SCHEMA=pine']);
+    const run = runPineScript(
+      [
+        'uname() { echo Linux; }',
+        'find() { :; }',
+        'warn_env_mode 2>&1; echo "alone: $?"',
+        // Windows keeps no such modes: every file there looks readable by all, and chmod mends nothing.
+        'find() { printf "%s\\n" "$1"; }',
+        'uname() { echo MINGW64_NT-10.0-26300; }',
+        'warn_env_mode 2>&1; echo "git bash: $?"',
+      ].join('\n'),
+      { PINE_ENV_FILE: file },
+    );
+    if (!run) return context.skip('no sh here');
+
+    expect(run.stdout).not.toMatch(WARNING);
+    expect(run.stdout).toContain('alone: 0');
+    expect(run.stdout).toContain('git bash: 0');
+  });
+
+  // The real modes, where the machine keeps them (Linux and macOS: the hosts).
+  it.skipIf(process.platform === 'win32')(
+    'is read by its real mode: 644 is warned of, 600 is not',
+    (context) => {
+      const file = envFile(['DB_SCHEMA=pine']);
+      const run = runPineScript(
+        [
+          'chmod 644 "$PINE_ENV_FILE"; warn_env_mode 2>&1; echo "after 644"',
+          'chmod 640 "$PINE_ENV_FILE"; warn_env_mode 2>&1; echo "after 640"',
+          'chmod 600 "$PINE_ENV_FILE"; warn_env_mode 2>&1; echo "after 600"',
+        ].join('\n'),
+        { PINE_ENV_FILE: file },
+      );
+      if (!run) return context.skip('no sh here');
+
+      const [open, group, alone] = run.stdout.split(/after 6\d\d\r?\n/);
+      expect(open).toMatch(WARNING);
+      expect(group).toMatch(WARNING);
+      expect(alone).toBe('');
+    },
+  );
+});
+
 /** A dump as mysqldump writes one of Pine's database, with `statements` before its last line. */
 function dumpText(statements: readonly string[] = []): string {
   const lines = [

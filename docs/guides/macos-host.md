@@ -92,6 +92,43 @@ The Mac must come back by itself after a restart or a power cut, so it logs in o
    ```
 
    It logs in without asking for the password. (`<you>` is your account's short name on the Mac: `whoami` in its Terminal.)
+5. **Passwords off for SSH**, once the key logs in. From then on only a key gets in over SSH, and a password guessed from the network is worth nothing there. Keep the session of step 4 open while you do it. On the Mac:
+
+   ```bash
+   printf 'PasswordAuthentication no\nKbdInteractiveAuthentication no\n' | sudo tee /etc/ssh/sshd_config.d/000-keys-only.conf
+   ```
+
+   That file now holds these two lines (macOS asks for a password in both ways, so both go; it reads the files of that folder before its own settings, and the first value of a setting counts):
+
+   ```
+   PasswordAuthentication no
+   KbdInteractiveAuthentication no
+   ```
+
+   Check what SSH will do, which must print both with `no`:
+
+   ```bash
+   sudo sshd -T | grep -Ei '^(passwordauthentication|kbdinteractiveauthentication) '
+   ```
+
+   macOS starts SSH anew for each connection, so nothing needs a restart. From the computer you work on, in a second window, `ssh <you>@pine-host.local` still logs in with the key, and this one is refused ("Permission denied") without asking for a password:
+
+   ```bash
+   ssh -o PubkeyAuthentication=no <you>@pine-host.local
+   ```
+
+   Screen Sharing keeps its password: it is the way back in should the key be lost.
+6. **The firewall on**: System Settings → Network → Firewall → on, or:
+
+   ```bash
+   sudo /usr/libexec/ApplicationFirewall/socketfilterfw --setglobalstate on
+   ```
+
+   It turns away connections from the network to everything but what macOS itself shares (Remote Login and Screen Sharing stay reachable) and signed apps. Pine needs nothing let in: the stack publishes no port, and the tunnel (section 9) and the copy of the backups (section 8) both go out from the Mac or come in over SSH. Check that it is on, and that `ssh` from the other computer still logs in:
+
+   ```bash
+   sudo /usr/libexec/ApplicationFirewall/socketfilterfw --getglobalstate
+   ```
 
 From here on every command runs on the Mac, over SSH or in its Terminal.
 
@@ -126,8 +163,10 @@ If the Mac does not have [Homebrew](https://brew.sh) yet, run the command on its
 ## 6. The code
 
 ```bash
-git clone --branch main-dev https://github.com/Googer/Professor-Pine.git ~/professor-pine
+git clone --branch master https://github.com/Googer/Professor-Pine.git ~/professor-pine
 ```
+
+`master` is the branch of the releases: `./pine update` later brings the next release, never work in progress.
 
 Then:
 
@@ -208,7 +247,48 @@ After a restart of the Mac, OrbStack starts at login and the two services come b
 The backups in `~/pine-backups` live on the Mac's own disk, which is soldered in: a dead Mac takes them with it. Copy them elsewhere every day, after 03:30. With a Synology NAS, the NAS fetches them over SSH, so the Mac mounts nothing:
 
 1. On the NAS: a shared folder `pine-backups`, and SSH on (Control Panel → Terminal & SNMP).
-2. On the NAS, as the user that runs the task, a key for the Mac: `ssh-keygen -t ed25519`, and its public half added to `~/.ssh/authorized_keys` on the Mac (as in section 3).
+2. On the NAS, as the user that runs the task, a key for the Mac: `ssh-keygen -t ed25519`. That key sits on a machine of its own, so on the Mac it may do one thing, fetch `~/pine-backups` with rsync, and not log in (your account can read the bot's `.env`). On the Mac, make a small script for it:
+
+   ```bash
+   mkdir -p ~/bin && nano ~/bin/pine-backups-only
+   ```
+
+   with this in it:
+
+   ```sh
+   #!/bin/sh
+   # For the NAS's key in ~/.ssh/authorized_keys: rsync may read ~/pine-backups, nothing else.
+   set -f
+   asked=${SSH_ORIGINAL_COMMAND:-}
+   flags=${asked#rsync --server --sender }
+   flags=${flags% . pine-backups/}
+   case $flags in
+     -[!-]*) ;;
+     *) flags= ;;
+   esac
+   case $flags in
+     '' | *[!A-Za-z0-9.-]*) flags= ;;
+   esac
+   if [ -z "$flags" ] || [ "$asked" != "rsync --server --sender $flags . pine-backups/" ]; then
+     echo "This key may only fetch pine-backups/ with rsync (asked: $asked)." >&2
+     exit 1
+   fi
+   exec rsync --server --sender "$flags" . pine-backups/
+   ```
+
+   Then:
+
+   ```bash
+   chmod 755 ~/bin/pine-backups-only
+   ```
+
+   Add the key's public half (`cat ~/.ssh/id_ed25519.pub` on the NAS) to `~/.ssh/authorized_keys` on the Mac as one line, with the restriction in front of it:
+
+   ```
+   restrict,command="$HOME/bin/pine-backups-only" ssh-ed25519 AAAA… <the rest of the NAS's public key>
+   ```
+
+   `restrict` gives the key no terminal and no forwarding, and `command=` runs the script whatever the NAS asks for: the script goes on only when that is rsync reading `pine-backups/`, as the task of step 3 asks. Your own key's line stays as it is.
 3. Control Panel → Task Scheduler → Create → Scheduled Task → User-defined script, daily at 05:00, as that user:
 
    ```bash
@@ -218,7 +298,7 @@ The backups in `~/pine-backups` live on the Mac's own disk, which is soldered in
    Run it as a NAS user whose home holds the key (an administrator of the NAS rather than root, whose account DSM keeps disabled), with `~/.ssh` at mode 700.
 
    No `--delete`: the NAS keeps what the Mac already deleted after 90 days (`BACKUP_KEEP_DAYS`), and you prune it there by hand if it grows.
-4. Run the task once by hand (Run) and check that the folder on the NAS has the dumps.
+4. Run the task once by hand (Run) and check that the folder on the NAS has the dumps. If it has none, the task's output says what the NAS asked for ("This key may only fetch…": the folder in step 3's command must read `pine-backups/` exactly). From the NAS, `ssh <you>@pine-host.local` with that key must now be refused with the same sentence.
 
 ## 9. The tunnel (the web pages)
 
@@ -228,5 +308,5 @@ Only if the instance serves its web pages ([docs/web-setup.md](../web-setup.md))
 
 - `./pine status`, `./pine logs pine` over SSH, as on any host ([operations](../architecture/operations.md)).
 - A macOS update: when you choose, at a quiet hour. Software Update installs it and restarts; after the restart, the Mac logs in, OrbStack starts, and the stack follows. `./pine status` afterwards.
-- `pmset -g` and the charge limit are worth a look after a macOS update: an update can reset settings.
+- `pmset -g`, the charge limit, the firewall and the two SSH lines (section 3, steps 5 and 6) are worth a look after a macOS update: an update can reset settings.
 - The monitor is needed only for what SSH and Screen Sharing cannot do (a macOS that does not start).

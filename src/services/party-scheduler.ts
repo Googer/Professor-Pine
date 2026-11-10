@@ -87,6 +87,8 @@ export interface PartySchedulerOptions {
   grunts?: { sweep(): Promise<unknown> };
   /** The map pictures of places, of which those older than a day go with the upkeep. */
   pictures?: { prunePlaces(): Promise<unknown> };
+  /** The pictures of places beside a post's Where: those nobody asked for in a month go too. */
+  placePictures?: { prune(): Promise<unknown> };
   /** The screenshots kept on disk, of which those that are due go with the upkeep. */
   screenshots?: { sweep(): Promise<unknown> };
   /** The emoji of the bot's application, read anew with the upkeep (`ApplicationEmoji`). */
@@ -341,6 +343,7 @@ export class PartyScheduler {
       this.options;
     const { history, activity, splits, stops, grunts, eventForum, legacyFillIns, audit } =
       this.options;
+    const { placePictures } = this.options;
     this.lastUpkeep = this.now();
     // Each by itself: one that fails does not keep the others from running. Once the clock has
     // stopped none starts: the shutdown waits for the upkeep (review r1 C3).
@@ -367,6 +370,7 @@ export class PartyScheduler {
       if (stops) await step(() => stops.sweep());
       if (grunts) await step(() => grunts.sweep());
       if (pictures) await step(() => pictures.prunePlaces());
+      if (placePictures) await step(() => placePictures.prune());
       if (screenshots) await step(() => screenshots.sweep());
       if (emoji) await step(() => emoji.refresh());
       if (webSessions) await step(() => webSessions.sweep());

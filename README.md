@@ -35,7 +35,8 @@ branch and is no longer maintained; the rewrite's design is
 A host needs only Docker (with Compose) and git. Everything runs through `./pine`
 (`./pine help` lists the commands; on Windows, in Git Bash with Docker Desktop):
 
-1. Clone the repository and copy `.env.example` to `.env`; fill in the Discord values, the
+1. Clone the repository's `master` branch, which holds the releases (`./pine update` follows
+   the branch you cloned), and copy `.env.example` to `.env`; fill in the Discord values, the
    database user, password and schema, `DB_ROOT_PASSWORD` and `BACKUP_DIR`. Before the first
    `./pine up`, make the backup folder and its marker once, as the folder's owner (on an NFS
    share, the share's), with the stack's name in it:

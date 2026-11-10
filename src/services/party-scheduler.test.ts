@@ -702,6 +702,35 @@ describe('PartyScheduler: running', () => {
     expect(pruned).toBe(1);
   });
 
+  // Plan 8Z-2: the pictures of places beside a post's Where, which nothing bounded.
+  it('has the pictures of places nobody asked for deleted with the upkeep, also when the maps’ fail', async () => {
+    const made = await reportedRaid();
+    let pruned = 0;
+    const { PartyScheduler } = await import('./party-scheduler.js');
+    const scheduler = new PartyScheduler({
+      store: made.store,
+      posts: made.service,
+      attendance: made.attendance,
+      pictures: { prunePlaces: () => Promise.reject(new Error('the disk is away')) },
+      placePictures: {
+        prune: () => {
+          pruned += 1;
+          return Promise.resolve(0);
+        },
+      },
+      lines: made.lines,
+      gateway: made.gateway,
+      raidBosses: { autoset: () => undefined },
+      settings: made.settings,
+      log: made.log,
+      now: () => made.clock.now,
+      upkeepMs: 0,
+    });
+    await scheduler.tick();
+    await scheduler.whenIdle();
+    expect(pruned).toBe(1);
+  });
+
   // Plan 8V-1: the events forum is drawn hourly (a post still open three days after its end).
   it('has the events forum drawn with the upkeep', async () => {
     const made = await reportedRaid();

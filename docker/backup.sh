@@ -167,16 +167,20 @@ write_off_status() {
 
 # Deletes this stack's dumps older than KEEP days (exactly KEEP days are kept: today's and the
 # KEEP - 1 before), as the folder's owner. What it could not delete is in `prune_failed`.
+# find hands the names to rm itself, as remove_partials does: the shell splits and globs none
+# on the way. What is still there afterwards could not be deleted (rm said why, in the log);
+# those names are only shown, in the status's warning.
 prune_old() {
   prune_failed=
-  if ! old=$(as_owner find "$OUT" -maxdepth 1 -name 'pine-backup-*.sql.gz' -mtime +"$((KEEP - 1))"); then
+  as_owner find "$OUT" -maxdepth 1 -name 'pine-backup-*.sql.gz' -mtime +"$((KEEP - 1))" \
+    -exec rm -f {} + || true
+  if ! left=$(as_owner find "$OUT" -maxdepth 1 -name 'pine-backup-*.sql.gz' -mtime +"$((KEEP - 1))"); then
     prune_failed="the old dumps could not be listed"
     return 0
   fi
-  for file in $old; do
-    as_owner rm -f "$file" || prune_failed="$prune_failed ${file##*/}"
-  done
-  prune_failed=${prune_failed# }
+  [ -n "$left" ] || return 0
+  prune_failed=$(printf '%s\n' "$left" | sed 's|.*/||' | tr '\n' ' ')
+  prune_failed=${prune_failed% }
 }
 
 # What a run that was killed left half-written in the backup folder, as the folder's owner.

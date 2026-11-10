@@ -52,7 +52,7 @@ Any machine that stays on, with Docker (with Compose) and git:
 Then the code:
 
 ```bash
-git clone --branch main-dev https://github.com/Googer/Professor-Pine.git ~/professor-pine
+git clone --branch master https://github.com/Googer/Professor-Pine.git ~/professor-pine
 ```
 
 ```bash
@@ -190,7 +190,7 @@ Then try it: `/raid` in a region channel, the buttons in the post, `/max` (a max
 ## 8. Running it
 
 - **Backups**: a verified dump every night at 03:30 (`BACKUP_TIME`) into `BACKUP_DIR`, kept 90 days. `./pine backup` makes one now; `./pine status` shows the last one; `./pine restore <backup file> --replace` loads one back.
-- **Updates**: `./pine update` backs up the database, fetches the newest code, rebuilds and restarts what changed.
+- **Updates**: `./pine update` backs up the database, fetches the newest release (the `master` branch you cloned), rebuilds and restarts what changed.
 - **Health**: the owner gets a direct message when the bot crashes, is stuck or a backup fails, and a watchdog restarts a stuck bot. `./pine status` and `./pine logs pine` show the rest.
 - The details of the stack: [operations.md](../architecture/operations.md). The section "After the move" of the [legacy guide](migrating-a-legacy-instance.md#6-after-the-move) says the same at more length.
 - **Help**: the official Professor Pine Discord, https://discord.com/invite/8FkjJVe.

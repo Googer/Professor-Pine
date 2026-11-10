@@ -306,6 +306,51 @@ describe('the backup folder of docker/backup.sh', () => {
     ]);
   });
 
+  // find hands the names to rm itself: the shell splits and globs none on the way (a list of
+  // names in a variable left such a dump there for good, without a word).
+  it('deletes an old dump whose name holds a space', (context) => {
+    const { out, env } = folders();
+    for (const name of ['pine-backup-2026 0701.sql.gz', 'pine-backup-20261015.sql.gz']) {
+      writeFileSync(path.join(out, name), '');
+    }
+    const run = runBackupScript(
+      [
+        'OWNER_UID=0 OWNER_GID=0 KEEP=90',
+        'touch -d "100 days ago" "$OUT/pine-backup-2026 0701.sql.gz"',
+        'prune_old; echo "failed: [$prune_failed]"',
+      ].join('\n'),
+      env,
+    );
+    if (!run) return context.skip('no sh here');
+
+    expect(run.stdout).toContain('failed: []');
+    expect(readdirSync(out)).toEqual(['pine-backup-20261015.sql.gz']);
+  });
+
+  it('names the old dumps it could not delete, for the status’s warning', (context) => {
+    const { out, env } = folders();
+    for (const name of ['pine-backup-20260701.sql.gz', 'pine-backup-20261015.sql.gz']) {
+      writeFileSync(path.join(out, name), '');
+    }
+    const run = runBackupScript(
+      [
+        'OWNER_UID=0 OWNER_GID=0 KEEP=90',
+        'touch -d "100 days ago" "$OUT/pine-backup-20260701.sql.gz"',
+        // The folder's owner may list the dumps and delete none (a share that went read-only).
+        'as_owner() { case " $* " in *" -exec "*) return 1 ;; esac; "$@"; }',
+        'prune_old; echo "failed: [$prune_failed]"',
+      ].join('\n'),
+      env,
+    );
+    if (!run) return context.skip('no sh here');
+
+    expect(run.stdout).toContain('failed: [pine-backup-20260701.sql.gz]');
+    expect(readdirSync(out).sort()).toEqual([
+      'pine-backup-20260701.sql.gz',
+      'pine-backup-20261015.sql.gz',
+    ]);
+  });
+
   it('removes what a run that was killed left half-written', (context) => {
     const { out, env } = folders();
     for (const name of [

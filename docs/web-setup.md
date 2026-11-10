@@ -51,6 +51,16 @@ Pine does not open ports or talk to your router. Pick one:
 - **Tailscale Funnel**: no domain needed; the address is a `*.ts.net` name. `tailscale funnel 8080` on the machine; `publicUrl` is the `https://<machine>.<tailnet>.ts.net` address it prints. Set `trustProxy: true`.
 - **Caddy with a port forward**: needs a public IPv4 address and opens port 443 on your router to this machine. A `Caddyfile` of `map.example.org { reverse_proxy 127.0.0.1:8080 }` gets and renews the certificate by itself. Set `trustProxy: true`.
 
+In the Docker stack no port of the bot is published, so Tailscale Funnel or Caddy on the host cannot reach it. Publish it to the host's own loopback address alone, in a file `compose.override.yaml` beside `compose.yaml` (Compose reads it by itself, git ignores it, and `./pine update` leaves it alone), with `web.host` `0.0.0.0` in `pine-settings.json`:
+
+```yaml
+services:
+  pine:
+    ports: ['127.0.0.1:8080:8080']
+```
+
+Then `./pine up`. Never `8080:8080` without the address: that opens the port on every address of the machine, past the proxy (and past its HTTPS). The Cloudflare Tunnel of the stack needs none of this.
+
 Whichever you pick, check once that it sends the visitor's address. Pine logs no addresses, so ask for `<publicUrl>/auth/login` 21 times within a minute from one place, then once from another network (a phone without Wi-Fi). If the second is refused too ("Too many requests"), the tunnel sends no `X-Forwarded-For` and every visitor shares one limit.
 
 With Cloudflare, also set these for the domain (the dashboard's home, then the domain, then SSL/TLS → Edge Certificates; they are not the tunnel's settings): **Always Use HTTPS** on, **HTTP Strict Transport Security (HSTS)** on with a Max Age of a month to begin with and its subdomains and preload left off, and **Minimum TLS Version** 1.2. Pine sends no HSTS itself. You need no certificate of your own: Cloudflare gets and renews one for the domain and its subdomains, one level down (`map.example.org`, not `a.map.example.org`).

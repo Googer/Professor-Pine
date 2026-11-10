@@ -28,7 +28,7 @@ Why this matters for the legacy bot: it asks for Server Members and Presence whe
 
 If your server is under the threshold, you are not affected yet. Move anyway: the legacy bot is no longer maintained, and every fix and feature from now on goes into the new Pine.
 
-**From now on, update the legacy bot's folder only from the `legacy` branch** (section 2b). The `main-dev` branch now holds the new Pine: a `git pull` of `main-dev` in the legacy bot's folder brings in the rewrite, and the running bot breaks.
+**From now on, update the legacy bot's folder only from the `legacy` branch** (section 2b). With the release of version 2.0.0 the `master` branch, which a legacy bot's folder most likely follows, holds the new Pine: a `git pull` there brings in the rewrite, and the running bot breaks.
 
 ## 2. Not ready in time: the stopgaps
 
@@ -95,7 +95,7 @@ The commands below are run in the new clone's folder (`./pine help` lists them a
 ### 4.1 Get the code
 
 ```bash
-git clone --branch main-dev https://github.com/Googer/Professor-Pine.git ~/professor-pine
+git clone --branch master https://github.com/Googer/Professor-Pine.git ~/professor-pine
 ```
 
 ```bash
@@ -378,7 +378,7 @@ The first only says what it would do, line by line: which rows it would add, and
 ## 6. After the move
 
 - **Backups**: a verified dump every night at 03:30 (`BACKUP_TIME`, in `BACKUP_TZ` or the settings' time zone) into `BACKUP_DIR`, kept 90 days (`BACKUP_KEEP_DAYS`). Each one is loaded into a scratch MySQL and checked before it counts. `./pine backup` makes one now. `./pine status` shows the last one. To load one back: `./pine restore <backup file> --replace`.
-- **Updates**: `./pine update` backs up the database, fetches the newest code, rebuilds and restarts what changed. It refuses to run if you changed files of the repository yourself: your own files are `.env` and `pine-settings.json`, which git ignores. After you edit `pine-settings.json`, run `./pine restart`.
+- **Updates**: `./pine update` backs up the database, fetches the newest release (the `master` branch you cloned), rebuilds and restarts what changed. It refuses to run if you changed files of the repository yourself: your own files are `.env` and `pine-settings.json`, which git ignores. After you edit `pine-settings.json`, run `./pine restart`.
 - **Google's APIs**: the new bot asks Google for more than the legacy bot did. The key needs the Geocoding API, Maps Static API and Places API (New) enabled in its Google Cloud project, and, if the key has API restrictions, all three ticked there too. The second step is easy to miss: Google then answers "requests to this API are blocked", and gyms get no nearby places.
 - **Google, after the first `/gym import`** (with a `GOOGLE_API_KEY`): the gyms the import added get their nearby places (and an address where Wayfarer gave none) from Google over the following weeks, then the PokéStops and Power Spots of your regions, a share each day. The bot asks at most a monthly budget that stays within Google's free amounts (by default 4,500 places searches, 500 of them kept for gyms you add or move by hand and `/gym refresh`, and 9,000 addresses: `googleLookupsPerMonth`, `googleLookupsReserve`, `googleGeocodesPerMonth`), counted from the 1st at midnight Pacific time, when Google's free amounts reset; the busiest regions go first if the legacy history (4.11) was imported. Lookups by hand have a hard cap of their own, `googleByHandPerMonth` (500), one lookup being an address and a places search: past it `/gym refresh` asks nothing, and a gym you add or move waits in the line. `/gym google` (staff) shows how many wait, the month's use and when this server's gyms will be done. Google counts the free amounts per billing account, not per key: if another installation's key (a test instance, say) bills to the same account, split the budget between them.
 - **Health**: `./pine status` and `./pine logs pine`. The bot's owner (`OWNER_ID`) gets a direct message when the bot crashes and restarts, when it is stuck, or when a backup fails. A watchdog service restarts the bot when it stays stuck or off Discord for several minutes.

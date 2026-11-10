@@ -4,7 +4,13 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { ImageCache, type FetchImage } from './image-cache.js';
-import { EmojiPictures, PlacePictures, pictureType } from './post-pictures.js';
+import {
+  EmojiPictures,
+  PLACE_PICTURE_KEEP_MS,
+  PlacePictures,
+  pictureType,
+  prunePlacePictures,
+} from './post-pictures.js';
 import { StaticMaps } from './static-maps.js';
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
@@ -309,5 +315,35 @@ describe('PlacePictures (plan 8M-8A)', () => {
     expect(await new StaticMaps(undefined, cache).prunePlaces()).toBe(0);
     expect(await places.read('gym', '12')).toBeDefined();
     expect(asked).toEqual(['https://lh3.googleusercontent.com/gym12=s400']);
+  });
+
+  // Plan 8Z-2: nothing bounded the folder; a gym or Wayspot that is gone left its picture for good.
+  it('has the pictures nobody asked for in a month removed, and no others', async () => {
+    const { cache, asked, dir } = await cacheOf(JPEG, 'image/jpeg');
+    const places = new PlacePictures({ gyms, wayspots, cache });
+    const emoji = new EmojiPictures({ emoji: { hasId: () => true }, cache });
+    await places.read('gym', '12');
+    await places.read('wayspot', WAYSPOT);
+    await emoji.read(SERVED);
+    const longAgo = (Date.now() - PLACE_PICTURE_KEEP_MS - 60_000) / 1000;
+    for (const folder of await readdir(dir)) {
+      for (const file of await readdir(path.join(dir, folder))) {
+        await utimes(path.join(dir, folder, file), longAgo, longAgo);
+      }
+    }
+    // The gym's is asked for again: its month starts anew.
+    await places.read('gym', '12');
+
+    expect(await prunePlacePictures(cache)).toBe(1);
+    expect(await readdir(path.join(dir, 'place-pictures'))).toEqual([
+      expect.stringMatching(/^gym-12\./),
+    ]);
+    // An emoji's picture is not a place's.
+    expect(await readdir(path.join(dir, 'emoji'))).toHaveLength(1);
+    // The Wayspot's is fetched again when a post shows it.
+    expect(await places.read('wayspot', WAYSPOT)).toBeDefined();
+    expect(
+      asked.filter((url) => url === 'https://lh3.googleusercontent.com/stop=s400'),
+    ).toHaveLength(2);
   });
 });

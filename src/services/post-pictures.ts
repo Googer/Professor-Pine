@@ -163,6 +163,12 @@ export type PlaceKind = 'gym' | 'wayspot';
 /** How many addresses of places' pictures `PlacePictures` keeps the keys of (review W-2). */
 export const KNOWN_ADDRESSES = 2_000;
 
+/** The image cache's folder of the places' pictures. */
+const PLACE_PICTURES_FOLDER = 'place-pictures';
+
+/** How long a place's picture that nobody asked for is kept: thirty days. */
+export const PLACE_PICTURE_KEEP_MS = 30 * 86_400_000;
+
 /** The gyms and the kept Wayspots, by what their pictures are. */
 export interface PlaceSources {
   gyms: {
@@ -242,13 +248,29 @@ export class PlacePictures {
     if (url === undefined) return undefined;
     const file = await this.downloads.file(`${kind}/${id}`, {
       // A folder of its own: `places` is StaticMaps', pruned daily (`prunePlaces`); a place's
-      // picture is kept until its address changes (the variant).
-      folder: 'place-pictures',
+      // picture is kept until its address changes (the variant), or nobody asked for it in a
+      // month (`prunePlacePictures`, which counts from its last use: `touch`).
+      folder: PLACE_PICTURES_FOLDER,
       // The image cache takes letters, digits, hyphens and underscores: a Wayfarer id has a dot.
       id: `${kind}-${id.replace(/[^A-Za-z0-9_-]/gu, '_')}`,
       variant: url,
       url,
+      touch: true,
     });
     return pictureOf(file, this.options.read ?? readFile);
   }
+}
+
+/**
+ * Deletes the places' pictures nobody asked for in thirty days (with the hourly upkeep, as the
+ * maps of places go with `StaticMaps.prunePlaces`), and gives how many (plan 8Z-2). Before, a
+ * picture went only when its place got another: that of a gym or Wayspot that was removed, or
+ * was shown once, stayed for good, and nothing bounded the folder. One that is shown again is
+ * fetched again.
+ */
+export function prunePlacePictures(
+  cache: { removeOlder(folder: string, before: number): Promise<number> },
+  now: number = Date.now(),
+): Promise<number> {
+  return cache.removeOlder(PLACE_PICTURES_FOLDER, now - PLACE_PICTURE_KEEP_MS);
 }

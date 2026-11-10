@@ -83,9 +83,23 @@ need_stack() {
   # Without it Docker would mount an empty folder in its place.
   [ -f "$PINE_SETTINGS" ] ||
     fail "There is no $PINE_SETTINGS here. Copy data/settings.json to pine-settings.json and edit it (timezone, channel names), or make it from a legacy installation with './pine convert-settings'."
+  warn_env_mode
   check_schema_name
   make_tool_dir
   make_index_dir
+}
+
+# The env file holds the bot's token and the database's passwords: a warning (never a refusal)
+# when its group or others may read it, with the command that mends it. `find -perm` with a
+# symbolic mode reads the same on Linux and macOS (`stat` does not). Not in Git Bash: Windows
+# keeps no such modes, every file looks readable by all there, and chmod mends nothing.
+warn_env_mode() {
+  case $(uname -s 2>/dev/null) in
+    MINGW* | MSYS* | CYGWIN*) return 0 ;;
+  esac
+  readable=$(find "$PINE_ENV_FILE" -maxdepth 0 \( -perm -g=r -o -perm -o=r \) 2>/dev/null) || return 0
+  [ -n "$readable" ] || return 0
+  printf "pine: %s can be read by other accounts of this machine, and it holds the bot's token and the database's passwords. Make it yours alone: chmod 600 %s\n" "$PINE_ENV_FILE" "$PINE_ENV_FILE" >&2
 }
 
 # DB_SCHEMA goes bare onto the mysql client's command line when a dump is loaded (and, in

@@ -29,10 +29,16 @@ yarn.lock
 dist/
 coverage/
 var/
-.env
+# every env file (a second stack's `.env.dev`, an editor's `.env.bak`) but the example
+.env*
+!.env.example
 # the settings of a Docker installation (./pine), and the .env lines the converter makes
 /pine-settings.json
 /env-from-legacy.txt
+# an installation's own additions to compose.yaml (a port for Caddy or Tailscale Funnel)
+compose.override.yaml
+# Claude Code's settings of this machine
+.claude/settings.local.json
 
 # backups of the Docker stack (BACKUP_DIR)
 /backups/
