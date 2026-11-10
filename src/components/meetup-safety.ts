@@ -56,6 +56,11 @@ export function decisionWords(outcome: DecideOutcome): string {
     }
     case 'not-for-a-pin':
       return 'A pin has no ruling: approve it or refuse it for this meetup alone.';
+    case 'unchecked':
+      return (
+        'I could not check with Discord just now whether its maker may post in the forum, so ' +
+        `nothing is decided yet. Press **${outcome.decision === 'approve' ? 'Approve' : 'Approve once'}** again in a moment.`
+      );
     case 'expired':
       return 'This request has expired: nobody decided in time.';
     case 'decided-before': {

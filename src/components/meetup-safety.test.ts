@@ -130,6 +130,25 @@ describe('the buttons of a moderators’ post', () => {
     expect(made.meetups()).toEqual([]);
   });
 
+  // 8Z-2 final fix F5: nothing is decided while Discord cannot say whether the maker is kept out.
+  it('asks the moderator to press Approve again while Discord cannot say whether the maker is kept out', async () => {
+    const made = await setup();
+    const request = await made.held();
+    made.gateway.failing.set('memberAccess', new Error('Discord is away'));
+    expect(told(await made.press(request.id, 'approve'))).toBe(
+      'I could not check with Discord just now whether its maker may post in the forum, so ' +
+        'nothing is decided yet. Press **Approve** again in a moment.',
+    );
+    expect(told(await made.press(request.id, 'approve-once'))).toMatch(
+      /Press \*\*Approve once\*\* again in a moment\.$/,
+    );
+    expect(made.storage.requests.get(request.id)?.status).toBe('pending');
+    made.gateway.failing.delete('memberAccess');
+    expect(told(await made.press(request.id, 'approve'))).toMatch(
+      /^Approved: the meetup is posted/,
+    );
+  });
+
   it('says that a pin has no ruling', async () => {
     const made = await setup();
     const request = await made.held({ place: SAFETY_PIN });

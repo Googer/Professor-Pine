@@ -410,7 +410,7 @@ export class MeetupSafety {
    * (`forumBarred`, the one question of every path into a forum; plan 8Z-2): `kept-out`,
    * `forum-unknown` while Discord cannot say (logged), undefined when not (a forum only hidden
    * from them lets them in; a region gone or without a forum is `createMeetup`'s to refuse).
-   * Asked by `make` and before an approval's meetup is made.
+   * Asked by `make` and by `decide` before an approval is kept (8Z-2 final fix F5).
    */
   private async makerKeptOut(
     regionChannelId: string,
@@ -589,6 +589,13 @@ export class MeetupSafety {
       if (!blocked.decided) return this.decidedBefore(request);
       return this.block(decided, by, blocked.newBlock, serverName);
     }
+    // Whether somebody keeps the maker out of the forum, asked before anything is kept (8Z-2
+    // final fix F5): while Discord cannot say, nothing is decided, the request stays open and
+    // the moderator presses again; kept out, the approval fails with its reason.
+    const kept = approving
+      ? await this.makerKeptOut(request.regionChannelId, request.makerId)
+      : undefined;
+    if (kept === 'forum-unknown' && approving) return { kind: 'unchecked', decision };
     if (!(await storage.decideRequest(request.id, status, decision, by))) {
       return this.decidedBefore(request);
     }
@@ -604,16 +611,21 @@ export class MeetupSafety {
       await this.tell(decided);
       return { kind: 'done', request: decided };
     }
-    return this.approve(decided, by);
+    return this.approve(decided, by, kept === 'kept-out');
   }
 
   /**
    * Makes the meetup of a request just approved, and keeps what came of it: its party, and for
    * Approve the place allowed for good (only once the meetup is made: an approval that fails
    * allows nothing); or `failed`. What cannot be kept is logged (an approval left without its
-   * meetup fails with the sweep); the post and the maker's DM come in any case.
+   * meetup fails with the sweep); the post and the maker's DM come in any case. `keptOut`:
+   * somebody keeps the maker out of the forum (`decide` asked it), so no meetup is made.
    */
-  private async approve(decided: MeetupRequestRecord, by: Decider): Promise<DecideOutcome> {
+  private async approve(
+    decided: MeetupRequestRecord,
+    by: Decider,
+    keptOut: boolean,
+  ): Promise<DecideOutcome> {
     const { storage, log } = this.options;
     // A block of its maker that came meanwhile (over another request) wins: no meetup. One that
     // cannot be read is looked for again once the meetup is made (`closeIfBlocked`).
@@ -622,7 +634,9 @@ export class MeetupSafety {
       return undefined;
     });
     if (blocked) return this.withdraw(decided);
-    const made = await this.makeApproved(decided);
+    const made: ApprovedMeetup = keptOut
+      ? { failure: { kind: 'kept-out' } }
+      : await this.makeApproved(decided);
     // Blocked meanwhile, but the meetup could not be closed (logged): it is there, so the
     // approval is kept with it (a moderator closes it by hand); its maker hears of the block alone.
     let unclosed = false;
@@ -1549,14 +1563,10 @@ export class MeetupSafety {
   }
 
   /** Makes the meetup of an approved request, as its maker asked for it. */
-  private async makeApproved(
-    request: MeetupRequestRecord,
-  ): Promise<{ partyId?: string; postId?: string; failure?: ApprovalFailure }> {
+  private async makeApproved(request: MeetupRequestRecord): Promise<ApprovedMeetup> {
     const { parties, log } = this.options;
-    // Somebody may have kept the maker out of the forum since they asked (plan 8Z-2): no meetup
-    // there; while Discord cannot say, none either (logged), as `make` refuses it.
-    const kept = await this.makerKeptOut(request.regionChannelId, request.makerId);
-    if (kept !== undefined) return { failure: { kind: kept === 'kept-out' ? kept : 'error' } };
+    // Whether somebody kept the maker out of the forum since they asked (plan 8Z-2) is asked by
+    // `decide` before the approval is kept (8Z-2 final fix F5).
     try {
       const outcome = await parties.createMeetup({
         name: request.name,
@@ -1712,6 +1722,13 @@ export type AppealDecision =
   | { kind: 'decided-before'; appeal: MeetupAppeal }
   | { kind: 'done'; appeal: MeetupAppeal };
 
+/** What `makeApproved` made of an approval: its meetup and post, or why none. */
+interface ApprovedMeetup {
+  partyId?: string;
+  postId?: string;
+  failure?: ApprovalFailure;
+}
+
 /** What came of a moderator's press on a request's post. */
 export type DecideOutcome =
   /** There is no such request in the presser's server. */
@@ -1722,6 +1739,12 @@ export type DecideOutcome =
   | { kind: 'expired' }
   /** Approve and Refuse from now on are not for a pin. */
   | { kind: 'not-for-a-pin' }
+  /**
+   * An approval while Discord cannot say whether somebody keeps the maker out of the forum
+   * (8Z-2 final fix F5): nothing is kept, the request stays open, and the moderator may press
+   * `decision` again.
+   */
+  | { kind: 'unchecked'; decision: 'approve' | 'approve-once' }
   /**
    * Block member on a request decided before: its maker blocked now (`newBlock`), or blocked
    * already; how many meetups were closed and requests withdrawn.

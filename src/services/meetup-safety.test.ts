@@ -439,17 +439,29 @@ describe('MeetupSafety.decide', () => {
     );
   });
 
-  it('marks an approval failed while Discord cannot say whether its maker is kept out', async () => {
+  // 8Z-2 final fix F5: one failed member fetch no longer ends the request for good.
+  it('stores no approval while Discord cannot say whether its maker is kept out, and approves at the next press', async () => {
     const made = await meetupSafetyWith();
     const request = await made.held();
+    const shownBefore = textOf(made.postOf(request)?.message);
     made.gateway.failing.set('memberAccess', new Error('Discord is away'));
     const outcome = await made.safety.decide(request.id, 'approve-once', MODERATOR_MEMBER, SERVER);
-    expect(outcome).toMatchObject({ kind: 'done', failure: 'something went wrong' });
+    expect(outcome).toEqual({ kind: 'unchecked', decision: 'approve-once' });
+    // Nothing kept, posted or said: the request is open, its post as it was.
     expect(made.storage.requests.get(request.id)).toMatchObject({
-      status: 'failed',
-      failure: { kind: 'error' },
+      status: 'pending',
+      decidedBy: null,
     });
     expect(made.gateway.postsIn(WEST_FORUM)).toEqual([]);
+    expect(textOf(made.postOf(request)?.message)).toBe(shownBefore);
+    expect(made.dms.to(ALICE)).toEqual([]);
+    // Discord is back: the next press approves it.
+    made.gateway.failing.delete('memberAccess');
+    const again = await made.safety.decide(request.id, 'approve-once', MODERATOR_MEMBER, SERVER);
+    expect(again).toMatchObject({ kind: 'done' });
+    expect(again).not.toHaveProperty('failure');
+    expect(made.storage.requests.get(request.id)?.status).toBe('approved');
+    expect(made.gateway.postsIn(WEST_FORUM)).toHaveLength(1);
   });
 
   it('says so when the bot may not make posts in the forum of an approved meetup', async () => {
