@@ -38,6 +38,20 @@ describe('the workflows', () => {
       expect(line, line.trim()).toMatch(/uses: [\w.-]+\/[\w./-]+@[0-9a-f]{40} # v\d+\.\d+\.\d+$/);
     }
   });
+
+  // 8Z-2 final fix F8: a tag of an image (`stable`) is whatever was pushed there last; the
+  // digest of its index is the one image every platform pulls.
+  it('run every image of a `docker run` at its version and digest', () => {
+    const runs = workflows.flatMap(({ text }) =>
+      bare(text)
+        .split(/\r?\n/)
+        .filter((line) => /\bdocker run\b/.test(line)),
+    );
+    expect(runs.length).toBeGreaterThan(0);
+    for (const line of runs) {
+      expect(line, line.trim()).toMatch(/\s[\w./-]+:v?\d+\.\d+\.\d+@sha256:[0-9a-f]{64}\s/);
+    }
+  });
 });
 
 describe('Dependabot', () => {

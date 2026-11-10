@@ -35,8 +35,11 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      # ShellCheck's newest release at the digest of its image index (Docker Hub's tags API,
+      # 2026-11-10). Dependabot does not bump an image on a `docker run` line: a newer release is
+      # pinned here by hand, its tag and index digest from Docker Hub.
       - name: Shell scripts
-        run: docker run --rm -v "$PWD:/mnt:ro" koalaman/shellcheck:stable -s sh /mnt/pine /mnt/docker/backup.sh
+        run: docker run --rm -v "$PWD:/mnt:ro" koalaman/shellcheck:v0.11.0@sha256:61862eba1fcf09a484ebcc6feea46f1782532571a34ed51fedf90dd25f925a8d -s sh /mnt/pine /mnt/docker/backup.sh
       - name: Settings of the stack (dummy values)
         run: |
           cat > .env <<'ENV'
