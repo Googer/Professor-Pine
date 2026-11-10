@@ -21,7 +21,8 @@ export const metersBetween: (a: Place, b: Place) => number = metresBetween;
  * the Report button's nearest), at three decimals (plan 8Z-2, audit L-W3): a point within some
  * 80 meters, enough to order places by how near they are, where six decimals told the member's
  * own spot to a tenth of a meter in a GET query, which proxies and logs keep. The distances the
- * page shows are measured in the page, from the place itself.
+ * page shows are measured in the page, from the place itself, and the Report button asks for more
+ * than it lists, which it orders by the place itself (`NEAREST_SPARE`, F-B8).
  */
 export function nearParam(at: Place): string {
   return `${at.lat.toFixed(3)},${at.lon.toFixed(3)}`;

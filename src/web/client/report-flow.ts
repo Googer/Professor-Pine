@@ -28,6 +28,13 @@ const PICK_HINTS: Readonly<Record<Exclude<ReportPick, 'form'>, string>> = {
 /** How many of the nearest places step 2 lists. */
 export const NEAREST_COUNT = 5;
 
+/**
+ * How many more than it lists step 2 asks the server for (F-B8): the point goes at three
+ * decimals (`nearParam`, some 55 meters off), so the server's nearest of it may leave out one
+ * truly nearer; the page orders them by the exact point and lists the first `NEAREST_COUNT`.
+ */
+export const NEAREST_SPARE = 5;
+
 /** A place step 2 may list: a gym, a Power Spot, a PokéStop, by its id. */
 export interface NearPlace {
   id: string;

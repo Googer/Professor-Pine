@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { GeoView } from '../../domain/web/geo-data.js';
 import type { PageNode, MapGym } from './popup.js';
 import { FormHold } from './raid-forms.js';
+import { NEAREST_COUNT, NEAREST_SPARE } from './report-flow.js';
 import { REPORT_KINDS, type ReportKind } from './report-menu.js';
 import { ReportFlow, type ReportFlowDeps } from './report-ui.js';
 import type { MapSpot } from './max-ui.js';
@@ -324,6 +325,44 @@ describe("the Report button's step 2 per kind and step 3 (plan 8M-9A, A4 to A6)"
     flow.spotsCame([{ id: 'near', title: 'Gazebo', lat: 40.4405, lon: -79.95 }]);
     expect(shown()).toEqual(expect.arrayContaining(['Spot 1', 'Spot 5']));
     expect(shown()).not.toContain('Gazebo');
+  });
+
+  // F-B8: the point is sent at three decimals (some 55 meters off), so the server's nearest of
+  // it may not be the truly nearest: five more are asked for, and the page orders and cuts them
+  // by the exact point.
+  it('asks for five more than it lists, and lists the truly nearest of them', async () => {
+    const asked: number[] = [];
+    let answer: (spots: readonly MapSpot[]) => void = () => undefined;
+    const { flow, shown } = started({
+      nearest: (_pick, _at, count) => {
+        asked.push(count);
+        return new Promise((resolve) => {
+          answer = resolve;
+        });
+      },
+    });
+    flow.choose(kind('max'));
+    expect(asked).toEqual([NEAREST_COUNT + NEAREST_SPARE]);
+    // In the server's order, by the rounded point: the truly nearest (north of 40.44) come last.
+    const spot = (n: number, lat: number): MapSpot => ({
+      id: `s${String(n)}`,
+      title: `Spot ${String(n)}`,
+      lat,
+      lon: -79.95,
+    });
+    answer([
+      ...[1, 2, 3, 4, 5].map((n) => spot(n, 40.4395 - n / 100_000)),
+      ...[6, 7, 8, 9, 10].map((n) => spot(n, 40.44 + (n - 5) / 1_000_000)),
+    ]);
+    await flow.nearestCame;
+    const listed = shown().filter((text) => text.startsWith('Spot '));
+    expect(listed.slice(0, NEAREST_COUNT)).toEqual([
+      'Spot 6',
+      'Spot 7',
+      'Spot 8',
+      'Spot 9',
+      'Spot 10',
+    ]);
   });
 
   it("opens a battle's marker as it would, step 2 ending once the tap is through", () => {

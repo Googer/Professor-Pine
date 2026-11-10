@@ -10,6 +10,8 @@ import { pickAgainPressed } from './pick-again.js';
 import { renderNode, type MapGym, type PageNode } from './popup.js';
 import type { FormClaim, FormHold } from './raid-forms.js';
 import {
+  NEAREST_COUNT,
+  NEAREST_SPARE,
   nearestLines,
   pickBox,
   pickLive,
@@ -125,10 +127,14 @@ export interface ReportFlowDeps {
    */
   toStop(kind: 'research' | 'rocket', stop: MapSpot): void;
   /**
-   * The nearest Power Spots (`spots`) or PokéStops (`stops`) of a point, wherever they are
-   * (plan 8M-11A: `/api/powerspots` or `/api/stops` with `near=` and `count=`), or `failed`.
+   * The `count` nearest Power Spots (`spots`) or PokéStops (`stops`) of a point, wherever they
+   * are (plan 8M-11A: `/api/powerspots` or `/api/stops` with `near=` and `count=`), or `failed`.
    */
-  nearest(pick: 'spots' | 'stops', at: LatLon): Promise<readonly MapSpot[] | 'failed'>;
+  nearest(
+    pick: 'spots' | 'stops',
+    at: LatLon,
+    count: number,
+  ): Promise<readonly MapSpot[] | 'failed'>;
 }
 
 /**
@@ -230,9 +236,10 @@ export class ReportFlow {
       deps.flyTo(origin, () => {
         flight.flying = false;
       });
-      // The five nearest wherever they are (plan 8M-11A), not only those the view holds.
+      // The five nearest wherever they are (plan 8M-11A), not only those the view holds: five
+      // more asked for, of a point sent rounded, and the five nearest the exact one listed (F-B8).
       const pick = kind.pick;
-      this.nearestCame = deps.nearest(pick, origin).then(
+      this.nearestCame = deps.nearest(pick, origin, NEAREST_COUNT + NEAREST_SPARE).then(
         (answer) => {
           this.nearestServed(flight, answer);
         },

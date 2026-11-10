@@ -3,7 +3,7 @@ import type { GeoView } from '../../domain/web/geo-data.js';
 import type { PartiesView } from '../../domain/web/party-data.js';
 import type { PowerSpotsView } from '../../domain/web/max-data.js';
 import type { StopsView } from '../../domain/web/meetup-data.js';
-import { NEAREST_COUNT, regionHolding } from './report-flow.js';
+import { regionHolding } from './report-flow.js';
 import { byId, getJson, say } from './common.js';
 import { meetupActions, meetupAtStopBox, meetupHereBox } from './meetup-forms.js';
 import { meetupUi } from './meetup-ui.js';
@@ -2922,8 +2922,8 @@ export function showParties(
   const report = reportUi({
     // Step 2's five nearest Power Spots or PokéStops wherever they are (plan 8M-11A), as the
     // server's search of nearby places finds them; the view's places stay what the map draws.
-    nearest: async (pick, at) => {
-      const query = `near=${nearParam(at)}&count=${String(NEAREST_COUNT)}`;
+    nearest: async (pick, at, count) => {
+      const query = `near=${nearParam(at)}&count=${String(count)}`;
       try {
         const rows =
           pick === 'spots'
