@@ -347,6 +347,36 @@ describe('StopPictures (plan 8R-6)', () => {
       expect(shut.asked.times).toBe(0);
     });
 
+    it('reads a picture asked for by many at once from its folder once, the gate asked once (F-B3)', async () => {
+      const { pictures } = picturesWith();
+      pictures.serving();
+      await pictures.prepare([LARVITAR]);
+      const { key } = servedAs(pictures.url(LARVITAR));
+      const open = gate(true);
+      const answers = await Promise.all(
+        Array.from({ length: 300 }, () => pictures.read(key, open.mayCost)),
+      );
+      expect(open.asked.times).toBe(1);
+      // One read: every answer is the very bytes it gave.
+      const [first] = answers;
+      expect(first).toBeInstanceOf(Buffer);
+      expect(answers.every((answer) => answer === first)).toBe(true);
+      // Settled, so the next miss is a read of its own: none, the bytes are in memory.
+      expect(await pictures.read(key, gate(false).mayCost)).toBe(first);
+    });
+
+    it('lets those who asked together share a refusal, and the next one ask again (F-B3)', async () => {
+      const { pictures } = picturesWith();
+      pictures.serving();
+      await pictures.prepare([LARVITAR]);
+      const { key } = servedAs(pictures.url(LARVITAR));
+      const shut = gate(false);
+      const answers = await Promise.all([1, 2, 3].map(() => pictures.read(key, shut.mayCost)));
+      expect(answers).toEqual(['refused', 'refused', 'refused']);
+      expect(shut.asked.times).toBe(1);
+      expect(await pictures.read(key, gate(true).mayCost)).toBeInstanceOf(Buffer);
+    });
+
     it('reads nothing from its folder where the gate refuses, and asks it of no key it never made', async () => {
       const { pictures } = picturesWith();
       pictures.serving();

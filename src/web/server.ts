@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fastifyCookie from '@fastify/cookie';
 import fastifyStatic from '@fastify/static';
-import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
+import Fastify, { type FastifyInstance } from 'fastify';
 import type { Settings } from '../config/settings.js';
 import { EGG_PICTURE_NAMES } from '../domain/pogo/raid-eggs.js';
 import type { Logger } from '../log.js';
@@ -28,7 +28,7 @@ import type { MeetupWebDeps } from './meetup-routes.js';
 import { PacedMembers, type MemberPace, type PacedDirectory } from './paced-members.js';
 import { HASHED_NAME, type WebAssets } from './page.js';
 import type { PartyWebDeps } from './party-routes.js';
-import { publicCosts, type PublicCost } from './public-costs.js';
+import { publicCosts, type CostOf } from './public-costs.js';
 import type { RateLimiter } from './rate-limit.js';
 import type { RaidWebDeps } from './raid-routes.js';
 import type { Sessions } from './sessions.js';
@@ -288,17 +288,14 @@ function iconRoutes(app: FastifyInstance): void {
  * /emoji/<id>.png` for an emoji of the application alone (`EmojiPictures`; anything else 404),
  * fetched once and kept for good (an emoji's picture never changes under its id), in memory
  * once read (`EmojiPictures`). No limit per address; the first read of each costs, and counts
- * against the overall limit for a visitor who is not logged in (`publicCosts`, plan 8Z-2: 429
- * once that is spent, a picture in memory answered all the same).
+ * against the emoji's overall budget for a visitor who is not logged in, against the account
+ * for somebody who is (`publicCosts`, plan 8Z-2, F-B3: 429 once that is spent, a picture in
+ * memory answered all the same).
  */
-function emojiRoutes(
-  app: FastifyInstance,
-  emoji: WebDeps['emoji'],
-  costOf: (request: FastifyRequest) => PublicCost,
-): void {
+function emojiRoutes(app: FastifyInstance, emoji: WebDeps['emoji'], costOf: CostOf): void {
   app.get<{ Params: { file: string } }>(`${EMOJI_PATH}:file`, async (request, reply) => {
     const id = /^(\d{17,20})\.png$/u.exec(request.params.file)?.[1];
-    const cost = costOf(request);
+    const cost = costOf(request, 'emoji');
     const picture = id === undefined ? undefined : await emoji.read(id, cost.mayCost);
     if (picture === REFUSED) return cost.refuse(reply);
     if (picture === undefined) return sendFailure(request, reply, 404);
@@ -313,17 +310,14 @@ function emojiRoutes(
  * The square pictures of the reports at stops (plan 8R-6): public, `GET /pictures/<key>.png` for
  * the pictures `StopPictures` made and nothing else, kept as long as the eggs (their address
  * carries `?v=` of what they show), in memory once read (`StopPictures`). The read from the
- * folder counts against the overall limit for a visitor who is not logged in, as the emoji's
- * (`publicCosts`, plan 8Z-2); Discord's media proxy, which fetches a post's pictures, is one.
+ * folder counts against the pictures' own overall budget for a visitor who is not logged in
+ * (`publicCosts`, plan 8Z-2, F-B3: neither the emoji nor the views spend it); Discord's media
+ * proxy, which fetches a post's pictures, is one.
  */
-function pictureRoutes(
-  app: FastifyInstance,
-  pictures: WebDeps['pictures'],
-  costOf: (request: FastifyRequest) => PublicCost,
-): void {
+function pictureRoutes(app: FastifyInstance, pictures: WebDeps['pictures'], costOf: CostOf): void {
   app.get<{ Params: { file: string } }>(`${PICTURE_PATH}:file`, async (request, reply) => {
     const key = /^([0-9a-f]{32})\.png$/.exec(request.params.file)?.[1];
-    const cost = costOf(request);
+    const cost = costOf(request, 'pictures');
     const picture = key === undefined ? undefined : await pictures.read(key, cost.mayCost);
     if (picture === REFUSED) return cost.refuse(reply);
     if (picture === undefined) return sendFailure(request, reply, 404);

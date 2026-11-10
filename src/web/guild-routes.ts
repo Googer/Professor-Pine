@@ -18,7 +18,7 @@ import { postControlRoutes } from './post-control-routes.js';
 import { PartyViewers } from './party-viewers.js';
 import { raidRoutes } from './raid-routes.js';
 import { regionRoutes } from './region-routes.js';
-import type { PublicCost } from './public-costs.js';
+import type { CostOf } from './public-costs.js';
 import { limitedRead } from './rate-limit.js';
 import { mayEditRegions } from './region-staff.js';
 import { spawnRoutes } from './spawn-routes.js';
@@ -42,7 +42,7 @@ export function guildRoutes(
   scope: FastifyInstance,
   deps: WebDeps,
   pacedMembers: PacedMembers,
-  costOf: (request: FastifyRequest) => PublicCost,
+  costOf: CostOf,
 ): void {
   const { sessions } = deps;
   // Who counts as a member on the map (`settings.web.memberRole`): the parties (`/api/me` judges
@@ -193,8 +193,9 @@ export function guildRoutes(
   // 8Z-2, F-B10; `GeoCache`, `publicRegions`). So the answer is
   // the asker's (`private`, `Vary: Cookie`), and an ETag of one view never matches the other.
   // Building a view anew is work that costs: for a visitor who is not logged in it counts
-  // against the overall limit (`publicCosts`, plan 8Z-2), 429 once that is spent; the view as
-  // kept is answered all the same.
+  // against the views' overall budget, for somebody logged in against their account
+  // (`publicCosts`, plan 8Z-2, F-B3), 429 once that is spent; the view as kept is answered all
+  // the same.
   scope.get(
     '/api/geo',
     { onRequest: limitedRead(GEO_PER_MINUTE, deps) },
@@ -204,7 +205,7 @@ export function guildRoutes(
       const session = await sessions.of(request, reply);
       const member =
         session === undefined ? undefined : await viewers.askedMembership(guild, session.userId);
-      const cost = costOf(request);
+      const cost = costOf(request, 'geo');
       const view = await deps.geo.view(
         guild,
         member?.kind === 'member' ? 'members' : 'public',

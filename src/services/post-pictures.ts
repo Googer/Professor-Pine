@@ -98,6 +98,8 @@ export const EMOJI_MEMORY_BYTES = 16 * 1024 * 1024;
 export class EmojiPictures {
   private readonly downloads: Downloads;
   private readonly memory: BoundedBytes<string, PictureBytes>;
+  /** The reads of a picture on their way, by the emoji's id. */
+  private readonly reading = new Map<string, Promise<PictureBytes | undefined | Refused>>();
 
   constructor(
     private readonly options: {
@@ -133,17 +135,25 @@ export class EmojiPictures {
     const held = this.memory.get(id);
     if (held !== undefined) return held;
     if (this.downloads.failedLately(id)) return undefined;
-    if (mayCost !== undefined && !(await mayCost())) return REFUSED;
-    const file = await this.downloads.file(id, {
-      folder: 'emoji',
-      id,
-      // An emoji's picture never changes under its id.
-      variant: '96',
-      url: `https://cdn.discordapp.com/emojis/${id}.png?size=96`,
-    });
-    const picture = await pictureOf(file, this.options.read ?? readFile);
-    if (picture !== undefined) this.memory.set(id, picture);
-    return picture;
+    // Asked again while it is read (F-B3): the same read, counted once, its answer (a refusal
+    // too) shared; forgotten once it settled, also where it failed.
+    const running = this.reading.get(id);
+    if (running) return running;
+    const reading = (async (): Promise<PictureBytes | undefined | Refused> => {
+      if (mayCost !== undefined && !(await mayCost())) return REFUSED;
+      const file = await this.downloads.file(id, {
+        folder: 'emoji',
+        id,
+        // An emoji's picture never changes under its id.
+        variant: '96',
+        url: `https://cdn.discordapp.com/emojis/${id}.png?size=96`,
+      });
+      const picture = await pictureOf(file, this.options.read ?? readFile);
+      if (picture !== undefined) this.memory.set(id, picture);
+      return picture;
+    })().finally(() => this.reading.delete(id));
+    this.reading.set(id, reading);
+    return reading;
   }
 }
 

@@ -5,22 +5,51 @@ import { RateLimiter } from './rate-limit.js';
 import type { Sessions } from './sessions.js';
 
 /**
- * The work that costs which visitors who are not logged in may cause in a minute, all of them
- * together (plan 8Z-2): a picture read from its folder or fetched from Discord's CDN, a
- * server's regions and gyms built anew. Each is done once and then answered from memory, so an
- * honest minute needs few (a restart's first pictures, a view after a gym changed); what a
- * flood of addresses could cause before had no bound at all.
+ * The stops' pictures read from their folder that visitors without a session may cause in a
+ * minute, all of them together (plan 8Z-2; F-B3: a budget of its own). Discord's media proxy is
+ * such a visitor: after a restart it asks for each picture the region boards' posts show the
+ * first time it misses it in its own cache, and a day's posts show a few dozen distinct pictures
+ * across every board (a reward's picture serves every board that shows it), at most six per
+ * task; 300 is that burst several times over, in one minute.
  */
-export const PUBLIC_COSTS_PER_MINUTE = 300;
+export const PICTURE_COSTS_PER_MINUTE = 300;
 
-/** The one key of the overall limit: it is nobody's own. */
+/**
+ * The application's emoji fetched or read that visitors without a session may cause in a minute
+ * (F-B3). Emoji are shown on the map's posts, which only members see, whose pages carry their
+ * session and are counted by it (`MEMBER_COSTS_PER_MINUTE`); a visitor without one has little
+ * reason to ask for any.
+ */
+export const EMOJI_COSTS_PER_MINUTE = 120;
+
+/**
+ * The servers' regions and gyms built anew for visitors without a session in a minute (F-B3):
+ * a view is built after a gym changed, the regions loaded or the public regions changed, a few
+ * a minute on a busy server; a visitor opening the public map is answered the kept view.
+ */
+export const GEO_COSTS_PER_MINUTE = 60;
+
+/**
+ * The work that costs one account may cause in a minute, of every kind together (F-B3: a session
+ * no longer exempts, as anybody can log in with Discord): a member's page after a restart loads
+ * the emoji its posts show, each once, and a view of the map or two.
+ */
+export const MEMBER_COSTS_PER_MINUTE = 60;
+
+/** The kinds of work that costs, each with a budget of its own for visitors without a session. */
+export type CostKind = 'pictures' | 'emoji' | 'geo';
+
+/** The limits of work that costs for one request of a kind (`publicCosts`). */
+export type CostOf = (request: FastifyRequest, kind: CostKind) => PublicCost;
+
+/** The one key of an overall limit: it is nobody's own. */
 const EVERYBODY = 'everybody';
 
-/** What a route that anybody may ask does with the overall limit, for one request. */
+/** What a route that anybody may ask does with the limits of work that costs, for one request. */
 export interface PublicCost {
   /**
-   * Asked right before work that costs (`MayCost`): yes for whoever is logged in, uncounted;
-   * else counted against the overall limit, and no once that is spent.
+   * Asked right before work that costs (`MayCost`): counted against the account where the
+   * request has a session, else against the overall budget of its kind; no once that is spent.
    */
   mayCost: MayCost;
   /** Answers the request where `mayCost` said no: 429 with `Retry-After`. */
@@ -28,23 +57,36 @@ export interface PublicCost {
 }
 
 /**
- * The overall limit of the routes that cost without a session (`/api/geo`, `/emoji/<id>.png`,
- * `/pictures/<key>.png`; plan 8Z-2): one for all of them, not per address, counting only work
- * that costs (the services ask `mayCost` right before it) and only for requests without a
- * session; an answer from memory is never counted nor refused. The session is looked up only
- * when work is due, and never renewed (`Sessions.has`): these answers may be kept by others.
+ * The limits of the routes that cost without a session (`/api/geo`, `/emoji/<id>.png`,
+ * `/pictures/<key>.png`; plan 8Z-2, F-B3), counting only work that costs (the services ask
+ * `mayCost` right before it; an answer from memory is never counted nor refused, and asks that
+ * arrive while the work is on its way share it, counted once): a request with a session against
+ * its account (`MEMBER_COSTS_PER_MINUTE`, every kind together), one without against the overall
+ * budget of its kind (`PICTURE_COSTS_PER_MINUTE`, `EMOJI_COSTS_PER_MINUTE`,
+ * `GEO_COSTS_PER_MINUTE`), so that one kind spent never refuses another. The session is looked
+ * up only when work is due, and never renewed (`Sessions.userOf`): these answers may be kept by
+ * others.
  */
 export function publicCosts(options: {
-  sessions: Pick<Sessions, 'has'>;
+  sessions: Pick<Sessions, 'userOf'>;
   now: () => number;
-}): (request: FastifyRequest) => PublicCost {
-  const limiter = new RateLimiter({ uses: PUBLIC_COSTS_PER_MINUTE, perMs: 60_000, addresses: 1 });
-  return (request) => {
+}): CostOf {
+  const overall = (uses: number) => new RateLimiter({ uses, perMs: 60_000, addresses: 1 });
+  const budgets: Readonly<Record<CostKind, RateLimiter>> = {
+    pictures: overall(PICTURE_COSTS_PER_MINUTE),
+    emoji: overall(EMOJI_COSTS_PER_MINUTE),
+    geo: overall(GEO_COSTS_PER_MINUTE),
+  };
+  const members = new RateLimiter({ uses: MEMBER_COSTS_PER_MINUTE, perMs: 60_000 });
+  return (request, kind) => {
     let retryAfterSeconds = 60;
     return {
       mayCost: async () => {
-        if (await options.sessions.has(request)) return true;
-        const answer = limiter.take(EVERYBODY, options.now());
+        const user = await options.sessions.userOf(request);
+        const answer =
+          user === undefined
+            ? budgets[kind].take(EVERYBODY, options.now())
+            : members.take(user, options.now());
         if (answer.ok) return true;
         ({ retryAfterSeconds } = answer);
         return false;

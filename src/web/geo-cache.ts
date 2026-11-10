@@ -101,6 +101,8 @@ export class GeoCache {
     string,
     { at: number; key: string; ids: ReadonlySet<number> }
   >(SERVERS);
+  /** Per audience and server, the view being built, and of what. */
+  private readonly building = new Map<string, { key: string; view: Promise<SentView | Refused> }>();
   /** Per server, the decision on its way. */
   private readonly deciding = new Map<string, Promise<ReadonlySet<number>>>();
   private readonly now: () => number;
@@ -147,18 +149,28 @@ export class GeoCache {
     const slot = `${audience}:${guildId}`;
     const kept = this.views.get(slot);
     if (kept?.key === key) return kept;
-    if (mayBuild !== undefined && !(await mayBuild())) return REFUSED;
-    const body = JSON.stringify(
-      geoView({
-        regions: shown,
-        channelNames,
-        gyms: shown.length === 0 ? [] : gyms.all(),
-        regionsOf: (id) => gyms.regionsOf(id),
-      }),
-    );
-    const view = { key, body, etag: etagOf(body) };
-    this.views.set(slot, view);
-    return view;
+    // Asked again while it is built (F-B3): the same build, counted once, its answer (a refusal
+    // too) shared; forgotten once it settled.
+    const running = this.building.get(slot);
+    if (running?.key === key) return running.view;
+    const building = (async (): Promise<SentView | Refused> => {
+      if (mayBuild !== undefined && !(await mayBuild())) return REFUSED;
+      const body = JSON.stringify(
+        geoView({
+          regions: shown,
+          channelNames,
+          gyms: shown.length === 0 ? [] : gyms.all(),
+          regionsOf: (id) => gyms.regionsOf(id),
+        }),
+      );
+      const view = { key, body, etag: etagOf(body) };
+      this.views.set(slot, view);
+      return view;
+    })().finally(() => {
+      if (this.building.get(slot)?.view === building) this.building.delete(slot);
+    });
+    this.building.set(slot, { key, view: building });
+    return building;
   }
 
   /** The ids of a server's public regions, as decided within the minute (`publicRegions`). */

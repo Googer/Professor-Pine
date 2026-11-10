@@ -104,6 +104,36 @@ describe('EmojiPictures (plan 8M-8A)', () => {
       expect([fetched, files]).toEqual([[SERVED], [`file-${SERVED}`]]);
     });
 
+    it('reads a picture asked for by many at once once, the gate asked once (F-B3)', async () => {
+      const { pictures, fetched, files } = counted();
+      const open = gate(true);
+      const answers = await Promise.all(
+        Array.from({ length: 300 }, () => pictures.read(SERVED, open.mayCost)),
+      );
+      expect(open.asked.times).toBe(1);
+      expect([fetched, files]).toEqual([[SERVED], [`file-${SERVED}`]]);
+      expect(answers.every((answer) => answer === answers[0])).toBe(true);
+    });
+
+    it('forgets a read on its way once it failed: the next one reads again (F-B3)', async () => {
+      let reads = 0;
+      const pictures = new EmojiPictures({
+        emoji: { hasId: () => true },
+        cache: { get: (request) => Promise.resolve(`file-${request.id}`) },
+        read: () => {
+          reads += 1;
+          return reads === 1
+            ? Promise.reject(new Error('disk'))
+            : Promise.resolve(Buffer.from(PNG));
+        },
+      });
+      const together = await Promise.all([1, 2].map(() => pictures.read(SERVED)));
+      expect(together).toEqual([undefined, undefined]);
+      expect(reads).toBe(1);
+      expect(await pictures.read(SERVED)).toMatchObject({ type: 'image/png' });
+      expect(reads).toBe(2);
+    });
+
     it('does no work where the gate refuses, and asks it of no emoji that is not the application’s', async () => {
       const { pictures, fetched, files } = counted();
       const shut = gate(false);

@@ -159,6 +159,8 @@ export class StopPictures {
   private readonly memory: BoundedBytes<string, Buffer>;
   private readonly failed = new BoundedMap<string, Failure>(FAILURES_KEPT);
   private readonly fetching = new Map<string, Promise<void>>();
+  /** The web server's reads of a picture from its folder on their way, by key. */
+  private readonly reading = new Map<string, Promise<Buffer | undefined | Refused>>();
   /** Files of pictures that made room, being deleted. */
   private readonly removing = new Set<Promise<void>>();
   private readonly stopping = new AbortController();
@@ -265,15 +267,23 @@ export class StopPictures {
     if (kept === undefined) return undefined;
     const held = this.memory.get(key);
     if (held !== undefined) return held;
-    if (mayCost !== undefined && !(await mayCost())) return REFUSED;
-    try {
-      const bytes = await readFile(this.fileOf(key));
-      // Made anew or gone from the index meanwhile: not what the key stands for any more.
-      if (this.kept.get(key) === kept) this.memory.set(key, bytes);
-      return bytes;
-    } catch {
-      return undefined;
-    }
+    // Asked again while it is read (F-B3): the same read, counted once, its answer (a refusal
+    // too) shared; forgotten once it settled.
+    const running = this.reading.get(key);
+    if (running) return running;
+    const reading = (async (): Promise<Buffer | undefined | Refused> => {
+      if (mayCost !== undefined && !(await mayCost())) return REFUSED;
+      try {
+        const bytes = await readFile(this.fileOf(key));
+        // Made anew or gone from the index meanwhile: not what the key stands for any more.
+        if (this.kept.get(key) === kept) this.memory.set(key, bytes);
+        return bytes;
+      } catch {
+        return undefined;
+      }
+    })().finally(() => this.reading.delete(key));
+    this.reading.set(key, reading);
+    return reading;
   }
 
   /**

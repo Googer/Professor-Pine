@@ -143,15 +143,16 @@ export class Sessions {
   }
 
   /**
-   * Whether a request carries a session, without renewing it (plan 8Z-2): for an answer that
-   * anybody gets and others may keep (a public picture), which must never carry a cookie.
+   * Whose session a request carries (the account's id), without renewing it (plan 8Z-2; F-B3:
+   * work that costs is counted by the account): for an answer that anybody gets and others may
+   * keep (a public picture), which must never carry a cookie. Undefined without one.
    */
-  async has(request: FastifyRequest): Promise<boolean> {
+  async userOf(request: FastifyRequest): Promise<string | undefined> {
     const read = this.read.get(request);
-    if (read) return (await read) !== undefined;
+    if (read) return (await read)?.userId;
     const token = request.cookies[this.cookieName];
-    if (token === undefined || !TOKEN.test(token)) return false;
-    return (await this.options.store.find(sessionHash(token), this.now())) !== undefined;
+    if (token === undefined || !TOKEN.test(token)) return undefined;
+    return (await this.options.store.find(sessionHash(token), this.now()))?.userId;
   }
 
   /** Ends the session of a request, if any, and deletes its cookie. */

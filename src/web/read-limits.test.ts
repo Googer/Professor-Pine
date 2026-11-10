@@ -6,7 +6,11 @@ import { geoSourcesWith, webServerWith, type TestWeb } from '../../test/support/
 import { REFUSED } from '../services/costly.js';
 import { EmojiPictures } from '../services/post-pictures.js';
 import { PARTIES_PER_MINUTE } from './party-routes.js';
-import { PUBLIC_COSTS_PER_MINUTE } from './public-costs.js';
+import {
+  EMOJI_COSTS_PER_MINUTE,
+  GEO_COSTS_PER_MINUTE,
+  MEMBER_COSTS_PER_MINUTE,
+} from './public-costs.js';
 
 const ASH = '700000000000000001';
 const MISTY = '700000000000000002';
@@ -157,11 +161,11 @@ describe('work that costs, for visitors who are not logged in (plan 8Z-2)', () =
   /** The address of the nth emoji. */
   const emojiUrl = (n: number) => `/emoji/${String(100_000_000_000_000_000n + BigInt(n))}.png`;
   /**
-   * Spends the overall cap of a minute with emoji never asked for before (those from `from`
-   * on), each from an address of its own.
+   * Spends the visitors' emoji of a minute with emoji never asked for before (those from
+   * `from` on), each from an address of its own.
    */
   const spend = async (made: TestWeb, from = 0) => {
-    for (let i = from; i < from + PUBLIC_COSTS_PER_MINUTE; i += 1) {
+    for (let i = from; i < from + EMOJI_COSTS_PER_MINUTE; i += 1) {
       const answer = await made.app.inject({ url: emojiUrl(i), remoteAddress: address(i) });
       expect(answer.statusCode, String(i)).toBe(200);
     }
@@ -178,7 +182,7 @@ describe('work that costs, for visitors who are not logged in (plan 8Z-2)', () =
     expect(refused.statusCode).toBe(429);
     expect(refused.headers['retry-after']).toBe('60');
     expect(refused.headers['cache-control']).toBe('no-store');
-    expect(fetched).toHaveLength(PUBLIC_COSTS_PER_MINUTE);
+    expect(fetched).toHaveLength(EMOJI_COSTS_PER_MINUTE);
     const kept = await made.app.inject({ url: emojiUrl(0), remoteAddress: address(FRESH) });
     expect(kept.statusCode).toBe(200);
     expect(kept.rawPayload).toEqual(PNG);
@@ -198,7 +202,7 @@ describe('work that costs, for visitors who are not logged in (plan 8Z-2)', () =
     const { emoji, fetched } = emojiWith();
     const made = webServerWith({ emoji });
     web = made;
-    for (let i = 0; i < PUBLIC_COSTS_PER_MINUTE + 5; i += 1) {
+    for (let i = 0; i < EMOJI_COSTS_PER_MINUTE + 5; i += 1) {
       const answer = await made.app.inject({ url: emojiUrl(0), remoteAddress: address(i) });
       expect(answer.statusCode, String(i)).toBe(200);
     }
@@ -206,35 +210,43 @@ describe('work that costs, for visitors who are not logged in (plan 8Z-2)', () =
     expect((await made.app.inject({ url: emojiUrl(1) })).statusCode).toBe(200);
   });
 
-  it('neither counts nor refuses whoever is logged in, and sends them no cookie', async () => {
+  it('counts whoever is logged in by their account, not against the visitors’ cap, and sends them no cookie (F-B3)', async () => {
     const { emoji, fetched } = emojiWith();
     const made = webServerWith({ emoji });
     web = made;
     const cookie = await made.loggedIn(ASH, 'Ash');
     // The session is due to be renewed: a public picture still carries no cookie.
     made.clock.now += 2 * 3_600_000;
-    for (let i = 0; i < PUBLIC_COSTS_PER_MINUTE; i += 1) {
-      const answer = await made.app.inject({ url: emojiUrl(i), headers: { cookie } });
+    for (let i = 0; i < MEMBER_COSTS_PER_MINUTE; i += 1) {
+      const answer = await made.app.inject({
+        url: emojiUrl(i),
+        headers: { cookie },
+        remoteAddress: address(i),
+      });
       expect(answer.statusCode, String(i)).toBe(200);
       expect(answer.headers['set-cookie']).toBeUndefined();
     }
-    // None of it counted: the visitors who are not logged in have the whole cap, to its last.
+    // Their own sixty misses are spent, from however many addresses and sessions.
+    const second = await made.loggedIn(ASH, 'Ash');
+    const refused = await made.app.inject({ url: emojiUrl(FRESH), headers: { cookie: second } });
+    expect(refused.statusCode).toBe(429);
+    expect(refused.headers['retry-after']).toBe('60');
+    // An emoji in memory is theirs all the same.
+    expect((await made.app.inject({ url: emojiUrl(0), headers: { cookie } })).statusCode).toBe(200);
+    // None of it counted against the visitors, who are served to the last of their cap.
     await spend(made, 10_000);
     expect((await made.app.inject({ url: emojiUrl(FRESH) })).statusCode).toBe(429);
-    // And with it spent, whoever is logged in is still answered.
-    const more = await made.app.inject({ url: emojiUrl(FRESH), headers: { cookie } });
-    expect(more.statusCode).toBe(200);
-    expect(more.headers['set-cookie']).toBeUndefined();
-    expect(fetched).toHaveLength(2 * PUBLIC_COSTS_PER_MINUTE + 1);
+    expect(fetched).toHaveLength(MEMBER_COSTS_PER_MINUTE + EMOJI_COSTS_PER_MINUTE);
+    made.clock.now += 60_000;
+    const later = await made.app.inject({ url: emojiUrl(FRESH), headers: { cookie } });
+    expect(later.statusCode).toBe(200);
   });
 
-  it('is one cap for the emoji, the stops’ pictures and a server’s regions and gyms', async () => {
+  it('keeps a budget per kind: spent emoji refuse no picture of a stop (F-B3)', async () => {
     const { emoji } = emojiWith();
-    const sources = await geoSourcesWith();
     const KEY = 'ab'.repeat(16);
     const made = webServerWith({
       emoji,
-      geo: sources,
       pictures: {
         // A picture that is never in memory: every read of it costs.
         read: async (key, mayCost) => {
@@ -244,13 +256,38 @@ describe('work that costs, for visitors who are not logged in (plan 8Z-2)', () =
       },
     });
     web = made;
-    // Built for somebody logged in, which counts nothing; the visitors then spend the cap.
-    const cookie = await made.loggedIn(ASH, 'Ash');
-    expect((await made.app.inject({ url: GEO, headers: { cookie } })).statusCode).toBe(200);
     await spend(made);
+    expect((await made.app.inject({ url: emojiUrl(FRESH) })).statusCode).toBe(429);
     const picture = await made.app.inject({ url: `/pictures/${KEY}.png` });
-    expect(picture.statusCode).toBe(429);
-    expect(picture.headers['retry-after']).toBe('60');
+    expect(picture.statusCode).toBe(200);
+  });
+
+  it('caps the regions and gyms of servers built for visitors, as kept answered all the same', async () => {
+    const { emoji } = emojiWith();
+    const sources = await geoSourcesWith();
+    // Other servers of the bot, each a view of its own to build (empty: no regions).
+    const others = Array.from(
+      { length: GEO_COSTS_PER_MINUTE },
+      (_, i) => `41234567890123${String(i).padStart(4, '0')}`,
+    );
+    const made = webServerWith({
+      emoji,
+      geo: sources,
+      servers: { has: (guild) => guild === FAKE_GUILD_ID || others.includes(guild) },
+    });
+    web = made;
+    // Built for a visitor, then the visitors spend the cap on the other servers' views.
+    expect((await made.app.inject({ url: GEO })).statusCode).toBe(200);
+    for (const [i, guild] of others.entries()) {
+      const answer = await made.app.inject({
+        url: `/s/${guild}/api/geo`,
+        remoteAddress: address(i),
+      });
+      expect(answer.statusCode, guild).toBe(i < GEO_COSTS_PER_MINUTE - 1 ? 200 : 429);
+    }
+    // Spent views refuse no emoji: a budget of its own.
+    expect((await made.app.inject({ url: emojiUrl(FRESH) })).statusCode).toBe(200);
+    const cookie = await made.loggedIn(ASH, 'Ash');
     // The view as it was built is in memory: answered, and with 304 to who has it.
     const kept = await made.app.inject({ url: GEO });
     expect(kept.statusCode).toBe(200);
@@ -265,13 +302,10 @@ describe('work that costs, for visitors who are not logged in (plan 8Z-2)', () =
     expect(stale.statusCode).toBe(429);
     expect(stale.headers['retry-after']).toBe('60');
     expect(stale.json()).toEqual({ error: expect.any(String) as string });
-    // Somebody logged in has it built, and it serves the visitors after them.
+    // Somebody logged in has it built, counted by their account, and it serves the visitors.
     const built = await made.app.inject({ url: GEO, headers: { cookie } });
     expect(built.statusCode).toBe(200);
     expect(built.headers.etag).not.toBe(etag);
-    expect(
-      (await made.app.inject({ url: `/pictures/${KEY}.png`, headers: { cookie } })).statusCode,
-    ).toBe(200);
     const after = await made.app.inject({ url: GEO, remoteAddress: address(FRESH + 1) });
     expect(after.statusCode).toBe(200);
     expect(after.headers.etag).toBe(built.headers.etag);

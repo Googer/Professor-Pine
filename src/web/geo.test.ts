@@ -3,7 +3,7 @@ import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
 import { EAST_CHANNEL, EAST_FORUM, WEST_FORUM } from '../../test/support/gyms.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
 import { ROLE, selfRolesWith } from '../../test/support/roles.js';
-import { PUBLIC_REGIONS_KEPT_MS } from './geo-cache.js';
+import { GeoCache, PUBLIC_REGIONS_KEPT_MS } from './geo-cache.js';
 import { geoSourcesWith, webServerWith, type TestWeb } from '../../test/support/web.js';
 
 const GEO = `/s/${FAKE_GUILD_ID}/api/geo`;
@@ -261,6 +261,26 @@ describe('the regions a member can open for themselves (F-B10, Matt 2026-11-10)'
     roles.storage.failing = undefined;
     made.clock.now += 60_000;
     expect(await names()).toEqual(['east', 'west']);
+  });
+});
+
+describe('GeoCache, asked by many at once (F-B3)', () => {
+  it('builds a view once, the gate asked once, whoever asks while it is built', async () => {
+    const { sources } = await geoSourcesWith();
+    const cache = new GeoCache(sources);
+    let asked = 0;
+    const mayBuild = () => {
+      asked += 1;
+      return Promise.resolve(true);
+    };
+    const views = await Promise.all(
+      Array.from({ length: 300 }, () => cache.view(FAKE_GUILD_ID, 'public', mayBuild)),
+    );
+    expect(asked).toBe(1);
+    expect(views.every((view) => view === views[0])).toBe(true);
+    // Kept now: nobody asks the gate.
+    expect(await cache.view(FAKE_GUILD_ID, 'public', mayBuild)).toBe(views[0]);
+    expect(asked).toBe(1);
   });
 });
 
