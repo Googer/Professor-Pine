@@ -90,6 +90,13 @@ export function authRoutes(app: FastifyInstance, deps: WebDeps): void {
   });
   const exchanges = new RateLimiter({ uses: EXCHANGES_PER_ADDRESS_MINUTE, perMs: 60_000 });
   const prefixExchanges = new RateLimiter({ uses: EXCHANGES_PER_PREFIX_MINUTE, perMs: 60_000 });
+  /**
+   * The live streams of the sessions a login ended end with them (F-B5): the browser's old
+   * session, and those the new one pushed out of the account's ten.
+   */
+  const endStreams = (ended: readonly string[]): void => {
+    for (const id of ended) deps.live.endSession(id);
+  };
 
   app.addHook('onRequest', async (request, reply) => {
     void reply.header('cache-control', 'no-store');
@@ -139,7 +146,7 @@ export function authRoutes(app: FastifyInstance, deps: WebDeps): void {
     if ('failed' in token) return failed(`exchange: ${token.failed}`);
     const user = await oauth.gateway.who(token.accessToken);
     if ('failed' in user) return failed(`user: ${user.failed}`);
-    await sessions.start(request, reply, user);
+    endStreams(await sessions.start(request, reply, user));
     log.info({ user: user.id }, 'logged in to the web pages with Discord');
     return reply.redirect(back, 302);
   });
@@ -200,7 +207,9 @@ export function authRoutes(app: FastifyInstance, deps: WebDeps): void {
       if (!holder || holder.guildId !== guild) {
         return reply.redirect(`/s/${guild}/${page}?login=expired`, 303);
       }
-      await sessions.start(request, reply, { id: holder.userId, name: holder.userName });
+      endStreams(
+        await sessions.start(request, reply, { id: holder.userId, name: holder.userName }),
+      );
       log.info({ user: holder.userId, guild }, 'logged in to the web pages with a link');
       // The map on the region of the channel /maps was used in (plan 8M-7): a number of ours.
       const region =

@@ -83,9 +83,17 @@ export class Sessions {
 
   /** Starts a session for a member; gives the cookie value to send. */
   async create(user: { id: string; name: string }): Promise<string> {
+    return (await this.made(user)).token;
+  }
+
+  /** Stores a new session: its cookie value, and the ids of the sessions it pushed out. */
+  private async made(user: {
+    id: string;
+    name: string;
+  }): Promise<{ token: string; pushedOut: string[] }> {
     const token = randomToken();
     const now = this.now();
-    await this.options.store.create({
+    const pushedOut = await this.options.store.create({
       id: sessionHash(token),
       userId: user.id,
       userName: [...user.name].slice(0, NAME_LENGTH).join(''),
@@ -93,25 +101,31 @@ export class Sessions {
       lastUsedAt: now,
       expiresAt: now + SESSION_MS,
     });
-    return token;
+    return { token, pushedOut };
   }
 
   /**
    * Starts a session and sends its cookie with the answer. The session the request's cookie
    * stood for, if any, is deleted first: a browser holds one session, and a login over another
-   * leaves no row behind that the old cookie could still use.
+   * leaves no row behind that the old cookie could still use. Gives the ids of the sessions that
+   * ended (F-B5: their live streams end too): the browser's old one, and those of the account
+   * the new one pushed out of its ten.
    */
   async start(
     request: FastifyRequest,
     reply: FastifyReply,
     user: { id: string; name: string },
-  ): Promise<void> {
+  ): Promise<string[]> {
+    const ended: string[] = [];
     const current = request.cookies[this.cookieName];
     if (current !== undefined && TOKEN.test(current)) {
-      await this.options.store.remove(sessionHash(current));
+      const id = sessionHash(current);
+      await this.options.store.remove(id);
+      ended.push(id);
     }
-    const token = await this.create(user);
+    const { token, pushedOut } = await this.made(user);
     void reply.setCookie(this.cookieName, token, sessionCookie(this.secure));
+    return [...ended, ...pushedOut];
   }
 
   /**

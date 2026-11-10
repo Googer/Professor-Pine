@@ -85,10 +85,13 @@ export function webSessionCases(made: () => Promise<WebSessionStore>): void {
     expect(await found(1, 2, 3, 4, 5, 6, 7, 8, 9, 10)).not.toContain(false);
     // The first made is used again: the second is now the one used longest ago.
     await store.touch(sessionId(1), 20_000);
-    await store.create(storedSession(sessionId(11), 21_000));
+    // Each says whom it pushed out (F-B5: their live streams end with them).
+    expect(await store.create(storedSession(sessionId(11), 21_000))).toEqual([sessionId(2)]);
     expect(await found(1, 2, 3, 11)).toEqual([true, false, true, true]);
-    await store.create(storedSession(sessionId(12), 22_000));
+    expect(await store.create(storedSession(sessionId(12), 22_000))).toEqual([sessionId(3)]);
     expect(await found(1, 3, 4, 12)).toEqual([true, false, true, true]);
+    // Somebody else's first pushes out nobody.
+    expect(await store.create(storedSession(sessionId(91), 23_000, OTHER))).toEqual([]);
     // Somebody else's session is theirs: older than all of these, and kept.
     expect(await found(90)).toEqual([true]);
   });

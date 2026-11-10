@@ -49,9 +49,10 @@ export interface WebSession {
 export interface WebSessionStore {
   /**
    * Stores a new session and, in the same step, deletes what it pushes out of its account's
-   * `MAX_SESSIONS_PER_ACCOUNT` (`sessionsPushedOut`): never the new one.
+   * `MAX_SESSIONS_PER_ACCOUNT` (`sessionsPushedOut`): never the new one. The ids of those it
+   * deleted (F-B5: their live streams are ended).
    */
-  create(session: WebSession): Promise<void>;
+  create(session: WebSession): Promise<string[]>;
   /** The session with this id, unless it has expired by `now`. */
   find(id: string, now: number): Promise<WebSession | undefined>;
   /** Marks a session used at `now`: it lasts `SESSION_MS` from then. */

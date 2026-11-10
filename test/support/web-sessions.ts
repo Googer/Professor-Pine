@@ -9,13 +9,14 @@ import {
 export class MemoryWebSessions implements WebSessionStore {
   readonly rows = new Map<string, WebSession>();
 
-  create(session: WebSession): Promise<void> {
+  create(session: WebSession): Promise<string[]> {
     this.rows.set(session.id, { ...session });
     const others = [...this.rows.values()].filter(
       (row) => row.userId === session.userId && row.id !== session.id,
     );
-    for (const pushedOut of sessionsPushedOut(others)) this.rows.delete(pushedOut.id);
-    return Promise.resolve();
+    const pushedOut = sessionsPushedOut(others).map((row) => row.id);
+    for (const id of pushedOut) this.rows.delete(id);
+    return Promise.resolve(pushedOut);
   }
 
   find(id: string, now: number): Promise<WebSession | undefined> {

@@ -14,10 +14,12 @@ import {
   MAX_LIVE_PER_MEMBER,
 } from './live-signals.js';
 import { LIVE_PER_MINUTE } from './live-routes.js';
+import { MAX_SESSIONS_PER_ACCOUNT } from './session-model.js';
 import { startWebServer } from './start.js';
 
 const URL = `/s/${FAKE_GUILD_ID}/api/live`;
 const ALICE = '200000000000000001';
+const BOB = '200000000000000002';
 const PING = 'event: ping\ndata: 1000\n\n';
 const REPORTS = 'event: changed\ndata: stop-reports 1000\n\n';
 
@@ -218,6 +220,47 @@ describe('GET /s/<guild>/api/live', () => {
     expect(staying.events[1]).toBe(REPORTS);
     expect(staying.ended.count).toBe(0);
     expect(ending.events).toEqual([PING]);
+  });
+
+  /** Presses Continue on the page of a login link: a form's POST from Pine's own page. */
+  const pressContinue = (token: string, cookie?: string) =>
+    web.app.inject({
+      method: 'POST',
+      url: `/auth/link/${FAKE_GUILD_ID}/${token}`,
+      headers: {
+        origin: 'https://map.example.test',
+        'content-type': 'application/x-www-form-urlencoded',
+        ...(cookie === undefined ? {} : { cookie }),
+      },
+      payload: '',
+    });
+
+  it('ends the streams of a session a login in the same browser replaces (F-B5)', async () => {
+    web = webServerWith({ members: members() });
+    const alice = await web.loggedIn(ALICE, 'Alice');
+    const stream = reading((await opened(alice)).stream());
+    await stream.came.reached(1);
+    // Somebody else's link, used in Alice's browser: her session is gone, and its stream.
+    const token = web.loginLinks.issue(FAKE_GUILD_ID, BOB, 'Bob', web.clock.now);
+    expect((await pressContinue(token, alice)).statusCode).toBe(303);
+    await stream.ended.reached(1);
+    expect(stream.events).toEqual([PING]);
+  });
+
+  it('ends the streams of the session an eleventh login pushes out (F-B5)', async () => {
+    web = webServerWith({ members: members() });
+    const oldest = await web.loggedIn(ALICE, 'Alice');
+    const stream = reading((await opened(oldest)).stream());
+    await stream.came.reached(1);
+    for (let i = 1; i < MAX_SESSIONS_PER_ACCOUNT; i += 1) {
+      web.clock.now += 1;
+      await web.loggedIn(ALICE, 'Alice');
+    }
+    expect(stream.ended.count).toBe(0);
+    web.clock.now += 1;
+    const token = web.loginLinks.issue(FAKE_GUILD_ID, ALICE, 'Alice', web.clock.now);
+    expect((await pressContinue(token)).statusCode).toBe(303);
+    await stream.ended.reached(1);
   });
 
   it('ends a stream at the keep-alive after its member left the server (plan 8Z-2)', async () => {

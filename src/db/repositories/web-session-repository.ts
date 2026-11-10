@@ -19,10 +19,10 @@ export class WebSessionRepository implements WebSessionStore {
   /**
    * Stores the session and deletes what it pushes out of its account's ten (plan 8Z-2;
    * `sessionsPushedOut`, read through `websession_userid_index`), in one transaction: a login
-   * that fails leaves the account's sessions as they were.
+   * that fails leaves the account's sessions as they were. The ids of those it deleted (F-B5).
    */
-  async create(session: WebSession): Promise<void> {
-    await inTransaction(this.db, async (trx) => {
+  create(session: WebSession): Promise<string[]> {
+    return inTransaction(this.db, async (trx) => {
       await trx
         .insertInto('WebSession')
         .values({
@@ -47,15 +47,10 @@ export class WebSessionRepository implements WebSessionStore {
           lastUsedAt: Number(row.lastUsedAt),
         })),
       );
-      if (pushedOut.length === 0) return;
-      await trx
-        .deleteFrom('WebSession')
-        .where(
-          'id',
-          'in',
-          pushedOut.map((one) => one.id),
-        )
-        .execute();
+      const ids = pushedOut.map((one) => one.id);
+      if (ids.length === 0) return ids;
+      await trx.deleteFrom('WebSession').where('id', 'in', ids).execute();
+      return ids;
     });
   }
 
