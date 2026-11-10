@@ -571,6 +571,34 @@ describe('screenshotReport', () => {
     expect(long.doubts).toContain('countdown-long');
   });
 
+  it('dates a screenshot by its upload, and says what has passed by the time it is read (plan 7M)', () => {
+    // Posted at 13:40 with the clock at 13:39 and ten minutes to go: the egg hatches at 13:49.
+    const posted = screenshotReport(read(egg({ countdown: 600 }), 1), context());
+    expect(posted.time).toEqual({ hatch: at('2026-10-14T13:49:00') });
+    expect(posted.doubts).toEqual([]);
+    // Read from the message half an hour later: the same moment, by the upload; the hatch has passed.
+    const later = screenshotReport(
+      read(egg({ countdown: 600 }), 1),
+      context({ now: at('2026-10-14T14:10:00') }),
+    );
+    expect(later.takenAt).toBe(posted.takenAt);
+    expect(later.time).toEqual(posted.time);
+    expect(later.doubts).toEqual(['time-past']);
+    // Without a clock the moment is guessed from the upload, never from when it is read.
+    const guessed = screenshotReport(
+      read(egg({ clock: null, countdown: 600 }), 1),
+      context({ now: at('2026-10-14T14:10:00') }),
+    );
+    expect(guessed.takenAt).toBe(at('2026-10-14T13:39:15'));
+    expect(guessed.doubts).toEqual(['time-guessed', 'time-past']);
+    // Read before the hatch, nothing has passed.
+    const soon = screenshotReport(
+      read(egg({ countdown: 600 }), 1),
+      context({ now: at('2026-10-14T13:45:00') }),
+    );
+    expect(soon.doubts).toEqual([]);
+  });
+
   it('says when no gym was found or the gym was not clear', () => {
     expect(screenshotReport(read(egg({ gym: 'Nowhere' }), 1), context()).doubts).toEqual([
       'no-gym',

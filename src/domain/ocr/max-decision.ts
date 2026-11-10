@@ -52,7 +52,10 @@ export interface ScreenshotMax {
 }
 
 export interface MaxDecideContext {
-  /** When the screenshot was posted: what is over by then is over. */
+  /**
+   * When the screenshot was posted, or when it is read where that is later (plan 7M): what is
+   * over by then is over.
+   */
   now: number;
 }
 

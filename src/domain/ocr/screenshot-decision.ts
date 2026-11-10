@@ -46,7 +46,10 @@ export interface ScreenshotRaid {
 
 /** What deciding needs besides the report. */
 export interface DecideContext {
-  /** When the screenshot was posted: what is over by then is over. */
+  /**
+   * When the screenshot was posted, or when it is read where that is later (plan 7M): what is
+   * over by then is over.
+   */
   now: number;
   /**
    * Minutes a raid of this tier lasts once hatched at this time (`raidDurationsAt` with the

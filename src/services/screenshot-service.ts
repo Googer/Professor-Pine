@@ -77,6 +77,13 @@ export interface ScreenshotWhere {
   channelId: string | null;
   /** When the message or interaction that brought it was made. */
   uploadedAt: number;
+  /**
+   * When it is read, where that is later than `uploadedAt` (plan 7M: a message read from its
+   * Apps menu a while after it was posted): the screenshot's moment is told from the upload as
+   * ever, and what is over is over by this time (the report's `time-past`, the decision's
+   * `now`). Absent: the upload's time, as for a mention, read as it is posted.
+   */
+  readAt?: number;
   use: ScreenshotUse;
   senderId: string;
   /**
@@ -323,7 +330,13 @@ export class ScreenshotService implements Screenshots {
       // Two screens that could not be told apart (plan 7P): refused, never read as one. Kept
       // for review as any refusal is, but read passively (a member's ordinary picture).
       if (where.use !== 'passive') {
-        const reportFrom = reportContext(context, where, where.uploadedAt, source.name);
+        const reportFrom = reportContext(
+          context,
+          where,
+          where.uploadedAt,
+          source.name,
+          where.readAt,
+        );
         const read = screenshotReport(outcome.reading, reportFrom);
         // What was typed beside it, kept as a single screen's is.
         const typed = typeof where.typed === 'function' ? where.typed(read) : where.typed;
@@ -405,6 +418,7 @@ export class ScreenshotService implements Screenshots {
       { channelId: where.channelId, guildRow: where.guildRow },
       where.uploadedAt,
       file.fileName,
+      where.readAt,
     );
     const read = screenshotReport(reading, reportFrom);
     const keep = (record: NewScreenshot, image?: boolean) =>
@@ -440,7 +454,7 @@ export class ScreenshotService implements Screenshots {
     const report = typed ? withTyped(read, typed) : read;
     const { settings } = context.config;
     const deciding = {
-      now: where.uploadedAt,
+      now: where.readAt ?? where.uploadedAt,
       hatchedMinutes: (tier: RaidTier, hatchTime: number) =>
         raidDurationsAt(
           raidDurationKind(tier),
@@ -521,7 +535,7 @@ export class ScreenshotService implements Screenshots {
     const use = where.maxTyped?.(read) ?? {};
     const { typed } = use;
     const report = typed ? withMaxTyped(read, typed) : read;
-    const deciding = { now: where.uploadedAt };
+    const deciding = { now: where.readAt ?? where.uploadedAt };
     const decision = decideMax(report, deciding);
     // A typed boss the screen could not take failed the use: kept as such, so it goes to review.
     const stored: StoredDecision =
