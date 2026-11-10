@@ -5,7 +5,7 @@ import {
   type ChatInputCommandInteraction,
 } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
-import type { SimpleCommand } from '../../discord/command.js';
+import { MAX_CHOICE_TEXT, type SimpleCommand } from '../../discord/command.js';
 import { UserError } from '../../discord/errors.js';
 import {
   notARaidOrTrain,
@@ -97,6 +97,7 @@ export const boss: SimpleCommand = {
       option
         .setName('tier')
         .setDescription('Max battles only: the tier of a boss on no list')
+        .setMaxLength(MAX_CHOICE_TEXT)
         .addChoices(...TIER_CHOICES),
     ),
   help: {

@@ -1,6 +1,6 @@
 import { SlashCommandBuilder } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
-import type { Guard, SimpleCommand } from '../../discord/command.js';
+import { MAX_CHOICE_TEXT, type Guard, type SimpleCommand } from '../../discord/command.js';
 import { MAX_PLACE_TEXT, namedPlace, nearChoices, orList } from '../place-option.js';
 import { UserError } from '../../discord/errors.js';
 import { guildIdOf, isStaff, regionChannelOf, requireGuild } from '../../discord/guards.js';
@@ -301,6 +301,7 @@ export const wildCommand: SimpleCommand = {
       option
         .setName('iv')
         .setDescription('Only if you checked: its IVs are perfect or zero')
+        .setMaxLength(MAX_CHOICE_TEXT)
         .addChoices(IV_CHOICES.map(({ name, value }) => ({ name, value }))),
     ),
   help: {

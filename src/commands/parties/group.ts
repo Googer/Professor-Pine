@@ -1,4 +1,5 @@
 import { SlashCommandBuilder, SlashCommandSubcommandBuilder } from 'discord.js';
+import { MAX_CHOICE_TEXT } from '../../discord/command.js';
 import { commandGroup, type SubcommandPart } from '../../discord/command-group.js';
 import { UserError } from '../../discord/errors.js';
 import { requireParty } from '../../discord/guards.js';
@@ -21,7 +22,12 @@ const joinGroup: SubcommandPart = {
     .setName('join')
     .setDescription('Move to another group of this raid, max battle or train')
     .addStringOption((option) =>
-      option.setName('letter').setDescription('The group').setRequired(true).setAutocomplete(true),
+      option
+        .setName('letter')
+        .setDescription('The group')
+        .setRequired(true)
+        .setMaxLength(MAX_CHOICE_TEXT)
+        .setAutocomplete(true),
     ),
   help: {
     details:

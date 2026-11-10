@@ -7,7 +7,11 @@ import {
 } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
 import type { Settings } from '../../config/settings.js';
-import type { ComponentHandler, SimpleCommand } from '../../discord/command.js';
+import {
+  MAX_CHOICE_TEXT,
+  type ComponentHandler,
+  type SimpleCommand,
+} from '../../discord/command.js';
 import { UserError } from '../../discord/errors.js';
 import { requirePvpContext } from '../../discord/guards.js';
 import { answerPress, pressAnswer, v2Answer } from '../../discord/late-reply.js';
@@ -121,6 +125,7 @@ function rankData(name: string, description: string, league: boolean): SlashComm
       option
         .setName('league')
         .setDescription('The league; Great League when not given')
+        .setMaxLength(MAX_CHOICE_TEXT)
         .addChoices(LEAGUES.map((each) => ({ name: LEAGUE_NAMES[each], value: each }))),
     );
   }
@@ -131,6 +136,7 @@ function rankData(name: string, description: string, league: boolean): SlashComm
         .setDescription(
           'How you got it: a trade, raid or lucky trade sets the lowest IVs it can have',
         )
+        .setMaxLength(MAX_CHOICE_TEXT)
         .addChoices(
           IV_FLOORS.map((floor) => ({
             name:

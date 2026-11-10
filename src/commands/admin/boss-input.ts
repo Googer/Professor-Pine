@@ -4,6 +4,7 @@ import type {
   SlashCommandSubcommandBuilder,
 } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
+import { MAX_CHOICE_TEXT } from '../../discord/command.js';
 import { UserError } from '../../discord/errors.js';
 import type { PokemonEntry } from '../../domain/pogo/game-master.js';
 import { namedFirst } from '../../domain/pogo/pokemon-search.js';
@@ -111,6 +112,7 @@ export function tierOption(
       .setName('tier')
       .setDescription(description)
       .setRequired(required)
+      .setMaxLength(MAX_CHOICE_TEXT)
       .addChoices(tiers.map((tier) => ({ name: bossTierLabel(tier), value: tierValue(tier) })));
 }
 

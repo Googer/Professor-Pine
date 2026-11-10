@@ -28,9 +28,10 @@ function optionLists(node: Declared, path: string): [string, Declared[]][] {
 
 describe('the lengths of the commands’ text options', () => {
   // The router answers autocomplete with no choices once any text option holds more than
-  // `MAX_OPTION_TEXT` (the audit of 2026-11-10, M5): an option that declared more would lose its
-  // list for texts Discord's own client lets a member type.
-  it('are no longer than the router lets autocomplete read, in every command that offers choices', () => {
+  // `MAX_OPTION_TEXT` (the audit of 2026-11-10, M5): an option that declared more, or none
+  // (Discord's own limit is then 6,000), would lose its list for texts Discord's own client lets
+  // a member type. Fix round F-A7: an undeclared maximum counts as too long.
+  it('are declared no longer than the router lets autocomplete read, in every command that offers choices', () => {
     const payload = buildCommandPayload(commands, messageCommands) as Declared[];
     const lists = payload.flatMap((command) => optionLists(command, `/${command.name}`));
     const offering = lists.filter(([, options]) => options.some((option) => option.autocomplete));
@@ -41,20 +42,10 @@ describe('the lengths of the commands’ text options', () => {
         .filter(
           (option) =>
             option.type === ApplicationCommandOptionType.String &&
-            (option.max_length ?? 0) > MAX_OPTION_TEXT,
+            (option.max_length === undefined || option.max_length > MAX_OPTION_TEXT),
         )
         .map((option) => `${path} ${option.name}: ${String(option.max_length)}`),
     );
     expect(tooLong).toEqual([]);
-  });
-
-  it('are held to that length where they name a place, which takes the most', () => {
-    const payload = buildCommandPayload(commands, messageCommands) as Declared[];
-    const longest = Math.max(
-      ...payload
-        .flatMap((command) => optionLists(command, `/${command.name}`))
-        .flatMap(([, options]) => options.map((option) => option.max_length ?? 0)),
-    );
-    expect(longest).toBe(MAX_OPTION_TEXT);
   });
 });

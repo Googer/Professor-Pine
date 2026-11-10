@@ -68,10 +68,18 @@ export const DATE_EXAMPLE = '{date}';
  * that names a place, `MAX_PLACE_TEXT`), and so the longest the router lets an autocomplete read
  * (the audit of 2026-11-10, M5): Discord's client holds an option to its `max_length`, but a
  * client of somebody's own need not, autocomplete is counted by no throttle, and its searches
- * run on the thread that holds the gateway. A test holds every command that offers choices to it
- * (`src/commands/option-lengths.test.ts`).
+ * run on the thread that holds the gateway. A test holds every text option of a command that
+ * offers choices to a declared `max_length` of at most this (`src/commands/option-lengths.test.ts`:
+ * undeclared, Discord's own limit is 6,000).
  */
 export const MAX_OPTION_TEXT = 1_500;
+
+/**
+ * The `max_length` of a text option that takes a choice of a list or a short word (a group's
+ * letter, a tier, a league, `/counters`' settings): the longest value Discord lets a choice have
+ * (plan 8Z-2, fix round F-A7).
+ */
+export const MAX_CHOICE_TEXT = 100;
 
 /**
  * How a command is acknowledged: before it runs, for the member alone or for everyone; or

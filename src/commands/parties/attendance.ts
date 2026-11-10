@@ -1,6 +1,6 @@
 import { SlashCommandBuilder, type ChatInputCommandInteraction } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
-import { alsoAs, type SimpleCommand } from '../../discord/command.js';
+import { alsoAs, MAX_CHOICE_TEXT, type SimpleCommand } from '../../discord/command.js';
 import { requireParty } from '../../discord/guards.js';
 import type { AttendanceOptions } from '../../domain/party/attendance.js';
 import type { Party } from '../../domain/party/party.js';
@@ -31,6 +31,7 @@ function withCountAndGroup(name: string, description: string): SlashCommandBuild
       option
         .setName('group')
         .setDescription('The group to be in, when a raid, max battle or train has several')
+        .setMaxLength(MAX_CHOICE_TEXT)
         .setAutocomplete(true),
     );
   return builder;

@@ -8,7 +8,7 @@ import {
 import type { AppContext } from '../../app-context.js';
 import type { SubcommandPart } from '../../discord/command-group.js';
 import { deferSubmit, readInTime, withoutOpenToken } from '../../discord/dialog.js';
-import type { ControlThrottle } from '../../discord/command.js';
+import { MAX_CHOICE_TEXT, type ControlThrottle } from '../../discord/command.js';
 import { UserError } from '../../discord/errors.js';
 import { guildIdOf, isStaff, notATrain } from '../../discord/guards.js';
 import { commandRefusal, STALE_COMPONENT } from '../../discord/router.js';
@@ -225,6 +225,7 @@ export const splitGroupPart: SubcommandPart = {
         .setName('letter')
         .setDescription('The group to split off')
         .setRequired(true)
+        .setMaxLength(MAX_CHOICE_TEXT)
         .setAutocomplete(true),
     ),
   help: {
