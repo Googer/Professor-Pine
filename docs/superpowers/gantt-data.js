@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-09T22:42",
+  "updated": "2026-11-10T16:57",
   "items": [
     {
       "id": "0",
@@ -10396,6 +10396,264 @@ window.GANTT = {
       "status": "done",
       "start": "2026-11-01T21:35",
       "end": "2026-11-01T21:45"
+    },
+    {
+      "id": "8Z-2",
+      "kind": "plan",
+      "parent": "16",
+      "name": "8Z-2 Fixes of the audit before the release",
+      "status": "review",
+      "size": 1,
+      "dependsOn": [],
+      "scope": "Who may change a meetup’s times, logins and reads under load, the public map’s regions, bounds on files and feeds, the Docker stack’s proxy, networks and pinned images, backups without stored programs, query plans and indexes",
+      "doneWhen": "Merged into main-dev",
+      "planning": {
+        "start": "2026-11-09T23:24",
+        "end": "2026-11-10T11:54"
+      }
+    },
+    {
+      "id": "8Z-2.1",
+      "kind": "task",
+      "parent": "8Z-2",
+      "name": "A1: A meetup’s start and end for its maker and staff, on every surface",
+      "status": "done",
+      "start": "2026-11-10T15:59",
+      "end": "2026-11-10T15:59"
+    },
+    {
+      "id": "8Z-2.2",
+      "kind": "task",
+      "parent": "8Z-2",
+      "name": "A2: Autocomplete reads no over-long text; a word every object has is no tier or entity",
+      "status": "done",
+      "start": "2026-11-10T15:59",
+      "end": "2026-11-10T15:59"
+    },
+    {
+      "id": "8Z-2.3",
+      "kind": "task",
+      "parent": "8Z-2",
+      "name": "A3a: A newcomer kept out of a forum refused by the attendance path",
+      "status": "done",
+      "start": "2026-11-10T15:59",
+      "end": "2026-11-10T15:59"
+    },
+    {
+      "id": "8Z-2.4",
+      "kind": "task",
+      "parent": "8Z-2",
+      "name": "A3b: A report at a stop asks its regions, on the map and on Discord",
+      "status": "done",
+      "start": "2026-11-10T15:59",
+      "end": "2026-11-10T15:59"
+    },
+    {
+      "id": "8Z-2.5",
+      "kind": "task",
+      "parent": "8Z-2",
+      "name": "A3c: Making a train or a meetup on Discord asks the forum",
+      "status": "done",
+      "start": "2026-11-10T15:59",
+      "end": "2026-11-10T15:59"
+    },
+    {
+      "id": "8Z-2.6",
+      "kind": "task",
+      "parent": "8Z-2",
+      "name": "A4: Manage Channels for the legacy cleanup, member settings for staff, a Share where its sharer may write",
+      "status": "done",
+      "start": "2026-11-10T15:59",
+      "end": "2026-11-10T15:59"
+    },
+    {
+      "id": "8Z-2.7",
+      "kind": "task",
+      "parent": "8Z-2",
+      "name": "A5: The kept screenshot for its reporter and staff alone",
+      "status": "done",
+      "start": "2026-11-10T15:59",
+      "end": "2026-11-10T15:59"
+    },
+    {
+      "id": "8Z-2.8",
+      "kind": "task",
+      "parent": "8Z-2",
+      "name": "A6: The owner told by DM of a change of shared data",
+      "status": "done",
+      "start": "2026-11-10T15:59",
+      "end": "2026-11-10T15:59"
+    },
+    {
+      "id": "8Z-2.9",
+      "kind": "task",
+      "parent": "8Z-2",
+      "name": "B1: A login waits for its exchange slot; three exchanges a minute per address",
+      "status": "done",
+      "start": "2026-11-10T11:54",
+      "end": "2026-11-10T11:54"
+    },
+    {
+      "id": "8Z-2.10",
+      "kind": "task",
+      "parent": "8Z-2",
+      "name": "B2: Reads limited per member; an overall cap on costly work without a session",
+      "status": "done",
+      "start": "2026-11-10T11:54",
+      "end": "2026-11-10T12:18"
+    },
+    {
+      "id": "8Z-2.11",
+      "kind": "task",
+      "parent": "8Z-2",
+      "name": "B4: A login link presses itself only without a session, and is no link in a post on the map",
+      "status": "done",
+      "start": "2026-11-10T12:18",
+      "end": "2026-11-10T12:27"
+    },
+    {
+      "id": "8Z-2.12",
+      "kind": "task",
+      "parent": "8Z-2",
+      "name": "B5: Logout ends its streams and clears the cache, ten sessions per account, places at three decimals",
+      "status": "done",
+      "start": "2026-11-10T12:27",
+      "end": "2026-11-10T12:48"
+    },
+    {
+      "id": "8Z-2.13",
+      "kind": "task",
+      "parent": "8Z-2",
+      "name": "B6: The public map shows only the regions anybody could open",
+      "status": "done",
+      "start": "2026-11-10T12:48",
+      "end": "2026-11-10T13:02"
+    },
+    {
+      "id": "8Z-2.14",
+      "kind": "task",
+      "parent": "8Z-2",
+      "name": "E1: A member’s own records read from the member’s rows; the credits’ index by who asks",
+      "status": "done",
+      "start": "2026-11-10T13:02",
+      "end": "2026-11-10T13:22"
+    },
+    {
+      "id": "8Z-2.15",
+      "kind": "task",
+      "parent": "8Z-2",
+      "name": "E2: The raids by region read of the bot’s servers",
+      "status": "done",
+      "start": "2026-11-10T13:22",
+      "end": "2026-11-10T13:29"
+    },
+    {
+      "id": "8Z-2.16",
+      "kind": "task",
+      "parent": "8Z-2",
+      "name": "E3: Migration 050: indexes for the sweeps of each minute and the nickname lookup",
+      "status": "done",
+      "start": "2026-11-10T13:29",
+      "end": "2026-11-10T13:40"
+    },
+    {
+      "id": "8Z-2.17",
+      "kind": "task",
+      "parent": "8Z-2",
+      "name": "B3: The heatmap’s reads kept a minute, a member’s stats one at a time, a month’s trains as far as shown",
+      "status": "done",
+      "start": "2026-11-10T13:40",
+      "end": "2026-11-10T13:58"
+    },
+    {
+      "id": "8Z-2.18",
+      "kind": "task",
+      "parent": "8Z-2",
+      "name": "D1: A MySQL with NO_BACKSLASH_ESCAPES refused; the schema’s name a plain name",
+      "status": "done",
+      "start": "2026-11-10T13:58",
+      "end": "2026-11-10T15:03"
+    },
+    {
+      "id": "8Z-2.19",
+      "kind": "task",
+      "parent": "8Z-2",
+      "name": "D2: A dump carries no stored programs, and a restore refuses one that does",
+      "status": "done",
+      "start": "2026-11-10T15:03",
+      "end": "2026-11-10T15:03"
+    },
+    {
+      "id": "8Z-2.20",
+      "kind": "task",
+      "parent": "8Z-2",
+      "name": "D3: The socket proxy answers the watchdog alone; MySQL on a network of its own",
+      "status": "done",
+      "start": "2026-11-10T15:03",
+      "end": "2026-11-10T15:03"
+    },
+    {
+      "id": "8Z-2.21",
+      "kind": "task",
+      "parent": "8Z-2",
+      "name": "D4: The proxy and the tunnel pinned by digest, Dependabot, a read-only CI token",
+      "status": "done",
+      "start": "2026-11-10T15:03",
+      "end": "2026-11-10T15:03"
+    },
+    {
+      "id": "8Z-2.22",
+      "kind": "task",
+      "parent": "8Z-2",
+      "name": "D5: The guides follow master, a tighter Mac host, small hardening of the stack",
+      "status": "done",
+      "start": "2026-11-10T15:03",
+      "end": "2026-11-10T15:03"
+    },
+    {
+      "id": "8Z-2.23",
+      "kind": "task",
+      "parent": "8Z-2",
+      "name": "D6: typescript-eslint 8.72.2, vite 8.3.7",
+      "status": "done",
+      "start": "2026-11-10T15:03",
+      "end": "2026-11-10T15:06"
+    },
+    {
+      "id": "8Z-2.24",
+      "kind": "task",
+      "parent": "8Z-2",
+      "name": "C1: An export’s text counted before it is parsed; the gym import throttled",
+      "status": "done",
+      "start": "2026-11-10T15:06",
+      "end": "2026-11-10T15:59"
+    },
+    {
+      "id": "8Z-2.25",
+      "kind": "task",
+      "parent": "8Z-2",
+      "name": "C2: Event pages read paragraph by paragraph, the feed’s links held to Leek Duck, the forum’s posts capped",
+      "status": "done",
+      "start": "2026-11-10T15:59",
+      "end": "2026-11-10T15:59"
+    },
+    {
+      "id": "8Z-2.26",
+      "kind": "task",
+      "parent": "8Z-2",
+      "name": "C3: A board message’s pictures bounded before any is downloaded",
+      "status": "done",
+      "start": "2026-11-10T15:59",
+      "end": "2026-11-10T15:59"
+    },
+    {
+      "id": "8Z-2.27",
+      "kind": "task",
+      "parent": "8Z-2",
+      "name": "C4: Small bounds on pictures, Google’s answers, place maps and a request’s words",
+      "status": "done",
+      "start": "2026-11-10T15:59",
+      "end": "2026-11-10T16:00"
     },
     {
       "id": "8F-1",
