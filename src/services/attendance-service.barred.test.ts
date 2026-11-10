@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest';
-import { EAST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
+import { describe, expect, it, vi } from 'vitest';
+import { EAST_CHANNEL, EAST_FORUM, WEST_FORUM } from '../../test/support/gyms.js';
 import { ALICE, BOB, CAROL } from '../../test/support/parties.js';
 import { createdMeetup, createdTrain, reportedRaid } from '../../test/support/party-service.js';
 import { attendeeOf, groupStamp } from '../domain/party/party.js';
@@ -125,6 +125,53 @@ describe('AttendanceService: a newcomer somebody keeps out of the forum (plan 8Z
     expect(await made.attendance.signUp(made.party.id, alice, PartyStatus.Coming)).toEqual({
       kind: 'gone',
     });
+  });
+
+  // Fix round F-A2: a newcomer goes on only as they were asked about, decided inside the store.
+  it('refuses a newcomer whose party stands in another forum by the write, as changed meanwhile', async () => {
+    const made = await reportedRaid();
+    const id = made.party.id;
+    const look = made.gateway.memberAccess.bind(made.gateway);
+    vi.spyOn(made.gateway, 'memberAccess').mockImplementationOnce(async (forumId, memberId) => {
+      // While Alice is asked about West's forum, the party comes to stand in East's (a raid
+      // moved to another region is a party of its own: the store's own change stands for it).
+      await made.store.update(id, (party) => ({ party: { ...party, forumChannelId: EAST_FORUM } }));
+      return look(forumId, memberId);
+    });
+    expect(await made.attendance.signUp(id, alice, PartyStatus.Coming)).toEqual({
+      kind: 'refused',
+      reason: 'changed-meanwhile',
+    });
+    expect(made.current().forumChannelId).toBe(EAST_FORUM);
+    expect(attendeeOf(made.current(), ALICE)).toBeUndefined();
+    // Asked again, about East's forum now, they are let in.
+    expect(await made.attendance.signUp(id, alice, PartyStatus.Coming)).toMatchObject({
+      kind: 'ok',
+      acted: true,
+    });
+  });
+
+  it('refuses a member who left while their change waited, as changed meanwhile, never asking Discord', async () => {
+    const made = await reportedRaid();
+    const id = made.party.id;
+    await made.attendance.signUp(id, alice, PartyStatus.Coming);
+    const asked = vi.spyOn(made.gateway, 'memberAccess');
+    const update = made.store.update.bind(made.store);
+    let left = false;
+    vi.spyOn(made.store, 'update').mockImplementation(async (partyId, change, cause) => {
+      if (!left) {
+        // Alice's +1 was decided on as hers: she leaves before it is written.
+        left = true;
+        expect(await made.attendance.leave(id, alice)).toMatchObject({ kind: 'ok', acted: true });
+      }
+      return update(partyId, change, cause);
+    });
+    expect(await made.attendance.changeNumber(id, alice, 1)).toEqual({
+      kind: 'refused',
+      reason: 'changed-meanwhile',
+    });
+    expect(attendeeOf(made.current(), ALICE)).toBeUndefined();
+    expect(asked).not.toHaveBeenCalled();
   });
 
   it('holds a copy of a train in another region to it: the party is the same', async () => {

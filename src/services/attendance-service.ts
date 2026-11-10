@@ -551,12 +551,12 @@ export class AttendanceService {
       (party) => {
         // A newcomer only as they were asked about: one who was signed up when Discord would
         // have been asked and has left since, or whose party stands in another forum by now,
-        // was not, and tries again.
+        // was not, and tries again (as the other changes drawn from what is no longer so).
         if (
           attendeeOf(party, member.id) === undefined &&
           admission?.asked !== party.forumChannelId
         ) {
-          return refused('forum-unknown');
+          return refused('changed-meanwhile');
         }
         const changed = change(party);
         if (!changed.ok) return changed;
