@@ -1,5 +1,5 @@
 import { MessageFlags } from 'discord.js';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { dialogChoices, dialogOf, shownDialog } from '../../test/support/dialogs.js';
 import {
   fakeButton,
@@ -7,15 +7,18 @@ import {
   sent,
   type FakeInteraction,
 } from '../../test/support/fake-interactions.js';
+import { WEST_FORUM } from '../../test/support/gyms.js';
 import { textDisplays } from '../../test/support/messages.js';
 import { ALICE, BOB, REPORTER } from '../../test/support/parties.js';
 import { reportedRaid } from '../../test/support/party-service.js';
 import { createTestContext } from '../../test/support/test-context.js';
 import type { APIModalInteractionResponseCallbackData } from 'discord.js';
 import { decodeCustomId, encodeCustomId } from '../discord/custom-id.js';
+import { DIALOG_READ_MS, SLOW_READ } from '../discord/dialog.js';
 import { InteractionRouter } from '../discord/router.js';
 import { attendeeOf } from '../domain/party/party.js';
 import { PartyStatus } from '../domain/party/status.js';
+import { ACCESS_UNKNOWN } from '../render/activity.js';
 import {
   ANY_GROUP,
   GROUP_INPUT,
@@ -401,5 +404,65 @@ describe('Group… (plan 8X-1B, decision 3)', () => {
     const pressed = await made.click('regroup');
     expect(dialogOf(pressed)).toBeUndefined();
     expect(sent(pressed.reply).content).toMatch(/^You are done with this raid\./);
+  });
+});
+
+// Plan 8Z-2, fix round F-A6: the Submit refuses a newcomer somebody keeps out of the forum; the
+// press asks first, so that nobody fills a dialog for nothing.
+describe('a newcomer somebody keeps out of the forum', () => {
+  const keptOut = 'You cannot sign up for this raid: you are kept out of its forum.';
+
+  it('is refused at the press of Interested, Join, Here and Group… before any dialog opens', async () => {
+    const made = await setup();
+    made.gateway.barred.set(WEST_FORUM, new Set([ALICE]));
+    for (const action of ['maybe', 'join', 'here', 'regroup']) {
+      const pressed = await made.click(action);
+      expect(dialogOf(pressed)).toBeUndefined();
+      expect(pressed.reply).toHaveBeenCalledWith({
+        content: keptOut,
+        flags: MessageFlags.Ephemeral,
+      });
+    }
+    expect(attendeeOf(made.current(), ALICE)).toBeUndefined();
+    // Bob, signed up before somebody kept him out too, still opens Group….
+    made.gateway.barred.set(WEST_FORUM, new Set([ALICE, BOB]));
+    expect(dialogOf(await made.click('regroup', BOB))).toBeDefined();
+  });
+
+  it('is told to try again while Discord cannot say; the dialog opens once it can', async () => {
+    const made = await setup();
+    made.gateway.failing.set('memberAccess', new Error('Discord is away'));
+    const pressed = await made.click('join');
+    expect(dialogOf(pressed)).toBeUndefined();
+    expect(sent(pressed.reply).content).toBe(ACCESS_UNKNOWN);
+    made.gateway.failing.delete('memberAccess');
+    expect(dialogOf(await made.click('join'))).toBeDefined();
+  });
+
+  it('opens no dialog when Discord is too slow to say, within a dialog’s time', async () => {
+    const made = await setup();
+    const asked = Promise.withResolvers<void>();
+    vi.spyOn(made.gateway, 'memberAccess').mockImplementationOnce(() => {
+      asked.resolve();
+      return new Promise(() => undefined);
+    });
+    vi.useFakeTimers({ toFake: ['Date', 'setTimeout', 'clearTimeout'] });
+    try {
+      const pressing = made.click('join');
+      await asked.promise;
+      await vi.advanceTimersByTimeAsync(DIALOG_READ_MS);
+      const pressed = await pressing;
+      expect(dialogOf(pressed)).toBeUndefined();
+      expect(sent(pressed.reply).content).toBe(SLOW_READ);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it('opens the dialog for a newcomer whom the forum is only hidden from', async () => {
+    const made = await setup();
+    made.gateway.shutOut(WEST_FORUM, ALICE);
+    expect(dialogOf(await made.click('join'))).toBeDefined();
+    expect(dialogOf(await made.click('regroup'))).toBeDefined();
   });
 });

@@ -38,7 +38,8 @@ import { actingMember, outcomeWords, partyOver, throwIfGivenBack } from './reply
  * Join and Here of a post of several groups (decision 2). The buttons and the dialogs are the
  * party's controls, with their guards and `ACTION_THROTTLE`: opening counts as a press, and so
  * does a Submit. Nothing is read from the database before a dialog opens (the party is in
- * memory), so none waits for `readInTime`.
+ * memory); since plan 8Z-2 (fix round F-A6) the press asks Discord whether somebody keeps a
+ * newcomer out of the forum first (`AttendanceService.newcomerRefusal`), within `readInTime`.
  */
 
 /** The status each button gives. */

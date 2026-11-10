@@ -595,6 +595,21 @@ export class AttendanceService {
   }
 
   /**
+   * Why a newcomer would be refused by every change here for the party's forum (`admission`):
+   * `kept-out`, `forum-unknown`; undefined when not, and for a member signed up, whom nothing is
+   * asked of. For a press that would open a dialog for a newcomer (which group, Group…; plan
+   * 8Z-2, fix round F-A6), so that nobody fills one in for nothing; its Submit is decided here
+   * again.
+   */
+  async newcomerRefusal(
+    partyId: string,
+    memberId: string,
+  ): Promise<'kept-out' | 'forum-unknown' | undefined> {
+    const admission = await this.admission(partyId, memberId);
+    return admission !== undefined && 'refused' in admission ? admission.refused : undefined;
+  }
+
+  /**
    * Whether a newcomer may be put into the party's forum (plan 8Z-2; the audit's L-D2): asked of
    * Discord before the change, for every path that ends here alike: a control of the post or of
    * its copy in another channel, a command, the map. `asked` is the forum they were asked about

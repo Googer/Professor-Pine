@@ -17,11 +17,14 @@ import { openSplit, SPLIT_WINDOW, submitSplit } from '../commands/trains/split.j
 import { MEET_WINDOW } from '../commands/parties/meet.js';
 import { openMeet } from '../commands/parties/meet-dialog.js';
 import type { AppContext } from '../app-context.js';
+import type { ButtonInteraction } from 'discord.js';
 import type { ComponentHandler } from '../discord/command.js';
+import { readInTime } from '../discord/dialog.js';
 import { UserError } from '../discord/errors.js';
 import { notARaid, requireGuild } from '../discord/guards.js';
 import { STALE_COMPONENT } from '../discord/router.js';
-import { isGroupId, isMeetup, isRaid } from '../domain/party/party.js';
+import { isGroupId, isMeetup, isRaid, partyWord, type Party } from '../domain/party/party.js';
+import { problemText } from '../render/activity.js';
 import { raidStage } from '../domain/party/raid.js';
 import { isPartyAction, PARTY_KIND, TIME_INPUT, timeForm } from '../render/party-controls.js';
 import { MANAGE_FORM, MOVE_FORM } from '../render/train-dialogs.js';
@@ -59,6 +62,27 @@ const JOINS: ReadonlySet<string> = new Set(['maybe', 'join', 'here']);
 function asksFirst(ctx: AppContext, partyId: string, memberId: string): boolean {
   const party = ctx.parties.get(partyId);
   return asksWhichGroup(party, memberId) && !ctx.attendance.refusesNewcomer(party, memberId);
+}
+
+/**
+ * Refuses, before a dialog that would ask a newcomer which group (Interested, Join, Here of a post
+ * of several groups; Group…), a newcomer the attendance service would refuse for the party's
+ * forum (plan 8Z-2, fix round F-A6: `newcomerRefusal`, the one ask of every path), so that nobody
+ * fills in a dialog for nothing; read within a dialog's time (`readInTime`: `SLOW_READ` past it,
+ * the press given back). Kept out: the service's words; Discord cannot say: `forum-unknown`'s,
+ * the press given back. The Submit is decided again.
+ */
+async function refuseNewcomerBeforeDialog(
+  interaction: ButtonInteraction,
+  ctx: AppContext,
+  party: Party,
+): Promise<void> {
+  const refusal = await readInTime(ctx.log, interaction, () =>
+    ctx.attendance.newcomerRefusal(party.id, interaction.user.id),
+  );
+  if (refusal === undefined) return;
+  const text = problemText(refusal, ctx.attendance.limits(), partyWord(party));
+  throw new UserError(text, { givesBack: refusal === 'forum-unknown' });
 }
 
 /**
@@ -111,6 +135,7 @@ export const partyButtons: ComponentHandler = {
         // A newcomer to a post of several groups is asked which group (plan 8X-1B).
         const party = ctx.parties.get(partyId);
         if (party && asksFirst(ctx, partyId, member.id)) {
+          await refuseNewcomerBeforeDialog(interaction, ctx, party);
           return openWhichGroup(interaction, ctx, party, id.action);
         }
         return pressStatus(attendance, partyId, member, { action: id.action }, click);
@@ -203,6 +228,8 @@ export const partyButtons: ComponentHandler = {
         if (party && attendance.refusesNewcomer(party, member.id)) {
           throw new UserError(partyOver(party));
         }
+        // Asks nothing of a member signed up (`newcomerRefusal`).
+        if (party) await refuseNewcomerBeforeDialog(interaction, ctx, party);
         return openGroupMenu(interaction, ctx, partyId);
       }
       case 'regroupform':

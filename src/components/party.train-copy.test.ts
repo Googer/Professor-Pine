@@ -68,10 +68,15 @@ async function setup() {
    * A press, and where it asks which group (a newcomer's Interested, Join or Here, plan 8X-1B),
    * the Submit of the choice picked to start with: what the member was told either way.
    */
-  const pressAndPick = async (action: string, userId = ALICE): Promise<string | undefined> => {
+  const pressAndPick = async (
+    action: string,
+    userId = ALICE,
+    beforeSubmit?: () => void,
+  ): Promise<string | undefined> => {
     const pressed = await press(action, userId);
     const dialog = dialogOf(pressed);
     if (!dialog) return sent(pressed.reply).content;
+    beforeSubmit?.();
     const first = dialogChoices(dialog).find((choice) => choice.picked);
     const submitted = fakeModal({
       customId: dialog.custom_id,
@@ -170,8 +175,9 @@ describe('the buttons of the copy of a train in another region', () => {
     for (let n = 0; n < ACTION_THROTTLE.uses - 3; n++) {
       made.ctx.throttles.use(controlThrottleKey(PARTY_KIND), ALICE, ACTION_THROTTLE, Date.now());
     }
-    made.gateway.failing.set('memberAccess', new Error('Discord is away'));
-    expect(await made.pressAndPick('join')).toBe(ACCESS_UNKNOWN);
+    // Discord answers at the press (the dialog opens) and cannot say at the Submit.
+    const away = () => made.gateway.failing.set('memberAccess', new Error('Discord is away'));
+    expect(await made.pressAndPick('join', ALICE, away)).toBe(ACCESS_UNKNOWN);
     expect(attendeeOf(made.current(), ALICE)).toBeUndefined();
     made.gateway.failing.delete('memberAccess');
     // Two uses were left: the dialog and its Submit.
