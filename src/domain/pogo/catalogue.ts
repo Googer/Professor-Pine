@@ -39,6 +39,16 @@ const FUSED_FORMS: ReadonlySet<string> = new Set([
  */
 const BATTLE_ONLY_FORMS: ReadonlySet<string> = new Set(['eternatus_eternamax']);
 
+/**
+ * Crowned forms. Fought as a raid boss, but caught in the Hero of Many Battles form, the species'
+ * entry, which a trainer crowns with an item later (the game master's `formChange`; Matt,
+ * 2026-11-09).
+ */
+const CROWNED_FORMS: ReadonlySet<string> = new Set([
+  'zacian_crowned_sword',
+  'zamazenta_crowned_shield',
+]);
+
 /** Read-only lookups over the parsed game data. */
 export class PokemonCatalogue {
   private readonly keys = new Map<string, PokemonEntry>();
@@ -334,8 +344,8 @@ export class PokemonCatalogue {
   }
 
   /**
-   * Weather that boosts at least one of the types of the Pokémon you catch. For a mega or a
-   * fused form that is the base species.
+   * Weather that boosts at least one of the types of the Pokémon you catch. For a mega, a
+   * fused or a crowned form that is the base species.
    */
   boostedIn(entry: PokemonEntry): Weather[] {
     const { types } = this.caught(entry);
@@ -350,8 +360,8 @@ export class PokemonCatalogue {
   }
 
   /**
-   * CP range of the Pokémon you catch from a raid. For a mega or a fused form that is the base
-   * species. A shadow raid has a lower minimum.
+   * CP range of the Pokémon you catch from a raid. For a mega, a fused or a
+   * crowned form that is the base species. A shadow raid has a lower minimum.
    */
   raidCatchCp(entry: PokemonEntry, shadow = false): RaidCatchCp {
     return raidCatchCp(this.caught(entry).stats, this.data.cpMultipliers, shadow);
@@ -366,12 +376,15 @@ export class PokemonCatalogue {
   }
 
   /**
-   * What a battle against this entry gives you: the species for a mega, a fused form or a
-   * battle-only form (Eternamax Eternatus).
+   * What a battle against this entry gives you: the species for a mega, a fused form, a
+   * battle-only form (Eternamax Eternatus) or a crowned form (Zacian and Zamazenta Hero).
    */
   private caught(entry: PokemonEntry): PokemonEntry {
     const base =
-      entry.kind === 'mega' || FUSED_FORMS.has(entry.key) || BATTLE_ONLY_FORMS.has(entry.key);
+      entry.kind === 'mega' ||
+      FUSED_FORMS.has(entry.key) ||
+      BATTLE_ONLY_FORMS.has(entry.key) ||
+      CROWNED_FORMS.has(entry.key);
     return base ? (this.species(entry.dex) ?? entry) : entry;
   }
 }

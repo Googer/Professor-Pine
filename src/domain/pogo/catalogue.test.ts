@@ -242,9 +242,31 @@ describe('PokemonCatalogue: what a raid gives you (values from Bulbapedia, "Raid
     expect(catalogue.weaknesses(entry('necrozma_dusk_mane')).map((w) => w.type)).not.toEqual(
       catalogue.weaknesses(entry('necrozma')).map((w) => w.type),
     );
-    // A form that is not fused is caught as itself.
+    // A form that is not fused or crowned is caught as itself.
     expect(catalogue.raidCatchCp(entry('giratina_origin'))).not.toEqual(
       catalogue.raidCatchCp(entry('giratina_altered')),
+    );
+  });
+
+  it('answers for the Hero of Many Battles form of a crowned boss (Matt, 2026-11-09)', () => {
+    // Zacian and Zamazenta Hero share their stats: 2100–2188, 2625–2735 boosted.
+    const hero = { min: 2100, max: 2188, minBoosted: 2625, maxBoosted: 2735 };
+    for (const [crowned, base] of [
+      ['zacian_crowned_sword', 'zacian_hero'],
+      ['zamazenta_crowned_shield', 'zamazenta_hero'],
+    ] as const) {
+      expect(catalogue.raidCatchCp(entry(crowned)), crowned).toEqual(hero);
+      expect(catalogue.raidCatchCp(entry(base)), base).toEqual(hero);
+      expect(catalogue.maxCatchCp(entry(crowned)), crowned).toEqual({ min: 2100, max: 2188 });
+      // The Hero forms are of one type; the crowned bosses add Steel, which a catch is not
+      // boosted by.
+      expect(catalogue.boostedIn(entry(crowned)), crowned).toEqual(
+        catalogue.boostedIn(entry(base)),
+      );
+    }
+    // The boss itself is still judged by its own types.
+    expect(catalogue.weaknesses(entry('zacian_crowned_sword')).map((w) => w.type)).not.toEqual(
+      catalogue.weaknesses(entry('zacian_hero')).map((w) => w.type),
     );
   });
 });
