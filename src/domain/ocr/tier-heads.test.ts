@@ -108,6 +108,26 @@ describe('headBand', () => {
     expect(headBand({ cpBox: null, countdownBox: null })).toBeNull();
   });
 
+  // Production, 2026-11-10: a hatched raid whose CP was not read (white on a bright sky) had its
+  // heads looked for under its countdown, near the bottom of the screen, which found one "head"
+  // (0.47) there: a T1 for a T5.
+  it('looks for no heads under a hatched raid’s countdown, but above its "CP" read alone', () => {
+    const countdownBox = { x0: 854, y0: 1417, x1: 1020, y1: 1467 };
+    expect(headBand({ cpBox: null, countdownBox, countdownPlace: 'right' })).toBeNull();
+    // The digits stand 2.3 of the letters' heights tall, their feet on one line: 230 from 970.
+    const cpLetters = { x0: 200, y0: 1100, x1: 300, y1: 1200 };
+    const found = headBand({ cpBox: null, cpLetters, countdownBox, countdownPlace: 'right' });
+    expect(found?.unit).toBeCloseTo(69);
+    expect(found?.top).toBeCloseTo(970 - 69 * 2.4);
+    expect(found?.bottom).toBeCloseTo(970 + 69 * 0.4);
+    // An egg's, centred, as before.
+    expect(headBand({ cpBox: null, countdownBox, countdownPlace: 'centre' })).toEqual({
+      top: 1467,
+      bottom: 1467 + 75 * 2.6,
+      unit: 75,
+    });
+  });
+
   it('finds the heads GO draws higher over the CP in a short pane (plan 7P-H)', () => {
     // Matt's split of 2026-11-05: in a pane 1080 × 1212 the CP was 80 pixels tall (unit 24),
     // its heads 29 tall and 17 above it, so their tops stood 1.9 units over the CP's top.

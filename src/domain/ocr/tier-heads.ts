@@ -1,5 +1,5 @@
 import { boxHeight, type GreyImage } from './image.js';
-import type { ScreenText } from './raid-screen.js';
+import { CP_DIGITS, type ScreenText } from './raid-screen.js';
 
 /**
  * Counting the tier heads of a raid screen by template matching: the game's own head icon
@@ -90,11 +90,16 @@ export function headTemplate(icon: {
 /**
  * Where the heads are looked for: just above a max battle's boss line (a head about 0.42 of its
  * height, between 1.5 and 0.6 of its heights above it), else above the CP of a hatched raid (a
- * unit 0.3 of the CP's height, from `CP_BAND_REACH` units above its top to 0.4 below), else under the countdown of an egg (a head about 1.5 of
- * the countdown's height); null without any.
+ * unit 0.3 of the CP's height, from `CP_BAND_REACH` units above its top to 0.4 below), or where
+ * its digits stand by a "CP" read alone without them (`cpLetters`: `CP_DIGITS` of its height
+ * tall, their feet on its line), else under the countdown of an egg (a head about 1.5 of the
+ * countdown's height); null without any. Never under a hatched raid's countdown, at the right:
+ * nothing but the boss and the ground stand there (production, 2026-11-10: a CP not read, one
+ * "head" found there at 0.47 made a T5 a T1).
  */
 export function headBand(
-  text: Pick<ScreenText, 'cpBox' | 'countdownBox' | 'max'>,
+  text: Pick<ScreenText, 'cpBox' | 'countdownBox' | 'max'> &
+    Partial<Pick<ScreenText, 'countdownPlace' | 'cpLetters'>>,
 ): HeadBand | null {
   if (text.max) {
     const height = boxHeight(text.max.box);
@@ -104,11 +109,17 @@ export function headBand(
       unit: height * 0.42,
     };
   }
-  if (text.cpBox) {
-    const unit = boxHeight(text.cpBox) * 0.3;
-    return { top: text.cpBox.y0 - unit * CP_BAND_REACH, bottom: text.cpBox.y0 + unit * 0.4, unit };
+  const letters = text.cpLetters;
+  const cpBox =
+    text.cpBox ??
+    (letters
+      ? { ...letters, y0: letters.y1 - boxHeight(letters) * CP_DIGITS, y1: letters.y1 }
+      : null);
+  if (cpBox) {
+    const unit = boxHeight(cpBox) * 0.3;
+    return { top: cpBox.y0 - unit * CP_BAND_REACH, bottom: cpBox.y0 + unit * 0.4, unit };
   }
-  if (text.countdownBox) {
+  if (text.countdownBox && text.countdownPlace !== 'right') {
     const unit = boxHeight(text.countdownBox) * 1.5;
     return { top: text.countdownBox.y1, bottom: text.countdownBox.y1 + unit * 2.6, unit };
   }

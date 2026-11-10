@@ -35,6 +35,11 @@ export interface ScreenText {
    */
   countdownPlace: 'centre' | 'right' | null;
   cpBox: Box | null;
+  /**
+   * Where a "CP" read alone stands (`cpLettersOf`) when no CP was read: the heads stand above
+   * its digits all the same (`headBand`). Absent otherwise.
+   */
+  cpLetters?: Box;
   /** What a max battle's screen says, null on any other (absent in records read before it). */
   max?: MaxText | null;
 }
@@ -114,6 +119,8 @@ const BOSS_NAME = /^[A-Za-z][A-Za-z.'\- ]{2,}$/;
 const CP_LETTERS = /^\W{0,2}CP\W{0,2}$/;
 /** A raid's "CP" stands in the screen's top half, at least this share of its height tall. */
 const CP_LETTERS_MIN_HEIGHT = 0.015;
+/** GO draws the CP's digits this many times as tall as its "CP", their feet on one line. */
+export const CP_DIGITS = 2.3;
 /**
  * The CP's row read again (`cpRowToReadAgain`) at the size where its "CP" is this many pixels
  * tall: a little larger than a phone's screenshot read at `READ_WIDTH` shows it (71 pixels of
@@ -533,6 +540,7 @@ export function readScreenText(
     bossName = below ? below.text.trim() : null;
   }
 
+  const cpLetters = cpLine ? undefined : cpLettersOf(body, height)?.box;
   return {
     clock,
     countdown,
@@ -544,6 +552,7 @@ export function readScreenText(
     countdownBox,
     countdownPlace,
     cpBox: cpLine?.box ?? null,
+    ...(cpLetters ? { cpLetters } : {}),
     max: maxText(body, height),
   };
 }

@@ -390,6 +390,17 @@ describe('cpRowToReadAgain and withCpReadAgain', () => {
     expect(withCpReadAgain(BRIGHT_SKY, box, [line('CP 67', 219, 451, 928, 612)])).toBe(BRIGHT_SKY);
     expect(withCpReadAgain(BRIGHT_SKY, box, [line('CP', 219, 541, 324, 612)])).toBe(BRIGHT_SKY);
   });
+
+  it('keeps where a "CP" read alone stands when no CP was read, for the heads above it', () => {
+    const none = BRIGHT_SKY.filter((one) => one.text !== '367');
+    expect(readScreenText(none, [], IPHONE)).toMatchObject({
+      cp: null,
+      cpBox: null,
+      cpLetters: { x0: 219, y0: 541, x1: 324, y1: 612 },
+      countdownPlace: 'right',
+    });
+    expect(readScreenText(HATCHED, [], SIZE).cpLetters).toBeUndefined();
+  });
 });
 
 describe('statusBandAsRead', () => {
