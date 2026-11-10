@@ -154,6 +154,17 @@ describe('compose.yaml', () => {
       expect(onIt).toHaveLength(2);
     });
 
+    // Whoever can route to the proxy (on a Linux host, any local process can reach a bridge
+    // network's addresses) could read the bot's environment through its inspect: the proxy
+    // answers only the address the name `watchdog` resolves to (plan 8Z-2).
+    it('lets the proxy answer the watchdog alone, not every address', () => {
+      const proxy = service('docker-proxy');
+      expect(proxy).toMatch(/^ {6}SP_ALLOWFROM: watchdog\r?$/m);
+      expect(proxy.replace(/#.*$/gm, '')).not.toContain('0.0.0.0/0');
+      // The name is the service's on the network the two share.
+      expect(services.some((text) => text.startsWith('watchdog:'))).toBe(true);
+    });
+
     it('starts the watchdog after the proxy, naming its project, as the image’s user', () => {
       const watchdog = service('watchdog');
       expect(watchdog).toMatch(/^ {6}- docker-proxy\r?$/m);
@@ -193,6 +204,48 @@ describe('compose.yaml', () => {
       expect(text).toMatch(/^ {4}pids_limit: \d+\r?$/m);
     },
   );
+
+  // They start as root and step down (the image's entrypoint, the backup's gosu), so they keep
+  // their capabilities; what they may use is bounded like the others' (plan 8Z-2).
+  it.each(['mysql', 'backup'])('lets %s gain no privilege, and limits what it may use', (name) => {
+    const text = service(name);
+    expect(text).toMatch(/^ {4}security_opt: \['no-new-privileges:true'\]\r?$/m);
+    expect(text).toMatch(/^ {4}mem_limit: \d+[mg]\r?$/m);
+    expect(text).toMatch(/^ {4}pids_limit: \d+\r?$/m);
+  });
+
+  describe('the networks (plan 8Z-2)', () => {
+    const networksOf = (name: string): string =>
+      /^ {4}networks: \[(.*)\]\r?$/m.exec(service(name))?.[1] ?? 'default';
+
+    it('keeps MySQL on a network without a way out, with the bot and the backups alone', () => {
+      expect(read('compose.yaml')).toMatch(/^ {2}db:\r?\n {4}internal: true\r?$/m);
+      expect(networksOf('mysql')).toBe('db');
+      expect(networksOf('backup')).toBe('db');
+      expect(networksOf('pine')).toBe('default, db');
+    });
+
+    it('lets neither the tunnel, the watchdog nor the socket proxy reach MySQL', () => {
+      expect(networksOf('cloudflared')).toBe('default');
+      expect(networksOf('watchdog')).toBe('default, docker-proxy');
+      expect(networksOf('docker-proxy')).toBe('docker-proxy');
+    });
+  });
+
+  // The backups read the database as the bot's account does; MySQL's root password is for the
+  // mysql service alone (and for `./pine restore`, which runs inside it).
+  it('gives the backups the bot’s account, never MySQL’s root password', () => {
+    const backup = service('backup').replace(/#.*$/gm, '');
+    expect(backup).not.toContain('ROOT_PASSWORD');
+    expect(backup).toMatch(/^ {6}DB_USER: \$\{DB_USER:\?DB_USER must be set in \.env\}\r?$/m);
+    expect(backup).toMatch(
+      /^ {6}DB_PASSWORD: \$\{DB_PASSWORD:\?DB_PASSWORD must be set in \.env\}\r?$/m,
+    );
+    const withRoot = services
+      .filter((text) => /ROOT_PASSWORD: \$\{DB_ROOT_PASSWORD/.test(text.replace(/#.*$/gm, '')))
+      .map((text) => text.split(':')[0]);
+    expect(withRoot).toEqual(['mysql']);
+  });
 
   it('keeps the logs of every service to a size', () => {
     const running = services.filter((text) => /^ {4}image: /m.test(text));

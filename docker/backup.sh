@@ -8,7 +8,8 @@
 #                        pine-backup-YYYYMMDD-HHMMSS-<tag>.sql.gz, which no day's backup replaces
 #   backup.sh status     the last backup's result in a line
 #
-# A backup is a dump of the Pine schema (DB_SCHEMA) of the `mysql` service, gzipped, as
+# A backup is a dump of the Pine schema (DB_SCHEMA) of the `mysql` service, read as the bot's
+# account (DB_USER, DB_PASSWORD: MySQL's root password is not the backups' to hold), gzipped, as
 # /backups/pine-backup-YYYYMMDD.sql.gz (one per day; a second one the same day replaces it).
 # /backups is BACKUP_DIR on the host; it must hold a file `.pine-backups`, made once by the
 # operator, so that an unmounted share (an empty folder) is never taken for the backup folder.
@@ -58,7 +59,9 @@ setup() {
     echo "DB_SCHEMA must be letters, digits, _ and - (a hyphen neither first nor last), not '$SCHEMA'." >&2
     exit 1
   fi
-  : "${MYSQL_ROOT_PASSWORD:?MYSQL_ROOT_PASSWORD is not set}"
+  # The bot's account, which has every right on the schema: all a dump and the counts need.
+  ACCOUNT=${DB_USER:?DB_USER is not set}
+  ACCOUNT_PASSWORD=${DB_PASSWORD-}
   AT=${BACKUP_TIME:-03:30}
   KEEP=${BACKUP_KEEP_DAYS:-90}
   OWNER_UID=${BACKUP_UID:-0}
@@ -95,7 +98,6 @@ setup() {
       exit 1
       ;;
   esac
-  export MYSQL_PWD="$MYSQL_ROOT_PASSWORD"
 }
 
 log() {
@@ -111,9 +113,10 @@ as_owner() {
   fi
 }
 
-# The live database, as MySQL's root.
+# The live database, as the bot's account (its password through the environment, never on the
+# command line, where the process list would show it).
 live() {
-  mysql -h mysql -uroot -N -B "$@"
+  MYSQL_PWD="$ACCOUNT_PASSWORD" mysql -h mysql -u"$ACCOUNT" -N -B "$@"
 }
 
 # A text as the inside of a JSON string: backslashes and quotes escaped, line breaks as spaces.
@@ -195,8 +198,9 @@ live_count() {
 # a restore runs a dump's SQL as MySQL's root, so one that the bot's account put there must not
 # travel in a dump (make_dump asks for none). A database that has some all the same is still
 # backed up, without them: `programs` says so for the status's warning (nothing when it has none).
-# The account that asks sees a table's triggers only while it holds TRIGGER on it, routines it may
-# run or change and events while it holds EVENT: the bot's account has all of these on the schema.
+# The account that asks (the bot's) sees a table's triggers only while it holds TRIGGER on it,
+# routines it may run or change and events while it holds EVENT: it has all of these on the
+# schema, as the image's first start granted them.
 stored_programs() {
   programs=
   counts="select concat_ws(' ',
@@ -235,7 +239,9 @@ stored_programs() {
 # make_dump <file>: the schema, gzipped, written as the folder's owner and readable by that owner
 # alone (it holds members' ids and the keys of the export tool). Sets `reason` and fails when
 # mysqldump or the write does. Without triggers (which mysqldump writes unless told not to),
-# routines and events: see stored_programs.
+# routines and events: see stored_programs. As the bot's account, which may read the schema's
+# tables and needs no more: --single-transaction takes no table locks, --no-tablespaces asks
+# for nothing that needs PROCESS, and --set-gtid-purged=OFF for nothing of the server's GTIDs.
 make_dump() {
   rc_file=$(mktemp)
   # No pipefail in sh: the status of mysqldump and of the write are kept aside. In the
@@ -243,9 +249,9 @@ make_dump() {
   # `wait` is one that a signal ends), not after the whole dump.
   # shellcheck disable=SC2016 # the $1 of the inner sh
   {
-    mysqldump -h mysql -uroot --single-transaction --quick --skip-triggers \
-      --hex-blob --no-tablespaces --set-gtid-purged=OFF --default-character-set=utf8mb4 \
-      "$SCHEMA" 2>"$rc_file.err"
+    MYSQL_PWD="$ACCOUNT_PASSWORD" mysqldump -h mysql -u"$ACCOUNT" --single-transaction --quick \
+      --skip-triggers --hex-blob --no-tablespaces --set-gtid-purged=OFF \
+      --default-character-set=utf8mb4 "$SCHEMA" 2>"$rc_file.err"
     echo $? >"$rc_file"
   } | gzip -6 | (
     umask 077

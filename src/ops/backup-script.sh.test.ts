@@ -117,7 +117,7 @@ describe('the dump of docker/backup.sh', () => {
     const { out, env } = folders();
     const run = runBackupScript(
       [
-        'OWNER_UID=0 OWNER_GID=0 SCHEMA=pine',
+        'OWNER_UID=0 OWNER_GID=0 SCHEMA=pine ACCOUNT=pine ACCOUNT_PASSWORD=secret',
         'mysqldump() { echo "-- Dump completed"; }',
         'as_owner() { umask >>"$OUT/umasks"; "$@"; }',
         'make_dump "$OUT/dump.sql.gz" && echo made',
@@ -135,7 +135,7 @@ describe('the dump of docker/backup.sh', () => {
     const { out, env } = folders();
     const run = runBackupScript(
       [
-        'OWNER_UID=0 OWNER_GID=0 SCHEMA=pine',
+        'OWNER_UID=0 OWNER_GID=0 SCHEMA=pine ACCOUNT=pine ACCOUNT_PASSWORD=secret',
         'mysqldump() { printf "%s\\n" "$@" >"$OUT/asked"; echo "-- Dump completed"; }',
         'make_dump "$OUT/dump.sql.gz" && echo made',
       ].join('\n'),
@@ -150,6 +150,56 @@ describe('the dump of docker/backup.sh', () => {
     expect(asked).not.toContain('--routines');
     expect(asked).not.toContain('--events');
     expect(asked).toContain('pine');
+  });
+
+  // MySQL's root password is not the backups' to hold: they read as the bot's account does.
+  it('is read as the bot’s account, as are the counts, never as MySQL’s root', (context) => {
+    const { out, env } = folders();
+    const run = runBackupScript(
+      [
+        'OWNER_UID=0 OWNER_GID=0 SCHEMA=pine ACCOUNT=pine-bot ACCOUNT_PASSWORD=bot-secret',
+        // The password as each command gets it, then its arguments.
+        'mysqldump() { printf "%s\\n" "$MYSQL_PWD" "$@" >"$OUT/dump-asked"; echo "-- Dump completed"; }',
+        'mysql() { printf "%s\\n" "$MYSQL_PWD" "$@" >"$OUT/count-asked"; echo 7; }',
+        'make_dump "$OUT/dump.sql.gz" && echo made',
+        'echo "counted: $(live_count Gym)"',
+      ].join('\n'),
+      // What the service had before: root's password, also as the clients' default.
+      { ...env, MYSQL_ROOT_PASSWORD: 'root-secret', MYSQL_PWD: 'root-secret' },
+    );
+    if (!run) return context.skip('no sh here');
+
+    expect(run.stdout).toContain('made');
+    expect(run.stdout).toContain('counted: 7');
+    for (const file of ['dump-asked', 'count-asked']) {
+      const asked = readFileSync(path.join(out, file), 'utf8').split(/\r?\n/);
+      expect(asked[0], file).toBe('bot-secret');
+      expect(asked, file).toContain('-upine-bot');
+      expect(asked, file).not.toContain('-uroot');
+    }
+  });
+});
+
+describe('the account of docker/backup.sh', () => {
+  it('is the bot’s: the service stops with a sentence without DB_USER, and asks for no root password', (context) => {
+    const run = runBackupScript(
+      [
+        '(unset DB_USER; setup) 2>&1 || true',
+        // With it, the settings are read on (to the time zone, which only the image knows).
+        '(setup && echo "set up: $ACCOUNT") 2>&1 || true',
+      ].join('\n'),
+      {
+        DB_SCHEMA: 'pine',
+        DB_USER: 'pine-bot',
+        DB_PASSWORD: 'bot-secret',
+        MYSQL_ROOT_PASSWORD: '',
+      },
+    );
+    if (!run) return context.skip('no sh here');
+
+    expect(run.stdout).toContain('DB_USER is not set');
+    expect(run.stdout).not.toContain('MYSQL_ROOT_PASSWORD');
+    expect(run.stdout).toMatch(/set up: pine-bot|The time zone 'UTC'/);
   });
 });
 

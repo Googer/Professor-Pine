@@ -38,8 +38,17 @@ services:
       timeout: 5s
       retries: 6
       start_period: 2m
+    # With the bot and the backups alone, and no way out (plan 8Z-2).
+    networks: [db]
     restart: unless-stopped
     logging: *logging
+    # It starts as root and steps down to `mysql` (the image's entrypoint), so it keeps its
+    # capabilities; it gains no new privilege, and a runaway is bounded like the other services.
+    # The limits are generous on purpose (every connection is a thread, of 151 at most, beside
+    # the server's own): `docker stats` on a running stack shows what it uses.
+    security_opt: ['no-new-privileges:true']
+    mem_limit: 2g
+    pids_limit: 512
 
   pine:
     build: .
@@ -75,6 +84,8 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    # The default network for Discord, the feeds and the tunnel; MySQL's own for the database.
+    networks: [default, db]
     # tini as process 1: it hands SIGTERM to the bot and reaps the screen reader's process.
     init: true
     restart: unless-stopped
@@ -156,8 +167,12 @@ services:
     user: '0'
     environment:
       SP_LISTENIP: 0.0.0.0
-      # The network is the fence: nobody else is on it.
-      SP_ALLOWFROM: 0.0.0.0/0
+      # Only the watchdog is answered (plan 8Z-2): the proxy looks the name up at every request
+      # (Docker's own DNS gives the service's address on the network the two share) and refuses
+      # an address that is not its, also when the lookup fails. The network alone is no fence:
+      # on a Linux host any local process can reach a bridge network's addresses, and the bot's
+      # inspect holds its whole environment.
+      SP_ALLOWFROM: watchdog
       SP_ALLOW_GET: '(/v[0-9.]+)?/containers/(json|${COMPOSE_PROJECT_NAME:-pine}-pine-[0-9]+/json)'
       SP_ALLOW_POST: '(/v[0-9.]+)?/containers/${COMPOSE_PROJECT_NAME:-pine}-pine-[0-9]+/restart'
       # For the binary below alone, on 127.0.0.1 inside the container.
@@ -187,7 +202,10 @@ services:
     entrypoint: ['sh', '/pine/backup.sh']
     command: ['schedule']
     environment:
-      MYSQL_ROOT_PASSWORD: ${DB_ROOT_PASSWORD:?DB_ROOT_PASSWORD must be set in .env}
+      # The bot's account, which may read all of its schema: the dump and the counts need no
+      # more, and MySQL's root password stays with the mysql service (plan 8Z-2).
+      DB_USER: ${DB_USER:?DB_USER must be set in .env}
+      DB_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD must be set in .env}
       DB_SCHEMA: ${DB_SCHEMA:?DB_SCHEMA must be set in .env}
       BACKUP_TIME: ${BACKUP_TIME:-03:30}
       BACKUP_TZ: ${BACKUP_TZ:-}
@@ -219,9 +237,17 @@ services:
     depends_on:
       mysql:
         condition: service_healthy
+    # MySQL's network alone: a backup needs nothing outside the stack.
+    networks: [db]
     init: true
     restart: unless-stopped
     logging: *logging
+    # It runs as root for the scratch server's files and to write as BACKUP_UID (gosu), so it keeps
+    # its capabilities; it gains no new privilege. The limits are generous on purpose: a check runs
+    # a second MySQL server (its threads count as processes) beside the dump's own commands.
+    security_opt: ['no-new-privileges:true']
+    mem_limit: 2g
+    pids_limit: 512
     # A stop during a check shuts the scratch server down first.
     stop_grace_period: 30s
 
@@ -239,6 +265,8 @@ services:
       TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN:-}
     depends_on:
       - pine
+    # The bot's web server and the way out to Cloudflare; never MySQL's network.
+    networks: [default]
     restart: unless-stopped
     logging: *logging
     security_opt: ['no-new-privileges:true']
@@ -258,4 +286,8 @@ volumes:
 networks:
   # Between the watchdog and the socket proxy, with no way out.
   docker-proxy:
+    internal: true
+  # MySQL's, with the bot and the backups: no way out, and neither the tunnel nor the watchdog
+  # on it (plan 8Z-2). The bot, the watchdog and the tunnel keep the default network.
+  db:
     internal: true
