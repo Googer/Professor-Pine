@@ -2,7 +2,7 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { MessageFlags } from 'discord.js';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   asV2,
   fakeChatInput,
@@ -304,9 +304,12 @@ describe('/find-region: coordinates and links', () => {
         const used = await made.run(location);
         return { text: shownAnswer(used).description, files: sent(used.editReply).files };
       };
+      const spent = vi.spyOn(mapBudget, 'spend');
       const first = await answer('40.05, -80.05');
       expect(first.files).toHaveLength(1);
       expect(await mapBudget.used()).toBe(1);
+      // Taken as the member's (fix round of 8Z-2: a member has twenty maps a day).
+      expect(spent).toHaveBeenCalledWith(ALICE);
       // The same place again: its map is on disk, and nothing is taken.
       expect((await answer('40.05, -80.05')).files).toEqual(first.files);
       expect(await mapBudget.used()).toBe(1);
