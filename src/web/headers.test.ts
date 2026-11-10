@@ -21,17 +21,29 @@ describe('contentSecurityPolicy', () => {
   it('lets in scripts and styles from Pine alone, and frames nothing', () => {
     const policy = directives(contentSecurityPolicy({ tiles: 'osm', pictureOrigins: pictures }));
     expect(policy.get('default-src')).toEqual(["'none'"]);
-    // Pine's files, and the one inline script of a login link's page by its hash (review fix 6).
-    expect(policy.get('script-src')).toEqual([
-      "'self'",
-      expect.stringMatching(/^'sha256-[A-Za-z0-9+/]{43}='$/),
-    ]);
+    // Pine's files alone: no inline script on any page but the one that carries it (plan 8Z-2).
+    expect(policy.get('script-src')).toEqual(["'self'"]);
     expect(policy.get('style-src')).toEqual(["'self'"]);
     expect(policy.get('font-src')).toEqual(["'self'"]);
     expect(policy.get('frame-ancestors')).toEqual(["'none'"]);
     expect(policy.get('base-uri')).toEqual(["'none'"]);
     expect(policy.get('form-action')).toEqual(["'self'"]);
     expect(policy.get('connect-src')).toEqual(["'self'"]);
+  });
+
+  it('lets the script of a login link’s page in by its hash, only for an answer that carries it', () => {
+    const options = { tiles: 'osm', pictureOrigins: pictures } as const;
+    const carrying = directives(contentSecurityPolicy({ ...options, continueScript: true }));
+    // The one inline script of Pine's pages (review fix 6), and nothing else of the policy differs.
+    expect(carrying.get('script-src')).toEqual([
+      "'self'",
+      expect.stringMatching(/^'sha256-[A-Za-z0-9+/]{43}='$/),
+    ]);
+    const plain = directives(contentSecurityPolicy(options));
+    expect([...carrying.keys()]).toEqual([...plain.keys()]);
+    for (const [name, values] of plain) {
+      if (name !== 'script-src') expect(carrying.get(name), name).toEqual(values);
+    }
   });
 
   it("shows OpenStreetMap's tiles and the posts' pictures, and Google's only with Google", () => {

@@ -28,6 +28,11 @@ export interface PolicyOptions {
   tiles: TileSetting;
   /** The origins of the pictures posts show (`pictureOrigins`). */
   pictureOrigins: readonly string[];
+  /**
+   * Whether the answer carries `CONTINUE_SCRIPT` (a login link's page in a browser that is not
+   * logged in): only then is the script let in by its hash (plan 8Z-2).
+   */
+  continueScript?: boolean;
 }
 
 /**
@@ -51,13 +56,16 @@ export function pictureOrigins(publicUrl: string): string[] {
 /**
  * The Content Security Policy of every answer (spec 2.2): scripts, styles and fonts from Pine
  * alone, no inline script but the login link page's `CONTINUE_SCRIPT`, by its hash (review fix
- * 6); pictures from Pine, the tile hosts and the posts' picture hosts
+ * 6), and that only in the policy of an answer that carries it (`continueScript`, plan 8Z-2:
+ * on every answer it would run on any page an injection reached, and submit its first form);
+ * pictures from Pine, the tile hosts and the posts' picture hosts
  * (Stadia's unless the tiles are OpenStreetMap's alone, plan 8M-7; OpenStreetMap's always, the
  * fallback); connections to Pine and, with Google's tiles, the Map Tiles API; no frames, no
  * `<base>`, forms only to Pine. Leaflet sets `style` attributes from its script, which
  * `style-src` does not govern (it covers style elements and attributes in the markup).
  */
-export function contentSecurityPolicy({ tiles: shown, pictureOrigins }: PolicyOptions): string {
+export function contentSecurityPolicy(options: PolicyOptions): string {
+  const { tiles: shown, pictureOrigins } = options;
   const google = shown === 'google';
   const tiles = [
     ...(shown === 'osm' ? [] : [STADIA_TILES]),
@@ -66,7 +74,7 @@ export function contentSecurityPolicy({ tiles: shown, pictureOrigins }: PolicyOp
   ];
   return [
     "default-src 'none'",
-    `script-src 'self' ${CONTINUE_SCRIPT_SOURCE}`,
+    `script-src 'self'${options.continueScript === true ? ` ${CONTINUE_SCRIPT_SOURCE}` : ''}`,
     "style-src 'self'",
     `img-src 'self' data: ${[...tiles, ...pictureOrigins].join(' ')}`,
     `connect-src 'self'${google ? ` ${GOOGLE_TILES}` : ''}`,

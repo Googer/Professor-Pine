@@ -38,6 +38,7 @@ import {
   type RaidLook,
 } from '../domain/web/party-view.js';
 import { EGG_PICTURE_NAMES } from '../domain/pogo/raid-eggs.js';
+import { mapLink } from '../domain/web/map-links.js';
 import { allowedPicture } from '../domain/web/picture.js';
 import { EGG_PATH } from '../services/egg-pictures.js';
 import type { PartyProvider } from '../services/party-store.js';
@@ -236,22 +237,13 @@ export const OTHER_POST = 'another post';
 
 /**
  * Whether a post's address may be a link on the map (plan 8M-8A): Google Maps (a Where's Map),
- * a post or message of this server on Discord, and Pine's own pages; https only (Pine's own
- * address as `publicUrl` has it), no user or password. Anything else is shown as its text.
+ * a post or message of this server on Discord, and Pine's own pages of this server
+ * (`/s/<guild>/…`, never a login link; plan 8Z-2); https only (Pine's own address as
+ * `publicUrl` has it), no user or password. Anything else is shown as its text. The rule is
+ * `mapLink` (`src/domain/web/map-links.ts`), which the page asks again before it makes a link.
  */
 export function linkableOnTheMap(url: string, guildId: string, publicUrl: string): boolean {
-  let parsed: URL;
-  try {
-    parsed = new URL(url);
-  } catch {
-    return false;
-  }
-  if (parsed.username !== '' || parsed.password !== '') return false;
-  if (parsed.origin === new URL(publicUrl).origin) return true;
-  if (parsed.protocol !== 'https:' || parsed.port !== '') return false;
-  if (parsed.hostname === 'www.google.com') return /^\/maps(?:\/|$)/u.test(parsed.pathname);
-  if (parsed.hostname === 'discord.com') return parsed.pathname.startsWith(`/channels/${guildId}/`);
-  return false;
+  return mapLink(url, guildId, new URL(publicUrl).origin) !== undefined;
 }
 
 /**

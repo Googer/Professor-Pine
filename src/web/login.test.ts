@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
 import {
+  builtAssets,
   cookieOf,
   FakeOAuth,
   setCookies,
@@ -387,6 +388,98 @@ describe('login links', () => {
       '<button type="submit">Continue as &lt;b&gt;Ash&lt;/b&gt; &amp; &quot;Pika&quot;</button>',
     );
     expect(page).not.toContain('<b>');
+  });
+
+  describe('opened in a browser that is logged in (plan 8Z-2)', () => {
+    const MISTY = '700000000000000002';
+    /** The `script-src` of an answer's Content Security Policy. */
+    const scriptSources = (answer: { headers: Record<string, unknown> }) =>
+      String(answer.headers['content-security-policy'])
+        .split('; ')
+        .find((directive) => directive.startsWith('script-src '));
+
+    it('as the link’s own account show the button and never press it themselves', async () => {
+      web = webServerWith();
+      const cookie = await web.loggedIn(ASH, 'Ash');
+      const token = web.loginLinks.issue(FAKE_GUILD_ID, ASH, 'Ash', web.clock.now);
+      const url = `/auth/link/${FAKE_GUILD_ID}/${token}`;
+      for (const method of ['GET', 'HEAD'] as const) {
+        const opened = await web.app.inject({ method, url, headers: { cookie } });
+        expect(opened.statusCode, method).toBe(200);
+        // No script on the page, so none let in: Pine's files alone.
+        expect(scriptSources(opened), method).toBe("script-src 'self'");
+      }
+      const page = (await web.app.inject({ url, headers: { cookie } })).body;
+      expect(page).toContain(`<form method="post" action="${url}" data-name="Ash">`);
+      expect(page).toContain('<button type="submit">Continue as Ash</button>');
+      expect(page).not.toContain('<script');
+      expect(page).not.toContain('You are logged in as');
+      // The button works as ever: the link is spent, the old session ended.
+      const pressed = await pressContinue(web, url, { cookie });
+      expect(pressed.headers.location).toBe(MAP);
+      expect(web.sessions.rows.size).toBe(1);
+    });
+
+    it('as another account name both, as text, and never press the button themselves', async () => {
+      web = webServerWith();
+      const cookie = await web.loggedIn(MISTY, '<i>Misty</i> & Co');
+      const token = web.loginLinks.issue(FAKE_GUILD_ID, ASH, '<b>Ash</b>', web.clock.now);
+      const url = `/auth/link/${FAKE_GUILD_ID}/${token}/edit`;
+      const opened = await web.app.inject({ url, headers: { cookie } });
+      expect(opened.statusCode).toBe(200);
+      expect(opened.body).toContain(
+        '<p>You are logged in as &lt;i&gt;Misty&lt;/i&gt; &amp; Co.</p>',
+      );
+      expect(opened.body).toContain(
+        '<button type="submit">Continue as &lt;b&gt;Ash&lt;/b&gt;</button>',
+      );
+      expect(opened.body).not.toMatch(/<script|<i>|<b>/);
+      expect(scriptSources(opened)).toBe("script-src 'self'");
+      // Nobody was logged in or out by opening it.
+      expect(setCookies(opened)).toEqual([]);
+      expect([...web.sessions.rows.values()].map((row) => row.userId)).toEqual([MISTY]);
+      // Pressed by hand, it logs in as the link's account.
+      await pressContinue(web, url, { cookie });
+      expect([...web.sessions.rows.values()].map((row) => row.userId)).toEqual([ASH]);
+    });
+
+    it('with a cookie no session has press the button as for a browser logged out', async () => {
+      web = webServerWith();
+      const token = web.loginLinks.issue(FAKE_GUILD_ID, ASH, 'Ash', web.clock.now);
+      const ended = await web.loggedIn(ASH, 'Ash');
+      web.sessions.rows.clear();
+      for (const cookie of [ended, `__Host-pine_session=${'A'.repeat(43)}`]) {
+        const opened = await web.app.inject({
+          url: `/auth/link/${FAKE_GUILD_ID}/${token}`,
+          headers: { cookie },
+        });
+        expect(opened.body.match(/<script/g)).toHaveLength(1);
+        expect(scriptSources(opened)).toMatch(/^script-src 'self' 'sha256-[A-Za-z0-9+/]{43}='$/);
+      }
+    });
+
+    it('send the script’s hash with no other answer', async () => {
+      web = webServerWith({ assets: builtAssets() });
+      const cookie = await web.loggedIn(ASH, 'Ash');
+      const token = web.loginLinks.issue(FAKE_GUILD_ID, ASH, 'Ash', web.clock.now);
+      const link = `/auth/link/${FAKE_GUILD_ID}/${token}`;
+      const answers = [
+        await web.app.inject({ url: '/' }),
+        await web.app.inject({ url: MAP }),
+        await web.app.inject({ url: ME, headers: { cookie } }),
+        await web.app.inject({ url: '/auth/login' }),
+        await web.app.inject({ url: '/nowhere' }),
+        // A link that is spent or unknown leads on: no page, no script.
+        await web.app.inject({ url: `/auth/link/${FAKE_GUILD_ID}/${'A'.repeat(43)}` }),
+        await pressContinue(web, link),
+      ];
+      expect(answers.map((answer) => answer.statusCode)).toEqual([
+        200, 200, 200, 302, 404, 303, 303,
+      ]);
+      for (const answer of answers) {
+        expect(scriptSources(answer), String(answer.statusCode)).toBe("script-src 'self'");
+      }
+    });
   });
 
   describe('their script (review fix 1)', () => {

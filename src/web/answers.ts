@@ -88,19 +88,64 @@ export function linkPage(
   );
 }
 
+/** What a login link's page shows, by who the browser is logged in as (plan 8Z-2). */
+export interface LinkPageOptions {
+  /** What the link opens, in a sentence. */
+  sentence: string;
+  /** Where the button POSTs: a path of Pine's. */
+  action: string;
+  /** The name of the link's account. */
+  name: string;
+  /**
+   * Who the browser is logged in as: `none` (no session: the page presses its button itself),
+   * `same` (the link's own account), or the name of another account, which the page says.
+   */
+  loggedIn: 'none' | 'same' | { other: string };
+}
+
 /**
  * A login link's page: a short page of one sentence and a button "Continue as <name>" that POSTs
- * an empty form to `action` (a path of Pine's), pressed by `CONTINUE_SCRIPT`, inline, where
- * scripts run (the CSP lets it in by its hash, `CONTINUE_SCRIPT_SOURCE`); the form carries the
- * name, escaped, in `data-name` for the script's "Logging you in as <name>…".
+ * an empty form to `action` (a path of Pine's); the form carries the name, escaped, in
+ * `data-name` for the script's "Logging you in as <name>…". Only in a browser that is not logged
+ * in is the button pressed by `CONTINUE_SCRIPT`, inline, where scripts run (Matt's ruling,
+ * 2026-11-10, plan 8Z-2: a link never changes who a browser is logged in as by itself). In one
+ * logged in as the link's account the button stays to be pressed; in one logged in as somebody
+ * else the page says so first, "You are logged in as <their name>.", then the button with the
+ * link's name. Every name is escaped.
  */
-export function buttonPage(sentence: string, action: string, name: string): string {
+export function buttonPage(options: LinkPageOptions): string {
+  const { sentence, action, name, loggedIn } = options;
   return page(
     sentence,
-    `<form method="post" action="${escapeHtml(action)}" data-name="${escapeHtml(name)}">` +
+    (typeof loggedIn === 'object'
+      ? `<p>You are logged in as ${escapeHtml(loggedIn.other)}.</p>`
+      : '') +
+      `<form method="post" action="${escapeHtml(action)}" data-name="${escapeHtml(name)}">` +
       `<button type="submit">Continue as ${escapeHtml(name)}</button></form>` +
-      `<script>${CONTINUE_SCRIPT}</script>`,
+      (loggedIn === 'none' ? `<script>${CONTINUE_SCRIPT}</script>` : ''),
   );
+}
+
+/** The answers that carry `CONTINUE_SCRIPT`: the only ones whose CSP lets it in. */
+const scripted = new WeakSet<FastifyReply>();
+
+/**
+ * Whether an answer carries `CONTINUE_SCRIPT` (`sendButtonPage` sent it with the script): the
+ * `onSend` hook sends the script's hash in the Content Security Policy of such an answer alone
+ * (plan 8Z-2, audit L-W1: allowed on every answer, the script would submit the first form of
+ * any page an injection reached).
+ */
+export function carriesContinueScript(reply: FastifyReply): boolean {
+  return scripted.has(reply);
+}
+
+/**
+ * Answers a login link's page (`buttonPage`), and marks the answer as carrying the script where
+ * the page has it: the one place that does either, so that the two cannot differ.
+ */
+export function sendButtonPage(reply: FastifyReply, options: LinkPageOptions): FastifyReply {
+  if (options.loggedIn === 'none') scripted.add(reply);
+  return reply.type('text/html; charset=utf-8').send(buttonPage(options));
 }
 
 /** Answers a failure: JSON `{ error }` for the pages' data, a short page otherwise. */

@@ -12,7 +12,7 @@ import { EGG_FOLDER, EGG_PATH } from '../services/egg-pictures.js';
 import { LockOverdueError } from '../services/keyed-lock.js';
 import { EMOJI_PATH, type EmojiPictures } from '../services/post-pictures.js';
 import { PICTURE_PATH, type StopPictures } from '../services/stop-pictures.js';
-import { sendFailure } from './answers.js';
+import { carriesContinueScript, sendFailure } from './answers.js';
 import { authRoutes } from './auth-routes.js';
 import { isNearbyPeer } from './client-address.js';
 import type { OAuthGateway } from './discord-oauth.js';
@@ -135,14 +135,18 @@ export function buildWebServer(deps: WebDeps): FastifyInstance {
     trustProxy: settings.trustProxy ? (address: string) => isNearbyPeer(address) : false,
     return503OnClosing: true,
   });
-  const headers = securityHeaders({
+  const policy = {
     tiles: shownTiles(settings.tiles, deps.googleKey),
     pictureOrigins: deps.pictureOrigins,
-  });
+  };
+  const headers = securityHeaders(policy);
+  // The one answer with an inline script, a login link's page in a browser that is not logged
+  // in, lets it in by its hash; no other answer does (plan 8Z-2).
+  const scriptedHeaders = securityHeaders({ ...policy, continueScript: true });
 
   void app.register(fastifyCookie);
   app.addHook('onSend', async (_request, reply, payload) => {
-    reply.headers(headers);
+    reply.headers(carriesContinueScript(reply) ? scriptedHeaders : headers);
     return payload;
   });
   app.addHook('onResponse', async (request, reply) => {

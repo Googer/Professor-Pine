@@ -2,7 +2,7 @@ import { randomBytes } from 'node:crypto';
 import type { CookieSerializeOptions } from '@fastify/cookie';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isSnowflake } from '../db/snowflake.js';
-import { buttonPage, sendFailure } from './answers.js';
+import { sendButtonPage, sendFailure } from './answers.js';
 import { addressBucket } from './client-address.js';
 import { postGuard } from './csrf.js';
 import { authorizeUrl } from './discord-oauth.js';
@@ -136,8 +136,10 @@ export function authRoutes(app: FastifyInstance, deps: WebDeps): void {
   // A link of `/maps` or `/region edit` (spec 2.4, a GET from Discord's link button) only shows
   // a page whose button POSTs to the same address: a GET or HEAD (a link preview, a prefetch)
   // uses nothing up. The page presses its button itself by a script of ours (Matt, 2026-10-25;
-  // a preview runs no script). The button names the account the link logs in to (somebody
-  // else's link logs you in as them); a link that is unknown, used, expired or another
+  // a preview runs no script), but only in a browser that is not logged in (Matt, 2026-11-10,
+  // plan 8Z-2): with a session the button waits, and under another account's session the page
+  // names both. The button names the account the link logs in to (somebody else's link logs
+  // you in as them); a link that is unknown, used, expired or another
   // server's leads straight to `?login=expired` of the page its address names (the map, or
   // with `/edit` the region editor: an expired link is known no more).
   const linkPage =
@@ -149,15 +151,20 @@ export function authRoutes(app: FastifyInstance, deps: WebDeps): void {
       if (!holder || holder.guildId !== guild) {
         return reply.redirect(`/s/${guild}/${page}?login=expired`, 303);
       }
-      return reply
-        .type('text/html; charset=utf-8')
-        .send(
-          buttonPage(
-            LINK_SENTENCES[page],
-            `/auth/link/${guild}/${encodeURIComponent(token)}${LINK_SUFFIXES[page]}`,
-            holder.userName,
-          ),
-        );
+      // Who the browser is logged in as (plan 8Z-2): only one that is not logged in has the
+      // button pressed for it; a session's holder sees whose link it is and presses, or not.
+      const session = await sessions.of(request, reply);
+      return sendButtonPage(reply, {
+        sentence: LINK_SENTENCES[page],
+        action: `/auth/link/${guild}/${encodeURIComponent(token)}${LINK_SUFFIXES[page]}`,
+        name: holder.userName,
+        loggedIn:
+          session === undefined
+            ? 'none'
+            : session.userId === holder.userId
+              ? 'same'
+              : { other: session.userName },
+      });
     };
   app.get('/auth/link/:guild/:token', linkPage('map'));
   app.get('/auth/link/:guild/:token/edit', linkPage('regions/edit'));

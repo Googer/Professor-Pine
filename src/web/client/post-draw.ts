@@ -10,6 +10,7 @@ import type {
 import { completionAsk, NOT_YET, TAKEN_AS_DONE, YES_DONE } from '../../render/completion-words.js';
 import type { DistanceUnits, Place } from './distance.js';
 import { meetupHereBox } from './meetup-forms.js';
+import { mapLink } from '../../domain/web/map-links.js';
 import { MEETUP_NOT_YOURS } from '../../domain/web/meetup-data.js';
 import { groupPick, STATUS_WORDS } from './parties.js';
 import { mapLine, type PageNode } from './popup.js';
@@ -67,26 +68,14 @@ export interface PlacedContext extends PostDrawContext {
 const NEW_TAB = { target: '_blank', rel: 'noopener noreferrer' } as const;
 
 /**
- * An address the page may link, checked again after the server and as strictly
- * (`linkableOnTheMap`, review 8A-13): Google Maps, this server's posts on Discord, Pine's own
- * pages (its origin as the page has it), by https without a user, password or port; undefined
+ * An address the page may link, checked again after the server and by the very rule it used
+ * (`linkableOnTheMap`, review 8A-13; `mapLink`, `src/domain/web/map-links.ts`, plan 8Z-2):
+ * Google Maps, this server's posts on Discord, this server's own pages of Pine (its origin as
+ * the page has it; never a login link), by https without a user, password or port; undefined
  * for anything else.
  */
 export function safeHref(href: string, origin: string, guild: string): string | undefined {
-  let url: URL;
-  try {
-    url = new URL(href);
-  } catch {
-    return undefined;
-  }
-  if (url.username !== '' || url.password !== '') return undefined;
-  if (url.origin === origin) return url.href;
-  if (url.protocol !== 'https:' || url.port !== '') return undefined;
-  if (url.hostname === 'www.google.com' && /^\/maps(?:\/|$)/u.test(url.pathname)) return url.href;
-  if (url.hostname === 'discord.com' && url.pathname.startsWith(`/channels/${guild}/`)) {
-    return url.href;
-  }
-  return undefined;
+  return mapLink(href, guild, origin);
 }
 
 /** A picture's address the page may show: Pine's own (a path) or one by https; else undefined. */

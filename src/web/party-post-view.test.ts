@@ -130,6 +130,16 @@ describe('linkableOnTheMap', () => {
       true,
     );
   });
+
+  it('links Pine’s own pages only under this server’s addresses, never a login link (plan 8Z-2)', () => {
+    const linkable = (url: string) => linkableOnTheMap(url, FAKE_GUILD_ID, PUBLIC);
+    expect(linkable(`${PUBLIC}/s/${FAKE_GUILD_ID}/history`)).toBe(true);
+    expect(linkable(`${PUBLIC}/auth/link/${FAKE_GUILD_ID}/${'A'.repeat(43)}`)).toBe(false);
+    expect(linkable(`${PUBLIC}/auth/link/x`)).toBe(false);
+    expect(linkable(`${PUBLIC}/s/999999999999999999/map`)).toBe(false);
+    expect(linkable(`${PUBLIC}/`)).toBe(false);
+    expect(linkable(`${PUBLIC}/s/${FAKE_GUILD_ID}/../../auth/link/x`)).toBe(false);
+  });
 });
 
 describe('a party’s post on the map (plan 8M-8A)', () => {

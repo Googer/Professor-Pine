@@ -245,6 +245,38 @@ describe('postCard: a post drawn as Discord draws it (plan 8M-8A)', () => {
     expect(safeHref(LINK, ORIGIN, GUILD)).toBe(LINK);
   });
 
+  it('draws a login link in a post’s text as its text, and any page of Pine’s that is not this server’s (plan 8Z-2)', () => {
+    expect(
+      safeHref(`${ORIGIN}/auth/link/${GUILD}/${'A'.repeat(43)}`, ORIGIN, GUILD),
+    ).toBeUndefined();
+    expect(safeHref(`${ORIGIN}/auth/link/x`, ORIGIN, GUILD)).toBeUndefined();
+    expect(safeHref(`${ORIGIN}/s/999999999999999999/map`, ORIGIN, GUILD)).toBeUndefined();
+    expect(safeHref(`${ORIGIN}/`, ORIGIN, GUILD)).toBeUndefined();
+    expect(safeHref(`${ORIGIN}/s/${GUILD}/history`, ORIGIN, GUILD)).toBe(
+      `${ORIGIN}/s/${GUILD}/history`,
+    );
+    // Drawn so: the words stay, without a link.
+    const login = `${ORIGIN}/auth/link/${GUILD}/${'A'.repeat(43)}`;
+    const view: PostView = {
+      ...VIEW,
+      blocks: [
+        {
+          type: 'text',
+          role: 'head',
+          lines: [
+            {
+              style: 'plain',
+              nodes: [{ kind: 'link', href: login, children: [{ kind: 'text', text: 'the map' }] }],
+            },
+          ],
+        },
+      ],
+    };
+    const drawn = all(postCard(view, raid(), context));
+    expect(drawn.some((one) => one.tag === 'a' && one.attributes?.href === login)).toBe(false);
+    expect(drawn.some((one) => one.text === 'the map')).toBe(true);
+  });
+
   it('draws an emoji Pine serves as its picture, any other by its name', () => {
     const trainers = byClass(postCard(VIEW, raid(), context), 'role-trainers')[0];
     const pictures = trainers ? all(trainers).filter((one) => one.tag === 'img') : [];
