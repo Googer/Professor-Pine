@@ -183,8 +183,13 @@ describe('AccessService: who is let into a forum', () => {
 describe('AccessService: what it leaves alone and what can fail', () => {
   it('leaves a member alone whom somebody keeps out of the forum on purpose', async () => {
     const made = await reportedRaid(yveltal);
-    made.gateway.barred.set(WEST_FORUM, new Set([ALICE]));
+    // Signed up before somebody kept them out (since plan 8Z-2 the attendance service refuses a
+    // newcomer who is kept out already): their sign-up stands, and their next change is looked at.
     await made.attendance.signUp(made.party.id, alice, PartyStatus.Coming);
+    await settled(made);
+    made.gateway.barred.set(WEST_FORUM, new Set([ALICE]));
+    await made.attendance.changeNumber(made.party.id, alice, 1);
+    await settled(made);
     await made.attendance.leave(made.party.id, alice);
     await settled(made);
     expect(accessCalls(made)).toEqual([]);

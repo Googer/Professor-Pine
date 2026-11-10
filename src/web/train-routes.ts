@@ -94,6 +94,7 @@ import { problemText } from '../render/activity.js';
 import { PARTY_KIND } from '../render/party-controls.js';
 import { plain, timestamp } from '../render/text.js';
 import type { Member } from '../services/attendance-service.js';
+import { forumBarred } from '../services/forum-access.js';
 import {
   actingOnTheMap,
   countedOnTheMap,
@@ -376,7 +377,7 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
     const found = await activeTrain(guild, partyId);
     if (!found) return { sent: over(reply) };
     try {
-      if ((await accessTo(found.party.forumChannelId, userId)) === 'barred') {
+      if (await forumBarred(accessTo, found.party.forumChannelId, userId)) {
         return { sent: sendFailure(request, reply, 403) };
       }
     } catch (err) {
@@ -552,7 +553,7 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
       const found = await activeTrain(guild, partyId);
       if (!found) return reply.code(409).send({ error: TRAIN_OVER });
       try {
-        if ((await accessTo(found.party.forumChannelId, session.userId)) === 'barred') {
+        if (await forumBarred(accessTo, found.party.forumChannelId, session.userId)) {
           return sendFailure(request, reply, 403);
         }
       } catch (err) {

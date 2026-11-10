@@ -7,6 +7,7 @@ import {
   sent,
   type FakeInteraction,
 } from '../../test/support/fake-interactions.js';
+import { WEST_FORUM } from '../../test/support/gyms.js';
 import { ALICE, BOB } from '../../test/support/parties.js';
 import { reportedRaid } from '../../test/support/party-service.js';
 import { createTestContext } from '../../test/support/test-context.js';
@@ -116,6 +117,26 @@ describe('the buttons of a party post', () => {
     expect(sent((await made.click('leave')).reply).content).toBe(
       'You are not signed up for this raid.',
     );
+  });
+
+  // The audit of 2026-11-10 (L-D2): whom somebody keeps out of the raid's forum.
+  it('refuse a newcomer somebody keeps out of the forum, without saying by whom or why; Leave still works for one signed up', async () => {
+    const made = await setup();
+    made.gateway.barred.set(WEST_FORUM, new Set([ALICE]));
+    const keptOut = 'You cannot sign up for this raid: you are kept out of its forum.';
+    for (const action of ['join', 'maybe', 'here', 'more', 'remote']) {
+      expect((await made.click(action)).reply).toHaveBeenCalledWith(privately(keptOut));
+    }
+    expect(made.alice()).toBeUndefined();
+    await made.attendance.flush();
+    expect(made.said()).toEqual([]);
+    // Bob signed up before he was kept out: he changes his line and leaves.
+    const bob = { userId: BOB, displayName: 'Bob', roleNames: [] };
+    await made.click('join', bob);
+    made.gateway.barred.set(WEST_FORUM, new Set([ALICE, BOB]));
+    expect(sent((await made.click('here', bob)).reply).content).toBe('You are here.');
+    expect(sent((await made.click('leave', bob)).reply).content).toBe('You have left this raid.');
+    expect(sent((await made.click('join', bob)).reply).content).toBe(keptOut);
   });
 
   it('Done is refused for an egg', async () => {

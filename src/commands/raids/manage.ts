@@ -24,8 +24,9 @@ import {
   raidManageDialog,
 } from '../../render/manage-dialogs.js';
 import { partyOver } from '../parties/reply.js';
+import { forumBarred } from '../../services/forum-access.js';
 import { changingMember } from './change.js';
-import { bossMoves, manageRaidAs, raidChangeBarred } from './raid-changes.js';
+import { bossMoves, manageRaidAs } from './raid-changes.js';
 import { raidOptions } from './raid-options.js';
 
 const A_RAID = { type: 'raid' } as const;
@@ -58,7 +59,7 @@ export async function openRaidManage(
   const party = activeRaid(ctx, partyId);
   // The map's access rule (review M10), read within a dialog's time (the slow-read rule).
   const barred = await readInTime(ctx.log, interaction, () =>
-    raidChangeBarred(memberAccessOf(ctx), party, interaction.user.id),
+    forumBarred(memberAccessOf(ctx), party.forumChannelId, interaction.user.id),
   );
   if (barred) throw new UserError(NOT_ALLOWED);
   await interaction.showModal(
@@ -110,7 +111,7 @@ export async function submitRaidManage(
   if (!party) return void (await say(partyOver(A_RAID)));
   if (!isRaid(party)) return void (await say(STALE_COMPONENT));
   const userId = interaction.user.id;
-  if (await raidChangeBarred(memberAccessOf(ctx), party, userId)) {
+  if (await forumBarred(memberAccessOf(ctx), party.forumChannelId, userId)) {
     return void (await say(NOT_ALLOWED));
   }
   const answer = await manageRaidAs(

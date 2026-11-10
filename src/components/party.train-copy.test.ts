@@ -137,6 +137,26 @@ describe('the buttons of the copy of a train in another region', () => {
     expect(made.gateway.calls).toContain(`admitMember ${WEST_FORUM} ${ERIN}`);
   });
 
+  // The audit of 2026-11-10 (L-D2): the copy stands where the member can press it, the forum
+  // they are kept out of does not; `AccessService` only logged such a sign-up.
+  it('refuse a member somebody keeps out of the forum of the train, whom the copy would sign up', async () => {
+    const made = await setup();
+    made.gateway.barred.set(WEST_FORUM, new Set([ALICE]));
+    const keptOut = 'You cannot sign up for this train: you are kept out of its forum.';
+    // Join asks a newcomer which group first; the Submit is refused.
+    expect(await made.pressAndPick('join')).toBe(keptOut);
+    expect(await made.pressAndPick('maybe')).toBe(keptOut);
+    expect(await made.pressAndPick('more')).toBe(keptOut);
+    await made.access.flush();
+    await made.attendance.flush();
+    expect(attendeeOf(made.current(), ALICE)).toBeUndefined();
+    expect(made.said()).toEqual([]);
+    expect(made.gateway.calls.filter((call) => call.startsWith('admitMember'))).toEqual([]);
+    // Bob, whom the forum is only hidden from, is signed up and let in as before.
+    made.gateway.shutOut(WEST_FORUM, BOB);
+    expect(await made.pressAndPick('join', BOB)).toBe('You are coming, in group B.');
+  });
+
   it('tell who presses Leave or −1 without being signed up so, and let nobody in', async () => {
     const made = await setup();
     made.gateway.shutOut(WEST_FORUM, ALICE, BOB);

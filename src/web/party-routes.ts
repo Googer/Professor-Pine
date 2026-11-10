@@ -61,7 +61,6 @@ import {
   isMapStaff,
   mayDeleteOnTheMap,
   throttledOnTheMap,
-  UNREACHABLE,
 } from './acting.js';
 import { sendFailure } from './answers.js';
 import { postGuard } from './csrf.js';
@@ -586,7 +585,7 @@ export function partyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
   // ids exist and a press refused for who presses is not counted: whether they are a member (the
   // member directory, kept a minute; with the map's member role, when the settings name one,
   // `mapMembers`), the member as Discord has them now (also by that role), the party in the store
-  // and of this server, how they stand to its forum, and only then
+  // and of this server, and only then
   // the member's `ACTION_THROTTLE` in the window of the post's controls; then the press as the
   // post's button makes it (`pressStatus`, also +1, −1 and the completion question's answers since
   // plan 8M-8B; the Remote switch, `MAP_REMOTE`, as the post's Remote button toggles it, plan
@@ -627,21 +626,9 @@ export function partyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
         const gone: PressAnswer = { ok: false, text: partyOver(over) };
         return reply.code(PRESS_STATUS.gone).send(gone);
       }
-      let access: MemberAccess | undefined;
-      try {
-        access =
-          party.forumChannelId === null
-            ? undefined
-            : await parties.forums.memberAccess(party.forumChannelId, userId);
-      } catch (err) {
-        deps.log.warn(
-          { err, guild, user: userId },
-          `could not ask Discord who ${doing} on the web pages`,
-        );
-        return reply.code(503).send({ error: UNREACHABLE });
-      }
-      // Kept out of the forum on purpose: `AccessService` would not let them in.
-      if (access === 'barred') return sendFailure(request, reply, 403);
+      // Whether somebody keeps a newcomer out of the party's forum is the attendance service's
+      // to ask, as for a press on Discord (plan 8Z-2: `kept-out`, `forum-unknown`, each answered
+      // as any refusal, in its words); who is signed up changes their line and leaves.
       const counted = { control: PARTY_KIND };
       const throttled = throttledOnTheMap(deps, reply, counted, userId, ACTION_THROTTLE);
       if (throttled) return throttled;

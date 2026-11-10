@@ -6,6 +6,7 @@ import { PartyStatus, RaidPrivacy } from '../../domain/party/status.js';
 import { noPostWords } from '../../render/activity.js';
 import { endSentence, plain } from '../../render/text.js';
 import type { Member } from '../../services/attendance-service.js';
+import { forumBarred } from '../../services/forum-access.js';
 import type { RaidScreenshot } from '../../domain/party/party.js';
 import type { PartyService, ReportOutcome } from '../../services/party-service.js';
 import type { PartyProvider } from '../../services/party-store.js';
@@ -129,7 +130,7 @@ export async function reportBarred(
   const forum = access.partyService.regionFor(gym, regionChannelId).region?.forumChannelId ?? null;
   const standing = access.parties.raidAt(guildRow, gym.id, now)?.forumChannelId ?? null;
   for (const forumId of new Set([forum, standing])) {
-    if (forumId !== null && (await access.memberAccess(forumId, memberId)) === 'barred') {
+    if (await forumBarred((id, member) => access.memberAccess(id, member), forumId, memberId)) {
       return true;
     }
   }
@@ -146,7 +147,8 @@ export function mayJoinAs(
   access: Pick<ReportAccess, 'memberAccess'>,
   memberId: string,
 ): (forumId: string) => Promise<boolean> {
-  return async (forumId) => (await access.memberAccess(forumId, memberId)) !== 'barred';
+  return async (forumId) =>
+    !(await forumBarred((id, member) => access.memberAccess(id, member), forumId, memberId));
 }
 
 /**

@@ -56,6 +56,7 @@ import {
 import type { MapMeetup } from '../domain/web/party-data.js';
 import { mapParty } from '../domain/web/party-view.js';
 import { problemText } from '../render/activity.js';
+import { forumBarred } from '../services/forum-access.js';
 import { MEETUP_PLACE_KINDS } from '../services/place-finder.js';
 import {
   actingOnTheMap,
@@ -500,7 +501,7 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
     if (!found) return { sent: refuse(reply, 409, partyOver({ type: 'meetup' })) };
     const { row, party } = found;
     try {
-      if ((await accessTo(party.forumChannelId, userId)) === 'barred') {
+      if (await forumBarred(accessTo, party.forumChannelId, userId)) {
         return { sent: sendFailure(request, reply, 403) };
       }
     } catch (err) {

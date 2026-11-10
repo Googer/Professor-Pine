@@ -13,6 +13,7 @@ import { PartyStatus, RaidPrivacy } from '../../domain/party/status.js';
 import { noPostWords } from '../../render/activity.js';
 import { endSentence, plain, timestamp } from '../../render/text.js';
 import type { Member } from '../../services/attendance-service.js';
+import { forumBarred } from '../../services/forum-access.js';
 import type { MaxReportOutcome, PartyService } from '../../services/party-service.js';
 import { DISCORD_NAMES, type ReportNames } from '../raids/report.js';
 import type { ReadMaxBoss } from './max-input.js';
@@ -177,7 +178,12 @@ export async function maxBarred(
     ?.forumChannelId;
   const there = ask.joins?.forumChannelId;
   for (const forumId of new Set([forum, there])) {
-    if (forumId && (await access.memberAccess(forumId, memberId)) === 'barred') return true;
+    const kept = await forumBarred(
+      (id, member) => access.memberAccess(id, member),
+      forumId ?? null,
+      memberId,
+    );
+    if (kept) return true;
   }
   return false;
 }

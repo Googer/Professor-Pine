@@ -36,6 +36,7 @@ import { doer } from '../render/activity.js';
 import { bossMovedLine } from '../render/boss-changes.js';
 import { clockOrDate, endSentence, plain, timestamp } from '../render/text.js';
 import type { Member } from './attendance-service.js';
+import { forumBarred, type MemberAccessAsk } from './forum-access.js';
 import type { GameDataProvider } from './game-data-service.js';
 import type { PartyNotifier } from './notify-service.js';
 import { byMember, storedChange } from './party-change.js';
@@ -74,6 +75,8 @@ export interface RaidChangeServiceOptions {
       by?: Member,
       moved?: (party: RaidParty) => Promise<unknown>,
     ): Promise<RelocateOutcome>;
+    /** How a member stands to a forum, as Discord says it now; rejects while it cannot say. */
+    memberAccess: MemberAccessAsk;
   };
   lines: Pick<PartyLines, 'say'>;
   /** Takes away the completion questions nobody has to answer any more. */
@@ -354,6 +357,9 @@ export class RaidChangeService {
     const move = this.gymMove(before, gym);
     if (move.kind === 'local') return this.setGymInRegion(partyId, member, gym);
     if (move.kind === 'nowhere') return { kind: 'refused', reason: 'other-region' };
+    // Asked again here, at the move itself: the command asked before its question.
+    const kept = await this.moveRefusal(move.region, member.id);
+    if (kept !== undefined) return { kind: 'refused', reason: kept };
     const outcome = await posts.relocate(partyId, gym, move.region, member, moved);
     switch (outcome.kind) {
       case 'gone':
@@ -383,6 +389,35 @@ export class RaidChangeService {
         }
         return { kind: 'ok', party, changed: true, from };
       }
+    }
+  }
+
+  /**
+   * Why a member may not move a raid into the forum of another region (plan 8Z-2; the audit's
+   * D15): `kept-out-there` when somebody keeps them out of it on purpose (`forumBarred`, the
+   * question of every path into a forum; a forum only hidden until they join something in it is
+   * no such thing), `forum-unknown` while Discord cannot say (logged). Undefined when they may.
+   * `/location` asks it before its question, and `setGym` again when the raid moves. Whoever
+   * else is signed up moves with the raid as before.
+   */
+  async moveRefusal(
+    region: Pick<Region, 'forumChannelId'>,
+    memberId: string,
+  ): Promise<'kept-out-there' | 'forum-unknown' | undefined> {
+    const { posts, log } = this.options;
+    try {
+      const barred = await forumBarred(
+        (forum, member) => posts.memberAccess(forum, member),
+        region.forumChannelId,
+        memberId,
+      );
+      return barred ? 'kept-out-there' : undefined;
+    } catch (err) {
+      log.warn(
+        { err, forum: region.forumChannelId, member: memberId },
+        'could not ask Discord whether a member is kept out of the forum a raid would move to; refused',
+      );
+      return 'forum-unknown';
     }
   }
 

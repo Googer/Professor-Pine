@@ -49,6 +49,7 @@ import type { Logger } from '../log.js';
 import { doer, standingLine } from '../render/activity.js';
 import { completionQuestion, GROUP_LABEL, groupWords } from '../render/party-controls.js';
 import { LIMITS, memberText, plain, timestamp } from '../render/text.js';
+import { forumBarred } from './forum-access.js';
 import type { PartyNotifier } from './notify-service.js';
 import { byMember, pingInMessages, settingsOf, storedChange } from './party-change.js';
 import type { PartyLines } from './party-lines.js';
@@ -535,6 +536,11 @@ export class AttendanceService {
   ): Promise<AttendanceOutcome<Extra>> {
     const { store, posts, lines } = this.options;
     type Told = Extra & { acted: boolean; withdrawn: string[] };
+    // A newcomer somebody keeps out of the party's forum is refused before anything is written.
+    const admission = await this.admission(partyId, member.id);
+    if (admission !== undefined && 'refused' in admission) {
+      return { kind: 'refused', reason: admission.refused };
+    }
     // A raid or max battle over by the clock is gone for a newcomer, as once the scheduler has
     // ended it; who is signed up goes on until its post is archived (Matt, 2026-11-07).
     const fits = (party: Party): party is Party => !this.refusesNewcomer(party, member.id);
@@ -543,6 +549,15 @@ export class AttendanceService {
       partyId,
       fits,
       (party) => {
+        // A newcomer only as they were asked about: one who was signed up when Discord would
+        // have been asked and has left since, or whose party stands in another forum by now,
+        // was not, and tries again.
+        if (
+          attendeeOf(party, member.id) === undefined &&
+          admission?.asked !== party.forumChannelId
+        ) {
+          return refused('forum-unknown');
+        }
         const changed = change(party);
         if (!changed.ok) return changed;
         const withdrawn = withdrawQuestions(changed.party);
@@ -577,6 +592,43 @@ export class AttendanceService {
     }
     if (acted || withdrawn.length > 0) this.settleQuestions(party);
     return { ...extra, kind: 'ok', party, attendee, acted, withdrawn };
+  }
+
+  /**
+   * Whether a newcomer may be put into the party's forum (plan 8Z-2; the audit's L-D2): asked of
+   * Discord before the change, for every path that ends here alike: a control of the post or of
+   * its copy in another channel, a command, the map. `asked` is the forum they were asked about
+   * (null: the party has none) when nobody keeps them out of it; `refused` says why not:
+   * `kept-out` (`forumBarred`: somebody keeps them out on purpose; a forum only hidden until they
+   * join lets them in, and `AccessService` then does), `forum-unknown` while Discord cannot say
+   * (logged). Undefined, and nothing asked, for a member who is signed up, who changes their own
+   * line and leaves whatever the forum says, and for a party that is gone or takes no newcomers
+   * (`refusesNewcomer`), which answers by itself.
+   */
+  private async admission(
+    partyId: string,
+    memberId: string,
+  ): Promise<{ asked: string | null } | { refused: 'kept-out' | 'forum-unknown' } | undefined> {
+    const { store, gateway, log } = this.options;
+    const party = store.get(partyId);
+    if (!party || attendeeOf(party, memberId) || this.refusesNewcomer(party, memberId)) {
+      return undefined;
+    }
+    const forumId = party.forumChannelId;
+    try {
+      const barred = await forumBarred(
+        (forum, member) => gateway.memberAccess(forum, member),
+        forumId,
+        memberId,
+      );
+      return barred ? { refused: 'kept-out' } : { asked: forumId };
+    } catch (err) {
+      log.warn(
+        { err, party: partyId, member: memberId },
+        'could not ask Discord whether a newcomer is kept out of the forum of a party; refused',
+      );
+      return { refused: 'forum-unknown' };
+    }
   }
 
   private inBackground(work: Promise<void>, partyId: string, what: string): void {

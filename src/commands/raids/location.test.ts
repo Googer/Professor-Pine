@@ -221,6 +221,49 @@ describe('/location to a gym of another region', () => {
     expect(sent((await made.submit(asked)).editReply).content).toBe('This raid is over.');
   });
 
+  // The audit of 2026-11-10 (D15): a member kept out of the other region's forum could move a
+  // raid into it, and was signed up there with everybody else.
+  it('refuses a member who is kept out of the other region’s forum, without a dialog', async () => {
+    const made = await setup();
+    made.gateway.barred.set(EAST_FORUM, new Set([ALICE]));
+    const refused = await made.run({ gym: 'g:7' });
+    expect(refused.showModal).not.toHaveBeenCalled();
+    expect(sent(refused.reply).content).toBe(
+      'You cannot move this raid there: you are kept out of the forum of that region.',
+    );
+    expect(made.current().gymId).toBe(1);
+    expect(made.gateway.postsIn(EAST_FORUM)).toEqual([]);
+    // Within their own region they move it as before.
+    expect(await made.answer({ gym: 'g:2' })).toBe('This raid is now at Old Stone Fountain.');
+  });
+
+  it('refuses the Submit of a member kept out of that forum since the dialog opened', async () => {
+    const made = await setup();
+    const asked = await made.run({ gym: 'g:7' });
+    made.gateway.barred.set(EAST_FORUM, new Set([ALICE]));
+    const submitted = await made.submit(asked);
+    expect(sent(submitted.editReply).content).toBe(
+      'Nothing was moved. You cannot move this raid there: you are kept out of the forum of that region.',
+    );
+    expect(made.current()).toMatchObject({ id: made.party.id, gymId: 1 });
+    expect(made.gateway.postsIn(EAST_FORUM)).toEqual([]);
+  });
+
+  it('moves it for a member whom that forum is only hidden from, and refuses while Discord cannot say', async () => {
+    const made = await setup();
+    made.gateway.failing.set('memberAccess', new Error('Discord is away'));
+    const unknown = await made.run({ gym: 'g:7' });
+    expect(unknown.showModal).not.toHaveBeenCalled();
+    expect(sent(unknown.reply).content).toBe(
+      'I could not check with Discord just now whether you may do that. Try again in a moment.',
+    );
+    made.gateway.failing.delete('memberAccess');
+    made.gateway.shutOut(EAST_FORUM, ALICE);
+    const asked = await made.run({ gym: 'g:7' });
+    await made.submit(asked);
+    expect(made.store.active()[0]).toMatchObject({ gymId: 7, regionId: 2 });
+  });
+
   // Plan 8E: taken by a raid of any kind, here an elite raid for a standard one.
   it('refuses a move to a taken gym of another region without a dialog', async () => {
     const made = await setup();

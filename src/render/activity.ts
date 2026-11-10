@@ -117,6 +117,13 @@ export function problemText(
       return `You are not signed up for this ${word}.`;
     case 'not-yours':
       return NOT_YOUR_MEETUP;
+    // As a report says it (`REPORT_BARRED`): that they are kept out, never by whom or why.
+    case 'kept-out':
+      return `You cannot sign up for this ${word}: you are kept out of its forum.`;
+    case 'kept-out-there':
+      return `You cannot move this ${word} there: you are kept out of the forum of that region.`;
+    case 'forum-unknown':
+      return 'I could not check with Discord just now whether you may do that. Try again in a moment.';
     case 'no-such-group':
       return `This ${word} has no such group.`;
     case 'bad-count':

@@ -6,7 +6,6 @@ import { CHANGE_THROTTLE } from '../commands/raids/change.js';
 import {
   bossMoves,
   raidChangeAs,
-  raidChangeBarred,
   type RaidChangeAnswer,
   type RaidChanging,
 } from '../commands/raids/raid-changes.js';
@@ -37,6 +36,7 @@ import {
 } from '../domain/web/raid-options-data.js';
 import type { RaidChangeAsked } from '../domain/web/raid-manage.js';
 import { raidChangeWindow } from '../commands/parties/windows.js';
+import { forumBarred } from '../services/forum-access.js';
 import { gymRegionsInGuild } from '../services/region-directory.js';
 import {
   actingOnTheMap,
@@ -429,7 +429,7 @@ export function raidRoutes(scope: FastifyInstance, deps: WebDeps): void {
       if (!found) return reply.code(409).send({ error: partyOver({ type: 'raid' }) });
       // Nothing of a raid in a forum the member is kept out of, as the list leaves it out.
       try {
-        if ((await accessTo(found.party.forumChannelId, session.userId)) === 'barred') {
+        if (await forumBarred(accessTo, found.party.forumChannelId, session.userId)) {
           return sendFailure(request, reply, 403);
         }
       } catch (err) {
@@ -478,7 +478,7 @@ export function raidRoutes(scope: FastifyInstance, deps: WebDeps): void {
       const { row, party } = found;
       try {
         // The rule of the post's Manage… too (review M10).
-        if (await raidChangeBarred(accessTo, party, userId)) {
+        if (await forumBarred(accessTo, party.forumChannelId, userId)) {
           return sendFailure(request, reply, 403);
         }
       } catch (err) {

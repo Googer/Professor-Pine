@@ -283,13 +283,47 @@ describe('pressing the buttons of a party on the map', () => {
     expect(map.made.gateway.admitted.get(WEST_FORUM)?.has(ALICE)).toBe(false);
   });
 
-  it('refuses a member somebody keeps out of the forum, and changes nothing', async () => {
+  // Plan 8Z-2: asked by the attendance service, for a newcomer alone, as for a press on Discord.
+  it('refuses a newcomer somebody keeps out of the forum in the post’s words, and changes nothing', async () => {
     const map = await onTheMap(await reportedRaid());
     web = map.web;
     map.made.gateway.barred.set(WEST_FORUM, new Set([ALICE]));
     const answer = await map.post(press(map.made.party.id, 'join'));
-    expect(answer.status).toBe(403);
+    expect(answer).toMatchObject({
+      status: 422,
+      json: { ok: false, text: 'You cannot sign up for this raid: you are kept out of its forum.' },
+    });
     expect(map.made.current().attendees[ALICE]).toBeUndefined();
+  });
+
+  it('lets a member who is signed up leave, also once somebody keeps them out or Discord cannot say', async () => {
+    const map = await onTheMap(await reportedRaid());
+    web = map.web;
+    expect((await map.post(press(map.made.party.id, 'join'))).status).toBe(200);
+    map.made.gateway.barred.set(WEST_FORUM, new Set([ALICE]));
+    expect((await map.post(press(map.made.party.id, 'here'))).status).toBe(200);
+    map.made.gateway.failing.set('memberAccess', new Error('Discord is away'));
+    expect((await map.post(press(map.made.party.id, 'leave'))).status).toBe(200);
+    expect(map.made.current().attendees[ALICE]).toBeUndefined();
+    // A newcomer again, and Discord cannot say: refused, to try again.
+    const again = await map.post(press(map.made.party.id, 'join'));
+    expect(again).toMatchObject({
+      status: 422,
+      json: {
+        ok: false,
+        text: 'I could not check with Discord just now whether you may do that. Try again in a moment.',
+      },
+    });
+    expect(map.made.current().attendees[ALICE]).toBeUndefined();
+  });
+
+  it('lets a newcomer in whom the forum is only hidden from', async () => {
+    const map = await onTheMap(await reportedRaid());
+    web = map.web;
+    map.made.gateway.shutOut(WEST_FORUM, ALICE);
+    expect((await map.post(press(map.made.party.id, 'join'))).status).toBe(200);
+    await map.made.access.flush();
+    expect(map.made.gateway.canSee(WEST_FORUM, ALICE)).toBe(true);
   });
 
   it('answers a party that has ended as its button would, never reading it from the database', async () => {
@@ -322,15 +356,14 @@ describe('pressing the buttons of a party on the map', () => {
 
   it('answers a party that ends between the check and the press as its button would: 409', async () => {
     const made = await reportedRaid();
-    // The party ends while its forum is looked at, after the route found it in the store.
-    const map = await onTheMap(made, new Throttles(), {
-      forums: {
-        memberAccess: async (forumId, memberId) => {
-          await made.service.end(made.party.id);
-          return made.gateway.memberAccess(forumId, memberId);
-        },
-      },
+    // The party ends while its forum is looked at (by the attendance service, plan 8Z-2), after
+    // the route found it in the store.
+    const look = made.gateway.memberAccess.bind(made.gateway);
+    vi.spyOn(made.gateway, 'memberAccess').mockImplementation(async (forumId, memberId) => {
+      await made.service.end(made.party.id);
+      return look(forumId, memberId);
     });
+    const map = await onTheMap(made);
     web = map.web;
     const answer = await map.post(press(made.party.id, 'join'));
     expect(answer.status).toBe(409);
@@ -339,24 +372,24 @@ describe('pressing the buttons of a party on the map', () => {
     expect(logged).toMatchObject({ action: 'join', outcome: 'gone' });
   });
 
-  it("refuses while Discord cannot say how the member stands to the party's forum: nothing written, nothing counted", async () => {
-    const throttles = new Throttles();
-    for (let n = 0; n < ACTION_THROTTLE.uses - 1; n++) {
-      throttles.use(controlThrottleKey(PARTY_KIND), ALICE, ACTION_THROTTLE, PARTY_NOW);
-    }
-    const map = await onTheMap(await reportedRaid(), throttles);
+  // Plan 8Z-2: the attendance service asks, and refuses as a button of the post would (the press
+  // counted, as there).
+  it("refuses a newcomer while Discord cannot say how they stand to the party's forum: nothing written", async () => {
+    const map = await onTheMap(await reportedRaid());
     web = map.web;
     const url = (action: string) => press(map.made.party.id, action);
     map.made.gateway.failing.set('memberAccess', new Error('Discord is away'));
     const answer = await map.post(url('join'));
-    expect(answer.status).toBe(503);
-    expect(answer.json.error).toBe(
-      'Discord cannot be reached just now, so nothing can be changed. Try again in a moment.',
-    );
+    expect(answer).toMatchObject({
+      status: 422,
+      json: {
+        ok: false,
+        text: 'I could not check with Discord just now whether you may do that. Try again in a moment.',
+      },
+    });
     expect(map.made.current().attendees[ALICE]).toBeUndefined();
     map.made.gateway.failing.delete('memberAccess');
     expect((await map.post(url('join'))).status).toBe(200);
-    expect((await map.post(url('here'))).status).toBe(429);
   });
 
   it("answers a party of the meetup's kind in its own words", async () => {
@@ -404,14 +437,25 @@ describe('pressing the buttons of a party on the map', () => {
     const map = await onTheMap(await reportedRaid(), throttles);
     web = map.web;
     const url = (action: string) => press(map.made.party.id, action);
-    map.made.gateway.barred.set(WEST_FORUM, new Set([ALICE]));
-    expect((await map.post(url('join'))).status).toBe(403);
-    map.made.gateway.barred.delete(WEST_FORUM);
     map.acting.remove(ALICE);
     expect((await map.post(url('join'))).status).toBe(403);
     map.acting.add(ALICE, 'Alice', 'mystic');
     expect((await map.post(url('join'))).status).toBe(200);
     expect((await map.post(url('here'))).status).toBe(429);
+  });
+
+  // Plan 8Z-2: a newcomer kept out of the forum is the attendance service's to refuse, once the
+  // press is counted, as a press of the post's button is on Discord.
+  it('counts the press of a newcomer somebody keeps out of the forum, as the post’s button does', async () => {
+    const throttles = new Throttles();
+    for (let n = 0; n < ACTION_THROTTLE.uses - 1; n++) {
+      throttles.use(controlThrottleKey(PARTY_KIND), ALICE, ACTION_THROTTLE, PARTY_NOW);
+    }
+    const map = await onTheMap(await reportedRaid(), throttles);
+    web = map.web;
+    map.made.gateway.barred.set(WEST_FORUM, new Set([ALICE]));
+    expect((await map.post(press(map.made.party.id, 'join'))).status).toBe(422);
+    expect((await map.post(press(map.made.party.id, 'join'))).status).toBe(429);
   });
 
   it('tells somebody who is not a member nothing of a party id: ended or unknown, 403', async () => {

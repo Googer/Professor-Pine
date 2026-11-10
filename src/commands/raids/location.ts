@@ -1,7 +1,7 @@
 import { SlashCommandBuilder } from 'discord.js';
 import type { ComponentHandler, SimpleCommand } from '../../discord/command.js';
 import { encodeCustomId } from '../../discord/custom-id.js';
-import { channelInDialog, deferSubmit, dialog } from '../../discord/dialog.js';
+import { channelInDialog, deferSubmit, dialog, readInTime } from '../../discord/dialog.js';
 import { UserError } from '../../discord/errors.js';
 import { raidOf, regionChannelOf, requireGuild, requireRaid } from '../../discord/guards.js';
 import { STALE_COMPONENT, whenCounted } from '../../discord/router.js';
@@ -98,6 +98,14 @@ export const location: SimpleCommand = {
         problemText('gym-taken', ctx.attendance.limits(), 'raid') +
           (post ? ` Its post is <#${post}>.` : ''),
       );
+    }
+    // Nor is a member asked who is kept out of that region's forum (plan 8Z-2): read within a
+    // dialog's time, and asked again when the raid moves.
+    const kept = await readInTime(ctx.log, interaction, () =>
+      ctx.raids.moveRefusal(move.region, interaction.user.id),
+    );
+    if (kept !== undefined) {
+      throw new UserError(problemText(kept, ctx.attendance.limits(), 'raid'));
     }
     // The region's channel by its name: a dialog shows no mention (design 8Q).
     const where = channelInDialog(

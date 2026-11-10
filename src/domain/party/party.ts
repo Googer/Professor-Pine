@@ -629,6 +629,12 @@ export type PartyProblem =
   | 'not-attending'
   /** A meetup's times are set by its maker and staff alone (`mayEditMeetup`). */
   | 'not-yours'
+  /** A newcomer somebody keeps out of the party's forum on purpose (`forumBarred`). */
+  | 'kept-out'
+  /** Somebody keeps the member out of the forum of the region a raid would move to. */
+  | 'kept-out-there'
+  /** Discord could not say just now whether the member may be put into the forum. */
+  | 'forum-unknown'
   | 'no-such-group'
   /** A head count below 1 or above the allowed maximum. */
   | 'bad-count'
