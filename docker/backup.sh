@@ -205,24 +205,28 @@ live_count() {
 # The account that asks (the bot's) sees a table's triggers only while it holds TRIGGER on it,
 # routines it may run or change and events while it holds EVENT: it has all of these on the
 # schema, as the image's first start granted them.
+# Views are counted too: a dump holds them (mysqldump has no flag to leave them out), each with
+# its definer, which `./pine restore` refuses; they are a warning of their own, after the others.
 stored_programs() {
   programs=
   counts="select concat_ws(' ',
     (select count(*) from information_schema.triggers where trigger_schema = '%s'),
     (select count(*) from information_schema.routines where routine_schema = '%s'),
-    (select count(*) from information_schema.events where event_schema = '%s'))"
+    (select count(*) from information_schema.events where event_schema = '%s'),
+    (select count(*) from information_schema.views where table_schema = '%s'))"
   # shellcheck disable=SC2059 # the format is ours
-  found=$(live -e "$(printf "$counts" "$SCHEMA" "$SCHEMA" "$SCHEMA")") || found=
-  # shellcheck disable=SC2086 # three numbers, split at the spaces
+  found=$(live -e "$(printf "$counts" "$SCHEMA" "$SCHEMA" "$SCHEMA" "$SCHEMA")") || found=
+  # shellcheck disable=SC2086 # four numbers, split at the spaces
   set -- $found
-  # Three numbers, or the database did not answer: nothing (an error) is never a zero.
-  [ "$#" -eq 3 ] || set -- none none none
-  case "$1$2$3" in
+  # Four numbers, or the database did not answer: nothing (an error) is never a zero.
+  [ "$#" -eq 4 ] || set -- none none none none
+  case "$1$2$3$4" in
     *[!0-9]*)
-      programs="the database could not be asked for its triggers, routines and events, which no dump holds"
+      programs="the database could not be asked for its triggers, routines, events and views, which a dump leaves out or './pine restore' refuses"
       return 0
       ;;
   esac
+  views=$4
   listed=
   for counted in "$1 trigger" "$2 routine" "$3 event"; do
     case $counted in
@@ -232,12 +236,19 @@ stored_programs() {
     esac
     listed="${listed:+$listed, }$counted"
   done
-  [ -n "$listed" ] || return 0
   # "2 triggers, 1 routine and 1 event": the last comma as a word.
   case $listed in
     *,*) listed="${listed%, *} and ${listed##*, }" ;;
   esac
-  programs="the database has $listed, which no dump holds (Professor Pine makes none)"
+  if [ -n "$listed" ]; then
+    programs="the database has $listed, which no dump holds (Professor Pine makes none)"
+  fi
+  case $views in
+    0) return 0 ;;
+    1) views="1 view" ;;
+    *) views="$views views" ;;
+  esac
+  programs="${programs:+$programs; }the database has $views, which its dumps hold with a definer that './pine restore' refuses (Professor Pine makes none)"
 }
 
 # make_dump <file>: the schema, gzipped, written as the folder's owner and readable by that owner

@@ -213,7 +213,7 @@ describe('stored programs in the database of docker/backup.sh', () => {
         'OWNER_UID=0 OWNER_GID=0 KEEP=90 SCHEMA=pine',
         'make_dump() { echo dump >"$1"; }',
         'verify_dump() { verified=yes; }',
-        // The live database's answer: its triggers, routines and events.
+        // The live database's answer: its triggers, routines, events and views.
         `live() { ${live}; }`,
         ...more,
         'backup_once; echo "exit: $?"',
@@ -224,7 +224,7 @@ describe('stored programs in the database of docker/backup.sh', () => {
   }
 
   it('are a warning of a good backup: the dump leaves them out', (context) => {
-    const backup = backupOf('echo "2 0 1"');
+    const backup = backupOf('echo "2 0 1 0"');
     if (!backup) return context.skip('no sh here');
 
     expect(backup.run.stdout).toContain('exit: 0');
@@ -239,7 +239,7 @@ describe('stored programs in the database of docker/backup.sh', () => {
   });
 
   it('are counted by kind, one as one', (context) => {
-    const backup = backupOf('echo "1 3 0"');
+    const backup = backupOf('echo "1 3 0 0"');
     if (!backup) return context.skip('no sh here');
 
     expect(backup.status).toMatchObject({
@@ -249,8 +249,32 @@ describe('stored programs in the database of docker/backup.sh', () => {
     });
   });
 
+  // A dump holds a view, with its definer, which './pine restore' refuses: a database with one
+  // would be backed up every night into dumps that the night it is needed would not load.
+  it('count its views as well, which a dump holds with a definer that a restore refuses', (context) => {
+    for (const [counts, warning] of [
+      [
+        '0 0 0 1',
+        "the database has 1 view, which its dumps hold with a definer that './pine restore' " +
+          'refuses (Professor Pine makes none)',
+      ],
+      [
+        '1 0 0 2',
+        'the database has 1 trigger, which no dump holds (Professor Pine makes none); ' +
+          "the database has 2 views, which its dumps hold with a definer that './pine restore' " +
+          'refuses (Professor Pine makes none)',
+      ],
+    ] as const) {
+      const backup = backupOf(`echo "${counts}"`);
+      if (!backup) return context.skip('no sh here');
+
+      expect(backup.run.stdout).toContain('exit: 0');
+      expect(backup.status).toMatchObject({ ok: true, warning });
+    }
+  });
+
   it('are no warning where the database has none', (context) => {
-    const backup = backupOf('echo "0 0 0"');
+    const backup = backupOf('echo "0 0 0 0"');
     if (!backup) return context.skip('no sh here');
 
     expect(backup.run.stdout).toContain('exit: 0');
@@ -269,7 +293,8 @@ describe('stored programs in the database of docker/backup.sh', () => {
       ok: true,
       warning:
         'old dumps could not be deleted: pine-backup-20260701.sql.gz; ' +
-        'the database could not be asked for its triggers, routines and events, which no dump holds',
+        'the database could not be asked for its triggers, routines, events and views, ' +
+        "which a dump leaves out or './pine restore' refuses",
     });
   });
 });
