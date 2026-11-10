@@ -24,6 +24,7 @@ import {
 } from '../domain/ocr/panes.js';
 import {
   cpRowToReadAgain,
+  FOLDABLE,
   readScreenText,
   screenBody,
   STATUS_BAR,
@@ -130,12 +131,6 @@ const WIDE = 1.4;
 const NARROW_PANE = 0.6;
 /** The panes are foreseen to cost at least this share of the whole reading's time. */
 const PANES_AT_LEAST = 0.8;
-/**
- * A picture whose height is under this many times its width is of a foldable's shape (a Duo's
- * inner screen is 1.42), never an upright phone's (1.75 and more): one screen beside another
- * app is looked for by the seam between them.
- */
-const FOLDABLE = 1.6;
 /**
  * The status bar is read again twice as wide as a phone's screen (the picture's shorter side),
  * at most twice this: as the research read it for every phone up to 1080 pixels wide.
