@@ -2086,7 +2086,7 @@ Right before the official release post (section 2 of `2026-10-16-phase-8l2-annou
 
 1. On `main-dev`, the version `2.0.0` in `package.json` and `package-lock.json` (nothing else shows it), committed.
 2. `main-dev` merged into `master` with `--no-ff` and tagged `v2.0.0`; `master` and the tag pushed (Matt asks for it). The merge is clean: `master`'s own three commits of 2022 (a T4 change and its revert, a merge) change no file against 31401daa, which `main-dev` holds.
-3. On `main-dev`, the next version as `-SNAPSHOT` instead of `-dev` (Matt considering; Claude's advice `2.1.0-SNAPSHOT`, as features keep coming).
+3. On `main-dev`, the next version as `2.1.0-dev` (Matt, 2026-11-09: `-dev` stays, the npm habit; the next version named, as features keep coming). At a release, `npm version <version>` sets `package.json` and the lockfile and tags in one step.
 4. **Production follows `master` from then on** (Matt): on the Air, `cd ~/professor-pine && git fetch && git switch master` (it tracks `origin/master`, which `./pine update` needs), then `./pine update` with Matt's go-ahead. The dev clone stays on `main-dev` for staging. A fix reaches production by a merge into `master`.
 5. Section 2's text: "`package.json` says `2.0.0-dev` today" and "the first push" are out of date; fix them with the release. CLAUDE.md's hard rule on pushing names `main-dev` only: add `master` (pushed for a release, when Matt asks) and that production runs it.
 
