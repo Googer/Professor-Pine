@@ -32,17 +32,22 @@ export const GEO_COSTS_PER_MINUTE = 60;
 
 /**
  * The work that costs one account may cause in a minute, of every kind together (F-B3: a session
- * no longer exempts, as anybody can log in with Discord): a member's page after a restart loads
- * the emoji its posts show, each once, and a view of the map or two.
+ * no longer exempts, as anybody can log in with Discord): the first member to open the map after
+ * a restart pays for every emoji (some 45) and every stop picture their page shows, each once,
+ * and a view of the map or two. As many as the visitors' pictures (`PICTURE_COSTS_PER_MINUTE`;
+ * 8Z-2 final fix F4: at 60, on a day of many distinct rewards the rest answered 429 until a
+ * reload).
  */
-export const MEMBER_COSTS_PER_MINUTE = 60;
+export const MEMBER_COSTS_PER_MINUTE = 300;
 
 /**
  * The sessions one address may have looked up in a minute for misses that carry a session
  * cookie (F-B4): each is a read of the database, also once a budget is spent. Twice what one
- * account may cost (`MEMBER_COSTS_PER_MINUTE`): a household shares an address.
+ * account may cost (`MEMBER_COSTS_PER_MINUTE`): a household shares an address. Raised with it
+ * (8Z-2 final fix F4): each miss of a member's page is a lookup, so at 120 the member's own
+ * budget past that was refused from their address all the same.
  */
-export const COOKIE_LOOKUPS_PER_ADDRESS_MINUTE = 120;
+export const COOKIE_LOOKUPS_PER_ADDRESS_MINUTE = 600;
 
 /** The kinds of work that costs, each with a budget of its own for visitors without a session. */
 export type CostKind = 'pictures' | 'emoji' | 'geo';

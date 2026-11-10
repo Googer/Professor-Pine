@@ -11,6 +11,7 @@ import {
   EMOJI_COSTS_PER_MINUTE,
   GEO_COSTS_PER_MINUTE,
   MEMBER_COSTS_PER_MINUTE,
+  PICTURE_COSTS_PER_MINUTE,
 } from './public-costs.js';
 
 const ASH = '700000000000000001';
@@ -222,7 +223,9 @@ describe('work that costs, for visitors who are not logged in (plan 8Z-2)', () =
     const cookie = await made.loggedIn(ASH, 'Ash');
     // The session is due to be renewed: a public picture still carries no cookie.
     made.clock.now += 2 * 3_600_000;
-    for (let i = 0; i < MEMBER_COSTS_PER_MINUTE; i += 1) {
+    // As many as the visitors' pictures (8Z-2 final fix F4): the first member after a restart
+    // pays for every emoji and stop picture their page shows.
+    for (let i = 0; i < PICTURE_COSTS_PER_MINUTE; i += 1) {
       const answer = await made.app.inject({
         url: emojiUrl(i),
         headers: { cookie },
@@ -231,7 +234,7 @@ describe('work that costs, for visitors who are not logged in (plan 8Z-2)', () =
       expect(answer.statusCode, String(i)).toBe(200);
       expect(answer.headers['set-cookie']).toBeUndefined();
     }
-    // Their own sixty misses are spent, from however many addresses and sessions.
+    // Their own misses are spent, from however many addresses and sessions.
     const second = await made.loggedIn(ASH, 'Ash');
     const refused = await made.app.inject({ url: emojiUrl(FRESH), headers: { cookie: second } });
     expect(refused.statusCode).toBe(429);
@@ -245,6 +248,22 @@ describe('work that costs, for visitors who are not logged in (plan 8Z-2)', () =
     made.clock.now += 60_000;
     const later = await made.app.inject({ url: emojiUrl(FRESH), headers: { cookie } });
     expect(later.statusCode).toBe(200);
+  });
+
+  it('serves a member’s page from one address its first minute’s misses, as many as the visitors’ pictures (8Z-2 final fix F4)', async () => {
+    const { emoji, fetched } = emojiWith();
+    const made = webServerWith({ emoji });
+    web = made;
+    const cookie = await made.loggedIn(ASH, 'Ash');
+    for (let i = 0; i < PICTURE_COSTS_PER_MINUTE; i += 1) {
+      const answer = await made.app.inject({
+        url: emojiUrl(i),
+        headers: { cookie },
+        remoteAddress: address(0),
+      });
+      expect(answer.statusCode, String(i)).toBe(200);
+    }
+    expect(fetched).toHaveLength(PICTURE_COSTS_PER_MINUTE);
   });
 
   it('looks up the cookies of misses at most so often from one address (F-B4)', async () => {
