@@ -102,6 +102,7 @@ const ADDED_INDEXES = [
   'Region.region_channelid_unique',
   'Role.role_rolesnowflake_guildid_unique',
   'Role.role_groupid_foreign',
+  'User.user_nickname_index',
 ];
 /** The foreign keys it adds to tables of the legacy bot, as `Table.constraint`. */
 const ADDED_FOREIGN_KEYS = ['Role.role_groupid_foreign'];
@@ -109,7 +110,7 @@ const ADDED_FOREIGN_KEYS = ['Role.role_groupid_foreign'];
  * The columns of the legacy bot that an added index covers: MySQL then describes the column
  * itself differently (its key marker), which is no change of the column.
  */
-const NEWLY_KEYED_COLUMNS = ['Region.channelId'];
+const NEWLY_KEYED_COLUMNS = ['Region.channelId', 'User.nickname'];
 
 /**
  * Everything about the Pine tables that a new install must reproduce exactly. `except` leaves
@@ -229,6 +230,7 @@ describe('runMigrations', () => {
       '2026_11_07_047_meetup_request_end',
       '2026_11_07_048_checked_foreign_keys',
       '2026_11_09_049_event_window',
+      '2026_11_10_050_sweep_indexes',
     ]);
     expect(
       await describeSchema(
