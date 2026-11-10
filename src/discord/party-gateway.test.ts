@@ -2030,6 +2030,56 @@ describe('the events forum’s posts (plan 8V-1)', () => {
       expect(locked.calls).toEqual([]);
     });
 
+    /**
+     * An events forum whose permissions the bot may not change (Pittsburgh's #pogo-events, set by
+     * hand on 2026-11-09): what the bot and @everyone may do there is `bot` and `everyone`.
+     */
+    function lockedForum(bot: bigint, everyoneBits: bigint) {
+      const me = { id: 'bot' };
+      const everyone = { id: 'g', name: '@everyone' };
+      const edits: string[] = [];
+      const forum = {
+        type: ChannelType.GuildForum,
+        guild: { members: { me }, roles: { everyone, cache: new Map([['g', everyone]]) } },
+        permissionOverwrites: {
+          cache: new Collection(),
+          edit: (who: { id: string } | string) => {
+            edits.push(typeof who === 'string' ? who : who.id);
+            return Promise.reject(apiError(RESTJSONErrorCodes.MissingPermissions, 403));
+          },
+        },
+        permissionsFor: (who: { id: string }) =>
+          new PermissionsBitField(who.id === 'bot' ? bot : everyoneBits),
+      };
+      const gateway = new DiscordPartyGateway();
+      gateway.use({
+        channels: { fetch: () => Promise.resolve(forum) },
+        user: { id: 'bot' },
+      } as unknown as Client);
+      return { gateway, edits };
+    }
+
+    it('counts a forum closed and managed by hand as done, where it may not set permissions', async () => {
+      const post = PermissionFlagsBits.SendMessages;
+      const view = PermissionFlagsBits.ViewChannel;
+      const { gateway, edits } = lockedForum(
+        view | post | PermissionFlagsBits.ManageThreads,
+        view | PermissionFlagsBits.SendMessagesInThreads,
+      );
+      await expect(gateway.reservePosts('f')).resolves.toBe('was-reserved');
+      await expect(gateway.letBotManagePosts('f')).resolves.toBe('was-allowed');
+      // Managing posts is read before anything is written; closing to posts after the refusal.
+      expect(edits).toEqual(['bot']);
+    });
+
+    it('still says it could not where members may post or the bot may not manage posts', async () => {
+      const post = PermissionFlagsBits.SendMessages;
+      const view = PermissionFlagsBits.ViewChannel;
+      const { gateway } = lockedForum(view | post, view | post);
+      await expect(gateway.reservePosts('f')).resolves.toBe('not-allowed');
+      await expect(gateway.letBotManagePosts('f')).resolves.toBe('not-allowed');
+    });
+
     it('names @everyone and the roles named that lack View Channel or Send Messages in Posts', async () => {
       const everyone = { id: 'g', name: '@everyone' };
       const member = { id: 'm', name: 'Member' };

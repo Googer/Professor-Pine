@@ -258,8 +258,9 @@ export interface PartyGateway {
    * Leaves the making of posts in a forum to the bot: "Send Messages" (in a forum, the making
    * of posts) is denied to everyone and to every role the forum allows it, and allowed to the
    * bot itself; writing in posts stays as it was. `was-reserved` when nothing had to change,
-   * `not-allowed` when Discord refuses the bot the change (it needs Manage Permissions and
-   * Send Messages in the forum itself), undefined when the forum is gone.
+   * or when Discord refuses the change but the bot may post there and everyone may not (a forum
+   * set by hand); `not-allowed` when Discord refuses the bot the change (it needs Manage
+   * Permissions and Send Messages in the forum itself), undefined when the forum is gone.
    */
   reservePosts(forumId: string): Promise<'reserved' | 'was-reserved' | 'not-allowed' | undefined>;
   /**
@@ -363,7 +364,7 @@ export interface PartyGateway {
   /**
    * Lets the bot manage the posts of a forum (plan 8V-1: Manage Posts, a forum's Manage Threads,
    * in the bot's own overwrite of the events forum), to pin, lock and archive them. `was-allowed`
-   * when nothing had to change, `not-allowed` when Discord refuses the bot the change (it needs
+   * when nothing had to change (the bot may manage them there already, by any overwrite or role), `not-allowed` when Discord refuses the bot the change (it needs
    * Manage Permissions there and Manage Threads itself), undefined when the forum is gone.
    */
   letBotManagePosts(
@@ -1431,7 +1432,14 @@ export class DiscordPartyGateway implements PartyGateway {
         await forum.permissionOverwrites.edit(id, { SendMessages: false }, { reason });
       }
     } catch (err) {
-      if (isMissingPermission(err)) return 'not-allowed';
+      if (isMissingPermission(err)) {
+        // A server may set the forum by hand where the bot may not set permissions (Pittsburgh's
+        // #pogo-events, 2026-11-09): what counts is that the bot may post and everyone may not.
+        const done =
+          forum.permissionsFor(me)?.has(post) === true &&
+          forum.permissionsFor(forum.guild.roles.everyone)?.has(post) === false;
+        return done ? 'was-reserved' : 'not-allowed';
+      }
       if (hasCode(err, RESTJSONErrorCodes.UnknownChannel)) return undefined;
       throw err;
     }
@@ -1761,7 +1769,12 @@ export class DiscordPartyGateway implements PartyGateway {
     const me = forum.guild.members.me;
     if (!me) return 'not-allowed';
     const manage = PermissionFlagsBits.ManageThreads;
-    if (forum.permissionOverwrites.cache.get(me.id)?.allow.has(manage) === true) {
+    // What the bot may do there, however it came to (its own overwrite, its role's, or the
+    // server's): a forum set by hand needs nothing written.
+    if (
+      forum.permissionOverwrites.cache.get(me.id)?.allow.has(manage) === true ||
+      forum.permissionsFor(me)?.has(manage) === true
+    ) {
       return 'was-allowed';
     }
     try {
