@@ -502,6 +502,14 @@ export interface PartyGateway {
     fresh: boolean,
   ): Promise<MemberGates | undefined>;
   /**
+   * Whether everybody in a gate's server can view it (plan 8Z-2, Matt's ruling 8: what the map
+   * shows somebody who is no member): somebody holding no role but the one every member has,
+   * with no overwrite of their own, by the rule a member's own view goes by (`viewsWith`), from
+   * the cache. By gate; a gate the cache lacks (gone, or neither a forum nor a text channel) is
+   * left out: nothing can be said of it.
+   */
+  everyoneViews(gateIds: readonly string[]): ReadonlyMap<string, boolean>;
+  /**
    * Lets a member into a forum with a permission overwrite of their own: see the forum, read
    * what was written, write in its posts (not that, when a role of theirs may not write there).
    * It takes the place of an overwrite the member had. False when the forum is gone. Needs
@@ -825,6 +833,11 @@ function rolesBesideEveryone(member: GuildMember, guildId: string): string[] {
 /** A region's gate: its forum, or its text (or announcement) channel where it has none. */
 type GateChannel = ForumChannel | TextChannel | NewsChannel;
 
+/** Nobody in particular, as `viewsWith` takes a member: no server's owner, no overwrite's holder. */
+const NOBODY = { id: '' } as const;
+/** No role but the one every member has. */
+const NO_ROLES: ReadonlySet<string> = new Set();
+
 /**
  * Whether a member would see a channel holding exactly the roles `roleIds` (not the everyone
  * role, which every member has), by discord.js's own rule (`GuildChannel.memberPermissions`) over
@@ -833,11 +846,12 @@ type GateChannel = ForumChannel | TextChannel | NewsChannel;
  * those of the roles together (an allowance of one role beats a denial of another), and the
  * member's own. A role the server no longer has counts for nothing. With the roles the member
  * holds it is `permissionsFor(member)`; with one more or one less it is what giving or taking that
- * role would make of the channel.
+ * role would make of the channel. With no role, for somebody who is nobody (`NOBODY`), it is what
+ * everybody in the server sees (`everyoneViews`, plan 8Z-2).
  */
 export function viewsWith(
   channel: GateChannel,
-  member: GuildMember,
+  member: Pick<GuildMember, 'id'>,
   roleIds: ReadonlySet<string>,
 ): boolean {
   const { guild } = channel;
@@ -2120,6 +2134,23 @@ export class DiscordPartyGateway implements PartyGateway {
     return DiscordPartyGateway.roleDenies(forum, member, PermissionFlagsBits.ViewChannel, false)
       ? 'barred'
       : 'hidden';
+  }
+
+  everyoneViews(gateIds: readonly string[]): ReadonlyMap<string, boolean> {
+    const views = new Map<string, boolean>();
+    for (const gateId of new Set(gateIds)) {
+      const channel = this.client.channels.cache.get(gateId);
+      if (
+        channel?.type !== ChannelType.GuildForum &&
+        channel?.type !== ChannelType.GuildText &&
+        channel?.type !== ChannelType.GuildAnnouncement
+      ) {
+        continue;
+      }
+      // Nobody in particular: no role but everybody's, not the owner, no overwrite of their own.
+      views.set(gateId, viewsWith(channel, NOBODY, NO_ROLES));
+    }
+    return views;
   }
 
   async memberGates(

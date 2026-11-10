@@ -75,7 +75,8 @@ export const TEST_OWNER_ID = TEST_ENV.OWNER_ID ?? '';
  * `GymDirectory`) and regions (a real `RegionDirectory` over `regionRows`) of the server of the
  * fake interactions (row 1), whose channels are named `west` and `east` (`channelNames`).
  * Change `regionRows.rows` and load `regions`, or a gym and refresh it in `directory`, as the
- * bot does.
+ * bot does. Everybody can view every region's gate (its forum, or its text channel without one)
+ * unless a test adds it to `hidden`, or to `unseen` (the bot's cache lacks it: nothing is said).
  */
 export async function geoSourcesWith() {
   const regionRows = { rows: testRegions() };
@@ -90,6 +91,10 @@ export async function geoSourcesWith() {
     [WEST_CHANNEL, 'west'],
     [EAST_CHANNEL, 'east'],
   ]);
+  // Who everybody in the server can view (plan 8Z-2): every gate asked of, but those a test
+  // hides from everybody (`hidden`) and those the bot's cache lacks (`unseen`: nothing is said).
+  const hidden = new Set<string>();
+  const unseen = new Set<string>();
   const sources: GeoSources = {
     guilds: { idFor: (guild) => Promise.resolve(guild === FAKE_GUILD_ID ? 1 : undefined) },
     regions,
@@ -97,9 +102,11 @@ export async function geoSourcesWith() {
     channels: {
       serverChannels: (guild) =>
         guild === FAKE_GUILD_ID ? [...channelNames].map(([id, name]) => ({ id, name })) : undefined,
+      everyoneViews: (gateIds) =>
+        new Map(gateIds.filter((id) => !unseen.has(id)).map((id) => [id, !hidden.has(id)])),
     },
   };
-  return { gyms, directory, regionRows, regions, channelNames, sources };
+  return { gyms, directory, regionRows, regions, channelNames, hidden, unseen, sources };
 }
 
 /** A text channel of the fakes' server that is no region, and the category of West and East. */
@@ -179,7 +186,7 @@ const NOTHING: GeoSources = {
   guilds: { idFor: () => Promise.resolve(undefined) },
   regions: { all: () => [], generation: 0 },
   gyms: { all: () => [], regionsOf: () => [], generation: 0 },
-  channels: { serverChannels: () => undefined },
+  channels: { serverChannels: () => undefined, everyoneViews: () => new Map() },
 };
 
 /**

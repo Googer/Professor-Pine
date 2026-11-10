@@ -172,30 +172,9 @@ export function guildRoutes(
     },
   );
 
-  // The regions and gyms of the server (spec 3.1): public, kept until they change, answered
-  // with 304 when the page has them already; every request counts against the address, and
-  // against the member where somebody is logged in. Building the view anew is work that costs:
-  // for a visitor who is not logged in it counts against the overall limit (`publicCosts`, plan
-  // 8Z-2), 429 once that is spent; the view as kept is answered all the same.
-  scope.get(
-    '/api/geo',
-    { onRequest: limitedRead(GEO_PER_MINUTE, deps) },
-    async (request: GuildRequest, reply) => {
-      const cost = costOf(request);
-      const view = await deps.geo.view(request.params.guild, cost.mayCost);
-      if (view === REFUSED) return cost.refuse(reply);
-      // For the browser alone: the member's hook may have sent a session's cookie along anew.
-      void reply.header('cache-control', 'private, no-cache').header('etag', view.etag);
-      if (etagMatches(request.headers['if-none-match'], view.etag)) return reply.code(304).send();
-      return reply.type('application/json; charset=utf-8').send(view.body);
-    },
-  );
-
-  // The region editor (plan 8M-2): its data for the server's staff.
-  editorRoutes(scope, deps);
-
   // Who sees which parties and reports at stops on the map (spec 2.5): one for both, so that what
-  // Discord said of a member and a forum serves the two lists a page polls.
+  // Discord said of a member and a forum serves the two lists a page polls, and the regions and
+  // gyms' question who is a member.
   const viewers = new PartyViewers({
     members: map.members,
     asks: mapMembers(pacedMembers, deps.settings.memberRole),
@@ -203,6 +182,42 @@ export function guildRoutes(
     log: deps.log,
     now: deps.now,
   });
+
+  // The regions and gyms of the server (spec 3.1): for anybody, kept until they change, answered
+  // with 304 when the page has them already; every request counts against the address, and
+  // against the member where somebody is logged in. A member of the server (as the lists ask it,
+  // `askedMembership`: the map's role counted, a member Discord said lately one still) gets every
+  // region; anybody else, logged in or not, and whoever Discord cannot say of, the public view,
+  // without the regions whose channel not everybody in the server can view and the gyms that lie
+  // in those alone (Matt's ruling 8, plan 8Z-2; `GeoCache`, `publicRegions`). So the answer is
+  // the asker's (`private`, `Vary: Cookie`), and an ETag of one view never matches the other.
+  // Building a view anew is work that costs: for a visitor who is not logged in it counts
+  // against the overall limit (`publicCosts`, plan 8Z-2), 429 once that is spent; the view as
+  // kept is answered all the same.
+  scope.get(
+    '/api/geo',
+    { onRequest: limitedRead(GEO_PER_MINUTE, deps) },
+    async (request: GuildRequest, reply) => {
+      void reply.header('cache-control', 'private, no-cache').header('vary', 'Cookie');
+      const { guild } = request.params;
+      const session = await sessions.of(request, reply);
+      const member =
+        session === undefined ? undefined : await viewers.askedMembership(guild, session.userId);
+      const cost = costOf(request);
+      const view = await deps.geo.view(
+        guild,
+        member?.kind === 'member' ? 'members' : 'public',
+        cost.mayCost,
+      );
+      if (view === REFUSED) return cost.refuse(reply);
+      void reply.header('etag', view.etag);
+      if (etagMatches(request.headers['if-none-match'], view.etag)) return reply.code(304).send();
+      return reply.type('application/json; charset=utf-8').send(view.body);
+    },
+  );
+
+  // The region editor (plan 8M-2): its data for the server's staff.
+  editorRoutes(scope, deps);
 
   // The parties on the live map, and joining them (plan 8M-3): for members of the server (with
   // the map's member role, when the settings name one).

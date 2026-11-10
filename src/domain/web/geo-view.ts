@@ -1,4 +1,5 @@
 import { addressLine } from '../geo/google.js';
+import { regionGate } from '../history/region-tally.js';
 import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import type { GeoView, Point } from './geo-data.js';
 
@@ -41,6 +42,22 @@ export interface GeoInput {
   gyms: readonly GeoGym[];
   /** The channels of the regions a gym lies in (`GymProvider.regionsOf`). */
   regionsOf(gymId: number): readonly string[];
+}
+
+/**
+ * The regions somebody who is no member of the server may see on its map (Matt's ruling 8, plan
+ * 8Z-2): those whose gate (`regionGate`, the one channel that decides who sees a region: its
+ * forum, or its text channel where it has none) everybody in the server can view. `everyoneViews`
+ * is what Discord says of each gate (`PartyGateway.everyoneViews`); a gate it says nothing of
+ * (the bot's cache lacks the channel) hides its region, as a gate it denies. `geoView` of these
+ * regions alone leaves out the gyms that lie only in the others, and names none of them on a
+ * gym that lies in both.
+ */
+export function publicRegions<R extends { forumChannelId: string | null; channelId: string }>(
+  regions: readonly R[],
+  everyoneViews: ReadonlyMap<string, boolean>,
+): R[] {
+  return regions.filter((region) => everyoneViews.get(regionGate(region)) === true);
 }
 
 const round = (value: number): number => Math.round(value * 1e6) / 1e6;

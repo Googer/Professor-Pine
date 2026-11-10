@@ -1734,6 +1734,30 @@ export class FakePartyGateway implements PartyGateway {
     return known && !this.gone.has(channelId);
   }
 
+  /**
+   * Whether everybody can view each gate (plan 8Z-2), as the real gateway says it: the everyone
+   * role's permissions (`serverRoles` by the server's id, Discord's default unless a test gives
+   * it), then the gate's overwrites where a test gives them (`forumOverwrites`), for somebody of
+   * no role and no overwrite of their own. `shutOut`, `admitted` and `barred` are of single
+   * members and change nothing for everybody. A gate that is gone or unknown is left out.
+   */
+  everyoneViews(gateIds: readonly string[]): ReadonlyMap<string, boolean> {
+    const nobody = { id: '', roleIds: [] };
+    return new Map(
+      [...new Set(gateIds)]
+        .filter((id) => this.isGate(id))
+        .map((id) => {
+          const seen = channelPermissions(
+            this.basePermissions(nobody.roleIds),
+            this.guildId,
+            nobody,
+            this.forumOverwrites.get(id) ?? [],
+          );
+          return [id, (seen & PermissionFlagsBits.ViewChannel) !== 0n];
+        }),
+    );
+  }
+
   private accessNow(
     forumId: string,
     memberId: string,

@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import {
   EAST_CHANNEL,
+  EAST_FORUM,
   testGym,
   testGyms,
   testRegions,
+  UNBOUNDED_CHANNEL,
   WEST_CHANNEL,
+  WEST_FORUM,
 } from '../../../test/support/gyms.js';
-import { geoView, type GeoInput } from './geo-view.js';
+import { geoView, publicRegions, type GeoInput } from './geo-view.js';
 
 /** The invented server: West and East (and a region without an outline), its gyms by box. */
 function input(more: Partial<GeoInput> = {}): GeoInput {
@@ -97,5 +100,66 @@ describe('geoView', () => {
 
   it('is empty for a server without regions', () => {
     expect(geoView(input({ regions: [] }))).toEqual({ regions: [], gyms: [] });
+  });
+});
+
+describe('publicRegions (plan 8Z-2)', () => {
+  const ids = (views: ReadonlyMap<string, boolean>, regions = testRegions()) =>
+    publicRegions(regions, views).map((region) => region.id);
+
+  it('keeps the regions whose gate everybody can view: the forum, or the text channel without one', () => {
+    const everybody = new Map([
+      [WEST_FORUM, true],
+      [EAST_FORUM, true],
+      [UNBOUNDED_CHANNEL, true],
+    ]);
+    expect(ids(everybody)).toEqual([1, 2, 3]);
+    // The forum decides where a region has one, whatever is said of its text channel.
+    expect(
+      ids(
+        new Map([
+          [WEST_FORUM, false],
+          [WEST_CHANNEL, true],
+          [EAST_FORUM, true],
+          [EAST_CHANNEL, false],
+        ]),
+      ),
+    ).toEqual([2]);
+    // A region without a forum goes by its text channel.
+    expect(ids(new Map([[UNBOUNDED_CHANNEL, false]]))).toEqual([]);
+  });
+
+  it('leaves out a region whose gate Discord cannot say of', () => {
+    expect(ids(new Map([[WEST_FORUM, true]]))).toEqual([1]);
+    expect(ids(new Map())).toEqual([]);
+  });
+
+  it('gives a map without the hidden regions, their gyms, or their numbers on a gym of both', () => {
+    // A gym of West, one of East, and one on the border that lies in both.
+    const gyms = [
+      testGym(30, 'West Stone', 40.05, -80.05),
+      testGym(31, 'East Stone', 40.05, -79.95),
+      testGym(32, 'Border Stone', 40.05, -80),
+    ];
+    const lying = new Map([
+      [30, [WEST_CHANNEL]],
+      [31, [EAST_CHANNEL]],
+      [32, [WEST_CHANNEL, EAST_CHANNEL]],
+    ]);
+    const mapOf = (regions: GeoInput['regions']) =>
+      geoView(input({ regions, gyms, regionsOf: (id) => lying.get(id) ?? [] }));
+    const all = mapOf(testRegions());
+    expect(all.gyms.map((gym) => [gym.id, gym.regionIds])).toEqual([
+      [30, [1]],
+      [31, [2]],
+      [32, [1, 2]],
+    ]);
+    const view = mapOf(publicRegions(testRegions(), new Map([[WEST_FORUM, true]])));
+    expect(view.regions.map((region) => region.name)).toEqual(['west-end']);
+    // East's own gym is gone; the one on the border stays, as West's alone.
+    expect(view.gyms.map((gym) => [gym.id, gym.regionIds])).toEqual([
+      [30, [1]],
+      [32, [1]],
+    ]);
   });
 });

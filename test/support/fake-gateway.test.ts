@@ -67,6 +67,45 @@ describe('FakePartyGateway: who can see a forum', () => {
     expect(await fake.memberAccess(EAST_FORUM, ALICE)).toBe('barred');
   });
 
+  it('says which gates everybody can view, by the everyone role and a gate’s overwrites (plan 8Z-2)', () => {
+    const fake = gateway();
+    const view = String(PermissionFlagsBits.ViewChannel);
+    // Discord's default: everybody sees a channel nothing closes.
+    expect(fake.everyoneViews([WEST_FORUM, EAST_FORUM, 'nowhere'])).toEqual(
+      new Map([
+        [WEST_FORUM, true],
+        [EAST_FORUM, true],
+      ]),
+    );
+    // Closed to everybody and opened to a role: no longer everybody's. One member shut out by
+    // their roles changes nothing for everybody.
+    fake.forumOverwrites.set(EAST_FORUM, [
+      { id: fake.guildId, type: OverwriteType.Role, allow: '0', deny: view },
+      { id: 'verified', type: OverwriteType.Role, allow: view, deny: '0' },
+    ]);
+    fake.shutOut(WEST_FORUM, ALICE);
+    expect(fake.everyoneViews([WEST_FORUM, EAST_FORUM])).toEqual(
+      new Map([
+        [WEST_FORUM, true],
+        [EAST_FORUM, false],
+      ]),
+    );
+    // A gated server: the everyone role sees nothing but what a channel opens to it.
+    fake.serverRoles.set(fake.guildId, { name: '@everyone', permissions: 0n });
+    fake.forumOverwrites.set(EAST_FORUM, [
+      { id: fake.guildId, type: OverwriteType.Role, allow: view, deny: '0' },
+    ]);
+    expect(fake.everyoneViews([WEST_FORUM, EAST_FORUM])).toEqual(
+      new Map([
+        [WEST_FORUM, false],
+        [EAST_FORUM, true],
+      ]),
+    );
+    // A gate that is gone says nothing.
+    fake.gone.add(EAST_FORUM);
+    expect(fake.everyoneViews([EAST_FORUM])).toEqual(new Map());
+  });
+
   it('says how a member stands to gates and what other roles would make of them (plan 8M-20)', async () => {
     const fake = gateway();
     const view = String(PermissionFlagsBits.ViewChannel);

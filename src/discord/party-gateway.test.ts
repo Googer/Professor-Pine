@@ -2165,6 +2165,87 @@ describe('the events forum’s posts (plan 8V-1)', () => {
       expect(await gateway.memberAccess('nowhere', 'ash')).toBeUndefined();
     });
 
+    it('says which gates everybody in a server can view, from the cache, and nothing of one it lacks (plan 8Z-2)', () => {
+      const view = PermissionFlagsBits.ViewChannel;
+      const role = (id: string, bits: bigint) => ({
+        id,
+        permissions: new PermissionsBitField(bits),
+      });
+      const overwrite = (id: string, allow: bigint, deny: bigint, type = OverwriteType.Role) => ({
+        id,
+        type,
+        allow: new PermissionsBitField(allow),
+        deny: new PermissionsBitField(deny),
+      });
+      /** A server whose everyone role has `everyone`, with a member role that views. */
+      const server = (id: string, everyone: bigint) => ({
+        id,
+        ownerId: 'owner',
+        roles: {
+          cache: new Collection([
+            [id, role(id, everyone)],
+            ['m', role('m', view)],
+          ]),
+        },
+      });
+      const open = server('g', view);
+      const gated = server('h', 0n);
+      const channel = (
+        id: string,
+        type: ChannelType,
+        guild: ReturnType<typeof server>,
+        overwrites: ReturnType<typeof overwrite>[],
+      ) => ({
+        id,
+        type,
+        guild,
+        permissionOverwrites: { cache: new Collection(overwrites.map((one) => [one.id, one])) },
+      });
+      const channels = new Map<string, unknown>(
+        [
+          // Everybody's server permission, nothing denied.
+          channel('plain', ChannelType.GuildForum, open, []),
+          // Denied to everybody, opened to a role: only who holds it.
+          channel('by-role', ChannelType.GuildForum, open, [
+            overwrite('g', 0n, view),
+            overwrite('m', view, 0n),
+          ]),
+          // A member let in by their own overwrite does not make it everybody's.
+          channel('by-member', ChannelType.GuildText, open, [
+            overwrite('g', 0n, view),
+            overwrite('ash', view, 0n, OverwriteType.Member),
+          ]),
+          // A server whose everyone role sees no channel: a channel says so itself, or is hidden.
+          channel('opened', ChannelType.GuildAnnouncement, gated, [overwrite('h', view, 0n)]),
+          channel('unopened', ChannelType.GuildText, gated, [overwrite('m', view, 0n)]),
+          // No gate of a region: a voice channel.
+          channel('voice', ChannelType.GuildVoice, open, []),
+        ].map((one) => [one.id, one]),
+      );
+      const gateway = new DiscordPartyGateway();
+      gateway.use({ channels: { cache: channels }, user: { id: 'bot' } } as unknown as Client);
+      expect(
+        gateway.everyoneViews([
+          'plain',
+          'by-role',
+          'by-member',
+          'opened',
+          'unopened',
+          'voice',
+          'nowhere',
+          'plain',
+        ]),
+      ).toEqual(
+        new Map([
+          ['plain', true],
+          ['by-role', false],
+          ['by-member', false],
+          ['opened', true],
+          ['unopened', false],
+        ]),
+      );
+    });
+
     it('keeps the regions of a share where everybody who sees the channel sees their forum, from the cache (plan 8H-5, R-A)', async () => {
       const guildId = 'g';
       const role = (id: string, bits: bigint) => ({
