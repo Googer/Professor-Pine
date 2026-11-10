@@ -206,6 +206,13 @@ const STORED_PROGRAMS: Record<string, string> = {
     '/*!50106 CREATE*/ /*!50106 EVENT `nightly` ON SCHEDULE EVERY 1 DAY DO delete from Gym */ ;;',
   view: '/*!50013 DEFINER=`pine`@`%` SQL SECURITY DEFINER */',
   'by-hand': 'create trigger gym_audit before insert on Gym for each row set @changed = 1;',
+  // Spellings of a dump written by hand: a tab, a statement over lines.
+  'by-hand-tab': 'CREATE\tTRIGGER gym_audit BEFORE INSERT ON Gym FOR EACH ROW SET @changed = 1;',
+  'by-hand-indented': '\tcreate procedure sweep() delete from Gym;',
+  'by-hand-create-alone':
+    'CREATE\nTRIGGER gym_audit BEFORE INSERT ON Gym FOR EACH ROW SET @changed = 1;',
+  'by-hand-name-below':
+    'CREATE TRIGGER\ngym_audit BEFORE INSERT ON Gym FOR EACH ROW SET @changed = 1;',
 };
 
 // A restore runs the dump's SQL as MySQL's root. Pine's database has no trigger, routine or
@@ -215,19 +222,22 @@ describe('the dump check of ./pine restore', () => {
     const dir = folder();
     const plain = path.join(dir, 'pine-backup-20261110.sql');
     const zipped = path.join(dir, 'pine-backup-20261110.sql.gz');
+    // Copied through Windows: every line ends with a carriage return.
+    const crlf = path.join(dir, 'pine-backup-20261110-crlf.sql');
     writeFileSync(plain, dumpText());
     writeFileSync(zipped, gzipSync(dumpText()));
+    writeFileSync(crlf, dumpText().replaceAll('\n', '\r\n'));
     const run = runPineScript(
       ['for dump in "$@"; do', '  (check_dump "$dump") 2>&1 && echo "passed"', 'done', 'true'].join(
         '\n',
       ),
       {},
-      [plain, zipped],
+      [plain, zipped, crlf],
     );
     if (!run) return context.skip('no sh here');
 
     expect(run.stdout).not.toContain('pine:');
-    expect(run.stdout.split(/\r?\n/).filter((line) => line === 'passed')).toHaveLength(2);
+    expect(run.stdout.split(/\r?\n/).filter((line) => line === 'passed')).toHaveLength(3);
   });
 
   it('refuses a dump that holds a trigger, a routine, an event or a definer, and says how to load it all the same', (context) => {

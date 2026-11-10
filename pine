@@ -387,16 +387,25 @@ cmd_migrate() {
 # them: mysqldump writes each INSERT (or REPLACE) on a line of its own and never breaks a value
 # over lines. Read as bytes (LC_ALL=C): a dump made without --hex-blob holds bytes that are no
 # text, which the sed of macOS refuses otherwise. The reading stops at the first one found, so
-# what the commands before it say of the closed pipe is not shown.
+# what the commands before it say of the closed pipe is not shown. A CREATE is a word after any
+# space (a tab too) and before a space or `*/`; one that ends its line is refused by itself (the
+# word that follows is on the next line; mysqldump never ends a line there). This covers what
+# mysqldump writes of stored programs, and spellings by hand that are near it: it is no sandbox
+# for a dump written by hand (operations.md).
 stored_program_in() {
   LC_ALL=C tr 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 'abcdefghijklmnopqrstuvwxyz' 2>/dev/null |
     LC_ALL=C sed -n -e 's/^/ /' -e '/^ insert /d' -e '/^ replace /d' \
       -e '/definer[[:space:]]*=/{p;q;}' \
-      -e '/ create[ *]/{' \
+      -e '/[[:space:]]create[[:space:]]*$/{p;q;}' \
+      -e '/[[:space:]]create[[:space:]*]/{' \
       -e '/[[:space:]]trigger[[:space:]]/{p;q;}' \
+      -e '/[[:space:]]trigger$/{p;q;}' \
       -e '/[[:space:]]procedure[[:space:]]/{p;q;}' \
+      -e '/[[:space:]]procedure$/{p;q;}' \
       -e '/[[:space:]]function[[:space:]]/{p;q;}' \
+      -e '/[[:space:]]function$/{p;q;}' \
       -e '/[[:space:]]event[[:space:]]/{p;q;}' \
+      -e '/[[:space:]]event$/{p;q;}' \
       -e '}' |
     LC_ALL=C cut -c2-161
 }
