@@ -4,12 +4,18 @@ on:
   push:
   pull_request:
 
+# The jobs only read the repository: their token can write nothing, whatever a step does.
+permissions:
+  contents: read
+
+# Each action runs at a commit, its version beside it (a tag can be moved to other code);
+# Dependabot proposes newer ones by pull request (.github/dependabot.yml).
 jobs:
   check:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -28,7 +34,7 @@ jobs:
   docker:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Shell scripts
         run: docker run --rm -v "$PWD:/mnt:ro" koalaman/shellcheck:stable -s sh /mnt/pine /mnt/docker/backup.sh
       - name: Settings of the stack (dummy values)

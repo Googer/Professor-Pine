@@ -87,7 +87,7 @@ describe('./pine', () => {
     for (const line of builds) expect(line, line.trim()).toMatch(/--pull\b/);
   });
 
-  it('fetches the newest MySQL and tunnel images on an update', () => {
+  it('fetches MySQL’s newest image, and the pinned ones, on an update', () => {
     expect(commands.some((line) => /\brun pull --ignore-buildable\b/.test(line))).toBe(true);
   });
 
@@ -245,6 +245,24 @@ describe('compose.yaml', () => {
       .filter((text) => /ROOT_PASSWORD: \$\{DB_ROOT_PASSWORD/.test(text.replace(/#.*$/gm, '')))
       .map((text) => text.split(':')[0]);
     expect(withRoot).toEqual(['mysql']);
+  });
+
+  // An image named by a tag alone is whatever was last pushed there, fetched again at each
+  // update: the socket proxy holds the Docker socket and the tunnel sees every cookie. Pinned by
+  // version and digest (of the image index: the hosts are arm64 and amd64), which Dependabot
+  // bumps by pull request. MySQL follows its LTS by its tag, and the bot's image is built here.
+  it('pins every image but MySQL’s and the bot’s own by version and digest', () => {
+    const images = services.flatMap((text) => /^ {4}image: (.+?)\r?$/m.exec(text)?.[1] ?? []);
+    const others = images.filter(
+      (image) => !image.startsWith('professor-pine:') && !image.startsWith('mysql:'),
+    );
+    expect(others.map((image) => image.split(':')[0])).toEqual([
+      'wollomatic/socket-proxy',
+      'cloudflare/cloudflared',
+    ]);
+    for (const image of others) {
+      expect(image, image).toMatch(/^[\w./-]+:\d+(\.\d+)+@sha256:[0-9a-f]{64}$/);
+    }
   });
 
   it('keeps the logs of every service to a size', () => {

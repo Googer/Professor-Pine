@@ -162,8 +162,11 @@ services:
   # (plan 8Z's staging checklist).
   # It runs as root (user 0, no capabilities) where its own example gives the socket's group: that
   # group's id differs per host, and the socket's owner is root everywhere.
+  # Pinned by version and digest (the digest of the image index, so that arm64 and amd64 hosts
+  # both get theirs): a tag alone is whatever was last pushed there, and this one holds the
+  # socket. Dependabot proposes a newer one by pull request (.github/dependabot.yml).
   docker-proxy:
-    image: wollomatic/socket-proxy:1
+    image: wollomatic/socket-proxy:1.13.2@sha256:ff95d6ff6c27853005ef85eb8f4ab5923dc3d2f1e055f98fb6aeeaceec3fe848
     user: '0'
     environment:
       SP_LISTENIP: 0.0.0.0
@@ -257,8 +260,10 @@ services:
   # `web.host` "0.0.0.0", `web.port`, `web.trustProxy` true, `web.publicUrl` the tunnel's
   # address); its port is not published, and the tunnel's public hostname points at
   # http://pine:<web.port>. The token comes from the env file, never from a file here.
+  # Pinned by version and digest (of the image index), as the socket proxy is: every cookie and
+  # login of the web pages passes through it. Dependabot proposes a newer one by pull request.
   cloudflared:
-    image: cloudflare/cloudflared:latest
+    image: cloudflare/cloudflared:2026.10.7@sha256:4955524aeaa379e154023d5a027c250f7b35041a2e7e950cf13f144bc9b9c5ba
     profiles: ['tunnel']
     command: ['tunnel', '--no-autoupdate', 'run']
     environment:
