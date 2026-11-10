@@ -233,6 +233,11 @@ describe('readScreenText', () => {
     // A pane of a split screen: its limits cannot be trusted. No name: nothing to measure.
     expect(roomOf([first, line('Church', 286, 227, 491, 292)], iphone, true)).toBeNull();
     expect(roomOf([])).toBeNull();
+    // A screen of a foldable's shape (under 1.6 times as tall as wide): GO's window may be
+    // narrower than the picture.
+    expect(
+      roomOf([first, line('Church', 286, 227, 491, 292)], { width: 1125, height: 1700 }),
+    ).toBeNull();
   });
 
   it('reads a max battle screen: Dynamax or Gigantamax, the species, the Power Spot under it', () => {

@@ -26,7 +26,8 @@ export interface ScreenText {
    * last line before `NAME_END`, where a name may run: GO cuts a name only when its next
    * word does not fit (Matt, 2026-11-10), so the gym search tells by it whether a longer name
    * that begins with the one read may have been cut (`gymOfText`). Null without a name, and in a
-   * pane of a split, whose limits cannot be trusted; absent in records read before it was kept.
+   * pane of a split or on a screen of a foldable's shape (`UPRIGHT`) or whose cut was not kept,
+   * whose limits cannot be trusted; absent in records read before it was kept.
    */
   gymRoom?: number | null;
   /** The "Elite raid gym" badge stands near the top. */
@@ -105,6 +106,12 @@ const BUTTON_HEIGHT = 0.7;
  * which would have ended at 0.81 (`matt-2026-10-21`; its ">" button stands from 0.84).
  */
 const NAME_END = 0.8;
+/**
+ * A screen under this many times as tall as wide has a foldable's shape (`FOLDABLE` of
+ * `screen-reader.ts`), never an upright phone's: GO's window may be narrower than it, so no room
+ * after the gym's name is measured (`ScreenText.gymRoom`).
+ */
+const UPRIGHT = 1.6;
 /** The CP is the tallest text on a hatched raid: taller than this share of the screen. */
 const CP_MIN_HEIGHT = 0.04;
 /**
@@ -570,7 +577,13 @@ export function readScreenText(
         .replace(/\s+/g, ' ') || null;
     const last = kept.at(-1);
     const lastText = last?.text.trim() ?? '';
-    if (last && gym !== null && options.pane !== true && lastText.length > 0) {
+    if (
+      last &&
+      gym !== null &&
+      options.pane !== true &&
+      height >= width * UPRIGHT &&
+      lastText.length > 0
+    ) {
       const perCharacter = boxWidth(last.box) / lastText.length;
       gymRoom = Math.max(0, (width * NAME_END - last.box.x1) / perCharacter);
     }

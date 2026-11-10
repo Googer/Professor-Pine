@@ -321,8 +321,12 @@ export async function readPicture(
   const ms = Math.round(performance.now() - started);
   const peakMb = Math.round(process.resourceUsage().maxRSS / 1024);
   const timed = (reading: ScreenReading): ScreenReading => ({ ...reading, ms, peakMb });
+  // A cut found but not kept: the whole reading may be of a window narrower than the picture,
+  // so the room after its gym's name is not known (`ScreenText.gymRoom`).
+  const wholeRead =
+    paneBoxes && !panes ? { ...whole, text: { ...whole.text, gymRoom: null } } : whole;
   return {
-    reading: timed(whole),
+    reading: timed(wholeRead),
     ...(panes
       ? { panes: panes.map((pane) => ({ ...pane, reading: timed(pane.reading) })), cut: cutBy }
       : {}),

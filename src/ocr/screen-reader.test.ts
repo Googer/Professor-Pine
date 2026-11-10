@@ -499,6 +499,22 @@ describe('readPicture', () => {
     expect(picture.panes).toBeUndefined();
   });
 
+  // Review of the exact-name rule (2026-11-10): GO's window there is narrower than the picture.
+  it('measures no room after the gym name of a whole reading whose cut was not kept', async () => {
+    const name = line('Big Fountain', 120, 60, 230, 80);
+    const cut = inOrder([name, ...WHOLE_SPLIT], [], TOP_PANE, [
+      line('PRIVATE GROUP', 120, 400, 280, 412),
+    ]);
+    const kept = await readPicture(await splitScreenshot(), cut, TEMPLATE);
+    expect(kept.panes).toBeUndefined();
+    expect(kept.reading.text).toMatchObject({ gym: 'Big Fountain', gymRoom: null });
+    // The same picture with no cut looked for: one screen, its room measured.
+    const one = await readPicture(await splitScreenshot(), inOrder([name], []), TEMPLATE, {
+      divider: false,
+    });
+    expect(one.reading.text.gymRoom).toBeGreaterThan(0);
+  });
+
   it('looks for no divider when told not to, and finds no cut in the text of one screen', async () => {
     const one = [line('Big Fountain', 120, 30, 330, 50), line('CP 12345', 100, 110, 300, 160)];
     const reader = inOrder(one, []);
