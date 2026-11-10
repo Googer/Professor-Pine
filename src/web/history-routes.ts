@@ -117,8 +117,11 @@ export const TRAINS_PER_MINUTE = 60;
  */
 export const TRAINS_LISTED = 50;
 
-/** As many trains as a month's list reads the cards of at once, until it is full (plan 8Z-2). */
-export const TRAINS_READ_AT_ONCE = 50;
+/**
+ * How many trains a month's list reads the cards of in each read, until it is full (plan 8Z-2):
+ * 50, then 200, then all the rest in one.
+ */
+export const TRAINS_READ_CHUNKS: readonly number[] = [50, 200];
 
 /** `?month=yyyy-mm`, required. */
 const trainsQuery = z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/u) }).strict();
@@ -576,14 +579,19 @@ function trainRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewer
         : reply.code(503).send({ error: UNCONFIRMED });
     }
     const ids = await activity.trains.trainsMade(guild, trainMonthRange(month, activity.zone));
-    // The cards are read `TRAINS_READ_AT_ONCE` trains at a time, newest first, until the list is
+    // The cards are read `TRAINS_READ_CHUNKS` trains at a time, newest first, until the list is
     // full (plan 8Z-2, audit L-S2), never every card of the month for a list of fifty. Filtered
     // before the cap, so that "more" counts only what the member may see (G5); the trains not
     // read are not counted at all (`older`).
     const shown: { id: number; rows: TrainCardRows }[] = [];
     let read = 0;
+    // The chunks grow (50, 200, then the rest) so that a month of mostly unlisted trains is not
+    // read in many round trips (review F-E4).
+    let chunk = 0;
     while (read < ids.length && shown.length < TRAINS_LISTED) {
-      const next = ids.slice(read, read + TRAINS_READ_AT_ONCE);
+      const size = TRAINS_READ_CHUNKS[chunk] ?? ids.length - read;
+      chunk += 1;
+      const next = ids.slice(read, read + size);
       read += next.length;
       const cards = await activity.trains.trainCardRows(guild, next);
       for (const id of next) {
@@ -598,7 +606,8 @@ function trainRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewer
       trains: shown
         .slice(0, TRAINS_LISTED)
         .map((one) => trainItem(one.id, one.rows, activity.zone)),
-      more: Math.max(0, shown.length - TRAINS_LISTED),
+      // With trains left unread the heading says "50+": no count beside it (review F-E1).
+      more: read < ids.length ? 0 : Math.max(0, shown.length - TRAINS_LISTED),
       older: read < ids.length,
     };
     return sendJson(request, reply, view);

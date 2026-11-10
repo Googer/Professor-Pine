@@ -204,7 +204,7 @@ describe('the ended trains on the map’s History (plan 8H-7B)', () => {
     expect(bob.older).toBe(true);
   });
 
-  it('reads the cards fifty trains at a time, newest first, and no further once fifty are shown (plan 8Z-2)', async () => {
+  it('reads the cards in growing chunks, newest first, and no further once fifty are shown (plan 8Z-2)', async () => {
     // The newest sixty were ridden by two (never listed); then seventy that are.
     const few = [boardAttendee(null, 'done'), boardAttendee(null, 'here')];
     const made = await setup(
@@ -216,17 +216,43 @@ describe('the ended trains on the map’s History (plan 8H-7B)', () => {
     const reads = vi.spyOn(made.history, 'trainCardRows');
     const asked = () => reads.mock.calls.map(([, ids]) => [ids[0], ids.at(-1), ids.length]);
     const june = (await made.month('2026-06')).json<TrainMonthView>();
-    // 130 to 81 (none listed), 80 to 31 (forty listed), 30 to 1 (thirty more): then all are read.
+    // 130 to 81 (none listed), then 80 to 1 in one read (seventy listed): all are read.
     expect(asked()).toEqual([
       [130, 81, 50],
-      [80, 31, 50],
-      [30, 1, 30],
+      [80, 1, 80],
     ]);
     expect(june.trains.map((one) => one.id)).toEqual(
       Array.from({ length: TRAINS_LISTED }, (_, n) => 70 - n),
     );
     expect(june.more).toBe(20);
     expect(june.older).toBe(false);
+  });
+
+  it('reads a month of unlisted trains in three reads: 50, 200, then the rest', async () => {
+    const few = [boardAttendee(null, 'done'), boardAttendee(null, 'here')];
+    const made = await setup(
+      Array.from({ length: 600 }, (_, n) => westTrain(SUNDAY + n * MINUTE, { attendees: few })),
+    );
+    web = made.web;
+    const reads = vi.spyOn(made.history, 'trainCardRows');
+    const june = (await made.month('2026-06')).json<TrainMonthView>();
+    expect(reads.mock.calls.map(([, ids]) => ids.length)).toEqual([50, 200, 350]);
+    expect(june).toMatchObject({ trains: [], more: 0, older: false });
+  });
+
+  it('says only "older" when the list fills partway through a later chunk (heading 50+)', async () => {
+    // The newest ten are listed, the next forty never are, then listed ones: the list fills in
+    // the second chunk, and the trains of the third are not read.
+    const few = [boardAttendee(null, 'done'), boardAttendee(null, 'here')];
+    const made = await setup(
+      Array.from({ length: 300 }, (_, n) =>
+        westTrain(SUNDAY + n * MINUTE, n >= 290 || n < 250 ? {} : { attendees: few }),
+      ),
+    );
+    web = made.web;
+    const june = (await made.month('2026-06')).json<TrainMonthView>();
+    expect(june.trains).toHaveLength(TRAINS_LISTED);
+    expect(june).toMatchObject({ more: 0, older: true });
   });
 
   it('stops at the first fifty of a month of many trains', async () => {
