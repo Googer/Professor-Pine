@@ -747,6 +747,33 @@ describe('gymOfText', () => {
     expect(gymOfText('Pine Campsite -', search, undefined, 30)).toMatchObject({ clear: false });
   });
 
+  it('keeps asking beside a gym of the same name but for punctuation, or one going on after a comma', () => {
+    const beside = (other: string) => (text: string) =>
+      text === 'Temple Sinai' ? [{ ...hit(18), gym: { id: 18, name: other } }, hit(10)] : [];
+    expect(gymOfText('Temple Sinai', beside('Temple-Sinai'), undefined, 30)).toMatchObject({
+      clear: false,
+    });
+    expect(gymOfText('Temple Sinai', beside('Temple Sinai, Garden'), undefined, 30)).toMatchObject({
+      gymId: 10,
+      clear: false,
+    });
+  });
+
+  it('finds the gym called exactly what was read below the third hit', () => {
+    const named = (text: string): GymHitLike[] =>
+      text === 'Cedar Hall'
+        ? [
+            ...['East', 'West', 'North'].map((side, i) => ({
+              ...hit(30 + i),
+              gym: { id: 30 + i, name: `Cedar Hall ${side}` },
+            })),
+            { ...hit(33), gym: { id: 33, name: 'Cedar Hall' } },
+          ]
+        : [];
+    expect(gymOfText('Cedar Hall', named, undefined, 30)).toMatchObject({ gymId: 33, clear: true });
+    expect(gymOfText('Cedar Hall', named)).toMatchObject({ gymId: 33, clear: false });
+  });
+
   it('never takes an exact name as clear when the search gave as many hits as are looked at', () => {
     // Every longer name seen would fit, but the search may have more than it gave.
     const longer = (count: number) => (text: string) =>

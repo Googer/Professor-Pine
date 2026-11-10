@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { OTHER_GUILD_ROW, WEST_CHANNEL } from '../../test/support/gyms.js';
+import { OTHER_GUILD_ROW, testGym, WEST_CHANNEL } from '../../test/support/gyms.js';
+import { gymsFixture } from '../../test/support/providers.js';
 import { MAX_FEED_READ_AT } from '../../test/support/max-bosses.js';
 import { maxReading } from '../../test/support/screenshots.js';
 import { createTestContext } from '../../test/support/test-context.js';
@@ -46,6 +47,22 @@ describe('reportContext', () => {
     expect(here.searchGym('Lakeview Trailhead')).toEqual([]);
     const elsewhere = reportContext(ctx, { channelId: null, guildRow: OTHER_GUILD_ROW }, 1_000);
     expect(elsewhere.searchGym('Old Stone Fountain')).toEqual([]);
+  });
+
+  // Review of the exact-name rule (2026-11-10): every longer name beginning with the one read is
+  // seen, also the fourth (the report looked at three hits before).
+  it('gives the report more than three hits of a search', () => {
+    const halls = ['Cedar Hall', 'Cedar Hall East', 'Cedar Hall West', 'Cedar Hall North'].map(
+      (name, i) => testGym(60 + i, name, 40.05, -80.05),
+    );
+    const { ctx } = createTestContext({ gyms: gymsFixture(halls) });
+    const here = reportContext(ctx, { channelId: WEST_CHANNEL, guildRow: GUILD_ROW }, 1_000);
+    expect(
+      here
+        .searchGym('Cedar Hall')
+        .map((hit) => hit.gym.id)
+        .sort(),
+    ).toEqual([60, 61, 62, 63]);
   });
 });
 
