@@ -214,6 +214,13 @@ export interface MemberGates {
   denials(gateId: string): { own: boolean; roles: string[] };
 }
 
+/**
+ * How somebody of no role but everybody's stands to gates (`everyoneGates`, plan 8Z-2, F-B10):
+ * `visible` or `hidden` by gate, what holding roles would make of a gate, and no denial (they
+ * hold no role and have no overwrite of their own). The look `regionChoices` takes.
+ */
+export type EveryoneGates = Pick<MemberGates, 'access' | 'seesWith' | 'denials'>;
+
 /** Tag ids of a forum by tag name. */
 export type TagIds = Readonly<Record<string, string>>;
 
@@ -502,13 +509,13 @@ export interface PartyGateway {
     fresh: boolean,
   ): Promise<MemberGates | undefined>;
   /**
-   * Whether everybody in a gate's server can view it (plan 8Z-2, Matt's ruling 8: what the map
-   * shows somebody who is no member): somebody holding no role but the one every member has,
-   * with no overwrite of their own, by the rule a member's own view goes by (`viewsWith`), from
-   * the cache. By gate; a gate the cache lacks (gone, or neither a forum nor a text channel) is
-   * left out: nothing can be said of it.
+   * How somebody holding no role but the one every member has, with no overwrite of their own,
+   * stands to gates (plan 8Z-2, Matt's ruling 8 and F-B10: what the map shows somebody who is no
+   * member), and what holding roles would make of a gate for them, by the rule a member's own
+   * view goes by (`viewsWith`), from the cache. A gate the cache lacks (gone, or neither a forum
+   * nor a text channel) is left out: nothing can be said of it.
    */
-  everyoneViews(gateIds: readonly string[]): ReadonlyMap<string, boolean>;
+  everyoneGates(gateIds: readonly string[]): EveryoneGates;
   /**
    * Lets a member into a forum with a permission overwrite of their own: see the forum, read
    * what was written, write in its posts (not that, when a role of theirs may not write there).
@@ -847,7 +854,8 @@ const NO_ROLES: ReadonlySet<string> = new Set();
  * member's own. A role the server no longer has counts for nothing. With the roles the member
  * holds it is `permissionsFor(member)`; with one more or one less it is what giving or taking that
  * role would make of the channel. With no role, for somebody who is nobody (`NOBODY`), it is what
- * everybody in the server sees (`everyoneViews`, plan 8Z-2).
+ * everybody in the server sees, and with roles what they would make of it for them
+ * (`everyoneGates`, plan 8Z-2).
  */
 export function viewsWith(
   channel: GateChannel,
@@ -2136,21 +2144,32 @@ export class DiscordPartyGateway implements PartyGateway {
       : 'hidden';
   }
 
-  everyoneViews(gateIds: readonly string[]): ReadonlyMap<string, boolean> {
-    const views = new Map<string, boolean>();
+  everyoneGates(gateIds: readonly string[]): EveryoneGates {
+    const gates = new Map<string, GateChannel>();
     for (const gateId of new Set(gateIds)) {
       const channel = this.client.channels.cache.get(gateId);
       if (
-        channel?.type !== ChannelType.GuildForum &&
-        channel?.type !== ChannelType.GuildText &&
-        channel?.type !== ChannelType.GuildAnnouncement
+        channel?.type === ChannelType.GuildForum ||
+        channel?.type === ChannelType.GuildText ||
+        channel?.type === ChannelType.GuildAnnouncement
       ) {
-        continue;
+        gates.set(gateId, channel);
       }
-      // Nobody in particular: no role but everybody's, not the owner, no overwrite of their own.
-      views.set(gateId, viewsWith(channel, NOBODY, NO_ROLES));
     }
-    return views;
+    // Nobody in particular: no role but everybody's, not the owner, no overwrite of their own.
+    return {
+      access: new Map(
+        [...gates].map(([id, gate]) => [
+          id,
+          viewsWith(gate, NOBODY, NO_ROLES) ? 'visible' : 'hidden',
+        ]),
+      ),
+      seesWith: (gateId, roleIds) => {
+        const gate = gates.get(gateId);
+        return gate !== undefined && viewsWith(gate, NOBODY, roleIds);
+      },
+      denials: () => ({ own: false, roles: [] }),
+    };
   }
 
   async memberGates(

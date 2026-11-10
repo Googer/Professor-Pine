@@ -71,39 +71,44 @@ describe('FakePartyGateway: who can see a forum', () => {
     const fake = gateway();
     const view = String(PermissionFlagsBits.ViewChannel);
     // Discord's default: everybody sees a channel nothing closes.
-    expect(fake.everyoneViews([WEST_FORUM, EAST_FORUM, 'nowhere'])).toEqual(
+    expect(fake.everyoneGates([WEST_FORUM, EAST_FORUM, 'nowhere']).access).toEqual(
       new Map([
-        [WEST_FORUM, true],
-        [EAST_FORUM, true],
+        [WEST_FORUM, 'visible'],
+        [EAST_FORUM, 'visible'],
       ]),
     );
-    // Closed to everybody and opened to a role: no longer everybody's. One member shut out by
-    // their roles changes nothing for everybody.
+    // Closed to everybody and opened to a role: no longer everybody's, but theirs with that role
+    // (F-B10). One member shut out by their roles changes nothing for everybody.
     fake.forumOverwrites.set(EAST_FORUM, [
       { id: fake.guildId, type: OverwriteType.Role, allow: '0', deny: view },
       { id: 'verified', type: OverwriteType.Role, allow: view, deny: '0' },
     ]);
     fake.shutOut(WEST_FORUM, ALICE);
-    expect(fake.everyoneViews([WEST_FORUM, EAST_FORUM])).toEqual(
+    const closed = fake.everyoneGates([WEST_FORUM, EAST_FORUM]);
+    expect(closed.access).toEqual(
       new Map([
-        [WEST_FORUM, true],
-        [EAST_FORUM, false],
+        [WEST_FORUM, 'visible'],
+        [EAST_FORUM, 'hidden'],
       ]),
     );
+    expect(closed.seesWith(EAST_FORUM, new Set(['verified']))).toBe(true);
+    expect(closed.seesWith(EAST_FORUM, new Set(['other']))).toBe(false);
     // A gated server: the everyone role sees nothing but what a channel opens to it.
     fake.serverRoles.set(fake.guildId, { name: '@everyone', permissions: 0n });
     fake.forumOverwrites.set(EAST_FORUM, [
       { id: fake.guildId, type: OverwriteType.Role, allow: view, deny: '0' },
     ]);
-    expect(fake.everyoneViews([WEST_FORUM, EAST_FORUM])).toEqual(
+    expect(fake.everyoneGates([WEST_FORUM, EAST_FORUM]).access).toEqual(
       new Map([
-        [WEST_FORUM, false],
-        [EAST_FORUM, true],
+        [WEST_FORUM, 'hidden'],
+        [EAST_FORUM, 'visible'],
       ]),
     );
     // A gate that is gone says nothing.
     fake.gone.add(EAST_FORUM);
-    expect(fake.everyoneViews([EAST_FORUM])).toEqual(new Map());
+    const gone = fake.everyoneGates([EAST_FORUM]);
+    expect(gone.access).toEqual(new Map());
+    expect(gone.seesWith(EAST_FORUM, new Set(['verified']))).toBe(false);
   });
 
   it('says how a member stands to gates and what other roles would make of them (plan 8M-20)', async () => {

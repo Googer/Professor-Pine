@@ -21,6 +21,7 @@ import type {
   BoardMessage,
   CreatedChannel,
   EditOptions,
+  EveryoneGates,
   ForumAccess,
   ForumHiding,
   MemberAccess,
@@ -1735,27 +1736,30 @@ export class FakePartyGateway implements PartyGateway {
   }
 
   /**
-   * Whether everybody can view each gate (plan 8Z-2), as the real gateway says it: the everyone
-   * role's permissions (`serverRoles` by the server's id, Discord's default unless a test gives
-   * it), then the gate's overwrites where a test gives them (`forumOverwrites`), for somebody of
-   * no role and no overwrite of their own. `shutOut`, `admitted` and `barred` are of single
-   * members and change nothing for everybody. A gate that is gone or unknown is left out.
+   * How everybody stands to each gate, and what roles would make of it for them (plan 8Z-2,
+   * F-B10), as the real gateway says it: the permissions of the everyone role and the roles held
+   * (`serverRoles`, Discord's default unless a test gives them), then the gate's overwrites
+   * where a test gives them (`forumOverwrites`), for somebody of no overwrite of their own.
+   * `shutOut`, `admitted` and `barred` are of single members and change nothing for everybody.
+   * A gate that is gone or unknown is left out.
    */
-  everyoneViews(gateIds: readonly string[]): ReadonlyMap<string, boolean> {
-    const nobody = { id: '', roleIds: [] };
-    return new Map(
-      [...new Set(gateIds)]
-        .filter((id) => this.isGate(id))
-        .map((id) => {
-          const seen = channelPermissions(
-            this.basePermissions(nobody.roleIds),
-            this.guildId,
-            nobody,
-            this.forumOverwrites.get(id) ?? [],
-          );
-          return [id, (seen & PermissionFlagsBits.ViewChannel) !== 0n];
-        }),
-    );
+  everyoneGates(gateIds: readonly string[]): EveryoneGates {
+    const gates = [...new Set(gateIds)].filter((id) => this.isGate(id));
+    const sees = (gateId: string, roleIds: readonly string[]): boolean => {
+      const nobody = { id: '', roleIds };
+      const seen = channelPermissions(
+        this.basePermissions(roleIds),
+        this.guildId,
+        nobody,
+        this.forumOverwrites.get(gateId) ?? [],
+      );
+      return (seen & PermissionFlagsBits.ViewChannel) !== 0n;
+    };
+    return {
+      access: new Map(gates.map((id) => [id, sees(id, []) ? 'visible' : 'hidden'])),
+      seesWith: (gateId, roleIds) => gates.includes(gateId) && sees(gateId, [...roleIds]),
+      denials: () => ({ own: false, roles: [] }),
+    };
   }
 
   private accessNow(

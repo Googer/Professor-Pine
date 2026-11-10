@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
 import { EAST_CHANNEL, EAST_FORUM, WEST_FORUM } from '../../test/support/gyms.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
+import { ROLE, selfRolesWith } from '../../test/support/roles.js';
+import { PUBLIC_REGIONS_KEPT_MS } from './geo-cache.js';
 import { geoSourcesWith, webServerWith, type TestWeb } from '../../test/support/web.js';
 
 const GEO = `/s/${FAKE_GUILD_ID}/api/geo`;
@@ -155,15 +157,20 @@ describe('the regions a visitor may not see (plan 8Z-2, ruling 8)', () => {
   });
 
   it('follow the channel: shown again once everybody can view it, hidden while Discord cannot say', async () => {
-    const { ask, sources } = await hiddenEast();
+    const { ask, sources, made } = await hiddenEast();
     const names = async () => (await ask()).json<Shown>().regions.map((region) => region.name);
     expect(await names()).toEqual(['west']);
     sources.hidden.delete(EAST_FORUM);
+    // Decided once a minute (F-B10): the same until then, then shown.
+    expect(await names()).toEqual(['west']);
+    made.clock.now += PUBLIC_REGIONS_KEPT_MS;
     expect(await names()).toEqual(['east', 'west']);
     // The bot's cache lacks West's forum: nothing can be said of it, so it is not shown.
     sources.unseen.add(WEST_FORUM);
+    made.clock.now += PUBLIC_REGIONS_KEPT_MS;
     expect(await names()).toEqual(['east']);
     sources.unseen.add(EAST_FORUM);
+    made.clock.now += PUBLIC_REGIONS_KEPT_MS;
     expect((await ask()).json()).toEqual({ regions: [], gyms: [] });
   });
 
@@ -198,6 +205,62 @@ describe('the regions a visitor may not see (plan 8Z-2, ruling 8)', () => {
     sources.channelNames.set(EAST_FORUM, 'east-raids');
     const names = (await ask(ash)).json<Shown>().regions.map((region) => region.name);
     expect(names).toEqual(['east-chat', 'west']);
+  });
+});
+
+describe('the regions a member can open for themselves (F-B10, Matt 2026-11-10)', () => {
+  let web: TestWeb | undefined;
+  afterEach(async () => {
+    await web?.app.close();
+    web = undefined;
+  });
+
+  /**
+   * A server whose forums are all closed to everybody: East's opens to the role East, which
+   * members give themselves; West's to Trader, which is not on the roster.
+   */
+  async function gated() {
+    const sources = await geoSourcesWith();
+    sources.hidden.add(EAST_FORUM).add(WEST_FORUM);
+    sources.opens.set(EAST_FORUM, new Set([ROLE.east]));
+    sources.opens.set(WEST_FORUM, new Set([ROLE.trader]));
+    const roles = selfRolesWith();
+    const added = await roles.selfRoles.addRole(
+      FAKE_GUILD_ID,
+      { roleId: ROLE.east },
+      roles.owner(),
+    );
+    if (added.kind !== 'added') throw new Error(`East: ${added.kind}`);
+    sources.sources.roles = roles.selfRoles;
+    const made = webServerWith({ geo: sources });
+    web = made;
+    const names = async () =>
+      (await made.app.inject({ url: GEO })).json<View>().regions.map((region) => region.name);
+    return { made, sources, roles, row: added.row, names };
+  }
+
+  it('shows a visitor a region a self-assignable role opens, not one behind a role staff give', async () => {
+    const { names } = await gated();
+    expect(await names()).toEqual(['east']);
+  });
+
+  it('hides it again at the next build once its role is taken off the roster', async () => {
+    const { names, roles, row } = await gated();
+    expect(await names()).toEqual(['east']);
+    await roles.selfRoles.removeRole(FAKE_GUILD_ID, row.id);
+    expect(await names()).toEqual([]);
+  });
+
+  it('shows only what everybody views while the roster cannot be read', async () => {
+    const { names, roles, sources, made } = await gated();
+    roles.storage.failing = new Error('the database is away');
+    sources.hidden.delete(WEST_FORUM);
+    // No roster: only West, which everybody views now, and not East, which its role opens.
+    expect(await names()).toEqual(['west']);
+    // Read again a minute later, once it can be: East as well.
+    roles.storage.failing = undefined;
+    made.clock.now += 60_000;
+    expect(await names()).toEqual(['east', 'west']);
   });
 });
 

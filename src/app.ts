@@ -1546,7 +1546,18 @@ export async function startApp(
           }
         : undefined,
       loginLinks,
-      geo: new GeoCache({ guilds, regions, gyms, channels: partyGateway }),
+      // The public view holds the regions a self-assignable role opens too (F-B10): "Your
+      // regions"' roster, none where self-assigned roles are off.
+      geo: new GeoCache(
+        {
+          guilds,
+          regions,
+          gyms,
+          channels: partyGateway,
+          roles: config.settings.features.roles ? ctx.selfRoles : undefined,
+        },
+        { log },
+      ),
       assets: webAssets,
       editor: {
         staff: new DiscordRegionStaff({ client, guilds, ownerId: config.env.OWNER_ID, log }),

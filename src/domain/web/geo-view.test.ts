@@ -9,6 +9,8 @@ import {
   WEST_CHANNEL,
   WEST_FORUM,
 } from '../../../test/support/gyms.js';
+import type { GateLook } from '../roles/region-roles.js';
+import { buildRoster, type ServerRole } from '../roles/self-roles.js';
 import { geoView, publicRegions, type GeoInput } from './geo-view.js';
 
 /** The invented server: West and East (and a region without an outline), its gyms by box. */
@@ -103,9 +105,113 @@ describe('geoView', () => {
   });
 });
 
+/** Roles of the server of `publicRegions`' tests. */
+const ROLE = {
+  west: '511000000000000001',
+  east: '511000000000000002',
+  patrol: '511000000000000003',
+  mod: '511000000000000004',
+  halfA: '511000000000000005',
+  halfB: '511000000000000006',
+} as const;
+const GUILD = '400000000000000001';
+
+/**
+ * The roster of `publicRegions`' tests: West, East and the two halves offered to everybody, Mod
+ * offered but a role of moderation (its `problem`: offered to nobody); Patrol is not offered.
+ */
+function rosterOf(offered: readonly string[] = [ROLE.west, ROLE.east, ROLE.halfA, ROLE.halfB]) {
+  const role = (id: string, name: string, more: Partial<ServerRole> = {}): ServerRole => ({
+    id,
+    name,
+    position: 5,
+    everyone: false,
+    managed: false,
+    moderation: [],
+    channelModeration: [],
+    staffName: false,
+    ...more,
+  });
+  const roles = [
+    role(GUILD, '@everyone', { everyone: true, position: 0 }),
+    role(ROLE.west, 'West'),
+    role(ROLE.east, 'East'),
+    role(ROLE.patrol, 'Patrol'),
+    role(ROLE.mod, 'Mod', { moderation: ['Kick Members'] }),
+    role(ROLE.halfA, 'Half A'),
+    role(ROLE.halfB, 'Half B'),
+  ];
+  const rows = [...offered, ROLE.mod].map((roleId, index) => ({
+    id: index + 1,
+    name: roles.find((one) => one.id === roleId)?.name ?? roleId,
+    description: null,
+    roleId,
+    groupId: null,
+    aliases: [],
+  }));
+  return buildRoster(rows, [], {
+    roles,
+    bot: { mayManageRoles: true, highestPosition: 50 },
+    ownerId: '300000000000000009',
+  }).roster;
+}
+
+/**
+ * What somebody holding no role but everybody's sees of the gates (`PartyGateway.everyoneGates`):
+ * `views` by gate (a gate it lacks is unknown), and the roles that open a gate they do not see
+ * (all of `opens[gate]` together where it is a list of lists).
+ */
+function everyoneLook(
+  views: ReadonlyMap<string, boolean>,
+  opens: Record<string, readonly (readonly string[])[]> = {},
+): GateLook {
+  return {
+    access: new Map([...views].map(([gate, seen]) => [gate, seen ? 'visible' : 'hidden'])),
+    seesWith: (gate, roles) =>
+      views.has(gate) &&
+      (views.get(gate) === true ||
+        (opens[gate] ?? []).some((needed) => needed.every((id) => roles.has(id)))),
+    denials: () => ({ own: false, roles: [] }),
+  };
+}
+
 describe('publicRegions (plan 8Z-2)', () => {
   const ids = (views: ReadonlyMap<string, boolean>, regions = testRegions()) =>
-    publicRegions(regions, views).map((region) => region.id);
+    publicRegions(regions, everyoneLook(views), undefined).map((region) => region.id);
+
+  it('keeps a region one role members give themselves opens, and no other (F-B10)', () => {
+    const hidden = new Map([
+      [WEST_FORUM, false],
+      [EAST_FORUM, false],
+      [UNBOUNDED_CHANNEL, false],
+    ]);
+    const shown = (opens: Record<string, string[][]>, roster = rosterOf()) =>
+      publicRegions(testRegions(), everyoneLook(hidden, opens), roster).map((region) => region.id);
+    // West opens to its role, which members give themselves: a visitor sees it.
+    expect(shown({ [WEST_FORUM]: [[ROLE.west]] })).toEqual([1]);
+    // Patrol is staff's to give, Mod is offered but nobody can be given it: neither opens.
+    expect(shown({ [WEST_FORUM]: [[ROLE.patrol]], [EAST_FORUM]: [[ROLE.mod]] })).toEqual([]);
+    // Two roles together, each self-assignable, are no one role that opens it.
+    expect(shown({ [EAST_FORUM]: [[ROLE.halfA, ROLE.halfB]] })).toEqual([]);
+    // Taken off the roster: West is closed to the public again.
+    expect(shown({ [WEST_FORUM]: [[ROLE.west]] }, rosterOf([ROLE.east]))).toEqual([]);
+    // Without a roster (roles off, or it could not be read), only what everybody views.
+    expect(
+      publicRegions(
+        testRegions(),
+        everyoneLook(hidden, { [WEST_FORUM]: [[ROLE.west]] }),
+        undefined,
+      ),
+    ).toEqual([]);
+    // A gate Discord cannot say of stays out, whatever role is said to open it.
+    expect(
+      publicRegions(
+        testRegions(),
+        everyoneLook(new Map([[EAST_FORUM, false]]), { [WEST_FORUM]: [[ROLE.west]] }),
+        rosterOf(),
+      ),
+    ).toEqual([]);
+  });
 
   it('keeps the regions whose gate everybody can view: the forum, or the text channel without one', () => {
     const everybody = new Map([
@@ -154,7 +260,9 @@ describe('publicRegions (plan 8Z-2)', () => {
       [31, [2]],
       [32, [1, 2]],
     ]);
-    const view = mapOf(publicRegions(testRegions(), new Map([[WEST_FORUM, true]])));
+    const view = mapOf(
+      publicRegions(testRegions(), everyoneLook(new Map([[WEST_FORUM, true]])), undefined),
+    );
     expect(view.regions.map((region) => region.name)).toEqual(['west-end']);
     // East's own gym is gone; the one on the border stays, as West's alone.
     expect(view.gyms.map((gym) => [gym.id, gym.regionIds])).toEqual([

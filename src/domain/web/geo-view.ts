@@ -1,5 +1,7 @@
 import { addressLine } from '../geo/google.js';
 import { regionGate } from '../history/region-tally.js';
+import { regionChoices, type GateLook } from '../roles/region-roles.js';
+import type { Roster } from '../roles/self-roles.js';
 import type { LatLon } from '@pine/wayspot-core/lat-lon';
 import type { GeoView, Point } from './geo-data.js';
 
@@ -44,20 +46,32 @@ export interface GeoInput {
   regionsOf(gymId: number): readonly string[];
 }
 
+/** No role but everybody's. */
+const NO_ROLES: ReadonlySet<string> = new Set();
+
 /**
  * The regions somebody who is no member of the server may see on its map (Matt's ruling 8, plan
- * 8Z-2): those whose gate (`regionGate`, the one channel that decides who sees a region: its
- * forum, or its text channel where it has none) everybody in the server can view. `everyoneViews`
- * is what Discord says of each gate (`PartyGateway.everyoneViews`); a gate it says nothing of
- * (the bot's cache lacks the channel) hides its region, as a gate it denies. `geoView` of these
- * regions alone leaves out the gyms that lie only in the others, and names none of them on a
- * gym that lies in both.
+ * 8Z-2; F-B10, Matt 2026-11-10): those whose gate (`regionGate`, the one channel that decides
+ * who sees a region: its forum, or its text channel where it has none) everybody in the server
+ * can view, or a member who holds one role members may give themselves can: what "Your regions"
+ * offers a member who holds none (`regionChoices` with nothing held: the region `visible`, or a
+ * join of the roster, whose entries with a `problem` are offered to nobody). `everyone` is what
+ * Discord says of somebody of no role and no overwrite of their own (`PartyGateway
+ * .everyoneGates`); a gate it says nothing of (the bot's cache lacks the channel) hides its
+ * region, as a gate it denies. Without a roster (roles off, or it could not be read) only what
+ * everybody views. `geoView` of these regions alone leaves out the gyms that lie only in the
+ * others, and names none of them on a gym that lies in both.
  */
-export function publicRegions<R extends { forumChannelId: string | null; channelId: string }>(
-  regions: readonly R[],
-  everyoneViews: ReadonlyMap<string, boolean>,
-): R[] {
-  return regions.filter((region) => everyoneViews.get(regionGate(region)) === true);
+export function publicRegions<
+  R extends { id: number; forumChannelId: string | null; channelId: string },
+>(regions: readonly R[], everyone: GateLook, roster: Roster | undefined): R[] {
+  const gates = regions.map((region) => ({ regionId: region.id, gateId: regionGate(region) }));
+  const open = new Set(
+    regionChoices(gates, everyone, roster, NO_ROLES)
+      .filter((choice) => choice.access === 'visible' || choice.join.length > 0)
+      .map((choice) => choice.regionId),
+  );
+  return regions.filter((region) => open.has(region.id));
 }
 
 const round = (value: number): number => Math.round(value * 1e6) / 1e6;

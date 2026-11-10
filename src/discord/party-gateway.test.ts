@@ -2224,26 +2224,34 @@ describe('the events forum’s posts (plan 8V-1)', () => {
       );
       const gateway = new DiscordPartyGateway();
       gateway.use({ channels: { cache: channels }, user: { id: 'bot' } } as unknown as Client);
-      expect(
-        gateway.everyoneViews([
-          'plain',
-          'by-role',
-          'by-member',
-          'opened',
-          'unopened',
-          'voice',
-          'nowhere',
-          'plain',
-        ]),
-      ).toEqual(
+      const everyone = gateway.everyoneGates([
+        'plain',
+        'by-role',
+        'by-member',
+        'opened',
+        'unopened',
+        'voice',
+        'nowhere',
+        'plain',
+      ]);
+      expect(everyone.access).toEqual(
         new Map([
-          ['plain', true],
-          ['by-role', false],
-          ['by-member', false],
-          ['opened', true],
-          ['unopened', false],
+          ['plain', 'visible'],
+          ['by-role', 'hidden'],
+          ['by-member', 'hidden'],
+          ['opened', 'visible'],
+          ['unopened', 'hidden'],
         ]),
       );
+      // With the member role (F-B10): what it opens, and nothing a member's own overwrite opens.
+      const member = new Set(['m']);
+      expect(everyone.seesWith('by-role', member)).toBe(true);
+      expect(everyone.seesWith('unopened', member)).toBe(true);
+      expect(everyone.seesWith('by-member', member)).toBe(false);
+      expect(everyone.seesWith('by-role', new Set())).toBe(false);
+      expect(everyone.seesWith('voice', member)).toBe(false);
+      expect(everyone.seesWith('nowhere', member)).toBe(false);
+      expect(everyone.denials('by-role')).toEqual({ own: false, roles: [] });
     });
 
     it('keeps the regions of a share where everybody who sees the channel sees their forum, from the cache (plan 8H-5, R-A)', async () => {

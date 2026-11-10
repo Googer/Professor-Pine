@@ -99,6 +99,8 @@ export async function geoSourcesWith() {
   // hides from everybody (`hidden`) and those the bot's cache lacks (`unseen`: nothing is said).
   const hidden = new Set<string>();
   const unseen = new Set<string>();
+  // The roles that open a hidden gate, each by itself (F-B10).
+  const opens = new Map<string, Set<string>>();
   const sources: GeoSources = {
     guilds: { idFor: (guild) => Promise.resolve(guild === FAKE_GUILD_ID ? 1 : undefined) },
     regions,
@@ -106,11 +108,19 @@ export async function geoSourcesWith() {
     channels: {
       serverChannels: (guild) =>
         guild === FAKE_GUILD_ID ? [...channelNames].map(([id, name]) => ({ id, name })) : undefined,
-      everyoneViews: (gateIds) =>
-        new Map(gateIds.filter((id) => !unseen.has(id)).map((id) => [id, !hidden.has(id)])),
+      everyoneGates: (gateIds) => {
+        const known = [...new Set(gateIds)].filter((id) => !unseen.has(id));
+        return {
+          access: new Map(known.map((id) => [id, hidden.has(id) ? 'hidden' : 'visible'])),
+          seesWith: (gateId, roleIds) =>
+            known.includes(gateId) &&
+            (!hidden.has(gateId) || [...roleIds].some((id) => opens.get(gateId)?.has(id))),
+          denials: () => ({ own: false, roles: [] }),
+        };
+      },
     },
   };
-  return { gyms, directory, regionRows, regions, channelNames, hidden, unseen, sources };
+  return { gyms, directory, regionRows, regions, channelNames, hidden, unseen, opens, sources };
 }
 
 /** A text channel of the fakes' server that is no region, and the category of West and East. */
@@ -190,7 +200,14 @@ const NOTHING: GeoSources = {
   guilds: { idFor: () => Promise.resolve(undefined) },
   regions: { all: () => [], generation: 0 },
   gyms: { all: () => [], regionsOf: () => [], generation: 0 },
-  channels: { serverChannels: () => undefined, everyoneViews: () => new Map() },
+  channels: {
+    serverChannels: () => undefined,
+    everyoneGates: () => ({
+      access: new Map(),
+      seesWith: () => false,
+      denials: () => ({ own: false, roles: [] }),
+    }),
+  },
 };
 
 /**
@@ -1016,7 +1033,7 @@ export function webServerWith(options: WebTestOptions = {}): TestWeb {
     sessions: sessionService,
     oauth: gateway && { appId: TEST_APP_ID, gateway },
     loginLinks,
-    geo: new GeoCache(options.geo?.sources ?? NOTHING),
+    geo: new GeoCache(options.geo?.sources ?? NOTHING, { now: () => clock.now, log }),
     assets: options.assets ?? { dir: path.join(tmpdir(), 'pine-web-none'), manifest: undefined },
     editor: {
       staff: options.staff ?? new FakeRegionStaff(),

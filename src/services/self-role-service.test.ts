@@ -169,6 +169,26 @@ describe('SelfRoleService.roster', () => {
     await made.selfRoles.roster(HOME);
     expect(told()).toBe(1);
   });
+
+  it('changes its generation with each change staff make, and not with a refused one (F-B10)', async () => {
+    const made = selfRolesWith();
+    const seen = [made.selfRoles.generation];
+    const added = await made.selfRoles.addRole(HOME, { roleId: ROLE.north }, made.owner());
+    seen.push(made.selfRoles.generation);
+    // A role of moderation: refused, nothing changed.
+    await made.selfRoles.addRole(HOME, { roleId: ROLE.moderator }, made.owner());
+    seen.push(made.selfRoles.generation);
+    const group = await made.selfRoles.saveGroup(HOME, { name: 'Regions', pickOne: false });
+    seen.push(made.selfRoles.generation);
+    if (group.kind === 'refused' || added.kind !== 'added') throw new Error('not saved');
+    await made.selfRoles.removeGroup(HOME, group.group.id);
+    seen.push(made.selfRoles.generation);
+    await made.selfRoles.removeRole(HOME, added.row.id);
+    seen.push(made.selfRoles.generation);
+    await made.selfRoles.removeRole(HOME, added.row.id);
+    seen.push(made.selfRoles.generation);
+    expect(seen).toEqual([0, 1, 1, 2, 3, 4, 4]);
+  });
 });
 
 describe('SelfRoleService.change', () => {

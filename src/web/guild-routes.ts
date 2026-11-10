@@ -188,8 +188,9 @@ export function guildRoutes(
   // against the member where somebody is logged in. A member of the server (as the lists ask it,
   // `askedMembership`: the map's role counted, a member Discord said lately one still) gets every
   // region; anybody else, logged in or not, and whoever Discord cannot say of, the public view,
-  // without the regions whose channel not everybody in the server can view and the gyms that lie
-  // in those alone (Matt's ruling 8, plan 8Z-2; `GeoCache`, `publicRegions`). So the answer is
+  // without the regions whose channel neither everybody in the server nor a member holding one
+  // self-assignable role can view and the gyms that lie in those alone (Matt's ruling 8, plan
+  // 8Z-2, F-B10; `GeoCache`, `publicRegions`). So the answer is
   // the asker's (`private`, `Vary: Cookie`), and an ETag of one view never matches the other.
   // Building a view anew is work that costs: for a visitor who is not logged in it counts
   // against the overall limit (`publicCosts`, plan 8Z-2), 429 once that is spent; the view as

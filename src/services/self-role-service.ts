@@ -227,6 +227,16 @@ export class SelfRoleService {
   private readonly rememberPaused = new Map<string, number>();
   /** Who is told of a change that took a role away (`onRolesTaken`). */
   private readonly takenListeners: Array<(guildId: string, memberId: string) => void> = [];
+  private changes = 0;
+
+  /**
+   * Changes with every role or group staff add, change or take away in any server through this
+   * service (plan 8Z-2, F-B10: the map's public view, which goes by the roster, is built anew).
+   * What Discord changes of the roles themselves is not counted.
+   */
+  get generation(): number {
+    return this.changes;
+  }
 
   constructor(options: {
     storage: SelfRoleStorage;
@@ -567,6 +577,7 @@ export class SelfRoleService {
       live: server.roles.map((other) => other.id),
     });
     if (saved.kind === 'refused') return { ...saved, role };
+    this.changes += 1;
     this.log.info(
       { guild: guildId, role: role.name, kind: saved.kind, by: staff.id },
       'self-assigned role saved',
@@ -582,20 +593,26 @@ export class SelfRoleService {
   /** Staff take a row away; the Discord role and whoever holds it are left alone. */
   async removeRole(guildId: string, rowId: number): Promise<SelfRoleRow | undefined> {
     const removed = await this.storage.removeRole(guildId, rowId);
-    if (removed)
+    if (removed) {
+      this.changes += 1;
       this.log.info({ guild: guildId, role: removed.name }, 'self-assigned role removed');
+    }
     return removed;
   }
 
-  saveGroup(guildId: string, input: GroupInput): Promise<GroupSaved> {
-    return this.storage.saveGroup(guildId, input);
+  async saveGroup(guildId: string, input: GroupInput): Promise<GroupSaved> {
+    const saved = await this.storage.saveGroup(guildId, input);
+    if (saved.kind !== 'refused') this.changes += 1;
+    return saved;
   }
 
-  removeGroup(
+  async removeGroup(
     guildId: string,
     groupId: number,
   ): Promise<{ group: SelfRoleGroup; roles: number } | undefined> {
-    return this.storage.removeGroup(guildId, groupId);
+    const removed = await this.storage.removeGroup(guildId, groupId);
+    if (removed) this.changes += 1;
+    return removed;
   }
 
   /**

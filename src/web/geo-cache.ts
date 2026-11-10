@@ -3,6 +3,9 @@ import { BoundedMap } from '../bounded-map.js';
 import type { Gym } from '../db/repositories/gym-repository.js';
 import type { Region } from '../db/repositories/region-repository.js';
 import { regionGate } from '../domain/history/region-tally.js';
+import type { GateLook } from '../domain/roles/region-roles.js';
+import type { Roster } from '../domain/roles/self-roles.js';
+import type { Logger } from '../log.js';
 import { geoView, publicRegions } from '../domain/web/geo-view.js';
 import { REFUSED, type MayCost, type Refused } from '../services/costly.js';
 
@@ -20,10 +23,26 @@ export interface GeoSources {
   /** The channels of a server as the bot sees them, and who sees them (`PartyGateway`). */
   channels: {
     serverChannels(guildId: string): readonly { id: string; name: string }[] | undefined;
-    /** Whether everybody in a gate's server can view it; a gate nothing is said of is left out. */
-    everyoneViews(gateIds: readonly string[]): ReadonlyMap<string, boolean>;
+    /** How everybody in a gate's server stands to it, and with roles; a gate nothing is said of is left out. */
+    everyoneGates(gateIds: readonly string[]): GateLook;
   };
+  /**
+   * The roles members give themselves (`SelfRoleService`); undefined where roles are off: the
+   * public view is then what everybody views. `generation` changes with staff's every change.
+   */
+  roles?:
+    | {
+        roster(guildId: string, remember: 'aside'): Promise<Roster | undefined>;
+        readonly generation: number;
+      }
+    | undefined;
 }
+
+/**
+ * How long the public regions of a server are kept before Discord and the roster are asked
+ * again (F-B10): a gate opened or closed on Discord shows on the public map within a minute.
+ */
+export const PUBLIC_REGIONS_KEPT_MS = 60_000;
 
 /**
  * Whose view of a server's map (plan 8Z-2, Matt's ruling 8): a member's holds every region; the
@@ -60,20 +79,40 @@ export function etagMatches(header: string | string[] | undefined, etag: string)
 /**
  * The views of each server (`geoView`), built once and kept (spec 3.1), two per server (plan
  * 8Z-2): the members', of every region, and the public one, of the regions everybody in the
- * server can view (`publicRegions` over the gates as Discord has them now) and the gyms that lie
+ * server can view or can open with one role they give themselves (`publicRegions`) and the gyms that lie
  * in those, each named by its gate (F-B1: the text channel of a region whose forum is public may
  * not be). Each is kept under its audience and never answers the other's question. A view is
  * built anew when the gyms or the regions changed (their generations), a region's channel was
  * renamed (the names are read at each request, which costs a pass over the server's channels)
- * or, the public one, when who views a region's gate changed (asked at each request, from the
- * cache). The ETag is the SHA-256 of the JSON, cut to 27 characters (160 bits). Building is the
- * work that costs (plan 8Z-2): `mayBuild` is asked right before it, never for a view that is
- * kept, and `REFUSED` is the answer where it says no.
+ * or, the public one, when the regions it holds changed. Which those are (`publicRegions`: those
+ * everybody views, or one self-assignable role opens, F-B10) is decided once a minute per server
+ * (`PUBLIC_REGIONS_KEPT_MS`: `regionChoices` over the roster weighs every role against every
+ * gate, too much for each request), and at once after the regions load or staff change the
+ * roster (their generations); a roster that cannot be read counts as none for that minute (only
+ * what everybody views), and lookers that arrive while it is read share the one read. The ETag
+ * is the SHA-256 of the JSON, cut to 27 characters (160 bits). Building is the work that costs
+ * (plan 8Z-2): `mayBuild` is asked right before it, never for a view that is kept, and
+ * `REFUSED` is the answer where it says no.
  */
 export class GeoCache {
   private readonly views = new BoundedMap<string, SentView & { key: string }>(2 * SERVERS);
+  /** Per server, the ids of its public regions, when they were decided and of what. */
+  private readonly opened = new BoundedMap<
+    string,
+    { at: number; key: string; ids: ReadonlySet<number> }
+  >(SERVERS);
+  /** Per server, the decision on its way. */
+  private readonly deciding = new Map<string, Promise<ReadonlySet<number>>>();
+  private readonly now: () => number;
+  private readonly log: Logger | undefined;
 
-  constructor(private readonly sources: GeoSources) {}
+  constructor(
+    private readonly sources: GeoSources,
+    options: { now?: () => number; log?: Logger } = {},
+  ) {
+    this.now = options.now ?? (() => Date.now());
+    this.log = options.log;
+  }
 
   async view(
     guildId: string,
@@ -83,10 +122,11 @@ export class GeoCache {
     const { guilds, regions, gyms, channels } = this.sources;
     const row = await guilds.idFor(guildId);
     const own = row === undefined ? [] : regions.all().filter((region) => region.guildId === row);
-    const shown =
-      audience === 'members'
-        ? own
-        : publicRegions(own, channels.everyoneViews(own.map(regionGate)));
+    let shown = own;
+    if (audience === 'public') {
+      const open = own.length === 0 ? new Set<number>() : await this.publicIds(guildId, own);
+      shown = own.filter((region) => open.has(region.id));
+    }
     const known = new Map((channels.serverChannels(guildId) ?? []).map((c) => [c.id, c.name]));
     // Named, for the public, by the gate that let the region in (F-B1): its text channel may be
     // one the public cannot view. Kept under the text channel, by which the view finds names.
@@ -119,5 +159,38 @@ export class GeoCache {
     const view = { key, body, etag: etagOf(body) };
     this.views.set(slot, view);
     return view;
+  }
+
+  /** The ids of a server's public regions, as decided within the minute (`publicRegions`). */
+  private publicIds(guildId: string, own: readonly Region[]): Promise<ReadonlySet<number>> {
+    const { regions, channels, roles } = this.sources;
+    const key = JSON.stringify([regions.generation, roles?.generation ?? null]);
+    const kept = this.opened.get(guildId);
+    if (kept?.key === key && this.now() - kept.at < PUBLIC_REGIONS_KEPT_MS) {
+      return Promise.resolve(kept.ids);
+    }
+    const running = this.deciding.get(guildId);
+    if (running) return running;
+    const deciding = (async (): Promise<ReadonlySet<number>> => {
+      let roster: Roster | undefined;
+      try {
+        roster = await roles?.roster(guildId, 'aside');
+      } catch (err) {
+        // Only what everybody views, until the minute is over.
+        this.log?.warn(
+          { err, guild: guildId },
+          'could not read the self-assignable roles for the map',
+        );
+      }
+      const ids = new Set(
+        publicRegions(own, channels.everyoneGates(own.map(regionGate)), roster).map(
+          (region) => region.id,
+        ),
+      );
+      this.opened.set(guildId, { at: this.now(), key, ids });
+      return ids;
+    })().finally(() => this.deciding.delete(guildId));
+    this.deciding.set(guildId, deciding);
+    return deciding;
   }
 }
