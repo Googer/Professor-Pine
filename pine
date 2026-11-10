@@ -255,9 +255,11 @@ Usage: ./pine <command>
   status             the services and their health
   migrate            run the database migrations only, without starting the bot
   backup             a verified backup now (as the nightly one), into BACKUP_DIR
-  restore <dump> [--replace [--no-backup]] [--start | --no-start]
+  restore <dump> [--replace [--no-backup]] [--allow-programs] [--start | --no-start]
                      load a dump (.sql or .sql.gz; legacy or Pine) into the stack's database;
                      --replace drops a database that has tables, after a verified backup of it;
+                     a dump that holds a trigger, a routine, an event or a definer is refused
+                     (it would run as MySQL's root) unless --allow-programs;
                      then the stack starts (logging the bot in) on a terminal or with --start
   deploy-commands [--global | --guild <id> | --rehearsal | --clear-guild]
                      register the slash commands with Discord (everywhere by default); in
@@ -365,8 +367,32 @@ cmd_migrate() {
   run run --rm --no-deps pine node --enable-source-maps dist/db/migrate-cli.js
 }
 
+# The first statement of a dump (on stdin) that makes a stored program (a trigger, a routine or an
+# event) or names a definer (which a view carries as well), in lower case, its first 160
+# characters; nothing when the dump holds none. Rows are no statements, whatever a member wrote in
+# them: mysqldump writes each INSERT (or REPLACE) on a line of its own and never breaks a value
+# over lines. Read as bytes (LC_ALL=C): a dump made without --hex-blob holds bytes that are no
+# text, which the sed of macOS refuses otherwise. The reading stops at the first one found, so
+# what the commands before it say of the closed pipe is not shown.
+stored_program_in() {
+  LC_ALL=C tr 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' 'abcdefghijklmnopqrstuvwxyz' 2>/dev/null |
+    LC_ALL=C sed -n -e 's/^/ /' -e '/^ insert /d' -e '/^ replace /d' \
+      -e '/definer[[:space:]]*=/{p;q;}' \
+      -e '/ create[ *]/{' \
+      -e '/[[:space:]]trigger[[:space:]]/{p;q;}' \
+      -e '/[[:space:]]procedure[[:space:]]/{p;q;}' \
+      -e '/[[:space:]]function[[:space:]]/{p;q;}' \
+      -e '/[[:space:]]event[[:space:]]/{p;q;}' \
+      -e '}' |
+    LC_ALL=C cut -c2-161
+}
+
 # Before anything is stopped: the dump is whole (a gzip file that unpacks) and complete
 # (mysqldump's last line). A copy cut off on the way is refused here, not half-loaded.
+# And it holds no stored program: a restore runs the dump's SQL as MySQL's root, Professor Pine's
+# database has no trigger, routine or event (its backups are made without, docker/backup.sh), and
+# the bot's account could have put one into the database an older dump was made of. A second
+# argument (restore's --allow-programs) loads such a dump all the same.
 check_dump() {
   say "Checking that $1 is whole and complete."
   case $1 in
@@ -381,6 +407,13 @@ check_dump() {
     '-- Dump completed'*) ;;
     *) fail "$1 does not end with mysqldump's '-- Dump completed' line: it was cut off, or is no dump." ;;
   esac
+  [ -z "${2:-}" ] || return 0
+  case $1 in
+    *.gz) program=$(gzip -dc "$1" 2>/dev/null | stored_program_in) ;;
+    *) program=$(stored_program_in <"$1") ;;
+  esac
+  [ -z "$program" ] ||
+    fail "$1 holds a stored program (a trigger, a routine or an event) or a definer, which no dump of Professor Pine's database has: \"$program\". A restore runs it as MySQL's root, so it is not loaded. If you know where it came from and trust it, './pine restore <dump> --allow-programs' loads it as it is."
 }
 
 cmd_backup() {
@@ -694,6 +727,7 @@ cmd_restore() {
   dump=
   replace=
   no_backup=
+  allow_programs=
   # Starting the stack logs the bot in: by default only for an operator at a terminal.
   start=
   if [ -t 0 ]; then start=yes; fi
@@ -701,9 +735,10 @@ cmd_restore() {
     case $arg in
       --replace) replace=--replace ;;
       --no-backup) no_backup=yes ;;
+      --allow-programs) allow_programs=yes ;;
       --start) start=yes ;;
       --no-start) start= ;;
-      -*) fail "restore does not know '$arg'. Usage: ./pine restore <dump> [--replace [--no-backup]] [--start | --no-start]" ;;
+      -*) fail "restore does not know '$arg'. Usage: ./pine restore <dump> [--replace [--no-backup]] [--allow-programs] [--start | --no-start]" ;;
       *)
         [ -z "$dump" ] || fail "Name one dump only."
         dump=$arg
@@ -721,7 +756,7 @@ cmd_restore() {
     *) kind=sql ;;
   esac
 
-  check_dump "$dump"
+  check_dump "$dump" "$allow_programs"
   build_image
   start_database
   # Refused here, while the bot still runs, if the database has tables and --replace is missing;

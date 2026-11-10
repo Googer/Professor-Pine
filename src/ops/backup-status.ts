@@ -19,7 +19,10 @@ const backupStatusSchema = z.object({
   seconds: z.number().optional(),
   /** When a run last succeeded, this one or an earlier one. */
   lastOkAt: z.number().optional(),
-  /** What went wrong beside a good dump (old dumps that could not be deleted). */
+  /**
+   * What went wrong beside a good dump (old dumps that could not be deleted; stored programs in
+   * the database, which no dump holds). The watchdog tells the owner of it.
+   */
   warning: z.string().optional(),
 });
 

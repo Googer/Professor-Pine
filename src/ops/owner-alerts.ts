@@ -15,6 +15,7 @@ export type AlertKind =
   | 'restarting'
   | 'backup'
   | 'backup-missing'
+  | 'backup-warning'
   | 'backups-off'
   | 'docker-away'
   | 'rehearsal';

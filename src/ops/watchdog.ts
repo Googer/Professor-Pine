@@ -104,6 +104,8 @@ export interface WatchdogMemory {
   toldMissing?: number;
   /** Whether the owner was told that this stack's backups are off. */
   toldOff?: boolean;
+  /** The warning of a good backup last told; gone once a backup has none. */
+  toldWarning?: string;
   /** Since when every ask of Docker about the bot failed, and whether the owner was told. */
   dockerAway?: DockerAway;
 }
@@ -152,6 +154,7 @@ export class FileWatchdogState implements WatchdogState {
         ...(typeof raw.toldFailure === 'number' ? { toldFailure: raw.toldFailure } : {}),
         ...(typeof raw.toldMissing === 'number' ? { toldMissing: raw.toldMissing } : {}),
         ...(raw.toldOff === true ? { toldOff: true } : {}),
+        ...(typeof raw.toldWarning === 'string' ? { toldWarning: raw.toldWarning } : {}),
         ...(typeof away?.since === 'number'
           ? { dockerAway: { since: away.since, told: away.told === true } }
           : {}),
@@ -432,6 +435,7 @@ export class Watchdog {
         );
       }
     }
+    await this.tellWarning(status);
     const lastOk = status?.lastOkAt;
     const since = lastOk ?? this.startedAt;
     if (now - since <= backup.maxAgeMs) return;
@@ -445,5 +449,28 @@ export class Watchdog {
             "'./pine logs backup' shows why."
         : `No backup has succeeded since ${alertTime(lastOk)}. './pine logs backup' shows why.`,
     );
+  }
+
+  /**
+   * What a good backup warns of (stored programs in the database, which no dump holds; old dumps
+   * that could not be deleted) is only in its status: the owner is told when it is not the
+   * warning last told, so once while every night's backup warns of the same, and again after a
+   * backup without it. Remembered only once it went out: an alert that failed is tried again.
+   */
+  private async tellWarning(status: BackupStatus | undefined): Promise<void> {
+    const { alerts, state } = this.options;
+    if (!status?.ok) return;
+    const { toldWarning, ...rest } = state.read();
+    if (status.warning === undefined) {
+      if (toldWarning !== undefined) state.write(rest);
+      return;
+    }
+    if (status.warning === toldWarning) return;
+    const outcome = await alerts.send(
+      'backup-warning',
+      `The backup of ${alertTime(status.finishedAt)} was made, but ${status.warning}. ` +
+        "'./pine logs backup' shows more.",
+    );
+    if (outcome === 'sent') state.write({ ...state.read(), toldWarning: status.warning });
   }
 }

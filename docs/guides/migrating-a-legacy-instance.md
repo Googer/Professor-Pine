@@ -195,10 +195,10 @@ Copy its `data/` and `parties/` folders afresh to `~/pine-legacy/data` and `~/pi
 Then dump its database, as MySQL's root user. Name the schema (`db.schema` of the legacy private settings) as the last word, and do not use `--databases` or `--all-databases`: a dump made with those switches to its own database name and does not load into the stack's.
 
 ```bash
-mysqldump -u root -p --single-transaction --routines --triggers --events --hex-blob <schema> > ~/pine-legacy/pine-final.sql
+mysqldump -u root -p --single-transaction --skip-triggers --hex-blob <schema> > ~/pine-legacy/pine-final.sql
 ```
 
-As a user other than root, mysqldump of MySQL 8 may stop with an error about the PROCESS privilege: add `--no-tablespaces`. On Windows, `mysqldump.exe` is in MySQL's `bin` folder (such as `C:\Program Files\MySQL\MySQL Server 8.0\bin`). The last line of a complete dump starts with `-- Dump completed`; the restore refuses one without it.
+As a user other than root, mysqldump of MySQL 8 may stop with an error about the PROCESS privilege: add `--no-tablespaces`. On Windows, `mysqldump.exe` is in MySQL's `bin` folder (such as `C:\Program Files\MySQL\MySQL Server 8.0\bin`). The last line of a complete dump starts with `-- Dump completed`; the restore refuses one without it. Professor Pine's database has no triggers, routines or events, so the dump is made without them; the restore refuses a dump that holds one (it would run as MySQL's root) and says how to load it all the same if it is yours.
 
 Keep these final copies (the dump, `data/` and `parties/`) in two places. The `parties/complete/` folder is the only copy of your server's raid history.
 

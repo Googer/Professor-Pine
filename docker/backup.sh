@@ -191,9 +191,51 @@ live_count() {
   printf '%s\n' "$counted"
 }
 
+# What no dump holds: the schema's triggers, routines and events. Professor Pine makes none, and
+# a restore runs a dump's SQL as MySQL's root, so one that the bot's account put there must not
+# travel in a dump (make_dump asks for none). A database that has some all the same is still
+# backed up, without them: `programs` says so for the status's warning (nothing when it has none).
+# The account that asks sees a table's triggers only while it holds TRIGGER on it, routines it may
+# run or change and events while it holds EVENT: the bot's account has all of these on the schema.
+stored_programs() {
+  programs=
+  counts="select concat_ws(' ',
+    (select count(*) from information_schema.triggers where trigger_schema = '%s'),
+    (select count(*) from information_schema.routines where routine_schema = '%s'),
+    (select count(*) from information_schema.events where event_schema = '%s'))"
+  # shellcheck disable=SC2059 # the format is ours
+  found=$(live -e "$(printf "$counts" "$SCHEMA" "$SCHEMA" "$SCHEMA")") || found=
+  # shellcheck disable=SC2086 # three numbers, split at the spaces
+  set -- $found
+  # Three numbers, or the database did not answer: nothing (an error) is never a zero.
+  [ "$#" -eq 3 ] || set -- none none none
+  case "$1$2$3" in
+    *[!0-9]*)
+      programs="the database could not be asked for its triggers, routines and events, which no dump holds"
+      return 0
+      ;;
+  esac
+  listed=
+  for counted in "$1 trigger" "$2 routine" "$3 event"; do
+    case $counted in
+      0\ *) continue ;;
+      1\ *) ;;
+      *) counted=${counted}s ;;
+    esac
+    listed="${listed:+$listed, }$counted"
+  done
+  [ -n "$listed" ] || return 0
+  # "2 triggers, 1 routine and 1 event": the last comma as a word.
+  case $listed in
+    *,*) listed="${listed%, *} and ${listed##*, }" ;;
+  esac
+  programs="the database has $listed, which no dump holds (Professor Pine makes none)"
+}
+
 # make_dump <file>: the schema, gzipped, written as the folder's owner and readable by that owner
 # alone (it holds members' ids and the keys of the export tool). Sets `reason` and fails when
-# mysqldump or the write does.
+# mysqldump or the write does. Without triggers (which mysqldump writes unless told not to),
+# routines and events: see stored_programs.
 make_dump() {
   rc_file=$(mktemp)
   # No pipefail in sh: the status of mysqldump and of the write are kept aside. In the
@@ -201,7 +243,7 @@ make_dump() {
   # `wait` is one that a signal ends), not after the whole dump.
   # shellcheck disable=SC2016 # the $1 of the inner sh
   {
-    mysqldump -h mysql -uroot --single-transaction --quick --routines --triggers --events \
+    mysqldump -h mysql -uroot --single-transaction --quick --skip-triggers \
       --hex-blob --no-tablespaces --set-gtid-purged=OFF --default-character-set=utf8mb4 \
       "$SCHEMA" 2>"$rc_file.err"
     echo $? >"$rc_file"
@@ -438,6 +480,12 @@ backup_once() {
       if [ -n "$prune_failed" ]; then
         warning="old dumps could not be deleted: $prune_failed"
         log "$warning"
+      fi
+      # A good backup all the same: the watchdog tells the owner of the warning.
+      stored_programs
+      if [ -n "$programs" ]; then
+        warning="${warning:+$warning; }$programs"
+        log "$programs"
       fi
       write_status true '' "$name" "$bytes" "$seconds" "$warning"
       log "done: $name, $bytes bytes, verified, in $seconds s"

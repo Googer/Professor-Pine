@@ -298,6 +298,65 @@ describe('Watchdog: backups', () => {
     ]);
   });
 
+  // What a good backup warns of (stored programs the dump leaves out, old dumps it could not
+  // delete) is only in its status, which nobody reads unasked.
+  it('tells the owner what a good backup warns of, once while the warning stays the same', async () => {
+    const { rest, watchdog, clock, backup } = watchdogWith();
+    const warning = 'the database has 1 trigger, which no dump holds (Professor Pine makes none)';
+    const good = (finishedAt: number, warned = true): BackupStatus => ({
+      finishedAt,
+      ok: true,
+      lastOkAt: finishedAt,
+      ...(warned ? { warning } : {}),
+    });
+    backup.status = good(START);
+    await watchdog.tick();
+    clock.now += MINUTE;
+    await watchdog.tick();
+    // The next night's backup warns of the same.
+    clock.now = START + 24 * HOUR + MINUTE;
+    backup.status = good(START + 24 * HOUR);
+    await watchdog.tick();
+
+    const told = (at: number) =>
+      `The backup of <t:${at / 1000}:f> was made, but ${warning}. './pine logs backup' shows more.`;
+    expect(rest.messages()).toEqual([told(START)]);
+
+    // A night without the warning, then one with it again: that is news.
+    clock.now = START + 48 * HOUR + MINUTE;
+    backup.status = good(START + 48 * HOUR, false);
+    await watchdog.tick();
+    clock.now = START + 72 * HOUR + MINUTE;
+    backup.status = good(START + 72 * HOUR);
+    await watchdog.tick();
+
+    expect(rest.messages()).toEqual([told(START), told(START + 72 * HOUR)]);
+  });
+
+  it('tells of a warning again when the first message did not go out, and not after its own restart', async () => {
+    const state = new MemoryWatchdogState();
+    const warned: BackupStatus = {
+      finishedAt: START - HOUR,
+      ok: true,
+      lastOkAt: START - HOUR,
+      warning: 'old dumps could not be deleted: pine-backup-20260701.sql.gz',
+    };
+    const first = watchdogWith({ backup: warned, state });
+    first.rest.failWith = new Error('getaddrinfo ENOTFOUND discord.com');
+    await first.watchdog.tick();
+    first.rest.failWith = undefined;
+    first.clock.now += MINUTE;
+    await first.watchdog.tick();
+    expect(first.rest.messages()).toEqual([
+      `The backup of <t:${(START - HOUR) / 1000}:f> was made, but old dumps could not be ` +
+        "deleted: pine-backup-20260701.sql.gz. './pine logs backup' shows more.",
+    ]);
+
+    const second = watchdogWith({ backup: warned, state });
+    await second.watchdog.tick();
+    expect(second.rest.messages()).toEqual([]);
+  });
+
   it('remembers what it told across its own restarts', async () => {
     const state = new MemoryWatchdogState();
     const failed: BackupStatus = {
@@ -529,6 +588,14 @@ describe('FileWatchdogState', () => {
     expect(new FileWatchdogState(file, log).read()).toEqual({
       dockerAway: { since: 5, told: true },
     });
+  });
+
+  it('keeps the warning of a backup it told, and reads it back', () => {
+    const { log } = createTestLogger();
+    const file = path.join(mkdtempSync(path.join(tmpdir(), 'pine-state-')), 'state.json');
+    const toldWarning = 'the database has 1 trigger, which no dump holds';
+    new FileWatchdogState(file, log).write({ toldWarning });
+    expect(new FileWatchdogState(file, log).read()).toEqual({ toldWarning });
   });
 
   it('says so in the log when it cannot write', () => {

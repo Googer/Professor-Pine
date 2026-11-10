@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { runBackupScript } from '../../test/support/backup-script.js';
+import { readBackupStatus } from './backup-status.js';
 
 // docker/backup.sh, sourced as a library: the parts that need neither MySQL nor a clock.
 
@@ -126,6 +127,100 @@ describe('the dump of docker/backup.sh', () => {
     if (!run) return context.skip('no sh here');
     expect(run.stdout).toContain('made');
     expect(readFileSync(path.join(out, 'umasks'), 'utf8').split(/\r?\n/)[0]).toBe('0077');
+  });
+
+  // A restore runs a dump's SQL as MySQL's root: what the bot's account could have put into the
+  // schema as a trigger, a routine or an event does not travel in it.
+  it('is asked for without triggers, routines and events', (context) => {
+    const { out, env } = folders();
+    const run = runBackupScript(
+      [
+        'OWNER_UID=0 OWNER_GID=0 SCHEMA=pine',
+        'mysqldump() { printf "%s\\n" "$@" >"$OUT/asked"; echo "-- Dump completed"; }',
+        'make_dump "$OUT/dump.sql.gz" && echo made',
+      ].join('\n'),
+      env,
+    );
+    if (!run) return context.skip('no sh here');
+    expect(run.stdout).toContain('made');
+    const asked = readFileSync(path.join(out, 'asked'), 'utf8').split(/\r?\n/);
+    // mysqldump writes triggers unless told not to; routines and events only when told to.
+    expect(asked).toContain('--skip-triggers');
+    expect(asked).not.toContain('--triggers');
+    expect(asked).not.toContain('--routines');
+    expect(asked).not.toContain('--events');
+    expect(asked).toContain('pine');
+  });
+});
+
+describe('stored programs in the database of docker/backup.sh', () => {
+  /** A backup whose dump and check are stubbed, of a database with these counts. */
+  function backupOf(live: string, more: readonly string[] = []) {
+    const { out, ops, env } = folders();
+    writeFileSync(path.join(out, '.pine-backups'), 'pine\n');
+    const run = runBackupScript(
+      [
+        'OWNER_UID=0 OWNER_GID=0 KEEP=90 SCHEMA=pine',
+        'make_dump() { echo dump >"$1"; }',
+        'verify_dump() { verified=yes; }',
+        // The live database's answer: its triggers, routines and events.
+        `live() { ${live}; }`,
+        ...more,
+        'backup_once; echo "exit: $?"',
+      ].join('\n'),
+      { ...env, BACKUP_STACK: 'pine' },
+    );
+    return run && { run, status: readBackupStatus(path.join(ops, 'backup-status.json')), ops };
+  }
+
+  it('are a warning of a good backup: the dump leaves them out', (context) => {
+    const backup = backupOf('echo "2 0 1"');
+    if (!backup) return context.skip('no sh here');
+
+    expect(backup.run.stdout).toContain('exit: 0');
+    expect(backup.status).toMatchObject({
+      ok: true,
+      warning:
+        'the database has 2 triggers and 1 event, which no dump holds (Professor Pine makes none)',
+    });
+    expect(readFileSync(path.join(backup.ops, 'backup-status.txt'), 'utf8')).toContain(
+      '(but the database has 2 triggers and 1 event, which no dump holds',
+    );
+  });
+
+  it('are counted by kind, one as one', (context) => {
+    const backup = backupOf('echo "1 3 0"');
+    if (!backup) return context.skip('no sh here');
+
+    expect(backup.status).toMatchObject({
+      ok: true,
+      warning:
+        'the database has 1 trigger and 3 routines, which no dump holds (Professor Pine makes none)',
+    });
+  });
+
+  it('are no warning where the database has none', (context) => {
+    const backup = backupOf('echo "0 0 0"');
+    if (!backup) return context.skip('no sh here');
+
+    expect(backup.run.stdout).toContain('exit: 0');
+    expect(backup.status).toMatchObject({ ok: true });
+    expect(backup.status).not.toHaveProperty('warning');
+  });
+
+  it('are a warning of their own when the database cannot be asked, beside one of old dumps', (context) => {
+    const backup = backupOf('return 1', [
+      'prune_old() { prune_failed=pine-backup-20260701.sql.gz; }',
+    ]);
+    if (!backup) return context.skip('no sh here');
+
+    expect(backup.run.stdout).toContain('exit: 0');
+    expect(backup.status).toMatchObject({
+      ok: true,
+      warning:
+        'old dumps could not be deleted: pine-backup-20260701.sql.gz; ' +
+        'the database could not be asked for its triggers, routines and events, which no dump holds',
+    });
   });
 });
 

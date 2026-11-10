@@ -409,6 +409,26 @@ describe('runMigrations', () => {
     expect(await describeSchema(database)).toEqual(await describeSchema(other));
   });
 
+  // The backups are made without triggers, routines and events, and `./pine restore` refuses a
+  // dump that holds one, or a definer (a view's): a migration that adds any of them would leave
+  // every backup without it, or unrestorable (docker/backup.sh, `check_dump` of pine).
+  it('leaves no trigger, routine, event or view in the schema, taken over or new', async () => {
+    database = await startDatabase({ legacySchema: true });
+    other = await startDatabase({ legacySchema: false });
+    for (const migrated of [database, other]) {
+      await migrate(migrated);
+      const [found] = await migrated.query<Record<string, string>>(
+        `select
+           (select count(*) from information_schema.triggers where trigger_schema = database()) as triggers,
+           (select count(*) from information_schema.routines where routine_schema = database()) as routines,
+           (select count(*) from information_schema.events where event_schema = database()) as events,
+           (select count(*) from information_schema.views where table_schema = database()) as views`,
+      );
+      // Counts are BIGINT, which the pool gives as text.
+      expect(found).toEqual({ triggers: '0', routines: '0', events: '0', views: '0' });
+    }
+  });
+
   it("refuses a non-empty database that is not Pine's", async () => {
     database = await startDatabase({ legacySchema: false });
     await database.query('create table invoices (id int primary key)');
