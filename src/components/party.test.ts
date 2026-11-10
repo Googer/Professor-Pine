@@ -12,10 +12,12 @@ import { ALICE, BOB } from '../../test/support/parties.js';
 import { reportedRaid } from '../../test/support/party-service.js';
 import { createTestContext } from '../../test/support/test-context.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
-import { WITHDRAWN_REPLY } from '../commands/parties/reply.js';
+import { ACTION_THROTTLE, WITHDRAWN_REPLY } from '../commands/parties/reply.js';
 import { ClickAnswers } from '../discord/click-answers.js';
+import { ACCESS_UNKNOWN } from '../render/activity.js';
+import { PARTY_KIND } from '../render/party-controls.js';
 import { LATE_DEFER_MS } from '../discord/late-reply.js';
-import { InteractionRouter, STALE_COMPONENT } from '../discord/router.js';
+import { controlThrottleKey, InteractionRouter, STALE_COMPONENT } from '../discord/router.js';
 import { attendeeOf, endParty } from '../domain/party/party.js';
 import { PartyStatus } from '../domain/party/status.js';
 import type { RaidReport } from '../services/party-service.js';
@@ -137,6 +139,21 @@ describe('the buttons of a party post', () => {
     expect(sent((await made.click('here', bob)).reply).content).toBe('You are here.');
     expect(sent((await made.click('leave', bob)).reply).content).toBe('You have left this raid.');
     expect(sent((await made.click('join', bob)).reply).content).toBe(keptOut);
+  });
+
+  // Plan 8Z-2, fix round F-A1: none of the member's doing, so the press goes back, as before
+  // the attendance service asked (the map answered 503 uncounted).
+  it('refuse a newcomer while Discord cannot say how they stand to the forum, and count nothing', async () => {
+    const made = await setup();
+    for (let n = 0; n < ACTION_THROTTLE.uses - 1; n++) {
+      made.ctx.throttles.use(controlThrottleKey(PARTY_KIND), ALICE, ACTION_THROTTLE, Date.now());
+    }
+    made.gateway.failing.set('memberAccess', new Error('Discord is away'));
+    expect((await made.click('join')).reply).toHaveBeenCalledWith(privately(ACCESS_UNKNOWN));
+    expect(made.alice()).toBeUndefined();
+    made.gateway.failing.delete('memberAccess');
+    expect(sent((await made.click('join')).reply).content).toBe('You are coming.');
+    expect(sent((await made.click('here')).reply).content).toMatch(/^That was a lot of clicks/);
   });
 
   it('Done is refused for an egg', async () => {

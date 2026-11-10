@@ -12,11 +12,14 @@ import { EAST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
 import { ALICE, BOB, CAROL } from '../../test/support/parties.js';
 import { createdTrain } from '../../test/support/party-service.js';
 import { createTestContext } from '../../test/support/test-context.js';
+import { ACTION_THROTTLE } from '../commands/parties/reply.js';
 import { decodeCustomId } from '../discord/custom-id.js';
-import { InteractionRouter } from '../discord/router.js';
+import { controlThrottleKey, InteractionRouter } from '../discord/router.js';
 import { attendeeOf } from '../domain/party/party.js';
 import { PartyStatus } from '../domain/party/status.js';
+import { ACCESS_UNKNOWN } from '../render/activity.js';
 import { GROUP_INPUT } from '../render/group-dialogs.js';
+import { PARTY_KIND } from '../render/party-controls.js';
 import { partyButtons } from './party.js';
 
 const DAVE = '200000000000000005';
@@ -79,9 +82,13 @@ async function setup() {
       displayName: userId === ALICE ? 'Alice' : 'Somebody',
     });
     await router.handle(submitted as never);
-    return sent(submitted.editReply).content;
+    // A refusal the router says follows the Submit's acknowledgement up, or comes before it.
+    const answer = (['editReply', 'followUp', 'reply'] as const).find(
+      (way) => submitted[way].mock.calls.length > 0,
+    );
+    return answer === undefined ? undefined : sent(submitted[answer]).content;
   };
-  return { ...made, press, pressAndPick, ids };
+  return { ...made, ctx, press, pressAndPick, ids };
 }
 
 const privately = (content: string) => ({ content, flags: MessageFlags.Ephemeral });
@@ -155,6 +162,20 @@ describe('the buttons of the copy of a train in another region', () => {
     // Bob, whom the forum is only hidden from, is signed up and let in as before.
     made.gateway.shutOut(WEST_FORUM, BOB);
     expect(await made.pressAndPick('join', BOB)).toBe('You are coming, in group B.');
+  });
+
+  // Plan 8Z-2, fix round F-A1: none of the member's doing, so the Submit's use goes back.
+  it('refuse a newcomer while Discord cannot say how they stand to the forum, and count the Submit not', async () => {
+    const made = await setup();
+    for (let n = 0; n < ACTION_THROTTLE.uses - 3; n++) {
+      made.ctx.throttles.use(controlThrottleKey(PARTY_KIND), ALICE, ACTION_THROTTLE, Date.now());
+    }
+    made.gateway.failing.set('memberAccess', new Error('Discord is away'));
+    expect(await made.pressAndPick('join')).toBe(ACCESS_UNKNOWN);
+    expect(attendeeOf(made.current(), ALICE)).toBeUndefined();
+    made.gateway.failing.delete('memberAccess');
+    // Two uses were left: the dialog and its Submit.
+    expect(await made.pressAndPick('join')).toBe('You are coming, in group B.');
   });
 
   it('tell who presses Leave or −1 without being signed up so, and let nobody in', async () => {

@@ -227,7 +227,10 @@ export async function answerClick<Extra>(
   await ctx.clickAnswers.answer(`${partyId}:${interaction.user.id}`, interaction, content);
 }
 
-/** What the member is told for an outcome; a refusal and a party that has ended are thrown. */
+/**
+ * What the member is told for an outcome; a refusal and a party that has ended are thrown, a
+ * refusal that is none of the member's doing (`refusalGivesBack`) with its use given back.
+ */
 function outcomeContent<Extra>(
   ctx: AppContext,
   party: Pick<Party, 'type'> | undefined,
@@ -235,8 +238,26 @@ function outcomeContent<Extra>(
   words?: (ok: Ok<Extra>) => string | undefined,
 ): string {
   const said = outcomeWords(ctx.attendance.limits(), party, outcome, words);
-  if (!said.ok) throw new UserError(said.text);
+  if (!said.ok) throw new UserError(said.text, { givesBack: refusalGivesBack(outcome) });
   return said.text;
+}
+
+/**
+ * Whether an attendance outcome is a refusal that is none of the member's doing, whose use goes
+ * back (plan 8Z-2, fix round F-A1): Discord could not say just now whether somebody keeps a
+ * newcomer out of the party's forum (`forum-unknown`). On Discord (`UserError.givesBack`) and on
+ * the map (`givenBackOnTheMap`) alike.
+ */
+export function refusalGivesBack(outcome: AttendanceOutcome<unknown>): boolean {
+  return outcome.kind === 'refused' && outcome.reason === 'forum-unknown';
+}
+
+/**
+ * For a dialog's Submit, which answers in its acknowledged reply: a refusal that gives its use
+ * back (`refusalGivesBack`) is thrown with `text` instead, for the router to say and give back.
+ */
+export function throwIfGivenBack(outcome: AttendanceOutcome<unknown>, text: string): void {
+  if (refusalGivesBack(outcome)) throw new UserError(text, { givesBack: true });
 }
 
 /**

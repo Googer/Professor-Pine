@@ -372,10 +372,14 @@ describe('pressing the buttons of a party on the map', () => {
     expect(logged).toMatchObject({ action: 'join', outcome: 'gone' });
   });
 
-  // Plan 8Z-2: the attendance service asks, and refuses as a button of the post would (the press
-  // counted, as there).
-  it("refuses a newcomer while Discord cannot say how they stand to the party's forum: nothing written", async () => {
-    const map = await onTheMap(await reportedRaid());
+  // Plan 8Z-2: the attendance service asks, and refuses as a button of the post would; none of
+  // the member's doing, so the press goes back there and here (fix round F-A1).
+  it("refuses a newcomer while Discord cannot say how they stand to the party's forum: nothing written, nothing counted", async () => {
+    const throttles = new Throttles();
+    for (let n = 0; n < ACTION_THROTTLE.uses - 1; n++) {
+      throttles.use(controlThrottleKey(PARTY_KIND), ALICE, ACTION_THROTTLE, PARTY_NOW);
+    }
+    const map = await onTheMap(await reportedRaid(), throttles);
     web = map.web;
     const url = (action: string) => press(map.made.party.id, action);
     map.made.gateway.failing.set('memberAccess', new Error('Discord is away'));
@@ -390,6 +394,7 @@ describe('pressing the buttons of a party on the map', () => {
     expect(map.made.current().attendees[ALICE]).toBeUndefined();
     map.made.gateway.failing.delete('memberAccess');
     expect((await map.post(url('join'))).status).toBe(200);
+    expect((await map.post(url('here'))).status).toBe(429);
   });
 
   it("answers a party of the meetup's kind in its own words", async () => {

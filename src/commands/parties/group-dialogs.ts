@@ -30,7 +30,7 @@ import {
   type JoinAction,
 } from '../../render/group-dialogs.js';
 import { GROUP_LABEL, groupWords } from '../../render/party-controls.js';
-import { actingMember, outcomeWords, partyOver } from './reply.js';
+import { actingMember, outcomeWords, partyOver, throwIfGivenBack } from './reply.js';
 
 /*
  * The dialogs about groups of a post on Discord (plan 8X-1B; design
@@ -201,11 +201,13 @@ export async function submitGroupMenu(
         const group = groupOf(ok.party, ok.group);
         return `You opened ${groupWords(group ?? { id: ok.group })} and are in it.`;
       }).text;
+    throwIfGivenBack(outcome, text);
   } else {
     const outcome = await ctx.attendance.joinStamped(partyId, member, way.group, way.stamp, {
       signedUp,
     });
     text = movedWords(limits, party, way.group, outcome).text;
+    throwIfGivenBack(outcome, text);
   }
   await interaction.editReply({ content: text });
 }
@@ -250,5 +252,6 @@ export async function submitWhichGroup(
             : `${standingReply(ok.party, ok.attendee)} You were signed up already, so you stay ` +
               `in your group: ${GROUP_LABEL} moves you.`,
         ).text;
+  throwIfGivenBack(outcome, text);
   await interaction.editReply({ content: text });
 }

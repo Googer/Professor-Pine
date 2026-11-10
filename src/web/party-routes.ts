@@ -5,6 +5,7 @@ import {
   outcomeWords,
   partyOver,
   pressStatus,
+  refusalGivesBack,
   remoteWords,
   type PressAnswerer,
   type StatusPress,
@@ -57,6 +58,7 @@ import type {
 import {
   actingOnTheMap,
   countedOnTheMap,
+  givenBackOnTheMap,
   isMapBotStaff,
   isMapStaff,
   mayDeleteOnTheMap,
@@ -628,23 +630,26 @@ export function partyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
       }
       // Whether somebody keeps a newcomer out of the party's forum is the attendance service's
       // to ask, as for a press on Discord (plan 8Z-2: `kept-out`, `forum-unknown`, each answered
-      // as any refusal, in its words); who is signed up changes their line and leaves.
+      // as any refusal, in its words, 422); who is signed up changes their line and leaves.
       const counted = { control: PARTY_KIND };
       const throttled = throttledOnTheMap(deps, reply, counted, userId, ACTION_THROTTLE);
       if (throttled) return throttled;
-      const answered: PressAnswerer<{ kind: AttendanceOutcome['kind']; said: Said }> = (
-        outcome,
-        words,
-      ) => {
+      const countedAt = deps.now();
+      const answered: PressAnswerer<{
+        kind: AttendanceOutcome['kind'];
+        said: Said;
+        givesBack: boolean;
+      }> = (outcome, words) => {
         // As `answerClick` names the party: as the store has it now, or by the button.
         const now = parties.store.get(partyId);
         const named = now ?? (raidAction ? ({ type: 'raid' } as const) : undefined);
         return Promise.resolve({
           kind: outcome.kind,
           said: outcomeWords(parties.attendance.limits(), named, outcome, words),
+          givesBack: refusalGivesBack(outcome),
         });
       };
-      const { kind, said } = await countedOnTheMap(
+      const { kind, said, givesBack } = await countedOnTheMap(
         deps,
         counted,
         userId,
@@ -655,6 +660,9 @@ export function partyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
               answered(await parties.attendance.setRemote(partyId, member, 'toggle'), remoteWords)
             : pressStatus(parties.attendance, partyId, member, press, answered),
       );
+      // None of the member's doing (Discord could not say, fix round F-A1): uncounted, as the
+      // post's button gives it back.
+      if (givesBack) givenBackOnTheMap(deps, counted, userId, ACTION_THROTTLE, countedAt);
       deps.log.info(
         { user: userId, guild, party: partyId, action, outcome: kind },
         'a party was pressed on the map',
