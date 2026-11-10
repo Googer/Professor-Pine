@@ -64,7 +64,7 @@ import { etagMatches, etagOf } from './geo-cache.js';
 import type { GuildRequest } from './guild-routes.js';
 import { maxOptions } from './max-options.js';
 import { pageWords } from './page-words.js';
-import { limitedPerAddress, RateLimiter } from './rate-limit.js';
+import { limitedPerAddress, limitedRead, RateLimiter } from './rate-limit.js';
 import type { WebDeps } from './server.js';
 import { placesFor, placesQuerySchema } from './wayspot-box.js';
 
@@ -294,10 +294,9 @@ export function maxRoutes(scope: FastifyInstance, deps: WebDeps): void {
   // The power spots of a box of the map (plan 8X-5): members only (as the pick lists), those in a
   // region of this server with a title, the nearest to the box's middle first, at most
   // `MAX_MAP_SPOTS` (`more` says there were more: the page asks to zoom in).
-  const spotsLimiter = new RateLimiter({ uses: SPOTS_PER_MINUTE, perMs: 60_000 });
   scope.get(
     '/api/powerspots',
-    { onRequest: limitedPerAddress(spotsLimiter, { now: deps.now }) },
+    { onRequest: limitedRead(SPOTS_PER_MINUTE, deps) },
     async (request: GuildRequest, reply) => {
       void reply.header('cache-control', 'private, no-store');
       const session = await sessions.of(request, reply);
@@ -320,10 +319,9 @@ export function maxRoutes(scope: FastifyInstance, deps: WebDeps): void {
   // own count); a titled Power Spot of a region of this server, else 404; its address as every
   // reader words it, looked up of Google when none is known and the budget and the member's day
   // leave room (`WayspotAddresses.ask`), else null.
-  const addressLimiter = new RateLimiter({ uses: SPOTS_PER_MINUTE, perMs: 60_000 });
   scope.get(
     '/api/powerspots/:spot/address',
-    { onRequest: limitedPerAddress(addressLimiter, { now: deps.now }) },
+    { onRequest: limitedRead(SPOTS_PER_MINUTE, deps) },
     async (request: SpotAddressRequest, reply) => {
       void reply.header('cache-control', 'private, no-store');
       const session = await sessions.of(request, reply);
@@ -351,10 +349,9 @@ export function maxRoutes(scope: FastifyInstance, deps: WebDeps): void {
   // The pick lists of a report (plan 8X-5): `/max`'s bosses of the moment in its order, with the
   // values its choices have and the post's pictures, and the tiers of a boss on no list; for
   // members of the server, an ETag of its JSON, `private, no-cache`, 304 when the page has it.
-  const optionsLimiter = new RateLimiter({ uses: OPTIONS_PER_MINUTE, perMs: 60_000 });
   scope.get(
     '/api/max-options',
-    { onRequest: limitedPerAddress(optionsLimiter, { now: deps.now }) },
+    { onRequest: limitedRead(OPTIONS_PER_MINUTE, deps) },
     async (request: GuildRequest, reply) => {
       void reply.header('cache-control', 'private, no-cache');
       const session = await sessions.of(request, reply);

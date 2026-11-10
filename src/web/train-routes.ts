@@ -110,7 +110,7 @@ import { timesCountedOnTheMap } from './times-on-map.js';
 import { postGuard } from './csrf.js';
 import type { GuildRequest } from './guild-routes.js';
 import { pageWords } from './page-words.js';
-import { limitedPerAddress, RateLimiter } from './rate-limit.js';
+import { limitedPerAddress, limitedRead, RateLimiter } from './rate-limit.js';
 import type { WebDeps } from './server.js';
 
 /**
@@ -539,10 +539,9 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
   // The member's saved routes of the region of a train, for the route editor's list (as the
   // autocomplete of `/route load` offers them): members only, an active train of this server
   // (409 otherwise) in a forum the member is not kept out of (403; 503 while Discord cannot say).
-  const routesLimiter = new RateLimiter({ uses: ROUTES_PER_MINUTE, perMs: 60_000 });
   scope.get(
     '/api/trains/:party/routes',
-    { onRequest: limitedPerAddress(routesLimiter, { now: deps.now }) },
+    { onRequest: limitedRead(ROUTES_PER_MINUTE, deps) },
     async (request: TrainRequest, reply) => {
       void reply.header('cache-control', 'private, no-store');
       const session = await sessions.of(request, reply);
@@ -748,7 +747,7 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
     return { userId, standing, staff: isMapStaff(standing, userId, parties.ownerId), party };
   };
 
-  const formLimiter = new RateLimiter({ uses: TRAIN_FORMS_PER_ADDRESS_MINUTE, perMs: 60_000 });
+  const formRead = limitedRead(TRAIN_FORMS_PER_ADDRESS_MINUTE, deps);
 
   // Manage… on the map (plan 8M-8C): the form opens with what the post's dialog shows now
   // (`manageForm`), for who may move the train and staff, refused before it opens as the dialog is
@@ -757,7 +756,7 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
   // goes the dialog's way (`manageTrainAs`): one use in the window of the post's controls.
   scope.get(
     '/api/trains/:party/manage',
-    { onRequest: limitedPerAddress(formLimiter, { now: deps.now }) },
+    { onRequest: formRead },
     async (request: TrainRequest, reply) => {
       const opened = await opening(request, reply, 'opened Manage…');
       if ('sent' in opened) return opened.sent;
@@ -882,7 +881,7 @@ export function trainRoutes(scope: FastifyInstance, deps: WebDeps): void {
   // with its use given back.
   scope.get(
     '/api/trains/:party/split',
-    { onRequest: limitedPerAddress(formLimiter, { now: deps.now }) },
+    { onRequest: formRead },
     async (request: TrainRequest, reply) => {
       const opened = await opening(request, reply, 'opened Split…');
       if ('sent' in opened) return opened.sent;

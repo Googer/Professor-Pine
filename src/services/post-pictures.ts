@@ -1,6 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import { wayspotPicture } from '../domain/wayspots/picture.js';
+import { BoundedBytes } from '../bounded-bytes.js';
 import { BoundedMap } from '../bounded-map.js';
+import { REFUSED, type MayCost, type Refused } from './costly.js';
 import type { ImageRequest } from './image-cache.js';
 
 /** A picture as the web server answers it: its bytes and their type. */
@@ -60,9 +62,14 @@ class Downloads {
     private readonly now: () => number,
   ) {}
 
-  async file(key: string, request: ImageRequest): Promise<string | undefined> {
+  /** Whether a download of this key failed within `FAILED_PICTURE_MS`: `file` asks nothing then. */
+  failedLately(key: string): boolean {
     const at = this.failed.get(key);
-    if (at !== undefined && this.now() - at < FAILED_PICTURE_MS) return undefined;
+    return at !== undefined && this.now() - at < FAILED_PICTURE_MS;
+  }
+
+  async file(key: string, request: ImageRequest): Promise<string | undefined> {
+    if (this.failedLately(key)) return undefined;
     const file = await this.cache.get(request);
     if (file === undefined) this.failed.set(key, this.now());
     else this.failed.delete(key);
@@ -74,14 +81,23 @@ class Downloads {
 export const EMOJI_PATH = '/emoji/';
 
 /**
+ * How many bytes of the emoji's pictures are kept in memory (plan 8Z-2): an application has at
+ * most 2,000 emoji, and one of 96 pixels is a few kilobytes.
+ */
+export const EMOJI_MEMORY_BYTES = 16 * 1024 * 1024;
+
+/**
  * The pictures of the application's emoji for the live map (plan 8M-8A): the posts name their
  * icons by Discord's CDN, which the page's CSP does not let in (and which would learn of every
  * member's browser), so Pine serves them: only the application's own (`hasId`), each fetched once
  * from the CDN into the image cache and served from there. Any other emoji the page shows by its
- * name.
+ * name. A picture read once is kept in memory (plan 8Z-2; `EMOJI_MEMORY_BYTES`, the oldest read
+ * first out: an emoji's picture never changes under its id), so that only the first read of each
+ * costs a look at the image cache, a file or a fetch.
  */
 export class EmojiPictures {
   private readonly downloads: Downloads;
+  private readonly memory: BoundedBytes<string, PictureBytes>;
 
   constructor(
     private readonly options: {
@@ -89,9 +105,15 @@ export class EmojiPictures {
       cache: PictureCache;
       read?: (file: string) => Promise<Buffer>;
       now?: () => number;
+      /** How many bytes of pictures are kept in memory (`EMOJI_MEMORY_BYTES`). */
+      memoryBytes?: number;
     },
   ) {
     this.downloads = new Downloads(options.cache, options.now ?? Date.now);
+    this.memory = new BoundedBytes(
+      options.memoryBytes ?? EMOJI_MEMORY_BYTES,
+      (picture) => picture.bytes.length,
+    );
   }
 
   /** Pine's address of an emoji's picture, undefined for one that is not the application's. */
@@ -99,9 +121,19 @@ export class EmojiPictures {
     return this.options.emoji.hasId(id) ? `${EMOJI_PATH}${id}.png` : undefined;
   }
 
-  /** An emoji's picture, undefined for one that is not the application's or cannot be had. */
-  async read(id: string): Promise<PictureBytes | undefined> {
+  /**
+   * An emoji's picture, undefined for one that is not the application's or cannot be had. From
+   * memory where it was read before; else from the image cache, which costs (a file, or a fetch
+   * from the CDN): `mayCost` is asked first (never for an emoji that is not the application's,
+   * a picture in memory or one whose download failed lately), and `REFUSED` is the answer where
+   * it says no.
+   */
+  async read(id: string, mayCost?: MayCost): Promise<PictureBytes | undefined | Refused> {
     if (!/^\d{17,20}$/u.test(id) || !this.options.emoji.hasId(id)) return undefined;
+    const held = this.memory.get(id);
+    if (held !== undefined) return held;
+    if (this.downloads.failedLately(id)) return undefined;
+    if (mayCost !== undefined && !(await mayCost())) return REFUSED;
     const file = await this.downloads.file(id, {
       folder: 'emoji',
       id,
@@ -109,7 +141,9 @@ export class EmojiPictures {
       variant: '96',
       url: `https://cdn.discordapp.com/emojis/${id}.png?size=96`,
     });
-    return pictureOf(file, this.options.read ?? readFile);
+    const picture = await pictureOf(file, this.options.read ?? readFile);
+    if (picture !== undefined) this.memory.set(id, picture);
+    return picture;
   }
 }
 

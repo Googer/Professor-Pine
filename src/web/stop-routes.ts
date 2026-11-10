@@ -78,7 +78,7 @@ import { etagMatches, etagOf } from './geo-cache.js';
 import type { GuildRequest } from './guild-routes.js';
 import { UNCONFIRMED } from './party-routes.js';
 import type { PartyViewer, PartyViewers } from './party-viewers.js';
-import { limitedPerAddress, RateLimiter } from './rate-limit.js';
+import { limitedPerAddress, limitedRead, RateLimiter } from './rate-limit.js';
 import type { WebDeps } from './server.js';
 import { researchOptions, rocketOptions } from './stop-options.js';
 
@@ -261,10 +261,9 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
   // placing each report once per load of the regions; for members only, as the parties, asked
   // before anything of the server is read (`membership`; the forums after the read); an ETag of
   // the member's JSON, `private, no-cache`, 304 when the page has it.
-  const limiter = new RateLimiter({ uses: STOP_REPORTS_PER_MINUTE, perMs: 60_000 });
   scope.get(
     '/api/stop-reports',
-    { onRequest: limitedPerAddress(limiter, { now: deps.now }) },
+    { onRequest: limitedRead(STOP_REPORTS_PER_MINUTE, deps) },
     async (request: GuildRequest, reply) => {
       void reply.header('cache-control', 'private, no-cache');
       const session = await sessions.of(request, reply);
@@ -289,10 +288,9 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
 
   /** A pick list's JSON for members: an ETag of it, `private, no-cache`, 304 when the page has it. */
   const optionsRoute = (url: string, body: () => unknown) => {
-    const limiter = new RateLimiter({ uses: OPTIONS_PER_MINUTE, perMs: 60_000 });
     scope.get(
       url,
-      { onRequest: limitedPerAddress(limiter, { now: deps.now }) },
+      { onRequest: limitedRead(OPTIONS_PER_MINUTE, deps) },
       async (request: GuildRequest, reply) => {
         void reply.header('cache-control', 'private, no-cache');
         const session = await sessions.of(request, reply);

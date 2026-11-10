@@ -69,7 +69,7 @@ import type { GuildRequest } from './guild-routes.js';
 import type { StopLookup } from '../render/train-stops.js';
 import { pageWords } from './page-words.js';
 import type { PartyViewers } from './party-viewers.js';
-import { limitedPerAddress, RateLimiter } from './rate-limit.js';
+import { limitedPerAddress, limitedRead, RateLimiter } from './rate-limit.js';
 import type { WebDeps } from './server.js';
 import { aheadOnTheMap, movesOnTheMap, refusalOnTheMap } from './train-views.js';
 import { shownAfter, type PostDraws } from './post-drawn.js';
@@ -470,10 +470,9 @@ export function partyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
     };
   };
 
-  const limiter = new RateLimiter({ uses: PARTIES_PER_MINUTE, perMs: 60_000 });
   scope.get(
     '/api/parties',
-    { onRequest: limitedPerAddress(limiter, { now: deps.now }) },
+    { onRequest: limitedRead(PARTIES_PER_MINUTE, deps) },
     async (request: GuildRequest, reply) => {
       void reply.header('cache-control', 'private, no-cache');
       const session = await sessions.of(request, reply);
@@ -501,10 +500,9 @@ export function partyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
   // they are kept out of), else 404 as for a party that is not there; then the layout its post
   // was last shown with (404 while it has none), drawn for the page. Kept by the browser for a day
   // when asked by its key (`?k=`), which changes with anything of the post; asked anew otherwise.
-  const postLimiter = new RateLimiter({ uses: POSTS_PER_MINUTE, perMs: 60_000 });
   scope.get(
     '/api/parties/:party/post',
-    { onRequest: limitedPerAddress(postLimiter, { now: deps.now }) },
+    { onRequest: limitedRead(POSTS_PER_MINUTE, deps) },
     async (request: PostRequest, reply) => {
       const session = await sessions.of(request, reply);
       if (!session) {
@@ -547,10 +545,9 @@ export function partyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
   // member sees on the map shows it, or a wild spawn they see there (`spawnShowsPlacePicture`)
   // (else 404, nothing fetched): no open proxy, and nothing of a party or spawn the member may
   // not see. A day in the browser.
-  const placeLimiter = new RateLimiter({ uses: PLACE_PICTURES_PER_MINUTE, perMs: 60_000 });
   scope.get(
     '/pictures/:kind/:id',
-    { onRequest: limitedPerAddress(placeLimiter, { now: deps.now }) },
+    { onRequest: limitedRead(PLACE_PICTURES_PER_MINUTE, deps) },
     async (request: PlaceRequest, reply) => {
       void reply.header('cache-control', 'private, no-cache');
       const session = await sessions.of(request, reply);

@@ -74,7 +74,7 @@ import { postGuard } from './csrf.js';
 import type { GuildRequest } from './guild-routes.js';
 import { pageWords } from './page-words.js';
 import { placesFor, placesQuerySchema } from './wayspot-box.js';
-import { limitedPerAddress, RateLimiter } from './rate-limit.js';
+import { limitedPerAddress, limitedRead, RateLimiter } from './rate-limit.js';
 import type { WebDeps } from './server.js';
 
 /**
@@ -634,10 +634,9 @@ export function meetupRoutes(scope: FastifyInstance, deps: WebDeps): void {
   // middle first, at most `MAX_MAP_STOPS` (`more` says there were more: the page asks to zoom
   // in). Gyms are on the map already; power spots are offered by `/api/powerspots` (plan 8X-5),
   // for max battles, never for a meetup.
-  const stopsLimiter = new RateLimiter({ uses: STOPS_PER_MINUTE, perMs: 60_000 });
   scope.get(
     '/api/stops',
-    { onRequest: limitedPerAddress(stopsLimiter, { now: deps.now }) },
+    { onRequest: limitedRead(STOPS_PER_MINUTE, deps) },
     async (request: GuildRequest, reply) => {
       void reply.header('cache-control', 'private, no-store');
       const session = await sessions.of(request, reply);

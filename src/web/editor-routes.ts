@@ -17,7 +17,7 @@ import {
 import { etagMatches } from './geo-cache.js';
 import type { GuildRequest } from './guild-routes.js';
 import { editingMapPath } from '../domain/web/editor-address.js';
-import { limitedPerAddress, RateLimiter } from './rate-limit.js';
+import { limitedPerAddress, limitedRead, RateLimiter } from './rate-limit.js';
 import type { RegionStaffSource, StaffAnswer } from './region-staff.js';
 import type { WebDeps } from './server.js';
 
@@ -166,10 +166,9 @@ export function editorRoutes(scope: FastifyInstance, deps: WebDeps): void {
   // It never sends anybody to Discord by itself: a login that failed would come back to it.
   // Every load asks Discord who is staff: at most `EDIT_DATA_PER_MINUTE` from one address.
   const seen = new StaffSeen(deps.now);
-  const pageLimiter = new RateLimiter({ uses: EDIT_DATA_PER_MINUTE, perMs: 60_000 });
   scope.get<{ Params: { guild: string }; Querystring: { login?: unknown } }>(
     '/regions/edit',
-    { onRequest: limitedPerAddress(pageLimiter, { now: deps.now }) },
+    { onRequest: limitedRead(EDIT_DATA_PER_MINUTE, deps) },
     async (request, reply) => {
       void reply.type('text/html; charset=utf-8').header('cache-control', 'no-cache');
       const { guild } = request.params;
@@ -207,10 +206,9 @@ export function editorRoutes(scope: FastifyInstance, deps: WebDeps): void {
     },
   );
 
-  const dataLimiter = new RateLimiter({ uses: EDIT_DATA_PER_MINUTE, perMs: 60_000 });
   scope.get(
     '/api/regions/edit',
-    { onRequest: limitedPerAddress(dataLimiter, { now: deps.now }) },
+    { onRequest: limitedRead(EDIT_DATA_PER_MINUTE, deps) },
     async (request: GuildRequest, reply) => {
       void reply.header('cache-control', 'private, no-cache');
       const viewer = await editorViewer(request, reply, deps, seen);

@@ -45,7 +45,7 @@ import { shownAfter } from './post-drawn.js';
 import { postGuard } from './csrf.js';
 import { pageWords } from './page-words.js';
 import { forumOnTheMap } from './party-routes.js';
-import { limitedPerAddress, RateLimiter } from './rate-limit.js';
+import { limitedPerAddress, limitedPerMember, RateLimiter } from './rate-limit.js';
 import type { WebDeps } from './server.js';
 
 /*
@@ -284,10 +284,16 @@ export function postControlRoutes(scope: FastifyInstance, deps: WebDeps): void {
   // the time as the dialog's Submit does (`setMeetingTime` with the group drawn), in `/meet`'s
   // words, Meet… named in words (`meetSubmitRefusal`). One per-address limit for both.
   const meetLimiter = new RateLimiter({ uses: MEET_PER_ADDRESS_MINUTE, perMs: 60_000 });
+  const meetOpenings = new RateLimiter({ uses: MEET_PER_ADDRESS_MINUTE, perMs: 60_000 });
   const meetWindow = { command: 'meet', varies: true } as const;
   scope.get(
     '/api/parties/:party/meet',
-    { onRequest: limitedPerAddress(meetLimiter, { now: deps.now }) },
+    {
+      onRequest: [
+        limitedPerAddress(meetLimiter, { now: deps.now }),
+        limitedPerMember(meetOpenings, deps),
+      ],
+    },
     async (request: ControlRequest, reply) => {
       const found = await reader(request, reply, 'opened Meet…');
       if ('sent' in found) return found.sent;
@@ -422,10 +428,16 @@ export function postControlRoutes(scope: FastifyInstance, deps: WebDeps): void {
   // server's staff roles (`PostWebDeps.staffRoles`). A report the moderators could not be told of
   // gives the use back. One per-address limit for both.
   const reportLimiter = new RateLimiter({ uses: REPORT_PER_ADDRESS_MINUTE, perMs: 60_000 });
+  const reportOpenings = new RateLimiter({ uses: REPORT_PER_ADDRESS_MINUTE, perMs: 60_000 });
   const reportWindow = { command: REPORT_COMMAND } as const;
   scope.get(
     '/api/parties/:party/report',
-    { onRequest: limitedPerAddress(reportLimiter, { now: deps.now }) },
+    {
+      onRequest: [
+        limitedPerAddress(reportLimiter, { now: deps.now }),
+        limitedPerMember(reportOpenings, deps),
+      ],
+    },
     async (request: ControlRequest, reply) => {
       const found = await reader(request, reply, 'opened a report');
       if ('sent' in found) return found.sent;

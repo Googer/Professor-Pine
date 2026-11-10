@@ -2,6 +2,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import { BoundedMap } from '../bounded-map.js';
 import { sendFailure } from './answers.js';
 import { addressBucket } from './client-address.js';
+import type { Sessions } from './sessions.js';
 
 /** How many addresses a limiter remembers at most. */
 const ADDRESSES = 10_000;
@@ -46,4 +47,38 @@ export function limitedPerAddress(limiter: RateLimiter, options: { now: () => nu
     void reply.header('retry-after', String(answer.retryAfterSeconds));
     return sendFailure(request, reply, 429);
   };
+}
+
+/**
+ * A hook that counts every request of the routes it is on against whoever is logged in (plan
+ * 8Z-2: the session's member, from however many addresses and sessions) and refuses one over
+ * the limit with 429 and `Retry-After`; a request without a session passes uncounted. A member
+ * with a routed IPv6 prefix has thousands of /64s, each a client of its own to
+ * `limitedPerAddress`: a read for members has both hooks, this one after the per-address one,
+ * with a limiter of its own of the same number (its keys are members' ids).
+ */
+export function limitedPerMember(
+  limiter: RateLimiter,
+  options: { now: () => number; sessions: Pick<Sessions, 'of'> },
+) {
+  return async (request: FastifyRequest, reply: FastifyReply) => {
+    const session = await options.sessions.of(request, reply);
+    if (!session) return;
+    const answer = limiter.take(session.userId, options.now());
+    if (answer.ok) return;
+    void reply.header('retry-after', String(answer.retryAfterSeconds));
+    return sendFailure(request, reply, 429);
+  };
+}
+
+/**
+ * The hooks of a read for members, in their order (plan 8Z-2): at most `uses` a minute from
+ * one address (`limitedPerAddress`), then as many by one member (`limitedPerMember`). Routes
+ * that share a limit share the hooks.
+ */
+export function limitedRead(uses: number, options: { now: () => number; sessions: Sessions }) {
+  return [
+    limitedPerAddress(new RateLimiter({ uses, perMs: 60_000 }), options),
+    limitedPerMember(new RateLimiter({ uses, perMs: 60_000 }), options),
+  ];
 }

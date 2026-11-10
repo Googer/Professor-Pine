@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { isSnowflake } from '../db/snowflake.js';
+import { REFUSED } from '../services/costly.js';
 import { sendFailure, shortPage } from './answers.js';
 import { editorRoutes } from './editor-routes.js';
 import { findRoutes } from './find-routes.js';
@@ -17,7 +18,8 @@ import { postControlRoutes } from './post-control-routes.js';
 import { PartyViewers } from './party-viewers.js';
 import { raidRoutes } from './raid-routes.js';
 import { regionRoutes } from './region-routes.js';
-import { limitedPerAddress, RateLimiter } from './rate-limit.js';
+import type { PublicCost } from './public-costs.js';
+import { limitedRead } from './rate-limit.js';
 import { mayEditRegions } from './region-staff.js';
 import { spawnRoutes } from './spawn-routes.js';
 import { stopRoutes } from './stop-routes.js';
@@ -40,6 +42,7 @@ export function guildRoutes(
   scope: FastifyInstance,
   deps: WebDeps,
   pacedMembers: PacedMembers,
+  costOf: (request: FastifyRequest) => PublicCost,
 ): void {
   const { sessions } = deps;
   // Who counts as a member on the map (`settings.web.memberRole`): the parties (`/api/me` judges
@@ -123,11 +126,10 @@ export function guildRoutes(
   // the address, as it may ask Discord. Somebody logged in whom the directory finds not in the
   // server is given the server's invite where the settings have one (`invite`, plan 8M-11B):
   // nobody logged out (they may be a member), no member without the role, nobody while read-only.
-  const meLimiter = new RateLimiter({ uses: ME_PER_MINUTE, perMs: 60_000 });
   const { memberRole, invites } = deps.settings;
   scope.get(
     '/api/me',
-    { onRequest: limitedPerAddress(meLimiter, { now: deps.now }) },
+    { onRequest: limitedRead(ME_PER_MINUTE, deps) },
     async (request: GuildRequest, reply) => {
       void reply.header('cache-control', 'no-store');
       const session = await sessions.of(request, reply);
@@ -171,16 +173,19 @@ export function guildRoutes(
   );
 
   // The regions and gyms of the server (spec 3.1): public, kept until they change, answered
-  // with 304 when the page has them already; every request counts against the address.
-  const geoLimiter = new RateLimiter({ uses: GEO_PER_MINUTE, perMs: 60_000 });
+  // with 304 when the page has them already; every request counts against the address, and
+  // against the member where somebody is logged in. Building the view anew is work that costs:
+  // for a visitor who is not logged in it counts against the overall limit (`publicCosts`, plan
+  // 8Z-2), 429 once that is spent; the view as kept is answered all the same.
   scope.get(
     '/api/geo',
-    {
-      onRequest: limitedPerAddress(geoLimiter, { now: deps.now }),
-    },
+    { onRequest: limitedRead(GEO_PER_MINUTE, deps) },
     async (request: GuildRequest, reply) => {
-      const view = await deps.geo.view(request.params.guild);
-      void reply.header('cache-control', 'no-cache').header('etag', view.etag);
+      const cost = costOf(request);
+      const view = await deps.geo.view(request.params.guild, cost.mayCost);
+      if (view === REFUSED) return cost.refuse(reply);
+      // For the browser alone: the member's hook may have sent a session's cookie along anew.
+      void reply.header('cache-control', 'private, no-cache').header('etag', view.etag);
       if (etagMatches(request.headers['if-none-match'], view.etag)) return reply.code(304).send();
       return reply.type('application/json; charset=utf-8').send(view.body);
     },

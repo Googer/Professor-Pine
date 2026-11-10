@@ -57,6 +57,91 @@ describe('EmojiPictures (plan 8M-8A)', () => {
     const pictures = new EmojiPictures({ emoji: { hasId: () => true }, cache });
     expect(await pictures.read(SERVED)).toBeUndefined();
   });
+
+  describe('its pictures in memory (plan 8Z-2)', () => {
+    /** Emoji pictures over a cache and a file reader that count what they were asked for. */
+    const counted = (options: { memoryBytes?: number } = {}) => {
+      const fetched: string[] = [];
+      const files: string[] = [];
+      const clock = { now: 1_000_000 };
+      const pictures = new EmojiPictures({
+        emoji: { hasId: (id) => id !== '222222222222222222' },
+        cache: {
+          get: (request) => {
+            fetched.push(request.id);
+            return Promise.resolve(request.id.startsWith('9') ? undefined : `file-${request.id}`);
+          },
+        },
+        read: (file) => {
+          files.push(file);
+          return Promise.resolve(Buffer.from(PNG));
+        },
+        now: () => clock.now,
+        ...options,
+      });
+      return { pictures, fetched, files, clock };
+    };
+    /** A gate that says `allowed`, counting how often it was asked. */
+    const gate = (allowed: boolean) => {
+      const asked = { times: 0 };
+      const mayCost = () => {
+        asked.times += 1;
+        return allowed;
+      };
+      return { asked, mayCost };
+    };
+
+    it('reads a picture once, and answers it from memory after, the gate not asked', async () => {
+      const { pictures, fetched, files } = counted();
+      const open = gate(true);
+      const first = await pictures.read(SERVED, open.mayCost);
+      expect(first).toEqual({ bytes: Buffer.from(PNG), type: 'image/png' });
+      expect(open.asked.times).toBe(1);
+      const shut = gate(false);
+      expect(await pictures.read(SERVED, shut.mayCost)).toEqual(first);
+      expect(await pictures.read(SERVED)).toEqual(first);
+      expect(shut.asked.times).toBe(0);
+      expect([fetched, files]).toEqual([[SERVED], [`file-${SERVED}`]]);
+    });
+
+    it('does no work where the gate refuses, and asks it of no emoji that is not the application’s', async () => {
+      const { pictures, fetched, files } = counted();
+      const shut = gate(false);
+      expect(await pictures.read('222222222222222222', shut.mayCost)).toBeUndefined();
+      expect(await pictures.read('not-an-id', shut.mayCost)).toBeUndefined();
+      expect(shut.asked.times).toBe(0);
+      expect(await pictures.read(SERVED, shut.mayCost)).toBe('refused');
+      expect(shut.asked.times).toBe(1);
+      expect([fetched, files]).toEqual([[], []]);
+      // Refused is not kept: the next one allowed reads it.
+      expect(await pictures.read(SERVED, gate(true).mayCost)).toMatchObject({ type: 'image/png' });
+    });
+
+    it('answers a picture that could not be had lately from memory too, the gate not asked', async () => {
+      const { pictures, fetched, clock } = counted();
+      const FAILING = '911111111111111111';
+      expect(await pictures.read(FAILING)).toBeUndefined();
+      const shut = gate(false);
+      clock.now += 59_000;
+      expect(await pictures.read(FAILING, shut.mayCost)).toBeUndefined();
+      expect(shut.asked.times).toBe(0);
+      // A minute on it is tried again, which costs.
+      clock.now += 2_000;
+      expect(await pictures.read(FAILING, shut.mayCost)).toBe('refused');
+      expect(fetched).toEqual([FAILING]);
+    });
+
+    it('keeps at most so many bytes, the oldest read first out', async () => {
+      const { pictures, files } = counted({ memoryBytes: PNG.length * 2 });
+      const ids = ['111111111111111111', '111111111111111112', '111111111111111113'];
+      for (const id of ids) await pictures.read(id);
+      // The third pushed the first out: it is read again, the third is not.
+      await pictures.read(ids[2] ?? '');
+      expect(files).toHaveLength(3);
+      await pictures.read(ids[0] ?? '');
+      expect(files).toHaveLength(4);
+    });
+  });
 });
 
 describe('a picture that could not be had (review 8A-6)', () => {

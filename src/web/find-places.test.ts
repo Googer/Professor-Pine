@@ -191,7 +191,9 @@ describe('the places Find finds on the map (plan 8M-12)', () => {
     const refused = await made.ask('q=yellow');
     expect(refused.statusCode).toBe(429);
     expect(refused.headers['retry-after']).toBeDefined();
-    // Another address is not refused for it.
-    expect((await made.ask('q=yellow', ALICE, '10.1.2.3')).statusCode).toBe(200);
+    // Another address is not refused for it: somebody else there is answered as ever. The
+    // member is, wherever they ask from (plan 8Z-2: as many a minute per member).
+    expect((await made.ask('q=yellow', BOB, '10.1.2.3')).statusCode).toBe(403);
+    expect((await made.ask('q=yellow', ALICE, '10.1.2.3')).statusCode).toBe(429);
   });
 });

@@ -53,7 +53,7 @@ import { etagMatches, etagOf } from './geo-cache.js';
 import type { GuildRequest } from './guild-routes.js';
 import { pageWords } from './page-words.js';
 import { raidOptions } from '../commands/raids/raid-options.js';
-import { limitedPerAddress, RateLimiter } from './rate-limit.js';
+import { limitedPerAddress, limitedRead, RateLimiter } from './rate-limit.js';
 import type { WebDeps } from './server.js';
 
 /** The requests for the pick lists one address may make in a minute (a form asks once). */
@@ -254,10 +254,10 @@ export function raidRoutes(scope: FastifyInstance, deps: WebDeps): void {
       : undefined;
   };
 
-  const optionsLimiter = new RateLimiter({ uses: OPTIONS_PER_MINUTE, perMs: 60_000 });
+  const optionsRead = limitedRead(OPTIONS_PER_MINUTE, deps);
   scope.get(
     '/api/raid-options',
-    { onRequest: limitedPerAddress(optionsLimiter, { now: deps.now }) },
+    { onRequest: optionsRead },
     async (request: GuildRequest, reply) => {
       void reply.header('cache-control', 'private, no-cache');
       const session = await sessions.of(request, reply);
@@ -417,7 +417,7 @@ export function raidRoutes(scope: FastifyInstance, deps: WebDeps): void {
   // kept out of (403; 503 while Discord cannot say).
   scope.get(
     '/api/raids/:party/moves',
-    { onRequest: limitedPerAddress(optionsLimiter, { now: deps.now }) },
+    { onRequest: optionsRead },
     async (request: ChangeRequest, reply) => {
       void reply.header('cache-control', 'private, no-cache');
       const session = await sessions.of(request, reply);

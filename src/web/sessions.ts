@@ -142,6 +142,18 @@ export class Sessions {
     return { ...session, lastUsedAt: now, expiresAt: now + SESSION_MS };
   }
 
+  /**
+   * Whether a request carries a session, without renewing it (plan 8Z-2): for an answer that
+   * anybody gets and others may keep (a public picture), which must never carry a cookie.
+   */
+  async has(request: FastifyRequest): Promise<boolean> {
+    const read = this.read.get(request);
+    if (read) return (await read) !== undefined;
+    const token = request.cookies[this.cookieName];
+    if (token === undefined || !TOKEN.test(token)) return false;
+    return (await this.options.store.find(sessionHash(token), this.now())) !== undefined;
+  }
+
   /** Ends the session of a request, if any, and deletes its cookie. */
   async end(request: FastifyRequest, reply: FastifyReply): Promise<void> {
     const session = await this.of(request, reply);

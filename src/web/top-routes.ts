@@ -1,6 +1,6 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import type { MapServer } from './map-servers.js';
-import { limitedPerAddress, RateLimiter } from './rate-limit.js';
+import { limitedRead } from './rate-limit.js';
 import type { WebDeps } from './server.js';
 import { topAnswer, type Membership } from './top-answer.js';
 import { topPage } from './top-page.js';
@@ -27,7 +27,8 @@ function within<T>(question: Promise<T>, ms: number): Promise<T> {
  * The top page `/` (plan 8M-14; and HEAD), answered by `topAnswer`: never kept by a browser or a
  * proxy (`no-store`, set before the limit so that a 429 carries it too), at most
  * `TOP_PER_MINUTE` a minute from one address, every answer counted (a logged-in load asks the
- * member directory once per server). Membership is asked of the member directory itself, not of
+ * member directory once per server), and as many by whoever is logged in, from however many
+ * addresses (`limitedRead`, plan 8Z-2). Membership is asked of the member directory itself, not of
  * the map's (`mapMembers`): a member without the map's role still counts, and the map's header
  * tells them what they lack. A server Discord has not made available is not asked of (it counts
  * as unknown, `topAnswer`). Every server is asked at once; a failed question, or one Discord
@@ -35,9 +36,7 @@ function within<T>(question: Promise<T>, ms: number): Promise<T> {
  */
 export function topRoutes(app: FastifyInstance, deps: WebDeps): void {
   const { sessions, members, log } = deps;
-  const limited = limitedPerAddress(new RateLimiter({ uses: TOP_PER_MINUTE, perMs: 60_000 }), {
-    now: deps.now,
-  });
+  const limited = limitedRead(TOP_PER_MINUTE, deps);
   const notKept = async (_request: FastifyRequest, reply: FastifyReply): Promise<void> => {
     void reply.header('cache-control', 'no-store');
   };
@@ -67,7 +66,7 @@ export function topRoutes(app: FastifyInstance, deps: WebDeps): void {
 
   app.get(
     '/',
-    { onRequest: [notKept, limited] },
+    { onRequest: [notKept, ...limited] },
     async (request: FastifyRequest<{ Querystring: Record<string, unknown> }>, reply) => {
       const { servers, unavailable } = await deps.serversWithMap();
       const anyMap = servers.length > 0 || unavailable.length > 0;

@@ -3,10 +3,11 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import fastifyCookie from '@fastify/cookie';
 import fastifyStatic from '@fastify/static';
-import Fastify, { type FastifyInstance } from 'fastify';
+import Fastify, { type FastifyInstance, type FastifyRequest } from 'fastify';
 import type { Settings } from '../config/settings.js';
 import { EGG_PICTURE_NAMES } from '../domain/pogo/raid-eggs.js';
 import type { Logger } from '../log.js';
+import { REFUSED } from '../services/costly.js';
 import { EGG_FOLDER, EGG_PATH } from '../services/egg-pictures.js';
 import { LockOverdueError } from '../services/keyed-lock.js';
 import { EMOJI_PATH, type EmojiPictures } from '../services/post-pictures.js';
@@ -27,6 +28,7 @@ import type { MeetupWebDeps } from './meetup-routes.js';
 import { PacedMembers, type MemberPace, type PacedDirectory } from './paced-members.js';
 import { HASHED_NAME, type WebAssets } from './page.js';
 import type { PartyWebDeps } from './party-routes.js';
+import { publicCosts, type PublicCost } from './public-costs.js';
 import type { RateLimiter } from './rate-limit.js';
 import type { RaidWebDeps } from './raid-routes.js';
 import type { Sessions } from './sessions.js';
@@ -202,10 +204,12 @@ export function buildWebServer(deps: WebDeps): FastifyInstance {
       );
     },
   });
+  // The work that costs without a session, counted for all such visitors together (plan 8Z-2).
+  const costOf = publicCosts(deps);
   eggRoutes(app);
   iconRoutes(app);
-  pictureRoutes(app, deps.pictures);
-  emojiRoutes(app, deps.emoji);
+  pictureRoutes(app, deps.pictures, costOf);
+  emojiRoutes(app, deps.emoji, costOf);
   toolFileRoutes(app, deps);
   toolPageRoutes(app, deps);
   void app.register((instance, _options, done) => {
@@ -214,7 +218,7 @@ export function buildWebServer(deps: WebDeps): FastifyInstance {
   });
   void app.register(
     (scope, _options, done) => {
-      guildRoutes(scope, deps, pacedMembers);
+      guildRoutes(scope, deps, pacedMembers, costOf);
       done();
     },
     { prefix: '/s/:guild' },
@@ -278,13 +282,21 @@ function iconRoutes(app: FastifyInstance): void {
 /**
  * The pictures of the application's emoji (plan 8M-8A): public, as Discord's CDN has them, `GET
  * /emoji/<id>.png` for an emoji of the application alone (`EmojiPictures`; anything else 404),
- * fetched once and kept for good (an emoji's picture never changes under its id). No rate limit:
- * the application has some dozens, each fetched once.
+ * fetched once and kept for good (an emoji's picture never changes under its id), in memory
+ * once read (`EmojiPictures`). No limit per address; the first read of each costs, and counts
+ * against the overall limit for a visitor who is not logged in (`publicCosts`, plan 8Z-2: 429
+ * once that is spent, a picture in memory answered all the same).
  */
-function emojiRoutes(app: FastifyInstance, emoji: WebDeps['emoji']): void {
+function emojiRoutes(
+  app: FastifyInstance,
+  emoji: WebDeps['emoji'],
+  costOf: (request: FastifyRequest) => PublicCost,
+): void {
   app.get<{ Params: { file: string } }>(`${EMOJI_PATH}:file`, async (request, reply) => {
     const id = /^(\d{17,20})\.png$/u.exec(request.params.file)?.[1];
-    const picture = id === undefined ? undefined : await emoji.read(id);
+    const cost = costOf(request);
+    const picture = id === undefined ? undefined : await emoji.read(id, cost.mayCost);
+    if (picture === REFUSED) return cost.refuse(reply);
     if (picture === undefined) return sendFailure(request, reply, 404);
     return reply
       .type(picture.type)
@@ -296,12 +308,20 @@ function emojiRoutes(app: FastifyInstance, emoji: WebDeps['emoji']): void {
 /**
  * The square pictures of the reports at stops (plan 8R-6): public, `GET /pictures/<key>.png` for
  * the pictures `StopPictures` made and nothing else, kept as long as the eggs (their address
- * carries `?v=` of what they show).
+ * carries `?v=` of what they show), in memory once read (`StopPictures`). The read from the
+ * folder counts against the overall limit for a visitor who is not logged in, as the emoji's
+ * (`publicCosts`, plan 8Z-2); Discord's media proxy, which fetches a post's pictures, is one.
  */
-function pictureRoutes(app: FastifyInstance, pictures: WebDeps['pictures']): void {
+function pictureRoutes(
+  app: FastifyInstance,
+  pictures: WebDeps['pictures'],
+  costOf: (request: FastifyRequest) => PublicCost,
+): void {
   app.get<{ Params: { file: string } }>(`${PICTURE_PATH}:file`, async (request, reply) => {
     const key = /^([0-9a-f]{32})\.png$/.exec(request.params.file)?.[1];
-    const picture = key === undefined ? undefined : await pictures.read(key);
+    const cost = costOf(request);
+    const picture = key === undefined ? undefined : await pictures.read(key, cost.mayCost);
+    if (picture === REFUSED) return cost.refuse(reply);
     if (picture === undefined) return sendFailure(request, reply, 404);
     return reply.type('image/png').header('cache-control', EGG_CACHE).send(picture);
   });

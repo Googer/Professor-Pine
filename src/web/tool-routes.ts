@@ -12,7 +12,7 @@ import type { ScriptAccessService } from '../services/script-access-service.js';
 import type { ServedTool, ToolSource } from '../services/wayspot-tool.js';
 import { linkPage, sendFailure, shortPage } from './answers.js';
 import { postGuard } from './csrf.js';
-import { limitedPerAddress, RateLimiter } from './rate-limit.js';
+import { limitedPerAddress, limitedRead, RateLimiter } from './rate-limit.js';
 import type { WebDeps } from './server.js';
 import type { WebSession } from './session-model.js';
 import { ownAccess, TOOL_LOGIN, TOOL_WORDS, toolPage } from './tool-page.js';
@@ -188,10 +188,8 @@ function freshLogin(session: WebSession, now: number): boolean {
  */
 export function toolPageRoutes(app: FastifyInstance, deps: WebDeps): void {
   const { sessions, settings, now, tool } = deps;
-  const pageLimited = limitedPerAddress(
-    new RateLimiter({ uses: TOOL_PAGE_PER_MINUTE, perMs: 60_000 }),
-    { now },
-  );
+  // Per address, and per member for whoever is logged in (plan 8Z-2).
+  const pageLimited = limitedRead(TOOL_PAGE_PER_MINUTE, deps);
   const postGuards = [
     limitedPerAddress(new RateLimiter({ uses: TOOL_POSTS_PER_MINUTE, perMs: 60_000 }), { now }),
     postGuard(sessions, settings.publicUrl),

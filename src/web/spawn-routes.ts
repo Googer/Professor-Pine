@@ -43,7 +43,7 @@ import { UNCONFIRMED } from './party-routes.js';
 import type { PartyViewers } from './party-viewers.js';
 import { gatesOf, seenBy } from './spawn-seen.js';
 import { spawnsView } from './spawn-view.js';
-import { limitedPerAddress, RateLimiter } from './rate-limit.js';
+import { limitedPerAddress, limitedRead, RateLimiter } from './rate-limit.js';
 import type { WebDeps } from './server.js';
 import { wildOptions } from './wild-options.js';
 
@@ -180,10 +180,9 @@ export function spawnRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
   // a report shown unless its region's forum or its channel, where its message stands, keeps the
   // member out (the parties' `PartyViewers`, barred only); an ETag of the member's JSON,
   // `private, no-cache`, 304 when the page has it.
-  const listLimiter = new RateLimiter({ uses: SPAWNS_PER_MINUTE, perMs: 60_000 });
   scope.get(
     '/api/spawns',
-    { onRequest: limitedPerAddress(listLimiter, { now: deps.now }) },
+    { onRequest: limitedRead(SPAWNS_PER_MINUTE, deps) },
     async (request: GuildRequest, reply) => {
       void reply.header('cache-control', 'private, no-cache');
       const session = await sessions.of(request, reply);
@@ -221,10 +220,9 @@ export function spawnRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Part
     },
   );
 
-  const optionsLimiter = new RateLimiter({ uses: OPTIONS_PER_MINUTE, perMs: 60_000 });
   scope.get(
     '/api/wild-options',
-    { onRequest: limitedPerAddress(optionsLimiter, { now: deps.now }) },
+    { onRequest: limitedRead(OPTIONS_PER_MINUTE, deps) },
     async (request: GuildRequest, reply) => {
       void reply.header('cache-control', 'private, no-cache');
       const session = await sessions.of(request, reply);

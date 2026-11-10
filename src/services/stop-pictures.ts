@@ -2,10 +2,12 @@ import { createHash } from 'node:crypto';
 import { mkdir, readdir, readFile, rm, stat, utimes, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import sharp from 'sharp';
+import { BoundedBytes } from '../bounded-bytes.js';
 import { BoundedMap } from '../bounded-map.js';
 import { isLocalAddress, type Settings } from '../config/settings.js';
 import { isPictureSource } from '../domain/stops/pictures.js';
 import type { Logger } from '../log.js';
+import { REFUSED, type MayCost, type Refused } from './costly.js';
 import { failureReason } from './failure-reason.js';
 import { moveIntoPlace } from './image-cache.js';
 import { readLimitedBytes, type LimitedResponse } from './limited-json.js';
@@ -31,6 +33,13 @@ const PICTURE_FORMATS: ReadonlySet<string> = new Set(['png', 'jpeg', 'webp', 'gi
 
 /** How many pictures are kept, on disk and in the index: the oldest made goes first. */
 export const MAX_PICTURES = 2_000;
+
+/**
+ * How many bytes of pictures read for the web server are kept in memory (plan 8Z-2), the oldest
+ * read first out: some thousand of Leek Duck's icons, so that a day's pictures are read from
+ * the folder once.
+ */
+export const PICTURE_MEMORY_BYTES = 32 * 1024 * 1024;
 
 /** A picture is fetched again after this long, so one Leek Duck changes at its address is renewed. */
 export const RENEW_MS = 7 * 24 * 60 * 60_000;
@@ -88,6 +97,8 @@ export interface StopPicturesOptions {
   now?: () => number;
   /** How many pictures are kept (`MAX_PICTURES`). */
   maxPictures?: number;
+  /** How many bytes of them are kept in memory (`PICTURE_MEMORY_BYTES`). */
+  memoryBytes?: number;
 }
 
 /**
@@ -135,12 +146,17 @@ interface Place {
  * nothing is fetched. No attachments. A failed fetch is not tried again for `FAILED_AGAIN_MS`;
  * the old picture is kept where a renewal fails for another reason. At most `maxPictures` are
  * kept, never making room by one that is being fetched again; `start` reads the index back from
- * the folder, so a restart fetches nothing again.
+ * the folder, so a restart fetches nothing again. `read(key, mayCost)` is the web server's: a
+ * picture's bytes are read from the folder once and kept in memory (plan 8Z-2;
+ * `PICTURE_MEMORY_BYTES`, forgotten when the picture is made anew or leaves the index), and
+ * `mayCost` is asked only before the folder is read.
  */
 export class StopPictures {
   private readonly now: () => number;
   private readonly max: number;
   private readonly kept: BoundedMap<string, Kept>;
+  /** The bytes of pictures the web server read, by key: only of pictures in `kept`. */
+  private readonly memory: BoundedBytes<string, Buffer>;
   private readonly failed = new BoundedMap<string, Failure>(FAILURES_KEPT);
   private readonly fetching = new Map<string, Promise<void>>();
   /** Files of pictures that made room, being deleted. */
@@ -160,6 +176,10 @@ export class StopPictures {
     this.now = options.now ?? (() => Date.now());
     this.max = options.maxPictures ?? MAX_PICTURES;
     this.kept = new BoundedMap(this.max);
+    this.memory = new BoundedBytes(
+      options.memoryBytes ?? PICTURE_MEMORY_BYTES,
+      (bytes) => bytes.length,
+    );
   }
 
   /** The web server listens: from now on the pictures are named at its address. */
@@ -234,11 +254,23 @@ export class StopPictures {
     return kept === undefined ? source : `${base}${PICTURE_PATH}${key}.png?v=${kept.version}`;
   }
 
-  /** A picture this service made, for the route; undefined for any other key. */
-  async read(key: string): Promise<Buffer | undefined> {
-    if (!this.kept.has(key)) return undefined;
+  /**
+   * A picture this service made, for the route; undefined for any other key. From memory where
+   * it was read before; else from the folder, which costs: `mayCost` is asked first (never for
+   * a key that is none of the service's, nor for a picture in memory), and `REFUSED` is the
+   * answer where it says no.
+   */
+  async read(key: string, mayCost?: MayCost): Promise<Buffer | undefined | Refused> {
+    const kept = this.kept.get(key);
+    if (kept === undefined) return undefined;
+    const held = this.memory.get(key);
+    if (held !== undefined) return held;
+    if (mayCost !== undefined && !(await mayCost())) return REFUSED;
     try {
-      return await readFile(this.fileOf(key));
+      const bytes = await readFile(this.fileOf(key));
+      // Made anew or gone from the index meanwhile: not what the key stands for any more.
+      if (this.kept.get(key) === kept) this.memory.set(key, bytes);
+      return bytes;
     } catch {
       return undefined;
     }
@@ -411,6 +443,8 @@ export class StopPictures {
         : [];
     for (const victim of victims) this.kept.delete(victim);
     this.kept.set(key, kept);
+    // What memory holds of them is the old picture's, or of a picture that is no more.
+    for (const stale of [key, ...victims]) this.memory.delete(stale);
     for (const victim of victims) {
       const removed = rm(this.fileOf(victim), { force: true })
         .catch(() => undefined)

@@ -13,7 +13,7 @@ import { ALL_PLACE_KINDS, type PlaceChoice } from '../services/place-finder.js';
 import { memberOrFailure } from './acting.js';
 import { sendFailure } from './answers.js';
 import type { GuildRequest } from './guild-routes.js';
-import { limitedPerAddress, RateLimiter } from './rate-limit.js';
+import { limitedRead } from './rate-limit.js';
 import type { WebDeps } from './server.js';
 import { pointSchema } from './wayspot-box.js';
 
@@ -70,10 +70,9 @@ function foundPlace(choice: PlaceChoice): FoundPlace {
  */
 export function findRoutes(scope: FastifyInstance, deps: WebDeps): void {
   const { sessions, parties } = deps;
-  const limiter = new RateLimiter({ uses: FIND_PER_MINUTE, perMs: 60_000 });
   scope.get(
     '/api/find-places',
-    { onRequest: limitedPerAddress(limiter, { now: deps.now }) },
+    { onRequest: limitedRead(FIND_PER_MINUTE, deps) },
     async (request: GuildRequest, reply) => {
       void reply.header('cache-control', 'private, no-store');
       const session = await sessions.of(request, reply);

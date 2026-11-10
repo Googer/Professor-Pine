@@ -5,7 +5,7 @@ import { addressBucket } from './client-address.js';
 import type { GuildRequest } from './guild-routes.js';
 import { UNCONFIRMED } from './party-routes.js';
 import type { PartyViewers } from './party-viewers.js';
-import { limitedPerAddress, RateLimiter } from './rate-limit.js';
+import { limitedRead } from './rate-limit.js';
 import type { WebDeps } from './server.js';
 
 /**
@@ -24,11 +24,10 @@ export const LIVE_PER_MINUTE = 30;
  */
 export function liveRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewers): void {
   const { sessions, parties, live, log } = deps;
-  const limiter = new RateLimiter({ uses: LIVE_PER_MINUTE, perMs: 60_000 });
   scope.get(
     '/api/live',
     // No HEAD of its own, which would open a stream nobody reads.
-    { exposeHeadRoute: false, onRequest: limitedPerAddress(limiter, { now: deps.now }) },
+    { exposeHeadRoute: false, onRequest: limitedRead(LIVE_PER_MINUTE, deps) },
     async (request: GuildRequest, reply) => {
       void reply.header('cache-control', 'no-store');
       const session = await sessions.of(request, reply);

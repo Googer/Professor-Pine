@@ -53,7 +53,7 @@ import { etagMatches, etagOf } from './geo-cache.js';
 import type { GuildRequest } from './guild-routes.js';
 import { UNCONFIRMED } from './party-routes.js';
 import type { PartyViewers } from './party-viewers.js';
-import { limitedPerAddress, RateLimiter } from './rate-limit.js';
+import { limitedRead } from './rate-limit.js';
 import type { WebDeps } from './server.js';
 import type { RaidStandSettings } from '../domain/time/raid-durations.js';
 
@@ -237,10 +237,9 @@ const activityQuery = z
  */
 export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewers): void {
   const { sessions, activity } = deps;
-  const limiter = new RateLimiter({ uses: ACTIVITY_PER_MINUTE, perMs: 60_000 });
   scope.get(
     '/api/activity',
-    { onRequest: limitedPerAddress(limiter, { now: deps.now }) },
+    { onRequest: limitedRead(ACTIVITY_PER_MINUTE, deps) },
     async (request: GuildRequest, reply) => {
       void reply.header('cache-control', 'private, no-cache');
       const session = await sessions.of(request, reply);
@@ -322,10 +321,9 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
   // `regionGate`: one that keeps the member out leaves its region out of every line and the
   // total, one only their roles hide does not); regions gone and records without one are
   // "No longer a region", seen by everyone.
-  const tallyLimiter = new RateLimiter({ uses: TALLY_PER_MINUTE, perMs: 60_000 });
   scope.get(
     '/api/stats/regions',
-    { onRequest: limitedPerAddress(tallyLimiter, { now: deps.now }) },
+    { onRequest: limitedRead(TALLY_PER_MINUTE, deps) },
     async (request: GuildRequest, reply) => {
       void reply.header('cache-control', 'private, no-cache');
       const session = await sessions.of(request, reply);
@@ -382,10 +380,9 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
   // The boards (plan 8H-6, design Part D): every board of a period as `/stats boards` ranks
   // them (`Boards.board`), with where the member stands. Membership first, as the tally's; the
   // boards place nobody, so no forum is asked.
-  const boardsLimiter = new RateLimiter({ uses: BOARDS_PER_MINUTE, perMs: 60_000 });
   scope.get(
     '/api/stats/boards',
-    { onRequest: limitedPerAddress(boardsLimiter, { now: deps.now }) },
+    { onRequest: limitedRead(BOARDS_PER_MINUTE, deps) },
     async (request: GuildRequest, reply) => {
       void reply.header('cache-control', 'private, no-cache');
       const session = await sessions.of(request, reply);
@@ -415,10 +412,9 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
 
   // A member's own stats, "Your history" (plan 8H-6, design Part E): `/stats me`'s own path, all
   // time or of a year, the busiest region by its channel (rule 2: a region, never a place).
-  const meLimiter = new RateLimiter({ uses: BOARDS_PER_MINUTE, perMs: 60_000 });
   scope.get(
     '/api/stats/me',
-    { onRequest: limitedPerAddress(meLimiter, { now: deps.now }) },
+    { onRequest: limitedRead(BOARDS_PER_MINUTE, deps) },
     async (request: GuildRequest, reply) => {
       void reply.header('cache-control', 'private, no-cache');
       const session = await sessions.of(request, reply);
@@ -507,8 +503,7 @@ type TrainRequest = FastifyRequest<{ Params: { guild: string; train: string } }>
  */
 function trainRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewers): void {
   const { sessions, activity } = deps;
-  const limiter = new RateLimiter({ uses: TRAINS_PER_MINUTE, perMs: 60_000 });
-  const onRequest = limitedPerAddress(limiter, { now: deps.now });
+  const onRequest = limitedRead(TRAINS_PER_MINUTE, deps);
   const regionOf = (id: number) => activity.regions.all().find((region) => region.id === id);
 
   /**
@@ -687,8 +682,7 @@ type BossRequest = FastifyRequest<{ Params: { guild: string; boss: string } }>;
  */
 function dayRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewers): void {
   const { sessions, activity } = deps;
-  const limiter = new RateLimiter({ uses: DAYS_PER_MINUTE, perMs: 60_000 });
-  const onRequest = limitedPerAddress(limiter, { now: deps.now });
+  const onRequest = limitedRead(DAYS_PER_MINUTE, deps);
 
   /**
    * The regions a member's view leaves out, after the session, what was asked (`valid`) and

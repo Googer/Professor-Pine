@@ -103,6 +103,7 @@ function picturesWith(
     publicUrl?: string | undefined;
     answer?: (url: string, signal: AbortSignal) => ReturnType<FetchPicture>;
     maxPictures?: number;
+    memoryBytes?: number;
   } = {},
 ) {
   const { log, entries } = createTestLogger();
@@ -126,6 +127,7 @@ function picturesWith(
     log,
     now: () => clock.now,
     ...(options.maxPictures === undefined ? {} : { maxPictures: options.maxPictures }),
+    ...(options.memoryBytes === undefined ? {} : { memoryBytes: options.memoryBytes }),
   });
   return { pictures, clock, asked, dir, entries };
 }
@@ -315,6 +317,87 @@ describe('StopPictures (plan 8R-6)', () => {
     await again.pictures.prepare([GIBLE]);
     await again.pictures.idle();
     expect(again.asked).toHaveLength(1);
+  });
+
+  describe('its pictures in memory (plan 8Z-2)', () => {
+    /** A gate that says `allowed`, counting how often it was asked. */
+    const gate = (allowed: boolean) => {
+      const asked = { times: 0 };
+      const mayCost = () => {
+        asked.times += 1;
+        return allowed;
+      };
+      return { asked, mayCost };
+    };
+
+    it('reads a picture from its folder once, and answers it from memory after', async () => {
+      const { pictures, dir } = picturesWith();
+      pictures.serving();
+      await pictures.prepare([LARVITAR]);
+      const { key } = servedAs(pictures.url(LARVITAR));
+      const open = gate(true);
+      const first = await pictures.read(key, open.mayCost);
+      expect(first).toBeInstanceOf(Buffer);
+      expect(open.asked.times).toBe(1);
+      // The file is gone: the bytes in memory answer, and nothing is asked of the gate.
+      rmSync(path.join(dir, `${key}.png`));
+      const shut = gate(false);
+      expect(await pictures.read(key, shut.mayCost)).toEqual(first);
+      expect(await pictures.read(key)).toEqual(first);
+      expect(shut.asked.times).toBe(0);
+    });
+
+    it('reads nothing from its folder where the gate refuses, and asks it of no key it never made', async () => {
+      const { pictures } = picturesWith();
+      pictures.serving();
+      await pictures.prepare([LARVITAR]);
+      const { key } = servedAs(pictures.url(LARVITAR));
+      const shut = gate(false);
+      expect(await pictures.read('ab'.repeat(16), shut.mayCost)).toBeUndefined();
+      expect(shut.asked.times).toBe(0);
+      expect(await pictures.read(key, shut.mayCost)).toBe('refused');
+      expect(shut.asked.times).toBe(1);
+      // Refused is not kept: the next one allowed reads it.
+      expect(await pictures.read(key, gate(true).mayCost)).toBeInstanceOf(Buffer);
+    });
+
+    it('forgets a picture made anew, and one that left the index', async () => {
+      let red = 255;
+      const { pictures, clock } = picturesWith({
+        maxPictures: 1,
+        answer: async () => ({
+          ...bytesResponse(await png(40, 60, red), { headers: { 'content-type': 'image/png' } }),
+          ok: true,
+        }),
+      });
+      pictures.serving();
+      await pictures.prepare([GIBLE]);
+      const { key } = servedAs(pictures.url(GIBLE));
+      const old = await pictures.read(key);
+      clock.now += RENEW_MS;
+      red = 128;
+      await pictures.prepare([GIBLE]);
+      await pictures.idle();
+      const renewed = await pictures.read(key);
+      expect(renewed).toBeInstanceOf(Buffer);
+      expect(renewed).not.toEqual(old);
+      // Another takes its place in the index: its key is none of the service's any more.
+      clock.now += DAY;
+      await pictures.prepare([CANDY]);
+      await pictures.idle();
+      expect(await pictures.read(key)).toBeUndefined();
+    });
+
+    it('keeps at most so many bytes in memory, the oldest read first out', async () => {
+      const { pictures, dir } = picturesWith({ memoryBytes: 1 });
+      pictures.serving();
+      await pictures.prepare([LARVITAR]);
+      const { key } = servedAs(pictures.url(LARVITAR));
+      expect(await pictures.read(key)).toBeInstanceOf(Buffer);
+      // Larger than the whole bound: not kept, so the folder is read again.
+      rmSync(path.join(dir, `${key}.png`));
+      expect(await pictures.read(key)).toBeUndefined();
+    });
   });
 
   it('keeps at most so many pictures, the oldest deleted from its folder first', async () => {

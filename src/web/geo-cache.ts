@@ -3,6 +3,7 @@ import { BoundedMap } from '../bounded-map.js';
 import type { Gym } from '../db/repositories/gym-repository.js';
 import type { Region } from '../db/repositories/region-repository.js';
 import { geoView } from '../domain/web/geo-view.js';
+import { REFUSED, type MayCost, type Refused } from '../services/costly.js';
 
 /** How many servers' views are kept. */
 const SERVERS = 100;
@@ -50,14 +51,16 @@ export function etagMatches(header: string | string[] | undefined, etag: string)
  * The public view of each server (`geoView`), built once and kept (spec 3.1): built anew when
  * the gyms or the regions changed (their generations) or a region's channel was renamed (the
  * names are read at each request, which costs a pass over the server's channels). The ETag is
- * the SHA-256 of the JSON, cut to 27 characters (160 bits).
+ * the SHA-256 of the JSON, cut to 27 characters (160 bits). Building is the work that costs
+ * (plan 8Z-2): `mayBuild` is asked right before it, never for a view that is kept, and
+ * `REFUSED` is the answer where it says no.
  */
 export class GeoCache {
   private readonly views = new BoundedMap<string, SentView & { key: string }>(SERVERS);
 
   constructor(private readonly sources: GeoSources) {}
 
-  async view(guildId: string): Promise<SentView> {
+  async view(guildId: string, mayBuild?: MayCost): Promise<SentView | Refused> {
     const { guilds, regions, gyms, channels } = this.sources;
     const row = await guilds.idFor(guildId);
     const own = row === undefined ? [] : regions.all().filter((region) => region.guildId === row);
@@ -71,6 +74,7 @@ export class GeoCache {
     const key = JSON.stringify([gyms.generation, regions.generation, row, [...channelNames]]);
     const kept = this.views.get(guildId);
     if (kept?.key === key) return kept;
+    if (mayBuild !== undefined && !(await mayBuild())) return REFUSED;
     const body = JSON.stringify(
       geoView({
         regions: own,

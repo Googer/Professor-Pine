@@ -23,7 +23,7 @@ describe('the regions and gyms of a server', () => {
     const answer = await web.app.inject({ url: GEO });
     expect(answer.statusCode).toBe(200);
     expect(answer.headers['content-type']).toMatch(/^application\/json/);
-    expect(answer.headers['cache-control']).toBe('no-cache');
+    expect(answer.headers['cache-control']).toBe('private, no-cache');
     expect(answer.headers.etag).toMatch(/^"[A-Za-z0-9_-]{20,}"$/);
     const view = answer.json<View>();
     expect(view.regions.map((region) => region.name)).toEqual(['east', 'west']);

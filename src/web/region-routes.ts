@@ -30,7 +30,7 @@ import type { GuildRequest } from './guild-routes.js';
 import { pageWords } from './page-words.js';
 import { UNCONFIRMED } from './party-routes.js';
 import type { PartyViewers } from './party-viewers.js';
-import { limitedPerAddress, RateLimiter } from './rate-limit.js';
+import { limitedPerAddress, limitedRead, RateLimiter } from './rate-limit.js';
 import type { WebDeps } from './server.js';
 
 /** What "Your regions" on the live map reads and changes (plan 8M-20). */
@@ -197,10 +197,9 @@ type ChangeRequest = FastifyRequest<{
  */
 export function regionRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewers): void {
   const { sessions } = deps;
-  const limiter = new RateLimiter({ uses: REGIONS_PER_MINUTE, perMs: 60_000 });
   scope.get(
     '/api/regions/mine',
-    { onRequest: limitedPerAddress(limiter, { now: deps.now }) },
+    { onRequest: limitedRead(REGIONS_PER_MINUTE, deps) },
     async (request: GuildRequest, reply) => {
       void reply.header('cache-control', 'private, no-store');
       const session = await sessions.of(request, reply);
