@@ -5,6 +5,7 @@ import {
   fitsStructure,
   MAX_EXPORT_CELLS,
   MAX_EXPORT_WAYSPOTS,
+  MAX_KEY_NAMES,
   MAX_STRUCTURE,
   MAX_WAYSPOT_TEXT,
   readWayspotExport,
@@ -135,6 +136,39 @@ describe('the Wayspot export file: what a text may cost before it is parsed', ()
       lists: 5 + 200,
       commas: 11 + 2 + 2 * 199 + 20_000 + 20_200 + 249_999 + 249_999 + 250_000 * 8,
     });
+  });
+
+  // Objects of key names of their own cost the parser most within the other bounds (plan 8Z-2,
+  // fix round: 250,000 objects of nine unique keys each, 4.9 s on the audit's laptop).
+  it('refuses a text of more distinct key names than the format has room for, without parsing it', () => {
+    const objects = Array.from(
+      { length: 1_000 },
+      (_unused, n) => `{${Array.from({ length: 9 }, (_none, k) => `"k${n}_${k}":1`).join(',')}}`,
+    );
+    const bomb = `[${objects.join(',')}]`;
+    expect(fitsStructure(bomb)).toBe(false);
+    const { read, parsed } = reading(bomb);
+    expect(problemOf(read)).toEqual({ kind: 'too-many' });
+    expect(parsed).toBe(false);
+    // 64 names pass (the format has 24: room for fields to come), the 65th does not.
+    const names = (count: number): string =>
+      `{${Array.from({ length: count }, (_unused, k) => `"name${k}" : ${k}`).join(',')}}`;
+    expect(fitsStructure(names(MAX_KEY_NAMES))).toBe(true);
+    expect(fitsStructure(names(MAX_KEY_NAMES + 1))).toBe(false);
+    // A name used again is no new one, however often.
+    expect(
+      fitsStructure(`[${Array.from({ length: 100 }, () => names(MAX_KEY_NAMES)).join(',')}]`),
+    ).toBe(true);
+  });
+
+  it('counts no key name inside a text', () => {
+    // Every text of the Wayspots holds names followed by colons: a hundred each.
+    const words = (n: number): string =>
+      Array.from({ length: 100 }, (_unused, k) => `"w${n}_${k}": `).join('');
+    const file = smallExport(words);
+    const text = writeWayspotExport(file);
+    expect(fitsStructure(text, structureBound(SMALL))).toBe(true);
+    expect(readWayspotExport(text)).toEqual({ ok: true, file });
   });
 
   it('counts nothing inside a text, whatever the text holds', () => {

@@ -296,6 +296,15 @@ export function structureBound(maxima: {
   };
 }
 
+/**
+ * How many distinct key names a text may have outside its texts (plan 8Z-2, fix round): the
+ * format has 24 (the file's 12, a part's 3, a Wayspot's 9, `lat` and `lon` shared with a corner),
+ * and fields to come keep their room. Objects of names of their own cost `JSON.parse` most within
+ * the other bounds: 250,000 objects of nine unique names took 2.4 to 4.9 s, the same objects of
+ * the format's names a tenth of a second.
+ */
+export const MAX_KEY_NAMES = 64;
+
 /** `structureBound` of the format's own maxima: as many areas and corners as a KML file holds. */
 export const MAX_STRUCTURE: Readonly<StructureBound> = structureBound({
   wayspots: MAX_EXPORT_WAYSPOTS,
@@ -309,12 +318,18 @@ const BACKSLASH = 0x5c;
 const COMMA = 0x2c;
 const OPEN_BRACE = 0x7b;
 const OPEN_BRACKET = 0x5b;
+const COLON = 0x3a;
+
+/** Whether a character is white space between JSON's tokens: space, tab, line feed, return. */
+const isJsonSpace = (code: number): boolean =>
+  code === 0x20 || code === 0x09 || code === 0x0a || code === 0x0d;
 
 /**
  * Whether a text has no more objects, lists and commas than `bound` (the largest export's,
- * `MAX_STRUCTURE`, by default): one pass over its characters, which passes over the texts in it
- * (a backslash takes the character after it along, so an escaped quote ends no text) and stops
- * at the first count that is over. It keeps nothing, and is asked before `JSON.parse`, which
+ * `MAX_STRUCTURE`, by default), and no more than `MAX_KEY_NAMES` distinct key names: one pass
+ * over its characters, which passes over the texts in it (a backslash takes the character after
+ * it along, so an escaped quote ends no text) and stops at the first count that is over. It keeps
+ * nothing but the key names, and is asked before `JSON.parse`, which
  * makes an object of every `{}` of a text, however small the text was packed (plan 8Z-2: 64 MB
  * of `{}` took seconds and over a gigabyte). On JSON it counts exactly what the parser would
  * build; what is no JSON, the parser refuses at its first wrong character, and up to there the
@@ -325,13 +340,27 @@ export function fitsStructure(text: string, bound: StructureBound = MAX_STRUCTUR
   let lists = 0;
   let commas = 0;
   let inText = false;
+  /** Where the text under way began (its opening quote). */
+  let textStart = 0;
+  const keys = new Set<string>();
   for (let at = 0; at < text.length; at++) {
     const code = text.charCodeAt(at);
     if (inText) {
-      if (code === BACKSLASH) at++;
-      else if (code === QUOTE) inText = false;
+      if (code === BACKSLASH) {
+        at++;
+      } else if (code === QUOTE) {
+        inText = false;
+        // A text followed by a colon is a key: its name, as written, among the distinct ones.
+        let next = at + 1;
+        while (next < text.length && isJsonSpace(text.charCodeAt(next))) next++;
+        if (text.charCodeAt(next) === COLON) {
+          keys.add(text.slice(textStart + 1, at));
+          if (keys.size > MAX_KEY_NAMES) return false;
+        }
+      }
     } else if (code === QUOTE) {
       inText = true;
+      textStart = at;
     } else if (code === COMMA) {
       if (++commas > bound.commas) return false;
     } else if (code === OPEN_BRACE) {
