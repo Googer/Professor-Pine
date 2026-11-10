@@ -83,6 +83,10 @@ import {
  * and as soon as it is answered). Passive reading answers nothing but the raids that exist and
  * a clear gym of another region, which it asks Yes or No about (pinging the author, whose
  * message may be gone): ordinary pictures draw no answer.
+ *
+ * A message posted without a mention can be read later because a member asks for it ("Read
+ * screenshot" in the message's Apps menu, plan 7M; `ScreenshotTrigger.readFor`): the very flow
+ * of a mention, the member who asked in the author's place.
  */
 
 /** The emoji the bot reacts with while it reads. */
@@ -139,6 +143,48 @@ export interface PostedMessage {
   delete(): Promise<void>;
 }
 
+/**
+ * A message a member asks to have read ("Read screenshot" in its Apps menu, plan 7M;
+ * `ScreenshotTrigger.readFor`): a posted message less what only a mention has. Its author
+ * matters for one thing, whether the message may go (`bare`: only the asker's own does); its
+ * `reply` answers the member who asked, however the caller sends it.
+ */
+export type AskedMessage = Omit<PostedMessage, 'authorBot' | 'member' | 'mentionsBot'>;
+
+/** The member who asks for a message to be read (plan 7M). */
+export interface ShotAsker {
+  id: string;
+  /** Their name and team (`memberInfo`), which their reports note. */
+  member: MemberInfo;
+  /**
+   * The latest a screenshot's turn in the reader may come (`ScreenshotWhere.startBy`): who
+   * asked is answered through an interaction, which can be answered for a quarter of an hour.
+   */
+  startBy: number;
+}
+
+/**
+ * Why nothing of a message was read. `handle` leaves such a message alone, unsaid; the member
+ * who asked for one (`readFor`) is told. `not-for-me`: a bot's or a webhook's, one outside a
+ * server, or one without a mention where pictures are not read passively (none of them an asked
+ * message's case); `post`: in a thread or a forum's post, the region's board included for a
+ * message asked for (its pictures are taken as they are posted); `being-read`: it is read just
+ * now, for a mention or for somebody who asked.
+ */
+export type NotRead =
+  | 'closing'
+  | 'off'
+  | 'not-for-me'
+  | 'rehearsal'
+  | 'post'
+  | 'no-region'
+  | 'no-picture'
+  | 'no-server'
+  | 'being-read';
+
+/** What became of a message: taken out of the region's board, read in its channel, or neither. */
+type Handled = 'board' | 'read' | NotRead;
+
 /** The images of one message, and how many of them made or joined a raid by now. */
 interface Batch {
   message: PostedMessage;
@@ -148,6 +194,13 @@ interface Batch {
   done: boolean;
   /** Called when one more image made or joined a raid: the message goes when all have. */
   finish: () => Promise<void>;
+  /**
+   * Read because a member asked (plan 7M, `readFor`): a raid or battle made is said in the
+   * reply too (it is all the member is answered with; the channel's link line is everybody's),
+   * the message may be old, so each screenshot is decided at the time it is read
+   * (`ScreenshotWhere.readAt`), and its turn in the reader must come by `startBy`.
+   */
+  asker?: Pick<ShotAsker, 'startBy'>;
   /**
    * Read from the region's board (plan 8R-9F): nothing is asked; where a mention would ask, the
    * words point to the command that asks privately (R1), and what is made is said too.
@@ -438,6 +491,11 @@ export class ScreenshotTrigger {
    * their pictures: one trigger per bot, so the whole process's.
    */
   private boardBytesHeld = 0;
+  /**
+   * The messages read just now, by id (plan 7M): one that a member asks for meanwhile is not
+   * read a second time beside it (`being-read`).
+   */
+  private readonly reading = new Set<string>();
 
   constructor(private readonly options: ScreenshotTriggerOptions) {
     this.now = options.now ?? Date.now;
@@ -449,11 +507,50 @@ export class ScreenshotTrigger {
    * leaves a board's message to the keeper.
    */
   async handle(message: PostedMessage): Promise<boolean> {
+    this.reading.add(message.id);
     try {
-      return await this.handleNow(message);
+      return (await this.handleNow(message)) === 'board';
     } catch (err) {
       this.options.ctx.log.error({ err }, 'could not read the screenshots of a message');
       return false;
+    } finally {
+      this.reading.delete(message.id);
+    }
+  }
+
+  /**
+   * Reads a message because a member asked for it ("Read screenshot" in the message's Apps
+   * menu, plan 7M), exactly as a mention of the bot in it is read: `handleNow`, in the places a
+   * mention is read, with the member who asked standing where the message's author stands. The
+   * uses are theirs, in the window of their mentions; they are asked the questions, and only
+   * they can answer them; the reports are theirs, and the kept records name them as the sender.
+   * The message's author is not asked, pinged or signed up, and their message never goes: only
+   * the asker's own message that says nothing does, as a mention alone goes.
+   *
+   * Answers why nothing was read, or undefined once the message was: what came of it is said in
+   * the message's replies (`AskedMessage.reply`), a raid or battle it made included. Unlike
+   * `handle` it throws what fails: its caller answers a member.
+   */
+  async readFor(message: AskedMessage, asker: ShotAsker): Promise<NotRead | undefined> {
+    if (this.reading.has(message.id)) return 'being-read';
+    this.reading.add(message.id);
+    try {
+      const handled = await this.handleNow(
+        {
+          ...message,
+          authorId: asker.id,
+          member: asker.member,
+          // A member asked, whoever wrote it, and that stands for the mention.
+          authorBot: false,
+          mentionsBot: true,
+          bare: message.bare && message.authorId === asker.id,
+        },
+        asker,
+      );
+      // (A board's message is never taken for an asker: `handleNow`.)
+      return handled === 'read' ? undefined : handled === 'board' ? 'post' : handled;
+    } finally {
+      this.reading.delete(message.id);
     }
   }
 
@@ -469,32 +566,46 @@ export class ScreenshotTrigger {
     await Promise.all(replies.map((reply) => reply.delete().catch(() => undefined)));
   }
 
-  private async handleNow(message: PostedMessage): Promise<boolean> {
+  /**
+   * A posted message, or one a member asked for (`asker`, plan 7M: the message as `readFor`
+   * makes it, the member in its author's place): read where it is for the bot to read, else
+   * why not (`NotRead`).
+   */
+  private async handleNow(
+    message: PostedMessage,
+    asker?: Pick<ShotAsker, 'startBy'>,
+  ): Promise<Handled> {
     const { ctx } = this.options;
-    if (this.closed || !ctx.config.settings.ocr.enabled) return false;
-    if (message.authorBot || message.guildId === null) return false;
+    if (this.closed) return 'closing';
+    if (!ctx.config.settings.ocr.enabled) return 'off';
+    if (message.authorBot || message.guildId === null) return 'not-for-me';
     // Off in rehearsal mode: it reacts to and answers in a region channel, where every member
     // would see it. The testers report from a screenshot with /raid, answered privately.
-    if (ctx.rehearsal) return false;
+    if (ctx.rehearsal) return 'rehearsal';
     const passive = !message.mentionsBot;
-    if (passive && !(ctx.config.settings.ocr.passive && ctx.features.ocrPassive)) return false;
-    // A post is read only where it is the region's board (plan 8R-9F).
+    if (passive && !(ctx.config.settings.ocr.passive && ctx.features.ocrPassive)) {
+      return 'not-for-me';
+    }
+    // A post is read only where it is the region's board (plan 8R-9F), and the board only as
+    // its messages are posted: none is read there for a member who asks later (plan 7M).
     if (message.inThread) {
-      const board = this.options.board?.regionOfBoard(message.channelId);
-      return board ? this.readBoard(message, board, passive) : false;
+      const board = asker ? undefined : this.options.board?.regionOfBoard(message.channelId);
+      if (!board) return 'post';
+      return (await this.readBoard(message, board, passive)) ? 'board' : 'no-picture';
     }
     const region = ctx.regions.byChannel(message.channelId);
-    if (!region) return false;
+    if (!region) return 'no-region';
     const images = screenshotsOf(message.attachments);
-    if (images.length === 0) return false;
+    if (images.length === 0) return 'no-picture';
     const guildRow = await ctx.guilds.idFor(message.guildId);
-    if (guildRow === undefined) return false;
+    if (guildRow === undefined) return 'no-server';
     const batch: Batch = {
       message,
       images: images.length,
       made: 0,
       done: false,
       finish: () => this.finished(batch),
+      ...(asker ? { asker } : {}),
     };
     const refusals = new Map<string, number>();
     const existing: string[] = [];
@@ -510,7 +621,7 @@ export class ScreenshotTrigger {
     let asked = 0;
     try {
       for (const image of images) {
-        if (this.closed) return false;
+        if (this.closed) return 'closing';
         // The reader cannot read just now: the rest of the message waits for nothing.
         if (stopped) break;
         const countedAt = this.now();
@@ -618,7 +729,7 @@ export class ScreenshotTrigger {
       await this.say(message, { content: truncate(content, 2_000), ping: message.authorId });
     }
     await this.finished(batch);
-    return false;
+    return 'read';
   }
 
   /**
@@ -846,6 +957,11 @@ export class ScreenshotTrigger {
       uploadedAt: message.createdAt,
       use: passive ? 'passive' : 'mention',
       senderId: message.authorId,
+      // Asked for, the message may have been posted a while ago: its screenshot is dated by
+      // the message and decided now, and read only while who asked can still be answered.
+      ...(batch.asker
+        ? { readAt: Math.max(this.now(), message.createdAt), startBy: batch.asker.startBy }
+        : {}),
       anotherPane: () => {
         const back = anotherUse();
         if (back) giveBacks.push(back);
@@ -916,9 +1032,10 @@ export class ScreenshotTrigger {
         screenshotId: id,
       });
       if (reported.kind === 'exists') return { kind: 'made', exists: outcomeWords(reported, gym) };
-      // A new raid is said by its link line in the channel; from the board, by DM too.
+      // A new raid is said by its link line in the channel; from the board, by DM too, and to
+      // a member who asked in their answer.
       if (reported.kind === 'created') {
-        return batch.board
+        return batch.board || batch.asker
           ? { kind: 'made', exists: outcomeWords(reported, gym) }
           : { kind: 'made' };
       }
@@ -1153,9 +1270,11 @@ export class ScreenshotTrigger {
     const words = maxShotWords(ctx, answer, request);
     if (!maxShotMade(answer)) return refused(words);
     // A new battle is said by its link line in the region channel; anything else in the reply.
-    // From the board everything is said, by DM.
+    // From the board everything is said, by DM, and to a member who asked in their answer.
     const created = answer.kind === 'reported' && answer.result.outcome.kind === 'created';
-    return created && !batch.board ? { kind: 'made' } : { kind: 'made', exists: words };
+    return created && !batch.board && !batch.asker
+      ? { kind: 'made' }
+      : { kind: 'made', exists: words };
   }
 
   /**
