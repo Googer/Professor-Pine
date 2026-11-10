@@ -93,7 +93,11 @@ const ENTITIES: Readonly<Record<string, string>> = {
 /** HTML entities as the characters they stand for; one that is none of those stays as it is. */
 function decodeEntities(text: string): string {
   return text.replace(/&(#x[0-9a-f]{1,6}|#[0-9]{1,7}|[a-z]{2,8});/giu, (whole, name: string) => {
-    if (!name.startsWith('#')) return ENTITIES[name.toLowerCase()] ?? whole;
+    if (!name.startsWith('#')) {
+      // Its own entities only, never a name every object has (as `xml.ts` reads its own).
+      const known = name.toLowerCase();
+      return Object.hasOwn(ENTITIES, known) ? (ENTITIES[known] ?? whole) : whole;
+    }
     const code =
       name[1] === 'x' || name[1] === 'X' ? parseInt(name.slice(2), 16) : Number(name.slice(1));
     const character = code > 0 && code <= 0x10ffff && (code < 0xd800 || code > 0xdfff);

@@ -23,6 +23,7 @@ import { createTestContext } from '../../test/support/test-context.js';
 import { commandGroup, type SubcommandPart } from './command-group.js';
 import {
   alsoAs,
+  MAX_OPTION_TEXT,
   type ComponentHandler,
   type Guard,
   type MessageCommand,
@@ -1344,6 +1345,65 @@ describe('InteractionRouter', () => {
     const i = fakeAutocomplete();
     await new InteractionRouter(ctx, [cmd], []).handle(asInteraction(i));
     expect(i.respond).toHaveBeenCalledWith([]);
+  });
+
+  // The audit of 2026-11-10 (M5): Discord's client holds an option to its `max_length`, its API
+  // may not, and autocomplete has no throttle: an over-long text never reaches a search.
+  describe('autocomplete with an over-long text', () => {
+    const typing = async (options: Parameters<typeof fakeAutocomplete>[0]) => {
+      const { ctx, entries } = createTestContext();
+      const choices = vi.fn((interaction: { respond: (list: unknown[]) => Promise<void> }) =>
+        interaction.respond([{ name: 'Found', value: 'found' }]),
+      );
+      const cmd = command({ autocomplete: choices as never });
+      const i = fakeAutocomplete(options);
+      await new InteractionRouter(ctx, [cmd], []).handle(asInteraction(i));
+      return { i, choices, entries };
+    };
+
+    it('answers no choices, without asking the command, when the text being typed is too long', async () => {
+      const { i, choices, entries } = await typing({
+        focusedName: 'moveset',
+        focused: `mega${' '.repeat(MAX_OPTION_TEXT)}x`,
+      });
+      expect(choices).not.toHaveBeenCalled();
+      expect(i.respond).toHaveBeenCalledExactlyOnceWith([]);
+      expect(entries.some((entry) => entry.msg === 'autocomplete failed')).toBe(false);
+    });
+
+    it('answers no choices when another option of the command holds one, in a subcommand too', async () => {
+      const long = 'x'.repeat(MAX_OPTION_TEXT + 1);
+      const beside = await typing({ focusedName: 'boss', focused: 'pika', options: { gym: long } });
+      expect(beside.choices).not.toHaveBeenCalled();
+      expect(beside.i.respond).toHaveBeenCalledExactlyOnceWith([]);
+
+      const { ctx } = createTestContext();
+      const editChoices = vi.fn(() => Promise.resolve());
+      const router = new InteractionRouter(
+        ctx,
+        [gym([part('edit', { autocomplete: editChoices })])],
+        [],
+      );
+      const nested = fakeAutocomplete({
+        commandName: 'gym',
+        subcommand: 'edit',
+        focusedName: 'gym',
+        focused: long,
+      });
+      await router.handle(asInteraction(nested));
+      expect(editChoices).not.toHaveBeenCalled();
+      expect(nested.respond).toHaveBeenCalledExactlyOnceWith([]);
+    });
+
+    it('asks the command for a text of the longest length an option takes', async () => {
+      const { i, choices } = await typing({
+        focusedName: 'near',
+        focused: 'x'.repeat(MAX_OPTION_TEXT),
+        options: { name: 'y'.repeat(MAX_OPTION_TEXT), count: 3 },
+      });
+      expect(choices).toHaveBeenCalledOnce();
+      expect(i.respond).toHaveBeenCalledExactlyOnceWith([{ name: 'Found', value: 'found' }]);
+    });
   });
 
   it('rejects duplicate command names at construction', () => {

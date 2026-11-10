@@ -108,6 +108,17 @@ describe('readXml', () => {
     expect(readXml('<a>&amp</a>')).toEqual({ ok: false, reason: 'malformed' });
   });
 
+  // The audit of 2026-11-10 (L-I5): the entities were read with a plain index, so a name every
+  // object has (`toString`) was one, and its text the source of a function.
+  it('knows no entity in a name every object has: it is refused as any other it does not know', () => {
+    for (const name of ['toString', 'constructor', '__proto__', 'valueOf', 'hasOwnProperty']) {
+      expect(readXml(`<a>x &${name}; y</a>`)).toEqual({ ok: false, reason: 'malformed' });
+    }
+    // As text it stays what was written: an escaped `&`, and CDATA.
+    expect(root('<a>&amp;toString;</a>').text).toBe('&toString;');
+    expect(root('<a><![CDATA[&toString;]]></a>').text).toBe('&toString;');
+  });
+
   it.each([
     ['nothing', ''],
     ['only white space', '  \n'],

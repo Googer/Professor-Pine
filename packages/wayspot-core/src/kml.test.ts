@@ -209,6 +209,17 @@ describe('the description of an area', () => {
       null,
     ]);
   });
+
+  it('leaves an entity of a description that it does not know as its text, a name every object has too', () => {
+    const reading = read(
+      kml(
+        '<Placemark><name>A</name>' +
+          '<description><![CDATA[x &toString; &valueOf; &bogus; y]]></description>' +
+          `${polygon(SQUARE)}</Placemark>`,
+      ),
+    );
+    expect(reading.areas[0]?.description).toBe('x &toString; &valueOf; &bogus; y');
+  });
 });
 
 describe('kmlText', () => {

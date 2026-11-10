@@ -34,6 +34,7 @@ const species: Readonly<Record<string, PokemonEntry>> = {
     kind: 'regional',
     name: 'Alolan Rattata',
   }),
+  'mr. mime': entry({ key: 'mr_mime', pokemonId: 'MR_MIME', name: 'Mr. Mime', dex: 122 }),
 };
 const named = (name: string): PokemonEntry | undefined => species[name.toLowerCase()];
 
@@ -75,6 +76,26 @@ describe('unlistedMega', () => {
       tempEvolution: 'PRIMAL',
       pokebattlerId: 'KYOGRE_PRIMAL',
     });
+  });
+
+  // The audit of 2026-11-10 (M5): a run of white space reached the pattern as it was typed, which
+  // made it try every split of the run (cubic in its length), and the species was looked up with
+  // the run in its name. The name is read with its white space collapsed.
+  it('reads a name through runs of white space, as one space each', () => {
+    expect(unlistedMega('mega  mr.   mime', named)).toMatchObject({
+      key: 'mr_mime_mega',
+      name: 'Mega Mr. Mime',
+      pokebattlerId: 'MR_MIME_MEGA',
+    });
+    expect(unlistedMega('  Mega\t\tChandelure \n  Y  ', named)).toMatchObject({
+      key: 'chandelure_mega_y',
+      name: 'Mega Chandelure Y',
+    });
+    // A no-break space is white space too.
+    const noBreak = String.fromCharCode(0xa0);
+    expect(unlistedMega(`primal ${noBreak} kyogre`, named)?.key).toBe('kyogre_primal');
+    // A species is still looked up by its whole name: no word of it is dropped.
+    expect(unlistedMega('mega mr.   mime   x   y', named)).toBeUndefined();
   });
 
   it('reads nothing else: a name without the word, an unknown species, a form', () => {

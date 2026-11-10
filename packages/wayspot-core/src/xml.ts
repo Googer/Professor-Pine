@@ -67,7 +67,8 @@ function isXmlChar(code: number): boolean {
 
 /** The character a reference names (what stands between `&` and `;`); undefined for none. */
 function referenced(name: string): string | undefined {
-  if (!name.startsWith('#')) return ENTITIES[name];
+  // Its own entities only: `toString` and the like, which every object has, are none.
+  if (!name.startsWith('#')) return Object.hasOwn(ENTITIES, name) ? ENTITIES[name] : undefined;
   const hex = name.startsWith('#x');
   const digits = name.slice(hex ? 2 : 1);
   if (digits === '') return undefined;

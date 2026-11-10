@@ -212,7 +212,8 @@ export function readTargetWantArgs(args: readonly string[]): TargetWant | undefi
   const dex = dexOf(value);
   if (dex === undefined) return undefined;
   if (kind === 're') return form === undefined ? { kind: 'research-energy', dex } : undefined;
-  const box = ARG_KINDS[kind];
+  // Its own kinds only: a word every object has (`constructor`) is none.
+  const box = Object.hasOwn(ARG_KINDS, kind) ? ARG_KINDS[kind] : undefined;
   if (box === undefined) return undefined;
   if (form !== undefined && !isFormKey(form)) return undefined;
   return boxTarget(box, dex, form);

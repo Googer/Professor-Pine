@@ -80,4 +80,12 @@ describe('the tokens of TargetWant', () => {
     expect(readTargetWantArgs(['rl', 'jessie'])).toBeUndefined();
     expect(readTargetWantArgs(['rv', 'x'])).toBeUndefined();
   });
+
+  // The same slip as the tier words' (the audit of 2026-11-10, L-I5): a kind read with a plain
+  // index from its table, so a word every object has was one.
+  it('reads no target from a kind every object has', () => {
+    expect(readTargetWantArgs(['constructor', '6'])).toBeUndefined();
+    expect(readTargetWantArgs(['__proto__', '6'])).toBeUndefined();
+    expect(readTargetWantArgs(['toString', '6', 'vulpix_alola'])).toBeUndefined();
+  });
 });

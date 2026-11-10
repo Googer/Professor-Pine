@@ -1,4 +1,5 @@
 import {
+  ApplicationCommandOptionType,
   Collection,
   ComponentType,
   MessageFlags,
@@ -58,6 +59,15 @@ export interface SentPayload {
 }
 
 type OptionValue = string | number | boolean | null;
+
+/** An option as discord.js's `options.data` holds it (`CommandInteractionOption`). */
+interface FakeOptionData {
+  name: string;
+  type: ApplicationCommandOptionType;
+  value?: OptionValue;
+  focused?: boolean;
+  options?: FakeOptionData[];
+}
 
 export interface FakeOptions {
   commandName?: string;
@@ -685,6 +695,48 @@ function base(kind: Kind, o: FakeOptions) {
     if (found === null && required === true) throw missing(name);
     return found;
   };
+  /**
+   * The options as discord.js's `options.data` gives them: each with its name, type and value,
+   * the one being typed (autocomplete) `focused`, all of them under the subcommand, and that
+   * under its group, when there is one.
+   */
+  const optionData = (): FakeOptionData[] => {
+    const typeOf = (found: OptionValue): ApplicationCommandOptionType =>
+      typeof found === 'number'
+        ? ApplicationCommandOptionType.Number
+        : typeof found === 'boolean'
+          ? ApplicationCommandOptionType.Boolean
+          : ApplicationCommandOptionType.String;
+    const given = Object.entries(o.options ?? {})
+      .filter(([name, found]) => found !== null && name !== o.focusedName)
+      .map(([name, found]): FakeOptionData => ({ name, type: typeOf(found), value: found }));
+    const typed: FakeOptionData[] =
+      kind === 'autocomplete'
+        ? [
+            {
+              name: o.focusedName ?? 'option',
+              type: ApplicationCommandOptionType.String,
+              value: o.focused ?? '',
+              focused: true,
+            },
+          ]
+        : [];
+    const leaves = [...given, ...typed];
+    if (o.subcommand === undefined) return leaves;
+    const part: FakeOptionData = {
+      name: o.subcommand,
+      type: ApplicationCommandOptionType.Subcommand,
+      options: leaves,
+    };
+    if (o.subcommandGroup === undefined) return [part];
+    return [
+      {
+        name: o.subcommandGroup,
+        type: ApplicationCommandOptionType.SubcommandGroup,
+        options: [part],
+      },
+    ];
+  };
   const alreadyReplied = () =>
     new Error('InteractionAlreadyReplied: the fake was already deferred or replied to');
   const notReplied = () =>
@@ -885,6 +937,9 @@ function base(kind: Kind, o: FakeOptions) {
     inCachedGuild: () => guildId !== null,
     inGuild: () => guildId !== null,
     options: {
+      get data() {
+        return optionData();
+      },
       getString: (name: string, required?: boolean) => value<string>(name, 'string', required),
       getInteger: (name: string, required?: boolean) => value<number>(name, 'number', required),
       getNumber: (name: string, required?: boolean) => value<number>(name, 'number', required),

@@ -1,5 +1,5 @@
 import type { AppContext } from '../app-context.js';
-import type { LocatedInteraction } from '../discord/command.js';
+import { MAX_OPTION_TEXT, type LocatedInteraction } from '../discord/command.js';
 import { UserError } from '../discord/errors.js';
 import { guildIdOf, regionChannelOf } from '../discord/guards.js';
 import { readPin } from '../domain/geo/pin-input.js';
@@ -20,9 +20,10 @@ import { byName, CHOICE_NAME, MAX_CHOICES, type Choice } from './choices.js';
 
 /**
  * As much as an option that names a place takes: a maps link with all its data (a Google Maps
- * place page is a few hundred characters) fits.
+ * place page is a few hundred characters) fits. It is the most any option takes, past which the
+ * router answers autocomplete with no choices (`MAX_OPTION_TEXT`).
  */
-export const MAX_PLACE_TEXT = 1_500;
+export const MAX_PLACE_TEXT = MAX_OPTION_TEXT;
 
 /** Said of a choice's value that names a place outside the server's regions. */
 export const NOT_HERE =

@@ -64,6 +64,16 @@ export interface HelpFacts {
 export const DATE_EXAMPLE = '{date}';
 
 /**
+ * The longest text an option of a command takes (the most any declares as its `max_length`: one
+ * that names a place, `MAX_PLACE_TEXT`), and so the longest the router lets an autocomplete read
+ * (the audit of 2026-11-10, M5): Discord's client holds an option to its `max_length`, but a
+ * client of somebody's own need not, autocomplete is counted by no throttle, and its searches
+ * run on the thread that holds the gateway. A test holds every command that offers choices to it
+ * (`src/commands/option-lengths.test.ts`).
+ */
+export const MAX_OPTION_TEXT = 1_500;
+
+/**
  * How a command is acknowledged: before it runs, for the member alone or for everyone; or
  * `late`, for the member alone and only when it has not answered after a second
  * (`late-reply.ts`).

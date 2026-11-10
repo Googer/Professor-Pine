@@ -3,6 +3,7 @@ import {
   MessageFlags,
   type AutocompleteInteraction,
   type ChatInputCommandInteraction,
+  type CommandInteractionOption,
   type Interaction,
   type MessageComponentInteraction,
   type MessageContextMenuCommandInteraction,
@@ -12,6 +13,7 @@ import type { AppContext } from '../app-context.js';
 import {
   declaredSubcommands,
   isMessageCommand,
+  MAX_OPTION_TEXT,
   subcommandPath,
   type CommandHandler,
   type CommandModule,
@@ -36,6 +38,18 @@ export const STALE_COMPONENT = 'This no longer works.';
  * (`LockOverdueError`: a save that does not answer). None of their doing: the use goes back.
  */
 export const STILL_BUSY = 'I am still busy with an earlier change to this. Try again in a moment.';
+
+/**
+ * Whether any option of an interaction, the one being typed or one filled in before, under a
+ * subcommand or not, holds a text longer than an option takes (`MAX_OPTION_TEXT`).
+ */
+function overlong(options: readonly CommandInteractionOption[]): boolean {
+  return options.some(
+    (option) =>
+      (typeof option.value === 'string' && option.value.length > MAX_OPTION_TEXT) ||
+      (option.options !== undefined && overlong(option.options)),
+  );
+}
 
 /** What the router answers: a command (slash or message) or a control. */
 type Answered = GuardableInteraction | MessageContextMenuCommandInteraction;
@@ -391,6 +405,11 @@ export class InteractionRouter {
    */
   private async handleAutocomplete(interaction: AutocompleteInteraction): Promise<void> {
     try {
+      // Before anything reads them: no search is run on a text no option of ours takes.
+      if (overlong(interaction.options.data)) {
+        await interaction.respond([]);
+        return;
+      }
       const command = this.commands.get(interaction.commandName);
       if (command && this.staffOnly.has(command.data.name)) {
         try {

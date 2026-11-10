@@ -52,7 +52,7 @@ import {
   takenWords,
   type MaxAccess,
 } from './max-report.js';
-import { nearChoices, regionSpotChoices } from '../place-option.js';
+import { MAX_PLACE_TEXT, nearChoices, regionSpotChoices } from '../place-option.js';
 import {
   chooseMaxShotSpot,
   confirmMaxShot,
@@ -226,7 +226,7 @@ function maxData(screenshots: boolean) {
         .setName('spot')
         .setDescription('The Power Spot: pick from the list, or paste a maps link or coordinates')
         .setRequired(!screenshots)
-        .setMaxLength(1_500)
+        .setMaxLength(MAX_PLACE_TEXT)
         .setAutocomplete(true),
     )
     .addStringOption((option) =>

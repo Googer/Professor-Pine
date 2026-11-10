@@ -16,6 +16,14 @@ const LEVEL_WORDS: Readonly<Record<string, RaidLevel>> = {
 };
 
 /**
+ * The level a word names; none for any other word, also one every object has (`constructor`,
+ * `__proto__`: read with a plain index they were levels, the audit of 2026-11-10, L-I5).
+ */
+function levelNamed(word: string): RaidLevel | undefined {
+  return Object.hasOwn(LEVEL_WORDS, word) ? LEVEL_WORDS[word] : undefined;
+}
+
+/**
  * A text folded to lower case with a numbered tier spelled as the lists label it: `tier 5`,
  * `tier5`, `level 5`, `5 star` and `5-star` are `t5`. How `leadingTier` reads a tier, and how the
  * boss list of `/raid` narrows to what was typed (staging of 2026-11-07: `tier 1` found nothing).
@@ -41,8 +49,8 @@ export function leadingTier(text: string): { tier: RaidTier; rest: string } | un
   }
   if (words[0] === 'tier' || words[0] === 'level') words.shift();
   // "mega legendary" and "super mega" are two words.
-  const two = LEVEL_WORDS[`${words[0] ?? ''}${words[1] ?? ''}`];
-  const level = two ?? LEVEL_WORDS[words[0] ?? ''];
+  const two = levelNamed(`${words[0] ?? ''}${words[1] ?? ''}`);
+  const level = two ?? levelNamed(words[0] ?? '');
   if (!level) return undefined;
   const tier = raidTier(level, shadow);
   if (!tier) return undefined;
