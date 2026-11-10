@@ -34,6 +34,7 @@ import {
 } from './boss-input.js';
 import { pokemonOption } from '../pokemon-option.js';
 import { lasting } from './boss-list.js';
+import { tellOwnerOfSharedChange } from './shared-change.js';
 
 /** The value of an override among the choices of `remove`. */
 const OVERRIDE_CHOICE = /^(?:id:|#)?(\d{1,10})$/;
@@ -126,15 +127,25 @@ async function store(
 ): Promise<BossOverride<BossTier>> {
   const ids = { ...chosen.ids, createdBy: interaction.user.id };
   const { tier } = override;
+  let saved: BossOverride<BossTier>;
   try {
-    if (tier !== null && isMaxBossTier(tier)) {
-      return await ctx.maxBossAdmin.addOverride({ ...override, ...ids, tier });
-    }
-    return await ctx.raidBossAdmin.addOverride({ ...override, ...ids, tier });
+    saved =
+      tier !== null && isMaxBossTier(tier)
+        ? await ctx.maxBossAdmin.addOverride({ ...override, ...ids, tier })
+        : await ctx.raidBossAdmin.addOverride({ ...override, ...ids, tier });
   } catch (err) {
     if (err instanceof RangeError) throw new UserError(err.message);
     throw err;
   }
+  // The boss lists are every server's: the owner hears of each override (Matt's ruling 5 of
+  // 2026-11-10). The one place `add`, `hide`, `autoset` and `shiny` write through.
+  tellOwnerOfSharedChange(
+    interaction,
+    ctx,
+    `Boss override #${String(saved.id)}, ${lasting(saved)}, for every server: ` +
+      `${describeOverride(saved, chosen.label)}.`,
+  );
+  return saved;
 }
 
 /**
@@ -338,7 +349,9 @@ export const addBoss: SubcommandPart = {
       '(Gigantamax and mega tiers are kinds of their own).\n\nRaids and max battles on now ' +
       'at the tier it moved from, in every server, move with it and their posts say so; ' +
       `removing the add does not move them back (\`/boss\` fixes one). It lasts ${String(DEFAULT_DAYS)} days unless you give \`days\`; \`days:0\` keeps ` +
-      'it until you remove it with `/admin boss remove`. Adding it again replaces the earlier one.',
+      'it until you remove it with `/admin boss remove`. Adding it again replaces the earlier one.' +
+      '\n\nThe boss lists are shared by every server I run in: my owner is told of each ' +
+      'change of the overrides, with who made it and in which server.',
     examples: [
       '/admin boss add pokemon:Zekrom tier:T5',
       '/admin boss add pokemon:Mew tier:T5 days:3',
@@ -584,6 +597,13 @@ export const removeOverride: SubcommandPart = {
     if (!removed) {
       throw new UserError(`There is no override #${id}. It may have lapsed or been removed.`);
     }
+    // The fifth way the override list changes: the owner hears of it as of the other four.
+    tellOwnerOfSharedChange(
+      interaction,
+      ctx,
+      `Removed boss override #${id}, for every server: ` +
+        `${describeOverride(override, plain(reported.name))}.`,
+    );
     // An override for every raid tier (shiny) shows each raid tier its Pokémon is a boss of now.
     const tiers =
       override.tier === null

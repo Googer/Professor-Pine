@@ -14,7 +14,12 @@ import {
   testRaid,
   testRaidRules,
 } from '../../../test/support/parties.js';
+import type { RecordingDms } from '../../../test/support/dms.js';
+import { FAKE_GUILD_ID } from '../../../test/support/fake-interactions.js';
+import { textDisplays } from '../../../test/support/messages.js';
+import { TEST_ENV } from '../../../test/support/test-env.js';
 import { setBoss } from '../../domain/party/raid.js';
+import { DM_PRIORITY } from '../../services/dm-sender.js';
 import { partyServiceWith } from '../../../test/support/party-service.js';
 import { FEED_READ_AT, feedReply, readRaidBossFeed } from '../../../test/support/raid-bosses.js';
 import { admin } from './index.js';
@@ -451,5 +456,54 @@ describe('/admin boss: the pokemon option', () => {
     expect(textOf(await made.use('boss', 'hide', { pokemon: 'ids:GONEMON', tier: 'T5' }))).toBe(
       'That boss is no longer in the feed. Pick again from the list.',
     );
+  });
+});
+
+// Matt's ruling 5 of 2026-11-10: the boss lists are every server's, changed on the word of one
+// server's staff. The owner is told by DM of each of the five ways the override list changes.
+describe('/admin boss: telling the owner of a change of the override list', () => {
+  const OWNER = TEST_ENV.OWNER_ID ?? '';
+  const told = (made: Awaited<ReturnType<typeof bossCommandsWith>>) =>
+    (made.ctx.dms as RecordingDms).jobs;
+  const said = (made: Awaited<ReturnType<typeof bossCommandsWith>>) =>
+    told(made).map((job) => textDisplays(job.message).at(-1));
+
+  it('tells the owner of an add, a hide, an autoset, a shiny and a remove: who, where, what', async () => {
+    const made = await bossCommandsWith({ max: true });
+    await made.use('boss', 'add', { pokemon: 'Zekrom', tier: 'T5' });
+    await made.use('boss', 'hide', { pokemon: 'yveltal', tier: 'T5', days: 2 });
+    await made.use('boss', 'autoset', { pokemon: 'zekrom', tier: 'T5', days: 0 });
+    await made.use('boss', 'shiny', { pokemon: 'zekrom', 'can-be-shiny': true });
+    await made.use('boss', 'add', { pokemon: 'machamp', tier: 'G' });
+    await made.use('boss', 'remove', { override: '#1' });
+    expect(said(made)).toEqual([
+      `Boss override #1, until <t:${at(NOW + 30 * DAY)}:d>, for every server: Zekrom added to T5.`,
+      `Boss override #2, until <t:${at(NOW + 2 * DAY)}:d>, for every server: Yveltal hidden from T5.`,
+      'Boss override #3, for good, for every server: Zekrom: eggs of T5 hatch as it.',
+      'Boss override #4, for good, for every server: Zekrom: can be shiny (any raid tier).',
+      `Boss override #5, until <t:${at(NOW + 30 * DAY)}:d>, for every server: Machamp added to Gigantamax.`,
+      'Removed boss override #1, for every server: Zekrom added to T5.',
+    ]);
+    const [first] = told(made);
+    expect(first).toMatchObject({
+      userId: OWNER,
+      priority: DM_PRIORITY.normal,
+      eventAt: NOW,
+      expiresAt: NOW + 7 * DAY,
+    });
+    expect(textDisplays(first?.message).slice(0, 2)).toEqual([
+      '### Shared data changed',
+      `**Morgan** · ${MODERATOR}\nin **Test Server** · ${FAKE_GUILD_ID}`,
+    ]);
+    expect(first?.message.mention).toBeUndefined();
+  });
+
+  it('tells nobody of what was refused, nor the owner of their own changes', async () => {
+    const made = await bossCommandsWith();
+    await made.use('boss', 'add', { pokemon: 'charizard', tier: 'Mega' });
+    await made.use('boss', 'remove', { override: '#9' });
+    await made.use('boss', 'add', { pokemon: 'Zekrom', tier: 'T5' }, { userId: OWNER });
+    await made.use('boss', 'remove', { override: '#1' }, { userId: OWNER });
+    expect(told(made)).toEqual([]);
   });
 });

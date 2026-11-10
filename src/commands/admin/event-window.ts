@@ -20,6 +20,7 @@ import { plain, truncate } from '../../render/text.js';
 import { LIST_COLOUR, textMessage } from '../../render/v2.js';
 import { timedTimeHint } from '../parties/timed.js';
 import { between } from '../raids/raid-input.js';
+import { tellOwnerOfSharedChange } from './shared-change.js';
 
 /** The subcommand group of `/admin` the event window lives under. */
 export const EVENT_WINDOW_GROUP = 'event-window';
@@ -170,7 +171,7 @@ export const setEventWindow: SubcommandPart = {
         'on or ended less than 2 hours ago.\n\n' +
         'End it with `/admin event-window end` once raids and battles are back to normal. ' +
         'There is one window for all servers: anyone who may use `/admin` on any of them can ' +
-        'set or end it.'
+        'set or end it. My owner is told who did, and in which server.'
       );
     },
     examples: [
@@ -204,6 +205,15 @@ export const setEventWindow: SubcommandPart = {
       { ...usedBy(interaction), start: window.start, end: window.end },
       'an event window was set',
     );
+    // One window for every server, set on the word of one server's staff: the owner is told
+    // (Matt's ruling 5 of 2026-11-10; the audit's L-D1).
+    tellOwnerOfSharedChange(
+      interaction,
+      ctx,
+      `Set the event window, for every server: from ${momentWords(ctx, window.start)} until ` +
+        `${momentWords(ctx, window.end)}.`,
+      now,
+    );
     const stillFrom =
       window.start < now ? `Still counted from ${momentWords(ctx, window.start)}.` : undefined;
     const replaced =
@@ -231,17 +241,33 @@ export const endEventWindow: SubcommandPart = {
   defer: 'ephemeral',
   async execute(interaction, ctx) {
     const now = Date.now();
+    // Until when it was to last, for the owner's DM: the window as it stood before the end.
+    const planned = ctx.eventWindows.ongoing(now);
     const ended = await ctx.eventWindows.end(now);
     if (!ended) throw new UserError('No event window is set.');
     ctx.log.info(
       { ...usedBy(interaction), start: ended.start, end: ended.end },
       'an event window was ended',
     );
-    const text =
-      ended.end <= ended.start
-        ? `The event window that was to begin ${momentWords(ctx, ended.start)} is called off.`
-        : 'The event window is over: raids and battles reported from now on last as usual. ' +
-          'Those already reported keep their times.';
+    const calledOff = ended.end <= ended.start;
+    const wasToLast =
+      planned !== undefined && planned.start === ended.start && planned.end > now
+        ? ` and was to last until ${momentWords(ctx, planned.end)}`
+        : '';
+    tellOwnerOfSharedChange(
+      interaction,
+      ctx,
+      calledOff
+        ? `Called off the event window that was to begin ${momentWords(ctx, ended.start)}, ` +
+            'for every server.'
+        : 'Ended the event window, for every server: it had run since ' +
+            `${momentWords(ctx, ended.start)}${wasToLast}.`,
+      now,
+    );
+    const text = calledOff
+      ? `The event window that was to begin ${momentWords(ctx, ended.start)} is called off.`
+      : 'The event window is over: raids and battles reported from now on last as usual. ' +
+        'Those already reported keep their times.';
     await interaction.editReply(v2Answer(textMessage(LIST_COLOUR, [text])));
   },
 };

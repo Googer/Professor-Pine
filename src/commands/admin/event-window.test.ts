@@ -3,12 +3,16 @@ import { bossCommandsWith, MEMBER } from '../../../test/support/boss-commands.js
 import { MemoryEventWindows } from '../../../test/support/event-window-store.js';
 import {
   asV2,
+  FAKE_GUILD_ID,
   type FakeInteraction,
   type SentPayload,
 } from '../../../test/support/fake-interactions.js';
-import { textOf } from '../../../test/support/messages.js';
+import type { RecordingDms } from '../../../test/support/dms.js';
+import { buttonsOf, textDisplays, textOf } from '../../../test/support/messages.js';
+import { TEST_ENV } from '../../../test/support/test-env.js';
 import { zonedAt } from '../../../test/support/time.js';
 import { createTestLogger } from '../../../test/support/test-logger.js';
+import { DM_PRIORITY } from '../../services/dm-sender.js';
 import { EventWindowService } from '../../services/event-window-service.js';
 import { admin } from './index.js';
 
@@ -220,5 +224,78 @@ describe('/admin event-window', () => {
     );
     expect(answerOf(used)).toBe('Only admins, moderators and bot developers can do that.');
     expect(made.eventWindows.current()).toBeUndefined();
+  });
+
+  // Matt's ruling 5 of 2026-11-10 (the audit's L-D1): one window for every server, on the word
+  // of one server's staff, with only a log line naming who. The owner is told by DM.
+  describe('telling the owner', () => {
+    const OWNER = TEST_ENV.OWNER_ID ?? '';
+    const told = (made: Awaited<ReturnType<typeof commands>>) =>
+      (made.ctx.dms as RecordingDms).jobs;
+    const WEEK = 7 * 24 * 3_600_000;
+
+    it('tells the owner who set a window, in which server, and from when until when', async () => {
+      const made = await commands();
+      await made.use('event-window', 'set', { from: '10am', until: '11-13 8pm' });
+      const [job, more] = told(made);
+      expect(more).toBeUndefined();
+      expect(job).toMatchObject({
+        userId: OWNER,
+        priority: DM_PRIORITY.normal,
+        eventAt: NOW,
+        expiresAt: NOW + WEEK,
+      });
+      expect(textDisplays(job?.message)).toEqual([
+        '### Shared data changed',
+        `**Morgan** · ${made.staff.userId ?? ''}\nin **Test Server** · ${FAKE_GUILD_ID}`,
+        'Set the event window, for every server: from Monday, November 9 at 10:00 AM until ' +
+          'Friday, November 13 at 8:00 PM.',
+      ]);
+      // Nobody is pinged, and nothing is on it to press.
+      expect(job?.message.mention).toBeUndefined();
+      expect(buttonsOf(job?.message)).toEqual([]);
+    });
+
+    it('tells the owner of a window ended and of one called off, each by itself', async () => {
+      const made = await commands();
+      await made.use('event-window', 'set', { until: '11-13 8pm' });
+      vi.setSystemTime(at('2026-11-11T12:00'));
+      await made.use('event-window', 'end');
+      await made.use('event-window', 'set', { from: '11-12 10am', until: '11-13 8pm' });
+      await made.use('event-window', 'end');
+      expect(told(made).map((job) => textDisplays(job.message).at(-1))).toEqual([
+        expect.stringMatching(/^Set the event window, for every server: from /u),
+        'Ended the event window, for every server: it had run since Monday, November 9 at ' +
+          '9:00 AM and was to last until Friday, November 13 at 8:00 PM.',
+        expect.stringMatching(/^Set the event window, for every server: from /u),
+        'Called off the event window that was to begin Thursday, November 12 at 10:00 AM, ' +
+          'for every server.',
+      ]);
+    });
+
+    it('names the member through plainNoLinks, and tells of nothing that changed nothing', async () => {
+      const made = await commands();
+      await made.use(
+        'event-window',
+        'set',
+        { until: '11-13 8pm' },
+        { displayName: '**Mo** https://evil.example', guildName: '[Pit](https://evil.example)' },
+      );
+      const [who] = textDisplays(told(made)[0]?.message).slice(1);
+      expect(who).not.toContain('https://evil.example');
+      expect(who).toContain('\\*\\*Mo\\*\\*');
+      // A refusal and an end of nothing reach nobody.
+      await made.use('event-window', 'set', { until: 'soon' });
+      await made.use('event-window', 'end');
+      await made.use('event-window', 'end');
+      expect(told(made)).toHaveLength(2);
+    });
+
+    it('sends the owner nothing of what they did themselves', async () => {
+      const made = await commands();
+      await made.use('event-window', 'set', { until: '11-13 8pm' }, { userId: OWNER });
+      await made.use('event-window', 'end', {}, { userId: OWNER });
+      expect(told(made)).toEqual([]);
+    });
   });
 });
