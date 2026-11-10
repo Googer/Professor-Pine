@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-10T16:57",
+  "updated": "2026-11-10T17:46",
   "items": [
     {
       "id": "0",
@@ -10402,14 +10402,18 @@ window.GANTT = {
       "kind": "plan",
       "parent": "16",
       "name": "8Z-2 Fixes of the audit before the release",
-      "status": "review",
+      "status": "done",
       "size": 1,
       "dependsOn": [],
       "scope": "Who may change a meetup’s times, logins and reads under load, the public map’s regions, bounds on files and feeds, the Docker stack’s proxy, networks and pinned images, backups without stored programs, query plans and indexes",
       "doneWhen": "Merged into main-dev",
       "planning": {
         "start": "2026-11-09T23:24",
-        "end": "2026-11-10T11:54"
+        "end": "2026-11-10T11:48"
+      },
+      "review": {
+        "start": "2026-11-10T14:52",
+        "end": "2026-11-10T17:29"
       }
     },
     {
@@ -10418,8 +10422,8 @@ window.GANTT = {
       "parent": "8Z-2",
       "name": "A1: A meetup’s start and end for its maker and staff, on every surface",
       "status": "done",
-      "start": "2026-11-10T15:59",
-      "end": "2026-11-10T15:59"
+      "start": "2026-11-10T11:48",
+      "end": "2026-11-10T12:25"
     },
     {
       "id": "8Z-2.2",
@@ -10427,8 +10431,8 @@ window.GANTT = {
       "parent": "8Z-2",
       "name": "A2: Autocomplete reads no over-long text; a word every object has is no tier or entity",
       "status": "done",
-      "start": "2026-11-10T15:59",
-      "end": "2026-11-10T15:59"
+      "start": "2026-11-10T12:25",
+      "end": "2026-11-10T12:38"
     },
     {
       "id": "8Z-2.3",
@@ -10436,8 +10440,8 @@ window.GANTT = {
       "parent": "8Z-2",
       "name": "A3a: A newcomer kept out of a forum refused by the attendance path",
       "status": "done",
-      "start": "2026-11-10T15:59",
-      "end": "2026-11-10T15:59"
+      "start": "2026-11-10T12:38",
+      "end": "2026-11-10T13:01"
     },
     {
       "id": "8Z-2.4",
@@ -10445,8 +10449,8 @@ window.GANTT = {
       "parent": "8Z-2",
       "name": "A3b: A report at a stop asks its regions, on the map and on Discord",
       "status": "done",
-      "start": "2026-11-10T15:59",
-      "end": "2026-11-10T15:59"
+      "start": "2026-11-10T13:01",
+      "end": "2026-11-10T13:13"
     },
     {
       "id": "8Z-2.5",
@@ -10454,8 +10458,8 @@ window.GANTT = {
       "parent": "8Z-2",
       "name": "A3c: Making a train or a meetup on Discord asks the forum",
       "status": "done",
-      "start": "2026-11-10T15:59",
-      "end": "2026-11-10T15:59"
+      "start": "2026-11-10T13:13",
+      "end": "2026-11-10T13:19"
     },
     {
       "id": "8Z-2.6",
@@ -10463,8 +10467,8 @@ window.GANTT = {
       "parent": "8Z-2",
       "name": "A4: Manage Channels for the legacy cleanup, member settings for staff, a Share where its sharer may write",
       "status": "done",
-      "start": "2026-11-10T15:59",
-      "end": "2026-11-10T15:59"
+      "start": "2026-11-10T13:19",
+      "end": "2026-11-10T13:28"
     },
     {
       "id": "8Z-2.7",
@@ -10472,8 +10476,8 @@ window.GANTT = {
       "parent": "8Z-2",
       "name": "A5: The kept screenshot for its reporter and staff alone",
       "status": "done",
-      "start": "2026-11-10T15:59",
-      "end": "2026-11-10T15:59"
+      "start": "2026-11-10T13:28",
+      "end": "2026-11-10T13:34"
     },
     {
       "id": "8Z-2.8",
@@ -10481,8 +10485,8 @@ window.GANTT = {
       "parent": "8Z-2",
       "name": "A6: The owner told by DM of a change of shared data",
       "status": "done",
-      "start": "2026-11-10T15:59",
-      "end": "2026-11-10T15:59"
+      "start": "2026-11-10T13:34",
+      "end": "2026-11-10T13:43"
     },
     {
       "id": "8Z-2.9",
@@ -10490,7 +10494,7 @@ window.GANTT = {
       "parent": "8Z-2",
       "name": "B1: A login waits for its exchange slot; three exchanges a minute per address",
       "status": "done",
-      "start": "2026-11-10T11:54",
+      "start": "2026-11-10T11:48",
       "end": "2026-11-10T11:54"
     },
     {
@@ -10571,8 +10575,8 @@ window.GANTT = {
       "parent": "8Z-2",
       "name": "D1: A MySQL with NO_BACKSLASH_ESCAPES refused; the schema’s name a plain name",
       "status": "done",
-      "start": "2026-11-10T13:58",
-      "end": "2026-11-10T15:03"
+      "start": "2026-11-10T11:48",
+      "end": "2026-11-10T12:03"
     },
     {
       "id": "8Z-2.19",
@@ -10580,8 +10584,8 @@ window.GANTT = {
       "parent": "8Z-2",
       "name": "D2: A dump carries no stored programs, and a restore refuses one that does",
       "status": "done",
-      "start": "2026-11-10T15:03",
-      "end": "2026-11-10T15:03"
+      "start": "2026-11-10T12:03",
+      "end": "2026-11-10T12:20"
     },
     {
       "id": "8Z-2.20",
@@ -10589,8 +10593,8 @@ window.GANTT = {
       "parent": "8Z-2",
       "name": "D3: The socket proxy answers the watchdog alone; MySQL on a network of its own",
       "status": "done",
-      "start": "2026-11-10T15:03",
-      "end": "2026-11-10T15:03"
+      "start": "2026-11-10T12:20",
+      "end": "2026-11-10T12:30"
     },
     {
       "id": "8Z-2.21",
@@ -10598,8 +10602,8 @@ window.GANTT = {
       "parent": "8Z-2",
       "name": "D4: The proxy and the tunnel pinned by digest, Dependabot, a read-only CI token",
       "status": "done",
-      "start": "2026-11-10T15:03",
-      "end": "2026-11-10T15:03"
+      "start": "2026-11-10T12:30",
+      "end": "2026-11-10T12:39"
     },
     {
       "id": "8Z-2.22",
@@ -10607,8 +10611,8 @@ window.GANTT = {
       "parent": "8Z-2",
       "name": "D5: The guides follow master, a tighter Mac host, small hardening of the stack",
       "status": "done",
-      "start": "2026-11-10T15:03",
-      "end": "2026-11-10T15:03"
+      "start": "2026-11-10T12:39",
+      "end": "2026-11-10T12:55"
     },
     {
       "id": "8Z-2.23",
@@ -10616,7 +10620,7 @@ window.GANTT = {
       "parent": "8Z-2",
       "name": "D6: typescript-eslint 8.72.2, vite 8.3.7",
       "status": "done",
-      "start": "2026-11-10T15:03",
+      "start": "2026-11-10T15:01",
       "end": "2026-11-10T15:06"
     },
     {
@@ -10625,8 +10629,8 @@ window.GANTT = {
       "parent": "8Z-2",
       "name": "C1: An export’s text counted before it is parsed; the gym import throttled",
       "status": "done",
-      "start": "2026-11-10T15:06",
-      "end": "2026-11-10T15:59"
+      "start": "2026-11-10T13:43",
+      "end": "2026-11-10T14:02"
     },
     {
       "id": "8Z-2.25",
@@ -10634,8 +10638,8 @@ window.GANTT = {
       "parent": "8Z-2",
       "name": "C2: Event pages read paragraph by paragraph, the feed’s links held to Leek Duck, the forum’s posts capped",
       "status": "done",
-      "start": "2026-11-10T15:59",
-      "end": "2026-11-10T15:59"
+      "start": "2026-11-10T14:02",
+      "end": "2026-11-10T14:19"
     },
     {
       "id": "8Z-2.26",
@@ -10643,8 +10647,8 @@ window.GANTT = {
       "parent": "8Z-2",
       "name": "C3: A board message’s pictures bounded before any is downloaded",
       "status": "done",
-      "start": "2026-11-10T15:59",
-      "end": "2026-11-10T15:59"
+      "start": "2026-11-10T14:19",
+      "end": "2026-11-10T14:26"
     },
     {
       "id": "8Z-2.27",
@@ -10652,8 +10656,8 @@ window.GANTT = {
       "parent": "8Z-2",
       "name": "C4: Small bounds on pictures, Google’s answers, place maps and a request’s words",
       "status": "done",
-      "start": "2026-11-10T15:59",
-      "end": "2026-11-10T16:00"
+      "start": "2026-11-10T14:26",
+      "end": "2026-11-10T14:52"
     },
     {
       "id": "8F-1",

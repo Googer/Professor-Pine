@@ -2089,6 +2089,7 @@ Right before the official release post (section 2 of `2026-10-16-phase-8l2-annou
 3. On `main-dev`, the next version as `2.1.0-dev` (Matt, 2026-11-09: `-dev` stays, the npm habit; the next version named, as features keep coming). At a release, `npm version <version>` sets `package.json` and the lockfile and tags in one step.
 4. **Production follows `master` from then on** (Matt): on the Air, `cd ~/professor-pine && git fetch && git switch master` (it tracks `origin/master`, which `./pine update` needs), then `./pine update` with Matt's go-ahead. The dev clone stays on `main-dev` for staging. A fix reaches production by a merge into `master`.
 5. Section 2's text: "`package.json` says `2.0.0-dev` today" and "the first push" are out of date; fix them with the release. CLAUDE.md's hard rule on pushing names `main-dev` only: add `master` (pushed for a release, when Matt asks) and that production runs it.
+6. Plan 8Z-2's notes for the release (the guides name `master`, so the push of `main-dev` and the release happen in one sitting; what the release notes say of the update) are under "From plan 8Z-2", at the end of this file.
 
 ## The cutover (Pittsburgh, 2026-11-09 night, the Air, main-dev 407908be; Claude drove, Matt as Googer)
 
@@ -3498,3 +3499,38 @@ Checks from the left-open lists of Phases 2 to 5 that only Discord or a staging 
 - **Fixed** (RED first): a "CP" read without its digits has its row read again, grey by the brightest channel and levels from 192 stretched, kept only when it gives more digits; without a CP the heads are looked for where the digits would stand beside the "CP" letters, and never under a hatched raid's countdown.
 - **Measured** (real-model `ocr:check`, `var/ocr/run-b2-*` against `run-c1-*`): the three now heads 3/3, boss 3/3, CP 2/3 (church's "8" hidden behind the Pokémon, the boss found by the name); every labelled folder unchanged, the fakes' and splits' differences only splits read late under load (each re-read alone as before). Check 13,290, build, db 817 green.
 - **Production:** waits for the release with the other session's audits (Matt); the dev instance updated.
+
+## From plan 8Z-2 (the fixes of the audit of 2026-11-10; built, reviewed and merged 2026-11-10)
+
+A second audit before the release (six readers, then every Medium checked in the code or measured) found nothing Critical or High, no SQL injection and no XSS. Matt ruled on eight points and asked for every finding to be fixed. Plan 8Z-2 did that in 27 tasks: who may change a meetup's times, logins and reads under load, which regions the public map shows, bounds on files, feeds and pictures, the Docker stack's proxy, networks, limits and pinned images, backups without stored programs, and the query plans with migration 050. Each group was prototyped, reviewed and fixed, and the whole branch reviewed once more; the report and the briefs are in the git-ignored `var/audit/2026-11-10/`.
+
+**Rulings worth knowing (Matt, 2026-11-10).** A meetup's start and end are its maker's and staff's on every surface, and they need not be signed up. A region is on the public map when `@everyone` or one self-assignable role of Pine's roster can view its forum (Pittsburgh's regions all sit behind such roles). A member kept out of a forum is refused on every path; a forum only hidden until joined stays open. Shared data (event windows, boss overrides) stays trust between servers, and the owner is told by DM. The kept screenshot is shown to its reporter and staff only. Dependabot's pull requests against `main-dev` are the one kind the project takes. A month's train list on the history page stops at fifty and says "(50+)".
+
+**Tried on the Air's dev stack (2026-11-10), by a real `./pine update` run by the old script:** the update itself; every container healthy on the pinned arm64 images; the `db` network internal with only MySQL, the bot and the backup on it, the map answering through the tunnel; a stranger on the proxy's network refused (403); the backup as the bot's own account on mysqldump 9.7, verified; no root password in the backup container; the backup's peak at 636 MiB of 2 GiB and 41 of 512 threads (MySQL 604 MiB, 44 threads) on a database with Pittsburgh's whole history; the restore's check passing on a dump made by the old code and on a new one, with macOS's own tools; migration 050 and its five indexes.
+
+**Staging not run yet:**
+- A meetup's `/end`, `/meet` and `/cancel-meet` by a member who is not its maker; the maker and a moderator setting the start without being signed up; the moderators' post getting the change line from a command, Manage… and the map.
+- A member kept out of a forum: Join on a post, on a copy and on the map; `/location` into that forum; `/train` and `/meetup` there; a research and a Rocket report at a stop of that region.
+- A login link from `/maps` in a browser with no session, with the same account's session, and with another account's ("You are logged in as … Continue as …").
+- The public map logged out: Pittsburgh's regions and gyms appear (if not, the region roles are not on Pine's roster or the bot lacks Manage Roles), each named after its forum. On a server with a staff-only region: a member who opens the map right after a restart gets that region once Discord answers, without a reload.
+- One picture of each source still loads (a Wayfarer picture beside a post's Where, an emoji on the map, a Static Map): pictures are no longer fetched through a redirect.
+- `/stats` Share in a channel where the sharer may not write; the kept screenshot's question as another member sees it; `/admin cleanup-legacy` without Manage Channels; `/admin member-settings` as a bot developer who is no moderator.
+- `/admin event-window set` and a boss override by someone other than the owner: the owner's DM.
+- A moderator's Approve while Discord cannot say whether the maker is kept out: the request stays open, a second press approves.
+- `deploy-commands` on the dev application (the group options' new maxima and the help texts).
+
+**Left open, on purpose or for later:**
+- "Log out everywhere" on the web (a session is ended only by its own logout, by the cap of ten per account, or by its age).
+- Discord's limit of active threads in a forum: what Pine does when a server reaches it needs a look at Discord's live behavior.
+- The map page still carries the words "Sign up for it to change when it starts." for a meetup's start, which no answer of the server reaches any more (`panel.start` is always true): remove both.
+- `/gym import`: a file inside the format's bounds but with unusual keys can still take about a second to read (staff only, three uses in ten minutes). Closing it means refusing unknown keys, which changes the format's tolerance.
+- `/gym review`'s queue and the saved routes' search by name still scan their tables (small today).
+- The activity heatmap's kept reads are bounded by entries, not by rows (about 100 MB at worst for Pittsburgh, freed at the next read after a minute).
+- A press that Discord could not check ("nothing is decided yet") still counts in the moderators' throttle.
+- The Mac guide's new steps (keys-only SSH, the application firewall, the NAS's restricted key and its script) were written from the documentation and tried against a stand-in for rsync only: try them on a host.
+- ShellCheck's pin in CI is bumped by hand (Dependabot does not read a `docker run` line). After the first push: look at the CI run (the actions moved to checkout v7.0.1 and setup-node v7.1.0 when pinned) and at the repository's settings (Dependabot version updates on).
+- The export tool's own check against the package's two additions (`fitOneExport`, the parts' problem `too-many`): run it once in `../Professor-Pine-Wayfarer-Export`.
+
+**For the release (add to "The release of v2.0.0"):**
+- The guides and the README now name `master`: push `main-dev` and make the release in one sitting, or a new admin clones the old bot.
+- Release notes: `./pine update` recreates MySQL, the bot and the backup once (a new internal network; a short outage). `DB_SCHEMA` must be letters, digits, `_` and inner `-`. A database with triggers, routines, events or views is still backed up, with a warning the owner is told of; `./pine restore` refuses a dump that holds stored programs unless `--allow-programs`. Going back to the version before needs the row of migration 050 removed first (`operations.md`, "Going back a version"); that version also counts the month's `/find-region` maps as place questions. `./pine deploy-commands` after the update.

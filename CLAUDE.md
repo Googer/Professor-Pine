@@ -34,7 +34,7 @@ Discord bot for organizing Pokémon Go raids, in TypeScript on discord.js v14: o
 
 ## Status
 
-Every phase up to the security pass 8Z is built and merged. **Pittsburgh cut over on the night of 2026-11-09**: the production bot runs on the Air's `~/professor-pine` stack (`ssh <account>@<host>`, `cd ~/professor-pine && ./pine …`); legacy Pine at the office is stopped, its service on manual start. Every `./pine` command there that contacts Discord is the live production bot: Matt's go-ahead first.
+Every phase up to the security pass 8Z and the fixes of the second audit (plan 8Z-2, 2026-11-10: follow-ups, "From plan 8Z-2"; its staging is not run but for the stack on the dev instance) is built and merged. **Pittsburgh cut over on the night of 2026-11-09**: the production bot runs on the Air's `~/professor-pine` stack (`ssh <account>@<host>`, `cd ~/professor-pine && ./pine …`); legacy Pine at the office is stopped, its service on manual start. Every `./pine` command there that contacts Discord is the live production bot: Matt's go-ahead first.
 
 - **Not announced yet** (Matt decides when); then `/admin tutorial` in `#raid-bot-tutorial`. What is left of the night: follow-ups, "The cutover".
 - **8Z's staging** ran on 2026-11-01/02 on the Air's dev stack: nearly every step passes, one Minor finding and a few steps are left (follow-ups, "From the staging run of 8Z").
