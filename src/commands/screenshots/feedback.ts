@@ -13,7 +13,7 @@ import type { AppContext } from '../../app-context.js';
 import type { ComponentHandler } from '../../discord/command.js';
 import { encodeCustomId } from '../../discord/custom-id.js';
 import { UserError } from '../../discord/errors.js';
-import { requireGuild } from '../../discord/guards.js';
+import { isStaff, requireGuild } from '../../discord/guards.js';
 import { v2Answer } from '../../discord/late-reply.js';
 import { STALE_COMPONENT } from '../../discord/router.js';
 import { MEMBER_WRITE_THROTTLE } from '../../discord/throttle.js';
@@ -194,9 +194,30 @@ export function maxDecisionWords(
 }
 
 /**
- * Shows a member privately the kept screenshot itself (so they can read what Pine could not),
- * what was read and what Pine made of it, with "All right" and "Something is wrong". For the
- * post's "Screenshot feedback" button and the reporter's.
+ * What a member is asked who is shown the reading without the kept picture (`mayLookAt`): the
+ * game is what they can compare it with, not a picture they cannot see.
+ */
+export const ASKED_WITHOUT_PICTURE = 'Does this match what you see in the game?';
+
+/**
+ * Whether a member is shown a kept screenshot itself (Matt's ruling 6 of 2026-11-10; the audit's
+ * L-D4): the member who sent it, and the server's staff (`isStaff`: admins, moderators, the
+ * owner; not bot developers). The picture is a member's whole screen, with whatever else was on
+ * it; everybody else gets the reading alone, and can still say it is wrong.
+ */
+function mayLookAt(
+  interaction: ButtonInteraction,
+  ctx: AppContext,
+  record: { senderId: string },
+): boolean {
+  return record.senderId === interaction.user.id || isStaff(interaction, ctx);
+}
+
+/**
+ * Shows a member privately what was read of a kept screenshot and what Pine made of it, with
+ * "All right" and "Something is wrong"; and, to its reporter and to staff (`mayLookAt`), the
+ * kept screenshot itself, so that they can read what Pine could not. For the post's "Screenshot
+ * feedback" button and the reporter's.
  */
 export async function showScreenshot(
   interaction: ButtonInteraction,
@@ -212,10 +233,12 @@ export async function showScreenshot(
     return;
   }
   const { record } = kept;
-  const shown = kept.path === undefined || record.file === null ? undefined : record.file;
+  const looks = mayLookAt(interaction, ctx, record);
+  const shown = !looks || kept.path === undefined || record.file === null ? undefined : record.file;
   const shot = {
-    question:
-      record.file === null
+    question: !looks
+      ? ASKED_WITHOUT_PICTURE
+      : record.file === null
         ? 'Is this what the picture shows?'
         : 'Is this what the screenshot shows?',
     picture: shown === undefined ? undefined : `attachment://${shown}`,

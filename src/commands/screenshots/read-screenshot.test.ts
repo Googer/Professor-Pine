@@ -23,7 +23,7 @@ import { createTestContext } from '../../../test/support/test-context.js';
 import { InteractionRouter } from '../../discord/router.js';
 import type { ScreenReading } from '../../ocr/screen-reader.js';
 import type { OcrOutcome } from '../../services/ocr-service.js';
-import { screenshotControls } from './feedback.js';
+import { ASKED_WITHOUT_PICTURE, screenshotControls } from './feedback.js';
 import { readScreenshot } from './read-screenshot.js';
 
 const MEMBER = '700000000000000001';
@@ -286,16 +286,32 @@ describe('/read-screenshot', () => {
     expect(sent(show.editReply).content).toBe('That screenshot is no longer kept.');
   });
 
-  it('shows the screenshot itself with what was read', async () => {
+  it('shows the member who sent it the screenshot itself with what was read', async () => {
     const { read, handled } = setup();
     const used = await read('egg.png', eggReading('Old Stone Fountain', 5, null, 600));
     const id = shownId(sent(used.editReply));
-    const show = await handled(fakeButton({ customId: `shot:${id}:show`, userId: OTHER }));
+    const show = await handled(fakeButton({ customId: `shot:${id}:show`, userId: MEMBER }));
     const answer = sent(show.editReply);
     expect(said(answer)).toContain('Is this what the screenshot shows?');
     expect(answer.files).toEqual([expect.objectContaining({ name: `${id}.png` })]);
     expect(thumbnailOf(asV2(answer))).toBe(`attachment://${id}.png`);
     expectV2Sendable(asV2(answer));
+    expect(shownId(answer)).toBe(id);
+  });
+
+  // Plan 8Z-2 (Matt's ruling 6): the picture is its sender's and staff's to see.
+  it('shows anybody else what was read without the screenshot, and asks of no picture', async () => {
+    const { read, handled } = setup();
+    const used = await read('egg.png', eggReading('Old Stone Fountain', 5, null, 600));
+    const id = shownId(sent(used.editReply));
+    const show = await handled(fakeButton({ customId: `shot:${id}:show`, userId: OTHER }));
+    const answer = sent(show.editReply);
+    expect(said(answer)).toContain('**Gym:** read `Old Stone Fountain`');
+    expect(said(answer)).toContain(ASKED_WITHOUT_PICTURE);
+    expect(answer.files).toEqual([]);
+    expect(thumbnailOf(asV2(answer))).toBeUndefined();
+    expectV2Sendable(asV2(answer));
+    // The answers stand under it all the same.
     expect(shownId(answer)).toBe(id);
   });
 

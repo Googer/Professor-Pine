@@ -136,24 +136,67 @@ describe('/raid with a screenshot', () => {
     expect(used.followUp).not.toHaveBeenCalled();
   });
 
-  it('offers the screenshot on the post to anybody, with what was read, while the raid lasts', async () => {
+  // The audit of 2026-11-10 (L-D4; Matt's ruling 6): the whole kept picture (a member's own
+  // screen: their name, their friends, their notifications) went to anybody who pressed.
+  it('offers what was read on the post to anybody, the kept picture to its reporter and staff alone, while the raid lasts', async () => {
     const { report, store, service, gateway, handle } = await setup();
-    await report(eggReading('Old Stone Fountain', 5, CLOCK, 20 * 60));
+    const REPORTER_ID = '700000000000000001';
+    await report(eggReading('Old Stone Fountain', 5, CLOCK, 20 * 60), {}, { userId: REPORTER_ID });
     await service.flush();
     const [party] = store.active();
     if (!party || !isRaid(party)) throw new Error('no raid');
     const id = party.raid.screenshot?.id ?? '';
+    const button = `party:${party.id}:shot`;
     const buttons = buttonsOf(gateway.posts.get(party.forumPostId ?? '')?.message);
-    expect(buttons.at(-1)).toMatchObject({
-      customId: `party:${party.id}:shot`,
-      label: 'Screenshot feedback',
-    });
-    const pressed = await handle(
-      fakeButton({ customId: `party:${party.id}:shot`, userId: '700000000000000009' }),
+    expect(buttons.at(-1)).toMatchObject({ customId: button, label: 'Screenshot feedback' });
+    const press = async (extra: FakeOptions) =>
+      sent((await handle(fakeButton({ customId: button, ...extra }))).editReply);
+    const picture = [expect.objectContaining({ name: `${id}.png` })];
+
+    // Anybody else: the reading and the question, in words that ask of no picture, and both
+    // answers; no file, and nothing in the message that names one.
+    const other = await press({ userId: '700000000000000009' });
+    expect(other.files).toEqual([]);
+    const text = textOf(asV2(other));
+    expect(text).toContain('**Gym:** read `Old Stone Fountain`');
+    expect(text).toContain('Does this match what you see in the game?');
+    expect(text).not.toContain('screenshot shows');
+    expect(JSON.stringify(other.components)).not.toContain('attachment://');
+    expect(buttonsOf(asV2(other)).map((one) => one.label)).toEqual([
+      'All right',
+      'Something is wrong…',
+    ]);
+    // A bot developer is no staff of the server.
+    const developer = await press({ userId: '700000000000000008', roleNames: ['Bot Developer'] });
+    expect(developer.files).toEqual([]);
+
+    // Its reporter, and the server's staff, see the picture and are asked about it.
+    const own = await press({ userId: REPORTER_ID });
+    expect(own.files).toEqual(picture);
+    expect(textOf(asV2(own))).toContain('Is this what the screenshot shows?');
+    const staff = await press({ userId: '700000000000000007', roleNames: ['Moderator'] });
+    expect(staff.files).toEqual(picture);
+    expect(JSON.stringify(staff.components)).toContain(`attachment://${id}.png`);
+  });
+
+  it('takes the feedback of a member who was shown no picture', async () => {
+    const { report, store, service, handle, screenshots } = await setup();
+    await report(
+      eggReading('Old Stone Fountain', 5, CLOCK, 20 * 60),
+      {},
+      { userId: '700000000000000001' },
     );
-    const shown = sent(pressed.editReply);
-    expect(shown.files).toEqual([expect.objectContaining({ name: `${id}.png` })]);
-    expect(textOf(asV2(shown))).toContain('**Gym:** read `Old Stone Fountain`');
+    await service.flush();
+    const [party] = store.active();
+    if (!party || !isRaid(party)) throw new Error('no raid');
+    const id = party.raid.screenshot?.id ?? '';
+    const right = await handle(
+      fakeButton({ customId: `shot:${id}:right`, userId: '700000000000000009' }),
+    );
+    expect(sent(right.reply).content).toBe('Thank you: this helps me read screenshots better.');
+    expect(await screenshots.get(id)).toMatchObject({
+      record: { feedback: [{ memberId: '700000000000000009', by: 'other', verdict: 'right' }] },
+    });
   });
 
   it('keeps the button on the copies of the post, and answers it once the raid is over', async () => {
