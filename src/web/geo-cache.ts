@@ -61,7 +61,8 @@ export function etagMatches(header: string | string[] | undefined, etag: string)
  * The views of each server (`geoView`), built once and kept (spec 3.1), two per server (plan
  * 8Z-2): the members', of every region, and the public one, of the regions everybody in the
  * server can view (`publicRegions` over the gates as Discord has them now) and the gyms that lie
- * in those. Each is kept under its audience and never answers the other's question. A view is
+ * in those, each named by its gate (F-B1: the text channel of a region whose forum is public may
+ * not be). Each is kept under its audience and never answers the other's question. A view is
  * built anew when the gyms or the regions changed (their generations), a region's channel was
  * renamed (the names are read at each request, which costs a pass over the server's channels)
  * or, the public one, when who views a region's gate changed (asked at each request, from the
@@ -87,9 +88,11 @@ export class GeoCache {
         ? own
         : publicRegions(own, channels.everyoneViews(own.map(regionGate)));
     const known = new Map((channels.serverChannels(guildId) ?? []).map((c) => [c.id, c.name]));
+    // Named, for the public, by the gate that let the region in (F-B1): its text channel may be
+    // one the public cannot view. Kept under the text channel, by which the view finds names.
     const channelNames = new Map(
       shown.flatMap((region) => {
-        const name = known.get(region.channelId);
+        const name = known.get(audience === 'public' ? regionGate(region) : region.channelId);
         return name === undefined ? [] : [[region.channelId, name] as const];
       }),
     );

@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 import { FAKE_GUILD_ID } from '../../test/support/fake-interactions.js';
-import { EAST_CHANNEL, EAST_FORUM, WEST_CHANNEL, WEST_FORUM } from '../../test/support/gyms.js';
+import { EAST_CHANNEL, EAST_FORUM, WEST_FORUM } from '../../test/support/gyms.js';
 import { FakeMemberDirectory } from '../../test/support/members.js';
 import { geoSourcesWith, webServerWith, type TestWeb } from '../../test/support/web.js';
 
@@ -171,9 +171,18 @@ describe('the regions a visitor may not see (plan 8Z-2, ruling 8)', () => {
     const sources = await geoSourcesWith();
     // East's text channel is hidden, its forum is not: the forum decides.
     sources.hidden.add(EAST_CHANNEL);
+    sources.channelNames.set(EAST_CHANNEL, 'east-staff-only');
+    sources.channelNames.set(EAST_FORUM, 'east-raids');
     web = webServerWith({ geo: sources });
-    const shown = async () =>
-      (await web?.app.inject({ url: GEO }))?.json<Shown>().regions.map((region) => region.id);
+    const answer = async () => (await web?.app.inject({ url: GEO }))?.json<Shown>();
+    const shown = async () => (await answer())?.regions.map((region) => region.id);
+    // Named by its forum, the channel that let it in: the hidden channel's name is nowhere.
+    const visitor = await answer();
+    expect(visitor?.regions.map((region) => [region.id, region.name])).toEqual([
+      [2, 'east-raids'],
+      [1, 'west'],
+    ]);
+    expect(JSON.stringify(visitor)).not.toContain('east-staff-only');
     expect(await shown()).toEqual([2, 1]);
     // Without a forum the text channel decides.
     sources.regionRows.rows = sources.regionRows.rows.map((region) =>
@@ -181,6 +190,14 @@ describe('the regions a visitor may not see (plan 8Z-2, ruling 8)', () => {
     );
     await sources.regions.load();
     expect(await shown()).toEqual([1]);
+  });
+
+  it('are named for a member by their text channel, as before', async () => {
+    const { ask, ash, sources } = await hiddenEast();
+    sources.channelNames.set(EAST_CHANNEL, 'east-chat');
+    sources.channelNames.set(EAST_FORUM, 'east-raids');
+    const names = (await ask(ash)).json<Shown>().regions.map((region) => region.name);
+    expect(names).toEqual(['east-chat', 'west']);
   });
 });
 
@@ -241,7 +258,8 @@ describe('the regions and gyms of a server', () => {
     await sources.regions.load();
     expect((await named())?.regions.map((region) => region.name)).toEqual(['west']);
 
-    sources.channelNames.set(WEST_CHANNEL, 'west-end');
+    // A visitor's view names a region by its forum (F-B1).
+    sources.channelNames.set(WEST_FORUM, 'west-end');
     expect((await named())?.regions.map((region) => region.name)).toEqual(['west-end']);
 
     expect(new Set(etags).size).toBe(4);

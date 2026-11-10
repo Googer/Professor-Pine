@@ -49,7 +49,7 @@ import { FakePartyGateway } from './fake-gateway.js';
 import { FAKE_GUILD_ID } from './fake-interactions.js';
 import { TEST_ENV } from './test-env.js';
 import { gymDirectoryWith } from './gym-store.js';
-import { EAST_CHANNEL, testRegions, WEST_CHANNEL } from './gyms.js';
+import { EAST_CHANNEL, EAST_FORUM, testRegions, WEST_CHANNEL, WEST_FORUM } from './gyms.js';
 import { FakeMemberDirectory } from './members.js';
 import { regionAdminWith } from './region-admin.js';
 import { createTestLogger } from './test-logger.js';
@@ -87,9 +87,13 @@ export async function geoSourcesWith() {
     log,
   });
   await regions.load();
+  // The regions' forums are named as their text channels: the public view names a region by its
+  // forum (plan 8Z-2, F-B1), a member's by its text channel.
   const channelNames = new Map([
     [WEST_CHANNEL, 'west'],
     [EAST_CHANNEL, 'east'],
+    [WEST_FORUM, 'west'],
+    [EAST_FORUM, 'east'],
   ]);
   // Who everybody in the server can view (plan 8Z-2): every gate asked of, but those a test
   // hides from everybody (`hidden`) and those the bot's cache lacks (`unseen`: nothing is said).
