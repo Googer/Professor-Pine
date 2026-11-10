@@ -198,4 +198,18 @@ describe('/admin member-settings', () => {
       ),
     ).toBe('Only admins, moderators and bot developers can do that.');
   });
+
+  // The audit of 2026-11-10 (L-D6): a member's opt-ins, friend code and wants are the server's
+  // staff's to look at, not a bot developer's (who has the other parts of `/admin`).
+  it('is for admins, moderators and the owner alone: a bot developer is refused', async () => {
+    const made = await setup();
+    const developer = { ...ash(), userId: MEMBER, roleNames: ['Bot Developer'] };
+    const refused = textOf(await made.use(null, 'member-settings', {}, developer));
+    expect(refused).toBe('Only admins and moderators can do that.');
+    expect(refused).not.toContain('Ash');
+    const moderator = { ...ash(), userId: MEMBER, roleNames: ['Moderator'] };
+    expect(textOf(await made.use(null, 'member-settings', {}, moderator))).toContain(
+      'Settings of **Ash of Pallet**',
+    );
+  });
 });

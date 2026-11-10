@@ -12,7 +12,7 @@ import type { ComponentHandler } from '../../discord/command.js';
 import type { SubcommandPart } from '../../discord/command-group.js';
 import { encodeCustomId, type CustomId } from '../../discord/custom-id.js';
 import { UserError } from '../../discord/errors.js';
-import { requireBotManagement } from '../../discord/guards.js';
+import { managesChannels, requireBotManagement } from '../../discord/guards.js';
 import { discordPayload } from '../../discord/party-gateway.js';
 import type { CleanupEntry, CleanupList, DeleteOutcome } from '../../ops/legacy-cleanup.js';
 import { count, plain, truncate } from '../../render/text.js';
@@ -128,16 +128,26 @@ const STAYS_HEADING = (n: number) =>
   `Not deleted (${n}): legacy trains, meetups and saved parties, which stay as plain channels; ` +
   'delete by hand the ones that are dead:';
 
+/** Said under the list to staff who may not delete a channel by hand: the list is all they get. */
+export const CLEANUP_LISTS_ONLY =
+  'Deleting these channels takes the Manage Channels permission, which you lack: nothing can ' +
+  'be deleted from here.';
+
+/** Said at the Delete press of staff who lack Manage Channels (by then). */
+export const CLEANUP_NOT_ALLOWED =
+  'Deleting channels takes the Manage Channels permission, which you lack. Nothing was deleted.';
+
 /**
  * The answer of the list: what was read, what would be deleted and what is left to a person, the
- * whole list as a file when it does not fit, and the buttons (none in rehearsal mode or when
- * there is nothing to delete).
+ * whole list as a file when it does not fit, and the buttons (none in rehearsal mode, for staff
+ * without Manage Channels, `listsOnly`, or when there is nothing to delete).
  */
 function listAnswer(
   list: CleanupList,
   files: LegacyFiles,
   buttons: APIButtonComponent[],
   rehearsal: boolean,
+  listsOnly: boolean,
 ) {
   const sections = [
     `**To delete (${list.remove.length}):**`,
@@ -159,6 +169,7 @@ function listAnswer(
     ...(rehearsal
       ? ['Rehearsal mode: nothing is deleted now. Run this again after the cutover.']
       : []),
+    ...(listsOnly && list.remove.length > 0 ? [CLEANUP_LISTS_ONLY] : []),
     ...(buttons.length > 0
       ? [
           `Only you can confirm, within ${CLEANUP_MINUTES} minutes. The channels are deleted one ` +
@@ -261,7 +272,8 @@ async function regionChannels(
  * `/admin cleanup-legacy`: the channels of the legacy bot's parties, in two steps. The list
  * (read only): the channels the legacy `active/` files name and the orphans, each with why, and
  * apart what only looks like one; then "Delete these n channels", which only the one who asked
- * may press, within `CLEANUP_MINUTES`. In rehearsal mode it only lists.
+ * may press, within `CLEANUP_MINUTES`. In rehearsal mode it only lists, and so it does for staff
+ * who may not manage the server's channels (`managesChannels`, asked again at the press).
  */
 export const cleanupLegacy: SubcommandPart = {
   data: new SlashCommandSubcommandBuilder()
@@ -278,7 +290,9 @@ export const cleanupLegacy: SubcommandPart = {
       'message.\n\nWhat only looks like ' +
       'such a channel is listed apart and never deleted, and so are the channels of its trains, ' +
       'meetups and saved parties, which stay as plain channels.\n\nNothing is deleted until you press ' +
-      `"Delete" under the list, within ${CLEANUP_MINUTES} minutes; the channels then go one at a time.`,
+      `"Delete" under the list, within ${CLEANUP_MINUTES} minutes; the channels then go one at a time.` +
+      '\n\nDeleting takes the Manage Channels permission, as deleting a channel by hand does: ' +
+      'without it you get the list alone.',
     examples: ['/admin cleanup-legacy'],
   },
   defer: 'ephemeral',
@@ -290,8 +304,11 @@ export const cleanupLegacy: SubcommandPart = {
       await regionChannels(ctx, guildId),
     );
     const rehearsal = ctx.rehearsal !== undefined;
+    // Deleting a channel through the bot takes what deleting it by hand takes (the audit's
+    // L-D3, as `/region remove`): without it the list is all there is, and the press asks again.
+    const listsOnly = !managesChannels(interaction);
     const buttons =
-      rehearsal || list.remove.length === 0
+      rehearsal || listsOnly || list.remove.length === 0
         ? []
         : (() => {
             const entries = list.remove.slice(0, CLEANUP_PER_RUN);
@@ -309,7 +326,7 @@ export const cleanupLegacy: SubcommandPart = {
               button(token, 'cancel', 'Cancel', ButtonStyle.Secondary),
             ];
           })();
-    await interaction.editReply(listAnswer(list, files, buttons, rehearsal));
+    await interaction.editReply(listAnswer(list, files, buttons, rehearsal, listsOnly));
   },
 };
 
@@ -321,6 +338,12 @@ async function pressed(
   id: CustomId,
   ctx: AppContext,
 ): Promise<void> {
+  // Asked again at the press (the permission may have gone since the list), before the question
+  // is taken: it stands for its time, should the permission come back.
+  if (id.action === 'delete' && !managesChannels(interaction)) {
+    if (pending.peek(id.id, interaction.user.id) === 'not-yours') throw new UserError(NOT_YOURS);
+    throw new UserError(CLEANUP_NOT_ALLOWED);
+  }
   const found = pending.take(id.id, interaction.user.id);
   if (found === 'not-yours') throw new UserError(NOT_YOURS);
   if (found === 'expired') {

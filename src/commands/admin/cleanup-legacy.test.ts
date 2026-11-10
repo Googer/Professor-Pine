@@ -1,7 +1,7 @@
 import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
-import { ChannelType, MessageFlags } from 'discord.js';
+import { ChannelType, MessageFlags, PermissionFlagsBits } from 'discord.js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   FAKE_BOT_ID,
@@ -111,21 +111,28 @@ function setup(
     ...(options.rehearsal ? { rehearsal: options.rehearsal } : {}),
   });
   const router = new InteractionRouter(ctx, [admin], [cleanupControls]);
-  const ask = async () => {
+  /** By staff who may manage the server's channels, unless `permissions` says what they may. */
+  const ask = async (permissions = PermissionFlagsBits.ManageChannels) => {
     const interaction = fakeChatInput({
       commandName: 'admin',
       subcommand: 'cleanup-legacy',
       roleNames: ['Admin'],
       userId: STAFF,
+      permissions,
     });
     await router.handle(interaction as never);
     return interaction;
   };
-  const press = async (customId: string, userId = STAFF) => {
+  const press = async (
+    customId: string,
+    userId = STAFF,
+    permissions = PermissionFlagsBits.ManageChannels,
+  ) => {
     const interaction = fakeButton({
       customId,
       userId,
       roleNames: ['Admin'],
+      permissions,
       askedBy: STAFF,
       ephemeralMessage: true,
       v2Message: true,
@@ -236,6 +243,32 @@ describe('/admin cleanup-legacy', () => {
     const pressed = await press(remove ?? '', OTHER_STAFF);
     expect(sent(pressed.reply).content).toBe('That is somebody else’s question.');
     expect(api.deleted).toEqual([]);
+  });
+
+  // The audit of 2026-11-10 (L-D3): the bot deleted channels for staff who could not delete one
+  // by hand. As `/region remove`: what deleting by hand takes, read of the server.
+  it('only lists for staff without Manage Channels, saying what deleting takes', async () => {
+    const { api, ask } = setup();
+    const answer = answerOf(await ask(PermissionFlagsBits.ManageMessages));
+    expect(textOf(answer)).toContain('**To delete (2):**');
+    expect(buttonLabels(answer)).toEqual([]);
+    expect(textOf(answer)).toContain(
+      'Deleting these channels takes the Manage Channels permission, which you lack: nothing can be deleted from here.',
+    );
+    expect(api.onlyRead()).toBe(true);
+  });
+
+  it('deletes nothing at the press of staff who lack Manage Channels by then, and says so', async () => {
+    const { api, ask, press } = setup();
+    const [remove] = customIdsOf(answerOf(await ask()));
+    const pressed = await press(remove ?? '', STAFF, 0n);
+    expect(sent(pressed.reply).content).toBe(
+      'Deleting channels takes the Manage Channels permission, which you lack. Nothing was deleted.',
+    );
+    expect(api.deleted).toEqual([]);
+    // The question stands: with the permission back, the same press deletes.
+    await press(remove ?? '');
+    expect(api.deleted).toHaveLength(2);
   });
 
   it('deletes nothing once its time is up, nor on Cancel', async () => {

@@ -4,6 +4,7 @@ import {
   ComponentType,
   MessageFlags,
   MessageFlagsBitField,
+  PermissionFlagsBits,
   PermissionsBitField,
   type APIEmbed,
 } from 'discord.js';
@@ -59,6 +60,14 @@ export interface SentPayload {
 }
 
 type OptionValue = string | number | boolean | null;
+
+/**
+ * What a member who may write where an interaction came from has there
+ * (`FakeOptions.memberPermissions`): Send Messages, and Send Messages in Threads for a post. A
+ * fake member has no permission in the channel unless a test gives one.
+ */
+export const MAY_WRITE =
+  PermissionFlagsBits.SendMessages | PermissionFlagsBits.SendMessagesInThreads;
 
 /** An option as discord.js's `options.data` holds it (`CommandInteractionOption`). */
 interface FakeOptionData {

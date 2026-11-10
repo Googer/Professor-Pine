@@ -5,6 +5,7 @@ import {
   answered,
   asV2,
   fakeButton,
+  MAY_WRITE,
   fakeChatInput,
   FAKE_GUILD_ID,
   sent,
@@ -19,6 +20,7 @@ import {
   EAST_FORUM,
   UNBOUNDED_CHANNEL,
   WEST_CHANNEL,
+  WEST_FORUM,
 } from '../../../test/support/gyms.js';
 import { buttonsOf, textDisplays, v2 } from '../../../test/support/messages.js';
 import { regionTalliesWith } from '../../../test/support/region-tallies.js';
@@ -28,7 +30,7 @@ import { zonedAt } from '../../../test/support/time.js';
 import type { V2Message } from '../../discord/party-gateway.js';
 import { InteractionRouter, STALE_COMPONENT } from '../../discord/router.js';
 import { LATE_DEFER_MS } from '../../discord/late-reply.js';
-import { SHARE_REFUSED, SHARE_UNKNOWN, stats, statsControls } from './stats.js';
+import { SHARE_NOT_YOURS, SHARE_REFUSED, SHARE_UNKNOWN, stats, statsControls } from './stats.js';
 
 const ASH = '700000000000000001';
 const MISTY = '700000000000000002';
@@ -79,6 +81,7 @@ async function setup() {
       askedBy: userId,
       ephemeralMessage: true,
       v2Message: true,
+      memberPermissions: MAY_WRITE,
     });
     await router.handle(interaction as never);
     return interaction;
@@ -430,6 +433,7 @@ describe('Share of the region tally', () => {
       askedBy: ASH,
       ephemeralMessage: true,
       v2Message: true,
+      memberPermissions: MAY_WRITE,
     });
     await made.router.handle(pressed as never);
     const [mods] = made.gateway.messagesIn(EAST_CHANNEL);
@@ -453,6 +457,7 @@ describe('Share of the region tally', () => {
       askedBy: ASH,
       ephemeralMessage: true,
       v2Message: true,
+      memberPermissions: MAY_WRITE,
     });
     await made.router.handle(pressed as never);
     // Only the moderators see East's forum: its tally keeps East.
@@ -507,6 +512,7 @@ describe('Share of the region tally', () => {
         askedBy: ASH,
         ephemeralMessage: true,
         v2Message: true,
+        memberPermissions: MAY_WRITE,
       });
       await made.router.handle(pressed as never);
       return pressed;
@@ -531,6 +537,56 @@ describe('Share of the region tally', () => {
     expect(sent(shared.followUp).content).toBe('Shared in this channel.');
   });
 
+  // The audit of 2026-11-10 (L-D5): the bot posted for a member who may not write there (a
+  // read-only channel, a member muted by a role), with their name on it.
+  it('refuses a sharer who may not send messages there themselves, counting no use', async () => {
+    const made = await setup();
+    const share = async (extra: object) => {
+      const pressed = fakeButton({
+        customId: 'stats:regions:share:month',
+        userId: ASH,
+        displayName: 'Ash',
+        channelId: WEST_CHANNEL,
+        askedBy: ASH,
+        ephemeralMessage: true,
+        v2Message: true,
+        ...extra,
+      });
+      await made.router.handle(pressed as never);
+      return pressed;
+    };
+    const readOnly = PermissionFlagsBits.ViewChannel | PermissionFlagsBits.SendMessagesInThreads;
+    for (let n = 0; n < 4; n++) {
+      const pressed = await share({ memberPermissions: readOnly });
+      expect(sent(pressed.reply).content).toBe(SHARE_NOT_YOURS);
+    }
+    expect(made.gateway.messagesIn(WEST_CHANNEL)).toEqual([]);
+    // In a post it takes Send Messages in Threads, not Send Messages.
+    const post =
+      (await made.gateway.createPost(WEST_FORUM, {
+        title: 'Raids',
+        message: { content: 'x' },
+        tagIds: [],
+      })) ?? '';
+    const inPost = { channelId: post, thread: { parentId: WEST_FORUM } };
+    const before = made.gateway.messagesIn(post).length;
+    const muted = await share({
+      ...inPost,
+      memberPermissions: PermissionFlagsBits.SendMessages,
+    });
+    expect(sent(muted.reply).content).toBe(SHARE_NOT_YOURS);
+    expect(made.gateway.messagesIn(post)).toHaveLength(before);
+    const may = await share({
+      ...inPost,
+      memberPermissions: PermissionFlagsBits.SendMessagesInThreads,
+    });
+    expect(sent(may.followUp).content).toBe('Shared in this channel.');
+    expect(SHARE_NOT_YOURS).toBe(
+      'You may not send messages in this channel, so I cannot share the list here for you. ' +
+        'Try a channel where you can.',
+    );
+  });
+
   it('refuses in words where it cannot tell who sees the channel, posting nothing (R3)', async () => {
     const made = await setup();
     const UNKNOWN = '600000000000000999';
@@ -542,6 +598,7 @@ describe('Share of the region tally', () => {
       askedBy: ASH,
       ephemeralMessage: true,
       v2Message: true,
+      memberPermissions: MAY_WRITE,
     });
     await made.router.handle(pressed as never);
     expect(sent(pressed.followUp).content).toBe(SHARE_UNKNOWN);

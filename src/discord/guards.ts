@@ -1,4 +1,4 @@
-import type { Guild } from 'discord.js';
+import { PermissionFlagsBits, type Guild } from 'discord.js';
 import type { AppContext } from '../app-context.js';
 import type { Settings } from '../config/index.js';
 import {
@@ -80,6 +80,20 @@ export function memberRoleNames(interaction: LocatedInteraction): string[] {
 /** Whether the invoking member is an admin or a moderator of the server, or the bot's owner. */
 export function isStaff(interaction: LocatedInteraction, ctx: AppContext): boolean {
   return isManagement(memberRoleNames(interaction), interaction.user.id, ctx.config.env.OWNER_ID);
+}
+
+/**
+ * Whether the invoking member may manage the server's channels (Manage Channels), which
+ * deleting or creating one through the bot takes as doing it by hand does (`/region remove`'s
+ * forum, an import's new channels, `/admin cleanup-legacy`). Read from the server
+ * (`GuildMember.permissions`, which counts the owner and administrators in), never from the
+ * channel of the interaction, whose overwrites may grant it there alone.
+ */
+export function managesChannels(interaction: LocatedInteraction): boolean {
+  return (
+    interaction.inCachedGuild() &&
+    interaction.member.permissions.has(PermissionFlagsBits.ManageChannels)
+  );
 }
 
 /** The ids of the server's roles that make a member an admin or a moderator, to ping them. */

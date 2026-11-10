@@ -1,5 +1,6 @@
 import {
   ButtonStyle,
+  PermissionFlagsBits,
   ComponentType,
   MessageFlags,
   type ButtonInteraction,
@@ -10,6 +11,7 @@ import {
   type APIComponentInContainer,
 } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
+import { channelContext } from '../../discord/channel-context.js';
 import type { ComponentHandler } from '../../discord/command.js';
 import { commandGroup, type SubcommandPart } from '../../discord/command-group.js';
 import { encodeCustomId } from '../../discord/custom-id.js';
@@ -187,9 +189,39 @@ interface ShareWords {
   refused: string;
   /** Where the channel is gone. */
   gone: string;
+  /** Where the sharer may not send messages themselves (plan 8Z-2). */
+  notYours: string;
 }
 
-const TALLY_SHARE: ShareWords = { refused: SHARE_REFUSED, gone: SHARE_GONE };
+/**
+ * The refusal of a Share where its sharer may not write: the post would be the bot's in their
+ * name (the audit of 2026-11-10, L-D5: a read-only channel, a member a role keeps from writing).
+ */
+const shareNotYours = (what: string): string =>
+  `You may not send messages in this channel, so I cannot share ${what} here for you. ` +
+  'Try a channel where you can.';
+
+/** `shareNotYours` of the region list. */
+export const SHARE_NOT_YOURS = shareNotYours('the list');
+
+const TALLY_SHARE: ShareWords = {
+  refused: SHARE_REFUSED,
+  gone: SHARE_GONE,
+  notYours: SHARE_NOT_YOURS,
+};
+
+/**
+ * Whether the member who pressed may send messages where the press came from, as Discord says
+ * it of that channel (`interaction.memberPermissions`): Send Messages in Threads in a post or a
+ * thread, Send Messages anywhere else. What a Share asks of its sharer, beside what it asks of
+ * the bot (`mayShare`).
+ */
+function sharerMayWrite(interaction: ButtonInteraction): boolean {
+  const needed = channelContext(interaction).isThread
+    ? PermissionFlagsBits.SendMessagesInThreads
+    : PermissionFlagsBits.SendMessages;
+  return interaction.memberPermissions?.has(needed) ?? false;
+}
 
 /** The refusal of a board's Share where the bot may not post (B8). */
 export const BOARD_SHARE_REFUSED =
@@ -199,6 +231,7 @@ export const BOARD_SHARE_REFUSED =
 const BOARD_SHARE: ShareWords = {
   refused: BOARD_SHARE_REFUSED,
   gone: 'I could not post the board in this channel.',
+  notYours: shareNotYours('the board'),
 };
 
 /**
@@ -239,7 +272,8 @@ async function share(
 
 /**
  * A Share of any of `/stats`' answers (`discord-framework.md`, "Share"): refused in words where
- * the bot may not post (`mayShare`), acknowledged before the send, the message made at the press
+ * its sharer may not send messages themselves (`sharerMayWrite`, plan 8Z-2) and where the bot may
+ * not post (`mayShare`), acknowledged before the send, the message made at the press
  * (`made`, with its sharer's small print; undefined where nothing can be said of who sees the
  * channel, R3), posted by the bot (`post`) and said privately. A refused permission, an ended
  * post or a channel that is gone are refused in words, the use given back.
@@ -252,6 +286,8 @@ async function shareMessage(
   post: (channelId: string, message: V2Message) => Promise<string | undefined>,
 ): Promise<void> {
   const { channelId } = interaction;
+  // The post is the bot's, in the sharer's name: not where they may not write themselves.
+  if (!sharerMayWrite(interaction)) throw new UserError(words.notYours, { givesBack: true });
   if (!mayShare(channelId)) throw new UserError(words.refused, { givesBack: true });
   // Sending to the channel comes before the answer: acknowledged first, the answer left as it is.
   await interaction.deferUpdate();
@@ -468,6 +504,7 @@ const CARD_SHARE: ShareWords = {
     'I may not post in this channel, so I cannot share your numbers here. Try a channel ' +
     'where I can post.',
   gone: 'I could not post your numbers in this channel.',
+  notYours: shareNotYours('your numbers'),
 };
 
 /** A card's Share refused because the member opted out of the history since (R-B3). */

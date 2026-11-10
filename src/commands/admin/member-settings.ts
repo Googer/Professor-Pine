@@ -2,7 +2,7 @@ import { SlashCommandSubcommandBuilder } from 'discord.js';
 import type { AppContext } from '../../app-context.js';
 import type { SubcommandPart } from '../../discord/command-group.js';
 import { UserError } from '../../discord/errors.js';
-import { guildIdOf } from '../../discord/guards.js';
+import { guildIdOf, requireManagement } from '../../discord/guards.js';
 import { answer } from '../../discord/late-reply.js';
 import { count, fitItems, memberText, plain } from '../../render/text.js';
 import { legacyLine } from '../settings/panel.js';
@@ -69,7 +69,11 @@ export async function memberSettingsLines(
   ];
 }
 
-/** `/admin member-settings`. */
+/**
+ * `/admin member-settings`: for the server's own staff alone (`requireManagement`: admins,
+ * moderators, the owner), not for bot developers, whom the rest of `/admin` takes (plan 8Z-2, the
+ * audit's L-D6: a member's opt-ins, friend code and wants are no part of running the bot).
+ */
 export const memberSettings: SubcommandPart = {
   data: new SlashCommandSubcommandBuilder()
     .setName('member-settings')
@@ -81,9 +85,11 @@ export const memberSettings: SubcommandPart = {
     details:
       'Everything I keep about the member in this server: their settings, friend code and ' +
       'in-game name, and how many wants and gym targets they have here (the first few by ' +
-      'name). Only for members of this server. Only you see the answer; the member is not told.',
+      'name). Only for members of this server. Only you see the answer; the member is not ' +
+      'told.\n\nOnly admins and moderators can use it.',
     examples: ['/admin member-settings member:@Ash'],
   },
+  guards: [requireManagement],
   defer: 'late',
   async execute(interaction, ctx) {
     const guildId = guildIdOf(interaction);

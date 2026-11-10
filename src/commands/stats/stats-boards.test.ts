@@ -6,6 +6,7 @@ import {
   answered,
   asV2,
   fakeButton,
+  MAY_WRITE,
   fakeChatInput,
   FAKE_GUILD_ID,
   sent,
@@ -78,6 +79,7 @@ async function setup() {
       askedBy: userId,
       ephemeralMessage: true,
       v2Message: true,
+      memberPermissions: MAY_WRITE,
     });
     await router.handle(interaction as never);
     return interaction;
