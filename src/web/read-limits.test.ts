@@ -7,6 +7,7 @@ import { REFUSED } from '../services/costly.js';
 import { EmojiPictures } from '../services/post-pictures.js';
 import { PARTIES_PER_MINUTE } from './party-routes.js';
 import {
+  COOKIE_LOOKUPS_PER_ADDRESS_MINUTE,
   EMOJI_COSTS_PER_MINUTE,
   GEO_COSTS_PER_MINUTE,
   MEMBER_COSTS_PER_MINUTE,
@@ -240,6 +241,35 @@ describe('work that costs, for visitors who are not logged in (plan 8Z-2)', () =
     made.clock.now += 60_000;
     const later = await made.app.inject({ url: emojiUrl(FRESH), headers: { cookie } });
     expect(later.statusCode).toBe(200);
+  });
+
+  it('looks up the cookies of misses at most so often from one address (F-B4)', async () => {
+    const { emoji } = emojiWith();
+    const made = webServerWith({ emoji });
+    web = made;
+    const finds = { times: 0 };
+    const find = made.sessions.find.bind(made.sessions);
+    made.sessions.find = (id, now) => {
+      finds.times += 1;
+      return find(id, now);
+    };
+    // A cookie no session has, as well-formed as a real one.
+    const junk = { cookie: `__Host-pine_session=${'A'.repeat(43)}` };
+    await spend(made);
+    const ask = (n: number, remoteAddress: string, headers: Record<string, string> = junk) =>
+      made.app.inject({ url: emojiUrl(FRESH + n), headers, remoteAddress });
+    for (let i = 0; i < COOKIE_LOOKUPS_PER_ADDRESS_MINUTE + 10; i += 1) {
+      expect((await ask(i, '203.0.113.7')).statusCode, String(i)).toBe(429);
+    }
+    // The cap is spent: each was refused, and past the address's number without a lookup.
+    expect(finds.times).toBe(COOKIE_LOOKUPS_PER_ADDRESS_MINUTE);
+    // Another address is looked up for; one without a cookie needs no lookup.
+    await ask(1_000, '203.0.113.8');
+    await ask(1_001, '203.0.113.7', {});
+    expect(finds.times).toBe(COOKIE_LOOKUPS_PER_ADDRESS_MINUTE + 1);
+    // An emoji in memory is answered whatever is sent with it, and costs no lookup.
+    expect((await ask(-FRESH, '203.0.113.7')).statusCode).toBe(200);
+    expect(finds.times).toBe(COOKIE_LOOKUPS_PER_ADDRESS_MINUTE + 1);
   });
 
   it('keeps a budget per kind: spent emoji refuse no picture of a stop (F-B3)', async () => {

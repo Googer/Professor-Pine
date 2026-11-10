@@ -147,6 +147,16 @@ export class Sessions {
    * work that costs is counted by the account): for an answer that anybody gets and others may
    * keep (a public picture), which must never carry a cookie. Undefined without one.
    */
+  /**
+   * Whether `userOf` would read the database for a request (F-B4): it carries a session cookie
+   * that is a token, and no session of it was read for this request yet.
+   */
+  needsLookup(request: FastifyRequest): boolean {
+    if (this.read.has(request)) return false;
+    const token = request.cookies[this.cookieName];
+    return token !== undefined && TOKEN.test(token);
+  }
+
   async userOf(request: FastifyRequest): Promise<string | undefined> {
     const read = this.read.get(request);
     if (read) return (await read)?.userId;

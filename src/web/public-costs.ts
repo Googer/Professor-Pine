@@ -1,6 +1,7 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { MayCost } from '../services/costly.js';
 import { sendFailure } from './answers.js';
+import { addressBucket } from './client-address.js';
 import { RateLimiter } from './rate-limit.js';
 import type { Sessions } from './sessions.js';
 
@@ -36,6 +37,13 @@ export const GEO_COSTS_PER_MINUTE = 60;
  */
 export const MEMBER_COSTS_PER_MINUTE = 60;
 
+/**
+ * The sessions one address may have looked up in a minute for misses that carry a session
+ * cookie (F-B4): each is a read of the database, also once a budget is spent. Twice what one
+ * account may cost (`MEMBER_COSTS_PER_MINUTE`): a household shares an address.
+ */
+export const COOKIE_LOOKUPS_PER_ADDRESS_MINUTE = 120;
+
 /** The kinds of work that costs, each with a budget of its own for visitors without a session. */
 export type CostKind = 'pictures' | 'emoji' | 'geo';
 
@@ -65,10 +73,12 @@ export interface PublicCost {
  * budget of its kind (`PICTURE_COSTS_PER_MINUTE`, `EMOJI_COSTS_PER_MINUTE`,
  * `GEO_COSTS_PER_MINUTE`), so that one kind spent never refuses another. The session is looked
  * up only when work is due, and never renewed (`Sessions.userOf`): these answers may be kept by
- * others.
+ * others; a lookup reads the database, so one address has at most
+ * `COOKIE_LOOKUPS_PER_ADDRESS_MINUTE` a minute (F-B4), past which a miss with a cookie is
+ * refused unread.
  */
 export function publicCosts(options: {
-  sessions: Pick<Sessions, 'userOf'>;
+  sessions: Pick<Sessions, 'userOf' | 'needsLookup'>;
   now: () => number;
 }): CostOf {
   const overall = (uses: number) => new RateLimiter({ uses, perMs: 60_000, addresses: 1 });
@@ -78,10 +88,19 @@ export function publicCosts(options: {
     geo: overall(GEO_COSTS_PER_MINUTE),
   };
   const members = new RateLimiter({ uses: MEMBER_COSTS_PER_MINUTE, perMs: 60_000 });
+  const lookups = new RateLimiter({ uses: COOKIE_LOOKUPS_PER_ADDRESS_MINUTE, perMs: 60_000 });
   return (request, kind) => {
     let retryAfterSeconds = 60;
     return {
       mayCost: async () => {
+        // A cookie is looked up in the database: so often per address, then refused unread.
+        if (options.sessions.needsLookup(request)) {
+          const allowed = lookups.take(addressBucket(request.ip), options.now());
+          if (!allowed.ok) {
+            ({ retryAfterSeconds } = allowed);
+            return false;
+          }
+        }
         const user = await options.sessions.userOf(request);
         const answer =
           user === undefined
