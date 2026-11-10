@@ -22,7 +22,7 @@
 //  dependsOn ids that must finish first; after: ids it merely follows.
 //  scope, doneWhen  texts shown in the details.
 window.GANTT = {
-  "updated": "2026-11-09T22:19",
+  "updated": "2026-11-09T22:42",
   "items": [
     {
       "id": "0",
@@ -11594,6 +11594,15 @@ window.GANTT = {
       "status": "done",
       "start": "2026-11-09T22:10",
       "end": "2026-11-09T22:18"
+    },
+    {
+      "id": "16-night.5",
+      "kind": "task",
+      "parent": "16-night",
+      "name": "Wayspot tool deployed; the night’s three Minor fixes",
+      "status": "done",
+      "start": "2026-11-09T22:20",
+      "end": "2026-11-09T22:41"
     }
   ]
 };
