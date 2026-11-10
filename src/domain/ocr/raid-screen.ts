@@ -1,4 +1,4 @@
-import { boxHeight, type Box, type TextLine } from './image.js';
+import { boxHeight, boxWidth, type Box, type TextLine } from './image.js';
 
 /**
  * What the text of a raid screen says, read from the lines the reader found and their boxes,
@@ -110,6 +110,17 @@ const COUNTDOWN = /(\d{1,2})[:.]([0-5]\d)[:.]([0-5]\d)/;
  */
 const CP = /^\D{0,3}?(\d{3,6})$/;
 const BOSS_NAME = /^[A-Za-z][A-Za-z.'\- ]{2,}$/;
+/** The letters "CP" read alone, without the digits GO draws right after them. */
+const CP_LETTERS = /^\W{0,2}CP\W{0,2}$/;
+/** A raid's "CP" stands in the screen's top half, at least this share of its height tall. */
+const CP_LETTERS_MIN_HEIGHT = 0.015;
+/**
+ * The CP's row read again (`cpRowToReadAgain`) at the size where its "CP" is this many pixels
+ * tall: a little larger than a phone's screenshot read at `READ_WIDTH` shows it (71 pixels of
+ * 1125 at 720 is 45); of 40 to 56 tried on the production screens of 2026-11-10, 50 read the CP
+ * the boss half hides most often.
+ */
+const CP_LETTERS_READ = 50;
 const LETTERS = /[a-z]{2}/i;
 /** The badge of an elite raid gym, or of an EX raid gym as older screens show it ("… RAID GYM"). */
 const ELITE = /elite\s*raid|\bex\s*raid|raid\s*gym/i;
@@ -240,6 +251,94 @@ function statusBarOf(
  */
 export function statusBandOf(size: { width: number; height: number }): number {
   return size.height * STATUS_BAR;
+}
+
+/** The CP's row read again reaches this many of its "CP"'s heights over the letters' foot… */
+const CP_ROW_ABOVE = 3.2;
+/** …and this many under it: not into the boss's name. */
+const CP_ROW_BELOW = 0.15;
+
+/**
+ * The letters "CP" read alone (`CP_LETTERS`) in the screen's top half, tall enough for a raid's
+ * (`CP_LETTERS_MIN_HEIGHT`): the CP's digits were read apart from them, or not at all.
+ */
+export function cpLettersOf(lines: readonly TextLine[], height: number): TextLine | undefined {
+  return lines.find(
+    (l) =>
+      CP_LETTERS.test(l.text.trim()) &&
+      l.box.y1 < height / 2 &&
+      boxHeight(l.box) > height * CP_LETTERS_MIN_HEIGHT,
+  );
+}
+
+/** The CP's row to read again, in the screen's pixels, and how much to scale it for the reading. */
+export interface CpRow {
+  box: Box;
+  scale: number;
+}
+
+/**
+ * Where a raid's CP should be read again (production, 2026-11-10: a Zamazenta's CP white on a
+ * bright white sky, read "367" far right of "CP", or not at all; its digits are drawn white
+ * with a light grey edge): the row of a "CP" read alone (`cpLettersOf`) whose digits on its row
+ * are not one line of three digits at least, starting within a digit's width of the letters.
+ * The row runs from half the letters' height left of them to the screen's right edge, from
+ * `CP_ROW_ABOVE` of their heights over their foot to `CP_ROW_BELOW` under it; it is read at the
+ * size where the letters are `CP_LETTERS_READ` pixels tall. Null when the CP was read whole.
+ */
+export function cpRowToReadAgain(
+  lines: readonly TextLine[],
+  size: { width: number; height: number },
+): CpRow | null {
+  const letters = cpLettersOf(lines, size.height);
+  if (!letters) return null;
+  const { box } = letters;
+  const height = boxHeight(box);
+  const digits = lines.filter(
+    (l) =>
+      l !== letters &&
+      /^\d+$/.test(l.text.replace(/\s/g, '')) &&
+      l.box.x0 >= box.x0 &&
+      l.box.y0 < box.y1 &&
+      l.box.y1 > box.y0,
+  );
+  const [only] = digits;
+  if (digits.length === 1 && only) {
+    const count = only.text.replace(/\s/g, '').length;
+    if (count >= 3 && only.box.x0 - box.x1 <= boxWidth(only.box) / count) return null;
+  }
+  return {
+    box: {
+      x0: Math.max(0, Math.round(box.x0 - height * 0.5)),
+      y0: Math.max(0, Math.round(box.y1 - height * CP_ROW_ABOVE)),
+      x1: size.width,
+      y1: Math.min(size.height, Math.round(box.y1 + height * CP_ROW_BELOW)),
+    },
+    scale: CP_LETTERS_READ / height,
+  };
+}
+
+/**
+ * The lines of a screen with its CP's row (`row`, `cpRowToReadAgain`) read again (`again`, in the
+ * screen's pixels): when the row read again has a CP of more digits than the lines in the row had
+ * (by the CP's rule), its line stands in place of every line whose middle lies in the row;
+ * otherwise `lines` as they are.
+ */
+export function withCpReadAgain(
+  lines: TextLine[],
+  row: Box,
+  again: readonly TextLine[],
+): TextLine[] {
+  const digits = (l: TextLine) => CP.exec(l.text.replace(/\s/g, ''))?.[1]?.length ?? 0;
+  const inRow = (l: TextLine) => {
+    const x = (l.box.x0 + l.box.x1) / 2;
+    const y = (l.box.y0 + l.box.y1) / 2;
+    return x >= row.x0 && x < row.x1 && y >= row.y0 && y < row.y1;
+  };
+  const found = [...again].sort((a, b) => digits(b) - digits(a))[0];
+  const before = Math.max(0, ...lines.filter(inRow).map(digits));
+  if (!found || digits(found) <= before) return lines;
+  return [...lines.filter((l) => !inRow(l)), found];
 }
 
 /**

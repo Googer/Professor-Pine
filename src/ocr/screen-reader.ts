@@ -1,5 +1,12 @@
 import sharp, { type Sharp } from 'sharp';
-import { imageFormat, movedLine, scaledBox, type Box, type TextLine } from '../domain/ocr/image.js';
+import {
+  brightestStretched,
+  imageFormat,
+  movedLine,
+  scaledBox,
+  type Box,
+  type TextLine,
+} from '../domain/ocr/image.js';
 import {
   boxedIn,
   crossesCut,
@@ -16,10 +23,13 @@ import {
   type PaneShows,
 } from '../domain/ocr/panes.js';
 import {
+  cpRowToReadAgain,
   readScreenText,
   screenBody,
   STATUS_BAR,
   statusBandOf,
+  withCpReadAgain,
+  type CpRow,
   type ScreenText,
 } from '../domain/ocr/raid-screen.js';
 import { purpleShare } from '../domain/ocr/shadow.js';
@@ -447,12 +457,16 @@ async function readRegion(
     size.enlarged || size.stretched
       ? { ...smallImage, data: await sharp(small, { raw }).normalise().raw().toBuffer() }
       : smallImage;
-  const lines = (await readText(readImage)).map((line) =>
+  const firstLines = (await readText(readImage)).map((line) =>
     movedLine(line, (one) => scaledBox(one, width / smallWidth, height / smallHeight)),
   );
   const status = (await region.status()).map((line) =>
     movedLine(line, (one) => shifted(one, -box.x0, -box.y0)),
   );
+  const cpRow = cpRowToReadAgain(firstLines, { width, height });
+  const lines = cpRow
+    ? withCpReadAgain(firstLines, cpRow.box, await readCpRow(region, box, cpRow))
+    : firstLines;
   const text = readScreenText(
     lines,
     status,
@@ -499,6 +513,41 @@ async function readRegion(
     ms: 0,
     peakMb: 0,
   };
+}
+
+/**
+ * The levels the CP's row read again is stretched from (`readCpRow`, `brightestStretched`): from
+ * this grey up to white over every level, everything darker black.
+ */
+const CP_ROW_FROM = 192;
+
+/**
+ * The CP's row of a screen (`row`, `cpRowToReadAgain`, in the pixels of `box`, the screen in the
+ * picture) read again alone, from the picture's own pixels, at `row.scale`, in grey: each
+ * pixel's brightest channel, from `CP_ROW_FROM` up stretched over every level
+ * (`brightestStretched`). GO draws the CP's digits white with a light grey edge, which on a
+ * bright white sky the recognizer misses (production, 2026-11-10: a Zamazenta's 56867 read "367"
+ * or not at all, read whole so; normalised instead, digits still lost); by the brightest channel
+ * the Pokémon's blue spikes before a digit turn as light as the sky, not black (read by luminance
+ * one screen lost its last digits, "569"). Its lines in the screen's pixels.
+ */
+async function readCpRow(region: Region, box: Box, row: CpRow): Promise<TextLine[]> {
+  const width = Math.max(1, row.box.x1 - row.box.x0);
+  const height = Math.max(1, row.box.y1 - row.box.y0);
+  const readWidth = Math.max(1, Math.round(width * row.scale));
+  const readHeight = Math.max(1, Math.round(height * row.scale));
+  const data = await region
+    .image()
+    .extract({ left: box.x0 + row.box.x0, top: box.y0 + row.box.y0, width, height })
+    .resize(readWidth, readHeight, { fit: 'fill' })
+    .raw()
+    .toBuffer();
+  const stretched = brightestStretched({ width: readWidth, height: readHeight, data }, CP_ROW_FROM);
+  return (await region.readText(stretched)).map((line) =>
+    movedLine(line, (one) =>
+      shifted(scaledBox(one, width / readWidth, height / readHeight), row.box.x0, row.box.y0),
+    ),
+  );
 }
 
 /** The head template from the game's icon file (`ic_raid_small.png`). */

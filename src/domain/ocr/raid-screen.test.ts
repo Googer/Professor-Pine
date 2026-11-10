@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest';
 import type { TextLine } from './image.js';
 import {
   clockIn,
+  cpRowToReadAgain,
   readScreenText,
+  withCpReadAgain,
   screenBody,
   statusBandAsRead,
   statusLines,
@@ -320,6 +322,73 @@ describe('readScreenText', () => {
       countdown: 24 * 60 + 33,
       countdownPlace: 'right',
     });
+  });
+});
+
+/**
+ * A raid's CP white on a bright white sky (production, 2026-11-10, an iPhone 1125 × 2436): the
+ * "CP" read alone, of the digits only the last three, far right of it, or none at all.
+ */
+const IPHONE = { width: 1125, height: 2436 };
+const BRIGHT_SKY: TextLine[] = [
+  line('10:26', 43, 61, 214, 107),
+  line('Maple Grove', 286, 155, 755, 219),
+  line('Church Fire Ring', 287, 214, 683, 292),
+  line('367', 637, 451, 928, 612),
+  line('CP', 219, 541, 324, 612),
+  line('Zan enta', 130, 623, 980, 799),
+  line('0:07:59', 854, 1417, 1020, 1467),
+  line('BATTLE', 417, 1841, 602, 1889),
+];
+
+describe('cpRowToReadAgain and withCpReadAgain', () => {
+  it('reads the CP’s row again where its digits stand far right of "CP", or are not read', () => {
+    // The row: from half the letters' height left of them to the screen's edge, from 3.2 of
+    // their heights over their foot to 0.15 under it; read at 50 pixels a letter (71 here).
+    const row = {
+      box: { x0: 184, y0: 385, x1: 1125, y1: 623 },
+      scale: 50 / 71,
+    };
+    expect(cpRowToReadAgain(BRIGHT_SKY, IPHONE)).toEqual(row);
+    const none = BRIGHT_SKY.filter((one) => one.text !== '367');
+    expect(cpRowToReadAgain(none, IPHONE)).toEqual(row);
+    // Two pieces of digits: one lost between them.
+    const pieces = [...none, line('56', 330, 451, 500, 612), line('67', 700, 451, 928, 612)];
+    expect(cpRowToReadAgain(pieces, IPHONE)).toEqual(row);
+    // Two digits beside the letters are no CP: the rest was lost.
+    expect(cpRowToReadAgain([...none, line('65', 400, 451, 640, 612)], IPHONE)).toEqual(row);
+  });
+
+  it('reads nothing again where the CP was read with its letters, or its digits beside them', () => {
+    expect(cpRowToReadAgain(HATCHED, SIZE)).toBeNull();
+    const apart = [
+      ...BRIGHT_SKY.filter((one) => one.text !== '367'),
+      line('56867', 340, 451, 928, 612),
+    ];
+    expect(cpRowToReadAgain(apart, IPHONE)).toBeNull();
+    // Small "CP" low on the screen is no raid's CP (a Pokémon's in a list).
+    expect(cpRowToReadAgain([line('CP', 100, 1800, 140, 1820)], IPHONE)).toBeNull();
+  });
+
+  it('takes the row read again in place of what stood there when it read more digits', () => {
+    const row = cpRowToReadAgain(BRIGHT_SKY, IPHONE);
+    expect(row).not.toBeNull();
+    const box = row?.box ?? { x0: 0, y0: 0, x1: 0, y1: 0 };
+    const again = [line('CP 56867', 219, 451, 928, 612)];
+    const lines = withCpReadAgain(BRIGHT_SKY, box, again);
+    expect(lines.map((one) => one.text)).toEqual([
+      '10:26',
+      'Maple Grove',
+      'Church Fire Ring',
+      'Zan enta',
+      '0:07:59',
+      'BATTLE',
+      'CP 56867',
+    ]);
+    expect(readScreenText(lines, [], IPHONE)).toMatchObject({ cp: 56867, bossName: 'Zan enta' });
+    // Fewer digits, or none, leave the first reading as it was.
+    expect(withCpReadAgain(BRIGHT_SKY, box, [line('CP 67', 219, 451, 928, 612)])).toBe(BRIGHT_SKY);
+    expect(withCpReadAgain(BRIGHT_SKY, box, [line('CP', 219, 541, 324, 612)])).toBe(BRIGHT_SKY);
   });
 });
 

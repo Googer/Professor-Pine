@@ -418,6 +418,50 @@ describe('readPicture', () => {
     expect(headsScale(top, paneReadSize(top, top))).toBe(1);
   });
 
+  it('reads a CP on a bright sky again, its row alone, the brightest levels stretched', async () => {
+    // Production, 2026-11-10: a Zamazenta's CP white on a bright white sky, read "367" far right
+    // of a "CP" read alone. 1440 × 3200, greys 192 to 255: read at 720 × 1600, the "CP" there 35
+    // pixels tall (70 in the picture). Its row, from 185 to the edge and from 406 to 641, is read
+    // again at 50 pixels a letter, its greys from 192 up stretched over every level.
+    const [width, height] = [1440, 3200];
+    const data = Buffer.alloc(width * height * 3);
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++)
+        data.fill(192 + (x % 64), (y * width + x) * 3, (y * width + x) * 3 + 3);
+    }
+    const bright = await sharp(data, { raw: { width, height, channels: 3 } })
+      .png()
+      .toBuffer();
+    const whole = [
+      line('Maple Grove', 140, 80, 380, 110),
+      line('367', 320, 230, 460, 315),
+      line('CP', 110, 280, 160, 315),
+      line('Zan enta', 65, 320, 490, 400),
+      line('0:07:59', 430, 710, 510, 735),
+    ];
+    // The row read again, in its own pixels: 1255 × 235 at 50 / 70.
+    const reader = inOrder(whole, [], [line('CP 56867', 22, 10, 520, 120)]);
+    const ranges: { low: number; high: number }[] = [];
+    const read: ReadText = (image) => {
+      let [low, high] = [255, 0];
+      for (const value of image.data) [low, high] = [Math.min(low, value), Math.max(high, value)];
+      ranges.push({ low, high });
+      return reader(image);
+    };
+    const reading = await readScreen(bright, read, TEMPLATE);
+    expect(reader.sizes).toEqual(['720x1600', '2160x216', '896x168']);
+    expect(ranges[0]?.low).toBe(192);
+    expect(ranges[2]?.low).toBeLessThan(10);
+    expect(ranges[2]?.high).toBeGreaterThan(250);
+    expect(reading.text).toMatchObject({ cp: 56867, bossName: 'Zan enta' });
+    expect(reading.lines.map((one) => one.text)).toEqual([
+      'Maple Grove',
+      'Zan enta',
+      '0:07:59',
+      'CP 56867',
+    ]);
+  });
+
   it('counts a boxed-in pane’s heads enlarged as its text was read, smoothly', () => {
     // Matt's 192 and its fake without the divider: GO 664 or 665 wide read at 1080. Its heads,
     // 17 pixels tall, counted at their own size (blown up block by block to the template's work

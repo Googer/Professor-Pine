@@ -50,6 +50,23 @@ export function scaledBox(box: Box, sx: number, sy: number): Box {
   return { x0: box.x0 * sx, y0: box.y0 * sy, x1: box.x1 * sx, y1: box.y1 * sy };
 }
 
+/**
+ * The picture in grey: each pixel's brightest channel, from `from` up stretched over every level
+ * (darker black). What is white or light grey keeps its difference, stretched; a colour as bright
+ * in any channel (a blue Pokémon, a light blue sky) becomes as light as white (`readCpRow`: GO's
+ * white digits with a light grey edge on a bright sky, a Pokémon's spikes before them).
+ */
+export function brightestStretched(image: RgbImage, from: number): RgbImage {
+  const data = new Uint8Array(image.data.length);
+  const gain = 255 / (255 - from);
+  for (let k = 0; k + 2 < image.data.length; k += 3) {
+    const brightest = Math.max(image.data[k] ?? 0, image.data[k + 1] ?? 0, image.data[k + 2] ?? 0);
+    const value = Math.max(0, Math.min(255, Math.round((brightest - from) * gain)));
+    data[k] = data[k + 1] = data[k + 2] = value;
+  }
+  return { width: image.width, height: image.height, data };
+}
+
 /** The kinds of picture the reader reads, by the file extension each is kept under. */
 export type ImageFormat = 'png' | 'jpg' | 'webp';
 
