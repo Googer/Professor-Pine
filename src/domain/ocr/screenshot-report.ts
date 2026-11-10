@@ -296,7 +296,7 @@ export function gymOfText(
 /**
  * Whether no other of the `sure` hits can be a longer name GO cut to `named`'s: each begins
  * with `named`'s name, compared by letters and digits as `sameName` compares, then a space, and
- * has a next word that, with a space, would have fit in `room` characters (a dash before it
+ * has a next word that, with a space and `ROOM_MARGIN`, would have fit in `room` characters (a dash before it
  * counted with it: the reader may lose a dash GO showed). Another gym of the very same name, one
  * that does not begin with it, and one that goes on glued to its last word ("Pine
  * Campsite-Lookout", "St Mary's" after "St Mary") always may be meant.
@@ -312,9 +312,17 @@ function notCutFrom(named: GymHitLike, sure: readonly GymHitLike[], room: number
     const words = rest.trim().split(/\s+/);
     const word = words.findIndex((one) => /[\p{L}\p{N}]/u.test(one));
     if (word < 0) return false;
-    return words.slice(0, word + 1).join(' ').length + 1 <= room;
+    return words.slice(0, word + 1).join(' ').length + 1 + ROOM_MARGIN <= room;
   });
 }
+
+/**
+ * Characters asked for beyond a next word and its space: the room is counted at the last line's
+ * average width, which a word of wide letters (a capital first) exceeds and a line of narrow ones
+ * makes larger (review I4). The samples keep their margins: "Temple Sinai" left 8.7 for
+ * " Garden" (8 with it), "Christ's Lutheran Church" 12 for " Firepit" (9).
+ */
+const ROOM_MARGIN = 1;
 
 /** A name's letters and digits, lower case: what `sameName` compares. */
 function plainName(text: string): string {

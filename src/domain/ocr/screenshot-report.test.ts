@@ -670,8 +670,8 @@ describe('gymOfText', () => {
   // Matt, 2026-11-10: GO shrinks a long name to fit and cuts it only when its next word does
   // not fit; a name read whole beside a longer one is the gym's when that word would have fit.
   it('takes the one gym called exactly what was read of several as clear when the rest would fit', () => {
-    // " Garden" is 7 characters.
-    expect(gymOfText('Temple Sinai', search, undefined, 7)).toMatchObject({
+    // " Garden" is 7 characters, and one more is asked for as a margin.
+    expect(gymOfText('Temple Sinai', search, undefined, 8)).toMatchObject({
       gymId: 10,
       clear: true,
     });
@@ -682,7 +682,7 @@ describe('gymOfText', () => {
       clear: false,
     });
     // No room for it, or the room unknown (a pane, an older record): the longer may be meant.
-    expect(gymOfText('Temple Sinai', search, undefined, 6.9)).toMatchObject({
+    expect(gymOfText('Temple Sinai', search, undefined, 7.9)).toMatchObject({
       gymId: 10,
       clear: false,
     });
@@ -691,9 +691,9 @@ describe('gymOfText', () => {
   });
 
   it('counts a dash before the next word with it, since the reader may lose it', () => {
-    // "- Lookout" and a space are 10 characters.
-    expect(gymOfText('Pine Campsite', search, undefined, 9)).toMatchObject({ clear: false });
-    expect(gymOfText('Pine Campsite', search, undefined, 10)).toMatchObject({
+    // "- Lookout" and a space are 10 characters, 11 with the margin.
+    expect(gymOfText('Pine Campsite', search, undefined, 10.9)).toMatchObject({ clear: false });
+    expect(gymOfText('Pine Campsite', search, undefined, 11)).toMatchObject({
       gymId: 14,
       clear: true,
     });

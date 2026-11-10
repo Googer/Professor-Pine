@@ -193,7 +193,8 @@ function besidePicture(line: TextLine, column: number): TextLine | null {
 
 /**
  * A line near the top without GO's gym-info button read into it as its last piece
- * (`BUTTON_PLACE`), on a screen `width` wide; the line itself when it has none.
+ * (`BUTTON_PLACE`), on a screen `width` wide; the line itself when it has none. It keeps the
+ * row's average confidence: the pieces have none of their own, and the gym's name uses none.
  */
 function withoutInfoButton(line: TextLine, width: number): TextLine {
   const parts = line.parts;
