@@ -520,9 +520,9 @@ export function stopRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
         if (full) return noted('throttled', full);
         const shown = await shownTo(guild, userId, contested);
         const reports = shown?.research ?? [];
-        // Those the map does not show the member (a region they are kept out of, a view that
-        // could not be read) by their ids and stops, so that the page can still overrule them
-        // (review R5).
+        // Those the map does not show the member by their ids and stops, so that the page can
+        // still overrule them (review R5): since plan 8Z-2 only where the view could not be read,
+        // since a stop of a region the member is kept out of was refused above (`keptFrom`).
         const hidden = contested
           .filter((report) => !reports.some((one) => one.id === report.id))
           .map((report) => ({ id: report.id, stop: report.stop.name }));

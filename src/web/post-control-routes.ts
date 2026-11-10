@@ -22,7 +22,12 @@ import { MAX_REPORT_REASON } from '../domain/moderation/reports.js';
 import { MEET_THROTTLE, meetingWords } from '../commands/parties/meet.js';
 import { RAID_IS_OVER } from '../commands/raids/raid-input.js';
 import { meetRefusalOf, meetSubmitRefusal } from '../commands/parties/meet-dialog.js';
-import { ACTION_THROTTLE, outcomeWords, partyOver } from '../commands/parties/reply.js';
+import {
+  ACTION_THROTTLE,
+  outcomeWords,
+  partyOver,
+  refusalGivesBack,
+} from '../commands/parties/reply.js';
 import type { MemberStanding } from '../discord/member-directory.js';
 import type { MemberAccess } from '../discord/party-gateway.js';
 import { attendeeOf, isGroupId, partyWord, type Party } from '../domain/party/party.js';
@@ -35,6 +40,7 @@ import {
   actingOnTheMap,
   countedOnTheMap,
   DELETE_NEEDS_MANAGE_MESSAGES,
+  givenBackOnTheMap,
   mayDeleteOnTheMap,
   memberOrFailure,
   throttledOnTheMap,
@@ -53,8 +59,10 @@ import type { WebDeps } from './server.js';
  * Group… (`POST …/parties/<id>/regroup`). Each over the code path of its dialog's Submit, with
  * the checks of every write of `web.md` in their order: the per-address limit and `postGuard`
  * before the body is read; the session and the body; who writes (`actingOnTheMap`); the party as
- * the store has it (an active party of this server, else 409 in the button's words); how they
- * stand to its forum (barred 403, unreachable 503); only then the window its dialog counts in.
+ * the store has it (an active party of this server, else 409 in the button's words); for the
+ * report and Delete… how they stand to its forum (barred 403, unreachable 503: the map's rule of
+ * who sees a party), for Group… and Meet… nothing (the attendance service decides, as for their
+ * dialogs on Discord; plan 8Z-2); only then the window its dialog counts in.
  */
 
 /**
@@ -140,38 +148,51 @@ type Target =
  */
 type Access = MemberAccess | undefined;
 
+/**
+ * Who decides whether the member's forum lets them at a party (`partyFor`): `seen`, the map's
+ * rule of who sees it, asked by the route; `attendance`, the attendance service, at the change.
+ */
+type ForumRule = 'seen' | 'attendance';
+
 export function postControlRoutes(scope: FastifyInstance, deps: WebDeps): void {
   const { parties, sessions } = deps;
 
   /**
    * Who writes and to which party, by the checks of every write (spec 2.5): a member who may act
    * (`actingOnTheMap`), an active party of this server in the store (else 409 "This has ended.":
-   * an ended party is not there, nor read from anywhere), a forum they are not kept out of
-   * (barred 403; Discord unreachable 503). Nothing of it counts against a throttle.
+   * an ended party is not there, nor read from anywhere), and for `forum: 'seen'` a forum they
+   * are not kept out of (barred 403; Discord unreachable 503). Nothing of it counts against a
+   * throttle.
    */
   const target = async (
     request: ControlRequest,
     reply: FastifyReply,
     userId: string,
     doing: string,
+    forum: ForumRule,
   ): Promise<Target> => {
     const { guild } = request.params;
     const acting = await actingOnTheMap(deps, request, reply, guild, userId, doing);
     if ('sent' in acting) return acting;
-    const found = await partyFor(request, reply, userId, doing);
+    const found = await partyFor(request, reply, userId, doing, forum);
     return 'sent' in found ? found : { ...acting, ...found };
   };
 
   /**
    * The party a control names, as the store has it, for a member it may concern: an active party
-   * of this server (else 409 "This has ended."), in a forum they are not kept out of (barred 403;
-   * Discord unreachable 503).
+   * of this server (else 409 "This has ended."). By `forum`: `seen`, the map's rule of who sees
+   * a party (the report, staff's Delete…): in a forum they are not kept out of (barred 403;
+   * Discord unreachable 503), how they stand to it given as `access`; `attendance`, Group… and
+   * Meet… (plan 8Z-2, fix round F-A3): nothing asked here, the attendance service decides as
+   * for their dialogs on Discord (who is signed up changes their own line whatever the forum
+   * says; a newcomer kept out is refused, `kept-out`, in its words).
    */
   const partyFor = async (
     request: ControlRequest,
     reply: FastifyReply,
     userId: string,
     doing: string,
+    forum: ForumRule,
   ): Promise<{ party: Party; row: number; access: Access } | { sent: FastifyReply }> => {
     const { guild, party: partyId } = request.params;
     const row = await parties.guilds.idFor(guild);
@@ -180,6 +201,7 @@ export function postControlRoutes(scope: FastifyInstance, deps: WebDeps): void {
       const gone: PressAnswer = { ok: false, text: partyOver() };
       return { sent: reply.code(409).send(gone) };
     }
+    if (forum === 'attendance') return { party, row, access: undefined };
     let access: Access;
     try {
       access =
@@ -201,6 +223,7 @@ export function postControlRoutes(scope: FastifyInstance, deps: WebDeps): void {
     request: ControlRequest,
     reply: FastifyReply,
     doing: string,
+    forum: ForumRule,
   ): Promise<
     { userId: string; party: Party; row: number; access: Access } | { sent: FastifyReply }
   > => {
@@ -210,7 +233,7 @@ export function postControlRoutes(scope: FastifyInstance, deps: WebDeps): void {
     const { userId } = session;
     const refused = await memberOrFailure(deps, request, reply, request.params.guild, userId);
     if (refused) return { sent: refused };
-    const found = await partyFor(request, reply, userId, doing);
+    const found = await partyFor(request, reply, userId, doing, forum);
     return 'sent' in found ? found : { userId, ...found };
   };
 
@@ -246,12 +269,13 @@ export function postControlRoutes(scope: FastifyInstance, deps: WebDeps): void {
       if (!body.success || !isGroupId(body.data.group)) return sendFailure(request, reply, 400);
       const { group, stamp, signedUp } = body.data;
       const { userId } = session;
-      const found = await target(request, reply, userId, 'moved to another group');
+      const found = await target(request, reply, userId, 'moved to another group', 'attendance');
       if ('sent' in found) return found.sent;
       const counted = { control: PARTY_KIND };
       const throttled = throttledOnTheMap(deps, reply, counted, userId, ACTION_THROTTLE);
       if (throttled) return throttled;
-      const { kind, said } = await countedOnTheMap(
+      const countedAt = deps.now();
+      const { kind, said, givesBack } = await countedOnTheMap(
         deps,
         counted,
         userId,
@@ -267,9 +291,12 @@ export function postControlRoutes(scope: FastifyInstance, deps: WebDeps): void {
           return {
             kind: outcome.kind,
             said: movedWords(parties.attendance.limits(), found.party, group, outcome),
+            givesBack: refusalGivesBack(outcome),
           };
         },
       );
+      // Discord could not say whether a newcomer is kept out: uncounted, as on Discord (F-A1).
+      if (givesBack) givenBackOnTheMap(deps, counted, userId, ACTION_THROTTLE, countedAt);
       noted(request, userId, 'regroup', kind);
       await shownAfter(parties.drawn, found.party.id, kind === 'ok');
       const answer: PressAnswer = { ok: said.ok, text: unplain(said.text) };
@@ -295,7 +322,7 @@ export function postControlRoutes(scope: FastifyInstance, deps: WebDeps): void {
       ],
     },
     async (request: ControlRequest, reply) => {
-      const found = await reader(request, reply, 'opened Meet…');
+      const found = await reader(request, reply, 'opened Meet…', 'attendance');
       if ('sent' in found) return found.sent;
       const { userId, party } = found;
       const full = throttledOnTheMap(deps, reply, meetWindow, userId, MEET_THROTTLE, {
@@ -326,7 +353,7 @@ export function postControlRoutes(scope: FastifyInstance, deps: WebDeps): void {
       if (!body.success || !isGroupId(body.data.group)) return sendFailure(request, reply, 400);
       const { group, stamp, time } = body.data;
       const { userId } = session;
-      const found = await target(request, reply, userId, 'set a meeting time');
+      const found = await target(request, reply, userId, 'set a meeting time', 'attendance');
       if ('sent' in found) return found.sent;
       const throttled = throttledOnTheMap(deps, reply, meetWindow, userId, MEET_THROTTLE);
       if (throttled) return throttled;
@@ -396,7 +423,7 @@ export function postControlRoutes(scope: FastifyInstance, deps: WebDeps): void {
       if (!body.success) return sendFailure(request, reply, 400);
       const { removal } = body.data;
       const { userId } = session;
-      const found = await target(request, reply, userId, 'closed a party');
+      const found = await target(request, reply, userId, 'closed a party', 'seen');
       if ('sent' in found) return found.sent;
       if (!mayDeleteOnTheMap(found.standing, userId, parties.ownerId)) {
         return reply.code(403).send({ error: DELETE_NEEDS_MANAGE_MESSAGES });
@@ -439,7 +466,7 @@ export function postControlRoutes(scope: FastifyInstance, deps: WebDeps): void {
       ],
     },
     async (request: ControlRequest, reply) => {
-      const found = await reader(request, reply, 'opened a report');
+      const found = await reader(request, reply, 'opened a report', 'seen');
       if ('sent' in found) return found.sent;
       // Only from a forum the member sees on Discord (review W-7).
       if (found.access === 'hidden') return sendFailure(request, reply, 403);
@@ -475,7 +502,7 @@ export function postControlRoutes(scope: FastifyInstance, deps: WebDeps): void {
       const { reason } = body.data;
       const { userId } = session;
       const { guild } = request.params;
-      const found = await target(request, reply, userId, 'reported a party');
+      const found = await target(request, reply, userId, 'reported a party', 'seen');
       if ('sent' in found) return found.sent;
       if (found.access === 'hidden') return sendFailure(request, reply, 403);
       if (reason.trim() === '') {

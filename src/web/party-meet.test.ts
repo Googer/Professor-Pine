@@ -172,13 +172,22 @@ describe('Meet… on the map (plan 8M-8B)', () => {
     expect((await map.set({ group: 'A', stamp: offered.stamp })).status).toBe(400);
   });
 
-  it('refuses a member kept out of the forum, before anything is counted or read', async () => {
+  // Plan 8Z-2, fix round F-A3: who is signed up changes their own group's time whatever the forum
+  // says, as Meet… on Discord; whether a newcomer is kept out is the attendance service's to ask.
+  it('lets a member signed up whom somebody keeps out of the forum since open and submit Meet…, as on Discord', async () => {
     const map = await meeting();
     web = map.web;
-    map.made.gateway.barred.set(WEST_FORUM, new Set([ALICE]));
-    expect((await map.open()).status).toBe(403);
-    expect((await map.set({ group: 'A', stamp: 's', time: HATCH })).status).toBe(403);
-    expect(map.throttles.size).toBe(0);
+    map.made.gateway.barred.set(WEST_FORUM, new Set([ALICE, BOB]));
+    const { status, json: offered } = await map.open();
+    expect(status).toBe(200);
+    const answer = await map.set({ group: offered.group, stamp: offered.stamp, time: HATCH });
+    expect(answer).toMatchObject({ status: 200, json: { ok: true } });
+    expect(map.made.store.get(map.id)?.groups[0]?.startTime).toBe(HATCH);
+    // Bob, not signed up, is told so, as Meet… tells him.
+    expect(await map.open(BOB, 'Bob')).toEqual({
+      status: 422,
+      json: { error: 'You are not signed up for this raid.' },
+    });
   });
 
   it('serves a max battle too: the five-minute times up to its end', async () => {

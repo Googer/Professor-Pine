@@ -18,6 +18,7 @@ import { Throttles } from '../discord/throttle.js';
 import { groupStamp } from '../domain/party/party.js';
 import { PartyStatus } from '../domain/party/status.js';
 import type { PartiesView, PressAnswer } from '../domain/web/party-data.js';
+import { ACCESS_UNKNOWN } from '../render/activity.js';
 import { PARTY_KIND } from '../render/party-controls.js';
 
 const MINUTE = 60_000;
@@ -188,6 +189,55 @@ describe('Group… on the map (plan 8M-8B)', () => {
     });
   });
 
+  // Plan 8Z-2, fix round F-A3: the attendance service decides who is kept out, as for Group…'s
+  // Submit on Discord: who is signed up moves whatever the forum says, a newcomer is asked.
+  it('moves a member signed up whom somebody keeps out of the forum since, as Group… on Discord', async () => {
+    const map = await grouped();
+    web = map.web;
+    map.made.gateway.barred.set(WEST_FORUM, new Set([ALICE]));
+    const answer = await map.regroup({ group: 'B', stamp: map.stampOf('B'), signedUp: true });
+    expect(answer).toEqual({
+      status: 200,
+      json: { ok: true, text: 'You are coming, in group B.' },
+    });
+    expect(map.made.current().attendees[ALICE]).toMatchObject({ group: 'B' });
+  });
+
+  it("refuses a newcomer somebody keeps out of the forum in the service's words, counted as on Discord", async () => {
+    const throttles = new Throttles();
+    for (let n = 0; n < ACTION_THROTTLE.uses - 1; n++) {
+      throttles.use(controlThrottleKey(PARTY_KIND), ALICE, ACTION_THROTTLE, PARTY_NOW);
+    }
+    const map = await grouped({ signedUp: false, throttles });
+    web = map.web;
+    map.made.gateway.barred.set(WEST_FORUM, new Set([ALICE]));
+    const body = { group: 'A', stamp: map.stampOf('A'), signedUp: false };
+    expect(await map.regroup(body)).toEqual({
+      status: 422,
+      json: { ok: false, text: 'You cannot sign up for this raid: you are kept out of its forum.' },
+    });
+    expect(map.made.current().attendees[ALICE]).toBeUndefined();
+    expect((await map.regroup(body)).status).toBe(429);
+  });
+
+  it('refuses a newcomer while Discord cannot say how they stand to the forum, counting nothing', async () => {
+    const throttles = new Throttles();
+    for (let n = 0; n < ACTION_THROTTLE.uses - 1; n++) {
+      throttles.use(controlThrottleKey(PARTY_KIND), ALICE, ACTION_THROTTLE, PARTY_NOW);
+    }
+    const map = await grouped({ signedUp: false, throttles });
+    web = map.web;
+    map.made.gateway.failing.set('memberAccess', new Error('Discord is away'));
+    const body = { group: 'A', stamp: map.stampOf('A'), signedUp: false };
+    expect(await map.regroup(body)).toEqual({
+      status: 422,
+      json: { ok: false, text: ACCESS_UNKNOWN },
+    });
+    expect(map.made.current().attendees[ALICE]).toBeUndefined();
+    map.made.gateway.failing.delete('memberAccess');
+    expect((await map.regroup(body)).status).toBe(200);
+  });
+
   it("counts one use in the window of the post's controls, none for a member refused before it", async () => {
     const throttles = new Throttles();
     for (let n = 0; n < ACTION_THROTTLE.uses - 1; n++) {
@@ -196,9 +246,6 @@ describe('Group… on the map (plan 8M-8B)', () => {
     const map = await grouped({ throttles });
     web = map.web;
     const body = { group: 'B', stamp: map.stampOf('B'), signedUp: true };
-    map.made.gateway.barred.set(WEST_FORUM, new Set([ALICE]));
-    expect((await map.regroup(body)).status).toBe(403);
-    map.made.gateway.barred.delete(WEST_FORUM);
     expect((await map.regroup({ group: 'B' })).status).toBe(400);
     expect((await map.regroup(body)).status).toBe(200);
     expect((await map.regroup(body)).status).toBe(429);
