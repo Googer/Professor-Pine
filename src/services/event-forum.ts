@@ -53,6 +53,25 @@ const ARCHIVE_AFTER_END_MS = 3 * DAY_MS;
 const AFTER_END_ARCHIVE_MINUTES = 1_440;
 /** How many event posts' last sent messages are kept (a few dozen per server and year). */
 const POSTS_SENT_KEPT = 1_000;
+/**
+ * The most new event posts one draw makes in a server (plan 8Z-2), tried and failed ones
+ * counted: the rest are made by a draw `MORE_POSTS_AFTER_MS` later, and so on. Of the kept feed
+ * of 2026-10-22 (64 events, 17 of them listed and of posted kinds) at most 6 are due at once by
+ * the default `postDaysAhead` of 14 (12 at 35 days): a first draw makes them all, a feed in
+ * other hands no flood.
+ */
+export const MAX_NEW_POSTS_PER_DRAW = 10;
+/** How long after a draw that left posts unmade the next one makes more of them. */
+export const MORE_POSTS_AFTER_MS = 60_000;
+/**
+ * The most event posts a server has of events not over for three days (`ARCHIVE_AFTER_END_MS`,
+ * the time a post stays open), whatever became of them (dropped, deleted by a moderator: taking
+ * posts away makes room for no others); "On this day" is not counted. About three times the
+ * posted events of the whole kept feed (17; 7 have a post at once by the default, 12 at 35 days
+ * ahead): the feed as it is never comes near, and one in other hands makes fifty posts in three
+ * days at most (plan 8Z-2).
+ */
+export const MAX_OPEN_EVENT_POSTS = 50;
 /** The longest delay `setTimeout` accepts; anything longer fires at once. */
 const MAX_TIMER_MS = 2 ** 31 - 1;
 /**
@@ -72,6 +91,14 @@ const ON_THIS_DAY_ARCHIVE_MINUTES = 1_440;
  * changes meanwhile come with it, one draw for them all.
  */
 export const EVENT_PARTY_REDRAW_MS = 5_000;
+
+/**
+ * Whether a post's row counts against `MAX_OPEN_EVENT_POSTS`: an event's (not "On this day"),
+ * whose event, by the times the row has, is not over for three days.
+ */
+function countsAsOpen(row: EventPostRecord, now: number): boolean {
+  return !row.eventId.startsWith(ON_THIS_DAY_KEY) && row.end + ARCHIVE_AFTER_END_MS > now;
+}
 
 /** The step of a post's part of a draw that failed (`perPost`, BR-5). */
 type PostKind = 'make' | 'edit' | 'rename' | 'reopen' | 'archive' | 'auto-archive';
@@ -201,6 +228,10 @@ export class EventForumService {
   private readonly forumGoneTold = new Set<string>();
   /** What Discord refused, said once per server and what (`pin`, `lock`, `archive`). */
   private readonly refusedTold = new Set<string>();
+  /** The servers whose forum has as many event posts as it may, said once each (`tellFull`). */
+  private readonly fullTold = new Set<string>();
+  /** Whether the draw under way left posts unmade for a later one (`MAX_NEW_POSTS_PER_DRAW`). */
+  private morePostsDue = false;
   /**
    * What the draws since `setup` asked did to each server's listing (`made` stays: a later draw
    * of the same run finds it standing).
@@ -472,12 +503,15 @@ export class EventForumService {
       return;
     }
     this.plannedEnds = [];
+    this.morePostsDue = false;
     for (const forum of forums) {
       if (this.stopped) return;
       const outcome = await this.drawServer(forum, reopen);
       if (this.outcomes.get(forum.serverId) !== 'made') this.outcomes.set(forum.serverId, outcome);
     }
     this.setNextTimer();
+    // The posts a server's draw left unmade (`MAX_NEW_POSTS_PER_DRAW`) come with a later draw.
+    if (this.morePostsDue) this.drawLater(MORE_POSTS_AFTER_MS);
   }
 
   /**
@@ -729,16 +763,38 @@ export class EventForumService {
       if (await store.movePost(serverId, row.eventId, moved.id)) row.eventId = moved.id;
     }
     const known = new Set(rows.map((row) => row.eventId));
+    // What a feed may make (plan 8Z-2): so many posts a draw, so many of events not yet over
+    // for three days. The events come in order of their start: the earliest get theirs first.
+    let open = rows.filter((row) => countsAsOpen(row, now)).length;
+    let tried = 0;
+    let made = 0;
+    let full = false;
     for (const event of events) {
       if (this.stopped) break;
       if (known.has(event.id) || !isPosted(event) || event.end <= now) continue;
       if (postOpensAt(event, settings.eventsForum.postDaysAhead, zone) > now) continue;
+      if (open >= MAX_OPEN_EVENT_POSTS) {
+        full = true;
+        break;
+      }
+      if (tried >= MAX_NEW_POSTS_PER_DRAW) {
+        // The rest soon, where this draw made any: where Discord refused them all, a draw a
+        // minute later would only ask again, and they wait for the next draw there is.
+        if (made > 0) this.morePostsDue = true;
+        break;
+      }
+      tried += 1;
       const stage = new PostStage('make');
-      const made = await this.perPost(serverId, event.id, undefined, stage, () =>
+      const row = await this.perPost(serverId, event.id, undefined, stage, () =>
         this.makePost(forum, event, planned.get(event.id)),
       );
-      if (made) rows.push(made);
+      if (row) {
+        rows.push(row);
+        open += 1;
+        made += 1;
+      }
     }
+    this.tellFull(forum, full, open);
     for (const row of rows) {
       if (this.stopped) break;
       if (row.gone) continue;
@@ -752,6 +808,25 @@ export class EventForumService {
     // A dropped post is never linked (BR-1, revised ruling R2).
     return new Map(
       rows.filter((row) => !row.gone && !row.dropped).map((row) => [row.eventId, row.postId]),
+    );
+  }
+
+  /**
+   * Says once per server, until there is room again, that the forum has as many event posts as
+   * it may (`MAX_OPEN_EVENT_POSTS`) and an event waits for its own: the feed lists far fewer, so
+   * whoever runs the bot should look at what the feed lists.
+   */
+  private tellFull(forum: EventForumRecord, full: boolean, posts: number): void {
+    const { serverId } = forum;
+    if (!full) {
+      this.fullTold.delete(serverId);
+      return;
+    }
+    if (this.fullTold.has(serverId)) return;
+    this.fullTold.add(serverId);
+    this.options.log.warn(
+      { guild: serverId, forum: forum.forumId, posts, most: MAX_OPEN_EVENT_POSTS },
+      'the events forum has as many event posts as it may',
     );
   }
 

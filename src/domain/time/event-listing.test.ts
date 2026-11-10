@@ -271,6 +271,41 @@ describe('which events are listed, posted and hinted (plan 8V-1, design "Which e
     ]).read;
     expect(listed.map((one) => [one.id, one.link, one.image])).toEqual([['odd', null, null]]);
   });
+
+  // Plan 8Z-2: a feed in other hands leads members nowhere and has Discord load no picture.
+  it('keeps an event whose link is not on Leek Duck, or whose picture not on its CDN, without them', () => {
+    const PAGE = 'https://leekduck.com/events/into-the-wild-2026/';
+    const PICTURE = 'https://cdn.leekduck.com/assets/img/events/into-the-wild.jpg';
+    const item = (eventID: string, link: unknown, image: unknown) => ({
+      eventID,
+      name: 'Into the Wild',
+      eventType: 'event',
+      link,
+      image,
+      start: '2026-11-09T10:00:00.000',
+      end: '2026-11-13T20:00:00.000',
+    });
+    const listed = listingOf([
+      item('as-fed', PAGE, PICTURE),
+      item('elsewhere', 'https://example.com/free-coins/', 'https://example.com/a.png'),
+      item('named-alike', 'https://leekduck.com.example.com/events/x/', PICTURE),
+      item('as-a-user', 'https://leekduck.com@example.com/events/x/', PICTURE),
+      item('no-path', 'https://leekduck.com', PICTURE),
+      item('picture-alike', PAGE, 'https://cdn.leekduck.com.example.com/a.png'),
+      item('picture-as-a-user', PAGE, 'https://cdn.leekduck.com@example.com/a.png'),
+      item('picture-on-the-site', PAGE, 'https://leekduck.com/a.png'),
+    ]).read;
+    expect(Object.fromEntries(listed.map((one) => [one.id, [one.link, one.image]]))).toEqual({
+      'as-fed': [PAGE, PICTURE],
+      elsewhere: [null, null],
+      'named-alike': [null, PICTURE],
+      'as-a-user': [null, PICTURE],
+      'no-path': [null, PICTURE],
+      'picture-alike': [PAGE, null],
+      'picture-as-a-user': [PAGE, null],
+      'picture-on-the-site': [PAGE, null],
+    });
+  });
 });
 
 // Branch review BR-1: a short or empty read is no news of drops.
@@ -543,5 +578,11 @@ describe('the hours of events’ pages as lines (2026-11-07)', () => {
     // A page's address that is no web address is left unlinked.
     const odd = raidHours.map((hour) => ({ ...hour, page: { event: 'x', link: 'javascript:1' } }));
     expect(pageHoursListed(odd, [], ZONE)[0]?.link).toBeNull();
+    // Nor one that is not on Leek Duck (plan 8Z-2).
+    const elsewhere = raidHours.map((hour) => ({
+      ...hour,
+      page: { event: 'x', link: 'https://example.com/events/x/' },
+    }));
+    expect(pageHoursListed(elsewhere, [], ZONE)[0]?.link).toBeNull();
   });
 });

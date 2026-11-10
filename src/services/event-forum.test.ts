@@ -8,7 +8,14 @@ import { MemoryEventForums } from '../../test/support/event-forum-store.js';
 import { createTestLogger } from '../../test/support/test-logger.js';
 import { TEST_SETTINGS_PATH } from '../../test/support/test-settings.js';
 import { loadSettings, type Settings } from '../config/settings.js';
-import type { ListedEvent } from '../domain/time/event-listing.js';
+import {
+  isPosted,
+  postOpensAt,
+  readListedEvents,
+  type ListedEvent,
+} from '../domain/time/event-listing.js';
+import { parseBigEventFeed, parseMaxEventFeed } from '../domain/time/max-events.js';
+import { readSpawnEventFeed } from '../../test/support/spawn-events.js';
 import type { OutgoingMessage } from '../discord/party-gateway.js';
 import { listedEvent } from '../../test/support/event-forum-store-cases.js';
 import { eventPostMessage } from '../render/events-forum.js';
@@ -22,6 +29,9 @@ import {
   EVENT_PARTY_REDRAW_MS,
   eventForumWanted,
   EventForumService,
+  MAX_NEW_POSTS_PER_DRAW,
+  MAX_OPEN_EVENT_POSTS,
+  MORE_POSTS_AFTER_MS,
   type EventForumOptions,
 } from './event-forum.js';
 import { HistoryDays } from './history-days.js';
@@ -1016,6 +1026,139 @@ describe('EventForumService: a post brought to its message though its event is u
     // The restarted process knows nothing it sent: one edit, no more.
     expect(day.edits).toBe(before + 1);
     expect(words(day.message)).toContain('Official meetups, if any');
+  });
+});
+
+describe('EventForumService: how many posts a feed may make (plan 8Z-2)', () => {
+  /**
+   * `count` events of a posted kind that begin within the days ahead, in order, each ending a
+   * day after the one before.
+   */
+  const events = (count: number): ListedEvent[] =>
+    Array.from({ length: count }, (_unused, n) =>
+      listedEvent({
+        id: `event-${String(n).padStart(2, '0')}`,
+        name: `Event ${String(n).padStart(2, '0')}`,
+        eventType: 'event',
+        image: null,
+        start: at('2026-11-11T10:00'),
+        end: at('2026-11-12T10:00') + n * DAY,
+      }),
+    );
+  /** The forum set up and drawn with nothing listed yet. */
+  const empty = async () => {
+    const made = eventForumWith({ events: [] });
+    await made.service.setup(SERVER);
+    made.service.start();
+    await made.service.flush();
+    const posted = async () =>
+      (await made.store.posts(SERVER)).map((row) => row.eventId).sort((a, b) => a.localeCompare(b));
+    /** The timers of the draws that make the posts a draw left for later. */
+    const later = () =>
+      made.timers.filter((timer) => !timer.cancelled && timer.ms === MORE_POSTS_AFTER_MS);
+    /** Every such draw, one after the other, until none is left. */
+    const drawRest = async () => {
+      for (let timer = later()[0]; timer !== undefined; timer = later()[0]) {
+        timer.run();
+        await made.service.flush();
+      }
+    };
+    return { ...made, posted, later, drawRest };
+  };
+
+  it('makes at most ten new posts in one draw, the earliest first, and the rest a minute later each', async () => {
+    const { read, posted, later, service } = await empty();
+    const listed = events(25);
+    const ids = listed.map((event) => event.id);
+    await read(listed);
+    expect(await posted()).toEqual(ids.slice(0, MAX_NEW_POSTS_PER_DRAW));
+    expect(later()).toHaveLength(1);
+    later()[0]?.run();
+    await service.flush();
+    expect(await posted()).toEqual(ids.slice(0, 2 * MAX_NEW_POSTS_PER_DRAW));
+    expect(later()).toHaveLength(1);
+    later()[0]?.run();
+    await service.flush();
+    expect(await posted()).toEqual(ids);
+    // Nothing is left: no draw is set for more.
+    expect(later()).toEqual([]);
+  });
+
+  it('counts a post Discord refused among the ten, and sets no draw for more where it refused all', async () => {
+    const { read, gateway, later, posted } = await empty();
+    gateway.failing.set('createPost', missingPermissions('POST'));
+    const asked = () => gateway.calls.filter((call) => call.startsWith('createPost ')).length;
+    const before = asked();
+    const listed = events(25);
+    await read(listed);
+    expect(asked() - before).toBe(MAX_NEW_POSTS_PER_DRAW);
+    // A draw a minute later would only ask again: the posts wait for the next draw there is.
+    expect(later()).toEqual([]);
+    gateway.failing.delete('createPost');
+    await read(listed);
+    expect(await posted()).toHaveLength(MAX_NEW_POSTS_PER_DRAW);
+    expect(later()).toHaveLength(1);
+  });
+
+  it('makes no post beyond fifty of events not over for three days, said once, until one is', async () => {
+    const { read, posted, drawRest, entries, clock, gateway, store, service } = await empty();
+    const listed = events(60);
+    const ids = listed.map((event) => event.id);
+    const full = () =>
+      entries.filter((entry) => entry.msg === 'the events forum has as many event posts as it may');
+    await read(listed);
+    await drawRest();
+    expect(await posted()).toEqual(ids.slice(0, MAX_OPEN_EVENT_POSTS));
+    expect(full()).toEqual([
+      expect.objectContaining({ level: 40, guild: SERVER, posts: MAX_OPEN_EVENT_POSTS }),
+    ]);
+    // Draw after draw: nothing more, and nothing said again.
+    await read(listed);
+    await drawRest();
+    expect(await posted()).toHaveLength(MAX_OPEN_EVENT_POSTS);
+    expect(full()).toHaveLength(1);
+    // A post a moderator deleted keeps its place: deleting posts makes room for no others.
+    const row = (await store.posts(SERVER)).find((one) => one.eventId === 'event-10');
+    gateway.gone.add(row?.postId ?? '');
+    await service.upkeep();
+    expect((await store.posts(SERVER)).find((one) => one.eventId === 'event-10')?.gone).toBe(true);
+    await drawRest();
+    expect(await posted()).toHaveLength(MAX_OPEN_EVENT_POSTS);
+    // The first event is over for three days: the next in line gets its post.
+    clock.now = (listed[0]?.end ?? 0) + 3 * DAY;
+    await read(listed);
+    await drawRest();
+    expect(await posted()).toEqual(ids.slice(0, MAX_OPEN_EVENT_POSTS + 1));
+  });
+
+  // The real feed stays far below both limits: 64 events, 17 of them listed and of posted kinds.
+  it('makes every post the kept feed of 2026-10-22 is due in one draw, at its fullest moment', async () => {
+    const { read, posted, later, entries, clock, settings } = await empty();
+    const zone = settings.timezone;
+    const json = readSpawnEventFeed();
+    const feed = readListedEvents(json, zone, {
+      max: parseMaxEventFeed(json, zone).events,
+      big: parseBigEventFeed(json, zone),
+    }).read.filter(isPosted);
+    expect(feed).toHaveLength(17);
+    const opens = (event: ListedEvent): number =>
+      postOpensAt(event, settings.eventsForum.postDaysAhead, zone);
+    const dueAt = (time: number): ListedEvent[] =>
+      feed.filter((event) => opens(event) <= time && event.end > time);
+    // The most are due right as a post opens.
+    const fullest = feed
+      .map(opens)
+      .reduce((best, time) => (dueAt(time).length > dueAt(best).length ? time : best));
+    expect(dueAt(fullest).length).toBe(6);
+    clock.now = fullest;
+    await read(feed);
+    expect(await posted()).toEqual(
+      dueAt(fullest)
+        .map((event) => event.id)
+        .sort((a, b) => a.localeCompare(b)),
+    );
+    expect(later()).toEqual([]);
+    expect(entries.filter((entry) => Number(entry.level) >= 40)).toEqual([]);
   });
 });
 

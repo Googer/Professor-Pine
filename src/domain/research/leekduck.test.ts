@@ -345,6 +345,13 @@ describe('parseResearchPage', () => {
     expect(htmlText('<span>Buddy &amp; Friendship</span>  Tasks')).toBe('Buddy & Friendship Tasks');
     expect(htmlText('Farfetch&#39;d &#x2014;\u200B ok')).toBe("Farfetch'd — ok");
   });
+
+  // Plan 8Z-2: the entities are looked up by a name the page chose.
+  it('leaves a name every object has as the text it is', () => {
+    const names = '&constructor; &toString; &valueOf; &__proto__; &isPrototypeOf;';
+    expect(htmlText(names)).toBe(names);
+    expect(htmlText('&AMP; &Eacute;')).toBe('& é');
+  });
 });
 
 describe('parseEventRaidHours', () => {
@@ -521,6 +528,38 @@ describe('eventPageTime', () => {
     expect(
       eventPageTime(raids('Raid Hour from 6 p.m. to 7 p.m. local time.'), 'raids', [MONDAY]),
     ).toEqual({ kind: 'time', time: { hour: 18, minute: 0, minutes: 60 } });
+  });
+
+  // Plan 8Z-2: the section is read paragraph by paragraph, a bounded number of bounded length,
+  // never by one pattern over the whole of it (quadratic on paragraphs that are not closed).
+  it('reads a paragraph that is not closed up to the next one, as a browser does', () => {
+    const html =
+      '<h2 id="raids">Raids</h2><p>Raid Hour from 6 p.m. to 7 p.m. local time.' +
+      '<p class="note">Shadow raids will appear from 10 a.m. to 1 p.m.</p>';
+    expect(eventPageTime(html, 'raids', [MONDAY])).toEqual({
+      kind: 'time',
+      time: { hour: 18, minute: 0, minutes: 60 },
+    });
+  });
+
+  it('is unclear for a section with more paragraphs, or a longer one, than it reads', () => {
+    const unclear = { kind: 'unclear' };
+    // The audit's page: paragraphs by the tens of thousands, none closed.
+    const open = `<h2 id="raids">Raids</h2>${'<p>'.repeat(30_000)}`;
+    expect(eventPageTime(open, 'raids', [MONDAY])).toEqual(unclear);
+    // The fifty-first paragraph is not read: what it says of the hours is not known.
+    const filler = Array.from({ length: 50 }, () => 'The following Pokémon will appear in raids.');
+    expect(
+      eventPageTime(raids(...filler, 'Raid Hour from 6 p.m. to 7 p.m.'), 'raids', [MONDAY]),
+    ).toEqual(unclear);
+    expect(
+      eventPageTime(raids(...filler.slice(1), 'Raid Hour from 6 p.m. to 7 p.m.'), 'raids', [
+        MONDAY,
+      ]),
+    ).toEqual({ kind: 'time', time: { hour: 18, minute: 0, minutes: 60 } });
+    // Nor the end of a paragraph of over 4,000 characters: another range may follow there.
+    const long = `Raid Hour from 6 p.m. to 7 p.m. ${'and so on '.repeat(400)}`;
+    expect(eventPageTime(raids(long), 'raids', [MONDAY])).toEqual(unclear);
   });
 });
 

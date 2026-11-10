@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isPictureSource } from '../stops/pictures.js';
 import { IN_PERSON_TYPES, everyonesTimes, isForEveryoneKind } from './event-reach.js';
 import { BIG_EVENT_TYPES, type BigEvent, type MaxEvent } from './max-events.js';
 import { eventName, type RaidEvent } from './raid-events.js';
@@ -19,9 +20,12 @@ export interface ListedEvent {
   name: string;
   /** The feed's `eventType`, which decides by the kinds below. */
   eventType: string;
-  /** Its Leek Duck page (the feed's `link`), an `https` address; null without one. */
+  /** Its Leek Duck page (the feed's `link`, when on Leek Duck's site: `leekDuckLink`); else null. */
   link: string | null;
-  /** The feed's `image`, an `https` address; null without one. Pine never fetches it. */
+  /**
+   * The feed's `image`, when on Leek Duck's CDN (`eventPicture`); else null. Pine never fetches
+   * it.
+   */
   image: string | null;
   start: number;
   /** The first moment after it. */
@@ -151,6 +155,29 @@ const webAddress = z
   .max(500)
   .regex(/^https:\/\/[^\s<>]+$/u);
 
+/** Where every page of Leek Duck is: the host ends at this slash, so nothing else begins so. */
+const LEEK_DUCK_SITE = 'https://leekduck.com/';
+
+/**
+ * An event's page as the forum links it: an address of the web on Leek Duck's site, whose pages
+ * the feed's links are (all 64 of the kept feed of 2026-10-22); null for anything else, so that
+ * a feed in other hands leads members nowhere (plan 8Z-2). Its event is listed all the same.
+ */
+export function leekDuckLink(link: unknown): string | null {
+  const address = webAddress.safeParse(link).data;
+  return address?.startsWith(LEEK_DUCK_SITE) === true ? address : null;
+}
+
+/**
+ * An event's picture as the forum shows it: an address of the feeds' picture hosts
+ * (`isPictureSource`, Leek Duck's CDN, where all of the kept feed's are); null for anything
+ * else, so that Discord loads no picture from elsewhere for a post (plan 8Z-2).
+ */
+export function eventPicture(image: unknown): string | null {
+  const address = webAddress.safeParse(image).data;
+  return address !== undefined && isPictureSource(address) ? address : null;
+}
+
 const listedItem = z.object({
   eventID: z.string().min(1).max(200),
   eventType: z.string().min(1).max(40),
@@ -228,8 +255,8 @@ export function readListedEvents(
       id,
       name,
       eventType,
-      link: webAddress.safeParse(item.data.link).data ?? null,
-      image: webAddress.safeParse(item.data.image).data ?? null,
+      link: leekDuckLink(item.data.link),
+      image: eventPicture(item.data.image),
       start,
       end,
       formerIds: [],
@@ -265,7 +292,7 @@ export function pageHoursListed(
         id: `${hour.page.event}:${eventType}:${isoDate(hour.start, zone)}`,
         name: hour.name,
         eventType,
-        link: webAddress.safeParse(hour.page.link).data ?? null,
+        link: leekDuckLink(hour.page.link),
         image: null,
         start: hour.start,
         end: hour.end,

@@ -55,7 +55,9 @@ export function htmlText(html: string): string {
         return safeCodePoint(Number.parseInt(name.slice(2), 16)) ?? all;
       }
       if (name.startsWith('#')) return safeCodePoint(Number(name.slice(1))) ?? all;
-      return NAMED_ENTITIES[name.toLowerCase()] ?? all;
+      // By a name the page chose: only the table's own names (never `constructor`, plan 8Z-2).
+      const known = name.toLowerCase();
+      return Object.hasOwn(NAMED_ENTITIES, known) ? (NAMED_ENTITIES[known] ?? all) : all;
     })
     .replace(/[\p{Cc}\p{Cf}]/gu, ' ')
     .replace(/\s+/g, ' ')
@@ -219,29 +221,41 @@ export function parseEventSpawns(html: string): { name: string; image?: string }
   return [...listed, ...named].slice(0, MAX_EVENT_SPAWNS);
 }
 
-/** The most paragraphs of a Spawns section read for the names in its sentences (review C3). */
-const MAX_SPAWN_PARAGRAPHS = 50;
+/**
+ * The most paragraphs of a section read (review C3): of a Spawns section for the names in its
+ * sentences, of a Raids or Max Battles section for the time of its hours. The kept pages have
+ * one or two a section.
+ */
+const MAX_SECTION_PARAGRAPHS = 50;
 /** The most characters of one paragraph read (review C3): a sentence is far shorter. */
 const MAX_PARAGRAPH_LENGTH = 4_000;
 
 /**
  * The inner HTML of a section's paragraphs, with bounded work (review C3): each from its `<p` to
  * its `</p>`, or to the next `<p` where it is not closed (as a browser reads it), at most
- * `MAX_PARAGRAPH_LENGTH` characters of it and `MAX_SPAWN_PARAGRAPHS` of them.
+ * `MAX_PARAGRAPH_LENGTH` characters of it and `MAX_SECTION_PARAGRAPHS` of them. `cut` says that
+ * the section has more than was read: a paragraph after the last, or the rest of a long one.
  */
-function paragraphsOf(section: string): string[] {
+function readParagraphs(section: string): { paragraphs: string[]; cut: boolean } {
   const paragraphs: string[] = [];
+  let cut = false;
   let at = nextParagraph(section, 0);
-  while (at >= 0 && paragraphs.length < MAX_SPAWN_PARAGRAPHS) {
+  while (at >= 0 && paragraphs.length < MAX_SECTION_PARAGRAPHS) {
     const open = section.indexOf('>', at);
     if (open < 0) break;
     const following = nextParagraph(section, open + 1);
     const close = section.indexOf('</p>', open + 1);
-    const ends = Math.min(...[close, following].filter((cut) => cut >= 0), section.length);
+    const ends = Math.min(...[close, following].filter((end) => end >= 0), section.length);
+    if (ends > open + 1 + MAX_PARAGRAPH_LENGTH) cut = true;
     paragraphs.push(section.slice(open + 1, Math.min(ends, open + 1 + MAX_PARAGRAPH_LENGTH)));
     at = following;
   }
-  return paragraphs;
+  return { paragraphs, cut: cut || at >= 0 };
+}
+
+/** The paragraphs of a section as far as they are read (`readParagraphs`). */
+function paragraphsOf(section: string): string[] {
+  return readParagraphs(section).paragraphs;
 }
 
 /** Where the next `<p>` or `<p …>` opens from `from`, or -1 (never `<pre`, `<picture`). */
@@ -502,15 +516,22 @@ function minutesOfDay(hour: number, minute: number, half: string): number | unde
  * the second's. `none` where those paragraphs name no time; `unclear` for several ranges, a range
  * that ends before it starts or lasts too long (`MAX_PAGE_HOURS_MINUTES`: over three hours for
  * Raid Hours), one followed by a zone's name (`NAMED_ZONE`: "PT", "UTC"), a time that is no
- * range ("at 6 p.m.", "from noon"), or dates that leave a day out.
+ * range ("at 6 p.m.", "from noon"), or dates that leave a day out; also for a section with more
+ * paragraphs, or a longer one, than are read (`readParagraphs`: 50 of 4,000 characters; the kept
+ * pages' sections have one or two, of some 230).
  */
 export function eventPageTime(
   html: string,
   section: 'raids' | 'max-battles',
   days: readonly { month: number; day: number }[],
 ): PageTimeRead {
-  const paragraphs = [...sectionOf(html, section).matchAll(/<p(?:\s[^>]*)?>([\s\S]*?)<\/p>/g)]
-    .map((match) => htmlText(match[1] ?? ''))
+  // Paragraph by paragraph, with bounded work (plan 8Z-2: one pattern over the whole section was
+  // quadratic on paragraphs that are not closed).
+  const read = readParagraphs(sectionOf(html, section));
+  // What was not read may name another time: no time is taken from a part of the section.
+  if (read.cut) return { kind: 'unclear' };
+  const paragraphs = read.paragraphs
+    .map((paragraph) => htmlText(paragraph))
     .filter((text) => NAMES_THE_HOURS[section].test(text))
     .join(' ');
   const ranges = new Map<string, PageHoursTime>();
