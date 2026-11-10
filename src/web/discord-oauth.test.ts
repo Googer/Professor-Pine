@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { authorizeUrl, DiscordOAuth } from './discord-oauth.js';
+import { authorizeUrl, DiscordOAuth, EXCHANGE_SPACING_MS } from './discord-oauth.js';
 
 const APP = '123456789012345678';
 
@@ -34,17 +34,34 @@ describe('authorizeUrl', () => {
 
 describe("DiscordOAuth's limits (plan 8Z)", () => {
   const CALLBACK = 'https://map.example.test/auth/callback';
-  /** An OAuth gateway over `answers`, on a clock the test moves. */
+  /**
+   * An OAuth gateway over `answers`, on a clock the test moves. A wait for the exchange's slot
+   * passes at once, moving the clock on by its length (`waits` records each); with
+   * `waiting.held` it stays open until the test moves the clock and calls its `release`.
+   */
   const limited = (...answers: Array<Response | Error>) => {
     const { fetch, asked } = fakeFetch(...answers);
     const clock = { now: 1_000_000 };
+    const waits: number[] = [];
+    const held: Array<{ ms: number; release: () => void }> = [];
+    const waiting = { held: false };
     const oauth = new DiscordOAuth({
       appId: APP,
       secret: 's3cret',
       fetch,
       now: () => clock.now,
+      wait: (ms) => {
+        waits.push(ms);
+        if (!waiting.held) {
+          clock.now += ms;
+          return Promise.resolve();
+        }
+        return new Promise<void>((resolve) => {
+          held.push({ ms, release: resolve });
+        });
+      },
     });
-    return { oauth, asked, clock };
+    return { oauth, asked, clock, waits, held, waiting };
   };
   const token = () => json({ access_token: 'tok' });
   const tooMany = (retryAfter?: string) =>
@@ -53,16 +70,54 @@ describe("DiscordOAuth's limits (plan 8Z)", () => {
       headers: retryAfter === undefined ? {} : { 'retry-after': retryAfter },
     });
 
-  it('exchanges at most one code a second, failing fast above that without asking Discord', async () => {
-    const { oauth, asked, clock } = limited(token(), token());
+  it('spaces two logins a moment apart a second, and both succeed (plan 8Z-2)', async () => {
+    const { oauth, asked, clock, waits } = limited(token(), token(), token());
     expect(await oauth.exchange('one', CALLBACK)).toEqual({ accessToken: 'tok' });
-    expect(await oauth.exchange('two', CALLBACK)).toEqual({ failed: 'busy' });
-    expect(asked).toHaveLength(1);
-    clock.now += 999;
-    expect(await oauth.exchange('two', CALLBACK)).toEqual({ failed: 'busy' });
-    clock.now += 1;
+    clock.now += 200;
     expect(await oauth.exchange('two', CALLBACK)).toEqual({ accessToken: 'tok' });
+    // The second waited for its slot, a second after the first, and only then asked Discord.
+    expect(waits).toEqual([800]);
     expect(asked).toHaveLength(2);
+    // A second later or more the slot is free: no wait.
+    clock.now += EXCHANGE_SPACING_MS;
+    expect(await oauth.exchange('three', CALLBACK)).toEqual({ accessToken: 'tok' });
+    expect(waits).toEqual([800]);
+  });
+
+  it('gives each arrival the next slot, and answers busy at once past five seconds', async () => {
+    const answers = Array.from({ length: 7 }, token);
+    const { oauth, asked, clock, waits, held, waiting } = limited(...answers);
+    waiting.held = true;
+    // Six at one moment: now, and one to five seconds on.
+    const six = ['a', 'b', 'c', 'd', 'e', 'f'].map((code) => oauth.exchange(code, CALLBACK));
+    expect(waits).toEqual([1_000, 2_000, 3_000, 4_000, 5_000]);
+    // The seventh's slot is six seconds away: refused without a wait, Discord not asked.
+    expect(await oauth.exchange('g', CALLBACK)).toEqual({ failed: 'busy' });
+    expect(waits).toHaveLength(5);
+    expect(asked).toHaveLength(1);
+    // A refused arrival reserved nothing: a second on, the slot six seconds from the start is
+    // five away and taken.
+    clock.now += 1_000;
+    const seventh = oauth.exchange('g', CALLBACK);
+    expect(waits).toEqual([1_000, 2_000, 3_000, 4_000, 5_000, 5_000]);
+    clock.now += 5_000;
+    for (const wait of held) wait.release();
+    expect(await Promise.all([...six, seventh])).toEqual(
+      Array.from({ length: 7 }, () => ({ accessToken: 'tok' })),
+    );
+    expect(asked).toHaveLength(7);
+  });
+
+  it('asks again whether a 429 stopped the logins once the wait for the slot is over', async () => {
+    const { oauth, asked, clock, held, waiting } = limited(tooMany('30'), token());
+    waiting.held = true;
+    const first = oauth.exchange('one', CALLBACK);
+    const second = oauth.exchange('two', CALLBACK);
+    expect(await first).toEqual({ failed: 'status 429' });
+    clock.now += 1_000;
+    held[0]?.release();
+    expect(await second).toEqual({ failed: 'busy' });
+    expect(asked).toHaveLength(1);
   });
 
   it('stops for as long as a 429 says, every ask refused meanwhile', async () => {

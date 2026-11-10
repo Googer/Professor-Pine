@@ -3,6 +3,7 @@ import type { CookieSerializeOptions } from '@fastify/cookie';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isSnowflake } from '../db/snowflake.js';
 import { buttonPage, sendFailure } from './answers.js';
+import { addressBucket } from './client-address.js';
 import { postGuard } from './csrf.js';
 import { authorizeUrl } from './discord-oauth.js';
 import { localPath } from './local-path.js';
@@ -23,6 +24,12 @@ export function oauthCookieName(secure: boolean): string {
 const OAUTH_SECONDS = 600;
 /** The requests to `/auth/…` one address may make in a minute (spec 5). */
 const AUTH_PER_MINUTE = 20;
+/**
+ * The code exchanges with Discord one address may cause in a minute (plan 8Z-2): a login is
+ * one, and the exchanges are spaced a second apart for the whole process, so that an address
+ * without this limit could take every slot.
+ */
+export const EXCHANGES_PER_ADDRESS_MINUTE = 3;
 /** A state: 16 random bytes, base64url. */
 const STATE = /^[A-Za-z0-9_-]{22}$/;
 /** An authorization code as Discord gives one: a short plain token. */
@@ -63,7 +70,8 @@ interface LinkParams {
  * the member to Discord with a random state, kept with the page to return to in a cookie of ten
  * minutes; `/auth/callback` checks the state, exchanges the code, asks who the member is and
  * starts a session; whatever fails returns to the page with `?login=failed`, the cookie
- * deleted either way. A link of `/maps`, `/auth/link/<guild>/<token>`, shows a page whose
+ * deleted either way. One address causes at most `EXCHANGES_PER_ADDRESS_MINUTE` exchanges a
+ * minute (plan 8Z-2), counted only once the state and the code have passed. A link of `/maps`, `/auth/link/<guild>/<token>`, shows a page whose
  * button (a POST of Pine's own page) starts a session once, within five minutes, for its own
  * server; then the map, without the token. Logging out is a POST of Pine's own pages
  * (`postGuard`). Neither a code nor a token is ever logged.
@@ -75,6 +83,7 @@ export function authRoutes(app: FastifyInstance, deps: WebDeps): void {
   const limited = limitedPerAddress(new RateLimiter({ uses: AUTH_PER_MINUTE, perMs: 60_000 }), {
     now,
   });
+  const exchanges = new RateLimiter({ uses: EXCHANGES_PER_ADDRESS_MINUTE, perMs: 60_000 });
 
   app.addHook('onRequest', async (request, reply) => {
     void reply.header('cache-control', 'no-store');
@@ -110,6 +119,11 @@ export function authRoutes(app: FastifyInstance, deps: WebDeps): void {
     if (typeof code !== 'string' || code === '') return failed('declined');
     // Discord's codes are short plain tokens: anything else never reaches it (plan 8Z).
     if (!OAUTH_CODE.test(code)) return failed('bad code');
+    // Only what reaches the exchange counts against the address (plan 8Z-2): a request refused
+    // above cost nothing.
+    if (!exchanges.take(addressBucket(request.ip), now()).ok) {
+      return failed('exchange: busy (too many from one address)');
+    }
     const token = await oauth.gateway.exchange(code, callbackUrl);
     if ('failed' in token) return failed(`exchange: ${token.failed}`);
     const user = await oauth.gateway.who(token.accessToken);

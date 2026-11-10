@@ -45,6 +45,8 @@ type Fetch = (url: string, init?: RequestInit) => Promise<Response>;
 
 /** One code exchange in this long, across the process (plan 8Z). */
 export const EXCHANGE_SPACING_MS = 1_000;
+/** How long a login waits for its exchange at most; one whose slot is further away is `busy`. */
+export const EXCHANGE_WAIT_MS = 5_000;
 /** How long a 429 without a readable `Retry-After` stops the logins. */
 const NO_RETRY_AFTER_MS = 60_000;
 /** The answer of a login over the limit, or while a 429 stops them. */
@@ -64,13 +66,20 @@ function retryAfterMs(header: string | null): number {
  * secret; the token is used once and not kept.
  *
  * Discord limits this application's token asks, and a flood of logins must not get it stopped
- * (plan 8Z): at most one `exchange` in `EXCHANGE_SPACING_MS` across the process, failing fast
- * above that (`{ failed: 'busy' }`, without asking); a 429 on either stops both for as long as
- * its `Retry-After` says (`NO_RETRY_AFTER_MS` when it says nothing readable).
+ * (plan 8Z): at most one `exchange` in `EXCHANGE_SPACING_MS` across the process. An `exchange`
+ * takes the next free slot as it arrives (plan 8Z-2: now, or `EXCHANGE_SPACING_MS` after the
+ * slot taken last) and waits for it, so that two logins a moment apart both go through; one
+ * whose slot is more than `EXCHANGE_WAIT_MS` away takes none and fails at once
+ * (`{ failed: 'busy' }`, without asking), so at most five wait at a time. A 429 on either ask
+ * stops both for as long as its `Retry-After` says (`NO_RETRY_AFTER_MS` when it says nothing
+ * readable), also an `exchange` that was waiting for its slot meanwhile. The clock and the wait
+ * are the caller's (`now`, `wait`; a timer by default).
  */
 export class DiscordOAuth implements OAuthGateway {
   private readonly now: () => number;
-  private lastExchange: number | undefined;
+  private readonly wait: (ms: number) => Promise<void>;
+  /** The slot the last `exchange` that was let in took: its own time, now or still to come. */
+  private lastSlot: number | undefined;
   private stoppedUntil: number | undefined;
 
   constructor(
@@ -79,9 +88,17 @@ export class DiscordOAuth implements OAuthGateway {
       secret: string;
       fetch: Fetch;
       now?: () => number;
+      /** Resolves once `ms` have passed: the wait for an exchange's slot. */
+      wait?: (ms: number) => Promise<void>;
     },
   ) {
     this.now = options.now ?? (() => Date.now());
+    this.wait =
+      options.wait ??
+      ((ms) =>
+        new Promise((resolve) => {
+          setTimeout(resolve, ms);
+        }));
   }
 
   async exchange(
@@ -89,11 +106,16 @@ export class DiscordOAuth implements OAuthGateway {
     redirectUri: string,
   ): Promise<{ accessToken: string } | { failed: string }> {
     const now = this.now();
-    if (this.lastExchange !== undefined && now - this.lastExchange < EXCHANGE_SPACING_MS) {
-      return BUSY;
-    }
     if (this.stopped(now)) return BUSY;
-    this.lastExchange = now;
+    const slot =
+      this.lastSlot === undefined ? now : Math.max(now, this.lastSlot + EXCHANGE_SPACING_MS);
+    if (slot - now > EXCHANGE_WAIT_MS) return BUSY;
+    this.lastSlot = slot;
+    if (slot > now) {
+      await this.wait(slot - now);
+      // A 429 may have come while this one waited.
+      if (this.stopped(this.now())) return BUSY;
+    }
     const body = new URLSearchParams({
       grant_type: 'authorization_code',
       code,

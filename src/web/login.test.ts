@@ -202,6 +202,67 @@ describe('logging in with Discord', () => {
     expect(oauth.exchanged).toHaveLength(2);
   });
 
+  describe('the exchanges of one address (plan 8Z-2)', () => {
+    /** A callback that passes the state check, as a stranger with a self-made cookie sends it. */
+    const callback = (made: TestWeb, query: string, cookie: string, remoteAddress: string) =>
+      made.app.inject({ url: `/auth/callback?${query}`, headers: { cookie }, remoteAddress });
+
+    it('are at most three a minute: a fourth is refused before Discord is asked', async () => {
+      const oauth = new FakeOAuth().knows('good-code', { id: ASH, name: 'Ash' });
+      web = webServerWith({ oauth });
+      const { state, cookie } = await started(web);
+      for (const code of ['junk-1', 'junk-2', 'junk-3']) {
+        const answer = await callback(web, `code=${code}&state=${state}`, cookie, '203.0.113.7');
+        expect(answer.headers.location).toBe(`${MAP}?login=failed`);
+      }
+      expect(oauth.exchanged).toHaveLength(3);
+      const fourth = await callback(web, `code=good-code&state=${state}`, cookie, '203.0.113.7');
+      expect(fourth.statusCode).toBe(302);
+      expect(fourth.headers.location).toBe(`${MAP}?login=failed`);
+      expect(oauth.exchanged).toHaveLength(3);
+      expect(web.sessions.rows.size).toBe(0);
+      // Another address logs in meanwhile, and this one again a minute after its first.
+      const other = await callback(web, `code=good-code&state=${state}`, cookie, '203.0.113.8');
+      expect(other.headers.location).toBe(MAP);
+      web.clock.now += 60_000;
+      const later = await callback(web, `code=good-code&state=${state}`, cookie, '203.0.113.7');
+      expect(later.headers.location).toBe(MAP);
+      expect(oauth.exchanged).toHaveLength(5);
+    });
+
+    it('count only what reaches the exchange: no bad state, declined login or bad code', async () => {
+      const oauth = new FakeOAuth().knows('good-code', { id: ASH, name: 'Ash' });
+      web = webServerWith({ oauth });
+      const { state, cookie } = await started(web);
+      const junk = [
+        `code=good-code&state=${state}x`,
+        'code=good-code',
+        `error=access_denied&state=${state}`,
+        `code=${encodeURIComponent('has space')}&state=${state}`,
+      ];
+      for (const query of [...junk, ...junk]) {
+        const answer = await callback(web, query, cookie, '203.0.113.7');
+        expect(answer.headers.location, query).toBe(`${MAP}?login=failed`);
+      }
+      expect(oauth.exchanged).toEqual([]);
+      for (let i = 0; i < 3; i += 1) {
+        const answer = await callback(web, `code=good-code&state=${state}`, cookie, '203.0.113.7');
+        expect(answer.headers.location).toBe(MAP);
+      }
+      expect(oauth.exchanged).toHaveLength(3);
+    });
+
+    it('count the addresses of one IPv6 /64 together', async () => {
+      const oauth = new FakeOAuth().knows('good-code', { id: ASH, name: 'Ash' });
+      web = webServerWith({ oauth });
+      const { state, cookie } = await started(web);
+      for (let i = 0; i < 4; i += 1) {
+        await callback(web, `code=good-code&state=${state}`, cookie, `2001:db8:1:2::${i + 1}`);
+      }
+      expect(oauth.exchanged).toHaveLength(3);
+    });
+  });
+
   it('says the login failed when Discord refuses, or the member declined', async () => {
     const oauth = new FakeOAuth().knows('good-code', { id: ASH, name: 'Ash' });
     oauth.whoFails = true;
