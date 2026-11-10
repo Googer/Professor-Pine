@@ -67,6 +67,17 @@ export class GuildRepository implements GuildStore {
     return snowflake;
   }
 
+  /**
+   * The servers that have a row: those the bot is in, as the table has them (a row is made at
+   * each start and when the bot joins a server, and deleted when it leaves one). For what must
+   * know the servers before the login, when the client has none yet (the line that waits for
+   * Google ranks its regions at start, plan 8Z-2).
+   */
+  async snowflakes(): Promise<string[]> {
+    const rows = await this.db.selectFrom('Guild').select('snowflake').orderBy('id').execute();
+    return rows.flatMap((row) => (row.snowflake === null ? [] : [row.snowflake]));
+  }
+
   /** The row id of a server; undefined (and asked again the next time) while it has no row. */
   async idFor(snowflake: string): Promise<number | undefined> {
     const seen = this.ids.guild(snowflake);

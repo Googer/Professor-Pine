@@ -8,18 +8,21 @@ const REGIONS = [
   { id: 3, guildId: 20, channelId: 'other' },
   { id: 4, guildId: null, channelId: 'nobody' },
 ];
+/** The servers the bot is in. */
+const SERVERS = ['412345678901234567', '412345678901234568'];
 
 describe('GoogleRanks', () => {
-  it('ranks a place by its best region, from the raids since 90 days before the moment', async () => {
-    const asked: number[] = [];
+  it('ranks a place by its best region, from the raids of the bot’s servers since 90 days before the moment', async () => {
+    const asked: [number, readonly string[]][] = [];
     const now = 100 * 86_400_000;
     const ranks = new GoogleRanks({
       regions: { all: () => REGIONS },
       gymRegions: (id) => (id === 7 ? ['north', 'south'] : id === 8 ? ['south'] : []),
       wayspotRegions: (id) => (id === 'aa.16' ? ['nobody'] : id === 'bb.16' ? ['other'] : []),
+      servers: () => Promise.resolve(SERVERS),
       activity: {
-        raidsByRegion: (since) => {
-          asked.push(since);
+        raidsByRegion: (since, servers) => {
+          asked.push([since, servers]);
           return Promise.resolve(
             new Map([
               [1, 10],
@@ -34,7 +37,8 @@ describe('GoogleRanks', () => {
     // Before the first reading every region ranks the same.
     expect(ranks.ofGym(8)).toBe(1);
     await ranks.refresh();
-    expect(asked).toEqual([10 * 86_400_000]);
+    // Of the servers the bot is in only (plan 8Z-2, audit X3): the read goes by server.
+    expect(asked).toEqual([[10 * 86_400_000, SERVERS]]);
     expect(ranks.ofGym(7)).toBe(1);
     expect(ranks.ofGym(8)).toBe(0.5);
     expect(ranks.ofGym(9)).toBe(NO_REGION_RANK);
@@ -44,12 +48,14 @@ describe('GoogleRanks', () => {
     expect(ranks.ofWayspot('cc.16')).toBeUndefined();
   });
 
-  it('keeps the ranks it had when the history cannot be read', async () => {
+  it('keeps the ranks it had when the history or the servers cannot be read', async () => {
     let failing = false;
+    let lost = false;
     const ranks = new GoogleRanks({
       regions: { all: () => REGIONS },
       gymRegions: () => ['south'],
       wayspotRegions: () => [],
+      servers: () => (lost ? Promise.reject(new Error('no servers')) : Promise.resolve(SERVERS)),
       activity: {
         raidsByRegion: () =>
           failing
@@ -66,6 +72,10 @@ describe('GoogleRanks', () => {
     failing = true;
     await expect(ranks.refresh()).rejects.toThrow('no database');
     expect(ranks.ofGym(1)).toBe(0.25);
+    failing = false;
+    lost = true;
+    await expect(ranks.refresh()).rejects.toThrow('no servers');
+    expect(ranks.ofGym(1)).toBe(0.25);
   });
 
   it('ranks a new list of regions at once by the raids last read, without reading them again', async () => {
@@ -75,6 +85,7 @@ describe('GoogleRanks', () => {
       regions: { all: () => regions },
       gymRegions: () => ['east'],
       wayspotRegions: () => ['east'],
+      servers: () => Promise.resolve(SERVERS),
       activity: {
         raidsByRegion: () => {
           reads++;

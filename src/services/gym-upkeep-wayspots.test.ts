@@ -48,6 +48,7 @@ async function lineWith(
     regions,
     gymRegions: (id) => directory.regionsOf(id),
     wayspotRegions: (id) => wayspots.regionsOf(id),
+    servers: () => Promise.resolve([]),
     activity: { raidsByRegion: () => Promise.resolve(new Map()) },
   });
   const timers: (() => void)[] = [];

@@ -801,6 +801,8 @@ export async function startApp(
       regions,
       gymRegions: (id) => gyms.regionsOf(id),
       wayspotRegions: (id) => wayspots.regionsOf(id),
+      // The servers by their rows: the first reading comes before the login (plan 8Z-2).
+      servers: () => guilds.snowflakes(),
       activity: history,
     }),
     wayspots,

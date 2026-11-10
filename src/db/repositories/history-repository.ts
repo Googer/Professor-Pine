@@ -852,11 +852,18 @@ export class HistoryRepository
    * How many raids each region had since a moment (epoch ms), max battles counted as raids
    * (plan 8W-6: the rank of a region in the line that waits for Google). Regions without any are
    * left out, as are parties without a region.
+   *
+   * Of the servers given only (plan 8Z-2, audit X3), so that the read goes along the index
+   * `partyhistory_server_kind_createdat_index (serverId, kind, createdAt)`: the records of these
+   * servers and kinds since the moment. Without a server in its `where` it walked the whole
+   * history along the region's index. No server reads nothing.
    */
-  async raidsByRegion(since: number): Promise<Map<number, number>> {
+  async raidsByRegion(since: number, serverIds: readonly string[]): Promise<Map<number, number>> {
+    if (serverIds.length === 0) return new Map();
     const rows = await this.db
       .selectFrom('PartyHistory')
       .select((eb) => ['regionId', eb.fn.countAll<number | string>().as('raids')])
+      .where('serverId', 'in', [...serverIds])
       .where('kind', 'in', ['raid', 'max'])
       .where('createdAt', '>=', String(since))
       .where('regionId', 'is not', null)

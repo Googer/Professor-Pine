@@ -13,8 +13,19 @@ export interface GoogleRanksOptions {
   gymRegions(gymId: number): readonly string[];
   /** The channels of the regions a Wayspot lies in (`WayspotDirectory.regionsOf`). */
   wayspotRegions(wayspotId: string): readonly string[];
+  /**
+   * The servers the bot is in, by their snowflakes, asked at each reading (the `Guild` rows,
+   * `GuildRepository.snowflakes`: the first reading comes before the login, when the client knows
+   * no server yet). The raids are read of these servers only (plan 8Z-2, audit X3).
+   */
+  servers(): Promise<readonly string[]>;
   /** The party history: the raids of each region since a moment (`HistoryRepository`). */
-  activity: { raidsByRegion(since: number): Promise<ReadonlyMap<number, number>> };
+  activity: {
+    raidsByRegion(
+      since: number,
+      serverIds: readonly string[],
+    ): Promise<ReadonlyMap<number, number>>;
+  };
   /** Default `Date.now`. */
   now?: () => number;
 }
@@ -35,10 +46,14 @@ export class GoogleRanks {
 
   constructor(private readonly options: GoogleRanksOptions) {}
 
-  /** Reads the raids anew. Rejects when they cannot be read; the ranks are then as they were. */
+  /**
+   * Reads the raids anew, of the servers the bot is in. Rejects when they or the servers cannot
+   * be read; the ranks are then as they were.
+   */
   async refresh(): Promise<void> {
     const now = (this.options.now ?? Date.now)();
-    this.raids = await this.options.activity.raidsByRegion(now - RANK_DAYS * 86_400_000);
+    const servers = await this.options.servers();
+    this.raids = await this.options.activity.raidsByRegion(now - RANK_DAYS * 86_400_000, servers);
     this.ranked = undefined;
   }
 
