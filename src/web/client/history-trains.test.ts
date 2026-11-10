@@ -22,10 +22,11 @@ const item = (id: number): TrainItemView => ({
   about: 'About 2 stops · 3 riders',
 });
 
-const month = (ids: number[], more = 0): TrainMonthView => ({
+const month = (ids: number[], more = 0, older = false): TrainMonthView => ({
   month: '2019-06',
   trains: ids.map(item),
   more,
+  older,
 });
 
 const route = (id: number, overrides: Partial<TrainRouteView> = {}): TrainRouteView => ({
@@ -85,6 +86,24 @@ describe('the trains of History’s month on the map (plan 8H-7B)', () => {
     // The same month again asks nothing.
     part.show({ kind: 'month', month: '2019-06' });
     expect(asked).toHaveLength(1);
+  });
+
+  it('says that there may be more where the server stopped at a full list (plan 8Z-2)', async () => {
+    const { part, asked } = trains();
+    part.show({ kind: 'month', month: '2019-06' });
+    // The older trains of the month were not looked at: no count of them, only that they may be.
+    asked[0]?.answer(month([3, 2, 1], 0, true));
+    await part.idle();
+    expect(part.panel()).toMatchObject({
+      heading: 'Trains in June 2019 (3+)',
+      more: 'There may be more, earlier in the month.',
+    });
+    // Without them, a list that leaves none out says nothing under it.
+    part.show({ kind: 'month', month: '2019-07' });
+    asked[1]?.answer(month([3, 2, 1]));
+    await part.idle();
+    expect(part.panel().heading).toBe('Trains in July 2019 (3)');
+    expect(part.panel().more).toBeUndefined();
   });
 
   it('says when a month has none, and when the list could not be loaded', async () => {

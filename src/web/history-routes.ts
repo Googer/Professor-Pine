@@ -59,7 +59,10 @@ import type { RaidStandSettings } from '../domain/time/raid-durations.js';
 
 /** What the activity heatmap of the live map reads (plan 8H-4). */
 export interface ActivityWebDeps {
-  /** The buckets (`ActivityRepository`). */
+  /**
+   * The buckets: in the bot `KeptActivity` over `ActivityRepository`, the same rows for every
+   * member of a minute, read-only (plan 8Z-2).
+   */
   reader: ActivityReader;
   /** The regions, whose forums say who may see their parties (`RegionDirectory`). */
   regions: { all(): readonly Region[] };
@@ -108,8 +111,14 @@ export interface ActivityWebDeps {
  */
 export const TRAINS_PER_MINUTE = 60;
 
-/** The most trains a month's list gives; the rest are counted (`more`). */
+/**
+ * The most trains a month's list gives; the rest of those read are counted (`more`), and a month
+ * with trains not read says so (`older`).
+ */
 export const TRAINS_LISTED = 50;
+
+/** As many trains as a month's list reads the cards of at once, until it is full (plan 8Z-2). */
+export const TRAINS_READ_AT_ONCE = 50;
 
 /** `?month=yyyy-mm`, required. */
 const trainsQuery = z.object({ month: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/u) }).strict();
@@ -194,7 +203,8 @@ const tallyQuery = z.object({ period: z.enum(TALLY_PERIODS).default('month') }).
  * The requests for a server's activity one address may make in a minute: the page asks once a
  * mode, a slider's step or an hour, and History's Play at most a step a second (the next asked a
  * second after the last answer was drawn), so that Play through every month since 2018 fits with
- * room for the rest (review P1). No cache on the server: each answer is one indexed read.
+ * room for the rest (review P1). The bot's reader keeps each read of a server and window a minute
+ * (`KeptActivity`, plan 8Z-2): what the member may see is decided here, on the rows it gives.
  */
 export const ACTIVITY_PER_MINUTE = 180;
 
@@ -492,7 +502,8 @@ type TrainRequest = FastifyRequest<{ Params: { guild: string; train: string } }>
 /**
  * The ended trains of the map's History (plan 8H-7B, design Part F's web half): `GET
  * /s/<guild>/api/history/trains?month=yyyy-mm`, the month's trains (by `createdAt` in the posts'
- * zone) the member may see, newest first, at most `TRAINS_LISTED`; and `GET
+ * zone) the member may see, newest first, at most `TRAINS_LISTED` (their cards read fifty trains
+ * at a time until the list is full, so a month of many trains is not read whole); and `GET
  * /s/<guild>/api/history/trains/<id>`, one train's line and card, by its record's id (review G1:
  * legacy records have no party id). Shaped as the other history routes: their own limiter
  * (`TRAINS_PER_MINUTE`, review G8), a session (401), membership asked before anything of the
@@ -565,20 +576,30 @@ function trainRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewer
         : reply.code(503).send({ error: UNCONFIRMED });
     }
     const ids = await activity.trains.trainsMade(guild, trainMonthRange(month, activity.zone));
-    const read = await activity.trains.trainCardRows(guild, ids);
-    // Filtered before the cap, so that "more" counts only what the member may see (G5).
-    const shown = ids.flatMap((id) => {
-      const rows = read.get(id);
-      return rows !== undefined && trainListed(rows, seen.places) && seen.sees(rows)
-        ? [{ id, rows }]
-        : [];
-    });
+    // The cards are read `TRAINS_READ_AT_ONCE` trains at a time, newest first, until the list is
+    // full (plan 8Z-2, audit L-S2), never every card of the month for a list of fifty. Filtered
+    // before the cap, so that "more" counts only what the member may see (G5); the trains not
+    // read are not counted at all (`older`).
+    const shown: { id: number; rows: TrainCardRows }[] = [];
+    let read = 0;
+    while (read < ids.length && shown.length < TRAINS_LISTED) {
+      const next = ids.slice(read, read + TRAINS_READ_AT_ONCE);
+      read += next.length;
+      const cards = await activity.trains.trainCardRows(guild, next);
+      for (const id of next) {
+        const rows = cards.get(id);
+        if (rows !== undefined && trainListed(rows, seen.places) && seen.sees(rows)) {
+          shown.push({ id, rows });
+        }
+      }
+    }
     const view: TrainMonthView = {
       month,
       trains: shown
         .slice(0, TRAINS_LISTED)
         .map((one) => trainItem(one.id, one.rows, activity.zone)),
       more: Math.max(0, shown.length - TRAINS_LISTED),
+      older: read < ids.length,
     };
     return sendJson(request, reply, view);
   });

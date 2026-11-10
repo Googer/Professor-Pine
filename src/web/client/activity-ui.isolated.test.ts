@@ -384,6 +384,7 @@ const monthOfTrains = (ids: number[]): TrainMonthView => ({
     about: 'About 2 stops · 3 riders',
   })),
   more: 0,
+  older: false,
 });
 
 /** A train's line and card as the server gives them. */

@@ -113,6 +113,7 @@ import { GoogleUseRepository } from './db/repositories/google-use-repository.js'
 import { WayspotAddressRepository } from './db/repositories/wayspot-address-repository.js';
 import { WayspotAddresses } from './services/wayspot-addresses.js';
 import { GoogleRanks } from './services/google-ranks.js';
+import { KeptActivity } from './services/kept-activity.js';
 import { WayspotLookupRepository } from './db/repositories/wayspot-lookup-repository.js';
 import { WayspotPlaces } from './services/wayspot-places.js';
 import { ImageCache } from './services/image-cache.js';
@@ -446,6 +447,9 @@ export async function startApp(
     settings: config.settings,
     log,
   });
+  // What the map's heatmap and the region tally read of them, each read of a server and window
+  // kept a minute for everybody (plan 8Z-2): what a member may see is decided on the rows after.
+  const activityReads = new KeptActivity(activity);
   // Raids per day and big days (plan 8H-8): the history page and the events forum's "On this
   // day" read them through one service, a server's days kept a few minutes.
   const historyDays = new HistoryDays({
@@ -1133,7 +1137,7 @@ export async function startApp(
     legacyIndex: legacyFillIns,
     // The region tally (plan 8H-5): the heatmap's buckets summed per region, for /stats.
     regionTallies: new RegionTallies({
-      reader: activity,
+      reader: activityReads,
       regions,
       guilds,
       gateway: partyGateway,
@@ -1637,7 +1641,7 @@ export async function startApp(
       // The activity heatmap (plan 8H-4): the buckets, placed at the gyms and Power Spots kept now.
       // The region tally of the history page (plan 8H-5): /stats regions' own RegionTallies.
       activity: {
-        reader: activity,
+        reader: activityReads,
         regions,
         gyms,
         wayspots,

@@ -81,20 +81,23 @@ export class MemberStatsService {
     return years;
   }
 
+  /**
+   * The member's rows, one read after another (plan 8Z-2, audit L-S1): at once they took eight
+   * connections of the pool's ten for one question, and a few members asking together left none
+   * for the rest of the bot. Each read goes by the member's own rows (`BoardRepository`), so the
+   * eight in a row are short; the first that fails ends it.
+   */
   private async input(serverId: string, memberId: string): Promise<MemberStatsInput> {
     const { reader } = this.options;
     const range = { since: null, memberId };
-    const [parties, reports, raids, trains, splits, meetups, reportCredits, scores] =
-      await Promise.all([
-        reader.memberParties(serverId, memberId),
-        reader.memberReports(serverId, memberId),
-        reader.raidCredits(serverId, range),
-        reader.trainCredits(serverId, range),
-        reader.splitLinks(serverId),
-        reader.meetupCredits(serverId, range),
-        reader.reportCredits(serverId, range),
-        reader.reportScores(serverId, [memberId]),
-      ]);
+    const parties = await reader.memberParties(serverId, memberId);
+    const reports = await reader.memberReports(serverId, memberId);
+    const raids = await reader.raidCredits(serverId, range);
+    const trains = await reader.trainCredits(serverId, range);
+    const splits = await reader.splitLinks(serverId);
+    const meetups = await reader.meetupCredits(serverId, range);
+    const reportCredits = await reader.reportCredits(serverId, range);
+    const scores = await reader.reportScores(serverId, [memberId]);
     return { parties, reports, raids, trains, splits, meetups, reportCredits, scores };
   }
 }

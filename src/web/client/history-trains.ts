@@ -34,6 +34,12 @@ export const TRAIN_FAILED = 'The train could not be loaded. Try again in a momen
 /** Said of a train the server will not show (G4): one line, whatever why. */
 export const TRAIN_REFUSED = 'This train cannot be shown.';
 
+/**
+ * Under a list the server filled without reading the month's older trains (plan 8Z-2): they are
+ * not counted, and some of them the member might not see, so it says only that there may be more.
+ */
+export const MAY_BE_MORE = 'There may be more, earlier in the month.';
+
 /** What History shows of the trains: nothing (not History, or Play), "pick a month", a month. */
 export type TrainsContext =
   { kind: 'hidden' } | { kind: 'pick' } | { kind: 'month'; month: string };
@@ -41,14 +47,20 @@ export type TrainsContext =
 /** The Trains part as the page draws it. */
 export interface TrainsPanel {
   hidden: boolean;
-  /** "Trains in June 2019 (12)", the summary that opens the list; none without a list. */
+  /**
+   * "Trains in June 2019 (12)", the summary that opens the list; none without a list. "(50+)"
+   * where the server stopped at a full list (`TrainMonthView.older`).
+   */
   heading?: string;
   /** A line in the place of the list or under it. */
   note?: string;
   items: (TrainItemView & { chosen: boolean })[];
   /** The list is of a month History has left (review R5): shown busy, not to be pressed. */
   stale: boolean;
-  /** "and 9 more" where the list leaves some out. */
+  /**
+   * "and 9 more" where the list leaves some out; `MAY_BE_MORE` where the month's older trains
+   * were not looked at, so that nobody can say how many.
+   */
   more?: string;
   /** The card of the train chosen, once its answer came; `unplaced` where none of its stops is on the map. */
   card?: { id: number; lines: TrainCardLineView[]; unplaced: boolean };
@@ -274,11 +286,19 @@ export class HistoryTrains {
         ? {}
         : {
             heading:
-              view === undefined ? `Trains in ${words}` : `Trains in ${words} (${String(total)})`,
+              view === undefined
+                ? `Trains in ${words}`
+                : `Trains in ${words} (${String(total)}${view.older ? '+' : ''})`,
           }),
       ...(note === undefined ? {} : { note }),
       items,
-      ...(view !== undefined && view.more > 0 ? { more: `and ${String(view.more)} more` } : {}),
+      ...(view === undefined
+        ? {}
+        : view.older
+          ? { more: MAY_BE_MORE }
+          : view.more > 0
+            ? { more: `and ${String(view.more)} more` }
+            : {}),
       ...(card === undefined ? {} : { card }),
     };
   }

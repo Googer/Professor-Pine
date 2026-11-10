@@ -22,8 +22,13 @@ export interface TrainMonthView {
   /** `yyyy-mm`, in the posts' zone. */
   month: string;
   trains: TrainItemView[];
-  /** How many more the member may see that the list leaves out. */
+  /** How many more the member may see that the list leaves out, of the trains read. */
   more: number;
+  /**
+   * Whether the month has older trains the server did not read, the list being full (plan 8Z-2):
+   * there may be more the member may see, uncounted. Never with fewer than the most listed.
+   */
+  older: boolean;
 }
 
 /** A line of a train's card as the page shows it: small print where `small`. */

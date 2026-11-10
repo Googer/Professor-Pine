@@ -18,6 +18,7 @@ import {
   type TestWeb,
 } from '../../test/support/web.js';
 import type { ActivityView } from '../domain/web/activity-data.js';
+import { ACTIVITY_READ_FRESH_MS, KeptActivity } from '../services/kept-activity.js';
 import { ACTIVITY_PER_MINUTE } from './history-routes.js';
 
 const URL = `/s/${FAKE_GUILD_ID}/api/activity`;
@@ -30,18 +31,20 @@ const SPOT = wayspotId(5);
 /**
  * The map of the fakes' server with buckets in memory (`MemoryActivity`), the invented gyms and
  * regions (West 1, East 2 with their forums), the kept Wayspots of `STOP_ROWS`, Alice and Bob
- * members, the clock at `THURSDAY`.
+ * members, the clock at `THURSDAY`. With `kept`, the routes read through the kept reads on the
+ * web's clock, as the bot's do (`KeptActivity`); without, each request reads the buckets itself.
  */
-async function setup() {
+async function setup(options: { kept?: boolean } = {}) {
   const made = await partyServiceWith();
   const activity = new MemoryActivity();
   const { wayspots } = await wayspotsWith(STOP_ROWS);
   const members = new FakeMemberDirectory().add(ALICE, 'Alice').add(BOB, 'Bob');
-  const web = webServerWith({
+  const web: TestWeb = webServerWith({
     members,
     parties: partyWebWith(made),
     activity: activityWebWith({
-      reader: activity,
+      reader:
+        options.kept === true ? new KeptActivity(activity, { now: () => web.clock.now }) : activity,
       gyms: gymsFixture(),
       regions: regionsFixture(),
       wayspots,
@@ -307,6 +310,64 @@ describe('the activity heatmap on the map', () => {
       expect((await made.ask(query)).statusCode, query).toBe(400);
     }
     expect(made.activity.reads).toBe(0);
+  });
+
+  it('reads a window once for the members of a minute, each seeing their own regions (plan 8Z-2)', async () => {
+    const made = await setup({ kept: true });
+    web = made.web;
+    await made.activity.add(FAKE_GUILD_ID, [
+      activityBucket(1, '2026-10', 4, 18),
+      activityBucket(7, '2026-10', 4, 18, { regionId: 2 }),
+    ]);
+    made.made.gateway.barred.set(EAST_FORUM, new Set([ALICE]));
+    const alice = (await made.ask()).json<ActivityView>();
+    // The buckets and the months, once.
+    expect(made.activity.reads).toBe(2);
+    const bob = (await made.ask('', BOB)).json<ActivityView>();
+    expect((await made.ask()).json<ActivityView>()).toEqual(alice);
+    expect(made.activity.reads).toBe(2);
+    // One read, and still what each may see of it.
+    expect(alice.places.map((place) => place.id)).toEqual(['1']);
+    expect(bob.places.map((place) => place.id)).toEqual(['1', '7']);
+    // A minute on (the same hours): read again.
+    made.web.clock.now += ACTIVITY_READ_FRESH_MS;
+    expect((await made.ask()).statusCode).toBe(200);
+    expect(made.activity.reads).toBe(4);
+  });
+
+  it('does not keep a read that failed: the next request reads again', async () => {
+    const made = await setup({ kept: true });
+    web = made.web;
+    await made.activity.add(FAKE_GUILD_ID, [activityBucket(1, '2026-10', 4, 18)]);
+    made.activity.failing = new Error('no database');
+    expect((await made.ask()).statusCode).toBe(500);
+    made.activity.failing = undefined;
+    const answer = await made.ask();
+    expect(answer.statusCode).toBe(200);
+    expect(answer.json<ActivityView>().places.map((place) => place.id)).toEqual(['1']);
+  });
+
+  it('answers a month the server has no activity in without reading its buckets', async () => {
+    const made = await setup({ kept: true });
+    web = made.web;
+    await made.activity.add(FAKE_GUILD_ID, [
+      activityBucket(1, '2019-06', 4, 18),
+      activityBucket(2, '2026-10', 4, 18),
+    ]);
+    for (const query of ['month=2019-05', 'month=2026-11', 'month=9999-12', 'year=2018']) {
+      const answer = await made.ask(`?mode=history&${query}`);
+      expect(answer.statusCode, query).toBe(200);
+      expect(answer.json<ActivityView>(), query).toMatchObject({
+        places: [],
+        leftOut: 0,
+        months: { first: '2019-06', last: '2026-10' },
+      });
+    }
+    // The server's months, read once and kept; no bucket was read.
+    expect(made.activity.reads).toBe(1);
+    const june = (await made.ask('?mode=history&month=2019-06')).json<ActivityView>();
+    expect(june.places.map((place) => place.id)).toEqual(['1']);
+    expect(made.activity.reads).toBe(2);
   });
 
   it('answers one address only so often', async () => {

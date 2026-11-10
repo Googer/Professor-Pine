@@ -152,6 +152,7 @@ describe('the ended trains on the map’s History (plan 8H-7B)', () => {
         },
       ],
       more: 0,
+      older: false,
     });
   });
 
@@ -191,10 +192,53 @@ describe('the ended trains on the map’s History (plan 8H-7B)', () => {
     const alice = (await made.month('2026-06')).json<TrainMonthView>();
     expect(alice.trains).toHaveLength(TRAINS_LISTED);
     expect(alice.trains[0]?.id).toBe(TRAINS_LISTED + 2);
+    // The newest fifty held one she may not see, so the last three were read too: all counted.
     expect(alice.more).toBe(2);
+    expect(alice.older).toBe(false);
     const bob = (await made.month('2026-06', BOB)).json<TrainMonthView>();
+    expect(bob.trains).toHaveLength(TRAINS_LISTED);
     expect(bob.trains[0]?.id).toBe(TRAINS_LISTED + 3);
-    expect(bob.more).toBe(3);
+    // His list was full after the newest fifty: the three older ones were not read, so they
+    // are not counted, only said to be possible (plan 8Z-2).
+    expect(bob.more).toBe(0);
+    expect(bob.older).toBe(true);
+  });
+
+  it('reads the cards fifty trains at a time, newest first, and no further once fifty are shown (plan 8Z-2)', async () => {
+    // The newest sixty were ridden by two (never listed); then seventy that are.
+    const few = [boardAttendee(null, 'done'), boardAttendee(null, 'here')];
+    const made = await setup(
+      Array.from({ length: 130 }, (_, n) =>
+        westTrain(SUNDAY + n * MINUTE, n >= 70 ? { attendees: few } : {}),
+      ),
+    );
+    web = made.web;
+    const reads = vi.spyOn(made.history, 'trainCardRows');
+    const asked = () => reads.mock.calls.map(([, ids]) => [ids[0], ids.at(-1), ids.length]);
+    const june = (await made.month('2026-06')).json<TrainMonthView>();
+    // 130 to 81 (none listed), 80 to 31 (forty listed), 30 to 1 (thirty more): then all are read.
+    expect(asked()).toEqual([
+      [130, 81, 50],
+      [80, 31, 50],
+      [30, 1, 30],
+    ]);
+    expect(june.trains.map((one) => one.id)).toEqual(
+      Array.from({ length: TRAINS_LISTED }, (_, n) => 70 - n),
+    );
+    expect(june.more).toBe(20);
+    expect(june.older).toBe(false);
+  });
+
+  it('stops at the first fifty of a month of many trains', async () => {
+    const made = await setup(Array.from({ length: 180 }, (_, n) => westTrain(SUNDAY + n * MINUTE)));
+    web = made.web;
+    const reads = vi.spyOn(made.history, 'trainCardRows');
+    const june = (await made.month('2026-06')).json<TrainMonthView>();
+    expect(reads.mock.calls.map(([, ids]) => [ids[0], ids.at(-1)])).toEqual([[180, 131]]);
+    expect(june.trains.map((one) => one.id)).toEqual(
+      Array.from({ length: TRAINS_LISTED }, (_, n) => 180 - n),
+    );
+    expect(june).toMatchObject({ more: 0, older: true });
   });
 
   it('leaves out a train of a barred region, by its own region or any stop’s (G5)', async () => {
