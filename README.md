@@ -79,6 +79,14 @@ and in the Developer Portal (Bot → Privileged Gateway Intents):
 If a setting is on but the portal toggle is off, Pine starts anyway with that feature
 disabled and logs which toggle to enable.
 
+## Terms and privacy
+
+The [Terms of Service](docs/legal/terms-of-service.md) and the
+[Privacy Policy](docs/legal/privacy-policy.md) are those of the Pine application its author runs.
+If you run your own Pine, its data is yours to answer for: Discord asks for both documents when an
+application is verified, and these two say what the code keeps, so they are a fair start for
+your own.
+
 ## Development
 
 | Script                      | Does                                                   |
