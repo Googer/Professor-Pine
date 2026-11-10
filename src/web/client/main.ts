@@ -23,6 +23,7 @@ import { editorFits } from './editor-media.js';
 import { FIND_MAX_TEXT } from '../../domain/web/find-data.js';
 import { FIND_PLACEHOLDER } from './find.js';
 import { browserStorage as stagedStorage, stagedRegions } from './staged-storage.js';
+import { geoAgain, takeGeo, type ShownGeo } from './geo-again.js';
 import { showGymDots, type GymDots } from './gyms-ui.js';
 import { LayerRegistry, MAP_LAYERS, regionLabelsShown } from './layer-registry.js';
 import { showLayerControls } from './layers-ui.js';
@@ -135,9 +136,17 @@ async function showGeo(
   regions: GeoView['regions'];
   dots: GymDots;
   outlines: RegionOutlines;
+  /** Another view of the map taken in place of this one (8Z-2 final fix F2, `geoAgain`). */
+  take: (next: GeoView) => void;
 }> {
   const view = await getJson<GeoView>(`/s/${guild}/api/geo`);
-  const names = new Map(view.regions.map((region) => [region.id, region.name]));
+  const held: ShownGeo = {
+    gyms: new Map(view.gyms.map((gym) => [gym.id, gym])),
+    names: new Map(view.regions.map((region) => [region.id, region.name])),
+    regions: [...view.regions],
+  };
+  // Each outline by its region, for "Your regions" (plan 8M-20): restyled by how the member
+  // stands to it.
   const drawnOutlines = new Map<number, L.Polygon>();
   const regions = L.featureGroup();
   // The regions' names on a pane of their own under the markers, taking no clicks: a label never
@@ -145,23 +154,23 @@ async function showGeo(
   const labelsPane = map.createPane(LABELS_PANE);
   labelsPane.style.zIndex = String(LABELS_PANE_Z);
   labelsPane.style.pointerEvents = 'none';
-  const outlines = view.regions.map((region) =>
-    L.polygon(region.outline, { color: theme().colours.region, ...REGION_OUTLINE })
-      .bindTooltip(renderNode(regionLabel(region.name), document), {
-        permanent: true,
-        direction: 'center',
-        className: 'region-label',
-        pane: LABELS_PANE,
-      })
-      .addTo(regions),
-  );
+  const drawRegion = (region: GeoView['regions'][number]): void => {
+    drawnOutlines.set(
+      region.id,
+      L.polygon(region.outline, { color: theme().colours.region, ...REGION_OUTLINE })
+        .bindTooltip(renderNode(regionLabel(region.name), document), {
+          permanent: true,
+          direction: 'center',
+          className: 'region-label',
+          pane: LABELS_PANE,
+        })
+        .addTo(regions),
+    );
+  };
+  for (const region of view.regions) drawRegion(region);
+  const outlines = (): L.Polygon[] => [...drawnOutlines.values()];
   // The layer Region outlines, their labels with them.
   if (registry.isOn('outlines')) regions.addTo(map);
-  // Each by its region, for "Your regions" (plan 8M-20): restyled by how the member stands to it.
-  view.regions.forEach((region, index) => {
-    const outline = outlines[index];
-    if (outline) drawnOutlines.set(region.id, outline);
-  });
   registry.onChange((id, on) => {
     if (id !== 'outlines') return;
     if (on) regions.addTo(map);
@@ -171,13 +180,13 @@ async function showGeo(
     const shown = map.getBounds();
     registry.setCount(
       'outlines',
-      outlines.filter((outline) => shown.intersects(outline.getBounds())).length,
+      outlines().filter((outline) => shown.intersects(outline.getBounds())).length,
     );
   };
   map.on('moveend', outlinesInView);
   // The device changed between light and dark (plan 8M-7): what Leaflet drew takes the new set.
   onThemeChange(({ colours }) => {
-    for (const outline of outlines) outline.setStyle({ color: colours.region });
+    for (const outline of outlines()) outline.setStyle({ color: colours.region });
   });
 
   const dots = showGymDots({
@@ -218,12 +227,25 @@ async function showGeo(
   };
   map.on('zoomend', labels);
   labels();
+  const restyled = regionOutlines(drawnOutlines);
   return {
-    gyms: new Map(view.gyms.map((gym) => [gym.id, gym])),
-    names,
-    regions: view.regions,
+    ...held,
     dots,
-    outlines: regionOutlines(drawnOutlines),
+    outlines: restyled,
+    take: (next) => {
+      // The maps and list the parties hold, now the new view's; its new regions drawn, the gone
+      // ones taken off, the gyms' dots drawn as it has them.
+      const { added, removed } = takeGeo(held, next);
+      for (const id of removed) {
+        const outline = drawnOutlines.get(id);
+        if (outline) regions.removeLayer(outline);
+        drawnOutlines.delete(id);
+      }
+      for (const region of added) drawRegion(region);
+      restyled.refresh();
+      dots.setGyms(next.gyms);
+      outlinesInView();
+    },
   };
 }
 
@@ -233,6 +255,8 @@ interface RegionOutlines {
   restyle(view: RegionsMineView | undefined): void;
   /** One region's outline marked (its row hovered); undefined: none. */
   highlight(regionId: number | undefined): void;
+  /** Every outline styled again as last said: outlines were drawn since (8Z-2 final fix F2). */
+  refresh(): void;
 }
 
 /** The weight of an outline whose row of "Your regions" is hovered. */
@@ -269,6 +293,7 @@ function regionOutlines(drawn: ReadonlyMap<number, L.Polygon>): RegionOutlines {
       marked = regionId;
       restyleAll();
     },
+    refresh: restyleAll,
   };
 }
 
@@ -682,7 +707,7 @@ function start(): void {
     }
   });
   const loading = showGeo(map, guild, you, registry, activity).then(
-    async ({ gyms, names, regions, dots, outlines }) => {
+    async ({ gyms, names, regions, dots, outlines, take }) => {
       // The parties of the server for a member who is logged in (plan 8M-3); while Discord
       // cannot be reached the server says whether it still knows them as a member. A member
       // may report raids at gyms (plan 8M-4) and spawns at any point (plan 8M-4S), not while
@@ -795,6 +820,16 @@ function start(): void {
       });
       /** Only the first list opens the map's tour (plan 8M-17). */
       let listSeen = false;
+      // The members' regions and gyms, asked again once a list says Discord knows the member,
+      // where `/api/me` could not say at load (8Z-2 final fix F2).
+      const geoLater = geoAgain(
+        me,
+        () => getJson<GeoView>(`/s/${guild}/api/geo`),
+        (view) => {
+          take(view);
+          raids.redraw();
+        },
+      );
       const mayReport = me.member && !me.readOnly;
       const raids = showParties(map, guild, me, gyms, names, regions, mayReport, {
         registry,
@@ -810,6 +845,7 @@ function start(): void {
           tour.replace();
           tourHooks.listReadOnly = list.readOnly;
           showRegionsItem();
+          void geoLater.listDrawn();
           if (listSeen) return;
           listSeen = true;
           firstListDrawn();

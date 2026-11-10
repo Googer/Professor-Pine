@@ -35,6 +35,12 @@ export interface GymDots {
    * 8H4H-3: the Activity layer's circles go where the dots are not).
    */
   drawn(id: number): boolean;
+  /**
+   * The gyms of another view of the map (8Z-2 final fix F2: the members' view, once Discord says
+   * who is asking), drawn as they now are: a dot made before stands and acts for its gym as the
+   * new view has it.
+   */
+  setGyms(gyms: readonly MapGym[]): void;
 }
 
 export interface GymDotsDeps {
@@ -81,6 +87,11 @@ export function showGymDots(deps: GymDotsDeps): GymDots {
   const { map, registry } = deps;
   const group = L.layerGroup().addTo(map);
   const dots = new Map<number, L.CircleMarker>();
+  /** The gyms drawn, and each by its id, as the last view has them (`setGyms`). */
+  let gyms = deps.gyms;
+  let byId = new Map(gyms.map((gym) => [gym.id, gym]));
+  /** The gym as the last view has it. */
+  const now = (gym: MapGym): MapGym => byId.get(gym.id) ?? gym;
   /** The gym whose popup is open. */
   let open: number | undefined;
 
@@ -94,10 +105,11 @@ export function showGymDots(deps: GymDotsDeps): GymDots {
       // Ringed while the Report button's step 2 picks gyms (plan 8M-9A, `map.css`).
       className: 'gym-dot',
     }).bindPopup(
+      // What the dot shows and does is for the gym as the last view has it (`setGyms`).
       heldContent(
         () => {
-          const popup = renderNode(gymPopup(gym, deps.where()), document);
-          popup.append(...deps.extras(gym));
+          const popup = renderNode(gymPopup(now(gym), deps.where()), document);
+          popup.append(...deps.extras(now(gym)));
           return popup;
         },
         () => deps.editing(),
@@ -110,9 +122,9 @@ export function showGymDots(deps: GymDotsDeps): GymDots {
     hoverName(map, marker, gym.name);
     gymClicks(
       marker,
-      () => deps.clicked(gym),
+      () => deps.clicked(now(gym)),
       () => {
-        deps.tapped(gym, () => marker.openPopup());
+        deps.tapped(now(gym), () => marker.openPopup());
       },
     );
     // The open gym is never taken away nor clustered (`wantedDots`); once closed, drawn as wanted.
@@ -159,9 +171,9 @@ export function showGymDots(deps: GymDotsDeps): GymDots {
     // The gyms under raids, for the clusters' sums, worked out again only when they changed (R4).
     if (hidden.size !== hiddenSeen.size || [...hidden].some((id) => !hiddenSeen.has(id))) {
       hiddenSeen = new Set(hidden);
-      underRaids = deps.gyms.filter((gym) => hidden.has(gym.id));
+      underRaids = gyms.filter((gym) => hidden.has(gym.id));
     }
-    const shown = shownGyms(deps.gyms, {
+    const shown = shownGyms(gyms, {
       on: registry.isOn('gyms'),
       filter: thinning(),
       forced: deps.forced(),
@@ -203,7 +215,7 @@ export function showGymDots(deps: GymDotsDeps): GymDots {
     // A member's Enter is Find's (plan 8M-12).
     if (event.key !== 'Enter' || thinning() === '') return;
     // The matches drawn: none while the Gyms layer hides them (plan 8M-13, L2).
-    const matches = shownGyms(deps.gyms, {
+    const matches = shownGyms(gyms, {
       on: registry.isOn('gyms'),
       filter: thinning(),
       forced: deps.forced(),
@@ -242,6 +254,14 @@ export function showGymDots(deps: GymDotsDeps): GymDots {
     drawn: (id) => {
       const marker = dots.get(id);
       return marker !== undefined && group.hasLayer(marker);
+    },
+    setGyms: (next) => {
+      gyms = next;
+      byId = new Map(next.map((gym) => [gym.id, gym]));
+      // The gyms under raids worked out again from the new list.
+      hiddenSeen = new Set();
+      underRaids = [];
+      refresh();
     },
   };
 }

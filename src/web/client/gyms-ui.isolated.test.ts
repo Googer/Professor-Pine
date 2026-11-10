@@ -101,7 +101,9 @@ const counted = vi.hoisted(() => {
   const tips: Array<{ words: string | null | undefined; open: boolean }> = [];
   /** What each tooltip was made with. */
   const tipOptions: unknown[] = [];
-  return { changes, Layer, Group, groups, tips, tipOptions };
+  /** What a click on each dot does (`gymClicks`), by its dot. */
+  const clicks = new Map<Layer, () => boolean>();
+  return { changes, Layer, Group, groups, tips, tipOptions, clicks };
 });
 
 vi.mock('leaflet', () => ({
@@ -139,10 +141,12 @@ vi.mock('leaflet', () => ({
     return made;
   },
 }));
-// What the gyms' layer takes of the party layer: the dot's size and its clicks, none here.
+// What the gyms' layer takes of the party layer: the dot's size and its clicks, kept by dot.
 vi.mock('./party-layer.js', () => ({
   GYM_DOT: { radius: 6, weight: 2 },
-  gymClicks: () => undefined,
+  gymClicks: (marker: InstanceType<typeof counted.Layer>, clicked: () => boolean) => {
+    counted.clicks.set(marker, clicked);
+  },
 }));
 vi.mock('./raid-forms.js', () => ({ heldContent: (draw: () => unknown) => draw }));
 vi.mock('./train-forms.js', () => ({ stopName: () => 'a gym' }));
@@ -189,6 +193,8 @@ function shown(
     counting?: () => boolean;
     /** Told when the dots were drawn anew (review 8H4H-3). */
     drawn?: () => void;
+    /** A gym's dot clicked; none: nothing takes it. */
+    clicked?: (gym: MapGym) => boolean;
   } = {},
 ) {
   vi.stubGlobal('document', {
@@ -264,7 +270,7 @@ function shown(
     filter,
     extras: () => [],
     editing: () => false,
-    clicked: () => false,
+    clicked: more.clicked ?? (() => false),
     forced: () => false,
     hidden: () => {
       hiddenAsked.count += 1;
@@ -516,6 +522,27 @@ describe("the gyms' dots drawn", () => {
   it('draws no dot of a gym with the layer off, nor clusters below street zoom', () => {
     expect(shown(17, { on: false }).dots.drawn(1)).toBe(false);
     expect(shown(12).dots.drawn(1)).toBe(false);
+  });
+
+  // 8Z-2 final fix F2: the members' regions and gyms, once Discord says who is asking.
+  it('take the gyms of another view: new ones drawn, gone ones taken off, the rest the new gym', () => {
+    const clickedWith: MapGym[] = [];
+    const { dots, group } = shown(17, {
+      clicked: (gym) => {
+        clickedWith.push(gym);
+        return true;
+      },
+    });
+    const first = [...group.layers].find((layer) => layer.at[0] === GYMS[0]?.lat);
+    const across = gym(8, 40.431, -79.921);
+    const inBoth = { ...gym(1, 40.444, -79.953), regionIds: [1, 2] };
+    dots.setGyms([inBoth, ...GYMS.slice(1, 6), across]);
+    expect(dots.drawn(8)).toBe(true);
+    expect(dots.drawn(7)).toBe(false);
+    // The dot drawn before stands, and acts for the gym as the new view has it.
+    expect(first && group.hasLayer(first)).toBe(true);
+    if (first) counted.clicks.get(first)?.();
+    expect(clickedWith.map((one) => one.regionIds)).toEqual([[1, 2]]);
   });
 });
 

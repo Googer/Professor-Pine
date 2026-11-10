@@ -110,6 +110,12 @@ describe('the regions a visitor may not see (plan 8Z-2, ruling 8)', () => {
     const answer = await ask(brock);
     expect(answer.statusCode).toBe(200);
     expect(answer.body).toBe(visitor);
+    // The map starts with that; the page asks again once a list says Discord answers (8Z-2
+    // final fix F2, `geoAgain`), and the same session then gets every region.
+    members.failing = undefined;
+    const again = await ask(brock, { 'if-none-match': String(answer.headers.etag) });
+    expect(again.statusCode).toBe(200);
+    expect(again.json<Shown>().regions.map((region) => region.name)).toEqual(['east', 'west']);
   });
 
   it('are left out for a member without the role the map asks for', async () => {

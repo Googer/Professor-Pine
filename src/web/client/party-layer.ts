@@ -417,6 +417,11 @@ export interface PartyFrame {
 export interface MapRaids {
   /** Closes the popup and the phone card (plan 8M-17: the map's tour clears the page). */
   closeOpen(): void;
+  /**
+   * The list drawn again as it is (not under a form being filled in: once it closes): the gyms
+   * and regions it is drawn on changed (8Z-2 final fix F2, the members' view taken).
+   */
+  redraw(): void;
   /** "Your regions…" pressed (plan 8M-20): the box in the side pane, or why not. */
   openRegions(): void;
   /** The first view of "Your regions" asked, settled once it came or failed (B1). */
@@ -3146,6 +3151,7 @@ export function showParties(
       map.closePopup();
       card.close();
     },
+    redraw: redrawParties,
     openRegions: () => {
       regionsBox.open();
     },
