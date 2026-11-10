@@ -201,6 +201,40 @@ describe('GET /s/<guild>/api/live', () => {
     expect(web.entries.filter((entry) => entry.route === '/s/:guild/api/live')).toHaveLength(1);
   });
 
+  it('ends the streams of a session that logs out, and leaves the member’s other session its own (plan 8Z-2)', async () => {
+    web = webServerWith({ members: members() });
+    const laptop = await web.posting(ALICE, 'Alice');
+    const phone = await web.loggedIn(ALICE, 'Alice');
+    const ending = reading((await opened(laptop.cookie ?? '')).stream());
+    const staying = reading((await opened(phone, '203.0.113.2')).stream());
+    await ending.came.reached(1);
+    await staying.came.reached(1);
+    const out = await web.app.inject({ method: 'POST', url: '/auth/logout', headers: laptop });
+    expect(out.statusCode).toBe(204);
+    await ending.ended.reached(1);
+    // The other session's stream is told of the next change as ever.
+    web.live.reportsChanged(FAKE_GUILD_ID);
+    await staying.came.reached(2);
+    expect(staying.events[1]).toBe(REPORTS);
+    expect(staying.ended.count).toBe(0);
+    expect(ending.events).toEqual([PING]);
+  });
+
+  it('ends a stream at the keep-alive after its member left the server (plan 8Z-2)', async () => {
+    const directory = members();
+    web = webServerWith({ members: directory });
+    const stream = reading((await opened(await web.loggedIn(ALICE, 'Alice'))).stream());
+    await stream.came.reached(1);
+    expect(directory.asked).toEqual([`${FAKE_GUILD_ID}:${ALICE}`]);
+    directory.remove(ALICE);
+    web.liveTimers.pass(LIVE_PING_MS);
+    await stream.ended.reached(1);
+    // The keep-alive came first, then the directory's answer ended the stream: asked once more,
+    // through the question the opening asked.
+    expect(stream.events).toEqual([PING, PING]);
+    expect(directory.asked).toHaveLength(2);
+  });
+
   it('ends its streams when the server closes', async () => {
     web = webServerWith({ members: members() });
     const answer = await opened(await web.loggedIn(ALICE, 'Alice'));

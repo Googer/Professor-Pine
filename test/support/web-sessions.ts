@@ -1,4 +1,9 @@
-import { SESSION_MS, type WebSession, type WebSessionStore } from '../../src/web/session-model.js';
+import {
+  SESSION_MS,
+  sessionsPushedOut,
+  type WebSession,
+  type WebSessionStore,
+} from '../../src/web/session-model.js';
 
 /** The sessions of the web pages in memory: the twin of `WebSessionRepository`. */
 export class MemoryWebSessions implements WebSessionStore {
@@ -6,6 +11,10 @@ export class MemoryWebSessions implements WebSessionStore {
 
   create(session: WebSession): Promise<void> {
     this.rows.set(session.id, { ...session });
+    const others = [...this.rows.values()].filter(
+      (row) => row.userId === session.userId && row.id !== session.id,
+    );
+    for (const pushedOut of sessionsPushedOut(others)) this.rows.delete(pushedOut.id);
     return Promise.resolve();
   }
 

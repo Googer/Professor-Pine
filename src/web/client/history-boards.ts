@@ -7,6 +7,7 @@ import {
 } from '../../domain/history/member-stats-words.js';
 import type { TallyPeriod } from '../../domain/history/tally-periods.js';
 import type { BoardView, MemberCardView } from '../../domain/web/board-data.js';
+import type { PageNode } from './popup.js';
 
 /*
  * The boards on the history page and the "Your history" page (plan 8H-6), their pure part: where
@@ -39,6 +40,30 @@ export function yearOfAddress(search: string): number | null {
 export function boardLines(view: BoardView): string[] {
   if (view.rows.length === 0) return view.empty === null ? [] : [view.empty];
   return view.rows.map((row) => `${String(row.rank)}. ${row.name}: ${row.count}`);
+}
+
+/**
+ * A board's lines as the page draws them (plan 8Z-2): a numbered list, each line numbered by the
+ * server's rank (as `/stats boards` numbers it), its name in a `<bdi>` of its own, apart from
+ * the count's words, so that a name that turns the text's direction reorders nothing beside it;
+ * or, where it has no line, what it says.
+ */
+export function boardLinesNode(view: BoardView): PageNode {
+  if (view.rows.length === 0) {
+    return { tag: 'p', className: 'board-lines', text: boardLines(view).join(' ') };
+  }
+  return {
+    tag: 'ol',
+    className: 'board-lines',
+    children: view.rows.map((row) => ({
+      tag: 'li',
+      attributes: { value: String(row.rank) },
+      children: [
+        { tag: 'bdi', text: row.name },
+        { tag: 'span', text: `: ${row.count}` },
+      ],
+    })),
+  };
 }
 
 /** A number of "Your history", named. */

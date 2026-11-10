@@ -53,6 +53,12 @@ class Clock {
   }
 }
 
+/** The member directory's answer for somebody who is a member still. */
+const STILL_A_MEMBER = (): Promise<boolean> => Promise.resolve(true);
+
+/** A stream's session and member for a test that is about neither. */
+const ITS_SESSION = { session: 'a session', stillMember: STILL_A_MEMBER };
+
 /** A stream as the hub sees it: what was written, whether it takes more, how it ended. */
 class FakeSink implements LiveSink {
   readonly written: string[] = [];
@@ -60,6 +66,11 @@ class FakeSink implements LiveSink {
   ended = false;
   destroyed = false;
   throws = false;
+  private tellEnded: () => void = () => undefined;
+  /** Settles once the hub ended it politely: what a test of an ask's answer waits for. */
+  readonly ending = new Promise<void>((resolve) => {
+    this.tellEnded = resolve;
+  });
 
   write(text: string): boolean {
     if (this.throws) throw new Error('the stream broke');
@@ -69,6 +80,7 @@ class FakeSink implements LiveSink {
 
   end(): void {
     this.ended = true;
+    this.tellEnded();
   }
 
   destroy(): void {
@@ -91,7 +103,14 @@ function hubWith(random = 0) {
   });
   let next = 0;
   const open = (
-    who: { server?: string; row?: number; address?: string; member?: string } = {},
+    who: {
+      server?: string;
+      row?: number;
+      address?: string;
+      member?: string;
+      session?: string;
+      stillMember?: () => Promise<boolean>;
+    } = {},
   ): FakeSink => {
     next += 1;
     const sink = new FakeSink();
@@ -100,6 +119,8 @@ function hubWith(random = 0) {
       row: who.row ?? ROW,
       address: who.address ?? `address-${next}`,
       member: who.member ?? `member-${next}`,
+      session: who.session ?? `session-${next}`,
+      stillMember: who.stillMember ?? STILL_A_MEMBER,
       sink,
     });
     if (answer.kind !== 'open') throw new Error(`the stream was refused: ${answer.kind}`);
@@ -337,6 +358,7 @@ describe('LiveSignals: a party’s change', () => {
       row: ROW,
       address: 'a',
       member: 'm',
+      ...ITS_SESSION,
       sink: new FakeSink(),
     });
     if (gone.kind !== 'open') throw new Error('refused');
@@ -356,7 +378,7 @@ describe('LiveSignals: a party’s change', () => {
   it('takes a server without its row yet, for its reports', () => {
     const { hub } = hubWith();
     const sink = new FakeSink();
-    hub.open({ server: SERVER, row: undefined, address: 'a', member: 'm', sink });
+    hub.open({ server: SERVER, row: undefined, address: 'a', member: 'm', ...ITS_SESSION, sink });
     hub.partyChanged(party('raid', 'ended'));
     hub.reportsChanged(SERVER);
     expect(sink.signals).toEqual([REPORTS]);
@@ -425,7 +447,14 @@ describe('LiveSignals: a stream’s life', () => {
   it('forgets a stream whose client went, once only', () => {
     const { clock, hub } = hubWith();
     const sink = new FakeSink();
-    const open = hub.open({ server: SERVER, row: ROW, address: 'a', member: 'm', sink });
+    const open = hub.open({
+      server: SERVER,
+      row: ROW,
+      address: 'a',
+      member: 'm',
+      ...ITS_SESSION,
+      sink,
+    });
     if (open.kind !== 'open') throw new Error('refused');
     open.gone();
     open.gone();
@@ -440,13 +469,165 @@ describe('LiveSignals: a stream’s life', () => {
           row: ROW,
           address: 'a',
           member: `m${n}`,
+          ...ITS_SESSION,
           sink: new FakeSink(),
         }).kind,
       ).toBe('open');
     }
     expect(
-      hub.open({ server: SERVER, row: ROW, address: 'a', member: 'x', sink: new FakeSink() }).kind,
+      hub.open({
+        server: SERVER,
+        row: ROW,
+        address: 'a',
+        member: 'x',
+        ...ITS_SESSION,
+        sink: new FakeSink(),
+      }).kind,
     ).toBe('full');
+  });
+});
+
+describe('LiveSignals: a session’s streams (plan 8Z-2)', () => {
+  it('ends the streams of a session that logged out, and no other’s', () => {
+    const { clock, hub, open } = hubWith();
+    const tabs = [
+      open({ member: 'ash', session: 'laptop' }),
+      open({ member: 'ash', session: 'laptop' }),
+    ];
+    const phone = open({ member: 'ash', session: 'phone' });
+    const other = open({ member: 'misty', session: 'hers' });
+    hub.endSession('laptop');
+    // Politely, as at a lifetime's end: the page finds itself logged out when it asks again.
+    expect(tabs.map((sink) => [sink.ended, sink.destroyed])).toEqual([
+      [true, false],
+      [true, false],
+    ]);
+    expect([phone.ended, other.ended]).toEqual([false, false]);
+    // Forgotten: told of nothing more, and the member's count is free again.
+    hub.reportsChanged(SERVER);
+    expect(tabs.map((sink) => sink.signals)).toEqual([[], []]);
+    expect(phone.signals).toEqual([REPORTS]);
+    clock.pass(LIVE_PING_MS);
+    expect(tabs.map((sink) => sink.written)).toEqual([[PING], [PING]]);
+    for (let n = 1; n < MAX_LIVE_PER_MEMBER; n++) open({ member: 'ash', session: 'phone' });
+    expect(() => open({ member: 'ash', session: 'phone' })).toThrow('full');
+  });
+
+  it('takes a session without a stream, or one ended twice, without a word', () => {
+    const { clock, hub, open } = hubWith();
+    const sink = open({ session: 'laptop' });
+    expect(() => {
+      hub.endSession('nobody');
+      hub.endSession('laptop');
+      hub.endSession('laptop');
+    }).not.toThrow();
+    expect(sink.ended).toBe(true);
+    expect(clock.waiting).toBe(0);
+  });
+});
+
+describe('LiveSignals: who is a member still (plan 8Z-2)', () => {
+  it('asks at each keep-alive, never at the opening, and ends the stream of who is none', async () => {
+    const { clock, open } = hubWith();
+    const member = { still: true, asked: 0 };
+    let last: Promise<boolean> = Promise.resolve(true);
+    const stillMember = () => {
+      member.asked += 1;
+      last = Promise.resolve(member.still);
+      return last;
+    };
+    // Opened first, so asked first at each keep-alive: its answer is in before the other's.
+    const staying = open({ stillMember: STILL_A_MEMBER });
+    const leaving = open({ stillMember });
+    expect(member.asked).toBe(0);
+    clock.pass(LIVE_PING_MS);
+    // The hub heard the answer before whoever asks for it after: then it may ask again.
+    await last;
+    clock.pass(LIVE_PING_MS);
+    await last;
+    expect(member.asked).toBe(2);
+    // They left the server (or lost the map's role): the next keep-alive finds it.
+    member.still = false;
+    clock.pass(LIVE_PING_MS);
+    await leaving.ending;
+    expect([leaving.ended, leaving.destroyed]).toEqual([true, false]);
+    expect(staying.ended).toBe(false);
+    // Forgotten: no more pings, no more asks.
+    const written = leaving.written.length;
+    clock.pass(LIVE_PING_MS);
+    expect(leaving.written).toHaveLength(written);
+    expect(member.asked).toBe(3);
+    expect(staying.written.at(-1)).toBe(PING);
+  });
+
+  it('keeps a stream while the directory cannot say, and asks again at the next keep-alive', async () => {
+    const { clock, open } = hubWith();
+    const answers: Array<() => Promise<boolean>> = [
+      () => Promise.reject(new Error('Discord is away')),
+      () => {
+        throw new Error('the directory broke');
+      },
+      () => Promise.resolve(false),
+    ];
+    let asked = 0;
+    let last: Promise<boolean> = Promise.resolve(true);
+    const sink = open({
+      stillMember: () => {
+        asked += 1;
+        last = (answers.shift() ?? STILL_A_MEMBER)();
+        return last;
+      },
+    });
+    clock.pass(LIVE_PING_MS);
+    // The hub heard the failure before whoever asks for it after.
+    await last.catch(() => undefined);
+    clock.pass(LIVE_PING_MS);
+    expect([asked, sink.ended]).toEqual([2, false]);
+    clock.pass(LIVE_PING_MS);
+    await sink.ending;
+    expect(asked).toBe(3);
+  });
+
+  it('asks once at a time: an answer still on its way is waited for, not asked for again', async () => {
+    const { clock, open } = hubWith();
+    let asked = 0;
+    let answer: (still: boolean) => void = () => undefined;
+    const sink = open({
+      stillMember: () => {
+        asked += 1;
+        return new Promise<boolean>((resolve) => {
+          answer = resolve;
+        });
+      },
+    });
+    clock.pass(LIVE_PING_MS);
+    clock.pass(LIVE_PING_MS);
+    clock.pass(LIVE_PING_MS);
+    expect(asked).toBe(1);
+    answer(false);
+    await sink.ending;
+    expect(asked).toBe(1);
+  });
+
+  it('ends nothing for an answer that comes after the stream went', async () => {
+    const { clock, hub, open } = hubWith();
+    let answer: (still: boolean) => void = () => undefined;
+    const late = open({
+      session: 'laptop',
+      stillMember: () =>
+        new Promise<boolean>((resolve) => {
+          answer = resolve;
+        }),
+    });
+    // Asked after it at the same keep-alive, so answered after it.
+    const next = open({ stillMember: () => Promise.resolve(false) });
+    clock.pass(LIVE_PING_MS);
+    late.takes = false;
+    hub.reportsChanged(SERVER);
+    expect(late.destroyed).toBe(true);
+    answer(false);
+    await next.ending;
+    expect(late.ended).toBe(false);
   });
 });
 
@@ -456,6 +637,8 @@ describe('LiveSignals: the caps', () => {
     row: ROW,
     address,
     member,
+    session: `session of ${member} at ${address}`,
+    stillMember: STILL_A_MEMBER,
     sink: new FakeSink(),
   });
 
@@ -514,9 +697,17 @@ describe('LiveSignals: closing', () => {
     const { hub } = hubWith();
     hub.close();
     const sink = new FakeSink();
-    expect(hub.open({ server: SERVER, row: ROW, address: 'a', member: 'm', sink }).kind).toBe(
-      'closed',
-    );
+    expect(
+      hub.open({
+        server: SERVER,
+        row: ROW,
+        address: 'a',
+        member: 'm',
+        session: 's',
+        stillMember: STILL_A_MEMBER,
+        sink,
+      }).kind,
+    ).toBe('closed');
     expect(sink.written).toEqual([]);
     expect(() => {
       hub.reportsChanged(SERVER);

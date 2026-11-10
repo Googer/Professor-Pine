@@ -112,7 +112,7 @@ export interface WebDeps {
    */
   emoji: Pick<EmojiPictures, 'address' | 'read'>;
   /** Who has a live stream open, told of what changed (`/api/live`). */
-  live: Pick<LiveSignals, 'open' | 'close'>;
+  live: Pick<LiveSignals, 'open' | 'close' | 'endSession'>;
   now: () => number;
   log: Logger;
 }

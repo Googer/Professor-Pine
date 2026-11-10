@@ -203,8 +203,14 @@ export function authRoutes(app: FastifyInstance, deps: WebDeps): void {
     '/auth/logout',
     { preHandler: postGuard(sessions, settings.publicUrl) },
     async (request, reply) => {
+      const session = await sessions.of(request, reply);
       await sessions.end(request, reply);
-      return reply.code(204).send();
+      // The session's live streams end with it (plan 8Z-2): they would tell a logged-out page
+      // of changes for up to their lifetime.
+      if (session) deps.live.endSession(session.id);
+      // And the browser drops what it kept of the pages' answers (a post is kept a day,
+      // `private, max-age=86400`): the next visitor of this browser finds none of them.
+      return reply.header('clear-site-data', '"cache"').code(204).send();
     },
   );
 }

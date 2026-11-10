@@ -138,7 +138,7 @@ import { prefetchOrder, PostViews } from './post-views.js';
 import { cardWanted, PhoneCard } from './phone-card.js';
 import { stopName } from './train-forms.js';
 import { stopPlace } from './parties.js';
-import type { Place } from './distance.js';
+import { nearParam, type Place } from './distance.js';
 import { stopReportLayer } from './stop-report-layer.js';
 import { spawnLayer } from './spawn-layer.js';
 import { SPAWN_LAYER, spawnPopup } from './spawns.js';
@@ -1803,8 +1803,8 @@ export function showParties(
    */
   const finder = new FindSearch({
     places: async (text) => {
-      const at = listOrigin();
-      const near = `${at.lat.toFixed(6)},${at.lon.toFixed(6)}`;
+      // The point at three decimals (`nearParam`): typed at each pause, in a query.
+      const near = nearParam(listOrigin());
       const found = await getJson<FoundPlacesView>(
         `/s/${guild}/api/find-places?q=${encodeURIComponent(text)}&near=${near}`,
       );
@@ -2923,7 +2923,7 @@ export function showParties(
     // Step 2's five nearest Power Spots or PokéStops wherever they are (plan 8M-11A), as the
     // server's search of nearby places finds them; the view's places stay what the map draws.
     nearest: async (pick, at) => {
-      const query = `near=${at.lat.toFixed(6)},${at.lon.toFixed(6)}&count=${String(NEAREST_COUNT)}`;
+      const query = `near=${nearParam(at)}&count=${String(NEAREST_COUNT)}`;
       try {
         const rows =
           pick === 'spots'

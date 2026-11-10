@@ -401,7 +401,8 @@ export function historyRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Pa
         shown = await activity.boards.boards(guild, BOARDS, period, now, { id: session.userId });
       } catch (err) {
         // The names are Discord's (`MemberNames`): while it cannot say, as for membership (B5).
-        request.log.warn({ err }, 'could not name the members of the boards');
+        // Through the bot's log: Fastify's own (`request.log`) is off (plan 8Z-2).
+        deps.log.warn({ err, guild }, 'could not name the members of the boards');
         return reply.code(503).send({ error: UNCONFIRMED });
       }
       const words = (text: string) => pageWords(text, activity.zone, now);

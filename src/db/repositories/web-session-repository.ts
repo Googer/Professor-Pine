@@ -1,5 +1,11 @@
 import type { Kysely } from 'kysely';
-import { SESSION_MS, type WebSession, type WebSessionStore } from '../../web/session-model.js';
+import {
+  SESSION_MS,
+  sessionsPushedOut,
+  type WebSession,
+  type WebSessionStore,
+} from '../../web/session-model.js';
+import { inTransaction } from '../transaction.js';
 import type { DB } from '../types.js';
 
 /**
@@ -10,18 +16,47 @@ import type { DB } from '../types.js';
 export class WebSessionRepository implements WebSessionStore {
   constructor(private readonly db: Kysely<DB>) {}
 
+  /**
+   * Stores the session and deletes what it pushes out of its account's ten (plan 8Z-2;
+   * `sessionsPushedOut`, read through `websession_userid_index`), in one transaction: a login
+   * that fails leaves the account's sessions as they were.
+   */
   async create(session: WebSession): Promise<void> {
-    await this.db
-      .insertInto('WebSession')
-      .values({
-        id: session.id,
-        userId: session.userId,
-        userName: session.userName,
-        createdAt: String(session.createdAt),
-        lastUsedAt: String(session.lastUsedAt),
-        expiresAt: String(session.expiresAt),
-      })
-      .execute();
+    await inTransaction(this.db, async (trx) => {
+      await trx
+        .insertInto('WebSession')
+        .values({
+          id: session.id,
+          userId: session.userId,
+          userName: session.userName,
+          createdAt: String(session.createdAt),
+          lastUsedAt: String(session.lastUsedAt),
+          expiresAt: String(session.expiresAt),
+        })
+        .execute();
+      const others = await trx
+        .selectFrom('WebSession')
+        .select(['id', 'createdAt', 'lastUsedAt'])
+        .where('userId', '=', session.userId)
+        .where('id', '!=', session.id)
+        .execute();
+      const pushedOut = sessionsPushedOut(
+        others.map((row) => ({
+          id: row.id,
+          createdAt: Number(row.createdAt),
+          lastUsedAt: Number(row.lastUsedAt),
+        })),
+      );
+      if (pushedOut.length === 0) return;
+      await trx
+        .deleteFrom('WebSession')
+        .where(
+          'id',
+          'in',
+          pushedOut.map((one) => one.id),
+        )
+        .execute();
+    });
   }
 
   async find(id: string, now: number): Promise<WebSession | undefined> {

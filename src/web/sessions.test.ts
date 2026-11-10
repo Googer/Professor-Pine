@@ -167,6 +167,30 @@ describe('logging out', () => {
     });
   });
 
+  it('has the browser drop what it kept of the pages’ answers, and no other answer does (plan 8Z-2)', async () => {
+    web = webServerWith();
+    const { cookie, csrf, origin } = await member(web);
+    expect(
+      (await web.app.inject({ url: ME, headers: { cookie } })).headers['clear-site-data'],
+    ).toBeUndefined();
+    // A logout that is refused clears nothing: another site could send one.
+    const refused = await web.app.inject({
+      method: 'POST',
+      url: '/auth/logout',
+      headers: { cookie, origin: 'https://evil.example', 'x-pine-csrf': csrf },
+    });
+    expect(refused.statusCode).toBe(403);
+    expect(refused.headers['clear-site-data']).toBeUndefined();
+    const answer = await web.app.inject({
+      method: 'POST',
+      url: '/auth/logout',
+      headers: { cookie, origin, 'x-pine-csrf': csrf },
+    });
+    expect(answer.statusCode).toBe(204);
+    // A post kept a day (`private, max-age=86400`) must not outlive the session in the cache.
+    expect(answer.headers['clear-site-data']).toBe('"cache"');
+  });
+
   it('refuses a request from another page, or without the token of the session', async () => {
     web = webServerWith();
     const { cookie, csrf, origin } = await member(web);

@@ -61,6 +61,14 @@ export interface LiveOpening {
   row: number | undefined;
   address: string;
   member: string;
+  /** The session it was opened under (its id): logging that session out ends it (`endSession`). */
+  session: string;
+  /**
+   * Whether the member is one of the server still, as the member directory says now (the map's
+   * role counted, as at the opening): asked at each keep-alive, and a stream whose member is
+   * none any more is ended. A rejection means the directory cannot say: the stream stays.
+   */
+  stillMember(): Promise<boolean>;
   sink: LiveSink;
 }
 
@@ -98,6 +106,8 @@ interface Stream {
   server: ServerStreams;
   cancelPing: () => void;
   cancelLifetime: () => void;
+  /** Whether `stillMember` was asked and has not answered yet: one question at a time. */
+  asking: boolean;
 }
 
 interface ListPace {
@@ -134,6 +144,8 @@ export class LiveSignals {
   private readonly rows = new Map<number, ServerStreams>();
   private readonly byAddress = new Map<string, number>();
   private readonly byMember = new Map<string, number>();
+  /** The open streams of each session, deleted with its last: what a logout ends. */
+  private readonly bySession = new Map<string, Set<Stream>>();
   private total = 0;
   private isClosed = false;
 
@@ -158,17 +170,18 @@ export class LiveSignals {
       server,
       cancelPing: () => undefined,
       cancelLifetime: () => undefined,
+      asking: false,
     };
     server.streams.add(stream);
     this.total += 1;
     counted(this.byAddress, opening.address, 1);
     counted(this.byMember, opening.member, 1);
+    const ofSession = this.bySession.get(opening.session) ?? new Set<Stream>();
+    ofSession.add(stream);
+    this.bySession.set(opening.session, ofSession);
     stream.cancelLifetime = this.deps.setTimer(
       () => {
-        this.forget(stream);
-        this.safely(() => {
-          opening.sink.end();
-        });
+        this.end(stream);
       },
       LIVE_LIFETIME_MS + this.deps.random() * LIVE_LIFETIME_JITTER_MS,
     );
@@ -228,6 +241,14 @@ export class LiveSignals {
   spawnsChanged(serverId: string): void {
     const server = this.servers.get(serverId);
     if (server) this.ask(server, 'spawns');
+  }
+
+  /**
+   * A session was logged out (plan 8Z-2): its streams end, politely, as at a lifetime's end; the
+   * page that asks again finds itself logged out. The member's other sessions keep theirs.
+   */
+  endSession(session: string): void {
+    for (const stream of [...(this.bySession.get(session) ?? [])]) this.end(stream);
   }
 
   /** Ends every stream at once (`preClose`); a stream asked for from now on is `closed`. */
@@ -301,7 +322,44 @@ export class LiveSignals {
     if (!stream.server.streams.has(stream)) return;
     stream.cancelPing = this.deps.setTimer(() => {
       this.ping(stream);
+      this.askMember(stream);
     }, LIVE_PING_MS);
+  }
+
+  /**
+   * At a keep-alive (plan 8Z-2): asks whether the stream's member is one still, and ends the
+   * stream of who is none, so that it does not outlive a member's leaving by its lifetime. One
+   * question at a time per stream; while the directory cannot say, the stream stays and the
+   * next keep-alive asks again. The answer is taken straight off the promise given, in the turn
+   * it settles.
+   */
+  private askMember(stream: Stream): void {
+    if (stream.asking || !stream.server.streams.has(stream)) return;
+    let answer: Promise<boolean>;
+    try {
+      answer = stream.opening.stillMember();
+    } catch {
+      return;
+    }
+    stream.asking = true;
+    answer.then(
+      (still) => {
+        stream.asking = false;
+        if (!still) this.end(stream);
+      },
+      () => {
+        stream.asking = false;
+      },
+    );
+  }
+
+  /** Ends a stream politely, once: at its lifetime's end, at a logout, for who left the server. */
+  private end(stream: Stream): void {
+    if (!stream.server.streams.has(stream)) return;
+    this.forget(stream);
+    this.safely(() => {
+      stream.opening.sink.end();
+    });
   }
 
   /** A write refused or broken drops the stream: a slow reader reconnects. */
@@ -328,6 +386,9 @@ export class LiveSignals {
     this.total -= 1;
     counted(this.byAddress, opening.address, -1);
     counted(this.byMember, opening.member, -1);
+    const ofSession = this.bySession.get(opening.session);
+    ofSession?.delete(stream);
+    if (ofSession?.size === 0) this.bySession.delete(opening.session);
     if (server.streams.size > 0) return;
     // With no stream open nothing needs signaling.
     for (const cancel of server.pending.values()) cancel();

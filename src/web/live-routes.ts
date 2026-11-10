@@ -20,7 +20,9 @@ export const LIVE_PER_MINUTE = 30;
  * before the stream opens. Sent by `reply.send(stream)`, never `reply.hijack()`, which would skip
  * the security headers (`onSend`), the headers set on the reply and the cookie writer: a session
  * renewal landing here keeps its cookie. Fastify sends the headers at the first data, so the hub
- * writes the first ping before `send`.
+ * writes the first ping before `send`. A stream belongs to its session and its member (plan
+ * 8Z-2): `POST /auth/logout` ends the session's streams (`LiveSignals.endSession`), and each
+ * keep-alive asks whether the member is one still.
  */
 export function liveRoutes(scope: FastifyInstance, deps: WebDeps, viewers: PartyViewers): void {
   const { sessions, parties, live, log } = deps;
@@ -47,6 +49,12 @@ export function liveRoutes(scope: FastifyInstance, deps: WebDeps, viewers: Party
         row,
         address: addressBucket(request.ip),
         member: session.userId,
+        // Its session's logout ends it, and so does the member's leaving the server, found at a
+        // keep-alive by the question the opening asked (paced, kept a minute by the directory);
+        // while Discord cannot say (`unconfirmed`) the stream stays (plan 8Z-2).
+        session: session.id,
+        stillMember: async () =>
+          (await viewers.askedMembership(guild, session.userId)).kind !== 'not-member',
         sink: {
           write: (text) => stream.write(text),
           end: () => {

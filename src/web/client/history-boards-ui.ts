@@ -1,9 +1,10 @@
 import type { TallyPeriod } from '../../domain/history/tally-periods.js';
 import type { BoardsView } from '../../domain/web/board-data.js';
-import { boardLines, boardsAddress } from './history-boards.js';
+import { boardLinesNode, boardsAddress } from './history-boards.js';
 import { showFailure } from './history-failure-ui.js';
 import { PERIOD_CHOICES } from './history-tally.js';
 import { byId, getJson } from './page-frame.js';
+import { renderNode } from './popup.js';
 
 /*
  * The boards' section of the history page (plan 8H-6): the periods as buttons (this month first,
@@ -62,20 +63,8 @@ export function showBoards(guild: string, login: 'discord' | 'links'): void {
         const card = document.createElement('article');
         card.className = 'board';
         card.append(text('h3', 'board-title', board.title));
-        const lines = document.createElement(board.rows.length > 0 ? 'ol' : 'p');
-        lines.className = 'board-lines';
-        if (board.rows.length > 0) {
-          for (const row of board.rows) {
-            // Numbered by the server's rank, as /stats boards numbers it.
-            const item = document.createElement('li');
-            item.textContent = `${row.name}: ${row.count}`;
-            item.value = row.rank;
-            lines.append(item);
-          }
-        } else {
-          lines.textContent = boardLines(board).join(' ');
-        }
-        card.append(lines);
+        // Each name in an element of its own (`boardLinesNode`), set as text.
+        card.append(renderNode(boardLinesNode(board), document));
         if (board.note !== null) card.append(text('p', 'board-note', board.note));
         if (board.viewer !== null) card.append(text('p', 'board-viewer', board.viewer));
         return card;

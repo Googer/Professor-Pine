@@ -3292,6 +3292,19 @@ describe("Find's pick on the map (plan 8M-12)", () => {
     expect(flights).toEqual([]);
   });
 
+  it('asks the server with the member’s place at three decimals, in a query others may log (plan 8Z-2)', async () => {
+    const { raids, asked } = await started({
+      raids: true,
+      located: { lat: 40.441234, lon: -79.956789 },
+    });
+    raids.find('dragon');
+    raids.findFirst();
+    const sent = asked.filter((url) => url.includes('/api/find-places?'));
+    expect(sent.map((url) => url.slice(url.indexOf('?')))).toEqual([
+      '?q=dragon&near=40.441,-79.957',
+    ]);
+  });
+
   // Review F1 and ruling R1: on a phone the list opens as a search begins; a pick hides the box,
   // and the places that come after it open nothing again.
   it('opens the list as a search begins, never when its places come after a pick', async () => {

@@ -155,6 +155,15 @@ describe('the boards on the web', () => {
     expect(answer.statusCode).toBe(503);
     expect(answer.json()).toEqual({ error: UNCONFIRMED });
     named.mockRestore();
+    // Said in the bot's log (plan 8Z-2): Fastify's own logger is off, where it went unseen.
+    expect(made.web.entries).toContainEqual(
+      expect.objectContaining({
+        level: 40,
+        msg: 'could not name the members of the boards',
+        guild: FAKE_GUILD_ID,
+        err: expect.objectContaining({ type: 'NamesUnavailable' }) as unknown,
+      }),
+    );
   });
 
   it('answers 304 for the boards the page has', async () => {

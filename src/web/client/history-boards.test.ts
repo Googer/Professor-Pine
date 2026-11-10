@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { BoardView, MemberCardView } from '../../domain/web/board-data.js';
 import {
   boardLines,
+  boardLinesNode,
   boardsAddress,
   meAddress,
   meHref,
@@ -63,6 +64,45 @@ describe('the boards on the history page', () => {
     expect(boardLines(board({ rows: [], empty: 'Nobody is ranked here this month.' }))).toEqual([
       'Nobody is ranked here this month.',
     ]);
+  });
+
+  it('draws each line’s name in an element of its own, apart from the words beside it (plan 8Z-2)', () => {
+    // A name that turns the text's direction (U+202E) must not reorder the count after it.
+    const turned = `Bob${String.fromCodePoint(0x202e)}`;
+    const drawn = boardLinesNode(
+      board({
+        rows: [
+          { rank: 1, name: turned, count: '2 raids' },
+          { rank: 3, name: 'Alice', count: '1 raid' },
+        ],
+      }),
+    );
+    expect(drawn).toEqual({
+      tag: 'ol',
+      className: 'board-lines',
+      children: [
+        {
+          tag: 'li',
+          // Numbered by the server's rank, as /stats boards numbers it.
+          attributes: { value: '1' },
+          children: [
+            { tag: 'bdi', text: turned },
+            { tag: 'span', text: ': 2 raids' },
+          ],
+        },
+        {
+          tag: 'li',
+          attributes: { value: '3' },
+          children: [
+            { tag: 'bdi', text: 'Alice' },
+            { tag: 'span', text: ': 1 raid' },
+          ],
+        },
+      ],
+    });
+    expect(boardLinesNode(board({ rows: [], empty: 'Nobody is ranked here this month.' }))).toEqual(
+      { tag: 'p', className: 'board-lines', text: 'Nobody is ranked here this month.' },
+    );
   });
 
   it('reads the year of the page’s address, else all time', () => {

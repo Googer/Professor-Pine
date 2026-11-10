@@ -72,6 +72,8 @@ describe('the wiring of the live signals', () => {
       row: made.party.guildId,
       address: 'a',
       member: 'm',
+      session: 's',
+      stillMember: () => Promise.resolve(true),
       sink: {
         write: (text) => {
           if (text.startsWith('event: changed')) {
