@@ -57,7 +57,7 @@ describe('Dependabot', () => {
     }
   });
 
-  // Pine's work lands on main-dev; the default branch is the release.
+  // Pine's work lands on main-dev, the default branch; master is the release, never a target.
   it('opens its pull requests against main-dev', () => {
     for (const entry of updates) {
       expect(entry, ecosystem(entry)).toMatch(/^ {4}target-branch: ['"]?main-dev['"]?\r?$/m);
