@@ -4,48 +4,57 @@ Two drafts for Matt to post by hand; nothing here is posted by the bot or by an 
 
 ## 1. Pittsburgh's #bot-updates post
 
-Posted after the move (runbook N7). Before posting:
+Rewritten on 2026-11-09, the night after the cutover, for Pine as it runs in Pittsburgh then (5,400 gyms, the boards, `#pogo-events`, the live map, `/request` on, the remote raid channel off). Posted when Matt says. Before posting:
 
-- Keep **one** of the two map lines: the first once the web map is reachable through the tunnel, the second until then. Each line is marked by its first word in brackets; take the bracketed word out.
-- Discord turns `#feedback-n-at` into a link only when it is typed and picked from the list: retype it (and the forum's name) in the message box.
-- Check that `/request` is offered in the server (it needs `GITHUB_TOKEN` and `GITHUB_REPO` in `.env`); if it is not, take it out of the "Finally" paragraph.
-- Retype `@Professor Pine` too, and pick the bot itself from the list, not a role of the same name: the post shows members the mention that makes the bot read a screenshot.
-- Two messages, the second right after the first: together they are over Discord's 2,000 characters. Each is under it with one map line kept and its bracketed word out, also once `#feedback-n-at`, `@Professor Pine` and the forum name are retyped as mentions, which Discord counts as sent (a mention is about 21 characters).
+- Two messages, the second right after the first: together they are over Discord's 2,000 characters, each one under it (about 1,890 and 970 with the mentions retyped).
+- Retype `#squirrelbreeze-board`, `#pogo-events` and `#feedback-n-at` and pick them from the list, so that they become links; retype `@Professor Pine` and pick the bot itself, not a role of the same name (it shows members the mention that makes the bot read a screenshot).
+- Discord shows `__**…**__` as an underlined bold heading, as the tutorial does.
 
 ```md
 # Professor Pine is back from a long slumber!
 
 Attention Trainers,
 
-Professor Pine dozed off over a stack of raid reports a while ago, and woke up to find his whole lab rearranged. He spent the first day looking for his `!` key. Then he got new glasses (again: he reads screenshots better than ever) and got back to work. Here is what changed:
+Professor Pine dozed off over a stack of raid reports, and woke up to a lab rebuilt around him. The `!` commands are gone: everything is a slash command or a button now. Here is what's new.
 
-First, **every raid has its own post** in your region's forum, right next to the region's channel (for example #squirrelbreeze-meetups). No more channel per raid.
+__**Every raid has its own post**__
+🗂️ Raids are posts in your region's board, right next to its channel (for example #squirrelbreeze-board). The board's pinned post lists them all. No more channel per raid!
+📸 Post a screenshot in your regional channel and mention @Professor Pine, or attach it to `/raid`: he reads the gym, the boss and the timer for you.
+✍️ Or type `/raid` and pick the boss, the gym and the time from the lists.
 
-Next, **buttons instead of reactions**, with the icons you know. With several groups Join asks which; Group… moves you; Meet… sets your group's time.
+__**Buttons instead of reactions**__
+Interested, Join, Here, Done and Leave are buttons on the post, with the icons you know. ⬆️ ⬇️ change how many you bring, Remote says you are raiding remotely, Meet… sets your group's time and Group… moves you to another group.
 
-Then, **slash commands**. Type `/` and Discord shows you the list, with every option explained:
+__**Max battles**__
+⚔️ `/max` reports a Dynamax or Gigantamax battle at a Power Spot, with a post and buttons just like a raid. `/counters` suggests a team.
 
-- `/raid` reports a raid or an egg: `/raid boss:Mewtwo gym:Big Fountain time:6:15pm`
-- `/max` reports a Dynamax or Gigantamax battle at a power spot: `/max boss:Machamp spot:Gazebo` (or paste a maps link for a power spot Pine does not know)
-- `/join`, `/interested`, `/here`, `/done` and `/leave` work in a raid's post
-- `/train` and `/meetup` start a post of their own; a train goes to raids, Dynamax or Gigantamax battles (`/train kind:`), from gym to gym or power spot to power spot (`/route add stop:`), and can be planned days ahead (`/train start:`)
-- `/want` and `/target` get you DMs for bosses and gyms; `/settings` shows and changes the rest of your settings
-- `/wild` reports a wild spawn
+__**Trains and meetups**__
+🚂 `/train` starts a raid or max battle train with a post of its own. `/route add` lays out its stops, and the conductor moves it along. Trains can be planned days ahead.
+🎉 `/meetup` is for trades, lure parties or playing as a group. The moderators may check the place first.
+
+__**More to report**__
+📋 `/research` and `/rocket` report field research and Team GO Rocket at PokéStops, gathered in each board's "Today's Stops".
+🐾 `/wild` reports a rare spawn.
+📅 #pogo-events lists the game's events, with a post for each one coming up.
+
+__**Get notified**__
+🎯 `/want` a Pokémon, a raid tier, a research reward or Team GO Rocket, and ⭐ `/target` a gym: Pine sends you a DM when one is reported. `/settings` holds the rest of your pings and DMs.
 ```
 
 The second message, right after it:
 
 ```md
-**Screenshots**: attach one to `/raid`, or post it with a mention of @Professor Pine (the bot itself, not the role), and he reads it for you.
+__**The map**__
+🗺️ `/maps` opens Pine's live map on the web: every region, gym and PokéStop, and the raids and trains going on now. You can report and join from it too!
+Our gym list has nearly doubled: about 5,400 gyms, freshly synced with Wayfarer.
 
-**Raid history**: Pine now keeps statistics of every raid, max battle, train and meetup. Want your name in them? Turn your history on in `/settings`. Otherwise you are counted, anonymously. Once it is on, **Add my old-bot history** in `/settings` will add the raids, trains and meetups you made or joined with the old Pine, as soon as it shows there.
+__**Pine's numbers**__
+📊 `/stats` shows raids by region, the boards of who did the most, and your own numbers. In `/settings` you can join the boards, and **Add my old-bot history** brings in the raids, trains and meetups you did with the old Pine.
 
-[Map] **A map of our regions and gyms** on the web: `/maps` gives you the link.
-[Soon] A map of our regions and gyms on the web is on its way.
+__**Finally**__
+Raids that were open during the move are gone, so please report those again. The old train and meetup channels stay for discussion. `/help` explains every command, `/report` tells the moderators privately about a post or a message, and `/request` asks for a fix to a gym that is wrong.
 
-Finally, the old `!` commands are gone, and so are the raids that were open during the move: please report those again. The old train and meetup channels stay for discussion; new trains and meetups start with `/train` and `/meetup`. `/help` explains every command, `/report` tells the moderators privately about a raid or a message (Apps › Report to moderators), and `/request` tells us about a gym that is wrong.
-
-Thanks to Claude, the AI who rewrote most of Pine with Matt and never once asked for a nap.
+Thanks to Claude, the AI who rebuilt most of Pine with Googer and never once asked for a nap.
 
 Something broken, odd or missing? Tell us in #feedback-n-at.
 ```
