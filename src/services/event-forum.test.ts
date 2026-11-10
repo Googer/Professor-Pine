@@ -1102,6 +1102,30 @@ describe('EventForumService: how many posts a feed may make (plan 8Z-2)', () => 
     expect(later()).toHaveLength(1);
   });
 
+  it('passes over the posts Discord refused in this run, and asks for them again an hour later', async () => {
+    const { read, gateway, posted, clock } = await empty();
+    // Discord refuses the posts of the first ten events for good (AutoMod on their names).
+    const create = gateway.createPost.bind(gateway);
+    const refused: string[] = [];
+    gateway.createPost = (forumId, post) => {
+      if (post.title.includes('Event 10')) return create(forumId, post);
+      refused.push(post.title);
+      return Promise.reject(new Error('blocked by AutoMod'));
+    };
+    const listed = events(11);
+    await read(listed);
+    expect(refused).toHaveLength(MAX_NEW_POSTS_PER_DRAW);
+    expect(await posted()).toEqual([]);
+    // The next draw passes over them: the eleventh gets its post.
+    await read(listed);
+    expect(await posted()).toEqual(['event-10']);
+    expect(refused).toHaveLength(MAX_NEW_POSTS_PER_DRAW);
+    // An hour later they are asked for again.
+    clock.now += 60 * 60_000;
+    await read(listed);
+    expect(refused).toHaveLength(2 * MAX_NEW_POSTS_PER_DRAW);
+  });
+
   it('makes no post beyond fifty made in three days, said once, until one is older', async () => {
     const { read, posted, drawRest, entries, clock, gateway, store, service } = await empty();
     const madeAt = clock.now;

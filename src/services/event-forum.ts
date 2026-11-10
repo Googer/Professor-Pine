@@ -66,6 +66,12 @@ export const MAX_NEW_POSTS_PER_DRAW = 10;
 /** How long after a draw that left posts unmade the next one makes more of them. */
 export const MORE_POSTS_AFTER_MS = 60_000;
 /**
+ * How long a post Discord refused (AutoMod on a name, say) is passed over before it is asked for
+ * again (fix round of 8Z-2): every draw tried the same earliest ten, and ten refused for good
+ * held every later event back.
+ */
+export const REFUSED_POST_RETRY_MS = 60 * 60_000;
+/**
  * The most event posts a server makes in three days (`RECENT_POSTS_MS`), by when each was made
  * (its id's time), whatever became of them (dropped, deleted by a moderator: taking posts away
  * makes room for no others); "On this day" is not counted. About three times the posted events
@@ -230,6 +236,11 @@ export class EventForumService {
   private readonly postsLeft = new BoundedMap<string, string>(POSTS_SENT_KEPT);
   /** The failures of one post's step, said once each (`perPost`, BR-5). */
   private readonly postFailuresTold = new BoundedMap<string, true>(POSTS_SENT_KEPT);
+  /**
+   * The events (`<server>:<event id>`) whose post Discord refused, with when they are asked for
+   * again (`REFUSED_POST_RETRY_MS`): passed over until then, before the ten of a draw are counted.
+   */
+  private readonly refusedPosts = new BoundedMap<string, number>(POSTS_SENT_KEPT);
   /** The setup under way of each server (`setup`, BR-6). */
   private readonly setups = new Map<string, Promise<unknown>>();
   /** The servers whose forum is gone, said once each until it is back. */
@@ -781,6 +792,9 @@ export class EventForumService {
       if (this.stopped) break;
       if (known.has(event.id) || !isPosted(event) || event.end <= now) continue;
       if (postOpensAt(event, settings.eventsForum.postDaysAhead, zone) > now) continue;
+      // Refused a while ago: passed over until it is asked for again, not counted among the ten.
+      const refusedKey = `${serverId}:${event.id}`;
+      if ((this.refusedPosts.get(refusedKey) ?? 0) > now) continue;
       if (open >= MAX_OPEN_EVENT_POSTS) {
         full = true;
         break;
@@ -793,9 +807,17 @@ export class EventForumService {
       }
       tried += 1;
       const stage = new PostStage('make');
-      const row = await this.perPost(serverId, event.id, undefined, stage, () =>
-        this.makePost(forum, event, planned.get(event.id)),
-      );
+      let refused = false;
+      const row = await this.perPost(serverId, event.id, undefined, stage, async () => {
+        try {
+          return await this.makePost(forum, event, planned.get(event.id));
+        } catch (err) {
+          refused = true;
+          throw err;
+        }
+      });
+      if (refused) this.refusedPosts.set(refusedKey, now + REFUSED_POST_RETRY_MS);
+      else this.refusedPosts.delete(refusedKey);
       if (row) {
         rows.push(row);
         open += 1;
