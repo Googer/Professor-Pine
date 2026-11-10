@@ -262,6 +262,24 @@ describe('logging in with Discord', () => {
       }
       expect(oauth.exchanged).toHaveLength(3);
     });
+
+    it('are at most ten a minute from one IPv6 /48, however many /64s it has (F-B2)', async () => {
+      const oauth = new FakeOAuth().knows('good-code', { id: ASH, name: 'Ash' });
+      web = webServerWith({ oauth });
+      const { state, cookie } = await started(web);
+      for (let i = 0; i < 11; i += 1) {
+        const from = `2001:db8:1:${(i + 1).toString(16)}::1`;
+        await callback(web, `code=good-code&state=${state}`, cookie, from);
+      }
+      expect(oauth.exchanged).toHaveLength(10);
+      // Another /48 is counted apart, and so is IPv4.
+      await callback(web, `code=good-code&state=${state}`, cookie, '2001:db8:2:1::1');
+      await callback(web, `code=good-code&state=${state}`, cookie, '203.0.113.7');
+      expect(oauth.exchanged).toHaveLength(12);
+      web.clock.now += 60_000;
+      await callback(web, `code=good-code&state=${state}`, cookie, '2001:db8:1:99::1');
+      expect(oauth.exchanged).toHaveLength(13);
+    });
   });
 
   it('says the login failed when Discord refuses, or the member declined', async () => {

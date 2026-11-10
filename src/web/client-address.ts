@@ -59,3 +59,17 @@ export function addressBucket(address: string): string {
     .map((group) => group.toString(16))
     .join(':')}::/64`;
 }
+
+/**
+ * The routed prefix an IPv6 address lies in, its /48 (F-B2): one site is routed a /48 whole,
+ * 65,536 /64s, each a client of its own to `addressBucket`. A second count for what a /64 alone
+ * cannot bound (the exchanges of a login). Undefined for IPv4, also written as IPv6, and for
+ * what is no address: those have no second count.
+ */
+export function prefixBucket(address: string): string | undefined {
+  if (MAPPED.test(address) || isIP(address) !== 6) return undefined;
+  return `${firstGroups(address)
+    .slice(0, 3)
+    .map((group) => group.toString(16))
+    .join(':')}::/48`;
+}

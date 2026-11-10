@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { addressBucket, isNearbyPeer } from './client-address.js';
+import { addressBucket, isNearbyPeer, prefixBucket } from './client-address.js';
 
 describe('addressBucket', () => {
   it('counts IPv4 by the address, also when it is written as IPv6', () => {
@@ -21,6 +21,25 @@ describe('addressBucket', () => {
   it('keeps what is no address as it is', () => {
     expect(addressBucket('')).toBe('');
     expect(addressBucket('not an address')).toBe('not an address');
+  });
+});
+
+describe('prefixBucket (F-B2)', () => {
+  it('counts IPv6 by its /48, the prefix a site is routed', () => {
+    expect(prefixBucket('2001:db8:1:2:aaaa::1')).toBe('2001:db8:1::/48');
+    expect(prefixBucket('2001:db8:1:ffff::1')).toBe('2001:db8:1::/48');
+    expect(prefixBucket('2001:DB8:1::9')).toBe('2001:db8:1::/48');
+    expect(prefixBucket('2001:db8:2:2::1')).toBe('2001:db8:2::/48');
+    expect(prefixBucket('2001:db8::1')).toBe('2001:db8:0::/48');
+    expect(prefixBucket('fe80::1%eth0')).toBe('fe80:0:0::/48');
+    expect(prefixBucket('64:ff9b:1:2::198.51.100.1')).toBe('64:ff9b:1::/48');
+  });
+
+  it('has no second count for IPv4, also when it is written as IPv6, nor for what is no address', () => {
+    expect(prefixBucket('203.0.113.7')).toBeUndefined();
+    expect(prefixBucket('::ffff:203.0.113.7')).toBeUndefined();
+    expect(prefixBucket('')).toBeUndefined();
+    expect(prefixBucket('not an address')).toBeUndefined();
   });
 });
 

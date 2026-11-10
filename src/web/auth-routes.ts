@@ -3,7 +3,7 @@ import type { CookieSerializeOptions } from '@fastify/cookie';
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { isSnowflake } from '../db/snowflake.js';
 import { sendButtonPage, sendFailure } from './answers.js';
-import { addressBucket } from './client-address.js';
+import { addressBucket, prefixBucket } from './client-address.js';
 import { postGuard } from './csrf.js';
 import { authorizeUrl } from './discord-oauth.js';
 import { localPath } from './local-path.js';
@@ -30,6 +30,11 @@ const AUTH_PER_MINUTE = 20;
  * without this limit could take every slot.
  */
 export const EXCHANGES_PER_ADDRESS_MINUTE = 3;
+/**
+ * The code exchanges one IPv6 /48 may cause in a minute (F-B2), beside the count per /64: one
+ * routed prefix holds 65,536 /64s.
+ */
+export const EXCHANGES_PER_PREFIX_MINUTE = 10;
 /** A state: 16 random bytes, base64url. */
 const STATE = /^[A-Za-z0-9_-]{22}$/;
 /** An authorization code as Discord gives one: a short plain token. */
@@ -84,6 +89,7 @@ export function authRoutes(app: FastifyInstance, deps: WebDeps): void {
     now,
   });
   const exchanges = new RateLimiter({ uses: EXCHANGES_PER_ADDRESS_MINUTE, perMs: 60_000 });
+  const prefixExchanges = new RateLimiter({ uses: EXCHANGES_PER_PREFIX_MINUTE, perMs: 60_000 });
 
   app.addHook('onRequest', async (request, reply) => {
     void reply.header('cache-control', 'no-store');
@@ -123,6 +129,11 @@ export function authRoutes(app: FastifyInstance, deps: WebDeps): void {
     // above cost nothing.
     if (!exchanges.take(addressBucket(request.ip), now()).ok) {
       return failed('exchange: busy (too many from one address)');
+    }
+    // And per IPv6 /48 (F-B2): a routed prefix has thousands of /64s.
+    const prefix = prefixBucket(request.ip);
+    if (prefix !== undefined && !prefixExchanges.take(prefix, now()).ok) {
+      return failed('exchange: busy (too many from one network)');
     }
     const token = await oauth.gateway.exchange(code, callbackUrl);
     if ('failed' in token) return failed(`exchange: ${token.failed}`);
