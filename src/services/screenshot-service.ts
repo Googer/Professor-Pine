@@ -226,6 +226,11 @@ export interface Screenshots {
   ): Promise<PanesOutcome>;
   /** Downloads a screenshot to be read later (plan 8R-9F, B2), within `MAX_SCREENSHOT_BYTES`. */
   fetch(source: ScreenshotSource): Promise<FetchOutcome>;
+  /**
+   * Whether the reader has no room just now (`ScreenshotReader.full`): a screenshot would be
+   * answered `busy`. Asked before pictures are downloaded ahead of their reading (plan 8Z-2).
+   */
+  full(): boolean;
   /** The kept screenshot; `gone` when its file vanished. */
   get(id: string): Promise<KeptScreenshot | 'gone' | undefined>;
   /** A raid's post shows the screenshot: it is kept while the raid lasts. */
@@ -287,6 +292,10 @@ export class ScreenshotService implements Screenshots {
       return download.reason === 'too-large' ? { kind: 'too-large' } : { kind: 'download-failed' };
     }
     return { kind: 'fetched', screenshot: { ...source, bytes: download.bytes } };
+  }
+
+  full(): boolean {
+    return this.options.reader.full();
   }
 
   async readPanes(

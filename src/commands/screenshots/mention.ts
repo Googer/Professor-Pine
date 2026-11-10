@@ -39,6 +39,7 @@ import {
   STAFF_TOLD,
 } from '../../render/screenshot-reading.js';
 import { endSentence, plain, truncate } from '../../render/text.js';
+import { MAX_SCREENSHOT_BYTES } from '../../services/ocr-service.js';
 import type { ReportOutcome } from '../../services/party-service.js';
 import { PendingRequests } from '../../services/pending-requests.js';
 import {
@@ -393,6 +394,19 @@ function boardWords(result: PaneResult, heldUntil: number): string | undefined {
 /** How long the board's DM waits in line before it is not worth sending. */
 const BOARD_DM_EXPIRES_MS = 60 * 60_000;
 
+/**
+ * The most bytes of one board message's pictures that are downloaded (plan 8Z-2), by the sizes
+ * Discord gives them, before any is: they are downloaded at once and all held until the last is
+ * read, and ten of `MAX_SCREENSHOT_BYTES` each would be 320 MB. Twice what one screenshot may
+ * have: ten pictures of 6.4 MB each fit, and a phone's screenshot is a few megabytes.
+ */
+export const MAX_BOARD_MESSAGE_BYTES = 2 * MAX_SCREENSHOT_BYTES;
+
+/** What the board's DM says of a picture left out for the others' size. */
+const BOARD_TOO_MUCH =
+  `The screenshots of one message may be ${String(MAX_BOARD_MESSAGE_BYTES / (1024 * 1024))} MB ` +
+  'together, so I did not read this one. Post it again by itself.';
+
 export interface ScreenshotTriggerOptions {
   ctx: AppContext;
   /** The region's boards (plan 8R-9F): without it a picture in any post is left alone. */
@@ -617,7 +631,25 @@ export class ScreenshotTrigger {
     /** What each pane of a picture made (plan 7P), its place and words. */
     const paneSaid: { place?: string; words: string | undefined }[][] = [];
     const counted: { index: number; image: ScreenshotSource; countedAt: number }[] = [];
+    // What the downloads may cost is settled before any starts (plan 8Z-2). A reader with no
+    // room refuses the message's pictures as it refuses a mention's: the first takes its use,
+    // the rest take none, and nothing is downloaded.
+    const full = ctx.screenshots.full();
+    let busy = false;
+    /** The bytes of the pictures to download, as Discord gives their sizes. */
+    let bytes = 0;
     for (const [index, image] of images.entries()) {
+      if (busy) {
+        said[index] = unreadWords({ kind: 'busy' });
+        continue;
+      }
+      // One too large by itself is never downloaded (`fetch` says so) and counts for nothing.
+      const downloaded = image.size <= MAX_SCREENSHOT_BYTES ? image.size : 0;
+      if (bytes + downloaded > MAX_BOARD_MESSAGE_BYTES) {
+        // Left out before it costs anything: no use is taken for it.
+        said[index] = BOARD_TOO_MUCH;
+        continue;
+      }
       const countedAt = this.now();
       const until = this.throttles.use('screenshot', posted.authorId, MENTION_THROTTLE, countedAt);
       if (until !== undefined) {
@@ -625,6 +657,12 @@ export class ScreenshotTrigger {
           `You have sent many screenshots just now, so I did not read this one. Try again in ${waitText(until)}.`;
         continue;
       }
+      if (full) {
+        busy = true;
+        said[index] = unreadWords({ kind: 'busy' });
+        continue;
+      }
+      bytes += downloaded;
       counted.push({ index, image, countedAt });
     }
     // All at once (review F3; ten at most, `screenshotsOf`): the message goes after the slowest.

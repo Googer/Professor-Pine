@@ -21,7 +21,8 @@ import type { Gym } from '../../db/repositories/gym-repository.js';
 import type { Region } from '../../db/repositories/region-repository.js';
 import type { BoardMessage } from '../../discord/party-gateway.js';
 import type { TakeOutcome } from '../../services/board-keeper.js';
-import { boardDmText, ScreenshotTrigger } from './mention.js';
+import { MAX_SCREENSHOT_BYTES } from '../../services/ocr-service.js';
+import { boardDmText, MAX_BOARD_MESSAGE_BYTES, ScreenshotTrigger } from './mention.js';
 
 /*
  * Screenshots posted in the region's board (plan 8R-9F, design item 4 with B1, B2, B11 and R1):
@@ -299,6 +300,102 @@ describe('screenshots posted in the region’s board (plan 8R-9F)', () => {
       inThread: true,
     });
     await expect(on.trigger.handle(elsewhere.message)).resolves.toBe(false);
+  });
+});
+
+describe('what a board message’s pictures may cost (plan 8Z-2)', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date'], now: PARTY_NOW });
+  });
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const BUSY = 'Too many screenshots are waiting to be read just now. Try again shortly.';
+  const inBoard = (pictures: Parameters<typeof posted>[0]) =>
+    posted(pictures, { channelId: BOARD, inThread: true }).message;
+  const cat = () => readingOf({ gym: 'Old Stone Fountain' });
+
+  it('downloads nothing while the reader is full, and says so of every picture', async () => {
+    const made = await setup();
+    made.reader.isFull = true;
+    const pictures = [made.screenshot('a.png', egg()), made.screenshot('b.png', egg())];
+    await expect(made.trigger.handle(inBoard(pictures))).resolves.toBe(true);
+    expect(made.attachments.asked).toEqual([]);
+    expect(made.reader.reads).toBe(0);
+    // The message leaves the board all the same: the board keeps only the lists.
+    expect(made.taken).toHaveLength(1);
+    expect(made.said()).toEqual([
+      `From your screenshots in <#${BOARD}> (the board keeps only my lists, so I took your ` +
+        `message out of it):\n- 1: ${BUSY}\n- 2: ${BUSY}`,
+    ]);
+    // One use of the twenty is taken, as a mention's first picture takes one: nineteen are left.
+    made.reader.isFull = false;
+    const cats = (prefix: string) =>
+      Array.from({ length: 10 }, (_, n) => made.screenshot(`${prefix}${String(n)}.png`, cat()));
+    await made.trigger.handle(inBoard(cats('c')));
+    await made.trigger.handle(inBoard(cats('d')));
+    expect(made.reader.reads).toBe(19);
+    expect(made.said().at(-1)).toMatch(
+      /\n- 10: You have sent many screenshots just now, so I did not read this one\. Try again in 15 minutes\.$/,
+    );
+  });
+
+  it('downloads ten pictures that are as large together as a message’s may be', async () => {
+    const made = await setup();
+    const each = MAX_BOARD_MESSAGE_BYTES / 10;
+    const pictures = Array.from({ length: 10 }, (_, n) => ({
+      ...made.screenshot(`${String(n)}.png`, cat()),
+      size: each,
+    }));
+    await made.trigger.handle(inBoard(pictures));
+    expect(made.attachments.asked).toHaveLength(10);
+    expect(made.reader.reads).toBe(10);
+    expect(made.said()[0]).not.toContain('together');
+  });
+
+  it('leaves out the pictures that would take a message over it, by the sizes Discord gives, and takes no use for them', async () => {
+    const made = await setup();
+    const each = MAX_BOARD_MESSAGE_BYTES / 10;
+    // The fourth is a byte too large for the ten to fit: the tenth no longer does.
+    const pictures = Array.from({ length: 10 }, (_, n) => ({
+      ...made.screenshot(`${String(n)}.png`, cat()),
+      size: n === 3 ? each + 1 : each,
+    }));
+    await made.trigger.handle(inBoard(pictures));
+    expect(made.attachments.asked.map((one) => one.url)).toEqual(
+      pictures.slice(0, 9).map((picture) => picture.url),
+    );
+    expect(made.reader.reads).toBe(9);
+    const lines = (made.said()[0] ?? '').split('\n');
+    expect(lines).toHaveLength(11);
+    expect(lines[10]).toBe(
+      '- 10: The screenshots of one message may be 64 MB together, so I did not read this ' +
+        'one. Post it again by itself.',
+    );
+    // Nine uses were taken: eleven more pictures are read, the twelfth is not.
+    const more = (prefix: string, count: number) =>
+      Array.from({ length: count }, (_, n) => made.screenshot(`${prefix}${String(n)}.png`, cat()));
+    await made.trigger.handle(inBoard(more('c', 10)));
+    await made.trigger.handle(inBoard(more('d', 2)));
+    expect(made.reader.reads).toBe(20);
+    expect(made.said().at(-1)).toMatch(/\n- 2: You have sent many screenshots just now/);
+  });
+
+  it('counts no picture that is too large by itself: it is not downloaded', async () => {
+    const made = await setup();
+    const pictures = [
+      { ...made.screenshot('huge.png', cat()), size: MAX_SCREENSHOT_BYTES + 1 },
+      { ...made.screenshot('a.png', cat()), size: MAX_SCREENSHOT_BYTES },
+      { ...made.screenshot('b.png', cat()), size: MAX_BOARD_MESSAGE_BYTES - MAX_SCREENSHOT_BYTES },
+    ];
+    await made.trigger.handle(inBoard(pictures));
+    expect(made.attachments.asked.map((one) => one.url)).toEqual([
+      pictures[1]?.url,
+      pictures[2]?.url,
+    ]);
+    expect(made.said()[0]).toContain('- 1: That file is too large to be a screenshot.');
+    expect(made.said()[0]).not.toContain('together');
   });
 });
 
